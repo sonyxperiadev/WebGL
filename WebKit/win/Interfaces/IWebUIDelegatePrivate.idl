@@ -1,0 +1,76 @@
+/*
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ */
+
+#ifndef DO_NO_IMPORTS
+import "oaidl.idl";
+import "ocidl.idl";
+import "IWebSecurityOrigin.idl";
+import "IWebView.idl";
+#endif
+
+interface IWebFrame;
+interface IWebSecurityOrigin;
+interface IWebView;
+
+[
+    object,
+    oleautomation,
+    uuid(176711F1-822F-446b-BE9A-64BB38C562F5),
+    pointer_default(unique)
+]
+interface IWebUIDelegatePrivate : IUnknown
+{
+    HRESULT webViewResizerRect([in] IWebView* sender, [out, retval] RECT* rect);
+    HRESULT webViewDrawResizer([in] IWebView* sender, [in] HDC dc, [in] BOOL overlapsContent, [in] RECT* rect);
+    HRESULT webViewScrolled([in] IWebView* sender);
+    HRESULT webViewAddMessageToConsole([in] IWebView* sender, [in] BSTR message, [in] int lineNumber, [in] BSTR url, [in] BOOL isError);
+    HRESULT webViewShouldInterruptJavaScript([in] IWebView* sender, [out, retval] BOOL* result);
+    HRESULT webViewReceivedFocus([in] IWebView* sender);
+    HRESULT webViewLostFocus([in] IWebView* sender, [in] OLE_HANDLE loseFocusToHWnd);
+    HRESULT doDragDrop([in] IWebView* sender, [in] IDataObject* dataObject, [in] IDropSource* dropSource, [in] DWORD okEffect, [out, retval] DWORD* performedEffect);
+    HRESULT webViewGetDlgCode([in] IWebView* sender, [in] UINT keyCode, [out, retval] LONG_PTR* code);
+}
+
+[
+    object,
+    oleautomation,
+    uuid(7518FCCE-EC47-43b9-8C49-51E91C05C944),
+    pointer_default(unique)
+]
+interface IWebUIDelegatePrivate2 : IWebUIDelegatePrivate
+{
+    HRESULT webViewPainted([in] IWebView* sender);
+}
+
+[
+    object,
+    oleautomation,
+    uuid(4E7AECB6-C017-4e98-8FD5-4131C4BAB923),
+    pointer_default(unique)
+]
+interface IWebUIDelegatePrivate3 : IWebUIDelegatePrivate2
+{
+    HRESULT exceededDatabaseQuota([in] IWebView* sender, [in] IWebFrame* frame, [in] IWebSecurityOrigin* origin, [in] BSTR databaseIdentifier);
+}

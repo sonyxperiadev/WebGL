@@ -1,0 +1,345 @@
+#!/usr/bin/perl -w
+
+# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer. 
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution. 
+# 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+#     its contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Script to do a rename in JavaScriptCore, WebCore, and WebKit.
+
+use strict;
+use FindBin;
+use lib $FindBin::Bin;
+use webkitdirs;
+use File::Find;
+
+setConfiguration();
+chdirWebKit();
+
+my %words;
+
+# find all files we want to process
+
+my @paths;
+find(\&wanted, "JavaScriptCore");
+find(\&wanted, "JavaScriptGlue");
+find(\&wanted, "WebCore");
+find(\&wanted, "WebKit");
+
+sub wanted
+{
+    my $file = $_;
+
+    if ($file eq "icu") {
+        $File::Find::prune = 1;
+        return;
+    }
+
+    if ($file =~ /^\../) {
+        $File::Find::prune = 1;
+        return;
+    }
+
+    return if $file =~ /^ChangeLog/;
+    return if -d $file;
+
+    push @paths, $File::Find::name;
+}
+
+my %renames = (
+    "XSLTProcessorPrototypeTable" => "JSXSLTProcessorPrototypeTable",
+    "ActivationImp" => "Activation",
+    "ActivationImpData" => "ActivationData",
+    "ArrayInstance" => "JSArray",
+    "ArrayObjectImp" => "ArrayConstructor",
+    "ArrayProtoFuncConcat" => "ArrayFunctionConcat",
+    "ArrayProtoFuncEvery" => "ArrayFunctionEvery",
+    "ArrayProtoFuncFilter" => "ArrayFunctionFilter",
+    "ArrayProtoFuncForEach" => "ArrayFunctionForEach",
+    "ArrayProtoFuncIndexOf" => "ArrayFunctionIndexOf",
+    "ArrayProtoFuncJoin" => "ArrayFunctionJoin",
+    "ArrayProtoFuncLastIndexOf" => "ArrayFunctionLastIndexOf",
+    "ArrayProtoFuncMap" => "ArrayFunctionMap",
+    "ArrayProtoFuncPop" => "ArrayFunctionPop",
+    "ArrayProtoFuncPush" => "ArrayFunctionPush",
+    "ArrayProtoFuncReverse" => "ArrayFunctionReverse",
+    "ArrayProtoFuncShift" => "ArrayFunctionShift",
+    "ArrayProtoFuncSlice" => "ArrayFunctionSlice",
+    "ArrayProtoFuncSome" => "ArrayFunctionSome",
+    "ArrayProtoFuncSort" => "ArrayFunctionSort",
+    "ArrayProtoFuncSplice" => "ArrayFunctionSplice",
+    "ArrayProtoFuncToLocaleString" => "ArrayFunctionToLocaleString",
+    "ArrayProtoFuncToString" => "ArrayFunctionToString",
+    "ArrayProtoFuncUnShift" => "ArrayFunctionUnshift",
+    "BooleanInstance" => "BooleanObject",
+    "BooleanObjectImp" => "BooleanConstructor",
+    "BooleanProtoFunc" => "BooleanFunction",
+    "DateObjectFuncImp" => "DateFunction",
+    "DateObjectImp" => "DateConstructor",
+    "DateProtoFuncGetDate" => "DateFunctionGetDate",
+    "DateProtoFuncGetDay" => "DateFunctionGetDay",
+    "DateProtoFuncGetFullYear" => "DateFunctionGetFullYear",
+    "DateProtoFuncGetHours" => "DateFunctionGetHours",
+    "DateProtoFuncGetMilliSeconds" => "DateFunctionGetMilliSeconds",
+    "DateProtoFuncGetMinutes" => "DateFunctionGetMinutes",
+    "DateProtoFuncGetMonth" => "DateFunctionGetMonth",
+    "DateProtoFuncGetSeconds" => "DateFunctionGetSeconds",
+    "DateProtoFuncGetTime" => "DateFunctionGetTime",
+    "DateProtoFuncGetTimezoneOffset" => "DateFunctionGetTimezoneOffset",
+    "DateProtoFuncGetUTCDate" => "DateFunctionGetUTCDate",
+    "DateProtoFuncGetUTCDay" => "DateFunctionGetUTCDay",
+    "DateProtoFuncGetUTCFullYear" => "DateFunctionGetUTCFullYear",
+    "DateProtoFuncGetUTCHours" => "DateFunctionGetUTCHours",
+    "DateProtoFuncGetUTCMilliseconds" => "DateFunctionGetUTCMilliseconds",
+    "DateProtoFuncGetUTCMinutes" => "DateFunctionGetUTCMinutes",
+    "DateProtoFuncGetUTCMonth" => "DateFunctionGetUTCMonth",
+    "DateProtoFuncGetUTCSeconds" => "DateFunctionGetUTCSeconds",
+    "DateProtoFuncGetYear" => "DateFunctionGetYear",
+    "DateProtoFuncSetDate" => "DateFunctionSetDate",
+    "DateProtoFuncSetFullYear" => "DateFunctionSetFullYear",
+    "DateProtoFuncSetHours" => "DateFunctionSetHours",
+    "DateProtoFuncSetMilliSeconds" => "DateFunctionSetMilliSeconds",
+    "DateProtoFuncSetMinutes" => "DateFunctionSetMinutes",
+    "DateProtoFuncSetMonth" => "DateFunctionSetMonth",
+    "DateProtoFuncSetSeconds" => "DateFunctionSetSeconds",
+    "DateProtoFuncSetTime" => "DateFunctionSetTime",
+    "DateProtoFuncSetUTCDate" => "DateFunctionSetUTCDate",
+    "DateProtoFuncSetUTCFullYear" => "DateFunctionSetUTCFullYear",
+    "DateProtoFuncSetUTCHours" => "DateFunctionSetUTCHours",
+    "DateProtoFuncSetUTCMilliseconds" => "DateFunctionSetUTCMilliseconds",
+    "DateProtoFuncSetUTCMinutes" => "DateFunctionSetUTCMinutes",
+    "DateProtoFuncSetUTCMonth" => "DateFunctionSetUTCMonth",
+    "DateProtoFuncSetUTCSeconds" => "DateFunctionSetUTCSeconds",
+    "DateProtoFuncSetYear" => "DateFunctionSetYear",
+    "DateProtoFuncToDateString" => "DateFunctionToDateString",
+    "DateProtoFuncToGMTString" => "DateFunctionToGMTString",
+    "DateProtoFuncToLocaleDateString" => "DateFunctionToLocaleDateString",
+    "DateProtoFuncToLocaleString" => "DateFunctionToLocaleString",
+    "DateProtoFuncToLocaleTimeString" => "DateFunctionToLocaleTimeString",
+    "DateProtoFuncToString" => "DateFunctionToString",
+    "DateProtoFuncToTimeString" => "DateFunctionToTimeString",
+    "DateProtoFuncToUTCString" => "DateFunctionToUTCString",
+    "DateProtoFuncValueOf" => "DateFunctionValueOf",
+    "DebuggerImp" => "DebuggerData",
+    "ErrorObjectImp" => "ErrorConstructor",
+    "ErrorProtoFuncToString" => "ErrorFunction",
+    "FRAMES_ON_STACK" => "numFramesOnStack",
+    "FTPDirectoryTokenizer" => "FTPDirectoryDocumentBuilder",
+    "FunctionImp" => "JSFunction",
+    "FunctionObjectImp" => "FunctionConstructor",
+    "FunctionProtoFunc" => "FunctionFunction",
+    "GetterSetterImp" => "JSGetterSetter",
+    "GlobalFuncImp" => "GlobalFunction",
+    "GlobalImp" => "TestGlobalObject",
+    "HTMLGenericFormElement" => "HTMLFormControlElement",
+    "HTMLGenericFormElement_h" => "HTMLFormControlElement_h",
+    "HTMLTokenizer" => "HTMLDocumentBuilder",
+    "ImageConstructorImp" => "JSImageConstructor",
+    "ImageTokenizer" => "ImageDocumentBuilder",
+    "InternalFunctionImp" => "InternalFunction",
+    "JSXMLHttpRequestConstructorImp" => "JSXMLHttpRequestConstructor",
+    "KURL" => "URL",
+    "KURLCFNet" => "URLCF",
+    "KURLMac" => "URLMac",
+    "KURL_H_" => "URL_h",
+    "List" => "JSArgumentList",
+    "MathObjectImp" => "MathObject",
+    "MathProtoFuncACos" => "MathFunctionACos",
+    "MathProtoFuncASin" => "MathFunctionASin",
+    "MathProtoFuncATan" => "MathFunctionATan",
+    "MathProtoFuncATan2" => "MathFunctionATan2",
+    "MathProtoFuncAbs" => "MathFunctionAbs",
+    "MathProtoFuncCeil" => "MathFunctionCeil",
+    "MathProtoFuncCos" => "MathFunctionCos",
+    "MathProtoFuncExp" => "MathFunctionExp",
+    "MathProtoFuncFloor" => "MathFunctionFloor",
+    "MathProtoFuncLog" => "MathFunctionLog",
+    "MathProtoFuncMax" => "MathFunctionMax",
+    "MathProtoFuncMin" => "MathFunctionMin",
+    "MathProtoFuncPow" => "MathFunctionPow",
+    "MathProtoFuncRandom" => "MathFunctionRandom",
+    "MathProtoFuncRound" => "MathFunctionRound",
+    "MathProtoFuncSin" => "MathFunctionSin",
+    "MathProtoFuncSqrt" => "MathFunctionSqrt",
+    "MathProtoFuncTan" => "MathFunctionTan",
+    "NativeErrorImp" => "NativeErrorConstructor",
+    "Navigator" => "JSNavigator",
+    "NumberImp" => "JSNumberCell",
+    "NumberInstance" => "NumberObject",
+    "NumberObjectImp" => "NumberConstructor",
+    "NumberProtoFunc" => "NumberFunction",
+    "ObjcFallbackObjectImp" => "ObjCFallbackObject",
+    "ObjectObjectImp" => "ObjectConstructor",
+    "ObjectProtoFunc" => "ObjectFunction",
+    "PluginTokenizer" => "PluginDocumetBuilder",
+    "RECURSIVE_MATCH_STARTNG_NEW_GROUP" => "RECURSIVE_MATCH_NEW_GROUP",
+    "RegExpImp" => "RegExpObject",
+    "RegExpObjectImp" => "RegExpConstructor",
+    "RegExpObjectImpPrivate" => "RegExpConstructorPrivate",
+    "RegExpProtoFunc" => "RegExpFunction",
+    "RuntimeObjectImp" => "ForeignObject",
+    "StringImp" => "JSString",
+    "StringImpl" => "SharedString",
+    "StringInstance" => "StringObject",
+    "StringInstanceThatMasqueradesAsUndefined" => "StringObjectThatMasqueradesAsUndefined",
+    "StringObjectFuncImp" => "StringConstructorFunction",
+    "StringObjectImp" => "StringConstructor",
+    "StringProtoFuncAnchor" => "StringFunctionAnchor",
+    "StringProtoFuncBig" => "StringFunctionBig",
+    "StringProtoFuncBlink" => "StringFunctionBlink",
+    "StringProtoFuncBold" => "StringFunctionBold",
+    "StringProtoFuncCharAt" => "StringFunctionCharAt",
+    "StringProtoFuncCharCodeAt" => "StringFunctionCharCodeAt",
+    "StringProtoFuncConcat" => "StringFunctionConcat",
+    "StringProtoFuncFixed" => "StringFunctionFixed",
+    "StringProtoFuncFontcolor" => "StringFunctionFontcolor",
+    "StringProtoFuncFontsize" => "StringFunctionFontsize",
+    "StringProtoFuncIndexOf" => "StringFunctionIndexOf",
+    "StringProtoFuncItalics" => "StringFunctionItalics",
+    "StringProtoFuncLastIndexOf" => "StringFunctionLastIndexOf",
+    "StringProtoFuncLink" => "StringFunctionLink",
+    "StringProtoFuncLocaleCompare" => "StringFunctionLocaleCompare",
+    "StringProtoFuncMatch" => "StringFunctionMatch",
+    "StringProtoFuncReplace" => "StringFunctionReplace",
+    "StringProtoFuncSearch" => "StringFunctionSearch",
+    "StringProtoFuncSlice" => "StringFunctionSlice",
+    "StringProtoFuncSmall" => "StringFunctionSmall",
+    "StringProtoFuncSplit" => "StringFunctionSplit",
+    "StringProtoFuncStrike" => "StringFunctionStrike",
+    "StringProtoFuncSub" => "StringFunctionSub",
+    "StringProtoFuncSubstr" => "StringFunctionSubstr",
+    "StringProtoFuncSubstring" => "StringFunctionSubstring",
+    "StringProtoFuncSup" => "StringFunctionSup",
+    "StringProtoFuncToLocaleLowerCase" => "StringFunctionToLocaleLowerCase",
+    "StringProtoFuncToLocaleUpperCase" => "StringFunctionToLocaleUpperCase",
+    "StringProtoFuncToLowerCase" => "StringFunctionToLowerCase",
+    "StringProtoFuncToString" => "StringFunctionToString",
+    "StringProtoFuncToUpperCase" => "StringFunctionToUpperCase",
+    "StringProtoFuncValueOf" => "StringFunctionValueOf",
+    "TestFunctionImp" => "TestFunction",
+    "TextTokenizer" => "TextDocumentBuilder",
+    "ThreadSafeShared" => "ThreadSafeRefCounted",
+    "Tokenizer" => "DocumentBuilder",
+    "Tokenizer_h" => "DocumentBuilder_h",
+    "XMLTokenizer" => "XMLDocumentBuilder",
+    "XSLTProcessorConstructorImp" => "JSXSLTProcessorConstructor",
+    "XSLTProcessorPrototype" => "JSXSLTProcessorPrototype",
+    "animationController" => "animation",
+    "branchfirstbyte" => "branchFirstByte",
+    "branchreqbyte" => "branchReqByte",
+    "class_charcount" => "classCharCount",
+    "class_lastchar" => "classLastChar",
+    "codeptr" => "codePtr",
+    "createTokenizer" => "createBuilder",
+    "domString" => "string",
+    "equalIgnoringCase" => "equalFoldingCase",
+    "errorcodeptr" => "errorCodePtr",
+    "errorptr" => "errorPtr",
+    "first_byte" => "firstByte",
+    "first_byte_caseless" => "firstByteIsCaseless",
+    "first_char" => "firstChar",
+    "firstbyte" => "firstByte",
+    "groupsetfirstbyte" => "didGroupSetFirstByte",
+    "isHTMLTokenizer" => "isHTMLDocumentBuilder",
+    "is_quantifier" => "isQuantifier",
+    "isclass" => "isClass",
+    "kjs_binding" => "JSDOMBinding",
+    "kjs_binding_h" => "JSDOMBinding_h",
+    "kjs_css" => "JSRGBColor",
+    "kjs_css_h" => "JSRGBColor_h",
+    "kjs_proxy" => "ScriptController",
+    "kjs_proxy_h" => "ScriptController_h",
+    "last_branch" => "lastBranch",
+    "m_tokenizer" => "m_builder",
+    "mclength" => "mcLength",
+    "negate_class" => "negateClass",
+    "offsetcount" => "offsetCount",
+    "op_type" => "opType",
+    "prev_length" => "prevLength",
+    "ptrptr" => "ptrPtr",
+    "repeat_min" => "repeatMin",
+    "repeat_type" => "repeatType",
+    "req_byte" => "reqByte",
+    "req_byte2" => "reqByte2",
+    "req_byte_caseless" => "reqByteIsCaseless",
+    "req_caseopt" => "reqCaseOpt",
+    "req_varyopt" => "reqVaryOpt",
+    "reqbyte" => "reqByte",
+    "resetcount" => "resetCount",
+    "scriptProxy" => "script",
+    "selectionController" => "selection",
+    "should_flip_negation" => "shouldFlipNegation",
+    "skipbytes" => "skipBytes",
+    "subfirstbyte" => "subFirstByte",
+    "subreqbyte" => "subReqByte",
+    "tokenizerProcessedData" => "documentBuilderProcessedData",
+    "top_backref" => "topBackref",
+    "top_bracket" => "topBracket",
+    "using_temporary_offsets" => "usingTemporaryOffsets",
+    "zerofirstbyte" => "zeroFirstByte",
+    "zeroreqbyte" => "zeroReqByte",
+);
+
+# rename files
+
+my %newFile;
+for my $file (sort @paths) {
+    my $f = $file;
+    $f = "$1$renames{$2}$3" if $f =~ /^(.*\/)(\w+)(\.\w+)$/ && $renames{$2};
+    if ($f ne $file) {
+        $newFile{$file} = $f;
+    }
+}
+
+for my $file (sort @paths) {
+    if ($newFile{$file}) {
+        my $newFile = $newFile{$file};
+        print "Renaming $file to $newFile\n";
+        system "svn move $file $newFile";
+    }
+}
+
+# change all file contents
+
+for my $file (sort @paths) {
+    $file = $newFile{$file} if $newFile{$file};
+    my $contents;
+    {
+        local $/;
+        open FILE, $file or die;
+        $contents = <FILE>;
+        close FILE;
+    }
+    my $newContents = $contents;
+
+    for my $from (keys %renames) {
+        $newContents =~ s/\b$from(?!["\w])/$renames{$from}/g; # this " unconfuses Xcode syntax highlighting
+    }
+
+    if ($newContents ne $contents) {
+        open FILE, ">", $file or die;
+        print FILE $newContents;
+        close FILE;
+    }
+}

@@ -1,0 +1,48 @@
+noinst_PROGRAMS += \
+	Programs/GtkLauncher \
+	Programs/DumpRenderTree
+
+# GtkLauncher
+Programs_GtkLauncher_CPPFLAGS = \
+	-I$(srcdir)/WebKit/gtk \
+	$(global_cppflags)
+
+Programs_GtkLauncher_SOURCES = \
+	WebKitTools/GtkLauncher/main.c
+
+Programs_GtkLauncher_CFLAGS = \
+	$(GLOBALDEPS_CFLAGS) \
+	$(WEBKITDEPS_CFLAGS) \
+	$(global_cflags)
+
+Programs_GtkLauncher_LDADD = \
+	libwebkit-1.0.la
+
+Programs_GtkLauncher_LDFLAGS = -rpath $(CURDIR)/.libs
+
+# DumpRenderTree
+Programs_DumpRenderTree_CPPFLAGS = \
+	-I$(srcdir)/WebKitTools/DumpRenderTree \
+	-I$(srcdir)/WebKitTools/DumpRenderTree/gtk \
+	-I$(srcdir)/WebKit/gtk \
+	$(global_cppflags)
+
+Programs_DumpRenderTree_SOURCES = \
+	WebKitTools/DumpRenderTree/gtk/DumpRenderTree.cpp \
+	WebKitTools/DumpRenderTree/LayoutTestController.cpp \
+	WebKitTools/DumpRenderTree/GCController.cpp \
+	WebKitTools/DumpRenderTree/WorkQueue.cpp \
+	WebKitTools/DumpRenderTree/gtk/GCControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/LayoutTestControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp
+
+Programs_DumpRenderTree_CXXFLAGS = \
+	$(GLOBALDEPS_CFLAGS) \
+	$(WEBKITDEPS_CFLAGS) \
+	$(global_cxxflags) \
+	$(global_cflags)
+
+Programs_DumpRenderTree_LDADD = \
+	libwebkit-1.0.la
+
+Programs_DumpRenderTree_LDFLAGS = -rpath $(CURDIR)/.libs
