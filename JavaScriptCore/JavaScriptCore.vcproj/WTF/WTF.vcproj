@@ -274,15 +274,7 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\wtf\Locker.h"
-			>
-		</File>
-		<File
 			RelativePath="..\..\wtf\MathExtras.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\MessageQueue.h"
 			>
 		</File>
 		<File
@@ -347,14 +339,6 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\TCSystemAlloc.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\Threading.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\ThreadingWin.cpp"
 			>
 		</File>
 		<File

@@ -60,6 +60,12 @@ class NSURLConnection;
 #endif
 #endif
 
+#ifdef ANDROID_BRIDGE
+namespace android {
+    class WebCoreResourceLoader;
+}
+#endif
+
 // The allocations and releases in ResourceHandleInternal are
 // Cocoa-exception-free (either simple Foundation classes or
 // WebCoreResourceLoaderImp which avoids doing work in dealloc).
@@ -110,6 +116,9 @@ namespace WebCore {
             , m_currentMacChallenge(nil)
 #elif USE(CFNETWORK)
             , m_currentCFChallenge(0)
+#endif
+#ifdef ANDROID_BRIDGE
+            , m_loader(0)
 #endif
         {
         }
@@ -173,6 +182,9 @@ namespace WebCore {
 #endif
 #if USE(CFNETWORK)
         CFURLAuthChallengeRef m_currentCFChallenge;
+#endif
+#ifdef ANDROID_BRIDGE
+        android::WebCoreResourceLoader* m_loader;
 #endif
         AuthenticationChallenge m_currentWebChallenge;
     };

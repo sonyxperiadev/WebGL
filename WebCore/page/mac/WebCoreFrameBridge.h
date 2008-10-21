@@ -238,6 +238,8 @@ enum WebScrollGranularity {
 
 - (WebCore::KeyboardUIMode)keyboardUIMode;
 
+- (NSString*)imageTitleForFilename:(NSString*)filename size:(NSSize)size;
+
 @end
 
 // This interface definition allows those who hold a WebCoreFrameBridge * to call all the methods

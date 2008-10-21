@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,6 +51,7 @@
 #import <WebCore/PlatformString.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebKitSystemInterface.h>
 
 // Private keys used in the WebHistoryItem's dictionary representation.
 // see 3245793 for explanation of "lastVisitedDate"
@@ -463,9 +464,7 @@ static WebWindowWatcher *_windowWatcher = nil;
 {
     ASSERT_MAIN_THREAD();
     KURL url = core(_private)->url();
-    if (url.isEmpty())
-        return nil;
-    return url;
+    return url.isEmpty() ? nil : url.getNSURL();
 }
 
 // This should not be called directly for WebHistoryItems that are already included

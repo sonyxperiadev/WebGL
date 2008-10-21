@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -43,7 +43,6 @@ my %words;
 
 my @paths;
 find(\&wanted, "JavaScriptCore");
-find(\&wanted, "JavaScriptGlue");
 find(\&wanted, "WebCore");
 find(\&wanted, "WebKit");
 
@@ -68,10 +67,9 @@ sub wanted
 }
 
 my %renames = (
-    "XSLTProcessorPrototypeTable" => "JSXSLTProcessorPrototypeTable",
+    "ArrayInstance" => "JSArray",
     "ActivationImp" => "Activation",
     "ActivationImpData" => "ActivationData",
-    "ArrayInstance" => "JSArray",
     "ArrayObjectImp" => "ArrayConstructor",
     "ArrayProtoFuncConcat" => "ArrayFunctionConcat",
     "ArrayProtoFuncEvery" => "ArrayFunctionEvery",
@@ -145,25 +143,22 @@ my %renames = (
     "ErrorObjectImp" => "ErrorConstructor",
     "ErrorProtoFuncToString" => "ErrorFunction",
     "FRAMES_ON_STACK" => "numFramesOnStack",
-    "FTPDirectoryTokenizer" => "FTPDirectoryDocumentBuilder",
-    "FunctionImp" => "JSFunction",
+    "FunctionImp" => "Function",
     "FunctionObjectImp" => "FunctionConstructor",
     "FunctionProtoFunc" => "FunctionFunction",
-    "GetterSetterImp" => "JSGetterSetter",
+    "GetterSetterImp" => "GetterSetter",
     "GlobalFuncImp" => "GlobalFunction",
     "GlobalImp" => "TestGlobalObject",
     "HTMLGenericFormElement" => "HTMLFormControlElement",
     "HTMLGenericFormElement_h" => "HTMLFormControlElement_h",
-    "HTMLTokenizer" => "HTMLDocumentBuilder",
     "ImageConstructorImp" => "JSImageConstructor",
-    "ImageTokenizer" => "ImageDocumentBuilder",
     "InternalFunctionImp" => "InternalFunction",
     "JSXMLHttpRequestConstructorImp" => "JSXMLHttpRequestConstructor",
     "KURL" => "URL",
     "KURLCFNet" => "URLCF",
     "KURLMac" => "URLMac",
     "KURL_H_" => "URL_h",
-    "List" => "JSArgumentList",
+    "List" => "ArgumentList",
     "MathObjectImp" => "MathObject",
     "MathProtoFuncACos" => "MathFunctionACos",
     "MathProtoFuncASin" => "MathFunctionASin",
@@ -192,7 +187,6 @@ my %renames = (
     "ObjcFallbackObjectImp" => "ObjCFallbackObject",
     "ObjectObjectImp" => "ObjectConstructor",
     "ObjectProtoFunc" => "ObjectFunction",
-    "PluginTokenizer" => "PluginDocumetBuilder",
     "RECURSIVE_MATCH_STARTNG_NEW_GROUP" => "RECURSIVE_MATCH_NEW_GROUP",
     "RegExpImp" => "RegExpObject",
     "RegExpObjectImp" => "RegExpConstructor",
@@ -238,11 +232,7 @@ my %renames = (
     "StringProtoFuncToUpperCase" => "StringFunctionToUpperCase",
     "StringProtoFuncValueOf" => "StringFunctionValueOf",
     "TestFunctionImp" => "TestFunction",
-    "TextTokenizer" => "TextDocumentBuilder",
     "ThreadSafeShared" => "ThreadSafeRefCounted",
-    "Tokenizer" => "DocumentBuilder",
-    "Tokenizer_h" => "DocumentBuilder_h",
-    "XMLTokenizer" => "XMLDocumentBuilder",
     "XSLTProcessorConstructorImp" => "JSXSLTProcessorConstructor",
     "XSLTProcessorPrototype" => "JSXSLTProcessorPrototype",
     "animationController" => "animation",
@@ -251,7 +241,6 @@ my %renames = (
     "class_charcount" => "classCharCount",
     "class_lastchar" => "classLastChar",
     "codeptr" => "codePtr",
-    "createTokenizer" => "createBuilder",
     "domString" => "string",
     "equalIgnoringCase" => "equalFoldingCase",
     "errorcodeptr" => "errorCodePtr",
@@ -261,7 +250,6 @@ my %renames = (
     "first_char" => "firstChar",
     "firstbyte" => "firstByte",
     "groupsetfirstbyte" => "didGroupSetFirstByte",
-    "isHTMLTokenizer" => "isHTMLDocumentBuilder",
     "is_quantifier" => "isQuantifier",
     "isclass" => "isClass",
     "kjs_binding" => "JSDOMBinding",
@@ -271,7 +259,6 @@ my %renames = (
     "kjs_proxy" => "ScriptController",
     "kjs_proxy_h" => "ScriptController_h",
     "last_branch" => "lastBranch",
-    "m_tokenizer" => "m_builder",
     "mclength" => "mcLength",
     "negate_class" => "negateClass",
     "offsetcount" => "offsetCount",
@@ -293,7 +280,6 @@ my %renames = (
     "skipbytes" => "skipBytes",
     "subfirstbyte" => "subFirstByte",
     "subreqbyte" => "subReqByte",
-    "tokenizerProcessedData" => "documentBuilderProcessedData",
     "top_backref" => "topBackref",
     "top_bracket" => "topBracket",
     "using_temporary_offsets" => "usingTemporaryOffsets",

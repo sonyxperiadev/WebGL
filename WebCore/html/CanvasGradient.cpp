@@ -37,22 +37,39 @@
 #include <cairo.h>
 #endif
 
+#ifdef ANDROID_CANVAS_IMPL
+#include "GraphicsContext.h"
+#include "SkColorShader.h"
+#endif
+
 namespace WebCore {
 
 CanvasGradient::CanvasGradient(const FloatPoint& p0, const FloatPoint& p1)
-    : RefCounted<CanvasGradient>(0)
-    , m_radial(false), m_p0(p0), m_p1(p1), m_stopsSorted(false), m_lastStop(0)
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(CAIRO)
+    : m_radial(false), m_p0(p0), m_p1(p1), m_stopsSorted(false), m_lastStop(0)
+#if PLATFORM(CG)
     , m_shading(0)
+#elif PLATFORM(QT)
+    , m_shading(0)
+#elif PLATFORM(CAIRO)
+    , m_shading(0)
+#endif
+#ifdef ANDROID_CANVAS_IMPL
+    , m_platformGradient(NULL)
 #endif
 {
 }
 
 CanvasGradient::CanvasGradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1)
-    : RefCounted<CanvasGradient>(0)
-    , m_radial(true), m_p0(p0), m_p1(p1), m_r0(r0), m_r1(r1), m_stopsSorted(false), m_lastStop(0)
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(CAIRO)
+    : m_radial(true), m_p0(p0), m_p1(p1), m_r0(r0), m_r1(r1), m_stopsSorted(false), m_lastStop(0)
+#if PLATFORM(CG)
     , m_shading(0)
+#elif PLATFORM(QT)
+    , m_shading(0)
+#elif PLATFORM(CAIRO)
+    , m_shading(0)
+#endif
+#ifdef ANDROID_CANVAS_IMPL
+    , m_platformGradient(NULL)
 #endif
 {
 }
@@ -65,6 +82,10 @@ CanvasGradient::~CanvasGradient()
     delete m_shading;
 #elif PLATFORM(CAIRO)
     cairo_pattern_destroy(m_shading);
+#endif
+#ifdef ANDROID_CANVAS_IMPL
+    if (m_platformGradient)
+        GraphicsContext::freePlatformGradient(m_platformGradient);
 #endif
 }
 
@@ -243,5 +264,33 @@ int CanvasGradient::findStop(float value) const
     m_lastStop = i - 1;
     return m_lastStop;
 }
+
+#ifdef ANDROID_CANVAS_IMPL
+PlatformGradient* CanvasGradient::platformGradient()
+{
+    PlatformGradient* pg = m_platformGradient;
+    int               count = m_stops.size();
+
+    if (NULL == pg) {
+        // it seems the spec says a zero-size gradient draws transparent
+        if (0 == count) {
+            pg = new SkColorShader(0);
+        } else {
+            // call this to ensure that data[] is sorted
+            float r, g, b, a;
+            (void)getColor(0, &r, &g, &b, &a);
+
+            const float* data = (const float*)m_stops.data();
+
+            if (m_radial)
+                pg = GraphicsContext::newPlatformRadialGradient(m_p0, m_r0, m_p1, m_r1, data, count);
+            else
+                pg = GraphicsContext::newPlatformLinearGradient(m_p0, m_p1, data, count);
+        }
+        m_platformGradient = pg;
+    }
+    return pg;
+}
+#endif
 
 } //namespace

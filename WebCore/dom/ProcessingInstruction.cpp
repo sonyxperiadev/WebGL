@@ -1,6 +1,8 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,7 +19,6 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
 #include "config.h"
 #include "ProcessingInstruction.h"
 
@@ -155,7 +156,7 @@ bool ProcessingInstruction::checkStyleSheet()
                         m_cachedSheet->deref(this);
 #if ENABLE(XSLT)
                     if (m_isXSL)
-                        m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(document()->completeURL(href).string());
+                        m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(document()->completeURL(href));
                     else
 #endif
                     {
@@ -163,7 +164,7 @@ bool ProcessingInstruction::checkStyleSheet()
                         if (charset.isEmpty())
                             charset = document()->frame()->loader()->encoding();
 
-                        m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(document()->completeURL(href).string(), charset);
+                        m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(document()->completeURL(href), charset);
                     }
                     if (m_cachedSheet)
                         m_cachedSheet->ref(this);
@@ -196,13 +197,13 @@ bool ProcessingInstruction::sheetLoaded()
     return false;
 }
 
-void ProcessingInstruction::setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet* sheet)
+void ProcessingInstruction::setCSSStyleSheet(const String& url, const String& charset, const String& sheet)
 {
 #if ENABLE(XSLT)
     ASSERT(!m_isXSL);
 #endif
     m_sheet = new CSSStyleSheet(this, url, charset);
-    parseStyleSheet(sheet->sheetText());
+    parseStyleSheet(sheet);
 }
 
 #if ENABLE(XSLT)

@@ -199,6 +199,10 @@ protected:
     int m_width;
     int m_height;
 
+#ifdef ANDROID_LAYOUT
+    int m_visibleWidth;
+#endif
+
     int m_x;
     int m_y;
 

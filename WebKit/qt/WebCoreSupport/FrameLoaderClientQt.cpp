@@ -599,11 +599,16 @@ void FrameLoaderClientQt::registerForIconNotification(bool)
     notImplemented();
 }
 
-void FrameLoaderClientQt::updateGlobalHistory(const WebCore::KURL& url)
+void FrameLoaderClientQt::updateGlobalHistoryForStandardLoad(const WebCore::KURL& url)
 {
     QWebHistoryInterface *history = QWebHistoryInterface::defaultInterface();
     if (history)
         history->addHistoryEntry(url.prettyURL());
+}
+
+void FrameLoaderClientQt::updateGlobalHistoryForReload(const WebCore::KURL&)
+{
+    notImplemented();
 }
 
 bool FrameLoaderClientQt::shouldGoToHistoryItem(WebCore::HistoryItem *item) const

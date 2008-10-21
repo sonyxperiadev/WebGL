@@ -74,10 +74,22 @@
 #include "kjs_window.h"
 #include "visible_units.h"
 
+#ifdef MANUAL_MERGE_REQUIRED
+#ifdef ANDROID_BRIDGE
+    #define LOG_TAG "webcore"
+    #undef LOG
+    #include <utils/Log.h>
+
+    #include "WebCoreViewBridge.h"
+    #include "FrameAndroid.h"
+#endif
+
+#else // MANUAL_MERGE_REQUIRED
 #if FRAME_LOADS_USER_STYLESHEET
 #include "UserStyleSheetLoader.h"
 #endif
 
+#endif // MANUAL_MERGE_REQUIRED
 #if ENABLE(SVG)
 #include "SVGDocument.h"
 #include "SVGDocumentExtensions.h"
@@ -104,7 +116,11 @@ struct FrameCounter {
     ~FrameCounter() 
     { 
         if (count)
+#ifdef ANDROID_BRIDGE
+            fprintf(stderr, "LEAK: %d Frame\n", count);
+#else
             LOG(WebCoreFrameLeaks, "LEAK: %d Frame\n", count);
+#endif
     }
 };
 int FrameCounter::count = 0;
@@ -119,8 +135,7 @@ static inline Frame* parentFromOwnerElement(HTMLFrameOwnerElement* ownerElement)
 }
 
 Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* frameLoaderClient) 
-    : RefCounted<Frame>(0)
-    , d(new FramePrivate(page, parentFromOwnerElement(ownerElement), this, ownerElement, frameLoaderClient))
+    : d(new FramePrivate(page, parentFromOwnerElement(ownerElement), this, ownerElement, frameLoaderClient))
 {
     AtomicString::init();
     EventNames::init();
@@ -138,8 +153,8 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     if (!ownerElement)
         page->setMainFrame(this);
     else {
-        // FIXME: It's bad to have a ref() here but not in the !ownerElement case.
-        // We need to straighten this out.
+        // FIXME: Frames were originally created with a refcount of 1.
+        // Leave this ref call here until we can straighten that out.
         ref();
         page->incrementFrameCount();
         ownerElement->m_contentFrame = this;
@@ -328,23 +343,23 @@ AnimationController* Frame::animationController() const
     return &d->m_animationController;
 }
 
-static RegularExpression* createRegExpForLabels(const Vector<String>& labels)
+static RegularExpression *createRegExpForLabels(const Vector<String>& labels)
 {
     // REVIEW- version of this call in FrameMac.mm caches based on the NSArray ptrs being
     // the same across calls.  We can't do that.
 
     static RegularExpression wordRegExp = RegularExpression("\\w");
-    String pattern("(");
+    DeprecatedString pattern("(");
     unsigned int numLabels = labels.size();
     unsigned int i;
     for (i = 0; i < numLabels; i++) {
-        String label = labels[i];
+        DeprecatedString label = labels[i].deprecatedString();
 
         bool startsWithWordChar = false;
         bool endsWithWordChar = false;
         if (label.length() != 0) {
-            startsWithWordChar = wordRegExp.search(label.substring(0, 1)) >= 0;
-            endsWithWordChar = wordRegExp.search(label.substring(label.length() - 1, 1)) >= 0;
+            startsWithWordChar = wordRegExp.search(label.at(0)) >= 0;
+            endsWithWordChar = wordRegExp.search(label.at(label.length() - 1)) >= 0;
         }
         
         if (i != 0)
@@ -380,10 +395,10 @@ String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellE
                 for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
                     if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
                         // For each text chunk, run the regexp
-                        String nodeString = n->nodeValue();
+                        DeprecatedString nodeString = n->nodeValue().deprecatedString();
                         int pos = regExp->searchRev(nodeString);
                         if (pos >= 0)
-                            return nodeString.substring(pos, regExp->matchedLength());
+                            return nodeString.mid(pos, regExp->matchedLength());
                     }
                 }
             }
@@ -427,14 +442,15 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
             searchedCellAbove = true;
         } else if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
             // For each text chunk, run the regexp
-            String nodeString = n->nodeValue();
+            DeprecatedString nodeString = n->nodeValue().deprecatedString();
             // add 100 for slop, to make it more likely that we'll search whole nodes
             if (lengthSearched + nodeString.length() > maxCharsSearched)
                 nodeString = nodeString.right(charsSearchedThreshold - lengthSearched);
             int pos = regExp->searchRev(nodeString);
             if (pos >= 0)
-                return nodeString.substring(pos, regExp->matchedLength());
-            lengthSearched += nodeString.length();
+                return nodeString.mid(pos, regExp->matchedLength());
+            else
+                lengthSearched += nodeString.length();
         }
     }
 
@@ -448,9 +464,9 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
 
 String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* element)
 {
-    String name = element->getAttribute(nameAttr);
+    DeprecatedString name = element->getAttribute(nameAttr).deprecatedString();
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    replace(name, RegularExpression("\\d"), " ");
+    name.replace(RegularExpression("\\d"), " ");
     name.replace('_', ' ');
     
     OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
@@ -473,7 +489,7 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
     } while (pos != -1);
 
     if (bestPos != -1)
-        return name.substring(bestPos, bestLength);
+        return name.mid(bestPos, bestLength);
     return String();
 }
 
@@ -520,10 +536,12 @@ void Frame::setCaretVisible(bool flag)
 
 void Frame::clearCaretRectIfNeeded()
 {
+#ifndef ANDROID_DRAW_OWN_CARET
     if (d->m_caretPaint) {
         d->m_caretPaint = false;
         selectionController()->invalidateCaretRect();
     }
+#endif
 }
 
 // Helper function that tells whether a particular node is an element that has an entire
@@ -570,9 +588,11 @@ void Frame::selectionLayoutChanged()
 {
     bool caretRectChanged = selectionController()->recomputeCaretRect();
 
+#ifndef ANDROID_DRAW_OWN_CARET 
     bool shouldBlink = d->m_caretVisible
         && selectionController()->isCaret() && selectionController()->isContentEditable();
 
+    shouldBlink = false;
     // If the caret moved, stop the blink timer so we can restart with a
     // black caret in the new location.
     if (caretRectChanged || !shouldBlink)
@@ -587,6 +607,10 @@ void Frame::selectionLayoutChanged()
             selectionController()->invalidateCaretRect();
         }
     }
+#else
+    if (caretRectChanged == false)
+        return;
+#endif
 
     if (!renderer())
         return;
@@ -620,6 +644,7 @@ void Frame::selectionLayoutChanged()
 
 void Frame::caretBlinkTimerFired(Timer<Frame>*)
 {
+#ifndef ANDROID_DRAW_OWN_CARET
     ASSERT(d->m_caretVisible);
     ASSERT(selectionController()->isCaret());
     bool caretPaint = d->m_caretPaint;
@@ -627,20 +652,25 @@ void Frame::caretBlinkTimerFired(Timer<Frame>*)
         return;
     d->m_caretPaint = !caretPaint;
     selectionController()->invalidateCaretRect();
+#endif
 }
 
 void Frame::paintCaret(GraphicsContext* p, const IntRect& rect) const
 {
+#ifndef ANDROID_DRAW_OWN_CARET
     if (d->m_caretPaint && d->m_caretVisible)
         selectionController()->paintCaret(p, rect);
+#endif
 }
 
 void Frame::paintDragCaret(GraphicsContext* p, const IntRect& rect) const
 {
+#ifndef ANDROID_DRAW_OWN_CARET
     SelectionController* dragCaretController = d->m_page->dragCaretController();
     ASSERT(dragCaretController->selection().isCaret());
     if (dragCaretController->selection().start().node()->document()->frame() == this)
         dragCaretController->paintCaret(p, rect);
+#endif
 }
 
 int Frame::zoomFactor() const
@@ -1643,7 +1673,7 @@ FrameTree* Frame::tree() const
 DOMWindow* Frame::domWindow() const
 {
     if (!d->m_domWindow)
-        d->m_domWindow = DOMWindow::create(const_cast<Frame*>(this));
+        d->m_domWindow = new DOMWindow(const_cast<Frame*>(this));
 
     return d->m_domWindow.get();
 }
@@ -1689,7 +1719,7 @@ void Frame::disconnectOwnerElement()
 String Frame::documentTypeString() const
 {
     if (Document *doc = document())
-        if (DocumentType *doctype = doc->doctype())
+        if (DocumentType *doctype = doc->realDocType())
             return doctype->toString();
 
     return String();
@@ -1751,9 +1781,9 @@ bool Frame::shouldClose()
 
     String text = beforeUnloadEvent->result();
     text.replace('\\', backslashAsCurrencySymbol());
-
     return chrome->runBeforeUnloadConfirmPanel(text, this);
 }
+
 
 void Frame::scheduleClose()
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,12 +26,14 @@
 #import "config.h"
 #import "CookieJar.h"
 
-#import "BlockExceptions.h"
 #import "KURL.h"
+#import "BlockExceptions.h"
+#import "PlatformString.h"
+
 #import <wtf/RetainPtr.h>
 
 #ifdef BUILDING_ON_TIGER
-typedef unsigned NSUInteger;
+typedef unsigned int NSUInteger;
 #endif
 
 namespace WebCore {
@@ -40,7 +42,7 @@ String cookies(const Document* /*document*/, const KURL& url)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-    NSURL *cookieURL = url;
+    NSURL *cookieURL = url.getNSURL();
     NSArray *cookiesForURL = [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookiesForURL:cookieURL];
 
     // <rdar://problem/5632883> On 10.5, NSHTTPCookieStorage would happily store an empty cookie, which would be sent as "Cookie: =".
@@ -68,14 +70,14 @@ void setCookies(Document* /*document*/, const KURL& url, const KURL& policyBaseU
     if (cookieStr.isEmpty())
         return;
 
-    NSURL *cookieURL = url;
+    NSURL *cookieURL = url.getNSURL();
     
     // <http://bugs.webkit.org/show_bug.cgi?id=6531>, <rdar://4409034>
     // cookiesWithResponseHeaderFields doesn't parse cookies without a value
     String cookieString = cookieStr.contains('=') ? cookieStr : cookieStr + "=";
     
     NSArray *cookies = [NSHTTPCookie cookiesWithResponseHeaderFields:[NSDictionary dictionaryWithObject:cookieString forKey:@"Set-Cookie"] forURL:cookieURL];
-    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:cookieURL mainDocumentURL:policyBaseURL];
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:cookieURL mainDocumentURL:policyBaseURL.getNSURL()];    
 
     END_BLOCK_OBJC_EXCEPTIONS;
 }

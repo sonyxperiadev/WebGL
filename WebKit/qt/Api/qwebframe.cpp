@@ -313,8 +313,10 @@ void QWebFrame::load(const QWebNetworkRequest &req)
         request.addHTTPHeaderField(val.first, val.second);
     }
 
-    if (!postData.isEmpty())
-        request.setHTTPBody(WebCore::FormData::create(postData.constData(), postData.size()));
+    if (!postData.isEmpty()) {
+        WTF::RefPtr<WebCore::FormData> formData = new WebCore::FormData(postData.constData(), postData.size());
+        request.setHTTPBody(formData);
+    }
 
     d->frame->loader()->load(request);
 
@@ -363,8 +365,10 @@ void QWebFrame::load(const QNetworkRequest &req,
         request.addHTTPHeaderField(QString::fromLatin1(headerName), QString::fromLatin1(req.rawHeader(headerName)));
     }
 
-    if (!body.isEmpty())
-        request.setHTTPBody(WebCore::FormData::create(body.constData(), body.size()));
+    if (!body.isEmpty()) {
+        WTF::RefPtr<WebCore::FormData> formData = new WebCore::FormData(body.constData(), body.size());
+        request.setHTTPBody(formData);
+    }
 
     d->frame->loader()->load(request);
 

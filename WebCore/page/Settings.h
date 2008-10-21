@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,8 +28,8 @@
 #define Settings_h
 
 #include "AtomicString.h"
-#include "FontDescription.h"
 #include "KURL.h"
+#include "FontDescription.h"
 
 namespace WebCore {
 
@@ -43,16 +43,36 @@ namespace WebCore {
         EditableLinkNeverLive
     };
 
-    class Settings {
+    class Settings
+    {
     public:
         Settings(Page*);
 
+#ifdef ANDROID_LAYOUT
+        // FIXME: How do we determine the margins other than guessing?
+        #define ANDROID_SSR_MARGIN_PADDING  3
+        #define ANDROID_FCTS_MARGIN_PADDING  10
+
+        enum LayoutAlgorithm {
+            kLayoutNormal,
+            kLayoutSSR,
+            kLayoutFitColumnToScreen
+        };
+#endif
         void setStandardFontFamily(const AtomicString&);
         const AtomicString& standardFontFamily() const { return m_standardFontFamily; }
 
         void setFixedFontFamily(const AtomicString&);
         const AtomicString& fixedFontFamily() const { return m_fixedFontFamily; }
 
+#ifdef ANDROID_LAYOUT
+        LayoutAlgorithm layoutAlgorithm() const { return m_layoutAlgorithm; }
+        void setLayoutAlgorithm(LayoutAlgorithm algorithm) { m_layoutAlgorithm = algorithm; }
+
+        bool useWideViewport() const { return m_useWideViewport; }
+        void setUseWideViewport(bool use) { m_useWideViewport = use; }
+#endif
+    
         void setSerifFontFamily(const AtomicString&);
         const AtomicString& serifFontFamily() const { return m_serifFontFamily; }
 
@@ -80,6 +100,10 @@ namespace WebCore {
         void setLoadsImagesAutomatically(bool);
         bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+        void setBlockNetworkImage(bool);
+        bool blockNetworkImage() const { return m_blockNetworkImage; }
+#endif
         void setJavaScriptEnabled(bool);
         bool isJavaScriptEnabled() const { return m_isJavaScriptEnabled; }
 
@@ -91,6 +115,11 @@ namespace WebCore {
 
         void setPluginsEnabled(bool);
         bool arePluginsEnabled() const { return m_arePluginsEnabled; }
+
+#ifdef ANDROID_PLUGINS
+        void setPluginsPath(const String& pluginsPath);
+        const String& pluginsPath() const { return m_pluginsPath; }
+#endif
 
         void setPrivateBrowsingEnabled(bool);
         bool privateBrowsingEnabled() const { return m_privateBrowsingEnabled; }
@@ -140,6 +169,24 @@ namespace WebCore {
         void setDeveloperExtrasEnabled(bool);
         bool developerExtrasEnabled() const { return m_developerExtrasEnabled; }
         
+#ifdef ANDROID_META_SUPPORT
+        void resetMetadataSettings();
+        void setMetadataSettings(const String& key, const String& value);
+
+        int viewportWidth() const { return m_viewport_width; }        
+        int viewportHeight() const { return m_viewport_height; }
+        int viewportInitialScale() const { return m_viewport_initial_scale; }
+        int viewportMinimumScale() const { return m_viewport_minimum_scale; }
+        int viewportMaximumScale() const { return m_viewport_maximum_scale; }
+        bool viewportUserScalable() const { return m_viewport_user_scalable; }
+        bool formatDetectionAddress() const { return m_format_detection_address; }
+        bool formatDetectionEmail() const { return m_format_detection_email; }
+        bool formatDetectionTelephone() const { return m_format_detection_telephone; }
+#endif
+#ifdef ANDROID_MULTIPLE_WINDOWS
+        bool supportMultipleWindows() const { return m_supportMultipleWindows; }
+        void setSupportMultipleWindows(bool support) { m_supportMultipleWindows = support; }
+#endif
         void setAuthorAndUserStylesEnabled(bool);
         bool authorAndUserStylesEnabled() const { return m_authorAndUserStylesEnabled; }
         
@@ -154,6 +201,9 @@ namespace WebCore {
         
         String m_defaultTextEncodingName;
         String m_ftpDirectoryTemplatePath;
+#ifdef ANDROID_PLUGINS
+        String m_pluginsPath;
+#endif
         KURL m_userStyleSheetLocation;
         AtomicString m_standardFontFamily;
         AtomicString m_fixedFontFamily;
@@ -161,11 +211,45 @@ namespace WebCore {
         AtomicString m_sansSerifFontFamily;
         AtomicString m_cursiveFontFamily;
         AtomicString m_fantasyFontFamily;
+#ifdef ANDROID_LAYOUT
+        LayoutAlgorithm m_layoutAlgorithm;
+#endif
         EditableLinkBehavior m_editableLinkBehavior;
         int m_minimumFontSize;
         int m_minimumLogicalFontSize;
         int m_defaultFontSize;
         int m_defaultFixedFontSize;
+#ifdef ANDROID_META_SUPPORT
+        // range is from 200 to 10,000. 0 is a special value means device-width.
+        // default is -1, which means undefined.
+        int m_viewport_width;
+        // range is from 223 to 10,000. 0 is a special value means device-height
+        // default is -1, which means undefined.
+        int m_viewport_height;
+        // range is from 1 to 1000 in percent. default is 0, which means undefined.
+        int m_viewport_initial_scale;
+        // range is from 1 to 1000 in percent. default is 0, which means undefined.
+        int m_viewport_minimum_scale;
+        // range is from 1 to 1000 in percent. default is 0, which means undefined.
+        int m_viewport_maximum_scale;
+        // default is yes
+        bool m_viewport_user_scalable : 1;
+        // default is yes
+        bool m_format_detection_telephone : 1;
+        // default is yes
+        bool m_format_detection_address : 1;
+        // default is yes
+        bool m_format_detection_email : 1;
+#endif
+#ifdef ANDROID_LAYOUT
+        bool m_useWideViewport : 1;
+#endif
+#ifdef ANDROID_MULTIPLE_WINDOWS
+        bool m_supportMultipleWindows : 1;
+#endif
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+        bool m_blockNetworkImage : 1;
+#endif
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
         bool m_privateBrowsingEnabled : 1;

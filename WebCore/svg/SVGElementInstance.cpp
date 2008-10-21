@@ -77,7 +77,7 @@ SVGElementInstance* SVGElementInstance::parentNode() const
 
 PassRefPtr<SVGElementInstanceList> SVGElementInstance::childNodes()
 {
-    return SVGElementInstanceList::create(this);
+    return new SVGElementInstanceList(this);
 }
 
 SVGElementInstance* SVGElementInstance::previousSibling() const

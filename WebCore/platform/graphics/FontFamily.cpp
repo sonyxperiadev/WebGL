@@ -29,7 +29,7 @@
 namespace WebCore {
 
 FontFamily::FontFamily(const FontFamily& other)
-    : RefCounted<FontFamily>(0)
+    : RefCounted<FontFamily>()
     , m_family(other.m_family)
     , m_next(other.m_next)
 {

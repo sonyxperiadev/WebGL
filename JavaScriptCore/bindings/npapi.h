@@ -105,7 +105,13 @@
 /*----------------------------------------------------------------------*/
 
 #define NP_VERSION_MAJOR 0
+#ifdef ANDROID_PLUGINS
+// Implements NPN_PluginThreadAsyncCall. Sandbox WebKit is version 20
+// and should override this change when merged.
+#define NP_VERSION_MINOR 19
+#else
 #define NP_VERSION_MINOR 18
+#endif
 
 
 
@@ -706,6 +712,11 @@ void        NPN_InvalidateRegion(NPP instance, NPRegion invalidRegion);
 void        NPN_ForceRedraw(NPP instance);
 void        NPN_PushPopupsEnabledState(NPP instance, NPBool enabled);
 void        NPN_PopPopupsEnabledState(NPP instance);
+#ifdef ANDROID_PLUGINS
+// Sandbox WebKit is version 20 NPAPI and implements
+// NPN_PluginThreadAsyncCall. Remove this change when merged.
+void        NPN_PluginThreadAsyncCall(NPP instance, void (*func)(void *), void *userData);
+#endif
 
 #ifdef __cplusplus
 }  /* end extern "C" */

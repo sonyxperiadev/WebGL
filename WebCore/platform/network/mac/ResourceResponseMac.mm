@@ -52,17 +52,13 @@ NSURLResponse *ResourceResponse::nsURLResponse() const
             expectedContentLength = -1;
         else
             expectedContentLength = static_cast<NSInteger>(m_expectedContentLength);
-        const_cast<ResourceResponse*>(this)->m_nsResponse.adoptNS([[NSURLResponse alloc] initWithURL:m_url MIMEType:m_mimeType expectedContentLength:expectedContentLength textEncodingName:m_textEncodingName]);
+        const_cast<ResourceResponse*>(this)->m_nsResponse.adoptNS([[NSURLResponse alloc] initWithURL:m_url.getNSURL() MIMEType:m_mimeType expectedContentLength:expectedContentLength textEncodingName:m_textEncodingName]);
     }
     return m_nsResponse.get();
 }
 
-void ResourceResponse::platformLazyInit()
+void ResourceResponse::doUpdateResourceResponse()
 {
-    if (m_isUpToDate)
-        return;
-    m_isUpToDate = true;
-
     if (m_isNull) {
         ASSERT(!m_nsResponse);
         return;
@@ -106,11 +102,6 @@ void ResourceResponse::platformLazyInit()
         }
 #endif
     }
-}
-
-bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)
-{
-    return a.nsURLResponse() == b.nsURLResponse();
 }
 
 }

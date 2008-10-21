@@ -1,0 +1,144 @@
+2008-01-26  Greg Bolsinga  <bolsinga@apple.com>
+
+        <rdar://problem/5708388> WebDashboardRegion.h duplicated between WebCore / WebKit
+
+        Reviewed by Darin.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed WebDashboardRegion.h.
+
+2008-01-23  Steve Falkenburg  <sfalken@apple.com>
+
+        Update localization exceptions.
+        
+        Reviewed by Darin.
+
+        * English.lproj/Localizable.strings:
+        * StringsNotToBeLocalized.txt:
+
+2008-01-20  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Remove code bracketed by REMOVE_SAFARI_DOM_TREE_DEBUG_ITEM as we are no longer
+        interested in supporting Safari 2 with TOT WebKit.
+
+        * WebKit.xcodeproj/project.pbxproj: Don't define REMOVE_SAFARI_DOM_TREE_DEBUG_ITEM
+        as it is no longer used. 
+
+2008-01-03  Darin Adler  <darin@apple.com>
+
+        - fix Safari build
+
+        * WebKit.xcodeproj/project.pbxproj: Mark header private (fixes Safari build).
+
+2008-01-02  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin.
+
+        Removed "BackwardDelete", which is no longer present in source code.
+
+        * StringsNotToBeLocalized.txt:
+
+2007-12-16  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Refactor Mac plugin stream code to use the shared NetscapePlugInStreamLoader implementation.
+
+        * WebKit.xcodeproj/project.pbxproj: Add new files.
+
+2007-12-14  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated.
+
+2007-12-12  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Fix for <rdar://problem/4886844> and lay groundwork for <rdar://problem/4516170> (Back/Forward Cache on Windows)
+
+        * WebKit.xcodeproj/project.pbxproj: Added a new file
+
+2007-12-12  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dave Kilzer.
+
+        Remove abuse of projectDirPath from WebKit.xcodeproj to fix Production builds.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2007-11-19  Brady Eidson <beidson@apple.com>
+
+        Reviewed by Maciej
+
+        * WebKit.xcodeproj/project.pbxproj: Sorted!
+
+2007-11-17  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Bug 13470: i18n: The Web Inspector is not localizable
+        http://bugs.webkit.org/show_bug.cgi?id=13470
+
+        Update the localized strings and the file encoding of WebInspectorClient.mm.
+
+        * English.lproj/Localizable.strings:
+        * StringsNotToBeLocalized.txt:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2007-11-16  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        Build WebCore as a sub-framework of WebKit in all configurations.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2007-11-16  Brady Eidson  <beidson@apple.com>
+
+        * WebKit.xcodeproj/project.pbxproj: WebDatabaseManagerPrivate.h, also!
+
+2007-11-16  Brady Eidson  <beidson@apple.com>
+
+        * WebKit.xcodeproj/project.pbxproj: Mark WebSecurityOriginPrivate.h private so
+          it is exported
+
+2007-11-16  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by John
+
+        Database management API tweaks
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2007-11-15  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by John
+
+        Stubbing out everything required for a WebKit API for databases
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2007-11-12  Adam Roben  <aroben@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated.
+
+2007-11-08  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Adding the wx WebKit implementation.
+
+        Reviewed by Mark Rowe.
+
+        * wx: Added.
+
+2007-11-07  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        Fix 64-bit Mac build.
+
+        * WebKit.xcodeproj/project.pbxproj: Change paths specified relative to SRCROOT
+        to be relative to PROJECT_DIR.  PROJECT_DIR takes into account the projectDirPath
+        setting of the project, which in this instance includes the necessary "mac"
+        subdirectory.
+

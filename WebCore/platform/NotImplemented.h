@@ -43,6 +43,11 @@
         if (qgetenv("DISABLE_NI_WARNING").isEmpty()) \
             qDebug("FIXME: UNIMPLEMENTED: %s:%d (%s)", __FILE__, __LINE__, WTF_PRETTY_FUNCTION)
 
+#elif defined ANDROID
+
+    #define notImplemented() fprintf(stderr, "%s\n", __PRETTY_FUNCTION__)
+//    #define notImplemented() LOGV("%s\n", __PRETTY_FUNCTION__)
+
 #elif defined(NDEBUG)
 
 #define notImplemented() ((void)0)

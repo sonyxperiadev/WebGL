@@ -60,7 +60,9 @@
 #include "TextEvent.h"
 
 #if ENABLE(SVG)
+#include "SVGCursorElement.h"
 #include "SVGDocument.h"
+#include "SVGLength.h"
 #include "SVGNames.h"
 #endif
 
@@ -694,6 +696,16 @@ Cursor EventHandler::selectCursor(const MouseEventWithHitTestResults& event, Pla
         for (unsigned i = 0; i < cursors->size(); ++i) {
             CachedImage* cimage = (*cursors)[i].cursorImage;
             IntPoint hotSpot = (*cursors)[i].hotSpot;
+#if ENABLE(SVG)
+            if (!cimage) {
+                Element* e = node->document()->getElementById((*cursors)[i].cursorFragmentId);
+                if (e && e->hasTagName(cursorTag)) {
+                    hotSpot.setX(int(static_cast<SVGCursorElement*>(e)->x().value()));
+                    hotSpot.setY(int(static_cast<SVGCursorElement*>(e)->y().value()));
+                    cimage = static_cast<SVGCursorElement*>(e)->cachedImage();
+                }
+            }
+#endif
             if (!cimage)
                 continue;
             if (cimage->image()->isNull())

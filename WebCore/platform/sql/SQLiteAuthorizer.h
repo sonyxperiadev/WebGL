@@ -28,7 +28,7 @@
 #ifndef SQLiteAuthorizer_h
 #define SQLiteAuthorizer_h
 
-#include <wtf/Threading.h>
+#include "Threading.h"
 
 namespace WebCore {
 

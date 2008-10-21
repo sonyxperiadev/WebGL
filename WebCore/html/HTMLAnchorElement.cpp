@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -197,9 +197,9 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
                     int x = e->pageX() - absx;
                     int y = e->pageY() - absy;
                     url += "?";
-                    url += String::number(x);
+                    url += DeprecatedString::number(x);
                     url += ",";
-                    url += String::number(y);
+                    url += DeprecatedString::number(y);
                 } else {
                     evt->setDefaultHandled();
                     HTMLElement::defaultEventHandler(evt);
@@ -328,7 +328,7 @@ void HTMLAnchorElement::setCoords(const String &value)
     setAttribute(coordsAttr, value);
 }
 
-KURL HTMLAnchorElement::href() const
+String HTMLAnchorElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
@@ -415,40 +415,41 @@ void HTMLAnchorElement::setType(const String &value)
 
 String HTMLAnchorElement::hash() const
 {
-    return "#" + href().ref();
+    return '#' + KURL(href().deprecatedString()).ref();
 }
 
 String HTMLAnchorElement::host() const
 {
-    return href().host();
+    return KURL(href().deprecatedString()).host();
 }
 
 String HTMLAnchorElement::hostname() const
 {
-    KURL url(href());
-    if (url.port() == 0)
+    KURL url(href().deprecatedString());
+    if (url.port()==0)
         return url.host();
-    return url.host() + ":" + String::number(url.port());
+    else
+        return url.host() + ":" + String::number(url.port());
 }
 
 String HTMLAnchorElement::pathname() const
 {
-    return href().path();
+    return KURL(href().deprecatedString()).path();
 }
 
 String HTMLAnchorElement::port() const
 {
-    return String::number(href().port());
+    return DeprecatedString::number(KURL(href().deprecatedString()).port());
 }
 
 String HTMLAnchorElement::protocol() const
 {
-    return href().protocol() + ":";
+    return KURL(href().deprecatedString()).protocol() + ":";
 }
 
 String HTMLAnchorElement::search() const
 {
-    return href().query();
+    return KURL(href().deprecatedString()).query();
 }
 
 String HTMLAnchorElement::text() const
@@ -458,7 +459,7 @@ String HTMLAnchorElement::text() const
 
 String HTMLAnchorElement::toString() const
 {
-    return href().string();
+    return href();
 }
 
 bool HTMLAnchorElement::isLiveLink() const

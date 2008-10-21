@@ -267,11 +267,6 @@ sub AddIncludesForTypeInCPPHeader
     return if $codeGenerator->IsNonPointerType($type);
 
     # Add special Cases HERE
-    
-    if ($type =~ m/^I/) {
-        $type = "WebKit";
-    }
-    
     if ($useAngleBrackets) {
         $CPPHeaderIncludesAngle{"$type.h"} = 1;
         return;
@@ -309,9 +304,9 @@ sub AddIncludesForTypeInCPPImplementation
     return if $codeGenerator->IsNonPointerType($type);
 
     if ($codeGenerator->IsStringType($type)) {
-        $CPPImplementationWebCoreIncludes{"AtomicString.h"} = 1;
+        $CPPImplementationWebCoreIncludes{"PlatformString.h"} = 1;
         $CPPImplementationWebCoreIncludes{"BString.h"} = 1;
-        $CPPImplementationWebCoreIncludes{"KURL.h"} = 1;
+        $CPPImplementationWebCoreIncludes{"AtomicString.h"} = 1;
         return;
     }
 
@@ -354,15 +349,11 @@ sub GenerateIDL
     push(@IDLHeader, "\n");
 
     # - INCLUDES -
-    push(@IDLHeader, "#ifndef DO_NO_IMPORTS\n");
     push(@IDLHeader, "import \"oaidl.idl\";\n");
-    push(@IDLHeader, "import \"ocidl.idl\";\n");
-    push(@IDLHeader, "#endif\n\n");
+    push(@IDLHeader, "import \"ocidl.idl\";\n\n");
 
     unless ($pureInterface) {
-        push(@IDLHeader, "#ifndef DO_NO_IMPORTS\n");
-        push(@IDLHeader, "import \"${parentInterfaceName}.idl\";\n");
-        push(@IDLHeader, "#endif\n\n");
+        push(@IDLHeader, "import \"${parentInterfaceName}.idl\";\n\n");
 
         $IDLDontForwardDeclare{$outInterfaceName} = 1;
         $IDLDontImport{$outInterfaceName} = 1;
@@ -478,7 +469,7 @@ sub GenerateInterfaceHeader
 
     # - Default Interface Creator -
     push(@CPPInterfaceHeader, "${interfaceName}* to${interfaceName}(${implementationClass}*) { return 0; }\n\n");
-
+ 
     push(@CPPInterfaceHeader, "#endif // " . $className . "_h\n");
 }
 
@@ -1224,9 +1215,7 @@ sub WriteData
 
     print OUTPUTIDL map { "interface $_;\n" } sort keys(%IDLForwardDeclarations);
     print OUTPUTIDL "\n";
-    print OUTPUTIDL "#ifndef DO_NO_IMPORTS\n";
     print OUTPUTIDL map { ($_ eq "IGEN_DOMImplementation") ? "import \"IGEN_DOMDOMImplementation.idl\";\n" : "import \"$_.idl\";\n" } sort keys(%IDLImports);
-    print OUTPUTIDL "#endif\n";
     print OUTPUTIDL "\n";
 
     # Add content

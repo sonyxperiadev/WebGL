@@ -76,7 +76,7 @@ void SVGFETurbulenceElement::parseMappedAttribute(MappedAttribute* attr)
     } else if (attr->name() == SVGNames::seedAttr)
         setSeedBaseValue(value.toFloat());
     else if (attr->name() == SVGNames::numOctavesAttr)
-        setNumOctavesBaseValue(value.toUIntStrict());
+        setNumOctavesBaseValue(value.deprecatedString().toUInt());
     else
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }

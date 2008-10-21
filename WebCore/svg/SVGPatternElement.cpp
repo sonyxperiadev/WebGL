@@ -63,7 +63,7 @@ SVGPatternElement::SVGPatternElement(const QualifiedName& tagName, Document* doc
     , m_height(this, LengthModeHeight)
     , m_patternUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
     , m_patternContentUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
-    , m_patternTransform(SVGTransformList::create(SVGNames::patternTransformAttr))
+    , m_patternTransform(new SVGTransformList(SVGNames::patternTransformAttr))
 {
 }
 
@@ -144,9 +144,9 @@ void SVGPatternElement::svgAttributeChanged(const QualifiedName& attrName)
         m_resource->invalidate();
 }
 
-void SVGPatternElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGPatternElement::childrenChanged(bool changedByParser)
 {
-    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledElement::childrenChanged(changedByParser);
 
     if (!m_resource)
         return;
@@ -272,7 +272,7 @@ RenderObject* SVGPatternElement::createRenderer(RenderArena* arena, RenderStyle*
 SVGResource* SVGPatternElement::canvasResource()
 {
     if (!m_resource)
-        m_resource = SVGPaintServerPattern::create(this);
+        m_resource = new SVGPaintServerPattern(this);
 
     return m_resource.get();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@ typedef wchar_t* BSTR;
 namespace WebCore {
 
     class AtomicString;
-    class KURL;
+    class DeprecatedString;
     class String;
 
     class BString {
@@ -44,8 +44,8 @@ namespace WebCore {
         BString(const wchar_t*);
         BString(const wchar_t*, size_t length);
         BString(const String&);
+        BString(const DeprecatedString&);
         BString(const AtomicString&);
-        BString(const KURL&);
 #if PLATFORM(CF)
         BString(CFStringRef);
 #endif

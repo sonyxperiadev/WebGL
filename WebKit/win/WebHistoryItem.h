@@ -26,7 +26,9 @@
 #ifndef WebHistoryItem_H
 #define WebHistoryItem_H
 
-#include "WebKit.h"
+#include "IWebHistoryItem.h"
+#include "IWebHistoryItemPrivate.h"
+#include "IWebIconDatabase.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/PlatformString.h>

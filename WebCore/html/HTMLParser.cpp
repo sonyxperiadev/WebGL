@@ -29,7 +29,6 @@
 #include "CSSValueKeywords.h"
 #include "Comment.h"
 #include "DocumentFragment.h"
-#include "DocumentType.h"
 #include "Frame.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDocument.h"
@@ -270,16 +269,6 @@ PassRefPtr<Node> HTMLParser::parseToken(Token* t)
         return 0;
     }
     return n;
-}
-
-void HTMLParser::parseDoctypeToken(DoctypeToken* t)
-{
-    // Ignore any doctype after the first.  Ignore doctypes in fragments.
-    if (document->doctype() || m_isParsingFragment || current != document)
-        return;
-        
-    // Make a new doctype node and set it as our doctype.
-    document->addChild(new DocumentType(document, String::adopt(t->m_name), String::adopt(t->m_publicID), String::adopt(t->m_systemID)));
 }
 
 static bool isTableSection(Node* n)
@@ -688,6 +677,13 @@ bool HTMLParser::framesetCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
+bool HTMLParser::iframeCreateErrorCheck(Token* t, RefPtr<Node>& result)
+{
+    // a bit of a special case, since the frame is inlined
+    setSkipMode(iframeTag);
+    return true;
+}
+
 bool HTMLParser::formCreateErrorCheck(Token* t, RefPtr<Node>& result)
 {
     // Only create a new form if we're not already inside one.
@@ -802,6 +798,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(framesetTag.localName().impl(), &HTMLParser::framesetCreateErrorCheck);
         gFunctionMap.set(headTag.localName().impl(), &HTMLParser::headCreateErrorCheck);
         gFunctionMap.set(iTag.localName().impl(), &HTMLParser::nestedStyleCreateErrorCheck);
+        gFunctionMap.set(iframeTag.localName().impl(), &HTMLParser::iframeCreateErrorCheck);
         gFunctionMap.set(isindexTag.localName().impl(), &HTMLParser::isindexCreateErrorCheck);
         gFunctionMap.set(liTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(mapTag.localName().impl(), &HTMLParser::mapCreateErrorCheck);
@@ -1405,7 +1402,7 @@ PassRefPtr<Node> HTMLParser::handleIsindex(Token* t)
     String text = searchableIndexIntroduction();
     if (attrs) {
         if (Attribute* a = attrs->getAttributeItem(promptAttr))
-            text = a->value().string() + " ";
+            text = a->value().domString() + " ";
         t->attrs = 0;
     }
 
@@ -1488,9 +1485,7 @@ void HTMLParser::reportErrorToConsole(HTMLParserErrorCode errorCode, const Atomi
     message.replace("%tag1", tag1);
     message.replace("%tag2", tag2);
 
-    page->chrome()->addMessageToConsole(HTMLMessageSource,
-        isWarning(errorCode) ? WarningMessageLevel : ErrorMessageLevel,
-        message, lineNumber, document->url().string());
+    page->chrome()->addMessageToConsole(HTMLMessageSource, isWarning(errorCode) ? WarningMessageLevel: ErrorMessageLevel, message, lineNumber, document->url());
 }
 
 }

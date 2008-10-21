@@ -45,7 +45,7 @@ namespace WebCore {
         ~UserStyleSheetLoader();
 
     private:
-        virtual void setCSSStyleSheet(const String& URL, const String& charset, const CachedCSSStyleSheet* sheet);
+        virtual void setCSSStyleSheet(const String& URL, const String& charset, const String& sheet);
 
         RefPtr<Document> m_document;
         CachedCSSStyleSheet* m_cachedSheet;

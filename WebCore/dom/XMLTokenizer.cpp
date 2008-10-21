@@ -1,6 +1,8 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Computer, Inc.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2007 Trolltech ASA
@@ -42,7 +44,6 @@
 #include "HTMLStyleElement.h"
 #include "HTMLTokenizer.h"
 #include "ProcessingInstruction.h"
-#include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -54,7 +55,6 @@
 #endif
 #include <wtf/Platform.h>
 #include <wtf/StringExtras.h>
-#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(XSLT)
@@ -340,15 +340,13 @@ public:
 // --------------------------------
 
 static int globalDescriptor = 0;
-static DocLoader* globalDocLoader = 0;
-static ThreadIdentifier libxmlLoaderThread = 0;
 
 static int matchFunc(const char* uri)
 {
-    // Only match loads initiated due to uses of libxml2 from within XMLTokenizer to avoid
-    // interfering with client applications that also use libxml2.  http://bugs.webkit.org/show_bug.cgi?id=17353
-    return globalDocLoader && currentThread() == libxmlLoaderThread;
+    return 1; // Match everything.
 }
+
+static DocLoader* globalDocLoader = 0;
 
 class OffsetBuffer {
 public:
@@ -379,24 +377,15 @@ static bool shouldAllowExternalLoad(const char* inURI)
 }
 static void* openFunc(const char* uri)
 {
-    ASSERT(globalDocLoader);
-    ASSERT(currentThread() == libxmlLoaderThread);
-
-    if (!shouldAllowExternalLoad(uri))
+    if (!globalDocLoader || !shouldAllowExternalLoad(uri))
         return &globalDescriptor;
 
     ResourceError error;
     ResourceResponse response;
     Vector<char> data;
     
-    DocLoader* docLoader = globalDocLoader;
-    globalDocLoader = 0;
-    // FIXME: We should restore the original global error handler as well.
-
-    if (docLoader->frame()) 
-        docLoader->frame()->loader()->loadResourceSynchronously(KURL(uri), error, response, data);
-
-    globalDocLoader = docLoader;
+    if (globalDocLoader->frame()) 
+        globalDocLoader->frame()->loader()->loadResourceSynchronously(KURL(uri), error, response, data);
 
     return new OffsetBuffer(data);
 }
@@ -443,7 +432,6 @@ static xmlParserCtxtPtr createStringParser(xmlSAXHandlerPtr handlers, void* user
         xmlInitParser();
         xmlRegisterInputCallbacks(matchFunc, openFunc, readFunc, closeFunc);
         xmlRegisterOutputCallbacks(matchFunc, openFunc, writeFunc, closeFunc);
-        libxmlLoaderThread = currentThread();
         didInit = true;
     }
 
@@ -862,7 +850,7 @@ void XMLTokenizer::endElementNs()
                 if (child->isTextNode() || child->nodeType() == Node::CDATA_SECTION_NODE)
                     scriptCode += static_cast<CharacterData*>(child)->data();
             }
-            m_view->frame()->loader()->executeScript(m_doc->url().string(), m_scriptStartLine - 1, scriptCode);
+            m_view->frame()->loader()->executeScript(m_doc->url(), m_scriptStartLine - 1, scriptCode);
         }
         
         m_requestingScript = false;
@@ -1009,8 +997,11 @@ void XMLTokenizer::internalSubset(const xmlChar* name, const xmlChar* externalID
         return;
     }
     
-    if (m_doc)
-        m_doc->addChild(new DocumentType(m_doc, toString(name), toString(externalID), toString(systemID)));
+    Document* doc = m_doc;
+    if (!doc)
+        return;
+
+    doc->setDocType(new DocumentType(doc, toString(name), toString(externalID), toString(systemID)));
 }
 
 static inline XMLTokenizer* getTokenizer(void* closure)
@@ -1288,7 +1279,7 @@ void XMLTokenizer::end()
 {
 #if ENABLE(XSLT)
     if (m_sawXSLTransform) {
-        m_doc->setTransformSource(xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->url().string()));
+        m_doc->setTransformSource(xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->url()));
         
         m_doc->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         m_doc->updateStyleSelector();
@@ -1437,7 +1428,7 @@ bool XMLTokenizer::isWaitingForScripts() const
 }
 
 #if ENABLE(XSLT)
-void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const String& url)
+void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const DeprecatedString& url)
 {
     if (source.isEmpty())
         return 0;
@@ -1456,7 +1447,7 @@ void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const Strin
     
     xmlDocPtr sourceDoc = xmlReadMemory(reinterpret_cast<const char*>(source.characters()),
                                         source.length() * sizeof(UChar),
-                                        url.latin1().data(),
+                                        url.ascii(),
                                         BOMHighByte == 0xFF ? "UTF-16LE" : "UTF-16BE", 
                                         XSLT_PARSE_OPTIONS);
     
@@ -1935,7 +1926,7 @@ void XMLTokenizer::parseEndElement()
                 if (child->isTextNode() || child->nodeType() == Node::CDATA_SECTION_NODE)
                     scriptCode += static_cast<CharacterData*>(child)->data();
             }
-            m_view->frame()->loader()->executeScript(m_doc->url().string(), m_scriptStartLine - 1, scriptCode);
+            m_view->frame()->loader()->executeScript(m_doc->url(), m_scriptStartLine - 1, scriptCode);
         }
         m_requestingScript = false;
     }
@@ -2096,7 +2087,7 @@ void XMLTokenizer::parseDtd()
         setIsXHTMLDocument(true); // controls if we replace entities or not.
     }
     if (!m_parsingFragment)
-        m_doc->addChild(new DocumentType(m_doc, name, publicId, systemId));
+        m_doc->setDocType(new DocumentType(m_doc, name, publicId, systemId));
     
 }
 #endif

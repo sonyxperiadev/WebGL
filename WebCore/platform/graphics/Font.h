@@ -266,7 +266,8 @@ public:
     FontSelector* fontSelector() const;
 #endif
     static bool treatAsSpace(UChar c) { return c == ' ' || c == '\t' || c == '\n' || c == 0x00A0; }
-    static bool treatAsZeroWidthSpace(UChar c) { return c < 0x20 || (c >= 0x7F && c < 0xA0) || c == 0x200e || c == 0x200f || c >= 0x202a && c <= 0x202e; }
+// ANDROID: extra parentheses around expressions to suppress warnings
+    static bool treatAsZeroWidthSpace(UChar c) { return c < 0x20 || (c >= 0x7F && c < 0xA0) || c == 0x200e || c == 0x200f || (c >= 0x202a && c <= 0x202e); }
 private:
     FontDescription m_fontDescription;
 #if !PLATFORM(QT)

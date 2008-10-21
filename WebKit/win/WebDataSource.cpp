@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebDataSource.h"
 
-#include "WebKit.h"
+#include "IWebMutableURLRequest.h"
 #include "MemoryStream.h"
 #include "WebDocumentLoader.h"
 #include "WebError.h"
@@ -245,7 +245,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::unreachableURL(
     /* [retval][out] */ BSTR* url)
 {
     KURL unreachableURL = m_loader->unreachableURL();
-    BString urlString((LPOLESTR)unreachableURL.string().characters(), unreachableURL.string().length());
+    BString urlString((LPOLESTR)unreachableURL.deprecatedString().unicode(), unreachableURL.deprecatedString().length());
 
     *url = urlString.release();
     return S_OK;

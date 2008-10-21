@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +29,15 @@
 #if ENABLE(VIDEO)
 
 #include "HTMLElement.h"
+#include "HTMLNames.h"
 #include <limits>
 
 namespace WebCore {
 
-class KURL;
-
+using namespace HTMLNames;
+    
+class MediaError;
+    
 class HTMLSourceElement : public HTMLElement {
 public:
     HTMLSourceElement(Document*);
@@ -45,7 +48,7 @@ public:
     
     virtual void insertedIntoDocument();
     
-    KURL src() const;
+    String src() const;
     String media() const;
     String type() const;
     void setSrc(const String&);    

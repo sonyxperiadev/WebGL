@@ -83,7 +83,7 @@ FontPlatformData::FontPlatformData(const FontDescription& desc, const AtomicStri
                                 italicToWxFontStyle(desc.italic()),
                                 fontWeightToWxFontWeight(desc.bold()),
                                 false,
-                                family.string()
+                                family.domString()
                             ); 
 #else
     m_font = wxFont(   desc.computedPixelSize(), 
@@ -91,7 +91,7 @@ FontPlatformData::FontPlatformData(const FontDescription& desc, const AtomicStri
                                 italicToWxFontStyle(desc.italic()),
                                 fontWeightToWxFontWeight(desc.bold()),
                                 false,
-                                family.string()
+                                family.domString()
                             ); 
 #endif
     m_fontState = VALID;

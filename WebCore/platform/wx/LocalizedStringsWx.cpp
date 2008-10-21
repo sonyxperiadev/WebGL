@@ -25,8 +25,6 @@
  */
 
 #include "config.h"
-#include "LocalizedStrings.h"
-
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -264,11 +262,6 @@ String contextMenuItemTagInspectElement()
 String unknownFileSizeText() 
 {
     return String("Unknown");
-}
-
-String imageTitle(const String& filename, const IntSize& size)
-{
-    return String();
 }
 
 } // namespace WebCore

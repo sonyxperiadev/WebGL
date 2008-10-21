@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-    class JSRGBColor : public DOMObject {
+    class JSRGBColor : public KJS::DOMObject {
     public:
         JSRGBColor(KJS::JSObject* prototype, unsigned color);
         ~JSRGBColor();

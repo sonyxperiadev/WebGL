@@ -1,9 +1,11 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
  *               1999 Waldo Bastian (bastian@kde.org)
  *               2001 Andreas Schlapbach (schlpbch@iam.unibe.ch)
  *               2001-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2002, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -43,20 +45,27 @@ StyleSheet* StyleBase::stylesheet()
     return static_cast<StyleSheet*>(b);
 }
 
-KURL StyleBase::baseURL() const
+String StyleBase::baseURL()
 {
-    // Try to find the style sheet. If found look for its URL.
-    // If it has none, get the URL from the parent sheet or the parent node.
+    // try to find the style sheet. If found look for its url.
+    // If it has none, look for the parentsheet, or the parentNode and
+    // try to find out about their url
 
-    StyleSheet* sheet = const_cast<StyleBase*>(this)->stylesheet();
+    StyleSheet* sheet = stylesheet();
+
     if (!sheet)
-        return KURL();
+        return String();
+
     if (!sheet->href().isNull())
-        return KURL(sheet->href());
+        return sheet->href();
+
+    // find parent
     if (sheet->parent()) 
         return sheet->parent()->baseURL();
+
     if (!sheet->ownerNode()) 
-        return KURL();
+        return String();
+
     return sheet->ownerNode()->document()->baseURL();
 }
 

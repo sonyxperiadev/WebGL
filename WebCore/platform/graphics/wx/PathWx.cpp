@@ -171,10 +171,4 @@ void Path::apply(void* info, PathApplierFunction function) const
     notImplemented(); 
 }
 
-bool Path::isEmpty() const
-{
-    notImplemented();
-    return false;
-}
-
 }

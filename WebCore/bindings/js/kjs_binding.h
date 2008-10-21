@@ -31,12 +31,10 @@
 #endif
 
 namespace WebCore {
-
     class AtomicString;
     class Document;
     class Event;
     class Frame;
-    class KURL;
     class Node;
     class String;
     class JSNode;
@@ -46,16 +44,21 @@ namespace WebCore {
 #if ENABLE(SVG)
     class SVGElement;
 #endif
+}
 
-    // Base class for all objects in this binding except Window.
-    class DOMObject : public KJS::JSObject {
+namespace KJS {
+
+    /**
+     * Base class for all objects in this binding EXCEPT Window
+     */
+    class DOMObject : public JSObject {
     protected:
-        explicit DOMObject(KJS::JSValue* prototype) // FIXME: this should take a JSObject once JSLocation has a real prototype
+        explicit DOMObject(JSValue* prototype) // FIXME: this should take a JSObject once JSLocation has a real prototype
             : JSObject(prototype)
         {
             // DOMObject destruction is not thread-safe because DOMObjects wrap 
             // unsafe WebCore DOM data structures.
-            KJS::Collector::collectOnMainThreadOnly(this);
+            Collector::collectOnMainThreadOnly(this);
         }
 
 #ifndef NDEBUG
@@ -66,25 +69,27 @@ namespace WebCore {
         DOMObject();
     };
 
-    class ScriptInterpreter : public KJS::Interpreter {
+    class ScriptInterpreter : public Interpreter {
     public:
         static DOMObject* getDOMObject(void* objectHandle);
         static void putDOMObject(void* objectHandle, DOMObject*);
         static void forgetDOMObject(void* objectHandle);
 
-        static JSNode* getDOMNodeForDocument(Document*, Node*);
-        static void putDOMNodeForDocument(Document*, Node*, JSNode* nodeWrapper);
-        static void forgetDOMNodeForDocument(Document*, Node*);
-        static void forgetAllDOMNodesForDocument(Document*);
-        static void updateDOMNodeDocument(Node*, Document* oldDoc, Document* newDoc);
-        static void markDOMNodesForDocument(Document*);
+        static WebCore::JSNode* getDOMNodeForDocument(WebCore::Document*, WebCore::Node*);
+        static void putDOMNodeForDocument(WebCore::Document*, WebCore::Node*, WebCore::JSNode* nodeWrapper);
+        static void forgetDOMNodeForDocument(WebCore::Document*, WebCore::Node*);
+        static void forgetAllDOMNodesForDocument(WebCore::Document*);
+        static void updateDOMNodeDocument(WebCore::Node*, WebCore::Document* oldDoc, WebCore::Document* newDoc);
+        static void markDOMNodesForDocument(WebCore::Document*);
     };
 
-    // Retrieve from cache, or create, a JS wrapper for a DOM object.
-    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline KJS::JSValue* cacheDOMObject(KJS::ExecState* exec, DOMObj* domObj)
+    /**
+     * Retrieve from cache, or create, a JS object around a DOM object
+     */
+    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline JSValue* cacheDOMObject(ExecState* exec, DOMObj* domObj)
     {
         if (!domObj)
-            return KJS::jsNull();
+            return jsNull();
         if (DOMObject* ret = ScriptInterpreter::getDOMObject(domObj))
             return ret;
         DOMObject* ret = new JSDOMObj(JSDOMObjPrototype::self(exec), domObj);
@@ -93,11 +98,13 @@ namespace WebCore {
     }
 
 #if ENABLE(SVG)
-    // Retrieve from cache, or create, a JS wrapper for an SVG DOM object.
-    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline KJS::JSValue* cacheSVGDOMObject(KJS::ExecState* exec, DOMObj* domObj, SVGElement* context)
+    /**
+     * Retrieve from cache, or create, a JS object around a SVG DOM object
+     */
+    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline JSValue* cacheSVGDOMObject(ExecState* exec, DOMObj* domObj, WebCore::SVGElement* context)
     {
         if (!domObj)
-            return KJS::jsNull();
+            return jsNull();
         if (DOMObject* ret = ScriptInterpreter::getDOMObject(domObj))
             return ret;
         DOMObject* ret = new JSDOMObj(JSDOMObjPrototype::self(exec), domObj, context);
@@ -107,36 +114,35 @@ namespace WebCore {
 #endif
 
     // Convert a DOM implementation exception code into a JavaScript exception in the execution state.
-    void setDOMException(KJS::ExecState*, ExceptionCode);
+    void setDOMException(ExecState*, WebCore::ExceptionCode);
 
     // Helper class to call setDOMException on exit without adding lots of separate calls to that function.
     class DOMExceptionTranslator : Noncopyable {
     public:
-        explicit DOMExceptionTranslator(KJS::ExecState* exec) : m_exec(exec), m_code(0) { }
+        explicit DOMExceptionTranslator(ExecState* exec) : m_exec(exec), m_code(0) { }
         ~DOMExceptionTranslator() { setDOMException(m_exec, m_code); }
-        operator ExceptionCode&() { return m_code; }
+        operator WebCore::ExceptionCode&() { return m_code; }
     private:
-        KJS::ExecState* m_exec;
-        ExceptionCode m_code;
+        ExecState* m_exec;
+        WebCore::ExceptionCode m_code;
     };
 
-    KJS::JSValue* jsStringOrNull(const String&); // null if the string is null
-    KJS::JSValue* jsStringOrNull(const KURL&); // null if the URL is null
+    JSValue* jsStringOrNull(const WebCore::String&); // null if the string is null
+    JSValue* jsStringOrUndefined(const WebCore::String&); // undefined if the string is null
+    JSValue* jsStringOrFalse(const WebCore::String&); // boolean false if the string is null
 
-    KJS::JSValue* jsStringOrUndefined(const String&); // undefined if the string is null
-    KJS::JSValue* jsStringOrUndefined(const KURL&); // undefined if the URL is null
+    // see JavaScriptCore for explanation should be used for UString that is already owned
+    // by another object, so that collecting the JSString wrapper is unlikely to save memory.
+    JSValue* jsOwnedStringOrNull(const KJS::UString&); 
 
-    KJS::JSValue* jsStringOrFalse(const String&); // boolean false if the string is null
-    KJS::JSValue* jsStringOrFalse(const KURL&); // boolean false if the URL is null
+    WebCore::String valueToStringWithNullCheck(ExecState*, JSValue*); // null String if the value is null
+    WebCore::String valueToStringWithUndefinedOrNullCheck(ExecState*, JSValue*); // null String if the value is null or undefined
 
-    // See JavaScriptCore for explanation: Should be used for any UString that is already owned by another
-    // object, to let the engine know that collecting the JSString wrapper is unlikely to save memory.
-    KJS::JSValue* jsOwnedStringOrNull(const KJS::UString&); 
+    template <typename T> inline JSValue* toJS(ExecState* exec, PassRefPtr<T> ptr) { return toJS(exec, ptr.get()); }
 
-    String valueToStringWithNullCheck(KJS::ExecState*, KJS::JSValue*); // null String if the value is null
-    String valueToStringWithUndefinedOrNullCheck(KJS::ExecState*, KJS::JSValue*); // null String if the value is null or undefined
+} // namespace KJS
 
-    template <typename T> inline KJS::JSValue* toJS(KJS::ExecState* exec, PassRefPtr<T> ptr) { return toJS(exec, ptr.get()); }
+namespace WebCore {
 
     // Helpers for Window, History, and Location classes to implement cross-domain policy.
     // Besides the cross-domain check, they need non-caching versions of staticFunctionGetter for
@@ -144,6 +150,7 @@ namespace WebCore {
     bool allowsAccessFromFrame(KJS::ExecState*, Frame*);
     bool allowsAccessFromFrame(KJS::ExecState*, Frame*, String& message);
     void printErrorMessageForFrame(Frame*, const String& message);
+
     KJS::JSValue* nonCachingStaticFunctionGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier& propertyName, const KJS::PropertySlot&);
     KJS::JSValue* objectToStringFunctionGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier& propertyName, const KJS::PropertySlot&);
 

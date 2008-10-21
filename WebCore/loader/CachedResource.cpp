@@ -39,6 +39,11 @@ CachedResource::CachedResource(const String& url, Type type, bool forCache, bool
     : m_url(url)
     , m_lastDecodedAccessTime(0)
     , m_sendResourceLoadCallbacks(sendResourceLoadCallbacks)
+#ifdef ANDROID_PRELOAD_CHANGES
+    , m_preloadCount(0)
+    , m_preloadResult(PreloadNotReferenced)
+    , m_requestedFromNetworkingLayer(false)
+#endif
     , m_inCache(forCache)
     , m_docLoader(0)
 {
@@ -101,6 +106,16 @@ void CachedResource::setRequest(Request* request)
 
 void CachedResource::ref(CachedResourceClient *c)
 {
+#ifdef ANDROID_PRELOAD_CHANGES
+    if (m_preloadResult == PreloadNotReferenced) {
+        if (isLoaded())
+            m_preloadResult = PreloadReferencedWhileComplete;
+        else if (m_requestedFromNetworkingLayer)
+            m_preloadResult = PreloadReferencedWhileLoading;
+        else
+            m_preloadResult = PreloadReferenced;
+    }
+#endif
     if (!referenced() && inCache())
         cache()->addToLiveResourcesSize(this);
     m_clients.add(c);

@@ -60,6 +60,7 @@ namespace WebCore {
 
     class SVGPaintServerGradient : public SVGPaintServer {
     public:
+        SVGPaintServerGradient(const SVGGradientElement*);
         virtual ~SVGPaintServerGradient();
 
         const Vector<SVGGradientStop>& gradientStops() const;
@@ -98,9 +99,6 @@ namespace WebCore {
         virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const = 0;
 #endif
 
-    protected:
-        SVGPaintServerGradient(const SVGGradientElement* owner);
-        
     private:
         Vector<SVGGradientStop> m_stops;
         SVGGradientSpreadMethod m_spreadMethod;
@@ -117,13 +115,7 @@ namespace WebCore {
         } QuartzGradientStop;
         
         struct SharedStopCache : public RefCounted<SharedStopCache> {
-        public:
-            static PassRefPtr<SharedStopCache> create() { return adoptRef(new SharedStopCache); }
-            
             Vector<QuartzGradientStop> m_stops;
-        
-        private:
-            SharedStopCache() { }
         };
 
         RefPtr<SharedStopCache> m_stopsCache;

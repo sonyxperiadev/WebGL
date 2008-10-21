@@ -53,6 +53,7 @@
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PlatformKeyboardEvent.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 using namespace EventNames;
@@ -881,6 +882,13 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [attributedString release];
 
     return selectionImage;
+}
+
+- (NSImage *)selectionImageForcingWhiteText:(BOOL)forceWhiteText
+{
+    // NOTE: this method is obsolete and doesn't behave as its name suggests.
+    // See comment in WebDocumentPrivate.h.
+    return [self selectionImageForcingBlackText:forceWhiteText];
 }
 
 - (NSRect)selectionImageRect

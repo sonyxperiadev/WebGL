@@ -43,6 +43,7 @@ class wxString;
 namespace WebCore {
 
 class CString;
+class DeprecatedString;
 struct StringHash;
 
 class String {
@@ -131,25 +132,17 @@ public:
     
     static String format(const char *, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
 
-    void split(const String& separator, Vector<String>& result) const;
-    void split(const String& separator, bool allowEmptyEntries, Vector<String>& result) const;
-    void split(UChar separator, Vector<String>& result) const;
-    void split(UChar separator, bool allowEmptyEntries, Vector<String>& result) const;
-
-    int toIntStrict(bool* ok = 0, int base = 10) const;
-    unsigned toUIntStrict(bool* ok = 0, int base = 10) const;
-    int64_t toInt64Strict(bool* ok = 0, int base = 10) const;
-    uint64_t toUInt64Strict(bool* ok = 0, int base = 10) const;
+    Vector<String> split(const String& separator, bool allowEmptyEntries = false) const;
+    Vector<String> split(UChar separator, bool allowEmptyEntries = false) const;
 
     int toInt(bool* ok = 0) const;
-    unsigned toUInt(bool* ok = 0) const;
     int64_t toInt64(bool* ok = 0) const;
     uint64_t toUInt64(bool* ok = 0) const;
     double toDouble(bool* ok = 0) const;
     float toFloat(bool* ok = 0) const;
     Length* toLengthArray(int& len) const;
     Length* toCoordsArray(int& len) const;
-    bool percentage(int& percentage) const;
+    bool percentage(int &_percentage) const;
 
     // Makes a deep copy. Helpful only if you need to use a String on another thread.
     // Since the underlying StringImpl objects are immutable, there's no other reason
@@ -203,7 +196,10 @@ public:
 
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
     WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
-
+    
+    String(const DeprecatedString&);
+    DeprecatedString deprecatedString() const;
+    
 private:
     RefPtr<StringImpl> m_impl;
 };
@@ -226,30 +222,12 @@ inline bool equalIgnoringCase(const String& a, const String& b) { return equalIg
 inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
 inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
 
+bool operator==(const String& a, const DeprecatedString& b);
+inline bool operator==(const DeprecatedString& b, const String& a) { return a == b; }
+inline bool operator!=(const String& a, const DeprecatedString& b) { return !(a == b); }
+inline bool operator!=(const DeprecatedString& b, const String& a ) { return !(a == b); }
+
 inline bool operator!(const String& str) { return str.isNull(); }
-
-
-// String Operations
-
-bool charactersAreAllASCII(const UChar*, size_t);
-
-int charactersToIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
-unsigned charactersToUIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
-int64_t charactersToInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
-uint64_t charactersToUInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
-
-int charactersToInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
-unsigned charactersToUInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
-int64_t charactersToInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
-uint64_t charactersToUInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
-
-double charactersToDouble(const UChar*, size_t, bool* ok = 0);
-float charactersToFloat(const UChar*, size_t, bool* ok = 0);
-
-int find(const UChar*, size_t, UChar, int startPosition = 0);
-int reverseFind(const UChar*, size_t, UChar, int startPosition = -1);
-
-void append(Vector<UChar>&, const String&);
 
 #ifdef __OBJC__
 // This is for situations in WebKit where the long standing behavior has been
@@ -258,48 +236,7 @@ void append(Vector<UChar>&, const String&);
 inline NSString* nsStringNilIfEmpty(const String& str) {  return str.isEmpty() ? nil : (NSString*)str; }
 #endif
 
-inline bool charactersAreAllASCII(const UChar* characters, size_t length)
-{
-    UChar ored = 0;
-    for (size_t i = 0; i < length; ++i)
-        ored |= characters[i];
-    return !(ored & 0xFF80);
 }
-
-inline int find(const UChar* characters, size_t length, UChar character, int startPosition)
-{
-    if (startPosition >= static_cast<int>(length))
-        return -1;
-    for (size_t i = startPosition; i < length; ++i) {
-        if (characters[i] == character)
-            return static_cast<int>(i);
-    }
-    return -1;
-}
-
-inline int reverseFind(const UChar* characters, size_t length, UChar character, int startPosition)
-{
-    if (startPosition >= static_cast<int>(length) || !length)
-        return -1;
-    if (startPosition < 0)
-        startPosition += static_cast<int>(length);
-    while (true) {
-        if (characters[startPosition] == character)
-            return startPosition;
-        if (!startPosition)
-            return -1;
-        startPosition--;
-    }
-    ASSERT_NOT_REACHED();
-    return -1;
-}
-
-inline void append(Vector<UChar>& vector, const String& string)
-{
-    vector.append(string.characters(), string.length());
-}
-
-} // namespace WebCore
 
 namespace WTF {
 

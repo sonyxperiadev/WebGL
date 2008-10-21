@@ -26,7 +26,8 @@
 #include "config.h"
 #include "SystemTime.h"
 
-#include <CoreGraphics/CGEventSource.h>
+#include "WebCoreSystemInterface.h"
+
 #include <CoreFoundation/CFDate.h>
 
 namespace WebCore {
@@ -38,7 +39,7 @@ double currentTime()
 
 float userIdleTime()
 {
-    return static_cast<float>(CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType));
+    return wkSecondsSinceLastInputEvent();
 }
 
 }

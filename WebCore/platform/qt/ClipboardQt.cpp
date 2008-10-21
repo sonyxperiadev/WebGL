@@ -30,6 +30,7 @@
 
 #include "CachedImage.h"
 #include "CSSHelper.h"
+#include "DeprecatedString.h"
 #include "Document.h"
 #include "Element.h"
 #include "Frame.h"
@@ -240,12 +241,12 @@ void ClipboardQt::declareAndWriteDragImage(Element* element, const KURL& url, co
     if (imageURL.isEmpty()) 
         return;
 
-    KURL fullURL = frame->document()->completeURL(parseURL(imageURL));
+    String fullURL = frame->document()->completeURL(parseURL(imageURL));
     if (fullURL.isEmpty()) 
         return;
 
     QList<QUrl> urls;
-    urls.append(fullURL);
+    urls.append(QUrl(fullURL));
 
     m_writableData->setUrls(urls);
     if (!isForDragging())
@@ -257,7 +258,7 @@ void ClipboardQt::writeURL(const KURL& url, const String&, Frame* frame)
     ASSERT(frame);
     
     QList<QUrl> urls;
-    urls.append(frame->document()->completeURL(url.string()));
+    urls.append(QUrl(frame->document()->completeURL(url.deprecatedString())));
     if (!m_writableData)
         m_writableData = new QMimeData;
     m_writableData->setUrls(urls);

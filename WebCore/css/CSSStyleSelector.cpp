@@ -67,7 +67,6 @@
 #include "UserAgentStyleSheets.h"
 #include "XMLNames.h"
 #include "loader.h"
-#include <wtf/Vector.h>
 
 #if ENABLE(SVG)
 #include "XLinkNames.h"
@@ -232,7 +231,7 @@ CSSStyleSheet* CSSStyleSelector::m_viewSourceSheet = 0;
 CSSStyleSheet *CSSStyleSelector::m_svgSheet = 0;
 #endif
 
-static CSSStyleSelector::EncodedURL* currentEncodedURL = 0;
+static CSSStyleSelector::Encodedurl *currentEncodedURL = 0;
 static PseudoState pseudoState;
 
 static const MediaQueryEvaluator& screenEval()
@@ -281,7 +280,7 @@ CSSStyleSelector::CSSStyleSelector(Document* doc, const String& userStyleSheet, 
 
     if (m_rootDefaultStyle && view) {
         delete m_medium;
-        m_medium = new MediaQueryEvaluator(view->mediaType(), view->frame(), m_rootDefaultStyle);
+        m_medium = new MediaQueryEvaluator(view->mediaType(), view->frame()->page(), m_rootDefaultStyle);
     }
 
     // FIXME: This sucks! The user sheet is reparsed every time!
@@ -320,17 +319,17 @@ void CSSStyleSelector::setEncodedURL(const KURL& url)
 {
     KURL u = url;
 
-    u.setQuery(String());
-    u.setRef(String());
-    m_encodedURL.file = u.string();
-    int pos = m_encodedURL.file.reverseFind('/');
+    u.setQuery(DeprecatedString::null);
+    u.setRef(DeprecatedString::null);
+    m_encodedURL.file = u.deprecatedString();
+    int pos = m_encodedURL.file.findRev('/');
     m_encodedURL.path = m_encodedURL.file;
     if (pos > 0) {
         m_encodedURL.path.truncate(pos);
-        m_encodedURL.path.append('/');
+        m_encodedURL.path += '/';
     }
-    u.setPath(String());
-    m_encodedURL.prefix = u.string();
+    u.setPath(DeprecatedString::null);
+    m_encodedURL.host = u.deprecatedString();
 }
 
 CSSStyleSelector::~CSSStyleSelector()
@@ -568,54 +567,66 @@ void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* defaultParen
     m_fontDirty = false;
 }
 
-static inline int findSlashDotDotSlash(const UChar* characters, size_t length)
+static int findHash(const DeprecatedString& string)
 {
+    const ::UChar* ptr = reinterpret_cast<const ::UChar*>(string.unicode());
+    unsigned length = string.length();
+    for (unsigned i = 0; i < length; ++i) {
+        if (ptr[i] == '#')
+            return i;
+    }
+    return -1;
+}
+
+static inline int findSlashDotDotSlash(const DeprecatedString& string)
+{
+    const ::UChar* ptr = reinterpret_cast<const ::UChar*>(string.unicode());
+    unsigned length = string.length();
     unsigned loopLimit = length < 4 ? 0 : length - 3;
     for (unsigned i = 0; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '.' && characters[i + 2] == '.' && characters[i + 3] == '/')
+        if (ptr[i] == '/' && ptr[i + 1] == '.' && ptr[i + 2] == '.' && ptr[i + 3] == '/')
             return i;
     }
     return -1;
 }
 
-static inline int findSlashSlash(const UChar* characters, size_t length, int position)
+static inline int findSlashSlash(const DeprecatedString& string, int position)
 {
+    const ::UChar* ptr = reinterpret_cast<const ::UChar*>(string.unicode());
+    unsigned length = string.length();
     unsigned loopLimit = length < 2 ? 0 : length - 1;
     for (unsigned i = position; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '/')
+        if (ptr[i] == '/' && ptr[i + 1] == '/')
             return i;
     }
     return -1;
 }
 
-static inline int findSlashDotSlash(const UChar* characters, size_t length)
+static inline int findSlashDotSlash(const DeprecatedString& string)
 {
+    const ::UChar* ptr = reinterpret_cast<const ::UChar*>(string.unicode());
+    unsigned length = string.length();
     unsigned loopLimit = length < 3 ? 0 : length - 2;
     for (unsigned i = 0; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '.' && characters[i + 2] == '/')
+        if (ptr[i] == '/' && ptr[i + 1] == '.' && ptr[i + 2] == '/')
             return i;
     }
     return -1;
 }
 
-static inline bool containsColonSlashSlash(const UChar* characters, unsigned length)
-{
-    unsigned loopLimit = length < 3 ? 0 : length - 2;
-    for (unsigned i = 0; i < loopLimit; ++i)
-        if (characters[i] == ':' && characters[i + 1] == '/' && characters[i + 2] == '/')
-            return true;
-    return false;
-}
-
-static void cleanPath(Vector<UChar, 512>& path)
+static void cleanpath(DeprecatedString& path)
 {
     int pos;
-    while ((pos = findSlashDotDotSlash(path.data(), path.size())) != -1) {
-        int prev = reverseFind(path.data(), path.size(), '/', pos - 1);
+
+    while ((pos = findSlashDotDotSlash(path)) != -1) {
+        int prev = 0;
+        if (pos > 0)
+            prev = path.findRev("/", pos - 1);
         // don't remove the host, i.e. http://foo.org/../foo.html
-        if (prev < 0 || (prev > 3 && path[prev - 2] == ':' && path[prev - 1] == '/'))
+        if (prev < 0 || (prev > 3 && path.findRev("://", prev - 1) == prev - 2))
             path.remove(pos, 3);
         else
+            // matching directory found ?
             path.remove(prev, pos - prev + 3);
     }
 
@@ -625,21 +636,30 @@ static void cleanPath(Vector<UChar, 512>& path)
     // in the vast majority of cases where there is no "//" in the path.
     pos = 0;
     int refPos = -2;
-    while ((pos = findSlashSlash(path.data(), path.size(), pos)) != -1) {
+    while ((pos = findSlashSlash(path, pos)) != -1) {
         if (refPos == -2)
-            refPos = find(path.data(), path.size(), '#');
+            refPos = findHash(path);
         if (refPos > 0 && pos >= refPos)
             break;
-
+        
         if (pos == 0 || path[pos - 1] != ':')
-            path.remove(pos);
+            path.remove(pos, 1);
         else
             pos += 2;
     }
 
     // FIXME: We don't want to remove "/./" from an anchor identifier either.
-    while ((pos = findSlashDotSlash(path.data(), path.size())) != -1)
+    while ((pos = findSlashDotSlash(path)) != -1)
         path.remove(pos, 2);
+}
+
+static inline bool containsColonSlashSlash(const UChar* characters, unsigned length)
+{
+    unsigned loopLimit = length < 3 ? 0 : length - 2;
+    for (unsigned i = 0; i < loopLimit; ++i)
+        if (characters[i] == ':' && characters[i + 1] == '/' && characters[i + 2] == '/')
+            return true;
+    return false;
 }
 
 static void checkPseudoState(Element *e, bool checkVisited = true)
@@ -680,17 +700,17 @@ static void checkPseudoState(Element *e, bool checkVisited = true)
         return;
     }
 
-    Vector<UChar, 512> buffer;
-    if (length && characters[0] == '/') {
-        buffer.append(currentEncodedURL->prefix.characters(), currentEncodedURL->prefix.length());
-    } else if (length && characters[0] == '#') {
-        buffer.append(currentEncodedURL->file.characters(), currentEncodedURL->file.length());
-    } else {
-        buffer.append(currentEncodedURL->path.characters(), currentEncodedURL->path.length());
-    }
-    buffer.append(characters, length);
-    cleanPath(buffer);
-    pseudoState = historyContains(buffer.data(), buffer.size()) ? PseudoVisited : PseudoLink;
+    DeprecatedConstString cu(reinterpret_cast<const DeprecatedChar*>(characters), length);
+    DeprecatedString u = cu.string();
+    if (length && characters[0] == '/')
+        u.prepend(currentEncodedURL->host);
+    else if (length && characters[0] == '#')
+        u.prepend(currentEncodedURL->file);
+    else
+        u.prepend(currentEncodedURL->path);
+    cleanpath(u);
+    pseudoState = historyContains(reinterpret_cast<const UChar*>(u.unicode()), u.length())
+        ? PseudoVisited : PseudoLink;
 }
 
 // a helper function for parsing nth-arguments
@@ -1426,11 +1446,6 @@ CSSStyleSelector::SelectorMatch CSSStyleSelector::checkSelector(CSSSelector* sel
         }
         case CSSSelector::DirectAdjacent:
         {
-            if (!m_collectRulesOnly && e->parentNode() && e->parentNode()->isElementNode()) {
-                RenderStyle* parentStyle = (m_element == e) ? m_parentStyle : e->parentNode()->renderStyle();
-                if (parentStyle)
-                    parentStyle->setChildrenAffectedByDirectAdjacentRules();
-            }
             Node* n = e->previousSibling();
             while (n && !n->isElementNode())
                 n = n->previousSibling();
@@ -2204,7 +2219,7 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
 
     // No media implies "all", but if a media list exists it must
     // contain our current medium
-    if (sheet->media() && !medium.eval(sheet->media(), styleSelector))
+    if (sheet->media() && !medium.eval(sheet->media()))
         return; // the style sheet doesn't apply
 
     int len = sheet->length();
@@ -2218,14 +2233,14 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
         }
         else if (item->isImportRule()) {
             CSSImportRule* import = static_cast<CSSImportRule*>(item);
-            if (!import->media() || medium.eval(import->media(), styleSelector))
+            if (!import->media() || medium.eval(import->media()))
                 addRulesFromSheet(import->styleSheet(), medium, styleSelector);
         }
         else if (item->isMediaRule()) {
             CSSMediaRule* r = static_cast<CSSMediaRule*>(item);
             CSSRuleList* rules = r->cssRules();
 
-            if ((!r->media() || medium.eval(r->media(), styleSelector)) && rules) {
+            if ((!r->media() || medium.eval(r->media())) && rules) {
                 // Traverse child elements of the @media rule.
                 for (unsigned j = 0; j < rules->length(); j++) {
                     CSSRule *childItem = rules->item(j);
@@ -2753,10 +2768,15 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 primitiveValue = static_cast<CSSPrimitiveValue*>(item);
                 int type = primitiveValue->primitiveType();
                 if (type == CSSPrimitiveValue::CSS_URI) {
-                    CSSCursorImageValue* image = static_cast<CSSCursorImageValue*>(primitiveValue);
-                    if (image->updateIfSVGCursorIsUsed(m_element)) // Elements with SVG cursors are not allowed to share style.
-                        m_style->setUnique();
-                    m_style->addCursor(image->image(m_element->document()->docLoader()), image->hotspot());
+#if ENABLE(SVG)
+                    if (primitiveValue->getStringValue().find("#") == 0)
+                        m_style->addSVGCursor(primitiveValue->getStringValue().substring(1));
+                    else
+#endif
+                    {
+                        CSSCursorImageValue* image = static_cast<CSSCursorImageValue*>(primitiveValue);
+                        m_style->addCursor(image->image(m_element->document()->docLoader()), image->hotspot());
+                    }
                 } else if (type == CSSPrimitiveValue::CSS_IDENT)
                     m_style->setCursor(*primitiveValue);
             }
@@ -3562,7 +3582,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             AtomicString face;
             Settings* settings = m_document->settings();
             if (val->primitiveType() == CSSPrimitiveValue::CSS_STRING)
-                face = static_cast<FontFamilyValue*>(val)->familyName();
+                face = static_cast<FontFamilyValue*>(val)->fontName();
             else if (val->primitiveType() == CSSPrimitiveValue::CSS_IDENT && settings) {
                 switch (val->getIdent()) {
                     case CSS_VAL__WEBKIT_BODY:
@@ -4643,6 +4663,17 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSS_PROP__WEBKIT_TEXT_DECORATIONS_IN_EFFECT:
     case CSS_PROP__WEBKIT_TEXT_STROKE:
         return;
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    case CSS_PROP__WEBKIT_TAP_HIGHLIGHT_COLOR: {
+        HANDLE_INHERIT_AND_INITIAL(tapHighlightColor, TapHighlightColor);
+        if (!primitiveValue)
+            break;
+            
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setTapHighlightColor(col);
+        return;
+    }
+#endif
 #if ENABLE(SVG)
     default:
         // Try the SVG properties
@@ -5115,15 +5146,44 @@ static const ColorValue colorValues[] = {
     { CSS_VAL_YELLOW, 0xFFFFFF00 },
     { CSS_VAL_TRANSPARENT, 0x00000000 },
     { CSS_VAL_GREY, 0xFF808080 },
+    { CSS_VAL_ACTIVEBORDER, 0xFFFFFFFF },
+    { CSS_VAL_ACTIVECAPTION, 0xFFCCCCCC },
+    { CSS_VAL_APPWORKSPACE, 0xFFFFFFFF },
+    { CSS_VAL_BUTTONFACE, 0xFFC0C0C0 },
+    { CSS_VAL_BUTTONHIGHLIGHT, 0xFFDDDDDD },
+    { CSS_VAL_BUTTONSHADOW, 0xFF888888 },
+    { CSS_VAL_BUTTONTEXT, 0xFF000000 },
+    { CSS_VAL_CAPTIONTEXT, 0xFF000000 },
+    { CSS_VAL_GRAYTEXT, 0xFF808080 },
+    { CSS_VAL_HIGHLIGHT, 0xFFB5D5FF },
+    { CSS_VAL_HIGHLIGHTTEXT, 0xFF000000 },
+    { CSS_VAL_INACTIVEBORDER, 0xFFFFFFFF },
+    { CSS_VAL_INACTIVECAPTION, 0xFFFFFFFF },
+    { CSS_VAL_INACTIVECAPTIONTEXT, 0xFF7F7F7F },
+    { CSS_VAL_INFOBACKGROUND, 0xFFFBFCC5 },
+    { CSS_VAL_INFOTEXT, 0xFF000000 },
+    { CSS_VAL_MENU, 0xFFC0C0C0 },
+    { CSS_VAL_MENUTEXT, 0xFF000000 },
+    { CSS_VAL_SCROLLBAR, 0xFFFFFFFF },
+    { CSS_VAL_TEXT, 0xFF000000 },
+    { CSS_VAL_THREEDDARKSHADOW, 0xFF666666 },
+    { CSS_VAL_THREEDFACE, 0xFFC0C0C0 },
+    { CSS_VAL_THREEDHIGHLIGHT, 0xFFDDDDDD },
+    { CSS_VAL_THREEDLIGHTSHADOW, 0xFFC0C0C0 },
+    { CSS_VAL_THREEDSHADOW, 0xFF888888 },
+    { CSS_VAL_WINDOW, 0xFFFFFFFF },
+    { CSS_VAL_WINDOWFRAME, 0xFFCCCCCC },
+    { CSS_VAL_WINDOWTEXT, 0xFF000000 },
     { 0, 0 }
 };
 
 static Color colorForCSSValue(int cssValueId)
 {
-    for (const ColorValue* col = colorValues; col->cssValueId; ++col)
+    for (const ColorValue* col = colorValues; col->cssValueId; ++col) {
         if (col->cssValueId == cssValueId)
             return col->color;
-    return theme()->systemColor(cssValueId);
+    }
+    return Color();
 }
 
 Color CSSStyleSelector::getColorFromPrimitiveValue(CSSPrimitiveValue* primitiveValue)
@@ -5157,21 +5217,6 @@ Color CSSStyleSelector::getColorFromPrimitiveValue(CSSPrimitiveValue* primitiveV
 bool CSSStyleSelector::hasSelectorForAttribute(const AtomicString &attrname)
 {
     return m_selectorAttrs.contains(attrname.impl());
-}
-
-void CSSStyleSelector::addViewportDependentMediaQueryResult(const MediaQueryExp* expr, bool result)
-{
-    m_viewportDependentMediaQueryResults.append(new MediaQueryResult(*expr, result));
-}
-
-bool CSSStyleSelector::affectedByViewportChange() const
-{
-    unsigned s = m_viewportDependentMediaQueryResults.size();
-    for (unsigned i = 0; i < s; i++) {
-        if (m_medium->eval(&m_viewportDependentMediaQueryResults[i]->m_expression) != m_viewportDependentMediaQueryResults[i]->m_result)
-            return true;
-    }
-    return false;
 }
 
 } // namespace WebCore

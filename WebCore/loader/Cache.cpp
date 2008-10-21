@@ -35,7 +35,6 @@
 #include "Image.h"
 #include "ResourceHandle.h"
 #include "SystemTime.h"
-#include <stdio.h>
 
 using namespace std;
 
@@ -89,7 +88,11 @@ static CachedResource* createResource(CachedResource::Type type, DocLoader* docL
     return 0;
 }
 
+#ifdef ANDROID_PRELOAD_CHANGES
+CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks, bool isPreload)
+#else
 CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks)
+#endif
 {
     // FIXME: Do we really need to special-case an empty URL?
     // Would it be better to just go on with the cache code and let it fail later?
@@ -100,17 +103,28 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
     CachedResource* resource = m_resources.get(url.string());
 
     if (resource) {
+#ifdef ANDROID_PRELOAD_CHANGES
+        if (isPreload && !resource->isPreloaded())
+            return 0;
+#endif
         if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(*resource, docLoader->doc())) {
             Document* doc = docLoader->doc();
+#ifdef ANDROID_PRELOAD_CHANGES
+            if(doc && !isPreload)
+#else
             if(doc)
+#endif
                 FrameLoader::reportLocalLoadFailed(doc->page(), resource->url());
-
             return 0;
         }
     } else {
         if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, docLoader->doc())) {
             Document* doc = docLoader->doc();
+#ifdef ANDROID_PRELOAD_CHANGES            
+            if(doc && !isPreload)
+#else
             if(doc)
+#endif
                 FrameLoader::reportLocalLoadFailed(doc->page(), url.string());
 
             return 0;
@@ -229,7 +243,11 @@ void Cache::pruneDeadResources()
         // First flush all the decoded data in this queue.
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
+#ifdef ANDROID_PRELOAD_CHANGES 
+            if (!current->referenced() && !current->isPreloaded() && current->isLoaded() && current->decodedSize()) {
+#else
             if (!current->referenced() && current->isLoaded() && current->decodedSize()) {
+#endif
                 // Destroy our decoded data. This will remove us from 
                 // m_liveDecodedResources, and possibly move us to a differnt 
                 // LRU list in m_allResources.
@@ -245,7 +263,11 @@ void Cache::pruneDeadResources()
         current = m_allResources[i].m_tail;
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
+#ifdef ANDROID_PRELOAD_CHANGES 
+            if (!current->referenced() && !current->isPreloaded()) {
+#else
             if (!current->referenced()) {
+#endif
                 remove(current);
 
                 if (m_deadSize <= targetSize)
@@ -253,7 +275,6 @@ void Cache::pruneDeadResources()
             }
             current = prev;
         }
-            
         // Shrink the vector back down so we don't waste time inspecting
         // empty LRU lists on future prunes.
         if (m_allResources[i].m_head)

@@ -87,7 +87,7 @@ public:
     virtual bool removeChild(Node* child, ExceptionCode&);
     virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&);
     virtual bool removeChildren();
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false);
 
     virtual void parseMappedAttribute(MappedAttribute*);
 
@@ -141,8 +141,18 @@ private:
     void recalcListItems(bool updateSelectedStates = true) const;
     void checkListItems() const;
 
+#ifdef ANDROID_DESELECT_SELECT
+public:
+#endif
     void deselectItems(HTMLOptionElement* excludeElement = 0);
+#ifdef ANDROID_DESELECT_SELECT
+private:
+#endif
+#ifdef ANDROID_LISTBOX_USES_MENU_LIST
+    bool usesMenuList() const { return true; }
+#else
     bool usesMenuList() const { return !m_multiple && m_size <= 1; }
+#endif
     int nextSelectableListIndex(int startIndex);
     int previousSelectableListIndex(int startIndex);
     void menuListDefaultEventHandler(Event*);

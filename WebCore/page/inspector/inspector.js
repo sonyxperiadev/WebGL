@@ -927,15 +927,15 @@ WebInspector.performSearch = function(query)
         selection.addRange(element.representedObject.range);
 
         WebInspector.navigateToPanel(element.representedObject.panel, "source");
-        element.representedObject.line.scrollIntoViewIfNeeded(true);
-        element.listItemElement.scrollIntoViewIfNeeded(false);
+        element.representedObject.line.scrollIntoView(true);
+        resultsContainer.scrollToElement(element.listItemElement);
     }
 
     var domResultSelected = function(element)
     {
         WebInspector.navigateToPanel(element.representedObject.panel, "dom");
         element.representedObject.panel.focusedDOMNode = element.representedObject.node;
-        element.listItemElement.scrollIntoViewIfNeeded(false);
+        resultsContainer.scrollToElement(element.listItemElement);
     }
 
     for (var i = 0; i < files.length; ++i) {

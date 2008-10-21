@@ -27,6 +27,16 @@
 #ifndef PluginView_H
 #define PluginView_H
 
+#ifdef ANDROID_PLUGINS
+
+#include "PluginViewAndroid.h"
+
+namespace WebCore {
+    typedef PluginViewAndroid PluginView;
+}
+
+#else // !defined(ANDROID_PLUGINS)
+
 #include <winsock2.h>
 #include <windows.h>
 
@@ -35,6 +45,7 @@
 #include "KURL.h"
 #include "PlatformString.h"
 #include "PluginStream.h"
+#include "PluginQuirkSet.h"
 #include "ResourceRequest.h"
 #include "Timer.h"
 #include "Widget.h"
@@ -75,7 +86,7 @@ namespace WebCore {
     friend static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
 
     public:
-        static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+        PluginView(Frame* parentFrame, const IntSize&, PluginPackage* plugin, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
@@ -137,8 +148,6 @@ namespace WebCore {
         static bool isCallingPlugin();
 
     private:
-        PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
-
         void setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues);
         void init();
         bool start();
@@ -170,6 +179,7 @@ namespace WebCore {
         OwnPtr<PluginMessageThrottlerWin> m_messageThrottler;
 
         void updateWindow() const;
+        void determineQuirks(const String& mimeType);
         void paintMissingPluginIcon(GraphicsContext*, const IntRect&);
 
         void handleKeyboardEvent(KeyboardEvent*);
@@ -192,6 +202,7 @@ namespace WebCore {
         HashSet<RefPtr<PluginStream> > m_streams;
         Vector<PluginRequest*> m_requests;
 
+        PluginQuirkSet m_quirks;
         bool m_isWindowed;
         bool m_isTransparent;
         bool m_isVisible;
@@ -213,5 +224,7 @@ namespace WebCore {
     };
 
 } // namespace WebCore
+
+#endif // !defined(ANDROID_PLUGINS)
 
 #endif 

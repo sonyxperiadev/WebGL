@@ -26,6 +26,7 @@
 
 #include "AtomicString.h"
 
+#include "DeprecatedString.h"
 #include "StaticConstructors.h"
 #include "StringHash.h"
 #include <kjs/identifier.h>
@@ -73,16 +74,13 @@ bool operator==(const AtomicString& a, const char* b)
     return CStringTranslator::equal(impl, b); 
 }
 
-PassRefPtr<StringImpl> AtomicString::add(const char* c)
+StringImpl* AtomicString::add(const char* c)
 {
     if (!c)
         return 0;
     if (!*c)
         return StringImpl::empty();    
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable->add<const char*, CStringTranslator>(c);
-    if (!addResult.second)
-        return *addResult.first;
-    return adoptRef(*addResult.first);
+    return *stringTable->add<const char*, CStringTranslator>(c).first;
 }
 
 struct UCharBuffer {
@@ -137,7 +135,7 @@ struct UCharBufferTranslator {
     }
 };
 
-PassRefPtr<StringImpl> AtomicString::add(const UChar* s, int length)
+StringImpl* AtomicString::add(const UChar* s, int length)
 {
     if (!s)
         return 0;
@@ -145,14 +143,11 @@ PassRefPtr<StringImpl> AtomicString::add(const UChar* s, int length)
     if (length == 0)
         return StringImpl::empty();
     
-    UCharBuffer buf = { s, length }; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable->add<UCharBuffer, UCharBufferTranslator>(buf);
-    if (!addResult.second)
-        return *addResult.first;
-    return adoptRef(*addResult.first);
+    UCharBuffer buf = {s, length}; 
+    return *stringTable->add<UCharBuffer, UCharBufferTranslator>(buf).first;
 }
 
-PassRefPtr<StringImpl> AtomicString::add(const UChar* s)
+StringImpl* AtomicString::add(const UChar* s)
 {
     if (!s)
         return 0;
@@ -165,13 +160,10 @@ PassRefPtr<StringImpl> AtomicString::add(const UChar* s)
         return StringImpl::empty();
 
     UCharBuffer buf = {s, length}; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable->add<UCharBuffer, UCharBufferTranslator>(buf);
-    if (!addResult.second)
-        return *addResult.first;
-    return adoptRef(*addResult.first);
+    return *stringTable->add<UCharBuffer, UCharBufferTranslator>(buf).first;
 }
 
-PassRefPtr<StringImpl> AtomicString::add(StringImpl* r)
+StringImpl* AtomicString::add(StringImpl* r)
 {
     if (!r || r->m_inTable)
         return r;
@@ -190,12 +182,12 @@ void AtomicString::remove(StringImpl* r)
     stringTable->remove(r);
 }
 
-PassRefPtr<StringImpl> AtomicString::add(const KJS::Identifier& str)
+StringImpl* AtomicString::add(const KJS::Identifier& str)
 {
     return add(reinterpret_cast<const UChar*>(str.data()), str.size());
 }
 
-PassRefPtr<StringImpl> AtomicString::add(const KJS::UString& str)
+StringImpl* AtomicString::add(const KJS::UString& str)
 {
     return add(reinterpret_cast<const UChar*>(str.data()), str.size());
 }
@@ -208,6 +200,16 @@ AtomicString::operator Identifier() const
 AtomicString::operator UString() const
 {
     return m_string;
+}
+
+AtomicString::AtomicString(const DeprecatedString& s)
+    : m_string(add(reinterpret_cast<const UChar*>(s.unicode()), s.length()))
+{
+}
+
+DeprecatedString AtomicString::deprecatedString() const
+{
+    return m_string.deprecatedString();
 }
 
 DEFINE_GLOBAL(AtomicString, nullAtom)

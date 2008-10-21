@@ -32,9 +32,41 @@
 #include "c_instance.h"
 #include "c_utility.h"
 #include "npruntime_impl.h"
+#include "object.h"
 
 namespace KJS {
 namespace Bindings {
+
+/*
+ * When throwing an exception, we need to use the current ExecState.
+ * The following two methods implement a similar solution to the
+ * Objective-C implementation, where _NPN_SetException set a global
+ * exception (using SetGlobalException).
+ * We then test (using MoveGlobalExceptionToExecState) if the exception
+ * is set, after each javascript call that might result in an exception.
+ * If the exception is set we throw it with the passed ExecState.
+ */
+
+static UString* globalLastException = 0;
+
+void SetGlobalException(const NPUTF8* exception)
+{
+    if (globalLastException != 0) {
+        delete globalLastException;
+        globalLastException = 0;
+    }
+    if (exception != 0)
+        globalLastException = new UString(exception);
+}
+
+void MoveGlobalExceptionToExecState(ExecState* exec)
+{
+    if (!globalLastException)
+        return;
+    JSLock lock;
+    throwError(exec, GeneralError, *globalLastException);
+    SetGlobalException(0);
+}
 
 // ---------------------- CMethod ----------------------
 
@@ -60,11 +92,13 @@ JSValue* CField::valueFromInstance(ExecState* exec, const Instance* inst) const
         NPVariant property;
         VOID_TO_NPVARIANT(property);
 
+        SetGlobalException(0);
         bool result;
         {
            JSLock::DropAllLocks dropAllLocks;
             result = obj->_class->getProperty(obj, _fieldIdentifier, &property);
         }
+        MoveGlobalExceptionToExecState(exec);
         if (result) {
             JSValue* result = convertNPVariantToValue(exec, &property, instance->rootObject());
             _NPN_ReleaseVariantValue(&property);
@@ -82,12 +116,15 @@ void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValue *
         NPVariant variant;
         convertValueToNPVariant(exec, aValue, &variant);
 
+        SetGlobalException(0);
+
         {
            JSLock::DropAllLocks dropAllLocks;
             obj->_class->setProperty(obj, _fieldIdentifier, &variant);
         }
 
         _NPN_ReleaseVariantValue(&variant);
+        MoveGlobalExceptionToExecState(exec);
     }
 }
 

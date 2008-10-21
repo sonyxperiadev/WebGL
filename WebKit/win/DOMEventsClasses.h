@@ -26,7 +26,7 @@
 #ifndef DOMEventsClasses_H
 #define DOMEventsClasses_H
 
-#include "WebKit.h"
+#include "DOMEvents.h"
 #include "DOMCoreClasses.h"
 
 #include <wtf/PassRefPtr.h>

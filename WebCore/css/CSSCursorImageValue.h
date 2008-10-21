@@ -1,7 +1,7 @@
 /*
  * This file is part of the DOM implementation for KDE.
  *
- * Copyright (C) 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2006, Rob Buis <buis@kde.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,12 +25,7 @@
 #include "CSSImageValue.h"
 #include "IntPoint.h"
 
-#include <wtf/HashSet.h>
-
 namespace WebCore {
-
-class Element;
-class SVGElement;
 
 class CSSCursorImageValue : public CSSImageValue {
 public:
@@ -39,15 +34,8 @@ public:
 
     IntPoint hotspot() const { return m_hotspot; }
 
-    bool updateIfSVGCursorIsUsed(Element*);
-    virtual CachedImage* image(DocLoader*);
-
-private:
+protected:
     IntPoint m_hotspot;
-
-#if ENABLE(SVG)
-    HashSet<SVGElement*> m_referencedElements;
-#endif
 };
 
 } // namespace WebCore

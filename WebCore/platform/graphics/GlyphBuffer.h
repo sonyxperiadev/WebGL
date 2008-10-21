@@ -53,6 +53,9 @@ typedef FloatSize GlyphBufferAdvance;
 #elif PLATFORM(WX)
 typedef Glyph GlyphBufferGlyph;
 typedef FloatSize GlyphBufferAdvance;
+#elif PLATFORM(SGL)
+typedef Glyph GlyphBufferGlyph;
+typedef FloatSize GlyphBufferAdvance;
 #elif PLATFORM(QT)
 typedef unsigned short GlyphBufferGlyph;
 typedef FloatSize GlyphBufferAdvance;
@@ -60,6 +63,10 @@ typedef FloatSize GlyphBufferAdvance;
 
 class GlyphBuffer {
 public:
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    GlyphBuffer() : m_hasAdjustedWidths(true) {}
+#endif
+
     bool isEmpty() const { return m_fontData.isEmpty(); }
     int size() const { return m_fontData.size(); }
     
@@ -103,7 +110,7 @@ public:
 
     Glyph glyphAt(int index) const
     {
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(WX)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(WX) || PLATFORM(SGL)
         return m_glyphs[index];
 #elif PLATFORM(CAIRO)
         return m_glyphs[index].index;
@@ -114,7 +121,7 @@ public:
     {
 #if PLATFORM(CG)
         return m_advances[index].width;
-#elif PLATFORM(CAIRO) || PLATFORM(QT) || PLATFORM(WX)
+#elif PLATFORM(CAIRO) || PLATFORM(QT) || PLATFORM(WX) || PLATFORM(SGL)
         return m_advances[index].width();
 #endif
     }
@@ -142,7 +149,7 @@ public:
         cairoGlyph.index = glyph;
         m_glyphs.append(cairoGlyph);
         m_advances.append(FloatSize(width, 0));
-#elif PLATFORM(QT) || PLATFORM(WX)
+#elif PLATFORM(QT) || PLATFORM(WX) || PLATFORM(SGL)
         m_glyphs.append(glyph);
         m_advances.append(FloatSize(width, 0));
 #endif
@@ -154,12 +161,30 @@ public:
 #endif
     }
     
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    void setHasAdjustedWidths(bool adjustedWidths) {
+        m_hasAdjustedWidths = adjustedWidths;
+    }
+    /** Returns true in the general case, which means that one or more of the
+        glyphs may have a width or height that has been changed from the raw
+        value returned by the font. If this returns false, then the drawing
+        code can use that as a hint if it means it can draw the run faster.
+    */
+    bool hasAdjustedWidths() const { return m_hasAdjustedWidths; }
+#endif
+
 private:
     Vector<const SimpleFontData*, 2048> m_fontData;
     Vector<GlyphBufferGlyph, 2048> m_glyphs;
     Vector<GlyphBufferAdvance, 2048> m_advances;
 #if PLATFORM(WIN)
     Vector<FloatSize, 2048> m_offsets;
+#endif
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    // defaults to true for general case. Set to false sometimes in
+    // drawSimpleText as a hint to drawGlphs that the widths are exactly those
+    // from the font (i.e. no tweaks for rounding or CSS styling
+    bool m_hasAdjustedWidths;
 #endif
 };
 

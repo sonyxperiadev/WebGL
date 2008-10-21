@@ -30,6 +30,13 @@
 #include "HTMLTableCellElement.h"
 #include "RenderTableCol.h"
 #include "RenderView.h"
+#include "TextStream.h"
+
+#ifdef ANDROID_LAYOUT
+#include "Document.h"
+#include "Settings.h"
+#include "WebCoreViewBridge.h"
+#endif
 
 using namespace std;
 
@@ -121,6 +128,15 @@ void RenderTableCell::calcPrefWidths()
 
 void RenderTableCell::calcWidth()
 {
+#ifdef ANDROID_LAYOUT
+    if (view()->frameView()) {
+        const Settings* settings = document()->settings();
+        ASSERT(settings);
+        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+            m_visibleWidth = view()->frameView()->getWebCoreViewBridge()->screenWidth();
+        }
+    }
+#endif
 }
 
 void RenderTableCell::setWidth(int width)
@@ -729,8 +745,21 @@ static int compareBorderStylesForQSort(const void* pa, const void* pb)
     if (*a == *b)
         return 0;
     CollapsedBorderValue borderWithHigherPrecedence = compareBorders(*a, *b);
+#ifdef ANDROID_FIX
+    if (*a == borderWithHigherPrecedence) {
+        // klibc uses a combsort for quicksort and requires that two values always give the same answer
+        // regardless of comparison order. Unfortunately, compareBorders does not honor that requirement.
+        // Call compareBorders again with reversed parameters. If it returns the first value again then
+        // we can assume the values are equal. http://bugs.webkit.org/show_bug.cgi?id=13147
+        CollapsedBorderValue qSortHack = compareBorders(*b, *a);
+        if (*b == qSortHack)
+            return 0;
+        return 1;
+    }
+#else
     if (*a == borderWithHigherPrecedence)
         return 1;
+#endif
     return -1;
 }
 
@@ -852,5 +881,17 @@ void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     ty -= borderTopExtra();
     paintBorder(paintInfo.context, tx, ty, w, h, style());
 }
+
+#ifndef NDEBUG
+void RenderTableCell::dump(TextStream* stream, DeprecatedString ind) const
+{
+    *stream << " row=" << row();
+    *stream << " col=" << col();
+    *stream << " rSpan=" << rowSpan();
+    *stream << " cSpan=" << colSpan();
+
+    RenderBlock::dump(stream,ind);
+}
+#endif
 
 } // namespace WebCore

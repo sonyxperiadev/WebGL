@@ -38,10 +38,9 @@ class Node;
 class Document;
 class DocumentFragment;
 
-class XSLTProcessor : public RefCounted<XSLTProcessor> {
+class XSLTProcessor : public RefCounted<XSLTProcessor>
+{
 public:
-    static PassRefPtr<XSLTProcessor> create() { return adoptRef(new XSLTProcessor); }
-
     void setXSLStylesheet(XSLStyleSheet* styleSheet) { m_stylesheet = styleSheet; }
     bool transformToString(Node* source, String& resultMIMEType, String& resultString, String& resultEncoding);
     RefPtr<Document> createDocumentFromSource(const String& source, const String& sourceEncoding, const String& sourceMIMEType, Node* sourceNode, Frame* frame);
@@ -67,8 +66,6 @@ public:
     typedef HashMap<String, String> ParameterMap;
 
 private:
-    XSLTProcessor() { }
-
     // Convert a libxml doc ptr to a KHTML DOM Document
     RefPtr<Document> documentFromXMLDocPtr(xmlDocPtr resultDoc, xsltStylesheetPtr sheet, Document* ownerDocument, bool sourceIsDocument);
 

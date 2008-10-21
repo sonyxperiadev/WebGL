@@ -43,7 +43,7 @@ HTMLStyleElement::HTMLStyleElement(Document* doc)
 void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == mediaAttr)
-        m_media = attr->value().string().lower();
+        m_media = attr->value().domString().lower();
     else if (attr->name() == titleAttr && m_sheet)
         m_sheet->setTitle(attr->value());
      else
@@ -71,10 +71,10 @@ void HTMLStyleElement::removedFromDocument()
     StyleElement::removedFromDocument(document());
 }
 
-void HTMLStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void HTMLStyleElement::childrenChanged(bool changedByParser)
 {
     StyleElement::process(this);
-    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLElement::childrenChanged(changedByParser);
 }
 
 StyleSheet* HTMLStyleElement::sheet()

@@ -39,6 +39,11 @@
 #include "Selection.h"
 #include "Text.h"
 
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+#include "FrameView.h"
+#include "WebCoreViewBridge.h"
+#endif
+
 namespace WebCore {
 
 using namespace EventNames;
@@ -119,10 +124,10 @@ void HTMLTextAreaElement::setSelectionRange(int start, int end)
         static_cast<RenderTextControl*>(renderer())->setSelectionRange(start, end);
 }
 
-void HTMLTextAreaElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void HTMLTextAreaElement::childrenChanged(bool changedByParser)
 {
     setValue(defaultValue());
-    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLElement::childrenChanged(changedByParser);
 }
     
 void HTMLTextAreaElement::parseMappedAttribute(MappedAttribute *attr)
@@ -216,6 +221,10 @@ void HTMLTextAreaElement::updateFocusAppearance(bool restorePreviousSelection)
         // This matches some browsers' behavior; see Bugzilla Bug 11746 Comment #15.
         // http://bugs.webkit.org/show_bug.cgi?id=11746#c15
         setSelectionRange(0, 0);
+#ifdef ANDROID_SELECT_TEXT_AREAS
+        // We need to select the entire text to match the platform text field.
+        select();
+#endif
     } else
         // Restore the cached selection.  This matches other browsers' behavior.
         setSelectionRange(cachedSelStart, cachedSelEnd); 
@@ -256,7 +265,7 @@ void HTMLTextAreaElement::setValue(const String& value)
 {
     // Code elsewhere normalizes line endings added by the user via the keyboard or pasting.
     // We must normalize line endings coming from JS.
-    String valueWithNormalizedLineEndings = value;
+    DeprecatedString valueWithNormalizedLineEndings = value.deprecatedString();
     valueWithNormalizedLineEndings.replace("\r\n", "\n");
     valueWithNormalizedLineEndings.replace("\r", "\n");
     
@@ -267,8 +276,14 @@ void HTMLTextAreaElement::setValue(const String& value)
     if (renderer())
         renderer()->updateFromElement();
     
+
     // Set the caret to the end of the text value.
     if (document()->focusedNode() == this) {
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+        // Make sure our UI side textfield changes to match the RenderTextControl
+        WebCoreViewBridge* viewImpl = document()->frame()->view()->getWebCoreViewBridge();
+        viewImpl->updateTextfield(this, false, value);
+#endif
         unsigned endOfString = m_value.length();
         setSelectionRange(endOfString, endOfString);
     }

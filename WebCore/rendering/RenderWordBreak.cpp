@@ -32,7 +32,7 @@
 namespace WebCore {
 
 RenderWordBreak::RenderWordBreak(HTMLElement* element)
-    : RenderText(element, StringImpl::empty())
+    : RenderInline(element)
 {
 }
 
@@ -44,6 +44,11 @@ const char* RenderWordBreak::renderName() const
 bool RenderWordBreak::isWordBreak() const
 {
     return true;
+}
+
+bool RenderWordBreak::canHaveChildren() const
+{
+    return false;
 }
 
 }

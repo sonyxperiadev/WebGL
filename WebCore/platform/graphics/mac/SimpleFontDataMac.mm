@@ -62,7 +62,7 @@ bool initFontData(SimpleFontData* fontData)
     ATSUStyle fontStyle;
     if (ATSUCreateStyle(&fontStyle) != noErr)
         return false;
-
+    
     ATSUFontID fontId = fontData->m_font.m_atsuFontID;
     if (!fontId) {
         ATSUDisposeStyle(fontStyle);
@@ -96,45 +96,6 @@ static NSString *webFallbackFontFamily(void)
     return webFallbackFontFamily.get();
 }
 
-#if !ERROR_DISABLED
-#ifdef __LP64__
-static NSString* pathFromFont(NSFont*)
-{
-    // FMGetATSFontRefFromFont is not available in 64-bit. As pathFromFont is only used for debugging
-    // purposes, returning nil is acceptable.
-    return nil;
-}
-#else
-static NSString* pathFromFont(NSFont *font)
-{
-    ATSFontRef atsFont = FMGetATSFontRefFromFont(wkGetNSFontATSUFontId(font));
-    FSRef fileRef;
-
-#ifndef BUILDING_ON_TIGER
-    OSStatus status = ATSFontGetFileReference(atsFont, &fileRef);
-    if (status != noErr)
-        return nil;
-#else
-    FSSpec oFile;
-    OSStatus status = ATSFontGetFileSpecification(atsFont, &oFile);
-    if (status != noErr)
-        return nil;
-
-    status = FSpMakeFSRef(&oFile, &fileRef);
-    if (status != noErr)
-        return nil;
-#endif
-
-    UInt8 filePathBuffer[PATH_MAX];
-    status = FSRefMakePath(&fileRef, filePathBuffer, PATH_MAX);
-    if (status == noErr)
-        return [NSString stringWithUTF8String:(const char*)filePathBuffer];
-
-    return nil;
-}
-#endif // __LP64__
-#endif // !ERROR_DISABLED
-
 void SimpleFontData::platformInit()
 {
     m_styleGroup = 0;
@@ -167,7 +128,7 @@ void SimpleFontData::platformInit()
 #endif
         m_font.setFont([[NSFontManager sharedFontManager] convertFont:m_font.font() toFamily:fallbackFontFamily]);
 #if !ERROR_DISABLED
-        NSString *filePath = pathFromFont(initialFont.get());
+        NSString *filePath = wkPathFromFont(initialFont.get());
         if (!filePath)
             filePath = @"not known";
 #endif
@@ -204,15 +165,7 @@ void SimpleFontData::platformInit()
     int iAscent;
     int iDescent;
     int iLineGap;
-#ifdef BUILDING_ON_TIGER
-    wkGetFontMetrics(m_font.m_cgFont, &iAscent, &iDescent, &iLineGap, &m_unitsPerEm);
-#else
-    iAscent = CGFontGetAscent(m_font.m_cgFont);
-    iDescent = CGFontGetDescent(m_font.m_cgFont);
-    iLineGap = CGFontGetLeading(m_font.m_cgFont);
-    m_unitsPerEm = CGFontGetUnitsPerEm(m_font.m_cgFont);
-#endif
-
+    wkGetFontMetrics(m_font.m_cgFont, &iAscent, &iDescent, &iLineGap, &m_unitsPerEm); 
     float pointSize = m_font.m_size;
     float fAscent = scaleEmToUnits(iAscent, m_unitsPerEm) * pointSize;
     float fDescent = -scaleEmToUnits(iDescent, m_unitsPerEm) * pointSize;

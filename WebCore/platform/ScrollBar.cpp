@@ -34,8 +34,7 @@ using std::min;
 namespace WebCore {
 
 Scrollbar::Scrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
-    : RefCounted<Scrollbar>(0)
-    , m_client(client)
+    : m_client(client)
     , m_orientation(orientation)
     , m_controlSize(controlSize)
     , m_visibleSize(0)

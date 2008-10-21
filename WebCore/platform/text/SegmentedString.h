@@ -20,22 +20,20 @@
 #ifndef SegmentedString_h
 #define SegmentedString_h
 
+#include "DeprecatedValueList.h"
 #include "PlatformString.h"
-#include <wtf/Deque.h>
 
 namespace WebCore {
 
 class SegmentedString;
 
 class SegmentedSubstring {
-public:
+private:
+    friend class SegmentedString;
+    
     SegmentedSubstring() : m_length(0), m_current(0), m_doNotExcludeLineNumbers(true) {}
-    SegmentedSubstring(const String& str)
-        : m_length(str.length())
-        , m_current(str.isEmpty() ? 0 : str.characters())
-        , m_string(str)
-        , m_doNotExcludeLineNumbers(true)
-    {
+    SegmentedSubstring(const String& str) : m_string(str), m_length(str.length()), m_doNotExcludeLineNumbers(true) {
+        m_current = m_length == 0 ? 0 : m_string.characters();
     }
 
     SegmentedSubstring(const UChar* str, int length) : m_length(length), m_current(length == 0 ? 0 : str), m_doNotExcludeLineNumbers(true) {}
@@ -47,8 +45,7 @@ public:
 
     void setExcludeLineNumbers() { m_doNotExcludeLineNumbers = false; }
 
-    void appendTo(String& str) const
-    {
+    void appendTo(String& str) const {
         if (m_string.characters() == m_current) {
             if (str.isEmpty())
                 str = m_string;
@@ -59,12 +56,9 @@ public:
         }
     }
 
-public:
+    String m_string;
     int m_length;
     const UChar* m_current;
-
-private:
-    String m_string;
     bool m_doNotExcludeLineNumbers;
 };
 
@@ -83,8 +77,8 @@ public:
 
     void clear();
 
-    void append(const SegmentedString&);
-    void prepend(const SegmentedString&);
+    void append(const SegmentedString &);
+    void prepend(const SegmentedString &);
     
     bool excludeLineNumbers() const { return m_currentString.excludeLineNumbers(); }
     void setExcludeLineNumbers();
@@ -155,8 +149,8 @@ public:
     const UChar* operator->() const { return current(); }
     
 private:
-    void append(const SegmentedSubstring&);
-    void prepend(const SegmentedSubstring&);
+    void append(const SegmentedSubstring &);
+    void prepend(const SegmentedSubstring &);
 
     void advanceSlowCase();
     void advanceSlowCase(int& lineNumber);
@@ -167,7 +161,7 @@ private:
     UChar m_pushedChar2;
     SegmentedSubstring m_currentString;
     const UChar* m_currentChar;
-    Deque<SegmentedSubstring> m_substrings;
+    DeprecatedValueList<SegmentedSubstring> m_substrings;
     bool m_composite;
 };
 

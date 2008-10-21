@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -44,7 +44,7 @@ public:
     virtual void removedFromDocument();
     virtual void notifyFinished(CachedResource*);
 
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false);
 
     virtual bool isURLAttribute(Attribute*) const;
 
@@ -69,7 +69,7 @@ public:
     bool defer() const;
     void setDefer(bool);
 
-    KURL src() const;
+    String src() const;
     void setSrc(const String&);
 
     String type() const;

@@ -26,7 +26,8 @@
 #ifndef WebPreferences_H
 #define WebPreferences_H
 
-#include "WebKit.h"
+#include "IWebPreferences.h"
+#include "IWebPreferencesPrivate.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/BString.h>
 #include <wtf/RetainPtr.h>
@@ -315,8 +316,7 @@ public:
     HRESULT postPreferencesChangesNotification();
 
 protected:
-    void setValueForKey(CFStringRef key, CFPropertyListRef value);
-    RetainPtr<CFPropertyListRef> valueForKey(CFStringRef key);
+    const void* valueForKey(CFStringRef key);
     BSTR stringValueForKey(CFStringRef key);
     int integerValueForKey(CFStringRef key);
     BOOL boolValueForKey(CFStringRef key);
@@ -330,8 +330,8 @@ protected:
     static void initializeDefaultSettings();
     void save();
     void load();
-    void migrateWebKitPreferencesToCFPreferences();
-    void copyWebKitPreferencesToCFPreferences(CFDictionaryRef);
+    void migrateDefaultSettingsFromSafari3Beta();
+    void removeValuesMatchingDefaultSettings();
 
 protected:
     ULONG m_refCount;
@@ -340,6 +340,9 @@ protected:
     bool m_autoSaves;
     bool m_automaticallyDetectsCacheModel;
     unsigned m_numWebViews;
+
+    static CFDictionaryRef s_defaultSettings;
+    static WebPreferences* s_standardPreferences;
 };
 
 #endif

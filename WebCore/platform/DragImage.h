@@ -66,6 +66,8 @@ namespace WebCore {
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
     typedef void* DragImageRef;
+#elif defined ANDROID
+    typedef void* DragImageRef;
 #endif
     
     IntSize dragImageSize(DragImageRef);

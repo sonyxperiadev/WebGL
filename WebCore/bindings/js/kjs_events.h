@@ -97,15 +97,15 @@ namespace WebCore {
 
     KJS::JSValue* getNodeEventListener(Node*, const AtomicString& eventType);
 
-    class JSClipboard : public DOMObject {
+    class JSClipboard : public KJS::DOMObject {
     public:
         JSClipboard(KJS::JSObject* prototype, Clipboard*);
         virtual ~JSClipboard();
 
         virtual bool getOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&);
         KJS::JSValue* getValueProperty(KJS::ExecState*, int token) const;
-        virtual void put(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*);
-        void putValueProperty(KJS::ExecState*, int token, KJS::JSValue*);
+        virtual void put(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*, int attr = KJS::None);
+        void putValueProperty(KJS::ExecState*, int token, KJS::JSValue*, int attr);
 
         virtual const KJS::ClassInfo* classInfo() const { return &info; }
         static const KJS::ClassInfo info;

@@ -33,6 +33,8 @@
 #include "ServerConnection.h"
 
 #include <WebKit/ForEachCoClass.h>
+#include <WebKit/IWebView.h>
+#include <WebKit/IWebViewPrivate.h>
 #include <WebKit/WebKit.h>
 #include <JavaScriptCore/JSContextRef.h>
 

@@ -33,7 +33,6 @@
 #include "CairoPath.h"
 #include "FloatRect.h"
 #include "Font.h"
-#include "ImageBuffer.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
 #include "Path.h"
@@ -103,13 +102,11 @@ cairo_t* GraphicsContext::platformContext() const
 void GraphicsContext::savePlatformState()
 {
     cairo_save(m_data->cr);
-    m_data->save();
 }
 
 void GraphicsContext::restorePlatformState()
 {
     cairo_restore(m_data->cr);
-    m_data->restore();
 }
 
 // Draws a filled rectangle with a stroked border.
@@ -382,7 +379,6 @@ void GraphicsContext::clip(const IntRect& rect)
     cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
     cairo_clip(cr);
     cairo_set_fill_rule(cr, savedFillRule);
-    m_data->clip(rect);
 }
 
 void GraphicsContext::drawFocusRing(const Color& color)
@@ -434,6 +430,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin,
     if (paintingDisabled())
         return;
 
+#if PLATFORM(GTK)
     cairo_t* cr = m_data->cr;
     cairo_save(cr);
 
@@ -444,14 +441,13 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin,
     else
         cairo_set_source_rgb(cr, 1, 0, 0);
 
-#if PLATFORM(GTK)
     // We ignore most of the provided constants in favour of the platform style
     pango_cairo_show_error_underline(cr, origin.x(), origin.y(), width, cMisspellingLineThickness);
+
+    cairo_restore(cr);
 #else
     notImplemented();
 #endif
-
-    cairo_restore(cr);
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
@@ -484,7 +480,6 @@ void GraphicsContext::translate(float x, float y)
 
     cairo_t* cr = m_data->cr;
     cairo_translate(cr, x, y);
-    m_data->translate(x, y);
 }
 
 IntPoint GraphicsContext::origin()
@@ -548,6 +543,9 @@ void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
     notImplemented();
 }
 
+#if PLATFORM(GTK)
+// FIXME:  This should be moved to something like GraphicsContextCairoGTK.cpp,
+// as there is a Windows implementation in platform/graphics/win/GraphicsContextCairoWin.cpp
 void GraphicsContext::concatCTM(const AffineTransform& transform)
 {
     if (paintingDisabled())
@@ -556,8 +554,8 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     cairo_t* cr = m_data->cr;
     const cairo_matrix_t* matrix = reinterpret_cast<const cairo_matrix_t*>(&transform);
     cairo_transform(cr, matrix);
-    m_data->concatCTM(transform);
 }
+#endif
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
 {
@@ -601,7 +599,6 @@ void GraphicsContext::beginTransparencyLayer(float opacity)
     cairo_t* cr = m_data->cr;
     cairo_push_group(cr);
     m_data->layers.append(opacity);
-    m_data->beginTransparencyLayer();
 }
 
 void GraphicsContext::endTransparencyLayer()
@@ -614,7 +611,6 @@ void GraphicsContext::endTransparencyLayer()
     cairo_pop_group_to_source(cr);
     cairo_paint_with_alpha(cr, m_data->layers.last());
     m_data->layers.removeLast();
-    m_data->endTransparencyLayer();
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
@@ -776,7 +772,6 @@ void GraphicsContext::clip(const Path& path)
     cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
     cairo_clip(cr);
     cairo_set_fill_rule(cr, savedFillRule);
-    m_data->clip(path);
 }
 
 void GraphicsContext::clipOut(const Path& path)
@@ -802,7 +797,6 @@ void GraphicsContext::rotate(float radians)
         return;
 
     cairo_rotate(m_data->cr, radians);
-    m_data->rotate(radians);
 }
 
 void GraphicsContext::scale(const FloatSize& size)
@@ -811,7 +805,6 @@ void GraphicsContext::scale(const FloatSize& size)
         return;
 
     cairo_scale(m_data->cr, size.width(), size.height());
-    m_data->scale(size);
 }
 
 void GraphicsContext::clipOut(const IntRect& r)
@@ -894,35 +887,6 @@ void GraphicsContext::setUseAntialiasing(bool enable)
     // enables standard 'grayscale' antialiasing); false to explicitly disable
     // antialiasing. This is the same strategy as used in drawConvexPolygon().
     cairo_set_antialias(m_data->cr, enable ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
-}
-
-void GraphicsContext::paintBuffer(ImageBuffer* buffer, const IntRect& r)
-{
-    if (paintingDisabled())
-        return;
-    cairo_surface_t* image = buffer->surface();
-    if (!image)
-        return;
-    cairo_surface_flush(image);
-    cairo_surface_reference(image);
-    cairo_t* cr = platformContext();
-    cairo_save(cr);
-    cairo_translate(cr, r.x(), r.y());
-    cairo_set_source_surface(cr, image, 0, 0);
-    cairo_surface_destroy(image);
-    cairo_rectangle(cr, 0, 0, r.width(), r.height());
-    cairo_fill(cr);
-    cairo_restore(cr);
-}
-
-void GraphicsContext::drawImage(ImageBuffer* buffer, const FloatRect& srcRect, const FloatRect& dstRect)
-{
-    cairo_surface_flush(buffer->surface());    
-    cairo_save(platformContext());
-    cairo_set_source_surface(platformContext(), buffer->surface(), srcRect.x(), srcRect.y());
-    cairo_rectangle(platformContext(), dstRect.x(), dstRect.y(), dstRect.width(), dstRect.height());
-    cairo_fill(platformContext());
-    cairo_restore(platformContext());
 }
 
 } // namespace WebCore

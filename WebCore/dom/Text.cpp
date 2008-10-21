@@ -22,7 +22,6 @@
 #include "config.h"
 #include "Text.h"
 
-#include "CString.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "RenderText.h"
@@ -88,100 +87,9 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
     return newText.release();
 }
 
-static const Text* earliestLogicallyAdjacentTextNode(const Text* t)
-{
-    const Node* n = t;
-    while ((n = n->previousSibling())) {
-        Node::NodeType type = n->nodeType();
-        if (type == Node::TEXT_NODE || type == Node::CDATA_SECTION_NODE) {
-            t = static_cast<const Text*>(n);
-            continue;
-        }
-
-        // We would need to visit EntityReference child text nodes if they existed
-        ASSERT(type != Node::ENTITY_REFERENCE_NODE || !n->hasChildNodes());
-        break;
-    }
-    return t;
-}
-
-static const Text* latestLogicallyAdjacentTextNode(const Text* t)
-{
-    const Node* n = t;
-    while ((n = n->nextSibling())) {
-        Node::NodeType type = n->nodeType();
-        if (type == Node::TEXT_NODE || type == Node::CDATA_SECTION_NODE) {
-            t = static_cast<const Text*>(n);
-            continue;
-        }
-
-        // We would need to visit EntityReference child text nodes if they existed
-        ASSERT(type != Node::ENTITY_REFERENCE_NODE || !n->hasChildNodes());
-        break;
-    }
-    return t;
-}
-
-String Text::wholeText() const
-{
-    const Text* startText = earliestLogicallyAdjacentTextNode(this);
-    const Text* endText = latestLogicallyAdjacentTextNode(this);
-
-    Vector<UChar> result;
-    Node* onePastEndText = endText->nextSibling();
-    for (const Node* n = startText; n != onePastEndText; n = n->nextSibling()) {
-        if (!n->isTextNode())
-            continue;
-        const Text* t = static_cast<const Text*>(n);
-        const String& data = t->data();
-        result.append(data.characters(), data.length());
-    }
-
-    return String::adopt(result);
-}
-
-PassRefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
-{
-    // We don't support "read-only" text nodes (no Entity node support)
-    // Thus, we remove all adjacent text nodes, and replace the contents of this one.
-    ASSERT(!isReadOnlyNode());
-    // This method only raises exceptions when dealing with Entity nodes (which we don't support)
-
-    // Protect startText and endText against mutation event handlers removing the last ref
-    RefPtr<Text> startText = const_cast<Text*>(earliestLogicallyAdjacentTextNode(this));
-    RefPtr<Text> endText = const_cast<Text*>(latestLogicallyAdjacentTextNode(this));
-
-    RefPtr<Text> protectedThis(this); // Mutation event handlers could cause our last ref to go away
-    Node* parent = parentNode(); // Protect against mutation handlers moving this node during traversal
-    ExceptionCode ignored = 0;
-    for (RefPtr<Node> n = startText; n && n != this && n->isTextNode() && n->parentNode() == parent;) {
-        RefPtr<Node> nodeToRemove(n.release());
-        n = nodeToRemove->nextSibling();
-        parent->removeChild(nodeToRemove.get(), ignored);
-    }
-
-    if (this != endText) {
-        Node* onePastEndText = endText->nextSibling();
-        for (RefPtr<Node> n = nextSibling(); n && n != onePastEndText && n->isTextNode() && n->parentNode() == parent;) {
-            RefPtr<Node> nodeToRemove(n.release());
-            n = nodeToRemove->nextSibling();
-            parent->removeChild(nodeToRemove.get(), ignored);
-        }
-    }
-
-    if (newText.isEmpty()) {
-        if (parent && parentNode() == parent)
-            parent->removeChild(this, ignored);
-        return 0;
-    }
-
-    setData(newText, ignored);
-    return protectedThis.release();
-}
-
 String Text::nodeName() const
 {
-    return textAtom.string();
+    return textAtom.domString();
 }
 
 Node::NodeType Text::nodeType() const
@@ -323,7 +231,7 @@ void Text::formatForDebugger(char *buffer, unsigned length) const
         result += s;
     }
           
-    strncpy(buffer, result.utf8().data(), length - 1);
+    strncpy(buffer, result.deprecatedString().latin1(), length - 1);
 }
 #endif
 

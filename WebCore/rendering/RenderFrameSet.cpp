@@ -38,6 +38,7 @@
 #include "MouseEvent.h"
 #include "RenderFrame.h"
 #include "RenderView.h"
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -47,6 +48,9 @@ RenderFrameSet::RenderFrameSet(HTMLFrameSetElement* frameSet)
     : RenderContainer(frameSet)
     , m_isResizing(false)
     , m_isChildResizing(false)
+#ifdef FLATTEN_FRAMESET
+    , m_gridCalculated(false)
+#endif
 {
     setInline(false);
 }
@@ -328,7 +332,7 @@ void RenderFrameSet::layOutAxis(GridAxis& axis, const Length* grid, int availabl
     }
     
     // If we still have some left over space we probably ended up with a remainder of
-    // a division. We cannot spread it evenly anymore. If we have any percentage 
+    // a division. We can not spread it evenly anymore. If we have any percentage 
     // columns/rows simply spread the remainder equally over all available percentage columns, 
     // regardless of their size.
     if (remainingLen && countPercent) {
@@ -462,6 +466,10 @@ void RenderFrameSet::layout()
         FrameView* v = view()->frameView();
         m_width = v->visibleWidth();
         m_height = v->visibleHeight();
+#ifdef FLATTEN_FRAMESET
+        // Force a grid recalc.
+        m_gridCalculated = false;
+#endif
     }
 
     size_t cols = frameSet()->totalCols();
@@ -470,11 +478,27 @@ void RenderFrameSet::layout()
     if (m_rows.m_sizes.size() != rows || m_cols.m_sizes.size() != cols) {
         m_rows.resize(rows);
         m_cols.resize(cols);
+#ifdef FLATTEN_FRAMESET
+        m_gridCalculated = false;
+#endif
     }
 
+#ifdef FLATTEN_FRAMESET
+    if (!m_gridCalculated) {
+        m_gridCalculated = true;
+        // Make all the child framesets recalculate their grid.
+        RenderObject* child = firstChild();
+        for (; child; child = child->nextSibling()) {
+            if (child->isFrameSet())
+                static_cast<RenderFrameSet*>(child)->setGridNeedsLayout();
+        }
+#endif
     int borderThickness = frameSet()->border();
     layOutAxis(m_rows, frameSet()->rowLengths(), m_height - (rows - 1) * borderThickness);
     layOutAxis(m_cols, frameSet()->colLengths(), m_width - (cols - 1) * borderThickness);
+#ifdef FLATTEN_FRAMESET
+    }
+#endif
 
     positionFrames();
 
@@ -500,9 +524,88 @@ void RenderFrameSet::positionFrames()
 
     int rows = frameSet()->totalRows();
     int cols = frameSet()->totalCols();
-
+    
     int yPos = 0;
     int borderThickness = frameSet()->border();
+#ifdef FLATTEN_FRAMESET
+    // Keep track of the maximum width of a row which will become the maximum width of the frameset.
+    int maxWidth = 0;
+    const Length* rowLengths = frameSet()->rowLengths();
+    const Length* colLengths = frameSet()->colLengths();
+
+    for (int r = 0; r < rows && child; r++) {
+        int xPos = 0;
+        int height = m_rows.m_sizes[r];
+        int rowHeight = -1;
+        if (rowLengths) {
+            Length l = rowLengths[r];
+            if (l.isFixed())
+                rowHeight = l.value();
+        }
+        for (int c = 0; c < cols && child; c++) {
+            child->setPos(xPos, yPos);
+            child->setWidth(m_cols.m_sizes[c]);
+            child->setHeight(height);
+            int colWidth = -1;
+            if (colLengths) {
+                Length l = colLengths[c];
+                if (l.isFixed())
+                    colWidth = l.value();
+            }
+            if (colWidth && rowHeight) {
+                child->setNeedsLayout(true);
+                child->layout();
+            } else {
+                child->layoutIfNeeded();
+            }
+
+            ASSERT(child->width() >= m_cols.m_sizes[c]);
+            m_cols.m_sizes[c] = child->width();
+
+            height = max(child->height(), height);
+            xPos += child->width() + borderThickness;
+            child = child->nextSibling();
+        }
+        ASSERT(height >= m_rows.m_sizes[r]);
+        m_rows.m_sizes[r] = height;
+        maxWidth = max(xPos, maxWidth);
+        yPos += height + borderThickness;
+    }
+
+    // Compute a new width and height according to the positioning of each expanded child frame.
+    // Note: we subtract borderThickness because we only count borders between frames.
+    int newWidth = maxWidth - borderThickness;
+    int newHeight = yPos - borderThickness;
+
+    // Distribute the extra width and height evenly across the grid.
+    int dWidth = (m_width - newWidth) / cols;
+    int dHeight = (m_height - newHeight) / rows;
+    if (dWidth > 0) {
+        int availableWidth = m_width - (cols - 1) * borderThickness;
+        for (int c = 0; c < cols; c++)
+            availableWidth -= m_cols.m_sizes[c] += dWidth;
+        // If the extra width did not distribute evenly, add the remainder to
+        // the last column.
+        if (availableWidth)
+            m_cols.m_sizes[cols - 1] += availableWidth;
+    }
+    if (dHeight > 0) {
+        int availableHeight = m_height - (rows - 1) * borderThickness;
+        for (int r = 0; r < rows; r++)
+            availableHeight -= m_rows.m_sizes[r] += dHeight;
+        // If the extra height did not distribute evenly, add the remainder to
+        // the last row.
+        if (availableHeight)
+            m_rows.m_sizes[rows - 1] += availableHeight;
+    }
+    // Ensure the rows and columns are filled by falling through to the normal
+    // layout
+    m_height = max(m_height, newHeight);
+    m_width = max(m_width, newWidth);
+    child = firstChild();
+    yPos = 0;
+#endif // FLATTEN_FRAMESET
+    
     for (int r = 0; r < rows; r++) {
         int xPos = 0;
         int height = m_rows.m_sizes[r];
@@ -668,5 +771,21 @@ bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle* style) con
 {
     return child->isFrame() || child->isFrameSet();
 }
+
+#ifndef NDEBUG
+void RenderFrameSet::dump(TextStream* stream, DeprecatedString ind) const
+{
+    *stream << " totalrows=" << frameSet()->totalRows();
+    *stream << " totalcols=" << frameSet()->totalCols();
+
+    for (int i = 1; i <= frameSet()->totalRows(); i++)
+        *stream << " hSplitvar(" << i << ")=" << m_rows.m_preventResize[i];
+
+    for (int i = 1; i < frameSet()->totalCols(); i++)
+        *stream << " vSplitvar(" << i << ")=" << m_cols.m_preventResize[i];
+
+    RenderContainer::dump(stream,ind);
+}
+#endif
 
 } // namespace WebCore

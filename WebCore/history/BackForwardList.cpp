@@ -29,6 +29,12 @@
 #include "HistoryItem.h"
 #include "Logging.h"
 #include "PageCache.h"
+#ifdef ANDROID_HISTORY_CLIENT
+#include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClient.h"
+#include "Page.h"
+#endif
 
 using namespace std;
 
@@ -76,25 +82,45 @@ void BackForwardList::addItem(PassRefPtr<HistoryItem> prpItem)
         m_entryHash.remove(item);
         pageCache()->remove(item.get());
         m_current--;
+#ifdef ANDROID_HISTORY_CLIENT
+        m_page->mainFrame()->loader()->client()->dispatchDidRemoveHistoryItem(item.get(), 0);
+#endif
     }
     
     m_entries.append(prpItem);
     m_entryHash.add(m_entries.last());
     m_current++;
+#ifdef ANDROID_HISTORY_CLIENT
+    m_page->mainFrame()->loader()->client()->dispatchDidAddHistoryItem(currentItem());
+#endif
 }
 
 void BackForwardList::goBack()
 {
     ASSERT(m_current > 0);
+#ifdef ANDROID_HISTORY_CLIENT
+    if (m_current > 0) {
+        m_current--;
+        m_page->mainFrame()->loader()->client()->dispatchDidChangeHistoryIndex(this);
+    }
+#else
     if (m_current > 0)
         m_current--;
+#endif
 }
 
 void BackForwardList::goForward()
 {
     ASSERT(m_current < m_entries.size() - 1);
+#ifdef ANDROID_HISTORY_CLIENT
+    if (m_current < m_entries.size() - 1) {
+        m_current++;
+        m_page->mainFrame()->loader()->client()->dispatchDidChangeHistoryIndex(this);
+    }
+#else
     if (m_current < m_entries.size() - 1)
         m_current++;
+#endif
 }
 
 void BackForwardList::goToItem(HistoryItem* item)
@@ -106,8 +132,15 @@ void BackForwardList::goToItem(HistoryItem* item)
     for (; index < m_entries.size(); ++index)
         if (m_entries[index] == item)
             break;
+#ifdef ANDROID_HISTORY_CLIENT
+    if (index < m_entries.size()) {
+        m_current = index;
+        m_page->mainFrame()->loader()->client()->dispatchDidChangeHistoryIndex(this);
+    }
+#else
     if (index < m_entries.size())
         m_current = index;
+#endif
 }
 
 HistoryItem* BackForwardList::backItem()
@@ -173,8 +206,15 @@ void BackForwardList::setCapacity(int size)
 
     if (!size)
         m_current = NoCurrentItemIndex;
+#ifdef ANDROID_HISTORY_CLIENT
+    else if (m_current > m_entries.size() - 1) {
+        m_current = m_entries.size() - 1;
+        m_page->mainFrame()->loader()->client()->dispatchDidChangeHistoryIndex(this);
+    }
+#else
     else if (m_current > m_entries.size() - 1)
         m_current = m_entries.size() - 1;
+#endif
         
     m_capacity = size;
 }

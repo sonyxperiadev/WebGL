@@ -21,12 +21,14 @@
 #include "JSDocument.h"
 
 #include "DOMWindow.h"
+#include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLDocument.h"
 #include "JSDOMWindow.h"
 #include "JSHTMLDocument.h"
 #include "JSLocation.h"
+#include "kjs_binding.h"
 #include "kjs_proxy.h"
 
 #if ENABLE(SVG)
@@ -34,9 +36,9 @@
 #include "SVGDocument.h"
 #endif
 
-using namespace KJS;
-
 namespace WebCore {
+
+using namespace KJS;
 
 void JSDocument::mark()
 {
@@ -50,7 +52,7 @@ JSValue* JSDocument::location(ExecState* exec) const
     if (!frame)
         return jsNull();
 
-    Window* win = Window::retrieveWindow(frame);
+    KJS::Window* win = KJS::Window::retrieveWindow(frame);
     ASSERT(win);
     return win->location();
 }
@@ -67,7 +69,7 @@ void JSDocument::setLocation(ExecState* exec, JSValue* value)
     // not the target frame.
     Frame* activeFrame = static_cast<JSDOMWindow*>(exec->dynamicGlobalObject())->impl()->frame();
     if (activeFrame)
-        str = activeFrame->document()->completeURL(str).string();
+        str = activeFrame->document()->completeURL(str);
 
     bool userGesture = activeFrame->scriptProxy()->processingUserGesture();
     frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), false, userGesture);
@@ -94,7 +96,7 @@ JSValue* toJS(ExecState* exec, Document* doc)
     // Make sure the document is kept around by the window object, and works right with the
     // back/forward cache.
     if (doc->frame())
-        Window::retrieveWindow(doc->frame())->putDirect("document", ret, DontDelete|ReadOnly);
+        KJS::Window::retrieveWindow(doc->frame())->putDirect("document", ret, DontDelete|ReadOnly);
     else {
         size_t nodeCount = 0;
         for (Node* n = doc; n; n = n->traverseNextNode())

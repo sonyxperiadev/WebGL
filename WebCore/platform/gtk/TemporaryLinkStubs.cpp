@@ -34,8 +34,7 @@
 #include "GlobalHistory.h"
 #include "KURL.h"
 #include "NotImplemented.h"
-#include "PluginDatabase.h"
-#include "PluginPackage.h"
+#include "PluginInfoStore.h"
 #include "SharedBuffer.h"
 
 using namespace WebCore;
@@ -60,14 +59,12 @@ Vector<char> loadResourceIntoArray(const char* resourceName)
 
 bool WebCore::historyContains(const UChar*, unsigned) { return false; }
 
-PluginSet PluginDatabase::getPluginsInPaths() const { notImplemented(); return PluginSet(); }
-Vector<String> PluginDatabase::defaultPluginPaths() { notImplemented(); return Vector<String>(); }
-bool PluginDatabase::isPreferredPluginPath(const String&) { notImplemented(); return false; }
-int PluginPackage::compare(const PluginPackage&) const { notImplemented(); return 0; }
-bool PluginPackage::fetchInfo() { notImplemented(); return false; }
-unsigned PluginPackage::hash() const { notImplemented(); return 0; }
-bool PluginPackage::equal(const PluginPackage&, const PluginPackage&) { notImplemented(); return false; }
-bool PluginPackage::load() { notImplemented(); return false; }
+PluginInfo* PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned) { notImplemented(); return 0;}
+unsigned PluginInfoStore::pluginCount() const { notImplemented(); return 0; }
+String PluginInfoStore::pluginNameForMIMEType(const String& mimeType) { notImplemented(); return String(); }
+bool WebCore::PluginInfoStore::supportsMIMEType(const WebCore::String&) { notImplemented(); return false; }
+void WebCore::refreshPlugins(bool) { notImplemented(); }
+
 
 Color WebCore::focusRingColor() { return 0xFF0000FF; }
 void WebCore::setFocusRingColorChangeFunction(void (*)()) { }

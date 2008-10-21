@@ -42,10 +42,14 @@ using namespace Unicode;
 
 namespace WebCore {
 
-// FIXME: Move to StringImpl.h eventually.
 static inline bool charactersAreAllASCII(StringImpl* text)
 {
-    return charactersAreAllASCII(text->characters(), text->length());
+    const UChar* chars = text->characters();
+    unsigned length = text->length();
+    UChar ored = 0;
+    for (unsigned i = 0; i < length; ++i)
+        ored |= chars[i];
+    return !(ored & 0xFF80);
 }
 
 RenderText::RenderText(Node* node, PassRefPtr<StringImpl> str)
@@ -75,21 +79,6 @@ RenderText::~RenderText()
 }
 
 #endif
-
-const char* RenderText::renderName() const
-{
-    return "RenderText";
-}
-
-bool RenderText::isTextFragment() const
-{
-    return false;
-}
-
-bool RenderText::isWordBreak() const
-{
-    return false;
-}
 
 void RenderText::setStyle(RenderStyle* newStyle)
 {
@@ -417,29 +406,24 @@ IntRect RenderText::caretRect(int offset, EAffinity affinity, int* extraWidthToE
 ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, int xPos) const
 {
     if (f.isFixedPitch() && !f.isSmallCaps() && m_isAllASCII) {
+        // FIXME: This code should be simplfied; it's only run when m_text is known to be all 0000-007F,
+        // but is uses the general purpose Unicode direction function.
         int monospaceCharacterWidth = f.spaceWidth();
         int tabWidth = allowTabs() ? monospaceCharacterWidth * 8 : 0;
         int w = 0;
-        bool isSpace;
-        bool previousCharWasSpace = true; // FIXME: Preserves historical behavior, but seems wrong for start > 0.
+        char previousChar = ' '; // FIXME: Preserves historical behavior, but seems wrong for start > 0.
         for (int i = start; i < start + len; i++) {
             char c = (*m_text)[i];
-            if (c <= ' ') {
-                if (c == ' ' || c == '\n') {
+            Direction dir = direction(c);
+            if (dir != NonSpacingMark && dir != BoundaryNeutral) {
+                if (c == '\t' && tabWidth)
+                    w += tabWidth - ((xPos + w) % tabWidth);
+                else
                     w += monospaceCharacterWidth;
-                    isSpace = true;
-                } else if (c == '\t') {
-                    w += tabWidth ? tabWidth - ((xPos + w) % tabWidth) : monospaceCharacterWidth;
-                    isSpace = true;
-                } else
-                    isSpace = false;
-            } else {
-                w += monospaceCharacterWidth;
-                isSpace = false;
+                if (isASCIISpace(c) && !isASCIISpace(previousChar))
+                    w += f.wordSpacing();
             }
-            if (isSpace && !previousCharWasSpace)
-                w += f.wordSpacing();
-            previousCharWasSpace = isSpace;
+            previousChar = c;
         }
         return w;
     }

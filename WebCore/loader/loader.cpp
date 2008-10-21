@@ -3,7 +3,7 @@
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -66,23 +66,42 @@ void Loader::servePendingRequests()
         // get the first pending request
         Request* req = m_requestsPending.take(0);
         DocLoader* dl = req->docLoader();
+#ifndef ANDROID_PRELOAD_CHANGES
         dl->decrementRequestCount();
+#endif
 
         ResourceRequest request(req->cachedResource()->url());
+#ifdef ANDROID
+        request.setCachedResource(req->cachedResource());
+#endif
 
         if (!req->cachedResource()->accept().isEmpty())
             request.setHTTPAccept(req->cachedResource()->accept());
 
         KURL r = dl->doc()->url();
-        if ((r.protocolIs("http") || r.protocolIs("https")) && r.path().isEmpty())
+        if (r.protocol().startsWith("http") && r.path().isEmpty())
             r.setPath("/");
         request.setHTTPReferrer(r.string());
-
+        DeprecatedString domain = r.host();
+        if (dl->doc()->isHTMLDocument())
+            domain = static_cast<HTMLDocument*>(dl->doc())->domain().deprecatedString();
+        
         RefPtr<SubresourceLoader> loader = SubresourceLoader::create(dl->doc()->frame(),
             this, request, req->shouldSkipCanLoadCheck(), req->sendResourceLoadCallbacks());
 
         if (loader) {
             m_requestsLoading.add(loader.release(), req);
+#ifdef ANDROID_PRELOAD_CHANGES
+            req->cachedResource()->setRequestedFromNetworkingLayer();
+        } else {
+            dl->decrementRequestCount();
+            dl->setLoadInProgress(true);
+            req->cachedResource()->error();
+            dl->setLoadInProgress(false);
+
+            delete req;
+        }
+#else
             dl->incrementRequestCount();
             break;
         }
@@ -92,6 +111,7 @@ void Loader::servePendingRequests()
         dl->setLoadInProgress(false);
 
         delete req;
+#endif
     }
 }
 
@@ -109,16 +129,16 @@ void Loader::didFinishLoading(SubresourceLoader* loader)
 
     CachedResource* object = req->cachedResource();
 
-    // If we got a 4xx response, we're pretending to have received a network
-    // error, so we can't send the successful data() and finish() callbacks.
-    if (!object->errorOccurred()) {
-        docLoader->setLoadInProgress(true);
-        object->data(loader->resourceData(), true);
-        docLoader->setLoadInProgress(false);
-        object->finish();
-    }
+    docLoader->setLoadInProgress(true);
+    object->data(loader->resourceData(), true);
+    docLoader->setLoadInProgress(false);
+    object->finish();
 
     delete req;
+    
+#ifdef ANDROID_PRELOAD_CHANGES
+    docLoader->checkForPendingPreloads();
+#endif
 
     servePendingRequests();
 }
@@ -148,9 +168,16 @@ void Loader::didFail(SubresourceLoader* loader, bool cancelled)
     }
     
     docLoader->setLoadInProgress(false);
+#ifdef ANDROID_PRELOAD_CHANGES
+    if (cancelled || !object->isPreloaded())
+#endif
     cache()->remove(object);
 
     delete req;
+    
+#ifdef ANDROID_PRELOAD_CHANGES
+    docLoader->checkForPendingPreloads();
+#endif
 
     servePendingRequests();
 }
@@ -198,14 +225,6 @@ void Loader::didReceiveData(SubresourceLoader* loader, const char* data, int siz
         return;
 
     CachedResource* object = request->cachedResource();    
-    if (object->errorOccurred())
-        return;
-    
-    if (object->response().httpStatusCode() / 100 == 4) {
-        // Treat a 4xx response like a network error.
-        object->error();
-        return;
-    }
 
     // Set the data.
     if (request->isMultipart()) {

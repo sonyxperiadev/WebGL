@@ -45,7 +45,6 @@ namespace WebCore {
     class GraphicsContext;
     class HTMLCanvasElement;
     class HTMLImageElement;
-    class ImageData;
 
     typedef int ExceptionCode;
 
@@ -163,12 +162,7 @@ namespace WebCore {
         PassRefPtr<CanvasGradient> createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1);
         PassRefPtr<CanvasPattern> createPattern(HTMLImageElement*, const String& repetitionType, ExceptionCode&);
         PassRefPtr<CanvasPattern> createPattern(HTMLCanvasElement*, const String& repetitionType, ExceptionCode&);
-        
-        PassRefPtr<ImageData> createImageData(float width, float height) const;
-        PassRefPtr<ImageData> getImageData(float sx, float sy, float sw, float sh) const;
-        void putImageData(ImageData*, float dx, float dy, ExceptionCode&);
-        void putImageData(ImageData*, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionCode&);
-        
+
         void reset();
         void detachCanvas() { m_canvas = 0; }
 

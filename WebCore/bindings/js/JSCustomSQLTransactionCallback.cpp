@@ -32,7 +32,6 @@
 #include "CString.h"
 #include "Frame.h"
 #include "Logging.h"
-#include "MainThread.h"
 #include "kjs_proxy.h"
 #include "JSSQLTransaction.h"
 #include "Page.h"

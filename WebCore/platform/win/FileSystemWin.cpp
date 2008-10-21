@@ -126,11 +126,6 @@ String homeDirectoryPath()
     return "";
 }
 
-String pathGetFileName(const String& path)
-{
-    return String(PathFindFileName(String(path).charactersWithNullTermination()));
-}
-
 static String bundleName()
 {
     static bool initialized;
@@ -219,12 +214,6 @@ int writeToFile(PlatformFileHandle handle, const char* data, int length)
         return -1;
     return static_cast<int>(bytesWritten);
 }
-
-bool unloadModule(PlatformModule module)
-{
-    return ::FreeLibrary(module);
-}
-
 String localUserSpecificStorageDirectory()
 {
     return cachedStorageDirectory(CSIDL_LOCAL_APPDATA);

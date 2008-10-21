@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -3110,7 +3110,7 @@ noPromisedData:
         
         KURL imageURL = page->dragController()->draggingImageURL();
         ASSERT(!imageURL.isEmpty());
-        draggingImageURL = imageURL;
+        draggingImageURL = imageURL.getNSURL();
 
         wrapper = [[self _dataSource] _fileWrapperForURL:draggingImageURL];
     }
@@ -5549,6 +5549,13 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if ([self _hasSelection])
         return core([self _frame])->selectionImage(forceBlackText);
     return nil;
+}
+
+- (NSImage *)selectionImageForcingWhiteText:(BOOL)forceWhiteText
+{
+    // NOTE: this method is obsolete and doesn't behave as its name suggests.
+    // See comment in WebDocumentPrivate.h.
+    return [self selectionImageForcingBlackText:forceWhiteText];
 }
 
 - (NSRect)selectionImageRect

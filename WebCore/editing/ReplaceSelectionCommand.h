@@ -92,7 +92,8 @@ private:
     void removeUnrenderedTextNodesAtEnds();
     
     void negateStyleRulesThatAffectAppearance();
-    void handleStyleSpans();
+    void removeRedundantStyles(Node*);
+    
     void handlePasteAsQuotationNode();
     
     virtual void removeNodePreservingChildren(Node*);

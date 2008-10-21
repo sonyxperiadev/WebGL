@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Trolltech ASA
  *
  * This library is free software; you can redistribute it and/or
@@ -57,6 +57,15 @@ HTMLObjectElement::HTMLObjectElement(Document* doc, bool createdByParser)
 
 HTMLObjectElement::~HTMLObjectElement()
 {
+#ifdef ANDROID_FIX
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    if (oldNameIdCount && document()->isHTMLDocument()) {
+        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
+        doc->removeNamedItem(oldNameAttr);
+        doc->removeDocExtraNamedItem(oldIdAttr);
+    }
+#endif
 #if USE(JAVASCRIPTCORE_BINDINGS)
     // m_instance should have been cleaned up in detach().
     ASSERT(!m_instance);
@@ -171,10 +180,6 @@ void HTMLObjectElement::attach()
         if (!m_imageLoader)
             m_imageLoader.set(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
-        // updateForElement() may have changed us to use fallback content and called detach() and attach().
-        if (m_useFallbackContent)
-            return;
-
         if (renderer()) {
             RenderImage* imageObj = static_cast<RenderImage*>(renderer());
             imageObj->setCachedImage(m_imageLoader->image());
@@ -217,6 +222,11 @@ void HTMLObjectElement::insertedIntoDocument()
         HTMLDocument *doc = static_cast<HTMLDocument *>(document());
         doc->addNamedItem(oldNameAttr);
         doc->addDocExtraNamedItem(oldIdAttr);
+#ifdef ANDROID_FIX
+        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+        // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+        oldNameIdCount++;
+#endif
     }
 
     HTMLPlugInElement::insertedIntoDocument();
@@ -228,6 +238,11 @@ void HTMLObjectElement::removedFromDocument()
         HTMLDocument *doc = static_cast<HTMLDocument *>(document());
         doc->removeNamedItem(oldNameAttr);
         doc->removeDocExtraNamedItem(oldIdAttr);
+#ifdef ANDROID_FIX
+        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+        // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+        oldNameIdCount--;
+#endif
     }
 
     HTMLPlugInElement::removedFromDocument();
@@ -242,19 +257,19 @@ void HTMLObjectElement::recalcStyle(StyleChange ch)
     HTMLPlugInElement::recalcStyle(ch);
 }
 
-void HTMLObjectElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void HTMLObjectElement::childrenChanged(bool changedByParser)
 {
     updateDocNamedItem();
     if (inDocument() && !m_useFallbackContent) {
         m_needWidgetUpdate = true;
         setChanged();
     }
-    HTMLPlugInElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLPlugInElement::childrenChanged(changedByParser);
 }
 
 bool HTMLObjectElement::isURLAttribute(Attribute *attr) const
 {
-    return (attr->name() == dataAttr || (attr->name() == usemapAttr && attr->value().string()[0] != '#'));
+    return (attr->name() == dataAttr || (attr->name() == usemapAttr && attr->value().domString()[0] != '#'));
 }
 
 const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
@@ -264,7 +279,7 @@ const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
 
 bool HTMLObjectElement::isImageType()
 {
-    if (m_serviceType.isEmpty() && protocolIs(m_url, "data")) {
+    if (m_serviceType.isEmpty() && m_url.startsWith("data:")) {
         // Extract the MIME type from the data URL.
         int index = m_url.find(';');
         if (index == -1)
@@ -289,16 +304,6 @@ void HTMLObjectElement::renderFallbackContent()
 {
     if (m_useFallbackContent)
         return;
-
-    // Before we give up and use fallback content, check to see if this is a MIME type issue.
-    if (m_imageLoader && m_imageLoader->image()) {
-        m_serviceType = m_imageLoader->image()->response().mimeType();
-        if (!isImageType()) {
-            detach();
-            attach();
-            return;
-        }
-    }
 
     // Mark ourselves as using the fallback content.
     m_useFallbackContent = true;
@@ -392,7 +397,7 @@ void HTMLObjectElement::setCodeType(const String& value)
     setAttribute(codetypeAttr, value);
 }
 
-KURL HTMLObjectElement::data() const
+String HTMLObjectElement::data() const
 {
     return document()->completeURL(getAttribute(dataAttr));
 }
@@ -477,8 +482,8 @@ bool HTMLObjectElement::containsJavaApplet() const
         if (child->isElementNode()) {
             Element* e = static_cast<Element*>(child);
             if (e->hasTagName(paramTag) &&
-                e->getAttribute(nameAttr).string().lower() == "type" &&
-                MIMETypeRegistry::isJavaAppletMIMEType(e->getAttribute(valueAttr).string()))
+                e->getAttribute(nameAttr).domString().lower() == "type" &&
+                MIMETypeRegistry::isJavaAppletMIMEType(e->getAttribute(valueAttr).domString()))
                 return true;
             else if (e->hasTagName(objectTag) && static_cast<HTMLObjectElement*>(e)->containsJavaApplet())
                 return true;

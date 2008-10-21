@@ -26,7 +26,7 @@
 #ifndef WebJavaScriptCollector_H
 #define WebJavaScriptCollector_H
 
-#include "WebKit.h"
+#include "IWebJavaScriptCollector.h"
 
 class WebJavaScriptCollector : public IWebJavaScriptCollector
 {

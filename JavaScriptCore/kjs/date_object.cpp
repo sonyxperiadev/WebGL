@@ -246,10 +246,9 @@ static UString formatTime(const GregorianDateTime &t, bool utc)
 // ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
 //
 // Format of member function: f([hour,] [min,] [sec,] [ms])
-static bool fillStructuresUsingTimeArgs(ExecState* exec, const List& args, int maxArgs, double* ms, GregorianDateTime* t)
+static void fillStructuresUsingTimeArgs(ExecState* exec, const List& args, int maxArgs, double* ms, GregorianDateTime* t)
 {
     double milliseconds = 0;
-    bool ok = true;
     int idx = 0;
     int numArgs = args.size();
     
@@ -260,44 +259,37 @@ static bool fillStructuresUsingTimeArgs(ExecState* exec, const List& args, int m
     // hours
     if (maxArgs >= 4 && idx < numArgs) {
         t->hour = 0;
-        milliseconds += args[idx++]->toInt32(exec, ok) * msPerHour;
+        milliseconds += args[idx++]->toInt32(exec) * msPerHour;
     }
 
     // minutes
-    if (maxArgs >= 3 && idx < numArgs && ok) {
+    if (maxArgs >= 3 && idx < numArgs) {
         t->minute = 0;
-        milliseconds += args[idx++]->toInt32(exec, ok) * msPerMinute;
+        milliseconds += args[idx++]->toInt32(exec) * msPerMinute;
     }
     
     // seconds
-    if (maxArgs >= 2 && idx < numArgs && ok) {
+    if (maxArgs >= 2 && idx < numArgs) {
         t->second = 0;
-        milliseconds += args[idx++]->toInt32(exec, ok) * msPerSecond;
+        milliseconds += args[idx++]->toInt32(exec) * msPerSecond;
     }
     
-    if (!ok)
-        return false;
-        
     // milliseconds
-    if (idx < numArgs) {
-        double millis = args[idx]->toNumber(exec);
-        ok = isfinite(millis);
-        milliseconds += millis;
-    } else
+    if (idx < numArgs)
+        milliseconds += args[idx]->toNumber(exec);
+    else
         milliseconds += *ms;
     
     *ms = milliseconds;
-    return ok;
 }
 
 // Converts a list of arguments sent to a Date member function into years, months, and milliseconds, updating
 // ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
 //
 // Format of member function: f([years,] [months,] [days])
-static bool fillStructuresUsingDateArgs(ExecState *exec, const List &args, int maxArgs, double *ms, GregorianDateTime *t)
+static void fillStructuresUsingDateArgs(ExecState *exec, const List &args, int maxArgs, double *ms, GregorianDateTime *t)
 {
     int idx = 0;
-    bool ok = true;
     int numArgs = args.size();
   
     // JS allows extra trailing arguments -- ignore them
@@ -306,19 +298,17 @@ static bool fillStructuresUsingDateArgs(ExecState *exec, const List &args, int m
   
     // years
     if (maxArgs >= 3 && idx < numArgs)
-        t->year = args[idx++]->toInt32(exec, ok) - 1900;
-    
+        t->year = args[idx++]->toInt32(exec) - 1900;
+  
     // months
-    if (maxArgs >= 2 && idx < numArgs && ok)   
-        t->month = args[idx++]->toInt32(exec, ok);
-    
+    if (maxArgs >= 2 && idx < numArgs)
+        t->month = args[idx++]->toInt32(exec);
+  
     // days
-    if (idx < numArgs && ok) {   
+    if (idx < numArgs) {
         t->monthDay = 0;
-        *ms += args[idx]->toInt32(exec, ok) * msPerDay;
+        *ms += args[idx]->toInt32(exec) * msPerDay;
     }
-    
-    return ok;
 }
 
 // ------------------------------ DateInstance ------------------------------
@@ -549,6 +539,7 @@ JSValue *DateObjectFuncImp::callAsFunction(ExecState* exec, JSObject*, const Lis
     }
 
     GregorianDateTime t;
+    memset(&t, 0, sizeof(t));
     int year = args[0]->toInt32(exec);
     t.year = (year >= 0 && year <= 99) ? year : year - 1900;
     t.month = args[1]->toInt32(exec);
@@ -915,6 +906,7 @@ static double parseDate(const UString &date)
     // fall back to local timezone
     if (!haveTZ) {
         GregorianDateTime t;
+        memset(&t, 0, sizeof(tm));
         t.monthDay = day;
         t.month = month;
         t.year = year - 1900;
@@ -1457,25 +1449,14 @@ static JSValue* setNewValueFromTimeArgs(ExecState* exec, JSObject* thisObj, cons
     DateInstance* thisDateObj = static_cast<DateInstance*>(thisObj);
     JSValue* v = thisDateObj->internalValue();
     double milli = v->toNumber(exec);
-    
-    if (args.isEmpty() || isnan(milli)) {
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    }
-     
     double secs = floor(milli / msPerSecond);
     double ms = milli - secs * msPerSecond;
 
     GregorianDateTime t;
     msToGregorianDateTime(milli, inputIsUTC, t);
 
-    if (!fillStructuresUsingTimeArgs(exec, args, numArgsToUse, &ms, &t)) {
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    } 
-    
+    fillStructuresUsingTimeArgs(exec, args, numArgsToUse, &ms, &t);
+
     JSValue* result = jsNumber(gregorianDateTimeToMS(t, ms, inputIsUTC));
     thisDateObj->setInternalValue(result);
     return result;
@@ -1487,33 +1468,16 @@ static JSValue* setNewValueFromDateArgs(ExecState* exec, JSObject* thisObj, cons
         return throwError(exec, TypeError);
 
     DateInstance* thisDateObj = static_cast<DateInstance*>(thisObj);
-    if (args.isEmpty()) {
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    }      
-    
     JSValue* v = thisDateObj->internalValue();
     double milli = v->toNumber(exec);
-    double ms = 0;
+    double secs = floor(milli / msPerSecond);
+    double ms = milli - secs * msPerSecond;
 
     GregorianDateTime t;
-    if (numArgsToUse == 3 && isnan(milli))
-        // Based on ECMA 262 15.9.5.40 - .41 (set[UTC]FullYear)
-        // the time must be reset to +0 if it is NaN. 
-        msToGregorianDateTime(0, true, t);
-    else {
-        double secs = floor(milli / msPerSecond);
-        ms = milli - secs * msPerSecond;
-        msToGregorianDateTime(milli, inputIsUTC, t);
-    }
-    
-    if (!fillStructuresUsingDateArgs(exec, args, numArgsToUse, &ms, &t)) {
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    } 
-           
+    msToGregorianDateTime(milli, inputIsUTC, t);
+
+    fillStructuresUsingDateArgs(exec, args, numArgsToUse, &ms, &t);
+
     JSValue* result = jsNumber(gregorianDateTimeToMS(t, ms, inputIsUTC));
     thisDateObj->setInternalValue(result);
     return result;
@@ -1610,37 +1574,17 @@ JSValue* dateProtoFuncSetYear(ExecState* exec, JSObject* thisObj, const List& ar
 
     const bool utc = false;
 
-    DateInstance* thisDateObj = static_cast<DateInstance*>(thisObj);     
-    if (args.isEmpty()) { 
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    }
-    
+    DateInstance* thisDateObj = static_cast<DateInstance*>(thisObj); 
     JSValue* v = thisDateObj->internalValue();
     double milli = v->toNumber(exec);
-    double ms = 0;
+    double secs = floor(milli / msPerSecond);
+    double ms = milli - secs * msPerSecond;
 
     GregorianDateTime t;
-    if (isnan(milli))
-        // Based on ECMA 262 B.2.5 (setYear)
-        // the time must be reset to +0 if it is NaN. 
-        msToGregorianDateTime(0, true, t);
-    else {   
-        double secs = floor(milli / msPerSecond);
-        ms = milli - secs * msPerSecond;
-        msToGregorianDateTime(milli, utc, t);
-    }
-    
-    bool ok = true;
-    int32_t year = args[0]->toInt32(exec, ok);
-    if (!ok) {
-        JSValue* result = jsNaN();
-        thisDateObj->setInternalValue(result);
-        return result;
-    }
-            
-    t.year = (year > 99 || year < 0) ? year - 1900 : year;
+    msToGregorianDateTime(milli, utc, t);
+
+    t.year = (args[0]->toInt32(exec) > 99 || args[0]->toInt32(exec) < 0) ? args[0]->toInt32(exec) - 1900 : args[0]->toInt32(exec);
+
     JSValue* result = jsNumber(gregorianDateTimeToMS(t, ms, utc));
     thisDateObj->setInternalValue(result);
     return result;
@@ -1662,7 +1606,9 @@ JSValue* dateProtoFuncGetYear(ExecState* exec, JSObject* thisObj, const List&)
     GregorianDateTime t;
     msToGregorianDateTime(milli, utc, t);
 
-    // NOTE: IE returns the full year even in getYear.
+    // IE returns the full year even in getYear.
+    if (exec->dynamicGlobalObject()->compatMode() == IECompat)
+        return jsNumber(1900 + t.year);
     return jsNumber(t.year);
 }
 

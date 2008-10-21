@@ -25,45 +25,25 @@
 
 namespace WebCore {
 
-inline FormData::FormData()
+FormData::FormData(const void* data, size_t size)
 {
+    appendData(data, size);
 }
 
-PassRefPtr<FormData> FormData::create()
+FormData::FormData(const CString& s)
 {
-    return adoptRef(new FormData);
+    appendData(s.data(), s.length());
 }
 
-PassRefPtr<FormData> FormData::create(const void* data, size_t size)
-{
-    RefPtr<FormData> result = create();
-    result->appendData(data, size);
-    return result.release();
-}
-
-PassRefPtr<FormData> FormData::create(const CString& string)
-{
-    RefPtr<FormData> result = create();
-    result->appendData(string.data(), string.length());
-    return result.release();
-}
-
-PassRefPtr<FormData> FormData::create(const Vector<char>& vector)
-{
-    RefPtr<FormData> result = create();
-    result->appendData(vector.data(), vector.size());
-    return result.release();
-}
-
-inline FormData::FormData(const FormData& data)
-    : RefCounted<FormData>(1)
+FormData::FormData(const FormData& data)
+    : RefCounted<FormData>()
     , m_elements(data.m_elements)
 {
 }
 
 PassRefPtr<FormData> FormData::copy() const
 {
-    return adoptRef(new FormData(*this));
+    return new FormData(*this);
 }
 
 void FormData::appendData(const void* data, size_t size)

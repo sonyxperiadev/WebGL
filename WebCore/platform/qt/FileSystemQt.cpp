@@ -2,7 +2,6 @@
  * Copyright (C) 2007 Staikos Computing Services Inc.
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Apple, Inc. All rights reserved.
- * Copyright (C) 2008 Collabora, Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +28,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "FileSystem.h"
-
-#include "CString.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
 #include <QFile>
@@ -78,18 +73,6 @@ bool makeAllDirectories(const String& path)
 String pathByAppendingComponent(const String& path, const String& component)
 {
     return QDir(path).filePath(component);
-}
-
-String pathGetFileName(const String&)
-{
-    notImplemented();
-    return String();
-}
-
-bool unloadModule(PlatformModule)
-{
-    notImplemented();
-    return false;
 }
 
 }

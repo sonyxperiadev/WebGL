@@ -493,6 +493,10 @@ void AutoTableLayout::insertSpanCell(RenderTableCell *cell)
 
 void AutoTableLayout::layout()
 {
+#ifdef ANDROID_LAYOUT    
+    if (m_table->isSingleColumn())
+        return;
+#endif        
     // table layout based on the values collected in the layout structure.
     int tableWidth = m_table->width() - m_table->bordersPaddingAndSpacing();
     int available = tableWidth;

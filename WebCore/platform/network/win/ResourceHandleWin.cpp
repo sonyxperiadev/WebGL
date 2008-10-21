@@ -146,13 +146,13 @@ void ResourceHandle::onHandleCreated(LPARAM lParam)
 
         if (method() == "POST") {
             // FIXME: Too late to set referrer properly.
-            String urlStr = url().path();
+            DeprecatedString urlStr = url().path();
             int fragmentIndex = urlStr.find('#');
             if (fragmentIndex != -1)
                 urlStr = urlStr.left(fragmentIndex);
             static LPCSTR accept[2]={"*/*", NULL};
             HINTERNET urlHandle = HttpOpenRequestA(d->m_resourceHandle, 
-                                                   "POST", urlStr.latin1().data(), 0, 0, accept,
+                                                   "POST", urlStr.latin1(), 0, 0, accept,
                                                    INTERNET_FLAG_KEEP_CONNECTION | 
                                                    INTERNET_FLAG_FORMS_SUBMIT |
                                                    INTERNET_FLAG_RELOAD |
@@ -328,12 +328,11 @@ bool ResourceHandle::start(Frame* frame)
 {
     ref();
     if (url().isLocalFile()) {
-        String path = url().path();
+        DeprecatedString path = url().path();
         // windows does not enjoy a leading slash on paths
         if (path[0] == '/')
-            path = path.substring(1);
-        // FIXME: This is wrong. Need to use wide version of this call.
-        d->m_fileHandle = CreateFileA(path.utf8().data(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            path = path.mid(1);
+        d->m_fileHandle = CreateFileA(path.ascii(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
         // FIXME: perhaps this error should be reported asynchronously for
         // consistency.
@@ -373,15 +372,16 @@ bool ResourceHandle::start(Frame* frame)
         String referrer = frame->loader()->referrer();
         if (method() == "POST") {
             d->m_postReferrer = referrer;
-            String host = url().host();
-            urlHandle = InternetConnectA(internetHandle, host.latin1().data(),
+            DeprecatedString host = url().host();
+            host += "\0";
+            urlHandle = InternetConnectA(internetHandle, host.ascii(),
                                          url().port(),
                                          NULL, // no username
                                          NULL, // no password
                                          INTERNET_SERVICE_HTTP,
                                          flags, (DWORD_PTR)d->m_jobId);
         } else {
-            String urlStr = url().string();
+            DeprecatedString urlStr = url().deprecatedString();
             int fragmentIndex = urlStr.find('#');
             if (fragmentIndex != -1)
                 urlStr = urlStr.left(fragmentIndex);
@@ -389,8 +389,8 @@ bool ResourceHandle::start(Frame* frame)
             if (!referrer.isEmpty())
                 headers += String("Referer: ") + referrer + "\r\n";
 
-            urlHandle = InternetOpenUrlA(internetHandle, urlStr.latin1().data(),
-                                         headers.latin1().data(), headers.length(),
+            urlHandle = InternetOpenUrlA(internetHandle, urlStr.ascii(),
+                                         headers.latin1(), headers.length(),
                                          flags, (DWORD_PTR)d->m_jobId);
         }
 

@@ -167,6 +167,8 @@ namespace WebCore {
         bool checked;
         bool enabled;
     };
+#elif defined ANDROID
+    typedef void* PlatformMenuItemDescription;
 #elif PLATFORM(WX)
     typedef wxMenuItem* PlatformMenuItemDescription;
 #endif

@@ -30,6 +30,9 @@
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#ifdef ANDROID_PRELOAD_CHANGES
+#include <wtf/ListHashSet.h>
+#endif
 
 namespace WebCore {
 
@@ -72,6 +75,12 @@ public:
     bool autoLoadImages() const { return m_autoLoadImages; }
     void setAutoLoadImages(bool);
     
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    bool blockNetworkImage() const { return m_blockNetworkImage; }
+    void setBlockNetworkImage(bool);
+    bool shouldBlockNetworkImage(const String& url) const;
+#endif
+
     CachePolicy cachePolicy() const { return m_cachePolicy; }
     void setCachePolicy(CachePolicy);
     
@@ -92,9 +101,20 @@ public:
     void incrementRequestCount();
     void decrementRequestCount();
     int requestCount();
-private:
-    CachedResource* requestResource(CachedResource::Type, const String& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
 
+#ifdef ANDROID_PRELOAD_CHANGES
+    void clearPreloads();
+    void preload(CachedResource::Type type, const String& url, const String& charset, bool inBody);
+    void checkForPendingPreloads();
+    void printPreloadStats();
+#endif
+private:
+#ifdef ANDROID_PRELOAD_CHANGES
+    CachedResource* requestResource(CachedResource::Type, const String& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true, bool isPreload = false);
+    void requestPreload(CachedResource::Type type, const String& url, const String& charset);
+#else
+    CachedResource* requestResource(CachedResource::Type, const String& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
+#endif
     void checkForReload(const KURL&);
     void checkCacheObjectStatus(CachedResource*);
     
@@ -106,8 +126,21 @@ private:
     Document *m_doc;
     
     int m_requestCount;
+
+#ifdef ANDROID_PRELOAD_CHANGES
+    ListHashSet<CachedResource*> m_preloads;
+    struct PendingPreload {
+        CachedResource::Type m_type;
+        String m_url;
+        String m_charset;
+    };
+    Vector<PendingPreload> m_pendingPreloads;
+#endif
     
     //29 bits left
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    bool m_blockNetworkImage : 1;
+#endif
     bool m_autoLoadImages : 1;
     bool m_loadInProgress : 1;
     bool m_allowStaleResources : 1;

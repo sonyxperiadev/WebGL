@@ -33,8 +33,7 @@ namespace WebCore {
 class Counter : public RefCounted<Counter> {
 public:
     Counter(PassRefPtr<CSSPrimitiveValue> identifier, PassRefPtr<CSSPrimitiveValue> listStyle, PassRefPtr<CSSPrimitiveValue> separator)
-        : RefCounted<Counter>(0)
-        , m_identifier(identifier)
+        : m_identifier(identifier)
         , m_listStyle(listStyle)
         , m_separator(separator)
     {

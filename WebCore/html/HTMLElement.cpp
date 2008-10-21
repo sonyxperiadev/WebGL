@@ -66,7 +66,7 @@ String HTMLElement::nodeName() const
     // FIXME: Would be nice to have an atomicstring lookup based off uppercase chars that does not have to copy
     // the string on a hit in the hash.
     if (document()->isHTMLDocument())
-        return tagQName().localName().string().upper();
+        return tagQName().localName().domString().upper();
     return Element::nodeName();
 }
     
@@ -220,6 +220,10 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
 
 String HTMLElement::innerHTML() const
 {
+#ifdef ANDROID_NO_BODY_INNER_HTML
+	if (id()==bodyTag || id()==htmlTag)
+	   return "fastinnerhtml!";
+#endif
     return createMarkup(this, ChildrenOnly);
 }
 
@@ -902,7 +906,7 @@ bool HTMLElement::checkDTD(const Node* newChild)
 void HTMLElement::setHTMLEventListener(const AtomicString& eventType, Attribute* attr)
 {
     Element::setHTMLEventListener(eventType,
-        document()->createHTMLEventListener(attr->localName().string(), attr->value(), this));
+        document()->createHTMLEventListener(attr->localName().domString(), attr->value(), this));
 }
     
 bool HTMLElement::rendererIsNeeded(RenderStyle *style)

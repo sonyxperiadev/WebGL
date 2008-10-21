@@ -52,6 +52,12 @@ CachedImage::CachedImage(DocLoader* docLoader, const String& url, bool forCache)
     m_image = 0;
     m_status = Unknown;
     if (!docLoader || docLoader->autoLoadImages())  {
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+        if (docLoader && docLoader->shouldBlockNetworkImage(url)) {
+            m_loading = false;
+            return;
+        }
+#endif
         m_loading = true;
         cache()->loader()->load(docLoader, this, true);
     } else
@@ -186,6 +192,9 @@ inline void CachedImage::createImage()
     }
 #endif
     m_image = new BitmapImage(this);
+#if PLATFORM(SGL)
+    m_image->setURL(url());
+#endif
 }
 
 void CachedImage::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Trolltech ASA
  *
  * This library is free software; you can redistribute it and/or
@@ -42,6 +42,7 @@
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "HTMLNames.h"
+#include "KURL.h"
 #include "Logging.h"
 #include "NameNodeList.h"
 #include "NamedAttrMap.h"
@@ -49,6 +50,7 @@
 #include "SelectorNodeList.h"
 #include "TagNodeList.h"
 #include "Text.h"
+#include "TextStream.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
 #include "kjs_binding.h"
@@ -150,7 +152,7 @@ void Node::setDocument(Document* doc)
 
     {
         KJS::JSLock lock;
-        ScriptInterpreter::updateDOMNodeDocument(this, m_document.get(), doc);
+        KJS::ScriptInterpreter::updateDOMNodeDocument(this, m_document.get(), doc);
     }    
     m_document = doc;
 
@@ -484,17 +486,23 @@ Node *Node::childNode(unsigned /*index*/) const
 
 Node *Node::traverseNextNode(const Node *stayWithin) const
 {
-    if (firstChild())
+    if (firstChild()) {
+        ASSERT(!stayWithin || firstChild()->isDescendantOf(stayWithin));
         return firstChild();
+    }
     if (this == stayWithin)
         return 0;
-    if (nextSibling())
+    if (nextSibling()) {
+        ASSERT(!stayWithin || nextSibling()->isDescendantOf(stayWithin));
         return nextSibling();
+    }
     const Node *n = this;
     while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n)
+    if (n) {
+        ASSERT(!stayWithin || !n->nextSibling() || n->nextSibling()->isDescendantOf(stayWithin));
         return n->nextSibling();
+    }
     return 0;
 }
 
@@ -502,13 +510,17 @@ Node *Node::traverseNextSibling(const Node *stayWithin) const
 {
     if (this == stayWithin)
         return 0;
-    if (nextSibling())
+    if (nextSibling()) {
+        ASSERT(!stayWithin || nextSibling()->isDescendantOf(stayWithin));
         return nextSibling();
+    }
     const Node *n = this;
     while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n)
+    if (n) {
+        ASSERT(!stayWithin || !n->nextSibling() || n->nextSibling()->isDescendantOf(stayWithin));
         return n->nextSibling();
+    }
     return 0;
 }
 
@@ -527,31 +539,23 @@ Node *Node::traversePreviousNode(const Node *stayWithin) const
 
 Node *Node::traversePreviousNodePostOrder(const Node *stayWithin) const
 {
-    if (lastChild())
+    if (lastChild()) {
+        ASSERT(!stayWithin || lastChild()->isDescendantOf(stayWithin));
         return lastChild();
+    }
     if (this == stayWithin)
         return 0;
-    if (previousSibling())
+    if (previousSibling()) {
+        ASSERT(!stayWithin || previousSibling()->isDescendantOf(stayWithin));
         return previousSibling();
+    }
     const Node *n = this;
     while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n)
+    if (n) {
+        ASSERT(!stayWithin || !n->previousSibling() || n->previousSibling()->isDescendantOf(stayWithin));
         return n->previousSibling();
-    return 0;
-}
-
-Node* Node::traversePreviousSiblingPostOrder(const Node* stayWithin) const
-{
-    if (this == stayWithin)
-        return 0;
-    if (previousSibling())
-        return previousSibling();
-    const Node *n = this;
-    while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
-        n = n->parentNode();
-    if (n)
-        return n->previousSibling();
+    }
     return 0;
 }
 
@@ -735,7 +739,7 @@ bool Node::isDescendantOf(const Node *other) const
     return false;
 }
 
-bool Node::childAllowed(Node* newChild)
+bool Node::childAllowed( Node *newChild )
 {
     return childTypeAllowed(newChild->nodeType());
 }
@@ -783,6 +787,24 @@ Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 ) const
     
     return ch;
 }
+
+#ifndef NDEBUG
+void Node::dump(TextStream* stream, DeprecatedString ind) const
+{
+    if (m_hasId) { *stream << " hasId"; }
+    if (m_hasClass) { *stream << " hasClass"; }
+    if (m_focused) { *stream << " focused"; }
+    if (m_active) { *stream << " active"; }
+
+    *stream << " tabIndex=" << m_tabIndex;
+    *stream << endl;
+
+    for (Node* child = firstChild(); child; child = child->nextSibling()) {
+        *stream << ind << child->nodeName() << ": ";
+        child->dump(stream, ind + "  ");
+    }
+}
+#endif
 
 void Node::attach()
 {
@@ -1262,14 +1284,18 @@ bool Node::hasAttributes() const
     return false;
 }
 
-NamedAttrMap* Node::attributes() const
+NamedAttrMap *Node::attributes() const
 {
     return 0;
 }
 
-KURL Node::baseURI() const
+String Node::baseURI() const
 {
-    return parentNode() ? parentNode()->baseURI() : KURL();
+    Node* parent = parentNode();
+    if (parent)
+        return parent->baseURI();
+
+    return String();
 }
 
 bool Node::isEqualNode(Node *other) const
@@ -1522,7 +1548,7 @@ String Node::textContent(bool convertBRsToNewlines) const
         case DOCUMENT_TYPE_NODE:
         case NOTATION_NODE:
         default:
-            return String();
+            return String();            
     }
 }
 

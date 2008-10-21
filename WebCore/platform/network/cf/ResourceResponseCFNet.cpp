@@ -62,16 +62,10 @@ static time_t toTimeT(CFAbsoluteTime time)
     return min(max(minTimeAsDouble, time + kCFAbsoluteTimeIntervalSince1970), maxTimeAsDouble);
 }
 
-void ResourceResponse::platformLazyInit()
+void ResourceResponse::doUpdateResourceResponse()
 {
-    if (m_isUpToDate)
+    if (!m_cfResponse.get())
         return;
-    m_isUpToDate = true;
-
-    if (m_isNull) {
-        ASSERT(!m_cfResponse.get());
-        return;
-    }
 
     // FIXME: We may need to do MIME type sniffing here (unless that is done in CFURLResponseGetMIMEType).
 
@@ -107,11 +101,5 @@ void ResourceResponse::platformLazyInit()
     } else
         m_httpStatusCode = 0;
 }
-
-bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)
-{
-    return CFEqual(a.cfURLResponse(), b.cfURLResponse());
-}
-
 
 }

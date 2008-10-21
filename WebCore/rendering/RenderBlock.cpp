@@ -37,6 +37,11 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "SelectionController.h"
+#include "TextStream.h"
+
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#endif
 
 using namespace std;
 using namespace WTF;
@@ -527,6 +532,10 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     int oldWidth = m_width;
     int oldColumnWidth = desiredColumnWidth();
 
+#ifdef ANDROID_LAYOUT
+    int oldVisibleWidth = m_visibleWidth;
+#endif
+
     calcWidth();
     calcColumnWidth();
 
@@ -535,6 +544,14 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     if (oldWidth != m_width || oldColumnWidth != desiredColumnWidth())
         relayoutChildren = true;
+
+#ifdef ANDROID_LAYOUT
+    const Settings* settings = document()->settings();
+    ASSERT(settings);
+    if (oldVisibleWidth != m_visibleWidth
+            && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        relayoutChildren = true;
+#endif
 
     clearFloats();
 
@@ -1813,6 +1830,17 @@ GapRects RenderBlock::fillSelectionGaps(RenderBlock* rootBlock, int blockX, int 
     // FIXME: overflow: auto/scroll regions need more math here, since painting in the border box is different from painting in the padding box (one is scrolled, the other is
     // fixed).
     GapRects result;
+#ifdef ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
+    Node* node = element();
+    if (node) {
+        Node* ancestor = node->shadowAncestorNode();
+        if (ancestor && ancestor->renderer()) {
+            RenderObject* renderer = ancestor->renderer();
+            if (renderer->isTextField() || renderer->isTextArea())
+                return result;
+        }
+    }
+#endif
     if (!isBlockFlow()) // FIXME: Make multi-column selection gap filling work someday.
         return result;
 
@@ -2363,20 +2391,17 @@ RenderBlock::lineWidth(int y) const
     return (result < 0) ? 0 : result;
 }
 
-int RenderBlock::nextFloatBottomBelow(int height) const
+int
+RenderBlock::nearestFloatBottom(int height) const
 {
-    if (!m_floatingObjects)
-        return 0;
-
-    int bottom = INT_MAX;
+    if (!m_floatingObjects) return 0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
-    for ( ; (r = it.current()); ++it) {
-        if (r->endY > height)
-            bottom = min(r->endY, bottom);
-    }
-
-    return bottom == INT_MAX ? 0 : bottom;
+    for ( ; (r = it.current()); ++it )
+        if (r->endY>height && (r->endY<bottom || bottom==0))
+            bottom=r->endY;
+    return max(bottom, height);
 }
 
 int
@@ -2819,7 +2844,7 @@ int RenderBlock::getClearDelta(RenderObject *child)
 
     // We also clear floats if we are too big to sit on the same line as a float (and wish to avoid floats by default).
     // FIXME: Note that the remaining space checks aren't quite accurate, since you should be able to clear only some floats (the minimum # needed
-    // to fit) and not all (we should be using nextFloatBottomBelow and looping).
+    // to fit) and not all (we should be using nearestFloatBottom and looping).
     // Do not allow tables to wrap in quirks or even in almost strict mode 
     // (ebay on the PLT, finance.yahoo.com in the real world, versiontracker.com forces even almost strict mode not to work)
     int result = clearSet ? max(0, bottom - child->yPos()) : 0;
@@ -3654,7 +3679,14 @@ void RenderBlock::calcInlinePrefWidths()
                     inlineMax += childMax;
                     
                     child->setPrefWidthsDirty(false);
-                } else {
+
+                    if (static_cast<RenderFlow*>(child)->isWordBreak()) {
+                        // End a line and start a new line.
+                        m_minPrefWidth = max(inlineMin, m_minPrefWidth);
+                        inlineMin = 0;
+                    }
+                }
+                else {
                     // Inline replaced elts add in their margins to their min/max values.
                     int margins = 0;
                     Length leftMargin = cstyle->marginLeft();
@@ -3683,7 +3715,7 @@ void RenderBlock::calcInlinePrefWidths()
                     prevFloat = child;
                 } else
                     clearPreviousFloat = false;
-
+                
                 bool canBreakReplacedElement = !child->isImage() || allowImagesToBreak;
                 if (canBreakReplacedElement && (autoWrap || oldAutoWrap) || clearPreviousFloat) {
                     m_minPrefWidth = max(inlineMin, m_minPrefWidth);
@@ -3695,7 +3727,7 @@ void RenderBlock::calcInlinePrefWidths()
                     m_maxPrefWidth = max(inlineMax, m_maxPrefWidth);
                     inlineMax = 0;
                 }
-
+                
                 // Add in text-indent.  This is added in only once.
                 int ti = 0;
                 if (!addedTextIndent) {
@@ -3704,7 +3736,7 @@ void RenderBlock::calcInlinePrefWidths()
                     childMin+=ti;
                     childMax+=ti;
                 }
-
+                
                 // Add our width to the max.
                 inlineMax += childMax;
 
@@ -3727,15 +3759,11 @@ void RenderBlock::calcInlinePrefWidths()
                     stripFrontSpaces = false;
                     trailingSpaceChild = 0;
                 }
-            } else if (child->isText()) {
+            }
+            else if (child->isText())
+            {
                 // Case (3). Text.
                 RenderText* t = static_cast<RenderText *>(child);
-
-                if (t->isWordBreak()) {
-                    m_minPrefWidth = max(inlineMin, m_minPrefWidth);
-                    inlineMin = 0;
-                    continue;
-                }
 
                 // Determine if we have a breakable character.  Pass in
                 // whether or not we should ignore any spaces at the front
@@ -3744,7 +3772,7 @@ void RenderBlock::calcInlinePrefWidths()
                 // check.
                 bool hasBreakableChar, hasBreak;
                 int beginMin, endMin;
-                bool beginWS, endWS;
+                bool beginWS = false, endWS = false;
                 int beginMax, endMax;
                 t->trimmedPrefWidths(inlineMax, beginMin, beginWS, endMin, endWS,
                                      hasBreakableChar, hasBreak, beginMax, endMax,
@@ -3778,7 +3806,8 @@ void RenderBlock::calcInlinePrefWidths()
                 // min and max and continue.
                 if (!hasBreakableChar) {
                     inlineMin += childMin;
-                } else {
+                }
+                else {
                     // We have a breakable character.  Now we need to know if
                     // we start and end with whitespace.
                     if (beginWS)
@@ -3808,7 +3837,8 @@ void RenderBlock::calcInlinePrefWidths()
                     m_maxPrefWidth = max(inlineMax, m_maxPrefWidth);
                     m_maxPrefWidth = max(childMax, m_maxPrefWidth);
                     inlineMax = endMax;
-                } else
+                }
+                else
                     inlineMax += childMax;
             }
         } else {
@@ -3826,7 +3856,7 @@ void RenderBlock::calcInlinePrefWidths()
 
     if (style()->collapseWhiteSpace())
         stripTrailingSpace(inlineMax, inlineMin, trailingSpaceChild);
-
+    
     m_minPrefWidth = max(inlineMin, m_minPrefWidth);
     m_maxPrefWidth = max(inlineMax, m_maxPrefWidth);
 }
@@ -4066,10 +4096,7 @@ void RenderBlock::updateFirstLetter()
     RenderObject* firstLetterBlock = this;
     bool hasPseudoStyle = false;
     while (true) {
-        // We only honor first-letter if the firstLetterBlock can have children in the DOM. This correctly 
-        // prevents form controls from honoring first-letter.
-        hasPseudoStyle = firstLetterBlock->style()->hasPseudoStyle(RenderStyle::FIRST_LETTER) 
-            && firstLetterBlock->canHaveChildren();
+        hasPseudoStyle = firstLetterBlock->style()->hasPseudoStyle(RenderStyle::FIRST_LETTER);
         if (hasPseudoStyle)
             break;
         RenderObject* parentBlock = firstLetterBlock->parent();
@@ -4395,5 +4422,35 @@ const char* RenderBlock::renderName() const
         return "RenderBlock (run-in)";
     return "RenderBlock";
 }
+
+#ifndef NDEBUG
+
+void RenderBlock::dump(TextStream *stream, DeprecatedString ind) const
+{
+    if (m_childrenInline) { *stream << " childrenInline"; }
+    if (m_firstLine) { *stream << " firstLine"; }
+
+    if (m_floatingObjects && !m_floatingObjects->isEmpty())
+    {
+        *stream << " special(";
+        DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
+        FloatingObject *r;
+        bool first = true;
+        for ( ; (r = it.current()); ++it )
+        {
+            if (!first)
+                *stream << ",";
+            *stream << r->node->renderName();
+            first = false;
+        }
+        *stream << ")";
+    }
+
+    // ### EClear m_clearStatus
+
+    RenderFlow::dump(stream,ind);
+}
+
+#endif
 
 } // namespace WebCore

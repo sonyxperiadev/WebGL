@@ -54,6 +54,10 @@ typedef struct HBITMAP__ *HBITMAP;
 #include <QPixmap>
 #endif
 
+#if PLATFORM(SGL)
+class SkBitmapRef;
+#endif
+
 namespace WebCore {
 
 class AffineTransform;
@@ -131,6 +135,11 @@ public:
 #if PLATFORM(WIN)
     virtual bool getHBITMAP(HBITMAP) { return false; }
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE) { return false; }
+#endif
+
+#if PLATFORM(SGL)
+    virtual SkBitmapRef* getBitmap() { return 0; }
+    virtual void setURL(const String& str) {}
 #endif
 
 protected:

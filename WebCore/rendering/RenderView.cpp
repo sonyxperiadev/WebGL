@@ -29,6 +29,11 @@
 #include "GraphicsContext.h"
 #include "RenderLayer.h"
 
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#include "WebCoreViewBridge.h"
+#endif
+
 namespace WebCore {
 
 RenderView::RenderView(Node* node, FrameView* view)
@@ -79,6 +84,14 @@ void RenderView::calcWidth()
 {
     if (!printing() && m_frameView)
         m_width = m_frameView->visibleWidth();
+#ifdef ANDROID_LAYOUT
+    const Settings * settings = document()->settings();
+    ASSERT(settings);
+    if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        m_visibleWidth = m_frameView->getWebCoreViewBridge()->screenWidth();
+    if (settings->useWideViewport() && settings->viewportWidth() == -1 && m_width < minPrefWidth())
+        m_width = m_minPrefWidth;
+#endif
     m_marginLeft = 0;
     m_marginRight = 0;
 }

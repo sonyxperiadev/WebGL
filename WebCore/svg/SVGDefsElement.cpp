@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
@@ -21,7 +21,6 @@
 */
 
 #include "config.h"
-
 #if ENABLE(SVG)
 #include "SVGDefsElement.h"
 
@@ -46,11 +45,13 @@ bool SVGDefsElement::isValid() const
     return SVGTests::isValid();
 }
 
-RenderObject* SVGDefsElement::createRenderer(RenderArena* arena, RenderStyle*)
+RenderObject* SVGDefsElement::createRenderer(RenderArena* arena, RenderStyle* style)
 {
     return new (arena) RenderSVGHiddenContainer(this);
 }
 
 }
 
+// vim:ts=4:noet
 #endif // ENABLE(SVG)
+

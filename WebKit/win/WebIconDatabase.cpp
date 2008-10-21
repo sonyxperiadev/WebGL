@@ -36,7 +36,6 @@
 #include <WebCore/FileSystem.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Image.h>
-#include <WebCore/MainThread.h>
 #include <WebCore/PlatformString.h>
 #pragma warning(pop)
 #include "shlobj.h"
@@ -331,7 +330,7 @@ static void postDidAddIconNotification(const String& pageURL, WebIconDatabase* i
     RetainPtr<CFStringRef> url(AdoptCF, pageURL.createCFString());
     CFDictionaryAddValue(dictionary.get(), WebIconDatabase::iconDatabaseNotificationUserInfoURLKey(), url.get());
 
-    COMPtr<CFDictionaryPropertyBag> userInfo(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfo = CFDictionaryPropertyBag::createInstance();
     userInfo->setDictionary(dictionary.get());
 
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();

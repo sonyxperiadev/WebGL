@@ -1,9 +1,11 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,14 +29,12 @@
 
 #include "Node.h"
 #include "NodeFilter.h"
-
-using namespace KJS;
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-Traversal::Traversal(PassRefPtr<Node> rootNode, unsigned whatToShow, PassRefPtr<NodeFilter> nodeFilter, bool expandEntityReferences)
-    : RefCounted<Traversal>(0)
-    , m_root(rootNode)
+Traversal::Traversal(Node* rootNode, unsigned whatToShow, PassRefPtr<NodeFilter> nodeFilter, bool expandEntityReferences)
+    : m_root(rootNode)
     , m_whatToShow(whatToShow)
     , m_filter(nodeFilter)
     , m_expandEntityReferences(expandEntityReferences)
@@ -45,17 +45,15 @@ Traversal::~Traversal()
 {
 }
 
-short Traversal::acceptNode(Node* node, JSValue*& exception) const
+short Traversal::acceptNode(Node* node) const
 {
-    // FIXME: To handle XML properly we would have to check m_expandEntityReferences.
-
+    // FIXME: If XML is implemented we have to check expandEntityRerefences in this function.
     // The bid twiddling here is done to map DOM node types, which are given as integers from
     // 1 through 12, to whatToShow bit masks.
-    if (!(((1 << (node->nodeType() - 1)) & m_whatToShow)))
-        return NodeFilter::FILTER_SKIP;
-    if (!m_filter)
-        return NodeFilter::FILTER_ACCEPT;
-    return m_filter->acceptNode(node, exception);
+    if (node && ((1 << (node->nodeType()-1)) & m_whatToShow))
+        // cast to short silences "enumeral and non-enumeral types in return" warning
+        return m_filter ? m_filter->acceptNode(node) : static_cast<short>(NodeFilter::FILTER_ACCEPT);
+    return NodeFilter::FILTER_SKIP;
 }
 
 } // namespace WebCore

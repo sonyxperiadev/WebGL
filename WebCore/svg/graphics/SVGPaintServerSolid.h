@@ -35,7 +35,7 @@ namespace WebCore {
 
     class SVGPaintServerSolid : public SVGPaintServer {
     public:
-        static PassRefPtr<SVGPaintServerSolid> create() { return adoptRef(new SVGPaintServerSolid); }
+        SVGPaintServerSolid();
         virtual ~SVGPaintServerSolid();
 
         virtual SVGPaintServerType type() const { return SolidPaintServer; }
@@ -50,8 +50,6 @@ namespace WebCore {
 #endif
 
     private:
-        SVGPaintServerSolid();
-
         Color m_color;
     };
 

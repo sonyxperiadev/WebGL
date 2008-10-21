@@ -36,8 +36,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type)
-    : RefCounted<HTMLCollection>(0)
-    , m_idsDone(false)
+    : m_idsDone(false)
     , m_base(base)
     , m_type(type)
     , m_info(m_base->isDocumentNode() ? static_cast<Document*>(m_base.get())->collectionInfo(type) : 0)
@@ -46,8 +45,7 @@ HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type)
 }
 
 HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type, CollectionInfo* info)
-    : RefCounted<HTMLCollection>(0)
-    , m_idsDone(false)
+    : m_idsDone(false)
     , m_base(base)
     , m_type(type)
     , m_info(info)
@@ -301,7 +299,15 @@ Node* HTMLCollection::firstItem() const
 Node* HTMLCollection::nextItem() const
 {
      resetCollectionInfo();
- 
+     
+#ifdef ANDROID_FIX
+     // resetCollectionInfo() can set info->current to be 0. If this is the 
+     // case, we need to go back to the firstItem. Otherwise traverseNextItem 
+     // will crash.
+     if (!m_info->current)
+         return firstItem();
+#endif
+     
      // Look for the 'second' item. The first one is currentItem, already given back.
      Element* retval = itemAfter(m_info->current);
      m_info->current = retval;
@@ -340,10 +346,10 @@ bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const S
                   e->hasLocalName(selectTag)))
                 return false;
 
-            return e->getAttribute(nameAttr).string().lower() == name.lower() &&
-                e->getAttribute(idAttr).string().lower() != name.lower();
+            return e->getAttribute(nameAttr).domString().lower() == name.lower() &&
+                e->getAttribute(idAttr).domString().lower() != name.lower();
         } else {
-            return e->getAttribute(idAttr).string().lower() == name.lower();
+            return e->getAttribute(idAttr).domString().lower() == name.lower();
         }
     }
 }

@@ -227,11 +227,6 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
     m_data->context->DrawEllipse(rect.x(), rect.y(), rect.width(), rect.height());
 }
 
-void GraphicsContext::drawImage(WebCore::ImageBuffer*, WebCore::FloatRect const&, WebCore::FloatRect const&)
-{
-    notImplemented();
-}
-
 void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSpan)
 {
     if (paintingDisabled())
@@ -427,16 +422,6 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         m_data->context->SetLogicalFunction(getWxCompositingOperation(op, false));
 }
 
-void GraphicsContext::beginPath()
-{
-    notImplemented();
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-    notImplemented();
-}
-
 void GraphicsContext::setPlatformStrokeColor(const Color& color)
 {
     if (paintingDisabled())
@@ -475,13 +460,6 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
 }
 
 void GraphicsContext::setUseAntialiasing(bool enable)
-{
-    if (paintingDisabled())
-        return;
-    notImplemented();
-}
-
-void GraphicsContext::paintBuffer(ImageBuffer* buffer, const IntRect& r)
 {
     if (paintingDisabled())
         return;

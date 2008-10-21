@@ -61,8 +61,11 @@
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "TextResourceDecoder.h"
+#include "TextStream.h"
 #include <algorithm>
-#include <stdio.h>
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#endif
 
 using namespace std;
 
@@ -710,11 +713,9 @@ void RenderObject::setChildNeedsLayout(bool b, bool markParents)
 
 static inline bool objectIsRelayoutBoundary(const RenderObject *obj) 
 {
-    // FIXME: In future it may be possible to broaden this condition in order to improve performance.
-    // Table cells are excluded because even when their CSS height is fixed, their height()
-    // may depend on their contents.
+    // FIXME: In future it may be possible to broaden this condition in order to improve performance 
     return obj->isTextField() || obj->isTextArea()
-        || obj->hasOverflowClip() && !obj->style()->width().isIntrinsicOrAuto() && !obj->style()->height().isIntrinsicOrAuto() && !obj->style()->height().isPercent() && !obj->isTableCell()
+        || obj->hasOverflowClip() && !obj->style()->width().isIntrinsicOrAuto() && !obj->style()->height().isIntrinsicOrAuto() && !obj->style()->height().isPercent()
 #if ENABLE(SVG)
            || obj->isSVGRoot()
 #endif
@@ -1670,17 +1671,24 @@ IntRect RenderObject::paintingRootRect(IntRect& topLevelRect)
     return result;
 }
 
-void RenderObject::addPDFURLRect(GraphicsContext* context, const IntRect& rect)
+void RenderObject::addPDFURLRect(GraphicsContext* graphicsContext, IntRect rect)
 {
-    if (rect.isEmpty())
-        return;
     Node* node = element();
-    if (!node || !node->isLink() || !node->isElementNode())
-        return;
-    const AtomicString& href = static_cast<Element*>(node)->getAttribute(hrefAttr);
-    if (href.isNull())
-        return;
-    context->setURLForRect(node->document()->completeURL(href), rect);
+    if (node) {
+        if (graphicsContext) {
+            if (rect.width() > 0 && rect.height() > 0) {
+                Element* element = static_cast<Element*>(node);
+                String href;
+                if (element->isLink())
+                    href = element->getAttribute(hrefAttr);
+
+                if (!href.isNull()) {
+                    KURL link = element->document()->completeURL(href.deprecatedString());
+                    graphicsContext->setURLForRect(link, rect);
+                }
+            }
+        }
+    }
 }
 
 
@@ -1946,6 +1954,78 @@ void RenderObject::dirtyLinesFromChangedChild(RenderObject* child)
 
 #ifndef NDEBUG
 
+DeprecatedString RenderObject::information() const
+{
+    DeprecatedString str;
+    TextStream ts(&str);
+    ts << renderName()
+       << "(" << (style() ? style()->refCount() : 0) << ")"
+       << ": " << (void*)this << "  ";
+    if (isInline())
+        ts << "il ";
+    if (childrenInline())
+        ts << "ci ";
+    if (isFloating())
+        ts << "fl ";
+    if (isAnonymous())
+        ts << "an ";
+    if (isRelPositioned())
+        ts << "rp ";
+    if (isPositioned())
+        ts << "ps ";
+    if (needsLayout())
+        ts << "nl ";
+    if (style() && style()->zIndex())
+        ts << "zI: " << style()->zIndex();
+    if (element()) {
+        if (element()->active())
+            ts << "act ";
+        if (element()->isLink())
+            ts << "anchor ";
+        if (element()->focused())
+            ts << "focus ";
+        ts << " <" << element()->localName().deprecatedString() << ">";
+        ts << " (" << xPos() << "," << yPos() << "," << width() << "," << height() << ")";
+        if (isTableCell()) {
+            const RenderTableCell* cell = static_cast<const RenderTableCell*>(this);
+            ts << " [r=" << cell->row() << " c=" << cell->col() << " rs=" << cell->rowSpan() << " cs=" << cell->colSpan() << "]";
+        }
+    }
+    return str;
+}
+
+void RenderObject::dump(TextStream* stream, DeprecatedString ind) const
+{
+    if (isAnonymous())
+        *stream << " anonymous";
+    if (isFloating())
+        *stream << " floating";
+    if (isPositioned())
+        *stream << " positioned";
+    if (isRelPositioned())
+        *stream << " relPositioned";
+    if (isText())
+        *stream << " text";
+    if (isInline())
+        *stream << " inline";
+    if (isReplaced())
+        *stream << " replaced";
+    if (hasBoxDecorations())
+        *stream << " paintBackground";
+    if (needsLayout())
+        *stream << " needsLayout";
+    if (prefWidthsDirty())
+        *stream << " prefWidthsDirty";
+    *stream << endl;
+
+    RenderObject* child = firstChild();
+    while (child) {
+        *stream << ind << child->renderName() << ": ";
+        child->dump(stream, ind + "  ");
+        child = child->nextSibling();
+    }
+}
+
 void RenderObject::showTreeForThis() const
 {
     if (element())
@@ -2076,9 +2156,12 @@ void RenderObject::handleDynamicFloatPositionChange()
 
 void RenderObject::setAnimatableStyle(RenderStyle* style)
 {
-    if (!isText() && m_style && style)
-        style = animationController()->updateImplicitAnimations(this, style);
-
+    if (!isText() && m_style && style) {
+        if (!m_style->transitions())
+            animationController()->cancelImplicitAnimations(this);
+        else
+            style = animationController()->updateImplicitAnimations(this, style);
+    }
     setStyle(style);
 }
 
@@ -2314,6 +2397,12 @@ int RenderObject::paddingTop() const
     Length padding = m_style->paddingTop();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
+#ifdef ANDROID_LAYOUT    
+    // in SSR mode, we use ANDROID_SSR_MARGIN_PADDING for padding.
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR &&
+            padding.calcMinValue(w) > ANDROID_SSR_MARGIN_PADDING)
+        return ANDROID_SSR_MARGIN_PADDING;
+#endif
     return padding.calcMinValue(w);
 }
 
@@ -2323,6 +2412,12 @@ int RenderObject::paddingBottom() const
     Length padding = style()->paddingBottom();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
+#ifdef ANDROID_LAYOUT    
+    // in SSR mode, we use ANDROID_SSR_MARGIN_PADDING for padding.
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR &&
+            padding.calcMinValue(w) > ANDROID_SSR_MARGIN_PADDING)
+        return ANDROID_SSR_MARGIN_PADDING;
+#endif
     return padding.calcMinValue(w);
 }
 
@@ -2332,6 +2427,12 @@ int RenderObject::paddingLeft() const
     Length padding = style()->paddingLeft();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
+#ifdef ANDROID_LAYOUT    
+    // in SSR mode, we use ANDROID_SSR_MARGIN_PADDING for padding.
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR &&
+            padding.calcMinValue(w) > ANDROID_SSR_MARGIN_PADDING)
+        return ANDROID_SSR_MARGIN_PADDING;
+#endif
     return padding.calcMinValue(w);
 }
 
@@ -2341,6 +2442,12 @@ int RenderObject::paddingRight() const
     Length padding = style()->paddingRight();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
+#ifdef ANDROID_LAYOUT    
+    // in SSR mode, we use ANDROID_SSR_MARGIN_PADDING for padding.
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR &&
+            padding.calcMinValue(w) > ANDROID_SSR_MARGIN_PADDING)
+        return ANDROID_SSR_MARGIN_PADDING;
+#endif
     return padding.calcMinValue(w);
 }
 

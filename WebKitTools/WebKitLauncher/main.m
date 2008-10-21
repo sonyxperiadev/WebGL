@@ -130,15 +130,6 @@ NSBundle *locateSafariBundle()
     return safariBundle;
 }
 
-NSString *currentSystemVersion()
-{
-    long version;
-    if (Gestalt(gestaltSystemVersion, &version) != noErr)
-        return @"10.4";
-
-    return [NSString stringWithFormat:@"%x.%x", (version & 0xFF00) >> 8, (version & 0x00F0) >> 4];
-}
-
 int main(int argc, char *argv[])
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
@@ -146,10 +137,8 @@ int main(int argc, char *argv[])
 
     NSBundle *safariBundle = locateSafariBundle();
     NSString *executablePath = [safariBundle executablePath];
-    NSString *frameworkPath = [[[NSBundle mainBundle] privateFrameworksPath] stringByAppendingPathComponent:currentSystemVersion()];
+    NSString *frameworkPath = [[NSBundle mainBundle] resourcePath];
     NSString *pathToEnablerLib = [[NSBundle mainBundle] pathForResource:@"WebKitNightlyEnabler" ofType:@"dylib"];
-    
-    NSLog(@"Using framework path of %@", frameworkPath);
 
     if ([frameworkPath rangeOfString:@":"].location != NSNotFound ||
         [pathToEnablerLib rangeOfString:@":"].location != NSNotFound)

@@ -44,7 +44,7 @@ SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* d
     , SVGExternalResourcesRequired()
     , m_spreadMethod(0)
     , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
-    , m_gradientTransform(SVGTransformList::create(SVGNames::gradientTransformAttr))
+    , m_gradientTransform(new SVGTransformList(SVGNames::gradientTransformAttr))
 {
 }
 
@@ -102,9 +102,9 @@ void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
         m_resource->invalidate();
 }
 
-void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGGradientElement::childrenChanged(bool changedByParser)
 {
-    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledElement::childrenChanged(changedByParser);
 
     if (m_resource)
         m_resource->invalidate();
@@ -119,9 +119,9 @@ SVGResource* SVGGradientElement::canvasResource()
 {
     if (!m_resource) {
         if (gradientType() == LinearGradientPaintServer)
-            m_resource = SVGPaintServerLinearGradient::create(this);
+            m_resource = new SVGPaintServerLinearGradient(this);
         else
-            m_resource = SVGPaintServerRadialGradient::create(this);
+            m_resource = new SVGPaintServerRadialGradient(this);
     }
 
     return m_resource.get();

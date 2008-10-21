@@ -29,7 +29,7 @@
 #ifndef WebScriptCallFrame_h
 #define WebScriptCallFrame_h
 
-#include "WebKit.h"
+#include "IWebScriptCallFrame.h"
 
 #include <JavaScriptCore/ExecState.h>
 #pragma warning(push, 0)

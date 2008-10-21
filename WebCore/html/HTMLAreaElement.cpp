@@ -1,4 +1,6 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
@@ -18,15 +20,18 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
 #include "config.h"
 #include "HTMLAreaElement.h"
 
 #include "Document.h"
-#include "FloatRect.h"
 #include "HTMLNames.h"
+#include "FloatRect.h"
 #include "HitTestResult.h"
 #include "RenderObject.h"
+
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+#include "RenderImage.h"
+#endif
 
 using namespace std;
 
@@ -40,6 +45,9 @@ HTMLAreaElement::HTMLAreaElement(Document *doc)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
     , m_shape(Unknown)
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+    , m_map(0)
+#endif
 {
 }
 
@@ -178,7 +186,7 @@ void HTMLAreaElement::setCoords(const String& value)
     setAttribute(coordsAttr, value);
 }
 
-KURL HTMLAreaElement::href() const
+String HTMLAreaElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
@@ -223,4 +231,15 @@ void HTMLAreaElement::setTarget(const String& value)
     setAttribute(targetAttr, value);
 }
 
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+IntRect HTMLAreaElement::getAreaRect() const
+{
+    if (m_map) {
+        if (isDefault())
+          return m_map->absoluteBoundingBoxRect();
+        return getRect(m_map);
+    }
+    return IntRect();
+}
+#endif
 }

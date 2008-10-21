@@ -32,7 +32,7 @@ namespace WebCore {
 
 class VoidCallback : public RefCounted<VoidCallback> {
 public:
-    VoidCallback() : RefCounted<VoidCallback>(0) { }
+    VoidCallback() { }
     virtual ~VoidCallback() { }
     
     virtual void handleEvent() = 0;

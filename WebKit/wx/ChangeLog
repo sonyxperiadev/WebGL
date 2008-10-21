@@ -1,0 +1,363 @@
+2008-02-03  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Darin Adler.
+
+        Typo fix. Don't use the provisionalDocumentLoader() after the
+        whole page has already been loaded.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidHandleOnloadEvents):
+
+2008-02-03  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix for last wx commit (a couple things were not committed). 
+        Also fix some style issues.
+
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+        (wxWebView::OnPaint):
+        (wxWebView::OnSize):
+        (wxWebView::CanCopy):
+        (wxWebView::Copy):
+        (wxWebView::CanCut):
+        (wxWebView::Cut):
+        (wxWebView::CanPaste):
+        (wxWebView::Paste):
+        (wxWebView::OnKeyEvents):
+        (wxWebView::OnSetFocus):
+        (wxWebView::OnKillFocus):
+        (wxWebView::OnActivate):
+        * WebView.h:
+
+2008-01-31  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Adam Roben.
+
+        On MSW, the wx port internally uses callbacks for wxTimer, so the
+        wx port suffers from the same crash problem that was fixed
+        in r28500 for the Windows port. For now, use the SharedTimerWin.cpp
+        impl. for wx too on MSW, until a version of wx is released that
+        fixes the issue by reworking wxTimer.
+
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+
+2008-01-21  Darin Adler  <darin@apple.com>
+
+        Reviewed by John Sullivan.
+
+        - updated for changes to ChromeClient database functions
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::exceededDatabaseQuota):
+        * WebKitSupport/ChromeClientWx.h:
+
+2008-01-16  Adam Roben  <aroben@apple.com>
+
+        Updated for WebCore method renames.
+
+        Reviewed by Darin.
+
+        * WebView.cpp:
+        (wxWebView::OnSetFocus):
+        (wxWebView::OnKillFocus):
+        (wxWebView::OnActivate):
+
+2008-01-12  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Darin Adler.
+
+        wxWebKit API changes in preparation for DRT implementation. 
+        Specifically:
+
+        - Add CONSOLE_MESSAGE callback so clients can choose how to handle
+        console messages.
+        - Add more load events, and rename wxWebViewStateChangedEvent to 
+        wxWebViewLoadEvent to reflect that all 'states' are load states.
+        - Add wxWebView impls. for GetInnerText(), GetAsMarkup() and 
+        GetExternalRepresentation()
+
+        * WebFrame.cpp:
+        (wxWebFrame::OnLoadEvent):
+        * WebFrame.h:
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::ChromeClientWx):
+        (WebCore::ChromeClientWx::addMessageToConsole):
+        * WebKitSupport/ChromeClientWx.h:
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidHandleOnloadEvents):
+        (WebCore::FrameLoaderClientWx::dispatchDidStartProvisionalLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidFinishDocumentLoad):
+        (WebCore::FrameLoaderClientWx::postProgressFinishedNotification):
+        * WebView.cpp:
+        (wxWebViewLoadEvent::wxWebViewLoadEvent):
+        (wxWebViewConsoleMessageEvent::wxWebViewConsoleMessageEvent):
+        (wxWebView::wxWebView):
+        (wxWebView::GetPageSource):
+        (wxWebView::GetInnerText):
+        (wxWebView::GetAsMarkup):
+        (wxWebView::GetExternalRepresentation):
+        * WebView.h:
+
+2008-01-12  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Add WebCore/icu/include dir for OS X boxes with
+        only stock ICU installed.
+
+        * dependencies.bkl:
+
+2008-01-10  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Sam.
+
+        - remove SecurityOriginData and fold its functionality into SecurityOrigin
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::requestQuotaIncreaseForNewDatabase):
+        (WebCore::ChromeClientWx::requestQuotaIncreaseForDatabaseOperation):
+        * WebKitSupport/ChromeClientWx.h:
+
+2007-12-16  Darin Adler  <darin@apple.com>
+
+        - try to fix the build
+
+        * WebView.cpp:
+        (wxWebView::OnKeyEvents): Add a WebCore prefix.
+
+2007-12-16  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin.
+
+        http://bugs.webkit.org/show_bug.cgi?id=16462
+        REGRESSION: access keys broken on Windows
+
+        * WebView.cpp: (wxWebView::OnKeyEvents): Call handleAccessKey() as appropriate.
+
+2007-12-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by Alexey.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::handleKeyboardEvent): Switched from Editor::execCommand
+        to Editor::command.
+
+2007-12-12  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig
+
+        As part of doing some CachedPage and client cleanup, keep Wx building
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::savePlatformDataToCachedPage):
+        (WebCore::FrameLoaderClientWx::transitionToCommittedFromCachedPage):
+        (WebCore::FrameLoaderClientWx::transitionToCommittedForNewPage):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2007-12-12  Sam Weinig  <sam@webkit.org>
+
+        Build fix.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::createWindow):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidStartProvisionalLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidFinishDocumentLoad):
+        (WebCore::FrameLoaderClientWx::postProgressFinishedNotification):
+        (WebCore::FrameLoaderClientWx::didChangeTitle):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+
+2007-12-07  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin.
+
+        <rdar://problem/5535636>
+        Have to press 4 times instead of 2 times to get the expected result of ^^ with german keyboard.
+
+        http://bugs.webkit.org/show_bug.cgi?id=13916
+        JavaScript detects Tab as a character input on a textfield validation
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::handleInputMethodKeydown):
+        (WebCore::EditorClientWx::handleKeyboardEvent):
+        * WebKitSupport/EditorClientWx.h:
+        Updated for cross-platform changes as much as it was possible without a wx build environment.
+        The keyboard event model of wx is similar to Windows one, so further fixes can be modeled
+        after the Windows port.
+
+2007-12-06  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Fix page leak caused because the Frame's page pointer is 0 by the 
+        time we call delete on it. Store a reference to the page instead
+        and delete it that way.
+
+        Also, small fix to call PrepareDC(gcdc) when using wxGCDC because
+        on Linux the wxGCDC gcdc(dc) constructor will not retain the
+        changes made to dc by PrepareDC(dc).
+
+        Reviewed by Darin Adler.
+
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+        (wxWebView::~wxWebView):
+        (wxWebView::OnPaint):
+        * WebViewPrivate.h:
+        (WebViewPrivate::WebViewPrivate):
+
+2007-12-06  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Linux build fix - ensure that webcore is linked before jscore
+        so that the linker will know which symbols it needs to link in.
+        Also fix MSVC project file name typo for sample app.
+
+        * Bakefiles.bkgen:
+        * wxwebkit.bkl:
+
+2007-12-04  Darin Adler  <darin@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp: Removed obsolete privateBrowsingEnabled.
+        * WebKitSupport/FrameLoaderClientWx.h: Ditto.
+
+2007-12-03  Mark Rowe  <mrowe@apple.com>
+
+        wx build fix.
+
+        * WebView.cpp:
+        (wxWebView::RunScript):
+
+2007-11-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Add WebCore/platform/graphics/wx to includes.
+
+        * wxwebkit.bkl:
+
+2007-11-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Fix method signatures to be members of ClientChromeWx class.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::requestQuotaIncreaseForNewDatabase):
+        (WebCore::ChromeClientWx::requestQuotaIncreaseForDatabaseOperation):
+
+2007-11-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix. Add platform/text to includes for targets that
+        need WebCore headers.
+
+        * presets/wxwebkit.bkl:
+
+2007-11-29  Brady Eidson  <beidson@apple.com>
+
+        Keep it building with new client method
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClient::requestQuotaIncreaseForNewDatabase):
+        (WebCore::ChromeClient::requestQuotaIncreaseForDatabaseOperation):
+        * WebKitSupport/ChromeClientWx.h:
+
+2007-11-25  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Don't get xslt-config options at bake time, do it
+        at make time.
+
+        * dependencies.bkl:
+
+2007-11-23  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Include config.h in WebFrame/WebView to ensure
+        WebCore headers are properly configured, fix unicode/utf8.h and
+        config.h include ordering issues, centralize wx project options to 
+        ensure proper configuration, and fix wxwebkit-python target so that
+        it links against wx libs.
+
+        * WebFrame.cpp:
+        * WebView.cpp:
+        * bindings/python/wxwebkit-py.bkl:
+        * dependencies.bkl:
+        * presets/wxwebkit.bkl:
+        * wxwebkit.bkl:
+        * wxwk-settings.bkl:
+
+2007-11-20  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix for Windows. Don't use WebCore/move-js-headers.sh as
+        it indiscriminately copies any headers inside JavaScriptCore,
+        which includes Tiger ICU headers. 
+
+        * presets/wxwebkit.bkl:
+        Remove WebCore/include reference and add JSCore header dirs needed
+        instead.
+
+2007-11-19  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Add pcre directory to JSCore includes, and update the wx port
+        to reflect the Shared -> RefCounted name change. Also, fix
+        WebFrame.cpp to re-enable code that should never have been 
+        committed disabled. 
+
+        Reviewed by Adam.
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::ref):
+        (WebCore::FrameLoaderClientWx::deref):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        * presets/wxwebkit.bkl:
+
+2007-11-17  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Bug 13470: i18n: The Web Inspector is not localizable
+        http://bugs.webkit.org/show_bug.cgi?id=13470
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::localizedStringsURL): Empty stub.
+        * WebKitSupport/InspectorClientWx.h: Added localizedStringsURL.
+
+2007-11-08  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Initial commit of wx implementation of WebKit. This includes
+        the wxWebFrame and wxWebView wx front end classes, the 
+        WebKitSupport directory containing implementations of interfaces
+        used by WebCore to talk with the wxWebKit front end, and the 
+        language bindings for wxWebKit (bindings dir), currently
+        only containing bindings and a sample app for wxPython.
+
+        Reviewed by Mark Rowe.
+
+        * Bakefiles.bkgen: Added.
+        * WebFrame.cpp: Added.
+        * WebFrame.h: Added.
+        * WebKitSupport: Added.
+        * WebKitSupport/ChromeClientWx.cpp: Added.
+        * WebKitSupport/ChromeClientWx.h: Added.
+        * WebKitSupport/ContextMenuClientWx.cpp: Added.
+        * WebKitSupport/ContextMenuClientWx.h: Added.
+        * WebKitSupport/DragClientWx.cpp: Added.
+        * WebKitSupport/DragClientWx.h: Added.
+        * WebKitSupport/EditorClientWx.cpp: Added.
+        * WebKitSupport/EditorClientWx.h: Added.
+        * WebKitSupport/FrameLoaderClientWx.cpp: Added.
+        * WebKitSupport/FrameLoaderClientWx.h: Added.
+        * WebKitSupport/InspectorClientWx.cpp: Added.
+        * WebKitSupport/InspectorClientWx.h: Added.
+        * WebView.cpp: Added.
+        * WebView.h: Added.
+        * WebViewPrivate.h: Added.
+        * bindings: Added.
+        * bindings/python: Added.
+        * bindings/python/samples: Added.
+        * bindings/python/samples/simple.py: Added.
+        * bindings/python/webview.i: Added.
+        * bindings/python/wxwebkit-py.bkl: Added.
+        * dependencies.bkl: Added.
+        * presets: Added.
+        * presets/wxwebkit.bkl: Added.
+        * wxwebkit.bkl: Added.
+        * wxwk-settings.bkl: Added.
+

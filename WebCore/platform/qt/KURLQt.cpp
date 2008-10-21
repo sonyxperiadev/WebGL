@@ -38,13 +38,11 @@ KURL::KURL(const QUrl& url)
 
 KURL::operator QUrl() const
 {
-    unsigned length = m_string.length();
-
     QByteArray ba;
-    ba.reserve(length);
+    ba.reserve(urlString.length());
 
-    for (unsigned i = 0; i < length; ++i) {
-        const char chr = static_cast<char>(m_string[i]);
+    for (const char *src = urlString.ascii(); *src; ++src) {
+        const char chr = *src;
 
         switch (chr) {
             case '{':

@@ -162,9 +162,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
         return true;
 
     RefPtr<Node> next = refChild;
-    RefPtr<Node> prev = refChild->previousSibling();
 
-    int childCountDelta = 0;
     RefPtr<Node> child = isFragment ? newChild->firstChild() : newChild;
     while (child) {
         RefPtr<Node> nextChild = isFragment ? child->nextSibling() : 0;
@@ -191,8 +189,6 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
 
         ASSERT(!child->nextSibling());
         ASSERT(!child->previousSibling());
-
-        childCountDelta++;
 
         // Add child before "next".
         forbidEventDispatch();
@@ -223,8 +219,6 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
     }
 
     document()->setDocumentChanged(true);
-    if (childCountDelta)
-        childrenChanged(false, prev.get(), next.get(), childCountDelta);
     dispatchSubtreeModifiedEvent();
     return true;
 }
@@ -240,6 +234,16 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     if (oldChild == newChild) // nothing to do
         return true;
     
+#ifdef ANDROID_FIX    
+    // if oldChild is null, it will cause crash in checkReplaceChild(). We 
+    // should check null first.
+    // Fix Android bug, http://b/issue?id=847893
+    if (!oldChild) {
+        ec = NOT_FOUND_ERR;
+        return false;
+    }    
+#endif
+    
     // Make sure replacing the old child with the new is ok
     checkReplaceChild(newChild.get(), oldChild, ec);
     if (ec)
@@ -252,7 +256,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     }
 
     RefPtr<Node> prev = oldChild->previousSibling();
-    RefPtr<Node> next = oldChild->nextSibling();
 
     // Remove the node we're replacing
     RefPtr<Node> removedChild = oldChild;
@@ -268,7 +271,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     bool isFragment = newChild->nodeType() == DOCUMENT_FRAGMENT_NODE;
 
     // Add the new child(ren)
-    int childCountDelta = 0;
     RefPtr<Node> child = isFragment ? newChild->firstChild() : newChild;
     while (child) {
         // If the new child is already in the right place, we're done.
@@ -292,8 +294,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
             break;
         if (child->parentNode())
             break;
-
-        childCountDelta++;
 
         ASSERT(!child->nextSibling());
         ASSERT(!child->previousSibling());
@@ -334,8 +334,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     }
 
     document()->setDocumentChanged(true);
-    if (childCountDelta)
-        childrenChanged(false, prev.get(), next.get(), childCountDelta);
     dispatchSubtreeModifiedEvent();
     return true;
 }
@@ -438,7 +436,6 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
     document()->setDocumentChanged(true);
 
     // Dispatch post-removal mutation events
-    childrenChanged(false, prev, next, -1);
     dispatchSubtreeModifiedEvent();
 
     if (child->inDocument())
@@ -467,10 +464,7 @@ bool ContainerNode::removeChildren()
     document()->removeFocusedNodeOfSubtree(this, true);
 
     forbidEventDispatch();
-    int childCountDelta = 0;
     while ((n = m_firstChild) != 0) {
-        childCountDelta--;
-
         Node *next = n->nextSibling();
         
         n->ref();
@@ -495,7 +489,6 @@ bool ContainerNode::removeChildren()
     allowEventDispatch();
 
     // Dispatch a single post-removal mutation event denoting a modified subtree.
-    childrenChanged(false, 0, 0, childCountDelta);
     dispatchSubtreeModifiedEvent();
 
     return true;
@@ -525,8 +518,6 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec)
         return true;
 
     // Now actually add the child(ren)
-    int childCountDelta = 0;
-    RefPtr<Node> prev = lastChild();
     RefPtr<Node> child = isFragment ? newChild->firstChild() : newChild;
     while (child) {
         // For a fragment we have more children to do.
@@ -546,7 +537,6 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec)
         }
 
         // Append child to the end of the list
-        childCountDelta++;
         forbidEventDispatch();
         child->setParent(this);
         if (m_lastChild) {
@@ -568,7 +558,6 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec)
     }
 
     document()->setDocumentChanged(true);
-    childrenChanged(false, prev.get(), 0, childCountDelta);
     dispatchSubtreeModifiedEvent();
     return true;
 }
@@ -589,7 +578,6 @@ ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
 
     forbidEventDispatch();
     newChild->setParent(this);
-    Node* last = m_lastChild;
     if (m_lastChild) {
         newChild->setPreviousSibling(m_lastChild);
         m_lastChild->setNextSibling(newChild.get());
@@ -601,7 +589,9 @@ ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
     document()->incDOMTreeVersion();
     if (inDocument())
         newChild->insertedIntoDocument();
-    childrenChanged(true, last, 0, 1);
+    if (document()->hasNodeLists())
+        notifyNodeListsChildrenChanged();
+    childrenChanged(true);
     
     if (newChild->isElementNode())
         return static_cast<ContainerNode*>(newChild.get());
@@ -692,13 +682,6 @@ void ContainerNode::removedFromTree(bool deep)
         for (Node *child = m_firstChild; child; child = child->nextSibling())
             child->removedFromTree(deep);
     }
-}
-
-void ContainerNode::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
-{
-    Node::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    if (document()->hasNodeLists())
-        notifyNodeListsChildrenChanged();
 }
 
 void ContainerNode::cloneChildNodes(ContainerNode *clone)

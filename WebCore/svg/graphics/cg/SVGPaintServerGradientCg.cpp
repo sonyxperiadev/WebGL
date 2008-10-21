@@ -138,7 +138,7 @@ static CGShadingRef CGShadingRefForRadialGradient(const SVGPaintServerRadialGrad
 
 void SVGPaintServerGradient::updateQuartzGradientStopsCache(const Vector<SVGGradientStop>& stops)
 {
-    m_stopsCache = SharedStopCache::create();
+    m_stopsCache = new SharedStopCache;
     Vector<QuartzGradientStop>& stopsCache = m_stopsCache->m_stops;
     stopsCache.resize(stops.size());
     CGFloat previousOffset = 0.0f;

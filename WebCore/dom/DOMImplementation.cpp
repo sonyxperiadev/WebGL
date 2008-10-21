@@ -284,8 +284,10 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
             doc = new Document(this, 0);
 
     // now get the interesting parts of the doctype
-    if (doctype)
-        doc->addChild(doctype);
+    if (doctype) {
+        doc->setDocType(doctype);
+        doctype->setDocument(doc.get());
+    }
 
     if (!qualifiedName.isEmpty())
         doc->addChild(doc->createElementNS(namespaceURI, qualifiedName, ec));
@@ -325,8 +327,10 @@ bool DOMImplementation::isXMLMIMEType(const String& mimeType)
     if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "text/xsl")
         return true;
     static const char* validChars = "[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]"; // per RFCs: 3023, 2045
-    static RegularExpression xmlTypeRegExp(String("^") + validChars + "+/" + validChars + "+\\+xml$");
-    return xmlTypeRegExp.match(mimeType) > -1;
+    static RegularExpression xmlTypeRegExp(DeprecatedString("^") + validChars + "+/" + validChars + "+\\+xml$");
+    if (xmlTypeRegExp.match(mimeType.deprecatedString()) > -1)
+        return true;
+    return false;
 }
 
 bool DOMImplementation::isTextMIMEType(const String& mimeType)
@@ -343,7 +347,7 @@ PassRefPtr<HTMLDocument> DOMImplementation::createHTMLDocument(const String& tit
 {
     RefPtr<HTMLDocument> d = new HTMLDocument(this, 0);
     d->open();
-    d->write("<!doctype html><html><head><title>" + title + "</title></head><body></body></html>");
+    d->write("<html><head><title>" + title + "</title></head><body></body></html>");
     return d.release();
 }
 

@@ -39,9 +39,17 @@
 #include "RenderLayer.h"
 #include "RenderTableCell.h"
 #include "RenderTheme.h"
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#include "WebCoreViewBridge.h"
+#endif
 #include "RenderView.h"
 #include <algorithm>
 #include <math.h>
+
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+    extern bool gAndroid_treatInvalForScreen;
+#endif
 
 using std::min;
 using std::max;
@@ -58,6 +66,9 @@ RenderBox::RenderBox(Node* node)
     : RenderObject(node)
     , m_width(0)
     , m_height(0)
+#ifdef ANDROID_LAYOUT
+    , m_visibleWidth(0)
+#endif
     , m_x(0)
     , m_y(0)
     , m_marginLeft(0)
@@ -504,7 +515,13 @@ void RenderBox::imageChanged(CachedImage* image)
             IntPoint phase;
             IntSize tileSize;
             backgroundRenderer->calculateBackgroundImageGeometry(bgLayer, absoluteRect.x(), absoluteRect.y(), absoluteRect.width(), absoluteRect.height(), repaintRect, phase, tileSize);
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+            gAndroid_treatInvalForScreen = true; // no need to inval the content
+#endif
             view()->repaintViewRectangle(repaintRect);
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+            gAndroid_treatInvalForScreen = false;    // reset to default
+#endif
             if (repaintRect == absoluteRect)
                 didFullRepaint = true;
         }
@@ -674,8 +691,12 @@ void RenderBox::paintBackgroundExtended(GraphicsContext* context, const Color& c
                 context->setCompositeOperation(CompositeCopy);
                 context->fillRect(rect, baseColor);
                 context->restore();
-            } else
+#ifdef ANDROID_ALLOW_TRANSPARENT_BACKGROUNDS
+            }
+#else
+            } else 
                 context->clearRect(rect);
+#endif
         }
 
         if (bgColor.isValid() && bgColor.alpha() > 0)
@@ -1069,6 +1090,16 @@ int RenderBox::relativePositionOffsetY() const
 
 void RenderBox::calcWidth()
 {
+#ifdef ANDROID_LAYOUT
+    if (view()->frameView()) {
+        const Settings* settings = document()->settings();
+        ASSERT(settings);
+        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+            m_visibleWidth = view()->frameView()->getWebCoreViewBridge()->screenWidth();
+        }
+    }
+#endif
+                
     if (isPositioned()) {
         calcAbsoluteHorizontal();
         return;
@@ -1104,6 +1135,15 @@ void RenderBox::calcWidth()
         m_marginRight = marginRight.calcMinValue(containerWidth);
         if (treatAsReplaced)
             m_width = max(width.value() + borderLeft() + borderRight() + paddingLeft() + paddingRight(), minPrefWidth());
+#ifdef ANDROID_LAYOUT
+        // in SSR mode with replaced box, if the box width is wider than the container width,
+        // it will be shrinked to fit to the container.
+        if (containerWidth && (m_width+m_marginLeft+m_marginRight) > containerWidth && 
+                document()->frame()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+            m_marginLeft = m_marginRight = 0;                    
+            m_width = m_minPrefWidth = m_maxPrefWidth = containerWidth;
+        }
+#endif        
 
         return;
     }
@@ -1146,6 +1186,20 @@ void RenderBox::calcWidth()
         m_marginRight = 0;
         calcHorizontalMargins(marginLeft, marginRight, containerWidth);
     }
+#ifdef ANDROID_LAYOUT
+    // in SSR mode with non-replaced box, we use ANDROID_SSR_MARGIN_PADDING for left/right margin.
+    // If the box width is wider than the container width, it will be shrinked to fit to the container. 
+    if (containerWidth && !treatAsReplaced && 
+            document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+        m_width += m_marginLeft + m_marginRight;
+        m_marginLeft = m_marginLeft > ANDROID_SSR_MARGIN_PADDING ? ANDROID_SSR_MARGIN_PADDING : m_marginLeft;
+        m_marginRight = m_marginRight > ANDROID_SSR_MARGIN_PADDING ? ANDROID_SSR_MARGIN_PADDING : m_marginRight;
+        if (m_width > containerWidth)
+            m_width = m_minPrefWidth = m_maxPrefWidth = containerWidth-(m_marginLeft + m_marginRight);
+        else
+            m_width -= (m_marginLeft + m_marginRight);
+    }
+#endif
 
     if (containerWidth && containerWidth != (m_width + m_marginLeft + m_marginRight)
             && !isFloating() && !isInline() && !cb->isFlexibleBox()) {
@@ -1285,6 +1339,12 @@ void RenderBox::calcHeight()
 
         int height;
         if (checkMinMaxHeight) {
+#ifdef ANDROID_LAYOUT
+            // in SSR mode, ignore CSS height as layout is so different
+            if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
+                height = m_height;
+            else
+#endif
             height = calcHeightUsing(style()->height());
             if (height == -1)
                 height = m_height;

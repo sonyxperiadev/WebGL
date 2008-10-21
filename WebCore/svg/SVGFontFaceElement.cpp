@@ -25,7 +25,6 @@
 #include "CString.h"
 #include "CSSFontFaceRule.h"
 #include "CSSFontFaceSrcValue.h"
-#include "CSSParser.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
@@ -62,9 +61,17 @@ SVGFontFaceElement::~SVGFontFaceElement()
 {
 }
 
-static void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, int>* propertyNameToIdMap, const QualifiedName& attrName)
+static inline void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, int>* propertyNameToIdMap, const QualifiedName& attrName, const char* cssPropertyName = 0)
 {
-    int propertyId = cssPropertyID(attrName.localName());
+    int propertyId = 0;
+    if (cssPropertyName)
+        propertyId = getPropertyID(cssPropertyName, strlen(cssPropertyName));
+    else {
+        CString propertyName = attrName.localName().domString().utf8();
+        propertyId = getPropertyID(propertyName.data(), propertyName.length());
+    }
+    if (propertyId < 1)
+        fprintf(stderr, "Failed to find property: %s\n", attrName.localName().deprecatedString().ascii());
     ASSERT(propertyId > 0);
     propertyNameToIdMap->set(attrName.localName().impl(), propertyId);
 }
@@ -352,9 +359,9 @@ void SVGFontFaceElement::insertedIntoDocument()
     rebuildFontFace();
 }
 
-void SVGFontFaceElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGFontFaceElement::childrenChanged(bool changedByParser)
 {
-    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGElement::childrenChanged(changedByParser);
     rebuildFontFace();
 }
 

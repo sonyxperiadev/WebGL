@@ -11,14 +11,15 @@ Programs_GtkLauncher_SOURCES = \
 	WebKitTools/GtkLauncher/main.c
 
 Programs_GtkLauncher_CFLAGS = \
-	$(GLOBALDEPS_CFLAGS) \
-	$(WEBKITDEPS_CFLAGS) \
+	$(DEPENDENCIES_CFLAGS) \
 	$(global_cflags)
 
 Programs_GtkLauncher_LDADD = \
-	libwebkit-1.0.la
+	$(DEPENDENCIES_LIBS) \
+	libJavaScriptCore.la \
+	libWebKitGtk.la
 
-Programs_GtkLauncher_LDFLAGS = -rpath $(CURDIR)/.libs
+Programs_GtkLauncher_LDFLAGS = -ljpeg -rpath $(CURDIR)/.libs
 
 # DumpRenderTree
 Programs_DumpRenderTree_CPPFLAGS = \
@@ -37,12 +38,13 @@ Programs_DumpRenderTree_SOURCES = \
 	WebKitTools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp
 
 Programs_DumpRenderTree_CXXFLAGS = \
-	$(GLOBALDEPS_CFLAGS) \
-	$(WEBKITDEPS_CFLAGS) \
+	$(DEPENDENCIES_CFLAGS) \
 	$(global_cxxflags) \
 	$(global_cflags)
 
 Programs_DumpRenderTree_LDADD = \
-	libwebkit-1.0.la
+	$(DEPENDENCIES_LIBS) \
+	libJavaScriptCore.la \
+	libWebKitGtk.la
 
 Programs_DumpRenderTree_LDFLAGS = -rpath $(CURDIR)/.libs

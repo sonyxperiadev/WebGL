@@ -42,8 +42,6 @@ namespace KJS {
         
         void saveLocalStorage(SavedProperties&) const;
         void restoreLocalStorage(const SavedProperties&);
-
-        virtual void initializeVariable(ExecState*, const Identifier&, JSValue*, unsigned attributes) = 0;
         
         virtual bool deleteProperty(ExecState*, const Identifier&);
         virtual void getPropertyNames(ExecState*, PropertyNameArray&);
@@ -79,8 +77,7 @@ namespace KJS {
         }
 
         bool symbolTableGet(const Identifier&, PropertySlot&);
-        bool symbolTablePut(const Identifier&, JSValue*);
-        bool symbolTableInitializeVariable(const Identifier&, JSValue*, unsigned attributes);
+        bool symbolTablePut(const Identifier&, JSValue*, bool checkReadOnly);
 
         JSVariableObjectData* d;
     };
@@ -107,26 +104,15 @@ namespace KJS {
         return false;
     }
 
-    inline bool JSVariableObject::symbolTablePut(const Identifier& propertyName, JSValue* value)
+    inline bool JSVariableObject::symbolTablePut(const Identifier& propertyName, JSValue* value, bool checkReadOnly)
     {
         size_t index = symbolTable().get(propertyName.ustring().rep());
         if (index == missingSymbolMarker())
             return false;
         LocalStorageEntry& entry = d->localStorage[index];
-        if (entry.attributes & ReadOnly)
+        if (checkReadOnly && (entry.attributes & ReadOnly))
             return true;
         entry.value = value;
-        return true;
-    }
-
-    inline bool JSVariableObject::symbolTableInitializeVariable(const Identifier& propertyName, JSValue* value, unsigned attributes)
-    {
-        size_t index = symbolTable().get(propertyName.ustring().rep());
-        if (index == missingSymbolMarker())
-            return false;
-        LocalStorageEntry& entry = d->localStorage[index];
-        entry.value = value;
-        entry.attributes = attributes;
         return true;
     }
 

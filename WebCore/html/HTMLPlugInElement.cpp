@@ -57,6 +57,11 @@ HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document* doc
 #if USE(NPOBJECT)
     , m_NPObject(0)
 #endif
+#ifdef ANDROID_FIX    
+// addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+// ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    , oldNameIdCount(0)
+#endif
 {
 }
 

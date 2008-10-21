@@ -59,6 +59,9 @@ private:
     NPIdentifier _methodIdentifier;
 };
 
+void SetGlobalException(const NPUTF8* exception);
+void MoveGlobalExceptionToExecState(ExecState* exec);
+
 } // namespace Bindings
 } // namespace KJS
 

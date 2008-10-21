@@ -1,6 +1,6 @@
 /*      
     WebKitSystemInterface.h
-    Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.    
 
     Public header file.
 */
@@ -31,11 +31,17 @@ NSString *WKGetMIMETypeForExtension(NSString *extension);
 
 NSDate *WKGetNSURLResponseLastModifiedDate(NSURLResponse *response);
 NSTimeInterval WKGetNSURLResponseFreshnessLifetime(NSURLResponse *response);
+NSTimeInterval WKGetNSURLResponseCalculatedExpiration(NSURLResponse *response);
+BOOL WKGetNSURLResponseMustRevalidate(NSURLResponse *response);
 
 CFStringEncoding WKGetWebDefaultCFStringEncoding(void);
 
+float WKSecondsSinceLastInputEvent(void);
+CFStringRef WKPreferRGB32Key(void);
+
 void WKSetMetadataURL(NSString *URLString, NSString *referrer, NSString *path);
 void WKSetNSURLConnectionDefersCallbacks(NSURLConnection *connection, BOOL defers);
+float WKSecondsSinceLastInputEvent(void);
 
 void WKShowKeyAndMain(void);
 #ifndef __LP64__
@@ -52,7 +58,7 @@ WKNSURLConnectionDelegateProxyPtr WKCreateNSURLConnectionDelegateProxy(void);
 
 void WKDisableCGDeferredUpdates(void);
 
-Class WKNSURLProtocolClassForRequest(NSURLRequest *request);
+Class WKNSURLProtocolClassForReqest(NSURLRequest *request);
 void WKSetNSURLRequestShouldContentSniff(NSMutableURLRequest *request, BOOL shouldContentSniff);
 
 unsigned WKGetNSAutoreleasePoolCount(void);
@@ -103,7 +109,7 @@ void WKDrawBezeledTextArea(NSRect, BOOL enabled);
 void WKPopupMenu(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
 
 void WKSendUserChangeNotifications(void);
-#ifndef __LP64__
+#ifndef __LP64__    
 BOOL WKConvertNSEventToCarbonEvent(EventRecord *carbonEvent, NSEvent *cocoaEvent);
 void WKSendKeyEventToTSM(NSEvent *theEvent);
 void WKCallDrawingNotification(CGrafPtr port, Rect *bounds);
@@ -111,17 +117,13 @@ void WKCallDrawingNotification(CGrafPtr port, Rect *bounds);
 
 BOOL WKGetGlyphTransformedAdvances(CGFontRef, NSFont*, CGAffineTransform *m, ATSGlyphRef *glyph, CGSize *advance);
 CGFontRef WKGetCGFontFromNSFont(NSFont *font);
+void WKGetFontMetrics(CGFontRef font, int *ascent, int *descent, int *lineGap, unsigned *unitsPerEm);
 NSFont *WKGetFontInLanguageForRange(NSFont *font, NSString *string, NSRange range);
 NSFont *WKGetFontInLanguageForCharacter(NSFont *font, UniChar ch);
 void WKSetCGFontRenderingMode(CGContextRef cgContext, NSFont *font);
 ATSUFontID WKGetNSFontATSUFontId(NSFont *font);
 void WKReleaseStyleGroup(void *group);
 BOOL WKCGContextGetShouldSmoothFonts(CGContextRef cgContext);
-
-#ifdef BUILDING_ON_TIGER
-// CGFontGetAscent, CGFontGetDescent, CGFontGetLeading and CGFontGetUnitsPerEm were not available until Leopard
-void WKGetFontMetrics(CGFontRef font, int *ascent, int *descent, int *lineGap, unsigned *unitsPerEm);
-#endif
 
 void WKSetPatternBaseCTM(CGContextRef, CGAffineTransform);
 void WKSetPatternPhaseInUserSpace(CGContextRef, CGPoint);
@@ -135,6 +137,7 @@ void WKClearGlyphVector(WKGlyphVectorRef glyphs);
 int WKGetGlyphVectorNumGlyphs(WKGlyphVectorRef glyphVector);
 ATSLayoutRecord *WKGetGlyphVectorFirstRecord(WKGlyphVectorRef glyphVector);
 size_t WKGetGlyphVectorRecordSize(WKGlyphVectorRef glyphVector);
+ATSGlyphRef WKGetDefaultGlyphForChar(NSFont *font, UniChar c);
 
 #ifndef __LP64__
 NSEvent *WKCreateNSEventWithCarbonEvent(EventRef eventRef);
@@ -147,10 +150,8 @@ void WKNSWindowRestoreCGContext(NSWindow *, CGContextRef);
 
 void WKNSWindowMakeBottomCornersSquare(NSWindow *);
 
-#ifdef BUILDING_ON_TIGER
-// WKSupportsMultipartXMixedReplace is not required on Leopard as multipart/x-mixed-replace is always handled by NSURLRequest
 BOOL WKSupportsMultipartXMixedReplace(NSMutableURLRequest *request);
-#endif
+NSString* WKPathFromFont(NSFont *font);
 
 BOOL WKCGContextIsBitmapContext(CGContextRef context);
 

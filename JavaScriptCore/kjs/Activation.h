@@ -58,8 +58,7 @@ namespace KJS {
         void init(ExecState*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
-        virtual void put(ExecState*, const Identifier&, JSValue*);
-        virtual void initializeVariable(ExecState*, const Identifier&, JSValue*, unsigned attributes);
+        virtual void put(ExecState*, const Identifier&, JSValue*, int attr = None);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
 
         virtual const ClassInfo* classInfo() const { return &info; }
@@ -68,7 +67,7 @@ namespace KJS {
         virtual void mark();
         void markChildren();
 
-        virtual bool isActivationObject() const { return true; }
+        virtual bool isActivationObject() { return true; }
     
         bool isOnStack() const { return d()->isOnStack; }
         bool needsPop() const { return d()->isOnStack || d()->leftRelic; }

@@ -50,6 +50,10 @@
 #include "visible_units.h"
 #include <math.h>
 
+#ifdef ANDROID_LAYOUT
+#include "FrameView.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -555,12 +559,21 @@ void RenderTextControl::subtreeHasChanged()
 
 String RenderTextControl::finishText(Vector<UChar>& result) const
 {
+    // ANDROID: This method was modified with a fix from WebKit r31081. This
+    // comment can be removed the next time we update.
+
+    // Remove one trailing newline; there's always one that's collapsed out by rendering.
+    size_t size = result.size();
+    if (size && result[size - 1] == '\n')
+        result.shrink(--size);
+
+    // Convert backslash to currency symbol.
     UChar symbol = backslashAsCurrencySymbol();
     if (symbol != '\\') {
-        size_t size = result.size();
-        for (size_t i = 0; i < size; ++i)
+        for (size_t i = 0; i < size; ++i) {
             if (result[i] == '\\')
                 result[i] = symbol;
+        }
     }
 
     return String::adopt(result);
@@ -791,10 +804,53 @@ void RenderTextControl::layout()
         m_innerBlock->renderer()->style()->setHeight(Length(textBlockHeight, Fixed));
     }
 
+#ifdef ANDROID_LAYOUT
+    int oldVisibleWidth = m_visibleWidth;
+#endif
+    
     int oldWidth = m_width;
     calcWidth();
+    
+    // FIXME: This causes cnn.com loading way slow. Comment it out for now
+//#ifdef ANDROID_LAYOUT
+#if 0
+    Frame* frame = document()->frame();
+    if (frame && frame->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+        int maxWidth = frame->view()->visibleWidth() - 2 * ANDROID_FCTS_MARGIN_PADDING;
+        if (maxWidth > 0 && maxWidth < m_width) {
+            m_width = maxWidth;
+            // not only modify the control's width, we also need to modify its
+            // parent (even grandparent) width if it is not auto
+            Length styleWidth = style()->width();
+            if (styleWidth.isFixed()) {
+                // now we need to get max style width
+                maxWidth -= borderLeft() + borderRight() + paddingLeft() + paddingRight();                
+                style()->setWidth(Length(maxWidth, Fixed));
+            } else if (styleWidth.isPercent()) {
+                RenderObject* o = this;
+                while (RenderBox* p = (RenderBox*)(o->parent())) {
+                    int maxParentWidth = (int)(maxWidth * 100 / styleWidth.percent());
+                    if (p->width() <= maxParentWidth)
+                        break;
+                    p->setWidth(maxParentWidth);
+                    styleWidth = p->style()->width();
+                    if (!styleWidth.isPercent())
+                        break;
+                    o = p;
+                    maxWidth = maxParentWidth;                     
+                }
+            }
+        }
+    }
+#endif
     if (oldWidth != m_width)
         relayoutChildren = true;
+
+#ifdef ANDROID_LAYOUT
+    if (oldVisibleWidth != m_visibleWidth
+            && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        relayoutChildren = true;
+#endif
 
     int searchExtrasWidth = 0;
     if (m_resultsButton) {
@@ -892,6 +948,18 @@ void RenderTextControl::calcPrefWidths()
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
+    // FIXME: This causes cnn.com loading way slow. Comment it out for now
+//#ifdef ANDROID_LAYOUT
+#if 0
+    Frame* frame = document()->frame();
+    if (frame && frame->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+        int maxWidth = frame->view()->visibleWidth() - 2 * ANDROID_FCTS_MARGIN_PADDING;
+        if (maxWidth > 0 && maxWidth < m_minPrefWidth)
+            m_minPrefWidth = maxWidth;
+        if (maxWidth > 0 && maxWidth < m_maxPrefWidth)
+            m_maxPrefWidth = maxWidth;
+    }
+#endif
     setPrefWidthsDirty(false);
 }
 

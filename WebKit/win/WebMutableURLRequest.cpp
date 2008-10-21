@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebMutableURLRequest.h"
 
-#include "WebKit.h"
+#include "IWebURLResponse.h"
 #include "MarshallingHelpers.h"
 #include "WebKit.h"
 #pragma warning(push, 0)

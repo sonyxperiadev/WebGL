@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 #include "BString.h"
 
 #include "AtomicString.h"
-#include "KURL.h"
+#include "DeprecatedString.h"
 #include "PlatformString.h"
 #include <tchar.h>
 #include <windows.h>
@@ -67,12 +67,12 @@ BString::BString(const String& s)
         m_bstr = SysAllocStringLen(s.characters(), s.length());
 }
 
-BString::BString(const KURL& url)
+BString::BString(const DeprecatedString& s)
 {
-    if (url.isNull())
+    if (s.isNull())
         m_bstr = 0;
     else
-        m_bstr = SysAllocStringLen(url.string().characters(), url.string().length());
+        m_bstr = SysAllocStringLen(String(s).characters(), s.length());
 }
 
 BString::BString(const AtomicString& s)

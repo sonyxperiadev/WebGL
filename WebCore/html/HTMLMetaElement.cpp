@@ -62,6 +62,12 @@ void HTMLMetaElement::insertedIntoDocument()
 
 void HTMLMetaElement::process()
 {
+#ifdef ANDROID_META_SUPPORT
+    if (!inDocument() || m_content.isNull())
+        return;
+    if (equalIgnoringCase(name(), "viewport") || equalIgnoringCase(name(), "format-detection"))
+        document()->processMetadataSettings(m_content);
+#endif
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while
     // it's not in the tree shouldn't have any effect on the document)
     if (inDocument() && !m_equiv.isNull() && !m_content.isNull())

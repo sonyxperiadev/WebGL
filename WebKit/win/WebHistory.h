@@ -26,7 +26,7 @@
 #ifndef WebHistory_H
 #define WebHistory_H
 
-#include "WebKit.h"
+#include "IWebHistory.h"
 
 #include "COMPtr.h"
 #include <CoreFoundation/CoreFoundation.h>

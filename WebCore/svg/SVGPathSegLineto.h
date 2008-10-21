@@ -30,7 +30,7 @@
 namespace WebCore {
     class SVGPathSegLinetoAbs : public SVGPathSeg { 
     public:
-        static PassRefPtr<SVGPathSegLinetoAbs> create(float x, float y) { return adoptRef(new SVGPathSegLinetoAbs(x, y)); }
+        SVGPathSegLinetoAbs(float x, float y);
         virtual ~SVGPathSegLinetoAbs();
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_ABS; }
@@ -44,15 +44,13 @@ namespace WebCore {
         float y() const;
 
     private:
-        SVGPathSegLinetoAbs(float x, float y);
-        
         float m_x;
         float m_y;
     };
 
     class SVGPathSegLinetoRel : public SVGPathSeg { 
     public:
-        static PassRefPtr<SVGPathSegLinetoRel> create(float x, float y) { return adoptRef(new SVGPathSegLinetoRel(x, y)); }
+        SVGPathSegLinetoRel(float x, float y);
         virtual ~SVGPathSegLinetoRel();
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_REL; }
@@ -66,8 +64,6 @@ namespace WebCore {
         float y() const;
 
     private:
-        SVGPathSegLinetoRel(float x, float y);
-
         float m_x;
         float m_y;
     };

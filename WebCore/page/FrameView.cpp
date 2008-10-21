@@ -27,7 +27,6 @@
 #include "FrameView.h"
 
 #include "AXObjectCache.h"
-#include "CSSStyleSelector.h"
 #include "EventHandler.h"
 #include "FloatRect.h"
 #include "Frame.h"
@@ -42,6 +41,13 @@
 #include "RenderPartObject.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+
+#ifdef ANDROID_INSTRUMENT
+#undef LOG
+#include <utils/Log.h>
+#include "SystemTime.h"
+#include "FrameTree.h"
+#endif
 
 namespace WebCore {
 
@@ -314,6 +320,23 @@ RenderObject* FrameView::layoutRoot(bool onlyDuringLayout) const
     return onlyDuringLayout && layoutPending() ? 0 : d->layoutRoot;
 }
 
+#ifdef ANDROID_INSTRUMENT
+static uint32_t sTotalTimeUsed = 0;
+static uint32_t sCounter = 0;
+    
+void Frame::resetLayoutTimeCounter()
+{
+    sTotalTimeUsed = 0;
+    sCounter = 0;
+}
+
+void Frame::reportLayoutTimeCounter()
+{
+    LOG(LOG_DEBUG, "WebCore", "*-* Total layout time: %d ms called %d times\n", 
+            sTotalTimeUsed, sCounter);   
+}
+#endif
+
 void FrameView::layout(bool allowSubtree)
 {
     if (d->midLayout)
@@ -365,11 +388,6 @@ void FrameView::layout(bool allowSubtree)
         performPostLayoutTasks();
     }
 
-    // Viewport-dependent media queries may cause us to need completely different style information.
-    // Check that here.
-    if (document->styleSelector()->affectedByViewportChange())
-        document->updateStyleSelector();
-
     // Always ensure our style info is up-to-date.  This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
     if (m_frame->needsReapplyStyles())
@@ -390,6 +408,12 @@ void FrameView::layout(bool allowSubtree)
         d->layoutSchedulingEnabled = true;
         return;
     }
+
+#ifdef ANDROID_INSTRUMENT
+    uint32_t startTime = 0;
+    if (!m_frame->tree() || !m_frame->tree()->parent())
+        startTime = get_thread_msec();
+#endif
 
     d->nestedLayoutCount++;
 
@@ -507,6 +531,15 @@ void FrameView::layout(bool allowSubtree)
     if (didFirstLayout)
         m_frame->loader()->didFirstLayout();
     
+#ifdef ANDROID_INSTRUMENT
+    if (!m_frame->tree()->parent()) {
+        uint32_t time = get_thread_msec() - startTime;
+        sTotalTimeUsed += time;
+        sCounter++;
+        if (time > 1000)
+            LOGW("***** FrameView::layout() used %d ms\n", time);
+    }
+#endif
     ASSERT(!root->needsLayout());
 
     setStaticBackground(useSlowRepaints());
@@ -735,7 +768,11 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document() || !m_frame->document()->shouldScheduleLayout())
         return;
 
+#ifdef ANDROID_MOBILE
+    int delay = m_frame->document()->minimumLayoutDelay() + m_frame->document()->extraLayoutDelay();
+#else
     int delay = m_frame->document()->minimumLayoutDelay();
+#endif
     if (d->layoutTimer.isActive() && d->delayedLayout && !delay)
         unscheduleRelayout();
     if (d->layoutTimer.isActive())
@@ -746,6 +783,11 @@ void FrameView::scheduleRelayout()
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!m_frame->document()->ownerElement())
         printf("Scheduling layout for %d\n", delay);
+#endif
+
+#if defined(FLATTEN_IFRAME) || defined(FLATTEN_FRAMESET)
+    if (m_frame->ownerRenderer())
+        m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
 #endif
 
     d->layoutTimer.startOneShot(delay * 0.001);
@@ -790,7 +832,11 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* o)
             }
         }
     } else {
+#ifdef ANDROID_MOBILE
+        int delay = m_frame->document()->minimumLayoutDelay() + m_frame->document()->extraLayoutDelay();
+#else
         int delay = m_frame->document()->minimumLayoutDelay();
+#endif
         d->layoutRoot = o;
         d->delayedLayout = delay != 0;
         d->layoutTimer.startOneShot(delay * 0.001);

@@ -29,7 +29,7 @@
 #ifndef SQLStatementErrorCallback_h
 #define SQLStatementErrorCallback_h
 
-#include <wtf/Threading.h>
+#include "Threading.h"
 
 namespace WebCore {
 

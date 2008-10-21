@@ -1,9 +1,7 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier
- * Copyright (C) 2008 Collabora, Ltd.
- *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -75,42 +73,6 @@ String pathByAppendingComponent(const String& path, const String& component)
 {
     notImplemented();
     return String();
-}
-
-String homeDirectoryPath()
-{
-    notImplemented();
-    return String();
-}
-
-String pathGetFileName(const String&)
-{
-    notImplemented();
-    return String();
-}
-
-CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
-{
-    notImplemented();
-    handle = invalidPlatformFileHandle;
-    return CString();
-}
-
-void closeFile(PlatformFileHandle&)
-{
-    notImplemented();
-}
-
-int writeToFile(PlatformFileHandle, const char* data, int length)
-{
-    notImplemented();
-    return 0;
-}
-
-bool unloadModule(PlatformModule)
-{
-    notImplemented();
-    return false;
 }
 
 }

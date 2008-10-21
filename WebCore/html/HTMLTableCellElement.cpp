@@ -31,6 +31,11 @@
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
 #include "RenderTableCell.h"
+#ifdef ANDROID_LAYOUT
+#include "Document.h"
+#include "Frame.h"
+#include "Settings.h"
+#endif
 
 using std::max;
 using std::min;
@@ -97,6 +102,9 @@ void HTMLTableCellElement::parseMappedAttribute(MappedAttribute *attr)
         if (renderer() && renderer()->isTableCell())
             static_cast<RenderTableCell*>(renderer())->updateFromElement();
     } else if (attr->name() == nowrapAttr) {
+#ifdef ANDROID_LAYOUT
+        if (!(document()->frame()) || document()->frame()->settings()->layoutAlgorithm() != Settings::kLayoutSSR)
+#endif
         if (!attr->isNull())
             addCSSProperty(attr, CSS_PROP_WHITE_SPACE, CSS_VAL__WEBKIT_NOWRAP);
     } else if (attr->name() == widthAttr) {

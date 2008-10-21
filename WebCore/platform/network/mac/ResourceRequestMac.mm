@@ -59,7 +59,7 @@ void ResourceRequest::doUpdateResourceRequest()
         m_httpHeaderFields.set(name, [headers objectForKey:name]);
     
     if (NSData* bodyData = [m_nsRequest.get() HTTPBody])
-        m_httpBody = FormData::create([bodyData bytes], [bodyData length]);
+        m_httpBody = new FormData([bodyData bytes], [bodyData length]);
     else if (NSInputStream* bodyStream = [m_nsRequest.get() HTTPBodyStream])
         if (FormData* formData = httpBodyFromStream(bodyStream))
             m_httpBody = formData;    
@@ -75,17 +75,15 @@ void ResourceRequest::doUpdatePlatformRequest()
     NSMutableURLRequest* nsRequest = [m_nsRequest.get() mutableCopy];
 
     if (nsRequest)
-        [nsRequest setURL:url()];
+        [nsRequest setURL:url().getNSURL()];
     else
-        nsRequest = [[NSMutableURLRequest alloc] initWithURL:url()];
-
-#ifdef BUILDING_ON_TIGER
+        nsRequest = [[NSMutableURLRequest alloc] initWithURL:url().getNSURL()];
+    
     wkSupportsMultipartXMixedReplace(nsRequest);
-#endif
 
     [nsRequest setCachePolicy:(NSURLRequestCachePolicy)cachePolicy()];
     [nsRequest setTimeoutInterval:timeoutInterval()];
-    [nsRequest setMainDocumentURL:mainDocumentURL()];
+    [nsRequest setMainDocumentURL:mainDocumentURL().getNSURL()];
     if (!httpMethod().isEmpty())
         [nsRequest setHTTPMethod:httpMethod()];
     [nsRequest setHTTPShouldHandleCookies:allowHTTPCookies()];

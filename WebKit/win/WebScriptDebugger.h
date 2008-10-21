@@ -29,7 +29,8 @@
 #ifndef WebScriptDebugger_H
 #define WebScriptDebugger_H
 
-#include "WebKit.h"
+#include "IWebView.h"
+#include "IWebScriptCallFrame.h"
 
 #include <JavaScriptCore/debugger.h>
 #pragma warning(push, 0)

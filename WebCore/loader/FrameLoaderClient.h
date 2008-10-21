@@ -66,6 +66,10 @@ namespace WebCore {
 
     class ResourceRequest;
 
+#ifdef ANDROID_HISTORY_CLIENT
+    class BackForwardList;
+#endif
+
     typedef void (FrameLoader::*FramePolicyFunction)(PolicyAction);
 
     class FrameLoaderClient {
@@ -150,8 +154,14 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*) = 0;
         virtual void finalSetupForReplace(DocumentLoader*) = 0;
         
-        virtual void updateGlobalHistory(const KURL&) = 0;
+        virtual void updateGlobalHistoryForStandardLoad(const KURL&) = 0;
+        virtual void updateGlobalHistoryForReload(const KURL&) = 0;
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
+#ifdef ANDROID_HISTORY_CLIENT
+        virtual void dispatchDidAddHistoryItem(HistoryItem*) const = 0;
+        virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const = 0;
+        virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const = 0;
+#endif
 
         virtual ResourceError cancelledError(const ResourceRequest&) = 0;
         virtual ResourceError blockedError(const ResourceRequest&) = 0;

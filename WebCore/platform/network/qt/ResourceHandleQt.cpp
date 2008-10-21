@@ -31,6 +31,7 @@
 #include "Frame.h"
 #include "DocLoader.h"
 #include "ResourceHandle.h"
+#include "DeprecatedString.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "qwebpage_p.h"

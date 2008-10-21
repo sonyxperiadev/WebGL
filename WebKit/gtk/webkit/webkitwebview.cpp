@@ -56,8 +56,6 @@
 
 #include <gdk/gdkkeysyms.h>
 
-static const double defaultDPI = 96.0;
-
 using namespace WebKit;
 using namespace WebCore;
 
@@ -94,8 +92,7 @@ enum {
     PROP_COPY_TARGET_LIST,
     PROP_PASTE_TARGET_LIST,
     PROP_EDITABLE,
-    PROP_SETTINGS,
-    PROP_TRANSPARENT
+    PROP_SETTINGS
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
@@ -213,9 +210,6 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
     case PROP_SETTINGS:
         g_value_set_object(value, webkit_web_view_get_settings(webView));
         break;
-    case PROP_TRANSPARENT:
-        g_value_set_boolean(value, webkit_web_view_get_transparent(webView));
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     }
@@ -232,9 +226,6 @@ static void webkit_web_view_set_property(GObject* object, guint prop_id, const G
     case PROP_SETTINGS:
         webkit_web_view_set_settings(webView, WEBKIT_WEB_SETTINGS(g_value_get_object(value)));
         break;
-    case PROP_TRANSPARENT:
-        webkit_web_view_set_transparent(webView, g_value_get_boolean(value));
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     }
@@ -243,7 +234,6 @@ static void webkit_web_view_set_property(GObject* object, guint prop_id, const G
 static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* event)
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
-    WebKitWebViewPrivate* priv = webView->priv;
 
     Frame* frame = core(webView)->mainFrame();
     GdkRectangle clip;
@@ -253,14 +243,6 @@ static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* 
     ctx.setGdkExposeEvent(event);
     if (frame->renderer()) {
         frame->view()->layoutIfNeededRecursive();
-
-        if (priv->transparent) {
-            cairo_save(cr);
-            cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-            cairo_paint(cr);
-            cairo_restore(cr);
-        }
-
         frame->view()->paint(&ctx, clip);
     }
     cairo_destroy(cr);
@@ -628,7 +610,6 @@ static void webkit_web_view_finalize(GObject* object)
 
     webkit_web_view_stop_loading(WEBKIT_WEB_VIEW(object));
 
-    core(priv->mainFrame)->loader()->detachChildren();
     delete priv->corePage;
 
     g_object_unref(priv->backForwardList);
@@ -1095,13 +1076,6 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                          FALSE,
                                                          WEBKIT_PARAM_READWRITE));
 
-    g_object_class_install_property(objectClass, PROP_TRANSPARENT,
-                                    g_param_spec_boolean("transparent",
-                                                         "Transparent",
-                                                         "Whether content has a transparent background",
-                                                         FALSE,
-                                                         WEBKIT_PARAM_READWRITE));
-
     g_type_class_add_private(webViewClass, sizeof(WebKitWebViewPrivate));
 }
 
@@ -1120,17 +1094,13 @@ static void webkit_web_view_screen_changed(WebKitWebView* webView, GdkScreen* pr
                  "minimum-logical-font-size", &minimumLogicalFontSize,
                  NULL);
 
-    gdouble DPI = defaultDPI;
-#if GTK_CHECK_VERSION(2,10,0)
+#if GTK_CHECK_VERSION(2, 10, 0)
     GdkScreen* screen = gtk_widget_has_screen(GTK_WIDGET(webView)) ? gtk_widget_get_screen(GTK_WIDGET(webView)) : gdk_screen_get_default();
-    if (screen) {
-        DPI = gdk_screen_get_resolution(screen);
-        // gdk_screen_get_resolution() returns -1 when no DPI is set.
-        if (DPI == -1)
-            DPI = defaultDPI;
-    }
+    gdouble DPI = gdk_screen_get_resolution(screen);
+#else
+    gdouble DPI = 96;
+    g_warning("Cannot retrieve resolution, falling back to 96 DPI");
 #endif
-    ASSERT(DPI > 0);
     settings->setDefaultFontSize(defaultFontSize / 72.0 * DPI);
     settings->setDefaultFixedFontSize(defaultMonospaceFontSize / 72.0 * DPI);
     settings->setMinimumFontSize(minimumFontSize / 72.0 * DPI);
@@ -1176,7 +1146,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setJavaScriptEnabled(enableScripts);
     settings->setPluginsEnabled(enablePlugins);
     settings->setTextAreasAreResizable(resizableTextAreas);
-    settings->setUserStyleSheetLocation(KURL(userStylesheetUri));
+    settings->setUserStyleSheetLocation(userStylesheetUri);
 
     g_free(defaultEncoding);
     g_free(cursiveFontFamily);
@@ -1234,7 +1204,7 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
     else if (name == g_intern_string("resizable-text-areas"))
         settings->setTextAreasAreResizable(g_value_get_boolean(&value));
     else if (name == g_intern_string("user-stylesheet-uri"))
-        settings->setUserStyleSheetLocation(KURL(g_value_get_string(&value)));
+        settings->setUserStyleSheetLocation(g_value_get_string(&value));
     else
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -1497,7 +1467,8 @@ void webkit_web_view_open(WebKitWebView* webView, const gchar* uri)
     g_return_if_fail(uri);
 
     Frame* frame = core(webView)->mainFrame();
-    frame->loader()->load(ResourceRequest(KURL(String::fromUTF8(uri))));
+    DeprecatedString string = DeprecatedString::fromUtf8(uri);
+    frame->loader()->load(ResourceRequest(KURL(string)));
 }
 
 void webkit_web_view_reload(WebKitWebView* webView)
@@ -1514,7 +1485,7 @@ void webkit_web_view_load_string(WebKitWebView* webView, const gchar* content, c
 
     Frame* frame = core(webView)->mainFrame();
 
-    KURL url(baseUri ? String::fromUTF8(baseUri) : "");
+    KURL url(baseUri ? DeprecatedString::fromUtf8(baseUri) : "");
     RefPtr<SharedBuffer> sharedBuffer = new SharedBuffer(strdup(content), strlen(content));
     SubstituteData substituteData(sharedBuffer.release(), contentMimeType ? String(contentMimeType) : "text/html", contentEncoding ? String(contentEncoding) : "UTF-8", KURL("about:blank"), url);
 
@@ -1616,22 +1587,6 @@ WebKitWebFrame* webkit_web_view_get_main_frame(WebKitWebView* webView)
 
     WebKitWebViewPrivate* priv = webView->priv;
     return priv->mainFrame;
-}
-
-/**
- * webkit_web_view_get_focused_frame:
- * @web_view: a #WebKitWebView
- *
- * Returns the frame that has focus or an active text selection.
- *
- * Return value: The focused #WebKitWebFrame or %NULL if no frame is focused
- */
-WebKitWebFrame* webkit_web_view_get_focused_frame(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    Frame* focusedFrame = core(webView)->focusController()->focusedFrame();
-    return kit(focusedFrame);
 }
 
 void webkit_web_view_execute_script(WebKitWebView* webView, const gchar* script)
@@ -1893,46 +1848,6 @@ GtkTargetList* webkit_web_view_get_paste_target_list(WebKitWebView* webView)
 
     WebKitWebViewPrivate* priv = webView->priv;
     return priv->paste_target_list;
-}
-
-/**
- * webkit_web_view_get_transparent:
- * @web_view: a #WebKitWebView
- *
- * Returns whether the #WebKitWebView has a transparent background.
- *
- * Return value: %FALSE when the #WebKitWebView draws a solid background
- * (the default), otherwise %TRUE.
- */
-gboolean webkit_web_view_get_transparent(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv->transparent;
-}
-
-/**
- * webkit_web_view_set_transparent:
- * @web_view: a #WebKitWebView
- *
- * Sets whether the #WebKitWebView has a transparent background.
- *
- * Pass %FALSE to have the #WebKitWebView draw a solid background
- * (the default), otherwise %TRUE.
- */
-void webkit_web_view_set_transparent(WebKitWebView* webView, gboolean flag)
-{
-    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    priv->transparent = flag;
-
-    // TODO: This needs to be made persistent or it could become a problem when
-    // the main frame is replaced.
-    Frame* frame = core(webView)->mainFrame();
-    g_return_if_fail(frame);
-    frame->view()->setTransparent(flag);
 }
 
 }

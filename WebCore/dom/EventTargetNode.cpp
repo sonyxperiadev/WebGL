@@ -42,6 +42,7 @@
 #include "ProgressEvent.h"
 #include "RegisteredEventListener.h"
 #include "TextEvent.h"
+#include "TextStream.h"
 #include "WheelEvent.h"
 
 namespace WebCore {
@@ -114,13 +115,18 @@ bool EventTargetNode::dispatchEvent(PassRefPtr<Event> e, ExceptionCode& ec, bool
     return dispatchGenericEvent(eventTarget, evt.release(), ec, tempEvent);
 }
 
-bool EventTargetNode::dispatchSubtreeModifiedEvent()
+bool EventTargetNode::dispatchSubtreeModifiedEvent(bool sendChildrenChanged)
 {
     ASSERT(!eventDispatchForbidden());
     
     document()->incDOMTreeVersion();
 
-    notifyNodeListsAttributeChanged(); // FIXME: Can do better some day. Really only care about the name attribute changing.
+    // FIXME: Pull this whole if clause out of this function.
+    if (sendChildrenChanged) {
+        notifyNodeListsChildrenChanged();
+        childrenChanged();
+    } else
+        notifyNodeListsAttributeChanged(); // FIXME: Can do better some day. Really only care about the name attribute changing.
     
     if (!document()->hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER))
         return false;
@@ -387,6 +393,20 @@ EventListener *EventTargetNode::getHTMLEventListener(const AtomicString &eventTy
     return 0;
 }
 
+#ifdef ANDROID
+EventListener *EventTargetNode::getEventListener(const AtomicString &eventType)
+{
+    if (!m_regdListeners)
+        return 0;
+    
+    RegisteredEventListenerList::Iterator end = m_regdListeners->end();
+    for (RegisteredEventListenerList::Iterator it = m_regdListeners->begin(); it != end; ++it)
+        if ((*it)->eventType() == eventType)
+            return (*it)->listener();
+    return 0;
+}
+#endif
+
 bool EventTargetNode::disabled() const
 {
     return false;
@@ -414,5 +434,17 @@ void EventTargetNode::defaultEventHandler(Event* event)
                 frame->eventHandler()->defaultTextInputEventHandler(static_cast<TextEvent*>(event));
     }
 }
+
+#ifndef NDEBUG
+
+void EventTargetNode::dump(TextStream* stream, DeprecatedString ind) const
+{
+    if (m_regdListeners)
+        *stream << " #regdListeners=" << m_regdListeners->count(); // ### more detail
+    
+    Node::dump(stream,ind);
+}
+
+#endif
 
 } // namespace WebCore

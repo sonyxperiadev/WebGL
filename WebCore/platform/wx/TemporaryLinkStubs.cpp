@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,8 +63,7 @@
 #include "PlatformMenuDescription.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformScrollBar.h"
-#include "PluginDatabase.h"
-#include "PluginPackage.h"
+#include "PluginInfoStore.h"
 #include "PopupMenu.h"
 #include "RenderTheme.h"
 #include "ResourceHandle.h"
@@ -119,14 +117,11 @@ namespace WebCore {
 
 void WebCore::findWordBoundary(UChar const* str,int len,int position,int* start, int* end) { notImplemented(); *start=position; *end=position; }
 
-PluginSet PluginDatabase::getPluginsInPaths() const { notImplemented(); return PluginSet(); }
-Vector<String> PluginDatabase::defaultPluginPaths() { notImplemented(); return Vector<String>(); }
-bool PluginDatabase::isPreferredPluginPath(const String&) { notImplemented(); return false; }
-int PluginPackage::compare(const PluginPackage&) const { notImplemented(); return 0; }
-bool PluginPackage::fetchInfo() { notImplemented(); return false; }
-unsigned PluginPackage::hash() const { notImplemented(); return 0; }
-bool PluginPackage::equal(const PluginPackage&, const PluginPackage&) { notImplemented(); return false; }
-bool PluginPackage::load() { notImplemented(); return false; }
+PluginInfo*PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned) { notImplemented(); return 0;}
+unsigned PluginInfoStore::pluginCount() const { notImplemented(); return 0; }
+bool WebCore::PluginInfoStore::supportsMIMEType(const WebCore::String&) { notImplemented(); return false; }
+String PluginInfoStore::pluginNameForMIMEType(const String& mimeType) { notImplemented(); return String(); }
+void WebCore::refreshPlugins(bool) { notImplemented(); }
 
 void Widget::setIsSelected(bool) { notImplemented(); }
 
@@ -156,13 +151,13 @@ void PlatformScrollbar::updateThumbPosition() { notImplemented(); }
 void PlatformScrollbar::updateThumbProportion() { notImplemented(); }
 void PlatformScrollbar::setRect(const IntRect&) { notImplemented(); }
 
-FileChooser::FileChooser(FileChooserClient*, const String& initialFilename) : RefCounted<FileChooser>(0) { notImplemented(); }
+FileChooser::FileChooser(FileChooserClient*, const String& initialFilename) { notImplemented(); }
 //PassRefPtr<FileChooser> FileChooser::create(FileChooserClient*, const String& initialFilename) { notImplemented(); return PassRefPtr<FileChooser>(); }
 FileChooser::~FileChooser() { notImplemented(); }
 void FileChooser::openFileChooser(Document*) { notImplemented(); }
 String FileChooser::basenameForWidth(const Font&, int width) const { notImplemented(); return String(); }
 
-PopupMenu::PopupMenu(PopupMenuClient*) : RefCounted<PopupMenu>(0) { notImplemented(); }
+PopupMenu::PopupMenu(PopupMenuClient*) { notImplemented(); }
 
 PopupMenu::~PopupMenu() { notImplemented(); }
 void PopupMenu::show(const IntRect&, FrameView*, int index) { notImplemented(); }
@@ -170,7 +165,7 @@ void PopupMenu::hide() { notImplemented(); }
 void PopupMenu::updateFromElement() { notImplemented(); }
 bool PopupMenu::itemWritingDirectionIsNatural() { notImplemented(); return false; }
 
-Icon::Icon() : RefCounted<Icon>(0) { notImplemented(); }
+Icon::Icon() { notImplemented(); }
 Icon::~Icon() { notImplemented(); }
 PassRefPtr<Icon> Icon::newIconForFile(const String& filename) { notImplemented(); return PassRefPtr<Icon>(new Icon()); }
 void Icon::paint(GraphicsContext*, const IntRect&) { notImplemented(); }

@@ -33,8 +33,7 @@
 namespace WebCore {
 
 PopupMenu::PopupMenu(PopupMenuClient* client)
-    : RefCounted<PopupMenu>(0)
-    , m_popupClient(client)
+    : m_popupClient(client)
     , m_popup(0)
 {
 }

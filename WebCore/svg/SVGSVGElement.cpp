@@ -48,6 +48,7 @@
 #include "SVGViewSpec.h"
 #include "SVGZoomEvent.h"
 #include "SelectionController.h"
+#include "TextStream.h"
 #include "TimeScheduler.h"
 
 namespace WebCore {
@@ -222,7 +223,7 @@ void SVGSVGElement::addSVGWindowEventListener(const AtomicString& eventType, con
     // FIXME: None of these should be window events long term.
     // Once we propertly support SVGLoad, etc.
     RefPtr<EventListener> listener = document()->accessSVGExtensions()->
-        createSVGEventListener(attr->localName().string(), attr->value(), this);
+        createSVGEventListener(attr->localName().domString(), attr->value(), this);
     document()->setHTMLWindowEventListener(eventType, listener.release());
 }
 

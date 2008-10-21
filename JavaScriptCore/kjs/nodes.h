@@ -214,7 +214,7 @@ namespace KJS {
         int firstLine() const KJS_FAST_CALL { return lineNo(); }
         int lastLine() const KJS_FAST_CALL { return m_lastLine; }
         virtual JSValue* execute(ExecState *exec) KJS_FAST_CALL = 0;
-        virtual void pushLabel(const Identifier& ident) KJS_FAST_CALL { m_labelStack.push(ident); }
+        void pushLabel(const Identifier& ident) KJS_FAST_CALL { m_labelStack.push(ident); }
         virtual Precedence precedence() const { ASSERT_NOT_REACHED(); return PrecExpression; }
         virtual bool isEmptyStatement() const KJS_FAST_CALL { return false; }
 
@@ -334,7 +334,7 @@ namespace KJS {
     class RegExpNode : public ExpressionNode {
     public:
         RegExpNode(const UString& pattern, const UString& flags) KJS_FAST_CALL
-            : m_regExp(RegExp::create(pattern, flags))
+            : m_regExp(new RegExp(pattern, flags))
         {
         }
 
@@ -2576,13 +2576,12 @@ namespace KJS {
         LabelNode(const Identifier& label, StatementNode* statement) KJS_FAST_CALL
             : m_label(label)
             , m_statement(statement)
-        {
-        }
+    {
+    }
 
         virtual void optimizeVariableAccess(const SymbolTable&, const LocalStorage&, NodeStack&) KJS_FAST_CALL;
         virtual JSValue* execute(ExecState*) KJS_FAST_CALL;
         virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
-        virtual void pushLabel(const Identifier& ident) KJS_FAST_CALL { m_statement->pushLabel(ident); }
 
     private:
         Identifier m_label;

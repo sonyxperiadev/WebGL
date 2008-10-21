@@ -35,6 +35,10 @@
 #include "RenderTheme.h"
 #include <wtf/MathExtras.h>
 
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#endif
+
 using std::min;
 
 namespace WebCore {
@@ -213,6 +217,10 @@ void RenderSlider::layout()
     
     if (m_thumb && m_thumb->renderer()) {
             
+#ifdef ANDROID_LAYOUT
+        int oldVisibleWidth = m_visibleWidth;
+#endif
+        
         int oldWidth = m_width;
         calcWidth();
         int oldHeight = m_height;
@@ -221,6 +229,14 @@ void RenderSlider::layout()
         if (oldWidth != m_width || oldHeight != m_height)
             relayoutChildren = true;  
 
+#ifdef ANDROID_LAYOUT
+        const Settings* settings = document()->settings();
+        ASSERT(settings);
+        if (oldVisibleWidth != m_visibleWidth
+                && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+            relayoutChildren = true;
+#endif
+    
         // Allow the theme to set the size of the thumb
         if (m_thumb->renderer()->style()->hasAppearance())
             theme()->adjustSliderThumbSize(m_thumb->renderer());

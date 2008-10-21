@@ -37,7 +37,6 @@ This file contains the list of files needed to build WebCore.
         bindings/js/GCController.cpp
         bindings/js/JSAttrCustom.cpp
         bindings/js/JSAudioConstructor.cpp
-        bindings/js/JSCanvasPixelArrayCustom.cpp
         bindings/js/JSCanvasRenderingContext2DCustom.cpp
         bindings/js/JSCSSRuleCustom.cpp
         bindings/js/JSCSSStyleDeclarationCustom.cpp
@@ -168,7 +167,6 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSCSSValueList.cpp
         DerivedSources/WebCore/JSCanvasGradient.cpp
         DerivedSources/WebCore/JSCanvasPattern.cpp
-        DerivedSources/WebCore/JSCanvasPixelArray.cpp
         DerivedSources/WebCore/JSCanvasRenderingContext2D.cpp
         DerivedSources/WebCore/JSCharacterData.cpp
         DerivedSources/WebCore/JSComment.cpp
@@ -249,7 +247,6 @@ This file contains the list of files needed to build WebCore.
         DerivedSources/WebCore/JSHTMLTitleElement.cpp
         DerivedSources/WebCore/JSHTMLUListElement.cpp
         DerivedSources/WebCore/JSHistory.cpp
-        DerivedSources/WebCore/JSImageData.cpp
         DerivedSources/WebCore/JSKeyboardEvent.cpp
         DerivedSources/WebCore/JSMediaList.cpp
         DerivedSources/WebCore/JSMessageEvent.cpp
@@ -419,7 +416,6 @@ This file contains the list of files needed to build WebCore.
     <set append="1" var="WEBCORE_SOURCES_HTML">
         html/CanvasGradient.cpp
         html/CanvasPattern.cpp
-        html/CanvasPixelArray.cpp
         html/CanvasRenderingContext2D.cpp
         html/CanvasStyle.cpp
         html/FormDataList.cpp
@@ -499,7 +495,6 @@ This file contains the list of files needed to build WebCore.
         html/HTMLTokenizer.cpp
         html/HTMLUListElement.cpp
         html/HTMLViewSourceDocument.cpp
-        html/ImageData.cpp
     </set>
     
     <set append="1" var="WEBCORE_SOURCES_LOADER">
@@ -563,12 +558,16 @@ This file contains the list of files needed to build WebCore.
 
     <set append="1" var="WEBCORE_SOURCES_PLATFORM">
         platform/Arena.cpp
+        platform/ArrayImpl.cpp
         platform/text/AtomicString.cpp
         platform/text/Base64.cpp
         platform/text/BidiContext.cpp
         platform/text/CString.cpp
         platform/ContextMenu.cpp
+        platform/DeprecatedCString.cpp
         platform/DeprecatedPtrListImpl.cpp
+        platform/DeprecatedString.cpp
+        platform/DeprecatedStringList.cpp
         platform/DeprecatedValueListImpl.cpp
         platform/DragImage.cpp
         platform/FileChooser.cpp
@@ -601,6 +600,7 @@ This file contains the list of files needed to build WebCore.
         platform/text/TextEncoding.cpp
         platform/text/TextEncodingRegistry.cpp
         platform/text/TextStream.cpp
+        platform/ThreadingNone.cpp
         platform/Timer.cpp
         platform/Widget.cpp
         platform/graphics/AffineTransform.cpp
@@ -616,12 +616,11 @@ This file contains the list of files needed to build WebCore.
         platform/graphics/Path.cpp
         platform/graphics/PathTraversalState.cpp
         platform/graphics/Pen.cpp
-        platform/network/AuthenticationChallengeBase.cpp
+        platform/network/AuthenticationChallenge.cpp
         platform/network/Credential.cpp
         platform/network/HTTPParsers.cpp
         platform/network/FormData.cpp
         platform/network/ProtectionSpace.cpp
-        platform/network/ResourceErrorBase.cpp
         platform/network/ResourceHandle.cpp
         platform/network/ResourceRequestBase.cpp
         platform/network/ResourceResponseBase.cpp
@@ -630,13 +629,6 @@ This file contains the list of files needed to build WebCore.
         platform/sql/SQLiteStatement.cpp
         platform/sql/SQLiteTransaction.cpp
         platform/sql/SQLValue.cpp
-    </set>
-
-    <set append="1" var="WEBCORE_SOURCES_PLUGINS">
-        plugins/PluginDatabase.cpp
-        plugins/PluginInfoStore.cpp
-        plugins/PluginPackage.cpp
-        plugins/PluginStream.cpp
     </set>
 
     <set append="1" var="WEBCORE_SOURCES_GIF">

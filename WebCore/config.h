@@ -54,15 +54,34 @@
 
 #endif /* PLATFORM(WIN_OS) */
 
-// On MSW, wx headers need to be included before windows.h is. 
-// The only way we can always ensure this is if we include wx here. 
-#if PLATFORM(WX)
-#include <wx/defs.h>
-#endif
-
 #if !PLATFORM(SYMBIAN)
 #define IMPORT_C
 #define EXPORT_C
+#endif
+
+// ANDROID def should be after all PLATFORM to avoid override.
+// USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
+#ifdef ANDROID
+#define USE_SYSTEM_MALLOC 1
+#define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
+#ifdef ANDROID_PLUGINS
+#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
+#define WTF_USE_NPOBJECT 1
+#endif
+#define WTF_USE_LOW_BANDWIDTH_DISPLAY 1
+#define WTF_USE_PTHREADS 1
+#include <wtf/Assertions.h>
+// center place to handle which option feature ANDROID will enable
+#undef ENABLE_DATABASE
+#define ENABLE_DATABASE 0
+#undef ENABLE_FTPDIR
+#define ENABLE_FTPDIR 0
+#define ENABLE_SVG 0
+#define ENABLE_SVG_EXPERIMENTAL_FEATURES 0
+#define ENABLE_XBL 0
+#define ENABLE_XPATH 0
+#define ENABLE_XSLT 0
+#define ENABLE_VIDEO 0
 #endif
 
 #ifdef __cplusplus

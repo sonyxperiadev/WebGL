@@ -29,6 +29,13 @@
 #include "ExceptionCode.h"
 #include "Node.h"
 
+#ifdef ANDROID_INSTRUMENT
+#undef LOG
+#include <utils/Log.h>
+#include "SystemTime.h"
+#include "Frame.h"
+#endif
+
 namespace WebCore {
 
 CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, const String& charset)
@@ -151,11 +158,36 @@ const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix
     return nullAtom; // Assume we wont match any namespaces.
 }
 
+#ifdef ANDROID_INSTRUMENT
+static uint32_t sTotalTimeUsed = 0;
+static uint32_t sCounter = 0;
+    
+void Frame::resetCSSTimeCounter()
+{
+    sTotalTimeUsed = 0;
+    sCounter = 0;
+}
+
+void Frame::reportCSSTimeCounter()
+{
+    LOG(LOG_DEBUG, "WebCore", "*-* Total css parsing time: %d ms called %d times\n", 
+            sTotalTimeUsed, sCounter);   
+}
+#endif
+
 bool CSSStyleSheet::parseString(const String &string, bool strict)
 {
+#ifdef ANDROID_INSTRUMENT
+    uint32_t startTime = 0;
+    startTime = get_thread_msec();
+#endif    
     setStrictParsing(strict);
     CSSParser p(strict);
     p.parseSheet(this, string);
+#ifdef ANDROID_INSTRUMENT
+    sTotalTimeUsed += get_thread_msec() - startTime;
+    sCounter++;
+#endif    
     return true;
 }
 

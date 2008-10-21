@@ -29,12 +29,15 @@
 
 #include <wtf/RefCounted.h>
 
-namespace WebCore {
+namespace WebCore
+{
     class SVGPathElement;
     class SVGStyledElement;
 
-    class SVGPathSeg : public RefCounted<SVGPathSeg> {
+    class SVGPathSeg : public RefCounted<SVGPathSeg>
+    {
     public:
+        SVGPathSeg() { }
         virtual ~SVGPathSeg() { }
 
         enum SVGPathSegType {
@@ -65,9 +68,6 @@ namespace WebCore {
         virtual String toString() const { return ""; }
 
         const QualifiedName& associatedAttributeName() const { return SVGNames::dAttr; }
-        
-    protected:
-        SVGPathSeg() { }
     };
 
 } // namespace WebCore

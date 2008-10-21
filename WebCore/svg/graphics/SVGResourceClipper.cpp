@@ -29,6 +29,7 @@
 #include "SVGResourceClipper.h"
 
 #include "SVGRenderTreeAsText.h"
+#include "TextStream.h"
 
 namespace WebCore {
 

@@ -1,5 +1,7 @@
+// -*- c-basic-offset: 2 -*-
 /*
- *  Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ *  This file is part of the KDE libraries
+ *  Copyright (C) 2003, 2006 Apple Computer, Inc.
  *  Copyright (C) 2005, 2006 Alexey Proskuryakov <ap@nypop.com>
  *
  *  This library is free software; you can redistribute it and/or
@@ -21,13 +23,26 @@
 #define XMLHttpRequest_h
 
 #include "EventTarget.h"
+#include "HTTPHeaderMap.h"
+#include "KURL.h"
+#include "PlatformString.h"
 #include "ResourceResponse.h"
+#include "StringHash.h"
 #include "SubresourceLoaderClient.h"
+#include <kjs/ustring.h>
+
+#include <wtf/HashMap.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class Document;
 class TextResourceDecoder;
+class Document;
+class Event;
+class EventListener;
+class String;
+
+typedef int ExceptionCode;
 
 // these exact numeric values are important because JS expects them
 enum XMLHttpRequestState {
@@ -40,7 +55,7 @@ enum XMLHttpRequestState {
 
 class XMLHttpRequest : public RefCounted<XMLHttpRequest>, public EventTarget, private SubresourceLoaderClient {
 public:
-    static PassRefPtr<XMLHttpRequest> create(Document *document) { return adoptRef(new XMLHttpRequest(document)); }
+    XMLHttpRequest(Document*);
     ~XMLHttpRequest();
 
     virtual XMLHttpRequest* toXMLHttpRequest() { return this; }
@@ -83,8 +98,6 @@ public:
     using RefCounted<XMLHttpRequest>::deref;
 
 private:
-    XMLHttpRequest(Document*);
-    
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }
 
@@ -107,7 +120,6 @@ private:
     void changeState(XMLHttpRequestState newState);
     void callReadyStateChangeListener();
     void dropProtection();
-    void internalAbort();
 
     Document* m_doc;
 
@@ -116,7 +128,7 @@ private:
     EventListenersMap m_eventListeners;
 
     KURL m_url;
-    String m_method;
+    DeprecatedString m_method;
     HTTPHeaderMap m_requestHeaders;
     String m_mimeTypeOverride;
     bool m_async;

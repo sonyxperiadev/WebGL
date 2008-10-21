@@ -40,6 +40,9 @@
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
 #include <JavaScriptCore/JSRetainPtr.h>
+#include <WebKit/IWebHistory.h>
+#include <WebKit/IWebPreferencesPrivate.h>
+#include <WebKit/IWebViewPrivate.h>
 #include <WebKit/WebKit.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>
@@ -550,14 +553,4 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
 
     SysFreeString(nameBSTR);
     SysFreeString(valueBSTR);
-}
-
-void LayoutTestController::clearAllDatabases()
-{
-    printf("ERROR: LayoutTestController::clearAllDatabases() not implemented\n");
-}
- 
-void LayoutTestController::setDatabaseQuota(unsigned long long quota)
-{    
-    printf("ERROR: LayoutTestController::setDatabaseQuota() not implemented\n");
 }

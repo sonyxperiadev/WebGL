@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -226,7 +226,7 @@ PassRefPtr<MediaError> HTMLMediaElement::error() const
     return m_error;
 }
 
-KURL HTMLMediaElement::src() const
+String HTMLMediaElement::src() const
 {
     return document()->completeURL(getAttribute(srcAttr));
 }
@@ -809,7 +809,7 @@ String HTMLMediaElement::pickMedia()
                 if (!source->hasAttribute(srcAttr))
                     continue; 
                 if (source->hasAttribute(mediaAttr)) {
-                    MediaQueryEvaluator screenEval("screen", document()->frame(), renderer() ? renderer()->style() : 0);
+                    MediaQueryEvaluator screenEval("screen", document()->page(), renderer() ? renderer()->style() : 0);
                     RefPtr<MediaList> media = new MediaList((CSSStyleSheet*)0, source->media(), true);
                     if (!screenEval.eval(media.get()))
                         continue;
@@ -819,13 +819,13 @@ String HTMLMediaElement::pickMedia()
                     if (!MIMETypeRegistry::isSupportedMediaMIMEType(type))
                         continue;
                 }
-                mediaSrc = source->src().string();
+                mediaSrc = source->src();
                 break;
             }
         }
     }
     if (!mediaSrc.isEmpty())
-        mediaSrc = document()->completeURL(mediaSrc).string();
+        mediaSrc = document()->completeURL(mediaSrc);
     return mediaSrc;
 }
 

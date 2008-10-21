@@ -29,7 +29,7 @@
 #ifndef WebInspector_h
 #define WebInspector_h
 
-#include "WebKit.h"
+#include "IWebInspector.h"
 #include <wtf/Noncopyable.h>
 
 class WebView;

@@ -29,6 +29,11 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 
+#ifdef ANDROID_LAYOUT
+#include "Document.h"
+#include "Settings.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -223,6 +228,10 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
 
     int previousWidth = m_width;
     int previousHeight = m_height;
+
+#ifdef ANDROID_LAYOUT
+    int previousVisibleWidth = m_visibleWidth;
+#endif
     
     calcWidth();
     calcHeight();
@@ -232,6 +241,14 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
         (parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL &&
          parent()->style()->boxAlign() == BSTRETCH))
         relayoutChildren = true;
+
+#ifdef ANDROID_LAYOUT
+    const Settings* settings = document()->settings();
+    ASSERT(settings);
+    if (previousVisibleWidth != m_visibleWidth
+            && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        relayoutChildren = true;
+#endif
 
     m_height = 0;
     m_overflowHeight = 0;

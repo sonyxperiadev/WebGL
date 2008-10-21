@@ -35,6 +35,7 @@
 #include <wtf/platform.h>
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
+#include <WebCore/DeprecatedString.h>
 #include <WebCore/KURL.h>
 #include <WebCore/ResourceHandle.h>
 #pragma warning( pop )
@@ -221,7 +222,7 @@ WebURLResponse* WebURLResponse::createInstance()
 {
     WebURLResponse* instance = new WebURLResponse();
     // fake an http response - so it has the IWebHTTPURLResponse interface
-    instance->m_response = ResourceResponse(KURL("http://"), String(), 0, String(), String());
+    instance->m_response = ResourceResponse(String("http://").deprecatedString(), String(), 0, String(), String());
     instance->AddRef();
     return instance;
 }
@@ -289,7 +290,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::initWithURL(
     /* [in] */ int expectedContentLength,
     /* [in] */ BSTR textEncodingName)
 {
-    m_response = ResourceResponse(KURL(url), String(mimeType), expectedContentLength, String(textEncodingName), String());
+    m_response = ResourceResponse(String(url).deprecatedString(), String(mimeType), expectedContentLength, String(textEncodingName), String());
     return S_OK;
 }
 

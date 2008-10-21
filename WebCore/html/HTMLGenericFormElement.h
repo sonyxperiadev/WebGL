@@ -88,6 +88,10 @@ public:
     virtual bool isActivatedSubmit() const { return false; }
     virtual void setActivatedSubmit(bool flag) { }
 
+#if USE(LOW_BANDWIDTH_DISPLAY)
+    virtual bool rendererIsNeeded(RenderStyle*);
+#endif
+
     void setTabIndex(int);
 
     void formDestroyed() { m_form = 0; }

@@ -29,6 +29,9 @@
 #include "CachedResourceClient.h"
 #include <wtf/RefCounted.h>
 
+#ifdef ANDROID_CANVAS_IMPL
+    #include "PlatformGraphics.h"
+#endif
 #if PLATFORM(CG)
 #include <wtf/RetainPtr.h>
 #include <ApplicationServices/ApplicationServices.h>
@@ -68,6 +71,10 @@ namespace WebCore {
         cairo_pattern_t* createPattern(const cairo_matrix_t&);
 #endif
 
+#ifdef ANDROID_CANVAS_IMPL
+        PlatformPattern*   platformPattern();
+#endif
+
     private:
 #if PLATFORM(CG)
         const RetainPtr<CGImageRef> m_platformImage;
@@ -77,8 +84,11 @@ namespace WebCore {
         CachedImage* const m_cachedImage;
         const bool m_repeatX;
         const bool m_repeatY;
-    };
 
+#ifdef ANDROID_CANVAS_IMPL
+        PlatformPattern* m_platformPattern;
+#endif
+    };
 } // namespace WebCore
 
 #endif

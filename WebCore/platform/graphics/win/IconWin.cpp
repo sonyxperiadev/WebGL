@@ -28,14 +28,12 @@
 namespace WebCore {
 
 Icon::Icon()
-    : RefCounted<Icon>(0)
-    , m_hIcon(0)
+    : m_hIcon(0)
 {
 }
 
 Icon::Icon(HICON icon)
-    : RefCounted<Icon>(0)
-    , m_hIcon(icon)
+    : m_hIcon(icon)
 {
 }
 

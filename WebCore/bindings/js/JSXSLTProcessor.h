@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,45 +31,46 @@
 #include "kjs_binding.h"
 
 namespace WebCore {
-
-class XSLTProcessor;
+    class XSLTProcessor;
+}
 
 // Eventually we should implement XSLTException:
 // http://lxr.mozilla.org/seamonkey/source/content/xsl/public/nsIXSLTException.idl
 // http://bugs.webkit.org/show_bug.cgi?id=5446
 
+namespace KJS {
+
 class JSXSLTProcessor : public DOMObject {
 public:
-    JSXSLTProcessor(KJS::JSObject* prototype);
+    JSXSLTProcessor(JSObject* prototype);
     ~JSXSLTProcessor();
     
-    virtual const KJS::ClassInfo* classInfo() const { return &info; }
-    static const KJS::ClassInfo info;
+    virtual const ClassInfo *classInfo() const { return &info; }
+    static const ClassInfo info;
 
-    XSLTProcessor* impl() const { return m_impl.get(); }
-
+    WebCore::XSLTProcessor *impl() const { return m_impl.get(); }
 private:
-    RefPtr<XSLTProcessor> m_impl;
+    RefPtr<WebCore::XSLTProcessor> m_impl;
 };
 
 class XSLTProcessorConstructorImp : public DOMObject {
 public:
-    XSLTProcessorConstructorImp(KJS::ExecState*);
+    XSLTProcessorConstructorImp(ExecState*);
 
     virtual bool implementsConstruct() const;
-    virtual KJS::JSObject* construct(KJS::ExecState*, const KJS::List&);
+    virtual JSObject* construct(ExecState*, const List&);
 };
 
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionImportStylesheet(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionTransformToFragment(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionTransformToDocument(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionSetParameter(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionGetParameter(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionRemoveParameter(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionClearParameters(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-KJS::JSValue* jsXSLTProcessorPrototypeFunctionReset(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
+JSValue* jsXSLTProcessorPrototypeFunctionImportStylesheet(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionTransformToFragment(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionTransformToDocument(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionSetParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionGetParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionRemoveParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionClearParameters(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionReset(ExecState*, JSObject*, const List&);
 
-} // namespace WebCore
+} // namespace KJS
 
 #endif // ENABLE(XSLT)
 

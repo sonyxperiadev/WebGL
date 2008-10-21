@@ -1,6 +1,7 @@
+// -*- c-basic-offset: 2 -*-
 /*
+ *  This file is part of the KDE libraries
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -23,28 +24,28 @@
 #include "kjs_binding.h"
 
 namespace WebCore {
-
     class Frame;
+}
 
-    class Navigator : public DOMObject {
-    public:
-        Navigator(KJS::JSObject* prototype, Frame*);
+namespace KJS {
 
-        virtual bool getOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&);
-        KJS::JSValue* getValueProperty(KJS::ExecState*, int token) const;
-        virtual const KJS::ClassInfo* classInfo() const { return &info; }
-        static const KJS::ClassInfo info;
+  class Navigator : public DOMObject {
+  public:
+    Navigator(JSObject* prototype, WebCore::Frame*);
 
-        enum { AppCodeName, AppName, AppVersion, Language, UserAgent, Platform,
-               _Plugins, _MimeTypes, Product, ProductSub, Vendor, VendorSub, CookieEnabled };
+    virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
+    JSValue *getValueProperty(ExecState *exec, int token) const;
+    virtual const ClassInfo* classInfo() const { return &info; }
+    static const ClassInfo info;
+    enum { AppCodeName, AppName, AppVersion, Language, UserAgent, Platform,
+           _Plugins, _MimeTypes, Product, ProductSub, Vendor, VendorSub, CookieEnabled };
+    WebCore::Frame *frame() const { return m_frame; }
+  private:
+    WebCore::Frame *m_frame;
+  };
 
-        Frame* frame() const { return m_frame; }
-
-    private:
-        Frame* m_frame;
-    };
-
-    KJS::JSValue* navigatorProtoFuncJavaEnabled(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
+  // Functions
+  JSValue* navigatorProtoFuncJavaEnabled(ExecState*, JSObject*, const List&);
 
 } // namespace
 

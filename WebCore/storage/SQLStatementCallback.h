@@ -28,7 +28,7 @@
 #ifndef SQLStatementCallback_h
 #define SQLStatementCallback_h
 
-#include <wtf/Threading.h>
+#include "Threading.h"
 
 namespace WebCore {
 

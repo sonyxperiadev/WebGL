@@ -68,8 +68,7 @@ inline int wxNavTypeFromWebNavType(NavigationType type){
 }
 
 FrameLoaderClientWx::FrameLoaderClientWx()
-    : RefCounted<FrameLoaderClientWx>(0)
-    , m_frame(0)
+    : m_frame(0)
 {
 }
 
@@ -581,7 +580,12 @@ void FrameLoaderClientWx::partClearedInBegin()
     notImplemented();
 }
 
-void FrameLoaderClientWx::updateGlobalHistory(const WebCore::KURL&)
+void FrameLoaderClientWx::updateGlobalHistoryForStandardLoad(const WebCore::KURL&)
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::updateGlobalHistoryForReload(const WebCore::KURL&)
 {
     notImplemented();
 }

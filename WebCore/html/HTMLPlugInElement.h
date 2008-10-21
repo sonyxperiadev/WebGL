@@ -85,6 +85,11 @@ protected:
 #if USE(NPOBJECT)
     NPObject* m_NPObject;
 #endif
+#ifdef ANDROID_FIX
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    int oldNameIdCount;
+#endif
 };
 
 } // namespace WebCore

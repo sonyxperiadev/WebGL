@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,9 +23,8 @@
  */
 
 #include "config.h"
-#include "HTMLViewSourceDocument.h"
-
 #include "DOMImplementation.h"
+#include "HTMLViewSourceDocument.h"
 #include "HTMLTokenizer.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLAnchorElement.h"
@@ -39,7 +38,8 @@
 #include "TextDocument.h"
 #include "HTMLNames.h"
 
-namespace WebCore {
+namespace WebCore
+{
 
 using namespace HTMLNames;
 
@@ -108,7 +108,9 @@ void HTMLViewSourceDocument::addViewSourceToken(Token* token)
         }
     } else {
         // Handle the tag.
-        String classNameStr = "webkit-html-tag";
+        bool doctype = token->tagName.startsWith("!DOCTYPE", false);
+        
+        String classNameStr = doctype ? "webkit-html-doctype" : "webkit-html-tag";
         m_current = addSpanWithClassName(classNameStr);
 
         String text = "<";
@@ -143,21 +145,28 @@ void HTMLViewSourceDocument::addViewSourceToken(Token* token)
                     if (attr) {
                         if (guide->at(i) == 'a') {
                             String name = attr->name().toString();
-                            
-                            m_current = addSpanWithClassName("webkit-html-attribute-name");
-                            addText(name, "webkit-html-attribute-name");
-                            if (m_current != m_tbody)
-                                m_current = static_cast<Element*>(m_current->parent());
+                            if (doctype)
+                                addText(name, "webkit-html-doctype");
+                            else {
+                                m_current = addSpanWithClassName("webkit-html-attribute-name");
+                                addText(name, "webkit-html-attribute-name");
+                                if (m_current != m_tbody)
+                                    m_current = static_cast<Element*>(m_current->parent());
+                            }
                         } else {
-                            String value = attr->value().string();
-                            // FIXME: XML could use namespace prefixes and confuse us.
-                            if (equalIgnoringCase(attr->name().localName(), "src") || equalIgnoringCase(attr->name().localName(), "href"))
-                                m_current = addLink(value, equalIgnoringCase(token->tagName, "a"));
-                            else
-                                m_current = addSpanWithClassName("webkit-html-attribute-value");
-                            addText(value, "webkit-html-attribute-value");
-                            if (m_current != m_tbody)
-                                m_current = static_cast<Element*>(m_current->parent());
+                            String value = attr->value().domString();
+                            if (doctype)
+                                addText(value, "webkit-html-doctype");
+                            else {
+                                // FIXME: XML could use namespace prefixes and confuse us.
+                                if (equalIgnoringCase(attr->name().localName(), "src") || equalIgnoringCase(attr->name().localName(), "href"))
+                                    m_current = addLink(value, equalIgnoringCase(token->tagName, "a"));
+                                else
+                                    m_current = addSpanWithClassName("webkit-html-attribute-value");
+                                addText(value, "webkit-html-attribute-value");
+                                if (m_current != m_tbody)
+                                    m_current = static_cast<Element*>(m_current->parent());
+                            }
                         }
                     }
                 }
@@ -173,17 +182,6 @@ void HTMLViewSourceDocument::addViewSourceToken(Token* token)
         
         m_current = m_td;
     }
-}
-
-void HTMLViewSourceDocument::addViewSourceDoctypeToken(DoctypeToken* doctypeToken)
-{
-    if (!m_current)
-        createContainingTable();
-    m_current = addSpanWithClassName("webkit-html-doctype");
-    String text = "<";
-    text += String::adopt(doctypeToken->m_source);
-    text += ">";
-    addText(text, "webkit-html-doctype");
 }
 
 Element* HTMLViewSourceDocument::addSpanWithClassName(const String& className)
@@ -250,8 +248,7 @@ void HTMLViewSourceDocument::addText(const String& text, const String& className
         return;
 
     // Add in the content, splitting on newlines.
-    Vector<String> lines;
-    text.split('\n', true, lines);
+    Vector<String> lines = text.split('\n', true);
     unsigned size = lines.size();
     for (unsigned i = 0; i < size; i++) {
         String substring = lines[i];

@@ -51,15 +51,15 @@ void SVGImageLoader::updateFromElement()
     
     CachedImage *newImage = 0;
     if (!imageElement->href().isEmpty()) {
-        KURL uri = imageElement->baseURI();
+        DeprecatedString uri = imageElement->baseURI().deprecatedString();
         if (!uri.isEmpty())
-            uri = KURL(uri, imageElement->href());
+            uri = KURL(uri, imageElement->href().deprecatedString()).deprecatedString();
         else
-            uri = KURL(imageElement->href());
-        newImage = doc->docLoader()->requestImage(uri.string());
+            uri = imageElement->href().deprecatedString();
+        newImage = doc->docLoader()->requestImage(uri);
     }
 
-    CachedImage* oldImage = image();
+    CachedImage *oldImage = image();
     if (newImage != oldImage) {
         setLoadingImage(newImage);
         if (newImage)

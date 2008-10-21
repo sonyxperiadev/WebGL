@@ -1,8 +1,10 @@
-/*
+/**
+ * This file is part of the KDE project.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,10 +22,11 @@
  * Boston, MA 02110-1301, USA.
  *
  */
-
 #include "config.h"
 #include "RenderPartObject.h"
 
+#include "Document.h"
+#include "EventHandler.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -34,9 +37,18 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParamElement.h"
+#include "KURL.h"
 #include "MIMETypeRegistry.h"
 #include "Page.h"
+#include "RenderView.h"
 #include "Text.h"
+
+#ifdef FLATTEN_IFRAME
+#include "RenderView.h"
+#define LOG_TAG "WebCore"
+#undef LOG
+#include "utils/Log.h"
+#endif
 
 namespace WebCore {
 
@@ -56,17 +68,21 @@ RenderPartObject::~RenderPartObject()
         m_view->removeWidgetToUpdate(this);
 }
 
-static bool isURLAllowed(Document* doc, const String& url)
+static bool isURLAllowed(Document *doc, const String &url)
 {
+    KURL newURL(doc->completeURL(url.deprecatedString()));
+    newURL.setRef(DeprecatedString::null);
+    
     if (doc->frame()->page()->frameCount() >= 200)
         return false;
 
     // We allow one level of self-reference because some sites depend on that.
     // But we don't allow more than one.
-    KURL completeURL = doc->completeURL(url);
     bool foundSelfReference = false;
-    for (Frame* frame = doc->frame(); frame; frame = frame->tree()->parent()) {
-        if (equalIgnoringRef(frame->loader()->url(), completeURL)) {
+    for (Frame *frame = doc->frame(); frame; frame = frame->tree()->parent()) {
+        KURL frameURL = frame->loader()->url();
+        frameURL.setRef(DeprecatedString::null);
+        if (frameURL == newURL) {
             if (foundSelfReference)
                 return false;
             foundSelfReference = true;
@@ -93,10 +109,10 @@ static inline void mapClassIdToServiceType(const String& classId, String& servic
         serviceType = "application/x-director";
     else if (classId.contains("6BF52A52-394A-11d3-B153-00C04F79FAA6"))
         serviceType = "application/x-mplayer2";
-    else if (!classId.isEmpty()) {
-        // We have a clsid, means this is Active X (Niko)
+    else if (!classId.isEmpty())
+        // We have a clsid, means this is activex (Niko)
         serviceType = "application/x-activex-handler";
-    }
+    // TODO: add more plugins here
 }
 
 void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
@@ -130,8 +146,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
       HTMLElement *embedOrObject;
       if (embed) {
           embedOrObject = (HTMLElement *)embed;
-          url = embed->url();
-          serviceType = embed->serviceType();
+          url = embed->url;
+          serviceType = embed->m_serviceType;
       } else
           embedOrObject = (HTMLElement *)o;
       
@@ -186,8 +202,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
               Attribute* it = attributes->attributeItem(i);
               const AtomicString& name = it->name().localName();
               if (embed || !uniqueParamNames.contains(name.impl())) {
-                  paramNames.append(name.string());
-                  paramValues.append(it->value().string());
+                  paramNames.append(name.domString());
+                  paramValues.append(it->value().domString());
               }
           }
       }
@@ -222,8 +238,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
   } else if (element()->hasTagName(embedTag)) {
       HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(element());
       o->setNeedWidgetUpdate(false);
-      url = o->url();
-      serviceType = o->serviceType();
+      url = o->url;
+      serviceType = o->m_serviceType;
 
       if (url.isEmpty() && serviceType.isEmpty())
           return;
@@ -235,8 +251,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
       if (a) {
           for (unsigned i = 0; i < a->length(); ++i) {
               Attribute* it = a->attributeItem(i);
-              paramNames.append(it->name().localName().string());
-              paramValues.append(it->value().string());
+              paramNames.append(it->name().localName().domString());
+              paramValues.append(it->value().domString());
           }
       }
       
@@ -260,6 +276,41 @@ void RenderPartObject::layout()
 
     calcWidth();
     calcHeight();
+    
+#ifdef FLATTEN_IFRAME
+    // Some IFrames have a width and/or height of 1 when they are meant to be
+    // hidden. If that is the case, don't try to expand.
+    if (m_widget && m_widget->isFrameView() &&
+            m_width > 1 && m_height > 1) {
+        FrameView* view = static_cast<FrameView*>(m_widget);
+        RenderView* root = NULL;
+        if (view->frame() && view->frame()->document() &&
+            view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
+            root = static_cast<RenderView*>(view->frame()->document()->renderer());
+        if (root) {
+            int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+            int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+            // Resize the view to recalc the height.
+            int height = m_height - extraHeight;
+            int width = m_width - extraWidth;
+            if (width > view->width())
+                height = 0;
+            if (width != view->width() || height != view->height()) {
+                view->resize(width, height);
+                view->setNeedsLayout();
+            }
+            // Layout the view.
+            if (view->needsLayout())
+                view->layout();
+            int contentHeight = root->docHeight() + extraHeight;
+            int contentWidth = root->docWidth() + extraWidth;
+            // Do not shrink iframes with specified sizes
+            if (contentHeight > m_height || style()->height().isAuto())
+                m_height = contentHeight;
+            m_width = std::min(contentWidth, 800);
+        }
+    }
+#endif
     adjustOverflowForBoxShadow();
 
     RenderPart::layout();

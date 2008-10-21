@@ -63,7 +63,12 @@ Font::CodePath Font::codePath = Auto;
 struct WidthIterator {
     WidthIterator(const Font* font, const TextRun& run);
 
-    void advance(int to, GlyphBuffer* glyphBuffer = 0);
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    bool
+#else
+    void
+#endif
+    advance(int to, GlyphBuffer* glyphBuffer = 0);
     bool advanceOneCharacter(float& width, GlyphBuffer* glyphBuffer = 0);
     
     const Font* m_font;
@@ -107,7 +112,13 @@ WidthIterator::WidthIterator(const Font* font, const TextRun& run)
     }
 }
 
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+#define SIGNAL_ADJUSTED_WIDTHS()    adjustedWidths = true
+bool WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
+#else
+#define SIGNAL_ADJUSTED_WIDTHS()
 void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
+#endif
 {
     if (offset > m_end)
         offset = m_end;
@@ -121,6 +132,10 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
     float runWidthSoFar = m_runWidthSoFar;
     float lastRoundingWidth = m_finalRoundingWidth;
     
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    bool adjustedWidths = false;
+#endif
+
     while (currentCharacter < offset) {
         UChar32 c = *cp;
         unsigned clusterLength = 1;
@@ -162,20 +177,27 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
         if (c == '\t' && m_run.allowTabs()) {
             float tabWidth = m_font->tabWidth();
             width = tabWidth - fmodf(m_run.xPos() + runWidthSoFar, tabWidth);
+            SIGNAL_ADJUSTED_WIDTHS();
         } else {
             width = fontData->widthForGlyph(glyph);
+#ifndef ANDROID_NEVER_ROUND_FONT_METRICS
             // We special case spaces in two ways when applying word rounding.
             // First, we round spaces to an adjusted width in all fonts.
             // Second, in fixed-pitch fonts we ensure that all characters that
             // match the width of the space character have the same width as the space character.
-            if (width == fontData->m_spaceWidth && (fontData->m_treatAsFixedPitch || glyph == fontData->m_spaceGlyph) && m_run.applyWordRounding())
+            if (width == fontData->m_spaceWidth && (fontData->m_treatAsFixedPitch || glyph == fontData->m_spaceGlyph) && m_run.applyWordRounding()) {
                 width = fontData->m_adjustedSpaceWidth;
+                SIGNAL_ADJUSTED_WIDTHS();
+            }
+#endif
         }
 
         if (hasExtraSpacing && !m_run.spacingDisabled()) {
             // Account for letter-spacing.
-            if (width && m_font->letterSpacing())
+            if (width && m_font->letterSpacing()) {
                 width += m_font->letterSpacing();
+                SIGNAL_ADJUSTED_WIDTHS();
+            }
 
             if (Font::treatAsSpace(c)) {
                 // Account for padding. WebCore uses space padding to justify text.
@@ -189,12 +211,15 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
                         width += m_padPerSpace;
                         m_padding -= m_padPerSpace;
                     }
+                    SIGNAL_ADJUSTED_WIDTHS();
                 }
 
                 // Account for word spacing.
                 // We apply additional space between "words" by adding width to the space character.
-                if (currentCharacter != 0 && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing())
+                if (currentCharacter != 0 && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing()) {
                     width += m_font->wordSpacing();
+                    SIGNAL_ADJUSTED_WIDTHS();
+                }
             }
         }
 
@@ -209,10 +234,13 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
 
         float oldWidth = width;
 
+#ifndef ANDROID_NEVER_ROUND_FONT_METRICS
         // Force characters that are used to determine word boundaries for the rounding hack
         // to be integer width, so following words will start on an integer boundary.
-        if (m_run.applyWordRounding() && Font::isRoundingHackCharacter(c))
+        if (m_run.applyWordRounding() && Font::isRoundingHackCharacter(c)) {
             width = ceilf(width);
+            SIGNAL_ADJUSTED_WIDTHS();
+        }
 
         // Check to see if the next character is a "rounding hack character", if so, adjust
         // width so that the total run width will be on an integer boundary.
@@ -220,7 +248,9 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
                 || (m_run.applyRunRounding() && currentCharacter >= m_end)) {
             float totalWidth = runWidthSoFar + width;
             width += ceilf(totalWidth) - totalWidth;
+            SIGNAL_ADJUSTED_WIDTHS();
         }
+#endif
 
         runWidthSoFar += width;
 
@@ -233,6 +263,10 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
     m_currentCharacter = currentCharacter;
     m_runWidthSoFar = runWidthSoFar;
     m_finalRoundingWidth = lastRoundingWidth;
+
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    return adjustedWidths;
+#endif
 }
 
 bool WidthIterator::advanceOneCharacter(float& width, GlyphBuffer* glyphBuffer)
@@ -621,8 +655,11 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
     WidthIterator it(this, run);
     it.advance(from);
     float beforeWidth = it.m_runWidthSoFar;
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    bool adjustedWidths =
+#endif
     it.advance(to, &glyphBuffer);
-    
+
     // We couldn't generate any glyphs for the run.  Give up.
     if (glyphBuffer.isEmpty())
         return;
@@ -633,6 +670,9 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
         float finalRoundingWidth = it.m_finalRoundingWidth;
         it.advance(run.length());
         startX += finalRoundingWidth + it.m_runWidthSoFar - afterWidth;
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+        adjustedWidths = true;  // give up on simple/fast case
+#endif
     } else
         startX += beforeWidth;
 
@@ -641,6 +681,11 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
         for (int i = 0, end = glyphBuffer.size() - 1; i < glyphBuffer.size() / 2; ++i, --end)
             glyphBuffer.swap(i, end);
 
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
+    // mark the GlyphBuffer as having adjusted widths or not
+    // used by drawGlyph as an optimization hint
+    glyphBuffer.setHasAdjustedWidths(adjustedWidths);
+#endif
     // Calculate the starting point of the glyphs to be displayed by adding
     // all the advances up to the first glyph.
     FloatPoint startPoint(startX, point.y());

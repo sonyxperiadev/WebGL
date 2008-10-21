@@ -29,7 +29,7 @@
 #ifndef SQLTransactionCallback_h
 #define SQLTransactionCallback_h
 
-#include <wtf/Threading.h>
+#include "Threading.h"
 
 namespace WebCore {
 

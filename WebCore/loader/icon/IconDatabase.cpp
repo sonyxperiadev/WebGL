@@ -37,7 +37,6 @@
 #include "IntSize.h"
 #include "KURL.h"
 #include "Logging.h"
-#include "MainThread.h"
 #include "PageURLRecord.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
@@ -102,7 +101,7 @@ static IconDatabaseClient* defaultClient()
 IconDatabase* iconDatabase()
 {
     if (!sharedIconDatabase) {
-        initializeThreadingAndMainThread();
+        initializeThreading();
         sharedIconDatabase = new IconDatabase;
     }
     return sharedIconDatabase;
@@ -154,6 +153,11 @@ bool IconDatabase::open(const String& databasePath)
 
 void IconDatabase::close()
 {
+#ifdef ANDROID
+    // Since we close and reopen the database within the same process, reset
+    // this flag
+    m_initialPruningComplete = false;
+#endif
     ASSERT_NOT_SYNC_THREAD();
     
     if (m_syncThreadRunning) {
@@ -219,11 +223,13 @@ void IconDatabase::removeAllIcons()
 Image* IconDatabase::iconForPageURL(const String& pageURLOriginal, const IntSize& size, bool cache)
 {   
     ASSERT_NOT_SYNC_THREAD();
+    
+    ASSERT(!pageURLOriginal.isNull());
 
-    // pageURLOriginal cannot be stored without being deep copied first.  
+    // pageURLOriginal can not be stored without being deep copied first.  
     // We should go our of our way to only copy it if we have to store it
     
-    if (!isOpen() || pageURLOriginal.isEmpty())
+    if (!isOpen())
         return defaultIcon(size);
 
     MutexLocker locker(m_urlAndIconLock);

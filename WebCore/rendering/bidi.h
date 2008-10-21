@@ -35,15 +35,15 @@ class RenderObject;
 class InlineBox;
 
 struct BidiRun : BidiCharacterRun {
-    BidiRun(int start, int stop, RenderObject* object, BidiContext* context, WTF::Unicode::Direction dir)
+    BidiRun(int start, int stop, RenderObject* o, BidiContext* context, WTF::Unicode::Direction dir)
         : BidiCharacterRun(start, stop, context, dir)
-        , m_object(object)
-        , m_box(0)
-        , m_compact(false)
+        , obj(o)
+        , box(0)
+        , compact(false)
     {
     }
 
-    void destroy();
+    void destroy(RenderArena*);
 
     // Overloaded new operator.
     void* operator new(size_t, RenderArena*) throw();
@@ -58,9 +58,9 @@ private:
     void* operator new(size_t) throw();
 
 public:
-    RenderObject* m_object;
-    InlineBox* m_box;
-    bool m_compact;
+    RenderObject* obj;
+    InlineBox* box;
+    bool compact;
 };
 
 } // namespace WebCore

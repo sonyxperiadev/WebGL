@@ -37,6 +37,7 @@
 #include <wtf/unicode/Unicode.h>
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
+#include "RenderObject.h"
 
 struct NPObject;
 
@@ -100,7 +101,6 @@ class KURL;
 class Node;
 class Page;
 class Range;
-class RegularExpression;
 class RenderPart;
 class Selection;
 class SelectionController;
@@ -146,6 +146,42 @@ public:
     RenderPart* ownerRenderer(); // renderer for the element that contains this frame
 
     friend class FramePrivate;
+#ifdef ANDROID_BRIDGE
+    friend class FrameAndroid;
+#endif
+
+#ifdef ANDROID_INSTRUMENT
+    void resetTimeCounter();
+    void reportTimeCounter(String url, int totalTime, int totalThreadTime);
+
+private:
+    void resetParsingTimeCounter();
+    void reportParsingTimeCounter();
+
+    void resetCSSTimeCounter();
+    void reportCSSTimeCounter();
+
+    void resetCalculateStyleTimeCounter();
+    void reportCalculateStyleTimeCounter();
+
+    void resetLayoutTimeCounter();
+    void reportLayoutTimeCounter();
+    
+    void resetPaintTimeCounter();
+    void reportPaintTimeCounter();
+        
+    void resetSharedTimerTimeCounter();
+    void reportSharedTimerTimeCounter();
+    
+    void resetResourceLoadTimeCounter();
+    void reportResourceLoadTimeCounter();
+
+    void resetWebViewCoreTimeCounter();
+    void reportWebViewCoreTimeCounter();
+
+    void resetFramebridgeTimeCounter();
+    void reportFramebridgeTimeCounter();
+#endif
 
 private:
     FramePrivate* d;
@@ -330,7 +366,7 @@ public:
     void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
 
     HTMLFormElement* currentForm() const;
-
+    
     void revealSelection(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
     void revealCaret(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
     void setSelectionFromNone();

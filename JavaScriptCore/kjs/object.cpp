@@ -180,6 +180,10 @@ bool JSObject::getPropertySlot(ExecState *exec, unsigned propertyName, PropertyS
   JSObject *imp = this;
   
   while (true) {
+#ifdef ANDROID_FIX
+    if (imp == imp->_proto)
+        break;
+#endif
     if (imp->getOwnPropertySlot(exec, propertyName, slot))
       return true;
     
@@ -204,7 +208,7 @@ static void throwSetterError(ExecState *exec)
 }
 
 // ECMA 8.6.2.2
-void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *value)
+void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *value, int attr)
 {
   ASSERT(value);
 
@@ -220,10 +224,18 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
     return;
   }
 
+  // The put calls from JavaScript execution either have no attributes set, or in some cases
+  // have DontDelete set. For those calls, respect the ReadOnly flag.
+  bool checkReadOnly = !(attr & ~DontDelete);
+
   // Check if there are any setters or getters in the prototype chain
   JSObject *obj = this;
   bool hasGettersOrSetters = false;
   while (true) {
+#ifdef ANDROID_FIX
+    if (obj == obj->_proto)
+        break;
+#endif
     if (obj->_prop.hasGetterSetterProperties()) {
       hasGettersOrSetters = true;
       break;
@@ -236,12 +248,16 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
   }
   
   if (hasGettersOrSetters) {
-    unsigned attributes;
-    if (_prop.get(propertyName, attributes) && attributes & ReadOnly)
-        return;
+    if (checkReadOnly && !canPut(exec, propertyName))
+      return;
 
     obj = this;
     while (true) {
+#ifdef ANDROID_FIX
+      if (obj == obj->_proto)
+        break;
+#endif
+      unsigned attributes;
       if (JSValue *gs = obj->_prop.get(propertyName, attributes)) {
         if (attributes & GetterSetter) {
           JSObject *setterFunc = static_cast<GetterSetterImp *>(gs)->getSetter();
@@ -270,12 +286,29 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
     }
   }
   
-  _prop.put(propertyName, value, 0, true);
+  _prop.put(propertyName, value, attr, checkReadOnly);
 }
 
-void JSObject::put(ExecState* exec, unsigned propertyName, JSValue* value)
+void JSObject::put(ExecState *exec, unsigned propertyName,
+                     JSValue *value, int attr)
 {
-    put(exec, Identifier::from(propertyName), value);
+  put(exec, Identifier::from(propertyName), value, attr);
+}
+
+// ECMA 8.6.2.3
+bool JSObject::canPut(ExecState *, const Identifier &propertyName) const
+{
+  unsigned attributes;
+    
+  // Don't look in the prototype here. We can always put an override
+  // in the object, even if the prototype has a ReadOnly property.
+  // Also, there is no need to check the static property table, as this
+  // would have been done by the subclass already.
+
+  if (!_prop.get(propertyName, attributes))
+    return true;
+
+  return !(attributes & ReadOnly);
 }
 
 // ECMA 8.6.2.4

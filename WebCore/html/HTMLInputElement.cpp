@@ -53,6 +53,14 @@
 #include "SelectionController.h"
 #include "TextBreakIterator.h"
 #include "TextEvent.h"
+#if USE(LOW_BANDWIDTH_DISPLAY)
+#include "FrameLoader.h"
+#endif
+#ifdef ANDROID // multiple additions: see below
+#include "FrameAndroid.h"
+#include "FrameView.h"
+#include "WebCoreViewBridge.h"
+#endif
 #include "TextIterator.h"
 
 using namespace std;
@@ -178,6 +186,7 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
         if (name().isEmpty())
             return false;
 
+#ifndef ANDROID_KEYBOARD_NAVIGATION
         // Never allow keyboard tabbing to leave you in the same radio group.  Always
         // skip any other elements in the group.
         Node* currentFocusedNode = document()->focusedNode();
@@ -187,6 +196,7 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
                 focusedInput->name() == name())
                 return false;
         }
+#endif    
         
         // Allow keyboard focus if we're checked or if nothing in the group is checked.
         return checked() || !checkedRadioButtons(this).checkedButtonForGroup(name());
@@ -262,7 +272,18 @@ void HTMLInputElement::setInputType(const String& t)
     InputType newType;
     
     if (equalIgnoringCase(t, "password"))
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+    {
+        if (document()->focusedNode() == this)
+        {
+            WebCoreViewBridge* viewImpl = document()->frame()->view()->getWebCoreViewBridge();
+            viewImpl->updateTextfield(this, true, String());
+        }
+#endif
         newType = PASSWORD;
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+    }
+#endif
     else if (equalIgnoringCase(t, "checkbox"))
         newType = CHECKBOX;
     else if (equalIgnoringCase(t, "radio"))
@@ -670,6 +691,13 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
 
 bool HTMLInputElement::rendererIsNeeded(RenderStyle *style)
 {
+#if USE(LOW_BANDWIDTH_DISPLAY)
+    if (document()->inLowBandwidthDisplay()) {
+        document()->frame()->loader()->needToSwitchOutLowBandwidthDisplay();
+        return false;
+    }
+#endif
+    
     switch (inputType()) {
         case BUTTON:
         case CHECKBOX:
@@ -974,7 +1002,16 @@ void HTMLInputElement::setValue(const String& value)
     if (isTextField()) {
         unsigned max = m_value.length();
         if (document()->focusedNode() == this)
+#ifndef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
             setSelectionRange(max, max);
+#else
+        {
+            // Make sure our UI side textfield changes to match the RenderTextControl
+            WebCoreViewBridge* viewImpl = document()->frame()->view()->getWebCoreViewBridge();
+            viewImpl->updateTextfield(this, false, value);
+            setSelectionRange(max, max);
+        }
+#endif
         else {
             cachedSelStart = max;
             cachedSelEnd = max;
@@ -1195,6 +1232,11 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                     clickElement = true;
                     break;
                 case RADIO:
+#ifdef ANDROID_KEYBOARD_NAVIGATION
+// allow enter to change state of radio
+                    if (!checked())
+                        clickElement = true;
+#endif
                     break; // Don't do anything for enter on a radio button.
             }
         } else if (charCode == ' ') {
@@ -1241,6 +1283,8 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             }
         }
 
+#ifndef ANDROID_KEYBOARD_NAVIGATION
+// allow enter to change state of radio
         if (inputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
             // Left and up mean "previous radio button".
             // Right and down mean "next radio button".
@@ -1275,6 +1319,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 }
             }
         }
+#endif
     }
 
     if (evt->type() == keyupEvent && evt->isKeyboardEvent()) {
@@ -1449,7 +1494,7 @@ void HTMLInputElement::setSize(unsigned _size)
     setAttribute(sizeAttr, String::number(_size));
 }
 
-KURL HTMLInputElement::src() const
+String HTMLInputElement::src() const
 {
     return document()->completeURL(getAttribute(srcAttr));
 }

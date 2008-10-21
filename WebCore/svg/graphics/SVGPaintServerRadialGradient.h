@@ -35,7 +35,7 @@ namespace WebCore {
 
     class SVGPaintServerRadialGradient : public SVGPaintServerGradient {
     public:
-        static PassRefPtr<SVGPaintServerRadialGradient> create(const SVGGradientElement* owner) { return adoptRef(new SVGPaintServerRadialGradient(owner)); }
+        SVGPaintServerRadialGradient(const SVGGradientElement* owner);
         virtual ~SVGPaintServerRadialGradient();
 
         virtual SVGPaintServerType type() const { return RadialGradientPaintServer; }
@@ -56,8 +56,6 @@ namespace WebCore {
 #endif
 
     private:
-        SVGPaintServerRadialGradient(const SVGGradientElement* owner);
-
         float m_radius;
         FloatPoint m_center;
         FloatPoint m_focal;

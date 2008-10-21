@@ -531,7 +531,13 @@ nobr {
 /* states */
 
 :focus { 
-    outline: auto 5px -webkit-focus-ring-color
+/* ANDROID specific change
+ * Android does not use the webkit-supplied focus ring, so
+ * remove the definition for outline to prevent setting or losing 
+ * focus from triggering a dom rebuild.
+ */
+//  outline: auto 5px -webkit-focus-ring-color
+    outline: none
 }
 
 /* Read-only text fields do not show a focus ring but do still receive focus */

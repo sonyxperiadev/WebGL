@@ -28,7 +28,7 @@
 #ifndef SQLTransaction_h
 #define SQLTransaction_h
 
-#include <wtf/Threading.h>
+#include "Threading.h"
 
 #include "SQLiteTransaction.h"
 #include "SQLStatement.h"

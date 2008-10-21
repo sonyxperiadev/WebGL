@@ -92,8 +92,10 @@ void BitmapImage::destroyDecodedData(bool incremental)
         if (!incremental) {
             // Reset the image source, since Image I/O has an underlying cache that it uses
             // while animating that it seems to never clear.
+#if !PLATFORM(SGL)
             m_source.clear();
             m_source.setData(m_data.get(), m_allDataReceived);
+#endif
         }
     }
 }
@@ -232,7 +234,7 @@ void BitmapImage::resetAnimation()
     m_repetitionsComplete = 0;
     m_animationFinished = false;
     int frameSize = m_size.width() * m_size.height() * 4;
-    
+
     // For extremely large animations, when the animation is reset, we just throw everything away.
     if (frameCount() * frameSize > cLargeAnimationCutoff)
         destroyDecodedData();

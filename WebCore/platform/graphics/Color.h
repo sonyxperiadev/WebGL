@@ -118,6 +118,10 @@ public:
     static const RGBA32 lightGray = 0xFFC0C0C0;
     static const RGBA32 transparent = 0x00000000;
 
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    static const RGBA32 tap = 0x4D1A1A1A;
+#endif
+
 private:
     RGBA32 m_color;
     bool m_valid : 1;

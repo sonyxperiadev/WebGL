@@ -66,6 +66,11 @@ public:
     virtual void setWidth(int);
     virtual void setStyle(RenderStyle*);
 
+#ifdef ANDROID_LAYOUT
+    // RenderTableSection needs to access this in setCellWidths()
+    int getVisibleWidth() { return m_visibleWidth; }
+#endif    
+
     virtual bool expandsToEncloseOverhangingFloats() const { return true; }
 
     int borderLeft() const;
@@ -111,7 +116,11 @@ public:
     virtual int borderTopExtra() const { return m_topExtra; }
     virtual int borderBottomExtra() const { return m_bottomExtra; }
 
-private:
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString ind = "") const;
+#endif
+
+protected:
     int m_row;
     int m_column;
     int m_rowSpan;

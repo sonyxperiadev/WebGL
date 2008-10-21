@@ -34,6 +34,7 @@
 #include "HTMLNames.h"
 #include "JSEvent.h"
 #include "JSEventTargetNode.h"
+#include "KURL.h"
 #include "Page.h"
 #include "kjs_proxy.h"
 #include "kjs_window.h"
@@ -404,12 +405,12 @@ JSValue* JSClipboard::getValueProperty(ExecState* exec, int token) const
     }
 }
 
-void JSClipboard::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void JSClipboard::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    lookupPut<JSClipboard, DOMObject>(exec, propertyName, value, &JSClipboardTable, this);
+    lookupPut<JSClipboard, DOMObject>(exec, propertyName, value, attr, &JSClipboardTable, this );
 }
 
-void JSClipboard::putValueProperty(ExecState* exec, int token, JSValue* value)
+void JSClipboard::putValueProperty(ExecState* exec, int token, JSValue* value, int /*attr*/)
 {
     Clipboard* clipboard = impl();
     switch (token) {

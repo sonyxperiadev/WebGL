@@ -28,6 +28,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "DeprecatedString.h"
 #include "KURL.h"
 #include "PlatformString.h"
 

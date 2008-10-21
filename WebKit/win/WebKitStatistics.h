@@ -29,7 +29,7 @@
 #ifndef WebKitStatistics_h
 #define WebkitStatistics_h
 
-#include "WebKit.h"
+#include "IWebKitStatistics.h"
 
 class WebKitStatistics : public IWebKitStatistics {
 public:

@@ -25,7 +25,6 @@
 
 #if ENABLE(SVG)
 #include "SVGList.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -33,13 +32,10 @@ namespace WebCore {
 
     class SVGNumberList : public SVGList<float> {
     public:
-        static PassRefPtr<SVGNumberList> create(const QualifiedName& attributeName) { return adoptRef(new SVGNumberList(attributeName)); }
+        SVGNumberList(const QualifiedName&);
         virtual ~SVGNumberList();
 
         void parse(const String& value);
-        
-    private:
-        SVGNumberList(const QualifiedName&);
     };
 
 } // namespace WebCore

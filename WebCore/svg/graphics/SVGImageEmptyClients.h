@@ -247,7 +247,8 @@ public:
     virtual void transitionToCommittedFromCachedPage(CachedPage*) { }
     virtual void transitionToCommittedForNewPage() { }    
 
-    virtual void updateGlobalHistory(const KURL&) { }
+    virtual void updateGlobalHistoryForStandardLoad(const KURL&) { }
+    virtual void updateGlobalHistoryForReload(const KURL&) { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }

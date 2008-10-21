@@ -1,8 +1,10 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,7 +21,6 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
 #include "config.h"
 #include "HTMLLinkElement.h"
 
@@ -104,16 +105,20 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
+#ifdef ANDROID_PRELOAD_CHANGES
+        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon);
+#else
         tokenizeRelAttribute(attr->value());
+#endif
         process();
     } else if (attr->name() == hrefAttr) {
-        m_url = document()->completeURL(parseURL(attr->value())).string();
+        m_url = document()->completeURL(parseURL(attr->value()));
         process();
     } else if (attr->name() == typeAttr) {
         m_type = attr->value();
         process();
     } else if (attr->name() == mediaAttr) {
-        m_media = attr->value().string().lower();
+        m_media = attr->value().domString().lower();
         process();
     } else if (attr->name() == disabledAttr) {
         setDisabledState(!attr->isNull());
@@ -124,10 +129,40 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
     }
 }
 
+#ifdef ANDROID_PRELOAD_CHANGES
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& relStr, bool& styleSheet, bool& alternate, bool& icon)
+{
+    styleSheet = false;
+    icon = false; 
+    alternate = false;
+    String rel = relStr.domString().lower();
+    if (rel == "stylesheet")
+        styleSheet = true;
+    else if (rel == "icon" || rel == "shortcut icon")
+        icon = true;
+    else if (rel == "alternate stylesheet" || rel == "stylesheet alternate") {
+        styleSheet = true;
+        alternate = true;
+    } else {
+        // Tokenize the rel attribute and set bits based on specific keywords that we find.
+        rel.replace('\n', ' ');
+        Vector<String> list = rel.split(' ');
+        Vector<String>::const_iterator end = list.end();
+        for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
+            if (*it == "stylesheet")
+                styleSheet = true;
+            else if (*it == "alternate")
+                alternate = true;
+            else if (*it == "icon")
+                icon = true;
+        }
+    }
+}
+#else
 void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& relStr)
 {
     m_isStyleSheet = m_isIcon = m_alternate = false;
-    String rel = relStr.string().lower();
+    String rel = relStr.domString().lower();
     if (rel == "stylesheet")
         m_isStyleSheet = true;
     else if (rel == "icon" || rel == "shortcut icon")
@@ -137,8 +172,7 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& relStr)
     else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
         rel.replace('\n', ' ');
-        Vector<String> list;
-        rel.split(' ', list);
+        Vector<String> list = rel.split(' ');
         Vector<String>::const_iterator end = list.end();
         for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
             if (*it == "stylesheet")
@@ -150,6 +184,7 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& relStr)
         }
     }
 }
+#endif
 
 void HTMLLinkElement::process()
 {
@@ -165,7 +200,7 @@ void HTMLLinkElement::process()
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if (m_disabledState != 2 && m_isStyleSheet && document()->frame()) {
+    if (m_disabledState != 2 && (type.contains("text/css") || m_isStyleSheet) && document()->frame()) {
         // no need to load style sheets which aren't for the screen output
         // ### there may be in some situations e.g. for an editor or script to manipulate
         // also, don't load style sheets for standalone documents
@@ -217,11 +252,10 @@ void HTMLLinkElement::removedFromDocument()
     process();
 }
 
-void HTMLLinkElement::setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet* sheet)
+void HTMLLinkElement::setCSSStyleSheet(const String& url, const String& charset, const String& sheetStr)
 {
-    bool strict = !document()->inCompatMode();
     m_sheet = new CSSStyleSheet(this, url, charset);
-    m_sheet->parseString(sheet->sheetText(strict), strict);
+    m_sheet->parseString(sheetStr, !document()->inCompatMode());
     m_sheet->setTitle(title());
 
     RefPtr<MediaList> media = new MediaList((CSSStyleSheet*)0, m_media, true);
@@ -274,7 +308,7 @@ void HTMLLinkElement::setCharset(const String& value)
     setAttribute(charsetAttr, value);
 }
 
-KURL HTMLLinkElement::href() const
+String HTMLLinkElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }

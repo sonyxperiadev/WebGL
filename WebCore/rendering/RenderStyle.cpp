@@ -30,8 +30,7 @@ namespace WebCore {
 static RenderStyle* defaultStyle;
 
 StyleSurroundData::StyleSurroundData()
-    : margin(Fixed)
-    , padding(Fixed)
+    : margin(Fixed), padding(Fixed)
 {
 }
 
@@ -50,9 +49,7 @@ bool StyleSurroundData::operator==(const StyleSurroundData& o) const
 }
 
 StyleBoxData::StyleBoxData()
-    : z_index(0)
-    , z_auto(true)
-    , boxSizing(CONTENT_BOX)
+    : z_index(0), z_auto(true), boxSizing(CONTENT_BOX)
 {
     // Initialize our min/max widths/heights.
     min_width = min_height = RenderStyle::initialMinSize();
@@ -325,9 +322,7 @@ StyleBackgroundData::StyleBackgroundData()
 }
 
 StyleBackgroundData::StyleBackgroundData(const StyleBackgroundData& o)
-    : RefCounted<StyleBackgroundData>()
-    , m_background(o.m_background)
-    , m_outline(o.m_outline)
+    : RefCounted<StyleBackgroundData>(), m_background(o.m_background), m_outline(o.m_outline)
 {
 }
 
@@ -401,8 +396,7 @@ StyleMultiColData::StyleMultiColData()
     , m_breakBefore(RenderStyle::initialPageBreak())
     , m_breakAfter(RenderStyle::initialPageBreak())
     , m_breakInside(RenderStyle::initialPageBreak())
-{
-}
+{}
 
 StyleMultiColData::StyleMultiColData(const StyleMultiColData& o)
     : RefCounted<StyleMultiColData>()
@@ -416,8 +410,7 @@ StyleMultiColData::StyleMultiColData(const StyleMultiColData& o)
     , m_breakBefore(o.m_breakBefore)
     , m_breakAfter(o.m_breakAfter)
     , m_breakInside(o.m_breakInside)
-{
-}
+{}
 
 bool StyleMultiColData::operator==(const StyleMultiColData& o) const
 {
@@ -431,16 +424,14 @@ StyleTransformData::StyleTransformData()
     : m_operations(RenderStyle::initialTransform())
     , m_x(RenderStyle::initialTransformOriginX())
     , m_y(RenderStyle::initialTransformOriginY())
-{
-}
+{}
 
 StyleTransformData::StyleTransformData(const StyleTransformData& o)
     : RefCounted<StyleTransformData>()
     , m_operations(o.m_operations)
     , m_x(o.m_x)
     , m_y(o.m_y)
-{
-}
+{}
 
 bool StyleTransformData::operator==(const StyleTransformData& o) const
 {
@@ -774,6 +765,9 @@ StyleRareInheritedData::StyleRareInheritedData()
     , nbspMode(NBNORMAL)
     , khtmlLineBreak(LBNORMAL)
     , textSizeAdjust(RenderStyle::initialTextSizeAdjust())
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    , tapHighlightColor(RenderStyle::initialTapHighlightColor())
+#endif
     , resize(RenderStyle::initialResize())
     , userSelect(RenderStyle::initialUserSelect())
 {
@@ -793,6 +787,9 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , nbspMode(o.nbspMode)
     , khtmlLineBreak(o.khtmlLineBreak)
     , textSizeAdjust(o.textSizeAdjust)
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    , tapHighlightColor(o.tapHighlightColor)
+#endif
     , resize(o.resize)
     , userSelect(o.userSelect)
 {
@@ -817,6 +814,9 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && nbspMode == o.nbspMode
         && khtmlLineBreak == o.khtmlLineBreak
         && textSizeAdjust == o.textSizeAdjust
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+        && tapHighlightColor == o.tapHighlightColor
+#endif
         && userSelect == o.userSelect;
 }
 
@@ -830,15 +830,13 @@ bool StyleRareInheritedData::shadowDataEquivalent(const StyleRareInheritedData& 
 }
 
 StyleInheritedData::StyleInheritedData()
-    : indent(RenderStyle::initialTextIndent())
-    , line_height(RenderStyle::initialLineHeight())
-    , style_image(RenderStyle::initialListStyleImage())
-    , color(RenderStyle::initialColor())
-    , horizontal_border_spacing(RenderStyle::initialHorizontalBorderSpacing())
-    , vertical_border_spacing(RenderStyle::initialVerticalBorderSpacing())
-    , widows(RenderStyle::initialWidows())
-    , orphans(RenderStyle::initialOrphans())
-    , page_break_inside(RenderStyle::initialPageBreak())
+    : indent(RenderStyle::initialTextIndent()), line_height(RenderStyle::initialLineHeight()), 
+      style_image(RenderStyle::initialListStyleImage()),
+      color(RenderStyle::initialColor()), 
+      horizontal_border_spacing(RenderStyle::initialHorizontalBorderSpacing()), 
+      vertical_border_spacing(RenderStyle::initialVerticalBorderSpacing()),
+      widows(RenderStyle::initialWidows()), orphans(RenderStyle::initialOrphans()),
+      page_break_inside(RenderStyle::initialPageBreak())
 {
 }
 
@@ -847,18 +845,13 @@ StyleInheritedData::~StyleInheritedData()
 }
 
 StyleInheritedData::StyleInheritedData(const StyleInheritedData& o)
-    : RefCounted<StyleInheritedData>()
-    , indent(o.indent)
-    , line_height(o.line_height)
-    , style_image(o.style_image)
-    , cursorData(o.cursorData)
-    , font(o.font)
-    , color(o.color)
-    , horizontal_border_spacing(o.horizontal_border_spacing)
-    , vertical_border_spacing(o.vertical_border_spacing)
-    , widows(o.widows)
-    , orphans(o.orphans)
-    , page_break_inside(o.page_break_inside)
+    : RefCounted<StyleInheritedData>(),
+      indent( o.indent ), line_height( o.line_height ), style_image( o.style_image ),
+      cursorData(o.cursorData),
+      font( o.font ), color( o.color ),
+      horizontal_border_spacing( o.horizontal_border_spacing ),
+      vertical_border_spacing( o.vertical_border_spacing ),
+      widows(o.widows), orphans(o.orphans), page_break_inside(o.page_break_inside)
 {
 }
 
@@ -950,7 +943,6 @@ RenderStyle::RenderStyle()
     , m_emptyState(false)
     , m_childrenAffectedByFirstChildRules(false)
     , m_childrenAffectedByLastChildRules(false)
-    , m_childrenAffectedByDirectAdjacentRules(false)
     , m_childrenAffectedByForwardPositionalRules(false)
     , m_childrenAffectedByBackwardPositionalRules(false)
     , m_firstChildState(false)
@@ -973,7 +965,6 @@ RenderStyle::RenderStyle(bool)
     , m_emptyState(false)
     , m_childrenAffectedByFirstChildRules(false)
     , m_childrenAffectedByLastChildRules(false)
-    , m_childrenAffectedByDirectAdjacentRules(false)
     , m_childrenAffectedByForwardPositionalRules(false)
     , m_childrenAffectedByBackwardPositionalRules(false)
     , m_firstChildState(false)
@@ -1018,7 +1009,6 @@ RenderStyle::RenderStyle(const RenderStyle& o)
     , m_emptyState(false)
     , m_childrenAffectedByFirstChildRules(false)
     , m_childrenAffectedByLastChildRules(false)
-    , m_childrenAffectedByDirectAdjacentRules(false)
     , m_childrenAffectedByForwardPositionalRules(false)
     , m_childrenAffectedByBackwardPositionalRules(false)
     , m_firstChildState(false)
@@ -1346,6 +1336,15 @@ void RenderStyle::addCursor(CachedImage* image, const IntPoint& hotSpot)
     CursorData data;
     data.cursorImage = image;
     data.hotSpot = hotSpot;
+    if (!inherited.access()->cursorData)
+        inherited.access()->cursorData = new CursorList;
+    inherited.access()->cursorData->append(data);
+}
+
+void RenderStyle::addSVGCursor(const String& fragmentId)
+{
+    CursorData data;
+    data.cursorFragmentId = fragmentId;
     if (!inherited.access()->cursorData)
         inherited.access()->cursorData = new CursorList;
     inherited.access()->cursorData->append(data);

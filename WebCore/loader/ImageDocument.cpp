@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,13 +35,16 @@
 #include "FrameView.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
-#include "LocalizedStrings.h"
 #include "MouseEvent.h"
 #include "Page.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "Text.h"
 #include "XMLTokenizer.h"
+
+#if PLATFORM(MAC)
+#include "ImageDocumentMac.h"
+#endif 
 
 using std::min;
 
@@ -117,11 +120,11 @@ void ImageTokenizer::finish()
         cachedImage->finish();
 
         cachedImage->setResponse(m_doc->frame()->loader()->documentLoader()->response());
-
-        IntSize size = cachedImage->imageSize();
-        if (size.width())
-            m_doc->setTitle(imageTitle(cachedImage->response().suggestedFilename(), size));
-
+        
+        // FIXME: Need code to set the title for platforms other than Mac OS X.
+#if PLATFORM(MAC)
+        finishImageLoad(m_doc, cachedImage);
+#endif
         m_doc->imageChanged();
     }
 
@@ -167,7 +170,7 @@ void ImageDocument::createDocumentStructure()
     
     imageElement->setAttribute(styleAttr, "-webkit-user-select: none");        
     imageElement->setLoadManually(true);
-    imageElement->setSrc(url().string());
+    imageElement->setSrc(url());
     
     body->appendChild(imageElement, ec);
     

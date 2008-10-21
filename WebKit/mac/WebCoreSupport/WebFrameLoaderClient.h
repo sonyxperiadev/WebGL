@@ -140,7 +140,8 @@ private:
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
     virtual void finishedLoading(WebCore::DocumentLoader*);
     virtual void finalSetupForReplace(WebCore::DocumentLoader*);
-    virtual void updateGlobalHistory(const WebCore::KURL&);
+    virtual void updateGlobalHistoryForStandardLoad(const WebCore::KURL&);
+    virtual void updateGlobalHistoryForReload(const WebCore::KURL&);
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
@@ -199,6 +200,8 @@ private:
     virtual void registerForIconNotification(bool listen);
 
     void deliverArchivedResourcesAfterDelay() const;
+    bool canUseArchivedResource(NSURLRequest *) const;
+    bool canUseArchivedResource(NSURLResponse *) const;
     void deliverArchivedResources(WebCore::Timer<WebFrameLoaderClient>*);
 
     void setOriginalURLForDownload(WebDownload *, const WebCore::ResourceRequest&) const;

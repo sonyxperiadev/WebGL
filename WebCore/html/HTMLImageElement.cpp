@@ -44,6 +44,11 @@ HTMLImageElement::HTMLImageElement(Document* doc, HTMLFormElement* f)
     , ismap(false)
     , m_form(f)
     , m_compositeOperator(CompositeSourceOver)
+#ifdef ANDROID_FIX    
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    , oldNameIdCount(0)
+#endif
 {
     if (f)
         f->registerImgElement(this);
@@ -55,11 +60,25 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc)
     , ismap(false)
     , m_form(0)
     , m_compositeOperator(CompositeSourceOver)
+#ifdef ANDROID_FIX    
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    , oldNameIdCount(0)
+#endif
 {
 }
 
 HTMLImageElement::~HTMLImageElement()
 {
+#ifdef ANDROID_FIX
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    if (oldNameIdCount && document()->isHTMLDocument()) {
+        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
+        doc->removeNamedItem(oldNameAttr);
+        doc->removeDocExtraNamedItem(oldIdAttr);        
+    }
+#endif
     if (m_form)
         m_form->removeImgElement(this);
 }
@@ -113,10 +132,10 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
     else if (attrName == valignAttr)
         addCSSProperty(attr, CSS_PROP_VERTICAL_ALIGN, attr->value());
     else if (attrName == usemapAttr) {
-        if (attr->value().string()[0] == '#')
+        if (attr->value().domString()[0] == '#')
             usemap = attr->value();
         else
-            usemap = document()->completeURL(parseURL(attr->value())).string();
+            usemap = document()->completeURL(parseURL(attr->value()));
         m_isLink = !attr->isNull();
     } else if (attrName == ismapAttr)
         ismap = true;
@@ -191,6 +210,11 @@ void HTMLImageElement::insertedIntoDocument()
 
         doc->addNamedItem(oldNameAttr);
         doc->addDocExtraNamedItem(oldIdAttr);
+#ifdef ANDROID_FIX
+        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+        // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+        oldNameIdCount++;
+#endif
     }
 
     HTMLElement::insertedIntoDocument();
@@ -203,6 +227,11 @@ void HTMLImageElement::removedFromDocument()
 
         doc->removeNamedItem(oldNameAttr);
         doc->removeDocExtraNamedItem(oldIdAttr);
+#ifdef ANDROID_FIX
+        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+        // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+        oldNameIdCount--;
+#endif
     }
 
     HTMLElement::removedFromDocument();
@@ -273,7 +302,7 @@ bool HTMLImageElement::isURLAttribute(Attribute* attr) const
     return attr->name() == srcAttr
         || attr->name() == lowsrcAttr
         || attr->name() == longdescAttr
-        || (attr->name() == usemapAttr && attr->value().string()[0] != '#');
+        || (attr->name() == usemapAttr && attr->value().domString()[0] != '#');
 }
 
 String HTMLImageElement::name() const
@@ -342,7 +371,7 @@ void HTMLImageElement::setIsMap(bool isMap)
     setAttribute(ismapAttr, isMap ? "" : 0);
 }
 
-KURL HTMLImageElement::longDesc() const
+String HTMLImageElement::longDesc() const
 {
     return document()->completeURL(getAttribute(longdescAttr));
 }
@@ -352,7 +381,7 @@ void HTMLImageElement::setLongDesc(const String& value)
     setAttribute(longdescAttr, value);
 }
 
-KURL HTMLImageElement::lowsrc() const
+String HTMLImageElement::lowsrc() const
 {
     return document()->completeURL(getAttribute(lowsrcAttr));
 }
@@ -362,7 +391,7 @@ void HTMLImageElement::setLowsrc(const String& value)
     setAttribute(lowsrcAttr, value);
 }
 
-KURL HTMLImageElement::src() const
+String HTMLImageElement::src() const
 {
     return document()->completeURL(getAttribute(srcAttr));
 }

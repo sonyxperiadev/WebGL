@@ -29,7 +29,7 @@
 #ifndef Database_h
 #define Database_h
 
-#include <wtf/MessageQueue.h>
+#include "MessageQueue.h"
 #include "PlatformString.h"
 #include "SecurityOrigin.h"
 #include "SQLiteDatabase.h"

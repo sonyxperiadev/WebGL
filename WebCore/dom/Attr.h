@@ -46,7 +46,7 @@ class Attr : public ContainerNode {
     friend class NamedAttrMap;
 
 public:
-    Attr(Element*, Document*, PassRefPtr<Attribute>);
+    Attr(Element*, Document*, Attribute*);
     ~Attr();
 
     // Call this after calling the constructor so the
@@ -77,7 +77,7 @@ public:
     virtual bool isAttributeNode() const { return true; }
     virtual bool childTypeAllowed(NodeType);
 
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false);
     virtual String toString() const;
 
     Attribute* attr() const { return m_attribute.get(); }

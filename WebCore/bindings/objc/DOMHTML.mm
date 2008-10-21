@@ -36,6 +36,7 @@
 #import "HTMLDocument.h"
 #import "HTMLInputElement.h"
 #import "HTMLObjectElement.h"
+#import "KURL.h"
 #import "Range.h"
 #import "RenderTextControl.h"
 #import "markup.h"
@@ -62,7 +63,7 @@
 
 - (DOMDocumentFragment *)_createDocumentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString
 {
-    NSURL *baseURL = [self _document]->completeURL(WebCore::parseURL(baseURLString));
+    NSURL *baseURL = WebCore::KURL([self _document]->completeURL(WebCore::parseURL(baseURLString)).deprecatedString()).getNSURL();
     return [self createDocumentFragmentWithMarkupString:markupString baseURL:baseURL];
 }
 

@@ -650,6 +650,23 @@ void RenderContainer::addLineBoxRects(Vector<IntRect>& rects, unsigned start, un
     }
 }
 
+    
+#ifdef ANDROID_LAYOUT
+bool RenderContainer::hasChildTable() const
+{
+    if (!firstChild())
+        return false;        
+	for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+        if (child->isTable()) {
+        	return true;
+        } else if (child->hasChildTable() == true) {
+        	return true;
+        }
+    }
+    return false;
+}
+#endif
+
 #undef DEBUG_LAYOUT
 
 } // namespace WebCore

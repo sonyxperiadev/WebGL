@@ -1,6 +1,6 @@
-/*
+/**
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,7 +22,6 @@
 #include "CSSStyleDeclaration.h"
 
 #include "CSSMutableStyleDeclaration.h"
-#include "CSSParser.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSRule.h"
@@ -32,6 +31,24 @@
 using namespace WTF;
 
 namespace WebCore {
+
+static int propertyID(const String& s)
+{
+    char buffer[maxCSSPropertyNameLength];
+
+    unsigned len = s.length();
+    if (len > maxCSSPropertyNameLength)
+        return 0;
+
+    for (unsigned i = 0; i != len; ++i) {
+        UChar c = s[i];
+        if (c == 0 || c >= 0x7F)
+            return 0; // illegal character
+        buffer[i] = toASCIILower(c);
+    }
+
+    return getPropertyID(buffer, len);
+}
 
 CSSStyleDeclaration::CSSStyleDeclaration(CSSRule* parent)
     : StyleBase(parent)
@@ -45,7 +62,7 @@ bool CSSStyleDeclaration::isStyleDeclaration()
 
 PassRefPtr<CSSValue> CSSStyleDeclaration::getPropertyCSSValue(const String& propertyName)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return 0;
     return getPropertyCSSValue(propID);
@@ -53,7 +70,7 @@ PassRefPtr<CSSValue> CSSStyleDeclaration::getPropertyCSSValue(const String& prop
 
 String CSSStyleDeclaration::getPropertyValue(const String &propertyName)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return String();
     return getPropertyValue(propID);
@@ -61,7 +78,7 @@ String CSSStyleDeclaration::getPropertyValue(const String &propertyName)
 
 String CSSStyleDeclaration::getPropertyPriority(const String& propertyName)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return String();
     return getPropertyPriority(propID) ? "important" : "";
@@ -69,7 +86,7 @@ String CSSStyleDeclaration::getPropertyPriority(const String& propertyName)
 
 String CSSStyleDeclaration::getPropertyShorthand(const String& propertyName)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return String();
     int shorthandID = getPropertyShorthand(propID);
@@ -80,7 +97,7 @@ String CSSStyleDeclaration::getPropertyShorthand(const String& propertyName)
 
 bool CSSStyleDeclaration::isPropertyImplicit(const String& propertyName)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return false;
     return isPropertyImplicit(propID);
@@ -97,18 +114,17 @@ void CSSStyleDeclaration::setProperty(const String& propertyName, const String& 
 
 void CSSStyleDeclaration::setProperty(const String& propertyName, const String& value, const String& priority, ExceptionCode& ec)
 {
-    int propID = cssPropertyID(propertyName);
-    if (!propID) {
-        // FIXME: Should we raise an exception here?
+    int propID = propertyID(propertyName);
+    if (!propID)
+        // FIXME: set exception?
         return;
-    }
     bool important = priority.find("important", 0, false) != -1;
     setProperty(propID, value, important, ec);
 }
 
 String CSSStyleDeclaration::removeProperty(const String& propertyName, ExceptionCode& ec)
 {
-    int propID = cssPropertyID(propertyName);
+    int propID = propertyID(propertyName);
     if (!propID)
         return String();
     return removeProperty(propID, ec);
@@ -116,7 +132,7 @@ String CSSStyleDeclaration::removeProperty(const String& propertyName, Exception
 
 bool CSSStyleDeclaration::isPropertyName(const String& propertyName)
 {
-    return cssPropertyID(propertyName);
+    return propertyID(propertyName);
 }
 
 CSSRule* CSSStyleDeclaration::parentRule() const

@@ -31,7 +31,7 @@ namespace WebCore {
 
     class SVGPathSegLinetoVerticalAbs : public SVGPathSeg {
     public:
-        static PassRefPtr<SVGPathSegLinetoVerticalAbs> create(float y) { return adoptRef(new SVGPathSegLinetoVerticalAbs(y)); }
+        SVGPathSegLinetoVerticalAbs(float y);
         virtual~SVGPathSegLinetoVerticalAbs();
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_VERTICAL_ABS; }
@@ -42,14 +42,12 @@ namespace WebCore {
         float y() const;
 
     private:
-        SVGPathSegLinetoVerticalAbs(float y);
-        
         float m_y;
     };
 
     class SVGPathSegLinetoVerticalRel : public SVGPathSeg {
     public:
-        static PassRefPtr<SVGPathSegLinetoVerticalRel> create(float y) { return adoptRef(new SVGPathSegLinetoVerticalRel(y)); }
+        SVGPathSegLinetoVerticalRel(float y);
         virtual ~SVGPathSegLinetoVerticalRel();
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_VERTICAL_REL; }
@@ -60,8 +58,6 @@ namespace WebCore {
         float y() const;
 
     private:
-        SVGPathSegLinetoVerticalRel(float y);
-
         float m_y;
     };
 

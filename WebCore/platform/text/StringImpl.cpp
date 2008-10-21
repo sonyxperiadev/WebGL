@@ -28,6 +28,7 @@
 #include "AtomicString.h"
 #include "CString.h"
 #include "CharacterNames.h"
+#include "DeprecatedString.h"
 #include "FloatConversion.h"
 #include "Length.h"
 #include "StringBuffer.h"
@@ -59,7 +60,8 @@ static inline void deleteUCharVector(const UChar* p)
 
 // This constructor is used only to create the empty string.
 StringImpl::StringImpl()
-    : m_length(0)
+    : RefCounted<StringImpl>(1)
+    , m_length(0)
     , m_data(0)
     , m_hash(0)
     , m_inTable(false)
@@ -71,7 +73,8 @@ StringImpl::StringImpl()
 // operation. Because of that, it's the one constructor that doesn't assert the
 // length is non-zero, since we support copying the empty string.
 inline StringImpl::StringImpl(const UChar* characters, unsigned length)
-    : m_length(length)
+    : RefCounted<StringImpl>(1)
+    , m_length(length)
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
@@ -82,7 +85,8 @@ inline StringImpl::StringImpl(const UChar* characters, unsigned length)
 }
 
 inline StringImpl::StringImpl(const StringImpl& str, WithTerminatingNullCharacter)
-    : m_length(str.m_length)
+    : RefCounted<StringImpl>(1)
+    , m_length(str.m_length)
     , m_hash(str.m_hash)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(true)
@@ -94,7 +98,8 @@ inline StringImpl::StringImpl(const StringImpl& str, WithTerminatingNullCharacte
 }
 
 inline StringImpl::StringImpl(const char* characters, unsigned length)
-    : m_length(length)
+    : RefCounted<StringImpl>(1)
+    , m_length(length)
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
@@ -111,7 +116,8 @@ inline StringImpl::StringImpl(const char* characters, unsigned length)
 }
 
 inline StringImpl::StringImpl(UChar* characters, unsigned length, AdoptBuffer)
-    : m_length(length)
+    : RefCounted<StringImpl>(1)
+    , m_length(length)
     , m_data(characters)
     , m_hash(0)
     , m_inTable(false)
@@ -121,9 +127,15 @@ inline StringImpl::StringImpl(UChar* characters, unsigned length, AdoptBuffer)
     ASSERT(length);
 }
 
+// FIXME: These AtomicString constructors return objects with a refCount of 0,
+// even though the others return objects with a refCount of 1. That preserves
+// the historical behavior for the hash map translator call sites inside the
+// AtomicString code, but is it correct?
+
 // This constructor is only for use by AtomicString.
 StringImpl::StringImpl(const UChar* characters, unsigned length, unsigned hash)
-    : m_length(length)
+    : RefCounted<StringImpl>(0)
+    , m_length(length)
     , m_hash(hash)
     , m_inTable(true)
     , m_hasTerminatingNullCharacter(false)
@@ -139,7 +151,8 @@ StringImpl::StringImpl(const UChar* characters, unsigned length, unsigned hash)
 
 // This constructor is only for use by AtomicString.
 StringImpl::StringImpl(const char* characters, unsigned length, unsigned hash)
-    : m_length(length)
+    : RefCounted<StringImpl>(0)
+    , m_length(length)
     , m_hash(hash)
     , m_inTable(true)
     , m_hasTerminatingNullCharacter(false)
@@ -212,7 +225,7 @@ static Length parseLength(const UChar* data, unsigned length)
         ++i;
 
     bool ok;
-    int r = charactersToIntStrict(data, i, &ok);
+    int r = DeprecatedConstString(reinterpret_cast<const DeprecatedChar*>(data), i).string().toInt(&ok);
 
     /* Skip over any remaining digits, we are not that accurate (5.5% => 5%) */
     while (i < length && (Unicode::isDigit(data[i]) || data[i] == '.'))
@@ -500,54 +513,84 @@ PassRefPtr<StringImpl> StringImpl::capitalize(UChar previous)
     return adopt(data);
 }
 
-int StringImpl::toIntStrict(bool* ok, int base)
-{
-    return charactersToIntStrict(m_data, m_length, ok, base);
-}
-
-unsigned StringImpl::toUIntStrict(bool* ok, int base)
-{
-    return charactersToUIntStrict(m_data, m_length, ok, base);
-}
-
-int64_t StringImpl::toInt64Strict(bool* ok, int base)
-{
-    return charactersToInt64Strict(m_data, m_length, ok, base);
-}
-
-uint64_t StringImpl::toUInt64Strict(bool* ok, int base)
-{
-    return charactersToUInt64Strict(m_data, m_length, ok, base);
-}
-
 int StringImpl::toInt(bool* ok)
 {
-    return charactersToInt(m_data, m_length, ok);
-}
+    unsigned i = 0;
 
-unsigned StringImpl::toUInt(bool* ok)
-{
-    return charactersToUInt(m_data, m_length, ok);
+    // Allow leading spaces.
+    for (; i != m_length; ++i)
+        if (!isSpaceOrNewline(m_data[i]))
+            break;
+    
+    // Allow sign.
+    if (i != m_length && (m_data[i] == '+' || m_data[i] == '-'))
+        ++i;
+    
+    // Allow digits.
+    for (; i != m_length; ++i)
+        if (!Unicode::isDigit(m_data[i]))
+            break;
+    
+    return DeprecatedConstString(reinterpret_cast<const DeprecatedChar*>(m_data), i).string().toInt(ok);
 }
 
 int64_t StringImpl::toInt64(bool* ok)
 {
-    return charactersToInt64(m_data, m_length, ok);
+    unsigned i = 0;
+
+    // Allow leading spaces.
+    for (; i != m_length; ++i)
+        if (!isSpaceOrNewline(m_data[i]))
+            break;
+    
+    // Allow sign.
+    if (i != m_length && (m_data[i] == '+' || m_data[i] == '-'))
+        ++i;
+    
+    // Allow digits.
+    for (; i != m_length; ++i)
+        if (!Unicode::isDigit(m_data[i]))
+            break;
+    
+    return DeprecatedConstString(reinterpret_cast<const DeprecatedChar*>(m_data), i).string().toInt64(ok);
 }
 
 uint64_t StringImpl::toUInt64(bool* ok)
 {
-    return charactersToUInt64(m_data, m_length, ok);
+    unsigned i = 0;
+
+    // Allow leading spaces.
+    for (; i != m_length; ++i)
+        if (!isSpaceOrNewline(m_data[i]))
+            break;
+
+    // Allow digits.
+    for (; i != m_length; ++i)
+        if (!Unicode::isDigit(m_data[i]))
+            break;
+    
+    return DeprecatedConstString(reinterpret_cast<const DeprecatedChar*>(m_data), i).string().toUInt64(ok);
 }
 
 double StringImpl::toDouble(bool* ok)
 {
-    return charactersToDouble(m_data, m_length, ok);
+    if (!m_length) {
+        if (ok)
+            *ok = false;
+        return 0;
+    }
+    char *end;
+    CString latin1String = Latin1Encoding().encode(characters(), length());
+    double val = kjs_strtod(latin1String.data(), &end);
+    if (ok)
+        *ok = end == 0 || *end == '\0';
+    return val;
 }
 
 float StringImpl::toFloat(bool* ok)
 {
-    return charactersToFloat(m_data, m_length, ok);
+    // FIXME: This will return ok even when the string fits into a double but not a float.
+    return narrowPrecisionToFloat(toDouble(ok));
 }
 
 static bool equal(const UChar* a, const char* b, int length)
@@ -614,7 +657,15 @@ int StringImpl::find(const char* chs, int index, bool caseSensitive)
 
 int StringImpl::find(UChar c, int start)
 {
-    return WebCore::find(m_data, m_length, c, start);
+    unsigned index = start;
+    if (index >= m_length )
+        return -1;
+    while(index < m_length) {
+        if (m_data[index] == c)
+            return index;
+        index++;
+    }
+    return -1;
 }
 
 int StringImpl::find(StringImpl* str, int index, bool caseSensitive)
@@ -675,7 +726,18 @@ int StringImpl::find(StringImpl* str, int index, bool caseSensitive)
 
 int StringImpl::reverseFind(UChar c, int index)
 {
-    return WebCore::reverseFind(m_data, m_length, c, index);
+    if (index >= (int)m_length || m_length == 0)
+        return -1;
+
+    if (index < 0)
+        index += m_length;
+    while (1) {
+        if (m_data[index] == c)
+            return index;
+        if (index == 0)
+            return -1;
+        index--;
+    }
 }
 
 int StringImpl::reverseFind(StringImpl* str, int index, bool caseSensitive)

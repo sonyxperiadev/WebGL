@@ -32,6 +32,8 @@
 #include <QMatrix>
 #elif PLATFORM(CAIRO)
 #include <cairo.h>
+#elif PLATFORM(SGL)
+#include "SkMatrix.h"
 #elif PLATFORM(WX) && USE(WXGC)
 #include <wx/defs.h>
 #include <wx/graphics.h>
@@ -111,6 +113,8 @@ public:
     operator QMatrix() const;
 #elif PLATFORM(CAIRO)
     operator cairo_matrix_t() const;
+#elif PLATFORM(SGL)
+    operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
     operator wxGraphicsMatrix() const;
 #endif
@@ -127,6 +131,8 @@ private:
     QMatrix m_transform;
 #elif PLATFORM(CAIRO)
     cairo_matrix_t m_transform;
+#elif PLATFORM(SGL)
+    SkMatrix m_transform;
 #elif PLATFORM(WX) && USE(WXGC)
     wxGraphicsMatrix m_transform;
 #endif

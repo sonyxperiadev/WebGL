@@ -26,7 +26,6 @@
 
 #include "DeprecatedPtrList.h"
 #include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -39,18 +38,16 @@ public:
     CSSRuleList(StyleList*, bool omitCharsetRules = false);
     ~CSSRuleList();
 
-    unsigned length() const;
-    CSSRule* item(unsigned index);
+    unsigned length() const { return m_lstCSSRules.count(); }
+    CSSRule* item(unsigned index) { return m_lstCSSRules.at(index); }
 
-    // FIXME: Not part of the DOM.  Only used by media rules.  We should be able to remove them if we changed media rules to work
-    // as StyleLists instead.
+    /* not part of the DOM */
     unsigned insertRule(CSSRule*, unsigned index);
     void deleteRule(unsigned index);
     void append(CSSRule*);
 
 protected:
-    RefPtr<StyleList> m_list;
-    DeprecatedPtrList<CSSRule> m_lstCSSRules; // FIXME: Want to eliminate, but used by IE rules() extension and still used by media rules.
+    DeprecatedPtrList<CSSRule> m_lstCSSRules;
 };
 
 } // namespace WebCore

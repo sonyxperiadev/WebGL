@@ -79,12 +79,11 @@ endif
 
 # Shared libraries
 lib_LTLIBRARIES = \
-	libwebkit-1.0.la
+	libWebKitGtk.la
 
 # Convenience libraries
 noinst_LTLIBRARIES = \
-	libJavaScriptCore.la \
-	libWebCore.la
+	libJavaScriptCore.la
 
 #
 # JavaScriptCore
@@ -96,28 +95,18 @@ javascriptcore_built_nosources :=
 
 # The variables above are already included below so no need to touch
 # these variables unless you really have to
-libJavaScriptCore_ladir = $(prefix)/include/webkit-1.0/JavaScriptCore
+libJavaScriptCore_ladir = $(prefix)/include/WebKit/JavaScriptCore
 libJavaScriptCore_la_HEADERS = $(javascriptcore_h_api)
 
 libJavaScriptCore_la_SOURCES = \
 	$(javascriptcore_built_sources) \
 	$(javascriptcore_sources)
 
-libJavaScriptCore_la_LIBADD = \
-	$(ICU_LIBS) \
-	$(GLOBALDEPS_LIBS) \
-	-lpthread
+libJavaScriptCore_la_LDFLAGS = $(ICU_LIBS) -lpthread
 
-libJavaScriptCore_la_CXXFLAGS = \
-	$(global_cxxflags) \
-	$(global_cflags) \
-	$(GLOBALDEPS_CFLAGS) \
-	-fstrict-aliasing
+libJavaScriptCore_la_CXXFLAGS = $(global_cxxflags) $(global_cflags) -fstrict-aliasing
 
-libJavaScriptCore_la_CFLAGS = \
-	$(global_cflags) \
-	$(GLOBALDEPS_CFLAGS) \
-	-fstrict-aliasing
+libJavaScriptCore_la_CFLAGS = $(global_cflags) -fstrict-aliasing
 
 libJavaScriptCore_la_CPPFLAGS = \
 	$(global_cppflags) \
@@ -129,94 +118,74 @@ libJavaScriptCore_la_CPPFLAGS = \
 webcore_cppflags :=
 webcore_sources :=
 webcore_headers :=
-webcore_libadd :=
 webcore_built_sources :=
 webcore_built_nosources :=
 
-webcore_cppflags += $(HILDON_CPPFLAGS)
-
-# WebKit
+# WebKitGtk
 webkitgtk_h_api :=
 webkitgtk_headers :=
 webkitgtk_sources :=
 webkitgtk_cppflags :=
+webkitgtk_ldflags :=
 webkitgtk_built_sources :=
 webkitgtk_built_nosources :=
 webkitgtk_cleanfiles :=
 
-libWebCore_la_SOURCES = \
+# No need to touch the following variables unless you have to. If you need to change the values
+# for the following variables, use the "webkitgtk_" variables above
+libWebKitGtk_ladir := $(prefix)/include/WebKit/webkit
+
+libWebKitGtk_la_HEADERS = $(webkitgtk_h_api)
+
+libWebKitGtk_la_SOURCES = \
 	$(webcore_built_sources) \
 	$(webcore_headers) \
-	$(webcore_sources)
+	$(webcore_sources) \
+	$(webkitgtk_built_sources) \
+	$(webkitgtk_headers) \
+	$(webkitgtk_sources)
 
-libWebCore_la_CXXFLAGS = \
+libWebKitGtk_la_CXXFLAGS = \
 	-fno-strict-aliasing \
 	$(global_cxxflags) \
 	$(global_cflags) \
-	$(GLOBALDEPS_CFLAGS) \
-	$(WEBKITDEPS_CFLAGS) \
+	$(DEPENDENCIES_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
 	$(SQLITE3_CFLAGS) \
 	$(GSTREAMER_CFLAGS) \
 	$(LIBXSLT_CFLAGS) \
-	$(COVERAGE_CFLAGS) \
-	$(HILDON_CFLAGS)
+	$(COVERAGE_CFLAGS)
 
-libWebCore_la_CFLAGS = \
+libWebKitGtk_la_CFLAGS = \
 	-fno-strict-aliasing \
 	$(global_cflags) \
-	$(GLOBALDEPS_CFLAGS) \
-	$(WEBKITDEPS_CFLAGS) \
+	$(DEPENDENCIES_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
 	$(SQLITE3_CFLAGS) \
 	$(GSTREAMER_CFLAGS) \
 	$(LIBXSLT_CFLAGS) \
-	$(COVERAGE_CFLAGS) \
-	$(HILDON_CFLAGS)
+	$(COVERAGE_CFLAGS)
 
-libWebCore_la_CPPFLAGS = \
-	$(ICU_CPPFLAGS) \
+libWebKitGtk_la_CPPFLAGS = \
 	$(global_cppflags) \
 	$(webcore_cppflags) \
-	$(webkitgtk_cppflags)
+	$(webkitgtk_cppflags) \
+	$(ICU_CPPFLAGS)
 
-libWebCore_la_LIBADD = \
-	libJavaScriptCore.la \
-	$(webcore_libadd) \
-	$(GLOBALDEPS_LIBS) \
-	$(WEBKITDEPS_LIBS) \
+libWebKitGtk_la_LIBADD = libJavaScriptCore.la
+
+libWebKitGtk_la_LDFLAGS = \
+	$(webkitgtk_ldflags) \
+	$(DEPENDENCIES_LIBS) \
 	$(LIBCURL_LIBS) \
 	$(ICU_LIBS) \
 	$(SQLITE3_LIBS) \
 	$(GSTREAMER_LIBS) \
 	$(LIBXSLT_LIBS) \
-	$(HILDON_LIBS) \
-	-lpthread \
-	-ljpeg
-
-libwebkit_1_0_ladir = $(prefix)/include/webkit-1.0/webkit
-libwebkit_1_0_la_HEADERS = $(webkitgtk_h_api)
-
-libwebkit_1_0_la_SOURCES = \
-	$(webkitgtk_built_sources) \
-	$(webkitgtk_headers) \
-	$(webkitgtk_sources)
-
-libwebkit_1_0_la_CXXFLAGS = \
-	$(libWebCore_la_CXXFLAGS)
-
-libwebkit_1_0_la_CFLAGS = \
-	$(libWebCore_la_CFLAGS)
-
-libwebkit_1_0_la_CPPFLAGS = \
-	$(libWebCore_la_CPPFLAGS)
-
-libwebkit_1_0_la_LDFLAGS = \
 	$(COVERAGE_LDFLAGS) \
+	-lpthread \
+	-ljpeg \
 	-version-info @LIBWEBKITGTK_VERSION@
-
-libwebkit_1_0_la_LIBADD = \
-	libWebCore.la
 
 #
 # Extra checks and flags
@@ -263,9 +232,11 @@ global_cppflags += \
 endif
 
 if ENABLE_VIDEO
-webcore_libadd += -lgstinterfaces-0.10 -lgstvideo-0.10
+webkitgtk_ldflags += -lgstinterfaces-0.10 -lgstvideo-0.10
 endif
 
+#
+# WEBKIT GTK+
 webkitgtk_cppflags += \
 -I$(top_builddir)/WebKit/gtk/webkit \
 -DBUILDING_CAIRO__=1 \

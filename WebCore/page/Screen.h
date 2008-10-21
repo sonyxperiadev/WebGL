@@ -30,7 +30,6 @@
 #ifndef Screen_h
 #define Screen_h
 
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -39,7 +38,7 @@ namespace WebCore {
 
     class Screen : public RefCounted<Screen> {
     public:
-        static PassRefPtr<Screen> create(Frame *frame) { return adoptRef(new Screen(frame)); }
+        Screen(Frame*);
         void disconnectFrame();
 
         unsigned height() const;
@@ -50,10 +49,11 @@ namespace WebCore {
         unsigned availTop() const;
         unsigned availHeight() const;
         unsigned availWidth() const;
+#ifdef ANDROID_ORIENTATION_SUPPORT
+        int orientation() const;
+#endif
 
     private:
-        Screen(Frame*);
-        
         Frame* m_frame;
     };
 

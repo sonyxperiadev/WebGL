@@ -34,7 +34,8 @@ namespace WebCore {
 class ResourceResponse : public ResourceResponseBase {
 public:
     ResourceResponse()
-        : m_responseFired(false)
+        : ResourceResponseBase(false),
+          m_responseFired(false)
     {
     }
 
@@ -48,7 +49,14 @@ public:
     bool responseFired() { return m_responseFired; }
 
 private:
+    friend class ResourceResponseBase;
+
+    void doUpdateResourceResponse()
+    {
+    }
+
     bool m_responseFired;
+
 };
 
 } // namespace WebCore

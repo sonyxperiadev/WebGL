@@ -30,7 +30,6 @@
 namespace WebCore {
 
 class HTMLImageLoader;
-class KURL;
 class Selection;
 
 class HTMLInputElement : public HTMLFormControlElementWithState {
@@ -167,7 +166,7 @@ public:
 
     void setSize(unsigned);
 
-    KURL src() const;
+    String src() const;
     void setSrc(const String&);
 
     void setMaxLength(int);

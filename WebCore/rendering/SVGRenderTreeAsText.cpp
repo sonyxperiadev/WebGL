@@ -430,7 +430,7 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
                     ts << " override";
             }
 
-            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textObject()->text()).substring(textBox->start() + range.startOffset, offset)) << "\n";
+            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textObject()->text()).substring(textBox->start() + range.startOffset, offset)) << endl;
 
             j++;
         }
@@ -463,7 +463,7 @@ void write(TextStream& ts, const RenderSVGContainer& container, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << container << "\n";
+    ts << container << endl;
 
     for (RenderObject* child = container.firstChild(); child; child = child->nextSibling())
         write(ts, *child, indent + 1);
@@ -480,7 +480,7 @@ void write(TextStream& ts, const RenderSVGRoot& root, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << root << "\n";
+    ts << root << endl;
 
     for (RenderObject* child = root.firstChild(); child; child = child->nextSibling())
         write(ts, *child, indent + 1);
@@ -497,7 +497,7 @@ void write(TextStream& ts, const RenderSVGText& text, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << text << "\n";
+    ts << text << endl;
 
     for (RenderObject* child = text.firstChild(); child; child = child->nextSibling())
         write(ts, *child, indent + 1);
@@ -514,7 +514,7 @@ void write(TextStream& ts, const RenderSVGInlineText& text, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << text.width() << "x" << text.height() << "\n";
+    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << text.width() << "x" << text.height() << endl;
     writeSVGInlineText(ts, text, indent);
 }
 
@@ -529,7 +529,7 @@ void write(TextStream& ts, const RenderPath& path, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << path << "\n";
+    ts << path << endl;
 }
 
 void writeRenderResources(TextStream& ts, Node* parent)
@@ -551,9 +551,9 @@ void writeRenderResources(TextStream& ts, Node* parent)
         String elementId = svgElement->getAttribute(HTMLNames::idAttr);
         if (resource->isPaintServer()) {
             RefPtr<SVGPaintServer> paintServer = WTF::static_pointer_cast<SVGPaintServer>(resource);
-            ts << "KRenderingPaintServer {id=\"" << elementId << "\" " << *paintServer << "}" << "\n";
+            ts << "KRenderingPaintServer {id=\"" << elementId << "\" " << *paintServer << "}" << endl;
         } else
-            ts << "KCanvasResource {id=\"" << elementId << "\" " << *resource << "}" << "\n";
+            ts << "KCanvasResource {id=\"" << elementId << "\" " << *resource << "}" << endl;
     } while ((node = node->traverseNextNode(parent)));
 }
 

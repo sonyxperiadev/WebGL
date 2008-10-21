@@ -22,6 +22,7 @@
 #include "Icon.h"
 
 #include "GraphicsContext.h"
+#include "DeprecatedString.h"
 #include "PlatformString.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
@@ -34,7 +35,6 @@
 namespace WebCore {
 
 Icon::Icon()
-    : RefCounted<Icon>(0)
 {
 }
 

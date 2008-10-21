@@ -30,7 +30,6 @@ namespace WebCore {
 
     class Rect : public RefCounted<Rect> {
     public:
-        Rect() : RefCounted<Rect>(0) { }
         virtual ~Rect() { }
 
         CSSPrimitiveValue* top() const { return m_top.get(); }
@@ -43,7 +42,7 @@ namespace WebCore {
         void setBottom(PassRefPtr<CSSPrimitiveValue> bottom) { m_bottom = bottom; }
         void setLeft(PassRefPtr<CSSPrimitiveValue> left) { m_left = left; }
 
-    private:
+    protected:
         RefPtr<CSSPrimitiveValue> m_top;
         RefPtr<CSSPrimitiveValue> m_right;
         RefPtr<CSSPrimitiveValue> m_bottom;

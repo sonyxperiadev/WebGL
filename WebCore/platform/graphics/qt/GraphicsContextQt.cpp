@@ -36,7 +36,6 @@
 #include "Path.h"
 #include "Color.h"
 #include "GraphicsContext.h"
-#include "ImageBuffer.h"
 #include "Font.h"
 #include "Pen.h"
 #include "NotImplemented.h"
@@ -46,7 +45,6 @@
 #include <QPolygonF>
 #include <QPainterPath>
 #include <QPaintDevice>
-#include <QPixmap>
 #include <QDebug>
 
 #ifndef M_PI
@@ -905,37 +903,6 @@ void GraphicsContext::setUseAntialiasing(bool enable)
     if (paintingDisabled())
         return;
     m_data->p()->setRenderHint(QPainter::Antialiasing, enable);
-}
-
-void GraphicsContext::paintBuffer(ImageBuffer* buffer, const IntRect& r)
-{
-    if (paintingDisabled())
-        return;
-    QPixmap pixmap = *buffer->pixmap();
-    if (pixmap.isNull())
-        return;
-    QPainter* painter = platformContext();
-    QPen currentPen = painter->pen();
-    qreal currentOpacity = painter->opacity();
-    QBrush currentBrush = painter->brush();
-    QBrush currentBackground = painter->background();
-    if (painter->isActive())
-        painter->end();
-    static_cast<QPainter*>(painter)->drawPixmap(r, pixmap);
-    painter->begin(&pixmap);
-    painter->setPen(currentPen);
-    painter->setBrush(currentBrush);
-    painter->setOpacity(currentOpacity);
-    painter->setBackground(currentBackground);
-}
-
-void GraphicsContext::drawImage(ImageBuffer* buffer, const FloatRect& srcRect, const FloatRect& dstRect)
-{
-    QPainter* painter = static_cast<QPainter*>(platformContext());
-    QPixmap px = *buffer->pixmap();
-    if (px.isNull())
-        return;
-    painter->drawPixmap(dstRect, px, srcRect);
 }
 
 }

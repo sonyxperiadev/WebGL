@@ -25,7 +25,23 @@
 #define HAVE_JNI 1
 #endif
 
-#if PLATFORM(DARWIN)
+#ifdef ANDROID
+
+#define HAVE_JNI 1
+#define HAVE_FUNC_FINITE 1
+#define HAVE_MMAP 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_ERRNO_H 1
+#define HAVE_SBRK 1
+
+#define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
+//#define ANDROID_INSTRUMENT
+
+#define ANDROID_FIX         // changes can be merged back, or already in, WebKit.org's ToT
+
+#elif PLATFORM(DARWIN)
 
 #define HAVE_ERRNO_H 1
 #define HAVE_MMAP 1

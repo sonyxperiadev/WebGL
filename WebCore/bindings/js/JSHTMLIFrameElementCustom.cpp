@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,25 +29,35 @@
 #include "config.h"
 #include "JSHTMLIFrameElement.h"
 
+#include "Document.h"
 #include "CSSHelper.h"
 #include "HTMLIFrameElement.h"
-
-using namespace KJS;
+#include "PlatformString.h"
+#include "kjs_binding.h"
+#include "kjs_dom.h"
+#ifdef ANDROID_JAVASCRIPT_SECURITY 
+#include "KURL.h"
+#endif
 
 namespace WebCore {
 
-void JSHTMLIFrameElement::setSrc(ExecState* exec, JSValue* value)
+void JSHTMLIFrameElement::setSrc(KJS::ExecState* exec, KJS::JSValue* value)
 {
     HTMLIFrameElement* imp = static_cast<HTMLIFrameElement*>(impl());
 
     String srcValue = valueToStringWithNullCheck(exec, value);
 
+#ifdef ANDROID_JAVASCRIPT_SECURITY 
     if (protocolIs(parseURL(srcValue), "javascript")) {
+#else
+    if (parseURL(srcValue).startsWith("javascript:", false)) {
+#endif
         if (!checkNodeSecurity(exec, imp->contentDocument()))
             return;
     }
 
     imp->setSrc(srcValue);
+    return;
 }
 
 } // namespace WebCore

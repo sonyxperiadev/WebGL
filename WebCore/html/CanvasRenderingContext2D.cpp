@@ -33,7 +33,6 @@
 #include "CachedImage.h"
 #include "CanvasGradient.h"
 #include "CanvasPattern.h"
-#include "CanvasPixelArray.h"
 #include "CanvasStyle.h"
 #include "Document.h"
 #include "ExceptionCode.h"
@@ -42,8 +41,6 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
-#include "ImageBuffer.h"
-#include "ImageData.h"
 #include "NotImplemented.h"
 #include "RenderHTMLCanvas.h"
 #include "Settings.h"
@@ -62,9 +59,21 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+#ifdef ANDROID_CANVAS_IMPL
+static PlatformGradient* extractGradient(CanvasStyle* style)
+{
+    CanvasGradient* grad = style->gradient();
+    return grad ? grad->platformGradient() : NULL;
+}
+static PlatformPattern* extractPattern(CanvasStyle* style)
+{
+    CanvasPattern* pat = style->pattern();
+    return pat ? pat->platformPattern() : NULL;
+}
+#endif
+
 CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas)
-    : RefCounted<CanvasRenderingContext2D>(0)
-    , m_canvas(canvas)
+    : m_canvas(canvas)
     , m_stateStack(1)
 {
 }
@@ -435,6 +444,7 @@ void CanvasRenderingContext2D::arcTo(float x0, float y0, float x1, float y1, flo
         ec = INDEX_SIZE_ERR;
         return;
     }
+//    SkDebugf("------ arcTo %g %g %g %g %g\n", x0, y0, x1, y1, r);
     state().m_path.addArcTo(FloatPoint(x0, y0), FloatPoint(x1, y1), r);
 }
 
@@ -471,13 +481,14 @@ void CanvasRenderingContext2D::fill()
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
-
-    c->beginPath();
-    c->addPath(state().m_path);
-    if (!state().m_path.isEmpty())
-        willDraw(state().m_path.boundingRect());
-
+    // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
+    CGContextBeginPath(c->platformContext());
+    CGContextAddPath(c->platformContext(), state().m_path.platformPath());
+
+    if (!state().m_path.isEmpty())
+        willDraw(CGContextGetPathBoundingBox(c->platformContext()));
+
     if (state().m_fillStyle->gradient()) {
         // Shading works on the entire clip region, so convert the current path to a clip.
         c->save();
@@ -489,9 +500,22 @@ void CanvasRenderingContext2D::fill()
             applyFillPattern();
         CGContextFillPath(c->platformContext());
     }
+#elif defined(ANDROID_CANVAS_IMPL)
+    CanvasStyle* s = state().m_fillStyle.get();
+    const Path& path = state().m_path;
+    if (path.isEmpty()) {   // <canvas> treats empty path filling as the entire visible area
+        FloatRect rect = c->getClipLocalBounds();
+        willDraw(rect);
+        c->fillRect(rect, extractGradient(s), extractPattern(s));
+    }
+    else {
+        willDraw(path.boundingRect());
+        c->fillPath(path, extractGradient(s), extractPattern(s));
+    }
 #elif PLATFORM(QT)
     QPainterPath* path = state().m_path.platformPath();
     QPainter* p = static_cast<QPainter*>(c->platformContext());
+    willDraw(path->controlPointRect());
     if (state().m_fillStyle->gradient()) {
         p->fillPath(*path, QBrush(*(state().m_fillStyle->gradient()->platformShading())));
     } else {
@@ -502,13 +526,15 @@ void CanvasRenderingContext2D::fill()
 #elif PLATFORM(CAIRO)
     cairo_t* cr = c->platformContext();
     cairo_save(cr);
-
+    willDraw(state().m_path.boundingRect());
     if (state().m_fillStyle->gradient()) {
         cairo_set_source(cr, state().m_fillStyle->gradient()->platformShading());
+        c->addPath(state().m_path);
         cairo_fill(cr);
     } else {
         if (state().m_fillStyle->pattern())
             applyFillPattern();
+        c->addPath(state().m_path);
         cairo_fill(cr);
     }
     cairo_restore(cr);
@@ -522,20 +548,18 @@ void CanvasRenderingContext2D::stroke()
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
-    c->beginPath();
-    c->addPath(state().m_path);
-
-    if (!state().m_path.isEmpty()) {
-        // FIXME: This is insufficient, need to use CGContextReplacePathWithStrokedPath to expand to required bounds
-        float lineWidth = state().m_lineWidth;
-        float inset = lineWidth / 2;
-        FloatRect boundingRect = state().m_path.boundingRect();
-        boundingRect.inflate(inset);
-        willDraw(boundingRect);
-    }
-    
     // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
+    CGContextBeginPath(c->platformContext());
+    CGContextAddPath(c->platformContext(), state().m_path.platformPath());
+
+    if (!state().m_path.isEmpty()) {
+        float lineWidth = state().m_lineWidth;
+        float inset = -lineWidth / 2;
+        CGRect boundingRect = CGRectInset(CGContextGetPathBoundingBox(c->platformContext()), inset, inset);
+        willDraw(boundingRect);
+    }
+
     if (state().m_strokeStyle->gradient()) {
         // Shading works on the entire clip region, so convert the current path to a clip.
         c->save();
@@ -548,9 +572,17 @@ void CanvasRenderingContext2D::stroke()
             applyStrokePattern();
         CGContextStrokePath(c->platformContext());
     }
+#elif defined(ANDROID_CANVAS_IMPL)
+    CanvasStyle* s = state().m_strokeStyle.get();
+    const Path& path = state().m_path;
+    FloatRect bounds = path.boundingRect();
+    bounds.inflate(state().m_lineWidth * 0.5f);
+    willDraw(bounds);
+    c->strokePath(path, extractGradient(s), extractPattern(s));
 #elif PLATFORM(QT)
     QPainterPath* path = state().m_path.platformPath();
     QPainter* p = static_cast<QPainter*>(c->platformContext());
+    willDraw(path->controlPointRect());
     if (state().m_strokeStyle->gradient()) {
         p->save();
         p->setBrush(*(state().m_strokeStyle->gradient()->platformShading()));
@@ -564,6 +596,8 @@ void CanvasRenderingContext2D::stroke()
 #elif PLATFORM(CAIRO)
     cairo_t* cr = c->platformContext();
     cairo_save(cr);
+    // FIXME: consider inset, as in CG
+    willDraw(state().m_path.boundingRect());
     if (state().m_strokeStyle->gradient()) {
         cairo_set_source(cr, state().m_strokeStyle->gradient()->platformShading());
         c->addPath(state().m_path);
@@ -631,12 +665,12 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
-
-    FloatRect rect(x, y, width, height);
-    willDraw(rect);
-
     // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
+    CGRect rect = CGRectMake(x, y, width, height);
+
+    willDraw(rect);
+
     if (state().m_fillStyle->gradient()) {
         // Shading works on the entire clip region, so convert the rect to a clip.
         c->save();
@@ -648,7 +682,14 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
             applyFillPattern();
         CGContextFillRect(c->platformContext(), rect);
     }
+#elif defined(ANDROID_CANVAS_IMPL)
+    CanvasStyle* s = state().m_fillStyle.get();
+    FloatRect rect = FloatRect(x, y, width, height);
+    willDraw(rect);
+    c->fillRect(rect, extractGradient(s), extractPattern(s));
 #elif PLATFORM(QT)
+    QRectF rect(x, y, width, height);
+    willDraw(rect);
     QPainter* p = static_cast<QPainter*>(c->platformContext());
     if (state().m_fillStyle->gradient()) {
         p->fillRect(rect, QBrush(*(state().m_fillStyle->gradient()->platformShading())));
@@ -658,6 +699,8 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
         p->fillRect(rect, p->brush());
     }
 #elif PLATFORM(CAIRO)
+    FloatRect rect(x, y, width, height);
+    willDraw(rect);
     cairo_t* cr = c->platformContext();
     cairo_save(cr);
     if (state().m_fillStyle->gradient()) {
@@ -696,11 +739,16 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
     boundingRect.inflate(lineWidth / 2);
     willDraw(boundingRect);
 
+#ifndef ANDROID_CANVAS_IMPL
     // FIXME: No support for gradients!
     if (state().m_strokeStyle->pattern())
         applyStrokePattern();
 
     c->strokeRect(rect, lineWidth);
+#else
+    CanvasStyle* s = state().m_strokeStyle.get();
+    c->strokeRect(rect, lineWidth, extractGradient(s), extractPattern(s));
+#endif
 }
 
 void CanvasRenderingContext2D::setShadow(float width, float height, float blur)
@@ -881,6 +929,13 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image,
     drawImage(image, FloatRect(0, 0, s.width(), s.height()), FloatRect(x, y, width, height), ec);
 }
 
+#if defined(ANDROID_CANVAS_IMPL)
+static void dumprect(const char label[], const FloatRect& r)
+{
+    printf("----- %s [%g %g %g %g]\n", label, r.x(), r.y(), r.width(), r.height());
+}
+#endif
+
 void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRect& srcRect, const FloatRect& dstRect,
     ExceptionCode& ec)
 {
@@ -909,7 +964,13 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRec
     FloatRect sourceRect = c->roundToDevicePixels(srcRect);
     FloatRect destRect = c->roundToDevicePixels(dstRect);
     willDraw(destRect);
+#if defined(ANDROID_CANVAS_IMPL)
+    // this seems like a bug fix as well.
+    // can't see how the std code can use destRect/sourceRect, since they are scaled by matrix
+    c->drawImage(cachedImage->image(), dstRect, srcRect, state().m_globalComposite);
+#else
     c->drawImage(cachedImage->image(), destRect, sourceRect, state().m_globalComposite);
+#endif
 }
 
 void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* canvas, float x, float y)
@@ -951,12 +1012,68 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* canvas, const FloatR
     FloatRect destRect = c->roundToDevicePixels(dstRect);
         
     // FIXME: Do this through platform-independent GraphicsContext API.
-    ImageBuffer* buffer = canvas->buffer();
-    if (!buffer)
+#if PLATFORM(CG)
+    CGImageRef platformImage = canvas->createPlatformImage();
+    if (!platformImage)
         return;
-    
+
     willDraw(destRect);
-    c->drawImage(buffer, sourceRect, destRect);
+
+    float iw = CGImageGetWidth(platformImage);
+    float ih = CGImageGetHeight(platformImage);
+    if (sourceRect.x() == 0 && sourceRect.y() == 0 && iw == sourceRect.width() && ih == sourceRect.height()) {
+        // Fast path, yay!
+        CGContextDrawImage(c->platformContext(), destRect, platformImage);
+    } else {
+        // Slow path, boo!
+        // Create a new bitmap of the appropriate size and then draw that into our context.
+
+        size_t csw = static_cast<size_t>(ceilf(sourceRect.width()));
+        size_t csh = static_cast<size_t>(ceilf(sourceRect.height()));
+
+        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+        size_t bytesPerRow = csw * 4;
+        void* buffer = fastMalloc(csh * bytesPerRow);
+
+        CGContextRef clippedSourceContext = CGBitmapContextCreate(buffer, csw, csh,
+            8, bytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast);
+        CGColorSpaceRelease(colorSpace);
+        CGContextTranslateCTM(clippedSourceContext, -sourceRect.x(), -sourceRect.y());
+        CGContextDrawImage(clippedSourceContext, CGRectMake(0, 0, iw, ih), platformImage);
+
+        CGImageRef clippedSourceImage = CGBitmapContextCreateImage(clippedSourceContext);
+        CGContextRelease(clippedSourceContext);
+
+        CGContextDrawImage(c->platformContext(), destRect, clippedSourceImage);
+        CGImageRelease(clippedSourceImage);
+        
+        fastFree(buffer);
+    }
+
+    CGImageRelease(platformImage);
+#elif defined(ANDROID_CANVAS_IMPL)
+    willDraw(destRect);
+    c->drawOffscreenContext(canvas->drawingContext(), &srcRect, dstRect);
+#elif PLATFORM(QT)
+    QImage px = canvas->createPlatformImage();
+    if (px.isNull())
+        return;
+    willDraw(dstRect);
+    QPainter* painter = static_cast<QPainter*>(c->platformContext());
+    painter->drawImage(dstRect, px, srcRect);
+#elif PLATFORM(CAIRO)
+    cairo_surface_t* image = canvas->createPlatformImage();
+    if (!image)
+        return;
+    willDraw(dstRect);
+    cairo_t* cr = c->platformContext();
+    cairo_save(cr);
+    cairo_set_source_surface(cr, image, srcRect.x(), srcRect.y());
+    cairo_surface_destroy(image);
+    cairo_rectangle(cr, dstRect.x(), dstRect.y(), dstRect.width(), dstRect.height());
+    cairo_fill(cr);
+    cairo_restore(cr);
+#endif
 }
 
 // FIXME: Why isn't this just another overload of drawImage? Why have a different name?
@@ -1163,94 +1280,6 @@ void CanvasRenderingContext2D::applyFillPattern()
     cairo_pattern_destroy(platformPattern);
 #endif
     state().m_appliedFillPattern = true;
-}
-
-static PassRefPtr<ImageData> createEmptyImageData(const IntSize& size)
-{
-    PassRefPtr<ImageData> data = ImageData::create(size.width(), size.height());
-    memset(data->data()->data().data(), 0, data->data()->length());
-    return data;
-}
-
-PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh) const
-{
-    FloatSize unscaledSize(sw, sh);
-    IntSize scaledSize;
-    if (m_canvas)
-        scaledSize = m_canvas->convertLogicalToDevice(unscaledSize);
-    else
-        scaledSize = IntSize(ceilf(sw), ceilf(sh));
-    if (scaledSize.width() < 1)
-        scaledSize.setWidth(1);
-    if (scaledSize.height() < 1)
-        scaledSize.setHeight(1);
-    
-    return createEmptyImageData(scaledSize);
-}
-
-PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy, float sw, float sh) const
-{
-    FloatRect unscaledRect(sx, sy, sw, sh);
-    IntRect scaledRect = m_canvas ? m_canvas->convertLogicalToDevice(unscaledRect) : enclosingIntRect(unscaledRect);
-    if (scaledRect.width() < 1)
-        scaledRect.setWidth(1);
-    if (scaledRect.height() < 1)
-        scaledRect.setHeight(1);
-    ImageBuffer* buffer = m_canvas ? m_canvas->buffer() : 0;
-    if (!buffer)
-        return createEmptyImageData(scaledRect.size());
-    return buffer->getImageData(scaledRect);
-}
-
-void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy, ExceptionCode& ec)
-{
-    if (!data) {
-        ec = TYPE_MISMATCH_ERR;
-        return;
-    }
-    putImageData(data, dx, dy, 0, 0, data->width(), data->height(), ec);
-}
-
-void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy, float dirtyX, float dirtyY, 
-                                            float dirtyWidth, float dirtyHeight, ExceptionCode& ec)
-{
-    if (!data) {
-        ec = TYPE_MISMATCH_ERR;
-        return;
-    }
-    if (!isfinite(dx) || !isfinite(dy) || !isfinite(dirtyX) || 
-        !isfinite(dirtyY) || !isfinite(dirtyWidth) || !isfinite(dirtyHeight)) {
-        ec = INDEX_SIZE_ERR;
-        return;
-    }
-
-    ImageBuffer* buffer = m_canvas ? m_canvas->buffer() : 0;
-    if (!buffer)
-        return;
-
-    if (dirtyWidth < 0) {
-        dirtyX += dirtyWidth;
-        dirtyWidth = -dirtyWidth;
-    }
-
-    if (dirtyHeight < 0) {
-        dirtyY += dirtyHeight;
-        dirtyHeight = -dirtyHeight;
-    }
-
-    FloatRect clipRect(dirtyX, dirtyY, dirtyWidth, dirtyHeight);
-    clipRect.intersect(IntRect(0, 0, data->width(), data->height()));
-    IntSize destOffset(static_cast<int>(dx), static_cast<int>(dy));
-    IntRect sourceRect = enclosingIntRect(clipRect);
-    sourceRect.move(destOffset);
-    sourceRect.intersect(IntRect(IntPoint(), buffer->size()));
-    if (sourceRect.isEmpty())
-        return;
-    willDraw(sourceRect);
-    sourceRect.move(-destOffset);
-    IntPoint destPoint(destOffset.width(), destOffset.height());
-    
-    buffer->putImageData(data, sourceRect, destPoint);
 }
 
 } // namespace WebCore

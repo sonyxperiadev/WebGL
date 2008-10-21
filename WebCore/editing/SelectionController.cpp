@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #include "config.h"
 #include "SelectionController.h"
 
-#include "CString.h"
 #include "DeleteSelectionCommand.h"
 #include "Document.h"
 #include "Editor.h"
@@ -51,7 +50,6 @@
 #include "TypingCommand.h"
 #include "htmlediting.h"
 #include "visible_units.h"
-#include <stdio.h>
 
 #define EDIT_DEBUG 0
 
@@ -793,7 +791,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
 {
     if (r->node()->isElementNode()) {
         Element *element = static_cast<Element *>(r->node());
-        fprintf(stderr, "%s%s\n", selected ? "==> " : "    ", element->localName().string().utf8().data());
+        fprintf(stderr, "%s%s\n", selected ? "==> " : "    ", element->localName().deprecatedString().latin1());
     }
     else if (r->isText()) {
         RenderText* textRenderer = static_cast<RenderText*>(r);
@@ -803,7 +801,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
         }
         
         static const int max = 36;
-        String text = textRenderer->text();
+        DeprecatedString text = String(textRenderer->text()).deprecatedString();
         int textLength = text.length();
         if (selected) {
             int offset = 0;
@@ -814,9 +812,9 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
                 
             int pos;
             InlineTextBox *box = textRenderer->findNextInlineTextBox(offset, pos);
-            text = text.substring(box->m_start, box->m_len);
+            text = text.mid(box->m_start, box->m_len);
             
-            String show;
+            DeprecatedString show;
             int mid = max / 2;
             int caret = 0;
             
@@ -834,7 +832,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
             
             // enough characters on each side
             else if (pos - mid >= 0 && pos + mid <= textLength) {
-                show = "..." + text.substring(pos - mid + 3, max - 6) + "...";
+                show = "..." + text.mid(pos - mid + 3, max - 6) + "...";
                 caret = mid;
             }
             
@@ -846,7 +844,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
             
             show.replace('\n', ' ');
             show.replace('\r', ' ');
-            fprintf(stderr, "==> #text : \"%s\" at offset %d\n", show.utf8().data(), pos);
+            fprintf(stderr, "==> #text : \"%s\" at offset %d\n", show.latin1(), pos);
             fprintf(stderr, "           ");
             for (int i = 0; i < caret; i++)
                 fprintf(stderr, " ");
@@ -857,7 +855,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
                 text = text.left(max - 3) + "...";
             else
                 text = text.left(max);
-            fprintf(stderr, "    #text : \"%s\"\n", text.utf8().data());
+            fprintf(stderr, "    #text : \"%s\"\n", text.latin1());
         }
     }
 }

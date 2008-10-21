@@ -164,9 +164,6 @@ void MediaList::deleteMedium(const String& oldMedium, ExceptionCode& ec)
         if (deleteOldQuery)
             delete oldQuery;
     }
-    
-    if (!ec)
-        notifyChanged();
 }
 
 String MediaList::mediaText() const
@@ -190,8 +187,7 @@ void MediaList::setMediaText(const String& value, ExceptionCode& ec)
     MediaList tempMediaList;
     CSSParser p(true);
 
-    Vector<String> list;
-    value.split(',', list);
+    Vector<String> list = value.split(',');
     Vector<String>::const_iterator end = list.end();
     for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
         String medium = (*it).stripWhiteSpace();
@@ -224,7 +220,6 @@ void MediaList::setMediaText(const String& value, ExceptionCode& ec)
     deleteAllValues(m_queries);
     m_queries = tempMediaList.m_queries;
     tempMediaList.m_queries.clear();
-    notifyChanged();
 }
 
 String MediaList::item(unsigned index) const
@@ -250,22 +245,11 @@ void MediaList::appendMedium(const String& newMedium, ExceptionCode& ec)
             ec = 0;
         }
     }
-    
-    if (!ec)
-        notifyChanged();
 }
 
 void MediaList::appendMediaQuery(MediaQuery* mediaQuery)
 {
     m_queries.append(mediaQuery);
-}
-
-void MediaList::notifyChanged()
-{
-    for (StyleBase* p = parent(); p; p = p->parent()) {
-        if (p->isCSSStyleSheet())
-            return static_cast<CSSStyleSheet*>(p)->styleSheetChanged();
-    }
 }
 
 }

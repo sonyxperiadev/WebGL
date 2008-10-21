@@ -29,6 +29,7 @@
 #include "CachedPage.h"
 #include "FormData.h"
 #include "IntPoint.h"
+#include "KURL.h"
 #include "PlatformString.h"
 #include <wtf/RefCounted.h>
 #include "StringHash.h"
@@ -42,6 +43,10 @@
 typedef struct objc_object* id;
 #endif
 
+#ifdef ANDROID_HISTORY_CLIENT
+#include "WebHistory.h"
+#endif
+
 namespace WebCore {
 
 class Document;
@@ -52,7 +57,11 @@ class ResourceRequest;
 class HistoryItem;
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 
+#ifdef ANDROID_HISTORY_CLIENT
+extern void (*notifyHistoryItemChanged)(HistoryItem*);
+#else
 extern void (*notifyHistoryItemChanged)();
+#endif
 
 class HistoryItem : public RefCounted<HistoryItem> {
     friend class PageCache;
@@ -89,6 +98,15 @@ public:
     bool isTargetItem() const;
     
     FormData* formData();
+#ifdef ANDROID_FIX
+    const FormData* formData() const;
+
+    FormData* originalFormData() const;
+    String originalFormContentType() const;
+    String originalFormReferrer() const;
+
+    void setOriginalFormInfo(PassRefPtr<FormData>, const String&, const String&);
+#endif
     String formContentType() const;
     String formReferrer() const;
     String rssFeedReferrer() const;
@@ -144,6 +162,11 @@ public:
     int showTree() const;
     int showTreeWithIndent(unsigned indentLevel) const;
 #endif
+    
+#ifdef ANDROID_HISTORY_CLIENT
+    void setBridge(android::WebHistoryItem* bridge) { m_bridge = bridge; }
+    android::WebHistoryItem* bridge() const { return m_bridge.get(); }
+#endif
 
 private:
     HistoryItem(const HistoryItem&);
@@ -170,7 +193,14 @@ private:
     RefPtr<FormData> m_formData;
     String m_formContentType;
     String m_formReferrer;
-    
+
+#ifdef ANDROID_FIX
+    // info used to repost form data for the original request
+    RefPtr<FormData> m_originalFormData;
+    String m_originalFormContentType;
+    String m_originalFormReferrer;
+#endif
+
     // info used to support RSS feeds
     String m_rssFeedReferrer;
 
@@ -182,6 +212,10 @@ private:
 #if PLATFORM(MAC)
     RetainPtr<id> m_viewState;
     OwnPtr<HashMap<String, RetainPtr<id> > > m_transientProperties;
+#endif
+        
+#ifdef ANDROID_HISTORY_CLIENT
+    RefPtr<android::WebHistoryItem> m_bridge;
 #endif
 }; //class HistoryItem
 

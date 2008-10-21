@@ -44,7 +44,7 @@ Comment::~Comment()
 
 String Comment::nodeName() const
 {
-    return commentAtom.string();
+    return commentAtom.domString();
 }
 
 Node::NodeType Comment::nodeType() const

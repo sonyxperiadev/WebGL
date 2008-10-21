@@ -65,8 +65,7 @@ static inline bool isASCIIPrintable(unsigned c)
 }
 
 PopupMenu::PopupMenu(PopupMenuClient* client)
-    : RefCounted<PopupMenu>(0)
-    , m_popupClient(client)
+    : m_popupClient(client)
     , m_scrollBar(0)
     , m_popup(0)
     , m_DC(0)

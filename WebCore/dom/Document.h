@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,7 +32,6 @@
 #include "DocumentMarker.h"
 #include "HTMLCollection.h"
 #include "HTMLFormElement.h"
-#include "KURL.h"
 #include "StringHash.h"
 #include "Timer.h"
 #include <wtf/HashCountedSet.h>
@@ -53,14 +52,12 @@ namespace WebCore {
     class Attr;
     class Attribute;
     class CDATASection;
-    class CachedCSSStyleSheet;
     class CSSStyleDeclaration;
     class CSSStyleSelector;
     class CSSStyleSheet;
     class Comment;
     class Database;
     class DOMImplementation;
-    class DOMSelection;
     class DOMWindow;
     class DatabaseThread;
     class DocLoader;
@@ -180,10 +177,11 @@ public:
 
     // DOM methods & attributes for Document
 
-    DocumentType* doctype() const { return m_docType.get(); }
+    virtual DocumentType* doctype() const; // May return 0 for HTML documents
+    DocumentType* realDocType() const { return m_docType.get(); }
 
     DOMImplementation* implementation() const;
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false);
     Element* documentElement() const;
     virtual PassRefPtr<Element> createElement(const String& tagName, ExceptionCode&);
     PassRefPtr<DocumentFragment> createDocumentFragment ();
@@ -220,10 +218,10 @@ public:
     void setXMLVersion(const String&, ExceptionCode&);
     void setXMLStandalone(bool, ExceptionCode&);
 
-    KURL documentURI() const;
+    String documentURI() const;
     void setDocumentURI(const String&);
 
-    virtual KURL baseURI() const;
+    virtual String baseURI() const;
 
     PassRefPtr<Node> adoptNode(PassRefPtr<Node> source, ExceptionCode&);
 
@@ -333,10 +331,10 @@ public:
     PassRefPtr<Range> createRange();
 
     PassRefPtr<NodeIterator> createNodeIterator(Node* root, unsigned whatToShow,
-        PassRefPtr<NodeFilter>, bool expandEntityReferences, ExceptionCode&);
+        NodeFilter*, bool expandEntityReferences, ExceptionCode&);
 
     PassRefPtr<TreeWalker> createTreeWalker(Node* root, unsigned whatToShow, 
-        PassRefPtr<NodeFilter>, bool expandEntityReferences, ExceptionCode&);
+        NodeFilter*, bool expandEntityReferences, ExceptionCode&);
 
     // Special support for editing
     PassRefPtr<CSSStyleDeclaration> createCSSStyleDeclaration();
@@ -373,19 +371,20 @@ public:
 
     bool wellFormed() const { return m_wellFormed; }
 
-    const KURL& url() const { return m_url.isEmpty() ? blankURL() : m_url; }
-    void setURL(const KURL&);
+    DeprecatedString url() const { return m_url.isEmpty() ? "about:blank" : m_url; }
+    void setURL(const DeprecatedString& url);
 
-    const KURL& baseURL() const { return m_baseURL.isEmpty() ? url() : m_baseURL; }
-    void setBaseURL(const KURL&);
+    DeprecatedString baseURL() const { return m_baseURL.isEmpty() ? url() : m_baseURL; }
+    void setBaseURL(const DeprecatedString& baseURL);
 
-    const String& baseTarget() const { return m_baseTarget; }
+    String baseTarget() const { return m_baseTarget; }
     void setBaseTarget(const String& baseTarget) { m_baseTarget = baseTarget; }
 
-    KURL completeURL(const String&);
+    DeprecatedString completeURL(const DeprecatedString &);
+    String completeURL(const String&);
 
     // from cachedObjectClient
-    virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
+    virtual void setCSSStyleSheet(const String& url, const String& charset, const String& sheetStr);
 
 #if FRAME_LOADS_USER_STYLESHEET
     void setUserStyleSheet(const String& sheet);
@@ -402,18 +401,20 @@ public:
     void setPrinting(bool p) { m_printing = p; }
 
     enum ParseMode { Compat, AlmostStrict, Strict };
-
-private:
-    virtual void determineParseMode() {}
     
-public:
-    void setParseMode(ParseMode m) { m_parseMode = m; }
-    ParseMode parseMode() const { return m_parseMode; }
+    virtual void determineParseMode(const String&);
+    void setParseMode(ParseMode m) { pMode = m; }
+    ParseMode parseMode() const { return pMode; }
 
-    bool inCompatMode() const { return m_parseMode == Compat; }
-    bool inAlmostStrictMode() const { return m_parseMode == AlmostStrict; }
-    bool inStrictMode() const { return m_parseMode == Strict; }
+    bool inCompatMode() const { return pMode == Compat; }
+    bool inAlmostStrictMode() const { return pMode == AlmostStrict; }
+    bool inStrictMode() const { return pMode == Strict; }
     
+    enum HTMLMode { Html3, Html4, XHtml };
+
+    void setHTMLMode(HTMLMode m) { hMode = m; }
+    HTMLMode htmlMode() const { return hMode; }
+
     void setParsing(bool);
     bool parsing() const { return m_bParsing; }
     int minimumLayoutDelay();
@@ -547,6 +548,14 @@ public:
      */
     void processHttpEquiv(const String& equiv, const String& content);
     
+#ifdef ANDROID_META_SUPPORT
+    /**
+     * Handles viewport like <meta name = "viewport" content = "width = device-width">
+     * or format-detection like <meta name = "format-detection" content = "telephone=no">
+     */
+    void processMetadataSettings(const String& content);
+#endif
+    
     void dispatchImageLoadEventSoon(HTMLImageLoader*);
     void dispatchImageLoadEventsNow();
     void removeImage(HTMLImageLoader*);
@@ -569,8 +578,8 @@ public:
 
     String lastModified() const;
 
-    const KURL& policyBaseURL() const { return m_policyBaseURL; }
-    void setPolicyBaseURL(const KURL& url) { m_policyBaseURL = url; }
+    String policyBaseURL() const { return m_policyBaseURL; }
+    void setPolicyBaseURL(const String& s) { m_policyBaseURL = s; }
     
     // The following implements the rule from HTML 4 for what valid names are.
     // To get this right for all the XML cases, we probably have to improve this or move it
@@ -691,9 +700,11 @@ public:
     void updateFocusAppearanceSoon();
     void cancelFocusAppearanceUpdate();
     
-    // FF method for accessing the selection added for compatability.
-    DOMSelection* getSelection() const;
-    
+#ifdef ANDROID_MOBILE
+    void setExtraLayoutDelay(int delay) { mExtraLayoutDelay = delay; }
+    int extraLayoutDelay() { return mExtraLayoutDelay; }
+#endif
+
 private:
     CSSStyleSelector* m_styleSelector;
     bool m_didCalculateStyleSelector;
@@ -702,8 +713,8 @@ private:
     DocLoader* m_docLoader;
     Tokenizer* m_tokenizer;
     bool m_wellFormed;
-    KURL m_url;
-    KURL m_baseURL;
+    DeprecatedString m_url;
+    DeprecatedString m_baseURL;
     String m_baseTarget;
 
     RefPtr<DocumentType> m_docType;
@@ -736,7 +747,8 @@ private:
 
     bool m_printing;
 
-    ParseMode m_parseMode;
+    ParseMode pMode;
+    HTMLMode hMode;
 
     Color m_textColor;
 
@@ -752,6 +764,7 @@ private:
     unsigned short m_listenerTypes;
     RefPtr<StyleSheetList> m_styleSheets;
     
+    typedef DeprecatedValueList<RefPtr<RegisteredEventListener> > RegisteredEventListenerList;
     RegisteredEventListenerList m_windowEventListeners;
 
     typedef HashMap<FormElementKey, Vector<String>, FormElementKeyHash, FormElementKeyHashTraits> FormElementStateMap;
@@ -813,7 +826,7 @@ private:
     typedef HashMap<AtomicStringImpl*, HTMLMapElement*> ImageMapsByName;
     ImageMapsByName m_imageMapsByName;
 
-    KURL m_policyBaseURL;
+    String m_policyBaseURL;
 
     HashSet<Node*> m_disconnectedNodesWithEventListeners;
 
@@ -953,6 +966,10 @@ private:
 #if USE(LOW_BANDWIDTH_DISPLAY)
     bool m_inLowBandwidthDisplay;
 #endif
+#ifdef ANDROID_MOBILE
+    int mExtraLayoutDelay;
+#endif
+
 };
 
 } // namespace WebCore

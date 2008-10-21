@@ -37,7 +37,7 @@ namespace WebKit {
 static void imContextCommitted(GtkIMContext* context, const char* str, EditorClient* client)
 {
     Frame* frame = core(client->m_webView)->focusController()->focusedOrMainFrame();
-    frame->editor()->insertTextWithoutSendingTextEvent(String::fromUTF8(str), false);
+    frame->editor()->insertTextWithoutSendingTextEvent(str, false);
 }
 
 bool EditorClient::shouldDeleteRange(Range*)
@@ -382,10 +382,10 @@ void EditorClient::textDidChangeInTextField(Element*)
     notImplemented();
 }
 
-bool EditorClient::doTextFieldCommandFromEvent(Element* element, KeyboardEvent* event)
+bool EditorClient::doTextFieldCommandFromEvent(Element*, KeyboardEvent*)
 {
-    WebKitWebViewPrivate* priv = m_webView->priv;
-    return gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey());
+    notImplemented();
+    return false;
 }
 
 void EditorClient::textWillBeDeletedInTextField(Element*)

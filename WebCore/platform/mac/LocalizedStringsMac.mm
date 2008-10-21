@@ -27,7 +27,6 @@
 #import "LocalizedStrings.h"
 
 #import "BlockExceptions.h"
-#import "IntSize.h"
 #import "PlatformString.h"
 #import "WebCoreViewFactory.h"
 
@@ -501,14 +500,6 @@ String unknownFileSizeText()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     return [[WebCoreViewFactory sharedFactory] unknownFileSizeText];
-    END_BLOCK_OBJC_EXCEPTIONS;
-    return String();
-}
-
-String imageTitle(const String& filename, const IntSize& size)
-{
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    return [[WebCoreViewFactory sharedFactory] imageTitleForFilename:filename size:size];
     END_BLOCK_OBJC_EXCEPTIONS;
     return String();
 }

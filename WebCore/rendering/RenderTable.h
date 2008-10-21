@@ -190,6 +190,15 @@ public:
             recalcSections();
     }
 
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString ind = "") const;
+#endif
+
+#ifdef ANDROID_LAYOUT
+    void clearSingleColumn() { m_singleColumn = false; }
+    bool isSingleColumn() const { return m_singleColumn; }
+#endif
+
 private:
     void recalcSections() const;
 
@@ -211,6 +220,9 @@ private:
     mutable bool m_hasColElements : 1;
     mutable bool m_needsSectionRecalc : 1;
     
+#ifdef ANDROID_LAYOUT
+    bool m_singleColumn;        // BS(Grace): should I use compact version?
+#endif
     short m_hSpacing;
     short m_vSpacing;
     int m_borderLeft;

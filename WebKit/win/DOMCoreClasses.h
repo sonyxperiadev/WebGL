@@ -26,7 +26,11 @@
 #ifndef DOMCoreClasses_H
 #define DOMCoreClasses_H
 
-#include "WebKit.h"
+#include "DOMCore.h"
+#include "DOMCSS.h"
+#include "DOMEvents.h"
+#include "DOMExtensions.h"
+#include "DOMPrivate.h"
 #include "WebScriptObject.h"
 
 // {79A193A5-D783-4c73-9AD9-D10678B943DE}

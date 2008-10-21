@@ -26,9 +26,11 @@
 #include "config.h"
 #include "ClipboardWin.h"
 
-#include "CString.h"
 #include "CachedImage.h"
 #include "ClipboardUtilitiesWin.h"
+#include "csshelper.h"
+#include "CString.h"
+#include "DeprecatedString.h"
 #include "Document.h"
 #include "DragData.h"
 #include "Editor.h"
@@ -40,6 +42,7 @@
 #include "HTMLNames.h"
 #include "Image.h"
 #include "MIMETypeRegistry.h"
+#include "markup.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformMouseEvent.h"
@@ -49,15 +52,11 @@
 #include "ResourceResponse.h"
 #include "StringHash.h"
 #include "WCDataObject.h"
-#include "csshelper.h"
-#include "markup.h"
 
 #include <shlwapi.h>
 #include <wininet.h>
 
 #include <wtf/RefPtr.h>
-
-using namespace std;
 
 namespace WebCore {
 
@@ -141,7 +140,7 @@ static String filesystemPathFromUrlOrTitle(const String& url, const String& titl
             // The filename for any content based drag should be the last element of 
             // the path.  If we can't find it, or we're coming up with the name for a link
             // we just use the entire url.
-            KURL kurl(url);
+            KURL kurl(url.deprecatedString());
             String lastComponent;
             if (!isLink && !(lastComponent = kurl.lastPathComponent()).isEmpty()) {
                 len = min<DWORD>(MAX_PATH, lastComponent.length());
@@ -227,10 +226,11 @@ static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, Share
     WCHAR filePath[MAX_PATH];
 
     if (url.isLocalFile()) {
-        String localPath = url.path();
+        DeprecatedString path = url.path();
         // windows does not enjoy a leading slash on paths
-        if (localPath[0] == '/')
-            localPath = localPath.substring(1);
+        if (path[0] == '/')
+            path = path.mid(1);
+        String localPath = path.ascii();
         LPCTSTR localPathStr = localPath.charactersWithNullTermination();
         if (wcslen(localPathStr) + 1 < MAX_PATH)
             wcscpy_s(filePath, MAX_PATH, localPathStr);
@@ -437,9 +437,7 @@ static bool writeURL(WCDataObject *data, const KURL& url, String title, bool wit
         success = true;
 
     if (withHTML) {
-        Vector<char> cfhtmlData;
-        markupToCF_HTML(urlToMarkup(url, title), "", cfhtmlData);
-        medium.hGlobal = createGlobalData(cfhtmlData);
+        medium.hGlobal = createGlobalData(markupToCF_HTML(urlToMarkup(url, title), ""));
         if (medium.hGlobal && FAILED(data->SetData(htmlFormat(), &medium, TRUE)))
             ::GlobalFree(medium.hGlobal);
         else
@@ -505,7 +503,7 @@ String ClipboardWin::getData(const String& type, bool& success) const
     return "";
 }
 
-bool ClipboardWin::setData(const String& type, const String& data)
+bool ClipboardWin::setData(const String &type, const String &data)
 {
     // FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
     ASSERT(isForDragging());
@@ -515,7 +513,7 @@ bool ClipboardWin::setData(const String& type, const String& data)
     ClipboardDataType winType = clipboardTypeFromMIMEType(type);
 
     if (winType == ClipboardDataTypeURL)
-        return WebCore::writeURL(m_writableDataObject.get(), KURL(data), String(), false, true);
+        return WebCore::writeURL(m_writableDataObject.get(), data.deprecatedString(), String(), false, true);
 
     if (winType == ClipboardDataTypeText) {
         STGMEDIUM medium = {0};
@@ -678,7 +676,7 @@ void ClipboardWin::declareAndWriteDragImage(Element* element, const KURL& url, c
     if (imageURL.isEmpty()) 
         return;
 
-    String fullURL = frame->document()->completeURL(parseURL(imageURL)).string();
+    String fullURL = frame->document()->completeURL(parseURL(imageURL));
     if (fullURL.isEmpty()) 
         return;
     STGMEDIUM medium = {0};
@@ -686,9 +684,7 @@ void ClipboardWin::declareAndWriteDragImage(Element* element, const KURL& url, c
     ExceptionCode ec = 0;
 
     // Put img tag on the clipboard referencing the image
-    Vector<char> data;
-    markupToCF_HTML(imageToMarkup(fullURL), "", data);
-    medium.hGlobal = createGlobalData(data);
+    medium.hGlobal = createGlobalData(markupToCF_HTML(imageToMarkup(fullURL), ""));
     if (medium.hGlobal && FAILED(m_writableDataObject->SetData(htmlFormat(), &medium, TRUE)))
         ::GlobalFree(medium.hGlobal);
 }
@@ -723,10 +719,7 @@ void ClipboardWin::writeRange(Range* selectedRange, Frame* frame)
     medium.tymed = TYMED_HGLOBAL;
     ExceptionCode ec = 0;
 
-    Vector<char> data;
-    markupToCF_HTML(createMarkup(selectedRange, 0, AnnotateForInterchange),
-        selectedRange->startContainer(ec)->document()->url().string(), data);
-    medium.hGlobal = createGlobalData(data);
+    medium.hGlobal = createGlobalData(markupToCF_HTML(createMarkup(selectedRange, 0, AnnotateForInterchange), selectedRange->startContainer(ec)->document()->url()));
     if (medium.hGlobal && FAILED(m_writableDataObject->SetData(htmlFormat(), &medium, TRUE)))
         ::GlobalFree(medium.hGlobal);
 

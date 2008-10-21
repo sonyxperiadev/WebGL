@@ -31,6 +31,7 @@
 #import "GraphicsContext.h"
 #import "PlatformString.h"
 #import "WebCoreFrameBridge.h"
+#import "WebCoreSystemInterface.h"
 
 namespace WebCore {
 

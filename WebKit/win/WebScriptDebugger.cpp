@@ -30,7 +30,7 @@
 #include "WebKitDLL.h"
 #include "WebScriptDebugger.h"
 
-#include "WebKit.h"
+#include "IWebView.h"
 #include "WebFrame.h"
 #include "WebScriptCallFrame.h"
 #include "WebScriptDebugServer.h"

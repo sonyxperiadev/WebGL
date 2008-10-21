@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -163,12 +163,11 @@ void MediaPlayerPrivate::createQTMovie(const String& url)
     m_qtMovie = 0;
     
     // Disable streaming support for now, <rdar://problem/5693967>
-    if (protocolIs(url, "rtsp"))
+    if (url.startsWith("rtsp:"))
         return;
-
-    NSURL *cocoaURL = KURL(url);
-    NSDictionary *movieAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
-                                     cocoaURL, QTMovieURLAttribute,
+    
+    NSDictionary* movieAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
+                                     KURL(url.deprecatedString()).getNSURL(), QTMovieURLAttribute,
                                      [NSNumber numberWithBool:YES], QTMoviePreventExternalURLLinksAttribute,
                                      [NSNumber numberWithBool:YES], QTSecurityPolicyNoCrossSiteAttribute,
                                      nil];
@@ -177,7 +176,7 @@ void MediaPlayerPrivate::createQTMovie(const String& url)
     m_qtMovie.adoptNS([[QTMovie alloc] initWithAttributes:movieAttributes error:&error]);
     
     // FIXME: Find a proper way to detect streaming content.
-    m_isStreaming = protocolIs(url, "rtsp");
+    m_isStreaming = url.startsWith("rtsp:");
     
     if (!m_qtMovie)
         return;

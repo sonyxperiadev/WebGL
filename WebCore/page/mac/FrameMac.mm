@@ -83,6 +83,7 @@
 #import "TextResourceDecoder.h"
 #import "UserStyleSheetLoader.h"
 #import "WebCoreFrameBridge.h"
+#import "WebCoreSystemInterface.h"
 #import "WebCoreViewFactory.h"
 #import "WebDashboardRegion.h"
 #import "WebScriptObjectPrivate.h"
@@ -157,17 +158,17 @@ RegularExpression* regExpForLabels(NSArray* labels)
     if (cacheHit != NSNotFound)
         result = regExps.at(cacheHit);
     else {
-        String pattern("(");
+        DeprecatedString pattern("(");
         unsigned int numLabels = [labels count];
         unsigned int i;
         for (i = 0; i < numLabels; i++) {
-            String label = [labels objectAtIndex:i];
+            DeprecatedString label = DeprecatedString::fromNSString((NSString*)[labels objectAtIndex:i]);
 
             bool startsWithWordChar = false;
             bool endsWithWordChar = false;
             if (label.length() != 0) {
-                startsWithWordChar = wordRegExp.search(label.substring(0, 1)) >= 0;
-                endsWithWordChar = wordRegExp.search(label.substring(label.length() - 1, 1)) >= 0;
+                startsWithWordChar = wordRegExp.search(label.at(0)) >= 0;
+                endsWithWordChar = wordRegExp.search(label.at(label.length() - 1)) >= 0;
             }
             
             if (i != 0)
@@ -175,11 +176,13 @@ RegularExpression* regExpForLabels(NSArray* labels)
             // Search for word boundaries only if label starts/ends with "word characters".
             // If we always searched for word boundaries, this wouldn't work for languages
             // such as Japanese.
-            if (startsWithWordChar)
+            if (startsWithWordChar) {
                 pattern.append("\\b");
+            }
             pattern.append(label);
-            if (endsWithWordChar)
+            if (endsWithWordChar) {
                 pattern.append("\\b");
+            }
         }
         pattern.append(")");
         result = new RegularExpression(pattern, false);
@@ -222,10 +225,10 @@ NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTable
                 for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
                     if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
                         // For each text chunk, run the regexp
-                        String nodeString = n->nodeValue();
+                        DeprecatedString nodeString = n->nodeValue().deprecatedString();
                         int pos = regExp->searchRev(nodeString);
                         if (pos >= 0)
-                            return nodeString.substring(pos, regExp->matchedLength());
+                            return nodeString.mid(pos, regExp->matchedLength()).getNSString();
                     }
                 }
             }
@@ -269,13 +272,13 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
             searchedCellAbove = true;
         } else if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
             // For each text chunk, run the regexp
-            String nodeString = n->nodeValue();
+            DeprecatedString nodeString = n->nodeValue().deprecatedString();
             // add 100 for slop, to make it more likely that we'll search whole nodes
             if (lengthSearched + nodeString.length() > maxCharsSearched)
                 nodeString = nodeString.right(charsSearchedThreshold - lengthSearched);
             int pos = regExp->searchRev(nodeString);
             if (pos >= 0)
-                return nodeString.substring(pos, regExp->matchedLength());
+                return nodeString.mid(pos, regExp->matchedLength()).getNSString();
 
             lengthSearched += nodeString.length();
         }
@@ -294,14 +297,11 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
 
 NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
 {
-    String name = element->getAttribute(nameAttr);
-    if (name.isEmpty())
-        return nil;
-
+    DeprecatedString name = element->getAttribute(nameAttr).deprecatedString();
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    replace(name, RegularExpression("\\d"), " ");
+    name.replace(RegularExpression("\\d"), " ");
     name.replace('_', ' ');
-
+    
     RegularExpression* regExp = regExpForLabels(labels);
     // Use the largest match we can find in the whole name string
     int pos;
@@ -317,12 +317,12 @@ NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
                 bestPos = pos;
                 bestLength = length;
             }
-            start = pos + 1;
+            start = pos+1;
         }
     } while (pos != -1);
 
     if (bestPos != -1)
-        return name.substring(bestPos, bestLength);
+        return name.mid(bestPos, bestLength).getNSString();
     return nil;
 }
 

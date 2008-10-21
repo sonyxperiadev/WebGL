@@ -35,7 +35,6 @@
 #include "Document.h"
 #include "FileSystem.h"
 #include "Logging.h"
-#include "MainThread.h"
 #include "OriginQuotaManager.h"
 #include "Page.h"
 #include "SecurityOrigin.h"

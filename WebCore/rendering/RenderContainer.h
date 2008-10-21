@@ -60,6 +60,9 @@ public:
     bool isAfterContent(RenderObject* child) const;
 
     virtual VisiblePosition positionForCoordinates(int x, int y);
+#ifdef ANDROID_LAYOUT
+    virtual bool hasChildTable() const;
+#endif
 
     virtual void addLineBoxRects(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX);
 

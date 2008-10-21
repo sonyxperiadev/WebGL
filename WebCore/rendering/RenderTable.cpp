@@ -36,7 +36,12 @@
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
 #include "RenderTableSection.h"
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#include "WebCoreViewBridge.h"
+#endif
 #include "RenderView.h"
+#include "TextStream.h"
 
 using namespace std;
 
@@ -61,6 +66,9 @@ RenderTable::RenderTable(Node* node)
     , m_borderLeft(0)
     , m_borderRight(0)
 {
+#ifdef ANDROID_LAYOUT
+    m_singleColumn = false;    
+#endif    
     m_columnPos.fill(0, 2);
     m_columns.fill(ColumnStruct(), 1);
 }
@@ -209,6 +217,16 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 
 void RenderTable::calcWidth()
 {
+#ifdef ANDROID_LAYOUT
+    if (view()->frameView()) {
+        const Settings* settings = document()->settings();
+        ASSERT(settings);
+        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+            m_visibleWidth = view()->frameView()->getWebCoreViewBridge()->screenWidth();
+        }
+    }
+#endif
+    
     if (isPositioned())
         calcAbsoluteHorizontal();
 
@@ -244,6 +262,11 @@ void RenderTable::calcWidth()
     // Finally, with our true width determined, compute our margins for real.
     m_marginRight = 0;
     m_marginLeft = 0;
+#ifdef ANDROID_LAYOUT
+    // in SSR mode, we ignore left/right margin for table
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
+        return;
+#endif    
     calcHorizontalMargins(style()->marginLeft(), style()->marginRight(), availableWidth);
 }
 
@@ -271,9 +294,33 @@ void RenderTable::layout()
     m_overflowTop = 0;
     initMaxMarginValues();
     
+#ifdef ANDROID_LAYOUT
+    bool relayoutChildren = false;
+    int oldVisibleWidth = m_visibleWidth;
+#endif
+    
     int oldWidth = m_width;
     calcWidth();
 
+#ifdef ANDROID_LAYOUT
+    if (oldVisibleWidth != m_visibleWidth
+            && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
+        relayoutChildren = true;
+    else if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+        // if the width of a table is wider than its container width, or it has a nested table,
+        // we will render it with single column.
+        int cw = containingBlockWidth();
+        if (m_width > cw || hasChildTable()) {
+            m_singleColumn = true; 
+            if (m_width > cw)
+	            m_width = cw;
+            if (m_minPrefWidth > cw)
+	            m_minPrefWidth = cw;
+    		if (m_maxPrefWidth > cw)
+	            m_maxPrefWidth = cw;
+        }
+    }    
+#endif
     if (m_caption && m_width != oldWidth)
         m_caption->setNeedsLayout(true, false);
 
@@ -293,8 +340,14 @@ void RenderTable::layout()
     RenderObject* child = firstChild();
     while (child) {
         // FIXME: What about a form that has a display value that makes it a table section?
+#ifdef ANDROID_LAYOUT
+        if ((relayoutChildren || child->needsLayout()) && 
+                !(child->element() && child->element()->hasTagName(formTag)))
+            child->layout();
+#else
         if (child->needsLayout() && !(child->element() && child->element()->hasTagName(formTag)))
             child->layout();
+#endif
         if (child->isTableSection()) {
             static_cast<RenderTableSection*>(child)->calcRowHeight();
             calculatedHeight += static_cast<RenderTableSection*>(child)->layoutRows(0);
@@ -1101,5 +1154,24 @@ IntRect RenderTable::getOverflowClipRect(int tx, int ty)
 
     return rect;
 }
+
+#ifndef NDEBUG
+void RenderTable::dump(TextStream* stream, DeprecatedString ind) const
+{
+    if (m_caption)
+        *stream << " tCaption";
+    if (m_head)
+        *stream << " head";
+    if (m_foot)
+        *stream << " foot";
+
+    *stream << endl << ind << "cspans:";
+    for (unsigned i = 0; i < m_columns.size(); i++)
+        *stream << " " << m_columns[i].span;
+    *stream << endl << ind;
+
+    RenderBlock::dump(stream, ind);
+}
+#endif
 
 }

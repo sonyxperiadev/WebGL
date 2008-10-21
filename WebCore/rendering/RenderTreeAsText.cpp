@@ -39,7 +39,6 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
-#include "TextStream.h"
 #include <wtf/Vector.h>
 
 #if ENABLE(SVG)
@@ -490,23 +489,24 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
            << "selection end:   position " << selection.end().offset() << " of " << nodePosition(selection.end().node()) << "\n";
 }
 
-String externalRepresentation(RenderObject* o)
+DeprecatedString externalRepresentation(RenderObject* o)
 {
-    if (!o)
-        return String();
-
-    TextStream ts;
+    DeprecatedString s;
+    if (o) {
+        TextStream ts(&s);
+        ts.precision(2);
 #if ENABLE(SVG)
-    writeRenderResources(ts, o->document());
+        writeRenderResources(ts, o->document());
 #endif
-    if (o->view()->frameView())
-        o->view()->frameView()->layout();
-    RenderLayer* l = o->layer();
-    if (l) {
-        writeLayers(ts, l, l, IntRect(l->xPos(), l->yPos(), l->width(), l->height()));
-        writeSelection(ts, o);
+        if (o->view()->frameView())
+            o->view()->frameView()->layout();
+        RenderLayer* l = o->layer();
+        if (l) {
+            writeLayers(ts, l, l, IntRect(l->xPos(), l->yPos(), l->width(), l->height()));
+            writeSelection(ts, o);
+        }
     }
-    return ts.release();
+    return s;
 }
 
 } // namespace WebCore

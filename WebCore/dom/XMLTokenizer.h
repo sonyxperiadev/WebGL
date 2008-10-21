@@ -1,6 +1,8 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Computer, Inc.
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2007 Trolltech ASA
  *
@@ -23,6 +25,115 @@
 
 #ifndef XMLTokenizer_h
 #define XMLTokenizer_h
+
+#if USE(EXPAT)
+
+#include "CachedResourceClient.h"
+#include "SegmentedString.h"
+#include "StringHash.h"
+#include "Tokenizer.h"
+#include <libexpat/expat.h>
+#include <wtf/HashMap.h>
+#include <wtf/OwnPtr.h>
+
+namespace WebCore {
+
+    class Node;
+    class CachedScript;
+    class DocumentFragment;
+    class Document;
+    class Element;
+    class FrameView;
+    class PendingCallbacks;
+
+    class XMLTokenizer : public Tokenizer, public CachedResourceClient {
+    public:
+        XMLTokenizer(Document *, FrameView * = 0);
+        XMLTokenizer(DocumentFragment *, Element *);
+        ~XMLTokenizer();
+    
+        enum ErrorType { warning, nonFatal, fatal };
+    
+        // from Tokenizer
+        virtual bool write(const SegmentedString &str, bool);
+        virtual void finish();
+        virtual bool isWaitingForScripts() const;
+        virtual void stopParsing();
+        virtual bool wellFormed() const { return !m_sawError; }
+        virtual int lineNumber() const;
+        virtual int columnNumber() const;
+
+        // from CachedObjectClient
+        virtual void notifyFinished(CachedResource *finishedObj);
+    
+        // callbacks from parser expat
+        void startElementNs(const XML_Char *name, const XML_Char **atts);
+        void endElementNs();
+        void characters(const XML_Char *s, int len);
+        void processingInstruction(const XML_Char *target, const XML_Char *data);
+        void comment(const XML_Char *s);
+        void startCdata();
+        void endCdata();
+        
+        void error(ErrorType type, const char* m, int lineNumber, int columnNumber);
+        
+        // utilities
+        XML_Parser getXMLParser() const { return m_parser; }
+        void setXMLParser(XML_Parser parser) { m_parser = parser; }
+    
+    private:
+        void setCurrentNode(Node*);
+        
+        void end();
+
+        void pauseParsing();
+        void resumeParsing();
+
+        void reportError();
+        void insertErrorMessageBlock();
+        
+        bool enterText();
+        void exitText();
+        
+        Document *m_doc;
+        FrameView *m_view;
+        
+        XML_Parser m_parser;
+        
+        Node *m_currentNode;
+        bool m_currentNodeIsReferenced;
+        
+        bool m_sawError;
+        bool m_sawXSLTransform;
+        bool m_sawFirstElement;
+        
+        bool m_parserPaused;
+        bool m_requestingScript;
+        bool m_finishCalled;
+                
+        int m_errorCount;                
+        String m_errorMessages;
+        
+        CachedScript *m_pendingScript;
+        RefPtr<Element> m_scriptElement;
+        int m_scriptStartLine;
+        
+        bool m_parsingFragment;
+        String m_defaultNamespaceURI;
+        
+        typedef HashMap<String, String> PrefixForNamespaceMap;
+        PrefixForNamespaceMap m_prefixToNamespaceMap;
+        
+        OwnPtr<PendingCallbacks> m_pendingCallbacks;
+        SegmentedString m_pendingSrc;
+    };
+
+HashMap<String, String> parseAttributes(const String&, bool& attrsOK);
+bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0);
+
+} // namespace WebCore
+
+#else   // USE(EXPAT)
 
 #include "CachedResourceClient.h"
 #include "SegmentedString.h"
@@ -168,7 +279,7 @@ namespace WebCore {
     };
 
 #if ENABLE(XSLT)
-void* xmlDocPtrForString(DocLoader*, const String& source, const String& url);
+void* xmlDocPtrForString(DocLoader*, const String& source, const DeprecatedString& url);
 void setLoaderForLibXMLCallbacks(DocLoader*);
 #endif
 
@@ -176,5 +287,7 @@ HashMap<String, String> parseAttributes(const String&, bool& attrsOK);
 bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0);
 
 } // namespace WebCore
+
+#endif // USE(EXPAT)
 
 #endif // XMLTokenizer_h

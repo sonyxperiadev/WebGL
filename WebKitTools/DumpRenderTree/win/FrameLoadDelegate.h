@@ -29,7 +29,8 @@
 #ifndef FrameLoadDelegate_h
 #define FrameLoadDelegate_h
 
-#include <WebKit/WebKit.h>
+#include <WebKit/IWebFrameLoadDelegate.h>
+#include <WebKit/IWebFrameLoadDelegatePrivate.h>
 #include <wtf/OwnPtr.h>
 
 class GCController;

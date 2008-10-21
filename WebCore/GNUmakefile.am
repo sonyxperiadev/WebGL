@@ -88,7 +88,6 @@ webcore_built_sources += \
 	DerivedSources/JSCSSValueList.h \
 	DerivedSources/JSCanvasGradient.h \
 	DerivedSources/JSCanvasPattern.h \
-	DerivedSources/JSCanvasPixelArray.h \
 	DerivedSources/JSCanvasRenderingContext2D.h \
 	DerivedSources/JSCharacterData.h \
 	DerivedSources/JSComment.h \
@@ -168,9 +167,9 @@ webcore_built_sources += \
 	DerivedSources/JSHTMLTitleElement.h \
 	DerivedSources/JSHTMLUListElement.h \
 	DerivedSources/JSHistory.h \
-	DerivedSources/JSImageData.h \
 	DerivedSources/JSKeyboardEvent.h \
 	DerivedSources/JSMediaList.h \
+	DerivedSources/JSMessageEvent.h \
 	DerivedSources/JSMouseEvent.h \
 	DerivedSources/JSMutationEvent.h \
 	DerivedSources/JSNamedNodeMap.h \
@@ -213,7 +212,6 @@ webcore_built_sources += \
 	DerivedSources/JSCSSValueList.cpp \
 	DerivedSources/JSCanvasGradient.cpp \
 	DerivedSources/JSCanvasPattern.cpp \
-	DerivedSources/JSCanvasPixelArray.cpp \
 	DerivedSources/JSCanvasRenderingContext2D.cpp \
 	DerivedSources/JSCharacterData.cpp \
 	DerivedSources/JSComment.cpp \
@@ -293,9 +291,9 @@ webcore_built_sources += \
 	DerivedSources/JSHTMLTitleElement.cpp \
 	DerivedSources/JSHTMLUListElement.cpp \
 	DerivedSources/JSHistory.cpp \
-	DerivedSources/JSImageData.cpp \
 	DerivedSources/JSKeyboardEvent.cpp \
 	DerivedSources/JSMediaList.cpp \
+	DerivedSources/JSMessageEvent.cpp \
 	DerivedSources/JSMouseEvent.cpp \
 	DerivedSources/JSMutationEvent.cpp \
 	DerivedSources/JSNamedNodeMap.cpp \
@@ -355,6 +353,7 @@ IDL_BINDINGS +=  \
 	WebCore/dom/Event.idl \
 	WebCore/dom/EventException.idl \
 	WebCore/dom/KeyboardEvent.idl \
+	WebCore/dom/MessageEvent.idl \
 	WebCore/dom/MouseEvent.idl \
 	WebCore/dom/MutationEvent.idl \
 	WebCore/dom/NamedNodeMap.idl \
@@ -452,7 +451,6 @@ webcore_headers += \
 webcore_sources += \
 	WebCore/bindings/js/GCController.cpp \
 	WebCore/bindings/js/JSAttrCustom.cpp \
-	WebCore/bindings/js/JSCanvasPixelArrayCustom.cpp \
 	WebCore/bindings/js/JSCanvasRenderingContext2DCustom.cpp \
 	WebCore/bindings/js/JSCSSRuleCustom.cpp \
 	WebCore/bindings/js/JSCSSStyleDeclarationCustom.cpp \
@@ -579,6 +577,7 @@ webcore_sources += \
 	WebCore/dom/ExceptionCode.cpp \
 	WebCore/dom/KeyboardEvent.cpp \
 	WebCore/dom/MappedAttribute.cpp \
+	WebCore/dom/MessageEvent.cpp \
 	WebCore/dom/MouseEvent.cpp \
 	WebCore/dom/MouseRelatedEvent.cpp \
 	WebCore/dom/MutationEvent.cpp \
@@ -664,7 +663,6 @@ webcore_sources += \
 	WebCore/history/PageCache.cpp \
 	WebCore/html/CanvasGradient.cpp \
 	WebCore/html/CanvasPattern.cpp \
-	WebCore/html/CanvasPixelArray.cpp \
 	WebCore/html/CanvasRenderingContext2D.cpp \
 	WebCore/html/CanvasStyle.cpp \
 	WebCore/html/FormDataList.cpp \
@@ -744,7 +742,6 @@ webcore_sources += \
 	WebCore/html/HTMLTokenizer.cpp \
 	WebCore/html/HTMLUListElement.cpp \
 	WebCore/html/HTMLViewSourceDocument.cpp \
-	WebCore/html/ImageData.cpp \
 	WebCore/loader/Cache.cpp \
 	WebCore/loader/CachedCSSStyleSheet.cpp \
 	WebCore/loader/CachedFont.cpp \
@@ -793,12 +790,16 @@ webcore_sources += \
 	WebCore/page/Settings.cpp \
 	WebCore/page/WindowFeatures.cpp \
 	WebCore/platform/Arena.cpp \
+	WebCore/platform/ArrayImpl.cpp \
 	WebCore/platform/text/AtomicString.cpp \
 	WebCore/platform/text/Base64.cpp \
 	WebCore/platform/text/BidiContext.cpp \
 	WebCore/platform/ContextMenu.cpp \
 	WebCore/platform/text/CString.cpp \
+	WebCore/platform/DeprecatedCString.cpp \
 	WebCore/platform/DeprecatedPtrListImpl.cpp \
+	WebCore/platform/DeprecatedString.cpp \
+	WebCore/platform/DeprecatedStringList.cpp \
 	WebCore/platform/DeprecatedValueListImpl.cpp \
 	WebCore/platform/DragData.cpp \
 	WebCore/platform/DragImage.cpp \
@@ -821,12 +822,11 @@ webcore_sources += \
 	WebCore/platform/KURL.cpp \
 	WebCore/platform/Logging.cpp \
 	WebCore/platform/MIMETypeRegistry.cpp \
-	WebCore/platform/network/AuthenticationChallengeBase.cpp \
+	WebCore/platform/network/AuthenticationChallenge.cpp \
 	WebCore/platform/network/Credential.cpp \
 	WebCore/platform/network/FormData.cpp \
 	WebCore/platform/network/HTTPParsers.cpp \
 	WebCore/platform/network/ProtectionSpace.cpp \
-	WebCore/platform/network/ResourceErrorBase.cpp \
 	WebCore/platform/network/ResourceHandle.cpp \
 	WebCore/platform/network/ResourceRequestBase.cpp \
 	WebCore/platform/network/ResourceResponseBase.cpp \
@@ -848,9 +848,6 @@ webcore_sources += \
 	WebCore/platform/Timer.cpp \
 	WebCore/platform/text/UnicodeRange.cpp \
 	WebCore/platform/Widget.cpp \
-	WebCore/plugins/PluginDatabase.cpp \
-	WebCore/plugins/PluginInfoStore.cpp \
-	WebCore/plugins/PluginPackage.cpp \
 	WebCore/plugins/PluginStream.cpp \
 	WebCore/rendering/AutoTableLayout.cpp \
 	WebCore/rendering/bidi.cpp \
@@ -950,7 +947,6 @@ webkitgtk_sources += \
 	WebCore/platform/gtk/Language.cpp \
 	WebCore/platform/gtk/LocalizedStringsGtk.cpp \
 	WebCore/platform/gtk/LoggingGtk.cpp \
-	WebCore/platform/gtk/MainThreadGtk.cpp \
 	WebCore/platform/gtk/MIMETypeRegistryGtk.cpp \
 	WebCore/platform/gtk/MouseEventGtk.cpp \
 	WebCore/platform/gtk/PasteboardGtk.cpp \
@@ -965,6 +961,7 @@ webkitgtk_sources += \
 	WebCore/platform/gtk/SystemTimeGtk.cpp \
 	WebCore/platform/gtk/TemporaryLinkStubs.cpp \
 	WebCore/platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp \
+	WebCore/platform/gtk/ThreadingGtk.cpp \
 	WebCore/platform/gtk/WheelEventGtk.cpp \
 	WebCore/platform/gtk/WidgetGtk.cpp \
 	WebCore/platform/gtk/gtk2drawing.c \
@@ -974,7 +971,6 @@ webkitgtk_sources += \
 	WebCore/platform/graphics/gtk/IntPointGtk.cpp \
 	WebCore/platform/graphics/gtk/IntRectGtk.cpp \
 	WebCore/platform/graphics/cairo/AffineTransformCairo.cpp \
-	WebCore/platform/graphics/cairo/FontCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextCairo.cpp \
 	WebCore/platform/graphics/cairo/ImageBufferCairo.cpp \
 	WebCore/platform/graphics/cairo/ImageCairo.cpp \
@@ -1006,21 +1002,20 @@ endif # END USE_CURL
 # ----
 # Cross-document messaging support
 # ----
+
 if ENABLE_CROSS_DOCUMENT_MESSAGING
 FEATURE_DEFINES_JAVASCRIPT += ENABLE_CROSS_DOCUMENT_MESSAGING=1
 
-webcore_cppflags += \
-	-DENABLE_CROSS_DOCUMENT_MESSAGING=1
-
-webcore_sources += \
-	WebCore/dom/MessageEvent.cpp
-
 webcore_built_sources += \
-	DerivedSources/JSMessageEvent.h \
+	DerivedSources/JSMessageEvent.h
 	DerivedSources/JSMessageEvent.cpp
 
 IDL_BINDINGS += \
 	WebCore/dom/MessageEvent.idl
+
+webcore_cppflags += \
+	-DENABLE_CROSS_DOCUMENT_MESSAGING=1
+
 endif # END ENABLE_CROSS_DOCUMENT_MESSAGING
 
 # ----

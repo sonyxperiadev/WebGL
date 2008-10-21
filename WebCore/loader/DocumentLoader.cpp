@@ -30,6 +30,9 @@
 #include "DocumentLoader.h"
 
 #include "CachedPage.h"
+#ifdef ANDROID_PRELOAD_CHANGES
+#include "DocLoader.h"
+#endif
 #include "Document.h"
 #include "Event.h"
 #include "Frame.h"
@@ -123,8 +126,7 @@ static void setAllDefersLoading(const ResourceLoaderSet& loaders, bool defers)
 }
 
 DocumentLoader::DocumentLoader(const ResourceRequest& req, const SubstituteData& substituteData)
-    : RefCounted<DocumentLoader>(0)
-    , m_deferMainResourceDataLoad(true)
+    : m_deferMainResourceDataLoad(true)
     , m_frame(0)
     , m_originalRequest(req)
     , m_substituteData(substituteData)
@@ -466,10 +468,15 @@ bool DocumentLoader::isLoadingInAPISense() const
             return true;
         if (!m_subresourceLoaders.isEmpty())
             return true;
-        if (Document* doc = m_frame->document())
+        if (Document* doc = m_frame->document()) {
+#ifdef ANDROID_PRELOAD_CHANGES
+            if (doc->docLoader()->requestCount())
+                return true;
+#endif
             if (Tokenizer* tok = doc->tokenizer())
                 if (tok->processingData())
                     return true;
+        }
     }
     return frameLoader()->subframeIsLoading();
 }

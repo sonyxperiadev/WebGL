@@ -53,6 +53,9 @@ namespace WebCore {
     typedef const QList<ContextMenuItem>* PlatformMenuDescription;
 #elif PLATFORM(GTK)
     typedef GtkMenu* PlatformMenuDescription;
+#elif defined ANDROID
+// Currently Android is not using this.  Until its use is deemed necessary/desirable, typedef to void*.
+    typedef void* PlatformMenuDescription;
 #elif PLATFORM(WX)
     typedef wxMenu* PlatformMenuDescription;
 #endif

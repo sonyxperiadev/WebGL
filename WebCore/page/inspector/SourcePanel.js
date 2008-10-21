@@ -90,7 +90,7 @@ WebInspector.SourcePanel.prototype = {
         if (!row)
             return;
         this.currentView = this.views.source;
-        row.scrollIntoViewIfNeeded(true);
+        row.scrollIntoView(true);
     },
 
     addMessageToSource: function(msg)

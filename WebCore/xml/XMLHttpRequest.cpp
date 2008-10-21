@@ -1,5 +1,6 @@
 /*
- *  Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
+ *  This file is part of the KDE libraries
+ *  Copyright (C) 2004, 2006 Apple Computer, Inc.
  *  Copyright (C) 2005-2007 Alexey Proskuryakov <ap@webkit.org>
  *  Copyright (C) 2007 Julien Chaffraix <julien.chaffraix@gmail.com>
  *
@@ -22,20 +23,31 @@
 #include "XMLHttpRequest.h"
 
 #include "CString.h"
+#include "Cache.h"
 #include "DOMImplementation.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
+#include "FormData.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "HTMLDocument.h"
 #include "HTTPParsers.h"
 #include "Page.h"
+#include "PlatformString.h"
+#include "RegularExpression.h"
+#include "ResourceHandle.h"
+#include "ResourceRequest.h"
 #include "Settings.h"
 #include "SubresourceLoader.h"
+#include "TextEncoding.h"
 #include "TextResourceDecoder.h"
 #include "XMLHttpRequestException.h"
 #include "kjs_binding.h"
+#include <kjs/protect.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -156,7 +168,7 @@ Document* XMLHttpRequest::getResponseXML(ExceptionCode& ec) const
         } else {
             m_responseXML = m_doc->implementation()->createDocument(0);
             m_responseXML->open();
-            m_responseXML->setURL(m_url);
+            m_responseXML->setURL(m_url.deprecatedString());
             // FIXME: set Last-Modified and cookies (currently, those are only available for HTMLDocuments).
             m_responseXML->write(String(m_responseText));
             m_responseXML->finishParsing();
@@ -300,10 +312,13 @@ bool XMLHttpRequest::urlMatchesDocumentDomain(const KURL& url) const
 {
     // a local file can load anything
     if (m_doc->isAllowedToLoadLocalResources())
+#ifdef ANDROID_FILE_SECURITY
+        if (FrameLoader::shouldTreatURLAsLocal(url.string()))
+#endif
         return true;
 
     // but a remote document can only load from the same port on the server
-    KURL documentURL(m_doc->url());
+    KURL documentURL = m_doc->url();
     if (documentURL.protocol().lower() == url.protocol().lower()
             && documentURL.host().lower() == url.host().lower()
             && documentURL.port() == url.port())
@@ -314,9 +329,7 @@ bool XMLHttpRequest::urlMatchesDocumentDomain(const KURL& url) const
 
 void XMLHttpRequest::open(const String& method, const KURL& url, bool async, ExceptionCode& ec)
 {
-    internalAbort();
-    XMLHttpRequestState previousState = m_state;
-    m_state = Uninitialized;
+    abort();
     m_aborted = false;
 
     // clear stuff from possible previous load
@@ -355,26 +368,19 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, Exc
         || methodUpper == "INDEX" || methodUpper == "LOCK" || methodUpper == "M-POST" || methodUpper == "MKCOL" || methodUpper == "MOVE"
         || methodUpper == "OPTIONS" || methodUpper == "POST" || methodUpper == "PROPFIND" || methodUpper == "PROPPATCH" || methodUpper == "PUT" 
         || methodUpper == "UNLOCK")
-        m_method = methodUpper;
+        m_method = methodUpper.deprecatedString();
     else
-        m_method = method;
+        m_method = method.deprecatedString();
 
     m_async = async;
 
-    ASSERT(!m_loader);
-
-    // Check previous state to avoid dispatching readyState event
-    // when calling open several times in a row.
-    if (previousState != Open)
-        changeState(Open);
-    else
-        m_state = Open;
+    changeState(Open);
 }
 
 void XMLHttpRequest::open(const String& method, const KURL& url, bool async, const String& user, ExceptionCode& ec)
 {
     KURL urlWithCredentials(url);
-    urlWithCredentials.setUser(user);
+    urlWithCredentials.setUser(user.deprecatedString());
     
     open(method, urlWithCredentials, async, ec);
 }
@@ -382,8 +388,8 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, con
 void XMLHttpRequest::open(const String& method, const KURL& url, bool async, const String& user, const String& password, ExceptionCode& ec)
 {
     KURL urlWithCredentials(url);
-    urlWithCredentials.setUser(user);
-    urlWithCredentials.setPass(password);
+    urlWithCredentials.setUser(user.deprecatedString());
+    urlWithCredentials.setPass(password.deprecatedString());
     
     open(method, urlWithCredentials, async, ec);
 }
@@ -393,16 +399,20 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
     if (!m_doc)
         return;
 
-    if (m_state != Open || m_loader) {
+    if (m_state != Open) {
         ec = INVALID_STATE_ERR;
         return;
     }
+  
+    // FIXME: Should this abort or raise an exception instead if we already have a m_loader going?
+    if (m_loader)
+        return;
 
     m_aborted = false;
 
     ResourceRequest request(m_url);
     request.setHTTPMethod(m_method);
-
+    
     if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && (m_url.protocol().lower() == "http" || m_url.protocol().lower() == "https")) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
@@ -421,7 +431,8 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
         TextEncoding m_encoding(charset);
         if (!m_encoding.isValid()) // FIXME: report an error?
             m_encoding = UTF8Encoding();
-        request.setHTTPBody(FormData::create(m_encoding.encode(body.characters(), body.length())));
+
+        request.setHTTPBody(PassRefPtr<FormData>(new FormData(m_encoding.encode(body.characters(), body.length()))));
     }
 
     if (m_requestHeaders.size() > 0)
@@ -466,34 +477,16 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
         ref();
 
         KJS::JSLock lock;
-        gcProtectNullTolerant(ScriptInterpreter::getDOMObject(this));
+        KJS::gcProtectNullTolerant(KJS::ScriptInterpreter::getDOMObject(this));
     }
 }
 
 void XMLHttpRequest::abort()
 {
-    bool sendFlag = m_loader;
-
-    internalAbort();
-
-    // Clear headers as required by the spec
-    m_requestHeaders.clear();
-
-    if ((m_state <= Open && !sendFlag) || m_state == Loaded)
-        m_state = Uninitialized;
-     else {
-        ASSERT(!m_loader);
-        changeState(Loaded);
-        m_state = Uninitialized;
-    }
-}
-
-void XMLHttpRequest::internalAbort()
-{
     bool hadLoader = m_loader;
 
     m_aborted = true;
-
+    
     if (hadLoader) {
         m_loader->cancel();
         m_loader = 0;
@@ -503,13 +496,15 @@ void XMLHttpRequest::internalAbort()
 
     if (hadLoader)
         dropProtection();
+
+    m_state = Uninitialized;
 }
 
 void XMLHttpRequest::dropProtection()        
 {
     {
         KJS::JSLock lock;
-        KJS::JSValue* wrapper = ScriptInterpreter::getDOMObject(this);
+        KJS::JSValue* wrapper = KJS::ScriptInterpreter::getDOMObject(this);
         KJS::gcUnprotectNullTolerant(wrapper);
     
         // the XHR object itself holds on to the responseText, and
@@ -533,7 +528,7 @@ void XMLHttpRequest::overrideMIMEType(const String& override)
     
 void XMLHttpRequest::setRequestHeader(const String& name, const String& value, ExceptionCode& ec)
 {
-    if (m_state != Open || m_loader) {
+    if (m_state != Open) {
         Settings* settings = m_doc ? m_doc->settings() : 0;
         if (settings && settings->usesDashboardBackwardCompatibilityMode())
             return;
@@ -625,36 +620,38 @@ bool XMLHttpRequest::responseIsXML() const
 
 int XMLHttpRequest::getStatus(ExceptionCode& ec) const
 {
-    if (m_response.httpStatusCode())
-        return m_response.httpStatusCode();
-
-    if (m_state == Open) {
-        // Firefox only raises an exception in this state; we match it.
-        // Note the case of local file requests, where we have no HTTP response code! Firefox never raises an exception for those, but we match HTTP case for consistency.
-        ec = INVALID_STATE_ERR;
+    if (m_state == Uninitialized)
+        return 0;
+    
+    if (m_response.httpStatusCode() == 0) {
+        if (m_state != Receiving && m_state != Loaded)
+            // status MUST be available in these states, but we don't get any headers from non-HTTP requests
+            ec = INVALID_STATE_ERR;
     }
 
-    return 0;
+    return m_response.httpStatusCode();
 }
 
 String XMLHttpRequest::getStatusText(ExceptionCode& ec) const
 {
-    // FIXME: <http://bugs.webkit.org/show_bug.cgi?id=3547> XMLHttpRequest.statusText returns always "OK".
-    if (m_response.httpStatusCode())
-        return "OK";
-
-    if (m_state == Open) {
-        // See comments in getStatus() above.
-        ec = INVALID_STATE_ERR;
+    if (m_state == Uninitialized)
+        return "";
+    
+    if (m_response.httpStatusCode() == 0) {
+        if (m_state != Receiving && m_state != Loaded)
+            // statusText MUST be available in these states, but we don't get any headers from non-HTTP requests
+            ec = INVALID_STATE_ERR;
+        return String();
     }
 
-    return String();
+    // FIXME: should try to preserve status text in response
+    return "OK";
 }
 
 void XMLHttpRequest::processSyncLoadResults(const Vector<char>& data, const ResourceResponse& response)
 {
     if (!urlMatchesDocumentDomain(response.url())) {
-        internalAbort();
+        abort();
         return;
     }
 
@@ -707,7 +704,7 @@ void XMLHttpRequest::didFinishLoading(SubresourceLoader* loader)
 void XMLHttpRequest::willSendRequest(SubresourceLoader*, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     if (!urlMatchesDocumentDomain(request.url()))
-        internalAbort();
+        abort();
 }
 
 void XMLHttpRequest::didReceiveResponse(SubresourceLoader*, const ResourceResponse& response)
@@ -770,7 +767,7 @@ void XMLHttpRequest::cancelRequests(Document* m_doc)
     RequestsSet copy = *requests;
     RequestsSet::const_iterator end = copy.end();
     for (RequestsSet::const_iterator it = copy.begin(); it != end; ++it)
-        (*it)->internalAbort();
+        (*it)->abort();
 }
 
 void XMLHttpRequest::detachRequests(Document* m_doc)
@@ -782,7 +779,7 @@ void XMLHttpRequest::detachRequests(Document* m_doc)
     RequestsSet::const_iterator end = requests->end();
     for (RequestsSet::const_iterator it = requests->begin(); it != end; ++it) {
         (*it)->m_doc = 0;
-        (*it)->internalAbort();
+        (*it)->abort();
     }
     delete requests;
 }

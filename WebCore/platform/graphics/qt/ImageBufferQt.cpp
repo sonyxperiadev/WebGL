@@ -27,8 +27,6 @@
 #include "ImageBuffer.h"
 
 #include "GraphicsContext.h"
-#include "ImageData.h"
-#include "NotImplemented.h"
 
 #include <QPainter>
 #include <QPixmap>
@@ -69,17 +67,6 @@ QPixmap* ImageBuffer::pixmap() const
     if (m_painter->isActive())
         m_painter->end();
     return &m_pixmap;
-}
-
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect&) const
-{
-    notImplemented();
-    return 0;
-}
-
-void ImageBuffer::putImageData(ImageData*, const IntRect&, const IntPoint&)
-{
-    notImplemented();
 }
 
 }

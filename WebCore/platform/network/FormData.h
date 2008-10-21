@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -59,10 +59,9 @@ inline bool operator!=(const FormDataElement& a, const FormDataElement& b)
  
 class FormData : public RefCounted<FormData> {
 public:
-    static PassRefPtr<FormData> create();
-    static PassRefPtr<FormData> create(const void*, size_t);
-    static PassRefPtr<FormData> create(const CString&);
-    static PassRefPtr<FormData> create(const Vector<char>&);
+    FormData() { } 
+    FormData(const void* data, size_t);
+    FormData(const CString&);
     PassRefPtr<FormData> copy() const;
     
     void appendData(const void* data, size_t);
@@ -75,10 +74,9 @@ public:
     const Vector<FormDataElement>& elements() const { return m_elements; }
 
 private:
-    FormData();
-    FormData(const FormData&);
+     FormData(const FormData&);
      
-    Vector<FormDataElement> m_elements;
+     Vector<FormDataElement> m_elements;
 };
 
 inline bool operator==(const FormData& a, const FormData& b)

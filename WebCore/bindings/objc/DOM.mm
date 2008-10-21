@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
  *
@@ -73,9 +73,6 @@
 #import "SVGNames.h"
 #import "DOMSVG.h"
 #endif
-
-using namespace KJS;
-using namespace WebCore;
 
 namespace WebCore {
 
@@ -579,7 +576,7 @@ static NSArray *kit(const Vector<IntRect>& rects)
     ASSERT(name);
     WebCore::Element* element = [self _element];
     ASSERT(element);
-    return element->document()->completeURL(parseURL(element->getAttribute(name)));
+    return WebCore::KURL(element->document()->completeURL(parseURL(element->getAttribute(name)).deprecatedString())).getNSURL();
 }
 
 // FIXME: this should be implemented in the implementation
@@ -685,16 +682,15 @@ static NSArray *kit(const Vector<IntRect>& rects)
 
 @end
 
+
 //------------------------------------------------------------------------------------------
 // ObjCNodeFilterCondition
 
-namespace WebCore {
-
-class ObjCNodeFilterCondition : public NodeFilterCondition {
+class ObjCNodeFilterCondition : public WebCore::NodeFilterCondition {
 public:
     ObjCNodeFilterCondition(id <DOMNodeFilter>);
     virtual ~ObjCNodeFilterCondition();
-    virtual short acceptNode(Node*, JSValue*& exception) const;
+    virtual short acceptNode(WebCore::Node*) const;
 
 private:
     ObjCNodeFilterCondition(const ObjCNodeFilterCondition&);
@@ -715,14 +711,13 @@ ObjCNodeFilterCondition::~ObjCNodeFilterCondition()
     HardRelease(m_filter);
 }
 
-short ObjCNodeFilterCondition::acceptNode(Node* node, JSValue*&) const
+short ObjCNodeFilterCondition::acceptNode(WebCore::Node* node) const
 {
     if (!node)
-        return NodeFilter::FILTER_REJECT;
+        return WebCore::NodeFilter::FILTER_REJECT;
     return [m_filter acceptNode:[DOMNode _wrapNode:node]];
 }
 
-} // namespace WebCore
 
 //------------------------------------------------------------------------------------------
 // DOMDocument (DOMDocumentTraversal)
@@ -732,23 +727,23 @@ short ObjCNodeFilterCondition::acceptNode(Node* node, JSValue*&) const
 
 - (DOMNodeIterator *)createNodeIterator:(DOMNode *)root whatToShow:(unsigned)whatToShow filter:(id <DOMNodeFilter>)filter expandEntityReferences:(BOOL)expandEntityReferences
 {
-    RefPtr<NodeFilter> cppFilter;
+    WebCore::NodeFilter* cppFilter = 0;
     if (filter)
-        cppFilter = new NodeFilter(new ObjCNodeFilterCondition(filter));
-    ExceptionCode ec = 0;
-    RefPtr<NodeIterator> impl = [self _document]->createNodeIterator([root _node], whatToShow, cppFilter.release(), expandEntityReferences, ec);
-    raiseOnDOMError(ec);
+        cppFilter = new WebCore::NodeFilter(new ObjCNodeFilterCondition(filter));
+    WebCore::ExceptionCode ec = 0;
+    RefPtr<WebCore::NodeIterator> impl = [self _document]->createNodeIterator([root _node], whatToShow, cppFilter, expandEntityReferences, ec);
+    WebCore::raiseOnDOMError(ec);
     return [DOMNodeIterator _wrapNodeIterator:impl.get() filter:filter];
 }
 
 - (DOMTreeWalker *)createTreeWalker:(DOMNode *)root whatToShow:(unsigned)whatToShow filter:(id <DOMNodeFilter>)filter expandEntityReferences:(BOOL)expandEntityReferences
 {
-    RefPtr<NodeFilter> cppFilter;
+    WebCore::NodeFilter* cppFilter = 0;
     if (filter)
-        cppFilter = new NodeFilter(new ObjCNodeFilterCondition(filter));
-    ExceptionCode ec = 0;
-    RefPtr<TreeWalker> impl = [self _document]->createTreeWalker([root _node], whatToShow, cppFilter.release(), expandEntityReferences, ec);
-    raiseOnDOMError(ec);
+        cppFilter = new WebCore::NodeFilter(new ObjCNodeFilterCondition(filter));
+    WebCore::ExceptionCode ec = 0;
+    RefPtr<WebCore::TreeWalker> impl = [self _document]->createTreeWalker([root _node], whatToShow, cppFilter, expandEntityReferences, ec);
+    WebCore::raiseOnDOMError(ec);
     return [DOMTreeWalker _wrapTreeWalker:impl.get() filter:filter];
 }
 

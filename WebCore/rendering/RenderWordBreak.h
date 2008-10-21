@@ -27,18 +27,19 @@
 #ifndef RenderWordBreak_h
 #define RenderWordBreak_h
 
-#include "RenderText.h"
+#include "RenderInline.h"
 
 namespace WebCore {
 
 class HTMLElement;
 
-class RenderWordBreak : public RenderText {
+class RenderWordBreak : public RenderInline {
 public:
     RenderWordBreak(HTMLElement*);
 
     virtual const char* renderName() const;
     virtual bool isWordBreak() const;
+    virtual bool canHaveChildren() const;
 };
 
 }

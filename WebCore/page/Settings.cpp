@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,11 +46,23 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
 
 Settings::Settings(Page* page)
     : m_page(page)
+#ifdef ANDROID_LAYOUT
+    , m_layoutAlgorithm(kLayoutFitColumnToScreen)
+#endif
     , m_editableLinkBehavior(EditableLinkDefaultBehavior)
     , m_minimumFontSize(0)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
     , m_defaultFixedFontSize(0)
+#ifdef ANDROID_LAYOUT
+    , m_useWideViewport(false)
+#endif
+#ifdef ANDROID_MULTIPLE_WINDOWS
+    , m_supportMultipleWindows(true)
+#endif
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    , m_blockNetworkImage(false)
+#endif
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
@@ -75,6 +87,9 @@ Settings::Settings(Page* page)
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
     AtomicString::init();
+#ifdef ANDROID_META_SUPPORT    
+    resetMetadataSettings();
+#endif
 }
 
 void Settings::setStandardFontFamily(const AtomicString& standardFontFamily)
@@ -167,6 +182,13 @@ void Settings::setDefaultFixedFontSize(int defaultFontSize)
     setNeedsReapplyStylesInAllFrames(m_page);
 }
 
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+void Settings::setBlockNetworkImage(bool blockNetworkImage)
+{
+    m_blockNetworkImage = blockNetworkImage;
+}
+#endif
+
 void Settings::setLoadsImagesAutomatically(bool loadsImagesAutomatically)
 {
     m_loadsImagesAutomatically = loadsImagesAutomatically;
@@ -186,6 +208,13 @@ void Settings::setPluginsEnabled(bool arePluginsEnabled)
 {
     m_arePluginsEnabled = arePluginsEnabled;
 }
+
+#ifdef ANDROID_PLUGINS
+void Settings::setPluginsPath(const String& pluginsPath)
+{
+    m_pluginsPath = pluginsPath;
+}
+#endif
 
 void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
@@ -295,6 +324,95 @@ void Settings::setDeveloperExtrasEnabled(bool developerExtrasEnabled)
 {
     m_developerExtrasEnabled = developerExtrasEnabled;
 }
+
+#ifdef ANDROID_META_SUPPORT
+void Settings::resetMetadataSettings()
+{
+    m_viewport_width = -1;
+    m_viewport_height = -1;
+    m_viewport_initial_scale = 0;
+    m_viewport_minimum_scale = 0;
+    m_viewport_maximum_scale = 0;
+    m_viewport_user_scalable = true;
+    m_format_detection_telephone = true;    
+    m_format_detection_address = true;    
+    m_format_detection_email = true;    
+}
+
+void Settings::setMetadataSettings(const String& key, const String& value)
+{
+    if (key == "width") {
+        if (value == "device-width") {
+            m_viewport_width = 0;
+        } else {
+            int width = value.toInt();
+            if (width >= 200 && width <= 10000) {
+                if (width == 320) {
+                    // This is a hack to accommodate the pages designed for the 
+                    // original iPhone. The new version, since 10/2007, is to 
+                    // use device-width which works for both prtrait and 
+                    // landscape modes.
+                    m_viewport_width = 0;
+                } else {
+                    m_viewport_width = width;
+                }
+            }
+        }
+    } else if (key == "height") {
+        if (value == "device-height") {
+            m_viewport_height = 0;
+        } else {
+            int height = value.toInt();
+            if (height >= 200 && height <= 10000) {
+                m_viewport_height = height;
+            }
+        }
+    } else if (key == "initial-scale") {
+        int scale = int(value.toFloat() * 100);
+        if (scale >= 1 && scale <= 1000) {
+            m_viewport_initial_scale = scale;
+        }
+    } else if (key == "minimum-scale") {
+        int scale = int(value.toFloat() * 100);
+        if (scale >= 1 && scale <= 1000) {
+            m_viewport_minimum_scale = scale;
+        }
+    } else if (key == "maximum-scale") {
+        int scale = int(value.toFloat() * 100);
+        if (scale >= 1 && scale <= 1000) {
+            m_viewport_maximum_scale = scale;
+        }
+    } else if (key == "user-scalable") {
+        // even Apple doc says using "no", "0" is common in the real world, and
+        // some sites, e.g. gomoviesapp.com, use "false".
+        if (value == "no" || value == "0" || value == "false") {
+            m_viewport_user_scalable = false;
+        }        
+    } else if (key == "telephone") {
+        if (value == "no") {
+            m_format_detection_telephone = false;
+        }        
+    } else if (key == "address") {
+        if (value == "no") {
+            m_format_detection_address = false;
+        }        
+    } else if (key == "email") {
+        if (value == "no") {
+            m_format_detection_email = false;
+        }        
+    } else if (key == "format-detection") {
+        // even Apple doc says "format-detection" should be the name of the 
+        // <meta> tag. In the real world, e.g. amazon.com, use 
+        // "format-detection=no" in the "viewport" <meta> tag to disable all
+        // format detection.
+        if (value == "no") {
+            m_format_detection_telephone = false;
+            m_format_detection_address = false;
+            m_format_detection_email = false;
+        }        
+    }
+}
+#endif
 
 void Settings::setAuthorAndUserStylesEnabled(bool authorAndUserStylesEnabled)
 {

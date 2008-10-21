@@ -29,7 +29,7 @@
 #ifndef ResourceLoadDelegate_h
 #define ResourceLoadDelegate_h
 
-#include <WebKit/WebKit.h>
+#include <WebKit/IWebResourceLoadDelegate.h>
 
 class ResourceLoadDelegate : public IWebResourceLoadDelegate {
 public:

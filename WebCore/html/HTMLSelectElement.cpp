@@ -529,10 +529,10 @@ void HTMLSelectElement::recalcListItems(bool updateSelectedStates) const
     m_recalcListItems = false;
 }
 
-void HTMLSelectElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void HTMLSelectElement::childrenChanged(bool changedByParser)
 {
     setRecalcListItems();
-    HTMLFormControlElementWithState::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLFormControlElementWithState::childrenChanged(changedByParser);
 }
 
 void HTMLSelectElement::setRecalcListItems()
@@ -583,10 +583,12 @@ void HTMLSelectElement::dispatchFocusEvent()
 
 void HTMLSelectElement::dispatchBlurEvent()
 {
+#ifndef ANDROID_NAVIGATE_LISTBOX
     // We only need to fire onChange here for menu lists, because we fire onChange for list boxes whenever the selection change is actually made.
     // This matches other browsers' behavior.
     if (usesMenuList())
         menuListOnChange();
+#endif
     HTMLFormControlElementWithState::dispatchBlurEvent();
 }
 
@@ -632,6 +634,11 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* evt)
             // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
             // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
             saveLastSelection();
+            menuList->showPopup();
+            handled = true;
+        }
+#elif defined ANDROID_KEYBOARD_NAVIGATION
+        if ("Enter" == keyIdentifier && usesMenuList()) {
             menuList->showPopup();
             handled = true;
         }

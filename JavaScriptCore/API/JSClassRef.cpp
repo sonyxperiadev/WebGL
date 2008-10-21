@@ -98,9 +98,9 @@ OpaqueJSClass::~OpaqueJSClass()
         JSClassRelease(prototypeClass);
 }
 
-PassRefPtr<OpaqueJSClass> OpaqueJSClass::createNoAutomaticPrototype(const JSClassDefinition* definition)
+JSClassRef OpaqueJSClass::createNoAutomaticPrototype(const JSClassDefinition* definition)
 {
-    return adoptRef(new OpaqueJSClass(definition, 0));
+    return new OpaqueJSClass(definition, 0);
 }
 
 void clearReferenceToPrototype(JSObjectRef prototype)
@@ -110,7 +110,7 @@ void clearReferenceToPrototype(JSObjectRef prototype)
     jsClass->cachedPrototype = 0;
 }
 
-PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* definition)
+JSClassRef OpaqueJSClass::create(const JSClassDefinition* definition)
 {
     if (const JSStaticFunction* staticFunctions = definition->staticFunctions) {
         // copy functions into a prototype class
@@ -122,10 +122,10 @@ PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* definit
         // remove functions from the original class
         JSClassDefinition objectDefinition = *definition;
         objectDefinition.staticFunctions = 0;
-        return adoptRef(new OpaqueJSClass(&objectDefinition, protoClass));
+        return new OpaqueJSClass(&objectDefinition, protoClass);
     }
 
-    return adoptRef(new OpaqueJSClass(definition, 0));
+    return new OpaqueJSClass(definition, 0);
 }
 
 /*!

@@ -131,9 +131,9 @@ namespace WebCore {
     // Inherited/Non-Inherited Style Datastructures
     class StyleFillData : public RefCounted<StyleFillData> {
     public:
-        static PassRefPtr<StyleFillData> create() { return adoptRef(new StyleFillData); }
-        PassRefPtr<StyleFillData> copy() const { return adoptRef(new StyleFillData(*this)); }
-        
+        StyleFillData();
+        StyleFillData(const StyleFillData &other);
+
         bool operator==(const StyleFillData &other) const;
         bool operator!=(const StyleFillData &other) const
         {
@@ -144,14 +144,13 @@ namespace WebCore {
         RefPtr<SVGPaint> paint;
 
     private:
-        StyleFillData();
-        StyleFillData(const StyleFillData&);
+        StyleFillData &operator=(const StyleFillData &);
     };
 
     class StyleStrokeData : public RefCounted<StyleStrokeData> {
     public:
-        static PassRefPtr<StyleStrokeData> create() { return adoptRef(new StyleStrokeData); }
-        PassRefPtr<StyleStrokeData> copy() const { return adoptRef(new StyleStrokeData(*this)); }
+        StyleStrokeData();
+        StyleStrokeData(const StyleStrokeData&);
 
         bool operator==(const StyleStrokeData&) const;
         bool operator!=(const StyleStrokeData& other) const
@@ -168,15 +167,14 @@ namespace WebCore {
         RefPtr<SVGPaint> paint;
         RefPtr<CSSValueList> dashArray;
 
-    private:        
-        StyleStrokeData();
-        StyleStrokeData(const StyleStrokeData&);
+    private:
+        StyleStrokeData &operator=(const StyleStrokeData&);
     };
 
     class StyleStopData : public RefCounted<StyleStopData> {
     public:
-        static PassRefPtr<StyleStopData> create() { return adoptRef(new StyleStopData); }
-        PassRefPtr<StyleStopData> copy() const { return adoptRef(new StyleStopData(*this)); }
+        StyleStopData();
+        StyleStopData(const StyleStopData &other);
 
         bool operator==(const StyleStopData &other) const;
         bool operator!=(const StyleStopData &other) const
@@ -187,16 +185,15 @@ namespace WebCore {
         float opacity;
         Color color;
 
-    private:        
-        StyleStopData();
-        StyleStopData(const StyleStopData&);
+    private:
+        StyleStopData &operator=(const StyleStopData &);
     };
 
     class StyleTextData : public RefCounted<StyleTextData> {
     public:
-        static PassRefPtr<StyleTextData> create() { return adoptRef(new StyleTextData); }
-        PassRefPtr<StyleTextData> copy() const { return adoptRef(new StyleTextData(*this)); }
-        
+        StyleTextData();
+        StyleTextData(const StyleTextData& other);
+
         bool operator==(const StyleTextData& other) const;
         bool operator!=(const StyleTextData& other) const
         {
@@ -206,14 +203,13 @@ namespace WebCore {
         RefPtr<CSSValue> kerning;
 
     private:
-        StyleTextData();
-        StyleTextData(const StyleTextData& other);
+        StyleTextData& operator=(const StyleTextData&);
     };
 
     class StyleClipData : public RefCounted<StyleClipData> {
     public:
-        static PassRefPtr<StyleClipData> create() { return adoptRef(new StyleClipData); }
-        PassRefPtr<StyleClipData> copy() const { return adoptRef(new StyleClipData(*this)); }
+        StyleClipData();
+        StyleClipData(const StyleClipData &other);
 
         bool operator==(const StyleClipData &other) const;
         bool operator!=(const StyleClipData &other) const
@@ -224,29 +220,27 @@ namespace WebCore {
         String clipPath;
 
     private:
-        StyleClipData();
-        StyleClipData(const StyleClipData&);
+        StyleClipData &operator=(const StyleClipData &);
     };
 
     class StyleMaskData : public RefCounted<StyleMaskData> {
     public:
-        static PassRefPtr<StyleMaskData> create() { return adoptRef(new StyleMaskData); }
-        PassRefPtr<StyleMaskData> copy() const { return adoptRef(new StyleMaskData(*this)); }
+        StyleMaskData();
+        StyleMaskData(const StyleMaskData &other);
 
         bool operator==(const StyleMaskData &other) const;
         bool operator!=(const StyleMaskData &other) const { return !(*this == other); }
 
         String maskElement;
 
-    private:        
-        StyleMaskData();
-        StyleMaskData(const StyleMaskData&);
+    private:
+        StyleMaskData &operator=(const StyleMaskData &);
     };
 
     class StyleMarkerData : public RefCounted<StyleMarkerData> {
     public:
-        static PassRefPtr<StyleMarkerData> create() { return adoptRef(new StyleMarkerData); }
-        PassRefPtr<StyleMarkerData> copy() const { return adoptRef(new StyleMarkerData(*this)); }
+        StyleMarkerData();
+        StyleMarkerData(const StyleMarkerData &other);
 
         bool operator==(const StyleMarkerData &other) const;
         bool operator!=(const StyleMarkerData &other) const
@@ -259,15 +253,14 @@ namespace WebCore {
         String endMarker;
 
     private:
-        StyleMarkerData();
-        StyleMarkerData(const StyleMarkerData&);
+        StyleMarkerData &operator=(const StyleMarkerData &);
     };
 
     // Note : the rule for this class is, *no inheritance* of these props
     class StyleMiscData : public RefCounted<StyleMiscData> {
     public:
-        static PassRefPtr<StyleMiscData> create() { return adoptRef(new StyleMiscData); }
-        PassRefPtr<StyleMiscData> copy() const { return adoptRef(new StyleMiscData(*this)); }
+        StyleMiscData();
+        StyleMiscData(const StyleMiscData &other);
 
         bool operator==(const StyleMiscData &other) const;
         bool operator!=(const StyleMiscData &other) const
@@ -285,8 +278,7 @@ namespace WebCore {
         RefPtr<CSSValue> baselineShiftValue;
 
     private:
-        StyleMiscData();
-        StyleMiscData(const StyleMiscData&);
+        StyleMiscData &operator=(const StyleMiscData &);
     };
 
 } // namespace WebCore

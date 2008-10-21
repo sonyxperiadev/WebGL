@@ -48,8 +48,11 @@ public:
     void removeHTMLEventListener(const AtomicString& eventType);
     bool dispatchHTMLEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
     EventListener* getHTMLEventListener(const AtomicString& eventType);
+#ifdef ANDROID
+    EventListener* getEventListener(const AtomicString& eventType);
+#endif
 
-    bool dispatchSubtreeModifiedEvent();
+    bool dispatchSubtreeModifiedEvent(bool childrenChanged = true);
     void dispatchWindowEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
     bool dispatchUIEvent(const AtomicString& eventType, int detail = 0, PassRefPtr<Event> underlyingEvent = 0);
     bool dispatchKeyEvent(const PlatformKeyboardEvent&);
@@ -82,6 +85,10 @@ public:
      * to event listeners, and prevents DOMActivate events from being sent at all.
      */
     virtual bool disabled() const;
+    
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString indent = "") const;
+#endif
 
     RegisteredEventListenerList* localEventListeners() const { return m_regdListeners; }
 

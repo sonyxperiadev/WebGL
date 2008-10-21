@@ -172,7 +172,7 @@ void StyledElement::attributeChanged(Attribute* attr, bool preserveDecls)
     if (needToParse)
         parseMappedAttribute(mappedAttr);
 
-    if (entry == eNone && ownerDocument()->attached() && ownerDocument()->styleSelector()->hasSelectorForAttribute(attr->name().localName()))
+    if (entry == eNone && ownerDocument()->styleSelector()->hasSelectorForAttribute(attr->name().localName()))
         setChanged();
 
     if (checkDecl && mappedAttr->decl()) {
@@ -203,7 +203,7 @@ void StyledElement::parseMappedAttribute(MappedAttribute *attr)
             if (attr->isNull())
                 namedAttrMap->setID(nullAtom);
             else if (document()->inCompatMode() && !attr->value().impl()->isLower())
-                namedAttrMap->setID(AtomicString(attr->value().string().lower()));
+                namedAttrMap->setID(AtomicString(attr->value().domString().lower()));
             else
                 namedAttrMap->setID(attr->value());
         }

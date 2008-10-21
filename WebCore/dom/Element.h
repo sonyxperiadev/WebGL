@@ -109,7 +109,7 @@ public:
     virtual void setPrefix(const AtomicString &_prefix, ExceptionCode&);
     virtual const AtomicString& namespaceURI() const { return m_tagName.namespaceURI(); }
 
-    virtual KURL baseURI() const;
+    virtual String baseURI() const;
 
     // DOM methods overridden from  parent classes
     virtual NodeType nodeType() const;
@@ -118,7 +118,7 @@ public:
     virtual bool isElementNode() const { return true; }
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void childrenChanged(bool changedByParser = false);
 
     virtual bool isInputTypeHidden() const { return false; }
 
@@ -161,12 +161,20 @@ public:
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
-        
+#ifdef ANDROID_DO_NOT_RESTORE_PREVIOUS_SELECTION
+    // Set the default to not restore the previous selection, since
+    // we want the selection to cover the whole textfield.
+    // FIXME: Would it be a better fix to simply ignore the input
+    // value in the implementation?
+    virtual void focus(bool restorePreviousSelection = false);
+#else
     virtual void focus(bool restorePreviousSelection = true);
+#endif
     virtual void updateFocusAppearance(bool restorePreviousSelection);
     void blur();
 
 #ifndef NDEBUG
+    virtual void dump(TextStream* , DeprecatedString ind = "") const;
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
 

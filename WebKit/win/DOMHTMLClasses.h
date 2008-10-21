@@ -26,7 +26,8 @@
 #ifndef DOMHTMLClasses_H
 #define DOMHTMLClasses_H
 
-#include "WebKit.h"
+#include "DOMHTML.h"
+#include "DOMPrivate.h"
 #include "DOMCoreClasses.h"
 #include "WebScriptObject.h"
 

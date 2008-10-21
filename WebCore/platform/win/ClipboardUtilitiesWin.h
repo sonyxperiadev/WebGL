@@ -31,12 +31,14 @@
 
 namespace WebCore {
 
+class CString;
+class DeprecatedCString;
 class Document;
 class KURL;
 class String;
 
-HGLOBAL createGlobalData(const String&);
-HGLOBAL createGlobalData(const Vector<char>&);
+HGLOBAL createGlobalData(String str);
+HGLOBAL createGlobalData(CString str);
 HGLOBAL createGlobalData(const KURL& url, const String& title);
 
 FORMATETC* urlWFormat();
@@ -49,21 +51,21 @@ FORMATETC* htmlFormat();
 FORMATETC* cfHDropFormat();
 FORMATETC* smartPasteFormat();
 
-void markupToCF_HTML(const String& markup, const String& srcURL, Vector<char>& result);
+DeprecatedCString markupToCF_HTML(const String& markup, const String& srcURL);
 String urlToMarkup(const KURL& url, const String& title);
 
-void replaceNewlinesWithWindowsStyleNewlines(String&);
-void replaceNBSPWithSpace(String&);
+void replaceNewlinesWithWindowsStyleNewlines(String& str);
+void replaceNBSPWithSpace(String& str);
 
 bool containsFilenames(const IDataObject*);
-bool containsHTML(IDataObject*);
+bool containsHTML(IDataObject* data);
 
 PassRefPtr<DocumentFragment> fragmentFromFilenames(Document*, const IDataObject*);
-PassRefPtr<DocumentFragment> fragmentFromHTML(Document*, IDataObject*);
-PassRefPtr<DocumentFragment> fragmentFromCF_HTML(Document*, const String& cf_html);
+PassRefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data);
+PassRefPtr<DocumentFragment> fragmentFromCF_HTML(Document* doc, const String& cf_html);
 
-String getURL(IDataObject*, bool& success, String* title = 0);
-String getPlainText(IDataObject*, bool& success);
+String getURL(IDataObject* dataObject, bool& success, String* title = 0);
+String getPlainText(IDataObject* dataObject, bool& success);
 
 } // namespace WebCore
 

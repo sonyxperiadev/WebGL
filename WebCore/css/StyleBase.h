@@ -1,8 +1,10 @@
 /*
+ * This file is part of the CSS implementation for KDE.
+ *
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 1999 Waldo Bastian (bastian@kde.org)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmial.com)
- * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,24 +31,21 @@ namespace WebCore {
 
     class String;
     class StyleSheet;
-    class KURL;
 
     // a style class which has a parent (almost all have)
     class StyleBase : public RefCounted<StyleBase> {
     public:
         StyleBase(StyleBase* parent)
-            : RefCounted<StyleBase>(0)
-            , m_parent(parent)
+            : m_parent(parent)
             , m_strictParsing(!parent || parent->useStrictParsing())
-        {
-        }
+        { }
         virtual ~StyleBase() { }
 
         StyleBase* parent() const { return m_parent; }
         void setParent(StyleBase* parent) { m_parent = parent; }
 
         // returns the url of the style sheet this object belongs to
-        KURL baseURL() const;
+        String baseURL();
 
         virtual bool isStyleSheet() const { return false; }
         virtual bool isCSSStyleSheet() const { return false; }

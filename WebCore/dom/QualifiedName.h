@@ -30,22 +30,11 @@ class QualifiedName {
 public:
     class QualifiedNameImpl : public RefCounted<QualifiedNameImpl> {
     public:
-        static PassRefPtr<QualifiedNameImpl> create(const AtomicString& p, const AtomicString& l, const AtomicString& n)
-        {
-            return adoptRef(new QualifiedNameImpl(p, l, n));
-        }
-        
+        QualifiedNameImpl(const AtomicString& p, const AtomicString& l, const AtomicString& n) :m_prefix(p), m_localName(l), m_namespace(n) {}
+
         AtomicString m_prefix;
         AtomicString m_localName;
         AtomicString m_namespace;
-
-    private:
-        QualifiedNameImpl(const AtomicString& p, const AtomicString& l, const AtomicString& n)
-            : m_prefix(p)
-            , m_localName(l)
-            , m_namespace(n)
-        {
-        }        
     };
 
     QualifiedName(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI);
@@ -77,7 +66,8 @@ public:
     static void init();
 
 private:
-    void ref() { m_impl->ref(); }
+
+    void ref() { m_impl->ref(); } 
     void deref();
     
     QualifiedNameImpl* m_impl;

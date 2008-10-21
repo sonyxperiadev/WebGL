@@ -1,8 +1,10 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,7 +36,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLBaseElement::HTMLBaseElement(Document* doc)
+HTMLBaseElement::HTMLBaseElement(Document *doc)
     : HTMLElement(baseTag, doc)
 {
 }
@@ -43,7 +45,7 @@ HTMLBaseElement::~HTMLBaseElement()
 {
 }
 
-void HTMLBaseElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLBaseElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == hrefAttr) {
         m_href = parseURL(attr->value());
@@ -67,8 +69,8 @@ void HTMLBaseElement::removedFromDocument()
 
     // Since the document doesn't have a base element...
     // (This will break in the case of multiple base elements, but that's not valid anyway (?))
-    document()->setBaseURL(KURL());
-    document()->setBaseTarget(String());
+    document()->setBaseURL(DeprecatedString::null);
+    document()->setBaseTarget(DeprecatedString::null);
 }
 
 void HTMLBaseElement::process()
@@ -77,7 +79,7 @@ void HTMLBaseElement::process()
         return;
 
     if (!m_href.isEmpty() && document()->frame())
-        document()->setBaseURL(KURL(document()->frame()->loader()->url(), m_href));
+        document()->setBaseURL(KURL(document()->frame()->loader()->url(), m_href.deprecatedString()).deprecatedString());
 
     if (!m_target.isEmpty())
         document()->setBaseTarget(m_target);

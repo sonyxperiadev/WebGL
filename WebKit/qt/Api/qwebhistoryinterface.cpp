@@ -23,8 +23,8 @@
 
 #include <QCoreApplication>
 
-#include "PlatformString.h"
 #include <wtf/Platform.h>
+#include "DeprecatedString.h"
 
 // FIXME: It's not correct to just implement a WebCore function in WebKit!
 // This needs to be fixed to match other platforms.

@@ -29,7 +29,8 @@
 #ifndef BaseDelegate_H
 #define BaseDelegate_H
 
-#include <WebKit/WebKit.h>
+#include <WebKit/IWebFrameLoadDelegate.h>
+#include <WebKit/IWebUIDelegate.h>
 
 struct IDataObject;
 struct IPropertyBag;

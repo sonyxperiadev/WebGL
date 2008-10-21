@@ -81,9 +81,9 @@ void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
         m_clipper->invalidate();
 }
 
-void SVGClipPathElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGClipPathElement::childrenChanged(bool changedByParser)
 {
-    SVGStyledTransformableElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledTransformableElement::childrenChanged(changedByParser);
 
     if (!m_clipper)
         return;
@@ -94,7 +94,7 @@ void SVGClipPathElement::childrenChanged(bool changedByParser, Node* beforeChang
 SVGResource* SVGClipPathElement::canvasResource()
 {
     if (!m_clipper)
-        m_clipper = SVGResourceClipper::create();
+        m_clipper = new SVGResourceClipper();
     else
         m_clipper->resetClipData();
 

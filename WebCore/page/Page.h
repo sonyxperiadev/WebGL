@@ -33,6 +33,17 @@
 typedef struct HINSTANCE__* HINSTANCE;
 #endif
 
+#ifdef ANDROID_FIX
+enum TextCaseSensitivity {
+    TextCaseSensitive,
+    TextCaseInsensitive
+};
+
+enum FindDirection {
+    FindDirectionForward,
+    FindDirectionBackward
+};
+#else
 typedef enum TextCaseSensitivity {
     TextCaseSensitive,
     TextCaseInsensitive
@@ -42,6 +53,7 @@ typedef enum FindDirection {
     FindDirectionForward,
     FindDirectionBackward
 };
+#endif
 
 namespace WebCore {
 

@@ -114,9 +114,9 @@ void SVGStyleElement::removedFromDocument()
     StyleElement::removedFromDocument(document());
 }
 
-void SVGStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGStyleElement::childrenChanged(bool changedByParser)
 {
-    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGElement::childrenChanged(changedByParser);
     StyleElement::process(this);
 }
 

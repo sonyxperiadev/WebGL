@@ -4,7 +4,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -136,12 +136,11 @@ public:
                         RootInlineBox*& endLine, int& endYPos, int& repaintBottom, int& repaintTop);
     bool generatesLineBoxesForInlineChild(RenderObject*);
     int skipWhitespace(BidiIterator&, BidiState&);
-    void fitBelowFloats(int widthToFit, int& availableWidth);
     BidiIterator findNextLineBreak(BidiIterator& start, BidiState& info);
-    RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool lastLine, RenderObject* endObject);
+    RootInlineBox* constructLine(const BidiIterator& start, const BidiIterator& end);
     InlineFlowBox* createLineBoxes(RenderObject*);
-    void computeHorizontalPositionsForLine(RootInlineBox*, BidiRun* firstRun, BidiRun* logicallyLastRun, bool reachedEnd);
-    void computeVerticalPositionsForLine(RootInlineBox*, BidiRun*);
+    void computeHorizontalPositionsForLine(RootInlineBox*, bool reachedEnd);
+    void computeVerticalPositionsForLine(RootInlineBox*);
     void checkLinesForOverflow();
     void deleteEllipsisLineBoxes();
     void checkLinesForTextOverflow();
@@ -156,7 +155,7 @@ public:
     void paintEllipsisBoxes(PaintInfo&, int tx, int ty);
     void paintSelection(PaintInfo&, int tx, int ty);
     void paintCaret(PaintInfo&, CaretType);
-
+    
     void insertFloatingObject(RenderObject*);
     void removeFloatingObject(RenderObject*);
 
@@ -179,7 +178,7 @@ public:
     void addIntrudingFloats(RenderBlock* prev, int xoffset, int yoffset);
     int addOverhangingFloats(RenderBlock* child, int xoffset, int yoffset, bool makeChildPaintOtherFloats);
 
-    int nextFloatBottomBelow(int) const;
+    int nearestFloatBottom(int height) const;
     int floatBottom() const;
     inline int leftBottom();
     inline int rightBottom();
@@ -278,6 +277,10 @@ public:
     int leftSelectionOffset(RenderBlock* rootBlock, int y);
     int rightSelectionOffset(RenderBlock* rootBlock, int y);
 
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString ind = "") const;
+#endif
+
     // Helper methods for computing line counts and heights for line counts.
     RootInlineBox* lineAtIndex(int);
     int lineCount();
@@ -306,8 +309,15 @@ protected:
 private:
     Position positionForBox(InlineBox*, bool start = true) const;
     Position positionForRenderer(RenderObject*, bool start = true) const;
-
+// columGap() is used by WebKit when hit-testing columns. It's called by
+// CacheBuilder when it duplicates the hit-testing logic.
+#ifdef ANDROID_EXPOSE_COLUMN_GAP
+public:
+#endif
     int columnGap() const;
+#ifdef ANDROID_EXPOSE_COLUMN_GAP
+private:
+#endif
     void calcColumnWidth();
     int layoutColumns(int endOfContent = -1);
 

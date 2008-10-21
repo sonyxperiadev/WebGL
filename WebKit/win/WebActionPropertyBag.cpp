@@ -26,7 +26,8 @@
 #include "config.h"
 #include "WebKitDLL.h"
 
-#include "WebKit.h"
+#include "IWebView.h"
+#include "IWebPolicyDelegate.h"
 #include "WebActionPropertyBag.h"
 #include "WebElementPropertyBag.h"
 #include "COMPtr.h"
@@ -154,6 +155,6 @@ HRESULT STDMETHODCALLTYPE WebActionPropertyBag::Write(LPCOLESTR pszPropName, VAR
 {
     if (!pszPropName || !pVar)
         return E_POINTER;
-
+    VariantClear(pVar);
     return E_FAIL;
 }

@@ -30,7 +30,6 @@
 #endif
 
 #include <wtf/ASCIICType.h>
-#include <stdio.h>
 
 using namespace WTF;
 

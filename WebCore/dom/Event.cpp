@@ -30,8 +30,7 @@
 namespace WebCore {
 
 Event::Event()
-    : RefCounted<Event>(0)
-    , m_canBubble(false)
+    : m_canBubble(false)
     , m_cancelable(false)
     , m_propagationStopped(false)
     , m_defaultPrevented(false)
@@ -44,8 +43,7 @@ Event::Event()
 }
 
 Event::Event(const AtomicString& eventType, bool canBubbleArg, bool cancelableArg)
-    : RefCounted<Event>(0)
-    , m_type(eventType)
+    : m_type(eventType)
     , m_canBubble(canBubbleArg)
     , m_cancelable(cancelableArg)
     , m_propagationStopped(false)

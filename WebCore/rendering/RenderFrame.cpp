@@ -30,6 +30,12 @@
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
 
+#ifdef FLATTEN_FRAMESET
+#include "Frame.h"
+#include "Document.h"
+#include "RenderView.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -58,5 +64,33 @@ void RenderFrame::viewCleared()
             view->setMarginHeight(marginh);
     }
 }
+
+#ifdef FLATTEN_FRAMESET
+void RenderFrame::layout()
+{
+    if (m_widget && m_widget->isFrameView()) {
+        FrameView* view = static_cast<FrameView*>(m_widget);
+        RenderView* root = NULL;
+        if (view->frame() && view->frame()->document() && 
+            view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
+            root = static_cast<RenderView*>(view->frame()->document()->renderer());
+        if (root) {
+            // Resize the widget so that the RenderView will layout according to those dimensions.
+            view->resize(m_width, m_height);
+            view->layout();
+            // We can only grow in width and height because if positionFrames gives us a width and we become smaller,
+            // then the fixup process of forcing the frame to fill extra space will fail.
+            if (m_width > root->docWidth()) {
+                view->resize(root->docWidth(), 0);
+                view->layout();
+            }
+            // Honor the height set by RenderFrameSet::positionFrames unless our document height is larger.
+            m_height = max(root->docHeight(), m_height);
+            m_width = max(root->docWidth(), m_width);
+        }
+    }
+    setNeedsLayout(false);
+}
+#endif
 
 } // namespace WebCore

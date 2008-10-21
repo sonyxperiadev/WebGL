@@ -54,6 +54,8 @@ public:
     virtual bool isControlStyled(const RenderStyle*, const BorderData&,
                                  const BackgroundLayer&, const Color&) const;
 
+    virtual void paintResizeControl(GraphicsContext*, const IntRect&);
+
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
     virtual Color platformInactiveSelectionBackgroundColor() const;

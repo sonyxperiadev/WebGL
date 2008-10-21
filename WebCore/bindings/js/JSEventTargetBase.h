@@ -86,7 +86,7 @@ namespace WebCore {
             return KJS::jsUndefined();
         }
 
-        void putValueProperty(const JSEventTarget* owner, KJS::ExecState* exec, int token, KJS::JSValue* value)
+        void putValueProperty(const JSEventTarget* owner, KJS::ExecState* exec, int token, KJS::JSValue* value, int attr)
         {
             AtomicString eventName = eventNameForPropertyToken(token);
             if (!eventName.isEmpty())
@@ -104,9 +104,9 @@ namespace WebCore {
         }
 
         template<class JSParent>
-        void put(JSEventTarget* owner, KJS::ExecState* exec, const KJS::Identifier& propertyName, KJS::JSValue* value)
+        void put(JSEventTarget* owner, KJS::ExecState* exec, const KJS::Identifier& propertyName, KJS::JSValue* value, int attr)
         {
-            KJS::lookupPut<JSEventTarget, JSParent>(exec, propertyName, value, &KJS::JSEventTargetPropertiesTable, owner);
+            KJS::lookupPut<JSEventTarget, JSParent>(exec, propertyName, value, attr, &KJS::JSEventTargetPropertiesTable, owner);
         }
     };
 
@@ -134,7 +134,7 @@ namespace WebCore {
             }
 
             KJS::JSObject* newObject = new JSEventTargetPrototype<JSEventTargetPrototypeParent, JSEventTargetPrototypeInformation>(exec);
-            globalObject->putDirect(*prototypeName, newObject, KJS::DontEnum);
+            globalObject->putDirect(*prototypeName, newObject, KJS::Internal | KJS::DontEnum);
             return newObject;
         }
 

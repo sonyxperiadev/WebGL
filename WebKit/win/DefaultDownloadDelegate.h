@@ -26,7 +26,7 @@
 #define DefaultDownloadDelegate_h
 
 #include "COMPtr.h"
-#include "WebKit.h"
+#include "IWebDownload.h"
 
 #include <CFNetwork/CFURLDownloadPriv.h>
 #include <wtf/HashSet.h>

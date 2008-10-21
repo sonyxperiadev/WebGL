@@ -124,7 +124,11 @@ void RenderFileUploadControl::updateFromElement()
         addChild(renderer);
     }
 
+#ifndef ANDROID_DISABLE_UPLOAD
     m_button->setDisabled(!theme()->isEnabled(this));
+#else
+    m_button->setDisabled(true);
+#endif
 
     // This only supports clearing out the filename, but that's OK because for
     // security reasons that's the only change the DOM is allowed to make.

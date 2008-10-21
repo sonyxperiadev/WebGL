@@ -44,6 +44,10 @@ class NSImage;
 typedef struct HBITMAP__ *HBITMAP;
 #endif
 
+#if PLATFORM(SGL)
+    class SkBitmapRef;
+#endif
+
 namespace WebCore {
     struct FrameData;
 }
@@ -127,6 +131,11 @@ public:
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE);
 #endif
 
+#if PLATFORM(SGL)
+    virtual SkBitmapRef* getBitmap();
+    virtual void setURL(const String& str);
+#endif
+
     virtual NativeImagePtr nativeImageForCurrentFrame() { return frameAtIndex(currentFrame()); }
 
 private:
@@ -182,6 +191,10 @@ private:
 #if PLATFORM(MAC)
     mutable RetainPtr<NSImage> m_nsImage; // A cached NSImage of frame 0. Only built lazily if someone actually queries for one.
     mutable RetainPtr<CFDataRef> m_tiffRep; // Cached TIFF rep for frame 0.  Only built lazily if someone queries for one.
+#endif
+
+#if PLATFORM(SGL)
+    SkBitmapRef* m_bitmapRef;
 #endif
 
     Color m_solidColor;  // If we're a 1x1 solid color, this is the color to use to fill.

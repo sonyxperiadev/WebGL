@@ -37,6 +37,10 @@
 #include "RenderTheme.h"
 #include "Tokenizer.h"
 
+#if USE(LOW_BANDWIDTH_DISPLAY)
+#include "FrameLoader.h"
+#endif
+
 namespace WebCore {
 
 using namespace EventNames;
@@ -257,5 +261,16 @@ void HTMLFormControlElementWithState::finishParsingChildren()
             restoreState(state);
     }
 }
+
+#if USE(LOW_BANDWIDTH_DISPLAY)
+bool HTMLGenericFormElement::rendererIsNeeded(RenderStyle* style)
+{
+    if (document()->inLowBandwidthDisplay()) {
+        document()->frame()->loader()->needToSwitchOutLowBandwidthDisplay();
+        return false;
+    }
+    return HTMLElement::rendererIsNeeded(style);
+}
+#endif
 
 } // namespace Webcore

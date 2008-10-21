@@ -28,10 +28,8 @@
 #include "ImageBuffer.h"
 
 #include "GraphicsContext.h"
-#include "ImageData.h"
-#include "NotImplemented.h"
-
 #include <cairo.h>
+#include "NotImplemented.h"
 
 using namespace std;
 
@@ -74,15 +72,5 @@ cairo_surface_t* ImageBuffer::surface() const
     return m_surface;
 }
 
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect&) const
-{
-    notImplemented();
-    return 0;
-}
-
-void ImageBuffer::putImageData(ImageData*, const IntRect&, const IntPoint&)
-{
-    notImplemented();
-}
 
 }

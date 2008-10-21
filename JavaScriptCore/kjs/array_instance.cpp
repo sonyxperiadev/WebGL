@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -184,12 +184,12 @@ bool ArrayInstance::getOwnPropertySlot(ExecState* exec, unsigned i, PropertySlot
 }
 
 // ECMA 15.4.5.1
-void ArrayInstance::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void ArrayInstance::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attributes)
 {
     bool isArrayIndex;
     unsigned i = propertyName.toArrayIndex(&isArrayIndex);
     if (isArrayIndex) {
-        put(exec, i, value);
+        put(exec, i, value, attributes);
         return;
     }
 
@@ -203,13 +203,13 @@ void ArrayInstance::put(ExecState* exec, const Identifier& propertyName, JSValue
         return;
     }
 
-    JSObject::put(exec, propertyName, value);
+    JSObject::put(exec, propertyName, value, attributes);
 }
 
-void ArrayInstance::put(ExecState* exec, unsigned i, JSValue* value)
+void ArrayInstance::put(ExecState* exec, unsigned i, JSValue* value, int attributes)
 {
     if (i > maxArrayIndex) {
-        put(exec, Identifier::from(i), value);
+        put(exec, Identifier::from(i), value, attributes);
         return;
     }
 

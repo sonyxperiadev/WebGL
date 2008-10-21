@@ -33,6 +33,7 @@
 #include <unicode/ucnv.h>
 #include <unicode/ucnv_cb.h>
 #include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
 
 using std::auto_ptr;
 using std::min;
@@ -85,7 +86,9 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
         //    for encoding GB_2312-80 and several others. So, we need to override this behavior, too.
         if (strcmp(standardName, "GB2312") == 0 || strcmp(standardName, "GB_2312-80") == 0)
             standardName = "GBK";
+#ifndef ANDROID
         else
+#endif
             registrar(standardName, standardName);
 
         uint16_t numAliases = ucnv_countAliases(name, &error);
@@ -262,27 +265,23 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush)
 // We need to apply these fallbacks ourselves as they are not currently supported by ICU and
 // they were provided by the old TEC encoding path
 // Needed to fix <rdar://problem/4708689>
-static UChar getGbkEscape(UChar32 codePoint)
-{
-    switch (codePoint) {
-        case 0x01F9:
-            return 0xE7C8;
-        case 0x1E3F:
-            return 0xE7C7;
-        case 0x22EF:
-            return 0x2026;
-        case 0x301C:
-            return 0xFF5E;
-        default:
-            return 0;
+static HashMap<UChar32, UChar>& gbkEscapes() {
+    static HashMap<UChar32, UChar> escapes;
+    if (escapes.isEmpty()) {
+        escapes.add(0x01F9, 0xE7C8);
+        escapes.add(0x1E3F, 0xE7C7);
+        escapes.add(0x22EF, 0x2026);
+        escapes.add(0x301C, 0xFF5E);
     }
+        
+    return escapes;
 }
 
 static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
                               UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
-    UChar outChar;
-    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
+    if (codePoint && gbkEscapes().contains(codePoint)) {
+        UChar outChar = gbkEscapes().get(codePoint);
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -294,8 +293,8 @@ static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fr
 static void gbkCallbackSubstitute(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
                                   UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
-    UChar outChar;
-    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
+    if (gbkEscapes().contains(codePoint)) {
+        UChar outChar = gbkEscapes().get(codePoint);
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);

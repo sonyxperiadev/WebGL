@@ -77,7 +77,8 @@ setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 
 if(!defined($root)){
     chdirWebKit();
-    push(@xcodeArgs, "--" . $configuration);
+    my @args;
+    push(@args, "--" . $configuration);
     
     # FIXME: These should be stored per-config and ignored here
     push(@xcodeArgs, "--qt")  if isQt();

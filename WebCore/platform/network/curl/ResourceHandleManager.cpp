@@ -42,19 +42,11 @@
 #include <errno.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(GTK)
-    #if GLIB_CHECK_VERSION(2,12,0)
-        #define USE_GLIB_BASE64
-    #endif
-#endif
-
 namespace WebCore {
 
 const int selectTimeoutMS = 5;
 const double pollTimeSeconds = 0.05;
 const int maxRunningJobs = 5;
-
-static const bool ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
 
 ResourceHandleManager::ResourceHandleManager()
     : m_downloadTimer(this, &ResourceHandleManager::downloadTimerCallback)
@@ -174,7 +166,7 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         if (httpCode >= 300 && httpCode < 400) {
             String location = d->m_response.httpHeaderField("location");
             if (!location.isEmpty()) {
-                KURL newURL = KURL(job->request().url(), location);
+                KURL newURL = KURL(job->request().url(), location.deprecatedString());
 
                 ResourceRequest redirectedRequest = job->request();
                 redirectedRequest.setURL(newURL);
@@ -279,17 +271,13 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
 
     // Temporarily disable timers since signals may interrupt select(), raising EINTR errors on some platforms
     setDeferringTimers(true);
-    int rc = 0;
+    int rc;
     do {
         FD_ZERO(&fdread);
         FD_ZERO(&fdwrite);
         FD_ZERO(&fdexcep);
         curl_multi_fdset(m_curlMultiHandle, &fdread, &fdwrite, &fdexcep, &maxfd);
-        // When the 3 file descriptors are empty, winsock will return -1
-        // and bail out, stopping the file download. So make sure we
-        // have valid file descriptors before calling select.
-        if (maxfd >= 0)
-            rc = ::select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
+        rc = ::select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
     } while (rc == -1 && errno == EINTR);
     setDeferringTimers(false);
 
@@ -463,44 +451,35 @@ bool ResourceHandleManager::startScheduledJobs()
     return started;
 }
 
-// FIXME: This function does not deal properly with text encodings.
 static void parseDataUrl(ResourceHandle* handle)
 {
-    String data = handle->request().url().string();
+    DeprecatedString data = handle->request().url().deprecatedString();
 
     ASSERT(data.startsWith("data:", false));
 
-    String header;
+    DeprecatedString header;
     bool base64 = false;
 
     int index = data.find(',');
     if (index != -1) {
-        header = data.substring(5, index - 5).lower();
-        data = data.substring(index + 1);
+        header = data.mid(5, index - 5).lower();
+        data = data.mid(index + 1);
 
         if (header.endsWith(";base64")) {
             base64 = true;
             header = header.left(header.length() - 7);
         }
     } else
-        data = String();
+        data = DeprecatedString();
 
-    data = decodeURLEscapeSequences(data);
+    data = KURL::decode_string(data);
 
-    size_t outLength = 0;
-    char* outData = 0;
-    if (base64 && !data.isEmpty()) {
-        // Use the GLib Base64 if available, since WebCore's decoder isn't
-        // general-purpose and fails on Acid3 test 97 (whitespace).
-#ifdef USE_GLIB_BASE64
-        outData = reinterpret_cast<char*>(g_base64_decode(data.utf8().data(), &outLength));
-#else
+    if (base64) {
         Vector<char> out;
-        if (base64Decode(data.latin1().data(), data.length(), out))
-            data = String(out.data(), out.size());
+        if (base64Decode(data.ascii(), data.length(), out))
+            data = DeprecatedString(out.data(), out.size());
         else
-            data = String();
-#endif
+            data = DeprecatedString();
     }
 
     if (header.isEmpty())
@@ -512,22 +491,13 @@ static void parseDataUrl(ResourceHandle* handle)
 
     response.setMimeType(extractMIMETypeFromMediaType(header));
     response.setTextEncodingName(extractCharsetFromMediaType(header));
-    if (outData)
-        response.setExpectedContentLength(outLength);
-    else
-        response.setExpectedContentLength(data.length());
+    response.setExpectedContentLength(data.length());
     response.setHTTPStatusCode(200);
 
     client->didReceiveResponse(handle, response);
 
-    if (outData)
-        client->didReceiveData(handle, outData, outLength, 0);
-    else
-        client->didReceiveData(handle, data.latin1().data(), data.length(), 0);
-
-#ifdef USE_GLIB_BASE64
-    g_free(outData);
-#endif
+    if (!data.isEmpty())
+        client->didReceiveData(handle, data.ascii(), data.length(), 0);
 
     client->didFinishLoading(handle);
 }
@@ -535,8 +505,9 @@ static void parseDataUrl(ResourceHandle* handle)
 void ResourceHandleManager::startJob(ResourceHandle* job)
 {
     KURL kurl = job->request().url();
+    String protocol = kurl.protocol();
 
-    if (kurl.protocolIs("data")) {
+    if (equalIgnoringCase(protocol, "data")) {
         parseDataUrl(job);
         return;
     }
@@ -545,15 +516,15 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
     kurl.setRef("");
 
     ResourceHandleInternal* d = job->getInternal();
-    String url = kurl.string();
+    DeprecatedString url = kurl.deprecatedString();
 
     if (kurl.isLocalFile()) {
-        String query = kurl.query();
+        DeprecatedString query = kurl.query();
         // Remove any query part sent to a local file.
         if (!query.isEmpty())
             url = url.left(url.find(query));
         // Determine the MIME type based on the path.
-        d->m_response.setMimeType(MIMETypeRegistry::getMIMETypeForPath(url));
+        d->m_response.setMimeType(MIMETypeRegistry::getMIMETypeForPath(String(url)));
     }
 
     d->m_handle = curl_easy_init();
@@ -573,16 +544,12 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
     curl_easy_setopt(d->m_handle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
     curl_easy_setopt(d->m_handle, CURLOPT_SHARE, m_curlShareHandle);
     curl_easy_setopt(d->m_handle, CURLOPT_DNS_CACHE_TIMEOUT, 60 * 5); // 5 minutes
-    // FIXME: Enable SSL verification when we have a way of shipping certs
-    // and/or reporting SSL errors to the user.
-    if (ignoreSSLErrors)
-        curl_easy_setopt(d->m_handle, CURLOPT_SSL_VERIFYPEER, false);
     // enable gzip and deflate through Accept-Encoding:
     curl_easy_setopt(d->m_handle, CURLOPT_ENCODING, "");
 
     // url must remain valid through the request
     ASSERT(!d->m_url);
-    d->m_url = strdup(url.latin1().data());
+    d->m_url = strdup(url.ascii());
     curl_easy_setopt(d->m_handle, CURLOPT_URL, d->m_url);
 
     if (m_cookieJarFileName) {
@@ -625,7 +592,7 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
     // timeout will occur and do curl_multi_perform
     if (ret && ret != CURLM_CALL_MULTI_PERFORM) {
 #ifndef NDEBUG
-        printf("Error %d starting job %s\n", ret, job->request().url().string().latin1().data());
+        printf("Error %d starting job %s\n", ret, job->request().url().deprecatedString().ascii());
 #endif
         job->cancel();
         return;

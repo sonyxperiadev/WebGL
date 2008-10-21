@@ -1,6 +1,8 @@
 /*
+ * This file is part of the CSS implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,7 +25,7 @@
 #define CSSStyleSelector_h
 
 #include "CSSFontSelector.h"
-#include "MediaQueryExp.h"
+#include "DeprecatedString.h"
 #include "RenderStyle.h"
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
@@ -55,18 +57,6 @@ class Settings;
 class StyleSheet;
 class StyleSheetList;
 class StyledElement;
-
-class MediaQueryResult
-{
-public:
-    MediaQueryResult(const MediaQueryExp& expr, bool result)
-    : m_expression(expr)
-    , m_result(result)
-    {}
-
-    MediaQueryExp m_expression;
-    bool m_result;
-};
 
     /**
      * this class selects a RenderStyle for a given Element based on the
@@ -110,10 +100,10 @@ public:
 
         bool strictParsing;
 
-        struct EncodedURL {
-            String prefix; // protocol, host, etc.
-            String path;
-            String file;
+        struct Encodedurl {
+            DeprecatedString host; //also contains protocol
+            DeprecatedString path;
+            DeprecatedString file;
         } m_encodedURL;
 
         void setEncodedURL(const KURL& url);
@@ -142,9 +132,6 @@ public:
            matches the given Element */
         bool checkSelector(CSSSelector*);
 
-        void addViewportDependentMediaQueryResult(const MediaQueryExp*, bool result);
-        bool affectedByViewportChange() const;
-        
     protected:
         enum SelectorMatch {
             SelectorMatches = 0,
@@ -255,8 +242,6 @@ public:
         
         Vector<CSSMutableStyleDeclaration*> m_additionalAttributeStyleDecls;
         
-        Vector<MediaQueryResult*> m_viewportDependentMediaQueryResults;
-
         void applyProperty(int id, CSSValue*);
 
 #if ENABLE(SVG)

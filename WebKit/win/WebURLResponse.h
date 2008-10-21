@@ -26,7 +26,9 @@
 #ifndef WebURLResponse_H
 #define WebURLResponse_H
 
-#include "WebKit.h"
+#include "IWebURLResponse.h"
+#include "IWebHTTPURLResponse.h"
+#include "IWebURLResponsePrivate.h"
 
 #pragma warning(push, 0)
 #include <WebCore/ResourceResponse.h>

@@ -145,7 +145,6 @@ all : \
     DOMNotation.h \
     DOMOverflowEvent.h \
     DOMProcessingInstruction.h \
-    DOMProgressEvent.h \
     DOMRGBColor.h \
     DOMRange.h \
     DOMRect.h \
@@ -327,7 +326,6 @@ all : \
     JSCSSValueList.h \
     JSCanvasGradient.h \
     JSCanvasPattern.h \
-    JSCanvasPixelArray.h \
     JSCanvasRenderingContext2D.h \
     JSCharacterData.h \
     JSComment.h \
@@ -415,7 +413,6 @@ all : \
     JSHTMLUListElement.h \
     JSHTMLVideoElement.h \
     JSHistory.h \
-    JSImageData.h \
     JSKeyboardEvent.h \
     JSLocation.lut.h \
     JSMediaError.h \
@@ -610,12 +607,12 @@ all : \
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
 
-CSSPropertyNames.h : css/CSSPropertyNames.in css/SVGCSSPropertyNames.in css/makeprop.pl
+CSSPropertyNames.h : css/CSSPropertyNames.in css/SVGCSSPropertyNames.in
 	if sort $< $(WebCore)/css/SVGCSSPropertyNames.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
 	cat $< $(WebCore)/css/SVGCSSPropertyNames.in > CSSPropertyNames.in
 	perl "$(WebCore)/css/makeprop.pl"
 
-CSSValueKeywords.h : css/CSSValueKeywords.in css/SVGCSSValueKeywords.in css/makevalues.pl
+CSSValueKeywords.h : css/CSSValueKeywords.in css/SVGCSSValueKeywords.in
 	# Lower case all the values, as CSS values are case-insensitive
 	perl -ne 'print lc' $(WebCore)/css/SVGCSSValueKeywords.in > SVGCSSValueKeywords.in
 	if sort $< SVGCSSValueKeywords.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
@@ -709,14 +706,9 @@ XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 	perl $< --attrs $(WebCore)/xml/xmlattrs.in \
             --namespace XML --cppNamespace WebCore --namespaceURI "http://www.w3.org/XML/1998/namespace" --output .
 
-
-ifeq ($(findstring 10.4,$(MACOSX_DEPLOYMENT_TARGET)), 10.4)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Tiger.exp
-endif
-
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
 
-WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.exp
+WEBCORE_EXPORT_DEPENDENCIES := WebCore.SVG.exp
 
 ifeq ($(findstring ENABLE_SVG_USE,$(FEATURE_DEFINES)), ENABLE_SVG_USE)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_USE=1
@@ -741,8 +733,8 @@ ifeq ($(findstring ENABLE_SVG_ANIMATION,$(FEATURE_DEFINES)), ENABLE_SVG_ANIMATIO
 endif
 
 ifeq ($(findstring ENABLE_SVG_FOREIGN_OBJECT,$(FEATURE_DEFINES)), ENABLE_SVG_FOREIGN_OBJECT)
-    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FOREIGN_OBJECT=1
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.ForeignObject.exp
+	SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FOREIGN_OBJECT=1
+	WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.ForeignObject.exp
 endif
 
 # SVG tag and attribute names (need to pass an extra flag if svg experimental features are enabled)
@@ -761,6 +753,10 @@ XLinkNames.cpp : dom/make_names.pl svg/xlinkattrs.in
 	perl $< --attrs $(WebCore)/svg/xlinkattrs.in \
             --namespace XLink --cppNamespace WebCore --namespaceURI "http://www.w3.org/1999/xlink" --output .
 
+# Add SVG Symbols to the WebCore exported symbols file
+WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)
+	cat $^ > $@
+
 else
 
 SVGElementFactory.cpp :
@@ -772,11 +768,10 @@ SVGNames.cpp :
 XLinkNames.cpp :
 	echo > $@
 
-endif
-
-# Add any conditionally-included symbols to the WebCore exported symbols file
-WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)
+WebCore.exp : WebCore.base.exp
 	cat $^ > $@
+
+endif
 
 # new-style Objective-C bindings
 

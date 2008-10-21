@@ -31,7 +31,7 @@ namespace WebCore {
 
     class SVGPathSegCurvetoQuadraticAbs : public SVGPathSeg { 
     public:
-        static PassRefPtr<SVGPathSegCurvetoQuadraticAbs> create(float x, float y, float x1, float y1) { return adoptRef(new SVGPathSegCurvetoQuadraticAbs(x, y, x1, y1)); }
+        SVGPathSegCurvetoQuadraticAbs(float x, float y, float x1, float y1);
         virtual ~SVGPathSegCurvetoQuadraticAbs();
 
         virtual unsigned short pathSegType() const { return PATHSEG_CURVETO_QUADRATIC_ABS; }
@@ -51,8 +51,6 @@ namespace WebCore {
         float y1() const;
 
     private:
-        SVGPathSegCurvetoQuadraticAbs(float x, float y, float x1, float y1);
-        
         float m_x;
         float m_y;
         float m_x1;
@@ -61,7 +59,7 @@ namespace WebCore {
 
     class SVGPathSegCurvetoQuadraticRel : public SVGPathSeg {
     public:
-        static PassRefPtr<SVGPathSegCurvetoQuadraticRel> create(float x, float y, float x1, float y1) { return adoptRef(new SVGPathSegCurvetoQuadraticRel(x, y, x1, y1)); }
+        SVGPathSegCurvetoQuadraticRel(float x, float y, float x1, float y1);
         virtual ~SVGPathSegCurvetoQuadraticRel();
 
         virtual unsigned short pathSegType() const { return PATHSEG_CURVETO_QUADRATIC_REL; }
@@ -81,8 +79,6 @@ namespace WebCore {
         float y1() const;
 
     private:
-        SVGPathSegCurvetoQuadraticRel(float x, float y, float x1, float y1);
-
         float m_x;
         float m_y;
         float m_x1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2005, 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
  *
@@ -81,6 +81,7 @@
 #import "TextIterator.h"
 #import "TextResourceDecoder.h"
 #import "TypingCommand.h"
+#import "WebCoreSystemInterface.h"
 #import "WebCoreViewFactory.h"
 #import "XMLTokenizer.h"
 #import "htmlediting.h"
@@ -626,11 +627,12 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
 
 - (NSURL *)URLWithAttributeString:(NSString *)string
 {
-    Document* doc = m_frame->document();
+    Document *doc = m_frame->document();
     if (!doc)
         return nil;
     // FIXME: is parseURL appropriate here?
-    return doc->completeURL(parseURL(string));
+    DeprecatedString rel = parseURL(string).deprecatedString();
+    return KURL(doc->completeURL(rel)).getNSURL();
 }
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
@@ -745,7 +747,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
 
 - (NSURL *)baseURL
 {
-    return m_frame->document()->baseURL();
+    return m_frame->loader()->completeURL(m_frame->document()->baseURL()).getNSURL();
 }
 
 - (NSString *)stringWithData:(NSData *)data
@@ -774,7 +776,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
 
 - (NSString *)renderTreeAsExternalRepresentation
 {
-    return externalRepresentation(m_frame->renderer());
+    return externalRepresentation(m_frame->renderer()).getNSString();
 }
 
 - (void)setShouldCreateRenderers:(BOOL)f

@@ -38,6 +38,9 @@ public:
     virtual const char* renderName() const { return "RenderFrame"; }
     virtual bool isFrame() const { return true; }
 
+#ifdef FLATTEN_FRAMESET
+    virtual void layout();
+#endif
     HTMLFrameElement* element() const { return static_cast<HTMLFrameElement*>(RenderPart::element()); }
 
     FrameEdgeInfo edgeInfo() const;

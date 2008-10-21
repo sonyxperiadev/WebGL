@@ -134,7 +134,7 @@ public:
     friend LRESULT __stdcall ResourceHandleWndProc(HWND, unsigned message, WPARAM, LPARAM);
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(WX)
+#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(WX) || defined(ANDROID)
     ResourceHandleInternal* getInternal() { return d.get(); }
 #endif
 

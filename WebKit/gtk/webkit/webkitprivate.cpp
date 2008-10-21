@@ -24,10 +24,10 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "Logging.h"
-#include "MainThread.h"
 #include "NotImplemented.h"
 #include "Pasteboard.h"
 #include "PasteboardHelperGtk.h"
+#include "Threading.h"
 
 #if ENABLE(DATABASE)
 #include "DatabaseTracker.h"
@@ -49,7 +49,7 @@ WebCore::Frame* core(WebKitWebFrame* frame)
         return 0;
 
     WebKitWebFramePrivate* priv = frame->priv;
-    return priv ? priv->coreFrame.get() : 0;
+    return priv ? priv->coreFrame : 0;
 }
 
 WebKitWebFrame* kit(WebCore::Frame* coreFrame)
@@ -90,7 +90,7 @@ void webkit_init()
         return;
     isInitialized = true;
 
-    WebCore::initializeThreadingAndMainThread();
+    WebCore::initializeThreading();
     WebCore::InitializeLoggingChannelsIfNecessary();
 
 #if ENABLE(DATABASE)

@@ -94,8 +94,11 @@ public:
 
     // Request resources from the cache.  A load will be initiated and a cache object created if the object is not
     // found in the cache.
+#ifdef ANDROID_PRELOAD_CHANGES
+    CachedResource* requestResource(DocLoader*, CachedResource::Type, const KURL& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true, bool isPreload = false);
+#else
     CachedResource* requestResource(DocLoader*, CachedResource::Type, const KURL& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
-
+#endif
     // Sets the cache's memory capacities, in bytes. These will hold only approximately, 
     // since the decoded cost of resources like scripts and stylesheets is not known.
     //  - minDeadBytes: The maximum number of bytes that dead resources should consume when the cache is under pressure.
@@ -142,6 +145,11 @@ public:
 
     // Function to collect cache statistics for the caches window in the Safari Debug menu.
     Statistics getStatistics();
+
+#ifdef ANDROID_INSTRUMENT
+    unsigned getLiveSize() { return m_liveSize; }
+    unsigned getDeadSize() { return m_deadSize; }
+#endif
 
 private:
     Cache();

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2007 Alp Toker <alp@atoker.com>
- *  Copyright (C) 2007, 2008 Holger Hans Peter Freyther
+ *  Copyright (C) 2007 Holger Hans Peter Freyther
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
  *
  *  This library is free software; you can redistribute it and/or
@@ -315,9 +315,8 @@ Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, Element*, cons
 ObjectContentType FrameLoaderClient::objectContentType(const KURL& url, const String& mimeType)
 {
     String type = mimeType;
-    // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
     if (type.isEmpty())
-        type = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
+        type = MIMETypeRegistry::getMIMETypeForExtension(url.path().mid(url.path().findRev('.') + 1));
 
     if (type.isEmpty())
         return WebCore::ObjectContentFrame;
@@ -453,9 +452,7 @@ void FrameLoaderClient::detachedFromParent3()
 
 void FrameLoaderClient::detachedFromParent4()
 {
-    ASSERT(m_frame);
-    g_object_unref(m_frame);
-    m_frame = 0;
+    notImplemented();
 }
 
 void FrameLoaderClient::loadedFromCachedPage()
@@ -766,7 +763,12 @@ void FrameLoaderClient::startDownload(const ResourceRequest&)
     notImplemented();
 }
 
-void FrameLoaderClient::updateGlobalHistory(const KURL&)
+void FrameLoaderClient::updateGlobalHistoryForStandardLoad(const KURL&)
+{
+    notImplemented();
+}
+
+void FrameLoaderClient::updateGlobalHistoryForReload(const KURL&)
 {
     notImplemented();
 }

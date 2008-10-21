@@ -50,7 +50,7 @@ namespace WebCore {
 
     class DOMWindow : public RefCounted<DOMWindow> {
     public:
-        static PassRefPtr<DOMWindow> create(Frame* frame) { return adoptRef(new DOMWindow(frame)); }
+        DOMWindow(Frame*);
         virtual ~DOMWindow();
 
         Frame* frame() { return m_frame; }
@@ -100,6 +100,9 @@ namespace WebCore {
         int scrollY() const;
         int pageXOffset() const { return scrollX(); }
         int pageYOffset() const { return scrollY(); }
+#ifdef ANDROID_ORIENTATION_SUPPORT
+        int orientation() const;
+#endif
 
         bool closed() const;
 
@@ -157,8 +160,6 @@ namespace WebCore {
         void resizeTo(float width, float height) const;
 
     private:
-        DOMWindow(Frame*);
-        
         Frame* m_frame;
         mutable RefPtr<Screen> m_screen;
         mutable RefPtr<DOMSelection> m_selection;

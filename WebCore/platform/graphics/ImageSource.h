@@ -40,6 +40,10 @@ class QPixmap;
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
+#elif PLATFORM(SGL)
+#include "SkString.h"
+class SkBitmapRef;
+class PrivateAndroidImageSourceRec;
 #endif
 
 namespace WebCore {
@@ -59,6 +63,14 @@ typedef CGImageRef NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
+#elif PLATFORM(SGL)
+class String;
+struct NativeImageSourcePtr {
+    SkString m_url; 
+    PrivateAndroidImageSourceRec* m_image;
+};
+typedef const Vector<char>* NativeBytePtr;
+typedef SkBitmapRef* NativeImagePtr;
 #else
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
@@ -92,6 +104,10 @@ public:
     bool frameHasAlphaAtIndex(size_t); // Whether or not the frame actually used any alpha.
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
+#if PLATFORM(SGL)
+    void clearURL();
+    void setURL(const String& url);
+#endif
 private:
     NativeImageSourcePtr m_decoder;
 };

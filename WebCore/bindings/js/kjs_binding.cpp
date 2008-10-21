@@ -36,7 +36,6 @@
 #include "JSNode.h"
 #include "JSRangeException.h"
 #include "JSXMLHttpRequestException.h"
-#include "KURL.h"
 #include "RangeException.h"
 #include "XMLHttpRequestException.h"
 #include "kjs_window.h"
@@ -52,10 +51,12 @@
 #endif
 
 using namespace KJS;
-
-namespace WebCore {
-
+using namespace WebCore;
 using namespace HTMLNames;
+
+// FIXME: Move all this stuff into the WebCore namespace.
+
+namespace KJS {
 
 typedef HashMap<void*, DOMObject*> DOMObjectMap;
 typedef HashMap<WebCore::Node*, JSNode*> NodeMap;
@@ -261,27 +262,6 @@ JSValue* jsStringOrFalse(const String& s)
     return jsString(s);
 }
 
-JSValue* jsStringOrNull(const KURL& url)
-{
-    if (url.isNull())
-        return jsNull();
-    return jsString(url.string());
-}
-
-JSValue* jsStringOrUndefined(const KURL& url)
-{
-    if (url.isNull())
-        return jsUndefined();
-    return jsString(url.string());
-}
-
-JSValue* jsStringOrFalse(const KURL& url)
-{
-    if (url.isNull())
-        return jsBoolean(false);
-    return jsString(url.string());
-}
-
 String valueToStringWithNullCheck(ExecState* exec, JSValue* val)
 {
     if (val->isNull())
@@ -339,6 +319,10 @@ void setDOMException(ExecState* exec, ExceptionCode ec)
     ASSERT(errorObject);
     exec->setException(errorObject);
 }
+
+} // namespace KJS
+
+namespace WebCore {
 
 bool allowsAccessFromFrame(ExecState* exec, Frame* frame)
 {

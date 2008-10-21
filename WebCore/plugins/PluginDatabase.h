@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +26,22 @@
 #ifndef PluginDatabase_H
 #define PluginDatabase_H
 
-#include "PlatformString.h"
-#include "PluginPackage.h"
-#include "StringHash.h"
+#ifdef ANDROID_PLUGINS
+
+#include "PluginDatabaseAndroid.h"
+
+namespace WebCore {
+    typedef PluginDatabaseAndroid PluginDatabase;
+}
+
+#else // !defined(ANDROID_PLUGINS)
 
 #include <wtf/Vector.h>
 #include <wtf/HashSet.h>
+
+#include "PlatformString.h"
+#include "PluginPackage.h"
+#include "StringHash.h"
 
 namespace WebCore {
     class Element;
@@ -40,27 +49,24 @@ namespace WebCore {
     class IntSize;
     class KURL;
     class PluginPackage;
+    class PluginView;
 
     typedef HashSet<RefPtr<PluginPackage>, PluginPackageHash> PluginSet;
   
     class PluginDatabase {
     public:
         static PluginDatabase* installedPlugins();
+        PluginView* createPluginView(Frame* parentFrame, const IntSize&, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
         bool refresh();
         Vector<PluginPackage*> plugins() const;
         bool isMIMETypeRegistered(const String& mimeType);
         void addExtraPluginPath(const String&);
-
-        static bool isPreferredPluginPath(const String& path);
-        static int preferredPluginCompare(const void*, const void*);
-
-        PluginPackage* findPlugin(const KURL&, String& mimeType);
-
     private:
         void setPluginPaths(const Vector<String>& paths) { m_pluginPaths = paths; }
         PluginSet getPluginsInPaths() const;
 
+        PluginPackage* findPlugin(const KURL& url, String& mimeType);
         PluginPackage* pluginForMIMEType(const String& mimeType);
         String MIMETypeForExtension(const String& extension) const;
 
@@ -72,5 +78,7 @@ namespace WebCore {
     };
 
 } // namespace WebCore
+
+#endif // !defined(ANDROID_PLUGINS)
 
 #endif

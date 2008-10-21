@@ -38,8 +38,7 @@ namespace WebCore {
 
     class Console : public RefCounted<Console> {
     public:
-        static PassRefPtr<Console> create(Frame* frame) { return adoptRef(new Console(frame)); }
-
+        Console(Frame*);
         void disconnectFrame();
 
         void error(const String& message);
@@ -48,8 +47,6 @@ namespace WebCore {
         void warn(const String& message);
 
     private:
-        Console(Frame*);
-        
         Frame* m_frame;
     };
 

@@ -26,6 +26,7 @@
 
 #include "SVGRenderTreeAsText.h"
 #include "SVGFilterEffect.h"
+#include "TextStream.h"
 
 namespace WebCore {
 

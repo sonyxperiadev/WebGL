@@ -48,7 +48,6 @@ wxWebCore port Bakefile project file.
         $(WEBCORE_SOURCES_PAGE)
         $(WEBCORE_SOURCES_HISTORY)
         $(WEBCORE_SOURCES_PLATFORM)
-        $(WEBCORE_SOURCES_PLUGINS)
         $(WEBCORE_SOURCES_RENDERING)
         $(WEBCORE_SOURCES_STORAGE)
         $(WEBCORE_SOURCES_XBM)
@@ -96,7 +95,6 @@ wxWebCore port Bakefile project file.
         <include>$(WK_ROOT)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
         <include>$(WK_ROOT)/JavaScriptCore/ForwardingHeaders</include>
-        <include>$(WK_ROOT)/JavaScriptCore/bindings</include>
         <include>$(WK_ROOT)/JavaScriptCore/kjs</include>
         <include>$(WK_ROOT)/JavaScriptCore/pcre</include>
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>

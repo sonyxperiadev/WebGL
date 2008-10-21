@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,7 +26,6 @@
 
 #include "AXObjectCache.h"
 #include "CDATASection.h"
-#include "CachedCSSStyleSheet.h"
 #include "CSSHelper.h"
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
@@ -35,12 +34,12 @@
 #include "ClassNodeList.h"
 #include "Comment.h"
 #include "CookieJar.h"
+#include "Database.h"
 #include "DOMImplementation.h"
 #include "DocLoader.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
-#include "DOMWindow.h"
 #include "EditingText.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -109,12 +108,7 @@
 #include "kjs_proxy.h"
 
 #if ENABLE(DATABASE)
-#include "Database.h"
 #include "DatabaseThread.h"
-#endif
-
-#if ENABLE(CROSS_DOCUMENT_MESSAGING)
-#include "MessageEvent.h"
 #endif
 
 #if ENABLE(XPATH)
@@ -138,6 +132,21 @@
 #include "SVGZoomEvent.h"
 #include "SVGStyleElement.h"
 #include "TimeScheduler.h"
+#endif
+
+#ifdef ANDROID_INSTRUMENT
+#undef LOG
+#include <utils/Log.h>
+#endif
+
+#ifdef ANDROID_META_SUPPORT
+#include "Settings.h"
+#endif
+
+#ifdef ANDROID_RESET_SELECTION
+#include "CacheBuilder.h"
+#include "FrameAndroid.h"
+#include "HTMLTextAreaElement.h"
 #endif
 
 using namespace std;
@@ -300,6 +309,9 @@ Document::Document(DOMImplementation* impl, Frame* frame, bool isXHTML)
 #if USE(LOW_BANDWIDTH_DISPLAY)
     , m_inLowBandwidthDisplay(false)
 #endif
+#ifdef ANDROID_MOBILE
+    , mExtraLayoutDelay(0)
+#endif
 {
     m_document.resetSkippingRef(this);
 
@@ -319,8 +331,8 @@ Document::Document(DOMImplementation* impl, Frame* frame, bool isXHTML)
     m_tokenizer = 0;
     m_wellFormed = false;
 
-    setParseMode(Strict);
-
+    pMode = Strict;
+    hMode = XHtml;
     m_textColor = Color::black;
     m_listenerTypes = 0;
     m_inDocument = true;
@@ -331,8 +343,12 @@ Document::Document(DOMImplementation* impl, Frame* frame, bool isXHTML)
     m_usesFirstLineRules = false;
     m_usesFirstLetterRules = false;
     m_gotoAnchorNeededAfterStylesheetsLoad = false;
- 
-    m_styleSelector = 0;
+
+    bool matchAuthorAndUserStyles = true;
+    if (Settings* settings = this->settings())
+        matchAuthorAndUserStyles = settings->authorAndUserStylesEnabled();
+    m_styleSelector = new CSSStyleSelector(this, userStyleSheet(), m_styleSheets.get(), m_mappedElementSheet.get(), !inCompatMode(), matchAuthorAndUserStyles);
+
     m_didCalculateStyleSelector = false;
     m_pendingStylesheets = 0;
     m_ignorePendingStylesheets = false;
@@ -409,7 +425,7 @@ Document::~Document()
     XMLHttpRequest::detachRequests(this);
     {
         KJS::JSLock lock;
-        ScriptInterpreter::forgetAllDOMNodesForDocument(this);
+        KJS::ScriptInterpreter::forgetAllDOMNodesForDocument(this);
     }
 
     if (m_docChanged && changedDocuments)
@@ -472,15 +488,12 @@ void Document::resetActiveLinkColor()
 
 void Document::setDocType(PassRefPtr<DocumentType> docType)
 {
-    // This should never be called more than once.
-    // Note: This is not a public DOM method and can only be called by the parser.
-    ASSERT(!m_docType || !docType);
-    if (m_docType && docType)
-        return;
     m_docType = docType;
-    if (m_docType)
-        m_docType->setDocument(this);
-    determineParseMode();
+}
+
+DocumentType *Document::doctype() const
+{
+    return m_docType.get();
 }
 
 DOMImplementation* Document::implementation() const
@@ -488,11 +501,9 @@ DOMImplementation* Document::implementation() const
     return m_implementation.get();
 }
 
-void Document::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void Document::childrenChanged(bool changedByParser)
 {
-    ContainerNode::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    
-    // Invalidate the document element we have cached in case it was replaced.
+    // invalidate the document element we have cached in case it was replaced
     m_documentElement = 0;
 }
 
@@ -680,12 +691,7 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-
-    if (source->isReadOnlyNode()) {
-        ec = NO_MODIFICATION_ALLOWED_ERR;
-        return 0;
-    }
-
+    
     switch (source->nodeType()) {
         case ENTITY_NODE:
         case NOTATION_NODE:
@@ -834,19 +840,19 @@ void Document::setXMLStandalone(bool standalone, ExceptionCode& ec)
     m_xmlStandalone = standalone;
 }
 
-KURL Document::documentURI() const
+String Document::documentURI() const
 {
     return m_baseURL;
 }
 
-void Document::setDocumentURI(const String& uri)
+void Document::setDocumentURI(const String &uri)
 {
-    m_baseURL = KURL(uri);
+    m_baseURL = uri.deprecatedString();
 }
 
-KURL Document::baseURI() const
+String Document::baseURI() const
 {
-    return m_baseURL;
+    return documentURI();
 }
 
 Element* Document::elementFromPoint(int x, int y) const
@@ -1012,7 +1018,7 @@ PassRefPtr<Range> Document::createRange()
 }
 
 PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatToShow, 
-    PassRefPtr<NodeFilter> filter, bool expandEntityReferences, ExceptionCode& ec)
+    NodeFilter* filter, bool expandEntityReferences, ExceptionCode& ec)
 {
     if (!root) {
         ec = NOT_SUPPORTED_ERR;
@@ -1022,7 +1028,7 @@ PassRefPtr<NodeIterator> Document::createNodeIterator(Node* root, unsigned whatT
 }
 
 PassRefPtr<TreeWalker> Document::createTreeWalker(Node *root, unsigned whatToShow, 
-    PassRefPtr<NodeFilter> filter, bool expandEntityReferences, ExceptionCode& ec)
+    NodeFilter* filter, bool expandEntityReferences, ExceptionCode& ec)
 {
     if (!root) {
         ec = NOT_SUPPORTED_ERR;
@@ -1051,6 +1057,23 @@ void Document::setDocumentChanged(bool b)
     m_docChanged = b;
 }
 
+#ifdef ANDROID_INSTRUMENT
+static uint32_t sTotalTimeUsed = 0;
+static uint32_t sCounter = 0;
+    
+void Frame::resetCalculateStyleTimeCounter()
+{
+    sTotalTimeUsed = 0;
+    sCounter = 0;
+}
+
+void Frame::reportCalculateStyleTimeCounter()
+{
+    LOG(LOG_DEBUG, "WebCore", "*-* Total calcStyle time: %d ms called %d times\n", 
+            sTotalTimeUsed, sCounter);
+}
+#endif
+
 void Document::recalcStyle(StyleChange change)
 {
     // we should not enter style recalc while painting
@@ -1064,6 +1087,10 @@ void Document::recalcStyle(StyleChange change)
         
     m_inStyleRecalc = true;
     suspendPostAttachCallbacks();
+    
+#ifdef ANDROID_INSTRUMENT
+    uint32_t time = get_thread_msec();
+#endif
     
     ASSERT(!renderer() || renderArena());
     if (!renderer() || !renderArena())
@@ -1116,6 +1143,14 @@ void Document::recalcStyle(StyleChange change)
     for (Node* n = firstChild(); n; n = n->nextSibling())
         if (change >= Inherit || n->hasChangedChild() || n->changed())
             n->recalcStyle(change);
+
+#ifdef ANDROID_INSTRUMENT
+    time = get_thread_msec() - time;
+    sTotalTimeUsed += time;
+    sCounter++;
+    if (time > 1000)
+        LOGW("***** Document::recalcStyle() used %d ms\n", time);
+#endif
 
     if (changed() && view())
         view()->layout();
@@ -1209,14 +1244,6 @@ void Document::attach()
     
     // Create the rendering tree
     setRenderer(new (m_renderArena) RenderView(this, view()));
-
-    if (!m_styleSelector) {
-        bool matchAuthorAndUserStyles = true;
-        if (Settings* docSettings = settings())
-            matchAuthorAndUserStyles = docSettings->authorAndUserStylesEnabled();
-        m_styleSelector = new CSSStyleSelector(this, userStyleSheet(), m_styleSheets.get(), m_mappedElementSheet.get(), !inCompatMode(), matchAuthorAndUserStyles);
-        m_styleSelector->setEncodedURL(m_url);
-    }
 
     recalcStyle(Force);
 
@@ -1337,10 +1364,10 @@ void Document::open()
 {
     // This is work that we should probably do in clear(), but we can't have it
     // happen when implicitOpen() is called unless we reorganize Frame code.
-    if (Document* parent = parentDocument()) {
-        if (m_url.isEmpty() || m_url == blankURL())
+    if (Document *parent = parentDocument()) {
+        if (m_url.isEmpty() || m_url == "about:blank")
             setURL(parent->baseURL());
-        if (m_baseURL.isEmpty() || m_baseURL == blankURL())
+        if (m_baseURL.isEmpty() || m_baseURL == "about:blank")
             setBaseURL(parent->baseURL());
     }
 
@@ -1463,6 +1490,11 @@ void Document::implicitClose()
     // onLoad event handler, as in Radar 3206524.
     delete m_tokenizer;
     m_tokenizer = 0;
+
+#ifdef ANDROID_PRELOAD_CHANGES
+    // Parser should have picked up all preloads by now
+    m_docLoader->clearPreloads();
+#endif
 
     // Create a body element if we don't already have one. See Radar 3758785.
     if (!this->body() && isHTMLDocument()) {
@@ -1630,21 +1662,21 @@ void Document::clear()
     m_windowEventListeners.clear();
 }
 
-void Document::setURL(const KURL& url)
+void Document::setURL(const DeprecatedString& url)
 {
     if (url == m_url)
         return;
 
     m_url = url;
     if (m_styleSelector)
-        m_styleSelector->setEncodedURL(url);
+        m_styleSelector->setEncodedURL(m_url);
 
     m_isAllowedToLoadLocalResources = shouldBeAllowedToLoadLocalResources();
  }
  
 bool Document::shouldBeAllowedToLoadLocalResources() const
 {
-    if (FrameLoader::shouldTreatURLAsLocal(m_url.string()))
+    if (FrameLoader::shouldTreatURLAsLocal(m_url))
         return true;
 
     Frame* frame = this->frame();
@@ -1655,23 +1687,23 @@ bool Document::shouldBeAllowedToLoadLocalResources() const
     if (!documentLoader)
         return false;
 
-    if (m_url == blankURL() && frame->loader()->opener() && frame->loader()->opener()->document()->isAllowedToLoadLocalResources())
+    if (m_url == "about:blank" && frame->loader()->opener() && frame->loader()->opener()->document()->isAllowedToLoadLocalResources())
         return true;
     
     return documentLoader->substituteData().isValid();
 }
 
-void Document::setBaseURL(const KURL& baseURL) 
+void Document::setBaseURL(const DeprecatedString& baseURL) 
 { 
-    m_baseURL = baseURL;
+    m_baseURL = baseURL; 
     if (m_elemSheet)
-        m_elemSheet->setHref(baseURL.string());
+        m_elemSheet->setHref(m_baseURL);
 }
 
-void Document::setCSSStyleSheet(const String &url, const String& charset, const CachedCSSStyleSheet* sheet)
+void Document::setCSSStyleSheet(const String &url, const String& charset, const String &sheet)
 {
     m_sheet = new CSSStyleSheet(this, url, charset);
-    m_sheet->parseString(sheet->sheetText());
+    m_sheet->parseString(sheet);
 
     updateStyleSelector();
 }
@@ -1701,15 +1733,23 @@ String Document::userStyleSheet() const
 CSSStyleSheet* Document::elementSheet()
 {
     if (!m_elemSheet)
-        m_elemSheet = new CSSStyleSheet(this, baseURL().string());
+        m_elemSheet = new CSSStyleSheet(this, baseURL());
     return m_elemSheet.get();
 }
 
 CSSStyleSheet* Document::mappedElementSheet()
 {
     if (!m_mappedElementSheet)
-        m_mappedElementSheet = new CSSStyleSheet(this, baseURL().string());
+        m_mappedElementSheet = new CSSStyleSheet(this, baseURL());
     return m_mappedElementSheet.get();
+}
+
+void Document::determineParseMode(const String&)
+{
+    // For XML documents use strict parse mode.
+    // HTML overrides this method to determine the parse mode.
+    pMode = Strict;
+    hMode = XHtml;
 }
 
 static Node* nextNodeWithExactTabIndex(Node* start, int tabIndex, KeyboardEvent* event)
@@ -1830,6 +1870,64 @@ Node *Document::nodeWithAbsIndex(int absIndex)
     return n;
 }
 
+#ifdef ANDROID_META_SUPPORT
+// Though isspace() considers \t and \v to be whitespace, Win IE doesn't.
+static bool isSeparator(::UChar c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == '\0';
+}
+
+void Document::processMetadataSettings(const String& content)
+{
+    ASSERT(!content.isNull());
+    
+    int keyBegin, keyEnd, valueBegin, valueEnd;
+    int i = 0;
+    int length = content.length();
+    String buffer = content.lower();
+    while (i < length) {
+        // skip to first non-separator, but don't skip past the end of the string
+        while (isSeparator(buffer[i])) {
+            if (i >= length)
+                break;
+            i++;
+        }
+        keyBegin = i;
+        
+        // skip to first separator
+        while (!isSeparator(buffer[i]))
+            i++;
+        keyEnd = i;
+        
+        // skip to first '=', but don't skip past a ',' or the end of the string
+        while (buffer[i] != '=') {
+            if (buffer[i] == ',' || i >= length)
+                break;
+            i++;
+        }
+        
+        // skip to first non-separator, but don't skip past a ',' or the end of the string
+        while (isSeparator(buffer[i])) {
+            if (buffer[i] == ',' || i >= length)
+                break;
+            i++;
+        }
+        valueBegin = i;
+        
+        // skip to first separator
+        while (!isSeparator(buffer[i]))
+            i++;
+        valueEnd = i;
+        
+        ASSERT(i <= length);
+        
+        String key(buffer.substring(keyBegin, keyEnd - keyBegin));
+        String value(buffer.substring(valueBegin, valueEnd - valueBegin));
+        frame()->settings()->setMetadataSettings(key, value);
+    }
+}
+#endif
+
 void Document::processHttpEquiv(const String &equiv, const String &content)
 {
     ASSERT(!equiv.isNull() && !content.isNull());
@@ -1853,7 +1951,7 @@ void Document::processHttpEquiv(const String &equiv, const String &content)
             if (url.isEmpty())
                 url = frame->loader()->url().string();
             else
-                url = completeURL(url).string();
+                url = completeURL(url);
             frame->loader()->scheduleHTTPRedirection(delay, url);
         }
     } else if (equalIgnoringCase(equiv, "set-cookie")) {
@@ -2145,7 +2243,7 @@ void Document::recalcStyleSelector()
                     // it is loading but we should still decide which style sheet set to use
                     if (!enabledViaScript && !title.isEmpty() && m_preferredStylesheetSet.isEmpty()) {
                         const AtomicString& rel = e->getAttribute(relAttr);
-                        if (!rel.contains("alternate")) {
+                        if (!rel.domString().contains("alternate")) {
                             m_preferredStylesheetSet = title;
                             m_selectedStylesheetSet = title;
                         }
@@ -2186,6 +2284,11 @@ void Document::recalcStyleSelector()
 
                 if (title != m_preferredStylesheetSet)
                     sheet = 0;
+
+#if ENABLE(SVG)
+                if (!n->isHTMLElement())
+                    title = title.deprecatedString().replace('&', "&&");
+#endif
             }
         }
 
@@ -2287,6 +2390,20 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
     if (m_inPageCache)
         return false;
 
+#ifdef ANDROID_RESET_SELECTION
+        WebCore::FrameAndroid* frameAndroid = static_cast<WebCore::FrameAndroid*>(frame());
+        WebCore::Node* oldFocus = frameAndroid->getCacheBuilder().currentFocus();
+        if (oldFocus) {
+            if (oldFocus->hasTagName(WebCore::HTMLNames::inputTag)) {
+                WebCore::HTMLInputElement* input = static_cast<WebCore::HTMLInputElement*>(oldFocus);
+                if (input->isTextField())
+                    input->setSelectionRange(-1, -1);
+            } else if (oldFocus->hasTagName(WebCore::HTMLNames::textareaTag)) {
+                WebCore::HTMLTextAreaElement* textArea = static_cast<WebCore::HTMLTextAreaElement*>(oldFocus);
+                textArea->setSelectionRange(-1, -1);
+            }
+        }
+#endif
     bool focusChangeBlocked = false;
     RefPtr<Node> oldFocusedNode = m_focusedNode;
     m_focusedNode = 0;
@@ -2428,7 +2545,7 @@ DOMWindow* Document::defaultView() const
     return frame()->domWindow();
 }
 
-PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& ec)
+PassRefPtr<Event> Document::createEvent(const String &eventType, ExceptionCode& ec)
 {
     if (eventType == "UIEvents" || eventType == "UIEvent")
         return new UIEvent;
@@ -2453,10 +2570,6 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
         return new Event;
     if (eventType == "SVGZoomEvents")
         return new SVGZoomEvent;
-#endif
-#if ENABLE(CROSS_DOCUMENT_MESSAGING)
-    if (eventType == "MessageEvent")
-        return new MessageEvent;
 #endif
     ec = NOT_SUPPORTED_ERR;
     return 0;
@@ -2548,7 +2661,7 @@ PassRefPtr<EventListener> Document::createHTMLEventListener(const String& functi
 void Document::setHTMLWindowEventListener(const AtomicString& eventType, Attribute* attr)
 {
     setHTMLWindowEventListener(eventType,
-        createHTMLEventListener(attr->localName().string(), attr->value(), 0));
+        createHTMLEventListener(attr->localName().domString(), attr->value(), 0));
 }
 
 void Document::dispatchImageLoadEventSoon(HTMLImageLoader *image)
@@ -2612,7 +2725,7 @@ String Document::cookie() const
 
 void Document::setCookie(const String& value)
 {
-    setCookies(this, url(), policyBaseURL(), value);
+    setCookies(this, url(), policyBaseURL().deprecatedString(), value);
 }
 
 String Document::referrer() const
@@ -2774,7 +2887,7 @@ HTMLMapElement *Document::getImageMap(const String& url) const
         return 0;
     int hashPos = url.find('#');
     String name = (hashPos < 0 ? url : url.substring(hashPos + 1)).impl();
-    AtomicString mapName = isHTMLDocument() ? name.lower() : name;
+    AtomicString mapName = hMode == XHtml ? name : name.lower();
     return m_imageMapsByName.get(mapName.impl());
 }
 
@@ -2790,18 +2903,27 @@ UChar Document::backslashAsCurrencySymbol() const
     return m_decoder->encoding().backslashAsCurrencySymbol();
 }
 
-KURL Document::completeURL(const String& url)
+DeprecatedString Document::completeURL(const DeprecatedString& url)
 {
-    // Always return a null URL when passed a null string.
-    // FIXME: Should we change the KURL constructor to have this behavior?
-    if (url.isNull())
-        return KURL();
-    KURL base = m_baseURL;
-    if (base.isEmpty())
-        base = m_url;
+    // FIXME: This treats null URLs the same as empty URLs, unlike the String function below.
+
+    // If both the URL and base URL are empty, like they are for documents
+    // created using DOMImplementation::createDocument, just return the passed in URL.
+    // (We do this because url() returns "about:blank" for empty URLs.
+    if (m_url.isEmpty() && m_baseURL.isEmpty())
+        return url;
     if (!m_decoder)
-        return KURL(base, url);
-    return KURL(base, url, m_decoder->encoding());
+        return KURL(baseURL(), url).deprecatedString();
+    return KURL(baseURL(), url, m_decoder->encoding()).deprecatedString();
+}
+
+String Document::completeURL(const String& url)
+{
+    // FIXME: This always returns null when passed a null URL, unlike the DeprecatedString function above.
+    // Code relies on this behavior, namely the href property of <a> and the data property of <object>.
+    if (url.isNull())
+        return url;
+    return completeURL(url.deprecatedString());
 }
 
 bool Document::inPageCache()
@@ -3342,7 +3464,7 @@ void Document::shiftMarkers(Node *node, unsigned startOffset, int delta, Documen
 
 void Document::applyXSLTransform(ProcessingInstruction* pi)
 {
-    RefPtr<XSLTProcessor> processor = XSLTProcessor::create();
+    RefPtr<XSLTProcessor> processor = new XSLTProcessor;
     processor->setXSLStylesheet(static_cast<XSLStyleSheet*>(pi->sheet()));
     
     String resultMIMEType;
@@ -3539,8 +3661,8 @@ Vector<String> Document::formElementsState() const
         HTMLFormControlElementWithState* e = *it;
         String value;
         if (e->saveState(value)) {
-            stateVector.append(e->name().string());
-            stateVector.append(e->type().string());
+            stateVector.append(e->name().domString());
+            stateVector.append(e->type().domString());
             stateVector.append(value);
         }
     }
@@ -3554,14 +3676,14 @@ PassRefPtr<XPathExpression> Document::createExpression(const String& expression,
                                                        ExceptionCode& ec)
 {
     if (!m_xpathEvaluator)
-        m_xpathEvaluator = XPathEvaluator::create();
+        m_xpathEvaluator = new XPathEvaluator;
     return m_xpathEvaluator->createExpression(expression, resolver, ec);
 }
 
 PassRefPtr<XPathNSResolver> Document::createNSResolver(Node* nodeResolver)
 {
     if (!m_xpathEvaluator)
-        m_xpathEvaluator = XPathEvaluator::create();
+        m_xpathEvaluator = new XPathEvaluator;
     return m_xpathEvaluator->createNSResolver(nodeResolver);
 }
 
@@ -3573,7 +3695,7 @@ PassRefPtr<XPathResult> Document::evaluate(const String& expression,
                                            ExceptionCode& ec)
 {
     if (!m_xpathEvaluator)
-        m_xpathEvaluator = XPathEvaluator::create();
+        m_xpathEvaluator = new XPathEvaluator;
     return m_xpathEvaluator->evaluate(expression, contextNode, resolver, type, result, ec);
 }
 
@@ -3768,12 +3890,6 @@ void Document::updateFocusAppearanceTimerFired(Timer<Document>*)
     Element* element = static_cast<Element*>(node);
     if (element->isFocusable())
         element->updateFocusAppearance(false);
-}
-
-// FF method for accessing the selection added for compatability.
-DOMSelection* Document::getSelection() const
-{
-    return frame() ? frame()->domWindow()->getSelection() : 0;
 }
 
 #if ENABLE(DATABASE)

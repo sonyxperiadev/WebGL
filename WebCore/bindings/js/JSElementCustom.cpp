@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,20 +30,31 @@
 #include "config.h"
 #include "JSElement.h"
 
+#include "Attr.h"
+#include "Document.h"
+#include "Element.h"
 #include "CSSHelper.h"
 #include "ExceptionCode.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
-
-using namespace KJS;
+#include "PlatformString.h"
+#include "kjs_binding.h"
+#include "kjs_dom.h"
+#ifdef ANDROID_JAVASCRIPT_SECURITY 
+#include "KURL.h"
+#endif
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static inline bool allowSettingSrcToJavascriptURL(ExecState* exec, Element* element, const String& name, const String& value)
+static inline bool allowSettingSrcToJavascriptURL(KJS::ExecState* exec, Element* element, String name, String value)
 {
+#ifdef ANDROID_JAVASCRIPT_SECURITY 
     if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && protocolIs(parseURL(value), "javascript")) {
+#else
+    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && parseURL(value).startsWith("javascript:", false)) {
+#endif
         HTMLFrameElementBase* frame = static_cast<HTMLFrameElementBase*>(element);
         if (!checkNodeSecurity(exec, frame->contentDocument()))
             return false;
@@ -51,7 +62,7 @@ static inline bool allowSettingSrcToJavascriptURL(ExecState* exec, Element* elem
     return true;
 } 
 
-JSValue* JSElement::setAttribute(ExecState* exec, const List& args)
+KJS::JSValue* JSElement::setAttribute(KJS::ExecState* exec, const KJS::List& args)
 {
     ExceptionCode ec = 0;
     String name = args[0]->toString(exec);
@@ -59,33 +70,33 @@ JSValue* JSElement::setAttribute(ExecState* exec, const List& args)
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, name, value))
-        return jsUndefined();
+        return KJS::jsUndefined();
 
     imp->setAttribute(name, value, ec);
-    setDOMException(exec, ec);
-    return jsUndefined();
+    KJS::setDOMException(exec, ec);
+    return KJS::jsUndefined();
 }
 
-JSValue* JSElement::setAttributeNode(ExecState* exec, const List& args)
+KJS::JSValue* JSElement::setAttributeNode(KJS::ExecState* exec, const KJS::List& args)
 {
     ExceptionCode ec = 0;
     bool newAttrOk;
     Attr* newAttr = toAttr(args[0], newAttrOk);
     if (!newAttrOk) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
-        return jsUndefined();
+        return KJS::jsUndefined();
     }
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, newAttr->name(), newAttr->value()))
-        return jsUndefined();
+        return KJS::jsUndefined();
 
-    JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNode(newAttr, ec)));
-    setDOMException(exec, ec);
+    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNode(newAttr, ec)));
+    KJS::setDOMException(exec, ec);
     return result;
 }
 
-JSValue* JSElement::setAttributeNS(ExecState* exec, const List& args)
+KJS::JSValue* JSElement::setAttributeNS(KJS::ExecState* exec, const KJS::List& args)
 {
     ExceptionCode ec = 0;
     String namespaceURI = valueToStringWithNullCheck(exec, args[0]);
@@ -94,29 +105,29 @@ JSValue* JSElement::setAttributeNS(ExecState* exec, const List& args)
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, qualifiedName, value))
-        return jsUndefined();
+        return KJS::jsUndefined();
 
     imp->setAttributeNS(namespaceURI, qualifiedName, value, ec);
-    setDOMException(exec, ec);
-    return jsUndefined();
+    KJS::setDOMException(exec, ec);
+    return KJS::jsUndefined();
 }
 
-JSValue* JSElement::setAttributeNodeNS(ExecState* exec, const List& args)
+KJS::JSValue* JSElement::setAttributeNodeNS(KJS::ExecState* exec, const KJS::List& args)
 {
     ExceptionCode ec = 0;
     bool newAttrOk;
     Attr* newAttr = toAttr(args[0], newAttrOk);
     if (!newAttrOk) {
-        setDOMException(exec, TYPE_MISMATCH_ERR);
-        return jsUndefined();
+        KJS::setDOMException(exec, TYPE_MISMATCH_ERR);
+        return KJS::jsUndefined();
     }
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, newAttr->name(), newAttr->value()))
-        return jsUndefined();
+        return KJS::jsUndefined();
 
-    JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNodeNS(newAttr, ec)));
-    setDOMException(exec, ec);
+    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNodeNS(newAttr, ec)));
+    KJS::setDOMException(exec, ec);
     return result;
 }
 

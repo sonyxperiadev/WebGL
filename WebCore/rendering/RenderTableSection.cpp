@@ -33,8 +33,14 @@
 #include "RenderTableCol.h"
 #include "RenderTableRow.h"
 #include "RenderView.h"
+#include "TextStream.h"
 #include <limits>
 #include <wtf/Vector.h>
+#ifdef ANDROID_LAYOUT
+#include "Frame.h"
+#include "Settings.h"
+#include "WebCoreViewBridge.h"
+#endif
 
 using namespace std;
 
@@ -270,6 +276,17 @@ void RenderTableSection::setCellWidths()
     Vector<int>& columnPos = table()->columnPositions();
     bool pushedLayoutState = false;
 
+#ifdef ANDROID_LAYOUT
+    int visibleWidth = 0;
+    if (view()->frameView()) {
+        const Settings* settings = document()->settings();
+        ASSERT(settings);
+        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
+            visibleWidth = view()->frameView()->getWebCoreViewBridge()->screenWidth();
+        }
+    }
+#endif
+    
     for (int i = 0; i < m_gridRows; i++) {
         Row& row = *m_grid[i].row;
         int cols = row.size();
@@ -286,8 +303,18 @@ void RenderTableSection::setCellWidths()
                 endCol++;
             }
             int w = columnPos[endCol] - columnPos[j] - table()->hBorderSpacing();
+#ifdef ANDROID_LAYOUT          
+            if (table()->isSingleColumn())
+                w = table()->width()-(table()->borderLeft()+table()->borderRight()+
+                    (table()->collapseBorders()?0:(table()->paddingLeft()+table()->paddingRight()+
+                    2*table()->hBorderSpacing())));
+#endif          
             int oldWidth = cell->width();
+#ifdef ANDROID_LAYOUT
+            if (w != oldWidth || (visibleWidth > 0 && visibleWidth != cell->getVisibleWidth())) {
+#else
             if (w != oldWidth) {
+#endif
                 cell->setNeedsLayout(true);
                 if (!table()->selfNeedsLayout() && cell->checkForRepaintDuringLayout()) {
                     if (!pushedLayoutState) {
@@ -298,7 +325,12 @@ void RenderTableSection::setCellWidths()
                     }
                     cell->repaint();
                 }
+#ifdef ANDROID_LAYOUT
+                if (w != oldWidth)
+                    cell->setWidth(w);
+#else
                 cell->setWidth(w);
+#endif
             }
         }
     }
@@ -309,6 +341,10 @@ void RenderTableSection::setCellWidths()
 
 void RenderTableSection::calcRowHeight()
 {
+#ifdef ANDROID_LAYOUT
+    if (table()->isSingleColumn())
+        return;
+#endif    
     RenderTableCell* cell;
 
     int spacing = table()->vBorderSpacing();
@@ -390,6 +426,52 @@ void RenderTableSection::calcRowHeight()
 
 int RenderTableSection::layoutRows(int toAdd)
 {
+#ifdef ANDROID_LAYOUT
+    if (table()->isSingleColumn()) {
+        int totalRows = m_gridRows;
+        int hspacing = table()->hBorderSpacing();
+        int vspacing = table()->vBorderSpacing();
+        int rHeight = vspacing;
+    
+        int leftOffset = hspacing;
+    
+        int nEffCols = table()->numEffCols();
+        for (int r = 0; r < totalRows; r++) {
+            for (int c = 0; c < nEffCols; c++) {
+                CellStruct current = cellAt(r, c);
+                RenderTableCell* cell = current.cell;
+                
+                if (!cell || current.inColSpan)
+                    continue;
+                if (r > 0 && (cellAt(r-1, c).cell == cell))
+                    continue;
+                   
+                cell->setCellTopExtra(0);
+                cell->setCellBottomExtra(0);
+                
+                int oldCellX = cell->xPos();
+                int oldCellY = cell->yPos();
+            
+                if (style()->direction() == RTL)
+                    cell->setPos(table()->width(), rHeight);
+                else
+                    cell->setPos(leftOffset, rHeight);
+    
+                // If the cell moved, we have to repaint it as well as any floating/positioned
+                // descendants.  An exception is if we need a layout.  In this case, we know we're going to
+                // repaint ourselves (and the cell) anyway.
+                if (!table()->selfNeedsLayout() && cell->checkForRepaintDuringLayout()) {
+                    IntRect cellRect(oldCellX, oldCellY - cell->borderTopExtra() , cell->width(), cell->height());
+                    cell->repaintDuringLayoutIfMoved(cellRect);
+                }
+                rHeight += cell->height() + vspacing;
+            }
+        }
+    
+        m_height = rHeight;
+        return m_height;
+    }
+#endif
     int rHeight;
     int rindx;
     int totalRows = m_gridRows;
@@ -877,6 +959,23 @@ void RenderTableSection::paint(PaintInfo& paintInfo, int tx, int ty)
     int w = paintInfo.rect.width();
     int h = paintInfo.rect.height();
 
+#ifdef ANDROID_LAYOUT
+    unsigned int startrow = 0;
+    unsigned int endrow = totalRows;
+    unsigned int startcol = 0;
+    unsigned int endcol = totalCols;
+    if (table()->isSingleColumn()) {
+        // FIXME: should we be smarter too?        
+    } else {
+    // FIXME: possible to rollback to the common tree.
+    // rowPos size is set in calcRowHeight(), which is called from table layout().
+    // BUT RenderTableSection is init through parsing. On a slow device, paint() as
+    // the result of layout() can come after the next parse() as everything is triggered
+    // by timer. So we have to check rowPos before using it.
+    if (m_rowPos.size() != (totalRows + 1))
+        return;
+#endif
+
     int os = 2 * maximalOutlineSize(paintPhase);
     unsigned startrow = 0;
     unsigned endrow = totalRows;
@@ -916,6 +1015,9 @@ void RenderTableSection::paint(PaintInfo& paintInfo, int tx, int ty)
         if (!endcol && tx + table()->columnPositions()[0] - table()->outerBorderLeft() <= y + w + os)
             endcol++;
     }
+#ifdef ANDROID_LAYOUT
+    }
+#endif
 
     if (startcol < endcol) {
         // draw the cells
@@ -960,7 +1062,6 @@ void RenderTableSection::paint(PaintInfo& paintInfo, int tx, int ty)
                     if (!row->hasLayer())
                         cell->paintBackgroundsBehindCell(paintInfo, tx, ty, row);
                 }
-
                 if ((!cell->hasLayer() && !row->hasLayer()) || paintInfo.phase == PaintPhaseCollapsedTableBorders)
                     cell->paint(paintInfo, tx, ty);
             }
@@ -1074,5 +1175,23 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     
     return false;
 }
+
+#ifndef NDEBUG
+void RenderTableSection::dump(TextStream* stream, DeprecatedString ind) const
+{
+    *stream << endl << ind << "grid=(" << m_gridRows << "," << table()->numEffCols() << ")" << endl << ind;
+    for (int r = 0; r < m_gridRows; r++) {
+        for (int c = 0; c < table()->numEffCols(); c++) {
+            if (cellAt(r, c).cell && !cellAt(r, c).inColSpan)
+                *stream << "(" << cellAt(r, c).cell->row() << "," << cellAt(r, c).cell->col() << ","
+                        << cellAt(r, c).cell->rowSpan() << "," << cellAt(r, c).cell->colSpan() << ") ";
+            else
+                *stream << cellAt(r, c).cell << "null cell ";
+        }
+        *stream << endl << ind;
+    }
+    RenderContainer::dump(stream,ind);
+}
+#endif
 
 } // namespace WebCore

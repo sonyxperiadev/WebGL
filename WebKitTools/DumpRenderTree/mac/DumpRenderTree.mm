@@ -550,17 +550,15 @@ static void convertWebResourceDataToString(NSMutableDictionary *resource)
     }
 }
 
-static void normalizeWebResourceURL(NSMutableString *webResourceURL)
+static void normalizeWebResourceURL(NSMutableString *webResourceURL, NSString *oldURLBase)
 {
-    static int fileUrlLength = [@"file://" length];
-    NSRange layoutTestsWebArchivePathRange = [webResourceURL rangeOfString:@"/LayoutTests/" options:NSBackwardsSearch];
-    if (layoutTestsWebArchivePathRange.location == NSNotFound)
-        return;
-    NSRange currentWorkingDirectoryRange = NSMakeRange(fileUrlLength, layoutTestsWebArchivePathRange.location - fileUrlLength);
-    [webResourceURL replaceCharactersInRange:currentWorkingDirectoryRange withString:@""];
+    [webResourceURL replaceOccurrencesOfString:oldURLBase
+                                    withString:@"file://"
+                                       options:NSLiteralSearch
+                                         range:NSMakeRange(0, [webResourceURL length])];
 }
 
-static void convertWebResourceResponseToDictionary(NSMutableDictionary *propertyList)
+static void convertWebResourceResponseToDictionary(NSMutableDictionary *propertyList, NSString *oldURLBase)
 {
     NSURLResponse *response = nil;
     NSData *responseData = [propertyList objectForKey:@"WebResourceResponse"]; // WebResourceResponseKey in WebResource.m
@@ -575,7 +573,7 @@ static void convertWebResourceResponseToDictionary(NSMutableDictionary *property
     NSMutableDictionary *responseDictionary = [[NSMutableDictionary alloc] init];
     
     NSMutableString *urlString = [[[response URL] description] mutableCopy];
-    normalizeWebResourceURL(urlString);
+    normalizeWebResourceURL(urlString, oldURLBase);
     [responseDictionary setObject:urlString forKey:@"URL"];
     [urlString release];
     
@@ -610,6 +608,9 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
     if (!propertyList)
         return errorString;
 
+    // Normalize WebResourceResponse and WebResourceURL values in plist for testing
+    NSString *cwdURL = [@"file://" stringByAppendingString:[[[NSFileManager defaultManager] currentDirectoryPath] stringByExpandingTildeInPath]];
+    
     NSMutableArray *resources = [NSMutableArray arrayWithCapacity:1];
     [resources addObject:propertyList];
 
@@ -618,7 +619,7 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
         [resources removeObjectAtIndex:0];
 
         NSMutableDictionary *mainResource = [resourcePropertyList objectForKey:@"WebMainResource"];
-        normalizeWebResourceURL([mainResource objectForKey:@"WebResourceURL"]);
+        normalizeWebResourceURL([mainResource objectForKey:@"WebResourceURL"], cwdURL);
         convertWebResourceDataToString(mainResource);
 
         // Add subframeArchives to list for processing
@@ -630,8 +631,8 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
         NSEnumerator *enumerator = [subresources objectEnumerator];
         NSMutableDictionary *subresourcePropertyList;
         while ((subresourcePropertyList = [enumerator nextObject])) {
-            normalizeWebResourceURL([subresourcePropertyList objectForKey:@"WebResourceURL"]);
-            convertWebResourceResponseToDictionary(subresourcePropertyList);
+            normalizeWebResourceURL([subresourcePropertyList objectForKey:@"WebResourceURL"], cwdURL);
+            convertWebResourceResponseToDictionary(subresourcePropertyList, cwdURL);
             convertWebResourceDataToString(subresourcePropertyList);
         }
     }

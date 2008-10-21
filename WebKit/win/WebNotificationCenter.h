@@ -26,7 +26,7 @@
 #ifndef WebNotificationCenter_H
 #define WebNotificationCenter_H
 
-#include "WebKit.h"
+#include "IWebNotificationCenter.h"
 #include <wtf/OwnPtr.h>
 
 struct WebNotificationCenterPrivate;

@@ -28,6 +28,7 @@
 
 #include "autoversion.h"
 #include "ForEachCoClass.h"
+#include "IWebURLResponse.h"
 #include "ProgIDMacros.h"
 #include "resource.h"
 #include "WebKit.h"

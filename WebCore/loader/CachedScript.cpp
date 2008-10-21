@@ -84,6 +84,10 @@ void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
     setEncodedSize(m_data.get() ? m_data->size() : 0);
     if (m_data.get())
         m_script = m_encoding.decode(m_data->data(), encodedSize());
+#ifdef ANDROID_FIX
+    // report decoded size too
+    setDecodedSize(m_script.length() * sizeof(UChar));
+#endif
     m_loading = false;
     checkNotify();
 }

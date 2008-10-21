@@ -43,7 +43,7 @@ public:
     AtomicString(const String& s) : m_string(add(s.impl())) { }
 
     operator const String&() const { return m_string; }
-    const String& string() const { return m_string; };
+    const String& domString() const { return m_string; };
 
     operator KJS::Identifier() const;
     operator KJS::UString() const;
@@ -57,16 +57,16 @@ public:
     
     bool contains(UChar c) const { return m_string.contains(c); }
     bool contains(const AtomicString& s, bool caseSensitive = true) const
-        { return m_string.contains(s.string(), caseSensitive); }
+        { return m_string.contains(s.domString(), caseSensitive); }
 
     int find(UChar c, int start = 0) const { return m_string.find(c, start); }
     int find(const AtomicString& s, int start = 0, bool caseSentitive = true) const
-        { return m_string.find(s.string(), start, caseSentitive); }
+        { return m_string.find(s.domString(), start, caseSentitive); }
     
     bool startsWith(const AtomicString& s, bool caseSensitive = true) const
-        { return m_string.startsWith(s.string(), caseSensitive); }
+        { return m_string.startsWith(s.domString(), caseSensitive); }
     bool endsWith(const AtomicString& s, bool caseSensitive = true) const
-        { return m_string.endsWith(s.string(), caseSensitive); }
+        { return m_string.endsWith(s.domString(), caseSensitive); }
     
     int toInt(bool* ok = 0) const { return m_string.toInt(ok); }
     double toDouble(bool* ok = 0) const { return m_string.toDouble(ok); }
@@ -93,15 +93,18 @@ public:
     operator QString() const { return m_string; }
 #endif
 
+    AtomicString(const DeprecatedString&);
+    DeprecatedString deprecatedString() const;
+
 private:
     String m_string;
     
-    static PassRefPtr<StringImpl> add(const char*);
-    static PassRefPtr<StringImpl> add(const UChar*, int length);
-    static PassRefPtr<StringImpl> add(const UChar*);
-    static PassRefPtr<StringImpl> add(StringImpl*);
-    static PassRefPtr<StringImpl> add(const KJS::UString&);
-    static PassRefPtr<StringImpl> add(const KJS::Identifier&);
+    static StringImpl* add(const char*);
+    static StringImpl* add(const UChar*, int length);
+    static StringImpl* add(const UChar*);
+    static StringImpl* add(StringImpl*);
+    static StringImpl* add(const KJS::UString&);
+    static StringImpl* add(const KJS::Identifier&);
 };
 
 inline bool operator==(const AtomicString& a, const AtomicString& b) { return a.impl() == b.impl(); }

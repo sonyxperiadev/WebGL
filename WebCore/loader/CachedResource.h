@@ -79,6 +79,18 @@ public:
     virtual void ref(CachedResourceClient*);
     void deref(CachedResourceClient*);
     bool referenced() const { return !m_clients.isEmpty(); }
+
+#ifdef ANDROID_PRELOAD_CHANGES    
+    enum PreloadResult {
+        PreloadNotReferenced,
+        PreloadReferenced,
+        PreloadReferencedWhileLoading,
+        PreloadReferencedWhileComplete
+    };
+    PreloadResult preloadResult() const { return m_preloadResult; }
+    void setRequestedFromNetworkingLayer() { m_requestedFromNetworkingLayer = true; }
+#endif
+
     virtual void allReferencesRemoved() {};
 
     unsigned count() const { return m_clients.size(); }
@@ -116,8 +128,12 @@ public:
 
     void setResponse(const ResourceResponse& response) { m_response = response; }
     const ResourceResponse& response() const { return m_response; }
-    
+
+#ifdef ANDROID_PRELOAD_CHANGES    
+    bool canDelete() const { return !referenced() && !m_request && !m_preloadCount; }
+#else
     bool canDelete() const { return !referenced() && !m_request; }
+#endif
 
     bool isExpired() const;
 
@@ -135,8 +151,14 @@ public:
     virtual void destroyDecodedData() {};
 
     void setDocLoader(DocLoader* docLoader) { m_docLoader = docLoader; }
-    
-protected:
+
+#ifdef ANDROID_PRELOAD_CHANGES
+    bool isPreloaded() const { return m_preloadCount; }
+    void increasePreloadCount() { ++m_preloadCount; }
+    void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
+#endif
+ 
+ protected:
     void setEncodedSize(unsigned);
     void setDecodedSize(unsigned);
     void didAccessDecodedData(double timeStamp);
@@ -163,6 +185,13 @@ private:
     double m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
     
     bool m_sendResourceLoadCallbacks;
+
+#ifdef ANDROID_PRELOAD_CHANGES
+    unsigned m_preloadCount;
+    PreloadResult m_preloadResult;
+    bool m_requestedFromNetworkingLayer;
+#endif
+
 protected:
     bool m_inCache;
     bool m_loading;

@@ -31,7 +31,6 @@
 #include "XPathNSResolver.h"
 
 #include "DOMXPathNSResolver.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -39,14 +38,13 @@ namespace WebCore {
 
     class DOMCustomXPathNSResolver : public XPathNSResolver {
     public:
-        static PassRefPtr<DOMCustomXPathNSResolver> create(id <DOMXPathNSResolver> customResolver) { return adoptRef(new DOMCustomXPathNSResolver(customResolver)); }
+        DOMCustomXPathNSResolver(id <DOMXPathNSResolver>);
         virtual ~DOMCustomXPathNSResolver();
 
         virtual String lookupNamespaceURI(const String& prefix);
 
     private:
-        DOMCustomXPathNSResolver(id <DOMXPathNSResolver>);
-        id <DOMXPathNSResolver> m_customResolver; // DOMCustomXPathNSResolvers are always temporary, thus no need to GC protect the object.
+         id <DOMXPathNSResolver> m_customResolver; // DOMCustomXPathNSResolvers are always temporary, thus no need to GC protect the object.
     };
 
 } // namespace WebCore

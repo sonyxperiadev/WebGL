@@ -1,6 +1,8 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -51,9 +53,6 @@ namespace WebCore {
         int length;
 
         void lower();
-
-        operator String() const { return String(characters, length); }
-        operator AtomicString() const { return AtomicString(characters, length); }
     };
 
     struct Value {
@@ -72,6 +71,18 @@ namespace WebCore {
         };
         int unit;
     };
+
+    DeprecatedString deprecatedString(const ParseString&);
+
+    static inline String domString(const ParseString& ps)
+    {
+        return String(ps.characters, ps.length);
+    }
+
+    static inline AtomicString atomicString(const ParseString& ps)
+    {
+        return AtomicString(ps.characters, ps.length);
+    }
 
     class ValueList {
     public:
@@ -285,10 +296,6 @@ namespace WebCore {
         
         friend class TransformOperationInfo;
     };
-
-    int cssPropertyID(const ParseString&);
-    int cssPropertyID(const String&);
-    int cssValueKeywordID(const ParseString&);
 
 } // namespace WebCore
 

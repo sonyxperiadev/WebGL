@@ -26,7 +26,7 @@
 #ifndef WebURLAuthenticationChallenge_h
 #define WebURLAuthenticationChallenge_h
 
-#include "WebKit.h"
+#include "IWebURLAuthenticationChallenge.h"
 
 #pragma warning(push, 0)
 #include <WebCore/AuthenticationChallenge.h>

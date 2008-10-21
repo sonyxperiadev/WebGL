@@ -97,6 +97,7 @@ JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, 
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
+    SetGlobalException(0);
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
 
@@ -110,6 +111,7 @@ JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, 
 
     JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
+    MoveGlobalExceptionToExecState(exec);
     return resultValue;
 }
 
@@ -127,6 +129,7 @@ JSValue* CInstance::invokeDefaultMethod(ExecState* exec, const List& args)
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
+    SetGlobalException(0);
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
     {
@@ -139,6 +142,7 @@ JSValue* CInstance::invokeDefaultMethod(ExecState* exec, const List& args)
 
     JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
+    MoveGlobalExceptionToExecState(exec);
     return resultValue;
 }
 

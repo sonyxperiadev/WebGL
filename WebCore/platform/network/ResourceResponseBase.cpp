@@ -30,9 +30,14 @@
 
 namespace WebCore {
 
+inline const ResourceResponse& ResourceResponseBase::asResourceResponse() const
+{
+    return *static_cast<const ResourceResponse*>(this);
+}
+
 bool ResourceResponseBase::isHTTP() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     String protocol = m_url.protocol();
 
@@ -41,14 +46,14 @@ bool ResourceResponseBase::isHTTP() const
 
 const KURL& ResourceResponseBase::url() const
 {
-    lazyInit();
+    updateResourceResponse();
     
     return m_url; 
 }
 
 void ResourceResponseBase::setUrl(const KURL& url)
 {
-    lazyInit();
+    updateResourceResponse();
     m_isNull = false;
     
     m_url = url; 
@@ -56,14 +61,14 @@ void ResourceResponseBase::setUrl(const KURL& url)
 
 const String& ResourceResponseBase::mimeType() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_mimeType; 
 }
 
 void ResourceResponseBase::setMimeType(const String& mimeType)
 {
-    lazyInit();
+    updateResourceResponse();
     m_isNull = false;
     
     m_mimeType = mimeType; 
@@ -71,14 +76,14 @@ void ResourceResponseBase::setMimeType(const String& mimeType)
 
 long long ResourceResponseBase::expectedContentLength() const 
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_expectedContentLength;
 }
 
 void ResourceResponseBase::setExpectedContentLength(long long expectedContentLength)
 {
-    lazyInit();
+    updateResourceResponse();
     m_isNull = false;
     
     m_expectedContentLength = expectedContentLength; 
@@ -86,14 +91,14 @@ void ResourceResponseBase::setExpectedContentLength(long long expectedContentLen
 
 const String& ResourceResponseBase::textEncodingName() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_textEncodingName;
 }
 
 void ResourceResponseBase::setTextEncodingName(const String& encodingName)
 {
-    lazyInit();
+    updateResourceResponse();
     m_isNull = false;
     
     m_textEncodingName = encodingName; 
@@ -102,14 +107,14 @@ void ResourceResponseBase::setTextEncodingName(const String& encodingName)
 // FIXME should compute this on the fly
 const String& ResourceResponseBase::suggestedFilename() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_suggestedFilename;
 }
 
 void ResourceResponseBase::setSuggestedFilename(const String& suggestedName)
 {
-    lazyInit();
+    updateResourceResponse();
     m_isNull = false;
     
     m_suggestedFilename = suggestedName; 
@@ -117,56 +122,56 @@ void ResourceResponseBase::setSuggestedFilename(const String& suggestedName)
 
 int ResourceResponseBase::httpStatusCode() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_httpStatusCode;
 }
 
 void ResourceResponseBase::setHTTPStatusCode(int statusCode)
 {
-    lazyInit();
+    updateResourceResponse();
 
     m_httpStatusCode = statusCode;
 }
 
 const String& ResourceResponseBase::httpStatusText() const 
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_httpStatusText; 
 }
 
 void ResourceResponseBase::setHTTPStatusText(const String& statusText) 
 {
-    lazyInit();
+    updateResourceResponse();
 
     m_httpStatusText = statusText; 
 }
 
 String ResourceResponseBase::httpHeaderField(const String& name) const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_httpHeaderFields.get(name); 
 }
 
 void ResourceResponseBase::setHTTPHeaderField(const String& name, const String& value)
 {
-    lazyInit();
+    updateResourceResponse();
 
     m_httpHeaderFields.set(name, value);
 }
 
 const HTTPHeaderMap& ResourceResponseBase::httpHeaderFields() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_httpHeaderFields; 
 }
 
 bool ResourceResponseBase::isAttachment() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     String value = m_httpHeaderFields.get("Content-Disposition");
     int loc = value.find(';');
@@ -178,38 +183,43 @@ bool ResourceResponseBase::isAttachment() const
 
 void ResourceResponseBase::setExpirationDate(time_t expirationDate)
 {
-    lazyInit();
+    updateResourceResponse();
 
     m_expirationDate = expirationDate;
 }
 
 time_t ResourceResponseBase::expirationDate() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_expirationDate; 
 }
 
 void ResourceResponseBase::setLastModifiedDate(time_t lastModifiedDate) 
 {
-    lazyInit();
+    updateResourceResponse();
 
     m_lastModifiedDate = lastModifiedDate;
 }
 
 time_t ResourceResponseBase::lastModifiedDate() const
 {
-    lazyInit();
+    updateResourceResponse();
 
     return m_lastModifiedDate;
 }
 
-void ResourceResponseBase::lazyInit() const
+void ResourceResponseBase::updateResourceResponse() const
 {
-    const_cast<ResourceResponse*>(static_cast<const ResourceResponse*>(this))->platformLazyInit();
+    if (m_isUpToDate)
+        return;
+
+    const_cast<ResourceResponse&>(asResourceResponse()).doUpdateResourceResponse();
+
+    m_isUpToDate = true;
 }
 
-bool ResourceResponseBase::compare(const ResourceResponse& a, const ResourceResponse& b)
+bool operator==(const ResourceResponse& a, const ResourceResponse& b)
 {
     if (a.isNull() != b.isNull())
         return false;  
@@ -231,7 +241,11 @@ bool ResourceResponseBase::compare(const ResourceResponse& a, const ResourceResp
         return false;
     if (a.expirationDate() != b.expirationDate())
         return false;
-    return ResourceResponse::platformCompare(a, b);
-}
+#if PLATFORM(MAC)
+    if (a.nsURLResponse() != b.nsURLResponse())
+        return false;
+#endif
+    return true;
+ }
 
 }

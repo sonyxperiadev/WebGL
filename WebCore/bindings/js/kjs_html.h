@@ -1,5 +1,6 @@
 // -*- c-basic-offset: 2 -*-
 /*
+ *  This file is part of the KDE libraries
  *  Copyright (C) 1999 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  *
@@ -30,7 +31,7 @@ namespace WebCore {
     class HTMLElement;
     class JSHTMLElement;
 
-    class ImageConstructorImp : public DOMObject {
+    class ImageConstructorImp : public KJS::DOMObject {
     public:
         ImageConstructorImp(KJS::ExecState*, Document*);
 
@@ -48,7 +49,7 @@ namespace WebCore {
     KJS::JSValue* runtimeObjectGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier&, const KJS::PropertySlot&);
     KJS::JSValue* runtimeObjectPropertyGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier&, const KJS::PropertySlot&);
     bool runtimeObjectCustomGetOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&, JSHTMLElement*, HTMLElement*);
-    bool runtimeObjectCustomPut(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*, HTMLElement*);
+    bool runtimeObjectCustomPut(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*, int attr, HTMLElement*);
     bool runtimeObjectImplementsCall(HTMLElement*);
     KJS::JSValue* runtimeObjectCallAsFunction(KJS::ExecState*, KJS::JSObject*, const KJS::List&, HTMLElement*);
 

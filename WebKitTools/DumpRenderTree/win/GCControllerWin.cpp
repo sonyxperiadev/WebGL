@@ -30,6 +30,7 @@
 #include "GCController.h"
 
 #include <WebCore/COMPtr.h>
+#include <WebKit/IWebJavaScriptCollector.h>
 #include <WebKit/WebKit.h>
 
 void GCController::collect() const

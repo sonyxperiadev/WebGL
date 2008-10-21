@@ -99,7 +99,11 @@ PassRefPtr<Node> NamedAttrMap::getNamedItem(const QualifiedName& name) const
 
 PassRefPtr<Node> NamedAttrMap::setNamedItem(Node* arg, ExceptionCode& ec)
 {
+#ifdef ANDROID_FIX
+    if (!element || !arg) {
+#else
     if (!element) {
+#endif
         ec = NOT_FOUND_ERR;
         return 0;
     }
@@ -282,7 +286,7 @@ void NamedAttrMap::addAttribute(PassRefPtr<Attribute> prpAttribute)
         // Because of our updateStyleAttributeIfNeeded() style modification events are never sent at the right time, so don't bother sending them.
         if (attribute->name() != styleAttr) {
             element->dispatchAttrAdditionEvent(attribute);
-            element->dispatchSubtreeModifiedEvent();
+            element->dispatchSubtreeModifiedEvent(false);
         }
     }
 }
@@ -328,7 +332,7 @@ void NamedAttrMap::removeAttribute(const QualifiedName& name)
     }
     if (element) {
         element->dispatchAttrRemovalEvent(attr);
-        element->dispatchSubtreeModifiedEvent();
+        element->dispatchSubtreeModifiedEvent(false);
     }
     attr->deref();
 }

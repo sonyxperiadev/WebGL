@@ -67,6 +67,8 @@ namespace KJS {
     class UriErrorPrototype;
     struct ActivationStackNode;
 
+    enum CompatMode { NativeMode, IECompat, NetscapeCompat };
+
     class JSGlobalObject : public JSVariableObject {
     protected:
         using JSVariableObject::JSVariableObjectData;
@@ -82,6 +84,7 @@ namespace KJS {
             JSGlobalObject* prev;
 
             Debugger* debugger;
+            CompatMode compatMode;
             
             GlobalExecState globalExec;
             int recursion;
@@ -93,6 +96,9 @@ namespace KJS {
             unsigned tickCount;
             unsigned ticksUntilNextTimeoutCheck;
 
+#ifdef ANDROID_MOBILE  
+            unsigned startTime;
+#endif
             ObjectObjectImp* objectConstructor;
             FunctionObjectImp* functionConstructor;
             ArrayObjectImp* arrayConstructor;
@@ -149,8 +155,7 @@ namespace KJS {
         virtual ~JSGlobalObject();
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
-        virtual void put(ExecState*, const Identifier&, JSValue*);
-        virtual void initializeVariable(ExecState*, const Identifier&, JSValue*, unsigned attributes);
+        virtual void put(ExecState*, const Identifier&, JSValue*, int attr = None);
 
         // Linked list of all global objects.
         static JSGlobalObject* head() { return s_head; }
@@ -205,8 +210,17 @@ namespace KJS {
         void stopTimeoutCheck();
         bool timedOut();
 
+#ifdef ANDROID_INSTRUMENT
+        static void resetTimeCounter();
+        static void reportTimeCounter();
+#endif
+    
         Debugger* debugger() const { return d()->debugger; }
         void setDebugger(Debugger* debugger) { d()->debugger = debugger; }
+
+        // FIXME: Let's just pick one compatible behavior and go with it.
+        void setCompatMode(CompatMode mode) { d()->compatMode = mode; }
+        CompatMode compatMode() const { return d()->compatMode; }
         
         int recursion() { return d()->recursion; }
         void incRecursion() { ++d()->recursion; }

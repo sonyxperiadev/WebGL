@@ -35,6 +35,10 @@
 #include "Pair.h"
 #include "RenderObject.h"
 #include "ShadowValue.h"
+#ifdef ANDROID_LAYOUT
+#include "Frame.h"
+#include "Settings.h"
+#endif
 
 namespace WebCore {
 
@@ -215,6 +219,10 @@ static const int computedProperties[] = {
     CSS_PROP_GLYPH_ORIENTATION_HORIZONTAL,
     CSS_PROP_GLYPH_ORIENTATION_VERTICAL
 #endif
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    ,
+    CSS_PROP__WEBKIT_TAP_HIGHLIGHT_COLOR
+#endif
 };
 
 const unsigned numComputedProperties = sizeof(computedProperties) / sizeof(computedProperties[0]);
@@ -343,6 +351,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
     RenderStyle* style = node->computedStyle();
     if (!style)
         return 0;
+
+#ifdef ANDROID_LAYOUT
+    const Settings * settings = node->document()->frame() ? node->document()->frame()->settings() : 0; 
+#endif
 
     switch (static_cast<CSSPropertyID>(propertyID)) {
         case CSS_PROP_INVALID:
@@ -501,10 +513,14 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSS_PROP_EMPTY_CELLS:
             return new CSSPrimitiveValue(style->emptyCells());
         case CSS_PROP_FLOAT:
+#ifdef ANDROID_LAYOUT
+            if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
+                return new CSSPrimitiveValue(CSS_VAL_NONE);
+#endif
             return new CSSPrimitiveValue(style->floating());
         case CSS_PROP_FONT_FAMILY:
             // FIXME: This only returns the first family.
-            return new CSSPrimitiveValue(style->fontDescription().family().family().string(), CSSPrimitiveValue::CSS_STRING);
+            return new CSSPrimitiveValue(style->fontDescription().family().family().domString(), CSSPrimitiveValue::CSS_STRING);
         case CSS_PROP_FONT_SIZE:
             return new CSSPrimitiveValue(style->fontDescription().computedPixelSize(), CSSPrimitiveValue::CSS_PX);
         case CSS_PROP__WEBKIT_BINDING:
@@ -630,6 +646,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSS_PROP_OVERFLOW_X:
             return new CSSPrimitiveValue(style->overflowX());
         case CSS_PROP_OVERFLOW_Y:
+#ifdef ANDROID_LAYOUT
+            if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
+                return new CSSPrimitiveValue(CSS_VAL_VISIBLE);
+#endif
             return new CSSPrimitiveValue(style->overflowY());
         case CSS_PROP_PADDING_TOP:
             if (renderer)
@@ -659,6 +679,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return new CSSPrimitiveValue(style->pageBreakInside());
         }
         case CSS_PROP_POSITION:
+#ifdef ANDROID_LAYOUT
+            if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
+                return new CSSPrimitiveValue(CSS_VAL_STATIC);
+#endif
             return new CSSPrimitiveValue(style->position());
         case CSS_PROP_RIGHT:
             return getPositionOffsetValue(style, CSS_PROP_RIGHT);
@@ -727,7 +751,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSS_PROP__WEBKIT_TEXT_STROKE_COLOR:
             return currentColorOrValidColor(style, style->textStrokeColor());
         case CSS_PROP__WEBKIT_TEXT_STROKE_WIDTH:
-            return new CSSPrimitiveValue(style->textStrokeWidth(), CSSPrimitiveValue::CSS_PX);
+            return new CSSPrimitiveValue(style->textStrokeWidth(), CSSPrimitiveValue::CSS_NUMBER);
         case CSS_PROP_TEXT_TRANSFORM:
             return new CSSPrimitiveValue(style->textTransform());
         case CSS_PROP_TOP:
@@ -760,8 +784,27 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             ASSERT_NOT_REACHED();
             return 0;
         case CSS_PROP_VISIBILITY:
+#ifdef ANDROID_LAYOUT
+            if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
+                return new CSSPrimitiveValue(CSS_VAL_VISIBLE);
+#endif
             return new CSSPrimitiveValue(style->visibility());
         case CSS_PROP_WHITE_SPACE:
+#ifdef ANDROID_LAYOUT
+            if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
+                switch (style->whiteSpace()) {
+                    case NORMAL:
+                    case NOWRAP:
+                    case KHTML_NOWRAP:
+                        return new CSSPrimitiveValue(CSS_VAL_NORMAL);
+                    case PRE:
+                    case PRE_WRAP:
+                        return new CSSPrimitiveValue(CSS_VAL_PRE_WRAP);
+                    case PRE_LINE:
+                        return new CSSPrimitiveValue(CSS_VAL_PRE_LINE);
+                }
+            else     
+#endif
             return new CSSPrimitiveValue(style->whiteSpace());
         case CSS_PROP_WIDOWS:
             return new CSSPrimitiveValue(style->widows(), CSSPrimitiveValue::CSS_NUMBER);
@@ -915,6 +958,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION:
             // FIXME: The above are unimplemented.
             break;
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+        case CSS_PROP__WEBKIT_TAP_HIGHLIGHT_COLOR:
+            return new CSSPrimitiveValue(style->tapHighlightColor().rgb());
+#endif
 #if ENABLE(SVG)
         default:
             return getSVGPropertyCSSValue(propertyID, DoNotUpdateLayout);
@@ -998,6 +1045,9 @@ const int inheritableProperties[] = {
     CSS_PROP__WEBKIT_TEXT_SIZE_ADJUST,
     CSS_PROP__WEBKIT_TEXT_STROKE_COLOR,
     CSS_PROP__WEBKIT_TEXT_STROKE_WIDTH,
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    CSS_PROP__WEBKIT_TAP_HIGHLIGHT_COLOR,
+#endif
 };
 
 const unsigned numInheritableProperties = sizeof(inheritableProperties) / sizeof(inheritableProperties[0]);

@@ -177,7 +177,10 @@
 #pragma warning(disable: 4554)
 #endif
 
-#if PLATFORM(BIG_ENDIAN)
+// ANDROID : || PLATFORM(MIDDLE_ENDIAN) added in #if statement below
+// for dtoa, MIDDLE_ENDIAN needs to be same as BIG_ENDIAN according to the following site
+// http://lists.debian.org/debian-arm/2003/11/msg00008.html
+#if PLATFORM(BIG_ENDIAN) || PLATFORM(MIDDLE_ENDIAN)
 #define IEEE_MC68k
 #else
 #define IEEE_8087

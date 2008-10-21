@@ -1,9 +1,11 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +28,7 @@
 #define TreeWalker_h
 
 #include "Traversal.h"
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -33,30 +36,23 @@ namespace WebCore {
 
     class TreeWalker : public Traversal {
     public:
-        TreeWalker(PassRefPtr<Node>, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
+        TreeWalker(Node*, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
 
         Node* currentNode() const { return m_current.get(); }
-        void setCurrentNode(PassRefPtr<Node>, ExceptionCode&);
+        void setCurrentNode(Node*, ExceptionCode&);
 
-        Node* parentNode(KJS::JSValue*& exception);
-        Node* firstChild(KJS::JSValue*& exception);
-        Node* lastChild(KJS::JSValue*& exception);
-        Node* previousSibling(KJS::JSValue*& exception);
-        Node* nextSibling(KJS::JSValue*& exception);
-        Node* previousNode(KJS::JSValue*& exception);
-        Node* nextNode(KJS::JSValue*& exception);
-
-        // For non-JS bindings. Silently ignores the JavaScript exception if any.
-        Node* parentNode() { KJS::JSValue* exception; return parentNode(exception); }
-        Node* firstChild() { KJS::JSValue* exception; return firstChild(exception); }
-        Node* lastChild() { KJS::JSValue* exception; return lastChild(exception); }
-        Node* previousSibling() { KJS::JSValue* exception; return previousSibling(exception); }
-        Node* nextSibling() { KJS::JSValue* exception; return nextSibling(exception); }
-        Node* previousNode() { KJS::JSValue* exception; return previousNode(exception); }
-        Node* nextNode() { KJS::JSValue* exception; return nextNode(exception); }
+        Node* parentNode();
+        Node* firstChild();
+        Node* lastChild();
+        Node* previousSibling();
+        Node* nextSibling();
+        Node* previousNode();
+        Node* nextNode();
 
     private:
-        Node* setCurrent(PassRefPtr<Node>);
+        // convenience for when it is known there will be no exception
+        void setCurrentNode(Node*);
+        bool ancestorRejected(const Node*) const;
 
         RefPtr<Node> m_current;
     };

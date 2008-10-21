@@ -1,4 +1,4 @@
-// Copyright (c) 2005, Google Inc.
+// Copyright (c) 2005, The Android Open Source Project
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without

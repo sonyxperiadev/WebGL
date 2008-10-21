@@ -26,6 +26,7 @@
 #ifndef TextIterator_h
 #define TextIterator_h
 
+#include "DeprecatedString.h"
 #include "InlineTextBox.h"
 #include "Range.h"
 #include <wtf/Vector.h>
@@ -33,7 +34,8 @@
 namespace WebCore {
 
 // FIXME: Can't really answer this question correctly without knowing the white-space mode.
-// FIXME: Move this somewhere else in the editing directory. It doesn't belong here.
+// FIXME: Move this along with the white-space position functions above
+// somewhere else in the editing directory. It doesn't belong here.
 inline bool isCollapsibleWhitespace(UChar c)
 {
     switch (c) {
@@ -53,7 +55,8 @@ PassRefPtr<Range> findPlainText(const Range*, const String&, bool forward, bool 
 // at points where replaced elements break up the text flow.  The text comes back in
 // chunks so as to optimize for performance of the iteration.
 
-class TextIterator {
+class TextIterator
+{
 public:
     TextIterator();
     explicit TextIterator(const Range*, bool emitCharactersBetweenAllVisiblePositions = false);
@@ -132,7 +135,8 @@ private:
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
 // at points where replaced elements break up the text flow.  The text comes back in
 // chunks so as to optimize for performance of the iteration.
-class SimplifiedBackwardsTextIterator {
+class SimplifiedBackwardsTextIterator
+{
 public:
     SimplifiedBackwardsTextIterator();
     explicit SimplifiedBackwardsTextIterator(const Range *);
@@ -198,7 +202,7 @@ public:
     
     int length() const { return m_textIterator.length() - m_runOffset; }
     const UChar* characters() const { return m_textIterator.characters() + m_runOffset; }
-    String string(int numChars);
+    DeprecatedString string(int numChars);
     
     int characterOffset() const { return m_offset; }
     PassRefPtr<Range> range() const;
@@ -233,7 +237,7 @@ private:
     int m_previousLength;
 
     // many chunks from textIterator concatenated
-    Vector<UChar> m_buffer;
+    DeprecatedString m_buffer;
     
     // Did we have to look ahead in the textIterator to confirm the current chunk?
     bool m_didLookAhead;

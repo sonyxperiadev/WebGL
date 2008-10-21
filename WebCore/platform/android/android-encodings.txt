@@ -1,0 +1,44 @@
+##
+## Copyright 2007, The Android Open Source Project
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+#
+
+# The items on the left are names of TextEncodingID values
+# The items on the right are IANA character set names. Names listed in character-sets.txt are not
+# repeated here; mentioning any one character set from a group in there pulls in all the aliases in
+# that group.
+
+# XXX: This needs to be kept in sync with AndroidUnicode.h in utils.
+# XXX: These are not the supported encodings, they are just the available encodings
+#      that WebCore will recognize. Support is determined by carriers.
+
+ASCII: US-ASCII, isoir6us
+ISO_8859_1: ISO-8859-1, 88591
+ISO_8859_5: ISO-8859-5
+ISO_8859_8: ISO-8859-8-I, iso88598
+UTF8: UTF-8
+UTF16: UTF-16
+SHIFT_JIS: Shift_JIS, sjis, xsjis
+BIG5: Big5, xxbig5
+EUC_JP: EUC-JP, xeuc, xeucjp
+EUC_CN: EUC-CN, gb2312, gb231280, gbk, xeuccn, xgbk
+WINDOWS_1251: windows-1251, cp1251
+WINDOWS_1252: windows-1252
+WINDOWS_1255: windows-1255
+KOI8_R: KOI8-R
+KOI8_U: KOI8-U
+NEXT_STEP: x-nextstep
+MACINTOSH: macintosh
+THAI: TIS-620, cp874, iso885911, windows874
+INVALID: cp864, iso2022jp, windows1250, windows1253, windows1254, windows1256, windows1257, windows1258

@@ -1,0 +1,3 @@
+AddType application/x-httpd-php html
+
+RewriteRule .*webdevelopers.* http://trac.webkit.org/projects/webkit/wiki/WebDevelopers [R=301]

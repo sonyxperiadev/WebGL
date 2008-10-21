@@ -1,10 +1,12 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -36,6 +38,17 @@
 #include "HitTestResult.h"
 #include "Page.h"
 #include "RenderView.h"
+#ifdef ANDROID_LAYOUT
+#include "Settings.h"
+#endif
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+#include "HTMLAreaElement.h"
+#endif
+
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+#include "SkBitmapRef.h"
+    extern bool gAndroid_treatInvalForScreen;
+#endif
 
 using namespace std;
 
@@ -53,6 +66,11 @@ RenderImage::RenderImage(Node* node)
 
 RenderImage::~RenderImage()
 {
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+    // Set area elements' RenderImage to null, so they do not reference
+    // the deleted RenderImage.
+    setAreaElements(NULL);
+#endif
     if (m_cachedImage)
         m_cachedImage->deref(this);
 }
@@ -160,10 +178,19 @@ void RenderImage::imageChanged(CachedImage* newImage)
         }
     }
 
-    if (shouldRepaint)
+    if (shouldRepaint) {
         // FIXME: We always just do a complete repaint, since we always pass in the full image
         // rect at the moment anyway.
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+        Image* image = newImage->image();
+        NativeImagePtr nativeImagePtr = image->nativeImageForCurrentFrame();
+        gAndroid_treatInvalForScreen = nativeImagePtr->accessed(); // no need to inval the content after the first time
+#endif
         repaintRectangle(contentBox());
+#ifdef ANDROID_REDIRECT_IMAGE_INVALIDATES
+        gAndroid_treatInvalForScreen = false;    // reset to default
+#endif
+    }
 }
 
 void RenderImage::resetAnimation()
@@ -223,7 +250,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
             }
 
             if (!m_altText.isEmpty()) {
-                String text = m_altText;
+                DeprecatedString text = m_altText.deprecatedString();
                 text.replace('\\', backslashAsCurrencySymbol());
                 context->setFont(style()->font());
                 context->setFillColor(style()->color());
@@ -234,7 +261,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
 
                 // Only draw the alt text if it'll fit within the content box,
                 // and only if it fits above the error image.
-                TextRun textRun(text.characters(), text.length());
+                TextRun textRun(reinterpret_cast<const UChar*>(text.unicode()), text.length());
                 int textWidth = font.width(textRun);
                 if (errorPictureDrawn) {
                     if (usableWidth >= textWidth && font.height() <= imageY)
@@ -265,7 +292,7 @@ int RenderImage::minimumReplacedHeight() const
 HTMLMapElement* RenderImage::imageMap()
 {
     HTMLImageElement* i = element() && element()->hasTagName(imgTag) ? static_cast<HTMLImageElement*>(element()) : 0;
-    return i ? i->document()->getImageMap(i->useMap()) : 0;
+    return i ? i->document()->getImageMap(i->imageMap()) : 0;
 }
 
 bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
@@ -351,7 +378,18 @@ int RenderImage::calcReplacedWidth() const
     int minW = calcReplacedWidthUsing(style()->minWidth());
     int maxW = style()->maxWidth().isUndefined() ? width : calcReplacedWidthUsing(style()->maxWidth());
 
-    return max(minW, min(width, maxW));
+#ifdef ANDROID_LAYOUT
+    width = max(minW, min(width, maxW));
+    // in SSR mode, we will fit the image to its container width
+    if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+        int cw = containingBlockWidth();
+        if (cw && width>cw)
+            width = cw;
+    }
+    return width;
+#else
+     return max(minW, min(width, maxW));
+#endif
 }
 
 int RenderImage::calcReplacedHeight() const
@@ -369,7 +407,28 @@ int RenderImage::calcReplacedHeight() const
     int minH = calcReplacedHeightUsing(style()->minHeight());
     int maxH = style()->maxHeight().isUndefined() ? height : calcReplacedHeightUsing(style()->maxHeight());
 
+#ifdef ANDROID_LAYOUT
+    height = max(minH, min(height, maxH));
+    // in SSR mode, we will fit the image to its container width
+    if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {        
+        int width;
+        if (isWidthSpecified())
+            width = calcReplacedWidthUsing(style()->width());
+        else
+            width = calcAspectRatioWidth();
+        int minW = calcReplacedWidthUsing(style()->minWidth());
+        int maxW = style()->maxWidth().value() == undefinedLength ? width : 
+        	calcReplacedWidthUsing(style()->maxWidth());
+        width = max(minW, min(width, maxW));
+
+        int cw = containingBlockWidth();
+        if (cw && width && width>cw)
+            height = cw * height / width;   // preserve aspect ratio
+    }
+    return height;
+#else
     return max(minH, min(height, maxH));
+#endif
 }
 
 int RenderImage::calcAspectRatioWidth() const
@@ -414,4 +473,18 @@ Image* RenderImage::nullImage()
     return &sharedNullImage;
 }
 
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+void RenderImage::setAreaElements(RenderImage* image)
+{
+    HTMLMapElement* map = imageMap();
+    if (map) {
+        for (Node* current = map->firstChild(); current; current = current->traverseNextNode(map)) {
+            if (current->hasTagName(WebCore::HTMLNames::areaTag)) {
+                HTMLAreaElement* area = static_cast<HTMLAreaElement*>(current);
+                area->setMap(image);
+            }
+        }
+    }
+}
+#endif
 } // namespace WebCore

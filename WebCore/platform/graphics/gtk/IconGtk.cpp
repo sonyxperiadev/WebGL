@@ -41,8 +41,7 @@
 namespace WebCore {
 
 Icon::Icon()
-    : RefCounted<Icon>(0)
-    , m_icon(0)
+    : m_icon(0)
 {
     notImplemented();
 }

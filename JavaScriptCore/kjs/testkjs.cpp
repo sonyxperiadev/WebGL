@@ -1,6 +1,7 @@
+// -*- c-basic-offset: 2 -*-
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2007 Apple Inc.
  *  Copyright (C) 2006 Bjoern Graf (bjoern.graf@gmail.com)
  *
  *  This library is free software; you can redistribute it and/or
@@ -25,9 +26,7 @@
 #include "JSGlobalObject.h"
 #include "JSLock.h"
 #include "Parser.h"
-#include "array_object.h"
 #include "collector.h"
-#include "function.h"
 #include "interpreter.h"
 #include "nodes.h"
 #include "object.h"
@@ -56,21 +55,13 @@ using namespace WTF;
 
 static bool fillBufferWithContentsOfFile(const UString& fileName, Vector<char>& buffer);
 
-static JSValue* functionPrint(ExecState*, JSObject*, const List&);
-static JSValue* functionDebug(ExecState*, JSObject*, const List&);
-static JSValue* functionGC(ExecState*, JSObject*, const List&);
-static JSValue* functionVersion(ExecState*, JSObject*, const List&);
-static JSValue* functionRun(ExecState*, JSObject*, const List&);
-static JSValue* functionLoad(ExecState*, JSObject*, const List&);
-static JSValue* functionReadline(ExecState*, JSObject*, const List&);
-static JSValue* functionQuit(ExecState*, JSObject*, const List&);
-
-class StopWatch {
+class StopWatch
+{
 public:
     void start();
     void stop();
     long getElapsedMS(); // call stop() first
-
+    
 private:
 #if PLATFORM(QT)
     uint m_startTime;
@@ -116,111 +107,86 @@ long StopWatch::getElapsedMS()
 #else
     timeval elapsedTime;
     timersub(&m_stopTime, &m_startTime, &elapsedTime);
-
+    
     return elapsedTime.tv_sec * 1000 + lroundf(elapsedTime.tv_usec / 1000.0f);
 #endif
 }
 
-class GlobalObject : public JSGlobalObject {
+class GlobalImp : public JSGlobalObject {
 public:
-    GlobalObject(Vector<UString>& arguments);
-    virtual UString className() const { return "global"; }
+  virtual UString className() const { return "global"; }
 };
-COMPILE_ASSERT(!IsInteger<GlobalObject>::value, WTF_IsInteger_GlobalObject_false);
+COMPILE_ASSERT(!IsInteger<GlobalImp>::value, WTF_IsInteger_GlobalImp_false);
 
-GlobalObject::GlobalObject(Vector<UString>& arguments)
+class TestFunctionImp : public JSObject {
+public:
+  enum TestFunctionType { Print, Debug, Quit, GC, Version, Run, Load };
+
+  TestFunctionImp(TestFunctionType i, int length);
+  virtual bool implementsCall() const { return true; }
+  virtual JSValue* callAsFunction(ExecState* exec, JSObject* thisObj, const List &args);
+
+private:
+  TestFunctionType m_type;
+};
+
+TestFunctionImp::TestFunctionImp(TestFunctionType i, int length)
+  : JSObject()
+  , m_type(i)
 {
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 1, "debug", functionDebug));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 1, "print", functionPrint));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 0, "quit", functionQuit));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 0, "gc", functionGC));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 1, "version", functionVersion));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 1, "run", functionRun));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 1, "load", functionLoad));
-    putDirectFunction(new PrototypeFunction(globalExec(), functionPrototype(), 0, "readline", functionReadline));
-
-    JSObject* array = arrayConstructor()->construct(globalExec(), globalExec()->emptyList());
-    for (size_t i = 0; i < arguments.size(); ++i)
-        array->put(globalExec(), i, jsString(arguments[i]));
-    putDirect("arguments", array);
-
-    Interpreter::setShouldPrintExceptions(true);
+  putDirect(Identifier("length"), length, DontDelete | ReadOnly | DontEnum);
 }
 
-JSValue* functionPrint(ExecState* exec, JSObject*, const List& args)
+JSValue* TestFunctionImp::callAsFunction(ExecState* exec, JSObject*, const List &args)
 {
-    printf("%s\n", args[0]->toString(exec).UTF8String().c_str());
-    return jsUndefined();
-}
-
-JSValue* functionDebug(ExecState* exec, JSObject*, const List& args)
-{
-    fprintf(stderr, "--> %s\n", args[0]->toString(exec).UTF8String().c_str());
-    return jsUndefined();
-}
-
-JSValue* functionGC(ExecState*, JSObject*, const List&)
-{
-    JSLock lock;
-    Collector::collect();
-    return jsUndefined();
-}
-
-JSValue* functionVersion(ExecState*, JSObject*, const List&)
-{
-    // We need this function for compatibility with the Mozilla JS tests but for now
-    // we don't actually do any version-specific handling
-    return jsUndefined();
-}
-
-JSValue* functionRun(ExecState* exec, JSObject*, const List& args)
-{
-    StopWatch stopWatch;
-    UString fileName = args[0]->toString(exec);
-    Vector<char> script;
-    if (!fillBufferWithContentsOfFile(fileName, script))
-        return throwError(exec, GeneralError, "Could not open file.");
-
-    stopWatch.start();
-    Interpreter::evaluate(exec->dynamicGlobalObject()->globalExec(), fileName, 0, script.data());
-    stopWatch.stop();
-
-    return jsNumber(stopWatch.getElapsedMS());
-}
-
-JSValue* functionLoad(ExecState* exec, JSObject*, const List& args)
-{
-    UString fileName = args[0]->toString(exec);
-    Vector<char> script;
-    if (!fillBufferWithContentsOfFile(fileName, script))
-        return throwError(exec, GeneralError, "Could not open file.");
-
-    Interpreter::evaluate(exec->dynamicGlobalObject()->globalExec(), fileName, 0, script.data());
-
-    return jsUndefined();
-}
-
-JSValue* functionReadline(ExecState*, JSObject*, const List&)
-{
-    Vector<char, 256> line;
-    int c;
-    while ((c = getchar()) != EOF) {
-        // FIXME: Should we also break on \r? 
-        if (c == '\n')
-            break;
-        line.append(c);
+  switch (m_type) {
+    case Print:
+      printf("%s\n", args[0]->toString(exec).UTF8String().c_str());
+      return jsUndefined();
+    case Debug:
+      fprintf(stderr, "--> %s\n", args[0]->toString(exec).UTF8String().c_str());
+      return jsUndefined();
+    case GC:
+    {
+      JSLock lock;
+      Collector::collect();
+      return jsUndefined();
     }
-    line.append('\0');
-    return jsString(line.data());
-}
+    case Version:
+      // We need this function for compatibility with the Mozilla JS tests but for now
+      // we don't actually do any version-specific handling
+      return jsUndefined();
+    case Run:
+    {
+      StopWatch stopWatch;
+      UString fileName = args[0]->toString(exec);
+      Vector<char> script;
+      if (!fillBufferWithContentsOfFile(fileName, script))
+        return throwError(exec, GeneralError, "Could not open file.");
 
-JSValue* functionQuit(ExecState*, JSObject*, const List&)
-{
-    exit(0);
-#if !COMPILER(MSVC)
-    // MSVC knows that exit(0) never returns, so it flags this return statement as unreachable.
-    return jsUndefined();
-#endif
+      stopWatch.start();
+      Interpreter::evaluate(exec->dynamicGlobalObject()->globalExec(), fileName, 0, script.data());
+      stopWatch.stop();
+      
+      return jsNumber(stopWatch.getElapsedMS());
+    }
+    case Load:
+    {
+      UString fileName = args[0]->toString(exec);
+      Vector<char> script;
+      if (!fillBufferWithContentsOfFile(fileName, script))
+        return throwError(exec, GeneralError, "Could not open file.");
+
+      Interpreter::evaluate(exec->dynamicGlobalObject()->globalExec(), fileName, 0, script.data());
+
+      return jsUndefined();
+    }
+    case Quit:
+      exit(0);
+    default:
+      abort();
+  }
+  return 0;
 }
 
 // Use SEH for Release builds only to get rid of the crash report dialog
@@ -256,119 +222,123 @@ int main(int argc, char** argv)
     return res;
 }
 
+static GlobalImp* createGlobalObject()
+{
+  GlobalImp* global = new GlobalImp;
+
+  // add debug() function
+  global->put(global->globalExec(), "debug", new TestFunctionImp(TestFunctionImp::Debug, 1));
+  // add "print" for compatibility with the mozilla js shell
+  global->put(global->globalExec(), "print", new TestFunctionImp(TestFunctionImp::Print, 1));
+  // add "quit" for compatibility with the mozilla js shell
+  global->put(global->globalExec(), "quit", new TestFunctionImp(TestFunctionImp::Quit, 0));
+  // add "gc" for compatibility with the mozilla js shell
+  global->put(global->globalExec(), "gc", new TestFunctionImp(TestFunctionImp::GC, 0));
+  // add "version" for compatibility with the mozilla js shell 
+  global->put(global->globalExec(), "version", new TestFunctionImp(TestFunctionImp::Version, 1));
+  global->put(global->globalExec(), "run", new TestFunctionImp(TestFunctionImp::Run, 1));
+  global->put(global->globalExec(), "load", new TestFunctionImp(TestFunctionImp::Load, 1));
+
+  Interpreter::setShouldPrintExceptions(true);
+  return global;
+}
+
 static bool prettyPrintScript(const UString& fileName, const Vector<char>& script)
 {
-    int errLine = 0;
-    UString errMsg;
-    UString scriptUString(script.data());
-    RefPtr<ProgramNode> programNode = parser().parse<ProgramNode>(fileName, 0, scriptUString.data(), scriptUString.size(), 0, &errLine, &errMsg);
-    if (!programNode) {
-        fprintf(stderr, "%s:%d: %s.\n", fileName.UTF8String().c_str(), errLine, errMsg.UTF8String().c_str());
-        return false;
-    }
-
-    printf("%s\n", programNode->toString().UTF8String().c_str());
-    return true;
+  int errLine = 0;
+  UString errMsg;
+  UString scriptUString(script.data());
+  RefPtr<ProgramNode> programNode = parser().parse<ProgramNode>(fileName, 0, scriptUString.data(), scriptUString.size(), 0, &errLine, &errMsg);
+  if (!programNode) {
+    fprintf(stderr, "%s:%d: %s.\n", fileName.UTF8String().c_str(), errLine, errMsg.UTF8String().c_str());
+    return false;
+  }
+  
+  printf("%s\n", programNode->toString().UTF8String().c_str());
+  return true;
 }
 
-static bool runWithScripts(const Vector<UString>& fileNames, Vector<UString>& arguments, bool prettyPrint)
+static bool runWithScripts(const Vector<UString>& fileNames, bool prettyPrint)
 {
-    GlobalObject* globalObject = new GlobalObject(arguments);
-    Vector<char> script;
-
-    bool success = true;
-
-    for (size_t i = 0; i < fileNames.size(); i++) {
-        UString fileName = fileNames[i];
-
-        if (!fillBufferWithContentsOfFile(fileName, script))
-            return false; // fail early so we can catch missing files
-
-        if (prettyPrint)
-            prettyPrintScript(fileName, script);
-        else {
-            Completion completion = Interpreter::evaluate(globalObject->globalExec(), fileName, 0, script.data());
-            success = success && completion.complType() != Throw;
-        }
+  GlobalImp* globalObject = createGlobalObject();
+  Vector<char> script;
+  
+  bool success = true;
+  
+  for (size_t i = 0; i < fileNames.size(); i++) {
+    UString fileName = fileNames[i];
+    
+    if (!fillBufferWithContentsOfFile(fileName, script))
+      return false; // fail early so we can catch missing files
+    
+    if (prettyPrint)
+      prettyPrintScript(fileName, script);
+    else {
+      Completion completion = Interpreter::evaluate(globalObject->globalExec(), fileName, 0, script.data());
+      success = success && completion.complType() != Throw;
     }
-    return success;
+  }
+  return success;
 }
 
-static void printUsageStatement()
+static void parseArguments(int argc, char** argv, Vector<UString>& fileNames, bool& prettyPrint)
 {
-    fprintf(stderr, "Usage: testkjs -f file1 [-f file2...][-p][-- arguments...]\n");
+  if (argc < 2) {
+    fprintf(stderr, "Usage: testkjs file1 [file2...]\n");
     exit(-1);
-}
-
-static void parseArguments(int argc, char** argv, Vector<UString>& fileNames, Vector<UString>& arguments, bool& prettyPrint)
-{
-    if (argc < 3)
-        printUsageStatement();
-
-    int i = 1;
-    for (; i < argc; ++i) {
-        const char* arg = argv[i];
-        if (strcmp(arg, "-f") == 0) {
-            if (++i == argc)
-                printUsageStatement();
-            fileNames.append(argv[i]);
-            continue;
-        }
-        if (strcmp(arg, "-p") == 0) {
-            prettyPrint = true;
-            continue;
-        }
-        if (strcmp(arg, "--") == 0) {
-            ++i;
-            break;
-        }
-        break;
+  }
+  
+  for (int i = 1; i < argc; i++) {
+    const char* fileName = argv[i];
+    if (strcmp(fileName, "-f") == 0) // mozilla test driver script uses "-f" prefix for files
+      continue;
+    if (strcmp(fileName, "-p") == 0) {
+      prettyPrint = true;
+      continue;
     }
-
-    for (; i < argc; ++i)
-        arguments.append(argv[i]);
+    fileNames.append(fileName);
+  }
 }
 
 int kjsmain(int argc, char** argv)
 {
-    JSLock lock;
-
-    bool prettyPrint = false;
-    Vector<UString> fileNames;
-    Vector<UString> arguments;
-    parseArguments(argc, argv, fileNames, arguments, prettyPrint);
-
-    bool success = runWithScripts(fileNames, arguments, prettyPrint);
+  JSLock lock;
+  
+  bool prettyPrint = false;
+  Vector<UString> fileNames;
+  parseArguments(argc, argv, fileNames, prettyPrint);
+  
+  bool success = runWithScripts(fileNames, prettyPrint);
 
 #ifndef NDEBUG
-    Collector::collect();
+  Collector::collect();
 #endif
 
-    return success ? 0 : 3;
+  return success ? 0 : 3;
 }
 
 static bool fillBufferWithContentsOfFile(const UString& fileName, Vector<char>& buffer)
 {
-    FILE* f = fopen(fileName.UTF8String().c_str(), "r");
-    if (!f) {
-        fprintf(stderr, "Could not open file: %s\n", fileName.UTF8String().c_str());
-        return false;
+  FILE* f = fopen(fileName.UTF8String().c_str(), "r");
+  if (!f) {
+    fprintf(stderr, "Could not open file: %s\n", fileName.UTF8String().c_str());
+    return false;
+  }
+  
+  size_t buffer_size = 0;
+  size_t buffer_capacity = 1024;
+  
+  buffer.resize(buffer_capacity);
+  
+  while (!feof(f) && !ferror(f)) {
+    buffer_size += fread(buffer.data() + buffer_size, 1, buffer_capacity - buffer_size, f);
+    if (buffer_size == buffer_capacity) { // guarantees space for trailing '\0'
+      buffer_capacity *= 2;
+      buffer.resize(buffer_capacity);
     }
-
-    size_t buffer_size = 0;
-    size_t buffer_capacity = 1024;
-
-    buffer.resize(buffer_capacity);
-
-    while (!feof(f) && !ferror(f)) {
-        buffer_size += fread(buffer.data() + buffer_size, 1, buffer_capacity - buffer_size, f);
-        if (buffer_size == buffer_capacity) { // guarantees space for trailing '\0'
-            buffer_capacity *= 2;
-            buffer.resize(buffer_capacity);
-        }
-    }
-    fclose(f);
-    buffer[buffer_size] = '\0';
-
-    return true;
+  }
+  fclose(f);
+  buffer[buffer_size] = '\0';
+  
+  return true;
 }

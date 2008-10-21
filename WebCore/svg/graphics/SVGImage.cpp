@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
- * Copyright (C) 2008 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +25,6 @@
 
 #include "config.h"
 #if ENABLE(SVG)
-#include "SVGImage.h"
 
 #include "CachedPage.h"
 #include "DocumentLoader.h"
@@ -41,6 +39,7 @@
 #include "Page.h"
 #include "ResourceError.h"
 #include "SVGDocument.h"
+#include "SVGImage.h"
 #include "SVGLength.h"
 #include "SVGRenderSupport.h"
 #include "SVGSVGElement.h"
@@ -139,11 +138,7 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
     context->clip(enclosingIntRect(dstRect));
     context->translate(dstRect.location().x(), dstRect.location().y());
     context->scale(FloatSize(dstRect.width()/srcRect.width(), dstRect.height()/srcRect.height()));
-    
-    if (m_frame->view()->needsLayout())
-        m_frame->view()->layout();
     m_frame->paint(context, enclosingIntRect(srcRect));
-
     context->restore();
 
     if (imageObserver())
@@ -202,7 +197,7 @@ bool SVGImage::dataChanged(bool allDataReceived)
         m_frame->loader()->cancelContentPolicyCheck(); // cancel any policy checks
         m_frame->loader()->commitProvisionalLoad(0);
         m_frame->loader()->setResponseMIMEType("image/svg+xml");
-        m_frame->loader()->begin(KURL()); // create the empty document
+        m_frame->loader()->begin("placeholder.svg"); // create the empty document
         m_frame->loader()->write(m_data->data(), m_data->size());
         m_frame->loader()->end();
     }

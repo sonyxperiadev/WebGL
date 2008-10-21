@@ -1,7 +1,9 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,13 +25,12 @@
 #ifndef HTMLImageElement_h
 #define HTMLImageElement_h
 
-#include "GraphicsTypes.h"
 #include "HTMLElement.h"
+#include "GraphicsTypes.h"
 #include "HTMLImageLoader.h"
 
 namespace WebCore {
-
-class HTMLFormElement;
+    class HTMLFormElement;
 
 class HTMLImageElement : public HTMLElement {
     friend class HTMLFormElement;
@@ -61,6 +62,8 @@ public:
 
     String altText() const;
 
+    String imageMap() const { return usemap; }
+    
     virtual bool isURLAttribute(Attribute*) const;
 
     CompositeOperator compositeOperator() const { return m_compositeOperator; }
@@ -90,13 +93,13 @@ public:
     bool isMap() const;
     void setIsMap(bool);
 
-    KURL longDesc() const;
+    String longDesc() const;
     void setLongDesc(const String&);
 
-    KURL lowsrc() const;
+    String lowsrc() const;
     void setLowsrc(const String&);
 
-    KURL src() const;
+    String src() const;
     void setSrc(const String&);
 
     String useMap() const;
@@ -113,8 +116,7 @@ public:
     bool complete() const;
 
     bool haveFiredLoadEvent() const { return m_imageLoader.haveFiredLoadEvent(); }
-
-private:
+protected:
     HTMLImageLoader m_imageLoader;
     String usemap;
     bool ismap;
@@ -122,6 +124,11 @@ private:
     String oldNameAttr;
     String oldIdAttr;
     CompositeOperator m_compositeOperator;
+#ifdef ANDROID_FIX
+    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
+    // ensure the oldNameAttr and oldIdAttr are removed from HTMLDocument's NameCountMap
+    int oldNameIdCount;
+#endif
 };
 
 } //namespace

@@ -27,6 +27,16 @@
 #ifndef PluginStream_H
 #define PluginStream_H
 
+#ifdef ANDROID_PLUGINS
+
+#include "PluginStreamAndroid.h"
+
+namespace WebCore {
+    typedef PluginStreamAndroid PluginStream;
+}
+
+#else // !defined(ANDROID_PLUGINS)
+
 #include "CString.h"
 #include "FileSystem.h"
 #include "KURL.h"
@@ -112,5 +122,7 @@ namespace WebCore {
     };
 
 } // namespace WebCore
+
+#endif // !defined(ANDROID_PLUGINS)
 
 #endif

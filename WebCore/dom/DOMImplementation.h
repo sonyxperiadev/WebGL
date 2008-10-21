@@ -42,8 +42,7 @@ typedef int ExceptionCode;
 
 class DOMImplementation : public RefCounted<DOMImplementation> {
 public:
-    DOMImplementation() : RefCounted<DOMImplementation>(0) { }
-    virtual ~DOMImplementation();
+    virtual ~DOMImplementation(); 
 
     // DOM methods & attributes for DOMImplementation
     bool hasFeature(const String& feature, const String& version) const;

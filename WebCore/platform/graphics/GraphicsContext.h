@@ -34,6 +34,10 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/Platform.h>
 
+#ifdef ANDROID_CANVAS_IMPL
+    #include "PlatformGraphics.h"
+#endif
+
 #if PLATFORM(CG)
 typedef struct CGContext PlatformGraphicsContext;
 #elif PLATFORM(CAIRO)
@@ -41,6 +45,10 @@ typedef struct _cairo PlatformGraphicsContext;
 #elif PLATFORM(QT)
 class QPainter;
 typedef QPainter PlatformGraphicsContext;
+#elif PLATFORM(SGL)
+namespace WebCore {
+class PlatformGraphicsContext;
+}
 #elif PLATFORM(WX)
 class wxGCDC;
 class wxWindowDC;
@@ -83,7 +91,6 @@ namespace WebCore {
     class Font;
     class GraphicsContextPrivate;
     class GraphicsContextPlatformPrivate;
-    class ImageBuffer;
     class KURL;
     class Path;
     class TextRun;
@@ -130,6 +137,84 @@ namespace WebCore {
         void drawEllipse(const IntRect&);
         void drawConvexPolygon(size_t numPoints, const FloatPoint*, bool shouldAntialias = false);
 
+#ifdef ANDROID_CANVAS_IMPL
+        /** Fill the specified path using the optional gradient or pattern, using the following
+            precedence. If/when gradients/patterns are added to the graphics context, these
+            parameters can go away
+            1) use gradient if gradient != null
+            2) use pattern if pattern != null
+            3) use color in the graphics context
+        */
+        void fillPath(const Path&, PlatformGradient*, PlatformPattern*);
+        /** Stroke the specified path using the optional gradient or pattern, using the following
+            precedence. If/when gradients/patterns are added to the graphics context, these
+            parameters can go away
+            1) use gradient if gradient != null
+            2) use pattern if pattern != null
+            3) use color in the graphics context
+        */
+        void strokePath(const Path&, PlatformGradient*, PlatformPattern*);
+        /** Fill the specified rect using the optional gradient or pattern, using the following
+            precedence. If/when gradients/patterns are added to the graphics context, these
+            parameters can go away
+            1) use gradient if gradient != null
+            2) use pattern if pattern != null
+            3) use color in the graphics context
+        */
+        void fillRect(const FloatRect&, PlatformGradient*, PlatformPattern*);
+        /** Stroke the specified rect using the optional gradient or pattern, using the following
+            precedence. If/when gradients/patterns are added to the graphics context, these
+            parameters can go away
+            1) use gradient if gradient != null
+            2) use pattern if pattern != null
+            3) use color in the graphics context
+        */
+        void strokeRect(const FloatRect&, float lineWidth, PlatformGradient*, PlatformPattern*);
+        
+        /** Return a platform specific linear-gradient. Use freePlatformGradient() when you are
+            done with it.
+            stopData is { stop, red, green, blue, alpha } per entry
+        */
+        static PlatformGradient* newPlatformLinearGradient(const FloatPoint& p0, const FloatPoint& p1,
+                                                           const float stopData[5], int count);
+
+        /** Return a platform specific radial-gradient. Use freePlatformGradient() when you are
+            done with it.
+            stopData is { stop, red, green, blue, alpha } per entry
+        */
+        static PlatformGradient* newPlatformRadialGradient(const FloatPoint& p0, float r0,
+                                                           const FloatPoint& p1, float r1,
+                                                           const float stopData[5], int count);
+        static void freePlatformGradient(PlatformGradient*);
+
+        /** Return a platform specific pattern. Use freePlatformPattern() when you are
+            done with it.
+        */
+        static PlatformPattern* newPlatformPattern(Image* image,
+                                                   Image::TileRule hRule, Image::TileRule vRule);
+        static void freePlatformPattern(PlatformPattern*);
+
+        /** platform-specific factory method to return a bitmap graphicscontext,
+            called by <canvas> when we need to draw offscreen. Caller is responsible for
+            deleting the context. Use drawOffscreenContext() to draw the context's image
+            onto another graphics context.
+        */
+        static GraphicsContext* createOffscreenContext(int width, int height);
+        /** Called with a context returned by createOffscreenContext. Draw the underlying
+            bitmap to the current context. Similar to drawImage(), but this hides how
+            to extract the bitmap from ctx from the portable code.
+            If srcRect is NULL, it is assumed that we want to draw the entire bitmap represented
+            by the GraphicsContext.
+        */
+        void drawOffscreenContext(GraphicsContext* ctx, const WebCore::FloatRect* srcRect,
+                                  const WebCore::FloatRect& dstRect);
+        
+        /** Return the clip bounds in local coordinates. It can be an approximation, as long as
+            the returned bounds completely enclose the actual clip.
+        */
+        FloatRect getClipLocalBounds() const;
+#endif
+
         // Arc drawing (used by border-radius in CSS) just supports stroking at the moment.
         void strokeArc(const IntRect&, int startAngle, int angleSpan);
         
@@ -145,14 +230,11 @@ namespace WebCore {
         void drawImage(Image*, const IntRect& destRect, const IntRect& srcRect, CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
         void drawImage(Image*, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1),
                        CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
-        void drawImage(ImageBuffer*, const FloatRect& srcRect, const FloatRect& destRect);
         void drawTiledImage(Image*, const IntRect& destRect, const IntPoint& srcPoint, const IntSize& tileSize,
                        CompositeOperator = CompositeSourceOver);
         void drawTiledImage(Image*, const IntRect& destRect, const IntRect& srcRect, 
                             Image::TileRule hRule = Image::StretchTile, Image::TileRule vRule = Image::StretchTile,
                             CompositeOperator = CompositeSourceOver);
-
-        void paintBuffer(ImageBuffer*, const IntRect&);
 #if PLATFORM(CG)
         void setUseLowQualityImageInterpolation(bool = true);
         bool useLowQualityImageInterpolation() const;

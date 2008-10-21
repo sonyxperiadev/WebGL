@@ -128,19 +128,10 @@ DumpRenderTreeDraggingInfo *draggingInfo = nil;
 
 - (void)webView:(WebView *)sender frame:(WebFrame *)frame exceededDatabaseQuotaForSecurityOrigin:(WebSecurityOrigin *)origin database:(NSString *)databaseIdentifier
 {
-    if (!done && layoutTestController->dumpDatabaseCallbacks())
-        printf("UI DELEGATE DATABASE CALLBACK: exceededDatabaseQuotaForSecurityOrigin:{%s, %s, %i} database:%s\n", [[origin protocol] UTF8String], [[origin domain] UTF8String], 
-            [origin port], [databaseIdentifier UTF8String]);
-
-    static const unsigned long long defaultQuota = 5 * 1024 * 1024;    
+    static const unsigned long long defaultQuota = 5 * 1024 * 1024;
     [origin setQuota:defaultQuota];
 }
 
-- (void)webView:(WebView *)sender setStatusText:(NSString *)text
-{
-    if (layoutTestController->dumpStatusCallbacks())
-        printf("UI DELEGATE STATUS CALLBACK: setStatusText:%s\n", [text UTF8String]);
-}
 
 - (void)dealloc
 {

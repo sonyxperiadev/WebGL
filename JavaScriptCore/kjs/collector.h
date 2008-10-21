@@ -27,6 +27,14 @@
 #include <string.h>
 #include <wtf/HashCountedSet.h>
 
+#ifdef ANDROID_FIX
+#if COMPILER(GCC)
+#define KJS_NO_INLINE __attribute__((noinline))
+#else
+#define KJS_NO_INLINE
+#endif
+#endif // ANDROID_FIX
+
 namespace KJS {
 
   class JSCell;
@@ -79,6 +87,9 @@ namespace KJS {
     static void markProtectedObjects();
     static void markMainThreadOnlyObjects();
     static void markCurrentThreadConservatively();
+#ifdef ANDROID_FIX
+    static void markCurrentThreadConservativelyEx() KJS_NO_INLINE;
+#endif
     static void markOtherThreadConservatively(Thread*);
     static void markStackObjectsConservatively();
     static void markStackObjectsConservatively(void* start, void* end);
@@ -154,21 +165,6 @@ namespace KJS {
     SmallCollectorCell* freeList;
     CollectorBitmap marked;
     CollectorBitmap collectOnMainThreadOnly;
-  };
-
-  enum OperationInProgress { NoOperation, Allocation, Collection };
-
-  struct CollectorHeap {
-    CollectorBlock** blocks;
-    size_t numBlocks;
-    size_t usedBlocks;
-    size_t firstBlockWithPossibleSpace;
-
-    size_t numLiveObjects;
-    size_t numLiveObjectsAtLastCollect;
-    size_t extraCost;
-
-    OperationInProgress operationInProgress;
   };
 
   inline const CollectorBlock* Collector::cellBlock(const JSCell* cell)

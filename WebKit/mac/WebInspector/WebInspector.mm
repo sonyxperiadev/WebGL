@@ -89,9 +89,21 @@ using namespace WebCore;
 @end
 
 @implementation WebInspector (Obsolete)
++ (WebInspector *)sharedWebInspector
+{
+    // Safari 3 beta calls this method
+    static BOOL logged = NO;
+    if (!logged) {
+        NSLog(@"+[WebInspector sharedWebInspector]: this method is obsolete.");
+        logged = YES;
+    }
+
+    return [[[WebInspector alloc] init] autorelease];
+}
+
 + (WebInspector *)webInspector
 {
-    // Safari 3.0 calls this method
+    // Safari 3 beta calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"+[WebInspector webInspector]: this method is obsolete.");
@@ -103,7 +115,7 @@ using namespace WebCore;
 
 - (void)setWebFrame:(WebFrame *)frame
 {
-    // Safari 3.0 calls this method
+    // Safari 3 beta calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"-[WebInspector setWebFrame:]: this method is obsolete.");
@@ -127,7 +139,7 @@ using namespace WebCore;
 
 - (void)showWindow:(id)sender
 {
-    // Safari 3.0 calls this method
+    // Safari 3 beta calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"-[WebInspector showWindow:]: this method is obsolete.");

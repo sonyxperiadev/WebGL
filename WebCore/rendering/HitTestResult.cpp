@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * This file is part of the HTML rendering engine for KDE.
+ *
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,14 +23,19 @@
 #include "config.h"
 #include "HitTestResult.h"
 
+#include "CSSHelper.h"
+#include "Document.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "HTMLAnchorElement.h"
+#include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "KURL.h"
 #include "PlatformScrollBar.h"
 #include "RenderImage.h"
+#include "RenderObject.h"
 #include "SelectionController.h"
 
 #if ENABLE(SVG)
@@ -234,7 +241,7 @@ KURL HitTestResult::absoluteImageURL() const
     else
         return KURL();
     
-    return m_innerNonSharedNode->document()->completeURL(parseURL(urlString));
+    return KURL(m_innerNonSharedNode->document()->completeURL(parseURL(urlString).deprecatedString()));
 }
 
 KURL HitTestResult::absoluteLinkURL() const
@@ -252,7 +259,7 @@ KURL HitTestResult::absoluteLinkURL() const
     else
         return KURL();
 
-    return m_innerURLElement->document()->completeURL(parseURL(urlString));
+    return KURL(m_innerURLElement->document()->completeURL(parseURL(urlString).deprecatedString()));
 }
 
 bool HitTestResult::isLiveLink() const

@@ -120,9 +120,9 @@ void SVGMarkerElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 }
 
-void SVGMarkerElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGMarkerElement::childrenChanged(bool changedByParser)
 {
-    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledElement::childrenChanged(changedByParser);
 
     if (renderer())
         renderer()->setNeedsLayout(true);
@@ -145,7 +145,7 @@ void SVGMarkerElement::setOrientToAngle(SVGAngle* angle)
 SVGResource* SVGMarkerElement::canvasResource()
 {
     if (!m_marker)
-        m_marker = SVGResourceMarker::create();
+        m_marker = new SVGResourceMarker();
 
     m_marker->setMarker(static_cast<RenderSVGViewportContainer*>(renderer()));
 

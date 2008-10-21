@@ -28,7 +28,7 @@
 #include "WebHistory.h"
 
 #include "CFDictionaryPropertyBag.h"
-#include "WebKit.h"
+#include "IWebURLResponse.h"
 #include "MarshallingHelpers.h"
 #include "WebHistoryItem.h"
 #include "WebKit.h"

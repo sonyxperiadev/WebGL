@@ -44,8 +44,7 @@ namespace WebCore {
 
     class SVGPaintServerPattern : public SVGPaintServer {
     public:
-        static PassRefPtr<SVGPaintServerPattern> create(const SVGPatternElement* owner) { return adoptRef(new SVGPaintServerPattern(owner)); }
-
+        SVGPaintServerPattern(const SVGPatternElement*);
         virtual ~SVGPaintServerPattern();
 
         virtual SVGPaintServerType type() const { return PatternPaintServer; }
@@ -72,8 +71,6 @@ namespace WebCore {
 #endif
 
     private:
-        SVGPaintServerPattern(const SVGPatternElement*);
-        
         OwnPtr<ImageBuffer> m_tile;
         const SVGPatternElement* m_ownerElement;
         AffineTransform m_patternTransform;

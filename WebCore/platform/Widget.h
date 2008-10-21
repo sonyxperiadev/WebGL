@@ -36,6 +36,10 @@ class NSView;
 #endif
 #endif
 
+#ifdef ANDROID_BRIDGE
+class WebCoreViewBridge;
+#endif
+
 #if PLATFORM(WIN)
 typedef struct HWND__* HWND;
 #endif
@@ -204,6 +208,11 @@ protected:
         void addToSuperview(NSView* superview);
         void removeFromSuperview();
         IntPoint convertToScreenCoordinate(NSView*, const IntPoint&);
+#endif
+
+#ifdef ANDROID_BRIDGE
+        WebCoreViewBridge* getWebCoreViewBridge() const;
+        void setWebCoreViewBridge(WebCoreViewBridge*);
 #endif
 
 #if PLATFORM(WX)

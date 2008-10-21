@@ -126,9 +126,9 @@ void SVGMaskElement::svgAttributeChanged(const QualifiedName& attrName)
         m_masker->invalidate();
 }
 
-void SVGMaskElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGMaskElement::childrenChanged(bool changedByParser)
 {
-    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledElement::childrenChanged(changedByParser);
 
     if (!m_masker)
         return;
@@ -217,7 +217,7 @@ RenderObject* SVGMaskElement::createRenderer(RenderArena* arena, RenderStyle*)
 SVGResource* SVGMaskElement::canvasResource()
 {
     if (!m_masker)
-        m_masker = SVGResourceMasker::create(this);
+        m_masker = new SVGResourceMasker(this);
     return m_masker.get();
 }
 

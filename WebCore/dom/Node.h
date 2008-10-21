@@ -24,6 +24,7 @@
 #ifndef Node_h
 #define Node_h
 
+#include "DeprecatedString.h"
 #include "DocPtr.h"
 #include "PlatformString.h"
 #include "TreeShared.h"
@@ -43,7 +44,6 @@ class Event;
 class EventListener;
 class IntRect;
 class KeyboardEvent;
-class KURL;
 class NamedAttrMap;
 class NodeList;
 class PlatformKeyboardEvent;
@@ -54,7 +54,7 @@ class RegisteredEventListener;
 class RenderArena;
 class RenderObject;
 class RenderStyle;
-
+class TextStream;
 struct NodeListsNodeData;
 
 typedef int ExceptionCode;
@@ -106,7 +106,7 @@ public:
     virtual bool hasAttributes() const;
     virtual NamedAttrMap* attributes() const;
 
-    virtual KURL baseURI() const;
+    virtual String baseURI() const;
 
     // These should all actually return a node, but this is only important for language bindings,
     // which will already know and hold a ref on the right node to return. Returning bool allows
@@ -329,7 +329,6 @@ public:
 
     /* Like traversePreviousNode, but visits nodes before their children. */
     Node* traversePreviousNodePostOrder(const Node *stayWithin = 0) const;
-    Node* traversePreviousSiblingPostOrder(const Node *stayWithin = 0) const;
 
     /**
      * Finds previous or next editable leaf node.
@@ -367,6 +366,10 @@ public:
 
     // Whether or not a selection can be started in this object
     virtual bool canStartSelection() const;
+
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString indent = "") const;
+#endif
 
     // -----------------------------------------------------------------------------
     // Integration with rendering tree
@@ -432,7 +435,7 @@ public:
      * Notifies the node that it's list of children have changed (either by adding or removing child nodes), or a child
      * node that is of the type CDATA_SECTION_NODE, TEXT_NODE or COMMENT_NODE has changed its value.
      */
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0) {};
+    virtual void childrenChanged(bool changedByParser = false) {};
 
     virtual String toString() const = 0;
 

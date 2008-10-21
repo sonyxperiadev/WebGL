@@ -34,6 +34,13 @@
 #include "GraphicsContext.h"
 #include <wtf/PassRefPtr.h>
 
+#ifdef ANDROID_CANVAS_IMPL
+static int F2B(float unit)
+{
+    return (int)(unit * 255);
+}
+#endif
+
 #if PLATFORM(QT)
 #include <QPainter>
 #include <QBrush>
@@ -47,53 +54,42 @@
 namespace WebCore {
 
 CanvasStyle::CanvasStyle(const String& color)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(ColorString)
-    , m_color(color)
+    : m_type(ColorString), m_color(color)
 {
 }
 
 CanvasStyle::CanvasStyle(float grayLevel)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(GrayLevel)
-    , m_alpha(1)
-    , m_grayLevel(grayLevel)
+    : m_type(GrayLevel), m_alpha(1), m_grayLevel(grayLevel)
 {
 }
 
 CanvasStyle::CanvasStyle(const String& color, float alpha)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(ColorStringWithAlpha), m_color(color), m_alpha(alpha)
+    : m_type(ColorStringWithAlpha), m_color(color), m_alpha(alpha)
 {
 }
 
 CanvasStyle::CanvasStyle(float grayLevel, float alpha)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(GrayLevel), m_alpha(alpha), m_grayLevel(grayLevel)
+    : m_type(GrayLevel), m_alpha(alpha), m_grayLevel(grayLevel)
 {
 }
 
 CanvasStyle::CanvasStyle(float r, float g, float b, float a)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(RGBA), m_alpha(a), m_red(r), m_green(g), m_blue(b)
+    : m_type(RGBA), m_alpha(a), m_red(r), m_green(g), m_blue(b)
 {
 }
 
 CanvasStyle::CanvasStyle(float c, float m, float y, float k, float a)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(CMYKA), m_alpha(a), m_cyan(c), m_magenta(m), m_yellow(y), m_black(k)
+    : m_type(CMYKA), m_alpha(a), m_cyan(c), m_magenta(m), m_yellow(y), m_black(k)
 {
 }
 
 CanvasStyle::CanvasStyle(PassRefPtr<CanvasGradient> gradient)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(gradient ? Gradient : ColorString), m_gradient(gradient)
+    : m_type(gradient ? Gradient : ColorString), m_gradient(gradient)
 {
 }
 
 CanvasStyle::CanvasStyle(PassRefPtr<CanvasPattern> pattern)
-    : RefCounted<CanvasStyle>(0)
-    , m_type(pattern ? ImagePattern : ColorString), m_pattern(pattern)
+    : m_type(pattern ? ImagePattern : ColorString), m_pattern(pattern)
 {
 }
 
@@ -117,6 +113,8 @@ void CanvasStyle::applyStrokeColor(GraphicsContext* context)
                 ((color >> 8) & 0xFF) / 255.0f,
                 (color & 0xFF) / 255.0f,
                 ((color >> 24) & 0xFF) / 255.0f);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setStrokeColor(Color(color));
 #elif PLATFORM(QT)
             QPen currentPen = p->pen();
             currentPen.setColor((QColor(QRgb(color))));
@@ -141,6 +139,8 @@ void CanvasStyle::applyStrokeColor(GraphicsContext* context)
                 ((color >> 8) & 0xFF) / 255.0f,
                 (color & 0xFF) / 255.0f,
                 m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setStrokeColor(Color((color & 0x00FFFFFF) | (F2B(m_alpha) << 8)));
 #elif PLATFORM(QT)
             QPen currentPen = p->pen();
             QColor clr = QColor(QRgb(color));
@@ -161,6 +161,11 @@ void CanvasStyle::applyStrokeColor(GraphicsContext* context)
             // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
             CGContextSetGrayStrokeColor(context->platformContext(), m_grayLevel, m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            {
+                int gray = F2B(m_grayLevel);
+                context->setStrokeColor(Color(makeRGBA(gray, gray, gray, F2B(m_alpha))));
+            }
 #elif PLATFORM(QT)
             QColor clr;
             QPen currentPen = p->pen();
@@ -176,6 +181,8 @@ void CanvasStyle::applyStrokeColor(GraphicsContext* context)
             // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
             CGContextSetRGBStrokeColor(context->platformContext(), m_red, m_green, m_blue, m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setStrokeColor(Color(makeRGBA(F2B(m_red), F2B(m_green), F2B(m_blue), F2B(m_alpha))));
 #elif PLATFORM(QT)
             QPen currentPen = p->pen();
             QColor clr;
@@ -230,6 +237,8 @@ void CanvasStyle::applyFillColor(GraphicsContext* context)
                 ((color >> 8) & 0xFF) / 255.0f,
                 (color & 0xFF) / 255.0f,
                 ((color >> 24) & 0xFF) / 255.0f);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setFillColor(Color(color));
 #elif PLATFORM(QT)
             QBrush currentBrush = p->brush();
             QColor clr;
@@ -249,6 +258,8 @@ void CanvasStyle::applyFillColor(GraphicsContext* context)
                 ((color >> 8) & 0xFF) / 255.0f,
                 (color & 0xFF) / 255.0f,
                 m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setFillColor(Color((color & 0x00FFFFFF) | (F2B(m_alpha) << 8)));
 #elif PLATFORM(QT)
             QBrush currentBrush = p->brush();
             QColor clr;
@@ -263,6 +274,11 @@ void CanvasStyle::applyFillColor(GraphicsContext* context)
             // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
             CGContextSetGrayFillColor(context->platformContext(), m_grayLevel, m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            {
+                int gray = F2B(m_grayLevel);
+                context->setFillColor(Color(gray, gray, gray, F2B(m_alpha)));
+            }
 #elif PLATFORM(QT)
             QBrush currentBrush = p->brush();
             QColor clr;
@@ -276,6 +292,8 @@ void CanvasStyle::applyFillColor(GraphicsContext* context)
             // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
             CGContextSetRGBFillColor(context->platformContext(), m_red, m_green, m_blue, m_alpha);
+#elif defined(ANDROID_CANVAS_IMPL)
+            context->setFillColor(Color(F2B(m_red), F2B(m_green), F2B(m_blue), F2B(m_alpha)));
 #elif PLATFORM(QT)
             QBrush currentBrush = p->brush();
             QColor clr;

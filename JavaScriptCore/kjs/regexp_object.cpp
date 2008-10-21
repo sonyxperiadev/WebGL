@@ -95,7 +95,7 @@ JSValue* regExpProtoFuncCompile(ExecState* exec, JSObject* thisObj, const List& 
     } else {
         UString pattern = args.isEmpty() ? UString("") : arg0->toString(exec);
         UString flags = arg1->isUndefined() ? UString("") : arg1->toString(exec);
-        regExp = RegExp::create(pattern, flags);
+        regExp = new RegExp(pattern, flags);
     }
 
     if (!regExp->isValid())
@@ -173,12 +173,12 @@ JSValue* RegExpImp::getValueProperty(ExecState*, int token) const
     return 0;
 }
 
-void RegExpImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void RegExpImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attributes)
 {
-    lookupPut<RegExpImp, JSObject>(exec, propertyName, value, &RegExpImpTable, this);
+    lookupPut<RegExpImp, JSObject>(exec, propertyName, value, attributes, &RegExpImpTable, this);
 }
 
-void RegExpImp::putValueProperty(ExecState* exec, int token, JSValue* value)
+void RegExpImp::putValueProperty(ExecState* exec, int token, JSValue* value, int)
 {
     UNUSED_PARAM(token);
     ASSERT(token == LastIndex);
@@ -410,12 +410,12 @@ JSValue *RegExpObjectImp::getValueProperty(ExecState*, int token) const
   return jsString("");
 }
 
-void RegExpObjectImp::put(ExecState *exec, const Identifier &propertyName, JSValue *value)
+void RegExpObjectImp::put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr)
 {
-    lookupPut<RegExpObjectImp, InternalFunctionImp>(exec, propertyName, value, &RegExpObjectImpTable, this);
+  lookupPut<RegExpObjectImp, InternalFunctionImp>(exec, propertyName, value, attr, &RegExpObjectImpTable, this);
 }
 
-void RegExpObjectImp::putValueProperty(ExecState *exec, int token, JSValue *value)
+void RegExpObjectImp::putValueProperty(ExecState *exec, int token, JSValue *value, int)
 {
   switch (token) {
     case Input:
@@ -449,7 +449,7 @@ JSObject *RegExpObjectImp::construct(ExecState *exec, const List &args)
   UString pattern = arg0->isUndefined() ? UString("") : arg0->toString(exec);
   UString flags = arg1->isUndefined() ? UString("") : arg1->toString(exec);
   
-  return createRegExpImp(exec, RegExp::create(pattern, flags));
+  return createRegExpImp(exec, new RegExp(pattern, flags));
 }
 
 JSObject* RegExpObjectImp::createRegExpImp(ExecState* exec, PassRefPtr<RegExp> regExp)

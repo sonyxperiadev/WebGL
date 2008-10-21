@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-Attr::Attr(Element* element, Document* docPtr, PassRefPtr<Attribute> a)
+Attr::Attr(Element* element, Document* docPtr, Attribute* a)
     : ContainerNode(docPtr),
       m_element(element),
       m_attribute(a),
@@ -51,7 +51,7 @@ void Attr::createTextChild()
 {
     ASSERT(refCount());
     if (!m_attribute->value().isEmpty()) {
-        RefPtr<Text> textNode = document()->createTextNode(m_attribute->value().string());
+        RefPtr<Text> textNode = document()->createTextNode(m_attribute->value().domString());
 
         // This does everything appendChild() would do in this situation (assuming m_ignoreChildrenChanged was set),
         // but much more efficiently.
@@ -149,13 +149,13 @@ bool Attr::childTypeAllowed(NodeType type)
     }
 }
 
-void Attr::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void Attr::childrenChanged(bool changedByParser)
 {
+    Node::childrenChanged(changedByParser);
+    
     if (m_ignoreChildrenChanged > 0)
         return;
- 
-    Node::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-
+    
     // FIXME: We should include entity references in the value
     
     String val = "";

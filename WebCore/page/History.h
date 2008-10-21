@@ -26,7 +26,6 @@
 #ifndef History_h
 #define History_h
 
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -35,8 +34,8 @@ namespace WebCore {
 
     class History : public RefCounted<History> {
     public:
-        static PassRefPtr<History> create(Frame* frame) { return adoptRef(new History(frame)); }
-        
+        History(Frame*);
+
         Frame* frame() const;
         void disconnectFrame();
 
@@ -46,8 +45,6 @@ namespace WebCore {
         void go(int distance);
 
     private:
-        History(Frame*);
-
         Frame* m_frame;
     };
 

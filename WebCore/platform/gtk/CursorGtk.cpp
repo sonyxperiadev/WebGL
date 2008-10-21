@@ -28,6 +28,7 @@
 #include "config.h"
 #include "CursorGtk.h"
 
+#include "DeprecatedString.h"
 #include "NotImplemented.h"
 #include <wtf/Assertions.h>
 

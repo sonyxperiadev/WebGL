@@ -30,18 +30,15 @@ namespace WebCore {
 
 class DocLoader;
 
-class CSSImageValue : public CSSPrimitiveValue,
-                      public CachedResourceClient {
+class CSSImageValue : public CSSPrimitiveValue, public CachedResourceClient {
 public:
     CSSImageValue();
     CSSImageValue(const String& url, StyleBase*);
     virtual ~CSSImageValue();
 
-    virtual CachedImage* image(DocLoader*);
+    CachedImage* image(DocLoader*);
 
 protected:
-    CachedImage* image(DocLoader*, const String& url);
-
     CachedImage* m_image;
     bool m_accessedImage;
 };

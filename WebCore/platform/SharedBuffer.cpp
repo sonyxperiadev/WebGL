@@ -29,18 +29,15 @@
 namespace WebCore {
 
 SharedBuffer::SharedBuffer()
-    : RefCounted<SharedBuffer>(0)
 {
 }
 
 SharedBuffer::SharedBuffer(const char* data, int size)
-    : RefCounted<SharedBuffer>(0)
 {
     m_buffer.append(data, size);
 }
 
 SharedBuffer::SharedBuffer(const unsigned char* data, int size)
-    : RefCounted<SharedBuffer>(0)
 {
     m_buffer.append(data, size);
 }
@@ -107,6 +104,15 @@ inline unsigned SharedBuffer::platformDataSize() const
 {
     ASSERT_NOT_REACHED();
     
+    return 0;
+}
+
+#endif
+
+#if !PLATFORM(MAC) && !PLATFORM(WIN)
+
+PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
+{
     return 0;
 }
 

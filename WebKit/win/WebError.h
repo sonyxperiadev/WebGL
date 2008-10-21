@@ -26,7 +26,8 @@
 #ifndef WebError_h
 #define WebError_h
 
-#include "WebKit.h"
+#include "IWebError.h"
+#include "IWebErrorPrivate.h"
 
 #pragma warning(push, 0)
 #include <WebCore/COMPtr.h>

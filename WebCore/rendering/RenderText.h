@@ -37,10 +37,9 @@ public:
     virtual ~RenderText();
 #endif
 
-    virtual const char* renderName() const;
+    virtual const char* renderName() const { return "RenderText"; }
 
-    virtual bool isTextFragment() const;
-    virtual bool isWordBreak() const;
+    virtual bool isTextFragment() const { return false; }
 
     virtual PassRefPtr<StringImpl> originalText() const;
 

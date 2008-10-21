@@ -54,7 +54,7 @@ void HTMLTitleElement::removedFromDocument()
     document()->removeTitle(this);
 }
 
-void HTMLTitleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void HTMLTitleElement::childrenChanged(bool changedByParser)
 {
     m_title = "";
     for (Node* c = firstChild(); c != 0; c = c->nextSibling())
@@ -62,7 +62,7 @@ void HTMLTitleElement::childrenChanged(bool changedByParser, Node* beforeChange,
             m_title += c->nodeValue();
     if (inDocument())
         document()->setTitle(m_title, this);
-    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLElement::childrenChanged(changedByParser);
 }
 
 String HTMLTitleElement::text() const

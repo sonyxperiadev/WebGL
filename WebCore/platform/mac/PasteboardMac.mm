@@ -40,6 +40,7 @@
 #import "MIMETypeRegistry.h"
 #import "RenderImage.h"
 #import "WebCoreNSStringExtras.h"
+#import "WebCoreSystemInterface.h"
 #import "markup.h"
 
 #import <wtf/RetainPtr.h>
@@ -209,7 +210,7 @@ void Pasteboard::writeURL(NSPasteboard* pasteboard, NSArray* types, const KURL& 
     
     ASSERT(!url.isEmpty());
     
-    NSURL *cocoaURL = url;
+    NSURL *cocoaURL = url.getNSURL();
     NSString *userVisibleString = frame->editor()->client()->userVisibleString(cocoaURL);
     
     NSString *title = (NSString*)titleStr;
@@ -269,7 +270,7 @@ void Pasteboard::writeImage(Node* node, const KURL& url, const String& title)
     ASSERT(node);
     Frame* frame = node->document()->frame();
 
-    NSURL *cocoaURL = url;
+    NSURL *cocoaURL = url.getNSURL();
     ASSERT(cocoaURL);
 
     NSArray* types = writableTypesForImage();

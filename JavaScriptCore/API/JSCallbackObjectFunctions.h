@@ -150,7 +150,7 @@ bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, unsigned proper
 }
 
 template <class Base>
-void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
     JSContextRef ctx = toRef(exec);
     JSObjectRef thisRef = toRef(this);
@@ -181,19 +181,19 @@ void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName
             if (StaticFunctionEntry* entry = staticFunctions->get(propertyName.ustring().rep())) {
                 if (entry->attributes & kJSPropertyAttributeReadOnly)
                     return;
-                JSCallbackObject<Base>::putDirect(propertyName, value); // put as override property
+                JSCallbackObject<Base>::putDirect(propertyName, value, attr); // put as override property
                 return;
             }
         }
     }
     
-    return Base::put(exec, propertyName, value);
+    return Base::put(exec, propertyName, value, attr);
 }
 
 template <class Base>
-void JSCallbackObject<Base>::put(ExecState* exec, unsigned propertyName, JSValue* value)
+void JSCallbackObject<Base>::put(ExecState* exec, unsigned propertyName, JSValue* value, int attr)
 {
-    return put(exec, Identifier::from(propertyName), value);
+    return put(exec, Identifier::from(propertyName), value, attr);
 }
 
 template <class Base>

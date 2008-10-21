@@ -30,8 +30,8 @@ namespace WebCore {
 
     class Frame;
 
-    class JSLocation : public DOMObject {
-        typedef DOMObject Base;
+    class JSLocation : public KJS::DOMObject {
+        typedef KJS::DOMObject Base;
 
         friend class KJS::Window;
     public:
@@ -39,7 +39,7 @@ namespace WebCore {
     
         virtual bool getOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&);
         KJS::JSValue* getValueProperty(KJS::ExecState*, int token) const;
-        virtual void put(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*);
+        virtual void put(KJS::ExecState*, const KJS::Identifier&, KJS::JSValue*, int attr = KJS::None);
         virtual bool deleteProperty(KJS::ExecState*, const KJS::Identifier&);
         virtual void getPropertyNames(KJS::ExecState*, KJS::PropertyNameArray&);
 

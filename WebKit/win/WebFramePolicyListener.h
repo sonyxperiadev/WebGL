@@ -26,7 +26,9 @@
 #ifndef WebFramePolicyListener_h
 #define WebFramePolicyListener_h
 
-#include "WebKit.h"
+#include "IWebView.h"
+#include "IWebFormDelegate.h"
+#include "IWebPolicyDelegate.h"
 
 #include <WTF/PassRefPtr.h>
 #include <WTF/RefPtr.h>

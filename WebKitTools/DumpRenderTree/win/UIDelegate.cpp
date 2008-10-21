@@ -38,7 +38,8 @@
 #include <wtf/Vector.h>
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
-#include <WebKit/WebKit.h>
+#include <WebKit/IWebFramePrivate.h>
+#include <WebKit/IWebViewPrivate.h>
 #include <stdio.h>
 
 using std::wstring;
@@ -403,13 +404,5 @@ HRESULT STDMETHODCALLTYPE UIDelegate::exceededDatabaseQuota(
     static const unsigned long long defaultQuota = 5 * 1024 * 1024;
     origin->setQuota(defaultQuota);
 
-    return S_OK;
-}
-
-
-HRESULT STDMETHODCALLTYPE UIDelegate::setStatusText(IWebView*, BSTR text)
-{ 
-    if (layoutTestController->dumpStatusCallbacks())
-        printf("UI DELEGATE STATUS CALLBACK: setStatusText:%S\n", text ? text : L"");
     return S_OK;
 }

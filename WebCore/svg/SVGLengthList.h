@@ -31,13 +31,10 @@ namespace WebCore {
 
     class SVGLengthList : public SVGPODList<SVGLength> {
     public:
-        static PassRefPtr<SVGLengthList> create(const QualifiedName& attributeName) { return adoptRef(new SVGLengthList(attributeName)); }
+        SVGLengthList(const QualifiedName&);
         virtual ~SVGLengthList();
 
         void parse(const String& value, const SVGStyledElement* context, SVGLengthMode mode);
-        
-    private:
-        SVGLengthList(const QualifiedName&);
     };
 
 } // namespace WebCore

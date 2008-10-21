@@ -68,7 +68,6 @@ win32-g++ {
 gtk-port: PKGCONFIG += gthread-2.0
 
 # Optional components (look for defs in config.h and included files!)
-!contains(DEFINES, ENABLE_CROSS_DOCUMENT_MESSAGING=.): DEFINES += ENABLE_CROSS_DOCUMENT_MESSAGING=1
 !contains(DEFINES, ENABLE_DATABASE=.): DEFINES += ENABLE_DATABASE=1
 !contains(DEFINES, ENABLE_ICONDATABASE=.): DEFINES += ENABLE_ICONDATABASE=1
 !contains(DEFINES, ENABLE_XPATH=.): DEFINES += ENABLE_XPATH=1
@@ -136,10 +135,6 @@ DEPENDPATH += editing/qt history/qt loader/qt page/qt \
 }
 
 gtk-port {
-    hildon {
-        DEFINES += MAEMO_CHANGES
-        PKGCONFIG += hildon-1
-    }
     x11:plugins {
         DEFINES += XP_UNIX
     }
@@ -292,6 +287,7 @@ IDL_BINDINGS += \
 #    dom/EventListener.idl \
 #    dom/EventTarget.idl \
     dom/KeyboardEvent.idl \
+    dom/MessageEvent.idl \
     dom/MouseEvent.idl \
     dom/MutationEvent.idl \
     dom/NamedNodeMap.idl \
@@ -312,7 +308,6 @@ IDL_BINDINGS += \
     dom/WheelEvent.idl \
     html/CanvasGradient.idl \
     html/CanvasPattern.idl \
-    html/CanvasPixelArray.idl \
     html/CanvasRenderingContext2D.idl \
     html/HTMLAnchorElement.idl \
     html/HTMLAppletElement.idl \
@@ -374,7 +369,6 @@ IDL_BINDINGS += \
     html/HTMLTextAreaElement.idl \
     html/HTMLTitleElement.idl \
     html/HTMLUListElement.idl \
-    html/ImageData.idl \
     page/BarInfo.idl \
     page/Console.idl \
     page/DOMSelection.idl \
@@ -389,7 +383,6 @@ IDL_BINDINGS += \
 SOURCES += \
     bindings/js/GCController.cpp \
     bindings/js/JSAttrCustom.cpp \
-    bindings/js/JSCanvasPixelArrayCustom.cpp \
     bindings/js/JSCanvasRenderingContext2DCustom.cpp \
     bindings/js/JSCSSRuleCustom.cpp \
     bindings/js/JSCSSStyleDeclarationCustom.cpp \
@@ -516,6 +509,7 @@ SOURCES += \
     dom/ExceptionCode.cpp \
     dom/KeyboardEvent.cpp \
     dom/MappedAttribute.cpp \
+    dom/MessageEvent.cpp \
     dom/MouseEvent.cpp \
     dom/MouseRelatedEvent.cpp \
     dom/MutationEvent.cpp \
@@ -601,7 +595,6 @@ SOURCES += \
     history/PageCache.cpp \
     html/CanvasGradient.cpp \
     html/CanvasPattern.cpp \
-    html/CanvasPixelArray.cpp \
     html/CanvasRenderingContext2D.cpp \
     html/CanvasStyle.cpp \
     html/FormDataList.cpp \
@@ -681,7 +674,6 @@ SOURCES += \
     html/HTMLTokenizer.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
-    html/ImageData.cpp \
     loader/Cache.cpp \
     loader/CachedCSSStyleSheet.cpp \
     loader/CachedFont.cpp \
@@ -730,12 +722,16 @@ SOURCES += \
     page/Settings.cpp \
     page/WindowFeatures.cpp \
     platform/Arena.cpp \
+    platform/ArrayImpl.cpp \
     platform/text/AtomicString.cpp \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
     platform/ContextMenu.cpp \
     platform/text/CString.cpp \
+    platform/DeprecatedCString.cpp \
     platform/DeprecatedPtrListImpl.cpp \
+    platform/DeprecatedString.cpp \
+    platform/DeprecatedStringList.cpp \
     platform/DeprecatedValueListImpl.cpp \
     platform/DragData.cpp \
     platform/DragImage.cpp \
@@ -760,12 +756,11 @@ SOURCES += \
     platform/KURL.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
-    platform/network/AuthenticationChallengeBase.cpp \
+    platform/network/AuthenticationChallenge.cpp \
     platform/network/Credential.cpp \
     platform/network/FormData.cpp \
     platform/network/HTTPParsers.cpp \
     platform/network/ProtectionSpace.cpp \
-    platform/network/ResourceErrorBase.cpp \
     platform/network/ResourceHandle.cpp \
     platform/network/ResourceRequestBase.cpp \
     platform/network/ResourceResponseBase.cpp \
@@ -788,9 +783,6 @@ SOURCES += \
     platform/Timer.cpp \
     platform/text/UnicodeRange.cpp \
     platform/Widget.cpp \
-    plugins/PluginDatabase.cpp \
-    plugins/PluginInfoStore.cpp \
-    plugins/PluginPackage.cpp \
     plugins/PluginStream.cpp \
     rendering/AutoTableLayout.cpp \
     rendering/bidi.cpp \
@@ -934,13 +926,13 @@ qt-port {
     platform/graphics/qt/SimpleFontDataQt.cpp \
     platform/qt/KURLQt.cpp \
     platform/qt/Localizations.cpp \
-    platform/qt/MainThreadQt.cpp \
     platform/qt/MIMETypeRegistryQt.cpp \
     platform/qt/PasteboardQt.cpp \
     platform/qt/PlatformKeyboardEventQt.cpp \
     platform/qt/PlatformMouseEventQt.cpp \
     platform/qt/PlatformScreenQt.cpp \
     platform/qt/PlatformScrollBarQt.cpp \
+    platform/qt/PlugInInfoStoreQt.cpp \
     platform/qt/PopupMenuQt.cpp \
     platform/qt/QWebPopup.cpp \
     platform/qt/RenderThemeQt.cpp \
@@ -953,6 +945,7 @@ qt-port {
     platform/text/qt/TextBoundaries.cpp \
     platform/text/qt/TextBreakIteratorQt.cpp \
     platform/text/qt/TextCodecQt.cpp \
+    platform/qt/ThreadingQt.cpp \
     platform/qt/WheelEventQt.cpp \
     platform/qt/WidgetQt.cpp \
     ../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
@@ -968,6 +961,7 @@ qt-port {
     ../WebKit/qt/Api/qwebhistory.cpp \
     ../WebKit/qt/Api/qwebsettings.cpp \
     ../WebKit/qt/Api/qwebhistoryinterface.cpp \
+    platform/ThreadingNone.cpp
 
     unix: SOURCES += platform/qt/SystemTimeQt.cpp
     else: SOURCES += platform/win/SystemTimeWin.cpp
@@ -1038,7 +1032,6 @@ gtk-port {
         platform/gtk/Language.cpp \
         platform/gtk/LocalizedStringsGtk.cpp \
         platform/gtk/LoggingGtk.cpp \
-        platform/gtk/MainThreadGtk.cpp \
         platform/gtk/MIMETypeRegistryGtk.cpp \
         platform/gtk/MouseEventGtk.cpp \
         platform/gtk/PasteboardGtk.cpp \
@@ -1053,6 +1046,7 @@ gtk-port {
         platform/gtk/SystemTimeGtk.cpp \
         platform/gtk/TemporaryLinkStubs.cpp \
         platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp \
+        platform/gtk/ThreadingGtk.cpp \
         platform/gtk/WheelEventGtk.cpp \
         platform/gtk/WidgetGtk.cpp \
         platform/gtk/gtk2drawing.c \
@@ -1064,7 +1058,6 @@ gtk-port {
         platform/network/curl/ResourceHandleCurl.cpp \
         platform/network/curl/ResourceHandleManager.cpp \
         platform/graphics/cairo/AffineTransformCairo.cpp \
-        platform/graphics/cairo/FontCairo.cpp \
         platform/graphics/cairo/GraphicsContextCairo.cpp \
         platform/graphics/cairo/ImageBufferCairo.cpp \
         platform/graphics/cairo/ImageCairo.cpp \
@@ -1091,16 +1084,6 @@ gtk-port {
         ../WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.cpp \
         ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.cpp \
         ../WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.cpp
-}
-
-contains(DEFINES, ENABLE_CROSS_DOCUMENT_MESSAGING=1) {
-    FEATURE_DEFINES_JAVASCRIPT += ENABLE_CROSS_DOCUMENT_MESSAGING=1
-
-    SOURCES += \
-        dom/MessageEvent.cpp
-
-    IDL_BINDINGS += \
-        dom/MessageEvent.idl
 }
 
 contains(DEFINES, ENABLE_DATABASE=1) {

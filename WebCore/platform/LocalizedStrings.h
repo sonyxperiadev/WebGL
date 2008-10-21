@@ -29,8 +29,7 @@
 namespace WebCore {
 
     class String;
-    class IntSize;
-    
+
     String inputElementAltText();
     String resetButtonDefaultLabel();
     String searchableIndexIntroduction();
@@ -106,8 +105,6 @@ namespace WebCore {
     String uploadFileText();
     String allFilesText();
 #endif
-
-    String imageTitle(const String& filename, const IntSize& size);
 }
 
 #endif

@@ -42,7 +42,7 @@ namespace WebCore {
         CachedCSSStyleSheet(DocLoader*, const String& URL, const String& charset, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
         virtual ~CachedCSSStyleSheet();
 
-        const String sheetText(bool strict = true) const { return canUseSheet(strict) ? m_sheet : ""; }
+        const String& sheet() const { return m_sheet; }
 
         virtual void ref(CachedResourceClient*);
  
@@ -54,9 +54,6 @@ namespace WebCore {
         virtual bool schedule() const { return true; }
 
         void checkNotify();
-    
-    private:
-        bool canUseSheet(bool strict) const;
 
     protected:
         String m_sheet;

@@ -29,7 +29,8 @@
 #ifndef UIDelegate_h
 #define UIDelegate_h
 
-#include <WebKit/WebKit.h>
+#include <WebKit/IWebUIDelegate.h>
+#include <WebKit/IWebUIDelegatePrivate.h>
 #include <wtf/OwnPtr.h>
 #include <windef.h>
 
@@ -74,7 +75,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setStatusText( 
         /* [in] */ IWebView *sender,
-        /* [in] */ BSTR text);
+        /* [in] */ BSTR text) { return E_NOTIMPL; }
 
     virtual HRESULT STDMETHODCALLTYPE webViewStatusText( 
         /* [in] */ IWebView *sender,

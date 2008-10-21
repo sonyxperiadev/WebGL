@@ -29,6 +29,7 @@
 
 #include "CFDictionaryPropertyBag.h"
 #include "DOMCoreClasses.h"
+#include "IWebNotification.h"
 #include "WebDatabaseManager.h"
 #include "WebDocumentLoader.h"
 #include "WebEditorClient.h"
@@ -2433,7 +2434,7 @@ HRESULT STDMETHODCALLTYPE WebView::userAgentForURL(
     /* [in] */ BSTR url,
     /* [retval][out] */ BSTR* userAgent)
 {
-    String urlStr(url, SysStringLen(url));
+    DeprecatedString urlStr((DeprecatedChar*)url, SysStringLen(url));
     String userAgentString = this->userAgentForKURL(KURL(urlStr));
     *userAgent = SysAllocStringLen(userAgentString.characters(), userAgentString.length());
     if (!*userAgent && userAgentString.length())
@@ -3557,7 +3558,7 @@ HRESULT STDMETHODCALLTYPE WebView::copyURL(
         /* [in] */ BSTR url)
 {
     String temp(url, SysStringLen(url));
-    m_page->focusController()->focusedOrMainFrame()->editor()->copyURL(KURL(temp), "");
+    m_page->focusController()->focusedOrMainFrame()->editor()->copyURL(KURL(temp.deprecatedString()), "");
     return S_OK;
 }
 
@@ -3869,7 +3870,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         settings->setUserStyleSheetLocation(url.get());
         SysFreeString(str);
     } else {
-        settings->setUserStyleSheetLocation(KURL());
+        settings->setUserStyleSheetLocation(KURL(DeprecatedString("")));
     }
 
     hr = preferences->shouldPrintBackgrounds(&enabled);
@@ -3901,7 +3902,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings->setShowsURLsInToolTips(false);
     settings->setForceFTPDirectoryListings(true);
     settings->setDeveloperExtrasEnabled(developerExtrasEnabled());
-    settings->setNeedsSiteSpecificQuirks(s_allowSiteSpecificHacks);
 
     FontSmoothingType smoothingType;
     hr = preferences->fontSmoothing(&smoothingType);
@@ -4199,8 +4199,6 @@ HRESULT STDMETHODCALLTYPE WebView::setAllowSiteSpecificHacks(
     /* [in] */ BOOL allow)
 {
     s_allowSiteSpecificHacks = !!allow;
-    // FIXME: This sets a global so it needs to call notifyPreferencesChanged
-    // on all WebView objects (not just itself).
     return S_OK;
 }
 

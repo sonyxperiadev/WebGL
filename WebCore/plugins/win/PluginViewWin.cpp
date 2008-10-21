@@ -51,7 +51,6 @@
 #include "kjs_binding.h"
 #include "kjs_proxy.h"
 #include "kjs_window.h"
-#include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginPackage.h"
 #include "npruntime_impl.h"
@@ -208,11 +207,11 @@ private:
 
 static String scriptStringIfJavaScriptURL(const KURL& url)
 {
-    if (!url.protocolIs("javascript"))
+    if (!url.string().startsWith("javascript:", false))
         return String();
 
     // This returns an unescaped string
-    return decodeURLEscapeSequences(url.string().substring(11));
+    return KURL::decode_string(url.deprecatedString().mid(11));
 }
 
 PluginView* PluginView::s_currentPluginView = 0;
@@ -300,12 +299,12 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
 
     if (message == m_lastMessage &&
-        m_plugin->quirks().contains(PluginQuirkDontCallWndProcForSameMessageRecursively) && 
+        m_quirks.contains(PluginQuirkDontCallWndProcForSameMessageRecursively) && 
         m_isCallingPluginWndProc)
         return 1;
 
     if (message == WM_USER + 1 &&
-        m_plugin->quirks().contains(PluginQuirkThrottleWMUserPlusOneMessages)) {
+        m_quirks.contains(PluginQuirkThrottleWMUserPlusOneMessages)) {
         if (!m_messageThrottler)
             m_messageThrottler.set(new PluginMessageThrottlerWin(this));
 
@@ -359,7 +358,7 @@ void PluginView::updateWindow() const
         // To prevent flashes while scrolling, we disable drawing during the window
         // update process by clipping the window to the zero rect.
 
-        bool clipToZeroRect = !m_plugin->quirks().contains(PluginQuirkDontClipToZeroRectWhenScrolling);
+        bool clipToZeroRect = !m_quirks.contains(PluginQuirkDontClipToZeroRectWhenScrolling);
 
         if (clipToZeroRect) {
             rgn = ::CreateRectRgn(0, 0, 0, 0);
@@ -785,7 +784,7 @@ void PluginView::stop()
 
     // Clear the window
     m_npWindow.window = 0;
-    if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
+    if (m_plugin->pluginFuncs()->setwindow && !m_quirks.contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
@@ -868,7 +867,7 @@ void PluginView::performRequest(PluginRequest* request)
         // if this is not a targeted request, create a stream for it. otherwise,
         // just pass it off to the loader
         if (targetFrameName.isEmpty()) {
-            PluginStream* stream = new PluginStream(this, m_parentFrame, request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_plugin->quirks());
+            PluginStream* stream = new PluginStream(this, m_parentFrame, request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_quirks);
             m_streams.add(stream);
             stream->start();
         } else {
@@ -878,7 +877,7 @@ void PluginView::performRequest(PluginRequest* request)
             if (request->sendNotification()) {
                 KJS::JSLock::DropAllLocks dropAllLocks;
                 setCallingPlugin(true);
-                m_plugin->pluginFuncs()->urlnotify(m_instance, requestURL.string().utf8().data(), NPRES_DONE, request->notifyData());
+                m_plugin->pluginFuncs()->urlnotify(m_instance, requestURL.deprecatedString().utf8(), NPRES_DONE, request->notifyData());
                 setCallingPlugin(false);
             }
         }
@@ -900,7 +899,7 @@ void PluginView::performRequest(PluginRequest* request)
         if (getString(parentFrame->scriptProxy(), result, resultString))
             cstr = resultString.utf8();
 
-        RefPtr<PluginStream> stream = new PluginStream(this, m_parentFrame, request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_plugin->quirks());
+        RefPtr<PluginStream> stream = new PluginStream(this, m_parentFrame, request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_quirks);
         m_streams.add(stream);
         stream->sendJavaScriptStream(requestURL, cstr);
     }
@@ -962,9 +961,9 @@ NPError PluginView::load(const FrameLoadRequest& frameLoadRequest, bool sendNoti
 
 static KURL makeURL(const KURL& baseURL, const char* relativeURLString)
 {
-    String urlString = relativeURLString;
+    DeprecatedString urlString = DeprecatedString::fromLatin1(relativeURLString);
 
-    // Strip return characters.
+    // Strip return characters
     urlString.replace('\n', "");
     urlString.replace('\r', "");
 
@@ -1108,7 +1107,7 @@ static inline HTTPHeaderMap parseRFC822HeaderFields(const Vector<char>& buffer, 
             } else {
                 // Merge the continuation of the previous header
                 String currentValue = headerFields.get(lastKey);
-                String newValue(line, lineLength);
+                String newValue = DeprecatedString::fromLatin1(line, lineLength);
 
                 headerFields.set(lastKey, currentValue + newValue);
             }
@@ -1122,7 +1121,7 @@ static inline HTTPHeaderMap parseRFC822HeaderFields(const Vector<char>& buffer, 
                 // malformed header; ignore it and continue
                 continue;
             else {
-                lastKey = capitalizeRFC822HeaderFieldName(String(line, colon - line));
+                lastKey = capitalizeRFC822HeaderFieldName(DeprecatedString::fromLatin1(line, colon - line));
                 String value;
 
                 for (colon++; colon != eol; colon++) {
@@ -1132,7 +1131,7 @@ static inline HTTPHeaderMap parseRFC822HeaderFields(const Vector<char>& buffer, 
                 if (colon == eol)
                     value = "";
                 else
-                    value = String(colon, eol - colon);
+                    value = DeprecatedString::fromLatin1(colon, eol - colon);
 
                 String oldValue = headerFields.get(lastKey);
                 if (!oldValue.isNull()) {
@@ -1161,7 +1160,7 @@ NPError PluginView::handlePost(const char* url, const char* target, uint32 len, 
     Vector<char> buffer;
     
     if (file) {
-        String filename(buf, len);
+        String filename = DeprecatedString::fromLatin1(buf, len);
 
         if (filename.startsWith("file:///"))
             filename = filename.substring(8);
@@ -1225,7 +1224,7 @@ NPError PluginView::handlePost(const char* url, const char* target, uint32 len, 
     frameLoadRequest.resourceRequest().setHTTPMethod("POST");
     frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
     frameLoadRequest.resourceRequest().addHTTPHeaderFields(headerFields);
-    frameLoadRequest.resourceRequest().setHTTPBody(FormData::create(postData, postDataLength));
+    frameLoadRequest.resourceRequest().setHTTPBody(PassRefPtr<FormData>(new FormData(postData, postDataLength)));
     frameLoadRequest.setFrameName(target);
 
     return load(frameLoadRequest, sendNotification, notifyData);
@@ -1269,7 +1268,7 @@ NPError PluginView::destroyStream(NPStream* stream, NPReason reason)
 
 const char* PluginView::userAgent()
 {
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
+    if (m_quirks.contains(PluginQuirkWantsMozillaUserAgent))
         return MozillaUserAgent;
 
     if (m_userAgent.isNull())
@@ -1279,8 +1278,10 @@ const char* PluginView::userAgent()
 
 void PluginView::status(const char* message)
 {
+    String s = DeprecatedString::fromLatin1(message);
+
     if (Page* page = m_parentFrame->page())
-        page->chrome()->setStatusbarText(m_parentFrame, String(message));
+        page->chrome()->setStatusbarText(m_parentFrame, s);
 }
 
 NPError PluginView::getValue(NPNVariable variable, void* value)
@@ -1365,7 +1366,7 @@ void PluginView::invalidateRect(NPRect* rect)
         RECT invalidRect(r);
         InvalidateRect(m_window, &invalidRect, FALSE);
     } else {
-        if (m_plugin->quirks().contains(PluginQuirkThrottleInvalidate)) {
+        if (m_quirks.contains(PluginQuirkThrottleInvalidate)) {
             m_invalidRects.append(r);
             if (!m_invalidateTimer.isActive())
                 m_invalidateTimer.startOneShot(0.001);
@@ -1455,7 +1456,7 @@ PluginView::~PluginView()
 
     m_parentFrame->cleanupScriptObjectsForPlugin(this);
 
-    if (m_plugin && !m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin))
+    if (m_plugin && !m_quirks.contains(PluginQuirkDontUnloadPlugin))
         m_plugin->unload();
 }
 
@@ -1464,6 +1465,73 @@ void PluginView::disconnectStream(PluginStream* stream)
     ASSERT(m_streams.contains(stream));
 
     m_streams.remove(stream);
+}
+
+void PluginView::determineQuirks(const String& mimeType)
+{
+    static const unsigned lastKnownUnloadableRealPlayerVersionLS = 0x000B0B24;
+    static const unsigned lastKnownUnloadableRealPlayerVersionMS = 0x00060000;
+
+    if (mimeType == "application/x-shockwave-flash") {
+        // The flash plugin only requests windowless plugins if we return a mozilla user agent
+        m_quirks.add(PluginQuirkWantsMozillaUserAgent);
+        m_quirks.add(PluginQuirkThrottleInvalidate);
+        m_quirks.add(PluginQuirkThrottleWMUserPlusOneMessages);
+        m_quirks.add(PluginQuirkFlashURLNotifyBug);
+    }
+
+    if (m_plugin->name().contains("Microsoft") && m_plugin->name().contains("Windows Media")) {
+        // The WMP plugin sets its size on the first NPP_SetWindow call and never updates its size, so
+        // call SetWindow when the plugin view has a correct size
+        m_quirks.add(PluginQuirkDeferFirstSetWindowCall);
+
+        // Windowless mode does not work at all with the WMP plugin so just remove that parameter 
+        // and don't pass it to the plug-in.
+        m_quirks.add(PluginQuirkRemoveWindowlessVideoParam);
+
+        // WMP has a modal message loop that it enters whenever we call it or
+        // ask it to paint. This modal loop can deliver messages to other
+        // windows in WebKit at times when they are not expecting them (for
+        // example, delivering a WM_PAINT message during a layout), and these
+        // can cause crashes.
+        m_quirks.add(PluginQuirkHasModalMessageLoop);
+    }
+
+    // VLC hangs on NPP_Destroy if we call NPP_SetWindow with a null window handle
+    if (m_plugin->name() == "VLC Multimedia Plugin")
+        m_quirks.add(PluginQuirkDontSetNullWindowHandleOnDestroy);
+
+    // The DivX plugin sets its size on the first NPP_SetWindow call and never updates its size, so
+    // call SetWindow when the plugin view has a correct size
+    if (mimeType == "video/divx")
+        m_quirks.add(PluginQuirkDeferFirstSetWindowCall);
+
+    // FIXME: This is a workaround for a problem in our NPRuntime bindings; if a plug-in creates an
+    // NPObject and passes it to a function it's not possible to see what root object that NPObject belongs to.
+    // Thus, we don't know that the object should be invalidated when the plug-in instance goes away.
+    // See <rdar://problem/5487742>.
+    if (mimeType == "application/x-silverlight")
+        m_quirks.add(PluginQuirkDontUnloadPlugin);
+
+    if (MIMETypeRegistry::isJavaAppletMIMEType(mimeType)) {
+        // Because a single process cannot create multiple VMs, and we cannot reliably unload a
+        // Java VM, we cannot unload the Java plugin, or we'll lose reference to our only VM
+        m_quirks.add(PluginQuirkDontUnloadPlugin);
+
+        // Setting the window region to an empty region causes bad scrolling repaint problems
+        // with the Java plug-in.
+        m_quirks.add(PluginQuirkDontClipToZeroRectWhenScrolling);
+    }
+
+    if (mimeType == "audio/x-pn-realaudio-plugin") {
+        // Prevent the Real plugin from calling the Window Proc recursively, causing the stack to overflow.
+        m_quirks.add(PluginQuirkDontCallWndProcForSameMessageRecursively);
+
+        // Unloading RealPlayer versions newer than 10.5 can cause a hang; see rdar://5669317.
+        // FIXME: Resume unloading when this bug in the RealPlayer Plug-In is fixed (rdar://5713147)
+        if (m_plugin->compareFileVersion(lastKnownUnloadableRealPlayerVersionMS, lastKnownUnloadableRealPlayerVersionLS) > 0)
+            m_quirks.add(PluginQuirkDontUnloadPlugin);
+    }
 }
 
 void PluginView::setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues)
@@ -1477,7 +1545,7 @@ void PluginView::setParameters(const Vector<String>& paramNames, const Vector<St
     m_paramValues = reinterpret_cast<char**>(fastMalloc(sizeof(char*) * size));
 
     for (unsigned i = 0; i < size; i++) {
-        if (m_plugin->quirks().contains(PluginQuirkRemoveWindowlessVideoParam) && equalIgnoringCase(paramNames[i], "windowlessvideo"))
+        if (m_quirks.contains(PluginQuirkRemoveWindowlessVideoParam) && equalIgnoringCase(paramNames[i], "windowlessvideo"))
             continue;
 
         m_paramNames[paramCount] = createUTF8String(paramNames[i]);
@@ -1495,7 +1563,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_element(element)
     , m_isStarted(false)
     , m_url(url)
-    , m_baseURL(m_parentFrame->loader()->completeURL(m_parentFrame->document()->baseURL().string()))
+    , m_baseURL(m_parentFrame->loader()->completeURL(m_parentFrame->document()->baseURL()))
     , m_status(PluginStatusLoadedSuccessfully)
     , m_requestTimer(this, &PluginView::requestTimerFired)
     , m_invalidateTimer(this, &PluginView::invalidateTimerFired)
@@ -1523,6 +1591,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     m_instance->ndata = this;
 
     m_mimeType = mimeType.utf8();
+    determineQuirks(mimeType);
 
     setParameters(paramNames, paramValues);
 
@@ -1576,7 +1645,7 @@ void PluginView::init()
         m_npWindow.window = 0;
     }
 
-    if (!m_plugin->quirks().contains(PluginQuirkDeferFirstSetWindowCall))
+    if (!m_quirks.contains(PluginQuirkDeferFirstSetWindowCall))
         setNPWindowRect(frameGeometry());
 
     m_status = PluginStatusLoadedSuccessfully;
@@ -1587,7 +1656,7 @@ void PluginView::didReceiveResponse(const ResourceResponse& response)
     ASSERT(m_loadManually);
     ASSERT(!m_manualStream);
 
-    m_manualStream = new PluginStream(this, m_parentFrame, m_parentFrame->loader()->activeDocumentLoader()->request(), false, 0, plugin()->pluginFuncs(), instance(), m_plugin->quirks());
+    m_manualStream = new PluginStream(this, m_parentFrame, m_parentFrame->loader()->activeDocumentLoader()->request(), false, 0, plugin()->pluginFuncs(), instance(), m_quirks);
     m_manualStream->setLoadManually(true);
 
     m_manualStream->didReceiveResponse(0, response);
@@ -1619,7 +1688,7 @@ void PluginView::didFail(const ResourceError& error)
 
 void PluginView::setCallingPlugin(bool b) const
 {
-    if (!m_plugin->quirks().contains(PluginQuirkHasModalMessageLoop))
+    if (!m_quirks.contains(PluginQuirkHasModalMessageLoop))
         return;
 
     if (b)
@@ -1633,22 +1702,6 @@ void PluginView::setCallingPlugin(bool b) const
 bool PluginView::isCallingPlugin()
 {
     return s_callingPlugin > 0;
-}
-
-PluginView* PluginView::create(Frame* parentFrame, const IntSize& size, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
-{
-    // if we fail to find a plugin for this MIME type, findPlugin will search for
-    // a plugin by the file extension and update the MIME type, so pass a mutable String
-    String mimeTypeCopy = mimeType;
-    PluginPackage* plugin = PluginDatabase::installedPlugins()->findPlugin(url, mimeTypeCopy);
-
-    // No plugin was found, try refreshing the database and searching again
-    if (!plugin && PluginDatabase::installedPlugins()->refresh()) {
-        mimeTypeCopy = mimeType;
-        plugin = PluginDatabase::installedPlugins()->findPlugin(url, mimeTypeCopy);
-    }
-
-    return new PluginView(parentFrame, size, plugin, element, url, paramNames, paramValues, mimeTypeCopy, loadManually);
 }
 
 } // namespace WebCore

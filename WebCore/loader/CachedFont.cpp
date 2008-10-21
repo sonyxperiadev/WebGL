@@ -31,7 +31,7 @@
 #include "CachedResourceClientWalker.h"
 #include "DOMImplementation.h"
 #include "FontPlatformData.h"
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(SGL)
 #include "FontCustomPlatformData.h"
 #endif
 #include "TextResourceDecoder.h"
@@ -96,7 +96,7 @@ void CachedFont::beginLoadIfNeeded(DocLoader* dl)
 
 bool CachedFont::ensureCustomFontData()
 {
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(SGL)
 #if ENABLE(SVG_FONTS)
     ASSERT(!m_isSVGFont);
 #endif
@@ -115,7 +115,7 @@ FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, b
     if (m_externalSVGDocument)
         return FontPlatformData(size, bold, italic);
 #endif
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(SGL)
     ASSERT(m_fontData);
     return m_fontData->fontPlatformData(static_cast<int>(size), bold, italic);
 #else

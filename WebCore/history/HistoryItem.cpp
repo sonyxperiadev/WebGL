@@ -34,16 +34,18 @@
 #include "Logging.h"
 #include "PageCache.h"
 #include "ResourceRequest.h"
-#include <stdio.h>
 
 namespace WebCore {
 
+#ifdef ANDROID_HISTORY_CLIENT
+void (*notifyHistoryItemChanged)(HistoryItem*);
+#else
 static void defaultNotifyHistoryItemChanged() {}
 void (*notifyHistoryItemChanged)() = defaultNotifyHistoryItemChanged;
+#endif
 
 HistoryItem::HistoryItem()
-    : RefCounted<HistoryItem>(0)
-    , m_lastVisitedTime(0)
+    : m_lastVisitedTime(0)
     , m_isInPageCache(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
@@ -51,8 +53,7 @@ HistoryItem::HistoryItem()
 }
 
 HistoryItem::HistoryItem(const String& urlString, const String& title, double time)
-    : RefCounted<HistoryItem>(0)
-    , m_urlString(urlString)
+    : m_urlString(urlString)
     , m_originalURLString(urlString)
     , m_title(title)
     , m_lastVisitedTime(time)
@@ -64,8 +65,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
 }
 
 HistoryItem::HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double time)
-    : RefCounted<HistoryItem>(0)
-    , m_urlString(urlString)
+    : m_urlString(urlString)
     , m_originalURLString(urlString)
     , m_title(title)
     , m_displayTitle(alternateTitle)
@@ -78,8 +78,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
 }
 
 HistoryItem::HistoryItem(const KURL& url, const String& title)
-    : RefCounted<HistoryItem>(0)
-    , m_urlString(url.string())
+    : m_urlString(url.string())
     , m_originalURLString(url.string())
     , m_title(title)
     , m_lastVisitedTime(0)
@@ -91,8 +90,7 @@ HistoryItem::HistoryItem(const KURL& url, const String& title)
 }
 
 HistoryItem::HistoryItem(const KURL& url, const String& target, const String& parent, const String& title)
-    : RefCounted<HistoryItem>(0)
-    , m_urlString(url.string())
+    : m_urlString(url.string())
     , m_originalURLString(url.string())
     , m_target(target)
     , m_parent(parent)
@@ -112,7 +110,7 @@ HistoryItem::~HistoryItem()
 }
 
 HistoryItem::HistoryItem(const HistoryItem& item)
-    : RefCounted<HistoryItem>(0)
+    : RefCounted<HistoryItem>()
     , m_urlString(item.m_urlString)
     , m_originalURLString(item.m_originalURLString)
     , m_target(item.m_target)
@@ -126,10 +124,18 @@ HistoryItem::HistoryItem(const HistoryItem& item)
     , m_visitCount(item.m_visitCount)
     , m_formContentType(item.m_formContentType)
     , m_formReferrer(item.m_formReferrer)
+#ifdef ANDROID_FIX
+    , m_originalFormContentType(item.m_originalFormContentType)
+    , m_originalFormReferrer(item.m_originalFormReferrer)
+#endif
     , m_rssFeedReferrer(item.m_rssFeedReferrer)
 {
     if (item.m_formData)
         m_formData = item.m_formData->copy();
+#ifdef ANDROID_FIX
+    if (item.m_originalFormData)
+        m_originalFormData = item.m_originalFormData->copy();
+#endif
         
     unsigned size = item.m_subItems.size();
     m_subItems.reserveCapacity(size);
@@ -177,12 +183,12 @@ double HistoryItem::lastVisitedTime() const
 
 KURL HistoryItem::url() const
 {
-    return KURL(m_urlString);
+    return KURL(m_urlString.deprecatedString());
 }
 
 KURL HistoryItem::originalURL() const
 {
-    return KURL(m_originalURLString);
+    return KURL(m_originalURLString.deprecatedString());
 }
 
 const String& HistoryItem::target() const
@@ -198,7 +204,9 @@ const String& HistoryItem::parent() const
 void HistoryItem::setAlternateTitle(const String& alternateTitle)
 {
     m_displayTitle = alternateTitle;
+#ifndef ANDROID_HISTORY_CLIENT
     notifyHistoryItemChanged();
+#endif
 }
 
 void HistoryItem::setURLString(const String& urlString)
@@ -209,7 +217,11 @@ void HistoryItem::setURLString(const String& urlString)
         iconDatabase()->retainIconForPageURL(m_urlString);
     }
     
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#else
     notifyHistoryItemChanged();
+#endif
 }
 
 void HistoryItem::setURL(const KURL& url)
@@ -222,19 +234,31 @@ void HistoryItem::setURL(const KURL& url)
 void HistoryItem::setOriginalURLString(const String& urlString)
 {
     m_originalURLString = urlString;
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#else
     notifyHistoryItemChanged();
+#endif
 }
 
 void HistoryItem::setTitle(const String& title)
 {
     m_title = title;
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#else
     notifyHistoryItemChanged();
+#endif
 }
 
 void HistoryItem::setTarget(const String& target)
 {
     m_target = target;
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#else
     notifyHistoryItemChanged();
+#endif
 }
 
 void HistoryItem::setParent(const String& parent)
@@ -279,6 +303,9 @@ void HistoryItem::clearScrollPoint()
 void HistoryItem::setDocumentState(const Vector<String>& state)
 {
     m_documentState = state;
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#endif
 }
 
 const Vector<String>& HistoryItem::documentState() const
@@ -289,6 +316,9 @@ const Vector<String>& HistoryItem::documentState() const
 void HistoryItem::clearDocumentState()
 {
     m_documentState.clear();
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#endif
 }
 
 bool HistoryItem::isTargetItem() const
@@ -299,11 +329,17 @@ bool HistoryItem::isTargetItem() const
 void HistoryItem::setIsTargetItem(bool flag)
 {
     m_isTargetItem = flag;
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#endif
 }
 
 void HistoryItem::addChildItem(PassRefPtr<HistoryItem> child)
 {
     m_subItems.append(child);
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#endif
 }
 
 HistoryItem* HistoryItem::childItemWithName(const String& name) const
@@ -384,12 +420,44 @@ void HistoryItem::setFormInfoFromRequest(const ResourceRequest& request)
         m_formContentType = String();
         m_formReferrer = String();
     }
+#ifdef ANDROID_HISTORY_CLIENT
+    notifyHistoryItemChanged(this);
+#endif
 }
 
 FormData* HistoryItem::formData()
 {
     return m_formData.get();
 }
+
+#ifdef ANDROID_FIX
+const FormData* HistoryItem::formData() const
+{
+    return m_formData.get();
+}
+
+FormData* HistoryItem::originalFormData() const
+{
+    return m_originalFormData.get();
+}
+
+String HistoryItem::originalFormContentType() const
+{
+    return m_originalFormContentType;
+}
+
+String HistoryItem::originalFormReferrer() const
+{
+    return m_originalFormReferrer;
+}
+
+void HistoryItem::setOriginalFormInfo(PassRefPtr<FormData> formdata, const String& contentType, const String& referrer) 
+{
+    m_originalFormData = formdata;
+    m_originalFormContentType = contentType;
+    m_originalFormReferrer = referrer;
+}
+#endif
 
 bool HistoryItem::isCurrentDocument(Document* doc) const
 {

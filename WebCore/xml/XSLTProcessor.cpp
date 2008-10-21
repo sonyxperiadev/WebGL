@@ -1,7 +1,7 @@
-/*
+/**
  * This file is part of the XSL implementation.
  *
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple, Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple, Inc.
  * Copyright (C) 2005, 2006 Alexey Proskuryakov <ap@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -37,7 +37,6 @@
 #include "HTMLDocument.h"
 #include "HTMLTokenizer.h"
 #include "Page.h"
-#include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -113,7 +112,7 @@ static xmlDocPtr docLoaderFunc(const xmlChar* uri,
         case XSLT_LOAD_DOCUMENT: {
             xsltTransformContextPtr context = (xsltTransformContextPtr)ctxt;
             xmlChar* base = xmlNodeGetBase(context->document->doc, context->node);
-            KURL url(KURL(reinterpret_cast<const char*>(base)), reinterpret_cast<const char*>(uri));
+            KURL url((const char*)base, (const char*)uri);
             xmlFree(base);
             ResourceError error;
             ResourceResponse response;
@@ -259,6 +258,7 @@ RefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourceStr
         result->setURL(ownerDocument->url());
         result->setBaseURL(ownerDocument->baseURL());
     }
+    result->determineParseMode(documentSource); // Make sure we parse in the correct mode.
     
     RefPtr<TextResourceDecoder> decoder = new TextResourceDecoder(sourceMIMEType);
     decoder->setEncoding(sourceEncoding.isEmpty() ? UTF8Encoding() : TextEncoding(sourceEncoding), TextResourceDecoder::EncodingFromXMLHeader);
@@ -293,8 +293,7 @@ static inline RefPtr<DocumentFragment> createFragmentFromSource(String sourceStr
 static xsltStylesheetPtr xsltStylesheetPointer(RefPtr<XSLStyleSheet>& cachedStylesheet, Node* stylesheetRootNode)
 {
     if (!cachedStylesheet && stylesheetRootNode) {
-        cachedStylesheet = new XSLStyleSheet(stylesheetRootNode->parent() ? stylesheetRootNode->parent() : stylesheetRootNode,
-            stylesheetRootNode->document()->url().string());
+        cachedStylesheet = new XSLStyleSheet(stylesheetRootNode->parent() ? stylesheetRootNode->parent() : stylesheetRootNode, stylesheetRootNode->document()->url());
         cachedStylesheet->parseString(createMarkup(stylesheetRootNode));
     }
     
@@ -313,8 +312,7 @@ static inline xmlDocPtr xmlDocPtrFromNode(Node* sourceNode, bool& shouldDelete)
     if (sourceIsDocument)
         sourceDoc = (xmlDocPtr)ownerDocument->transformSource();
     if (!sourceDoc) {
-        sourceDoc = (xmlDocPtr)xmlDocPtrForString(ownerDocument->docLoader(), createMarkup(sourceNode),
-            sourceIsDocument ? ownerDocument->url().string() : String());
+        sourceDoc = (xmlDocPtr)xmlDocPtrForString(ownerDocument->docLoader(), createMarkup(sourceNode), sourceIsDocument ? ownerDocument->url() : DeprecatedString());
         shouldDelete = (sourceDoc != 0);
     }
     return sourceDoc;

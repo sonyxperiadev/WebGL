@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -411,57 +411,22 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
 
 + (NSURL *)_web_URLWithData:(NSData *)data
 {
-    return [NSURL _web_URLWithData:data relativeToURL:nil];
+    return urlWithData(data);
 }      
 
 + (NSURL *)_web_URLWithData:(NSData *)data relativeToURL:(NSURL *)baseURL
 {
-    if (data == nil)
-        return nil;
-    
-    NSURL *result = nil;
-    size_t length = [data length];
-    if (length > 0) {
-        // work around <rdar://4470771>: CFURLCreateAbsoluteURLWithBytes(.., TRUE) doesn't remove non-path components.
-        baseURL = [baseURL _webkit_URLByRemovingResourceSpecifier];
-        
-        const UInt8 *bytes = static_cast<const UInt8*>([data bytes]);
-        // NOTE: We use UTF-8 here since this encoding is used when computing strings when returning URL components
-        // (e.g calls to NSURL -path). However, this function is not tolerant of illegal UTF-8 sequences, which
-        // could either be a malformed string or bytes in a different encoding, like shift-jis, so we fall back
-        // onto using ISO Latin 1 in those cases.
-        result = WebCFAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingUTF8, (CFURLRef)baseURL, YES));
-        if (!result)
-            result = WebCFAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingISOLatin1, (CFURLRef)baseURL, YES));
-    } else
-        result = [NSURL URLWithString:@""];
-    
-    return result;
+    return urlWithDataRelativeToURL(data, baseURL);
 }
 
 - (NSData *)_web_originalData
 {
-    UInt8 *buffer = (UInt8 *)malloc(URL_BYTES_BUFFER_LENGTH);
-    CFIndex bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, URL_BYTES_BUFFER_LENGTH);
-    if (bytesFilled == -1) {
-        CFIndex bytesToAllocate = CFURLGetBytes((CFURLRef)self, NULL, 0);
-        buffer = (UInt8 *)realloc(buffer, bytesToAllocate);
-        bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, bytesToAllocate);
-        ASSERT(bytesFilled == bytesToAllocate);
-    }
-    
-    // buffer is adopted by the NSData
-    NSData *data = [NSData dataWithBytesNoCopy:buffer length:bytesFilled freeWhenDone:YES];
-    
-    NSURL *baseURL = (NSURL *)CFURLGetBaseURL((CFURLRef)self);
-    if (baseURL)
-        return [[NSURL _web_URLWithData:data relativeToURL:baseURL] _web_originalData];
-    return data;
+    return urlOriginalData(self);
 }
 
 - (NSString *)_web_originalDataAsString
 {
-    return [[[NSString alloc] initWithData:[self _web_originalData] encoding:NSISOLatin1StringEncoding] autorelease];
+    return urlOriginalDataAsString(self);
 }
 
 - (NSString *)_web_userVisibleString
@@ -546,9 +511,7 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
 
 - (BOOL)_web_isEmpty
 {
-    if (!CFURLGetBaseURL((CFURLRef)self))
-        return CFURLGetBytes((CFURLRef)self, NULL, 0) == 0;
-    return [[self _web_originalData] length] == 0;
+    return urlIsEmpty(self);
 }
 
 - (const char *)_web_URLCString
@@ -560,24 +523,9 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
  }
 
 - (NSURL *)_webkit_canonicalize
-{    
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:self];
-    Class concreteClass = WKNSURLProtocolClassForRequest(request);
-    if (!concreteClass) {
-        [request release];
-        return self;
-    }
-    
-    // This applies NSURL's concept of canonicalization, but not KURL's concept. It would
-    // make sense to apply both, but when we tried that it caused a performance degradation
-    // (see 5315926). It might make sense to apply only the KURL concept and not the NSURL
-    // concept, but it's too risky to make that change for WebKit 3.0.
-    NSURLRequest *newRequest = [concreteClass canonicalRequestForRequest:request];
-    NSURL *newURL = [newRequest URL]; 
-    NSURL *result = [[newURL retain] autorelease]; 
-    [request release];
-    
-    return result;
+{
+    InitWebCoreSystemInterface();
+    return canonicalURL(self);
 }
 
 typedef struct {
@@ -591,38 +539,21 @@ typedef struct {
     NSString *fragment;
 } WebKitURLComponents;
 
+
+
 - (NSURL *)_webkit_URLByRemovingComponent:(CFURLComponentType)component
 {
-    CFRange fragRg = CFURLGetByteRangeForComponent((CFURLRef)self, component, NULL);
-    // Check to see if a fragment exists before decomposing the URL.
-    if (fragRg.location == kCFNotFound)
-        return self;
- 
-    UInt8 *urlBytes, buffer[2048];
-    CFIndex numBytes = CFURLGetBytes((CFURLRef)self, buffer, 2048);
-    if (numBytes == -1) {
-        numBytes = CFURLGetBytes((CFURLRef)self, NULL, 0);
-        urlBytes = static_cast<UInt8*>(malloc(numBytes));
-        CFURLGetBytes((CFURLRef)self, urlBytes, numBytes);
-    } else
-        urlBytes = buffer;
-     
-    NSURL *result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingUTF8, NULL));
-    if (!result)
-        result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingISOLatin1, NULL));
-     
-    if (urlBytes != buffer) free(urlBytes);
-    return result ? [result autorelease] : self;
+    return urlByRemovingComponent(self, component);
 }
 
 - (NSURL *)_webkit_URLByRemovingFragment
 {
-    return [self _webkit_URLByRemovingComponent:kCFURLComponentFragment];
+    return urlByRemovingFragment(self);
 }
 
 - (NSURL *)_webkit_URLByRemovingResourceSpecifier
 {
-    return [self _webkit_URLByRemovingComponent:kCFURLComponentResourceSpecifier];
+    return urlByRemovingResourceSpecifier(self);
 }
 
 - (BOOL)_webkit_isJavaScriptURL
@@ -636,8 +567,8 @@ typedef struct {
 }
 
 - (BOOL)_webkit_isFileURL
-{    
-    return [[self _web_originalDataAsString] _webkit_isFileURL];
+{
+    return urlIsFileURL(self);
 }
 
 - (BOOL)_webkit_isFTPDirectoryURL
@@ -866,12 +797,13 @@ typedef struct {
 
 - (BOOL)_webkit_isFileURL
 {
-    return [self rangeOfString:@"file:" options:(NSCaseInsensitiveSearch | NSAnchoredSearch)].location != NSNotFound;
+    return stringIsFileURL(self);
 }
 
 - (NSString *)_webkit_stringByReplacingValidPercentEscapes
 {
-    return decodeURLEscapeSequences(self);
+    DeprecatedString s = KURL::decode_string(DeprecatedString::fromNSString(self));
+    return s.getNSString();
 }
 
 - (NSString *)_webkit_scriptIfJavaScriptURL

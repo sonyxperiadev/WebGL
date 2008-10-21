@@ -26,7 +26,7 @@
 #ifndef WebCache_H
 #define WebCache_H
 
-#include "WebKit.h"
+#include "IWebCache.h"
 
 class WebCache : public IWebCache
 {

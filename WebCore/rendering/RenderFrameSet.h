@@ -76,6 +76,14 @@ public:
     bool canResizeRow(const IntPoint&) const;
     bool canResizeColumn(const IntPoint&) const;
 
+#ifdef FLATTEN_FRAMESET
+    void setGridNeedsLayout() { m_gridCalculated = false; }
+#endif
+    
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString ind = "") const;
+#endif
+
 private:
     static const int noSplit = -1;
 
@@ -115,6 +123,9 @@ private:
 
     bool m_isResizing;
     bool m_isChildResizing;
+#ifdef FLATTEN_FRAMESET
+    bool m_gridCalculated;
+#endif
 };
 
 } // namespace WebCore

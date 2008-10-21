@@ -63,15 +63,6 @@ static void myExecve(NSString *executable, NSArray *args, NSDictionary *environm
     execve([executable fileSystemRepresentation], argv, env);
 }
 
-NSString *currentSystemVersion()
-{
-    long version;
-    if (Gestalt(gestaltSystemVersion, &version) != noErr)
-        return @"10.4";
-
-    return [NSString stringWithFormat:@"%x.%x", (version & 0xFF00) >> 8, (version & 0x00F0) >> 4];
-}
-
 int main(int argc, char *argv[])
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
@@ -83,7 +74,7 @@ int main(int argc, char *argv[])
         displayErrorAndQuit(@"Unable to locate WebKit.app", @"Drosera nightly builds require WebKit.app to run. Please check that it is available and then try again.");
 
     NSBundle *webKitAppBundle = [NSBundle bundleWithPath:[(NSURL *)webkitURL path]];
-    NSString *frameworkPath = [[webKitAppBundle privateFrameworksPath] stringByAppendingPathComponent:currentSystemVersion()];
+    NSString *frameworkPath = [webKitAppBundle resourcePath];
     NSBundle *droseraBundle = [NSBundle bundleWithPath:[[NSBundle mainBundle] pathForResource:@"Drosera" ofType:@"app"]];
     NSString *executablePath = [droseraBundle executablePath];
     NSString *pathToEnablerLib = [webKitAppBundle pathForResource:@"WebKitNightlyEnabler" ofType:@"dylib"];

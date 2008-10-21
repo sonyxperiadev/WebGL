@@ -28,7 +28,8 @@
 
 namespace WebCore {
 
-class SVGUnitTypes : public RefCounted<SVGUnitTypes> {
+class SVGUnitTypes : public RefCounted<SVGUnitTypes>
+{
 public:
     enum SVGUnitType {
         SVG_UNIT_TYPE_UNKNOWN               = 0,
@@ -36,8 +37,8 @@ public:
         SVG_UNIT_TYPE_OBJECTBOUNDINGBOX     = 2
     };
 
-private:
-    SVGUnitTypes() { }
+    SVGUnitTypes() { } 
+    ~SVGUnitTypes() { }
 };
 
 } // namespace WebCore

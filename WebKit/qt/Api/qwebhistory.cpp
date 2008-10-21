@@ -22,6 +22,7 @@
 #include "qwebhistory.h"
 #include "qwebhistory_p.h"
 
+#include "DeprecatedString.h"
 #include "PlatformString.h"
 #include "Image.h"
 

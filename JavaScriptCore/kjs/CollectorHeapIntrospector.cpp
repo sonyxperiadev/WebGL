@@ -32,8 +32,6 @@
 #include "collector.h"
 #include "MallocZoneSupport.h"
 
-using WTF::RemoteMemoryReader;
-
 namespace KJS {
 
 extern "C" {

@@ -45,7 +45,7 @@ void HTMLParamElement::parseMappedAttribute(MappedAttribute *attr)
     if (attr->name() == idAttr) {
         // Must call base class so that hasID bit gets set.
         HTMLElement::parseMappedAttribute(attr);
-        if (document()->isHTMLDocument())
+        if (document()->htmlMode() != Document::XHtml)
             return;
         m_name = attr->value();
     } else if (attr->name() == nameAttr) {
@@ -61,7 +61,7 @@ bool HTMLParamElement::isURLAttribute(Attribute *attr) const
     if (attr->name() == valueAttr) {
         Attribute *attr = attributes()->getAttributeItem(nameAttr);
         if (attr) {
-            String value = attr->value().string().lower();
+            String value = attr->value().domString().lower();
             if (value == "src" || value == "movie" || value == "data")
                 return true;
         }

@@ -31,12 +31,13 @@
 #include "kjs_events.h"
 #include "kjs_window.h"
 
-using namespace KJS;
-using namespace WebCore;
-
 #include "JSXMLHttpRequest.lut.h"
 
-namespace WebCore {
+namespace KJS {
+
+using namespace WebCore;
+
+////////////////////// JSXMLHttpRequest Object ////////////////////////
 
 /* Source for JSXMLHttpRequestPrototypeTable.
 @begin JSXMLHttpRequestPrototypeTable 7
@@ -138,12 +139,12 @@ JSValue* JSXMLHttpRequest::getValueProperty(ExecState* exec, int token) const
     }
 }
 
-void JSXMLHttpRequest::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void JSXMLHttpRequest::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    lookupPut<JSXMLHttpRequest, DOMObject>(exec, propertyName, value, &JSXMLHttpRequestTable, this);
+    lookupPut<JSXMLHttpRequest,DOMObject>(exec, propertyName, value, attr, &JSXMLHttpRequestTable, this );
 }
 
-void JSXMLHttpRequest::putValueProperty(ExecState* exec, int token, JSValue* value)
+void JSXMLHttpRequest::putValueProperty(ExecState* exec, int token, JSValue* value, int /*attr*/)
 {
     switch (token) {
         case Onreadystatechange: {
@@ -196,7 +197,7 @@ void JSXMLHttpRequest::mark()
 
 JSXMLHttpRequest::JSXMLHttpRequest(JSObject* prototype, Document* d)
     : DOMObject(prototype)
-    , m_impl(XMLHttpRequest::create(d))
+    , m_impl(new XMLHttpRequest(d))
 {
     ScriptInterpreter::putDOMObject(m_impl.get(), this);
 }
@@ -249,6 +250,7 @@ JSValue* jsXMLHttpRequestPrototypeFunctionGetResponseHeader(ExecState* exec, JSO
     return header;
 }
 
+
 JSValue* jsXMLHttpRequestPrototypeFunctionOpen(ExecState* exec, JSObject* thisObj, const List& args)
 {
     if (!thisObj->inherits(&JSXMLHttpRequest::info))
@@ -264,7 +266,7 @@ JSValue* jsXMLHttpRequestPrototypeFunctionOpen(ExecState* exec, JSObject* thisOb
     Frame* frame = Window::retrieveActive(exec)->impl()->frame();
     if (!frame)
         return jsUndefined();
-    KURL url = frame->loader()->completeURL(args[1]->toString(exec));
+    KURL url = frame->loader()->completeURL(DeprecatedString(args[1]->toString(exec)));
 
     bool async = true;
     if (args.size() >= 3)
@@ -296,9 +298,10 @@ JSValue* jsXMLHttpRequestPrototypeFunctionSend(ExecState* exec, JSObject* thisOb
     String body;
 
     if (args.size() >= 1) {
-        if (args[0]->toObject(exec)->inherits(&JSDocument::info))
-            body = static_cast<Document*>(static_cast<JSDocument*>(args[0]->toObject(exec))->impl())->toString();
-        else {
+        if (args[0]->toObject(exec)->inherits(&JSDocument::info)) {
+            Document* doc = static_cast<Document*>(static_cast<JSDocument*>(args[0]->toObject(exec))->impl());
+            body = doc->toString().deprecatedString();
+        } else {
             // converting certain values (like null) to object can set an exception
             if (exec->hadException())
                 exec->clearException();

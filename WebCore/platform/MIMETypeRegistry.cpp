@@ -33,6 +33,9 @@
 #if PLATFORM(CG)
 #include <ApplicationServices/ApplicationServices.h>
 #endif
+#if PLATFORM(MAC)
+#include "WebCoreSystemInterface.h"
+#endif
 #if PLATFORM(QT)
 #include <qimagereader.h>
 #endif

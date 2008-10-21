@@ -921,7 +921,7 @@ static bool debugWidget = true;
         return needsQuirks;
 
     needsQuirks = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_IE_COMPATIBLE_KEYBOARD_EVENT_DISPATCH)
-        && ![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"];
+               && ![[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"];
     checked = YES;
 
     return needsQuirks;
@@ -979,7 +979,6 @@ static bool debugWidget = true;
         settings->setUserStyleSheetLocation([NSURL URLWithString:@""]);
     settings->setNeedsAdobeFrameReloadingQuirk([self _needsAdobeFrameReloadingQuirk]);
     settings->setNeedsKeyboardEventDisambiguationQuirks([self _needsKeyboardEventDisambiguationQuirks]);
-    settings->setNeedsSiteSpecificQuirks(_private->useSiteSpecificSpoofing);
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1454,7 +1453,7 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     return usesTestModeFocusRingColor();
 }
 
-// This is only used by versions of Safari up to and including 3.0 and should be removed in a future release. 
+// This is only used by older versions of Safari and should be removed in a future release. 
 + (NSString *)_minimumRequiredSafariBuildNumber
 {
     return @"420+";
@@ -4104,11 +4103,7 @@ static NSString *createMacOSXVersionString()
 
 - (NSString *)_userAgentWithApplicationName:(NSString *)applicationName andWebKitVersion:(NSString *)version
 {
-    // Note: Do *not* move the initialization of osVersion into the declaration.
-    // Garbage collection won't correctly mark the global variable in that case <rdar://problem/5733674>.
-    static NSString *osVersion;
-    if (!osVersion)
-        osVersion = createMacOSXVersionString();
+    static NSString *osVersion = createMacOSXVersionString();
     NSString *language = [NSUserDefaults _webkit_preferredLanguageCode];
     if ([applicationName length])
         return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko) %@",

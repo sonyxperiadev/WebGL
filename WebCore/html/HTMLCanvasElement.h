@@ -35,7 +35,7 @@
 typedef struct CGContext* CGContextRef;
 typedef struct CGImage* CGImageRef;
 #elif PLATFORM(QT)
-class QPixmap;
+class QImage;
 class QPainter;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo_surface cairo_surface_t;
@@ -45,14 +45,8 @@ namespace WebCore {
 
 class CanvasRenderingContext2D;
 typedef CanvasRenderingContext2D CanvasRenderingContext;
-class FloatPoint;
 class FloatRect;
-class FloatSize;
 class GraphicsContext;
-class ImageBuffer;
-class IntPoint;
-class InttRect;
-class IntSize;
 
 class HTMLCanvasElement : public HTMLElement {
 public:
@@ -80,21 +74,16 @@ public:
 
     GraphicsContext* drawingContext() const;
 
-    ImageBuffer* buffer() const; 
 #if PLATFORM(CG)
     CGImageRef createPlatformImage() const;
 #elif PLATFORM(QT)
-    QPixmap createPlatformImage() const;
+    QImage createPlatformImage() const;
 #elif PLATFORM(CAIRO)
     cairo_surface_t* createPlatformImage() const;
 #endif
-    
-    IntRect convertLogicalToDevice(const FloatRect&) const;
-    IntSize convertLogicalToDevice(const FloatSize&) const;
-    IntPoint convertLogicalToDevice(const FloatPoint&) const;
-    static const float MaxCanvasArea;
+
 private:
-    void createImageBuffer() const;
+    void createDrawingContext() const;
     void reset();
 
     bool m_rendererIsCanvas;
@@ -105,9 +94,19 @@ private:
     // FIXME: Web Applications 1.0 describes a security feature where we track
     // if we ever drew any images outside the domain, so we can disable toDataURL.
 
-    // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
-    mutable bool m_createdImageBuffer;
-    mutable OwnPtr<ImageBuffer> m_imageBuffer;
+    mutable bool m_createdDrawingContext;
+#if PLATFORM(CG)
+    mutable void* m_data;
+#elif PLATFORM(QT)
+    mutable QImage* m_data;
+    mutable QPainter* m_painter;
+#elif PLATFORM(CAIRO)
+    mutable void* m_data;
+    mutable cairo_surface_t* m_surface;
+#else
+    mutable void* m_data;
+#endif
+    mutable GraphicsContext* m_drawingContext;
 };
 
 } //namespace

@@ -61,6 +61,10 @@ public:
     virtual bool offsetInCharacters() const;
     virtual bool rendererIsNeeded(RenderStyle*);
     
+#ifndef NDEBUG
+    virtual void dump(TextStream*, DeprecatedString indent = "") const;
+#endif
+
 protected:
     RefPtr<StringImpl> m_data;
 

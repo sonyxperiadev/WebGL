@@ -27,7 +27,10 @@
 #define WebView_H
 
 #include "COMPtr.h"
-#include "WebKit.h"
+#include "IWebNotificationObserver.h"
+#include "IWebUIDelegatePrivate.h"
+#include "IWebView.h"
+#include "IWebViewPrivate.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
 

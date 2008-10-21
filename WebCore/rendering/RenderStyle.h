@@ -315,8 +315,8 @@ enum EMarginCollapse { MCOLLAPSE, MSEPARATE, MDISCARD };
 
 class StyleSurroundData : public RefCounted<StyleSurroundData> {
 public:
-    static PassRefPtr<StyleSurroundData> create() { return adoptRef(new StyleSurroundData); }
-    PassRefPtr<StyleSurroundData> copy() const { return adoptRef(new StyleSurroundData(*this)); }
+    StyleSurroundData();
+    StyleSurroundData(const StyleSurroundData& o);
     
     bool operator==(const StyleSurroundData& o) const;
     bool operator!=(const StyleSurroundData& o) const {
@@ -327,10 +327,6 @@ public:
     LengthBox margin;
     LengthBox padding;
     BorderData border;
-    
-private:
-    StyleSurroundData();
-    StyleSurroundData(const StyleSurroundData&);    
 };
 
 
@@ -341,8 +337,12 @@ enum EBoxSizing { CONTENT_BOX, BORDER_BOX };
 
 class StyleBoxData : public RefCounted<StyleBoxData> {
 public:
-    static PassRefPtr<StyleBoxData> create() { return adoptRef(new StyleBoxData); }
-    PassRefPtr<StyleBoxData> copy() const { return adoptRef(new StyleBoxData(*this)); }
+    StyleBoxData();
+    StyleBoxData(const StyleBoxData& o);
+
+    // copy and assignment
+//    StyleBoxData(const StyleBoxData &other);
+//    const StyleBoxData &operator = (const StyleBoxData &other);
 
     bool operator==(const StyleBoxData& o) const;
     bool operator!=(const StyleBoxData& o) const {
@@ -363,10 +363,6 @@ public:
     int z_index;
     bool z_auto : 1;
     unsigned boxSizing : 1; // EBoxSizing
-    
-private:
-    StyleBoxData();
-    StyleBoxData(const StyleBoxData&);
 };
 
 //------------------------------------------------
@@ -420,9 +416,9 @@ enum EUnicodeBidi {
 
 class StyleVisualData : public RefCounted<StyleVisualData> {
 public:
-    static PassRefPtr<StyleVisualData> create() { return adoptRef(new StyleVisualData); }
-    PassRefPtr<StyleVisualData> copy() const { return adoptRef(new StyleVisualData(*this)); }
+    StyleVisualData();
     ~StyleVisualData();
+    StyleVisualData(const StyleVisualData&);
 
     bool operator==(const StyleVisualData& o) const {
         return ( clip == o.clip &&
@@ -440,9 +436,6 @@ public:
     short counterIncrement; // ok, so these are not visual mode specific
     short counterReset;     // can't go to inherited, since these are not inherited
 
-private:
-    StyleVisualData();
-    StyleVisualData(const StyleVisualData&);    
 };
 
 //------------------------------------------------
@@ -561,9 +554,9 @@ public:
 
 class StyleBackgroundData : public RefCounted<StyleBackgroundData> {
 public:
-    static PassRefPtr<StyleBackgroundData> create() { return adoptRef(new StyleBackgroundData); }
-    PassRefPtr<StyleBackgroundData> copy() const { return adoptRef(new StyleBackgroundData(*this)); }
+    StyleBackgroundData();
     ~StyleBackgroundData() {}
+    StyleBackgroundData(const StyleBackgroundData& o );
 
     bool operator==(const StyleBackgroundData& o) const;
     bool operator!=(const StyleBackgroundData &o) const {
@@ -573,10 +566,6 @@ public:
     BackgroundLayer m_background;
     Color m_color;
     OutlineValue m_outline;
-    
-private:
-    StyleBackgroundData();
-    StyleBackgroundData(const StyleBackgroundData& o );    
 };
 
 //------------------------------------------------
@@ -587,8 +576,8 @@ enum EMarqueeDirection { MAUTO = 0, MLEFT = 1, MRIGHT = -1, MUP = 2, MDOWN = -2,
 
 class StyleMarqueeData : public RefCounted<StyleMarqueeData> {
 public:
-    static PassRefPtr<StyleMarqueeData> create() { return adoptRef(new StyleMarqueeData); }
-    PassRefPtr<StyleMarqueeData> copy() const { return adoptRef(new StyleMarqueeData(*this)); }
+    StyleMarqueeData();
+    StyleMarqueeData(const StyleMarqueeData& o);
     
     bool operator==(const StyleMarqueeData& o) const;
     bool operator!=(const StyleMarqueeData& o) const {
@@ -602,19 +591,15 @@ public:
     
     unsigned behavior : 3; // EMarqueeBehavior 
     EMarqueeDirection direction : 3; // not unsigned because EMarqueeDirection has negative values
-    
-private:
-    StyleMarqueeData();
-    StyleMarqueeData(const StyleMarqueeData&);
 };
   
 // CSS3 Multi Column Layout
 
 class StyleMultiColData : public RefCounted<StyleMultiColData> {
 public:
-    static PassRefPtr<StyleMultiColData> create() { return adoptRef(new StyleMultiColData); }
-    PassRefPtr<StyleMultiColData> copy() const { return adoptRef(new StyleMultiColData(*this)); }
-    
+    StyleMultiColData();
+    StyleMultiColData(const StyleMultiColData& o);
+
     bool operator==(const StyleMultiColData& o) const;
     bool operator!=(const StyleMultiColData &o) const {
         return !(*this == o);
@@ -637,17 +622,13 @@ public:
     unsigned m_breakBefore : 2; // EPageBreak
     unsigned m_breakAfter : 2; // EPageBreak
     unsigned m_breakInside : 2; // EPageBreak
-    
-private:
-    StyleMultiColData();
-    StyleMultiColData(const StyleMultiColData&);
 };
 
 // CSS Transforms (may become part of CSS3)
 
-class TransformOperation : public RefCounted<TransformOperation> {
+class TransformOperation : public RefCounted<TransformOperation>
+{
 public:
-    TransformOperation() : RefCounted<TransformOperation>(0) { }
     virtual ~TransformOperation() {}
     
     virtual bool operator==(const TransformOperation&) const = 0;
@@ -838,8 +819,8 @@ private:
 
 class StyleTransformData : public RefCounted<StyleTransformData> {
 public:
-    static PassRefPtr<StyleTransformData> create() { return adoptRef(new StyleTransformData); }
-    PassRefPtr<StyleTransformData> copy() const { return adoptRef(new StyleTransformData(*this)); }
+    StyleTransformData();
+    StyleTransformData(const StyleTransformData&);
 
     bool operator==(const StyleTransformData&) const;
     bool operator!=(const StyleTransformData& o) const {
@@ -849,10 +830,6 @@ public:
     TransformOperations m_operations;
     Length m_x;
     Length m_y;
-
-private:
-    StyleTransformData();
-    StyleTransformData(const StyleTransformData&);
 };
 
 //------------------------------------------------
@@ -865,9 +842,9 @@ enum EBoxDirection { BNORMAL, BREVERSE };
 
 class StyleFlexibleBoxData : public RefCounted<StyleFlexibleBoxData> {
 public:
-    static PassRefPtr<StyleFlexibleBoxData> create() { return adoptRef(new StyleFlexibleBoxData); }
-    PassRefPtr<StyleFlexibleBoxData> copy() const { return adoptRef(new StyleFlexibleBoxData(*this)); }
-    
+    StyleFlexibleBoxData();
+    StyleFlexibleBoxData(const StyleFlexibleBoxData& o);
+
     bool operator==(const StyleFlexibleBoxData& o) const;
     bool operator!=(const StyleFlexibleBoxData &o) const {
         return !(*this == o);
@@ -881,10 +858,6 @@ public:
     unsigned pack: 3; // EBoxAlignment
     unsigned orient: 1; // EBoxOrient
     unsigned lines : 1; // EBoxLines
-    
-private:
-    StyleFlexibleBoxData();
-    StyleFlexibleBoxData(const StyleFlexibleBoxData&);
 };
 
 // This struct holds information about shadows for the text-shadow and box-shadow properties.
@@ -1154,10 +1127,10 @@ public:
 // actually uses one of these properties.
 class StyleRareNonInheritedData : public RefCounted<StyleRareNonInheritedData> {
 public:
-    static PassRefPtr<StyleRareNonInheritedData> create() { return adoptRef(new StyleRareNonInheritedData); }
-    PassRefPtr<StyleRareNonInheritedData> copy() const { return adoptRef(new StyleRareNonInheritedData(*this)); }
+    StyleRareNonInheritedData();
     ~StyleRareNonInheritedData();
-    
+    StyleRareNonInheritedData(const StyleRareNonInheritedData&);
+
 #if ENABLE(XBL)
     bool bindingsEquivalent(const StyleRareNonInheritedData&) const;
 #endif
@@ -1194,10 +1167,6 @@ public:
 #if ENABLE(XBL)
     BindingURI* bindingURI; // The XBL binding URI list.
 #endif
-    
-private:
-    StyleRareNonInheritedData();
-    StyleRareNonInheritedData(const StyleRareNonInheritedData&);
 };
 
 // This struct is for rarely used inherited CSS3, CSS2, and WebKit-specific properties.
@@ -1205,9 +1174,9 @@ private:
 // actually uses one of these properties.
 class StyleRareInheritedData : public RefCounted<StyleRareInheritedData> {
 public:
-    static PassRefPtr<StyleRareInheritedData> create() { return adoptRef(new StyleRareInheritedData); }
-    PassRefPtr<StyleRareInheritedData> copy() const { return adoptRef(new StyleRareInheritedData(*this)); }
+    StyleRareInheritedData();
     ~StyleRareInheritedData();
+    StyleRareInheritedData(const StyleRareInheritedData& o);
 
     bool operator==(const StyleRareInheritedData& o) const;
     bool operator!=(const StyleRareInheritedData &o) const {
@@ -1218,7 +1187,9 @@ public:
     Color textStrokeColor;
     float textStrokeWidth;
     Color textFillColor;
-
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    Color tapHighlightColor;
+#endif
     ShadowData* textShadow; // Our text shadow information for shadowed text drawing.
     AtomicString highlight; // Apple-specific extension for custom highlight rendering.
     unsigned textSecurity : 2; // ETextSecurity
@@ -1230,10 +1201,6 @@ public:
     bool textSizeAdjust : 1; // An Apple extension.
     unsigned resize : 2; // EResize
     unsigned userSelect : 1;  // EUserSelect
-    
-private:
-    StyleRareInheritedData();
-    StyleRareInheritedData(const StyleRareInheritedData&);
 };
 
 //------------------------------------------------
@@ -1262,10 +1229,10 @@ enum EPageBreak {
 
 class StyleInheritedData : public RefCounted<StyleInheritedData> {
 public:
-    static PassRefPtr<StyleInheritedData> create() { return adoptRef(new StyleInheritedData); }
-    PassRefPtr<StyleInheritedData> copy() const { return adoptRef(new StyleInheritedData(*this)); }
+    StyleInheritedData();
     ~StyleInheritedData();
-    
+    StyleInheritedData(const StyleInheritedData& o );
+
     bool operator==(const StyleInheritedData& o) const;
     bool operator != ( const StyleInheritedData &o ) const {
         return !(*this == o);
@@ -1289,10 +1256,6 @@ public:
     short widows;
     short orphans;
     unsigned page_break_inside : 2; // EPageBreak
-    
-private:
-    StyleInheritedData();
-    StyleInheritedData(const StyleInheritedData&);
 };
 
 
@@ -1323,18 +1286,17 @@ struct CursorData {
     {}
     
     bool operator==(const CursorData& o) const {
-        return hotSpot == o.hotSpot && cursorImage == o.cursorImage;
+        return hotSpot == o.hotSpot && cursorImage == o.cursorImage && cursorFragmentId == o.cursorFragmentId;
     }
     bool operator!=(const CursorData& o) const { return !(*this == o); }
 
     IntPoint hotSpot; // for CSS3 support
     CachedImage* cursorImage; // weak pointer, the CSSValueImage takes care of deleting cursorImage
+    String cursorFragmentId; // only used for SVGCursorElement, a direct pointer would get stale
 };
 
 class CursorList : public RefCounted<CursorList> {
 public:
-    CursorList() : RefCounted<CursorList>(0) { }
-
     const CursorData& operator[](int i) const {
         return m_vector[i];
     }
@@ -1514,12 +1476,11 @@ protected:
     // *-child-of-type, we will just give up and re-evaluate whenever children change at all.
     bool m_childrenAffectedByFirstChildRules : 1;
     bool m_childrenAffectedByLastChildRules  : 1;
-    bool m_childrenAffectedByDirectAdjacentRules : 1;
     bool m_childrenAffectedByForwardPositionalRules : 1;
     bool m_childrenAffectedByBackwardPositionalRules : 1;
     bool m_firstChildState : 1;
     bool m_lastChildState : 1;
-    unsigned m_childIndex : 18; // Plenty of bits to cache an index.
+    unsigned m_childIndex : 19; // Plenty of bits to cache an index.
 
     int m_ref;
     
@@ -1868,6 +1829,10 @@ public:
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
 
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    Color tapHighlightColor() const { return rareInheritedData->tapHighlightColor; }
+#endif
+
 // attribute setter methods
 
     void setDisplay(EDisplay v) {  noninherited_flags._effectiveDisplay = v; }
@@ -2022,6 +1987,7 @@ public:
 
     void setCursor( ECursor c ) { inherited_flags._cursor_style = c; }
     void addCursor(CachedImage*, const IntPoint& = IntPoint());
+    void addSVGCursor(const String&);
     void setCursorList(PassRefPtr<CursorList>);
     void clearCursorList();
 
@@ -2115,6 +2081,10 @@ public:
     void setTextSizeAdjust(bool b) { SET_VAR(rareInheritedData, textSizeAdjust, b); }
     void setTextSecurity(ETextSecurity aTextSecurity) { SET_VAR(rareInheritedData, textSecurity, aTextSecurity); } 
 
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    void setTapHighlightColor(const Color & v) { SET_VAR(rareInheritedData,tapHighlightColor,v); }
+#endif
+
 #if ENABLE(SVG)
     const SVGRenderStyle* svgStyle() const { return m_svgStyle.get(); }
     SVGRenderStyle* accessSVGStyle() { return m_svgStyle.access(); }
@@ -2166,13 +2136,10 @@ public:
     bool affectedByEmpty() const { return m_affectedByEmpty; }
     bool emptyState() const { return m_emptyState; }
     void setEmptyState(bool b) { m_affectedByEmpty = true; m_unique = true; m_emptyState = b; }
-    bool childrenAffectedByPositionalRules() const { return childrenAffectedByForwardPositionalRules() || childrenAffectedByBackwardPositionalRules(); }
     bool childrenAffectedByFirstChildRules() const { return m_childrenAffectedByFirstChildRules; }
     void setChildrenAffectedByFirstChildRules() { m_childrenAffectedByFirstChildRules = true; }
     bool childrenAffectedByLastChildRules() const { return m_childrenAffectedByLastChildRules; }
     void setChildrenAffectedByLastChildRules() { m_childrenAffectedByLastChildRules = true; }
-    bool childrenAffectedByDirectAdjacentRules() const { return m_childrenAffectedByDirectAdjacentRules; }
-    void setChildrenAffectedByDirectAdjacentRules() { m_childrenAffectedByDirectAdjacentRules = true; }
     bool childrenAffectedByForwardPositionalRules() const { return m_childrenAffectedByForwardPositionalRules; }
     void setChildrenAffectedByForwardPositionalRules() { m_childrenAffectedByForwardPositionalRules = true; }
     bool childrenAffectedByBackwardPositionalRules() const { return m_childrenAffectedByBackwardPositionalRules; }
@@ -2283,6 +2250,10 @@ public:
     static ETextSecurity initialTextSecurity() { return TSNONE; }
     static const Vector<StyleDashboardRegion>& initialDashboardRegions();
     static const Vector<StyleDashboardRegion>& noneDashboardRegions();
+
+#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+    static Color initialTapHighlightColor() { return Color::tap; }
+#endif
 };
 
 } // namespace WebCore

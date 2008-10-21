@@ -144,11 +144,23 @@ namespace WebCore {
         void load(const KURL&, Event*);
         void load(const FrameLoadRequest&, bool lockHistory, bool userGesture,
             Event*, HTMLFormElement*, const HashMap<String, String>& formValues);
+#ifdef ANDROID_USER_GESTURE
+        void load(const KURL&, const String& referrer, FrameLoadType, const String& target,
+            Event*, PassRefPtr<FormState>, bool userGesture);
+        void post(const KURL&, const String& referrer, const String& target,
+            PassRefPtr<FormData>, const String& contentType,
+            Event*, HTMLFormElement*, const HashMap<String, String>& formValues, bool userGesture);
+#else
         void load(const KURL&, const String& referrer, FrameLoadType, const String& target,
             Event*, PassRefPtr<FormState>);
         void post(const KURL&, const String& referrer, const String& target,
             PassRefPtr<FormData>, const String& contentType,
             Event*, HTMLFormElement*, const HashMap<String, String>& formValues);
+#endif
+#ifdef ANDROID_FIX
+        void postFromHistory(const KURL& url, PassRefPtr<FormData> formData, 
+            const String& contentType, const String& referrer, FrameLoadType loadType);
+#endif
 
         void load(const ResourceRequest&);
         void load(const ResourceRequest&, const SubstituteData&);
@@ -449,6 +461,7 @@ namespace WebCore {
         void recursiveGoToItem(HistoryItem*, HistoryItem*, FrameLoadType);
         bool childFramesMatchItem(HistoryItem*) const;
 
+        void addHistoryForCurrentLocation();
         void updateHistoryForBackForwardNavigation();
         void updateHistoryForReload();
         void updateHistoryForStandardLoad();
@@ -456,8 +469,6 @@ namespace WebCore {
         void updateHistoryForClientRedirect();
         void updateHistoryForCommit();
     
-        void updateGlobalHistory();
-
         void redirectionTimerFired(Timer<FrameLoader>*);
         void checkCompletedTimerFired(Timer<FrameLoader>*);
         void checkLoadCompleteTimerFired(Timer<FrameLoader>*);
@@ -479,7 +490,7 @@ namespace WebCore {
         void receivedFirstData();
 
         void updatePolicyBaseURL();
-        void setPolicyBaseURL(const KURL&);
+        void setPolicyBaseURL(const String&);
 
         // Also not cool.
         void stopLoadingSubframes();

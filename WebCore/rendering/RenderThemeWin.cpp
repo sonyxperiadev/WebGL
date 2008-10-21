@@ -23,18 +23,14 @@
 #include "config.h"
 #include "RenderThemeWin.h"
 
-#include "CSSValueKeywords.h"
+#include <cairo-win32.h>
 #include "Document.h"
 #include "GraphicsContext.h"
-#include "PlatformString.h"
-#include "SoftLinking.h"
-
-#include <cairo-win32.h>
 
 /* 
  * The following constants are used to determine how a widget is drawn using
  * Windows' Theme API. For more information on theme parts and states see
- * http://msdn2.microsoft.com/en-us/library/bb773210(VS.85).aspx
+ * http://msdn.microsoft.com/library/default.asp?url=/library/en-us/shellcc/platform/commctls/userex/topics/partsandstates.asp
  */
 #define THEME_COLOR 204
 #define THEME_FONT  210
@@ -58,15 +54,33 @@
 // Combobox constants
 #define CP_DROPDOWNBUTTON 1
 
-SOFT_LINK_LIBRARY(uxtheme)
-SOFT_LINK(uxtheme, OpenThemeData, HANDLE, WINAPI, (HWND hwnd, LPCWSTR pszClassList), (hwnd, pszClassList))
-SOFT_LINK(uxtheme, CloseThemeData, HRESULT, WINAPI, (HANDLE hTheme), (hTheme))
-SOFT_LINK(uxtheme, DrawThemeBackground, HRESULT, WINAPI, (HANDLE hTheme, HDC hdc, int iPartId, int iStateId, const RECT* pRect, const RECT* pClipRect), (hTheme, hdc, iPartId, iStateId, pRect, pClipRect))
-SOFT_LINK(uxtheme, DrawThemeEdge, HRESULT, WINAPI, (HANDLE hTheme, HDC hdc, int iPartId, int iStateId, const RECT* pRect, unsigned uEdge, unsigned uFlags, const RECT* pClipRect), (hTheme, hdc, iPartId, iStateId, pRect, uEdge, uFlags, pClipRect))
-SOFT_LINK(uxtheme, GetThemeContentRect, HRESULT, WINAPI, (HANDLE hTheme, HDC hdc, int iPartId, int iStateId, const RECT* pRect, const RECT* pContentRect), (hTheme, hdc, iPartId, iStateId, pRect, pContentRect))
-SOFT_LINK(uxtheme, GetThemePartSize, HRESULT, WINAPI, (HANDLE hTheme, HDC hdc, int iPartId, int iStateId, RECT* pRect, int ts, SIZE* psz), (hTheme, hdc, iPartId, iStateId, pRect, ts, psz))
-SOFT_LINK(uxtheme, GetThemeSysFont, HRESULT, WINAPI, (HANDLE hTheme, int iFontId, OUT LOGFONT* pFont), (hTheme, iFontId, pFont))
-SOFT_LINK(uxtheme, GetThemeColor, HRESULT, WINAPI, (HANDLE hTheme, HDC hdc, int iPartId, int iStateId, int iPropId, OUT COLORREF* pColor), (hTheme, hdc, iPartId, iStateId, iPropId, pColor))
+typedef HANDLE (WINAPI*openThemeDataPtr)(HWND hwnd, LPCWSTR pszClassList);
+typedef HRESULT (WINAPI*closeThemeDataPtr)(HANDLE hTheme);
+typedef HRESULT (WINAPI*drawThemeBackgroundPtr)(HANDLE hTheme, HDC hdc, int iPartId, 
+                                          int iStateId, const RECT *pRect,
+                                          const RECT* pClipRect);
+typedef HRESULT (WINAPI*drawThemeEdgePtr)(HANDLE hTheme, HDC hdc, int iPartId, 
+                                          int iStateId, const RECT *pRect,
+                                          unsigned uEdge, unsigned uFlags,
+                                          const RECT* pClipRect);
+typedef HRESULT (WINAPI*getThemeContentRectPtr)(HANDLE hTheme, HDC hdc, int iPartId,
+                                          int iStateId, const RECT* pRect,
+                                          RECT* pContentRect);
+typedef HRESULT (WINAPI*getThemePartSizePtr)(HANDLE hTheme, HDC hdc, int iPartId,
+                                       int iStateId, RECT* prc, int ts,
+                                       SIZE* psz);
+typedef HRESULT (WINAPI*getThemeSysFontPtr)(HANDLE hTheme, int iFontId, OUT LOGFONT* pFont);
+typedef HRESULT (WINAPI*getThemeColorPtr)(HANDLE hTheme, HDC hdc, int iPartId,
+                                   int iStateId, int iPropId, OUT COLORREF* pFont);
+
+static openThemeDataPtr openTheme = 0;
+static closeThemeDataPtr closeTheme = 0;
+static drawThemeBackgroundPtr drawThemeBG = 0;
+static drawThemeEdgePtr drawThemeEdge = 0;
+static getThemeContentRectPtr getThemeContentRect = 0;
+static getThemePartSizePtr getThemePartSize = 0;
+static getThemeSysFontPtr getThemeSysFont = 0;
+static getThemeColorPtr getThemeColor = 0;
 
 namespace WebCore {
 
@@ -77,29 +91,40 @@ RenderTheme* theme()
 }
 
 RenderThemeWin::RenderThemeWin()
-    : m_buttonTheme(0)
-    , m_textFieldTheme(0)
-    , m_menuListTheme(0)
+:m_themeDLL(0), m_buttonTheme(0), m_textFieldTheme(0), m_menuListTheme(0)
 {
+    m_themeDLL = ::LoadLibrary(L"uxtheme.dll");
+    if (m_themeDLL) {
+        openTheme = (openThemeDataPtr)GetProcAddress(m_themeDLL, "OpenThemeData");
+        closeTheme = (closeThemeDataPtr)GetProcAddress(m_themeDLL, "CloseThemeData");
+        drawThemeBG = (drawThemeBackgroundPtr)GetProcAddress(m_themeDLL, "DrawThemeBackground");
+        drawThemeEdge = (drawThemeEdgePtr)GetProcAddress(m_themeDLL, "DrawThemeEdge");
+        getThemeContentRect = (getThemeContentRectPtr)GetProcAddress(m_themeDLL, "GetThemeBackgroundContentRect");
+        getThemePartSize = (getThemePartSizePtr)GetProcAddress(m_themeDLL, "GetThemePartSize");
+        getThemeSysFont = (getThemeSysFontPtr)GetProcAddress(m_themeDLL, "GetThemeSysFont");
+        getThemeColor = (getThemeColorPtr)GetProcAddress(m_themeDLL, "GetThemeColor");
+    }
 }
 
 RenderThemeWin::~RenderThemeWin()
 {
-    if (!uxthemeLibrary())
+    if (!m_themeDLL)
         return;
 
     close();
+
+    ::FreeLibrary(m_themeDLL);
 }
 
 void RenderThemeWin::close()
 {
     // This method will need to be called when the OS theme changes to flush our cached themes.
     if (m_buttonTheme)
-        CloseThemeData(m_buttonTheme);
+        closeTheme(m_buttonTheme);
     if (m_textFieldTheme)
-        CloseThemeData(m_textFieldTheme);
+        closeTheme(m_textFieldTheme);
     if (m_menuListTheme)
-        CloseThemeData(m_menuListTheme);
+        closeTheme(m_menuListTheme);
     m_buttonTheme = m_textFieldTheme = m_menuListTheme = 0;
 }
 
@@ -137,6 +162,8 @@ bool RenderThemeWin::supportsFocus(EAppearance appearance)
         default:
             return false;
     }
+
+    return false;
 }
 
 unsigned RenderThemeWin::determineState(RenderObject* o)
@@ -203,14 +230,14 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
 }
 
 // May need to add stuff to these later, so keep the graphics context retrieval/release in some helpers.
-static HDC prepareForDrawing(GraphicsContext* g, const IntRect& r)
+static HDC prepareForDrawing(GraphicsContext* g)
 {
-    return g->getWindowsContext(r);
+    return g->getWindowsContext();
 }
  
-static void doneDrawing(GraphicsContext* g, HDC hdc, const IntRect& r)
+static void doneDrawing(GraphicsContext* g, HDC hdc)
 {
-    g->releaseWindowsContext(hdc, r);
+    g->releaseWindowsContext(hdc);
 }
 
 bool RenderThemeWin::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
@@ -219,13 +246,13 @@ bool RenderThemeWin::paintButton(RenderObject* o, const RenderObject::PaintInfo&
     ThemeData themeData = getThemeData(o);
 
     // Now paint the button.
-    HDC hdc = prepareForDrawing(i.context, r);  
+    HDC hdc = prepareForDrawing(i.context);  
     RECT widgetRect = r;
-    if (uxthemeLibrary() && !m_buttonTheme)
-        m_buttonTheme = OpenThemeData(0, L"Button");
-    if (m_buttonTheme)
-        DrawThemeBackground(m_buttonTheme, hdc, themeData.m_part, themeData.m_state, &widgetRect, NULL);
-    else {
+    if (m_themeDLL && !m_buttonTheme)
+        m_buttonTheme = openTheme(0, L"Button");
+    if (m_buttonTheme && drawThemeBG) {
+        drawThemeBG(m_buttonTheme, hdc, themeData.m_part, themeData.m_state, &widgetRect, NULL);
+    } else {
         if ((themeData.m_part == BP_BUTTON) && isFocused(o)) {
             // Draw black focus rect around button outer edge
             HBRUSH brush = GetSysColorBrush(COLOR_3DDKSHADOW);
@@ -235,10 +262,11 @@ bool RenderThemeWin::paintButton(RenderObject* o, const RenderObject::PaintInfo&
             }
         }
         DrawFrameControl(hdc, &widgetRect, DFC_BUTTON, themeData.m_classicState);
-        if ((themeData.m_part != BP_BUTTON) && isFocused(o))
+        if ((themeData.m_part != BP_BUTTON) && isFocused(o)) {
             DrawFocusRect(hdc, &widgetRect);
+        }
     }
-    doneDrawing(i.context, hdc, r);
+    doneDrawing(i.context, hdc);
 
     return false;
 }
@@ -265,17 +293,17 @@ bool RenderThemeWin::paintTextField(RenderObject* o, const RenderObject::PaintIn
     ThemeData themeData = getThemeData(o);
 
     // Now paint the text field.
-    HDC hdc = prepareForDrawing(i.context, r);
+    HDC hdc = prepareForDrawing(i.context);
     RECT widgetRect = r;
-    if (uxthemeLibrary() && !m_textFieldTheme)
-        m_textFieldTheme = OpenThemeData(0, L"Edit");
-    if (m_textFieldTheme)
-        DrawThemeBackground(m_textFieldTheme, hdc, themeData.m_part, themeData.m_state, &widgetRect, NULL);
-    else {
+    if (m_themeDLL && !m_textFieldTheme)
+        m_textFieldTheme = openTheme(0, L"Edit");
+    if (m_textFieldTheme && drawThemeBG) {
+        drawThemeBG(m_textFieldTheme, hdc, themeData.m_part, themeData.m_state, &widgetRect, NULL);
+    } else {
         DrawEdge(hdc, &widgetRect, EDGE_SUNKEN, BF_RECT | BF_ADJUST);
         FillRect(hdc, &widgetRect, reinterpret_cast<HBRUSH>(((themeData.m_classicState & DFCS_INACTIVE) ? COLOR_BTNFACE : COLOR_WINDOW) + 1));
     }
-    doneDrawing(i.context, hdc, r);
+    doneDrawing(i.context, hdc);
 
     return false;
 }
@@ -313,67 +341,17 @@ bool RenderThemeWin::paintMenuList(RenderObject* o, const RenderObject::PaintInf
 
 bool RenderThemeWin::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
-    HDC hdc = prepareForDrawing(i.context, r);
+    HDC hdc = prepareForDrawing(i.context);
     RECT widgetRect = r;
-    if (uxthemeLibrary() && !m_menuListTheme)
-        m_menuListTheme = OpenThemeData(0, L"Combobox");
-    if (m_menuListTheme)
-        DrawThemeBackground(m_menuListTheme, hdc, CP_DROPDOWNBUTTON, determineState(o), &widgetRect, NULL);
+    if (m_themeDLL && !m_menuListTheme)
+        m_menuListTheme = openTheme(0, L"Combobox");
+    if (m_menuListTheme && drawThemeBG)
+        drawThemeBG(m_menuListTheme, hdc, CP_DROPDOWNBUTTON, determineState(o), &widgetRect, NULL);
     else
         DrawFrameControl(hdc, &widgetRect, DFC_SCROLL, DFCS_SCROLLCOMBOBOX | determineClassicState(o));
-    doneDrawing(i.context, hdc, r);
+    doneDrawing(i.context, hdc);
 
     return false;
 }
 
-void RenderThemeWin::systemFont(int propId, FontDescription& fontDescription) const
-{
-    static FontDescription systemFont;
-    static FontDescription smallSystemFont;
-    static FontDescription menuFont;
-    static FontDescription labelFont;
-    static FontDescription miniControlFont;
-    static FontDescription smallControlFont;
-    static FontDescription controlFont;
-
-    FontDescription* cachedDesc;
-    float fontSize = 0;
-    switch (propId) {
-        case CSS_VAL_SMALL_CAPTION:
-            cachedDesc = &smallSystemFont;
-            break;
-        case CSS_VAL_MENU:
-            cachedDesc = &menuFont;
-            break;
-        case CSS_VAL_STATUS_BAR:
-            cachedDesc = &labelFont;
-            if (!labelFont.isAbsoluteSize())
-                fontSize = 10.0f;
-            break;
-        case CSS_VAL__WEBKIT_MINI_CONTROL:
-            cachedDesc = &miniControlFont;
-            break;
-        case CSS_VAL__WEBKIT_SMALL_CONTROL:
-            cachedDesc = &smallControlFont;
-            break;
-        case CSS_VAL__WEBKIT_CONTROL:
-            cachedDesc = &controlFont;
-            break;
-        default:
-            cachedDesc = &systemFont;
-            if (!systemFont.isAbsoluteSize())
-                fontSize = 13.0f;
-    }
-
-    if (fontSize) {
-        cachedDesc->setIsAbsoluteSize(true);
-        cachedDesc->setGenericFamily(FontDescription::NoFamily);
-        cachedDesc->firstFamily().setFamily("Lucida Grande");
-        cachedDesc->setSpecifiedSize(fontSize);
-        cachedDesc->setBold(false);
-        cachedDesc->setItalic(false);
-    }
-    fontDescription = *cachedDesc;
 }
-
-} // namespace

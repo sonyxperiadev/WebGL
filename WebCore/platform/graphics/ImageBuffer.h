@@ -29,7 +29,6 @@
 
 #include "IntSize.h"
 #include <wtf/OwnPtr.h>
-#include <wtf/PassRefPtr.h>
 #include <memory>
 
 #if PLATFORM(CG)
@@ -41,6 +40,10 @@ typedef struct CGImage* CGImageRef;
 class QPainter;
 #endif
 
+#if PLATFORM(SGL)
+#include <memory>
+#endif
+
 #if PLATFORM(CAIRO)
 typedef struct _cairo_surface cairo_surface_t;
 #endif
@@ -48,9 +51,6 @@ typedef struct _cairo_surface cairo_surface_t;
 namespace WebCore {
 
     class GraphicsContext;
-    class ImageData;
-    class IntPoint;
-    class IntRect;
     class RenderObject;
 
     class ImageBuffer : Noncopyable {
@@ -68,9 +68,6 @@ namespace WebCore {
 #elif PLATFORM(CAIRO)
         cairo_surface_t* surface() const;
 #endif
-        
-        PassRefPtr<ImageData> getImageData(const IntRect& rect) const;
-        void putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint);
 
     private:
         void* m_data;
@@ -88,6 +85,9 @@ namespace WebCore {
 #elif PLATFORM(CAIRO)
         ImageBuffer(cairo_surface_t* surface);
         mutable cairo_surface_t* m_surface;
+#endif
+#if PLATFORM(SGL)
+        ImageBuffer(const IntSize&, std::auto_ptr<GraphicsContext>);
 #endif
     };
 }

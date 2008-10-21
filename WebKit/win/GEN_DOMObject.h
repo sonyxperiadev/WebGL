@@ -29,7 +29,7 @@
 #ifndef GEN_DOMObject_h
 #define GEN_DOMObject_h
 
-#include "WebKit.h"
+#include "IGEN_DOMObject.h"
 
 class GEN_DOMObject : public IGEN_DOMObject {
 public:

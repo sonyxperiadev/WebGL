@@ -64,18 +64,24 @@ void InitWebCoreSystemInterface(void)
     INIT(GetExtensionsForMIMEType);
     INIT(GetFontInLanguageForCharacter);
     INIT(GetFontInLanguageForRange);
+    INIT(GetFontMetrics);
     INIT(GetGlyphTransformedAdvances);
     INIT(GetGlyphVectorFirstRecord);
     INIT(GetGlyphVectorNumGlyphs);
     INIT(GetGlyphVectorRecordSize);
     INIT(GetMIMETypeForExtension);
     INIT(GetNSFontATSUFontId);
+    INIT(GetNSURLResponseCalculatedExpiration);
     INIT(GetNSURLResponseLastModifiedDate);
+    INIT(GetNSURLResponseMustRevalidate);
     INIT(GetPreferredExtensionForMIMEType);
     INIT(GetWheelEventDeltas);
     INIT(InitializeGlyphVector);
+    INIT(NSURLProtocolClassForReqest);
+    INIT(PathFromFont);
     INIT(PopupMenu);
     INIT(ReleaseStyleGroup);
+    INIT(SecondsSinceLastInputEvent);
     INIT(SetCGFontRenderingMode);
     INIT(SetDragImage);
     INIT(SetNSURLConnectionDefersCallbacks);
@@ -86,14 +92,11 @@ void InitWebCoreSystemInterface(void)
     INIT(SignalCFReadStreamEnd);
     INIT(SignalCFReadStreamError);
     INIT(SignalCFReadStreamHasBytes);
+    INIT(SupportsMultipartXMixedReplace);
     INIT(QTMovieDataRate);
     INIT(QTMovieMaxTimeLoaded);
     INIT(QTMovieViewSetDrawSynchronously);
 
-#ifdef BUILDING_ON_TIGER
-    INIT(GetFontMetrics);
-    INIT(SupportsMultipartXMixedReplace);
-#endif
-
+    
     didInit = true;
 }

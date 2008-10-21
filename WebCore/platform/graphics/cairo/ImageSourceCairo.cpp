@@ -26,20 +26,18 @@
 
 #include "config.h"
 #include "ImageSource.h"
+#include "SharedBuffer.h"
 
 #if PLATFORM(CAIRO)
 
-#include "BMPImageDecoder.h"
 #include "GIFImageDecoder.h"
-#include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
-#include "SharedBuffer.h"
-#include <cairo.h>
-
-#if !PLATFORM(WIN)
+#include "BMPImageDecoder.h"
+#include "ICOImageDecoder.h"
 #include "XBMImageDecoder.h"
-#endif
+
+#include <cairo.h>
 
 namespace WebCore {
 
@@ -80,20 +78,17 @@ ImageDecoder* createDecoder(const Vector<char>& data)
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
 
-#if !PLATFORM(WIN)
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
-#endif
 
     // Give up. We don't know what the heck this is.
     return 0;
 }
 
 ImageSource::ImageSource()
-    : m_decoder(0)
-{
-}
+  : m_decoder(0)
+{}
 
 ImageSource::~ImageSource()
 {

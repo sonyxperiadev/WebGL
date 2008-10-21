@@ -102,7 +102,7 @@ public:
 
     virtual bool hasColumns() const { return m_hasColumns; }
 
-    void calcMargins(int containerWidth);
+    virtual bool isWordBreak() const { ASSERT(isInlineFlow()); return false; }
 
     void checkConsistency() const;
 

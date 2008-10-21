@@ -32,6 +32,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ResourceLoader.h"
 #include <wtf/RefCounted.h>
 #include "AuthenticationChallenge.h"
 #include "KURL.h"

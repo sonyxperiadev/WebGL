@@ -1,9 +1,11 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,13 +27,9 @@
 #ifndef Traversal_h
 #define Traversal_h
 
-#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
-
-namespace KJS {
-    class JSValue;
-}
 
 namespace WebCore {
 
@@ -40,7 +38,7 @@ namespace WebCore {
 
     class Traversal : public RefCounted<Traversal> {
     public:
-        Traversal(PassRefPtr<Node>, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
+        Traversal(Node*, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
         virtual ~Traversal();
 
         Node* root() const { return m_root.get(); }
@@ -48,8 +46,7 @@ namespace WebCore {
         NodeFilter* filter() const { return m_filter.get(); }
         bool expandEntityReferences() const { return m_expandEntityReferences; }
 
-    protected:
-        short acceptNode(Node*, KJS::JSValue*& jsException) const;
+        short acceptNode(Node*) const;
 
     private:
         RefPtr<Node> m_root;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -98,6 +98,7 @@
 #import <WebCore/Widget.h>
 #import <WebKit/DOMElement.h>
 #import <WebKit/DOMHTMLFormElement.h>
+#import <WebKitSystemInterface.h>
 #import <wtf/PassRefPtr.h>
 
 using namespace WebCore;
@@ -425,14 +426,12 @@ void WebFrameLoaderClient::dispatchDidCancelClientRedirect()
         CallFrameLoadDelegate(implementations->didCancelClientRedirectForFrameFunc, webView, @selector(webView:didCancelClientRedirectForFrame:), m_webFrame.get());
 }
 
-void WebFrameLoaderClient::dispatchWillPerformClientRedirect(const KURL& url, double delay, double fireDate)
+void WebFrameLoaderClient::dispatchWillPerformClientRedirect(const KURL& URL, double delay, double fireDate)
 {
     WebView *webView = getWebView(m_webFrame.get());
     WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
-    if (implementations->willPerformClientRedirectToURLDelayFireDateForFrameFunc) {
-        NSURL *cocoaURL = url;
-        CallFrameLoadDelegate(implementations->willPerformClientRedirectToURLDelayFireDateForFrameFunc, webView, @selector(webView:willPerformClientRedirectToURL:delay:fireDate:forFrame:), cocoaURL, delay, [NSDate dateWithTimeIntervalSince1970:fireDate], m_webFrame.get());
-    }
+    if (implementations->willPerformClientRedirectToURLDelayFireDateForFrameFunc)
+        CallFrameLoadDelegate(implementations->willPerformClientRedirectToURLDelayFireDateForFrameFunc, webView, @selector(webView:willPerformClientRedirectToURL:delay:fireDate:forFrame:), URL.getNSURL(), delay, [NSDate dateWithTimeIntervalSince1970:fireDate], m_webFrame.get());
 }
 
 void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
@@ -678,7 +677,7 @@ void WebFrameLoaderClient::setMainFrameDocumentReady(bool ready)
 void WebFrameLoaderClient::startDownload(const ResourceRequest& request)
 {
     // FIXME: Should download full request.
-    WebDownload *download = [getWebView(m_webFrame.get()) _downloadURL:request.url()];
+    WebDownload *download = [getWebView(m_webFrame.get()) _downloadURL:request.url().getNSURL()];
     
     setOriginalURLForDownload(download, request);
 }
@@ -712,15 +711,27 @@ void WebFrameLoaderClient::finalSetupForReplace(DocumentLoader* loader)
     [dataSource(loader) _clearUnarchivingState];
 }
 
-void WebFrameLoaderClient::updateGlobalHistory(const KURL& url)
+// FIXME: <rdar://problem/4880065> - Push Global History into WebCore
+// Once that task is complete, this will go away
+void WebFrameLoaderClient::updateGlobalHistoryForStandardLoad(const KURL& url)
 {
-    NSURL *cocoaURL = url;
-    WebHistoryItem *entry = [[WebHistory optionalSharedHistory] addItemForURL:cocoaURL];
-    const String& pageTitle = core(m_webFrame.get())->loader()->documentLoader()->title();
-    if (!pageTitle.isEmpty())
+    NSURL *nsurl = url.getNSURL();
+    WebHistoryItem *entry = [[WebHistory optionalSharedHistory] addItemForURL:nsurl];
+    String pageTitle = core(m_webFrame.get())->loader()->documentLoader()->title();
+    if (pageTitle.length())
         [entry setTitle:pageTitle];
 }
  
+// FIXME: <rdar://problem/4880065> - Push Global History into WebCore
+// Once that task is complete, this will go away
+void WebFrameLoaderClient::updateGlobalHistoryForReload(const KURL& url)
+{
+    WebHistory *sharedHistory = [WebHistory optionalSharedHistory];
+    WebHistoryItem *item = [sharedHistory itemForURL:url.getNSURL()];
+    if (item)
+        [sharedHistory setLastVisitedTimeInterval:[NSDate timeIntervalSinceReferenceDate] forItem:item];
+}
+
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
 {
     WebView* view = getWebView(m_webFrame.get());
@@ -731,32 +742,32 @@ bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
 
 ResourceError WebFrameLoaderClient::cancelledError(const ResourceRequest& request)
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled URL:request.url()];
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled URL:request.url().getNSURL()];
 }
     
 ResourceError WebFrameLoaderClient::blockedError(const ResourceRequest& request)
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotUseRestrictedPort URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotUseRestrictedPort URL:request.url().getNSURL()];
 }
 
 ResourceError WebFrameLoaderClient::cannotShowURLError(const ResourceRequest& request)
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotShowURL URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotShowURL URL:request.url().getNSURL()];
 }
 
 ResourceError WebFrameLoaderClient::interruptForPolicyChangeError(const ResourceRequest& request)
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadInterruptedByPolicyChange URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadInterruptedByPolicyChange URL:request.url().getNSURL()];
 }
 
 ResourceError WebFrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse& response)
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:WebKitErrorCannotShowMIMEType URL:response.url()];
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:WebKitErrorCannotShowMIMEType URL:response.url().getNSURL()];
 }
 
 ResourceError WebFrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response)
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist URL:response.url()];    
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist URL:response.url().getNSURL()];    
 }
 
 bool WebFrameLoaderClient::shouldFallBack(const ResourceError& error)
@@ -777,15 +788,16 @@ bool WebFrameLoaderClient::willUseArchive(ResourceLoader* loader, const Resource
 {
     if (request.url() != originalURL)
         return false;
-
-    WebResource *resource = [dataSource(core(m_webFrame.get())->loader()->activeDocumentLoader()) _archivedSubresourceForURL:originalURL];
+    if (!canUseArchivedResource(request.nsURLRequest()))
+        return false;
+    WebResource *resource = [dataSource(core(m_webFrame.get())->loader()->activeDocumentLoader()) _archivedSubresourceForURL:originalURL.getNSURL()];
     if (!resource)
         return false;
-
+    if (!canUseArchivedResource([resource _response]))
+        return false;
     m_pendingArchivedResources.set(loader, resource);
     // Deliver the resource after a delay because callers don't expect to receive callbacks while calling this method.
     deliverArchivedResourcesAfterDelay();
-
     return true;
 }
 
@@ -930,12 +942,42 @@ PassRefPtr<DocumentLoader> WebFrameLoaderClient::createDocumentLoader(const Reso
 // Once that task is complete, this will go away
 void WebFrameLoaderClient::setTitle(const String& title, const KURL& URL)
 {
-    NSURL* nsURL = URL;
-    nsURL = [nsURL _webkit_canonicalize];
+    NSURL* nsURL = canonicalURL(URL.getNSURL());
     if(!nsURL)
         return;
     NSString *titleNSString = title;
     [[[WebHistory optionalSharedHistory] itemForURL:nsURL] setTitle:titleNSString];
+}
+
+// The following 2 functions are copied from [NSHTTPURLProtocol _cachedResponsePassesValidityChecks] and modified for our needs.
+// FIXME: It would be nice to eventually to share this logic somehow.
+bool WebFrameLoaderClient::canUseArchivedResource(NSURLRequest *request) const
+{
+    NSURLRequestCachePolicy policy = [request cachePolicy];
+    if (policy == NSURLRequestReturnCacheDataElseLoad)
+        return true;
+    if (policy == NSURLRequestReturnCacheDataDontLoad)
+        return true;
+    if ([request valueForHTTPHeaderField:@"must-revalidate"] != nil)
+        return false;
+    if ([request valueForHTTPHeaderField:@"proxy-revalidate"] != nil)
+        return false;
+    if ([request valueForHTTPHeaderField:@"If-Modified-Since"] != nil)
+        return false;
+    if ([request valueForHTTPHeaderField:@"Cache-Control"] != nil)
+        return false;
+    if ([@"POST" _webkit_isCaseInsensitiveEqualToString:[request HTTPMethod]])
+        return false;
+    return true;
+}
+
+bool WebFrameLoaderClient::canUseArchivedResource(NSURLResponse *response) const
+{
+    if (WKGetNSURLResponseMustRevalidate(response))
+        return false;
+    if (WKGetNSURLResponseCalculatedExpiration(response) - CFAbsoluteTimeGetCurrent() < 1)
+        return false;
+    return true;
 }
 
 void WebFrameLoaderClient::deliverArchivedResourcesAfterDelay() const
@@ -1072,7 +1114,6 @@ NSDictionary *WebFrameLoaderClient::actionDictionary(const NavigationAction& act
         if (keyStateEvent->metaKey())
             modifierFlags |= NSCommandKeyMask;
     }
-    NSURL *originalURL = action.url();
     if (const MouseEvent* mouseEvent = findMouseEvent(event)) {
         IntPoint point(mouseEvent->pageX(), mouseEvent->pageY());
         WebElementDictionary *element = [[WebElementDictionary alloc]
@@ -1082,7 +1123,7 @@ NSDictionary *WebFrameLoaderClient::actionDictionary(const NavigationAction& act
             element, WebActionElementKey,
             [NSNumber numberWithInt:mouseEvent->button()], WebActionButtonKey,
             [NSNumber numberWithInt:modifierFlags], WebActionModifierFlagsKey,
-            originalURL, WebActionOriginalURLKey,
+            action.url().getNSURL(), WebActionOriginalURLKey,
             nil];
         [element release];
         return result;
@@ -1090,7 +1131,7 @@ NSDictionary *WebFrameLoaderClient::actionDictionary(const NavigationAction& act
     return [NSDictionary dictionaryWithObjectsAndKeys:
         [NSNumber numberWithInt:action.type()], WebActionNavigationTypeKey,
         [NSNumber numberWithInt:modifierFlags], WebActionModifierFlagsKey,
-        originalURL, WebActionOriginalURLKey,
+        action.url().getNSURL(), WebActionOriginalURLKey,
         nil];
 }
 
@@ -1107,7 +1148,7 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& url, const Strin
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
     return [bridge createChildFrameNamed:name
-                   withURL:url
+                   withURL:url.getNSURL()
                    referrer:referrer 
                    ownerElement:ownerElement
                    allowsScrolling:allowsScrolling
@@ -1122,7 +1163,7 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const KURL& url, const
 {
     WebFrameBridge* bridge = m_webFrame->_private->bridge;
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    return [bridge determineObjectFromMIMEType:mimeType URL:url];
+    return [bridge determineObjectFromMIMEType:mimeType URL:url.getNSURL()];
     END_BLOCK_OBJC_EXCEPTIONS;
     return ObjectContentNone;
 }
@@ -1143,7 +1184,7 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     return new Widget([bridge viewForPluginWithFrame:NSMakeRect(0, 0, size.width(), size.height())
-                                                 URL:url
+                                                 URL:url.getNSURL()
                                       attributeNames:nsArray(paramNames)
                                      attributeValues:nsArray(paramValues)
                                             MIMEType:mimeType
@@ -1171,7 +1212,7 @@ Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, Elemen
     result->setView([bridge viewForJavaAppletWithFrame:NSMakeRect(0, 0, size.width(), size.height())
                             attributeNames:nsArray(paramNames)
                             attributeValues:nsArray(paramValues)
-                            baseURL:baseURL
+                            baseURL:baseURL.getNSURL()
                             DOMElement:[DOMElement _wrapElement:element]]);    
     END_BLOCK_OBJC_EXCEPTIONS;
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyrifht (C) 2008 Jan Michael C. Alonzo
  *
  * This library is free software; you can redistribute it and/or
@@ -84,14 +84,12 @@ extern "C" {
 
         GtkTargetList* copy_target_list;
         GtkTargetList* paste_target_list;
-
-        gboolean transparent;
     };
 
     #define WEBKIT_WEB_FRAME_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate))
     typedef struct _WebKitWebFramePrivate WebKitWebFramePrivate;
     struct _WebKitWebFramePrivate {
-        WTF::RefPtr<WebCore::Frame> coreFrame;
+        WebCore::Frame* coreFrame;
         WebCore::FrameLoaderClient* client;
         WebKitWebView* webView;
 

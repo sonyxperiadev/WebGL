@@ -26,7 +26,7 @@
 #ifndef WebURLCredential_h
 #define WebURLCredential_h
 
-#include "WebKit.h"
+#include "IWebURLAuthenticationChallenge.h"
 
 #pragma warning(push, 0)
 #include <WebCore/Credential.h>

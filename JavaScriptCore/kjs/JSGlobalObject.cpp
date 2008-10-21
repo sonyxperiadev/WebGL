@@ -56,10 +56,23 @@
 #include <QDateTime>
 #endif
 
+#ifdef ANDROID_INSTRUMENT
+#define LOG_TAG "javascriptcore"
+#undef LOG
+#include <utils/Log.h>
+
+static unsigned sTotalTimeUsed;
+#endif
+
 namespace KJS {
 
 // Default number of ticks before a timeout check should be done.
+#ifdef ANDROID_MOBILE
+static const int initialTickCountThreshold = 100;
+static const int maxTickCountThreshold = 255;
+#else
 static const int initialTickCountThreshold = 255;
+#endif
 
 // Preferred number of milliseconds between each timeout check
 static const int preferredScriptCheckTimeInterval = 1000;
@@ -75,6 +88,13 @@ static inline void markIfNeeded(JSValue* v)
 // it's possible to measure the time difference correctly.
 static inline unsigned getCurrentTime()
 {
+#ifdef ANDROID_INSTRUMENT
+#if defined(HAVE_POSIX_CLOCKS)
+    struct timespec tm;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
+    return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
+#endif
+#endif
 #if HAVE(SYS_TIME_H)
     struct timeval tv;
     gettimeofday(&tv, 0);
@@ -130,6 +150,8 @@ void JSGlobalObject::init()
     } else
         s_head = d()->next = d()->prev = this;
 
+    d()->compatMode = NativeMode;
+
     resetTimeoutCheck();
     d()->timeoutTime = 0;
     d()->timeoutCheckCount = 0;
@@ -152,24 +174,11 @@ bool JSGlobalObject::getOwnPropertySlot(ExecState* exec, const Identifier& prope
     return JSVariableObject::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void JSGlobalObject::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void JSGlobalObject::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    if (symbolTablePut(propertyName, value))
+    if (symbolTablePut(propertyName, value, !(attr & ~DontDelete)))
         return;
-    return JSVariableObject::put(exec, propertyName, value);
-}
-
-void JSGlobalObject::initializeVariable(ExecState* exec, const Identifier& propertyName, JSValue* value, unsigned attributes)
-{
-    if (symbolTableInitializeVariable(propertyName, value, attributes))
-        return;
-
-    JSValue* valueBefore = getDirect(propertyName);
-    JSVariableObject::put(exec, propertyName, value);
-    if (!valueBefore) {
-        if (JSValue* valueAfter = getDirect(propertyName))
-            putDirect(propertyName, valueAfter, attributes);
-    }
+    return JSVariableObject::put(exec, propertyName, value, attr);
 }
 
 static inline JSObject* lastInPrototypeChain(JSObject* object)
@@ -269,25 +278,29 @@ void JSGlobalObject::reset(JSValue* prototype)
     
     d()->functionPrototype->putDirect(exec->propertyNames().constructor, d()->functionConstructor, DontEnum);
 
-    d()->objectPrototype->putDirect(exec->propertyNames().constructor, d()->objectConstructor, DontEnum);
-    d()->functionPrototype->putDirect(exec->propertyNames().constructor, d()->functionConstructor, DontEnum);
-    d()->arrayPrototype->putDirect(exec->propertyNames().constructor, d()->arrayConstructor, DontEnum);
-    d()->booleanPrototype->putDirect(exec->propertyNames().constructor, d()->booleanConstructor, DontEnum);
-    d()->stringPrototype->putDirect(exec->propertyNames().constructor, d()->stringConstructor, DontEnum);
-    d()->numberPrototype->putDirect(exec->propertyNames().constructor, d()->numberConstructor, DontEnum);
-    d()->datePrototype->putDirect(exec->propertyNames().constructor, d()->dateConstructor, DontEnum);
-    d()->regExpPrototype->putDirect(exec->propertyNames().constructor, d()->regExpConstructor, DontEnum);
-    d()->errorPrototype->putDirect(exec->propertyNames().constructor, d()->errorConstructor, DontEnum);
-    d()->evalErrorPrototype->putDirect(exec->propertyNames().constructor, d()->evalErrorConstructor, DontEnum);
-    d()->rangeErrorPrototype->putDirect(exec->propertyNames().constructor, d()->rangeErrorConstructor, DontEnum);
-    d()->referenceErrorPrototype->putDirect(exec->propertyNames().constructor, d()->referenceErrorConstructor, DontEnum);
-    d()->syntaxErrorPrototype->putDirect(exec->propertyNames().constructor, d()->syntaxErrorConstructor, DontEnum);
-    d()->typeErrorPrototype->putDirect(exec->propertyNames().constructor, d()->typeErrorConstructor, DontEnum);
-    d()->URIErrorPrototype->putDirect(exec->propertyNames().constructor, d()->URIErrorConstructor, DontEnum);
+    d()->objectPrototype->putDirect(exec->propertyNames().constructor, d()->objectConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->functionPrototype->putDirect(exec->propertyNames().constructor, d()->functionConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->arrayPrototype->putDirect(exec->propertyNames().constructor, d()->arrayConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->booleanPrototype->putDirect(exec->propertyNames().constructor, d()->booleanConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->stringPrototype->putDirect(exec->propertyNames().constructor, d()->stringConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->numberPrototype->putDirect(exec->propertyNames().constructor, d()->numberConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->datePrototype->putDirect(exec->propertyNames().constructor, d()->dateConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->regExpPrototype->putDirect(exec->propertyNames().constructor, d()->regExpConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->errorPrototype->putDirect(exec->propertyNames().constructor, d()->errorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->evalErrorPrototype->putDirect(exec->propertyNames().constructor, d()->evalErrorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->rangeErrorPrototype->putDirect(exec->propertyNames().constructor, d()->rangeErrorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->referenceErrorPrototype->putDirect(exec->propertyNames().constructor, d()->referenceErrorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->syntaxErrorPrototype->putDirect(exec->propertyNames().constructor, d()->syntaxErrorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->typeErrorPrototype->putDirect(exec->propertyNames().constructor, d()->typeErrorConstructor, DontEnum | DontDelete | ReadOnly);
+    d()->URIErrorPrototype->putDirect(exec->propertyNames().constructor, d()->URIErrorConstructor, DontEnum | DontDelete | ReadOnly);
 
     // Set global constructors
 
-    // FIXME: These properties could be handled by a static hash table.
+    // FIXME: kjs_window.cpp checks Internal/DontEnum as a performance hack, to
+    // see that these values can be put directly without a check for override
+    // properties.
+
+    // FIXME: These properties should be handled by a static hash table.
 
     putDirect("Object", d()->objectConstructor, DontEnum);
     putDirect("Function", d()->functionConstructor, DontEnum);
@@ -298,12 +311,12 @@ void JSGlobalObject::reset(JSValue* prototype)
     putDirect("Date", d()->dateConstructor, DontEnum);
     putDirect("RegExp", d()->regExpConstructor, DontEnum);
     putDirect("Error", d()->errorConstructor, DontEnum);
-    putDirect("EvalError", d()->evalErrorConstructor);
-    putDirect("RangeError", d()->rangeErrorConstructor);
-    putDirect("ReferenceError", d()->referenceErrorConstructor);
-    putDirect("SyntaxError", d()->syntaxErrorConstructor);
-    putDirect("TypeError", d()->typeErrorConstructor);
-    putDirect("URIError", d()->URIErrorConstructor);
+    putDirect("EvalError", d()->evalErrorConstructor, Internal);
+    putDirect("RangeError", d()->rangeErrorConstructor, Internal);
+    putDirect("ReferenceError", d()->referenceErrorConstructor, Internal);
+    putDirect("SyntaxError", d()->syntaxErrorConstructor, Internal);
+    putDirect("TypeError", d()->typeErrorConstructor, Internal);
+    putDirect("URIError", d()->URIErrorConstructor, Internal);
 
     // Set global values.
 
@@ -340,14 +353,38 @@ void JSGlobalObject::startTimeoutCheck()
 {
     if (!d()->timeoutCheckCount)
         resetTimeoutCheck();
-    
+#ifdef ANDROID_INSTRUMENT    
+    if (d()->timeoutCheckCount == 0)
+        d()->startTime = getCurrentTime();
+#endif
     ++d()->timeoutCheckCount;
 }
 
 void JSGlobalObject::stopTimeoutCheck()
 {
     --d()->timeoutCheckCount;
+#ifdef ANDROID_INSTRUMENT    
+    if (d()->timeoutCheckCount == 0) {
+        unsigned time = getCurrentTime() - d()->startTime;
+        sTotalTimeUsed += time;
+        if (time > 1000)
+            LOGW("***** JavaScript used %d ms\n", time);
+    }
+#endif
 }
+
+#ifdef ANDROID_INSTRUMENT
+void JSGlobalObject::resetTimeCounter()
+{
+    sTotalTimeUsed = 0;
+}
+
+void JSGlobalObject::reportTimeCounter()
+{
+    LOG(LOG_DEBUG, "WebCore", "*-* Total JavaScript (may include parsing, layout, or calcStyle) time: %d ms\n", 
+            sTotalTimeUsed);   
+}
+#endif
 
 void JSGlobalObject::resetTimeoutCheck()
 {
@@ -386,9 +423,21 @@ bool JSGlobalObject::checkTimeout()
     if (d()->ticksUntilNextTimeoutCheck == 0)
         d()->ticksUntilNextTimeoutCheck = initialTickCountThreshold;
 
+#ifdef ANDROID_MOBILE
+    if (d()->ticksUntilNextTimeoutCheck > (unsigned)maxTickCountThreshold)
+        d()->ticksUntilNextTimeoutCheck = maxTickCountThreshold;
+#endif
+
     if (d()->timeoutTime && d()->timeExecuting > d()->timeoutTime) {
         if (shouldInterruptScript())
+#ifdef ANDROID_INSTRUMENT
+        {
+            LOGW("***** JavaScript got interrupted\n");
             return true;
+        }    
+#else
+            return true;
+#endif        
         
         resetTimeoutCheck();
     }

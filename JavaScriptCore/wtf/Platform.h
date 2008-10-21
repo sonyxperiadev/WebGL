@@ -112,9 +112,6 @@
 #define WTF_PLATFORM_CAIRO 1
 #endif
 
-#if PLATFORM(WIN)&& PLATFORM(CG)
-#define WTF_USE_SAFARI_THEME 1
-#endif
 
 #ifdef __S60__
 // we are cross-compiling, it is not really windows
@@ -124,6 +121,22 @@
 #define WTF_PLATFORM_S60 1
 #define WTF_PLATFORM_SYMBIAN 1
 #endif
+
+#ifdef ANDROID
+//due to pthread code in collector.cpp, we need PLATFORM(DARWIN)
+//#undef WTF_PLATFORM_DARWIN
+#undef WTF_PLATFORM_MAC
+#undef WTF_PLATFORM_WIN_OS
+#undef WTF_PLATFORM_WIN
+#undef WTF_PLATFORM_CG
+#undef WTF_PLATFORM_CI
+#undef WTF_PLATFORM_CAIRO
+
+#define WTF_PLATFORM_SGL 1
+#define WTF_PLATFORM_UNIX 1
+
+#define USE_SYSTEM_MALLOC 1
+#endif // ANDROID
 
 /* CPU */
 
@@ -152,7 +165,9 @@
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
 #elif !defined(__ARM_EABI__) && !defined(__ARMEB__)
+#if !defined(ANDROID) || !defined(__VFP_FP__)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
+#endif
 #endif
 #if !defined(__ARM_EABI__)
 #define WTF_PLATFORM_FORCE_PACK 1

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,21 @@
 
 #include "BlockExceptions.h"
 #include "ClipboardMac.h"
+#include "Cursor.h"
+#include "Document.h"
+#include "DragController.h"
 #include "EventNames.h"
+#include "FloatPoint.h"
 #include "FocusController.h"
+#include "FoundationExtras.h"
 #include "FrameLoader.h"
 #include "Frame.h"
+#include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLFrameOwnerElement.h"
+#include "HTMLFrameSetElement.h"
+#include "HitTestRequest.h"
+#include "HitTestResult.h"
 #include "KeyboardEvent.h"
 #include "MouseEventWithHitTestResults.h"
 #include "Page.h"
@@ -138,7 +148,7 @@ bool EventHandler::needsKeyboardEventDisambiguationQuirks() const
         return false;
 
     // RSS view needs arrow key keypress events.
-    if (isSafari && document->url().protocolIs("feed") || document->url().protocolIs("feeds"))
+    if (isSafari && document->url().startsWith("feed:", false) || document->url().startsWith("feeds:", false))
         return true;
     Settings* settings = m_frame->settings();
     if (!settings)

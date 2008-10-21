@@ -154,7 +154,7 @@ bool RuntimeObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& pro
     return false;
 }
 
-void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int)
 {
     if (!instance) {
         throwInvalidAccessError(exec);
@@ -172,6 +172,22 @@ void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSVa
         instance->setValueOfUndefinedField(exec, propertyName, value);
 
     instance->end();
+}
+
+bool RuntimeObjectImp::canPut(ExecState* exec, const Identifier& propertyName) const
+{
+    if (!instance) {
+        throwInvalidAccessError(exec);
+        return false;
+    }
+    
+    instance->begin();
+
+    Field *aField = instance->getClass()->fieldNamed(propertyName, instance.get());
+
+    instance->end();
+
+    return !!aField;
 }
 
 bool RuntimeObjectImp::deleteProperty(ExecState*, const Identifier&)

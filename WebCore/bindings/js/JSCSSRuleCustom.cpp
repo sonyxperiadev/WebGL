@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "CSSImportRule.h"
 #include "CSSMediaRule.h"
 #include "CSSPageRule.h"
+#include "CSSRule.h"
 #include "CSSStyleRule.h"
 #include "JSCSSCharsetRule.h"
 #include "JSCSSFontFaceRule.h"
@@ -38,17 +39,16 @@
 #include "JSCSSMediaRule.h"
 #include "JSCSSPageRule.h"
 #include "JSCSSStyleRule.h"
-
-using namespace KJS;
+#include "kjs_binding.h"
 
 namespace WebCore {
 
-JSValue* toJS(ExecState* exec, CSSRule* rule)
+KJS::JSValue* toJS(KJS::ExecState* exec, CSSRule* rule)
 {
     if (!rule)
-        return jsNull();
+        return KJS::jsNull();
 
-    DOMObject* ret = ScriptInterpreter::getDOMObject(rule);
+    KJS::DOMObject* ret = KJS::ScriptInterpreter::getDOMObject(rule);
 
     if (ret)
         return ret;
@@ -77,7 +77,7 @@ JSValue* toJS(ExecState* exec, CSSRule* rule)
             break;
     }
 
-    ScriptInterpreter::putDOMObject(rule, ret);
+    KJS::ScriptInterpreter::putDOMObject(rule, ret);
     return ret;
 }
 

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,13 +26,98 @@
 #include "config.h"
 #include "PluginDatabase.h"
 
-#include "Frame.h"
-#include "KURL.h"
 #include "PluginPackage.h"
+#include "PluginView.h"
+#include "Frame.h"
 #include <windows.h>
 #include <shlwapi.h>
 
 namespace WebCore {
+
+PluginDatabase* PluginDatabase::installedPlugins()
+{
+    static PluginDatabase* plugins = 0;
+    
+    if (!plugins) {
+        plugins = new PluginDatabase;
+        plugins->setPluginPaths(PluginDatabase::defaultPluginPaths());
+        plugins->refresh();
+    }
+
+    return plugins;
+}
+
+void PluginDatabase::addExtraPluginPath(const String& path)
+{
+    m_pluginPaths.append(path);
+    refresh();
+}
+
+bool PluginDatabase::refresh()
+{   
+    PluginSet newPlugins;
+
+    bool pluginSetChanged = false;
+
+    // Create a new set of plugins
+    newPlugins = getPluginsInPaths();
+
+    if (!m_plugins.isEmpty()) {
+        m_registeredMIMETypes.clear();
+
+        PluginSet pluginsToUnload = m_plugins;
+
+        PluginSet::const_iterator end = newPlugins.end();
+        for (PluginSet::const_iterator it = newPlugins.begin(); it != end; ++it)
+            pluginsToUnload.remove(*it);
+
+        end = m_plugins.end();
+        for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it)
+            newPlugins.remove(*it);
+
+        // Unload plugins
+        end = pluginsToUnload.end();
+        for (PluginSet::const_iterator it = pluginsToUnload.begin(); it != end; ++it)
+            m_plugins.remove(*it);
+
+        // Add new plugins
+        end = newPlugins.end();
+        for (PluginSet::const_iterator it = newPlugins.begin(); it != end; ++it)
+            m_plugins.add(*it);
+
+        pluginSetChanged = !pluginsToUnload.isEmpty() || !newPlugins.isEmpty();
+    } else {
+        m_plugins = newPlugins;
+        PluginSet::const_iterator end = newPlugins.end();
+        for (PluginSet::const_iterator it = newPlugins.begin(); it != end; ++it)
+            m_plugins.add(*it);
+
+        pluginSetChanged = !newPlugins.isEmpty();
+    }
+
+    // Register plug-in MIME types
+    PluginSet::const_iterator end = m_plugins.end();
+    for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
+        // Get MIME types
+        MIMEToDescriptionsMap::const_iterator map_end = (*it)->mimeToDescriptions().end();
+        for (MIMEToDescriptionsMap::const_iterator map_it = (*it)->mimeToDescriptions().begin(); map_it != map_end; ++map_it) {
+            m_registeredMIMETypes.add(map_it->first);
+        }
+    }
+
+    return pluginSetChanged;
+}
+
+Vector<PluginPackage*> PluginDatabase::plugins() const
+{
+    Vector<PluginPackage*> result;
+
+    PluginSet::const_iterator end = m_plugins.end();
+    for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it)
+        result.append((*it).get());
+
+    return result;
+}
 
 static inline void addPluginsFromRegistry(HKEY rootKey, PluginSet& plugins)
 {
@@ -351,14 +435,106 @@ Vector<String> PluginDatabase::defaultPluginPaths()
     return paths;
 }
 
-bool PluginDatabase::isPreferredPluginPath(const String& path)
+bool PluginDatabase::isMIMETypeRegistered(const String& mimeType)
 {
+    if (mimeType.isNull())
+        return false;
+    if (m_registeredMIMETypes.contains(mimeType))
+        return true;
+    // No plugin was found, try refreshing the database and searching again
+    return (refresh() && m_registeredMIMETypes.contains(mimeType));
+}
+
+PluginPackage* PluginDatabase::pluginForMIMEType(const String& mimeType)
+{
+    if (mimeType.isEmpty())
+        return 0;
+
+    String key = mimeType.lower();
     String ourPath = safariPluginsPath();
+    PluginPackage* plugin = 0;
+    PluginSet::const_iterator end = m_plugins.end();
 
-    if (!ourPath.isNull() && !path.isNull())
-        return ourPath == path;
+    for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
+        if ((*it)->mimeToDescriptions().contains(key)) {
+            plugin = (*it).get();
+            // prefer plugins in our own plugins directory
+            if (plugin->parentDirectory() == ourPath)
+                break;
+        }
+    }
 
-    return false;
+    return plugin;
+}
+
+String PluginDatabase::MIMETypeForExtension(const String& extension) const
+{
+    if (extension.isEmpty())
+        return String();
+
+    PluginSet::const_iterator end = m_plugins.end();
+    String ourPath = safariPluginsPath();
+    String mimeType;
+    PluginPackage* plugin = 0;
+
+    for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
+        MIMEToExtensionsMap::const_iterator mime_end = (*it)->mimeToExtensions().end();
+
+        for (MIMEToExtensionsMap::const_iterator mime_it = (*it)->mimeToExtensions().begin(); mime_it != mime_end; ++mime_it) {
+            const Vector<String>& extensions = mime_it->second;
+            for (unsigned i = 0; i < extensions.size(); i++) {
+                if (equalIgnoringCase(extensions[i], extension)) {
+                    mimeType = mime_it->first;
+                    plugin = (*it).get();
+                    // prefer plugins in our own plugins directory
+                    if (plugin->parentDirectory() == ourPath)
+                        break;
+                }
+            }
+        }
+    }
+
+    return mimeType;
+}
+
+PluginPackage* PluginDatabase::findPlugin(const KURL& url, String& mimeType)
+{   
+    PluginPackage* plugin = pluginForMIMEType(mimeType);
+    String filename = url.string();
+    
+    if (!plugin) {
+        String filename = url.lastPathComponent();
+        if (!filename.endsWith("/")) {
+            int extensionPos = filename.reverseFind('.');
+            if (extensionPos != -1) {
+                String extension = filename.substring(extensionPos + 1);
+
+                mimeType = MIMETypeForExtension(extension);
+                plugin = pluginForMIMEType(mimeType);
+            }
+        }
+    }
+
+    // FIXME: if no plugin could be found, query Windows for the mime type 
+    // corresponding to the extension.
+
+    return plugin;
+}
+
+PluginView* PluginDatabase::createPluginView(Frame* parentFrame, const IntSize& size, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+{
+    // if we fail to find a plugin for this MIME type, findPlugin will search for
+    // a plugin by the file extension and update the MIME type, so pass a mutable String
+    String mimeTypeCopy = mimeType;
+    PluginPackage* plugin = findPlugin(url, mimeTypeCopy);
+    
+    // No plugin was found, try refreshing the database and searching again
+    if (!plugin && refresh()) {
+        mimeTypeCopy = mimeType;
+        plugin = findPlugin(url, mimeTypeCopy);
+    }
+        
+    return new PluginView(parentFrame, size, plugin, element, url, paramNames, paramValues, mimeTypeCopy, loadManually);
 }
 
 }

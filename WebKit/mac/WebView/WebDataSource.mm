@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,9 +55,9 @@
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebCore/WebCoreURLResponse.h>
 #import <WebKit/DOMHTML.h>
 #import <WebKit/DOMPrivate.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
@@ -135,6 +135,20 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Class repClass;
     return [WebView _viewClass:nil andRepresentationClass:&repClass forMIMEType:MIMEType] ? repClass : nil;
 }
+
+- (NSString *)_MIMETypeOfResponse:(NSURLResponse *)response
+{
+#ifdef BUILDING_ON_TIGER
+    return [response MIMEType];
+#else
+    // FIXME: This is part of a workaround for <rdar://problem/5321972> REGRESSION: Plain text document from HTTP server detected
+    // as application/octet-stream
+    NSString *MIMEType = [response MIMEType];
+    if ([MIMEType isEqualToString:@"application/octet-stream"] && [response isKindOfClass:[NSHTTPURLResponse class]] && [[[(NSHTTPURLResponse *)response allHeaderFields] objectForKey:@"Content-Type"] hasPrefix:@"text/plain"])
+        return @"text/plain";
+    return MIMEType;
+#endif
+}
 @end
 
 @implementation WebDataSource (WebPrivate)
@@ -175,7 +189,11 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSString *)_responseMIMEType
 {
-    return [[self response] _webcore_MIMEType];
+#ifdef BUILDING_ON_TIGER
+    return [[self response] MIMEType];
+#else
+    return [self _MIMETypeOfResponse:[self response]];
+#endif
 }
 
 @end
@@ -301,10 +319,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 // May return nil if not initialized with a URL.
 - (NSURL *)_URL
 {
-    KURL url = _private->loader->url();
-    if (url.isEmpty())
-        return nil;
-    return url;
+    KURL URL = _private->loader->url();
+    return URL.isEmpty() ? nil : URL.getNSURL();
 }
 
 - (WebArchive *)_popSubframeArchiveWithName:(NSString *)frameName
@@ -366,7 +382,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     _private->loader = loader;
     loader->ref();
         
-    LOG(Loading, "creating datasource for %@", static_cast<NSURL *>(_private->loader->request().url()));
+    LOG(Loading, "creating datasource for %@", _private->loader->request().url().getNSURL());
     
     ++WebDataSourceCount;
     
@@ -460,10 +476,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSURL *)unreachableURL
 {
-    KURL unreachableURL = _private->loader->unreachableURL();
-    if (unreachableURL.isEmpty())
-        return nil;
-    return unreachableURL;
+    KURL URL = _private->loader->unreachableURL();
+    return URL.isEmpty() ? nil : URL.getNSURL();
 }
 
 - (WebArchive *)webArchive
@@ -497,7 +511,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     NSMutableArray *subresources = [[NSMutableArray alloc] initWithCapacity:[datas count]];
     for (unsigned i = 0; i < [datas count]; ++i) {
         NSURLResponse *response = [responses objectAtIndex:i];
-        [subresources addObject:[[[WebResource alloc] _initWithData:[datas objectAtIndex:i] URL:[response URL] response:response] autorelease]];
+        [subresources addObject:[[[WebResource alloc] _initWithData:[datas objectAtIndex:i] URL:[response URL] response:response MIMEType:[self _MIMETypeOfResponse:response]] autorelease]];
     }
 
     return [subresources autorelease];
@@ -513,7 +527,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if (![[self _bridge] getData:&data andResponse:&response forURL:[URL _web_originalDataAsString]])
         return [self _archivedSubresourceForURL:URL];
 
-    return [[[WebResource alloc] _initWithData:data URL:URL response:response] autorelease];
+    return [[[WebResource alloc] _initWithData:data URL:URL response:response MIMEType:[self _MIMETypeOfResponse:response]] autorelease];
 }
 
 - (void)addSubresource:(WebResource *)subresource

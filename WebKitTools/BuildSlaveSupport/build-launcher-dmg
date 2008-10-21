@@ -35,13 +35,7 @@ use File::Basename;
 use Getopt::Long;
 use FindBin;
 use lib "$FindBin::Bin/../Scripts";
-use Cwd 'realpath';
 use webkitdirs;
-use VCSUtils;
-
-my $tigerProductDir = realpath("$FindBin::Bin/../../WebKitBuildTiger");
-my $leopardProductDir = realpath("$FindBin::Bin/../../WebKitBuildLeopard");
-setBaseProductDir($tigerProductDir);
 
 my $nightlyLauncherStagingPath = productDir() . "/WebKit.app";
 my $droseraStagingPath = productDir() . "/DroseraLauncher.app";
@@ -51,21 +45,9 @@ my $nightlyRemoteHost = 'webkit-nightlies@live.nightly.webkit.org';
 my $nightlyRemotePath = "/home/webkit-nightlies";
 my $nightlyRemoteLatestPath = "$nightlyRemotePath/update-latest.sh";
 
-sub currentRevision
-{
-    my $sourceDir = sourceDir();
-    if (isSVNDirectory($sourceDir)) {
-        return currentSVNRevision();
-    } elsif (isGitDirectory($sourceDir)) {
-        my $gitLog = `cd $sourceDir && LC_ALL=C git log --grep='git-svn-id: ' -n 1 | grep git-svn-id:`;
-        (my $revision) = ($gitLog =~ m/ +git-svn-id: .+@(\d+) /g);
-        return $revision;
-    }
-}
-
 sub buildDiskImage
 {
-    my $revision = currentRevision();
+    my $revision = currentSVNRevision();
     my $productDir = productDir();
     $nightlyLauncherDiskImagePath = productDir() . "/WebKit-SVN-r$revision.dmg";
     
@@ -105,7 +87,7 @@ sub uploadNightlyDiskImage
 {
     my $buildTag = shift(@_);
     my $nightlyRemoteDiskImagePath = "$nightlyRemotePath/builds/$buildTag/mac/" . basename($nightlyLauncherDiskImagePath);
-    my $revision = currentRevision();
+    my $revision = currentSVNRevision();
     system("rsync", "-vP", $nightlyLauncherDiskImagePath, "$nightlyRemoteHost:$nightlyRemoteDiskImagePath") == 0 or die "Failed uploading disk image";
     system("ssh", $nightlyRemoteHost, $nightlyRemoteLatestPath, $buildTag, "mac", $nightlyRemoteDiskImagePath, $revision) == 0 or die "Failed linking disk image to latest";
 }

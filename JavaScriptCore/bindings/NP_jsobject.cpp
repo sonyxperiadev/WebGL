@@ -31,6 +31,7 @@
 
 #include "JSGlobalObject.h"
 #include "PropertyNameArray.h"
+#include "c_runtime.h"
 #include "c_utility.h"
 #include "interpreter.h"
 #include "npruntime_impl.h"
@@ -359,14 +360,7 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
 void _NPN_SetException(NPObject* o, const NPUTF8* message)
 {
     if (o->_class == NPScriptObjectClass) {
-        JavaScriptObject* obj = (JavaScriptObject*)o; 
-        RootObject* rootObject = obj->rootObject;
-        if (!rootObject || !rootObject->isValid())
-            return;
-
-        ExecState* exec = rootObject->globalObject()->globalExec();
-        JSLock lock;
-        throwError(exec, GeneralError, message);
+        KJS::Bindings::SetGlobalException(message);
     }
 }
 

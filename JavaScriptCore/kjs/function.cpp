@@ -148,11 +148,11 @@ bool FunctionImp::getOwnPropertySlot(ExecState* exec, const Identifier& property
     return InternalFunctionImp::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void FunctionImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void FunctionImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
     if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return;
-    InternalFunctionImp::put(exec, propertyName, value);
+    InternalFunctionImp::put(exec, propertyName, value, attr);
 }
 
 bool FunctionImp::deleteProperty(ExecState* exec, const Identifier& propertyName)
@@ -320,12 +320,13 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyNa
   return JSObject::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValue* value)
+void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    if (indexToNameMap.isMapped(propertyName))
-        _activationObject->put(exec, indexToNameMap[propertyName], value);
-    else
-        JSObject::put(exec, propertyName, value);
+  if (indexToNameMap.isMapped(propertyName)) {
+    _activationObject->put(exec, indexToNameMap[propertyName], value, attr);
+  } else {
+    JSObject::put(exec, propertyName, value, attr);
+  }
 }
 
 bool Arguments::deleteProperty(ExecState* exec, const Identifier& propertyName) 
@@ -416,28 +417,18 @@ bool ActivationImp::deleteProperty(ExecState* exec, const Identifier& propertyNa
     return JSVariableObject::deleteProperty(exec, propertyName);
 }
 
-void ActivationImp::put(ExecState*, const Identifier& propertyName, JSValue* value)
+void ActivationImp::put(ExecState*, const Identifier& propertyName, JSValue* value, int attr)
 {
-    if (symbolTablePut(propertyName, value))
+    // If any bits other than DontDelete are set, then we bypass the read-only check.
+    bool checkReadOnly = !(attr & ~DontDelete);
+    if (symbolTablePut(propertyName, value, checkReadOnly))
         return;
 
     // We don't call through to JSObject because __proto__ and getter/setter 
     // properties are non-standard extensions that other implementations do not
     // expose in the activation object.
     ASSERT(!_prop.hasGetterSetterProperties());
-    _prop.put(propertyName, value, 0, true);
-}
-
-void ActivationImp::initializeVariable(ExecState*, const Identifier& propertyName, JSValue* value, unsigned attributes)
-{
-    if (symbolTableInitializeVariable(propertyName, value, attributes))
-        return;
-
-    // We don't call through to JSObject because __proto__ and getter/setter 
-    // properties are non-standard extensions that other implementations do not
-    // expose in the activation object.
-    ASSERT(!_prop.hasGetterSetterProperties());
-    _prop.put(propertyName, value, attributes, true);
+    _prop.put(propertyName, value, attr, checkReadOnly);
 }
 
 void ActivationImp::markChildren()

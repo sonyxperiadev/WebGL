@@ -26,20 +26,18 @@
 #include "config.h"
 #include "Position.h"
 
-#include "CSSComputedStyleDeclaration.h"
-#include "CString.h"
 #include "CharacterNames.h"
 #include "Document.h"
 #include "Element.h"
-#include "HTMLNames.h"
 #include "Logging.h"
-#include "PositionIterator.h"
 #include "RenderBlock.h"
+#include "CSSComputedStyleDeclaration.h"
+#include "htmlediting.h"
+#include "HTMLNames.h"
+#include "PositionIterator.h"
 #include "Text.h"
 #include "TextIterator.h"
-#include "htmlediting.h"
 #include "visible_units.h"
-#include <stdio.h>
   
 namespace WebCore {
 
@@ -296,16 +294,6 @@ static bool isStreamer(const PositionIterator& pos)
     return pos.atStartOfNode();
 }
 
-// enclosingBlock does some expensive editability checks, upstream and downstream
-// can avoid those because they do their own editability checking.
-static Node* enclosingBlockIgnoringEditability(Node* node)
-{
-    while (node && !isBlock(node))
-        node = node->parentNode();
-        
-    return node;
-}
-
 // p.upstream() returns the start of the range of positions that map to the same VisiblePosition as P.
 Position Position::upstream() const
 {
@@ -314,27 +302,19 @@ Position Position::upstream() const
         return Position();
     
     // iterate backward from there, looking for a qualified position
-    Node* originalBlock = enclosingBlockIgnoringEditability(startNode);
+    Node* block = enclosingBlock(startNode);
     PositionIterator lastVisible = *this;
     PositionIterator currentPos = lastVisible;
-    bool startEditable = startNode->isContentEditable();
-    Node* lastNode = startNode;
+    Node* originalRoot = node()->rootEditableElement();
     for (; !currentPos.atStart(); currentPos.decrement()) {
         Node* currentNode = currentPos.node();
         
-        // Don't check for an editability change if we haven't moved to a different node,
-        // to avoid the expense of computing isContentEditable().
-        if (currentNode != lastNode) {
-            // Don't change editability.
-            bool currentEditable = currentNode->isContentEditable();
-            if (startEditable != currentEditable)
-                break;
-            lastNode = currentNode;
-        }
+        if (currentNode->rootEditableElement() != originalRoot)
+            break;
 
         // Don't enter a new enclosing block flow or table element.  There is code below that
-        // terminates early if we're about to leave a block.
-        if (isBlock(currentNode) && currentNode != originalBlock)
+        // terminates early if we're about to leave an enclosing block flow or table element.
+        if (block != enclosingBlock(currentNode))
             return lastVisible;
 
         // skip position in unrendered or invisible node
@@ -347,8 +327,8 @@ Position Position::upstream() const
             lastVisible = currentPos;
         
         // Don't leave a block flow or table element.  We could rely on code above to terminate and 
-        // return lastVisible on the next iteration, but we terminate early to avoid doing a nodeIndex() call.
-        if (isBlock(currentNode) && currentPos.atStartOfNode())
+        // return lastVisible on the next iteration, but we terminate early.
+        if (currentNode == enclosingBlock(currentNode) && currentPos.atStartOfNode())
             return lastVisible;
 
         // Return position after tables and nodes which have content that can be ignored.
@@ -394,36 +374,23 @@ Position Position::downstream() const
         return Position();
 
     // iterate forward from there, looking for a qualified position
-    Node* originalBlock = enclosingBlockIgnoringEditability(startNode);
+    Node* block = enclosingBlock(startNode);
     PositionIterator lastVisible = *this;
     PositionIterator currentPos = lastVisible;
-    bool startEditable = startNode->isContentEditable();
-    Node* lastNode = startNode;
+    Node* originalRoot = node()->rootEditableElement();
     for (; !currentPos.atEnd(); currentPos.increment()) {   
         Node* currentNode = currentPos.node();
         
-        // Don't check for an editability change if we haven't moved to a different node,
-        // to avoid the expense of computing isContentEditable().
-        if (currentNode != lastNode) {
-            // Don't change editability.
-            bool currentEditable = currentNode->isContentEditable();
-            if (startEditable != currentEditable)
-                break;
-            lastNode = currentNode;
-        }
+        if (currentNode->rootEditableElement() != originalRoot)
+            break;
 
         // stop before going above the body, up into the head
         // return the last visible streamer position
         if (currentNode->hasTagName(bodyTag) && currentPos.atEndOfNode())
             break;
             
-        // Do not enter a new enclosing block.
-        if (isBlock(currentNode) && currentNode != originalBlock)
-            return lastVisible;
-        // Do not leave the original enclosing block.
-        // Note: The first position after the last one in the original block 
-        // will be [originalBlock->parentNode(), originalBlock->nodeIndex() + 1].
-        if (originalBlock && originalBlock->parentNode() == currentNode)
+        // Do not enter a new enclosing block flow or table element, and don't leave the original one.
+        if (block != enclosingBlock(currentNode))
             return lastVisible;
 
         // skip position in unrendered or invisible node
@@ -693,17 +660,17 @@ Position Position::trailingWhitespacePosition(EAffinity affinity, bool considerN
     return Position();
 }
 
-void Position::debugPosition(const char* msg) const
+void Position::debugPosition(const char *msg) const
 {
     if (isNull())
         fprintf(stderr, "Position [%s]: null\n", msg);
     else
-        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, node()->nodeName().utf8().data(), node(), offset());
+        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, node()->nodeName().deprecatedString().latin1(), node(), offset());
 }
 
 #ifndef NDEBUG
 
-void Position::formatForDebugger(char* buffer, unsigned length) const
+void Position::formatForDebugger(char *buffer, unsigned length) const
 {
     String result;
     
@@ -718,7 +685,7 @@ void Position::formatForDebugger(char* buffer, unsigned length) const
         result += s;
     }
           
-    strncpy(buffer, result.utf8().data(), length - 1);
+    strncpy(buffer, result.deprecatedString().latin1(), length - 1);
 }
 
 void Position::showTreeForThis() const

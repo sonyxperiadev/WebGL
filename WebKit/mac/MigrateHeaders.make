@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -180,7 +180,6 @@ all : \
     $(PRIVATE_HEADERS_DIR)/DOMPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMProcessingInstruction.h \
     $(PRIVATE_HEADERS_DIR)/DOMProcessingInstructionPrivate.h \
-    $(PUBLIC_HEADERS_DIR)/DOMProgressEvent.h \
     $(PUBLIC_HEADERS_DIR)/DOMRGBColor.h \
     $(PUBLIC_HEADERS_DIR)/DOMRange.h \
     $(INTERNAL_HEADERS_DIR)/DOMRangeInternal.h \
@@ -192,7 +191,6 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMStyleSheetList.h \
     $(PUBLIC_HEADERS_DIR)/DOMStylesheets.h \
     $(PUBLIC_HEADERS_DIR)/DOMText.h \
-    $(PRIVATE_HEADERS_DIR)/DOMTextPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMTraversal.h \
     $(PUBLIC_HEADERS_DIR)/DOMTreeWalker.h \
     $(PUBLIC_HEADERS_DIR)/DOMUIEvent.h \

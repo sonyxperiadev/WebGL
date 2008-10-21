@@ -31,6 +31,10 @@
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
+#ifdef ANDROID_CANVAS_IMPL
+    #include "PlatformGraphics.h"
+#endif
+
 #if PLATFORM(CG)
 typedef struct CGShading* CGShadingRef;
 #elif PLATFORM(QT)
@@ -52,6 +56,10 @@ namespace WebCore {
         void addColorStop(float, const String& color);
 
         void getColor(float value, float* r, float* g, float* b, float* a);
+
+#ifdef ANDROID_CANVAS_IMPL
+        PlatformGradient*   platformGradient();
+#endif
 
 #if PLATFORM(CG)
         CGShadingRef platformShading();
@@ -88,6 +96,10 @@ namespace WebCore {
         QGradient *m_shading;
 #elif PLATFORM(CAIRO)
         cairo_pattern_t* m_shading;
+#endif
+
+#ifdef ANDROID_CANVAS_IMPL
+        PlatformGradient* m_platformGradient;
 #endif
     };
 

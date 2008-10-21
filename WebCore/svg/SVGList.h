@@ -28,7 +28,6 @@
 #include "SVGListTraits.h"
 
 #include <wtf/RefCounted.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -49,7 +48,12 @@ namespace WebCore {
         typedef SVGListTypeOperations<Item> TypeOperations;
 
     public:
-        virtual ~SVGList() { }
+        SVGList(const QualifiedName& attributeName) 
+            : m_associatedAttributeName(attributeName)
+        {
+        }
+
+        virtual ~SVGList() { m_vector.clear(); }
 
         const QualifiedName& associatedAttributeName() const { return m_associatedAttributeName; }
 
@@ -129,12 +133,6 @@ namespace WebCore {
             return newItem;
         }
 
-    protected:
-        SVGList(const QualifiedName& attributeName) 
-            : m_associatedAttributeName(attributeName)
-        {
-        }
-
     private:
         Vector<Item> m_vector;
         const QualifiedName& m_associatedAttributeName;
@@ -143,8 +141,8 @@ namespace WebCore {
     template<typename Item>
     class SVGPODListItem : public RefCounted<SVGPODListItem<Item> > {
     public:
-        static PassRefPtr<SVGPODListItem> create() { return adoptRef(new SVGPODListItem); }
-        static PassRefPtr<SVGPODListItem> copy(const Item& item) { return adoptRef(new SVGPODListItem(item)); }
+        SVGPODListItem() : m_item() { }
+        SVGPODListItem(const Item& item) : m_item(item) { }
 
         operator Item&() { return m_item; }
         operator const Item&() const { return m_item; }
@@ -154,9 +152,6 @@ namespace WebCore {
         void setValue(Item newItem) { m_item = newItem; }
 
     private:
-        SVGPODListItem() : m_item() { }
-        SVGPODListItem(const Item& item) : RefCounted<SVGPODListItem<Item> >(), m_item(item) { }
-        
         Item m_item;
     };
 
@@ -164,9 +159,11 @@ namespace WebCore {
     class SVGPODList : public SVGList<RefPtr<SVGPODListItem<Item> > >
     {
     public:
+        SVGPODList(const QualifiedName& attributeName) : SVGList<RefPtr<SVGPODListItem<Item> > >(attributeName) { }
+
         Item initialize(Item newItem, ExceptionCode& ec)
         {
-            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::initialize(SVGPODListItem<Item>::copy(newItem), ec).get());
+            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::initialize(new SVGPODListItem<Item>(newItem), ec).get());
             if (!ptr)
                 return Item();
 
@@ -211,7 +208,7 @@ namespace WebCore {
 
         Item insertItemBefore(Item newItem, unsigned int index, ExceptionCode& ec)
         {
-            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::insertItemBefore(SVGPODListItem<Item>::copy(newItem), index, ec).get());
+            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::insertItemBefore(new SVGPODListItem<Item>(newItem), index, ec).get());
             if (!ptr)
                 return Item();
 
@@ -220,7 +217,7 @@ namespace WebCore {
 
         Item replaceItem(Item newItem, unsigned int index, ExceptionCode& ec)
         {
-            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::replaceItem(SVGPODListItem<Item>::copy(newItem), index, ec).get());
+            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::replaceItem(new SVGPODListItem<Item>(newItem), index, ec).get());
             if (!ptr)
                 return Item();
 
@@ -238,16 +235,12 @@ namespace WebCore {
 
         Item appendItem(Item newItem, ExceptionCode& ec)
         {
-            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::appendItem(SVGPODListItem<Item>::copy(newItem), ec).get());
+            SVGPODListItem<Item>* ptr(SVGList<RefPtr<SVGPODListItem<Item> > >::appendItem(new SVGPODListItem<Item>(newItem), ec).get());
             if (!ptr)
                 return Item();
 
             return static_cast<const Item&>(*ptr); 
         }
-        
-    protected:
-        SVGPODList(const QualifiedName& attributeName) 
-            : SVGList<RefPtr<SVGPODListItem<Item> > >(attributeName) { }
     };
 
 } // namespace WebCore

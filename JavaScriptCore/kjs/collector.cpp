@@ -84,6 +84,21 @@ const size_t GROWTH_FACTOR = 2;
 const size_t LOW_WATER_FACTOR = 4;
 const size_t ALLOCATIONS_PER_COLLECTION = 4000;
 
+enum OperationInProgress { NoOperation, Allocation, Collection };
+
+struct CollectorHeap {
+  CollectorBlock** blocks;
+  size_t numBlocks;
+  size_t usedBlocks;
+  size_t firstBlockWithPossibleSpace;
+  
+  size_t numLiveObjects;
+  size_t numLiveObjectsAtLastCollect;
+  size_t extraCost;
+
+  OperationInProgress operationInProgress;
+};
+
 static CollectorHeap primaryHeap = { 0, 0, 0, 0, 0, 0, 0, NoOperation };
 static CollectorHeap numberHeap = { 0, 0, 0, 0, 0, 0, 0, NoOperation };
 
@@ -541,12 +556,34 @@ void Collector::markCurrentThreadConservatively()
 #pragma warning(pop)
 #endif
 
+#ifdef ANDROID_FIX
+    // The code is assuming that dummy is after registers on the stack. BUT it is really compiler 
+    // dependent. There is no guaranteed correspondence between the stack order and variables 
+    // declared order. If registers is after dummy in the stack, it won't be marked correctly and
+    // GC will free variables which should not be. http://bugs.webkit.org/show_bug.cgi?id=16204 
+    // is caused by this.
+    // To put dummy in a separate function and declare it as noinline, we ensure registers will be
+    // marked correctly.
+    markCurrentThreadConservativelyEx();
+#else
+    void* dummy;
+    void* stackPointer = &dummy;
+    void* stackBase = currentThreadStackBase();
+
+    markStackObjectsConservatively(stackPointer, stackBase);
+#endif
+}
+
+#ifdef ANDROID_FIX
+void Collector::markCurrentThreadConservativelyEx()
+{
     void* dummy;
     void* stackPointer = &dummy;
     void* stackBase = currentThreadStackBase();
 
     markStackObjectsConservatively(stackPointer, stackBase);
 }
+#endif
 
 #if USE(MULTIPLE_THREADS)
 

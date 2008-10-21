@@ -1,7 +1,9 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,10 +31,20 @@
 
 namespace WebCore {
 
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+    // in android, we have no pointer, so we can't access area elements
+    // via mapMouseEvent.  instead, we store the RenderImage here so we
+    // can use it to find its dimensions to focus on it and draw a ring
+    // around it
+    class RenderImage;
+#endif
+
 class HitTestResult;
 
 class HTMLAreaElement : public HTMLAnchorElement {
 public:
+    enum Shape { Default, Poly, Rect, Circle, Unknown };
+
     HTMLAreaElement(Document*);
     ~HTMLAreaElement();
 
@@ -56,7 +68,7 @@ public:
     String coords() const;
     void setCoords(const String&);
 
-    KURL href() const;
+    String href() const;
     void setHref(const String&);
 
     bool noHref() const;
@@ -70,14 +82,21 @@ public:
     virtual String target() const;
     void setTarget(const String&);
 
-private:
-    enum Shape { Default, Poly, Rect, Circle, Unknown };
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+    IntRect getAreaRect() const;
+    void setMap(RenderImage* map) { m_map = map; }
+#endif
+
+protected:
     Path getRegion(const IntSize&) const;
     Path region;
     Length* m_coords;
     int m_coordsLen;
     IntSize m_lastSize;
     Shape m_shape;
+#ifdef ANDROID_NAVIGATE_AREAMAPS
+    RenderImage* m_map;
+#endif
 };
 
 } //namespace

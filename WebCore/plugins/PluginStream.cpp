@@ -52,8 +52,7 @@ static StreamMap& streams()
 }
 
 PluginStream::PluginStream(PluginStreamClient* client, Frame* frame, const ResourceRequest& resourceRequest, bool sendNotification, void* notifyData, const NPPluginFuncs* pluginFuncs, NPP instance, const PluginQuirkSet& quirks)
-    : RefCounted<PluginStream>(0)
-    , m_resourceRequest(resourceRequest)
+    : m_resourceRequest(resourceRequest)
     , m_client(client)
     , m_frame(frame)
     , m_notifyData(notifyData)
@@ -130,10 +129,14 @@ void PluginStream::startStream()
 
     // Some plugins (Flash) expect that javascript URLs are passed back decoded as this is the
     // format used when requesting the URL.
+#ifdef ANDROID_JAVASCRIPT_SECURITY 
     if (responseURL.protocolIs("javascript"))
-        m_stream.url = strdup(decodeURLEscapeSequences(responseURL.string()).utf8().data());
+#else
+    if (responseURL.string().startsWith("javascript:", false))
+#endif
+        m_stream.url = strdup(responseURL.decode_string(responseURL.deprecatedString()).utf8());
     else
-        m_stream.url = strdup(responseURL.string().utf8().data());
+        m_stream.url = strdup(responseURL.deprecatedString().utf8());
     
     CString mimeTypeStr = m_resourceResponse.mimeType().utf8();
     
@@ -284,7 +287,7 @@ void PluginStream::destroyStream()
             // destructor, so reset it to 0
             m_stream.url = 0;
         }
-        m_pluginFuncs->urlnotify(m_instance, m_resourceRequest.url().string().utf8().data(), m_reason, m_notifyData);
+        m_pluginFuncs->urlnotify(m_instance, m_resourceRequest.url().deprecatedString().utf8(), m_reason, m_notifyData);
         if (m_loader)
             m_loader->setDefersLoading(false);
     }

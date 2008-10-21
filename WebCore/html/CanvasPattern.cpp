@@ -66,8 +66,7 @@ void CanvasPattern::parseRepetitionType(const String& type, bool& repeatX, bool&
 #if PLATFORM(CG)
 
 CanvasPattern::CanvasPattern(CGImageRef image, bool repeatX, bool repeatY)
-    : RefCounted<CanvasPattern>(0)
-    , m_platformImage(image)
+    : m_platformImage(image)
     , m_cachedImage(0)
     , m_repeatX(repeatX)
     , m_repeatY(repeatY)
@@ -77,8 +76,7 @@ CanvasPattern::CanvasPattern(CGImageRef image, bool repeatX, bool repeatY)
 #elif PLATFORM(CAIRO)
 
 CanvasPattern::CanvasPattern(cairo_surface_t* surface, bool repeatX, bool repeatY)
-    : RefCounted<CanvasPattern>(0)
-    , m_platformImage(cairo_surface_reference(surface))
+    : m_platformImage(cairo_surface_reference(surface))
     , m_cachedImage(0)
     , m_repeatX(repeatX)
     , m_repeatY(repeatY)
@@ -88,13 +86,17 @@ CanvasPattern::CanvasPattern(cairo_surface_t* surface, bool repeatX, bool repeat
 #endif
 
 CanvasPattern::CanvasPattern(CachedImage* cachedImage, bool repeatX, bool repeatY)
-    : RefCounted<CanvasPattern>(0)
+    :
 #if PLATFORM(CG) || PLATFORM(CAIRO)
-    , m_platformImage(0)
+      m_platformImage(0)
+    ,
 #endif
-    , m_cachedImage(cachedImage)
+      m_cachedImage(cachedImage)
     , m_repeatX(repeatX)
     , m_repeatY(repeatY)
+#ifdef ANDROID_CANVAS_IMPL
+    , m_platformPattern(NULL)
+#endif
 {
     if (cachedImage)
         cachedImage->ref(this);
@@ -102,6 +104,10 @@ CanvasPattern::CanvasPattern(CachedImage* cachedImage, bool repeatX, bool repeat
 
 CanvasPattern::~CanvasPattern()
 {
+#ifdef ANDROID_CANVAS_IMPL
+    if (m_platformPattern)
+        GraphicsContext::freePlatformPattern(m_platformPattern);
+#endif
 #if PLATFORM(CAIRO)
     if (m_platformImage)
         cairo_surface_destroy(m_platformImage);
@@ -209,6 +215,27 @@ cairo_pattern_t* CanvasPattern::createPattern(const cairo_matrix_t& m)
     return pattern;
 }
 
+#endif
+
+#ifdef ANDROID_CANVAS_IMPL
+/*  TODO
+    1) pass in graphics context or something in case Apple needs to see the current matrix. If so,
+       we may need to pass the current (if any) platformPatter to it, so it can free it in and build
+       a new one, if that is required (not needed by our platform).
+    2) Need a RepeatTile mode for Decal, so we can represent <canvas> notion of "no-repeat"
+*/
+PlatformPattern* CanvasPattern::platformPattern()
+{
+    if (NULL == m_platformPattern && m_cachedImage)
+    {
+        Image* image = m_cachedImage->image();
+        if (image)
+            m_platformPattern = GraphicsContext::newPlatformPattern(image,
+                                                                    m_repeatX ? Image::RepeatTile : Image::StretchTile,
+                                                                    m_repeatY ? Image::RepeatTile : Image::StretchTile);
+    }
+    return m_platformPattern;
+}
 #endif
 
 }

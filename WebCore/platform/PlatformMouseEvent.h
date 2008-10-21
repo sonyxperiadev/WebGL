@@ -129,7 +129,6 @@ namespace WebCore {
 #if PLATFORM(QT)
         PlatformMouseEvent(QInputEvent*, int clickCount);
 #endif
-
 #if PLATFORM(WX)
         PlatformMouseEvent(const wxMouseEvent&, const wxPoint& globalPoint);
 #endif

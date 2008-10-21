@@ -30,6 +30,9 @@
 #include "WorkQueueItem.h"
 
 #include <WebCore/COMPtr.h>
+#include <WebKit/IWebFrame.h>
+#include <WebKit/IWebURLRequest.h>
+#include <WebKit/IWebView.h>
 #include <WebKit/WebKit.h>
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/JSStringRefCF.h>

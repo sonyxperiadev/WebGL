@@ -29,20 +29,21 @@
 #if ENABLE(XPATH)
 
 #include "XPathNSResolver.h"
-#include "Node.h"
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+    class Node;
+
     class NativeXPathNSResolver : public XPathNSResolver {
     public:
-        static PassRefPtr<NativeXPathNSResolver> create(PassRefPtr<Node> node) { return adoptRef(new NativeXPathNSResolver(node)); }
+        NativeXPathNSResolver(PassRefPtr<Node>);
         virtual ~NativeXPathNSResolver();
 
         virtual String lookupNamespaceURI(const String& prefix);
 
     private:
-        NativeXPathNSResolver(PassRefPtr<Node>);
         RefPtr<Node> m_node;
     };
 
