@@ -42,7 +42,7 @@ use strict;
 use File::Basename;
 use File::Path;
 use File::Spec;
-use File::Temp;
+use File::Temp qw(tempfile);
 use Getopt::Long;
 use Time::HiRes qw(usleep);
 
@@ -204,13 +204,12 @@ sub createTempFile($)
 
     return undef if !$url;
 
-    my $fh = new File::Temp(
+    my ($fh, $tempFile) = tempfile(
+        basename($0) . "-XXXXXXXX",
         DIR => ($ENV{'TMPDIR'} || "/tmp"),
         SUFFIX => ".html",
-        TEMPLATE => basename($0) . "-XXXXXXXX",
         UNLINK => 0,
     );
-    my $tempFile = $fh->filename();
     print $fh "<meta http-equiv=\"refresh\" content=\"0; $url\">\n";
     close($fh);
 
@@ -319,7 +318,9 @@ sub makeNightlyList($$$$)
     }
 
     if (eval "v$macOSXVersion" ge v10.5) {
-        if (eval "v$safariVersion" ge v3.0) {
+        if (eval "v$safariVersion" ge v3.1) {
+            @files = grep { $_->{rev} >= 29711 } @files;
+        } elsif (eval "v$safariVersion" ge v3.0) {
             @files = grep { $_->{rev} >= 25124 } @files;
         } elsif (eval "v$safariVersion" ge v2.0) {
             @files = grep { $_->{rev} >= 19594 } @files;
@@ -327,7 +328,9 @@ sub makeNightlyList($$$$)
             die "Requires Safari 2.0 or newer";
         }
     } elsif (eval "v$macOSXVersion" ge v10.4) {
-        if (eval "v$safariVersion" ge v3.0) {
+        if (eval "v$safariVersion" ge v3.1) {
+            @files = grep { $_->{rev} >= 29711 } @files;
+        } elsif (eval "v$safariVersion" ge v3.0) {
             @files = grep { $_->{rev} >= 19992 } @files;
         } elsif (eval "v$safariVersion" ge v2.0) {
             @files = grep { $_->{rev} >= 11976 } @files;

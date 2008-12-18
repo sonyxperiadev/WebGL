@@ -2,7 +2,7 @@
     Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
     Copyright (C) 2006 Apple Computer, Inc.
     Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
-    Copyright (C) 2007 Rob Buis <buis@kde.org>
+    Copyright (C) 2007, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the WebKit project
 
@@ -153,7 +153,7 @@ void RenderSVGImage::layout()
     calcHeight();
 
     SVGImageElement* image = static_cast<SVGImageElement*>(node());
-    m_localBounds = FloatRect(image->x().value(), image->y().value(), image->width().value(), image->height().value());
+    m_localBounds = FloatRect(image->x().value(image), image->y().value(image), image->width().value(image), image->height().value(image));
 
     calculateAbsoluteBounds();
 
@@ -227,7 +227,7 @@ FloatRect RenderSVGImage::relativeBBox(bool) const
     return m_localBounds;
 }
 
-void RenderSVGImage::imageChanged(CachedImage* image)
+void RenderSVGImage::imageChanged(WrappedImagePtr image)
 {
     RenderImage::imageChanged(image);
 
@@ -241,7 +241,7 @@ void RenderSVGImage::calculateAbsoluteBounds()
 
 #if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
-    SVGResourceFilter* filter = getFilterById(document(), SVGURIReference::getTarget(style()->svgStyle()->filter()));
+    SVGResourceFilter* filter = getFilterById(document(), style()->svgStyle()->filter());
     if (filter)
         absoluteRect.unite(filter->filterBBoxForItemBBox(absoluteRect));
 #endif

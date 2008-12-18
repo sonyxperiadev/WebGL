@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,14 +28,13 @@
 
 #import <WebKit/WebHTMLView.h>
 
+#if !defined(ENABLE_NETSCAPE_PLUGIN_API)
+#define ENABLE_NETSCAPE_PLUGIN_API 1
+#endif
+
 @class DOMDocumentFragment;
-@class DOMElement;
 @class DOMNode;
 @class DOMRange;
-@class WebArchive;
-@class WebFrameBridge;
-@class WebView;
-@class WebFrame;
 @class WebPluginController;
 
 @protocol WebHTMLHighlighter
@@ -93,11 +92,12 @@
 - (BOOL)_isEditable;
 
 - (BOOL)_transparentBackground;
-- (void)_setTransparentBackground:(BOOL)f;
+- (void)_setTransparentBackground:(BOOL)isBackgroundTransparent;
 
 - (void)_setToolTip:(NSString *)string;
 
-// SPI's for Mail.
+// SPI used by Mail.
+// FIXME: These should all be moved to WebView; we won't always have a WebHTMLView.
 - (NSImage *)_selectionDraggingImage;
 - (NSRect)_selectionDraggingRect;
 - (DOMNode *)_insertOrderedList;
@@ -108,9 +108,14 @@
 - (DOMNode *)_increaseSelectionListLevelOrdered;
 - (DOMNode *)_increaseSelectionListLevelUnordered;
 - (void)_decreaseSelectionListLevel;
-- (void)_setHighlighter:(id<WebHTMLHighlighter>)highlighter ofType:(NSString*)type;
-- (void)_removeHighlighterOfType:(NSString*)type;
+- (void)_setHighlighter:(id <WebHTMLHighlighter>)highlighter ofType:(NSString *)type;
+- (void)_removeHighlighterOfType:(NSString *)type;
 - (DOMDocumentFragment *)_documentFragmentFromPasteboard:(NSPasteboard *)pasteboard forType:(NSString *)pboardType inContext:(DOMRange *)context subresources:(NSArray **)subresources;
+
+#if ENABLE_NETSCAPE_PLUGIN_API
+- (void)_resumeNullEventsForAllNetscapePlugins;
+- (void)_pauseNullEventsForAllNetscapePlugins;
+#endif
 
 // SPI for DumpRenderTree
 - (void)_updateFocusedAndActiveState;
@@ -121,6 +126,5 @@
 - (void)_layoutForPrinting;
 
 - (BOOL)_canSmartReplaceWithPasteboard:(NSPasteboard *)pasteboard;
-
 
 @end

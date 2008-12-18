@@ -35,6 +35,14 @@
 CFDictionaryPropertyBag::CFDictionaryPropertyBag()
 : m_refCount(1)
 {
+    gClassCount++;
+    gClassNameCount.add("CFDictionaryPropertyBag");
+}
+
+CFDictionaryPropertyBag::~CFDictionaryPropertyBag()
+{
+    gClassCount--;
+    gClassNameCount.remove("CFDictionaryPropertyBag");
 }
 
 CFDictionaryPropertyBag* CFDictionaryPropertyBag::createInstance()
@@ -171,7 +179,7 @@ HRESULT STDMETHODCALLTYPE CFDictionaryPropertyBag::Write(LPCOLESTR pszPropName, 
     if (!pszPropName || !pVar)
         return E_POINTER;
     if (!m_dictionary) {
-        m_dictionary = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        m_dictionary.adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     }
     void* cfObj;
     if (ConvertVariantToCFType(pVar, &cfObj)) {

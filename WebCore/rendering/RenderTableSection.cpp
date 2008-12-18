@@ -33,13 +33,11 @@
 #include "RenderTableCol.h"
 #include "RenderTableRow.h"
 #include "RenderView.h"
-#include "TextStream.h"
 #include <limits>
 #include <wtf/Vector.h>
 #ifdef ANDROID_LAYOUT
 #include "Frame.h"
 #include "Settings.h"
-#include "WebCoreViewBridge.h"
 #endif
 
 using namespace std;
@@ -85,17 +83,6 @@ void RenderTableSection::destroy()
         recalcTable->setNeedsSectionRecalc();
 }
 
-void RenderTableSection::setStyle(RenderStyle* newStyle)
-{
-    // we don't allow changing this one
-    if (style())
-        newStyle->setDisplay(style()->display());
-    else if (newStyle->display() != TABLE_FOOTER_GROUP && newStyle->display() != TABLE_HEADER_GROUP)
-        newStyle->setDisplay(TABLE_ROW_GROUP);
-
-    RenderContainer::setStyle(newStyle);
-}
-
 void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild)
 {
     // Make sure we don't append things after :after-generated content if we have it.
@@ -129,10 +116,10 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         }
 
         RenderObject* row = new (renderArena()) RenderTableRow(document() /* anonymous table */);
-        RenderStyle* newStyle = new (renderArena()) RenderStyle();
+        RefPtr<RenderStyle> newStyle = RenderStyle::create();
         newStyle->inheritFrom(style());
         newStyle->setDisplay(TABLE_ROW);
-        row->setStyle(newStyle);
+        row->setStyle(newStyle.release());
         addChild(row, beforeChild);
         row->addChild(child);
         return;
@@ -175,7 +162,7 @@ bool RenderTableSection::ensureRows(int numRows)
             m_grid.grow(numRows);
         }
         m_gridRows = numRows;
-        int nCols = table()->numEffCols();
+        int nCols = max(1, table()->numEffCols());
         CellStruct emptyCellStruct;
         emptyCellStruct.cell = 0;
         emptyCellStruct.inColSpan = false;
@@ -282,7 +269,7 @@ void RenderTableSection::setCellWidths()
         const Settings* settings = document()->settings();
         ASSERT(settings);
         if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-            visibleWidth = view()->frameView()->getWebCoreViewBridge()->screenWidth();
+            visibleWidth = view()->frameView()->screenWidth();
         }
     }
 #endif
@@ -339,11 +326,11 @@ void RenderTableSection::setCellWidths()
         view()->popLayoutState();
 }
 
-void RenderTableSection::calcRowHeight()
+int RenderTableSection::calcRowHeight()
 {
 #ifdef ANDROID_LAYOUT
     if (table()->isSingleColumn())
-        return;
+        return m_rowPos[m_gridRows];
 #endif    
     RenderTableCell* cell;
 
@@ -422,6 +409,8 @@ void RenderTableSection::calcRowHeight()
 
     if (pushedLayoutState)
         view()->popLayoutState();
+
+    return m_rowPos[m_gridRows];
 }
 
 int RenderTableSection::layoutRows(int toAdd)
@@ -484,9 +473,6 @@ int RenderTableSection::layoutRows(int toAdd)
     m_overflowHeight = 0;
     m_hasOverflowingCell = false;
 
-    if (table()->collapseBorders())
-        recalcOuterBorder();
-    
     if (toAdd && totalRows && (m_rowPos[totalRows] || !nextSibling())) {
         int totalHeight = m_rowPos[totalRows] + toAdd;
 
@@ -933,6 +919,25 @@ void RenderTableSection::recalcOuterBorder()
     m_outerBorderRight = calcOuterBorderRight(rtl);
 }
 
+int RenderTableSection::getBaselineOfFirstLineBox() const
+{
+    if (!m_gridRows)
+        return -1;
+
+    int firstLineBaseline = m_grid[0].baseline;
+    if (firstLineBaseline)
+        return firstLineBaseline + m_rowPos[0];
+
+    firstLineBaseline = -1;
+    Row* firstRow = m_grid[0].row;
+    for (size_t i = 0; i < firstRow->size(); ++i) {
+        RenderTableCell* cell = firstRow->at(i).cell;
+        if (cell)
+            firstLineBaseline = max(firstLineBaseline, cell->yPos() + cell->paddingTop() + cell->borderTop() + cell->contentHeight());
+    }
+
+    return firstLineBaseline;
+}
 
 void RenderTableSection::paint(PaintInfo& paintInfo, int tx, int ty)
 {
@@ -1069,11 +1074,8 @@ void RenderTableSection::paint(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
-void RenderTableSection::imageChanged(CachedImage* image)
+void RenderTableSection::imageChanged(WrappedImagePtr image)
 {
-    if (!image || !image->canRender() || !parent())
-        return;
-    
     // FIXME: Examine cells and repaint only the rect the image paints in.
     repaint();
 }
@@ -1175,23 +1177,5 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     
     return false;
 }
-
-#ifndef NDEBUG
-void RenderTableSection::dump(TextStream* stream, DeprecatedString ind) const
-{
-    *stream << endl << ind << "grid=(" << m_gridRows << "," << table()->numEffCols() << ")" << endl << ind;
-    for (int r = 0; r < m_gridRows; r++) {
-        for (int c = 0; c < table()->numEffCols(); c++) {
-            if (cellAt(r, c).cell && !cellAt(r, c).inColSpan)
-                *stream << "(" << cellAt(r, c).cell->row() << "," << cellAt(r, c).cell->col() << ","
-                        << cellAt(r, c).cell->rowSpan() << "," << cellAt(r, c).cell->colSpan() << ") ";
-            else
-                *stream << cellAt(r, c).cell << "null cell ";
-        }
-        *stream << endl << ind;
-    }
-    RenderContainer::dump(stream,ind);
-}
-#endif
 
 } // namespace WebCore

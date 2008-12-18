@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
@@ -30,12 +29,13 @@
 
 #include "collector.h"
 
-namespace KJS {
+namespace JSC {
+
+ASSERT_CLASS_FITS_IN_CELL(JSCallbackObject<JSObject>);
+ASSERT_CLASS_FITS_IN_CELL(JSCallbackObject<JSGlobalObject>);
 
 // Define the two types of JSCallbackObjects we support.
-template <> const ClassInfo JSCallbackObject<JSObject>::info = { "CallbackObject", 0, 0 };
-template <> const ClassInfo JSCallbackObject<JSGlobalObject>::info = { "CallbackGlobalObject", 0, 0 };
+template <> const ClassInfo JSCallbackObject<JSObject>::info = { "CallbackObject", 0, 0, 0 };
+template <> const ClassInfo JSCallbackObject<JSGlobalObject>::info = { "CallbackGlobalObject", 0, 0, 0 };
 
-COMPILE_ASSERT(sizeof(JSCallbackObject<JSGlobalObject>) <= CELL_SIZE, global_callback_object_fits_in_cell);
-
-} // namespace KJS
+} // namespace JSC

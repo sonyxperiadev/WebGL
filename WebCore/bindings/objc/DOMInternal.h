@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple, Inc.  All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
  *
@@ -27,9 +27,7 @@
 
 #import "DOM.h"
 
-#import "Color.h"
 #import "DOMObject.h"
-#import "DOMRGBColor.h"
 #import "HitTestResult.h"
 
 #if ENABLE(XPATH)
@@ -56,6 +54,8 @@
 #import "DOMCSSUnknownRuleInternal.h"
 #import "DOMCSSValueInternal.h"
 #import "DOMCSSValueListInternal.h"
+#import "DOMCSSVariablesRuleInternal.h"
+#import "DOMCSSVariablesDeclarationInternal.h"
 #import "DOMCharacterDataInternal.h"
 #import "DOMCommentInternal.h"
 #import "DOMCounterInternal.h"
@@ -67,6 +67,8 @@
 #import "DOMEntityInternal.h"
 #import "DOMEntityReferenceInternal.h"
 #import "DOMEventInternal.h"
+#import "DOMFileInternal.h"
+#import "DOMFileListInternal.h"
 #import "DOMHTMLAnchorElementInternal.h"
 #import "DOMHTMLAppletElementInternal.h"
 #import "DOMHTMLAreaElementInternal.h"
@@ -127,6 +129,7 @@
 #import "DOMHTMLUListElementInternal.h"
 #import "DOMKeyboardEventInternal.h"
 #import "DOMMediaListInternal.h"
+#import "DOMMessagePortInternal.h"
 #import "DOMMouseEventInternal.h"
 #import "DOMMutationEventInternal.h"
 #import "DOMNamedNodeMapInternal.h"
@@ -136,18 +139,23 @@
 #import "DOMNotationInternal.h"
 #import "DOMOverflowEventInternal.h"
 #import "DOMProcessingInstructionInternal.h"
+#import "DOMRGBColorInternal.h"
 #import "DOMRangeInternal.h"
 #import "DOMRectInternal.h"
 #import "DOMStyleSheetInternal.h"
 #import "DOMStyleSheetListInternal.h"
-#import "DOMTextInternal.h"
 #import "DOMTextEventInternal.h"
+#import "DOMTextInternal.h"
 #import "DOMTreeWalkerInternal.h"
 #import "DOMUIEventInternal.h"
+#import "DOMWebKitCSSKeyframeRuleInternal.h"
+#import "DOMWebKitCSSKeyframesRuleInternal.h"
+#import "DOMWebKitCSSTransformValueInternal.h"
 #import "DOMWheelEventInternal.h"
 
 #if ENABLE(SVG)
 #import "DOMSVGAElementInternal.h"
+#import "DOMSVGAltGlyphElementInternal.h"
 #import "DOMSVGAngleInternal.h"
 #import "DOMSVGAnimateColorElementInternal.h"
 #import "DOMSVGAnimateElementInternal.h"
@@ -279,7 +287,7 @@
 #import "DOMSVGZoomEventInternal.h"
 #endif // ENABLE(SVG)
 
-namespace KJS {
+namespace JSC {
     class JSObject;
     
     namespace Bindings {
@@ -307,13 +315,6 @@ namespace WebCore {
 - (id)_init;
 @end
 
-// CSS Internal Interfaces
-
-@interface DOMRGBColor (WebCoreInternal)
-+ (DOMRGBColor *)_wrapRGBColor:(WebCore::RGBA32)value;
-- (WebCore::RGBA32)_RGBColor;
-@end
-
 // Traversal Internal Interfaces
 
 @interface DOMNodeFilter : DOMObject <DOMNodeFilter>
@@ -335,7 +336,7 @@ namespace WebCore {
 
 namespace WebCore {
 
-    id createDOMWrapper(KJS::JSObject*, PassRefPtr<KJS::Bindings::RootObject> origin, PassRefPtr<KJS::Bindings::RootObject> current);
+    id createDOMWrapper(JSC::JSObject*, PassRefPtr<JSC::Bindings::RootObject> origin, PassRefPtr<JSC::Bindings::RootObject> current);
 
     NSObject* getDOMWrapper(DOMObjectInternal*);
     void addDOMWrapper(NSObject* wrapper, DOMObjectInternal*);

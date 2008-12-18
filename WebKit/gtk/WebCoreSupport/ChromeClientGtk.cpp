@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007, 2008 Christian Dywan <christian@imendio.com>
+ * Copyright (C) 2008 Nuanti Ltd.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,6 +21,8 @@
 #include "config.h"
 #include "ChromeClientGtk.h"
 
+#include "FileSystem.h"
+#include "FileChooser.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include "PlatformString.h"
@@ -30,10 +33,18 @@
 #include "webkitprivate.h"
 #include "NotImplemented.h"
 #include "WindowFeatures.h"
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
+
+#include <glib.h>
+#include <glib/gi18n.h>
+#include <gtk/gtk.h>
 
 using namespace WebCore;
 
 namespace WebKit {
+
 ChromeClient::ChromeClient(WebKitWebView* webView)
     : m_webView(webView)
 {
@@ -256,19 +267,68 @@ IntRect ChromeClient::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClient::addToDirtyRegion(const IntRect&)
+void ChromeClient::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
 {
-    notImplemented();
+    if (!m_webView)
+        return;
+
+    GdkRectangle rect = windowRect;
+    GdkWindow* window = GTK_WIDGET(m_webView)->window;
+
+    if (window) {
+        if (contentChanged)
+            gdk_window_invalidate_rect(window, &rect, FALSE);
+        // We don't currently do immediate updates since they delay other UI elements.
+        //if (immediate)
+        //    gdk_window_process_updates(window, FALSE);
+    }
 }
 
-void ChromeClient::scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect)
+void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
-    notImplemented();
+    if (!m_webView)
+        return;
+
+    GdkWindow* window = GTK_WIDGET(m_webView)->window;
+    if (!window)
+        return;
+
+    GdkRectangle area = clipRect;
+    GdkRectangle moveRect;
+
+    GdkRectangle sourceRect = area;
+    sourceRect.x -= delta.width();
+    sourceRect.y -= delta.height();
+
+    GdkRegion* invalidRegion = gdk_region_rectangle(&area);
+
+    if (gdk_rectangle_intersect(&area, &sourceRect, &moveRect)) {
+        GdkRegion* moveRegion = gdk_region_rectangle(&moveRect);
+        gdk_window_move_region(window, moveRegion, delta.width(), delta.height());
+        gdk_region_offset(moveRegion, delta.width(), delta.height());
+        gdk_region_subtract(invalidRegion, moveRegion);
+        gdk_region_destroy(moveRegion);
+    }
+
+    gdk_window_invalidate_region(window, invalidRegion, FALSE);
+    gdk_region_destroy(invalidRegion);
 }
 
-void ChromeClient::updateBackingStore()
+IntRect ChromeClient::windowToScreen(const IntRect& rect) const
 {
     notImplemented();
+    return rect;
+}
+
+IntPoint ChromeClient::screenToWindow(const IntPoint& point) const
+{
+    notImplemented();
+    return point;
+}
+
+PlatformWidget ChromeClient::platformWindow() const
+{
+    return m_webView ? GTK_WIDGET(m_webView) : 0;
 }
 
 void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned modifierFlags)
@@ -279,7 +339,7 @@ void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned mo
         KURL url = hit.absoluteLinkURL();
         if (!url.isEmpty() && url != m_hoveredLinkURL) {
             CString titleString = hit.title().utf8();
-            DeprecatedCString urlString = url.prettyURL().utf8();
+            CString urlString = url.prettyURL().utf8();
             g_signal_emit_by_name(m_webView, "hovering-over-link", titleString.data(), urlString.data());
             m_hoveredLinkURL = url;
         }
@@ -308,9 +368,37 @@ void ChromeClient::print(Frame* frame)
     webkit_web_frame_print(kit(frame));
 }
 
-void ChromeClient::exceededDatabaseQuota(Frame*, const String&)
+void ChromeClient::exceededDatabaseQuota(Frame* frame, const String&)
 {
+#if ENABLE(DATABASE)
+    // Set to 5M for testing
+    // FIXME: Make this configurable
     notImplemented();
+    const unsigned long long defaultQuota = 5 * 1024 * 1024;
+    DatabaseTracker::tracker().setQuota(frame->document()->securityOrigin(), defaultQuota);
+#endif
+}
+
+void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
+{
+    // FIXME: Support multiple files.
+
+    RefPtr<FileChooser> fileChooser = prpFileChooser;
+
+    GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Upload File"),
+                                                    GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(platformWindow()))),
+                                                    GTK_FILE_CHOOSER_ACTION_OPEN,
+                                                    GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                                                    GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
+                                                    NULL);
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        if (filename)
+            fileChooser->chooseFile(filenameToString(filename));
+        g_free(filename);
+    }
+    gtk_widget_destroy(dialog);
 }
 
 }

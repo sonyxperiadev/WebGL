@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,29 +25,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#import "WebSecurityOriginPrivate.h"
 
 #import "WebSecurityOriginInternal.h"
 
 #import <WebCore/DatabaseTracker.h>
+#import <WebCore/KURL.h>
 #import <WebCore/SecurityOrigin.h>
 
 using namespace WebCore;
 
 @implementation WebSecurityOrigin
-
-- (id)initWithProtocol:(NSString *)protocol domain:(NSString *)domain
-{
-    return [self initWithProtocol:protocol domain:domain port:0];
-}
-
-- (id)initWithProtocol:(NSString *)protocol domain:(NSString *)domain port:(unsigned short)port
+- (id)initWithURL:(NSURL *)url
 {
     self = [super init];
     if (!self)
         return nil;
-    
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(protocol, domain, port, 0);
+
+    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(KURL([url absoluteURL]));
     origin->ref();
     _private = reinterpret_cast<WebSecurityOriginPrivate*>(origin.get());
 
@@ -59,9 +53,15 @@ using namespace WebCore;
     return reinterpret_cast<SecurityOrigin*>(_private)->protocol();
 }
 
-- (NSString*)domain
+- (NSString*)host
 {
     return reinterpret_cast<SecurityOrigin*>(_private)->host();
+}
+
+// Deprecated. Use host instead. This needs to stay here until we ship a new Safari.
+- (NSString*)domain
+{
+    return [self host];
 }
 
 - (unsigned short)port

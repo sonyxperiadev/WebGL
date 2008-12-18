@@ -1,12 +1,10 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- *           (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ *           (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,12 +37,16 @@
 namespace WebCore {
 
     class AtomicString;
+    class DOMApplicationCache;
     class Event;
     class EventListener;
     class EventTargetNode;
+    class MessagePort;
     class RegisteredEventListener;
+    class ScriptExecutionContext;
     class SVGElementInstance;
     class XMLHttpRequest;
+    class XMLHttpRequestUpload;
 
     typedef int ExceptionCode;
 
@@ -53,16 +55,22 @@ namespace WebCore {
 
     class EventTarget {
     public:
+        virtual MessagePort* toMessagePort();
         virtual EventTargetNode* toNode();
         virtual XMLHttpRequest* toXMLHttpRequest();
-
+        virtual XMLHttpRequestUpload* toXMLHttpRequestUpload();
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        virtual DOMApplicationCache* toDOMApplicationCache();
+#endif
 #if ENABLE(SVG)
         virtual SVGElementInstance* toSVGElementInstance();
 #endif
 
+        virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
+
         virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture) = 0;
         virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture) = 0;
-        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&, bool tempEvent = false) = 0;
+        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&) = 0;
 
         void ref() { refEventTarget(); }
         void deref() { derefEventTarget(); }
@@ -75,41 +83,18 @@ namespace WebCore {
     protected:
         virtual ~EventTarget();
 
-        void addEventListener(EventTargetNode* referenceNode, const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-        void removeEventListener(EventTargetNode* referenceNode, const AtomicString& eventType, EventListener*, bool useCapture);
-
-        bool dispatchGenericEvent(EventTargetNode* referenceNode, PassRefPtr<Event>, ExceptionCode&, bool tempEvent);
-        void removeAllEventListeners(EventTargetNode* referenceNode);
-
-        void insertedIntoDocument(EventTargetNode* referenceNode);
-        void removedFromDocument(EventTargetNode* referenceNode);
-
-        void handleLocalEvents(EventTargetNode* referenceNode, Event*, bool useCapture);
-
-        // For non SVG elements it will return 'referenceNode' and not modify it.
-        // For SVG elements it eventually returns an event target not equal to 'referenceNode'.
-        // 
-        // If 'referenceNode' is a child of a SVG <use> element it will return the corresponding SVGElementInstance
-        // as new event target - and 'referenceNode' will be set to the shadow tree element associated with
-        // the SVGElementInstance. Be sure to always dispatch/handle your events on this new event target.
-        EventTarget* eventTargetRespectingSVGTargetRules(EventTargetNode*& referenceNode);
-
     private:
         virtual void refEventTarget() = 0;
         virtual void derefEventTarget() = 0;
     };
 
 #ifndef NDEBUG
-
 void forbidEventDispatch();
 void allowEventDispatch();
 bool eventDispatchForbidden();
-
 #else
-
 inline void forbidEventDispatch() { }
 inline void allowEventDispatch() { }
-
 #endif // NDEBUG 
 
 }

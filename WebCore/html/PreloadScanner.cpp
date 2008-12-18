@@ -1,37 +1,32 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #include "config.h"
-#ifdef ANDROID_PRELOAD_CHANGES
 #include "PreloadScanner.h"
 
 #include "AtomicString.h"
-#include "Cache.h"
 #include "CachedCSSStyleSheet.h"
 #include "CachedImage.h"
 #include "CachedResource.h"
@@ -46,6 +41,7 @@
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
 #include "SystemTime.h"
+#include <wtf/unicode/Unicode.h>
 
 #ifdef __GNUC__
 // The main tokenizer includes this too so we are getting two copies of the data. However, this way the code gets inlined.
@@ -60,6 +56,8 @@ const struct Entity* findEntity(register const char* str, register unsigned int 
 #endif
 
 #define PRELOAD_DEBUG 0
+
+using namespace WTF;
 
 namespace WebCore {
     
@@ -123,7 +121,7 @@ void PreloadScanner::reset()
     m_cssRuleValue.clear();
 }
     
-bool PreloadScanner::inBody() const
+bool PreloadScanner::scanningBody() const
 {
     return m_document->body() || m_bodySeen;
 }
@@ -352,11 +350,13 @@ void PreloadScanner::tokenize(const SegmentedString& source)
                     m_state = CloseTagOpen;
                 else if (cc >= 'A' && cc <= 'Z') {
                     m_tagName.clear();
+                    m_charset = String();
                     m_tagName.append(cc + 0x20);
                     m_closeTag = false;
                     m_state = TagName;
                 } else if (cc >= 'a' && cc <= 'z') {
                     m_tagName.clear();
+                    m_charset = String();
                     m_tagName.append(cc);
                     m_closeTag = false;
                     m_state = TagName;
@@ -382,7 +382,7 @@ void PreloadScanner::tokenize(const SegmentedString& source)
                 UChar tmpChar = 0;
                 bool match = true;
                 for (unsigned n = 0; n < m_lastStartTag.length() + 1; n++) {
-                    tmpChar = u_tolower(*m_source);
+                    tmpChar = Unicode::toLower(*m_source);
                     if (n < m_lastStartTag.length() && tmpChar != m_lastStartTag[n])
                         match = false;
                     tmpString.append(tmpChar);
@@ -396,11 +396,13 @@ void PreloadScanner::tokenize(const SegmentedString& source)
             }
             if (cc >= 'A' && cc <= 'Z') {
                 m_tagName.clear();
+                m_charset = String();
                 m_tagName.append(cc + 0x20);
                 m_closeTag = true;
                 m_state = TagName;
             } else if (cc >= 'a' && cc <= 'z') {
                 m_tagName.clear();
+                m_charset = String();
                 m_tagName.append(cc);
                 m_closeTag = true;
                 m_state = TagName;
@@ -698,8 +700,9 @@ void PreloadScanner::processAttribute()
             bool styleSheet = false;
             bool alternate = false;
             bool icon = false;
-            HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon);
-            m_linkIsStyleSheet = styleSheet && !alternate && !icon;
+            bool dnsPrefetch = false;
+            HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon, dnsPrefetch);
+            m_linkIsStyleSheet = styleSheet && !alternate && !icon && !dnsPrefetch;
         } else if (attribute == charsetAttr)
             m_charset = value;
     }
@@ -823,11 +826,11 @@ void PreloadScanner::emitTag()
     }
     
     if (tag == scriptTag)
-        m_document->docLoader()->preload(CachedResource::Script, m_urlToLoad, m_charset, inBody());
+        m_document->docLoader()->preload(CachedResource::Script, m_urlToLoad, m_charset, scanningBody());
     else if (tag == imgTag) 
-        m_document->docLoader()->preload(CachedResource::ImageResource, m_urlToLoad, String(), inBody());
+        m_document->docLoader()->preload(CachedResource::ImageResource, m_urlToLoad, String(), scanningBody());
     else if (tag == linkTag && m_linkIsStyleSheet) 
-        m_document->docLoader()->preload(CachedResource::CSSStyleSheet, m_urlToLoad, m_charset, inBody());
+        m_document->docLoader()->preload(CachedResource::CSSStyleSheet, m_urlToLoad, m_charset, scanningBody());
 
     m_urlToLoad = String();
     m_charset = String();
@@ -837,15 +840,14 @@ void PreloadScanner::emitTag()
 void PreloadScanner::emitCSSRule()
 {
     String rule(m_cssRule.data(), m_cssRule.size());
-    if (rule.lower() == "import" && !m_cssRuleValue.isEmpty()) {
+    if (equalIgnoringCase(rule, "import") && !m_cssRuleValue.isEmpty()) {
         String value(m_cssRuleValue.data(), m_cssRuleValue.size());
         String url = parseURL(value);
         if (!url.isEmpty())
-            m_document->docLoader()->preload(CachedResource::CSSStyleSheet, url, String(), inBody());
+            m_document->docLoader()->preload(CachedResource::CSSStyleSheet, url, String(), scanningBody());
     }
     m_cssRule.clear();
     m_cssRuleValue.clear();
 }
                 
 }
-#endif //ANDROID_PRELOAD_CHANGES

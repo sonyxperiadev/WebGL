@@ -29,21 +29,21 @@
 #if ENABLE(XPATH)
 
 #include "CString.h"
+#include "Console.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
-#include "Page.h"
-
-#include "kjs_binding.h"
-#include "kjs_proxy.h"
-#include "kjs_window.h"
+#include "JSDOMWindowCustom.h"
+#include "JSDOMBinding.h"
+#include "ScriptController.h"
+#include <runtime/JSLock.h>
 
 namespace WebCore {
 
-using namespace KJS;
+using namespace JSC;
 
-PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(KJS::ExecState* exec, KJS::JSValue* value)
+PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(JSC::ExecState* exec, JSC::JSValue* value)
 {
     if (value->isUndefinedOrNull())
         return 0;
@@ -54,7 +54,7 @@ PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(KJS::ExecSta
         return 0;
     }
     
-    return new JSCustomXPathNSResolver(resolverObject, KJS::Window::retrieveActive(exec)->impl()->frame());
+    return adoptRef(new JSCustomXPathNSResolver(resolverObject, asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame()));
 }
 
 JSCustomXPathNSResolver::JSCustomXPathNSResolver(JSObject* customResolver, Frame* frame)
@@ -73,54 +73,40 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
 
     if (!m_frame)
         return String();
-    if (!m_frame->scriptProxy()->isEnabled())
+    if (!m_frame->script()->isEnabled())
         return String();
 
-    JSLock lock;
+    JSLock lock(false);
 
-    JSGlobalObject* globalObject = m_frame->scriptProxy()->globalObject();
+    JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    JSValue* lookupNamespaceURIFuncValue = m_customResolver->get(exec, "lookupNamespaceURI");
-    JSObject* lookupNamespaceURIFunc = 0;
-    if (lookupNamespaceURIFuncValue->isObject()) {      
-        lookupNamespaceURIFunc = static_cast<JSObject*>(lookupNamespaceURIFuncValue);
-        if (!lookupNamespaceURIFunc->implementsCall())
-            lookupNamespaceURIFunc = 0;
-    }
-
-    if (!lookupNamespaceURIFunc && !m_customResolver->implementsCall()) {
-        // FIXME: pass actual line number and source URL.
-        if (Page* page = m_frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, "XPathNSResolver does not have a lookupNamespaceURI method.", 0, String());
-        return String();
+    JSValue* function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
+    CallData callData;
+    CallType callType = function->getCallData(callData);
+    if (callType == CallTypeNone) {
+        callType = m_customResolver->getCallData(callData);
+        if (callType == CallTypeNone) {
+            // FIXME: Pass actual line number and source URL.
+            m_frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "XPathNSResolver does not have a lookupNamespaceURI method.", 0, String());
+            return String();
+        }
+        function = m_customResolver;
     }
 
     RefPtr<JSCustomXPathNSResolver> selfProtector(this);
 
-    List args;
-    args.append(jsString(prefix));
+    ArgList args;
+    args.append(jsString(exec, prefix));
 
-    String result;
-    JSValue* retval;
     globalObject->startTimeoutCheck();
-    if (lookupNamespaceURIFunc)
-        retval = lookupNamespaceURIFunc->call(exec, m_customResolver, args);
-    else
-        retval = m_customResolver->call(exec, m_customResolver, args);
+    JSValue* retval = call(exec, function, callType, callData, m_customResolver, args);
     globalObject->stopTimeoutCheck();
 
-    if (exec->hadException()) {
-        JSObject* exception = exec->exception()->toObject(exec);
-        String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-        int lineNumber = exception->get(exec, "line")->toInt32(exec);
-        String sourceURL = exception->get(exec, "sourceURL")->toString(exec);
-        if (Interpreter::shouldPrintExceptions())
-            printf("XPathNSResolver: %s\n", message.utf8().data());
-        if (Page* page = m_frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, sourceURL);
-        exec->clearException();
-    } else {
+    String result;
+    if (exec->hadException())
+        m_frame->domWindow()->console()->reportCurrentException(exec);
+    else {
         if (!retval->isUndefinedOrNull())
             result = retval->toString(exec);
     }

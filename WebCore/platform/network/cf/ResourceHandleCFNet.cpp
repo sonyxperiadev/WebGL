@@ -31,6 +31,7 @@
 
 #include "AuthenticationCF.h"
 #include "AuthenticationChallenge.h"
+#include "CookieStorageWin.h"
 #include "CString.h"
 #include "DocLoader.h"
 #include "Frame.h"
@@ -40,7 +41,8 @@
 #include "ResourceError.h"
 #include "ResourceResponse.h"
 
-#include <WTF/HashMap.h>
+#include <wtf/HashMap.h>
+#include <wtf/Threading.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -209,7 +211,7 @@ void emptyPerform(void* unused)
 }
 
 static CFRunLoopRef loaderRL = 0;
-void runLoaderThread(void *unused)
+void* runLoaderThread(void *unused)
 {
     loaderRL = CFRunLoopGetCurrent();
 
@@ -219,12 +221,14 @@ void runLoaderThread(void *unused)
     CFRunLoopAddSource(loaderRL, bogusSource,kCFRunLoopDefaultMode);
 
     CFRunLoopRun();
+
+    return 0;
 }
 
 CFRunLoopRef ResourceHandle::loaderRunLoop()
 {
     if (!loaderRL) {
-        _beginthread(runLoaderThread, 0, 0);
+        createThread(runLoaderThread, 0, "CFNetwork::Loader");
         while (loaderRL == 0) {
             // FIXME: sleep 10? that can't be right...
             Sleep(10);
@@ -258,8 +262,10 @@ static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool sho
     if (sslProps)
         CFURLRequestSetSSLProperties(newRequest, sslProps.get());
 
-    if (CFHTTPCookieStorageRef defaultCookieStorage = wkGetDefaultHTTPCookieStorage())
-        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(defaultCookieStorage));
+    if (CFHTTPCookieStorageRef cookieStorage = currentCookieStorage()) {
+        CFURLRequestSetHTTPCookieStorage(newRequest, cookieStorage);
+        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(cookieStorage));
+    }
 
     return newRequest;
 }
@@ -381,13 +387,17 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, R
 
     CFDataRef data = CFURLConnectionSendSynchronousRequest(cfRequest.get(), &cfResponse, &cfError, request.timeoutInterval());
 
-    response = cfResponse;
-    if (cfResponse)
-        CFRelease(cfResponse);
-
-    error = cfError;
-    if (cfError)
+    if (cfError) {
+        error = cfError;
         CFRelease(cfError);
+
+        response = ResourceResponse(request.url(), String(), 0, String(), String());
+        response.setHTTPStatusCode(404);
+    } else {
+        response = cfResponse;
+        if (cfResponse)
+            CFRelease(cfResponse);
+    }
 
     if (data) {
         ASSERT(vector.isEmpty());
@@ -408,6 +418,9 @@ void ResourceHandle::setClientCertificate(const String& host, CFDataRef cert)
 
 void ResourceHandle::setDefersLoading(bool defers)
 {
+    if (!d->m_connection)
+        return;
+
     if (defers)
         CFURLConnectionHalt(d->m_connection.get());
     else

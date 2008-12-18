@@ -36,7 +36,10 @@ typedef struct CGImageSource* CGImageSourceRef;
 typedef struct CGImage* CGImageRef;
 typedef const struct __CFData* CFDataRef;
 #elif PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
 class QPixmap;
+QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
@@ -44,6 +47,8 @@ typedef struct _cairo_surface cairo_surface_t;
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
+#elif PLATFORM(SKIA)
+class NativeImageSkia;
 #endif
 
 namespace WebCore {
@@ -71,10 +76,14 @@ struct NativeImageSourcePtr {
 };
 typedef const Vector<char>* NativeBytePtr;
 typedef SkBitmapRef* NativeImagePtr;
-#else
+#elif PLATFORM(CAIRO)
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef cairo_surface_t* NativeImagePtr;
+#elif PLATFORM(SKIA)
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef NativeImageSkia* NativeImagePtr;
 #endif
 
 const int cAnimationLoopOnce = -1;
@@ -93,7 +102,8 @@ public:
 
     bool isSizeAvailable();
     IntSize size() const;
-    
+    IntSize frameSizeAtIndex(size_t) const;
+
     int repetitionCount();
     
     size_t frameCount() const;

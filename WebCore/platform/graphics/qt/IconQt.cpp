@@ -22,7 +22,6 @@
 #include "Icon.h"
 
 #include "GraphicsContext.h"
-#include "DeprecatedString.h"
 #include "PlatformString.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
@@ -42,11 +41,17 @@ Icon::~Icon()
 {
 }
     
-PassRefPtr<Icon> Icon::newIconForFile(const String& filename)
+PassRefPtr<Icon> Icon::createIconForFile(const String& filename)
 {
-    Icon *i = new Icon;
+    RefPtr<Icon> i = adoptRef(new Icon);
     i->m_icon = QIcon(filename);
-    return PassRefPtr<Icon>(i);
+    return i.release();
+}
+
+PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
+{
+    //FIXME: Implement this
+    return 0;
 }
 
 void Icon::paint(GraphicsContext* ctx, const IntRect& rect)

@@ -21,11 +21,10 @@
 #include "SkCanvas.h"
 
 namespace WebCore {
-        
-PlatformGraphicsContext::PlatformGraphicsContext(SkCanvas* canvas) : mCanvas(canvas), m_deleteCanvas(false)
+
+PlatformGraphicsContext::PlatformGraphicsContext(SkCanvas* canvas, WTF::Vector<Container>* buttons)
+        : mCanvas(canvas), m_deleteCanvas(false), m_buttons(buttons)
 {
-    // This is useful only if this Canvas is part of an SkPicture object.
-    m_buttons = new SkTDArray<Container*>;
 }
 
 PlatformGraphicsContext::PlatformGraphicsContext() : m_deleteCanvas(true)
@@ -42,32 +41,29 @@ PlatformGraphicsContext::~PlatformGraphicsContext()
 //        printf("-------------------- deleting offscreen canvas\n");
         delete mCanvas;
     }
-    if (m_buttons != NULL) {
-        m_buttons->deleteAll();
-        delete m_buttons;
-    }
-}
-
-SkTDArray<Container*>* PlatformGraphicsContext::getAndClearButtonInfo()
-{
-    // The caller is now responsible for deleting the array
-    SkTDArray<Container*>* buttons = m_buttons;
-    m_buttons = NULL;
-    return buttons;
 }
 
 void PlatformGraphicsContext::storeButtonInfo(Node* node, const IntRect& r)
 {
     if (m_buttons == NULL)
         return;
-    // Initialize all of the nodes to have disabled state, so that we guarantee 
-    // that we paint all of them the first time.
-    RenderSkinAndroid::State state = RenderSkinAndroid::kDisabled;
-    Container* container = new Container(node, r, state);
+    // Check to see if we already have a Container for this node.  If so, update
+    // it with the new rectangle and make the new recording canvas reference
+    // its picture.
+    Container* end = m_buttons->end();
+    for (Container* ptr = m_buttons->begin(); ptr != end; ptr++) {
+        if (ptr->matches(node)) {
+            mCanvas->drawPicture(*(ptr->picture()));
+            ptr->setRect(r);
+            return;
+        }
+    }
+    // We did not have a Container representing this node, so create a new one.
+    Container container(node, r);
     // Place a reference to our subpicture in the Picture.
-    mCanvas->drawPicture(*(container->picture()));
+    mCanvas->drawPicture(*(container.picture()));
     // Keep track of the information about the button.
-    *m_buttons->append() = container;
+    m_buttons->append(container);
 }
 
 }   // WebCore

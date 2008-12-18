@@ -25,8 +25,10 @@
 
 #include "config.h"
 #include "WebLocalizableStrings.h"
+#include <WebCore/IntSize.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/PlatformString.h>
+#include <wtf/RetainPtr.h>
 
 using namespace WebCore;
 
@@ -80,6 +82,32 @@ String WebCore::AXLinkText() { return String(LPCTSTR_UI_STRING("link", "accessib
 String WebCore::AXListMarkerText() { return String(LPCTSTR_UI_STRING("list marker", "accessibility role description for list marker")); }
 String WebCore::AXImageMapText() { return String(LPCTSTR_UI_STRING("image map", "accessibility role description for image map")); }
 String WebCore::AXHeadingText() { return String(LPCTSTR_UI_STRING("heading", "accessibility role description for headings")); }
+String WebCore::AXDefinitionListTermText() { return String(LPCTSTR_UI_STRING("term", "term word of a definition")); }
+String WebCore::AXDefinitionListDefinitionText() { return String(LPCTSTR_UI_STRING("definition", "definition phrase")); }
+String WebCore::AXButtonActionVerb() { return String(LPCTSTR_UI_STRING("press", "Verb stating the action that will occur when a button is pressed, as used by accessibility")); }
+String WebCore::AXRadioButtonActionVerb() { return String(LPCTSTR_UI_STRING("select", "Verb stating the action that will occur when a radio button is clicked, as used by accessibility")); }
+String WebCore::AXTextFieldActionVerb() { return String(LPCTSTR_UI_STRING("activate", "Verb stating the action that will occur when a text field is selected, as used by accessibility")); }
+String WebCore::AXCheckedCheckBoxActionVerb() { return String(LPCTSTR_UI_STRING("uncheck", "Verb stating the action that will occur when a checked checkbox is clicked, as used by accessibility")); }
+String WebCore::AXUncheckedCheckBoxActionVerb() { return String(LPCTSTR_UI_STRING("check", "Verb stating the action that will occur when an unchecked checkbox is clicked, as used by accessibility")); }
+String WebCore::AXLinkActionVerb() { return String(LPCTSTR_UI_STRING("jump", "Verb stating the action that will occur when a link is clicked, as used by accessibility")); }
 String WebCore::unknownFileSizeText() { return String(LPCTSTR_UI_STRING("Unknown", "Unknown filesize FTP directory listing item")); }
 String WebCore::uploadFileText() { return String(LPCTSTR_UI_STRING("Upload file", "(Windows) Form submit file upload dialog title")); }
 String WebCore::allFilesText() { return String(LPCTSTR_UI_STRING("All Files", "(Windows) Form submit file upload all files pop-up")); }
+
+String WebCore::imageTitle(const String& filename, const IntSize& size) 
+{ 
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
+
+    RetainPtr<CFStringRef> filenameCF(AdoptCF, filename.createCFString());
+    RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), filenameCF.get(), size.width(), size.height()));
+
+    return result.get();
+}
+
+String multipleFileUploadText(unsigned numberOfFiles)
+{
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%d files", "Label to describe the number of files selected in a file upload control that allows multiple files"));
+    RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), numberOfFiles));
+
+    return result.get();
+}

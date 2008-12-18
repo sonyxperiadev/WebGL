@@ -33,66 +33,88 @@
     #include "wx/wx.h"
 #endif
 
-#include "WebView.h"
-#include <wx/srchctrl.h>
+class WebViewPrivate;
+class WebViewFrameData;
+class wxWebView;
 
-class WXDLLIMPEXP_WEBKIT wxWebFrame : public wxFrame
-{
-public:
-    // ctor(s)
-#if SWIG
-    %pythonAppend wxWebFrame "self._setOORInfo(self)"
-#endif
-    wxWebFrame(const wxString& title);
+namespace WebCore {
+    class ChromeClientWx;
+    class FrameLoaderClientWx;
+    class Frame;
+}
 
 #ifndef SWIG
+
+#if WXMAKINGDLL_WEBKIT
+#define WXDLLIMPEXP_WEBKIT WXEXPORT
+#elif defined(WXUSINGDLL_WEBKIT)
+#define WXDLLIMPEXP_WEBKIT WXIMPORT
+#else
+#define WXDLLIMPEXP_WEBKIT
+#endif
+
+#else 
+#define WXDLLIMPEXP_WEBKIT
+#endif // SWIG
+
+class WXDLLIMPEXP_WEBKIT wxWebFrame
+{
+    // ChromeClientWx needs to get the Page* stored by the wxWebView
+    // for the createWindow function. 
+    friend class WebCore::ChromeClientWx;
+    friend class WebCore::FrameLoaderClientWx;
+    friend class wxWebView;
+
+    wxWebFrame(wxWebView* container, wxWebFrame* parent = NULL, WebViewFrameData* data = NULL);
+    
     ~wxWebFrame();
-#endif
-
-    void ShowDebugMenu(bool show = true);
-    wxWebView* webview;
-
-protected:
-
-    // event handlers (these functions should _not_ be virtual)
-    void OnQuit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
-    void OnLoadFile(wxCommandEvent& event);
-    void OnAddressBarEnter(wxCommandEvent& event);
-    void OnSearchCtrlEnter(wxCommandEvent& event);
-    void OnLoadEvent(wxWebViewLoadEvent& event);
-    void OnBeforeLoad(wxWebViewBeforeLoadEvent& event);
-    void OnBack(wxCommandEvent& event);
-    void OnForward(wxCommandEvent& event);
-    void OnStop(wxCommandEvent& event);
-    void OnReload(wxCommandEvent& event);
-    void OnBrowse(wxCommandEvent& event);
-    void OnEdit(wxCommandEvent& event);
     
-    void OnMakeTextLarger(wxCommandEvent& event);
-    void OnMakeTextSmaller(wxCommandEvent& event);
-    void OnGetSource(wxCommandEvent& event);
+    void LoadURL(const wxString& url);
+    bool GoBack();
+    bool GoForward();
+    void Stop();
+    void Reload();
     
-    // debug menu items
-    void OnSetSource(wxCommandEvent& event);
-    void OnRunScript(wxCommandEvent& myEvent);
+    bool CanGoBack();
+    bool CanGoForward();
+    
+    bool CanCut();
+    bool CanCopy();
+    bool CanPaste();
+    
+    void Cut();
+    void Copy();
+    void Paste();
+    
+    wxString GetPageSource();
+    void SetPageSource(const wxString& source, const wxString& baseUrl = wxEmptyString);
+    
+    wxString GetInnerText();
+    wxString GetAsMarkup();
+    wxString GetExternalRepresentation();
+    
+    wxString RunScript(const wxString& javascript);
+    
+    bool CanIncreaseTextSize() const;
+    void IncreaseTextSize();
+    bool CanDecreaseTextSize() const;
+    void DecreaseTextSize();
+    void MakeEditable(bool enable);
+    bool IsEditable() const { return m_isEditable; }
 
+    wxString GetPageTitle() const { return m_title; }
+    void SetPageTitle(const wxString& title) { m_title = title; }
+    
+    WebCore::Frame* GetFrame();
+    
 private:
-    wxTextCtrl* addressBar;
-    wxSearchCtrl* searchCtrl;
-
-    bool m_checkBeforeLoad;
-    wxMenu* m_debugMenu;
-    // any class wishing to process wxWindows events must use this macro
-#ifndef SWIG
-    DECLARE_EVENT_TABLE()
-#endif
-};
-
-class WXDLLIMPEXP_WEBKIT wxPageSourceViewFrame : public wxFrame
-{
-public:
-    wxPageSourceViewFrame(const wxString& source);
+    float m_textMagnifier;
+    bool m_isEditable;
+    bool m_isInitialized;
+    bool m_beingDestroyed;
+    WebViewPrivate* m_impl;
+    wxString m_title;
+    
 };
 
 #endif // ifndef WXWEBFRAME_H

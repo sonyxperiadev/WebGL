@@ -1,7 +1,7 @@
 /*
     Copyright (C) 2005 Apple Computer, Inc.
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
+                  2004, 2005, 2008 Rob Buis <buis@kde.org>
     Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
 
     Based on khtml css code by:
@@ -36,12 +36,14 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueList.h"
+#include "Document.h"
 #include "SVGColor.h"
 #include "SVGNames.h"
 #include "SVGPaint.h"
 #include "SVGRenderStyle.h"
 #include "SVGRenderStyleDefs.h"
 #include "SVGStyledElement.h"
+#include "SVGURIReference.h"
 #include <stdlib.h>
 #include <wtf/MathExtras.h>
 
@@ -128,7 +130,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
     switch (id)
     {
         // ident only properties
-        case CSS_PROP_ALIGNMENT_BASELINE:
+        case CSSPropertyAlignmentBaseline:
         {
             HANDLE_INHERIT_AND_INITIAL(alignmentBaseline, AlignmentBaseline)
             if (!primitiveValue)
@@ -137,7 +139,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setAlignmentBaseline(*primitiveValue);
             break;
         }
-        case CSS_PROP_BASELINE_SHIFT:
+        case CSSPropertyBaselineShift:
         {
             HANDLE_INHERIT_AND_INITIAL(baselineShift, BaselineShift);
             if (!primitiveValue)
@@ -145,13 +147,13 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
 
             if (primitiveValue->getIdent()) {
                 switch (primitiveValue->getIdent()) {
-                case CSS_VAL_BASELINE:
+                case CSSValueBaseline:
                     svgstyle->setBaselineShift(BS_BASELINE);
                     break;
-                case CSS_VAL_SUB:
+                case CSSValueSub:
                     svgstyle->setBaselineShift(BS_SUB);
                     break;
-                case CSS_VAL_SUPER:
+                case CSSValueSuper:
                     svgstyle->setBaselineShift(BS_SUPER);
                     break;
                 default:
@@ -164,21 +166,21 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
 
             break;
         }
-        case CSS_PROP_KERNING:
+        case CSSPropertyKerning:
         {
             if (isInherit) {
-                HANDLE_INHERIT_COND(CSS_PROP_KERNING, kerning, Kerning)
+                HANDLE_INHERIT_COND(CSSPropertyKerning, kerning, Kerning)
                 return;
             }
             else if (isInitial) {
-                HANDLE_INITIAL_COND_WITH_VALUE(CSS_PROP_KERNING, Kerning, Kerning)
+                HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyKerning, Kerning, Kerning)
                 return;
             }
 
             svgstyle->setKerning(primitiveValue);
             break;
         }
-        case CSS_PROP_POINTER_EVENTS:
+        case CSSPropertyPointerEvents:
         {
             HANDLE_INHERIT_AND_INITIAL(pointerEvents, PointerEvents)
             if (!primitiveValue)
@@ -187,70 +189,70 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setPointerEvents(*primitiveValue);
             break;
         }
-        case CSS_PROP_DOMINANT_BASELINE:
+        case CSSPropertyDominantBaseline:
         {
             HANDLE_INHERIT_AND_INITIAL(dominantBaseline, DominantBaseline)
             if (primitiveValue)
                 svgstyle->setDominantBaseline(*primitiveValue);
             break;
         }
-        case CSS_PROP_COLOR_INTERPOLATION:
+        case CSSPropertyColorInterpolation:
         {
             HANDLE_INHERIT_AND_INITIAL(colorInterpolation, ColorInterpolation)
             if (primitiveValue)
                 svgstyle->setColorInterpolation(*primitiveValue);
             break;
         }
-        case CSS_PROP_COLOR_INTERPOLATION_FILTERS:
+        case CSSPropertyColorInterpolationFilters:
         {
             HANDLE_INHERIT_AND_INITIAL(colorInterpolationFilters, ColorInterpolationFilters)
             if (primitiveValue)
                 svgstyle->setColorInterpolationFilters(*primitiveValue);
             break;
         }
-        case CSS_PROP_COLOR_RENDERING:
+        case CSSPropertyColorRendering:
         {
             HANDLE_INHERIT_AND_INITIAL(colorRendering, ColorRendering)
             if (primitiveValue)
                 svgstyle->setColorRendering(*primitiveValue);
             break;
         }
-        case CSS_PROP_CLIP_RULE:
+        case CSSPropertyClipRule:
         {
             HANDLE_INHERIT_AND_INITIAL(clipRule, ClipRule)
             if (primitiveValue)
                 svgstyle->setClipRule(*primitiveValue);
             break;
         }
-        case CSS_PROP_FILL_RULE:
+        case CSSPropertyFillRule:
         {
             HANDLE_INHERIT_AND_INITIAL(fillRule, FillRule)
             if (primitiveValue)
                 svgstyle->setFillRule(*primitiveValue);
             break;
         }
-        case CSS_PROP_STROKE_LINEJOIN:
+        case CSSPropertyStrokeLinejoin:
         {
             HANDLE_INHERIT_AND_INITIAL(joinStyle, JoinStyle)
             if (primitiveValue)
                 svgstyle->setJoinStyle(*primitiveValue);
             break;
         }
-        case CSS_PROP_IMAGE_RENDERING:
+        case CSSPropertyImageRendering:
         {
             HANDLE_INHERIT_AND_INITIAL(imageRendering, ImageRendering)
             if (primitiveValue)
                 svgstyle->setImageRendering(*primitiveValue);
             break;
         }
-        case CSS_PROP_SHAPE_RENDERING:
+        case CSSPropertyShapeRendering:
         {
             HANDLE_INHERIT_AND_INITIAL(shapeRendering, ShapeRendering)
             if (primitiveValue)
                 svgstyle->setShapeRendering(*primitiveValue);
             break;
         }
-        case CSS_PROP_TEXT_RENDERING:
+        case CSSPropertyTextRendering:
         {
             HANDLE_INHERIT_AND_INITIAL(textRendering, TextRendering)
             if (primitiveValue)
@@ -258,7 +260,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             break;
         }
         // end of ident only properties
-        case CSS_PROP_FILL:
+        case CSSPropertyFill:
         {
             HANDLE_INHERIT_AND_INITIAL(fillPaint, FillPaint)
             if (!primitiveValue && value) {
@@ -269,7 +271,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             
             break;
         }
-        case CSS_PROP_STROKE:
+        case CSSPropertyStroke:
         {
             HANDLE_INHERIT_AND_INITIAL(strokePaint, StrokePaint)
             if (!primitiveValue && value) {
@@ -280,7 +282,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             
             break;
         }
-        case CSS_PROP_STROKE_WIDTH:
+        case CSSPropertyStrokeWidth:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeWidth, StrokeWidth)
             if (!primitiveValue)
@@ -289,7 +291,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStrokeWidth(primitiveValue);
             break;
         }
-        case CSS_PROP_STROKE_DASHARRAY:
+        case CSSPropertyStrokeDasharray:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeDashArray, StrokeDashArray)
             if (!primitiveValue && value) {
@@ -300,7 +302,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         
             break;
         }
-        case CSS_PROP_STROKE_DASHOFFSET:
+        case CSSPropertyStrokeDashoffset:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeDashOffset, StrokeDashOffset)
             if (!primitiveValue)
@@ -309,7 +311,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStrokeDashOffset(primitiveValue);
             break;
         }
-        case CSS_PROP_FILL_OPACITY:
+        case CSSPropertyFillOpacity:
         {
             HANDLE_INHERIT_AND_INITIAL(fillOpacity, FillOpacity)
             if (!primitiveValue)
@@ -327,7 +329,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setFillOpacity(f);
             break;
         }
-        case CSS_PROP_STROKE_OPACITY:
+        case CSSPropertyStrokeOpacity:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeOpacity, StrokeOpacity)
             if (!primitiveValue)
@@ -345,7 +347,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStrokeOpacity(f);
             break;
         }
-        case CSS_PROP_STOP_OPACITY:
+        case CSSPropertyStopOpacity:
         {
             HANDLE_INHERIT_AND_INITIAL(stopOpacity, StopOpacity)
             if (!primitiveValue)
@@ -363,7 +365,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStopOpacity(f);
             break;
         }
-        case CSS_PROP_MARKER_START:
+        case CSSPropertyMarkerStart:
         {
             HANDLE_INHERIT_AND_INITIAL(startMarker, StartMarker)
             if (!primitiveValue)
@@ -376,10 +378,10 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setStartMarker(s);
+            svgstyle->setStartMarker(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_MARKER_MID:
+        case CSSPropertyMarkerMid:
         {
             HANDLE_INHERIT_AND_INITIAL(midMarker, MidMarker)
             if (!primitiveValue)
@@ -392,10 +394,10 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setMidMarker(s);
+            svgstyle->setMidMarker(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_MARKER_END:
+        case CSSPropertyMarkerEnd:
         {
             HANDLE_INHERIT_AND_INITIAL(endMarker, EndMarker)
             if (!primitiveValue)
@@ -408,17 +410,17 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setEndMarker(s);
+            svgstyle->setEndMarker(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_STROKE_LINECAP:
+        case CSSPropertyStrokeLinecap:
         {
             HANDLE_INHERIT_AND_INITIAL(capStyle, CapStyle)
             if (primitiveValue)
                 svgstyle->setCapStyle(*primitiveValue);
             break;
         }
-        case CSS_PROP_STROKE_MITERLIMIT:
+        case CSSPropertyStrokeMiterlimit:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeMiterLimit, StrokeMiterLimit)
             if (!primitiveValue)
@@ -434,7 +436,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStrokeMiterLimit(f);
             break;
         }
-        case CSS_PROP_FILTER:
+        case CSSPropertyFilter:
         {
             HANDLE_INHERIT_AND_INITIAL(filter, Filter)
             if (!primitiveValue)
@@ -446,10 +448,10 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 s = primitiveValue->getStringValue();
             else
                 return;
-            svgstyle->setFilter(s);
+            svgstyle->setFilter(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_MASK:
+        case CSSPropertyMask:
         {
             HANDLE_INHERIT_AND_INITIAL(maskElement, MaskElement)
             if (!primitiveValue)
@@ -462,10 +464,10 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setMaskElement(s);
+            svgstyle->setMaskElement(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_CLIP_PATH:
+        case CSSPropertyClipPath:
         {
             HANDLE_INHERIT_AND_INITIAL(clipPath, ClipPath)
             if (!primitiveValue)
@@ -478,24 +480,24 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setClipPath(s);
+            svgstyle->setClipPath(SVGURIReference::getTarget(s));
             break;
         }
-        case CSS_PROP_TEXT_ANCHOR:
+        case CSSPropertyTextAnchor:
         {
             HANDLE_INHERIT_AND_INITIAL(textAnchor, TextAnchor)
             if (primitiveValue)
                 svgstyle->setTextAnchor(*primitiveValue);
             break;
         }
-        case CSS_PROP_WRITING_MODE:
+        case CSSPropertyWritingMode:
         {
             HANDLE_INHERIT_AND_INITIAL(writingMode, WritingMode)
             if (primitiveValue)
                 svgstyle->setWritingMode(*primitiveValue);
             break;
         }
-        case CSS_PROP_STOP_COLOR:
+        case CSSPropertyStopColor:
         {
             HANDLE_INHERIT_AND_INITIAL(stopColor, StopColor);
 
@@ -512,7 +514,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setStopColor(col);
             break;
         }
-       case CSS_PROP_LIGHTING_COLOR:
+       case CSSPropertyLightingColor:
         {
             HANDLE_INHERIT_AND_INITIAL(lightingColor, LightingColor);
 
@@ -529,7 +531,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setLightingColor(col);
             break;
         }
-        case CSS_PROP_FLOOD_OPACITY:
+        case CSSPropertyFloodOpacity:
         {
             HANDLE_INHERIT_AND_INITIAL(floodOpacity, FloodOpacity)
             if (!primitiveValue)
@@ -547,7 +549,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setFloodOpacity(f);
             break;
         }
-        case CSS_PROP_FLOOD_COLOR:
+        case CSSPropertyFloodColor:
         {
             Color col;
             if (isInitial)
@@ -566,7 +568,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             svgstyle->setFloodColor(col);
             break;
         }
-        case CSS_PROP_GLYPH_ORIENTATION_HORIZONTAL:
+        case CSSPropertyGlyphOrientationHorizontal:
         {
             HANDLE_INHERIT_AND_INITIAL(glyphOrientationHorizontal, GlyphOrientationHorizontal)
             if (!primitiveValue)
@@ -581,7 +583,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
 
             break;
         }
-        case CSS_PROP_GLYPH_ORIENTATION_VERTICAL:
+        case CSSPropertyGlyphOrientationVertical:
         {
             HANDLE_INHERIT_AND_INITIAL(glyphOrientationVertical, GlyphOrientationVertical)
             if (!primitiveValue)
@@ -592,12 +594,12 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 ASSERT(orientation != -1);
 
                 svgstyle->setGlyphOrientationVertical((EGlyphOrientation) orientation);
-            } else if (primitiveValue->getIdent() == CSS_VAL_AUTO)
+            } else if (primitiveValue->getIdent() == CSSValueAuto)
                 svgstyle->setGlyphOrientationVertical(GO_AUTO);
 
             break;
         }
-        case CSS_PROP_ENABLE_BACKGROUND:
+        case CSSPropertyEnableBackground:
             // Silently ignoring this property for now
             // http://bugs.webkit.org/show_bug.cgi?id=6022
             break;

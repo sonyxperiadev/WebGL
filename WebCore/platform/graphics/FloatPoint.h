@@ -43,11 +43,18 @@ typedef struct _NSPoint NSPoint;
 #endif
 
 #if PLATFORM(QT)
+#include "qglobal.h"
+QT_BEGIN_NAMESPACE
 class QPointF;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(SYMBIAN)
 class TPoint;
+#endif
+
+#if PLATFORM(SKIA)
+struct SkPoint;
 #endif
 
 namespace WebCore {
@@ -87,7 +94,12 @@ public:
 
 #if PLATFORM(SYMBIAN)
     operator TPoint() const;
-    FloatPoint(const TPoint& );
+    FloatPoint(const TPoint&);
+#endif
+
+#if PLATFORM(SKIA)
+    operator SkPoint() const;
+    FloatPoint(const SkPoint&);
 #endif
 
     FloatPoint matrixTransform(const AffineTransform&) const;

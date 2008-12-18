@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,6 +22,7 @@
 #ifndef FontCustomPlatformData_h_
 #define FontCustomPlatformData_h_
 
+#include "FontRenderingMode.h"
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -34,7 +35,7 @@ struct FontCustomPlatformData : Noncopyable {
 
     int handle; // for use with QFontDatabase::addApplicationFont/removeApplicationFont
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic);
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode = NormalRenderingMode);
 };
 
 FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer);

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  *
  * All rights reserved.
  *
@@ -31,6 +32,7 @@
 
 #include "FrameLoaderClient.h"
 #include "ResourceResponse.h"
+#include "PluginView.h"
 
 typedef struct _WebKitWebFrame WebKitWebFrame;
 
@@ -45,7 +47,6 @@ namespace WebKit {
         WebKitWebFrame*  webFrame() const { return m_frame; }
 
         virtual bool hasWebView() const;
-        virtual bool hasFrameView() const;
 
         virtual void makeRepresentation(WebCore::DocumentLoader*);
         virtual void forceLayout();
@@ -53,10 +54,8 @@ namespace WebKit {
 
         virtual void setCopiesOnScroll();
 
-        virtual void detachedFromParent1();
         virtual void detachedFromParent2();
         virtual void detachedFromParent3();
-        virtual void detachedFromParent4();
 
         virtual void loadedFromCachedPage();
 
@@ -91,8 +90,8 @@ namespace WebKit {
         virtual void dispatchShow();
 
         virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction, const WebCore::String& MIMEType, const WebCore::ResourceRequest&);
-        virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::String& frameName);
-        virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&);
+        virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WTF::PassRefPtr<WebCore::FormState>, const WebCore::String& frameName);
+        virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WTF::PassRefPtr<WebCore::FormState>);
         virtual void cancelPolicyCheck();
 
         virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
@@ -102,7 +101,6 @@ namespace WebKit {
         virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
         virtual void revertToProvisionalState(WebCore::DocumentLoader*);
         virtual void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&);
-        virtual void clearUnarchivingState(WebCore::DocumentLoader*);
 
         virtual void postProgressStartedNotification();
         virtual void postProgressEstimateChangedNotification();
@@ -130,10 +128,8 @@ namespace WebKit {
 
         virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
         virtual void finishedLoading(WebCore::DocumentLoader*);
-        virtual void finalSetupForReplace(WebCore::DocumentLoader*);
 
-        virtual void updateGlobalHistoryForStandardLoad(const WebCore::KURL&);
-        virtual void updateGlobalHistoryForReload(const WebCore::KURL&);
+        virtual void updateGlobalHistory(const WebCore::KURL&);
         virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
         virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
@@ -143,15 +139,9 @@ namespace WebKit {
 
         virtual WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&);
         virtual WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&);
+        virtual WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&);
 
         virtual bool shouldFallBack(const WebCore::ResourceError&);
-
-        virtual void setDefersLoading(bool);
-
-        virtual bool willUseArchive(WebCore::ResourceLoader*, const WebCore::ResourceRequest&, const WebCore::KURL& originalURL) const;
-        virtual bool isArchiveLoadPending(WebCore::ResourceLoader*) const;
-        virtual void cancelPendingArchiveLoad(WebCore::ResourceLoader*);
-        virtual void clearArchivedResources();
 
         virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
         virtual bool canShowMIMEType(const WebCore::String&) const;
@@ -180,6 +170,10 @@ namespace WebKit {
         WebKitWebFrame* m_frame;
         WebCore::ResourceResponse m_response;
         WebCore::String m_userAgent;
+
+        // Plugin view to redirect data to
+        WebCore::PluginView* m_pluginView;
+        bool m_hasSentResponseToPlugin;
     };
 
 }

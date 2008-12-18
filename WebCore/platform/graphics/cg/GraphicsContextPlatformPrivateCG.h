@@ -45,11 +45,11 @@ public:
         CGContextRelease(m_cgContext);
     }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM)
     // These methods do nothing on Mac.
     void save() {}
     void restore() {}
-    void clip(const IntRect&) {}
+    void clip(const FloatRect&) {}
     void clip(const Path&) {}
     void scale(const FloatSize&) {}
     void rotate(float) {}
@@ -63,7 +63,7 @@ public:
     // On Windows, we need to update the HDC for form controls to draw in the right place.
     void save();
     void restore();
-    void clip(const IntRect&);
+    void clip(const FloatRect&);
     void clip(const Path&);
     void scale(const FloatSize&);
     void rotate(float);
@@ -71,9 +71,7 @@ public:
     void concatCTM(const AffineTransform&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
-#endif
 
-#if PLATFORM(WIN)
     HDC m_hdc;
     unsigned m_transparencyCount;
 #endif

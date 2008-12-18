@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
@@ -24,126 +23,142 @@
 #ifndef Lexer_h
 #define Lexer_h
 
+#include "lookup.h"
 #include "ustring.h"
 #include <wtf/Vector.h>
+#include "SourceCode.h"
 
-namespace KJS {
+namespace JSC {
 
-  class Identifier;
-  class RegExp;
+    class Identifier;
+    class RegExp;
 
-  class Lexer : Noncopyable {
-  public:
-    void setCode(int startingLineNumber, const UChar *c, unsigned int len);
-    int lex();
+    class Lexer : Noncopyable {
+    public:
+        void setCode(const SourceCode&);
+        int lex(void* lvalp, void* llocp);
 
-    int lineNo() const { return yylineno; }
+        int lineNo() const { return yylineno; }
 
-    bool prevTerminator() const { return terminator; }
+        bool prevTerminator() const { return m_terminator; }
 
-    enum State { Start,
-                 IdentifierOrKeyword,
-                 Identifier,
-                 InIdentifierOrKeyword,
-                 InIdentifier,
-                 InIdentifierStartUnicodeEscapeStart,
-                 InIdentifierStartUnicodeEscape,
-                 InIdentifierPartUnicodeEscapeStart,
-                 InIdentifierPartUnicodeEscape,
-                 InSingleLineComment,
-                 InMultiLineComment,
-                 InNum,
-                 InNum0,
-                 InHex,
-                 InOctal,
-                 InDecimal,
-                 InExponentIndicator,
-                 InExponent,
-                 Hex,
-                 Octal,
-                 Number,
-                 String,
-                 Eof,
-                 InString,
-                 InEscapeSequence,
-                 InHexEscape,
-                 InUnicodeEscape,
-                 Other,
-                 Bad };
+        enum State {
+            Start,
+            IdentifierOrKeyword,
+            Identifier,
+            InIdentifierOrKeyword,
+            InIdentifier,
+            InIdentifierStartUnicodeEscapeStart,
+            InIdentifierStartUnicodeEscape,
+            InIdentifierPartUnicodeEscapeStart,
+            InIdentifierPartUnicodeEscape,
+            InSingleLineComment,
+            InMultiLineComment,
+            InNum,
+            InNum0,
+            InHex,
+            InOctal,
+            InDecimal,
+            InExponentIndicator,
+            InExponent,
+            Hex,
+            Octal,
+            Number,
+            String,
+            Eof,
+            InString,
+            InEscapeSequence,
+            InHexEscape,
+            InUnicodeEscape,
+            Other,
+            Bad
+        };
 
-    bool scanRegExp();
-    const UString& pattern() const { return m_pattern; }
-    const UString& flags() const { return m_flags; }
+        bool scanRegExp();
+        const UString& pattern() const { return m_pattern; }
+        const UString& flags() const { return m_flags; }
 
-    static unsigned char convertHex(int);
-    static unsigned char convertHex(int c1, int c2);
-    static UChar convertUnicode(int c1, int c2, int c3, int c4);
-    static bool isIdentStart(int);
-    static bool isIdentPart(int);
-    static bool isHexDigit(int);
+        static unsigned char convertHex(int);
+        static unsigned char convertHex(int c1, int c2);
+        static UChar convertUnicode(int c1, int c2, int c3, int c4);
+        static bool isIdentStart(int);
+        static bool isIdentPart(int);
+        static bool isHexDigit(int);
 
-    bool sawError() const { return error; }
+        bool sawError() const { return m_error; }
 
-    void clear();
+        void clear();
+        SourceCode sourceCode(int openBrace, int closeBrace, int firstLine) { return SourceCode(m_source->provider(), m_source->startOffset() + openBrace + 1, m_source->startOffset() + closeBrace, firstLine); }
 
-  private:
-    friend Lexer& lexer();
-    Lexer();
+    private:
+        friend class JSGlobalData;
+        Lexer(JSGlobalData*);
+        ~Lexer();
 
-    int yylineno;
-    bool done;
-    Vector<char> m_buffer8;
-    Vector<UChar> m_buffer16;
-    bool terminator;
-    bool restrKeyword;
-    // encountered delimiter like "'" and "}" on last run
-    bool delimited;
-    bool skipLF;
-    bool skipCR;
-    bool eatNextIdentifier;
-    int stackToken;
-    int lastToken;
+        void setDone(State);
+        void shift(unsigned int p);
+        void nextLine();
+        int lookupKeyword(const char *);
 
-    State state;
-    void setDone(State);
-    unsigned int pos;
-    void shift(unsigned int p);
-    void nextLine();
-    int lookupKeyword(const char *);
+        bool isWhiteSpace() const;
+        bool isLineTerminator();
+        static bool isOctalDigit(int);
 
-    bool isWhiteSpace() const;
-    bool isLineTerminator();
-    static bool isOctalDigit(int);
+        int matchPunctuator(int& charPos, int c1, int c2, int c3, int c4);
+        static unsigned short singleEscape(unsigned short);
+        static unsigned short convertOctal(int c1, int c2, int c3);
 
-    int matchPunctuator(int c1, int c2, int c3, int c4);
-    static unsigned short singleEscape(unsigned short);
-    static unsigned short convertOctal(int c1, int c2, int c3);
+        void record8(int);
+        void record16(int);
+        void record16(UChar);
 
-    void record8(int);
-    void record16(int);
-    void record16(UChar);
+        JSC::Identifier* makeIdentifier(const Vector<UChar>& buffer);
 
-    KJS::Identifier* makeIdentifier(const Vector<UChar>& buffer);
-    UString* makeUString(const Vector<UChar>& buffer);
+        int yylineno;
+        int yycolumn;
 
-    const UChar* code;
-    unsigned int length;
-    int yycolumn;
-    int atLineStart;
-    bool error;
+        bool m_done;
+        Vector<char> m_buffer8;
+        Vector<UChar> m_buffer16;
+        bool m_terminator;
+        bool m_restrKeyword;
+        bool m_delimited; // encountered delimiter like "'" and "}" on last run
+        bool m_skipLF;
+        bool m_skipCR;
+        bool m_eatNextIdentifier;
+        int m_stackToken;
+        int m_lastToken;
 
-    // current and following unicode characters (int to allow for -1 for end-of-file marker)
-    int current, next1, next2, next3;
+        State m_state;
+        unsigned int m_position;
+        const SourceCode* m_source;
+        const UChar* m_code;
+        unsigned int m_length;
+        int m_atLineStart;
+        bool m_error;
 
-    Vector<UString*> m_strings;
-    Vector<KJS::Identifier*> m_identifiers;
-    
-    UString m_pattern;
-    UString m_flags;
-  };
-  
-  Lexer& lexer(); // Returns the singletone JavaScript lexer.
+        // current and following unicode characters (int to allow for -1 for end-of-file marker)
+        int m_current;
+        int m_next1;
+        int m_next2;
+        int m_next3;
+        
+        int m_currentOffset;
+        int m_nextOffset1;
+        int m_nextOffset2;
+        int m_nextOffset3;
+        
+        Vector<UString*> m_strings;
+        Vector<JSC::Identifier*> m_identifiers;
 
-} // namespace KJS
+        JSGlobalData* m_globalData;
+
+        UString m_pattern;
+        UString m_flags;
+
+        const HashTable m_mainTable;
+    };
+
+} // namespace JSC
 
 #endif // Lexer_h

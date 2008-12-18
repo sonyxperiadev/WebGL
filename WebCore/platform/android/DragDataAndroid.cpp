@@ -55,10 +55,12 @@ Color DragData::asColor() const
 {
     return Color();
 }
+    
+class Clipboard : public RefCounted<Clipboard> {};
 
-Clipboard* DragData::createClipboard(ClipboardAccessPolicy) const
+PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
 {
-    return 0;
+    return PassRefPtr<Clipboard>(NULL);
 }
     
 bool DragData::containsCompatibleContent() const

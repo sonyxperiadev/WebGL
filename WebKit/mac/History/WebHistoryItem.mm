@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #import "WebHistoryItemInternal.h"
 #import "WebHistoryItemPrivate.h"
 
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebHTMLViewInternal.h"
@@ -42,7 +41,7 @@
 #import "WebNSURLRequestExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebPluginController.h"
-#import <JavaScriptCore/Assertions.h>
+#import "WebTypesInternal.h"
 #import <WebCore/CachedPage.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/Image.h>
@@ -51,7 +50,7 @@
 #import <WebCore/PlatformString.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
-#import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 
 // Private keys used in the WebHistoryItem's dictionary representation.
 // see 3245793 for explanation of "lastVisitedDate"
@@ -92,18 +91,20 @@ void WKNotifyHistoryItemChanged()
 
 - (id)init
 {
-    return [self initWithWebCoreHistoryItem:(new HistoryItem)];
+    return [self initWithWebCoreHistoryItem:HistoryItem::create()];
 }
 
 - (id)initWithURLString:(NSString *)URLString title:(NSString *)title lastVisitedTimeInterval:(NSTimeInterval)time
 {
     WebCoreThreadViolationCheck();
-    return [self initWithWebCoreHistoryItem:(new HistoryItem(URLString, title, time))];
+    return [self initWithWebCoreHistoryItem:HistoryItem::create(URLString, title, time)];
 }
 
 - (void)dealloc
 {
-    WebCoreThreadViolationCheck();
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebHistoryItem class], self))
+        return;
+
     if (_private) {
         HistoryItem* coreItem = core(_private);
         coreItem->deref();
@@ -185,7 +186,7 @@ void WKNotifyHistoryItemChanged()
     return core(_private)->lastVisitedTime();
 }
 
-- (unsigned)hash
+- (NSUInteger)hash
 {
     return [(NSString*)core(_private)->urlString() hash];
 }
@@ -277,12 +278,12 @@ static WebWindowWatcher *_windowWatcher = nil;
 
 - (id)initWithURL:(NSURL *)URL target:(NSString *)target parent:(NSString *)parent title:(NSString *)title
 {
-    return [self initWithWebCoreHistoryItem:(new HistoryItem(URL, target, parent, title))];
+    return [self initWithWebCoreHistoryItem:HistoryItem::create(URL, target, parent, title)];
 }
 
 - (id)initWithURLString:(NSString *)URLString title:(NSString *)title displayTitle:(NSString *)displayTitle lastVisitedTimeInterval:(NSTimeInterval)time
 {
-    return [self initWithWebCoreHistoryItem:(new HistoryItem(URLString, title, displayTitle, time))];
+    return [self initWithWebCoreHistoryItem:HistoryItem::create(URLString, title, displayTitle, time)];
 }
 
 - (id)initWithWebCoreHistoryItem:(PassRefPtr<HistoryItem>)item
@@ -463,8 +464,10 @@ static WebWindowWatcher *_windowWatcher = nil;
 - (NSURL *)URL
 {
     ASSERT_MAIN_THREAD();
-    KURL url = core(_private)->url();
-    return url.isEmpty() ? nil : url.getNSURL();
+    const KURL& url = core(_private)->url();
+    if (url.isEmpty())
+        return nil;
+    return url;
 }
 
 // This should not be called directly for WebHistoryItems that are already included

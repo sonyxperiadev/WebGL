@@ -17,78 +17,68 @@
 
 #include "config.h"
 #include "Widget.h"
-#include "WebCoreViewBridge.h"
-#include "WidgetClient.h"
-#include "Font.h"
-#include "IntRect.h"
-#include "GraphicsContext.h"
-#include "FrameAndroid.h"
-#include "WebCoreFrameBridge.h"
+
 #include "Document.h"
 #include "Element.h"
+#include "Font.h"
+#include "FrameView.h"
+#include "GraphicsContext.h"
+#include "HostWindow.h"
+#include "NotImplemented.h"
 
-#define LOG_TAG "WebCore"
-#undef LOG
-#include "utils/Log.h"
+#include "WebCoreFrameBridge.h"
+#include "WebCoreViewBridge.h"
+#include "WebViewCore.h"
 
 namespace WebCore {
-
-#define notImplemented() LOGV("WidgetAndroid: NotYetImplemented")
 
     class WidgetPrivate
     {
       public:
         Font                m_font;
-        WebCoreViewBridge*  m_viewbridge;     // we point to this, but don't delete it (unless we had refcounting...)
-        WidgetClient*       m_client;
-        bool                m_visible;
     };
 
-    Widget::Widget() : data(new WidgetPrivate)
+    Widget::Widget(PlatformWidget widget) : m_data(new WidgetPrivate)
     {
-        data->m_viewbridge = NULL;
-        data->m_client = NULL;
-        data->m_visible = false;
+        init(widget);
     }
 
     Widget::~Widget()
     {
-        Release(data->m_viewbridge);
-        delete data;
+        ASSERT(!parent());
+        releasePlatformWidget();
+        delete m_data;
     }
 
-    void Widget::setEnabled(bool enabled)
+    IntRect Widget::frameRect() const
     {
-        WebCoreViewBridge* view = data->m_viewbridge;
-        ASSERT(data->m_viewbridge);
-        if (view)
-            view->setEnabled(enabled);
-    }
-
-    bool Widget::isEnabled() const
-    {
-        ASSERT(data->m_viewbridge);
-        return data->m_viewbridge->isEnabled();
-    }
-
-    IntRect Widget::frameGeometry() const
-    {
-        ASSERT(data->m_viewbridge);
-        return data->m_viewbridge->getBounds();
+        // FIXME: use m_frame instead?
+        if (!platformWidget())
+            return IntRect(0, 0, 0, 0);
+        return platformWidget()->getBounds();
     }
 
     void Widget::setFocus()
     {
-        ASSERT(data->m_viewbridge);
-        data->m_viewbridge->setFocus(true);
+        notImplemented();
     }
 
     void Widget::paint(GraphicsContext* ctx, const IntRect& r)
     {
-        WebCoreViewBridge* viewBridge = data->m_viewbridge;
-        ASSERT(viewBridge);
-        viewBridge->layout();
-        viewBridge->draw(ctx, r, true);
+        // FIXME: in what case, will this be called for the top frame?
+        if (!platformWidget())
+            return;
+        platformWidget()->draw(ctx, r);
+    }
+
+    void Widget::releasePlatformWidget()
+    {
+        Release(platformWidget());
+    }
+
+    void Widget::retainPlatformWidget()
+    {
+        Retain(platformWidget());
     }
 
     void Widget::setCursor(const Cursor& cursor)
@@ -98,21 +88,22 @@ namespace WebCore {
 
     void Widget::show()
     {
-        if (!data || data->m_visible)
-            return;
-
-        data->m_visible = true;
+        notImplemented(); 
     }
 
     void Widget::hide()
     {
-        notImplemented();
+        notImplemented(); 
     }
 
-    void Widget::setFrameGeometry(const IntRect& rect)
+    void Widget::setFrameRect(const IntRect& rect)
     {
-        ASSERT(data->m_viewbridge);
-        data->m_viewbridge->setBounds(rect.x(), rect.y(), rect.x() + rect.width(), rect.y() + rect.height());
+        // FIXME: set m_frame instead?
+        // platformWidget() is NULL when called from Scrollbar
+        if (!platformWidget())
+            return;
+        platformWidget()->setLocation(rect.x(), rect.y());
+        platformWidget()->setSize(rect.width(), rect.height());
     }
 
     void Widget::setIsSelected(bool isSelected)
@@ -120,42 +111,19 @@ namespace WebCore {
         notImplemented();
     }
 
-    void Widget::invalidate() 
+    int Widget::screenWidth() const
     {
-        notImplemented();
-    }
-    
-    void Widget::invalidateRect(const IntRect&) 
-    {
-        notImplemented(); 
-    }
+        const Widget* widget = this;
+        while (!widget->isFrameView()) {
+            widget = widget->parent();
+            if (!widget)
+                break;
+        }
+        if (!widget)
+            return 0;
 
-    void Widget::removeFromParent() 
-    { 
-        notImplemented(); 
-    }
-
-    void Widget::setClient(WidgetClient* c)
-    {
-        data->m_client = c;
-    }
-
-    WidgetClient* Widget::client() const
-    {
-        return data->m_client;
-    }
-
-    WebCoreViewBridge* Widget::getWebCoreViewBridge() const
-    {
-        return data->m_viewbridge;
-    }
-
-    void Widget::setWebCoreViewBridge(WebCoreViewBridge* view)
-    {
-        Release(data->m_viewbridge);
-        data->m_viewbridge = view;
-        view->setWidget(this);
-        Retain(data->m_viewbridge);
+        return android::WebViewCore::getWebViewCore(
+                static_cast<const ScrollView*>(widget))->screenWidth();
     }
 
 } // WebCore namepsace

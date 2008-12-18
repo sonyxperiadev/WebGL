@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,36 +29,57 @@
 
 #import "WebChromeClient.h"
 
+#import <Foundation/Foundation.h>
 #import "WebDefaultUIDelegate.h"
 #import "WebElementDictionary.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
-#import "WebHTMLView.h"
-#import "WebHTMLViewPrivate.h"
+#import "WebHTMLViewInternal.h"
+#import "WebHistoryInternal.h"
+#import "WebKitSystemInterface.h"
+#import "WebKitPrefix.h"
 #import "WebNSURLRequestExtras.h"
-#import "WebSecurityOriginPrivate.h"
+#import "WebPlugin.h"
 #import "WebSecurityOriginInternal.h"
-#import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <WebCore/BlockExceptions.h>
+#import <WebCore/FileChooser.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/IntRect.h>
+#import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/PlatformString.h>
 #import <WebCore/ResourceRequest.h>
+#import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
 #import <wtf/PassRefPtr.h>
+#import <wtf/Vector.h>
 
-@interface NSView (AppKitSecretsWebBridgeKnowsAbout)
+@interface NSView (WebNSViewDetails)
 - (NSView *)_findLastViewInKeyViewLoop;
 @end
 
+// For compatibility with old SPI.
+@interface NSView (WebOldWebKitPlugInDetails)
+- (void)setIsSelected:(BOOL)isSelected;
+@end
+
+@interface NSWindow (AppKitSecretsIKnowAbout)
+- (NSRect)_growBoxRect;
+@end
+
 using namespace WebCore;
+
+@interface WebOpenPanelResultListener : NSObject <WebOpenPanelResultListener> {
+    FileChooser* _chooser;
+}
+- (id)initWithChooser:(PassRefPtr<FileChooser>)chooser;
+@end
 
 WebChromeClient::WebChromeClient(WebView *webView) 
     : m_webView(webView)
@@ -380,20 +401,55 @@ bool WebChromeClient::tabsToLinks() const
 
 IntRect WebChromeClient::windowResizerRect() const
 {
-    return IntRect();
+    NSRect rect = [[m_webView window] _growBoxRect];
+    if ([m_webView _usesDocumentViews])
+        return enclosingIntRect(rect);
+    return enclosingIntRect([m_webView convertRect:rect fromView:nil]);
 }
 
-void WebChromeClient::addToDirtyRegion(const IntRect&)
+void WebChromeClient::repaint(const IntRect& rect, bool contentChanged, bool immediate, bool repaintContentOnly)
+{
+    if ([m_webView _usesDocumentViews])
+        return;
+    
+    if (contentChanged)
+        [m_webView setNeedsDisplayInRect:rect];
+    
+    if (immediate) {
+        [[m_webView window] displayIfNeeded];
+        [[m_webView window] flushWindowIfNeeded];
+    }
+}
+
+void WebChromeClient::scroll(const IntSize&, const IntRect&, const IntRect&)
 {
 }
 
-void WebChromeClient::scrollBackingStore(int, int, const IntRect&, const IntRect&)
+IntPoint WebChromeClient::screenToWindow(const IntPoint& p) const
 {
+    if ([m_webView _usesDocumentViews])
+        return p;
+    NSPoint windowCoord = [[m_webView window] convertScreenToBase:p];
+    return IntPoint([m_webView convertPoint:windowCoord fromView:nil]);
 }
 
-void WebChromeClient::updateBackingStore()
+IntRect WebChromeClient::windowToScreen(const IntRect& r) const
 {
+    if ([m_webView _usesDocumentViews])
+        return r;
+    NSRect tempRect = r;
+    tempRect = [m_webView convertRect:tempRect toView:nil];
+    tempRect.origin = [[m_webView window] convertBaseToScreen:tempRect.origin];
+    return enclosingIntRect(tempRect);
 }
+
+PlatformWidget WebChromeClient::platformWindow() const
+{
+    if ([m_webView _usesDocumentViews])
+        return 0;
+    return m_webView;
+}
+// End host window methods.
 
 void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
 {
@@ -415,8 +471,211 @@ void WebChromeClient::print(Frame* frame)
 
 void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
     WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:frame->document()->securityOrigin()];
-    CallUIDelegate(m_webView, @selector(webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:), kit(frame), webOrigin, (NSString *)databaseName);
+    // FIXME: remove this workaround once shipping Safari has the necessary delegate implemented.
+    if (WKAppVersionCheckLessThan(@"com.apple.Safari", -1, 3.1)) {
+        const unsigned long long defaultQuota = 5 * 1024 * 1024; // 5 megabytes should hopefully be enough to test storage support.
+        [webOrigin setQuota:defaultQuota];
+    } else
+        CallUIDelegate(m_webView, @selector(webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:), kit(frame), webOrigin, (NSString *)databaseName);
     [webOrigin release];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
 }
     
+void WebChromeClient::populateVisitedLinks()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [[WebHistory optionalSharedHistory] _addVisitedLinksToPageGroup:[m_webView page]->group()];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+#if ENABLE(DASHBOARD_SUPPORT)
+void WebChromeClient::dashboardRegionsChanged()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    NSMutableDictionary *regions = core([m_webView mainFrame])->dashboardRegionsDictionary();
+    [m_webView _addScrollerDashboardRegions:regions];
+
+    CallUIDelegate(m_webView, @selector(webView:dashboardRegionsChanged:), regions);
+
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+#endif
+
+FloatRect WebChromeClient::customHighlightRect(Node* node, const AtomicString& type, const FloatRect& lineRect)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    NSView *documentView = [[kit(node->document()->frame()) frameView] documentView];
+    if (![documentView isKindOfClass:[WebHTMLView class]])
+        return NSZeroRect;
+
+    WebHTMLView *webHTMLView = (WebHTMLView *)documentView;
+    id<WebHTMLHighlighter> highlighter = [webHTMLView _highlighterForType:type];
+    if ([(NSObject *)highlighter respondsToSelector:@selector(highlightRectForLine:representedNode:)])
+        return [highlighter highlightRectForLine:lineRect representedNode:kit(node)];
+    return [highlighter highlightRectForLine:lineRect];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
+
+    return NSZeroRect;
+}
+
+void WebChromeClient::paintCustomHighlight(Node* node, const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect,
+    bool behindText, bool entireLine)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    NSView *documentView = [[kit(node->document()->frame()) frameView] documentView];
+    if (![documentView isKindOfClass:[WebHTMLView class]])
+        return;
+
+    WebHTMLView *webHTMLView = (WebHTMLView *)documentView;
+    id<WebHTMLHighlighter> highlighter = [webHTMLView _highlighterForType:type];
+    if ([(NSObject *)highlighter respondsToSelector:@selector(paintHighlightForBox:onLine:behindText:entireLine:representedNode:)])
+        [highlighter paintHighlightForBox:boxRect onLine:lineRect behindText:behindText entireLine:entireLine representedNode:kit(node)];
+    else
+        [highlighter paintHighlightForBox:boxRect onLine:lineRect behindText:behindText entireLine:entireLine];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> chooser)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BOOL allowMultipleFiles = chooser->allowsMultipleFiles();
+    WebOpenPanelResultListener *listener = [[WebOpenPanelResultListener alloc] initWithChooser:chooser];
+    id delegate = [m_webView UIDelegate];
+    if ([delegate respondsToSelector:@selector(webView:runOpenPanelForFileButtonWithResultListener:allowMultipleFiles:)])
+        CallUIDelegate(m_webView, @selector(webView:runOpenPanelForFileButtonWithResultListener:allowMultipleFiles:), listener, allowMultipleFiles);
+    else
+        CallUIDelegate(m_webView, @selector(webView:runOpenPanelForFileButtonWithResultListener:), listener);
+    [listener release];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+KeyboardUIMode WebChromeClient::keyboardUIMode()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [m_webView _keyboardUIMode];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return KeyboardAccessDefault;
+}
+
+NSResponder *WebChromeClient::firstResponder()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[m_webView _UIDelegateForwarder] webViewFirstResponder:m_webView];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return nil;
+}
+
+void WebChromeClient::makeFirstResponder(NSResponder *responder)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    [m_webView _pushPerformingProgrammaticFocus];
+    [[m_webView _UIDelegateForwarder] webView:m_webView makeFirstResponder:responder];
+    [m_webView _popPerformingProgrammaticFocus];
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+void WebChromeClient::willPopUpMenu(NSMenu *menu)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    CallUIDelegate(m_webView, @selector(webView:willPopupMenu:), menu);
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+bool WebChromeClient::shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename)
+{
+    NSString* filename;
+    if (![[m_webView _UIDelegateForwarder] webView:m_webView shouldReplaceUploadFile:path usingGeneratedFilename:&filename])
+        return false;
+    generatedFilename = filename;
+    return true;
+}
+
+String WebChromeClient::generateReplacementFile(const String& path)
+{
+    return [[m_webView _UIDelegateForwarder] webView:m_webView generateReplacementFile:path];
+}
+
+void WebChromeClient::disableSuddenTermination()
+{
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    [[NSProcessInfo processInfo] disableSuddenTermination];
+#endif
+}
+
+void WebChromeClient::enableSuddenTermination()
+{
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    [[NSProcessInfo processInfo] enableSuddenTermination];
+#endif
+}
+
+@implementation WebOpenPanelResultListener
+
+- (id)initWithChooser:(PassRefPtr<FileChooser>)chooser
+{
+    self = [super init];
+    if (!self)
+        return nil;
+    _chooser = chooser.releaseRef();
+    return self;
+}
+
+#ifndef NDEBUG
+
+- (void)dealloc
+{
+    ASSERT(!_chooser);
+    [super dealloc];
+}
+
+- (void)finalize
+{
+    ASSERT(!_chooser);
+    [super finalize];
+}
+
+#endif
+
+- (void)cancel
+{
+    ASSERT(_chooser);
+    if (!_chooser)
+        return;
+    _chooser->deref();
+    _chooser = 0;
+}
+
+- (void)chooseFilename:(NSString *)filename
+{
+    ASSERT(_chooser);
+    if (!_chooser)
+        return;
+    _chooser->chooseFile(filename);
+    _chooser->deref();
+    _chooser = 0;
+}
+
+- (void)chooseFilenames:(NSArray *)filenames
+{
+    ASSERT(_chooser);
+    if (!_chooser)
+        return;
+    int count = [filenames count]; 
+    Vector<String> names(count);
+    for (int i = 0; i < count; i++)
+        names[i] = [filenames objectAtIndex:i];
+    _chooser->chooseFiles(names);
+    _chooser->deref();
+    _chooser = 0;
+}
+
+@end

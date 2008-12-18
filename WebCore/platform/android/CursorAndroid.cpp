@@ -22,18 +22,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#define LOG_TAG "WebCore"
 
 #include "config.h"
 #include "Cursor.h"
-
-#define LOG_TAG "WebCore"
-#undef LOG
-#include "utils/Log.h"
+#include "NotImplemented.h"
 
 namespace WebCore {
 
-static void notImplemented() { LOGV("Cursor: NotYetImplemented"); }
-    
 Cursor::Cursor(Image* image, const IntPoint& )
 {
     notImplemented();
@@ -257,5 +253,73 @@ const Cursor& noneCursor()
     static Cursor c;
     return c;
 }
+
+    // new as of SVN change 36269, Sept 8, 2008
+const Cursor& middlePanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& eastPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& northPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& northEastPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& northWestPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& southPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& southEastPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& southWestPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+const Cursor& westPanningCursor()
+{
+    notImplemented();
+    static Cursor c;
+    return c;
+}
+
+    // new as of SVN change 38068, Nov 5, 2008
+const Cursor& grabCursor() {}
+const Cursor& grabbingCursor() {}
 
 }

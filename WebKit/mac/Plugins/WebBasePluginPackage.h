@@ -28,7 +28,7 @@
 
 #import <WebCore/WebCoreViewFactory.h>
 
-#if USE(NPOBJECT)
+#if ENABLE(NETSCAPE_PLUGIN_API)
 #import <WebKit/npfunctions.h>
 #else
 typedef void (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
@@ -76,6 +76,7 @@ typedef void (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
 - (BOOL)getPluginInfoFromPLists;
 
 - (BOOL)load;
+- (void)unload;
 
 - (NSString *)name;
 - (NSString *)path;

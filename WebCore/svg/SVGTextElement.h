@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -44,16 +44,18 @@ namespace WebCore {
         virtual AffineTransform getCTM() const;
         virtual AffineTransform getScreenCTM() const;
         virtual AffineTransform animatedLocalTransform() const;
+        virtual AffineTransform* supplementalTransform();
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
         virtual bool childShouldCreateRenderer(Node*) const;
                 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual void svgAttributeChanged(const QualifiedName&);
 
     private:
-        mutable AffineTransform m_localMatrix;
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextElement, SVGTransformList*, RefPtr<SVGTransformList>, Transform, transform)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextElement, SVGNames::textTagString, SVGNames::transformAttrString, SVGTransformList, Transform, transform)
+       
+       // Used by <animateMotion>
+       OwnPtr<AffineTransform> m_supplementalTransform;
     };
 
 } // namespace WebCore

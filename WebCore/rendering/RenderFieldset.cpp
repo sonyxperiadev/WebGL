@@ -26,8 +26,9 @@
 #include "config.h"
 #include "RenderFieldset.h"
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLNames.h"
+#include "GraphicsContext.h"
 
 using std::min;
 using std::max;
@@ -36,7 +37,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderFieldset::RenderFieldset(HTMLGenericFormElement* element)
+RenderFieldset::RenderFieldset(HTMLFormControlElement* element)
     : RenderBlock(element)
 {
 }
@@ -129,16 +130,55 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 
     paintBoxShadow(paintInfo.context, tx, ty, w, h, style());
 
-    paintBackground(paintInfo.context, style()->backgroundColor(), style()->backgroundLayers(), my, mh, tx, ty, w, h);
+    paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), my, mh, tx, ty, w, h);
 
-    if (style()->hasBorder())
-        paintBorderMinusLegend(paintInfo.context, tx, ty, w, h, style(), legend->xPos(), legend->width(), legendBottom);
+    if (!style()->hasBorder())
+        return;
+
+    // Save time by not saving and restoring the GraphicsContext in the straight border case
+    if (!style()->hasBorderRadius())
+        return paintBorderMinusLegend(paintInfo.context, tx, ty, w, h, style(), legend->xPos(), legend->width(), legendBottom);
+    
+    // We have rounded borders, create a clipping region 
+    // around the legend and paint the border as normal
+    GraphicsContext* graphicsContext = paintInfo.context;
+    graphicsContext->save();
+
+    int clipTop = ty;
+    int clipHeight = max(static_cast<int>(style()->borderTopWidth()), legend->height());
+
+    graphicsContext->clipOut(IntRect(tx + legend->xPos(), clipTop,
+                                       legend->width(), clipHeight));
+    paintBorder(paintInfo.context, tx, ty, w, h, style(), true, true);
+
+    graphicsContext->restore();
 }
 
+void RenderFieldset::paintMask(PaintInfo& paintInfo, int tx, int ty)
+{
+    if (style()->visibility() != VISIBLE || paintInfo.phase != PaintPhaseMask)
+        return;
+
+    int w = width();
+    int h = height() + borderTopExtra() + borderBottomExtra();
+    RenderObject* legend = findLegend();
+    if (!legend)
+        return RenderBlock::paintMask(paintInfo, tx, ty);
+
+    int yOff = (legend->yPos() > 0) ? 0 : (legend->height() - borderTop()) / 2;
+    h -= yOff;
+    ty += yOff - borderTopExtra();
+
+    int my = max(ty, paintInfo.rect.y());
+    int end = min(paintInfo.rect.bottom(), ty + h);
+    int mh = end - my;
+
+    paintMaskImages(paintInfo, my, mh, tx, ty, w, h);
+}
+        
 void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, int tx, int ty, int w, int h,
                                             const RenderStyle* style, int lx, int lw, int lb)
 {
-    // FIXME: Implement border-radius
     const Color& tc = style->borderTopColor();
     const Color& bc = style->borderBottomColor();
 
@@ -220,9 +260,9 @@ void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, in
     }
 }
 
-void RenderFieldset::setStyle(RenderStyle* newStyle)
+void RenderFieldset::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
 {
-    RenderBlock::setStyle(newStyle);
+    RenderBlock::styleDidChange(diff, oldStyle);
 
     // WinIE renders fieldsets with display:inline like they're inline-blocks.  For us,
     // an inline-block is just a block element with replaced set to true and inline set

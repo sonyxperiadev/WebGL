@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,16 +48,14 @@
 
 namespace WebCore {
 
-CachedFont::CachedFont(DocLoader* dl, const String &url)
+CachedFont::CachedFont(const String &url)
     : CachedResource(url, FontResource)
     , m_fontData(0)
+    , m_loadInitiated(false)
 #if ENABLE(SVG_FONTS)
     , m_isSVGFont(false)
 #endif
 {
-    // Don't load the file yet.  Wait for an access before triggering the load.
-    m_loading = true;
-    m_loadInitiated = false;
 }
 
 CachedFont::~CachedFont()
@@ -67,9 +65,15 @@ CachedFont::~CachedFont()
 #endif
 }
 
-void CachedFont::ref(CachedResourceClient *c)
+void CachedFont::load(DocLoader* docLoader)
 {
-    CachedResource::ref(c);
+    // Don't load the file yet.  Wait for an access before triggering the load.
+    m_loading = true;
+}
+
+void CachedFont::addClient(CachedResourceClient* c)
+{
+    CachedResource::addClient(c);
     
     if (!m_loading)
         c->fontLoaded(this);
@@ -109,7 +113,7 @@ bool CachedFont::ensureCustomFontData()
     return m_fontData;
 }
 
-FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, bool italic)
+FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, bool italic, FontRenderingMode renderingMode)
 {
 #if ENABLE(SVG_FONTS)
     if (m_externalSVGDocument)
@@ -117,7 +121,7 @@ FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, b
 #endif
 #if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(SGL)
     ASSERT(m_fontData);
-    return m_fontData->fontPlatformData(static_cast<int>(size), bold, italic);
+    return m_fontData->fontPlatformData(static_cast<int>(size), bold, italic, renderingMode);
 #else
     return FontPlatformData();
 #endif
@@ -128,11 +132,15 @@ bool CachedFont::ensureSVGFontData()
 {
     ASSERT(m_isSVGFont);
     if (!m_externalSVGDocument && !m_errorOccurred && !m_loading && m_data) {
-        m_externalSVGDocument = new SVGDocument(DOMImplementation::instance(), 0);
+        m_externalSVGDocument = SVGDocument::create(0);
         m_externalSVGDocument->open();
 
-        TextResourceDecoder decoder("application/xml");
-        m_externalSVGDocument->write(decoder.decode(m_data->data(), m_data->size()));
+        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("application/xml");
+        m_externalSVGDocument->write(decoder->decode(m_data->data(), m_data->size()));
+        if (decoder->sawError()) {
+            m_externalSVGDocument.clear();
+            return 0;
+        }
 
         m_externalSVGDocument->finishParsing();
         m_externalSVGDocument->close();
@@ -164,7 +172,7 @@ SVGFontElement* CachedFont::getSVGFontById(const String& fontName) const
 }
 #endif
 
-void CachedFont::allReferencesRemoved()
+void CachedFont::allClientsRemoved()
 {
 #if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
     if (m_fontData) {

@@ -85,7 +85,8 @@ public:
     Element* rootEditableElement() const;
     bool isContentEditable() const;
     bool isContentRichlyEditable() const;
-
+    Node* shadowTreeRootNode() const;
+    
     void debugPosition() const;
 
 #ifndef NDEBUG
@@ -114,7 +115,7 @@ private:
 
 inline bool operator==(const Selection& a, const Selection& b)
 {
-    return a.start() == b.start() && a.end() == b.end() && a.affinity() == b.affinity() && a.granularity() == b.granularity();
+    return a.start() == b.start() && a.end() == b.end() && a.affinity() == b.affinity() && a.granularity() == b.granularity() && a.isBaseFirst() == b.isBaseFirst();
 }
 
 inline bool operator!=(const Selection& a, const Selection& b)

@@ -30,11 +30,16 @@
 #include "CachedXSLStyleSheet.h"
 #include "DocLoader.h"
 #include "Document.h"
+#if USE(LOW_BANDWIDTH_DISPLAY)
 #include "Frame.h"
+#endif
 #include "FrameLoader.h"
+#include "FrameView.h"
 #include "Image.h"
 #include "ResourceHandle.h"
 #include "SystemTime.h"
+#include <stdio.h>
+
 
 using namespace std;
 
@@ -43,6 +48,7 @@ namespace WebCore {
 static const int cDefaultCacheCapacity = 8192 * 1024;
 static const double cMinDelayBeforeLiveDecodedPrune = 1; // Seconds.
 static const float cTargetPrunePercentage = .95f; // Percentage of capacity toward which we prune, to avoid immediately pruning again.
+static const double cDefaultDecodedDataDeletionInterval = 0;
 
 Cache* cache()
 {
@@ -51,35 +57,36 @@ Cache* cache()
 }
 
 Cache::Cache()
-: m_disabled(false)
-, m_pruneEnabled(true)
-, m_capacity(cDefaultCacheCapacity)
-, m_minDeadCapacity(0)
-, m_maxDeadCapacity(cDefaultCacheCapacity)
-, m_liveSize(0)
-, m_deadSize(0)
+    : m_disabled(false)
+    , m_pruneEnabled(true)
+    , m_inPruneDeadResources(false)
+    , m_capacity(cDefaultCacheCapacity)
+    , m_minDeadCapacity(0)
+    , m_maxDeadCapacity(cDefaultCacheCapacity)
+    , m_deadDecodedDataDeletionInterval(cDefaultDecodedDataDeletionInterval)
+    , m_liveSize(0)
+    , m_deadSize(0)
 {
 }
 
-static CachedResource* createResource(CachedResource::Type type, DocLoader* docLoader, const KURL& url, const String* charset, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true)
+static CachedResource* createResource(CachedResource::Type type, const KURL& url, const String& charset)
 {
     switch (type) {
     case CachedResource::ImageResource:
-        // User agent images need to null check the docloader.  No other resources need to.
-        return new CachedImage(docLoader, url.string(), true /* for cache */);
+        return new CachedImage(url.string());
     case CachedResource::CSSStyleSheet:
-        return new CachedCSSStyleSheet(docLoader, url.string(), *charset, skipCanLoadCheck, sendResourceLoadCallbacks);
+        return new CachedCSSStyleSheet(url.string(), charset);
     case CachedResource::Script:
-        return new CachedScript(docLoader, url.string(), *charset);
+        return new CachedScript(url.string(), charset);
     case CachedResource::FontResource:
-        return new CachedFont(docLoader, url.string());
+        return new CachedFont(url.string());
 #if ENABLE(XSLT)
     case CachedResource::XSLStyleSheet:
-        return new CachedXSLStyleSheet(docLoader, url.string());
+        return new CachedXSLStyleSheet(url.string());
 #endif
 #if ENABLE(XBL)
     case CachedResource::XBLStyleSheet:
-        return new CachedXBLDocument(docLoader, url.string());
+        return new CachedXBLDocument(url.string());
 #endif
     default:
         break;
@@ -88,11 +95,7 @@ static CachedResource* createResource(CachedResource::Type type, DocLoader* docL
     return 0;
 }
 
-#ifdef ANDROID_PRELOAD_CHANGES
-CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks, bool isPreload)
-#else
-CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks)
-#endif
+CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String& charset, bool isPreload)
 {
     // FIXME: Do we really need to special-case an empty URL?
     // Would it be better to just go on with the cache code and let it fail later?
@@ -103,43 +106,35 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
     CachedResource* resource = m_resources.get(url.string());
 
     if (resource) {
-#ifdef ANDROID_PRELOAD_CHANGES
         if (isPreload && !resource->isPreloaded())
             return 0;
-#endif
-        if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(*resource, docLoader->doc())) {
+        if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
             Document* doc = docLoader->doc();
-#ifdef ANDROID_PRELOAD_CHANGES
             if(doc && !isPreload)
-#else
-            if(doc)
-#endif
-                FrameLoader::reportLocalLoadFailed(doc->page(), resource->url());
+                FrameLoader::reportLocalLoadFailed(doc->frame(), resource->url());
             return 0;
         }
     } else {
-        if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, docLoader->doc())) {
+        if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
             Document* doc = docLoader->doc();
-#ifdef ANDROID_PRELOAD_CHANGES            
             if(doc && !isPreload)
-#else
-            if(doc)
-#endif
-                FrameLoader::reportLocalLoadFailed(doc->page(), url.string());
-
+                FrameLoader::reportLocalLoadFailed(doc->frame(), url.string());
             return 0;
         }
 
         // The resource does not exist. Create it.
-        resource = createResource(type, docLoader, url, charset, skipCanLoadCheck, sendResourceLoadCallbacks);
+        resource = createResource(type, url, charset);
         ASSERT(resource);
-        ASSERT(resource->inCache());
-        if (!disabled()) {
+
+        // Pretend the resource is in the cache, to prevent it from being deleted during the load() call.
+        // FIXME: CachedResource should just use normal refcounting instead.
+        resource->setInCache(true);
+        
+        resource->load(docLoader);
+        
+        if (!disabled())
             m_resources.set(url.string(), resource);  // The size will be added in later once the resource is loaded and calls back to us with the new size.
-            
-            // This will move the resource to the front of its LRU list and increase its access count.
-            resourceAccessed(resource);
-        } else {
+        else {
             // Kick the resource out of the cache, because the cache is disabled.
             resource->setInCache(false);
             resource->setDocLoader(docLoader);
@@ -163,7 +158,92 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
         return 0;
 #endif
 
+    if (!disabled()) {
+        // This will move the resource to the front of its LRU list and increase its access count.
+        resourceAccessed(resource);
+    }
+
     return resource;
+}
+    
+CachedCSSStyleSheet* Cache::requestUserCSSStyleSheet(DocLoader* docLoader, const String& url, const String& charset)
+{
+    CachedCSSStyleSheet* userSheet;
+    if (CachedResource* existing = m_resources.get(url)) {
+        if (existing->type() != CachedResource::CSSStyleSheet)
+            return 0;
+        userSheet = static_cast<CachedCSSStyleSheet*>(existing);
+    } else {
+        userSheet = new CachedCSSStyleSheet(url, charset);
+
+        // Pretend the resource is in the cache, to prevent it from being deleted during the load() call.
+        // FIXME: CachedResource should just use normal refcounting instead.
+        userSheet->setInCache(true);
+        // Don't load incrementally, skip load checks, don't send resource load callbacks.
+        userSheet->load(docLoader, false, true, false);
+        if (!disabled())
+            m_resources.set(url, userSheet);
+        else
+            userSheet->setInCache(false);
+    }
+
+    if (!disabled()) {
+        // This will move the resource to the front of its LRU list and increase its access count.
+        resourceAccessed(userSheet);
+    }
+
+    return userSheet;
+}
+    
+void Cache::revalidateResource(CachedResource* resource, DocLoader* docLoader)
+{
+    ASSERT(resource);
+    ASSERT(!disabled());
+    if (resource->resourceToRevalidate())
+        return;
+    if (!resource->canUseCacheValidator()) {
+        evict(resource);
+        return;
+    }
+    const String& url = resource->url();
+    CachedResource* newResource = createResource(resource->type(), KURL(url), resource->encoding());
+    newResource->setResourceToRevalidate(resource);
+    evict(resource);
+    m_resources.set(url, newResource);
+    newResource->setInCache(true);
+    resourceAccessed(newResource);
+    newResource->load(docLoader);
+}
+    
+void Cache::revalidationSucceeded(CachedResource* revalidatingResource, const ResourceResponse& response)
+{
+    CachedResource* resource = revalidatingResource->resourceToRevalidate();
+    ASSERT(resource);
+    ASSERT(!resource->inCache());
+    ASSERT(resource->isLoaded());
+    
+    evict(revalidatingResource);
+
+    ASSERT(!m_resources.get(resource->url()));
+    m_resources.set(resource->url(), resource);
+    resource->setInCache(true);
+    resource->setExpirationDate(response.expirationDate());
+    insertInLRUList(resource);
+    int delta = resource->size();
+    if (resource->decodedSize() && resource->hasClients())
+        insertInLiveDecodedResourcesList(resource);
+    if (delta)
+        adjustSize(resource->hasClients(), delta);
+    
+    revalidatingResource->switchClientsToRevalidatedResource();
+    // this deletes the revalidating resource
+    revalidatingResource->clearResourceToRevalidate();
+}
+
+void Cache::revalidationFailed(CachedResource* revalidatingResource)
+{
+    ASSERT(revalidatingResource->resourceToRevalidate());
+    revalidatingResource->clearResourceToRevalidate();
 }
 
 CachedResource* Cache::resourceForURL(const String& url)
@@ -192,11 +272,11 @@ void Cache::pruneLiveResources()
         return;
 
     unsigned capacity = liveCapacity();
-    if (m_liveSize <= capacity)
+    if (capacity && m_liveSize <= capacity)
         return;
 
     unsigned targetSize = static_cast<unsigned>(capacity * cTargetPrunePercentage); // Cut by a percentage to avoid immediately pruning again.
-    double currentTime = Frame::currentPaintTimeStamp();
+    double currentTime = FrameView::currentPaintTimeStamp();
     if (!currentTime) // In case prune is called directly, outside of a Frame paint.
         currentTime = WebCore::currentTime();
     
@@ -205,7 +285,7 @@ void Cache::pruneLiveResources()
     CachedResource* current = m_liveDecodedResources.m_tail;
     while (current) {
         CachedResource* prev = current->m_prevInLiveResourcesList;
-        ASSERT(current->referenced());
+        ASSERT(current->hasClients());
         if (current->isLoaded() && current->decodedSize()) {
             // Check to see if the remaining resources are too new to prune.
             double elapsedTime = currentTime - current->m_lastDecodedAccessTime;
@@ -217,7 +297,7 @@ void Cache::pruneLiveResources()
             // list in m_allResources.
             current->destroyDecodedData();
 
-            if (m_liveSize <= targetSize)
+            if (targetSize && m_liveSize <= targetSize)
                 return;
         }
         current = prev;
@@ -230,12 +310,13 @@ void Cache::pruneDeadResources()
         return;
 
     unsigned capacity = deadCapacity();
-    if (m_deadSize <= capacity)
+    if (capacity && m_deadSize <= capacity)
         return;
 
     unsigned targetSize = static_cast<unsigned>(capacity * cTargetPrunePercentage); // Cut by a percentage to avoid immediately pruning again.
     int size = m_allResources.size();
     bool canShrinkLRULists = true;
+    m_inPruneDeadResources = true;
     for (int i = size - 1; i >= 0; i--) {
         // Remove from the tail, since this is the least frequently accessed of the objects.
         CachedResource* current = m_allResources[i].m_tail;
@@ -243,18 +324,16 @@ void Cache::pruneDeadResources()
         // First flush all the decoded data in this queue.
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
-#ifdef ANDROID_PRELOAD_CHANGES 
-            if (!current->referenced() && !current->isPreloaded() && current->isLoaded() && current->decodedSize()) {
-#else
-            if (!current->referenced() && current->isLoaded() && current->decodedSize()) {
-#endif
+            if (!current->hasClients() && !current->isPreloaded() && current->isLoaded() && current->decodedSize()) {
                 // Destroy our decoded data. This will remove us from 
                 // m_liveDecodedResources, and possibly move us to a differnt 
                 // LRU list in m_allResources.
                 current->destroyDecodedData();
                 
-                if (m_deadSize <= targetSize)
+                if (targetSize && m_deadSize <= targetSize) {
+                    m_inPruneDeadResources = false;
                     return;
+                }
             }
             current = prev;
         }
@@ -263,18 +342,21 @@ void Cache::pruneDeadResources()
         current = m_allResources[i].m_tail;
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
-#ifdef ANDROID_PRELOAD_CHANGES 
-            if (!current->referenced() && !current->isPreloaded()) {
-#else
-            if (!current->referenced()) {
-#endif
-                remove(current);
-
-                if (m_deadSize <= targetSize)
+            if (!current->hasClients() && !current->isPreloaded()) {
+                evict(current);
+                // If evict() caused pruneDeadResources() to be re-entered, bail out. This can happen when removing an
+                // SVG CachedImage that has subresources.
+                if (!m_inPruneDeadResources)
                     return;
+
+                if (targetSize && m_deadSize <= targetSize) {
+                    m_inPruneDeadResources = false;
+                    return;
+                }
             }
             current = prev;
         }
+            
         // Shrink the vector back down so we don't waste time inspecting
         // empty LRU lists on future prunes.
         if (m_allResources[i].m_head)
@@ -282,6 +364,7 @@ void Cache::pruneDeadResources()
         else if (canShrinkLRULists)
             m_allResources.resize(i);
     }
+    m_inPruneDeadResources = false;
 }
 
 void Cache::setCapacities(unsigned minDeadBytes, unsigned maxDeadBytes, unsigned totalBytes)
@@ -294,7 +377,7 @@ void Cache::setCapacities(unsigned minDeadBytes, unsigned maxDeadBytes, unsigned
     prune();
 }
 
-void Cache::remove(CachedResource* resource)
+void Cache::evict(CachedResource* resource)
 {
     // The resource may have already been removed by someone other than our caller,
     // who needed a fresh copy for a reload. See <http://bugs.webkit.org/show_bug.cgi?id=12479#c6>.
@@ -316,8 +399,9 @@ void Cache::remove(CachedResource* resource)
         // Subtract from our size totals.
         int delta = -static_cast<int>(resource->size());
         if (delta)
-            adjustSize(resource->referenced(), delta);
-    }
+            adjustSize(resource->hasClients(), delta);
+    } else
+        ASSERT(m_resources.get(resource->url()) != resource);
 
     if (resource->canDelete())
         delete resource;
@@ -415,6 +499,7 @@ void Cache::insertInLRUList(CachedResource* resource)
     // Make sure we aren't in some list already.
     ASSERT(!resource->m_nextInAllResourcesList && !resource->m_prevInAllResourcesList);
     ASSERT(resource->inCache());
+    ASSERT(resource->accessCount() > 0);
     
     LRUList* list = lruListFor(resource);
 
@@ -556,42 +641,42 @@ Cache::Statistics Cache::getStatistics()
             case CachedResource::ImageResource:
                 stats.images.count++;
                 stats.images.size += o->size();
-                stats.images.liveSize += o->referenced() ? o->size() : 0;
+                stats.images.liveSize += o->hasClients() ? o->size() : 0;
                 stats.images.decodedSize += o->decodedSize();
                 break;
 
             case CachedResource::CSSStyleSheet:
                 stats.cssStyleSheets.count++;
                 stats.cssStyleSheets.size += o->size();
-                stats.cssStyleSheets.liveSize += o->referenced() ? o->size() : 0;
+                stats.cssStyleSheets.liveSize += o->hasClients() ? o->size() : 0;
                 stats.cssStyleSheets.decodedSize += o->decodedSize();
                 break;
 
             case CachedResource::Script:
                 stats.scripts.count++;
                 stats.scripts.size += o->size();
-                stats.scripts.liveSize += o->referenced() ? o->size() : 0;
+                stats.scripts.liveSize += o->hasClients() ? o->size() : 0;
                 stats.scripts.decodedSize += o->decodedSize();
                 break;
 #if ENABLE(XSLT)
             case CachedResource::XSLStyleSheet:
                 stats.xslStyleSheets.count++;
                 stats.xslStyleSheets.size += o->size();
-                stats.xslStyleSheets.liveSize += o->referenced() ? o->size() : 0;
+                stats.xslStyleSheets.liveSize += o->hasClients() ? o->size() : 0;
                 stats.xslStyleSheets.decodedSize += o->decodedSize();
                 break;
 #endif
             case CachedResource::FontResource:
                 stats.fonts.count++;
                 stats.fonts.size += o->size();
-                stats.fonts.liveSize += o->referenced() ? o->size() : 0;
+                stats.fonts.liveSize += o->hasClients() ? o->size() : 0;
                 stats.fonts.decodedSize += o->decodedSize();
                 break;
 #if ENABLE(XBL)
             case CachedResource::XBL:
                 stats.xblDocs.count++;
                 stats.xblDocs.size += o->size();
-                stats.xblDocs.liveSize += o->referenced() ? o->size() : 0;
+                stats.xblDocs.liveSize += o->hasClients() ? o->size() : 0;
                 stats.xblDocs.decodedSize += o->decodedSize();
                 break;
 #endif
@@ -613,7 +698,7 @@ void Cache::setDisabled(bool disabled)
         CachedResourceMap::iterator i = m_resources.begin();
         if (i == m_resources.end())
             break;
-        remove(i->second);
+        evict(i->second);
     }
 }
 
@@ -628,8 +713,8 @@ void Cache::dumpLRULists(bool includeLive) const
         CachedResource* current = m_allResources[i].m_tail;
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
-            if (includeLive || !current->referenced())
-                printf("(%.1fK, %.1fK, %uA, %dR); ", current->decodedSize() / 1024.0f, current->encodedSize() / 1024.0f, current->accessCount(), current->referenced());
+            if (includeLive || !current->hasClients())
+                printf("(%.1fK, %.1fK, %uA, %dR); ", current->decodedSize() / 1024.0f, current->encodedSize() / 1024.0f, current->accessCount(), current->hasClients());
             current = prev;
         }
     }

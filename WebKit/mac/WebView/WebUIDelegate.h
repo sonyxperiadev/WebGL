@@ -28,6 +28,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <Foundation/NSURLRequest.h>
+#import <JavaScriptCore/WebKitAvailability.h>
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 #define WebNSUInteger unsigned int
@@ -126,6 +127,13 @@ typedef enum {
     @param fileName
 */
 - (void)chooseFilename:(NSString *)fileName;
+
+/*!
+    @method chooseFilenames:
+    @abstract Call this method to return an array of filenames from the file open panel.
+    @param fileNames
+*/
+- (void)chooseFilenames:(NSArray *)fileNames WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
 
 /*!
     @method cancel
@@ -380,7 +388,7 @@ typedef enum {
 - (NSString *)webView:(WebView *)sender runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WebFrame *)frame;
 
 /*!
-    @method webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:
+    @method webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:
     @abstract Display a confirm panel by an "before unload" event handler.
     @param sender The WebView sending the delegate method.
     @param message The message to display.
@@ -401,6 +409,17 @@ typedef enum {
     value so that it can be handled with a sheet.
 */
 - (void)webView:(WebView *)sender runOpenPanelForFileButtonWithResultListener:(id<WebOpenPanelResultListener>)resultListener;
+
+/*!
+    @method webView:runOpenPanelForFileButtonWithResultListener:allowMultipleFiles
+    @abstract Display a file open panel for a file input control that may allow multiple files to be selected.
+    @param sender The WebView sending the delegate method.
+    @param resultListener The object to call back with the results.
+    @param allowMultipleFiles YES if the open panel should allow myltiple files to be selected, NO if not.
+    @discussion This method is passed a callback object instead of giving a return
+    value so that it can be handled with a sheet.
+*/
+- (void)webView:(WebView *)sender runOpenPanelForFileButtonWithResultListener:(id<WebOpenPanelResultListener>)resultListener allowMultipleFiles:(BOOL)allowMultipleFiles WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
 
 /*!
     @method webView:mouseDidMoveOverElement:modifierFlags:
@@ -543,13 +562,13 @@ typedef enum {
 
 // The following delegate methods are deprecated in favor of the ones above that specify
 // the WebFrame whose JavaScript initiated this call.
-- (void)webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message;
-- (BOOL)webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message;
-- (NSString *)webView:(WebView *)sender runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText;
+- (void)webView:(WebView *)sender runJavaScriptAlertPanelWithMessage:(NSString *)message WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
+- (BOOL)webView:(WebView *)sender runJavaScriptConfirmPanelWithMessage:(NSString *)message WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
+- (NSString *)webView:(WebView *)sender runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
 
 // The following delegate methods are deprecated. Content rect calculations are now done automatically.
-- (void)webView:(WebView *)sender setContentRect:(NSRect)frame;
-- (NSRect)webViewContentRect:(WebView *)sender;
+- (void)webView:(WebView *)sender setContentRect:(NSRect)frame WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
+- (NSRect)webViewContentRect:(WebView *)sender WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_WEBKIT_VERSION_1_0_AND_LATER_BUT_DEPRECATED_IN_WEBKIT_VERSION_3_0);
 
 @end
 

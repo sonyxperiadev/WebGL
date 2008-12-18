@@ -23,14 +23,16 @@
 #ifndef KJS_Interpreter_h
 #define KJS_Interpreter_h
 
-namespace KJS {
+#include "JSValue.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/unicode/Unicode.h>
+
+namespace JSC {
 
   class Completion;
   class ExecState;
-  class JSValue;
-  class UString;
-
-  struct UChar;
+  class ScopeChain;
+  class SourceCode;
   
   class Interpreter {
   public:
@@ -41,8 +43,7 @@ namespace KJS {
      * @return A normal completion if there were no syntax errors in the code, 
      * otherwise a throw completion with the syntax error as its value.
      */
-    static Completion checkSyntax(ExecState*, const UString& sourceURL, int startingLineNumber, const UString& code);
-    static Completion checkSyntax(ExecState*, const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength);
+    static Completion checkSyntax(ExecState*, const SourceCode&);
 
     /**
      * Evaluates the supplied ECMAScript code.
@@ -55,17 +56,13 @@ namespace KJS {
      * If the supplied code is invalid, a SyntaxError will be thrown.
      *
      * @param code The code to evaluate
-     * @param thisV The value to pass in as the "this" value for the script
+     * @param thisValue The value to pass in as the "this" value for the script
      * execution. This should either be jsNull() or an Object.
      * @return A completion object representing the result of the execution.
      */
-    static Completion evaluate(ExecState*, const UString& sourceURL, int startingLineNumber, const UString& code, JSValue* thisV = 0);
-    static Completion evaluate(ExecState*, const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength, JSValue* thisV = 0);
-    
-    static bool shouldPrintExceptions();
-    static void setShouldPrintExceptions(bool);
+    static Completion evaluate(ExecState*, ScopeChain&, const SourceCode&, JSValue* thisValue = noValue());
   };
 
-} // namespace KJS
+} // namespace JSC
 
 #endif // KJS_Interpreter_h

@@ -163,7 +163,7 @@ GList* webkit_web_back_forward_list_get_forward_list_with_limit(WebKitWebBackFor
     if (!backForwardList || !backForwardList->enabled())
         return NULL;
 
-    WebCore::HistoryItemVector items(limit);
+    WebCore::HistoryItemVector items;
     GList* forwardItems = { 0 };
 
     backForwardList->forwardListWithLimit(limit, items);
@@ -193,7 +193,7 @@ GList* webkit_web_back_forward_list_get_back_list_with_limit(WebKitWebBackForwar
     if (!backForwardList || !backForwardList->enabled())
         return NULL;
 
-    WebCore::HistoryItemVector items(limit);
+    WebCore::HistoryItemVector items;
     GList* backItems = { 0 };
 
     backForwardList->backListWithLimit(limit, items);
@@ -333,7 +333,7 @@ gint webkit_web_back_forward_list_get_forward_length(WebKitWebBackForwardList* w
 }
 
 /**
- * webkit_web_back_forward_list_get_capacity:
+ * webkit_web_back_forward_list_get_limit:
  * @webBackForwardList: a #WebKitWebBackForwardList
  *
  * Returns the maximum limit of the back forward list.

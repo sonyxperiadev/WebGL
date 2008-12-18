@@ -25,6 +25,7 @@
 #define RenderView_h
 
 #include "FrameView.h"
+#include "Frame.h"
 #include "LayoutState.h"
 #include "RenderBlock.h"
 
@@ -44,9 +45,15 @@ public:
     virtual void calcHeight();
     virtual void calcPrefWidths();
     virtual bool absolutePosition(int& xPos, int& yPos, bool fixed = false) const;
-
+    
     int docHeight() const;
     int docWidth() const;
+
+    // The same as the FrameView's visibleHeight/visibleWidth but with null check guards.
+    int viewHeight() const;
+    int viewWidth() const;
+    
+    float zoomFactor() const { return m_frameView->frame() && m_frameView->frame()->shouldApplyPageZoom() ? m_frameView->frame()->zoomFactor() : 1.0f; }
 
     FrameView* frameView() const { return m_frameView; }
 
@@ -90,6 +97,8 @@ public:
     void addWidget(RenderObject*);
     void removeWidget(RenderObject*);
 
+    // layoutDelta is used transiently during layout to store how far an object has moved from its
+    // last layout location, in order to repaint correctly
     const IntSize& layoutDelta() const { return m_layoutDelta; }
     void addLayoutDelta(const IntSize& delta) { m_layoutDelta += delta; }
 

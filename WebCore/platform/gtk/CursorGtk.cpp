@@ -28,7 +28,6 @@
 #include "config.h"
 #include "CursorGtk.h"
 
-#include "DeprecatedString.h"
 #include "NotImplemented.h"
 #include <wtf/Assertions.h>
 
@@ -214,6 +213,52 @@ const Cursor& rowResizeCursor()
     static Cursor c = gdk_cursor_new(GDK_DOUBLE_ARROW);
     return c;
 }
+    
+const Cursor& middlePanningCursor()
+{
+    return moveCursor();
+}
+
+const Cursor& eastPanningCursor()
+{
+    return eastResizeCursor();
+}
+
+const Cursor& northPanningCursor()
+{
+    return northResizeCursor();
+}
+
+const Cursor& northEastPanningCursor()
+{
+    return northEastResizeCursor();
+}
+
+const Cursor& northWestPanningCursor()
+{
+    return northWestResizeCursor();
+}
+
+const Cursor& southPanningCursor()
+{
+    return southResizeCursor();
+}
+
+const Cursor& southEastPanningCursor()
+{
+    return southEastResizeCursor();
+}
+
+const Cursor& southWestPanningCursor()
+{
+    return southWestResizeCursor();
+}
+
+const Cursor& westPanningCursor()
+{
+    return westResizeCursor();
+}
+    
 
 const Cursor& verticalTextCursor()
 {
@@ -223,7 +268,7 @@ const Cursor& verticalTextCursor()
 
 const Cursor& cellCursor()
 {
-    // TODO: Find a suitable cursor
+    notImplemented();
     return pointerCursor();
 }
 
@@ -235,7 +280,7 @@ const Cursor& contextMenuCursor()
 
 const Cursor& noDropCursor()
 {
-    // TODO: Find a suitable cursor
+    notImplemented();
     return pointerCursor();
 }
 
@@ -247,7 +292,7 @@ const Cursor& copyCursor()
 
 const Cursor& progressCursor()
 {
-    // TODO: Find a suitable cursor
+    notImplemented();
     return pointerCursor();
 }
 
@@ -259,13 +304,13 @@ const Cursor& aliasCursor()
 
 const Cursor& noneCursor()
 {
-    // TODO: Find a suitable cursor
+    notImplemented();
     return pointerCursor();
 }
 
 const Cursor& notAllowedCursor()
 {
-    // TODO: Find a suitable cursor
+    notImplemented();
     return pointerCursor();
 }
 
@@ -279,6 +324,18 @@ const Cursor& zoomOutCursor()
 {
     static Cursor c = customCursorNew(CustomCursorZoomOut);
     return c;
+}
+
+const Cursor& grabCursor()
+{
+    notImplemented();
+    return pointerCursor();
+}
+
+const Cursor& grabbingCursor()
+{
+    notImplemented();
+    return pointerCursor();
 }
 
 }

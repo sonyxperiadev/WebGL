@@ -117,7 +117,7 @@ bool EditorClientWx::isEditable()
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->nativeWindow());
+        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->platformWidget());
         if (webKitWin) 
             return webKitWin->IsEditable();
     }
@@ -143,7 +143,7 @@ bool EditorClientWx::shouldInsertNode(Node*, Range*,
     return true;
 }
 
-bool EditorClientWx::shouldInsertText(String, Range*,
+bool EditorClientWx::shouldInsertText(const String&, Range*,
                                        EditorInsertAction)
 {
     notImplemented();
@@ -246,8 +246,8 @@ void EditorClientWx::handleKeyboardEvent(KeyboardEvent* event)
         return;
 
     const PlatformKeyboardEvent* kevent = event->keyEvent();
-    if (!kevent->type() == PlatformKeyboardEvent::KeyUp) {
-        Node* start = frame->selectionController()->start().node();
+    if (kevent->type() != PlatformKeyboardEvent::KeyUp) {
+        Node* start = frame->selection()->start().node();
         if (!start || !start->isContentEditable())
             return; 
         

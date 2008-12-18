@@ -39,12 +39,12 @@ namespace WebCore {
 
     class CachedCSSStyleSheet : public CachedResource {
     public:
-        CachedCSSStyleSheet(DocLoader*, const String& URL, const String& charset, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
+        CachedCSSStyleSheet(const String& URL, const String& charset);
         virtual ~CachedCSSStyleSheet();
 
-        const String& sheet() const { return m_sheet; }
+        const String sheetText(bool enforceMIMEType = true) const { return canUseSheet(enforceMIMEType) ? m_sheet : ""; }
 
-        virtual void ref(CachedResourceClient*);
+        virtual void addClient(CachedResourceClient*);
  
         virtual void setEncoding(const String&);
         virtual String encoding() const;
@@ -54,6 +54,9 @@ namespace WebCore {
         virtual bool schedule() const { return true; }
 
         void checkNotify();
+    
+    private:
+        bool canUseSheet(bool enforceMIMEType) const;
 
     protected:
         String m_sheet;

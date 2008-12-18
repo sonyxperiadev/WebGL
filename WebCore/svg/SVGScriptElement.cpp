@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
@@ -21,9 +21,11 @@
 */
 
 #include "config.h"
+
 #if ENABLE(SVG)
 #include "SVGScriptElement.h"
 
+#include "EventNames.h"
 #include "SVGNames.h"
 
 namespace WebCore {
@@ -32,11 +34,99 @@ SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document* doc)
     : SVGElement(tagName, doc)
     , SVGURIReference()
     , SVGExternalResourcesRequired()
+    , m_data(this, this)
 {
 }
 
 SVGScriptElement::~SVGScriptElement()
 {
+}
+
+void SVGScriptElement::setCreatedByParser(bool createdByParser)
+{
+    m_data.setCreatedByParser(createdByParser);
+}
+
+String SVGScriptElement::scriptContent() const
+{
+    return m_data.scriptContent();
+}
+
+void SVGScriptElement::parseMappedAttribute(MappedAttribute* attr)
+{
+    const QualifiedName& attrName = attr->name();
+
+    if (attrName == SVGNames::typeAttr)
+        setType(attr->value());
+    else {
+        if (SVGURIReference::parseMappedAttribute(attr))
+            return;
+        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
+            return;
+
+        SVGElement::parseMappedAttribute(attr);
+    }
+}
+
+void SVGScriptElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGElement::svgAttributeChanged(attrName);
+
+    if (SVGURIReference::isKnownAttribute(attrName))
+        handleSourceAttribute(m_data, href());
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
+        // Handle dynamic updates of the 'externalResourcesRequired' attribute. Only possible case: changing from 'true' to 'false'
+        // causes an immediate dispatch of the SVGLoad event. If the attribute value was 'false' before inserting the script element
+        // in the document, the SVGLoad event has already been dispatched.
+        if (!externalResourcesRequiredBaseValue() && !m_data.haveFiredLoadEvent() && !m_data.createdByParser()) {
+            m_data.setHaveFiredLoadEvent(true);
+            ASSERT(haveLoadedRequiredResources());
+
+            sendSVGLoadEventIfPossible();
+        }
+    }
+}
+
+void SVGScriptElement::insertedIntoDocument()
+{
+    SVGElement::insertedIntoDocument();
+    ScriptElement::insertedIntoDocument(m_data, sourceAttributeValue());
+
+    if (m_data.createdByParser())
+        return;
+
+    // Eventually send SVGLoad event now for the dynamically inserted script element
+    if (!externalResourcesRequiredBaseValue()) {
+        m_data.setHaveFiredLoadEvent(true);
+        sendSVGLoadEventIfPossible();
+    }
+}
+
+void SVGScriptElement::removedFromDocument()
+{
+    SVGElement::removedFromDocument();
+    ScriptElement::removedFromDocument(m_data);
+}
+
+void SVGScriptElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+{
+    ScriptElement::childrenChanged(m_data);
+    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+}
+
+bool SVGScriptElement::isURLAttribute(Attribute* attr) const
+{
+    return attr->name() == sourceAttributeValue();
+}
+
+void SVGScriptElement::finishParsingChildren()
+{
+    ScriptElement::finishParsingChildren(m_data, sourceAttributeValue());
+    SVGElement::finishParsingChildren();
+
+    // A SVGLoad event has been fired by SVGElement::finishParsingChildren.
+    if (!externalResourcesRequiredBaseValue())
+        m_data.setHaveFiredLoadEvent(true);
 }
 
 String SVGScriptElement::type() const
@@ -49,22 +139,74 @@ void SVGScriptElement::setType(const String& type)
     m_type = type;
 }
 
-void SVGScriptElement::parseMappedAttribute(MappedAttribute* attr)
+String SVGScriptElement::scriptCharset() const
 {
-    if (attr->name() == SVGNames::typeAttr)
-        setType(attr->value());
-    else {
-        if (SVGURIReference::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
+    return m_data.scriptCharset();
+}
 
-        SVGElement::parseMappedAttribute(attr);
+void SVGScriptElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+{
+    urls.append(href());
+}
+
+bool SVGScriptElement::haveLoadedRequiredResources()
+{
+    return !externalResourcesRequiredBaseValue() || m_data.haveFiredLoadEvent();
+}
+
+String SVGScriptElement::sourceAttributeValue() const
+{
+    return href();
+}
+
+String SVGScriptElement::charsetAttributeValue() const
+{
+    return String();
+}
+
+String SVGScriptElement::typeAttributeValue() const
+{
+    return type();
+}
+
+String SVGScriptElement::languageAttributeValue() const
+{
+    return String();
+}
+
+void SVGScriptElement::dispatchLoadEvent()
+{
+    bool externalResourcesRequired = externalResourcesRequiredBaseValue();
+
+    if (m_data.createdByParser())
+        ASSERT(externalResourcesRequired != m_data.haveFiredLoadEvent());
+    else if (m_data.haveFiredLoadEvent()) {
+        // If we've already fired an load event and externalResourcesRequired is set to 'true'
+        // externalResourcesRequired has been modified while loading the <script>. Don't dispatch twice.
+        if (externalResourcesRequired)
+            return;
+    }
+
+    // HTML and SVG differ completly in the 'onload' event handling of <script> elements.
+    // HTML fires the 'load' event after it sucessfully loaded a remote resource, otherwhise an error event.
+    // SVG fires the SVGLoad event immediately after parsing the <script> element, if externalResourcesRequired
+    // is set to 'false', otherwhise it dispatches the 'SVGLoad' event just after loading the remote resource.
+    if (externalResourcesRequired) {
+        ASSERT(!m_data.haveFiredLoadEvent());
+
+        // Dispatch SVGLoad event
+        m_data.setHaveFiredLoadEvent(true);
+        ASSERT(haveLoadedRequiredResources());
+
+        sendSVGLoadEventIfPossible();
     }
 }
 
+void SVGScriptElement::dispatchErrorEvent()
+{
+    dispatchEventForType(eventNames().errorEvent, true, false);
 }
 
-// vim:ts=4:noet
-#endif // ENABLE(SVG)
+}
 
+#endif // ENABLE(SVG)

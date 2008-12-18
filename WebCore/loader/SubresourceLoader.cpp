@@ -38,23 +38,12 @@
 #include "ResourceRequest.h"
 #include "SubresourceLoaderClient.h"
 #include "SharedBuffer.h"
+#include <wtf/RefCountedLeakCounter.h>
 
 namespace WebCore {
 
-#ifndef NDEBUG
-WTFLogChannel LogWebCoreSubresourceLoaderLeaks =  { 0x00000000, "", WTFLogChannelOn };
-
-struct SubresourceLoaderCounter {
-    static unsigned count; 
-
-    ~SubresourceLoaderCounter() 
-    { 
-        if (count) 
-            LOG(WebCoreSubresourceLoaderLeaks, "LEAK: %u SubresourceLoader\n", count); 
-    }
-};
-unsigned SubresourceLoaderCounter::count = 0;
-static SubresourceLoaderCounter subresourceLoaderCounter;
+#ifndef NDEBUG    
+static WTF::RefCountedLeakCounter subresourceLoaderCounter("SubresourceLoader");
 #endif
 
 SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* client, bool sendResourceLoadCallbacks, bool shouldContentSniff)
@@ -63,7 +52,7 @@ SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* clie
     , m_loadingMultipartContent(false)
 {
 #ifndef NDEBUG
-    ++SubresourceLoaderCounter::count;
+    subresourceLoaderCounter.increment();
 #endif
     m_documentLoader->addSubresourceLoader(this);
 }
@@ -71,7 +60,7 @@ SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* clie
 SubresourceLoader::~SubresourceLoader()
 {
 #ifndef NDEBUG
-    --SubresourceLoaderCounter::count;
+    subresourceLoaderCounter.decrement();
 #endif
 }
 
@@ -95,8 +84,8 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
     if (!skipCanLoadCheck
             && FrameLoader::restrictAccessToLocal()
-            && !FrameLoader::canLoad(request.url(), frame->document())) {
-        FrameLoader::reportLocalLoadFailed(frame->page(), request.url().string());
+            && !FrameLoader::canLoad(request.url(), String(), frame->document())) {
+        FrameLoader::reportLocalLoadFailed(frame, request.url().string());
         return 0;
     }
     
@@ -104,6 +93,7 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
         newRequest.clearHTTPReferrer();
     else if (!request.httpReferrer())
         newRequest.setHTTPReferrer(fl->outgoingReferrer());
+    FrameLoader::addHTTPOriginIfNeeded(newRequest, fl->outgoingOrigin());
 
     // Use the original request's cache policy for two reasons:
     // 1. For POST requests, we mutate the cache policy for the main resource,
@@ -118,7 +108,7 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
     fl->addExtraFieldsToRequest(newRequest, false, false);
 
-    RefPtr<SubresourceLoader> subloader(new SubresourceLoader(frame, client, sendResourceLoadCallbacks, shouldContentSniff));
+    RefPtr<SubresourceLoader> subloader(adoptRef(new SubresourceLoader(frame, client, sendResourceLoadCallbacks, shouldContentSniff)));
     if (!subloader->load(newRequest))
         return 0;
 
@@ -127,9 +117,20 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
 void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const ResourceResponse& redirectResponse)
 {
+    // Store the previous URL because the call to ResourceLoader::willSendRequest will modify it.
+    KURL previousURL = request().url();
+    
     ResourceLoader::willSendRequest(newRequest, redirectResponse);
-    if (!newRequest.isNull() && m_originalURL != newRequest.url() && m_client)
+    if (!previousURL.isNull() && !newRequest.isNull() && previousURL != newRequest.url() && m_client)
         m_client->willSendRequest(this, newRequest, redirectResponse);
+}
+
+void SubresourceLoader::didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
+{
+    RefPtr<SubresourceLoader> protect(this);
+
+    if (m_client)
+        m_client->didSendData(this, bytesSent, totalBytesToBeSent);
 }
 
 void SubresourceLoader::didReceiveResponse(const ResourceResponse& r)

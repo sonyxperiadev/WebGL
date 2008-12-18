@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,35 +28,17 @@
 #import "config.h"
 #import "Frame.h"
 
-#import "AXObjectCache.h"
-#import "BeforeUnloadEvent.h"
 #import "BlockExceptions.h"
-#import "CSSHelper.h"
-#import "Cache.h"
-#import "Chrome.h"
-#import "ClipboardEvent.h"
-#import "ClipboardMac.h"
 #import "ColorMac.h"
 #import "Cursor.h"
 #import "DOMInternal.h"
 #import "DocumentLoader.h"
-#import "EditCommand.h"
 #import "EditorClient.h"
 #import "Event.h"
-#import "EventNames.h"
-#import "FloatRect.h"
-#import "FoundationExtras.h"
-#import "FrameLoadRequest.h"
-#import "FrameLoader.h"
 #import "FrameLoaderClient.h"
-#import "FrameLoaderTypes.h"
 #import "FramePrivate.h"
 #import "FrameView.h"
 #import "GraphicsContext.h"
-#import "HTMLDocument.h"
-#import "HTMLFormElement.h"
-#import "HTMLGenericFormElement.h"
-#import "HTMLInputElement.h"
 #import "HTMLNames.h"
 #import "HTMLTableCellElement.h"
 #import "HitTestRequest.h"
@@ -66,75 +48,33 @@
 #import "MouseEventWithHitTestResults.h"
 #import "Page.h"
 #import "PlatformKeyboardEvent.h"
-#import "PlatformScrollBar.h"
 #import "PlatformWheelEvent.h"
-#import "Plugin.h"
 #import "RegularExpression.h"
-#import "RenderImage.h"
-#import "RenderListItem.h"
-#import "RenderPart.h"
 #import "RenderTableCell.h"
-#import "RenderTheme.h"
-#import "RenderView.h"
-#import "ResourceHandle.h"
-#import "Settings.h"
+#import "Scrollbar.h"
 #import "SimpleFontData.h"
-#import "SystemTime.h"
-#import "TextResourceDecoder.h"
 #import "UserStyleSheetLoader.h"
-#import "WebCoreFrameBridge.h"
-#import "WebCoreSystemInterface.h"
 #import "WebCoreViewFactory.h"
-#import "WebDashboardRegion.h"
-#import "WebScriptObjectPrivate.h"
-#import "kjs_proxy.h"
-#import "kjs_window.h"
 #import "visible_units.h"
+
 #import <Carbon/Carbon.h>
-#import <JavaScriptCore/NP_jsobject.h>
-#import <JavaScriptCore/npruntime_impl.h>
+#import <runtime/JSLock.h>
 
-#undef _webcore_TIMING
-
-@interface NSObject (WebPlugIn)
-- (id)objectForWebScript;
-- (NPObject *)createPluginScriptableObject;
-@end
+#if ENABLE(DASHBOARD_SUPPORT)
+#import "WebDashboardRegion.h"
+#endif
  
 @interface NSView (WebCoreHTMLDocumentView)
 - (void)drawSingleRect:(NSRect)rect;
 @end
  
 using namespace std;
-using namespace KJS::Bindings;
 
-using KJS::JSLock;
+using JSC::JSLock;
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
-
-void Frame::setBridge(WebCoreFrameBridge* bridge)
-{ 
-    if (d->m_bridge == bridge)
-        return;
-
-    if (!bridge) {
-        [d->m_bridge clearFrame];
-        HardRelease(d->m_bridge);
-        d->m_bridge = nil;
-        return;
-    }
-    HardRetain(bridge);
-    HardRelease(d->m_bridge);
-    d->m_bridge = bridge;
-}
-
-WebCoreFrameBridge* Frame::bridge() const
-{
-    return d->m_bridge;
-}
 
 // Either get cached regexp or build one that matches any of the labels.
 // The regexp we build is of the form:  (STR1|STR2|STRN)
@@ -158,17 +98,17 @@ RegularExpression* regExpForLabels(NSArray* labels)
     if (cacheHit != NSNotFound)
         result = regExps.at(cacheHit);
     else {
-        DeprecatedString pattern("(");
+        String pattern("(");
         unsigned int numLabels = [labels count];
         unsigned int i;
         for (i = 0; i < numLabels; i++) {
-            DeprecatedString label = DeprecatedString::fromNSString((NSString*)[labels objectAtIndex:i]);
+            String label = [labels objectAtIndex:i];
 
             bool startsWithWordChar = false;
             bool endsWithWordChar = false;
             if (label.length() != 0) {
-                startsWithWordChar = wordRegExp.search(label.at(0)) >= 0;
-                endsWithWordChar = wordRegExp.search(label.at(label.length() - 1)) >= 0;
+                startsWithWordChar = wordRegExp.search(label.substring(0, 1)) >= 0;
+                endsWithWordChar = wordRegExp.search(label.substring(label.length() - 1, 1)) >= 0;
             }
             
             if (i != 0)
@@ -176,13 +116,11 @@ RegularExpression* regExpForLabels(NSArray* labels)
             // Search for word boundaries only if label starts/ends with "word characters".
             // If we always searched for word boundaries, this wouldn't work for languages
             // such as Japanese.
-            if (startsWithWordChar) {
+            if (startsWithWordChar)
                 pattern.append("\\b");
-            }
             pattern.append(label);
-            if (endsWithWordChar) {
+            if (endsWithWordChar)
                 pattern.append("\\b");
-            }
         }
         pattern.append(")");
         result = new RegularExpression(pattern, false);
@@ -225,10 +163,10 @@ NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTable
                 for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
                     if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
                         // For each text chunk, run the regexp
-                        DeprecatedString nodeString = n->nodeValue().deprecatedString();
+                        String nodeString = n->nodeValue();
                         int pos = regExp->searchRev(nodeString);
                         if (pos >= 0)
-                            return nodeString.mid(pos, regExp->matchedLength()).getNSString();
+                            return nodeString.substring(pos, regExp->matchedLength());
                     }
                 }
             }
@@ -272,13 +210,13 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
             searchedCellAbove = true;
         } else if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
             // For each text chunk, run the regexp
-            DeprecatedString nodeString = n->nodeValue().deprecatedString();
+            String nodeString = n->nodeValue();
             // add 100 for slop, to make it more likely that we'll search whole nodes
             if (lengthSearched + nodeString.length() > maxCharsSearched)
                 nodeString = nodeString.right(charsSearchedThreshold - lengthSearched);
             int pos = regExp->searchRev(nodeString);
             if (pos >= 0)
-                return nodeString.mid(pos, regExp->matchedLength()).getNSString();
+                return nodeString.substring(pos, regExp->matchedLength());
 
             lengthSearched += nodeString.length();
         }
@@ -297,11 +235,14 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
 
 NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
 {
-    DeprecatedString name = element->getAttribute(nameAttr).deprecatedString();
+    String name = element->getAttribute(nameAttr);
+    if (name.isEmpty())
+        return nil;
+
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    name.replace(RegularExpression("\\d"), " ");
+    replace(name, RegularExpression("\\d"), " ");
     name.replace('_', ' ');
-    
+
     RegularExpression* regExp = regExpForLabels(labels);
     // Use the largest match we can find in the whole name string
     int pos;
@@ -317,18 +258,18 @@ NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
                 bestPos = pos;
                 bestLength = length;
             }
-            start = pos+1;
+            start = pos + 1;
         }
     } while (pos != -1);
 
     if (bestPos != -1)
-        return name.mid(bestPos, bestLength).getNSString();
+        return name.substring(bestPos, bestLength);
     return nil;
 }
 
 NSImage* Frame::imageFromRect(NSRect rect) const
 {
-    NSView* view = d->m_view->getDocumentView();
+    NSView* view = d->m_view->documentView();
     if (!view)
         return nil;
     if (![view respondsToSelector:@selector(drawSingleRect:)])
@@ -373,10 +314,10 @@ NSImage* Frame::imageFromRect(NSRect rect) const
 
 NSImage* Frame::selectionImage(bool forceBlackText) const
 {
-    d->m_paintRestriction = forceBlackText ? PaintRestrictionSelectionOnlyBlackText : PaintRestrictionSelectionOnly;
+    d->m_view->setPaintRestriction(forceBlackText ? PaintRestrictionSelectionOnlyBlackText : PaintRestrictionSelectionOnly);
     d->m_doc->updateLayout();
     NSImage* result = imageFromRect(selectionRect());
-    d->m_paintRestriction = PaintRestrictionNone;
+    d->m_view->setPaintRestriction(PaintRestrictionNone);
     return result;
 }
 
@@ -392,16 +333,34 @@ NSImage* Frame::snapshotDragImage(Node* node, NSRect* imageRect, NSRect* element
     IntRect topLevelRect;
     NSRect paintingRect = renderer->paintingRootRect(topLevelRect);
 
-    d->m_elementToDraw = node;              // invoke special sub-tree drawing mode
+    d->m_view->setNodeToDraw(node);              // invoke special sub-tree drawing mode
     NSImage* result = imageFromRect(paintingRect);
     renderer->updateDragState(false);
     d->m_doc->updateLayout();
-    d->m_elementToDraw = 0;
+    d->m_view->setNodeToDraw(0);
 
     if (elementRect)
         *elementRect = topLevelRect;
     if (imageRect)
         *imageRect = paintingRect;
+    return result;
+}
+
+NSImage* Frame::nodeImage(Node* node) const
+{
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return nil;
+
+    d->m_doc->updateLayout(); // forces style recalc
+
+    IntRect topLevelRect;
+    NSRect paintingRect = renderer->paintingRootRect(topLevelRect);
+
+    d->m_view->setNodeToDraw(node); // invoke special sub-tree drawing mode
+    NSImage* result = imageFromRect(paintingRect);
+    d->m_view->setNodeToDraw(0);
+
     return result;
 }
 
@@ -473,11 +432,22 @@ NSWritingDirection Frame::baseWritingDirectionForSelectionStart() const
 {
     NSWritingDirection result = NSWritingDirectionLeftToRight;
 
-    Position pos = selectionController()->selection().visibleStart().deepEquivalent();
+    Position pos = selection()->selection().visibleStart().deepEquivalent();
     Node* node = pos.node();
-    if (!node || !node->renderer() || !node->renderer()->containingBlock())
+    if (!node)
         return result;
-    RenderStyle* style = node->renderer()->containingBlock()->style();
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return result;
+
+    if (!renderer->isBlockFlow()) {
+        renderer = renderer->containingBlock();
+        if (!renderer)
+            return result;
+    }
+
+    RenderStyle* style = renderer->style();
     if (!style)
         return result;
         
@@ -491,11 +461,6 @@ NSWritingDirection Frame::baseWritingDirectionForSelectionStart() const
     }
 
     return result;
-}
-
-void Frame::issuePasteCommand()
-{
-    [d->m_bridge issuePasteCommand];
 }
 
 const short enableRomanKeyboardsOnly = -23;
@@ -522,6 +487,7 @@ void Frame::setUseSecureKeyboardEntry(bool enable)
     }
 }
 
+#if ENABLE(DASHBOARD_SUPPORT)
 NSMutableDictionary* Frame::dashboardRegionsDictionary()
 {
     Document* doc = document();
@@ -559,104 +525,13 @@ NSMutableDictionary* Frame::dashboardRegionsDictionary()
     
     return webRegions;
 }
-
-void Frame::dashboardRegionsChanged()
-{
-    NSMutableDictionary *webRegions = dashboardRegionsDictionary();
-    [d->m_bridge dashboardRegionsChanged:webRegions];
-}
-
-void Frame::willPopupMenu(NSMenu * menu)
-{
-    [d->m_bridge willPopupMenu:menu];
-}
-
-FloatRect Frame::customHighlightLineRect(const AtomicString& type, const FloatRect& lineRect, Node* node)
-{
-    return [d->m_bridge customHighlightRect:type forLine:lineRect representedNode:node];
-}
-
-void Frame::paintCustomHighlight(const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect, bool text, bool line, Node* node)
-{
-    [d->m_bridge paintCustomHighlight:type forBox:boxRect onLine:lineRect behindText:text entireLine:line representedNode:node];
-}
+#endif
 
 DragImageRef Frame::dragImageForSelection() 
 {
-    if (!selectionController()->isRange())
+    if (!selection()->isRange())
         return nil;
     return selectionImage();
-}
-
-
-KJS::Bindings::Instance* Frame::createScriptInstanceForWidget(WebCore::Widget* widget)
-{
-    NSView* aView = widget->getView();
-    if (!aView)
-        return 0;
-
-    void* nativeHandle = aView;
-    CreateRootObjectFunction createRootObject = RootObject::createRootObject();
-    RefPtr<RootObject> rootObject = createRootObject(nativeHandle);
-
-    if ([aView respondsToSelector:@selector(objectForWebScript)]) {
-        id objectForWebScript = [aView objectForWebScript];
-        if (objectForWebScript)
-            return Instance::createBindingForLanguageInstance(Instance::ObjectiveCLanguage, objectForWebScript, rootObject.release());
-        return 0;
-    } else if ([aView respondsToSelector:@selector(createPluginScriptableObject)]) {
-#if USE(NPOBJECT)
-        NPObject* npObject = [aView createPluginScriptableObject];
-        if (npObject) {
-            Instance* instance = Instance::createBindingForLanguageInstance(Instance::CLanguage, npObject, rootObject.release());
-
-            // -createPluginScriptableObject returns a retained NPObject.  The caller is expected to release it.
-            _NPN_ReleaseObject(npObject);
-            return instance;
-        }
-#endif
-        return 0;
-    }
-
-    jobject applet;
-    
-    // Get a pointer to the actual Java applet instance.
-    if ([d->m_bridge respondsToSelector:@selector(getAppletInView:)])
-        applet = [d->m_bridge getAppletInView:aView];
-    else
-        applet = [d->m_bridge pollForAppletInView:aView];
-    
-    if (applet) {
-        // Wrap the Java instance in a language neutral binding and hand
-        // off ownership to the APPLET element.
-        Instance* instance = Instance::createBindingForLanguageInstance(Instance::JavaLanguage, applet, rootObject.release());
-        return instance;
-    }
-    
-    return 0;
-}
-
-WebScriptObject* Frame::windowScriptObject()
-{
-    if (!scriptProxy()->isEnabled())
-        return 0;
-
-    if (!d->m_windowScriptObject) {
-        KJS::JSLock lock;
-        KJS::JSObject* win = KJS::Window::retrieveWindow(this);
-        KJS::Bindings::RootObject *root = bindingRootObject();
-        d->m_windowScriptObject = [WebScriptObject scriptObjectForJSObject:toRef(win) originRootObject:root rootObject:root];
-    }
-
-    return d->m_windowScriptObject.get();
-}
-
-void Frame::clearPlatformScriptObjects()
-{
-    if (d->m_windowScriptObject) {
-        KJS::Bindings::RootObject* root = bindingRootObject();
-        [d->m_windowScriptObject.get() _setOriginRootObject:root andRootObject:root];
-    }
 }
 
 void Frame::setUserStyleSheetLocation(const KURL& url)

@@ -26,13 +26,14 @@
 #ifndef WebError_h
 #define WebError_h
 
-#include "IWebError.h"
-#include "IWebErrorPrivate.h"
+#include "WebKit.h"
 
 #pragma warning(push, 0)
 #include <WebCore/COMPtr.h>
 #include <WebCore/ResourceError.h>
 #pragma warning(pop)
+
+#include <wtf/RetainPtr.h>
 
 class WebError : public IWebError, IWebErrorPrivate {
 public:

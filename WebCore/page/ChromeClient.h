@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006, 2007, 2008 Apple, Inc. All rights reserved.
  *
@@ -21,20 +20,38 @@
 #ifndef ChromeClient_h
 #define ChromeClient_h
 
+#include "GraphicsContext.h"
 #include "FocusDirection.h"
+#include "ScrollTypes.h"
+#include "HostWindow.h"
+#include <wtf/Forward.h>
+#include <wtf/Vector.h>
+
+#if PLATFORM(MAC)
+#include "WebCoreKeyboardUIMode.h"
+#endif
+
+#ifndef __OBJC__
+class NSMenu;
+class NSResponder;
+#endif
 
 namespace WebCore {
 
+    class AtomicString;
+    class FileChooser;
     class FloatRect;
     class Frame;
     class HitTestResult;
     class IntRect;
+    class Node;
     class Page;
     class String;
+    class Widget;
     
     struct FrameLoadRequest;
     struct WindowFeatures;
-    
+
     class ChromeClient {
     public:
         virtual void chromeDestroyed() = 0;
@@ -86,15 +103,19 @@ namespace WebCore {
         virtual void runJavaScriptAlert(Frame*, const String&) = 0;
         virtual bool runJavaScriptConfirm(Frame*, const String&) = 0;
         virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result) = 0;
-        
         virtual void setStatusbarText(const String&) = 0;
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
 
         virtual IntRect windowResizerRect() const = 0;
-        virtual void addToDirtyRegion(const IntRect&) = 0;
-        virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect) = 0;
-        virtual void updateBackingStore() = 0;
+
+        // Methods used by HostWindow.
+        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false) = 0;
+        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) = 0;
+        virtual IntPoint screenToWindow(const IntPoint&) const = 0;
+        virtual IntRect windowToScreen(const IntRect&) const = 0;
+        virtual PlatformWidget platformWindow() const = 0;
+        // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 
@@ -103,6 +124,38 @@ namespace WebCore {
         virtual void print(Frame*) = 0;
 
         virtual void exceededDatabaseQuota(Frame*, const String& databaseName) = 0;
+
+#if ENABLE(DASHBOARD_SUPPORT)
+        virtual void dashboardRegionsChanged();
+#endif
+
+        virtual void populateVisitedLinks();
+
+        virtual FloatRect customHighlightRect(Node*, const AtomicString& type, const FloatRect& lineRect);
+        virtual void paintCustomHighlight(Node*, const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect,
+            bool behindText, bool entireLine);
+            
+        virtual bool shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename);
+        virtual String generateReplacementFile(const String& path);
+        
+        virtual void enableSuddenTermination();
+        virtual void disableSuddenTermination();
+
+        virtual bool paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
+                                          ScrollbarControlState, ScrollbarPart pressedPart, bool vertical,
+                                          float value, float proportion, ScrollbarControlPartMask);
+        virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
+
+        virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
+
+#if PLATFORM(MAC)
+        virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
+
+        virtual NSResponder *firstResponder() { return 0; }
+        virtual void makeFirstResponder(NSResponder *) { }
+
+        virtual void willPopUpMenu(NSMenu *) { }
+#endif
 
     protected:
         virtual ~ChromeClient() { }

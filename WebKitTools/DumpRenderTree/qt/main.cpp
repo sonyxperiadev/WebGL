@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
  */
 
 #include "DumpRenderTree.h"
-#include "testplugin.h"
 
 #include <qstringlist.h>
 #include <qapplication.h>
@@ -47,10 +46,6 @@
 
 #if defined(__GLIBC__)
 #include <execinfo.h>
-#endif
-
-#if QT_VERSION < 0x040400
-Q_IMPORT_PLUGIN(testplugin)
 #endif
 
 void messageHandler(QtMsgType type, const char *message)
@@ -162,7 +157,9 @@ int main(int argc, char* argv[])
         dumper.open();
     } else {
         if (!args.last().startsWith("/")
-            && !args.last().startsWith("file:")) {
+            && !args.last().startsWith("file:")
+            && !args.last().startsWith("http:")
+            && !args.last().startsWith("https:")) {
             QString path = QDir::currentPath();
             if (!path.endsWith('/'))
                 path.append('/');

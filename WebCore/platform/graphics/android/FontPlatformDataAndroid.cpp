@@ -66,7 +66,10 @@ FontPlatformData::FontPlatformData()
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src)
 {
-    src.mTypeface->safeRef();
+    if (hashTableDeletedFontValue() != src.mTypeface) {
+        src.mTypeface->safeRef();
+    }
+
     mTypeface   = src.mTypeface;
 
     mTextSize   = src.mTextSize;
@@ -80,8 +83,10 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
 FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold, bool fakeItalic)
     : mTypeface(tf), mTextSize(textSize), mFakeBold(fakeBold), mFakeItalic(fakeItalic)
 {
-    mTypeface->safeRef();
-
+    if (hashTableDeletedFontValue() != mTypeface) {
+        mTypeface->safeRef();
+    }
+    
     inc_count();
     trace(3);
 }
@@ -89,7 +94,9 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     : mTypeface(src.mTypeface), mTextSize(textSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic)
 {
-    mTypeface->safeRef();
+    if (hashTableDeletedFontValue() != mTypeface) {
+        mTypeface->safeRef();
+    }
 
     inc_count();
     trace(4);
@@ -102,13 +109,21 @@ FontPlatformData::~FontPlatformData()
     SkDebugf("----------- ~FontPlatformData\n");
 #endif
 
-    mTypeface->safeUnref();
+    if (hashTableDeletedFontValue() != mTypeface) {
+        mTypeface->safeUnref();
+    }
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 {
-    SkRefCnt_SafeAssign(mTypeface, src.mTypeface);
+    if (hashTableDeletedFontValue() != src.mTypeface) {
+        src.mTypeface->safeRef();
+    }
+    if (hashTableDeletedFontValue() != mTypeface) {
+        mTypeface->safeUnref();
+    }
 
+    mTypeface   = src.mTypeface;
     mTextSize   = src.mTextSize;
     mFakeBold   = src.mFakeBold;
     mFakeItalic = src.mFakeItalic;
@@ -133,7 +148,7 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
 
 bool FontPlatformData::operator==(const FontPlatformData& a) const
 {
-    return  SkTypeface::Equal(mTypeface, a.mTypeface) &&
+    return  mTypeface == a.mTypeface &&
             mTextSize == a.mTextSize &&
             mFakeBold == a.mFakeBold &&
             mFakeItalic == a.mFakeItalic;
@@ -141,9 +156,18 @@ bool FontPlatformData::operator==(const FontPlatformData& a) const
 
 unsigned FontPlatformData::hash() const
 {
-    unsigned h = SkTypeface::UniqueID(mTypeface);
+    unsigned h;
+    
+    if (hashTableDeletedFontValue() == mTypeface) {
+        h = reinterpret_cast<unsigned>(mTypeface);
+    } else {
+        h = SkTypeface::UniqueID(mTypeface);
+    }
+    
+    uint32_t sizeAsInt = *reinterpret_cast<const uint32_t*>(&mTextSize);
+
     h ^= 0x01010101 * (((int)mFakeBold << 1) | (int)mFakeItalic);
-    h ^= *(uint32_t*)&mTextSize;
+    h ^= sizeAsInt;
     return h;
 }
 

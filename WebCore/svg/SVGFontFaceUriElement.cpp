@@ -38,15 +38,15 @@ SVGFontFaceUriElement::SVGFontFaceUriElement(const QualifiedName& tagName, Docum
 
 PassRefPtr<CSSFontFaceSrcValue> SVGFontFaceUriElement::srcValue() const
 {
-    RefPtr<CSSFontFaceSrcValue> src = new CSSFontFaceSrcValue(getAttribute(XLinkNames::hrefAttr), false);
+    RefPtr<CSSFontFaceSrcValue> src = CSSFontFaceSrcValue::create(getAttribute(XLinkNames::hrefAttr));
     AtomicString value(getAttribute(formatAttr));
     src->setFormat(value.isEmpty() ? "svg" : value); // Default format
     return src.release();
 }
 
-void SVGFontFaceUriElement::childrenChanged(bool changedByParser)
+void SVGFontFaceUriElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGElement::childrenChanged(changedByParser);
+    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
     if (!parentNode() || !parentNode()->hasTagName(font_face_srcTag))
         return;

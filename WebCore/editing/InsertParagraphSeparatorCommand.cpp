@@ -42,9 +42,9 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-InsertParagraphSeparatorCommand::InsertParagraphSeparatorCommand(Document *document, bool useDefaultParagraphElement) 
+InsertParagraphSeparatorCommand::InsertParagraphSeparatorCommand(Document *document, bool mustUseDefaultParagraphElement) 
     : CompositeEditCommand(document)
-    , m_useDefaultParagraphElement(useDefaultParagraphElement)
+    , m_mustUseDefaultParagraphElement(mustUseDefaultParagraphElement)
 {
 }
 
@@ -65,17 +65,39 @@ void InsertParagraphSeparatorCommand::calculateStyleBeforeInsertion(const Positi
     m_style = styleAtPosition(pos);
 }
 
-void InsertParagraphSeparatorCommand::applyStyleAfterInsertion()
+void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnclosingBlock)
 {
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
+    // Not only do we break out of header tags, but we also do not preserve the typing style,
+    // in order to match other browsers.
+    if (originalEnclosingBlock->hasTagName(h1Tag) ||
+        originalEnclosingBlock->hasTagName(h2Tag) ||
+        originalEnclosingBlock->hasTagName(h3Tag) ||
+        originalEnclosingBlock->hasTagName(h4Tag) ||
+        originalEnclosingBlock->hasTagName(h5Tag))
+        return;
+        
     if (!m_style)
         return;
 
-    CSSComputedStyleDeclaration endingStyle(endingSelection().start().node());
-    endingStyle.diff(m_style.get());
+    computedStyle(endingSelection().start().node())->diff(m_style.get());
     if (m_style->length() > 0)
         applyStyle(m_style.get());
+}
+
+bool InsertParagraphSeparatorCommand::shouldUseDefaultParagraphElement(Node* enclosingBlock) const
+{
+    if (m_mustUseDefaultParagraphElement)
+        return true;
+    
+    // Assumes that if there was a range selection, it was already deleted.
+    if (!isEndOfBlock(endingSelection().visibleStart()))
+        return false;
+
+    return enclosingBlock->hasTagName(h1Tag) ||
+           enclosingBlock->hasTagName(h2Tag) ||
+           enclosingBlock->hasTagName(h3Tag) ||
+           enclosingBlock->hasTagName(h4Tag) ||
+           enclosingBlock->hasTagName(h5Tag);
 }
 
 void InsertParagraphSeparatorCommand::doApply()
@@ -104,7 +126,7 @@ void InsertParagraphSeparatorCommand::doApply()
         startBlock->hasTagName(formTag) || 
         canonicalPos.node()->renderer() && canonicalPos.node()->renderer()->isTable() ||
         canonicalPos.node()->hasTagName(hrTag)) {
-        applyCommandToComposite(new InsertLineBreakCommand(document()));
+        applyCommandToComposite(InsertLineBreakCommand::create(document()));
         return;
     }
     
@@ -139,7 +161,7 @@ void InsertParagraphSeparatorCommand::doApply()
     if (startBlock == startBlock->rootEditableElement()) {
         blockToInsert = static_pointer_cast<Node>(createDefaultParagraphElement(document()));
         nestNewBlock = true;
-    } else if (m_useDefaultParagraphElement)
+    } else if (shouldUseDefaultParagraphElement(startBlock)) 
         blockToInsert = static_pointer_cast<Node>(createDefaultParagraphElement(document()));
     else
         blockToInsert = startBlock->cloneNode(false);
@@ -162,7 +184,7 @@ void InsertParagraphSeparatorCommand::doApply()
 
         appendBlockPlaceholder(blockToInsert.get());
         setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-        applyStyleAfterInsertion();
+        applyStyleAfterInsertion(startBlock);
         return;
     }
 
@@ -185,7 +207,7 @@ void InsertParagraphSeparatorCommand::doApply()
         insertNodeBefore(blockToInsert.get(), refNode);
         appendBlockPlaceholder(blockToInsert.get());
         setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-        applyStyleAfterInsertion();
+        applyStyleAfterInsertion(startBlock);
         setEndingSelection(Selection(pos, DOWNSTREAM));
         return;
     }
@@ -304,7 +326,7 @@ void InsertParagraphSeparatorCommand::doApply()
     }
 
     setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-    applyStyleAfterInsertion();
+    applyStyleAfterInsertion(startBlock);
 }
 
 } // namespace WebCore

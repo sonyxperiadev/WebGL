@@ -23,13 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "WebCore"
 #include "config.h"
 #include "Screen.h"
 
 #include "FloatRect.h"
 #include "Widget.h"
 
-#define LOG_TAG "WebCore"
+#undef LOG // FIXME: Still have to do this to get the log to show up
 #include "utils/Log.h"
 
 #include "ui/SurfaceComposerClient.h"
@@ -61,8 +62,25 @@ bool screenIsMonochrome(Widget* page)
 int Screen::orientation() const
 {
     android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return info.orientation;
+    android::SurfaceComposerClient::getDisplayInfo(
+            android::DisplayID(0), &info);
+    // getDisplayInfo returns an enum describing the orientation. Map the enum
+    // to the values described here
+    // (http://developer.apple.com/documentation/AppleApplications/Reference/SafariWebContent/HandlingEvents/chapter_8_section_6.html)
+    switch (info.orientation) {
+        case android::ISurfaceComposer::eOrientationDefault:
+            return 0;
+        case android::ISurfaceComposer::eOrientation90:
+            return 90;
+        case android::ISurfaceComposer::eOrientation180:
+            return 180;
+        case android::ISurfaceComposer::eOrientation270:
+            return -90;
+        default:
+            LOGE("Bad orientation returned from getDisplayIndo %d",
+                    info.orientation);
+            return 0;
+    }
 }
 #endif
 

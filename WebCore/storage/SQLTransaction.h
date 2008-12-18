@@ -28,7 +28,7 @@
 #ifndef SQLTransaction_h
 #define SQLTransaction_h
 
-#include "Threading.h"
+#include <wtf/Threading.h>
 
 #include "SQLiteTransaction.h"
 #include "SQLStatement.h"
@@ -64,7 +64,8 @@ public:
 
 class SQLTransaction : public ThreadSafeShared<SQLTransaction> {
 public:
-    SQLTransaction(Database*, PassRefPtr<SQLTransactionCallback>, PassRefPtr<SQLTransactionErrorCallback>, PassRefPtr<VoidCallback>, PassRefPtr<SQLTransactionWrapper>);
+    static PassRefPtr<SQLTransaction> create(Database*, PassRefPtr<SQLTransactionCallback>, PassRefPtr<SQLTransactionErrorCallback>, PassRefPtr<VoidCallback>, PassRefPtr<SQLTransactionWrapper>);
+
     ~SQLTransaction();
     
     void executeSQL(const String& sqlStatement, const Vector<SQLValue>& arguments, 
@@ -73,9 +74,11 @@ public:
     bool performNextStep();
     void performPendingCallback();
     
-    Database* database() { return m_database; }
+    Database* database() { return m_database.get(); }
 
 private:
+    SQLTransaction(Database*, PassRefPtr<SQLTransactionCallback>, PassRefPtr<SQLTransactionErrorCallback>, PassRefPtr<VoidCallback>, PassRefPtr<SQLTransactionWrapper>);
+
     typedef void (SQLTransaction::*TransactionStepMethod)();
     TransactionStepMethod m_nextStep;
     
@@ -107,7 +110,7 @@ private:
     
     bool m_executeSqlAllowed;
     
-    Database* m_database;
+    RefPtr<Database> m_database;
     RefPtr<SQLTransactionWrapper> m_wrapper;
     RefPtr<SQLTransactionCallback> m_callback;
     RefPtr<VoidCallback> m_successCallback;

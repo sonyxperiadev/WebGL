@@ -34,7 +34,6 @@
 #import "WebBasePluginPackage.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocumentPrivate.h"
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitStatisticsPrivate.h"
@@ -43,22 +42,26 @@
 #import "WebResourcePrivate.h"
 #import "WebView.h"
 #import <Foundation/NSURLResponse.h>
-#import <JavaScriptCore/Assertions.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/FrameLoaderClient.h>
+#import <WebCore/HTMLFormControlElement.h>
+#import <WebCore/HTMLInputElement.h>
+#import <WebCore/HTMLNames.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/Range.h>
+#import <WebCore/TextResourceDecoder.h>
+#import <WebKit/DOMHTMLInputElement.h>
+#import <wtf/Assertions.h>
 
 using namespace WebCore;
+using namespace HTMLNames;
 
-@interface WebHTMLRepresentationPrivate : NSObject
-{
+@interface WebHTMLRepresentationPrivate : NSObject {
 @public
     WebDataSource *dataSource;
-    WebFrameBridge *bridge;
-    NSData *parsedArchiveData;
     
     BOOL hasSentResponseToPlugin;
     id <WebPluginManualLoader> manualLoader;
@@ -67,13 +70,6 @@ using namespace WebCore;
 @end
 
 @implementation WebHTMLRepresentationPrivate
-
-- (void)dealloc
-{
-    [parsedArchiveData release];
-    [super dealloc];
-}
-
 @end
 
 @implementation WebHTMLRepresentation
@@ -144,11 +140,6 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
     [super finalize];
 }
 
-- (WebFrameBridge *)_bridge
-{
-    return _private->bridge;
-}
-
 - (void)_redirectDataToManualLoader:(id<WebPluginManualLoader>)manualLoader forPluginView:(NSView *)pluginView;
 {
     _private->manualLoader = manualLoader;
@@ -158,7 +149,6 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 - (void)setDataSource:(WebDataSource *)dataSource
 {
     _private->dataSource = dataSource;
-    _private->bridge = [[dataSource webFrame] _bridge];
 }
 
 - (BOOL)_isDisplayingWebArchive
@@ -168,9 +158,15 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (void)receivedData:(NSData *)data withDataSource:(WebDataSource *)dataSource
 {
-    if ([dataSource webFrame] && ![self _isDisplayingWebArchive]) {
+    WebFrame *webFrame = [dataSource webFrame];
+    if (webFrame) {
         if (!_private->pluginView)
-            [_private->bridge receivedData:data textEncodingName:[[_private->dataSource response] textEncodingName]];
+            [webFrame _receivedData:data textEncodingName:[[_private->dataSource response] textEncodingName]];
+        
+        // If the document is a stand-alone media document, now is the right time to cancel the WebKit load
+        Frame* coreFrame = core(webFrame);
+        if (coreFrame->document() && coreFrame->document()->isMediaDocument())
+            coreFrame->loader()->documentLoader()->cancelMainResourceLoad(coreFrame->loader()->client()->pluginWillHandleLoadError(coreFrame->loader()->documentLoader()->response()));
 
         if (_private->pluginView) {
             if (!_private->hasSentResponseToPlugin) {
@@ -190,31 +186,6 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
     }
 }
 
-- (void)_loadDataSourceAsWebArchive
-{
-    WebArchive *archive = [[WebArchive alloc] initWithData:[_private->dataSource data]];
-    WebResource *mainResource = [archive mainResource];
-    if (!mainResource) {
-        [archive release];
-        return;
-    }
-    
-    NSData *data = [mainResource data];
-    [data retain];
-    [_private->parsedArchiveData release];
-    _private->parsedArchiveData = data;
-    
-    [_private->dataSource _addToUnarchiveState:archive];
-    [archive release];
-    
-    WebFrame *webFrame = [_private->dataSource webFrame];
-    
-    if (!webFrame)
-        return;
-    
-    core(webFrame)->loader()->continueLoadWithData(SharedBuffer::wrapNSData(data).get(), [mainResource MIMEType], [mainResource textEncodingName], [mainResource URL]);
-}
-
 - (void)finishedLoadingWithDataSource:(WebDataSource *)dataSource
 {
     WebFrame *frame = [dataSource webFrame];
@@ -225,13 +196,12 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
     }
 
     if (frame) {
-        if ([self _isDisplayingWebArchive])
-            [self _loadDataSourceAsWebArchive];
-        else
-            // Telling the bridge we received some data and passing nil as the data is our
+        if (![self _isDisplayingWebArchive]) {
+            // Telling the frame we received some data and passing nil as the data is our
             // way to get work done that is normally done when the first bit of data is
             // received, even for the case of a document with no data (like about:blank).
-            [_private->bridge receivedData:nil textEncodingName:[[_private->dataSource response] textEncodingName]];
+            [frame _receivedData:nil textEncodingName:[[_private->dataSource response] textEncodingName]];
+        }
         
         WebView *webView = [frame webView];
         if ([webView isEditable])
@@ -241,20 +211,37 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (BOOL)canProvideDocumentSource
 {
-    return [_private->bridge canProvideDocumentSource];
+    return [[_private->dataSource webFrame] _canProvideDocumentSource];
 }
 
 - (BOOL)canSaveAsWebArchive
 {
-    return [_private->bridge canSaveAsWebArchive];
+    return [[_private->dataSource webFrame] _canSaveAsWebArchive];
 }
 
 - (NSString *)documentSource
 {
-    if ([self _isDisplayingWebArchive])
-        return [[[NSString alloc] initWithData:_private->parsedArchiveData encoding:NSUTF8StringEncoding] autorelease]; 
+    if ([self _isDisplayingWebArchive]) {            
+        SharedBuffer *parsedArchiveData = [_private->dataSource _documentLoader]->parsedArchiveData();
+        NSData *nsData = parsedArchiveData ? parsedArchiveData->createNSData() : nil;
+        NSString *result = [[NSString alloc] initWithData:nsData encoding:NSUTF8StringEncoding];
+        [nsData release];
+        return [result autorelease];
+    }
 
-    return [_private->bridge stringWithData:[_private->dataSource data]];
+    Frame* coreFrame = core([_private->dataSource webFrame]);
+    if (!coreFrame)
+        return nil;
+    Document* document = coreFrame->document();
+    if (!document)
+        return nil;
+    TextResourceDecoder* decoder = document->decoder();
+    if (!decoder)
+        return nil;
+    NSData *data = [_private->dataSource data];
+    if (!data)
+        return nil;
+    return decoder->encoding().decode(reinterpret_cast<const char*>([data bytes]), [data length]);
 }
 
 - (NSString *)title
@@ -264,7 +251,7 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (DOMDocument *)DOMDocument
 {
-    return [[_private->bridge webFrame] DOMDocument];
+    return [[_private->dataSource webFrame] DOMDocument];
 }
 
 - (NSAttributedString *)attributedText
@@ -275,48 +262,89 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (NSAttributedString *)attributedStringFrom:(DOMNode *)startNode startOffset:(int)startOffset to:(DOMNode *)endNode endOffset:(int)endOffset
 {
-    Range range([startNode _node]->document(), [startNode _node], startOffset, [endNode _node], endOffset);
-    return [NSAttributedString _web_attributedStringFromRange:&range];
+    return [NSAttributedString _web_attributedStringFromRange:Range::create([startNode _node]->document(), [startNode _node], startOffset, [endNode _node], endOffset).get()];
+}
+
+static HTMLFormElement* formElementFromDOMElement(DOMElement *element)
+{
+    Node* node = [element _node];
+    return node && node->hasTagName(formTag) ? static_cast<HTMLFormElement *>(node) : 0;
 }
 
 - (DOMElement *)elementWithName:(NSString *)name inForm:(DOMElement *)form
 {
-    return [_private->bridge elementWithName:name inForm:form];
+    HTMLFormElement* formElement = formElementFromDOMElement(form);
+    if (!formElement)
+        return nil;
+    Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+    AtomicString targetName = name;
+    for (unsigned i = 0; i < elements.size(); i++) {
+        HTMLFormControlElement* elt = elements[i];
+        if (elt->name() == targetName)
+            return kit(elt);
+    }
+    return nil;
+}
+
+static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
+{
+    Node* node = [element _node];
+    return node && node->hasTagName(inputTag) ? static_cast<HTMLInputElement*>(node) : 0;
 }
 
 - (BOOL)elementDoesAutoComplete:(DOMElement *)element
 {
-    return [_private->bridge elementDoesAutoComplete:element];
+    HTMLInputElement* inputElement = inputElementFromDOMElement(element);
+    return inputElement
+        && inputElement->inputType() == HTMLInputElement::TEXT
+        && inputElement->autoComplete();
 }
 
 - (BOOL)elementIsPassword:(DOMElement *)element
 {
-    return [_private->bridge elementIsPassword:element];
+    HTMLInputElement* inputElement = inputElementFromDOMElement(element);
+    return inputElement
+        && inputElement->inputType() == HTMLInputElement::PASSWORD;
 }
 
 - (DOMElement *)formForElement:(DOMElement *)element
 {
-    return [_private->bridge formForElement:element];
+    HTMLInputElement* inputElement = inputElementFromDOMElement(element);
+    return inputElement ? kit(inputElement->form()) : 0;
 }
 
 - (DOMElement *)currentForm
 {
-    return [_private->bridge currentForm];
+    return kit(core([_private->dataSource webFrame])->currentForm());
 }
 
 - (NSArray *)controlsInForm:(DOMElement *)form
 {
-    return [_private->bridge controlsInForm:form];
+    HTMLFormElement* formElement = formElementFromDOMElement(form);
+    if (!formElement)
+        return nil;
+    NSMutableArray *results = nil;
+    Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+    for (unsigned i = 0; i < elements.size(); i++) {
+        if (elements[i]->isEnumeratable()) { // Skip option elements, other duds
+            DOMElement* de = kit(elements[i]);
+            if (!results)
+                results = [NSMutableArray arrayWithObject:de];
+            else
+                [results addObject:de];
+        }
+    }
+    return results;
 }
 
 - (NSString *)searchForLabels:(NSArray *)labels beforeElement:(DOMElement *)element
 {
-    return [_private->bridge searchForLabels:labels beforeElement:element];
+    return core([_private->dataSource webFrame])->searchForLabelsBeforeElement(labels, core(element));
 }
 
 - (NSString *)matchLabels:(NSArray *)labels againstElement:(DOMElement *)element
 {
-    return [_private->bridge matchLabels:labels againstElement:element];
+    return core([_private->dataSource webFrame])->matchLabelsAgainstElement(labels, core(element));
 }
 
 @end

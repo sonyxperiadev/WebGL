@@ -64,7 +64,6 @@ public:
     virtual void calcPrefWidths();
     virtual void calcWidth();
     virtual void setWidth(int);
-    virtual void setStyle(RenderStyle*);
 
 #ifdef ANDROID_LAYOUT
     // RenderTableSection needs to access this in setCellWidths()
@@ -98,6 +97,7 @@ public:
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
     void paintCollapsedBorder(GraphicsContext*, int x, int y, int w, int h);
     void paintBackgroundsBehindCell(PaintInfo&, int tx, int ty, RenderObject* backgroundObject);
 
@@ -108,7 +108,7 @@ public:
     virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed = false);
     virtual bool absolutePosition(int& x, int& y, bool fixed = false) const;
 
-    virtual short baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
 
     void setCellTopExtra(int p) { m_topExtra = p; }
     void setCellBottomExtra(int p) { m_bottomExtra = p; }
@@ -116,11 +116,11 @@ public:
     virtual int borderTopExtra() const { return m_topExtra; }
     virtual int borderBottomExtra() const { return m_bottomExtra; }
 
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
-
 protected:
+    virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+
+private:
     int m_row;
     int m_column;
     int m_rowSpan;

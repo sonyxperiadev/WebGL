@@ -29,6 +29,7 @@
 #if ENABLE(SVG)
 #include "SVGPaintServer.h"
 
+#include "GraphicsContext.h"
 #include "RenderObject.h"
 #include "RenderStyle.h"
 #include "SVGPaintServerSolid.h"
@@ -61,9 +62,8 @@ SVGPaintServer* getPaintServerById(Document* document, const AtomicString& id)
 
 SVGPaintServerSolid* SVGPaintServer::sharedSolidPaintServer()
 {
-    static SVGPaintServerSolid* _sharedSolidPaintServer = 0;
-    if (!_sharedSolidPaintServer)
-        _sharedSolidPaintServer = new SVGPaintServerSolid();
+    static SVGPaintServerSolid* _sharedSolidPaintServer = SVGPaintServerSolid::create().releaseRef();
+    
     return _sharedSolidPaintServer;
 }
 
@@ -145,6 +145,19 @@ SVGPaintServer* SVGPaintServer::strokePaintServer(const RenderStyle* style, cons
     return strokePaintServer;
 }
 
+void applyStrokeStyleToContext(GraphicsContext* context, RenderStyle* style, const RenderObject* object)
+{
+    context->setStrokeThickness(SVGRenderStyle::cssPrimitiveToLength(object, style->svgStyle()->strokeWidth(), 1.0f));
+    context->setLineCap(style->svgStyle()->capStyle());
+    context->setLineJoin(style->svgStyle()->joinStyle());
+    if (style->svgStyle()->joinStyle() == MiterJoin)
+        context->setMiterLimit(style->svgStyle()->strokeMiterLimit());
+
+    const DashArray& dashes = dashArrayFromRenderingStyle(object->style());
+    float dashOffset = SVGRenderStyle::cssPrimitiveToLength(object, style->svgStyle()->strokeDashOffset(), 0.0f);
+    context->setLineDash(dashes, dashOffset);
+}
+
 DashArray dashArrayFromRenderingStyle(const RenderStyle* style)
 {
     DashArray array;
@@ -154,7 +167,7 @@ DashArray dashArrayFromRenderingStyle(const RenderStyle* style)
         CSSPrimitiveValue* dash = 0;
         unsigned long len = dashes->length();
         for (unsigned long i = 0; i < len; i++) {
-            dash = static_cast<CSSPrimitiveValue*>(dashes->item(i));
+            dash = static_cast<CSSPrimitiveValue*>(dashes->itemWithoutBoundsCheck(i));
             if (!dash)
                 continue;
 

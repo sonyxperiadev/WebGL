@@ -26,13 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "WorkQueueItem.h"
 
+#include "DumpRenderTree.h"
 #include <WebCore/COMPtr.h>
-#include <WebKit/IWebFrame.h>
-#include <WebKit/IWebURLRequest.h>
-#include <WebKit/IWebView.h>
 #include <WebKit/WebKit.h>
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/JSStringRefCF.h>

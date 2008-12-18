@@ -26,14 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LP64__
+#if ENABLE(NETSCAPE_PLUGIN_API)
 #import "WebNetscapePluginPackage.h"
 
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebNSObjectExtras.h"
 #import "WebNetscapeDeprecatedFunctions.h"
-#import <JavaScriptCore/npruntime_impl.h>
+#import <WebCore/npruntime_impl.h>
 
 #ifdef SUPPORT_CFM
 typedef void (* FunctionPointer)(void);
@@ -236,6 +236,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         if (hasCFMHeader)
             return NO;
 #endif
+        
         if (![self isNativeLibraryData:data])
             return NO;
     }
@@ -297,6 +298,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.size = 2 + 2 + sizeof(void *) * 40;
     }
         
+}
+
+- (void)unload
+{
+    [self _unloadWithShutdown:YES];
 }
 
 - (BOOL)load
@@ -418,6 +424,10 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.getJavaPeer = (NPN_GetJavaPeerProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_GetJavaPeer);
         browserFuncs.pushpopupsenabledstate = (NPN_PushPopupsEnabledStateProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PushPopupsEnabledState);
         browserFuncs.poppopupsenabledstate = (NPN_PopPopupsEnabledStateProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PopPopupsEnabledState);
+        browserFuncs.pluginthreadasynccall = (NPN_PluginThreadAsyncCallProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PluginThreadAsyncCall);
+        browserFuncs.scheduletimer = (NPN_ScheduleTimerProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_ScheduleTimer);
+        browserFuncs.unscheduletimer = (NPN_UnscheduleTimerProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_UnscheduleTimer);
+        browserFuncs.popupcontextmenu = (NPN_PopUpContextMenuProcPtr)tVectorForFunctionPointer((FunctionPointer)NPN_PopUpContextMenu);
         
         browserFuncs.releasevariantvalue = (NPN_ReleaseVariantValueProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_ReleaseVariantValue);
         browserFuncs.getstringidentifier = (NPN_GetStringIdentifierProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_GetStringIdentifier);
@@ -425,6 +435,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.getintidentifier = (NPN_GetIntIdentifierProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_GetIntIdentifier);
         browserFuncs.identifierisstring = (NPN_IdentifierIsStringProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_IdentifierIsString);
         browserFuncs.utf8fromidentifier = (NPN_UTF8FromIdentifierProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_UTF8FromIdentifier);
+        browserFuncs.intfromidentifier = (NPN_IntFromIdentifierProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_IntFromIdentifier);
         browserFuncs.createobject = (NPN_CreateObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_CreateObject);
         browserFuncs.retainobject = (NPN_RetainObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_RetainObject);
         browserFuncs.releaseobject = (NPN_ReleaseObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_ReleaseObject);
@@ -436,6 +447,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.removeproperty = (NPN_RemovePropertyProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_RemoveProperty);
         browserFuncs.setexception = (NPN_SetExceptionProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_SetException);
         browserFuncs.enumerate = (NPN_EnumerateProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_Enumerate);
+        browserFuncs.construct = (NPN_ConstructProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_Construct);
         
         [self _applyDjVuWorkaround];
         
@@ -519,6 +531,10 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.getJavaPeer = NPN_GetJavaPeer;
         browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
         browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
+        browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
+        browserFuncs.scheduletimer = NPN_ScheduleTimer;
+        browserFuncs.unscheduletimer = NPN_UnscheduleTimer;
+        browserFuncs.popupcontextmenu = NPN_PopUpContextMenu;
         
         browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
         browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
@@ -526,6 +542,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
         browserFuncs.identifierisstring = _NPN_IdentifierIsString;
         browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
+        browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
         browserFuncs.createobject = _NPN_CreateObject;
         browserFuncs.retainobject = _NPN_RetainObject;
         browserFuncs.releaseobject = _NPN_ReleaseObject;
@@ -537,7 +554,8 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.removeproperty = _NPN_RemoveProperty;
         browserFuncs.setexception = _NPN_SetException;
         browserFuncs.enumerate = _NPN_Enumerate;
-
+        browserFuncs.construct = _NPN_Construct;
+        
         [self _applyDjVuWorkaround];
 
 #if !LOG_DISABLED
@@ -553,6 +571,8 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #endif
         LOG(Plugins, "%f NP_Initialize took %f seconds", currentTime, duration);
 
+        pluginFuncs.size = sizeof(NPPluginFuncs);
+        
         npErr = NP_GetEntryPoints(&pluginFuncs);
         if (npErr != NPERR_NO_ERROR)
             goto abort;
@@ -660,6 +680,11 @@ abort:
 -(NPP_PrintProcPtr)NPP_Print
 {
     return NPP_Print;
+}
+
+- (NPPluginFuncs *)pluginFuncs
+{
+    return &pluginFuncs;
 }
 
 - (void)wasRemovedFromPluginDatabase:(WebPluginDatabase *)database

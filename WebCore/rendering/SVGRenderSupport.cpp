@@ -1,7 +1,5 @@
-/**
- * This file is part of the DOM implementation for WebKit.
- *
- * Copyright (C) 2007 Rob Buis <buis@kde.org>
+/*
+ * Copyright (C) 2007, 2008 Rob Buis <buis@kde.org>
  *           (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
  *           (C) 2007 Eric Seidel <eric@webkit.org>
  *
@@ -61,11 +59,11 @@ void prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& pa
     }
 
 #if ENABLE(SVG_FILTERS)
-    AtomicString filterId(SVGURIReference::getTarget(svgStyle->filter()));
+    AtomicString filterId(svgStyle->filter());
 #endif
 
-    AtomicString clipperId(SVGURIReference::getTarget(svgStyle->clipPath()));
-    AtomicString maskerId(SVGURIReference::getTarget(svgStyle->maskElement()));
+    AtomicString clipperId(svgStyle->clipPath());
+    AtomicString maskerId(svgStyle->maskElement());
 
     Document* document = object->document();
 
@@ -138,6 +136,7 @@ void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
     if (svgContainer && !drawsContents)
         svgContainer->setDrawsContents(true);
 
+    item->layoutIfNeeded();
     item->paint(info, 0, 0);
 
     if (svgContainer && !drawsContents)

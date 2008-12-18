@@ -19,6 +19,7 @@
 #include "InspectorController.h"
 #include "Frame.h"
 #include "Node.h"
+#include "Profile.h"
 
 /*
 // This stub file was created to avoid building and linking in all the
@@ -53,7 +54,8 @@ struct InspectorResource : public RefCounted<InspectorResource> {
 struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 };
 
-InspectorController::InspectorController(Page*, InspectorClient*) {}
+InspectorController::InspectorController(Page*, InspectorClient*) :
+    m_startProfiling(this, NULL) {}
 InspectorController::~InspectorController() {}
 
 void InspectorController::windowScriptObjectAvailable() {}
@@ -66,12 +68,30 @@ void InspectorController::didFinishLoading(DocumentLoader*, unsigned long) {}
 void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, ResourceRequest const&, ResourceResponse const&, int) {}
 void InspectorController::frameDetachedFromParent(Frame*) {}
 
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, String const&, unsigned int, String const&) {}
+void InspectorController::addMessageToConsole(MessageSource, MessageLevel, JSC::ExecState*, JSC::ArgList const&, unsigned int, String const&) {}
+void InspectorController::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) {}
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
 #endif
 bool InspectorController::enabled() const { return false; }
 void InspectorController::inspect(Node*) {}
 bool InspectorController::windowVisible() { return false; }
+void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, const JSC::UString&) {}
+void InspectorController::inspectedPageDestroyed() {}
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, JSC::UString& sourceString) {}
 
+    // new as of SVN change 36269, Sept 8, 2008
+void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
+void InspectorController::startGroup(MessageSource source, JSC::ExecState* exec, const JSC::ArgList& arguments, unsigned lineNumber, const String& sourceURL) {}
+void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL) {}
+void InspectorController::startTiming(const JSC::UString& title) {}
+bool InspectorController::stopTiming(const JSC::UString& title, double& elapsed) { return false; }
+void InspectorController::count(const JSC::UString& title, unsigned lineNumber, const String& sourceID) {}
+
+    // new as of SVN change 38068, Nov 5, 2008
+void InspectorController::mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) {}
+void InspectorController::handleMousePressOnNode(Node*) {}
+void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
+void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
+void InspectorController::didPause() {}
 }

@@ -28,8 +28,6 @@
 
 #import <WebKit/WebViewFactory.h>
 
-#import <JavaScriptCore/Assertions.h>
-#import <WebKit/WebFrameBridge.h>
 #import <WebKit/WebFrameInternal.h>
 #import <WebKit/WebViewInternal.h>
 #import <WebKit/WebHTMLViewInternal.h>
@@ -39,6 +37,7 @@
 #import <WebKit/WebNSViewExtras.h>
 #import <WebKit/WebPluginDatabase.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 
 @interface NSMenu (WebViewFactoryAdditions)
 - (NSMenuItem *)addItemWithTitle:(NSString *)title action:(SEL)action tag:(int)tag;
@@ -71,35 +70,9 @@
     return [[WebPluginDatabase sharedDatabase] plugins];
 }
 
-- (NSString *)pluginNameForMIMEType:(NSString *)MIMEType
-{
-    return [[[WebPluginDatabase sharedDatabase] pluginForMIMEType:MIMEType] name];
-}
-
-- (void)refreshPlugins:(BOOL)reloadPages
+- (void)refreshPlugins
 {
     [[WebPluginDatabase sharedDatabase] refresh];
-    if (reloadPages) {
-        [WebView _makeAllWebViewsPerformSelector:@selector(_reloadForPluginChanges)];
-    }
-}
-
-- (BOOL)pluginSupportsMIMEType:(NSString *)MIMEType
-{
-    return [[WebPluginDatabase sharedDatabase] pluginForMIMEType:MIMEType] != nil;
-}
-
-- (WebCoreFrameBridge *)bridgeForView:(NSView *)v
-{
-    NSView *aView = [v superview];
-    
-    while (aView) {
-        if ([aView isKindOfClass:[WebHTMLView class]]) {
-            return [[[(WebHTMLView *)aView _frame] _dataSource] _bridge];
-        }
-        aView = [aView superview];
-    }
-    return nil;
 }
 
 - (NSString *)inputElementAltText
@@ -451,7 +424,7 @@
 
 - (NSString *)AXWebAreaText
 {
-    return UI_STRING("web area", "accessibility role description for web area");
+    return UI_STRING("HTML content", "accessibility role description for web area");
 }
 
 - (NSString *)AXLinkText
@@ -474,9 +447,59 @@
     return UI_STRING("heading", "accessibility role description for headings");
 }
 
+- (NSString *)AXDefinitionListTermText
+{
+    return UI_STRING("term", "term word of a definition");
+}
+
+- (NSString *)AXDefinitionListDefinitionText
+{
+    return UI_STRING("definition", "definition phrase");
+}
+
+- (NSString *)AXButtonActionVerb
+{
+    return UI_STRING("press", "Verb stating the action that will occur when a button is pressed, as used by accessibility");
+}
+
+- (NSString *)AXRadioButtonActionVerb
+{
+    return UI_STRING("select", "Verb stating the action that will occur when a radio button is clicked, as used by accessibility");
+}
+
+- (NSString *)AXTextFieldActionVerb
+{
+    return UI_STRING("activate", "Verb stating the action that will occur when a text field is selected, as used by accessibility");
+}
+
+- (NSString *)AXCheckedCheckBoxActionVerb
+{
+    return UI_STRING("uncheck", "Verb stating the action that will occur when a checked checkbox is clicked, as used by accessibility");
+}
+
+- (NSString *)AXUncheckedCheckBoxActionVerb
+{
+    return UI_STRING("check", "Verb stating the action that will occur when an unchecked checkbox is clicked, as used by accessibility");
+}
+
+- (NSString *)AXLinkActionVerb
+{
+    return UI_STRING("jump", "Verb stating the action that will occur when a link is clicked, as used by accessibility");
+}
+
+- (NSString *)multipleFileUploadTextForNumberOfFiles:(unsigned)numberOfFiles
+{
+    return [NSString stringWithFormat:UI_STRING("%d files", "Label to describe the number of files selected in a file upload control that allows multiple files"), numberOfFiles];
+}
+
 - (NSString *)unknownFileSizeText
 {
     return UI_STRING("Unknown", "Unknown filesize FTP directory listing item");
+}
+
+- (NSString*)imageTitleForFilename:(NSString*)filename width:(int)width height:(int)height
+{
+    return [NSString stringWithFormat:UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"), filename, width, height];
 }
 
 @end

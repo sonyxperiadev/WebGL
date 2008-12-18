@@ -26,9 +26,8 @@
 #import "config.h"
 #import "WebCoreSystemInterface.h"
 
+void (*wkAdvanceDefaultButtonPulseAnimation)(NSButtonCell *);
 BOOL (*wkCGContextGetShouldSmoothFonts)(CGContextRef);
-void (*wkClearGlyphVector)(void* glyphs);
-OSStatus (*wkConvertCharToGlyphs)(void* styleGroup, const UniChar*, unsigned numCharacters, void* glyphs);
 NSString* (*wkCreateURLPasteboardFlavorTypeName)(void);
 NSString* (*wkCreateURLNPasteboardFlavorTypeName)(void);
 void (*wkDrawBezeledTextFieldCell)(NSRect, BOOL enabled);
@@ -36,16 +35,9 @@ void (*wkDrawTextFieldCellFocusRing)(NSTextFieldCell*, NSRect);
 void (*wkDrawCapsLockIndicator)(CGContextRef, CGRect);
 void (*wkDrawBezeledTextArea)(NSRect, BOOL enabled);
 void (*wkDrawFocusRing)(CGContextRef, CGColorRef, int radius);
-BOOL (*wkFontSmoothingModeIsLCD)(int mode);
-OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
-CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
 NSFont* (*wkGetFontInLanguageForRange)(NSFont*, NSString*, NSRange);
 NSFont* (*wkGetFontInLanguageForCharacter)(NSFont*, UniChar);
-void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
 BOOL (*wkGetGlyphTransformedAdvances)(CGFontRef, NSFont*, CGAffineTransform*, ATSGlyphRef*, CGSize* advance);
-ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
-int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
-size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
 void (*wkDrawMediaFullscreenButton)(CGContextRef context, CGRect rect, BOOL active);
 void (*wkDrawMediaMuteButton)(CGContextRef context, CGRect rect, BOOL active);
 void (*wkDrawMediaPauseButton)(CGContextRef context, CGRect rect, BOOL active);
@@ -58,23 +50,19 @@ void (*wkDrawMediaUnMuteButton)(CGContextRef context, CGRect rect, BOOL active);
 NSString* (*wkGetPreferredExtensionForMIMEType)(NSString*);
 NSArray* (*wkGetExtensionsForMIMEType)(NSString*);
 NSString* (*wkGetMIMETypeForExtension)(NSString*);
-ATSUFontID (*wkGetNSFontATSUFontId)(NSFont*);
 NSTimeInterval (*wkGetNSURLResponseCalculatedExpiration)(NSURLResponse *response);
 NSDate *(*wkGetNSURLResponseLastModifiedDate)(NSURLResponse *response);
 BOOL (*wkGetNSURLResponseMustRevalidate)(NSURLResponse *response);
 void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOOL* continuous);
-OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
-NSString* (*wkPathFromFont)(NSFont*);
 void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
 int (*wkQTMovieDataRate)(QTMovie*);
 float (*wkQTMovieMaxTimeLoaded)(QTMovie*);
 void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
-void (*wkReleaseStyleGroup)(void* group);
 void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
 void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint point);
-void (*wkSetUpFontCache)(size_t);
+void (*wkSetUpFontCache)();
 void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
 void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *error);
@@ -90,6 +78,22 @@ CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRe
 void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
 id (*wkCreateNSURLConnectionDelegateProxy)(void);
+
+#ifndef BUILDING_ON_TIGER
+void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);
+#else
+void (*wkClearGlyphVector)(void* glyphs);
+OSStatus (*wkConvertCharToGlyphs)(void* styleGroup, const UniChar*, unsigned numCharacters, void* glyphs);
+CFStringRef (*wkCopyFullFontName)(CGFontRef font);
+OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
+CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
+void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
+ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
+void* wkGetGlyphsForCharacters;
+int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
+size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
+OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
+void (*wkReleaseStyleGroup)(void* group);
+ATSUFontID (*wkGetNSFontATSUFontId)(NSFont*);
 BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
-Class (*wkNSURLProtocolClassForReqest)(NSURLRequest *);
-float (*wkSecondsSinceLastInputEvent)(void);
+#endif

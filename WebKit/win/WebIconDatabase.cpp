@@ -38,6 +38,7 @@
 #include <WebCore/Image.h>
 #include <WebCore/PlatformString.h>
 #pragma warning(pop)
+#include <wtf/MainThread.h>
 #include "shlobj.h"
 
 using namespace WebCore;
@@ -52,11 +53,13 @@ WebIconDatabase::WebIconDatabase()
 , m_deliveryRequested(false)
 {
     gClassCount++;
+    gClassNameCount.add("WebIconDatabase");
 }
 
 WebIconDatabase::~WebIconDatabase()
 {
     gClassCount--;
+    gClassNameCount.remove("WebIconDatabase");
 }
 
 void WebIconDatabase::init()
@@ -258,12 +261,9 @@ HBITMAP WebIconDatabase::getOrCreateDefaultIconBitmap(LPSIZE size)
         return result;
 
     result = createDIB(size);
-    static Image* defaultIconImage = 0;
-    if (!defaultIconImage) {
-        defaultIconImage = Image::loadPlatformResource("urlIcon");
-    }
+
     m_defaultIconMap.set(*size, result);
-    if (!defaultIconImage->getHBITMAPOfSize(result, size)) {
+    if (!iconDatabase()->defaultIcon(*size)->getHBITMAPOfSize(result, size)) {
         LOG_ERROR("Failed to draw Image to HBITMAP");
         return 0;
     }
@@ -330,7 +330,7 @@ static void postDidAddIconNotification(const String& pageURL, WebIconDatabase* i
     RetainPtr<CFStringRef> url(AdoptCF, pageURL.createCFString());
     CFDictionaryAddValue(dictionary.get(), WebIconDatabase::iconDatabaseNotificationUserInfoURLKey(), url.get());
 
-    COMPtr<CFDictionaryPropertyBag> userInfo = CFDictionaryPropertyBag::createInstance();
+    COMPtr<CFDictionaryPropertyBag> userInfo(AdoptCOM, CFDictionaryPropertyBag::createInstance());
     userInfo->setDictionary(dictionary.get());
 
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();

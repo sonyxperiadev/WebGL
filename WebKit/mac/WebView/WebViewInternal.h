@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// This header contains WebView declarations that can be used anywhere in the Web Kit, but are neither SPI nor API.
+// This header contains WebView declarations that can be used anywhere in WebKit, but are neither SPI nor API.
 
 #import "WebPreferences.h"
 #import "WebViewPrivate.h"
 #import "WebTypesInternal.h"
+
+#ifdef __cplusplus
+#import <WebCore/WebCoreKeyboardUIMode.h>
+#endif
 
 #ifdef __cplusplus
 namespace WebCore {
@@ -48,6 +52,7 @@ typedef WebCore::Page WebCorePage;
 
 @class WebBasePluginPackage;
 @class WebDownload;
+@class WebNodeHighlight;
 
 @interface WebView (WebViewEditingExtras)
 - (BOOL)_interceptEditingKeyEvent:(WebCoreKeyboardEvent *)event shouldSaveCommand:(BOOL)shouldSave;
@@ -63,6 +68,7 @@ typedef WebCore::Page WebCorePage;
 @interface WebView (WebViewInternal)
 #ifdef __cplusplus
 - (WebCore::String)_userAgentForURL:(const WebCore::KURL&)url;
+- (WebCore::KeyboardUIMode)_keyboardUIMode;
 #endif
 @end
 
@@ -108,6 +114,13 @@ typedef WebCore::Page WebCorePage;
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension;
 - (BOOL)_isMIMETypeRegisteredAsPlugin:(NSString *)MIMEType;
 
+- (void)setCurrentNodeHighlight:(WebNodeHighlight *)nodeHighlight;
+- (WebNodeHighlight *)currentNodeHighlight;
+
+- (void)addPluginInstanceView:(NSView *)view;
+- (void)removePluginInstanceView:(NSView *)view;
+- (void)removePluginInstanceViewsFor:(WebFrame*)webFrame;
+
 - (void)_addObject:(id)object forIdentifier:(unsigned long)identifier;
 - (id)_objectForIdentifier:(unsigned long)identifier;
 - (void)_removeObjectForIdentifier:(unsigned long)identifier;
@@ -115,6 +128,22 @@ typedef WebCore::Page WebCorePage;
 
 - (void)_registerForIconNotification:(BOOL)listen;
 - (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
+
+- (void)_setZoomMultiplier:(float)m isTextOnly:(BOOL)isTextOnly;
+- (float)_zoomMultiplier:(BOOL)isTextOnly;
+- (float)_realZoomMultiplier;
+- (BOOL)_realZoomMultiplierIsTextOnly;
+- (BOOL)_canZoomOut:(BOOL)isTextOnly;
+- (BOOL)_canZoomIn:(BOOL)isTextOnly;
+- (IBAction)_zoomOut:(id)sender isTextOnly:(BOOL)isTextOnly;
+- (IBAction)_zoomIn:(id)sender isTextOnly:(BOOL)isTextOnly;
+- (BOOL)_canResetZoom:(BOOL)isTextOnly;
+- (IBAction)_resetZoom:(id)sender isTextOnly:(BOOL)isTextOnly;
+
+- (BOOL)_mustDrawUnionedRect:(NSRect)rect singleRects:(const NSRect *)rects count:(NSInteger)count;
+- (void)_updateFocusedAndActiveStateForFrame:(WebFrame *)webFrame;
+
++ (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
 @end
 

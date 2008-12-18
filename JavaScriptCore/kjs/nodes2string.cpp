@@ -30,7 +30,7 @@
 using namespace WTF;
 using namespace Unicode;
 
-namespace KJS {
+namespace JSC {
 
 // A simple text streaming class that helps with code indentation.
 
@@ -78,7 +78,7 @@ static UString escapeStringForPrettyPrinting(const UString& s)
     UString escapedString;
 
     for (int i = 0; i < s.size(); i++) {
-        unsigned short c = s.data()[i].unicode();
+        UChar c = s.data()[i];
         switch (c) {
             case '\"':
                 escapedString += "\\\"";
@@ -159,7 +159,8 @@ SourceStream& SourceStream::operator<<(char c)
 {
     m_numberNeedsParens = false;
     m_atStartOfStatement = false;
-    UChar ch(c);
+    // use unsigned char to zero-extend instead of sign-extend
+    UChar ch(static_cast<unsigned char>(c));
     m_string.append(ch);
     return *this;
 }
@@ -296,18 +297,9 @@ void NullNode::streamTo(SourceStream& s) const
     s << "null";
 }
 
-void FalseNode::streamTo(SourceStream& s) const
+void BooleanNode::streamTo(SourceStream& s) const
 {
-    s << "false";
-}
-
-void TrueNode::streamTo(SourceStream& s) const
-{
-    s << "true";
-}
-
-void PlaceholderTrueNode::streamTo(SourceStream&) const
-{
+    s << (m_value ? "true" : "false");
 }
 
 void NumberNode::streamTo(SourceStream& s) const
@@ -317,12 +309,12 @@ void NumberNode::streamTo(SourceStream& s) const
 
 void StringNode::streamTo(SourceStream& s) const
 {
-    s << '"' << escapeStringForPrettyPrinting(m_value) << '"';
+    s << '"' << escapeStringForPrettyPrinting(m_value.ustring()) << '"';
 }
 
 void RegExpNode::streamTo(SourceStream& s) const
 {
-    s << '/' <<  m_regExp->pattern() << '/' << m_regExp->flags();
+    s << '/' <<  m_pattern << '/' << m_flags;
 }
 
 void ThisNode::streamTo(SourceStream& s) const
@@ -426,6 +418,11 @@ void NewExprNode::streamTo(SourceStream& s) const
     s << "new " << PrecMember << m_expr << m_args;
 }
 
+void EvalFunctionCallNode::streamTo(SourceStream& s) const
+{
+    s << "eval" << m_args;
+}
+
 void FunctionCallValueNode::streamTo(SourceStream& s) const
 {
     s << PrecCall << m_expr << m_args;
@@ -448,38 +445,21 @@ void FunctionCallDotNode::streamTo(SourceStream& s) const
     s << m_args;
 }
 
-void PostIncResolveNode::streamTo(SourceStream& s) const
+void PostfixResolveNode::streamTo(SourceStream& s) const
 {
-    s << m_ident << "++";
+    s << m_ident << operatorString(m_operator);
 }
 
-void PostDecResolveNode::streamTo(SourceStream& s) const
-{
-    s << m_ident << "--";
-}
-
-void PostIncBracketNode::streamTo(SourceStream& s) const
+void PostfixBracketNode::streamTo(SourceStream& s) const
 {
     bracketNodeStreamTo(s, m_base, m_subscript);
-    s << "++";
+    s << operatorString(m_operator);
 }
 
-void PostDecBracketNode::streamTo(SourceStream& s) const
-{
-    bracketNodeStreamTo(s, m_base, m_subscript);
-    s << "--";
-}
-
-void PostIncDotNode::streamTo(SourceStream& s) const
+void PostfixDotNode::streamTo(SourceStream& s) const
 {
     dotNodeStreamTo(s, m_base, m_ident);
-    s << "++";
-}
-
-void PostDecDotNode::streamTo(SourceStream& s) const
-{
-    dotNodeStreamTo(s, m_base, m_ident);
-    s << "--";
+    s << operatorString(m_operator);
 }
 
 void PostfixErrorNode::streamTo(SourceStream& s) const
@@ -528,37 +508,20 @@ void TypeOfResolveNode::streamTo(SourceStream& s) const
     s << "typeof " << m_ident;
 }
 
-void PreIncResolveNode::streamTo(SourceStream& s) const
+void PrefixResolveNode::streamTo(SourceStream& s) const
 {
-    s << "++" << m_ident;
+    s << operatorString(m_operator) << m_ident;
 }
 
-void PreDecResolveNode::streamTo(SourceStream& s) const
+void PrefixBracketNode::streamTo(SourceStream& s) const
 {
-    s << "--" << m_ident;
-}
-
-void PreIncBracketNode::streamTo(SourceStream& s) const
-{
-    s << "++";
+    s << operatorString(m_operator);
     bracketNodeStreamTo(s, m_base, m_subscript);
 }
 
-void PreDecBracketNode::streamTo(SourceStream& s) const
+void PrefixDotNode::streamTo(SourceStream& s) const
 {
-    s << "--";
-    bracketNodeStreamTo(s, m_base, m_subscript);
-}
-
-void PreIncDotNode::streamTo(SourceStream& s) const
-{
-    s << "++";
-    dotNodeStreamTo(s, m_base, m_ident);
-}
-
-void PreDecDotNode::streamTo(SourceStream& s) const
-{
-    s << "--";
+    s << operatorString(m_operator);
     dotNodeStreamTo(s, m_base, m_ident);
 }
 
@@ -592,42 +555,42 @@ void LogicalNotNode::streamTo(SourceStream& s) const
 
 void MultNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "*", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "*", m_expr1, m_expr2);
 }
 
 void DivNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "/", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "/", m_expr1, m_expr2);
 }
 
 void ModNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "%", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "%", m_expr1, m_expr2);
 }
 
 void AddNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "+", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "+", m_expr1, m_expr2);
 }
 
 void SubNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "-", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "-", m_expr1, m_expr2);
 }
 
 void LeftShiftNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "<<", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), "<<", m_expr1, m_expr2);
 }
 
 void RightShiftNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), ">>", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), ">>", m_expr1, m_expr2);
 }
 
 void UnsignedRightShiftNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), ">>>", m_term1, m_term2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), ">>>", m_expr1, m_expr2);
 }
 
 void LessNode::streamTo(SourceStream& s) const
@@ -695,14 +658,9 @@ void BitOrNode::streamTo(SourceStream& s) const
     streamLeftAssociativeBinaryOperator(s, precedence(), "|", m_expr1, m_expr2);
 }
 
-void LogicalAndNode::streamTo(SourceStream& s) const
+void LogicalOpNode::streamTo(SourceStream& s) const
 {
-    streamLeftAssociativeBinaryOperator(s, precedence(), "&&", m_expr1, m_expr2);
-}
-
-void LogicalOrNode::streamTo(SourceStream& s) const
-{
-    streamLeftAssociativeBinaryOperator(s, precedence(), "||", m_expr1, m_expr2);
+    streamLeftAssociativeBinaryOperator(s, precedence(), (m_operator == OpLogicalAnd) ? "&&" : "||", m_expr1, m_expr2);
 }
 
 void ConditionalNode::streamTo(SourceStream& s) const
@@ -761,11 +719,11 @@ void ConstDeclNode::streamTo(SourceStream& s) const
 {
     s << m_ident;
     if (m_init)
-        s << " = " << m_init;
+        s << " = " << PrecAssignment << m_init;
     for (ConstDeclNode* n = m_next.get(); n; n = n->m_next.get()) {
-        s << ", " << m_ident;
-        if (m_init)
-            s << " = " << m_init;
+        s << ", " << n->m_ident;
+        if (n->m_init)
+            s << " = " << PrecAssignment << n->m_init;
     }
 }
 
@@ -812,6 +770,11 @@ void ScopeNode::streamTo(SourceStream& s) const
 void EmptyStatementNode::streamTo(SourceStream& s) const
 {
     s << Endl << ';';
+}
+
+void DebuggerStatementNode::streamTo(SourceStream& s) const
+{
+    s << Endl << "debugger;";
 }
 
 void ExprStatementNode::streamTo(SourceStream& s) const
@@ -936,7 +899,7 @@ void SwitchNode::streamTo(SourceStream& s) const
 
 void LabelNode::streamTo(SourceStream& s) const
 {
-    s << Endl << m_label << ":" << Indent << m_statement << Unindent;
+    s << Endl << m_name << ":" << Indent << m_statement << Unindent;
 }
 
 void ThrowNode::streamTo(SourceStream& s) const
@@ -970,4 +933,4 @@ void FuncExprNode::streamTo(SourceStream& s) const
     s << "function " << m_ident << '(' << m_parameter << ')' << m_body;
 }
 
-} // namespace KJS
+} // namespace JSC

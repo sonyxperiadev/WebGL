@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,11 +29,10 @@
 #import "WebDataSource.h"
 
 #import "WebArchive.h"
-#import "WebArchiver.h"
+#import "WebArchiveInternal.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocument.h"
 #import "WebDocumentLoaderMac.h"
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h"
 #import "WebFrameLoadDelegate.h"
 #import "WebFrameLoaderClient.h"
@@ -41,23 +40,26 @@
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
 #import "WebKitStatisticsPrivate.h"
+#import "WebKitNSStringExtras.h"
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebPDFRepresentation.h"
+#import "WebResourceInternal.h"
 #import "WebResourceLoadDelegate.h"
 #import "WebResourcePrivate.h"
-#import "WebUnarchivingState.h"
 #import "WebViewInternal.h"
-#import <JavaScriptCore/Assertions.h>
+#import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/KURL.h>
+#import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebCore/WebCoreURLResponse.h>
 #import <WebKit/DOMHTML.h>
 #import <WebKit/DOMPrivate.h>
-#import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 
 using namespace WebCore;
 
@@ -67,7 +69,6 @@ using namespace WebCore;
    
     id <WebDocumentRepresentation> representation;
     
-    WebUnarchivingState *unarchivingState;
     BOOL representationFinishedLoading;
 }
 @end
@@ -83,12 +84,14 @@ using namespace WebCore;
 
 - (void)dealloc
 {
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebDataSourcePrivate class], self))
+        return;
+
     ASSERT(!loader->isLoading());
     loader->detachDataSource();
     loader->deref();
     
     [representation release];
-    [unarchivingState release];
 
     [super dealloc];
 }
@@ -135,20 +138,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Class repClass;
     return [WebView _viewClass:nil andRepresentationClass:&repClass forMIMEType:MIMEType] ? repClass : nil;
 }
-
-- (NSString *)_MIMETypeOfResponse:(NSURLResponse *)response
-{
-#ifdef BUILDING_ON_TIGER
-    return [response MIMEType];
-#else
-    // FIXME: This is part of a workaround for <rdar://problem/5321972> REGRESSION: Plain text document from HTTP server detected
-    // as application/octet-stream
-    NSString *MIMEType = [response MIMEType];
-    if ([MIMEType isEqualToString:@"application/octet-stream"] && [response isKindOfClass:[NSHTTPURLResponse class]] && [[[(NSHTTPURLResponse *)response allHeaderFields] objectForKey:@"Content-Type"] hasPrefix:@"text/plain"])
-        return @"text/plain";
-    return MIMEType;
-#endif
-}
 @end
 
 @implementation WebDataSource (WebPrivate)
@@ -160,10 +149,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)_addSubframeArchives:(NSArray *)subframeArchives
 {
+    // FIXME: This SPI is poor, poor design.  Can we come up with another solution for those who need it?
+    DocumentLoader* loader = [self _documentLoader];
+    ASSERT(loader);
+    
     NSEnumerator *enumerator = [subframeArchives objectEnumerator];
     WebArchive *archive;
     while ((archive = [enumerator nextObject]) != nil)
-        [self _addToUnarchiveState:archive];
+        loader->addAllArchiveResources([archive _coreLegacyWebArchive]);
 }
 
 - (NSFileWrapper *)_fileWrapperForURL:(NSURL *)URL
@@ -189,11 +182,23 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSString *)_responseMIMEType
 {
-#ifdef BUILDING_ON_TIGER
-    return [[self response] MIMEType];
-#else
-    return [self _MIMETypeOfResponse:[self response]];
-#endif
+    return [[self response] _webcore_MIMEType];
+}
+
+- (BOOL)_transferApplicationCache:(NSString*)destinationBundleIdentifier
+{
+    DocumentLoader* loader = [self _documentLoader];
+    
+    if (!loader)
+        return NO;
+    
+    ApplicationCache* cache = loader->applicationCache();
+    if (!cache)
+        return YES;
+    
+    NSString *cacheDir = [NSString _webkit_localCacheDirectoryWithBundleIdentifier:destinationBundleIdentifier];
+    
+    return ApplicationCacheStorage::storeCopyOfCache(cacheDir, cache);
 }
 
 @end
@@ -221,12 +226,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         _private->representationFinishedLoading = YES;
         [[self representation] receivedError:error withDataSource:self];
     }
-}
-
-- (void)_clearUnarchivingState
-{
-    [_private->unarchivingState release];
-    _private->unarchivingState = nil;
 }
 
 - (void)_revertToProvisionalState
@@ -257,18 +256,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return repTypes;
 }
 
-- (WebResource *)_archivedSubresourceForURL:(NSURL *)URL
-{
-    return [_private->unarchivingState archivedResourceForURL:URL];
-}
-
 - (void)_replaceSelectionWithArchive:(WebArchive *)archive selectReplacement:(BOOL)selectReplacement
 {
     DOMDocumentFragment *fragment = [self _documentFragmentWithArchive:archive];
     if (fragment)
-        [[self _bridge] replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:NO matchStyle:NO];
+        [[self webFrame] _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:NO matchStyle:NO];
 }
 
+// FIXME: There are few reasons why this method and many of its related methods can't be pushed entirely into WebCore in the future.
 - (DOMDocumentFragment *)_documentFragmentWithArchive:(WebArchive *)archive
 {
     ASSERT(archive);
@@ -278,8 +273,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         if ([WebView canShowMIMETypeAsHTML:MIMEType]) {
             NSString *markupString = [[NSString alloc] initWithData:[mainResource data] encoding:NSUTF8StringEncoding];
             // FIXME: seems poor form to do this as a side effect of getting a document fragment
-            [self _addToUnarchiveState:archive];
-            DOMDocumentFragment *fragment = [[self _bridge] documentFragmentWithMarkupString:markupString baseURLString:[[mainResource URL] _web_originalDataAsString]];
+            if (DocumentLoader* loader = [self _documentLoader])
+                loader->addAllArchiveResources([archive _coreLegacyWebArchive]);
+
+            DOMDocumentFragment *fragment = [[self webFrame] _documentFragmentWithMarkupString:markupString baseURLString:[[mainResource URL] _web_originalDataAsString]];
             [markupString release];
             return fragment;
         } else if (MIMETypeRegistry::isSupportedImageMIMEType(MIMEType)) {
@@ -319,19 +316,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 // May return nil if not initialized with a URL.
 - (NSURL *)_URL
 {
-    KURL URL = _private->loader->url();
-    return URL.isEmpty() ? nil : URL.getNSURL();
-}
-
-- (WebArchive *)_popSubframeArchiveWithName:(NSString *)frameName
-{
-    return [_private->unarchivingState popSubframeArchiveWithFrameName:frameName];
-}
-
-- (WebFrameBridge *)_bridge
-{
-    ASSERT(_private->loader->isCommitted());
-    return [[self webFrame] _bridge];
+    const KURL& url = _private->loader->url();
+    if (url.isEmpty())
+        return nil;
+    return url;
 }
 
 - (WebView *)_webView
@@ -359,19 +347,12 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [_private->representation setDataSource:self];
 }
 
-- (void)_addToUnarchiveState:(WebArchive *)archive
-{
-    if (!_private->unarchivingState)
-        _private->unarchivingState = [[WebUnarchivingState alloc] init];
-    [_private->unarchivingState addArchive:archive];
-}
-
 - (DocumentLoader*)_documentLoader
 {
     return _private->loader;
 }
 
-- (id)_initWithDocumentLoader:(WebDocumentLoaderMac *)loader
+- (id)_initWithDocumentLoader:(PassRefPtr<WebDocumentLoaderMac>)loader
 {
     self = [super init];
     if (!self)
@@ -379,10 +360,9 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     
     _private = [[WebDataSourcePrivate alloc] init];
     
-    _private->loader = loader;
-    loader->ref();
+    _private->loader = loader.releaseRef();
         
-    LOG(Loading, "creating datasource for %@", _private->loader->request().url().getNSURL());
+    LOG(Loading, "creating datasource for %@", static_cast<NSURL *>(_private->loader->request().url()));
     
     ++WebDataSourceCount;
     
@@ -395,7 +375,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (id)initWithRequest:(NSURLRequest *)request
 {
-    return [self _initWithDocumentLoader:new WebDocumentLoaderMac(request, SubstituteData())];
+    return [self _initWithDocumentLoader:WebDocumentLoaderMac::create(request, SubstituteData())];
 }
 
 - (void)dealloc
@@ -437,7 +417,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSURLRequest *)initialRequest
 {
-    return _private->loader->initialRequest().nsURLRequest();
+    return _private->loader->originalRequest().nsURLRequest();
 }
 
 - (NSMutableURLRequest *)request
@@ -476,8 +456,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSURL *)unreachableURL
 {
-    KURL URL = _private->loader->unreachableURL();
-    return URL.isEmpty() ? nil : URL.getNSURL();
+    const KURL& unreachableURL = _private->loader->unreachableURL();
+    if (unreachableURL.isEmpty())
+        return nil;
+    return unreachableURL;
 }
 
 - (WebArchive *)webArchive
@@ -485,58 +467,38 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     // it makes no sense to grab a WebArchive from an uncommitted document.
     if (!_private->loader->isCommitted())
         return nil;
-    return [WebArchiver archiveFrame:[self webFrame]];
+        
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core([self webFrame]))] autorelease];
 }
 
 - (WebResource *)mainResource
 {
-    NSURLResponse *response = [self response];
-    return [[[WebResource alloc] initWithData:[self data]
-                                          URL:[response URL] 
-                                     MIMEType:[self _responseMIMEType]
-                             textEncodingName:[response textEncodingName]
-                                    frameName:[[self webFrame] name]] autorelease];
+    RefPtr<ArchiveResource> coreResource = _private->loader->mainResource();
+    return [[[WebResource alloc] _initWithCoreResource:coreResource.release()] autorelease];
 }
 
 - (NSArray *)subresources
 {
-    if (!_private->loader->isCommitted())
-        return [NSMutableArray array];
+    Vector<PassRefPtr<ArchiveResource> > coreSubresources;
+    _private->loader->getSubresources(coreSubresources);
 
-    NSArray *datas;
-    NSArray *responses;
-    [[self _bridge] getAllResourceDatas:&datas andResponses:&responses];
-    ASSERT([datas count] == [responses count]);
-
-    NSMutableArray *subresources = [[NSMutableArray alloc] initWithCapacity:[datas count]];
-    for (unsigned i = 0; i < [datas count]; ++i) {
-        NSURLResponse *response = [responses objectAtIndex:i];
-        [subresources addObject:[[[WebResource alloc] _initWithData:[datas objectAtIndex:i] URL:[response URL] response:response MIMEType:[self _MIMETypeOfResponse:response]] autorelease]];
-    }
-
+    NSMutableArray *subresources = [[NSMutableArray alloc] initWithCapacity:coreSubresources.size()];
+    for (unsigned i = 0; i < coreSubresources.size(); ++i)
+        [subresources addObject:[[[WebResource alloc] _initWithCoreResource:coreSubresources[i]] autorelease]];
+    
     return [subresources autorelease];
 }
 
 - (WebResource *)subresourceForURL:(NSURL *)URL
 {
-    if (!_private->loader->isCommitted())
-        return nil;
-
-    NSData *data;
-    NSURLResponse *response;
-    if (![[self _bridge] getData:&data andResponse:&response forURL:[URL _web_originalDataAsString]])
-        return [self _archivedSubresourceForURL:URL];
-
-    return [[[WebResource alloc] _initWithData:data URL:URL response:response MIMEType:[self _MIMETypeOfResponse:response]] autorelease];
+    RefPtr<ArchiveResource> subresource = _private->loader->subresource(URL);
+    
+    return subresource ? [[[WebResource alloc] _initWithCoreResource:subresource.get()] autorelease] : nil;
 }
 
 - (void)addSubresource:(WebResource *)subresource
-{
-    if (subresource) {
-        if (!_private->unarchivingState)
-            _private->unarchivingState = [[WebUnarchivingState alloc] init];
-        [_private->unarchivingState addResource:subresource];
-    }
+{    
+    _private->loader->addArchiveResource([subresource _coreResource]);
 }
 
 @end

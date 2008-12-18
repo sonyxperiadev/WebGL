@@ -32,6 +32,7 @@
 namespace WebCore {
 
     class AtomicString;
+    class Element;
     class Node;
 
     class DynamicNodeList : public NodeList {
@@ -45,13 +46,12 @@ namespace WebCore {
             unsigned lastItemOffset;
             bool isLengthCacheValid : 1;
             bool isItemCacheValid : 1;
+            unsigned refCount;
         };
 
-        DynamicNodeList(PassRefPtr<Node> rootNode, bool needsNotifications);
-        DynamicNodeList(PassRefPtr<Node> rootNode, Caches*, bool needsNotifications);
         virtual ~DynamicNodeList();
 
-        bool needsNotifications() const { return m_needsNotifications; }
+        bool hasOwnCaches() const { return m_ownsCaches; }
 
         // DOM methods & attributes for NodeList
         virtual unsigned length() const;
@@ -59,16 +59,17 @@ namespace WebCore {
         virtual Node* itemWithName(const AtomicString&) const;
 
         // Other methods (not part of DOM)
-        virtual void rootNodeChildrenChanged();
-        virtual void rootNodeAttributeChanged();
+        void invalidateCache();
 
     protected:
-        virtual bool nodeMatches(Node*) const = 0;
+        DynamicNodeList(PassRefPtr<Node> rootNode);
+        DynamicNodeList(PassRefPtr<Node> rootNode, Caches*);
+
+        virtual bool nodeMatches(Element*) const = 0;
 
         RefPtr<Node> m_rootNode;
         mutable Caches* m_caches;
         bool m_ownsCaches;
-        bool m_needsNotifications;
 
     private:
         Node* itemForwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;

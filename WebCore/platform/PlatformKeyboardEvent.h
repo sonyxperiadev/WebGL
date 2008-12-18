@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +50,9 @@ typedef struct _GdkEventKey GdkEventKey;
 #endif
 
 #if PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QKeyEvent;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(WX)
@@ -74,6 +77,13 @@ namespace WebCore {
             Char
         };
 
+        enum ModifierKey {
+            AltKey = 1 << 0,
+            CtrlKey = 1 << 1,
+            MetaKey = 1 << 2,
+            ShiftKey = 1 << 3,
+        };
+
         Type type() const { return m_type; }
         void disambiguateKeyDownEvent(Type, bool backwardCompatibilityMode = false); // Only used on platforms that need it, i.e. those that generate KeyDown events.
 
@@ -95,6 +105,9 @@ namespace WebCore {
         int windowsVirtualKeyCode() const { return m_windowsVirtualKeyCode; }
         void setWindowsVirtualKeyCode(int code) { m_windowsVirtualKeyCode = code; }
 
+        int nativeVirtualKeyCode() const { return m_nativeVirtualKeyCode; }
+        void setNativeVirtualKeyCode(int code) { m_nativeVirtualKeyCode = code; }
+
         String keyIdentifier() const { return m_keyIdentifier; }
         bool isAutoRepeat() const { return m_autoRepeat; }
         void setIsAutoRepeat(bool in) { m_autoRepeat = in; }
@@ -103,6 +116,12 @@ namespace WebCore {
         bool ctrlKey() const { return m_ctrlKey; }
         bool altKey() const { return m_altKey; }
         bool metaKey() const { return m_metaKey; }
+        unsigned modifiers() const {
+            return (altKey() ? AltKey : 0)
+                | (ctrlKey() ? CtrlKey : 0)
+                | (metaKey() ? MetaKey : 0)
+                | (shiftKey() ? ShiftKey : 0);
+        }
 
         static bool currentCapsLockState();
 
@@ -113,43 +132,71 @@ namespace WebCore {
 
 #if PLATFORM(WIN)
         PlatformKeyboardEvent(HWND, WPARAM, LPARAM, Type, bool);
-        bool isSystemKey() const { return m_isSystemKey; }
 #endif
 
 #if PLATFORM(GTK)
         PlatformKeyboardEvent(GdkEventKey*);
+        GdkEventKey* gdkEventKey() const;
 #endif
 
-#ifdef ANDROID_BRIDGE
-        PlatformKeyboardEvent(int keyCode, int keyValue, bool down, bool forceAutoRepeat, bool cap, bool fn, bool sym);
+#if PLATFORM(ANDROID)
+        PlatformKeyboardEvent(int keyCode, UChar32 unichar, Type,
+                              int repeatCount, ModifierKey);
+        UChar32 unichar() const { return m_unichar; }
+        int repeatCount() const { return m_repeatCount; }
 #endif
 
 #if PLATFORM(QT)
         PlatformKeyboardEvent(QKeyEvent*);
+        QKeyEvent* qtEvent() const { return m_qtEvent; }
 #endif
 
 #if PLATFORM(WX)
         PlatformKeyboardEvent(wxKeyEvent&);
 #endif
 
-    private:
+#if PLATFORM(WIN) || PLATFORM(CHROMIUM)
+        bool isSystemKey() const { return m_isSystemKey; }
+#endif
+
+    protected:
         Type m_type;
         String m_text;
         String m_unmodifiedText;
         String m_keyIdentifier;
         bool m_autoRepeat;
         int m_windowsVirtualKeyCode;
+        int m_nativeVirtualKeyCode;
         bool m_isKeypad;
         bool m_shiftKey;
         bool m_ctrlKey;
         bool m_altKey;
         bool m_metaKey;
 
+#if PLATFORM(ANDROID)
+        /*  the actual repeatCount (as opposed to just a bool m_autoRepeat)
+            0 for initial down and up
+         */
+        int     m_repeatCount;
+        /*  The originall unichar value. Sometimes the m_text/m_unmodifiedText
+            fields are stripped (e.g. for RawKeyDown), so we record it also here
+            in case someone (e.g. plugins) want to sniff it w/o waiting for a
+            Char event type.
+         */
+        UChar32 m_unichar;
+#endif
+
 #if PLATFORM(MAC)
         RetainPtr<NSEvent> m_macEvent;
 #endif
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) || PLATFORM(CHROMIUM)
         bool m_isSystemKey;
+#endif
+#if PLATFORM(GTK)
+        GdkEventKey* m_gdkEventKey;
+#endif
+#if PLATFORM(QT)
+        QKeyEvent* m_qtEvent;
 #endif
     };
 

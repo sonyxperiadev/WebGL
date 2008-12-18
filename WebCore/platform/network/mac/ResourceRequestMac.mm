@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -59,7 +58,7 @@ void ResourceRequest::doUpdateResourceRequest()
         m_httpHeaderFields.set(name, [headers objectForKey:name]);
     
     if (NSData* bodyData = [m_nsRequest.get() HTTPBody])
-        m_httpBody = new FormData([bodyData bytes], [bodyData length]);
+        m_httpBody = FormData::create([bodyData bytes], [bodyData length]);
     else if (NSInputStream* bodyStream = [m_nsRequest.get() HTTPBodyStream])
         if (FormData* formData = httpBodyFromStream(bodyStream))
             m_httpBody = formData;    
@@ -75,15 +74,18 @@ void ResourceRequest::doUpdatePlatformRequest()
     NSMutableURLRequest* nsRequest = [m_nsRequest.get() mutableCopy];
 
     if (nsRequest)
-        [nsRequest setURL:url().getNSURL()];
+        [nsRequest setURL:url()];
     else
-        nsRequest = [[NSMutableURLRequest alloc] initWithURL:url().getNSURL()];
-    
+        nsRequest = [[NSMutableURLRequest alloc] initWithURL:url()];
+
+#ifdef BUILDING_ON_TIGER
     wkSupportsMultipartXMixedReplace(nsRequest);
+#endif
 
     [nsRequest setCachePolicy:(NSURLRequestCachePolicy)cachePolicy()];
-    [nsRequest setTimeoutInterval:timeoutInterval()];
-    [nsRequest setMainDocumentURL:mainDocumentURL().getNSURL()];
+    if (timeoutInterval() != unspecifiedTimeoutInterval)
+        [nsRequest setTimeoutInterval:timeoutInterval()];
+    [nsRequest setMainDocumentURL:mainDocumentURL()];
     if (!httpMethod().isEmpty())
         [nsRequest setHTTPMethod:httpMethod()];
     [nsRequest setHTTPShouldHandleCookies:allowHTTPCookies()];
@@ -97,6 +99,12 @@ void ResourceRequest::doUpdatePlatformRequest()
         WebCore::setHTTPBody(nsRequest, formData);
     
     m_nsRequest.adoptNS(nsRequest);
+}
+
+void ResourceRequest::applyWebArchiveHackForMail()
+{
+    // Hack because Mail checks for this property to detect data / archive loads
+    [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)nsURLRequest()];
 }
 
 }

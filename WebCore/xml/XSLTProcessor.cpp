@@ -1,7 +1,7 @@
-/**
+/*
  * This file is part of the XSL implementation.
  *
- * Copyright (C) 2004, 2005, 2006, 2007 Apple, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple, Inc. All rights reserved.
  * Copyright (C) 2005, 2006 Alexey Proskuryakov <ap@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -27,8 +27,9 @@
 #include "XSLTProcessor.h"
 
 #include "CString.h"
-#include "Cache.h"
+#include "Console.h"
 #include "DOMImplementation.h"
+#include "DOMWindow.h"
 #include "DocLoader.h"
 #include "DocumentFragment.h"
 #include "Frame.h"
@@ -37,6 +38,7 @@
 #include "HTMLDocument.h"
 #include "HTMLTokenizer.h"
 #include "Page.h"
+#include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -72,10 +74,15 @@ SOFT_LINK(libxslt, xsltNextImport, xsltStylesheetPtr, (xsltStylesheetPtr style),
 
 namespace WebCore {
 
+void XSLTProcessor::genericErrorFunc(void* userData, const char* msg, ...)
+{
+    // It would be nice to do something with this error message.
+}
+    
 void XSLTProcessor::parseErrorFunc(void* userData, xmlError* error)
 {
-    Chrome* chrome = static_cast<Chrome*>(userData);
-    if (!chrome)
+    Console* console = static_cast<Console*>(userData);
+    if (!console)
         return;
 
     MessageLevel level;
@@ -93,7 +100,7 @@ void XSLTProcessor::parseErrorFunc(void* userData, xmlError* error)
             break;
     }
 
-    chrome->addMessageToConsole(XMLMessageSource, level, error->message, error->line, error->file);
+    console->addMessage(XMLMessageSource, level, error->message, error->line, error->file);
 }
 
 // FIXME: There seems to be no way to control the ctxt pointer for loading here, thus we have globals.
@@ -112,26 +119,35 @@ static xmlDocPtr docLoaderFunc(const xmlChar* uri,
         case XSLT_LOAD_DOCUMENT: {
             xsltTransformContextPtr context = (xsltTransformContextPtr)ctxt;
             xmlChar* base = xmlNodeGetBase(context->document->doc, context->node);
-            KURL url((const char*)base, (const char*)uri);
+            KURL url(KURL(reinterpret_cast<const char*>(base)), reinterpret_cast<const char*>(uri));
             xmlFree(base);
             ResourceError error;
             ResourceResponse response;
 
             Vector<char> data;
 
-            if (globalDocLoader->frame()) 
+            bool requestAllowed = globalDocLoader->frame() && globalDocLoader->doc()->securityOrigin()->canRequest(url);
+            if (requestAllowed) {
                 globalDocLoader->frame()->loader()->loadResourceSynchronously(url, error, response, data);
+                requestAllowed = globalDocLoader->doc()->securityOrigin()->canRequest(response.url());
+            }
+            if (!requestAllowed) {
+                data.clear();
+                globalDocLoader->printAccessDeniedMessage(url);
+            }
 
-            Chrome* chrome = 0;
-            if (Page* page = globalProcessor->xslStylesheet()->ownerDocument()->page())
-                chrome = page->chrome();
-            xmlSetStructuredErrorFunc(chrome, XSLTProcessor::parseErrorFunc);
-
+            Console* console = 0;
+            if (Frame* frame = globalProcessor->xslStylesheet()->ownerDocument()->frame())
+                console = frame->domWindow()->console();
+            xmlSetStructuredErrorFunc(console, XSLTProcessor::parseErrorFunc);
+            xmlSetGenericErrorFunc(console, XSLTProcessor::genericErrorFunc);
+            
             // We don't specify an encoding here. Neither Gecko nor WinIE respects
             // the encoding specified in the HTTP headers.
             xmlDocPtr doc = xmlReadMemory(data.data(), data.size(), (const char*)uri, 0, options);
 
             xmlSetStructuredErrorFunc(0, 0);
+            xmlSetGenericErrorFunc(0, 0);
 
             return doc;
         }
@@ -230,7 +246,7 @@ static void freeXsltParamArray(const char** params)
 }
 
 
-RefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourceString,
+PassRefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourceString,
     const String& sourceEncoding, const String& sourceMIMEType, Node* sourceNode, Frame* frame)
 {
     RefPtr<Document> ownerDocument = sourceNode->document();
@@ -253,25 +269,22 @@ RefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourceStr
         frame->setDocument(result);
     }
     
-    result->open();
-    if (sourceIsDocument) {
+    if (sourceIsDocument)
         result->setURL(ownerDocument->url());
-        result->setBaseURL(ownerDocument->baseURL());
-    }
-    result->determineParseMode(documentSource); // Make sure we parse in the correct mode.
+    result->open();
     
-    RefPtr<TextResourceDecoder> decoder = new TextResourceDecoder(sourceMIMEType);
+    RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(sourceMIMEType);
     decoder->setEncoding(sourceEncoding.isEmpty() ? UTF8Encoding() : TextEncoding(sourceEncoding), TextResourceDecoder::EncodingFromXMLHeader);
-    result->setDecoder(decoder.get());
+    result->setDecoder(decoder.release());
     
     result->write(documentSource);
     result->finishParsing();
     result->close();
 
-    return result;
+    return result.release();
 }
 
-static inline RefPtr<DocumentFragment> createFragmentFromSource(String sourceString, String sourceMIMEType, Node* sourceNode, Document* outputDoc)
+static inline RefPtr<DocumentFragment> createFragmentFromSource(const String& sourceString, const String& sourceMIMEType, Node* sourceNode, Document* outputDoc)
 {
     RefPtr<DocumentFragment> fragment = new DocumentFragment(outputDoc);
     
@@ -293,7 +306,8 @@ static inline RefPtr<DocumentFragment> createFragmentFromSource(String sourceStr
 static xsltStylesheetPtr xsltStylesheetPointer(RefPtr<XSLStyleSheet>& cachedStylesheet, Node* stylesheetRootNode)
 {
     if (!cachedStylesheet && stylesheetRootNode) {
-        cachedStylesheet = new XSLStyleSheet(stylesheetRootNode->parent() ? stylesheetRootNode->parent() : stylesheetRootNode, stylesheetRootNode->document()->url());
+        cachedStylesheet = XSLStyleSheet::create(stylesheetRootNode->parent() ? stylesheetRootNode->parent() : stylesheetRootNode,
+            stylesheetRootNode->document()->url().string());
         cachedStylesheet->parseString(createMarkup(stylesheetRootNode));
     }
     
@@ -312,7 +326,8 @@ static inline xmlDocPtr xmlDocPtrFromNode(Node* sourceNode, bool& shouldDelete)
     if (sourceIsDocument)
         sourceDoc = (xmlDocPtr)ownerDocument->transformSource();
     if (!sourceDoc) {
-        sourceDoc = (xmlDocPtr)xmlDocPtrForString(ownerDocument->docLoader(), createMarkup(sourceNode), sourceIsDocument ? ownerDocument->url() : DeprecatedString());
+        sourceDoc = (xmlDocPtr)xmlDocPtrForString(ownerDocument->docLoader(), createMarkup(sourceNode),
+            sourceIsDocument ? ownerDocument->url().string() : String());
         shouldDelete = (sourceDoc != 0);
     }
     return sourceDoc;
@@ -396,7 +411,7 @@ bool XSLTProcessor::transformToString(Node* sourceNode, String& mimeType, String
     return success;
 }
 
-RefPtr<Document> XSLTProcessor::transformToDocument(Node* sourceNode)
+PassRefPtr<Document> XSLTProcessor::transformToDocument(Node* sourceNode)
 {
     String resultMIMEType;
     String resultString;
@@ -406,7 +421,7 @@ RefPtr<Document> XSLTProcessor::transformToDocument(Node* sourceNode)
     return createDocumentFromSource(resultString, resultEncoding, resultMIMEType, sourceNode, 0);
 }
 
-RefPtr<DocumentFragment> XSLTProcessor::transformToFragment(Node* sourceNode, Document* outputDoc)
+PassRefPtr<DocumentFragment> XSLTProcessor::transformToFragment(Node* sourceNode, Document* outputDoc)
 {
     String resultMIMEType;
     String resultString;

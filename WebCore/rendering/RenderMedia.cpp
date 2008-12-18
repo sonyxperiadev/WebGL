@@ -46,8 +46,6 @@ using namespace std;
 
 namespace WebCore {
 
-using namespace EventNames;
-
 static const double cTimeUpdateRepeatDelay = 0.2;
 static const double cOpacityAnimationRepeatDelay = 0.05;
 // FIXME get this from style
@@ -61,6 +59,7 @@ RenderMedia::RenderMedia(HTMLMediaElement* video)
     , m_opacityAnimationStartTime(0)
     , m_opacityAnimationFrom(0)
     , m_opacityAnimationTo(1.0f)
+    , m_previousVisible(VISIBLE)
 {
 }
 
@@ -77,12 +76,17 @@ RenderMedia::RenderMedia(HTMLMediaElement* video, const IntSize& intrinsicSize)
 
 RenderMedia::~RenderMedia()
 {
+}
+
+void RenderMedia::destroy()
+{
     if (m_controlsShadowRoot && m_controlsShadowRoot->renderer()) {
-        static_cast<RenderMediaControlShadowRoot*>(m_controlsShadowRoot->renderer())->setParent(0);
+        removeChild(m_controlsShadowRoot->renderer());
         m_controlsShadowRoot->detach();
     }
+    RenderReplaced::destroy();
 }
- 
+
 HTMLMediaElement* RenderMedia::mediaElement() const
 { 
     return static_cast<HTMLMediaElement*>(node()); 
@@ -128,6 +132,7 @@ void RenderMedia::removeChild(RenderObject* child)
     ASSERT(m_controlsShadowRoot);
     ASSERT(child == m_controlsShadowRoot->renderer());
     child->removeLayers(enclosingLayer());
+    static_cast<RenderMediaControlShadowRoot*>(child)->setParent(0);
 }
     
 void RenderMedia::createControlsShadowRoot()
@@ -139,7 +144,7 @@ void RenderMedia::createControlsShadowRoot()
 void RenderMedia::createPanel()
 {
     ASSERT(!m_panel);
-    RenderStyle* style = getPseudoStyle(RenderStyle::MEDIA_CONTROLS_PANEL);
+    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_PANEL);
     m_panel = new HTMLDivElement(document());
     RenderObject* renderer = m_panel->createRenderer(renderArena(), style);
     if (renderer) {
@@ -190,7 +195,7 @@ void RenderMedia::createTimeline()
 void RenderMedia::createTimeDisplay()
 {
     ASSERT(!m_timeDisplay);
-    RenderStyle* style = getPseudoStyle(RenderStyle::MEDIA_CONTROLS_TIME_DISPLAY);
+    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_TIME_DISPLAY);
     m_timeDisplay = new HTMLDivElement(document());
     RenderObject* renderer = m_timeDisplay->createRenderer(renderArena(), style);
     if (renderer) {
@@ -218,7 +223,7 @@ void RenderMedia::updateFromElement()
 void RenderMedia::updateControls()
 {
     HTMLMediaElement* media = mediaElement();
-    if (!media->controls() || media->inPageCache()) {
+    if (!media->controls() || !media->inActiveDocument()) {
         if (m_controlsShadowRoot) {
             m_controlsShadowRoot->detach();
             m_panel = 0;
@@ -301,14 +306,23 @@ void RenderMedia::updateControlVisibility()
 {
     if (!m_panel || !m_panel->renderer())
         return;
-    // do fading manually, css animations don't work well with shadow trees
-    HTMLMediaElement* media = mediaElement();
     // Don't fade for audio controls.
-    if (!media->isVideo())
+    HTMLMediaElement* media = mediaElement();
+    if (player() && !player()->hasVideo() || !media->isVideo())
         return;
-    bool visible = m_mouseOver || media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA;
+    // do fading manually, css animations don't work well with shadow trees
+    bool visible = style()->visibility() == VISIBLE && (m_mouseOver || media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA);
     if (visible == (m_opacityAnimationTo > 0))
         return;
+
+    if (style()->visibility() != m_previousVisible) {
+        // don't fade gradually if it the element has just changed visibility
+        m_previousVisible = style()->visibility();
+        m_opacityAnimationTo = m_previousVisible == VISIBLE ? 1.0f : 0;
+        changeOpacity(m_panel.get(), 0);
+        return;
+    }
+
     if (visible) {
         m_opacityAnimationFrom = m_panel->renderer()->style()->opacity();
         m_opacityAnimationTo = 1.0f;
@@ -324,11 +338,11 @@ void RenderMedia::changeOpacity(HTMLElement* e, float opacity)
 {
     if (!e || !e->renderer() || !e->renderer()->style())
         return;
-    RenderStyle* s = new (renderArena()) RenderStyle(*e->renderer()->style());
+    RefPtr<RenderStyle> s = RenderStyle::clone(e->renderer()->style());
     s->setOpacity(opacity);
     // z-index can't be auto if opacity is used
     s->setZIndex(0);
-    e->renderer()->setStyle(s);
+    e->renderer()->setStyle(s.release());
 }
     
 void RenderMedia::opacityAnimationTimerFired(Timer<RenderMedia>*)
@@ -360,16 +374,43 @@ void RenderMedia::forwardEvent(Event* event)
         if (m_fullscreenButton && m_fullscreenButton->renderer() && m_fullscreenButton->renderer()->absoluteBoundingBoxRect().contains(point))
             m_fullscreenButton->defaultEventHandler(event);
         
-        if (event->type() == mouseoverEvent) {
+        if (event->type() == eventNames().mouseoverEvent) {
             m_mouseOver = true;
             updateControlVisibility();
         }
-        if (event->type() == mouseoutEvent) {
+        if (event->type() == eventNames().mouseoutEvent) {
             // FIXME: moving over scrollbar thumb generates mouseout for the ancestor media element for some reason
             m_mouseOver = absoluteBoundingBoxRect().contains(point);
             updateControlVisibility();
         }
     }
+}
+
+int RenderMedia::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
+{
+    int bottom = RenderReplaced::lowestPosition(includeOverflowInterior, includeSelf);
+    if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
+        return bottom;
+    
+    return max(bottom,  m_controlsShadowRoot->renderer()->yPos() + m_controlsShadowRoot->renderer()->lowestPosition(includeOverflowInterior, includeSelf));
+}
+
+int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
+{
+    int right = RenderReplaced::rightmostPosition(includeOverflowInterior, includeSelf);
+    if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
+        return right;
+    
+    return max(right, m_controlsShadowRoot->renderer()->xPos() + m_controlsShadowRoot->renderer()->rightmostPosition(includeOverflowInterior, includeSelf));
+}
+
+int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
+{
+    int left = RenderReplaced::leftmostPosition(includeOverflowInterior, includeSelf);
+    if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
+        return left;
+    
+    return min(left, m_controlsShadowRoot->renderer()->xPos() +  m_controlsShadowRoot->renderer()->leftmostPosition(includeOverflowInterior, includeSelf));
 }
 
 } // namespace WebCore

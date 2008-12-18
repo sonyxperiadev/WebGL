@@ -1,3 +1,197 @@
+2008-10-30  Zoltan Horvath  <Horvath.Zoltan.6@stud.u-szeged.hu>
+
+        Fix a bug where when V8's or UBENCH's test suite list file is missing
+        the error message is suggesting that SunSpider's list file is missing.
+
+        Reviewed by Sam Weinig.
+
+        * sunspider:
+        (loadTestsList): Fix the error message to use the right list name.
+
+2008-10-07  David Hyatt  <hyatt@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=18989
+
+        Remove global substitution from SunSpider regexp test, since only Firefox was honoring it and
+        we want all browsers to be doing the same thing on the test.
+
+        Reviewed by Maciej
+
+        * tests/regexp-dna.js:
+
+2008-09-09  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Rubber-stamped by Maciej Stachowiak.
+
+        The bleeding edge branch of V8 now supports passing fileanmes after
+        '-f', so the SunSpider script should be changed to do this again.
+        This allows all 3 major JavaScript engines to be used with the
+        unmodified SunSpider script.
+
+        * sunspider:
+
+2008-09-04  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add a '--args' option to SunSpider, so that we can pass '-j' to TraceMonkey
+        and '--expose-gc' to V8. Also, rename the '--v8' option to '--v8-suite' and
+        correct the punctuation in its documentation.
+
+        * sunspider:
+
+2008-09-04  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 20616: Incorporate V8 benchmarks in testing
+        <https://bugs.webkit.org/show_bug.cgi?id=20616>
+
+        This is a first attempt at running the V8 benchmarks within SunSpider,
+        with the --v8 option. The number of iterations is fixed for each
+        benchmark, and was chosen to make each of the benchmarks run between
+        500 ms and 600 ms in V8 on my machine, a 2.16 GHz MacBook Pro.
+
+        * sunspider:
+        * tests/LIST-V8: Added.
+        * tests/v8-crypto.js: Added.
+        * tests/v8-deltablue.js: Added.
+        * tests/v8-earley-boyer.js: Added.
+        * tests/v8-raytrace.js: Added.
+        * tests/v8-richards.js: Added.
+
+2008-09-02  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Not reviewed.
+
+        Remove a local change that was accidentally committed in r36034.
+
+        * resources/sunspider-standalone-driver.js:
+
+2008-09-02  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Rubber-stamped by Oliver Hunt.
+
+        Make SunSpider work with JavaScript shells that don't take filenames
+        after a '-f' argument.
+
+        * sunspider:
+
+2008-06-07  Cameron Zwarich  <cwzwarich@uwaterloo.ca>
+
+        Reviewed by Timothy.
+
+        Remove the --squirrelfish option from SunSpider, as it is no longer needed.
+
+        * sunspider:
+        * tests/LIST-SQUIRRELFISH: Removed.
+
+2008-06-03  Alexey Proskuryakov  <ap@webkit.org>
+
+        Rubber-stamped by Mark Rowe.
+
+        Roll out r31215 - with Mac OS X 10.5.3, there is no need to pause update daemon any more.
+
+        * sunspider:
+
+2008-04-15  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Oliver.
+        
+        - add newly working tests to squirrelfish list
+
+        * tests/LIST-SQUIRRELFISH: Add 3d-raytrace and string-unpack-code
+
+2008-04-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Oliver.
+        
+        - move ubench tests properly.
+
+        * tests/ubench: Added.
+        * tests/ubench/function-closure.js: Added.
+        * tests/ubench/function-empty.js: Added.
+        * tests/ubench/function-missing-args.js: Added.
+        * tests/ubench/function-sum.js: Added.
+        * tests/ubench/loop-empty-resolve.js: Added.
+        * tests/ubench/loop-empty.js: Added.
+        * tests/ubench/loop-sum.js: Added.
+
+2008-04-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Oliver.
+
+        * sunspider: Don't force --runs=1 in squirrelfish mode any more.
+
+2008-04-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Oliver.
+
+        - make --squirrelfish mode use the real harness, but a reduced set of tests
+
+        Also add a new ubench mode which runs the older squirrelfish microbenchmarks.
+
+        * sunspider:
+        * tests/LIST-SQUIRRELFISH:
+        * tests/LIST-UBENCH: Added.
+        * tests/squirrelfish: Moved to tests/ubench
+
+2008-04-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+        
+        Removed an unused test.
+
+        * tests/squirrelfish/loop-resolve.js: Removed.
+
+2008-04-10  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Oliver.
+        
+        Add newly runnable tests to --squirrelfish mode.
+
+        * tests/LIST-SQUIRRELFISH:
+
+2008-04-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+        
+        A little more love for --squirrelfish mode:
+        
+        Fixed a misplaced sort. Results properly sort now.
+        
+        Added a test list just for squirrelfish, and updated it to include
+        all currently passing SunSpider tests.
+        
+        Fixed the pruning regexp to match 3d-morph.js.
+
+        * sunspider:
+
+2008-03-26  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+        
+        --squirrelfish mode: pared down tests for squirrelfish to chew on.
+
+        * sunspider:
+        * tests/LIST:
+        * tests/squirrelfish: Added.
+        * tests/squirrelfish/function-closure.js: Added.
+        * tests/squirrelfish/function-empty.js: Added.
+        * tests/squirrelfish/function-missing-args.js: Added.
+        * tests/squirrelfish/function-sum.js: Added.
+        * tests/squirrelfish/loop-empty-resolve.js: Added.
+        * tests/squirrelfish/loop-empty.js: Added.
+        * tests/squirrelfish/loop-resolve.js: Added.
+        * tests/squirrelfish/loop-sum.js: Added.
+
+2008-03-21  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff.
+
+        * sunspider: Pause update daemon on Darwin to make results reliable
+        again (workaround for <rdar://problem/5811127>).
+
 2008-02-07  Eric Seidel  <eric@webkit.org>
 
         Reviewed by Sam.
@@ -112,7 +306,7 @@
 
 2007-11-09  Alexey Proskuryakov  <ap@webkit.org>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         http://bugs.webkit.org/show_bug.cgi?id=15925
         SunSpider should check for Shark being installed
@@ -125,7 +319,7 @@
 
 2007-11-03  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - Add compare mode and a description of the benchmark to the hosted version.
 
@@ -171,7 +365,7 @@
 
 2007-10-29  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
         
         - fix Date tests to work in command-line SpiderMonkey
 
@@ -229,7 +423,7 @@
 
 2007-10-23  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - Don't hardcode my path to testkjs
         
@@ -237,7 +431,7 @@
 
 2007-10-23  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
         
         - Add a compare script to compare results, and improve formatting of standard results a bit.
 
@@ -247,7 +441,7 @@
 
 2007-10-23  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * resources/sunspider-analyze-results.js: Do the error range
         properly, using the t-distribution instead of 1.96 (which was
@@ -337,7 +531,7 @@
 
 2007-10-20  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * TODO: Updated to note areas that are now well-covered.
         
@@ -438,7 +632,7 @@
 
 2007-10-14  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - New JavaScript benchmark
         http://bugs.webkit.org/show_bug.cgi?id=15515

@@ -1,10 +1,8 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -34,19 +32,23 @@
 #include "CachedImage.h"
 #include "CachedScript.h"
 #include "CachedXSLStyleSheet.h"
+#include "Console.h"
+#include "CString.h"
 #include "Document.h"
+#include "DOMWindow.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "loader.h"
+#include "SecurityOrigin.h"
+#include "Settings.h"
 
 #define PRELOAD_DEBUG 0
 
 namespace WebCore {
 
-DocLoader::DocLoader(Frame *frame, Document* doc)
+DocLoader::DocLoader(Document* doc)
     : m_cache(cache())
     , m_cachePolicy(CachePolicyVerify)
-    , m_frame(frame)
     , m_doc(doc)
     , m_requestCount(0)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
@@ -61,51 +63,49 @@ DocLoader::DocLoader(Frame *frame, Document* doc)
 
 DocLoader::~DocLoader()
 {
-#ifdef ANDROID_PRELOAD_CHANGES
     clearPreloads();
-#endif
     HashMap<String, CachedResource*>::iterator end = m_docResources.end();
     for (HashMap<String, CachedResource*>::iterator it = m_docResources.begin(); it != end; ++it)
         it->second->setDocLoader(0);
     m_cache->removeDocLoader(this);
 }
 
+Frame* DocLoader::frame() const
+{
+    return m_doc->frame();
+}
+
 void DocLoader::checkForReload(const KURL& fullURL)
 {
     if (m_allowStaleResources)
-        return; //Don't reload resources while pasting
-    if (m_cachePolicy == CachePolicyVerify) {
+        return; // Don't reload resources while pasting
+
+    if (fullURL.isEmpty())
+        return;
+
+    if (m_cachePolicy == CachePolicyVerify || m_cachePolicy == CachePolicyCache) {
        if (!m_reloadedURLs.contains(fullURL.string())) {
           CachedResource* existing = cache()->resourceForURL(fullURL.string());
-#ifdef ANDROID_PRELOAD_CHANGES
-          if (existing && existing->isExpired() && !existing->isPreloaded()) {
-#else
-          if (existing && existing->isExpired()) {
-#endif
-             cache()->remove(existing);
-             m_reloadedURLs.add(fullURL.string());
+          if (existing && !existing->isPreloaded() && existing->mustRevalidate(m_cachePolicy)) {
+              cache()->revalidateResource(existing, this);
+              m_reloadedURLs.add(fullURL.string());
           }
        }
     } else if ((m_cachePolicy == CachePolicyReload) || (m_cachePolicy == CachePolicyRefresh)) {
        if (!m_reloadedURLs.contains(fullURL.string())) {
-          CachedResource* existing = cache()->resourceForURL(fullURL.string());
-#ifdef ANDROID_PRELOAD_CHANGES
-          if (existing && !existing->isPreloaded()) {
-#else
-          if (existing)
-#endif
-             cache()->remove(existing);
-          m_reloadedURLs.add(fullURL.string());
-#ifdef ANDROID_PRELOAD_CHANGES
-          }
-#endif
+           CachedResource* existing = cache()->resourceForURL(fullURL.string());
+           if (existing && !existing->isPreloaded()) {
+               // FIXME: Use revalidateResource() to implement HTTP 1.1 "Specific end-to-end revalidation" for regular reloading
+               cache()->remove(existing);
+               m_reloadedURLs.add(fullURL.string());
+           }
        }
     }
 }
 
 CachedImage* DocLoader::requestImage(const String& url)
 {
-    CachedImage* resource = static_cast<CachedImage*>(requestResource(CachedResource::ImageResource, url));
+    CachedImage* resource = static_cast<CachedImage*>(requestResource(CachedResource::ImageResource, url, String()));
     if (autoLoadImages() && resource && resource->stillNeedsLoad()) {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         if (shouldBlockNetworkImage(url)) {
@@ -120,57 +120,78 @@ CachedImage* DocLoader::requestImage(const String& url)
 
 CachedFont* DocLoader::requestFont(const String& url)
 {
-    return static_cast<CachedFont*>(requestResource(CachedResource::FontResource, url));
+    return static_cast<CachedFont*>(requestResource(CachedResource::FontResource, url, String()));
 }
 
-CachedCSSStyleSheet* DocLoader::requestCSSStyleSheet(const String& url, const String& charset, bool isUserStyleSheet)
+CachedCSSStyleSheet* DocLoader::requestCSSStyleSheet(const String& url, const String& charset)
 {
-    // FIXME: Passing true for "skipCanLoadCheck" here in the isUserStyleSheet case  won't have any effect
-    // if this resource is already in the cache. It's theoretically possible that what's in the cache already
-    // is a load that failed because of the canLoad check. Probably not an issue in practice.
-    CachedCSSStyleSheet *sheet = static_cast<CachedCSSStyleSheet*>(requestResource(CachedResource::CSSStyleSheet, url, &charset, isUserStyleSheet, !isUserStyleSheet));
-
-    // A user style sheet can outlive its DocLoader so don't store any pointers to it
-    if (sheet && isUserStyleSheet) {
-        sheet->setDocLoader(0);
-        m_docResources.remove(sheet->url());
-    }
-    
-    return sheet;
+    return static_cast<CachedCSSStyleSheet*>(requestResource(CachedResource::CSSStyleSheet, url, charset));
 }
 
 CachedCSSStyleSheet* DocLoader::requestUserCSSStyleSheet(const String& url, const String& charset)
 {
-    return requestCSSStyleSheet(url, charset, true);
+    return cache()->requestUserCSSStyleSheet(this, url, charset);
 }
 
 CachedScript* DocLoader::requestScript(const String& url, const String& charset)
 {
-    return static_cast<CachedScript*>(requestResource(CachedResource::Script, url, &charset));
+    return static_cast<CachedScript*>(requestResource(CachedResource::Script, url, charset));
 }
 
 #if ENABLE(XSLT)
 CachedXSLStyleSheet* DocLoader::requestXSLStyleSheet(const String& url)
 {
-    return static_cast<CachedXSLStyleSheet*>(requestResource(CachedResource::XSLStyleSheet, url));
+    return static_cast<CachedXSLStyleSheet*>(requestResource(CachedResource::XSLStyleSheet, url, String()));
 }
 #endif
 
 #if ENABLE(XBL)
 CachedXBLDocument* DocLoader::requestXBLDocument(const String& url)
 {
-    return static_cast<CachedXSLStyleSheet*>(requestResource(CachedResource::XBL, url));
+    return static_cast<CachedXSLStyleSheet*>(requestResource(CachedResource::XBL, url, String()));
 }
 #endif
 
-#ifdef ANDROID_PRELOAD_CHANGES
-CachedResource* DocLoader::requestResource(CachedResource::Type type, const String& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks, bool isPreload)
-#else
-CachedResource* DocLoader::requestResource(CachedResource::Type type, const String& url, const String* charset, bool skipCanLoadCheck, bool sendResourceLoadCallbacks)
-#endif
+bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
 {
-    KURL fullURL = m_doc->completeURL(url.deprecatedString());
-    
+    // Some types of resources can be loaded only from the same origin.  Other
+    // types of resources, like Images, Scripts, and CSS, can be loaded from
+    // any URL.
+    switch (type) {
+    case CachedResource::ImageResource:
+    case CachedResource::CSSStyleSheet:
+    case CachedResource::Script:
+    case CachedResource::FontResource:
+        // These types of resources can be loaded from any origin.
+        // FIXME: Are we sure about CachedResource::FontResource?
+        break;
+#if ENABLE(XSLT)
+    case CachedResource::XSLStyleSheet:
+#endif
+#if ENABLE(XBL)
+    case CachedResource::XBL:
+#endif
+#if ENABLE(XSLT) || ENABLE(XBL)
+        if (!m_doc->securityOrigin()->canRequest(url)) {
+            printAccessDeniedMessage(url);
+            return false;
+        }
+        break;
+#endif
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    return true;
+}
+
+CachedResource* DocLoader::requestResource(CachedResource::Type type, const String& url, const String& charset, bool isPreload)
+{
+    KURL fullURL = m_doc->completeURL(url);
+
+    if (!canRequest(type, fullURL))
+        return 0;
+
     if (cache()->disabled()) {
         HashMap<String, CachedResource*>::iterator it = m_docResources.find(fullURL.string());
         
@@ -179,21 +200,46 @@ CachedResource* DocLoader::requestResource(CachedResource::Type type, const Stri
             m_docResources.remove(it);
         }
     }
-                                                          
-    if (m_frame && m_frame->loader()->isReloading())
+
+    if (frame() && frame()->loader()->isReloading())
         setCachePolicy(CachePolicyReload);
 
     checkForReload(fullURL);
-#ifdef ANDROID_PRELOAD_CHANGES
-    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, skipCanLoadCheck, sendResourceLoadCallbacks, isPreload);
-#else
-    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, skipCanLoadCheck, sendResourceLoadCallbacks);
-#endif
+    CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload);
     if (resource) {
+        // Check final URL of resource to catch redirects.
+        // See <https://bugs.webkit.org/show_bug.cgi?id=21963>.
+        if (!canRequest(type, KURL(resource->url())))
+            return 0;
+
         m_docResources.set(resource->url(), resource);
         checkCacheObjectStatus(resource);
     }
     return resource;
+}
+
+void DocLoader::printAccessDeniedMessage(const KURL& url) const
+{
+    if (url.isNull())
+        return;
+
+    if (!frame())
+        return;
+
+    Settings* settings = frame()->settings();
+    if (!settings || settings->privateBrowsingEnabled())
+        return;
+
+    String message = m_doc->url().isNull() ?
+        String::format("Unsafe attempt to load URL %s.",
+                       url.string().utf8().data()) :
+        String::format("Unsafe attempt to load URL %s from frame with URL %s. "
+                       "Domains, protocols and ports must match.\n",
+                       url.string().utf8().data(),
+                       m_doc->url().string().utf8().data());
+
+    // FIXME: provide a real line number and source URL.
+    frame()->domWindow()->console()->addMessage(OtherMessageSource, ErrorMessageLevel, message, 1, String());
 }
 
 void DocLoader::setAutoLoadImages(bool enable)
@@ -228,7 +274,7 @@ bool DocLoader::shouldBlockNetworkImage(const String& url) const
     if (!m_blockNetworkImage)
         return false;
 
-    KURL kurl(url.deprecatedString());
+    KURL kurl(url);
     if (kurl.protocolIs("http") || kurl.protocolIs("https"))
         return true;
 
@@ -270,14 +316,14 @@ void DocLoader::removeCachedResource(CachedResource* resource) const
 void DocLoader::setLoadInProgress(bool load)
 {
     m_loadInProgress = load;
-    if (!load && m_frame)
-        m_frame->loader()->loadDone();
+    if (!load && frame())
+        frame()->loader()->loadDone();
 }
 
 void DocLoader::checkCacheObjectStatus(CachedResource* resource)
 {
     // Return from the function for objects that we didn't load from the cache or if we don't have a frame.
-    if (!resource || !m_frame)
+    if (!resource || !frame())
         return;
 
     switch (resource->status()) {
@@ -291,7 +337,7 @@ void DocLoader::checkCacheObjectStatus(CachedResource* resource)
     }
 
     // FIXME: If the WebKit client changes or cancels the request, WebCore does not respect this and continues the load.
-    m_frame->loader()->loadedResourceFromMemoryCache(resource);
+    frame()->loader()->loadedResourceFromMemoryCache(resource);
 }
 
 void DocLoader::incrementRequestCount()
@@ -311,38 +357,39 @@ int DocLoader::requestCount()
          return m_requestCount + 1;
     return m_requestCount;
 }
-
-#ifdef ANDROID_PRELOAD_CHANGES
-void DocLoader::preload(CachedResource::Type type, const String& url, const String& charset, bool inBody)
+    
+void DocLoader::preload(CachedResource::Type type, const String& url, const String& charset, bool referencedFromBody)
 {
-    if ((inBody || type == CachedResource::ImageResource) && (!m_doc->body() || !m_doc->body()->renderer())) {
-        // Don't preload images or body resources before we have the first rendering.
+    bool hasRendering = m_doc->body() && m_doc->body()->renderer();
+    if (!hasRendering && (referencedFromBody || type == CachedResource::ImageResource)) {
+        // Don't preload images or body resources before we have something to draw. This prevents
+        // preloads from body delaying first display when bandwidth is limited.
         PendingPreload pendingPreload = { type, url, charset };
         m_pendingPreloads.append(pendingPreload);
         return;
     }
     requestPreload(type, url, charset);
 }
-    
+
 void DocLoader::checkForPendingPreloads() 
 {
     unsigned count = m_pendingPreloads.size();
     if (!count || !m_doc->body() || !m_doc->body()->renderer())
         return;
-    for (unsigned n = 0; n < count; ++n) {
-        PendingPreload& preload = m_pendingPreloads[n];
+    for (unsigned i = 0; i < count; ++i) {
+        PendingPreload& preload = m_pendingPreloads[i];
         requestPreload(preload.m_type, preload.m_url, preload.m_charset);
     }
     m_pendingPreloads.clear();
 }
-    
+
 void DocLoader::requestPreload(CachedResource::Type type, const String& url, const String& charset)
 {
     String encoding;
     if (type == CachedResource::Script || type == CachedResource::CSSStyleSheet)
         encoding = charset.isEmpty() ? m_doc->frame()->loader()->encoding() : charset;
 
-    CachedResource* resource = requestResource(type, url, &encoding, false, true, true);
+    CachedResource* resource = requestResource(type, url, encoding, true);
     if (!resource || m_preloads.contains(resource))
         return;
     resource->increasePreloadCount();
@@ -417,5 +464,5 @@ void DocLoader::printPreloadStats()
         printf("IMAGES:  %d (%d hits, hit rate %d%%)\n", images, images - imageMisses, (images - imageMisses) * 100 / images);
 }
 #endif
-#endif // ANDROID_PRELOAD_CHANGES
+    
 }

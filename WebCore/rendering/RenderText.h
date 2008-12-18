@@ -37,13 +37,12 @@ public:
     virtual ~RenderText();
 #endif
 
-    virtual const char* renderName() const { return "RenderText"; }
+    virtual const char* renderName() const;
 
-    virtual bool isTextFragment() const { return false; }
+    virtual bool isTextFragment() const;
+    virtual bool isWordBreak() const;
 
     virtual PassRefPtr<StringImpl> originalText() const;
-
-    virtual void setStyle(RenderStyle*);
 
     void extractTextBox(InlineTextBox*);
     void attachTextBox(InlineTextBox*);
@@ -76,7 +75,7 @@ public:
     virtual int width() const;
     virtual int height() const;
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
 
     virtual int minPrefWidth() const;
     virtual int maxPrefWidth() const;
@@ -95,7 +94,7 @@ public:
     virtual int xPos() const;
     virtual int yPos() const;
 
-    virtual short verticalPositionHint(bool firstLine) const;
+    virtual int verticalPositionHint(bool firstLine) const;
 
     void setText(PassRefPtr<StringImpl>, bool force = false);
     void setTextWithOffset(PassRefPtr<StringImpl>, unsigned offset, unsigned len, bool force = false);
@@ -104,7 +103,7 @@ public:
     virtual SelectionState selectionState() const { return static_cast<SelectionState>(m_selectionState); }
     virtual void setSelectionState(SelectionState s);
     virtual IntRect selectionRect(bool clipToVisibleContent = true);
-    virtual IntRect caretRect(int offset, EAffinity, int* extraWidthToEndOfLine = 0);
+    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
     virtual int marginLeft() const { return style()->marginLeft().calcMinValue(0); }
     virtual int marginRight() const { return style()->marginRight().calcMinValue(0); }
@@ -113,8 +112,6 @@ public:
 
     InlineTextBox* firstTextBox() const { return m_firstTextBox; }
     InlineTextBox* lastTextBox() const { return m_lastTextBox; }
-
-    virtual InlineBox* inlineBox(int offset, EAffinity = UPSTREAM);
 
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
@@ -132,6 +129,8 @@ public:
     void checkConsistency() const;
 
 protected:
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+
     virtual void setTextInternal(PassRefPtr<StringImpl>);
     virtual void calcPrefWidths(int leadWidth);
     virtual UChar previousCharacter();

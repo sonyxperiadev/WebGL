@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,14 @@
 #include "WebJavaScriptCollector.h"
 
 #pragma warning(push, 0)
+#include <JavaScriptCore/JSGlobalData.h>
 #include <JavaScriptCore/collector.h>
 #include <WebCore/GCController.h>
+#include <WebCore/JSDOMWindow.h>
+#include <runtime/JSLock.h>
 #pragma warning(pop)
 
-using namespace KJS;
+using namespace JSC;
 using namespace WebCore;
 
 // WebJavaScriptCollector ---------------------------------------------------------------------------
@@ -41,11 +44,13 @@ WebJavaScriptCollector::WebJavaScriptCollector()
 : m_refCount(0)
 {
     gClassCount++;
+    gClassNameCount.add("WebJavaScriptCollector");
 }
 
 WebJavaScriptCollector::~WebJavaScriptCollector()
 {
     gClassCount--;
+    gClassNameCount.remove("WebJavaScriptCollector");
 }
 
 WebJavaScriptCollector* WebJavaScriptCollector::createInstance()
@@ -108,6 +113,7 @@ HRESULT STDMETHODCALLTYPE WebJavaScriptCollector::objectCount(
         return E_POINTER;
     }
 
-    *count = (UINT)Collector::size();
+    JSLock lock(false);
+    *count = (UINT)JSDOMWindow::commonJSGlobalData()->heap.size();
     return S_OK;
 }

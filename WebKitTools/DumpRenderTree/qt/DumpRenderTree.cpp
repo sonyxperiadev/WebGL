@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +30,7 @@
 
 #include "DumpRenderTree.h"
 #include "jsobjects.h"
+#include "testplugin.h"
 
 #include <QDir>
 #include <QFile>
@@ -46,8 +48,10 @@
 
 #include <unistd.h>
 #include <qdebug.h>
+
 extern void qt_drt_run(bool b);
 extern void qt_dump_set_accepts_editing(bool b);
+extern void qt_dump_frame_loader(bool b);
 
 
 namespace WebCore {
@@ -61,10 +65,10 @@ class WebPage : public QWebPage {
 public:
     WebPage(QWidget *parent, DumpRenderTree *drt);
 
-    QWebPage *createWindow();
+    QWebPage *createWindow(QWebPage::WebWindowType);
 
     void javaScriptAlert(QWebFrame *frame, const QString& message);
-    void javaScriptConsoleMessage(const QString& message, unsigned int lineNumber, const QString& sourceID);
+    void javaScriptConsoleMessage(const QString& message, int lineNumber, const QString& sourceID);
     bool javaScriptConfirm(QWebFrame *frame, const QString& msg);
     bool javaScriptPrompt(QWebFrame *frame, const QString& msg, const QString& defaultValue, QString* result);
 
@@ -85,11 +89,13 @@ WebPage::WebPage(QWidget *parent, DumpRenderTree *drt)
     settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
     settings()->setAttribute(QWebSettings::JavascriptCanAccessClipboard, true);
     settings()->setAttribute(QWebSettings::LinksIncludedInFocusChain, false);
-    connect(this, SIGNAL(geometryChangeRequest(const QRect &)),
+    connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
+
+    setPluginFactory(new TestPlugin(this));
 }
 
-QWebPage *WebPage::createWindow()
+QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
 {
     return m_drt->createWindow();
 }
@@ -99,7 +105,7 @@ void WebPage::javaScriptAlert(QWebFrame *frame, const QString& message)
     fprintf(stdout, "ALERT: %s\n", message.toUtf8().constData());
 }
 
-void WebPage::javaScriptConsoleMessage(const QString& message, unsigned int lineNumber, const QString&)
+void WebPage::javaScriptConsoleMessage(const QString& message, int lineNumber, const QString&)
 {
     fprintf (stdout, "CONSOLE MESSAGE: line %d: %s\n", lineNumber, message.toUtf8().constData());
 }
@@ -130,9 +136,11 @@ DumpRenderTree::DumpRenderTree()
     view->setPage(m_page);
     connect(m_page, SIGNAL(frameCreated(QWebFrame *)), this, SLOT(connectFrame(QWebFrame *)));
     connectFrame(m_page->mainFrame());
-    
-    m_page->mainFrame()->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_page->mainFrame()->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    connect(m_page, SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
+
+    m_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+    m_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
     connect(m_page->mainFrame(), SIGNAL(titleChanged(const QString&)),
             SLOT(titleChanged(const QString&)));
 
@@ -168,7 +176,16 @@ void DumpRenderTree::open()
 
 void DumpRenderTree::open(const QUrl& url)
 {
+    // W3C SVG tests expect to be 480x360
+    bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");
+    int width = isW3CTest ? 480 : maxViewWidth;
+    int height = isW3CTest ? 360 : maxViewHeight;
+    m_page->view()->resize(QSize(width, height));
+    m_page->setViewportSize(QSize(width, height));
+
     resetJSObjects();
+
+    qt_dump_frame_loader(url.toString().contains("loading/"));
     m_page->mainFrame()->load(url);
 }
 
@@ -181,8 +198,14 @@ void DumpRenderTree::readStdin(int /* socket */)
     //fprintf(stderr, "\n    opening %s\n", line.constData());
     if (line.isEmpty())
         quit();
-    QFileInfo fi(line);
-    open(QUrl::fromLocalFile(fi.absoluteFilePath()));
+
+    if (line.startsWith("http:") || line.startsWith("https:"))
+        open(QUrl(line));
+    else {
+        QFileInfo fi(line);
+        open(QUrl::fromLocalFile(fi.absoluteFilePath()));
+    }
+
     fflush(stdout);
 }
 
@@ -198,9 +221,9 @@ void DumpRenderTree::initJSObjects()
 {
     QWebFrame *frame = qobject_cast<QWebFrame*>(sender());
     Q_ASSERT(frame);
-    frame->addToJSWindowObject(QLatin1String("layoutTestController"), m_controller);
-    frame->addToJSWindowObject(QLatin1String("eventSender"), m_eventSender);
-    frame->addToJSWindowObject(QLatin1String("textInputController"), m_textInputController);
+    frame->addToJavaScriptWindowObject(QLatin1String("layoutTestController"), m_controller);
+    frame->addToJavaScriptWindowObject(QLatin1String("eventSender"), m_eventSender);
+    frame->addToJavaScriptWindowObject(QLatin1String("textInputController"), m_textInputController);
 }
 
 
@@ -213,11 +236,11 @@ QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
     QWebFrame *parent = qobject_cast<QWebFrame *>(frame->parent());
     if (parent) {
         result.append(QLatin1String("\n--------\nFrame: '"));
-        result.append(frame->name());
+        result.append(frame->frameName());
         result.append(QLatin1String("'\n--------\n"));
     }
 
-    result.append(frame->innerText());
+    result.append(frame->toPlainText());
     result.append(QLatin1String("\n"));
 
     if (m_controller->shouldDumpChildrenAsText()) {
@@ -236,7 +259,7 @@ void DumpRenderTree::dump()
     //fprintf(stderr, "    Dumping\n");
     if (!m_notifier) {
         // Dump markup in single file mode...
-        QString markup = frame->markup();
+        QString markup = frame->toHtml();
         fprintf(stdout, "Source:\n\n%s\n", markup.toUtf8().constData());
     }
 
@@ -257,6 +280,10 @@ void DumpRenderTree::dump()
 
     fflush(stdout);
 
+    fprintf(stderr, "#EOF\n");
+
+    fflush(stderr);
+
     if (!m_notifier) {
         // Exit now in single file mode...
         quit();
@@ -271,14 +298,9 @@ void DumpRenderTree::titleChanged(const QString &s)
 
 void DumpRenderTree::connectFrame(QWebFrame *frame)
 {
-    connect(frame, SIGNAL(cleared()), this, SLOT(initJSObjects()));
+    connect(frame, SIGNAL(javaScriptWindowObjectCleared()), this, SLOT(initJSObjects()));
     connect(frame, SIGNAL(provisionalLoad()),
             layoutTestController(), SLOT(provisionalLoad()));
-
-    if (frame == m_page->mainFrame()) {
-        connect(frame, SIGNAL(loadDone(bool)),
-                layoutTestController(), SLOT(maybeDump(bool)));
-    }
 }
 
 QWebPage *DumpRenderTree::createWindow()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org> 
+ * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.
  *
@@ -73,7 +73,7 @@ void QWEBKIT_EXPORT qt_dump_set_accepts_editing(bool b)
 static QString dumpPath(WebCore::Node *node)
 {
     QString str = node->nodeName();
-    
+
     WebCore::Node *parent = node->parentNode();
     while (parent) {
         str.append(QLatin1String(" > "));
@@ -94,14 +94,14 @@ static QString dumpRange(WebCore::Range *range)
                 range->endOffset(code), dumpPath(range->endContainer(code)).unicode());
     return str;
 }
-    
+
 
 namespace WebCore {
 
 
 bool EditorClientQt::shouldDeleteRange(Range* range)
 {
-    if (dumpEditingCallbacks) 
+    if (dumpEditingCallbacks)
         printf("EDITING DELEGATE: shouldDeleteDOMRange:%s\n", dumpRange(range).toUtf8().constData());
 
     return true;
@@ -109,7 +109,7 @@ bool EditorClientQt::shouldDeleteRange(Range* range)
 
 bool EditorClientQt::shouldShowDeleteInterface(HTMLElement* element)
 {
-    if (drt_run) 
+    if (drt_run)
         return element->className() == "needsDeletionUI";
     return false;
 }
@@ -143,7 +143,7 @@ bool EditorClientQt::shouldEndEditing(WebCore::Range* range)
     return true;
 }
 
-bool EditorClientQt::shouldInsertText(String string, Range* range, EditorInsertAction action)
+bool EditorClientQt::shouldInsertText(const String& string, Range* range, EditorInsertAction action)
 {
     if (dumpEditingCallbacks) {
         static const char *insertactionstring[] = {
@@ -151,7 +151,7 @@ bool EditorClientQt::shouldInsertText(String string, Range* range, EditorInsertA
             "WebViewInsertActionPasted",
             "WebViewInsertActionDropped",
         };
-        
+
         printf("EDITING DELEGATE: shouldInsertText:%s replacingDOMRange:%s givenAction:%s\n",
                QString(string).toUtf8().constData(), dumpRange(range).toUtf8().constData(), insertactionstring[action]);
     }
@@ -169,7 +169,7 @@ bool EditorClientQt::shouldChangeSelectedRange(Range* currentRange, Range* propo
             "FALSE",
             "TRUE"
         };
-        
+
         printf("EDITING DELEGATE: shouldChangeSelectedDOMRange:%s toDOMRange:%s affinity:%s stillSelecting:%s\n",
                dumpRange(currentRange).toUtf8().constData(),
                dumpRange(proposedRange).toUtf8().constData(),
@@ -204,7 +204,9 @@ void EditorClientQt::respondToChangedContents()
 {
     if (dumpEditingCallbacks)
         printf("EDITING DELEGATE: webViewDidChange:WebViewDidChangeNotification\n");
-    m_page->d->modified = true;
+    m_page->d->updateEditorActions();
+
+    emit m_page->contentsChanged();
 }
 
 void EditorClientQt::respondToChangedSelection()
@@ -218,6 +220,7 @@ void EditorClientQt::respondToChangedSelection()
 
     m_page->d->updateEditorActions();
     emit m_page->selectionChanged();
+    emit m_page->microFocusChanged();
 }
 
 void EditorClientQt::didEndEditing()
@@ -243,17 +246,18 @@ bool EditorClientQt::selectWordBeforeMenuEvent()
 
 bool EditorClientQt::isEditable()
 { 
-    // FIXME: should be controllable by a setting in QWebPage
-    return false;
+    return m_page->isEditable();
 }
 
 void EditorClientQt::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> cmd)
 {
+#ifndef QT_NO_UNDOSTACK
     Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
     if (m_inUndoRedo || (frame && !frame->editor()->lastEditCommand() /* HACK!! Don't recreate undos */)) {
         return;
     }
     m_page->undoStack()->push(new EditCommandQt(cmd));
+#endif // QT_NO_UNDOSTACK
 }
 
 void EditorClientQt::registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand>)
@@ -262,31 +266,45 @@ void EditorClientQt::registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand
 
 void EditorClientQt::clearUndoRedoOperations()
 {
+#ifndef QT_NO_UNDOSTACK
     return m_page->undoStack()->clear();
+#endif
 }
 
 bool EditorClientQt::canUndo() const
 {
+#ifdef QT_NO_UNDOSTACK
+    return false;
+#else
     return m_page->undoStack()->canUndo();
+#endif
 }
 
 bool EditorClientQt::canRedo() const
 {
+#ifdef QT_NO_UNDOSTACK
+    return false;
+#else
     return m_page->undoStack()->canRedo();
+#endif
 }
 
 void EditorClientQt::undo()
 {
+#ifndef QT_NO_UNDOSTACK
     m_inUndoRedo = true;
     m_page->undoStack()->undo();
     m_inUndoRedo = false;
+#endif
 }
 
 void EditorClientQt::redo()
 {
+#ifndef QT_NO_UNDOSTACK
     m_inUndoRedo = true;
     m_page->undoStack()->redo();
     m_inUndoRedo = false;
+#endif
 }
 
 bool EditorClientQt::shouldInsertNode(Node* node, Range* range, EditorInsertAction action)
@@ -297,7 +315,7 @@ bool EditorClientQt::shouldInsertNode(Node* node, Range* range, EditorInsertActi
             "WebViewInsertActionPasted",
             "WebViewInsertActionDropped",
         };
-        
+
         printf("EDITING DELEGATE: shouldInsertNode:%s replacingDOMRange:%s givenAction:%s\n", dumpPath(node).toUtf8().constData(),
                dumpRange(range).toUtf8().constData(), insertactionstring[action]);
     }
@@ -335,16 +353,25 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
     if (!kevent || kevent->type() == PlatformKeyboardEvent::KeyUp)
         return;
 
-    Node* start = frame->selectionController()->start().node();
+    Node* start = frame->selection()->start().node();
     if (!start)
         return;
 
     // FIXME: refactor all of this to use Actions or something like them
     if (start->isContentEditable()) {
         switch (kevent->windowsVirtualKeyCode()) {
+#if QT_VERSION < 0x040500
             case VK_RETURN:
-                frame->editor()->command("InsertLineBreak").execute();
+#ifdef QT_WS_MAC
+                if (kevent->shiftKey() || kevent->metaKey())
+#else
+                if (kevent->shiftKey())
+#endif
+                    frame->editor()->command("InsertLineBreak").execute();
+                else
+                    frame->editor()->command("InsertNewline").execute();
                 break;
+#endif
             case VK_BACK:
                 frame->editor()->deleteWithDirection(SelectionController::BACKWARD,
                         CharacterGranularity, false, true);
@@ -382,7 +409,12 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
             case VK_TAB:
                 return;
             default:
-                if (!kevent->ctrlKey() && !kevent->altKey() && !kevent->text().isEmpty()) {
+                if (kevent->type() != PlatformKeyboardEvent::KeyDown && !kevent->ctrlKey()
+#ifndef Q_WS_MAC
+                    // We need to exclude checking for Alt because it is just a different Shift
+                    && !kevent->altKey()
+#endif
+                    && !kevent->text().isEmpty()) {
                     frame->editor()->insertText(kevent->text(), event);
                 } else if (kevent->ctrlKey()) {
                     switch (kevent->windowsVirtualKeyCode()) {
@@ -411,6 +443,11 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
                             frame->editor()->command("Undo").execute();
                             break;
                         default:
+                            // catch combination AltGr+key or Ctrl+Alt+key
+                            if (kevent->type() != PlatformKeyboardEvent::KeyDown && kevent->altKey() && !kevent->text().isEmpty()) {
+                                frame->editor()->insertText(kevent->text(), event);
+                                break;
+                            }
                             return;
                     }
                 } else return;
@@ -541,9 +578,14 @@ bool EditorClientQt::isEditing() const
 {
     return m_editing;
 }
-    
-void EditorClientQt::setInputMethodState(bool)
+
+void EditorClientQt::setInputMethodState(bool active)
 {
+    QWidget *view = m_page->view();
+    if (view) {
+        view->setAttribute(Qt::WA_InputMethodEnabled, active);
+        emit m_page->microFocusChanged();
+    }
 }
 
 }

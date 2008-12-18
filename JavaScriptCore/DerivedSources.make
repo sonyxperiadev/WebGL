@@ -26,20 +26,25 @@
 
 VPATH = \
     $(JavaScriptCore)/kjs \
+    $(JavaScriptCore)/VM \
     $(JavaScriptCore)/pcre \
+    $(JavaScriptCore)/docs \
+    $(JavaScriptCore)/runtime \
 #
 
 .PHONY : all
 all : \
-    array_object.lut.h \
+    ArrayPrototype.lut.h \
     chartables.c \
-    date_object.lut.h \
+    DatePrototype.lut.h \
     grammar.cpp \
     lexer.lut.h \
-    math_object.lut.h \
-    number_object.lut.h \
-    regexp_object.lut.h \
-    string_object.lut.h \
+    MathObject.lut.h \
+    NumberConstructor.lut.h \
+    RegExpConstructor.lut.h \
+    RegExpObject.lut.h \
+    StringPrototype.lut.h \
+    $(JavaScriptCore)/docs/bytecode.html \
 #
 
 # lookup tables for classes
@@ -63,3 +68,6 @@ grammar.cpp: grammar.y
 
 chartables.c : dftables
 	$^ $@
+
+$(JavaScriptCore)/docs/bytecode.html: make-bytecode-docs.pl Machine.cpp 
+	perl $^ $@

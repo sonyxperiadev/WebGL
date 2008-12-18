@@ -38,11 +38,8 @@
 #include "MouseEvent.h"
 #include "RenderFrame.h"
 #include "RenderView.h"
-#include "TextStream.h"
 
 namespace WebCore {
-
-using namespace EventNames;
 
 RenderFrameSet::RenderFrameSet(HTMLFrameSetElement* frameSet)
     : RenderContainer(frameSet)
@@ -332,7 +329,7 @@ void RenderFrameSet::layOutAxis(GridAxis& axis, const Length* grid, int availabl
     }
     
     // If we still have some left over space we probably ended up with a remainder of
-    // a division. We can not spread it evenly anymore. If we have any percentage 
+    // a division. We cannot spread it evenly anymore. If we have any percentage 
     // columns/rows simply spread the remainder equally over all available percentage columns, 
     // regardless of their size.
     if (remainingLen && countPercent) {
@@ -462,14 +459,13 @@ void RenderFrameSet::layout()
     if (doFullRepaint)
         oldBounds = absoluteClippedOverflowRect();
 
-    if (!parent()->isFrameSet()) {
-        FrameView* v = view()->frameView();
-        m_width = v->visibleWidth();
-        m_height = v->visibleHeight();
+    if (!parent()->isFrameSet() && !document()->printing()) {
 #ifdef FLATTEN_FRAMESET
         // Force a grid recalc.
         m_gridCalculated = false;
 #endif
+        m_width = view()->viewWidth();
+        m_height = view()->viewHeight();
     }
 
     size_t cols = frameSet()->totalCols();
@@ -669,7 +665,7 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
     if (!m_isResizing) {
         if (needsLayout())
             return false;
-        if (evt->type() == mousedownEvent && evt->button() == LeftButton) {
+        if (evt->type() == eventNames().mousedownEvent && evt->button() == LeftButton) {
             startResizing(m_cols, evt->pageX() - xPos());
             startResizing(m_rows, evt->pageY() - yPos());
             if (m_cols.m_splitBeingResized != noSplit || m_rows.m_splitBeingResized != noSplit) {
@@ -678,10 +674,10 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
             }
         }
     } else {
-        if (evt->type() == mousemoveEvent || (evt->type() == mouseupEvent && evt->button() == LeftButton)) {
+        if (evt->type() == eventNames().mousemoveEvent || (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton)) {
             continueResizing(m_cols, evt->pageX() - xPos());
             continueResizing(m_rows, evt->pageY() - yPos());
-            if (evt->type() == mouseupEvent && evt->button() == LeftButton) {
+            if (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton) {
                 setIsResizing(false);
                 return true;
             }
@@ -718,13 +714,13 @@ bool RenderFrameSet::canResize(const IntPoint& p) const
 
 bool RenderFrameSet::canResizeRow(const IntPoint& p) const
 {
-    int r = hitTestSplit(m_rows, p.y() - yPos());
+    int r = hitTestSplit(m_rows, p.y());
     return r != noSplit && m_rows.m_allowBorder[r] && !m_rows.m_preventResize[r];
 }
 
 bool RenderFrameSet::canResizeColumn(const IntPoint& p) const
 {
-    int c = hitTestSplit(m_cols, p.x() - xPos());
+    int c = hitTestSplit(m_cols, p.x());
     return c != noSplit && m_cols.m_allowBorder[c] && !m_cols.m_preventResize[c];
 }
 
@@ -771,21 +767,5 @@ bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle* style) con
 {
     return child->isFrame() || child->isFrameSet();
 }
-
-#ifndef NDEBUG
-void RenderFrameSet::dump(TextStream* stream, DeprecatedString ind) const
-{
-    *stream << " totalrows=" << frameSet()->totalRows();
-    *stream << " totalcols=" << frameSet()->totalCols();
-
-    for (int i = 1; i <= frameSet()->totalRows(); i++)
-        *stream << " hSplitvar(" << i << ")=" << m_rows.m_preventResize[i];
-
-    for (int i = 1; i < frameSet()->totalCols(); i++)
-        *stream << " vSplitvar(" << i << ")=" << m_cols.m_preventResize[i];
-
-    RenderContainer::dump(stream,ind);
-}
-#endif
 
 } // namespace WebCore

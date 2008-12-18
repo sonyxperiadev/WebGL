@@ -44,8 +44,8 @@
 #ifndef RenderLayer_h
 #define RenderLayer_h
 
+#include "ScrollbarClient.h"
 #include "RenderObject.h"
-#include "ScrollBar.h"
 #include "Timer.h"
 #include <wtf/OwnPtr.h>
 
@@ -54,9 +54,11 @@ namespace WebCore {
 class AffineTransform;
 class CachedResource;
 class HitTestResult;
-class PlatformScrollbar;
 class RenderFrameSet;
+class RenderMarquee;
 class RenderObject;
+class RenderReplica;
+class RenderScrollbarPart;
 class RenderStyle;
 class RenderTable;
 class RenderText;
@@ -113,49 +115,6 @@ private:
     bool m_fixed : 1;
 };
 
-
-// FIXME: move this to its own file
-// This class handles the auto-scrolling of layers with overflow: marquee.
-class Marquee {
-public:
-    Marquee(RenderLayer*);
-
-    int speed() const { return m_speed; }
-    int marqueeSpeed() const;
-
-    EMarqueeDirection reverseDirection() const { return static_cast<EMarqueeDirection>(-direction()); }
-    EMarqueeDirection direction() const;
-
-    bool isHorizontal() const;
-
-    int computePosition(EMarqueeDirection, bool stopAtClientEdge);
-
-    void setEnd(int end) { m_end = end; }
-    
-    void start();
-    void suspend();
-    void stop();
-
-    void updateMarqueeStyle();
-    void updateMarqueePosition();
-
-private:
-    void timerFired(Timer<Marquee>*);
-
-    RenderLayer* m_layer;
-    int m_currentLoop;
-    int m_totalLoops;
-    Timer<Marquee> m_timer;
-    int m_start;
-    int m_end;
-    int m_speed;
-    Length m_height;
-    bool m_reset: 1;
-    bool m_suspended : 1;
-    bool m_stopped : 1;
-    EMarqueeDirection m_direction : 4;
-};
-
 class RenderLayer : public ScrollbarClient {
 public:
     enum ScrollBehavior {
@@ -173,6 +132,8 @@ public:
         ScrollBehavior m_rectHidden;
         ScrollBehavior m_rectPartial;
     };
+
+    friend class RenderReplica;
 
     static const ScrollAlignment gAlignCenterIfNeeded;
     static const ScrollAlignment gAlignToEdgeIfNeeded;
@@ -202,16 +163,22 @@ public:
 
     void repaintIncludingDescendants();
 
-    void styleChanged();
+    void styleChanged(RenderStyle::Diff, const RenderStyle*);
 
-    Marquee* marquee() const { return m_marquee; }
+    RenderMarquee* marquee() const { return m_marquee; }
     void suspendMarquees();
 
     bool isOverflowOnly() const { return m_isOverflowOnly; }
 
+    bool requiresSlowRepaints() const;
+
     bool isTransparent() const;
     RenderLayer* transparentAncestor();
     void beginTransparencyLayers(GraphicsContext*, const RenderLayer* rootLayer);
+
+    bool hasReflection() const { return m_object->hasReflection(); }
+    RenderReplica* reflection() const { return m_reflection; }
+    RenderLayer* reflectionLayer() const;
 
     const RenderLayer* root() const
     {
@@ -237,7 +204,10 @@ public:
     int scrollWidth();
     int scrollHeight();
 
+    void panScrollFromPoint(const IntPoint&);
+
     // Scrolling methods for layers that can scroll their overflow.
+    void scrollByRecursively(int xDelta, int yDelta);
     void scrollOffset(int& x, int& y);
     void subtractScrollOffset(int& x, int& y);
     int scrollXOffset() const { return m_scrollX + m_scrollOriginX; }
@@ -245,7 +215,7 @@ public:
     void scrollToOffset(int x, int y, bool updateScrollbars = true, bool repaint = true);
     void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY); }
     void scrollToYOffset(int y) { scrollToOffset(m_scrollX + m_scrollOriginX, y); }
-    void scrollRectToVisible(const IntRect&, const ScrollAlignment& alignX = gAlignCenterIfNeeded, const ScrollAlignment& alignY = gAlignCenterIfNeeded);
+    void scrollRectToVisible(const IntRect&, bool scrollToAnchor = false, const ScrollAlignment& alignX = gAlignCenterIfNeeded, const ScrollAlignment& alignY = gAlignCenterIfNeeded);
 
     IntRect getRectToExpose(const IntRect& visibleRect, const IntRect& exposeRect, const ScrollAlignment& alignX, const ScrollAlignment& alignY);    
 
@@ -255,21 +225,20 @@ public:
     PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
     void destroyScrollbar(ScrollbarOrientation);
 
-    Scrollbar* horizontalScrollbar() { return m_hBar.get(); }
-    Scrollbar* verticalScrollbar() { return m_vBar.get(); }
-
-    PlatformScrollbar* horizontalScrollbarWidget() const;
-    PlatformScrollbar* verticalScrollbarWidget() const;
+    Scrollbar* horizontalScrollbar() const { return m_hBar.get(); }
+    Scrollbar* verticalScrollbar() const { return m_vBar.get(); }
 
     int verticalScrollbarWidth() const;
     int horizontalScrollbarHeight() const;
 
-    void positionOverflowControls();
+    void positionOverflowControls(int tx, int ty);
     bool isPointInResizeControl(const IntPoint&);
     bool hitTestOverflowControls(HitTestResult&);
     IntSize offsetFromResizeCorner(const IntPoint&) const;
 
     void paintOverflowControls(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
+    void paintScrollCorner(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
+    void paintResizer(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
 
     void updateScrollInfoAfterLayout();
 
@@ -296,6 +265,7 @@ public:
     bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView(); }
 
     void dirtyZOrderLists();
+    void dirtyStackingContextZOrderLists();
     void updateZOrderLists();
     Vector<RenderLayer*>* posZOrderList() const { return m_posZOrderList; }
     Vector<RenderLayer*>* negZOrderList() const { return m_negZOrderList; }
@@ -349,6 +319,7 @@ public:
     void setStaticX(int staticX) { m_staticX = staticX; }
     void setStaticY(int staticY) { m_staticY = staticY; }
 
+    bool hasTransform() const { return m_object->hasTransform(); }
     AffineTransform* transform() const { return m_transform.get(); }
 
     void destroy(RenderArena*);
@@ -374,15 +345,16 @@ private:
     void collectLayers(Vector<RenderLayer*>*&, Vector<RenderLayer*>*&);
 
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
-                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot);
-    RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect, const IntPoint& hitTestPoint);
+                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot, bool appliedTransform = false);
+    RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect, const IntPoint& hitTestPoint, bool appliedTransform = false);
     void computeScrollDimensions(bool* needHBar = 0, bool* needVBar = 0);
 
     bool shouldBeOverflowOnly() const;
 
     virtual void valueChanged(Scrollbar*);
-    virtual IntRect windowClipRect() const;
+    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
+    virtual bool scrollbarCornerPresent() const;
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
@@ -391,6 +363,15 @@ private:
     void updateVisibilityStatus();
 
     Node* enclosingElement() const;
+
+    void createReflection();
+    void updateReflectionStyle();
+    bool paintingInsideReflection() const { return m_paintingInsideReflection; }
+
+    RenderLayer* enclosingTransformedAncestor() const;
+
+    void updateScrollCornerStyle();
+    void updateResizerStyle();
 
 protected:   
     RenderObject* m_object;
@@ -440,7 +421,8 @@ protected:
     Vector<RenderLayer*>* m_posZOrderList;
     Vector<RenderLayer*>* m_negZOrderList;
 
-    // This list contains our overflow child layers.
+    // This list contains child layers that cannot create stacking contexts.  For now it is just
+    // overflow layers, but that may change in the future.
     Vector<RenderLayer*>* m_overflowList;
 
     ClipRects* m_clipRects;      // Cached clip rects used when painting and hit testing.
@@ -448,11 +430,12 @@ protected:
     bool m_scrollDimensionsDirty : 1;
     bool m_zOrderListsDirty : 1;
     bool m_overflowListDirty: 1;
-    bool m_isOverflowOnly: 1;
+    bool m_isOverflowOnly : 1;
 
     bool m_usedTransparency : 1; // Tracks whether we need to close a transparent layer, i.e., whether
                                  // we ended up painting this layer or any descendants (and therefore need to
                                  // blend).
+    bool m_paintingInsideReflection : 1;  // A state bit tracking if we are painting inside a replica.
     bool m_inOverflowRelayout : 1;
     bool m_needsFullRepaint : 1;
 
@@ -464,13 +447,20 @@ protected:
     bool m_visibleDescendantStatusDirty : 1;
     bool m_hasVisibleDescendant : 1;
 
-    Marquee* m_marquee; // Used by layers with overflow:marquee
+    RenderMarquee* m_marquee; // Used by layers with overflow:marquee
     
     // Cached normal flow values for absolute positioned elements with static left/top values.
     int m_staticX;
     int m_staticY;
     
     OwnPtr<AffineTransform> m_transform;
+    
+    // May ultimately be extended to many replicas (with their own paint order).
+    RenderReplica* m_reflection;
+    
+    // Renderers to hold our custom scroll corner and resizer.
+    RenderScrollbarPart* m_scrollCorner;
+    RenderScrollbarPart* m_resizer;
 };
 
 } // namespace WebCore

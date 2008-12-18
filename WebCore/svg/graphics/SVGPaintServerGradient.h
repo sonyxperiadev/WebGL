@@ -30,13 +30,17 @@
 
 #include "AffineTransform.h"
 #include "Color.h"
+#include "GraphicsContext.h"
 #include "SVGPaintServer.h"
 
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
 class QGradient;
+QT_END_NAMESPACE
 #endif
 
 namespace WebCore {
@@ -44,30 +48,21 @@ namespace WebCore {
     class ImageBuffer;
     class SVGGradientElement;
 
-    // FIXME: Remove the spread method enum in SVGGradientElement
-    enum SVGGradientSpreadMethod {
-        SPREADMETHOD_PAD = 1,
-        SPREADMETHOD_REFLECT = 2,
-        SPREADMETHOD_REPEAT = 3
-    };
-
 #if PLATFORM(CG)
     typedef std::pair<CGFloat, Color> SVGGradientStop;
 #else
     typedef std::pair<float, Color> SVGGradientStop;
 #endif
 
-
     class SVGPaintServerGradient : public SVGPaintServer {
     public:
-        SVGPaintServerGradient(const SVGGradientElement*);
         virtual ~SVGPaintServerGradient();
 
         const Vector<SVGGradientStop>& gradientStops() const;
         void setGradientStops(const Vector<SVGGradientStop>&);
 
-        SVGGradientSpreadMethod spreadMethod() const;
-        void setGradientSpreadMethod(const SVGGradientSpreadMethod&);
+        GradientSpreadMethod spreadMethod() const;
+        void setGradientSpreadMethod(const GradientSpreadMethod&);
 
         // Gradient start and end points are percentages when used in boundingBox mode.
         // For instance start point with value (0,0) is top-left and end point with
@@ -99,9 +94,12 @@ namespace WebCore {
         virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const = 0;
 #endif
 
+    protected:
+        SVGPaintServerGradient(const SVGGradientElement* owner);
+        
     private:
         Vector<SVGGradientStop> m_stops;
-        SVGGradientSpreadMethod m_spreadMethod;
+        GradientSpreadMethod m_spreadMethod;
         bool m_boundingBoxMode;
         AffineTransform m_gradientTransform;
         const SVGGradientElement* m_ownerElement;
@@ -115,7 +113,13 @@ namespace WebCore {
         } QuartzGradientStop;
         
         struct SharedStopCache : public RefCounted<SharedStopCache> {
+        public:
+            static PassRefPtr<SharedStopCache> create() { return adoptRef(new SharedStopCache); }
+            
             Vector<QuartzGradientStop> m_stops;
+        
+        private:
+            SharedStopCache() { }
         };
 
         RefPtr<SharedStopCache> m_stopsCache;

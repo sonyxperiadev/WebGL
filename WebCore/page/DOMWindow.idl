@@ -26,14 +26,20 @@
 module window {
 
     interface [
-        LegacyParent=KJS::Window,
-        DoNotCache,
         CheckDomainSecurity,
-        GenerateNativeConverter,
-        CustomGetOwnPropertySlot,
-        CustomPutFunction,
+        CustomDefineGetter,
+        CustomDefineSetter,
         CustomDeleteProperty,
-        CustomGetPropertyNames
+        CustomGetOwnPropertySlot,
+        CustomGetPropertyAttributes,
+        CustomGetPropertyNames,
+        CustomLookupGetter,
+        CustomLookupSetter,
+        CustomMarkFunction,
+        CustomNativeConverter,
+        CustomPutFunction,
+        GenerateNativeConverter,
+        LegacyParent=JSDOMWindowBase
     ] DOMWindow {
         // DOM Level 0
         readonly attribute Screen screen;
@@ -44,6 +50,9 @@ module window {
         attribute [Replaceable] BarInfo scrollbars;
         attribute [Replaceable] BarInfo statusbar;
         attribute [Replaceable] BarInfo toolbar;
+        attribute [Replaceable] Navigator navigator;
+        attribute [Replaceable] Navigator clientInformation;
+        attribute [DoNotCheckDomainSecurity, CustomSetter] Location location;
 
         DOMSelection getSelection();
 
@@ -130,17 +139,84 @@ module window {
                                        in [Optional] boolean authorOnly);
         attribute [Replaceable] double devicePixelRatio;
 
-#if defined(ENABLE_DATABASE)
+#if ENABLE_OFFLINE_WEB_APPLICATIONS
+        readonly attribute DOMApplicationCache applicationCache;
+#endif    
+#if ENABLE_DATABASE
         Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize)
             raises(DOMException);
+#endif
+#if ENABLE_DOM_STORAGE
+        readonly attribute Storage sessionStorage;
+        readonly attribute Storage localStorage;
 #endif
 
                  attribute [Replaceable] Console console;
 
-#if defined(ENABLE_CROSS_DOCUMENT_MESSAGING)
         // cross-document messaging
-        [DoNotCheckDomainSecurity, Custom] void postMessage(in DOMString message);
+        [DoNotCheckDomainSecurity, Custom] void postMessage(in DOMString message, in [Optional] MessagePort messagePort, in DOMString targetOrigin)
+            raises(DOMException);
+
+        // Timers
+        [Custom] long setTimeout(in TimeoutHandler handler, in long timeout);
+        // [Custom] long setTimeout(in DOMString code, in long timeout);
+        [Custom] void clearTimeout(in long handle);
+
+        [Custom] long setInterval(in TimeoutHandler handler, in long timeout);
+        // [Custom] long setInterval(in DOMString code, in long timeout);
+        [Custom] void clearInterval(in long handle);
+
+        // Base64
+        [Custom] DOMString atob(in DOMString string)
+            raises(DOMException);
+        [Custom] DOMString btoa(in DOMString string)
+            raises(DOMException);
+
+        // Events
+        attribute [ProtectedListener] EventListener onabort;
+        attribute [ProtectedListener] EventListener onblur;
+        attribute [ProtectedListener] EventListener onchange;
+        attribute [ProtectedListener] EventListener onclick;
+        attribute [ProtectedListener] EventListener ondblclick;
+        attribute [ProtectedListener] EventListener onerror;
+        attribute [ProtectedListener] EventListener onfocus;
+        attribute [ProtectedListener] EventListener onkeydown;
+        attribute [ProtectedListener] EventListener onkeypress;
+        attribute [ProtectedListener] EventListener onkeyup;
+        attribute [ProtectedListener] EventListener onload;
+        attribute [ProtectedListener] EventListener onmousedown;
+        attribute [ProtectedListener] EventListener onmousemove;
+        attribute [ProtectedListener] EventListener onmouseout;
+        attribute [ProtectedListener] EventListener onmouseover;
+        attribute [ProtectedListener] EventListener onmouseup;
+        attribute [ProtectedListener] EventListener onmousewheel;
+        attribute [ProtectedListener] EventListener onreset;
+        attribute [ProtectedListener] EventListener onresize;
+        attribute [ProtectedListener] EventListener onscroll;
+        attribute [ProtectedListener] EventListener onsearch;
+        attribute [ProtectedListener] EventListener onselect;
+        attribute [ProtectedListener] EventListener onsubmit;
+        attribute [ProtectedListener] EventListener onunload;
+        attribute [ProtectedListener] EventListener onbeforeunload;
+        attribute [ProtectedListener] EventListener onwebkitanimationstart;
+        attribute [ProtectedListener] EventListener onwebkitanimationiteration;
+        attribute [ProtectedListener] EventListener onwebkitanimationend;
+        attribute [ProtectedListener] EventListener onwebkittransitionend;
+#if ENABLE_TOUCH_EVENTS
+        attribute [ProtectedListener] EventListener ontouchstart;
+        attribute [ProtectedListener] EventListener ontouchend;
+        attribute [ProtectedListener] EventListener ontouchmove;
+        attribute [ProtectedListener] EventListener ontouchcancel;
 #endif
+
+        // EventTarget interface
+        [Custom] void addEventListener(in DOMString type, 
+                                      in EventListener listener, 
+                                      in boolean useCapture);
+        [Custom] void removeEventListener(in DOMString type, 
+                                          in EventListener listener, 
+                                          in boolean useCapture);
+        // FIXME: Implement dispatchEvent
 
 #if defined(LANGUAGE_JAVASCRIPT)
         // Global constructors
@@ -158,6 +234,9 @@ module window {
         attribute CSSMediaRuleConstructor CSSMediaRule;
         attribute CSSPageRuleConstructor CSSPageRule;
         attribute CSSStyleRuleConstructor CSSStyleRule;
+        
+        attribute CSSVariablesRuleConstructor CSSVariablesRule;
+        attribute CSSVariablesDeclarationConstructor CSSVariablesDeclaration;
 
         attribute CSSStyleDeclarationConstructor CSSStyleDeclaration;
         attribute MediaListConstructor MediaList;
@@ -256,6 +335,11 @@ module window {
         attribute HTMLTitleElementConstructor HTMLTitleElement;
         attribute HTMLUListElementConstructor HTMLUListElement;
 
+        attribute HTMLCollectionConstructor HTMLCollection;
+
+        attribute CanvasRenderingContext2DConstructor CanvasRenderingContext2D;
+        attribute TextMetricsConstructor TextMetrics;
+
         attribute EventConstructor Event;
         attribute KeyboardEventConstructor KeyboardEvent;
         attribute MouseEventConstructor MouseEvent;
@@ -265,7 +349,18 @@ module window {
         attribute TextEventConstructor TextEvent;
         attribute UIEventConstructor UIEvent;
         attribute WheelEventConstructor WheelEvent;
+        attribute MessageEventConstructor MessageEvent;
         attribute EventExceptionConstructor EventException;
+#if ENABLE_TOUCH_EVENTS
+        attribute TouchEventConstructor TouchEvent;
+#endif
+
+        attribute MessagePortConstructor MessagePort;
+
+        attribute ClipboardConstructor Clipboard;
+
+        attribute FileConstructor File;
+        attribute FileListConstructor FileList;
 
         attribute NodeFilterConstructor NodeFilter;
         attribute RangeConstructor Range;
@@ -278,26 +373,28 @@ module window {
         attribute DOMParserConstructor DOMParser;
         attribute XMLSerializerConstructor XMLSerializer;
 
+        attribute XMLHttpRequestUploadConstructor XMLHttpRequestUpload;
         attribute XMLHttpRequestExceptionConstructor XMLHttpRequestException;
 
-#if defined(ENABLE_CROSS_DOCUMENT_MESSAGING)
-        attribute MessageEventConstructor MessageEvent;
+#if ENABLE_DOM_STORAGE
+        attribute StorageConstructor Storage;
+        attribute StorageEventConstructor StorageEvent;
 #endif
 
-#if defined(ENABLE_VIDEO)
+#if ENABLE_VIDEO
         attribute HTMLAudioElementConstructor HTMLAudioElement;
         attribute HTMLMediaElementConstructor HTMLMediaElement;
         attribute HTMLVideoElementConstructor HTMLVideoElement;
         attribute MediaErrorConstructor MediaError;
 #endif
 
-#if defined(ENABLE_XPATH)
+#if ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;
         attribute XPathResultConstructor XPathResult;
         attribute XPathExceptionConstructor XPathException;
 #endif
 
-#if defined(ENABLE_SVG)
+#if ENABLE_SVG
         attribute SVGAngleConstructor SVGAngle;
         attribute SVGColorConstructor SVGColor;
 //      attribute SVGCSSRuleConstructor SVGCSSRule;
@@ -316,7 +413,7 @@ module window {
 //      attribute SVGZoomAndPanConstructor SVGZoomAndPan;
 #endif
 
-#if defined(ENABLED_SVG_FILTERS)
+#if ENABLE_SVG_FILTERS
         attribute SVGComponentTransferFunctionElementConstructor SVGComponentTransferFunctionElement;
         attribute SVGFEBlendElementConstructor SVGFEBlendElement;
         attribute SVGFEColorMatrixElementConstructor SVGFEColorMatrixElement;

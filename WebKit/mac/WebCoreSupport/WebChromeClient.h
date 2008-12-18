@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,7 +73,7 @@ public:
     
     virtual void setResizable(bool);
     
-    virtual void addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID);
+    virtual void addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceURL);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const WebCore::String& message, WebCore::Frame* frame);
@@ -88,10 +88,13 @@ public:
     virtual bool tabsToLinks() const;
     
     virtual WebCore::IntRect windowResizerRect() const;
-    virtual void addToDirtyRegion(const WebCore::IntRect&);
-    virtual void scrollBackingStore(int dx, int dy, const WebCore::IntRect& scrollViewRect, const WebCore::IntRect& clipRect);
-    virtual void updateBackingStore();
-    
+
+    virtual void repaint(const WebCore::IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+    virtual void scroll(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll, const WebCore::IntRect& clipRect);
+    virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint&) const;
+    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&) const;
+    virtual PlatformWidget platformWindow() const;
+
     virtual void setStatusbarText(const WebCore::String&);
 
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
@@ -101,6 +104,33 @@ public:
     virtual void print(WebCore::Frame*);
 
     virtual void exceededDatabaseQuota(WebCore::Frame*, const WebCore::String& databaseName);
+
+    virtual void populateVisitedLinks();
+
+#if ENABLE(DASHBOARD_SUPPORT)
+    virtual void dashboardRegionsChanged();
+#endif
+
+    virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
+
+    virtual WebCore::FloatRect customHighlightRect(WebCore::Node*, const WebCore::AtomicString& type,
+        const WebCore::FloatRect& lineRect);
+    virtual void paintCustomHighlight(WebCore::Node*, const WebCore::AtomicString& type,
+        const WebCore::FloatRect& boxRect, const WebCore::FloatRect& lineRect,
+        bool behindText, bool entireLine);
+
+    virtual WebCore::KeyboardUIMode keyboardUIMode();
+
+    virtual NSResponder *firstResponder();
+    virtual void makeFirstResponder(NSResponder *);
+
+    virtual void willPopUpMenu(NSMenu *);
+    
+    virtual bool shouldReplaceWithGeneratedFileForUpload(const WebCore::String& path, WebCore::String &generatedFilename);
+    virtual WebCore::String generateReplacementFile(const WebCore::String& path);
+
+    virtual void enableSuddenTermination();
+    virtual void disableSuddenTermination();
 
 private:
     WebView *m_webView;

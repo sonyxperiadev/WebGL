@@ -29,7 +29,8 @@
 namespace WebCore {
 
     class String;
-
+    class IntSize;
+    
     String inputElementAltText();
     String resetButtonDefaultLabel();
     String searchableIndexIntroduction();
@@ -98,13 +99,25 @@ namespace WebCore {
     String AXListMarkerText();
     String AXImageMapText();
     String AXHeadingText();
+    String AXDefinitionListTermText();
+    String AXDefinitionListDefinitionText();
+    
+    String AXButtonActionVerb();
+    String AXRadioButtonActionVerb();
+    String AXTextFieldActionVerb();
+    String AXCheckedCheckBoxActionVerb();
+    String AXUncheckedCheckBoxActionVerb();
+    String AXLinkActionVerb();
 
+    String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
 
 #if PLATFORM(WIN)
     String uploadFileText();
     String allFilesText();
 #endif
+
+    String imageTitle(const String& filename, const IntSize& size);
 }
 
 #endif

@@ -34,13 +34,17 @@
 #include "Logging.h"
 #include "PageCache.h"
 #include "ResourceRequest.h"
+#include <stdio.h>
 
 namespace WebCore {
 
 #ifdef ANDROID_HISTORY_CLIENT
 void (*notifyHistoryItemChanged)(HistoryItem*);
 #else
-static void defaultNotifyHistoryItemChanged() {}
+static void defaultNotifyHistoryItemChanged()
+{
+}
+
 void (*notifyHistoryItemChanged)() = defaultNotifyHistoryItemChanged;
 #endif
 
@@ -77,18 +81,6 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
 
-HistoryItem::HistoryItem(const KURL& url, const String& title)
-    : m_urlString(url.string())
-    , m_originalURLString(url.string())
-    , m_title(title)
-    , m_lastVisitedTime(0)
-    , m_isInPageCache(false)
-    , m_isTargetItem(false)
-    , m_visitCount(0)
-{    
-    iconDatabase()->retainIconForPageURL(m_urlString);
-}
-
 HistoryItem::HistoryItem(const KURL& url, const String& target, const String& parent, const String& title)
     : m_urlString(url.string())
     , m_originalURLString(url.string())
@@ -109,7 +101,7 @@ HistoryItem::~HistoryItem()
     iconDatabase()->releaseIconForPageURL(m_urlString);
 }
 
-HistoryItem::HistoryItem(const HistoryItem& item)
+inline HistoryItem::HistoryItem(const HistoryItem& item)
     : RefCounted<HistoryItem>()
     , m_urlString(item.m_urlString)
     , m_originalURLString(item.m_originalURLString)
@@ -124,18 +116,10 @@ HistoryItem::HistoryItem(const HistoryItem& item)
     , m_visitCount(item.m_visitCount)
     , m_formContentType(item.m_formContentType)
     , m_formReferrer(item.m_formReferrer)
-#ifdef ANDROID_FIX
-    , m_originalFormContentType(item.m_originalFormContentType)
-    , m_originalFormReferrer(item.m_originalFormReferrer)
-#endif
     , m_rssFeedReferrer(item.m_rssFeedReferrer)
 {
     if (item.m_formData)
         m_formData = item.m_formData->copy();
-#ifdef ANDROID_FIX
-    if (item.m_originalFormData)
-        m_originalFormData = item.m_originalFormData->copy();
-#endif
         
     unsigned size = item.m_subItems.size();
     m_subItems.reserveCapacity(size);
@@ -145,7 +129,7 @@ HistoryItem::HistoryItem(const HistoryItem& item)
 
 PassRefPtr<HistoryItem> HistoryItem::copy() const
 {
-    return new HistoryItem(*this);
+    return adoptRef(new HistoryItem(*this));
 }
 
 const String& HistoryItem::urlString() const
@@ -183,12 +167,12 @@ double HistoryItem::lastVisitedTime() const
 
 KURL HistoryItem::url() const
 {
-    return KURL(m_urlString.deprecatedString());
+    return KURL(m_urlString);
 }
 
 KURL HistoryItem::originalURL() const
 {
-    return KURL(m_originalURLString.deprecatedString());
+    return KURL(m_originalURLString);
 }
 
 const String& HistoryItem::target() const
@@ -434,28 +418,6 @@ FormData* HistoryItem::formData()
 const FormData* HistoryItem::formData() const
 {
     return m_formData.get();
-}
-
-FormData* HistoryItem::originalFormData() const
-{
-    return m_originalFormData.get();
-}
-
-String HistoryItem::originalFormContentType() const
-{
-    return m_originalFormContentType;
-}
-
-String HistoryItem::originalFormReferrer() const
-{
-    return m_originalFormReferrer;
-}
-
-void HistoryItem::setOriginalFormInfo(PassRefPtr<FormData> formdata, const String& contentType, const String& referrer) 
-{
-    m_originalFormData = formdata;
-    m_originalFormContentType = contentType;
-    m_originalFormReferrer = referrer;
 }
 #endif
 

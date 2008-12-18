@@ -44,7 +44,7 @@ namespace WebCore {
 class GraphicsContextPlatformPrivate {
 public:
     GraphicsContextPlatformPrivate()
-        :  cr(0)
+        : cr(0)
 #if PLATFORM(GTK)
         , expose(0)
 #elif PLATFORM(WIN)
@@ -62,8 +62,28 @@ public:
 
 #if PLATFORM(WIN)
     // On Windows, we need to update the HDC for form controls to draw in the right place.
+    void save();
+    void restore();
+    void clip(const FloatRect&);
+    void clip(const Path&);
+    void scale(const FloatSize&);
+    void rotate(float);
+    void translate(float, float);
+    void concatCTM(const AffineTransform&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
+#else
+    // On everything else, we do nothing.
+    void save() {}
+    void restore() {}
+    void clip(const FloatRect&) {}
+    void clip(const Path&) {}
+    void scale(const FloatSize&) {}
+    void rotate(float) {}
+    void translate(float, float) {}
+    void concatCTM(const AffineTransform&) {}
+    void beginTransparencyLayer() {}
+    void endTransparencyLayer() {}
 #endif
 
     cairo_t* cr;

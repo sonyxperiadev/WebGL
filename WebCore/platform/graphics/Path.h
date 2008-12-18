@@ -30,7 +30,10 @@
 #if PLATFORM(CG)
 typedef struct CGPath PlatformPath;
 #elif PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
 class QPainterPath;
+QT_END_NAMESPACE
 typedef QPainterPath PlatformPath;
 #elif PLATFORM(SGL)
 class SkPath;
@@ -43,6 +46,9 @@ namespace WebCore {
     struct CairoPath;
 }
 typedef WebCore::CairoPath PlatformPath;
+#elif PLATFORM(SKIA)
+class SkPath;
+typedef SkPath PlatformPath;
 #else
 typedef void PlatformPath;
 #endif
@@ -95,8 +101,8 @@ namespace WebCore {
 
         void moveTo(const FloatPoint&);
         void addLineTo(const FloatPoint&);
-        void addQuadCurveTo(const FloatPoint& controlPoint, const FloatPoint& point);
-        void addBezierCurveTo(const FloatPoint& controlPoint1, const FloatPoint& controlPoint2, const FloatPoint&);
+        void addQuadCurveTo(const FloatPoint& controlPoint, const FloatPoint& endPoint);
+        void addBezierCurveTo(const FloatPoint& controlPoint1, const FloatPoint& controlPoint2, const FloatPoint& endPoint);
         void addArcTo(const FloatPoint&, const FloatPoint&, float radius);
         void closeSubpath();
 
@@ -105,9 +111,6 @@ namespace WebCore {
         void addEllipse(const FloatRect&);
 
         void translate(const FloatSize&);
-
-        void setWindingRule(WindRule rule) { m_rule = rule; }
-        WindRule windingRule() const { return m_rule; }
 
         String debugString() const;
 
@@ -125,7 +128,6 @@ namespace WebCore {
 
     private:
         PlatformPath* m_path;
-        WindRule m_rule;
     };
 
 }

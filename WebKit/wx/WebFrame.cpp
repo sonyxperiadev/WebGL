@@ -21,308 +21,297 @@
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
- *
- * This class provides a default new window implementation for wxWebView clients
- * who don't want/need to roll their own browser frame UI.
  */
- 
+
 #include "config.h"
+#include "CString.h"
+#include "Document.h"
+#include "Editor.h"
+#include "Element.h"
+#include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameView.h"
+#include "HTMLFrameOwnerElement.h"
+#include "markup.h"
+#include "Page.h"
+#include "RenderTreeAsText.h"
+#include "RenderObject.h"
+#include "RenderView.h"
+
+#include "EditorClientWx.h"
+#include "FrameLoaderClientWx.h"
+
+#include "ScriptController.h"
+#include "JSDOMBinding.h"
+#include <runtime/JSValue.h>
+#include <kjs/ustring.h>
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
     #include "wx/wx.h"
 #endif
 
-#include "wx/artprov.h"
-
-#include "WebView.h"
 #include "WebFrame.h"
+#include "WebView.h"
 #include "WebViewPrivate.h"
 
-wxPageSourceViewFrame::wxPageSourceViewFrame(const wxString& source)
-        : wxFrame(NULL, wxID_ANY, _("Page Source View"), wxDefaultPosition, wxSize(600, 500))
-{
-    wxTextCtrl* control = new wxTextCtrl(this, -1, source, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE);
-}
+#include <wx/defs.h>
+#include <wx/dcbuffer.h>
 
-enum {
-    ID_LOADFILE = wxID_HIGHEST + 1,
-    ID_TEXTCTRL = wxID_HIGHEST + 2,
-    ID_BACK = wxID_HIGHEST + 3,
-    ID_FORWARD = wxID_HIGHEST + 4,
-    ID_TOGGLE_BEFORE_LOAD = wxID_HIGHEST + 5,
-    ID_MAKE_TEXT_LARGER = wxID_HIGHEST + 6,
-    ID_MAKE_TEXT_SMALLER = wxID_HIGHEST + 7,
-    ID_STOP = wxID_HIGHEST + 8,
-    ID_RELOAD = wxID_HIGHEST + 9,
-    ID_GET_SOURCE = wxID_HIGHEST + 10,
-    ID_SET_SOURCE = wxID_HIGHEST + 11,
-    ID_SEARCHCTRL = wxID_HIGHEST + 12,
-    ID_LOADURL = wxID_HIGHEST + 13,
-    ID_NEW_WINDOW = wxID_HIGHEST + 14,
-    ID_BROWSE = wxID_HIGHEST + 15,
-    ID_EDIT = wxID_HIGHEST + 16,
-    ID_RUN_SCRIPT = wxID_HIGHEST + 17
-};
+// Match Safari's min/max zoom sizes by default
+#define MinimumTextSizeMultiplier       0.5f
+#define MaximumTextSizeMultiplier       3.0f
+#define TextSizeMultiplierRatio         1.2f
 
-BEGIN_EVENT_TABLE(wxWebFrame, wxFrame)
-    EVT_MENU(wxID_EXIT,  wxWebFrame::OnQuit)
-    EVT_MENU(wxID_ABOUT, wxWebFrame::OnAbout)
-    EVT_MENU(ID_LOADFILE, wxWebFrame::OnLoadFile)
-    EVT_TEXT_ENTER(ID_TEXTCTRL, wxWebFrame::OnAddressBarEnter)
-    EVT_TEXT_ENTER(ID_SEARCHCTRL, wxWebFrame::OnSearchCtrlEnter)
-    EVT_WEBVIEW_LOAD(wxWebFrame::OnLoadEvent)
-    EVT_WEBVIEW_BEFORE_LOAD(wxWebFrame::OnBeforeLoad)
-    EVT_MENU(ID_BACK, wxWebFrame::OnBack)
-    EVT_MENU(ID_FORWARD, wxWebFrame::OnForward)
-    EVT_MENU(ID_STOP, wxWebFrame::OnStop)
-    EVT_MENU(ID_RELOAD, wxWebFrame::OnReload)
-    EVT_MENU(ID_MAKE_TEXT_LARGER, wxWebFrame::OnMakeTextLarger)
-    EVT_MENU(ID_MAKE_TEXT_SMALLER, wxWebFrame::OnMakeTextSmaller)
-    EVT_MENU(ID_GET_SOURCE, wxWebFrame::OnGetSource)
-    EVT_MENU(ID_SET_SOURCE, wxWebFrame::OnSetSource)
-    EVT_MENU(ID_BROWSE, wxWebFrame::OnBrowse)
-    EVT_MENU(ID_EDIT, wxWebFrame::OnEdit)
-    EVT_MENU(ID_RUN_SCRIPT, wxWebFrame::OnRunScript)
-END_EVENT_TABLE()
-
-
-wxWebFrame::wxWebFrame(const wxString& title) : 
-        wxFrame(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(600, 500)),
-        m_checkBeforeLoad(false)
+wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameData* data) :
+    m_textMagnifier(1.0),
+    m_isEditable(false),
+    m_isInitialized(false),
+    m_beingDestroyed(false),
+    m_title(wxEmptyString)
 {
 
-    // create a menu bar
-    wxMenu *fileMenu = new wxMenu;
-    fileMenu->Append(ID_NEW_WINDOW, _T("New Window\tCTRL+N"));
-    fileMenu->Append(ID_LOADFILE, _T("Open File...\tCTRL+O"));
-    fileMenu->Append(ID_LOADURL, _("Open Location...\tCTRL+L"));
-    fileMenu->Append(wxID_EXIT, _T("E&xit\tAlt-X"), _T("Quit this program"));
+    m_impl = new WebViewPrivate();
+ 
+    WebCore::HTMLFrameOwnerElement* parentFrame = 0;
     
-    wxMenu *editMenu = new wxMenu;
-    editMenu->Append(wxID_CUT, _T("Cut\tCTRL+X"));
-    editMenu->Append(wxID_COPY, _T("Copy\tCTRL+C"));
-    editMenu->Append(wxID_PASTE, _T("Paste\tCTRL+V"));
+    if (data) {
+        parentFrame = data->ownerElement;
+    }
     
-    wxMenu* viewMenu = new wxMenu;
-    viewMenu->AppendRadioItem(ID_BROWSE, _("Browse"));
-    viewMenu->AppendRadioItem(ID_EDIT, _("Edit"));
-    viewMenu->AppendSeparator();
-    viewMenu->Append(ID_STOP, _("Stop"));
-    viewMenu->Append(ID_RELOAD, _("Reload Page"));
-    viewMenu->Append(ID_MAKE_TEXT_SMALLER, _("Make Text Smaller\tCTRL+-"));
-    viewMenu->Append(ID_MAKE_TEXT_LARGER, _("Make Text Bigger\tCTRL++"));
-    viewMenu->AppendSeparator();
-    viewMenu->Append(ID_GET_SOURCE, _("View Page Source"));
-    viewMenu->AppendSeparator();
+    WebCore::FrameLoaderClientWx* loaderClient = new WebCore::FrameLoaderClientWx();
     
-    m_debugMenu = new wxMenu;
-    m_debugMenu->Append(ID_SET_SOURCE, _("Test SetPageSource"));
-    m_debugMenu->Append(ID_RUN_SCRIPT, _("Test RunScript"));
+    m_impl->frame = WebCore::Frame::create(container->m_impl->page, parentFrame, loaderClient);
+    m_impl->frame->deref();
 
-    // the "About" item should be in the help menu
-    wxMenu *helpMenu = new wxMenu;
-    helpMenu->Append(wxID_ABOUT, _T("&About...\tF1"), _T("Show about dialog"));
-
-    // now append the freshly created menu to the menu bar...
-    wxMenuBar *menuBar = new wxMenuBar();
-    menuBar->Append(fileMenu, _T("&File"));
-    menuBar->Append(editMenu, _T("&Edit"));
-    menuBar->Append(viewMenu, _T("&View"));
-    menuBar->Append(helpMenu, _T("&Help"));
-
-    // ... and attach this menu bar to the frame
-    SetMenuBar(menuBar);
+    loaderClient->setFrame(m_impl->frame.get());
+    loaderClient->setWebView(container);
     
-    wxToolBar* toolbar = CreateToolBar();
-    toolbar->SetToolBitmapSize(wxSize(32, 32));
-    
-    wxBitmap back = wxArtProvider::GetBitmap(wxART_GO_BACK, wxART_TOOLBAR, wxSize(32,32));
-    toolbar->AddTool(ID_BACK, back, wxT("Back"));
-    
-    wxBitmap forward = wxArtProvider::GetBitmap(wxART_GO_FORWARD, wxART_TOOLBAR, wxSize(32,32));
-    toolbar->AddTool(ID_FORWARD, forward, wxT("Next"));
-
-    addressBar = new wxTextCtrl(toolbar, ID_TEXTCTRL, _T(""), wxDefaultPosition, wxSize(400, -1), wxTE_PROCESS_ENTER);
-    toolbar->AddControl(addressBar);
-    
-    searchCtrl = new wxSearchCtrl(toolbar, ID_SEARCHCTRL, _("Search"), wxDefaultPosition, wxSize(200, -1), wxTE_PROCESS_ENTER);
-    toolbar->AddControl(searchCtrl);
-    toolbar->Realize();
-    
-    SetToolBar(toolbar);
-
-    // Create the wxWebView Window
-    webview = new wxWebView((wxWindow*)this, 1001, wxDefaultPosition, wxSize(200, 200));
-    webview->SetBackgroundColour(*wxWHITE);
-
-    // create a status bar just for fun (by default with 1 pane only)
-    CreateStatusBar(2);
+    m_impl->frame->init();
+        
+    m_isInitialized = true;
 }
 
 wxWebFrame::~wxWebFrame()
 {
-    if (m_debugMenu && GetMenuBar()->FindMenu(_("&Debug")) == wxNOT_FOUND)
-        delete m_debugMenu;
+    m_impl->frame->loader()->detachFromParent();
 }
 
-void wxWebFrame::ShowDebugMenu(bool show)
+WebCore::Frame* wxWebFrame::GetFrame()
 {
-    int debugMenu = GetMenuBar()->FindMenu(_("&Debug"));
-    if (show && debugMenu == wxNOT_FOUND) {
-        int prevMenu = GetMenuBar()->FindMenu(_("&View"));
-        if (prevMenu != wxNOT_FOUND)
-            GetMenuBar()->Insert((size_t)prevMenu+1, m_debugMenu, _("&Debug"));
-    }
-    else if (!show && debugMenu != wxNOT_FOUND) {
-        GetMenuBar()->Remove(debugMenu);
-    }
-}
-
-// event handlers
-
-void wxWebFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
-{
-    // true is to force the frame to close
-    Close(true);
-}
-
-void wxWebFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
-{
-    wxString msg;
-    msg.Printf(_T("This is the About dialog of the wxWebKit sample.\n")
-               _T("Welcome to %s"), wxVERSION_STRING);
-
-    wxMessageBox(msg, _T("About wxWebKit Sample"), wxOK | wxICON_INFORMATION, this);
-
-}
-
-void wxWebFrame::OnLoadFile(wxCommandEvent& WXUNUSED(event))
-{
-    wxFileDialog* dialog = new wxFileDialog(this, wxT("Choose a file"));
-    if (dialog->ShowModal() == wxID_OK) {  
-        wxString path = dialog->GetPath().Prepend(wxT("file://"));
+    if (m_impl)
+        return m_impl->frame.get();
         
-        if (webview)
-            webview->LoadURL(path);
-    }
+    return 0;
 }
 
-void wxWebFrame::OnLoadEvent(wxWebViewLoadEvent& event)
+void wxWebFrame::Stop()
 {
-    if (GetStatusBar() != NULL){
-        if (event.GetState() == wxWEBVIEW_LOAD_NEGOTIATING) {
-            GetStatusBar()->SetStatusText(_("Contacting ") + event.GetURL());
-        }
-        else if (event.GetState() == wxWEBVIEW_LOAD_TRANSFERRING) {
-            GetStatusBar()->SetStatusText(_("Loading ") + event.GetURL());
-        }
-        else if (event.GetState() == wxWEBVIEW_LOAD_ONLOAD_HANDLED) {
-            GetStatusBar()->SetStatusText(_("Load complete."));
-            addressBar->SetValue(event.GetURL());
-            SetTitle(webview->GetPageTitle());
-        }
-        else if (event.GetState() == wxWEBVIEW_LOAD_FAILED) {
-            GetStatusBar()->SetStatusText(_("Failed to load ") + event.GetURL());
-        }
-    }
+    if (m_impl->frame && m_impl->frame->loader())
+        m_impl->frame->loader()->stop();
 }
 
-void wxWebFrame::OnBeforeLoad(wxWebViewBeforeLoadEvent& myEvent)
+void wxWebFrame::Reload()
 {
-    if (m_checkBeforeLoad) {
-        int reply = wxMessageBox(_("Would you like to continue loading ") + myEvent.GetURL() + wxT("?"), _("Continue Loading?"), wxYES_NO); 
-        if (reply == wxNO) {
-            myEvent.Cancel();
-        }
-    }
+    if (m_impl->frame && m_impl->frame->loader())
+        m_impl->frame->loader()->reload();
 }
 
-void wxWebFrame::OnAddressBarEnter(wxCommandEvent& event)
+wxString wxWebFrame::GetPageSource()
 {
-    if (webview)
-        webview->LoadURL(addressBar->GetValue());
-}
-
-void wxWebFrame::OnSearchCtrlEnter(wxCommandEvent& event)
-{
-    if (webview) {
-        webview->LoadURL(wxString::Format(wxT("http://www.google.com/search?rls=en&q=%s&ie=UTF-8&oe=UTF-8"), searchCtrl->GetValue().wc_str()));
-    }
-}
-
-void wxWebFrame::OnBack(wxCommandEvent& event)
-{
-    if (webview)
-        webview->GoBack();
-}
-
-void wxWebFrame::OnForward(wxCommandEvent& event)
-{
-    if (webview)
-        webview->GoForward();
-}
-
-void wxWebFrame::OnStop(wxCommandEvent& myEvent)
-{
-    if (webview)
-        webview->Stop();
-}
-
-void wxWebFrame::OnReload(wxCommandEvent& myEvent)
-{
-    if (webview)
-        webview->Reload();
-}
-
-void wxWebFrame::OnMakeTextLarger(wxCommandEvent& myEvent)
-{
-    if (webview) {
-        if (webview->CanIncreaseTextSize())
-            webview->IncreaseTextSize();
-    }
-}
-
-void wxWebFrame::OnMakeTextSmaller(wxCommandEvent& myEvent)
-{
-    if (webview) {
-        if (webview->CanDecreaseTextSize())
-            webview->DecreaseTextSize();
-    }
-}
-
-void wxWebFrame::OnGetSource(wxCommandEvent& myEvent)
-{
-    if (webview) {
-        wxPageSourceViewFrame* wxWebFrame = new wxPageSourceViewFrame(webview->GetPageSource());
-        wxWebFrame->Show();
-    }
-}
-
-void wxWebFrame::OnSetSource(wxCommandEvent& event)
-{
-    if (webview)
-        webview->SetPageSource(wxString(wxT("<p>Hello World!</p>")));
-}
-
-void wxWebFrame::OnBrowse(wxCommandEvent& event)
-{
-    if (webview)
-        webview->MakeEditable(!event.IsChecked());
-}
-
-void wxWebFrame::OnEdit(wxCommandEvent& event)
-{
-    if (webview)
-        webview->MakeEditable(event.IsChecked());
-}
-
-void wxWebFrame::OnRunScript(wxCommandEvent& myEvent){
-    if (webview) {
-        wxTextEntryDialog* dialog = new wxTextEntryDialog(this, _("Type in a JavaScript to exectute."));
-        if (dialog->ShowModal() == wxID_OK)
-            wxMessageBox(wxT("Result is: ") + webview->RunScript(dialog->GetValue()));
+    if (m_impl->frame) {
+        if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
+            m_impl->frame->view()->layout();
     
-        dialog->Destroy();
+        WebCore::Document* doc = m_impl->frame->document();
+        
+        if (doc) {
+            wxString source = createMarkup(doc);
+            return source;
+        }
     }
+    return wxEmptyString;
+}
+
+void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
+{
+    if (m_impl->frame && m_impl->frame->loader()) {
+        WebCore::FrameLoader* loader = m_impl->frame->loader();
+        loader->begin(WebCore::KURL(static_cast<const char*>(baseUrl.mb_str(wxConvUTF8))));
+        loader->write(source);
+        loader->end();
+    }
+}
+
+wxString wxWebFrame::GetInnerText()
+{
+    if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
+        m_impl->frame->view()->layout();
+        
+    WebCore::Element *documentElement = m_impl->frame->document()->documentElement();
+    return documentElement->innerText();
+}
+
+wxString wxWebFrame::GetAsMarkup()
+{
+    if (!m_impl->frame || !m_impl->frame->document())
+        return wxEmptyString;
+
+    return createMarkup(m_impl->frame->document());
+}
+
+wxString wxWebFrame::GetExternalRepresentation()
+{
+    if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
+        m_impl->frame->view()->layout();
+
+    return externalRepresentation(m_impl->frame->contentRenderer());
+}
+
+wxString wxWebFrame::RunScript(const wxString& javascript)
+{
+    wxString returnValue = wxEmptyString;
+    if (m_impl->frame) {
+        JSC::JSValue* result = m_impl->frame->loader()->executeScript(javascript, true);
+        if (result)
+            returnValue = wxString(result->toString(m_impl->frame->script()->globalObject()->globalExec()).UTF8String().c_str(), wxConvUTF8);        
+    }
+    return returnValue;
+}
+
+void wxWebFrame::LoadURL(const wxString& url)
+{
+    if (m_impl->frame && m_impl->frame->loader()) {
+        WebCore::KURL kurl = WebCore::KURL(static_cast<const char*>(url.mb_str(wxConvUTF8)));
+        // NB: This is an ugly fix, but CURL won't load sub-resources if the
+        // protocol is omitted; sadly, it will not emit an error, either, so
+        // there's no way for us to catch this problem the correct way yet.
+        if (kurl.protocol().isEmpty()) {
+            // is it a file on disk?
+            if (wxFileExists(url)) {
+                kurl.setProtocol("file");
+                kurl.setPath("//" + kurl.path());
+            }
+            else {
+                kurl.setProtocol("http");
+                kurl.setPath("//" + kurl.path());
+            }
+        }
+        m_impl->frame->loader()->load(kurl);
+    }
+}
+
+bool wxWebFrame::GoBack()
+{
+    if (m_impl->frame && m_impl->frame->page())
+        return m_impl->frame->page()->goBack();
+
+    return false;
+}
+
+bool wxWebFrame::GoForward()
+{
+    if (m_impl->frame && m_impl->frame->page())
+        return m_impl->frame->page()->goForward();
+
+    return false;
+}
+
+bool wxWebFrame::CanGoBack()
+{
+    if (m_impl->frame && m_impl->frame->page() && m_impl->frame->page()->backForwardList())
+        return m_impl->frame->page()->backForwardList()->backItem() != NULL;
+
+    return false;
+}
+
+bool wxWebFrame::CanGoForward()
+{
+    if (m_impl->frame && m_impl->frame->page() && m_impl->frame->page()->backForwardList())
+        return m_impl->frame->page()->backForwardList()->forwardItem() != NULL;
+
+    return false;
+}
+bool wxWebFrame::CanIncreaseTextSize() const
+{
+    if (m_impl->frame) {
+        if (m_textMagnifier*TextSizeMultiplierRatio <= MaximumTextSizeMultiplier)
+            return true;
+    }
+    return false;
+}
+
+void wxWebFrame::IncreaseTextSize()
+{
+    if (CanIncreaseTextSize()) {
+        m_textMagnifier = m_textMagnifier*TextSizeMultiplierRatio;
+        m_impl->frame->setZoomFactor(m_textMagnifier, true);
+    }
+}
+
+bool wxWebFrame::CanDecreaseTextSize() const
+{
+    if (m_impl->frame) {
+        if (m_textMagnifier/TextSizeMultiplierRatio >= MinimumTextSizeMultiplier)
+            return true;
+    }
+    return false;
+}
+
+void wxWebFrame::DecreaseTextSize()
+{        
+    if (CanDecreaseTextSize()) {
+        m_textMagnifier = m_textMagnifier/TextSizeMultiplierRatio;
+        m_impl->frame->setZoomFactor(m_textMagnifier, true);
+    }
+}
+
+void wxWebFrame::MakeEditable(bool enable)
+{
+    m_isEditable = enable;
+}
+
+
+
+bool wxWebFrame::CanCopy()
+{
+    if (m_impl->frame && m_impl->frame->view())
+        return (m_impl->frame->editor()->canCopy() || m_impl->frame->editor()->canDHTMLCopy());
+
+    return false;
+}
+
+void wxWebFrame::Copy()
+{
+    if (CanCopy())
+        m_impl->frame->editor()->copy();
+}
+
+bool wxWebFrame::CanCut()
+{
+    if (m_impl->frame && m_impl->frame->view())
+        return (m_impl->frame->editor()->canCut() || m_impl->frame->editor()->canDHTMLCut());
+
+    return false;
+}
+
+void wxWebFrame::Cut()
+{
+    if (CanCut())
+        m_impl->frame->editor()->cut();
+}
+
+bool wxWebFrame::CanPaste()
+{
+    if (m_impl->frame && m_impl->frame->view())
+        return (m_impl->frame->editor()->canPaste() || m_impl->frame->editor()->canDHTMLPaste());
+
+    return false;
+}
+
+void wxWebFrame::Paste()
+{
+    if (CanPaste())
+        m_impl->frame->editor()->paste();
+
 }

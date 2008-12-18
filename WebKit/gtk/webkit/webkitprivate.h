@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2007 Holger Hans Peter Freyther
- * Copyrifht (C) 2008 Jan Michael C. Alonzo
+ * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Jan Michael C. Alonzo
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,7 +30,6 @@
 #include <webkit/webkitwebview.h>
 #include <webkit/webkitwebframe.h>
 #include <webkit/webkitwebsettings.h>
-#include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitwebbackforwardlist.h>
 
 #include "BackForwardList.h"
@@ -38,6 +37,7 @@
 #include "Settings.h"
 #include "Page.h"
 #include "Frame.h"
+#include "InspectorClientGtk.h"
 #include "FrameLoaderClient.h"
 
 #include <glib.h>
@@ -68,6 +68,7 @@ extern "C" {
     struct _WebKitWebViewPrivate {
         WebCore::Page* corePage;
         WebKitWebSettings* webSettings;
+        WebKitWebInspector* webInspector;
 
         WebKitWebFrame* mainFrame;
         WebCore::String applicationNameForUserAgent;
@@ -84,12 +85,19 @@ extern "C" {
 
         GtkTargetList* copy_target_list;
         GtkTargetList* paste_target_list;
+
+        gboolean transparent;
+
+        GtkAdjustment* horizontalAdjustment;
+        GtkAdjustment* verticalAdjustment;
+
+        gboolean zoomFullContent;
     };
 
     #define WEBKIT_WEB_FRAME_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate))
     typedef struct _WebKitWebFramePrivate WebKitWebFramePrivate;
     struct _WebKitWebFramePrivate {
-        WebCore::Frame* coreFrame;
+        WTF::RefPtr<WebCore::Frame> coreFrame;
         WebCore::FrameLoaderClient* client;
         WebKitWebView* webView;
 
@@ -98,17 +106,20 @@ extern "C" {
         gchar* uri;
     };
 
-    #define WEBKIT_NETWORK_REQUEST_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_NETWORK_REQUEST, WebKitNetworkRequestPrivate))
-    typedef struct _WebKitNetworkRequestPrivate WebKitNetworkRequestPrivate;
-    struct _WebKitNetworkRequestPrivate {
-        gchar* uri;
-    };
-
     WebKitWebFrame*
     webkit_web_frame_init_with_web_view(WebKitWebView*, WebCore::HTMLFrameOwnerElement*);
 
     WebKitWebHistoryItem*
     webkit_web_history_item_new_with_core_item(WebCore::HistoryItem*);
+
+    void
+    webkit_web_inspector_set_inspector_client(WebKitWebInspector*, WebKit::InspectorClient*);
+
+    void
+    webkit_web_inspector_set_web_view(WebKitWebInspector *web_inspector, WebKitWebView *web_view);
+
+    void
+    webkit_web_inspector_set_inspected_uri(WebKitWebInspector* web_inspector, const gchar* inspected_uri);
 
     // FIXME: Move these to webkitwebframe.h once their API has been discussed.
 
@@ -120,6 +131,9 @@ extern "C" {
 
     WEBKIT_API void
     webkit_web_frame_print (WebKitWebFrame* frame);
+
+    WEBKIT_API gchar*
+    webkit_web_frame_dump_render_tree (WebKitWebFrame* frame);
 
     WEBKIT_API gchar*
     webkit_web_view_get_selected_text (WebKitWebView* web_view);

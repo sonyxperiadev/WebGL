@@ -96,9 +96,10 @@ void SVGResourceMasker::applyMask(GraphicsContext* context, const FloatRect& bou
 {
     if (!m_mask)
         m_mask.set(m_ownerElement->drawMaskerContent(boundingBox, m_maskRect).release());
+
     if (!m_mask)
         return;
-    
+
     IntSize maskSize(static_cast<int>(m_maskRect.width()), static_cast<int>(m_maskRect.height()));
     clampImageBufferSizeToViewport(m_ownerElement->document()->renderer(), maskSize);
 
@@ -106,19 +107,20 @@ void SVGResourceMasker::applyMask(GraphicsContext* context, const FloatRect& bou
     auto_ptr<ImageBuffer> grayScaleImage(ImageBuffer::create(maskSize, true));
     if (!grayScaleImage.get())
         return;
-    
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     CGContextRef grayScaleContext = grayScaleImage->context()->platformContext();
     CIContext* ciGrayscaleContext = [CIContext contextWithCGContext:grayScaleContext options:nil];
 
     // Transform colorized mask to gray scale
-    CIImage* colorMask = [CIImage imageWithCGImage:m_mask->cgImage()];
+    CIImage* colorMask = [CIImage imageWithCGImage:m_mask->image()->getCGImageRef()];
     if (!colorMask)
         return;
+
     CIImage* grayScaleMask = transformImageIntoGrayscaleMask(colorMask);
     [ciGrayscaleContext drawImage:grayScaleMask atPoint:CGPointZero fromRect:CGRectMake(0, 0, maskSize.width(), maskSize.height())];
 
-    CGContextClipToMask(context->platformContext(), m_maskRect, grayScaleImage->cgImage());
+    CGContextClipToMask(context->platformContext(), m_maskRect, grayScaleImage->image()->getCGImageRef());
     END_BLOCK_OBJC_EXCEPTIONS
 }
 

@@ -34,6 +34,7 @@
 #include "IntRect.h"
 
 #include "SkCanvas.h"
+#include "SkLayerDrawLooper.h"
 #include "SkPaint.h"
 #include "SkTemplates.h"
 #include "SkTypeface.h"
@@ -41,15 +42,78 @@
 
 namespace WebCore {
 
+static void updateForFont(SkPaint* paint, const SimpleFontData* font) {
+    font->platformData().setupPaint(paint);
+    paint->setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+}
+    
+static SkPaint* setupFill(SkPaint* paint, GraphicsContext* gc,
+                          const SimpleFontData* font) {
+    gc->setupFillPaint(paint);
+    updateForFont(paint, font);
+    return paint;
+}
+    
+static SkPaint* setupStroke(SkPaint* paint, GraphicsContext* gc,
+                            const SimpleFontData* font) {
+    gc->setupStrokePaint(paint);
+    updateForFont(paint, font);
+    return paint;
+}
+    
+static bool setupForText(SkPaint* paint, GraphicsContext* gc,
+                         const SimpleFontData* font) {
+    int mode = gc->textDrawingMode();
+    
+    if ((mode & (cTextFill | cTextStroke)) == (cTextFill | cTextStroke)) {
+        SkLayerDrawLooper* looper = new SkLayerDrawLooper;
+        paint->setLooper(looper)->unref();
+        
+        // we clear the looper, in case we have a shadow
+
+        SkPaint* fillP = NULL;
+        SkPaint* strokeP = NULL;
+        if (gc->willStroke()) {
+            strokeP = setupStroke(looper->addLayer(), gc, font);
+            strokeP->setLooper(NULL);
+        }
+        if (gc->willFill()) {
+            fillP = setupFill(looper->addLayer(), gc, font);
+            fillP->setLooper(NULL);
+        }
+
+        SkPaint shadowPaint;
+        SkPoint offset;
+        if (gc->setupShadowPaint(&shadowPaint, &offset)) {
+            SkPaint* p = looper->addLayer(offset.fX, offset.fY);
+            *p = shadowPaint;
+            if (strokeP && !fillP) {
+                // stroke the shadow if we have stroke but no fill
+                p->setStyle(SkPaint::kStroke_Style);
+                p->setStrokeWidth(strokeP->getStrokeWidth());
+            }
+            updateForFont(p, font);
+        }
+    } else if (mode & cTextFill) {
+        (void)setupFill(paint, gc, font);
+    } else if (mode & cTextStroke) {
+        (void)setupStroke(paint, gc, font);
+    } else {
+        return false;
+    }
+    return true;
+}
+    
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                       const GlyphBuffer& glyphBuffer,  int from, int numGlyphs,
                       const FloatPoint& point) const {
-    SkCanvas*   canvas = gc->platformContext()->mCanvas;
-    SkPaint     paint;
+    SkPaint paint;
 
-    font->platformData().setupPaint(&paint);
-    paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
-    paint.setColor(gc->fillColor().rgb());
+    if (!setupForText(&paint, gc, font)) {
+        return;
+    }
+    
+    SkCanvas*   canvas = gc->platformContext()->mCanvas;
 
     SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t));  // compile-time assert
 
@@ -57,6 +121,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     SkScalar                    x = SkFloatToScalar(point.x());
     SkScalar                    y = SkFloatToScalar(point.y());
 
+#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
     if (glyphBuffer.hasAdjustedWidths()) {
         const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
         SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
@@ -68,9 +133,9 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
             y += SkFloatToScalar(adv[i].height());
         }
         canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
-    } else {
+    } else
+#endif
         canvas->drawText(glyphs, numGlyphs << 1, x, y, paint);
-    }
 }
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& point, int h, int, int) const
@@ -95,16 +160,9 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run, FloatPoint c
     SkCanvas*   canvas = gc->platformContext()->mCanvas;
     SkPaint     paint;
 
-    primaryFont()->platformData().setupPaint(&paint);
-    paint.setColor(gc->fillColor().rgb());
-
-#if 0
-    int n = run.to() - run.from();
-printf("------------- complex draw %d chars", n);
-    for (int i = 0; i < n; i++)
-        printf(" %04X", run.data(run.from())[i]);
-    printf("\n");
-#endif
+    if (!setupForText(&paint, gc, primaryFont())) {
+        return;
+    }
 
     canvas->drawText(run.characters(), run.length() << 1,
                      SkFloatToScalar(point.x()), SkFloatToScalar(point.y()),

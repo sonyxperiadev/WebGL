@@ -155,13 +155,14 @@ WebCore::Color android_SkPMColorToWebCoreColor(SkPMColor pm)
 {
     SkColor c = SkPMColorToColor(pm);
     
-    return WebCore::Color(SkColorGetR(c), SkColorGetG(c), SkColorGetB(c), SkColorGetA(c));
+    // need the cast to find the right constructor
+    return WebCore::Color((int)SkColorGetR(c), (int)SkColorGetG(c),
+                          (int)SkColorGetB(c), (int)SkColorGetA(c));
 }
 
 const static SkColor focusOuterColors[] = {
     SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal focus ring select
     SkColorSetARGB(0xff, 0x46, 0xb0, 0x00), // fake focus ring select, for phone, email, text
-    SkColorSetARGB(0x00, 0x00, 0x00, 0x00), // no ring, for buttons
     SkColorSetARGB(0xff, 0xb0, 0x16, 0x00), // invalid focus ring color
     SkColorSetARGB(0xff, 0xAD, 0x5C, 0x0A), // normal focus ring pressed
     SkColorSetARGB(0xff, 0x36, 0xc0, 0x00)  // fake focus ring pressed
@@ -170,7 +171,6 @@ const static SkColor focusOuterColors[] = {
 const static SkColor focusInnerColors[] = {
     SkColorSetARGB(0xff, 0xFE, 0x92, 0x30), // normal focus ring select
     SkColorSetARGB(0xff, 0x8c, 0xd9, 0x00), // fake focus ring select, for phone, email, text
-    SkColorSetARGB(0x00, 0x00, 0x00, 0x00), // no ring, for buttons
     SkColorSetARGB(0xff, 0xd9, 0x2c, 0x00), // invalid focus ring color
     SkColorSetARGB(0xff, 0xFE, 0xBD, 0x3A), // normal focus ring pressed
     SkColorSetARGB(0xff, 0x7c, 0xe9, 0x00)  // fake focus ring pressed
@@ -178,8 +178,7 @@ const static SkColor focusInnerColors[] = {
 
 const static SkColor focusPressedColors[] = {
     SkColorSetARGB(0x80, 0xFF, 0xC6, 0x4B), // normal focus ring pressed
-    SkColorSetARGB(0x80, 0x7c, 0xe9, 0x00), // fake focus ring pressed
-    SkColorSetARGB(0x80, 0xFF, 0xC6, 0x4B)  // button focus ring pressed
+    SkColorSetARGB(0x80, 0x7c, 0xe9, 0x00)  // fake focus ring pressed
 };
 
 #define FOCUS_RING_ROUNDEDNESS SkIntToScalar(5) // used to draw corners
@@ -209,8 +208,6 @@ void FocusRing::DrawRing(SkCanvas* canvas,
         paint.setColor(focusPressedColors[flavor - NORMAL_ANIMATING]);
         canvas->drawPath(path, paint);
     }
-    if (flavor == BUTTON_ANIMATING)
-        return;
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setStrokeWidth(FOCUS_RING_OUTER_DIAMETER);
     paint.setColor(focusOuterColors[flavor]);

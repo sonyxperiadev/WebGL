@@ -29,7 +29,7 @@
 #ifndef WebKitStatistics_h
 #define WebkitStatistics_h
 
-#include "IWebKitStatistics.h"
+#include "WebKit.h"
 
 class WebKitStatistics : public IWebKitStatistics {
 public:
@@ -62,6 +62,9 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE comClassCount( 
         /* [retval][out] */ int *classCount);
+
+    virtual HRESULT STDMETHODCALLTYPE comClassNameCounts( 
+        /* [retval][out] */ BSTR *output);
 
 protected:
     ULONG m_refCount;

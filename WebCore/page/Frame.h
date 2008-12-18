@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 4 -*-
 /*
  * Copyright (C) 1998, 1999 Torben Weis <weis@kde.org>
  *                     1999-2001 Lars Knoll <knoll@kde.org>
@@ -6,8 +5,9 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,101 +28,54 @@
 #ifndef Frame_h
 #define Frame_h
 
-#include "Color.h"
-#include "EditAction.h"
 #include "DragImage.h"
+#include "EditAction.h"
 #include "RenderLayer.h"
 #include "TextGranularity.h"
-#include "VisiblePosition.h"
-#include <wtf/unicode/Unicode.h>
-#include <wtf/Forward.h>
-#include <wtf/Vector.h>
-#include "RenderObject.h"
-
-struct NPObject;
-
-namespace KJS {
-
-    class Interpreter;
-    class JSGlobalObject;
-
-    namespace Bindings {
-        class Instance;
-        class RootObject;
-    }
-
-}
 
 #if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSArray;
-@class NSDictionary;
-@class NSMenu;
-@class NSMutableDictionary;
-@class NSString;
-@class WebCoreFrameBridge;
-@class WebScriptObject;
-#else
+#ifndef __OBJC__
 class NSArray;
 class NSDictionary;
-class NSMenu;
 class NSMutableDictionary;
 class NSString;
-class WebCoreFrameBridge;
-class WebScriptObject;
 typedef int NSWritingDirection;
 #endif
 #endif
 
+#if PLATFORM(ANDROID)
+#include "CacheBuilder.h"
+#endif
+
 namespace WebCore {
 
-class AnimationController;
-class CSSComputedStyleDeclaration;
-class CSSMutableStyleDeclaration;
-class CSSStyleDeclaration;
-class DOMWindow;
-class Document;
 class Editor;
-class Element;
 class EventHandler;
-class FloatRect;
 class FrameLoader;
 class FrameLoaderClient;
-class HTMLFrameOwnerElement;
-class HTMLTableCellElement;
 class FramePrivate;
 class FrameTree;
-class FrameView;
-class GraphicsContext;
-class HTMLFormElement;
-class IntRect;
-class KJSProxy;
-class KURL;
-class Node;
-class Page;
-class Range;
+class HTMLFrameOwnerElement;
+class HTMLTableCellElement;
+class ScriptController;
+class RegularExpression;
 class RenderPart;
 class Selection;
 class SelectionController;
-class Settings;
 class Widget;
-
-struct FrameLoadRequest;
 
 template <typename T> class Timer;
 
 class Frame : public RefCounted<Frame> {
 public:
-    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
-    virtual void setView(FrameView*);
-    virtual ~Frame();
-    
-    void init();
+    static PassRefPtr<Frame> create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
+    {
+        return adoptRef(new Frame(page, ownerElement, client));
+    }
+    void setView(FrameView*);
+    ~Frame();
 
-#if PLATFORM(MAC)    
-    void setBridge(WebCoreFrameBridge*);
-    WebCoreFrameBridge* bridge() const;
-#endif
+    void init();
 
     Page* page() const;
     HTMLFrameOwnerElement* ownerElement() const;
@@ -134,21 +87,24 @@ public:
     FrameView* view() const;
 
     DOMWindow* domWindow() const;
+    void clearFormerDOMWindow(DOMWindow*);
     Editor* editor() const;
     EventHandler* eventHandler() const;
     FrameLoader* loader() const;
-    SelectionController* selectionController() const;
+    SelectionController* selection() const;
     FrameTree* tree() const;
-    AnimationController* animationController() const;
+    AnimationController* animation() const;
+    ScriptController* script();
 
-    // FIXME: Rename to contentRenderer and change type to RenderView.
-    RenderObject* renderer() const; // root renderer for the document contained in this frame
-    RenderPart* ownerRenderer(); // renderer for the element that contains this frame
+    RenderView* contentRenderer() const; // root renderer for the document contained in this frame
+    RenderPart* ownerRenderer() const; // renderer for the element that contains this frame
+    
+    bool isDisconnected() const;
+    void setIsDisconnected(bool);
+    bool excludeFromTextSearch() const;
+    void setExcludeFromTextSearch(bool);
 
     friend class FramePrivate;
-#ifdef ANDROID_BRIDGE
-    friend class FrameAndroid;
-#endif
 
 #ifdef ANDROID_INSTRUMENT
     void resetTimeCounter();
@@ -166,13 +122,13 @@ private:
 
     void resetLayoutTimeCounter();
     void reportLayoutTimeCounter();
-    
+
     void resetPaintTimeCounter();
     void reportPaintTimeCounter();
-        
+
     void resetSharedTimerTimeCounter();
     void reportSharedTimerTimeCounter();
-    
+
     void resetResourceLoadTimeCounter();
     void reportResourceLoadTimeCounter();
 
@@ -184,6 +140,8 @@ private:
 #endif
 
 private:
+    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
+
     FramePrivate* d;
     
 // === undecided, would like to consider moving to another class
@@ -208,25 +166,10 @@ public:
     static void cancelAllKeepAlive();
 #endif
 
-    KJS::Bindings::Instance* createScriptInstanceForWidget(Widget*);
-    KJS::Bindings::RootObject* bindingRootObject();
-    
-    PassRefPtr<KJS::Bindings::RootObject> createRootObject(void* nativeHandle, KJS::JSGlobalObject*);
-
-#if PLATFORM(MAC)
-    WebScriptObject* windowScriptObject();
-#endif
-
-#if USE(NPOBJECT)
-    NPObject* windowScriptNPObject();
-#endif    
-    
     void setDocument(PassRefPtr<Document>);
 
-    KJSProxy* scriptProxy();
-
     void clearTimers();
-    static void clearTimers(FrameView*);
+    static void clearTimers(FrameView*, Document*);
 
     // Convenience, to avoid repeating the code to dig down to get this.
     UChar backslashAsCurrencySymbol() const;
@@ -237,19 +180,13 @@ public:
 
     String documentTypeString() const;
 
-    void dashboardRegionsChanged();
-
-    void clearScriptProxy();
+    // This method -- and the corresponding list of former DOM windows --
+    // should move onto ScriptController
     void clearDOMWindow();
 
-    void clearScriptObjects();
-    void cleanupScriptObjectsForPlugin(void*);
-
 private:
-    void clearPlatformScriptObjects();
-
     void lifeSupportTimerFired(Timer<Frame>*);
-    
+
 // === to be moved into Document
 
 public:
@@ -263,26 +200,19 @@ public:
 
 // === to be moved into FrameView
 
-public:
-    void paint(GraphicsContext*, const IntRect&);
-    void setPaintRestriction(PaintRestriction);
-    bool isPainting() const;
-
-    static double currentPaintTimeStamp() { return s_currentPaintTimeStamp; } // returns 0 if not painting
-    
+public: 
     void forceLayout(bool allowSubtree = false);
     void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth, bool adjustViewSize);
 
     void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
 
-    void setZoomFactor(int percent);
-    int zoomFactor() const; // FIXME: This is a multiplier for text size only; needs a better name.
-
-    bool prohibitsScrolling() const;
-    void setProhibitsScrolling(const bool);
-
-private:
-    static double s_currentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
+    void setZoomFactor(float scale, bool isTextOnly);
+    float zoomFactor() const;
+    bool isZoomFactorTextOnly() const;
+    bool shouldApplyTextZoom() const;
+    bool shouldApplyPageZoom() const;
+    float pageZoomFactor() const { return shouldApplyPageZoom() ? zoomFactor() : 1.0f; }
+    float textZoomFactor() const { return shouldApplyTextZoom() ? zoomFactor() : 1.0f; }
 
 // === to be moved into Chrome
 
@@ -324,7 +254,7 @@ public:
     bool markedTextMatchesAreHighlighted() const;
     void setMarkedTextMatchesAreHighlighted(bool flag);
 
-    CSSComputedStyleDeclaration* selectionComputedStyle(Node*& nodeToRemove) const;
+    PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
 
     void textFieldDidBeginEditing(Element*);
     void textFieldDidEndEditing(Element*);
@@ -395,31 +325,35 @@ public:
     NSString* searchForLabelsBeforeElement(NSArray* labels, Element*);
     NSString* matchLabelsAgainstElement(NSArray* labels, Element*);
 
+#if ENABLE(DASHBOARD_SUPPORT)
     NSMutableDictionary* dashboardRegionsDictionary();
-
-    void willPopupMenu(NSMenu*);
+#endif
 
     NSImage* selectionImage(bool forceBlackText = false) const;
     NSImage* snapshotDragImage(Node*, NSRect* imageRect, NSRect* elementRect) const;
+    NSImage* nodeImage(Node*) const;
 
 private:    
     NSImage* imageFromRect(NSRect) const;
-
-// === to be moved into Chrome
-
-public:
-    FloatRect customHighlightLineRect(const AtomicString& type, const FloatRect& lineRect, Node*);
-    void paintCustomHighlight(const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect, bool text, bool line, Node*);
 
 // === to be moved into Editor
 
 public:
     NSDictionary* fontAttributesForSelectionStart() const;
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
-    void issuePasteCommand();
 
 #endif
 
+#if PLATFORM(ANDROID)
+
+public:
+    CacheBuilder& getCacheBuilder() { return m_cacheBuilder; }
+
+private:
+    CacheBuilder m_cacheBuilder;
+    friend class CacheBuilder;
+
+#endif
 };
 
 } // namespace WebCore

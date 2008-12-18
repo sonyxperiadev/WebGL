@@ -81,13 +81,12 @@ LayoutState::LayoutState(LayoutState* prev, RenderBox* renderer, const IntSize& 
 }
 
 LayoutState::LayoutState(RenderObject* root)
+    : m_clipped(false)
 {
     RenderObject* container = root->container();
-    m_clipped = true;
-    m_clipRect = container->absoluteClippedOverflowRect();
     int x = 0;
     int y = 0;
-    container->absolutePosition(x, y);
+    container->absolutePositionForContent(x, y);
     m_offset = IntSize(x, y);
     m_next = 0;
 }

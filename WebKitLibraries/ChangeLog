@@ -1,8 +1,314 @@
-2008-02-15  Mark Rowe  <mrowe@apple.com>
+2008-10-23  Anders Carlsson  <andersca@apple.com>
 
-        Merge r30084 to Safari-3-1-branch.
+        Reviewed by John Sullivan.
 
-    2008-02-07  Ada Chan  <adachan@apple.com>
+        Fix <rdar://problem/6306513> by adding a workaround for <rdar://problem/6304600>.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Jon Honeycutt.
+
+        Remove restriction on version number ending in a 4.
+
+        * win/tools/scripts/auto-version.sh:
+
+2008-10-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Mitz Pettel.
+
+        Update WebKitSystemInterface.
+        
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-09-09  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        - WebKitLibraries part of <rdar://problem/6206244> Use alternate character-to-glyph interface on Leopard
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+
+2008-09-04  Adam Roben  <aroben@apple.com>
+
+        Ignore warning LNK4221 on Windows
+
+        This warning is emitted when an object file with no public symbols is
+        passed to the linker/librarian. This often occurs in WebCore for files
+        that have been disabled via ENABLE()/USE() macros.
+
+        Rubberstamped by Anders Carlsson.
+
+        * win/tools/vsprops/common.vsprops: Ignore warning LNK4221.
+
+2008-08-27  Timothy Hatcher  <timothy@apple.com>
+
+        Adds the WKAdvanceDefaultButtonPulseAnimation function.
+
+        <rdar://problem/6173530> Add Mac support for -webkit-appearance: default-button
+
+        Reviewed by Adele Peterson.
+
+        * WebKitSystemInterface.h: Added WKAdvanceDefaultButtonPulseAnimation.
+        * libWebKitSystemInterfaceLeopard.a: Updated.
+        * libWebKitSystemInterfaceTiger.a: Updated.
+
+2008-08-26  Adam Roben  <aroben@apple.com>
+
+        Disable a truncation warning that is disabled/doesn't exist on Mac
+
+        This warning was firing when initializing floats from double literals.
+        I haven't yet found any other situation that would cause this warning
+        to arise.
+
+        Reviewed by Sam Weinig.
+
+        * win/tools/vsprops/common.vsprops: Turn off warning C4305.
+
+2008-07-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Build fix.
+
+        * win/tools/vsprops/common.vsprops:
+
+2008-07-08  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        - WebKitSystemInterface part of <rdar://problem/6008409> Need a way to disable updates in offscreen views
+
+        * WebKitSystemInterface.h: Added WKWindowWillOrderOnScreenNotification.
+        * libWebKitSystemInterfaceLeopard.a: Updated.
+        * libWebKitSystemInterfaceTiger.a: Updated.
+
+2008-07-01  Steve Falkenburg  <sfalken@apple.com>
+
+        Bump version numbers.
+        
+        Reviewed by Mark Rowe.
+
+        * win/tools/scripts/PRODUCTVERSION:
+        * win/tools/scripts/VERSION:
+
+2008-05-13  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        - WebKitSystemInterface support for <rdar://problem/5725912> improve render quality of transformed text
+
+        * libWebKitSystemInterfaceLeopard.a: Improved glyph positioning in
+        transformed graphics contexts.
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h: Added
+        wkSetCGContextFontRenderingStyle().
+        * win/lib/WebKitSystemInterface.lib: Updated.
+        * win/lib/WebKitSystemInterface_debug.lib: Updated.
+
+2008-05-09  Adam Roben  <aroben@apple.com>
+
+        Disable a MSVC warning
+
+        Reviewed by Darin Adler.
+
+        * win/tools/vsprops/common.vsprops: Add warning 4503 to the list of
+        disabled warnings. It's a warning about decorated names being longer
+        than MSVC's limit of 4096 characters. This warning doesn't indicate a
+        correctness problem, but these truncated decorated names will be
+        harder to recognize during debugging or when they appear in linker
+        errors.
+
+2008-04-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam.
+
+        - fix Windows build
+
+        * win/tools/vsprops/common.vsprops: Add warning 4344 to the list of disabled warnings.
+        It's really a warning about a bug they fixed in MSVC -- not helpful to us in WebKit.
+
+2008-04-24  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove code for calculating the glyph cache size.
+
+        * WebKitSystemInterface.h: Remove unused symbol.
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-03-28  Steve Falkenburg  <sfalken@apple.com>
+
+        Versioning.
+
+        * win/tools/scripts/PRODUCTVERSION:
+
+2008-03-26  Adam Roben  <aroben@apple.com>
+
+        Windows build fix after r31322
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h: Updated.
+        * win/lib/WebKitSystemInterface.lib: Updated.
+        * win/lib/WebKitSystemInterface_debug.lib: Updated.
+
+2008-03-26  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Make the Ahem font antialias correctly on Acid3 on Tiger.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-03-19  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Fix http://bugs.webkit.org/show_bug.cgi?id=17816.
+        Bug 17816: libWebCoreSQLite3.a is 2-architecture universal binary (not 4-architecture)
+
+        * libWebCoreSQLite3.a:  Land a 4-way fat binary.
+
+2008-03-12  Steve Falkenburg  <sfalken@apple.com>
+
+        New version of WebKitSystemInterface.lib with
+        more compiler warnings suppressed.
+
+        * win/lib/WebKitSystemInterface.lib:
+        * win/tools/vsprops/common.vsprops:
+
+2008-03-12  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler and Sam Weinig.
+
+        - <rdar://problem/4433248> use CoreText API instead of SPI on Leopard
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+
+2008-03-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Disable two PGO/LTCG specific warnings.
+        
+        Reviewed by Oliver.
+
+        * win/tools/vsprops/common.vsprops:
+
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Update Tiger version of WebKitSystemInterface to match r30690.
+
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-29  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Mark.
+
+        Auto-generate image arrays.
+
+        * libWebKitSystemInterfaceLeopard.a:
+
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Replace use of WKPathFromFont with implementation in terms of public API.
+
+        * WebKitSystemInterface.h:  Remove unused symbol.
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fix spelling of "request" in name of WKNSURLProtocolClassForRequest.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Don't use WKSupportsMultipartXMixedReplace on Leopard as multipart/x-mixed-replace is always handled by NSURLRequest.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt and Oliver Hunt.
+
+        <rdar://problem/4753845> WebKit should use CGEventSourceSecondsSinceLastEventType in place of WKSecondsSinceLastInputEvent SPI.
+
+        * WebKitSystemInterface.h:  Remove unused symbol.
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-28  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Remove two unused functions from WebKitSystemInterface.
+
+        * WebKitSystemInterface.h:  Remove WKPreferRGB32Key and WKGetDefaultGlyphForChar as they are unused. Also remove
+        a duplicate declaration of WKSecondsSinceLastInputEvent.
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-28  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Make use of new CGFont APIs on Leopard rather than making a WebKitSystemInterface call.
+
+        * WebKitSystemInterface.h:  Only declare WKGetFontMetrics on Tiger.
+        * libWebKitSystemInterfaceLeopard.a:  Update for removal of WKGetFontMetrics.
+
+2008-02-27  Brady Eidson  <beidson@apple.com>
+
+        Tiger build fix
+
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-27  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Mark Rowe
+
+        Removed some unused methods:
+        WKGetNSURLResponseCalculatedExpiration
+        WKGetNSURLResponseMustRevalidate
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2008-02-13  Adam Roben  <aroben@apple.com>
+
+        * win/tools/scripts/auto-version.sh: Removed a redundant symbol.
+
+2008-02-12  Adam Roben  <aroben@apple.com>
+
+        Clean up auto-version.sh a bit
+
+        It now does quite a bit less file I/O and many fewer fork/exec pairs.
+        It's also quite a bit easier to read.
+
+        Reviewed by Steve.
+
+        * win/tools/scripts/auto-version.sh:
+
+2008-02-12  Steve Falkenburg  <sfalken@apple.com>
+
+        Versioning script change.
+
+        * win/tools/scripts/auto-version.sh:
+
+2008-02-07  Ada Chan  <adachan@apple.com>
 
         Added 4 new methods:
         wkSetClientCertificateInSSLProperties, 
@@ -90,7 +396,7 @@
 
         Use shared vsprops for most vcproj properties.
         
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * win/tools/vsprops/common.vsprops:
         * win/tools/vsprops/debug.vsprops:
@@ -244,7 +550,7 @@
 
 2007-11-02  Antti Koivisto  <antti@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
         
         Update to add WKQTMovieViewSetDrawSynchronously
 
@@ -337,7 +643,7 @@
         <rdar://problem/5534421>
         Added wkGetDefaultHTTPCookieStorage().  Updated libraries.
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
         * win/lib/WebKitSystemInterface.lib:
@@ -445,7 +751,7 @@
 
 2007-03-27  Antti Koivisto  <antti@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
         
         Added wkGetWheelEventDeltas
 
@@ -512,7 +818,7 @@
 
 2006-07-09  Anders Carlsson  <acarlsson@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * WebKitSystemInterface.h:
         * libWebKitSystemInterface.a:

@@ -1,8 +1,6 @@
 /*
-    Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+    Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+                  2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -43,13 +41,15 @@
 
 namespace WebCore {
 
+char SVGTextContentElementIdentifier[] = "SVGTextContentElement";
+
 SVGTextContentElement::SVGTextContentElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_textLength(this, LengthModeOther)
-    , m_lengthAdjust(LENGTHADJUST_SPACING)
+    , m_textLength(this, SVGNames::textLengthAttr, LengthModeOther)
+    , m_lengthAdjust(this, SVGNames::lengthAdjustAttr, LENGTHADJUST_SPACING)
 {
 }
 
@@ -57,12 +57,12 @@ SVGTextContentElement::~SVGTextContentElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextContentElement, SVGLength, Length, length, TextLength, textLength, SVGNames::textLengthAttr, m_textLength)
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextContentElement, int, Enumeration, enumeration, LengthAdjust, lengthAdjust, SVGNames::lengthAdjustAttr, m_lengthAdjust)
-
-static inline float cummulatedCharacterRangeLength(const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end, SVGInlineTextBox* textBox,
+static inline float cumulativeCharacterRangeLength(const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end, SVGInlineTextBox* textBox,
                                                    int startOffset, long startPosition, long length, bool isVerticalText, long& atCharacter)
 {
+    if (!length)
+        return 0.0f;
+
     float textLength = 0.0f;
     RenderStyle* style = textBox->textObject()->style();
 
@@ -73,20 +73,23 @@ static inline float cummulatedCharacterRangeLength(const Vector<SVGChar>::iterat
             unsigned int newOffset = textBox->start() + (it - start) + startOffset;
 
             // Take RTL text into account and pick right glyph width/height.
-            if (textBox->m_reversed)
+            if (textBox->direction() == RTL)
                 newOffset = textBox->start() + textBox->end() - newOffset;
 
+            // FIXME: does this handle multichar glyphs ok? not sure
+            int charsConsumed = 0;
+            String glyphName;
             if (isVerticalText)
-                textLength += textBox->calculateGlyphHeight(style, newOffset);
+                textLength += textBox->calculateGlyphHeight(style, newOffset, 0);
             else
-                textLength += textBox->calculateGlyphWidth(style, newOffset);
+                textLength += textBox->calculateGlyphWidth(style, newOffset, 0, charsConsumed, glyphName);
         }
 
         if (!usesFullRange) {
-            if (atCharacter < startPosition + length)
-                atCharacter++;
-            else if (atCharacter == startPosition + length)
+            if (atCharacter == startPosition + length - 1)
                 break;
+
+            atCharacter++;
         }
     }
 
@@ -136,7 +139,7 @@ struct SVGInlineTextBoxQueryWalker {
         }
         case TextLength:
         {
-            float textLength = cummulatedCharacterRangeLength(start, end, textBox, startOffset, -1, -1, isVerticalText, m_atCharacter);
+            float textLength = cumulativeCharacterRangeLength(start, end, textBox, startOffset, -1, -1, isVerticalText, m_atCharacter);
 
             if (isVerticalText)
                 m_queryFloatResult += textLength;
@@ -151,7 +154,7 @@ struct SVGInlineTextBoxQueryWalker {
             long startPosition = m_queryStartPosition;
             long length = m_queryLength;
 
-            float textLength = cummulatedCharacterRangeLength(start, end, textBox, startOffset, startPosition, length, isVerticalText, m_atCharacter);
+            float textLength = cumulativeCharacterRangeLength(start, end, textBox, startOffset, startPosition, length, isVerticalText, m_atCharacter);
 
             if (isVerticalText)
                 m_queryFloatResult += textLength;
@@ -187,13 +190,18 @@ struct SVGInlineTextBoxQueryWalker {
                     unsigned int newOffset = textBox->start() + (it - start) + startOffset;
 
                     // Take RTL text into account and pick right glyph width/height.
-                    if (textBox->m_reversed)
+                    if (textBox->direction() == RTL)
                         newOffset = textBox->start() + textBox->end() - newOffset;
 
+                    int charsConsumed;
+                    String glyphName;
+                    // calculateGlyph{Height,Width} will consume at least one character. This is the number of characters available
+                    // to them beyond that first one.
+                    int extraCharactersAvailable = end - it - 1;
                     if (isVerticalText)
-                        m_queryPointResult.move(it->x, it->y + textBox->calculateGlyphHeight(style, newOffset));
+                        m_queryPointResult.move(it->x, it->y + textBox->calculateGlyphHeight(style, newOffset, extraCharactersAvailable));
                     else
-                        m_queryPointResult.move(it->x + textBox->calculateGlyphWidth(style, newOffset), it->y);
+                        m_queryPointResult.move(it->x + textBox->calculateGlyphWidth(style, newOffset, extraCharactersAvailable, charsConsumed, glyphName), it->y);
 
                     m_stopProcessing = true;
                     return;
@@ -363,17 +371,24 @@ static inline SVGInlineTextBoxQueryWalker executeTextQuery(const SVGTextContentE
 
 long SVGTextContentElement::getNumberOfChars() const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     return executeTextQuery(this, SVGInlineTextBoxQueryWalker::NumberOfCharacters).longResult();
 }
 
 float SVGTextContentElement::getComputedTextLength() const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     return executeTextQuery(this, SVGInlineTextBoxQueryWalker::TextLength).floatResult();
 }
 
-float SVGTextContentElement::getSubStringLength(long charnum, unsigned long nchars, ExceptionCode& ec) const
+float SVGTextContentElement::getSubStringLength(long charnum, long nchars, ExceptionCode& ec) const
 {
-    if (charnum < 0 || charnum > getNumberOfChars()) {
+    document()->updateLayoutIgnorePendingStylesheets();
+
+    long numberOfChars = getNumberOfChars();
+    if (charnum < 0 || nchars < 0 || charnum >= numberOfChars) {
         ec = INDEX_SIZE_ERR;
         return 0.0f;
     }
@@ -383,6 +398,8 @@ float SVGTextContentElement::getSubStringLength(long charnum, unsigned long ncha
 
 FloatPoint SVGTextContentElement::getStartPositionOfChar(long charnum, ExceptionCode& ec) const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     if (charnum < 0 || charnum > getNumberOfChars()) {
         ec = INDEX_SIZE_ERR;
         return FloatPoint();
@@ -393,6 +410,8 @@ FloatPoint SVGTextContentElement::getStartPositionOfChar(long charnum, Exception
 
 FloatPoint SVGTextContentElement::getEndPositionOfChar(long charnum, ExceptionCode& ec) const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     if (charnum < 0 || charnum > getNumberOfChars()) {
         ec = INDEX_SIZE_ERR;
         return FloatPoint();
@@ -403,6 +422,8 @@ FloatPoint SVGTextContentElement::getEndPositionOfChar(long charnum, ExceptionCo
 
 FloatRect SVGTextContentElement::getExtentOfChar(long charnum, ExceptionCode& ec) const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     if (charnum < 0 || charnum > getNumberOfChars()) {
         ec = INDEX_SIZE_ERR;
         return FloatRect();
@@ -413,6 +434,8 @@ FloatRect SVGTextContentElement::getExtentOfChar(long charnum, ExceptionCode& ec
 
 float SVGTextContentElement::getRotationOfChar(long charnum, ExceptionCode& ec) const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     if (charnum < 0 || charnum > getNumberOfChars()) {
         ec = INDEX_SIZE_ERR;
         return 0.0f;
@@ -423,13 +446,15 @@ float SVGTextContentElement::getRotationOfChar(long charnum, ExceptionCode& ec) 
 
 long SVGTextContentElement::getCharNumAtPosition(const FloatPoint& point) const
 {
+    document()->updateLayoutIgnorePendingStylesheets();
+
     return executeTextQuery(this, SVGInlineTextBoxQueryWalker::CharacterNumberAtPosition, 0.0f, 0.0f, point).longResult();
 }
 
 void SVGTextContentElement::selectSubString(long charnum, long nchars, ExceptionCode& ec) const
 {
     long numberOfChars = getNumberOfChars();
-    if (charnum < 0 || nchars < 0 || charnum > numberOfChars) {
+    if (charnum < 0 || nchars < 0 || charnum >= numberOfChars) {
         ec = INDEX_SIZE_ERR;
         return;
     }
@@ -440,7 +465,7 @@ void SVGTextContentElement::selectSubString(long charnum, long nchars, Exception
     ASSERT(document());
     ASSERT(document()->frame());
 
-    SelectionController* controller = document()->frame()->selectionController();
+    SelectionController* controller = document()->frame()->selection();
     if (!controller)
         return;
 
@@ -465,8 +490,8 @@ void SVGTextContentElement::parseMappedAttribute(MappedAttribute* attr)
         else if (attr->value() == "spacingAndGlyphs")
             setLengthAdjustBaseValue(LENGTHADJUST_SPACINGANDGLYPHS);
     } else if (attr->name() == SVGNames::textLengthAttr) {
-        setTextLengthBaseValue(SVGLength(this, LengthModeOther, attr->value()));
-        if (textLength().value() < 0.0)
+        setTextLengthBaseValue(SVGLength(LengthModeOther, attr->value()));
+        if (textLengthBaseValue().value(this) < 0.0)
             document()->accessSVGExtensions()->reportError("A negative value for text attribute <textLength> is not allowed");
     } else {
         if (SVGTests::parseMappedAttribute(attr))
@@ -476,9 +501,9 @@ void SVGTextContentElement::parseMappedAttribute(MappedAttribute* attr)
                 static const AtomicString preserveString("preserve");
 
                 if (attr->value() == preserveString)
-                    addCSSProperty(attr, CSS_PROP_WHITE_SPACE, CSS_VAL_PRE);
+                    addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValuePre);
                 else
-                    addCSSProperty(attr, CSS_PROP_WHITE_SPACE, CSS_VAL_NOWRAP);
+                    addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValueNowrap);
             }
             return;
         }
@@ -489,8 +514,16 @@ void SVGTextContentElement::parseMappedAttribute(MappedAttribute* attr)
     }
 }
 
+bool SVGTextContentElement::isKnownAttribute(const QualifiedName& attrName)
+{
+    return (attrName.matches(SVGNames::lengthAdjustAttr) ||
+            attrName.matches(SVGNames::textLengthAttr) ||
+            SVGTests::isKnownAttribute(attrName) ||
+            SVGLangSpace::isKnownAttribute(attrName) ||
+            SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
+            SVGStyledElement::isKnownAttribute(attrName));
+}
+
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

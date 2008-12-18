@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reseved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,32 +24,27 @@
 #include <kjs/protect.h>
 #include <wtf/Vector.h>
 
-namespace KJS {
-    class Window;
-    class JSValue;
-    class List;
-}
-
 namespace WebCore {
 
-  /**
-   * An action (either function or string) to be executed after a specified
-   * time interval, either once or repeatedly. Used for window.setTimeout()
-   * and window.setInterval()
-   */
+    class JSDOMWindowShell;
+
+   /* An action (either function or string) to be executed after a specified
+    * time interval, either once or repeatedly. Used for window.setTimeout()
+    * and window.setInterval()
+    */
     class ScheduledAction {
     public:
-        ScheduledAction(KJS::JSValue* func, const KJS::List& args);
+        ScheduledAction(JSC::ExecState* exec, JSC::JSValue* function, const JSC::ArgList&);
         ScheduledAction(const String& code)
             : m_code(code)
         {
         }
 
-        void execute(KJS::Window*);
+        void execute(JSDOMWindowShell*);
 
     private:
-        KJS::ProtectedPtr<KJS::JSValue> m_func;
-        Vector<KJS::ProtectedPtr<KJS::JSValue> > m_args;
+        JSC::ProtectedPtr<JSC::JSValue> m_function;
+        Vector<JSC::ProtectedPtr<JSC::JSValue> > m_args;
         String m_code;
     };
 

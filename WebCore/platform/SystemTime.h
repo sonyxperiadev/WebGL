@@ -35,7 +35,7 @@ namespace WebCore {
     // Return the number of seconds since a user event has been generated
     float userIdleTime();
  
-#ifdef ANDROID_INSTRUMENT
+#if PLATFORM(ANDROID)
     uint32_t get_thread_msec();
 #endif
 }

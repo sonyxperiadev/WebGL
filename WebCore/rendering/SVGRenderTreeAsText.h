@@ -28,7 +28,6 @@
 
 #if ENABLE(SVG)
 
-#include "DeprecatedString.h"
 #include "TextStream.h"
 
 namespace WebCore {
@@ -95,6 +94,13 @@ TextStream& operator<<(TextStream& ts, const Vector<Item>& v)
     }
 
     ts << "]";
+    return ts;
+}
+
+template<typename Pointer>
+TextStream& operator<<(TextStream& ts, Pointer* t)
+{
+    ts << reinterpret_cast<intptr_t>(t);
     return ts;
 }
 

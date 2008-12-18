@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "ApplyStyleCommand.h"
 #include "BeforeTextInsertedEvent.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "Document.h"
@@ -50,8 +51,41 @@
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
+
+enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
+
+// --- ReplacementFragment helper class
+
+class ReplacementFragment : Noncopyable {
+public:
+    ReplacementFragment(Document*, DocumentFragment*, bool matchStyle, const Selection&);
+
+    Node* firstChild() const;
+    Node* lastChild() const;
+
+    bool isEmpty() const;
+    
+    bool hasInterchangeNewlineAtStart() const { return m_hasInterchangeNewlineAtStart; }
+    bool hasInterchangeNewlineAtEnd() const { return m_hasInterchangeNewlineAtEnd; }
+    
+    void removeNode(PassRefPtr<Node>);
+    void removeNodePreservingChildren(Node*);
+
+private:
+    PassRefPtr<Node> insertFragmentForTestRendering(Node* context);
+    void removeUnrenderedNodes(Node*);
+    void restoreTestRenderingNodesToFragment(Node*);
+    void removeInterchangeNodes(Node*);
+    
+    void insertNodeBefore(Node* node, Node* refNode);
+
+    RefPtr<Document> m_document;
+    RefPtr<DocumentFragment> m_fragment;
+    bool m_matchStyle;
+    bool m_hasInterchangeNewlineAtStart;
+    bool m_hasInterchangeNewlineAtEnd;
+};
 
 static bool isInterchangeNewlineNode(const Node *node)
 {
@@ -88,7 +122,7 @@ ReplacementFragment::ReplacementFragment(Document* document, DocumentFragment* f
     
     Node* shadowAncestorNode = editableRoot->shadowAncestorNode();
     
-    if (!editableRoot->getHTMLEventListener(webkitBeforeTextInsertedEvent) &&
+    if (!editableRoot->inlineEventListenerForType(eventNames().webkitBeforeTextInsertedEvent) &&
         // FIXME: Remove these checks once textareas and textfields actually register an event handler.
         !(shadowAncestorNode && shadowAncestorNode->renderer() && shadowAncestorNode->renderer()->isTextField()) &&
         !(shadowAncestorNode && shadowAncestorNode->renderer() && shadowAncestorNode->renderer()->isTextArea()) &&
@@ -103,9 +137,9 @@ ReplacementFragment::ReplacementFragment(Document* document, DocumentFragment* f
     RefPtr<Range> range = Selection::selectionFromContentsOfNode(holder.get()).toRange();
     String text = plainText(range.get());
     // Give the root a chance to change the text.
-    RefPtr<BeforeTextInsertedEvent> evt = new BeforeTextInsertedEvent(text);
+    RefPtr<BeforeTextInsertedEvent> evt = BeforeTextInsertedEvent::create(text);
     ExceptionCode ec = 0;
-    editableRoot->dispatchEvent(evt, ec, true);
+    editableRoot->dispatchEvent(evt, ec);
     ASSERT(ec == 0);
     if (text != evt->text() || !editableRoot->isContentRichlyEditable()) {
         restoreTestRenderingNodesToFragment(holder.get());
@@ -195,11 +229,11 @@ PassRefPtr<Node> ReplacementFragment::insertFragmentForTestRendering(Node* conte
     while (n && !n->isElementNode())
         n = n->parentNode();
     if (n) {
-        RefPtr<CSSComputedStyleDeclaration> conFontStyle = new CSSComputedStyleDeclaration(static_cast<Element*>(n));
+        RefPtr<CSSComputedStyleDeclaration> conFontStyle = computedStyle(n);
         CSSStyleDeclaration* style = holder->style();
-        style->setProperty(CSS_PROP_WHITE_SPACE, conFontStyle->getPropertyValue(CSS_PROP_WHITE_SPACE), false, ec);
+        style->setProperty(CSSPropertyWhiteSpace, conFontStyle->getPropertyValue(CSSPropertyWhiteSpace), false, ec);
         ASSERT(ec == 0);
-        style->setProperty(CSS_PROP__WEBKIT_USER_SELECT, conFontStyle->getPropertyValue(CSS_PROP__WEBKIT_USER_SELECT), false, ec);
+        style->setProperty(CSSPropertyWebkitUserSelect, conFontStyle->getPropertyValue(CSSPropertyWebkitUserSelect), false, ec);
         ASSERT(ec == 0);
     }
     
@@ -382,9 +416,9 @@ void ReplaceSelectionCommand::negateStyleRulesThatAffectAppearance()
             // results. We already know one issue because td elements ignore their display property
             // in quirks mode (which Mail.app is always in). We should look for an alternative.
             if (isBlock(e))
-                e->getInlineStyleDecl()->setProperty(CSS_PROP_DISPLAY, CSS_VAL_INLINE);
+                e->getInlineStyleDecl()->setProperty(CSSPropertyDisplay, CSSValueInline);
             if (e->renderer() && e->renderer()->style()->floating() != FNONE)
-                e->getInlineStyleDecl()->setProperty(CSS_PROP_FLOAT, CSS_VAL_NONE);
+                e->getInlineStyleDecl()->setProperty(CSSPropertyFloat, CSSValueNone);
         }
         if (node == m_lastLeafInserted)
             break;
@@ -398,7 +432,13 @@ void ReplaceSelectionCommand::removeUnrenderedTextNodesAtEnds()
         m_lastLeafInserted->isTextNode() && 
         !enclosingNodeWithTag(Position(m_lastLeafInserted.get(), 0), selectTag) && 
         !enclosingNodeWithTag(Position(m_lastLeafInserted.get(), 0), scriptTag)) {
-        RefPtr<Node> previous = m_firstNodeInserted == m_lastLeafInserted ? 0 : m_lastLeafInserted->traversePreviousNode();
+        if (m_firstNodeInserted == m_lastLeafInserted) {
+            removeNode(m_lastLeafInserted.get());
+            m_lastLeafInserted = 0;
+            m_firstNodeInserted = 0;
+            return;
+        }
+        RefPtr<Node> previous = m_lastLeafInserted->traversePreviousNode();
         removeNode(m_lastLeafInserted.get());
         m_lastLeafInserted = previous;
     }
@@ -407,82 +447,15 @@ void ReplaceSelectionCommand::removeUnrenderedTextNodesAtEnds()
     // it is a top level node in the fragment and the user can't insert into those elements.
     if (!m_firstNodeInserted->renderer() && 
         m_firstNodeInserted->isTextNode()) {
-        RefPtr<Node> next = m_firstNodeInserted == m_lastLeafInserted ? 0 : m_firstNodeInserted->traverseNextSibling();
+        if (m_firstNodeInserted == m_lastLeafInserted) {
+            removeNode(m_firstNodeInserted.get());
+            m_firstNodeInserted = 0;
+            m_lastLeafInserted = 0;
+            return;
+        }
+        RefPtr<Node> next = m_firstNodeInserted->traverseNextSibling();
         removeNode(m_firstNodeInserted.get());
         m_firstNodeInserted = next;
-    }
-}
-
-void ReplaceSelectionCommand::removeRedundantStyles(Node* mailBlockquoteEnclosingSelectionStart)
-{
-    // There's usually a top level style span that holds the document's default style, push it down.
-    Node* node = m_firstNodeInserted.get();
-    if (isStyleSpan(node) && mailBlockquoteEnclosingSelectionStart) {
-        // Calculate the document default style.
-        RefPtr<CSSMutableStyleDeclaration> blockquoteStyle = Position(mailBlockquoteEnclosingSelectionStart, 0).computedStyle()->copyInheritableProperties();
-        RefPtr<CSSMutableStyleDeclaration> spanStyle = static_cast<HTMLElement*>(node)->inlineStyleDecl();
-        spanStyle->merge(blockquoteStyle.get());  
-    }
-    
-    // Compute and save the non-redundant styles for all HTML elements.
-    // Don't do any mutation here, because that would cause the diffs to trigger layouts.
-    Vector<RefPtr<CSSMutableStyleDeclaration> > styles;
-    Vector<RefPtr<HTMLElement> > elements;
-    for (node = m_firstNodeInserted.get(); node; node = node->traverseNextNode()) {
-        if (node->isHTMLElement() && isStyleSpan(node)) {
-            elements.append(static_cast<HTMLElement*>(node));
-            
-            RefPtr<CSSMutableStyleDeclaration> parentStyle = computedStyle(node->parentNode())->copyInheritableProperties();
-            RefPtr<CSSMutableStyleDeclaration> style = computedStyle(node)->copyInheritableProperties();
-            parentStyle->diff(style.get());
-
-            // Remove any inherited block properties that are now in the span's style. This cuts out meaningless properties
-            // and prevents properties from magically affecting blocks later if the style is cloned for a new block element
-            // during a future editing operation.
-            style->removeBlockProperties();
-
-            styles.append(style.release());
-        }
-        if (node == m_lastLeafInserted)
-            break;
-    }
-    
-    size_t count = styles.size();
-    for (size_t i = 0; i < count; ++i) {
-        HTMLElement* element = elements[i].get();
-
-        // Handle case where the element was already removed by earlier processing.
-        // It's possible this no longer occurs, but it did happen in an earlier version
-        // that processed elements in a less-determistic order, and I can't prove it
-        // does not occur.
-        if (!element->inDocument())
-            continue;
-
-        // Remove empty style spans.
-        if (isStyleSpan(element) && !element->hasChildNodes()) {
-            removeNodeAndPruneAncestors(element);
-            continue;
-        }
-
-        // Remove redundant style tags and style spans.
-        CSSMutableStyleDeclaration* style = styles[i].get();
-        if (style->length() == 0
-                && (isStyleSpan(element)
-                    || element->hasTagName(bTag)
-                    || element->hasTagName(fontTag)
-                    || element->hasTagName(iTag)
-                    || element->hasTagName(uTag))) {
-            removeNodePreservingChildren(element);
-            continue;
-        }
-
-        // Clear redundant styles from elements.
-        CSSMutableStyleDeclaration* inlineStyleDecl = element->inlineStyleDecl();
-        if (inlineStyleDecl) {
-            CSSComputedStyleDeclaration::removeComputedInheritablePropertiesFrom(inlineStyleDecl);
-            inlineStyleDecl->merge(style, true);
-            setNodeAttribute(element, styleAttr, inlineStyleDecl->cssText());
-        }
     }
 }
 
@@ -490,7 +463,7 @@ void ReplaceSelectionCommand::handlePasteAsQuotationNode()
 {
     Node* node = m_firstNodeInserted.get();
     if (isMailPasteAsQuotationNode(node))
-        static_cast<Element*>(node)->setAttribute(classAttr, "");
+        removeNodeAttribute(static_cast<Element*>(node), classAttr);
 }
 
 VisiblePosition ReplaceSelectionCommand::positionAtEndOfInsertedContent()
@@ -506,6 +479,146 @@ VisiblePosition ReplaceSelectionCommand::positionAtStartOfInsertedContent()
 {
     // Return the inserted content's first VisiblePosition.
     return VisiblePosition(nextCandidate(positionBeforeNode(m_firstNodeInserted.get())));
+}
+
+// Remove style spans before insertion if they are unnecessary.  It's faster because we'll 
+// avoid doing a layout.
+static bool handleStyleSpansBeforeInsertion(ReplacementFragment& fragment, const Position& insertionPos)
+{
+    Node* topNode = fragment.firstChild();
+    
+    // Handling this case is more complicated (see handleStyleSpans) and doesn't receive the optimization.
+    if (isMailPasteAsQuotationNode(topNode))
+        return false;
+    
+    // Either there are no style spans in the fragment or a WebKit client has added content to the fragment
+    // before inserting it.  Look for and handle style spans after insertion.
+    if (!isStyleSpan(topNode))
+        return false;
+    
+    Node* sourceDocumentStyleSpan = topNode;
+    RefPtr<Node> copiedRangeStyleSpan = sourceDocumentStyleSpan->firstChild();
+    
+    RefPtr<CSSMutableStyleDeclaration> styleAtInsertionPos = rangeCompliantEquivalent(insertionPos).computedStyle()->copyInheritableProperties();
+    String styleText = styleAtInsertionPos->cssText();
+    
+    if (styleText == static_cast<Element*>(sourceDocumentStyleSpan)->getAttribute(styleAttr)) {
+        fragment.removeNodePreservingChildren(sourceDocumentStyleSpan);
+        if (!isStyleSpan(copiedRangeStyleSpan.get()))
+            return true;
+    }
+        
+    if (isStyleSpan(copiedRangeStyleSpan.get()) && styleText == static_cast<Element*>(copiedRangeStyleSpan.get())->getAttribute(styleAttr)) {
+        fragment.removeNodePreservingChildren(copiedRangeStyleSpan.get());
+        return true;
+    }
+    
+    return false;
+}
+
+// At copy time, WebKit wraps copied content in a span that contains the source document's 
+// default styles.  If the copied Range inherits any other styles from its ancestors, we put 
+// those styles on a second span.
+// This function removes redundant styles from those spans, and removes the spans if all their 
+// styles are redundant. 
+// We should remove the Apple-style-span class when we're done, see <rdar://problem/5685600>.
+// We should remove styles from spans that are overridden by all of their children, either here
+// or at copy time.
+void ReplaceSelectionCommand::handleStyleSpans()
+{
+    Node* sourceDocumentStyleSpan = 0;
+    Node* copiedRangeStyleSpan = 0;
+    // The style span that contains the source document's default style should be at
+    // the top of the fragment, but Mail sometimes adds a wrapper (for Paste As Quotation),
+    // so search for the top level style span instead of assuming it's at the top.
+    for (Node* node = m_firstNodeInserted.get(); node; node = node->traverseNextNode()) {
+        if (isStyleSpan(node)) {
+            sourceDocumentStyleSpan = node;
+            // If the copied Range's common ancestor had user applied inheritable styles
+            // on it, they'll be on a second style span, just below the one that holds the 
+            // document defaults.
+            if (isStyleSpan(node->firstChild()))
+                copiedRangeStyleSpan = node->firstChild();
+            break;
+        }
+    }
+    
+    // There might not be any style spans if we're pasting from another application or if 
+    // we are here because of a document.execCommand("InsertHTML", ...) call.
+    if (!sourceDocumentStyleSpan)
+        return;
+        
+    RefPtr<CSSMutableStyleDeclaration> sourceDocumentStyle = static_cast<HTMLElement*>(sourceDocumentStyleSpan)->getInlineStyleDecl()->copy();
+    Node* context = sourceDocumentStyleSpan->parentNode();
+    
+    // If Mail wraps the fragment with a Paste as Quotation blockquote, styles from that element are
+    // allowed to override those from the source document, see <rdar://problem/4930986>.
+    if (isMailPasteAsQuotationNode(context)) {
+        RefPtr<CSSMutableStyleDeclaration> blockquoteStyle = computedStyle(context)->copyInheritableProperties();
+        RefPtr<CSSMutableStyleDeclaration> parentStyle = computedStyle(context->parentNode())->copyInheritableProperties();
+        parentStyle->diff(blockquoteStyle.get());
+
+        DeprecatedValueListConstIterator<CSSProperty> end;
+        for (DeprecatedValueListConstIterator<CSSProperty> it = blockquoteStyle->valuesIterator(); it != end; ++it) {
+            const CSSProperty& property = *it;
+            sourceDocumentStyle->removeProperty(property.id());
+        }        
+
+        context = context->parentNode();
+    }
+    
+    RefPtr<CSSMutableStyleDeclaration> contextStyle = computedStyle(context)->copyInheritableProperties();
+    contextStyle->diff(sourceDocumentStyle.get());
+    
+    // Remove block properties in the span's style. This prevents properties that probably have no effect 
+    // currently from affecting blocks later if the style is cloned for a new block element during a future 
+    // editing operation.
+    // FIXME: They *can* have an effect currently if blocks beneath the style span aren't individually marked
+    // with block styles by the editing engine used to style them.  WebKit doesn't do this, but others might.
+    sourceDocumentStyle->removeBlockProperties();
+    
+    // The styles on sourceDocumentStyleSpan are all redundant, and there is no copiedRangeStyleSpan
+    // to consider.  We're finished.
+    if (sourceDocumentStyle->length() == 0 && !copiedRangeStyleSpan) {
+        removeNodePreservingChildren(sourceDocumentStyleSpan);
+        return;
+    }
+    
+    // There are non-redundant styles on sourceDocumentStyleSpan, but there is no
+    // copiedRangeStyleSpan.  Clear the redundant styles from sourceDocumentStyleSpan
+    // and return.
+    if (sourceDocumentStyle->length() > 0 && !copiedRangeStyleSpan) {
+        setNodeAttribute(static_cast<Element*>(sourceDocumentStyleSpan), styleAttr, sourceDocumentStyle->cssText());
+        return;
+    }
+    
+    RefPtr<CSSMutableStyleDeclaration> copiedRangeStyle = static_cast<HTMLElement*>(copiedRangeStyleSpan)->getInlineStyleDecl()->copy();
+    
+    // We're going to put sourceDocumentStyleSpan's non-redundant styles onto copiedRangeStyleSpan,
+    // as long as they aren't overridden by ones on copiedRangeStyleSpan.
+    sourceDocumentStyle->merge(copiedRangeStyle.get(), true);
+    copiedRangeStyle = sourceDocumentStyle;
+    
+    removeNodePreservingChildren(sourceDocumentStyleSpan);
+    
+    // Remove redundant styles.
+    context = copiedRangeStyleSpan->parentNode();
+    contextStyle = computedStyle(context)->copyInheritableProperties();
+    contextStyle->diff(copiedRangeStyle.get());
+    
+    // See the comments above about removing block properties.
+    copiedRangeStyle->removeBlockProperties();
+
+    // All the styles on copiedRangeStyleSpan are redundant, remove it.
+    if (copiedRangeStyle->length() == 0) {
+        removeNodePreservingChildren(copiedRangeStyleSpan);
+        return;
+    }
+    
+    // Clear the redundant styles from the span's style attribute.
+    // FIXME: If font-family:-webkit-monospace is non-redundant, then the font-size should stay, even if it
+    // appears redundant.
+    setNodeAttribute(static_cast<Element*>(copiedRangeStyleSpan), styleAttr, copiedRangeStyle->cssText());
 }
 
 void ReplaceSelectionCommand::doApply()
@@ -529,7 +642,6 @@ void ReplaceSelectionCommand::doApply()
     
     bool selectionEndWasEndOfParagraph = isEndOfParagraph(visibleEnd);
     bool selectionStartWasStartOfParagraph = isStartOfParagraph(visibleStart);
-    Node* mailBlockquoteEnclosingSelectionStart = nearestMailBlockquote(visibleStart.deepEquivalent().node());
     
     Node* startBlock = enclosingBlock(visibleStart.deepEquivalent().node());
     
@@ -607,22 +719,13 @@ void ReplaceSelectionCommand::doApply()
     
     // Paste at start or end of link goes outside of link.
     insertionPos = positionAvoidingSpecialElementBoundary(insertionPos);
-
-    Frame *frame = document()->frame();
     
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
-    frame->clearTypingStyle();
-    setTypingStyle(0);    
+    // FIXME: Can this wait until after the operation has been performed?  There doesn't seem to be
+    // any work performed after this that queries or uses the typing style.
+    if (Frame* frame = document()->frame())
+        frame->clearTypingStyle();
     
-    // Remove the top level style span if its unnecessary before inserting it into the document, its faster.
-    RefPtr<CSSMutableStyleDeclaration> styleAtInsertionPos = insertionPos.computedStyle()->copyInheritableProperties();
-    if (isStyleSpan(fragment.firstChild())) {
-        Node* styleSpan = fragment.firstChild();
-        String styleText = static_cast<Element*>(styleSpan)->getAttribute(styleAttr);
-        if (styleText == styleAtInsertionPos->cssText())
-            fragment.removeNodePreservingChildren(styleSpan);
-    }
+    bool handledStyleSpans = handleStyleSpansBeforeInsertion(fragment, insertionPos);
     
     // We're finished if there is nothing to add.
     if (fragment.isEmpty() || !fragment.firstChild())
@@ -658,9 +761,11 @@ void ReplaceSelectionCommand::doApply()
     
     negateStyleRulesThatAffectAppearance();
     
-    removeRedundantStyles(mailBlockquoteEnclosingSelectionStart);
+    if (!handledStyleSpans)
+        handleStyleSpans();
     
-    if (!m_firstNodeInserted)
+    // Mutation events (bug 20161) may have already removed the inserted content
+    if (!m_firstNodeInserted || !m_firstNodeInserted->inDocument())
         return;
     
     endOfInsertedContent = positionAtEndOfInsertedContent();
@@ -687,6 +792,17 @@ void ReplaceSelectionCommand::doApply()
         }
         VisiblePosition destination = startOfInsertedContent.previous();
         VisiblePosition startOfParagraphToMove = startOfInsertedContent;
+        
+        // Merging the the first paragraph of inserted content with the content that came
+        // before the selection that was pasted into would also move content after 
+        // the selection that was pasted into if: only one paragraph was being pasted, 
+        // and it was not wrapped in a block, the selection that was pasted into ended 
+        // at the end of a block and the next paragraph didn't start at the start of a block.
+        // Insert a line break just after the inserted content to separate it from what 
+        // comes after and prevent that from happening.
+        VisiblePosition endOfInsertedContent = positionAtEndOfInsertedContent();
+        if (startOfParagraph(endOfInsertedContent) == startOfParagraphToMove)
+            insertNodeAt(createBreakElement(document()).get(), endOfInsertedContent.deepEquivalent());
         
         // FIXME: Maintain positions for the start and end of inserted content instead of keeping nodes.  The nodes are
         // only ever used to create positions where inserted content starts/ends.

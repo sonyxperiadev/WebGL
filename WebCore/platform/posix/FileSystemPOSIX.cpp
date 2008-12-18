@@ -30,9 +30,16 @@
 #include "FileSystem.h"
 
 #include "CString.h"
+#include "NotImplemented.h"
 #include "PlatformString.h"
 
 #include <sys/stat.h>
+#ifdef ANDROID_PLUGINS
+#include <sys/types.h>
+#include <dirent.h>
+#include <fnmatch.h>
+#endif
+#include <libgen.h>
 #include <unistd.h>
 
 namespace WebCore {
@@ -139,6 +146,48 @@ bool makeAllDirectories(const String& path)
             return false;
 
     return true;
+}
+
+String pathGetFileName(const String& path)
+{
+    return path.substring(path.reverseFind('/') + 1);
+}
+
+String directoryName(const String& path)
+{
+    CString fsRep = fileSystemRepresentation(path);
+
+    if (!fsRep.data() || fsRep.data()[0] == '\0')
+        return String();
+
+    return dirname(fsRep.mutableData());
+}
+
+Vector<String> listDirectory(const String& path, const String& filter)
+{
+#ifdef ANDROID_PLUGINS
+    CString fsRepPath = fileSystemRepresentation(path);
+    CString fsRepFilter = fileSystemRepresentation(filter);
+#endif
+    Vector<String> entries;
+#ifdef ANDROID_PLUGINS
+    DIR *dir = opendir(fsRepPath.data());
+    if (dir == NULL)
+        return entries;
+    for (;;) {
+        struct dirent *entry = readdir(dir);
+        if (entry == NULL)
+            break;
+        if (!fnmatch(fsRepFilter.data(), entry->d_name, FNM_NOESCAPE)) {
+            String fullPath = path + "/" + entry->d_name;
+            entries.append(fullPath);
+        }
+    }
+    closedir(dir);
+#else
+    notImplemented();
+#endif
+    return entries;
 }
 
 } // namespace WebCore

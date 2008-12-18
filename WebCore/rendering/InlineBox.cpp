@@ -86,12 +86,12 @@ void InlineBox::showTreeForThis() const
 
 int InlineBox::caretMinOffset() const 
 { 
-    return 0; 
+    return m_object->caretMinOffset(); 
 }
 
 int InlineBox::caretMaxOffset() const 
 { 
-    return 1; 
+    return m_object->caretMaxOffset(); 
 }
 
 unsigned InlineBox::caretMaxRenderedOffset() const 
@@ -141,11 +141,11 @@ void InlineBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     // Paint all phases of replaced elements atomically, as though the replaced element established its
     // own stacking context.  (See Appendix E.2, section 6.4 on inline block/table elements in the CSS2.1
     // specification.)
-    bool paintSelectionOnly = paintInfo.phase == PaintPhaseSelection;
+    bool preservePhase = paintInfo.phase == PaintPhaseSelection || paintInfo.phase == PaintPhaseTextClip;
     RenderObject::PaintInfo info(paintInfo);
-    info.phase = paintSelectionOnly ? paintInfo.phase : PaintPhaseBlockBackground;
+    info.phase = preservePhase ? paintInfo.phase : PaintPhaseBlockBackground;
     object()->paint(info, tx, ty);
-    if (!paintSelectionOnly) {
+    if (!preservePhase) {
         info.phase = PaintPhaseChildBlockBackgrounds;
         object()->paint(info, tx, ty);
         info.phase = PaintPhaseFloat;

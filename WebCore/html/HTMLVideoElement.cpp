@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -83,7 +83,7 @@ void HTMLVideoElement::detach()
             m_imageLoader.clear();
 }
 
-void HTMLVideoElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLVideoElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const QualifiedName& attrName = attr->name();
 
@@ -95,52 +95,52 @@ void HTMLVideoElement::parseMappedAttribute(MappedAttribute *attr)
             m_imageLoader->updateFromElement();
         }
     } else if (attrName == widthAttr)
-        addCSSLength(attr, CSS_PROP_WIDTH, attr->value());
+        addCSSLength(attr, CSSPropertyWidth, attr->value());
     else if (attrName == heightAttr)
-        addCSSLength(attr, CSS_PROP_HEIGHT, attr->value());
+        addCSSLength(attr, CSSPropertyHeight, attr->value());
     else
         HTMLMediaElement::parseMappedAttribute(attr);
 }
 
-int HTMLVideoElement::videoWidth() const
+unsigned HTMLVideoElement::videoWidth() const
 {
     if (!m_player)
         return 0;
     return m_player->naturalSize().width();
 }
 
-int HTMLVideoElement::videoHeight() const
+unsigned HTMLVideoElement::videoHeight() const
 {
     if (!m_player)
         return 0;
     return m_player->naturalSize().height();
 }
 
-int HTMLVideoElement::width() const
+unsigned HTMLVideoElement::width() const
 {
     bool ok;
-    int w = getAttribute(widthAttr).toInt(&ok);
+    unsigned w = getAttribute(widthAttr).string().toUInt(&ok);
     return ok ? w : 0;
 }
 
-void HTMLVideoElement::setWidth(int value)
+void HTMLVideoElement::setWidth(unsigned value)
 {
     setAttribute(widthAttr, String::number(value));
 }
     
-int HTMLVideoElement::height() const
+unsigned HTMLVideoElement::height() const
 {
     bool ok;
-    int h = getAttribute(heightAttr).toInt(&ok);
+    unsigned h = getAttribute(heightAttr).string().toUInt(&ok);
     return ok ? h : 0;
 }
     
-void HTMLVideoElement::setHeight(int value)
+void HTMLVideoElement::setHeight(unsigned value)
 {
     setAttribute(heightAttr, String::number(value));
 }
 
-String HTMLVideoElement::poster() const
+KURL HTMLVideoElement::poster() const
 {
     return document()->completeURL(getAttribute(posterAttr));
 }
@@ -150,7 +150,7 @@ void HTMLVideoElement::setPoster(const String& value)
     setAttribute(posterAttr, value);
 }
 
-bool HTMLVideoElement::isURLAttribute(Attribute *attr) const
+bool HTMLVideoElement::isURLAttribute(Attribute* attr) const
 {
     return attr->name() == posterAttr;
 }

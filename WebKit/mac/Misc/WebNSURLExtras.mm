@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,10 @@
 #import "WebNSObjectExtras.h"
 #import "WebSystemInterface.h"
 #import <Foundation/NSURLRequest.h>
-#import <JavaScriptCore/Assertions.h>
 #import <WebCore/KURL.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 #import <unicode/uchar.h>
 #import <unicode/uidna.h>
 #import <unicode/uscript.h>
@@ -411,22 +411,96 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
 
 + (NSURL *)_web_URLWithData:(NSData *)data
 {
-    return urlWithData(data);
+    return [NSURL _web_URLWithData:data relativeToURL:nil];
 }      
 
 + (NSURL *)_web_URLWithData:(NSData *)data relativeToURL:(NSURL *)baseURL
 {
-    return urlWithDataRelativeToURL(data, baseURL);
+    if (data == nil)
+        return nil;
+    
+    NSURL *result = nil;
+    size_t length = [data length];
+    if (length > 0) {
+        // work around <rdar://4470771>: CFURLCreateAbsoluteURLWithBytes(.., TRUE) doesn't remove non-path components.
+        baseURL = [baseURL _webkit_URLByRemovingResourceSpecifier];
+        
+        const UInt8 *bytes = static_cast<const UInt8*>([data bytes]);
+        // NOTE: We use UTF-8 here since this encoding is used when computing strings when returning URL components
+        // (e.g calls to NSURL -path). However, this function is not tolerant of illegal UTF-8 sequences, which
+        // could either be a malformed string or bytes in a different encoding, like shift-jis, so we fall back
+        // onto using ISO Latin 1 in those cases.
+        result = WebCFAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingUTF8, (CFURLRef)baseURL, YES));
+        if (!result)
+            result = WebCFAutorelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingISOLatin1, (CFURLRef)baseURL, YES));
+    } else
+        result = [NSURL URLWithString:@""];
+    
+    return result;
 }
 
 - (NSData *)_web_originalData
 {
-    return urlOriginalData(self);
+    UInt8 *buffer = (UInt8 *)malloc(URL_BYTES_BUFFER_LENGTH);
+    CFIndex bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, URL_BYTES_BUFFER_LENGTH);
+    if (bytesFilled == -1) {
+        CFIndex bytesToAllocate = CFURLGetBytes((CFURLRef)self, NULL, 0);
+        buffer = (UInt8 *)realloc(buffer, bytesToAllocate);
+        bytesFilled = CFURLGetBytes((CFURLRef)self, buffer, bytesToAllocate);
+        ASSERT(bytesFilled == bytesToAllocate);
+    }
+    
+    // buffer is adopted by the NSData
+    NSData *data = [NSData dataWithBytesNoCopy:buffer length:bytesFilled freeWhenDone:YES];
+    
+    NSURL *baseURL = (NSURL *)CFURLGetBaseURL((CFURLRef)self);
+    if (baseURL)
+        return [[NSURL _web_URLWithData:data relativeToURL:baseURL] _web_originalData];
+    return data;
 }
 
 - (NSString *)_web_originalDataAsString
 {
-    return urlOriginalDataAsString(self);
+    return [[[NSString alloc] initWithData:[self _web_originalData] encoding:NSISOLatin1StringEncoding] autorelease];
+}
+
+static CFStringRef createStringWithEscapedUnsafeCharacters(CFStringRef string)
+{
+    CFIndex length = CFStringGetLength(string);
+    Vector<UChar, 2048> sourceBuffer(length);
+    CFStringGetCharacters(string, CFRangeMake(0, length), sourceBuffer.data());
+
+    Vector<UChar, 2048> outBuffer;
+
+    CFIndex i = 0;
+    while (i < length) {
+        UChar32 c;
+        U16_NEXT(sourceBuffer, i, length, c)
+
+        if (isLookalikeCharacter(c)) {
+            uint8_t utf8Buffer[4];
+            CFIndex offset = 0;
+            UBool failure = false;
+            U8_APPEND(utf8Buffer, offset, 4, c, failure)
+            ASSERT(!failure);
+
+            for (CFIndex j = 0; j < offset; ++j) {
+                outBuffer.append('%');
+                outBuffer.append(hexDigit(utf8Buffer[j] >> 4));
+                outBuffer.append(hexDigit(utf8Buffer[j] & 0xf));
+            }
+        } else {
+            UChar utf16Buffer[2];
+            CFIndex offset = 0;
+            UBool failure = false;
+            U16_APPEND(utf16Buffer, offset, 2, c, failure)
+            ASSERT(!failure);
+            for (CFIndex j = 0; j < offset; ++j)
+                outBuffer.append(utf16Buffer[j]);
+        }
+    }
+
+    return CFStringCreateWithCharacters(NULL, outBuffer.data(), outBuffer.size());
 }
 
 - (NSString *)_web_userVisibleString
@@ -444,28 +518,20 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
     int i;
     for (i = 0; i < length; i++) {
         unsigned char c = p[i];
-        // escape control characters, space, and delete
-        if (c <= 0x20 || c == 0x7f) {
-            *q++ = '%';
-            *q++ = hexDigit(c >> 4);
-            *q++ = hexDigit(c & 0xf);
-        }
         // unescape escape sequences that indicate bytes greater than 0x7f
-        else if (c == '%' && (i + 1 < length && isHexDigit(p[i + 1])) && i + 2 < length && isHexDigit(p[i + 2])) {
+        if (c == '%' && (i + 1 < length && isHexDigit(p[i + 1])) && i + 2 < length && isHexDigit(p[i + 2])) {
             unsigned char u = (hexDigitValue(p[i + 1]) << 4) | hexDigitValue(p[i + 2]);
             if (u > 0x7f) {
                 // unescape
                 *q++ = u;
-            }
-            else {
+            } else {
                 // do not unescape
                 *q++ = p[i];
                 *q++ = p[i + 1];
                 *q++ = p[i + 2];
             }
             i += 2;
-        } 
-        else {
+        } else {
             *q++ = c;
 
             // Check for "xn--" in an efficient, non-case-sensitive, way.
@@ -493,8 +559,7 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
                 *q++ = '%';
                 *q++ = hexDigit(c >> 4);
                 *q++ = hexDigit(c & 0xf);
-            }
-            else {
+            } else {
                 *q++ = *p;
             }
             p++;
@@ -504,14 +569,16 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
     }
 
     free(after);
-    
-    // As an optimization, only do host name decoding if we have "xn--" somewhere.
-    return needsHostNameDecoding ? mapHostNames(result, NO) : result;
+
+    result = mapHostNames(result, !needsHostNameDecoding);
+    return WebCFAutorelease(createStringWithEscapedUnsafeCharacters((CFStringRef)result));
 }
 
 - (BOOL)_web_isEmpty
 {
-    return urlIsEmpty(self);
+    if (!CFURLGetBaseURL((CFURLRef)self))
+        return CFURLGetBytes((CFURLRef)self, NULL, 0) == 0;
+    return [[self _web_originalData] length] == 0;
 }
 
 - (const char *)_web_URLCString
@@ -523,9 +590,24 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
  }
 
 - (NSURL *)_webkit_canonicalize
-{
-    InitWebCoreSystemInterface();
-    return canonicalURL(self);
+{    
+    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:self];
+    Class concreteClass = WKNSURLProtocolClassForRequest(request);
+    if (!concreteClass) {
+        [request release];
+        return self;
+    }
+    
+    // This applies NSURL's concept of canonicalization, but not KURL's concept. It would
+    // make sense to apply both, but when we tried that it caused a performance degradation
+    // (see 5315926). It might make sense to apply only the KURL concept and not the NSURL
+    // concept, but it's too risky to make that change for WebKit 3.0.
+    NSURLRequest *newRequest = [concreteClass canonicalRequestForRequest:request];
+    NSURL *newURL = [newRequest URL]; 
+    NSURL *result = [[newURL retain] autorelease]; 
+    [request release];
+    
+    return result;
 }
 
 typedef struct {
@@ -539,21 +621,38 @@ typedef struct {
     NSString *fragment;
 } WebKitURLComponents;
 
-
-
 - (NSURL *)_webkit_URLByRemovingComponent:(CFURLComponentType)component
 {
-    return urlByRemovingComponent(self, component);
+    CFRange fragRg = CFURLGetByteRangeForComponent((CFURLRef)self, component, NULL);
+    // Check to see if a fragment exists before decomposing the URL.
+    if (fragRg.location == kCFNotFound)
+        return self;
+ 
+    UInt8 *urlBytes, buffer[2048];
+    CFIndex numBytes = CFURLGetBytes((CFURLRef)self, buffer, 2048);
+    if (numBytes == -1) {
+        numBytes = CFURLGetBytes((CFURLRef)self, NULL, 0);
+        urlBytes = static_cast<UInt8*>(malloc(numBytes));
+        CFURLGetBytes((CFURLRef)self, urlBytes, numBytes);
+    } else
+        urlBytes = buffer;
+     
+    NSURL *result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingUTF8, NULL));
+    if (!result)
+        result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingISOLatin1, NULL));
+     
+    if (urlBytes != buffer) free(urlBytes);
+    return result ? [result autorelease] : self;
 }
 
 - (NSURL *)_webkit_URLByRemovingFragment
 {
-    return urlByRemovingFragment(self);
+    return [self _webkit_URLByRemovingComponent:kCFURLComponentFragment];
 }
 
 - (NSURL *)_webkit_URLByRemovingResourceSpecifier
 {
-    return urlByRemovingResourceSpecifier(self);
+    return [self _webkit_URLByRemovingComponent:kCFURLComponentResourceSpecifier];
 }
 
 - (BOOL)_webkit_isJavaScriptURL
@@ -567,8 +666,8 @@ typedef struct {
 }
 
 - (BOOL)_webkit_isFileURL
-{
-    return urlIsFileURL(self);
+{    
+    return [[self _web_originalDataAsString] _webkit_isFileURL];
 }
 
 - (BOOL)_webkit_isFTPDirectoryURL
@@ -797,13 +896,12 @@ typedef struct {
 
 - (BOOL)_webkit_isFileURL
 {
-    return stringIsFileURL(self);
+    return [self rangeOfString:@"file:" options:(NSCaseInsensitiveSearch | NSAnchoredSearch)].location != NSNotFound;
 }
 
 - (NSString *)_webkit_stringByReplacingValidPercentEscapes
 {
-    DeprecatedString s = KURL::decode_string(DeprecatedString::fromNSString(self));
-    return s.getNSString();
+    return decodeURLEscapeSequences(self);
 }
 
 - (NSString *)_webkit_scriptIfJavaScriptURL

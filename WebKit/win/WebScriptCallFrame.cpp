@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,15 @@
  */
 
 #include "config.h"
-#include "WebKitDLL.h"
 #include "WebScriptCallFrame.h"
 
 #include "COMEnumVariant.h"
-#include "Function.h"
+#include "WebKitDLL.h"
 
 #include <JavaScriptCore/Interpreter.h>
+#include <JavaScriptCore/JSFunction.h>
 #include <JavaScriptCore/JSGlobalObject.h>
+#include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSStringRefBSTR.h>
 #include <JavaScriptCore/JSValueRef.h>
 #include <JavaScriptCore/PropertyNameArray.h>
@@ -46,32 +47,22 @@
 
 #include <wtf/Assertions.h>
 
-using namespace KJS;
+using namespace JSC;
 
-UString WebScriptCallFrame::jsValueToString(KJS::ExecState* state, JSValue* jsvalue)
+UString WebScriptCallFrame::jsValueToString(JSC::ExecState* state, JSValue* jsvalue)
 {
     if (!jsvalue)
         return "undefined";
 
-    switch (jsvalue->type()) {
-        case NullType:
-        case UndefinedType:
-        case UnspecifiedType:
-        case GetterSetterType:
-            break;
-        case StringType:
-            return jsvalue->getString();
-            break;
-        case NumberType:
-            return UString::from(jsvalue->getNumber());
-            break;
-        case BooleanType:
-            return jsvalue->getBoolean() ? "True" : "False";
-            break;
-        case ObjectType:
-            jsvalue = jsvalue->getObject()->defaultValue(state, StringType);
-            return jsvalue->getString();
-            break;
+    if (jsvalue->isString())
+        return jsvalue->getString();
+    else if (jsvalue->isNumber())
+        return UString::from(jsvalue->getNumber());
+    else if (jsvalue->isBoolean())
+        return jsvalue->getBoolean() ? "True" : "False";
+    else if (jsvalue->isObject()) {
+        jsvalue = jsvalue->getObject()->defaultValue(state, PreferString);
+        return jsvalue->getString();
     }
 
     return "undefined";
@@ -79,23 +70,35 @@ UString WebScriptCallFrame::jsValueToString(KJS::ExecState* state, JSValue* jsva
 
 // WebScriptCallFrame -----------------------------------------------------------
 
-WebScriptCallFrame::WebScriptCallFrame(ExecState* state, IWebScriptCallFrame* caller)
-    : m_refCount(0)
+static ExecState* callingFunctionOrGlobalExecState(ExecState* exec)
 {
-    m_state = state;
-    m_caller = caller;
+#if 0
+    for (ExecState* current = exec; current; current = current->callingExecState())
+        if (current->codeType() == FunctionCode || current->codeType() == GlobalCode)
+            return current;
+#endif
+    return 0;
+}
 
+WebScriptCallFrame::WebScriptCallFrame(ExecState* state)
+    : m_refCount(0)
+    , m_state(callingFunctionOrGlobalExecState(state))
+{
+    ASSERT_ARG(state, state);
+    ASSERT(m_state);
     gClassCount++;
+    gClassNameCount.add("WebScriptCallFrame");
 }
 
 WebScriptCallFrame::~WebScriptCallFrame()
 {
     gClassCount--;
+    gClassNameCount.remove("WebScriptCallFrame");
 }
 
-WebScriptCallFrame* WebScriptCallFrame::createInstance(ExecState* state, IWebScriptCallFrame* caller)
+WebScriptCallFrame* WebScriptCallFrame::createInstance(ExecState* state)
 {
-    WebScriptCallFrame* instance = new WebScriptCallFrame(state, caller);
+    WebScriptCallFrame* instance = new WebScriptCallFrame(state);
     instance->AddRef();
     return instance;
 }
@@ -135,7 +138,12 @@ ULONG STDMETHODCALLTYPE WebScriptCallFrame::Release()
 HRESULT STDMETHODCALLTYPE WebScriptCallFrame::caller(
     /* [out, retval] */ IWebScriptCallFrame** callFrame)
 {
-    return m_caller.copyRefTo(callFrame);
+    if (!callFrame)
+        return E_POINTER;
+#if 0
+    *callFrame = m_state->callingExecState() ? WebScriptCallFrame::createInstance(m_state->callingExecState()) : 0;
+#endif
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptCallFrame::functionName(
@@ -145,18 +153,18 @@ HRESULT STDMETHODCALLTYPE WebScriptCallFrame::functionName(
         return E_POINTER;
 
     *funcName = 0;
-
+#if 0
     if (!m_state->scopeNode())
         return S_OK;
 
-    FunctionImp* func = m_state->function();
+    JSFunction* func = m_state->function();
     if (!func)
         return E_FAIL;
 
     const Identifier& funcIdent = func->functionName();
     if (!funcIdent.isEmpty())
         *funcName = WebCore::BString(funcIdent).release();
-
+#endif
     return S_OK;
 }
 
@@ -172,7 +180,7 @@ HRESULT STDMETHODCALLTYPE WebScriptCallFrame::stringByEvaluatingJavaScriptFromSt
 
     *result = 0;
 
-    JSLock lock;
+    JSLock lock(false);
 
     JSValue* scriptExecutionResult = valueByEvaluatingJavaScriptFromString(script);
     *result = WebCore::BString(jsValueToString(m_state, scriptExecutionResult)).release();
@@ -188,11 +196,13 @@ HRESULT STDMETHODCALLTYPE WebScriptCallFrame::variableNames(
 
     *variableNames = 0;
 
-    PropertyNameArray propertyNames;
-
+    PropertyNameArray propertyNames(m_state);
+#if 0
     m_state->scopeChain().top()->getPropertyNames(m_state, propertyNames);
-    *variableNames = COMEnumVariant<PropertyNameArray>::adopt(propertyNames);
+    // FIXME: It would be more efficient to use ::adopt here, but PropertyNameArray doesn't have a swap function.
+    *variableNames = COMEnumVariant<PropertyNameArray>::createInstance(propertyNames);
 
+#endif
     return S_OK;
 }
 
@@ -208,20 +218,22 @@ HRESULT STDMETHODCALLTYPE WebScriptCallFrame::valueForVariable(
 
     *value = 0;
 
-    Identifier identKey(reinterpret_cast<KJS::UChar*>(key), SysStringLen(key));
+    Identifier identKey(m_state, reinterpret_cast<UChar*>(key), SysStringLen(key));
 
-    JSValue* jsvalue = 0;
+#if 0
+    JSValue* jsvalue = noValue();
     ScopeChain scopeChain = m_state->scopeChain();
     for (ScopeChainIterator it = scopeChain.begin(); it != scopeChain.end() && !jsvalue; ++it)
         jsvalue = (*it)->get(m_state, identKey);
-
     *value = WebCore::BString(jsValueToString(m_state, jsvalue)).release();
+#endif
 
     return S_OK;
 }
 
 JSValue* WebScriptCallFrame::valueByEvaluatingJavaScriptFromString(BSTR script)
 {
+#if 0
     ExecState* state = m_state;
     JSGlobalObject* globObj = state->dynamicGlobalObject();
 
@@ -229,8 +241,8 @@ JSValue* WebScriptCallFrame::valueByEvaluatingJavaScriptFromString(BSTR script)
     JSObject* eval = 0;
     if (state->scopeNode()) {  // "eval" won't work without context (i.e. at global scope)
         JSValue* v = globObj->get(state, "eval");
-        if (v->isObject() && static_cast<JSObject*>(v)->implementsCall())
-            eval = static_cast<JSObject*>(v);
+        if (v->isObject() && asObject(v)->implementsCall())
+            eval = asObject(v);
         else
             // no "eval" - fallback operates on global exec state
             state = globObj->globalExec();
@@ -239,13 +251,13 @@ JSValue* WebScriptCallFrame::valueByEvaluatingJavaScriptFromString(BSTR script)
     JSValue* savedException = state->exception();
     state->clearException();
 
-    UString code(reinterpret_cast<KJS::UChar*>(script), SysStringLen(script));
+    UString code(reinterpret_cast<UChar*>(script), SysStringLen(script));
 
     // evaluate
     JSValue* scriptExecutionResult;
     if (eval) {
-        List args;
-        args.append(jsString(code));
+        ArgList args;
+        args.append(jsString(state, code));
         scriptExecutionResult = eval->call(state, 0, args);
     } else
         // no "eval", or no context (i.e. global scope) - use global fallback
@@ -256,6 +268,9 @@ JSValue* WebScriptCallFrame::valueByEvaluatingJavaScriptFromString(BSTR script)
     state->setException(savedException);
 
     return scriptExecutionResult;
+#else
+    return jsNull();
+#endif
 }
 
 template<> struct COMVariantSetter<Identifier>

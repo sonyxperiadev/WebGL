@@ -23,21 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-@class NSArray;
-@class NSDictionary;
-@class NSMenu;
-@class NSString;
-@class NSView;
-@class WebCoreFrameBridge;
 @class WebCoreTextMarker;
 @class WebCoreTextMarkerRange;
 
 @protocol WebCoreViewFactory
 
 - (NSArray *)pluginsInfo; // array of id <WebCorePluginInfo>
-- (void)refreshPlugins:(BOOL)reloadPages;
-- (NSString *)pluginNameForMIMEType:(NSString *)MIMEType;
-- (BOOL)pluginSupportsMIMEType:(NSString *)MIMEType;
+- (void)refreshPlugins;
 
 - (NSString *)inputElementAltText;
 - (NSString *)resetButtonDefaultLabel;
@@ -98,6 +90,8 @@
 
 - (NSString *)defaultLanguageCode;
 
+- (NSString *)imageTitleForFilename:(NSString *)filename width:(int)width height:(int)height;
+
 - (BOOL)objectIsTextMarker:(id)object;
 - (BOOL)objectIsTextMarkerRange:(id)object;
 
@@ -113,25 +107,29 @@
 - (AXUIElementRef)AXUIElementForElement:(id)element;
 - (void)unregisterUniqueIdForUIElement:(id)element;
 
-- (WebCoreFrameBridge *)bridgeForView:(NSView *)aView;
-
 - (NSString *)AXWebAreaText;
 - (NSString *)AXLinkText;
 - (NSString *)AXListMarkerText;
 - (NSString *)AXImageMapText;
 - (NSString *)AXHeadingText;
+- (NSString *)AXDefinitionListTermText;
+- (NSString *)AXDefinitionListDefinitionText;
 
+- (NSString *)AXButtonActionVerb;
+- (NSString *)AXRadioButtonActionVerb;
+- (NSString *)AXTextFieldActionVerb;
+- (NSString *)AXCheckedCheckBoxActionVerb;
+- (NSString *)AXUncheckedCheckBoxActionVerb;
+- (NSString *)AXLinkActionVerb;
+
+- (NSString *)multipleFileUploadTextForNumberOfFiles:(unsigned)numberOfFiles;
 // FTP Directory Related
 - (NSString *)unknownFileSizeText;
 
 @end
 
 @interface WebCoreViewFactory : NSObject
-{
-}
-
 + (WebCoreViewFactory *)sharedFactory;
-
 @end
 
 @interface WebCoreViewFactory (SubclassResponsibility) <WebCoreViewFactory>

@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -35,12 +34,18 @@ namespace WebCore {
     public:
         FrameLoadRequest()
             : m_lockHistory(false)
+#ifdef ANDROID_USER_GESTURE
+            , m_wasUserGesture(true)
+#endif
         {
         }
 
         FrameLoadRequest(const ResourceRequest& resourceRequest)
             : m_resourceRequest(resourceRequest)
             , m_lockHistory(false)
+#ifdef ANDROID_USER_GESTURE
+            , m_wasUserGesture(true)
+#endif
         {
         }
 
@@ -48,6 +53,9 @@ namespace WebCore {
             : m_resourceRequest(resourceRequest)
             , m_frameName(frameName)
             , m_lockHistory(false)
+#ifdef ANDROID_USER_GESTURE
+            , m_wasUserGesture(true)
+#endif
         {
         }
 
@@ -62,10 +70,18 @@ namespace WebCore {
         bool lockHistory() const { return m_lockHistory; }
         void setLockHistory(bool lock) { m_lockHistory = lock; }
 
+#ifdef ANDROID_USER_GESTURE
+        void setWasUserGesture(bool wasUserGesture) { m_wasUserGesture = wasUserGesture; }
+        bool wasUserGesture() const { return m_wasUserGesture; }
+#endif
+
     private:
         ResourceRequest m_resourceRequest;
         String m_frameName;
         bool m_lockHistory;
+#ifdef ANDROID_USER_GESTURE
+        bool m_wasUserGesture;
+#endif
     };
 
 }

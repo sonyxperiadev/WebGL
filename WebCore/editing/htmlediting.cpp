@@ -72,7 +72,6 @@ bool canHaveChildrenForEditing(const Node* node)
            !node->hasTagName(textareaTag) &&
            !node->hasTagName(objectTag) &&
            !node->hasTagName(iframeTag) &&
-           !node->hasTagName(buttonTag) &&
            !node->hasTagName(embedTag) &&
            !node->hasTagName(appletTag) &&
            !node->hasTagName(selectTag) &&
@@ -243,45 +242,43 @@ Position previousVisuallyDistinctCandidate(const Position& position)
 
 VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& position, Node* highestRoot)
 {
+    // position falls before highestRoot.
     if (comparePositions(position, Position(highestRoot, 0)) == -1 && highestRoot->isContentEditable())
         return VisiblePosition(Position(highestRoot, 0));
-    
-    Position p = nextVisuallyDistinctCandidate(position);
-    Node* root = editableRootForPosition(position);
-    Node* shadowAncestor = root ? root->shadowAncestorNode() : 0;
-    if (p.isNull() && root && (shadowAncestor != root))
-        p = Position(shadowAncestor, maxDeepOffset(shadowAncestor));
-    while (p.isNotNull() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot)) {
-        p = isAtomicNode(p.node()) ? positionAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
         
-        root = editableRootForPosition(position);
-        shadowAncestor = root ? root->shadowAncestorNode() : 0;
-        if (p.isNull() && root && (shadowAncestor != root))
+    Position p = position;
+    
+    if (Node* shadowAncestor = p.node()->shadowAncestorNode())
+        if (shadowAncestor != p.node())
             p = Position(shadowAncestor, maxDeepOffset(shadowAncestor));
-    }
-
+    
+    while (p.node() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot))
+        p = isAtomicNode(p.node()) ? positionAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
+    
+    if (p.node() && !p.node()->isDescendantOf(highestRoot))
+        return VisiblePosition();
+    
     return VisiblePosition(p);
 }
 
 VisiblePosition lastEditablePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
 {
+    // When position falls after highestRoot, the result is easy to compute.
     if (comparePositions(position, Position(highestRoot, maxDeepOffset(highestRoot))) == 1)
         return VisiblePosition(Position(highestRoot, maxDeepOffset(highestRoot)));
-    
-    Position p = previousVisuallyDistinctCandidate(position);
-    Node* root = editableRootForPosition(position);
-    Node* shadowAncestor = root ? root->shadowAncestorNode() : 0;
-    if (p.isNull() && root && (shadowAncestor != root))
-        p = Position(shadowAncestor, 0);
-    while (p.isNotNull() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot)) {
-        p = isAtomicNode(p.node()) ? positionBeforeNode(p.node()) : previousVisuallyDistinctCandidate(p);
         
-        root = editableRootForPosition(position);
-        shadowAncestor = root ? root->shadowAncestorNode() : 0;
-        if (p.isNull() && root && (shadowAncestor != root))
+    Position p = position;
+    
+    if (Node* shadowAncestor = p.node()->shadowAncestorNode())
+        if (shadowAncestor != p.node())
             p = Position(shadowAncestor, 0);
-    }
-
+    
+    while (p.node() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot))
+        p = isAtomicNode(p.node()) ? positionBeforeNode(p.node()) : previousVisuallyDistinctCandidate(p);
+    
+    if (p.node() && !p.node()->isDescendantOf(highestRoot))
+        return VisiblePosition();
+    
     return VisiblePosition(p);
 }
 
@@ -367,11 +364,11 @@ int maxDeepOffset(const Node *node)
 
 String stringWithRebalancedWhitespace(const String& string, bool startIsStartOfParagraph, bool endIsEndOfParagraph)
 {
-    static DeprecatedString twoSpaces("  ");
-    static DeprecatedString nbsp("\xa0");
-    static DeprecatedString pattern(" \xa0");
+    static String twoSpaces("  ");
+    static String nbsp("\xa0");
+    static String pattern(" \xa0");
 
-    DeprecatedString rebalancedString = string.deprecatedString();
+    String rebalancedString = string;
 
     rebalancedString.replace(noBreakSpace, ' ');
     rebalancedString.replace('\n', ' ');
@@ -385,7 +382,7 @@ String stringWithRebalancedWhitespace(const String& string, bool startIsStartOfP
     if (endIsEndOfParagraph && rebalancedString[end] == ' ')
         rebalancedString.replace(end, 1, nbsp);    
 
-    return String(rebalancedString);
+    return rebalancedString;
 }
 
 bool isTableStructureNode(const Node *node)
@@ -575,7 +572,7 @@ Node* enclosingNodeWithTag(const Position& p, const QualifiedName& tagName)
     return 0;
 }
 
-Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*))
+Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), bool onlyReturnEditableNodes)
 {
     if (p.isNull())
         return 0;
@@ -584,7 +581,7 @@ Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*))
     for (Node* n = p.node(); n; n = n->parentNode()) {
         // Don't return a non-editable node if the input position was editable, since
         // the callers from editing will no doubt want to perform editing inside the returned node.
-        if (root && !isContentEditable(n))
+        if (root && !isContentEditable(n) && onlyReturnEditableNodes)
             continue;
         if ((*nodeIsOfType)(n))
             return n;
@@ -786,7 +783,7 @@ PassRefPtr<Element> createElement(Document* document, const String& tagName)
 
 bool isTabSpanNode(const Node *node)
 {
-    return (node && node->isElementNode() && static_cast<const Element *>(node)->getAttribute("class") == AppleTabSpanClass);
+    return node && node->hasTagName(spanTag) && node->isElementNode() && static_cast<const Element *>(node)->getAttribute(classAttr) == AppleTabSpanClass;
 }
 
 bool isTabSpanTextNode(const Node *node)
@@ -932,28 +929,25 @@ int indexForVisiblePosition(VisiblePosition& visiblePosition)
     if (visiblePosition.isNull())
         return 0;
     Position p(visiblePosition.deepEquivalent());
-    RefPtr<Range> range = new Range(p.node()->document(), Position(p.node()->document(), 0), rangeCompliantEquivalent(p));
+    RefPtr<Range> range = Range::create(p.node()->document(), Position(p.node()->document(), 0), rangeCompliantEquivalent(p));
     return TextIterator::rangeLength(range.get(), true);
 }
 
 PassRefPtr<Range> avoidIntersectionWithNode(const Range* range, Node* node)
 {
-    if (!range || range->isDetached())
+    if (!range)
         return 0;
 
     Document* document = range->ownerDocument();
 
-    ExceptionCode ec = 0;
-    Node* startContainer = range->startContainer(ec);
-    ASSERT(ec == 0);
-    int startOffset = range->startOffset(ec);
-    ASSERT(ec == 0);
-    Node* endContainer = range->endContainer(ec);
-    ASSERT(ec == 0);
-    int endOffset = range->endOffset(ec);
-    ASSERT(ec == 0);
+    Node* startContainer = range->startContainer();
+    int startOffset = range->startOffset();
+    Node* endContainer = range->endContainer();
+    int endOffset = range->endOffset();
 
-    ASSERT(startContainer);
+    if (!startContainer)
+        return 0;
+
     ASSERT(endContainer);
 
     if (startContainer == node || startContainer->isDescendantOf(node)) {
@@ -967,7 +961,7 @@ PassRefPtr<Range> avoidIntersectionWithNode(const Range* range, Node* node)
         endOffset = node->nodeIndex();
     }
 
-    return new Range(document, startContainer, startOffset, endContainer, endOffset);
+    return Range::create(document, startContainer, startOffset, endContainer, endOffset);
 }
 
 Selection avoidIntersectionWithNode(const Selection& selection, Node* node)

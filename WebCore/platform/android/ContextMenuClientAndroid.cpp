@@ -17,9 +17,8 @@
 
 #include "config.h"
 #include "ContextMenuClientAndroid.h"
+#include "NotImplemented.h"
 #include "wtf/Assertions.h"
-
-#define notImplemented() ASSERT(0)
 
 namespace WebCore {
     

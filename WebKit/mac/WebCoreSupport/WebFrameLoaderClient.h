@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,6 @@ public:
 
 private:
     virtual bool hasWebView() const; // mainly for assertions
-    virtual bool hasFrameView() const; // ditto
 
     virtual void makeRepresentation(WebCore::DocumentLoader*);
     virtual bool hasHTMLView() const;
@@ -71,7 +70,6 @@ private:
 
     virtual void detachedFromParent2();
     virtual void detachedFromParent3();
-    virtual void detachedFromParent4();
 
     virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
@@ -109,9 +107,9 @@ private:
     virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction,
         const WebCore::String& MIMEType, const WebCore::ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction,
-        const WebCore::NavigationAction&, const WebCore::ResourceRequest&, const WebCore::String& frameName);
+        const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WebCore::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction,
-        const WebCore::NavigationAction&, const WebCore::ResourceRequest&);
+        const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void cancelPolicyCheck();
 
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
@@ -121,7 +119,6 @@ private:
     virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&);
-    virtual void clearUnarchivingState(WebCore::DocumentLoader*);
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
 
     virtual void willChangeEstimatedProgress();
@@ -139,9 +136,7 @@ private:
 
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
     virtual void finishedLoading(WebCore::DocumentLoader*);
-    virtual void finalSetupForReplace(WebCore::DocumentLoader*);
-    virtual void updateGlobalHistoryForStandardLoad(const WebCore::KURL&);
-    virtual void updateGlobalHistoryForReload(const WebCore::KURL&);
+    virtual void updateGlobalHistory(const WebCore::KURL&);
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
@@ -151,21 +146,15 @@ private:
 
     virtual WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&);
+    virtual WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&);
 
     virtual bool shouldFallBack(const WebCore::ResourceError&);
-
-    virtual void setDefersLoading(bool);
 
     virtual WebCore::String userAgent(const WebCore::KURL&);
     
     virtual void savePlatformDataToCachedPage(WebCore::CachedPage*);
     virtual void transitionToCommittedFromCachedPage(WebCore::CachedPage*);
     virtual void transitionToCommittedForNewPage();
-
-    virtual bool willUseArchive(WebCore::ResourceLoader*, const WebCore::ResourceRequest&, const WebCore::KURL& originalURL) const;
-    virtual bool isArchiveLoadPending(WebCore::ResourceLoader*) const;
-    virtual void cancelPendingArchiveLoad(WebCore::ResourceLoader*);
-    virtual void clearArchivedResources();
 
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const WebCore::String& MIMEType) const;
@@ -199,16 +188,15 @@ private:
 
     virtual void registerForIconNotification(bool listen);
 
-    void deliverArchivedResourcesAfterDelay() const;
-    bool canUseArchivedResource(NSURLRequest *) const;
-    bool canUseArchivedResource(NSURLResponse *) const;
-    void deliverArchivedResources(WebCore::Timer<WebFrameLoaderClient>*);
+#if ENABLE(MAC_JAVA_BRIDGE)
+    virtual jobject javaApplet(NSView*);
+#endif
 
     void setOriginalURLForDownload(WebDownload *, const WebCore::ResourceRequest&) const;
 
     RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction);
 
-    NSDictionary *actionDictionary(const WebCore::NavigationAction&) const;
+    NSDictionary *actionDictionary(const WebCore::NavigationAction&, PassRefPtr<WebCore::FormState>) const;
     
     virtual bool canCachePage() const;
 
@@ -216,7 +204,4 @@ private:
 
     RetainPtr<WebFramePolicyListener> m_policyListener;
     WebCore::FramePolicyFunction m_policyFunction;
-
-    mutable ResourceMap m_pendingArchivedResources;
-    mutable WebCore::Timer<WebFrameLoaderClient> m_archivedResourcesDeliveryTimer;
 };

@@ -24,30 +24,11 @@
 
 namespace WebCore {
 
-FileChooser::FileChooser(FileChooserClient* client, const String& initialFilename)
-{
-    m_client = client;
-    if (initialFilename.length() == 0)
-        m_filename = fileButtonNoFileSelectedLabel();
-    else
-        m_filename = initialFilename;
-}
-
-FileChooser::~FileChooser() 
-{
-}
-
-void FileChooser::openFileChooser(Document* doc) 
-{ 
-    // FIXME: NEED TO OPEN A FILE CHOOSER OF SOME SORT!!
-    // When it's chosen, set m_filename, call chooseFile(m_filename) and call chooseIcon(m_filename)
-}
-
 String FileChooser::basenameForWidth(const Font& font, int width) const 
 { 
     // FIXME: This could be a lot faster, but assuming the data will not often be 
     // much longer than the provided width, this may be fast enough.
-    String output = m_filename.copy();
+    String output = m_filenames[0].copy();
     while (font.width(TextRun(output.impl())) > width && output.length() > 4) {
         output = output.replace(output.length() - 4, 4, String("..."));
     }

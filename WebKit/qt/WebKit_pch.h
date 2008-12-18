@@ -32,6 +32,13 @@
 
 
 #if defined __cplusplus
+
+#if defined (_WIN32)
+#define _CRT_RAND_S
+#define _WIN32_WINNT 0x0500
+#include <windows.h>
+#endif
+
 #include "../../JavaScriptCore/kjs/config.h"
 
 #include <math.h>
@@ -71,6 +78,6 @@
 #include <wtf/AlwaysInline.h>
 #include <wtf/GetPtr.h>
 
-#include "../../WebCore/bindings/js/kjs_binding.h"
-#include "../../JavaScriptCore/kjs/math_object.h"
+#include "../../WebCore/bindings/js/JSDOMBinding.h"
+#include "../../JavaScriptCore/kjs/MathObject.h"
 #endif

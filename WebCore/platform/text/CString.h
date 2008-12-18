@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,23 +26,26 @@
 #ifndef CString_h
 #define CString_h
 
+#include "SharedBuffer.h"
+
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-using std::min;
-
 namespace WebCore {
 
-    class DeprecatedCString;
-    
     class CStringBuffer : public RefCounted<CStringBuffer> {
     public:
-        CStringBuffer(unsigned length) : m_vector(length) { }
+        static PassRefPtr<CStringBuffer> create(unsigned length) { return adoptRef(new CStringBuffer(length)); }
 
         char* data() { return m_vector.data(); }
-        unsigned length() const { return m_vector.size(); }
+        size_t length() const { return m_vector.size(); }
+        
+        PassRefPtr<SharedBuffer> releaseBuffer() { return SharedBuffer::adoptVector(m_vector); }
 
     private:
+        CStringBuffer(unsigned length) : m_vector(length) { }
+
         Vector<char> m_vector;
     };
 
@@ -60,9 +63,8 @@ namespace WebCore {
         unsigned length() const;
 
         bool isNull() const { return !m_buffer; }
-
-        CString(const DeprecatedCString&);
-        DeprecatedCString deprecatedCString() const;
+        
+        PassRefPtr<SharedBuffer> releaseBuffer();
 
     private:
         void copyBufferIfNeeded();
@@ -73,6 +75,6 @@ namespace WebCore {
     bool operator==(const CString& a, const CString& b);
     inline bool operator!=(const CString& a, const CString& b) { return !(a == b); }
 
-}
+} // namespace WebCore
 
 #endif // CString_h

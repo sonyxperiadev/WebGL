@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "ChromeClientWx.h"
+#include "FileChooser.h"
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
 #include "NotImplemented.h"
@@ -39,8 +40,9 @@
     #include <wx/wx.h>
 #endif
 #include <wx/textdlg.h>
+#include <wx/tooltip.h>
 
-#include "WebFrame.h"
+#include "WebBrowserShell.h"
 #include "WebView.h"
 #include "WebViewPrivate.h"
 
@@ -112,7 +114,7 @@ Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest& request, cons
     // when that event is not handled.
     
     Page* myPage = 0;
-    wxWebFrame* newFrame = new wxWebFrame(wxTheApp->GetAppName());
+    wxWebBrowserShell* newFrame = new wxWebBrowserShell(wxTheApp->GetAppName());
     
     if (newFrame->webview) {
         newFrame->webview->LoadURL(request.resourceRequest().url().string());
@@ -282,9 +284,34 @@ IntRect ChromeClientWx::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClientWx::addToDirtyRegion(const IntRect&)
+void ChromeClientWx::repaint(const IntRect& rect, bool contentChanged, bool immediate, bool repaintContentOnly)
+{
+    if (!m_webView)
+        return;
+    
+    if (contentChanged)
+        m_webView->RefreshRect(rect);
+    
+    if (immediate) {
+        m_webView->Update();
+    }
+}
+
+IntRect ChromeClientWx::windowToScreen(const IntRect& rect) const
 {
     notImplemented();
+    return rect;
+}
+
+IntPoint ChromeClientWx::screenToWindow(const IntPoint& point) const
+{
+    notImplemented();
+    return point;
+}
+
+PlatformWidget ChromeClientWx::platformWindow() const
+{
+    return 0;
 }
 
 void ChromeClientWx::scrollBackingStore(int dx, int dy, 
@@ -304,9 +331,11 @@ void ChromeClientWx::mouseDidMoveOverElement(const HitTestResult&, unsigned modi
     notImplemented();
 }
 
-void ChromeClientWx::setToolTip(const String&)
+void ChromeClientWx::setToolTip(const String& tip)
 {
-    notImplemented();
+    wxToolTip* tooltip = m_webView->GetToolTip();
+    if (!tooltip || tooltip->GetTip() != wxString(tip))
+        m_webView->SetToolTip(tip);
 }
 
 void ChromeClientWx::print(Frame*)
@@ -315,6 +344,16 @@ void ChromeClientWx::print(Frame*)
 }
 
 void ChromeClientWx::exceededDatabaseQuota(Frame*, const String&)
+{
+    notImplemented();
+}
+
+void ChromeClientWx::scroll(const IntSize&, const IntRect&, const IntRect&)
+{
+    notImplemented();
+}
+
+void ChromeClientWx::runOpenPanel(Frame*, PassRefPtr<FileChooser>)
 {
     notImplemented();
 }

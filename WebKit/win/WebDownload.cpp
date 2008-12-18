@@ -27,6 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebDownload.h"
 
+#include "CString.h"
 #include "DefaultDownloadDelegate.h"
 #include "MarshallingHelpers.h"
 #include "WebError.h"
@@ -80,6 +81,7 @@ WebDownload::WebDownload()
     : m_refCount(0)
 {
     gClassCount++;
+    gClassNameCount.add("WebDownload");
 }
 
 void WebDownload::init(ResourceHandle* handle, const ResourceRequest& request, const ResourceResponse& response, IWebDownloadDelegate* delegate)
@@ -102,9 +104,9 @@ void WebDownload::init(ResourceHandle* handle, const ResourceRequest& request, c
     // However, we should never hit that case
     if (!m_download) {
         ASSERT_NOT_REACHED();
-        LOG_ERROR("WebDownload - Failed to create WebDownload from existing connection (%s)", request.url().deprecatedString().ascii());
+        LOG_ERROR("WebDownload - Failed to create WebDownload from existing connection (%s)", request.url().string().utf8().data());
     } else
-        LOG(Download, "WebDownload - Created WebDownload %p from existing connection (%s)", this, request.url().deprecatedString().ascii());
+        LOG(Download, "WebDownload - Created WebDownload %p from existing connection (%s)", this, request.url().string().utf8().data());
 
     // The CFURLDownload either starts successfully and retains the CFURLConnection, 
     // or it fails to creating and we have a now-useless connection with a dangling ref. 
@@ -130,7 +132,7 @@ void WebDownload::init(const KURL& url, IWebDownloadDelegate* delegate)
     CFURLDownloadScheduleWithCurrentMessageQueue(m_download.get());
     CFURLDownloadScheduleDownloadWithRunLoop(m_download.get(), ResourceHandle::loaderRunLoop(), kCFRunLoopDefaultMode);
 
-    LOG(Download, "WebDownload - Initialized download of url %s in WebDownload %p", url.deprecatedString().ascii(), this);
+    LOG(Download, "WebDownload - Initialized download of url %s in WebDownload %p", url.string().utf8().data(), this);
 }
 
 WebDownload::~WebDownload()
@@ -138,6 +140,7 @@ WebDownload::~WebDownload()
     LOG(Download, "WebDownload - Destroying download (%p)", this);
     cancel();
     gClassCount--;
+    gClassNameCount.remove("WebDownload");
 }
 
 WebDownload* WebDownload::createInstance()
@@ -232,7 +235,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::initWithRequest(
     CFURLDownloadScheduleWithCurrentMessageQueue(m_download.get());
     CFURLDownloadScheduleDownloadWithRunLoop(m_download.get(), ResourceHandle::loaderRunLoop(), kCFRunLoopDefaultMode);
 
-    LOG(Download, "WebDownload - initWithRequest complete, started download of url %s", webRequest->resourceRequest().url().deprecatedString().ascii());
+    LOG(Download, "WebDownload - initWithRequest complete, started download of url %s", webRequest->resourceRequest().url().string().utf8().data());
     return S_OK;
 }
 
@@ -324,8 +327,10 @@ HRESULT STDMETHODCALLTYPE WebDownload::cancelForResume()
 
     HRESULT hr = S_OK;
     RetainPtr<CFDataRef> resumeData;
-    if (m_destination.isEmpty())
+    if (m_destination.isEmpty()) {
+        CFURLDownloadCancel(m_download.get());
         goto exit;
+    }
 
     CFURLDownloadSetDeletesUponFailure(m_download.get(), false);
     CFURLDownloadCancel(m_download.get());

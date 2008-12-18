@@ -14,6 +14,7 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+#define LOG_TAG "WebCore"
 
 #include "config.h"
 
@@ -25,16 +26,22 @@
 #include "CachedPage.h"
 #include "CachedResource.h"
 #include "CookieJar.h"
+#include "Console.h"
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
 #include "Clipboard.h"
 #include "CString.h"
 #include "Cursor.h"
+#include "Database.h"
+//#include "DebuggerCallFrame.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "EditCommand.h"
 #include "Editor.h"
+#include "File.h"
+#include "FileList.h"
 #include "Font.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "FrameView.h"
@@ -46,6 +53,12 @@
 #include "IconDatabase.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
+#include "JavaScriptCallFrame.h"
+#include "JavaScriptDebugServer.h"
+#include "API/JSClassRef.h"
+#include "JavaScriptCallFrame.h"
+#include "JavaScriptProfile.h"
+#include "jni_utility.h"
 #include "KURL.h"
 #include "Language.h"
 #include "loader.h"
@@ -53,28 +66,21 @@
 #include "MainResourceLoader.h"
 #include "MIMETypeRegistry.h"
 #include "Node.h"
+#include "NotImplemented.h"
 #include "PageCache.h"
 #include "Pasteboard.h"
 #include "Path.h"
-#include "PlatformScrollBar.h"
 #include "PluginInfoStore.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoader.h"
 #include "Screen.h"
-#include "ScrollBar.h"
+#include "Scrollbar.h"
+#include "ScrollbarTheme.h"
 #include "SmartReplace.h"
 #include "Widget.h"
 
-#undef LOG
-#define LOG_TAG "WebCore"
-#include "utils/Log.h"
-
 using namespace WebCore;
-
-//static inline void notImplemented() { LOGV("LinkStubs: Not Implemented %s\n", __PRETTY_FUNCTION__); }
-//static inline void notImplemented(const char name[]) { LOGV("LinkStubs: Not Implemented %s\n", name); }
-static inline void verifiedOk() { } // not a problem that it's not implemented
 
 // This function is called when the frame view has changed the state of it's border. 
 // iFrames, which are have a FrameView, are drawn with a 1px left/right border and 2px top/bottom border
@@ -88,8 +94,6 @@ static inline void verifiedOk() { } // not a problem that it's not implemented
 /********************************************************/
 /* Completely empty stubs (mostly to allow DRT to run): */
 /********************************************************/
-// This value turns on or off the Mac specific Accessibility support.
-// bool AXObjectCache::gAccessibilityEnabled = false;
 
 // This function is used by Javascript to find out what the default language
 // the user has selected. It is used by the JS object Navigator.language
@@ -123,9 +127,8 @@ void CheckCacheObjectStatus(DocLoader*, CachedResource*) { ASSERT(0); notImpleme
 // therefore relates to the above. When a file has been selected, an icon
 // representing the file type can be rendered next to the filename on the
 // web page. The icon for the file is encapsulated within this class.
-Icon::Icon() { notImplemented(); }
+//Icon::Icon() { notImplemented(); }
 Icon::~Icon() { }
-PassRefPtr<Icon> Icon::newIconForFile(const String& filename){ notImplemented(); return PassRefPtr<Icon>(new Icon()); }
 void Icon::paint(GraphicsContext*, const IntRect&) { }
 
 // *** The following strings should be localized *** //
@@ -153,11 +156,6 @@ String searchableIndexIntroduction() { verifiedOk(); return String("Enter search
 // -webkit-focus-ring-color
 // It is also related to the CSS property outline-color:
 Color WebCore::focusRingColor() { verifiedOk(); return 0xFF0000FF; }
-
-// The following functions are used on the Mac to register for and handle
-// platform colour changes. The later function simply tells the view to
-// reapply style and relayout.
-void WebCore::setFocusRingColorChangeFunction(void (*)()) { verifiedOk(); }
 
 // LocalizedStrings
 String WebCore::contextMenuItemTagOpenLinkInNewWindow() { ASSERT(0); return String(); }
@@ -243,7 +241,7 @@ void systemBeep() { notImplemented(); }
 //void WebCore::Frame::print() {}
 // void WebCore::Frame::issueTransposeCommand() {}
 //void WebCore::Frame::cleanupPlatformScriptObjects() {}
-void WebCore::Frame::dashboardRegionsChanged() {}
+// void WebCore::Frame::dashboardRegionsChanged() {}
 //bool WebCore::Frame::isCharacterSmartReplaceExempt(unsigned short, bool) { return false; }
 void* WebCore::Frame::dragImageForSelection() { return NULL; }
 
@@ -273,9 +271,9 @@ String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::K
 }
 
 // added for Nov-16-07 ToT integration
-namespace WebCore {
-void Frame::clearPlatformScriptObjects() { notImplemented(); }
-}
+//namespace WebCore {
+//void Frame::clearPlatformScriptObjects() { notImplemented(); }
+//}
 
 // functions new to Feb-19 tip of tree merge:
 namespace WebCore {
@@ -288,3 +286,188 @@ int MakeDataExecutable;
 
 // functions new to Mar-2 tip of tree merge:
 String KURL::fileSystemPath() const { notImplemented(); return String(); }
+
+// functions new to Jun-1 tip of tree merge:
+PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&) { notImplemented(); return 0; }
+
+namespace JSC {
+namespace Bindings {
+bool dispatchJNICall(ExecState*, void const*, _jobject*, bool, JNIType, 
+        _jmethodID*, jvalue*, jvalue&, char const*, JSValue*&) {
+    notImplemented();
+    return false;
+}
+}
+}
+
+char* dirname(const char*) { notImplemented(); return NULL; } 
+
+    // new as of SVN change 36269, Sept 8, 2008
+const String& Database::databaseInfoTableName()
+{
+    notImplemented();
+    static const String dummy;
+    return dummy;
+}
+
+    // new as of SVN change 38068, Nov 5, 2008
+namespace WebCore {
+void prefetchDNS(const String& hostname) { notImplemented(); }
+void getSupportedKeySizes(Vector<String>&) { notImplemented(); }
+PassRefPtr<Icon> Icon::createIconForFile(const String& filename) { notImplemented(); return 0; }
+PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames) { notImplemented(); return 0; }
+// ScrollbarTheme::nativeTheme() is called by RenderTextControl::calcPrefWidths() 
+// like this: scrollbarSize = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+// with this comment: 
+// // FIXME: We should get the size of the scrollbar from the RenderTheme instead.
+// since our text control doesn't have scrollbars, the default size of 0 width should be
+// ok. notImplemented() is commented out below so that we can find other unresolved
+// unimplemented functions.
+ScrollbarTheme* ScrollbarTheme::nativeTheme() { /* notImplemented(); */ static ScrollbarTheme theme; return &theme; }
+JSC::JSValue* toJS(JSC::ExecState* , JSC::Profile* ) { notImplemented(); return NULL; }
+}
+
+FileList::FileList()
+{
+    notImplemented();
+}
+
+File* FileList::item(unsigned index) const
+{
+    notImplemented();
+    return NULL;
+}
+
+AXObjectCache::~AXObjectCache()
+{
+    notImplemented();
+}
+
+// This value turns on or off the Mac specific Accessibility support.
+bool AXObjectCache::gAccessibilityEnabled = false;
+bool AXObjectCache::gAccessibilityEnhancedUserInterfaceEnabled = false;
+
+void AXObjectCache::childrenChanged(RenderObject* renderer)
+{
+    notImplemented();
+}
+
+void AXObjectCache::remove(RenderObject* renderer)
+{
+    notImplemented();
+}
+
+using namespace JSC;
+
+
+OpaqueJSClass::~OpaqueJSClass()
+{
+    notImplemented();
+}
+
+OpaqueJSClassContextData::~OpaqueJSClassContextData()
+{
+    notImplemented();
+}
+
+namespace WebCore {
+JSC::JSValue* JavaScriptCallFrame::evaluate(JSC::UString const&, JSC::JSValue*&) const
+{
+    notImplemented();
+    return NULL;
+}
+
+const JSC::ScopeChainNode* JavaScriptCallFrame::scopeChain() const
+{
+    notImplemented();
+    return NULL;
+}
+
+JSC::JSObject* JavaScriptCallFrame::thisObject() const
+{
+    notImplemented();
+    return NULL;
+}
+
+JSC::DebuggerCallFrame::Type JavaScriptCallFrame::type() const
+{
+    notImplemented();
+    return (JSC::DebuggerCallFrame::Type) 0;
+}
+
+JavaScriptCallFrame* JavaScriptCallFrame::caller()
+{
+    notImplemented();
+    return NULL;
+}
+
+String JavaScriptCallFrame::functionName() const
+{
+    notImplemented();
+    return String();
+}
+}
+
+JavaScriptDebugServer::JavaScriptDebugServer() :
+    m_recompileTimer(this, NULL)
+{
+    notImplemented();
+}
+
+JavaScriptDebugServer::~JavaScriptDebugServer()
+{
+    notImplemented();
+}
+
+JavaScriptDebugServer& JavaScriptDebugServer::shared()
+{
+    static JavaScriptDebugServer server;
+    notImplemented();
+    return server;
+}
+
+void JavaScriptDebugServer::atStatement(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::callEvent(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::didExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::didReachBreakpoint(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::exception(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::sourceParsed(ExecState* exec, const SourceCode&, 
+    int sourceID, const UString& sourceURL)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::pageCreated(Page* page)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::returnEvent(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}
+
+void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, int sourceID, int lineNumber)
+{
+    notImplemented();
+}

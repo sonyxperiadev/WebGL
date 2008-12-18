@@ -36,13 +36,19 @@
 #import <JavaScriptCore/JSRetainPtr.h>
 #import <JavaScriptCore/JSStringRef.h>
 #import <JavaScriptCore/JSStringRefCF.h>
+#import <WebKit/DOMDocument.h>
 #import <WebKit/WebBackForwardList.h>
+#import <WebKit/WebDatabaseManagerPrivate.h>
+#import <WebKit/WebDataSource.h>
 #import <WebKit/WebFrame.h>
+#import <WebKit/WebHTMLRepresentation.h>
 #import <WebKit/WebHTMLViewPrivate.h>
 #import <WebKit/WebHistory.h>
+#import <WebKit/WebInspector.h>
 #import <WebKit/WebNSURLExtras.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
+#import <WebKit/WebSecurityOriginPrivate.h>
 #import <WebKit/WebView.h>
 #import <WebKit/WebViewPrivate.h>
 #import <wtf/RetainPtr.h>
@@ -63,6 +69,11 @@ void LayoutTestController::addDisallowedURL(JSStringRef url)
     request = [NSURLProtocol canonicalRequestForRequest:request];
 
     CFSetAddValue(disallowedURLs, [request URL]);
+}
+
+void LayoutTestController::clearAllDatabases()
+{
+    [[WebDatabaseManager sharedWebDatabaseManager] deleteAllDatabases];
 }
 
 void LayoutTestController::clearBackForwardList()
@@ -170,6 +181,13 @@ void LayoutTestController::setCustomPolicyDelegate(bool setDelegate)
         [[mainFrame webView] setPolicyDelegate:nil];
 }
 
+void LayoutTestController::setDatabaseQuota(unsigned long long quota)
+{    
+    WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:@"file:///"]];
+    [origin setQuota:quota];
+    [origin release];
+}
+
 void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
 {
     NSView *documentView = [[mainFrame frameView] documentView];
@@ -232,13 +250,24 @@ void LayoutTestController::setWindowIsKey(bool windowIsKey)
         [(WebHTMLView *)documentView _updateFocusedAndActiveState];
 }
 
+void LayoutTestController::setSmartInsertDeleteEnabled(bool flag)
+{
+    [[mainFrame webView] setSmartInsertDeleteEnabled:flag];
+}
+
+void LayoutTestController::setJavaScriptProfilingEnabled(bool profilingEnabled)
+{
+    [[[mainFrame webView] preferences] setDeveloperExtrasEnabled:profilingEnabled];
+    [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:profilingEnabled];
+}
+
 static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
 
 static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
 {
     const char* message = "FAIL: Timed out waiting for notifyDone to be called\n";
-    fprintf(stderr, message);
-    fprintf(stdout, message);
+    fprintf(stderr, "%s", message);
+    fprintf(stdout, "%s", message);
     dump();
 }
 
@@ -254,6 +283,20 @@ void LayoutTestController::setWaitToDump(bool waitUntilDone)
 int LayoutTestController::windowCount()
 {
     return CFArrayGetCount(openWindowsRef);
+}
+
+bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id)
+{
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, id));
+    NSString *idNS = (NSString *)idCF.get();
+    
+    DOMElement *element = [[mainFrame DOMDocument] getElementById:idNS];
+    id rep = [[mainFrame dataSource] representation];
+    
+    if ([rep class] == [WebHTMLRepresentation class])
+        return [(WebHTMLRepresentation *)rep elementDoesAutoComplete:element];
+
+    return false;
 }
 
 void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)

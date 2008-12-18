@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,10 +31,9 @@
 #import "WebClipView.h"
 #import "WebDataSourcePrivate.h"
 #import "WebDocument.h"
-#import "WebDynamicScrollBarsView.h"
+#import "WebDynamicScrollBarsViewInternal.h"
 #import "WebFrame.h"
 #import "WebFrameInternal.h"
-#import "WebFrameBridge.h"
 #import "WebFrameViewInternal.h"
 #import "WebFrameViewPrivate.h"
 #import "WebHistoryItemInternal.h"
@@ -55,16 +54,18 @@
 #import "WebViewInternal.h"
 #import "WebViewPrivate.h"
 #import <Foundation/NSURLRequest.h>
-#import <JavaScriptCore/Assertions.h>
 #import <WebCore/DragController.h>
+#import <WebCore/EventHandler.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/Page.h>
+#import <WebCore/RenderPart.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreFrameView.h>
 #import <WebCore/WebCoreView.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 
 using namespace WebCore;
 
@@ -81,34 +82,18 @@ enum {
     SpaceKey = 0x0020
 };
 
-@interface WebFrameView (WebFrameViewFileInternal) <WebCoreBridgeHolder>
+@interface WebFrameView (WebFrameViewFileInternal) <WebCoreFrameView>
 - (float)_verticalKeyboardScrollDistance;
-- (WebCoreFrameBridge *) webCoreBridge;
 @end
 
 @interface WebFrameViewPrivate : NSObject {
 @public
     WebFrame *webFrame;
     WebDynamicScrollBarsView *frameScrollView;
-    
-    // These margin values are used to temporarily hold the margins of a frame until
-    // we have the appropriate document view type.
-    int marginWidth;
-    int marginHeight;
 }
 @end
 
 @implementation WebFrameViewPrivate
-
-- init
-{
-    [super init];
-    
-    marginWidth = -1;
-    marginHeight = -1;
-    
-    return self;
-}
 
 - (void)dealloc
 {
@@ -126,9 +111,9 @@ enum {
     return [[self _scrollView] verticalLineScroll];
 }
 
-- (WebCoreFrameBridge *) webCoreBridge
+- (Frame*)_web_frame
 {
-    return [_private->webFrame _bridge];
+    return core(_private->webFrame);
 }
 
 @end
@@ -139,26 +124,6 @@ enum {
 - (WebView *)_webView
 {
     return [_private->webFrame webView];
-}
-
-- (void)_setMarginWidth:(int)w
-{
-    _private->marginWidth = w;
-}
-
-- (int)_marginWidth
-{
-    return _private->marginWidth;
-}
-
-- (void)_setMarginHeight:(int)h
-{
-    _private->marginHeight = h;
-}
-
-- (int)_marginHeight
-{
-    return _private->marginHeight;
 }
 
 - (void)_setDocumentView:(NSView <WebDocumentView> *)view
@@ -285,6 +250,33 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return [WebView _viewClass:&viewClass andRepresentationClass:nil forMIMEType:MIMEType] ? viewClass : nil;
 }
 
+- (void)_install
+{
+    ASSERT(_private->webFrame);
+    ASSERT(_private->frameScrollView);
+
+    Frame* frame = core(_private->webFrame);
+
+    ASSERT(frame);
+    ASSERT(frame->page());
+
+    // If this isn't the main frame, it must have an owner element set, or it
+    // won't ever get installed in the view hierarchy.
+    ASSERT(frame == frame->page()->mainFrame() || frame->ownerElement());
+
+    FrameView* view = frame->view();
+
+    view->setPlatformWidget(_private->frameScrollView);
+
+    // FIXME: Frame tries to do this too. Is this code needed?
+    if (RenderPart* owner = frame->ownerRenderer()) {
+        owner->setWidget(view);
+        // Now the render part owns the view, so we don't any more.
+    }
+
+    view->initScrollbars();
+}
+
 @end
 
 @implementation WebFrameView
@@ -373,18 +365,17 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)setAllowsScrolling:(BOOL)flag
 {
-    WebDynamicScrollBarsView *scrollView = [self _scrollView];
-    [scrollView setAllowsScrolling:flag];
     WebCore::Frame *frame = core([self webFrame]);
-    if (WebCore::FrameView *view = frame? frame->view() : 0) {
-        view->setHScrollbarMode((WebCore::ScrollbarMode)[scrollView horizontalScrollingMode]);
-        view->setVScrollbarMode((WebCore::ScrollbarMode)[scrollView verticalScrollingMode]);
-    }
+    if (WebCore::FrameView *view = frame? frame->view() : 0)
+        view->setCanHaveScrollbars(flag);
 }
 
 - (BOOL)allowsScrolling
 {
-    return [[self _scrollView] allowsScrolling];
+    WebCore::Frame *frame = core([self webFrame]);
+    if (WebCore::FrameView *view = frame? frame->view() : 0)
+        return view->canHaveScrollbars();
+    return YES;
 }
 
 - (NSView <WebDocumentView> *)documentView
@@ -467,6 +458,37 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     }
 }
 
+- (NSRect)visibleRect
+{
+    // This method can be called beneath -[NSView dealloc] after we have cleared _private.
+    if (!_private)
+        return [super visibleRect];
+
+    // FIXME: <rdar://problem/6213380> This method does not work correctly with transforms, for two reasons:
+    // 1) [super visibleRect] does not account for the transform, since it is not represented
+    //    in the NSView hierarchy.
+    // 2) -_getVisibleRect: does not correct for transforms.
+
+    NSRect rendererVisibleRect;
+    if (![[self webFrame] _getVisibleRect:&rendererVisibleRect])
+        return [super visibleRect];
+
+    if (NSIsEmptyRect(rendererVisibleRect))
+        return NSZeroRect;
+
+    NSRect viewVisibleRect = [super visibleRect];
+    if (NSIsEmptyRect(viewVisibleRect))
+        return NSZeroRect;
+
+    NSRect frame = [self frame];
+    // rendererVisibleRect is in the parent's coordinate space, and frame is in the superview's coordinate space.
+    // The return value from this method needs to be in this view's coordinate space. We get that right by subtracting
+    // the origins (and correcting for flipping), but when we support transforms, we will need to do better than this.
+    rendererVisibleRect.origin.x -= frame.origin.x;
+    rendererVisibleRect.origin.y = NSMaxY(frame) - NSMaxY(rendererVisibleRect);
+    return NSIntersectionRect(rendererVisibleRect, viewVisibleRect);
+}
+
 - (void)setFrameSize:(NSSize)size
 {
     if (!NSEqualSizes(size, [self frame].size) && [[[self webFrame] webView] drawsBackground]) {
@@ -475,20 +497,20 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [super setFrameSize:size];
 }
 
-- (WebFrameBridge *)_bridge
-{
-    return [[self webFrame] _bridge];
-}
-
-- (BOOL)_scrollOverflowInDirection:(WebScrollDirection)direction granularity:(WebScrollGranularity)granularity
+- (BOOL)_scrollOverflowInDirection:(ScrollDirection)direction granularity:(ScrollGranularity)granularity
 {
     // scrolling overflows is only applicable if we're dealing with an WebHTMLView
-    return ([[self documentView] isKindOfClass:[WebHTMLView class]] && [[self _bridge] scrollOverflowInDirection:direction granularity:granularity]);
+    if (![[self documentView] isKindOfClass:[WebHTMLView class]])
+        return NO;
+    Frame* frame = core([self webFrame]);
+    if (!frame)
+        return NO;
+    return frame->eventHandler()->scrollOverflow(direction, granularity);
 }
 
 - (void)scrollToBeginningOfDocument:(id)sender
 {
-    if (![self _scrollOverflowInDirection:WebScrollUp granularity:WebScrollDocument]) {
+    if (![self _scrollOverflowInDirection:ScrollUp granularity:ScrollByDocument]) {
 
         if (![self _hasScrollBars]) {
             [[self _largestChildWithScrollBars] scrollToBeginningOfDocument:sender];
@@ -501,7 +523,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)scrollToEndOfDocument:(id)sender
 {
-    if (![self _scrollOverflowInDirection:WebScrollDown granularity:WebScrollDocument]) {
+    if (![self _scrollOverflowInDirection:ScrollDown granularity:ScrollByDocument]) {
 
         if (![self _hasScrollBars]) {
             [[self _largestChildWithScrollBars] scrollToEndOfDocument:sender];
@@ -557,7 +579,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_pageVertically:(BOOL)up
 {
-    if ([self _scrollOverflowInDirection:up ? WebScrollUp : WebScrollDown granularity:WebScrollPage])
+    if ([self _scrollOverflowInDirection:up ? ScrollUp : ScrollDown granularity:ScrollByPage])
         return YES;
     
     if (![self _hasScrollBars])
@@ -569,7 +591,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_pageHorizontally:(BOOL)left
 {
-    if ([self _scrollOverflowInDirection:left ? WebScrollLeft : WebScrollRight granularity:WebScrollPage])
+    if ([self _scrollOverflowInDirection:left ? ScrollLeft : ScrollRight granularity:ScrollByPage])
         return YES;
 
     if (![self _hasScrollBars])
@@ -581,7 +603,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_scrollLineVertically:(BOOL)up
 {
-    if ([self _scrollOverflowInDirection:up ? WebScrollUp : WebScrollDown granularity:WebScrollLine])
+    if ([self _scrollOverflowInDirection:up ? ScrollUp : ScrollDown granularity:ScrollByLine])
         return YES;
 
     if (![self _hasScrollBars])
@@ -593,7 +615,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_scrollLineHorizontally:(BOOL)left
 {
-    if ([self _scrollOverflowInDirection:left ? WebScrollLeft : WebScrollRight granularity:WebScrollLine])
+    if ([self _scrollOverflowInDirection:left ? ScrollLeft : ScrollRight granularity:ScrollByLine])
         return YES;
 
     if (![self _hasScrollBars])
@@ -645,7 +667,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     NSString *characters = [event characters];
     int index, count;
     BOOL callSuper = YES;
-    BOOL maintainsBackForwardList = core([self webFrame])->page()->backForwardList()->enabled() ? YES : NO;
+    Frame* coreFrame = [self _web_frame];
+    BOOL maintainsBackForwardList = coreFrame && coreFrame->page()->backForwardList()->enabled() ? YES : NO;
     
     count = [characters length];
     for (index = 0; index < count; ++index) {
@@ -928,33 +951,34 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     ASSERT([customClass isSubclassOfClass:[WebDynamicScrollBarsView class]]);
     if (customClass == [_private->frameScrollView class])
         return;
-    if ([customClass isSubclassOfClass:[WebDynamicScrollBarsView class]]) {
-        WebDynamicScrollBarsView *oldScrollView = _private->frameScrollView; // already retained
-        NSView <WebDocumentView> *documentView = [[self documentView] retain];
+    if (![customClass isSubclassOfClass:[WebDynamicScrollBarsView class]])
+        return;
 
-        WebDynamicScrollBarsView *scrollView  = [[customClass alloc] initWithFrame:[oldScrollView frame]];
-        [scrollView setContentView:[[[WebClipView alloc] initWithFrame:[scrollView bounds]] autorelease]];
-        [scrollView setDrawsBackground:[oldScrollView drawsBackground]];
-        [scrollView setHasVerticalScroller:[oldScrollView hasVerticalScroller]];
-        [scrollView setHasHorizontalScroller:[oldScrollView hasHorizontalScroller]];
-        [scrollView setAutoresizingMask:[oldScrollView autoresizingMask]];
-        [scrollView setLineScroll:[oldScrollView lineScroll]];
-        [self addSubview:scrollView];
+    WebDynamicScrollBarsView *oldScrollView = _private->frameScrollView; // already retained
+    NSView <WebDocumentView> *documentView = [[self documentView] retain];
 
-        // don't call our overridden version here; we need to make the standard NSView link between us
-        // and our subview so that previousKeyView and previousValidKeyView work as expected. This works
-        // together with our becomeFirstResponder and setNextKeyView overrides.
-        [super setNextKeyView:scrollView];
+    WebDynamicScrollBarsView *scrollView  = [[customClass alloc] initWithFrame:[oldScrollView frame]];
+    [scrollView setContentView:[[[WebClipView alloc] initWithFrame:[scrollView bounds]] autorelease]];
+    [scrollView setDrawsBackground:[oldScrollView drawsBackground]];
+    [scrollView setHasVerticalScroller:[oldScrollView hasVerticalScroller]];
+    [scrollView setHasHorizontalScroller:[oldScrollView hasHorizontalScroller]];
+    [scrollView setAutoresizingMask:[oldScrollView autoresizingMask]];
+    [scrollView setLineScroll:[oldScrollView lineScroll]];
+    [self addSubview:scrollView];
 
-        _private->frameScrollView = scrollView;
+    // don't call our overridden version here; we need to make the standard NSView link between us
+    // and our subview so that previousKeyView and previousValidKeyView work as expected. This works
+    // together with our becomeFirstResponder and setNextKeyView overrides.
+    [super setNextKeyView:scrollView];
 
-        [self _setDocumentView:documentView];
-        [[self _bridge] installInFrame:scrollView];
+    _private->frameScrollView = scrollView;
 
-        [oldScrollView removeFromSuperview];
-        [oldScrollView release];
-        [documentView release];
-    }
+    [self _setDocumentView:documentView];
+    [self _install];
+
+    [oldScrollView removeFromSuperview];
+    [oldScrollView release];
+    [documentView release];
 }
 
 @end

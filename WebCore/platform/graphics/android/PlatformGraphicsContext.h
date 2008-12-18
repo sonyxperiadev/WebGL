@@ -30,9 +30,8 @@ class WebCore::Node;
 
 class Container {
 public:
-    Container(WebCore::Node* node, const WebCore::IntRect& r, 
-            WebCore::RenderSkinAndroid::State is) 
-        : m_node(node), m_rect(r), m_state(is)
+    Container(WebCore::Node* node, const WebCore::IntRect& r) 
+        : m_node(node), m_rect(r), m_state(WebCore::RenderSkinAndroid::kDisabled)
     { 
         m_picture = new SkPicture; 
     }
@@ -41,21 +40,74 @@ public:
     { 
         m_picture->unref(); 
     }
+
+    Container& operator=(const Container& src) 
+    {
+        if (this != &src) {
+            m_node = src.m_node;
+            if (m_picture)
+                m_picture->unref();
+            m_picture = src.m_picture;
+            m_picture->ref();
+            m_rect = src.m_rect;
+            m_state = WebCore::RenderSkinAndroid::kDisabled;
+        }
+        return *this;
+    }
     
-    bool matches(WebCore::Node* match) { return m_node == match; }
+    Container(const Container& src) 
+    { 
+        m_node = src.m_node;
+        m_picture = src.m_picture;
+        m_picture->ref();
+        m_rect = src.m_rect;
+        m_state = WebCore::RenderSkinAndroid::kDisabled;
+    }
+
+    // m_picture has a ref count of 1 to begin with.  It will increase each time
+    // m_picture is referenced by another picture.  When the other pictures are
+    // deleted, the ref count gets decremented.  If the ref count is one, then
+    // no other pictures reference this one, so the button is no longer being
+    // used, and therefore can be removed.
+    bool canBeRemoved()
+    {
+        return m_picture->getRefCnt() == 1;
+    }
     
+    bool matches(const WebCore::Node* match) { return m_node == match; }
+
+    const WebCore::Node* node() const { return m_node; }
+
     // Provide a pointer to our SkPicture.
     SkPicture* picture() { return m_picture; }
+
+    WebCore::IntRect rect() { return m_rect; }
+
+    // Update the rectangle with a new rectangle, as the positioning of this
+    // button may have changed due to a new layout.  If it is a new rectangle,
+    // set its state to disabled, so that it will be redrawn when we cycle
+    // through the list of buttons.
+    void setRect(WebCore::IntRect r)
+    {
+        if (m_rect != r) {
+            m_rect = r; 
+            m_state = WebCore::RenderSkinAndroid::kDisabled;
+        }
+    }
     
     // Update the focus state of this button, depending on whether it 
     // corresponds to the focused node passed in.  If its state has changed,
     // re-record to the subpicture, so the master picture will reflect the
     // change.
-    void updateFocusState(WebCore::Node* focus)
+    void updateFocusState(WebCore::RenderSkinAndroid::State state)
     {
-        WebCore::RenderSkinAndroid::State state = m_node == focus ? 
-                WebCore::RenderSkinAndroid::kFocused : WebCore::RenderSkinAndroid::kNormal;
         if (state == m_state)
+            return;
+        // If this button is being told to draw focused, but it is already in a
+        // pressed state, leave it in the pressed state, to show that it is
+        // being followed.
+        if (m_state == WebCore::RenderSkinAndroid::kPressed &&
+                state == WebCore::RenderSkinAndroid::kFocused)
             return;
         m_state = state;
         SkCanvas* canvas = m_picture->beginRecording(m_rect.width(), m_rect.height());
@@ -63,9 +115,6 @@ public:
         m_picture->endRecording();
     }
 private:
-    // Mark copy and assignment private so noone can use them.
-    Container& operator=(const Container& src) { return *this; }
-    Container(const Container& src) { }
     // Only used for comparison, since after it is stored it will be transferred
     // to the UI thread.
     WebCore::Node*                      m_node;
@@ -82,11 +131,18 @@ private:
 
 namespace WebCore {
 
+    class GraphicsContext;
+    
 class PlatformGraphicsContext {
 public:
     PlatformGraphicsContext();
-    PlatformGraphicsContext(SkCanvas* canvas);
+    // Pass in a recording canvas, and an array of button information to be 
+    // updated.
+    PlatformGraphicsContext(SkCanvas* canvas, WTF::Vector<Container>* buttons);
     ~PlatformGraphicsContext();
+    
+    void setupFillPaint(GraphicsContext*, SkPaint*);
+    void setupStrokePaint(GraphicsContext*, SkPaint*);
 
     SkCanvas*                   mCanvas;
     
@@ -95,12 +151,9 @@ public:
     // nod/rect, and record a new subpicture for this node/button in the current
     // mCanvas
     void storeButtonInfo(Node* node, const IntRect& r);
-    // Detaches button array (if any), returning it to the caller and setting our
-    // internal ptr to NULL
-    SkTDArray<Container*>* getAndClearButtonInfo();
 private:
     bool                     m_deleteCanvas;
-    SkTDArray<Container*>*   m_buttons;
+    WTF::Vector<Container>*    m_buttons;
 };
 
 }

@@ -1,8 +1,10 @@
 /*
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2007 Apple Inc.
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
+ * Copyright (C) 2008 Collabora Ltd.
+ * Copyright (C) 2008 Nuanti Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,7 +26,7 @@
 
 #include "webkitwebframe.h"
 #include "webkitwebview.h"
-#include "webkit-marshal.h"
+#include "webkitmarshal.h"
 #include "webkitprivate.h"
 
 #include "CString.h"
@@ -34,15 +36,18 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
+#include "JSDOMWindow.h"
+#include "PrintContext.h"
 #include "RenderView.h"
-#include "kjs_binding.h"
-#include "kjs_proxy.h"
-#include "kjs_window.h"
+#include "RenderTreeAsText.h"
+#include "JSDOMBinding.h"
+#include "ScriptController.h"
 
 #include <JavaScriptCore/APICast.h>
 
 using namespace WebKit;
 using namespace WebCore;
+using namespace std;
 
 extern "C" {
 
@@ -93,10 +98,11 @@ static void webkit_web_frame_finalize(GObject* object)
     WebKitWebFramePrivate* priv = frame->priv;
 
     priv->coreFrame->loader()->cancelAndClear();
+    priv->coreFrame = 0;
+
     g_free(priv->name);
     g_free(priv->title);
     g_free(priv->uri);
-    delete priv->coreFrame;
 
     G_OBJECT_CLASS(webkit_web_frame_parent_class)->finalize(object);
 }
@@ -205,6 +211,9 @@ static void webkit_web_frame_init(WebKitWebFrame* frame)
  * Creates a new #WebKitWebFrame initialized with a controlling #WebKitWebView.
  *
  * Returns: a new #WebKitWebFrame
+ *
+ * Deprecated: 1.0.2: #WebKitWebFrame can only be used to inspect existing
+ * frames.
  **/
 WebKitWebFrame* webkit_web_frame_new(WebKitWebView* webView)
 {
@@ -214,16 +223,10 @@ WebKitWebFrame* webkit_web_frame_new(WebKitWebView* webView)
     WebKitWebFramePrivate* priv = frame->priv;
     WebKitWebViewPrivate* viewPriv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
 
-    priv->client = new WebKit::FrameLoaderClient(frame);
-    priv->coreFrame = new Frame(viewPriv->corePage, 0, priv->client);
-
-    FrameView* frameView = new FrameView(priv->coreFrame);
-    frameView->setContainingWindow(GTK_CONTAINER(webView));
-    frameView->setGtkAdjustments(GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-                                 GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)));
-    priv->coreFrame->setView(frameView);
-    priv->coreFrame->init();
     priv->webView = webView;
+    priv->client = new WebKit::FrameLoaderClient(frame);
+    priv->coreFrame = Frame::create(viewPriv->corePage, 0, priv->client).get();
+    priv->coreFrame->init();
 
     return frame;
 }
@@ -234,15 +237,10 @@ WebKitWebFrame* webkit_web_frame_init_with_web_view(WebKitWebView* webView, HTML
     WebKitWebFramePrivate* priv = frame->priv;
     WebKitWebViewPrivate* viewPriv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
 
-    priv->client = new WebKit::FrameLoaderClient(frame);
-    priv->coreFrame = new Frame(viewPriv->corePage, element, priv->client);
-
-    FrameView* frameView = new FrameView(priv->coreFrame);
-    frameView->setContainingWindow(GTK_CONTAINER(webView));
-    priv->coreFrame->setView(frameView);
-    frameView->deref();
-    priv->coreFrame->init();
     priv->webView = webView;
+    priv->client = new WebKit::FrameLoaderClient(frame);
+    priv->coreFrame = Frame::create(viewPriv->corePage, element, priv->client).releaseRef();
+    priv->coreFrame->init();
 
     return frame;
 }
@@ -255,7 +253,7 @@ WebKitWebFrame* webkit_web_frame_init_with_web_view(WebKitWebView* webView, HTML
  *
  * Return value: the title of @frame
  */
-const gchar* webkit_web_frame_get_title(WebKitWebFrame* frame)
+G_CONST_RETURN gchar* webkit_web_frame_get_title(WebKitWebFrame* frame)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
@@ -271,7 +269,7 @@ const gchar* webkit_web_frame_get_title(WebKitWebFrame* frame)
  *
  * Return value: the URI of @frame
  */
-const gchar* webkit_web_frame_get_uri(WebKitWebFrame* frame)
+G_CONST_RETURN gchar* webkit_web_frame_get_uri(WebKitWebFrame* frame)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
@@ -306,7 +304,7 @@ WebKitWebView* webkit_web_frame_get_web_view(WebKitWebFrame* frame)
  *
  * Return value: the name of @frame
  */
-const gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
+G_CONST_RETURN gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
@@ -316,7 +314,7 @@ const gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
         return priv->name;
 
     Frame* coreFrame = core(frame);
-    g_return_val_if_fail(coreFrame, NULL);
+    ASSERT(coreFrame);
 
     String string = coreFrame->tree()->name();
     priv->name = g_strdup(string.utf8().data());
@@ -336,7 +334,7 @@ WebKitWebFrame* webkit_web_frame_get_parent(WebKitWebFrame* frame)
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
     Frame* coreFrame = core(frame);
-    g_return_val_if_fail(coreFrame, NULL);
+    ASSERT(coreFrame);
 
     return kit(coreFrame->tree()->parent());
 }
@@ -358,10 +356,10 @@ void webkit_web_frame_load_request(WebKitWebFrame* frame, WebKitNetworkRequest* 
     g_return_if_fail(WEBKIT_IS_NETWORK_REQUEST(request));
 
     Frame* coreFrame = core(frame);
-    g_return_if_fail(coreFrame);
+    ASSERT(coreFrame);
 
     // TODO: Use the ResourceRequest carried by WebKitNetworkRequest when it is implemented.
-    DeprecatedString string = DeprecatedString::fromUtf8(webkit_network_request_get_uri(request));
+    String string = String::fromUTF8(webkit_network_request_get_uri(request));
     coreFrame->loader()->load(ResourceRequest(KURL(string)));
 }
 
@@ -376,7 +374,7 @@ void webkit_web_frame_stop_loading(WebKitWebFrame* frame)
     g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
 
     Frame* coreFrame = core(frame);
-    g_return_if_fail(coreFrame);
+    ASSERT(coreFrame);
 
     coreFrame->loader()->stopAllLoaders();
 }
@@ -392,7 +390,7 @@ void webkit_web_frame_reload(WebKitWebFrame* frame)
     g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
 
     Frame* coreFrame = core(frame);
-    g_return_if_fail(coreFrame);
+    ASSERT(coreFrame);
 
     coreFrame->loader()->reload();
 }
@@ -420,7 +418,7 @@ WebKitWebFrame* webkit_web_frame_find_frame(WebKitWebFrame* frame, const gchar* 
     g_return_val_if_fail(name, NULL);
 
     Frame* coreFrame = core(frame);
-    g_return_val_if_fail(coreFrame, NULL);
+    ASSERT(coreFrame);
 
     String nameString = String::fromUTF8(name);
     return kit(coreFrame->tree()->find(AtomicString(nameString)));
@@ -440,9 +438,9 @@ JSGlobalContextRef webkit_web_frame_get_global_context(WebKitWebFrame* frame)
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
     Frame* coreFrame = core(frame);
-    g_return_val_if_fail(coreFrame, NULL);
+    ASSERT(coreFrame);
 
-    return toGlobalRef(coreFrame->scriptProxy()->globalObject()->globalExec());
+    return toGlobalRef(coreFrame->script()->globalObject()->globalExec());
 }
 
 /**
@@ -455,9 +453,10 @@ GSList* webkit_web_frame_get_children(WebKitWebFrame* frame)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
-    GSList* children = NULL;
     Frame* coreFrame = core(frame);
+    ASSERT(coreFrame);
 
+    GSList* children = NULL;
     for (Frame* child = coreFrame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
         FrameLoader* loader = child->loader();
         WebKit::FrameLoaderClient* client = static_cast<WebKit::FrameLoaderClient*>(loader->client());
@@ -479,9 +478,11 @@ gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame)
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
     Frame* coreFrame = core(frame);
+    ASSERT(coreFrame);
+
     FrameView* view = coreFrame->view();
 
-    if (view->layoutPending())
+    if (view && view->layoutPending())
         view->layout();
 
     Element* documentElement = coreFrame->document()->documentElement();
@@ -489,122 +490,29 @@ gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame)
     return g_strdup(string.utf8().data());
 }
 
-#if GTK_CHECK_VERSION(2,10,0)
-
-// This could be shared between ports once it's complete
-class PrintContext
+/**
+ * webkit_web_frame_dump_render_tree:
+ * @frame: a #WebKitWebFrame
+ *
+ * Return value: Non-recursive render tree dump of @frame
+ */
+gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
 {
-public:
-    PrintContext(Frame* frame)
-        : m_frame(frame)
-    {
-    }
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
 
-    ~PrintContext()
-    {
-        m_pageRects.clear();
-    }
+    Frame* coreFrame = core(frame);
+    ASSERT(coreFrame);
 
-    int pageCount()
-    {
-        return m_pageRects.size();
-    }
+    FrameView* view = coreFrame->view();
 
-    void computePageRects(const FloatRect& printRect, float headerHeight, float footerHeight, float userScaleFactor, float& outPageHeight)
-    {
-        m_pageRects.clear();
-        outPageHeight = 0;
+    if (view && view->layoutPending())
+        view->layout();
 
-        if (!m_frame->document() || !m_frame->view() || !m_frame->document()->renderer())
-            return;
+    String string = externalRepresentation(coreFrame->contentRenderer());
+    return g_strdup(string.utf8().data());
+}
 
-        RenderView* root = static_cast<RenderView*>(m_frame->document()->renderer());
-
-        if (!root) {
-            LOG_ERROR("document to be printed has no renderer");
-            return;
-        }
-
-        if (userScaleFactor <= 0) {
-            LOG_ERROR("userScaleFactor has bad value %.2f", userScaleFactor);
-            return;
-        }
-
-        float ratio = printRect.height() / printRect.width();
-
-        float pageWidth  = (float)root->docWidth();
-        float pageHeight = pageWidth * ratio;
-        outPageHeight = pageHeight;   // this is the height of the page adjusted by margins
-        pageHeight -= headerHeight + footerHeight;
-
-        if (pageHeight <= 0) {
-            LOG_ERROR("pageHeight has bad value %.2f", pageHeight);
-            return;
-        }
-
-        float currPageHeight = pageHeight / userScaleFactor;
-        float docHeight = root->layer()->height();
-        float currPageWidth = pageWidth / userScaleFactor;
-
-        // always return at least one page, since empty files should print a blank page
-        float printedPagesHeight = 0.0;
-        do {
-            float proposedBottom = min(docHeight, printedPagesHeight + pageHeight);
-            m_frame->adjustPageHeight(&proposedBottom, printedPagesHeight, proposedBottom, printedPagesHeight);
-            currPageHeight = max(1.0f, proposedBottom - printedPagesHeight);
-
-            m_pageRects.append(IntRect(0, (int)printedPagesHeight, (int)currPageWidth, (int)currPageHeight));
-            printedPagesHeight += currPageHeight;
-        } while (printedPagesHeight < docHeight);
-    }
-
-    // TODO: eliminate width param
-    void begin(float width)
-    {
-        // By imaging to a width a little wider than the available pixels,
-        // thin pages will be scaled down a little, matching the way they
-        // print in IE and Camino. This lets them use fewer sheets than they
-        // would otherwise, which is presumably why other browsers do this.
-        // Wide pages will be scaled down more than this.
-        const float PrintingMinimumShrinkFactor = 1.25f;
-
-        // This number determines how small we are willing to reduce the page content
-        // in order to accommodate the widest line. If the page would have to be
-        // reduced smaller to make the widest line fit, we just clip instead (this
-        // behavior matches MacIE and Mozilla, at least)
-        const float PrintingMaximumShrinkFactor = 2.0f;
-
-        float minLayoutWidth = width * PrintingMinimumShrinkFactor;
-        float maxLayoutWidth = width * PrintingMaximumShrinkFactor;
-
-        // FIXME: This will modify the rendering of the on-screen frame.
-        // Could lead to flicker during printing.
-        m_frame->setPrinting(true, minLayoutWidth, maxLayoutWidth, true);
-    }
-
-    // TODO: eliminate width param
-    void spoolPage(GraphicsContext& ctx, int pageNumber, float width)
-    {
-        IntRect pageRect = m_pageRects[pageNumber];
-        float scale = width / pageRect.width();
-
-        ctx.save();
-        ctx.scale(FloatSize(scale, scale));
-        ctx.translate(-pageRect.x(), -pageRect.y());
-        ctx.clip(pageRect);
-        m_frame->paint(&ctx, pageRect);
-        ctx.restore();
-    }
-
-    void end()
-    {
-        m_frame->setPrinting(false, 0, 0, true);
-    }
-
-protected:
-    Frame* m_frame;
-    Vector<IntRect> m_pageRects;
-};
+#if GTK_CHECK_VERSION(2,10,0)
 
 static void begin_print(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
 {
@@ -647,6 +555,8 @@ void webkit_web_frame_print(WebKitWebFrame* frame)
         topLevel = NULL;
 
     Frame* coreFrame = core(frame);
+    ASSERT(coreFrame);
+
     PrintContext printContext(coreFrame);
 
     GtkPrintOperation* op = gtk_print_operation_new();

@@ -28,10 +28,27 @@
 
 #import "ObjCController.h"
 
+#import <JavaScriptCore/JavaScriptCore.h>
 #import <WebKit/DOMAbstractView.h>
 #import <WebKit/WebScriptObject.h>
 #import <WebKit/WebView.h>
+#import <pthread.h>
 #import <wtf/Assertions.h>
+
+static void* runJavaScriptThread(void* arg)
+{
+    JSGlobalContextRef ctx = JSGlobalContextCreate(0);
+    JSStringRef scriptRef = JSStringCreateWithUTF8CString("'Hello World!'");
+
+    JSValueRef exception = 0;
+    JSEvaluateScript(ctx, scriptRef, 0, 0, 1, &exception);
+    ASSERT(!exception);
+
+    JSGlobalContextRelease(ctx);
+    JSStringRelease(scriptRef);
+    
+    return 0;
+}
 
 @implementation ObjCController
 
@@ -46,6 +63,8 @@
             || aSelector == @selector(testWrapperRoundTripping:)
             || aSelector == @selector(accessStoredWebScriptObject)
             || aSelector == @selector(storeWebScriptObject:)
+            || aSelector == @selector(testValueForKey)
+            || aSelector == @selector(testArray)
         )
         return NO;
     return YES;
@@ -67,6 +86,10 @@
         return @"testWrapperRoundTripping";
     if (aSelector == @selector(storeWebScriptObject:))
         return @"storeWebScriptObject";
+    if (aSelector == @selector(testValueForKey))
+        return @"testValueForKey";
+    if (aSelector == @selector(testArray))
+        return @"testArray";
 
     return nil;
 }
@@ -113,6 +136,20 @@
 - (unsigned long long)unsignedLongLongRoundTrip:(unsigned long long)num
 {
     return num;
+}
+
+- (void)testValueForKey
+{
+    ASSERT(storedWebScriptObject);
+    
+    @try {
+        [storedWebScriptObject valueForKey:@"ThisKeyDoesNotExist"];
+    } @catch (NSException *e) {
+    }
+
+    pthread_t pthread;
+    pthread_create(&pthread, 0, &runJavaScriptThread, 0);
+    pthread_join(pthread, 0);
 }
 
 - (BOOL)testWrapperRoundTripping:(WebScriptObject *)webScriptObject
@@ -180,6 +217,11 @@
 
     [storedWebScriptObject release];
     storedWebScriptObject = [webScriptObject retain];
+}
+
+- (NSArray *)testArray
+{
+    return [NSArray array];
 }
 
 - (void)dealloc

@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -30,91 +29,83 @@
 #include "ustring.h"
 #include "ExecState.h"
 
-namespace KJS {
-    class ExecState;
-    class JSValue;
-    class JSObject;
-    class PropertyNameArray;
-}
-
+typedef const struct OpaqueJSContextGroup* JSContextGroupRef;
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef struct OpaqueJSContext* JSGlobalContextRef;
-typedef struct OpaqueJSString* JSStringRef;
 typedef struct OpaqueJSPropertyNameAccumulator* JSPropertyNameAccumulatorRef;
 typedef const struct OpaqueJSValue* JSValueRef;
 typedef struct OpaqueJSValue* JSObjectRef;
 
 /* Opaque typing convenience methods */
 
-inline KJS::ExecState* toJS(JSContextRef c)
+inline JSC::ExecState* toJS(JSContextRef c)
 {
-    return reinterpret_cast<KJS::ExecState*>(const_cast<OpaqueJSContext*>(c));
+    return reinterpret_cast<JSC::ExecState*>(const_cast<OpaqueJSContext*>(c));
 }
 
-inline KJS::ExecState* toJS(JSGlobalContextRef c)
+inline JSC::ExecState* toJS(JSGlobalContextRef c)
 {
-    return reinterpret_cast<KJS::ExecState*>(c);
+    return reinterpret_cast<JSC::ExecState*>(c);
 }
 
-inline KJS::JSValue* toJS(JSValueRef v)
+inline JSC::JSValue* toJS(JSValueRef v)
 {
-    return reinterpret_cast<KJS::JSValue*>(const_cast<OpaqueJSValue*>(v));
+    return reinterpret_cast<JSC::JSValue*>(const_cast<OpaqueJSValue*>(v));
 }
 
-inline KJS::UString::Rep* toJS(JSStringRef b)
+inline JSC::JSObject* toJS(JSObjectRef o)
 {
-    return reinterpret_cast<KJS::UString::Rep*>(b);
+    return reinterpret_cast<JSC::JSObject*>(o);
 }
 
-inline KJS::JSObject* toJS(JSObjectRef o)
+inline JSC::PropertyNameArray* toJS(JSPropertyNameAccumulatorRef a)
 {
-    return reinterpret_cast<KJS::JSObject*>(o);
+    return reinterpret_cast<JSC::PropertyNameArray*>(a);
 }
 
-inline KJS::PropertyNameArray* toJS(JSPropertyNameAccumulatorRef a)
+inline JSC::JSGlobalData* toJS(JSContextGroupRef g)
 {
-    return reinterpret_cast<KJS::PropertyNameArray*>(a);
+    return reinterpret_cast<JSC::JSGlobalData*>(const_cast<OpaqueJSContextGroup*>(g));
 }
 
-inline JSValueRef toRef(KJS::JSValue* v)
+inline JSValueRef toRef(JSC::JSValue* v)
 {
     return reinterpret_cast<JSValueRef>(v);
 }
 
-inline JSValueRef* toRef(KJS::JSValue** v)
+inline JSValueRef* toRef(JSC::JSValue** v)
 {
-    return reinterpret_cast<JSValueRef*>(const_cast<const KJS::JSValue**>(v));
+    return reinterpret_cast<JSValueRef*>(const_cast<const JSC::JSValue**>(v));
 }
 
-inline JSStringRef toRef(KJS::UString::Rep* s)
-{
-    return reinterpret_cast<JSStringRef>(s);
-}
-
-inline JSObjectRef toRef(KJS::JSObject* o)
+inline JSObjectRef toRef(JSC::JSObject* o)
 {
     return reinterpret_cast<JSObjectRef>(o);
 }
 
-inline JSObjectRef toRef(const KJS::JSObject* o)
+inline JSObjectRef toRef(const JSC::JSObject* o)
 {
-    return reinterpret_cast<JSObjectRef>(const_cast<KJS::JSObject*>(o));
+    return reinterpret_cast<JSObjectRef>(const_cast<JSC::JSObject*>(o));
 }
 
-inline JSContextRef toRef(KJS::ExecState* e)
+inline JSContextRef toRef(JSC::ExecState* e)
 {
     return reinterpret_cast<JSContextRef>(e);
 }
 
-inline JSGlobalContextRef toGlobalRef(KJS::ExecState* e)
+inline JSGlobalContextRef toGlobalRef(JSC::ExecState* e)
 {
-    ASSERT(!e->callingExecState());
     return reinterpret_cast<JSGlobalContextRef>(e);
 }
 
-inline JSPropertyNameAccumulatorRef toRef(KJS::PropertyNameArray* l)
+inline JSPropertyNameAccumulatorRef toRef(JSC::PropertyNameArray* l)
 {
     return reinterpret_cast<JSPropertyNameAccumulatorRef>(l);
+}
+
+inline JSContextGroupRef toRef(JSC::JSGlobalData* g)
+{
+    return reinterpret_cast<JSContextGroupRef>(g);
 }
 
 #endif // APICast_h

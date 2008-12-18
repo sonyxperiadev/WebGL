@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,69 +26,57 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WebDOMOperationsPrivate.h>
+#import "WebDOMOperationsPrivate.h"
 
+#import "DOMNodeInternal.h"
+#import "DOMRangeInternal.h"
+#import "WebArchiveInternal.h"
+#import "WebDataSourcePrivate.h"
+#import "WebFrameInternal.h"
+#import "WebFramePrivate.h"
+#import "WebKitNSStringExtras.h"
+#import <WebCore/CSSHelper.h>
+#import <WebCore/Document.h>
+#import <WebCore/LegacyWebArchive.h>
+#import <WebCore/markup.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMHTML.h>
-#import <JavaScriptCore/Assertions.h>
-#import <WebKit/WebFrameBridge.h>
-#import <WebKit/WebDataSourcePrivate.h>
-#import <WebKit/WebFramePrivate.h>
-#import <WebKit/WebKitNSStringExtras.h>
-#import <WebKit/WebArchiver.h>
+#import <wtf/Assertions.h>
 
 #if ENABLE(SVG)
 #import <WebKit/DOMSVG.h>
 #endif
 
-@implementation DOMNode (WebDOMNodeOperations)
+using namespace WebCore;
 
-- (WebFrameBridge *)_bridge
-{
-    return (WebFrameBridge *)[WebFrameBridge bridgeForDOMDocument:[self ownerDocument]];
-}
+@implementation DOMNode (WebDOMNodeOperations)
 
 - (WebArchive *)webArchive
 {
-    return [WebArchiver archiveNode:self];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create([self _node])] autorelease];
 }
 
 - (NSString *)markupString
 {
-    return [[self _bridge] markupStringFromNode:self nodes:nil];
+    return createFullMarkup([self _node]);
 }
 
-- (NSArray *)_URLsFromSelectors:(SEL)firstSel, ...
-{
-    NSMutableArray *URLs = [NSMutableArray array];
-    
-    va_list args;
-    va_start(args, firstSel);
-    
-    SEL selector = firstSel;
-    do {
-#if ENABLE(SVG)
-        NSString *string;
-        id attributeValue = [self performSelector:selector];
-        if ([attributeValue isKindOfClass:[DOMSVGAnimatedString class]])
-            string = [(DOMSVGAnimatedString*)attributeValue animVal];
-        else
-            string = attributeValue;
-#else
-        NSString *string = [self performSelector:selector];
-#endif
-        if ([string length] > 0)
-            [URLs addObject:[[self ownerDocument] URLWithAttributeString:string]];
-    } while ((selector = va_arg(args, SEL)) != nil);
-    
-    va_end(args);
-    
-    return URLs;
-}
+@end
+
+@implementation DOMNode (WebDOMNodeOperationsPrivate)
 
 - (NSArray *)_subresourceURLs
 {
-    return nil;
+    Vector<KURL> urls;
+    [self _node]->getSubresourceURLs(urls);
+    if (!urls.size())
+        return nil;
+
+    NSMutableArray *array = [NSMutableArray arrayWithCapacity:urls.size()];
+    for (unsigned i = 0; i < urls.size(); ++i)
+        [array addObject:(NSURL *)urls[i]];
+        
+    return array;
 }
 
 @end
@@ -97,12 +85,17 @@
 
 - (WebFrame *)webFrame
 {
-    return [[self _bridge] webFrame];
+    Document* document = core(self);
+    Frame* frame = document->frame();
+    if (!frame)
+        return nil;
+    return kit(frame);
 }
 
 - (NSURL *)URLWithAttributeString:(NSString *)string
 {
-    return [[self _bridge] URLWithAttributeString:string];
+    // FIXME: Is parseURL appropriate here?
+    return core(self)->completeURL(parseURL(string));
 }
 
 @end
@@ -125,190 +118,14 @@
 
 @implementation DOMRange (WebDOMRangeOperations)
 
-- (WebFrameBridge *)_bridge
-{
-    return [[self startContainer] _bridge];
-}
-
 - (WebArchive *)webArchive
 {
-    return [WebArchiver archiveRange:self];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create([self _range])] autorelease];
 }
 
 - (NSString *)markupString
 {
-    return [[self _bridge] markupStringFromRange:self nodes:nil];
-}
-
-@end
-
-@implementation DOMHTMLBodyElement (WebDOMHTMLBodyElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(background), nil];
-}
-
-@end
-
-@implementation DOMHTMLInputElement (WebDOMHTMLInputElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(src), nil];
-}
-
-@end
-
-@implementation DOMHTMLLinkElement (WebDOMHTMLLinkElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    NSString *relName = [self rel];
-    if ([relName _webkit_isCaseInsensitiveEqualToString:@"stylesheet"] || [relName _webkit_isCaseInsensitiveEqualToString:@"icon"]) {
-        return [self _URLsFromSelectors:@selector(href), nil];
-    }
-    return nil;
-}
-
-@end
-
-@implementation DOMHTMLScriptElement (WebDOMHTMLScriptElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(src), nil];
-}
-
-@end
-
-@implementation DOMHTMLImageElement (WebDOMHTMLImageElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    SEL useMapSelector = [[self useMap] hasPrefix:@"#"] ? nil : @selector(useMap);
-    return [self _URLsFromSelectors:@selector(src), useMapSelector, nil];
-}
-
-@end
-
-#if ENABLE(SVG)
-
-@implementation DOMSVGImageElement (WebDOMSVGImageElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(href), nil];
-}
-
-@end
-
-@implementation DOMSVGScriptElement (WebDOMSVGScriptElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(href), nil];
-}
-
-@end
-
-@implementation DOMSVGCursorElement (WebDOMSVGCursorElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(href), nil];
-}
-
-@end
-
-#if ENABLE(SVG_FILTERS)
-@implementation DOMSVGFEImageElement (WebDOMSVGFEImageElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(href), nil];
-}
-
-@end
-#endif
-
-#endif
-
-@implementation DOMProcessingInstruction (WebDOMProcessingInstructionOperationsPrivate)
-
-- (NSString *)_stylesheetURL
-{
-    DOMStyleSheet *styleSheet = [self sheet];
-    if (styleSheet)
-        return [styleSheet href];
-    return nil;
-}
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(_stylesheetURL), nil];
-}
-
-@end
-
-@implementation DOMHTMLEmbedElement (WebDOMHTMLEmbedElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(src), nil];
-}
-
-@end
-
-@implementation DOMHTMLObjectElement (WebDOMHTMLObjectElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    SEL useMapSelector = [[self useMap] hasPrefix:@"#"] ? nil : @selector(useMap);
-    return [self _URLsFromSelectors:@selector(data), useMapSelector, nil];
-}
-
-@end
-
-@implementation DOMHTMLParamElement (WebDOMHTMLParamElementOperationsPrivate)
-
-- (NSArray *)_subresourceURLs
-{
-    NSString *paramName = [self name];
-    if ([paramName _webkit_isCaseInsensitiveEqualToString:@"data"] ||
-        [paramName _webkit_isCaseInsensitiveEqualToString:@"movie"] ||
-        [paramName _webkit_isCaseInsensitiveEqualToString:@"src"]) {
-        return [self _URLsFromSelectors:@selector(value), nil];
-    }
-    return nil;
-}
-
-@end
-
-@implementation DOMHTMLTableElement (WebDOMHTMLTableElementOperationsPrivate)
-
-- (NSString *)_web_background
-{
-    return [self getAttribute:@"background"];
-}
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(_web_background), nil];
-}
-
-@end
-
-@implementation DOMHTMLTableCellElement (WebDOMHTMLTableCellElementOperationsPrivate)
-
-- (NSString *)_web_background
-{
-    return [self getAttribute:@"background"];
-}
-
-- (NSArray *)_subresourceURLs
-{
-    return [self _URLsFromSelectors:@selector(_web_background), nil];
+    return createFullMarkup([self _range]);
 }
 
 @end

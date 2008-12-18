@@ -14,18 +14,21 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+#define LOG_TAG "WebCore"
 
 #include "config.h"
 #include "ResourceHandle.h"
 
 #include "DocLoader.h"
-#include "FrameAndroid.h"
+#include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClientAndroid.h"
+#include "NotImplemented.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreResourceLoader.h"
-
-// #define notImplemented() do { fprintf(stderr, "FIXME: UNIMPLEMENTED %s %s:%d\n", __PRETTY_FUNCTION__, __FILE__, __LINE__); } while(0)
+#include "CString.h"
 
 namespace WebCore {
 
@@ -40,7 +43,6 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(Frame* frame)
 {
-    FrameAndroid* f = Android(frame);
     android::WebCoreResourceLoader* loader;
     bool highPriority = true;
     CachedResource* r = d->m_request.getCachedResource();
@@ -49,7 +51,8 @@ bool ResourceHandle::start(Frame* frame)
         highPriority = !(t == CachedResource::ImageResource ||
                        t == CachedResource::FontResource);
     }
-    loader = f->bridge()->startLoadingResource(this, d->m_request, highPriority, false);
+    FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
+    loader = client->webFrame()->startLoadingResource(this, d->m_request, highPriority, false);
 
     if (loader) {
         Release(d->m_loader);
@@ -134,11 +137,11 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
         ResourceError& error, ResourceResponse& response, Vector<char>& data,
         Frame* frame) 
 {
-    FrameAndroid* f = Android(frame);
     SyncLoader s(error, response, data);
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
-    f->bridge()->startLoadingResource(&h, request, true, true);
+    FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
+    client->webFrame()->startLoadingResource(&h, request, true, true);
 }
 
 } // namespace WebCore

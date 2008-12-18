@@ -32,13 +32,14 @@
 #endif
 
 #include "StringHash.h"
-#if ENABLE(ICONDATABASE)
-#include "Threading.h"
-#endif
 #include "Timer.h"
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#if ENABLE(ICONDATABASE)
+#include <wtf/Threading.h>
+#endif
 
 namespace WebCore { 
 
@@ -74,7 +75,7 @@ public:
             
     void removeAllIcons();
 
-    Image* iconForPageURL(const String&, const IntSize&, bool cache = true);
+    Image* iconForPageURL(const String&, const IntSize&);
     void readIconForPageURLFromDisk(const String&);
     String iconURLForPageURL(const String&);
     Image* defaultIcon(const IntSize&);
@@ -123,7 +124,7 @@ private:
     
     HashSet<RefPtr<DocumentLoader> > m_loadersPendingDecision;
 
-    IconRecord* m_defaultIconRecord;
+    RefPtr<IconRecord> m_defaultIconRecord;
 #endif // ENABLE(ICONDATABASE)
 
 // *** Any Thread ***
@@ -134,7 +135,7 @@ public:
 
 #if ENABLE(ICONDATABASE)
 private:
-    IconRecord* getOrCreateIconRecord(const String& iconURL);
+    PassRefPtr<IconRecord> getOrCreateIconRecord(const String& iconURL);
     PageURLRecord* getOrCreatePageURLRecord(const String& pageURL);
     
     bool m_isEnabled;

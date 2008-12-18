@@ -45,9 +45,8 @@ public:
     virtual unsigned width(unsigned /*from*/, unsigned /*len*/, const Font&, int /*xpos*/) const { return 0; }
     virtual unsigned width(unsigned /*from*/, unsigned /*len*/, int /*xpos*/, bool /*firstLine = false*/) const { return 0; }
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual short baselinePosition(bool firstLine, bool isRootLineBox = false) const;
-    virtual void setStyle(RenderStyle*);
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
     // overrides
     virtual InlineBox* createInlineBox(bool, bool, bool isOnlyRun = false);
@@ -60,10 +59,11 @@ public:
 
     virtual VisiblePosition positionForCoordinates(int x, int y);
 
-    virtual InlineBox* inlineBox(int offset, EAffinity = UPSTREAM);
+protected:
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
 
 private:
-    mutable short m_lineHeight;
+    mutable int m_lineHeight;
 };
 
 } // namespace WebCore

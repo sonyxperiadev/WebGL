@@ -31,9 +31,9 @@
 #import <Foundation/NSURLAuthenticationChallenge.h>
 #import <Foundation/NSURLProtectionSpace.h>
 #import <Foundation/NSURLCredential.h>
-#import <JavaScriptCore/Assertions.h>
 #import <WebKit/WebLocalizableStrings.h>
 #import <WebKit/WebNSURLExtras.h>
+#import <wtf/Assertions.h>
 
 #import <WebKit/WebNSControlExtras.h>
 
@@ -122,9 +122,9 @@
 
     NSString *host;
     if ([space port] == 0) {
-        host = [space host];
+        host = [[space host] _web_decodeHostName];
     } else {
-        host = [NSString stringWithFormat:@"%@:%u", [space host], [space port]];
+        host = [NSString stringWithFormat:@"%@:%u", [[space host] _web_decodeHostName], [space port]];
     }
 
     NSString *realm = [space realm];

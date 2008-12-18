@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebDataSource.h"
 
-#include "IWebMutableURLRequest.h"
+#include "WebKit.h"
 #include "MemoryStream.h"
 #include "WebDocumentLoader.h"
 #include "WebError.h"
@@ -61,6 +61,7 @@ WebDataSource::WebDataSource(WebDocumentLoader* loader)
 {
     WebDataSourceCount++;
     gClassCount++;
+    gClassNameCount.add("WebDataSource");
 }
 
 WebDataSource::~WebDataSource()
@@ -69,6 +70,7 @@ WebDataSource::~WebDataSource()
         m_loader->detachDataSource();
     WebDataSourceCount--;
     gClassCount--;
+    gClassNameCount.remove("WebDataSource");
 }
 
 WebDataSource* WebDataSource::createInstance(WebDocumentLoader* loader)
@@ -197,7 +199,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::webFrame(
 HRESULT STDMETHODCALLTYPE WebDataSource::initialRequest( 
     /* [retval][out] */ IWebURLRequest** request)
 {
-    *request = WebMutableURLRequest::createInstance(m_loader->initialRequest());
+    *request = WebMutableURLRequest::createInstance(m_loader->originalRequest());
     return S_OK;
 }
 
@@ -245,7 +247,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::unreachableURL(
     /* [retval][out] */ BSTR* url)
 {
     KURL unreachableURL = m_loader->unreachableURL();
-    BString urlString((LPOLESTR)unreachableURL.deprecatedString().unicode(), unreachableURL.deprecatedString().length());
+    BString urlString((LPOLESTR)unreachableURL.string().characters(), unreachableURL.string().length());
 
     *url = urlString.release();
     return S_OK;

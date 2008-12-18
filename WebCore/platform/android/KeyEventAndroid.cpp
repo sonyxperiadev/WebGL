@@ -16,7 +16,6 @@
 */
 
 #include "config.h"
-#include "DeprecatedString.h"
 #include "KeyboardCodes.h"
 #include "NotImplemented.h"
 #include "PlatformKeyboardEvent.h"
@@ -197,19 +196,24 @@ static inline String singleCharacterString(int c)
     return String(&n, 1);
 }
 
-PlatformKeyboardEvent::PlatformKeyboardEvent(int keyCode, int keyValue, bool down, bool forceAutoRepeat, bool cap, bool fn, bool sym)
-    : m_type(down ? KeyDown : KeyUp)
-    , m_text(singleCharacterString(keyValue))
-    , m_unmodifiedText(singleCharacterString(keyValue))
+PlatformKeyboardEvent::PlatformKeyboardEvent(int keyCode, UChar32 unichar,
+                                             Type type, int repeatCount,
+                                             ModifierKey mods)
+    : m_type(type)
+    , m_text(singleCharacterString(unichar))
+    , m_unmodifiedText(singleCharacterString(unichar))
     , m_keyIdentifier(keyIdentifierForAndroidKeyCode(keyCode))
-    , m_autoRepeat(forceAutoRepeat)
+    , m_autoRepeat(repeatCount > 0)
     , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(keyCode))
     , m_isKeypad(false)
-    , m_shiftKey(cap)
-// FIXME: Mapping fn to alt and sym to ctrl.  Is this the desired behavior?
-    , m_ctrlKey(sym)
-    , m_altKey(fn)
-    , m_metaKey(false)
+    , m_shiftKey((mods & ShiftKey) != 0)
+    , m_ctrlKey((mods & CtrlKey) != 0)
+    , m_altKey((mods & AltKey) != 0)
+    , m_metaKey((mods & MetaKey) != 0)
+    // added for android
+    , m_nativeVirtualKeyCode(keyCode)
+    , m_repeatCount(repeatCount)
+    , m_unichar(unichar)
 {
     // Copied from the mac port
     if (m_windowsVirtualKeyCode == '\r') {

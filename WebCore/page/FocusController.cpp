@@ -34,7 +34,6 @@
 #include "Element.h"
 #include "Event.h"
 #include "EventHandler.h"
-#include "EventNames.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "FrameTree.h"
@@ -51,7 +50,6 @@
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
 
 FocusController::FocusController(Page* page)
@@ -65,13 +63,13 @@ void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
     if (m_focusedFrame == frame)
         return;
 
-    if (m_focusedFrame)
-        m_focusedFrame->selectionController()->setFocused(false);
+    if (m_focusedFrame && m_focusedFrame->view())
+        m_focusedFrame->selection()->setFocused(false);
 
     m_focusedFrame = frame;
 
-    if (m_focusedFrame)
-        m_focusedFrame->selectionController()->setFocused(true);
+    if (m_focusedFrame && m_focusedFrame->view())
+        m_focusedFrame->selection()->setFocused(true);
 }
 
 Frame* FocusController::focusedOrMainFrame()
@@ -228,7 +226,7 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     if (oldFocusedFrame->document() != newFocusedFrame->document())
         return;
     
-    SelectionController* s = oldFocusedFrame->selectionController();
+    SelectionController* s = oldFocusedFrame->selection();
     if (s->isNone())
         return;
     
@@ -296,15 +294,14 @@ void FocusController::setActive(bool active)
 
     m_isActive = active;
 
-    // FIXME: It would be nice to make Mac use this implementation someday.
-    // Right now Mac calls updateControlTints from within WebKit, and moving
-    // the call to here is not simple.
-#if !PLATFORM(MAC)
-    if (FrameView* view = m_page->mainFrame()->view())
-        view->updateControlTints();
-#endif
+    if (FrameView* view = m_page->mainFrame()->view()) {
+        if (!view->platformWidget()) {
+            view->layoutIfNeededRecursive();
+            view->updateControlTints();
+        }
+    }
 
-    focusedOrMainFrame()->selectionController()->pageActivationChanged();
+    focusedOrMainFrame()->selection()->pageActivationChanged();
 }
 
 } // namespace WebCore

@@ -34,14 +34,17 @@ namespace WebCore {
 PlatformWheelEvent::PlatformWheelEvent(const wxMouseEvent& event, const wxPoint& globalPoint)
     : m_position(event.GetPosition())
     , m_globalPosition(globalPoint)
+    , m_granularity(ScrollByLineWheelEvent)
     , m_shiftKey(event.ShiftDown())
     , m_ctrlKey(event.ControlDown())
     , m_altKey(event.AltDown())
     , m_metaKey(event.MetaDown()) // FIXME: We'll have to test other browsers
     , m_deltaX(0) // wx doesn't support horizontal mouse wheel scrolling
     , m_deltaY(event.GetWheelRotation() / event.GetWheelDelta())
+    , m_isAccepted(false)
 {
-
+    // FIXME: retrieve the user setting for the number of lines to scroll on each wheel event
+    m_deltaY *= horizontalLineMultiplier();
 }
 
 }

@@ -27,6 +27,7 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import <JavaScriptCore/WebKitAvailability.h>
 
 /*!
     WebPlugIn is an informal protocol that enables interaction between an application
@@ -91,5 +92,41 @@
     object can implement methods from the WebScripting informal protocol.
 */
 - (id)objectForWebScript;
+
+/*!
+    @method webPlugInMainResourceDidReceiveResponse:
+    @abstract Called on the plug-in when WebKit receives -connection:didReceiveResponse:
+    for the plug-in's main resource.
+    @discussion This method is only sent to the plug-in if the
+    WebPlugInShouldLoadMainResourceKey argument passed to the plug-in was NO.
+*/
+- (void)webPlugInMainResourceDidReceiveResponse:(NSURLResponse *)response WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
+
+/*!
+    @method webPlugInMainResourceDidReceiveData:
+    @abstract Called on the plug-in when WebKit recieves -connection:didReceiveData:
+    for the plug-in's main resource.
+    @discussion This method is only sent to the plug-in if the
+    WebPlugInShouldLoadMainResourceKey argument passed to the plug-in was NO.
+*/
+- (void)webPlugInMainResourceDidReceiveData:(NSData *)data WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
+
+/*!
+    @method webPlugInMainResourceDidFailWithError:
+    @abstract Called on the plug-in when WebKit receives -connection:didFailWithError:
+    for the plug-in's main resource.
+    @discussion This method is only sent to the plug-in if the
+    WebPlugInShouldLoadMainResourceKey argument passed to the plug-in was NO.
+*/
+- (void)webPlugInMainResourceDidFailWithError:(NSError *)error WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
+
+/*!
+    @method webPlugInMainResourceDidFinishLoading
+    @abstract Called on the plug-in when WebKit receives -connectionDidFinishLoading:
+    for the plug-in's main resource.
+    @discussion This method is only sent to the plug-in if the
+    WebPlugInShouldLoadMainResourceKey argument passed to the plug-in was NO.
+*/
+- (void)webPlugInMainResourceDidFinishLoading WEBKIT_OBJC_METHOD_ANNOTATION(AVAILABLE_AFTER_WEBKIT_VERSION_3_1);
 
 @end

@@ -1,8 +1,6 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,7 +24,6 @@
 #include "CSSStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "DeprecatedValueList.h"
-#include "Node.h"
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -36,14 +33,28 @@ class Node;
 
 class CSSMutableStyleDeclaration : public CSSStyleDeclaration {
 public:
-    CSSMutableStyleDeclaration();
-    CSSMutableStyleDeclaration(CSSRule* parentRule);
-    CSSMutableStyleDeclaration(CSSRule* parentRule, const DeprecatedValueList<CSSProperty>&);
-    CSSMutableStyleDeclaration(CSSRule* parentRule, const CSSProperty* const *, int numProperties);
+    static PassRefPtr<CSSMutableStyleDeclaration> create()
+    {
+        return adoptRef(new CSSMutableStyleDeclaration);
+    }
+    static PassRefPtr<CSSMutableStyleDeclaration> create(CSSRule* parentRule)
+    {
+        return adoptRef(new CSSMutableStyleDeclaration(parentRule));
+    }
+    static PassRefPtr<CSSMutableStyleDeclaration> create(CSSRule* parentRule, const CSSProperty* const* properties, int numProperties)
+    {
+        return adoptRef(new CSSMutableStyleDeclaration(parentRule, properties, numProperties));
+    }
+    static PassRefPtr<CSSMutableStyleDeclaration> create(const DeprecatedValueList<CSSProperty>& properties, unsigned variableDependentValueCount)
+    {
+        return adoptRef(new CSSMutableStyleDeclaration(0, properties, variableDependentValueCount));
+    }
 
     CSSMutableStyleDeclaration& operator=(const CSSMutableStyleDeclaration&);
 
     void setNode(Node* node) { m_node = node; }
+
+    virtual bool isMutableStyleDeclaration() const { return true; }
 
     virtual String cssText() const;
     virtual void setCssText(const String&, ExceptionCode&);
@@ -61,7 +72,6 @@ public:
     virtual String removeProperty(int propertyID, ExceptionCode&);
 
     virtual PassRefPtr<CSSMutableStyleDeclaration> copy() const;
-    virtual PassRefPtr<CSSMutableStyleDeclaration> makeMutable();
 
     DeprecatedValueListConstIterator<CSSProperty> valuesIterator() const { return m_values.begin(); }
 
@@ -79,10 +89,6 @@ public:
         ExceptionCode ec;
         removeProperty(propertyID, notifyChanged, false, ec);
     }
-
-    void clear();
-
-    void setChanged(StyleChangeType changeType = FullStyleChange);
  
     // setLengthProperty treats integers as pixels! (Needed for conversion of HTML attributes.)
     void setLengthProperty(int propertyId, const String& value, bool important, bool multiLength = false);
@@ -95,6 +101,8 @@ public:
     // Besides adding the properties, this also removes any existing properties with these IDs.
     // It does no notification since it's called by the parser.
     void addParsedProperties(const CSSProperty* const *, int numProperties);
+    // This does no change notifications since it's only called by createMarkup.
+    void addParsedProperty(const CSSProperty&);
  
     PassRefPtr<CSSMutableStyleDeclaration> copyBlockProperties() const;
     void removeBlockProperties();
@@ -102,13 +110,28 @@ public:
 
     void merge(CSSMutableStyleDeclaration*, bool argOverridesOnConflict = true);
 
+    bool hasVariableDependentValue() const { return m_variableDependentValueCount > 0; }
+    
+protected:
+    CSSMutableStyleDeclaration(CSSRule* parentRule);
+
 private:
+    CSSMutableStyleDeclaration();
+    CSSMutableStyleDeclaration(CSSRule* parentRule, const DeprecatedValueList<CSSProperty>&, unsigned variableDependentValueCount);
+    CSSMutableStyleDeclaration(CSSRule* parentRule, const CSSProperty* const *, int numProperties);
+
+    virtual PassRefPtr<CSSMutableStyleDeclaration> makeMutable();
+
+    void setChanged();
+
     String getShorthandValue(const int* properties, int number) const;
+    String getCommonValue(const int* properties, int number) const;
     String getLayeredShorthandValue(const int* properties, unsigned number) const;
     String get4Values(const int* properties) const;
  
     DeprecatedValueList<CSSProperty> m_values;
     Node* m_node;
+    unsigned m_variableDependentValueCount;
 };
 
 } // namespace WebCore

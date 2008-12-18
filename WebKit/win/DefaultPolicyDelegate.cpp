@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "DefaultPolicyDelegate.h"
 
-#include "IWebViewPrivate.h"
+#include "WebKit.h"
 
 #pragma warning(push, 0)
 #include <WebCore/PlatformString.h>
@@ -46,11 +46,13 @@ DefaultPolicyDelegate::DefaultPolicyDelegate()
     : m_refCount(0)
 {
     gClassCount++;
+    gClassNameCount.add("DefaultPolicyDelegate");
 }
 
 DefaultPolicyDelegate::~DefaultPolicyDelegate()
 {
     gClassCount--;
+    gClassNameCount.remove("DefaultPolicyDelegate");
 }
 
 DefaultPolicyDelegate* DefaultPolicyDelegate::sharedInstance()

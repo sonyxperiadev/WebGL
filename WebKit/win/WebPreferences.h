@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,7 @@
 #ifndef WebPreferences_H
 #define WebPreferences_H
 
-#include "IWebPreferences.h"
-#include "IWebPreferencesPrivate.h"
+#include "WebKit.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/BString.h>
 #include <wtf/RetainPtr.h>
@@ -269,11 +268,17 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setDOMPasteAllowed( 
         /* [in] */ BOOL enabled);
 
-     virtual HRESULT STDMETHODCALLTYPE cacheModel(
-         /* [retval][out] */ WebCacheModel* cacheModel);
+    virtual HRESULT STDMETHODCALLTYPE cacheModel(
+     /* [retval][out] */ WebCacheModel* cacheModel);
 
-     virtual HRESULT STDMETHODCALLTYPE setCacheModel(
-         /* [in] */ WebCacheModel cacheModel);
+    virtual HRESULT STDMETHODCALLTYPE setCacheModel(
+     /* [in] */ WebCacheModel cacheModel);
+
+    virtual HRESULT STDMETHODCALLTYPE setShouldPaintCustomScrollbars( 
+    /* [in] */ BOOL shouldPaint);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldPaintCustomScrollbars( 
+    /* [retval][out] */ BOOL *shouldPaint);
 
     // IWebPreferencesPrivate
     virtual HRESULT STDMETHODCALLTYPE setDeveloperExtrasEnabled(
@@ -290,6 +295,30 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setAuthorAndUserStylesEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE authorAndUserStylesEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE inApplicationChromeMode( 
+        /* [retval][out] */ BOOL *enabled);
+    
+    virtual HRESULT STDMETHODCALLTYPE setApplicationChromeMode( 
+        /* [in] */ BOOL enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setOfflineWebApplicationCacheEnabled( 
+        /* [in] */ BOOL enabled);
+        
+    virtual HRESULT STDMETHODCALLTYPE offlineWebApplicationCacheEnabled( 
+        /* [retval][out] */ BOOL *enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE localStorageDatabasePath(
+        /* [out, retval] */ BSTR* location);
+
+    virtual HRESULT STDMETHODCALLTYPE setLocalStorageDatabasePath(
+        /* [in] */ BSTR location);
+    
+    virtual HRESULT STDMETHODCALLTYPE setShouldPaintNativeControls( 
+    /* [in] */ BOOL shouldPaint);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldPaintNativeControls( 
+    /* [retval][out] */ BOOL *shouldPaint);
 
     // WebPreferences
 
@@ -316,7 +345,8 @@ public:
     HRESULT postPreferencesChangesNotification();
 
 protected:
-    const void* valueForKey(CFStringRef key);
+    void setValueForKey(CFStringRef key, CFPropertyListRef value);
+    RetainPtr<CFPropertyListRef> valueForKey(CFStringRef key);
     BSTR stringValueForKey(CFStringRef key);
     int integerValueForKey(CFStringRef key);
     BOOL boolValueForKey(CFStringRef key);
@@ -330,8 +360,8 @@ protected:
     static void initializeDefaultSettings();
     void save();
     void load();
-    void migrateDefaultSettingsFromSafari3Beta();
-    void removeValuesMatchingDefaultSettings();
+    void migrateWebKitPreferencesToCFPreferences();
+    void copyWebKitPreferencesToCFPreferences(CFDictionaryRef);
 
 protected:
     ULONG m_refCount;
@@ -340,9 +370,6 @@ protected:
     bool m_autoSaves;
     bool m_automaticallyDetectsCacheModel;
     unsigned m_numWebViews;
-
-    static CFDictionaryRef s_defaultSettings;
-    static WebPreferences* s_standardPreferences;
 };
 
 #endif

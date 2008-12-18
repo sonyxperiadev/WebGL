@@ -35,18 +35,18 @@
 
 namespace WebCore {
 
+char SVGStyledTransformableElementIdentifier[] = "SVGStyledTransformableElement";
+
 SVGStyledTransformableElement::SVGStyledTransformableElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledLocatableElement(tagName, doc)
     , SVGTransformable()
-    , m_transform(new SVGTransformList(SVGNames::transformAttr))
+    , m_transform(this, SVGNames::transformAttr, SVGTransformList::create(SVGNames::transformAttr))
 {
 }
 
 SVGStyledTransformableElement::~SVGStyledTransformableElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGStyledTransformableElement, SVGTransformList*, TransformList, transformList, Transform, transform, SVGNames::transformAttr, m_transform.get())
 
 AffineTransform SVGStyledTransformableElement::getCTM() const
 {
@@ -60,7 +60,14 @@ AffineTransform SVGStyledTransformableElement::getScreenCTM() const
 
 AffineTransform SVGStyledTransformableElement::animatedLocalTransform() const
 {
-    return transform()->concatenate().matrix();
+    return m_supplementalTransform ? transform()->concatenate().matrix() * *m_supplementalTransform : transform()->concatenate().matrix();
+}
+    
+AffineTransform* SVGStyledTransformableElement::supplementalTransform()
+{
+    if (!m_supplementalTransform)
+        m_supplementalTransform.set(new AffineTransform());
+    return m_supplementalTransform.get();
 }
 
 void SVGStyledTransformableElement::parseMappedAttribute(MappedAttribute* attr)
@@ -104,6 +111,14 @@ RenderObject* SVGStyledTransformableElement::createRenderer(RenderArena* arena, 
 {
     // By default, any subclass is expected to do path-based drawing
     return new (arena) RenderPath(style, this);
+}
+
+Path SVGStyledTransformableElement::toClipPath() const
+{
+    Path pathData = toPathData();
+    // FIXME: How do we know the element has done a layout?
+    pathData.transform(animatedLocalTransform());
+    return pathData;
 }
 
 }

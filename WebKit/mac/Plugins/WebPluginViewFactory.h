@@ -27,6 +27,7 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import <JavaScriptCore/WebKitAvailability.h>
 
 /*!
     @constant WebPlugInBaseURLKey REQUIRED. The base URL of the document containing
@@ -57,6 +58,15 @@ extern NSString *WebPlugInContainerKey;
     the plug-in.  May be nil.
 */
 extern NSString *WebPlugInContainingElementKey;
+
+/*!
+ @constant WebPlugInShouldLoadMainResourceKey REQUIRED. NSNumber (BOOL) indicating whether the plug-in should load its
+ own main resource (the "src" URL, in most cases). If YES, the plug-in should load its own main resource. If NO, the
+ plug-in should use the data provided by WebKit. See -webPlugInMainResourceReceivedData: in WebPluginPrivate.h.
+ For compatibility with older versions of WebKit, the plug-in should assume that the value for
+ WebPlugInShouldLoadMainResourceKey is NO if it is absent from the arguments dictionary.
+ */
+extern NSString *WebPlugInShouldLoadMainResourceKey AVAILABLE_AFTER_WEBKIT_VERSION_3_1;
 
 /*!
     @protocol WebPlugInViewFactory

@@ -1,7 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
- *  Copyright (C) 2005 Apple Computer, Inc.
+ *  Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -29,16 +27,29 @@
 
 namespace WTF {
 
-    void *fastMalloc(size_t n);
-    void *fastZeroedMalloc(size_t n);
-    void *fastCalloc(size_t n_elements, size_t element_size);
+    // These functions call abort() if an allocation fails.
+    void* fastMalloc(size_t n);
+    void* fastZeroedMalloc(size_t n);
+    void* fastCalloc(size_t n_elements, size_t element_size);
+    void* fastRealloc(void* p, size_t n);
+
+    // These functions return NULL if an allocation fails.
+    void* tryFastMalloc(size_t n);
+    void* tryFastZeroedMalloc(size_t n);
+    void* tryFastCalloc(size_t n_elements, size_t element_size);
+    void* tryFastRealloc(void* p, size_t n);
+
     void fastFree(void* p);
-    void *fastRealloc(void* p, size_t n);
+
+    void* fastMallocExecutable(size_t n);
+    void fastFreeExecutable(void* p);
 
 #ifndef NDEBUG    
     void fastMallocForbid();
     void fastMallocAllow();
 #endif
+
+    void releaseFastMallocFreeMemory();
 
 } // namespace WTF
 
@@ -46,6 +57,10 @@ using WTF::fastMalloc;
 using WTF::fastZeroedMalloc;
 using WTF::fastCalloc;
 using WTF::fastRealloc;
+using WTF::tryFastMalloc;
+using WTF::tryFastZeroedMalloc;
+using WTF::tryFastCalloc;
+using WTF::tryFastRealloc;
 using WTF::fastFree;
 
 #ifndef NDEBUG    

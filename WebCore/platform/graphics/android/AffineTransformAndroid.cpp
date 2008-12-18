@@ -31,6 +31,8 @@ AffineTransform::AffineTransform()
 {
     m_transform.reset();
 }
+    
+AffineTransform::AffineTransform(const SkMatrix& mat) : m_transform(mat) {}
 
 AffineTransform::AffineTransform(double a, double b, double c, double d, double tx, double ty)
 {
@@ -100,6 +102,48 @@ void AffineTransform::reset()
     m_transform.reset();
 }
 
+    double AffineTransform::a() const {
+        return SkScalarToDouble(m_transform[0]);
+    }
+    void AffineTransform::setA(double a) {
+        m_transform.set(0, SkDoubleToScalar(a));
+    }
+
+    double AffineTransform::b() const {
+        return SkScalarToDouble(m_transform[1]);
+    }
+    void AffineTransform::setB(double b) {
+        m_transform.set(1, SkDoubleToScalar(b));
+    }
+    
+    double AffineTransform::c() const {
+        return SkScalarToDouble(m_transform[3]);
+    }
+    void AffineTransform::setC(double c) {
+        m_transform.set(3, SkDoubleToScalar(c));
+    }
+    
+    double AffineTransform::d() const {
+        return SkScalarToDouble(m_transform[4]);
+    }
+    void AffineTransform::setD(double d) {
+        m_transform.set(4, SkDoubleToScalar(d));
+    }
+    
+    double AffineTransform::e() const {
+        return SkScalarToDouble(m_transform[2]);
+    }
+    void AffineTransform::setE(double e) {
+        m_transform.set(2, SkDoubleToScalar(e));
+    }
+    
+    double AffineTransform::f() const {
+        return SkScalarToDouble(m_transform[5]);
+    }
+    void AffineTransform::setF(double f) {
+        m_transform.set(5, SkDoubleToScalar(f));
+    }
+    
 AffineTransform &AffineTransform::scale(double sx, double sy)
 {
     m_transform.preScale(SkDoubleToScalar(sx), SkDoubleToScalar(sy));

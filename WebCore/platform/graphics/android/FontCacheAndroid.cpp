@@ -30,7 +30,8 @@
 #include "FontCache.h"
 #include "FontPlatformData.h"
 #include "Font.h"
-
+#include "NotImplemented.h"
+#include "SimpleFontData.h"
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
@@ -43,33 +44,9 @@ void FontCache::platformInit()
 
 const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, const UChar* characters, int length)
 {
-    return font.primaryFont();  // do I need to make a copy (i.e. does the caller delete what I return?
-
-#if 0
-    // IMLangFontLink::MapFont Method does what we want.
-    IMLangFontLink2* langFontLink = getFontLinkInterface();
-    if (!langFontLink)
-        return 0;
-
-    FontData* fontData = 0;
-    HDC hdc = GetDC(0);
-    DWORD fontCodePages;
-    langFontLink->GetFontCodePages(hdc, font.primaryFont()->m_font.hfont(), &fontCodePages);
-
-    DWORD actualCodePages;
-    long cchActual;
-    langFontLink->GetStrCodePages(characters, length, fontCodePages, &actualCodePages, &cchActual);
-    if (cchActual) {
-        HFONT result;
-        if (langFontLink->MapFont(hdc, actualCodePages, characters[0], &result) == S_OK) {
-            fontData = new FontData(FontPlatformData(result, font.fontDescription().computedPixelSize()));
-            fontData->setIsMLangFont();
-        }
-    }
-
-    ReleaseDC(0, hdc);
-    return fontData;
-#endif
+    // since all of our fonts logically map to the fallback, we can always claim
+    // that each font supports all characters.
+    return font.primaryFont();
 }
 
 FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
@@ -94,12 +71,6 @@ static char* AtomicStringToUTF8String(const AtomicString& utf16)
     (void)SkUTF16_ToUTF8(uni, utf16.length(), utf8);
     utf8[bytes] = 0;
     return utf8;
-}
-
-bool FontCache::fontExists(const FontDescription& fontDescription, const AtomicString& family)
-{
-    ASSERT(0); // FIXME HACK unimplemented
-    return false;
 }
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)
@@ -136,7 +107,7 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     }
     
     int style = SkTypeface::kNormal;
-    if (fontDescription.weight() >= cBoldWeight)
+    if (fontDescription.weight() >= FontWeightBold)
         style |= SkTypeface::kBold;
     if (fontDescription.italic())
         style |= SkTypeface::kItalic;
@@ -150,6 +121,12 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     tf->unref();
     sk_free(storage);
     return result;
+}
+
+    // new as of SVN change 36269, Sept 8, 2008
+void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
+{
+    // Don't understand this yet, but it seems safe to leave unimplemented
 }
 
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2008 Alp Toker <alp@nuanti.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,18 +27,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+#include "DumpRenderTree.h"
+
 #include "LayoutTestController.h"
 #include "WorkQueue.h"
 #include "WorkQueueItem.h"
 
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
-
-#include <JavaScriptCore/JSBase.h>
-#include <JavaScriptCore/JSContextRef.h>
-#include <JavaScriptCore/JSObjectRef.h>
-#include <JavaScriptCore/JSStringRef.h>
-#include <JavaScriptCore/JSValueRef.h>
+#include <JavaScriptCore/JavaScript.h>
 
 #include <wtf/Assertions.h>
 
@@ -46,21 +45,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+using namespace std;
+
 extern "C" {
 // This API is not yet public.
 extern GSList* webkit_web_frame_get_children(WebKitWebFrame* frame);
 extern gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame);
+extern gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame);
 }
 
 volatile bool done;
 static bool printSeparators;
-static int testRepaintDefault;
-static int repaintSweepHorizontallyDefault;
 static int dumpPixels;
 static int dumpTree = 1;
-static gchar* currentTest;
 
-LayoutTestController* layoutTestController = 0;
+LayoutTestController* gLayoutTestController = 0;
 static WebKitWebView* webView;
 WebKitWebFrame* mainFrame = 0;
 WebKitWebFrame* topLoadingFrame = 0;
@@ -109,32 +108,23 @@ static gchar* dumpFramesAsText(WebKitWebFrame* frame)
     // Add header for all but the main frame.
     bool isMainFrame = (webkit_web_view_get_main_frame(webView) == frame);
 
-    if (isMainFrame) {
-        gchar* innerText = webkit_web_frame_get_inner_text(frame);
+    gchar* innerText = webkit_web_frame_get_inner_text(frame);
+    if (isMainFrame)
         result = g_strdup_printf("%s\n", innerText);
-        g_free(innerText);
-    } else {
+    else {
         const gchar* frameName = webkit_web_frame_get_name(frame);
-        gchar* innerText = webkit_web_frame_get_inner_text(frame);
-
         result = g_strdup_printf("\n--------\nFrame: '%s'\n--------\n%s\n", frameName, innerText);
-
-        g_free(innerText);
     }
+    g_free(innerText);
 
-    if (layoutTestController->dumpChildFramesAsText()) {
+    if (gLayoutTestController->dumpChildFramesAsText()) {
         GSList* children = webkit_web_frame_get_children(frame);
-        for (;children; children = g_slist_next(children))
+        for (GSList* child = children; child; child = g_slist_next(child))
            appendString(result, dumpFramesAsText((WebKitWebFrame*)children->data));
+        g_slist_free(children);
     }
 
     return result;
-}
-
-static gchar* dumpRenderTreeAsText(WebKitWebFrame* frame)
-{
-    // FIXME: this will require new WebKitGtk SPI
-    return strdup("foo");
 }
 
 static void invalidateAnyPreviousWaitToDumpWatchdog()
@@ -151,27 +141,28 @@ void dump()
     if (dumpTree) {
         char* result = 0;
 
-        bool dumpAsText = layoutTestController->dumpAsText();
+        bool dumpAsText = gLayoutTestController->dumpAsText();
         // FIXME: Also dump text resuls as text.
-        layoutTestController->setDumpAsText(dumpAsText);
-        if (layoutTestController->dumpAsText())
+        gLayoutTestController->setDumpAsText(dumpAsText);
+        if (gLayoutTestController->dumpAsText())
             result = dumpFramesAsText(mainFrame);
         else {
-            bool isSVGW3CTest = (g_strrstr(currentTest, "svg/W3C-SVG-1.1"));
-            if (isSVGW3CTest)
-                gtk_widget_set_size_request(GTK_WIDGET(webView), 480, 360);
-            else
-                gtk_widget_set_size_request(GTK_WIDGET(webView), maxViewWidth, maxViewHeight);
-            result = dumpRenderTreeAsText(mainFrame);
+            bool isSVGW3CTest = (gLayoutTestController->testPathOrURL().find("svg/W3C-SVG-1.1") != string::npos);
+            GtkAllocation size;
+            size.width = isSVGW3CTest ? 480 : maxViewWidth;
+            size.height = isSVGW3CTest ? 360 : maxViewHeight;
+            gtk_widget_size_allocate(GTK_WIDGET(webView), &size);
+
+            result = webkit_web_frame_dump_render_tree(mainFrame);
         }
 
         if (!result) {
             const char* errorMessage;
-            if (layoutTestController->dumpAsText())
+            if (gLayoutTestController->dumpAsText())
                 errorMessage = "[documentElement innerText]";
-            else if (layoutTestController->dumpDOMAsWebArchive())
+            else if (gLayoutTestController->dumpDOMAsWebArchive())
                 errorMessage = "[[mainFrame DOMDocument] webArchive]";
-            else if (layoutTestController->dumpSourceAsWebArchive())
+            else if (gLayoutTestController->dumpSourceAsWebArchive())
                 errorMessage = "[[mainFrame dataSource] webArchive]";
             else
                 errorMessage = "[mainFrame renderTreeAsExternalRepresentation]";
@@ -179,59 +170,93 @@ void dump()
         } else {
             printf("%s", result);
             g_free(result);
-            if (!layoutTestController->dumpAsText() && !layoutTestController->dumpDOMAsWebArchive() && !layoutTestController->dumpSourceAsWebArchive())
+            if (!gLayoutTestController->dumpAsText() && !gLayoutTestController->dumpDOMAsWebArchive() && !gLayoutTestController->dumpSourceAsWebArchive())
                 dumpFrameScrollPosition(mainFrame);
         }
 
-        if (layoutTestController->dumpBackForwardList()) {
+        if (gLayoutTestController->dumpBackForwardList()) {
             // FIXME: not implemented
         }
 
-        if (printSeparators)
-            puts("#EOF");
+        if (printSeparators) {
+            puts("#EOF"); // terminate the content block
+            fputs("#EOF\n", stderr);
+            fflush(stdout);
+            fflush(stderr);
+        }
     }
 
     if (dumpPixels) {
-        if (!layoutTestController->dumpAsText() && !layoutTestController->dumpDOMAsWebArchive() && !layoutTestController->dumpSourceAsWebArchive()) {
+        if (!gLayoutTestController->dumpAsText() && !gLayoutTestController->dumpDOMAsWebArchive() && !gLayoutTestController->dumpSourceAsWebArchive()) {
             // FIXME: Add support for dumping pixels
         }
     }
 
-    fflush(stdout);
-
     // FIXME: call displayWebView here when we support --paint
+
+    puts("#EOF"); // terminate the (possibly empty) pixels block
+
+    fflush(stdout);
+    fflush(stderr);
 
     done = true;
 }
 
-static void runTest(const char* pathOrURL)
+static void setDefaultsToConsistentStateValuesForTesting()
 {
-    gchar* url = autocorrectURL(pathOrURL);
+    WebKitWebSettings *settings = webkit_web_view_get_settings(webView);
 
-    layoutTestController = new LayoutTestController(testRepaintDefault, repaintSweepHorizontallyDefault);
+    g_object_set(G_OBJECT(settings),
+                 "default-font-family", "Times",
+                 "monospace-font-family", "Courier",
+                 "serif-font-family", "Times",
+                 "sans-serif-font-family", "Helvetica",
+                 "default-font-size", 16,
+                 "default-monospace-font-size", 13,
+                 "minimum-font-size", 1,
+                 NULL);
+}
 
-    done = false;
+static void runTest(const string& testPathOrURL)
+{
+    ASSERT(!testPathOrURL.empty());
+
+    // Look for "'" as a separator between the path or URL, and the pixel dump hash that follows.
+    string pathOrURL(testPathOrURL);
+    string expectedPixelHash;
+
+    size_t separatorPos = pathOrURL.find("'");
+    if (separatorPos != string::npos) {
+        pathOrURL = string(testPathOrURL, 0, separatorPos);
+        expectedPixelHash = string(testPathOrURL, separatorPos + 1);
+    }
+
+    gchar* url = autocorrectURL(pathOrURL.c_str());
+    const string testURL(url);
+
+    gLayoutTestController = new LayoutTestController(testURL, expectedPixelHash);
     topLoadingFrame = 0;
+    done = false;
 
-    if (shouldLogFrameLoadDelegates(pathOrURL))
-        layoutTestController->setDumpFrameLoadCallbacks(true);
-
-    if (currentTest)
-        g_free(currentTest);
-    currentTest = url;
+    if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
+        gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
 
     webkit_web_view_open(webView, url);
 
+    g_free(url);
+    url = NULL;
+
     while (!done)
-        g_main_context_iteration(NULL, true);
+        g_main_context_iteration(NULL, TRUE);
 
-    WorkQueue::shared()->clear();
+    // A blank load seems to be necessary to reset state after certain tests.
+    webkit_web_view_open(webView, "about:blank");
 
-    delete layoutTestController;
-    layoutTestController = 0;
+    gLayoutTestController->deref();
+    gLayoutTestController = 0;
 }
 
 void webViewLoadStarted(WebKitWebView* view, WebKitWebFrame* frame, void*)
@@ -253,20 +278,20 @@ static gboolean processWork(void* data)
     }
 
     // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
-    if (!topLoadingFrame && !layoutTestController->waitToDump())
+    if (!topLoadingFrame && !gLayoutTestController->waitToDump())
         dump();
 
     return FALSE;
 }
 
-void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
+static void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
 {
     if (frame != topLoadingFrame)
         return;
 
     topLoadingFrame = 0;
     WorkQueue::shared()->setFrozen(true); // first complete load freezes the queue for the rest of this test
-    if (layoutTestController->waitToDump())
+    if (gLayoutTestController->waitToDump())
         return;
 
     if (WorkQueue::shared()->count())
@@ -275,49 +300,56 @@ void webViewLoadFinished(WebKitWebView* view, WebKitWebFrame* frame, void*)
         dump();
 }
 
-void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* frame, JSGlobalContextRef context, JSObjectRef globalObject)
+static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* frame, JSGlobalContextRef context, JSObjectRef windowObject, gpointer data)
 {
     JSValueRef exception = 0;
-    assert(layoutTestController);
-    layoutTestController->makeWindowObject(context, globalObject, &exception);
+    assert(gLayoutTestController);
+
+    gLayoutTestController->makeWindowObject(context, windowObject, &exception);
     assert(!exception);
 }
 
-gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId)
+static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
 {
     fprintf(stdout, "CONSOLE MESSAGE: line %d: %s\n", line, message);
     return TRUE;
 }
 
 
-gboolean webViewScriptAlert(WebKitWebView* view, WebKitWebFrame* frame, const gchar* message)
+static gboolean webViewScriptAlert(WebKitWebView* view, WebKitWebFrame* frame, const gchar* message, gpointer data)
 {
     fprintf(stdout, "ALERT: %s\n", message);
     return TRUE;
 }
 
-gboolean webViewScriptPrompt(WebKitWebView* webView, WebKitWebFrame* frame, const gchar* message, const gchar* defaultValue, gchar** value)
+static gboolean webViewScriptPrompt(WebKitWebView* webView, WebKitWebFrame* frame, const gchar* message, const gchar* defaultValue, gchar** value, gpointer data)
 {
     fprintf(stdout, "PROMPT: %s, default text: %s\n", message, defaultValue);
     *value = g_strdup(defaultValue);
     return TRUE;
 }
 
-gboolean webViewScriptConfirm(WebKitWebView* view, WebKitWebFrame* frame, const gchar* message, gboolean* didConfirm)
+static gboolean webViewScriptConfirm(WebKitWebView* view, WebKitWebFrame* frame, const gchar* message, gboolean* didConfirm, gpointer data)
 {
     fprintf(stdout, "CONFIRM: %s\n", message);
     *didConfirm = TRUE;
     return TRUE;
 }
 
+static void webViewTitleChanged(WebKitWebView* view, WebKitWebFrame* frame, const gchar* title, gpointer data)
+{
+    if (gLayoutTestController->dumpTitleChanges() && !done)
+        printf("TITLE CHANGED: %s\n", title ? title : "");
+}
 
 int main(int argc, char* argv[])
 {
+    g_thread_init(NULL);
+    gtk_init(&argc, &argv);
+
     struct option options[] = {
-        {"horizontal-sweep", no_argument, &repaintSweepHorizontallyDefault, true},
         {"notree", no_argument, &dumpTree, false},
         {"pixel-tests", no_argument, &dumpPixels, true},
-        {"repaint", no_argument, &testRepaintDefault, true},
         {"tree", no_argument, &dumpTree, true},
         {NULL, 0, NULL, 0}
     };
@@ -330,8 +362,6 @@ int main(int argc, char* argv[])
                 exit(1);
                 break;
         }
-
-    gtk_init(&argc, &argv);
 
     GtkWidget* window = gtk_window_new(GTK_WINDOW_POPUP);
     GtkContainer* container = GTK_CONTAINER(gtk_fixed_new());
@@ -350,6 +380,9 @@ int main(int argc, char* argv[])
     g_signal_connect(G_OBJECT(webView), "script-alert", G_CALLBACK(webViewScriptAlert), 0);
     g_signal_connect(G_OBJECT(webView), "script-prompt", G_CALLBACK(webViewScriptPrompt), 0);
     g_signal_connect(G_OBJECT(webView), "script-confirm", G_CALLBACK(webViewScriptConfirm), 0);
+    g_signal_connect(G_OBJECT(webView), "title-changed", G_CALLBACK(webViewTitleChanged), 0);
+
+    setDefaultsToConsistentStateValuesForTesting();
 
     if (argc == optind+1 && strcmp(argv[optind], "-") == 0) {
         char filenameBuffer[2048];

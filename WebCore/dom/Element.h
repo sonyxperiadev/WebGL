@@ -34,7 +34,6 @@ namespace WebCore {
 class Attr;
 class Attribute;
 class CSSStyleDeclaration;
-class ClassNames;
 class ElementRareData;
 class IntSize;
 
@@ -43,12 +42,10 @@ public:
     Element(const QualifiedName&, Document*);
     ~Element();
 
-    // Used to quickly determine whether or not an element has a given CSS class.
-    virtual const ClassNames* getClassNames() const;
     const AtomicString& getIDAttribute() const;
     bool hasAttribute(const QualifiedName&) const;
     const AtomicString& getAttribute(const QualifiedName&) const;
-    void setAttribute(const QualifiedName&, StringImpl* value, ExceptionCode&);
+    void setAttribute(const QualifiedName&, const AtomicString& value, ExceptionCode&);
     void removeAttribute(const QualifiedName&, ExceptionCode&);
 
     bool hasAttributes() const;
@@ -59,8 +56,8 @@ public:
     const AtomicString& getAttribute(const String& name) const;
     const AtomicString& getAttributeNS(const String& namespaceURI, const String& localName) const;
 
-    void setAttribute(const String& name, const String& value, ExceptionCode&);
-    void setAttributeNS(const String& namespaceURI, const String& qualifiedName, const String& value, ExceptionCode&);
+    void setAttribute(const AtomicString& name, const AtomicString& value, ExceptionCode&);
+    void setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value, ExceptionCode&);
 
     void scrollIntoView (bool alignToTop = true);
     void scrollIntoViewIfNeeded(bool centerIfNeeded = true);
@@ -104,44 +101,45 @@ public:
     bool hasLocalName(const AtomicString& other) const { return m_tagName.localName() == other; }
     bool hasLocalName(const QualifiedName& other) const { return m_tagName.localName() == other.localName(); }
 
-    virtual const AtomicString& localName() const { return m_tagName.localName(); }
-    virtual const AtomicString& prefix() const { return m_tagName.prefix(); }
-    virtual void setPrefix(const AtomicString &_prefix, ExceptionCode&);
-    virtual const AtomicString& namespaceURI() const { return m_tagName.namespaceURI(); }
+    const AtomicString& localName() const { return m_tagName.localName(); }
+    const AtomicString& prefix() const { return m_tagName.prefix(); }
+    virtual void setPrefix(const AtomicString&, ExceptionCode&);
+    const AtomicString& namespaceURI() const { return m_tagName.namespaceURI(); }
 
-    virtual String baseURI() const;
+    virtual KURL baseURI() const;
 
-    // DOM methods overridden from  parent classes
+    // DOM methods overridden from parent classes
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
     virtual String nodeName() const;
-    virtual bool isElementNode() const { return true; }
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
-    virtual void childrenChanged(bool changedByParser = false);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+
+    void normalizeAttributes();
 
     virtual bool isInputTypeHidden() const { return false; }
+    virtual bool isPasswordField() const { return false; }
 
     String nodeNamePreservingCase() const;
 
     // convenience methods which ignore exceptions
-    void setAttribute(const QualifiedName&, const String& value);
+    void setAttribute(const QualifiedName&, const AtomicString& value);
     void setBooleanAttribute(const QualifiedName& name, bool);
 
     virtual NamedAttrMap* attributes() const;
     NamedAttrMap* attributes(bool readonly) const;
 
     // This method is called whenever an attribute is added, changed or removed.
-    virtual void attributeChanged(Attribute*, bool preserveDecls = false) {}
+    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
     // not part of the DOM
-    void setAttributeMap(NamedAttrMap*);
+    void setAttributeMap(PassRefPtr<NamedAttrMap>);
 
     virtual void copyNonAttributeProperties(const Element* source) {}
 
     virtual void attach();
     virtual void detach();
-    virtual RenderStyle* styleForRenderer(RenderObject* parent);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange = NoChange);
 
@@ -149,14 +147,12 @@ public:
 
     virtual bool childTypeAllowed(NodeType);
 
-    virtual Attribute* createAttribute(const QualifiedName& name, StringImpl* value);
+    virtual PassRefPtr<Attribute> createAttribute(const QualifiedName&, const AtomicString& value);
     
     void dispatchAttrRemovalEvent(Attribute*);
     void dispatchAttrAdditionEvent(Attribute*);
 
     virtual void accessKeyAction(bool sendToAnyEvent) { }
-
-    virtual String toString() const;
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
@@ -174,11 +170,9 @@ public:
     void blur();
 
 #ifndef NDEBUG
-    virtual void dump(TextStream* , DeprecatedString ind = "") const;
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
 
-    Node* insertAdjacentElement(const String& where, Node* newChild, ExceptionCode&);
     bool contains(const Node*) const;
 
     String innerText() const;
@@ -193,42 +187,75 @@ public:
     IntSize minimumSizeForResizing() const;
     void setMinimumSizeForResizing(const IntSize&);
 
-    // Use Document::registerForPageCacheCallbacks() to subscribe these
-    virtual void willSaveToCache() { }
-    virtual void didRestoreFromCache() { }
+    // Use Document::registerForDocumentActivationCallbacks() to subscribe these
+    virtual void documentWillBecomeInactive() { }
+    virtual void documentDidBecomeActive() { }
     
     bool isFinishedParsingChildren() const { return m_parsingChildrenFinished; }
     virtual void finishParsingChildren();
     virtual void beginParsingChildren() { m_parsingChildrenFinished = false; }
 
-private:
-    ElementRareData* rareData();
-    const ElementRareData* rareData() const;
-    ElementRareData* createRareData();
+    // ElementTraversal API
+    Element* firstElementChild() const;
+    Element* lastElementChild() const;
+    Element* previousElementSibling() const;
+    Element* nextElementSibling() const;
+    unsigned childElementCount() const;
 
+private:
     virtual void createAttributeMap() const;
 
-    virtual void updateStyleAttributeIfNeeded() const {}
-    
+    virtual void updateStyleAttribute() const {}
+
+#if ENABLE(SVG)
+    virtual void updateAnimatedSVGAttribute(const String&) const {}
+#endif
+
     void updateFocusAppearanceSoonAfterAttach();
     void cancelFocusAppearanceUpdate();
 
-    virtual bool virtualHasTagName(const QualifiedName&) const;
-
-private:
+    virtual const AtomicString& virtualPrefix() const { return prefix(); }
+    virtual const AtomicString& virtualLocalName() const { return localName(); }
+    virtual const AtomicString& virtualNamespaceURI() const { return namespaceURI(); }
+    
     QualifiedName m_tagName;
+    virtual NodeRareData* createRareData();
 
 protected:
+    ElementRareData* rareData() const;
+    ElementRareData* ensureRareData();
+    
     mutable RefPtr<NamedAttrMap> namedAttrMap;
 
     // These two bits are really used by the StyledElement subclass, but they are pulled up here in order to be shared with other
     // Element bits.
     mutable bool m_isStyleAttributeValid : 1;
     mutable bool m_synchronizingStyleAttribute : 1;
-    
+
+#if ENABLE(SVG)
+    // These bit is are used by SVGElement subclasses, and it lives here for the same reason as above.
+    mutable bool m_areSVGAttributesValid : 1;
+    mutable bool m_synchronizingSVGAttributes : 1;
+#endif
+
 private:
     bool m_parsingChildrenFinished : 1;
 };
+    
+inline bool Node::hasTagName(const QualifiedName& name) const
+{
+    return isElementNode() && static_cast<const Element*>(this)->hasTagName(name);
+}
+
+inline bool Node::hasAttributes() const
+{
+    return isElementNode() && static_cast<const Element*>(this)->hasAttributes();
+}
+
+inline NamedAttrMap* Node::attributes() const
+{
+    return isElementNode() ? static_cast<const Element*>(this)->attributes() : 0;
+}
 
 } //namespace
 

@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,14 +26,8 @@
 
 namespace WebCore {
 
-bool FontCache::fontExists(const FontDescription &desc, const AtomicString& family)
+void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
 {
-    // try to construct a QFont inside WebCore::Font to see if we know about this font
-    FontDescription fnt(desc);
-    FontFamily fam;
-    fam.setFamily(family);
-    fnt.setFamily(fam);
-    return Font(fnt, /*letterSpacing*/0, /*wordSpacing*/0).font().exactMatch();
 }
 
 FontPlatformData* FontCache::getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName)
@@ -51,4 +45,12 @@ FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription&)
     return 0;
 }
 
+void FontCache::addClient(FontSelector*)
+{
 }
+
+void FontCache::removeClient(FontSelector*)
+{
+}
+
+} // namespace WebCore

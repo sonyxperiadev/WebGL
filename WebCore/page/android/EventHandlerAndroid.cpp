@@ -22,6 +22,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#define LOG_TAG "WebCore"
 
 #include "config.h"
 #include "EventHandler.h"
@@ -33,20 +34,17 @@
 #include "FrameView.h"
 #include "KeyboardEvent.h"
 #include "MouseEventWithHitTestResults.h"
+#include "NotImplemented.h"
 #include "Page.h"
-#include "PlatformScrollBar.h"
+#include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "RenderWidget.h"
 
-#define LOG_TAG "WebCore"
-#undef LOG
-#include <utils/Log.h>
-
 namespace WebCore {
 
-using namespace EventNames;
+// using namespace EventNames;
 
-#define notImplemented() { LOGV("%s: Not Implemented", __FUNCTION__); }
+unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
 
 bool EventHandler::tabsToAllControls(KeyboardEvent* ) const
 {
@@ -78,7 +76,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 // work around for the Mac platform which does not support double clicks, but browsers do.
 bool EventHandler::passMouseDownEventToWidget(Widget* widget)
 {
-    notImplemented();
+    // return false so the normal propogation handles the event
     return false;
 }
 
@@ -124,14 +122,11 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return passSubframeEventToSubframe(mev, subframe);
 }
 
-bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults&, PlatformScrollbar* scrollbar)
-{
-    notImplemented();
-    return false;
-}
-
 // functions new to Jun-07 tip of tree merge:
-Clipboard* EventHandler::createDraggingClipboard() const { return NULL; }
+class Clipboard : public RefCounted<Clipboard> {};
 
+PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const { return PassRefPtr<Clipboard>(NULL); }
 
+    // new as of SVN change 36269, Sept 8, 2008
+const double EventHandler::TextDragDelay = 0.0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -204,7 +204,7 @@ bool IncreaseSelectionListLevelCommand::canIncreaseSelectionListLevel(Document* 
 {
     Node* startListChild;
     Node* endListChild;
-    return canIncreaseListLevel(document->frame()->selectionController()->selection(), startListChild, endListChild);
+    return canIncreaseListLevel(document->frame()->selection()->selection(), startListChild, endListChild);
 }
 
 PassRefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevelWithType(Document* document, Type listType)
@@ -213,7 +213,7 @@ PassRefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevelWi
     ASSERT(document->frame());
     RefPtr<IncreaseSelectionListLevelCommand> modCommand = new IncreaseSelectionListLevelCommand(document, listType);
     modCommand->apply();
-    return modCommand->m_listElement.get();
+    return modCommand->m_listElement;
 }
 
 PassRefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevel(Document* document)
@@ -280,7 +280,7 @@ bool DecreaseSelectionListLevelCommand::canDecreaseSelectionListLevel(Document* 
 {
     Node* startListChild;
     Node* endListChild;
-    return canDecreaseListLevel(document->frame()->selectionController()->selection(), startListChild, endListChild);
+    return canDecreaseListLevel(document->frame()->selection()->selection(), startListChild, endListChild);
 }
 
 void DecreaseSelectionListLevelCommand::decreaseSelectionListLevel(Document* document)

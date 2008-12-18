@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,15 +29,19 @@
 #import "WebCoreStatistics.h"
 
 #import "WebCache.h"
-#import <JavaScriptCore/collector.h>
-#import <JavaScriptCore/interpreter.h>
+#import "WebFrameInternal.h"
+#import <runtime/JSLock.h>
+#import <WebCore/Console.h>
+#import <WebCore/FontCache.h>
+#import <WebCore/Frame.h>
 #import <WebCore/GCController.h>
+#import <WebCore/GlyphPageTreeNode.h>
 #import <WebCore/IconDatabase.h>
-#import <WebCore/Node.h>
-#import <WebKit/WebFrameBridge.h>
-#import <WebKit/WebFrameInternal.h>
+#import <WebCore/JSDOMWindow.h>
+#import <WebCore/RenderTreeAsText.h>
+#import <WebCore/RenderView.h>
 
-using namespace KJS;
+using namespace JSC;
 using namespace WebCore;
 
 @implementation WebCoreStatistics
@@ -49,35 +53,35 @@ using namespace WebCore;
 
 + (size_t)javaScriptObjectsCount
 {
-    JSLock lock;
-    return Collector::size();
+    JSLock lock(false);
+    return JSDOMWindow::commonJSGlobalData()->heap.size();
 }
 
 + (size_t)javaScriptGlobalObjectsCount
 {
-    JSLock lock;
-    return Collector::globalObjectCount();
+    JSLock lock(false);
+    return JSDOMWindow::commonJSGlobalData()->heap.globalObjectCount();
 }
 
 + (size_t)javaScriptProtectedObjectsCount
 {
-    JSLock lock;
-    return Collector::protectedObjectCount();
+    JSLock lock(false);
+    return JSDOMWindow::commonJSGlobalData()->heap.protectedObjectCount();
 }
 
 + (size_t)javaScriptProtectedGlobalObjectsCount
 {
-    JSLock lock;
-    return Collector::protectedGlobalObjectCount();
+    JSLock lock(false);
+    return JSDOMWindow::commonJSGlobalData()->heap.protectedGlobalObjectCount();
 }
 
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts
 {
-    JSLock lock;
+    JSLock lock(false);
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<HashCountedSet<const char*> > counts(Collector::protectedObjectTypeCounts());
+    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -116,16 +120,36 @@ using namespace WebCore;
     return iconDatabase()->iconRecordCountWithData();
 }
 
++ (size_t)cachedFontDataCount
+{
+    return FontCache::fontDataCount();
+}
+
++ (size_t)cachedFontDataInactiveCount
+{
+    return FontCache::inactiveFontDataCount();
+}
+
++ (void)purgeInactiveFontData
+{
+    FontCache::purgeInactiveFontData();
+}
+
++ (size_t)glyphPageCount
+{
+    return GlyphPageTreeNode::treeGlyphPageCount();
+}
+
 + (BOOL)shouldPrintExceptions
 {
-    JSLock lock;
-    return Interpreter::shouldPrintExceptions();
+    JSLock lock(false);
+    return Console::shouldPrintExceptions();
 }
 
 + (void)setShouldPrintExceptions:(BOOL)print
 {
-    JSLock lock;
-    Interpreter::setShouldPrintExceptions(print);
+    JSLock lock(false);
+    Console::setShouldPrintExceptions(print);
 }
 
 + (void)emptyCache
@@ -156,8 +180,8 @@ using namespace WebCore;
 
 + (size_t)javaScriptReferencedObjectsCount
 {
-    JSLock lock;
-    return Collector::protectedObjectCount();
+    JSLock lock(false);
+    return JSDOMWindow::commonJSGlobalData()->heap.protectedObjectCount();
 }
 
 + (NSSet *)javaScriptRootObjectClasses
@@ -181,7 +205,7 @@ using namespace WebCore;
 
 - (NSString *)renderTreeAsExternalRepresentation
 {
-    return [[self _bridge] renderTreeAsExternalRepresentation];
+    return externalRepresentation(_private->coreFrame->contentRenderer());
 }
 
 @end

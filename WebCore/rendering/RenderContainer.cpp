@@ -29,7 +29,7 @@
 #include "AXObjectCache.h"
 #include "Document.h"
 #include "RenderCounter.h"
-#include "RenderImage.h"
+#include "RenderImageGeneratedContent.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderTable.h"
@@ -107,17 +107,16 @@ void RenderContainer::addChild(RenderObject* newChild, RenderObject* beforeChild
     }
 
     if (needsTable) {
-        RenderTable *table;
-        if(!beforeChild)
-            beforeChild = m_lastChild;
-        if(beforeChild && beforeChild->isAnonymous() && beforeChild->isTable())
-            table = static_cast<RenderTable*>(beforeChild);
+        RenderTable* table;
+        RenderObject* afterChild = beforeChild ? beforeChild->previousSibling() : m_lastChild;
+        if (afterChild && afterChild->isAnonymous() && afterChild->isTable())
+            table = static_cast<RenderTable*>(afterChild);
         else {
             table = new (renderArena()) RenderTable(document() /* is anonymous */);
-            RenderStyle *newStyle = new (renderArena()) RenderStyle;
+            RefPtr<RenderStyle> newStyle = RenderStyle::create();
             newStyle->inheritFrom(style());
             newStyle->setDisplay(TABLE);
-            table->setStyle(newStyle);
+            table->setStyle(newStyle.release());
             addChild(table, beforeChild);
         }
         table->addChild(newChild);
@@ -140,7 +139,7 @@ RenderObject* RenderContainer::removeChildNode(RenderObject* oldChild, bool full
     // So that we'll get the appropriate dirty bit set (either that a normal flow child got yanked or
     // that a positioned child got yanked).  We also repaint, so that the area exposed when the child
     // disappears gets repainted properly.
-    if (!documentBeingDestroyed() && fullRemove) {
+    if (!documentBeingDestroyed() && fullRemove && oldChild->m_everHadLayout) {
         oldChild->setNeedsLayoutAndPrefWidthsRecalc();
         oldChild->repaint();
     }
@@ -244,13 +243,25 @@ void RenderContainer::updateBeforeAfterContent(RenderStyle::PseudoId type)
     updateBeforeAfterContentForContainer(type, this);
 }
 
+static RenderObject* findBeforeAfterParent(RenderObject* object)
+{
+    // Only table parts need to search for the :before or :after parent
+    if (!(object->isTable() || object->isTableSection() || object->isTableRow()))
+        return object;
+
+    RenderObject* beforeAfterParent = object;
+    while (beforeAfterParent && !(beforeAfterParent->isText() || beforeAfterParent->isImage()))
+        beforeAfterParent = beforeAfterParent->firstChild();
+    return beforeAfterParent;
+}
+
 void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId type, RenderContainer* styledObject)
 {
     // In CSS2, before/after pseudo-content cannot nest.  Check this first.
     if (style()->styleType() == RenderStyle::BEFORE || style()->styleType() == RenderStyle::AFTER)
         return;
     
-    RenderStyle* pseudoElementStyle = styledObject->getPseudoStyle(type);
+    RenderStyle* pseudoElementStyle = styledObject->getCachedPseudoStyle(type);
     RenderObject* child = beforeAfterContainer(type);
 
     // Whether or not we currently have generated content attached.
@@ -272,7 +283,7 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
     // If we don't want generated content any longer, or if we have generated content, but it's no longer
     // identical to the new content data we want to build render objects for, then we nuke all
     // of the old generated content.
-    if (!newContentWanted || (oldContentPresent && !child->style()->contentDataEquivalent(pseudoElementStyle))) {
+    if (!newContentWanted || (oldContentPresent && Node::diff(child->style(), pseudoElementStyle) == Node::Detach)) {
         // Nuke the child. 
         if (child && child->style()->styleType() == type) {
             oldContentPresent = false;
@@ -301,17 +312,21 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
             // style information with the new pseudo-element style.
             child->setStyle(pseudoElementStyle);
 
+            RenderObject* beforeAfterParent = findBeforeAfterParent(child);
+            if (!beforeAfterParent)
+                return;
+
             // Note that if we ever support additional types of generated content (which should be way off
             // in the future), this code will need to be patched.
-            for (RenderObject* genChild = child->firstChild(); genChild; genChild = genChild->nextSibling()) {
+            for (RenderObject* genChild = beforeAfterParent->firstChild(); genChild; genChild = genChild->nextSibling()) {
                 if (genChild->isText())
                     // Generated text content is a child whose style also needs to be set to the pseudo-element style.
                     genChild->setStyle(pseudoElementStyle);
                 else if (genChild->isImage()) {
                     // Images get an empty style that inherits from the pseudo.
-                    RenderStyle* style = new (renderArena()) RenderStyle;
+                    RefPtr<RenderStyle> style = RenderStyle::create();
                     style->inheritFrom(pseudoElementStyle);
-                    genChild->setStyle(style);
+                    genChild->setStyle(style.release());
                 } else
                     // Must be a first-letter container. updateFirstLetter() will take care of it.
                     ASSERT(genChild->style()->styleType() == RenderStyle::FIRST_LETTER);
@@ -336,18 +351,16 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
                 renderer = new (renderArena()) RenderTextFragment(document() /* anonymous object */, content->m_content.m_text);
                 renderer->setStyle(pseudoElementStyle);
                 break;
-            case CONTENT_OBJECT:
-                if (CachedResource* resource = content->m_content.m_object)
-                    if (resource->type() == CachedResource::ImageResource) {
-                        RenderImage* image = new (renderArena()) RenderImage(document()); // anonymous object
-                        RenderStyle* style = new (renderArena()) RenderStyle;
-                        style->inheritFrom(pseudoElementStyle);
-                        image->setStyle(style);
-                        image->setCachedImage(static_cast<CachedImage*>(resource));
-                        image->setIsAnonymousImage(true);
-                        renderer = image;
-                    }
+            case CONTENT_OBJECT: {
+                RenderImageGeneratedContent* image = new (renderArena()) RenderImageGeneratedContent(document()); // anonymous object
+                RefPtr<RenderStyle> style = RenderStyle::create();
+                style->inheritFrom(pseudoElementStyle);
+                image->setStyle(style.release());
+                if (StyleImage* styleImage = content->m_content.m_image)
+                    image->setStyleImage(styleImage);
+                renderer = image;
                 break;
+            }
             case CONTENT_COUNTER:
                 renderer = new (renderArena()) RenderCounter(document(), *content->m_content.m_counter);
                 renderer->setStyle(pseudoElementStyle);
@@ -360,15 +373,11 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
                 // to find the original content properly.
                 generatedContentContainer = RenderObject::createObject(document(), pseudoElementStyle);
                 generatedContentContainer->setStyle(pseudoElementStyle);
+                addChild(generatedContentContainer, insertBefore);
             }
             generatedContentContainer->addChild(renderer);
         }
     }
-
-    // Add the pseudo after we've installed all our content so that addChild will be able to find the text
-    // inside the inline for e.g., first-letter styling.
-    if (generatedContentContainer)
-        addChild(generatedContentContainer, insertBefore);
 }
 
 bool RenderContainer::isAfterContent(RenderObject* child) const
@@ -381,6 +390,28 @@ bool RenderContainer::isAfterContent(RenderObject* child) const
     if (child->isText() && !child->isBR())
         return false;
     return true;
+}
+
+static void invalidateCountersInContainer(RenderObject* container)
+{
+    if (!container)
+        return;
+    container = findBeforeAfterParent(container);
+    if (!container)
+        return;
+    for (RenderObject* content = container->firstChild(); content; content = content->nextSibling()) {
+        if (content->isCounter())
+            static_cast<RenderCounter*>(content)->invalidate();
+    }
+}
+
+void RenderContainer::invalidateCounters()
+{
+    if (documentBeingDestroyed())
+        return;
+
+    invalidateCountersInContainer(beforeAfterContainer(RenderStyle::BEFORE));
+    invalidateCountersInContainer(beforeAfterContainer(RenderStyle::AFTER));
 }
 
 void RenderContainer::appendChildNode(RenderObject* newChild, bool fullAppend)
@@ -628,7 +659,7 @@ VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
     return VisiblePosition(element(), 0, DOWNSTREAM);
 }
 
-void RenderContainer::addLineBoxRects(Vector<IntRect>& rects, unsigned start, unsigned end)
+void RenderContainer::addLineBoxRects(Vector<IntRect>& rects, unsigned start, unsigned end, bool)
 {
     if (!m_firstChild && (isInline() || isAnonymousBlock())) {
         int x, y;

@@ -37,6 +37,8 @@ namespace WebCore {
 
     class SVGPreserveAspectRatio : public RefCounted<SVGPreserveAspectRatio> { 
     public:
+        static PassRefPtr<SVGPreserveAspectRatio> create() { return adoptRef(new SVGPreserveAspectRatio); }
+
         enum SVGPreserveAspectRatioType {
             SVG_PRESERVEASPECTRATIO_UNKNOWN     = 0,
             SVG_PRESERVEASPECTRATIO_NONE        = 1,
@@ -57,7 +59,6 @@ namespace WebCore {
             SVG_MEETORSLICE_SLICE      = 2
         };
 
-        SVGPreserveAspectRatio();
         virtual ~SVGPreserveAspectRatio();
 
         void setAlign(unsigned short);
@@ -73,10 +74,13 @@ namespace WebCore {
 
         // Helper
         bool parsePreserveAspectRatio(const UChar*& currParam, const UChar* end, bool validate = true);
+        String valueAsString() const;
 
         const QualifiedName& associatedAttributeName() const { return SVGNames::preserveAspectRatioAttr; }
 
-    protected:
+    private:
+        SVGPreserveAspectRatio();
+        
         unsigned short m_align;
         unsigned short m_meetOrSlice;
     };

@@ -54,14 +54,14 @@ void RenderTableRow::destroy()
         recalcSection->setNeedsCellRecalc();
 }
 
-void RenderTableRow::setStyle(RenderStyle* newStyle)
+void RenderTableRow::styleWillChange(RenderStyle::Diff diff, const RenderStyle* newStyle)
 {
     if (section() && style() && style()->height() != newStyle->height())
         section()->setNeedsCellRecalc();
 
-    newStyle->setDisplay(TABLE_ROW);
+    ASSERT(newStyle->display() == TABLE_ROW);
 
-    RenderContainer::setStyle(newStyle);
+    RenderContainer::styleWillChange(diff, newStyle);
 }
 
 void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
@@ -93,10 +93,10 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
         }
 
         RenderTableCell* cell = new (renderArena()) RenderTableCell(document() /* anonymous object */);
-        RenderStyle* newStyle = new (renderArena()) RenderStyle();
+        RefPtr<RenderStyle> newStyle = RenderStyle::create();
         newStyle->inheritFrom(style());
         newStyle->setDisplay(TABLE_CELL);
-        cell->setStyle(newStyle);
+        cell->setStyle(newStyle.release());
         addChild(cell, beforeChild);
         cell->addChild(child);
         return;
@@ -201,11 +201,8 @@ void RenderTableRow::paint(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
-void RenderTableRow::imageChanged(CachedImage* image)
+void RenderTableRow::imageChanged(WrappedImagePtr image)
 {
-    if (!image || !image->canRender() || !parent())
-        return;
-    
     // FIXME: Examine cells and repaint only the rect the image paints in.
     repaint();
 }

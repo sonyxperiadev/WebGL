@@ -31,6 +31,11 @@
 #import <WebKit/WebFrame.h>
 #import <JavaScriptCore/JSBase.h>
 
+#if !defined(ENABLE_NETSCAPE_PLUGIN_API)
+#define ENABLE_NETSCAPE_PLUGIN_API 1
+#endif
+
+@class WebIconFetcher;
 @class WebScriptObject;
 
 // Keys for accessing the values in the page cache dictionary.
@@ -57,10 +62,6 @@ typedef enum {
 - (BOOL)_isFrameSet;
 - (BOOL)_firstLayoutDone;
 - (WebFrameLoadType)_loadType;
-#ifndef __LP64__
-- (void)_recursive_resumeNullEventsForAllNetscapePlugins;
-- (void)_recursive_pauseNullEventsForAllNetscapePlugins;
-#endif
 
 // These methods take and return NSRanges based on the root editable element as the positional base.
 // This fits with AppKit's idea of an input context. These methods are slow compared to their DOMRange equivalents.
@@ -69,5 +70,18 @@ typedef enum {
 - (void)_selectNSRange:(NSRange)range;
 
 - (BOOL)_isDisplayingStandaloneImage;
+
+- (unsigned) _pendingFrameUnloadEventCount;
+
+- (WebIconFetcher *)fetchApplicationIcon:(id)target
+                                selector:(SEL)selector;
+
+- (void)_setIsDisconnected:(bool)isDisconnected;
+- (void)_setExcludeFromTextSearch:(bool)exclude;
+
+#if ENABLE_NETSCAPE_PLUGIN_API
+- (void)_recursive_resumeNullEventsForAllNetscapePlugins;
+- (void)_recursive_pauseNullEventsForAllNetscapePlugins;
+#endif
 
 @end

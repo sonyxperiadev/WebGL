@@ -122,7 +122,16 @@ void Path::closeSubpath()
     m_path->close();
 }
 
-static const float gPI = 3.1415926f;
+static const float gPI  = 3.14159265f;
+static const float g2PI = 6.28318531f;
+static const float g180OverPI = 57.29577951308f;
+
+static float fast_mod(float angle, float max) {
+    if (angle >= max || angle <= -max) {
+        angle = fmodf(angle, max); 
+    }
+    return angle;
+}
 
 void Path::addArc(const FloatPoint& p, float r, float sa, float ea,
                   bool clockwise) {
@@ -134,23 +143,43 @@ void Path::addArc(const FloatPoint& p, float r, float sa, float ea,
     oval.set(cx - radius, cy - radius, cx + radius, cy + radius);
     
     float sweep = ea - sa;
-    // check for a circle
-    if (sweep >= 2*gPI || sweep <= -2*gPI) {
-        m_path->addOval(oval);
-    } else {
-        SkScalar startDegrees = SkFloatToScalar(sa * 180 / gPI);
-        SkScalar sweepDegrees = SkFloatToScalar(sweep * 180 / gPI);
+    bool prependOval = false;
 
-        if (clockwise && sweepDegrees > 0) {
-            sweepDegrees -= SkIntToScalar(360);
-        } else if (!clockwise && sweepDegrees < 0) {
-            sweepDegrees = SkIntToScalar(360) - sweepDegrees;
-        }
+    /*  Note if clockwise and the sign of the sweep disagree. This particular
+        logic was deduced from http://canvex.lazyilluminati.com/misc/arc.html
+    */
+    if (clockwise && (sweep > 0 || sweep < -g2PI)) {
+        sweep = fmodf(sweep, g2PI) - g2PI;
+    } else if (!clockwise && (sweep < 0 || sweep > g2PI)) {
+        sweep = fmodf(sweep, g2PI) + g2PI;
+    }
+    
+    // If the abs(sweep) >= 2PI, then we need to add a circle before we call
+    // arcTo, since it treats the sweep mod 2PI. We don't have a prepend call,
+    // so we just remember this, and at the end create a new path with an oval
+    // and our current path, and then swap then.
+    //
+    if (sweep >= g2PI || sweep <= -g2PI) {
+        prependOval = true;
+//        SkDebugf("addArc sa=%g ea=%g cw=%d sweep %g treat as circle\n", sa, ea, clockwise, sweep);
 
-//        SkDebugf("addArc sa=%g ea=%g cw=%d start=%g sweep=%g\n", sa, ea, clockwise,
-//                 SkScalarToFloat(startDegrees), SkScalarToFloat(sweepDegrees));
+        // now reduce sweep to just the amount we need, so that the current
+        // point is left where the caller expects it.
+        sweep = fmodf(sweep, g2PI);
+    }
 
-        m_path->arcTo(oval, startDegrees, sweepDegrees, false);
+    sa = fast_mod(sa, g2PI);
+    SkScalar startDegrees = SkFloatToScalar(sa * g180OverPI);
+    SkScalar sweepDegrees = SkFloatToScalar(sweep * g180OverPI);
+
+//    SkDebugf("addArc sa=%g ea=%g cw=%d sweep=%g ssweep=%g\n", sa, ea, clockwise, sweep, SkScalarToFloat(sweepDegrees));
+    m_path->arcTo(oval, startDegrees, sweepDegrees, false);
+    
+    if (prependOval) {
+        SkPath tmp;
+        tmp.addOval(oval);
+        tmp.addPath(*m_path);
+        m_path->swap(tmp);
     }
 }
 

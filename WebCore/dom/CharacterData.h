@@ -56,19 +56,17 @@ public:
     virtual bool isCharacterDataNode() const { return true; }
     virtual int maxCharacterOffset() const;
     StringImpl* string() { return m_data.get(); }
-    virtual void checkCharDataOperation(unsigned offset, ExceptionCode&);
 
     virtual bool offsetInCharacters() const;
     virtual bool rendererIsNeeded(RenderStyle*);
-    
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString indent = "") const;
-#endif
 
 protected:
     RefPtr<StringImpl> m_data;
 
     void dispatchModifiedEvent(StringImpl* oldValue);
+
+private:
+    void checkCharDataOperation(unsigned offset, ExceptionCode&);
 };
 
 } // namespace WebCore

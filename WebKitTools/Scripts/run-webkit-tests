@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Script to run the Web Kit Open Source Project layout tests.
+# Script to run the WebKit Open Source Project layout tests.
 
 # Run all the tests passed in on the command line.
 # If no tests are passed, find all the .html, .shtml, .xml, .xhtml, .pl, .php (and svg) files in the test directory.
@@ -48,6 +48,7 @@ use strict;
 use warnings;
 
 use Cwd;
+use Fcntl qw(F_GETFL F_SETFL O_NONBLOCK);
 use File::Basename;
 use File::Copy;
 use File::Find;
@@ -58,7 +59,7 @@ use FindBin;
 use Getopt::Long;
 use IPC::Open2;
 use IPC::Open3;
-use Time::HiRes qw(time);
+use Time::HiRes qw(time usleep);
 
 use List::Util 'shuffle';
 
@@ -81,20 +82,27 @@ sub splitpath($);
 sub stripExtension($);
 sub isTextOnlyTest($);
 sub expectedDirectoryForTest($;$;$);
+sub countFinishedTest($$$$);
+sub testCrashedOrTimedOut($$$$$);
+sub sampleDumpTool();
 sub printFailureMessageForTest($$);
 sub toURL($);
 sub toWindowsPath($);
 sub closeCygpaths();
 sub validateSkippedArg($$;$);
-sub htmlForExpectedAndActualResults($);
+sub htmlForResultsSection(\@$&);
 sub deleteExpectedAndActualResults($);
 sub recordActualResultsAndDiff($$);
 sub buildPlatformHierarchy();
 sub epiloguesAndPrologues($$);
 sub parseLeaksandPrintUniqueLeaks();
+sub readFromDumpToolWithTimer(*;$);
+sub setFileHandleNonBlocking(*$);
+sub writeToFile($$);
 
 # Argument handling
 my $addPlatformExceptions = 0;
+my $complexText = 0;
 my $configuration = configuration();
 my $guardMalloc = '';
 my $httpdPort = 8000;
@@ -104,29 +112,29 @@ my $launchSafari = 1;
 my $platform;
 my $pixelTests = '';
 my $quiet = '';
-my $repaintSweepHorizontally = '';
-my $repaintTests = '';
 my $report10Slowest = 0;
 my $resetResults = 0;
 my $shouldCheckLeaks = 0;
 my $showHelp = 0;
-my $testsPerDumpTool = 1000;
+my $testsPerDumpTool;
 my $testHTTP = 1;
 my $testMedia = 1;
 my $testResultsDirectory = "/tmp/layout-test-results";
 my $threaded = 0;
-my $threshold = 0;
+my $tolerance = 0;
 my $treatSkipped = "default";
 my $verbose = 0;
 my $useValgrind = 0;
 my $strictTesting = 0;
 my $generateNewResults = 1;
 my $stripEditingCallbacks = isCygwin();
+my $runSample = 1;
 my $root;
 my $reverseTests = 0;
 my $randomizeTests = 0;
 my $mergeDepth;
 my @leaksFilenames;
+my $run64Bit;
 
 # Default to --no-http for Qt, Gtk and wx for now.
 $testHTTP = 0 if (isQt() || isGtk() || isWx());
@@ -140,6 +148,8 @@ if (isTiger()) {
     $platform = "mac-tiger";
 } elsif (isLeopard()) {
     $platform = "mac-leopard";
+} elsif (isSnowLeopard()) {
+    $platform = "mac-snowleopard";
 } elsif (isOSX()) {
     $platform = "mac";
 } elsif (isQt()) {
@@ -158,30 +168,32 @@ if (!defined($platform)) {
 my $programName = basename($0);
 my $launchSafariDefault = $launchSafari ? "launch" : "do not launch";
 my $httpDefault = $testHTTP ? "run" : "do not run";
+my $sampleDefault = $runSample ? "run" : "do not run";
 
 # FIXME: "--strict" should be renamed to qt-mac-comparison, or something along those lines.
 my $usage = <<EOF;
 Usage: $programName [options] [testdir|testpath ...]
   --add-platform-exceptions       Put new results for non-platform-specific failing tests into the platform-specific results directory
+  --complex-text                  Use the complex text code path for all text (Mac OS X and Windows only)
   -c|--configuration config       Set DumpRenderTree build configuration
   -g|--guard-malloc               Enable malloc guard
   --help                          Show this help message
-  -h|--horizontal-sweep           Change repaint to sweep horizontally instead of vertically (implies --repaint-tests)
   --[no-]http                     Run (or do not run) http tests (default: $httpDefault)
   -i|--ignore-tests               Comma-separated list of directories or tests to ignore
   --[no-]launch-safari            Launch (or do not launch) Safari to display test results (default: $launchSafariDefault)
   -l|--leaks                      Enable leaks checking
   --[no-]new-test-results         Generate results for new tests
   -p|--pixel-tests                Enable pixel tests
+  --tolerance t                   Ignore image differences less than this percentage (implies --pixel-tests)
   --platform                      Override the detected platform to use for tests and results (default: $platform)
   --port                          Web server port to use with http tests
   -q|--quiet                      Less verbose output
-  -r|--repaint-tests              Run repaint tests (implies --pixel-tests)
   --reset-results                 Reset ALL results (including pixel tests if --pixel-tests is set)
   -o|--results-directory          Output results directory (default: $testResultsDirectory)
   --random                        Run the tests in a random order
   --reverse                       Run the tests in reverse alphabetical order
   --root                          Path to root tools build
+  --[no-]sample-on-timeout        Run sample on timeout (default: $sampleDefault) (Mac OS X only)
   -1|--singly                     Isolate each test case run (implies --verbose)
   --skipped=[default|ignore|only] Specifies how to treat the Skipped file
                                      default: Tests/directories listed in the Skipped file are not tested
@@ -191,18 +203,20 @@ Usage: $programName [options] [testdir|testpath ...]
   --strict                        Do a comparison with the output on Mac (Qt only)
   --[no-]strip-editing-callbacks  Remove editing callbacks from expected results
   -t|--threaded                   Run a concurrent JavaScript thead with each test
-  --threshold t                   Ignore pixel value deviations less than or equal to t
   --valgrind                      Run DumpRenderTree inside valgrind (Qt/Linux only)
   -v|--verbose                    More verbose output (overrides --quiet)
   -m|--merge-leak-depth arg       Merges leak callStacks and prints the number of unique leaks beneath a callstack depth of arg.  Defaults to 5.
+  --64-bit                        run in 64bit mode
 EOF
 
+# Process @ARGV for configuration switches before calling GetOptions()
+$configuration = passedConfiguration() || configuration();
+
 my $getOptionsResult = GetOptions(
+    'complex-text' => \$complexText,
     'c|configuration=s' => \$configuration,
-    'debug|devel' => sub { $configuration = "Debug" },
     'guard-malloc|g' => \$guardMalloc,
     'help' => \$showHelp,
-    'horizontal-sweep|h' => \$repaintSweepHorizontally,
     'http!' => \$testHTTP,
     'ignore-tests|i=s' => \$ignoreTests,
     'launch-safari!' => \$launchSafari,
@@ -211,8 +225,6 @@ my $getOptionsResult = GetOptions(
     'platform=s' => \$platform,
     'port=i' => \$httpdPort,
     'quiet|q' => \$quiet,
-    'release|deploy' => sub { $configuration = "Release" },
-    'repaint-tests|r' => \$repaintTests,
     'reset-results' => \$resetResults,
     'new-test-results!' => \$generateNewResults,
     'results-directory|o=s' => \$testResultsDirectory,
@@ -221,9 +233,10 @@ my $getOptionsResult = GetOptions(
     'skipped=s' => \&validateSkippedArg,
     'slowest' => \$report10Slowest,
     'threaded|t' => \$threaded,
-    'threshold=i' => \$threshold,
+    'tolerance=f' => \$tolerance,
     'verbose|v' => \$verbose,
     'valgrind' => \$useValgrind,
+    'sample-on-timeout!' => \$runSample,
     'strict' => \$strictTesting,
     'strip-editing-callbacks!' => \$stripEditingCallbacks,
     'random' => \$randomizeTests,
@@ -231,6 +244,7 @@ my $getOptionsResult = GetOptions(
     'root=s' => \$root,
     'add-platform-exceptions' => \$addPlatformExceptions,
     'merge-leak-depth|m:5' => \$mergeDepth,
+    '64-bit!' => \$run64Bit
 );
 
 if (!$getOptionsResult || $showHelp) {
@@ -247,10 +261,9 @@ setConfiguration($configuration);
 
 my $configurationOption = "--" . lc($configuration);
 
-$repaintTests = 1 if $repaintSweepHorizontally;
+$pixelTests = 1 if $tolerance > 0;
 
-$pixelTests = 1 if $repaintTests;
-$pixelTests = 1 if $threshold > 0;
+$testsPerDumpTool = 1000 if !$testsPerDumpTool;
 
 $verbose = 1 if $testsPerDumpTool == 1;
 
@@ -263,24 +276,23 @@ $testMedia = 0 if $shouldCheckLeaks && isTiger();
 
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 my $productDir = productDir();
-$productDir .= "/bin" if (isQt());
-
-if (isGtk()) {
-    if ($ENV{WEBKITAUTOTOOLS}) {
-        $productDir .= "/Programs";
-    } else {
-        $productDir .= "/WebKitTools/DumpRenderTree/gtk";
-    }
-}
+$productDir .= "/bin" if isQt();
+$productDir .= "/Programs" if isGtk();
+setRun64Bit($run64Bit);
 
 chdirWebKit();
 
-if(!defined($root)){
+if (!defined($root)) {
     # Push the parameters to build-dumprendertree as an array
     my @args;
-    push(@args, "--" . $configuration);
+    push(@args, $configurationOption);
     push(@args, "--qt")  if isQt();
     push(@args, "--gtk")  if isGtk();
+
+    if (isOSX()) {
+        my $arch = preferredArchitecture();
+        push(@args, "ARCHS=$arch");
+    }
 
     my $buildResult = system "WebKitTools/Scripts/build-dumprendertree", @args;
     if ($buildResult) {
@@ -295,6 +307,7 @@ my $dumpTool = "$productDir/$dumpToolName";
 die "can't find executable $dumpToolName (looked in $productDir)\n" unless -x $dumpTool;
 
 my $imageDiffTool = "$productDir/ImageDiff";
+$imageDiffTool .= "_debug" if isCygwin() && $configuration ne "Release";
 die "can't find executable $imageDiffTool (looked in $productDir)\n" if $pixelTests && !-x $imageDiffTool;
 
 checkFrameworks() unless isCygwin();
@@ -434,15 +447,13 @@ my $leaksOutputFileNumber = 1;
 my $totalLeaks = 0;
 
 my @toolArgs = ();
-push @toolArgs, "--dump-all-pixels" if $pixelTests && $resetResults;
 push @toolArgs, "--pixel-tests" if $pixelTests;
-push @toolArgs, "--repaint" if $repaintTests;
-push @toolArgs, "--horizontal-sweep" if $repaintSweepHorizontally;
 push @toolArgs, "--threaded" if $threaded;
+push @toolArgs, "--complex-text" if $complexText;
 push @toolArgs, "-";
 
 my @diffToolArgs = ();
-push @diffToolArgs, "--threshold", $threshold;
+push @diffToolArgs, "--tolerance", $tolerance;
 
 $| = 1;
 
@@ -451,6 +462,7 @@ if ($pixelTests) {
     local %ENV;
     $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
     $imageDiffToolPID = open2(\*DIFFIN, \*DIFFOUT, $imageDiffTool, @diffToolArgs) or die "unable to open $imageDiffTool\n";
+    $ENV{MallocStackLogging} = 0 if $shouldCheckLeaks;
 }
 
 my $dumpToolPID;
@@ -468,7 +480,7 @@ $SIG{"PIPE"} = "catch_pipe";
 print "Testing ", scalar @tests, " test cases.\n";
 my $overallStartTime = time;
 
-my %expectedResultDirectory;
+my %expectedResultPaths;
 
 # Reverse the tests
 @tests = reverse @tests if $reverseTests;
@@ -483,6 +495,7 @@ for my $test (@tests) {
     openDumpTool();
 
     my $base = stripExtension($test);
+    my $expectedExtension = ".txt";
     
     my $dir = $base;
     $dir =~ s|/[^/]+$||;
@@ -498,7 +511,11 @@ for my $test (@tests) {
                 print "running epilogue or prologue $logue\n";
             }
             print OUT "$logue\n";
-            # Discard the output.
+            # Throw away output from DumpRenderTree.
+            # Once for the test output and once for pixel results (empty)
+            while (<IN>) {
+                last if /#EOF/;
+            }
             while (<IN>) {
                 last if /#EOF/;
             }
@@ -523,6 +540,20 @@ for my $test (@tests) {
 
     my $startTime = time if $report10Slowest;
 
+    # Try to read expected hash file for pixel tests
+    my $suffixExpectedHash = "";
+    if ($pixelTests && !$resetResults) {
+        my $expectedPixelDir = expectedDirectoryForTest($base, 0, "png");
+        if (open EXPECTEDHASH, "$expectedPixelDir/$base-$expectedTag.checksum") {
+            my $expectedHash = <EXPECTEDHASH>;
+            chomp($expectedHash);
+            close EXPECTEDHASH;
+            
+            # Format expected hash into a suffix string that is appended to the path / URL passed to DRT
+            $suffixExpectedHash = "'$expectedHash";
+        }
+    }
+
     if ($test !~ /^http\//) {
         my $testPath = "$testDirectory/$test";
         if (isCygwin()) {
@@ -530,17 +561,17 @@ for my $test (@tests) {
         } else {
             $testPath = canonpath($testPath);
         }
-        print OUT "$testPath\n";
+        print OUT "$testPath$suffixExpectedHash\n";
     } else {
         openHTTPDIfNeeded();
         if ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/media\//) {
             my $path = canonpath($test);
             $path =~ s/^http\/tests\///;
-            print OUT "http://127.0.0.1:$httpdPort/$path\n";
+            print OUT "http://127.0.0.1:$httpdPort/$path$suffixExpectedHash\n";
         } elsif ($test =~ /^http\/tests\/ssl\//) {
             my $path = canonpath($test);
             $path =~ s/^http\/tests\///;
-            print OUT "https://127.0.0.1:$httpdSSLPort/$path\n";
+            print OUT "https://127.0.0.1:$httpdSSLPort/$path$suffixExpectedHash\n";
         } else {
             my $testPath = "$testDirectory/$test";
             if (isCygwin()) {
@@ -548,25 +579,42 @@ for my $test (@tests) {
             } else {
                 $testPath = canonpath($testPath);
             }
-            print OUT "$testPath\n";
+            print OUT "$testPath$suffixExpectedHash\n";
         }
     }
 
-    my $actual = "";
-    while (<IN>) {
-        last if /#EOF/;
-        $actual .= $_;
-    }
+    # DumpRenderTree is expected to dump two "blocks" to stdout for each test.
+    # Each block is terminated by a #EOF on a line by itself.
+    # The first block is the output of the test (in text, RenderTree or other formats).
+    # The second block is for optional pixel data in PNG format, and may be empty if
+    # pixel tests are not being run, or the test does not dump pixels (e.g. text tests).
+    
+    my $actualRead = readFromDumpToolWithTimer(IN);
+    my $errorRead = readFromDumpToolWithTimer(ERROR, $actualRead->{status} eq "timedOut");
+
+    my $actual = $actualRead->{output};
+    my $error = $errorRead->{output};
+
+    $expectedExtension = $actualRead->{extension};
+    my $expectedFileName = "$base-$expectedTag.$expectedExtension";
 
     my $isText = isTextOnlyTest($actual);
+
+    my $expectedDir = expectedDirectoryForTest($base, $isText, $expectedExtension);
+    $expectedResultPaths{$base} = "$expectedDir/$expectedFileName";
+
+    unless ($actualRead->{status} eq "success" && $errorRead->{status} eq "success") {
+        my $crashed = $actualRead->{status} eq "crashed" || $errorRead->{status} eq "crashed";
+        testCrashedOrTimedOut($test, $base, $crashed, $actual, $error);
+        countFinishedTest($test, $base, $crashed ? "crash" : "timedout", 0);
+        next;
+     }
 
     $durations{$test} = time - $startTime if $report10Slowest;
 
     my $expected;
-    my $expectedDir = expectedDirectoryForTest($base, $isText, 0);
-    $expectedResultDirectory{$base} = $expectedDir;
 
-    if (!$resetResults && open EXPECTED, "<", "$expectedDir/$base-$expectedTag.txt") {
+    if (!$resetResults && open EXPECTED, "<", "$expectedDir/$expectedFileName") {
         $expected = "";
         while (<EXPECTED>) {
             next if $stripEditingCallbacks && $_ =~ /^EDITING DELEGATE:/;
@@ -576,7 +624,7 @@ for my $test (@tests) {
     }
     my $expectedMac;
     if (!isOSX() && $strictTesting && !$isText) {
-      if (!$resetResults && open EXPECTED, "<", "$testDirectory/platform/mac/$base-$expectedTag.txt") {
+      if (!$resetResults && open EXPECTED, "<", "$testDirectory/platform/mac/$expectedFileName") {
         $expectedMac = "";
         while (<EXPECTED>) {
           $expectedMac .= $_;
@@ -593,64 +641,77 @@ for my $test (@tests) {
     my $diffPNG = "";
     my $diffPercentage = "";
     my $diffResult = "passed";
-    
-    if ($pixelTests) {
-        my $expectedPixelDir = expectedDirectoryForTest($base, $isText, 1);
 
-        my $actualHash = "";
-        my $expectedHash = "";
-        my $actualPNGSize = 0;
+    my $actualHash = "";
+    my $expectedHash = "";
+    my $actualPNGSize = 0;
 
-        while (<IN>) {
-            last if /#EOF/;
-            if (/ActualHash: ([a-f0-9]{32})/) {
-                $actualHash = $1;
-            } elsif (/BaselineHash: ([a-f0-9]{32})/) {
-                $expectedHash = $1;
-            } elsif (/Content-length: (\d+)\s*/) {
-                $actualPNGSize = $1;
-                read(IN, $actualPNG, $actualPNGSize);
-            }
+    while (<IN>) {
+        last if /#EOF/;
+        if (/ActualHash: ([a-f0-9]{32})/) {
+            $actualHash = $1;
+        } elsif (/ExpectedHash: ([a-f0-9]{32})/) {
+            $expectedHash = $1;
+        } elsif (/Content-Length: (\d+)\s*/) {
+            $actualPNGSize = $1;
+            read(IN, $actualPNG, $actualPNGSize);
         }
+    }
 
-        if ($expectedHash ne $actualHash && -f "$expectedPixelDir/$base-$expectedTag.png") {
-            my $expectedPNGSize = -s "$expectedPixelDir/$base-$expectedTag.png";
-            my $expectedPNG = "";
-            open EXPECTEDPNG, "$expectedPixelDir/$base-$expectedTag.png";
-            read(EXPECTEDPNG, $expectedPNG, $expectedPNGSize);
+    if ($verbose && $pixelTests && !$resetResults && $actualPNGSize) {
+        if ($actualHash eq "" && $expectedHash eq "") {
+            printFailureMessageForTest($test, "WARNING: actual & expected pixel hashes are missing!");
+        } elsif ($actualHash eq "") {
+            printFailureMessageForTest($test, "WARNING: actual pixel hash is missing!");
+        } elsif ($expectedHash eq "") {
+            printFailureMessageForTest($test, "WARNING: expected pixel hash is missing!");
+        }
+    }
 
-            print DIFFOUT "Content-length: $actualPNGSize\n";
-            print DIFFOUT $actualPNG;
+    if ($actualPNGSize > 0) {
+        my $expectedPixelDir = expectedDirectoryForTest($base, 0, "png");
 
-            print DIFFOUT "Content-length: $expectedPNGSize\n";
-            print DIFFOUT $expectedPNG;
+        if (!$resetResults && ($expectedHash ne $actualHash || ($actualHash eq "" && $expectedHash eq ""))) {
+            if (-f "$expectedPixelDir/$base-$expectedTag.png") {
+                my $expectedPNGSize = -s "$expectedPixelDir/$base-$expectedTag.png";
+                my $expectedPNG = "";
+                open EXPECTEDPNG, "$expectedPixelDir/$base-$expectedTag.png";
+                read(EXPECTEDPNG, $expectedPNG, $expectedPNGSize);
 
-            while (<DIFFIN>) {
-                last if /^error/ || /^diff:/;
-                if (/Content-length: (\d+)\s*/) {
-                    read(DIFFIN, $diffPNG, $1);
+                print DIFFOUT "Content-Length: $actualPNGSize\n";
+                print DIFFOUT $actualPNG;
+
+                print DIFFOUT "Content-Length: $expectedPNGSize\n";
+                print DIFFOUT $expectedPNG;
+
+                while (<DIFFIN>) {
+                    last if /^error/ || /^diff:/;
+                    if (/Content-Length: (\d+)\s*/) {
+                        read(DIFFIN, $diffPNG, $1);
+                    }
                 }
-            }
 
-            if (/^diff: (.+)% (passed|failed)/) {
-                $diffPercentage = $1;
-                $imageDifferences{$base} = $diffPercentage;
-                $diffResult = $2;
+                if (/^diff: (.+)% (passed|failed)/) {
+                    $diffPercentage = $1;
+                    $imageDifferences{$base} = $diffPercentage;
+                    $diffResult = $2;
+                }
+                
+                if ($diffPercentage == 0) {
+                    printFailureMessageForTest($test, "pixel hash failed (but pixel test still passes)");
+                }
+            } elsif ($verbose) {
+                printFailureMessageForTest($test, "WARNING: expected image is missing!");
             }
         }
 
-        if ($actualPNGSize && ($resetResults || !-f "$expectedPixelDir/$base-$expectedTag.png")) {
+        if ($resetResults || !-f "$expectedPixelDir/$base-$expectedTag.png") {
             mkpath catfile($expectedPixelDir, dirname($base)) if $testDirectory ne $expectedPixelDir;
-            open EXPECTED, ">", "$expectedPixelDir/$base-expected.png" or die "could not create $expectedPixelDir/$base-expected.png\n";
-            print EXPECTED $actualPNG;
-            close EXPECTED;
+            writeToFile("$expectedPixelDir/$base-$expectedTag.png", $actualPNG);
         }
 
-        # update the expected hash if the image diff said that there was no difference
         if ($actualHash ne "" && ($resetResults || !-f "$expectedPixelDir/$base-$expectedTag.checksum")) {
-            open EXPECTED, ">", "$expectedPixelDir/$base-$expectedTag.checksum" or die "could not create $expectedPixelDir/$base-$expectedTag.checksum\n";
-            print EXPECTED $actualHash;
-            close EXPECTED;
+            writeToFile("$expectedPixelDir/$base-$expectedTag.checksum", $actualHash);
         }
     }
 
@@ -691,16 +752,12 @@ for my $test (@tests) {
         $expectedMac =~ s/\s+"\n/"\n/g;
         
         if ($simplified_actual ne $expectedMac) {
-          open ACTUAL, ">", "/tmp/actual.txt" or die;
-          print ACTUAL $simplified_actual;
-          close ACTUAL;
-          open ACTUAL, ">", "/tmp/expected.txt" or die;
-          print ACTUAL $expectedMac;
-          close ACTUAL;
+          writeToFile("/tmp/actual.txt", $simplified_actual);
+          writeToFile("/tmp/expected.txt", $expectedMac);
           system "diff -u \"/tmp/expected.txt\" \"/tmp/actual.txt\" > \"/tmp/simplified.diff\"";
 
           $diffResult = "failed";
-          if($verbose) {
+          if ($verbose) {
             print "\n";
             system "cat /tmp/simplified.diff";
             print "failed!!!!!";
@@ -711,22 +768,7 @@ for my $test (@tests) {
 
     if (dumpToolDidCrash()) {
         $result = "crash";
-
-        printFailureMessageForTest($test, "crashed");
-
-        my $dir = "$testResultsDirectory/$base";
-        $dir =~ s|/([^/]+)$|| or die "Failed to find test name from base\n";
-        mkpath $dir;
-
-        deleteExpectedAndActualResults($base);
-
-        open CRASH, ">", "$testResultsDirectory/$base-$errorTag.txt" or die;
-        print CRASH <ERROR>;
-        close CRASH;
-
-        recordActualResultsAndDiff($base, $actual);
-
-        closeDumpTool();
+        testCrashedOrTimedOut($test, $base, 1, $actual, $error);
     } elsif (!defined $expected) {
         if ($verbose) {
             print "new " . ($resetResults ? "result" : "test") ."\n";
@@ -736,9 +778,7 @@ for my $test (@tests) {
 
         if ($generateNewResults || $resetResults) {
             mkpath catfile($expectedDir, dirname($base)) if $testDirectory ne $expectedDir;
-            open EXPECTED, ">", "$expectedDir/$base-$expectedTag.txt" or die "could not create $expectedDir/$base-$expectedTag.txt\n";
-            print EXPECTED $actual;
-            close EXPECTED;
+            writeToFile("$expectedDir/$expectedFileName", $actual);
         }
         deleteExpectedAndActualResults($base);
         unless ($resetResults) {
@@ -771,10 +811,8 @@ for my $test (@tests) {
             my $expectedResultIsMaximallyPlatformSpecific = $expectedBase =~ m|^\Q$platformTestDirectory\E/|;
             if (!$testIsMaximallyPlatformSpecific && !$expectedResultIsMaximallyPlatformSpecific) {
                 mkpath catfile($platformTestDirectory, dirname($base));
-                my $expectedFile = catfile($platformTestDirectory, "$base-$expectedTag.txt");
-                open EXPECTED, ">", $expectedFile or die "could not create $expectedFile\n";
-                print EXPECTED $actual;
-                close EXPECTED;
+                my $expectedFile = catfile($platformTestDirectory, "$expectedFileName");
+                writeToFile("$expectedFile", $actual);
                 $message .= " (results generated in $platformTestDirectory)";
             }
         }
@@ -792,15 +830,11 @@ for my $test (@tests) {
         if ($pixelTests && $diffPNG && $diffPNG ne "") {
             $imagesPresent{$base} = 1;
 
-            open ACTUAL, ">", "$testResultsDirectory/$base-$actualTag.png" or die;
-            print ACTUAL $actualPNG;
-            close ACTUAL;
+            writeToFile("$testResultsDirectory/$base-$actualTag.png", $actualPNG);
+            writeToFile("$testResultsDirectory/$base-$diffsTag.png", $diffPNG);
 
-            open DIFF, ">", "$testResultsDirectory/$base-$diffsTag.png" or die;
-            print DIFF $diffPNG;
-            close DIFF;
-            
-            copy("$expectedDir/$base-$expectedTag.png", "$testResultsDirectory/$base-$expectedTag.png");
+            my $expectedPixelDir = expectedDirectoryForTest($base, 0, "png");
+            copy("$expectedPixelDir/$base-$expectedTag.png", "$testResultsDirectory/$base-$expectedTag.png");
 
             open DIFFHTML, ">$testResultsDirectory/$base-$diffsTag.html" or die;
             print DIFFHTML "<html>\n";
@@ -847,26 +881,18 @@ for my $test (@tests) {
         }
     }
 
-    if (($count + 1) % $testsPerDumpTool == 0 || $count == $#tests) {
-        if ($shouldCheckLeaks) {
-            my $fileName;
-            if ($testsPerDumpTool == 1) {
-                $fileName = "$testResultsDirectory/$base-leaks.txt";
-            } else {
-                $fileName = "$testResultsDirectory/" . fileNameWithNumber($dumpToolName, $leaksOutputFileNumber) . "-leaks.txt";
-            }
-            my $leakCount = countAndPrintLeaks($dumpToolName, $dumpToolPID, $fileName);
-            $totalLeaks += $leakCount;
-            $leaksOutputFileNumber++ if ($leakCount);
-        }
-
-        closeDumpTool();
+    if ($error) {
+        my $dir = "$testResultsDirectory/$base";
+        $dir =~ s|/([^/]+)$|| or die "Failed to find test name from base\n";
+        mkpath $dir;
+        
+        writeToFile("$testResultsDirectory/$base-$errorTag.txt", $error);
+        
+        $counts{error}++;
+        push @{$tests{error}}, $test;
     }
 
-    $count++;
-    $counts{$result}++;
-    push @{$tests{$result}}, $test;
-    $testType{$test} = $isText;
+    countFinishedTest($test, $base, $result, $isText);
 }
 printf "\n%0.2fs total testing time\n", (time - $overallStartTime) . "";
 
@@ -926,10 +952,12 @@ my %text = (
     match => "succeeded",
     mismatch => "had incorrect layout",
     new => "were new",
+    timedout => "timed out",
     crash => "crashed",
+    error => "had stderr output"
 );
 
-for my $type ("match", "mismatch", "new", "crash") {
+for my $type ("match", "mismatch", "new", "timedout", "crash", "error") {
     my $c = $counts{$type};
     if ($c) {
         my $t = $text{$type};
@@ -954,66 +982,18 @@ print HTML "<title>Layout Test Results</title>\n";
 print HTML "</head>\n";
 print HTML "<body>\n";
 
-if ($counts{mismatch}) {
-    print HTML "<p>Tests where results did not match expected results:</p>\n";
-    print HTML "<table>\n";
-    for my $test (@{$tests{mismatch}}) {
-        my $base = stripExtension($test);
-        print HTML "<tr>\n";            
-        print HTML "<td><a href=\"" . toURL("$testDirectory/$test") . "\">$test</a></td>\n";
-        print HTML htmlForExpectedAndActualResults($base);
-        if ($pixelTests) {
-            if ($imagesPresent{$base}) {
-                print HTML "<td><a href=\"$base-$expectedTag.png\">expected image</a></td>\n";
-                print HTML "<td><a href=\"$base-$diffsTag.html\">image diffs</a>\n";
-                print HTML "<a href=\"$base-$diffsTag.png\">$imageDifferences{$base}%</a></td>\n";
-            } else {
-                print HTML "<td></td><td></td>\n";
-            }            
-        }
-        print HTML "</tr>\n";
-    }
-    print HTML "</table>\n";
-}
-
-if ($counts{crash}) {
-    print HTML "<p>Tests that caused the DumpRenderTree tool to crash:</p>\n";
-    print HTML "<table>\n";
-    for my $test (@{$tests{crash}}) {
-        my $base = stripExtension($test);
-        my $expectedDir = $expectedResultDirectory{$base};
-        print HTML "<tr>\n";
-        print HTML "<td><a href=\"" . toURL("$testDirectory/$test") . "\">$base</a></td>\n";
-        print HTML htmlForExpectedAndActualResults($base);
-        print HTML "<td><a href=\"$base-$errorTag.txt\">stderr</a></td>\n";
-        print HTML "</tr>\n";
-    }
-    print HTML "</table>\n";
-}
-
-if ($counts{new}) {
-    print HTML "<p>Tests that had no expected results (probably new):</p>\n";
-    print HTML "<table>\n";
-    for my $test (@{$tests{new}}) {
-        my $base = stripExtension($test);
-        my $expectedDir = $expectedResultDirectory{$base};
-        print HTML "<tr>\n";
-        print HTML "<td><a href=\"" . toURL("$testDirectory/$test") . "\">$base</a></td>\n";
-        print HTML "<td><a href=\"" . toURL("$expectedDir/$base-$expectedTag.txt") . "\">results</a></td>\n";
-        if ($pixelTests && -f "$expectedDir/$base-$expectedTag.png") {
-            print HTML "<td><a href=\"" . toURL("$expectedDir/$base-$expectedTag.png") . "\">image</a></td>\n";
-        }
-        print HTML "</tr>\n";
-    }
-    print HTML "</table>\n";
-}
+print HTML htmlForResultsSection(@{$tests{mismatch}}, "Tests where results did not match expected results", \&linksForMismatchTest);
+print HTML htmlForResultsSection(@{$tests{timedout}}, "Tests that timed out", \&linksForErrorTest);
+print HTML htmlForResultsSection(@{$tests{crash}}, "Tests that caused the DumpRenderTree tool to crash", \&linksForErrorTest);
+print HTML htmlForResultsSection(@{$tests{error}}, "Tests that had stderr output", \&linksForErrorTest);
+print HTML htmlForResultsSection(@{$tests{new}}, "Tests that had no expected results (probably new)", \&linksForNewTest);
 
 print HTML "</body>\n";
 print HTML "</html>\n";
 close HTML;
 
 if (isQt()) {
-  system "konqueror", $testResults if $launchSafari;
+  system "WebKitTools/Scripts/run-launcher", "--qt", $configurationOption, $testResults if $launchSafari;
 } elsif (isGtk()) {
   system "WebKitTools/Scripts/run-launcher", "--gtk", $configurationOption, $testResults if $launchSafari;
 } elsif (isCygwin()) {
@@ -1079,8 +1059,9 @@ sub countAndPrintLeaks($$$)
             "_CFHTTPReadStreamReadMark", # leak in CFNetwork, rdar://problem/5441468
             "httpProtocolStart", # leak in CFNetwork, rdar://problem/5468837
             "_CFURLConnectionSendCallbacks", # leak in CFNetwork, rdar://problem/5441600
-            "DispatchQTMsg", # leak in Quicktime, PPC only, <rdar://problem/5667132>
-            "QTMovieContentView createVisualContext", # leak in Quicktime, PPC only, <rdar://problem/5667132>
+            "DispatchQTMsg", # leak in QuickTime, PPC only, rdar://problem/5667132
+            "QTMovieContentView createVisualContext", # leak in QuickTime, PPC only, rdar://problem/5667132
+            "_CopyArchitecturesForJVMVersion", # leak in Java, rdar://problem/5910823
         );
     }
 
@@ -1111,14 +1092,20 @@ sub countAndPrintLeaks($$$)
             print " + $count leaks ($bytes bytes) were found, details in $leaksFilePath\n";
         }
 
-        open LEAKS, ">", $leaksFilePath or die;
-        print LEAKS $leaksOutput;
-        close LEAKS;
+        writeToFile($leaksFilePath, $leaksOutput);
         
         push( @leaksFilenames, $leaksFilePath );
     }
 
     return $adjustedCount;
+}
+
+sub writeToFile($$)
+{
+    my ($filePath, $contents) = @_;
+    open NEWFILE, ">", "$filePath" or die "could not create $filePath\n";
+    print NEWFILE $contents;
+    close NEWFILE;
 }
 
 # Break up a path into the directory (with slash) and base name.
@@ -1220,7 +1207,6 @@ sub openDumpTool()
     }
     $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
     $ENV{XML_CATALOG_FILES} = ""; # work around missing /etc/catalog <rdar://problem/4292995>
-    $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
     $ENV{DYLD_INSERT_LIBRARIES} = "/usr/lib/libgmalloc.dylib" if $guardMalloc;
     
     if (isCygwin()) {
@@ -1231,16 +1217,21 @@ sub openDumpTool()
         }
         setPathForRunningWebKitApp(\%ENV) if isCygwin();
     }
-        
-    my @args = ();
-    if ($useValgrind) {
-      push @args, $dumpTool;
+
+    exportArchPreference();
+
+    my @args = @toolArgs;
+    unshift @args, $dumpTool;
+    if (isOSX and !isTiger()) {
+        unshift @args, "arch";
     }
-    push @args, @toolArgs;
     if ($useValgrind) {
-      $dumpTool = "valgrind";
-    }
-    $dumpToolPID = open3(\*OUT, \*IN, \*ERROR, $dumpTool, @args) or die "Failed to start tool: $dumpTool\n";
+        unshift @args, "valgrind";
+    } 
+    
+    $ENV{MallocStackLogging} = 1 if $shouldCheckLeaks;
+    $dumpToolPID = open3(\*OUT, \*IN, \*ERROR, @args) or die "Failed to start tool: $dumpTool\n";
+    $ENV{MallocStackLogging} = 0 if $shouldCheckLeaks;
     $isDumpToolOpen = 1;
     $dumpToolCrashed = 0;
 }
@@ -1251,8 +1242,15 @@ sub closeDumpTool()
 
     close IN;
     close OUT;
-    close ERROR;
     waitpid $dumpToolPID, 0;
+    
+    # check for WebCore counter leaks.
+    if ($shouldCheckLeaks) {
+        while (<ERROR>) {
+            print;
+        }
+    }
+    close ERROR;
     $isDumpToolOpen = 0;
 }
 
@@ -1262,7 +1260,17 @@ sub dumpToolDidCrash()
     return 0 unless $isDumpToolOpen;
 
     my $pid = waitpid(-1, WNOHANG);
-    return $pid == $dumpToolPID;
+    return 1 if ($pid == $dumpToolPID);
+
+    # On Mac OS X, crashing may be significantly delayed by crash reporter.
+    return 0 unless isOSX();
+
+    my $tryingToExit = 0;
+    open PS, "ps -o state -p $dumpToolPID |";
+    <PS>; # skip header
+    $tryingToExit = 1 if <PS> =~ /E/;
+    close PS;
+    return $tryingToExit;
 }
 
 sub openHTTPDIfNeeded()
@@ -1402,21 +1410,15 @@ sub isTextOnlyTest($)
 
 sub expectedDirectoryForTest($;$;$)
 {
-    my ($base, $isText, $isPixelTest) = @_;
+    my ($base, $isText, $expectedExtension) = @_;
 
     my @directories = @platformHierarchy;
     push @directories, map { catdir($platformBaseDirectory, $_) } qw(mac-leopard mac) if isCygwin();
     push @directories, $expectedDirectory;
 
     # If we already have expected results, just return their location.
-    if ($isPixelTest) {
-        foreach my $directory (@directories) {
-            return $directory if (-f "$directory/$base-$expectedTag.png");
-        }
-    } else {
-        foreach my $directory (@directories) {
-            return $directory if (-f "$directory/$base-$expectedTag.txt");
-        }
+    foreach my $directory (@directories) {
+        return $directory if (-f "$directory/$base-$expectedTag.$expectedExtension");
     }
 
     # For platform-specific tests, the results should go right next to the test itself.
@@ -1430,6 +1432,56 @@ sub expectedDirectoryForTest($;$;$)
     # For cross-platform tests, text-only results should go in the cross-platform directory,
     # while render tree dumps should go in the least-specific platform directory.
     return $isText ? $expectedDirectory : $platformHierarchy[$#platformHierarchy];
+}
+
+sub countFinishedTest($$$$) {
+    my ($test, $base, $result, $isText) = @_;
+
+    if (($count + 1) % $testsPerDumpTool == 0 || $count == $#tests) {
+        if ($shouldCheckLeaks) {
+            my $fileName;
+            if ($testsPerDumpTool == 1) {
+                $fileName = "$testResultsDirectory/$base-leaks.txt";
+            } else {
+                $fileName = "$testResultsDirectory/" . fileNameWithNumber($dumpToolName, $leaksOutputFileNumber) . "-leaks.txt";
+            }
+            my $leakCount = countAndPrintLeaks($dumpToolName, $dumpToolPID, $fileName);
+            $totalLeaks += $leakCount;
+            $leaksOutputFileNumber++ if ($leakCount);
+        }
+
+        closeDumpTool();
+    }
+    
+    $count++;
+    $counts{$result}++;
+    push @{$tests{$result}}, $test;
+    $testType{$test} = $isText;
+}
+
+sub testCrashedOrTimedOut($$$$$)
+{
+    my ($test, $base, $didCrash, $actual, $error) = @_;
+
+    printFailureMessageForTest($test, $didCrash ? "crashed" : "timed out");
+
+    sampleDumpTool() unless $didCrash;
+
+    my $dir = "$testResultsDirectory/$base";
+    $dir =~ s|/([^/]+)$|| or die "Failed to find test name from base\n";
+    mkpath $dir;
+
+    deleteExpectedAndActualResults($base);
+
+    if (defined($error) && length($error)) {
+        writeToFile("$testResultsDirectory/$base-$errorTag.txt", $error);
+    }
+
+    recordActualResultsAndDiff($base, $actual);
+
+    kill 9, $dumpToolPID unless $didCrash;
+
+    closeDumpTool();
 }
 
 sub printFailureMessageForTest($$)
@@ -1517,15 +1569,94 @@ sub validateSkippedArg($$;$)
     $treatSkipped = $value;
 }
 
-sub htmlForExpectedAndActualResults($)
+sub htmlForResultsSection(\@$&)
+{
+    my ($tests, $description, $linkGetter) = @_;
+
+    my @html = ();
+    return join("\n", @html) unless @{$tests};
+
+    push @html, "<p>$description:</p>";
+    push @html, "<table>";
+    foreach my $test (@{$tests}) {
+        push @html, "<tr>";
+        push @html, "<td><a href=\"" . toURL("$testDirectory/$test") . "\">$test</a></td>";
+        foreach my $link (@{&{$linkGetter}($test)}) {
+            push @html, "<td><a href=\"$link->{href}\">$link->{text}</a></td>";
+        }
+        push @html, "</tr>";
+    }
+    push @html, "</table>";
+
+    return join("\n", @html);
+}
+
+sub linksForExpectedAndActualResults($)
 {
     my ($base) = @_;
 
-    return "<td></td><td></td><td></td>\n" unless -s "$testResultsDirectory/$base-$diffsTag.txt";
+    my @links = ();
 
-    return "<td><a href=\"$base-$expectedTag.txt\">expected</a></td>\n"
-         . "<td><a href=\"$base-$actualTag.txt\">actual</a></td>\n"
-         . "<td><a href=\"$base-$diffsTag.txt\">diffs</a></td>\n";
+    return \@links unless -s "$testResultsDirectory/$base-$diffsTag.txt";
+    
+    my $expectedResultPath = $expectedResultPaths{$base};
+    my ($expectedResultFileName, $expectedResultsDirectory, $expectedResultExtension) = fileparse($expectedResultPath, qr{\.[^.]+$});
+
+    push @links, { href => "$base-$expectedTag$expectedResultExtension", text => "expected" };
+    push @links, { href => "$base-$actualTag$expectedResultExtension", text => "actual" };
+    push @links, { href => "$base-$diffsTag.txt", text => "diffs" };
+
+    return \@links;
+}
+
+sub linksForMismatchTest
+{
+    my ($test) = @_;
+
+    my @links = ();
+
+    my $base = stripExtension($test);
+
+    push @links, @{linksForExpectedAndActualResults($base)};
+    return \@links unless $pixelTests && $imagesPresent{$base};
+
+    push @links, { href => "$base-$expectedTag.png", text => "expected image" };
+    push @links, { href => "$base-$diffsTag.html", text => "image diffs" };
+    push @links, { href => "$base-$diffsTag.png", text => "$imageDifferences{$base}%" };
+
+    return \@links;
+}
+
+sub linksForErrorTest
+{
+    my ($test) = @_;
+
+    my @links = ();
+
+    my $base = stripExtension($test);
+
+    push @links, @{linksForExpectedAndActualResults($base)};
+    push @links, { href => "$base-$errorTag.txt", text => "stderr" };
+
+    return \@links;
+}
+
+sub linksForNewTest
+{
+    my ($test) = @_;
+
+    my @links = ();
+
+    my $base = stripExtension($test);
+    my $expectedResultPath = $expectedResultPaths{$base};
+    my $expectedResultPathMinusExtension = stripExtension($expectedResultPath);
+
+    push @links, { href => toURL($expectedResultPath), text => "results" };
+    if ($pixelTests && -f "$expectedResultPathMinusExtension.png") {
+        push @links, { href => toURL("$expectedResultPathMinusExtension.png"), text => "image" };
+    }
+
+    return \@links;
 }
 
 sub deleteExpectedAndActualResults($)
@@ -1539,18 +1670,18 @@ sub deleteExpectedAndActualResults($)
 
 sub recordActualResultsAndDiff($$)
 {
-    my ($base, $actual) = @_;
+    my ($base, $actualResults) = @_;
 
-    return unless length($actual);
+    return unless defined($actualResults) && length($actualResults);
 
-    open ACTUAL, ">", "$testResultsDirectory/$base-$actualTag.txt" or die "Couldn't open actual results file for $base";
-    print ACTUAL $actual;
-    close ACTUAL;
+    my $expectedResultPath = $expectedResultPaths{$base};
+    my ($expectedResultFileNameMinusExtension, $expectedResultDirectoryPath, $expectedResultExtension) = fileparse($expectedResultPath, qr{\.[^.]+$});
+    my $actualResultsPath = "$testResultsDirectory/$base-$actualTag$expectedResultExtension";
+    my $copiedExpectedResultsPath = "$testResultsDirectory/$base-$expectedTag$expectedResultExtension";
+    writeToFile("$actualResultsPath", $actualResults);
+    copy("$expectedResultPath", "$copiedExpectedResultsPath");
 
-    my $expectedDir = $expectedResultDirectory{$base};
-    copy("$expectedDir/$base-$expectedTag.txt", "$testResultsDirectory/$base-$expectedTag.txt");
-
-    system "diff -u \"$testResultsDirectory/$base-$expectedTag.txt\" \"$testResultsDirectory/$base-$actualTag.txt\" > \"$testResultsDirectory/$base-$diffsTag.txt\"";
+    system "diff -u \"$copiedExpectedResultsPath\" \"$actualResultsPath\" > \"$testResultsDirectory/$base-$diffsTag.txt\"";
 }
 
 sub buildPlatformHierarchy()
@@ -1573,7 +1704,7 @@ sub epiloguesAndPrologues($$) {
     my @components = split('/', $directory);
 
     while (@lastComponents) {
-        if ($lastComponents[0] ne $components[0]) {
+        if (!defined($components[0]) || $lastComponents[0] ne $components[0]) {
             last;
         }
         shift @components;
@@ -1624,4 +1755,108 @@ sub parseLeaksandPrintUniqueLeaks() {
     print "WARNING: $uniqueLeakCount unique leaks found!\n";
     print "See above for individual leaks results.\n" if ($leaksOutputFileNumber > 2);
     
+}
+
+sub extensionForMimeType($)
+{
+    my ($mimeType) = @_;
+
+    if ($mimeType eq "application/x-webarchive") {
+        return "webarchive";
+    } elsif ($mimeType eq "application/pdf") {
+        return "pdf";
+    }
+    return "txt";
+}
+
+# Read up to the first #EOF (the content block of the test), or until detecting crashes or timeouts.
+sub readFromDumpToolWithTimer(*;$)
+{
+    my ($fh, $dontWaitForTimeOut) = @_;
+
+    setFileHandleNonBlocking($fh, 1);
+
+    my $maximumSecondsWithoutOutput = 60;
+    $maximumSecondsWithoutOutput *= 10 if $guardMalloc;
+    my $microsecondsToWaitBeforeReadingAgain = 1000;
+
+    my $timeOfLastSuccessfulRead = time;
+
+    my @output = ();
+    my $status = "success";
+    my $mimeType = "text/plain";
+    # We don't have a very good way to know when the "headers" stop
+    # and the content starts, so we use this as a hack:
+    my $haveSeenContentType = 0;
+
+    while (1) {
+        if (time - $timeOfLastSuccessfulRead > $maximumSecondsWithoutOutput) {
+            $status = dumpToolDidCrash() ? "crashed" : "timedOut";
+            last;
+        }
+
+        my $line = readline($fh);
+        if (!defined($line)) {
+            if ($! != EAGAIN) {
+                $status = "crashed";
+                last;
+            }
+
+            if ($dontWaitForTimeOut) {
+                last;
+            }
+
+            # No data ready
+            usleep($microsecondsToWaitBeforeReadingAgain);
+            next;
+        }
+
+        $timeOfLastSuccessfulRead = time;
+        
+        if (!$haveSeenContentType && $line =~ /^Content-Type: (\S+)$/) {
+            $mimeType = $1;
+            $haveSeenContentType = 1;
+            next;
+        }
+        last  if ($line =~ /#EOF/);
+        
+        push @output, $line;
+    }
+
+    setFileHandleNonBlocking($fh, 0);
+    return {
+        output => join("", @output),
+        status => $status,
+        mimeType => $mimeType,
+        extension => extensionForMimeType($mimeType)
+    };
+}
+
+sub setFileHandleNonBlocking(*$)
+{
+    my ($fh, $nonBlocking) = @_;
+
+    my $flags = fcntl($fh, F_GETFL, 0) or die "Couldn't get filehandle flags";
+
+    if ($nonBlocking) {
+        $flags |= O_NONBLOCK;
+    } else {
+        $flags &= ~O_NONBLOCK;
+    }
+
+    fcntl($fh, F_SETFL, $flags) or die "Couldn't set filehandle flags";
+
+    return 1;
+}
+
+sub sampleDumpTool()
+{
+    return unless isOSX();
+    return unless $runSample;
+
+    my $outputDirectory = "$ENV{HOME}/Library/Logs/DumpRenderTree";
+    -d $outputDirectory or mkdir $outputDirectory;
+
+    my $outputFile = "$outputDirectory/HangReport.txt";
+    system "/usr/bin/sample", $dumpToolPID, qw(10 10 -file), $outputFile;
 }

@@ -76,6 +76,9 @@ void removeWrapperForRGB(WebCore::RGBA32 value)
 
 - (void)dealloc
 {
+    if (WebCoreObjCScheduleDeallocateOnMainThread([DOMRGBColor class], self))
+        return;
+    
     WebCore::removeWrapperForRGB(reinterpret_cast<uintptr_t>(_internal));
     _internal = 0;
     [super dealloc];
@@ -91,28 +94,28 @@ void removeWrapperForRGB(WebCore::RGBA32 value)
 {
     WebCore::RGBA32 rgb = reinterpret_cast<uintptr_t>(_internal);
     int value = (rgb >> 16) & 0xFF;
-    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:new WebCore::CSSPrimitiveValue(value, WebCore::CSSPrimitiveValue::CSS_NUMBER)];
+    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:WebCore::CSSPrimitiveValue::create(value, WebCore::CSSPrimitiveValue::CSS_NUMBER).get()];
 }
 
 - (DOMCSSPrimitiveValue *)green
 {
     WebCore::RGBA32 rgb = reinterpret_cast<uintptr_t>(_internal);
     int value = (rgb >> 8) & 0xFF;
-    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:new WebCore::CSSPrimitiveValue(value, WebCore::CSSPrimitiveValue::CSS_NUMBER)];
+    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:WebCore::CSSPrimitiveValue::create(value, WebCore::CSSPrimitiveValue::CSS_NUMBER).get()];
 }
 
 - (DOMCSSPrimitiveValue *)blue
 {
     WebCore::RGBA32 rgb = reinterpret_cast<uintptr_t>(_internal);
     int value = rgb & 0xFF;
-    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:new WebCore::CSSPrimitiveValue(value, WebCore::CSSPrimitiveValue::CSS_NUMBER)];
+    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:WebCore::CSSPrimitiveValue::create(value, WebCore::CSSPrimitiveValue::CSS_NUMBER).get()];
 }
 
 - (DOMCSSPrimitiveValue *)alpha
 {
     WebCore::RGBA32 rgb = reinterpret_cast<uintptr_t>(_internal);
     float value = static_cast<float>(WebCore::Color(rgb).alpha()) / 0xFF;
-    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:new WebCore::CSSPrimitiveValue(value, WebCore::CSSPrimitiveValue::CSS_NUMBER)];
+    return [DOMCSSPrimitiveValue _wrapCSSPrimitiveValue:WebCore::CSSPrimitiveValue::create(value, WebCore::CSSPrimitiveValue::CSS_NUMBER).get()];
     
 }
 

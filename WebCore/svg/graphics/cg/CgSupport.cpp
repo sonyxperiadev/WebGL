@@ -41,26 +41,6 @@
 
 namespace WebCore {
 
-CGAffineTransform CGAffineTransformMakeMapBetweenRects(CGRect source, CGRect dest)
-{
-    CGAffineTransform transform = CGAffineTransformMakeTranslation(dest.origin.x - source.origin.x, dest.origin.y - source.origin.y);
-    transform = CGAffineTransformScale(transform, dest.size.width/source.size.width, dest.size.height/source.size.height);
-    return transform;
-}
-
-void applyStrokeStyleToContext(GraphicsContext* context, RenderStyle* style, const RenderObject* object)
-{
-    context->setStrokeThickness(SVGRenderStyle::cssPrimitiveToLength(object, style->svgStyle()->strokeWidth(), 1.0f));
-    context->setLineCap(style->svgStyle()->capStyle());
-    context->setLineJoin(style->svgStyle()->joinStyle());
-    context->setMiterLimit(style->svgStyle()->strokeMiterLimit());
-
-    const DashArray& dashes = dashArrayFromRenderingStyle(style);
-    double dashOffset = SVGRenderStyle::cssPrimitiveToLength(object, style->svgStyle()->strokeDashOffset(), 0.0f);
-
-    CGContextSetLineDash(context->platformContext(), narrowPrecisionToCGFloat(dashOffset), dashes.data(), dashes.size());
-}
-
 CGContextRef scratchContext()
 {
     static CGContextRef scratch = 0;
@@ -85,7 +65,7 @@ FloatRect strokeBoundingBox(const Path& path, RenderStyle* style, const RenderOb
     // to make an alternative call...
  
     // FIXME: since this is mainly used to decide what to repaint,
-    // perhaps it would be sufficien to just outset the fill bbox by
+    // perhaps it would be sufficient to just outset the fill bbox by
     // the stroke width - that should be way cheaper and simpler than
     // what we do here.
  

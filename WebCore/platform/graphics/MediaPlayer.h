@@ -35,15 +35,14 @@
 
 namespace WebCore {
 
+class FrameView;
 class GraphicsContext;
 class IntSize;
 class MediaPlayer;
 class MediaPlayerPrivate;
 class String;
-class Widget;
 
-class MediaPlayerClient
-{
+class MediaPlayerClient {
 public:
     virtual ~MediaPlayerClient() { }
     virtual void mediaPlayerNetworkStateChanged(MediaPlayer*) { }
@@ -59,18 +58,19 @@ public:
     virtual ~MediaPlayer();
     
     static bool isAvailable();
+    static bool supportsType(const String&);
     static void getSupportedTypes(HashSet<String>&);
     
     IntSize naturalSize();
     bool hasVideo();
     
-    Widget* parentWidget() const { return m_parentWidget; }
-    void setParentWidget(Widget* parent) { m_parentWidget = parent; }
+    void setFrameView(FrameView* frameView) { m_frameView = frameView; }
+    bool inMediaDocument();
     
     IntRect rect() const { return m_rect; }
     void setRect(const IntRect& r);
     
-    void load(String url);
+    void load(const String& url);
     void cancelLoad();
     
     bool visible() const;
@@ -124,7 +124,7 @@ private:
     
     MediaPlayerClient* m_mediaPlayerClient;
     MediaPlayerPrivate* m_private;
-    Widget* m_parentWidget;
+    FrameView* m_frameView;
     IntRect m_rect;
     bool m_visible;
     float m_rate;

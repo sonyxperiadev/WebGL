@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,12 +30,14 @@
 #include "HTMLFrameElement.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
-#include "kjs_binding.h"
-#include "kjs_window.h"
+#include "JSDOMWindow.h"
+#include "JSDOMWindowShell.h"
+#include "JSDOMBinding.h"
+
+using namespace JSC;
 
 namespace WebCore {
 
-using namespace KJS;
 using namespace HTMLNames;
 
 bool JSHTMLFrameSetElement::canGetItemsForName(ExecState*, HTMLFrameSetElement* frameSet, const Identifier& propertyName)
@@ -44,14 +46,14 @@ bool JSHTMLFrameSetElement::canGetItemsForName(ExecState*, HTMLFrameSetElement* 
     return frame && frame->hasTagName(frameTag);
 }
 
-JSValue* JSHTMLFrameSetElement::nameGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+JSValue* JSHTMLFrameSetElement::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    JSHTMLElement* thisObj = static_cast<JSHTMLElement*>(slot.slotBase());
+    JSHTMLElement* thisObj = static_cast<JSHTMLElement*>(asObject(slot.slotBase()));
     HTMLElement* element = static_cast<HTMLElement*>(thisObj->impl());
 
     Node* frame = element->children()->namedItem(propertyName);
     if (Document* doc = static_cast<HTMLFrameElement*>(frame)->contentDocument()) {
-        if (KJS::Window* window = KJS::Window::retrieveWindow(doc->frame()))
+        if (JSDOMWindowShell* window = toJSDOMWindowShell(doc->frame()))
             return window;
     }
 

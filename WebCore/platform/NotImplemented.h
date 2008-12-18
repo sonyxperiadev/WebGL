@@ -31,27 +31,28 @@
 
 #if PLATFORM(GTK)
     #define supressNotImplementedWarning() getenv("DISABLE_NI_WARNING")
+#elif PLATFORM(QT)
+    #include <QByteArray>
+    #define supressNotImplementedWarning() !qgetenv("DISABLE_NI_WARNING").isEmpty()
 #else
     #define supressNotImplementedWarning() false
 #endif
 
-#if PLATFORM(QT)
+#if defined ANDROID
 
-    #include <qglobal.h>
-    #include <qbytearray.h>
-    #define notImplemented() \
-        if (qgetenv("DISABLE_NI_WARNING").isEmpty()) \
-            qDebug("FIXME: UNIMPLEMENTED: %s:%d (%s)", __FILE__, __LINE__, WTF_PRETTY_FUNCTION)
-
-#elif defined ANDROID
-
-    #define notImplemented() fprintf(stderr, "%s\n", __PRETTY_FUNCTION__)
-//    #define notImplemented() LOGV("%s\n", __PRETTY_FUNCTION__)
-
+    #if 1 && defined LOG_TAG
+        #ifndef _LIBS_UTILS_LOG_H
+            #undef LOG
+            #include <utils/Log.h>
+        #endif
+        #define notImplemented() LOGV("%s: notImplemented\n", __PRETTY_FUNCTION__)
+        #define lowPriority_notImplemented() //printf("%s\n", __PRETTY_FUNCTION__)
+        #define verifiedOk()    // not a problem that it's not implemented
+    #else
+        #define notImplemented() fprintf(stderr, "%s\n", __PRETTY_FUNCTION__)
+    #endif
 #elif defined(NDEBUG)
-
-#define notImplemented() ((void)0)
-
+    #define notImplemented() ((void)0)
 #else
 
 #define notImplemented() do { \

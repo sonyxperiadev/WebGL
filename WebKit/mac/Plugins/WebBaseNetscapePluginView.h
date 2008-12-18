@@ -26,32 +26,40 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LP64__
+#if ENABLE(NETSCAPE_PLUGIN_API)
 #import <Cocoa/Cocoa.h>
 
-#import <AGL/agl.h>
 #import <WebKit/npfunctions.h>
 #import <WebKit/npapi.h>
 #import <WebKit/WebBasePluginPackage.h>
+#import <wtf/HashMap.h>
+#import <wtf/HashSet.h>
 
 @class DOMElement;
 @class WebDataSource;
 @class WebFrame;
 @class WebNetscapePluginPackage;
-@class WebNetscapePluginNullEventSender;
-@class WebBaseNetscapePluginStream;
-@class WebNetscapePluginStream;
 @class WebView;
+
+class PluginTimer;
+class WebNetscapePluginStream;
+class WebNetscapePluginEventHandler;
 
 typedef union PluginPort {
 #ifndef NP_NO_QUICKDRAW
     NP_Port qdPort;
 #endif        
     NP_CGContext cgPort;
-    NP_GLContext aglPort;
 } PluginPort;
 
-@interface WebBaseNetscapePluginView : NSView <WebPluginManualLoader>
+typedef struct _NPPluginTextInputFuncs NPPluginTextInputFuncs;
+
+// Because the Adobe 7.x Acrobat plug-in has a hard coded check for a view named 
+// "WebNetscapePluginDocumentView", this class must retain the old name in order 
+// for the plug-in to function correctly. (rdar://problem/4699455)
+#define WebBaseNetscapePluginView WebNetscapePluginDocumentView
+
+@interface WebBaseNetscapePluginView : NSView <WebPluginManualLoader, NSTextInput>
 {
     WebNetscapePluginPackage *pluginPackage;
     
@@ -59,7 +67,10 @@ typedef union PluginPort {
     WebFrame *_webFrame;
     
     BOOL _loadManually;
-    WebNetscapePluginStream *_manualStream;
+    RefPtr<WebNetscapePluginStream> _manualStream;
+#ifndef BUILDING_ON_TIGER
+    CALayer *_layer;
+#endif
     unsigned _dataLengthReceived;
     NSError *_error;
     
@@ -75,24 +86,26 @@ typedef union PluginPort {
     PluginPort nPort;
     PluginPort lastSetPort;
     NPDrawingModel drawingModel;
+    NPEventModel eventModel;
     
-    // These are only valid when drawingModel is NPDrawingModelOpenGL
-    AGLContext aglContext;
-    NSWindow *aglWindow;
 
 #ifndef NP_NO_QUICKDRAW
     // This is only valid when drawingModel is NPDrawingModelQuickDraw
     GWorldPtr offscreenGWorld;
 #endif
 
+    WebNetscapePluginEventHandler *eventHandler;
+    
     BOOL isStarted;
     BOOL inSetWindow;
-    BOOL suspendKeyUpEvents;
     BOOL hasFocus;
-    BOOL currentEventIsUserGesture;
     BOOL isTransparent;
     BOOL isCompletelyObscured;
     BOOL shouldStopSoon;
+
+    BOOL shouldFireTimers;
+    uint32 currentTimerID;
+    HashMap<uint32, PluginTimer*>* timers;
 
     unsigned pluginFunctionCallDepth;
     
@@ -104,9 +117,11 @@ typedef union PluginPort {
     NSString *MIMEType;
     NSURL *baseURL;
     NSTrackingRectTag trackingTag;
-    NSMutableArray *streams;
+    
+    HashSet<RefPtr<WebNetscapePluginStream> > streams;
     NSMutableDictionary *pendingFrameLoads;
-    NSTimer *nullEventTimer;
+    
+    NPPluginTextInputFuncs *textInputFuncs;
     
     NPP_NewProcPtr NPP_New;
     NPP_DestroyProcPtr NPP_Destroy;
@@ -120,9 +135,7 @@ typedef union PluginPort {
     NPP_HandleEventProcPtr NPP_HandleEvent;
     NPP_URLNotifyProcPtr NPP_URLNotify;
     NPP_GetValueProcPtr NPP_GetValue;
-    NPP_SetValueProcPtr NPP_SetValue;
-    
-    EventHandlerRef keyEventHandler;
+    NPP_SetValueProcPtr NPP_SetValue;    
 }
 
 + (WebBaseNetscapePluginView *)currentPluginView;
@@ -142,6 +155,8 @@ typedef union PluginPort {
 - (BOOL)start;
 - (BOOL)isStarted;
 - (void)stop;
+- (void)stopTimers;
+- (void)restartTimers;
 
 - (WebFrame *)webFrame;
 - (WebDataSource *)dataSource;
@@ -158,7 +173,7 @@ typedef union PluginPort {
 - (void)setMode:(int)theMode;
 - (void)viewWillMoveToHostWindow:(NSWindow *)hostWindow;
 - (void)viewDidMoveToHostWindow;
-- (void)disconnectStream:(WebBaseNetscapePluginStream*)stream;
+- (void)disconnectStream:(WebNetscapePluginStream*)stream;
 
 // Returns the NPObject that represents the plugin interface.
 // The return value is expected to be retained.
@@ -177,6 +192,34 @@ typedef union PluginPort {
 // See <rdar://problem/4480737>.
 - (void)didCallPlugInFunction;
 
+- (void)handleMouseMoved:(NSEvent *)event;
+
 @end
+
+@interface WebBaseNetscapePluginView (WebInternal)
+- (BOOL)sendEvent:(void*)event isDrawRect:(BOOL)eventIsDrawRect;
+- (NPEventModel)eventModel;
+
+- (NPError)loadRequest:(NSURLRequest *)request inTarget:(NSString *)target withNotifyData:(void *)notifyData sendNotification:(BOOL)sendNotification;
+- (NPError)getURLNotify:(const char *)URL target:(const char *)target notifyData:(void *)notifyData;
+- (NPError)getURL:(const char *)URL target:(const char *)target;
+- (NPError)postURLNotify:(const char *)URL target:(const char *)target len:(UInt32)len buf:(const char *)buf file:(NPBool)file notifyData:(void *)notifyData;
+- (NPError)postURL:(const char *)URL target:(const char *)target len:(UInt32)len buf:(const char *)buf file:(NPBool)file;
+- (NPError)newStream:(NPMIMEType)type target:(const char *)target stream:(NPStream**)stream;
+- (NPError)write:(NPStream*)stream len:(SInt32)len buffer:(void *)buffer;
+- (NPError)destroyStream:(NPStream*)stream reason:(NPReason)reason;
+- (void)status:(const char *)message;
+- (const char *)userAgent;
+- (void)invalidateRect:(NPRect *)invalidRect;
+- (void)invalidateRegion:(NPRegion)invalidateRegion;
+- (void)forceRedraw;
+- (NPError)getVariable:(NPNVariable)variable value:(void *)value;
+- (NPError)setVariable:(NPPVariable)variable value:(void *)value;
+- (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc;
+- (void)unscheduleTimer:(uint32)timerID;
+- (NPError)popUpContextMenu:(NPMenu *)menu;
+
+@end
+
 #endif
 

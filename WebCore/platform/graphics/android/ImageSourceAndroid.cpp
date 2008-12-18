@@ -19,6 +19,7 @@
 #include "ImageDecoder.h"
 #include "ImageSource.h"
 #include "IntSize.h"
+#include "NotImplemented.h"
 #include "SharedBuffer.h"
 #include "PlatformString.h"
 
@@ -41,6 +42,10 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 // made this up, so we don't waste a file-descriptor on small images, plus
 // we don't want to lose too much on the round-up to a page size (4K)
 #define MIN_ASHMEM_ALLOC_SIZE   (32*1024)
+
+// don't use RLE for images smaller than this, since they incur a drawing cost
+// (and don't work as patterns yet) we only want to use RLE when we must
+#define MIN_RLE_ALLOC_SIZE      (512*1024)
 
 static bool should_use_ashmem(const SkBitmap& bm) {
     return bm.getSize() >= MIN_ASHMEM_ALLOC_SIZE;
@@ -72,7 +77,7 @@ static bool shouldReencodeAsRLE(const SkBitmap& bm) {
             &&
             bm.width() >= 64 // narrower than this won't compress well in RLE
             &&
-            bm.getSize() > (250*1024);
+            bm.getSize() > MIN_RLE_ALLOC_SIZE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -227,6 +232,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
         m_decoder.m_image = new PrivateAndroidImageSourceRec(tmp, origW, origH,
                                                      sampleSize);
+        
+//        SkDebugf("----- started: [%d %d] %s\n", origW, origH, m_decoder.m_url.c_str());
     }
 
     PrivateAndroidImageSourceRec* decoder = m_decoder.m_image;
@@ -240,10 +247,10 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
             SkStream* strm = new SharedBufferStream(data);
             // imageref now owns the stream object
             if (should_use_ashmem(*bm)) {
-//            SkDebugf("---- use ashmem for image [%d %d]\n", bm.width(), bm.height());
+//            SkDebugf("---- use ashmem for image [%d %d]\n", bm->width(), bm->height());
                 ref = new SkImageRef_ashmem(strm, bm->config(), decoder->fSampleSize);
             } else {
-//            SkDebugf("---- use globalpool for image [%d %d]\n", bm.width(), bm.height());
+//            SkDebugf("---- use globalpool for image [%d %d]\n", bm->width(), bm->height());
                 ref = new SkImageRef_GlobalPool(strm, bm->config(), decoder->fSampleSize);
             }
             
@@ -256,6 +263,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         ref->setURI(m_decoder.m_url);
         // our bitmap is now the only owner of the imageref
         bm->setPixelRef(ref)->unref();
+        
+//        SkDebugf("---- finished: [%d %d] %s\n", bm->width(), bm->height(), ref->getURI());
     }
 }
 
@@ -331,6 +340,12 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
 void ImageSource::clear()
 {
     // do nothing, since the cache is managed elsewhere
+}
+
+IntSize ImageSource::frameSizeAtIndex(size_t index) const
+{
+    // for now, all (1) of our frames are the same size
+    return this->size();
 }
 
 }

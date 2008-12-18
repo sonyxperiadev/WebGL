@@ -128,6 +128,11 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
+IntSize ImageSource::frameSizeAtIndex(size_t) const
+{
+    return size();
+}
+
 int ImageSource::repetitionCount()
 {
     if (!m_decoder)
@@ -215,7 +220,13 @@ float ImageSource::frameDurationAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
 
-    return buffer->duration() / 1000.0f;
+    float duration = buffer->duration() / 1000.0f;
+
+    // Follow other ports (and WinIE's) behavior to slow annoying ads that
+    // specify a 0 duration.
+    if (duration < 0.051f)
+        return 0.100f;
+    return duration;
 }
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)

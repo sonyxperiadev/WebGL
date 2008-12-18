@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2007 Staikos Computing Services Inc.
 
     This library is free software; you can redistribute it and/or
@@ -17,31 +17,39 @@
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
 */
+
 #ifndef QWEBVIEW_H
 #define QWEBVIEW_H
 
 #include "qwebkitglobal.h"
 #include "qwebpage.h"
 #include <QtGui/qwidget.h>
+#include <QtGui/qicon.h>
 #include <QtCore/qurl.h>
 #if QT_VERSION >= 0x040400
 #include <QtNetwork/qnetworkaccessmanager.h>
 #endif
 
+QT_BEGIN_NAMESPACE
+class QNetworkRequest;
+class QPrinter;
+QT_END_NAMESPACE
+
 class QWebPage;
 class QWebViewPrivate;
-class QNetworkRequest;
 class QWebNetworkRequest;
 
 class QWEBKIT_EXPORT QWebView : public QWidget
 {
     Q_OBJECT
     Q_PROPERTY(QString title READ title)
-    Q_PROPERTY(QUrl url READ url WRITE load)
-    Q_PROPERTY(QPixmap icon READ icon)
+    Q_PROPERTY(QUrl url READ url WRITE setUrl)
+    Q_PROPERTY(QIcon icon READ icon)
     Q_PROPERTY(QString selectedText READ selectedText)
     Q_PROPERTY(bool modified READ isModified)
-    Q_PROPERTY(Qt::TextInteractionFlags textInteractionFlags READ textInteractionFlags WRITE setTextInteractionFlags)
+    //Q_PROPERTY(Qt::TextInteractionFlags textInteractionFlags READ textInteractionFlags WRITE setTextInteractionFlags)
+    Q_PROPERTY(qreal textSizeMultiplier READ textSizeMultiplier WRITE setTextSizeMultiplier DESIGNABLE false)
+    Q_PROPERTY(qreal zoomFactor READ zoomFactor WRITE setZoomFactor)
 public:
     explicit QWebView(QWidget *parent = 0);
     virtual ~QWebView();
@@ -50,7 +58,7 @@ public:
     void setPage(QWebPage *page);
 
     void load(const QUrl &url);
-#if QT_VERSION < 0x040400
+#if QT_VERSION < 0x040400 && !defined(qdoc)
     void load(const QWebNetworkRequest &request);
 #else
     void load(const QNetworkRequest &request,
@@ -58,64 +66,79 @@ public:
               const QByteArray &body = QByteArray());
 #endif
     void setHtml(const QString &html, const QUrl &baseUrl = QUrl());
-    void setHtml(const QByteArray &html, const QUrl &baseUrl = QUrl());
     void setContent(const QByteArray &data, const QString &mimeType = QString(), const QUrl &baseUrl = QUrl());
 
     QWebHistory *history() const;
     QWebSettings *settings() const;
 
     QString title() const;
+    void setUrl(const QUrl &url);
     QUrl url() const;
-    QPixmap icon() const;
+    QIcon icon() const;
 
     QString selectedText() const;
 
-    QAction *action(QWebPage::WebAction action) const;
-    void triggerAction(QWebPage::WebAction action, bool checked = false);
+    QAction *pageAction(QWebPage::WebAction action) const;
+    void triggerPageAction(QWebPage::WebAction action, bool checked = false);
 
     bool isModified() const;
 
+    /*
     Qt::TextInteractionFlags textInteractionFlags() const;
     void setTextInteractionFlags(Qt::TextInteractionFlags flags);
-
-    /* #### QTextBrowser compatibility?
-    bool openLinks() const;
-    void setOpenLinks(bool open);
-
-    bool openExternalLinks() const;
-    void setOpenExternalLinks(bool open);
+    void setTextInteractionFlag(Qt::TextInteractionFlag flag);
     */
 
+    QVariant inputMethodQuery(Qt::InputMethodQuery property) const;
+
     QSize sizeHint() const;
+
+    qreal zoomFactor() const;
+    void setZoomFactor(qreal factor);
+
+    void setTextSizeMultiplier(qreal factor);
+    qreal textSizeMultiplier() const;
+
+    bool findText(const QString &subString, QWebPage::FindFlags options = 0);
+
+    virtual bool event(QEvent *);
+
 public Q_SLOTS:
     void stop();
-    void backward();
+    void back();
     void forward();
     void reload();
 
+    void print(QPrinter *printer) const;
+
 Q_SIGNALS:
     void loadStarted();
-    void loadProgressChanged(int progress);
-    void loadFinished();
+    void loadProgress(int progress);
+    void loadFinished(bool);
     void titleChanged(const QString& title);
-    void statusBarTextChanged(const QString& text);
+    void statusBarMessage(const QString& text);
     void linkClicked(const QUrl &url);
     void selectionChanged();
-    void iconLoaded();
+    void iconChanged();
     void urlChanged(const QUrl &url);
 
 protected:
     void resizeEvent(QResizeEvent *e);
     void paintEvent(QPaintEvent *ev);
 
-    virtual QWebView *createWindow();
+    virtual QWebView *createWindow(QWebPage::WebWindowType type);
 
+    virtual void changeEvent(QEvent*);
     virtual void mouseMoveEvent(QMouseEvent*);
     virtual void mousePressEvent(QMouseEvent*);
     virtual void mouseDoubleClickEvent(QMouseEvent*);
     virtual void mouseReleaseEvent(QMouseEvent*);
+#ifndef QT_NO_CONTEXTMENU
     virtual void contextMenuEvent(QContextMenuEvent*);
+#endif
+#ifndef QT_NO_WHEELEVENT
     virtual void wheelEvent(QWheelEvent*);
+#endif
     virtual void keyPressEvent(QKeyEvent*);
     virtual void keyReleaseEvent(QKeyEvent*);
     virtual void dragEnterEvent(QDragEnterEvent *);
@@ -124,6 +147,7 @@ protected:
     virtual void dropEvent(QDropEvent *);
     virtual void focusInEvent(QFocusEvent*);
     virtual void focusOutEvent(QFocusEvent*);
+    virtual void inputMethodEvent(QInputMethodEvent*);
 
     virtual bool focusNextPrevChild(bool next);
 

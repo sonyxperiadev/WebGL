@@ -26,19 +26,19 @@
 #ifndef WebScrollBar_h
 #define WebScrollBar_h
 
-#include "IWebScrollBarDelegatePrivate.h"
-#include "IWebScrollBarPrivate.h"
+#include "WebKit.h"
 
 #include <wtf/RefPtr.h>
 #include <wtf/OwnPtr.h>
 
 #pragma warning(push, 0)
 #include <WebCore/COMPtr.h>
-#include <WebCore/ScrollBar.h>
+#include <WebCore/Scrollbar.h>
+#include <WebCore/ScrollbarClient.h>
 #pragma warning(pop)
 
 namespace WebCore {
-class PlatformScrollbar;
+class Scrollbar;
 }
 
 using namespace WebCore;
@@ -88,7 +88,7 @@ public:
         /* [in] */ HDC dc,
         /* [in] */ RECT damageRect);
     
-    virtual HRESULT STDMETHODCALLTYPE frameGeometry( 
+    virtual HRESULT STDMETHODCALLTYPE frameRect( 
         /* [retval][out] */ RECT* bounds);
     
     virtual HRESULT STDMETHODCALLTYPE width( 
@@ -117,13 +117,16 @@ public:
 protected:
     // ScrollbarClient
     virtual void valueChanged(Scrollbar*);
-    virtual IntRect windowClipRect() const;
+    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
 
     // FIXME: We should provide a way to set this value.
     virtual bool isActive() const { return true; }
 
+    virtual bool scrollbarCornerPresent() const { return false; }
+
     ULONG m_refCount;
-    RefPtr<WebCore::PlatformScrollbar> m_scrollBar;
+    HWND m_containingWindow;
+    RefPtr<WebCore::Scrollbar> m_scrollBar;
     COMPtr<IWebScrollBarDelegatePrivate> m_delegate;
 };
 

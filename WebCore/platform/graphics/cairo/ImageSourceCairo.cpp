@@ -26,18 +26,20 @@
 
 #include "config.h"
 #include "ImageSource.h"
-#include "SharedBuffer.h"
 
 #if PLATFORM(CAIRO)
 
+#include "BMPImageDecoder.h"
 #include "GIFImageDecoder.h"
+#include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
-#include "BMPImageDecoder.h"
-#include "ICOImageDecoder.h"
-#include "XBMImageDecoder.h"
-
+#include "SharedBuffer.h"
 #include <cairo.h>
+
+#if !PLATFORM(WIN)
+#include "XBMImageDecoder.h"
+#endif
 
 namespace WebCore {
 
@@ -78,17 +80,20 @@ ImageDecoder* createDecoder(const Vector<char>& data)
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
 
+#if !PLATFORM(WIN)
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
+#endif
 
     // Give up. We don't know what the heck this is.
     return 0;
 }
 
 ImageSource::ImageSource()
-  : m_decoder(0)
-{}
+    : m_decoder(0)
+{
+}
 
 ImageSource::~ImageSource()
 {
@@ -137,6 +142,11 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
+IntSize ImageSource::frameSizeAtIndex(size_t) const
+{
+    return size();
+}
+
 int ImageSource::repetitionCount()
 {
     if (!m_decoder)
@@ -152,6 +162,9 @@ size_t ImageSource::frameCount() const
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
 {
+    if (!initialized())
+        return 0;
+
     if (!m_decoder)
         return 0;
 

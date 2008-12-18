@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
+                  2004, 2005, 2008 Rob Buis <buis@kde.org>
                   2005, 2007 Eric Seidel <eric@webkit.org>
 
     This file is part of the KDE project
@@ -154,7 +154,7 @@ IntRect RenderPath::absoluteClippedOverflowRect()
 
 #if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
-    SVGResourceFilter* filter = getFilterById(document(), SVGURIReference::getTarget(style()->svgStyle()->filter()));
+    SVGResourceFilter* filter = getFilterById(document(), style()->svgStyle()->filter());
     if (filter)
         repaintRect.unite(filter->filterBBoxForItemBBox(repaintRect));
 #endif
@@ -170,14 +170,14 @@ bool RenderPath::requiresLayer()
     return false;
 }
 
-short RenderPath::lineHeight(bool b, bool isRootLineBox) const
+int RenderPath::lineHeight(bool b, bool isRootLineBox) const
 {
-    return static_cast<short>(relativeBBox(true).height());
+    return relativeBBox(true).height();
 }
 
-short RenderPath::baselinePosition(bool b, bool isRootLineBox) const
+int RenderPath::baselinePosition(bool b, bool isRootLineBox) const
 {
-    return static_cast<short>(relativeBBox(true).height());
+    return relativeBBox(true).height();
 }
 
 static inline void fillAndStrokePath(const Path& path, GraphicsContext* context, RenderStyle* style, RenderPath* object)
@@ -392,9 +392,9 @@ FloatRect RenderPath::drawMarkersIfNeeded(GraphicsContext* context, const FloatR
     SVGStyledElement* styledElement = static_cast<SVGStyledElement*>(svgElement);
     const SVGRenderStyle* svgStyle = style()->svgStyle();
 
-    AtomicString startMarkerId(SVGURIReference::getTarget(svgStyle->startMarker()));
-    AtomicString midMarkerId(SVGURIReference::getTarget(svgStyle->midMarker()));
-    AtomicString endMarkerId(SVGURIReference::getTarget(svgStyle->endMarker()));
+    AtomicString startMarkerId(svgStyle->startMarker());
+    AtomicString midMarkerId(svgStyle->midMarker());
+    AtomicString endMarkerId(svgStyle->endMarker());
 
     SVGResourceMarker* startMarker = getMarkerById(doc, startMarkerId);
     SVGResourceMarker* midMarker = getMarkerById(doc, midMarkerId);

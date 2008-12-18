@@ -2,6 +2,7 @@
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +30,13 @@
 #include "config.h"
 #include "PlatformKeyboardEvent.h"
 
-#include "DeprecatedString.h"
 #include "KeyboardCodes.h"
 #include "NotImplemented.h"
 #include "TextEncoding.h"
 
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
+#include <gtk/gtkversion.h>
 
 namespace WebCore {
 
@@ -187,6 +188,8 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
             return VK_TAB; // (09) TAB key
         case GDK_Clear:
             return VK_CLEAR; // (0C) CLEAR key
+        case GDK_ISO_Enter:
+        case GDK_KP_Enter:
         case GDK_Return:
             return VK_RETURN; //(0D) Return key
         case GDK_Shift_L:
@@ -469,21 +472,30 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
 
 static String singleCharacterString(guint val)
 {
-    glong nwc;
-    String retVal;
-    gunichar c = gdk_keyval_to_unicode(val);
-    gunichar2* uchar16 = g_ucs4_to_utf16(&c, 1, 0, &nwc, 0);
+    switch (val) {
+        case GDK_ISO_Enter:
+        case GDK_KP_Enter:
+        case GDK_Return:
+            return String("\r");
+        default:
+            gunichar c = gdk_keyval_to_unicode(val);
+            glong nwc;
+            gunichar2* uchar16 = g_ucs4_to_utf16(&c, 1, 0, &nwc, 0);
 
-    if (uchar16)
-        retVal = String((UChar*)uchar16, nwc);
-    else
-        retVal = String();
+            String retVal;
+            if (uchar16)
+                retVal = String((UChar*)uchar16, nwc);
+            else
+                retVal = String();
 
-    g_free(uchar16);
+            g_free(uchar16);
 
-    return retVal;
+            return retVal;
+    }
 }
 
+// Keep this in sync with the other platform event constructors
+// TODO: m_gdkEventKey should be refcounted
 PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     : m_type((event->type == GDK_KEY_RELEASE) ? KeyUp : KeyDown)
     , m_text(singleCharacterString(event->keyval))
@@ -491,19 +503,29 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     , m_keyIdentifier(keyIdentifierForGdkKeyCode(event->keyval))
     , m_autoRepeat(false)
     , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(event->keyval))
-    , m_isKeypad(false)
+    , m_nativeVirtualKeyCode(event->keyval)
+    , m_isKeypad(event->keyval >= GDK_KP_Space && event->keyval <= GDK_KP_9)
     , m_shiftKey((event->state & GDK_SHIFT_MASK) || (event->keyval == GDK_3270_BackTab))
     , m_ctrlKey(event->state & GDK_CONTROL_MASK)
     , m_altKey(event->state & GDK_MOD1_MASK)
-    , m_metaKey(event->state & GDK_MOD2_MASK)
+#if GTK_CHECK_VERSION(2,10,0)
+    , m_metaKey(event->state & GDK_META_MASK)
+#else
+    // GDK_MOD2_MASK doesn't always mean meta so we can't use it
+    , m_metaKey(false)
+#endif
+    , m_gdkEventKey(event)
 {
 }
 
-void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)
+void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
 {
     // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
     ASSERT(m_type == KeyDown);
     m_type = type;
+
+    if (backwardCompatibilityMode)
+        return;
 
     if (type == RawKeyDown) {
         m_text = String();
@@ -518,6 +540,11 @@ bool PlatformKeyboardEvent::currentCapsLockState()
 {
     notImplemented();
     return false;
+}
+
+GdkEventKey* PlatformKeyboardEvent::gdkEventKey() const
+{
+    return m_gdkEventKey;
 }
 
 }

@@ -24,11 +24,11 @@
 #ifndef HTMLButtonElement_h
 #define HTMLButtonElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
 
-class HTMLButtonElement : public HTMLGenericFormElement {
+class HTMLButtonElement : public HTMLFormControlElement {
 public:
     HTMLButtonElement(Document*, HTMLFormElement* = 0);
     virtual ~HTMLButtonElement();
@@ -56,6 +56,8 @@ public:
 
     String value() const;
     void setValue(const String&);
+
+    virtual bool willValidate() const { return false; }
     
 private:
     enum Type { SUBMIT, RESET, BUTTON };

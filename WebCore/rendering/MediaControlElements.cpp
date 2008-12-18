@@ -42,7 +42,6 @@
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
 
 // FIXME: These constants may need to be tweaked to better match the seeking in the QT plugin
@@ -54,13 +53,13 @@ MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTML
     : HTMLDivElement(doc)
     , m_mediaElement(mediaElement) 
 {
-    RenderStyle* rootStyle = new (mediaElement->renderer()->renderArena()) RenderStyle();
+    RefPtr<RenderStyle> rootStyle = RenderStyle::create();
     rootStyle->inheritFrom(mediaElement->renderer()->style());
     rootStyle->setDisplay(BLOCK);
     rootStyle->setPosition(RelativePosition);
     RenderMediaControlShadowRoot* renderer = new (mediaElement->renderer()->renderArena()) RenderMediaControlShadowRoot(this);
     renderer->setParent(mediaElement->renderer());
-    renderer->setStyle(rootStyle);
+    renderer->setStyle(rootStyle.release());
     setRenderer(renderer);
     setAttached();
     setInDocument(true);
@@ -68,12 +67,12 @@ MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTML
 
 // ----------------------------
 
-MediaControlInputElement::MediaControlInputElement(Document* doc, RenderStyle::PseudoId pseudo, String type, HTMLMediaElement* mediaElement) 
+MediaControlInputElement::MediaControlInputElement(Document* doc, RenderStyle::PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement) 
     : HTMLInputElement(doc)
     , m_mediaElement(mediaElement)
 {
     setInputType(type);
-    RenderStyle* style = m_mediaElement->renderer()->getPseudoStyle(pseudo);
+    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
     RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
     if (renderer) {
         setRenderer(renderer);
@@ -104,9 +103,9 @@ MediaControlMuteButtonElement::MediaControlMuteButtonElement(Document* doc, HTML
 
 void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == clickEvent) {
+    if (event->type() == eventNames().clickEvent) {
         m_mediaElement->setMuted(!m_mediaElement->muted());
-        event->defaultHandled();
+        event->setDefaultHandled();
     }
     HTMLInputElement::defaultEventHandler(event);
 }
@@ -120,13 +119,13 @@ MediaControlPlayButtonElement::MediaControlPlayButtonElement(Document* doc, HTML
 
 void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == clickEvent) {
+    if (event->type() == eventNames().clickEvent) {
         ExceptionCode ec;
         if (m_mediaElement->canPlay())
             m_mediaElement->play(ec);
         else 
             m_mediaElement->pause(ec);
-        event->defaultHandled();
+        event->setDefaultHandled();
     }
     HTMLInputElement::defaultEventHandler(event);
 }
@@ -144,7 +143,7 @@ MediaControlSeekButtonElement::MediaControlSeekButtonElement(Document* doc, HTML
 
 void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == mousedownEvent) {
+    if (event->type() == eventNames().mousedownEvent) {
         if (Frame* frame = document()->frame()) {
             m_capturing = true;
             frame->eventHandler()->setCapturingMouseEventsNode(this);
@@ -152,8 +151,8 @@ void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
         ExceptionCode ec;
         m_mediaElement->pause(ec);
         m_seekTimer.startRepeating(cSeekRepeatDelay);
-        event->defaultHandled();
-    } else if (event->type() == mouseupEvent) {
+        event->setDefaultHandled();
+    } else if (event->type() == eventNames().mouseupEvent) {
         if (m_capturing)
             if (Frame* frame = document()->frame()) {
                 m_capturing = false;
@@ -167,7 +166,7 @@ void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
             }
             m_seekTimer.stop();
             m_seeking = false;
-            event->defaultHandled();
+            event->setDefaultHandled();
         }
     }
     HTMLInputElement::defaultEventHandler(event);
@@ -199,7 +198,7 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     HTMLInputElement::defaultEventHandler(event);
 
     float time = narrowPrecisionToFloat(value().toDouble());
-    if (oldTime != time || event->type() == inputEvent) {
+    if (oldTime != time || event->type() == eventNames().inputEvent) {
         ExceptionCode ec;
         m_mediaElement->setCurrentTime(time, ec);
     }
@@ -234,8 +233,8 @@ MediaControlFullscreenButtonElement::MediaControlFullscreenButtonElement(Documen
 
 void MediaControlFullscreenButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == clickEvent) {
-        event->defaultHandled();
+    if (event->type() == eventNames().clickEvent) {
+        event->setDefaultHandled();
     }
     HTMLInputElement::defaultEventHandler(event);
 }

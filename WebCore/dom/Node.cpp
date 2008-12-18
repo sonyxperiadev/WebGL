@@ -2,8 +2,8 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,6 +20,11 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
+#ifdef ANDROID_DOM_LOGGING
+#define LOG_TAG "webcore"
+#include "AndroidLog.h"
+#endif
 
 #include "config.h"
 #include "Node.h"
@@ -41,59 +46,37 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "HTMLNames.h"
-#include "HTMLNames.h"
-#include "KURL.h"
+#include "JSDOMBinding.h"
 #include "Logging.h"
 #include "NameNodeList.h"
 #include "NamedAttrMap.h"
+#include "NodeRareData.h"
+#include "ProcessingInstruction.h"
 #include "RenderObject.h"
+#include "ScriptController.h"
 #include "SelectorNodeList.h"
+#include "StringBuilder.h"
 #include "TagNodeList.h"
 #include "Text.h"
-#include "TextStream.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
-#include "kjs_binding.h"
+#include <runtime/ExecState.h>
+#include <runtime/JSLock.h>
+#include <wtf/RefCountedLeakCounter.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-typedef HashSet<DynamicNodeList*> NodeListSet;
-struct NodeListsNodeData {
-    NodeListSet m_listsToNotify;
-    DynamicNodeList::Caches m_childNodeListCaches;
-    
-    typedef HashMap<String, DynamicNodeList::Caches*> CacheMap;
-    CacheMap m_classNodeListCaches;
-    CacheMap m_nameNodeListCaches;
-    
-    ~NodeListsNodeData()
-    {
-        deleteAllValues(m_classNodeListCaches);
-        deleteAllValues(m_nameNodeListCaches);
-    }
-};
+// --------
 
 bool Node::isSupported(const String& feature, const String& version)
 {
-    return DOMImplementation::instance()->hasFeature(feature, version);
+    return DOMImplementation::hasFeature(feature, version);
 }
 
 #ifndef NDEBUG
-WTFLogChannel LogWebCoreNodeLeaks =  { 0x00000000, "", WTFLogChannelOn };
-
-struct NodeCounter {
-    static unsigned count; 
-
-    ~NodeCounter() 
-    { 
-        if (count) 
-            LOG(WebCoreNodeLeaks, "LEAK: %u Node\n", count); 
-    }
-};
-unsigned NodeCounter::count = 0;
-static NodeCounter nodeCounter;
+static WTF::RefCountedLeakCounter nodeCounter("WebCoreNode");
 
 static bool shouldIgnoreLeaks = false;
 static HashSet<Node*> ignoreSet;
@@ -113,33 +96,76 @@ void Node::stopIgnoringLeaks()
 #endif
 }
 
-Node::Node(Document *doc)
-    : m_document(doc),
-      m_previous(0),
-      m_next(0),
-      m_renderer(0),
-      m_tabIndex(0),
-      m_hasId(false),
-      m_hasClass(false),
-      m_attached(false),
-      m_styleChange(NoStyleChange),
-      m_hasChangedChild(false),
-      m_inDocument(false),
-      m_isLink(false),
-      m_attrWasSpecifiedOrElementHasRareData(false),
-      m_focused(false),
-      m_active(false),
-      m_hovered(false),
-      m_inActiveChain(false),
-      m_inDetach(false),
-      m_dispatchingSimulatedEvent(false),
-      m_inSubtreeMark(false)
+Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 )
+{
+    // FIXME: The behavior of this function is just totally wrong.  It doesn't handle
+    // explicit inheritance of non-inherited properties and so you end up not re-resolving
+    // style in cases where you need to.
+    StyleChange ch = NoInherit;
+    EDisplay display1 = s1 ? s1->display() : NONE;
+    bool fl1 = s1 && s1->hasPseudoStyle(RenderStyle::FIRST_LETTER);
+    EDisplay display2 = s2 ? s2->display() : NONE;
+    bool fl2 = s2 && s2->hasPseudoStyle(RenderStyle::FIRST_LETTER);
+        
+    if (display1 != display2 || fl1 != fl2 || (s1 && s2 && !s1->contentDataEquivalent(s2)))
+        ch = Detach;
+    else if (!s1 || !s2)
+        ch = Inherit;
+    else if (*s1 == *s2)
+        ch = NoChange;
+    else if (s1->inheritedNotEqual(s2))
+        ch = Inherit;
+    
+    // If the pseudoStyles have changed, we want any StyleChange that is not NoChange
+    // because setStyle will do the right thing with anything else.
+    if (ch == NoChange && s1->hasPseudoStyle(RenderStyle::BEFORE)) {
+        RenderStyle* ps2 = s2->getCachedPseudoStyle(RenderStyle::BEFORE);
+        if (!ps2)
+            ch = NoInherit;
+        else {
+            RenderStyle* ps1 = s1->getCachedPseudoStyle(RenderStyle::BEFORE);
+            ch = ps1 && *ps1 == *ps2 ? NoChange : NoInherit;
+        }
+    }
+    if (ch == NoChange && s1->hasPseudoStyle(RenderStyle::AFTER)) {
+        RenderStyle* ps2 = s2->getCachedPseudoStyle(RenderStyle::AFTER);
+        if (!ps2)
+            ch = NoInherit;
+        else {
+            RenderStyle* ps1 = s1->getCachedPseudoStyle(RenderStyle::AFTER);
+            ch = ps2 && *ps1 == *ps2 ? NoChange : NoInherit;
+        }
+    }
+    
+    return ch;
+}
+
+Node::Node(Document* doc, bool isElement, bool isContainer)
+    : m_document(doc)
+    , m_previous(0)
+    , m_next(0)
+    , m_renderer(0)
+    , m_styleChange(NoStyleChange)
+    , m_hasId(false)
+    , m_hasClass(false)
+    , m_attached(false)
+    , m_hasChangedChild(false)
+    , m_inDocument(false)
+    , m_isLink(false)
+    , m_active(false)
+    , m_hovered(false)
+    , m_inActiveChain(false)
+    , m_inDetach(false)
+    , m_inSubtreeMark(false)
+    , m_hasRareData(false)
+    , m_isElement(isElement)
+    , m_isContainer(isContainer)
 {
 #ifndef NDEBUG
     if (shouldIgnoreLeaks)
         ignoreSet.add(this);
     else
-        ++NodeCounter::count;
+        nodeCounter.increment();
 #endif
 }
 
@@ -150,10 +176,8 @@ void Node::setDocument(Document* doc)
 
     willMoveToNewOwnerDocument();
 
-    {
-        KJS::JSLock lock;
-        KJS::ScriptInterpreter::updateDOMNodeDocument(this, m_document.get(), doc);
-    }    
+    updateDOMNodeDocument(this, m_document.get(), doc);
+
     m_document = doc;
 
     didMoveToNewOwnerDocument();
@@ -166,8 +190,22 @@ Node::~Node()
     if (it != ignoreSet.end())
         ignoreSet.remove(it);
     else
-        --NodeCounter::count;
+        nodeCounter.decrement();
 #endif
+    
+    if (!hasRareData())
+        ASSERT(!NodeRareData::rareDataMap().contains(this));
+    else {
+        if (m_document && rareData()->nodeLists())
+            m_document->removeNodeListCache();
+        
+        NodeRareData::NodeRareDataMap& dataMap = NodeRareData::rareDataMap();
+        NodeRareData::NodeRareDataMap::iterator it = dataMap.find(this);
+        ASSERT(it != dataMap.end());
+        delete it->second;
+        dataMap.remove(it);
+    }
+
     if (renderer())
         detach();
 
@@ -175,6 +213,39 @@ Node::~Node()
         m_previous->setNextSibling(0);
     if (m_next)
         m_next->setPreviousSibling(0);
+}
+
+inline NodeRareData* Node::rareData() const
+{
+    ASSERT(hasRareData());
+    return NodeRareData::rareDataFromMap(this);
+}
+
+NodeRareData* Node::ensureRareData()
+{
+    if (hasRareData())
+        return rareData();
+    
+    ASSERT(!NodeRareData::rareDataMap().contains(this));
+    NodeRareData* data = createRareData();
+    NodeRareData::rareDataMap().set(this, data);
+    m_hasRareData = true;
+    return data;
+}
+    
+NodeRareData* Node::createRareData()
+{
+    return new NodeRareData;
+}
+    
+short Node::tabIndex() const
+{
+    return hasRareData() ? rareData()->tabIndex() : 0;
+}
+    
+void Node::setTabIndexExplicitly(short i)
+{
+    ensureRareData()->setTabIndexExplicitly(i);
 }
 
 String Node::nodeValue() const
@@ -190,30 +261,18 @@ void Node::setNodeValue(const String& /*nodeValue*/, ExceptionCode& ec)
         return;
     }
 
-    // by default nodeValue is null, so setting it has no effect
+    // By default, setting nodeValue has no effect.
 }
 
 PassRefPtr<NodeList> Node::childNodes()
 {
-    if (!m_nodeLists)
-        m_nodeLists.set(new NodeListsNodeData);
+    NodeRareData* data = ensureRareData();
+    if (!data->nodeLists()) {
+        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        document()->addNodeListCache();
+    }
 
-    return new ChildNodeList(this, &m_nodeLists->m_childNodeListCaches);
-}
-
-Node* Node::virtualFirstChild() const
-{
-    return 0;
-}
-
-Node* Node::virtualLastChild() const
-{
-    return 0;
-}
-
-bool Node::virtualHasTagName(const QualifiedName&) const
-{
-    return false;
+    return ChildNodeList::create(this, &data->nodeLists()->m_childNodeListCaches);
 }
 
 Node *Node::lastDescendant() const
@@ -232,13 +291,13 @@ Node* Node::firstDescendant() const
     return n;
 }
 
-bool Node::insertBefore(PassRefPtr<Node>, Node*, ExceptionCode& ec)
+bool Node::insertBefore(PassRefPtr<Node>, Node*, ExceptionCode& ec, bool)
 {
     ec = HIERARCHY_REQUEST_ERR;
     return false;
 }
 
-bool Node::replaceChild(PassRefPtr<Node>, Node*, ExceptionCode& ec)
+bool Node::replaceChild(PassRefPtr<Node>, Node*, ExceptionCode& ec, bool)
 {
     ec = HIERARCHY_REQUEST_ERR;
     return false;
@@ -250,7 +309,7 @@ bool Node::removeChild(Node*, ExceptionCode& ec)
     return false;
 }
 
-bool Node::appendChild(PassRefPtr<Node>, ExceptionCode& ec)
+bool Node::appendChild(PassRefPtr<Node>, ExceptionCode& ec, bool)
 {
     ec = HIERARCHY_REQUEST_ERR;
     return false;
@@ -266,68 +325,50 @@ void Node::remove(ExceptionCode& ec)
     deref();
 }
 
-bool Node::hasChildNodes(  ) const
+void Node::normalize()
 {
-  return false;
-}
+    // Go through the subtree beneath us, normalizing all nodes. This means that
+    // any two adjacent text nodes are merged together.
 
-void Node::normalize ()
-{
-    ExceptionCode ec = 0;
-    Node *child = firstChild();
+    RefPtr<Node> node = this;
+    while (Node* firstChild = node->firstChild())
+        node = firstChild;
+    for (; node; node = node->traverseNextNodePostOrder()) {
+        NodeType type = node->nodeType();
+        if (type == ELEMENT_NODE)
+            static_cast<Element*>(node.get())->normalizeAttributes();
 
-    if (isElementNode()) {
-        // Normalize any attribute children we might have 
-        Element *element = static_cast<Element *>(this);
-        NamedAttrMap *attrMap = element->attributes();
-        
-        if (attrMap) {
-            unsigned numAttrs = attrMap->length();
-            
-            for (unsigned i = 0; i < numAttrs; i++) {
-                Attribute *attribute = attrMap->attributeItem(i);
-                Attr *attr = attribute->attr();
-                
-                if (attr)
-                    attr->normalize();
+        Node* firstChild = node->firstChild();
+        if (firstChild && !firstChild->nextSibling() && firstChild->isTextNode()) {
+            Text* text = static_cast<Text*>(firstChild);
+            if (!text->length()) {
+                ExceptionCode ec;
+                text->remove(ec);
+            }
+        }
+
+        if (node == this)
+            break;
+
+        if (type == TEXT_NODE) {
+            while (1) {
+                Node* nextSibling = node->nextSibling();
+                if (!nextSibling || !nextSibling->isTextNode())
+                    break;
+                // Current child and the next one are both text nodes. Merge them.
+                Text* text = static_cast<Text*>(node.get());
+                RefPtr<Text> nextText = static_cast<Text*>(nextSibling);
+                unsigned offset = text->length();
+                ExceptionCode ec;
+                text->appendData(nextText->data(), ec);
+                document()->textNodesMerged(nextText.get(), offset);
+                nextText->remove(ec);
             }
         }
     }
-    
-    // Recursively go through the subtree beneath us, normalizing all nodes. In the case
-    // where there are two adjacent text nodes, they are merged together
-    while (child) {
-        Node *nextChild = child->nextSibling();
-
-        if (nextChild && child->nodeType() == TEXT_NODE && nextChild->nodeType() == TEXT_NODE) {
-            // Current child and the next one are both text nodes... merge them
-            Text *currentText = static_cast<Text*>(child);
-            Text *nextText = static_cast<Text*>(nextChild);
-
-            currentText->appendData(nextText->data(),ec);
-            if (ec)
-                return;
-
-            nextChild->remove(ec);
-            if (ec)
-                return;
-        }
-        else {
-            child->normalize();
-            child = nextChild;
-        }
-    }
-    
-    // Check if we have a single empty text node left and remove it if so
-    child = firstChild();
-    if (child && !child->nextSibling() && child->isTextNode()) {
-        Text *text = static_cast<Text*>(child);
-        if (text->data().isEmpty())
-            child->remove(ec);
-    }
 }
 
-const AtomicString& Node::prefix() const
+const AtomicString& Node::virtualPrefix() const
 {
     // For nodes other than elements and attributes, the prefix is always null
     return nullAtom;
@@ -341,12 +382,12 @@ void Node::setPrefix(const AtomicString& /*prefix*/, ExceptionCode& ec)
     ec = NAMESPACE_ERR;
 }
 
-const AtomicString& Node::localName() const
+const AtomicString& Node::virtualLocalName() const
 {
     return nullAtom;
 }
 
-const AtomicString& Node::namespaceURI() const
+const AtomicString& Node::virtualNamespaceURI() const
 {
     return nullAtom;
 }
@@ -385,24 +426,76 @@ void Node::setChanged(StyleChangeType changeType)
     if ((changeType != NoStyleChange) && !attached()) // changed compared to what?
         return;
 
-    if (!(changeType == InlineStyleChange && m_styleChange == FullStyleChange))
+    if (!(changeType == InlineStyleChange && (m_styleChange == FullStyleChange || m_styleChange == AnimationStyleChange)))
         m_styleChange = changeType;
 
     if (m_styleChange != NoStyleChange) {
-        for (Node* p = parentNode(); p; p = p->parentNode())
+        for (Node* p = parentNode(); p && !p->hasChangedChild(); p = p->parentNode())
             p->setHasChangedChild(true);
         document()->setDocumentChanged(true);
     }
 }
 
+static Node* outermostLazyAttachedAncestor(Node* start)
+{
+    Node* p = start;
+    for (Node* next = p->parentNode(); !next->renderer(); p = next, next = next->parentNode()) {}
+    return p;
+}
+
+void Node::lazyAttach()
+{
+    bool mustDoFullAttach = false;
+
+    for (Node* n = this; n; n = n->traverseNextNode(this)) {
+        if (!n->canLazyAttach()) {
+            mustDoFullAttach = true;
+            break;
+        }
+
+        if (n->firstChild())
+            n->setHasChangedChild(true);
+        n->m_styleChange = FullStyleChange;
+        n->m_attached = true;
+    }
+
+    if (mustDoFullAttach) {
+        Node* lazyAttachedAncestor = outermostLazyAttachedAncestor(this);
+        if (lazyAttachedAncestor->attached())
+            lazyAttachedAncestor->detach();
+        lazyAttachedAncestor->attach();
+    } else {
+        for (Node* p = parentNode(); p && !p->hasChangedChild(); p = p->parentNode())
+            p->setHasChangedChild(true);
+        document()->setDocumentChanged(true);
+    }
+}
+
+bool Node::canLazyAttach()
+{
+    return shadowAncestorNode() == this;
+}
+    
+void Node::setFocus(bool b)
+{ 
+    if (b || hasRareData())
+        ensureRareData()->m_focused = b;
+}
+
+bool Node::rareDataFocused() const
+{
+    ASSERT(hasRareData());
+    return rareData()->m_focused;
+}
+    
 bool Node::isFocusable() const
 {
-    return false;
+    return hasRareData() && rareData()->tabIndexSetExplicitly();
 }
 
 bool Node::isKeyboardFocusable(KeyboardEvent*) const
 {
-    return isFocusable();
+    return isFocusable() && tabIndex() >= 0;
 }
 
 bool Node::isMouseFocusable() const
@@ -421,33 +514,47 @@ unsigned Node::nodeIndex() const
 
 void Node::registerDynamicNodeList(DynamicNodeList* list)
 {
-    if (!m_nodeLists)
-        m_nodeLists.set(new NodeListsNodeData);
-    else if (!m_document->hasNodeLists())
+    NodeRareData* data = ensureRareData();
+    if (!data->nodeLists()) {
+        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        document()->addNodeListCache();
+    } else if (!m_document->hasNodeListCaches()) {
         // We haven't been receiving notifications while there were no registered lists, so the cache is invalid now.
-        m_nodeLists->m_childNodeListCaches.reset();
+        data->nodeLists()->invalidateCaches();
+    }
 
-    if (list->needsNotifications())
-        m_nodeLists->m_listsToNotify.add(list);
-    m_document->addNodeList();
+    if (list->hasOwnCaches())
+        data->nodeLists()->m_listsWithCaches.add(list);
 }
 
 void Node::unregisterDynamicNodeList(DynamicNodeList* list)
 {
-    ASSERT(m_nodeLists);
-    m_document->removeNodeList();
-    if (list->needsNotifications())
-        m_nodeLists->m_listsToNotify.remove(list);
+    ASSERT(rareData());
+    ASSERT(rareData()->nodeLists());
+    if (list->hasOwnCaches()) {
+        NodeRareData* data = rareData();
+        data->nodeLists()->m_listsWithCaches.remove(list);
+        if (data->nodeLists()->isEmpty()) {
+            data->clearNodeLists();
+            document()->removeNodeListCache();
+        }
+    }
 }
 
 void Node::notifyLocalNodeListsAttributeChanged()
 {
-    if (!m_nodeLists)
+    if (!hasRareData())
+        return;
+    NodeRareData* data = rareData();
+    if (!data->nodeLists())
         return;
 
-    NodeListSet::iterator end = m_nodeLists->m_listsToNotify.end();
-    for (NodeListSet::iterator i = m_nodeLists->m_listsToNotify.begin(); i != end; ++i)
-        (*i)->rootNodeAttributeChanged();
+    data->nodeLists()->invalidateCachesThatDependOnAttributes();
+
+    if (data->nodeLists()->isEmpty()) {
+        data->clearNodeLists();
+        document()->removeNodeListCache();
+    }
 }
 
 void Node::notifyNodeListsAttributeChanged()
@@ -458,51 +565,43 @@ void Node::notifyNodeListsAttributeChanged()
 
 void Node::notifyLocalNodeListsChildrenChanged()
 {
-    if (!m_nodeLists)
+    if (!hasRareData())
+        return;
+    NodeRareData* data = rareData();
+    if (!data->nodeLists())
         return;
 
-    m_nodeLists->m_childNodeListCaches.reset();
+    data->nodeLists()->invalidateCaches();
 
-    NodeListSet::iterator end = m_nodeLists->m_listsToNotify.end();
-    for (NodeListSet::iterator i = m_nodeLists->m_listsToNotify.begin(); i != end; ++i)
-        (*i)->rootNodeChildrenChanged();
+    NodeListsNodeData::NodeListSet::iterator end = data->nodeLists()->m_listsWithCaches.end();
+    for (NodeListsNodeData::NodeListSet::iterator i = data->nodeLists()->m_listsWithCaches.begin(); i != end; ++i)
+        (*i)->invalidateCache();
+
+    if (data->nodeLists()->isEmpty()) {
+        data->clearNodeLists();
+        document()->removeNodeListCache();
+    }
 }
 
 void Node::notifyNodeListsChildrenChanged()
 {
-    for (Node *n = this; n; n = n->parentNode())
+    for (Node* n = this; n; n = n->parentNode())
         n->notifyLocalNodeListsChildrenChanged();
-}
-
-unsigned Node::childNodeCount() const
-{
-    return 0;
-}
-
-Node *Node::childNode(unsigned /*index*/) const
-{
-    return 0;
 }
 
 Node *Node::traverseNextNode(const Node *stayWithin) const
 {
-    if (firstChild()) {
-        ASSERT(!stayWithin || firstChild()->isDescendantOf(stayWithin));
+    if (firstChild())
         return firstChild();
-    }
     if (this == stayWithin)
         return 0;
-    if (nextSibling()) {
-        ASSERT(!stayWithin || nextSibling()->isDescendantOf(stayWithin));
+    if (nextSibling())
         return nextSibling();
-    }
     const Node *n = this;
     while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n) {
-        ASSERT(!stayWithin || !n->nextSibling() || n->nextSibling()->isDescendantOf(stayWithin));
+    if (n)
         return n->nextSibling();
-    }
     return 0;
 }
 
@@ -510,18 +609,24 @@ Node *Node::traverseNextSibling(const Node *stayWithin) const
 {
     if (this == stayWithin)
         return 0;
-    if (nextSibling()) {
-        ASSERT(!stayWithin || nextSibling()->isDescendantOf(stayWithin));
+    if (nextSibling())
         return nextSibling();
-    }
     const Node *n = this;
     while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n) {
-        ASSERT(!stayWithin || !n->nextSibling() || n->nextSibling()->isDescendantOf(stayWithin));
+    if (n)
         return n->nextSibling();
-    }
     return 0;
+}
+
+Node* Node::traverseNextNodePostOrder() const
+{
+    Node* next = nextSibling();
+    if (!next)
+        return parentNode();
+    while (Node* firstChild = next->firstChild())
+        next = firstChild;
+    return next;
 }
 
 Node *Node::traversePreviousNode(const Node *stayWithin) const
@@ -539,23 +644,31 @@ Node *Node::traversePreviousNode(const Node *stayWithin) const
 
 Node *Node::traversePreviousNodePostOrder(const Node *stayWithin) const
 {
-    if (lastChild()) {
-        ASSERT(!stayWithin || lastChild()->isDescendantOf(stayWithin));
+    if (lastChild())
         return lastChild();
-    }
     if (this == stayWithin)
         return 0;
-    if (previousSibling()) {
-        ASSERT(!stayWithin || previousSibling()->isDescendantOf(stayWithin));
+    if (previousSibling())
         return previousSibling();
-    }
     const Node *n = this;
     while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
-    if (n) {
-        ASSERT(!stayWithin || !n->previousSibling() || n->previousSibling()->isDescendantOf(stayWithin));
+    if (n)
         return n->previousSibling();
-    }
+    return 0;
+}
+
+Node* Node::traversePreviousSiblingPostOrder(const Node* stayWithin) const
+{
+    if (this == stayWithin)
+        return 0;
+    if (previousSibling())
+        return previousSibling();
+    const Node *n = this;
+    while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
+        n = n->parentNode();
+    if (n)
+        return n->previousSibling();
     return 0;
 }
 
@@ -739,72 +852,10 @@ bool Node::isDescendantOf(const Node *other) const
     return false;
 }
 
-bool Node::childAllowed( Node *newChild )
+bool Node::childAllowed(Node* newChild)
 {
     return childTypeAllowed(newChild->nodeType());
 }
-
-Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 ) const
-{
-    // FIXME: The behavior of this function is just totally wrong.  It doesn't handle
-    // explicit inheritance of non-inherited properties and so you end up not re-resolving
-    // style in cases where you need to.
-    StyleChange ch = NoInherit;
-    EDisplay display1 = s1 ? s1->display() : NONE;
-    bool fl1 = s1 && s1->hasPseudoStyle(RenderStyle::FIRST_LETTER);
-    EDisplay display2 = s2 ? s2->display() : NONE;
-    bool fl2 = s2 && s2->hasPseudoStyle(RenderStyle::FIRST_LETTER);
-        
-    if (display1 != display2 || fl1 != fl2 || (s1 && s2 && !s1->contentDataEquivalent(s2)))
-        ch = Detach;
-    else if (!s1 || !s2)
-        ch = Inherit;
-    else if (*s1 == *s2)
-        ch = NoChange;
-    else if (s1->inheritedNotEqual(s2))
-        ch = Inherit;
-    
-    // If the pseudoStyles have changed, we want any StyleChange that is not NoChange
-    // because setStyle will do the right thing with anything else.
-    if (ch == NoChange && s1->hasPseudoStyle(RenderStyle::BEFORE)) {
-        RenderStyle* ps2 = s2->getPseudoStyle(RenderStyle::BEFORE);
-        if (!ps2)
-            ch = NoInherit;
-        else {
-            RenderStyle* ps1 = s1->getPseudoStyle(RenderStyle::BEFORE);
-            ch = ps1 && *ps1 == *ps2 ? NoChange : NoInherit;
-        }
-    }
-    if (ch == NoChange && s1->hasPseudoStyle(RenderStyle::AFTER)) {
-        RenderStyle* ps2 = s2->getPseudoStyle(RenderStyle::AFTER);
-        if (!ps2)
-            ch = NoInherit;
-        else {
-            RenderStyle* ps1 = s1->getPseudoStyle(RenderStyle::AFTER);
-            ch = ps2 && *ps1 == *ps2 ? NoChange : NoInherit;
-        }
-    }
-    
-    return ch;
-}
-
-#ifndef NDEBUG
-void Node::dump(TextStream* stream, DeprecatedString ind) const
-{
-    if (m_hasId) { *stream << " hasId"; }
-    if (m_hasClass) { *stream << " hasClass"; }
-    if (m_focused) { *stream << " focused"; }
-    if (m_active) { *stream << " active"; }
-
-    *stream << " tabIndex=" << m_tabIndex;
-    *stream << endl;
-
-    for (Node* child = firstChild(); child; child = child->nextSibling()) {
-        *stream << ind << child->nodeName() << ": ";
-        child->dump(stream, ind + "  ");
-    }
-}
-#endif
 
 void Node::attach()
 {
@@ -867,18 +918,6 @@ void Node::removedFromDocument()
     removedFromTree(false);
 }
 
-bool Node::isReadOnlyNode()
-{
-    // Entity & Entity Reference nodes and their descendants are read-only
-    Node *n = this;
-    while (n) {
-        if (n->nodeType() == ENTITY_NODE || n->nodeType() == ENTITY_REFERENCE_NODE)
-            return true;
-        n = n->parentNode();
-    }
-    return false;
-}
-
 Node *Node::previousEditable() const
 {
     Node *node = previousLeafNode();
@@ -886,24 +925,6 @@ Node *Node::previousEditable() const
         if (node->isContentEditable())
             return node;
         node = node->previousLeafNode();
-    }
-    return 0;
-}
-
-// Offset specifies the child node to start at.  If it is past
-// the last child, it specifies to start at next sibling.
-Node *Node::nextEditable(int offset) const
-{
-    ASSERT(offset>=0);
-    Node *node;
-    if (hasChildNodes())
-        node = (offset >= (int)childNodeCount()) ? nextSibling() : childNode(offset)->nextLeafNode();
-    else
-        node = nextLeafNode();
-    while (node) {
-        if (node->isContentEditable())
-            return node;
-        node = node->nextLeafNode();
     }
     return 0;
 }
@@ -1002,36 +1023,35 @@ void Node::createRendererIfNeeded()
 
     ASSERT(!renderer());
     
-    Node *parent = parentNode();    
+    Node* parent = parentNode();    
     ASSERT(parent);
     
-    RenderObject *parentRenderer = parent->renderer();
+    RenderObject* parentRenderer = parent->renderer();
     if (parentRenderer && parentRenderer->canHaveChildren()
 #if ENABLE(SVG)
         && parent->childShouldCreateRenderer(this)
 #endif
         ) {
-        RenderStyle* style = styleForRenderer(parentRenderer);
-        if (rendererIsNeeded(style)) {
-            if (RenderObject* r = createRenderer(document()->renderArena(), style)) {
-                if (!parentRenderer->isChildAllowed(r, style))
+        RefPtr<RenderStyle> style = styleForRenderer();
+        if (rendererIsNeeded(style.get())) {
+            if (RenderObject* r = createRenderer(document()->renderArena(), style.get())) {
+                if (!parentRenderer->isChildAllowed(r, style.get()))
                     r->destroy();
                 else {
                     setRenderer(r);
-                    renderer()->setAnimatableStyle(style);
+                    renderer()->setAnimatableStyle(style.release());
                     parentRenderer->addChild(renderer(), nextRenderer());
                 }
             }
         }
-        style->deref(document()->renderArena());
     }
 }
 
-RenderStyle *Node::styleForRenderer(RenderObject *parent)
+PassRefPtr<RenderStyle> Node::styleForRenderer()
 {
-    RenderStyle *style = parent->style();
-    style->ref();
-    return style;
+    if (isElementNode())
+        return document()->styleSelector()->styleForElement(static_cast<Element*>(this));
+    return parentNode() && parentNode()->renderer() ? parentNode()->renderer()->style() : 0;
 }
 
 bool Node::rendererIsNeeded(RenderStyle *style)
@@ -1044,13 +1064,13 @@ RenderObject *Node::createRenderer(RenderArena *arena, RenderStyle *style)
     ASSERT(false);
     return 0;
 }
-
-RenderStyle* Node::renderStyle() const
+    
+RenderStyle* Node::nonRendererRenderStyle() const
 { 
-    return m_renderer ? m_renderer->style() : 0; 
-}
+    return 0; 
+}   
 
-void Node::setRenderStyle(RenderStyle* s)
+void Node::setRenderStyle(PassRefPtr<RenderStyle> s)
 {
     if (m_renderer)
         m_renderer->setAnimatableStyle(s); 
@@ -1087,13 +1107,29 @@ Node* Node::shadowAncestorNode()
         return this;
 #endif
 
-    Node *n = this;    
-    while (n) {
-        if (n->isShadowNode())
-            return n->shadowParentNode();
-        n = n->parentNode();
-    } 
+    Node* root = shadowTreeRootNode();
+    if (root)
+        return root->shadowParentNode();
     return this;
+}
+
+Node* Node::shadowTreeRootNode()
+{
+    Node* root = this;
+    while (root) {
+        if (root->isShadowNode())
+            return root;
+        root = root->parentNode();
+    }
+    return 0;
+}
+
+bool Node::isInShadowTree()
+{
+    for (Node* n = this; n; n = n->parentNode())
+        if (n->isShadowNode())
+            return true;
+    return false;
 }
 
 bool Node::isBlockFlow() const
@@ -1109,22 +1145,6 @@ bool Node::isBlockFlowOrBlockTable() const
 bool Node::isEditableBlock() const
 {
     return isContentEditable() && isBlockFlow();
-}
-
-Element *Node::enclosingBlockFlowOrTableElement() const
-{
-    Node *n = const_cast<Node *>(this);
-    if (isBlockFlowOrBlockTable())
-        return static_cast<Element *>(n);
-
-    while (1) {
-        n = n->parentNode();
-        if (!n)
-            break;
-        if (n->isBlockFlowOrBlockTable() || n->hasTagName(bodyTag))
-            return static_cast<Element *>(n);
-    }
-    return 0;
 }
 
 Element *Node::enclosingBlockFlowElement() const
@@ -1195,57 +1215,123 @@ PassRefPtr<NodeList> Node::getElementsByTagNameNS(const String& namespaceURI, co
     String name = localName;
     if (document()->isHTMLDocument())
         name = localName.lower();
-    return new TagNodeList(this, namespaceURI.isEmpty() ? nullAtom : AtomicString(namespaceURI), name);
+    return TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : AtomicString(namespaceURI), name);
 }
 
 PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
 {
-    if (!m_nodeLists)
-        m_nodeLists.set(new NodeListsNodeData);
+    NodeRareData* data = ensureRareData();
+    if (!data->nodeLists()) {
+        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        document()->addNodeListCache();
+    }
 
-    pair<NodeListsNodeData::CacheMap::iterator, bool> result = m_nodeLists->m_nameNodeListCaches.add(elementName, 0);
+    pair<NodeListsNodeData::CacheMap::iterator, bool> result = data->nodeLists()->m_nameNodeListCaches.add(elementName, 0);
     if (result.second)
         result.first->second = new DynamicNodeList::Caches;
     
-    return new NameNodeList(this, elementName, result.first->second);
+    return NameNodeList::create(this, elementName, result.first->second);
 }
 
 PassRefPtr<NodeList> Node::getElementsByClassName(const String& classNames)
 {
-    if (!m_nodeLists)
-        m_nodeLists.set(new NodeListsNodeData);
+    NodeRareData* data = ensureRareData();
+    if (!data->nodeLists()) {
+        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        document()->addNodeListCache();
+    }
 
-    pair<NodeListsNodeData::CacheMap::iterator, bool> result = m_nodeLists->m_classNodeListCaches.add(classNames, 0);
+    pair<NodeListsNodeData::CacheMap::iterator, bool> result = data->nodeLists()->m_classNodeListCaches.add(classNames, 0);
     if (result.second)
         result.first->second = new DynamicNodeList::Caches;
     
-    return new ClassNodeList(this, classNames, result.first->second);
+    return ClassNodeList::create(this, classNames, result.first->second);
+}
+
+template <typename Functor>
+static bool forEachTagSelector(Functor& functor, CSSSelector* selector)
+{
+    ASSERT(selector);
+
+    do {
+        if (functor(selector))
+            return true;
+        if (CSSSelector* simpleSelector = selector->m_simpleSelector) {
+            if (forEachTagSelector(functor, simpleSelector))
+                return true;
+        }
+    } while ((selector = selector->m_tagHistory));
+
+    return false;
+}
+
+template <typename Functor>
+static bool forEachSelector(Functor& functor, CSSSelector* selector)
+{
+    for (; selector; selector = selector->next()) {
+        if (forEachTagSelector(functor, selector))
+            return true;
+    }
+
+    return false;
+}
+
+class SelectorNeedsNamespaceResolutionFunctor {
+public:
+    bool operator()(CSSSelector* selector)
+    {
+        if (selector->hasTag() && selector->m_tag.prefix() != nullAtom && selector->m_tag.prefix() != starAtom)
+            return true;
+        if (selector->hasAttribute() && selector->m_attr.prefix() != nullAtom && selector->m_attr.prefix() != starAtom)
+            return true;
+        return false;
+    }
+};
+
+static bool selectorNeedsNamespaceResolution(CSSSelector* currentSelector)
+{
+    SelectorNeedsNamespaceResolutionFunctor functor;
+    return forEachSelector(functor, currentSelector);
 }
 
 PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& ec)
 {
-    if (selectors.isNull() || selectors.isEmpty()) {
+    if (selectors.isEmpty()) {
         ec = SYNTAX_ERR;
         return 0;
     }
-    CSSStyleSheet tempStyleSheet(document());
-    CSSParser p(true);
-    RefPtr<CSSRule> rule = p.parseRule(&tempStyleSheet, selectors + "{}");
-    if (!rule || !rule->isStyleRule()) {
+    bool strictParsing = !document()->inCompatMode();
+    CSSParser p(strictParsing);
+
+    std::auto_ptr<CSSSelector> querySelector = p.parseSelector(selectors, document());
+    if (!querySelector.get()) {
         ec = SYNTAX_ERR;
         return 0;
     }
 
-    CSSStyleSelector* styleSelector = document()->styleSelector();
-    CSSSelector* querySelector = static_cast<CSSStyleRule*>(rule.get())->selector();
-    
+    // throw a NAMESPACE_ERR if the selector includes any namespace prefixes.
+    if (selectorNeedsNamespaceResolution(querySelector.get())) {
+        ec = NAMESPACE_ERR;
+        return 0;
+    }
+
+    CSSStyleSelector::SelectorChecker selectorChecker(document(), strictParsing);
+
+    // FIXME: we could also optimize for the the [id="foo"] case
+    if (strictParsing && querySelector->m_match == CSSSelector::Id && inDocument() && !querySelector->next()) {
+        ASSERT(querySelector->m_attr == idAttr);
+        Element* element = document()->getElementById(querySelector->m_value);
+        if (element && (isDocumentNode() || element->isDescendantOf(this)) && selectorChecker.checkSelector(querySelector.get(), element))
+            return element;
+        return 0;
+    }
+
     // FIXME: We can speed this up by implementing caching similar to the one use by getElementById
     for (Node* n = firstChild(); n; n = n->traverseNextNode(this)) {
         if (n->isElementNode()) {
             Element* element = static_cast<Element*>(n);
-            styleSelector->initElementAndPseudoState(element);
-            for (CSSSelector* selector = querySelector; selector; selector = selector->next()) {
-                if (styleSelector->checkSelector(selector))
+            for (CSSSelector* selector = querySelector.get(); selector; selector = selector->next()) {
+                if (selectorChecker.checkSelector(selector, element))
                     return element;
             }
         }
@@ -1256,21 +1342,27 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
 
 PassRefPtr<NodeList> Node::querySelectorAll(const String& selectors, ExceptionCode& ec)
 {
-    if (selectors.isNull() || selectors.isEmpty()) {
+    if (selectors.isEmpty()) {
         ec = SYNTAX_ERR;
         return 0;
     }
-    CSSStyleSheet tempStyleSheet(document());
-    CSSParser p(true);
-    RefPtr<CSSRule> rule = p.parseRule(&tempStyleSheet, selectors + "{}");
-    if (!rule || !rule->isStyleRule()) {
-        ec = SYNTAX_ERR;
-        return 0;
-    }
-    
-    SelectorNodeList* resultList = new SelectorNodeList(this, static_cast<CSSStyleRule*>(rule.get())->selector());
+    bool strictParsing = !document()->inCompatMode();
+    CSSParser p(strictParsing);
 
-    return resultList;
+    std::auto_ptr<CSSSelector> querySelector = p.parseSelector(selectors, document());
+
+    if (!querySelector.get()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+
+    // Throw a NAMESPACE_ERR if the selector includes any namespace prefixes.
+    if (selectorNeedsNamespaceResolution(querySelector.get())) {
+        ec = NAMESPACE_ERR;
+        return 0;
+    }
+
+    return createSelectorNodeList(this, querySelector.get());
 }
 
 Document *Node::ownerDocument() const
@@ -1279,23 +1371,9 @@ Document *Node::ownerDocument() const
     return doc == this ? 0 : doc;
 }
 
-bool Node::hasAttributes() const
+KURL Node::baseURI() const
 {
-    return false;
-}
-
-NamedAttrMap *Node::attributes() const
-{
-    return 0;
-}
-
-String Node::baseURI() const
-{
-    Node* parent = parentNode();
-    if (parent)
-        return parent->baseURI();
-
-    return String();
+    return parentNode() ? parentNode()->baseURI() : KURL();
 }
 
 bool Node::isEqualNode(Node *other) const
@@ -1379,7 +1457,9 @@ bool Node::isDefaultNamespace(const String &namespaceURI) const
             return false;
         }
         case DOCUMENT_NODE:
-            return static_cast <const Document *>(this)->documentElement()->isDefaultNamespace(namespaceURI);
+            if (Element* de = static_cast<const Document*>(this)->documentElement())
+                return de->isDefaultNamespace(namespaceURI);
+            return false;
         case ENTITY_NODE:
         case NOTATION_NODE:
         case DOCUMENT_TYPE_NODE:
@@ -1410,7 +1490,9 @@ String Node::lookupPrefix(const String &namespaceURI) const
         case ELEMENT_NODE:
             return lookupNamespacePrefix(namespaceURI, static_cast<const Element *>(this));
         case DOCUMENT_NODE:
-            return static_cast<const Document *>(this)->documentElement()->lookupPrefix(namespaceURI);
+            if (Element* de = static_cast<const Document*>(this)->documentElement())
+                return de->lookupPrefix(namespaceURI);
+            return String();
         case ENTITY_NODE:
         case NOTATION_NODE:
         case DOCUMENT_FRAGMENT_NODE:
@@ -1468,7 +1550,9 @@ String Node::lookupNamespaceURI(const String &prefix) const
             return String();
         }
         case DOCUMENT_NODE:
-            return static_cast<const Document *>(this)->documentElement()->lookupNamespaceURI(prefix);
+            if (Element* de = static_cast<const Document*>(this)->documentElement())
+                return de->lookupNamespaceURI(prefix);
+            return String();
         case ENTITY_NODE:
         case NOTATION_NODE:
         case DOCUMENT_TYPE_NODE:
@@ -1515,41 +1599,52 @@ String Node::lookupNamespacePrefix(const String &_namespaceURI, const Element *o
     return String();
 }
 
-String Node::textContent(bool convertBRsToNewlines) const
+void Node::appendTextContent(bool convertBRsToNewlines, StringBuilder& content) const
 {
     switch (nodeType()) {
         case TEXT_NODE:
         case CDATA_SECTION_NODE:
         case COMMENT_NODE:
+            content.append(static_cast<const CharacterData*>(this)->CharacterData::nodeValue());
+            break;
+
         case PROCESSING_INSTRUCTION_NODE:
-            return nodeValue();
+            content.append(static_cast<const ProcessingInstruction*>(this)->ProcessingInstruction::nodeValue());
+            break;
         
         case ELEMENT_NODE:
-            if (hasTagName(brTag) && 
-                convertBRsToNewlines)
-                return "\n";
+            if (hasTagName(brTag) && convertBRsToNewlines) {
+                content.append('\n');
+                break;
+        }
+        // Fall through.
         case ATTRIBUTE_NODE:
         case ENTITY_NODE:
         case ENTITY_REFERENCE_NODE:
-        case DOCUMENT_FRAGMENT_NODE: {
-            String s = "";
-        
+        case DOCUMENT_FRAGMENT_NODE:
+            content.setNonNull();
+
             for (Node *child = firstChild(); child; child = child->nextSibling()) {
                 if (child->nodeType() == COMMENT_NODE || child->nodeType() == PROCESSING_INSTRUCTION_NODE)
                     continue;
             
-                s += child->textContent(convertBRsToNewlines);
+                child->appendTextContent(convertBRsToNewlines, content);
             }
-        
-            return s;
-        }
-        
+            break;
+
         case DOCUMENT_NODE:
         case DOCUMENT_TYPE_NODE:
         case NOTATION_NODE:
-        default:
-            return String();            
+        case XPATH_NAMESPACE_NODE:
+            break;
     }
+}
+
+String Node::textContent(bool convertBRsToNewlines) const
+{
+    StringBuilder content;
+    appendTextContent(convertBRsToNewlines, content);
+    return content.toString();
 }
 
 void Node::setTextContent(const String &text, ExceptionCode& ec)
@@ -1598,7 +1693,104 @@ bool Node::offsetInCharacters() const
     return false;
 }
 
-#ifndef NDEBUG
+unsigned short Node::compareDocumentPosition(Node* otherNode)
+{
+    // It is not clear what should be done if |otherNode| is 0.
+    if (!otherNode)
+        return DOCUMENT_POSITION_DISCONNECTED;
+
+    if (otherNode == this)
+        return DOCUMENT_POSITION_EQUIVALENT;
+    
+    Attr* attr1 = nodeType() == ATTRIBUTE_NODE ? static_cast<Attr*>(this) : 0;
+    Attr* attr2 = otherNode->nodeType() == ATTRIBUTE_NODE ? static_cast<Attr*>(otherNode) : 0;
+    
+    Node* start1 = attr1 ? attr1->ownerElement() : this;
+    Node* start2 = attr2 ? attr2->ownerElement() : otherNode;
+    
+    // If either of start1 or start2 is null, then we are disconnected, since one of the nodes is
+    // an orphaned attribute node.
+    if (!start1 || !start2)
+        return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC;
+
+    Vector<Node*, 16> chain1;
+    Vector<Node*, 16> chain2;
+    if (attr1)
+        chain1.append(attr1);
+    if (attr2)
+        chain2.append(attr2);
+    
+    if (attr1 && attr2 && start1 == start2 && start1) {
+        // We are comparing two attributes on the same node.  Crawl our attribute map
+        // and see which one we hit first.
+        NamedAttrMap* map = attr1->ownerElement()->attributes(true);
+        unsigned length = map->length();
+        for (unsigned i = 0; i < length; ++i) {
+            // If neither of the two determining nodes is a child node and nodeType is the same for both determining nodes, then an 
+            // implementation-dependent order between the determining nodes is returned. This order is stable as long as no nodes of
+            // the same nodeType are inserted into or removed from the direct container. This would be the case, for example, 
+            // when comparing two attributes of the same element, and inserting or removing additional attributes might change 
+            // the order between existing attributes.
+            Attribute* attr = map->attributeItem(i);
+            if (attr1->attr() == attr)
+                return DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC | DOCUMENT_POSITION_FOLLOWING;
+            if (attr2->attr() == attr)
+                return DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC | DOCUMENT_POSITION_PRECEDING;
+        }
+        
+        ASSERT_NOT_REACHED();
+        return DOCUMENT_POSITION_DISCONNECTED;
+    }
+
+    // If one node is in the document and the other is not, we must be disconnected.
+    // If the nodes have different owning documents, they must be disconnected.  Note that we avoid
+    // comparing Attr nodes here, since they return false from inDocument() all the time (which seems like a bug).
+    if (start1->inDocument() != start2->inDocument() ||
+        start1->document() != start2->document())
+        return DOCUMENT_POSITION_DISCONNECTED | DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC;
+
+    // We need to find a common ancestor container, and then compare the indices of the two immediate children.
+    Node* current;
+    for (current = start1; current; current = current->parentNode())
+        chain1.append(current);
+    for (current = start2; current; current = current->parentNode())
+        chain2.append(current);
+   
+    // Walk the two chains backwards and look for the first difference.
+    unsigned index1 = chain1.size();
+    unsigned index2 = chain2.size();
+    for (unsigned i = std::min(index1, index2); i; --i) {
+        Node* child1 = chain1[--index1];
+        Node* child2 = chain2[--index2];
+        if (child1 != child2) {
+            // If one of the children is an attribute, it wins.
+            if (child1->nodeType() == ATTRIBUTE_NODE)
+                return DOCUMENT_POSITION_FOLLOWING;
+            if (child2->nodeType() == ATTRIBUTE_NODE)
+                return DOCUMENT_POSITION_PRECEDING;
+            
+            if (!child2->nextSibling())
+                return DOCUMENT_POSITION_FOLLOWING;
+            if (!child1->nextSibling())
+                return DOCUMENT_POSITION_PRECEDING;
+
+            // Otherwise we need to see which node occurs first.  Crawl backwards from child2 looking for child1.
+            for (Node* child = child2->previousSibling(); child; child = child->previousSibling()) {
+                if (child == child1)
+                    return DOCUMENT_POSITION_FOLLOWING;
+            }
+            return DOCUMENT_POSITION_PRECEDING;
+        }
+    }
+    
+    // There was no difference between the two parent chains, i.e., one was a subset of the other.  The shorter
+    // chain is the ancestor.
+    return index1 < index2 ? 
+               DOCUMENT_POSITION_FOLLOWING | DOCUMENT_POSITION_CONTAINED_BY :
+               DOCUMENT_POSITION_PRECEDING | DOCUMENT_POSITION_CONTAINS;
+}
+
+#if !defined(NDEBUG) || defined(ANDROID_DOM_LOGGING)
 
 static void appendAttributeDesc(const Node* node, String& string, const QualifiedName& name, const char* attrDesc)
 {
@@ -1617,14 +1809,33 @@ void Node::showNode(const char* prefix) const
         prefix = "";
     if (isTextNode()) {
         String value = nodeValue();
+#ifdef ANDROID_DOM_LOGGING
+        bool hasNoneWhitespace = false;
+        for (int i = value.length()-1; i >= 0; i--)
+            if (!isSpaceOrNewline(value[i])) {
+                hasNoneWhitespace = true;
+                break;
+            }
+#endif
         value.replace('\\', "\\\\");
         value.replace('\n', "\\n");
+#ifdef ANDROID_DOM_LOGGING
+        if (hasNoneWhitespace)
+            DUMP_DOM_LOGD("%s%s\t%p \"%s\"\n", prefix, nodeName().utf8().data(), this, value.utf8().data());
+#else
         fprintf(stderr, "%s%s\t%p \"%s\"\n", prefix, nodeName().utf8().data(), this, value.utf8().data());
+#endif
     } else {
         String attrs = "";
         appendAttributeDesc(this, attrs, classAttr, " CLASS=");
         appendAttributeDesc(this, attrs, styleAttr, " STYLE=");
+#ifdef ANDROID_DOM_LOGGING
+        appendAttributeDesc(this, attrs, idAttr, " ID=");
+        appendAttributeDesc(this, attrs, nameAttr, " NAME=");
+        DUMP_DOM_LOGD("%s%s\t%p%s\n", prefix, nodeName().utf8().data(), this, attrs.utf8().data());
+#else
         fprintf(stderr, "%s%s\t%p%s\n", prefix, nodeName().utf8().data(), this, attrs.utf8().data());
+#endif
     }
 }
 
@@ -1642,13 +1853,30 @@ void Node::showTreeAndMark(const Node* markedNode1, const char* markedLabel1, co
     rootNode = node;
         
     for (node = rootNode; node; node = node->traverseNextNode()) {
+#ifdef ANDROID_DOM_LOGGING
+        String prefix = "";
+#endif
         if (node == markedNode1)
+#ifdef ANDROID_DOM_LOGGING
+            prefix.append(markedLabel1);
+#else
             fprintf(stderr, "%s", markedLabel1);
+#endif
         if (node == markedNode2)
+#ifdef ANDROID_DOM_LOGGING
+            prefix.append(markedLabel2);
+#else
             fprintf(stderr, "%s", markedLabel2);
+#endif
                         
+#ifdef ANDROID_DOM_LOGGING
+        for (const Node* tmpNode = node; tmpNode && tmpNode != rootNode; tmpNode = tmpNode->parentNode())
+            prefix.append("\t");
+        node->showNode(prefix.utf8().data());
+#else
         for (const Node* tmpNode = node; tmpNode && tmpNode != rootNode; tmpNode = tmpNode->parentNode())
             fprintf(stderr, "\t");
+#endif
         node->showNode();
     }
 }
@@ -1669,7 +1897,65 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 
 #endif
 
+// --------
+
+void NodeListsNodeData::invalidateCaches()
+{
+    m_childNodeListCaches.reset();
+    invalidateCachesThatDependOnAttributes();
 }
+
+void NodeListsNodeData::invalidateCachesThatDependOnAttributes()
+{
+    CacheMap::iterator classCachesEnd = m_classNodeListCaches.end();
+    for (CacheMap::iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it)
+        it->second->reset();
+
+    CacheMap::iterator nameCachesEnd = m_nameNodeListCaches.end();
+    for (CacheMap::iterator it = m_nameNodeListCaches.begin(); it != nameCachesEnd; ++it)
+        it->second->reset();
+}
+
+bool NodeListsNodeData::isEmpty() const
+{
+    if (!m_listsWithCaches.isEmpty())
+        return false;
+
+    if (m_childNodeListCaches.refCount)
+        return false;
+
+    CacheMap::const_iterator classCachesEnd = m_classNodeListCaches.end();
+    for (CacheMap::const_iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it) {
+        if (it->second->refCount)
+            return false;
+    }
+
+    CacheMap::const_iterator nameCachesEnd = m_nameNodeListCaches.end();
+    for (CacheMap::const_iterator it = m_nameNodeListCaches.begin(); it != nameCachesEnd; ++it) {
+        if (it->second->refCount)
+            return false;
+    }
+
+    return true;
+}
+
+void Node::getSubresourceURLs(Vector<KURL>& urls) const
+{
+    Vector<String> subresourceStrings;
+    getSubresourceAttributeStrings(subresourceStrings);
+    
+    for (unsigned i = 0; i < subresourceStrings.size(); ++i) {
+        String& subresourceString(subresourceStrings[i]);
+        
+        // FIXME: Is parseURL appropriate here?
+        if (subresourceString.length())
+            urls.append(document()->completeURL(parseURL(subresourceString)));
+    }
+}
+
+// --------
+
+} // namespace WebCore
 
 #ifndef NDEBUG
 

@@ -35,6 +35,7 @@
 #import <WebCore/WebCoreTextRenderer.h>
 
 #import <unicode/uchar.h>
+#import <sys/param.h>
 
 @implementation NSString (WebKitExtras)
 
@@ -322,22 +323,38 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     if ([[fileManager _webkit_startupVolumeName] isEqualToString:volumeName]) {
         // Startup volume name is included in path, remove it.
         [pathComponents removeObjectAtIndex:1];
-    } else if ([[fileManager directoryContentsAtPath:@"/Volumes"] containsObject:volumeName]) {
+    } else if ([[fileManager contentsOfDirectoryAtPath:@"/Volumes" error:NULL] containsObject:volumeName]) {
         // Path starts with other volume name, prepend "/Volumes".
         [pathComponents insertObject:@"Volumes" atIndex:1];
-    } else {
+    } else
         // It's valid.
         return self;
-    }
 
     NSString *path = [NSString pathWithComponents:pathComponents];
 
-    if (![fileManager fileExistsAtPath:path]) {
+    if (![fileManager fileExistsAtPath:path])
         // File at canonicalized path doesn't exist, return original.
         return self;
-    }
 
     return path;
 }
+
++ (NSString *)_webkit_localCacheDirectoryWithBundleIdentifier:(NSString*)bundleIdentifier
+{
+    NSString* cacheDir = nil;
+    
+#ifdef BUILDING_ON_TIGER
+    cacheDir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches"];
+#else
+    char cacheDirectory[MAXPATHLEN];
+    size_t cacheDirectoryLen = confstr(_CS_DARWIN_USER_CACHE_DIR, cacheDirectory, MAXPATHLEN);
+    
+    if (cacheDirectoryLen)
+        cacheDir = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:cacheDirectory length:cacheDirectoryLen - 1];
+#endif
+
+    return [cacheDir stringByAppendingPathComponent:bundleIdentifier];
+}
+
 
 @end

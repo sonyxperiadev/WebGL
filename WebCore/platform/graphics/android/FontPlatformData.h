@@ -24,16 +24,16 @@
 #ifndef FontPlatformData_H
 #define FontPlatformData_H
 
+#include "StringImpl.h"
+
 class SkPaint;
 class SkTypeface;
 
 namespace WebCore {
 
-class FontPlatformData
-{
+class FontPlatformData {
 public:
-    static FontPlatformData Deleted()
-    {
+    static FontPlatformData Deleted() {
         return FontPlatformData(NULL, -1, false, false);
     }
 
@@ -42,6 +42,12 @@ public:
     FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic);
     FontPlatformData(const FontPlatformData& src, float textSize);
     ~FontPlatformData();
+
+    FontPlatformData(WTF::HashTableDeletedValueType)
+        : mTypeface(hashTableDeletedFontValue()) { }
+    bool isHashTableDeletedValue() const {
+        return mTypeface == hashTableDeletedFontValue();
+    }
 
     FontPlatformData& operator=(const FontPlatformData&);
     bool operator==(const FontPlatformData& a) const;
@@ -54,51 +60,12 @@ private:
     float       mTextSize;
     bool        mFakeBold;
     bool        mFakeItalic;
-};
 
-#if 0       // windows port
-class FontPlatformData
-{
-public:
-    class Deleted {};
-
-    // Used for deleted values in the font cache's hash tables.
-    FontPlatformData(Deleted)
-    : m_font((HFONT)-1), m_fontFace(0), m_scaledFont(0), m_size(0)
-    {}
-
-    FontPlatformData()
-    : m_font(0), m_fontFace(0), m_scaledFont(0), m_size(0)
-    {}
-
-    FontPlatformData(HFONT, int size);
-    ~FontPlatformData();
-
-    HFONT hfont() const { return m_font; }
-    cairo_font_face_t* fontFace() const { return m_fontFace; }
-    cairo_scaled_font_t* scaledFont() const { return m_scaledFont; }
-
-    int size() const { return m_size; }
-
-    unsigned hash() const
-    { 
-        return StringImpl::computeHash((UChar*)(&m_font), sizeof(HFONT) / sizeof(UChar));
+    static SkTypeface* hashTableDeletedFontValue() {
+        return reinterpret_cast<SkTypeface*>(-1);
     }
-
-    bool operator==(const FontPlatformData& other) const
-    { 
-        return m_font == other.m_font && m_fontFace == other.m_fontFace && 
-               m_scaledFont == other.m_scaledFont && m_size == other.m_size;
-    }
-
-private:
-    HFONT m_font;
-    cairo_font_face_t* m_fontFace;
-    cairo_scaled_font_t* m_scaledFont;
-    int m_size;
 };
-#endif
-
-}
+    
+} /* namespace */
 
 #endif

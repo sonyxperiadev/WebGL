@@ -25,28 +25,43 @@
 #include "CachedResource.h"
 
 #include "Cache.h"
+#include "CachedResourceHandle.h"
 #include "DocLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "KURL.h"
 #include "Request.h"
 #include "SystemTime.h"
+#include <wtf/RefCountedLeakCounter.h>
 #include <wtf/Vector.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
-CachedResource::CachedResource(const String& url, Type type, bool forCache, bool sendResourceLoadCallbacks)
+#ifndef NDEBUG
+static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
+#endif
+
+CachedResource::CachedResource(const String& url, Type type)
     : m_url(url)
     , m_lastDecodedAccessTime(0)
-    , m_sendResourceLoadCallbacks(sendResourceLoadCallbacks)
-#ifdef ANDROID_PRELOAD_CHANGES
+    , m_sendResourceLoadCallbacks(true)
     , m_preloadCount(0)
     , m_preloadResult(PreloadNotReferenced)
     , m_requestedFromNetworkingLayer(false)
-#endif
-    , m_inCache(forCache)
+    , m_inCache(false)
+    , m_loading(false)
     , m_docLoader(0)
+    , m_handleCount(0)
+    , m_resourceToRevalidate(0)
+    , m_isBeingRevalidated(false)
+    , m_expirationDate(0)
 {
+#ifndef NDEBUG
+    cachedResourceLeakCounter.increment();
+#endif
+
     m_type = type;
     m_status = Pending;
     m_encodedSize = 0;
@@ -67,19 +82,30 @@ CachedResource::CachedResource(const String& url, Type type, bool forCache, bool
     m_lruIndex = 0;
 #endif
     m_errorOccurred = false;
-    m_shouldTreatAsLocal = FrameLoader::shouldTreatURLAsLocal(m_url);
 }
 
 CachedResource::~CachedResource()
 {
     ASSERT(!inCache());
     ASSERT(!m_deleted);
+    ASSERT(url().isNull() || cache()->resourceForURL(url()) != this);
 #ifndef NDEBUG
     m_deleted = true;
+    cachedResourceLeakCounter.decrement();
 #endif
-    
+
+    if (m_resourceToRevalidate)
+        m_resourceToRevalidate->m_isBeingRevalidated = false;
+
     if (m_docLoader)
         m_docLoader->removeCachedResource(this);
+}
+    
+void CachedResource::load(DocLoader* docLoader, bool incremental, bool skipCanLoadCheck, bool sendResourceLoadCallbacks)
+{
+    m_sendResourceLoadCallbacks = sendResourceLoadCallbacks;
+    cache()->loader()->load(docLoader, this, incremental, skipCanLoadCheck, sendResourceLoadCallbacks);
+    m_loading = true;
 }
 
 void CachedResource::finish()
@@ -89,12 +115,18 @@ void CachedResource::finish()
 
 bool CachedResource::isExpired() const
 {
-    if (!m_response.expirationDate())
+    if (!m_expirationDate)
         return false;
     time_t now = time(0);
-    return (difftime(now, m_response.expirationDate()) >= 0);
+    return difftime(now, m_expirationDate) >= 0;
 }
-
+  
+void CachedResource::setResponse(const ResourceResponse& response)
+{
+    m_response = response;
+    m_expirationDate = response.expirationDate();
+}
+    
 void CachedResource::setRequest(Request* request)
 {
     if (request && !m_request)
@@ -104,9 +136,8 @@ void CachedResource::setRequest(Request* request)
         delete this;
 }
 
-void CachedResource::ref(CachedResourceClient *c)
+void CachedResource::addClient(CachedResourceClient *c)
 {
-#ifdef ANDROID_PRELOAD_CHANGES
     if (m_preloadResult == PreloadNotReferenced) {
         if (isLoaded())
             m_preloadResult = PreloadReferencedWhileComplete;
@@ -115,26 +146,31 @@ void CachedResource::ref(CachedResourceClient *c)
         else
             m_preloadResult = PreloadReferenced;
     }
-#endif
-    if (!referenced() && inCache())
+    if (!hasClients() && inCache())
         cache()->addToLiveResourcesSize(this);
     m_clients.add(c);
 }
 
-void CachedResource::deref(CachedResourceClient *c)
+void CachedResource::removeClient(CachedResourceClient *c)
 {
     ASSERT(m_clients.contains(c));
     m_clients.remove(c);
     if (canDelete() && !inCache())
         delete this;
-    else if (!referenced() && inCache()) {
+    else if (!hasClients() && inCache()) {
         cache()->removeFromLiveResourcesSize(this);
         cache()->removeFromLiveDecodedResourcesList(this);
-        allReferencesRemoved();
+        allClientsRemoved();
         cache()->prune();
     }
 }
 
+void CachedResource::deleteIfPossible()
+{
+    if (canDelete() && !inCache())
+        delete this;
+}
+    
 void CachedResource::setDecodedSize(unsigned size)
 {
     if (size == m_decodedSize)
@@ -155,13 +191,13 @@ void CachedResource::setDecodedSize(unsigned size)
         cache()->insertInLRUList(this);
         
         // Insert into or remove from the live decoded list if necessary.
-        if (m_decodedSize && !m_inLiveDecodedResourcesList && referenced())
+        if (m_decodedSize && !m_inLiveDecodedResourcesList && hasClients())
             cache()->insertInLiveDecodedResourcesList(this);
         else if (!m_decodedSize && m_inLiveDecodedResourcesList)
             cache()->removeFromLiveDecodedResourcesList(this);
 
         // Update the cache's size totals.
-        cache()->adjustSize(referenced(), delta);
+        cache()->adjustSize(hasClients(), delta);
     }
 }
 
@@ -188,7 +224,7 @@ void CachedResource::setEncodedSize(unsigned size)
         cache()->insertInLRUList(this);
         
         // Update the cache's size totals.
-        cache()->adjustSize(referenced(), delta);
+        cache()->adjustSize(hasClients(), delta);
     }
 }
 
@@ -203,6 +239,78 @@ void CachedResource::didAccessDecodedData(double timeStamp)
         }
         cache()->prune();
     }
+}
+    
+void CachedResource::setResourceToRevalidate(CachedResource* resource) 
+{ 
+    ASSERT(resource);
+    ASSERT(!m_resourceToRevalidate);
+    ASSERT(resource != this);
+    ASSERT(!resource->m_isBeingRevalidated);
+    ASSERT(m_handlesToRevalidate.isEmpty());
+    ASSERT(resource->type() == type());
+    resource->m_isBeingRevalidated = true;
+    m_resourceToRevalidate = resource;
+}
+
+void CachedResource::clearResourceToRevalidate() 
+{ 
+    ASSERT(m_resourceToRevalidate);
+    ASSERT(m_resourceToRevalidate->m_isBeingRevalidated);
+    m_resourceToRevalidate->m_isBeingRevalidated = false;
+    m_resourceToRevalidate->deleteIfPossible();
+    m_handlesToRevalidate.clear();
+    m_resourceToRevalidate = 0;
+    deleteIfPossible();
+}
+    
+void CachedResource::switchClientsToRevalidatedResource()
+{
+    ASSERT(m_resourceToRevalidate);
+    ASSERT(!inCache());
+
+    HashSet<CachedResourceHandleBase*>::iterator end = m_handlesToRevalidate.end();
+    for (HashSet<CachedResourceHandleBase*>::iterator it = m_handlesToRevalidate.begin(); it != end; ++it) {
+        CachedResourceHandleBase* handle = *it;
+        handle->m_resource = m_resourceToRevalidate;
+        m_resourceToRevalidate->registerHandle(handle);
+        --m_handleCount;
+    }
+    ASSERT(!m_handleCount);
+    m_handlesToRevalidate.clear();
+
+    Vector<CachedResourceClient*> clientsToMove;
+    HashCountedSet<CachedResourceClient*>::iterator end2 = m_clients.end();
+    for (HashCountedSet<CachedResourceClient*>::iterator it = m_clients.begin(); it != end2; ++it) {
+        CachedResourceClient* client = it->first;
+        unsigned count = it->second;
+        while (count) {
+            clientsToMove.append(client);
+            --count;
+        }
+    }
+    // Equivalent of calling removeClient() for all clients
+    m_clients.clear();
+    
+    unsigned moveCount = clientsToMove.size();
+    for (unsigned n = 0; n < moveCount; ++n)
+        m_resourceToRevalidate->addClient(clientsToMove[n]);
+}
+    
+bool CachedResource::canUseCacheValidator() const
+{
+    return !m_loading && (!m_response.httpHeaderField("Last-Modified").isEmpty() || !m_response.httpHeaderField("ETag").isEmpty());
+}
+    
+bool CachedResource::mustRevalidate(CachePolicy cachePolicy) const
+{
+    if (m_loading)
+        return false;    
+    String cacheControl = m_response.httpHeaderField("Cache-Control");
+    // FIXME: It would be better to tokenize the field.
+    if (cachePolicy == CachePolicyCache)
+        return !cacheControl.isEmpty() && (cacheControl.contains("no-cache", false) || (isExpired() && cacheControl.contains("must-revalidate", false)));
+    return isExpired() || cacheControl.contains("no-cache", false);
 }
 
 }

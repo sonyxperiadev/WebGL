@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,6 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
-#include "NotImplemented.h"
-#if QT_VERSION < 0x040400
-#include "qwebobjectplugin_p.h"
-#endif
-
 namespace WebCore {
 
 struct ExtensionMap {
@@ -42,6 +37,7 @@ struct ExtensionMap {
 
 static const ExtensionMap extensionMap [] = {
     { "bmp", "image/bmp" },
+    { "css", "text/css" },
     { "gif", "image/gif" },
     { "html", "text/html" },
     { "htm", "text/html" },
@@ -79,12 +75,6 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
             return e->mimeType;
         ++e;
     }
-    // ### FIXME: Qt 4.4
-#if QT_VERSION < 0x040400
-    QString type = QWebFactoryLoader::self()->mimeTypeForExtension(ext);
-    if (!type.isEmpty())
-        return type;
-#endif
 
     return "application/octet-stream";
 }

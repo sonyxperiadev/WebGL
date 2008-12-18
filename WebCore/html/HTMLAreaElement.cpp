@@ -1,6 +1,4 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
@@ -20,13 +18,15 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLAreaElement.h"
 
 #include "Document.h"
-#include "HTMLNames.h"
 #include "FloatRect.h"
+#include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "Length.h"
 #include "RenderObject.h"
 
 #ifdef ANDROID_NAVIGATE_AREAMAPS
@@ -69,7 +69,7 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
             m_shape = Rect;
     } else if (attr->name() == coordsAttr) {
         delete [] m_coords;
-        m_coords = attr->value().toCoordsArray(m_coordsLen);
+        m_coords = newCoordsArray(attr->value().string(), m_coordsLen);
     } else if (attr->name() == altAttr || attr->name() == accesskeyAttr) {
         // Do nothing.
     } else
@@ -186,7 +186,7 @@ void HTMLAreaElement::setCoords(const String& value)
     setAttribute(coordsAttr, value);
 }
 
-String HTMLAreaElement::href() const
+KURL HTMLAreaElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
@@ -216,9 +216,9 @@ void HTMLAreaElement::setShape(const String& value)
     setAttribute(shapeAttr, value);
 }
 
-void HTMLAreaElement::setTabIndex(int tabIndex)
+bool HTMLAreaElement::isFocusable() const
 {
-    setAttribute(tabindexAttr, String::number(tabIndex));
+    return HTMLElement::isFocusable();
 }
 
 String HTMLAreaElement::target() const

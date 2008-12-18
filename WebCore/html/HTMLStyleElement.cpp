@@ -43,7 +43,7 @@ HTMLStyleElement::HTMLStyleElement(Document* doc)
 void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == mediaAttr)
-        m_media = attr->value().domString().lower();
+        m_media = attr->value().string().lower();
     else if (attr->name() == titleAttr && m_sheet)
         m_sheet->setTitle(attr->value());
      else
@@ -52,6 +52,7 @@ void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
 
 void HTMLStyleElement::finishParsingChildren()
 {
+    StyleElement::process(this);
     StyleElement::sheet(this);
     m_createdByParser = false;
     HTMLElement::finishParsingChildren();
@@ -61,6 +62,7 @@ void HTMLStyleElement::insertedIntoDocument()
 {
     HTMLElement::insertedIntoDocument();
 
+    document()->addStyleSheetCandidateNode(this, m_createdByParser);
     if (!m_createdByParser)
         StyleElement::insertedIntoDocument(document(), this);
 }
@@ -68,13 +70,16 @@ void HTMLStyleElement::insertedIntoDocument()
 void HTMLStyleElement::removedFromDocument()
 {
     HTMLElement::removedFromDocument();
+    if (document()->renderer())
+        document()->removeStyleSheetCandidateNode(this);
     StyleElement::removedFromDocument(document());
 }
 
-void HTMLStyleElement::childrenChanged(bool changedByParser)
+void HTMLStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    StyleElement::process(this);
-    HTMLElement::childrenChanged(changedByParser);
+    if (!changedByParser)
+        StyleElement::process(this);
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 StyleSheet* HTMLStyleElement::sheet()
@@ -128,6 +133,18 @@ const AtomicString& HTMLStyleElement::type() const
 void HTMLStyleElement::setType(const AtomicString &value)
 {
     setAttribute(typeAttr, value);
+}
+
+void HTMLStyleElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+{    
+    HashSet<String> styleURLs;
+    StyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet();
+    if (styleSheet)
+        styleSheet->addSubresourceURLStrings(styleURLs, ownerDocument()->baseURL());
+    
+    HashSet<String>::iterator end = styleURLs.end();
+    for (HashSet<String>::iterator i = styleURLs.begin(); i != end; ++i)
+        urls.append(*i);
 }
 
 }

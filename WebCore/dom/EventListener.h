@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,7 +31,8 @@ namespace WebCore {
     public:
         virtual ~EventListener() { }
         virtual void handleEvent(Event*, bool isWindowEvent = false) = 0;
-        virtual bool isHTMLEventListener() const { return false; }
+        virtual bool isInline() const { return false; }
+        virtual bool wasCreatedFromMarkup() const { return false; }
     };
 
 }

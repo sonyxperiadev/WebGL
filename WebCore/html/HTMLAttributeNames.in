@@ -1,3 +1,8 @@
+namespace="HTML"
+namespacePrefix="xhtml"
+namespaceURI="http://www.w3.org/1999/xhtml"
+attrsNullNamespace="1"
+
 abbr
 accept_charset
 accept
@@ -7,7 +12,18 @@ align
 alink
 alt
 archive
+aria-activedescendant
+aria-checked
+aria-describedby
+aria-labeledby
+aria-labelledby
+aria-level
+aria-pressed
+aria-valuemax
+aria-valuemin
+aria-valuenow
 autocomplete
+autofocus
 autoplay
 autosave
 axis
@@ -26,7 +42,7 @@ charset
 checked
 cellborder
 cite
-class
+class exportString="1"
 classid
 clear
 code
@@ -77,6 +93,7 @@ playcount
 loopend
 loopstart
 lowsrc
+manifest
 marginheight
 marginwidth
 max
@@ -131,8 +148,19 @@ onscroll
 onsearch
 onselect
 onselectstart
+onstorage
 onsubmit
+/* #if ENABLE(TOUCH_EVENTS) // Android */
+ontouchstart
+ontouchmove
+ontouchend
+ontouchcancel
+/* #endif */
 onunload
+onwebkitanimationstart
+onwebkitanimationiteration
+onwebkitanimationend
+onwebkittransitionend
 pagex
 pagey
 placeholder
@@ -148,6 +176,7 @@ readonly
 rel
 results
 rev
+role
 rows
 rowspan
 rules

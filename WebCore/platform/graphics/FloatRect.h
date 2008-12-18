@@ -42,11 +42,17 @@ typedef struct _NSRect NSRect;
 #endif
 
 #if PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QRectF;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(WX) && USE(WXGC)
 class wxRect2DDouble;
+#endif
+
+#if PLATFORM(SKIA)
+struct SkRect;
 #endif
 
 namespace WebCore {
@@ -135,6 +141,11 @@ public:
 #if PLATFORM(WX) && USE(WXGC)
     FloatRect(const wxRect2DDouble&);
     operator wxRect2DDouble() const;
+#endif
+
+#if PLATFORM(SKIA)
+    FloatRect(const SkRect&);
+    operator SkRect() const;
 #endif
 
 private:

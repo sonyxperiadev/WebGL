@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,7 +20,7 @@
  */
 #include "config.h"
 #include "QWebPopup.h"
-#include "RenderStyle.h"
+#include "PopupMenuStyle.h"
 
 #include <QCoreApplication>
 #include <QMouseEvent>
@@ -33,7 +33,7 @@ QWebPopup::QWebPopup(PopupMenuClient* client)
 {
     Q_ASSERT(m_client);
 
-    setFont(m_client->clientStyle()->font().font());
+    setFont(m_client->menuStyle().font().font());
     connect(this, SIGNAL(activated(int)),
             SLOT(activeChanged(int)));
 }

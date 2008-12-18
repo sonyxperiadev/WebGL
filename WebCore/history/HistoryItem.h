@@ -29,7 +29,6 @@
 #include "CachedPage.h"
 #include "FormData.h"
 #include "IntPoint.h"
-#include "KURL.h"
 #include "PlatformString.h"
 #include <wtf/RefCounted.h>
 #include "StringHash.h"
@@ -37,6 +36,10 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+
+#if PLATFORM(QT)
+#include <QVariant>
+#endif
 
 #if PLATFORM(MAC)
 #import <wtf/RetainPtr.h>
@@ -67,11 +70,19 @@ class HistoryItem : public RefCounted<HistoryItem> {
     friend class PageCache;
 
 public: 
-    HistoryItem();
-    HistoryItem(const String& urlString, const String& title, double lastVisited);
-    HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double lastVisited);
-    HistoryItem(const KURL& url, const String& title);
-    HistoryItem(const KURL& url, const String& target, const String& parent, const String& title);
+    static PassRefPtr<HistoryItem> create() { return adoptRef(new HistoryItem); }
+    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title, double lastVisited)
+    {
+        return adoptRef(new HistoryItem(urlString, title, lastVisited));
+    }
+    static PassRefPtr<HistoryItem> create(const String& urlString, const String& title, const String& alternateTitle, double lastVisited)
+    {
+        return adoptRef(new HistoryItem(urlString, title, alternateTitle, lastVisited));
+    }
+    static PassRefPtr<HistoryItem> create(const KURL& url, const String& target, const String& parent, const String& title)
+    {
+        return adoptRef(new HistoryItem(url, target, parent, title));
+    }
     
     ~HistoryItem();
     
@@ -100,12 +111,6 @@ public:
     FormData* formData();
 #ifdef ANDROID_FIX
     const FormData* formData() const;
-
-    FormData* originalFormData() const;
-    String originalFormContentType() const;
-    String originalFormReferrer() const;
-
-    void setOriginalFormInfo(PassRefPtr<FormData>, const String&, const String&);
 #endif
     String formContentType() const;
     String formReferrer() const;
@@ -158,17 +163,27 @@ public:
     void setTransientProperty(const String&, id);
 #endif
 
+#if PLATFORM(QT)
+    QVariant userData() const { return m_userData; }
+    void setUserData(const QVariant& userData) { m_userData = userData; }
+#endif
+
 #ifndef NDEBUG
     int showTree() const;
     int showTreeWithIndent(unsigned indentLevel) const;
 #endif
     
 #ifdef ANDROID_HISTORY_CLIENT
-    void setBridge(android::WebHistoryItem* bridge) { m_bridge = bridge; }
+    void setBridge(android::WebHistoryItem* bridge) { m_bridge = adoptRef(bridge); }
     android::WebHistoryItem* bridge() const { return m_bridge.get(); }
 #endif
 
 private:
+    HistoryItem();
+    HistoryItem(const String& urlString, const String& title, double lastVisited);
+    HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double lastVisited);
+    HistoryItem(const KURL& url, const String& target, const String& parent, const String& title);
+
     HistoryItem(const HistoryItem&);
     
     String m_urlString;
@@ -194,13 +209,6 @@ private:
     String m_formContentType;
     String m_formReferrer;
 
-#ifdef ANDROID_FIX
-    // info used to repost form data for the original request
-    RefPtr<FormData> m_originalFormData;
-    String m_originalFormContentType;
-    String m_originalFormReferrer;
-#endif
-
     // info used to support RSS feeds
     String m_rssFeedReferrer;
 
@@ -216,6 +224,10 @@ private:
         
 #ifdef ANDROID_HISTORY_CLIENT
     RefPtr<android::WebHistoryItem> m_bridge;
+#endif
+
+#if PLATFORM(QT)
+    QVariant m_userData;
 #endif
 }; //class HistoryItem
 

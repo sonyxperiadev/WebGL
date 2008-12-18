@@ -23,10 +23,12 @@
 #ifndef CachedResource_h
 #define CachedResource_h
 
+#include "CachePolicy.h"
 #include "PlatformString.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
 #include <wtf/HashCountedSet.h>
+#include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 #include <time.h>
 
@@ -34,6 +36,7 @@ namespace WebCore {
 
 class Cache;
 class CachedResourceClient;
+class CachedResourceHandleBase;
 class DocLoader;
 class Request;
 
@@ -65,8 +68,11 @@ public:
         Cached        // regular case
     };
 
-    CachedResource(const String& url, Type, bool forCache = true, bool sendResourceLoadCallbacks = false);
+    CachedResource(const String& url, Type);
     virtual ~CachedResource();
+    
+    virtual void load(DocLoader* docLoader)  { load(docLoader, false, false, true); }
+    void load(DocLoader*, bool incremental, bool skipCanLoadCheck, bool sendResourceLoadCallbacks);
 
     virtual void setEncoding(const String&) { }
     virtual String encoding() const { return String(); }
@@ -76,11 +82,11 @@ public:
     const String &url() const { return m_url; }
     Type type() const { return m_type; }
 
-    virtual void ref(CachedResourceClient*);
-    void deref(CachedResourceClient*);
-    bool referenced() const { return !m_clients.isEmpty(); }
+    virtual void addClient(CachedResourceClient*);
+    void removeClient(CachedResourceClient*);
+    bool hasClients() const { return !m_clients.isEmpty(); }
+    void deleteIfPossible();
 
-#ifdef ANDROID_PRELOAD_CHANGES    
     enum PreloadResult {
         PreloadNotReferenced,
         PreloadReferenced,
@@ -89,9 +95,8 @@ public:
     };
     PreloadResult preloadResult() const { return m_preloadResult; }
     void setRequestedFromNetworkingLayer() { m_requestedFromNetworkingLayer = true; }
-#endif
-
-    virtual void allReferencesRemoved() {};
+        
+    virtual void allClientsRemoved() { };
 
     unsigned count() const { return m_clients.size(); }
 
@@ -126,14 +131,10 @@ public:
 
     SharedBuffer* data() const { return m_data.get(); }
 
-    void setResponse(const ResourceResponse& response) { m_response = response; }
+    void setResponse(const ResourceResponse&);
     const ResourceResponse& response() const { return m_response; }
 
-#ifdef ANDROID_PRELOAD_CHANGES    
-    bool canDelete() const { return !referenced() && !m_request && !m_preloadCount; }
-#else
-    bool canDelete() const { return !referenced() && !m_request; }
-#endif
+    bool canDelete() const { return !hasClients() && !m_request && !m_preloadCount && !m_handleCount && !m_resourceToRevalidate && !m_isBeingRevalidated; }
 
     bool isExpired() const;
 
@@ -145,24 +146,29 @@ public:
     void setAccept(const String& accept) { m_accept = accept; }
 
     bool errorOccurred() const { return m_errorOccurred; }
-    bool treatAsLocal() const { return m_shouldTreatAsLocal; }
     bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
     
     virtual void destroyDecodedData() {};
 
     void setDocLoader(DocLoader* docLoader) { m_docLoader = docLoader; }
-
-#ifdef ANDROID_PRELOAD_CHANGES
+    
     bool isPreloaded() const { return m_preloadCount; }
     void increasePreloadCount() { ++m_preloadCount; }
     void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
-#endif
- 
- protected:
+    
+    void registerHandle(CachedResourceHandleBase* h) { ++m_handleCount; if (m_resourceToRevalidate) m_handlesToRevalidate.add(h); }
+    void unregisterHandle(CachedResourceHandleBase* h) { --m_handleCount; if (m_resourceToRevalidate) m_handlesToRevalidate.remove(h); if (!m_handleCount) deleteIfPossible(); }
+    
+    bool canUseCacheValidator() const;
+    bool mustRevalidate(CachePolicy) const;
+    bool isCacheValidator() const { return m_resourceToRevalidate; }
+    CachedResource* resourceToRevalidate() const { return m_resourceToRevalidate; }
+    
+protected:
     void setEncodedSize(unsigned);
     void setDecodedSize(unsigned);
     void didAccessDecodedData(double timeStamp);
-    
+
     HashCountedSet<CachedResourceClient*> m_clients;
 
     String m_url;
@@ -178,6 +184,12 @@ public:
     bool m_errorOccurred;
 
 private:
+    // These are called by the friendly Cache only
+    void setResourceToRevalidate(CachedResource*);
+    void switchClientsToRevalidatedResource();
+    void clearResourceToRevalidate();
+    void setExpirationDate(time_t expirationDate) { m_expirationDate = expirationDate; }
+
     unsigned m_encodedSize;
     unsigned m_decodedSize;
     unsigned m_accessCount;
@@ -185,12 +197,10 @@ private:
     double m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
     
     bool m_sendResourceLoadCallbacks;
-
-#ifdef ANDROID_PRELOAD_CHANGES
+    
     unsigned m_preloadCount;
     PreloadResult m_preloadResult;
     bool m_requestedFromNetworkingLayer;
-#endif
 
 protected:
     bool m_inCache;
@@ -208,9 +218,19 @@ private:
     CachedResource* m_nextInLiveResourcesList;
     CachedResource* m_prevInLiveResourcesList;
 
-    bool m_shouldTreatAsLocal;
-
     DocLoader* m_docLoader; // only non-0 for resources that are not in the cache
+    
+    unsigned m_handleCount;
+    // If this field is non-null we are using the resource as a proxy for checking whether an existing resource is still up to date
+    // using HTTP If-Modified-Since/If-None-Match headers. If the response is 304 all clients of this resource are moved
+    // to to be clients of m_resourceToRevalidate and the resource is deleted. If not, the field is zeroed and this
+    // resources becomes normal resource load.
+    CachedResource* m_resourceToRevalidate;
+    bool m_isBeingRevalidated;
+    // These handles will need to be updated to point to the m_resourceToRevalidate in case we get 304 response.
+    HashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
+    
+    time_t m_expirationDate;
 };
 
 }

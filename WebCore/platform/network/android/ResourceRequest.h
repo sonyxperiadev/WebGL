@@ -36,10 +36,10 @@ namespace WebCore {
     struct ResourceRequest : ResourceRequestBase {
 
         ResourceRequest(const String& url) 
-            : ResourceRequestBase(KURL(url.deprecatedString()), UseProtocolCachePolicy)
+            : ResourceRequestBase(KURL(url), UseProtocolCachePolicy)
             , m_cachedResource(0)
 #ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(false)
+            , m_wasUserGesture(true)
 #endif
         {
         }
@@ -48,7 +48,7 @@ namespace WebCore {
             : ResourceRequestBase(url, UseProtocolCachePolicy)
             , m_cachedResource(0)
 #ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(false)
+            , m_wasUserGesture(true)
 #endif
         {
         }
@@ -57,7 +57,7 @@ namespace WebCore {
             : ResourceRequestBase(url, policy)
             , m_cachedResource(0)
 #ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(false)
+            , m_wasUserGesture(true)
 #endif
         {
             setHTTPReferrer(referrer);
@@ -67,7 +67,7 @@ namespace WebCore {
             : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
             , m_cachedResource(0)
 #ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(false)
+            , m_wasUserGesture(true)
 #endif
         {
         }

@@ -41,17 +41,17 @@ AffineTransform::AffineTransform()
 
 AffineTransform::AffineTransform(double a, double b, double c, double d, double tx, double ty)
 {
-    cairo_matrix_init(&m_transform, a, c, b, d, tx, ty);
+    cairo_matrix_init(&m_transform, a, b, c, d, tx, ty);
 }
 
-AffineTransform::AffineTransform(const cairo_matrix_t &matrix)
+AffineTransform::AffineTransform(const PlatformAffineTransform& matrix)
 {
     m_transform = matrix;
 }
 
 void AffineTransform::setMatrix(double a, double b, double c, double d, double tx, double ty)
 {
-    cairo_matrix_init(&m_transform, a, c, b, d, tx, ty);
+    cairo_matrix_init(&m_transform, a, b, c, d, tx, ty);
 }
 
 void AffineTransform::map(double x, double y, double* x2, double* y2) const
@@ -147,22 +147,22 @@ void AffineTransform::setA(double a)
 
 double AffineTransform::b() const
 {
-    return m_transform.xy;
+    return m_transform.yx;
 }
 
 void AffineTransform::setB(double b)
 {
-    m_transform.xy = b;
+    m_transform.yx = b;
 }
 
 double AffineTransform::c() const
 {
-    return m_transform.yx;
+    return m_transform.xy;
 }
 
 void AffineTransform::setC(double c)
 {
-    m_transform.yx = c;
+    m_transform.xy = c;
 }
 
 double AffineTransform::d() const

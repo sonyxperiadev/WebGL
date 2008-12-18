@@ -25,14 +25,14 @@
 #if ENABLE(SVG)
 #include "SVGPreserveAspectRatio.h"
 
+#include "AffineTransform.h"
 #include "SVGParserUtilities.h"
 #include "SVGSVGElement.h"
 
 namespace WebCore {
 
 SVGPreserveAspectRatio::SVGPreserveAspectRatio()
-    : RefCounted<SVGPreserveAspectRatio>()
-    , m_align(SVG_PRESERVEASPECTRATIO_XMIDYMID)
+    : m_align(SVG_PRESERVEASPECTRATIO_XMIDYMID)
     , m_meetOrSlice(SVG_MEETORSLICE_MEET)
 {
     // FIXME: Should the two values default to UNKNOWN instead?
@@ -201,6 +201,59 @@ AffineTransform SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
     }
 
     return temp;
+}
+
+String SVGPreserveAspectRatio::valueAsString() const
+{
+    String result;
+
+    switch ((SVGPreserveAspectRatioType) align()) {
+    default:
+    case SVG_PRESERVEASPECTRATIO_NONE:
+        result = "none";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMIN:
+        result = "xMinYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMIN:
+        result = "xMidYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMIN:
+        result = "xMaxYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMID:
+        result = "xMinYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMID:
+        result = "xMidYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMID:
+        result = "xMaxYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMAX:
+        result = "xMinYMax";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMAX:
+        result = "xMidYMax";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMAX:
+        result = "xMaxYMax";
+        break;
+    };
+
+    switch ((SVGMeetOrSliceType) meetOrSlice()) {
+    default:
+    case SVG_MEETORSLICE_UNKNOWN:
+        break;
+    case SVG_MEETORSLICE_MEET:
+        result += " meet";
+        break;
+    case SVG_MEETORSLICE_SLICE:
+        result += " slice";
+        break;
+    };
+
+    return result;
 }
 
 }

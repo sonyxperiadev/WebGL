@@ -34,6 +34,7 @@
 #include "RefCounted.h"
 #include "ResourceResponse.h"
 
+class wxWebView;
 
 namespace WebCore {
 
@@ -52,13 +53,13 @@ namespace WebCore {
         FrameLoaderClientWx();
         ~FrameLoaderClientWx();
         void setFrame(Frame *frame);
+        void setWebView(wxWebView *webview);
         virtual void detachFrameLoader();
 
         virtual void ref();
         virtual void deref();
 
         virtual bool hasWebView() const; // mainly for assertions
-        virtual bool hasFrameView() const; // ditto
 
         virtual bool hasBackForwardList() const;
         virtual void resetBackForwardList();
@@ -86,10 +87,8 @@ namespace WebCore {
 
         virtual void willCloseDocument();
 
-        virtual void detachedFromParent1();
         virtual void detachedFromParent2();
         virtual void detachedFromParent3();
-        virtual void detachedFromParent4();
 
         virtual void loadedFromCachedPage();
 
@@ -117,7 +116,6 @@ namespace WebCore {
 
         virtual void dispatchDidLoadMainResource(DocumentLoader*);
         virtual void revertToProvisionalState(DocumentLoader*);
-        virtual void clearUnarchivingState(DocumentLoader*);
 
         virtual void postProgressStartedNotification();
         virtual void postProgressEstimateChangedNotification();
@@ -129,12 +127,7 @@ namespace WebCore {
         virtual void willChangeTitle(DocumentLoader*);
         virtual void didChangeTitle(DocumentLoader*);
         virtual void finishedLoading(DocumentLoader*);
-        virtual void finalSetupForReplace(DocumentLoader*);
 
-        virtual void setDefersLoading(bool);
-        virtual bool isArchiveLoadPending(ResourceLoader*) const;
-        virtual void cancelPendingArchiveLoad(ResourceLoader*);
-        virtual void clearArchivedResources();
         virtual bool canShowMIMEType(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
@@ -156,8 +149,7 @@ namespace WebCore {
         virtual void transitionToCommittedFromCachedPage(WebCore::CachedPage*);
         virtual void transitionToCommittedForNewPage();
         
-        virtual void updateGlobalHistoryForStandardLoad(const KURL&);
-        virtual void updateGlobalHistoryForReload(const KURL&);
+        virtual void updateGlobalHistory(const KURL&);
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
         virtual void saveScrollPositionAndViewStateToItem(HistoryItem*);
         virtual bool canCachePage() const;
@@ -189,12 +181,11 @@ namespace WebCore {
         virtual void dispatchDidFailLoad(const ResourceError&);
         virtual Frame* dispatchCreatePage();
         virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String&, const ResourceRequest&);
-        virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, const String&);
-        virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&);
+        virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&);
+        virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>);
         virtual void dispatchUnableToImplementPolicy(const ResourceError&);
 
         virtual void startDownload(const ResourceRequest&);
-        virtual bool willUseArchive(ResourceLoader*, const ResourceRequest&, const KURL&) const;
         
         // FIXME: This should probably not be here, but it's needed for the tests currently
         virtual void partClearedInBegin();
@@ -203,6 +194,7 @@ namespace WebCore {
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
         virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
         virtual void redirectDataToPlugin(Widget* pluginWidget);
+        virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&);
         
         virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
@@ -217,6 +209,7 @@ namespace WebCore {
 
     private:
         Frame *m_frame;
+        wxWebView *m_webView;
         ResourceResponse m_response;
         bool m_firstData;
     };
