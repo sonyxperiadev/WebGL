@@ -26,6 +26,7 @@
 #ifndef TextEncoding_h
 #define TextEncoding_h
 
+#include "TextCodec.h"
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
@@ -46,8 +47,13 @@ namespace WebCore {
         UChar backslashAsCurrencySymbol() const;
         const TextEncoding& closest8BitEquivalent() const;
 
-        String decode(const char*, size_t length) const;
-        CString encode(const UChar*, size_t length, bool allowEntities = false) const;
+        String decode(const char* str, size_t length) const
+        {
+            bool ignored;
+            return decode(str, length, false, ignored);
+        }
+        String decode(const char*, size_t length, bool stopOnError, bool& sawError) const;
+        CString encode(const UChar*, size_t length, UnencodableHandling) const;
 
     private:
         const char* m_name;

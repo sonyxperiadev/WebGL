@@ -36,12 +36,18 @@
 #import <QTKit/QTTime.h>
 @class QTMovie;
 @class QTMovieView;
+@class QTVideoRendererWebKitOnly;
 @class WebCoreMovieObserver;
 #else
 class QTMovie;
 class QTMovieView;
 class QTTime;
+class QTVideoRendererWebKitOnly;
 class WebCoreMovieObserver;
+#endif
+
+#ifndef DRAW_FRAME_RATE
+#define DRAW_FRAME_RATE 0
 #endif
 
 namespace WebCore {
@@ -99,8 +105,12 @@ public:
     
 private:
     void createQTMovie(const String& url);
+    void setUpVideoRendering();
+    void tearDownVideoRendering();
     void createQTMovieView();
     void detachQTMovieView();
+    void createQTVideoRenderer();
+    void destroyQTVideoRenderer();
     QTTime createQTTime(float time) const;
     
     void updateStates();
@@ -115,6 +125,7 @@ private:
     MediaPlayer* m_player;
     RetainPtr<QTMovie> m_qtMovie;
     RetainPtr<QTMovieView> m_qtMovieView;
+    RetainPtr<QTVideoRendererWebKitOnly> m_qtVideoRenderer;
     RetainPtr<WebCoreMovieObserver> m_objcObserver;
     float m_seekTo;
     float m_endTime;
@@ -124,6 +135,12 @@ private:
     MediaPlayer::ReadyState m_readyState;
     bool m_startedPlaying;
     bool m_isStreaming;
+    bool m_visible;
+#if DRAW_FRAME_RATE
+    int  m_frameCountWhilePlaying;
+    double m_timeStartedPlaying;
+    double m_timeStoppedPlaying;
+#endif
 };
 
 }

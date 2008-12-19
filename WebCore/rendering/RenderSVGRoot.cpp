@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2007 Rob Buis <buis@kde.org>
+                  2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
                   2007 Eric Seidel <eric@webkit.org>
 
     This file is part of the KDE project
@@ -39,6 +39,8 @@
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 
+using namespace std;
+
 namespace WebCore {
 
 RenderSVGRoot::RenderSVGRoot(SVGStyledElement* node)
@@ -51,12 +53,12 @@ RenderSVGRoot::~RenderSVGRoot()
 {
 }
 
-short RenderSVGRoot::lineHeight(bool b, bool isRootLineBox) const
+int RenderSVGRoot::lineHeight(bool b, bool isRootLineBox) const
 {
     return height() + marginTop() + marginBottom();
 }
 
-short RenderSVGRoot::baselinePosition(bool b, bool isRootLineBox) const
+int RenderSVGRoot::baselinePosition(bool b, bool isRootLineBox) const
 {
     return height() + marginTop() + marginBottom();
 }
@@ -65,7 +67,12 @@ void RenderSVGRoot::calcPrefWidths()
 {
     ASSERT(prefWidthsDirty());
 
-    int width = calcReplacedWidth() + paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int paddingAndBorders = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int width = calcReplacedWidth(false) + paddingAndBorders;
+
+    if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength)
+        width = min(width, style()->maxWidth().value() + (style()->boxSizing() == CONTENT_BOX ? paddingAndBorders : 0));
+
     if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent())) {
         m_minPrefWidth = 0;
         m_maxPrefWidth = width;
@@ -164,8 +171,7 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 #if ENABLE(SVG_FILTERS)
         // Spec: groups w/o children still may render filter content.
         const SVGRenderStyle* svgStyle = style()->svgStyle();
-        AtomicString filterId(SVGURIReference::getTarget(svgStyle->filter()));
-        SVGResourceFilter* filter = getFilterById(document(), filterId);
+        SVGResourceFilter* filter = getFilterById(document(), svgStyle->filter());
         if (!filter)
 #endif
             return;
@@ -213,13 +219,13 @@ void RenderSVGRoot::calcViewport()
         if (width.unitType() == LengthTypePercentage && svg->hasSetContainerSize())
             w = svg->relativeWidthValue();
         else
-            w = width.value();
+            w = width.value(svg);
         
         SVGLength height = svg->height();
         if (height.unitType() == LengthTypePercentage && svg->hasSetContainerSize())
             h = svg->relativeHeightValue();
         else
-            h = height.value();
+            h = height.value(svg);
 
         m_viewport = FloatRect(0, 0, w, h);
     }
@@ -234,7 +240,7 @@ IntRect RenderSVGRoot::absoluteClippedOverflowRect()
 
 #if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
-    SVGResourceFilter* filter = getFilterById(document(), SVGURIReference::getTarget(style()->svgStyle()->filter()));
+    SVGResourceFilter* filter = getFilterById(document(), style()->svgStyle()->filter());
     if (filter)
         repaintRect.unite(enclosingIntRect(filter->filterBBoxForItemBBox(repaintRect)));
 #endif

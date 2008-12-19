@@ -37,43 +37,32 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "GCController.h"
-#include "JSLocation.h"
+#include "JSDOMWindow.h"
+#include "JSDOMWindowShell.h"
 #include "Logging.h"
 #include "Page.h"
+#include "PageGroup.h"
 #include "PausedTimeouts.h"
 #include "SystemTime.h"
+#include "ScriptController.h"
+#include <runtime/JSLock.h>
+#include <wtf/RefCountedLeakCounter.h>
+
 #if ENABLE(SVG)
 #include "SVGDocumentExtensions.h"
 #endif
 
-#include "kjs_proxy.h"
-#include "kjs_window.h"
-#include <kjs/JSLock.h>
-#include <kjs/SavedBuiltins.h>
-#include <kjs/property_map.h>
-
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
 #ifndef NDEBUG
-WTFLogChannel LogWebCoreCachedPageLeaks =  { 0x00000000, "", WTFLogChannelOn };
-
-struct CachedPageCounter { 
-    static int count; 
-    ~CachedPageCounter() 
-    { 
-        if (count)
-            LOG(WebCoreCachedPageLeaks, "LEAK: %d CachedPage\n", count);
-    }
-};
-int CachedPageCounter::count = 0;
-static CachedPageCounter cachedPageCounter;
+static WTF::RefCountedLeakCounter cachedPageCounter("CachedPage");
 #endif
 
 PassRefPtr<CachedPage> CachedPage::create(Page* page)
 {
-    return new CachedPage(page);
+    return adoptRef(new CachedPage(page));
 }
 
 CachedPage::CachedPage(Page* page)
@@ -82,44 +71,31 @@ CachedPage::CachedPage(Page* page)
     , m_view(page->mainFrame()->view())
     , m_mousePressNode(page->mainFrame()->eventHandler()->mousePressNode())
     , m_URL(page->mainFrame()->loader()->url())
-    , m_windowProperties(new SavedProperties)
-    , m_locationProperties(new SavedProperties)
-    , m_windowLocalStorage(new SavedProperties)
-    , m_windowBuiltins(new SavedBuiltins)
 {
 #ifndef NDEBUG
-    ++CachedPageCounter::count;
+    cachedPageCounter.increment();
 #endif
     
-    m_document->willSaveToCache(); 
+    m_document->documentWillBecomeInactive(); 
     
     Frame* mainFrame = page->mainFrame();
-    Window* window = Window::retrieveWindow(mainFrame);
-
     mainFrame->clearTimers();
 
-    JSLock lock;
+    JSLock lock(false);
 
-    if (window) {
-        window->saveBuiltins(*m_windowBuiltins.get());
-        window->saveProperties(*m_windowProperties.get());
-        window->saveLocalStorage(*m_windowLocalStorage.get());
-        window->location()->saveProperties(*m_locationProperties.get());
-        m_pausedTimeouts.set(window->pauseTimeouts());
+    ScriptController* proxy = mainFrame->script();
+    if (proxy->haveWindowShell()) {
+        m_window = proxy->windowShell()->window();
+        m_window->pauseTimeouts(m_pausedTimeouts);
     }
 
     m_document->setInPageCache(true);
-
-#if ENABLE(SVG)
-    if (m_document && m_document->svgExtensions())
-        m_document->accessSVGExtensions()->pauseAnimations();
-#endif
 }
 
 CachedPage::~CachedPage()
 {
 #ifndef NDEBUG
-    --CachedPageCounter::count;
+    cachedPageCounter.decrement();
 #endif
 
     clear();
@@ -130,16 +106,20 @@ void CachedPage::restore(Page* page)
     ASSERT(m_document->view() == m_view);
 
     Frame* mainFrame = page->mainFrame();
-    Window* window = Window::retrieveWindow(mainFrame);
 
-    JSLock lock;
+    JSLock lock(false);
 
-    if (window) {
-        window->restoreBuiltins(*m_windowBuiltins.get());
-        window->restoreProperties(*m_windowProperties.get());
-        window->restoreLocalStorage(*m_windowLocalStorage.get());
-        window->location()->restoreProperties(*m_locationProperties.get());
-        window->resumeTimeouts(m_pausedTimeouts.get());
+    ScriptController* proxy = mainFrame->script();
+    if (proxy->haveWindowShell()) {
+        JSDOMWindowShell* windowShell = proxy->windowShell();
+        if (m_window) {
+            windowShell->setWindow(m_window.get());
+            windowShell->window()->resumeTimeouts(m_pausedTimeouts);
+        } else {
+            windowShell->setWindow(mainFrame->domWindow());
+            proxy->attachDebugger(page->debugger());
+            windowShell->window()->setProfileGroup(page->group().identifier());
+        }
     }
 
 #if ENABLE(SVG)
@@ -147,7 +127,7 @@ void CachedPage::restore(Page* page)
         m_document->accessSVGExtensions()->unpauseAnimations();
 #endif
 
-    mainFrame->animationController()->resumeAnimations();
+    mainFrame->animation()->resumeAnimations(m_document.get());
 
     mainFrame->eventHandler()->setMousePressNode(mousePressNode());
         
@@ -172,7 +152,7 @@ void CachedPage::clear()
     ASSERT(m_document->frame() == m_view->frame());
 
     if (m_document->inPageCache()) {
-        Frame::clearTimers(m_view.get());
+        Frame::clearTimers(m_view.get(), m_document.get());
 
         m_document->setInPageCache(false);
         // FIXME: We don't call willRemove here. Why is that OK?
@@ -189,14 +169,11 @@ void CachedPage::clear()
     m_mousePressNode = 0;
     m_URL = KURL();
 
-    JSLock lock;
-
-    m_windowProperties.clear();
-    m_locationProperties.clear();
-    m_windowBuiltins.clear();
+    JSLock lock(false);
     m_pausedTimeouts.clear();
+    m_window = 0;
+
     m_cachedPagePlatformData.clear();
-    m_windowLocalStorage.clear();
 
     gcController().garbageCollectSoon();
 }

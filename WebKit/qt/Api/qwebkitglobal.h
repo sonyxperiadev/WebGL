@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -15,14 +15,12 @@
     along with this library; see the file COPYING.LIB.  If not, write to
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
-
-    This class provides all functionality needed for loading images, style sheets and html
-    pages from the web. It has a memory cache for these objects.
 */
+
 #ifndef QWEBKITGLOBAL_H
 #define QWEBKITGLOBAL_H
 
-#include <qglobal.h>
+#include <QtCore/qglobal.h>
 
 #if defined(Q_OS_WIN)
 #    if defined(BUILD_WEBKIT)
@@ -35,5 +33,16 @@
 #if !defined(QWEBKIT_EXPORT)
 #define QWEBKIT_EXPORT Q_DECL_EXPORT
 #endif
+
+#if QT_VERSION < 0x040400
+    #ifndef QT_BEGIN_NAMESPACE
+    #define QT_BEGIN_NAMESPACE
+    #endif
+
+    #ifndef QT_END_NAMESPACE
+    #define QT_END_NAMESPACE
+    #endif
+#endif
+
 
 #endif // QWEBKITGLOBAL_H

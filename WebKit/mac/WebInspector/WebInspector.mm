@@ -28,7 +28,6 @@
 
 #import "WebInspector.h"
 #import "WebFrameInternal.h"
-#import "WebView.h"
 
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
@@ -60,13 +59,91 @@ using namespace WebCore;
 - (void)showConsole:(id)sender
 {
     if (Page* page = core(_webView))
-        page->inspectorController()->showConsole();
+        page->inspectorController()->showPanel(InspectorController::ConsolePanel);
 }
 
 - (void)showTimeline:(id)sender
 {
+    // Not used anymore. Remove when a release of Safari non-longer calls this.
+}
+
+- (BOOL)isDebuggingJavaScript
+{
     if (Page* page = core(_webView))
-        page->inspectorController()->showTimeline();
+        return page->inspectorController()->debuggerEnabled();
+    return NO;
+}
+
+- (void)toggleDebuggingJavaScript:(id)sender
+{
+    if ([self isDebuggingJavaScript])
+        [self stopDebuggingJavaScript:sender];
+    else
+        [self startDebuggingJavaScript:sender];
+}
+
+- (void)startDebuggingJavaScript:(id)sender
+{
+    Page* page = core(_webView);
+    if (!page)
+        return;
+    page->inspectorController()->showPanel(InspectorController::ScriptsPanel);
+    page->inspectorController()->enableDebugger();
+}
+
+- (void)stopDebuggingJavaScript:(id)sender
+{
+    if (Page* page = core(_webView))
+        page->inspectorController()->disableDebugger();
+}
+
+- (BOOL)isProfilingJavaScript
+{
+    if (Page* page = core(_webView))
+        return page->inspectorController()->isRecordingUserInitiatedProfile();
+    return NO;
+}
+
+- (void)toggleProfilingJavaScript:(id)sender
+{
+    if ([self isProfilingJavaScript])
+        [self stopProfilingJavaScript:sender];
+    else
+        [self startProfilingJavaScript:sender];
+}
+
+- (void)startProfilingJavaScript:(id)sender
+{
+    if (Page* page = core(_webView))
+        page->inspectorController()->startUserInitiatedProfiling();
+}
+
+- (void)stopProfilingJavaScript:(id)sender
+{
+    Page* page = core(_webView);
+    if (!page)
+        return;
+    page->inspectorController()->stopUserInitiatedProfiling();
+    page->inspectorController()->showPanel(InspectorController::ProfilesPanel);
+}
+
+- (BOOL)isJavaScriptProfilingEnabled
+{
+    if (Page* page = core(_webView))
+        return page->inspectorController()->profilerEnabled();
+    return NO;
+}
+
+- (void)setJavaScriptProfilingEnabled:(BOOL)enabled
+{
+    Page* page = core(_webView);
+    if (!page)
+        return;
+
+    if (enabled)
+        page->inspectorController()->enableProfiler();
+    else
+        page->inspectorController()->disableProfiler();
 }
 
 - (void)close:(id)sender 
@@ -89,21 +166,9 @@ using namespace WebCore;
 @end
 
 @implementation WebInspector (Obsolete)
-+ (WebInspector *)sharedWebInspector
-{
-    // Safari 3 beta calls this method
-    static BOOL logged = NO;
-    if (!logged) {
-        NSLog(@"+[WebInspector sharedWebInspector]: this method is obsolete.");
-        logged = YES;
-    }
-
-    return [[[WebInspector alloc] init] autorelease];
-}
-
 + (WebInspector *)webInspector
 {
-    // Safari 3 beta calls this method
+    // Safari 3.0 calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"+[WebInspector webInspector]: this method is obsolete.");
@@ -115,7 +180,7 @@ using namespace WebCore;
 
 - (void)setWebFrame:(WebFrame *)frame
 {
-    // Safari 3 beta calls this method
+    // Safari 3.0 calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"-[WebInspector setWebFrame:]: this method is obsolete.");
@@ -139,7 +204,7 @@ using namespace WebCore;
 
 - (void)showWindow:(id)sender
 {
-    // Safari 3 beta calls this method
+    // Safari 3.0 calls this method
     static BOOL logged = NO;
     if (!logged) {
         NSLog(@"-[WebInspector showWindow:]: this method is obsolete.");

@@ -33,7 +33,7 @@
 #include <unicode/ucnv.h>
 #include <unicode/ucnv_cb.h>
 #include <wtf/Assertions.h>
-#include <wtf/HashMap.h>
+#include <wtf/StringExtras.h>
 
 using std::auto_ptr;
 using std::min;
@@ -41,7 +41,7 @@ using std::min;
 namespace WebCore {
 
 const size_t ConversionBufferSize = 16384;
-    
+
 static UConverter* cachedConverterICU;
 
 static auto_ptr<TextCodec> newTextCodecICU(const TextEncoding& encoding, const void*)
@@ -60,8 +60,7 @@ void TextCodecICU::registerBaseCodecs(TextCodecRegistrar registrar)
 }
 
 // FIXME: Registering all the encodings we get from ucnv_getAvailableName
-// includes encodings we don't want or need. For example: UTF16_PlatformEndian,
-// UTF16_OppositeEndian, UTF32_PlatformEndian, UTF32_OppositeEndian, and all
+// includes encodings we don't want or need. For example, all
 // the encodings with commas and version numbers.
 
 void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar)
@@ -69,27 +68,41 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     // We register Hebrew with logical ordering using a separate name.
     // Otherwise, this would share the same canonical name as the
     // visual ordering case, and then TextEncoding could not tell them
-    // apart; ICU works with either name.
+    // apart; ICU treats these names as synonyms.
     registrar("ISO-8859-8-I", "ISO-8859-8-I");
 
     int32_t numEncodings = ucnv_countAvailable();
     for (int32_t i = 0; i < numEncodings; ++i) {
         const char* name = ucnv_getAvailableName(i);
         UErrorCode error = U_ZERO_ERROR;
-        // FIXME: Should we use the "MIME" standard instead of "IANA"?
-        const char* standardName = ucnv_getStandardName(name, "IANA", &error);
-        if (!U_SUCCESS(error) || !standardName)
-            continue;
+        // Try MIME before trying IANA to pick up commonly used names like
+        // 'EUC-JP' instead of horrendeously long names like 
+        // 'Extended_UNIX_Code_Packed_Format_for_Japanese'. 
+        const char* standardName = ucnv_getStandardName(name, "MIME", &error);
+        if (!U_SUCCESS(error) || !standardName) {
+            error = U_ZERO_ERROR;
+            // Try IANA to pick up 'windows-12xx' and other names
+            // which are not preferred MIME names but are widely used. 
+            standardName = ucnv_getStandardName(name, "IANA", &error);
+            if (!U_SUCCESS(error) || !standardName)
+                continue;
+        }
 
         // 1. Treat GB2312 encoding as GBK (its more modern superset), to match other browsers.
         // 2. On the Web, GB2312 is encoded as EUC-CN or HZ, while ICU provides a native encoding
         //    for encoding GB_2312-80 and several others. So, we need to override this behavior, too.
         if (strcmp(standardName, "GB2312") == 0 || strcmp(standardName, "GB_2312-80") == 0)
             standardName = "GBK";
-#ifndef ANDROID
-        else
-#endif
-            registrar(standardName, standardName);
+        // Similarly, EUC-KR encodings all map to an extended version.
+        else if (strcmp(standardName, "KSC_5601") == 0 || strcmp(standardName, "EUC-KR") == 0 || strcmp(standardName, "cp1363") == 0)
+            standardName = "windows-949-2000";
+        // And so on.
+        else if (strcasecmp(standardName, "iso-8859-9") == 0) // This name is returned in different case by ICU 3.2 and 3.6.
+            standardName = "windows-1254";
+        else if (strcmp(standardName, "TIS-620") == 0)
+            standardName = "windows-874-2000";
+
+        registrar(standardName, standardName);
 
         uint16_t numAliases = ucnv_countAliases(name, &error);
         ASSERT(U_SUCCESS(error));
@@ -104,21 +117,25 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     }
 
     // Additional aliases.
-    // Perhaps we can get these added to ICU.
+    // These are present in modern versions of ICU, but not in ICU 3.2 (shipped with Mac OS X 10.4).
     registrar("macroman", "macintosh");
-    registrar("xmacroman", "macintosh");
+#ifndef ANDROID // Android does not have x-mac-cyrillic in its ICU library
+    registrar("maccyrillic", "x-mac-cyrillic");
+#endif
 
     // Additional aliases that historically were present in the encoding
     // table in WebKit on Macintosh that don't seem to be present in ICU.
     // Perhaps we can prove these are not used on the web and remove them.
     // Or perhaps we can get them added to ICU.
+    registrar("xmacroman", "macintosh");
+#ifndef ANDROID // Android does not have x-mac-cyrillic in its ICU library
+    registrar("xmacukrainian", "x-mac-cyrillic");
+#endif
     registrar("cnbig5", "Big5");
     registrar("cngb", "EUC-CN");
     registrar("csISO88598I", "ISO_8859-8-I");
     registrar("csgb231280", "EUC-CN");
-    registrar("dos720", "cp864");
     registrar("dos874", "cp874");
-    registrar("jis7", "ISO-2022-JP");
     registrar("koi", "KOI8-R");
     registrar("logical", "ISO-8859-8-I");
     registrar("unicode11utf8", "UTF-8");
@@ -127,7 +144,7 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     registrar("winarabic", "windows-1256");
     registrar("winbaltic", "windows-1257");
     registrar("wincyrillic", "windows-1251");
-    registrar("windows874", "cp874");
+    registrar("iso885911", "windows874-2000");
     registrar("wingreek", "windows-1253");
     registrar("winhebrew", "windows-1255");
     registrar("winlatin2", "windows-1250");
@@ -139,7 +156,17 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     registrar("xeuccn", "EUC-CN");
     registrar("xgbk", "EUC-CN");
     registrar("xunicode20utf8", "UTF-8");
+    registrar("xwindows949", "windows-949-2000");
     registrar("xxbig5", "Big5");
+
+    // This alias is present in modern versions of ICU, but it has no standard name,
+    // so we give one to it manually. It is not present in ICU 3.2.
+    registrar("windows874", "windows874-2000");
+
+    // These aliases are present in modern versions of ICU, but use different codecs, and have no standard names.
+    // They are not present in ICU 3.2.
+    registrar("dos720", "cp864");
+    registrar("jis7", "ISO-2022-JP");
 }
 
 void TextCodecICU::registerExtendedCodecs(TextCodecRegistrar registrar)
@@ -151,10 +178,13 @@ void TextCodecICU::registerExtendedCodecs(TextCodecRegistrar registrar)
     for (int32_t i = 0; i < numEncodings; ++i) {
         const char* name = ucnv_getAvailableName(i);
         UErrorCode error = U_ZERO_ERROR;
-        // FIXME: Should we use the "MIME" standard instead of "IANA"?
-        const char* standardName = ucnv_getStandardName(name, "IANA", &error);
-        if (!U_SUCCESS(error) || !standardName)
-            continue;
+        const char* standardName = ucnv_getStandardName(name, "MIME", &error);
+        if (!U_SUCCESS(error) || !standardName) {
+            error = U_ZERO_ERROR;
+            standardName = ucnv_getStandardName(name, "IANA", &error);
+            if (!U_SUCCESS(error) || !standardName)
+                continue;
+        }
         registrar(standardName, newTextCodecICU, 0);
     }
 }
@@ -211,7 +241,50 @@ void TextCodecICU::createICUConverter() const
         ucnv_setFallback(m_converterICU, TRUE);
 }
 
-String TextCodecICU::decode(const char* bytes, size_t length, bool flush)
+int TextCodecICU::decodeToBuffer(UChar* target, UChar* targetLimit, const char*& source, const char* sourceLimit, int32_t* offsets, bool flush, UErrorCode& err)
+{
+    UChar* targetStart = target;
+    err = U_ZERO_ERROR;
+    ucnv_toUnicode(m_converterICU, &target, targetLimit, &source, sourceLimit, offsets, flush, &err);
+    return target - targetStart;
+}
+
+class ErrorCallbackSetter {
+public:
+    ErrorCallbackSetter(UConverter* converter, bool stopOnError)
+        : m_converter(converter)
+        , m_shouldStopOnEncodingErrors(stopOnError)
+    {
+        if (m_shouldStopOnEncodingErrors) {
+            UErrorCode err = U_ZERO_ERROR;
+            ucnv_setToUCallBack(m_converter, UCNV_TO_U_CALLBACK_SUBSTITUTE,
+                           UCNV_SUB_STOP_ON_ILLEGAL, &m_savedAction,
+                           &m_savedContext, &err);
+            ASSERT(err == U_ZERO_ERROR);
+        }
+    }
+    ~ErrorCallbackSetter()
+    {
+        if (m_shouldStopOnEncodingErrors) {
+            UErrorCode err = U_ZERO_ERROR;
+            const void* oldContext;
+            UConverterToUCallback oldAction;
+            ucnv_setToUCallBack(m_converter, m_savedAction,
+                   m_savedContext, &oldAction,
+                   &oldContext, &err);
+            ASSERT(oldAction == UCNV_TO_U_CALLBACK_SUBSTITUTE);
+            ASSERT(!strcmp(static_cast<const char*>(oldContext), UCNV_SUB_STOP_ON_ILLEGAL));
+            ASSERT(err == U_ZERO_ERROR);
+        }
+    }
+private:
+    UConverter* m_converter;
+    bool m_shouldStopOnEncodingErrors;
+    const void* m_savedContext;
+    UConverterToUCallback m_savedAction;
+};
+
+String TextCodecICU::decode(const char* bytes, size_t length, bool flush, bool stopOnError, bool& sawError)
 {
     // Get a converter for the passed-in encoding.
     if (!m_converterICU) {
@@ -222,34 +295,29 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush)
             return String();
         }
     }
+    
+    ErrorCallbackSetter callbackSetter(m_converterICU, stopOnError);
 
     Vector<UChar> result;
 
     UChar buffer[ConversionBufferSize];
+    UChar* bufferLimit = buffer + ConversionBufferSize;
     const char* source = reinterpret_cast<const char*>(bytes);
     const char* sourceLimit = source + length;
     int32_t* offsets = NULL;
-    UErrorCode err;
+    UErrorCode err = U_ZERO_ERROR;
 
     do {
-        UChar* target = buffer;
-        const UChar* targetLimit = target + ConversionBufferSize;
-        err = U_ZERO_ERROR;
-        ucnv_toUnicode(m_converterICU, &target, targetLimit, &source, sourceLimit, offsets, flush, &err);
-        int count = target - buffer;
-        appendOmittingBOM(result, reinterpret_cast<const UChar*>(buffer), count);
+        int ucharsDecoded = decodeToBuffer(buffer, bufferLimit, source, sourceLimit, offsets, flush, err);
+        result.append(buffer, ucharsDecoded);
     } while (err == U_BUFFER_OVERFLOW_ERROR);
 
     if (U_FAILURE(err)) {
         // flush the converter so it can be reused, and not be bothered by this error.
         do {
-            UChar *target = buffer;
-            const UChar *targetLimit = target + ConversionBufferSize;
-            err = U_ZERO_ERROR;
-            ucnv_toUnicode(m_converterICU, &target, targetLimit, &source, sourceLimit, offsets, true, &err);
+            decodeToBuffer(buffer, bufferLimit, source, sourceLimit, offsets, true, err);
         } while (source < sourceLimit);
-        LOG_ERROR("ICU conversion error");
-        return String();
+        sawError = true;
     }
 
     String resultString = String::adopt(result);
@@ -265,23 +333,43 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush)
 // We need to apply these fallbacks ourselves as they are not currently supported by ICU and
 // they were provided by the old TEC encoding path
 // Needed to fix <rdar://problem/4708689>
-static HashMap<UChar32, UChar>& gbkEscapes() {
-    static HashMap<UChar32, UChar> escapes;
-    if (escapes.isEmpty()) {
-        escapes.add(0x01F9, 0xE7C8);
-        escapes.add(0x1E3F, 0xE7C7);
-        escapes.add(0x22EF, 0x2026);
-        escapes.add(0x301C, 0xFF5E);
+static UChar getGbkEscape(UChar32 codePoint)
+{
+    switch (codePoint) {
+        case 0x01F9:
+            return 0xE7C8;
+        case 0x1E3F:
+            return 0xE7C7;
+        case 0x22EF:
+            return 0x2026;
+        case 0x301C:
+            return 0xFF5E;
+        default:
+            return 0;
     }
-        
-    return escapes;
 }
 
+// Invalid character handler when writing escaped entities for unrepresentable
+// characters. See the declaration of TextCodec::encode for more.
+static void urlEscapedEntityCallback(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
+                                     UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err)
+{
+    if (reason == UCNV_UNASSIGNED) {
+        *err = U_ZERO_ERROR;
+
+        UnencodableReplacementArray entity;
+        int entityLen = TextCodec::getUnencodableReplacement(codePoint, URLEncodedEntitiesForUnencodables, entity);
+        ucnv_cbFromUWriteBytes(fromUArgs, entity, entityLen, 0, err);
+    } else
+        UCNV_FROM_U_CALLBACK_ESCAPE(context, fromUArgs, codeUnits, length, codePoint, reason, err);
+}
+
+// Substitutes special GBK characters, escaping all other unassigned entities.
 static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
                               UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
-    if (codePoint && gbkEscapes().contains(codePoint)) {
-        UChar outChar = gbkEscapes().get(codePoint);
+    UChar outChar;
+    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -290,11 +378,28 @@ static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fr
     UCNV_FROM_U_CALLBACK_ESCAPE(context, fromUArgs, codeUnits, length, codePoint, reason, err);
 }
 
+// Combines both gbkUrlEscapedEntityCallback and GBK character substitution.
+static void gbkUrlEscapedEntityCallack(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
+                                       UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
+{
+    if (reason == UCNV_UNASSIGNED) {
+        if (UChar outChar = getGbkEscape(codePoint)) {
+            const UChar* source = &outChar;
+            *err = U_ZERO_ERROR;
+            ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
+            return;
+        }
+        urlEscapedEntityCallback(context, fromUArgs, codeUnits, length, codePoint, reason, err);
+        return;
+    }
+    UCNV_FROM_U_CALLBACK_ESCAPE(context, fromUArgs, codeUnits, length, codePoint, reason, err);
+}
+
 static void gbkCallbackSubstitute(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
                                   UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
-    if (gbkEscapes().contains(codePoint)) {
-        UChar outChar = gbkEscapes().get(codePoint);
+    UChar outChar;
+    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -303,7 +408,7 @@ static void gbkCallbackSubstitute(const void* context, UConverterFromUnicodeArgs
     UCNV_FROM_U_CALLBACK_SUBSTITUTE(context, fromUArgs, codeUnits, length, codePoint, reason, err);
 }
 
-CString TextCodecICU::encode(const UChar* characters, size_t length, bool allowEntities)
+CString TextCodecICU::encode(const UChar* characters, size_t length, UnencodableHandling handling)
 {
     if (!length)
         return "";
@@ -321,14 +426,20 @@ CString TextCodecICU::encode(const UChar* characters, size_t length, bool allowE
 
     const UChar* source = copy.characters();
     const UChar* sourceLimit = source + copy.length();
-    
+
     UErrorCode err = U_ZERO_ERROR;
 
-    if (allowEntities)
-        ucnv_setFromUCallBack(m_converterICU, m_needsGBKFallbacks ? gbkCallbackEscape : UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_XML_DEC, 0, 0, &err);
-    else {
-        ucnv_setSubstChars(m_converterICU, "?", 1, &err);
-        ucnv_setFromUCallBack(m_converterICU, m_needsGBKFallbacks ? gbkCallbackSubstitute : UCNV_FROM_U_CALLBACK_SUBSTITUTE, 0, 0, 0, &err);
+    switch (handling) {
+        case QuestionMarksForUnencodables:
+            ucnv_setSubstChars(m_converterICU, "?", 1, &err);
+            ucnv_setFromUCallBack(m_converterICU, m_needsGBKFallbacks ? gbkCallbackSubstitute : UCNV_FROM_U_CALLBACK_SUBSTITUTE, 0, 0, 0, &err);
+            break;
+        case EntitiesForUnencodables:
+            ucnv_setFromUCallBack(m_converterICU, m_needsGBKFallbacks ? gbkCallbackEscape : UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_XML_DEC, 0, 0, &err);
+            break;
+        case URLEncodedEntitiesForUnencodables:
+            ucnv_setFromUCallBack(m_converterICU, m_needsGBKFallbacks ? gbkUrlEscapedEntityCallack : urlEscapedEntityCallback, 0, 0, 0, &err);
+            break;
     }
 
     ASSERT(U_SUCCESS(err));

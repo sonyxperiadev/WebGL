@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,10 +22,14 @@
 #include "config.h"
 #include "SimpleFontData.h"
 
+#include "SVGFontData.h"
+
 namespace WebCore {
 
 SimpleFontData::SimpleFontData(const FontPlatformData& font, bool customFont, bool loading, SVGFontData*)
-    : m_font(font), m_isCustomFont(customFont), m_isLoading(loading)
+    : m_font(font)
+    , m_isCustomFont(customFont)
+    , m_isLoading(loading)
 {
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,11 +32,19 @@
 #import "BlockExceptions.h"
 #import "GraphicsContext.h"
 #import "KURL.h"
-#import "ScrollView.h"
+#import "FrameView.h"
 #import "SoftLinking.h"
 #import "WebCoreSystemInterface.h"
 #import <QTKit/QTKit.h>
 #import <objc/objc-runtime.h>
+
+#if DRAW_FRAME_RATE
+#import "Font.h"
+#import "Frame.h"
+#import "Document.h"
+#import "RenderObject.h"
+#import "RenderStyle.h"
+#endif
 
 #ifdef BUILDING_ON_TIGER
 static IMP method_setImplementation(Method m, IMP imp)
@@ -59,6 +67,7 @@ SOFT_LINK_POINTER(QTKit, QTMediaTypeBase, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMediaTypeSound, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMediaTypeText, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMediaTypeVideo, NSString *)
+SOFT_LINK_POINTER(QTKit, QTMovieAskUnresolvedDataRefsAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDataSizeAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDidEndNotification, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieHasVideoAttribute, NSString *)
@@ -74,6 +83,7 @@ SOFT_LINK_POINTER(QTKit, QTMovieTimeScaleAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieURLAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieVolumeDidChangeNotification, NSString *)
 SOFT_LINK_POINTER(QTKit, QTSecurityPolicyNoCrossSiteAttribute, NSString *)
+SOFT_LINK_POINTER(QTKit, QTVideoRendererWebKitOnlyNewImageAvailableNotification, NSString *)
 
 #define QTMovie getQTMovieClass()
 #define QTMovieView getQTMovieViewClass()
@@ -83,6 +93,7 @@ SOFT_LINK_POINTER(QTKit, QTSecurityPolicyNoCrossSiteAttribute, NSString *)
 #define QTMediaTypeSound getQTMediaTypeSound()
 #define QTMediaTypeText getQTMediaTypeText()
 #define QTMediaTypeVideo getQTMediaTypeVideo()
+#define QTMovieAskUnresolvedDataRefsAttribute getQTMovieAskUnresolvedDataRefsAttribute()
 #define QTMovieDataSizeAttribute getQTMovieDataSizeAttribute()
 #define QTMovieDidEndNotification getQTMovieDidEndNotification()
 #define QTMovieHasVideoAttribute getQTMovieHasVideoAttribute()
@@ -98,6 +109,7 @@ SOFT_LINK_POINTER(QTKit, QTSecurityPolicyNoCrossSiteAttribute, NSString *)
 #define QTMovieURLAttribute getQTMovieURLAttribute()
 #define QTMovieVolumeDidChangeNotification getQTMovieVolumeDidChangeNotification()
 #define QTSecurityPolicyNoCrossSiteAttribute getQTSecurityPolicyNoCrossSiteAttribute()
+#define QTVideoRendererWebKitOnlyNewImageAvailableNotification getQTVideoRendererWebKitOnlyNewImageAvailableNotification()
 
 // Older versions of the QTKit header don't have these constants.
 #if !defined QTKIT_VERSION_MAX_ALLOWED || QTKIT_VERSION_MAX_ALLOWED <= QTKIT_VERSION_7_0
@@ -116,10 +128,12 @@ using namespace std;
 @interface WebCoreMovieObserver : NSObject
 {
     MediaPlayerPrivate* m_callback;
+    NSView* m_view;
     BOOL m_delayCallbacks;
 }
 -(id)initWithCallback:(MediaPlayerPrivate*)callback;
 -(void)disconnect;
+-(void)setView:(NSView*)view;
 -(void)repaint;
 -(void)setDelayCallbacks:(BOOL)shouldDelay;
 -(void)loadStateChanged:(NSNotification *)notification;
@@ -129,11 +143,19 @@ using namespace std;
 -(void)didEnd:(NSNotification *)notification;
 @end
 
+@protocol WebKitVideoRenderingDetails
+-(void)setMovie:(id)movie;
+-(void)drawInRect:(NSRect)rect;
+@end
+
 namespace WebCore {
 
 static const float endPointTimerInterval = 0.020f;
+
+#ifdef BUILDING_ON_TIGER
 static const long minimumQuickTimeVersion = 0x07300000; // 7.3
-    
+#endif
+
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     : m_player(player)
     , m_objcObserver(AdoptNS, [[WebCoreMovieObserver alloc] initWithCallback:this])
@@ -145,12 +167,18 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     , m_readyState(MediaPlayer::DataUnavailable)
     , m_startedPlaying(false)
     , m_isStreaming(false)
+    , m_visible(false)
+#if DRAW_FRAME_RATE
+    , m_frameCountWhilePlaying(0)
+    , m_timeStartedPlaying(0)
+    , m_timeStoppedPlaying(0)
+#endif
 {
 }
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
 {
-    detachQTMovieView();
+    tearDownVideoRendering();
 
     [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()];
     [m_objcObserver.get() disconnect];
@@ -160,23 +188,29 @@ void MediaPlayerPrivate::createQTMovie(const String& url)
 {
     [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()];
     
-    m_qtMovie = 0;
+    if (m_qtMovie) {
+        destroyQTVideoRenderer();
+        m_qtMovie = 0;
+    }
     
     // Disable streaming support for now, <rdar://problem/5693967>
-    if (url.startsWith("rtsp:"))
+    if (protocolIs(url, "rtsp"))
         return;
-    
-    NSDictionary* movieAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
-                                     KURL(url.deprecatedString()).getNSURL(), QTMovieURLAttribute,
+
+    NSURL *cocoaURL = KURL(url);
+    NSDictionary *movieAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
+                                     cocoaURL, QTMovieURLAttribute,
                                      [NSNumber numberWithBool:YES], QTMoviePreventExternalURLLinksAttribute,
                                      [NSNumber numberWithBool:YES], QTSecurityPolicyNoCrossSiteAttribute,
+                                     [NSNumber numberWithBool:NO], QTMovieAskUnresolvedDataRefsAttribute,
+                                     [NSNumber numberWithBool:YES], @"QTMovieOpenForPlaybackAttribute",     // FIXME: Use defined attribute when required version of QT supports this attribute
                                      nil];
     
     NSError* error = nil;
     m_qtMovie.adoptNS([[QTMovie alloc] initWithAttributes:movieAttributes error:&error]);
     
     // FIXME: Find a proper way to detect streaming content.
-    m_isStreaming = url.startsWith("rtsp:");
+    m_isStreaming = protocolIs(url, "rtsp");
     
     if (!m_qtMovie)
         return;
@@ -220,12 +254,15 @@ static void mainThreadSetNeedsDisplay(id self, SEL _cmd)
     [delegate repaint];
 }
 
+static Class QTVideoRendererClass()
+{
+     static Class QTVideoRendererWebKitOnlyClass = NSClassFromString(@"QTVideoRendererWebKitOnly");
+     return QTVideoRendererWebKitOnlyClass;
+}
+
 void MediaPlayerPrivate::createQTMovieView()
 {
     detachQTMovieView();
-
-    if (!m_player->m_parentWidget || !m_qtMovie)
-        return;
 
     static bool addedCustomMethods = false;
     if (!addedCustomMethods) {
@@ -241,7 +278,7 @@ void MediaPlayerPrivate::createQTMovieView()
 
     m_qtMovieView.adoptNS([[QTMovieView alloc] init]);
     setRect(m_player->rect());
-    NSView* parentView = static_cast<ScrollView*>(m_player->m_parentWidget)->getDocumentView();
+    NSView* parentView = m_player->m_frameView->documentView();
     [parentView addSubview:m_qtMovieView.get()];
 #ifdef BUILDING_ON_TIGER
     // setDelegate: isn't a public call in Tiger, so use performSelector to keep the compiler happy
@@ -249,17 +286,24 @@ void MediaPlayerPrivate::createQTMovieView()
 #else
     [m_qtMovieView.get() setDelegate:m_objcObserver.get()];
 #endif
+    [m_objcObserver.get() setView:m_qtMovieView.get()];
     [m_qtMovieView.get() setMovie:m_qtMovie.get()];
     [m_qtMovieView.get() setControllerVisible:NO];
     [m_qtMovieView.get() setPreservesAspectRatio:NO];
     // the area not covered by video should be transparent
     [m_qtMovieView.get() setFillColor:[NSColor clearColor]];
-    wkQTMovieViewSetDrawSynchronously(m_qtMovieView.get(), YES);
+
+    // If we're in a media document, allow QTMovieView to render in its default mode;
+    // otherwise tell it to draw synchronously.
+    // Note that we expect mainThreadSetNeedsDisplay to be invoked only when synchronous drawing is requested.
+    if (!m_player->inMediaDocument())
+        wkQTMovieViewSetDrawSynchronously(m_qtMovieView.get(), YES);
 }
 
 void MediaPlayerPrivate::detachQTMovieView()
 {
     if (m_qtMovieView) {
+        [m_objcObserver.get() setView:nil];
 #ifdef BUILDING_ON_TIGER
         // setDelegate: isn't a public call in Tiger, so use performSelector to keep the compiler happy
         [m_qtMovieView.get() performSelector:@selector(setDelegate:) withObject:nil];    
@@ -269,6 +313,59 @@ void MediaPlayerPrivate::detachQTMovieView()
         [m_qtMovieView.get() removeFromSuperview];
         m_qtMovieView = nil;
     }
+}
+
+void MediaPlayerPrivate::createQTVideoRenderer()
+{
+    destroyQTVideoRenderer();
+
+    m_qtVideoRenderer.adoptNS([[QTVideoRendererClass() alloc] init]);
+    if (!m_qtVideoRenderer)
+        return;
+    
+    // associate our movie with our instance of QTVideoRendererWebKitOnly
+    [(id<WebKitVideoRenderingDetails>)m_qtVideoRenderer.get() setMovie:m_qtMovie.get()];    
+
+    // listen to QTVideoRendererWebKitOnly's QTVideoRendererWebKitOnlyNewImageDidBecomeAvailableNotification
+    [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get()
+                                             selector:@selector(newImageAvailable:)
+                                                 name:QTVideoRendererWebKitOnlyNewImageAvailableNotification
+                                               object:m_qtVideoRenderer.get()];
+}
+
+void MediaPlayerPrivate::destroyQTVideoRenderer()
+{
+    if (!m_qtVideoRenderer)
+        return;
+
+    // stop observing the renderer's notifications before we toss it
+    [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()
+                                                    name:QTVideoRendererWebKitOnlyNewImageAvailableNotification
+                                                  object:m_qtVideoRenderer.get()];
+
+    // disassociate our movie from our instance of QTVideoRendererWebKitOnly
+    [(id<WebKitVideoRenderingDetails>)m_qtVideoRenderer.get() setMovie:nil];    
+
+    m_qtVideoRenderer = nil;
+}
+
+void MediaPlayerPrivate::setUpVideoRendering()
+{
+    if (!m_player->m_frameView || !m_qtMovie)
+        return;
+
+    if (m_player->inMediaDocument() || !QTVideoRendererClass() )
+        createQTMovieView();
+    else
+        createQTVideoRenderer();
+}
+
+void MediaPlayerPrivate::tearDownVideoRendering()
+{
+    if (m_qtMovieView)
+        detachQTMovieView();
+    else
+        destroyQTVideoRenderer();
 }
 
 QTTime MediaPlayerPrivate::createQTTime(float time) const
@@ -295,8 +392,6 @@ void MediaPlayerPrivate::load(const String& url)
     [m_objcObserver.get() setDelayCallbacks:YES];
 
     createQTMovie(url);
-    if (m_player->visible())
-        createQTMovieView();
 
     [m_objcObserver.get() loadStateChanged:nil];
     [m_objcObserver.get() setDelayCallbacks:NO];
@@ -307,6 +402,9 @@ void MediaPlayerPrivate::play()
     if (!m_qtMovie)
         return;
     m_startedPlaying = true;
+#if DRAW_FRAME_RATE
+    m_frameCountWhilePlaying = 0;
+#endif
     [m_objcObserver.get() setDelayCallbacks:YES];
     [m_qtMovie.get() setRate:m_player->rate()];
     [m_objcObserver.get() setDelayCallbacks:NO];
@@ -318,6 +416,9 @@ void MediaPlayerPrivate::pause()
     if (!m_qtMovie)
         return;
     m_startedPlaying = false;
+#if DRAW_FRAME_RATE
+    m_timeStoppedPlaying = [NSDate timeIntervalSinceReferenceDate];
+#endif
     [m_objcObserver.get() setDelayCallbacks:YES];
     [m_qtMovie.get() stop];
     [m_objcObserver.get() setDelayCallbacks:NO];
@@ -521,7 +622,7 @@ void MediaPlayerPrivate::cancelLoad()
     if (m_networkState < MediaPlayer::Loading || m_networkState == MediaPlayer::Loaded)
         return;
     
-    detachQTMovieView();
+    tearDownVideoRendering();
     m_qtMovie = nil;
     
     updateStates();
@@ -534,14 +635,14 @@ void MediaPlayerPrivate::updateStates()
     
     long loadState = m_qtMovie ? [[m_qtMovie.get() attributeForKey:QTMovieLoadStateAttribute] longValue] : static_cast<long>(QTMovieLoadStateError);
     
-    if (loadState >= QTMovieLoadStateLoaded && m_networkState < MediaPlayer::LoadedMetaData) {
+    if (loadState >= QTMovieLoadStateLoaded && m_networkState < MediaPlayer::LoadedMetaData && !m_player->inMediaDocument()) {
         unsigned enabledTrackCount;
         disableUnsupportedTracks(enabledTrackCount);
         // FIXME: We should differentiate between load errors and decode errors <rdar://problem/5605692>
         if (!enabledTrackCount)
             loadState = QTMovieLoadStateError;
     }
-    
+
     // "Loaded" is reserved for fully buffered movies, never the case when streaming
     if (loadState >= QTMovieLoadStateComplete && !m_isStreaming) {
         if (m_networkState < MediaPlayer::Loaded)
@@ -576,6 +677,9 @@ void MediaPlayerPrivate::updateStates()
         m_player->networkStateChanged();
     if (m_readyState != oldReadyState)
         m_player->readyStateChanged();
+
+    if (loadState >= QTMovieLoadStateLoaded && oldNetworkState < MediaPlayer::LoadedMetaData && m_player->visible())
+        setUpVideoRendering();
 }
 
 void MediaPlayerPrivate::loadStateChanged()
@@ -602,6 +706,9 @@ void MediaPlayerPrivate::didEnd()
 {
     m_endPointTimer.stop();
     m_startedPlaying = false;
+#if DRAW_FRAME_RATE
+    m_timeStoppedPlaying = [NSDate timeIntervalSinceReferenceDate];
+#endif
     updateStates();
     m_player->timeChanged();
 }
@@ -610,23 +717,42 @@ void MediaPlayerPrivate::setRect(const IntRect& r)
 { 
     if (!m_qtMovieView) 
         return;
-    // We don't really need the QTMovieView in any specific location so let's just get it out of the way
-    // where it won't intercept events or try to bring up the context menu.
-    IntRect farAwayButCorrectSize(r);
-    farAwayButCorrectSize.move(-1000000, -1000000);
-    [m_qtMovieView.get() setFrame:farAwayButCorrectSize];
+
+    if (m_player->inMediaDocument())
+        // We need the QTMovieView to be placed in the proper location for document mode.
+        [m_qtMovieView.get() setFrame:r];
+    else {
+        // We don't really need the QTMovieView in any specific location so let's just get it out of the way
+        // where it won't intercept events or try to bring up the context menu.
+        IntRect farAwayButCorrectSize(r);
+        farAwayButCorrectSize.move(-1000000, -1000000);
+        [m_qtMovieView.get() setFrame:farAwayButCorrectSize];
+    }   
 }
 
 void MediaPlayerPrivate::setVisible(bool b)
 {
-    if (b)
-        createQTMovieView();
-    else
-        detachQTMovieView();
+    if (m_visible != b) {
+        m_visible = b;
+        if (b) {
+            if (m_networkState >= MediaPlayer::LoadedMetaData)
+                setUpVideoRendering();
+        } else
+            tearDownVideoRendering();
+    }
 }
 
 void MediaPlayerPrivate::repaint()
 {
+#if DRAW_FRAME_RATE
+    if (m_startedPlaying) {
+        m_frameCountWhilePlaying++;
+        // to eliminate preroll costs from our calculation,
+        // our frame rate calculation excludes the first frame drawn after playback starts
+        if (1==m_frameCountWhilePlaying)
+            m_timeStartedPlaying = [NSDate timeIntervalSinceReferenceDate];
+    }
+#endif
     m_player->repaint();
 }
 
@@ -635,16 +761,52 @@ void MediaPlayerPrivate::paint(GraphicsContext* context, const IntRect& r)
     if (context->paintingDisabled())
         return;
     NSView *view = m_qtMovieView.get();
-    if (view == nil)
+    id qtVideoRenderer = m_qtVideoRenderer.get();
+    if (!view && !qtVideoRenderer)
         return;
+
     [m_objcObserver.get() setDelayCallbacks:YES];
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     context->save();
     context->translate(r.x(), r.y() + r.height());
     context->scale(FloatSize(1.0f, -1.0f));
+    context->setImageInterpolationQuality(InterpolationLow);
     IntRect paintRect(IntPoint(0, 0), IntSize(r.width(), r.height()));
     NSGraphicsContext* newContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context->platformContext() flipped:NO];
-    [view displayRectIgnoringOpacity:paintRect inContext:newContext];
+
+    // draw the current video frame
+    if (qtVideoRenderer) {
+        [NSGraphicsContext saveGraphicsState];
+        [NSGraphicsContext setCurrentContext:newContext];
+        [(id<WebKitVideoRenderingDetails>)qtVideoRenderer drawInRect:paintRect];
+        [NSGraphicsContext restoreGraphicsState];
+    } else
+        [view displayRectIgnoringOpacity:paintRect inContext:newContext];
+
+#if DRAW_FRAME_RATE
+    // Draw the frame rate only after having played more than 10 frames.
+    if (m_frameCountWhilePlaying > 10) {
+        Frame* frame = m_player->m_frameView ? m_player->m_frameView->frame() : NULL;
+        Document* document = frame ? frame->document() : NULL;
+        RenderObject* renderer = document ? document->renderer() : NULL;
+        RenderStyle* styleToUse = renderer ? renderer->style() : NULL;
+        if (styleToUse) {
+            double frameRate = (m_frameCountWhilePlaying - 1) / ( m_startedPlaying ? ([NSDate timeIntervalSinceReferenceDate] - m_timeStartedPlaying) :
+                (m_timeStoppedPlaying - m_timeStartedPlaying) );
+            String text = String::format("%1.2f", frameRate);
+            TextRun textRun(text.characters(), text.length());
+            const Color color(255, 0, 0);
+            context->scale(FloatSize(1.0f, -1.0f));    
+            context->setFont(styleToUse->font());
+            context->setStrokeColor(color);
+            context->setStrokeStyle(SolidStroke);
+            context->setStrokeThickness(1.0f);
+            context->setFillColor(color);
+            context->drawText(textRun, IntPoint(2, -3));
+        }
+    }
+#endif
+
     context->restore();
     END_BLOCK_OBJC_EXCEPTIONS;
     [m_objcObserver.get() setDelayCallbacks:NO];
@@ -668,9 +830,9 @@ void MediaPlayerPrivate::getSupportedTypes(HashSet<String>& types)
     
 bool MediaPlayerPrivate::isAvailable()
 {
+#ifdef BUILDING_ON_TIGER
     SInt32 version;
     OSErr result;
-    // This Carbon API is available in 64 bit too
     result = Gestalt(gestaltQuickTime, &version);
     if (result != noErr) {
         LOG_ERROR("No QuickTime available. Disabling <video> and <audio> support.");
@@ -681,6 +843,10 @@ bool MediaPlayerPrivate::isAvailable()
         return false;
     }
     return true;
+#else
+    // On 10.5 and higher, QuickTime will always be new enough for <video> and <audio> support, so we just check that the framework can be loaded.
+    return QTKitLibrary();
+#endif
 }
     
 void MediaPlayerPrivate::disableUnsupportedTracks(unsigned& enabledTrackCount)
@@ -784,6 +950,17 @@ void MediaPlayerPrivate::disableUnsupportedTracks(unsigned& enabledTrackCount)
     m_callback = 0;
 }
 
+-(NSMenu*)menuForEventDelegate:(NSEvent*)theEvent
+{
+    // Get the contextual menu from the QTMovieView's superview, the frame view
+    return [[m_view superview] menuForEvent:theEvent];
+}
+
+-(void)setView:(NSView*)view
+{
+    m_view = view;
+}
+
 -(void)repaint
 {
     if (m_delayCallbacks)
@@ -830,6 +1007,11 @@ void MediaPlayerPrivate::disableUnsupportedTracks(unsigned& enabledTrackCount)
         [self performSelector:_cmd withObject:nil afterDelay:0];
     else
         m_callback->didEnd();
+}
+
+- (void)newImageAvailable:(NSNotification *)notification
+{
+    [self repaint];
 }
 
 - (void)setDelayCallbacks:(BOOL)shouldDelay

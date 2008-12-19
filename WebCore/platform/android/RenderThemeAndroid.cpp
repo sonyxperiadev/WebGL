@@ -34,6 +34,11 @@
 // so that our button images are large enough to properly fit the text.
 #define BUTTON_PADDING 18
 
+// Add padding to the fontSize of ListBoxes to get their maximum sizes.
+// Listboxes often have a specified size.  Since we change them into dropdowns,
+// we want a much smaller height, which encompasses the text.
+#define LISTBOX_PADDING 5
+
 namespace WebCore {
 static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
 {
@@ -120,7 +125,7 @@ Color RenderThemeAndroid::platformTextSearchHighlightColor() const
     return Color(192, 192, 192);
 }
 
-short RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
+int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
 {
     // From the description of this function in RenderTheme.h:
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
@@ -156,12 +161,12 @@ void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
     }
 }
 
-bool RenderThemeAndroid::supportsFocus(EAppearance appearance)
+bool RenderThemeAndroid::supportsFocus(ControlPart appearance)
 {
     switch (appearance) {
-        case PushButtonAppearance:
-        case ButtonAppearance:
-        case TextFieldAppearance:
+        case PushButtonPart:
+        case ButtonPart:
+        case TextFieldPart:
             return true;
         default:
             return false;
@@ -174,7 +179,7 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector* selector, RenderSty
 {
     // Padding code is taken from RenderThemeSafari.cpp
     // It makes sure we have enough space for the button text.
-    const int padding = 12;
+    const int padding = 8;
     style->setPaddingLeft(Length(padding, Fixed));
     style->setPaddingRight(Length(padding, Fixed));
     style->setMinHeight(Length(style->fontSize() + BUTTON_PADDING, Fixed));
@@ -249,6 +254,13 @@ bool RenderThemeAndroid::paintSearchField(RenderObject* o, const RenderObject::P
     return true;    
 }
 
+void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+{
+    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    style->setMaxHeight(Length(style->fontSize() + LISTBOX_PADDING, Fixed));
+    addIntrinsicMargins(style);
+}
+
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
 {
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
@@ -296,17 +308,17 @@ bool RenderThemeAndroid::paintMenuListButton(RenderObject* o, const RenderObject
 bool RenderThemeAndroid::supportsFocusRing(const RenderStyle* style) const
 {
     return (style->opacity() > 0 && style->hasAppearance() 
-                    && style->appearance() != TextFieldAppearance 
-                    && style->appearance() != SearchFieldAppearance 
-                    && style->appearance() != TextAreaAppearance 
-                    && style->appearance() != CheckboxAppearance
-                    && style->appearance() != RadioAppearance
-                    && style->appearance() != PushButtonAppearance
-                    && style->appearance() != SquareButtonAppearance
-                    && style->appearance() != ButtonAppearance
-                    && style->appearance() != ButtonBevelAppearance
-                    && style->appearance() != MenulistAppearance
-                    && style->appearance() != MenulistButtonAppearance
+                    && style->appearance() != TextFieldPart 
+                    && style->appearance() != SearchFieldPart 
+                    && style->appearance() != TextAreaPart 
+                    && style->appearance() != CheckboxPart
+                    && style->appearance() != RadioPart
+                    && style->appearance() != PushButtonPart
+                    && style->appearance() != SquareButtonPart
+                    && style->appearance() != ButtonPart
+                    && style->appearance() != ButtonBevelPart
+                    && style->appearance() != MenulistPart
+                    && style->appearance() != MenulistButtonPart
                     );
 }
 

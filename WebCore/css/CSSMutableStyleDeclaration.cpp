@@ -1,8 +1,6 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,19 +37,22 @@ namespace WebCore {
 
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration()
     : m_node(0)
+    , m_variableDependentValueCount(0)
 {
 }
 
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent)
     : CSSStyleDeclaration(parent)
     , m_node(0)
+    , m_variableDependentValueCount(0)
 {
 }
 
-CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const DeprecatedValueList<CSSProperty>& values)
+CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const DeprecatedValueList<CSSProperty>& values, unsigned variableDependentValueCount)
     : CSSStyleDeclaration(parent)
     , m_values(values)
     , m_node(0)
+    , m_variableDependentValueCount(variableDependentValueCount)
 {
     // FIXME: This allows duplicate properties.
 }
@@ -59,10 +60,13 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const De
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const CSSProperty* const * properties, int numProperties)
     : CSSStyleDeclaration(parent)
     , m_node(0)
+    , m_variableDependentValueCount(0)
 {
     for (int i = 0; i < numProperties; ++i) {
         ASSERT(properties[i]);
         m_values.append(*properties[i]);
+        if (properties[i]->value()->isVariableDependentValue())
+            m_variableDependentValueCount++;
     }
     // FIXME: This allows duplicate properties.
 }
@@ -82,78 +86,121 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
 
     // Shorthand and 4-values properties
     switch (propertyID) {
-        case CSS_PROP_BACKGROUND_POSITION: {
+        case CSSPropertyBackgroundPosition: {
             // FIXME: Is this correct? The code in cssparser.cpp is confusing
-            const int properties[2] = { CSS_PROP_BACKGROUND_POSITION_X,
-                                        CSS_PROP_BACKGROUND_POSITION_Y };
+            const int properties[2] = { CSSPropertyBackgroundPositionX,
+                                        CSSPropertyBackgroundPositionY };
             return getLayeredShorthandValue(properties, 2);
         }
-        case CSS_PROP_BACKGROUND: {
-            const int properties[6] = { CSS_PROP_BACKGROUND_IMAGE, CSS_PROP_BACKGROUND_REPEAT,
-                                        CSS_PROP_BACKGROUND_ATTACHMENT, CSS_PROP_BACKGROUND_POSITION_X,
-                                        CSS_PROP_BACKGROUND_POSITION_Y, CSS_PROP_BACKGROUND_COLOR };
+        case CSSPropertyBackground: {
+            const int properties[7] = { CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat, 
+                                        CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition, CSSPropertyWebkitBackgroundClip,
+                                        CSSPropertyWebkitBackgroundOrigin, CSSPropertyBackgroundColor };
+            return getLayeredShorthandValue(properties, 7);
+        }
+        case CSSPropertyBorder: {
+            const int properties[3][4] = {{ CSSPropertyBorderTopWidth,
+                                            CSSPropertyBorderRightWidth,
+                                            CSSPropertyBorderBottomWidth,
+                                            CSSPropertyBorderLeftWidth },
+                                          { CSSPropertyBorderTopStyle,
+                                            CSSPropertyBorderRightStyle,
+                                            CSSPropertyBorderBottomStyle,
+                                            CSSPropertyBorderLeftStyle },
+                                          { CSSPropertyBorderTopColor,
+                                            CSSPropertyBorderRightColor,
+                                            CSSPropertyBorderBottomColor,
+                                            CSSPropertyBorderLeftColor }};
+            String res;
+            const int nrprops = sizeof(properties) / sizeof(properties[0]);
+            for (int i = 0; i < nrprops; ++i) {
+                String value = getCommonValue(properties[i], 4);
+                if (!value.isNull()) {
+                    if (!res.isNull())
+                        res += " ";
+                    res += value;
+                }
+            }
+            return res;
+        }
+        case CSSPropertyBorderTop: {
+            const int properties[3] = { CSSPropertyBorderTopWidth, CSSPropertyBorderTopStyle,
+                                        CSSPropertyBorderTopColor};
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyBorderRight: {
+            const int properties[3] = { CSSPropertyBorderRightWidth, CSSPropertyBorderRightStyle,
+                                        CSSPropertyBorderRightColor};
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyBorderBottom: {
+            const int properties[3] = { CSSPropertyBorderBottomWidth, CSSPropertyBorderBottomStyle,
+                                        CSSPropertyBorderBottomColor};
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyBorderLeft: {
+            const int properties[3] = { CSSPropertyBorderLeftWidth, CSSPropertyBorderLeftStyle,
+                                        CSSPropertyBorderLeftColor};
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyOutline: {
+            const int properties[3] = { CSSPropertyOutlineWidth, CSSPropertyOutlineStyle,
+                                        CSSPropertyOutlineColor };
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyBorderColor: {
+            const int properties[4] = { CSSPropertyBorderTopColor, CSSPropertyBorderRightColor,
+                                        CSSPropertyBorderBottomColor, CSSPropertyBorderLeftColor };
+            return get4Values(properties);
+        }
+        case CSSPropertyBorderWidth: {
+            const int properties[4] = { CSSPropertyBorderTopWidth, CSSPropertyBorderRightWidth,
+                                        CSSPropertyBorderBottomWidth, CSSPropertyBorderLeftWidth };
+            return get4Values(properties);
+        }
+        case CSSPropertyBorderStyle: {
+            const int properties[4] = { CSSPropertyBorderTopStyle, CSSPropertyBorderRightStyle,
+                                        CSSPropertyBorderBottomStyle, CSSPropertyBorderLeftStyle };
+            return get4Values(properties);
+        }
+        case CSSPropertyMargin: {
+            const int properties[4] = { CSSPropertyMarginTop, CSSPropertyMarginRight,
+                                        CSSPropertyMarginBottom, CSSPropertyMarginLeft };
+            return get4Values(properties);
+        }
+        case CSSPropertyOverflow: {
+            const int properties[2] = { CSSPropertyOverflowX, CSSPropertyOverflowY };
+            return getCommonValue(properties, 2);
+        }
+        case CSSPropertyPadding: {
+            const int properties[4] = { CSSPropertyPaddingTop, CSSPropertyPaddingRight,
+                                        CSSPropertyPaddingBottom, CSSPropertyPaddingLeft };
+            return get4Values(properties);
+        }
+        case CSSPropertyListStyle: {
+            const int properties[3] = { CSSPropertyListStyleType, CSSPropertyListStylePosition,
+                                        CSSPropertyListStyleImage };
+            return getShorthandValue(properties, 3);
+        }
+        case CSSPropertyWebkitMaskPosition: {
+            // FIXME: Is this correct? The code in cssparser.cpp is confusing
+            const int properties[2] = { CSSPropertyWebkitMaskPositionX,
+                                        CSSPropertyWebkitMaskPositionY };
+            return getLayeredShorthandValue(properties, 2);
+        }
+        case CSSPropertyWebkitMask: {
+            const int properties[] = { CSSPropertyWebkitMaskImage, CSSPropertyWebkitMaskRepeat, 
+                                       CSSPropertyWebkitMaskAttachment, CSSPropertyWebkitMaskPosition, CSSPropertyWebkitMaskClip,
+                                       CSSPropertyWebkitMaskOrigin };
             return getLayeredShorthandValue(properties, 6);
         }
-        case CSS_PROP_BORDER: {
-            const int properties[3] = { CSS_PROP_BORDER_WIDTH, CSS_PROP_BORDER_STYLE,
-                                        CSS_PROP_BORDER_COLOR };
-            return getShorthandValue(properties, 3);
+#if ENABLE(SVG)
+        case CSSPropertyMarker: {
+            RefPtr<CSSValue> value = getPropertyCSSValue(CSSPropertyMarkerStart);
+            if (value)
+                return value->cssText();
         }
-        case CSS_PROP_BORDER_TOP: {
-            const int properties[3] = { CSS_PROP_BORDER_TOP_WIDTH, CSS_PROP_BORDER_TOP_STYLE,
-                                        CSS_PROP_BORDER_TOP_COLOR};
-            return getShorthandValue(properties, 3);
-        }
-        case CSS_PROP_BORDER_RIGHT: {
-            const int properties[3] = { CSS_PROP_BORDER_RIGHT_WIDTH, CSS_PROP_BORDER_RIGHT_STYLE,
-                                        CSS_PROP_BORDER_RIGHT_COLOR};
-            return getShorthandValue(properties, 3);
-        }
-        case CSS_PROP_BORDER_BOTTOM: {
-            const int properties[3] = { CSS_PROP_BORDER_BOTTOM_WIDTH, CSS_PROP_BORDER_BOTTOM_STYLE,
-                                        CSS_PROP_BORDER_BOTTOM_COLOR};
-            return getShorthandValue(properties, 3);
-        }
-        case CSS_PROP_BORDER_LEFT: {
-            const int properties[3] = { CSS_PROP_BORDER_LEFT_WIDTH, CSS_PROP_BORDER_LEFT_STYLE,
-                                        CSS_PROP_BORDER_LEFT_COLOR};
-            return getShorthandValue(properties, 3);
-        }
-        case CSS_PROP_OUTLINE: {
-            const int properties[3] = { CSS_PROP_OUTLINE_WIDTH, CSS_PROP_OUTLINE_STYLE,
-                                        CSS_PROP_OUTLINE_COLOR };
-            return getShorthandValue(properties, 3);
-        }
-        case CSS_PROP_BORDER_COLOR: {
-            const int properties[4] = { CSS_PROP_BORDER_TOP_COLOR, CSS_PROP_BORDER_RIGHT_COLOR,
-                                        CSS_PROP_BORDER_BOTTOM_COLOR, CSS_PROP_BORDER_LEFT_COLOR };
-            return get4Values(properties);
-        }
-        case CSS_PROP_BORDER_WIDTH: {
-            const int properties[4] = { CSS_PROP_BORDER_TOP_WIDTH, CSS_PROP_BORDER_RIGHT_WIDTH,
-                                        CSS_PROP_BORDER_BOTTOM_WIDTH, CSS_PROP_BORDER_LEFT_WIDTH };
-            return get4Values(properties);
-        }
-        case CSS_PROP_BORDER_STYLE: {
-            const int properties[4] = { CSS_PROP_BORDER_TOP_STYLE, CSS_PROP_BORDER_RIGHT_STYLE,
-                                        CSS_PROP_BORDER_BOTTOM_STYLE, CSS_PROP_BORDER_LEFT_STYLE };
-            return get4Values(properties);
-        }
-        case CSS_PROP_MARGIN: {
-            const int properties[4] = { CSS_PROP_MARGIN_TOP, CSS_PROP_MARGIN_RIGHT,
-                                        CSS_PROP_MARGIN_BOTTOM, CSS_PROP_MARGIN_LEFT };
-            return get4Values(properties);
-        }
-        case CSS_PROP_PADDING: {
-            const int properties[4] = { CSS_PROP_PADDING_TOP, CSS_PROP_PADDING_RIGHT,
-                                        CSS_PROP_PADDING_BOTTOM, CSS_PROP_PADDING_LEFT };
-            return get4Values(properties);
-        }
-        case CSS_PROP_LIST_STYLE: {
-            const int properties[3] = { CSS_PROP_LIST_STYLE_TYPE, CSS_PROP_LIST_STYLE_POSITION,
-                                        CSS_PROP_LIST_STYLE_IMAGE };
-            return getShorthandValue(properties, 3);
-        }
+#endif
     }
     return String();
 }
@@ -180,38 +227,36 @@ String CSSMutableStyleDeclaration::get4Values( const int* properties ) const
 String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* properties, unsigned number) const
 {
     String res;
-    unsigned i;
-    unsigned j;
 
     // Begin by collecting the properties into an array.
     Vector< RefPtr<CSSValue> > values(number);
-    unsigned numLayers = 0;
+    size_t numLayers = 0;
     
-    for (i = 0; i < number; ++i) {
+    for (size_t i = 0; i < number; ++i) {
         values[i] = getPropertyCSSValue(properties[i]);
         if (values[i]) {
             if (values[i]->isValueList()) {
                 CSSValueList* valueList = static_cast<CSSValueList*>(values[i].get());
                 numLayers = max(valueList->length(), numLayers);
             } else
-                numLayers = max(1U, numLayers);
+                numLayers = max<size_t>(1U, numLayers);
         }
     }
     
     // Now stitch the properties together.  Implicit initial values are flagged as such and
     // can safely be omitted.
-    for (i = 0; i < numLayers; i++) {
+    for (size_t i = 0; i < numLayers; i++) {
         String layerRes;
-        for (j = 0; j < number; j++) {
+        for (size_t j = 0; j < number; j++) {
             RefPtr<CSSValue> value;
             if (values[j]) {
                 if (values[j]->isValueList())
-                    value = static_cast<CSSValueList*>(values[j].get())->item(i);
+                    value = static_cast<CSSValueList*>(values[j].get())->itemWithoutBoundsCheck(i);
                 else {
                     value = values[j];
                     
                     // Color only belongs in the last layer.
-                    if (properties[j] == CSS_PROP_BACKGROUND_COLOR) {
+                    if (properties[j] == CSSPropertyBackgroundColor) {
                         if (i != numLayers - 1)
                             value = 0;
                     } else if (i != 0) // Other singletons only belong in the first layer.
@@ -248,6 +293,27 @@ String CSSMutableStyleDeclaration::getShorthandValue(const int* properties, int 
                     res += " ";
                 res += value->cssText();
             }
+        }
+    }
+    return res;
+}
+
+// only returns a non-null value if all properties have the same, non-null value
+String CSSMutableStyleDeclaration::getCommonValue(const int* properties, int number) const
+{
+    String res;
+    for (int i = 0; i < number; ++i) {
+        if (!isPropertyImplicit(properties[i])) {
+            RefPtr<CSSValue> value = getPropertyCSSValue(properties[i]);
+            if (!value)
+                return String();
+            String text = value->cssText();
+            if (text.isNull())
+                return String();
+            if (res.isNull())
+                res = text;
+            else if (res != text)
+                return String();
         }
     }
     return res;
@@ -293,126 +359,141 @@ static void initShorthandMap(HashMap<int, PropertyLonghand>& shorthandMap)
 
     // Do not change the order of the following four shorthands, and keep them together.
     static const int borderProperties[4][3] = {
-        { CSS_PROP_BORDER_TOP_COLOR, CSS_PROP_BORDER_TOP_STYLE, CSS_PROP_BORDER_TOP_WIDTH },
-        { CSS_PROP_BORDER_RIGHT_COLOR, CSS_PROP_BORDER_RIGHT_STYLE, CSS_PROP_BORDER_RIGHT_WIDTH },
-        { CSS_PROP_BORDER_BOTTOM_COLOR, CSS_PROP_BORDER_BOTTOM_STYLE, CSS_PROP_BORDER_BOTTOM_WIDTH },
-        { CSS_PROP_BORDER_LEFT_COLOR, CSS_PROP_BORDER_LEFT_STYLE, CSS_PROP_BORDER_LEFT_WIDTH }
+        { CSSPropertyBorderTopColor, CSSPropertyBorderTopStyle, CSSPropertyBorderTopWidth },
+        { CSSPropertyBorderRightColor, CSSPropertyBorderRightStyle, CSSPropertyBorderRightWidth },
+        { CSSPropertyBorderBottomColor, CSSPropertyBorderBottomStyle, CSSPropertyBorderBottomWidth },
+        { CSSPropertyBorderLeftColor, CSSPropertyBorderLeftStyle, CSSPropertyBorderLeftWidth }
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_TOP, borderProperties[0]);
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_RIGHT, borderProperties[1]);
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_BOTTOM, borderProperties[2]);
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_LEFT, borderProperties[3]);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderTop, borderProperties[0]);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderRight, borderProperties[1]);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderBottom, borderProperties[2]);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderLeft, borderProperties[3]);
 
-    shorthandMap.set(CSS_PROP_BORDER, PropertyLonghand(borderProperties[0], sizeof(borderProperties) / sizeof(borderProperties[0][0])));
+    shorthandMap.set(CSSPropertyBorder, PropertyLonghand(borderProperties[0], sizeof(borderProperties) / sizeof(borderProperties[0][0])));
 
     static const int borderColorProperties[] = {
-        CSS_PROP_BORDER_TOP_COLOR,
-        CSS_PROP_BORDER_RIGHT_COLOR,
-        CSS_PROP_BORDER_BOTTOM_COLOR,
-        CSS_PROP_BORDER_LEFT_COLOR
+        CSSPropertyBorderTopColor,
+        CSSPropertyBorderRightColor,
+        CSSPropertyBorderBottomColor,
+        CSSPropertyBorderLeftColor
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_COLOR, borderColorProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderColor, borderColorProperties);
 
     static const int borderStyleProperties[] = {
-        CSS_PROP_BORDER_TOP_STYLE,
-        CSS_PROP_BORDER_RIGHT_STYLE,
-        CSS_PROP_BORDER_BOTTOM_STYLE,
-        CSS_PROP_BORDER_LEFT_STYLE
+        CSSPropertyBorderTopStyle,
+        CSSPropertyBorderRightStyle,
+        CSSPropertyBorderBottomStyle,
+        CSSPropertyBorderLeftStyle
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_STYLE, borderStyleProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderStyle, borderStyleProperties);
 
     static const int borderWidthProperties[] = {
-        CSS_PROP_BORDER_TOP_WIDTH,
-        CSS_PROP_BORDER_RIGHT_WIDTH,
-        CSS_PROP_BORDER_BOTTOM_WIDTH,
-        CSS_PROP_BORDER_LEFT_WIDTH
+        CSSPropertyBorderTopWidth,
+        CSSPropertyBorderRightWidth,
+        CSSPropertyBorderBottomWidth,
+        CSSPropertyBorderLeftWidth
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_WIDTH, borderWidthProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderWidth, borderWidthProperties);
 
-    static const int backgroundPositionProperties[] = { CSS_PROP_BACKGROUND_POSITION_X, CSS_PROP_BACKGROUND_POSITION_Y };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BACKGROUND_POSITION, backgroundPositionProperties);
+    static const int backgroundPositionProperties[] = { CSSPropertyBackgroundPositionX, CSSPropertyBackgroundPositionY };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBackgroundPosition, backgroundPositionProperties);
 
-    static const int borderSpacingProperties[] = { CSS_PROP__WEBKIT_BORDER_HORIZONTAL_SPACING, CSS_PROP__WEBKIT_BORDER_VERTICAL_SPACING };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BORDER_SPACING, borderSpacingProperties);
+    static const int borderSpacingProperties[] = { CSSPropertyWebkitBorderHorizontalSpacing, CSSPropertyWebkitBorderVerticalSpacing };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderSpacing, borderSpacingProperties);
 
     static const int listStyleProperties[] = {
-        CSS_PROP_LIST_STYLE_IMAGE,
-        CSS_PROP_LIST_STYLE_POSITION,
-        CSS_PROP_LIST_STYLE_TYPE
+        CSSPropertyListStyleImage,
+        CSSPropertyListStylePosition,
+        CSSPropertyListStyleType
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_LIST_STYLE, listStyleProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyListStyle, listStyleProperties);
 
     static const int marginProperties[] = {
-        CSS_PROP_MARGIN_TOP,
-        CSS_PROP_MARGIN_RIGHT,
-        CSS_PROP_MARGIN_BOTTOM,
-        CSS_PROP_MARGIN_LEFT
+        CSSPropertyMarginTop,
+        CSSPropertyMarginRight,
+        CSSPropertyMarginBottom,
+        CSSPropertyMarginLeft
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_MARGIN, marginProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyMargin, marginProperties);
 
-    static const int marginCollapseProperties[] = { CSS_PROP__WEBKIT_MARGIN_TOP_COLLAPSE, CSS_PROP__WEBKIT_MARGIN_BOTTOM_COLLAPSE };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_MARGIN_COLLAPSE, marginCollapseProperties);
+    static const int marginCollapseProperties[] = { CSSPropertyWebkitMarginTopCollapse, CSSPropertyWebkitMarginBottomCollapse };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMarginCollapse, marginCollapseProperties);
 
     static const int marqueeProperties[] = {
-        CSS_PROP__WEBKIT_MARQUEE_DIRECTION,
-        CSS_PROP__WEBKIT_MARQUEE_INCREMENT,
-        CSS_PROP__WEBKIT_MARQUEE_REPETITION,
-        CSS_PROP__WEBKIT_MARQUEE_STYLE,
-        CSS_PROP__WEBKIT_MARQUEE_SPEED
+        CSSPropertyWebkitMarqueeDirection,
+        CSSPropertyWebkitMarqueeIncrement,
+        CSSPropertyWebkitMarqueeRepetition,
+        CSSPropertyWebkitMarqueeStyle,
+        CSSPropertyWebkitMarqueeSpeed
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_MARQUEE, marqueeProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMarquee, marqueeProperties);
 
     static const int outlineProperties[] = {
-        CSS_PROP_OUTLINE_COLOR,
-        CSS_PROP_OUTLINE_OFFSET,
-        CSS_PROP_OUTLINE_STYLE,
-        CSS_PROP_OUTLINE_WIDTH
+        CSSPropertyOutlineColor,
+        CSSPropertyOutlineOffset,
+        CSSPropertyOutlineStyle,
+        CSSPropertyOutlineWidth
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_OUTLINE, outlineProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyOutline, outlineProperties);
 
     static const int paddingProperties[] = {
-        CSS_PROP_PADDING_TOP,
-        CSS_PROP_PADDING_RIGHT,
-        CSS_PROP_PADDING_BOTTOM,
-        CSS_PROP_PADDING_LEFT
+        CSSPropertyPaddingTop,
+        CSSPropertyPaddingRight,
+        CSSPropertyPaddingBottom,
+        CSSPropertyPaddingLeft
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_PADDING, paddingProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyPadding, paddingProperties);
 
-    static const int textStrokeProperties[] = { CSS_PROP__WEBKIT_TEXT_STROKE_COLOR, CSS_PROP__WEBKIT_TEXT_STROKE_WIDTH };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_TEXT_STROKE, textStrokeProperties);
+    static const int textStrokeProperties[] = { CSSPropertyWebkitTextStrokeColor, CSSPropertyWebkitTextStrokeWidth };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitTextStroke, textStrokeProperties);
 
     static const int backgroundProperties[] = {
-        CSS_PROP_BACKGROUND_ATTACHMENT,
-        CSS_PROP_BACKGROUND_COLOR,
-        CSS_PROP_BACKGROUND_IMAGE,
-        CSS_PROP_BACKGROUND_POSITION_X,
-        CSS_PROP_BACKGROUND_POSITION_Y,
-        CSS_PROP_BACKGROUND_REPEAT,
-        CSS_PROP__WEBKIT_BACKGROUND_SIZE
+        CSSPropertyBackgroundAttachment,
+        CSSPropertyWebkitBackgroundClip,
+        CSSPropertyBackgroundColor,
+        CSSPropertyBackgroundImage,
+        CSSPropertyWebkitBackgroundOrigin,
+        CSSPropertyBackgroundPositionX,
+        CSSPropertyBackgroundPositionY,
+        CSSPropertyBackgroundRepeat,
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_BACKGROUND, backgroundProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBackground, backgroundProperties);
 
-    static const int columnsProperties[] = { CSS_PROP__WEBKIT_COLUMN_WIDTH, CSS_PROP__WEBKIT_COLUMN_COUNT };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_COLUMNS, columnsProperties);
+    static const int columnsProperties[] = { CSSPropertyWebkitColumnWidth, CSSPropertyWebkitColumnCount };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitColumns, columnsProperties);
 
     static const int columnRuleProperties[] = {
-        CSS_PROP__WEBKIT_COLUMN_RULE_COLOR,
-        CSS_PROP__WEBKIT_COLUMN_RULE_STYLE,
-        CSS_PROP__WEBKIT_COLUMN_RULE_WIDTH
+        CSSPropertyWebkitColumnRuleColor,
+        CSSPropertyWebkitColumnRuleStyle,
+        CSSPropertyWebkitColumnRuleWidth
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_COLUMN_RULE, columnRuleProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitColumnRule, columnRuleProperties);
 
-    static const int overflowProperties[] = { CSS_PROP_OVERFLOW_X, CSS_PROP_OVERFLOW_Y };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP_OVERFLOW, overflowProperties);
+    static const int overflowProperties[] = { CSSPropertyOverflowX, CSSPropertyOverflowY };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyOverflow, overflowProperties);
 
     static const int borderRadiusProperties[] = {
-        CSS_PROP__WEBKIT_BORDER_TOP_RIGHT_RADIUS,
-        CSS_PROP__WEBKIT_BORDER_TOP_LEFT_RADIUS,
-        CSS_PROP__WEBKIT_BORDER_BOTTOM_LEFT_RADIUS,
-        CSS_PROP__WEBKIT_BORDER_BOTTOM_RIGHT_RADIUS
+        CSSPropertyWebkitBorderTopRightRadius,
+        CSSPropertyWebkitBorderTopLeftRadius,
+        CSSPropertyWebkitBorderBottomLeftRadius,
+        CSSPropertyWebkitBorderBottomRightRadius
     };
-    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSS_PROP__WEBKIT_BORDER_RADIUS, borderRadiusProperties);
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitBorderRadius, borderRadiusProperties);
 
+    static const int maskPositionProperties[] = { CSSPropertyWebkitMaskPositionX, CSSPropertyWebkitMaskPositionY };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMaskPosition, maskPositionProperties);
+
+    static const int maskProperties[] = {
+        CSSPropertyWebkitMaskAttachment,
+        CSSPropertyWebkitMaskClip,
+        CSSPropertyWebkitMaskImage,
+        CSSPropertyWebkitMaskOrigin,
+        CSSPropertyWebkitMaskPositionX,
+        CSSPropertyWebkitMaskPositionY,
+        CSSPropertyWebkitMaskRepeat,
+    };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMask, maskProperties);
+    
     #undef SET_SHORTHAND_MAP_ENTRY
 }
 
@@ -438,6 +519,8 @@ String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyCha
         if (propertyID == (*it).m_id) {
             if (returnText)
                 value = (*it).value()->cssText();
+            if ((*it).value()->isVariableDependentValue())
+                m_variableDependentValueCount--;
             m_values.remove(it);
             if (notifyChanged)
                 setChanged();
@@ -448,21 +531,18 @@ String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyCha
     return value;
 }
 
-void CSSMutableStyleDeclaration::clear()
-{
-    m_values.clear();
-    setChanged();
-}
-
-void CSSMutableStyleDeclaration::setChanged(StyleChangeType changeType)
+void CSSMutableStyleDeclaration::setChanged()
 {
     if (m_node) {
-        m_node->setChanged(changeType);
         // FIXME: Ideally, this should be factored better and there
         // should be a subclass of CSSMutableStyleDeclaration just
         // for inline style declarations that handles this
-        if (m_node->isStyledElement() && this == static_cast<StyledElement*>(m_node)->inlineStyleDecl())
+        bool isInlineStyleDeclaration = m_node->isStyledElement() && this == static_cast<StyledElement*>(m_node)->inlineStyleDecl();
+        if (isInlineStyleDeclaration) {
+            m_node->setChanged(InlineStyleChange);
             static_cast<StyledElement*>(m_node)->invalidateStyleAttribute();
+        } else
+            m_node->setChanged(FullStyleChange);
         return;
     }
 
@@ -533,7 +613,7 @@ bool CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value
         // CSS DOM requires raising SYNTAX_ERR here, but this is too dangerous for compatibility,
         // see <http://bugs.webkit.org/show_bug.cgi?id=7296>.
     } else if (notifyChanged)
-        setChanged(InlineStyleChange);
+        setChanged();
     ASSERT(!ec);
     return success;
 }
@@ -541,7 +621,7 @@ bool CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value
 bool CSSMutableStyleDeclaration::setProperty(int propertyID, int value, bool important, bool notifyChanged)
 {
     removeProperty(propertyID);
-    m_values.append(CSSProperty(propertyID, new CSSPrimitiveValue(value), important));
+    m_values.append(CSSProperty(propertyID, CSSPrimitiveValue::createIdentifier(value), important));
     if (notifyChanged)
         setChanged();
     return true;
@@ -550,14 +630,14 @@ bool CSSMutableStyleDeclaration::setProperty(int propertyID, int value, bool imp
 void CSSMutableStyleDeclaration::setStringProperty(int propertyId, const String &value, CSSPrimitiveValue::UnitTypes type, bool important)
 {
     removeProperty(propertyId);
-    m_values.append(CSSProperty(propertyId, new CSSPrimitiveValue(value, type), important));
+    m_values.append(CSSProperty(propertyId, CSSPrimitiveValue::create(value, type), important));
     setChanged();
 }
 
 void CSSMutableStyleDeclaration::setImageProperty(int propertyId, const String& url, bool important)
 {
     removeProperty(propertyId);
-    m_values.append(CSSProperty(propertyId, new CSSImageValue(url, this), important));
+    m_values.append(CSSProperty(propertyId, CSSImageValue::create(url), important));
     setChanged();
 }
 
@@ -569,7 +649,7 @@ void CSSMutableStyleDeclaration::parseDeclaration(const String& styleDeclaration
     setChanged();
 }
 
-void CSSMutableStyleDeclaration::addParsedProperties(const CSSProperty * const * properties, int numProperties)
+void CSSMutableStyleDeclaration::addParsedProperties(const CSSProperty* const* properties, int numProperties)
 {
     for (int i = 0; i < numProperties; ++i) {
         // Only add properties that have no !important counterpart present
@@ -577,10 +657,18 @@ void CSSMutableStyleDeclaration::addParsedProperties(const CSSProperty * const *
             removeProperty(properties[i]->id(), false);
             ASSERT(properties[i]);
             m_values.append(*properties[i]);
+            if (properties[i]->value()->isVariableDependentValue())
+                m_variableDependentValueCount++;
         }
     }
     // FIXME: This probably should have a call to setChanged() if something changed. We may also wish to add
     // a notifyChanged argument to this function to follow the model of other functions in this class.
+}
+
+void CSSMutableStyleDeclaration::addParsedProperty(const CSSProperty& property)
+{
+    removeProperty(property.id(), false);
+    m_values.append(property);
 }
 
 void CSSMutableStyleDeclaration::setLengthProperty(int propertyId, const String& value, bool important, bool /*multiLength*/)
@@ -613,9 +701,9 @@ String CSSMutableStyleDeclaration::cssText() const
     DeprecatedValueListConstIterator<CSSProperty> end;
     for (DeprecatedValueListConstIterator<CSSProperty> it = m_values.begin(); it != end; ++it) {
         const CSSProperty& prop = *it;
-        if (prop.id() == CSS_PROP_BACKGROUND_POSITION_X)
+        if (prop.id() == CSSPropertyBackgroundPositionX)
             positionXProp = &prop;
-        else if (prop.id() == CSS_PROP_BACKGROUND_POSITION_Y)
+        else if (prop.id() == CSSPropertyBackgroundPositionY)
             positionYProp = &prop;
         else
             result += prop.cssText();
@@ -627,7 +715,7 @@ String CSSMutableStyleDeclaration::cssText() const
     // It would be a better solution if background-position was CSS_PAIR.
     if (positionXProp && positionYProp && positionXProp->isImportant() == positionYProp->isImportant()) {
         String positionValue;
-        const int properties[2] = { CSS_PROP_BACKGROUND_POSITION_X, CSS_PROP_BACKGROUND_POSITION_Y };
+        const int properties[2] = { CSSPropertyBackgroundPositionX, CSSPropertyBackgroundPositionY };
         if (positionXProp->value()->isValueList() || positionYProp->value()->isValueList()) 
             positionValue = getLayeredShorthandValue(properties, 2);
         else
@@ -673,23 +761,23 @@ void CSSMutableStyleDeclaration::merge(CSSMutableStyleDeclaration* other, bool a
 // This is the list of properties we want to copy in the copyBlockProperties() function.
 // It is the list of CSS properties that apply specially to block-level elements.
 static const int blockProperties[] = {
-    CSS_PROP_ORPHANS,
-    CSS_PROP_OVERFLOW, // This can be also be applied to replaced elements
-    CSS_PROP__WEBKIT_COLUMN_COUNT,
-    CSS_PROP__WEBKIT_COLUMN_GAP,
-    CSS_PROP__WEBKIT_COLUMN_RULE_COLOR,
-    CSS_PROP__WEBKIT_COLUMN_RULE_STYLE,
-    CSS_PROP__WEBKIT_COLUMN_RULE_WIDTH,
-    CSS_PROP__WEBKIT_COLUMN_BREAK_BEFORE,
-    CSS_PROP__WEBKIT_COLUMN_BREAK_AFTER,
-    CSS_PROP__WEBKIT_COLUMN_BREAK_INSIDE,
-    CSS_PROP__WEBKIT_COLUMN_WIDTH,
-    CSS_PROP_PAGE_BREAK_AFTER,
-    CSS_PROP_PAGE_BREAK_BEFORE,
-    CSS_PROP_PAGE_BREAK_INSIDE,
-    CSS_PROP_TEXT_ALIGN,
-    CSS_PROP_TEXT_INDENT,
-    CSS_PROP_WIDOWS
+    CSSPropertyOrphans,
+    CSSPropertyOverflow, // This can be also be applied to replaced elements
+    CSSPropertyWebkitColumnCount,
+    CSSPropertyWebkitColumnGap,
+    CSSPropertyWebkitColumnRuleColor,
+    CSSPropertyWebkitColumnRuleStyle,
+    CSSPropertyWebkitColumnRuleWidth,
+    CSSPropertyWebkitColumnBreakBefore,
+    CSSPropertyWebkitColumnBreakAfter,
+    CSSPropertyWebkitColumnBreakInside,
+    CSSPropertyWebkitColumnWidth,
+    CSSPropertyPageBreakAfter,
+    CSSPropertyPageBreakBefore,
+    CSSPropertyPageBreakInside,
+    CSSPropertyTextAlign,
+    CSSPropertyTextIndent,
+    CSSPropertyWidows
 };
 
 const unsigned numBlockProperties = sizeof(blockProperties) / sizeof(blockProperties[0]);
@@ -725,7 +813,7 @@ PassRefPtr<CSSMutableStyleDeclaration> CSSMutableStyleDeclaration::makeMutable()
 
 PassRefPtr<CSSMutableStyleDeclaration> CSSMutableStyleDeclaration::copy() const
 {
-    return new CSSMutableStyleDeclaration(0, m_values);
+    return adoptRef(new CSSMutableStyleDeclaration(0, m_values, m_variableDependentValueCount));
 }
 
 } // namespace WebCore

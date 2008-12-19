@@ -29,7 +29,6 @@
 #include "CachedImage.h"
 #include "CSSHelper.h"
 #include "CString.h"
-#include "DeprecatedString.h"
 #include "Document.h"
 #include "DragData.h"
 #include "Element.h"
@@ -138,7 +137,7 @@ bool ClipboardAndroid::setData(const String &type, const String &data)
     ClipboardDataType platformType = clipboardTypeFromMIMEType(type);
 
     if (platformType == ClipboardDataTypeURL) {
-        KURL url = data.deprecatedString();
+        KURL url = KURL(data);
 #if 0 && defined ANDROID // FIXME HACK : KURL no longer defines a public method isValid()
         if (!url.isValid())
             return false;
@@ -167,10 +166,10 @@ void ClipboardAndroid::setDragImage(CachedImage* image, Node *node, const IntPoi
         return;
         
     if (m_dragImage)
-        m_dragImage->deref(this);
+        m_dragImage->removeClient(this);
     m_dragImage = image;
     if (m_dragImage)
-        m_dragImage->ref(this);
+        m_dragImage->addClient(this);
 
     m_dragLoc = loc;
     m_dragImageElement = node;

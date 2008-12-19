@@ -24,36 +24,23 @@
  */
 
 #include "config.h"
-#include "IWebScriptDebugListener.h"
+#include "WebKit.h"
 #include "WebKitDLL.h"
 #include "WebScriptDebugServer.h"
-
-#include "WebView.h"
-#include <wtf/Assertions.h>
-#include <wtf/Vector.h>
-
-typedef HashSet<COMPtr<IWebScriptDebugListener> > ListenerSet;
-
-static ListenerSet s_Listeners;
-static unsigned s_ListenerCount = 0;
-static OwnPtr<WebScriptDebugServer> s_SharedWebScriptDebugServer;
-static bool s_dying = false;
-
-unsigned WebScriptDebugServer::listenerCount() { return s_ListenerCount; };
 
 // WebScriptDebugServer ------------------------------------------------------------
 
 WebScriptDebugServer::WebScriptDebugServer()
     : m_refCount(0)
-    , m_paused(false)
-    , m_step(false)
 {
     gClassCount++;
+    gClassNameCount.add("WebScriptDebugServer");
 }
 
 WebScriptDebugServer::~WebScriptDebugServer()
 {
     gClassCount--;
+    gClassNameCount.remove("WebScriptDebugServer");
 }
 
 WebScriptDebugServer* WebScriptDebugServer::createInstance()
@@ -62,17 +49,6 @@ WebScriptDebugServer* WebScriptDebugServer::createInstance()
     instance->AddRef();
     return instance;
 }
-
-WebScriptDebugServer* WebScriptDebugServer::sharedWebScriptDebugServer()
-{
-    if (!s_SharedWebScriptDebugServer) {
-        s_dying = false;
-        s_SharedWebScriptDebugServer.set(WebScriptDebugServer::createInstance());
-    }
-
-    return s_SharedWebScriptDebugServer.get();
-}
-
 
 // IUnknown -------------------------------------------------------------------
 
@@ -107,255 +83,40 @@ ULONG STDMETHODCALLTYPE WebScriptDebugServer::Release()
 // IWebScriptDebugServer -----------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::sharedWebScriptDebugServer( 
-    /* [retval][out] */ IWebScriptDebugServer** server)
+    /* [retval][out] */ IWebScriptDebugServer**)
 {
-    if (!server)
-        return E_POINTER;
-
-    *server = WebScriptDebugServer::sharedWebScriptDebugServer();
-    (*server)->AddRef();
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::addListener(
-    /* [in] */ IWebScriptDebugListener* listener)
+    /* [in] */ IWebScriptDebugListener*)
 {
-    if (s_dying)
-        return E_FAIL;
-
-    if (!listener)
-        return E_POINTER;
-
-    ++s_ListenerCount;
-    s_Listeners.add(listener);
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::removeListener(
-    /* [in] */ IWebScriptDebugListener* listener)
+    /* [in] */ IWebScriptDebugListener*)
 {
-    if (s_dying)
-        return S_OK;
-
-    if (!listener)
-        return E_POINTER;
-
-    if (!s_Listeners.contains(listener))
-        return S_OK;
-
-    s_Listeners.remove(listener);
-
-    ASSERT(s_ListenerCount >= 1);
-    if (--s_ListenerCount == 0)
-        resume();
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::step()
 {
-    m_step = true;
-    m_paused = false;
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::pause()
 {
-    m_paused = true;
-    m_step = false;
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::resume()
 {
-    m_paused = false;
-    m_step = false;
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE WebScriptDebugServer::isPaused(
-    /* [out, retval] */ BOOL* isPaused)
+    /* [out, retval] */ BOOL*)
 {
-    if (!isPaused)
-        return E_POINTER;
-
-    *isPaused = m_paused;
-    return S_OK;
-}
-
-
-void WebScriptDebugServer::suspendProcessIfPaused()
-{
-    static bool alreadyHere = false;
-
-    if (alreadyHere)
-        return;
-
-    alreadyHere = true;
-
-    MSG msg;
-    while (m_paused && GetMessage(&msg, 0, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-
-    if (m_step) {
-        m_step = false;
-        m_paused = true;
-    }
-
-    alreadyHere = false;
-}
-
-// IWebScriptDebugListener
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::didLoadMainResourceForDataSource(
-    /* [in] */ IWebView* webView,
-    /* [in] */ IWebDataSource* dataSource)
-{
-    if (!webView || !dataSource)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).didLoadMainResourceForDataSource(webView, dataSource);
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::didParseSource(
-    /* [in] */ IWebView* webView,
-    /* [in] */ BSTR sourceCode,
-    /* [in] */ UINT baseLineNumber,
-    /* [in] */ BSTR url,
-    /* [in] */ int sourceID,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !sourceCode || !url || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).didParseSource(webView, sourceCode, baseLineNumber, url, sourceID, webFrame);
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::failedToParseSource(
-    /* [in] */ IWebView* webView,
-    /* [in] */ BSTR sourceCode,
-    /* [in] */ UINT baseLineNumber,
-    /* [in] */ BSTR url,
-    /* [in] */ BSTR error,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !sourceCode || !url || !error || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).failedToParseSource(webView, sourceCode, baseLineNumber, url, error, webFrame);
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::didEnterCallFrame(
-    /* [in] */ IWebView* webView,
-    /* [in] */ IWebScriptCallFrame* frame,
-    /* [in] */ int sourceID,
-    /* [in] */ int lineNumber,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !frame || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).didEnterCallFrame(webView, frame, sourceID, lineNumber, webFrame);
-
-    suspendProcessIfPaused();
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::willExecuteStatement(
-    /* [in] */ IWebView* webView,
-    /* [in] */ IWebScriptCallFrame* frame,
-    /* [in] */ int sourceID,
-    /* [in] */ int lineNumber,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !frame || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).willExecuteStatement(webView, frame, sourceID, lineNumber, webFrame);
-
-    suspendProcessIfPaused();
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::willLeaveCallFrame(
-    /* [in] */ IWebView* webView,
-    /* [in] */ IWebScriptCallFrame* frame,
-    /* [in] */ int sourceID,
-    /* [in] */ int lineNumber,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !frame || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).willLeaveCallFrame(webView, frame, sourceID, lineNumber, webFrame);
-
-    suspendProcessIfPaused();
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::exceptionWasRaised(
-    /* [in] */ IWebView* webView,
-    /* [in] */ IWebScriptCallFrame* frame,
-    /* [in] */ int sourceID,
-    /* [in] */ int lineNumber,
-    /* [in] */ IWebFrame* webFrame)
-{
-    if (!webView || !frame || !webFrame)
-        return E_FAIL;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it)
-        (**it).exceptionWasRaised(webView, frame, sourceID, lineNumber, webFrame);
-
-    suspendProcessIfPaused();
-
-    return S_OK;
-}
-
-HRESULT STDMETHODCALLTYPE WebScriptDebugServer::serverDidDie()
-{
-    s_dying = true;
-
-    ListenerSet listenersCopy = s_Listeners;
-    ListenerSet::iterator end = listenersCopy.end();
-    for (ListenerSet::iterator it = listenersCopy.begin(); it != end; ++it) {
-        (**it).serverDidDie();
-        s_Listeners.remove((*it).get());
-    }
-
-    return S_OK;
+    return E_NOTIMPL;
 }

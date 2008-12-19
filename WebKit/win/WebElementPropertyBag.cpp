@@ -46,10 +46,14 @@ WebElementPropertyBag::WebElementPropertyBag(const HitTestResult& result)
     : m_result(new HitTestResult(result))
     , m_refCount(0)
 {
+    gClassCount++;
+    gClassNameCount.add("WebElementPropertyBag");
 }
 
 WebElementPropertyBag::~WebElementPropertyBag()
 {
+    gClassCount--;
+    gClassNameCount.remove("WebElementPropertyBag");
 }
 
 WebElementPropertyBag* WebElementPropertyBag::createInstance(const HitTestResult& result)
@@ -188,6 +192,6 @@ HRESULT STDMETHODCALLTYPE WebElementPropertyBag::Write(LPCOLESTR pszPropName, VA
 {
     if (!pszPropName || !pVar)
         return E_POINTER;
-    VariantClear(pVar);
+
     return E_FAIL;
 }

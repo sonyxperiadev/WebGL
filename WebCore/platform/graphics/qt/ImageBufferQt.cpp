@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,47 +27,89 @@
 #include "config.h"
 #include "ImageBuffer.h"
 
+#include "CString.h"
 #include "GraphicsContext.h"
+#include "ImageData.h"
+#include "MIMETypeRegistry.h"
+#include "NotImplemented.h"
+#include "StillImageQt.h"
 
+#include <QBuffer>
+#include <QImageWriter>
 #include <QPainter>
 #include <QPixmap>
 
 namespace WebCore {
 
-std::auto_ptr<ImageBuffer> ImageBuffer::create(const IntSize& size, bool grayScale)
+ImageBufferData::ImageBufferData(const IntSize& size)
+    : m_pixmap(size)
 {
-    QPixmap px(size);
-    return std::auto_ptr<ImageBuffer>(new ImageBuffer(px));
+    m_pixmap.fill(QColor(Qt::transparent));
+    m_painter.set(new QPainter(&m_pixmap));
 }
 
-ImageBuffer::ImageBuffer(const QPixmap& px)
-    : m_pixmap(px),
-      m_painter(0)
+ImageBuffer::ImageBuffer(const IntSize& size, bool grayScale, bool& success)
+    : m_data(size)
+    , m_size(size)
 {
-    m_painter = new QPainter(&m_pixmap);
-    m_context.set(new GraphicsContext(m_painter));
+    m_context.set(new GraphicsContext(m_data.m_painter.get()));
+    success = true;
 }
 
 ImageBuffer::~ImageBuffer()
 {
-    delete m_painter;
 }
 
 GraphicsContext* ImageBuffer::context() const
 {
-    if (!m_painter->isActive())
-        m_painter->begin(&m_pixmap);
+    ASSERT(m_data.m_painter->isActive());
 
     return m_context.get();
 }
 
-QPixmap* ImageBuffer::pixmap() const
+Image* ImageBuffer::image() const
 {
-    if (!m_painter)
-        return &m_pixmap;
-    if (m_painter->isActive())
-        m_painter->end();
-    return &m_pixmap;
+    if (!m_image) {
+        // It's assumed that if image() is called, the actual rendering to the
+        // GraphicsContext must be done.
+        ASSERT(context());
+        m_image = StillImage::create(m_data.m_pixmap);
+    }
+
+    return m_image.get();
+}
+
+PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect&) const
+{
+    notImplemented();
+    return 0;
+}
+
+void ImageBuffer::putImageData(ImageData*, const IntRect&, const IntPoint&)
+{
+    notImplemented();
+}
+
+// We get a mimeType here but QImageWriter does not support mimetypes but
+// only formats (png, gif, jpeg..., xpm). So assume we get image/ as image
+// mimetypes and then remove the image/ to get the Qt format.
+String ImageBuffer::toDataURL(const String& mimeType) const
+{
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
+
+    if (!mimeType.startsWith("image/"))
+        return "data:,";
+
+    // prepare our target
+    QByteArray data;
+    QBuffer buffer(&data);
+    buffer.open(QBuffer::WriteOnly);
+
+    if (!m_data.m_pixmap.save(&buffer, mimeType.substring(sizeof "image").utf8().data()))
+        return "data:,";
+
+    buffer.close();
+    return String::format("data:%s;base64,%s", mimeType.utf8().data(), data.toBase64().data());
 }
 
 }

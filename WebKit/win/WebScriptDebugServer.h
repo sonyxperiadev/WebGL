@@ -26,27 +26,11 @@
 #ifndef WebScriptDebugServer_H
 #define WebScriptDebugServer_H
 
-#include "IWebScriptDebugServer.h"
+#include "WebKit.h"
 
-#include "IWebScriptDebugListener.h"
-#include <wtf/HashSet.h>
-#pragma warning(push, 0)
-#include <WebCore/COMPtr.h>
-#pragma warning(pop)
-
-interface IWebView;
-
-class WebScriptDebugServer : public IWebScriptDebugServer, public IWebScriptDebugListener
-{
+class WebScriptDebugServer : public IWebScriptDebugServer {
 public:
     static WebScriptDebugServer* createInstance();
-    static WebScriptDebugServer* sharedWebScriptDebugServer();
-
-private:
-    WebScriptDebugServer();
-
-public:
-    virtual ~WebScriptDebugServer();
 
     // IUnknown
     virtual HRESULT STDMETHODCALLTYPE QueryInterface( 
@@ -76,63 +60,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE isPaused(
         /* [out, retval] */ BOOL* isPaused);
 
-    // IWebScriptDebugListener
-    virtual HRESULT STDMETHODCALLTYPE didLoadMainResourceForDataSource(
-        /* [in] */ IWebView* webView,
-        /* [in] */ IWebDataSource* dataSource);
-
-    virtual HRESULT STDMETHODCALLTYPE didParseSource(
-        /* [in] */ IWebView* webView,
-        /* [in] */ BSTR sourceCode,
-        /* [in] */ UINT baseLineNumber,
-        /* [in] */ BSTR url,
-        /* [in] */ int sourceID,
-        /* [in] */ IWebFrame* webFrame);
-
-    virtual HRESULT STDMETHODCALLTYPE failedToParseSource(
-        /* [in] */ IWebView* webView,
-        /* [in] */ BSTR sourceCode,
-        /* [in] */ UINT baseLineNumber,
-        /* [in] */ BSTR url,
-        /* [in] */ BSTR error,
-        /* [in] */ IWebFrame*);
-
-    virtual HRESULT STDMETHODCALLTYPE didEnterCallFrame(
-        /* [in] */ IWebView* webView,
-        /* [in] */ IWebScriptCallFrame* frame,
-        /* [in] */ int sourceID,
-        /* [in] */ int lineNumber,
-        /* [in] */ IWebFrame*);
-
-    virtual HRESULT STDMETHODCALLTYPE willExecuteStatement(
-        /* [in] */ IWebView*,
-        /* [in] */ IWebScriptCallFrame*,
-        /* [in] */ int sourceID,
-        /* [in] */ int lineNumber,
-        /* [in] */ IWebFrame*);
-
-    virtual HRESULT STDMETHODCALLTYPE willLeaveCallFrame(
-        /* [in] */ IWebView* webView,
-        /* [in] */ IWebScriptCallFrame* frame,
-        /* [in] */ int sourceID,
-        /* [in] */ int lineNumber,
-        /* [in] */ IWebFrame*);
-
-    virtual HRESULT STDMETHODCALLTYPE exceptionWasRaised(
-        /* [in] */ IWebView* webView,
-        /* [in] */ IWebScriptCallFrame*,
-        /* [in] */ int sourceID,
-        /* [in] */ int lineNumber,
-        /* [in] */ IWebFrame*);
-
-    virtual HRESULT STDMETHODCALLTYPE serverDidDie();
-
-    void suspendProcessIfPaused();
-    static unsigned listenerCount();
-
 private:
-    bool m_paused;
-    bool m_step;
+    WebScriptDebugServer();
+    ~WebScriptDebugServer();
 
     ULONG m_refCount;
 };

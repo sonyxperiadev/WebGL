@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,10 @@
 
 #include "Frame.h"
 #include "FrameTree.h"
+#include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
-#include "HistoryItem.h"
+#include <limits>
 
 #if ENABLE(DATABASE)
 #include "DatabaseTracker.h"
@@ -43,6 +44,10 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
     for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
         frame->setNeedsReapplyStyles();
 }
+
+#if USE(SAFARI_THEME)
+bool Settings::gShouldPaintNativeControls = false;
+#endif
 
 Settings::Settings(Page* page)
     : m_page(page)
@@ -71,7 +76,9 @@ Settings::Settings(Page* page)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_shouldPrintBackgrounds(false)
     , m_textAreasAreResizable(false)
+#if ENABLE(DASHBOARD_SUPPORT)
     , m_usesDashboardBackwardCompatibilityMode(false)
+#endif
     , m_needsAdobeFrameReloadingQuirk(false)
     , m_needsKeyboardEventDisambiguationQuirks(false)
     , m_isDOMPasteAllowed(false)
@@ -83,6 +90,14 @@ Settings::Settings(Page* page)
     , m_authorAndUserStylesEnabled(true)
     , m_needsSiteSpecificQuirks(false)
     , m_fontRenderingMode(0)
+    , m_webArchiveDebugModeEnabled(false)
+    , m_inApplicationChromeMode(false)
+    , m_offlineWebApplicationCacheEnabled(false)
+    , m_rangeMutationDisabledForOldAppleMail(false)
+    , m_shouldPaintCustomScrollbars(false)
+    , m_zoomsTextOnly(false)
+    , m_enforceCSSMIMETypeInStrictMode(true)
+    , m_maximumDecodedImageSize(std::numeric_limits<size_t>::max())
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -261,10 +276,12 @@ void Settings::setEditableLinkBehavior(EditableLinkBehavior editableLinkBehavior
     m_editableLinkBehavior = editableLinkBehavior;
 }
 
+#if ENABLE(DASHBOARD_SUPPORT)
 void Settings::setUsesDashboardBackwardCompatibilityMode(bool usesDashboardBackwardCompatibilityMode)
 {
     m_usesDashboardBackwardCompatibilityMode = usesDashboardBackwardCompatibilityMode;
 }
+#endif
 
 // FIXME: This quirk is needed because of Radar 4674537 and 5211271. We need to phase it out once Adobe
 // can fix the bug from their end.
@@ -440,5 +457,56 @@ void Settings::setNeedsSiteSpecificQuirks(bool needsQuirks)
 {
     m_needsSiteSpecificQuirks = needsQuirks;
 }
+
+void Settings::setWebArchiveDebugModeEnabled(bool enabled)
+{
+    m_webArchiveDebugModeEnabled = enabled;
+}
+
+void Settings::setLocalStorageDatabasePath(const String& path)
+{
+    m_localStorageDatabasePath = path;
+}
+
+void Settings::disableRangeMutationForOldAppleMail(bool disable)
+{
+    m_rangeMutationDisabledForOldAppleMail = disable;
+}
+
+void Settings::setApplicationChromeMode(bool mode)
+{
+    m_inApplicationChromeMode = mode;
+}
+
+void Settings::setOfflineWebApplicationCacheEnabled(bool enabled)
+{
+    m_offlineWebApplicationCacheEnabled = enabled;
+}
+
+void Settings::setShouldPaintCustomScrollbars(bool shouldPaintCustomScrollbars)
+{
+    m_shouldPaintCustomScrollbars = shouldPaintCustomScrollbars;
+}
+
+void Settings::setZoomsTextOnly(bool zoomsTextOnly)
+{
+    if (zoomsTextOnly == m_zoomsTextOnly)
+        return;
+    
+    m_zoomsTextOnly = zoomsTextOnly;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
+void Settings::setEnforceCSSMIMETypeInStrictMode(bool enforceCSSMIMETypeInStrictMode)
+{
+    m_enforceCSSMIMETypeInStrictMode = enforceCSSMIMETypeInStrictMode;
+}
+
+#if USE(SAFARI_THEME)
+void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
+{
+    gShouldPaintNativeControls = shouldPaintNativeControls;
+}
+#endif
 
 } // namespace WebCore

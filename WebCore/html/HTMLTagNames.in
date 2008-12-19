@@ -1,62 +1,68 @@
-a
+namespace="HTML"
+namespacePrefix="xhtml"
+namespaceURI="http://www.w3.org/1999/xhtml"
+
+a interfaceName=AnchorElement
 abbr
 acronym
 address
 applet
 area
-audio
+#if ENABLE_VIDEO
+audio applyAudioHack=1
+#endif
 b
 base
-basefont
+basefont interfaceName=BaseFontElement
 bdo
 big
 blockquote
 body
-br
+br interfaceName=BRElement
 button
 canvas
-caption
+caption interfaceName=TableCaptionElement
 center
 cite
 code
-col
+col interfaceName=TableColElement
 colgroup
 dd
-del
+del interfaceName=ModElement
 dfn
-dir
+dir interfaceName=DirectoryElement
 div
-dl
+dl interfaceName=DListElement
 dt
 em
 embed
-fieldset
+fieldset interfaceName=FieldSetElement
 font
 form
 frame
-frameset
+frameset interfaceName=FrameSetElement
 head
-h1
+h1 interfaceName=HeadingElement
 h2
 h3
 h4
 h5
 h6
-hr
+hr interfaceName=HRElement
 html
 i
-iframe
+iframe interfaceName=IFrameElement
 image
-img
+img interfaceName=ImageElement
 input
 ins
-isindex
+isindex interfaceName=IsIndexElement
 kbd
 keygen
 label
 layer
 legend
-li
+li interfaceName=LIElement
 link
 listing
 map
@@ -69,20 +75,22 @@ noframes
 nolayer
 noscript
 object
-ol
-optgroup
+ol interfaceName=OListElement
+optgroup interfaceName=OptGroupElement
 option
-p
+p interfaceName=ParagraphElement
 param
 plaintext
 pre
-q
+q interfaceName=QuoteElement
 s
 samp
 script
 select
 small
-source
+#if ENABLE_VIDEO
+source applyAudioHack=1
+#endif
 span
 strike
 strong
@@ -90,18 +98,20 @@ style
 sub
 sup
 table
-tbody
-td
-textarea
+tbody interfaceName=TableSectionElement
+td interfaceName=TableCellElement
+textarea interfaceName=TextAreaElement
 tfoot
 th
 thead
 title
-tr
+tr interfaceName=TableRowElement
 tt
 u
-ul
+ul interfaceName=UListElement
 var
-video
+#if ENABLE_VIDEO
+video applyAudioHack=1
+#endif
 wbr
 xmp

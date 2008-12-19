@@ -30,6 +30,8 @@
 #define InspectorClientGtk_h
 
 #include "InspectorClient.h"
+#include "webkitwebview.h"
+#include "webkitwebinspector.h"
 
 namespace WebCore {
     class Node;
@@ -41,7 +43,10 @@ namespace WebKit {
 
     class InspectorClient : public WebCore::InspectorClient {
     public:
+        InspectorClient(WebKitWebView* webView);
+
         virtual void inspectorDestroyed();
+        void webViewDestroyed();
 
         virtual WebCore::Page* createPage();
 
@@ -53,9 +58,20 @@ namespace WebKit {
         virtual void attachWindow();
         virtual void detachWindow();
 
+        virtual void setAttachedWindowHeight(unsigned height);
+
         virtual void highlight(WebCore::Node*);
         virtual void hideHighlight();
         virtual void inspectedURLChanged(const WebCore::String& newURL);
+
+        virtual void populateSetting(const WebCore::String& key, WebCore::InspectorController::Setting&);
+        virtual void storeSetting(const WebCore::String& key, const WebCore::InspectorController::Setting&);
+        virtual void removeSetting(const WebCore::String& key);
+
+    private:
+        WebKitWebView* m_webView;
+        WebKitWebView* m_inspectedWebView;
+        WebKitWebInspector* m_webInspector;
     };
 }
 

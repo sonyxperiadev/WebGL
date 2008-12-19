@@ -25,7 +25,6 @@
  * The project should be able to build without this header, although we rarely test that.
  */
 
-
 /* Things that need to be defined globally should go into "config.h". */
 
 #if defined(__APPLE__)
@@ -57,11 +56,12 @@
 #define min min
 #endif
 
+#else
+#include <pthread.h>
 #endif // defined(WIN32) || defined(_WIN32)
 
 #include <sys/types.h>
 #include <fcntl.h>
-#include <pthread.h>
 #if defined(__APPLE__)
 #include <regex.h>
 #endif
@@ -105,6 +105,8 @@
 #if defined(__APPLE__)
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 #define BUILDING_ON_TIGER 1
+#elif MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
+#define BUILDING_ON_LEOPARD 1
 #endif
 #endif
 

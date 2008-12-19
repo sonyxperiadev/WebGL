@@ -1,9 +1,7 @@
-// -*- c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2006, 2007 Apple Inc.
+ *  Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -25,67 +23,55 @@
 #include "config.h"
 #include "Parser.h"
 
+#include "Debugger.h"
 #include "lexer.h"
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
-extern int kjsyyparse();
+extern int kjsyyparse(void*);
 
-namespace KJS {
+namespace JSC {
 
-Parser::Parser()
-    : m_sourceId(0)
-{
-}
-
-void Parser::parse(int startingLineNumber,
-    const UChar* code, unsigned length,
-    int* sourceId, int* errLine, UString* errMsg)
+void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
 {
     ASSERT(!m_sourceElements);
 
-    if (errLine)
-        *errLine = -1;
-    if (errMsg)
-        *errMsg = 0;
-        
-    Lexer& lexer = KJS::lexer();
+    int defaultErrLine;
+    UString defaultErrMsg;
 
-    lexer.setCode(startingLineNumber, code, length);
-    m_sourceId++;
-    if (sourceId)
-        *sourceId = m_sourceId;
+    if (!errLine)
+        errLine = &defaultErrLine;
+    if (!errMsg)
+        errMsg = &defaultErrMsg;
 
-    int parseError = kjsyyparse();
+    *errLine = -1;
+    *errMsg = 0;
+
+    Lexer& lexer = *globalData->lexer;
+    lexer.setCode(*m_source);
+
+    int parseError = kjsyyparse(globalData);
     bool lexError = lexer.sawError();
     lexer.clear();
 
-    ParserRefCounted::deleteNewObjects();
+    ParserRefCounted::deleteNewObjects(globalData);
 
     if (parseError || lexError) {
-        if (errLine)
-            *errLine = lexer.lineNo();
-        if (errMsg)
-            *errMsg = "Parse error";
+        *errLine = lexer.lineNo();
+        *errMsg = "Parse error";
         m_sourceElements.clear();
     }
 }
 
 void Parser::didFinishParsing(SourceElements* sourceElements, ParserRefCountedData<DeclarationStacks::VarStack>* varStack, 
-                              ParserRefCountedData<DeclarationStacks::FunctionStack>* funcStack, int lastLine)
+                              ParserRefCountedData<DeclarationStacks::FunctionStack>* funcStack, CodeFeatures features, int lastLine, int numConstants)
 {
-    m_sourceElements = sourceElements ? sourceElements : new SourceElements;
+    m_sourceElements = sourceElements;
     m_varDeclarations = varStack;
     m_funcDeclarations = funcStack;
+    m_features = features;
     m_lastLine = lastLine;
+    m_numConstants = numConstants;
 }
 
-Parser& parser()
-{
-    ASSERT(JSLock::currentThreadIsHoldingLock());
-
-    static Parser& staticParser = *new Parser;
-    return staticParser;
-}
-
-} // namespace KJS
+} // namespace JSC

@@ -41,7 +41,6 @@ typedef int ExceptionCode;
 // Other classes implement this for more specific situations e.g. attributes of an element.
 class NamedNodeMap : public RefCounted<NamedNodeMap> {
 public:
-    NamedNodeMap() { }
     virtual ~NamedNodeMap() { }
 
     virtual PassRefPtr<Node> getNamedItem(const String& name) const = 0;
@@ -57,10 +56,7 @@ public:
     virtual PassRefPtr<Node> setNamedItem(Node*, ExceptionCode&) = 0;
 
     virtual PassRefPtr<Node> item(unsigned index) const = 0;
-    virtual unsigned length() const = 0;
-
-    // Other methods (not part of DOM)
-    virtual bool isReadOnlyNode() { return false; }
+    virtual size_t length() const = 0;
 };
 
 } //namespace

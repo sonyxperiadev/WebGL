@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,22 +27,18 @@
 #ifndef PluginDatabase_H
 #define PluginDatabase_H
 
-#ifdef ANDROID_PLUGINS
-
-#include "PluginDatabaseAndroid.h"
-
-namespace WebCore {
-    typedef PluginDatabaseAndroid PluginDatabase;
-}
-
-#else // !defined(ANDROID_PLUGINS)
+#include "PlatformString.h"
+#include "PluginPackage.h"
+#include "StringHash.h"
 
 #include <wtf/Vector.h>
 #include <wtf/HashSet.h>
 
-#include "PlatformString.h"
-#include "PluginPackage.h"
-#include "StringHash.h"
+#if defined(ANDROID_PLUGINS)
+namespace android {
+    class WebSettings;
+}
+#endif
 
 namespace WebCore {
     class Element;
@@ -49,36 +46,51 @@ namespace WebCore {
     class IntSize;
     class KURL;
     class PluginPackage;
-    class PluginView;
 
     typedef HashSet<RefPtr<PluginPackage>, PluginPackageHash> PluginSet;
   
     class PluginDatabase {
     public:
         static PluginDatabase* installedPlugins();
-        PluginView* createPluginView(Frame* parentFrame, const IntSize&, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
         bool refresh();
         Vector<PluginPackage*> plugins() const;
         bool isMIMETypeRegistered(const String& mimeType);
-        void addExtraPluginPath(const String&);
-    private:
-        void setPluginPaths(const Vector<String>& paths) { m_pluginPaths = paths; }
-        PluginSet getPluginsInPaths() const;
+        void addExtraPluginDirectory(const String&);
 
-        PluginPackage* findPlugin(const KURL& url, String& mimeType);
+        static bool isPreferredPluginDirectory(const String& directory);
+        static int preferredPluginCompare(const void*, const void*);
+
+        PluginPackage* findPlugin(const KURL&, String& mimeType);
+
+    private:
+        void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
+
+        void getPluginPathsInDirectories(HashSet<String>&) const;
+        void getDeletedPlugins(PluginSet&) const;
+
+        // Returns whether the plugin was actually added or not (it won't be added if it's a duplicate of an existing plugin).
+        bool add(PassRefPtr<PluginPackage>);
+        void remove(PluginPackage*);
+
         PluginPackage* pluginForMIMEType(const String& mimeType);
         String MIMETypeForExtension(const String& extension) const;
 
-        static Vector<String> defaultPluginPaths();
+        static Vector<String> defaultPluginDirectories();
 
-        Vector<String> m_pluginPaths;
+        Vector<String> m_pluginDirectories;
         HashSet<String> m_registeredMIMETypes;
         PluginSet m_plugins;
+        HashMap<String, RefPtr<PluginPackage> > m_pluginsByPath;
+        HashMap<String, time_t> m_pluginPathsWithTimes;
+
+#if defined(ANDROID_PLUGINS)
+        // Need access to setPluginDirectories() to change the default
+        // path after startup.
+        friend class ::android::WebSettings;
+#endif
     };
 
 } // namespace WebCore
-
-#endif // !defined(ANDROID_PLUGINS)
 
 #endif

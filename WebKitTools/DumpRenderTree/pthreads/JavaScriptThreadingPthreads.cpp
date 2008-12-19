@@ -65,18 +65,20 @@ void* runJavaScriptThread(void* arg)
         JSStringRef scriptRef = JSStringCreateWithUTF8CString(script);
 
         JSValueRef exception = 0;
-        JSEvaluateScript(ctx, scriptRef, 0, 0, 0, &exception);
+        JSEvaluateScript(ctx, scriptRef, 0, 0, 1, &exception);
         ASSERT(!exception);
 
+        JSGarbageCollect(ctx);
         JSGlobalContextRelease(ctx);
         JSStringRelease(scriptRef);
         
-        JSGarbageCollect(ctx);
+        JSGarbageCollect(0);
 
         pthread_mutex_lock(&javaScriptThreadsMutex);
 
         // Check for cancellation.
         if (javaScriptThreadsShouldTerminate) {
+            javaScriptThreads()->remove(pthread_self());
             pthread_mutex_unlock(&javaScriptThreadsMutex);
             return 0;
         }
@@ -122,9 +124,14 @@ void stopJavaScriptThreads()
 
     pthread_mutex_unlock(&javaScriptThreadsMutex);
 
-    ThreadSet::iterator end = javaScriptThreads()->end();
-    for (ThreadSet::iterator it = javaScriptThreads()->begin(); it != end; ++it) {
-        pthread_t pthread = *it;
-        pthread_join(pthread, 0);
+    while (true) {
+        pthread_mutex_lock(&javaScriptThreadsMutex);
+        int threadCount = javaScriptThreads()->size();
+        pthread_mutex_unlock(&javaScriptThreadsMutex);
+
+        if (!threadCount)
+            break;
+
+        usleep(1000);
     }
 }

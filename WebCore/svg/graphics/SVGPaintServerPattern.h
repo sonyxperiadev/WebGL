@@ -44,7 +44,8 @@ namespace WebCore {
 
     class SVGPaintServerPattern : public SVGPaintServer {
     public:
-        SVGPaintServerPattern(const SVGPatternElement*);
+        static PassRefPtr<SVGPaintServerPattern> create(const SVGPatternElement* owner) { return adoptRef(new SVGPaintServerPattern(owner)); }
+
         virtual ~SVGPaintServerPattern();
 
         virtual SVGPaintServerType type() const { return PatternPaintServer; }
@@ -61,16 +62,14 @@ namespace WebCore {
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
-#if PLATFORM(CG)
         virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-        virtual void teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const; 
-#endif
-
-#if PLATFORM(QT) || PLATFORM(CAIRO)
-        virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
+#if PLATFORM(CG) || PLATFORM(QT)
+        virtual void teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
 #endif
 
     private:
+        SVGPaintServerPattern(const SVGPatternElement*);
+        
         OwnPtr<ImageBuffer> m_tile;
         const SVGPatternElement* m_ownerElement;
         AffineTransform m_patternTransform;

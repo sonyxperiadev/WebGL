@@ -26,18 +26,18 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "EventSender.h"
 
 #include "DraggingInfo.h"
+#include "DumpRenderTree.h"
 
 #include <WebCore/COMPtr.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Platform.h>
 #include <JavaScriptCore/JavaScriptCore.h>
 #include <JavaScriptCore/Assertions.h>
-#include <WebKit/IWebFrame.h>
-#include <WebKit/IWebFramePrivate.h>
+#include <WebKit/WebKit.h>
 #include <windows.h>
 
 #define WM_DRT_SEND_QUEUED_EVENT (WM_APP+1)
@@ -485,8 +485,8 @@ static JSValueRef textZoomInCallback(JSContextRef context, JSObjectRef function,
     if (FAILED(frame->webView(&webView)))
         return JSValueMakeUndefined(context);
 
-    COMPtr<IWebIBActions> webIBActions;
-    if (FAILED(webView->QueryInterface(IID_IWebIBActions, (void**)&webIBActions)))
+    COMPtr<IWebIBActions> webIBActions(Query, webView);
+    if (!webIBActions)
         return JSValueMakeUndefined(context);
 
     webIBActions->makeTextLarger(0);
@@ -499,11 +499,39 @@ static JSValueRef textZoomOutCallback(JSContextRef context, JSObjectRef function
     if (FAILED(frame->webView(&webView)))
         return JSValueMakeUndefined(context);
 
-    COMPtr<IWebIBActions> webIBActions;
-    if (FAILED(webView->QueryInterface(IID_IWebIBActions, (void**)&webIBActions)))
+    COMPtr<IWebIBActions> webIBActions(Query, webView);
+    if (!webIBActions)
         return JSValueMakeUndefined(context);
 
     webIBActions->makeTextSmaller(0);
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef zoomPageInCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return JSValueMakeUndefined(context);
+
+    COMPtr<IWebIBActions> webIBActions(Query, webView);
+    if (!webIBActions)
+        return JSValueMakeUndefined(context);
+
+    webIBActions->zoomPageIn(0);
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef zoomPageOutCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return JSValueMakeUndefined(context);
+
+    COMPtr<IWebIBActions> webIBActions(Query, webView);
+    if (!webIBActions)
+        return JSValueMakeUndefined(context);
+
+    webIBActions->zoomPageOut(0);
     return JSValueMakeUndefined(context);
 }
 
@@ -517,6 +545,8 @@ static JSStaticFunction staticFunctions[] = {
     { "dispatchMessage", dispatchMessageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "textZoomIn", textZoomInCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "textZoomOut", textZoomOutCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+    { "zoomPageIn", zoomPageInCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+    { "zoomPageOut", zoomPageOutCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { 0, 0, 0 }
 };
 

@@ -35,6 +35,7 @@ namespace WebCore {
     class FloatRect;
     class IntPoint;
     class IntRect;
+    class GraphicsContext;
 }
 
 SkPoint* android_setpt(SkPoint* dst, const WebCore::IntPoint& src);
@@ -51,10 +52,12 @@ SkShader::TileMode android_convert_TileRule(WebCore::Image::TileRule);
 
 WebCore::Color android_SkPMColorToWebCoreColor(SkPMColor pm);
 
+SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc);
+
 // Data and methods for focus rings
 
 // used to inflate node cache entry
-#define FOCUS_RING_HIT_TEST_RADIUS SkIntToScalar(5)  
+#define FOCUS_RING_HIT_TEST_RADIUS 5  
 
 // used to inval rectangle enclosing pressed state of focus ring
 #define FOCUS_RING_OUTER_DIAMETER SkFixedToScalar(SkIntToFixed(13)>>2) // 13/4 == 3.25
@@ -64,11 +67,9 @@ public:
     enum Flavor {
         NORMAL_FLAVOR,
         FAKE_FLAVOR,
-        BUTTON_NO_RING,
         INVALID_FLAVOR,
         NORMAL_ANIMATING,
         FAKE_ANIMATING,
-        BUTTON_ANIMATING,
         ANIMATING_COUNT = 2
     };
     

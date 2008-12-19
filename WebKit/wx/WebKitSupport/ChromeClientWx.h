@@ -94,10 +94,15 @@ public:
     virtual bool tabsToLinks() const;
 
     virtual IntRect windowResizerRect() const;
-    virtual void addToDirtyRegion(const IntRect&);
     virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
     virtual void updateBackingStore();
     
+    virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+    virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+    virtual IntPoint screenToWindow(const IntPoint&) const;
+    virtual IntRect windowToScreen(const IntRect&) const;
+    virtual PlatformWidget platformWindow() const;
+
     virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
     virtual void setToolTip(const String&);
@@ -105,6 +110,8 @@ public:
     virtual void print(Frame*);
 
     virtual void exceededDatabaseQuota(Frame*, const String&);
+
+    virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
 
 private:
     wxWebView* m_webView;

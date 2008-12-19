@@ -31,6 +31,7 @@
 
 namespace WebCore {
 
+class DoctypeToken;
 class Document;
 class DocumentFragment;
 class HTMLDocument;
@@ -57,6 +58,9 @@ public:
      */
     PassRefPtr<Node> parseToken(Token*);
     
+    // Parses a doctype token.
+    void parseDoctypeToken(DoctypeToken*);
+
     /**
      * tokenizer says it's not going to be sending us any more tokens
      */
@@ -88,11 +92,14 @@ private:
     bool isindexCreateErrorCheck(Token*, RefPtr<Node>&);
     bool mapCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nestedCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool nestedPCloserCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nestedStyleCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noembedCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noframesCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nolayerCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noscriptCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool pCloserCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool pCloserStrictCreateErrorCheck(Token*, RefPtr<Node>&);
     bool selectCreateErrorCheck(Token*, RefPtr<Node>&);
     bool tableCellCreateErrorCheck(Token*, RefPtr<Node>&);
     bool tableSectionCreateErrorCheck(Token*, RefPtr<Node>&);
@@ -130,6 +137,14 @@ private:
     void startBody(); // inserts the isindex element
     PassRefPtr<Node> handleIsindex(Token*);
 
+    void checkIfHasPElementInScope();
+    bool hasPElementInScope()
+    {
+        if (m_hasPElementInScope == Unknown)
+            checkIfHasPElementInScope();
+        return m_hasPElementInScope == InScope;
+    }
+
     void reportError(HTMLParserErrorCode errorCode, const AtomicString* tagName1 = 0, const AtomicString* tagName2 = 0, bool closeTags = false)
     { if (!m_reportErrors) return; reportErrorToConsole(errorCode, tagName1, tagName2, closeTags); }
 
@@ -143,6 +158,9 @@ private:
     bool didRefCurrent;
 
     HTMLStackElem* blockStack;
+
+    enum ElementInScopeState { NotInScope, InScope, Unknown }; 
+    ElementInScopeState m_hasPElementInScope;
 
     RefPtr<HTMLFormElement> m_currentFormElement; // currently active form
     RefPtr<HTMLMapElement> m_currentMapElement; // current map

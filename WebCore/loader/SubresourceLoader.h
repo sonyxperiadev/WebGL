@@ -33,12 +33,6 @@
 #include "ResourceLoader.h"
 #include <wtf/PassRefPtr.h>
  
-#ifndef __OBJC__
-class NSArray;
-class NSDictionary;
-class NSMutableURLRequest;
-#endif
- 
 namespace WebCore {
 
     class FormData;
@@ -56,12 +50,15 @@ namespace WebCore {
         virtual bool load(const ResourceRequest&);
         
         virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
+        virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
         virtual void didReceiveResponse(const ResourceResponse&);
         virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
         virtual void didFinishLoading();
         virtual void didFail(const ResourceError&);
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
         virtual void receivedCancellation(const AuthenticationChallenge&);
+        
+        void clearClient() { m_client = 0; }
 
     private:
         SubresourceLoader(Frame*, SubresourceLoaderClient*, bool sendResourceLoadCallbacks, bool shouldContentSniff);

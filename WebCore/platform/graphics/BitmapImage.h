@@ -45,7 +45,8 @@ typedef struct HBITMAP__ *HBITMAP;
 #endif
 
 #if PLATFORM(SGL)
-    class SkBitmapRef;
+class SkBitmap;
+class SkBitmapRef;
 #endif
 
 namespace WebCore {
@@ -70,6 +71,8 @@ template <typename T> class Timer;
 struct FrameData : Noncopyable {
     FrameData()
         : m_frame(0)
+        , m_haveMetadata(false)
+        , m_isComplete(false)
         , m_duration(0)
         , m_hasAlpha(true) 
     {
@@ -83,6 +86,8 @@ struct FrameData : Noncopyable {
     void clear();
 
     NativeImagePtr m_frame;
+    bool m_haveMetadata;
+    bool m_isComplete;
     float m_duration;
     bool m_hasAlpha;
 };
@@ -92,15 +97,25 @@ struct FrameData : Noncopyable {
 // =================================================
 
 class BitmapImage : public Image {
+    friend class GeneratedImage;
     friend class GraphicsContext;
 public:
-#if PLATFORM(QT)
-    BitmapImage(const QPixmap &pixmap, ImageObserver* = 0);
-#endif
-    BitmapImage(ImageObserver* = 0);
+    static PassRefPtr<BitmapImage> create(NativeImagePtr nativeImage, ImageObserver* observer = 0)
+    {
+        return adoptRef(new BitmapImage(nativeImage, observer));
+    }
+    static PassRefPtr<BitmapImage> create(ImageObserver* observer = 0)
+    {
+        return adoptRef(new BitmapImage(observer));
+    }
     ~BitmapImage();
     
+    virtual bool isBitmapImage() const { return true; }
+
+    virtual bool hasSingleSecurityOrigin() const { return true; }
+
     virtual IntSize size() const;
+    IntSize currentFrameSize() const;
 
     virtual bool dataChanged(bool allDataReceived);
 
@@ -122,23 +137,28 @@ public:
     virtual CGImageRef getCGImageRef();
 #endif
 
-#if PLATFORM(QT)
-    virtual QPixmap* getPixmap() const;
-#endif
-    
 #if PLATFORM(WIN)
     virtual bool getHBITMAP(HBITMAP);
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE);
 #endif
 
 #if PLATFORM(SGL)
-    virtual SkBitmapRef* getBitmap();
+//    virtual SkBitmapRef* getBitmap();
     virtual void setURL(const String& str);
 #endif
 
     virtual NativeImagePtr nativeImageForCurrentFrame() { return frameAtIndex(currentFrame()); }
 
-private:
+protected:
+    enum RepetitionCountStatus {
+      Unknown,    // We haven't checked the source's repetition count.
+      Uncertain,  // We have a repetition count, but it might be wrong (some GIFs have a count after the image data, and will report "loop once" until all data has been decoded).
+      Certain,    // The repetition count is known to be correct.
+    };
+
+    BitmapImage(NativeImagePtr, ImageObserver* = 0);
+    BitmapImage(ImageObserver* = 0);
+
 #if PLATFORM(WIN)
     virtual void drawFrameMatchingSourceSize(GraphicsContext*, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator);
 #endif
@@ -150,24 +170,45 @@ private:
     size_t currentFrame() const { return m_currentFrame; }
     size_t frameCount();
     NativeImagePtr frameAtIndex(size_t);
+    bool frameIsCompleteAtIndex(size_t);
     float frameDurationAtIndex(size_t);
     bool frameHasAlphaAtIndex(size_t); 
 
     // Decodes and caches a frame. Never accessed except internally.
     void cacheFrame(size_t index);
 
-    // Called to invalidate all our cached data.  If an image is loading incrementally, we only
-    // invalidate the last cached frame.
-    virtual void destroyDecodedData(bool incremental = false);
+    // Called to invalidate all our cached data.  If an image is loading
+    // incrementally, we only invalidate the last cached frame.  For large
+    // animated images, where we throw away the decoded data after every frame,
+    // |preserveNearbyFrames| can be set to preserve the current frame's data
+    // and eliminate some unnecessary duplicated decoding work.  This also
+    // preserves the next frame's data, if available.  In most cases this has no
+    // effect; either that frame isn't decoded yet, or it's already been
+    // destroyed by a previous call.  But when we fall behind on the very first
+    // animation loop and startAnimation() needs to "catch up" one or more
+    // frames, this briefly preserves some of that decoding work, to ease CPU
+    // load and make it less likely that we'll keep falling behind.
+    virtual void destroyDecodedData(bool incremental = false, bool preserveNearbyFrames = false);
 
     // Whether or not size is available yet.    
     bool isSizeAvailable();
 
     // Animation.
+    int repetitionCount(bool imageKnownToBeComplete);  // |imageKnownToBeComplete| should be set if the caller knows the entire image has been decoded.
     bool shouldAnimate();
-    virtual void startAnimation();
+    virtual void startAnimation(bool catchUpIfNecessary = true);
     void advanceAnimation(Timer<BitmapImage>*);
-    
+
+    // Function that does the real work of advancing the animation.  When
+    // skippingFrames is true, we're in the middle of a loop trying to skip over
+    // a bunch of animation frames, so we should not do things like decode each
+    // one or notify our observers.
+    // Returns whether the animation was advanced.
+    bool internalAdvanceAnimation(bool skippingFrames);
+
+    // Helper for internalAdvanceAnimation().
+    void notifyObserverAndTrimDecodedData();
+
     // Handle platform-specific data
     void initPlatformData();
     void invalidatePlatformData();
@@ -185,34 +226,31 @@ private:
     Vector<FrameData> m_frames; // An array of the cached frames of the animation. We have to ref frames to pin them in the cache.
     
     Timer<BitmapImage>* m_frameTimer;
-    int m_repetitionCount; // How many total animation loops we should do.
+    int m_repetitionCount; // How many total animation loops we should do.  This will be cAnimationNone if this image type is incapable of animation.
+    RepetitionCountStatus m_repetitionCountStatus;
     int m_repetitionsComplete;  // How many repetitions we've finished.
+    double m_desiredFrameStartTime;  // The system time at which we hope to see the next call to startAnimation().
 
 #if PLATFORM(MAC)
     mutable RetainPtr<NSImage> m_nsImage; // A cached NSImage of frame 0. Only built lazily if someone actually queries for one.
     mutable RetainPtr<CFDataRef> m_tiffRep; // Cached TIFF rep for frame 0.  Only built lazily if someone queries for one.
 #endif
 
-#if PLATFORM(SGL)
-    SkBitmapRef* m_bitmapRef;
-#endif
-
     Color m_solidColor;  // If we're a 1x1 solid color, this is the color to use to fill.
     bool m_isSolidColor;  // Whether or not we are a 1x1 solid image.
 
-    bool m_animatingImageType;  // Whether or not we're an image type that is capable of animating (GIF).
     bool m_animationFinished;  // Whether or not we've completed the entire animation.
 
     bool m_allDataReceived;  // Whether or not we've received all our data.
 
     mutable bool m_haveSize; // Whether or not our |m_size| member variable has the final overall image size yet.
     bool m_sizeAvailable; // Whether or not we can obtain the size of the first image frame yet from ImageIO.
+    mutable bool m_hasUniformFrameSize;
+
     unsigned m_decodedSize; // The current size of all decoded frames.
 
-#if PLATFORM(QT)
-    QPixmap *m_pixmap;
-#endif
-
+    mutable bool m_haveFrameCount;
+    size_t m_frameCount;
 };
 
 }

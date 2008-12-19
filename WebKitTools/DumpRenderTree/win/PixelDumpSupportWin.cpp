@@ -26,14 +26,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "PixelDumpSupportCG.h"
 
+#include "DumpRenderTree.h"
 #include <CoreGraphics/CGBitmapContext.h>
 #include <wtf/Assertions.h>
 #include <wtf/RetainPtr.h>
 
-RetainPtr<CGContextRef> getBitmapContextFromWebView()
+PassRefPtr<BitmapContext> getBitmapContextFromWebView(bool onscreen, bool incrementalRepaint, bool sweepHorizontally, bool drawSelectionRect)
 {
     RECT frame;
     if (!GetWindowRect(webViewWindow, &frame))
@@ -47,8 +48,6 @@ RetainPtr<CGContextRef> getBitmapContextFromWebView()
     bmp.bmiHeader.biBitCount = 32;
     bmp.bmiHeader.biCompression = BI_RGB;
 
-    // FIXME: Currently we leak this HBITMAP because we don't have a good way
-    // to destroy it when the CGBitmapContext gets destroyed.
     void* bits = 0;
     HBITMAP bitmap = CreateDIBSection(0, &bmp, DIB_RGB_COLORS, &bits, 0, 0);
 
@@ -62,6 +61,8 @@ RetainPtr<CGContextRef> getBitmapContextFromWebView()
     ASSERT(info.bmBitsPixel == 32);
 
     RetainPtr<CGColorSpaceRef> colorSpace(AdoptCF, CGColorSpaceCreateDeviceRGB());
-    return RetainPtr<CGContextRef>(AdoptCF, CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
-                                                info.bmWidthBytes, colorSpace.get(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
+    CGContextRef context = CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
+                                                info.bmWidthBytes, colorSpace.get(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+
+    return BitmapContext::createByAdoptingBitmapAndContext(bitmap, context);
 }

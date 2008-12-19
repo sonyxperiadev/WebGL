@@ -4,6 +4,7 @@
  * Copyright (C) 2006 Oliver Hunt <ojh16@student.canterbury.ac.nz>
  *           (C) 2006 Apple Computer Inc.
  *           (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ *           (C) 2008 Rob Buis <buis@kde.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -122,7 +123,7 @@ InlineTextBox* RenderSVGInlineText::createInlineTextBox()
     return new (renderArena()) SVGInlineTextBox(this);
 }
 
-IntRect RenderSVGInlineText::caretRect(int offset, EAffinity affinity, int* extraWidthToEndOfLine)
+IntRect RenderSVGInlineText::caretRect(InlineBox* inlineBox, int caretOffset, int* extraWidthToEndOfLine)
 {
     // SVG doesn't have any editable content where a caret rect would be needed
     return IntRect();
@@ -146,7 +147,7 @@ VisiblePosition RenderSVGInlineText::positionForCoordinates(int x, int y)
     for (SVGInlineTextBox* box = textBox; box; box = static_cast<SVGInlineTextBox*>(box->nextTextBox())) {
         if (box->svgCharacterHitsPosition(x + object->xPos(), y + object->yPos(), offset)) {
             // If we're not at the end/start of the box, stop looking for other selected boxes.
-            if (!box->m_reversed) {
+            if (box->direction() == LTR) {
                 if (offset <= (int) box->end() + 1)
                     break;
             } else {
@@ -157,6 +158,15 @@ VisiblePosition RenderSVGInlineText::positionForCoordinates(int x, int y)
     }
 
     return VisiblePosition(element(), offset, DOWNSTREAM);
+}
+
+void RenderSVGInlineText::destroy()
+{
+    if (!documentBeingDestroyed()) {
+        setNeedsLayoutAndPrefWidthsRecalc();
+        repaint();
+    }
+    RenderText::destroy();
 }
 
 }

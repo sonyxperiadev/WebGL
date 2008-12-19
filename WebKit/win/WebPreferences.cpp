@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,8 @@
 #include "WebKit.h"
 #include "WebKitDLL.h"
 #include "WebPreferences.h"
-#include "WebKit.h"
 
+#include "COMPtr.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferenceKeysPrivate.h"
 
@@ -48,30 +48,66 @@
 #include <tchar.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/HashMap.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/Vector.h>
+#include <wtf/OwnArrayPtr.h>
 
 using namespace WebCore;
 
-static String preferencesPath()
+static const String& oldPreferencesPath()
 {
     static String path = pathByAppendingComponent(roamingUserSpecificStorageDirectory(), "WebKitPreferences.plist");
     return path;
 }
 
+template<typename NumberType> struct CFNumberTraits { static const unsigned Type; };
+template<> struct CFNumberTraits<int> { static const unsigned Type = kCFNumberSInt32Type; };
+template<> struct CFNumberTraits<LONGLONG> { static const unsigned Type = kCFNumberLongLongType; };
+template<> struct CFNumberTraits<float> { static const unsigned Type = kCFNumberFloat32Type; };
+
+template<typename NumberType>
+static NumberType numberValueForPreferencesValue(CFPropertyListRef value)
+{
+    if (!value)
+        return 0;
+
+    CFTypeID cfType = CFGetTypeID(value);
+    if (cfType == CFStringGetTypeID())
+        return static_cast<NumberType>(CFStringGetIntValue(static_cast<CFStringRef>(value)));
+    else if (cfType == CFBooleanGetTypeID()) {
+        Boolean boolVal = CFBooleanGetValue(static_cast<CFBooleanRef>(value));
+        return boolVal ? 1 : 0;
+    } else if (cfType == CFNumberGetTypeID()) {
+        NumberType val = 0;
+        CFNumberGetValue(static_cast<CFNumberRef>(value), CFNumberTraits<NumberType>::Type, &val);
+        return val;
+    }
+
+    return 0;
+}
+
+template<typename NumberType>
+static RetainPtr<CFNumberRef> cfNumber(NumberType value)
+{
+    return RetainPtr<CFNumberRef>(AdoptCF, CFNumberCreate(0, CFNumberTraits<NumberType>::Type, &value));
+}
+
+static bool booleanValueForPreferencesValue(CFPropertyListRef value)
+{
+    return numberValueForPreferencesValue<int>(value);
+}
+
 // WebPreferences ----------------------------------------------------------------
 
-CFDictionaryRef WebPreferences::s_defaultSettings = 0;
+static CFDictionaryRef defaultSettings;
 
-static HashMap<WebCore::String, WebPreferences*> webPreferencesInstances;
+static HashMap<WebCore::String, COMPtr<WebPreferences> > webPreferencesInstances;
 
 WebPreferences* WebPreferences::sharedStandardPreferences()
 {
     static WebPreferences* standardPreferences;
     if (!standardPreferences) {
         standardPreferences = WebPreferences::createInstance();
-        standardPreferences->load();
         standardPreferences->setAutosaves(TRUE);
+        standardPreferences->load();
     }
 
     return standardPreferences;
@@ -84,11 +120,13 @@ WebPreferences::WebPreferences()
     , m_numWebViews(0)
 {
     gClassCount++;
+    gClassNameCount.add("WebPreferences");
 }
 
 WebPreferences::~WebPreferences()
 {
     gClassCount--;
+    gClassNameCount.remove("WebPreferences");
 }
 
 WebPreferences* WebPreferences::createInstance()
@@ -114,7 +152,7 @@ WebPreferences* WebPreferences::getInstanceForIdentifier(BSTR identifier)
         return sharedStandardPreferences();
 
     WebCore::String identifierString(identifier, SysStringLen(identifier));
-    return webPreferencesInstances.get(identifierString);
+    return webPreferencesInstances.get(identifierString).get();
 }
 
 void WebPreferences::setInstance(WebPreferences* instance, BSTR identifier)
@@ -131,14 +169,14 @@ void WebPreferences::removeReferenceForIdentifier(BSTR identifier)
         return;
 
     WebCore::String identifierString(identifier, SysStringLen(identifier));
-    WebPreferences* webPreference = webPreferencesInstances.get(identifierString);
+    WebPreferences* webPreference = webPreferencesInstances.get(identifierString).get();
     if (webPreference && webPreference->m_refCount == 1)
         webPreferencesInstances.remove(identifierString);
 }
 
 void WebPreferences::initializeDefaultSettings()
 {
-    if (s_defaultSettings)
+    if (defaultSettings)
         return;
 
     CFMutableDictionaryRef defaults = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -188,30 +226,51 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebGrammarCheckingEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(AllowContinuousSpellCheckingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitUsesPageCachePreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), CFSTR(""));
 
     RetainPtr<CFStringRef> cacheModelRef(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebCacheModelDocumentViewer));
     CFDictionaryAddValue(defaults, CFSTR(WebKitCacheModelPreferenceKey), cacheModelRef.get());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitAuthorAndUserStylesEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitApplicationChromeModePreferenceKey), kCFBooleanFalse);
 
-    s_defaultSettings = defaults;
+    CFDictionaryAddValue(defaults, CFSTR(WebKitOfflineWebApplicationCacheEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitPaintNativeControlsPreferenceKey), kCFBooleanFalse);
+
+    defaultSettings = defaults;
 }
 
-const void* WebPreferences::valueForKey(CFStringRef key)
+RetainPtr<CFPropertyListRef> WebPreferences::valueForKey(CFStringRef key)
 {
-    const void* value = CFDictionaryGetValue(m_privatePrefs.get(), key);
-    if (!value)
-        value = CFDictionaryGetValue(s_defaultSettings, key);
+    RetainPtr<CFPropertyListRef> value = CFDictionaryGetValue(m_privatePrefs.get(), key);
+    if (value)
+        return value;
 
-    return value;
+    value.adoptCF(CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication));
+    if (value)
+        return value;
+
+    return CFDictionaryGetValue(defaultSettings, key);
+}
+
+void WebPreferences::setValueForKey(CFStringRef key, CFPropertyListRef value)
+{
+    CFDictionarySetValue(m_privatePrefs.get(), key, value);
+    if (m_autoSaves) {
+        CFPreferencesSetAppValue(key, value, kCFPreferencesCurrentApplication);
+        save();
+    }
 }
 
 BSTR WebPreferences::stringValueForKey(CFStringRef key)
 {
-    CFStringRef str = (CFStringRef)valueForKey(key);
+    RetainPtr<CFPropertyListRef> value = valueForKey(key);
     
-    if (!str || (CFGetTypeID(str) != CFStringGetTypeID()))
+    if (!value || (CFGetTypeID(value.get()) != CFStringGetTypeID()))
         return 0;
+
+    CFStringRef str = static_cast<CFStringRef>(value.get());
 
     CFIndex length = CFStringGetLength(str);
     const UniChar* uniChars = CFStringGetCharactersPtr(str);
@@ -233,73 +292,22 @@ BSTR WebPreferences::stringValueForKey(CFStringRef key)
 
 int WebPreferences::integerValueForKey(CFStringRef key)
 {
-    CFTypeRef cfVal = (CFStringRef)valueForKey(key);
-    if (!cfVal)
-        return 0;
-
-    CFTypeID cfType = CFGetTypeID(cfVal);
-    if (cfType == CFStringGetTypeID())
-        return CFStringGetIntValue((CFStringRef)cfVal);
-    else if (cfType == CFBooleanGetTypeID()) {
-        Boolean boolVal = CFBooleanGetValue((CFBooleanRef)cfVal);
-        return (boolVal) ? 1 : 0;
-    }
-    else if (cfType == CFNumberGetTypeID()) {
-        int val = 0;
-        CFNumberGetValue((CFNumberRef)cfVal, kCFNumberSInt32Type, &val);
-        return val;
-    }
-
-    return 0;
+    return numberValueForPreferencesValue<int>(valueForKey(key).get());
 }
 
 BOOL WebPreferences::boolValueForKey(CFStringRef key)
 {
-    return (integerValueForKey(key) != 0);
+    return booleanValueForPreferencesValue(valueForKey(key).get());
 }
 
 float WebPreferences::floatValueForKey(CFStringRef key)
 {
-    CFTypeRef cfVal = (CFStringRef)valueForKey(key);
-    if (!cfVal)
-        return 0.0;
-
-    CFTypeID cfType = CFGetTypeID(cfVal);
-    if (cfType == CFStringGetTypeID())
-        return (float)CFStringGetDoubleValue((CFStringRef)cfVal);
-    else if (cfType == CFBooleanGetTypeID()) {
-        Boolean boolVal = CFBooleanGetValue((CFBooleanRef)cfVal);
-        return (boolVal) ? 1.0f : 0.0f;
-    }
-    else if (cfType == CFNumberGetTypeID()) {
-        float val = 0.0;
-        CFNumberGetValue((CFNumberRef)cfVal, kCFNumberFloatType, &val);
-        return val;
-    }
-
-    return 0.0;
+    return numberValueForPreferencesValue<float>(valueForKey(key).get());
 }
 
 LONGLONG WebPreferences::longlongValueForKey(CFStringRef key)
 {
-    CFTypeRef cfVal = (CFTypeRef) valueForKey(key);
-    if (!cfVal)
-        return 0;
-
-    CFTypeID cfType = CFGetTypeID(cfVal);
-    if (cfType == CFStringGetTypeID())
-        return (LONGLONG) CFStringGetIntValue((CFStringRef)cfVal);
-    else if (cfType == CFBooleanGetTypeID()) {
-        Boolean boolVal = CFBooleanGetValue((CFBooleanRef)cfVal);
-        return (boolVal) ? 1 : 0;
-    }
-    else if (cfType == CFNumberGetTypeID()) {
-        LONGLONG val = 0;
-        CFNumberGetValue((CFNumberRef)cfVal, kCFNumberLongLongType, &val);
-        return val;
-    }
-
-    return 0;
+    return numberValueForPreferencesValue<LONGLONG>(valueForKey(key).get());
 }
 
 void WebPreferences::setStringValue(CFStringRef key, LPCTSTR value)
@@ -311,9 +319,7 @@ void WebPreferences::setStringValue(CFStringRef key, LPCTSTR value)
     
     RetainPtr<CFStringRef> valueRef(AdoptCF,
         CFStringCreateWithCharactersNoCopy(0, (UniChar*)_wcsdup(value), (CFIndex)_tcslen(value), kCFAllocatorMalloc));
-    CFDictionarySetValue(m_privatePrefs.get(), key, valueRef.get());
-    if (m_autoSaves)
-        save();
+    setValueForKey(key, valueRef.get());
 
     postPreferencesChangesNotification();
 }
@@ -323,10 +329,7 @@ void WebPreferences::setIntegerValue(CFStringRef key, int value)
     if (integerValueForKey(key) == value)
         return;
 
-    RetainPtr<CFNumberRef> valueRef(AdoptCF, CFNumberCreate(0, kCFNumberSInt32Type, &value));
-    CFDictionarySetValue(m_privatePrefs.get(), key, valueRef.get());
-    if (m_autoSaves)
-        save();
+    setValueForKey(key, cfNumber(value).get());
 
     postPreferencesChangesNotification();
 }
@@ -336,9 +339,7 @@ void WebPreferences::setBoolValue(CFStringRef key, BOOL value)
     if (boolValueForKey(key) == value)
         return;
 
-    CFDictionarySetValue(m_privatePrefs.get(), key, value ? kCFBooleanTrue : kCFBooleanFalse);
-    if (m_autoSaves)
-        save();
+    setValueForKey(key, value ? kCFBooleanTrue : kCFBooleanFalse);
 
     postPreferencesChangesNotification();
 }
@@ -348,10 +349,7 @@ void WebPreferences::setLongLongValue(CFStringRef key, LONGLONG value)
     if (longlongValueForKey(key) == value)
         return;
 
-    RetainPtr<CFNumberRef> valueRef(AdoptCF, CFNumberCreate(0, kCFNumberLongLongType, &value));
-    CFDictionarySetValue(m_privatePrefs.get(), key, valueRef.get());
-    if (m_autoSaves)
-        save();
+    setValueForKey(key, cfNumber(value).get());
 
     postPreferencesChangesNotification();
 }
@@ -367,102 +365,82 @@ BSTR WebPreferences::webPreferencesRemovedNotification()
     static BSTR webPreferencesRemovedNotification = SysAllocString(WebPreferencesRemovedNotification);
     return webPreferencesRemovedNotification;
 }
+
 void WebPreferences::save()
 {
-    RetainPtr<CFWriteStreamRef> stream(AdoptCF,
-        CFWriteStreamCreateWithAllocatedBuffers(kCFAllocatorDefault, kCFAllocatorDefault)); 
-    if (!stream)
-        return;
-
-    if (!CFWriteStreamOpen(stream.get()))
-        return;
-
-    if (!CFPropertyListWriteToStream(m_privatePrefs.get(), stream.get(), kCFPropertyListXMLFormat_v1_0, 0)) {
-        CFWriteStreamClose(stream.get());
-        return;
-    }
-    CFWriteStreamClose(stream.get());
-
-    RetainPtr<CFDataRef> dataRef(AdoptCF,
-        (CFDataRef)CFWriteStreamCopyProperty(stream.get(), kCFStreamPropertyDataWritten));
-    if (!dataRef)
-        return;
-
-    safeCreateFile(preferencesPath(), dataRef.get());
+    CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
 }
 
 void WebPreferences::load()
 {
     initializeDefaultSettings();
 
-    CString path = preferencesPath().utf8();
+    m_privatePrefs.adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    migrateWebKitPreferencesToCFPreferences();
+}
+
+void WebPreferences::migrateWebKitPreferencesToCFPreferences()
+{
+    CFStringRef didMigrateKey = CFSTR(WebKitDidMigrateWebKitPreferencesToCFPreferencesPreferenceKey);
+    if (boolValueForKey(didMigrateKey))
+        return;
+    bool oldValue = m_autoSaves;
+    m_autoSaves = true;
+    setBoolValue(didMigrateKey, TRUE);
+    m_autoSaves = oldValue;
+
+    CString path = oldPreferencesPath().utf8();
 
     RetainPtr<CFURLRef> urlRef(AdoptCF, CFURLCreateFromFileSystemRepresentation(0, reinterpret_cast<const UInt8*>(path.data()), path.length(), false));
     if (!urlRef)
         return;
 
     RetainPtr<CFReadStreamRef> stream(AdoptCF, CFReadStreamCreateWithFile(0, urlRef.get()));
-    if (!stream) 
+    if (!stream)
         return;
 
-    if (CFReadStreamOpen(stream.get())) {
-        CFPropertyListFormat format = kCFPropertyListBinaryFormat_v1_0 | kCFPropertyListXMLFormat_v1_0;
-        RetainPtr<CFPropertyListRef> plist(AdoptCF, CFPropertyListCreateFromStream(0, stream.get(), 0, kCFPropertyListMutableContainersAndLeaves, &format, 0));
-        CFReadStreamClose(stream.get());
+    if (!CFReadStreamOpen(stream.get()))
+        return;
 
-        if (CFGetTypeID(plist.get()) == CFDictionaryGetTypeID())
-            m_privatePrefs.adoptCF(const_cast<CFMutableDictionaryRef>(reinterpret_cast<CFDictionaryRef>(plist.releaseRef())));
-    }
+    CFPropertyListFormat format = kCFPropertyListBinaryFormat_v1_0 | kCFPropertyListXMLFormat_v1_0;
+    RetainPtr<CFPropertyListRef> plist(AdoptCF, CFPropertyListCreateFromStream(0, stream.get(), 0, kCFPropertyListMutableContainersAndLeaves, &format, 0));
+    CFReadStreamClose(stream.get());
 
-    if (!m_privatePrefs)
-        m_privatePrefs.adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    if (!plist || CFGetTypeID(plist.get()) != CFDictionaryGetTypeID())
+        return;
 
-    migrateDefaultSettingsFromSafari3Beta();
+    copyWebKitPreferencesToCFPreferences(static_cast<CFDictionaryRef>(plist.get()));
+
+    deleteFile(oldPreferencesPath());
 }
 
-void WebPreferences::migrateDefaultSettingsFromSafari3Beta()
+void WebPreferences::copyWebKitPreferencesToCFPreferences(CFDictionaryRef dict)
 {
-    // The "migration" happening here is a one-time removal of any default values
-    // that were stored in the user's preferences due to <rdar://problem/5214504>.
+    ASSERT_ARG(dict, dict);
 
-    ASSERT(s_defaultSettings);
-    if (!m_privatePrefs)
-        return;
-
-    CFStringRef didMigrateKey = CFSTR(WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey);
-    if (boolValueForKey(didMigrateKey))
-        return;
-
-    removeValuesMatchingDefaultSettings();
-
-    bool oldValue = m_autoSaves;
-    m_autoSaves = true;
-    setBoolValue(didMigrateKey, TRUE);
-    m_autoSaves = oldValue;
-}
-
-void WebPreferences::removeValuesMatchingDefaultSettings()
-{
-    ASSERT(m_privatePrefs);
-
-    int count = CFDictionaryGetCount(m_privatePrefs.get());
+    int count = CFDictionaryGetCount(dict);
     if (count <= 0)
         return;
 
-    Vector<CFTypeRef> keys(count);
-    Vector<CFTypeRef> values(count);
-    CFDictionaryGetKeysAndValues(m_privatePrefs.get(), keys.data(), values.data());
+    CFStringRef didRemoveDefaultsKey = CFSTR(WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey);
+    bool omitDefaults = !booleanValueForPreferencesValue(CFDictionaryGetValue(dict, didRemoveDefaultsKey));
+
+    OwnArrayPtr<CFTypeRef> keys(new CFTypeRef[count]);
+    OwnArrayPtr<CFTypeRef> values(new CFTypeRef[count]);
+    CFDictionaryGetKeysAndValues(dict, keys.get(), values.get());
 
     for (int i = 0; i < count; ++i) {
-        if (!values[i])
+        if (!keys[i] || !values[i] || CFGetTypeID(keys[i]) != CFStringGetTypeID())
             continue;
 
-        CFTypeRef defaultValue = CFDictionaryGetValue(s_defaultSettings, keys[i]);
-        if (!defaultValue)
-            continue;
+        if (omitDefaults) {
+            CFTypeRef defaultValue = CFDictionaryGetValue(defaultSettings, keys[i]);
+            if (defaultValue && CFEqual(defaultValue, values[i]))
+                continue;
+        }
 
-        if (CFEqual(values[i], defaultValue))
-            CFDictionaryRemoveValue(m_privatePrefs.get(), keys[i]);
+        setValueForKey(static_cast<CFStringRef>(keys[i]), values[i]);
     }
 }
 
@@ -1097,6 +1075,30 @@ HRESULT WebPreferences::setCacheModel(WebCacheModel cacheModel)
     return S_OK;
 }
 
+HRESULT WebPreferences::setShouldPaintCustomScrollbars(BOOL shouldPaint)
+{
+    setBoolValue(CFSTR(WebKitPaintCustomScrollbarsPreferenceKey), shouldPaint);
+    return S_OK;
+}
+
+HRESULT WebPreferences::shouldPaintCustomScrollbars(BOOL* shouldPaint)
+{
+    *shouldPaint = boolValueForKey(CFSTR(WebKitPaintCustomScrollbarsPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::shouldPaintNativeControls(BOOL* shouldPaint)
+{
+    *shouldPaint = boolValueForKey(CFSTR(WebKitPaintNativeControlsPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::setShouldPaintNativeControls(BOOL shouldPaint)
+{
+    setBoolValue(CFSTR(WebKitPaintNativeControlsPreferenceKey), shouldPaint);
+    return S_OK;
+}
+
 HRESULT WebPreferences::setDeveloperExtrasEnabled(BOOL enabled)
 {
     setBoolValue(CFSTR(WebKitDeveloperExtrasEnabledPreferenceKey), enabled);
@@ -1144,6 +1146,42 @@ HRESULT STDMETHODCALLTYPE WebPreferences::authorAndUserStylesEnabled(BOOL* enabl
         return E_POINTER;
 
     *enabled = boolValueForKey(CFSTR(WebKitAuthorAndUserStylesEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::inApplicationChromeMode(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitApplicationChromeModePreferenceKey));
+    return S_OK;
+}
+    
+HRESULT WebPreferences::setApplicationChromeMode(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitApplicationChromeModePreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setOfflineWebApplicationCacheEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitOfflineWebApplicationCacheEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::offlineWebApplicationCacheEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitOfflineWebApplicationCacheEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::localStorageDatabasePath(BSTR* location)
+{
+    *location = stringValueForKey(CFSTR(WebKitLocalStorageDatabasePathPreferenceKey));
+    return (*location) ? S_OK : E_FAIL;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setLocalStorageDatabasePath(BSTR location)
+{
+    setStringValue(CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), location);
     return S_OK;
 }
 

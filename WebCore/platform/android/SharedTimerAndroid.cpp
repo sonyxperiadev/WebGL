@@ -14,15 +14,14 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+#define LOG_TAG "Timers"
 
 #include "config.h"
 #include "SharedTimer.h"
 #include "SystemTime.h"
 #include "JavaSharedClient.h"
 #include "TimerClient.h"
-#define LOG_TAG "Timers"
-#undef LOG
-#include "utils/Log.h"
+#include <utils/Log.h>
 
 namespace WebCore {
 

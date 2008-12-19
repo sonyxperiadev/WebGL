@@ -30,7 +30,9 @@
 #include "CachedResourceClientWalker.h"
 #include "DocLoader.h"
 #include "Frame.h"
+#include "FrameView.h"
 #include "Request.h"
+#include "Settings.h"
 #include "SystemTime.h"
 #include <wtf/Vector.h>
 
@@ -46,66 +48,75 @@ using std::max;
 
 namespace WebCore {
 
-CachedImage::CachedImage(DocLoader* docLoader, const String& url, bool forCache)
-    : CachedResource(url, ImageResource, forCache)
+CachedImage::CachedImage(const String& url)
+    : CachedResource(url, ImageResource)
+    , m_image(0)
+    , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
 {
-    m_image = 0;
     m_status = Unknown;
-    if (!docLoader || docLoader->autoLoadImages())  {
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-        if (docLoader && docLoader->shouldBlockNetworkImage(url)) {
-            m_loading = false;
-            return;
-        }
-#endif
-        m_loading = true;
-        cache()->loader()->load(docLoader, this, true);
-    } else
-        m_loading = false;
 }
 
 CachedImage::CachedImage(Image* image)
-    : CachedResource(String(), ImageResource, false /* not for cache */)
+    : CachedResource(String(), ImageResource)
+    , m_image(image)
+    , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
 {
-    m_image = image;
     m_status = Cached;
     m_loading = false;
 }
 
 CachedImage::~CachedImage()
 {
-    delete m_image;
 }
 
-void CachedImage::ref(CachedResourceClient* c)
+void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
 {
-    CachedResource::ref(c);
+    ASSERT(!hasClients());
+    destroyDecodedData();
+}
 
-    if (!imageRect().isEmpty())
+void CachedImage::load(DocLoader* docLoader)
+{
+    if (!docLoader || docLoader->autoLoadImages())
+        CachedResource::load(docLoader, true, false, true);
+    else
+        m_loading = false;
+}
+
+void CachedImage::addClient(CachedResourceClient* c)
+{
+    CachedResource::addClient(c);
+
+    if (m_decodedDataDeletionTimer.isActive())
+        m_decodedDataDeletionTimer.stop();
+
+    if (m_image && !m_image->rect().isEmpty())
         c->imageChanged(this);
 
     if (!m_loading)
         c->notifyFinished(this);
 }
 
-void CachedImage::allReferencesRemoved()
+void CachedImage::allClientsRemoved()
 {
     if (m_image && !m_errorOccurred)
         m_image->resetAnimation();
+    if (double interval = cache()->deadDecodedDataDeletionInterval())
+        m_decodedDataDeletionTimer.startOneShot(interval);
 }
 
 static Image* brokenImage()
 {
-    static Image* brokenImage;
+    static RefPtr<Image> brokenImage;
     if (!brokenImage)
         brokenImage = Image::loadPlatformResource("missingImage");
-    return brokenImage;
+    return brokenImage.get();
 }
 
 static Image* nullImage()
 {
-    static BitmapImage nullImage;
-    return &nullImage;
+    static RefPtr<BitmapImage> nullImage = BitmapImage::create();
+    return nullImage.get();
 }
 
 Image* CachedImage::image() const
@@ -114,7 +125,7 @@ Image* CachedImage::image() const
         return brokenImage();
 
     if (m_image)
-        return m_image;
+        return m_image.get();
 
     return nullImage();
 }
@@ -149,27 +160,62 @@ bool CachedImage::imageHasRelativeHeight() const
     return false;
 }
 
-IntSize CachedImage::imageSize() const
+IntSize CachedImage::imageSize(float multiplier) const
 {
-    return (m_image ? m_image->size() : IntSize());
+    if (!m_image)
+        return IntSize();
+    if (multiplier == 1.0f)
+        return m_image->size();
+        
+    // Don't let images that have a width/height >= 1 shrink below 1 when zoomed.
+    bool hasWidth = m_image->size().width() > 0;
+    bool hasHeight = m_image->size().height() > 0;
+    int width = m_image->size().width() * (m_image->hasRelativeWidth() ? 1.0f : multiplier);
+    int height = m_image->size().height() * (m_image->hasRelativeHeight() ? 1.0f : multiplier);
+    if (hasWidth)
+        width = max(1, width);
+    if (hasHeight)
+        height = max(1, height);
+    return IntSize(width, height);
 }
 
-IntRect CachedImage::imageRect() const
+IntRect CachedImage::imageRect(float multiplier) const
 {
-    return (m_image ? m_image->rect() : IntRect());
+    if (!m_image)
+        return IntRect();
+    if (multiplier == 1.0f || (!m_image->hasRelativeWidth() && !m_image->hasRelativeHeight()))
+        return m_image->rect();
+
+    float widthMultiplier = (m_image->hasRelativeWidth() ? 1.0f : multiplier);
+    float heightMultiplier = (m_image->hasRelativeHeight() ? 1.0f : multiplier);
+
+    // Don't let images that have a width/height >= 1 shrink below 1 when zoomed.
+    bool hasWidth = m_image->rect().width() > 0;
+    bool hasHeight = m_image->rect().height() > 0;
+
+    int width = static_cast<int>(m_image->rect().width() * widthMultiplier);
+    int height = static_cast<int>(m_image->rect().height() * heightMultiplier);
+    if (hasWidth)
+        width = max(1, width);
+    if (hasHeight)
+        height = max(1, height);
+
+    int x = static_cast<int>(m_image->rect().x() * widthMultiplier);
+    int y = static_cast<int>(m_image->rect().y() * heightMultiplier);
+
+    return IntRect(x, y, width, height);
 }
 
 void CachedImage::notifyObservers()
 {
     CachedResourceClientWalker w(m_clients);
-    while (CachedResourceClient *c = w.next())
+    while (CachedResourceClient* c = w.next())
         c->imageChanged(this);
 }
 
 void CachedImage::clear()
 {
     destroyDecodedData();
-    delete m_image;
     m_image = 0;
     setEncodedSize(0);
 }
@@ -181,20 +227,29 @@ inline void CachedImage::createImage()
         return;
 #if PLATFORM(CG)
     if (m_response.mimeType() == "application/pdf") {
-        m_image = new PDFDocumentImage;
+        m_image = PDFDocumentImage::create();
         return;
     }
 #endif
 #if ENABLE(SVG_AS_IMAGE)
     if (m_response.mimeType() == "image/svg+xml") {
-        m_image = new SVGImage(this);
+        m_image = SVGImage::create(this);
         return;
     }
 #endif
-    m_image = new BitmapImage(this);
+    m_image = BitmapImage::create(this);
 #if PLATFORM(SGL)
     m_image->setURL(url());
 #endif
+}
+
+size_t CachedImage::maximumDecodedImageSize()
+{
+    Frame* frame = m_request ? m_request->docLoader()->frame() : 0;
+    if (!frame)
+        return 0;
+    Settings* settings = frame->settings();
+    return settings ? settings->maximumDecodedImageSize() : 0;
 }
 
 void CachedImage::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
@@ -215,8 +270,10 @@ void CachedImage::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
     // network causes observers to repaint, which will force that chunk
     // to decode.
     if (sizeAvailable || allDataReceived) {
-        if (m_image->isNull()) {
-            // FIXME: I'm not convinced this case can even be hit.
+        size_t maxDecodedImageSize = maximumDecodedImageSize();
+        IntSize s = imageSize(1.0f);
+        size_t estimatedDecodedImageSize = s.width() * s.height() * 4; // no overflow check
+        if (m_image->isNull() || (maxDecodedImageSize > 0 && estimatedDecodedImageSize > maxDecodedImageSize)) {
             error();
             if (inCache())
                 cache()->remove(this);
@@ -273,7 +330,7 @@ void CachedImage::didDraw(const Image* image)
     if (image != m_image)
         return;
     
-    double timeStamp = Frame::currentPaintTimeStamp();
+    double timeStamp = FrameView::currentPaintTimeStamp();
     if (!timeStamp) // If didDraw is called outside of a Frame paint.
         timeStamp = currentTime();
     

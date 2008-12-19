@@ -31,8 +31,13 @@
 
 #import <wtf/RetainPtr.h>
 
+#ifdef __OBJC__
 @class WebInspectorWindowController;
 @class WebView;
+#else
+class WebInspectorWindowController;
+class WebView;
+#endif
 
 class WebInspectorClient : public WebCore::InspectorClient {
 public:
@@ -49,9 +54,15 @@ public:
     virtual void attachWindow();
     virtual void detachWindow();
 
+    virtual void setAttachedWindowHeight(unsigned height);
+
     virtual void highlight(WebCore::Node*);
     virtual void hideHighlight();
     virtual void inspectedURLChanged(const WebCore::String& newURL);
+
+    virtual void populateSetting(const WebCore::String& key, WebCore::InspectorController::Setting&);
+    virtual void storeSetting(const WebCore::String& key, const WebCore::InspectorController::Setting&);
+    virtual void removeSetting(const WebCore::String& key);
 
 private:
     void updateWindowTitle() const;

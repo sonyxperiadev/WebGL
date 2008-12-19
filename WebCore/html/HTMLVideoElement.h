@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,15 +50,15 @@ public:
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
 
-    int width() const;
-    void setWidth(int);
-    int height() const;
-    void setHeight(int);
+    unsigned width() const;
+    void setWidth(unsigned);
+    unsigned height() const;
+    void setHeight(unsigned);
     
-    int videoWidth() const;
-    int videoHeight() const;
+    unsigned videoWidth() const;
+    unsigned videoHeight() const;
     
-    String poster() const;
+    KURL poster() const;
     void setPoster(const String&);
 
     void updatePosterImage();

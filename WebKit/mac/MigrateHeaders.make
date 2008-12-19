@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-VPATH = $(WEBCORE_PRIVATE_HEADERS_DIR) $(JAVASCRIPTCORE_PRIVATE_HEADERS_DIR)
+VPATH = $(WEBCORE_PRIVATE_HEADERS_DIR)
 
 INTERNAL_HEADERS_DIR = $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit
 PUBLIC_HEADERS_DIR = $(TARGET_BUILD_DIR)/$(PUBLIC_HEADERS_FOLDER_PATH)
@@ -62,11 +62,13 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMDocument.h \
     $(INTERNAL_HEADERS_DIR)/DOMDocumentInternal.h \
     $(PUBLIC_HEADERS_DIR)/DOMDocumentFragment.h \
+    $(INTERNAL_HEADERS_DIR)/DOMDocumentFragmentInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMDocumentPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMDocumentType.h \
     $(PUBLIC_HEADERS_DIR)/DOMElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMElementPrivate.h \
+    $(PRIVATE_HEADERS_DIR)/DOMElementTimeControl.h \
     $(PUBLIC_HEADERS_DIR)/DOMEntity.h \
     $(PUBLIC_HEADERS_DIR)/DOMEntityReference.h \
     $(PUBLIC_HEADERS_DIR)/DOMEvent.h \
@@ -122,9 +124,7 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLIsIndexElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLIElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLabelElement.h \
-    $(PRIVATE_HEADERS_DIR)/DOMHTMLLabelElementPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLegendElement.h \
-    $(PRIVATE_HEADERS_DIR)/DOMHTMLLegendElementPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLinkElement.h \
     $(PRIVATE_HEADERS_DIR)/DOMHTMLLinkElementPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLMapElement.h \
@@ -180,6 +180,7 @@ all : \
     $(PRIVATE_HEADERS_DIR)/DOMPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMProcessingInstruction.h \
     $(PRIVATE_HEADERS_DIR)/DOMProcessingInstructionPrivate.h \
+    $(PUBLIC_HEADERS_DIR)/DOMProgressEvent.h \
     $(PUBLIC_HEADERS_DIR)/DOMRGBColor.h \
     $(PUBLIC_HEADERS_DIR)/DOMRange.h \
     $(INTERNAL_HEADERS_DIR)/DOMRangeInternal.h \
@@ -191,6 +192,7 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMStyleSheetList.h \
     $(PUBLIC_HEADERS_DIR)/DOMStylesheets.h \
     $(PUBLIC_HEADERS_DIR)/DOMText.h \
+    $(PRIVATE_HEADERS_DIR)/DOMTextPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMTraversal.h \
     $(PUBLIC_HEADERS_DIR)/DOMTreeWalker.h \
     $(PUBLIC_HEADERS_DIR)/DOMUIEvent.h \
@@ -206,6 +208,7 @@ all : \
     $(PRIVATE_HEADERS_DIR)/WebDashboardRegion.h \
     $(PUBLIC_HEADERS_DIR)/WebScriptObject.h \
     $(PUBLIC_HEADERS_DIR)/npapi.h \
+    $(PUBLIC_HEADERS_DIR)/npfunctions.h \
     $(PUBLIC_HEADERS_DIR)/npruntime.h \
 #
 
@@ -215,6 +218,8 @@ all : \
     $(PRIVATE_HEADERS_DIR)/DOMSVG.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGAltGlyphElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGAltGlyphElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAngle.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAngleInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAnimateColorElement.h \
@@ -476,7 +481,7 @@ all : \
 
 endif
 
-REPLACE_RULES = -e s/\<WebCore/\<WebKit/ -e s/\<JavaScriptCore/\<WebKit/ -e s/DOMDOMImplementation/DOMImplementation/ -e 's/\<WebKit\/JSBase.h/\<JavaScriptCore\/JSBase.h/'
+REPLACE_RULES = -e s/\<WebCore/\<WebKit/ -e s/DOMDOMImplementation/DOMImplementation/
 HEADER_MIGRATE_CMD = sed $(REPLACE_RULES) $< $(PROCESS_HEADER_FOR_MACOSX_TARGET_CMD) > $@
 
 ifeq ($(MACOSX_DEPLOYMENT_TARGET),10.4)

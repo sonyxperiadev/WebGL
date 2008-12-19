@@ -1,5 +1,6 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008 Holger Hans Peter Freyther
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,36 +21,148 @@
 #include "config.h"
 #include "qwebview.h"
 #include "qwebframe.h"
+#include "qwebpage_p.h"
+
+#include "qbitmap.h"
 #include "qevent.h"
 #include "qpainter.h"
+#include "qprinter.h"
 
 class QWebViewPrivate
 {
 public:
+    QWebViewPrivate(QWebView *view)
+        : view(view)
+        , page(0)
+#ifndef QT_NO_CURSOR
+        , cursorSetByWebCore(false)
+        , usesWebCoreCursor(true)
+#endif
+    {}
+
+    QWebView *view;
     QWebPage *page;
+
+
+#ifndef QT_NO_CURSOR
+    /*
+     * We keep track of if we have called setCursor and if the CursorChange
+     * event is sent due our setCursor call and if we currently use the WebCore
+     * Cursor and use it to decide if we can update to another WebCore Cursor.
+     */
+    bool cursorSetByWebCore;
+    bool usesWebCoreCursor;
+
+    void setCursor(const QCursor& newCursor)
+    {
+        webCoreCursor = newCursor;
+
+        if (usesWebCoreCursor) {
+            cursorSetByWebCore = true;
+            view->setCursor(webCoreCursor);
+        }
+    }
+
+    QCursor webCoreCursor;
+#endif
 };
 
 /*!
     \class QWebView
     \since 4.4
-    \brief The QWebView class provides a widget that is used to view and edit web documents.
+    \brief The QWebView class provides a widget that is used to view and edit
+    web documents.
+    \ingroup advanced
 
     QWebView is the main widget component of the QtWebKit web browsing module.
+    It can be used in various applications to display web content live from the
+    Internet.
+
+    The image below shows QWebView previewed in \QD with the Trolltech website.
+
+    \image qwebview-url.png
+
+    A web site can be loaded onto QWebView with the load() function. Like all
+    Qt Widgets, the show() function must be invoked in order to display
+    QWebView. The snippet below illustrates this:
+
+    \snippet doc/src/snippets/webkit/simple/main.cpp Using QWebView
+
+    Alternatively, setUrl() can also be used to load a web site. If you have
+    the HTML content readily available, you can use setHtml() instead.
+
+    The loadStarted() signal is emitted when the view begins loading. The
+    loadProgress() signal, on the other hand, is emitted whenever an element of
+    the web view completes loading, such as an embedded image, a script, etc.
+    Finally, the loadFinished() signal is emitted when the view has loaded
+    completely. It's argument - either \c true or \c false - indicates
+    load success or failure.
+
+    The page() function returns a pointer to the web page object. See
+    \l{Elements of QWebView} for an explanation of how the web page
+    is related to the view. To modify your web view's settings, you can access
+    the QWebSettings object with the settings() function. With QWebSettings,
+    you can change the default fonts, enable or disable features such as
+    JavaScript and plugins.
+
+    The title of an HTML document can be accessed with the title() property.
+    Additionally, a web site may also specify an icon, which can be accessed
+    using the icon() property. If the title or the icon changes, the corresponding
+    titleChanged() and iconChanged() signals will be emitted. The
+    textSizeMultiplier() property can be used to change the overall size of
+    the text displayed in the web view.
+
+    If you require a custom context menu, you can implement it by reimplementing
+    \l{QWidget::}{contextMenuEvent()} and populating your QMenu with the actions
+    obtained from pageAction(). More functionality such as reloading the view,
+    copying selected text to the clipboard, or pasting into the view, is also
+    encapsulated within the QAction objects returned by pageAction(). These
+    actions can be programmatically triggered using triggerPageAction().
+    Alternatively, the actions can be added to a toolbar or a menu directly.
+    QWebView maintains the state of the returned actions but allows
+    modification of action properties such as \l{QAction::}{text} or
+    \l{QAction::}{icon}.
+
+    A QWebView can be printed onto a QPrinter using the print() function.
+    This function is marked as a slot and can be conveniently connected to
+    \l{QPrintPreviewDialog}'s \l{QPrintPreviewDialog::}{paintRequested()}
+    signal.
+
+    If you want to provide support for web sites that allow the user to open
+    new windows, such as pop-up windows, you can subclass QWebView and
+    reimplement the createWindow() function.
+
+    \section1 Elements of QWebView
+
+    QWebView consists of other objects such as QWebFrame and QWebPage. The
+    flowchart below shows these elements are related.
+
+    \image qwebview-diagram.png
+
+    \note It is possible to use QWebPage and QWebFrame, without using QWebView,
+    if you do not require QWidget attributes. Nevertheless, QtWebKit depends
+    on QtGui, so you should use a QApplication instead of QCoreApplication.
+
+    \sa {Previewer Example}, {Browser}
 */
 
 /*!
     Constructs an empty QWebView with parent \a parent.
+
+    \sa load()
 */
 QWebView::QWebView(QWidget *parent)
     : QWidget(parent)
 {
-    d = new QWebViewPrivate;
-    d->page = 0;
+    d = new QWebViewPrivate(this);
 
     QPalette pal = palette();
     pal.setBrush(QPalette::Background, Qt::white);
 
     setAttribute(Qt::WA_OpaquePaintEvent);
+#if !defined(Q_WS_QWS)
+    setAttribute(Qt::WA_InputMethodEnabled);
+#endif
 
     setPalette(pal);
     setAcceptDrops(true);
@@ -59,10 +172,13 @@ QWebView::QWebView(QWidget *parent)
 }
 
 /*!
-    Destructor.
+    Destroys the web view.
 */
 QWebView::~QWebView()
 {
+    if (d->page)
+        d->page->d->view = 0;
+
     if (d->page && d->page->parent() == this)
         delete d->page;
     delete d;
@@ -87,7 +203,7 @@ QWebPage *QWebView::page() const
 
     The parent QObject of the provided page remains the owner
     of the object. If the current document is a child of the web
-    view, then it is deleted.
+    view, it will be deleted.
 
     \sa page()
 */
@@ -105,36 +221,58 @@ void QWebView::setPage(QWebPage *page)
     d->page = page;
     if (d->page) {
         d->page->setView(this);
+        d->page->setPalette(palette());
         // #### connect signals
         QWebFrame *mainFrame = d->page->mainFrame();
-        connect(mainFrame, SIGNAL(loadStarted()),
-                this, SIGNAL(loadStarted()));
-        connect(mainFrame, SIGNAL(loadFinished()),
-                this, SIGNAL(loadFinished()));
         connect(mainFrame, SIGNAL(titleChanged(const QString&)),
                 this, SIGNAL(titleChanged(const QString&)));
-        connect(mainFrame, SIGNAL(iconLoaded()),
-                this, SIGNAL(iconLoaded()));
+        connect(mainFrame, SIGNAL(iconChanged()),
+                this, SIGNAL(iconChanged()));
         connect(mainFrame, SIGNAL(urlChanged(const QUrl &)),
                 this, SIGNAL(urlChanged(const QUrl &)));
 
-        connect(d->page, SIGNAL(loadProgressChanged(int)),
-                this, SIGNAL(loadProgressChanged(int)));
-        connect(d->page, SIGNAL(statusBarTextChanged(const QString &)),
-                this, SIGNAL(statusBarTextChanged(const QString &)));
+        connect(d->page, SIGNAL(loadStarted()),
+                this, SIGNAL(loadStarted()));
+        connect(d->page, SIGNAL(loadProgress(int)),
+                this, SIGNAL(loadProgress(int)));
+        connect(d->page, SIGNAL(loadFinished(bool)),
+                this, SIGNAL(loadFinished(bool)));
+        connect(d->page, SIGNAL(statusBarMessage(const QString &)),
+                this, SIGNAL(statusBarMessage(const QString &)));
+        connect(d->page, SIGNAL(linkClicked(const QUrl &)),
+                this, SIGNAL(linkClicked(const QUrl &)));
+
+        connect(d->page, SIGNAL(microFocusChanged()),
+                this, SLOT(updateMicroFocus()));
     }
     update();
 }
 
 /*!
-    Downloads the specified \a url and displays it.
+    Loads the specified \a url and displays it.
+
+    \note The view remains the same until enough data has arrived to display the new \a url.
+
+    \sa setUrl(), url(), urlChanged()
 */
 void QWebView::load(const QUrl &url)
 {
     page()->mainFrame()->load(url);
 }
 
-#if QT_VERSION < 0x040400
+/*!
+    \fn void QWebView::load(const QNetworkRequest &request, QNetworkAccessManager::Operation operation, const QByteArray &body)
+
+    Loads a network request, \a request, using the method specified in \a operation.
+
+    \a body is optional and is only used for POST operations.
+
+    \note The view remains the same until enough data has arrived to display the new url.
+
+    \sa url(), urlChanged()
+*/
+
+#if QT_VERSION < 0x040400 && !defined(qdoc)
 void QWebView::load(const QWebNetworkRequest &request)
 #else
 void QWebView::load(const QNetworkRequest &request,
@@ -152,7 +290,16 @@ void QWebView::load(const QNetworkRequest &request,
 /*!
     Sets the content of the web view to the specified \a html.
 
-    External objects referenced in the HTML document are located relative to \a baseUrl.
+    External objects referenced in the HTML document are located relative to
+    \a baseUrl.
+
+    When using this method, WebKit assumes that external resources such as
+    JavaScript programs or style sheets are encoded in UTF-8 unless otherwise
+    specified. For example, the encoding of an external script can be specified
+    through the charset attribute of the HTML script tag. Alternatively, the
+    encoding can also be specified by the web server.
+
+    \sa load(), setContent(), QWebFrame::toHtml()
 */
 void QWebView::setHtml(const QString &html, const QUrl &baseUrl)
 {
@@ -160,20 +307,13 @@ void QWebView::setHtml(const QString &html, const QUrl &baseUrl)
 }
 
 /*!
-    Sets the content of the web view to the specified \a html.
-
-    External objects referenced in the HTML document are located relative to \a baseUrl.
-*/
-void QWebView::setHtml(const QByteArray &html, const QUrl &baseUrl)
-{
-    page()->mainFrame()->setHtml(html, baseUrl);
-}
-
-/*!
     Sets the content of the web view to the specified content \a data. If the \a mimeType argument
-    is empty it is assumed that the content is HTML.
+    is empty it is currently assumed that the content is HTML but in future versions we may introduce
+    auto-detection.
 
-    External objects referenced in the HTML document are located relative to \a baseUrl.
+    External objects referenced in the content are located relative to \a baseUrl.
+
+    \sa load(), setHtml(), QWebFrame::toHtml()
 */
 void QWebView::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
 {
@@ -185,7 +325,7 @@ void QWebView::setContent(const QByteArray &data, const QString &mimeType, const
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 0
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 0
 */
 QWebHistory *QWebView::history() const
 {
@@ -197,7 +337,9 @@ QWebHistory *QWebView::history() const
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 1
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 1
+
+    \sa QWebSettings::globalSettings()
 */
 QWebSettings *QWebView::settings() const
 {
@@ -205,8 +347,12 @@ QWebSettings *QWebView::settings() const
 }
 
 /*!
-  \property QWebView::title
-  \brief the title of the web page currently viewed.
+    \property QWebView::title
+    \brief the title of the web page currently viewed
+
+    By default, this property contains an empty string.
+
+    \sa titleChanged()
 */
 QString QWebView::title() const
 {
@@ -217,8 +363,20 @@ QString QWebView::title() const
 
 /*!
     \property QWebView::url
-    \brief the url of the web page currently viewed.
+    \brief the url of the web page currently viewed
+
+    Setting this property clears the view and loads the URL.
+
+    By default, this property contains an empty, invalid URL.
+
+    \sa load(), urlChanged()
 */
+
+void QWebView::setUrl(const QUrl &url)
+{
+    page()->mainFrame()->setUrl(url);
+}
+
 QUrl QWebView::url() const
 {
     if (d->page)
@@ -228,18 +386,26 @@ QUrl QWebView::url() const
 
 /*!
     \property QWebView::icon
-    \brief the icon associated with the web page currently viewed.
+    \brief the icon associated with the web page currently viewed
+
+    By default, this property contains a null icon.
+
+    \sa iconChanged(), QWebSettings::iconForUrl()
 */
-QPixmap QWebView::icon() const
+QIcon QWebView::icon() const
 {
     if (d->page)
         return d->page->mainFrame()->icon();
-    return QPixmap();
+    return QIcon();
 }
 
 /*!
     \property QWebView::selectedText
-    \brief the text currently selected.
+    \brief the text currently selected
+
+    By default, this property contains an empty string.
+
+    \sa findText(), selectionChanged()
 */
 QString QWebView::selectedText() const
 {
@@ -251,19 +417,23 @@ QString QWebView::selectedText() const
 /*!
     Returns a pointer to a QAction that encapsulates the specified web action \a action.
 */
-QAction *QWebView::action(QWebPage::WebAction action) const
+QAction *QWebView::pageAction(QWebPage::WebAction action) const
 {
     return page()->action(action);
 }
 
 /*!
-    Triggers the specified \a action. If it is a checkable action the specified \a checked state is assumed.
+    Triggers the specified \a action. If it is a checkable action the specified
+    \a checked state is assumed.
 
-    The following example triggers the copy action and therefore copies any selected text to the clipboard.
+    The following example triggers the copy action and therefore copies any
+    selected text to the clipboard.
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 2
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 2
+
+    \sa pageAction()
 */
-void QWebView::triggerAction(QWebPage::WebAction action, bool checked)
+void QWebView::triggerPageAction(QWebPage::WebAction action, bool checked)
 {
     page()->triggerAction(action, checked);
 }
@@ -272,8 +442,10 @@ void QWebView::triggerAction(QWebPage::WebAction action, bool checked)
     \property QWebView::modified
     \brief whether the document was modified by the user
 
-    Parts of HTML documents can be editable for example through the \c{contenteditable} attribute on
-    HTML elements.
+    Parts of HTML documents can be editable for example through the
+    \c{contenteditable} attribute on HTML elements.
+
+    By default, this property is false.
 */
 bool QWebView::isModified() const
 {
@@ -282,24 +454,28 @@ bool QWebView::isModified() const
     return false;
 }
 
+/*
 Qt::TextInteractionFlags QWebView::textInteractionFlags() const
 {
     // ### FIXME (add to page)
     return Qt::TextInteractionFlags();
 }
+*/
 
-/*!
+/*
     \property QWebView::textInteractionFlags
     \brief how the view should handle user input
 
     Specifies how the user can interact with the text on the page.
 */
 
+/*
 void QWebView::setTextInteractionFlags(Qt::TextInteractionFlags flags)
 {
     Q_UNUSED(flags)
     // ### FIXME (add to page)
 }
+*/
 
 /*!
     \reimp
@@ -310,11 +486,120 @@ QSize QWebView::sizeHint() const
 }
 
 /*!
+    \property QWebView::zoomFactor
+    \since 4.5
+    \brief the zoom factor for the view
+*/
+
+void QWebView::setZoomFactor(qreal factor)
+{
+    page()->mainFrame()->setZoomFactor(factor);
+}
+
+qreal QWebView::zoomFactor() const
+{
+    return page()->mainFrame()->zoomFactor();
+}
+
+/*!
+  \property QWebView::textSizeMultiplier
+  \brief the scaling factor for all text in the frame
+  \obsolete
+
+  Use setZoomFactor instead, in combination with the
+  ZoomTextOnly attribute in QWebSettings.
+
+  \note Setting this property also enables the
+  ZoomTextOnly attribute in QWebSettings.
+
+  By default, this property contains a value of 1.0.
+*/
+
+void QWebView::setTextSizeMultiplier(qreal factor)
+{
+    page()->mainFrame()->setTextSizeMultiplier(factor);
+}
+
+qreal QWebView::textSizeMultiplier() const
+{
+    return page()->mainFrame()->textSizeMultiplier();
+}
+
+/*!
+    Finds the next occurrence of the string, \a subString, in the page, using
+    the given \a options. Returns true of \a subString was found and selects
+    the match visually; otherwise returns false.
+
+    \sa selectedText(), selectionChanged()
+*/
+bool QWebView::findText(const QString &subString, QWebPage::FindFlags options)
+{
+    if (d->page)
+        return d->page->findText(subString, options);
+    return false;
+}
+
+/*! \reimp
+*/
+bool QWebView::event(QEvent *e)
+{
+    if (d->page) {
+#ifndef QT_NO_CONTEXTMENU
+        if (e->type() == QEvent::ContextMenu) {
+            QContextMenuEvent *event = static_cast<QContextMenuEvent *>(e);
+            if (d->page->swallowContextMenuEvent(event)) {
+                e->accept();
+                return true;
+            }
+            d->page->updatePositionDependentActions(event->pos());
+        } else
+#endif // QT_NO_CONTEXTMENU
+        if (e->type() == QEvent::ShortcutOverride) {
+            d->page->event(e);
+#ifndef QT_NO_CURSOR
+        } else if (e->type() == static_cast<QEvent::Type>(WebCore::SetCursorEvent::EventType)) {
+            d->setCursor(static_cast<WebCore::SetCursorEvent*>(e)->cursor());
+#if QT_VERSION >= 0x040400
+        } else if (e->type() == QEvent::CursorChange) {
+            // Okay we might use the WebCore Cursor now.
+            d->usesWebCoreCursor = d->cursorSetByWebCore;
+            d->cursorSetByWebCore = false;
+
+            // Go back to the WebCore Cursor. QWidget::unsetCursor is appromixated with this
+            if (!d->usesWebCoreCursor && cursor().shape() == Qt::ArrowCursor) {
+                d->usesWebCoreCursor = true;
+                d->setCursor(d->webCoreCursor);
+            }
+#endif
+#endif
+        } else if (e->type() == QEvent::Leave) {
+            d->page->event(e);
+        }
+    }
+
+    return QWidget::event(e);
+}
+
+/*!
+    Prints the main frame to the given \a printer.
+
+    \sa QWebFrame::print(), QPrintPreviewDialog
+*/
+void QWebView::print(QPrinter *printer) const
+{
+#ifndef QT_NO_PRINTER
+    page()->mainFrame()->print(printer);
+#endif
+}
+
+/*!
     Convenience slot that stops loading the document.
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 3
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 3
+
+    \sa reload(), pageAction(), loadFinished()
 */
 void QWebView::stop()
 {
@@ -323,37 +608,41 @@ void QWebView::stop()
 }
 
 /*!
-    Convenience slot that loads the previous document in the list of
-    documents built by navigating links. Does nothing if there is no
-    previous document.
+    Convenience slot that loads the previous document in the list of documents
+    built by navigating links. Does nothing if there is no previous document.
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 4
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 4
+
+    \sa forward(), pageAction()
 */
-void QWebView::backward()
+void QWebView::back()
 {
     if (d->page)
-        d->page->triggerAction(QWebPage::GoBack);
+        d->page->triggerAction(QWebPage::Back);
 }
 
 /*!
-    Convenience slot that loads the next document in the list of
-    documents built by navigating links. Does nothing if there is no
-    next document.
+    Convenience slot that loads the next document in the list of documents
+    built by navigating links. Does nothing if there is no next document.
 
     It is equivalent to
 
-    \snippet doc/src/snippets/code/src.3rdparty.webkit.WebKit.qt.Api.qwebview.cpp 5
+    \snippet doc/src/snippets/code/src_3rdparty_webkit_WebKit_qt_Api_qwebview.cpp 5
+
+    \sa back(), pageAction()
 */
 void QWebView::forward()
 {
     if (d->page)
-        d->page->triggerAction(QWebPage::GoForward);
+        d->page->triggerAction(QWebPage::Forward);
 }
 
 /*!
     Reloads the current document.
+
+    \sa stop(), pageAction(), loadStarted()
 */
 void QWebView::reload()
 {
@@ -392,11 +681,14 @@ void QWebView::paintEvent(QPaintEvent *ev)
 }
 
 /*!
-    This function is called whenever WebKit wants to create a new window, for example as a result of
+    This function is called whenever WebKit wants to create a new window of the given \a type, for example as a result of
     a JavaScript request to open a document in a new window.
+
+    \sa QWebPage::createWindow()
 */
-QWebView *QWebView::createWindow()
+QWebView *QWebView::createWindow(QWebPage::WebWindowType type)
 {
+    Q_UNUSED(type)
     return 0;
 }
 
@@ -404,52 +696,71 @@ QWebView *QWebView::createWindow()
 */
 void QWebView::mouseMoveEvent(QMouseEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
+        ev->setAccepted(accepted);
+    }
 }
 
 /*! \reimp
 */
 void QWebView::mousePressEvent(QMouseEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
+        ev->setAccepted(accepted);
+    }
 }
 
 /*! \reimp
 */
 void QWebView::mouseDoubleClickEvent(QMouseEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
+        ev->setAccepted(accepted);
+    }
 }
 
 /*! \reimp
 */
 void QWebView::mouseReleaseEvent(QMouseEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
+        ev->setAccepted(accepted);
+    }
 }
 
+#ifndef QT_NO_CONTEXTMENU
 /*! \reimp
 */
 void QWebView::contextMenuEvent(QContextMenuEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
+        ev->setAccepted(accepted);
+    }
 }
+#endif // QT_NO_CONTEXTMENU
 
+#ifndef QT_NO_WHEELEVENT
 /*! \reimp
 */
 void QWebView::wheelEvent(QWheelEvent* ev)
 {
-    if (d->page)
+    if (d->page) {
+        const bool accepted = ev->isAccepted();
         d->page->event(ev);
-
-    if (!ev->isAccepted())
-        return QWidget::wheelEvent(ev);
+        ev->setAccepted(accepted);
+    }
 }
+#endif // QT_NO_WHEELEVENT
 
 /*! \reimp
 */
@@ -477,16 +788,18 @@ void QWebView::focusInEvent(QFocusEvent* ev)
 {
     if (d->page)
         d->page->event(ev);
-    QWidget::focusInEvent(ev);
+    else
+        QWidget::focusInEvent(ev);
 }
 
 /*! \reimp
 */
 void QWebView::focusOutEvent(QFocusEvent* ev)
 {
-    QWidget::focusOutEvent(ev);
     if (d->page)
         d->page->event(ev);
+    else
+        QWidget::focusOutEvent(ev);
 }
 
 /*! \reimp
@@ -538,56 +851,107 @@ bool QWebView::focusNextPrevChild(bool next)
     return QWidget::focusNextPrevChild(next);
 }
 
+/*!\reimp
+*/
+QVariant QWebView::inputMethodQuery(Qt::InputMethodQuery property) const
+{
+    if (d->page)
+        return d->page->inputMethodQuery(property);
+    return QVariant();
+}
+
+/*!\reimp
+*/
+void QWebView::inputMethodEvent(QInputMethodEvent *e)
+{
+    if (d->page)
+       d->page->event(e);
+}
+
+/*!\reimp
+*/
+void QWebView::changeEvent(QEvent *e)
+{
+    if (d->page && e->type() == QEvent::PaletteChange) {
+        d->page->setPalette(palette());
+    }
+    QWidget::changeEvent(e);
+}
+
 /*!
-  \fn void QWebView::titleChanged(const QString &title)
+    \fn void QWebView::titleChanged(const QString &title)
 
-  This signal is emitted whenever the \a title of the main frame changes.
+    This signal is emitted whenever the \a title of the main frame changes.
 
-  \sa title()
+    \sa title()
 */
 
 /*!
-  \fn void QWebView::urlChanged(const QUrl &url)
+    \fn void QWebView::urlChanged(const QUrl &url)
 
-  This signal is emitted whenever the \a url of the main frame changes.
+    This signal is emitted when the \a url of the view changes.
 
-  \sa url()
+    \sa url(), load()
 */
 
 /*!
-    \fn void QWebView::statusBarTextChanged(const QString& text)
+    \fn void QWebView::statusBarMessage(const QString& text)
 
     This signal is emitted when the statusbar \a text is changed by the page.
 */
 
 /*!
-    \fn void QWebView::iconLoaded()
+    \fn void QWebView::iconChanged()
 
     This signal is emitted whenever the icon of the page is loaded or changes.
+
+    \sa icon()
 */
 
 /*!
     \fn void QWebView::loadStarted()
 
-    This signal is emitted when a new load of the frame is started.
+    This signal is emitted when a new load of the page is started.
+
+    \sa loadProgress(), loadFinished()
 */
 
 /*!
-    \fn void QWebView::loadFinished()
+    \fn void QWebView::loadFinished(bool ok)
 
-    This signal is emitted when a load of the frame is finished.
+    This signal is emitted when a load of the page is finished.
+    \a ok will indicate whether the load was successful or any error occurred.
+
+    \sa loadStarted()
 */
 
 /*!
     \fn void QWebView::selectionChanged()
 
     This signal is emitted whenever the selection changes.
+
+    \sa selectedText()
 */
 
 /*!
-    \fn void QWebView::loadProgressChanged(int progress)
+    \fn void QWebView::loadProgress(int progress)
 
-    This signal is emitted when the global progress status changes.
-    The current value is provided by \a progress in percent.
-    It accumulates changes from all the child frames.
+    This signal is emitted every time an element in the web page
+    completes loading and the overall loading progress advances.
+
+    This signal tracks the progress of all child frames.
+
+    The current value is provided by \a progress and scales from 0 to 100,
+    which is the default range of QProgressBar.
+
+    \sa loadStarted(), loadFinished()
+*/
+
+/*!
+    \fn void QWebView::linkClicked(const QUrl &url)
+
+    This signal is emitted whenever the user clicks on a link and the page's linkDelegationPolicy
+    property is set to delegate the link handling for the specified \a url.
+
+    \sa QWebPage::linkDelegationPolicy()
 */

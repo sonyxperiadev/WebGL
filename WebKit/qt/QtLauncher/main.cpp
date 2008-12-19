@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
@@ -27,6 +28,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include <qwebpage.h>
 #include <qwebview.h>
 #include <qwebframe.h>
@@ -34,364 +36,318 @@
 
 #include <QtGui>
 #include <QDebug>
-
-
-
-class InfoWidget :public QProgressBar {
-    Q_OBJECT
-public:
-    InfoWidget(QWidget *parent)
-        : QProgressBar(parent), m_progress(0)
-    {
-        setMinimum(0);
-        setMaximum(100);
-    }
-    QSize sizeHint() const
-    {
-        QSize size(100, 20);
-        return size;
-    }
-public slots:
-    void startLoad()
-    {
-        setValue(m_progress);
-        show();
-    }
-    void changeLoad(int change)
-    {
-        m_progress = change;
-        setValue(change);
-    }
-    void endLoad()
-    {
-        QTimer::singleShot(1000, this, SLOT(hide()));
-        m_progress = 0;
-    }
-
-protected:
-    int m_progress;
-};
-
-class HoverLabel : public QWidget {
-    Q_OBJECT
-public:
-    HoverLabel(QWidget *parent=0)
-        : QWidget(parent),
-          m_animating(false),
-          m_percent(0)
-    {
-        m_timer.setInterval(1000/30);
-        m_hideTimer.setInterval(500);
-        m_hideTimer.setSingleShot(true);
-        connect(&m_timer, SIGNAL(timeout()),
-                this, SLOT(update()));
-        connect(&m_hideTimer, SIGNAL(timeout()),
-                this, SLOT(hide()));
-    }
-
-public slots:
-    void setHoverLink(const QString &link) {
-        m_link = link;
-        if (m_link.isEmpty()) {
-            m_hideTimer.start();
-        } else {
-            m_hideTimer.stop();
-            m_oldSize = m_newSize;
-            m_newSize = sizeForFont();
-            resetAnimation();
-            updateSize();
-            show();
-            repaint();
-        }
-    }
-    QSize sizeForFont() const {
-        QFont f = font();
-        QFontMetrics fm(f);
-        return QSize(fm.width(m_link) + 10, fm.height() + 6);
-    }
-    QSize sizeHint() const {
-        if (!m_animating)
-            return sizeForFont();
-        else
-            return (m_newSize.width() > m_oldSize.width()) ? m_newSize : m_oldSize;
-    }
-    void updateSize() {
-        QRect r = geometry();
-        QSize newSize = sizeHint();
-        r = QRect(r.x(), r.y(), newSize.width(), newSize.height());
-        setGeometry(r);
-    }
-    void resetAnimation() {
-        m_animating = true;
-        m_percent = 0;
-        if (!m_timer.isActive())
-            m_timer.start();
-    }
-protected:
-    void paintEvent(QPaintEvent *e) {
-        QPainter p(this);
-        p.setClipRect(e->rect());
-        p.setPen(QPen(Qt::black, 1));
-        QLinearGradient gradient(rect().topLeft(), rect().bottomLeft());
-        gradient.setColorAt(0, QColor(255, 255, 255, 220));
-        gradient.setColorAt(1, QColor(193, 193, 193, 220));
-        p.setBrush(QBrush(gradient));
-        QSize size;
-        {
-            //draw a nicely rounded corner rectangle. to avoid unwanted
-            // borders we move the coordinates outsize the our clip region
-            size = interpolate(m_oldSize, m_newSize, m_percent);
-            QRect r(-1, 0, size.width(), size.height()+2);
-            const int roundness = 20;
-            QPainterPath path;
-            path.moveTo(r.x(), r.y());
-            path.lineTo(r.topRight().x()-roundness, r.topRight().y());
-            path.cubicTo(r.topRight().x(), r.topRight().y(),
-                         r.topRight().x(), r.topRight().y(),
-                         r.topRight().x(), r.topRight().y() + roundness);
-            path.lineTo(r.bottomRight());
-            path.lineTo(r.bottomLeft());
-            path.closeSubpath();
-            p.setRenderHint(QPainter::Antialiasing);
-            p.drawPath(path);
-        }
-        if (m_animating) {
-            if (qFuzzyCompare(m_percent, 1)) {
-                m_animating = false;
-                m_percent = 0;
-                m_timer.stop();
-            } else {
-                m_percent += 0.1;
-                if (m_percent >= 0.99) {
-                    m_percent = 1;
-                }
-            }
-        }
-
-        QString txt;
-        QFontMetrics fm(fontMetrics());
-        txt = fm.elidedText(m_link, Qt::ElideRight, size.width()-5);
-        p.drawText(5, height()-6, txt);
-    }
-
-private:
-    QSize interpolate(const QSize &src, const QSize &dst, qreal percent) {
-        int widthDiff  = int((dst.width() - src.width())  * percent);
-        int heightDiff = int((dst.height() - src.height()) * percent);
-        return QSize(src.width()  + widthDiff,
-                     src.height() + heightDiff);
-    }
-    QString m_link;
-    bool    m_animating;
-    QTimer  m_timer;
-    QTimer  m_hideTimer;
-    QSize   m_oldSize;
-    QSize   m_newSize;
-    qreal   m_percent;
-};
-
-class SearchEdit;
-
-class ClearButton : public QPushButton {
-    Q_OBJECT
-public:
-    ClearButton(QWidget *w)
-        : QPushButton(w)
-    {
-        setMinimumSize(24, 24);
-        setFixedSize(24, 24);
-        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    }
-    void paintEvent(QPaintEvent *event)
-    {
-        Q_UNUSED(event);
-        QPainter painter(this);
-        int height = parentWidget()->geometry().height();
-        int width = height; //parentWidget()->geometry().width();
-
-        painter.setRenderHint(QPainter::Antialiasing, true);
-        painter.setPen(Qt::lightGray);
-        painter.setBrush(isDown() ?
-                         QColor(140, 140, 190) :
-                         underMouse() ? QColor(220, 220, 255) : QColor(200, 200, 230)
-            );
-        painter.drawEllipse(4, 4, width - 8, height - 8);
-        painter.setPen(Qt::white);
-        int border = 8;
-        painter.drawLine(border, border, width - border, height - border);
-        painter.drawLine(border, height - border, width - border, border);
-    }
-};
-
-class SearchEdit : public QLineEdit
-{
-    Q_OBJECT
-public:
-    SearchEdit(const QString &str, QWidget *parent = 0)
-        : QLineEdit(str, parent)
-    {
-        setMinimumSize(QSize(400, 24));
-        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-
-        setStyleSheet(":enabled { padding-right: 27px }");
-        clearButton = new ClearButton(this);
-        clearButton->setGeometry(QRect(geometry().right() - 27,
-                                       geometry().top() - 2,
-                                       geometry().right(), geometry().bottom()));
-        clearButton->setVisible(true);
-#ifndef QT_NO_CURSOR
-        clearButton->setCursor(Qt::ArrowCursor);
+#if QT_VERSION >= 0x040400 && !defined(QT_NO_PRINTER)
+#include <QPrintPreviewDialog>
 #endif
-#ifndef QT_NO_TOOLTIP
-        clearButton->setToolTip("Clear");
-#endif
-        connect(clearButton, SIGNAL(clicked()), this, SLOT(clear()));
-    }
-    ~SearchEdit() { }
-protected:
-    virtual void paintEvent(QPaintEvent *e) {
-        QLineEdit::paintEvent(e);
-        if(text().isEmpty())
-            clearButton->setVisible(false);
-        else
-            clearButton->setVisible(true);
-    }
-    virtual void resizeEvent(QResizeEvent *) {
-        clearButton->setParent(this);
-        clearButton->setGeometry(QRect(width()-27,
-                                       0,
-                                       24, 24));
-    }
-    virtual void moveEvent(QMoveEvent *) {
-        clearButton->setParent(this);
-        clearButton->setGeometry(QRect(width()-27, 1,
-                                       24, 24));
-    }
 
-    QPushButton *clearButton;
-};
+#include <QtUiTools/QUiLoader>
 
 class WebPage : public QWebPage
 {
 public:
-    inline WebPage(QWidget *parent) : QWebPage(parent) {}
+    WebPage(QWidget *parent) : QWebPage(parent) {}
 
-    virtual QWebPage *createWindow();
+    virtual QWebPage *createWindow(QWebPage::WebWindowType);
+    virtual QObject* createPlugin(const QString&, const QUrl&, const QStringList&, const QStringList&);
 };
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
-    MainWindow(const QUrl &url = QUrl())
-    {
+    MainWindow(const QString& url = QString()): currentZoom(100) {
         view = new QWebView(this);
+        setCentralWidget(view);
+
         view->setPage(new WebPage(view));
-        InfoWidget *info = new InfoWidget(view);
-        info->setGeometry(20, 20, info->sizeHint().width(),
-                          info->sizeHint().height());
-        connect(view, SIGNAL(loadStarted()),
-                info, SLOT(startLoad()));
-        connect(view, SIGNAL(loadProgressChanged(int)),
-                info, SLOT(changeLoad(int)));
-        connect(view, SIGNAL(loadFinished()),
-                info, SLOT(endLoad()));
-        connect(view, SIGNAL(loadFinished()),
+
+        connect(view, SIGNAL(loadFinished(bool)),
                 this, SLOT(loadFinished()));
         connect(view, SIGNAL(titleChanged(const QString&)),
                 this, SLOT(setWindowTitle(const QString&)));
-        connect(view->page(), SIGNAL(hoveringOverLink(const QString&, const QString&)),
+        connect(view->page(), SIGNAL(linkHovered(const QString&, const QString&, const QString &)),
                 this, SLOT(showLinkHover(const QString&, const QString&)));
+        connect(view->page(), SIGNAL(windowCloseRequested()), this, SLOT(deleteLater()));
 
+        setupUI();
 
-        setCentralWidget(view);
+        QUrl qurl = guessUrlFromString(url);
+        if (qurl.isValid()) {
+            urlEdit->setText(qurl.toString());
+            view->load(qurl);
 
-        QToolBar *bar = addToolBar("Navigation");
-        urlEdit = new SearchEdit(url.toString());
-        urlEdit->setSizePolicy(QSizePolicy::Expanding, urlEdit->sizePolicy().verticalPolicy());
-        connect(urlEdit, SIGNAL(returnPressed()),
-                SLOT(changeLocation()));
-        bar->addAction(view->action(QWebPage::GoBack));
-        bar->addAction(view->action(QWebPage::Stop));
-        bar->addAction(view->action(QWebPage::GoForward));
-        bar->addSeparator();
-        bar->addAction(view->action(QWebPage::Cut));
-        bar->addAction(view->action(QWebPage::Copy));
-        bar->addAction(view->action(QWebPage::Paste));
-        bar->addSeparator();
-        bar->addAction(view->action(QWebPage::Undo));
-        bar->addAction(view->action(QWebPage::Redo));
-
-        addToolBarBreak();
-        bar = addToolBar("Location");
-        bar->addWidget(new QLabel(tr("Location:")));
-        bar->addWidget(urlEdit);
-
-        hoverLabel = new HoverLabel(this);
-        hoverLabel->hide();
-
-        if (url.isValid())
-            view->load(url);
-
-        info->raise();
+            // the zoom values are chosen to be like in Mozilla Firefox 3
+            zoomLevels << 30 << 50 << 67 << 80 << 90;
+            zoomLevels << 100;
+            zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
+        }
     }
-    inline QWebPage *webPage() const { return view->page(); }
+
+    QWebPage *webPage() const {
+        return view->page();
+    }
+
 protected slots:
-    void changeLocation()
-    {
-        QUrl url(urlEdit->text());
+
+    void changeLocation() {
+        QUrl url = guessUrlFromString(urlEdit->text());
+        urlEdit->setText(url.toString());
         view->load(url);
+        view->setFocus(Qt::OtherFocusReason);
     }
-    void loadFinished()
-    {
+
+    void loadFinished() {
         urlEdit->setText(view->url().toString());
+
+        QUrl::FormattingOptions opts;
+        opts |= QUrl::RemoveScheme;
+        opts |= QUrl::RemoveUserInfo;
+        opts |= QUrl::StripTrailingSlash;
+        QString s = view->url().toString(opts);
+        s = s.mid(2);
+        if (s.isEmpty())
+            return;
+
+        if (!urlList.contains(s))
+            urlList += s;
+        urlModel.setStringList(urlList);
     }
-    void showLinkHover(const QString &link, const QString &toolTip)
-    {
-        //statusBar()->showMessage(link);
-        hoverLabel->setHoverLink(link);
+
+    void showLinkHover(const QString &link, const QString &toolTip) {
+        statusBar()->showMessage(link);
 #ifndef QT_NO_TOOLTIP
         if (!toolTip.isEmpty())
             QToolTip::showText(QCursor::pos(), toolTip);
 #endif
     }
-protected:
-    void resizeEvent(QResizeEvent *) {
-        QSize hoverSize = hoverLabel->sizeHint();
-        hoverLabel->setGeometry(0, height()-hoverSize.height(),
-                                300, hoverSize.height());
+
+    void newWindow() {
+        MainWindow *mw = new MainWindow;
+        mw->show();
+    }
+
+    void zoomIn() {
+        int i = zoomLevels.indexOf(currentZoom);
+        Q_ASSERT(i >= 0);
+        if (i < zoomLevels.count() - 1)
+            currentZoom = zoomLevels[i + 1];
+
+        view->setZoomFactor(qreal(currentZoom)/100.0);
+    }
+
+    void zoomOut() {
+        int i = zoomLevels.indexOf(currentZoom);
+        Q_ASSERT(i >= 0);
+        if (i > 0)
+            currentZoom = zoomLevels[i - 1];
+
+        view->setZoomFactor(qreal(currentZoom)/100.0);
+    }
+
+    void resetZoom()
+    {
+       currentZoom = 100;
+       view->setZoomFactor(1.0);
+    }
+
+    void toggleZoomTextOnly(bool b)
+    {
+        view->page()->settings()->setAttribute(QWebSettings::ZoomTextOnly, b);
+    }
+
+    void print() {
+#if QT_VERSION >= 0x040400 && !defined(QT_NO_PRINTER)
+        QPrintPreviewDialog dlg(this);
+        connect(&dlg, SIGNAL(paintRequested(QPrinter *)),
+                view, SLOT(print(QPrinter *)));
+        dlg.exec();
+#endif
+    }
+
+    void setEditable(bool on) {
+        view->page()->setEditable(on);
+        formatMenuAction->setVisible(on);
+    }
+
+    void dumpHtml() {
+        qDebug() << "HTML: " << view->page()->mainFrame()->toHtml();
     }
 private:
+
+    QVector<int> zoomLevels;
+    int currentZoom;
+
+    // create the status bar, tool bar & menu
+    void setupUI() {
+        progress = new QProgressBar(this);
+        progress->setRange(0, 100);
+        progress->setMinimumSize(100, 20);
+        progress->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+        progress->hide();
+        statusBar()->addPermanentWidget(progress);
+
+        connect(view, SIGNAL(loadProgress(int)), progress, SLOT(show()));
+        connect(view, SIGNAL(loadProgress(int)), progress, SLOT(setValue(int)));
+        connect(view, SIGNAL(loadFinished(bool)), progress, SLOT(hide()));
+
+        urlEdit = new QLineEdit(this);
+        urlEdit->setSizePolicy(QSizePolicy::Expanding, urlEdit->sizePolicy().verticalPolicy());
+        connect(urlEdit, SIGNAL(returnPressed()),
+                SLOT(changeLocation()));
+        QCompleter *completer = new QCompleter(this);
+        urlEdit->setCompleter(completer);
+        completer->setModel(&urlModel);
+
+        QToolBar *bar = addToolBar("Navigation");
+        bar->addAction(view->pageAction(QWebPage::Back));
+        bar->addAction(view->pageAction(QWebPage::Forward));
+        bar->addAction(view->pageAction(QWebPage::Reload));
+        bar->addAction(view->pageAction(QWebPage::Stop));
+        bar->addWidget(urlEdit);
+
+        QMenu *fileMenu = menuBar()->addMenu("&File");
+        QAction *newWindow = fileMenu->addAction("New Window", this, SLOT(newWindow()));
+#if QT_VERSION >= 0x040400
+        fileMenu->addAction(tr("Print"), this, SLOT(print()));
+#endif
+        fileMenu->addAction("Close", this, SLOT(close()));
+
+        QMenu *editMenu = menuBar()->addMenu("&Edit");
+        editMenu->addAction(view->pageAction(QWebPage::Undo));
+        editMenu->addAction(view->pageAction(QWebPage::Redo));
+        editMenu->addSeparator();
+        editMenu->addAction(view->pageAction(QWebPage::Cut));
+        editMenu->addAction(view->pageAction(QWebPage::Copy));
+        editMenu->addAction(view->pageAction(QWebPage::Paste));
+        editMenu->addSeparator();
+        QAction *setEditable = editMenu->addAction("Set Editable", this, SLOT(setEditable(bool)));
+        setEditable->setCheckable(true);
+
+        QMenu *viewMenu = menuBar()->addMenu("&View");
+        viewMenu->addAction(view->pageAction(QWebPage::Stop));
+        viewMenu->addAction(view->pageAction(QWebPage::Reload));
+        viewMenu->addSeparator();
+        QAction *zoomIn = viewMenu->addAction("Zoom &In", this, SLOT(zoomIn()));
+        QAction *zoomOut = viewMenu->addAction("Zoom &Out", this, SLOT(zoomOut()));
+        QAction *resetZoom = viewMenu->addAction("Reset Zoom", this, SLOT(resetZoom()));
+        QAction *zoomTextOnly = viewMenu->addAction("Zoom Text Only", this, SLOT(toggleZoomTextOnly(bool)));
+        zoomTextOnly->setCheckable(true);
+        zoomTextOnly->setChecked(false);
+        viewMenu->addSeparator();
+        viewMenu->addAction("Dump HTML", this, SLOT(dumpHtml()));
+
+        QMenu *formatMenu = new QMenu("F&ormat");
+        formatMenuAction = menuBar()->addMenu(formatMenu);
+        formatMenuAction->setVisible(false);
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleBold));
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleItalic));
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleUnderline));
+        QMenu *writingMenu = formatMenu->addMenu(tr("Writing Direction"));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionDefault));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionLeftToRight));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionRightToLeft));
+
+        newWindow->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_N));
+        view->pageAction(QWebPage::Back)->setShortcut(QKeySequence::Back);
+        view->pageAction(QWebPage::Stop)->setShortcut(Qt::Key_Escape);
+        view->pageAction(QWebPage::Forward)->setShortcut(QKeySequence::Forward);
+        view->pageAction(QWebPage::Reload)->setShortcut(QKeySequence::Refresh);
+        view->pageAction(QWebPage::Undo)->setShortcut(QKeySequence::Undo);
+        view->pageAction(QWebPage::Redo)->setShortcut(QKeySequence::Redo);
+        view->pageAction(QWebPage::Cut)->setShortcut(QKeySequence::Cut);
+        view->pageAction(QWebPage::Copy)->setShortcut(QKeySequence::Copy);
+        view->pageAction(QWebPage::Paste)->setShortcut(QKeySequence::Paste);
+        zoomIn->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Plus));
+        zoomOut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
+        resetZoom->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+        view->pageAction(QWebPage::ToggleBold)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
+        view->pageAction(QWebPage::ToggleItalic)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
+        view->pageAction(QWebPage::ToggleUnderline)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_U));
+    }
+
+    QUrl guessUrlFromString(const QString &string) {
+        QString urlStr = string.trimmed();
+        QRegExp test(QLatin1String("^[a-zA-Z]+\\:.*"));
+
+        // Check if it looks like a qualified URL. Try parsing it and see.
+        bool hasSchema = test.exactMatch(urlStr);
+        if (hasSchema) {
+            QUrl url(urlStr, QUrl::TolerantMode);
+            if (url.isValid())
+                return url;
+        }
+
+        // Might be a file.
+        if (QFile::exists(urlStr))
+            return QUrl::fromLocalFile(urlStr);
+
+        // Might be a shorturl - try to detect the schema.
+        if (!hasSchema) {
+            int dotIndex = urlStr.indexOf(QLatin1Char('.'));
+            if (dotIndex != -1) {
+                QString prefix = urlStr.left(dotIndex).toLower();
+                QString schema = (prefix == QLatin1String("ftp")) ? prefix : QLatin1String("http");
+                QUrl url(schema + QLatin1String("://") + urlStr, QUrl::TolerantMode);
+                if (url.isValid())
+                    return url;
+            }
+        }
+
+        // Fall back to QUrl's own tolerant parser.
+        return QUrl(string, QUrl::TolerantMode);
+    }
+
     QWebView *view;
     QLineEdit *urlEdit;
-    HoverLabel *hoverLabel;
+    QProgressBar *progress;
+
+    QAction *formatMenuAction;
+
+    QStringList urlList;
+    QStringListModel urlModel;
 };
 
-QWebPage *WebPage::createWindow()
+QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
 {
     MainWindow *mw = new MainWindow;
     return mw->webPage();
+}
+
+QObject *WebPage::createPlugin(const QString &classId, const QUrl &url, const QStringList &paramNames, const QStringList &paramValues)
+{
+    Q_UNUSED(url);
+    Q_UNUSED(paramNames);
+    Q_UNUSED(paramValues);
+    QUiLoader loader;
+    return loader.createWidget(classId, view());
 }
 
 #include "main.moc"
 
 int main(int argc, char **argv)
 {
-    QString url = QString("%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
     QApplication app(argc, argv);
+    QString url = QString("%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
 
-    QWebSettings::defaultSettings()->setAttribute(QWebSettings::PluginsEnabled);
-    QWebSettings::defaultSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled);
+    QWebSettings::setMaximumPagesInCache(4);
+
+    app.setApplicationName("QtLauncher");
+#if QT_VERSION >= 0x040400
+    app.setApplicationVersion("0.1");
+#endif
+
+    QWebSettings::setObjectCacheCapacities((16*1024*1024) / 8, (16*1024*1024) / 8, 16*1024*1024);
+
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
 
     const QStringList args = app.arguments();
     if (args.count() > 1)
         url = args.at(1);
 
-    QUrl qurl(url);
-    if (qurl.scheme().isEmpty())
-        qurl = QUrl::fromLocalFile(QFileInfo(url).absoluteFilePath());
-    MainWindow window(qurl);
+    MainWindow window(url);
     window.show();
 
     return app.exec();
 }
+

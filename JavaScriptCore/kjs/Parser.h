@@ -1,9 +1,7 @@
-// -*- c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2006, 2007 Apple Inc.
+ *  Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -25,75 +23,75 @@
 #ifndef Parser_h
 #define Parser_h
 
+#include "SourceProvider.h"
+#include "Debugger.h"
+#include "nodes.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
-#include "nodes.h"
 
-namespace KJS {
+namespace JSC {
 
     class FunctionBodyNode;
     class ProgramNode;
     class UString;
 
-    struct UChar;
+    template <typename T>
+    struct ParserRefCountedData : ParserRefCounted {
+        ParserRefCountedData(JSGlobalData* globalData)
+            : ParserRefCounted(globalData)
+        {
+        }
 
-    template <typename T> struct ParserRefCountedData : ParserRefCounted {
         T data;
     };
 
     class Parser : Noncopyable {
     public:
-        template <class ParsedNode>
-        PassRefPtr<ParsedNode> parse(const UString& sourceURL, int startingLineNumber,
-            const UChar* code, unsigned length,
-            int* sourceId = 0, int* errLine = 0, UString* errMsg = 0);
-
-        UString sourceURL() const { return m_sourceURL; }
-        int sourceId() const { return m_sourceId; }
+        template <class ParsedNode> PassRefPtr<ParsedNode> parse(ExecState*, Debugger*, const SourceCode&, int* errLine = 0, UString* errMsg = 0);
 
         void didFinishParsing(SourceElements*, ParserRefCountedData<DeclarationStacks::VarStack>*, 
-                              ParserRefCountedData<DeclarationStacks::FunctionStack>*, int lastLine);
+                              ParserRefCountedData<DeclarationStacks::FunctionStack>*, CodeFeatures features, int lastLine, int numConstants);
 
     private:
-        friend Parser& parser();
+        void parse(JSGlobalData*, int* errLine, UString* errMsg);
 
-        Parser(); // Use parser() instead.
-        void parse(int startingLineNumber, const UChar* code, unsigned length,
-            int* sourceId, int* errLine, UString* errMsg);
-
-        UString m_sourceURL;
-        int m_sourceId;
+        const SourceCode* m_source;
         RefPtr<SourceElements> m_sourceElements;
         RefPtr<ParserRefCountedData<DeclarationStacks::VarStack> > m_varDeclarations;
         RefPtr<ParserRefCountedData<DeclarationStacks::FunctionStack> > m_funcDeclarations;
+        CodeFeatures m_features;
         int m_lastLine;
+        int m_numConstants;
     };
-    
-    Parser& parser(); // Returns the singleton JavaScript parser.
 
-    template <class ParsedNode>
-    PassRefPtr<ParsedNode> Parser::parse(const UString& sourceURL, int startingLineNumber,
-        const UChar* code, unsigned length,
-        int* sourceId, int* errLine, UString* errMsg)
+    template <class ParsedNode> PassRefPtr<ParsedNode> Parser::parse(ExecState* exec, Debugger* debugger, const SourceCode& source, int* errLine, UString* errMsg)
     {
-        m_sourceURL = sourceURL;
-        parse(startingLineNumber, code, length, sourceId, errLine, errMsg);
-        if (!m_sourceElements) {
-            m_sourceURL = UString();
-            return 0;
+        m_source = &source;
+        parse(&exec->globalData(), errLine, errMsg);
+        RefPtr<ParsedNode> result;
+        if (m_sourceElements) {
+            result = ParsedNode::create(&exec->globalData(),
+                                         m_sourceElements.get(),
+                                         m_varDeclarations ? &m_varDeclarations->data : 0, 
+                                         m_funcDeclarations ? &m_funcDeclarations->data : 0,
+                                         *m_source,
+                                         m_features,
+                                         m_numConstants);
+            result->setLoc(m_source->firstLine(), m_lastLine);
         }
-        RefPtr<ParsedNode> node = ParsedNode::create(m_sourceElements.release().get(),
-                                                     m_varDeclarations ? &m_varDeclarations->data : 0, 
-                                                     m_funcDeclarations ? &m_funcDeclarations->data : 0);
+
+        m_source = 0;
+        m_sourceElements = 0;
         m_varDeclarations = 0;
         m_funcDeclarations = 0;
-        m_sourceURL = UString();
-        node->setLoc(startingLineNumber, m_lastLine);
-        return node.release();
+
+        if (debugger)
+            debugger->sourceParsed(exec, source, *errLine, *errMsg);
+        return result.release();
     }
 
-} // namespace KJS
+} // namespace JSC
 
 #endif // Parser_h

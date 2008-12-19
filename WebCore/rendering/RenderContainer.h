@@ -58,13 +58,14 @@ public:
     virtual void updateBeforeAfterContent(RenderStyle::PseudoId);
     void updateBeforeAfterContentForContainer(RenderStyle::PseudoId, RenderContainer*);
     bool isAfterContent(RenderObject* child) const;
+    virtual void invalidateCounters();
 
     virtual VisiblePosition positionForCoordinates(int x, int y);
 #ifdef ANDROID_LAYOUT
     virtual bool hasChildTable() const;
 #endif
 
-    virtual void addLineBoxRects(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX);
+    virtual void addLineBoxRects(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
 private:
     RenderObject* m_firstChild;

@@ -1,5 +1,6 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008 Holger Hans Peter Freyther
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -15,15 +16,15 @@
     along with this library; see the file COPYING.LIB.  If not, write to
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
-
-    This class provides all functionality needed for loading images, style sheets and html
-    pages from the web. It has a memory cache for these objects.
 */
+
 #ifndef QWEBPAGE_P_H
 #define QWEBPAGE_P_H
 
+#include <qbasictimer.h>
 #include <qnetworkproxy.h>
 #include <qpointer.h>
+#include <qevent.h>
 
 #include "qwebpage.h"
 #include "qwebhistory.h"
@@ -44,47 +45,25 @@ namespace WebCore
     class Element;
     class Node;
     class Page;
+
+#ifndef QT_NO_CURSOR
+    class SetCursorEvent : public QEvent {
+    public:
+        static const int EventType = 724;
+        SetCursorEvent(const QCursor&);
+
+        QCursor cursor() const;
+    private:
+        QCursor m_cursor;
+    };
+#endif
 }
 
+QT_BEGIN_NAMESPACE
 class QUndoStack;
 class QMenu;
-
-class QWebPageContextPrivate
-{
-public:
-    QPoint pos;
-    QString text;
-    QUrl linkUrl;
-    QUrl imageUrl;
-    QPixmap image;
-    QPointer<QWebFrame> targetFrame;
-    RefPtr<WebCore::Node> innerNonSharedNode;
-};
-
-class QWebPageContext
-{
-public:
-    QWebPageContext();
-    QWebPageContext(const QWebPageContext &other);
-    QWebPageContext &operator=(const QWebPageContext &other);
-    ~QWebPageContext();
-
-    QPoint pos() const;
-    QString text() const;
-    QUrl linkUrl() const;
-    QUrl imageUrl() const;
-    // ### we have a pixmap internally, should this be called pixmap() instead?
-    QPixmap image() const;
-
-    QWebFrame *targetFrame() const;
-
-private:
-    QWebPageContext(const WebCore::HitTestResult &hitTest);
-    QWebPageContextPrivate *d;
-
-    friend class QWebPage;
-    friend class QWebPagePrivate;
-};
+class QBitArray;
+QT_END_NAMESPACE
 
 class QWebPagePrivate
 {
@@ -92,7 +71,9 @@ public:
     QWebPagePrivate(QWebPage *);
     ~QWebPagePrivate();
     void createMainFrame();
-    QMenu *createContextMenu(const WebCore::ContextMenu *webcoreMenu, const QList<WebCore::ContextMenuItem> *items);
+#ifndef QT_NO_CONTEXTMENU
+    QMenu *createContextMenu(const WebCore::ContextMenu *webcoreMenu, const QList<WebCore::ContextMenuItem> *items, QBitArray *visitedWebActions);
+#endif
 
     QWebFrame *frameAt(const QPoint &pos) const;
 
@@ -102,12 +83,19 @@ public:
     void updateNavigationActions();
     void updateEditorActions();
 
+    void timerEvent(QTimerEvent*);
+
     void mouseMoveEvent(QMouseEvent*);
     void mousePressEvent(QMouseEvent*);
     void mouseDoubleClickEvent(QMouseEvent*);
+    void mouseTripleClickEvent(QMouseEvent*);
     void mouseReleaseEvent(QMouseEvent*);
+#ifndef QT_NO_CONTEXTMENU
     void contextMenuEvent(QContextMenuEvent*);
+#endif
+#ifndef QT_NO_WHEELEVENT
     void wheelEvent(QWheelEvent*);
+#endif
     void keyPressEvent(QKeyEvent*);
     void keyReleaseEvent(QKeyEvent*);
     void focusInEvent(QFocusEvent*);
@@ -118,6 +106,11 @@ public:
     void dragMoveEvent(QDragMoveEvent *);
     void dropEvent(QDropEvent *);
 
+    void inputMethodEvent(QInputMethodEvent*);
+
+    void shortcutOverrideEvent(QKeyEvent*);
+    void leaveEvent(QEvent *);
+    bool handleScrolling(QKeyEvent*);
 
     WebCore::ChromeClientQt *chromeClient;
     WebCore::ContextMenuClientQt *contextMenuClient;
@@ -127,17 +120,20 @@ public:
     QPointer<QWebFrame> mainFrame;
 
     QWebPage *q;
+#ifndef QT_NO_UNDOSTACK
     QUndoStack *undoStack;
+#endif
     QWidget *view;
-
-    bool modified;
 
     bool insideOpenCall;
     quint64 m_totalBytes;
     quint64 m_bytesReceived;
 
+    QPoint tripleClick;
+    QBasicTimer tripleClickTimer;
+
 #if QT_VERSION < 0x040400
-    QWebPage::NavigationRequestResponse navigationRequested(QWebFrame *frame, const QWebNetworkRequest &request, QWebPage::NavigationType type);
+    bool acceptNavigationRequest(QWebFrame *frame, const QWebNetworkRequest &request, QWebPage::NavigationType type);
 
     QWebNetworkInterface *networkInterface;
 #ifndef QT_NO_NETWORKPROXY
@@ -145,15 +141,26 @@ public:
 #endif
 
 #else
-    QWebPage::NavigationRequestResponse navigationRequested(QWebFrame *frame, const QNetworkRequest &request, QWebPage::NavigationType type);
+    bool acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, QWebPage::NavigationType type);
     QNetworkAccessManager *networkManager;
 #endif
 
+    bool forwardUnsupportedContent;
+    QWebPage::LinkDelegationPolicy linkPolicy;
+
+    QSize viewportSize;
     QWebHistory history;
-    QWebPageContext currentContext;
+    QWebHitTestResult hitTestResult;
+#ifndef QT_NO_CONTEXTMENU
+    QPointer<QMenu> currentContextMenu;
+#endif
     QWebSettings *settings;
+    QPalette palette;
+    bool editable;
 
     QAction *actions[QWebPage::WebActionCount];
+
+    QWebPluginFactory *pluginFactory;
 };
 
 #endif

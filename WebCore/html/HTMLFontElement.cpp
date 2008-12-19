@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2003, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,12 +33,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFontElement::HTMLFontElement(Document* doc)
-    : HTMLElement(fontTag, doc)
-{
-}
-
-HTMLFontElement::~HTMLFontElement()
+HTMLFontElement::HTMLFontElement(Document* document)
+    : HTMLElement(fontTag, document)
 {
 }
 
@@ -67,12 +61,12 @@ static bool parseFontSizeNumber(const String& s, int& size)
     }
     
     // Parse a single digit.
-    if (!Unicode::isDigit(s[pos]))
+    if (!isASCIIDigit(s[pos]))
         return false;
-    int num = Unicode::digitValue(s[pos++]);
+    int num = s[pos++] - '0';
     
     // Check for an additional digit.
-    if (Unicode::isDigit(s[pos]))
+    if (isASCIIDigit(s[pos]))
         num = 10;
     
     if (sawPlus) {
@@ -110,26 +104,26 @@ bool HTMLFontElement::cssValueFromFontSizeNumber(const String& s, int& size)
         
     switch (num) {
         case 2: 
-            size = CSS_VAL_SMALL; 
+            size = CSSValueSmall; 
             break;
         case 0: // treat 0 the same as 3, because people expect it to be between -1 and +1
         case 3: 
-            size = CSS_VAL_MEDIUM; 
+            size = CSSValueMedium; 
             break;
         case 4: 
-            size = CSS_VAL_LARGE; 
+            size = CSSValueLarge; 
             break;
         case 5: 
-            size = CSS_VAL_X_LARGE; 
+            size = CSSValueXLarge; 
             break;
         case 6: 
-            size = CSS_VAL_XX_LARGE; 
+            size = CSSValueXxLarge; 
             break;
         default:
             if (num > 6)
-                size = CSS_VAL__WEBKIT_XXX_LARGE;
+                size = CSSValueWebkitXxxLarge;
             else
-                size = CSS_VAL_X_SMALL;
+                size = CSSValueXSmall;
     }
     return true;
 }
@@ -139,11 +133,11 @@ void HTMLFontElement::parseMappedAttribute(MappedAttribute *attr)
     if (attr->name() == sizeAttr) {
         int size;
         if (cssValueFromFontSizeNumber(attr->value(), size))
-            addCSSProperty(attr, CSS_PROP_FONT_SIZE, size);
+            addCSSProperty(attr, CSSPropertyFontSize, size);
     } else if (attr->name() == colorAttr) {
-        addCSSColor(attr, CSS_PROP_COLOR, attr->value());
+        addCSSColor(attr, CSSPropertyColor, attr->value());
     } else if (attr->name() == faceAttr) {
-        addCSSProperty(attr, CSS_PROP_FONT_FAMILY, attr->value());
+        addCSSProperty(attr, CSSPropertyFontFamily, attr->value());
     } else
         HTMLElement::parseMappedAttribute(attr);
 }

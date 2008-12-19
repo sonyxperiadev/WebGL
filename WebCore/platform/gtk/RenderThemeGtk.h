@@ -28,7 +28,6 @@
 #define RenderThemeGdk_h
 
 #include "RenderTheme.h"
-#include "GraphicsContext.h"
 
 #include <gtk/gtk.h>
 
@@ -53,7 +52,7 @@ public:
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
     // controls that need to do this.
-    virtual short baselinePosition(const RenderObject*) const;
+    virtual int baselinePosition(const RenderObject*) const;
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;

@@ -27,7 +27,7 @@
 #include "WebKitDLL.h"
 #include "WebHTMLRepresentation.h"
 
-#include "DOMCore.h"
+#include "WebKit.h"
 #include "WebFrame.h"
 #include "WebKitStatisticsPrivate.h"
 #pragma warning(push, 0)
@@ -46,6 +46,7 @@ WebHTMLRepresentation::WebHTMLRepresentation()
 {
     WebHTMLRepresentationCount++;
     gClassCount++;
+    gClassNameCount.add("WebHTMLRepresentation");
 }
 
 WebHTMLRepresentation::~WebHTMLRepresentation()
@@ -57,6 +58,7 @@ WebHTMLRepresentation::~WebHTMLRepresentation()
 
     WebHTMLRepresentationCount--;
     gClassCount--;
+    gClassNameCount.remove("WebHTMLRepresentation");
 }
 
 WebHTMLRepresentation* WebHTMLRepresentation::createInstance(WebFrame* frame)
@@ -152,7 +154,7 @@ HRESULT STDMETHODCALLTYPE WebHTMLRepresentation::elementDoesAutoComplete(
         /* [in] */ IDOMElement* element,
         /* [retval][out] */ BOOL* result)
 {
-    bool doesAutoComplete;
+    BOOL doesAutoComplete;
     HRESULT hr = m_frame->elementDoesAutoComplete(element, &doesAutoComplete);
     *result = doesAutoComplete ? TRUE : FALSE;
     return hr;

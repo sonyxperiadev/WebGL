@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -15,10 +15,8 @@
     along with this library; see the file COPYING.LIB.  If not, write to
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
-
-    This class provides all functionality needed for loading images, style sheets and html
-    pages from the web. It has a memory cache for these objects.
 */
+
 #include "config.h"
 #include "Font.h"
 #include "FontDescription.h"
@@ -64,12 +62,12 @@ Font::Font(const FontDescription& description, short letterSpacing, short wordSp
     m_font.setFamily(familyName);
     m_font.setPixelSize(qRound(description.computedSize()));
     m_font.setItalic(description.italic());
-    if (description.bold()) {
-        // Qt's Bold is 75, Webkit is 63.
+    // FIXME: Map all FontWeight values to QFont weights.
+    if (description.weight() >= FontWeight600)
         m_font.setWeight(QFont::Bold);
-    } else {
-        m_font.setWeight(description.weight());
-    }
+    else
+        m_font.setWeight(QFont::Normal);
+
     bool smallCaps = description.smallCaps();
     m_font.setCapitalization(smallCaps ? QFont::SmallCaps : QFont::MixedCase);
 
@@ -133,6 +131,12 @@ void Font::drawText(GraphicsContext* ctx, const TextRun& run, const FloatPoint& 
 
     QString string = qstring(run);
 
+    // text shadow
+    IntSize shadowSize;
+    int shadowBlur;
+    Color shadowColor;
+    bool hasShadow = ctx->textDrawingMode() == cTextFill && ctx->getShadow(shadowSize, shadowBlur, shadowColor);
+
     if (from > 0 || to < run.length()) {
         QTextLayout layout(string, m_font);
         QTextLine line = setupLayout(&layout, run);
@@ -145,9 +149,31 @@ void Font::drawText(GraphicsContext* ctx, const TextRun& run, const FloatPoint& 
         int ascent = fm.ascent();
         QRectF clip(point.x() + x1, point.y() - ascent, x2 - x1, fm.height());
 
+        if (hasShadow) {
+            // TODO: when blur support is added, the clip will need to account
+            // for the blur radius
+            qreal dx1 = 0, dx2 = 0, dy1 = 0, dy2 = 0;
+            if (shadowSize.width() > 0)
+                dx2 = shadowSize.width();
+            else
+                dx1 = -shadowSize.width();
+            if (shadowSize.height() > 0)
+                dy2 = shadowSize.height();
+            else
+                dy1 = -shadowSize.height();
+            // expand the clip rect to include the text shadow as well
+            clip.adjust(dx1, dx2, dy1, dy2);
+        }
         p->save();
         p->setClipRect(clip.toRect());
         QPointF pt(point.x(), point.y() - ascent);
+        if (hasShadow) {
+            p->save();
+            p->setPen(QColor(shadowColor));
+            p->translate(shadowSize.width(), shadowSize.height());
+            line.draw(p, pt);
+            p->restore();
+        }
         line.draw(p, pt);
         p->restore();
         return;
@@ -157,6 +183,14 @@ void Font::drawText(GraphicsContext* ctx, const TextRun& run, const FloatPoint& 
 
     QPointF pt(point.x(), point.y());
     int flags = run.rtl() ? Qt::TextForceRightToLeft : Qt::TextForceLeftToRight;
+    if (hasShadow) {
+        // TODO: text shadow blur support
+        p->save();
+        p->setPen(QColor(shadowColor));
+        p->translate(shadowSize.width(), shadowSize.height());
+        p->drawText(pt, string, flags, run.padding());
+        p->restore();
+    }
     p->drawText(pt, string, flags, run.padding());
 }
 
@@ -165,7 +199,9 @@ int Font::width(const TextRun& run) const
     if (!run.length())
         return 0;
     QString string = qstring(run);
-    int w = QFontMetrics(m_font).width(string);
+    QTextLayout layout(string, m_font);
+    QTextLine line = setupLayout(&layout, run);
+    int w = int(line.naturalTextWidth());
     // WebKit expects us to ignore word spacing on the first character (as opposed to what Qt does)
     if (treatAsSpace(run[0]))
         w -= m_wordSpacing;
@@ -175,6 +211,13 @@ int Font::width(const TextRun& run) const
 
 float Font::floatWidth(const TextRun& run) const
 {
+    return width(run);
+}
+
+float Font::floatWidth(const TextRun& run, int /*extraCharsAvailable*/, int& charsConsumed, String& glyphName) const
+{
+    charsConsumed = run.length();
+    glyphName = "";
     return width(run);
 }
 
@@ -272,12 +315,12 @@ Font::Font(const FontDescription& description, short letterSpacing, short wordSp
     m_font.setFamily(familyName);
     m_font.setPixelSize(qRound(description.computedSize()));
     m_font.setItalic(description.italic());
-    if (description.bold()) {
-        // Qt's Bold is 75, Webkit is 63.
+    // FIXME: Map all FontWeight values to QFont weights.
+    if (description.weight() >= FontWeight600)
         m_font.setWeight(QFont::Bold);
-    } else {
-        m_font.setWeight(description.weight());
-    }
+    else
+        m_font.setWeight(QFont::Normal);
+
     QFontMetrics metrics = QFontMetrics(m_font);
     m_spaceWidth = metrics.width(QLatin1Char(' '));
     m_scFont = m_font;
@@ -469,6 +512,13 @@ float Font::floatWidth(const TextRun& run) const
     return width(run);
 }
 
+float Font::floatWidth(const TextRun& run, int /*extraCharsAvailable*/, int& charsConsumed, String& glyphName) const
+{
+    charsConsumed = run.length();
+    glyphName = "";
+    return width(run);
+}
+
 int Font::offsetForPosition(const TextRun& run, int position, bool includePartialGlyphs) const
 {
     Vector<TextRunComponent, 1024> components;
@@ -631,6 +681,11 @@ int Font::descent() const
 int Font::lineSpacing() const
 {
     return QFontMetrics(m_font).lineSpacing();
+}
+
+int Font::lineGap() const
+{
+    return QFontMetrics(m_font).leading();
 }
 
 float Font::xHeight() const

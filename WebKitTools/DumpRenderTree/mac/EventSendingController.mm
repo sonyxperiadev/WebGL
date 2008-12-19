@@ -35,13 +35,29 @@
 #import "DumpRenderTreeDraggingInfo.h"
 
 #import <Carbon/Carbon.h>                           // for GetCurrentEventTime()
-#import <WebKit/WebKit.h>
 #import <WebKit/DOMPrivate.h>
+#import <WebKit/WebKit.h>
+#import <WebKit/WebViewPrivate.h>
 
 extern "C" void _NSNewKillRingSequence();
 
+enum MouseAction {
+    MouseDown,
+    MouseUp,
+    MouseDragged
+};
+
+// Match the DOM spec (sadly the DOM spec does not provide an enum)
+enum MouseButton {
+    LeftMouseButton = 0,
+    MiddleMouseButton = 1,
+    RightMouseButton = 2,
+    NoMouseButton = -1
+};
+
 NSPoint lastMousePosition;
 NSPoint lastClickPosition;
+int lastClickButton = NoMouseButton;
 NSArray *webkitDomEventNames;
 NSMutableArray *savedMouseEvents; // mouse events sent between mouseDown and mouseUp are stored here, and then executed at once.
 BOOL replayingSavedEvents;
@@ -102,8 +118,8 @@ BOOL replayingSavedEvents;
 
 + (BOOL)isSelectorExcludedFromWebScript:(SEL)aSelector
 {
-    if (aSelector == @selector(mouseDown)
-            || aSelector == @selector(mouseUp)
+    if (aSelector == @selector(mouseDown:)
+            || aSelector == @selector(mouseUp:)
             || aSelector == @selector(contextClick)
             || aSelector == @selector(mouseMoveToX:Y:)
             || aSelector == @selector(leapForward:)
@@ -112,7 +128,9 @@ BOOL replayingSavedEvents;
             || aSelector == @selector(fireKeyboardEventsToElement:)
             || aSelector == @selector(clearKillRing)
             || aSelector == @selector(textZoomIn)
-            || aSelector == @selector(textZoomOut))
+            || aSelector == @selector(textZoomOut)
+            || aSelector == @selector(zoomPageIn)
+            || aSelector == @selector(zoomPageOut))
         return NO;
     return YES;
 }
@@ -126,6 +144,10 @@ BOOL replayingSavedEvents;
 
 + (NSString *)webScriptNameForSelector:(SEL)aSelector
 {
+    if (aSelector == @selector(mouseDown:))
+        return @"mouseDown";
+    if (aSelector == @selector(mouseUp:))
+        return @"mouseUp";
     if (aSelector == @selector(mouseMoveToX:Y:))
         return @"mouseMoveTo";
     if (aSelector == @selector(leapForward:))
@@ -161,7 +183,7 @@ BOOL replayingSavedEvents;
 
 - (void)leapForward:(int)milliseconds
 {
-    if (dragMode && down && !replayingSavedEvents) {
+    if (dragMode && leftMouseButtonDown && !replayingSavedEvents) {
         NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[EventSendingController instanceMethodSignatureForSelector:@selector(leapForward:)]];
         [invocation setTarget:self];
         [invocation setSelector:@selector(leapForward:)];
@@ -180,15 +202,59 @@ BOOL replayingSavedEvents;
     _NSNewKillRingSequence();
 }
 
-- (void)mouseDown
+static NSEventType eventTypeForMouseButtonAndAction(int button, MouseAction action)
+{
+    switch (button) {
+        case LeftMouseButton:
+            switch (action) {
+                case MouseDown:
+                    return NSLeftMouseDown;
+                case MouseUp:
+                    return NSLeftMouseUp;
+                case MouseDragged:
+                    return NSLeftMouseDragged;
+            }
+        case RightMouseButton:
+            switch (action) {
+                case MouseDown:
+                    return NSRightMouseDown;
+                case MouseUp:
+                    return NSRightMouseUp;
+                case MouseDragged:
+                    return NSRightMouseDragged;
+            }
+        default:
+            switch (action) {
+                case MouseDown:
+                    return NSOtherMouseDown;
+                case MouseUp:
+                    return NSOtherMouseUp;
+                case MouseDragged:
+                    return NSOtherMouseDragged;
+            }
+    }
+    assert(0);
+    return static_cast<NSEventType>(0);
+}
+
+- (void)updateClickCountForButton:(int)buttonNumber
+{
+    if (([self currentEventTime] - lastClick >= 1) ||
+        !NSEqualPoints(lastMousePosition, lastClickPosition) ||
+        lastClickButton != buttonNumber) {
+        clickCount = 1;
+        lastClickButton = buttonNumber;
+    } else
+        clickCount++;
+}
+
+- (void)mouseDown:(int)buttonNumber
 {
     [[[mainFrame frameView] documentView] layout];
-    if (([self currentEventTime] - lastClick >= 1) ||
-        !NSEqualPoints(lastMousePosition, lastClickPosition))
-        clickCount = 1;
-    else
-        clickCount++;
-    NSEvent *event = [NSEvent mouseEventWithType:NSLeftMouseDown 
+    [self updateClickCountForButton:buttonNumber];
+    
+    NSEventType eventType = eventTypeForMouseButtonAndAction(buttonNumber, MouseDown);
+    NSEvent *event = [NSEvent mouseEventWithType:eventType
                                         location:lastMousePosition 
                                    modifierFlags:0 
                                        timestamp:[self currentEventTime]
@@ -201,7 +267,8 @@ BOOL replayingSavedEvents;
     NSView *subView = [[mainFrame webView] hitTest:[event locationInWindow]];
     if (subView) {
         [subView mouseDown:event];
-        down = YES;
+        if (buttonNumber == LeftMouseButton)
+            leftMouseButtonDown = YES;
     }
 }
 
@@ -215,12 +282,23 @@ BOOL replayingSavedEvents;
     [[mainFrame webView] makeTextSmaller:self];
 }
 
-- (void)mouseUp
+- (void)zoomPageIn
+{
+    [[mainFrame webView] zoomPageIn:self];
+}
+
+- (void)zoomPageOut
+{
+    [[mainFrame webView] zoomPageOut:self];
+}
+
+- (void)mouseUp:(int)buttonNumber
 {
     if (dragMode && !replayingSavedEvents) {
-        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[EventSendingController instanceMethodSignatureForSelector:@selector(mouseUp)]];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[EventSendingController instanceMethodSignatureForSelector:@selector(mouseUp:)]];
         [invocation setTarget:self];
-        [invocation setSelector:@selector(mouseUp)];
+        [invocation setSelector:@selector(mouseUp:)];
+        [invocation setArgument:&buttonNumber atIndex:2];
         
         [EventSendingController saveEvent:invocation];
         [EventSendingController replaySavedEvents];
@@ -229,7 +307,8 @@ BOOL replayingSavedEvents;
     }
 
     [[[mainFrame frameView] documentView] layout];
-    NSEvent *event = [NSEvent mouseEventWithType:NSLeftMouseUp 
+    NSEventType eventType = eventTypeForMouseButtonAndAction(buttonNumber, MouseUp);
+    NSEvent *event = [NSEvent mouseEventWithType:eventType
                                         location:lastMousePosition 
                                    modifierFlags:0 
                                        timestamp:[self currentEventTime]
@@ -246,7 +325,8 @@ BOOL replayingSavedEvents;
     targetView = targetView ? targetView : [[mainFrame frameView] documentView];
     assert(targetView);
     [targetView mouseUp:event];
-    down = NO;
+    if (buttonNumber == LeftMouseButton)
+        leftMouseButtonDown = NO;
     lastClick = [event timestamp];
     lastClickPosition = lastMousePosition;
     if (draggingInfo) {
@@ -266,7 +346,7 @@ BOOL replayingSavedEvents;
 
 - (void)mouseMoveToX:(int)x Y:(int)y
 {
-    if (dragMode && down && !replayingSavedEvents) {
+    if (dragMode && leftMouseButtonDown && !replayingSavedEvents) {
         NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:[EventSendingController instanceMethodSignatureForSelector:@selector(mouseMoveToX:Y:)]];
         [invocation setTarget:self];
         [invocation setSelector:@selector(mouseMoveToX:Y:)];
@@ -280,19 +360,19 @@ BOOL replayingSavedEvents;
 
     NSView *view = [mainFrame webView];
     lastMousePosition = [view convertPoint:NSMakePoint(x, [view frame].size.height - y) toView:nil];
-    NSEvent *event = [NSEvent mouseEventWithType:(down ? NSLeftMouseDragged : NSMouseMoved) 
+    NSEvent *event = [NSEvent mouseEventWithType:(leftMouseButtonDown ? NSLeftMouseDragged : NSMouseMoved)
                                         location:lastMousePosition 
                                    modifierFlags:0 
                                        timestamp:[self currentEventTime]
                                     windowNumber:[[view window] windowNumber] 
                                          context:[NSGraphicsContext currentContext] 
                                      eventNumber:++eventNumber 
-                                      clickCount:(down ? clickCount : 0) 
+                                      clickCount:(leftMouseButtonDown ? clickCount : 0) 
                                         pressure:0.0];
 
     NSView *subView = [[mainFrame webView] hitTest:[event locationInWindow]];
     if (subView) {
-        if (down) {
+        if (leftMouseButtonDown) {
             [subView mouseDragged:event];
             if (draggingInfo) {
                 [[draggingInfo draggingSource] draggedImage:[draggingInfo draggedImage] movedTo:lastMousePosition];
@@ -306,11 +386,9 @@ BOOL replayingSavedEvents;
 - (void)contextClick
 {
     [[[mainFrame frameView] documentView] layout];
-    if ([self currentEventTime] - lastClick >= 1)
-        clickCount = 1;
-    else
-        clickCount++;
-    NSEvent *event = [NSEvent mouseEventWithType:NSRightMouseDown 
+    [self updateClickCountForButton:RightMouseButton];
+
+    NSEvent *event = [NSEvent mouseEventWithType:NSRightMouseDown
                                         location:lastMousePosition 
                                    modifierFlags:0 
                                        timestamp:[self currentEventTime]

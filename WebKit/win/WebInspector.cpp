@@ -53,11 +53,13 @@ WebInspector::WebInspector(WebView* webView)
     ASSERT_ARG(webView, webView);
 
     gClassCount++;
+    gClassNameCount.add("WebInspector");
 }
 
 WebInspector::~WebInspector()
 {
     gClassCount--;
+    gClassNameCount.remove("WebInspector");
 }
 
 void WebInspector::webViewClosed()
@@ -106,17 +108,13 @@ HRESULT STDMETHODCALLTYPE WebInspector::showConsole()
 {
     if (m_webView)
         if (Page* page = m_webView->page())
-            page->inspectorController()->showConsole();
+            page->inspectorController()->showPanel(InspectorController::ConsolePanel);
 
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebInspector::showTimeline()
+HRESULT STDMETHODCALLTYPE WebInspector::unused1()
 {
-    if (m_webView)
-        if (Page* page = m_webView->page())
-            page->inspectorController()->showTimeline();
-
     return S_OK;
 }
 
@@ -143,6 +141,118 @@ HRESULT STDMETHODCALLTYPE WebInspector::detach()
     if (m_webView)
         if (Page* page = m_webView->page())
             page->inspectorController()->detachWindow();
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::isDebuggingJavaScript(BOOL* isDebugging)
+{
+    if (!isDebugging)
+        return E_POINTER;
+
+    *isDebugging = FALSE;
+
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    *isDebugging = page->inspectorController()->debuggerEnabled();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::toggleDebuggingJavaScript()
+{
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    InspectorController* inspector = page->inspectorController();
+
+    if (inspector->debuggerEnabled())
+        inspector->disableDebugger();
+    else {
+        inspector->showPanel(InspectorController::ScriptsPanel);
+        inspector->enableDebugger();
+    }
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::isProfilingJavaScript(BOOL* isProfiling)
+{
+    if (!isProfiling)
+        return E_POINTER;
+
+    *isProfiling = FALSE;
+
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    *isProfiling = page->inspectorController()->isRecordingUserInitiatedProfile();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::toggleProfilingJavaScript()
+{
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    InspectorController* inspector = page->inspectorController();
+
+    if (inspector->isRecordingUserInitiatedProfile()) {
+        inspector->stopUserInitiatedProfiling();
+        inspector->showPanel(InspectorController::ProfilesPanel);
+    } else
+        inspector->startUserInitiatedProfiling();
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::isJavaScriptProfilingEnabled(BOOL* isProfilingEnabled)
+{
+    if (!isProfilingEnabled)
+        return E_POINTER;
+
+    *isProfilingEnabled = FALSE;
+
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    *isProfilingEnabled = page->inspectorController()->profilerEnabled();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::setJavaScriptProfilingEnabled(BOOL enabled)
+{
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    if (enabled)
+        page->inspectorController()->enableProfiler();
+    else
+        page->inspectorController()->disableProfiler();
 
     return S_OK;
 }

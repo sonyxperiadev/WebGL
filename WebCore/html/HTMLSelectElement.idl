@@ -41,15 +41,16 @@ module html {
 #endif
 
         readonly attribute HTMLFormElement form;
+        readonly attribute boolean         willValidate;
 
         // Modified in DOM Level 2:
         readonly attribute HTMLOptionsCollection options;
 
                  attribute boolean         disabled;
+                 attribute boolean         autofocus;
                  attribute boolean         multiple;
                  attribute [ConvertNullToNullString] DOMString       name;
                  attribute long            size;
-                 attribute long            tabIndex;
         
         [OldStyleObjC] void add(in HTMLElement element, 
                                in HTMLElement before)
@@ -61,8 +62,6 @@ module html {
 #else
         void               remove(in long index);
 #endif
-        void               blur();
-        void               focus();
 
         // These methods are not in DOM Level 2 IDL, but are mentioned in the standard:
         // "The contained options can be directly accessed through the select element as a collection."

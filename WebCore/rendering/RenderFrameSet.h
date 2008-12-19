@@ -80,10 +80,6 @@ public:
     void setGridNeedsLayout() { m_gridCalculated = false; }
 #endif
     
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
-
 private:
     static const int noSplit = -1;
 

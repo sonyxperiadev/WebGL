@@ -28,10 +28,13 @@
 #include "WebError.h"
 #include "WebKit.h"
 
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #pragma warning(push, 0)
 #include <WebCore/BString.h>
 #pragma warning(pop)
+
+#if USE(CFNETWORK)
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
 
 using namespace WebCore;
 
@@ -43,11 +46,13 @@ WebError::WebError(const ResourceError& error, IPropertyBag* userInfo)
     , m_userInfo(userInfo)
 {
     gClassCount++;
+    gClassNameCount.add("WebError");
 }
 
 WebError::~WebError()
 {
     gClassCount--;
+    gClassNameCount.remove("WebError");
 }
 
 WebError* WebError::createInstance(const ResourceError& error, IPropertyBag* userInfo)
@@ -204,6 +209,7 @@ HRESULT STDMETHODCALLTYPE WebError::sslPeerCertificate(
         return E_POINTER;
     *result = 0;
 
+#if USE(CFNETWORK)
     if (!m_cfErrorUserInfoDict) {
         // copy userinfo from CFErrorRef
         CFErrorRef cfError = m_error;
@@ -217,6 +223,7 @@ HRESULT STDMETHODCALLTYPE WebError::sslPeerCertificate(
     if (!data)
         return E_FAIL;
     *result = (OLE_HANDLE)(ULONG64)data;
+#endif
     return *result ? S_OK : E_FAIL;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,35 +27,25 @@
 #define Editor_h
 
 #include "ClipboardAccessPolicy.h"
+#include "Color.h"
+#include "EditAction.h"
 #include "EditorDeleteAction.h"
 #include "EditorInsertAction.h"
-#include "Frame.h"
 #include "SelectionController.h"
-#include <wtf/Forward.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/RefPtr.h>
-
-#if PLATFORM(MAC)
-class NSString;
-class NSURL;
-#endif
 
 namespace WebCore {
 
+class CSSStyleDeclaration;
 class Clipboard;
 class DeleteButtonController;
-class DocumentFragment;
 class EditCommand;
-class EditorInternalCommand;
 class EditorClient;
-class EventTargetNode;
-class Frame;
+class EditorInternalCommand;
 class HTMLElement;
+class HitTestResult;
 class Pasteboard;
-class Range;
-class SelectionController;
-class Selection;
 class SimpleFontData;
+class Text;
 
 struct CompositionUnderline {
     CompositionUnderline() 
@@ -70,6 +60,7 @@ struct CompositionUnderline {
 
 enum TriState { FalseTriState, TrueTriState, MixedTriState };
 enum EditorCommandSource { CommandFromMenuOrKeyBinding, CommandFromDOM, CommandFromDOMWithUserInterface };
+enum WritingDirection { NaturalWritingDirection, LeftToRightWritingDirection, RightToLeftWritingDirection };
 
 class Editor {
 public:
@@ -113,7 +104,7 @@ public:
     void outdent();
     void transpose();
 
-    bool shouldInsertFragment(PassRefPtr<DocumentFragment> fragment, PassRefPtr<Range> replacingDOMRange, EditorInsertAction givenAction);
+    bool shouldInsertFragment(PassRefPtr<DocumentFragment>, PassRefPtr<Range>, EditorInsertAction);
     bool shouldInsertText(const String&, Range*, EditorInsertAction) const;
     bool shouldShowDeleteInterface(HTMLElement*) const;
     bool shouldDeleteRange(Range*) const;
@@ -138,9 +129,7 @@ public:
    
     void removeFormattingAndStyle();
 
-    // FIXME: Once the Editor implements all editing commands, it should track 
-    // the lastEditCommand on its own, and we should remove this function.
-    void setLastEditCommand(PassRefPtr<EditCommand> lastEditCommand);
+    void clearLastEditCommand();
 
     bool deleteWithDirection(SelectionController::EDirection, TextGranularity, bool killRing, bool isTypingAction);
     void deleteSelectionWithSmartDelete(bool smartDelete);
@@ -187,7 +176,7 @@ public:
     Command command(const String& commandName, EditorCommandSource);
 
     bool insertText(const String&, Event* triggeringEvent);
-    bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, Event* triggeringEvent = 0);
+    bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, Event* triggeringEvent);
     bool insertLineBreak();
     bool insertParagraphSeparator();
     
@@ -227,7 +216,7 @@ public:
     void showColorPanel();
     void toggleBold();
     void toggleUnderline();
-    void setBaseWritingDirection(const String&);
+    void setBaseWritingDirection(WritingDirection);
 
     bool smartInsertDeleteEnabled();
     
@@ -257,10 +246,6 @@ public:
 
     Selection selectionForCommand(Event*);
 
-#if PLATFORM(MAC)
-    NSString* userVisibleString(NSURL*);
-#endif
-
     void appendToKillRing(const String&);
     void prependToKillRing(const String&);
     String yankFromKillRing();
@@ -268,6 +253,11 @@ public:
     void setKillRingToYankedState();
 
     PassRefPtr<Range> selectedRange();
+    
+    // We should make these functions private when their callers in Frame are moved over here to Editor
+    bool insideVisibleArea(const IntPoint&) const;
+    bool insideVisibleArea(Range*) const;
+    PassRefPtr<Range> nextVisibleRange(Range*, const String&, bool forward, bool caseFlag, bool wrapFlag);
 
 private:
     Frame* m_frame;
@@ -297,6 +287,9 @@ private:
     void setIgnoreCompositionSelectionChange(bool ignore);
 
     void addToKillRing(Range*, bool prepend);
+
+    PassRefPtr<Range> firstVisibleRange(const String&, bool caseFlag);
+    PassRefPtr<Range> lastVisibleRange(const String&, bool caseFlag);
 };
 
 inline void Editor::setStartNewKillRingSequence(bool flag)

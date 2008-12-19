@@ -28,14 +28,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "DumpRenderTreeMac.h"
 #import "DumpRenderTreePasteboard.h"
+
+#import <WebKit/WebTypesInternal.h>
 
 @interface LocalPasteboard : NSPasteboard
 {
     NSMutableArray *typesArray;
     NSMutableSet *typesSet;
     NSMutableDictionary *dataByType;
-    int changeCount;
+    NSInteger changeCount;
 }
 @end
 
@@ -68,7 +71,7 @@ static NSMutableDictionary *localPasteboards;
 
 // Convenience method for JS so that it doesn't have to try and create a NSArray on the objc side instead
 // of the usual WebScriptObject that is passed around
-- (int)declareType:(NSString *)type owner:(id)newOwner
+- (NSInteger)declareType:(NSString *)type owner:(id)newOwner
 {
     return [self declareTypes:[NSArray arrayWithObject:type] owner:newOwner];
 }
@@ -107,7 +110,7 @@ static NSMutableDictionary *localPasteboards;
 {
 }
 
-- (int)declareTypes:(NSArray *)newTypes owner:(id)newOwner
+- (NSInteger)declareTypes:(NSArray *)newTypes owner:(id)newOwner
 {
     [typesArray removeAllObjects];
     [typesSet removeAllObjects];
@@ -115,7 +118,7 @@ static NSMutableDictionary *localPasteboards;
     return [self addTypes:newTypes owner:newOwner];
 }
 
-- (int)addTypes:(NSArray *)newTypes owner:(id)newOwner
+- (NSInteger)addTypes:(NSArray *)newTypes owner:(id)newOwner
 {
     unsigned count = [newTypes count];
     unsigned i;
@@ -134,7 +137,7 @@ static NSMutableDictionary *localPasteboards;
     return ++changeCount;
 }
 
-- (int)changeCount
+- (NSInteger)changeCount
 {
     return changeCount;
 }

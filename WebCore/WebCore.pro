@@ -1,36 +1,29 @@
-# -*- Mode:makefile -*-
 # WebCore - qmake build info
 CONFIG += building-libs
-# do not use implicit rules in nmake Makefiles to avoid the clash
-# of API/Node.c and dom/Node.cpp
-CONFIG += no_batch
+CONFIG += depend_includepath
 include($$PWD/../WebKit.pri)
-gtk-port:LIBS -= -lWebKitGtk
 
 TEMPLATE = lib
-qt-port:TARGET = QtWebKit
-gtk-port:TARGET = WebKitGtk
+TARGET = QtWebKit
+
+contains(QT_CONFIG, embedded):CONFIG += embedded
 
 CONFIG(QTDIR_build) {
     GENERATED_SOURCES_DIR = $$PWD/generated
     include($$QT_SOURCE_TREE/src/qbase.pri)
+    !win32-msvc*: CONFIG -= create_prl
     PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
+    DEFINES *= NDEBUG
 }
 
 isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = tmp
 GENERATED_SOURCES_DIR_SLASH = $$GENERATED_SOURCES_DIR/
 win32-*: GENERATED_SOURCES_DIR_SLASH ~= s|/|\|
 
-INCLUDEPATH += $$GENERATED_SOURCES_DIR
-
 !CONFIG(QTDIR_build) {
      OBJECTS_DIR = tmp
      DESTDIR = $$OUTPUT_DIR/lib
 }
-
-DEPENDPATH += css dom loader editing history html \
-    loader page platform platform/graphics platform/network platform/text plugins rendering xml \
-    bindings/js
 
 include($$OUTPUT_DIR/config.pri)
 
@@ -55,7 +48,8 @@ freebsd-*: DEFINES += HAVE_PTHREAD_NP_H
 
 DEFINES += BUILD_WEBKIT
 
-win32-*: DEFINES += ENABLE_ICONDATABASE=0 ENABLE_DATABASE=0
+!CONFIG(QTDIR_build):win32-*: DEFINES += ENABLE_ICONDATABASE=0 ENABLE_DATABASE=0
+win32-*: DEFINES += _HAS_TR1=0
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
 win32-g++ {
@@ -65,147 +59,115 @@ win32-g++ {
     QMAKE_LIBDIR_POST += $$split(TMPPATH,";")
 }
 
-gtk-port: PKGCONFIG += gthread-2.0
-
 # Optional components (look for defs in config.h and included files!)
+!contains(DEFINES, ENABLE_DASHBOARD_SUPPORT=.): DEFINES += ENABLE_DASHBOARD_SUPPORT=0
 !contains(DEFINES, ENABLE_DATABASE=.): DEFINES += ENABLE_DATABASE=1
 !contains(DEFINES, ENABLE_ICONDATABASE=.): DEFINES += ENABLE_ICONDATABASE=1
 !contains(DEFINES, ENABLE_XPATH=.): DEFINES += ENABLE_XPATH=1
-gtk-port:!contains(DEFINES, ENABLE_XSLT=.): DEFINES += ENABLE_XSLT=1
 #!contains(DEFINES, ENABLE_XBL=.): DEFINES += ENABLE_XBL=1
-qt-port: !contains(DEFINES, ENABLE_SVG=.): DEFINES += ENABLE_SVG=1
-gtk-port:DEFINES += ENABLE_SVG=0
-DEFINES += ENABLE_VIDEO=0
+!contains(DEFINES, ENABLE_SVG=.): DEFINES += ENABLE_SVG=1
+#!contains(DEFINES, ENABLE_SVG_FONTS=.): DEFINES += ENABLE_SVG_FONTS=1
+!contains(DEFINES, ENABLE_SVG_FILTERS=.): DEFINES += ENABLE_SVG_FILTERS=1
+!contains(DEFINES, ENABLE_SVG_FOREIGN_OBJECT=.): DEFINES += ENABLE_SVG_FOREIGN_OBJECT=1
+!contains(DEFINES, ENABLE_SVG_ANIMATION=.): DEFINES += ENABLE_SVG_ANIMATION=1
+!contains(DEFINES, ENABLE_SVG_AS_IMAGE=.): DEFINES += ENABLE_SVG_AS_IMAGE=1
+!contains(DEFINES, ENABLE_SVG_USE=.): DEFINES += ENABLE_SVG_USE=1
+contains(QT_CONFIG, phonon):DEFINES += ENABLE_VIDEO=1
+else:DEFINES += ENABLE_VIDEO=0
 
-DEFINES += WTF_CHANGES=1
+unix|win32-*:!mac:!embedded:!wince* {
+    DEFINES += ENABLE_NETSCAPE_PLUGIN_API=1
+    unix: DEFINES += XP_UNIX
+} else {
+    DEFINES += ENABLE_NETSCAPE_PLUGIN_API=0
+}
 
-#
-# For builds inside Qt we interpret the output rule and the input of each extra compiler manually
-# and add the resulting sources to the SOURCES variable, because the build inside Qt contains already
-# all the generated files. We do not need to generate any extra compiler rules in that case.
-#
-# In addition this function adds a new target called 'generated_files' that allows manually calling
-# all the extra compilers to generate all the necessary files for the build using 'make generated_files'
-#
-defineTest(addExtraCompiler) {
-    CONFIG(QTDIR_build) {
-        outputRule = $$eval($${1}.output)
+DEFINES += WTF_USE_JAVASCRIPTCORE_BINDINGS=1 WTF_CHANGES=1
 
-        input = $$eval($${1}.input)
-        input = $$eval($$input)
+INCLUDEPATH += $$PWD $$PWD/../JavaScriptCore $$PWD/../JavaScriptCore/ForwardingHeaders \
+               $$PWD/../JavaScriptCore/VM \
+               $$PWD/../JavaScriptCore/debugger \
+               $$PWD/../JavaScriptCore/kjs \
+               $$PWD/../JavaScriptCore/runtime \
+               $$PWD/../JavaScriptCore/bindings \
+               $$PWD/../JavaScriptCore/wtf
 
-        for(file,input) {
-            base = $$basename(file)
-            base ~= s/\..+//
-            newfile=$$replace(outputRule,\\$\\{QMAKE_FILE_BASE\\},$$base)
-            SOURCES += $$newfile
-        }
-
-        export(SOURCES)
+contains(CONFIG, debug_and_release_target) {
+    CONFIG(debug, debug|release) {
+        LIBS += -L../JavaScriptCore/debug
     } else {
-        QMAKE_EXTRA_COMPILERS += $$1
-        generated_files.depends += compiler_$${1}_make_all
-        export(QMAKE_EXTRA_COMPILERS)
-        export(generated_files.depends)
+        LIBS += -L../JavaScriptCore/release
     }
-    return(true)
+} else {
+    LIBS += -L../JavaScriptCore
 }
 
-include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
+unset(JSCORE_LINKAGE)
+CONFIG(QTDIR_build) {
+    if(!debug_and_release|build_pass):CONFIG(debug, debug|release) {
+        win32:JSCORE_LINKAGE = -lJavaScriptCored
+        mac:JSCORE_LINKAGE = -lJavaScriptCore_debug
+    }
+}
+isEmpty(JSCORE_LINKAGE):JSCORE_LINKAGE += -lJavaScriptCore
+LIBS += $$JSCORE_LINKAGE
 
-#INCLUDEPATH += $$PWD/../JavaScriptCore
-#LIBS += -L$$OUTPUT_DIR/lib -lJavaScriptCore
-
-qt-port {
-RESOURCES += $$PWD/../WebCore/page/inspector/WebKit.qrc
+RESOURCES += \
+    $$PWD/../WebCore/inspector/front-end/WebKit.qrc \
+    $$PWD/../WebCore/Resources/WebKitResources.qrc \
+    $$PWD/../WebCore/platform/qt/WebCoreResources.qrc
 INCLUDEPATH += \
-                $$PWD/platform/qt \
-                $$PWD/platform/network/qt \
-                $$PWD/platform/graphics/qt \
-                $$PWD/svg/graphics/qt \
-                $$PWD/loader/qt \
-                $$PWD/page/qt \
-                $$PWD/../WebKit/qt/WebCoreSupport \
-                $$PWD/../WebKit/qt/Api
+    $$PWD/platform/qt \
+    $$PWD/platform/network/qt \
+    $$PWD/platform/graphics/filters \
+    $$PWD/platform/graphics/qt \
+    $$PWD/svg/graphics/qt \
+    $$PWD/loader \
+    $$PWD/page/qt \
+    $$PWD/../WebKit/qt/WebCoreSupport \
+    $$PWD/../WebKit/qt/Api \
+    $$PWD/bridge/qt
 
-DEPENDPATH += editing/qt history/qt loader/qt page/qt \
-    platform/graphics/qt ../WebKit/qt/Api ../WebKit/qt/WebCoreSupport
-
-    DEFINES += WTF_USE_JAVASCRIPTCORE_BINDINGS=1
-}
-
-gtk-port {
-    x11:plugins {
-        DEFINES += XP_UNIX
-    }
-
-    INCLUDEPATH += \
-    $$PWD/platform/gtk \
-    $$PWD/platform/graphics/gtk \
-    $$PWD/platform/graphics/cairo \
-    $$PWD/svg/graphics/cairo \
-    $$PWD/platform/network/curl \
-    $$PWD/platform/image-decoders \
-    $$PWD/platform/image-decoders/bmp \
-    $$PWD/platform/image-decoders/gif \
-    $$PWD/platform/image-decoders/ico \
-    $$PWD/platform/image-decoders/jpeg \
-    $$PWD/platform/image-decoders/png \
-    $$PWD/platform/image-decoders/xbm \
-    $$PWD/loader/gtk \
-    $$PWD/page/gtk \
-    $$PWD/../WebKit/gtk \
-    $$PWD/../WebKit/gtk/WebCoreSupport \
-    $$PWD/../WebKit/gtk/webkit
-
-    DEPENDPATH += \
-    platform/gtk \
-    platform/graphics/gtk \
-    platform/graphics/cairo \
-    svg/graphics/cairo \
-    platform/network/curl \
-    platform/image-decoders \
-    platform/image-decoders/bmp \
-    platform/image-decoders/gif \
-    platform/image-decoders/ico \
-    platform/image-decoders/jpeg \
-    platform/image-decoders/png \
-    platform/image-decoders/xbm \
-    loader/gtk \
-    page/gtk \
-    ../WebKit/gtk \
-    ../WebKit/gtk/WebCoreSupport \
-    ../WebKit/gtk/webkit
-}
+# Make sure storage/ appears before JavaScriptCore/kjs. Both provide LocalStorage.h
+# but the header from the former include path is included across directories while
+# kjs/LocalStorage.h is included only from files within the same directory
+INCLUDEPATH = $$PWD/storage $$INCLUDEPATH
 
 INCLUDEPATH +=  $$PWD \
                 $$PWD/ForwardingHeaders \
                 $$PWD/.. \
-                $$PWD/../JavaScriptCore/kjs \
-                $$PWD/../JavaScriptCore/bindings \
-                $$PWD/../JavaScriptCore/wtf \
                 $$PWD/platform \
                 $$PWD/platform/network \
                 $$PWD/platform/graphics \
+                $$PWD/svg/animation \
                 $$PWD/svg/graphics \
                 $$PWD/svg/graphics/filters \
                 $$PWD/platform/sql \
                 $$PWD/platform/text \
-                $$PWD/storage \
-                $$PWD/loader $$PWD/loader/icon \
+                $$PWD/loader \
+                $$PWD/loader/appcache \
+                $$PWD/loader/archive \
+                $$PWD/loader/icon \
                 $$PWD/css \
                 $$PWD/dom \
                 $$PWD/page \
+                $$PWD/page/animation \
                 $$PWD/bridge \
                 $$PWD/editing \
                 $$PWD/rendering \
+                $$PWD/rendering/style \
                 $$PWD/history \
+                $$PWD/inspector \
                 $$PWD/xml \
                 $$PWD/html \
                 $$PWD/bindings/js \
                 $$PWD/svg \
                 $$PWD/platform/image-decoders \
-                $$PWD/plugins
+                $$PWD/plugins \
+                $$PWD/bridge \
+                $$PWD/bridge/c \
+                $$PWD/bridge/qt \
+                $$GENERATED_SOURCES_DIR
 
 QT += network
 lessThan(QT_MINOR_VERSION, 4): QT += xml
@@ -232,6 +194,8 @@ WALDOCSSPROPS = $$PWD/css/CSSPropertyNames.in
 
 WALDOCSSVALUES = $$PWD/css/CSSValueKeywords.in
 
+DASHBOARDSUPPORTCSSPROPERTIES = $$PWD/css/DashboardSupportCSSPropertyNames.in
+
 SVGCSSPROPERTIES = $$PWD/css/SVGCSSPropertyNames.in
 
 SVGCSSVALUES = $$PWD/css/SVGCSSValueKeywords.in
@@ -239,17 +203,8 @@ SVGCSSVALUES = $$PWD/css/SVGCSSValueKeywords.in
 STYLESHEETS_EMBED = $$PWD/css/html4.css
 
 LUT_FILES += \
-    bindings/js/JSEventTargetBase.cpp \
-    bindings/js/JSLocation.cpp \
-    bindings/js/JSXMLHttpRequest.cpp \
-    bindings/js/JSXSLTProcessor.cpp \
-    bindings/js/kjs_css.cpp \
-    bindings/js/kjs_events.cpp \
-    bindings/js/kjs_navigator.cpp \
-    bindings/js/kjs_window.cpp
-
-LUT_TABLE_FILES += \
-    bindings/js/JSHTMLInputElementBase.cpp
+    bindings/js/JSDOMWindowBase.cpp \
+    bindings/js/JSRGBColor.cpp
 
 IDL_BINDINGS += \
     css/Counter.idl \
@@ -266,12 +221,18 @@ IDL_BINDINGS += \
     css/CSSStyleSheet.idl \
     css/CSSValue.idl \
     css/CSSValueList.idl \
+    css/CSSVariablesDeclaration.idl \
+    css/CSSVariablesRule.idl \
     css/MediaList.idl \
     css/Rect.idl \
     css/StyleSheet.idl \
     css/StyleSheetList.idl \
+    css/WebKitCSSKeyframeRule.idl \
+    css/WebKitCSSKeyframesRule.idl \
+    css/WebKitCSSTransformValue.idl \
     dom/Attr.idl \
     dom/CharacterData.idl \
+    dom/Clipboard.idl \
     dom/CDATASection.idl \
     dom/Comment.idl \
     dom/DocumentFragment.idl \
@@ -286,9 +247,12 @@ IDL_BINDINGS += \
     dom/EventException.idl \
 #    dom/EventListener.idl \
 #    dom/EventTarget.idl \
+    dom/EventTargetNode.idl \
     dom/KeyboardEvent.idl \
-    dom/MessageEvent.idl \
     dom/MouseEvent.idl \
+    dom/MessageChannel.idl \
+    dom/MessageEvent.idl \
+    dom/MessagePort.idl \
     dom/MutationEvent.idl \
     dom/NamedNodeMap.idl \
     dom/Node.idl \
@@ -305,10 +269,15 @@ IDL_BINDINGS += \
     dom/TextEvent.idl \
     dom/TreeWalker.idl \
     dom/UIEvent.idl \
+    dom/WebKitAnimationEvent.idl \
+    dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
     html/CanvasGradient.idl \
     html/CanvasPattern.idl \
+    html/CanvasPixelArray.idl \
     html/CanvasRenderingContext2D.idl \
+    html/File.idl \
+    html/FileList.idl \
     html/HTMLAnchorElement.idl \
     html/HTMLAppletElement.idl \
     html/HTMLAreaElement.idl \
@@ -369,72 +338,123 @@ IDL_BINDINGS += \
     html/HTMLTextAreaElement.idl \
     html/HTMLTitleElement.idl \
     html/HTMLUListElement.idl \
+    html/ImageData.idl \
+    html/TextMetrics.idl \
+    inspector/JavaScriptCallFrame.idl \
     page/BarInfo.idl \
     page/Console.idl \
     page/DOMSelection.idl \
     page/DOMWindow.idl \
+    page/Geolocation.idl \
+    page/Geoposition.idl \
     page/History.idl \
+    page/Location.idl \
+    page/Navigator.idl \
+    page/PositionError.idl \
+    page/PositionOptions.idl \
     page/Screen.idl \
+    plugins/Plugin.idl \
+    plugins/MimeType.idl \
+    plugins/PluginArray.idl \
+    plugins/MimeTypeArray.idl \
     xml/DOMParser.idl \
+    xml/XMLHttpRequest.idl \
     xml/XMLHttpRequestException.idl \
-    xml/XMLSerializer.idl
+    xml/XMLHttpRequestProgressEvent.idl \
+    xml/XMLHttpRequestUpload.idl \
+    xml/XMLSerializer.idl \
+    xml/XSLTProcessor.idl
 
 
 SOURCES += \
     bindings/js/GCController.cpp \
     bindings/js/JSAttrCustom.cpp \
     bindings/js/JSCanvasRenderingContext2DCustom.cpp \
+    bindings/js/JSClipboardCustom.cpp \
+    bindings/js/JSConsoleCustom.cpp \
     bindings/js/JSCSSRuleCustom.cpp \
     bindings/js/JSCSSStyleDeclarationCustom.cpp \
     bindings/js/JSCSSValueCustom.cpp \
+    bindings/js/JSCustomPositionCallback.cpp \
+    bindings/js/JSCustomPositionErrorCallback.cpp \
     bindings/js/JSCustomVoidCallback.cpp \
     bindings/js/JSCustomXPathNSResolver.cpp \
     bindings/js/JSDocumentCustom.cpp \
+    bindings/js/JSDocumentFragmentCustom.cpp \
+    bindings/js/JSDOMGlobalObject.cpp \
+    bindings/js/JSDOMWindowBase.cpp \
     bindings/js/JSDOMWindowCustom.cpp \
+    bindings/js/JSDOMWindowShell.cpp \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
-    bindings/js/JSEventTargetBase.cpp \
-    bindings/js/JSEventTargetNode.cpp \
+    bindings/js/JSEventTarget.cpp \
+    bindings/js/JSEventTargetNodeCustom.cpp \
+    bindings/js/JSGeolocationCustom.cpp \
+    bindings/js/JSHTMLAllCollection.cpp \
     bindings/js/JSHistoryCustom.cpp \
+    bindings/js/JSJavaScriptCallFrameCustom.cpp \
     bindings/js/JSHTMLAppletElementCustom.cpp \
     bindings/js/JSHTMLCollectionCustom.cpp \
     bindings/js/JSHTMLDocumentCustom.cpp \
     bindings/js/JSHTMLElementCustom.cpp \
-    bindings/js/JSHTMLElementWrapperFactory.cpp \
     bindings/js/JSHTMLEmbedElementCustom.cpp \
     bindings/js/JSHTMLFormElementCustom.cpp \
     bindings/js/JSHTMLFrameElementCustom.cpp \
     bindings/js/JSHTMLFrameSetElementCustom.cpp \
     bindings/js/JSHTMLIFrameElementCustom.cpp \
-    bindings/js/JSHTMLInputElementBase.cpp \
+    bindings/js/JSHTMLInputElementCustom.cpp \
     bindings/js/JSHTMLObjectElementCustom.cpp \
-    bindings/js/JSHTMLOptionElementConstructor.cpp \
     bindings/js/JSHTMLOptionsCollectionCustom.cpp \
     bindings/js/JSHTMLSelectElementCustom.cpp \
-    bindings/js/JSLocation.cpp \
+    bindings/js/JSImageConstructor.cpp \
+    bindings/js/JSImageDataCustom.cpp \
+    bindings/js/JSInspectedObjectWrapper.cpp \
+    bindings/js/JSInspectorCallbackWrapper.cpp \
+    bindings/js/JSLocationCustom.cpp \
     bindings/js/JSNamedNodeMapCustom.cpp \
     bindings/js/JSNamedNodesCollection.cpp  \
+    bindings/js/JSNavigatorCustom.cpp  \
     bindings/js/JSNodeCustom.cpp \
     bindings/js/JSNodeFilterCondition.cpp \
     bindings/js/JSNodeFilterCustom.cpp \
     bindings/js/JSNodeIteratorCustom.cpp \
     bindings/js/JSNodeListCustom.cpp \
+    bindings/js/JSOptionConstructor.cpp \
+    bindings/js/JSQuarantinedObjectWrapper.cpp \
+    bindings/js/JSRGBColor.cpp \
     bindings/js/JSStyleSheetCustom.cpp \
     bindings/js/JSStyleSheetListCustom.cpp \
     bindings/js/JSTreeWalkerCustom.cpp \
-    bindings/js/JSXMLHttpRequest.cpp \
-    bindings/js/JSXSLTProcessor.cpp \
-    bindings/js/kjs_binding.cpp \
-    bindings/js/kjs_css.cpp \
-    bindings/js/kjs_dom.cpp \
-    bindings/js/kjs_events.cpp \
-    bindings/js/kjs_html.cpp \
-    bindings/js/kjs_navigator.cpp \
-    bindings/js/kjs_proxy.cpp \
-    bindings/js/kjs_window.cpp \
+    bindings/js/JSXMLHttpRequestConstructor.cpp \
+    bindings/js/JSXMLHttpRequestCustom.cpp \
+    bindings/js/JSXMLHttpRequestUploadCustom.cpp \
+    bindings/js/JSXSLTProcessorConstructor.cpp \
+    bindings/js/JSXSLTProcessorCustom.cpp \
+    bindings/js/JSPluginCustom.cpp \
+    bindings/js/JSPluginArrayCustom.cpp \
+    bindings/js/JSMessageChannelConstructor.cpp \
+    bindings/js/JSMessageChannelCustom.cpp \
+    bindings/js/JSMessagePortCustom.cpp \
+    bindings/js/JSMimeTypeArrayCustom.cpp \
+    bindings/js/JSDOMBinding.cpp \
+    bindings/js/JSEventListener.cpp \
+    bindings/js/JSPluginElementFunctions.cpp \
+    bindings/js/ScriptController.cpp \
     bindings/js/PausedTimeouts.cpp \
     bindings/js/ScheduledAction.cpp \
+    bridge/NP_jsobject.cpp \
+    bridge/npruntime.cpp \
+    bridge/runtime_array.cpp \
+    bridge/runtime.cpp \
+    bridge/runtime_method.cpp \
+    bridge/runtime_object.cpp \
+    bridge/runtime_root.cpp \
+    bridge/c/c_class.cpp \
+    bridge/c/c_instance.cpp \
+    bridge/c/c_runtime.cpp \
+    bridge/c/c_utility.cpp \
     css/CSSBorderImageValue.cpp \
+    css/CSSCanvasValue.cpp \
     css/CSSCharsetRule.cpp \
     css/CSSComputedStyleDeclaration.cpp \
     css/CSSCursorImageValue.cpp \
@@ -443,17 +463,23 @@ SOURCES += \
     css/CSSFontFaceSrcValue.cpp \
     css/CSSFontSelector.cpp \
     css/CSSFontFaceSource.cpp \
+    css/CSSFunctionValue.cpp \
+    css/CSSGradientValue.cpp \
     css/CSSHelper.cpp \
     css/CSSImageValue.cpp \
+    css/CSSImageGeneratorValue.cpp \
     css/CSSImportRule.cpp \
     css/CSSInheritedValue.cpp \
     css/CSSInitialValue.cpp \
     css/CSSMediaRule.cpp \
     css/CSSMutableStyleDeclaration.cpp \
+    css/CSSNthSelector.cpp \
     css/CSSPageRule.cpp \
     css/CSSParser.cpp \
+    css/CSSParserValues.cpp \
     css/CSSPrimitiveValue.cpp \
     css/CSSProperty.cpp \
+    css/CSSReflectValue.cpp \
     css/CSSRule.cpp \
     css/CSSRuleList.cpp \
     css/CSSSelector.cpp \
@@ -463,9 +489,11 @@ SOURCES += \
     css/CSSStyleSelector.cpp \
     css/CSSStyleSheet.cpp \
     css/CSSTimingFunctionValue.cpp \
-    css/CSSTransformValue.cpp \
     css/CSSUnicodeRangeValue.cpp \
     css/CSSValueList.cpp \
+    css/CSSVariableDependentValue.cpp \
+    css/CSSVariablesDeclaration.cpp \
+    css/CSSVariablesRule.cpp \
     css/FontFamilyValue.cpp \
     css/FontValue.cpp \
     css/MediaFeatureNames.cpp \
@@ -478,6 +506,10 @@ SOURCES += \
     css/StyleList.cpp \
     css/StyleSheet.cpp \
     css/StyleSheetList.cpp \
+    css/WebKitCSSKeyframeRule.cpp \
+    css/WebKitCSSKeyframesRule.cpp \
+    css/WebKitCSSTransformValue.cpp \
+    dom/ActiveDOMObject.cpp \
     dom/Attr.cpp \
     dom/Attribute.cpp \
     dom/BeforeTextInsertedEvent.cpp \
@@ -509,7 +541,9 @@ SOURCES += \
     dom/ExceptionCode.cpp \
     dom/KeyboardEvent.cpp \
     dom/MappedAttribute.cpp \
+    dom/MessageChannel.cpp \
     dom/MessageEvent.cpp \
+    dom/MessagePort.cpp \
     dom/MouseEvent.cpp \
     dom/MouseRelatedEvent.cpp \
     dom/MutationEvent.cpp \
@@ -529,6 +563,8 @@ SOURCES += \
     dom/QualifiedName.cpp \
     dom/Range.cpp \
     dom/RegisteredEventListener.cpp \
+    dom/ScriptElement.cpp \
+    dom/ScriptExecutionContext.cpp \
     dom/SelectorNodeList.cpp \
     dom/StaticNodeList.cpp \
     dom/StyledElement.cpp \
@@ -540,8 +576,11 @@ SOURCES += \
     dom/TreeWalker.cpp \
     dom/UIEvent.cpp \
     dom/UIEventWithKeyState.cpp \
+    dom/WebKitAnimationEvent.cpp \
+    dom/WebKitTransitionEvent.cpp \
     dom/WheelEvent.cpp \
     dom/XMLTokenizer.cpp \
+    dom/XMLTokenizerQt.cpp \
     editing/AppendNodeCommand.cpp \
     editing/ApplyStyleCommand.cpp \
     editing/BreakBlockquoteCommand.cpp \
@@ -595,8 +634,11 @@ SOURCES += \
     history/PageCache.cpp \
     html/CanvasGradient.cpp \
     html/CanvasPattern.cpp \
+    html/CanvasPixelArray.cpp \
     html/CanvasRenderingContext2D.cpp \
     html/CanvasStyle.cpp \
+    html/File.cpp \
+    html/FileList.cpp \
     html/FormDataList.cpp \
     html/HTMLAnchorElement.cpp \
     html/HTMLAppletElement.cpp \
@@ -624,7 +666,7 @@ SOURCES += \
     html/HTMLFrameElement.cpp \
     html/HTMLFrameOwnerElement.cpp \
     html/HTMLFrameSetElement.cpp \
-    html/HTMLGenericFormElement.cpp \
+    html/HTMLFormControlElement.cpp \
     html/HTMLHeadElement.cpp \
     html/HTMLHeadingElement.cpp \
     html/HTMLHRElement.cpp \
@@ -655,6 +697,7 @@ SOURCES += \
     html/HTMLParser.cpp \
     html/HTMLParserErrorCodes.cpp \
     html/HTMLPlugInElement.cpp \
+    html/HTMLPlugInImageElement.cpp \
     html/HTMLPreElement.cpp \
     html/HTMLQuoteElement.cpp \
     html/HTMLScriptElement.cpp \
@@ -669,16 +712,27 @@ SOURCES += \
     html/HTMLTableRowsCollection.cpp \
     html/HTMLTableSectionElement.cpp \
     html/HTMLTextAreaElement.cpp \
-    html/HTMLTextFieldInnerElement.cpp \
     html/HTMLTitleElement.cpp \
     html/HTMLTokenizer.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
+    html/ImageData.cpp \
+    html/PreloadScanner.cpp \
+    inspector/InspectorController.cpp \
+    inspector/JavaScriptCallFrame.cpp \
+    inspector/JavaScriptDebugServer.cpp \
+    inspector/JavaScriptProfile.cpp \
+    inspector/JavaScriptProfileNode.cpp \
+    loader/archive/ArchiveFactory.cpp \
+    loader/archive/ArchiveResource.cpp \
+    loader/archive/ArchiveResourceCollection.cpp \
+    loader/UserStyleSheetLoader.cpp \
     loader/Cache.cpp \
     loader/CachedCSSStyleSheet.cpp \
     loader/CachedFont.cpp \
     loader/CachedImage.cpp \
     loader/CachedResourceClientWalker.cpp \
+    loader/CachedResourceHandle.cpp \
     loader/CachedResource.cpp \
     loader/CachedScript.cpp \
     loader/CachedXSLStyleSheet.cpp \
@@ -690,8 +744,10 @@ SOURCES += \
     loader/FTPDirectoryParser.cpp \
     loader/icon/IconLoader.cpp \
     loader/ImageDocument.cpp \
+    loader/ImageLoader.cpp \
     loader/loader.cpp \
     loader/MainResourceLoader.cpp \
+    loader/MediaDocument.cpp \
     loader/NavigationAction.cpp \
     loader/NetscapePlugInStreamLoader.cpp \
     loader/PluginDocument.cpp \
@@ -701,41 +757,67 @@ SOURCES += \
     loader/SubresourceLoader.cpp \
     loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
-    page/AnimationController.cpp \
+    page/AccessibilityImageMapLink.cpp \
+    page/AccessibilityObject.cpp \    
+    page/AccessibilityList.cpp \    
+    page/AccessibilityListBox.cpp \    
+    page/AccessibilityListBoxOption.cpp \    
+    page/AccessibilityRenderObject.cpp \    
+    page/AccessibilityTable.cpp \    
+    page/AccessibilityTableCell.cpp \    
+    page/AccessibilityTableColumn.cpp \    
+    page/AccessibilityTableHeaderContainer.cpp \    
+    page/AccessibilityTableRow.cpp \    
+    page/animation/AnimationBase.cpp \
+    page/animation/AnimationController.cpp \
+    page/animation/CompositeAnimation.cpp \
+    page/animation/ImplicitAnimation.cpp \
+    page/animation/KeyframeAnimation.cpp \
+    page/AXObjectCache.cpp \
     page/BarInfo.cpp \
     page/Chrome.cpp \
     page/Console.cpp \
     page/ContextMenuController.cpp \
     page/DOMSelection.cpp \
     page/DOMWindow.cpp \
+    page/Navigator.cpp \
     page/DragController.cpp \
     page/EventHandler.cpp \
     page/FocusController.cpp \
     page/Frame.cpp \
     page/FrameTree.cpp \
     page/FrameView.cpp \
+    page/Geolocation.cpp \
+    page/Geoposition.cpp \
     page/History.cpp \
-    page/InspectorController.cpp \
+    page/Location.cpp \
     page/MouseEventWithHitTestResults.cpp \
     page/Page.cpp \
+    page/PageGroup.cpp \
+    page/PrintContext.cpp \
+    page/SecurityOrigin.cpp \
     page/Screen.cpp \
     page/Settings.cpp \
     page/WindowFeatures.cpp \
+    plugins/PluginData.cpp \
+    plugins/PluginArray.cpp \
+    plugins/Plugin.cpp \
+    plugins/PluginMainThreadScheduler.cpp \
+    plugins/MimeType.cpp \
+    plugins/MimeTypeArray.cpp \
     platform/Arena.cpp \
-    platform/ArrayImpl.cpp \
     platform/text/AtomicString.cpp \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
     platform/ContextMenu.cpp \
     platform/text/CString.cpp \
-    platform/DeprecatedCString.cpp \
     platform/DeprecatedPtrListImpl.cpp \
-    platform/DeprecatedString.cpp \
-    platform/DeprecatedStringList.cpp \
     platform/DeprecatedValueListImpl.cpp \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
+    platform/GeolocationService.cpp \
+    platform/graphics/FontDescription.cpp \
     platform/graphics/FontFamily.cpp \
     platform/graphics/AffineTransform.cpp \
     platform/graphics/BitmapImage.cpp \
@@ -745,32 +827,40 @@ SOURCES += \
     platform/graphics/FloatRect.cpp \
     platform/graphics/FloatSize.cpp \
     platform/graphics/FontData.cpp \
+    platform/graphics/GeneratedImage.cpp \
+    platform/graphics/Gradient.cpp \
     platform/graphics/GraphicsContext.cpp \
     platform/graphics/GraphicsTypes.cpp \
     platform/graphics/Image.cpp \
     platform/graphics/IntRect.cpp \
     platform/graphics/Path.cpp \
     platform/graphics/PathTraversalState.cpp \
+    platform/graphics/Pattern.cpp \
     platform/graphics/Pen.cpp \
     platform/graphics/SegmentedFontData.cpp \
     platform/KURL.cpp \
+    platform/Length.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
-    platform/network/AuthenticationChallenge.cpp \
+    platform/network/AuthenticationChallengeBase.cpp \
     platform/network/Credential.cpp \
     platform/network/FormData.cpp \
     platform/network/HTTPParsers.cpp \
+    platform/network/NetworkStateNotifier.cpp \
     platform/network/ProtectionSpace.cpp \
+    platform/network/ResourceErrorBase.cpp \
     platform/network/ResourceHandle.cpp \
     platform/network/ResourceRequestBase.cpp \
     platform/network/ResourceResponseBase.cpp \
     platform/text/RegularExpression.cpp \
-    platform/ScrollBar.cpp \
+    platform/Scrollbar.cpp \
+    platform/ScrollbarThemeComposite.cpp \
+    platform/ScrollView.cpp \
 #    platform/SearchPopupMenu.cpp \
-    platform/SecurityOrigin.cpp \
     platform/text/SegmentedString.cpp \
     platform/SharedBuffer.cpp \
     platform/text/String.cpp \
+    platform/text/StringBuilder.cpp \
     platform/text/StringImpl.cpp \
     platform/text/TextCodec.cpp \
     platform/text/TextCodecLatin1.cpp \
@@ -783,7 +873,11 @@ SOURCES += \
     platform/Timer.cpp \
     platform/text/UnicodeRange.cpp \
     platform/Widget.cpp \
+    plugins/PluginDatabase.cpp \
+    plugins/PluginInfoStore.cpp \
+    plugins/PluginPackage.cpp \
     plugins/PluginStream.cpp \
+    plugins/PluginView.cpp \
     rendering/AutoTableLayout.cpp \
     rendering/bidi.cpp \
     rendering/break_lines.cpp \
@@ -812,19 +906,24 @@ SOURCES += \
     rendering/RenderFrameSet.cpp \
     rendering/RenderHTMLCanvas.cpp \
     rendering/RenderImage.cpp \
+    rendering/RenderImageGeneratedContent.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
     rendering/RenderLegend.cpp \
     rendering/RenderListBox.cpp \
     rendering/RenderListItem.cpp \
     rendering/RenderListMarker.cpp \
+    rendering/RenderMarquee.cpp \
     rendering/RenderMenuList.cpp \
     rendering/RenderObject.cpp \
     rendering/RenderPart.cpp \
     rendering/RenderPartObject.cpp \
     rendering/RenderReplaced.cpp \
+    rendering/RenderReplica.cpp \
+    rendering/RenderScrollbar.cpp \
+    rendering/RenderScrollbarPart.cpp \
+    rendering/RenderScrollbarTheme.cpp \
     rendering/RenderSlider.cpp \
-    rendering/RenderStyle.cpp \
     rendering/RenderTableCell.cpp \
     rendering/RenderTableCol.cpp \
     rendering/RenderTable.cpp \
@@ -840,9 +939,46 @@ SOURCES += \
     rendering/RenderWordBreak.cpp \
     rendering/RootInlineBox.cpp \
     rendering/SVGRenderTreeAsText.cpp \
+    rendering/TextControlInnerElements.cpp \
+    rendering/style/Animation.cpp \
+    rendering/style/AnimationList.cpp \
+    rendering/style/BindingURI.cpp \
+    rendering/style/ContentData.cpp \
+    rendering/style/CounterDirectives.cpp \
+    rendering/style/CursorData.h \
+    rendering/style/CursorList.h \
+    rendering/style/FillLayer.cpp \
+    rendering/style/KeyframeList.cpp \
+    rendering/style/MatrixTransformOperation.cpp \
+    rendering/style/NinePieceImage.cpp \
+    rendering/style/RenderStyle.cpp \
+    rendering/style/RotateTransformOperation.cpp \
+    rendering/style/ScaleTransformOperation.cpp \
+    rendering/style/ShadowData.cpp \
+    rendering/style/SkewTransformOperation.cpp \
+    rendering/style/StyleBackgroundData.cpp \
+    rendering/style/StyleBoxData.cpp \
+    rendering/style/StyleCachedImage.cpp \
+    rendering/style/StyleFlexibleBoxData.cpp \
+    rendering/style/StyleGeneratedImage.cpp \
+    rendering/style/StyleInheritedData.cpp \
+    rendering/style/StyleInheritedData.h \
+    rendering/style/StyleMarqueeData.cpp \
+    rendering/style/StyleMultiColData.cpp \
+    rendering/style/StyleRareInheritedData.cpp \
+    rendering/style/StyleRareInheritedData.h \
+    rendering/style/StyleRareNonInheritedData.cpp \
+    rendering/style/StyleRareNonInheritedData.h \
+    rendering/style/StyleReflection.h \
+    rendering/style/StyleSurroundData.cpp \
+    rendering/style/StyleTransformData.cpp \
+    rendering/style/StyleVisualData.cpp \
+    rendering/style/TransformOperations.cpp \
+    rendering/style/TranslateTransformOperation.cpp \
     xml/DOMParser.cpp \
     xml/NativeXPathNSResolver.cpp \
     xml/XMLHttpRequest.cpp \
+    xml/XMLHttpRequestUpload.cpp \
     xml/XMLSerializer.cpp \
     xml/XPathEvaluator.cpp \
     xml/XPathExpression.cpp \
@@ -865,19 +1001,8 @@ SOURCES += \
     xml/XSLTUnicodeSort.cpp \
     xml/XSLTProcessor.cpp
 
-gtk-port {
-  SOURCES += \
-    platform/graphics/GlyphPageTreeNode.cpp \
-    platform/graphics/GlyphWidthMap.cpp \
-    platform/graphics/FontCache.cpp \
-    platform/graphics/Font.cpp \
-    platform/graphics/FontFallbackList.cpp \
-    platform/graphics/SimpleFontData.cpp 
-}
-
-qt-port {
-
-    HEADERS += \
+HEADERS += \
+    $$PWD/platform/graphics/qt/StillImageQt.h \
     $$PWD/platform/qt/QWebPopup.h \
     $$PWD/platform/qt/MenuEventProxy.h \
     $$PWD/platform/qt/SharedTimerQt.h \
@@ -885,10 +1010,16 @@ qt-port {
     $$PWD/../WebKit/qt/Api/qwebpage.h \
     $$PWD/../WebKit/qt/Api/qwebview.h \
     $$PWD/../WebKit/qt/Api/qwebhistoryinterface.h \
+    $$PWD/../WebKit/qt/Api/qwebpluginfactory.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/platform/network/qt/QNetworkReplyHandler.h
 
-    SOURCES += \
+SOURCES += \
+    bindings/js/ScriptControllerQt.cpp \
+    bridge/qt/qt_class.cpp \
+    bridge/qt/qt_instance.cpp \
+    bridge/qt/qt_runtime.cpp \
+    page/qt/AccessibilityObjectQt.cpp \
     page/qt/DragControllerQt.cpp \
     page/qt/EventHandlerQt.cpp \
     page/qt/FrameQt.cpp \
@@ -896,6 +1027,7 @@ qt-port {
     platform/graphics/qt/ColorQt.cpp \
     platform/graphics/qt/FloatPointQt.cpp \
     platform/graphics/qt/FloatRectQt.cpp \
+    platform/graphics/qt/GradientQt.cpp \
     platform/graphics/qt/GraphicsContextQt.cpp \
     platform/graphics/qt/IconQt.cpp \
     platform/graphics/qt/ImageBufferQt.cpp \
@@ -906,6 +1038,8 @@ qt-port {
     platform/graphics/qt/IntRectQt.cpp \
     platform/graphics/qt/IntSizeQt.cpp \
     platform/graphics/qt/PathQt.cpp \
+    platform/graphics/qt/PatternQt.cpp \
+    platform/graphics/qt/StillImageQt.cpp \
     platform/network/qt/ResourceHandleQt.cpp \
     platform/network/qt/ResourceRequestQt.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
@@ -917,8 +1051,10 @@ qt-port {
     platform/qt/CursorQt.cpp \
     platform/qt/DragDataQt.cpp \
     platform/qt/DragImageQt.cpp \
+    platform/qt/EventLoopQt.cpp \
     platform/qt/FileChooserQt.cpp \
     platform/qt/FileSystemQt.cpp \
+    platform/qt/SharedBufferQt.cpp \
     platform/graphics/qt/FontCacheQt.cpp \
     platform/graphics/qt/FontCustomPlatformData.cpp \
     platform/graphics/qt/FontQt.cpp \
@@ -931,23 +1067,24 @@ qt-port {
     platform/qt/PlatformKeyboardEventQt.cpp \
     platform/qt/PlatformMouseEventQt.cpp \
     platform/qt/PlatformScreenQt.cpp \
-    platform/qt/PlatformScrollBarQt.cpp \
-    platform/qt/PlugInInfoStoreQt.cpp \
     platform/qt/PopupMenuQt.cpp \
     platform/qt/QWebPopup.cpp \
     platform/qt/RenderThemeQt.cpp \
+    platform/qt/ScrollbarQt.cpp \
+    platform/qt/ScrollbarThemeQt.cpp \
     platform/qt/ScrollViewQt.cpp \
     platform/qt/SearchPopupMenuQt.cpp \
     platform/qt/SharedTimerQt.cpp \
     platform/qt/SoundQt.cpp \
+    platform/qt/LoggingQt.cpp \
     platform/text/qt/StringQt.cpp \
     platform/qt/TemporaryLinkStubs.cpp \
     platform/text/qt/TextBoundaries.cpp \
     platform/text/qt/TextBreakIteratorQt.cpp \
     platform/text/qt/TextCodecQt.cpp \
-    platform/qt/ThreadingQt.cpp \
     platform/qt/WheelEventQt.cpp \
     platform/qt/WidgetQt.cpp \
+    plugins/qt/PluginDataQt.cpp \
     ../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/DragClientQt.cpp \
@@ -961,129 +1098,63 @@ qt-port {
     ../WebKit/qt/Api/qwebhistory.cpp \
     ../WebKit/qt/Api/qwebsettings.cpp \
     ../WebKit/qt/Api/qwebhistoryinterface.cpp \
-    platform/ThreadingNone.cpp
+    ../WebKit/qt/Api/qwebpluginfactory.cpp
 
-    unix: SOURCES += platform/qt/SystemTimeQt.cpp
-    else: SOURCES += platform/win/SystemTimeWin.cpp
+    win32-*: SOURCES += platform/win/SystemTimeWin.cpp
+    else: SOURCES += platform/qt/SystemTimeQt.cpp
+
+    win32-* {
+        LIBS += -lgdi32
+        LIBS += -luser32
+        LIBS += -lwinmm
+    }
 
     # Files belonging to the Qt 4.3 build
     lessThan(QT_MINOR_VERSION, 4) {
         HEADERS += \
             $$PWD/../WebKit/qt/Api/qwebnetworkinterface.h \
             $$PWD/../WebKit/qt/Api/qwebnetworkinterface_p.h \
-            $$PWD/../WebKit/qt/Api/qwebobjectplugin.h \
-            $$PWD/../WebKit/qt/Api/qwebobjectplugin_p.h \
-            $$PWD/../WebKit/qt/Api/qwebobjectpluginconnector.h \
             $$PWD/../WebKit/qt/Api/qcookiejar.h
 
         SOURCES += \
             ../WebKit/qt/Api/qwebnetworkinterface.cpp \
-            ../WebKit/qt/Api/qwebobjectplugin.cpp \
-            ../WebKit/qt/Api/qwebobjectpluginconnector.cpp \
             ../WebKit/qt/Api/qcookiejar.cpp
 
+        DEFINES += QT_BEGIN_NAMESPACE="" QT_END_NAMESPACE=""
      }
+
+contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
+
+        SOURCES += plugins/npapi.cpp
+
+        unix:!mac {
+            SOURCES += \
+                plugins/qt/PluginPackageQt.cpp \
+                plugins/qt/PluginViewQt.cpp
+        }
+
+        win32-* {
+            INCLUDEPATH += $$PWD/plugins/win
+
+            SOURCES += page/win/PageWin.cpp \
+                       plugins/win/PluginDatabaseWin.cpp \
+                       plugins/win/PluginPackageWin.cpp \
+                       plugins/win/PluginMessageThrottlerWin.cpp \
+                       plugins/win/PluginViewWin.cpp
+
+            LIBS += \
+                -ladvapi32 \
+                -lgdi32 \
+                -lshell32 \
+                -lshlwapi \
+                -luser32 \
+                -lversion
+        }
+
 }
 
-gtk-port {
-    HEADERS += \
-        ../WebCore/platform/gtk/ClipboardGtk.h \
-        ../WebCore/platform/gtk/PasteboardHelper.h \
-        ../WebKit/gtk/webkit/webkit.h \
-        ../WebKit/gtk/webkit/webkitdefines.h \
-        ../WebKit/gtk/webkit/webkitnetworkrequest.h \
-        ../WebKit/gtk/webkit/webkitprivate.h \
-        ../WebKit/gtk/webkit/webkitwebbackforwardlist.h \
-        ../WebKit/gtk/webkit/webkitwebframe.h \
-        ../WebKit/gtk/webkit/webkitwebhistoryitem.h \
-        ../WebKit/gtk/webkit/webkitwebsettings.h \
-        ../WebKit/gtk/webkit/webkitwebview.h \
-        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/ContextMenuClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/DragClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/EditorClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.h
-    SOURCES += \
-        platform/graphics/StringTruncator.cpp \
-        platform/text/TextCodecICU.cpp \
-        platform/text/TextBoundariesICU.cpp \
-        platform/text/TextBreakIteratorICU.cpp \
-        page/gtk/EventHandlerGtk.cpp \
-        page/gtk/FrameGtk.cpp \
-        page/gtk/DragControllerGtk.cpp \
-        platform/gtk/ClipboardGtk.cpp \
-        platform/gtk/CookieJarGtk.cpp \
-        platform/gtk/CursorGtk.cpp \
-        platform/gtk/ContextMenuGtk.cpp \
-        platform/gtk/ContextMenuItemGtk.cpp \
-        platform/gtk/DragDataGtk.cpp \
-        platform/gtk/DragImageGtk.cpp \
-        platform/gtk/FileChooserGtk.cpp \
-        platform/gtk/FileSystemGtk.cpp \
-        platform/graphics/gtk/FontCacheGtk.cpp \
-        platform/graphics/gtk/FontCustomPlatformData.cpp \
-        platform/graphics/gtk/FontGtk.cpp \
-        platform/graphics/gtk/FontPlatformDataGtk.cpp \
-        platform/graphics/gtk/GlyphPageTreeNodeGtk.cpp \
-        platform/graphics/gtk/SimpleFontDataGtk.cpp \
-        platform/gtk/KeyEventGtk.cpp \
-        platform/gtk/Language.cpp \
-        platform/gtk/LocalizedStringsGtk.cpp \
-        platform/gtk/LoggingGtk.cpp \
-        platform/gtk/MIMETypeRegistryGtk.cpp \
-        platform/gtk/MouseEventGtk.cpp \
-        platform/gtk/PasteboardGtk.cpp \
-        platform/gtk/PlatformScreenGtk.cpp \
-        platform/gtk/PlatformScrollBarGtk.cpp \
-        platform/gtk/PopupMenuGtk.cpp \
-        platform/gtk/RenderThemeGtk.cpp \
-        platform/gtk/SearchPopupMenuGtk.cpp \
-        platform/gtk/ScrollViewGtk.cpp \
-        platform/gtk/SharedTimerGtk.cpp \
-        platform/gtk/SoundGtk.cpp \
-        platform/gtk/SystemTimeGtk.cpp \
-        platform/gtk/TemporaryLinkStubs.cpp \
-        platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp \
-        platform/gtk/ThreadingGtk.cpp \
-        platform/gtk/WheelEventGtk.cpp \
-        platform/gtk/WidgetGtk.cpp \
-        platform/gtk/gtk2drawing.c \
-        platform/graphics/gtk/ColorGtk.cpp \
-        platform/graphics/gtk/IconGtk.cpp \
-        platform/graphics/gtk/ImageGtk.cpp \
-        platform/graphics/gtk/IntPointGtk.cpp \
-        platform/graphics/gtk/IntRectGtk.cpp \
-        platform/network/curl/ResourceHandleCurl.cpp \
-        platform/network/curl/ResourceHandleManager.cpp \
-        platform/graphics/cairo/AffineTransformCairo.cpp \
-        platform/graphics/cairo/GraphicsContextCairo.cpp \
-        platform/graphics/cairo/ImageBufferCairo.cpp \
-        platform/graphics/cairo/ImageCairo.cpp \
-        platform/graphics/cairo/ImageSourceCairo.cpp \
-        platform/graphics/cairo/PathCairo.cpp \
-        platform/image-decoders/gif/GIFImageDecoder.cpp \
-        platform/image-decoders/gif/GIFImageReader.cpp  \
-        platform/image-decoders/png/PNGImageDecoder.cpp \
-        platform/image-decoders/jpeg/JPEGImageDecoder.cpp \
-        platform/image-decoders/bmp/BMPImageDecoder.cpp \
-        platform/image-decoders/ico/ICOImageDecoder.cpp \
-        platform/image-decoders/xbm/XBMImageDecoder.cpp \
-        ../WebKit/gtk/webkit/webkitnetworkrequest.cpp \
-        ../WebKit/gtk/webkit/webkitprivate.cpp \
-        ../WebKit/gtk/webkit/webkitwebbackforwardlist.cpp \
-        ../WebKit/gtk/webkit/webkitwebframe.cpp \
-        ../WebKit/gtk/webkit/webkitwebhistoryitem.cpp \
-        ../WebKit/gtk/webkit/webkitwebsettings.cpp \
-        ../WebKit/gtk/webkit/webkitwebview.cpp \
-        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/ContextMenuClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/DragClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/EditorClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.cpp
+contains(DEFINES, ENABLE_DASHBOARD_SUPPORT=0) {
+    DASHBOARDSUPPORTCSSPROPERTIES -= $$PWD/css/DashboardSupportCSSPropertyNames.in
 }
 
 contains(DEFINES, ENABLE_DATABASE=1) {
@@ -1100,8 +1171,15 @@ contains(DEFINES, ENABLE_DATABASE=1) {
             SOURCES += $$QT_SOURCE_TREE/src/3rdparty/sqlite/sqlite3.c
         }
     } else {
-        qt-port: INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/sqlite/
-        LIBS += -lsqlite3
+        SQLITE3SRCDIR = $$(SQLITE3SRCDIR)
+        isEmpty(SQLITE3SRCDIR) {
+            INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/sqlite/
+            LIBS += -lsqlite3
+        } else {
+            CONFIG(release, debug|release):DEFINES *= NDEBUG
+            INCLUDEPATH += $${SQLITE3SRCDIR}
+            SOURCES += $${SQLITE3SRCDIR}/sqlite3.c
+        }
     }
 
     SOURCES += \
@@ -1116,8 +1194,14 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/DatabaseTask.cpp \
         storage/DatabaseThread.cpp \
         storage/DatabaseTracker.cpp \
+        storage/LocalStorage.cpp \
+        storage/LocalStorageArea.cpp \
+        storage/LocalStorageTask.cpp \
+        storage/LocalStorageThread.cpp \
         storage/OriginQuotaManager.cpp \
         storage/OriginUsageRecord.cpp \
+        storage/StorageArea.cpp \
+        storage/StorageMap.cpp \
         storage/SQLResultSet.cpp \
         storage/SQLResultSetRowList.cpp \
         storage/SQLStatement.cpp \
@@ -1136,6 +1220,27 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLResultSet.idl \
         storage/SQLResultSetRowList.idl \
         storage/SQLTransaction.idl
+}
+
+contains(DEFINES, ENABLE_DOM_STORAGE=1) {
+    FEATURE_DEFINES_JAVASCRIPT += ENABLE_DOM_STORAGE =1
+
+    SOURCES += \
+        storage/LocalStorage.cpp \
+        storage/LocalStorageArea.cpp \
+        storage/Storage.cpp \
+        storage/StorageArea.cpp \
+        storage/StorageEvent.cpp \
+        storage/StorageMap.cpp \
+        storage/SessionStorage.cpp \
+        storage/SessionStorageArea.cpp \
+        bindings/js/JSStorage.cpp \
+        bindings/js/JSStorageCustom.cpp \
+        bindings/js/JSStorageEvent.cpp \
+
+    IDL_BINDINGS += \
+        storage/Storage.idl \
+        storage/StorageEvent.idl
 }
 
 contains(DEFINES, ENABLE_ICONDATABASE=1) {
@@ -1172,16 +1277,23 @@ contains(DEFINES, ENABLE_VIDEO=1) {
         rendering/RenderMedia.cpp \
         bindings/js/JSAudioConstructor.cpp
 
-    gtk-port {
+        HEADERS += \
+            platform/graphics/qt/MediaPlayerPrivatePhonon.h
+
         SOURCES += \
-            platform/graphics/gtk/MediaPlayerPrivateGStreamer.cpp \
-            platform/graphics/gtk/VideoSinkGStreamer.cpp
+            platform/graphics/qt/MediaPlayerPrivatePhonon.cpp
 
-        CONFIG(debug):DEFINES += GST_DISABLE_DEPRECATED
+        # Add phonon manually to prevent it from coming first in
+        # the include paths, as Phonon's path.h conflicts with
+        # WebCore's Path.h on case-insensitive filesystems.
+        qtAddLibrary(phonon)
+        INCLUDEPATH -= $$QMAKE_INCDIR_QT/phonon
+        INCLUDEPATH += $$QMAKE_INCDIR_QT/phonon
+        mac {
+            INCLUDEPATH -= $$QMAKE_LIBDIR_QT/phonon.framework/Headers
+            INCLUDEPATH += $$QMAKE_LIBDIR_QT/phonon.framework/Headers
+        }
 
-        PKGCONFIG += gstreamer-0.10 gstreamer-plugins-base-0.10 gnome-vfs-2.0
-        LIBS += -lgstinterfaces-0.10 -lgstbase-0.10 -lgstvideo-0.10
-    }
 }
 
 contains(DEFINES, ENABLE_XPATH=1) {
@@ -1220,21 +1332,14 @@ contains(DEFINES, ENABLE_XBL=1) {
 contains(DEFINES, ENABLE_SVG=1) {
     FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG=1
 
-    DEPENDPATH += svg svg/graphics
-    qt-port {
-    DEPENDPATH += svg/graphics/qt
-    }
-
-    gtk-port {
-    DEPENDPATH += svg/graphics/cairo
-    }
-
     SVG_NAMES = $$PWD/svg/svgtags.in
 
     XLINK_NAMES = $$PWD/svg/xlinkattrs.in
 
-    IDL_BINDINGS += svg/SVGZoomEvent.idl \
+    IDL_BINDINGS += \
+        svg/SVGZoomEvent.idl \
         svg/SVGAElement.idl \
+        svg/SVGAltGlyphElement.idl \
         svg/SVGAngle.idl \
         svg/SVGAnimateColorElement.idl \
         svg/SVGAnimatedAngle.idl \
@@ -1367,7 +1472,8 @@ contains(DEFINES, ENABLE_SVG=1) {
 
     SOURCES += \
 # TODO: this-one-is-not-auto-added! FIXME! tmp/SVGElementFactory.cpp \
-        bindings/js/JSSVGElementWrapperFactory.cpp \
+        bindings/js/JSSVGElementInstanceCustom.cpp \
+        bindings/js/JSSVGLengthCustom.cpp \
         bindings/js/JSSVGMatrixCustom.cpp \
         bindings/js/JSSVGPathSegCustom.cpp \
         bindings/js/JSSVGPathSegListCustom.cpp \
@@ -1376,17 +1482,16 @@ contains(DEFINES, ENABLE_SVG=1) {
         css/SVGCSSComputedStyleDeclaration.cpp \
         css/SVGCSSParser.cpp \
         css/SVGCSSStyleSelector.cpp \
-        rendering/SVGRenderStyle.cpp \
-        rendering/SVGRenderStyleDefs.cpp \
-        bindings/js/JSSVGLazyEventListener.cpp \
+        rendering/style/SVGRenderStyle.cpp \
+        rendering/style/SVGRenderStyleDefs.cpp \
         svg/SVGZoomEvent.cpp \
         rendering/PointerEventsHitRules.cpp \
+        svg/FilterEffect.cpp \
         svg/SVGDocumentExtensions.cpp \
         svg/SVGImageLoader.cpp \
-        svg/SVGTimer.cpp \
-        svg/TimeScheduler.cpp \
         svg/ColorDistance.cpp \
         svg/SVGAElement.cpp \
+        svg/SVGAltGlyphElement.cpp \
         svg/SVGAngle.cpp \
         svg/SVGAnimateColorElement.cpp \
         svg/SVGAnimatedPathData.cpp \
@@ -1511,10 +1616,13 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGViewElement.cpp \
         svg/SVGViewSpec.cpp \
         svg/SVGZoomAndPan.cpp \
-        svg/graphics/filters/SVGFEBlend.cpp \
-        svg/graphics/filters/SVGFEColorMatrix.cpp \
-        svg/graphics/filters/SVGFEComponentTransfer.cpp \
-        svg/graphics/filters/SVGFEComposite.cpp \
+        svg/animation/SMILTime.cpp \
+        svg/animation/SMILTimeContainer.cpp \
+        svg/animation/SVGSMILElement.cpp \
+        platform/graphics/filters/FEBlend.cpp \
+        platform/graphics/filters/FEColorMatrix.cpp \
+        platform/graphics/filters/FEComponentTransfer.cpp \
+        platform/graphics/filters/FEComposite.cpp \
         svg/graphics/filters/SVGFEConvolveMatrix.cpp \
         svg/graphics/filters/SVGFEDiffuseLighting.cpp \
         svg/graphics/filters/SVGFEDisplacementMap.cpp \
@@ -1525,6 +1633,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFEMorphology.cpp \
         svg/graphics/filters/SVGFEOffset.cpp \
         svg/graphics/filters/SVGFESpecularLighting.cpp \
+        svg/graphics/filters/SVGFETile.cpp \
         svg/graphics/filters/SVGFETurbulence.cpp \
         svg/graphics/filters/SVGFilterEffect.cpp \
         svg/graphics/filters/SVGLightSource.cpp \
@@ -1561,7 +1670,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/SVGRenderSupport.cpp \
         rendering/SVGRootInlineBox.cpp
 
-qt-port:SOURCES += \
+SOURCES += \
         svg/graphics/qt/RenderPathQt.cpp \
         svg/graphics/qt/SVGPaintServerGradientQt.cpp \
         svg/graphics/qt/SVGPaintServerLinearGradientQt.cpp \
@@ -1573,51 +1682,53 @@ qt-port:SOURCES += \
         svg/graphics/qt/SVGResourceFilterQt.cpp \
         svg/graphics/qt/SVGResourceMaskerQt.cpp
 
-gtk-port:SOURCES += \
-        svg/graphics/cairo/RenderPathCairo.cpp \
-        svg/graphics/cairo/SVGPaintServerCairo.cpp \
-        svg/graphics/cairo/SVGPaintServerGradientCairo.cpp \
-        svg/graphics/cairo/SVGPaintServerPatternCairo.cpp \
-        svg/graphics/cairo/SVGPaintServerSolidCairo.cpp \
-        svg/graphics/cairo/SVGResourceClipperCairo.cpp \
-        svg/graphics/cairo/SVGResourceMaskerCairo.cpp
 
         # GENERATOR 5-C:
         svgnames_a.output = $$GENERATED_SOURCES_DIR/SVGNames.cpp
-        svgnames_a.commands = perl $$PWD/dom/make_names.pl --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --namespace SVG --cppNamespace WebCore --namespaceURI 'http://www.w3.org/2000/svg' --factory --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
+        svgnames_a.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$GENERATED_SOURCES_DIR
         svgnames_a.input = SVG_NAMES
         svgnames_a.dependency_type = TYPE_C
         svgnames_a.CONFIG = target_predeps
         svgnames_a.variable_out = GENERATED_SOURCES
-        svgnames_a.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}SVGNames.h
-        addExtraCompiler(svgnames_a)
+        addExtraCompilerWithHeader(svgnames_a)
         svgnames_b.output = $$GENERATED_SOURCES_DIR/SVGElementFactory.cpp
         svgnames_b.commands = @echo -n ''
         svgnames_b.input = SVG_NAMES
         svgnames_b.depends = $$GENERATED_SOURCES_DIR/SVGNames.cpp
         svgnames_b.CONFIG = target_predeps
         svgnames_b.variable_out = GENERATED_SOURCES
-        svgnames_b.clean += ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}SVGElementFactory.h ${QMAKE_FILE_OUT}
-        addExtraCompiler(svgnames_b)
+        addExtraCompilerWithHeader(svgnames_b)
+        svgelementwrapper.output = $$GENERATED_SOURCES_DIR/JSSVGElementWrapperFactory.cpp
+        svgelementwrapper.commands = @echo -n ''
+        svgelementwrapper.input = SVG_NAMES
+        svgelementwrapper.depends = $$GENERATED_SOURCES_DIR/SVGNames.cpp
+        svgelementwrapper.CONFIG = target_predeps
+        svgelementwrapper.variable_out = GENERATED_SOURCES
+        addExtraCompiler(svgelementwrapper)
+        svgelementwrapper_header.output = $$GENERATED_SOURCES_DIR/JSSVGElementWrapperFactory.h
+        svgelementwrapper_header.commands = @echo -n ''
+        svgelementwrapper_header.input = SVG_NAMES
+        svgelementwrapper_header.depends = $$GENERATED_SOURCES_DIR/SVGNames.cpp
+        svgelementwrapper_header.CONFIG = target_predeps
+        svgelementwrapper_header.variable_out = GENERATED_FILES
+        addExtraCompiler(svgelementwrapper_header)
 
         # GENERATOR 5-D:
         xlinknames.output = $$GENERATED_SOURCES_DIR/XLinkNames.cpp
-        xlinknames.commands = perl $$PWD/dom/make_names.pl --attrs $$PWD/svg/xlinkattrs.in --namespace XLink --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xlink' --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
+        xlinknames.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --attrs $$PWD/svg/xlinkattrs.in --preprocessor \"$${QMAKE_MOC} -E\" --outputDir $$GENERATED_SOURCES_DIR
         xlinknames.input = XLINK_NAMES
         xlinknames.dependency_type = TYPE_C
         xlinknames.CONFIG = target_predeps
         xlinknames.variable_out = GENERATED_SOURCES
-        xlinknames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}XLinkNames.h
-        addExtraCompiler(xlinknames)
+        addExtraCompilerWithHeader(xlinknames)
 
     # GENERATOR 6-A:
-    cssprops.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
+    cssprops.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
     cssprops.input = WALDOCSSPROPS
-    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$SVGCSSPROPERTIES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$DASHBOARDSUPPORTCSSPROPERTIES $$SVGCSSPROPERTIES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
     cssprops.CONFIG = target_predeps no_link
-    cssprops.depend = ${QMAKE_FILE_NAME} SVGCSSPROPERTIES
-    cssprops.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-    addExtraCompiler(cssprops)
+    cssprops.depend = ${QMAKE_FILE_NAME} DASHBOARDSUPPORTCSSPROPERTIES SVGCSSPROPERTIES
+    addExtraCompilerWithHeader(cssprops)
 
     # GENERATOR 6-B:
     cssvalues.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
@@ -1625,16 +1736,15 @@ gtk-port:SOURCES += \
     cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$SVGCSSVALUES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
     cssvalues.CONFIG = target_predeps no_link
     cssvalues.depend = ${QMAKE_FILE_NAME} SVGCSSVALUES
-    cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-    addExtraCompiler(cssvalues)
+    addExtraCompilerWithHeader(cssvalues)
 } else {
     # GENERATOR 6-A:
     cssprops.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
     cssprops.input = WALDOCSSPROPS
-    cssprops.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} $$GENERATED_SOURCES_DIR && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$DASHBOARDSUPPORTCSSPROPERTIES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
     cssprops.CONFIG = target_predeps no_link
-    cssprops.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-    addExtraCompiler(cssprops)
+    cssprops.depend = ${QMAKE_FILE_NAME} DASHBOARDSUPPORTCSSPROPERTIES
+    addExtraCompilerWithHeader(cssprops)
 
     # GENERATOR 6-B:
     cssvalues.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
@@ -1650,22 +1760,21 @@ gtk-port:SOURCES += \
 idl.output = $$GENERATED_SOURCES_DIR/JS${QMAKE_FILE_BASE}.cpp
 idl.variable_out = GENERATED_SOURCES
 idl.input = IDL_BINDINGS
-idl.commands = perl -I$$PWD/bindings/scripts $$PWD/bindings/scripts/generate-bindings.pl --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --outputdir $$GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
+idl.commands = perl -I$$PWD/bindings/scripts $$PWD/bindings/scripts/generate-bindings.pl --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --outputDir $$GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
 idl.CONFIG += target_predeps
-idl.clean = ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}JS${QMAKE_FILE_BASE}.h ${QMAKE_FILE_OUT}
-addExtraCompiler(idl)
+addExtraCompilerWithHeader(idl)
 
 # GENERATOR 2-A: LUT creator
-#lut.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.lut.h
-#lut.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
-#lut.depend = ${QMAKE_FILE_NAME}
-#lut.input = LUT_FILES
-#lut.CONFIG += no_link
-#QMAKE_EXTRA_COMPILERS += lut
+lut.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.lut.h
+lut.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -n WebCore > ${QMAKE_FILE_OUT}
+lut.depend = ${QMAKE_FILE_NAME}
+lut.input = LUT_FILES
+lut.CONFIG += no_link
+addExtraCompiler(lut)
 
 # GENERATOR 2-B: like JavaScriptCore/LUT Generator, but rename output
 luttable.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}Table.cpp
-luttable.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
+luttable.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -n WebCore > ${QMAKE_FILE_OUT}
 luttable.depend = ${QMAKE_FILE_NAME}
 luttable.input = LUT_TABLE_FILES
 luttable.CONFIG += no_link
@@ -1688,32 +1797,34 @@ cssbison.input = CSSBISON
 cssbison.CONFIG = target_predeps
 cssbison.dependency_type = TYPE_C
 cssbison.variable_out = GENERATED_SOURCES
-cssbison.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-addExtraCompiler(cssbison)
-#PRE_TARGETDEPS += $$GENERATED_SOURCES_DIR/CSSGrammar.cpp
-grammar_h_dep.target = tmp/CSSParser.o
-grammar_h_dep.depends = $$GENERATED_SOURCES_DIR/CSSGrammar.cpp $$GENERATED_SOURCES_DIR/HTMLNames.cpp
-QMAKE_EXTRA_TARGETS += grammar_h_dep
+addExtraCompilerWithHeader(cssbison)
 
 # GENERATOR 5-A:
 htmlnames.output = $$GENERATED_SOURCES_DIR/HTMLNames.cpp
-htmlnames.commands = perl $$PWD/dom/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --namespace HTML --namespacePrefix xhtml --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xhtml' --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
+htmlnames.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\"  --wrapperFactory --outputDir $$GENERATED_SOURCES_DIR
 htmlnames.input = HTML_NAMES
 htmlnames.dependency_type = TYPE_C
 htmlnames.CONFIG = target_predeps
 htmlnames.variable_out = GENERATED_SOURCES
-htmlnames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}HTMLNames.h
-addExtraCompiler(htmlnames)
+addExtraCompilerWithHeader(htmlnames)
+
+elementwrapperfactory.output = $$GENERATED_SOURCES_DIR/JSHTMLElementWrapperFactory.cpp
+elementwrapperfactory.commands = @echo -n ''
+elementwrapperfactory.input = HTML_NAMES
+elementwrapperfactory.depends = $$GENERATED_SOURCES_DIR/HTMLNames.cpp
+elementwrapperfactory.CONFIG = target_predeps
+elementwrapperfactory.variable_out = GENERATED_SOURCES
+elementwrapperfactory.clean += ${QMAKE_FILE_OUT}
+addExtraCompilerWithHeader(elementwrapperfactory)
 
 # GENERATOR 5-B:
 xmlnames.output = $$GENERATED_SOURCES_DIR/XMLNames.cpp
-xmlnames.commands = perl $$PWD/dom/make_names.pl --attrs $$PWD/xml/xmlattrs.in --namespace XML --cppNamespace WebCore --namespaceURI 'http://www.w3.org/XML/1998/namespace' --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
+xmlnames.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --attrs $$PWD/xml/xmlattrs.in --preprocessor \"$${QMAKE_MOC} -E\" --outputDir $$GENERATED_SOURCES_DIR
 xmlnames.input = XML_NAMES
 xmlnames.dependency_type = TYPE_C
 xmlnames.CONFIG = target_predeps
 xmlnames.variable_out = GENERATED_SOURCES
-xmlnames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}XMLNames.h
-addExtraCompiler(xmlnames)
+addExtraCompilerWithHeader(xmlnames)
 
 # GENERATOR 8-A:
 entities.output = $$GENERATED_SOURCES_DIR/HTMLEntityNames.c
@@ -1747,7 +1858,7 @@ stylesheets.input = STYLESHEETS_EMBED
 stylesheets.CONFIG = target_predeps
 stylesheets.variable_out = GENERATED_SOURCES
 stylesheets.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}UserAgentStyleSheets.h
-addExtraCompiler(stylesheets)
+addExtraCompilerWithHeader(stylesheets, $$GENERATED_SOURCES_DIR/UserAgentStyleSheets.h)
 
 # GENERATOR 10: XPATH grammar
 xpathbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
@@ -1757,10 +1868,9 @@ xpathbison.input = XPATHBISON
 xpathbison.CONFIG = target_predeps
 xpathbison.dependency_type = TYPE_C
 xpathbison.variable_out = GENERATED_SOURCES
-xpathbison.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-addExtraCompiler(xpathbison)
+addExtraCompilerWithHeader(xpathbison)
 
-qt-port:!CONFIG(QTDIR_build) {
+!CONFIG(QTDIR_build) {
     target.path = $$[QT_INSTALL_LIBS]
     include($$PWD/../WebKit/qt/Api/headers.pri)
     headers.files = $$WEBKIT_API_HEADERS
@@ -1792,51 +1902,3 @@ qt-port:!CONFIG(QTDIR_build) {
     }
 }
 
-gtk-port {
-    isEmpty(WEBKIT_LIB_DIR):WEBKIT_LIB_DIR=/usr/local/lib
-    isEmpty(WEBKIT_INC_DIR):WEBKIT_INC_DIR=/usr/local/include/WebKitGtk
-
-    target.path = $$WEBKIT_LIB_DIR
-    INSTALLS += target
-
-    include($$PWD/../WebKit/gtk/webkit/headers.pri)
-    headers.files = $$WEBKIT_API_HEADERS
-    headers.path = $$WEBKIT_INC_DIR
-    INSTALLS += headers
-
-    include($$PWD/../JavaScriptCore/headers.pri)
-    jsheaders.files = $$JS_API_HEADERS
-    jsheaders.path = $$WEBKIT_INC_DIR/JavaScriptCore
-    INSTALLS += jsheaders
-
-    unix {
-        CONFIG += create_pc create_prl
-        QMAKE_PKGCONFIG_LIBDIR = $$target.path
-        QMAKE_PKGCONFIG_INCDIR = $$headers.path
-        QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-        lib_replace.match = $$DESTDIR
-        lib_replace.replace = $$[QT_INSTALL_LIBS]
-        QMAKE_PKGCONFIG_INSTALL_REPLACE += lib_replace
-    }
-
-    GENMARSHALS = ../WebKit/gtk/webkit/webkit-marshal.list
-    GENMARSHALS_PREFIX = webkit_marshal
-
-    #
-    # integrate glib-genmarshal as additional compiler
-    #
-    QMAKE_GENMARSHAL_CC = glib-genmarshal
-    glib-genmarshal.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
-    glib-genmarshal.commands = echo 'extern \\"C\\" {' > ${QMAKE_FILE_OUT} && $${QMAKE_GENMARSHAL_CC} --prefix=$${GENMARSHALS_PREFIX} ${QMAKE_FILE_IN} --body >> ${QMAKE_FILE_OUT} && echo '}' >> ${QMAKE_FILE_OUT}
-    glib-genmarshal.input = GENMARSHALS
-    glib-genmarshal.variable_out = GENERATED_SOURCES
-    glib-genmarshal.name = GENMARSHALS
-    QMAKE_EXTRA_UNIX_COMPILERS += glib-genmarshal
-
-    glib-genmarshalh.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
-    glib-genmarshalh.commands = $${QMAKE_GENMARSHAL_CC} --prefix=$${GENMARSHALS_PREFIX} ${QMAKE_FILE_IN} --header > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
-    glib-genmarshalh.input = GENMARSHALS
-    glib-genmarshalh.variable_out = GENERATED_SOURCES
-    glib-genmarshalh.name = GENMARSHALS
-    QMAKE_EXTRA_UNIX_COMPILERS += glib-genmarshalh
-}

@@ -48,7 +48,8 @@ public:
     Element* rootEditableElement() const { return m_sel.rootEditableElement(); }
     bool isContentEditable() const { return m_sel.isContentEditable(); }
     bool isContentRichlyEditable() const { return m_sel.isContentRichlyEditable(); }
-
+    Node* shadowTreeRootNode() const { return m_sel.shadowTreeRootNode(); }
+     
     void moveTo(const Range*, EAffinity, bool userTriggered = false);
     void moveTo(const VisiblePosition&, bool userTriggered = false);
     void moveTo(const VisiblePosition&, const VisiblePosition&, bool userTriggered = false);
@@ -56,7 +57,7 @@ public:
     void moveTo(const Position&, const Position&, EAffinity, bool userTriggered = false);
 
     const Selection& selection() const { return m_sel; }
-    void setSelection(const Selection&, bool closeTyping = true, bool clearTypingStyle = true, bool userTriggered = false);
+    void setSelection(const Selection&, bool closeTyping = true, bool clearTypingStyleAndRemovedAnchor = true, bool userTriggered = false);
     bool setSelectedRange(Range*, EAffinity, bool closeTyping);
     void selectAll();
     void clear();
@@ -125,9 +126,11 @@ private:
     enum EPositionType { START, END, BASE, EXTENT };
 
     VisiblePosition modifyExtendingRightForward(TextGranularity);
-    VisiblePosition modifyMovingRightForward(TextGranularity);
+    VisiblePosition modifyMovingRight(TextGranularity);
+    VisiblePosition modifyMovingForward(TextGranularity);
     VisiblePosition modifyExtendingLeftBackward(TextGranularity);
-    VisiblePosition modifyMovingLeftBackward(TextGranularity);
+    VisiblePosition modifyMovingLeft(TextGranularity);
+    VisiblePosition modifyMovingBackward(TextGranularity);
 
     void layout();
     IntRect caretRepaintRect() const;

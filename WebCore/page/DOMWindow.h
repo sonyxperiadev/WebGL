@@ -26,9 +26,11 @@
 #ifndef DOMWindow_h
 #define DOMWindow_h
 
+#include "KURL.h"
 #include "PlatformString.h"
-#include <wtf/RefCounted.h>
+#include "SecurityOrigin.h"
 #include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -41,22 +43,42 @@ namespace WebCore {
     class Database;
     class Document;
     class Element;
+    class EventListener;
     class FloatRect;
     class Frame;
     class History;
+    class Location;
+    class MessagePort;
+    class Navigator;
+    class PostMessageTimer;
     class Screen;
+
+#if ENABLE(DOM_STORAGE)
+    class SessionStorage;
+    class Storage;
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    class DOMApplicationCache;
+#endif
 
     typedef int ExceptionCode;
 
     class DOMWindow : public RefCounted<DOMWindow> {
     public:
-        DOMWindow(Frame*);
+        static PassRefPtr<DOMWindow> create(Frame* frame) { return adoptRef(new DOMWindow(frame)); }
         virtual ~DOMWindow();
 
         Frame* frame() { return m_frame; }
         void disconnectFrame();
 
         void clear();
+
+        void setSecurityOrigin(SecurityOrigin* securityOrigin) { m_securityOrigin = securityOrigin; }
+        SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
+
+        void setURL(const KURL& url) { m_url = url; }
+        KURL url() const { return m_url; }
 
         static void adjustWindowRect(const FloatRect& screen, FloatRect& window, const FloatRect& pendingChanges);
 
@@ -69,6 +91,9 @@ namespace WebCore {
         BarInfo* scrollbars() const;
         BarInfo* statusbar() const;
         BarInfo* toolbar() const;
+        Navigator* navigator() const;
+        Navigator* clientInformation() const { return navigator(); }
+        Location* location() const;
 
         DOMSelection* getSelection();
 
@@ -143,11 +168,20 @@ namespace WebCore {
         PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, ExceptionCode&);
 #endif
 
-        Console* console() const;
-        
-#if ENABLE(CROSS_DOCUMENT_MESSAGING)
-        void postMessage(const String& message, const String& domain, const String& uri, DOMWindow* source) const;
+#if ENABLE(DOM_STORAGE)
+        // HTML 5 key/value storage
+        Storage* sessionStorage() const;
+        Storage* localStorage() const;
 #endif
+
+        Console* console() const;
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        DOMApplicationCache* applicationCache() const;
+#endif
+
+        void postMessage(const String& message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
+        void postMessageTimerFired(PostMessageTimer*);
 
         void scrollBy(int x, int y) const;
         void scrollTo(int x, int y) const;
@@ -159,7 +193,106 @@ namespace WebCore {
         void resizeBy(float x, float y) const;
         void resizeTo(float width, float height) const;
 
+        EventListener* onabort() const;
+        void setOnabort(PassRefPtr<EventListener>);
+        EventListener* onblur() const;
+        void setOnblur(PassRefPtr<EventListener>);
+        EventListener* onchange() const;
+        void setOnchange(PassRefPtr<EventListener>);
+        EventListener* onclick() const;
+        void setOnclick(PassRefPtr<EventListener>);
+        EventListener* ondblclick() const;
+        void setOndblclick(PassRefPtr<EventListener>);
+        EventListener* onerror() const;
+        void setOnerror(PassRefPtr<EventListener>);
+        EventListener* onfocus() const;
+        void setOnfocus(PassRefPtr<EventListener>);
+        EventListener* onkeydown() const;
+        void setOnkeydown(PassRefPtr<EventListener>);
+        EventListener* onkeypress() const;
+        void setOnkeypress(PassRefPtr<EventListener>);
+        EventListener* onkeyup() const;
+        void setOnkeyup(PassRefPtr<EventListener>);
+        EventListener* onload() const;
+        void setOnload(PassRefPtr<EventListener>);
+        EventListener* onmousedown() const;
+        void setOnmousedown(PassRefPtr<EventListener>);
+        EventListener* onmousemove() const;
+        void setOnmousemove(PassRefPtr<EventListener>);
+        EventListener* onmouseout() const;
+        void setOnmouseout(PassRefPtr<EventListener>);
+        EventListener* onmouseover() const;
+        void setOnmouseover(PassRefPtr<EventListener>);
+        EventListener* onmouseup() const;
+        void setOnmouseup(PassRefPtr<EventListener>);
+        EventListener* onmousewheel() const;
+        void setOnmousewheel(PassRefPtr<EventListener>);
+        EventListener* onreset() const;
+        void setOnreset(PassRefPtr<EventListener>);
+        EventListener* onresize() const;
+        void setOnresize(PassRefPtr<EventListener>);
+        EventListener* onscroll() const;
+        void setOnscroll(PassRefPtr<EventListener>);
+        EventListener* onsearch() const;
+        void setOnsearch(PassRefPtr<EventListener>);
+        EventListener* onselect() const;
+        void setOnselect(PassRefPtr<EventListener>);
+        EventListener* onsubmit() const;
+        void setOnsubmit(PassRefPtr<EventListener>);
+        EventListener* onunload() const;
+        void setOnunload(PassRefPtr<EventListener>);
+        EventListener* onbeforeunload() const;
+        void setOnbeforeunload(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationstart() const;
+        void setOnwebkitanimationstart(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationiteration() const;
+        void setOnwebkitanimationiteration(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationend() const;
+        void setOnwebkitanimationend(PassRefPtr<EventListener>);
+        EventListener* onwebkittransitionend() const;
+        void setOnwebkittransitionend(PassRefPtr<EventListener>);
+#if ENABLE(TOUCH_EVENTS) // Android
+        EventListener* ontouchstart() const;
+        void setOntouchstart(PassRefPtr<EventListener>);
+        EventListener* ontouchend() const;
+        void setOntouchend(PassRefPtr<EventListener>);
+        EventListener* ontouchmove() const;
+        void setOntouchmove(PassRefPtr<EventListener>);
+        EventListener* ontouchcancel() const;
+        void setOntouchcancel(PassRefPtr<EventListener>);
+#endif
+        
+        // These methods are used for GC marking. See JSDOMWindow::mark() in
+        // JSDOMWindowCustom.cpp.
+        Screen* optionalScreen() const { return m_screen.get(); }
+        DOMSelection* optionalSelection() const { return m_selection.get(); }
+        History* optionalHistory() const { return m_history.get(); }
+        BarInfo* optionalLocationbar() const { return m_locationbar.get(); }
+        BarInfo* optionalMenubar() const { return m_menubar.get(); }
+        BarInfo* optionalPersonalbar() const { return m_personalbar.get(); }
+        BarInfo* optionalScrollbars() const { return m_scrollbars.get(); }
+        BarInfo* optionalStatusbar() const { return m_statusbar.get(); }
+        BarInfo* optionalToolbar() const { return m_toolbar.get(); }
+        Console* optionalConsole() const { return m_console.get(); }
+        Navigator* optionalNavigator() const { return m_navigator.get(); }
+        Location* optionalLocation() const { return m_location.get(); }
+#if ENABLE(DOM_STORAGE)
+        Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
+        Storage* optionalLocalStorage() const { return m_sessionStorage.get(); }
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
+#endif
+
     private:
+        DOMWindow(Frame*);
+
+        void setInlineEventListenerForType(const AtomicString& eventType, PassRefPtr<EventListener>);
+        EventListener* inlineEventListenerForType(const AtomicString& eventType) const;
+
+        RefPtr<SecurityOrigin> m_securityOrigin;
+        KURL m_url;
+
         Frame* m_frame;
         mutable RefPtr<Screen> m_screen;
         mutable RefPtr<DOMSelection> m_selection;
@@ -171,6 +304,15 @@ namespace WebCore {
         mutable RefPtr<BarInfo> m_statusbar;
         mutable RefPtr<BarInfo> m_toolbar;
         mutable RefPtr<Console> m_console;
+        mutable RefPtr<Navigator> m_navigator;
+        mutable RefPtr<Location> m_location;
+#if ENABLE(DOM_STORAGE)
+        mutable RefPtr<Storage> m_sessionStorage;
+        mutable RefPtr<Storage> m_localStorage;
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        mutable RefPtr<DOMApplicationCache> m_applicationCache;
+#endif
     };
 
 } // namespace WebCore

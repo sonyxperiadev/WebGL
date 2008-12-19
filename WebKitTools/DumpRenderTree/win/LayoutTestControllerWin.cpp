@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -26,9 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "LayoutTestController.h"
 
+#include "DumpRenderTree.h"
 #include "EditingDelegate.h"
 #include "PolicyDelegate.h"
 #include "WorkQueue.h"
@@ -40,9 +41,6 @@
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
 #include <JavaScriptCore/JSRetainPtr.h>
-#include <WebKit/IWebHistory.h>
-#include <WebKit/IWebPreferencesPrivate.h>
-#include <WebKit/IWebViewPrivate.h>
 #include <WebKit/WebKit.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>
@@ -352,9 +350,10 @@ static bool followShortcuts(wstring& path)
         return true;
 
     // Do we have a shortcut?
-    path.append(TEXT(".lnk"));
-    if (!PathFileExists(path.c_str()))
-       return false;
+    wstring linkPath = path;
+    linkPath.append(TEXT(".lnk"));
+    if (!PathFileExists(linkPath.c_str()))
+       return true;
 
     // We have a shortcut, find its target.
     COMPtr<IShellLink> shortcut(Create, CLSID_ShellLink);
@@ -363,7 +362,7 @@ static bool followShortcuts(wstring& path)
     COMPtr<IPersistFile> persistFile(Query, shortcut);
     if (!shortcut)
         return false;
-    if (FAILED(persistFile->Load(path.c_str(), STGM_READ)))
+    if (FAILED(persistFile->Load(linkPath.c_str(), STGM_READ)))
         return false;
     if (FAILED(shortcut->Resolve(0, 0)))
         return false;
@@ -391,7 +390,7 @@ static bool resolveCygwinPath(const wstring& cygwinPath, wstring& windowsPath)
     DWORD rootPathSize = _countof(rootPath);
     DWORD keyType;
     DWORD result = ::SHGetValueW(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/"), TEXT("native"), &keyType, &rootPath, &rootPathSize);
-    
+
     if (result != ERROR_SUCCESS || keyType != REG_SZ)
         return false;
 
@@ -509,6 +508,45 @@ void LayoutTestController::setWindowIsKey(bool flag)
     ::SendMessage(webViewWindow, flag ? WM_SETFOCUS : WM_KILLFOCUS, (WPARAM)::GetDesktopWindow(), 0);
 }
 
+void LayoutTestController::setSmartInsertDeleteEnabled(bool flag)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewEditing> viewEditing;
+    if (FAILED(webView->QueryInterface(&viewEditing)))
+        return;
+
+    viewEditing->setSmartInsertDeleteEnabled(flag ? TRUE : FALSE);
+}
+
+void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewPrivate> viewPrivate;
+    if (FAILED(webView->QueryInterface(&viewPrivate)))
+        return;
+
+    COMPtr<IWebPreferences> preferences;
+    if (FAILED(webView->preferences(&preferences)))
+        return;
+
+    COMPtr<IWebPreferencesPrivate> prefsPrivate(Query, preferences);
+    if (!prefsPrivate)
+        return;
+
+    COMPtr<IWebInspector> inspector;
+    if (FAILED(viewPrivate->inspector(&inspector)))
+        return;
+
+    prefsPrivate->setDeveloperExtrasEnabled(flag);
+    inspector->setJavaScriptProfilingEnabled(flag);
+}
+
 static const CFTimeInterval waitToDumpWatchdogInterval = 10.0;
 
 static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
@@ -534,6 +572,32 @@ int LayoutTestController::windowCount()
     return openWindows().size();
 }
 
+bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id)
+{
+    COMPtr<IDOMDocument> document;
+    if (FAILED(frame->DOMDocument(&document)))
+        return false;
+
+    wstring idWstring = jsStringRefToWString(id);
+    BSTR idBSTR = SysAllocStringLen((OLECHAR*)idWstring.c_str(), idWstring.length());
+    COMPtr<IDOMElement> element;
+    HRESULT result = document->getElementById(idBSTR, &element);
+    SysFreeString(idBSTR);
+
+    if (FAILED(result))
+        return false;
+
+    COMPtr<IWebFramePrivate> framePrivate(Query, frame);
+    if (!framePrivate)
+        return false;
+
+    BOOL autoCompletes;
+    if (FAILED(framePrivate->elementDoesAutoComplete(element.get(), &autoCompletes)))
+        return false;
+
+    return autoCompletes;
+}
+
 void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
 {
     wstring wName = jsStringRefToWString(name);
@@ -553,4 +617,14 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
 
     SysFreeString(nameBSTR);
     SysFreeString(valueBSTR);
+}
+
+void LayoutTestController::clearAllDatabases()
+{
+    printf("ERROR: LayoutTestController::clearAllDatabases() not implemented\n");
+}
+
+void LayoutTestController::setDatabaseQuota(unsigned long long quota)
+{
+    printf("ERROR: LayoutTestController::setDatabaseQuota() not implemented\n");
 }

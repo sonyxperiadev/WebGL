@@ -26,9 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "UIDelegate.h"
 
+#include "DumpRenderTree.h"
 #include "DraggingInfo.h"
 #include "EventSender.h"
 #include "LayoutTestController.h"
@@ -38,8 +39,7 @@
 #include <wtf/Vector.h>
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
-#include <WebKit/IWebFramePrivate.h>
-#include <WebKit/IWebViewPrivate.h>
+#include <WebKit/WebKit.h>
 #include <stdio.h>
 
 using std::wstring;
@@ -322,6 +322,18 @@ HRESULT STDMETHODCALLTYPE UIDelegate::runJavaScriptTextInputPanelWithPrompt(
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE UIDelegate::runBeforeUnloadConfirmPanelWithMessage( 
+    /* [in] */ IWebView* /*sender*/,
+    /* [in] */ BSTR /*message*/,
+    /* [in] */ IWebFrame* /*initiatedByFrame*/,
+    /* [retval][out] */ BOOL* result)
+{
+    if (!result)
+        return E_POINTER;
+    *result = TRUE;
+    return E_NOTIMPL;
+}
+
 HRESULT STDMETHODCALLTYPE UIDelegate::webViewAddMessageToConsole( 
     /* [in] */ IWebView* sender,
     /* [in] */ BSTR message,
@@ -374,19 +386,35 @@ HRESULT STDMETHODCALLTYPE UIDelegate::createWebViewWithRequest(
         /* [in] */ IWebURLRequest *request,
         /* [retval][out] */ IWebView **newWebView)
 {
-    if (!::layoutTestController->canOpenWindows())
+    if (!::gLayoutTestController->canOpenWindows())
         return E_FAIL;
     *newWebView = createWebViewAndOffscreenWindow();
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE UIDelegate::webViewClose( 
+HRESULT STDMETHODCALLTYPE UIDelegate::webViewClose(
         /* [in] */ IWebView *sender)
 {
     HWND hostWindow;
     sender->hostWindow(reinterpret_cast<OLE_HANDLE*>(&hostWindow));
     DestroyWindow(hostWindow);
     return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE UIDelegate::webViewFocus( 
+        /* [in] */ IWebView *sender)
+{
+    HWND hostWindow;
+    sender->hostWindow(reinterpret_cast<OLE_HANDLE*>(&hostWindow));
+    SetForegroundWindow(hostWindow);
+    return S_OK; 
+}
+
+HRESULT STDMETHODCALLTYPE UIDelegate::webViewUnfocus( 
+        /* [in] */ IWebView *sender)
+{
+    SetForegroundWindow(GetDesktopWindow());
+    return S_OK; 
 }
 
 HRESULT STDMETHODCALLTYPE UIDelegate::webViewPainted( 
@@ -404,5 +432,13 @@ HRESULT STDMETHODCALLTYPE UIDelegate::exceededDatabaseQuota(
     static const unsigned long long defaultQuota = 5 * 1024 * 1024;
     origin->setQuota(defaultQuota);
 
+    return S_OK;
+}
+
+
+HRESULT STDMETHODCALLTYPE UIDelegate::setStatusText(IWebView*, BSTR text)
+{ 
+    if (gLayoutTestController->dumpStatusCallbacks())
+        printf("UI DELEGATE STATUS CALLBACK: setStatusText:%S\n", text ? text : L"");
     return S_OK;
 }

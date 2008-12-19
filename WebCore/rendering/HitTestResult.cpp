@@ -1,7 +1,5 @@
 /*
- * This file is part of the HTML rendering engine for KDE.
- *
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,19 +21,14 @@
 #include "config.h"
 #include "HitTestResult.h"
 
-#include "CSSHelper.h"
-#include "Document.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "HTMLAnchorElement.h"
-#include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "KURL.h"
-#include "PlatformScrollBar.h"
 #include "RenderImage.h"
-#include "RenderObject.h"
+#include "Scrollbar.h"
 #include "SelectionController.h"
 
 #if ENABLE(SVG)
@@ -49,6 +42,7 @@ using namespace HTMLNames;
 
 HitTestResult::HitTestResult(const IntPoint& point)
     : m_point(point)
+    , m_isOverWidget(false)
 {
 }
 
@@ -59,6 +53,7 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_localPoint(other.localPoint())
     , m_innerURLElement(other.URLElement())
     , m_scrollbar(other.scrollbar())
+    , m_isOverWidget(other.isOverWidget())
 {
 }
 
@@ -74,6 +69,7 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_localPoint = other.localPoint();
     m_innerURLElement = other.URLElement();
     m_scrollbar = other.scrollbar();
+    m_isOverWidget = other.isOverWidget();
     return *this;
 }
 
@@ -104,7 +100,7 @@ void HitTestResult::setURLElement(Element* n)
     m_innerURLElement = n; 
 }
 
-void HitTestResult::setScrollbar(PlatformScrollbar* s)
+void HitTestResult::setScrollbar(Scrollbar* s)
 {
     m_scrollbar = s;
 }
@@ -141,7 +137,7 @@ bool HitTestResult::isSelected() const
     if (!frame)
         return false;
 
-    return frame->selectionController()->contains(m_point);
+    return frame->selection()->contains(m_point);
 }
 
 String HitTestResult::spellingToolTip() const
@@ -236,12 +232,13 @@ KURL HitTestResult::absoluteImageURL() const
     else if (m_innerNonSharedNode->hasTagName(SVGNames::imageTag))
         urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(XLinkNames::hrefAttr);
 #endif
-    else if (m_innerNonSharedNode->hasTagName(objectTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(dataAttr);
-    else
+    else if (m_innerNonSharedNode->hasTagName(embedTag) || m_innerNonSharedNode->hasTagName(objectTag)) {
+        Element* element = static_cast<Element*>(m_innerNonSharedNode.get());
+        urlString = element->getAttribute(element->imageSourceAttributeName());
+    } else
         return KURL();
     
-    return KURL(m_innerNonSharedNode->document()->completeURL(parseURL(urlString).deprecatedString()));
+    return m_innerNonSharedNode->document()->completeURL(parseURL(urlString));
 }
 
 KURL HitTestResult::absoluteLinkURL() const
@@ -259,7 +256,7 @@ KURL HitTestResult::absoluteLinkURL() const
     else
         return KURL();
 
-    return KURL(m_innerURLElement->document()->completeURL(parseURL(urlString).deprecatedString()));
+    return m_innerURLElement->document()->completeURL(parseURL(urlString));
 }
 
 bool HitTestResult::isLiveLink() const

@@ -35,6 +35,7 @@
 
 class WebViewPrivate;
 class WebViewFrameData;
+class wxWebFrame;
 
 namespace WebCore {
     class ChromeClientWx;
@@ -55,32 +56,51 @@ namespace WebCore {
 #define WXDLLIMPEXP_WEBKIT
 #endif // SWIG
 
+extern WXDLLIMPEXP_WEBKIT const wxChar* wxWebViewNameStr;
+
 class WXDLLIMPEXP_WEBKIT wxWebView : public wxWindow
 {
     // ChromeClientWx needs to get the Page* stored by the wxWebView
     // for the createWindow function. 
     friend class WebCore::ChromeClientWx;
     friend class WebCore::FrameLoaderClientWx;
-    
+
 public:
     // ctor(s)
 #if SWIG
-    %pythonAppend wxWebView "self._setOORInfo(self)"
+    %pythonAppend wxWebView    "self._setOORInfo(self)"
+    %pythonAppend wxWebView()  ""
 #endif
+
     wxWebView(wxWindow* parent, int id = wxID_ANY,
+              const wxPoint& point = wxDefaultPosition,
+              const wxSize& size = wxDefaultSize,
+              long style = 0,
+              const wxString& name = wxWebViewNameStr); // For wxWebView internal data passing
+#if SWIG
+    %rename(PreWebView) wxWebView();
+#else
+    wxWebView();
+#endif
+    
+    bool Create(wxWindow* parent, int id = wxID_ANY,
                 const wxPoint& point = wxDefaultPosition,
                 const wxSize& size = wxDefaultSize,
-                WebViewFrameData* data = NULL); // For wxWebView internal data passing
-
+                long style = 0,
+                const wxString& name = wxWebViewNameStr); // For wxWebView internal data passing
+    
 #ifndef SWIG
     ~wxWebView();
 #endif
     
-    void LoadURL(wxString url);
+    void LoadURL(const wxString& url);
     bool GoBack();
     bool GoForward();
     void Stop();
     void Reload();
+
+    bool CanGoBack();
+    bool CanGoForward();
     
     bool CanCut();
     bool CanCopy();
@@ -109,6 +129,8 @@ public:
 
     wxString GetPageTitle() const { return m_title; }
     void SetPageTitle(const wxString& title) { m_title = title; }
+    
+    wxWebFrame* GetMainFrame() { return m_mainFrame; }
 
 protected:
 
@@ -125,12 +147,14 @@ private:
     // any class wishing to process wxWindows events must use this macro
 #ifndef SWIG
     DECLARE_EVENT_TABLE()
+    DECLARE_DYNAMIC_CLASS(wxWebView)
 #endif
     float m_textMagnifier;
     bool m_isEditable;
     bool m_isInitialized;
     bool m_beingDestroyed;
     WebViewPrivate* m_impl;
+    wxWebFrame* m_mainFrame;
     wxString m_title;
     
 };
@@ -244,12 +268,15 @@ class WXDLLIMPEXP_WEBKIT wxWebViewNewWindowEvent : public wxCommandEvent
 public:
     wxString GetURL() const { return m_url; }
     void SetURL(const wxString& url) { m_url = url; }
+    wxString GetTargetName() const { return m_targetName; }
+    void SetTargetName(const wxString& name) { m_targetName = name; }
 
     wxWebViewNewWindowEvent( wxWindow* win = static_cast<wxWindow*>(NULL));
     wxEvent *Clone(void) const { return new wxWebViewNewWindowEvent(*this); }
 
 private:
     wxString m_url;
+    wxString m_targetName;
 };
 
 class WXDLLIMPEXP_WEBKIT wxWebViewRightClickEvent : public wxCommandEvent
@@ -298,11 +325,30 @@ private:
     wxString m_sourceID;
 };
 
+class WXDLLIMPEXP_WEBKIT wxWebViewReceivedTitleEvent : public wxCommandEvent
+{
+#ifndef SWIG
+    DECLARE_DYNAMIC_CLASS( wxWebViewReceivedTitleEvent )
+#endif
+
+public:
+    wxString GetTitle() const { return m_title; }
+    void SetTitle(const wxString& title) { m_title = title; }
+
+    wxWebViewReceivedTitleEvent( wxWindow* win = static_cast<wxWindow*>(NULL));
+    wxEvent *Clone(void) const { return new wxWebViewReceivedTitleEvent(*this); }
+
+private:
+    wxString m_title;
+};
+
+
 typedef void (wxEvtHandler::*wxWebViewLoadEventFunction)(wxWebViewLoadEvent&);
 typedef void (wxEvtHandler::*wxWebViewBeforeLoadEventFunction)(wxWebViewBeforeLoadEvent&);
 typedef void (wxEvtHandler::*wxWebViewNewWindowEventFunction)(wxWebViewNewWindowEvent&);
 typedef void (wxEvtHandler::*wxWebViewRightClickEventFunction)(wxWebViewRightClickEvent&);
 typedef void (wxEvtHandler::*wxWebViewConsoleMessageEventFunction)(wxWebViewConsoleMessageEvent&);
+typedef void (wxEvtHandler::*wxWebViewReceivedTitleEventFunction)(wxWebViewReceivedTitleEvent&);
 
 #ifndef SWIG
 BEGIN_DECLARE_EVENT_TYPES()
@@ -311,47 +357,56 @@ BEGIN_DECLARE_EVENT_TYPES()
     DECLARE_EXPORTED_EVENT_TYPE(WXDLLIMPEXP_WEBKIT, wxEVT_WEBVIEW_NEW_WINDOW, wxID_ANY)
     DECLARE_EXPORTED_EVENT_TYPE(WXDLLIMPEXP_WEBKIT, wxEVT_WEBVIEW_RIGHT_CLICK, wxID_ANY)
     DECLARE_EXPORTED_EVENT_TYPE(WXDLLIMPEXP_WEBKIT, wxEVT_WEBVIEW_CONSOLE_MESSAGE, wxID_ANY)
+    DECLARE_EXPORTED_EVENT_TYPE(WXDLLIMPEXP_WEBKIT, wxEVT_WEBVIEW_RECEIVED_TITLE, wxID_ANY)
 END_DECLARE_EVENT_TYPES()
 #endif
 
-#define EVT_WEBVIEW_LOAD(func) \
+#define EVT_WEBVIEW_LOAD(winid, func)                       \
             DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_LOAD, \
-                            wxID_ANY, \
+                            winid, \
                             wxID_ANY, \
                             (wxObjectEventFunction)   \
                             (wxWebViewLoadEventFunction) & func, \
                             static_cast<wxObject*>(NULL)),
                             
-#define EVT_WEBVIEW_BEFORE_LOAD(func) \
+#define EVT_WEBVIEW_BEFORE_LOAD(winid, func)                       \
             DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_BEFORE_LOAD, \
-                            wxID_ANY, \
+                            winid, \
                             wxID_ANY, \
                             (wxObjectEventFunction)   \
                             (wxWebViewBeforeLoadEventFunction) & func, \
                             static_cast<wxObject*>(NULL)),
                             
-#define EVT_WEBVIEW_NEW_WINDOW(func) \
+#define EVT_WEBVIEW_NEW_WINDOW(winid, func)                       \
             DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_NEW_WINDOW, \
-                            wxID_ANY, \
+                            winid, \
                             wxID_ANY, \
                             (wxObjectEventFunction)   \
                             (wxWebViewNewWindowEventFunction) & func, \
                             static_cast<wxObject*>(NULL)),
 
-#define EVT_WEBVIEW_RIGHT_CLICK(func) \
+#define EVT_WEBVIEW_RIGHT_CLICK(winid, func)                       \
             DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_RIGHT_CLICK, \
-                            wxID_ANY, \
+                            winid, \
                             wxID_ANY, \
                             (wxObjectEventFunction)   \
                             (wxWebViewRightClickEventFunction) & func, \
                             static_cast<wxObject*>(NULL)),
                             
-#define EVT_WEBVIEW_CONSOLE_MESSAGE(func) \
+#define EVT_WEBVIEW_CONSOLE_MESSAGE(winid, func)                       \
             DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_CONSOLE_MESSAGE, \
-                            wxID_ANY, \
+                            winid, \
                             wxID_ANY, \
                             (wxObjectEventFunction)   \
                             (wxWebViewConsoleMessageEventFunction) & func, \
+                            static_cast<wxObject*>(NULL)),
+
+#define EVT_WEBVIEW_RECEIVED_TITLE(winid, func)                       \
+            DECLARE_EVENT_TABLE_ENTRY( wxEVT_WEBVIEW_RECEIVED_TITLE, \
+                            winid, \
+                            wxID_ANY, \
+                            (wxObjectEventFunction)   \
+                            (wxWebViewReceivedTitleEventFunction) & func, \
                             static_cast<wxObject*>(NULL)),
 
 #endif // ifndef WXWEBVIEW_H

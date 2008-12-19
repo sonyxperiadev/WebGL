@@ -26,15 +26,8 @@
 #ifndef DOMCoreClasses_H
 #define DOMCoreClasses_H
 
-#include "DOMCore.h"
-#include "DOMCSS.h"
-#include "DOMEvents.h"
-#include "DOMExtensions.h"
-#include "DOMPrivate.h"
+#include "WebKit.h"
 #include "WebScriptObject.h"
-
-// {79A193A5-D783-4c73-9AD9-D10678B943DE}
-DEFINE_GUID(IID_DOMNode, 0x79a193a5, 0xd783, 0x4c73, 0x9a, 0xd9, 0xd1, 0x6, 0x78, 0xb9, 0x43, 0xde);
 
 namespace WebCore {
     class Element;
@@ -84,7 +77,7 @@ public:
         /* [in] */ BSTR description) { return WebScriptObject::setException(description); }
 };
 
-class DOMNode : public DOMObject, public IDOMNode, public IDOMEventTarget
+class DECLSPEC_UUID("062AEEE3-9E42-44DC-A8A9-236B216FE011") DOMNode : public DOMObject, public IDOMNode, public IDOMEventTarget
 {
 protected:
     DOMNode(WebCore::Node* n);

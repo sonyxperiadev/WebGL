@@ -29,7 +29,10 @@
 #ifndef DumpRenderTree_h
 #define DumpRenderTree_h
 
+// FIXME: Remove this when all platforms are using config.h
+#ifndef Config_H
 #include <wtf/Platform.h>
+#endif
 
 #if PLATFORM(MAC)
 #include "DumpRenderTreeMac.h"
@@ -46,14 +49,16 @@ extern CFRunLoopTimerRef waitToDumpWatchdog;
 
 #include <string>
 
+#if !PLATFORM(OPENBSD)
 std::wstring urlSuitableForTestResult(const std::wstring& url);
+#endif
 
 class LayoutTestController;
 
 extern volatile bool done;
 
 // FIXME: This is a bad abstraction.  We should insted pass this to other controller objects which need access to it.
-extern LayoutTestController* layoutTestController;
+extern LayoutTestController* gLayoutTestController;
 
 void dump();
 void displayWebView();

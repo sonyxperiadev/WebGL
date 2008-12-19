@@ -39,6 +39,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
+#include "TextStream.h"
 #include <wtf/Vector.h>
 
 #if ENABLE(SVG)
@@ -304,8 +305,8 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
 static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBox& run)
 {
     ts << "text run at (" << run.m_x << "," << run.m_y << ") width " << run.m_width;
-    if (run.m_reversed || run.m_dirOverride) {
-        ts << (run.m_reversed ? " RTL" : " LTR");
+    if (run.direction() == RTL || run.m_dirOverride) {
+        ts << (run.direction() == RTL ? " RTL" : " LTR");
         if (run.m_dirOverride)
             ts << " override";
     }
@@ -360,7 +361,7 @@ void write(TextStream& ts, const RenderObject& o, int indent)
         Widget* widget = static_cast<const RenderWidget&>(o).widget();
         if (widget && widget->isFrameView()) {
             FrameView* view = static_cast<FrameView*>(widget);
-            RenderObject* root = view->frame()->renderer();
+            RenderObject* root = view->frame()->contentRenderer();
             if (root) {
                 view->layout();
                 RenderLayer* l = root->layer();
@@ -478,7 +479,7 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
     if (!frame)
         return;
 
-    Selection selection = frame->selectionController()->selection();
+    Selection selection = frame->selection()->selection();
     if (selection.isCaret()) {
         ts << "caret: position " << selection.start().offset() << " of " << nodePosition(selection.start().node());
         if (selection.affinity() == UPSTREAM)
@@ -489,24 +490,23 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
            << "selection end:   position " << selection.end().offset() << " of " << nodePosition(selection.end().node()) << "\n";
 }
 
-DeprecatedString externalRepresentation(RenderObject* o)
+String externalRepresentation(RenderObject* o)
 {
-    DeprecatedString s;
-    if (o) {
-        TextStream ts(&s);
-        ts.precision(2);
+    if (!o)
+        return String();
+
+    TextStream ts;
 #if ENABLE(SVG)
-        writeRenderResources(ts, o->document());
+    writeRenderResources(ts, o->document());
 #endif
-        if (o->view()->frameView())
-            o->view()->frameView()->layout();
-        RenderLayer* l = o->layer();
-        if (l) {
-            writeLayers(ts, l, l, IntRect(l->xPos(), l->yPos(), l->width(), l->height()));
-            writeSelection(ts, o);
-        }
+    if (o->view()->frameView())
+        o->view()->frameView()->layout();
+    RenderLayer* l = o->layer();
+    if (l) {
+        writeLayers(ts, l, l, IntRect(l->xPos(), l->yPos(), l->width(), l->height()));
+        writeSelection(ts, o);
     }
-    return s;
+    return ts.release();
 }
 
 } // namespace WebCore

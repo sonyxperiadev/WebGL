@@ -69,6 +69,9 @@ total length. */
 
 #ifndef DFTABLES
 
+// Change the following to 1 to dump used regular expressions at process exit time.
+#define REGEXP_HISTOGRAM 0
+
 #include "Assertions.h"
 
 #if COMPILER(MSVC)
@@ -171,19 +174,19 @@ static inline void putLinkValueAllowZeroAndAdvance(unsigned char*& opcodePtr, in
 
 // FIXME: These are really more of a "compiled regexp state" than "regexp options"
 enum RegExpOptions {
-    UseFirstByteOptimizationOption = 0x40000000,  /* first_byte is set */
-    UseRequiredByteOptimizationOption = 0x20000000,  /* req_byte is set */
+    UseFirstByteOptimizationOption = 0x40000000,  /* firstByte is set */
+    UseRequiredByteOptimizationOption = 0x20000000,  /* reqByte is set */
     UseMultiLineFirstByteOptimizationOption = 0x10000000,  /* start after \n for multiline */
     IsAnchoredOption = 0x02000000,  /* can't use partial with this regex */
     IgnoreCaseOption = 0x00000001,
     MatchAcrossMultipleLinesOption = 0x00000002
 };
 
-/* Flags added to firstbyte or reqbyte; a "non-literal" item is either a
+/* Flags added to firstByte or reqByte; a "non-literal" item is either a
 variable-length repeat, or a anything other than literal characters. */
 
 #define REQ_IGNORE_CASE 0x0100    /* indicates should ignore case */
-#define REQ_VARY     0x0200    /* reqbyte followed non-literal item */
+#define REQ_VARY     0x0200    /* reqByte followed non-literal item */
 
 /* Miscellaneous definitions */
 
@@ -231,6 +234,8 @@ must also be updated to match. */
     \
     macro(CIRC) \
     macro(DOLL) \
+    macro(BOL) \
+    macro(EOL) \
     macro(CHAR) \
     macro(CHAR_IGNORING_CASE) \
     macro(ASCII_CHAR) \
@@ -313,22 +318,21 @@ are in conflict! */
 
 #define EXTRACT_BASIC_MAX  100
 
-/* The index of names and the
-code vector run on as long as necessary after the end. We store an explicit
-offset to the name table so that if a regex is compiled on one host, saved, and
-then run on another where the size of pointers is different, all might still
-be well. For the case of compiled-on-4 and run-on-8, we include an extra
-pointer that is always NULL.
-*/
+/* The code vector runs on as long as necessary after the end. */
 
 struct JSRegExp {
     unsigned options;
 
-    unsigned short top_bracket;
-    unsigned short top_backref;
+    unsigned short topBracket;
+    unsigned short topBackref;
     
-    unsigned short first_byte;
-    unsigned short req_byte;
+    unsigned short firstByte;
+    unsigned short reqByte;
+
+#if REGEXP_HISTOGRAM
+    size_t stringOffset;
+    size_t stringLength;
+#endif
 };
 
 /* Internal shared data tables. These are tables that are used by more than one
@@ -376,7 +380,7 @@ static inline bool isWordChar(UChar c)
 
 static inline bool isSpaceChar(UChar c)
 {
-    return c < 128 && (charTypeForChar(c) & ctype_space);
+    return (c < 128 && (charTypeForChar(c) & ctype_space)) || c == 0x00A0;
 }
 
 static inline bool isNewline(UChar nl)

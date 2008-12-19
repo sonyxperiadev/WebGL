@@ -27,9 +27,10 @@
 #include "WebKitDLL.h"
 #include "WebMutableURLRequest.h"
 
-#include "IWebURLResponse.h"
+#include "WebKit.h"
 #include "MarshallingHelpers.h"
 #include "WebKit.h"
+#include <CFNetwork/CFURLRequestPriv.h>
 #pragma warning(push, 0)
 #include <WebCore/BString.h>
 #include <WebCore/CString.h>
@@ -46,6 +47,7 @@ WebMutableURLRequest::WebMutableURLRequest(bool isMutable)
     , m_isMutable(isMutable)
 {
     gClassCount++;
+    gClassNameCount.add("WebMutableURLRequest");
 }
 
 WebMutableURLRequest* WebMutableURLRequest::createInstance()
@@ -89,6 +91,7 @@ WebMutableURLRequest* WebMutableURLRequest::createImmutableInstance(const Resour
 WebMutableURLRequest::~WebMutableURLRequest()
 {
     gClassCount--;
+    gClassNameCount.remove("WebMutableURLRequest");
 }
 
 // IUnknown -------------------------------------------------------------------
@@ -280,10 +283,10 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setHTTPMethod(
 }
 
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setHTTPShouldHandleCookies( 
-    /* [in] */ BOOL /*handleCookies*/)
+    /* [in] */ BOOL handleCookies)
 {
-    ASSERT_NOT_REACHED();
-    return E_NOTIMPL;
+    m_request.setAllowHTTPCookies(handleCookies);
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setMainDocumentURL( 
@@ -351,6 +354,21 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setClientCertificate(
     PCCERT_CONTEXT certContext = reinterpret_cast<PCCERT_CONTEXT>((ULONG64)cert);
     RetainPtr<CFDataRef> certData(AdoptCF, copyCert(certContext));
     ResourceHandle::setClientCertificate(m_request.url().host(), certData.get());
+    return S_OK;
+}
+
+CFURLRequestRef STDMETHODCALLTYPE WebMutableURLRequest::cfRequest()
+{
+    return m_request.cfURLRequest();
+}
+
+HRESULT STDMETHODCALLTYPE WebMutableURLRequest::mutableCopy(
+        /* [out, retval] */ IWebMutableURLRequest** result)
+{
+    if (!result)
+        return E_POINTER;
+    RetainPtr<CFMutableURLRequestRef> mutableRequest(AdoptCF, CFURLRequestCreateMutableCopy(kCFAllocatorDefault, m_request.cfURLRequest()));
+    *result = createInstance(ResourceRequest(mutableRequest.get()));
     return S_OK;
 }
 

@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
@@ -41,6 +40,8 @@ namespace WebCore {
         ReturnCacheDataDontLoad, // results of a post - allow stale data and only use cache
     };
 
+    const int unspecifiedTimeoutInterval = INT_MAX;
+
     class ResourceRequest;
 
     // Do not use this type directly.  Use ResourceRequest instead.
@@ -52,7 +53,7 @@ namespace WebCore {
         const KURL& url() const;
         void setURL(const KURL& url);
 
-        const ResourceRequestCachePolicy cachePolicy() const;
+        ResourceRequestCachePolicy cachePolicy() const;
         void setCachePolicy(ResourceRequestCachePolicy cachePolicy);
         
         double timeoutInterval() const;
@@ -77,6 +78,10 @@ namespace WebCore {
         void setHTTPReferrer(const String& httpReferrer) { setHTTPHeaderField("Referer", httpReferrer); }
         void clearHTTPReferrer() { m_httpHeaderFields.remove("Referer"); }
         
+        String httpOrigin() const { return httpHeaderField("Origin"); }
+        void setHTTPOrigin(const String& httpOrigin) { setHTTPHeaderField("Origin", httpOrigin); }
+        void clearHTTPOrigin() { m_httpHeaderFields.remove("Origin"); }
+
         String httpUserAgent() const { return httpHeaderField("User-Agent"); }
         void setHTTPUserAgent(const String& httpUserAgent) { setHTTPHeaderField("User-Agent", httpUserAgent); }
 
@@ -102,7 +107,7 @@ namespace WebCore {
         ResourceRequestBase(const KURL& url, ResourceRequestCachePolicy policy)
             : m_url(url)
             , m_cachePolicy(policy)
-            , m_timeoutInterval(defaultTimeoutInterval)
+            , m_timeoutInterval(unspecifiedTimeoutInterval)
             , m_httpMethod("GET")
             , m_allowHTTPCookies(true)
             , m_resourceRequestUpdated(true)
@@ -112,8 +117,6 @@ namespace WebCore {
 
         void updatePlatformRequest() const; 
         void updateResourceRequest() const; 
-
-        static const int defaultTimeoutInterval = 60;
 
         KURL m_url;
 

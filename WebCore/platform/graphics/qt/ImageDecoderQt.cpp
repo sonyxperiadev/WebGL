@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Friedemann Kleint <fkleint@trolltech.com>
- * Copyright (C) 2006 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * All rights reserved.
  *
@@ -206,7 +206,7 @@ void ImageDecoderQt::reset()
 void ImageDecoderQt::setData(const IncomingData &data, bool allDataReceived)
 {
     reset();
-    ReadContext readContext(data, ReadContext::LoadIncrementally, m_imageList);
+    ReadContext readContext(data, ReadContext::LoadComplete, m_imageList);
 
     if (debugImageDecoderQt)
         qDebug() << " setData " << data.size() << " image bytes, complete=" << allDataReceived;

@@ -26,13 +26,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LP64__
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #import "WebBaseNetscapePluginView.h"
 
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h" 
 #import "WebFrameView.h"
 #import "WebGraphicsExtras.h"
@@ -46,79 +45,98 @@
 #import "WebNSURLRequestExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebNetscapePluginPackage.h"
-#import "WebNetscapePluginStream.h"
+#import "WebBaseNetscapePluginStream.h"
+#import "WebNetscapePluginEventHandler.h"
 #import "WebNullPluginView.h"
 #import "WebPreferences.h"
 #import "WebViewInternal.h"
 #import "WebUIDelegatePrivate.h"
 #import <Carbon/Carbon.h>
-#import <JavaScriptCore/Assertions.h>
-#import <JavaScriptCore/JSLock.h>
-#import <JavaScriptCore/npruntime_impl.h>
+#import <runtime/JSLock.h>
+#import <WebCore/npruntime_impl.h>
 #import <WebCore/Document.h>
+#import <WebCore/DocumentLoader.h>
 #import <WebCore/Element.h>
 #import <WebCore/Frame.h> 
 #import <WebCore/FrameLoader.h> 
 #import <WebCore/FrameTree.h> 
 #import <WebCore/Page.h> 
+#import <WebCore/PluginMainThreadScheduler.h>
+#import <WebCore/ScriptController.h>
 #import <WebCore/SoftLinking.h> 
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebKit/nptextinput.h>
 #import <WebKit/DOMPrivate.h>
 #import <WebKit/WebUIDelegate.h>
+#import <wtf/Assertions.h>
 #import <objc/objc-runtime.h>
 
 using namespace WebCore;
 
-// Send null events 50 times a second when active, so plug-ins like Flash get high frame rates.
-#define NullEventIntervalActive         0.02
-#define NullEventIntervalNotActive      0.25
-
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
 
-SOFT_LINK_FRAMEWORK(OpenGL)
-SOFT_LINK_FRAMEWORK(AGL)
-
-SOFT_LINK(OpenGL, CGLGetOffScreen, CGLError, (CGLContextObj ctx, GLsizei *width, GLsizei *height, GLint *rowbytes, void **baseaddr), (ctx, width, height, rowbytes, baseaddr))
-SOFT_LINK(OpenGL, CGLSetOffScreen, CGLError, (CGLContextObj ctx, GLsizei width, GLsizei height, GLint rowbytes, void *baseaddr), (ctx, width, height, rowbytes, baseaddr))
-SOFT_LINK(OpenGL, glViewport, void, (GLint x, GLint y, GLsizei width, GLsizei height), (x, y, width, height))
-SOFT_LINK(AGL, aglCreateContext, AGLContext, (AGLPixelFormat pix, AGLContext share), (pix, share))
-SOFT_LINK(AGL, aglSetWindowRef, GLboolean, (AGLContext ctx, WindowRef window), (ctx, window))
-SOFT_LINK(AGL, aglSetDrawable, GLboolean, (AGLContext ctx, AGLDrawable draw), (ctx, draw))
-#ifndef BUILDING_ON_TIGER
-SOFT_LINK(AGL, aglChoosePixelFormat, AGLPixelFormat, (const void *gdevs, GLint ndev, const GLint *attribs), (gdevs, ndev, attribs))
+static inline bool isDrawingModelQuickDraw(NPDrawingModel drawingModel)
+{
+#ifndef NP_NO_QUICKDRAW
+    return drawingModel == NPDrawingModelQuickDraw;
 #else
-SOFT_LINK(AGL, aglChoosePixelFormat, AGLPixelFormat, (const AGLDevice *gdevs, GLint ndev, const GLint *attribs), (gdevs, ndev, attribs))
+    return false;
 #endif
-SOFT_LINK(AGL, aglDestroyPixelFormat, void, (AGLPixelFormat pix), (pix))
-SOFT_LINK(AGL, aglDestroyContext, GLboolean, (AGLContext ctx), (ctx))
-SOFT_LINK(AGL, aglGetCGLContext, GLboolean, (AGLContext ctx, void **cgl_ctx), (ctx, cgl_ctx))
-SOFT_LINK(AGL, aglGetCurrentContext, AGLContext, (void), ())
-SOFT_LINK(AGL, aglSetCurrentContext, GLboolean, (AGLContext ctx), (ctx))
-SOFT_LINK(AGL, aglGetError, GLenum, (void), ())
-SOFT_LINK(AGL, aglUpdateContext, GLboolean, (AGLContext ctx), (ctx))
-SOFT_LINK(AGL, aglErrorString, const GLubyte *, (GLenum code), (code))
+};
 
 @interface WebBaseNetscapePluginView (Internal)
 - (void)_viewHasMoved;
 - (NPError)_createPlugin;
 - (void)_destroyPlugin;
 - (NSBitmapImageRep *)_printedPluginBitmap;
-- (BOOL)_createAGLContextIfNeeded;
-- (BOOL)_createWindowedAGLContext;
-- (BOOL)_createWindowlessAGLContext;
-- (CGLContextObj)_cglContext;
-- (BOOL)_getAGLOffscreenBuffer:(GLvoid **)outBuffer width:(GLsizei *)outWidth height:(GLsizei *)outHeight;
-- (void)_destroyAGLContext;
-- (void)_reshapeAGLWindow;
-- (void)_hideAGLWindow;
-- (NSImage *)_aglOffscreenImageForDrawingInRect:(NSRect)drawingInRect;
 - (void)_redeliverStream;
 @end
 
 static WebBaseNetscapePluginView *currentPluginView = nil;
 
 typedef struct OpaquePortState* PortState;
+
+static const double ThrottledTimerInterval = 0.25;
+
+class PluginTimer : public TimerBase {
+public:
+    typedef void (*TimerFunc)(NPP npp, uint32 timerID);
+    
+    PluginTimer(NPP npp, uint32 timerID, uint32 interval, NPBool repeat, TimerFunc timerFunc)
+        : m_npp(npp)
+        , m_timerID(timerID)
+        , m_interval(interval)
+        , m_repeat(repeat)
+        , m_timerFunc(timerFunc)
+    {
+    }
+    
+    void start(bool throttle)
+    {
+        ASSERT(!isActive());
+        
+        double timeInterval = throttle ? ThrottledTimerInterval : m_interval / 1000.0;
+        if (m_repeat)
+            startRepeating(timeInterval);
+        else
+            startOneShot(timeInterval);
+    }
+
+private:
+    virtual void fired() 
+    {
+        m_timerFunc(m_npp, m_timerID);
+        if (!m_repeat)
+            delete this;
+    }
+    
+    NPP m_npp;
+    uint32 m_timerID;
+    uint32 m_interval;
+    NPBool m_repeat;
+    TimerFunc m_timerFunc;
+};
 
 #ifndef NP_NO_QUICKDRAW
 
@@ -140,9 +158,10 @@ typedef struct {
     CGContextRef context;
 } PortState_CG;
 
-typedef struct {
-    AGLContext oldContext;
-} PortState_GL;
+@class NSTextInputContext;
+@interface NSResponder (AppKitDetails)
+- (NSTextInputContext *)inputContext;
+@end
 
 @interface WebPluginRequest : NSObject
 {
@@ -168,8 +187,6 @@ typedef struct {
 - (NSInteger)_web_locationAfterFirstBlankLine;
 @end
 
-static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEvent, void *pluginView);
-
 @interface WebBaseNetscapePluginView (ForwardDeclarations)
 - (void)setWindowIfNecessary;
 - (NPError)loadRequest:(NSMutableURLRequest *)request inTarget:(const char *)cTarget withNotifyData:(void *)notifyData sendNotification:(BOOL)sendNotification;
@@ -187,72 +204,6 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
 #pragma mark EVENTS
 
-+ (void)getCarbonEvent:(EventRecord *)carbonEvent
-{
-    carbonEvent->what = nullEvent;
-    carbonEvent->message = 0;
-    carbonEvent->when = TickCount();
-    
-    GetGlobalMouse(&carbonEvent->where);
-    carbonEvent->where.h = static_cast<short>(carbonEvent->where.h * HIGetScaleFactor());
-    carbonEvent->where.v = static_cast<short>(carbonEvent->where.v * HIGetScaleFactor());
-    carbonEvent->modifiers = GetCurrentKeyModifiers();
-    if (!Button())
-        carbonEvent->modifiers |= btnState;
-}
-
-- (void)getCarbonEvent:(EventRecord *)carbonEvent
-{
-    [[self class] getCarbonEvent:carbonEvent];
-}
-
-- (EventModifiers)modifiersForEvent:(NSEvent *)event
-{
-    EventModifiers modifiers;
-    unsigned int modifierFlags = [event modifierFlags];
-    NSEventType eventType = [event type];
-    
-    modifiers = 0;
-    
-    if (eventType != NSLeftMouseDown && eventType != NSRightMouseDown)
-        modifiers |= btnState;
-    
-    if (modifierFlags & NSCommandKeyMask)
-        modifiers |= cmdKey;
-    
-    if (modifierFlags & NSShiftKeyMask)
-        modifiers |= shiftKey;
-
-    if (modifierFlags & NSAlphaShiftKeyMask)
-        modifiers |= alphaLock;
-
-    if (modifierFlags & NSAlternateKeyMask)
-        modifiers |= optionKey;
-
-    if (modifierFlags & NSControlKeyMask || eventType == NSRightMouseDown)
-        modifiers |= controlKey;
-    
-    return modifiers;
-}
-
-- (void)getCarbonEvent:(EventRecord *)carbonEvent withEvent:(NSEvent *)cocoaEvent
-{
-    if (WKConvertNSEventToCarbonEvent(carbonEvent, cocoaEvent)) {
-        carbonEvent->where.h = static_cast<short>(carbonEvent->where.h * HIGetScaleFactor());
-        carbonEvent->where.v = static_cast<short>(carbonEvent->where.v * HIGetScaleFactor());
-        return;
-    }
-    
-    NSPoint where = [[cocoaEvent window] convertBaseToScreen:[cocoaEvent locationInWindow]];
-        
-    carbonEvent->what = nullEvent;
-    carbonEvent->message = 0;
-    carbonEvent->when = (UInt32)([cocoaEvent timestamp] * 60); // seconds to ticks
-    carbonEvent->where.h = (short)where.x;
-    carbonEvent->where.v = (short)(NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - where.y);
-    carbonEvent->modifiers = [self modifiersForEvent:cocoaEvent];
-}
-
 - (BOOL)superviewsHaveSuperviews
 {
     NSView *contentView = [[self window] contentView];
@@ -265,14 +216,14 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     return NO;
 }
 
-#ifndef NP_NO_QUICKDRAW
 
 // The WindowRef created by -[NSWindow windowRef] has a QuickDraw GrafPort that covers 
 // the entire window frame (or structure region to use the Carbon term) rather then just the window content.
 // We can remove this when <rdar://problem/4201099> is fixed.
 - (void)fixWindowPort
 {
-    ASSERT(drawingModel == NPDrawingModelQuickDraw);
+#ifndef NP_NO_QUICKDRAW
+    ASSERT(isDrawingModelQuickDraw(drawingModel));
     
     NSWindow *currentWindow = [self currentWindow];
     if ([currentWindow isKindOfClass:objc_getClass("NSCarbonWindow")])
@@ -290,8 +241,10 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     PortSize(static_cast<short>(contentRect.size.width), static_cast<short>(contentRect.size.height));
     
     SetPort(oldPort);
+#endif
 }
 
+#ifndef NP_NO_QUICKDRAW
 static UInt32 getQDPixelFormatForBitmapContext(CGContextRef context)
 {
     UInt32 byteOrder = CGBitmapContextGetBitmapInfo(context) & kCGBitmapByteOrderMask;
@@ -345,18 +298,14 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (PortState)saveAndSetNewPortStateForUpdate:(BOOL)forUpdate
 {
+    ASSERT(drawingModel != NPDrawingModelCoreAnimation);
     ASSERT([self currentWindow] != nil);
 
-#ifndef NP_NO_QUICKDRAW
     // If drawing with QuickDraw, fix the window port so that it has the same bounds as the NSWindow's
     // content view.  This makes it easier to convert between AppKit view and QuickDraw port coordinates.
-    if (drawingModel == NPDrawingModelQuickDraw)
+    if (isDrawingModelQuickDraw(drawingModel))
         [self fixWindowPort];
-#endif
 
-    WindowRef windowRef = (WindowRef)[[self currentWindow] windowRef];
-    ASSERT(windowRef);
-    
     // Use AppKit to convert view coordinates to NSWindow coordinates.
     NSRect boundsInWindow = [self convertRect:[self bounds] toView:nil];
     NSRect visibleRectInWindow = [self convertRect:[self visibleRect] toView:nil];
@@ -367,8 +316,11 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     visibleRectInWindow.origin.y = borderViewHeight - NSMaxY(visibleRectInWindow);
     
 #ifndef NP_NO_QUICKDRAW
+    WindowRef windowRef = (WindowRef)[[self currentWindow] windowRef];
+    ASSERT(windowRef);
+
     // Look at the Carbon port to convert top-left-based window coordinates into top-left-based content coordinates.
-    if (drawingModel == NPDrawingModelQuickDraw) {
+    if (isDrawingModelQuickDraw(drawingModel)) {
         ::Rect portBounds;
         CGrafPtr port = GetWindowPort(windowRef);
         GetPortBounds(port, &portBounds);
@@ -508,35 +460,38 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 window.clipRect.left + nPort.qdPort.portx, window.clipRect.top + nPort.qdPort.porty,
                 window.clipRect.right + nPort.qdPort.portx, window.clipRect.bottom + nPort.qdPort.porty);
             
-            // Clip to dirty region so plug-in does not draw over already-drawn regions of the window that are
-            // not going to be redrawn this update.  This forces plug-ins to play nice with z-index ordering.
-            if (forUpdate) {
-                RgnHandle viewClipRegion = NewRgn();
-                
-                // Get list of dirty rects from the opaque ancestor -- WebKit does some tricks with invalidation and
-                // display to enable z-ordering for NSViews; a side-effect of this is that only the WebHTMLView
-                // knows about the true set of dirty rects.
-                NSView *opaqueAncestor = [self opaqueAncestor];
-                const NSRect *dirtyRects;
-                NSInteger dirtyRectCount, dirtyRectIndex;
-                [opaqueAncestor getRectsBeingDrawn:&dirtyRects count:&dirtyRectCount];
+            // Clip to the dirty region if drawing to a window. When drawing to another bitmap context, do not clip.
+            if ([NSGraphicsContext currentContext] == [[self currentWindow] graphicsContext]) {
+                // Clip to dirty region so plug-in does not draw over already-drawn regions of the window that are
+                // not going to be redrawn this update.  This forces plug-ins to play nice with z-index ordering.
+                if (forUpdate) {
+                    RgnHandle viewClipRegion = NewRgn();
+                    
+                    // Get list of dirty rects from the opaque ancestor -- WebKit does some tricks with invalidation and
+                    // display to enable z-ordering for NSViews; a side-effect of this is that only the WebHTMLView
+                    // knows about the true set of dirty rects.
+                    NSView *opaqueAncestor = [self opaqueAncestor];
+                    const NSRect *dirtyRects;
+                    NSInteger dirtyRectCount, dirtyRectIndex;
+                    [opaqueAncestor getRectsBeingDrawn:&dirtyRects count:&dirtyRectCount];
 
-                for (dirtyRectIndex = 0; dirtyRectIndex < dirtyRectCount; dirtyRectIndex++) {
-                    NSRect dirtyRect = [self convertRect:dirtyRects[dirtyRectIndex] fromView:opaqueAncestor];
-                    if (!NSEqualSizes(dirtyRect.size, NSZeroSize)) {
-                        // Create a region for this dirty rect
-                        RgnHandle dirtyRectRegion = NewRgn();
-                        SetRectRgn(dirtyRectRegion, static_cast<short>(NSMinX(dirtyRect)), static_cast<short>(NSMinY(dirtyRect)), static_cast<short>(NSMaxX(dirtyRect)), static_cast<short>(NSMaxY(dirtyRect)));
-                        
-                        // Union this dirty rect with the rest of the dirty rects
-                        UnionRgn(viewClipRegion, dirtyRectRegion, viewClipRegion);
-                        DisposeRgn(dirtyRectRegion);
+                    for (dirtyRectIndex = 0; dirtyRectIndex < dirtyRectCount; dirtyRectIndex++) {
+                        NSRect dirtyRect = [self convertRect:dirtyRects[dirtyRectIndex] fromView:opaqueAncestor];
+                        if (!NSEqualSizes(dirtyRect.size, NSZeroSize)) {
+                            // Create a region for this dirty rect
+                            RgnHandle dirtyRectRegion = NewRgn();
+                            SetRectRgn(dirtyRectRegion, static_cast<short>(NSMinX(dirtyRect)), static_cast<short>(NSMinY(dirtyRect)), static_cast<short>(NSMaxX(dirtyRect)), static_cast<short>(NSMaxY(dirtyRect)));
+                            
+                            // Union this dirty rect with the rest of the dirty rects
+                            UnionRgn(viewClipRegion, dirtyRectRegion, viewClipRegion);
+                            DisposeRgn(dirtyRectRegion);
+                        }
                     }
+                
+                    // Intersect the dirty region with the clip region, so that we only draw over dirty parts
+                    SectRgn(clipRegion, viewClipRegion, clipRegion);
+                    DisposeRgn(viewClipRegion);
                 }
-            
-                // Intersect the dirty region with the clip region, so that we only draw over dirty parts
-                SectRgn(clipRegion, viewClipRegion, clipRegion);
-                DisposeRgn(viewClipRegion);
             }
 
             // Switch to the port and set it up.
@@ -570,72 +525,33 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             cgPortState->context = context;
             
             // Update the plugin's window/context
-            nPort.cgPort.window = windowRef;
+#ifdef NP_NO_CARBON
+            nPort.cgPort.window = (NPNSWindow *)[self currentWindow];
+#else
+            nPort.cgPort.window = eventHandler->platformWindow([self currentWindow]);
+#endif /* NP_NO_CARBON */
             nPort.cgPort.context = context;
             window.window = &nPort.cgPort;
 
             // Save current graphics context's state; will be restored by -restorePortState:
             CGContextSaveGState(context);
-            
-            // Get list of dirty rects from the opaque ancestor -- WebKit does some tricks with invalidation and
-            // display to enable z-ordering for NSViews; a side-effect of this is that only the WebHTMLView
-            // knows about the true set of dirty rects.
-            NSView *opaqueAncestor = [self opaqueAncestor];
-            const NSRect *dirtyRects;
-            NSInteger count;
-            [opaqueAncestor getRectsBeingDrawn:&dirtyRects count:&count];
-            Vector<CGRect, 16> convertedDirtyRects;
-            convertedDirtyRects.resize(count);
-            for (int i = 0; i < count; ++i)
-                reinterpret_cast<NSRect&>(convertedDirtyRects[i]) = [self convertRect:dirtyRects[i] fromView:opaqueAncestor];
-            CGContextClipToRects(context, convertedDirtyRects.data(), count);
 
-            break;
-        }
-
-        case NPDrawingModelOpenGL: {
-            ASSERT([NSView focusView] == self);
-
-            // Clear the "current" window and context -- they will be assigned below (if all goes well)
-            nPort.aglPort.window = NULL;
-            nPort.aglPort.context = NULL;
-            
-            // Create AGL context if needed
-            if (![self _createAGLContextIfNeeded]) {
-                LOG_ERROR("Could not create AGL context");
-                return NULL;
+            // Clip to the dirty region if drawing to a window. When drawing to another bitmap context, do not clip.
+            if ([NSGraphicsContext currentContext] == [[self currentWindow] graphicsContext]) {
+                // Get list of dirty rects from the opaque ancestor -- WebKit does some tricks with invalidation and
+                // display to enable z-ordering for NSViews; a side-effect of this is that only the WebHTMLView
+                // knows about the true set of dirty rects.
+                NSView *opaqueAncestor = [self opaqueAncestor];
+                const NSRect *dirtyRects;
+                NSInteger count;
+                [opaqueAncestor getRectsBeingDrawn:&dirtyRects count:&count];
+                Vector<CGRect, 16> convertedDirtyRects;
+                convertedDirtyRects.resize(count);
+                for (int i = 0; i < count; ++i)
+                    reinterpret_cast<NSRect&>(convertedDirtyRects[i]) = [self convertRect:dirtyRects[i] fromView:opaqueAncestor];
+                CGContextClipToRects(context, convertedDirtyRects.data(), count);
             }
-            
-            // Update the plugin's window/context
-            nPort.aglPort.window = windowRef;
-            nPort.aglPort.context = [self _cglContext];
-            window.window = &nPort.aglPort;
-            
-            // Save/set current AGL context
-            PortState_GL *glPortState = (PortState_GL *)malloc(sizeof(PortState_GL));
-            portState = (PortState)glPortState;
-            glPortState->oldContext = aglGetCurrentContext();
-            aglSetCurrentContext(aglContext);
-            
-            // Adjust viewport according to clip
-            switch (window.type) {
-                case NPWindowTypeWindow:
-                    glViewport(static_cast<GLint>(NSMinX(boundsInWindow) - NSMinX(visibleRectInWindow)),
-                        static_cast<GLint>(NSMaxY(visibleRectInWindow) - NSMaxY(boundsInWindow)),
-                            window.width, window.height);
-                    break;
-                
-                case NPWindowTypeDrawable: {
-                    GLsizei width, height;
-                    if ([self _getAGLOffscreenBuffer:NULL width:&width height:&height])
-                        glViewport(0, 0, width, height);
-                    break;
-                }
-                
-                default:
-                    ASSERT_NOT_REACHED();
-                    break;
-            }
+
             break;
         }
         
@@ -655,6 +571,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (void)restorePortState:(PortState)portState
 {
+    if (drawingModel == NPDrawingModelCoreAnimation)
+        return;
+
     ASSERT([self currentWindow]);
     ASSERT(portState);
     
@@ -690,31 +609,19 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             ASSERT(((PortState_CG *)portState)->context == nPort.cgPort.context);
             CGContextRestoreGState(nPort.cgPort.context);
             break;
-        
-        case NPDrawingModelOpenGL:
-            aglSetCurrentContext(((PortState_GL *)portState)->oldContext);
-            break;
-        
+
         default:
             ASSERT_NOT_REACHED();
             break;
     }
 }
 
-- (BOOL)sendEvent:(EventRecord *)event
+- (BOOL)sendEvent:(void*)event isDrawRect:(BOOL)eventIsDrawRect
 {
     if (![self window])
         return NO;
     ASSERT(event);
-   
-    // If at any point the user clicks or presses a key from within a plugin, set the 
-    // currentEventIsUserGesture flag to true. This is important to differentiate legitimate 
-    // window.open() calls;  we still want to allow those.  See rdar://problem/4010765
-    if (event->what == mouseDown || event->what == keyDown || event->what == mouseUp || event->what == autoKey)
-        currentEventIsUserGesture = YES;
-    
-    suspendKeyUpEvents = NO;
-    
+       
     if (!isStarted)
         return NO;
 
@@ -738,26 +645,24 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!wasDeferring)
         page->setDefersLoading(true);
 
-    // Can only send updateEvt to CoreGraphics and OpenGL plugins when actually drawing
-    ASSERT((drawingModel != NPDrawingModelCoreGraphics && drawingModel != NPDrawingModelOpenGL) || event->what != updateEvt || [NSView focusView] == self);
+    // Can only send drawRect (updateEvt) to CoreGraphics plugins when actually drawing
+    ASSERT((drawingModel != NPDrawingModelCoreGraphics) || !eventIsDrawRect || [NSView focusView] == self);
     
-    BOOL updating = event->what == updateEvt;
-    PortState portState;
-    if ((drawingModel != NPDrawingModelCoreGraphics && drawingModel != NPDrawingModelOpenGL) || event->what == updateEvt) {
-        // In CoreGraphics or OpenGL mode, the port state only needs to be saved/set when redrawing the plug-in view.  The plug-in is not
-        // allowed to draw at any other time.
-        portState = [self saveAndSetNewPortStateForUpdate:updating];
-        
+    PortState portState = NULL;
+    
+    if (isDrawingModelQuickDraw(drawingModel) || (drawingModel != NPDrawingModelCoreAnimation && eventIsDrawRect)) {
+        // In CoreGraphics mode, the port state only needs to be saved/set when redrawing the plug-in view.
+        // The plug-in is not allowed to draw at any other time.
+        portState = [self saveAndSetNewPortStateForUpdate:eventIsDrawRect];
         // We may have changed the window, so inform the plug-in.
         [self setWindowIfNecessary];
-    } else
-        portState = NULL;
+    }
     
 #if !defined(NDEBUG) && !defined(NP_NO_QUICKDRAW)
     // Draw green to help debug.
     // If we see any green we know something's wrong.
     // Note that PaintRect() only works for QuickDraw plugins; otherwise the current QD port is undefined.
-    if (drawingModel == NPDrawingModelQuickDraw && !isTransparent && event->what == updateEvt) {
+    if (isDrawingModelQuickDraw(drawingModel) && !isTransparent && eventIsDrawRect) {
         ForeColor(greenColor);
         const ::Rect bigRect = { -10000, -10000, 10000, 10000 };
         PaintRect(&bigRect);
@@ -771,13 +676,11 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     BOOL acceptedEvent;
     [self willCallPlugInFunction];
     {
-        KJS::JSLock::DropAllLocks dropAllLocks;
+        JSC::JSLock::DropAllLocks dropAllLocks(false);
         acceptedEvent = NPP_HandleEvent(plugin, event);
     }
     [self didCallPlugInFunction];
-    
-    currentEventIsUserGesture = NO;
-    
+        
     if (portState) {
         if ([self currentWindow])
             [self restorePortState:portState];
@@ -792,85 +695,61 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (void)sendActivateEvent:(BOOL)activate
 {
-    EventRecord event;
-    
-    [self getCarbonEvent:&event];
-    event.what = activateEvt;
-    WindowRef windowRef = (WindowRef)[[self window] windowRef];
-    event.message = (unsigned long)windowRef;
-    if (activate) {
-        event.modifiers |= activeFlag;
-    }
-    
-    BOOL acceptedEvent;
-    acceptedEvent = [self sendEvent:&event]; 
-    
-    LOG(PluginEvents, "NPP_HandleEvent(activateEvent): %d  isActive: %d", acceptedEvent, activate);
+    if (!isStarted)
+        return;
+
+    eventHandler->windowFocusChanged(activate);
 }
 
-- (BOOL)sendUpdateEvent
+- (void)sendDrawRectEvent:(NSRect)rect
 {
-    EventRecord event;
+    ASSERT(eventHandler);
     
-    [self getCarbonEvent:&event];
-    event.what = updateEvt;
-    WindowRef windowRef = (WindowRef)[[self window] windowRef];
-    event.message = (unsigned long)windowRef;
-
-    BOOL acceptedEvent = [self sendEvent:&event];
-
-    LOG(PluginEvents, "NPP_HandleEvent(updateEvt): %d", acceptedEvent);
-
-    return acceptedEvent;
+    eventHandler->drawRect(rect);
 }
 
--(void)sendNullEvent
+- (void)stopTimers
 {
-    EventRecord event;
-
-    [self getCarbonEvent:&event];
-
-    // Plug-in should not react to cursor position when not active or when a menu is down.
-    MenuTrackingData trackingData;
-    OSStatus error = GetMenuTrackingData(NULL, &trackingData);
-
-    // Plug-in should not react to cursor position when the actual window is not key.
-    if (![[self window] isKeyWindow] || (error == noErr && trackingData.menu)) {
-        // FIXME: Does passing a v and h of -1 really prevent it from reacting to the cursor position?
-        event.where.v = -1;
-        event.where.h = -1;
-    }
+    if (eventHandler)
+        eventHandler->stopTimers();
     
-    [self sendEvent:&event];
+    shouldFireTimers = NO;
+    
+    if (!timers)
+        return;
+
+    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+        PluginTimer* timer = it->second;
+        timer->stop();
+    }    
 }
 
-- (void)stopNullEvents
-{
-    [nullEventTimer invalidate];
-    [nullEventTimer release];
-    nullEventTimer = nil;
-}
-
-- (void)restartNullEvents
+- (void)restartTimers
 {
     ASSERT([self window]);
     
-    if (nullEventTimer)
-        [self stopNullEvents];
+    if (shouldFireTimers)
+        [self stopTimers];
     
     if (!isStarted || [[self window] isMiniaturized])
         return;
 
-    NSTimeInterval interval;
-
+    shouldFireTimers = YES;
+    
     // If the plugin is completely obscured (scrolled out of view, for example), then we will
     // send null events at a reduced rate.
-    interval = !isCompletelyObscured ? NullEventIntervalActive : NullEventIntervalNotActive;    
-    nullEventTimer = [[NSTimer scheduledTimerWithTimeInterval:interval
-                                                       target:self
-                                                     selector:@selector(sendNullEvent)
-                                                     userInfo:nil
-                                                      repeats:YES] retain];
+    eventHandler->startTimers(isCompletelyObscured);
+    
+    if (!timers)
+        return;
+    
+    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+        PluginTimer* timer = it->second;
+        ASSERT(!timer->isActive());
+        timer->start(isCompletelyObscured);
+    }    
 }
 
 - (BOOL)acceptsFirstResponder
@@ -878,50 +757,21 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return YES;
 }
 
-- (void)installKeyEventHandler
-{
-    static const EventTypeSpec sTSMEvents[] =
-    {
-    { kEventClassTextInput, kEventTextInputUnicodeForKeyEvent }
-    };
-    
-    if (!keyEventHandler) {
-        InstallEventHandler(GetWindowEventTarget((WindowRef)[[self window] windowRef]),
-                            NewEventHandlerUPP(TSMEventHandler),
-                            GetEventTypeCount(sTSMEvents),
-                            sTSMEvents,
-                            self,
-                            &keyEventHandler);
-    }
-}
-
-- (void)removeKeyEventHandler
-{
-    if (keyEventHandler) {
-        RemoveEventHandler(keyEventHandler);
-        keyEventHandler = NULL;
-    }
-}
-
 - (void)setHasFocus:(BOOL)flag
 {
-    if (hasFocus != flag) {
-        hasFocus = flag;
-        EventRecord event;
-        [self getCarbonEvent:&event];
-        BOOL acceptedEvent;
-        if (hasFocus) {
-            event.what = getFocusEvent;
-            acceptedEvent = [self sendEvent:&event]; 
-            LOG(PluginEvents, "NPP_HandleEvent(getFocusEvent): %d", acceptedEvent);
-            [self installKeyEventHandler];
-        } else {
-            event.what = loseFocusEvent;
-            acceptedEvent = [self sendEvent:&event]; 
-            LOG(PluginEvents, "NPP_HandleEvent(loseFocusEvent): %d", acceptedEvent);
-            [self removeKeyEventHandler];
-        }
-    }
+    if (!isStarted)
+        return;
+
+    if (hasFocus == flag)
+        return;
+    
+    hasFocus = flag;
+    
+    // We need to null check the event handler here because
+    // the plug-in view can resign focus after it's been stopped
+    // and the event handler has been deleted.
+    if (eventHandler)
+        eventHandler->focusChanged(hasFocus);    
 }
 
 - (BOOL)becomeFirstResponder
@@ -950,193 +800,131 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (void)mouseDown:(NSEvent *)theEvent
 {
-    EventRecord event;
+    if (!isStarted)
+        return;
 
-    [self getCarbonEvent:&event withEvent:theEvent];
-    event.what = mouseDown;
-
-    BOOL acceptedEvent;
-    acceptedEvent = [self sendEvent:&event]; 
-    
-    LOG(PluginEvents, "NPP_HandleEvent(mouseDown): %d pt.v=%d, pt.h=%d", acceptedEvent, event.where.v, event.where.h);
+    eventHandler->mouseDown(theEvent);
 }
 
 - (void)mouseUp:(NSEvent *)theEvent
 {
-    EventRecord event;
-    
-    [self getCarbonEvent:&event withEvent:theEvent];
-    event.what = mouseUp;
+    if (!isStarted)
+        return;
 
-    BOOL acceptedEvent;
-    acceptedEvent = [self sendEvent:&event]; 
-    
-    LOG(PluginEvents, "NPP_HandleEvent(mouseUp): %d pt.v=%d, pt.h=%d", acceptedEvent, event.where.v, event.where.h);
+    eventHandler->mouseUp(theEvent);
 }
 
 - (void)mouseEntered:(NSEvent *)theEvent
 {
-    EventRecord event;
-    
-    [self getCarbonEvent:&event withEvent:theEvent];
-    event.what = adjustCursorEvent;
+    if (!isStarted)
+        return;
 
-    BOOL acceptedEvent;
-    acceptedEvent = [self sendEvent:&event]; 
-
-    LOG(PluginEvents, "NPP_HandleEvent(mouseEntered): %d", acceptedEvent);
+    eventHandler->mouseEntered(theEvent);
 }
 
 - (void)mouseExited:(NSEvent *)theEvent
 {
-    EventRecord event;
+    if (!isStarted)
+        return;
+
+    eventHandler->mouseExited(theEvent);
     
-    [self getCarbonEvent:&event withEvent:theEvent];
-    event.what = adjustCursorEvent;
-
-    BOOL acceptedEvent;
-    acceptedEvent = [self sendEvent:&event]; 
-
     // Set cursor back to arrow cursor.  Because NSCursor doesn't know about changes that the plugin made, we could get confused about what we think the
     // current cursor is otherwise.  Therefore we have no choice but to unconditionally reset the cursor when the mouse exits the plugin.
     [[NSCursor arrowCursor] set];
-
-    LOG(PluginEvents, "NPP_HandleEvent(mouseExited): %d", acceptedEvent);
 }
 
+// We can't name this method mouseMoved because we don't want to override 
+// the NSView mouseMoved implementation.
+- (void)handleMouseMoved:(NSEvent *)theEvent
+{
+    if (!isStarted)
+        return;
+
+    eventHandler->mouseMoved(theEvent);
+}
+    
 - (void)mouseDragged:(NSEvent *)theEvent
 {
-    // Do nothing so that other responders don't respond to the drag that initiated in this view.
+    if (!isStarted)
+        return;
+
+    eventHandler->mouseDragged(theEvent);
 }
 
-- (UInt32)keyMessageForEvent:(NSEvent *)event
+- (void)scrollWheel:(NSEvent *)theEvent
 {
-    NSData *data = [[event characters] dataUsingEncoding:CFStringConvertEncodingToNSStringEncoding(CFStringGetSystemEncoding())];
-    if (!data) {
-        return 0;
+    if (!isStarted) {
+        [super scrollWheel:theEvent];
+        return;
     }
-    UInt8 characterCode;
-    [data getBytes:&characterCode length:1];
-    UInt16 keyCode = [event keyCode];
-    return keyCode << 8 | characterCode;
+
+    if (!eventHandler->scrollWheel(theEvent))
+        [super scrollWheel:theEvent];
 }
 
 - (void)keyUp:(NSEvent *)theEvent
 {
-    WKSendKeyEventToTSM(theEvent);
-    
-    // TSM won't send keyUp events so we have to send them ourselves.
-    // Only send keyUp events after we receive the TSM callback because this is what plug-in expect from OS 9.
-    if (!suspendKeyUpEvents) {
-        EventRecord event;
-        
-        [self getCarbonEvent:&event withEvent:theEvent];
-        event.what = keyUp;
-        
-        if (event.message == 0) {
-            event.message = [self keyMessageForEvent:theEvent];
-        }
-        
-        [self sendEvent:&event];
-    }
+    if (!isStarted)
+        return;
+
+    eventHandler->keyUp(theEvent);
 }
 
 - (void)keyDown:(NSEvent *)theEvent
 {
-    suspendKeyUpEvents = YES;
-    WKSendKeyEventToTSM(theEvent);
+    if (!isStarted)
+        return;
+
+    eventHandler->keyDown(theEvent);
 }
 
-static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEvent, void *pluginView)
-{    
-    EventRef rawKeyEventRef;
-    OSStatus status = GetEventParameter(inEvent, kEventParamTextInputSendKeyboardEvent, typeEventRef, NULL, sizeof(EventRef), NULL, &rawKeyEventRef);
-    if (status != noErr) {
-        LOG_ERROR("GetEventParameter failed with error: %d", status);
-        return noErr;
-    }
-    
-    // Two-pass read to allocate/extract Mac charCodes
-    ByteCount numBytes;    
-    status = GetEventParameter(rawKeyEventRef, kEventParamKeyMacCharCodes, typeChar, NULL, 0, &numBytes, NULL);
-    if (status != noErr) {
-        LOG_ERROR("GetEventParameter failed with error: %d", status);
-        return noErr;
-    }
-    char *buffer = (char *)malloc(numBytes);
-    status = GetEventParameter(rawKeyEventRef, kEventParamKeyMacCharCodes, typeChar, NULL, numBytes, NULL, buffer);
-    if (status != noErr) {
-        LOG_ERROR("GetEventParameter failed with error: %d", status);
-        free(buffer);
-        return noErr;
-    }
-    
-    EventRef cloneEvent = CopyEvent(rawKeyEventRef);
-    unsigned i;
-    for (i = 0; i < numBytes; i++) {
-        status = SetEventParameter(cloneEvent, kEventParamKeyMacCharCodes, typeChar, 1 /* one char code */, &buffer[i]);
-        if (status != noErr) {
-            LOG_ERROR("SetEventParameter failed with error: %d", status);
-            free(buffer);
-            return noErr;
-        }
-        
-        EventRecord eventRec;
-        if (ConvertEventRefToEventRecord(cloneEvent, &eventRec)) {
-            BOOL acceptedEvent;
-            acceptedEvent = [(WebBaseNetscapePluginView *)pluginView sendEvent:&eventRec];
-            
-            LOG(PluginEvents, "NPP_HandleEvent(keyDown): %d charCode:%c keyCode:%lu",
-                acceptedEvent, (char) (eventRec.message & charCodeMask), (eventRec.message & keyCodeMask));
-            
-            // We originally thought that if the plug-in didn't accept this event,
-            // we should pass it along so that keyboard scrolling, for example, will work.
-            // In practice, this is not a good idea, because plug-ins tend to eat the event but return false.
-            // MacIE handles each key event twice because of this, but we will emulate the other browsers instead.
-        }
-    }
-    ReleaseEvent(cloneEvent);
-    
-    free(buffer);
-
-    return noErr;
-}
-
-// Fake up command-modified events so cut, copy, paste and select all menus work.
-- (void)sendModifierEventWithKeyCode:(int)keyCode character:(char)character
+- (void)flagsChanged:(NSEvent *)theEvent
 {
-    EventRecord event;
-    [self getCarbonEvent:&event];
-    event.what = keyDown;
-    event.modifiers |= cmdKey;
-    event.message = keyCode << 8 | character;
-    [self sendEvent:&event];
+    if (!isStarted)
+        return;
+
+    eventHandler->flagsChanged(theEvent);
 }
 
 - (void)cut:(id)sender
 {
-    [self sendModifierEventWithKeyCode:7 character:'x'];
+    if (!isStarted)
+        return;
+
+    eventHandler->keyDown([NSApp currentEvent]);
 }
 
 - (void)copy:(id)sender
 {
-    [self sendModifierEventWithKeyCode:8 character:'c'];
+    if (!isStarted)
+        return;
+
+    eventHandler->keyDown([NSApp currentEvent]);
 }
 
 - (void)paste:(id)sender
 {
-    [self sendModifierEventWithKeyCode:9 character:'v'];
+    if (!isStarted)
+        return;
+
+    eventHandler->keyDown([NSApp currentEvent]);
 }
 
 - (void)selectAll:(id)sender
 {
-    [self sendModifierEventWithKeyCode:0 character:'a'];
+    if (!isStarted)
+        return;
+
+    eventHandler->keyDown([NSApp currentEvent]);
 }
 
 #pragma mark WEB_NETSCAPE_PLUGIN
 
 - (BOOL)isNewWindowEqualToOldWindow
 {
+    ASSERT(drawingModel != NPDrawingModelCoreAnimation);
+        
     if (window.x != lastSetWindow.x)
         return NO;
     if (window.y != lastSetWindow.y)
@@ -1174,14 +962,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
             if (nPort.cgPort.context != lastSetPort.cgPort.context)
                 return NO;
         break;
-            
-        case NPDrawingModelOpenGL:
-            if (nPort.aglPort.window != lastSetPort.aglPort.window)
-                return NO;
-            if (nPort.aglPort.context != lastSetPort.aglPort.context)
-                return NO;
-        break;
-        
+                    
         default:
             ASSERT_NOT_REACHED();
         break;
@@ -1192,6 +973,8 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
 - (void)updateAndSetWindow
 {
+    ASSERT(drawingModel != NPDrawingModelCoreAnimation);
+
     // A plug-in can only update if it's (1) already been started (2) isn't stopped
     // and (3) is able to draw on-screen. To meet condition (3) the plug-in must not
     // be hidden and be attached to a window. QuickDraw plug-ins are an important
@@ -1200,10 +983,24 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // NPP_SetWindow() with an empty NPWindow struct.
     if (!isStarted)
         return;
+#ifdef NP_NO_QUICKDRAW
+    if (![self canDraw])
+        return;
+#else
     if (drawingModel != NPDrawingModelQuickDraw && ![self canDraw])
         return;
+#endif // NP_NO_QUICKDRAW
     
     BOOL didLockFocus = [NSView focusView] != self && [self lockFocusIfCanDraw];
+    
+    if (drawingModel == NPDrawingModelCoreGraphics || isDrawingModelQuickDraw(drawingModel)) {
+        [self setWindowIfNecessary];
+        if (didLockFocus)
+            [self unlockFocus];
+
+        return;
+    }
+    
     PortState portState = [self saveAndSetNewPortState];
     if (portState) {
         [self setWindowIfNecessary];
@@ -1216,6 +1013,8 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
 - (void)setWindowIfNecessary
 {
+    ASSERT(drawingModel != NPDrawingModelCoreAnimation);
+           
     if (!isStarted) {
         return;
     }
@@ -1230,12 +1029,12 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         
         inSetWindow = YES;
         
-        // A CoreGraphics or OpenGL plugin's window may only be set while the plugin is being updated
-        ASSERT((drawingModel != NPDrawingModelCoreGraphics && drawingModel != NPDrawingModelOpenGL) || [NSView focusView] == self);
+        // A CoreGraphics plugin's window may only be set while the plugin is being updated
+        ASSERT((drawingModel != NPDrawingModelCoreGraphics) || [NSView focusView] == self);
         
         [self willCallPlugInFunction];
         {
-            KJS::JSLock::DropAllLocks dropAllLocks;
+            JSC::JSLock::DropAllLocks dropAllLocks(false);
             npErr = NPP_SetWindow(plugin, &window);
         }
         [self didCallPlugInFunction];
@@ -1254,12 +1053,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
                 LOG(Plugins, "NPP_SetWindow (CoreGraphics): %d, window=%p, context=%p, window.x:%d window.y:%d window.width:%d window.height:%d",
                 npErr, nPort.cgPort.window, nPort.cgPort.context, (int)window.x, (int)window.y, (int)window.width, (int)window.height);
             break;
-
-            case NPDrawingModelOpenGL:
-                LOG(Plugins, "NPP_SetWindow (CoreGraphics): %d, window=%p, context=%p, window.x:%d window.y:%d window.width:%d window.height:%d",
-                npErr, nPort.aglPort.window, nPort.aglPort.context, (int)window.x, (int)window.y, (int)window.width, (int)window.height);
-            break;
-            
+                        
             default:
                 ASSERT_NOT_REACHED();
             break;
@@ -1383,6 +1177,9 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // Initialize drawingModel to an invalid value so that we can detect when the plugin does not specify a drawingModel
     drawingModel = (NPDrawingModel)-1;
     
+    // Initialize eventModel to an invalid value so that we can detect when the plugin does not specify an event model.
+    eventModel = (NPEventModel)-1;
+    
     // Plug-ins are "windowed" by default.  On MacOS, windowed plug-ins share the same window and graphics port as the main
     // browser window.  Windowless plug-ins are rendered off-screen, then copied into the main browser window.
     window.type = NPWindowTypeWindow;
@@ -1400,26 +1197,71 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         // Default to QuickDraw if the plugin did not specify a drawing model.
         drawingModel = NPDrawingModelQuickDraw;
 #else
-        // QuickDraw is not available, so we can't default to it.  We could default to CoreGraphics instead, but
-        // if the plugin did not specify the CoreGraphics drawing model then it must be one of the old QuickDraw
-        // plugins.  Thus, the plugin is unsupported and should not be started.  Destroy it here and bail out.
-        LOG(Plugins, "Plugin only supports QuickDraw, but QuickDraw is unavailable: %@", pluginPackage);
-        [self _destroyPlugin];
-        [pluginPackage close];
-        return NO;
+        // QuickDraw is not available, so we can't default to it. Instead, default to CoreGraphics.
+        drawingModel = NPDrawingModelCoreGraphics;
 #endif
     }
 
-    isStarted = YES;
+    if (eventModel == (NPEventModel)-1) {
+        // If the plug-in did not specify a drawing model we default to Carbon when it is available.
+#ifndef NP_NO_CARBON
+        eventModel = NPEventModelCarbon;
+#else
+        eventModel = NPEventModelCocoa;
+#endif // NP_NO_CARBON
+    }
+
+#ifndef NP_NO_CARBON
+    if (eventModel == NPEventModelCocoa && isDrawingModelQuickDraw(drawingModel)) {
+        LOG(Plugins, "Plugin can't use use Cocoa event model with QuickDraw drawing model: %@", pluginPackage);
+        [self _destroyPlugin];
+        [pluginPackage close];
         
-    [self updateAndSetWindow];
+        return NO;
+    }        
+#endif // NP_NO_CARBON
+    
+#ifndef BUILDING_ON_TIGER
+    if (drawingModel == NPDrawingModelCoreAnimation) {
+        void *value = 0;
+        if (NPP_GetValue(plugin, NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
+            _layer = (CALayer *)value;
+            [self setWantsLayer:YES];
+            [self setLayer:_layer];
+            LOG(Plugins, "%@ is using Core Animation drawing model with layer %@", pluginPackage, _layer);
+        }
+
+        ASSERT(_layer);
+    }
+#endif
+    
+    // Create the event handler
+    eventHandler = WebNetscapePluginEventHandler::create(self);
+    
+    // Get the text input vtable
+    if (eventModel == NPEventModelCocoa) {
+        [self willCallPlugInFunction];
+        {
+            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            NPPluginTextInputFuncs *value;
+            if (NPP_GetValue(plugin, NPPVpluginTextInputFuncs, &value) == NPERR_NO_ERROR && value)
+                textInputFuncs = value;
+        }
+        [self didCallPlugInFunction];
+    }
+    
+    isStarted = YES;
+    [[self webView] addPluginInstanceView:self];
+
+    if (drawingModel == NPDrawingModelCoreGraphics || isDrawingModelQuickDraw(drawingModel))
+        [self updateAndSetWindow];
 
     if ([self window]) {
         [self addWindowObservers];
         if ([[self window] isKeyWindow]) {
             [self sendActivateEvent:YES];
         }
-        [self restartNullEvents];
+        [self restartTimers];
     }
 
     [self resetTrackingRect];
@@ -1446,15 +1288,20 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         return;
     
     isStarted = NO;
-    // To stop active streams it's necessary to invoke makeObjectsPerformSelector on a copy 
-    // of streams. This is because calling -[WebNetscapePluginStream stop] also has the side effect
-    // of removing a stream from this collection.
-    NSArray *streamsCopy = [streams copy];
-    [streamsCopy makeObjectsPerformSelector:@selector(stop)];
-    [streamsCopy release];
+    
+    [[self webView] removePluginInstanceView:self];
+
+    // To stop active streams it's necessary to invoke stop() on a copy 
+    // of streams. This is because calling WebNetscapePluginStream::stop() also has the side effect
+    // of removing a stream from this hash set.
+    Vector<RefPtr<WebNetscapePluginStream> > streamsCopy;
+    copyToVector(streams, streamsCopy);
+    for (size_t i = 0; i < streamsCopy.size(); i++)
+        streamsCopy[i]->stop();
+    
    
-    // Stop the null events
-    [self stopNullEvents];
+    // Stop the timers
+    [self stopTimers];
     
     // Stop notifications and callbacks.
     [self removeWindowObservers];
@@ -1467,17 +1314,20 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     [self _destroyPlugin];
     [pluginPackage close];
     
-    // We usually remove the key event handler in resignFirstResponder but it is possible that resignFirstResponder 
-    // may never get called so we can't completely rely on it.
-    [self removeKeyEventHandler];
+    delete eventHandler;
+    eventHandler = 0;
     
-    if (drawingModel == NPDrawingModelOpenGL)
-        [self _destroyAGLContext];
+    textInputFuncs = 0;
 }
 
 - (BOOL)isStarted
 {
     return isStarted;
+}
+
+- (NPEventModel)eventModel
+{
+    return eventModel;
 }
 
 - (WebDataSource *)dataSource
@@ -1608,7 +1458,6 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 {
     [super initWithFrame:frame];
  
-    streams = [[NSMutableArray alloc] init];
     pendingFrameLoads = [[NSMutableDictionary alloc] init];    
     
     // load the plug-in if it is not already loaded
@@ -1630,7 +1479,6 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         [self setMode:NP_EMBED];
     
     _loadManually = loadManually;
-    
     return self;
 }
 
@@ -1654,11 +1502,18 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     }
     free(cAttributes);
     free(cValues);
+    
+    ASSERT(!eventHandler);
+    
+    if (timers) {
+        deleteAllValues(*timers);
+        delete timers;
+    }    
 }
 
-- (void)disconnectStream:(WebBaseNetscapePluginStream*)stream
+- (void)disconnectStream:(WebNetscapePluginStream*)stream
 {
-    [streams removeObjectIdenticalTo:stream];    
+    streams.remove(stream);
 }
 
 - (void)dealloc
@@ -1666,19 +1521,15 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     ASSERT(!isStarted);
 
     [sourceURL release];
-    [_manualStream release];
     [_error release];
     
     [pluginPackage release];
-    [streams release];
     [MIMEType release];
     [baseURL release];
     [pendingFrameLoads release];
     [element release];
     
     ASSERT(!plugin);
-    ASSERT(!aglWindow);
-    ASSERT(!aglContext);
 
     [self fini];
 
@@ -1697,12 +1548,14 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
 - (void)drawRect:(NSRect)rect
 {
-    if (!isStarted) {
+    if (drawingModel == NPDrawingModelCoreAnimation)
         return;
-    }
+
+    if (!isStarted)
+        return;
     
     if ([NSGraphicsContext currentContextDrawingToScreen])
-        [self sendUpdateEvent];
+        [self sendDrawRectEvent:rect];
     else {
         NSBitmapImageRep *printedPluginBitmap = [self _printedPluginBitmap];
         if (printedPluginBitmap) {
@@ -1714,25 +1567,6 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
             CGContextTranslateCTM(cgContext, 0.0f, NSHeight(bounds));
             CGContextScaleCTM(cgContext, 1.0f, -1.0f);
             [printedPluginBitmap drawInRect:bounds];
-            CGContextRestoreGState(cgContext);
-        }
-    }
-    
-    // If this is a windowless OpenGL plugin, blit its contents back into this view.  The plug-in just drew into the offscreen context.
-    if (drawingModel == NPDrawingModelOpenGL && window.type == NPWindowTypeDrawable) {
-        NSImage *aglOffscreenImage = [self _aglOffscreenImageForDrawingInRect:rect];
-        if (aglOffscreenImage) {
-            // Flip the context before drawing because the CGL context is flipped relative to this view.
-            CGContextRef cgContext = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-            CGContextSaveGState(cgContext);
-            NSRect bounds = [self bounds];
-            CGContextTranslateCTM(cgContext, 0.0f, NSHeight(bounds));
-            CGContextScaleCTM(cgContext, 1.0f, -1.0f);
-            
-            // Copy 'rect' from the offscreen buffer to this view (the flip above makes this sort of tricky)
-            NSRect flippedRect = rect;
-            flippedRect.origin.y = NSMaxY(bounds) - NSMaxY(flippedRect);
-            [aglOffscreenImage drawInRect:flippedRect fromRect:flippedRect operation:NSCompositeSourceOver fraction:1.0f];
             CGContextRestoreGState(cgContext);
         }
     }
@@ -1754,10 +1588,10 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     [self _viewHasMoved];
 }
 
-#ifndef NP_NO_QUICKDRAW
 -(void)tellQuickTimeToChill
 {
-    ASSERT(drawingModel == NPDrawingModelQuickDraw);
+#ifndef NP_NO_QUICKDRAW
+    ASSERT(isDrawingModelQuickDraw(drawingModel));
     
     // Make a call to the secret QuickDraw API that makes QuickTime calm down.
     WindowRef windowRef = (WindowRef)[[self window] windowRef];
@@ -1768,15 +1602,13 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     ::Rect bounds;
     GetPortBounds(port, &bounds);
     WKCallDrawingNotification(port, &bounds);
-}
 #endif /* NP_NO_QUICKDRAW */
+}
 
 - (void)viewWillMoveToWindow:(NSWindow *)newWindow
 {
-#ifndef NP_NO_QUICKDRAW
-    if (drawingModel == NPDrawingModelQuickDraw)
+    if (isDrawingModelQuickDraw(drawingModel))
         [self tellQuickTimeToChill];
-#endif
 
     // We must remove the tracking rect before we move to the new window.
     // Once we move to the new window, it will be too late.
@@ -1787,13 +1619,9 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     [self setHasFocus:NO];
 
     if (!newWindow) {
-        // Hide the AGL child window
-        if (drawingModel == NPDrawingModelOpenGL)
-            [self _hideAGLWindow];
-        
         if ([[self webView] hostWindow]) {
             // View will be moved out of the actual window but it still has a host window.
-            [self stopNullEvents];
+            [self stopTimers];
         } else {
             // View will have no associated windows.
             [self stop];
@@ -1833,7 +1661,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
         // View moved to an actual window. Start it if not already started.
         [self start];
-        [self restartNullEvents];
+        [self restartTimers];
         [self addWindowObservers];
     } else if ([[self webView] hostWindow]) {
         // View moved out of an actual window, but still has a host window.
@@ -1873,35 +1701,37 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 {
     [self sendActivateEvent:YES];
     [self setNeedsDisplay:YES];
-    [self restartNullEvents];
+    [self restartTimers];
+#ifndef NP_NO_CARBON
     SetUserFocusWindow((WindowRef)[[self window] windowRef]);
+#endif // NP_NO_CARBON
 }
 
 - (void)windowResignedKey:(NSNotification *)notification
 {
     [self sendActivateEvent:NO];
     [self setNeedsDisplay:YES];
-    [self restartNullEvents];
+    [self restartTimers];
 }
 
 - (void)windowDidMiniaturize:(NSNotification *)notification
 {
-    [self stopNullEvents];
+    [self stopTimers];
 }
 
 - (void)windowDidDeminiaturize:(NSNotification *)notification
 {
-    [self restartNullEvents];
+    [self stopTimers];
 }
 
 - (void)loginWindowDidSwitchFromUser:(NSNotification *)notification
 {
-    [self stopNullEvents];
+    [self stopTimers];
 }
 
 -(void)loginWindowDidSwitchToUser:(NSNotification *)notification
 {
-    [self restartNullEvents];
+    [self restartTimers];
 }
 
 - (void)preferencesHaveChanged:(NSNotification *)notification
@@ -1930,7 +1760,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     NPError error;
     [self willCallPlugInFunction];
     {
-        KJS::JSLock::DropAllLocks dropAllLocks;
+        JSC::JSLock::DropAllLocks dropAllLocks(false);
         error = NPP_GetValue(plugin, NPPVpluginScriptableNPObject, &value);
     }
     [self didCallPlugInFunction];
@@ -1965,8 +1795,8 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 {
     ASSERT(_loadManually);
     ASSERT(!_manualStream);
-    
-    _manualStream = [[WebNetscapePluginStream alloc] initWithFrameLoader:core([self webFrame])->loader()];
+
+    _manualStream = WebNetscapePluginStream::create(core([self webFrame])->loader());
 }
 
 - (void)pluginView:(NSView *)pluginView receivedData:(NSData *)data
@@ -1978,16 +1808,18 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     
     if (![self isStarted])
         return;
-    
-    if ([_manualStream plugin] == NULL) {
-        [_manualStream setRequestURL:[[[self dataSource] request] URL]];
-        [_manualStream setPlugin:[self plugin]];
-        ASSERT([_manualStream plugin]);
-        [_manualStream startStreamWithResponse:[[self dataSource] response]];
+
+    if (!_manualStream->plugin()) {
+
+        _manualStream->setRequestURL([[[self dataSource] request] URL]);
+        _manualStream->setPlugin([self plugin]);
+        ASSERT(_manualStream->plugin());
+        
+        _manualStream->startStreamWithResponse([[self dataSource] response]);
     }
-    
-    if ([_manualStream plugin])
-        [_manualStream receivedData:data];
+
+    if (_manualStream->plugin())
+        _manualStream->didReceiveData(0, static_cast<const char *>([data bytes]), [data length]);
 }
 
 - (void)pluginView:(NSView *)pluginView receivedError:(NSError *)error
@@ -2001,8 +1833,8 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     if (![self isStarted]) {
         return;
     }
-    
-    [_manualStream destroyStreamWithError:error];
+
+    _manualStream->destroyStreamWithError(error);
 }
 
 - (void)pluginViewFinishedLoading:(NSView *)pluginView 
@@ -2011,8 +1843,162 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     ASSERT(_manualStream);
     
     if ([self isStarted])
-        [_manualStream finishedLoading];
+        _manualStream->didFinishLoading(0);
 }
+
+#pragma mark NSTextInput implementation
+
+- (NSTextInputContext *)inputContext
+{
+#ifndef NP_NO_CARBON
+    if (![self isStarted] || eventModel == NPEventModelCarbon)
+        return nil;
+#endif
+
+    return [super inputContext];
+}
+
+- (BOOL)hasMarkedText
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+    
+    if (textInputFuncs && textInputFuncs->hasMarkedText)
+        return textInputFuncs->hasMarkedText(plugin);
+    
+    return NO;
+}
+
+- (void)insertText:(id)aString
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+    
+    if (textInputFuncs && textInputFuncs->insertText)
+        textInputFuncs->insertText(plugin, aString);
+}
+
+- (NSRange)markedRange
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->markedRange)
+        return textInputFuncs->markedRange(plugin);
+    
+    return NSMakeRange(NSNotFound, 0);
+}
+
+- (NSRange)selectedRange
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->selectedRange)
+        return textInputFuncs->selectedRange(plugin);
+
+    return NSMakeRange(NSNotFound, 0);
+}    
+
+- (void)setMarkedText:(id)aString selectedRange:(NSRange)selRange
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->setMarkedText)
+        textInputFuncs->setMarkedText(plugin, aString, selRange);
+}
+
+- (void)unmarkText
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+    
+    if (textInputFuncs && textInputFuncs->unmarkText)
+        textInputFuncs->unmarkText(plugin);
+}
+
+- (NSArray *)validAttributesForMarkedText
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+        
+    if (textInputFuncs && textInputFuncs->validAttributesForMarkedText)
+        return textInputFuncs->validAttributesForMarkedText(plugin);
+    
+    return [NSArray array];
+}
+
+- (NSAttributedString *)attributedSubstringFromRange:(NSRange)theRange
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+    
+    if (textInputFuncs && textInputFuncs->attributedSubstringFromRange)
+        return textInputFuncs->attributedSubstringFromRange(plugin, theRange);
+
+    return nil;
+}
+
+- (NSUInteger)characterIndexForPoint:(NSPoint)thePoint
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->characterIndexForPoint) {
+        // Convert the point to window coordinates
+        NSPoint point = [[self window] convertScreenToBase:thePoint];
+        
+        // And view coordinates
+        point = [self convertPoint:point fromView:nil];
+        
+        return textInputFuncs->characterIndexForPoint(plugin, point);
+    }        
+
+    return NSNotFound;
+}
+
+- (void)doCommandBySelector:(SEL)aSelector
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->doCommandBySelector)
+        textInputFuncs->doCommandBySelector(plugin, aSelector);
+}
+
+- (NSRect)firstRectForCharacterRange:(NSRange)theRange
+{
+    ASSERT(eventModel == NPEventModelCocoa);
+    ASSERT([self isStarted]);
+
+    if (textInputFuncs && textInputFuncs->firstRectForCharacterRange) {
+        NSRect rect = textInputFuncs->firstRectForCharacterRange(plugin, theRange);
+        
+        // Convert the rect to window coordinates
+        rect = [self convertRect:rect toView:nil];
+        
+        // Convert the rect location to screen coordinates
+        rect.origin = [[self window] convertBaseToScreen:rect.origin];
+        
+        return rect;
+    }
+
+    return NSZeroRect;
+}
+
+// test for 10.4 because of <rdar://problem/4243463>
+#ifdef BUILDING_ON_TIGER
+- (long)conversationIdentifier
+{
+    return (long)self;
+}
+#else
+- (NSInteger)conversationIdentifier
+{
+    return (NSInteger)self;
+}
+#endif
 
 @end
 
@@ -2053,7 +2039,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     NSString *JSString = [URL _webkit_scriptIfJavaScriptURL];
     ASSERT(JSString);
     
-    NSString *result = [[[self webFrame] _bridge] stringByEvaluatingJavaScriptFromString:JSString forceUserGesture:[JSPluginRequest isCurrentEventUserGesture]];
+    NSString *result = [[self webFrame] _stringByEvaluatingJavaScriptFromString:JSString forceUserGesture:[JSPluginRequest isCurrentEventUserGesture]];
     
     // Don't continue if stringByEvaluatingJavaScriptFromString caused the plug-in to stop.
     if (!isStarted) {
@@ -2065,7 +2051,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         if ([JSPluginRequest sendNotification]) {
             [self willCallPlugInFunction];
             {
-                KJS::JSLock::DropAllLocks dropAllLocks;
+                JSC::JSLock::DropAllLocks dropAllLocks(false);
                 NPP_URLNotify(plugin, [URL _web_URLCString], NPRES_DONE, [JSPluginRequest notifyData]);
             }
             [self didCallPlugInFunction];
@@ -2073,18 +2059,17 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     } else if ([result length] > 0) {
         // Don't call NPP_NewStream and other stream methods if there is no JS result to deliver. This is what Mozilla does.
         NSData *JSData = [result dataUsingEncoding:NSUTF8StringEncoding];
-        WebBaseNetscapePluginStream *stream = [[WebBaseNetscapePluginStream alloc] initWithRequestURL:URL
-                                                                                               plugin:plugin
-                                                                                           notifyData:[JSPluginRequest notifyData]
-                                                                                     sendNotification:[JSPluginRequest sendNotification]];
-        [stream startStreamResponseURL:URL
-                 expectedContentLength:[JSData length]
-                      lastModifiedDate:nil
-                              MIMEType:@"text/plain"
-                               headers:nil];
-        [stream receivedData:JSData];
-        [stream finishedLoading];
-        [stream release];
+        
+        RefPtr<WebNetscapePluginStream> stream = WebNetscapePluginStream::create([NSURLRequest requestWithURL:URL], plugin, [JSPluginRequest sendNotification], [JSPluginRequest notifyData]);
+        
+        RetainPtr<NSURLResponse> response(AdoptNS, [[NSURLResponse alloc] initWithURL:URL 
+                                                                             MIMEType:@"text/plain" 
+                                                                expectedContentLength:[JSData length]
+                                                                     textEncodingName:nil]);
+        
+        stream->startStreamWithResponse(response.get());
+        stream->didReceiveData(0, static_cast<const char*>([JSData bytes]), [JSData length]);
+        stream->didFinishLoading(0);
     }
 }
 
@@ -2098,7 +2083,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         
     [self willCallPlugInFunction];
     {
-        KJS::JSLock::DropAllLocks dropAllLocks;
+        JSC::JSLock::DropAllLocks dropAllLocks(false);
         NPP_URLNotify(plugin, [[[pluginRequest request] URL] _web_URLCString], reason, [pluginRequest notifyData]);
     }
     [self didCallPlugInFunction];
@@ -2110,9 +2095,8 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 - (void)webFrame:(WebFrame *)webFrame didFinishLoadWithError:(NSError *)error
 {
     NPReason reason = NPRES_DONE;
-    if (error != nil) {
-        reason = [WebBaseNetscapePluginStream reasonForError:error];
-    }    
+    if (error != nil)
+        reason = WebNetscapePluginStream::reasonForError(error);
     [self webFrame:webFrame didFinishLoadWithReason:reason];
 }
 
@@ -2130,7 +2114,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     if (frameName) {
         // FIXME - need to get rid of this window creation which
         // bypasses normal targeted link handling
-        frame = kit([[self webFrame] _frameLoader]->findFrameForNavigation(frameName));
+        frame = kit(core([self webFrame])->loader()->findFrameForNavigation(frameName));
         if (frame == nil) {
             WebView *currentWebView = [self webView];
             NSDictionary *features = [[NSDictionary alloc] init];
@@ -2143,7 +2127,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
                 if ([pluginRequest sendNotification]) {
                     [self willCallPlugInFunction];
                     {
-                        KJS::JSLock::DropAllLocks dropAllLocks;
+                        JSC::JSLock::DropAllLocks dropAllLocks(false);
                         NPP_URLNotify(plugin, [[[pluginRequest request] URL] _web_URLCString], NPERR_GENERIC_ERROR, [pluginRequest notifyData]);
                     }
                     [self didCallPlugInFunction];
@@ -2183,19 +2167,21 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     if (!URL) 
         return NPERR_INVALID_URL;
 
+    // Don't allow requests to be loaded when the document loader is stopping all loaders.
+    if ([[self dataSource] _documentLoader]->isStopping())
+        return NPERR_GENERIC_ERROR;
+    
     NSString *target = nil;
     if (cTarget) {
         // Find the frame given the target string.
-        target = (NSString *)CFStringCreateWithCString(kCFAllocatorDefault, cTarget, kCFStringEncodingWindowsLatin1);
+        target = [NSString stringWithCString:cTarget encoding:NSISOLatin1StringEncoding];
     }
     WebFrame *frame = [self webFrame];
 
     // don't let a plugin start any loads if it is no longer part of a document that is being 
     // displayed unless the loads are in the same frame as the plugin.
-    if ([[self dataSource] _documentLoader] != [[self webFrame] _frameLoader]->activeDocumentLoader() &&
+    if ([[self dataSource] _documentLoader] != core([self webFrame])->loader()->activeDocumentLoader() &&
         (!cTarget || [frame findFrameNamed:target] != frame)) {
-        if (target)
-            CFRelease(target);
         return NPERR_GENERIC_ERROR; 
     }
     
@@ -2209,34 +2195,36 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
             // because this can cause the user to be redirected to a blank page (3424039).
             return NPERR_INVALID_PARAM;
         }
+    } else {
+        if (!FrameLoader::canLoad(URL, String(), core([self webFrame])->document()))
+            return NPERR_GENERIC_ERROR;
     }
         
     if (cTarget || JSString) {
         // Make when targetting a frame or evaluating a JS string, perform the request after a delay because we don't
         // want to potentially kill the plug-in inside of its URL request.
         
-        if (JSString != nil && target != nil && [frame findFrameNamed:target] != frame) {
+        if (JSString && target && [frame findFrameNamed:target] != frame) {
             // For security reasons, only allow JS requests to be made on the frame that contains the plug-in.
-            CFRelease(target);
             return NPERR_INVALID_PARAM;
         }
         
-        WebPluginRequest *pluginRequest = [[WebPluginRequest alloc] initWithRequest:request frameName:target notifyData:notifyData sendNotification:sendNotification didStartFromUserGesture:currentEventIsUserGesture];
+        bool currentEventIsUserGesture = false;
+        if (eventHandler)
+            currentEventIsUserGesture = eventHandler->currentEventIsUserGesture();
+        
+        WebPluginRequest *pluginRequest = [[WebPluginRequest alloc] initWithRequest:request 
+                                                                          frameName:target
+                                                                         notifyData:notifyData 
+                                                                   sendNotification:sendNotification
+                                                            didStartFromUserGesture:currentEventIsUserGesture];
         [self performSelector:@selector(loadPluginRequest:) withObject:pluginRequest afterDelay:0];
         [pluginRequest release];
-        if (target)
-            CFRelease(target);
     } else {
-        WebNetscapePluginStream *stream = [[WebNetscapePluginStream alloc] initWithRequest:request 
-                                                                                    plugin:plugin 
-                                                                                notifyData:notifyData 
-                                                                          sendNotification:sendNotification];
-        if (!stream)
-            return NPERR_INVALID_URL;
+        RefPtr<WebNetscapePluginStream> stream = WebNetscapePluginStream::create(request, plugin, sendNotification, notifyData);
 
-        [streams addObject:stream];
-        [stream start];
-        [stream release];
+        streams.add(stream.get());
+        stream->start();
     }
     
     return NPERR_NO_ERROR;
@@ -2382,13 +2370,13 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // This function does a sanity check to ensure that the NPStream provided actually
     // belongs to the plug-in that provided it, which fixes a crash in the DivX 
     // plug-in: <rdar://problem/5093862> | http://bugs.webkit.org/show_bug.cgi?id=13203
-    if (!stream || [WebBaseNetscapePluginStream ownerForStream:stream] != plugin) {
+    if (!stream || WebNetscapePluginStream::ownerForStream(stream) != plugin) {
         LOG(Plugins, "Invalid NPStream passed to NPN_DestroyStream: %p", stream);
         return NPERR_INVALID_INSTANCE_ERROR;
     }
     
-    WebBaseNetscapePluginStream *browserStream = static_cast<WebBaseNetscapePluginStream *>(stream->ndata);
-    [browserStream cancelLoadAndDestroyStreamWithError:[browserStream errorForReason:reason]];
+    WebNetscapePluginStream* browserStream = static_cast<WebNetscapePluginStream*>(stream->ndata);
+    browserStream->cancelLoadAndDestroyStreamWithError(browserStream->errorForReason(reason));
     
     return NPERR_NO_ERROR;
 }
@@ -2424,7 +2412,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         (float)invalidRect->right - invalidRect->left, (float)invalidRect->bottom - invalidRect->top)];
 }
 
--(bool)isOpaque
+-(BOOL)isOpaque
 {
     return YES;
 }
@@ -2445,13 +2433,11 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 #endif /* NP_NO_QUICKDRAW */
         
         case NPDrawingModelCoreGraphics:
-        case NPDrawingModelOpenGL:
         {
             CGRect cgRect = CGPathGetBoundingBox((NPCGRegion)invalidRegion);
-            invalidRect = *(NSRect *)&cgRect;
+            invalidRect = *(NSRect*)&cgRect;
+            break;
         }
-        break;
-    
         default:
             ASSERT_NOT_REACHED();
         break;
@@ -2467,13 +2453,25 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     [[self window] displayIfNeeded];
 }
 
+static NPBrowserTextInputFuncs *browserTextInputFuncs()
+{
+    static NPBrowserTextInputFuncs inputFuncs = {
+        0,
+        sizeof(NPBrowserTextInputFuncs),
+        NPN_MarkedTextAbandoned,
+        NPN_MarkedTextSelectionChanged
+    };
+    
+    return &inputFuncs;
+}
+
 - (NPError)getVariable:(NPNVariable)variable value:(void *)value
 {
     switch (variable) {
         case NPNVWindowNPObject:
         {
             Frame* frame = core([self webFrame]);
-            NPObject* windowScriptObject = frame ? frame->windowScriptNPObject() : 0;
+            NPObject* windowScriptObject = frame ? frame->script()->windowScriptNPObject() : 0;
 
             // Return value is expected to be retained, as described here: <http://www.mozilla.org/projects/plugins/npruntime.html#browseraccess>
             if (windowScriptObject)
@@ -2524,10 +2522,41 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
 
         case NPNVsupportsOpenGLBool:
         {
-            *(NPBool *)value = TRUE;
+            *(NPBool *)value = FALSE;
             return NPERR_NO_ERROR;
         }
         
+        case NPNVsupportsCoreAnimationBool:
+        {
+#ifdef BUILDING_ON_TIGER
+            *(NPBool *)value = FALSE;
+#else
+            *(NPBool *)value = TRUE;
+#endif
+            return NPERR_NO_ERROR;
+        }
+            
+#ifndef NP_NO_CARBON
+        case NPNVsupportsCarbonBool:
+        {
+            *(NPBool *)value = TRUE;
+            return NPERR_NO_ERROR;
+        }
+#endif /* NP_NO_CARBON */
+            
+        case NPNVsupportsCocoaBool:
+        {
+            *(NPBool *)value = TRUE;
+            return NPERR_NO_ERROR;
+        }
+            
+        case NPNVbrowserTextInputFuncs:
+        {
+            if (eventModel == NPEventModelCocoa) {
+                *(NPBrowserTextInputFuncs **)value = browserTextInputFuncs();
+                return NPERR_NO_ERROR;
+            }
+        }
         default:
             break;
     }
@@ -2576,10 +2605,14 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
                 case NPDrawingModelQuickDraw:
 #endif
                 case NPDrawingModelCoreGraphics:
-                case NPDrawingModelOpenGL:
                     drawingModel = newDrawingModel;
                     return NPERR_NO_ERROR;
-                
+                    
+                case NPDrawingModelCoreAnimation:
+                    drawingModel = newDrawingModel;
+                    return NPERR_NO_ERROR;
+                    
+
                 // Unsupported (or unknown) drawing models:
                 default:
                     LOG(Plugins, "Plugin %@ uses unsupported drawing model: %d", pluginPackage, drawingModel);
@@ -2587,9 +2620,73 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
             }
         }
         
+        case NPPVpluginEventModel:
+        {
+            // Can only set event model inside NPP_New()
+            if (self != [[self class] currentPluginView])
+                return NPERR_GENERIC_ERROR;
+            
+            // Check for valid, supported event model
+            NPEventModel newEventModel = (NPEventModel)(uintptr_t)value;
+            switch (newEventModel) {
+                // Supported event models:
+#ifndef NP_NO_CARBON
+                case NPEventModelCarbon:
+#endif
+                case NPEventModelCocoa:
+                    eventModel = newEventModel;
+                    return NPERR_NO_ERROR;
+                    
+                    // Unsupported (or unknown) event models:
+                default:
+                    LOG(Plugins, "Plugin %@ uses unsupported event model: %d", pluginPackage, eventModel);
+                    return NPERR_GENERIC_ERROR;
+            }
+        }
+            
         default:
             return NPERR_GENERIC_ERROR;
     }
+}
+
+- (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc
+{
+    if (!timerFunc)
+        return 0;
+    
+    if (!timers)
+        timers = new HashMap<uint32, PluginTimer*>;
+    
+    uint32 timerID = ++currentTimerID;
+    
+    PluginTimer* timer = new PluginTimer(plugin, timerID, interval, repeat, timerFunc);
+    timers->set(timerID, timer);
+
+    if (shouldFireTimers)
+        timer->start(isCompletelyObscured);
+    
+    return 0;
+}
+
+- (void)unscheduleTimer:(uint32)timerID
+{
+    if (!timers)
+        return;
+    
+    if (PluginTimer* timer = timers->take(timerID))
+        delete timer;
+}
+
+- (NPError)popUpContextMenu:(NPMenu *)menu
+{
+    NSEvent *currentEvent = [NSApp currentEvent];
+    
+    // NPN_PopUpContextMenu must be called from within the plug-in's NPP_HandleEvent.
+    if (!currentEvent)
+        return NPERR_GENERIC_ERROR;
+    
+    [NSMenu popUpContextMenu:(NSMenu *)menu withEvent:currentEvent forView:self];
+    return NPERR_NO_ERROR;
 }
 
 @end
@@ -2653,22 +2750,40 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // NPN_New(), which creates the plug-in instance, should never be called while calling a plug-in function for that instance.
     ASSERT(pluginFunctionCallDepth == 0);
 
+    Frame* frame = core([self webFrame]);
+    if (!frame)
+        return NPERR_GENERIC_ERROR;
+    Page* page = frame->page();
+    if (!page)
+        return NPERR_GENERIC_ERROR;
+    
+    bool wasDeferring = page->defersLoading();
+    if (!wasDeferring)
+        page->setDefersLoading(true);
+    
+    PluginMainThreadScheduler::scheduler().registerPlugin(plugin);
+    
     [[self class] setCurrentPluginView:self];
     NPError npErr = NPP_New((char *)[MIMEType cString], plugin, mode, argsCount, cAttributes, cValues, NULL);
     [[self class] setCurrentPluginView:nil];
     
+    if (!wasDeferring)
+        page->setDefersLoading(false);
+
     LOG(Plugins, "NPP_New: %d", npErr);
     return npErr;
 }
 
 - (void)_destroyPlugin
 {
+    PluginMainThreadScheduler::scheduler().unregisterPlugin(plugin);
+    
     NPError npErr;
     npErr = NPP_Destroy(plugin, NULL);
     LOG(Plugins, "NPP_Destroy: %d", npErr);
     
     if (Frame* frame = core([self webFrame]))
-        frame->cleanupScriptObjectsForPlugin(self);
+        frame->script()->cleanupScriptObjectsForPlugin(self);
         
     free(plugin);
     plugin = NULL;
@@ -2680,15 +2795,13 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // is moved back into a window, everything should be set up correctly.
     if (![self window])
         return;
-    
-    if (drawingModel == NPDrawingModelOpenGL)
-        [self _reshapeAGLWindow];
 
-#ifndef NP_NO_QUICKDRAW
-    if (drawingModel == NPDrawingModelQuickDraw)
+    if (isDrawingModelQuickDraw(drawingModel))
         [self tellQuickTimeToChill];
-#endif
-    [self updateAndSetWindow];
+
+    if (drawingModel == NPDrawingModelCoreGraphics || isDrawingModelQuickDraw(drawingModel))
+        [self updateAndSetWindow];
+    
     [self resetTrackingRect];
     
     // Check to see if the plugin view is completely obscured (scrolled out of view, for example).
@@ -2696,7 +2809,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     BOOL oldIsObscured = isCompletelyObscured;
     isCompletelyObscured = NSIsEmptyRect([self visibleRect]);
     if (isCompletelyObscured != oldIsObscured)
-        [self restartNullEvents];
+        [self restartTimers];
 }
 
 - (NSBitmapImageRep *)_printedPluginBitmap
@@ -2761,7 +2874,7 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
     // Tell the plugin to print into the GWorld
     [self willCallPlugInFunction];
     {
-        KJS::JSLock::DropAllLocks dropAllLocks;
+        JSC::JSLock::DropAllLocks dropAllLocks(false);
         NPP_Print(plugin, &npPrint);
     }
     [self didCallPlugInFunction];
@@ -2771,380 +2884,6 @@ static OSStatus TSMEventHandler(EventHandlerCallRef inHandlerRef, EventRef inEve
         
     return bitmap;
 #endif
-}
-
-- (BOOL)_createAGLContextIfNeeded
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-
-    // Do nothing (but indicate success) if the AGL context already exists
-    if (aglContext)
-        return YES;
-        
-    switch (window.type) {
-        case NPWindowTypeWindow:
-            return [self _createWindowedAGLContext];
-        
-        case NPWindowTypeDrawable:
-            return [self _createWindowlessAGLContext];
-        
-        default:
-            ASSERT_NOT_REACHED();
-            return NO;
-    }
-}
-
-- (BOOL)_createWindowedAGLContext
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-    ASSERT(!aglContext);
-    ASSERT(!aglWindow);
-    ASSERT([self window]);
-    
-    GLint pixelFormatAttributes[] = {
-        AGL_RGBA,
-        AGL_RED_SIZE, 8,
-        AGL_GREEN_SIZE, 8,
-        AGL_BLUE_SIZE, 8,
-        AGL_ALPHA_SIZE, 8,
-        AGL_DEPTH_SIZE, 32,
-        AGL_WINDOW,
-        AGL_ACCELERATED,
-        0
-    };
-    
-    // Choose AGL pixel format
-    AGLPixelFormat pixelFormat = aglChoosePixelFormat(NULL, 0, pixelFormatAttributes);
-    if (!pixelFormat) {
-        LOG_ERROR("Could not find suitable AGL pixel format: %s", aglErrorString(aglGetError()));
-        return NO;
-    }
-    
-    // Create AGL context
-    aglContext = aglCreateContext(pixelFormat, NULL);
-    aglDestroyPixelFormat(pixelFormat);
-    if (!aglContext) {
-        LOG_ERROR("Could not create AGL context: %s", aglErrorString(aglGetError()));
-        return NO;
-    }
-    
-    // Create AGL window
-    aglWindow = [[NSWindow alloc] initWithContentRect:NSZeroRect styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
-    if (!aglWindow) {
-        LOG_ERROR("Could not create window for AGL drawable.");
-        return NO;
-    }
-    
-    // AGL window should allow clicks to go through -- mouse events are tracked by WebCore
-    [aglWindow setIgnoresMouseEvents:YES];
-    
-    // Make sure the window is not opaque -- windowed plug-ins cannot layer with other page elements
-    [aglWindow setOpaque:YES];
-
-    // Position and order in the AGL window
-    [self _reshapeAGLWindow];
-
-    // Attach the AGL context to its window
-    GLboolean success;
-#ifdef AGL_VERSION_3_0
-    success = aglSetWindowRef(aglContext, (WindowRef)[aglWindow windowRef]);
-#else
-    success = aglSetDrawable(aglContext, (AGLDrawable)GetWindowPort((WindowRef)[aglWindow windowRef]));
-#endif
-    if (!success) {
-        LOG_ERROR("Could not set AGL drawable: %s", aglErrorString(aglGetError()));
-        aglDestroyContext(aglContext);
-        aglContext = NULL;
-        return NO;
-    }
-        
-    return YES;
-}
-
-- (BOOL)_createWindowlessAGLContext
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-    ASSERT(!aglContext);
-    ASSERT(!aglWindow);
-    
-    GLint pixelFormatAttributes[] = {
-        AGL_RGBA,
-        AGL_RED_SIZE, 8,
-        AGL_GREEN_SIZE, 8,
-        AGL_BLUE_SIZE, 8,
-        AGL_ALPHA_SIZE, 8,
-        AGL_DEPTH_SIZE, 32,
-        AGL_OFFSCREEN,
-        0
-    };
-
-    // Choose AGL pixel format
-    AGLPixelFormat pixelFormat = aglChoosePixelFormat(NULL, 0, pixelFormatAttributes);
-    if (!pixelFormat) {
-        LOG_ERROR("Could not find suitable AGL pixel format: %s", aglErrorString(aglGetError()));
-        return NO;
-    }
-    
-    // Create AGL context
-    aglContext = aglCreateContext(pixelFormat, NULL);
-    aglDestroyPixelFormat(pixelFormat);
-    if (!aglContext) {
-        LOG_ERROR("Could not create AGL context: %s", aglErrorString(aglGetError()));
-        return NO;
-    }
-    
-    // Create offscreen buffer for AGL context
-    NSSize boundsSize = [self bounds].size;
-    GLvoid *offscreenBuffer = (GLvoid *)malloc(static_cast<size_t>(boundsSize.width * boundsSize.height * 4));
-    if (!offscreenBuffer) {
-        LOG_ERROR("Could not allocate offscreen buffer for AGL context");
-        aglDestroyContext(aglContext);
-        aglContext = NULL;
-        return NO;
-    }
-    
-    // Attach AGL context to offscreen buffer
-    CGLContextObj cglContext = [self _cglContext];
-    CGLError error = CGLSetOffScreen(cglContext, static_cast<long>(boundsSize.width), static_cast<long>(boundsSize.height), static_cast<long>(boundsSize.width * 4), offscreenBuffer);
-    if (error) {
-        LOG_ERROR("Could not set offscreen buffer for AGL context: %d", error);
-        aglDestroyContext(aglContext);
-        aglContext = NULL;
-        return NO;
-    }
-    
-    return YES;
-}
-
-- (CGLContextObj)_cglContext
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-
-    CGLContextObj cglContext = NULL;
-    if (!aglGetCGLContext(aglContext, (void **)&cglContext) || !cglContext)
-        LOG_ERROR("Could not get CGL context for AGL context: %s", aglErrorString(aglGetError()));
-        
-    return cglContext;
-}
-
-- (BOOL)_getAGLOffscreenBuffer:(GLvoid **)outBuffer width:(GLsizei *)outWidth height:(GLsizei *)outHeight
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-    
-    if (outBuffer)
-        *outBuffer = NULL;
-    if (outWidth)
-        *outWidth = 0;
-    if (outHeight)
-        *outHeight = 0;
-    
-    // Only windowless plug-ins have offscreen buffers
-    if (window.type != NPWindowTypeDrawable)
-        return NO;
-    
-    CGLContextObj cglContext = [self _cglContext];
-    if (!cglContext)
-        return NO;
-    
-    GLsizei width, height;
-    GLint rowBytes;
-    void *offscreenBuffer = NULL;
-    CGLError error = CGLGetOffScreen(cglContext, &width, &height, &rowBytes, &offscreenBuffer);
-    if (error || !offscreenBuffer) {
-        LOG_ERROR("Could not get offscreen buffer for AGL context: %d", error);
-        return NO;
-    }
-    
-    if (outBuffer)
-        *outBuffer = offscreenBuffer;
-    if (outWidth)
-        *outWidth = width;
-    if (outHeight)
-        *outHeight = height;
-    
-    return YES;
-}
-
-- (void)_destroyAGLContext
-{    
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-
-    if (!aglContext)
-        return;
-
-    if (aglContext) {
-        // If this is a windowless plug-in, free its offscreen buffer
-        GLvoid *offscreenBuffer;
-        if ([self _getAGLOffscreenBuffer:&offscreenBuffer width:NULL height:NULL])
-            free(offscreenBuffer);
-        
-        // Detach context from the AGL window
-#ifdef AGL_VERSION_3_0
-        aglSetWindowRef(aglContext, NULL);
-#else
-        aglSetDrawable(aglContext, NULL);
-#endif
-        
-        // Destroy the context
-        aglDestroyContext(aglContext);
-        aglContext = NULL;
-    }
-    
-    // Destroy the AGL window
-    if (aglWindow) {
-        [self _hideAGLWindow];
-        aglWindow = nil;
-    }
-}
-
-- (void)_reshapeAGLWindow
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-    
-    if (!aglContext)
-        return;
-
-    switch (window.type) {
-        case NPWindowTypeWindow:
-        {
-            if (!aglWindow)
-                break;
-                
-            // The AGL window is being reshaped because the plugin view has moved.  Since the view has moved, it will soon redraw.
-            // We want the AGL window to update at the same time as its underlying view.  So, we disable screen updates until the
-            // plugin view's window flushes.
-            NSWindow *browserWindow = [self window];
-            ASSERT(browserWindow);
-            [browserWindow disableScreenUpdatesUntilFlush];
-
-            // Add the AGL window as a child of the main window if necessary
-            if ([aglWindow parentWindow] != browserWindow)
-                [browserWindow addChildWindow:aglWindow ordered:NSWindowAbove];
-            
-            // Update the AGL window frame
-            NSRect aglWindowFrame = [self convertRect:[self visibleRect] toView:nil];
-            aglWindowFrame.origin = [browserWindow convertBaseToScreen:aglWindowFrame.origin];
-            [aglWindow setFrame:aglWindowFrame display:NO];
-            
-            // Update the AGL context
-            aglUpdateContext(aglContext);
-        }
-        break;
-        
-        case NPWindowTypeDrawable:
-        {
-            // Get offscreen buffer; we can skip this step if we don't have one yet
-            GLvoid *offscreenBuffer;
-            GLsizei width, height;
-            if (![self _getAGLOffscreenBuffer:&offscreenBuffer width:&width height:&height] || !offscreenBuffer)
-                break;
-            
-            // Don't resize the offscreen buffer if it's already the same size as the view bounds
-            NSSize boundsSize = [self bounds].size;
-            if (boundsSize.width == width && boundsSize.height == height)
-                break;
-            
-            // Resize the offscreen buffer
-            offscreenBuffer = realloc(offscreenBuffer, static_cast<size_t>(boundsSize.width * boundsSize.height * 4));
-            if (!offscreenBuffer) {
-                LOG_ERROR("Could not allocate offscreen buffer for AGL context");
-                break;
-            }
-
-            // Update the offscreen 
-            CGLContextObj cglContext = [self _cglContext];
-            CGLError error = CGLSetOffScreen(cglContext, static_cast<long>(boundsSize.width), static_cast<long>(boundsSize.height), static_cast<long>(boundsSize.width * 4), offscreenBuffer);
-            if (error) {
-                LOG_ERROR("Could not set offscreen buffer for AGL context: %d", error);
-                break;
-            }
-
-            // Update the AGL context
-            aglUpdateContext(aglContext);
-        }
-        break;
-        
-        default:
-            ASSERT_NOT_REACHED();
-        break;
-    }
-}
-
-- (void)_hideAGLWindow
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-    
-    if (!aglWindow)
-        return;
-    
-    // aglWindow should only be set for a windowed OpenGL plug-in
-    ASSERT(window.type == NPWindowTypeWindow);
-    
-    NSWindow *parentWindow = [aglWindow parentWindow];
-    if (parentWindow) {
-        // Disable screen updates so that this AGL window orders out atomically with other plugins' AGL windows
-        [parentWindow disableScreenUpdatesUntilFlush];
-        ASSERT(parentWindow == [self window]);
-        [parentWindow removeChildWindow:aglWindow];
-    }
-    [aglWindow orderOut:nil];
-}
-
-- (NSImage *)_aglOffscreenImageForDrawingInRect:(NSRect)drawingInRect
-{
-    ASSERT(drawingModel == NPDrawingModelOpenGL);
-
-    CGLContextObj cglContext = [self _cglContext];
-    if (!cglContext)
-        return nil;
-
-    // Get the offscreen buffer
-    GLvoid *offscreenBuffer;
-    GLsizei width, height;
-    if (![self _getAGLOffscreenBuffer:&offscreenBuffer width:&width height:&height])
-        return nil;
-
-    unsigned char *plane = (unsigned char *)offscreenBuffer;
-
-#if defined(__i386__) || defined(__x86_64__)
-    // Make rect inside the offscreen buffer because we're about to directly modify the bits inside drawingInRect
-    NSRect rect = NSIntegralRect(NSIntersectionRect(drawingInRect, NSMakeRect(0, 0, width, height)));
-
-    // The offscreen buffer, being an OpenGL framebuffer, is in BGRA format on x86.  We need to swap the blue and red channels before
-    // wrapping the buffer in an NSBitmapImageRep, which only supports RGBA and ARGB.
-    // On PowerPC, the OpenGL framebuffer is in ARGB format.  Since that is a format that NSBitmapImageRep supports, all that is
-    // needed on PowerPC is to pass the NSAlphaFirstBitmapFormat flag when creating the NSBitmapImageRep.  On x86, we need to swap the
-    // framebuffer color components such that they are in ARGB order, as they are on PowerPC.
-    // If only a small region of the plug-in is being redrawn, then it would be a waste to convert the entire image from BGRA to ARGB.
-    // Since we know what region of the image will ultimately be drawn to screen (drawingInRect), we restrict the channel swapping to
-    // just that region within the offscreen buffer.
-    if (!WebConvertBGRAToARGB(plane, width * 4, (int)rect.origin.x, (int)rect.origin.y, (int)rect.size.width, (int)rect.size.height))
-        return nil;
-#endif /* defined(__i386__) || defined(__x86_64__) */
-    
-    NSBitmapImageRep *aglBitmap = [[NSBitmapImageRep alloc]
-        initWithBitmapDataPlanes:&plane
-                      pixelsWide:width
-                      pixelsHigh:height
-                   bitsPerSample:8
-                 samplesPerPixel:4
-                        hasAlpha:YES
-                        isPlanar:NO
-                  colorSpaceName:NSDeviceRGBColorSpace
-                    bitmapFormat:NSAlphaFirstBitmapFormat
-                     bytesPerRow:width * 4
-                    bitsPerPixel:32];
-    if (!aglBitmap) {
-        LOG_ERROR("Could not create bitmap for AGL offscreen buffer");
-        return nil;
-    }
-
-    // Wrap the bitmap in an NSImage.  This allocation isn't very expensive -- the actual image data is already in the bitmap rep
-    NSImage *aglImage = [[[NSImage alloc] initWithSize:[aglBitmap size]] autorelease];
-    [aglImage addRepresentation:aglBitmap];
-    [aglBitmap release];
-    
-    return aglImage;
 }
 
 - (void)_redeliverStream

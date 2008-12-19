@@ -35,7 +35,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLLegendElement::HTMLLegendElement(Document *doc, HTMLFormElement *f)
-: HTMLGenericFormElement(legendTag, doc, f)
+    : HTMLFormControlElement(legendTag, doc, f)
 {
 }
 
@@ -45,7 +45,7 @@ HTMLLegendElement::~HTMLLegendElement()
 
 bool HTMLLegendElement::isFocusable() const
 {
-    return false;
+    return HTMLElement::isFocusable();
 }
 
 RenderObject* HTMLLegendElement::createRenderer(RenderArena* arena, RenderStyle* style)
@@ -107,6 +107,9 @@ Element *HTMLLegendElement::formElement()
 
 void HTMLLegendElement::focus(bool)
 {
+    if (isFocusable())
+        Element::focus();
+        
     // to match other browsers, never restore previous selection
     if (Element *element = formElement())
         element->focus(false);

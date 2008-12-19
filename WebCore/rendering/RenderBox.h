@@ -36,7 +36,6 @@ public:
 
     virtual const char* renderName() const { return "RenderBox"; }
 
-    virtual void setStyle(RenderStyle*);
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
@@ -124,7 +123,7 @@ public:
     int calcReplacedWidthUsing(Length width) const;
     int calcReplacedHeightUsing(Length height) const;
 
-    virtual int calcReplacedWidth() const;
+    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
     virtual int calcReplacedHeight() const;
 
     int calcPercentageHeight(const Length& height);
@@ -139,11 +138,11 @@ public:
 
     virtual RenderLayer* layer() const { return m_layer; }
 
-    virtual IntRect caretRect(int offset, EAffinity = UPSTREAM, int* extraWidthToEndOfLine = 0);
+    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
-    virtual void paintBackgroundExtended(GraphicsContext*, const Color&, const BackgroundLayer*, int clipY, int clipHeight,
-                                         int tx, int ty, int width, int height, bool includeLeftEdge = true, bool includeRightEdge = true);
-    IntSize calculateBackgroundSize(const BackgroundLayer*, int scaledWidth, int scaledHeight) const;
+    virtual void paintFillLayerExtended(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight,
+                                        int tx, int ty, int width, int height, InlineFlowBox* = 0, CompositeOperator = CompositeSourceOver);
+    IntSize calculateBackgroundSize(const FillLayer*, int scaledWidth, int scaledHeight) const;
 
     virtual int staticX() const;
     virtual int staticY() const;
@@ -154,11 +153,32 @@ public:
     virtual IntRect getClipRect(int tx, int ty);
 
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void imageChanged(CachedImage*);
+    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
+    virtual void imageChanged(WrappedImagePtr);
 
+    // Called when a positioned object moves but doesn't change size.  A simplified layout is done
+    // that just updates the object's position.
+    virtual void tryLayoutDoingPositionedMovementOnly()
+    {
+        int oldWidth = m_width;
+        calcWidth();
+        // If we shrink to fit our width may have changed, so we still need full layout.
+        if (oldWidth != m_width)
+            return;
+        calcHeight();
+        setNeedsLayout(false);
+    }
+
+    virtual IntRect maskClipRect();
+    
 protected:
-    void paintBackground(GraphicsContext*, const Color&, const BackgroundLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height);
-    void paintBackgrounds(GraphicsContext*, const Color&, const BackgroundLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height);
+    virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+
+    void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
+    void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
+
+    void paintMaskImages(const PaintInfo&, int clipY, int clipHeight, int tx, int ty, int width, int height);
 
 #if PLATFORM(MAC)
     void paintCustomHighlight(int tx, int ty, const AtomicString& type, bool behindText);
@@ -170,8 +190,10 @@ protected:
 
 private:
     void paintRootBoxDecorations(PaintInfo&, int tx, int ty);
+    // Returns true if we did a full repaint
+    bool repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground);
 
-    void calculateBackgroundImageGeometry(const BackgroundLayer*, int tx, int ty, int w, int h, IntRect& destRect, IntPoint& phase, IntSize& tileSize);
+    void calculateBackgroundImageGeometry(const FillLayer*, int tx, int ty, int w, int h, IntRect& destRect, IntPoint& phase, IntSize& tileSize);
     
     int containingBlockWidthForPositioned(const RenderObject* containingBlock) const;
     int containingBlockHeightForPositioned(const RenderObject* containingBlock) const;
@@ -222,6 +244,11 @@ protected:
 
     // For inline replaced elements, the inline box that owns us.
     InlineBox* m_inlineBoxWrapper;
+
+private:
+    // Used to store state between styleWillChange and styleDidChange
+    static bool s_wasFloating;
+    static bool s_hadOverflowClip;
 };
 
 } // namespace WebCore

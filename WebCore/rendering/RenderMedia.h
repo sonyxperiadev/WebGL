@@ -51,6 +51,7 @@ public:
     virtual RenderObject* firstChild() const;
     virtual RenderObject* lastChild() const;
     virtual void removeChild(RenderObject*);
+    virtual void destroy();
     
     virtual void layout();
 
@@ -67,7 +68,11 @@ public:
     void updateControls();
     
     void forwardEvent(Event*);
-    
+
+    virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+    virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+    virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+
 private:
     void createControlsShadowRoot();
     void createPanel();
@@ -104,6 +109,7 @@ private:
     double m_opacityAnimationStartTime;
     float m_opacityAnimationFrom;
     float m_opacityAnimationTo;
+    EVisibility m_previousVisible;
 };
 
 } // namespace WebCore

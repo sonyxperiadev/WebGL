@@ -26,9 +26,7 @@
 #ifndef WebURLResponse_H
 #define WebURLResponse_H
 
-#include "IWebURLResponse.h"
-#include "IWebHTTPURLResponse.h"
-#include "IWebURLResponsePrivate.h"
+#include "WebKit.h"
 
 #pragma warning(push, 0)
 #include <WebCore/ResourceResponse.h>
@@ -93,12 +91,18 @@ public:
 
 protected:
     HRESULT suggestedFileExtension(BSTR* result);
+
+#if USE(CFNETWORK)
     CFDictionaryRef certificateDictionary() const;
+#endif
 
 protected:
     ULONG m_refCount;
     WebCore::ResourceResponse m_response;
+
+#if USE(CFNETWORK)
     mutable RetainPtr<CFDictionaryRef> m_SSLCertificateInfo;    // this ensures certificate contexts are valid for the lifetime of this WebURLResponse.
+#endif
 };
 
 #endif

@@ -18,6 +18,7 @@
 #define FontCustomPlatformData_h_
 
 #include <wtf/Noncopyable.h>
+#include "FontRenderingMode.h"
 
 class SkTypeface;
 
@@ -33,7 +34,7 @@ namespace WebCore {
 
         SkTypeface* typeface() const { return m_typeface; }
         
-        FontPlatformData fontPlatformData(int size, bool bold, bool italic);
+        FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode );
         
     private:
         SkTypeface* m_typeface;

@@ -41,11 +41,9 @@ namespace WebCore {
 
 class FontPlatformData {
 public:
-    class Deleted {};
-
     enum FontState { UNINITIALIZED, DELETED, VALID };
 
-    FontPlatformData(Deleted)
+    FontPlatformData(WTF::HashTableDeletedValueType)
     : m_fontState(DELETED)
     { }
 
@@ -76,7 +74,7 @@ public:
         case UNINITIALIZED:
             return 0;
         case VALID:
-            return m_fontHash;              
+            return computeHash();              
         }
     }
 
@@ -87,11 +85,19 @@ public:
         else
             return m_fontState == other.m_fontState;
     }
+
+    bool isHashTableDeletedValue() const { return m_fontState == DELETED; }
     
     unsigned computeHash() const {
-        wxCharBuffer charBuffer(m_font.GetNativeFontInfoDesc().mb_str(wxConvUTF8));
-        const char* contents = charBuffer;        
-        return StringImpl::computeHash( (UChar*)contents, strlen(contents));
+        ASSERT(m_font.Ok());
+        
+        // make a hash that is unique for this font, but not globally unique - that is,
+        // a font whose properties are equal should generate the same hash
+        uintptr_t hashCodes[6] = { m_font.GetPointSize(), m_font.GetFamily(), m_font.GetStyle(), 
+                                    m_font.GetWeight(), m_font.GetUnderlined(), 
+                                    StringImpl::computeHash(m_font.GetFaceName().mb_str(wxConvUTF8)) };
+        
+        return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
     }
 
 private:

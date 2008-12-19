@@ -1,7 +1,6 @@
-// -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
- *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
+ * Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
+ * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,8 +22,9 @@
 #include "config.h"
 #include "operations.h"
 
-#include "internal.h"
-#include "object.h"
+#include "Error.h"
+#include "JSObject.h"
+#include "JSString.h"
 #include <math.h>
 #include <stdio.h>
 #include <wtf/MathExtras.h>
@@ -33,96 +33,43 @@
 #include <float.h>
 #endif
 
-namespace KJS {
+namespace JSC {
 
 // ECMA 11.9.3
-bool equal(ExecState *exec, JSValue *v1, JSValue *v2)
+bool equal(ExecState* exec, JSValue* v1, JSValue* v2)
 {
-    JSType t1 = v1->type();
-    JSType t2 = v2->type();
-    
-    if (t1 != t2) {
-        if (t1 == UndefinedType)
-            t1 = NullType;
-        if (t2 == UndefinedType)
-            t2 = NullType;
-        
-        if (t1 == BooleanType)
-            t1 = NumberType;
-        if (t2 == BooleanType)
-            t2 = NumberType;
-        
-        if (t1 == NumberType && t2 == StringType) {
-            // use toNumber
-        } else if (t1 == StringType && t2 == NumberType)
-            t1 = NumberType;
-            // use toNumber
-        else {
-            if ((t1 == StringType || t1 == NumberType) && t2 == ObjectType) {
-                v2 = v2->toPrimitive(exec);
-                if (exec->hadException())
-                    return false;
-                return equal(exec, v1, v2);
-            }
-            if (t1 == NullType && t2 == ObjectType)
-                return static_cast<JSObject *>(v2)->masqueradeAsUndefined();
-            if (t1 == ObjectType && (t2 == StringType || t2 == NumberType)) {
-                v1 = v1->toPrimitive(exec);
-                if (exec->hadException())
-                    return false;
-                return equal(exec, v1, v2);
-            }
-            if (t1 == ObjectType && t2 == NullType)
-                return static_cast<JSObject *>(v1)->masqueradeAsUndefined();
-            if (t1 != t2)
-                return false;
-        }
-    }
-    
-    if (t1 == UndefinedType || t1 == NullType)
-        return true;
-    
-    if (t1 == NumberType) {
-        double d1 = v1->toNumber(exec);
-        double d2 = v2->toNumber(exec);
-        return d1 == d2;
-    }
-    
-    if (t1 == StringType)
-        return static_cast<StringImp*>(v1)->value() == static_cast<StringImp*>(v2)->value();
-    
-    if (t1 == BooleanType)
-        return v1->toBoolean(exec) == v2->toBoolean(exec);
-    
-    // types are Object
-    return v1 == v2;
+    if (JSImmediate::areBothImmediateNumbers(v1, v2))
+        return v1 == v2;
+
+    return equalSlowCaseInline(exec, v1, v2);
 }
 
-bool strictEqual(ExecState *exec, JSValue *v1, JSValue *v2)
+bool equalSlowCase(ExecState* exec, JSValue* v1, JSValue* v2)
 {
-    JSType t1 = v1->type();
-    JSType t2 = v2->type();
-    
-    if (t1 != t2)
-        return false;
-    if (t1 == UndefinedType || t1 == NullType)
-        return true;
-    if (t1 == NumberType) {
-        double n1 = v1->toNumber(exec);
-        double n2 = v2->toNumber(exec);
-        if (n1 == n2)
-            return true;
-        return false;
-    } else if (t1 == StringType)
-        return v1->toString(exec) == v2->toString(exec);
-    else if (t2 == BooleanType)
-        return v1->toBoolean(exec) == v2->toBoolean(exec);
-    
-    if (v1 == v2)
-        return true;
-    /* TODO: joined objects */
-    
-    return false;
+    return equalSlowCaseInline(exec, v1, v2);
 }
 
+bool strictEqual(JSValue* v1, JSValue* v2)
+{
+    if (JSImmediate::areBothImmediate(v1, v2))
+        return v1 == v2;
+
+    if (JSImmediate::isEitherImmediate(v1, v2) & (v1 != JSImmediate::from(0)) & (v2 != JSImmediate::from(0)))
+        return false;
+
+    return strictEqualSlowCaseInline(v1, v2);
 }
+
+bool strictEqualSlowCase(JSValue* v1, JSValue* v2)
+{
+    return strictEqualSlowCaseInline(v1, v2);
+}
+
+NEVER_INLINE JSValue* throwOutOfMemoryError(ExecState* exec)
+{
+    JSObject* error = Error::create(exec, GeneralError, "Out of memory");
+    exec->setException(error);
+    return error;
+}
+
+} // namespace JSC

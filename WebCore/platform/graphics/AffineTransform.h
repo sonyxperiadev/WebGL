@@ -28,15 +28,23 @@
 
 #if PLATFORM(CG)
 #include <CoreGraphics/CGAffineTransform.h>
+typedef CGAffineTransform PlatformAffineTransform;
 #elif PLATFORM(QT)
 #include <QMatrix>
+typedef QMatrix PlatformAffineTransform;
 #elif PLATFORM(CAIRO)
 #include <cairo.h>
+typedef cairo_matrix_t PlatformAffineTransform;
 #elif PLATFORM(SGL)
 #include "SkMatrix.h"
+typedef SkMatrix PlatformAffineTransform;
+#elif PLATFORM(SKIA)
+#include "SkMatrix.h"
+typedef SkMatrix PlatformAffineTransform;
 #elif PLATFORM(WX) && USE(WXGC)
 #include <wx/defs.h>
 #include <wx/graphics.h>
+typedef wxGraphicsMatrix PlatformAffineTransform;
 #endif
 
 namespace WebCore {
@@ -50,25 +58,26 @@ class AffineTransform {
 public:
     AffineTransform();
     AffineTransform(double a, double b, double c, double d, double e, double f);
-#if PLATFORM(CG)
-    AffineTransform(CGAffineTransform transform);
-#elif PLATFORM(QT)
-    AffineTransform(const QMatrix &matrix);
-#elif PLATFORM(CAIRO)
-    AffineTransform(const cairo_matrix_t &matrix);
-#elif PLATFORM(WX) && USE(WXGC)
-    AffineTransform(const wxGraphicsMatrix &matrix);
+#if !PLATFORM(WX) || USE(WXGC)
+    AffineTransform(const PlatformAffineTransform&);
 #endif
 
     void setMatrix(double a, double b, double c, double d, double e, double f);
     void map(double x, double y, double *x2, double *y2) const;
+
+    // Rounds the mapped point to the nearest integer value.
     IntPoint mapPoint(const IntPoint&) const;
+
     FloatPoint mapPoint(const FloatPoint&) const;
+
+    // Rounds the resulting mapped rectangle out. This is helpful for bounding
+    // box computations but may not be what is wanted in other contexts.
     IntRect mapRect(const IntRect&) const;
+
     FloatRect mapRect(const FloatRect&) const;
-    
+
     bool isIdentity() const;
-    
+
     double a() const;
     void setA(double a);
 
@@ -107,16 +116,10 @@ public:
     bool isInvertible() const;
     AffineTransform inverse() const;
 
-#if PLATFORM(CG)
-    operator CGAffineTransform() const;
-#elif PLATFORM(QT)
-    operator QMatrix() const;
-#elif PLATFORM(CAIRO)
-    operator cairo_matrix_t() const;
-#elif PLATFORM(SGL)
-    operator SkMatrix() const;
-#elif PLATFORM(WX) && USE(WXGC)
-    operator wxGraphicsMatrix() const;
+    void blend(const AffineTransform& from, double progress);
+
+#if !PLATFORM(WX) || USE(WXGC)
+    operator PlatformAffineTransform() const;
 #endif
 
     bool operator==(const AffineTransform&) const;
@@ -125,18 +128,12 @@ public:
     AffineTransform operator*(const AffineTransform&);
     
 private:
-#if PLATFORM(CG)
-    CGAffineTransform m_transform;
-#elif PLATFORM(QT)
-    QMatrix m_transform;
-#elif PLATFORM(CAIRO)
-    cairo_matrix_t m_transform;
-#elif PLATFORM(SGL)
-    SkMatrix m_transform;
-#elif PLATFORM(WX) && USE(WXGC)
-    wxGraphicsMatrix m_transform;
+#if !PLATFORM(WX) || USE(WXGC)
+    PlatformAffineTransform m_transform;
 #endif
 };
+
+AffineTransform makeMapBetweenRects(const FloatRect& source, const FloatRect& dest);
 
 } // namespace WebCore
 

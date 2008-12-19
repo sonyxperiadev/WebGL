@@ -57,20 +57,32 @@
 #import <ApplicationServices/ApplicationServices.h>
 #import <Carbon/Carbon.h>
 
+#ifndef CGFLOAT_DEFINED
+#ifdef __LP64__
+typedef double CGFloat;
+#else
+typedef float CGFloat;
+#endif
+#define CGFLOAT_DEFINED 1
+#endif
+
 #ifdef __OBJC__
 #import <Cocoa/Cocoa.h>
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 #define BUILDING_ON_TIGER 1
+#elif MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_5
+#define BUILDING_ON_LEOPARD 1
 #endif
 #endif
 
-#include <JavaScriptCore/Platform.h>
+#include "EmptyProtocolDefinitions.h"
 
-#ifdef __LP64__
-#define WTF_USE_NPOBJECT 0
-#else
-#define WTF_USE_NPOBJECT 1
-#endif
+#include <wtf/Platform.h>
+
+/* WebKit has no way to pull settings from WebCore/config.h for now */
+/* so we assume WebKit is always being compiled on top of JavaScriptCore */
+#define WTF_USE_JSC 1
+#define WTF_USE_V8 0
 
 #ifdef __cplusplus
 #include <wtf/FastMalloc.h>

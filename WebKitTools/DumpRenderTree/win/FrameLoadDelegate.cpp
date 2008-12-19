@@ -26,9 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "DumpRenderTree.h"
+#include "config.h"
 #include "FrameLoadDelegate.h"
 
+#include "AccessibilityController.h"
+#include "DumpRenderTree.h"
 #include "EventSender.h"
 #include "GCController.h"
 #include "LayoutTestController.h"
@@ -37,8 +39,7 @@
 #include <WebCore/COMPtr.h>
 #include <JavaScriptCore/Assertions.h>
 #include <JavaScriptCore/JavaScriptCore.h>
-#include <WebKit/IWebFramePrivate.h>
-#include <WebKit/IWebViewPrivate.h>
+#include <WebKit/WebKit.h>
 #include <wtf/Vector.h>
 #include <stdio.h>
 #include <string>
@@ -68,14 +69,13 @@ string descriptionSuitableForTestResult(IWebFrame* webFrame)
     if (FAILED(webView->mainFrame(&mainFrame)))
         return string();
 
-    if (webFrame == mainFrame)
-        return "main frame";
-
     BSTR frameNameBSTR;
-    if (FAILED(webFrame->name(&frameNameBSTR)))
-        return string();
+    if (FAILED(webFrame->name(&frameNameBSTR)) || BSTRtoString(frameNameBSTR).empty() )
+        return (webFrame == mainFrame) ? "main frame" : string();
 
-    string frameName = "frame \"" + BSTRtoString(frameNameBSTR) + "\"";
+    string frameName = (webFrame == mainFrame) ? "main frame" : "frame";
+    frameName += " \"" + BSTRtoString(frameNameBSTR) + "\""; 
+
     SysFreeString(frameNameBSTR);
 
     return frameName;
@@ -84,6 +84,7 @@ string descriptionSuitableForTestResult(IWebFrame* webFrame)
 FrameLoadDelegate::FrameLoadDelegate()
     : m_refCount(1)
     , m_gcController(new GCController)
+    , m_accessibilityController(new AccessibilityController)
 {
 }
 
@@ -128,7 +129,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didStartProvisionalLoadForFrame(
         /* [in] */ IWebView* webView,
         /* [in] */ IWebFrame* frame) 
 {
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didStartProvisionalLoadForFrame\n",
                 descriptionSuitableForTestResult(frame).c_str());
 
@@ -145,7 +146,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didFailProvisionalLoadWithError(
     /* [in] */ IWebError *error,
     /* [in] */ IWebFrame *frame)
 {
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didFailProvisionalLoadWithError\n",
                 descriptionSuitableForTestResult(frame).c_str());
 
@@ -162,7 +163,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didCommitLoadForFrame(
         return hr;
     webViewPrivate->updateFocusedAndActiveState();
 
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didCommitLoadForFrame\n",
                 descriptionSuitableForTestResult(frame).c_str());
 
@@ -175,7 +176,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didReceiveTitle(
         /* [in] */ BSTR title,
         /* [in] */ IWebFrame *frame)
 {
-    if (::layoutTestController->dumpTitleChanges() && !done)
+    if (::gLayoutTestController->dumpTitleChanges() && !done)
         printf("TITLE CHANGED: %S\n", title ? title : L"");
     return S_OK;
 }
@@ -190,7 +191,7 @@ void FrameLoadDelegate::processWork()
     }
 
     // if we didn't start a new load, then we finished all the commands, so we're ready to dump state
-    if (!topLoadingFrame && !::layoutTestController->waitToDump())
+    if (!topLoadingFrame && !::gLayoutTestController->waitToDump())
         dump();
 }
 
@@ -210,7 +211,7 @@ void FrameLoadDelegate::locationChangeDone(IWebError*, IWebFrame* frame)
     topLoadingFrame = 0;
     WorkQueue::shared()->setFrozen(true);
 
-    if (::layoutTestController->waitToDump())
+    if (::gLayoutTestController->waitToDump())
         return;
 
     if (WorkQueue::shared()->count()) {
@@ -227,7 +228,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didFinishLoadForFrame(
         /* [in] */ IWebView* webView,
         /* [in] */ IWebFrame* frame)
 {
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didFinishLoadForFrame\n",
                 descriptionSuitableForTestResult(frame).c_str());
 
@@ -259,10 +260,13 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didClearWindowObject(
 {
     JSValueRef exception = 0;
 
-    ::layoutTestController->makeWindowObject(context, windowObject, &exception);
+    ::gLayoutTestController->makeWindowObject(context, windowObject, &exception);
     ASSERT(!exception);
 
     m_gcController->makeWindowObject(context, windowObject, &exception);
+    ASSERT(!exception);
+
+    m_accessibilityController->makeWindowObject(context, windowObject, &exception);
     ASSERT(!exception);
 
     JSStringRef eventSenderStr = JSStringCreateWithUTF8CString("eventSender");
@@ -277,9 +281,22 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didFinishDocumentLoadForFrame(
     /* [in] */ IWebView *sender,
     /* [in] */ IWebFrame *frame)
 {
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didFinishDocumentLoadForFrame\n",
                 descriptionSuitableForTestResult(frame).c_str());
+    if (!done) {
+        COMPtr<IWebFramePrivate> webFramePrivate;
+        HRESULT hr = frame->QueryInterface(&webFramePrivate);
+        if (FAILED(hr))
+            return hr;
+        unsigned pendingFrameUnloadEvents;
+        hr = webFramePrivate->pendingFrameUnloadEventCount(&pendingFrameUnloadEvents);
+        if (FAILED(hr))
+            return hr;
+        if (pendingFrameUnloadEvents)
+            printf("%s - has %u onunload handler(s)\n",
+                    descriptionSuitableForTestResult(frame).c_str(), pendingFrameUnloadEvents);
+    }
 
     return S_OK;
 }
@@ -288,7 +305,7 @@ HRESULT STDMETHODCALLTYPE FrameLoadDelegate::didHandleOnloadEventsForFrame(
     /* [in] */ IWebView *sender,
     /* [in] */ IWebFrame *frame)
 {
-    if (!done && layoutTestController->dumpFrameLoadCallbacks())
+    if (!done && gLayoutTestController->dumpFrameLoadCallbacks())
         printf("%s - didHandleOnloadEventsForFrame\n",
                 descriptionSuitableForTestResult(frame).c_str());
 

@@ -15,6 +15,7 @@
 ## limitations under the License.
 ##
 
+LOCAL_SRC_FILES :=
 # CSS property names and value keywords
 
 GEN := $(intermediates)/css/CSSPropertyNames.h
@@ -80,7 +81,8 @@ $(intermediates)/css/CSSParser.o : $(GEN)
 GEN := $(intermediates)/CSSGrammar.cpp
 $(GEN) : PRIVATE_YACCFLAGS := -p cssyy
 $(GEN): $(LOCAL_PATH)/css/CSSGrammar.y
-	$(call transform-y-to-cpp,.cpp)
+	$(call local-transform-y-to-cpp,.cpp)
+$(GEN): $(LOCAL_BISON)
 
 LOCAL_GENERATED_SOURCES += $(GEN)
 
@@ -89,7 +91,8 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 GEN := $(intermediates)/XPathGrammar.cpp
 $(GEN) : PRIVATE_YACCFLAGS := -p xpathyy
 $(GEN): $(LOCAL_PATH)/xml/XPathGrammar.y
-	$(call transform-y-to-cpp,.cpp)
+	$(call local-transform-y-to-cpp,.cpp)
+$(GEN): $(LOCAL_BISON)
 
 LOCAL_GENERATED_SOURCES += $(GEN)
 	                         
@@ -123,14 +126,8 @@ $(intermediates)/css/UserAgentStyleSheets.cpp : $(GEN)
 create_hash_table := $(LOCAL_PATH)/../JavaScriptCore/kjs/create_hash_table
 
 GEN := $(addprefix $(intermediates)/, \
-			bindings/js/JSEventTargetBase.lut.h \
-			bindings/js/JSEventTargetNode.lut.h \
-			bindings/js/JSLocation.lut.h \
-			bindings/js/JSXMLHttpRequest.lut.h \
-			bindings/js/kjs_css.lut.h \
-			bindings/js/kjs_events.lut.h \
-			bindings/js/kjs_navigator.lut.h \
-			bindings/js/kjs_window.lut.h \
+			bindings/js/JSDOMWindowBase.lut.h \
+    		bindings/js/JSRGBColor.lut.h \
 		)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl $(create_hash_table) $< > $@
 $(GEN): $(intermediates)/bindings/js/%.lut.h: $(LOCAL_PATH)/bindings/js/%.cpp $(create_hash_table)
@@ -147,7 +144,6 @@ $(intermediates)/bindings/js/JSHTMLInputElementBase.o : $(GEN)
 # lookup tables for old-style JavaScript bindings
 js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/CodeGenerator.pm \
-			bindings/scripts/CodeGeneratorJS.pm \
 			bindings/scripts/IDLParser.pm \
 			bindings/scripts/IDLStructure.pm \
 			bindings/scripts/generate-bindings.pl \
@@ -167,13 +163,19 @@ GEN := \
     $(intermediates)/css/JSCSSStyleDeclaration.h \
     $(intermediates)/css/JSCSSStyleRule.h \
     $(intermediates)/css/JSCSSStyleSheet.h \
+    $(intermediates)/css/JSCSSUnknownRule.h \
     $(intermediates)/css/JSCSSValue.h \
     $(intermediates)/css/JSCSSValueList.h \
+    $(intermediates)/css/JSCSSVariablesDeclaration.h \
+    $(intermediates)/css/JSCSSVariablesRule.h \
     $(intermediates)/css/JSCounter.h \
     $(intermediates)/css/JSMediaList.h \
     $(intermediates)/css/JSRect.h \
     $(intermediates)/css/JSStyleSheet.h \
-    $(intermediates)/css/JSStyleSheetList.h 
+    $(intermediates)/css/JSStyleSheetList.h  \
+    $(intermediates)/css/JSWebKitCSSKeyframeRule.h \
+    $(intermediates)/css/JSWebKitCSSKeyframesRule.h \
+    $(intermediates)/css/JSWebKitCSSTransformValue.h 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/css/JS%.h : $(LOCAL_PATH)/css/%.idl $(js_binding_scripts)
@@ -185,11 +187,18 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/css/%.cpp : $(intermediates)/css/%.h
 
+# MANUAL MERGE : I took this out because compiling the result shows:
+# out/.../JSEventTarget.cpp: In function 'JSC::JSValue* WebCore::jsEventTargetPrototypeFunctionAddEventListener(JSC::ExecState*, JSC::JSObject*, JSC::JSValue*, const JSC::ArgList&)':
+# out/.../JSEventTarget.cpp:90: error: 'toEventListener' was not declared in this scope
+# but I can't find toEventListener anywhere, nor can I figure out how toEventListener
+# is generated
+#    $(intermediates)/dom/JSEventTarget.h \
 
 GEN := \
     $(intermediates)/dom/JSAttr.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
+    $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
@@ -201,8 +210,11 @@ GEN := \
     $(intermediates)/dom/JSEntityReference.h \
     $(intermediates)/dom/JSEvent.h \
     $(intermediates)/dom/JSEventException.h \
+    $(intermediates)/dom/JSEventTargetNode.h \
     $(intermediates)/dom/JSKeyboardEvent.h \
+    $(intermediates)/dom/JSMessageChannel.h \
     $(intermediates)/dom/JSMessageEvent.h \
+    $(intermediates)/dom/JSMessagePort.h \
     $(intermediates)/dom/JSMouseEvent.h \
     $(intermediates)/dom/JSMutationEvent.h \
     $(intermediates)/dom/JSNamedNodeMap.h \
@@ -218,8 +230,13 @@ GEN := \
     $(intermediates)/dom/JSRangeException.h \
     $(intermediates)/dom/JSText.h \
     $(intermediates)/dom/JSTextEvent.h \
+    $(intermediates)/dom/JSTouch.h \
+    $(intermediates)/dom/JSTouchList.h \
+    $(intermediates)/dom/JSTouchEvent.h \
     $(intermediates)/dom/JSTreeWalker.h \
     $(intermediates)/dom/JSUIEvent.h \
+    $(intermediates)/dom/JSWebKitAnimationEvent.h \
+    $(intermediates)/dom/JSWebKitTransitionEvent.h \
     $(intermediates)/dom/JSWheelEvent.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -235,7 +252,10 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 GEN := \
     $(intermediates)/html/JSCanvasGradient.h \
     $(intermediates)/html/JSCanvasPattern.h \
+    $(intermediates)/html/JSCanvasPixelArray.h \
     $(intermediates)/html/JSCanvasRenderingContext2D.h \
+    $(intermediates)/html/JSFile.h \
+    $(intermediates)/html/JSFileList.h \
     $(intermediates)/html/JSHTMLAnchorElement.h \
     $(intermediates)/html/JSHTMLAppletElement.h \
     $(intermediates)/html/JSHTMLAreaElement.h \
@@ -286,6 +306,7 @@ GEN := \
     $(intermediates)/html/JSHTMLQuoteElement.h \
     $(intermediates)/html/JSHTMLScriptElement.h \
     $(intermediates)/html/JSHTMLSelectElement.h \
+    $(intermediates)/html/JSHTMLSourceElement.h \
     $(intermediates)/html/JSHTMLStyleElement.h \
     $(intermediates)/html/JSHTMLTableCaptionElement.h \
     $(intermediates)/html/JSHTMLTableCellElement.h \
@@ -297,7 +318,9 @@ GEN := \
     $(intermediates)/html/JSHTMLTitleElement.h \
     $(intermediates)/html/JSHTMLUListElement.h \
     $(intermediates)/html/JSHTMLVideoElement.h \
+    $(intermediates)/html/JSImageData.h \
     $(intermediates)/html/JSMediaError.h \
+    $(intermediates)/html/JSTextMetrics.h \
     $(intermediates)/html/JSTimeRanges.h \
     $(intermediates)/html/JSVoidCallback.h 
 
@@ -311,13 +334,56 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
+GEN := \
+    $(intermediates)/inspector/JSJavaScriptCallFrame.h 
+    
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/inspector/JS%.h : $(LOCAL_PATH)/inspector/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/inspector/%.cpp : $(intermediates)/inspector/%.h
+
+GEN := \
+    $(intermediates)/loader/appcache/JSDOMApplicationCache.h 
+    
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/loader/appcache/JS%.h : $(LOCAL_PATH)/loader/appcache/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(intermediates)/loader/appcache/%.h
+
+# MANUAL MERGE : I took this out because compiling the result shows:
+# out/.../JSAbstractView.cpp:27:26: error: AbstractView.h: No such file or directory
+# I can't find AbstractView.h anywhere
+#    $(intermediates)/page/JSAbstractView.h \
+#
+# also:
+#
+# out/.../JSPositionCallback.cpp:145: error: no matching function for call to 'WebCore::PositionCallback::handleEvent(WebCore::Geoposition*&)'
+#  note: candidates are: virtual void WebCore::PositionCallback::handleEvent(WebCore::Geoposition*, bool&)
+#    $(intermediates)/page/JSPositionCallback.h \
 
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
     $(intermediates)/page/JSConsole.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
+    $(intermediates)/page/JSGeolocation.h \
+    $(intermediates)/page/JSGeoposition.h \
     $(intermediates)/page/JSHistory.h \
+    $(intermediates)/page/JSLocation.h \
+    $(intermediates)/page/JSNavigator.h \
+    $(intermediates)/page/JSPositionError.h \
+    $(intermediates)/page/JSPositionErrorCallback.h \
+    $(intermediates)/page/JSPositionOptions.h \
     $(intermediates)/page/JSScreen.h 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -329,15 +395,35 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/page/%.cpp : $(intermediates)/page/%.h
 
+GEN := \
+    $(intermediates)/plugins/JSMimeType.h \
+    $(intermediates)/plugins/JSMimeTypeArray.h \
+    $(intermediates)/plugins/JSPlugin.h \
+    $(intermediates)/plugins/JSPluginArray.h 
+    
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/plugins/JS%.h : $(LOCAL_PATH)/plugins/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/plugins/%.h
+
 #new section for xml/DOMParser.idl
 GEN := \
     $(intermediates)/xml/JSDOMParser.h \
+    $(intermediates)/xml/JSXMLHttpRequest.h \
     $(intermediates)/xml/JSXMLHttpRequestException.h \
+    $(intermediates)/xml/JSXMLHttpRequestProgressEvent.h \
+    $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
     $(intermediates)/xml/JSXPathEvaluator.h \
     $(intermediates)/xml/JSXPathExpression.h \
     $(intermediates)/xml/JSXPathNSResolver.h \
-    $(intermediates)/xml/JSXPathResult.h 
+    $(intermediates)/xml/JSXPathResult.h  \
+    $(intermediates)/xml/JSXSLTProcessor.h 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/xml/JS%.h : $(LOCAL_PATH)/xml/%.idl $(js_binding_scripts)
@@ -351,8 +437,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/
 
 # HTML tag and attribute names
 
-GEN:= $(intermediates)/HTMLNames.cpp
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $< --tags $(html_tags) --attrs $(html_attrs) --namespace HTML --namespacePrefix xhtml --cppNamespace WebCore --namespaceURI "http://www.w3.org/1999/xhtml" --attrsNullNamespace --output $(dir $@) 
+GEN:= $(intermediates)/HTMLNames.cpp  $(intermediates)/JSHTMLElementWrapperFactory.cpp
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(html_tags) --attrs $(html_attrs) --wrapperFactory --output $(dir $@) 
 $(GEN): html_tags := $(LOCAL_PATH)/html/HTMLTagNames.in
 $(GEN): html_attrs := $(LOCAL_PATH)/html/HTMLAttributeNames.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(html_tags) $(html_attrs)
@@ -362,7 +449,8 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # XML attribute names
 
 GEN:= $(intermediates)/XMLNames.cpp
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $< --attrs $(xml_attrs) --namespace XML --cppNamespace WebCore --namespaceURI "http://www.w3.org/XML/1998/namespace" --output $(dir $@) 
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --attrs $(xml_attrs) --output $(dir $@) 
 $(GEN): xml_attrs := $(LOCAL_PATH)/xml/xmlattrs.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xml_attrs)
 	$(transform-generated-source)
@@ -372,14 +460,3 @@ GEN:= $(intermediates)/ksvgcssproperties.h
 $(GEN): 
 	@echo > $@
 LOCAL_GENERATED_SOURCES += $(GEN)
-
-LOCAL_C_INCLUDES += \
-		$(intermediates)/bindings/js \
-		$(intermediates)/css \
-		$(intermediates)/dom \
-		$(intermediates)/html \
-		$(intermediates)/page \
-		$(intermediates)/platform \
-		$(intermediates)/storage \
-		$(intermediates)/xml
-

@@ -41,6 +41,8 @@ my $testRuns = 10; # This number may be different from what sunspider defaults t
 my $runShark = 0;
 my $runShark20 = 0;
 my $runSharkCache = 0;
+my $ubench = 0;
+my $v8 = 0;
 my $setBaseline = 0;
 my $showHelp = 0;
 my $testsPattern;
@@ -56,14 +58,18 @@ Usage: $programName [options] [options to pass to build system]
   --shark           Sample with the Mac OS X "Shark" performance testing tool (implies --runs=1)
   --shark20         Like --shark, but with a 20 microsecond sampling interval
   --shark-cache     Like --shark, but performs a L2 cache-miss sample instead of time sample
+  --ubench          Use microbenchmark suite instead of regular tests (to check for core execution regressions)
+  --v8              Use the V8 benchmark suite.
 EOF
 
-GetOptions('root=s' => sub { my ($value) = @_; $root = $value; setConfigurationProductDir(Cwd::abs_path($root)); },
+GetOptions('root=s' => sub { my ($x, $value) = @_; $root = $value; setConfigurationProductDir(Cwd::abs_path($root)); },
            'runs=i' => \$testRuns,
            'set-baseline' => \$setBaseline,
            'shark' => \$runShark,
            'shark20' => \$runShark20,
            'shark-cache' => \$runSharkCache,
+           'ubench' => \$ubench,
+           'v8' => \$v8,
            'tests=s' => \$testsPattern,
            'help' => \$showHelp);
 
@@ -72,15 +78,15 @@ if ($showHelp) {
    exit 1;
 }
 
-sub buildTestKJS
+sub buildJSC
 {
     if (!defined($root)){
         push(@ARGV,  "--" . $configuration);
         
         chdirWebKit();
-        my $buildResult = system "WebKitTools/Scripts/build-testkjs", @ARGV;
+        my $buildResult = system "WebKitTools/Scripts/build-jsc", @ARGV;
         if ($buildResult) {
-            print STDERR "Compiling testkjs failed!\n";
+            print STDERR "Compiling jsc failed!\n";
             exit exitStatus($buildResult);
         }
     }
@@ -94,15 +100,15 @@ sub setupEnvironmentForExecution($)
     # FIXME: Other platforms may wish to augment this method to use LD_LIBRARY_PATH, etc.
 }
 
-sub testKJSPath($)
+sub jscPath($)
 {
     my ($productDir) = @_;
-    my $testkjsName = "testkjs";
-    $testkjsName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
-    return "$productDir/$testkjsName";
+    my $jscName = "jsc";
+    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    return "$productDir/$jscName";
 }
 
-buildTestKJS();
+buildJSC();
 
 chdirWebKit();
 chdir("SunSpider");
@@ -112,12 +118,14 @@ my $productDir = productDir();
 $productDir .= "/JavaScriptCore" if (isQt() or isGtk());
 
 setupEnvironmentForExecution($productDir);
-my @args = ("--shell", testKJSPath($productDir), "--runs", $testRuns);
+my @args = ("--shell", jscPath($productDir), "--runs", $testRuns);
 # This code could be removed if we chose to pass extra args to sunspider instead of Xcode
 push @args, "--set-baseline" if $setBaseline;
 push @args, "--shark" if $runShark;
 push @args, "--shark20" if $runShark20;
 push @args, "--shark-cache" if $runSharkCache;
+push @args, "--ubench" if $ubench;
+push @args, "--v8" if $v8;
 push @args, "--tests", $testsPattern if $testsPattern;
 
 exec "./sunspider", @args;

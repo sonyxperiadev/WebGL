@@ -84,6 +84,13 @@ bool InsertListCommand::modifyRange()
     startOfSelection = endingSelection().visibleStart();
     VisiblePosition startOfCurrentParagraph = startOfNextParagraph(startOfSelection);
     while (startOfCurrentParagraph != startOfLastParagraph) {
+        // doApply() may operate on and remove the last paragraph of the selection from the document 
+        // if it's in the same list item as startOfCurrentParagraph.  Return early to avoid an 
+        // infinite loop and because there is no more work to be done.
+        // FIXME(<rdar://problem/5983974>): The endingSelection() may be incorrect here.  Compute 
+        // the new location of endOfSelection and use it as the end of the new selection.
+        if (!startOfLastParagraph.deepEquivalent().node()->inDocument())
+            return true;
         setEndingSelection(startOfCurrentParagraph);
         doApply();
         startOfCurrentParagraph = startOfNextParagraph(endingSelection().visibleStart());
@@ -177,7 +184,7 @@ void InsertListCommand::doApply()
             // FIXME: We appear to split at nextListChild as opposed to listChildNode so that when we remove
             // listChildNode below in moveParagraphs, previousListChild will be removed along with it if it is 
             // unrendered. But we ought to remove nextListChild too, if it is unrendered.
-            splitElement(static_cast<Element *>(listNode), splitTreeToNode(nextListChild, listNode));
+            splitElement(static_cast<Element*>(listNode), splitTreeToNode(nextListChild, listNode).get());
             insertNodeBefore(nodeToInsert.get(), listNode);
         } else if (nextListChild || listChildNode->parentNode() != listNode) {
             // Just because listChildNode has no previousListChild doesn't mean there isn't any content
@@ -185,7 +192,7 @@ void InsertListCommand::doApply()
             // between it and listNode. So, we split up to listNode before inserting the placeholder
             // where we're about to move listChildNode to.
             if (listChildNode->parentNode() != listNode)
-                splitElement(static_cast<Element *>(listNode), splitTreeToNode(listChildNode, listNode));
+                splitElement(static_cast<Element *>(listNode), splitTreeToNode(listChildNode, listNode).get());
             insertNodeBefore(nodeToInsert.get(), listNode);
         } else
             insertNodeAfter(nodeToInsert.get(), listNode);
@@ -231,8 +238,8 @@ void InsertListCommand::doApply()
                 // Inserting the list into an empty paragraph that isn't held open 
                 // by a br or a '\n', will invalidate start and end.  Insert 
                 // a placeholder and then recompute start and end.
-                Node* placeholder = insertBlockPlaceholder(start.deepEquivalent());
-                start = VisiblePosition(Position(placeholder, 0));
+                RefPtr<Node> placeholder = insertBlockPlaceholder(start.deepEquivalent());
+                start = VisiblePosition(Position(placeholder.get(), 0));
                 end = start;
             }
             

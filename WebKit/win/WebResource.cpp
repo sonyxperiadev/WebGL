@@ -46,11 +46,13 @@ WebResource::WebResource(IStream* data, const WebCore::KURL& url, const WebCore:
     , m_frameName(frameName)
 {
     gClassCount++;
+    gClassNameCount.add("WebResource");
 }
 
 WebResource::~WebResource()
 {
     gClassCount--;
+    gClassNameCount.remove("WebResource");
 }
 
 WebResource* WebResource::createInstance(PassRefPtr<WebCore::SharedBuffer> data, const WebCore::ResourceResponse& response)
@@ -103,7 +105,7 @@ HRESULT STDMETHODCALLTYPE WebResource::initWithData(
     /* [in] */ BSTR frameName)
 {
     m_data = data;
-    m_url = KURL(String(url).deprecatedString());
+    m_url = KURL(String(url));
     m_mimeType = String(mimeType);
     m_textEncodingName = String(textEncodingName);
     m_frameName = String(frameName);

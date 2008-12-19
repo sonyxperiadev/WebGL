@@ -24,10 +24,12 @@
  */
 
 #include "config.h"
+#include "WebURLResponse.h"
+
 #include "WebKitDLL.h"
 #include "WebKit.h"
 
-#include "HTTPHeaderPropertyBag.h"
+#include "COMPropertyBag.h"
 #include "MarshallingHelpers.h"
 #include "WebLocalizableStrings.h"
 
@@ -35,7 +37,6 @@
 #include <wtf/platform.h>
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
-#include <WebCore/DeprecatedString.h>
 #include <WebCore/KURL.h>
 #include <WebCore/ResourceHandle.h>
 #pragma warning( pop )
@@ -211,18 +212,20 @@ WebURLResponse::WebURLResponse()
     :m_refCount(0)
 {
     gClassCount++;
+    gClassNameCount.add("WebURLResponse");
 }
 
 WebURLResponse::~WebURLResponse()
 {
     gClassCount--;
+    gClassNameCount.remove("WebURLResponse");
 }
 
 WebURLResponse* WebURLResponse::createInstance()
 {
     WebURLResponse* instance = new WebURLResponse();
     // fake an http response - so it has the IWebHTTPURLResponse interface
-    instance->m_response = ResourceResponse(String("http://").deprecatedString(), String(), 0, String(), String());
+    instance->m_response = ResourceResponse(KURL("http://"), String(), 0, String(), String());
     instance->AddRef();
     return instance;
 }
@@ -290,7 +293,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::initWithURL(
     /* [in] */ int expectedContentLength,
     /* [in] */ BSTR textEncodingName)
 {
-    m_response = ResourceResponse(String(url).deprecatedString(), String(mimeType), expectedContentLength, String(textEncodingName), String());
+    m_response = ResourceResponse(KURL(url), String(mimeType), expectedContentLength, String(textEncodingName), String());
     return S_OK;
 }
 
@@ -356,7 +359,8 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::allHeaderFields(
     /* [retval][out] */ IPropertyBag** headerFields)
 {
     ASSERT(m_response.isHTTP());
-    *headerFields = HTTPHeaderPropertyBag::createInstance(this);
+
+    *headerFields = COMPropertyBag<String, CaseFoldingHash>::createInstance(m_response.httpHeaderFields());
     return S_OK;
 }
 
@@ -398,6 +402,8 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::sslPeerCertificate(
     if (!result)
         return E_POINTER;
     *result = 0;
+
+#if USE(CFNETWORK)
     CFDictionaryRef dict = certificateDictionary();
     if (!dict)
         return E_FAIL;
@@ -405,6 +411,8 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::sslPeerCertificate(
     if (!data)
         return E_FAIL;
     *result = (OLE_HANDLE)(ULONG64)data;
+#endif
+
     return *result ? S_OK : E_FAIL;
 }
 
@@ -464,6 +472,7 @@ const ResourceResponse& WebURLResponse::resourceResponse() const
     return m_response;
 }
 
+#if USE(CFNETWORK)
 CFDictionaryRef WebURLResponse::certificateDictionary() const
 {
     if (m_SSLCertificateInfo)
@@ -475,3 +484,4 @@ CFDictionaryRef WebURLResponse::certificateDictionary() const
     m_SSLCertificateInfo = wkGetSSLCertificateInfo(cfResponse);
     return m_SSLCertificateInfo.get();
 }
+#endif

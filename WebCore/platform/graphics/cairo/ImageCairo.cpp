@@ -43,22 +43,55 @@ void FrameData::clear()
     if (m_frame) {
         cairo_surface_destroy(m_frame);
         m_frame = 0;
-        m_duration = 0.;
-        m_hasAlpha = true;
+        // NOTE: We purposefully don't reset metadata here, so that even if we
+        // throw away previously-decoded data, animation loops can still access
+        // properties like frame durations without re-decoding.
     }
+}
+
+BitmapImage::BitmapImage(cairo_surface_t* surface, ImageObserver* observer)
+    : Image(observer)
+    , m_currentFrame(0)
+    , m_frames(0)
+    , m_frameTimer(0)
+    , m_repetitionCount(cAnimationNone)
+    , m_repetitionCountStatus(Unknown)
+    , m_repetitionsComplete(0)
+    , m_isSolidColor(false)
+    , m_animationFinished(true)
+    , m_allDataReceived(true)
+    , m_haveSize(true)
+    , m_sizeAvailable(true)
+    , m_decodedSize(0)
+    , m_haveFrameCount(true)
+    , m_frameCount(1)
+{
+    initPlatformData();
+
+    // TODO: check to be sure this is an image surface
+
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    m_decodedSize = width * height * 4;
+    m_size = IntSize(width, height);
+
+    m_frames.grow(1);
+    m_frames[0].m_frame = surface;
+    m_frames[0].m_hasAlpha = cairo_surface_get_content(surface) != CAIRO_CONTENT_COLOR;
+    m_frames[0].m_haveMetadata = true;
+    checkForSolidColor();
 }
 
 void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, CompositeOperator op)
 {
-    if (!m_source.initialized())
-        return;
-
-    FloatRect srcRect(src);
-    FloatRect dstRect(dst);
+    startAnimation();
 
     cairo_surface_t* image = frameAtIndex(m_currentFrame);
     if (!image) // If it's too early we won't have an image yet.
         return;
+
+    FloatRect srcRect(src);
+    FloatRect dstRect(dst);
 
     if (mayFillWithSolidColor()) {
         fillWithSolidColor(context, dstRect, solidColor(), op);
@@ -97,11 +130,10 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
     cairo_set_source(cr, pattern);
     cairo_pattern_destroy(pattern);
     cairo_rectangle(cr, 0, 0, dstRect.width(), dstRect.height());
-    cairo_fill(cr);
+    cairo_clip(cr);
+    cairo_paint_with_alpha(cr, context->getAlpha());
 
     cairo_restore(cr);
-
-    startAnimation();
 
     if (imageObserver())
         imageObserver()->didDraw(this);

@@ -23,6 +23,7 @@ module core {
     interface [
         GenerateConstructor,
         GenerateNativeConverter,
+        InlineGetOwnPropertySlot,
         InterfaceUUID=FEFE9C21-E58C-4b5b-821A-61A514613763,
         ImplementationUUID=12E5B08E-A680-4baf-9D1E-108AEF7ABBFB
     ] Element : EventTargetNode {
@@ -91,9 +92,6 @@ module core {
 
         // IE extensions
 
-        Node insertAdjacentElement(in DOMString position, 
-                                   in Node element)
-            raises(DOMException);
         boolean contains(in Element element);
 
         // WebKit extensions
@@ -105,11 +103,20 @@ module core {
         // HTML 5
         NodeList getElementsByClassName(in DOMString name);
 
-        // ElementSelector - Selector API
-        Element             querySelector(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+        // NodeSelector - Selector API
+        Element querySelector(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
             raises(DOMException);
-        NodeList            querySelectorAll(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+        NodeList querySelectorAll(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
             raises(DOMException);
+
+        // ElementTraversal API
+#if !defined(LANGUAGE_COM)
+        readonly attribute Element firstElementChild;
+        readonly attribute Element lastElementChild;
+        readonly attribute Element previousElementSibling;
+        readonly attribute Element nextElementSibling;
+        readonly attribute unsigned long childElementCount;
+#endif
 
 #if defined(LANGUAGE_OBJECTIVE_C)
         // Objective-C extensions

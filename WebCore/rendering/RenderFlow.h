@@ -46,7 +46,6 @@ public:
         , m_lineHeight(-1)
         , m_childrenInline(true)
         , m_firstLine(false)
-        , m_clearStatus(CNONE)
         , m_topMarginQuirk(false) 
         , m_bottomMarginQuirk(false)
         , m_hasMarkupTruncation(false)
@@ -67,7 +66,7 @@ public:
     virtual void addChildToFlow(RenderObject* newChild, RenderObject* beforeChild) = 0;
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0);
 
-    static RenderFlow* createAnonymousFlow(Document*, RenderStyle*);
+    static RenderFlow* createAnonymousFlow(Document*, PassRefPtr<RenderStyle>);
 
     void extractLineBox(InlineFlowBox*);
     void attachLineBox(InlineFlowBox*);
@@ -77,7 +76,7 @@ public:
 
     virtual void dirtyLinesFromChangedChild(RenderObject* child);
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
 
     InlineFlowBox* firstLineBox() const { return m_firstLineBox; }
     InlineFlowBox* lastLineBox() const { return m_lastLineBox; }
@@ -94,7 +93,7 @@ public:
     virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
 
-    virtual IntRect caretRect(int offset, EAffinity = UPSTREAM, int* extraWidthToEndOfLine = 0);
+    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
     void paintOutlineForLine(GraphicsContext*, int tx, int ty, const IntRect& prevLine, const IntRect& thisLine, const IntRect& nextLine);
@@ -102,7 +101,7 @@ public:
 
     virtual bool hasColumns() const { return m_hasColumns; }
 
-    virtual bool isWordBreak() const { ASSERT(isInlineFlow()); return false; }
+    void calcMargins(int containerWidth);
 
     void checkConsistency() const;
 
@@ -120,13 +119,12 @@ protected:
     InlineFlowBox* m_firstLineBox;
     InlineFlowBox* m_lastLineBox;
 
-    mutable short m_lineHeight;
+    mutable int m_lineHeight;
     
     // These bitfields are moved here from subclasses to pack them together
     // from RenderBlock
     bool m_childrenInline : 1;
     bool m_firstLine : 1;
-    unsigned m_clearStatus  : 2; // EClear
     bool m_topMarginQuirk : 1;
     bool m_bottomMarginQuirk : 1;
     bool m_hasMarkupTruncation : 1;

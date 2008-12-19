@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -19,40 +19,19 @@
  *
  */
 
-#include <wtf/Platform.h>
-
-#if PLATFORM(MAC)
-#define HAVE_JNI 1
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H
+#include "autotoolsconfig.h"
 #endif
 
-#ifdef ANDROID
+#include <wtf/Platform.h>
 
-#define HAVE_JNI 1
-#define HAVE_FUNC_FINITE 1
-#define HAVE_MMAP 1
-#define HAVE_STRINGS_H 1
-#define HAVE_SYS_TIME_H 1
-#define HAVE_SYS_PARAM_H 1
-#define HAVE_ERRNO_H 1
-#define HAVE_SBRK 1
+#if PLATFORM(ANDROID)
 
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 //#define ANDROID_INSTRUMENT
+#endif
 
-#define ANDROID_FIX         // changes can be merged back, or already in, WebKit.org's ToT
-
-#elif PLATFORM(DARWIN)
-
-#define HAVE_ERRNO_H 1
-#define HAVE_MMAP 1
-#define HAVE_MERGESORT 1
-#define HAVE_SBRK 1
-#define HAVE_STRINGS_H 1
-#define HAVE_SYS_PARAM_H 1
-#define HAVE_SYS_TIME_H 1
-#define HAVE_SYS_TIMEB_H 1
-
-#elif PLATFORM(WIN_OS)
+#if PLATFORM(WIN_OS)
 
 // If we don't define these, they get defined in windef.h. 
 // We want to use std::min and std::max
@@ -66,24 +45,9 @@
 #endif
 #endif
 
-#define HAVE_FLOAT_H 1
-#define HAVE_SYS_TIMEB_H 1
-#define HAVE_VIRTUALALLOC 1
-
-#else
-
-/* FIXME: is this actually used or do other platforms generate their own config.h? */
-
-#define HAVE_ERRNO_H 1
-#define HAVE_MMAP 1
-#define HAVE_SBRK 1
-#define HAVE_STRINGS_H 1
-#define HAVE_SYS_PARAM_H 1
-#define HAVE_SYS_TIME_H 1
-
 #endif
 
-#if PLATFORM(FREEBSD)
+#if PLATFORM(FREEBSD) || PLATFORM(OPENBSD)
 #define HAVE_PTHREAD_NP_H 1
 #endif
 

@@ -25,6 +25,7 @@
 #if ENABLE(SVG)
 #include "SVGLinearGradientElement.h"
 
+#include "Document.h"
 #include "FloatPoint.h"
 #include "LinearGradientAttributes.h"
 #include "SVGLength.h"
@@ -38,34 +39,28 @@ namespace WebCore {
 
 SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName, Document* doc)
     : SVGGradientElement(tagName, doc)
-    , m_x1(this, LengthModeWidth)
-    , m_y1(this, LengthModeHeight)
-    , m_x2(this, LengthModeWidth)
-    , m_y2(this, LengthModeHeight)
+    , m_x1(this, SVGNames::x1Attr, LengthModeWidth)
+    , m_y1(this, SVGNames::y1Attr, LengthModeHeight)
+    , m_x2(this, SVGNames::x2Attr, LengthModeWidth, "100%")
+    , m_y2(this, SVGNames::y2Attr, LengthModeHeight)
 {
-    // Spec: If the attribute is not specified, the effect is as if a value of "100%" were specified.
-    setX2BaseValue(SVGLength(this, LengthModeWidth, "100%"));
+    // Spec: If the x2 attribute is not specified, the effect is as if a value of "100%" were specified.
 }
 
 SVGLinearGradientElement::~SVGLinearGradientElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, X1, x1, SVGNames::x1Attr, m_x1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, Y1, y1, SVGNames::y1Attr, m_y1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, X2, x2, SVGNames::x2Attr, m_x2)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, Y2, y2, SVGNames::y2Attr, m_y2)
-
 void SVGLinearGradientElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::x1Attr)
-        setX1BaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setX1BaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::y1Attr)
-        setY1BaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setY1BaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::x2Attr)
-        setX2BaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setX2BaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::y2Attr)
-        setY2BaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setY2BaseValue(SVGLength(LengthModeHeight, attr->value()));
     else
         SVGGradientElement::parseMappedAttribute(attr);
 }
@@ -110,10 +105,10 @@ LinearGradientAttributes SVGLinearGradientElement::collectGradientProperties() c
 
     while (current) {
         if (!attributes.hasSpreadMethod() && current->hasAttribute(SVGNames::spreadMethodAttr))
-            attributes.setSpreadMethod((SVGGradientSpreadMethod) current->spreadMethod());
+            attributes.setSpreadMethod((GradientSpreadMethod) current->spreadMethod());
 
         if (!attributes.hasBoundingBoxMode() && current->hasAttribute(SVGNames::gradientUnitsAttr))
-            attributes.setBoundingBoxMode(current->getAttribute(SVGNames::gradientUnitsAttr) == "objectBoundingBox");
+            attributes.setBoundingBoxMode(current->gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
 
         if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr))
             attributes.setGradientTransform(current->gradientTransform()->consolidate().matrix());

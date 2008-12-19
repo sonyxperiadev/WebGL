@@ -29,6 +29,10 @@
 #import <WebKit/WebView.h>
 #import <WebKit/WebFramePrivate.h>
 
+#if !defined(ENABLE_DASHBOARD_SUPPORT)
+#define ENABLE_DASHBOARD_SUPPORT 1
+#endif
+
 #if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
 #define WebNSInteger int
 #define WebNSUInteger unsigned int
@@ -41,6 +45,7 @@
 @class WebFrame;
 @class WebInspector;
 @class WebPreferences;
+@class WebTextIterator;
 
 @protocol WebFormDelegate;
 
@@ -61,6 +66,7 @@ extern NSString *WebElementIsContentEditableKey; // NSNumber indicating whether 
 // other WebElementDictionary keys
 extern NSString *WebElementLinkIsLiveKey;        // NSNumber of BOOL indictating whether the link is live or not
 
+#if ENABLE_DASHBOARD_SUPPORT
 typedef enum {
     WebDashboardBehaviorAlwaysSendMouseEventsToAllWindows,
     WebDashboardBehaviorAlwaysSendActiveNullEventsToPlugIns,
@@ -68,6 +74,7 @@ typedef enum {
     WebDashboardBehaviorAllowWheelScrolling,
     WebDashboardBehaviorUseBackwardCompatibilityMode
 } WebDashboardBehavior;
+#endif
 
 @interface WebController : NSTreeController {
     IBOutlet WebView *webView;
@@ -83,6 +90,9 @@ typedef enum {
 @end
 
 @interface WebView (WebPendingPublic)
+
+- (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
+- (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 
 /*!
 @method searchFor:direction:caseSensitive:wrap:startInSelection:
@@ -146,11 +156,30 @@ typedef enum {
 - (BOOL)allowsUndo;
 - (void)setAllowsUndo:(BOOL)flag;
 
+/*!
+    @method setPageSizeMultiplier:
+    @abstract Change the zoom factor of the page in views managed by this webView.
+    @param multiplier A fractional percentage value, 1.0 is 100%.
+*/    
+- (void)setPageSizeMultiplier:(float)multiplier;
+
+/*!
+    @method pageSizeMultiplier
+    @result The page size multipler.
+*/    
+- (float)pageSizeMultiplier;
+
+// Commands for doing page zoom.  Will end up in WebView (WebIBActions) <NSUserInterfaceValidations>
+- (BOOL)canZoomPageIn;
+- (IBAction)zoomPageIn:(id)sender;
+- (BOOL)canZoomPageOut;
+- (IBAction)zoomPageOut:(id)sender;
+- (BOOL)canResetPageZoom;
+- (IBAction)resetPageZoom:(id)sender;
+
 @end
 
 @interface WebView (WebPrivate)
-
-+ (BOOL)_scriptDebuggerEnabled;
 
 - (WebInspector *)inspector;
 
@@ -196,11 +225,16 @@ Could be worth adding to the API.
 */
 + (NSString *)suggestedFileExtensionForMIMEType: (NSString *)MIMEType;
 
++ (NSString *)_standardUserAgentWithApplicationName:(NSString *)applicationName;
+
 // May well become public
 - (void)_setFormDelegate:(id<WebFormDelegate>)delegate;
 - (id<WebFormDelegate>)_formDelegate;
 
 - (BOOL)_isClosed;
+
+// _close is now replaced by public method -close. It remains here only for backward compatibility
+// until callers can be weaned off of it.
 - (void)_close;
 
 /*!
@@ -232,15 +266,19 @@ Could be worth adding to the API.
 
 + (NSString *)_decodeData:(NSData *)data;
 
++ (void)_setAlwaysUsesComplexTextCodePath:(BOOL)f;
+// This is the old name of the above method. Needed for Safari versions that call it.
 + (void)_setAlwaysUseATSU:(BOOL)f;
 
 - (NSCachedURLResponse *)_cachedResponseForURL:(NSURL *)URL;
 
+#if ENABLE_DASHBOARD_SUPPORT
 - (void)_addScrollerDashboardRegions:(NSMutableDictionary *)regions;
 - (NSDictionary *)_dashboardRegions;
 
 - (void)_setDashboardBehavior:(WebDashboardBehavior)behavior to:(BOOL)flag;
 - (BOOL)_dashboardBehavior:(WebDashboardBehavior)behavior;
+#endif
 
 + (void)_setShouldUseFontSmoothing:(BOOL)f;
 + (BOOL)_shouldUseFontSmoothing;
@@ -324,9 +362,18 @@ Could be worth adding to the API.
 - (BOOL)usesPageCache;
 - (void)setUsesPageCache:(BOOL)usesPageCache;
 
+/*!
+ @method textIteratorForRect:
+ @param rectangle from which we want the WebTextIterator to load text from
+ @result a WebtextIterator object.
+ */
+- (WebTextIterator *)textIteratorForRect:(NSRect)rect;
+
+#if ENABLE_DASHBOARD_SUPPORT
 // <rdar://problem/5217124> Clients other than dashboard, don't use this.
 // Do not remove until Dashboard has moved off it
 - (void)handleAuthenticationForResource:(id)identifier challenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)dataSource;
+#endif
 
 - (void)_clearUndoRedoOperations;
 
@@ -334,8 +381,18 @@ Could be worth adding to the API.
 - (BOOL)_inFastImageScalingMode;
 - (void)_setUseFastImageScalingMode:(BOOL)flag;
 
+- (BOOL)_cookieEnabled;
+- (void)_setCookieEnabled:(BOOL)enable;
+
 // SPI for DumpRenderTree
 - (void)_executeCoreCommandByName:(NSString *)name value:(NSString *)value;
+- (void)_clearMainFrameName;
+
+- (void)_setCustomHTMLTokenizerTimeDelay:(double)timeDelay;
+- (void)_setCustomHTMLTokenizerChunkSize:(int)chunkSize;
+
+- (id)_initWithFrame:(NSRect)f frameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews;
+- (BOOL)_usesDocumentViews;
 
 @end
 

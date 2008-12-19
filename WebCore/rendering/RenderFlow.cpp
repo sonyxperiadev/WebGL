@@ -47,7 +47,7 @@ RenderFlow::~RenderFlow()
 
 #endif
 
-RenderFlow* RenderFlow::createAnonymousFlow(Document* doc, RenderStyle* style)
+RenderFlow* RenderFlow::createAnonymousFlow(Document* doc, PassRefPtr<RenderStyle> style)
 {
     RenderFlow* result;
     if (style->display() == INLINE)
@@ -310,7 +310,7 @@ void RenderFlow::dirtyLinesFromChangedChild(RenderObject* child)
     }
 }
 
-short RenderFlow::lineHeight(bool firstLine, bool isRootLineBox) const
+int RenderFlow::lineHeight(bool firstLine, bool isRootLineBox) const
 {
     if (firstLine) {
         RenderStyle* s = style(firstLine);
@@ -377,7 +377,8 @@ void RenderFlow::paintLines(PaintInfo& paintInfo, int tx, int ty)
 {
     // Only paint during the foreground/selection phases.
     if (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseOutline 
-        && paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines)
+        && paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines && paintInfo.phase != PaintPhaseTextClip
+        && paintInfo.phase != PaintPhaseMask)
         return;
 
     bool inlineFlow = isInlineFlow();
@@ -550,7 +551,7 @@ IntRect RenderFlow::absoluteClippedOverflowRect()
 int RenderFlow::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
 {
     ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && hasOverflowClip())
+    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
         return includeSelf && m_width > 0 ? overflowHeight(false) : 0;
 
     int bottom = includeSelf && m_width > 0 ? m_height : 0;
@@ -574,7 +575,7 @@ int RenderFlow::lowestPosition(bool includeOverflowInterior, bool includeSelf) c
 int RenderFlow::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
 {
     ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && hasOverflowClip())
+    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
         return includeSelf && m_height > 0 ? overflowWidth(false) : 0;
 
     int right = includeSelf && m_height > 0 ? m_width : 0;
@@ -598,7 +599,7 @@ int RenderFlow::rightmostPosition(bool includeOverflowInterior, bool includeSelf
 int RenderFlow::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
 {
     ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && hasOverflowClip())
+    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
         return includeSelf && m_height > 0 ? overflowLeft(false) : m_width;
 
     int left = includeSelf && m_height > 0 ? 0 : m_width;
@@ -619,11 +620,11 @@ int RenderFlow::leftmostPosition(bool includeOverflowInterior, bool includeSelf)
     return left;
 }
 
-IntRect RenderFlow::caretRect(int offset, EAffinity affinity, int* extraWidthToEndOfLine)
+IntRect RenderFlow::caretRect(InlineBox* inlineBox, int caretOffset, int* extraWidthToEndOfLine)
 {
     // Do the normal calculation in most cases.
     if (firstChild() || style()->display() == INLINE)
-        return RenderContainer::caretRect(offset, affinity, extraWidthToEndOfLine);
+        return RenderContainer::caretRect(inlineBox, caretOffset, extraWidthToEndOfLine);
 
     // This is a special case:
     // The element is not an inline element, and it's empty. So we have to
@@ -766,7 +767,7 @@ void RenderFlow::paintOutline(GraphicsContext* graphicsContext, int tx, int ty)
         graphicsContext->clearFocusRing();
     }
 
-    if (style()->outlineStyleIsAuto() || style()->outlineStyle() <= BHIDDEN)
+    if (style()->outlineStyleIsAuto() || style()->outlineStyle() == BNONE)
         return;
 
     Vector<IntRect> rects;
@@ -859,6 +860,12 @@ void RenderFlow::paintOutlineForLine(GraphicsContext* graphicsContext, int tx, i
                    BSBottom, oc, style()->color(), os,
                    (!nextline.isEmpty() && l - ow < tx + nextline.right()) ? -ow : ow,
                    ow);
+}
+
+void RenderFlow::calcMargins(int containerWidth)
+{
+    m_marginLeft = style()->marginLeft().calcMinValue(containerWidth);
+    m_marginRight = style()->marginRight().calcMinValue(containerWidth);
 }
 
 #ifndef NDEBUG

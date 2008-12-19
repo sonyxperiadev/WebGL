@@ -30,9 +30,7 @@
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-#ifdef ANDROID_PRELOAD_CHANGES
 #include <wtf/ListHashSet.h>
-#endif
 
 namespace WebCore {
 
@@ -43,21 +41,21 @@ class CachedScript;
 class CachedXSLStyleSheet;
 class Document;
 class Frame;
-class HTMLImageLoader;
+class ImageLoader;
 class KURL;
 
 // The DocLoader manages the loading of scripts/images/stylesheets for a single document.
 class DocLoader
 {
 friend class Cache;
-friend class HTMLImageLoader;
+friend class ImageLoader;
 
 public:
-    DocLoader(Frame*, Document*);
+    DocLoader(Document*);
     ~DocLoader();
 
     CachedImage* requestImage(const String& url);
-    CachedCSSStyleSheet* requestCSSStyleSheet(const String& url, const String& charset, bool isUserStyleSheet = false);
+    CachedCSSStyleSheet* requestCSSStyleSheet(const String& url, const String& charset);
     CachedCSSStyleSheet* requestUserCSSStyleSheet(const String& url, const String& charset);
     CachedScript* requestScript(const String& url, const String& charset);
     CachedFont* requestFont(const String& url);
@@ -68,6 +66,9 @@ public:
 #if ENABLE(XBL)
     CachedXBLDocument* requestXBLDocument(const String &url);
 #endif
+
+    // Logs an access denied message to the console for the specified URL.
+    void printAccessDeniedMessage(const KURL& url) const;
 
     CachedResource* cachedResource(const String& url) const { return m_docResources.get(url); }
     const HashMap<String, CachedResource*>& allCachedResources() const { return m_docResources; }
@@ -84,7 +85,7 @@ public:
     CachePolicy cachePolicy() const { return m_cachePolicy; }
     void setCachePolicy(CachePolicy);
     
-    Frame* frame() const { return m_frame; }
+    Frame* frame() const; // Can be NULL
     Document* doc() const { return m_doc; }
 
     void removeCachedResource(CachedResource*) const;
@@ -101,33 +102,28 @@ public:
     void incrementRequestCount();
     void decrementRequestCount();
     int requestCount();
-
-#ifdef ANDROID_PRELOAD_CHANGES
+    
     void clearPreloads();
-    void preload(CachedResource::Type type, const String& url, const String& charset, bool inBody);
+    void preload(CachedResource::Type, const String& url, const String& charset, bool referencedFromBody);
     void checkForPendingPreloads();
     void printPreloadStats();
-#endif
+    
 private:
-#ifdef ANDROID_PRELOAD_CHANGES
-    CachedResource* requestResource(CachedResource::Type, const String& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true, bool isPreload = false);
-    void requestPreload(CachedResource::Type type, const String& url, const String& charset);
-#else
-    CachedResource* requestResource(CachedResource::Type, const String& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
-#endif
+    CachedResource* requestResource(CachedResource::Type, const String& url, const String& charset, bool isPreload = false);
+    void requestPreload(CachedResource::Type, const String& url, const String& charset);
+
     void checkForReload(const KURL&);
     void checkCacheObjectStatus(CachedResource*);
+    bool canRequest(CachedResource::Type, const KURL&);
     
     Cache* m_cache;
     HashSet<String> m_reloadedURLs;
     mutable HashMap<String, CachedResource*> m_docResources;
     CachePolicy m_cachePolicy;
-    Frame* m_frame;
-    Document *m_doc;
+    Document* m_doc;
     
     int m_requestCount;
 
-#ifdef ANDROID_PRELOAD_CHANGES
     ListHashSet<CachedResource*> m_preloads;
     struct PendingPreload {
         CachedResource::Type m_type;
@@ -135,7 +131,6 @@ private:
         String m_charset;
     };
     Vector<PendingPreload> m_pendingPreloads;
-#endif
     
     //29 bits left
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE

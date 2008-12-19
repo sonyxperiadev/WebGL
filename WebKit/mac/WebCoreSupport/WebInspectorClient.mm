@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,31 +30,25 @@
 
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
+#import "WebInspector.h"
 #import "WebLocalizableStrings.h"
 #import "WebNodeHighlight.h"
-#import "WebPreferences.h"
-#import "WebTypesInternal.h"
-#import "WebView.h"
+#import "WebUIDelegate.h"
 #import "WebViewInternal.h"
-#import "WebViewPrivate.h"
-
-#import <AppKit/NSWindowController.h>
 
 #import <WebCore/InspectorController.h>
 #import <WebCore/Page.h>
 
-#import <WebKit/DOMCore.h>
 #import <WebKit/DOMExtensions.h>
 
 #import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
-@interface WebInspectorWindowController : NSWindowController {
+@interface WebInspectorWindowController : NSWindowController <NSWindowDelegate> {
 @private
     WebView *_inspectedWebView;
     WebView *_webView;
-    NSImageView *_shadowView;
     WebNodeHighlight *_currentHighlight;
     BOOL _attachedToInspectedWebView;
     BOOL _shouldAttach;
@@ -66,7 +60,7 @@ using namespace WebCore;
 - (WebView *)webView;
 - (void)attach;
 - (void)detach;
-- (void)highlightAndScrollToNode:(DOMNode *)node;
+- (void)setAttachedWindowHeight:(unsigned)height;
 - (void)highlightNode:(DOMNode *)node;
 - (void)hideHighlight;
 @end
@@ -94,7 +88,7 @@ Page* WebInspectorClient::createPage()
 
 String WebInspectorClient::localizedStringsURL()
 {
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"InspectorLocalizedStrings" ofType:@"js"];
+    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"localizedStrings" ofType:@"js"];
     if (path)
         return [[NSURL fileURLWithPath:path] absoluteString];
     return String();
@@ -121,9 +115,14 @@ void WebInspectorClient::detachWindow()
     [m_windowController.get() detach];
 }
 
+void WebInspectorClient::setAttachedWindowHeight(unsigned height)
+{
+    [m_windowController.get() setAttachedWindowHeight:height];
+}
+
 void WebInspectorClient::highlight(Node* node)
 {
-    [m_windowController.get() highlightAndScrollToNode:kit(node)];
+    [m_windowController.get() highlightNode:kit(node)];
 }
 
 void WebInspectorClient::hideHighlight()
@@ -145,6 +144,7 @@ void WebInspectorClient::updateWindowTitle() const
 
 #pragma mark -
 
+#define WebKitInspectorAttachedKey @"WebKitInspectorAttached"
 #define WebKitInspectorAttachedViewHeightKey @"WebKitInspectorAttachedViewHeight"
 
 @implementation WebInspectorWindowController
@@ -163,7 +163,6 @@ void WebInspectorClient::updateWindowTitle() const
     [preferences setAuthorAndUserStylesEnabled:YES];
     [preferences setJavaScriptEnabled:YES];
     [preferences setAllowsAnimatedImages:YES];
-    [preferences setLoadsImagesAutomatically:YES];
     [preferences setPlugInsEnabled:NO];
     [preferences setJavaEnabled:NO];
     [preferences setUserStyleSheetEnabled:NO];
@@ -175,8 +174,13 @@ void WebInspectorClient::updateWindowTitle() const
     [_webView setPreferences:preferences];
     [_webView setDrawsBackground:NO];
     [_webView setProhibitsMainFrameScrolling:YES];
+    [_webView setUIDelegate:self];
 
     [preferences release];
+
+    NSNumber *attached = [[NSUserDefaults standardUserDefaults] objectForKey:WebKitInspectorAttachedKey];
+    ASSERT(!attached || [attached isKindOfClass:[NSNumber class]]);
+    _shouldAttach = attached ? [attached boolValue] : YES;
 
     NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"inspector" ofType:@"html" inDirectory:@"inspector"];
     NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL fileURLWithPath:path]];
@@ -199,7 +203,7 @@ void WebInspectorClient::updateWindowTitle() const
 
 - (void)dealloc
 {
-    [_shadowView release];
+    ASSERT(!_currentHighlight);
     [_webView release];
     [super dealloc];
 }
@@ -228,13 +232,13 @@ void WebInspectorClient::updateWindowTitle() const
     styleMask |= NSTexturedBackgroundWindowMask;
 #endif
 
-    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(60.0, 200.0, 750.0, 650.0) styleMask:styleMask backing:NSBackingStoreBuffered defer:YES];
+    window = [[NSWindow alloc] initWithContentRect:NSMakeRect(60.0, 200.0, 750.0, 650.0) styleMask:styleMask backing:NSBackingStoreBuffered defer:NO];
     [window setDelegate:self];
     [window setMinSize:NSMakeSize(400.0, 400.0)];
 
 #ifndef BUILDING_ON_TIGER
     [window setAutorecalculatesContentBorderThickness:NO forEdge:NSMaxYEdge];
-    [window setContentBorderThickness:40. forEdge:NSMaxYEdge];
+    [window setContentBorderThickness:55. forEdge:NSMaxYEdge];
 
     WKNSWindowMakeBottomCornersSquare(window);
 #endif
@@ -253,10 +257,7 @@ void WebInspectorClient::updateWindowTitle() const
 
     [_inspectedWebView page]->inspectorController()->setWindowVisible(false);
 
-    [_currentHighlight detachHighlight];
-    [_currentHighlight setDelegate:nil];
-    [_currentHighlight release];
-    _currentHighlight = nil;
+    [self hideHighlight];
 
     return YES;
 }
@@ -268,55 +269,31 @@ void WebInspectorClient::updateWindowTitle() const
 
     _visible = NO;
 
-    [_inspectedWebView page]->inspectorController()->setWindowVisible(false);
+    if (!_movingWindows)
+        [_inspectedWebView page]->inspectorController()->setWindowVisible(false);
 
-    if (!_movingWindows) {
-        [_currentHighlight detachHighlight];
-        [_currentHighlight setDelegate:nil];
-        [_currentHighlight release];
-        _currentHighlight = nil;
-    }
+    [self hideHighlight];
 
     if (_attachedToInspectedWebView) {
         if ([_inspectedWebView _isClosed])
             return;
 
+        [_webView removeFromSuperview];
+
         WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
-
         NSRect frameViewRect = [frameView frame];
-        NSRect finalFrameViewRect = NSMakeRect(0, 0, NSWidth(frameViewRect), NSHeight([_inspectedWebView frame]));
-        NSMutableDictionary *frameViewAnimationInfo = [[NSMutableDictionary alloc] init];
-        [frameViewAnimationInfo setObject:frameView forKey:NSViewAnimationTargetKey];
-        [frameViewAnimationInfo setObject:[NSValue valueWithRect:finalFrameViewRect] forKey:NSViewAnimationEndFrameKey];
 
-        ASSERT(_shadowView);
-        NSRect shadowFrame = [_shadowView frame];
-        shadowFrame = NSMakeRect(0, NSMinY(frameViewRect) - NSHeight(shadowFrame), NSWidth(frameViewRect), NSHeight(shadowFrame));
-        [_shadowView setFrame:shadowFrame];
+        // Setting the height based on the previous height is done to work with
+        // Safari's find banner. This assumes the previous height is the Y origin.
+        frameViewRect.size.height += NSMinY(frameViewRect);
+        frameViewRect.origin.y = 0.0;
 
-        [_shadowView removeFromSuperview];
-        [_inspectedWebView addSubview:_shadowView positioned:NSWindowAbove relativeTo:_webView];
+        [frameView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
+        [frameView setFrame:frameViewRect];
 
-        NSRect finalShadowRect = NSMakeRect(0, -NSHeight(shadowFrame), NSWidth(shadowFrame), NSHeight(shadowFrame));
-        NSMutableDictionary *shadowAnimationInfo = [[NSMutableDictionary alloc] init];
-        [shadowAnimationInfo setObject:_shadowView forKey:NSViewAnimationTargetKey];
-        [shadowAnimationInfo setObject:[NSValue valueWithRect:finalShadowRect] forKey:NSViewAnimationEndFrameKey];
-
-        NSArray *animationInfo = [[NSArray alloc] initWithObjects:frameViewAnimationInfo, shadowAnimationInfo, nil];
-        [frameViewAnimationInfo release];
-        [shadowAnimationInfo release];
-
-        NSViewAnimation *slideAnimation = [[NSViewAnimation alloc] initWithViewAnimations:animationInfo]; // released in animationDidEnd
-        [animationInfo release];
-
-        [slideAnimation setAnimationBlockingMode:NSAnimationBlocking];
-        [slideAnimation setDelegate:self];
-
-        [[_inspectedWebView window] display]; // display once to make sure we start in a good state
-        [slideAnimation startAnimation];
-    } else {
+        [_inspectedWebView displayIfNeeded];
+    } else
         [super close];
-    }
 }
 
 - (IBAction)showWindow:(id)sender
@@ -329,63 +306,18 @@ void WebInspectorClient::updateWindowTitle() const
 
     _visible = YES;
 
-    [_inspectedWebView page]->inspectorController()->setWindowVisible(true);
-
     if (_shouldAttach) {
         WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
 
-        NSRect frameViewRect = [frameView frame];
-        float attachedHeight = [[NSUserDefaults standardUserDefaults] integerForKey:WebKitInspectorAttachedViewHeightKey];
-        attachedHeight = MAX(300.0, MIN(attachedHeight, (NSHeight(frameViewRect) * 0.6)));
-
         [_webView removeFromSuperview];
-        [_inspectedWebView addSubview:_webView positioned:NSWindowBelow relativeTo:(NSView*)frameView];
-        [_webView setFrame:NSMakeRect(0, 0, NSWidth(frameViewRect), attachedHeight)];
+        [_inspectedWebView addSubview:_webView positioned:NSWindowBelow relativeTo:(NSView *)frameView];
+
         [_webView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMaxYMargin)];
-
         [frameView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMinYMargin)];
-
-        NSRect finalFrameViewRect = NSMakeRect(0, attachedHeight, NSWidth(frameViewRect), NSHeight(frameViewRect) - attachedHeight);
-        NSMutableDictionary *frameViewAnimationInfo = [[NSMutableDictionary alloc] init];
-        [frameViewAnimationInfo setObject:frameView forKey:NSViewAnimationTargetKey];
-        [frameViewAnimationInfo setObject:[NSValue valueWithRect:finalFrameViewRect] forKey:NSViewAnimationEndFrameKey];
-
-        if (!_shadowView) {
-            NSString *imagePath = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"attachedShadow" ofType:@"png" inDirectory:@"inspector/Images"];
-            NSImage *image = [[NSImage alloc] initWithContentsOfFile:imagePath];
-            _shadowView = [[NSImageView alloc] initWithFrame:NSMakeRect(0, -[image size].height, NSWidth(frameViewRect), [image size].height)];
-            [_shadowView setImage:image];
-            [_shadowView setImageScaling:NSScaleToFit];
-            [_shadowView setImageFrameStyle:NSImageFrameNone];
-            [_shadowView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMaxYMargin)];
-        }
-
-        NSRect shadowFrame = [_shadowView frame];
-        shadowFrame = NSMakeRect(0, -NSHeight(shadowFrame), NSWidth(frameViewRect), NSHeight(shadowFrame));
-        [_shadowView setFrame:shadowFrame];
-
-        [_shadowView removeFromSuperview];
-        [_inspectedWebView addSubview:_shadowView positioned:NSWindowAbove relativeTo:_webView];
-
-        NSRect finalShadowRect = NSMakeRect(0, attachedHeight - NSHeight(shadowFrame), NSWidth(shadowFrame), NSHeight(shadowFrame));
-        NSMutableDictionary *shadowAnimationInfo = [[NSMutableDictionary alloc] init];
-        [shadowAnimationInfo setObject:_shadowView forKey:NSViewAnimationTargetKey];
-        [shadowAnimationInfo setObject:[NSValue valueWithRect:finalShadowRect] forKey:NSViewAnimationEndFrameKey];
-
-        NSArray *animationInfo = [[NSArray alloc] initWithObjects:frameViewAnimationInfo, shadowAnimationInfo, nil];
-        [frameViewAnimationInfo release];
-        [shadowAnimationInfo release];
-
-        NSViewAnimation *slideAnimation = [[NSViewAnimation alloc] initWithViewAnimations:animationInfo]; // released in animationDidEnd
-        [animationInfo release];
-
-        [slideAnimation setAnimationBlockingMode:NSAnimationBlocking];
-        [slideAnimation setDelegate:self];
 
         _attachedToInspectedWebView = YES;
 
-        [[_inspectedWebView window] display]; // display once to make sure we start in a good state
-        [slideAnimation startAnimation];
+        [self setAttachedWindowHeight:[[NSUserDefaults standardUserDefaults] integerForKey:WebKitInspectorAttachedViewHeightKey]];
     } else {
         _attachedToInspectedWebView = NO;
 
@@ -397,6 +329,8 @@ void WebInspectorClient::updateWindowTitle() const
 
         [super showWindow:nil];
     }
+
+    [_inspectedWebView page]->inspectorController()->setWindowVisible(true, _shouldAttach);
 }
 
 #pragma mark -
@@ -407,14 +341,14 @@ void WebInspectorClient::updateWindowTitle() const
         return;
 
     _shouldAttach = YES;
+    _movingWindows = YES;
 
-    if (_visible) {
-        _movingWindows = YES;
-        [self close];
-        _movingWindows = NO;
-    }
-
+    [self close];
     [self showWindow:nil];
+
+    _movingWindows = NO;
+
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:WebKitInspectorAttachedKey];
 }
 
 - (void)detach
@@ -423,41 +357,39 @@ void WebInspectorClient::updateWindowTitle() const
         return;
 
     _shouldAttach = NO;
+    _movingWindows = YES;
 
-    if (_visible) {
-        _movingWindows = YES; // set back to NO in animationDidEnd
-        [self close];
-    } else {
-        [self showWindow:nil];
-    }
+    [self close];
+    [self showWindow:nil];
+
+    _movingWindows = NO;
+
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:WebKitInspectorAttachedKey];
+}
+
+- (void)setAttachedWindowHeight:(unsigned)height
+{
+    [[NSUserDefaults standardUserDefaults] setInteger:height forKey:WebKitInspectorAttachedViewHeightKey];
+
+    if (!_attachedToInspectedWebView)
+        return;
+
+    WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
+    NSRect frameViewRect = [frameView frame];
+
+    CGFloat attachedHeight = round(MAX(250.0, MIN(height, (NSHeight([_inspectedWebView frame]) * 0.75))));
+
+    // Setting the height based on the difference is done to work with
+    // Safari's find banner. This assumes the previous height is the Y origin.
+    CGFloat heightDifference = (NSMinY(frameViewRect) - attachedHeight);
+    frameViewRect.size.height += heightDifference;
+    frameViewRect.origin.y = attachedHeight;
+
+    [_webView setFrame:NSMakeRect(0.0, 0.0, NSWidth(frameViewRect), attachedHeight)];
+    [frameView setFrame:frameViewRect];
 }
 
 #pragma mark -
-
-- (void)highlightAndScrollToNode:(DOMNode *)node
-{
-    NSRect bounds = [node boundingBox];
-    if (!NSIsEmptyRect(bounds)) {
-        // FIXME: this needs to use the frame the node coordinates are in
-        NSRect visible = [[[[_inspectedWebView mainFrame] frameView] documentView] visibleRect];
-        BOOL needsScroll = !NSContainsRect(visible, bounds) && !NSContainsRect(bounds, visible);
-
-        // only scroll if the bounds isn't in the visible rect and dosen't contain the visible rect
-        if (needsScroll) {
-            // scroll to the parent element if we aren't focused on an element
-            DOMElement *element;
-            if ([node isKindOfClass:[DOMElement class]])
-                element = (DOMElement *)node;
-            else
-                element = (DOMElement *)[node parentNode];
-            [element scrollIntoViewIfNeeded:YES];
-
-            // give time for the scroll to happen
-            [self performSelector:@selector(highlightNode:) withObject:node afterDelay:0.25];
-        } else
-            [self highlightNode:node];
-    }
-}
 
 - (void)highlightNode:(DOMNode *)node
 {
@@ -467,41 +399,41 @@ void WebInspectorClient::updateWindowTitle() const
         return; // skip the highlight if we have no window (e.g. hidden tab)
 
     if (!_currentHighlight) {
-        _currentHighlight = [[WebNodeHighlight alloc] initWithTargetView:view];
+        _currentHighlight = [[WebNodeHighlight alloc] initWithTargetView:view inspectorController:[_inspectedWebView page]->inspectorController()];
         [_currentHighlight setDelegate:self];
-        [_currentHighlight attachHighlight];
-    }
-
-    [_currentHighlight show];
-
-    [_currentHighlight setHighlightedNode:node];
-
-    // FIXME: this is a hack until we hook up a didDraw and didScroll call in WebHTMLView
-    [[_currentHighlight highlightView] setNeedsDisplay:YES];
+        [_currentHighlight attach];
+    } else
+        [[_currentHighlight highlightView] setNeedsDisplay:YES];
 }
 
 - (void)hideHighlight
 {
-    if (!_currentHighlight)
-        return;
-    [_currentHighlight hide];
-    [_currentHighlight setHighlightedNode:nil];
+    [_currentHighlight detach];
+    [_currentHighlight setDelegate:nil];
+    [_currentHighlight release];
+    _currentHighlight = nil;
 }
 
 #pragma mark -
+#pragma mark WebNodeHighlight delegate
 
-- (void)animationDidEnd:(NSAnimation*)animation
+- (void)didAttachWebNodeHighlight:(WebNodeHighlight *)highlight
 {
-    [animation release];
-
-    [_shadowView removeFromSuperview];
-
-    if (_movingWindows) {
-        _movingWindows = NO;
-        [self showWindow:nil];
-    }
+    [_inspectedWebView setCurrentNodeHighlight:highlight];
 }
 
+- (void)willDetachWebNodeHighlight:(WebNodeHighlight *)highlight
+{
+    [_inspectedWebView setCurrentNodeHighlight:nil];
+}
+
+#pragma mark -
+#pragma mark UI delegate
+
+- (NSUInteger)webView:(WebView *)sender dragDestinationActionMaskForDraggingInfo:(id <NSDraggingInfo>)draggingInfo
+{
+    return WebDragDestinationActionNone;
+}
 
 #pragma mark -
 
@@ -510,17 +442,42 @@ void WebInspectorClient::updateWindowTitle() const
 // This method is really only implemented to keep any UI elements enabled.
 - (void)showWebInspector:(id)sender
 {
-    [_inspectedWebView page]->inspectorController()->show();
+    [[_inspectedWebView inspector] show:sender];
 }
 
 - (void)showErrorConsole:(id)sender
 {
-    [_inspectedWebView page]->inspectorController()->showConsole();
+    [[_inspectedWebView inspector] showConsole:sender];
 }
 
-- (void)showNetworkTimeline:(id)sender
+- (void)toggleDebuggingJavaScript:(id)sender
 {
-    [_inspectedWebView page]->inspectorController()->showTimeline();
+    [[_inspectedWebView inspector] toggleDebuggingJavaScript:sender];
+}
+
+- (void)toggleProfilingJavaScript:(id)sender
+{
+    [[_inspectedWebView inspector] toggleProfilingJavaScript:sender];
+}
+
+- (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
+{
+    BOOL isMenuItem = [(id)item isKindOfClass:[NSMenuItem class]];
+    if ([item action] == @selector(toggleDebuggingJavaScript:) && isMenuItem) {
+        NSMenuItem *menuItem = (NSMenuItem *)item;
+        if ([[_inspectedWebView inspector] isDebuggingJavaScript])
+            [menuItem setTitle:UI_STRING("Stop Debugging JavaScript", "title for Stop Debugging JavaScript menu item")];
+        else
+            [menuItem setTitle:UI_STRING("Start Debugging JavaScript", "title for Start Debugging JavaScript menu item")];
+    } else if ([item action] == @selector(toggleProfilingJavaScript:) && isMenuItem) {
+        NSMenuItem *menuItem = (NSMenuItem *)item;
+        if ([[_inspectedWebView inspector] isProfilingJavaScript])
+            [menuItem setTitle:UI_STRING("Stop Profiling JavaScript", "title for Stop Profiling JavaScript menu item")];
+        else
+            [menuItem setTitle:UI_STRING("Start Profiling JavaScript", "title for Start Profiling JavaScript menu item")];
+    }
+
+    return YES;
 }
 
 @end

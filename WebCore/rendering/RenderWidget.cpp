@@ -30,17 +30,15 @@
 #include "Document.h"
 #include "Element.h"
 #include "Event.h"
-#include "EventNames.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HitTestResult.h"
 #include "RenderLayer.h"
 #include "RenderView.h"
 
 using namespace std;
 
 namespace WebCore {
-
-using namespace EventNames;
 
 static HashMap<const Widget*, RenderWidget*>& widgetRendererMap()
 {
@@ -72,12 +70,13 @@ void RenderWidget::destroy()
     // So the code below includes copied and pasted contents of
     // both RenderBox::destroy() and RenderObject::destroy().
     // Fix originally made for <rdar://problem/4228818>.
-    animationController()->cancelImplicitAnimations(this);
+    animation()->cancelAnimations(this);
 
     if (RenderView* v = view())
         v->removeWidget(this);
 
-    document()->axObjectCache()->remove(this);
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->remove(this);
 
     remove();
 
@@ -97,6 +96,9 @@ void RenderWidget::destroy()
     if (layer)
         layer->clearClipRect();
 
+    if (style() && (style()->height().isPercent() || style()->minHeight().isPercent() || style()->maxHeight().isPercent()))
+        RenderBlock::removePercentHeightDescendant(this);
+
     setNode(0);
     deref(arena);
 
@@ -110,13 +112,12 @@ RenderWidget::~RenderWidget()
     deleteWidget();
 }
 
-void RenderWidget::resizeWidget(Widget* widget, int w, int h)
+void RenderWidget::setWidgetGeometry(const IntRect& frame)
 {
-    if (element() && (widget->width() != w || widget->height() != h)) {
+    if (element() && m_widget->frameRect() != frame) {
         RenderArena* arena = ref();
-        element()->ref();
-        widget->resize(w, h);
-        element()->deref();
+        RefPtr<Node> protectedElement(element());
+        m_widget->setFrameRect(frame);
         deref(arena);
     }
 }
@@ -125,7 +126,6 @@ void RenderWidget::setWidget(Widget* widget)
 {
     if (widget != m_widget) {
         if (m_widget) {
-            // removeFromParent is a no-op on Mac.
             m_widget->removeFromParent();
             widgetRendererMap().remove(m_widget);
             deleteWidget();
@@ -136,11 +136,9 @@ void RenderWidget::setWidget(Widget* widget)
             // if we've already received a layout, apply the calculated space to the
             // widget immediately, but we have to have really been full constructed (with a non-null
             // style pointer).
-            if (!needsLayout() && style())
-                resizeWidget(m_widget,
-                    m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight(),
-                    m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom());
             if (style()) {
+                if (!needsLayout())
+                    setWidgetGeometry(absoluteContentBox());
                 if (style()->visibility() != VISIBLE)
                     m_widget->hide();
                 else
@@ -158,9 +156,9 @@ void RenderWidget::layout()
     setNeedsLayout(false);
 }
 
-void RenderWidget::setStyle(RenderStyle* newStyle)
+void RenderWidget::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
 {
-    RenderReplaced::setStyle(newStyle);
+    RenderReplaced::styleDidChange(diff, oldStyle);
     if (m_widget) {
         if (style()->visibility() != VISIBLE)
             m_widget->hide();
@@ -177,8 +175,13 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
     tx += m_x;
     ty += m_y;
 
-    if (hasBoxDecorations() && paintInfo.phase != PaintPhaseOutline && paintInfo.phase != PaintPhaseSelfOutline)
+    if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection))
         paintBoxDecorations(paintInfo, tx, ty);
+
+    if (paintInfo.phase == PaintPhaseMask) {
+        paintMask(paintInfo, tx, ty);
+        return;
+    }
 
     if (!m_view || paintInfo.phase != PaintPhaseForeground || style()->visibility() != VISIBLE)
         return;
@@ -225,7 +228,7 @@ void RenderWidget::updateWidgetPosition()
     int height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
 
     IntRect newBounds(x, y, width, height);
-    IntRect oldBounds(m_widget->frameGeometry());
+    IntRect oldBounds(m_widget->frameRect());
     if (newBounds != oldBounds) {
         // The widget changed positions.  Update the frame geometry.
         if (checkForRepaintDuringLayout()) {
@@ -238,7 +241,7 @@ void RenderWidget::updateWidgetPosition()
 
         RenderArena* arena = ref();
         element()->ref();
-        m_widget->setFrameGeometry(newBounds);
+        m_widget->setFrameRect(newBounds);
         element()->deref();
         deref(arena);
     }
@@ -261,6 +264,17 @@ void RenderWidget::deleteWidget()
 RenderWidget* RenderWidget::find(const Widget* widget)
 {
     return widgetRendererMap().get(widget);
+}
+
+bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction action)
+{
+    bool hadResult = result.innerNode();
+    bool inside = RenderReplaced::nodeAtPoint(request, result, x, y, tx, ty, action);
+    
+    // Check to see if we are really over the widget itself (and not just in the border/padding area).
+    if (inside && !hadResult && result.innerNode() == element())
+        result.setIsOverWidget(contentBox().contains(result.localPoint()));
+    return inside;
 }
 
 } // namespace WebCore

@@ -31,6 +31,7 @@
 #import "DumpRenderTree.h"
 #import "LayoutTestController.h"
 #import <WebKit/WebKit.h>
+#import <WebKit/WebTypesInternal.h>
 #import <wtf/Assertions.h>
 
 @interface NSURL (DRTExtras)
@@ -54,12 +55,12 @@
 {
     NSString *str = [NSString stringWithFormat:@"<NSError domain %@, code %d", [self domain], [self code]];
     NSURL *failingURL;
-    
+
     if ((failingURL = [[self userInfo] objectForKey:@"NSErrorFailingURLKey"]))
         str = [str stringByAppendingFormat:@", failing URL \"%@\"", [failingURL _drt_descriptionSuitableForTestResult]];
-        
+
     str = [str stringByAppendingFormat:@">"];
-    
+
     return str;
 }
 
@@ -75,9 +76,9 @@
     WebDataSource *dataSource = [mainFrame dataSource];
     if (!dataSource)
         dataSource = [mainFrame provisionalDataSource];
-    
+
     NSString *basePath = [[[[dataSource request] URL] path] stringByDeletingLastPathComponent];
-    
+
     return [[self path] substringFromIndex:[basePath length] + 1];
 }
 
@@ -106,24 +107,35 @@
 - webView: (WebView *)wv identifierForInitialRequest: (NSURLRequest *)request fromDataSource: (WebDataSource *)dataSource
 {
     ASSERT([[dataSource webFrame] dataSource] || [[dataSource webFrame] provisionalDataSource]);
-    
-    if (!done && layoutTestController->dumpResourceLoadCallbacks())
+
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks())
         return [[request URL] _drt_descriptionSuitableForTestResult];
-    
+
     return @"<unknown>";
 }
 
 -(NSURLRequest *)webView: (WebView *)wv resource:identifier willSendRequest: (NSURLRequest *)newRequest redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && layoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - willSendRequest %@ redirectResponse %@", identifier, [newRequest _drt_descriptionSuitableForTestResult],
             [redirectResponse _drt_descriptionSuitableForTestResult]];
-        printf ("%s\n", [string UTF8String]);
-    }    
-    
-    if (disallowedURLs && CFSetContainsValue(disallowedURLs, [newRequest URL]))
+        printf("%s\n", [string UTF8String]);
+    }
+
+    NSURL *url = [newRequest URL];
+    NSString *host = [url host];
+    if (host
+        && (NSOrderedSame == [[url scheme] caseInsensitiveCompare:@"http"] || NSOrderedSame == [[url scheme] caseInsensitiveCompare:@"https"])
+        && NSOrderedSame != [host compare:@"127.0.0.1"]
+        && NSOrderedSame != [host compare:@"255.255.255.255"] // used in some tests that expect to get back an error
+        && NSOrderedSame != [host caseInsensitiveCompare:@"localhost"]) {
+        printf("Blocked access to external URL %s\n", [[url absoluteString] cStringUsingEncoding:NSUTF8StringEncoding]);
         return nil;
-    
+    }
+
+    if (disallowedURLs && CFSetContainsValue(disallowedURLs, url))
+        return nil;
+
     return newRequest;
 }
 
@@ -137,41 +149,44 @@
 
 -(void)webView: (WebView *)wv resource:identifier didReceiveResponse: (NSURLResponse *)response fromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && layoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didReceiveResponse %@", identifier, [response _drt_descriptionSuitableForTestResult]];
-        printf ("%s\n", [string UTF8String]);
-    }    
+        printf("%s\n", [string UTF8String]);
+    }
 }
 
--(void)webView: (WebView *)wv resource:identifier didReceiveContentLength: (unsigned)length fromDataSource:(WebDataSource *)dataSource
+-(void)webView: (WebView *)wv resource:identifier didReceiveContentLength: (NSInteger)length fromDataSource:(WebDataSource *)dataSource
 {
 }
 
 -(void)webView: (WebView *)wv resource:identifier didFinishLoadingFromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && layoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didFinishLoading", identifier];
-        printf ("%s\n", [string UTF8String]);
+        printf("%s\n", [string UTF8String]);
     }
 }
 
 -(void)webView: (WebView *)wv resource:identifier didFailLoadingWithError:(NSError *)error fromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && layoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - didFailLoadingWithError: %@", identifier, [error _drt_descriptionSuitableForTestResult]];
-        printf ("%s\n", [string UTF8String]);
+        printf("%s\n", [string UTF8String]);
     }
 }
 
 - (void)webView: (WebView *)wv plugInFailedWithError:(NSError *)error dataSource:(WebDataSource *)dataSource
 {
+    // The call to -display here simulates the "Plug-in not found" sheet that Safari shows.
+    // It is used for platform/mac/plugins/update-widget-from-style-recalc.html
+    [wv display];
 }
 
 -(NSCachedURLResponse *) webView: (WebView *)wv resource:(id)identifier willCacheResponse:(NSCachedURLResponse *)response fromDataSource:(WebDataSource *)dataSource
 {
-    if (!done && layoutTestController->dumpResourceLoadCallbacks()) {
+    if (!done && gLayoutTestController->dumpResourceLoadCallbacks()) {
         NSString *string = [NSString stringWithFormat:@"%@ - willCacheResponse: called", identifier];
-        printf ("%s\n", [string UTF8String]);
+        printf("%s\n", [string UTF8String]);
     }
     return response;
 }

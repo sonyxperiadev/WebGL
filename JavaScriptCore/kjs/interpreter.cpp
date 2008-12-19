@@ -1,6 +1,4 @@
-// -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2003, 2007 Apple Inc.
@@ -27,131 +25,54 @@
 
 #include "ExecState.h"
 #include "JSGlobalObject.h"
+#include "JSLock.h"
+#include "Machine.h"
 #include "Parser.h"
-#include "SavedBuiltins.h"
-#include "array_object.h"
-#include "bool_object.h"
-#include "collector.h"
-#include "date_object.h"
-#include "debugger.h"
-#include "error_object.h"
-#include "function_object.h"
-#include "internal.h"
-#include "math_object.h"
-#include "nodes.h"
-#include "number_object.h"
-#include "object.h"
-#include "object_object.h"
-#include "operations.h"
-#include "regexp_object.h"
-#include "runtime.h"
-#include "string_object.h"
-#include "types.h"
-#include "value.h"
-#include <math.h>
-#include <signal.h>
+#include "completion.h"
+#include "Debugger.h"
 #include <stdio.h>
-#include <wtf/Assertions.h>
 
-namespace KJS {
+#if !PLATFORM(WIN_OS)
+#include <unistd.h>
+#endif
 
-Completion Interpreter::checkSyntax(ExecState* exec, const UString& sourceURL, int startingLineNumber, const UString& code)
+namespace JSC {
+
+Completion Interpreter::checkSyntax(ExecState* exec, const SourceCode& source)
 {
-    return checkSyntax(exec, sourceURL, startingLineNumber, code.data(), code.size());
-}
-
-Completion Interpreter::checkSyntax(ExecState* exec, const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength)
-{
-    JSLock lock;
+    JSLock lock(exec);
 
     int errLine;
     UString errMsg;
-    RefPtr<ProgramNode> progNode = parser().parse<ProgramNode>(sourceURL, startingLineNumber, code, codeLength, 0, &errLine, &errMsg);
+
+    RefPtr<ProgramNode> progNode = exec->globalData().parser->parse<ProgramNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
     if (!progNode)
-        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, 0, sourceURL));
+        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url()));
     return Completion(Normal);
 }
 
-Completion Interpreter::evaluate(ExecState* exec, const UString& sourceURL, int startingLineNumber, const UString& code, JSValue* thisV)
+Completion Interpreter::evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValue* thisValue)
 {
-    return evaluate(exec, sourceURL, startingLineNumber, code.data(), code.size(), thisV);
-}
-
-Completion Interpreter::evaluate(ExecState* exec, const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength, JSValue* thisV)
-{
-    JSLock lock;
+    JSLock lock(exec);
     
-    JSGlobalObject* globalObject = exec->dynamicGlobalObject();
-
-    if (globalObject->recursion() >= 20)
-        return Completion(Throw, Error::create(exec, GeneralError, "Recursion too deep"));
-    
-    // parse the source code
-    int sourceId;
     int errLine;
     UString errMsg;
-    RefPtr<ProgramNode> progNode = parser().parse<ProgramNode>(sourceURL, startingLineNumber, code, codeLength, &sourceId, &errLine, &errMsg);
-    
-    // notify debugger that source has been parsed
-    if (globalObject->debugger()) {
-        bool cont = globalObject->debugger()->sourceParsed(exec, sourceId, sourceURL, UString(code, codeLength), startingLineNumber, errLine, errMsg);
-        if (!cont)
-            return Completion(Break);
-    }
-    
-    // no program node means a syntax error occurred
-    if (!progNode)
-        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, sourceId, sourceURL));
-    
-    exec->clearException();
-    
-    globalObject->incRecursion();
-    
-    JSObject* thisObj = globalObject;
-    
-    // "this" must be an object... use same rules as Function.prototype.apply()
-    if (thisV && !thisV->isUndefinedOrNull())
-        thisObj = thisV->toObject(exec);
-    
-    Completion res;
-    if (exec->hadException())
-        // the thisV->toObject() conversion above might have thrown an exception - if so, propagate it
-        res = Completion(Throw, exec->exception());
-    else {
-        // execute the code
-        InterpreterExecState newExec(globalObject, thisObj, progNode.get());
-        JSValue* value = progNode->execute(&newExec);
-        res = Completion(newExec.completionType(), value);
-    }
-    
-    globalObject->decRecursion();
-    
-    if (shouldPrintExceptions() && res.complType() == Throw) {
-        JSLock lock;
-        ExecState* exec = globalObject->globalExec();
-        CString f = sourceURL.UTF8String();
-        CString message = res.value()->toObject(exec)->toString(exec).UTF8String();
-        int line = res.value()->toObject(exec)->get(exec, "line")->toUInt32(exec);
-#if PLATFORM(WIN_OS)
-        printf("%s line %d: %s\n", f.c_str(), line, message.c_str());
-#else
-        printf("[%d] %s line %d: %s\n", getpid(), f.c_str(), line, message.c_str());
-#endif
-    }
+    RefPtr<ProgramNode> programNode = exec->globalData().parser->parse<ProgramNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
 
-    return res;
+    if (!programNode)
+        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url()));
+
+    JSObject* thisObj = (!thisValue || thisValue->isUndefinedOrNull()) ? exec->dynamicGlobalObject() : thisValue->toObject(exec);
+
+    JSValue* exception = noValue();
+    JSValue* result = exec->machine()->execute(programNode.get(), exec, scopeChain.node(), thisObj, &exception);
+
+    if (exception) {
+        if (exception->isObject() && asObject(exception)->isWatchdogException())
+            return Completion(Interrupted, result);
+        return Completion(Throw, exception);
+    }
+    return Completion(Normal, result);
 }
 
-static bool printExceptions = false;
-
-bool Interpreter::shouldPrintExceptions()
-{
-  return printExceptions;
-}
-
-void Interpreter::setShouldPrintExceptions(bool print)
-{
-  printExceptions = print;
-}
-
-} // namespace KJS
+} // namespace JSC

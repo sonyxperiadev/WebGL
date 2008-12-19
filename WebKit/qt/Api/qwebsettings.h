@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -15,33 +15,33 @@
     along with this library; see the file COPYING.LIB.  If not, write to
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
-
-    This class provides all functionality needed for loading images, style sheets and html
-    pages from the web. It has a memory cache for these objects.
 */
 
 #ifndef QWEBSETTINGS_H
 #define QWEBSETTINGS_H
 
-#include <qwebkitglobal.h>
+#include "qwebkitglobal.h"
 
 #include <QtCore/qstring.h>
 #include <QtGui/qpixmap.h>
+#include <QtGui/qicon.h>
 #include <QtCore/qshareddata.h>
 
 namespace WebCore
 {
     class Settings;
-};
+}
 
 class QWebPage;
 class QWebSettingsPrivate;
+QT_BEGIN_NAMESPACE
 class QUrl;
+QT_END_NAMESPACE
 
 class QWEBKIT_EXPORT QWebSettings
 {
 public:
-    enum FontType {
+    enum FontFamily {
         StandardFont,
         FixedFont,
         SerifFont,
@@ -58,13 +58,14 @@ public:
         JavascriptCanOpenWindows,
         JavascriptCanAccessClipboard,
         DeveloperExtrasEnabled,
-        LinksIncludedInFocusChain
+        LinksIncludedInFocusChain,
+        ZoomTextOnly
     };
     enum WebGraphic {
         MissingImageGraphic,
         MissingPluginGraphic,
-        DefaultFaviconGraphic,
-        TextAreaResizeCornerGraphic
+        DefaultFrameIconGraphic,
+        TextAreaSizeGripCornerGraphic
     };
     enum FontSize {
         MinimumFontSize,
@@ -73,28 +74,34 @@ public:
         DefaultFixedFontSize
     };
 
-    static QWebSettings *defaultSettings();
+    static QWebSettings *globalSettings();
 
-    void setFontFamily(FontType type, const QString &family);
-    QString fontFamily(FontType type) const;
-    void resetFontFamily(FontType type);
+    void setFontFamily(FontFamily which, const QString &family);
+    QString fontFamily(FontFamily which) const;
+    void resetFontFamily(FontFamily which);
 
     void setFontSize(FontSize type, int size);
     int fontSize(FontSize type) const;
     void resetFontSize(FontSize type);
 
-    void setAttribute(WebAttribute attr, bool on = true);
+    void setAttribute(WebAttribute attr, bool on);
     bool testAttribute(WebAttribute attr) const;
-    void clearAttribute(WebAttribute attr);
+    void resetAttribute(WebAttribute attr);
 
-    void setUserStyleSheetLocation(const QUrl &location);
-    QUrl userStyleSheetLocation() const;
+    void setUserStyleSheetUrl(const QUrl &location);
+    QUrl userStyleSheetUrl() const;
 
-    static void setIconDatabaseEnabled(bool enabled, const QString &location = QString());
-    static bool iconDatabaseEnabled();
+    static void setIconDatabasePath(const QString &location);
+    static QString iconDatabasePath();
+    static void clearIconDatabase();
+    static QIcon iconForUrl(const QUrl &url);
 
     static void setWebGraphic(WebGraphic type, const QPixmap &graphic);
     static QPixmap webGraphic(WebGraphic type);
+
+    static void setMaximumPagesInCache(int pages);
+    static int maximumPagesInCache();
+    static void setObjectCacheCapacities(int cacheMinDeadCapacity, int cacheMaxDead, int totalCapacity);
 
 private:
     friend class QWebPagePrivate;

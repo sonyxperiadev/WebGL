@@ -1,30 +1,31 @@
 /*
-  Copyright (C) 2007 Staikos Computing Services Inc.  <info@staikos.net>
+    Copyright (C) 2007 Staikos Computing Services Inc.  <info@staikos.net>
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
 
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
+    You should have received a copy of the GNU Library General Public License
+    along with this library; see the file COPYING.LIB.  If not, write to
+    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+    Boston, MA 02110-1301, USA.
 
-  This class provides all functionality needed for tracking global history.
+    This class provides all functionality needed for tracking global history.
 */
 
+#include "config.h"
 #include "qwebhistoryinterface.h"
 
 #include <QCoreApplication>
 
-#include <wtf/Platform.h>
-#include "DeprecatedString.h"
+#include "PageGroup.h"
+#include "PlatformString.h"
 
 // FIXME: It's not correct to just implement a WebCore function in WebKit!
 // This needs to be fixed to match other platforms.
@@ -47,21 +48,29 @@ static bool gRoutineAdded;
 
 static void gCleanupInterface()
 {
-    delete default_interface;
+    if (default_interface && default_interface->parent() == 0)
+        delete default_interface;
     default_interface = 0;
 }
 
 /*!
-  Sets a new default interface that will be used by all of WebKit
+  Sets a new default interface, \a defaultInterface, that will be used by all of WebKit
   for managing history.
+
+  If an interface without a parent has already been set, the old interface will be deleted.
+  When the application exists QWebHistoryInterface will automatically delete the
+  \a defaultInterface if it does not have a parent.
 */
 void QWebHistoryInterface::setDefaultInterface(QWebHistoryInterface *defaultInterface)
 {
     if (default_interface == defaultInterface)
         return;
-    if (default_interface)
+    if (default_interface && default_interface->parent() == 0)
         delete default_interface;
+
     default_interface = defaultInterface;
+    WebCore::PageGroup::removeAllVisitedLinks();
+
     if (!gRoutineAdded) {
         qAddPostRoutine(gCleanupInterface);
         gRoutineAdded = true;
@@ -89,22 +98,32 @@ QWebHistoryInterface *QWebHistoryInterface::defaultInterface()
   historyContains() is used to query whether this page has been
   visited by the user.
 */
+
+/*!
+    Constructs a new QWebHistoryInterface with parent \a parent.
+*/
 QWebHistoryInterface::QWebHistoryInterface(QObject *parent) : QObject(parent)
 {
 }
 
+/*!
+    Destructor.  If this is currently the default interface it will be unset.
+*/
 QWebHistoryInterface::~QWebHistoryInterface()
 {
+    if (default_interface == this)
+        default_interface = 0;
 }
 
 /*!
-  \fn bool QWebHistoryInterface::historyContains(const QString &url) const
+  \fn bool QWebHistoryInterface::historyContains(const QString &url) const = 0
 
-  Called by the WebKit engine to query whether a certain url has been visited by the user already.
+  Called by the WebKit engine to query whether a certain \a url has been visited by the user already.
+  Returns true if the \a url is part of the history of visited links; otherwise returns false.
 */
 
 /*!
-  \fn void QWebHistoryInterface::addHistoryEntry(const QString &url) const
+  \fn void QWebHistoryInterface::addHistoryEntry(const QString &url) = 0
 
-  Called by WebKit to add another url to the list of visited pages.
+  Called by WebKit to add another \a url to the list of visited pages.
 */

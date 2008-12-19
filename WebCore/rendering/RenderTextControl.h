@@ -28,12 +28,12 @@
 namespace WebCore {
 
 class FontSelector;
-class HTMLTextFieldInnerElement;
-class HTMLTextFieldInnerTextElement;
-class HTMLSearchFieldCancelButtonElement;
-class HTMLSearchFieldResultsButtonElement;
+class SearchFieldCancelButtonElement;
+class SearchFieldResultsButtonElement;
 class SearchPopupMenu;
 class Selection;
+class TextControlInnerElement;
+class TextControlInnerTextElement;
 
 class RenderTextControl : public RenderBlock, private PopupMenuClient {
 public:
@@ -47,10 +47,9 @@ public:
     virtual void calcHeight();
     virtual void calcPrefWidths();
     virtual void removeLeftoverAnonymousBlock(RenderBlock*) { }
-    virtual void setStyle(RenderStyle*);
     virtual void updateFromElement();
     virtual bool canHaveChildren() const { return false; }
-    virtual short baselinePosition(bool firstLine, bool isRootLineBox) const;
+    virtual int baselinePosition(bool firstLine, bool isRootLineBox) const;
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     virtual void layout();
     virtual bool avoidsFloats() const { return true; }
@@ -62,7 +61,7 @@ public:
     virtual bool isTextArea() const { return m_multiLine; }
     
     bool isUserEdited() const { return m_userEdited; }
-    void setUserEdited(bool isUserEdited) { m_userEdited = isUserEdited; }
+    void setUserEdited(bool isUserEdited);
 
     int selectionStart();
     int selectionEnd();
@@ -78,7 +77,7 @@ public:
     void forwardEvent(Event*);
     void selectionChanged(bool userTriggered);
 
-    virtual bool shouldAutoscroll() const { return true; }
+    virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
     virtual void autoscroll();
 
     // Subclassed to forward to our inner div.
@@ -103,18 +102,20 @@ public:
     void stopSearchEventTimer();
     
     bool placeholderIsVisible() const { return m_placeholderVisible; }
+    void updatePlaceholderVisibility();
 
     virtual void capsLockStateMayHaveChanged();
+
+protected:
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
 
 private:
     // PopupMenuClient methods
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true);
     virtual String itemText(unsigned listIndex) const;
     virtual bool itemIsEnabled(unsigned listIndex) const;
-    virtual Color itemBackgroundColor(unsigned listIndex) const;
-    virtual RenderStyle* itemStyle(unsigned listIndex) const;
-    virtual RenderStyle* clientStyle() const;
-    virtual Document* clientDocument() const;
+    virtual PopupMenuStyle itemStyle(unsigned listIndex) const;
+    virtual PopupMenuStyle menuStyle() const;
     virtual int clientInsetLeft() const;
     virtual int clientInsetRight() const;
     virtual int clientPaddingLeft() const;
@@ -128,13 +129,14 @@ private:
     virtual bool shouldPopOver() const { return false; }
     virtual bool valueShouldChangeOnHotTrack() const { return false; }
     virtual FontSelector* fontSelector() const;
+    virtual HostWindow* hostWindow() const;
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
 
-    RenderStyle* createInnerBlockStyle(RenderStyle* startStyle);
-    RenderStyle* createInnerTextStyle(RenderStyle* startStyle);
-    RenderStyle* createCancelButtonStyle(RenderStyle* startStyle);
-    RenderStyle* createResultsButtonStyle(RenderStyle* startStyle);
+    PassRefPtr<RenderStyle> createInnerBlockStyle(const RenderStyle* startStyle);
+    PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle);
+    PassRefPtr<RenderStyle> createCancelButtonStyle(const RenderStyle* startStyle);
+    PassRefPtr<RenderStyle> createResultsButtonStyle(const RenderStyle* startStyle);
 
-    void updatePlaceholder();
     void createSubtreeIfNeeded();
     void updateCancelButtonVisibility(RenderStyle*);
     const AtomicString& autosaveName() const;
@@ -142,10 +144,13 @@ private:
     void searchEventTimerFired(Timer<RenderTextControl>*);
     String finishText(Vector<UChar>&) const;
 
-    RefPtr<HTMLTextFieldInnerElement> m_innerBlock;
-    RefPtr<HTMLTextFieldInnerTextElement> m_innerText;
-    RefPtr<HTMLSearchFieldResultsButtonElement> m_resultsButton;
-    RefPtr<HTMLSearchFieldCancelButtonElement> m_cancelButton;
+    friend class TextIterator;
+    HTMLElement* innerTextElement() const;
+
+    RefPtr<TextControlInnerElement> m_innerBlock;
+    RefPtr<TextControlInnerTextElement> m_innerText;
+    RefPtr<SearchFieldResultsButtonElement> m_resultsButton;
+    RefPtr<SearchFieldCancelButtonElement> m_cancelButton;
 
     bool m_dirty;
     bool m_multiLine;

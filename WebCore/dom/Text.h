@@ -39,6 +39,10 @@ public:
 
     PassRefPtr<Text> splitText(unsigned offset, ExceptionCode&);
 
+    // DOM Level 3: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-1312295772
+    String wholeText() const;
+    PassRefPtr<Text> replaceWholeText(const String&, ExceptionCode&);
+
     // DOM methods overridden from parent classes
 
     virtual String nodeName() const;
@@ -54,8 +58,6 @@ public:
     virtual void recalcStyle(StyleChange = NoChange);
     virtual bool childTypeAllowed(NodeType);
 
-    virtual String toString() const;
-    
     static PassRefPtr<Text> createWithLengthLimit(Document*, const String&, unsigned& charsLeft, unsigned maxChars = cTextNodeLengthLimit);
 
 #ifndef NDEBUG

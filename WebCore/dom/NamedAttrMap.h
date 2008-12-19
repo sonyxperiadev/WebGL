@@ -29,6 +29,8 @@
 
 #include "Attribute.h"
 #include "NamedNodeMap.h"
+#include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 #ifdef __OBJC__
 #define id id_AVOID_KEYWORD
@@ -39,11 +41,14 @@ namespace WebCore {
 // the map of attributes of an element
 class NamedAttrMap : public NamedNodeMap {
     friend class Element;
+protected:
+    NamedAttrMap(Element* element) : m_element(element) { }
 public:
-    NamedAttrMap(Element*);
+    static PassRefPtr<NamedAttrMap> create(Element* element) { return adoptRef(new NamedAttrMap(element)); }
+
     virtual ~NamedAttrMap();
-    NamedAttrMap(const NamedAttrMap&);
-    NamedAttrMap &operator =(const NamedAttrMap &other);
+
+    void setAttributes(const NamedAttrMap&);
 
     // DOM methods & attributes for NamedNodeMap
 
@@ -58,18 +63,21 @@ public:
     virtual PassRefPtr<Node> setNamedItem(Node* arg, ExceptionCode&);
 
     virtual PassRefPtr<Node> item(unsigned index) const;
-    unsigned length() const { return len; }
+    size_t length() const { return m_attributes.size(); }
 
     // Other methods (not part of DOM)
-    Attribute* attributeItem(unsigned index) const { return attrs[index]; }
+    Attribute* attributeItem(unsigned index) const { return m_attributes[index].get(); }
     Attribute* getAttributeItem(const QualifiedName& name) const;
-    Attribute* getAttributeItem(const String& name) const;
-    virtual bool isReadOnlyNode();
+    Attribute* getAttributeItem(const String& name, bool shouldIgnoreAttributeCase) const;
+    
+    void shrinkToLength() { m_attributes.shrinkCapacity(length()); }
+    void reserveCapacity(unsigned capacity) { m_attributes.reserveCapacity(capacity); }
 
     // used during parsing: only inserts if not already there
     // no error checking!
-    void insertAttribute(PassRefPtr<Attribute> newAttribute, bool allowDuplicates) {
-        ASSERT(!element);
+    void insertAttribute(PassRefPtr<Attribute> newAttribute, bool allowDuplicates)
+    {
+        ASSERT(!m_element);
         if (allowDuplicates || !getAttributeItem(newAttribute->name()))
             addAttribute(newAttribute);
     }
@@ -81,17 +89,17 @@ public:
     
     bool mapsEquivalent(const NamedAttrMap* otherMap) const;
 
-protected:
-    // this method is internal, does no error checking at all
-    void addAttribute(PassRefPtr<Attribute> newAttribute);
-    // this method is internal, does no error checking at all
+    // These functions are internal, and do no error checking.
+    void addAttribute(PassRefPtr<Attribute>);
     void removeAttribute(const QualifiedName& name);
+
+protected:
     virtual void clearAttributes();
+
     void detachFromElement();
 
-    Element *element;
-    Attribute **attrs;
-    unsigned len;
+    Element* m_element;
+    Vector<RefPtr<Attribute> > m_attributes;
     AtomicString m_id;
 };
 

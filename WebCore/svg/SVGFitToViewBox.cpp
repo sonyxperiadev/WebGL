@@ -26,8 +26,8 @@
 #include "SVGFitToViewBox.h"
 
 #include "AffineTransform.h"
+#include "Document.h"
 #include "FloatRect.h"
-#include "SVGDocumentExtensions.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGPreserveAspectRatio.h"
@@ -35,18 +35,17 @@
 
 namespace WebCore {
 
+char SVGFitToViewBoxIdentifier[] = "SVGFitToViewBox";
+
 SVGFitToViewBox::SVGFitToViewBox()
-    : m_viewBox()
-    , m_preserveAspectRatio(new SVGPreserveAspectRatio())
+    : m_viewBox(this, SVGNames::viewBoxAttr)
+    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
 {
 }
 
 SVGFitToViewBox::~SVGFitToViewBox()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS_WITH_CONTEXT(SVGFitToViewBox, FloatRect, Rect, rect, ViewBox, viewBox, SVGNames::viewBoxAttr, m_viewBox)
-ANIMATED_PROPERTY_DEFINITIONS_WITH_CONTEXT(SVGFitToViewBox, SVGPreserveAspectRatio*, PreserveAspectRatio, preserveAspectRatio, PreserveAspectRatio, preserveAspectRatio, SVGNames::preserveAspectRatioAttr, m_preserveAspectRatio.get())
 
 bool SVGFitToViewBox::parseViewBox(const UChar*& c, const UChar* end, float& x, float& y, float& w, float& h, bool validate)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,7 @@
 #define WebKitIconDatabaseEnabledPreferenceKey "WebKitIconDatabaseEnabled"
 #define WebKitUsesPageCachePreferenceKey "WebKitUsesPageCachePreferenceKey"
 #define WebKitCacheModelPreferenceKey "WebKitCacheModelPreferenceKey"
+#define WebKitLocalStorageDatabasePathPreferenceKey "WebKitLocalStorageDatabasePath"
 
 // These are private both because callers should be using the cover methods and because the
 // cover methods themselves are private.
@@ -97,10 +98,21 @@
 
 #define WebKitDOMPasteAllowedPreferenceKey "WebKitDOMPasteAllowedPreferenceKey" // default: false
 
+#define WebKitApplicationChromeModePreferenceKey "WebKitApplicationChromeMode" // default: false
+
+#define WebKitOfflineWebApplicationCacheEnabledPreferenceKey "WebKitOfflineWebApplicationCacheEnabled" // default: false
+
 // If this key is present and has a value of true, we have already removed the default values from the user's preferences <rdar://problem/5214504>
 #define WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey "WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey"
+
+#define WebKitDidMigrateWebKitPreferencesToCFPreferencesPreferenceKey "WebKitDidMigrateWebKitPreferencesToCFPreferences"
 
 #define WebKitDeveloperExtrasEnabledPreferenceKey "WebKitDeveloperExtras"
 #define DisableWebKitDeveloperExtrasPreferenceKey "DisableWebKitDeveloperExtras"
 
 #define WebKitAuthorAndUserStylesEnabledPreferenceKey "WebKitAuthorAndUserStylesEnabled"
+
+#define WebKitPaintCustomScrollbarsPreferenceKey "WebKitPaintCustomScrollbars"
+
+#define WebKitPaintNativeControlsPreferenceKey "WebKitPaintNativeControls"
+

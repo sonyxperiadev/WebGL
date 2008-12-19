@@ -31,7 +31,6 @@
 #include "FormDataList.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "KURL.h"
 #include "SSLKeyGenerator.h"
 #include "Text.h"
 
@@ -44,7 +43,8 @@ using namespace HTMLNames;
 HTMLKeygenElement::HTMLKeygenElement(Document* doc, HTMLFormElement* f)
     : HTMLSelectElement(keygenTag, doc, f)
 {
-    Vector<String> keys = supportedKeySizes();
+    Vector<String> keys;
+    getSupportedKeySizes(keys);
         
     Vector<String>::const_iterator end = keys.end();
     for (Vector<String>::const_iterator it = keys.begin(); it != end; ++it) {
@@ -68,7 +68,7 @@ void HTMLKeygenElement::parseMappedAttribute(MappedAttribute* attr)
         m_keyType = attr->value();
     else
         // skip HTMLSelectElement parsing!
-        HTMLGenericFormElement::parseMappedAttribute(attr);
+        HTMLFormControlElement::parseMappedAttribute(attr);
 }
 
 bool HTMLKeygenElement::appendFormData(FormDataList& encoded_values, bool)

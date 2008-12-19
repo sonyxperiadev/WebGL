@@ -14,27 +14,20 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+#define LOG_TAG "WebCore"
 
 #include "config.h"
 #include "ScrollView.h"
 
 #include "FloatRect.h"
+#include "Frame.h"
+#include "FrameView.h"
+#include "HostWindow.h"
 #include "IntRect.h"
-
+#include "NotImplemented.h"
+#include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
-
-#define LOG_TAG "WebCore"
-#undef LOG
-#include "utils/Log.h"
-
-/*  hack to allow the DOM to communicate how to interpret inval requests, since
-    it doesn't have the notion of distinguishing between the screen and the DOM
-    but we do, since we have a copy of the display in our picture, and we don't
-    want to rebuild the picture unless the DOM has actually been changed.
-*/
-bool gAndroid_treatInvalForScreen;
-
-#define verifiedOk()    // no need to do anything in this function
+#include "WebViewCore.h"
 
 /*
     This class implementation does NOT actually emulate the Qt ScrollView.
@@ -53,282 +46,55 @@ bool gAndroid_treatInvalForScreen;
 
 namespace WebCore {
 
-struct ScrollView::ScrollViewPrivate
+IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
 {
-public:
-    ScrollViewPrivate() :
-        hasStaticBackground(false), ignoreUpdateContents(false),
-        vScrollbarMode(ScrollbarAuto),
-        hScrollbarMode(ScrollbarAuto) {}
-    IntSize contentsSize;
-    bool hasStaticBackground;
-    bool ignoreUpdateContents;
-    ScrollbarMode vScrollbarMode;
-    ScrollbarMode hScrollbarMode;
-};
-
-ScrollView::ScrollView()
-{
-    m_data = new ScrollViewPrivate;
+    IntRect rect = platformWidget()->getBounds();
+    // This makes subframes draw correctly, since subframes cannot scroll.
+    if (parent())
+        return IntRect(0, 0, rect.width(), rect.height());
+    return rect;
 }
 
-ScrollView::~ScrollView()
+IntSize ScrollView::platformContentsSize() const
 {
-    delete m_data;
+    return m_contentsSize;
 }
 
-int ScrollView::visibleWidth() const
+void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    return this->getWebCoreViewBridge()->width();
-}
-
-int ScrollView::visibleHeight() const
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    return this->getWebCoreViewBridge()->height();
-}
-
-FloatRect ScrollView::visibleContentRect() const
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    IntRect rect = this->getWebCoreViewBridge()->getBounds();
-    // FIXME: This is a hack to get subframes drawing correctly. Since subframes cannot
-    // scroll, we know that if this view has a parent, the visible rect is (0, 0, w, h)
-    if (this->getWebCoreViewBridge()->getParent())
-        return FloatRect(0, 0, rect.width(), rect.height());
-    return FloatRect(rect.x(), rect.y(), rect.width(), rect.height());
-}
-
-int ScrollView::contentsWidth() const
-{
-    return m_data->contentsSize.width();
-}
-
-int ScrollView::contentsHeight() const
-{
-    return m_data->contentsSize.height();
-}
-
-int ScrollView::contentsX() const
-{
-    return scrollOffset().width();
-}
-
-int ScrollView::contentsY() const
-{
-    return scrollOffset().height();
-}
-
-IntSize ScrollView::scrollOffset() const
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    WebCoreViewBridge* bridge = this->getWebCoreViewBridge();
-    // FIXME: This is a hack to get subframes drawing correctly. Since subframes cannot
-    // scroll, we know that if this view has a parent, the scroll offset is always (0, 0)
-    if (bridge->getParent())
-        return IntSize(0, 0);
-    return IntSize(bridge->locX(), bridge->locY());
-}
-
-void ScrollView::scrollBy(int dx, int dy)
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    this->getWebCoreViewBridge()->scrollBy(dx, dy);
-}
-
-void WebCore::ScrollView::update() 
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    this->getWebCoreViewBridge()->contentInvalidate();
-}
-
-void WebCore::ScrollView::scrollRectIntoViewRecursively(WebCore::IntRect const& r) 
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    int x = r.x();
-    int y = r.y();
-    IntPoint p(x > 0 ? x : 0, y > 0 ? y : 0);
-    ScrollView* view = this;
-    while (view) {
-        view->setContentsPos(p.x(), p.y());
-        p.move(view->x() - view->scrollOffset().width(), view->y() - view->scrollOffset().height());
-        if (view->getWebCoreViewBridge()->getParent())
-            view = static_cast<ScrollView*>(view->getWebCoreViewBridge()->getParent()->widget());
-        else
-            view = NULL;
-    }
-}
-
-WebCore::FloatRect WebCore::ScrollView::visibleContentRectConsideringExternalScrollers() const {
-    return FloatRect(contentsX(), contentsY(), contentsWidth(), contentsHeight()); 
-}
-
-void ScrollView::setContentsPos(int x, int y)
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    this->getWebCoreViewBridge()->scrollTo(x, y);
-}
-
-//---------------------------------------------------------------------
-// Scroll bar methods
-//
-// These methods are largely unimplemented meaning that the
-// state of the scroll bars in the only data maintained. If
-// a scroll bar is needed, the set(V|H)ScrollbarMode methods
-// need to update the scroll bar widget through the java
-// layer and display the new scroll bars.
-// 
-//---------------------------------------------------------------------
-
-void ScrollView::setVScrollbarMode(ScrollbarMode vMode)
-{
-    m_data->vScrollbarMode = vMode;
-}
-
-void ScrollView::setHScrollbarMode(ScrollbarMode hMode)
-{
-    m_data->hScrollbarMode = hMode;
-}
-
-void ScrollView::setScrollbarsMode(ScrollbarMode mode)
-{
-    m_data->hScrollbarMode = mode;
-    m_data->vScrollbarMode = mode;
-}
-
-ScrollbarMode ScrollView::vScrollbarMode() const
-{
-    return m_data->vScrollbarMode;
-}
-
-ScrollbarMode ScrollView::hScrollbarMode() const
-{
-    return m_data->hScrollbarMode;
-}
-
-void ScrollView::suppressScrollbars(bool suppressed,  bool repaintOnUnsuppress)
-{
-    verifiedOk();
-}
-
-//---------------------------------------------------------------------
-// End Scroll bar methods
-//---------------------------------------------------------------------
-
-void ScrollView::addChild(Widget* child)
-{
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    WebCoreViewBridge* childBridge = child->getWebCoreViewBridge();
-    // FIXME: For now just check this, it should be an assert down the road.
-    if (!childBridge)
-    {
-        LOGV("childBridge is not set");
+    if (parent()) // don't attempt to scroll subframes; they're fully visible
         return;
-    }
-    LOG_ASSERT(child != this, "Child has no view bridge or child == this!");
-    WebCoreViewBridge* thisBridge = this->getWebCoreViewBridge();
-    LOG_ASSERT(thisBridge && thisBridge != childBridge, "Our bridge is not set or thisBridge == childBridge!");
-    LOGV("Adding parent");
-    childBridge->setParent(thisBridge);
+    android::WebViewCore::getWebViewCore(this)->scrollTo(pt.x(), pt.y());
 }
 
-void ScrollView::ignoreUpdateContents(bool ignore)
+void ScrollView::platformScrollbarModes(ScrollbarMode& h, ScrollbarMode& v) const
 {
-    m_data->ignoreUpdateContents = ignore;
+    h = v = ScrollbarAlwaysOff;
 }
 
-void ScrollView::removeChild(Widget* child)
+bool ScrollView::platformProhibitsScrolling()
 {
-    // FIXME: Make this only an assert once all widgets have views
-    if (!child->getWebCoreViewBridge())
-    {
-        LOGV("child has no bridge");
-        return;
-    }
-    LOG_ASSERT(child->getWebCoreViewBridge(), "Child has no view bridge");
-    child->getWebCoreViewBridge()->setParent(NULL);
+    if (!isFrameView())
+        return false;
+    FrameView* view = static_cast<FrameView*>(this);
+    // We want to ignore requests to scroll that were not initiated by the user.  An
+    // example of this is when text is inserted into a textfield/area, which results in
+    // a scroll.  We ignore this because we now how to do this ourselves in the UI thread.
+    // An example of it being initiated by the user is if the user clicks an anchor
+    // element which simply scrolls the page.
+    return !android::WebFrame::getWebFrame(view->frame())->userInitiatedClick();
 }
 
-void ScrollView::resizeContents(int w, int h)
+void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 {
-    LOG_ASSERT(this->getWebCoreViewBridge(), "ScrollView does not have a WebCoreViewBridge");
-    if (w < 0)
-        w = 0;
-    if (h < 0)
-        h = 0;
-
-    IntSize newSize(w, h);
-    m_data->contentsSize = newSize;
+    android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect);
 }
 
-void ScrollView::updateContents(const IntRect &rect, bool now)
+#ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
+void ScrollView::platformOffscreenContentRectangle(const IntRect& rect)
 {
-    LOG_ASSERT(this->getWebCoreViewBridge(),
-               "ScrollView does not have a WebCoreViewBridge");
-
-    WebCoreViewBridge* bridge = this->getWebCoreViewBridge();
-    
-    if (gAndroid_treatInvalForScreen) {
-//        SkDebugf("------ contentInvalidate sent to viewInvalidate [%d %d]\n", rect.width(), rect.height());
-        bridge->viewInvalidate();
-    } else if (m_data->ignoreUpdateContents == false) {
-        bridge->contentInvalidate(rect);
-    }
+    android::WebViewCore::getWebViewCore(this)->offInvalidate(rect);
 }
-
-IntPoint ScrollView::windowToContents(const IntPoint& contentsPoint) const
-{
-    WebCoreViewBridge* bridge = this->getWebCoreViewBridge();
-    WebCoreViewBridge* parent = bridge->getParent();
-    int x = 0, y= 0;
-    while (parent) {
-        x += bridge->locX();
-        y += bridge->locY();
-        bridge = parent;
-        parent = bridge->getParent();
-    }
-    return IntPoint(contentsPoint.x() - x, contentsPoint.y() - y);
-}
-
-IntPoint ScrollView::contentsToWindow(const IntPoint& viewportPoint) const
-{
-    WebCoreViewBridge* bridge = this->getWebCoreViewBridge();
-    WebCoreViewBridge* parent = bridge->getParent();
-    int x = 0, y= 0;
-    while (parent) {
-        x += bridge->locX();
-        y += bridge->locY();
-        bridge = parent;
-        parent = bridge->getParent();
-    }
-    return IntPoint(viewportPoint.x() + x, viewportPoint.y() + y);
-}
-
-void ScrollView::setStaticBackground(bool)
-{
-    // we don't have any optimizations for this
-    verifiedOk();
-}
-
-bool ScrollView::inWindow() const
-{
-    LOGV("inWindow Unimplemented");
-#if 0
-    return [getView() window];
 #endif
-    return true;
-}
-
-void ScrollView::wheelEvent(PlatformWheelEvent&) 
-{
-    verifiedOk();
-}
-
-PlatformScrollbar* ScrollView::scrollbarUnderMouse(const PlatformMouseEvent& mouseEvent) 
-{
-    verifiedOk();
-    return NULL; 
-}
 
 }

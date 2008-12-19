@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,15 @@
 #if PLATFORM(WIN)
 typedef struct HICON__* HICON;
 typedef HICON HCURSOR;
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #elif PLATFORM(GTK)
-#include <gdk/gdk.h>
+typedef struct _GdkCursor GdkCursor;
 #elif PLATFORM(QT)
 #include <QCursor>
+#elif PLATFORM(CHROMIUM)
+#include "PlatformCursor.h"
 #endif
 
 #if PLATFORM(MAC)
@@ -59,12 +62,11 @@ namespace WebCore {
 #if PLATFORM(WIN)
     class SharedCursor : public RefCounted<SharedCursor> {
     public:
-        SharedCursor(HCURSOR nativeCursor) : m_nativeCursor(nativeCursor) {}
-        ~SharedCursor() {
-            DestroyIcon(m_nativeCursor);
-        }
+        static PassRefPtr<SharedCursor> create(HCURSOR nativeCursor) { return adoptRef(new SharedCursor(nativeCursor)); }
+        ~SharedCursor() { DestroyIcon(m_nativeCursor); }
         HCURSOR nativeCursor() const { return m_nativeCursor; }
     private:
+        SharedCursor(HCURSOR nativeCursor) : m_nativeCursor(nativeCursor) { }
         HCURSOR m_nativeCursor;
     };
     typedef RefPtr<SharedCursor> PlatformCursor;
@@ -76,6 +78,8 @@ namespace WebCore {
     typedef QCursor PlatformCursor;
 #elif PLATFORM(WX)
     typedef wxCursor* PlatformCursor;
+#elif PLATFORM(CHROMIUM)
+    // See PlatformCursor.h
 #else
     typedef void* PlatformCursor;
 #endif
@@ -121,6 +125,15 @@ namespace WebCore {
     const Cursor& northWestSouthEastResizeCursor();
     const Cursor& columnResizeCursor();
     const Cursor& rowResizeCursor();
+    const Cursor& middlePanningCursor();
+    const Cursor& eastPanningCursor();
+    const Cursor& northPanningCursor();
+    const Cursor& northEastPanningCursor();
+    const Cursor& northWestPanningCursor();
+    const Cursor& southPanningCursor();
+    const Cursor& southEastPanningCursor();
+    const Cursor& southWestPanningCursor();
+    const Cursor& westPanningCursor();
     const Cursor& verticalTextCursor();
     const Cursor& cellCursor();
     const Cursor& contextMenuCursor();
@@ -132,6 +145,8 @@ namespace WebCore {
     const Cursor& zoomOutCursor();
     const Cursor& copyCursor();
     const Cursor& noneCursor();
+    const Cursor& grabCursor();
+    const Cursor& grabbingCursor();
 
 } // namespace WebCore
 

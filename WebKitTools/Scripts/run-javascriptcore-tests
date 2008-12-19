@@ -56,16 +56,20 @@ $configuration = configuration();
 my @jsArgs;
 my @xcodeArgs;
 my $root;
+my $run64Bit;
 
 # pre-evaluate arguments.  jsDriver args have - preceding, xcode args do not.
 # special arguments
 #     --root=<path to webkit root> use pre-built root
 #     --gtk build gtk 
+#     --no-64-bit or --64-bit
 foreach my $arg(@ARGV) {
     print $arg."\n";
     if( $arg =~ /root=(.*)/ ){
         $root = $1;
     } elsif( $arg =~ /^--gtk$/i || $arg =~ /^--qt$/i || $arg =~ /^--wx$/i ){
+    } elsif( $arg =~ /(no-)?64-bit/ ) {
+        $run64Bit = !defined($1);
     } elsif( $arg =~ /^-/ or !($arg =~/=/)){
         push( @jsArgs, $arg );
     } else {
@@ -75,19 +79,30 @@ foreach my $arg(@ARGV) {
 
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 
+if (isOSX() && !isTiger()) {
+    my $preferredArch = preferredArchitecture("JavaScriptCore");
+    setRun64Bit($run64Bit);
+    my $arch = preferredArchitecture("JavaScriptCore");
+    if ($arch ne $preferredArch) {
+        push(@jsArgs, "-a", $arch);
+    }
+}
+
 if(!defined($root)){
     chdirWebKit();
-    my @args;
-    push(@args, "--" . $configuration);
+    push(@xcodeArgs, "--" . $configuration);
     
     # FIXME: These should be stored per-config and ignored here
     push(@xcodeArgs, "--qt")  if isQt();
     push(@xcodeArgs, "--gtk")  if isGtk();
     push(@xcodeArgs, "--wx")  if isWx();
 
-    my $buildResult = system "perl", "WebKitTools/Scripts/build-testkjs", @xcodeArgs;
+    my $arch = preferredArchitecture("JavaScriptCore");
+    push(@xcodeArgs, "ARCHS=$arch") if (isOSX());
+    
+    my $buildResult = system "perl", "WebKitTools/Scripts/build-jsc", @xcodeArgs;
     if ($buildResult) {
-        print STDERR "Compiling testkjs failed!\n";
+        print STDERR "Compiling jsc failed!\n";
         exit exitStatus($buildResult);
     }
 }
@@ -98,20 +113,20 @@ chdir("JavaScriptCore");
 
 my $productDir = productDir();
 chdir "tests/mozilla" or die;
-
-$productDir .= "/JavaScriptCore" if (isQt() or isGtk());
+$productDir .= "/JavaScriptCore" if isQt();
+$productDir .= "/Programs" if isGtk();
 $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
 setPathForRunningWebKitApp(\%ENV) if isCygwin();
 
-sub testKJSPath($)
+sub jscPath($)
 {
     my ($productDir) = @_;
-    my $testkjsName = "testkjs";
-    $testkjsName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
-    return "$productDir/$testkjsName";
+    my $jscName = "jsc";
+    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    return "$productDir/$jscName";
 }
 
-my $result = system "perl", "jsDriver.pl", "-e", "kjs", "-s", testKJSPath($productDir), "-f", "actual.html", @jsArgs;
+my $result = system "perl", "jsDriver.pl", "-e", "squirrelfish", "-s", jscPath($productDir), "-f", "actual.html", @jsArgs;
 exit exitStatus($result)  if $result;
 
 my %failures;

@@ -38,6 +38,7 @@ class QWebPage;
 
 namespace WebCore {
 
+    class FileChooser;
     class FloatRect;
     class Page;
     struct FrameLoadRequest;
@@ -99,9 +100,12 @@ namespace WebCore {
 
         virtual bool tabsToLinks() const;
         virtual IntRect windowResizerRect() const;
-        virtual void addToDirtyRegion(const IntRect&);
-        virtual void scrollBackingStore(int, int, const IntRect&, const IntRect&);
-        virtual void updateBackingStore();
+
+        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+        virtual IntPoint screenToWindow(const IntPoint&) const;
+        virtual IntRect windowToScreen(const IntRect&) const;
+        virtual PlatformWidget platformWindow() const;
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
@@ -111,10 +115,16 @@ namespace WebCore {
 
         virtual void exceededDatabaseQuota(Frame*, const String&);
 
+        virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+
         QWebPage* m_webPage;
         WebCore::KURL lastHoverURL;
         WebCore::String lastHoverTitle;
         WebCore::String lastHoverContent;
+
+        bool toolBarsVisible;
+        bool statusBarVisible;
+        bool menuBarVisible;
     };
 }
 

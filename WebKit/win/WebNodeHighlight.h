@@ -42,19 +42,31 @@ public:
     WebNodeHighlight(WebView*);
     ~WebNodeHighlight();
 
+    void setShowsWhileWebViewIsVisible(bool);
+
+    bool isShowing() const;
+
+    void update();
+
+    void placeBehindWindow(HWND);
+
+private:
     void show();
     void hide();
 
-    void updateWindow();
-    bool visible() const;
+    bool isWebViewVisible() const;
 
-private:
     virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
+
+    void onWebViewShowWindow(bool showing);
+    void onWebViewWindowPosChanged(WINDOWPOS*);
+    void onRootWindowPosChanged(WINDOWPOS*);
 
     WebView* m_inspectedWebView;
     HWND m_inspectedWebViewWindow;
     HWND m_overlay;
     HWND m_observedWindow;
+    bool m_showsWhileWebViewIsVisible;
 
     friend static LRESULT CALLBACK OverlayWndProc(HWND, UINT, WPARAM, LPARAM);
 };

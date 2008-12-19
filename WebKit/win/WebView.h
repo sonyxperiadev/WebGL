@@ -27,10 +27,7 @@
 #define WebView_H
 
 #include "COMPtr.h"
-#include "IWebNotificationObserver.h"
-#include "IWebUIDelegatePrivate.h"
-#include "IWebView.h"
-#include "IWebViewPrivate.h"
+#include "WebKit.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
 
@@ -44,6 +41,7 @@ class WebBackForwardList;
 class WebInspector;
 class WebInspectorClient;
 
+WebView* kit(WebCore::Page*);
 WebCore::Page* core(IWebView*);
 
 interface IDropTargetHelper;
@@ -439,6 +437,33 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setGrammarCheckingEnabled( 
         BOOL enabled);
 
+    virtual HRESULT STDMETHODCALLTYPE setPageSizeMultiplier( 
+        /* [in] */ float multiplier);
+    
+    virtual HRESULT STDMETHODCALLTYPE pageSizeMultiplier( 
+        /* [retval][out] */ float *multiplier);
+
+    virtual HRESULT STDMETHODCALLTYPE canZoomPageIn( 
+        /* [in] */ IUnknown *sender,
+        /* [retval][out] */ BOOL *result);
+    
+    virtual HRESULT STDMETHODCALLTYPE zoomPageIn( 
+        /* [in] */ IUnknown *sender);
+    
+    virtual HRESULT STDMETHODCALLTYPE canZoomPageOut( 
+        /* [in] */ IUnknown *sender,
+        /* [retval][out] */ BOOL *result);
+    
+    virtual HRESULT STDMETHODCALLTYPE zoomPageOut( 
+        /* [in] */ IUnknown *sender);
+
+    virtual HRESULT STDMETHODCALLTYPE canResetPageZoom( 
+        /* [in] */ IUnknown *sender,
+        /* [retval][out] */ BOOL *result);
+    
+    virtual HRESULT STDMETHODCALLTYPE resetPageZoom( 
+        /* [in] */ IUnknown *sender);
+
     // IWebViewUndoableEditing
 
     virtual HRESULT STDMETHODCALLTYPE replaceSelectionWithNode( 
@@ -573,6 +598,8 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE executeCoreCommandByName(BSTR name, BSTR value);
 
+    virtual HRESULT STDMETHODCALLTYPE clearMainFrameName();
+
     virtual HRESULT STDMETHODCALLTYPE markAllMatchesForText(
         BSTR search, BOOL caseSensitive, BOOL highlight, UINT limit, UINT* matches);
 
@@ -602,6 +629,10 @@ public:
         IWebURLRequest *request,
         BOOL *result);
 
+    virtual HRESULT STDMETHODCALLTYPE standardUserAgentWithApplicationName( 
+        /* [in] */ BSTR applicationName,
+        /* [retval][out] */ BSTR *groupName);
+
     virtual HRESULT STDMETHODCALLTYPE clearFocusNode();
 
     virtual HRESULT STDMETHODCALLTYPE setInitialFocus(
@@ -616,8 +647,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setAllowSiteSpecificHacks(
         /* [in] */ BOOL allows);
 
-    virtual HRESULT STDMETHODCALLTYPE addAdditionalPluginPath( 
-        /* [in] */ BSTR path);    
+    virtual HRESULT STDMETHODCALLTYPE addAdditionalPluginDirectory( 
+        /* [in] */ BSTR directory);    
 
     virtual HRESULT STDMETHODCALLTYPE loadBackForwardListFromOtherView( 
         /* [in] */ IWebView *otherView);
@@ -633,6 +664,43 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setShouldApplyMacFontAscentHack(BOOL);
 
     virtual HRESULT STDMETHODCALLTYPE windowAncestryDidChange();
+
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(
+        /* [in] */ RECT rect,
+        /* [in] */ OLE_HANDLE dc);
+
+    virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerTimeDelay(
+        /* [in] */ double timeDelay);
+
+    virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerChunkSize(
+        /* [in] */ int chunkSize);
+
+    virtual HRESULT STDMETHODCALLTYPE backingStore(
+        /* [out, retval] */ OLE_HANDLE* hBitmap);
+
+    virtual HRESULT STDMETHODCALLTYPE setTransparent(
+        /* [in] */ BOOL transparent);
+
+    virtual HRESULT STDMETHODCALLTYPE transparent(
+        /* [out, retval] */ BOOL* transparent);
+
+    virtual HRESULT STDMETHODCALLTYPE setDefersCallbacks(
+        /* [in] */ BOOL defersCallbacks);
+
+    virtual HRESULT STDMETHODCALLTYPE defersCallbacks(
+        /* [out, retval] */ BOOL* defersCallbacks);
+
+    virtual HRESULT STDMETHODCALLTYPE setAlwaysUsesComplexTextCodePath(
+        /* [in] */ BOOL complex);
+
+    virtual HRESULT STDMETHODCALLTYPE alwaysUsesComplexTextCodePath(
+        /* [out, retval] */ BOOL* complex);
+
+    virtual HRESULT STDMETHODCALLTYPE setCookieEnabled(
+        /* [in] */ BOOL enable);
+
+    virtual HRESULT STDMETHODCALLTYPE cookieEnabled(
+        /* [out, retval] */ BOOL* enabled);
 
     // WebView
     WebCore::Page* page();
@@ -657,13 +725,16 @@ public:
     void addToDirtyRegion(const WebCore::IntRect&);
     void addToDirtyRegion(HRGN);
     void scrollBackingStore(WebCore::FrameView*, int dx, int dy, const WebCore::IntRect& scrollViewRect, const WebCore::IntRect& clipRect);
-    void updateBackingStore(WebCore::FrameView*, HDC, bool backingStoreCompletelyDirty);
+    void updateBackingStore(WebCore::FrameView*, HDC = 0, bool backingStoreCompletelyDirty = false);
     void deleteBackingStore();
+    void repaint(const WebCore::IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
     void frameRect(RECT* rect);
     void closeWindow();
     void closeWindowSoon();
     void close();
     bool didClose() const { return m_didClose; }
+
+    bool transparent() const { return m_transparent; }
 
     bool onIMEStartComposition();
     bool onIMEComposition(LPARAM);
@@ -681,10 +752,12 @@ public:
     HRESULT revokeDragDrop();
 
     // Convenient to be able to violate the rules of COM here for easy movement to the frame.
-    WebFrame* topLevelFrame() { return m_mainFrame; }
+    WebFrame* topLevelFrame() const { return m_mainFrame; }
     const WebCore::String& userAgentForKURL(const WebCore::KURL& url);
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
+
+    static WebCore::String standardUserAgentWithApplicationName(const WebCore::String&);
 
     void setIsBeingDestroyed() { m_isBeingDestroyed = true; }
     bool isBeingDestroyed() const { return m_isBeingDestroyed; }
@@ -708,10 +781,26 @@ public:
     static WebCacheModel maxCacheModelInAnyInstance();
 
     void updateActiveStateSoon() const;
+    void deleteBackingStoreSoon();
+    void cancelDeleteBackingStoreSoon();
 
     HWND topLevelParent() const { return m_topLevelParent; }
 
     void updateActiveState();
+
+    bool onGetObject(WPARAM, LPARAM, LRESULT&) const;
+    static STDMETHODIMP AccessibleObjectFromWindow(HWND, DWORD objectID, REFIID, void** ppObject);
+
+private:
+    void setZoomMultiplier(float multiplier, bool isTextOnly);
+    float zoomMultiplier(bool isTextOnly);
+    bool canZoomIn(bool isTextOnly);
+    HRESULT zoomIn(bool isTextOnly);
+    bool canZoomOut(bool isTextOnly);
+    HRESULT zoomOut(bool isTextOnly);
+    bool canResetZoom(bool isTextOnly);
+    HRESULT resetZoom(bool isTextOnly);
+    bool active();
 
 protected:
     HIMC getIMMContext();
@@ -734,7 +823,6 @@ protected:
     virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
 
     ULONG m_refCount;
-    WebCore::String m_groupName;
     HWND m_hostWindow;
     HWND m_viewWindow;
     WebFrame* m_mainFrame;
@@ -760,7 +848,8 @@ protected:
     bool m_useBackForwardList;
     WebCore::String m_userAgentCustom;
     WebCore::String m_userAgentStandard;
-    float m_textSizeMultiplier;
+    float m_zoomMultiplier;
+    bool m_zoomMultiplierIsTextOnly;
     WebCore::String m_overrideEncoding;
     WebCore::String m_applicationName;
     bool m_mouseActivated;
@@ -778,6 +867,9 @@ protected:
     unsigned m_inIMEComposition;
     HWND m_toolTipHwnd;
     WebCore::String m_toolTip;
+    bool m_deleteBackingStoreTimerActive;
+
+    bool m_transparent;
 
     static bool s_allowSiteSpecificHacks;
 

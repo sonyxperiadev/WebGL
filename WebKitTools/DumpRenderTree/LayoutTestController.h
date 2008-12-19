@@ -30,16 +30,19 @@
 #define LayoutTestController_h
 
 #include <JavaScriptCore/JSObjectRef.h>
+#include <wtf/RefCounted.h>
+#include <string>
 
-class LayoutTestController {
+class LayoutTestController : public RefCounted<LayoutTestController> {
 public:
-    LayoutTestController(bool testRepaintDefault, bool testRepaintSweepHorizontallyDefault);
+    LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash);
     ~LayoutTestController();
 
     void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
 
     // Controller Methods - platfrom independant implementations
     void addDisallowedURL(JSStringRef url);
+    void clearAllDatabases();
     void clearBackForwardList();
     JSStringRef copyDecodedHostName(JSStringRef name);
     JSStringRef copyEncodedHostName(JSStringRef name);
@@ -56,20 +59,28 @@ public:
     void setAcceptsEditing(bool acceptsEditing);
     void setAuthorAndUserStylesEnabled(bool);
     void setCustomPolicyDelegate(bool setDelegate);
+    void setDatabaseQuota(unsigned long long quota);
     void setMainFrameIsFirstResponder(bool flag);
     void setPrivateBrowsingEnabled(bool flag);
     void setPopupBlockingEnabled(bool flag);
     void setTabKeyCyclesThroughElements(bool cycles);
+    void setSmartInsertDeleteEnabled(bool flag);
+    void setJavaScriptProfilingEnabled(bool profilingEnabled);
     void setUseDashboardCompatibilityMode(bool flag);
     void setUserStyleSheetEnabled(bool flag);
     void setUserStyleSheetLocation(JSStringRef path);
     void setPersistentUserStyleSheetLocation(JSStringRef path);
     void clearPersistentUserStyleSheet();
     int windowCount();
+    
+    bool elementDoesAutoCompleteForElementWithId(JSStringRef id);
 
     bool dumpAsText() const { return m_dumpAsText; }
     void setDumpAsText(bool dumpAsText) { m_dumpAsText = dumpAsText; }
 
+    bool dumpAsPDF() const { return m_dumpAsPDF; }
+    void setDumpAsPDF(bool dumpAsPDF) { m_dumpAsPDF = dumpAsPDF; }
+    
     bool dumpBackForwardList() const { return m_dumpBackForwardList; }
     void setDumpBackForwardList(bool dumpBackForwardList) { m_dumpBackForwardList = dumpBackForwardList; }
 
@@ -78,6 +89,12 @@ public:
 
     bool dumpChildFramesAsText() const { return m_dumpChildFramesAsText; }
     void setDumpChildFramesAsText(bool dumpChildFramesAsText) { m_dumpChildFramesAsText = dumpChildFramesAsText; }
+
+    bool dumpDatabaseCallbacks() const { return m_dumpDatabaseCallbacks; }
+    void setDumpDatabaseCallbacks(bool dumpDatabaseCallbacks) { m_dumpDatabaseCallbacks = dumpDatabaseCallbacks; }
+
+    bool dumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
+    void setDumpStatusCallbacks(bool dumpStatusCallbacks) { m_dumpStatusCallbacks = dumpStatusCallbacks; }
 
     bool dumpDOMAsWebArchive() const { return m_dumpDOMAsWebArchive; }
     void setDumpDOMAsWebArchive(bool dumpDOMAsWebArchive) { m_dumpDOMAsWebArchive = dumpDOMAsWebArchive; }
@@ -111,6 +128,12 @@ public:
 
     bool closeRemainingWindowsWhenComplete() const { return m_closeRemainingWindowsWhenComplete; }
     void setCloseRemainingWindowsWhenComplete(bool closeRemainingWindowsWhenComplete) { m_closeRemainingWindowsWhenComplete = closeRemainingWindowsWhenComplete; }
+    
+    bool stopProvisionalFrameLoads() const { return m_stopProvisionalFrameLoads; }
+    void setStopProvisionalFrameLoads(bool stopProvisionalFrameLoads) { m_stopProvisionalFrameLoads = stopProvisionalFrameLoads; }
+
+    bool testOnscreen() const { return m_testOnscreen; }
+    void setTestOnscreen(bool testOnscreen) { m_testOnscreen = testOnscreen; }
 
     bool testRepaint() const { return m_testRepaint; }
     void setTestRepaint(bool testRepaint) { m_testRepaint = testRepaint; }
@@ -127,14 +150,20 @@ public:
     bool globalFlag() const { return m_globalFlag; }
     void setGlobalFlag(bool globalFlag) { m_globalFlag = globalFlag; }
     
+    const std::string& testPathOrURL() const { return m_testPathOrURL; }
+    const std::string& expectedPixelHash() const { return m_expectedPixelHash; }
+    
 private:
     bool m_dumpAsText;
+    bool m_dumpAsPDF;
     bool m_dumpBackForwardList;
     bool m_dumpChildFrameScrollPositions;
     bool m_dumpChildFramesAsText;
+    bool m_dumpDatabaseCallbacks;
     bool m_dumpDOMAsWebArchive;
     bool m_dumpSelectionRect;
     bool m_dumpSourceAsWebArchive;
+    bool m_dumpStatusCallbacks;
     bool m_dumpTitleChanges;
     bool m_dumpEditingCallbacks;
     bool m_dumpResourceLoadCallbacks;
@@ -143,6 +172,8 @@ private:
     bool m_callCloseOnWebViews;
     bool m_canOpenWindows;
     bool m_closeRemainingWindowsWhenComplete;
+    bool m_stopProvisionalFrameLoads;
+    bool m_testOnscreen;
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
@@ -150,6 +181,9 @@ private:
 
     bool m_globalFlag;
 
+    std::string m_testPathOrURL;
+    std::string m_expectedPixelHash;    // empty string if no hash
+    
     static JSClassRef getJSClass();
     static JSStaticValue* staticValues();
     static JSStaticFunction* staticFunctions();

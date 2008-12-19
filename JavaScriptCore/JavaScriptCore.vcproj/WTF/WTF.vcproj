@@ -24,6 +24,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -41,8 +42,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
 			<Tool
@@ -56,6 +57,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalDependencies="user32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
@@ -72,6 +74,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -84,6 +87,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -101,8 +105,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
 			<Tool
@@ -116,6 +120,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalDependencies="user32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
@@ -132,6 +137,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -143,6 +149,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -160,8 +167,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
 			<Tool
@@ -175,6 +182,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalDependencies="user32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
@@ -191,12 +199,21 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
 	<References>
 	</References>
 	<Files>
+		<Filter
+			Name="win"
+			>
+			<File
+				RelativePath="..\..\wtf\win\MainThreadWin.cpp"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath="..\..\wtf\AlwaysInline.h"
 			>
@@ -211,6 +228,18 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\Assertions.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\Collator.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\CollatorDefault.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\icu\CollatorICU.cpp"
 			>
 		</File>
 		<File
@@ -274,11 +303,31 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\Locker.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MainThread.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MainThread.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\MathExtras.h"
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\MessageQueue.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Noncopyable.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\NotFound.h"
 			>
 		</File>
 		<File
@@ -303,6 +352,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\RefCounted.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RefCountedLeakCounter.cpp"
 			>
 		</File>
 		<File
@@ -339,6 +392,18 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\TCSystemAlloc.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\Threading.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadingWin.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadSpecific.h"
 			>
 		</File>
 		<File

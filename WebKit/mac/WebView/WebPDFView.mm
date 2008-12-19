@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,18 +45,18 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
-#import <JavaScriptCore/Assertions.h>
 #import <PDFKit/PDFKit.h>
 #import <WebCore/EventNames.h>
+#import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/FrameLoadRequest.h>
 #import <WebCore/KURL.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PlatformKeyboardEvent.h>
-#import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
 
 using namespace WebCore;
-using namespace EventNames;
 
 // Redeclarations of PDFKit notifications. We can't use the API since we use a weak link to the framework.
 #define _webkit_PDFViewDisplayModeChangedNotification @"PDFViewDisplayModeChanged"
@@ -491,6 +491,10 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 - (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
 {
+    // This can be called during teardown when _webView is nil. Return NO when this happens, because CallUIDelegateReturningBoolean
+    // assumes the WebVIew is non-nil.
+    if (![self _webView])
+        return NO;
     BOOL result = [self validateUserInterfaceItemWithoutDelegate:item];
     return CallUIDelegateReturningBoolean(result, [self _webView], @selector(webView:validateUserInterfaceItem:defaultValidation:), item, result);
 }
@@ -782,43 +786,32 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 #pragma mark _WebDocumentTextSizing PROTOCOL IMPLEMENTATION
 
-- (IBAction)_makeTextSmaller:(id)sender
+- (IBAction)_zoomOut:(id)sender
 {
     [PDFSubviewProxy zoomOut:sender];
 }
 
-- (IBAction)_makeTextLarger:(id)sender
+- (IBAction)_zoomIn:(id)sender
 {
     [PDFSubviewProxy zoomIn:sender];
 }
 
-- (IBAction)_makeTextStandardSize:(id)sender
+- (IBAction)_resetZoom:(id)sender
 {
     [PDFSubviewProxy setScaleFactor:1.0f];
 }
 
-// never sent because we do not track the common size factor
-- (void)_textSizeMultiplierChanged      { ASSERT_NOT_REACHED(); }
-
-- (BOOL)_tracksCommonSizeFactor
-{
-    // We keep our own scale factor instead of tracking the common one in the WebView for a couple reasons.
-    // First, PDFs tend to have visually smaller text because they are laid out for a printed page instead of
-    // the screen.  Second, the PDFView feature of AutoScaling means our scaling factor can be quiet variable.
-    return NO;
-}
-
-- (BOOL)_canMakeTextSmaller
+- (BOOL)_canZoomOut
 {
     return [PDFSubview canZoomOut];
 }
 
-- (BOOL)_canMakeTextLarger
+- (BOOL)_canZoomIn
 {
     return [PDFSubview canZoomIn];
 }
 
-- (BOOL)_canMakeTextStandardSize
+- (BOOL)_canResetZoom
 {
     return [PDFSubview scaleFactor] != 1.0;
 }
@@ -884,13 +877,6 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return selectionImage;
 }
 
-- (NSImage *)selectionImageForcingWhiteText:(BOOL)forceWhiteText
-{
-    // NOTE: this method is obsolete and doesn't behave as its name suggests.
-    // See comment in WebDocumentPrivate.h.
-    return [self selectionImageForcingBlackText:forceWhiteText];
-}
-
 - (NSRect)selectionImageRect
 {
     // FIXME: deal with clipping?
@@ -948,7 +934,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
         case NSKeyDown: {
             PlatformKeyboardEvent pe(nsEvent);
             pe.disambiguateKeyDownEvent(PlatformKeyboardEvent::RawKeyDown);
-            event = new KeyboardEvent(keydownEvent, true, true, 0,
+            event = KeyboardEvent::create(eventNames().keydownEvent, true, true, 0,
                 pe.keyIdentifier(), pe.windowsVirtualKeyCode(),
                 pe.ctrlKey(), pe.altKey(), pe.shiftKey(), pe.metaKey(), false);
         }
@@ -956,7 +942,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
             break;
     }
     if (button != noButton)
-        event = new MouseEvent(clickEvent, true, true, 0, [nsEvent clickCount], 0, 0, 0, 0,
+        event = MouseEvent::create(eventNames().clickEvent, true, true, 0, [nsEvent clickCount], 0, 0, 0, 0,
             [nsEvent modifierFlags] & NSControlKeyMask,
             [nsEvent modifierFlags] & NSAlternateKeyMask,
             [nsEvent modifierFlags] & NSShiftKeyMask,
@@ -964,13 +950,18 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
             button, 0, 0, true);
 
     // Call to the frame loader because this is where our security checks are made.
-    [[dataSource webFrame] _frameLoader]->load(URL, event.get());
+    core([dataSource webFrame])->loader()->loadFrameRequestWithFormAndValues(ResourceRequest(URL), false, event.get(), 0, HashMap<String, String>());
 }
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender
 {
     // Delegate method sent when the user requests opening the PDF file in the system's default app
     [self _openWithFinder:sender];
+}
+
+- (void)PDFViewPerformPrint:(PDFView *)sender
+{
+    CallUIDelegate([self _webView], @selector(webView:printFrameView:), [[dataSource webFrame] frameView]);
 }
 
 - (void)PDFViewSavePDFToDownloadFolder:(PDFView *)sender

@@ -56,6 +56,7 @@ WebHistoryItem::WebHistoryItem(PassRefPtr<HistoryItem> historyItem)
     historyItemWrappers().set(m_historyItem.get(), this);
 
     gClassCount++;
+    gClassNameCount.add("WebHistoryItem");
 }
 
 WebHistoryItem::~WebHistoryItem()
@@ -64,11 +65,12 @@ WebHistoryItem::~WebHistoryItem()
     historyItemWrappers().remove(m_historyItem.get());
 
     gClassCount--;
+    gClassNameCount.remove("WebHistoryItem");
 }
 
 WebHistoryItem* WebHistoryItem::createInstance()
 {
-    WebHistoryItem* instance = new WebHistoryItem(new HistoryItem);
+    WebHistoryItem* instance = new WebHistoryItem(HistoryItem::create());
     instance->AddRef();
     return instance;
 }
@@ -126,7 +128,7 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::initFromDictionaryRepresentation(void*
     }
 
     historyItemWrappers().remove(m_historyItem.get());
-    m_historyItem = new HistoryItem(urlStringRef, titleRef, lastVisitedTime);
+    m_historyItem = HistoryItem::create(urlStringRef, titleRef, lastVisitedTime);
     historyItemWrappers().set(m_historyItem.get(), this);
 
     if (!CFNumberGetValue(visitCountRef, kCFNumberIntType, &visitedCount)) {
@@ -199,21 +201,11 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::mergeAutoCompleteHints(IWebHistoryItem
     if (!otherItem)
         return E_FAIL;
 
-    if (otherItem == this)
-        return S_OK;
+    COMPtr<WebHistoryItem> otherWebHistoryItem(Query, otherItem);
+    if (!otherWebHistoryItem)
+        return E_FAIL;
 
-    IWebHistoryItemPrivate* otherItemPriv;
-    HRESULT hr = otherItem->QueryInterface(IID_IWebHistoryItemPrivate, (void**)&otherItemPriv);
-    if (FAILED(hr))
-        return hr;
-
-    int otherVisitCount;
-    hr = otherItemPriv->visitCount(&otherVisitCount);
-    otherItemPriv->Release();
-    if (FAILED(hr))
-        return hr;
-
-    m_historyItem->setVisitCount(otherVisitCount);
+    m_historyItem->mergeAutoCompleteHints(otherWebHistoryItem->historyItem());
 
     return S_OK;
 }
@@ -333,7 +325,7 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::children(unsigned* outChildCount, SAFE
 HRESULT STDMETHODCALLTYPE WebHistoryItem::QueryInterface(REFIID riid, void** ppvObject)
 {
     *ppvObject = 0;
-    if (IsEqualGUID(riid, CLSID_WebHistoryItem))
+    if (IsEqualGUID(riid, __uuidof(WebHistoryItem)))
         *ppvObject = this;
     else if (IsEqualGUID(riid, IID_IUnknown))
         *ppvObject = static_cast<IWebHistoryItem*>(this);
@@ -370,7 +362,7 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::initWithURLString(
     /* [in] */ DATE lastVisited)
 {
     historyItemWrappers().remove(m_historyItem.get());
-    m_historyItem = new HistoryItem(String(urlString, SysStringLen(urlString)), String(title, SysStringLen(title)), MarshallingHelpers::DATEToCFAbsoluteTime(lastVisited));
+    m_historyItem = HistoryItem::create(String(urlString, SysStringLen(urlString)), String(title, SysStringLen(title)), MarshallingHelpers::DATEToCFAbsoluteTime(lastVisited));
     historyItemWrappers().set(m_historyItem.get(), this);
 
     return S_OK;

@@ -71,10 +71,21 @@ and WebCore. Include this file to use these settings.
         </option>
     </if>
     
+    <if cond="not isdefined('DEBUG')">
+        <option name="DEBUG">
+            <values>0,1</values>
+            <default-value>0</default-value>
+            <description>
+                Whether or not to build debug
+            </description>
+        </option>
+    </if>
+    
     <template id="jscore">
         <if cond="FORMAT in ['msvc', 'msvs2005prj']">
             <!-- MSVC chokes on #import, so don't use ForwardingHeaders... -->
             <include>$(WK_ROOT)/JavaScriptCore/os-win32</include><!-- stdint.h is here -->
+            <include>$(WKOUTPUTDIR)</include>
         </if>
     </template>
 
@@ -90,17 +101,18 @@ and WebCore. Include this file to use these settings.
             <define>HAVE_FLOAT_H=1</define>
             <define>HAVE_FUNC__FINITE=1</define>
         </if>
-    
+
+        <include>$(WKOUTPUTDIR)</include>
         <include>$(WK_ROOT)/WebCore</include>
         <include>$(WK_ROOT)/WebCore/DerivedSources/WebCore</include>
         <include>$(WK_ROOT)/WebCore/bindings/js</include>
         <include>$(WK_ROOT)/WebCore/bridge</include>
+        <include>$(WK_ROOT)/WebCore/css</include>
+        <include>$(WK_ROOT)/WebCore/dom</include>
         <include>$(WK_ROOT)/WebCore/editing</include>
         <include>$(WK_ROOT)/WebCore/history</include>
         <include>$(WK_ROOT)/WebCore/html</include>
-        <include>$(WK_ROOT)/WebCore/css</include>
-        <include>$(WK_ROOT)/WebCore/dom</include>
-        <include>$(WK_ROOT)/WebCore/kwq</include>
+        <include>$(WK_ROOT)/WebCore/inspector</include>
         <include>$(WK_ROOT)/WebCore/loader</include>
         <include>$(WK_ROOT)/WebCore/loader/icon</include>
         <include>$(WK_ROOT)/WebCore/page</include>
@@ -116,12 +128,16 @@ and WebCore. Include this file to use these settings.
         <include>$(WK_ROOT)/WebCore/platform/sql</include>
         <include>$(WK_ROOT)/WebCore/platform/text</include>
         <include>$(WK_ROOT)/WebCore/rendering</include>
+        <include>$(WK_ROOT)/WebCore/rendering/style</include>
         <include>$(WK_ROOT)/WebCore/storage</include>
         <include>$(WK_ROOT)/WebCore/xml</include>
         
         <include>$(WK_ROOT)/JavaScriptCore</include>
         <include>$(WK_ROOT)/JavaScriptCore/kjs</include>
         <include>$(WK_ROOT)/JavaScriptCore/pcre</include>
+        <include>$(WK_ROOT)/JavaScriptCore/profiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/runtime</include>
+        <include>$(WK_ROOT)/JavaScriptCore/VM</include>
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>
     </template>
     

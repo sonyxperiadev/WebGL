@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #import "DOMHTMLTextAreaElementInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchive.h"
-#import "WebArchiver.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocument.h"
 #import "WebEditingDelegatePrivate.h"
@@ -50,6 +49,7 @@
 #import <WebCore/EditAction.h>
 #import <WebCore/EditCommand.h>
 #import <WebCore/KeyboardEvent.h>
+#import <WebCore/LegacyWebArchive.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PlatformString.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -106,6 +106,9 @@ WebViewInsertAction kit(EditorInsertAction coreAction)
 
 - (void)dealloc
 {
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebEditCommand class], self))
+        return;
+    
     m_command->deref();
     [super dealloc];
 }
@@ -245,7 +248,7 @@ bool WebEditorClient::shouldEndEditing(Range* range)
                              shouldEndEditingInDOMRange:kit(range)];
 }
 
-bool WebEditorClient::shouldInsertText(String text, Range* range, EditorInsertAction action)
+bool WebEditorClient::shouldInsertText(const String& text, Range* range, EditorInsertAction action)
 {
     WebView* webView = m_webView;
     return [[webView _editingDelegateForwarder] webView:webView shouldInsertText:text replacingDOMRange:kit(range) givenAction:kit(action)];
@@ -295,12 +298,6 @@ void WebEditorClient::didWriteSelectionToPasteboard()
 void WebEditorClient::didSetSelectionTypesForPasteboard()
 {
     [[m_webView _editingDelegateForwarder] webView:m_webView didSetSelectionTypesForPasteboard:[NSPasteboard generalPasteboard]];
-}
-
-NSData* WebEditorClient::dataForArchivedSelection(Frame* frame)
-{
-    WebArchive *archive = [WebArchiver archiveSelectionInFrame:kit(frame)];
-    return [archive data];
 }
 
 NSString* WebEditorClient::userVisibleString(NSURL *URL)
@@ -471,7 +468,7 @@ void WebEditorClient::textDidChangeInTextField(Element* element)
 
 static SEL selectorForKeyEvent(KeyboardEvent* event)
 {
-    // FIXME: This helper function is for the auto-fill code so the bridge can pass a selector to the form delegate.  
+    // FIXME: This helper function is for the auto-fill code so we can pass a selector to the form delegate.  
     // Eventually, we should move all of the auto-fill code down to WebKit and remove the need for this function by
     // not relying on the selector in the new implementation.
     // The key identifiers are from <http://www.w3.org/TR/DOM-Level-3-Events/keyset.html#KeySet-Set>

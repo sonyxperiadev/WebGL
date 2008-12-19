@@ -28,10 +28,10 @@
 
 #import "WebClipView.h"
 
-#import <JavaScriptCore/Assertions.h>
 #import <WebKit/WebHTMLView.h>
 #import <WebKit/WebNSViewExtras.h>
 #import <WebKit/WebViewPrivate.h>
+#import <wtf/Assertions.h>
 
 // WebClipView's entire reason for existing is to set the clip used by focus ring redrawing.
 // There's no easy way to prevent the focus ring from drawing outside the passed-in clip rectangle
@@ -104,10 +104,12 @@
 {
     NSView *docView = [self documentView];
     if ([docView respondsToSelector:@selector(_webView)]) {
+#if ENABLE(DASHBOARD_SUPPORT)
         WebView *wv = [docView _webView];
         if ([wv _dashboardBehavior:WebDashboardBehaviorAllowWheelScrolling]) {
             [super scrollWheel:event];
         }
+#endif
         return;
     }
     [super scrollWheel:event];

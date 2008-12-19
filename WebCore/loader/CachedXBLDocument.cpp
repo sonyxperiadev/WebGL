@@ -32,23 +32,18 @@
 
 #include "CachedXBLDocument.h"
 
-#include "Cache.h"
 #include "CachedResourceClientWalker.h"
 #include "TextResourceDecoder.h"
-#include "loader.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-CachedXBLDocument::CachedXBLDocument(DocLoader* dl, const String &url)
+CachedXBLDocument::CachedXBLDocument(const String &url)
 : CachedResource(url, XBL), m_document(0)
 {
     // It's XML we want.
     setAccept("text/xml, application/xml, application/xhtml+xml, text/xsl, application/rss+xml, application/atom+xml");
-    
-    // Load the file
-    Cache::loader()->load(dl, this, false);
-    m_loading = true;
+
     m_decoder = new TextResourceDecoder("application/xml");
 }
 

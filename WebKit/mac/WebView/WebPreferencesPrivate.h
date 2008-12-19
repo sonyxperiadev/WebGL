@@ -29,9 +29,8 @@
 #import <WebKit/WebPreferences.h>
 #import <Quartz/Quartz.h>
 
-// WebKitEditableLinkBehavior needs to match the EditableLinkBehavior enum in WebCore
 typedef enum {
-    WebKitEditableLinkDefaultBehavior = 0,
+    WebKitEditableLinkDefaultBehavior,
     WebKitEditableLinkAlwaysLive,
     WebKitEditableLinkOnlyLiveWithShiftKey,
     WebKitEditableLinkLiveWhenNotFocused,
@@ -51,6 +50,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)authorAndUserStylesEnabled;
 - (void)setAuthorAndUserStylesEnabled:(BOOL)flag;
 
+- (BOOL)applicationChromeModeEnabled;
+- (void)setApplicationChromeModeEnabled:(BOOL)flag;
+
 - (BOOL)respectStandardStyleKeyEquivalents;
 - (void)setRespectStandardStyleKeyEquivalents:(BOOL)flag;
 
@@ -68,6 +70,15 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)automaticallyDetectsCacheModel;
 - (void)setAutomaticallyDetectsCacheModel:(BOOL)automaticallyDetectsCacheModel;
+
+- (BOOL)webArchiveDebugModeEnabled;
+- (void)setWebArchiveDebugModeEnabled:(BOOL)webArchiveDebugModeEnabled;
+
+- (BOOL)offlineWebApplicationCacheEnabled;
+- (void)setOfflineWebApplicationCacheEnabled:(BOOL)offlineWebApplicationCacheEnabled;
+
+- (BOOL)zoomsTextOnly;
+- (void)setZoomsTextOnly:(BOOL)zoomsTextOnly;
 
 // zero means do AutoScale
 - (float)PDFScaleFactor;
@@ -90,6 +101,8 @@ extern NSString *WebPreferencesRemovedNotification;
 - (void)_setFTPDirectoryTemplatePath:(NSString *)path;
 - (void)_setForceFTPDirectoryListings:(BOOL)force;
 - (BOOL)_forceFTPDirectoryListings;
+- (NSString *)_localStorageDatabasePath;
+- (void)_setLocalStorageDatabasePath:(NSString *)path;
 
 // Other private methods
 - (void)_postPreferencesChangesNotification;
@@ -105,4 +118,7 @@ extern NSString *WebPreferencesRemovedNotification;
 - (void)willAddToWebView;
 - (void)didRemoveFromWebView;
 
+// Force document tear down at application quit
+- (void)setFullDocumentTeardownEnabled:(BOOL)fullDocumentTeardownEnabled;
+- (BOOL)fullDocumentTeardownEnabled;
 @end

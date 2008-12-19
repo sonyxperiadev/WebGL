@@ -45,7 +45,7 @@ public:
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle* style) const { return style->affectedByHoverRules(); }
 
-    virtual short baselinePosition(const RenderObject*) const;
+    virtual int baselinePosition(const RenderObject*) const;
 
     virtual Color platformActiveSelectionBackgroundColor() const;
     virtual Color platformInactiveSelectionBackgroundColor() const;
@@ -75,6 +75,7 @@ protected:
     
     bool paintCombo(RenderObject* o, const RenderObject::PaintInfo& i,  const IntRect& ir);
 
+    virtual void adjustListboxStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const;
     virtual void adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const;
     virtual bool paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
 
@@ -89,7 +90,7 @@ private:
     void addIntrinsicMargins(RenderStyle* style) const;
     void close();
 
-    bool supportsFocus(EAppearance appearance);
+    bool supportsFocus(ControlPart appearance);
     // FIXME: There should be a way to use one RenderSkinRadio for both radio and checkbox
     RenderSkinRadio*    m_radio;
     RenderSkinRadio*    m_checkbox;

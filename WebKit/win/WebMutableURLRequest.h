@@ -26,7 +26,7 @@
 #ifndef WebMutableURLRequest_H
 #define WebMutableURLRequest_H
 
-#include "IWebMutableURLRequest.h"
+#include "WebKit.h"
 #pragma warning(push, 0)
 #include <WebCore/ResourceRequest.h>
 #pragma warning(pop)
@@ -46,7 +46,7 @@ inline WebURLRequestCachePolicy kit(WebCore::ResourceRequestCachePolicy policy)
     return static_cast<WebURLRequestCachePolicy>(policy);
 }
 
-class WebMutableURLRequest : public IWebMutableURLRequest
+class WebMutableURLRequest : public IWebMutableURLRequest, IWebMutableURLRequestPrivate
 {
 public:
     static WebMutableURLRequest* createInstance();
@@ -110,7 +110,10 @@ public:
     virtual HRESULT STDMETHODCALLTYPE isEmpty(
     /* [retval][out] */ BOOL* result);
 
-    // WebMutableURLRequest
+    virtual HRESULT STDMETHODCALLTYPE mutableCopy(
+        /* [out, retval] */ IWebMutableURLRequest** result);
+
+    // IWebMutableURLRequest
     virtual HRESULT STDMETHODCALLTYPE addValue( 
         /* [in] */ BSTR value,
         /* [in] */ BSTR field);
@@ -147,6 +150,13 @@ public:
         /* [in] */ BSTR field);
 
     virtual HRESULT STDMETHODCALLTYPE setAllowsAnyHTTPSCertificate(void);
+
+    // IWebMutableURLRequestPrivate
+
+    virtual HRESULT STDMETHODCALLTYPE setClientCertificate(
+        /* [in] */ OLE_HANDLE cert);
+
+    virtual /* [local] */ CFURLRequestRef STDMETHODCALLTYPE cfRequest();
 
     // WebMutableURLRequest
     void setFormData(const PassRefPtr<WebCore::FormData> data);

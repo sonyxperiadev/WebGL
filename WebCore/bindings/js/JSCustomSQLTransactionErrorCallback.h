@@ -31,11 +31,11 @@
 
 #include "SQLTransactionErrorCallback.h"
 
-#include <kjs/object.h>
+#include <runtime/JSObject.h>
 #include <kjs/protect.h>
 #include <wtf/Forward.h>
 
-namespace KJS {
+namespace JSC {
     class JSObject;
 }
 
@@ -46,11 +46,14 @@ class SQLError;
 
 class JSCustomSQLTransactionErrorCallback : public SQLTransactionErrorCallback {
 public:
-    JSCustomSQLTransactionErrorCallback(KJS::JSObject* callback, Frame*);
+    static PassRefPtr<JSCustomSQLTransactionErrorCallback> create(JSC::JSObject* callback, Frame* frame) { return adoptRef(new JSCustomSQLTransactionErrorCallback(callback, frame)); }
     
     virtual bool handleEvent(SQLError*);
+
 private:
-    KJS::ProtectedPtr<KJS::JSObject> m_callback;
+    JSCustomSQLTransactionErrorCallback(JSC::JSObject* callback, Frame*);
+
+    JSC::ProtectedPtr<JSC::JSObject> m_callback;
     RefPtr<Frame> m_frame;
 };
 

@@ -26,7 +26,7 @@
 #ifndef HTMLFieldSetElement_h
 #define HTMLFieldSetElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
     class RenderStyle;
@@ -38,7 +38,7 @@ class HTMLFormElement;
 class Document;
 class Node;
 
-class HTMLFieldSetElement : public HTMLGenericFormElement {
+class HTMLFieldSetElement : public HTMLFormControlElement {
 public:
     HTMLFieldSetElement(Document*, HTMLFormElement* = 0);
     virtual ~HTMLFieldSetElement();
@@ -49,6 +49,8 @@ public:
     virtual bool isFocusable() const;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual const AtomicString& type() const;
+
+    virtual bool willValidate() const { return false; }
 };
 
 } //namespace

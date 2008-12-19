@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2006 Jon Shier (jshier@iastate.edu)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reseved.
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  *
  *  This library is free software; you can redistribute it and/or
@@ -24,66 +24,57 @@
 #include "ScheduledAction.h"
 
 #include "CString.h"
-#include "Chrome.h"
+#include "Console.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "Page.h"
-#include "kjs_proxy.h"
-#include "kjs_window.h"
+#include "JSDOMWindow.h"
+#include "ScriptController.h"
+#include <runtime/JSLock.h>
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
-ScheduledAction::ScheduledAction(JSValue* func, const List& args)
-    : m_func(func)
+ScheduledAction::ScheduledAction(ExecState* exec, JSValue* function, const ArgList& args)
+    : m_function(function)
 {
-    List::const_iterator end = args.end();
-    for (List::const_iterator it = args.begin(); it != end; ++it)
-        m_args.append(*it);
+    ArgList::const_iterator end = args.end();
+    for (ArgList::const_iterator it = args.begin(); it != end; ++it)
+        m_args.append((*it).jsValue(exec));
 }
 
-
-void ScheduledAction::execute(Window* window)
+void ScheduledAction::execute(JSDOMWindowShell* windowShell)
 {
-    RefPtr<Frame> frame = window->impl()->frame();
+    RefPtr<Frame> frame = windowShell->window()->impl()->frame();
     if (!frame)
         return;
 
-    if (!frame->scriptProxy()->isEnabled())
+    if (!frame->script()->isEnabled())
         return;
 
-    KJSProxy* scriptProxy = frame->scriptProxy();
-    Window* globalObject = scriptProxy->globalObject();
+    frame->script()->setProcessingTimerCallback(true);
 
-    scriptProxy->setProcessingTimerCallback(true);
+    JSLock lock(false);
 
-    if (JSValue* func = m_func.get()) {
-        JSLock lock;
-        if (func->isObject() && static_cast<JSObject*>(func)->implementsCall()) {
+    if (m_function) {
+        CallData callData;
+        CallType callType = m_function->getCallData(callData);
+        if (callType != CallTypeNone) {
+            JSDOMWindow* window = windowShell->window();
             ExecState* exec = window->globalExec();
-            ASSERT(window == globalObject);
 
-            List args;
+            ArgList args;
             size_t size = m_args.size();
             for (size_t i = 0; i < size; ++i)
                 args.append(m_args[i]);
 
-            globalObject->startTimeoutCheck();
-            static_cast<JSObject*>(func)->call(exec, window, args);
-            globalObject->stopTimeoutCheck();
-            if (exec->hadException()) {
-                JSObject* exception = exec->exception()->toObject(exec);
-                exec->clearException();
-                String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-                int lineNumber = exception->get(exec, "line")->toInt32(exec);
-                if (Interpreter::shouldPrintExceptions())
-                    printf("(timer):%s\n", message.utf8().data());
-                if (Page* page = frame->page())
-                    page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, String());
-            }
+            window->startTimeoutCheck();
+            call(exec, m_function, callType, callData, windowShell, args);
+            window->stopTimeoutCheck();
+            if (exec->hadException())
+                frame->domWindow()->console()->reportCurrentException(exec);
         }
     } else
         frame->loader()->executeScript(m_code);
@@ -93,10 +84,10 @@ void ScheduledAction::execute(Window* window)
     // FIXME: Is this really the right point to do the update? We need a place that works
     // for all possible entry points that might possibly execute script, but this seems
     // to be a bit too low-level.
-    if (Document* doc = frame->document())
-        doc->updateRendering();
+    if (Document* document = frame->document())
+        document->updateRendering();
 
-    scriptProxy->setProcessingTimerCallback(false);
+    frame->script()->setProcessingTimerCallback(false);
 }
 
 } // namespace WebCore

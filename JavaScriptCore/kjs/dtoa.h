@@ -1,7 +1,5 @@
-// -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,12 +18,21 @@
  *
  */
 
-#ifndef _KJS_DTOA_H_
-#define _KJS_DTOA_H_
+#ifndef KJS_dtoa_h
+#define KJS_dtoa_h
 
-extern "C" double kjs_strtod(const char *s00, char **se);
-extern "C" char *kjs_dtoa(double d, int mode, int ndigits,
-                          int *decpt, int *sign, char **rve);
-extern "C" void kjs_freedtoa(char *s);
+namespace WTF {
+    class Mutex;
+}
 
-#endif /* _KJS_DTOA_H */
+namespace JSC {
+
+    extern WTF::Mutex* s_dtoaP5Mutex;
+
+    double strtod(const char* s00, char** se);
+    char* dtoa(double d, int ndigits, int* decpt, int* sign, char** rve);
+    void freedtoa(char* s);
+
+} // namespace JSC
+
+#endif /* KJS_dtoa_h */

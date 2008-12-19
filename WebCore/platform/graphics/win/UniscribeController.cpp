@@ -299,7 +299,9 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
             offsetX = roundf(offsetX);
             offsetY = roundf(offsetY);
         }
-       
+
+        advance += fontData->m_syntheticBoldOffset;
+
         // We special case spaces in two ways when applying word rounding.
         // First, we round spaces to an adjusted width in all fonts.
         // Second, in fixed-pitch fonts we ensure that all glyphs that
@@ -361,7 +363,7 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
         // as well, so that when the time comes to draw those glyphs, we can apply the appropriate
         // translation.
         if (glyphBuffer) {
-            FloatSize size(offsetX, offsetY);
+            FloatSize size(offsetX, -offsetY);
             glyphBuffer->add(glyph, fontData, advance, &size);
         }
 
@@ -422,25 +424,9 @@ bool UniscribeController::shape(const UChar* str, int len, SCRIPT_ITEM item, con
 
     if (FAILED(shapeResult))
         return false;
-    
-    // FIXME: We need to do better than this.  Falling back on the entire item is not good enough.
-    // We may still have missing glyphs even if we succeeded.  We need to treat missing glyphs as
-    // a failure so that we will fall back to another font.
-    bool containsMissingGlyphs = false;
-    SCRIPT_FONTPROPERTIES* fontProperties = fontData->scriptFontProperties();
-    for (int i = 0; i < glyphCount; i++) {
-        WORD glyph = glyphs[i];
-        if (glyph == fontProperties->wgDefault) {
-            containsMissingGlyphs = true;
-            break;
-        }
-    }
 
-    if (containsMissingGlyphs)
-        return false;
-
-    glyphs.resize(glyphCount);
-    visualAttributes.resize(glyphCount);
+    glyphs.shrink(glyphCount);
+    visualAttributes.shrink(glyphCount);
 
     return true;
 }

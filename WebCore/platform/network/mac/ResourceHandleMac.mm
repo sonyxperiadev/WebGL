@@ -27,17 +27,24 @@
 #import "ResourceHandle.h"
 #import "ResourceHandleInternal.h"
 
+#import "AuthenticationChallenge.h"
 #import "AuthenticationMac.h"
 #import "BlockExceptions.h"
 #import "DocLoader.h"
+#import "FormDataStreamMac.h"
 #import "Frame.h"
 #import "FrameLoader.h"
+#import "Page.h"
 #import "ResourceError.h"
 #import "ResourceResponse.h"
+#import "SchedulePair.h"
 #import "SharedBuffer.h"
 #import "SubresourceLoader.h"
-#import "AuthenticationChallenge.h"
 #import "WebCoreSystemInterface.h"
+
+#ifdef BUILDING_ON_TIGER
+typedef int NSInteger;
+#endif
 
 using namespace WebCore;
 
@@ -54,10 +61,6 @@ using namespace WebCore;
 
 @interface NSURLConnection (NSURLConnectionTigerPrivate)
 - (NSData *)_bufferedData;
-@end
-
-@interface NSURLProtocol (WebFoundationSecret) 
-+ (void)_removePropertyForKey:(NSString *)key inRequest:(NSMutableURLRequest *)request;
 @end
 
 #ifndef BUILDING_ON_TIGER
@@ -110,6 +113,17 @@ ResourceHandle::~ResourceHandle()
     releaseDelegate();
 }
 
+static const double MaxFoundationVersionWithoutdidSendBodyDataDelegate = 677.21;
+bool ResourceHandle::didSendBodyDataDelegateExists()
+{
+// FIXME: Refine this check as the delegate becomes more widely available.
+#ifdef BUILDING_ON_LEOPARD
+    return NSFoundationVersionNumber > MaxFoundationVersionWithoutdidSendBodyDataDelegate;
+#else
+    return false;
+#endif
+}
+
 bool ResourceHandle::start(Frame* frame)
 {
     if (!frame)
@@ -119,9 +133,10 @@ bool ResourceHandle::start(Frame* frame)
 
     // If we are no longer attached to a Page, this must be an attempted load from an
     // onUnload handler, so let's just block it.
-    if (!frame->page())
+    Page* page = frame->page();
+    if (!page)
         return false;
-  
+
 #ifndef NDEBUG
     isInitializingConnection = YES;
 #endif
@@ -136,30 +151,63 @@ bool ResourceHandle::start(Frame* frame)
         delegate = d->m_proxy.get();
     } else 
         delegate = ResourceHandle::delegate();
-    
+
+    if (!ResourceHandle::didSendBodyDataDelegateExists())
+        associateStreamWithResourceHandle([d->m_request.nsURLRequest() HTTPBodyStream], this);
 
     NSURLConnection *connection;
     
     if (d->m_shouldContentSniff) 
+#ifdef BUILDING_ON_TIGER
         connection = [[NSURLConnection alloc] initWithRequest:d->m_request.nsURLRequest() delegate:delegate];
+#else
+        connection = [[NSURLConnection alloc] initWithRequest:d->m_request.nsURLRequest() delegate:delegate startImmediately:NO];
+#endif
     else {
         NSMutableURLRequest *request = [d->m_request.nsURLRequest() mutableCopy];
         wkSetNSURLRequestShouldContentSniff(request, NO);
+#ifdef BUILDING_ON_TIGER
         connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate];
+#else
+        connection = [[NSURLConnection alloc] initWithRequest:request delegate:delegate startImmediately:NO];
+#endif
         [request release];
     }
-    
-    
+
+#ifndef BUILDING_ON_TIGER
+    bool scheduled = false;
+    if (SchedulePairHashSet* scheduledPairs = page->scheduledRunLoopPairs()) {
+        SchedulePairHashSet::iterator end = scheduledPairs->end();
+        for (SchedulePairHashSet::iterator it = scheduledPairs->begin(); it != end; ++it) {
+            if (NSRunLoop *runLoop = (*it)->nsRunLoop()) {
+                [connection scheduleInRunLoop:runLoop forMode:(NSString *)(*it)->mode()];
+                scheduled = true;
+            }
+        }
+    }
+
+    // Start the connection if we did schedule with at least one runloop.
+    // We can't start the connection until we have one runloop scheduled.
+    if (scheduled)
+        [connection start];
+    else
+        d->m_startWhenScheduled = true;
+#endif
+
 #ifndef NDEBUG
     isInitializingConnection = NO;
 #endif
-    d->m_connection = connection;
-    [connection release];
-    if (d->m_defersLoading)
-        wkSetNSURLConnectionDefersCallbacks(d->m_connection.get(), YES);
     
-    if (d->m_connection)
+    d->m_connection = connection;
+
+    if (d->m_connection) {
+        [connection release];
+
+        if (d->m_defersLoading)
+            wkSetNSURLConnectionDefersCallbacks(d->m_connection.get(), YES);
+
         return true;
+    }
 
     END_BLOCK_OBJC_EXCEPTIONS;
 
@@ -168,13 +216,38 @@ bool ResourceHandle::start(Frame* frame)
 
 void ResourceHandle::cancel()
 {
+    if (!ResourceHandle::didSendBodyDataDelegateExists())
+        disassociateStreamWithResourceHandle([d->m_request.nsURLRequest() HTTPBodyStream]);
     [d->m_connection.get() cancel];
 }
 
 void ResourceHandle::setDefersLoading(bool defers)
 {
     d->m_defersLoading = defers;
-    wkSetNSURLConnectionDefersCallbacks(d->m_connection.get(), defers);
+    if (d->m_connection)
+        wkSetNSURLConnectionDefersCallbacks(d->m_connection.get(), defers);
+}
+
+void ResourceHandle::schedule(SchedulePair* pair)
+{
+#ifndef BUILDING_ON_TIGER
+    NSRunLoop *runLoop = pair->nsRunLoop();
+    if (!runLoop)
+        return;
+    [d->m_connection.get() scheduleInRunLoop:runLoop forMode:(NSString *)pair->mode()];
+    if (d->m_startWhenScheduled) {
+        [d->m_connection.get() start];
+        d->m_startWhenScheduled = false;
+    }
+#endif
+}
+
+void ResourceHandle::unschedule(SchedulePair* pair)
+{
+#ifndef BUILDING_ON_TIGER
+    if (NSRunLoop *runLoop = pair->nsRunLoop())
+        [d->m_connection.get() unscheduleFromRunLoop:runLoop forMode:(NSString *)pair->mode()];
+#endif
 }
 
 WebCoreResourceHandleAsDelegate *ResourceHandle::delegate()
@@ -395,7 +468,18 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     [m_url release];
     m_url = copy;
 #endif
-    
+
+    if (!ResourceHandle::didSendBodyDataDelegateExists()) {
+        // The client may change the request's body stream, in which case we have to re-associate
+        // the handle with the new stream so upload progress callbacks continue to work correctly.
+        NSInputStream* oldBodyStream = [newRequest HTTPBodyStream];
+        NSInputStream* newBodyStream = [request.nsURLRequest() HTTPBodyStream];
+        if (oldBodyStream != newBodyStream) {
+            disassociateStreamWithResourceHandle(oldBodyStream);
+            associateStreamWithResourceHandle(newBodyStream, m_handle);
+        }
+    }
+
     return request.nsURLRequest();
 }
 
@@ -461,11 +545,23 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     m_handle->client()->willStopBufferingData(m_handle, (const char*)[data bytes], static_cast<int>([data length]));
 }
 
+- (void)connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite
+{
+    if (!m_handle || !m_handle->client())
+        return;
+    CallbackGuard guard;
+    m_handle->client()->didSendData(m_handle, totalBytesWritten, totalBytesExpectedToWrite);
+}
+
 - (void)connectionDidFinishLoading:(NSURLConnection *)con
 {
     if (!m_handle || !m_handle->client())
         return;
     CallbackGuard guard;
+
+    if (!ResourceHandle::didSendBodyDataDelegateExists())
+        disassociateStreamWithResourceHandle([m_handle->request().nsURLRequest() HTTPBodyStream]);
+
     m_handle->client()->didFinishLoading(m_handle);
 }
 
@@ -474,6 +570,10 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     if (!m_handle || !m_handle->client())
         return;
     CallbackGuard guard;
+
+    if (!ResourceHandle::didSendBodyDataDelegateExists())
+        disassociateStreamWithResourceHandle([m_handle->request().nsURLRequest() HTTPBodyStream]);
+
     m_handle->client()->didFail(m_handle, error);
 }
 

@@ -48,44 +48,76 @@ static LPCTSTR kWebNodeHighlightPointerProp = TEXT("WebNodeHighlightPointer");
 
 WebNodeHighlight::WebNodeHighlight(WebView* webView)
     : m_inspectedWebView(webView)
-    , m_inspectedWebViewWindow(0)
     , m_overlay(0)
     , m_observedWindow(0)
+    , m_showsWhileWebViewIsVisible(false)
 {
+    m_inspectedWebView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&m_inspectedWebViewWindow));
 }
 
 WebNodeHighlight::~WebNodeHighlight()
 {
     if (m_observedWindow)
         WindowMessageBroadcaster::removeListener(m_observedWindow, this);
+    if (m_inspectedWebViewWindow)
+        WindowMessageBroadcaster::removeListener(m_inspectedWebViewWindow, this);
 
     if (m_overlay)
         ::DestroyWindow(m_overlay);
 }
 
+void WebNodeHighlight::setShowsWhileWebViewIsVisible(bool shows)
+{
+    if (m_showsWhileWebViewIsVisible == shows)
+        return;
+    m_showsWhileWebViewIsVisible = shows;
+
+    if (!m_showsWhileWebViewIsVisible) {
+        hide();
+        return;
+    }
+
+    bool webViewVisible = isWebViewVisible();
+
+    if (isShowing() == webViewVisible)
+        return;
+
+    if (webViewVisible)
+        show();
+    else
+        hide();
+}
+
+bool WebNodeHighlight::isWebViewVisible() const
+{
+    if (!m_inspectedWebViewWindow)
+        return false;
+
+    return IsWindowVisible(m_inspectedWebViewWindow);
+}
+
 void WebNodeHighlight::show()
 {
     if (!m_overlay) {
-        if (FAILED(m_inspectedWebView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&m_inspectedWebViewWindow))) || !IsWindow(m_inspectedWebViewWindow))
-            return;
-
         registerOverlayClass();
 
-        m_overlay = ::CreateWindowEx(WS_EX_LAYERED | WS_EX_TOOLWINDOW, kOverlayWindowClassName, 0, WS_POPUP | WS_VISIBLE,
+        m_overlay = ::CreateWindowEx(WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, kOverlayWindowClassName, 0, WS_POPUP,
                                      0, 0, 0, 0,
                                      m_inspectedWebViewWindow, 0, 0, 0);
         if (!m_overlay)
             return;
 
         ::SetProp(m_overlay, kWebNodeHighlightPointerProp, reinterpret_cast<HANDLE>(this));
-        ::SetWindowPos(m_overlay, m_inspectedWebViewWindow, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
         m_observedWindow = GetAncestor(m_inspectedWebViewWindow, GA_ROOT);
         WindowMessageBroadcaster::addListener(m_observedWindow, this);
+        WindowMessageBroadcaster::addListener(m_inspectedWebViewWindow, this);
     }
 
-    updateWindow();
-    ::ShowWindow(m_overlay, SW_SHOW);
+    ASSERT(m_showsWhileWebViewIsVisible);
+
+    update();
+    SetWindowPos(m_overlay, 0, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void WebNodeHighlight::hide()
@@ -94,12 +126,12 @@ void WebNodeHighlight::hide()
         ::ShowWindow(m_overlay, SW_HIDE);
 }
 
-bool WebNodeHighlight::visible() const
+bool WebNodeHighlight::isShowing() const
 {
     return m_overlay && ::IsWindowVisible(m_overlay);
 }
 
-void WebNodeHighlight::updateWindow()
+void WebNodeHighlight::update()
 {
     ASSERT(m_overlay);
 
@@ -155,6 +187,12 @@ void WebNodeHighlight::updateWindow()
     ::DeleteDC(hdc);
 }
 
+void WebNodeHighlight::placeBehindWindow(HWND window)
+{
+    ASSERT(m_overlay);
+    SetWindowPos(m_overlay, window, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
 static ATOM registerOverlayClass()
 {
     static bool haveRegisteredWindowClass = false;
@@ -192,12 +230,72 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return ::DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-void WebNodeHighlight::windowReceivedMessage(HWND, UINT msg, WPARAM, LPARAM)
+void WebNodeHighlight::onWebViewShowWindow(bool showing)
 {
+    if (!m_showsWhileWebViewIsVisible)
+        return;
+
+    if (isShowing() == showing)
+        return;
+
+    if (showing)
+        show();
+    else
+        hide();
+}
+
+void WebNodeHighlight::onWebViewWindowPosChanged(WINDOWPOS* windowPos)
+{
+    bool sizing = !(windowPos->flags & SWP_NOSIZE);
+
+    if (!sizing)
+        return;
+
+    if (!isShowing())
+        return;
+
+    update();
+}
+
+void WebNodeHighlight::onRootWindowPosChanged(WINDOWPOS* windowPos)
+{
+    bool moving = !(windowPos->flags & SWP_NOMOVE);
+    bool sizing = !(windowPos->flags & SWP_NOSIZE);
+
+    if (!moving)
+        return;
+
+    // Size changes are handled by onWebViewWindowPosChanged.
+    if (sizing)
+        return;
+
+    if (!isShowing())
+        return;
+
+    update();
+}
+
+void WebNodeHighlight::windowReceivedMessage(HWND window, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (window == m_inspectedWebViewWindow) {
+        switch (msg) {
+            case WM_SHOWWINDOW:
+                onWebViewShowWindow(wParam);
+                break;
+            case WM_WINDOWPOSCHANGED:
+                onWebViewWindowPosChanged(reinterpret_cast<WINDOWPOS*>(lParam));
+                break;
+            default:
+                break;
+        }
+
+        return;
+    }
+
+    ASSERT(window == m_observedWindow);
     switch (msg) {
         case WM_WINDOWPOSCHANGED:
-            if (visible())
-                updateWindow();
+            onRootWindowPosChanged(reinterpret_cast<WINDOWPOS*>(lParam));
             break;
         default:
             break;

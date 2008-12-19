@@ -1,32 +1,29 @@
 /*
-  Copyright (C) 2006 Enrico Ros <enrico.ros@m31engineering.it>
-  Copyright (C) 2007 Trolltech ASA
-  Copyright (C) 2007 Staikos Computing Services Inc.  <info@staikos.net>
+    Copyright (C) 2006 Enrico Ros <enrico.ros@m31engineering.it>
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2007 Staikos Computing Services Inc.  <info@staikos.net>
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Library General Public
-  License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Library General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
 
-  You should have received a copy of the GNU Library General Public License
-  along with this library; see the file COPYING.LIB.  If not, write to
-  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-  Boston, MA 02110-1301, USA.
-
-  This class provides all functionality needed for loading images, style sheets and html
-  pages from the web. It has a memory cache for these objects.
+    You should have received a copy of the GNU Library General Public License
+    along with this library; see the file COPYING.LIB.  If not, write to
+    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+    Boston, MA 02110-1301, USA.
 */
+
 #include <qglobal.h>
 #if QT_VERSION < 0x040400
 #include "qwebframe.h"
 #include "qwebnetworkinterface.h"
 #include "qwebnetworkinterface_p.h"
-#include "qwebobjectpluginconnector.h"
 #include "qwebpage.h"
 #include "qcookiejar.h"
 #include <qdebug.h>
@@ -135,8 +132,9 @@ void QWebNetworkRequestPrivate::init(const QString &method, const QUrl &url, con
 
         // handle and perform a 'POST' request
         if (method == "POST") {
-            DeprecatedString pd = resourceRequest->httpBody()->flattenToString().deprecatedString();
-            postData = QByteArray(pd.ascii(), pd.length());
+            Vector<char> data;
+            resourceRequest->httpBody()->flatten(data);
+            postData = QByteArray(data.data(), data.size());
             httpHeader.setValue(QLatin1String("content-length"), QString::number(postData.size()));
         }
     }
@@ -360,7 +358,7 @@ void QWebNetworkJob::setErrorString(const QString& errorString)
 */
 bool QWebNetworkJob::cancelled() const
 {
-    return !d->resourceHandle && !d->connector;
+    return !d->resourceHandle;
 }
 
 /*!
@@ -449,7 +447,6 @@ bool QWebNetworkManager::add(ResourceHandle *handle, QWebNetworkInterface *inter
     handle->getInternal()->m_job = job;
     job->d->resourceHandle = handle;
     job->d->interface = interface;
-    job->d->connector = 0;
 
     job->d->request.init(handle->request());
 
@@ -478,7 +475,6 @@ void QWebNetworkManager::cancel(ResourceHandle *handle)
         return;
     DEBUG() << "QWebNetworkManager::cancel:" <<  job->d->request.httpHeader.toString();
     job->d->resourceHandle = 0;
-    job->d->connector = 0;
     job->d->interface->cancelJob(job);
     handle->getInternal()->m_job = 0;
 }
@@ -495,7 +491,7 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
         client = job->d->resourceHandle->client();
         if (!client)
             return;
-    } else if (!job->d->connector) {
+    } else {
         return;
     }
 
@@ -560,7 +556,17 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
                     client->willSendRequest(job->d->resourceHandle, newRequest, response);
             }
 
-            job->d->request.httpHeader.setRequest(job->d->request.httpHeader.method(),
+            QString method;
+            if (statusCode == 302 || statusCode == 303) {
+                // this is standard-correct for 303 and practically-correct (no standard-correct) for 302
+                // also, it's required for Yahoo's login process for flickr.com which responds to a POST
+                // with a 302 which must be GET'ed
+                method = "GET";
+                job->d->request.httpHeader.setContentLength(0);
+            } else {
+                method = job->d->request.httpHeader.method();
+            }
+            job->d->request.httpHeader.setRequest(method,
                                                   newUrl.toString(QUrl::RemoveScheme|QUrl::RemoveAuthority));
             job->d->request.setURL(newUrl);
             job->d->redirected = true;
@@ -570,8 +576,6 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
 
     if (client)
         client->didReceiveResponse(job->d->resourceHandle, response);
-    if (job->d->connector)
-        emit job->d->connector->started(job);
 
 }
 
@@ -586,7 +590,7 @@ void QWebNetworkManager::data(QWebNetworkJob *job, const QByteArray &data)
         client = job->d->resourceHandle->client();
         if (!client)
             return;
-    } else if (!job->d->connector) {
+    } else {
         return;
     }
 
@@ -596,8 +600,6 @@ void QWebNetworkManager::data(QWebNetworkJob *job, const QByteArray &data)
     DEBUG() << "receivedData" << job->d->request.url.path();
     if (client)
         client->didReceiveData(job->d->resourceHandle, data.constData(), data.length(), data.length() /*FixMe*/);
-    if (job->d->connector)
-        emit job->d->connector->data(job, data);
 
 }
 
@@ -616,7 +618,7 @@ void QWebNetworkManager::finished(QWebNetworkJob *job, int errorCode)
         client = job->d->resourceHandle->client();
         if (!client)
             return;
-    } else if (!job->d->connector) {
+    } else {
         job->deref();
         return;
     }
@@ -643,9 +645,6 @@ void QWebNetworkManager::finished(QWebNetworkJob *job, int errorCode)
             client->didFinishLoading(job->d->resourceHandle);
         }
     }
-
-    if (job->d->connector)
-        emit job->d->connector->finished(job, errorCode);
 
     DEBUG() << "receivedFinished done" << job->d->request.url;
 

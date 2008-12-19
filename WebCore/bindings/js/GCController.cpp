@@ -26,14 +26,16 @@
 #include "config.h"
 #include "GCController.h"
 
-#include <kjs/JSLock.h>
+#include "JSDOMWindow.h"
+#include <runtime/JSGlobalData.h>
+#include <runtime/JSLock.h>
 #include <kjs/collector.h>
 
 #if USE(PTHREADS)
 #include <pthread.h>
 #endif
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
@@ -41,8 +43,8 @@ namespace WebCore {
 
 static void* collect(void*)
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
     return 0;
 }
 
@@ -67,14 +69,14 @@ void GCController::garbageCollectSoon()
 
 void GCController::gcTimerFired(Timer<GCController>*)
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 
 void GCController::garbageCollectNow()
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 
 void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDone)
@@ -83,10 +85,8 @@ void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDon
     pthread_t thread;
     pthread_create(&thread, NULL, collect, NULL);
 
-    if (waitUntilDone) {
-        JSLock::DropAllLocks dropLocks; // Otherwise our lock would deadlock the collect thread we're joining
+    if (waitUntilDone)
         pthread_join(thread, NULL);
-    }
 #endif
 }
 

@@ -34,16 +34,17 @@ JavaScriptCore Bakefile project file.
 
     <include file="../WebKit/wx/wxwk-settings.bkl"/>
     <include file="JavaScriptCoreSources.bkl"/>
-    
-    <set var="BUILDDIR">obj-$(FORMAT)</set>
 
     <template id="jscore_base" template="icu,pthreads,wxwk_build_settings">
         <sources>
             $(JSCORE_SOURCES_API)
-            $(JSCORE_SOURCES_BINDINGS)
+            $(JSCORE_DEBUGGER_SOURCES)
             $(JSCORE_SOURCES_KJS)
             $(JSCORE_SOURCES_PCRE)
-            $(WTF_SOURCES)
+            $(JSCORE_PROFILER_SOURCES)
+            $(JSCORE_RUNTIME_SOURCES)
+            $(JSCORE_VM_SOURCES)
+            $(JSCORE_WTF_SOURCES)
         </sources>
         <install-to>$(WKOUTPUTDIR)</install-to>
         <pic>on</pic>
@@ -51,14 +52,17 @@ JavaScriptCore Bakefile project file.
 
         <include>$(SRCDIR)</include>
         <include>$(SRCDIR)/..</include>
+        <include>$(SRCDIR)/API</include>
         <include>$(SRCDIR)/DerivedSources/JavaScriptCore</include>
         <include>$(SRCDIR)/ForwardingHeaders</include>
-        <include>$(SRCDIR)/bindings/c</include>
-        <include>$(SRCDIR)/bindings/jni</include>
-        <include>$(SRCDIR)/bindings</include>
+        <include>$(SRCDIR)/debugger</include>
         <include>$(SRCDIR)/kjs</include>
         <include>$(SRCDIR)/pcre</include>
+        <include>$(SRCDIR)/profiler</include>
+        <include>$(SRCDIR)/runtime</include>
+        <include>$(SRCDIR)/VM</include>
         <include>$(SRCDIR)/wtf</include>
+        <include>$(SRCDIR)/wtf/unicode</include>
 
         <define>ENABLE_XSLT=1</define>
 
@@ -78,21 +82,29 @@ JavaScriptCore Bakefile project file.
 
     </template>
     
-    <exe id="testkjs" template="icu,jscore,pthreads">
+    <exe id="jsc" template="icu,jscore,pthreads">
         <cxx-rtti>off</cxx-rtti>
         <cxx-exceptions>off</cxx-exceptions>
         <debug-info>on</debug-info>
         <depends>jscore</depends>
         <include>$(SRCDIR)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
+        <include>$(WK_ROOT)/JavaScriptCore/debugger</include>
         <include>$(WK_ROOT)/JavaScriptCore/kjs</include>
         <include>$(WK_ROOT)/JavaScriptCore/pcre</include>
+        <include>$(WK_ROOT)/JavaScriptCore/profiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/runtime</include>
+        <include>$(WK_ROOT)/JavaScriptCore/VM</include>
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>
         <dirname>$(WKOUTPUTDIR)</dirname>
-        <sources>$(SRCDIR)/kjs/testkjs.cpp</sources>
+        <sources>$(SRCDIR)/kjs/Shell.cpp</sources>
         <if cond="FORMAT=='gnu'">
             <ldflags>$(WKOUTPUTDIR)/libjscore.a</ldflags>
         </if>
+        <set var="READLINE_LIB">
+            <if cond="WX_PORT=='mac'">edit</if>
+        </set>
+        <sys-lib>$(READLINE_LIB)</sys-lib>
         <if cond="FORMAT in ['msvc','msvs2005prj']">
             <include>$(WK_ROOT)/WebKitLibraries/win/include</include>
             <sys-lib>jscore</sys-lib>

@@ -39,9 +39,8 @@ void InitWebCoreSystemInterface(void)
     if (didInit)
         return;
 
+    INIT(AdvanceDefaultButtonPulseAnimation);
     INIT(CGContextGetShouldSmoothFonts);
-    INIT(ClearGlyphVector);
-    INIT(ConvertCharToGlyphs);
     INIT(CreateCustomCFReadStream);
     INIT(CreateNSURLConnectionDelegateProxy);
     INIT(DrawCapsLockIndicator);
@@ -58,30 +57,15 @@ void InitWebCoreSystemInterface(void)
     INIT(DrawMediaSliderThumb);
     INIT(DrawMediaUnMuteButton);
     INIT(DrawTextFieldCellFocusRing);
-    INIT(FontSmoothingModeIsLCD);
-    INIT(GetATSStyleGroup);
-    INIT(GetCGFontFromNSFont);
     INIT(GetExtensionsForMIMEType);
     INIT(GetFontInLanguageForCharacter);
     INIT(GetFontInLanguageForRange);
-    INIT(GetFontMetrics);
     INIT(GetGlyphTransformedAdvances);
-    INIT(GetGlyphVectorFirstRecord);
-    INIT(GetGlyphVectorNumGlyphs);
-    INIT(GetGlyphVectorRecordSize);
     INIT(GetMIMETypeForExtension);
-    INIT(GetNSFontATSUFontId);
-    INIT(GetNSURLResponseCalculatedExpiration);
     INIT(GetNSURLResponseLastModifiedDate);
-    INIT(GetNSURLResponseMustRevalidate);
     INIT(GetPreferredExtensionForMIMEType);
     INIT(GetWheelEventDeltas);
-    INIT(InitializeGlyphVector);
-    INIT(NSURLProtocolClassForReqest);
-    INIT(PathFromFont);
     INIT(PopupMenu);
-    INIT(ReleaseStyleGroup);
-    INIT(SecondsSinceLastInputEvent);
     INIT(SetCGFontRenderingMode);
     INIT(SetDragImage);
     INIT(SetNSURLConnectionDefersCallbacks);
@@ -92,11 +76,27 @@ void InitWebCoreSystemInterface(void)
     INIT(SignalCFReadStreamEnd);
     INIT(SignalCFReadStreamError);
     INIT(SignalCFReadStreamHasBytes);
-    INIT(SupportsMultipartXMixedReplace);
     INIT(QTMovieDataRate);
     INIT(QTMovieMaxTimeLoaded);
     INIT(QTMovieViewSetDrawSynchronously);
 
-    
+#ifndef BUILDING_ON_TIGER
+    INIT(GetGlyphsForCharacters);
+#else
+    INIT(ClearGlyphVector);
+    INIT(ConvertCharToGlyphs);
+    INIT(CopyFullFontName);
+    INIT(GetATSStyleGroup);
+    INIT(GetCGFontFromNSFont);
+    INIT(GetFontMetrics);
+    INIT(GetGlyphVectorFirstRecord);
+    INIT(GetGlyphVectorNumGlyphs);
+    INIT(GetGlyphVectorRecordSize);
+    INIT(GetNSFontATSUFontId);
+    INIT(InitializeGlyphVector);
+    INIT(ReleaseStyleGroup);
+    INIT(SupportsMultipartXMixedReplace);
+#endif
+
     didInit = true;
 }

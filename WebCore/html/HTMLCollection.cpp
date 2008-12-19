@@ -53,6 +53,11 @@ HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type, CollectionInfo*
 {
 }
 
+PassRefPtr<HTMLCollection> HTMLCollection::create(PassRefPtr<Node> base, Type type)
+{
+    return adoptRef(new HTMLCollection(base, type));
+}
+
 HTMLCollection::~HTMLCollection()
 {
     if (m_ownsInfo)
@@ -346,11 +351,10 @@ bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const S
                   e->hasLocalName(selectTag)))
                 return false;
 
-            return e->getAttribute(nameAttr).domString().lower() == name.lower() &&
-                e->getAttribute(idAttr).domString().lower() != name.lower();
-        } else {
-            return e->getAttribute(idAttr).domString().lower() == name.lower();
-        }
+            return equalIgnoringCase(e->getAttribute(nameAttr), name)
+                && !equalIgnoringCase(e->getAttribute(idAttr), name);
+        } else
+            return equalIgnoringCase(e->getAttribute(idAttr), name);
     }
 }
 

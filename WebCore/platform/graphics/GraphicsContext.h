@@ -26,6 +26,7 @@
 #ifndef GraphicsContext_h
 #define GraphicsContext_h
 
+#include "DashArray.h"
 #include "FloatRect.h"
 #include "Image.h"
 #include "IntRect.h"
@@ -34,21 +35,21 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/Platform.h>
 
-#ifdef ANDROID_CANVAS_IMPL
-    #include "PlatformGraphics.h"
-#endif
-
 #if PLATFORM(CG)
 typedef struct CGContext PlatformGraphicsContext;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo PlatformGraphicsContext;
 #elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QPainter;
+QT_END_NAMESPACE
 typedef QPainter PlatformGraphicsContext;
 #elif PLATFORM(SGL)
 namespace WebCore {
 class PlatformGraphicsContext;
 }
+class SkPaint;
+struct SkPoint;
 #elif PLATFORM(WX)
 class wxGCDC;
 class wxWindowDC;
@@ -68,6 +69,8 @@ class wxWindowDC;
 #else
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
+#elif PLATFORM(SKIA)
+typedef class PlatformContextSkia PlatformGraphicsContext;
 #else
 typedef void PlatformGraphicsContext;
 #endif
@@ -79,6 +82,14 @@ typedef struct _GdkEventExpose GdkEventExpose;
 
 #if PLATFORM(WIN)
 typedef struct HDC__* HDC;
+#if !PLATFORM(CG)
+// UInt8 is defined in CoreFoundation/CFBase.h
+typedef unsigned char UInt8;
+#endif
+#endif
+
+#if PLATFORM(QT) && defined(Q_WS_WIN)
+#include <windows.h>
 #endif
 
 namespace WebCore {
@@ -89,10 +100,14 @@ namespace WebCore {
 
     class AffineTransform;
     class Font;
+    class Generator;
+    class Gradient;
     class GraphicsContextPrivate;
     class GraphicsContextPlatformPrivate;
+    class ImageBuffer;
     class KURL;
     class Path;
+    class Pattern;
     class TextRun;
 
     // These bits can be ORed together for a total of 8 possible text drawing modes.
@@ -106,6 +121,22 @@ namespace WebCore {
         SolidStroke,
         DottedStroke,
         DashedStroke
+    };
+
+    enum InterpolationQuality {
+        InterpolationDefault,
+        InterpolationNone,
+        InterpolationLow,
+        InterpolationMedium,
+        InterpolationHigh
+    };
+
+    // FIXME: Currently these constants have to match the values used in the SVG
+    // DOM API. That's a mistake. We need to make cut that dependency.
+    enum GradientSpreadMethod {
+        SpreadMethodPad = 1,
+        SpreadMethodReflect = 2,
+        SpreadMethodRepeat = 3
     };
 
     class GraphicsContext : Noncopyable {
@@ -124,104 +155,67 @@ namespace WebCore {
         void setStrokeStyle(const StrokeStyle& style);
         Color strokeColor() const;
         void setStrokeColor(const Color&);
+        void setStrokePattern(PassRefPtr<Pattern>);
+        void setStrokeGradient(PassRefPtr<Gradient>);
 
+        WindRule fillRule() const;
+        void setFillRule(WindRule);
+        GradientSpreadMethod spreadMethod() const;
+        void setSpreadMethod(GradientSpreadMethod);
         Color fillColor() const;
         void setFillColor(const Color&);
+        void setFillPattern(PassRefPtr<Pattern>);
+        void setFillGradient(PassRefPtr<Gradient>);
+
+#if PLATFORM(SGL)
+        /* these should be pused to apple. needed for CanvasStyle.cpp */
+        void setCMYKAFillColor(float c, float m, float y, float k, float a);
+        void setCMYKAStrokeColor(float c, float m, float y, float k, float a);
         
+        // initialize a paint for filling
+        void setupFillPaint(SkPaint*);
+        // initialize a paint for stroking
+        void setupStrokePaint(SkPaint*);
+        // initialize a paint for a shadow, or if false is returned, the
+        // parameters are left untouched
+        bool setupShadowPaint(SkPaint* paint, SkPoint* offset);
+        // returns true if there is a valid (non-transparent) fill color
+        bool willFill() const;
+        // returns true if there is a valid (non-transparent) stroke color
+        bool willStroke() const;
+
+        /** platform-specific factory method to return a bitmap graphicscontext,
+         called by <canvas> when we need to draw offscreen. Caller is responsible for
+         deleting the context. Use drawOffscreenContext() to draw the context's image
+         onto another graphics context.
+         */
+        static GraphicsContext* createOffscreenContext(int width, int height);
+#endif
+
         void save();
         void restore();
-        
+
         // These draw methods will do both stroking and filling.
         void drawRect(const IntRect&);
         void drawLine(const IntPoint&, const IntPoint&);
         void drawEllipse(const IntRect&);
         void drawConvexPolygon(size_t numPoints, const FloatPoint*, bool shouldAntialias = false);
 
-#ifdef ANDROID_CANVAS_IMPL
-        /** Fill the specified path using the optional gradient or pattern, using the following
-            precedence. If/when gradients/patterns are added to the graphics context, these
-            parameters can go away
-            1) use gradient if gradient != null
-            2) use pattern if pattern != null
-            3) use color in the graphics context
-        */
-        void fillPath(const Path&, PlatformGradient*, PlatformPattern*);
-        /** Stroke the specified path using the optional gradient or pattern, using the following
-            precedence. If/when gradients/patterns are added to the graphics context, these
-            parameters can go away
-            1) use gradient if gradient != null
-            2) use pattern if pattern != null
-            3) use color in the graphics context
-        */
-        void strokePath(const Path&, PlatformGradient*, PlatformPattern*);
-        /** Fill the specified rect using the optional gradient or pattern, using the following
-            precedence. If/when gradients/patterns are added to the graphics context, these
-            parameters can go away
-            1) use gradient if gradient != null
-            2) use pattern if pattern != null
-            3) use color in the graphics context
-        */
-        void fillRect(const FloatRect&, PlatformGradient*, PlatformPattern*);
-        /** Stroke the specified rect using the optional gradient or pattern, using the following
-            precedence. If/when gradients/patterns are added to the graphics context, these
-            parameters can go away
-            1) use gradient if gradient != null
-            2) use pattern if pattern != null
-            3) use color in the graphics context
-        */
-        void strokeRect(const FloatRect&, float lineWidth, PlatformGradient*, PlatformPattern*);
-        
-        /** Return a platform specific linear-gradient. Use freePlatformGradient() when you are
-            done with it.
-            stopData is { stop, red, green, blue, alpha } per entry
-        */
-        static PlatformGradient* newPlatformLinearGradient(const FloatPoint& p0, const FloatPoint& p1,
-                                                           const float stopData[5], int count);
-
-        /** Return a platform specific radial-gradient. Use freePlatformGradient() when you are
-            done with it.
-            stopData is { stop, red, green, blue, alpha } per entry
-        */
-        static PlatformGradient* newPlatformRadialGradient(const FloatPoint& p0, float r0,
-                                                           const FloatPoint& p1, float r1,
-                                                           const float stopData[5], int count);
-        static void freePlatformGradient(PlatformGradient*);
-
-        /** Return a platform specific pattern. Use freePlatformPattern() when you are
-            done with it.
-        */
-        static PlatformPattern* newPlatformPattern(Image* image,
-                                                   Image::TileRule hRule, Image::TileRule vRule);
-        static void freePlatformPattern(PlatformPattern*);
-
-        /** platform-specific factory method to return a bitmap graphicscontext,
-            called by <canvas> when we need to draw offscreen. Caller is responsible for
-            deleting the context. Use drawOffscreenContext() to draw the context's image
-            onto another graphics context.
-        */
-        static GraphicsContext* createOffscreenContext(int width, int height);
-        /** Called with a context returned by createOffscreenContext. Draw the underlying
-            bitmap to the current context. Similar to drawImage(), but this hides how
-            to extract the bitmap from ctx from the portable code.
-            If srcRect is NULL, it is assumed that we want to draw the entire bitmap represented
-            by the GraphicsContext.
-        */
-        void drawOffscreenContext(GraphicsContext* ctx, const WebCore::FloatRect* srcRect,
-                                  const WebCore::FloatRect& dstRect);
-        
-        /** Return the clip bounds in local coordinates. It can be an approximation, as long as
-            the returned bounds completely enclose the actual clip.
-        */
-        FloatRect getClipLocalBounds() const;
-#endif
+        void drawPath();
+        void fillPath();
+        void strokePath();
 
         // Arc drawing (used by border-radius in CSS) just supports stroking at the moment.
         void strokeArc(const IntRect&, int startAngle, int angleSpan);
-        
-        void fillRect(const IntRect&, const Color&);
+
+        void fillRect(const FloatRect&);
         void fillRect(const FloatRect&, const Color&);
+        void fillRect(const FloatRect&, Generator&);
         void fillRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color&);
+
         void clearRect(const FloatRect&);
+
+        void strokeRect(const FloatRect&);
         void strokeRect(const FloatRect&, float lineWidth);
 
         void drawImage(Image*, const IntPoint&, CompositeOperator = CompositeSourceOver);
@@ -235,26 +229,23 @@ namespace WebCore {
         void drawTiledImage(Image*, const IntRect& destRect, const IntRect& srcRect, 
                             Image::TileRule hRule = Image::StretchTile, Image::TileRule vRule = Image::StretchTile,
                             CompositeOperator = CompositeSourceOver);
-#if PLATFORM(CG)
-        void setUseLowQualityImageInterpolation(bool = true);
-        bool useLowQualityImageInterpolation() const;
-#else
-        void setUseLowQualityImageInterpolation(bool = true) {}
-        bool useLowQualityImageInterpolation() const { return false; }
-#endif
 
-        void clip(const IntRect&);
+        void setImageInterpolationQuality(InterpolationQuality);
+        InterpolationQuality imageInterpolationQuality() const;
+
+        void clip(const FloatRect&);
         void addRoundedRectClip(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
         void addInnerRoundedRectClip(const IntRect&, int thickness);
         void clipOut(const IntRect&);
         void clipOutEllipseInRect(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
+        void clipToImageBuffer(const FloatRect&, const ImageBuffer*);
 
         int textDrawingMode();
         void setTextDrawingMode(int);
 
         void drawText(const TextRun&, const IntPoint&, int from = 0, int to = -1);
-        void drawBidiText(const TextRun&, const IntPoint&);
+        void drawBidiText(const TextRun&, const FloatPoint&);
         void drawHighlightForText(const TextRun&, const IntPoint&, int h, const Color& backgroundColor, int from = 0, int to = -1);
 
         FloatRect roundToDevicePixels(const FloatRect&);
@@ -272,6 +263,7 @@ namespace WebCore {
         void endTransparencyLayer();
 
         void setShadow(const IntSize&, int blur, const Color&);
+        bool getShadow(IntSize&, int&, Color&) const;
         void clearShadow();
 
         void initFocusRing(int width, int offset);
@@ -281,10 +273,14 @@ namespace WebCore {
         IntRect focusRingBoundingRect();
 
         void setLineCap(LineCap);
+        void setLineDash(const DashArray&, float dashOffset);
         void setLineJoin(LineJoin);
         void setMiterLimit(float);
 
         void setAlpha(float);
+#if PLATFORM(CAIRO)
+        float getAlpha();
+#endif
 
         void setCompositeOperation(CompositeOperator);
 
@@ -307,14 +303,43 @@ namespace WebCore {
         void setUseAntialiasing(bool = true);
 
 #if PLATFORM(WIN)
-        GraphicsContext(HDC); // FIXME: To be removed.
+        GraphicsContext(HDC, bool hasAlpha = false); // FIXME: To be removed.
         bool inTransparencyLayer() const;
-        HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
-        void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true);    // The passed in HDC should be the one handed back by getWindowsContext.
+        HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
+        void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);    // The passed in HDC should be the one handed back by getWindowsContext.
+
+        class WindowsBitmap : public Noncopyable {
+        public:
+            WindowsBitmap(HDC, IntSize);
+            ~WindowsBitmap();
+
+            HDC hdc() const { return m_hdc; }
+            UInt8* buffer() const { return m_bitmapBuffer; }
+            unsigned bufferLength() const { return m_bitmapBufferLength; }
+            IntSize size() const { return m_size; }
+            unsigned bytesPerRow() const { return m_bytesPerRow; }
+
+        private:
+            HDC m_hdc;
+            HBITMAP m_bitmap;
+            UInt8* m_bitmapBuffer;
+            unsigned m_bitmapBufferLength;
+            IntSize m_size;
+            unsigned m_bytesPerRow;
+        };
+
+        WindowsBitmap* createWindowsBitmap(IntSize);
+        // The bitmap should be non-premultiplied.
+        void drawWindowsBitmap(WindowsBitmap*, const IntPoint&);
+#endif
+
+#if PLATFORM(QT) && defined(Q_WS_WIN)
+        HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
+        void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);
 #endif
 
 #if PLATFORM(QT)
-        void setFillRule(WindRule);
+        bool inTransparencyLayer() const;
         PlatformPath* currentPath();
 #endif
 
@@ -322,18 +347,23 @@ namespace WebCore {
         void setGdkExposeEvent(GdkEventExpose*);
         GdkDrawable* gdkDrawable() const;
         GdkEventExpose* gdkExposeEvent() const;
-        IntPoint translatePoint(const IntPoint&) const;
 #endif
 
     private:
         void savePlatformState();
         void restorePlatformState();
+
         void setPlatformTextDrawingMode(int);
+        void setPlatformFont(const Font& font);
+
         void setPlatformStrokeColor(const Color&);
         void setPlatformStrokeStyle(const StrokeStyle&);
         void setPlatformStrokeThickness(float);
+
         void setPlatformFillColor(const Color&);
-        void setPlatformFont(const Font& font);
+
+        void setPlatformShadow(const IntSize&, int blur, const Color&);
+        void clearPlatformShadow();
 
         int focusRingWidth() const;
         int focusRingOffset() const;
@@ -343,7 +373,7 @@ namespace WebCore {
         static void destroyGraphicsContextPrivate(GraphicsContextPrivate*);
 
         GraphicsContextPrivate* m_common;
-        GraphicsContextPlatformPrivate* m_data;
+        GraphicsContextPlatformPrivate* m_data; // Deprecated; m_commmon can just be downcasted. To be removed.
     };
 
 } // namespace WebCore

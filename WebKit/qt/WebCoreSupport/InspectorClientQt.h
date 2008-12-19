@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@ namespace WebCore {
     class Node;
     class Page;
     class String;
+    class InspectorClientWebPage;
 
     class InspectorClientQt : public InspectorClient {
     public:
@@ -58,15 +59,20 @@ namespace WebCore {
         virtual void attachWindow();
         virtual void detachWindow();
 
+        virtual void setAttachedWindowHeight(unsigned height);
+
         virtual void highlight(Node*);
         virtual void hideHighlight();
         virtual void inspectedURLChanged(const String& newURL);
 
+        virtual void populateSetting(const String& key, InspectorController::Setting&);
+        virtual void storeSetting(const String& key, const InspectorController::Setting&);
+        virtual void removeSetting(const String& key);
+
     private:
         void updateWindowTitle();
         QWebPage* m_inspectedWebPage;
-        OwnPtr<QWebPage> m_webPage;
-        bool m_attached;
+        OwnPtr<InspectorClientWebPage> m_webPage;
         QString m_inspectedURL;
     };
 }

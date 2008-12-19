@@ -38,8 +38,6 @@ use webkitdirs;
 my @xcodeBuildArguments = XcodeOptions();
 my $nightlyLauncherTemplatePath = "$FindBin::Bin/../WebKitLauncher";
 my $nightlyLauncherStagingPath = productDir() . "/WebKit.app";
-my $droseraProjectPath = "$FindBin::Bin/../Drosera/mac";
-my $droseraStagingPath = productDir() . "/DroseraLauncher.app";
 
 sub buildNightlyLauncher
 {
@@ -49,21 +47,40 @@ sub buildNightlyLauncher
     chdirWebKit();
 }
 
-sub currentSVNBranch
+sub currentRevision
 {
     my $sourceDir = sourceDir();
-    my $svnInfo = `LC_ALL=C svn info $sourceDir | grep URL:`;
-    (my $url) = ($svnInfo =~ m/URL: (.+)/g);
-    (my $branch) = ($url =~ m/\/svn\/webkit\/(trunk|branches\/[^\/]+)/);
+    if (isSVNDirectory($sourceDir)) {
+        return currentSVNRevision();
+    } elsif (isGitDirectory($sourceDir)) {
+        my $gitLog = `cd $sourceDir && LC_ALL=C git log --grep='git-svn-id: ' -n 1 | grep git-svn-id:`;
+        (my $revision) = ($gitLog =~ m/ +git-svn-id: .+@(\d+) /g);
+        return $revision;
+    }
+}
+
+sub currentBranch
+{
+    my $sourceDir = sourceDir();
+    my ($url, $branch);
+    if (isSVNDirectory($sourceDir)) {
+        my $svnInfo = `LC_ALL=C svn info $sourceDir | grep URL:`;
+        ($url) = ($svnInfo =~ m/URL: (.+)/g);
+    } elsif (isGitDirectory($sourceDir)) {
+        my $gitLog = `cd $sourceDir && LC_ALL=C git log --grep='git-svn-id: ' -n 1 | grep git-svn-id:`;
+        ($url) = ($gitLog =~ m/ +git-svn-id: (.+)@\d+ /g);
+    }
+    ($branch) = ($url =~ m/\/webkit\/(trunk|branches\/[^\/]+)/);
     die "Unable to determine current SVN branch in $sourceDir" unless (defined $branch);
     $branch =~ s/^branches\///;
-    return $branch
+    return $branch;
 }
 
 sub copyNightlyLauncher
 {
-    my $revision = currentSVNRevision();
-    my $branch = currentSVNBranch();
+    my $revision = currentRevision();
+    my $branch = currentBranch();
+
     my $infoPlist = "$nightlyLauncherStagingPath/Contents/Info.plist";
     my $versionFile = "$nightlyLauncherStagingPath/Contents/Resources/VERSION";
     my $branchFile = "$nightlyLauncherStagingPath/Contents/Resources/BRANCH";
@@ -93,35 +110,11 @@ sub copyNightlyLauncher
     }
 }
 
-sub buildDroseraLauncher
-{
-    chdir($droseraProjectPath);
-    system("xcodebuild", "clean", "-alltargets", @xcodeBuildArguments, @ARGV) == 0 or die "Failed cleaning Drosera project";
-    # Build native platform only right now, as building universal with the 10.4u SDK cause Xcode to look for WebKit,
-    # WebCore & JavaScriptCore in the SDK under /Developer/SDKs/MacOSX10.4u.sdk/$(BUILT_PRODUCTS_DIR) where they do not exist
-    system("xcodebuild", "-alltargets", @xcodeBuildArguments, @ARGV) == 0 or die "Failed building Drosera project";
-    chdirWebKit();
-}
-
-sub setDroseraLauncherVersion
-{
-    my $revision = currentSVNRevision();
-    my $infoPlist = "$droseraStagingPath/Contents/Info.plist";
-    my $data;
-    open(IN, $infoPlist) or die "Couldn't open Info.plist in built application for reading";
-    {
-        undef $/;
-        $data = <IN>;
-    }
-    close(IN);
-    open(OUT, ">$infoPlist") or die "Couldn't open Info.plist in built application for writing";
-    $data =~ s/VERSION/$revision/g;
-    print OUT $data;
-    close(OUT);
-}
+my $b = currentBranch();
+my $r = currentRevision();
+print "Branch: ", $b, "\n";
+print "Revision: ", $r, "\n";
 
 chdirWebKit();
 buildNightlyLauncher();
 copyNightlyLauncher();
-buildDroseraLauncher();
-setDroseraLauncherVersion();

@@ -129,14 +129,10 @@ void PluginStream::startStream()
 
     // Some plugins (Flash) expect that javascript URLs are passed back decoded as this is the
     // format used when requesting the URL.
-#ifdef ANDROID_JAVASCRIPT_SECURITY 
     if (responseURL.protocolIs("javascript"))
-#else
-    if (responseURL.string().startsWith("javascript:", false))
-#endif
-        m_stream.url = strdup(responseURL.decode_string(responseURL.deprecatedString()).utf8());
+        m_stream.url = strdup(decodeURLEscapeSequences(responseURL.string()).utf8().data());
     else
-        m_stream.url = strdup(responseURL.deprecatedString().utf8());
+        m_stream.url = strdup(responseURL.string().utf8().data());
     
     CString mimeTypeStr = m_resourceResponse.mimeType().utf8();
     
@@ -146,12 +142,16 @@ void PluginStream::startStream()
         Vector<UChar> stringBuilder;
         String separator(": ");
 
+        String statusLine = String::format("HTTP %lu OK\n", m_resourceResponse.httpStatusCode());
+
+        stringBuilder.append(statusLine.characters(), statusLine.length());
+
         HTTPHeaderMap::const_iterator end = m_resourceResponse.httpHeaderFields().end();
         for (HTTPHeaderMap::const_iterator it = m_resourceResponse.httpHeaderFields().begin(); it != end; ++it) {
             stringBuilder.append(it->first.characters(), it->first.length());
             stringBuilder.append(separator.characters(), separator.length());
             stringBuilder.append(it->second.characters(), it->second.length());
-            stringBuilder.append((UChar)'\n');
+            stringBuilder.append('\n');
         }
 
         m_headers = String::adopt(stringBuilder).utf8();
@@ -191,10 +191,12 @@ void PluginStream::startStream()
     if (m_reason != WebReasonNone)
         return;
         
-    m_streamState = StreamStarted;
-
-    if (npErr != NPERR_NO_ERROR)
+    if (npErr != NPERR_NO_ERROR) {
         cancelAndDestroyStream(npErr);
+        return;
+    }
+
+    m_streamState = StreamStarted;
 
     if (m_transferMode == NP_NORMAL)
         return;
@@ -238,8 +240,8 @@ void PluginStream::destroyStream()
     if (m_streamState == StreamStopped)
         return;
 
-    ASSERT (m_reason != WebReasonNone);
-    ASSERT (!m_deliveryData || m_deliveryData->size() == 0);
+    ASSERT(m_reason != WebReasonNone);
+    ASSERT(!m_deliveryData || m_deliveryData->size() == 0);
 
     closeFile(m_tempFileHandle);
 
@@ -256,12 +258,17 @@ void PluginStream::destroyStream()
                 m_loader->setDefersLoading(false);
         }
 
-        if (m_loader)
-            m_loader->setDefersLoading(true);
-        NPError npErr = m_pluginFuncs->destroystream(m_instance, &m_stream, m_reason);
-        if (m_loader)
-            m_loader->setDefersLoading(false);
-        LOG_NPERROR(npErr);
+        if (m_streamState != StreamBeforeStarted) {
+            if (m_loader)
+                m_loader->setDefersLoading(true);
+
+            NPError npErr = m_pluginFuncs->destroystream(m_instance, &m_stream, m_reason);
+
+            if (m_loader)
+                m_loader->setDefersLoading(false);
+
+            LOG_NPERROR(npErr);
+        }
 
         m_stream.ndata = 0;
     }
@@ -287,7 +294,7 @@ void PluginStream::destroyStream()
             // destructor, so reset it to 0
             m_stream.url = 0;
         }
-        m_pluginFuncs->urlnotify(m_instance, m_resourceRequest.url().deprecatedString().utf8(), m_reason, m_notifyData);
+        m_pluginFuncs->urlnotify(m_instance, m_resourceRequest.url().string().utf8().data(), m_reason, m_notifyData);
         if (m_loader)
             m_loader->setDefersLoading(false);
     }
@@ -450,6 +457,18 @@ void PluginStream::didFinishLoading(NetscapePlugInStreamLoader* loader)
     destroyStream(NPRES_DONE);
 
     m_loader = 0;
+}
+
+bool PluginStream::wantsAllStreams() const
+{
+    if (!m_pluginFuncs->getvalue)
+        return false;
+
+    void* result = 0;
+    if (m_pluginFuncs->getvalue(m_instance, NPPVpluginWantsAllNetworkStreams, &result) != NPERR_NO_ERROR)
+        return false;
+
+    return result != 0;
 }
 
 }

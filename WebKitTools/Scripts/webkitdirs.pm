@@ -56,6 +56,7 @@ my $osXVersion;
 my $isQt;
 my $isGtk;
 my $isWx;
+my $forceRun64Bit;
 
 # Variables for Win32 support
 my $vcBuildPath;
@@ -65,7 +66,8 @@ sub determineSourceDir
 {
     return if $sourceDir;
     $sourceDir = $FindBin::Bin;
-    
+    $sourceDir =~ s|/+$||; # Remove trailing '/' as we would die later
+
     # walks up path checking each directory to see if it is the main WebKit project dir, 
     # defined by containing JavaScriptCore, WebCore, and WebKit
     until ((-d "$sourceDir/JavaScriptCore" && -d "$sourceDir/WebCore" && -d "$sourceDir/WebKit") || (-d "$sourceDir/Internal" && -d "$sourceDir/OpenSource"))
@@ -178,10 +180,10 @@ sub determineConfigurationProductDir
 {
     return if defined $configurationProductDir;
     determineBaseProductDir();
-    if(isCygwin() && !isWx()) {
+    determineConfiguration();
+    if (isCygwin() && !isWx()) {
         $configurationProductDir = "$baseProductDir/bin";
     } else {
-        determineConfiguration();
         $configurationProductDir = "$baseProductDir/$configuration";
     }
 }
@@ -267,16 +269,27 @@ sub determinePassedConfiguration
 {
     return if $searchedForPassedConfiguration;
     $searchedForPassedConfiguration = 1;
+
+    my $isWinCairo = grep(/^--cairo-win32$/i, @ARGV);
+
     for my $i (0 .. $#ARGV) {
         my $opt = $ARGV[$i];
         if ($opt =~ /^--debug$/i || $opt =~ /^--devel/i) {
             splice(@ARGV, $i, 1);
             $passedConfiguration = "Debug";
+            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
             return;
         }
         if ($opt =~ /^--release$/i || $opt =~ /^--deploy/i) {
             splice(@ARGV, $i, 1);
             $passedConfiguration = "Release";
+            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
+            return;
+        }
+        if ($opt =~ /^--profil(e|ing)$/i) {
+            splice(@ARGV, $i, 1);
+            $passedConfiguration = "Profiling";
+            $passedConfiguration .= "_Cairo" if ($isWinCairo && isCygwin());
             return;
         }
     }
@@ -315,11 +328,7 @@ sub installedSafariPath
     if (isOSX()) {
         $safariBundle = "/Applications/Safari.app";
     } elsif (isCygwin()) {
-        my $findSafariName = "FindSafari";
-        $findSafariName .= "_debug" if $configuration ne "Release";
-        $findSafariName .= ".exe";
-
-        $safariBundle = `"$configurationProductDir/$findSafariName"`;
+        $safariBundle = `"$configurationProductDir/FindSafari.exe"`;
         $safariBundle =~ s/[\r\n]+$//;
         $safariBundle = `cygpath -u '$safariBundle'`;
         $safariBundle =~ s/[\r\n]+$//;
@@ -394,8 +403,7 @@ sub hasSVGSupport
     }
 
     if (isGtk() and $path =~ /WebCore/) {
-        $path .= "/../lib/libWebKitGtk.so" if !$ENV{WEBKITAUTOTOOLS};
-        $path .= "/../.libs/libWebKitGtk.so" if $ENV{WEBKITAUTOTOOLS};
+        $path .= "/../.libs/webkit-1.0.so";
     }
 
     my $hasSVGSupport = 0;
@@ -512,14 +520,16 @@ sub isDebianBased()
 
 sub isCygwin()
 {
-    return ($^O eq "cygwin");
+    return ($^O eq "cygwin") || 0;
 }
 
 sub isDarwin()
 {
-    return ($^O eq "darwin");
+    return ($^O eq "darwin") || 0;
 }
 
+# isOSX() only returns true for Apple's port, not for other ports that can be
+# built/run on OS X.
 sub isOSX()
 {
     return isDarwin() unless (isQt() or isGtk() or isWx());
@@ -559,6 +569,11 @@ sub isTiger()
 sub isLeopard()
 {
     return isOSX() && osXVersion()->{"minor"} == 5;
+}
+
+sub isSnowLeopard()
+{
+    return isOSX() && osXVersion()->{"minor"} == 6;
 }
 
 sub relativeScriptsDir()
@@ -694,20 +709,39 @@ sub buildVisualStudioProject
     return system $vcBuildPath, $winProjectPath, $command, $config;
 }
 
+sub retrieveQMakespecVar
+{
+    my $mkspec = $_[0];
+    my $varname = $_[1];
+
+    my $compiler = "unknown";
+    #print "retrieveMakespecVar " . $mkspec . ", " . $varname . "\n";
+
+    local *SPEC;
+    open SPEC, "<$mkspec" or return "make";
+    while (<SPEC>) {
+        if ($_ =~ /\s*include\((.+)\)/) {
+            # open the included mkspec
+            my $oldcwd = getcwd();
+            (my $volume, my $directories, my $file) = File::Spec->splitpath($mkspec);
+            chdir "$volume$directories";
+            $compiler = retrieveQMakespecVar($1, $varname);
+            chdir $oldcwd;
+        } elsif ($_ =~ /$varname\s*=\s*([^\s]+)/) {
+            $compiler = $1;
+            last;
+        }
+    }
+    close SPEC;
+    return $compiler;
+}
+
 sub qtMakeCommand($)
 {
     my ($qmakebin) = @_;
     chomp(my $mkspec = `$qmakebin -query QMAKE_MKSPECS`);
     $mkspec .= "/default";
-
-    my $compiler = "";
-    open SPEC, "<$mkspec/qmake.conf" or return "make";
-    while (<SPEC>) {
-        if ($_ =~ /QMAKE_CC\s*=\s*([^\s]+)/) {
-            $compiler = $1;
-        }
-    }
-    close SPEC;
+    my $compiler = retrieveQMakespecVar("$mkspec/qmake.conf", "QMAKE_CC");
 
     #print "default spec: " . $mkspec . "\n";
     #print "compiler found: " . $compiler . "\n";
@@ -755,7 +789,7 @@ sub buildAutotoolsProject($@)
     my $result;
     if ($clean) {
         $result = system $make, "distclean";
-        return $result;
+        return 0;
     }
 
     print "Calling configure in " . $dir . "\n\n";
@@ -856,12 +890,7 @@ sub buildGtkProject($$@)
         die "The Gtk port builds JavaScriptCore, WebCore and WebKit in one shot! Only call it for 'WebKit'.\n";
     }
 
-    if ($ENV{WEBKITAUTOTOOLS}) {
-        return buildAutotoolsProject($clean, @buildArgs);
-    } else {
-        my @buildArgs = ("CONFIG+=gtk-port", "CONFIG-=qt");
-        return buildQMakeProject($clean, @buildArgs);
-    }
+    return buildAutotoolsProject($clean, @buildArgs);
 }
 
 sub setPathForRunningWebKitApp
@@ -893,7 +922,12 @@ sub runSafari
         print "Starting Safari with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";
         $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
         $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
-        return system safariPath(), @ARGV;
+        exportArchPreference();
+        if (!isTiger()) {
+            return system "arch", safariPath(), @ARGV;
+        } else {
+            return system safariPath(), @ARGV;
+        }
     }
 
     if (isCygwin()) {
@@ -913,39 +947,38 @@ sub runSafari
     return 1;
 }
 
-sub runDrosera
+sub setRun64Bit($)
 {
-    my ($debugger) = @_;
+    ($forceRun64Bit) = @_;
+}
 
-    if (isOSX()) {
-        return system "$FindBin::Bin/gdb-drosera", @ARGV if $debugger;
+sub preferredArchitecture
+{
+    return unless isOSX();
+    
+    my $framework = shift;
+    $framework = "WebKit" if !defined($framework);
 
-        my $productDir = productDir();
-        print "Starting Drosera with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";
-        $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
-        $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
+    my $currentArchitecture = `arch`;
+    chomp($currentArchitecture);
 
-        my $droseraPath = "$productDir/Drosera.app/Contents/MacOS/Drosera";
-        return system $droseraPath, @ARGV;
+    my $run64Bit = 0;
+    if (!defined($forceRun64Bit)) {
+        my $frameworkPath = builtDylibPathForName($framework);
+        die "Couldn't find path for $framework" if !defined($frameworkPath);
+        # The binary is 64-bit if one of the architectures it contains has "64" in the name
+        $run64Bit = `lipo -info "$frameworkPath"` =~ /(are|architecture):.*64/;
     }
 
-    if (isCygwin()) {
-        print "Running Drosera\n";
-        my $script = "run-drosera-nightly.cmd";
-        my $prodDir = productDir();
-        my $result = system "cp", "$FindBin::Bin/$script", $prodDir;
-        return $result if $result;
-
-        my $cwd = getcwd();
-        chdir $prodDir;
-
-        my $debuggerFlag = $debugger ? "/debugger" : "";
-        $result = system "cmd", "/c", "call $script $debuggerFlag";
-        chdir $cwd;
-        return $result;
+    if ($forceRun64Bit or $run64Bit) {
+        return ($currentArchitecture eq "i386") ? "x86_64" : "ppc64";
     }
+    return $currentArchitecture;
+}
 
-    return 1;
+sub exportArchPreference
+{
+    $ENV{ARCHPREFERENCE} = preferredArchitecture() if isOSX();
 }
 
 1;

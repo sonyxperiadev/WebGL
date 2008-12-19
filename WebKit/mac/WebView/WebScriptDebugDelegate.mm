@@ -26,17 +26,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "WebScriptDebugDelegatePrivate.h"
-
+#import "WebScriptDebugger.h"
 #import "WebDataSource.h"
 #import "WebDataSourceInternal.h"
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h"
-#import "WebScriptDebugServerPrivate.h"
+#import "WebScriptDebugDelegate.h"
 #import "WebViewInternal.h"
+#import <debugger/DebuggerCallFrame.h>
+#import <runtime/ExecState.h>
+#import <runtime/JSGlobalObject.h>
+#import <runtime/JSFunction.h>
+#import <runtime/JSLock.h>
+#import <kjs/interpreter.h>
 #import <WebCore/Frame.h>
-#import <WebCore/WebCoreScriptDebugger.h>
+#import <WebCore/WebScriptObjectPrivate.h>
+#import <WebCore/ScriptController.h>
+#import <WebCore/runtime_root.h>
 
+using namespace JSC;
 using namespace WebCore;
 
 // FIXME: these error strings should be public for future use by WebScriptObject and in WebScriptObject.h
@@ -46,100 +53,80 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 
 @interface WebScriptCallFrame (WebScriptDebugDelegateInternal)
 
-- (WebScriptCallFrame *)_initWithFrame:(WebCoreScriptCallFrame *)frame;
+- (id)_convertValueToObjcValue:(JSValue*)value;
 
 @end
 
-@implementation WebScriptDebugger
-
-- (WebScriptDebugger *)initWithWebFrame:(WebFrame *)webFrame
-{
-    if ((self = [super init])) {
-        _webFrame = webFrame;
-        _debugger = [[WebCoreScriptDebugger alloc] initWithDelegate:self];
-    }
-    return self;
+@interface WebScriptCallFramePrivate : NSObject {
+@public
+    WebScriptObject        *globalObject;   // the global object's proxy (not retained)
+    WebScriptCallFrame     *caller;         // previous stack frame
+    DebuggerCallFrame* debuggerCallFrame;
 }
+@end
 
+@implementation WebScriptCallFramePrivate
 - (void)dealloc
 {
-    [_debugger release];
+    [caller release];
+    delete debuggerCallFrame;
     [super dealloc];
 }
-
-- (WebScriptObject *)globalObject
-{
-    return core(_webFrame)->windowScriptObject();
-}
-
-- (id)newWrapperForFrame:(WebCoreScriptCallFrame *)frame
-{
-    return [[WebScriptCallFrame alloc] _initWithFrame:frame];
-}
-
-- (void)parsedSource:(NSString *)source fromURL:(NSURL *)url sourceId:(int)sid startLine:(int)startLine errorLine:(int)errorLine errorMessage:(NSString *)errorMessage
-{
-    WebView *webView = [_webFrame webView];
-    if (errorLine == -1) {
-        [[webView _scriptDebugDelegateForwarder] webView:webView didParseSource:source baseLineNumber:startLine fromURL:url sourceId:sid forWebFrame:_webFrame];
-        [[webView _scriptDebugDelegateForwarder] webView:webView didParseSource:source fromURL:[url absoluteString] sourceId:sid forWebFrame:_webFrame]; // deprecated delegate method
-        if ([WebScriptDebugServer listenerCount])
-            [[WebScriptDebugServer sharedScriptDebugServer] webView:webView didParseSource:source baseLineNumber:startLine fromURL:url sourceId:sid forWebFrame:_webFrame];
-    } else {
-        NSDictionary *info = [[NSDictionary alloc] initWithObjectsAndKeys:errorMessage, WebScriptErrorDescriptionKey, [NSNumber numberWithUnsignedInt:errorLine], WebScriptErrorLineNumberKey, nil];
-        NSError *error = [[NSError alloc] initWithDomain:WebScriptErrorDomain code:WebScriptGeneralErrorCode userInfo:info];
-        [[webView _scriptDebugDelegateForwarder] webView:webView failedToParseSource:source baseLineNumber:startLine fromURL:url withError:error forWebFrame:_webFrame];
-        if ([WebScriptDebugServer listenerCount])
-            [[WebScriptDebugServer sharedScriptDebugServer] webView:webView failedToParseSource:source baseLineNumber:startLine fromURL:url withError:error forWebFrame:_webFrame];
-        [error release];
-        [info release];
-    }
-}
-
-- (void)enteredFrame:(WebCoreScriptCallFrame *)frame sourceId:(int)sid line:(int)lineno
-{
-    WebView *webView = [_webFrame webView];
-    [[webView _scriptDebugDelegateForwarder] webView:webView didEnterCallFrame:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-    if ([WebScriptDebugServer listenerCount])
-        [[WebScriptDebugServer sharedScriptDebugServer] webView:webView didEnterCallFrame:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-}
-
-- (void)hitStatement:(WebCoreScriptCallFrame *)frame sourceId:(int)sid line:(int)lineno
-{
-    WebView *webView = [_webFrame webView];
-    [[webView _scriptDebugDelegateForwarder] webView:webView willExecuteStatement:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-    if ([WebScriptDebugServer listenerCount])
-        [[WebScriptDebugServer sharedScriptDebugServer] webView:webView willExecuteStatement:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-}
-
-- (void)leavingFrame:(WebCoreScriptCallFrame *)frame sourceId:(int)sid line:(int)lineno
-{
-    WebView *webView = [_webFrame webView];
-    [[webView _scriptDebugDelegateForwarder] webView:webView willLeaveCallFrame:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-    if ([WebScriptDebugServer listenerCount])
-        [[WebScriptDebugServer sharedScriptDebugServer] webView:webView willLeaveCallFrame:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-}
-
-- (void)exceptionRaised:(WebCoreScriptCallFrame *)frame sourceId:(int)sid line:(int)lineno
-{
-    WebView *webView = [_webFrame webView];
-    [[webView _scriptDebugDelegateForwarder] webView:webView exceptionWasRaised:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-    if ([WebScriptDebugServer listenerCount])
-        [[WebScriptDebugServer sharedScriptDebugServer] webView:webView exceptionWasRaised:[frame wrapper] sourceId:sid line:lineno forWebFrame:_webFrame];
-}
-
 @end
 
-
+// WebScriptCallFrame
+//
+// One of these is created to represent each stack frame.  Additionally, there is a "global"
+// frame to represent the outermost scope.  This global frame is always the last frame in
+// the chain of callers.
+//
+// The delegate can assign a "wrapper" to each frame object so it can relay calls through its
+// own exported interface.  This class is private to WebCore (and the delegate).
 
 @implementation WebScriptCallFrame (WebScriptDebugDelegateInternal)
 
-- (WebScriptCallFrame *)_initWithFrame:(WebCoreScriptCallFrame *)frame
+- (WebScriptCallFrame *)_initWithGlobalObject:(WebScriptObject *)globalObj caller:(WebScriptCallFrame *)caller debuggerCallFrame:(const DebuggerCallFrame&)debuggerCallFrame
 {
     if ((self = [super init])) {
-        _private = frame;
+        _private = [[WebScriptCallFramePrivate alloc] init];
+        _private->globalObject = globalObj;
+        _private->caller = [caller retain];
     }
     return self;
+}
+
+- (void)_setDebuggerCallFrame:(const DebuggerCallFrame&)debuggerCallFrame
+{
+    if (!_private->debuggerCallFrame)
+        _private->debuggerCallFrame = new DebuggerCallFrame(debuggerCallFrame);
+    else
+        *_private->debuggerCallFrame = debuggerCallFrame;
+}
+
+- (void)_clearDebuggerCallFrame
+{
+    delete _private->debuggerCallFrame;
+    _private->debuggerCallFrame = 0;
+}
+
+- (id)_convertValueToObjcValue:(JSValue*)value
+{
+    if (!value)
+        return nil;
+
+    WebScriptObject *globalObject = _private->globalObject;
+    if (value == [globalObject _imp])
+        return globalObject;
+
+    Bindings::RootObject* root1 = [globalObject _originRootObject];
+    if (!root1)
+        return nil;
+
+    Bindings::RootObject* root2 = [globalObject _rootObject];
+    if (!root2)
+        return nil;
+
+    return [WebScriptObject _convertValueToObjcValue:value originRootObject:root1 rootObject:root2];
 }
 
 @end
@@ -151,6 +138,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 - (void) dealloc
 {
     [_userInfo release];
+    [_private release];
     [super dealloc];
 }
 
@@ -169,27 +157,75 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 
 - (WebScriptCallFrame *)caller
 {
-    return [[_private caller] wrapper];
+    return _private->caller;
 }
+
+// Returns an array of scope objects (most local first).
+// The properties of each scope object are the variables for that scope.
+// Note that the last entry in the array will _always_ be the global object (windowScriptObject),
+// whose properties are the global variables.
 
 - (NSArray *)scopeChain
 {
-    return [_private scopeChain];
+    if (!_private->debuggerCallFrame)
+        return [NSArray array];
+
+    const ScopeChainNode* scopeChain = _private->debuggerCallFrame->scopeChain();
+    if (!scopeChain->next)  // global frame
+        return [NSArray arrayWithObject:_private->globalObject];
+
+    NSMutableArray *scopes = [[NSMutableArray alloc] init];
+
+    ScopeChainIterator end = scopeChain->end();
+    for (ScopeChainIterator it = scopeChain->begin(); it != end; ++it)
+        [scopes addObject:[self _convertValueToObjcValue:(*it)]];
+
+    NSArray *result = [NSArray arrayWithArray:scopes];
+    [scopes release];
+    return result;
 }
+
+// Returns the name of the function for this frame, if available.
+// Returns nil for anonymous functions and for the global frame.
 
 - (NSString *)functionName
 {
-    return [_private functionName];
+    if (!_private->debuggerCallFrame)
+        return nil;
+
+    const UString* functionName = _private->debuggerCallFrame->functionName();
+    return functionName ? toNSString(*functionName) : nil;
 }
+
+// Returns the pending exception for this frame (nil if none).
 
 - (id)exception
 {
-    return [_private exception];
+    if (!_private->debuggerCallFrame)
+        return nil;
+
+    JSValue* exception = _private->debuggerCallFrame->exception();
+    return exception ? [self _convertValueToObjcValue:exception] : nil;
 }
+
+// Evaluate some JavaScript code in the context of this frame.
+// The code is evaluated as if by "eval", and the result is returned.
+// If there is an (uncaught) exception, it is returned as though _it_ were the result.
+// Calling this method on the global frame is not quite the same as calling the WebScriptObject
+// method of the same name, due to the treatment of exceptions.
 
 - (id)evaluateWebScript:(NSString *)script
 {
-    return [_private evaluateWebScript:script];
+    if (!_private->debuggerCallFrame)
+        return nil;
+
+    JSLock lock(false);
+
+    JSValue* exception = noValue();
+    JSValue* result = _private->debuggerCallFrame->evaluate(String(script), exception);
+    if (exception)
+        return [self _convertValueToObjcValue:exception];
+    return result ? [self _convertValueToObjcValue:result] : nil;
 }
 
 @end

@@ -26,12 +26,6 @@
 
 namespace WebCore {
 
-void CSSSelector::print()
-{
-    if (m_tagHistory)
-        m_tagHistory->print();
-}
-
 unsigned int CSSSelector::specificity()
 {
     // FIXME: Pseudo-elements and pseudo-classes do not have the same specificity. This function
@@ -76,6 +70,8 @@ void CSSSelector::extractPseudoType() const
     static AtomicString checked("checked");
     static AtomicString fileUploadButton("-webkit-file-upload-button");
     static AtomicString disabled("disabled");
+    static AtomicString readOnly("read-only");
+    static AtomicString readWrite("read-write");
     static AtomicString drag("-webkit-drag");
     static AtomicString dragAlias("-khtml-drag"); // was documented with this name in Apple documentation, so keep an alias
     static AtomicString empty("empty");
@@ -84,6 +80,7 @@ void CSSSelector::extractPseudoType() const
     static AtomicString firstLetter("first-letter");
     static AtomicString firstLine("first-line");
     static AtomicString firstOfType("first-of-type");
+    static AtomicString fullPageMedia("-webkit-full-page-media");
     static AtomicString nthChild("nth-child(");
     static AtomicString nthOfType("nth-of-type(");
     static AtomicString nthLastChild("nth-last-child(");
@@ -91,6 +88,7 @@ void CSSSelector::extractPseudoType() const
     static AtomicString focus("focus");
     static AtomicString hover("hover");
     static AtomicString indeterminate("indeterminate");
+    static AtomicString inputPlaceholder("-webkit-input-placeholder");
     static AtomicString lastChild("last-child");
     static AtomicString lastOfType("last-of-type");
     static AtomicString link("link");
@@ -106,7 +104,14 @@ void CSSSelector::extractPseudoType() const
     static AtomicString notStr("not(");
     static AtomicString onlyChild("only-child");
     static AtomicString onlyOfType("only-of-type");
+    static AtomicString resizer("-webkit-resizer");
     static AtomicString root("root");
+    static AtomicString scrollbar("-webkit-scrollbar");
+    static AtomicString scrollbarButton("-webkit-scrollbar-button");
+    static AtomicString scrollbarCorner("-webkit-scrollbar-corner");
+    static AtomicString scrollbarThumb("-webkit-scrollbar-thumb");
+    static AtomicString scrollbarTrack("-webkit-scrollbar-track");
+    static AtomicString scrollbarTrackPiece("-webkit-scrollbar-track-piece");
     static AtomicString searchCancelButton("-webkit-search-cancel-button");
     static AtomicString searchDecoration("-webkit-search-decoration");
     static AtomicString searchResultsDecoration("-webkit-search-results-decoration");
@@ -115,6 +120,17 @@ void CSSSelector::extractPseudoType() const
     static AtomicString sliderThumb("-webkit-slider-thumb");
     static AtomicString target("target");
     static AtomicString visited("visited");
+    static AtomicString windowInactive("window-inactive");
+    static AtomicString decrement("decrement");
+    static AtomicString increment("increment");
+    static AtomicString start("start");
+    static AtomicString end("end");
+    static AtomicString horizontal("horizontal");
+    static AtomicString vertical("vertical");
+    static AtomicString doubleButton("double-button");
+    static AtomicString singleButton("single-button");
+    static AtomicString noButton("no-button");
+    static AtomicString cornerPresent("corner-present");
 
     bool element = false; // pseudo-element
     bool compat = false; // single colon compatbility mode
@@ -141,6 +157,10 @@ void CSSSelector::extractPseudoType() const
         element = true;
     } else if (m_value == disabled)
         m_pseudoType = PseudoDisabled;
+    else if (m_value == readOnly)
+        m_pseudoType = PseudoReadOnly;
+    else if (m_value == readWrite)
+        m_pseudoType = PseudoReadWrite;
     else if (m_value == drag || m_value == dragAlias)
         m_pseudoType = PseudoDrag;
     else if (m_value == enabled)
@@ -149,7 +169,12 @@ void CSSSelector::extractPseudoType() const
         m_pseudoType = PseudoEmpty;
     else if (m_value == firstChild)
         m_pseudoType = PseudoFirstChild;
-    else if (m_value == lastChild)
+    else if (m_value == fullPageMedia)
+        m_pseudoType = PseudoFullPageMedia;
+    else if (m_value == inputPlaceholder) {
+        m_pseudoType = PseudoInputPlaceholder;
+        element = true;
+    } else if (m_value == lastChild)
         m_pseudoType = PseudoLastChild;
     else if (m_value == lastOfType)
         m_pseudoType = PseudoLastOfType;
@@ -213,6 +238,52 @@ void CSSSelector::extractPseudoType() const
         m_pseudoType = PseudoNthLastOfType;
     else if (m_value == root)
         m_pseudoType = PseudoRoot;
+    else if (m_value == windowInactive)
+        m_pseudoType = PseudoWindowInactive;
+    else if (m_value == decrement)
+        m_pseudoType = PseudoDecrement;
+    else if (m_value == increment)
+        m_pseudoType = PseudoIncrement;
+    else if (m_value == start)
+        m_pseudoType = PseudoStart;
+    else if (m_value == end)
+        m_pseudoType = PseudoEnd;
+    else if (m_value == horizontal)
+        m_pseudoType = PseudoHorizontal;
+    else if (m_value == vertical)
+        m_pseudoType = PseudoVertical;
+    else if (m_value == doubleButton)
+        m_pseudoType = PseudoDoubleButton;
+    else if (m_value == singleButton)
+        m_pseudoType = PseudoSingleButton;
+    else if (m_value == noButton)
+        m_pseudoType = PseudoNoButton;
+    else if (m_value == scrollbarCorner) {
+        element = true;
+        m_pseudoType = PseudoScrollbarCorner;
+    } else if (m_value == resizer) {
+        element = true;
+        m_pseudoType = PseudoResizer;
+    } else if (m_value == scrollbar) {
+        element = true;
+        m_pseudoType = PseudoScrollbar;
+    } else if (m_value == scrollbarButton) {
+        element = true;
+        m_pseudoType = PseudoScrollbarButton;
+    } else if (m_value == scrollbarCorner) {
+        element = true;
+        m_pseudoType = PseudoScrollbarCorner;
+    } else if (m_value == scrollbarThumb) {
+        element = true;
+        m_pseudoType = PseudoScrollbarThumb;
+    } else if (m_value == scrollbarTrack) {
+        element = true;
+        m_pseudoType = PseudoScrollbarTrack;
+    } else if (m_value == scrollbarTrackPiece) {
+        element = true;
+        m_pseudoType = PseudoScrollbarTrackPiece;
+    } else if (m_value == cornerPresent)
+         m_pseudoType = PseudoCornerPresent;
     else if (m_value == searchCancelButton) {
         m_pseudoType = PseudoSearchCancelButton;
         element = true;

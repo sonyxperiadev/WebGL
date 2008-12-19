@@ -24,11 +24,13 @@
 #ifndef HTMLOptGroupElement_h
 #define HTMLOptGroupElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
+    
+class HTMLSelectElement;
 
-class HTMLOptGroupElement : public HTMLGenericFormElement {
+class HTMLOptGroupElement : public HTMLFormControlElement {
 public:
     HTMLOptGroupElement(Document*, HTMLFormElement* = 0);
 
@@ -39,25 +41,28 @@ public:
     virtual bool rendererIsNeeded(RenderStyle*) { return false; }
     virtual void attach();
     virtual void detach();
-    virtual RenderStyle* renderStyle() const { return m_style; }
-    virtual void setRenderStyle(RenderStyle*);
+    virtual void setRenderStyle(PassRefPtr<RenderStyle>);
 
-    virtual bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&);
-    virtual bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&);
+    virtual bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&, bool shouldLazyAttach = false);
+    virtual bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&, bool shouldLazyAttach = false);
     virtual bool removeChild(Node* child, ExceptionCode&);
-    virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&);
+    virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, bool shouldLazyAttach = false);
     virtual bool removeChildren();
-    virtual void childrenChanged(bool changedByParser = false);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     String label() const;
     void setLabel(const String&);
     
     String groupLabelText() const;
+    HTMLSelectElement* ownerSelectElement() const;
+    virtual void accessKeyAction(bool sendToAnyElement);
     
 private:
+    virtual RenderStyle* nonRendererRenderStyle() const;
+    
     void recalcSelectOptions();
 
-    RenderStyle* m_style;
+    RefPtr<RenderStyle> m_style;
 };
 
 } //namespace

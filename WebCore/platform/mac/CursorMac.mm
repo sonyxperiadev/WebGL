@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -292,6 +292,63 @@ const Cursor& columnResizeCursor()
 const Cursor& rowResizeCursor()
 {
     static Cursor c = [NSCursor resizeUpDownCursor];
+    return c;
+}
+
+const Cursor& middlePanningCursor()
+{
+    return moveCursor();
+}
+    
+const Cursor& eastPanningCursor()
+{
+    return eastResizeCursor();
+}
+    
+const Cursor& northPanningCursor()
+{
+    return northResizeCursor();
+}
+    
+const Cursor& northEastPanningCursor()
+{
+    return northEastResizeCursor();
+}
+    
+const Cursor& northWestPanningCursor()
+{
+    return northWestResizeCursor();
+}
+    
+const Cursor& southPanningCursor()
+{
+    return southResizeCursor();
+}
+    
+const Cursor& southEastPanningCursor()
+{
+    return southEastResizeCursor();
+}
+    
+const Cursor& southWestPanningCursor()
+{
+    return southWestResizeCursor();
+}
+    
+const Cursor& westPanningCursor()
+{
+    return westResizeCursor();
+}
+
+const Cursor& grabCursor()
+{
+    static Cursor c = [NSCursor openHandCursor];
+    return c;
+}
+
+const Cursor& grabbingCursor()
+{
+    static Cursor c = [NSCursor closedHandCursor];
     return c;
 }
 

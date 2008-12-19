@@ -51,10 +51,16 @@ public:
     virtual void attachWindow();
     virtual void detachWindow();
 
+    virtual void setAttachedWindowHeight(unsigned height);
+
     virtual void highlight(Node*);
     virtual void hideHighlight();
 
     virtual void inspectedURLChanged(const String& newURL);
+
+    virtual void populateSetting(const String& key, InspectorController::Setting&);
+    virtual void storeSetting(const String& key, const InspectorController::Setting&);
+    virtual void removeSetting(const String& key);
 };
 
 } // namespace WebCore

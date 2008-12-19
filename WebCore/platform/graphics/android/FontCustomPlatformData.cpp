@@ -36,7 +36,8 @@ FontCustomPlatformData::~FontCustomPlatformData()
     // the unref is enough to release the font data...
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic,
+    FontRenderingMode mode)
 {
     // turn bold/italic into fakeBold/fakeItalic
     if (m_typeface != NULL) {

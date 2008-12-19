@@ -29,11 +29,73 @@
 #include "FileSystem.h"
 #include "PlatformString.h"
 #include "CString.h"
+#include <dlfcn.h>
+#include <errno.h>
+#include <sys/stat.h>
+#include "cutils/log.h"
 
 namespace WebCore {
 
+// Global static used to store the base to the plugin path.
+// This is set in WebSettings.cpp
+String sPluginPath;
+
 CString fileSystemRepresentation(const String& path) {
     return path.utf8();
+}
+
+CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
+{
+    int number = rand() % 10000 + 1;
+    CString filename;
+    do {
+        String path = sPluginPath;
+        path.append("/");
+        path.append(prefix);
+        path.append(String::number(number));
+        filename = path.utf8();
+        const char *fstr = filename.data();
+        handle = open(filename.data(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        number++;
+    } while (handle == -1 && errno == EEXIST);
+    
+    if (handle != -1) {
+        return filename;
+    }
+    return CString();
+}
+
+bool unloadModule(PlatformModule module)
+{
+    return dlclose(module) == 0;
+}
+
+void closeFile(PlatformFileHandle& handle)
+{
+    if (isHandleValid(handle)) {
+        close(handle);
+        handle = invalidPlatformFileHandle;
+    }
+}
+
+int writeToFile(PlatformFileHandle handle, const char* data, int length)
+{
+    int totalBytesWritten = 0;
+    while (totalBytesWritten < length) {
+        int bytesWritten = write(handle, data, length - totalBytesWritten);
+        if (bytesWritten < 0 && errno != EINTR)
+            return -1;
+        else if (bytesWritten > 0)
+            totalBytesWritten += bytesWritten;
+    }
+
+    return totalBytesWritten;
+}
+
+    // new as of SVN change 36269, Sept 8, 2008
+String homeDirectoryPath() 
+{
+    return sPluginPath;
 }
 
 }

@@ -37,7 +37,8 @@
 #import "SVGException.h"
 #import "WebScriptObjectPrivate.h"
 #import "XPathEvaluator.h"
-#import "kjs_proxy.h"
+#import "ScriptController.h"
+#import "runtime_root.h"
 
 //------------------------------------------------------------------------------------------
 // Wrapping WebCore implementation objects
@@ -113,12 +114,12 @@ void removeDOMWrapper(DOMObjectInternal* impl)
     if (!frame)
         return;
         
-    KJS::ExecState *exec = frame->scriptProxy()->globalObject()->globalExec();
+    JSC::ExecState *exec = frame->script()->globalObject()->globalExec();
     
     // Get (or create) a cached JS object for the DOM node.
-    KJS::JSObject *scriptImp = static_cast<KJS::JSObject*>(WebCore::toJS(exec, nodeImpl));
+    JSC::JSObject *scriptImp = asObject(WebCore::toJS(exec, nodeImpl));
 
-    KJS::Bindings::RootObject* rootObject = frame->bindingRootObject();
+    JSC::Bindings::RootObject* rootObject = frame->script()->bindingRootObject();
 
     [self _setImp:scriptImp originRootObject:rootObject rootObject:rootObject];
 }

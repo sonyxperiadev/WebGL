@@ -1,37 +1,33 @@
 /*
- IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. ("Apple") in
- consideration of your agreement to the following terms, and your use, installation, 
- modification or redistribution of this Apple software constitutes acceptance of these 
- terms.  If you do not agree with these terms, please do not use, install, modify or 
- redistribute this Apple software.
- 
- In consideration of your agreement to abide by the following terms, and subject to these 
- terms, Apple grants you a personal, non-exclusive license, under Apple’s copyrights in 
- this original Apple software (the "Apple Software"), to use, reproduce, modify and 
- redistribute the Apple Software, with or without modifications, in source and/or binary 
- forms; provided that if you redistribute the Apple Software in its entirety and without 
- modifications, you must retain this notice and the following text and disclaimers in all 
- such redistributions of the Apple Software.  Neither the name, trademarks, service marks 
- or logos of Apple Computer, Inc. may be used to endorse or promote products derived from 
- the Apple Software without specific prior written permission from Apple. Except as expressly
- stated in this notice, no other rights or licenses, express or implied, are granted by Apple
- herein, including but not limited to any patent rights that may be infringed by your 
- derivative works or by other works in which the Apple Software may be incorporated.
- 
- The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO WARRANTIES, 
- EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, 
- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS 
- USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
- 
- IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR CONSEQUENTIAL 
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS 
-          OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, 
- REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED AND 
- WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR 
- OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #import "PluginObject.h"
+
+#if __LP64__
+#define USE_COCOA_EVENT_MODEL 1
+#endif
 
 // Mach-o entry points
 extern "C" {
@@ -74,14 +70,28 @@ void NP_Shutdown(void)
 
 NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16 mode, int16 argc, char *argn[], char *argv[], NPSavedData *saved)
 {
+#if USE_COCOA_EVENT_MODEL
+    // If the browser supports the Cocoa event model, enable it.
+    NPBool supportsCocoa;
+    if (browser->getvalue(instance, NPNVsupportsCocoaBool, &supportsCocoa) != NPERR_NO_ERROR)
+        supportsCocoa = FALSE;
+
+    if (!supportsCocoa)
+        return NPERR_INCOMPATIBLE_VERSION_ERROR;
+
+    browser->setvalue(instance, NPPVpluginEventModel, (void *)NPEventModelCocoa);
+#endif
+
     if (browser->version >= 14) {
         PluginObject* obj = (PluginObject*)browser->createobject(instance, getPluginClass());
-    
-        obj->onStreamLoad = NULL;
-        
+ 
         for (int i = 0; i < argc; i++) {
             if (strcasecmp(argn[i], "onstreamload") == 0 && !obj->onStreamLoad)
                 obj->onStreamLoad = strdup(argv[i]);
+            else if (strcasecmp(argn[i], "onStreamDestroy") == 0 && !obj->onStreamDestroy)
+                obj->onStreamDestroy = strdup(argv[i]);
+            else if (strcasecmp(argn[i], "onURLNotify") == 0 && !obj->onURLNotify)
+                obj->onURLNotify = strdup(argv[i]);
             else if (strcasecmp(argn[i], "src") == 0 &&
                      strcasecmp(argv[i], "data:application/x-webkit-test-netscape,returnerrorfromnewstream") == 0)
                 obj->returnErrorFromNewStream = TRUE;
@@ -101,6 +111,12 @@ NPError NPP_Destroy(NPP instance, NPSavedData **save)
     if (obj) {
         if (obj->onStreamLoad)
             free(obj->onStreamLoad);
+
+        if (obj->onStreamDestroy)
+            free(obj->onStreamDestroy);
+
+        if (obj->onURLNotify)
+            free(obj->onURLNotify);
         
         if (obj->logDestroy)
             printf("PLUGIN: NPP_Destroy\n");
@@ -124,6 +140,20 @@ NPError NPP_SetWindow(NPP instance, NPWindow *window)
     return NPERR_NO_ERROR;
 }
 
+static void executeScript(const PluginObject* obj, const char* script)
+{
+    NPObject *windowScriptObject;
+    browser->getvalue(obj->npp, NPNVWindowNPObject, &windowScriptObject);
+
+    NPString npScript;
+    npScript.UTF8Characters = script;
+    npScript.UTF8Length = strlen(script);
+
+    NPVariant browserResult;
+    browser->evaluate(obj->npp, windowScriptObject, &npScript, &browserResult);
+    browser->releasevariantvalue(&browserResult);
+}
+
 NPError NPP_NewStream(NPP instance, NPMIMEType type, NPStream *stream, NPBool seekable, uint16 *stype)
 {
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
@@ -136,24 +166,19 @@ NPError NPP_NewStream(NPP instance, NPMIMEType type, NPStream *stream, NPBool se
     if (browser->version >= NPVERS_HAS_RESPONSE_HEADERS)
         notifyStream(obj, stream->url, stream->headers);
 
-    if (obj->onStreamLoad) {
-        NPObject *windowScriptObject;
-        browser->getvalue(obj->npp, NPNVWindowNPObject, &windowScriptObject);
-                
-        NPString script;
-        script.UTF8Characters = obj->onStreamLoad;
-        script.UTF8Length = strlen(obj->onStreamLoad);
-        
-        NPVariant browserResult;
-        browser->evaluate(obj->npp, windowScriptObject, &script, &browserResult);
-        browser->releasevariantvalue(&browserResult);
-    }
-    
+    if (obj->onStreamLoad)
+        executeScript(obj, obj->onStreamLoad);
+
     return NPERR_NO_ERROR;
 }
 
 NPError NPP_DestroyStream(NPP instance, NPStream *stream, NPReason reason)
 {
+    PluginObject* obj = (PluginObject*)instance->pdata;
+
+    if (obj->onStreamDestroy)
+        executeScript(obj, obj->onStreamDestroy);
+
     return NPERR_NO_ERROR;
 }
 
@@ -180,7 +205,35 @@ int16 NPP_HandleEvent(NPP instance, void *event)
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
     if (!obj->eventLogging)
         return 0;
-    
+
+#if USE_COCOA_EVENT_MODEL
+    // FIXME: Generate output that will match the Carbon event model
+    // so that the layout tests using this plug-in will work in either model.
+    NPCocoaEvent *cocoaEvent = static_cast<NPCocoaEvent*>(event);
+    switch (cocoaEvent->type) {
+        case NPCocoaEventWindowFocusChanged:
+        case NPCocoaEventFocusChanged:
+            return 1;
+
+        case NPCocoaEventDrawRect:
+            return 1;
+
+        case NPCocoaEventKeyDown:
+        case NPCocoaEventKeyUp:
+        case NPCocoaEventFlagsChanged:
+            return 1;
+
+        case NPCocoaEventMouseDown:
+        case NPCocoaEventMouseUp:
+
+        case NPCocoaEventMouseMoved:
+        case NPCocoaEventMouseEntered:
+        case NPCocoaEventMouseExited:
+        case NPCocoaEventMouseDragged:
+        case NPCocoaEventScrollWheel:
+            return 1;
+    }
+#else
     EventRecord* evt = static_cast<EventRecord*>(event);
     Point pt = { evt->where.v, evt->where.h };
     switch (evt->what) {
@@ -242,14 +295,17 @@ int16 NPP_HandleEvent(NPP instance, void *event)
         default:
             printf("PLUGIN: event %d\n", evt->what);
     }
-    
+#endif
     return 0;
 }
 
 void NPP_URLNotify(NPP instance, const char *url, NPReason reason, void *notifyData)
 {
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
-        
+ 
+     if (obj->onURLNotify)
+         executeScript(obj, obj->onURLNotify);
+
     handleCallback(obj, url, reason, notifyData);
 }
 

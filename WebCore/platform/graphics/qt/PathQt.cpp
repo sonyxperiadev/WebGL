@@ -155,7 +155,7 @@ void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool antic
 
     // this is also due to switched coordinate system
     // we would end up with a 0 span instead of 360
-    if (!(qFuzzyCompare(span + (ea - sa), 0.0) &&
+    if (!(qFuzzyCompare(span + (ea - sa) + 1, 1.0) &&
           qFuzzyCompare(qAbs(span), 360.0))) {
         span += ea - sa;
     }
@@ -194,10 +194,10 @@ String Path::debugString() const
 
         switch (cur.type) {
             case QPainterPath::MoveToElement:
-                ret += QString("M %1 %2").arg(cur.x).arg(cur.y);
+                ret += QString(QLatin1String("M %1 %2")).arg(cur.x).arg(cur.y);
                 break;
             case QPainterPath::LineToElement:
-                ret += QString("L %1 %2").arg(cur.x).arg(cur.y);
+                ret += QString(QLatin1String("L %1 %2")).arg(cur.x).arg(cur.y);
                 break;
             case QPainterPath::CurveToElement:
             {
@@ -207,7 +207,7 @@ String Path::debugString() const
                 Q_ASSERT(c1.type == QPainterPath::CurveToDataElement);
                 Q_ASSERT(c2.type == QPainterPath::CurveToDataElement);
 
-                ret += QString("C %1 %2 %3 %4 %5 %6").arg(cur.x).arg(cur.y).arg(c1.x).arg(c1.y).arg(c2.x).arg(c2.y);
+                ret += QString(QLatin1String("C %1 %2 %3 %4 %5 %6")).arg(cur.x).arg(cur.y).arg(c1.x).arg(c1.y).arg(c2.x).arg(c2.y);
 
                 i += 2;
                 break;

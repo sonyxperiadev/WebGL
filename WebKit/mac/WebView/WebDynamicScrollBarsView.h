@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,46 +26,23 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <AppKit/NSScrollView.h>
+// This is a Private header (containing SPI), despite the fact that its name
+// does not contain the word Private.
 
-#import <WebCore/WebCoreFrameView.h>
+// FIXME: Does Safari really need to use this any more? AppKit added autohidesScrollers
+// in Panther, and that was the original reason we needed this view in Safari.
 
-// FIXME 2980779: This has grown to be more than just a dynamic scroll bar view,
-// and it is no longer completely appropriate for use outside of WebKit.
+// FIXME: <rdar://problem/5898985> Mail currently expects this header to define WebCoreScrollbarAlwaysOn.
+extern const int WebCoreScrollbarAlwaysOn;
 
-@interface WebDynamicScrollBarsView : NSScrollView <WebCoreFrameView>
-{
-    WebCoreScrollbarMode hScroll;
-    WebCoreScrollbarMode vScroll;
+@interface WebDynamicScrollBarsView : NSScrollView {
+    int hScroll; // FIXME: Should be WebCore::ScrollbarMode if this was an ObjC++ header.
+    int vScroll; // Ditto.
     BOOL hScrollModeLocked;
     BOOL vScrollModeLocked;
     BOOL suppressLayout;
     BOOL suppressScrollers;
     BOOL inUpdateScrollers;
 }
-
-- (void)setAllowsHorizontalScrolling:(BOOL)flag;
-- (BOOL)allowsHorizontalScrolling;
-- (void)setAllowsVerticalScrolling:(BOOL)flag;
-- (BOOL)allowsVerticalScrolling;
-
-- (void)setHorizontalScrollingMode:(WebCoreScrollbarMode)mode andLock:(BOOL)lock;
-- (void)setVerticalScrollingMode:(WebCoreScrollbarMode)mode andLock:(BOOL)lock;
-- (void)setScrollingMode:(WebCoreScrollbarMode)mode andLock:(BOOL)lock;
-
-- (void)setHorizontalScrollingModeLocked:(BOOL)locked;
-- (void)setVerticalScrollingModeLocked:(BOOL)locked;
-- (void)setScrollingModesLocked:(BOOL)mode;
-
-- (BOOL)horizontalScrollingModeLocked;
-- (BOOL)verticalScrollingModeLocked;
-
-// Convenience method to affect both scrolling directions at once.
-- (void)setAllowsScrolling:(BOOL)flag;
-
-// Returns YES if either horizontal or vertical scrolling is allowed.
-- (BOOL)allowsScrolling;
-
-- (void)updateScrollers;
-- (void)setSuppressLayout: (BOOL)flag;
+- (void)setAllowsHorizontalScrolling:(BOOL)flag; // This method is used by Safari, so it cannot be removed.
 @end

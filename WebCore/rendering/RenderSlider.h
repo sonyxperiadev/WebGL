@@ -39,9 +39,8 @@ namespace WebCore {
         virtual const char* renderName() const { return "RenderSlider"; }
         virtual bool isSlider() const { return true; }
 
-        virtual short baselinePosition( bool, bool ) const;
+        virtual int baselinePosition( bool, bool ) const;
         virtual void calcPrefWidths();
-        virtual void setStyle(RenderStyle*);
         virtual void layout();
         virtual void updateFromElement();
         
@@ -59,8 +58,11 @@ namespace WebCore {
         void forwardEvent(Event*);
         bool inDragMode() const;
 
+    protected:
+        virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    
     private:
-        RenderStyle* createThumbStyle(RenderStyle* parentStyle, RenderStyle* oldStyle = 0);
+        PassRefPtr<RenderStyle> createThumbStyle(const RenderStyle* parentStyle, const RenderStyle* oldStyle = 0);
         int trackSize();
 
         RefPtr<HTMLSliderThumbElement> m_thumb;

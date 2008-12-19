@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,28 +25,21 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <qglobal.h>
-#if QT_VERSION < 0x040400
-#define QT_STATICPLUGIN
-#include <qwebobjectplugin.h>
+#include <qwebpluginfactory.h>
 
 
-class TestPlugin : public QWebObjectPlugin
+class TestPlugin : public QWebPluginFactory
 {
 public:
     explicit TestPlugin(QObject *parent = 0);
     virtual ~TestPlugin();
 
-    virtual QStringList keys() const;
+    virtual QList<Plugin> plugins() const;
 
-    virtual QString descriptionForKey(const QString &key) const;
-    virtual QStringList mimetypesForKey(const QString &key) const;
-    virtual QStringList extensionsForMimetype(const QString &mimeType) const;
-    virtual QObject *create(QWebObjectPluginConnector *connector,
+    virtual QObject *create(const QString &mimeType,
                             const QUrl &url,
-                            const QString &mimeType,
                             const QStringList &argumentNames,
                             const QStringList &argumentValues) const;
+
 };
 
-#endif

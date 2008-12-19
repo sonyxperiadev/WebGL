@@ -52,11 +52,13 @@ WebURLAuthenticationChallenge::WebURLAuthenticationChallenge(const Authenticatio
     , m_sender(sender)
 {
     gClassCount++;
+    gClassNameCount.add("WebURLAuthenticationChallenge");
 }
 
 WebURLAuthenticationChallenge::~WebURLAuthenticationChallenge()
 {
     gClassCount--;
+    gClassNameCount.remove("WebURLAuthenticationChallenge");
 }
 
 WebURLAuthenticationChallenge* WebURLAuthenticationChallenge::createInstance(const AuthenticationChallenge& authenticationChallenge)
@@ -168,9 +170,14 @@ HRESULT STDMETHODCALLTYPE WebURLAuthenticationChallenge::initWithAuthenticationC
     if (!webSender)
         return E_NOINTERFACE;
 
+#if USE(CFNETWORK)
     m_authenticationChallenge = AuthenticationChallenge(webChallenge->authenticationChallenge().cfURLAuthChallengeRef(), webSender->resourceHandle());
 
     return S_OK;
+#else
+
+    return E_FAIL;
+#endif
 }
 
 HRESULT STDMETHODCALLTYPE WebURLAuthenticationChallenge::error(

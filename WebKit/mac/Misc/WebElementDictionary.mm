@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,19 +30,17 @@
 
 #import "WebDOMOperations.h"
 #import "WebFrame.h"
-#import "WebFrameBridge.h"
 #import "WebFrameInternal.h"
 #import "WebKitLogging.h"
+#import "WebTypesInternal.h"
 #import "WebView.h"
 #import "WebViewPrivate.h"
-
-#import <WebKit/DOMCore.h>
-#import <WebKit/DOMExtensions.h>
 #import <WebCore/Frame.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
-#import <WebCore/KURL.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebKit/DOMCore.h>
+#import <WebKit/DOMExtensions.h>
 
 using namespace WebCore;
 
@@ -102,6 +100,9 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 
 - (void)dealloc
 {
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebElementDictionary class], self))
+        return;
+
     delete _result;
     [_cache release];
     [_nilValues release];
@@ -121,7 +122,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
     _cacheComplete = YES;
 }
 
-- (unsigned)count
+- (NSUInteger)count
 {
     if (!_cacheComplete)
         [self _fillCache];
@@ -205,7 +206,7 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSURL *)_absoluteImageURL
 {
-    return _result->absoluteImageURL().getNSURL();
+    return _result->absoluteImageURL();
 }
 
 - (NSNumber *)_isSelected
@@ -220,7 +221,7 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSURL *)_absoluteLinkURL
 {
-    return _result->absoluteLinkURL().getNSURL();
+    return _result->absoluteLinkURL();
 }
 
 - (WebFrame *)_targetWebFrame

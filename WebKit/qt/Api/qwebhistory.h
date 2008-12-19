@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -15,10 +15,8 @@
     along with this library; see the file COPYING.LIB.  If not, write to
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
-
-    This class provides all functionality needed for loading images, style sheets and html
-    pages from the web. It has a memory cache for these objects.
 */
+
 #ifndef QWEBHISTORY_H
 #define QWEBHISTORY_H
 
@@ -32,6 +30,10 @@
 
 class QWebPage;
 
+namespace WebCore {
+    class FrameLoaderClientQt;
+};
+
 class QWebHistoryItemPrivate;
 class QWEBKIT_EXPORT QWebHistoryItem
 {
@@ -41,17 +43,23 @@ public:
     ~QWebHistoryItem();
 
     QUrl originalUrl() const;
-    QUrl currentUrl() const;
+    QUrl url() const;
 
     QString title() const;
     QDateTime lastVisited() const;
 
-    QPixmap icon() const;
+    QIcon icon() const;
+
+    QVariant userData() const;
+    void setUserData(const QVariant& userData);
+
+    bool isValid() const;
 
 private:
     QWebHistoryItem(QWebHistoryItemPrivate *priv);
     friend class QWebHistory;
     friend class QWebPage;
+    friend class WebCore::FrameLoaderClientQt;
     QExplicitlySharedDataPointer<QWebHistoryItemPrivate> d;
 };
 
@@ -68,14 +76,21 @@ public:
     bool canGoBack() const;
     bool canGoForward() const;
 
-    void goBack();
-    void goForward();
+    void back();
+    void forward();
     void goToItem(const QWebHistoryItem &item);
 
     QWebHistoryItem backItem() const;
     QWebHistoryItem currentItem() const;
     QWebHistoryItem forwardItem() const;
-    QWebHistoryItem itemAtIndex(int i) const;
+    QWebHistoryItem itemAt(int i) const;
+
+    int currentItemIndex() const;
+
+    int count() const;
+
+    int maximumItemCount() const;
+    void setMaximumItemCount(int count);
 
 private:
     QWebHistory();

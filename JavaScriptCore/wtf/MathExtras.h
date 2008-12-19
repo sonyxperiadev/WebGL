@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,13 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if PLATFORM(SOLARIS) && COMPILER(GCC)
+#if PLATFORM(SOLARIS)
 #include <ieeefp.h>
+#endif
+
+#if PLATFORM(OPENBSD)
+#include <sys/types.h>
+#include <machine/ieee.h>
 #endif
 
 #if COMPILER(MSVC)
@@ -61,7 +66,16 @@ const double piOverFourDouble = M_PI_4;
 const float piOverFourFloat = static_cast<float>(M_PI_4);
 #endif
 
-#if PLATFORM(SOLARIS) && COMPILER(GCC)
+#if PLATFORM(DARWIN)
+
+// Work around a bug in the Mac OS X libc where ceil(-0.1) return +0.
+inline double wtf_ceil(double x) { return copysign(ceil(x), x); }
+
+#define ceil(x) wtf_ceil(x)
+
+#endif
+
+#if PLATFORM(SOLARIS)
 
 #ifndef isfinite
 inline bool isfinite(double x) { return finite(x) && !isnand(x); }
@@ -71,6 +85,17 @@ inline bool isinf(double x) { return !finite(x) && !isnand(x); }
 #endif
 #ifndef signbit
 inline bool signbit(double x) { return x < 0.0; } // FIXME: Wrong for negative 0.
+#endif
+
+#endif
+
+#if PLATFORM(OPENBSD)
+
+#ifndef isfinite
+inline bool isfinite(double x) { return finite(x); }
+#endif
+#ifndef signbit
+inline bool signbit(double x) { struct ieee_double *p = (struct ieee_double *)&x; return p->dbl_sign; }
 #endif
 
 #endif
@@ -95,9 +120,9 @@ inline int isfinite(double x) { return _finite(x); }
 // Work around a bug in Win, where atan2(+-infinity, +-infinity) yields NaN instead of specific values.
 inline double wtf_atan2(double x, double y)
 {
-    static double posInf = std::numeric_limits<double>::infinity();
-    static double negInf = -std::numeric_limits<double>::infinity();
-    static double nan = std::numeric_limits<double>::quiet_NaN();
+    double posInf = std::numeric_limits<double>::infinity();
+    double negInf = -std::numeric_limits<double>::infinity();
+    double nan = std::numeric_limits<double>::quiet_NaN();
 
     double result = nan;
 

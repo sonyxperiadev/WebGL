@@ -45,17 +45,17 @@ public:
 
     virtual void destroy();
 
-    virtual void setStyle(RenderStyle*);
-
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const { return 0; }
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const { return 0; }
     virtual void position(InlineBox*) { }
+
+    virtual int getBaselineOfFirstLineBox() const;
 
     void addCell(RenderTableCell*, RenderObject* row);
 
     void setCellWidths();
-    void calcRowHeight();
+    int calcRowHeight();
     int layoutRows(int height);
 
     RenderTable* table() const { return static_cast<RenderTable*>(parent()); }
@@ -101,7 +101,7 @@ public:
     int outerBorderRight() const { return m_outerBorderRight; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void imageChanged(CachedImage*);
+    virtual void imageChanged(WrappedImagePtr);
 
     int numRows() const { return m_gridRows; }
     int numColumns() const;
@@ -125,11 +125,7 @@ public:
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
-
-protected:
+private:
     bool ensureRows(int);
     void clearGrid();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
  *
@@ -28,73 +28,30 @@
 #import "config.h"
 #import "DOM.h"
 
-#import "CDATASection.h"
-#import "CSSHelper.h"
-#import "CSSStyleSheet.h"
-#import "Comment.h"
 #import "DOMHTMLCanvasElement.h"
 #import "DOMInternal.h"
-#import "DOMPrivate.h"
-#import "Document.h"
-#import "DocumentFragment.h"
-#import "DocumentType.h"
-#import "EntityReference.h"
-#import "Event.h"
-#import "EventListener.h"
-#import "EventTarget.h"
 #import "ExceptionHandlers.h"
-#import "FoundationExtras.h"
-#import "Frame.h"
-#import "FrameView.h"
-#import "HTMLDocument.h"
 #import "HTMLNames.h"
 #import "HTMLPlugInElement.h"
-#import "Image.h"
-#import "IntRect.h"
-#import "NodeFilter.h"
-#import "NodeFilterCondition.h"
 #import "NodeIterator.h"
-#import "NodeList.h"
-#import "ProcessingInstruction.h"
-#import "QualifiedName.h"
 #import "Range.h"
 #import "RenderImage.h"
 #import "RenderView.h"
+#import "ScriptController.h"
 #import "SimpleFontData.h"
-#import "Text.h"
 #import "TreeWalker.h"
-#import "WebScriptObjectPrivate.h"
-#import <objc/objc-class.h>
+
 #import <wtf/HashMap.h>
 
 #if ENABLE(SVG)
-#import "SVGDocument.h"
 #import "SVGElement.h"
+#import "SVGElementInstance.h"
 #import "SVGNames.h"
 #import "DOMSVG.h"
 #endif
 
-namespace WebCore {
-
-class ObjCEventListener : public EventListener {
-public:
-    static ObjCEventListener* find(id <DOMEventListener>);
-    static ObjCEventListener* create(id <DOMEventListener>);
-
-private:
-    ObjCEventListener(id <DOMEventListener>);
-    virtual ~ObjCEventListener();
-
-    virtual void handleEvent(Event*, bool isWindowEvent);
-
-    id <DOMEventListener> m_listener;
-};
-
-typedef HashMap<id, ObjCEventListener*> ListenerMap;
-static ListenerMap* listenerMap;
-
-} // namespace WebCore
-
+using namespace JSC;
+using namespace WebCore;
 
 //------------------------------------------------------------------------------------------
 // DOMNode
@@ -188,10 +145,12 @@ static void createElementClassMap()
 
 #if ENABLE(SVG)
     addElementClass(SVGNames::aTag, [DOMSVGAElement class]);
+    addElementClass(SVGNames::altGlyphTag, [DOMSVGAltGlyphElement class]);
 #if ENABLE(SVG_ANIMATION)
     addElementClass(SVGNames::animateTag, [DOMSVGAnimateElement class]);
     addElementClass(SVGNames::animateColorTag, [DOMSVGAnimateColorElement class]);
     addElementClass(SVGNames::animateTransformTag, [DOMSVGAnimateTransformElement class]);
+    addElementClass(SVGNames::setTag, [DOMSVGSetElement class]);
 #endif
     addElementClass(SVGNames::circleTag, [DOMSVGCircleElement class]);
     addElementClass(SVGNames::clipPathTag, [DOMSVGClipPathElement class]);
@@ -253,7 +212,6 @@ static void createElementClassMap()
     addElementClass(SVGNames::radialGradientTag, [DOMSVGRadialGradientElement class]);
     addElementClass(SVGNames::rectTag, [DOMSVGRectElement class]);
     addElementClass(SVGNames::scriptTag, [DOMSVGScriptElement class]);
-    addElementClass(SVGNames::setTag, [DOMSVGSetElement class]);
     addElementClass(SVGNames::stopTag, [DOMSVGStopElement class]);
     addElementClass(SVGNames::styleTag, [DOMSVGStyleElement class]);
     addElementClass(SVGNames::svgTag, [DOMSVGSVGElement class]);
@@ -400,7 +358,7 @@ static NSArray *kit(const Vector<IntRect>& rects)
 {
     if (!eventTarget)
         return nil;
-    
+
     // We don't have an ObjC binding for XMLHttpRequest
     return [DOMNode _wrapNode:eventTarget->toNode()];
 }
@@ -410,11 +368,11 @@ static NSArray *kit(const Vector<IntRect>& rects)
     return reinterpret_cast<WebCore::Node*>(_internal);
 }
 
-- (KJS::Bindings::RootObject*)_rootObject
+- (JSC::Bindings::RootObject*)_rootObject
 {
     if (WebCore::Node *n = [self _node]) {
         if (WebCore::Frame* frame = n->document()->frame())
-            return frame->bindingRootObject();
+            return frame->script()->bindingRootObject();
     }
     return 0;
 }
@@ -450,6 +408,61 @@ static NSArray *kit(const Vector<IntRect>& rects)
 
 @end
 
+#if ENABLE(SVG)
+@implementation DOMSVGElementInstance (WebCoreInternal)
+
+- (id)_initWithSVGElementInstance:(WebCore::SVGElementInstance *)impl
+{
+    ASSERT(impl);
+
+    [super _init];
+    _internal = reinterpret_cast<DOMObjectInternal*>(impl);
+    impl->ref();
+    WebCore::addDOMWrapper(self, impl);
+    return self;
+}
+
++ (DOMSVGElementInstance *)_wrapSVGElementInstance:(WebCore::SVGElementInstance *)impl
+{
+    if (!impl)
+        return nil;
+    
+    id cachedInstance;
+    cachedInstance = WebCore::getDOMWrapper(impl);
+    if (cachedInstance)
+        return [[cachedInstance retain] autorelease];
+    
+    return [[[self alloc] _initWithSVGElementInstance:impl] autorelease];
+}
+
++ (id <DOMEventTarget>)_wrapEventTarget:(WebCore::EventTarget *)eventTarget
+{
+    if (!eventTarget)
+        return nil;
+
+    return [DOMSVGElementInstance _wrapSVGElementInstance:eventTarget->toSVGElementInstance()];
+}
+
+- (WebCore::SVGElementInstance *)_SVGElementInstance
+{
+    return reinterpret_cast<WebCore::SVGElementInstance*>(_internal);
+}
+
+@end
+#endif
+
+@implementation DOMNode (DOMNodeExtensionsPendingPublic)
+
+- (NSImage *)renderedImage
+{
+    if (WebCore::Node *node = [self _node])
+        if (WebCore::Frame* frame = node->document()->frame())
+            return frame->nodeImage(node);
+    return nil;
+}
+
+@end
+
 @implementation DOMRange (DOMRangeExtensions)
 
 - (NSRect)boundingBox
@@ -464,53 +477,6 @@ static NSArray *kit(const Vector<IntRect>& rects)
     [self _range]->ownerDocument()->updateLayoutIgnorePendingStylesheets();
     [self _range]->addLineBoxRects(rects);
     return kit(rects);
-}
-
-@end
-
-// FIXME: this should be auto-generated
-@implementation DOMNode (DOMEventTarget)
-
-- (void)addEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture
-{
-    if (![self _node]->isEventTargetNode())
-        WebCore::raiseDOMException(DOM_NOT_SUPPORTED_ERR);
-    
-    WebCore::EventListener *wrapper = WebCore::ObjCEventListener::create(listener);
-    WebCore::EventTargetNodeCast([self _node])->addEventListener(type, wrapper, useCapture);
-    wrapper->deref();
-}
-
-- (void)addEventListener:(NSString *)type :(id <DOMEventListener>)listener :(BOOL)useCapture
-{
-    // FIXME: this method can be removed once Mail changes to use the new method <rdar://problem/4746649>
-    [self addEventListener:type listener:listener useCapture:useCapture];
-}
-
-- (void)removeEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture
-{
-    if (![self _node]->isEventTargetNode())
-        WebCore::raiseDOMException(DOM_NOT_SUPPORTED_ERR);
-
-    if (WebCore::EventListener *wrapper = WebCore::ObjCEventListener::find(listener))
-        WebCore::EventTargetNodeCast([self _node])->removeEventListener(type, wrapper, useCapture);
-}
-
-- (void)removeEventListener:(NSString *)type :(id <DOMEventListener>)listener :(BOOL)useCapture
-{
-    // FIXME: this method can be removed once Mail changes to use the new method <rdar://problem/4746649>
-    [self removeEventListener:type listener:listener useCapture:useCapture];
-}
-
-- (BOOL)dispatchEvent:(DOMEvent *)event
-{
-    if (![self _node]->isEventTargetNode())
-        WebCore::raiseDOMException(DOM_NOT_SUPPORTED_ERR);
-
-    WebCore::ExceptionCode ec = 0;
-    BOOL result = WebCore::EventTargetNodeCast([self _node])->dispatchEvent([event _event], ec);
-    WebCore::raiseOnDOMError(ec);
-    return result;
 }
 
 @end
@@ -576,13 +542,13 @@ static NSArray *kit(const Vector<IntRect>& rects)
     ASSERT(name);
     WebCore::Element* element = [self _element];
     ASSERT(element);
-    return WebCore::KURL(element->document()->completeURL(parseURL(element->getAttribute(name)).deprecatedString())).getNSURL();
+    return element->document()->completeURL(parseURL(element->getAttribute(name)));
 }
 
 // FIXME: this should be implemented in the implementation
 - (void *)_NPObject
 {
-#if USE(NPOBJECT)
+#if ENABLE(NETSCAPE_PLUGIN_API)
     WebCore::Element* element = [self _element];
     if (element->hasTagName(WebCore::HTMLNames::appletTag) || element->hasTagName(WebCore::HTMLNames::embedTag) || element->hasTagName(WebCore::HTMLNames::objectTag))
         return static_cast<WebCore::HTMLPlugInElement*>(element)->getNPObject();
@@ -647,12 +613,12 @@ static NSArray *kit(const Vector<IntRect>& rects)
 {
     if (!impl)
         return nil;
-    
+
     id cachedInstance;
     cachedInstance = WebCore::getDOMWrapper(impl);
     if (cachedInstance)
         return [[cachedInstance retain] autorelease];
-    
+
     return [[[self alloc] _initWithNodeFilter:impl] autorelease];
 }
 
@@ -681,130 +647,3 @@ static NSArray *kit(const Vector<IntRect>& rects)
 }
 
 @end
-
-
-//------------------------------------------------------------------------------------------
-// ObjCNodeFilterCondition
-
-class ObjCNodeFilterCondition : public WebCore::NodeFilterCondition {
-public:
-    ObjCNodeFilterCondition(id <DOMNodeFilter>);
-    virtual ~ObjCNodeFilterCondition();
-    virtual short acceptNode(WebCore::Node*) const;
-
-private:
-    ObjCNodeFilterCondition(const ObjCNodeFilterCondition&);
-    ObjCNodeFilterCondition &operator=(const ObjCNodeFilterCondition&);
-
-    id <DOMNodeFilter> m_filter;
-};
-
-ObjCNodeFilterCondition::ObjCNodeFilterCondition(id <DOMNodeFilter> filter)
-    : m_filter(filter)
-{
-    ASSERT(m_filter);
-    HardRetain(m_filter);
-}
-
-ObjCNodeFilterCondition::~ObjCNodeFilterCondition()
-{
-    HardRelease(m_filter);
-}
-
-short ObjCNodeFilterCondition::acceptNode(WebCore::Node* node) const
-{
-    if (!node)
-        return WebCore::NodeFilter::FILTER_REJECT;
-    return [m_filter acceptNode:[DOMNode _wrapNode:node]];
-}
-
-
-//------------------------------------------------------------------------------------------
-// DOMDocument (DOMDocumentTraversal)
-
-// FIXME: this should be auto-generated in DOMDocument.mm
-@implementation DOMDocument (DOMDocumentTraversal)
-
-- (DOMNodeIterator *)createNodeIterator:(DOMNode *)root whatToShow:(unsigned)whatToShow filter:(id <DOMNodeFilter>)filter expandEntityReferences:(BOOL)expandEntityReferences
-{
-    WebCore::NodeFilter* cppFilter = 0;
-    if (filter)
-        cppFilter = new WebCore::NodeFilter(new ObjCNodeFilterCondition(filter));
-    WebCore::ExceptionCode ec = 0;
-    RefPtr<WebCore::NodeIterator> impl = [self _document]->createNodeIterator([root _node], whatToShow, cppFilter, expandEntityReferences, ec);
-    WebCore::raiseOnDOMError(ec);
-    return [DOMNodeIterator _wrapNodeIterator:impl.get() filter:filter];
-}
-
-- (DOMTreeWalker *)createTreeWalker:(DOMNode *)root whatToShow:(unsigned)whatToShow filter:(id <DOMNodeFilter>)filter expandEntityReferences:(BOOL)expandEntityReferences
-{
-    WebCore::NodeFilter* cppFilter = 0;
-    if (filter)
-        cppFilter = new WebCore::NodeFilter(new ObjCNodeFilterCondition(filter));
-    WebCore::ExceptionCode ec = 0;
-    RefPtr<WebCore::TreeWalker> impl = [self _document]->createTreeWalker([root _node], whatToShow, cppFilter, expandEntityReferences, ec);
-    WebCore::raiseOnDOMError(ec);
-    return [DOMTreeWalker _wrapTreeWalker:impl.get() filter:filter];
-}
-
-@end
-
-@implementation DOMDocument (DOMDocumentTraversalDeprecated)
-
-- (DOMNodeIterator *)createNodeIterator:(DOMNode *)root :(unsigned)whatToShow :(id <DOMNodeFilter>)filter :(BOOL)expandEntityReferences
-{
-    return [self createNodeIterator:root whatToShow:whatToShow filter:filter expandEntityReferences:expandEntityReferences];
-}
-
-- (DOMTreeWalker *)createTreeWalker:(DOMNode *)root :(unsigned)whatToShow :(id <DOMNodeFilter>)filter :(BOOL)expandEntityReferences
-{
-    return [self createTreeWalker:root whatToShow:whatToShow filter:filter expandEntityReferences:expandEntityReferences];
-}
-
-@end
-
-
-//------------------------------------------------------------------------------------------
-// ObjCEventListener
-
-namespace WebCore {
-
-ObjCEventListener* ObjCEventListener::find(id <DOMEventListener> listener)
-{
-    if (ListenerMap* map = listenerMap)
-        return map->get(listener);
-    return 0;
-}
-
-ObjCEventListener *ObjCEventListener::create(id <DOMEventListener> listener)
-{
-    ObjCEventListener* wrapper = find(listener);
-    if (!wrapper)
-        wrapper = new ObjCEventListener(listener);
-    wrapper->ref();
-    return wrapper;
-}
-
-ObjCEventListener::ObjCEventListener(id <DOMEventListener> listener)
-    : m_listener([listener retain])
-{
-    ListenerMap* map = listenerMap;
-    if (!map) {
-        map = new ListenerMap;
-        listenerMap = map;
-    }
-    map->set(listener, this);
-}
-
-ObjCEventListener::~ObjCEventListener()
-{
-    listenerMap->remove(m_listener);
-    [m_listener release];
-}
-
-void ObjCEventListener::handleEvent(Event* event, bool)
-{
-    [m_listener handleEvent:[DOMEvent _wrapEvent:event]];
-}
-
-} // namespace WebCore

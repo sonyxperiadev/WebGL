@@ -31,6 +31,8 @@
 #include "KeyboardCodes.h"
 #include "NotImplemented.h"
 
+#include <ctype.h>
+
 #include <QKeyEvent>
 
 namespace WebCore {
@@ -444,8 +446,10 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(QKeyEvent* event)
     m_altKey = (state & Qt::AltModifier) != 0;
     m_metaKey = (state & Qt::MetaModifier) != 0;    
     m_windowsVirtualKeyCode = windowsKeyCodeForKeyEvent(event->key());
+    m_nativeVirtualKeyCode = event->nativeVirtualKey();
     m_isKeypad = (state & Qt::KeypadModifier) != 0;
     m_shiftKey = (state & Qt::ShiftModifier) != 0 || event->key() == Qt::Key_Backtab; // Simulate Shift+Tab with Key_Backtab
+    m_qtEvent = event;
 }
 
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)

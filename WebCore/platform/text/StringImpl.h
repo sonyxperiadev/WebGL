@@ -22,7 +22,6 @@
 #ifndef StringImpl_h
 #define StringImpl_h
 
-#include <kjs/identifier.h>
 #include <limits.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Forward.h>
@@ -30,7 +29,7 @@
 #include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
 
-#if PLATFORM(CF)
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -44,11 +43,15 @@ class AtomicString;
 class StringBuffer;
 
 struct CStringTranslator;
-struct Length;
+struct HashAndCharactersTranslator;
 struct StringHash;
 struct UCharBufferTranslator;
 
 class StringImpl : public RefCounted<StringImpl> {
+    friend class AtomicString;
+    friend struct CStringTranslator;
+    friend struct HashAndCharactersTranslator;
+    friend struct UCharBufferTranslator;
 private:
     StringImpl();
     StringImpl(const UChar*, unsigned length);
@@ -83,6 +86,7 @@ public:
     bool hasTerminatingNullCharacter() { return m_hasTerminatingNullCharacter; }
 
     unsigned hash() { if (m_hash == 0) m_hash = computeHash(m_data, m_length); return m_hash; }
+    unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
     static unsigned computeHash(const UChar*, unsigned len);
     static unsigned computeHash(const char*);
     
@@ -95,18 +99,21 @@ public:
     UChar operator[](unsigned i) { ASSERT(i < m_length); return m_data[i]; }
     UChar32 characterStartingAt(unsigned);
 
-    Length toLength();
-
     bool containsOnlyWhitespace();
 
-    int toInt(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
-    int64_t toInt64(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
-    uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
+    int toIntStrict(bool* ok = 0, int base = 10);
+    unsigned toUIntStrict(bool* ok = 0, int base = 10);
+    int64_t toInt64Strict(bool* ok = 0, int base = 10);
+    uint64_t toUInt64Strict(bool* ok = 0, int base = 10);
+
+    int toInt(bool* ok = 0); // ignores trailing garbage
+    unsigned toUInt(bool* ok = 0); // ignores trailing garbage
+    int64_t toInt64(bool* ok = 0); // ignores trailing garbage
+    uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage
+
     double toDouble(bool* ok = 0);
     float toFloat(bool* ok = 0);
 
-    Length* toCoordsArray(int& len);
-    Length* toLengthArray(int& len);
     bool isLower();
     PassRefPtr<StringImpl> lower();
     PassRefPtr<StringImpl> upper();
@@ -138,7 +145,7 @@ public:
 
     WTF::Unicode::Direction defaultWritingDirection();
 
-#if PLATFORM(CF)
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
     CFStringRef createCFString();
 #endif
 #ifdef __OBJC__
@@ -146,10 +153,6 @@ public:
 #endif
 
 private:
-    friend class AtomicString;
-    friend struct UCharBufferTranslator;
-    friend struct CStringTranslator;
-
     unsigned m_length;
     const UChar* m_data;
     mutable unsigned m_hash;

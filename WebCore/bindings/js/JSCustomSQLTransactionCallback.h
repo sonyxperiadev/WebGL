@@ -31,7 +31,9 @@
 
 #include "SQLTransactionCallback.h"
 
-namespace KJS {
+#include <wtf/PassRefPtr.h>
+
+namespace JSC {
     class JSObject;
 }
 
@@ -41,12 +43,15 @@ class Frame;
 
 class JSCustomSQLTransactionCallback : public SQLTransactionCallback {
 public:
-    JSCustomSQLTransactionCallback(KJS::JSObject* callback, Frame*);
+    static PassRefPtr<JSCustomSQLTransactionCallback> create(JSC::JSObject* callback, Frame* frame) { return adoptRef(new JSCustomSQLTransactionCallback(callback, frame)); }
+
     virtual ~JSCustomSQLTransactionCallback();
     
     virtual void handleEvent(SQLTransaction*, bool& raisedException);
 
 private:
+    JSCustomSQLTransactionCallback(JSC::JSObject* callback, Frame*);
+
     static void deleteData(void*);
 
     class Data;

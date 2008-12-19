@@ -30,9 +30,11 @@
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(CF)
 #include <wtf/RetainPtr.h>
+#endif
 
+#if PLATFORM(MAC)
 #ifdef __OBJC__
 @class NSData;
 #else
@@ -45,18 +47,22 @@ namespace WebCore {
 
 class SharedBuffer : public RefCounted<SharedBuffer> {
 public:
-    SharedBuffer();
-    SharedBuffer(const char*, int);
-    SharedBuffer(const unsigned char*, int);
+    static PassRefPtr<SharedBuffer> create() { return adoptRef(new SharedBuffer); }
+    static PassRefPtr<SharedBuffer> create(const char* c, int i) { return adoptRef(new SharedBuffer(c, i)); }
+    static PassRefPtr<SharedBuffer> create(const unsigned char* c, int i) { return adoptRef(new SharedBuffer(c, i)); }
 
     static PassRefPtr<SharedBuffer> createWithContentsOfFile(const String& filePath);
+
+    static PassRefPtr<SharedBuffer> adoptVector(Vector<char>& vector);
     
 #if PLATFORM(MAC)
     NSData *createNSData();
-    CFDataRef createCFData();
     static PassRefPtr<SharedBuffer> wrapNSData(NSData *data);
 #endif
-        
+#if PLATFORM(CF)
+    CFDataRef createCFData();
+#endif
+
     const char* data() const;
     unsigned size() const;
     const Vector<char> &buffer() { return m_buffer; }
@@ -71,14 +77,18 @@ public:
     PassRefPtr<SharedBuffer> copy() const;
     
 private:
+    SharedBuffer();
+    SharedBuffer(const char*, int);
+    SharedBuffer(const unsigned char*, int);
+    
     void clearPlatformData();
     void maybeTransferPlatformData();
     bool hasPlatformData() const;
     
     Vector<char> m_buffer;
-#if PLATFORM(MAC)
-    SharedBuffer(NSData *nsdata);
-    RetainPtr<NSData> m_nsData;
+#if PLATFORM(CF)
+    SharedBuffer(CFDataRef);
+    RetainPtr<CFDataRef> m_cfData;
 #endif
 };
     

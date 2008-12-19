@@ -29,8 +29,7 @@
 #ifndef UIDelegate_h
 #define UIDelegate_h
 
-#include <WebKit/IWebUIDelegate.h>
-#include <WebKit/IWebUIDelegatePrivate.h>
+#include <WebKit/WebKit.h>
 #include <wtf/OwnPtr.h>
 #include <windef.h>
 
@@ -60,10 +59,10 @@ public:
         /* [in] */ IWebView *sender);
 
     virtual HRESULT STDMETHODCALLTYPE webViewFocus( 
-        /* [in] */ IWebView *sender) { return E_NOTIMPL; }
+        /* [in] */ IWebView *sender);
 
     virtual HRESULT STDMETHODCALLTYPE webViewUnfocus( 
-        /* [in] */ IWebView *sender) { return E_NOTIMPL; }
+        /* [in] */ IWebView *sender);
 
     virtual HRESULT STDMETHODCALLTYPE webViewFirstResponder( 
         /* [in] */ IWebView *sender,
@@ -75,7 +74,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setStatusText( 
         /* [in] */ IWebView *sender,
-        /* [in] */ BSTR text) { return E_NOTIMPL; }
+        /* [in] */ BSTR text);
 
     virtual HRESULT STDMETHODCALLTYPE webViewStatusText( 
         /* [in] */ IWebView *sender,
@@ -140,7 +139,7 @@ public:
         /* [in] */ IWebView *sender,
         /* [in] */ BSTR message,
         /* [in] */ IWebFrame *initiatedByFrame,
-        /* [retval][out] */ BOOL *result) { return E_NOTIMPL; } 
+        /* [retval][out] */ BOOL *result);
 
     virtual HRESULT STDMETHODCALLTYPE runOpenPanelForFileButtonWithResultListener( 
         /* [in] */ IWebView *sender,
@@ -254,6 +253,11 @@ protected:
     virtual HRESULT STDMETHODCALLTYPE webViewResizerRect( 
         /* [in] */ IWebView *sender,
         /* [retval][out] */ RECT *rect) { return E_NOTIMPL; }
+
+    virtual HRESULT STDMETHODCALLTYPE webViewSendResizeMessage( 
+        /* [in] */ UINT uMsg,
+        /* [in] */ WPARAM wParam,
+        /* [in] */ LPARAM lParam) { return E_NOTIMPL; }
     
     virtual HRESULT STDMETHODCALLTYPE webViewDrawResizer( 
         /* [in] */ IWebView *sender,

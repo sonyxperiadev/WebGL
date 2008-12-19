@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,22 +28,19 @@
 
 #import "WebPluginContainerCheck.h"
 
-#import "WebFrame.h"
-#import "WebFrameBridge.h"
-#import "WebPluginContainer.h"
+#import "WebFrameInternal.h"
 #import "WebPluginContainerPrivate.h"
 #import "WebPluginController.h"
-#import "WebPolicyDelegate.h"
 #import "WebPolicyDelegatePrivate.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSURL.h>
 #import <Foundation/NSURLRequest.h>
-#import <JavaScriptCore/Assertions.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
+#import <wtf/Assertions.h>
 #import <objc/objc-runtime.h>
 
 using namespace WebCore;
@@ -95,9 +92,9 @@ using namespace WebCore;
 
 - (BOOL)_isForbiddenFileLoad
 {
-   WebFrameBridge *bridge = [_controller bridge];
-   ASSERT(bridge);
-   if (![bridge _frame]->loader()->canLoad([_request URL], [bridge _frame]->document())) {
+   Frame* coreFrame = core([_controller webFrame]);
+   ASSERT(coreFrame);
+   if (!coreFrame->loader()->canLoad([_request URL], String(), coreFrame->document())) {
        [self _continueWithPolicy:PolicyIgnore];
        return YES;
    }

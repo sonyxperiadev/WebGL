@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,9 +29,8 @@
 #include "CSSStyleSheet.h"
 #include "JSCSSStyleSheet.h"
 #include "JSNode.h"
-#include "Node.h"
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
@@ -40,17 +39,16 @@ JSValue* toJS(ExecState* exec, StyleSheet* styleSheet)
     if (!styleSheet)
         return jsNull();
 
-    DOMObject* ret = ScriptInterpreter::getDOMObject(styleSheet);
-    if (ret)
-        return ret;
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), styleSheet);
+    if (wrapper)
+        return wrapper;
 
     if (styleSheet->isCSSStyleSheet())
-        ret = new JSCSSStyleSheet(JSCSSStyleSheetPrototype::self(exec), static_cast<CSSStyleSheet*>(styleSheet));
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSStyleSheet, styleSheet);
     else
-        ret = new JSStyleSheet(JSStyleSheetPrototype::self(exec), styleSheet);
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, StyleSheet, styleSheet);
 
-    ScriptInterpreter::putDOMObject(styleSheet, ret);
-    return ret;
+    return wrapper;
 }
 
 void JSStyleSheet::mark()
@@ -63,7 +61,7 @@ void JSStyleSheet::mark()
     // be to make ref/deref on the style sheet ref/deref the node instead, but there's
     // a lot of disentangling of the CSS DOM objects that would need to happen first.
     if (Node* ownerNode = impl()->ownerNode()) {
-        if (JSNode* ownerNodeWrapper = ScriptInterpreter::getDOMNodeForDocument(ownerNode->document(), ownerNode)) {
+        if (JSNode* ownerNodeWrapper = getCachedDOMNodeWrapper(ownerNode->document(), ownerNode)) {
             if (!ownerNodeWrapper->marked())
                 ownerNodeWrapper->mark();
         }

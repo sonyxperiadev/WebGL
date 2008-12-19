@@ -60,15 +60,20 @@ class KeyboardEvent;
 class MouseEventWithHitTestResults;
 class Node;
 class PlatformKeyboardEvent;
-class PlatformScrollbar;
 class PlatformWheelEvent;
 class RenderLayer;
 class RenderObject;
 class RenderWidget;
+class Scrollbar;
 class String;
+class SVGElementInstance;
 class TextEvent;
 class VisiblePosition;
 class Widget;
+#if ENABLE(TOUCH_EVENTS) // Android
+class PlatformTouchEvent;
+class Touch;
+#endif
     
 struct HitTestRequest;
 
@@ -76,7 +81,6 @@ extern const int LinkDragHysteresis;
 extern const int ImageDragHysteresis;
 extern const int TextDragHysteresis;
 extern const int GeneralDragHysteresis;
-extern const double TextDragDelay;
 
 class EventHandler : Noncopyable {
 public:
@@ -90,8 +94,12 @@ public:
     Node* mousePressNode() const;
     void setMousePressNode(PassRefPtr<Node>);
 
+    bool panScrollInProgress() { return m_panScrollInProgress; }
+    void setPanScrollInProgress(bool inProgress) { m_panScrollInProgress = inProgress; }
+
     void stopAutoscrollTimer(bool rendererIsBeingDestroyed = false);
     RenderObject* autoscrollRenderer() const;
+    void updateAutoscrollRenderer();
 
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent);
 
@@ -130,12 +138,17 @@ public:
     bool handleMouseReleaseEvent(const PlatformMouseEvent&);
     bool handleWheelEvent(PlatformWheelEvent&);
 
+#if ENABLE(TOUCH_EVENTS) // Android
+    bool handleTouchEvent(const PlatformTouchEvent&);
+#endif
+
     bool sendContextMenuEvent(const PlatformMouseEvent&);
 
     void setMouseDownMayStartAutoscroll() { m_mouseDownMayStartAutoscroll = true; }
 
     bool needsKeyboardEventDisambiguationQuirks() const;
 
+    static unsigned accessKeyModifiers() { return s_accessKeyModifiers; }
     bool handleAccessKey(const PlatformKeyboardEvent&);
     bool keyEvent(const PlatformKeyboardEvent&);
     void defaultKeyboardEventHandler(KeyboardEvent*);
@@ -152,6 +165,15 @@ public:
     void focusDocumentView();
 
     void capsLockStateMayHaveChanged();
+    
+    unsigned pendingFrameUnloadEventCount();
+    void addPendingFrameUnloadEventCount();
+    void removePendingFrameUnloadEventCount();
+    void clearPendingFrameUnloadEventCount();
+    unsigned pendingFrameBeforeUnloadEventCount();
+    void addPendingFrameBeforeUnloadEventCount();
+    void removePendingFrameBeforeUnloadEventCount();
+    void clearPendingFrameBeforeUnloadEventCount();
     
 #if PLATFORM(MAC)
     PassRefPtr<KeyboardEvent> currentKeyboardEvent() const;
@@ -182,8 +204,9 @@ private:
         RefPtr<Clipboard> m_dragClipboard; // used on only the source side of dragging
     };
     static EventHandlerDragState& dragState();
+    static const double TextDragDelay;
     
-    Clipboard* createDraggingClipboard() const;
+    PassRefPtr<Clipboard> createDraggingClipboard() const;
     
     bool eventActivatedView(const PlatformMouseEvent&) const;
     void selectClosestWordFromMouseEvent(const MouseEventWithHitTestResults& event);
@@ -198,7 +221,10 @@ private:
     bool handleMouseDraggedEvent(const MouseEventWithHitTestResults&);
     bool handleMouseReleaseEvent(const MouseEventWithHitTestResults&);
 
-    Cursor selectCursor(const MouseEventWithHitTestResults&, PlatformScrollbar*);
+    void handleKeyboardSelectionMovement(KeyboardEvent*);
+    
+    Cursor selectCursor(const MouseEventWithHitTestResults&, Scrollbar*);
+    void setPanScrollCursor();
 
     void hoverTimerFired(Timer<EventHandler>*);
 
@@ -208,7 +234,6 @@ private:
     void handleAutoscroll(RenderObject*);
     void startAutoscrollTimer();
     void setAutoscrollRenderer(RenderObject*);
-
     void autoscrollTimerFired(Timer<EventHandler>*);
 
     void invalidateClick();
@@ -240,7 +265,7 @@ private:
 
     bool passSubframeEventToSubframe(MouseEventWithHitTestResults&, Frame* subframe, HitTestResult* hoveredNode = 0);
 
-    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&, PlatformScrollbar*);
+    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&, Scrollbar*);
 
     bool passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults&);
     bool passWidgetMouseDownEventToWidget(RenderWidget*);
@@ -279,14 +304,20 @@ private:
 
     IntPoint m_dragStartPos;
 
+    IntPoint m_panScrollStartPos;
+    bool m_panScrollInProgress;
+
     Timer<EventHandler> m_hoverTimer;
     
     Timer<EventHandler> m_autoscrollTimer;
     RenderObject* m_autoscrollRenderer;
+    bool m_autoscrollInProgress;
     bool m_mouseDownMayStartAutoscroll;
     bool m_mouseDownWasInSubframe;
 #if ENABLE(SVG)
     bool m_svgPan;
+    RefPtr<SVGElementInstance> m_instanceUnderMouse;
+    RefPtr<SVGElementInstance> m_lastInstanceUnderMouse;
 #endif
 
     RenderLayer* m_resizeLayer;
@@ -296,10 +327,13 @@ private:
     RefPtr<Node> m_nodeUnderMouse;
     RefPtr<Node> m_lastNodeUnderMouse;
     RefPtr<Frame> m_lastMouseMoveEventSubframe;
-    RefPtr<PlatformScrollbar> m_lastScrollbarUnderMouse;
+    RefPtr<Scrollbar> m_lastScrollbarUnderMouse;
 
     int m_clickCount;
     RefPtr<Node> m_clickNode;
+#if ENABLE(TOUCH_EVENTS) // Android
+    RefPtr<Touch> m_touch;
+#endif
 
     RefPtr<Node> m_dragTarget;
     
@@ -311,6 +345,11 @@ private:
     IntPoint m_mouseDownPos; // in our view's coords
     double m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDown;
+
+    static unsigned s_accessKeyModifiers;
+    
+    unsigned m_pendingFrameUnloadEventCount;
+    unsigned m_pendingFrameBeforeUnloadEventCount;
 
 #if PLATFORM(MAC)
     NSView *m_mouseDownView;

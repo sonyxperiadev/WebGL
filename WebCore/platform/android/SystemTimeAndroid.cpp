@@ -31,7 +31,6 @@ double currentTime()
     return now;
 }
 
-#ifdef ANDROID_INSTRUMENT
 uint32_t get_thread_msec()
 {
 #if defined(HAVE_POSIX_CLOCKS)
@@ -47,6 +46,5 @@ uint32_t get_thread_msec()
     return tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 #endif
 }
-#endif
 
 }

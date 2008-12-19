@@ -66,8 +66,6 @@ public:
 
     virtual bool isTable() const { return true; }
 
-    virtual void setStyle(RenderStyle*);
-
     virtual bool avoidsFloats() const { return true; }
 
     int getColumnPos(int col) const { return m_columnPos[col]; }
@@ -98,8 +96,11 @@ public:
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
     virtual void layout();
     virtual void calcPrefWidths();
+
+    virtual int getBaselineOfFirstLineBox() const;
 
     virtual RenderBlock* firstLineBlock() const;
     virtual void updateFirstLetter();
@@ -190,14 +191,13 @@ public:
             recalcSections();
     }
 
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
-
 #ifdef ANDROID_LAYOUT
     void clearSingleColumn() { m_singleColumn = false; }
     bool isSingleColumn() const { return m_singleColumn; }
 #endif
+
+protected:
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
 
 private:
     void recalcSections() const;

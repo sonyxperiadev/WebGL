@@ -27,48 +27,34 @@
  */
 
 #import "WebDataSourcePrivate.h"
+#import <wtf/Forward.h>
 
-#ifdef __cplusplus
 namespace WebCore {
     class DocumentLoader;
 }
-typedef WebCore::DocumentLoader WebCoreDocumentLoader;
+
 class WebDocumentLoaderMac;
-#else
-@class WebCoreDocumentLoader;
-@class WebDocumentLoaderMac;
-#endif
 
 @class DOMDocumentFragment;
 @class DOMElement;
-@class NSError;
-@class NSURL;
 @class WebArchive;
-@class WebFrameBridge;
 @class WebResource;
 @class WebView;
 
-@protocol WebDocumentRepresentation;
-
 @interface WebDataSource (WebInternal)
-- (void)_addToUnarchiveState:(WebArchive *)archive;
 - (void)_makeRepresentation;
 - (BOOL)_isDocumentHTML;
 - (WebView *)_webView;
-- (WebFrameBridge *)_bridge;
-- (WebArchive *)_popSubframeArchiveWithName:(NSString *)frameName;
 - (NSURL *)_URL;
 - (DOMElement *)_imageElementWithImageResource:(WebResource *)resource;
 - (DOMDocumentFragment *)_documentFragmentWithImageResource:(WebResource *)resource;
 - (DOMDocumentFragment *)_documentFragmentWithArchive:(WebArchive *)archive;
 + (NSMutableDictionary *)_repTypesAllowImageTypeOmission:(BOOL)allowImageTypeOmission;
 - (void)_replaceSelectionWithArchive:(WebArchive *)archive selectReplacement:(BOOL)selectReplacement;
-- (WebResource *)_archivedSubresourceForURL:(NSURL *)URL;
-- (id)_initWithDocumentLoader:(WebDocumentLoaderMac*)loader;
+- (id)_initWithDocumentLoader:(PassRefPtr<WebDocumentLoaderMac>)loader;
 - (void)_finishedLoading;
 - (void)_receivedData:(NSData *)data;
 - (void)_revertToProvisionalState;
 - (void)_setMainDocumentError:(NSError *)error;
-- (void)_clearUnarchivingState;
-- (WebCoreDocumentLoader*)_documentLoader;
+- (WebCore::DocumentLoader*)_documentLoader;
 @end

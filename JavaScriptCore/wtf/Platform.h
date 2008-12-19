@@ -1,4 +1,3 @@
-/* -*- mode: c++; c-basic-offset: 4 -*- */
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -21,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef WTF_Platform_h
@@ -50,11 +49,26 @@
 #define WTF_PLATFORM_WIN_OS 1
 #endif
 
+/* PLATFORM(WIN_CE) */
+/* Operating system level dependencies for Windows CE that should be used */
+/* regardless of operating environment */
+/* Note that for this platform PLATFORM(WIN_OS) is also defined. */
+#if defined(_WIN32_WCE)
+#define WTF_PLATFORM_WIN_CE 1
+#endif
+
 /* PLATFORM(FREEBSD) */
 /* Operating system level dependencies for FreeBSD-like systems that */
 /* should be used regardless of operating environment */
 #ifdef __FreeBSD__
 #define WTF_PLATFORM_FREEBSD 1
+#endif
+
+/* PLATFORM(OPENBSD) */
+/* Operating system level dependencies for OpenBSD systems that */
+/* should be used regardless of operating environment */
+#ifdef __OpenBSD__
+#define WTF_PLATFORM_OPENBSD 1
 #endif
 
 /* PLATFORM(SOLARIS) */
@@ -79,11 +93,14 @@
 
 /* Operating environments */
 
+/* PLATFORM(CHROMIUM) */
 /* PLATFORM(QT) */
 /* PLATFORM(GTK) */
 /* PLATFORM(MAC) */
 /* PLATFORM(WIN) */
-#if defined(BUILDING_QT__)
+#if defined(BUILDING_CHROMIUM__)
+#define WTF_PLATFORM_CHROMIUM 1
+#elif defined(BUILDING_QT__)
 #define WTF_PLATFORM_QT 1
 
 /* PLATFORM(KDE) */
@@ -103,15 +120,21 @@
 
 /* Graphics engines */
 
-/* PLATFORM(CG) */
-/* PLATFORM(CAIRO) */
+/* PLATFORM(CG) and PLATFORM(CI) */
 #if PLATFORM(MAC)
 #define WTF_PLATFORM_CG 1
 #define WTF_PLATFORM_CI 1
-#elif !PLATFORM(QT) && !PLATFORM(WX)
-#define WTF_PLATFORM_CAIRO 1
 #endif
 
+/* PLATFORM(SKIA) */
+#if PLATFORM(CHROMIUM)
+#define WTF_PLATFORM_SKIA 1
+#endif
+
+/* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX)
+#define WTF_PLATFORM_CAIRO 1
+#endif
 
 #ifdef __S60__
 // we are cross-compiling, it is not really windows
@@ -123,6 +146,8 @@
 #endif
 
 #ifdef ANDROID
+#define WTF_PLATFORM_ANDROID 1
+#define WTF_PLATFORM_LINUX 1
 //due to pthread code in collector.cpp, we need PLATFORM(DARWIN)
 //#undef WTF_PLATFORM_DARWIN
 #undef WTF_PLATFORM_MAC
@@ -131,11 +156,17 @@
 #undef WTF_PLATFORM_CG
 #undef WTF_PLATFORM_CI
 #undef WTF_PLATFORM_CAIRO
+#define WTF_USE_PTHREADS 1
 
 #define WTF_PLATFORM_SGL 1
 #define WTF_PLATFORM_UNIX 1
 
 #define USE_SYSTEM_MALLOC 1
+#define ENABLE_MAC_JAVA_BRIDGE 1
+#define LOG_DISABLED 1
+// Prevents Webkit from drawing the caret in textfields and textareas
+// This prevents unnecessary invals.
+#define ENABLE_TEXT_CARET 0
 #endif // ANDROID
 
 /* CPU */
@@ -159,13 +190,14 @@
 #define WTF_PLATFORM_BIG_ENDIAN 1
 #endif
 
+/* PLATFORM(ARM) */
 #if   defined(arm) \
    || defined(__arm__)
 #define WTF_PLATFORM_ARM 1
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
-#elif !defined(__ARM_EABI__) && !defined(__ARMEB__)
-#if !defined(ANDROID) || !defined(__VFP_FP__)
+#elif !defined(__ARM_EABI__) && !defined(__ARMEB__) && !defined(__VFP_FP__)
+#if !defined(ANDROID)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
 #endif
 #endif
@@ -190,6 +222,12 @@
 #define WTF_PLATFORM_X86_64 1
 #endif
 
+/* PLATFORM(SPARC64) */
+#if defined(__sparc64__)
+#define WTF_PLATFORM_SPARC64 1
+#define WTF_PLATFORM_BIG_ENDIAN 1
+#endif
+
 /* Compiler */
 
 /* COMPILER(MSVC) */
@@ -205,6 +243,11 @@
 #define WTF_COMPILER_GCC 1
 #endif
 
+/* COMPILER(MINGW) */
+#if defined(MINGW) || defined(__MINGW32__)
+#define WTF_COMPILER_MINGW 1
+#endif
+
 /* COMPILER(BORLAND) */
 /* not really fully supported - is this relevant any more? */
 #if defined(__BORLANDC__)
@@ -217,16 +260,17 @@
 #define WTF_COMPILER_CYGWIN 1
 #endif
 
-/* multiple threads only supported on Mac for now */
-#if PLATFORM(MAC) || PLATFORM(WIN)
-#define WTF_USE_MULTIPLE_THREADS 1
+#if (PLATFORM(MAC) || PLATFORM(WIN)) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
+#define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
-/* for Unicode, KDE uses Qt, everything else uses ICU */
+/* for Unicode, KDE uses Qt */
 #if PLATFORM(KDE) || PLATFORM(QT)
 #define WTF_USE_QT4_UNICODE 1
 #elif PLATFORM(SYMBIAN)
 #define WTF_USE_SYMBIAN_UNICODE 1
+#elif PLATFORM(GTK)
+/* The GTK+ Unicode backend is configurable */
 #else
 #define WTF_USE_ICU_UNICODE 1
 #endif
@@ -234,6 +278,16 @@
 #if PLATFORM(MAC)
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
+#if !defined(ENABLE_MAC_JAVA_BRIDGE)
+#define ENABLE_MAC_JAVA_BRIDGE 1
+#endif
+#if !defined(ENABLE_DASHBOARD_SUPPORT)
+#define ENABLE_DASHBOARD_SUPPORT 1
+#endif
+#define HAVE_READLINE 1
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#define HAVE_DTRACE 1
+#endif
 #endif
 
 #if PLATFORM(WIN)
@@ -245,9 +299,51 @@
 #define WTF_USE_PTHREADS 1
 #endif
 
-#if PLATFORM(QT)
-#define USE_SYSTEM_MALLOC 1
+#if PLATFORM(GTK)
+#if HAVE(PTHREAD_H)
+#define WTF_USE_PTHREADS 1
 #endif
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(CHROMIUM)
+#define HAVE_ACCESSIBILITY 1
+#endif
+
+#if COMPILER(GCC)
+#define HAVE_COMPUTED_GOTO 1
+#endif
+
+#if PLATFORM(DARWIN)
+
+#define HAVE_ERRNO_H 1
+#define HAVE_MMAP 1
+#define HAVE_MERGESORT 1
+#define HAVE_SBRK 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TIMEB_H 1
+
+#elif PLATFORM(WIN_OS)
+
+#define HAVE_FLOAT_H 1
+#define HAVE_SYS_TIMEB_H 1
+#define HAVE_VIRTUALALLOC 1
+
+#else
+
+/* FIXME: is this actually used or do other platforms generate their own config.h? */
+
+#define HAVE_ERRNO_H 1
+#define HAVE_MMAP 1
+#define HAVE_SBRK 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_TIME_H 1
+
+#endif
+
+/* ENABLE macro defaults */
 
 #if !defined(ENABLE_ICONDATABASE)
 #define ENABLE_ICONDATABASE 1
@@ -257,8 +353,84 @@
 #define ENABLE_DATABASE 1
 #endif
 
+#if !defined(ENABLE_JAVASCRIPT_DEBUGGER)
+#define ENABLE_JAVASCRIPT_DEBUGGER 1
+#endif
+
 #if !defined(ENABLE_FTPDIR)
 #define ENABLE_FTPDIR 1
+#endif
+
+#if !defined(ENABLE_DASHBOARD_SUPPORT)
+#define ENABLE_DASHBOARD_SUPPORT 0
+#endif
+
+#if !defined(ENABLE_MAC_JAVA_BRIDGE)
+#define ENABLE_MAC_JAVA_BRIDGE 0
+#endif
+
+#if !defined(ENABLE_NETSCAPE_PLUGIN_API)
+#define ENABLE_NETSCAPE_PLUGIN_API 1
+#endif
+
+#if !defined(ENABLE_OPCODE_STATS)
+#define ENABLE_OPCODE_STATS 0
+#endif
+
+#if !defined(ENABLE_CODEBLOCK_SAMPLING)
+#define ENABLE_CODEBLOCK_SAMPLING 0
+#endif
+
+#if ENABLE(CODEBLOCK_SAMPLING) && !defined(ENABLE_OPCODE_SAMPLING)
+#define ENABLE_OPCODE_SAMPLING 1
+#endif
+
+#if !defined(ENABLE_OPCODE_SAMPLING)
+#define ENABLE_OPCODE_SAMPLING 0
+#endif
+
+#if !defined(ENABLE_GEOLOCATION)
+#define ENABLE_GEOLOCATION 0
+#endif
+
+#if !defined(ENABLE_TEXT_CARET)
+#define ENABLE_TEXT_CARET 1
+#endif
+
+// ANDROID addition: allow web archive to be disabled
+#if !defined(ENABLE_ARCHIVE)
+#define ENABLE_ARCHIVE 1
+#endif
+
+// CTI only supports x86 at the moment, and has only been tested on Mac and Windows.
+#if !defined(ENABLE_CTI) && PLATFORM(X86) && (PLATFORM(MAC) || PLATFORM(WIN))
+#define ENABLE_CTI 1
+#endif
+
+// WREC only supports x86 at the moment, and has only been tested on Mac and Windows.
+#if !defined(ENABLE_WREC) && ENABLE(CTI) && PLATFORM(X86) && (PLATFORM(MAC) || PLATFORM(WIN))
+#define ENABLE_WREC 1
+#endif
+
+#if ENABLE(CTI) || ENABLE(WREC)
+#define ENABLE_MASM 1
+#endif
+
+#if !defined(ENABLE_PAN_SCROLLING) && (PLATFORM(WIN) || PLATFORM(CHROMIUM) || (PLATFORM(WX) && PLATFORM(WIN_OS)))
+#define ENABLE_PAN_SCROLLING 1
+#endif
+
+/* Use the QtXmlStreamReader implementation for XMLTokenizer */
+#if PLATFORM(QT)
+#if !ENABLE(XSLT)
+#define WTF_USE_QXMLSTREAM 1
+#endif
+#endif
+
+// Use "fastcall" calling convention on MSVC
+#if COMPILER(MSVC)
+#define WTF_USE_FAST_CALL_CTI_ARGUMENT 1
+#define WTF_USE_CTI_ARGUMENT 1
 #endif
 
 #endif /* WTF_Platform_h */

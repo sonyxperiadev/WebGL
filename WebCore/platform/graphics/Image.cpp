@@ -28,6 +28,7 @@
 #include "Image.h"
 
 #include "AffineTransform.h"
+#include "BitmapImage.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include "MIMETypeRegistry.h"
@@ -47,6 +48,12 @@ Image::Image(ImageObserver* observer)
 
 Image::~Image()
 {
+}
+
+Image* Image::nullImage()
+{
+    static RefPtr<Image> nullImage = BitmapImage::create();
+    return nullImage.get();
 }
 
 bool Image::supportsType(const String& type)
@@ -118,9 +125,6 @@ static inline FloatSize calculatePatternScale(const FloatRect& dstRect, const Fl
 
 void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const FloatPoint& srcPoint, const FloatSize& scaledTileSize, CompositeOperator op)
 {    
-    if (!nativeImageForCurrentFrame())
-        return;
-    
     if (mayFillWithSolidColor()) {
         fillWithSolidColor(ctxt, destRect, solidColor(), op);
         return;
@@ -161,9 +165,6 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const Fl
 // FIXME: Merge with the other drawTiled eventually, since we need a combination of both for some things.
 void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& dstRect, const FloatRect& srcRect, TileRule hRule, TileRule vRule, CompositeOperator op)
 {    
-    if (!nativeImageForCurrentFrame())
-        return;
-
     if (mayFillWithSolidColor()) {
         fillWithSolidColor(ctxt, dstRect, solidColor(), op);
         return;

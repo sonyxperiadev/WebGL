@@ -29,21 +29,20 @@
 
 #include "CSSStyleSelector.h"
 #include "Document.h"
-#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
 #include "RenderMenuList.h"
 #include "Text.h"
+#include "NodeRenderStyle.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace EventNames;
 
 HTMLOptionElement::HTMLOptionElement(Document* doc, HTMLFormElement* f)
-    : HTMLGenericFormElement(optionTag, doc, f)
+    : HTMLFormControlElement(optionTag, doc, f)
     , m_selected(false)
     , m_style(0)
 {
@@ -56,26 +55,20 @@ bool HTMLOptionElement::checkDTD(const Node* newChild)
 
 void HTMLOptionElement::attach()
 {
-    if (parentNode()->renderStyle()) {
-        RenderStyle* style = styleForRenderer(0);
-        setRenderStyle(style);
-        style->deref(document()->renderArena());
-    }
-    HTMLGenericFormElement::attach();
+    if (parentNode()->renderStyle())
+        setRenderStyle(styleForRenderer());
+    HTMLFormControlElement::attach();
 }
 
 void HTMLOptionElement::detach()
 {
-    if (m_style) {
-        m_style->deref(document()->renderArena());
-        m_style = 0;
-    }
-    HTMLGenericFormElement::detach();
+    m_style.clear();
+    HTMLFormControlElement::detach();
 }
 
 bool HTMLOptionElement::isFocusable() const
 {
-    return false;
+    return HTMLElement::isFocusable();
 }
 
 const AtomicString& HTMLOptionElement::type() const
@@ -127,11 +120,18 @@ void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
     appendChild(new Text(document(), text), ec);
 }
 
+void HTMLOptionElement::accessKeyAction(bool sendToAnyElement)
+{
+    HTMLSelectElement* select = ownerSelectElement();
+    if (select)
+        select->accessKeySetSelectedIndex(index());
+}
+
 int HTMLOptionElement::index() const
 {
     // Let's do this dynamically. Might be a bit slow, but we're sure
     // we won't forget to update a member variable in some cases...
-    HTMLSelectElement *select = getSelect();
+    HTMLSelectElement* select = ownerSelectElement();
     if (select) {
         const Vector<HTMLElement*>& items = select->listItems();
         int l = items.size();
@@ -154,7 +154,7 @@ void HTMLOptionElement::parseMappedAttribute(MappedAttribute *attr)
     else if (attr->name() == valueAttr)
         m_value = attr->value();
     else
-        HTMLGenericFormElement::parseMappedAttribute(attr);
+        HTMLFormControlElement::parseMappedAttribute(attr);
 }
 
 String HTMLOptionElement::value() const
@@ -174,7 +174,7 @@ void HTMLOptionElement::setSelected(bool selected)
 {
     if (m_selected == selected)
         return;
-    if (HTMLSelectElement* select = getSelect())
+    if (HTMLSelectElement* select = ownerSelectElement())
         select->setSelectedIndex(selected ? index() : -1, false);
     m_selected = selected;
 }
@@ -187,19 +187,23 @@ void HTMLOptionElement::setSelectedState(bool selected)
     setChanged();
 }
 
-void HTMLOptionElement::childrenChanged(bool changedByParser)
+void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-   HTMLSelectElement *select = getSelect();
+   HTMLSelectElement* select = ownerSelectElement();
    if (select)
        select->childrenChanged(changedByParser);
-   HTMLGenericFormElement::childrenChanged(changedByParser);
+   HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
-HTMLSelectElement* HTMLOptionElement::getSelect() const
+HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     Node* select = parentNode();
     while (select && !select->hasTagName(selectTag))
         select = select->parentNode();
+
+    if (!select)
+        return 0;
+    
     return static_cast<HTMLSelectElement*>(select);
 }
 
@@ -223,14 +227,14 @@ void HTMLOptionElement::setLabel(const String& value)
     setAttribute(labelAttr, value);
 }
 
-void HTMLOptionElement::setRenderStyle(RenderStyle* newStyle)
+void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
 {
-    RenderStyle* oldStyle = m_style;
     m_style = newStyle;
-    if (newStyle)
-        newStyle->ref();
-    if (oldStyle)
-        oldStyle->deref(document()->renderArena());
+}
+
+RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const 
+{ 
+    return m_style.get(); 
 }
 
 String HTMLOptionElement::optionText()
@@ -243,16 +247,16 @@ String HTMLOptionElement::optionText()
 
 bool HTMLOptionElement::disabled() const
 { 
-    return HTMLGenericFormElement::disabled() || (parentNode() && static_cast<HTMLGenericFormElement*>(parentNode())->disabled()); 
+    return HTMLFormControlElement::disabled() || (parentNode() && static_cast<HTMLFormControlElement*>(parentNode())->disabled()); 
 }
 
 void HTMLOptionElement::insertedIntoDocument()
 {
     HTMLSelectElement* select;
-    if (selected() && (select = getSelect()))
+    if (selected() && (select = ownerSelectElement()))
         select->scrollToSelection();
     
-    HTMLGenericFormElement::insertedIntoDocument();
+    HTMLFormControlElement::insertedIntoDocument();
 }
 
 } // namespace

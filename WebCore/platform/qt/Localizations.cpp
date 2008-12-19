@@ -28,9 +28,10 @@
 
 #include "config.h"
 
-#include "PlatformString.h"
+#include "IntSize.h"
 #include "LocalizedStrings.h"
 #include "NotImplemented.h"
+#include "PlatformString.h"
 
 #include <QCoreApplication>
 
@@ -58,7 +59,7 @@ String defaultLanguage()
 
 String searchableIndexIntroduction()
 {
-    return QCoreApplication::translate("QWebPage", "Searchable Index", "text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index'");
+    return QCoreApplication::translate("QWebPage", "This is a searchable index. Enter search keywords: ", "text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index'");
 }
     
 String fileButtonChooseFileLabel()
@@ -292,9 +293,59 @@ String AXHeadingText()
     return String();
 }
 
+String AXDefinitionListTermText()
+{
+    return String();
+}
+
+String AXDefinitionListDefinitionText()
+{
+    return String();
+}
+
+String AXButtonActionVerb()
+{
+    return String();
+}
+
+String AXRadioButtonActionVerb()
+{
+    return String();
+}
+
+String AXTextFieldActionVerb()
+{
+    return String();
+}
+
+String AXCheckedCheckBoxActionVerb()
+{
+    return String();
+}
+
+String AXUncheckedCheckBoxActionVerb()
+{
+    return String();
+}
+
+String AXLinkActionVerb()
+{
+    return String();
+}
+
+String multipleFileUploadText(unsigned)
+{
+    return String();
+}
+
 String unknownFileSizeText()
 {
     return QCoreApplication::translate("QWebPage", "Unknown", "Unknown filesize FTP directory listing item");
+}
+
+String imageTitle(const String& filename, const IntSize& size)
+{
+    return QCoreApplication::translate("QWebPage", "%1 (%2x%3 pixels)", "Title string for images").arg(filename).arg(size.width()).arg(size.height());
 }
 
 }

@@ -1,7 +1,8 @@
 /*
- *  Copyright (C) 2007 Alp Toker <alp@atoker.com>
- *  Copyright (C) 2007 Holger Hans Peter Freyther
+ *  Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
+ *  Copyright (C) 2007, 2008 Holger Hans Peter Freyther
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
+ *  Copyright (C) 2008 Collabora Ltd.  All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -29,16 +30,18 @@
 #include "HTMLFrameElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
+#include "JSDOMWindow.h"
 #include "Language.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include "PluginDatabase.h"
+#include "RenderPart.h"
 #include "ResourceRequest.h"
 #include "CString.h"
 #include "ProgressTracker.h"
-#include "kjs_binding.h"
-#include "kjs_proxy.h"
-#include "kjs_window.h"
+#include "JSDOMBinding.h"
+#include "ScriptController.h"
 #include "webkitwebview.h"
 #include "webkitwebframe.h"
 #include "webkitprivate.h"
@@ -56,6 +59,8 @@ namespace WebKit {
 FrameLoaderClient::FrameLoaderClient(WebKitWebFrame* frame)
     : m_frame(frame)
     , m_userAgent("")
+    , m_pluginView(0)
+    , m_hasSentResponseToPlugin(false)
 {
     ASSERT(m_frame);
 }
@@ -120,7 +125,7 @@ static String composeUserAgent()
 
     // WebKit Product
     // FIXME: The WebKit version is hardcoded
-    static const String webKitVersion = "525.1+";
+    static const String webKitVersion = "528.5+";
     ua += "AppleWebKit/" + webKitVersion;
     ua += " (KHTML, like Gecko, ";
     // We mention Safari since many broken sites check for it (OmniWeb does this too)
@@ -144,11 +149,10 @@ String FrameLoaderClient::userAgent(const KURL&)
 
 WTF::PassRefPtr<WebCore::DocumentLoader> FrameLoaderClient::createDocumentLoader(const WebCore::ResourceRequest& request, const SubstituteData& substituteData)
 {
-    RefPtr<DocumentLoader> loader = new DocumentLoader(request, substituteData);
-    return loader.release();
+    return DocumentLoader::create(request, substituteData);
 }
 
-void FrameLoaderClient::dispatchWillSubmitForm(FramePolicyFunction policyFunction,  PassRefPtr<FormState>)
+void FrameLoaderClient::dispatchWillSubmitForm(FramePolicyFunction policyFunction, PassRefPtr<FormState>)
 {
     // FIXME: This is surely too simple
     ASSERT(policyFunction);
@@ -160,9 +164,28 @@ void FrameLoaderClient::dispatchWillSubmitForm(FramePolicyFunction policyFunctio
 
 void FrameLoaderClient::committedLoad(DocumentLoader* loader, const char* data, int length)
 {
-    FrameLoader *fl = loader->frameLoader();
-    fl->setEncoding(m_response.textEncodingName(), false);
-    fl->addData(data, length);
+    if (!m_pluginView) {
+        ASSERT(loader->frame());
+        // Setting the encoding on the frame loader is our way to get work done that is normally done
+        // when the first bit of data is received, even for the case of a document with no data (like about:blank).
+        String encoding = loader->overrideEncoding();
+        bool userChosen = !encoding.isNull();
+        if (!userChosen)
+            encoding = loader->response().textEncodingName();
+
+        FrameLoader* frameLoader = loader->frameLoader();
+        frameLoader->setEncoding(encoding, userChosen);
+        if (data)
+            frameLoader->addData(data, length);
+    }
+
+    if (m_pluginView) {
+        if (!m_hasSentResponseToPlugin) {
+            m_pluginView->didReceiveResponse(loader->response());
+            m_hasSentResponseToPlugin = true;
+        }
+        m_pluginView->didReceiveData(data, length);
+    }
 }
 
 void FrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long  identifier, const AuthenticationChallenge&)
@@ -208,6 +231,7 @@ void FrameLoaderClient::postProgressFinishedNotification()
 
 void FrameLoaderClient::frameLoaderDestroyed()
 {
+    g_object_unref(m_frame);
     m_frame = 0;
     delete this;
 }
@@ -226,7 +250,7 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     (core(m_frame)->loader()->*policyFunction)(PolicyUse);
 }
 
-void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction&, const ResourceRequest&, const String&)
+void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&)
 {
     ASSERT(policyFunction);
     if (!policyFunction)
@@ -236,7 +260,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFuncti
     (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
 }
 
-void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest)
+void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>)
 {
     ASSERT(policyFunction);
     if (!policyFunction)
@@ -258,9 +282,13 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     (core(m_frame)->loader()->*policyFunction)(PolicyUse);
 }
 
-Widget* FrameLoaderClient::createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool)
+Widget* FrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
-    notImplemented();
+    PluginView* pluginView = PluginView::create(core(m_frame), pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
+
+    if (pluginView->status() == PluginStatusLoadedSuccessfully)
+        return pluginView;
+
     return 0;
 }
 
@@ -277,32 +305,20 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
 
     childFrame->tree()->setName(name);
     childFrame->init();
-    childFrame->loader()->load(url, referrer, FrameLoadTypeRedirectWithLockedHistory, String(), 0, 0);
+    childFrame->loader()->loadURL(url, referrer, String(), FrameLoadTypeRedirectWithLockedHistory, 0, 0);
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
         return 0;
-
-    // Propagate the marginwidth/height and scrolling modes to the view.
-    if (ownerElement->hasTagName(HTMLNames::frameTag) || ownerElement->hasTagName(HTMLNames::iframeTag)) {
-        HTMLFrameElement* frameElt = static_cast<HTMLFrameElement*>(ownerElement);
-        if (frameElt->scrollingMode() == ScrollbarAlwaysOff)
-            childFrame->view()->setScrollbarsMode(ScrollbarAlwaysOff);
-        int marginWidth = frameElt->getMarginWidth();
-        int marginHeight = frameElt->getMarginHeight();
-        if (marginWidth != -1)
-            childFrame->view()->setMarginWidth(marginWidth);
-        if (marginHeight != -1)
-            childFrame->view()->setMarginHeight(marginHeight);
-    }
 
     return childFrame.release();
 }
 
 void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
 {
-    notImplemented();
-    return;
+    ASSERT(!m_pluginView);
+    m_pluginView = static_cast<PluginView*>(pluginWidget);
+    m_hasSentResponseToPlugin = false;
 }
 
 Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL,
@@ -315,14 +331,18 @@ Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, Element*, cons
 ObjectContentType FrameLoaderClient::objectContentType(const KURL& url, const String& mimeType)
 {
     String type = mimeType;
+    // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
     if (type.isEmpty())
-        type = MIMETypeRegistry::getMIMETypeForExtension(url.path().mid(url.path().findRev('.') + 1));
+        type = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
 
     if (type.isEmpty())
         return WebCore::ObjectContentFrame;
 
     if (MIMETypeRegistry::isSupportedImageMIMEType(type))
         return WebCore::ObjectContentImage;
+
+    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
+        return WebCore::ObjectContentNetscapePlugin;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(type))
         return WebCore::ObjectContentFrame;
@@ -350,8 +370,8 @@ void FrameLoaderClient::windowObjectCleared()
 
     // TODO: Consider using g_signal_has_handler_pending() to avoid the overhead
     // when there are no handlers.
-    JSGlobalContextRef context = toGlobalRef(coreFrame->scriptProxy()->globalObject()->globalExec());
-    JSObjectRef windowObject = toRef(KJS::Window::retrieve(coreFrame)->getObject());
+    JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+    JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
     ASSERT(windowObject);
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
@@ -376,12 +396,6 @@ void FrameLoaderClient::setMainFrameDocumentReady(bool)
 }
 
 bool FrameLoaderClient::hasWebView() const
-{
-    notImplemented();
-    return true;
-}
-
-bool FrameLoaderClient::hasFrameView() const
 {
     notImplemented();
     return true;
@@ -422,7 +436,7 @@ void FrameLoaderClient::makeRepresentation(DocumentLoader*)
 
 void FrameLoaderClient::forceLayout()
 {
-    notImplemented();
+    core(m_frame)->forceLayout(true);
 }
 
 void FrameLoaderClient::forceLayoutForNonHTML()
@@ -435,22 +449,12 @@ void FrameLoaderClient::setCopiesOnScroll()
     notImplemented();
 }
 
-void FrameLoaderClient::detachedFromParent1()
-{
-    notImplemented();
-}
-
 void FrameLoaderClient::detachedFromParent2()
 {
     notImplemented();
 }
 
 void FrameLoaderClient::detachedFromParent3()
-{
-    notImplemented();
-}
-
-void FrameLoaderClient::detachedFromParent4()
 {
     notImplemented();
 }
@@ -556,11 +560,6 @@ void FrameLoaderClient::revertToProvisionalState(DocumentLoader*)
     notImplemented();
 }
 
-void FrameLoaderClient::clearUnarchivingState(DocumentLoader*)
-{
-    notImplemented();
-}
-
 void FrameLoaderClient::willChangeTitle(DocumentLoader*)
 {
     notImplemented();
@@ -569,32 +568,6 @@ void FrameLoaderClient::willChangeTitle(DocumentLoader*)
 void FrameLoaderClient::didChangeTitle(DocumentLoader *l)
 {
     setTitle(l->title(), l->url());
-}
-
-void FrameLoaderClient::finalSetupForReplace(DocumentLoader*)
-{
-    notImplemented();
-}
-
-void FrameLoaderClient::setDefersLoading(bool)
-{
-    notImplemented();
-}
-
-bool FrameLoaderClient::isArchiveLoadPending(ResourceLoader*) const
-{
-    notImplemented();
-    return false;
-}
-
-void FrameLoaderClient::cancelPendingArchiveLoad(ResourceLoader*)
-{
-    notImplemented();
-}
-
-void FrameLoaderClient::clearArchivedResources()
-{
-    notImplemented();
 }
 
 bool FrameLoaderClient::canHandleRequest(const ResourceRequest&) const
@@ -623,14 +596,13 @@ String FrameLoaderClient::generatedMIMETypeForURLScheme(const String&) const
 
 void FrameLoaderClient::finishedLoading(DocumentLoader* documentLoader)
 {
-    ASSERT(documentLoader->frame());
-    // Setting the encoding on the frame loader is our way to get work done that is normally done
-    // when the first bit of data is received, even for the case of a document with no data (like about:blank).
-    String encoding = documentLoader->overrideEncoding();
-    bool userChosen = !encoding.isNull();
-    if (encoding.isNull())
-        encoding = documentLoader->response().textEncodingName();
-    documentLoader->frameLoader()->setEncoding(encoding, userChosen);
+    if (!m_pluginView)
+        committedLoad(documentLoader, 0, 0);
+    else {
+        m_pluginView->didFinishLoading();
+        m_pluginView = 0;
+        m_hasSentResponseToPlugin = false;
+    }
 }
 
 
@@ -724,13 +696,13 @@ ResourceError FrameLoaderClient::fileDoesNotExistError(const ResourceResponse&)
     return ResourceError();
 }
 
-bool FrameLoaderClient::shouldFallBack(const ResourceError&)
+ResourceError FrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse&)
 {
     notImplemented();
-    return false;
+    return ResourceError();
 }
 
-bool FrameLoaderClient::willUseArchive(ResourceLoader*, const ResourceRequest&, const KURL& originalURL) const
+bool FrameLoaderClient::shouldFallBack(const ResourceError&)
 {
     notImplemented();
     return false;
@@ -738,8 +710,7 @@ bool FrameLoaderClient::willUseArchive(ResourceLoader*, const ResourceRequest&, 
 
 bool FrameLoaderClient::canCachePage() const
 {
-    notImplemented();
-    return false;
+    return true;
 }
 
 Frame* FrameLoaderClient::dispatchCreatePage()
@@ -753,9 +724,13 @@ void FrameLoaderClient::dispatchUnableToImplementPolicy(const ResourceError&)
     notImplemented();
 }
 
-void FrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError&)
+void FrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError& error)
 {
-    notImplemented();
+    if (m_pluginView) {
+        m_pluginView->didFail(error);
+        m_pluginView = 0;
+        m_hasSentResponseToPlugin = false;
+    }
 }
 
 void FrameLoaderClient::startDownload(const ResourceRequest&)
@@ -763,29 +738,57 @@ void FrameLoaderClient::startDownload(const ResourceRequest&)
     notImplemented();
 }
 
-void FrameLoaderClient::updateGlobalHistoryForStandardLoad(const KURL&)
-{
-    notImplemented();
-}
-
-void FrameLoaderClient::updateGlobalHistoryForReload(const KURL&)
+void FrameLoaderClient::updateGlobalHistory(const KURL&)
 {
     notImplemented();
 }
 
 void FrameLoaderClient::savePlatformDataToCachedPage(CachedPage*)
 {
-    notImplemented();
 }
 
 void FrameLoaderClient::transitionToCommittedFromCachedPage(CachedPage*)
 {
-    notImplemented();
 }
 
 void FrameLoaderClient::transitionToCommittedForNewPage()
 {
-    notImplemented();
+    Frame* frame = core(m_frame);
+    ASSERT(frame);
+
+    Page* page = frame->page();
+    ASSERT(page);
+
+    WebKitWebView* containingWindow = getViewFromFrame(m_frame);
+    bool isMainFrame = frame == page->mainFrame();
+
+    if (isMainFrame && frame->view())
+        frame->view()->setParentVisible(false);
+
+    frame->setView(0);
+
+    FrameView* frameView;
+    if (isMainFrame) {
+        IntSize size = IntSize(GTK_WIDGET(containingWindow)->allocation.width,
+                               GTK_WIDGET(containingWindow)->allocation.height);
+        frameView = new FrameView(frame, size);
+        WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
+        frameView->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment);
+    } else
+        frameView = new FrameView(frame);
+
+    frame->setView(frameView);
+    // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
+    frameView->deref();
+
+    if (isMainFrame)
+        frameView->setParentVisible(true);
+
+    if (frame->ownerRenderer())
+        frame->ownerRenderer()->setWidget(frameView);
+
+    if (HTMLFrameOwnerElement* owner = frame->ownerElement())
+        frame->view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);
 }
 
 }

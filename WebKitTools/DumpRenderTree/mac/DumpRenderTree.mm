@@ -29,6 +29,7 @@
  
 #import "DumpRenderTree.h"
 
+#import "AccessibilityController.h"
 #import "CheckedMalloc.h"
 #import "DumpRenderTreePasteboard.h"
 #import "DumpRenderTreeWindow.h"
@@ -46,34 +47,42 @@
 #import "UIDelegate.h"
 #import "WorkQueue.h"
 #import "WorkQueueItem.h"
+#import <Carbon/Carbon.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <WebKit/DOMElementPrivate.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMRange.h>
 #import <WebKit/WebBackForwardList.h>
+#import <WebKit/WebCache.h>
 #import <WebKit/WebCoreStatistics.h>
-#import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDataSourcePrivate.h>
+#import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDocumentPrivate.h>
 #import <WebKit/WebEditingDelegate.h>
 #import <WebKit/WebFrameView.h>
+#import <WebKit/WebHTMLRepresentationInternal.h>
 #import <WebKit/WebHistory.h>
 #import <WebKit/WebHistoryItemPrivate.h>
+#import <WebKit/WebInspector.h>
 #import <WebKit/WebPluginDatabase.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
 #import <WebKit/WebResourceLoadDelegate.h>
+#import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebViewPrivate.h>
 #import <getopt.h>
 #import <mach-o/getsect.h>
 #import <objc/objc-runtime.h>
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/OwnPtr.h>
+
+using namespace std;
 
 @interface DumpRenderTreeEvent : NSEvent
 @end
 
-static void runTest(const char *pathOrURL);
+static void runTest(const string& testPathOrURL);
 
 // Deciding when it's OK to dump out the state is a bit tricky.  All these must be true:
 // - There is no load in progress
@@ -84,8 +93,8 @@ static void runTest(const char *pathOrURL);
 
 volatile bool done;
 
-NavigationController* navigationController = 0;
-LayoutTestController* layoutTestController = 0;
+NavigationController* gNavigationController = 0;
+LayoutTestController* gLayoutTestController = 0;
 
 WebFrame *mainFrame = 0;
 // This is the topmost frame that is loading, during a given load, or nil when no load is 
@@ -106,13 +115,10 @@ static ResourceLoadDelegate *resourceLoadDelegate;
 PolicyDelegate *policyDelegate;
 
 static int dumpPixels;
-static int dumpAllPixels;
 static int threaded;
-static int testRepaintDefault;
-static int repaintSweepHorizontallyDefault;
 static int dumpTree = YES;
+static int forceComplexText;
 static BOOL printSeparators;
-static NSString *currentTest = nil;
 static RetainPtr<CFStringRef> persistentUserStyleSheetLocation;
 
 static WebHistoryItem *prevTestBFItem = nil;  // current b/f item at the end of the previous test
@@ -120,43 +126,109 @@ static WebHistoryItem *prevTestBFItem = nil;  // current b/f item at the end of 
 const unsigned maxViewHeight = 600;
 const unsigned maxViewWidth = 800;
 
+#if __OBJC2__
+static void swizzleAllMethods(Class imposter, Class original)
+{
+    unsigned int imposterMethodCount;
+    Method* imposterMethods = class_copyMethodList(imposter, &imposterMethodCount);
+
+    unsigned int originalMethodCount;
+    Method* originalMethods = class_copyMethodList(original, &originalMethodCount);
+
+    for (unsigned int i = 0; i < imposterMethodCount; i++) {
+        SEL imposterMethodName = method_getName(imposterMethods[i]);
+
+        // Attempt to add the method to the original class.  If it fails, the method already exists and we should
+        // instead exchange the implementations.
+        if (class_addMethod(original, imposterMethodName, method_getImplementation(originalMethods[i]), method_getTypeEncoding(originalMethods[i])))
+            continue;
+
+        unsigned int j = 0;
+        for (; j < originalMethodCount; j++) {
+            SEL originalMethodName = method_getName(originalMethods[j]);
+            if (sel_isEqual(imposterMethodName, originalMethodName))
+                break;
+        }
+
+        // If class_addMethod failed above then the method must exist on the original class.
+        ASSERT(j < originalMethodCount);
+        method_exchangeImplementations(imposterMethods[i], originalMethods[j]);
+    }
+
+    free(imposterMethods);
+    free(originalMethods);
+}
+#endif
+
+static void poseAsClass(const char* imposter, const char* original)
+{
+    Class imposterClass = objc_getClass(imposter);
+    Class originalClass = objc_getClass(original);
+
+#if !__OBJC2__
+    class_poseAs(imposterClass, originalClass);
+#else
+
+    // Swizzle instance methods
+    swizzleAllMethods(imposterClass, originalClass);
+    // and then class methods
+    swizzleAllMethods(object_getClass(imposterClass), object_getClass(originalClass));
+#endif
+}
+
 void setPersistentUserStyleSheetLocation(CFStringRef url)
 {
     persistentUserStyleSheetLocation = url;
 }
 
-static BOOL shouldIgnoreWebCoreNodeLeaks(CFStringRef URLString)
+static bool shouldIgnoreWebCoreNodeLeaks(const string& URLString)
 {
-    static CFStringRef const ignoreSet[] = {
+    static char* const ignoreSet[] = {
         // Keeping this infrastructure around in case we ever need it again.
     };
-    static const int ignoreSetCount = sizeof(ignoreSet) / sizeof(CFStringRef);
+    static const int ignoreSetCount = sizeof(ignoreSet) / sizeof(char*);
     
     for (int i = 0; i < ignoreSetCount; i++) {
-        CFStringRef ignoreString = ignoreSet[i];
-        CFRange range = CFRangeMake(0, CFStringGetLength(URLString));
-        CFOptionFlags flags = kCFCompareAnchored | kCFCompareBackwards | kCFCompareCaseInsensitive;
-        if (CFStringFindWithOptions(URLString, ignoreString, range, flags, NULL))
-            return YES;
+        // FIXME: ignore case
+        string curIgnore(ignoreSet[i]);
+        // Match at the end of the URLString
+        if (!URLString.compare(URLString.length() - curIgnore.length(), curIgnore.length(), curIgnore))
+            return true;
     }
-    return NO;
+    return false;
 }
 
-static void activateAhemFont()
-{    
-    unsigned long fontDataLength;
-    char* fontData = getsectdata("__DATA", "Ahem", &fontDataLength);
-    if (!fontData) {
-        fprintf(stderr, "Failed to locate the Ahem font.\n");
-        exit(1);
-    }
+static void activateFonts()
+{
+    static const char* fontSectionNames[] = {
+        "Ahem",
+        "WeightWatcher100",
+        "WeightWatcher200",
+        "WeightWatcher300",
+        "WeightWatcher400",
+        "WeightWatcher500",
+        "WeightWatcher600",
+        "WeightWatcher700",
+        "WeightWatcher800",
+        "WeightWatcher900",
+        0
+    };
 
-    ATSFontContainerRef fontContainer;
-    OSStatus status = ATSFontActivateFromMemory(fontData, fontDataLength, kATSFontContextLocal, kATSFontFormatUnspecified, NULL, kATSOptionFlagsDefault, &fontContainer);
+    for (unsigned i = 0; fontSectionNames[i]; ++i) {
+        unsigned long fontDataLength;
+        char* fontData = getsectdata("__DATA", fontSectionNames[i], &fontDataLength);
+        if (!fontData) {
+            fprintf(stderr, "Failed to locate the %s font.\n", fontSectionNames[i]);
+            exit(1);
+        }
 
-    if (status != noErr) {
-        fprintf(stderr, "Failed to activate the Ahem font.\n");
-        exit(1);
+        ATSFontContainerRef fontContainer;
+        OSStatus status = ATSFontActivateFromMemory(fontData, fontDataLength, kATSFontContextLocal, kATSFontFormatUnspecified, NULL, kATSOptionFlagsDefault, &fontContainer);
+
+        if (status != noErr) {
+            fprintf(stderr, "Failed to activate the %s font.\n", fontSectionNames[i]);
+            exit(1);
+        }
     }
 }
 
@@ -235,17 +307,25 @@ void testStringByEvaluatingJavaScriptFromString()
 static void setDefaultsToConsistentValuesForTesting()
 {
     // Give some clear to undocumented defaults values
-    static const int MediumFontSmoothing = 2;
+    static const int NoFontSmoothing = 0;
     static const int BlueTintedAppearance = 1;
 
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:@"DoubleMax" forKey:@"AppleScrollBarVariant"];
     [defaults setInteger:4 forKey:@"AppleAntiAliasingThreshold"]; // smallest font size to CG should perform antialiasing on
-    [defaults setInteger:MediumFontSmoothing forKey:@"AppleFontSmoothing"];
+    [defaults setInteger:NoFontSmoothing forKey:@"AppleFontSmoothing"];
     [defaults setInteger:BlueTintedAppearance forKey:@"AppleAquaColorVariant"];
     [defaults setObject:@"0.709800 0.835300 1.000000" forKey:@"AppleHighlightColor"];
     [defaults setObject:@"0.500000 0.500000 0.500000" forKey:@"AppleOtherHighlightColor"];
     [defaults setObject:[NSArray arrayWithObject:@"en"] forKey:@"AppleLanguages"];
+
+    // Scrollbars are drawn either using AppKit (which uses NSUserDefaults) or using HIToolbox (which uses CFPreferences / kCFPreferencesAnyApplication / kCFPreferencesCurrentUser / kCFPreferencesAnyHost)
+    [defaults setObject:@"DoubleMax" forKey:@"AppleScrollBarVariant"];
+    RetainPtr<CFTypeRef> initialValue = CFPreferencesCopyValue(CFSTR("AppleScrollBarVariant"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), CFSTR("DoubleMax"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+    ThemeScrollBarArrowStyle style;
+    GetThemeScrollBarArrowStyle(&style); // Force HIToolbox to read from CFPreferences
+    if (initialValue)
+        CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), initialValue.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 
     NSString *libraryPath = [@"~/Library/Application Support/DumpRenderTree" stringByExpandingTildeInPath];
     [defaults setObject:[libraryPath stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
@@ -265,6 +345,8 @@ static void setDefaultsToConsistentValuesForTesting()
     [preferences setEditableLinkBehavior:WebKitEditableLinkOnlyLiveWithShiftKey];
     [preferences setTabsToLinks:NO];
     [preferences setDOMPasteAllowed:YES];
+    [preferences setFullDocumentTeardownEnabled:YES];
+    [preferences setShouldPrintBackgrounds:YES];
 
     // The back/forward cache is causing problems due to layouts during transition from one page to another.
     // So, turn it off for now, but we might want to turn it back on some day.
@@ -273,8 +355,10 @@ static void setDefaultsToConsistentValuesForTesting()
 
 static void crashHandler(int sig)
 {
-    fprintf(stderr, "%s\n", strsignal(sig));
-    restoreColorSpace(0);
+    char *signalName = strsignal(sig);
+    write(STDERR_FILENO, signalName, strlen(signalName));
+    write(STDERR_FILENO, "\n", 1);
+    restoreMainDisplayColorProfile(0);
     exit(128 + sig);
 }
 
@@ -295,7 +379,7 @@ static void installSignalHandlers()
 static void allocateGlobalControllers()
 {
     // FIXME: We should remove these and move to the ObjC standard [Foo sharedInstance] model
-    navigationController = [[NavigationController alloc] init];
+    gNavigationController = [[NavigationController alloc] init];
     frameLoadDelegate = [[FrameLoadDelegate alloc] init];
     uiDelegate = [[UIDelegate alloc] init];
     editingDelegate = [[EditingDelegate alloc] init];
@@ -312,7 +396,7 @@ static inline void releaseAndZero(NSObject** object)
 
 static void releaseGlobalControllers()
 {
-    releaseAndZero(&navigationController);
+    releaseAndZero(&gNavigationController);
     releaseAndZero(&frameLoadDelegate);
     releaseAndZero(&editingDelegate);
     releaseAndZero(&resourceLoadDelegate);
@@ -323,13 +407,11 @@ static void releaseGlobalControllers()
 static void initializeGlobalsFromCommandLineOptions(int argc, const char *argv[])
 {
     struct option options[] = {
-        {"dump-all-pixels", no_argument, &dumpAllPixels, YES},
-        {"horizontal-sweep", no_argument, &repaintSweepHorizontallyDefault, YES},
         {"notree", no_argument, &dumpTree, NO},
         {"pixel-tests", no_argument, &dumpPixels, YES},
-        {"repaint", no_argument, &testRepaintDefault, YES},
         {"tree", no_argument, &dumpTree, YES},
         {"threaded", no_argument, &threaded, YES},
+        {"complex-text", no_argument, &forceComplexText, YES},
         {NULL, 0, NULL, 0}
     };
     
@@ -376,14 +458,14 @@ static void runTestingServerLoop()
 
 static void prepareConsistentTestingEnvironment()
 {
-    class_poseAs(objc_getClass("DumpRenderTreePasteboard"), objc_getClass("NSPasteboard"));
-    class_poseAs(objc_getClass("DumpRenderTreeEvent"), objc_getClass("NSEvent"));
+    poseAsClass("DumpRenderTreePasteboard", "NSPasteboard");
+    poseAsClass("DumpRenderTreeEvent", "NSEvent");
 
     setDefaultsToConsistentValuesForTesting();
-    activateAhemFont();
+    activateFonts();
     
     if (dumpPixels)
-        initializeColorSpaceAndScreeBufferForPixelTests();
+        setupMainDisplayColorProfile();
     allocateGlobalControllers();
     
     makeLargeMallocFailSilently();
@@ -396,12 +478,17 @@ void dumpRenderTree(int argc, const char *argv[])
     addTestPluginsToPluginSearchPath(argv[0]);
     if (dumpPixels)
         installSignalHandlers();
-    
+
+    if (forceComplexText)
+        [WebView _setAlwaysUsesComplexTextCodePath:YES];
+
     WebView *webView = createWebViewAndOffscreenWindow();
     mainFrame = [webView mainFrame];
 
     [[NSURLCache sharedURLCache] removeAllCachedResponses];
 
+    [WebCache empty];
+     
     // <rdar://problem/5222911>
     testStringByEvaluatingJavaScriptFromString();
 
@@ -420,7 +507,6 @@ void dumpRenderTree(int argc, const char *argv[])
     if (threaded)
         stopJavaScriptThreads();
 
-    [WebCoreStatistics emptyCache]; // Otherwise SVGImages trigger false positives for Frame/Node counts    
     [webView close];
     mainFrame = nil;
 
@@ -445,7 +531,7 @@ void dumpRenderTree(int argc, const char *argv[])
     }
 
     if (dumpPixels)
-        restoreColorSpace(0);
+        restoreMainDisplayColorProfile(0);
 }
 
 int main(int argc, const char *argv[])
@@ -454,11 +540,12 @@ int main(int argc, const char *argv[])
     [NSApplication sharedApplication]; // Force AppKit to init itself
     dumpRenderTree(argc, argv);
     [WebCoreStatistics garbageCollectJavaScriptObjects];
+    [WebCoreStatistics emptyCache]; // Otherwise SVGImages trigger false positives for Frame/Node counts    
     [pool release];
     return 0;
 }
 
-static int compareHistoryItems(id item1, id item2, void *context)
+static NSInteger compareHistoryItems(id item1, id item2, void *context)
 {
     return [[item1 target] caseInsensitiveCompare:[item2 target]];
 }
@@ -497,7 +584,7 @@ static void dumpFrameScrollPosition(WebFrame *f)
         printf("scrolled to %.f,%.f\n", scrollPosition.x, scrollPosition.y);
     }
 
-    if (layoutTestController->dumpChildFrameScrollPositions()) {
+    if (gLayoutTestController->dumpChildFrameScrollPositions()) {
         NSArray *kids = [f childFrames];
         if (kids)
             for (unsigned i = 0; i < [kids count]; i++)
@@ -521,7 +608,7 @@ static NSString *dumpFramesAsText(WebFrame *frame)
 
     [result appendFormat:@"%@\n", [documentElement innerText]];
 
-    if (layoutTestController->dumpChildFramesAsText()) {
+    if (gLayoutTestController->dumpChildFramesAsText()) {
         NSArray *kids = [frame childFrames];
         if (kids) {
             for (unsigned i = 0; i < [kids count]; i++)
@@ -532,8 +619,47 @@ static NSString *dumpFramesAsText(WebFrame *frame)
     return result;
 }
 
+static NSData *dumpFrameAsPDF(WebFrame *frame)
+{
+    if (!frame)
+        return nil;
+
+    // Sadly we have to dump to a file and then read from that file again
+    // +[NSPrintOperation PDFOperationWithView:insideRect:] requires a rect and prints to a single page
+    // likewise +[NSView dataWithPDFInsideRect:] also prints to a single continuous page
+    // The goal of this function is to test "real" printing across multiple pages.
+    // FIXME: It's possible there might be printing SPI to let us print a multi-page PDF to an NSData object
+    NSString *path = @"/tmp/test.pdf";
+
+    NSMutableDictionary *printInfoDict = [NSMutableDictionary dictionaryWithDictionary:[[NSPrintInfo sharedPrintInfo] dictionary]];
+    [printInfoDict setObject:NSPrintSaveJob forKey:NSPrintJobDisposition];
+    [printInfoDict setObject:path forKey:NSPrintSavePath];
+
+    NSPrintInfo *printInfo = [[NSPrintInfo alloc] initWithDictionary:printInfoDict];
+    [printInfo setHorizontalPagination:NSAutoPagination];
+    [printInfo setVerticalPagination:NSAutoPagination];
+    [printInfo setVerticallyCentered:NO];
+
+    NSPrintOperation *printOperation = [NSPrintOperation printOperationWithView:[frame frameView] printInfo:printInfo];
+    [printOperation setShowPanels:NO];
+    [printOperation runOperation];
+
+    [printInfo release];
+
+    NSData *pdfData = [NSData dataWithContentsOfFile:path];
+    [[NSFileManager defaultManager] removeFileAtPath:path handler:nil];
+
+    return pdfData;
+}
+
 static void convertMIMEType(NSMutableString *mimeType)
 {
+#ifdef BUILDING_ON_LEOPARD
+    // Workaround for <rdar://problem/5539824> on Leopard
+    if ([mimeType isEqualToString:@"text/xml"])
+        [mimeType setString:@"application/xml"];
+#endif
+    // Workaround for <rdar://problem/6234318> with Dashcode 2.0
     if ([mimeType isEqualToString:@"application/x-javascript"])
         [mimeType setString:@"text/javascript"];
 }
@@ -543,22 +669,24 @@ static void convertWebResourceDataToString(NSMutableDictionary *resource)
     NSMutableString *mimeType = [resource objectForKey:@"WebResourceMIMEType"];
     convertMIMEType(mimeType);
     
-    if ([mimeType hasPrefix:@"text/"]) {
+    if ([mimeType hasPrefix:@"text/"] || [[WebHTMLRepresentation supportedNonImageMIMETypes] containsObject:mimeType]) {
         NSData *data = [resource objectForKey:@"WebResourceData"];
         NSString *dataAsString = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
         [resource setObject:dataAsString forKey:@"WebResourceData"];
     }
 }
 
-static void normalizeWebResourceURL(NSMutableString *webResourceURL, NSString *oldURLBase)
+static void normalizeWebResourceURL(NSMutableString *webResourceURL)
 {
-    [webResourceURL replaceOccurrencesOfString:oldURLBase
-                                    withString:@"file://"
-                                       options:NSLiteralSearch
-                                         range:NSMakeRange(0, [webResourceURL length])];
+    static int fileUrlLength = [(NSString *)@"file://" length];
+    NSRange layoutTestsWebArchivePathRange = [webResourceURL rangeOfString:@"/LayoutTests/" options:NSBackwardsSearch];
+    if (layoutTestsWebArchivePathRange.location == NSNotFound)
+        return;
+    NSRange currentWorkingDirectoryRange = NSMakeRange(fileUrlLength, layoutTestsWebArchivePathRange.location - fileUrlLength);
+    [webResourceURL replaceCharactersInRange:currentWorkingDirectoryRange withString:@""];
 }
 
-static void convertWebResourceResponseToDictionary(NSMutableDictionary *propertyList, NSString *oldURLBase)
+static void convertWebResourceResponseToDictionary(NSMutableDictionary *propertyList)
 {
     NSURLResponse *response = nil;
     NSData *responseData = [propertyList objectForKey:@"WebResourceResponse"]; // WebResourceResponseKey in WebResource.m
@@ -573,7 +701,7 @@ static void convertWebResourceResponseToDictionary(NSMutableDictionary *property
     NSMutableDictionary *responseDictionary = [[NSMutableDictionary alloc] init];
     
     NSMutableString *urlString = [[[response URL] description] mutableCopy];
-    normalizeWebResourceURL(urlString, oldURLBase);
+    normalizeWebResourceURL(urlString);
     [responseDictionary setObject:urlString forKey:@"URL"];
     [urlString release];
     
@@ -598,6 +726,14 @@ static void convertWebResourceResponseToDictionary(NSMutableDictionary *property
     [responseDictionary release];
 }
 
+static NSInteger compareResourceURLs(id resource1, id resource2, void *context)
+{
+    NSString *url1 = [resource1 objectForKey:@"WebResourceURL"];
+    NSString *url2 = [resource2 objectForKey:@"WebResourceURL"];
+ 
+    return [url1 compare:url2];
+}
+
 static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
 {
     NSString *errorString;
@@ -608,9 +744,6 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
     if (!propertyList)
         return errorString;
 
-    // Normalize WebResourceResponse and WebResourceURL values in plist for testing
-    NSString *cwdURL = [@"file://" stringByAppendingString:[[[NSFileManager defaultManager] currentDirectoryPath] stringByExpandingTildeInPath]];
-    
     NSMutableArray *resources = [NSMutableArray arrayWithCapacity:1];
     [resources addObject:propertyList];
 
@@ -619,7 +752,7 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
         [resources removeObjectAtIndex:0];
 
         NSMutableDictionary *mainResource = [resourcePropertyList objectForKey:@"WebMainResource"];
-        normalizeWebResourceURL([mainResource objectForKey:@"WebResourceURL"], cwdURL);
+        normalizeWebResourceURL([mainResource objectForKey:@"WebResourceURL"]);
         convertWebResourceDataToString(mainResource);
 
         // Add subframeArchives to list for processing
@@ -631,10 +764,14 @@ static NSString *serializeWebArchiveToXML(WebArchive *webArchive)
         NSEnumerator *enumerator = [subresources objectEnumerator];
         NSMutableDictionary *subresourcePropertyList;
         while ((subresourcePropertyList = [enumerator nextObject])) {
-            normalizeWebResourceURL([subresourcePropertyList objectForKey:@"WebResourceURL"], cwdURL);
-            convertWebResourceResponseToDictionary(subresourcePropertyList, cwdURL);
+            normalizeWebResourceURL([subresourcePropertyList objectForKey:@"WebResourceURL"]);
+            convertWebResourceResponseToDictionary(subresourcePropertyList);
             convertWebResourceDataToString(subresourcePropertyList);
         }
+        
+        // Sort the subresources so they're always in a predictable order for the dump
+        if (NSArray *sortedSubresources = [subresources sortedArrayUsingFunction:compareResourceURLs context:nil])
+            [resourcePropertyList setObject:sortedSubresources forKey:@"WebSubresources"];
     }
 
     NSData *xmlData = [NSPropertyListSerialization dataFromPropertyList:propertyList
@@ -689,7 +826,7 @@ static void dumpBackForwardListForWebView(WebView *view)
 static void sizeWebViewForCurrentTest()
 {
     // W3C SVG tests expect to be 480x360
-    bool isSVGW3CTest = ([currentTest rangeOfString:@"svg/W3C-SVG-1.1"].length);
+    bool isSVGW3CTest = (gLayoutTestController->testPathOrURL().find("svg/W3C-SVG-1.1") != string::npos);
     if (isSVGW3CTest)
         [[mainFrame webView] setFrameSize:NSMakeSize(480, 360)];
     else
@@ -699,11 +836,11 @@ static void sizeWebViewForCurrentTest()
 static const char *methodNameStringForFailedTest()
 {
     const char *errorMessage;
-    if (layoutTestController->dumpAsText())
+    if (gLayoutTestController->dumpAsText())
         errorMessage = "[documentElement innerText]";
-    else if (layoutTestController->dumpDOMAsWebArchive())
+    else if (gLayoutTestController->dumpDOMAsWebArchive())
         errorMessage = "[[mainFrame DOMDocument] webArchive]";
-    else if (layoutTestController->dumpSourceAsWebArchive())
+    else if (gLayoutTestController->dumpSourceAsWebArchive())
         errorMessage = "[[mainFrame dataSource] webArchive]";
     else
         errorMessage = "[mainFrame renderTreeAsExternalRepresentation]";
@@ -735,21 +872,27 @@ void dump()
 {
     invalidateAnyPreviousWaitToDumpWatchdog();
 
+    bool dumpAsText = gLayoutTestController->dumpAsText();
     if (dumpTree) {
         NSString *resultString = nil;
         NSData *resultData = nil;
+        NSString *resultMimeType = @"text/plain";
 
-        bool dumpAsText = layoutTestController->dumpAsText();
         dumpAsText |= [[[mainFrame dataSource] _responseMIMEType] isEqualToString:@"text/plain"];
-        layoutTestController->setDumpAsText(dumpAsText);
-        if (layoutTestController->dumpAsText()) {
+        gLayoutTestController->setDumpAsText(dumpAsText);
+        if (gLayoutTestController->dumpAsText()) {
             resultString = dumpFramesAsText(mainFrame);
-        } else if (layoutTestController->dumpDOMAsWebArchive()) {
+        } else if (gLayoutTestController->dumpAsPDF()) {
+            resultData = dumpFrameAsPDF(mainFrame);
+            resultMimeType = @"application/pdf";
+        } else if (gLayoutTestController->dumpDOMAsWebArchive()) {
             WebArchive *webArchive = [[mainFrame DOMDocument] webArchive];
             resultString = serializeWebArchiveToXML(webArchive);
-        } else if (layoutTestController->dumpSourceAsWebArchive()) {
+            resultMimeType = @"application/x-webarchive";
+        } else if (gLayoutTestController->dumpSourceAsWebArchive()) {
             WebArchive *webArchive = [[mainFrame dataSource] webArchive];
             resultString = serializeWebArchiveToXML(webArchive);
+            resultMimeType = @"application/x-webarchive";
         } else {
             sizeWebViewForCurrentTest();
             resultString = [mainFrame renderTreeAsExternalRepresentation];
@@ -758,25 +901,32 @@ void dump()
         if (resultString && !resultData)
             resultData = [resultString dataUsingEncoding:NSUTF8StringEncoding];
 
+        printf("Content-Type: %s\n", [resultMimeType UTF8String]);
+
         if (resultData) {
             fwrite([resultData bytes], 1, [resultData length], stdout);
 
-            if (!layoutTestController->dumpAsText() && !layoutTestController->dumpDOMAsWebArchive() && !layoutTestController->dumpSourceAsWebArchive())
+            if (!gLayoutTestController->dumpAsText() && !gLayoutTestController->dumpDOMAsWebArchive() && !gLayoutTestController->dumpSourceAsWebArchive())
                 dumpFrameScrollPosition(mainFrame);
 
-            if (layoutTestController->dumpBackForwardList())
+            if (gLayoutTestController->dumpBackForwardList())
                 dumpBackForwardListForAllWindows();
         } else
             printf("ERROR: nil result from %s", methodNameStringForFailedTest());
 
-        if (printSeparators)
-            puts("#EOF");
+        if (printSeparators) {
+            puts("#EOF");       // terminate the content block
+            fputs("#EOF\n", stderr);
+        }            
     }
     
-    if (dumpPixels)
-        dumpWebViewAsPixelsAndCompareWithExpected([currentTest UTF8String], dumpAllPixels);
+    if (dumpPixels && !dumpAsText)
+        dumpWebViewAsPixelsAndCompareWithExpected(gLayoutTestController->expectedPixelHash());
+    
+    puts("#EOF");   // terminate the (possibly empty) pixels block
 
     fflush(stdout);
+    fflush(stderr);
 
     done = YES;
 }
@@ -786,29 +936,24 @@ static bool shouldLogFrameLoadDelegates(const char *pathOrURL)
     return strstr(pathOrURL, "loading/");
 }
 
-static CFURLRef createCFURLFromPathOrURL(CFStringRef pathOrURLString)
-{
-    CFURLRef URL;
-    if (CFStringHasPrefix(pathOrURLString, CFSTR("http://")) || CFStringHasPrefix(pathOrURLString, CFSTR("https://")))
-        URL = CFURLCreateWithString(NULL, pathOrURLString, NULL);
-    else
-        URL = CFURLCreateWithFileSystemPath(NULL, pathOrURLString, kCFURLPOSIXPathStyle, FALSE);
-    return URL;
-}
-
 static void resetWebViewToConsistentStateBeforeTesting()
 {
     WebView *webView = [mainFrame webView];
     [(EditingDelegate *)[webView editingDelegate] setAcceptsEditing:YES];
     [webView makeTextStandardSize:nil];
-    [webView setTabKeyCyclesThroughElements: YES];
+    [webView resetPageZoom:nil];
+    [webView setTabKeyCyclesThroughElements:YES];
     [webView setPolicyDelegate:nil];
     [webView _setDashboardBehavior:WebDashboardBehaviorUseBackwardCompatibilityMode to:NO];
+    [webView _clearMainFrameName];
 
     WebPreferences *preferences = [webView preferences];
     [preferences setPrivateBrowsingEnabled:NO];
     [preferences setAuthorAndUserStylesEnabled:YES];
     [preferences setJavaScriptCanOpenWindowsAutomatically:YES];
+    [preferences setOfflineWebApplicationCacheEnabled:YES];
+    [preferences setFullDocumentTeardownEnabled:YES];
+    [preferences setDeveloperExtrasEnabled:NO];
 
     if (persistentUserStyleSheetLocation) {
         [preferences setUserStyleSheetLocation:[NSURL URLWithString:(NSString *)(persistentUserStyleSheetLocation.get())]];
@@ -816,56 +961,72 @@ static void resetWebViewToConsistentStateBeforeTesting()
     } else
         [preferences setUserStyleSheetEnabled:NO];
 
+    [[mainFrame webView] setSmartInsertDeleteEnabled:YES];
+    [[[mainFrame webView] inspector] setJavaScriptProfilingEnabled:NO];
+
     [WebView _setUsesTestModeFocusRingColor:YES];
 }
 
-static void runTest(const char *pathOrURL)
+static void runTest(const string& testPathOrURL)
 {
-    CFStringRef pathOrURLString = CFStringCreateWithCString(NULL, pathOrURL, kCFStringEncodingUTF8);
+    ASSERT(!testPathOrURL.empty());
+    
+    // Look for "'" as a separator between the path or URL, and the pixel dump hash that follows.
+    string pathOrURL(testPathOrURL);
+    string expectedPixelHash;
+    
+    size_t separatorPos = pathOrURL.find("'");
+    if (separatorPos != string::npos) {
+        pathOrURL = string(testPathOrURL, 0, separatorPos);
+        expectedPixelHash = string(testPathOrURL, separatorPos + 1);
+    }
+
+    NSString *pathOrURLString = [NSString stringWithUTF8String:pathOrURL.c_str()];
     if (!pathOrURLString) {
-        fprintf(stderr, "Failed to parse filename as UTF-8: %s\n", pathOrURL);
+        fprintf(stderr, "Failed to parse \"%s\" as UTF-8\n", pathOrURL.c_str());
         return;
     }
 
-    CFURLRef URL = createCFURLFromPathOrURL(pathOrURLString);
-    if (!URL) {
-        CFRelease(pathOrURLString);
-        fprintf(stderr, "Can't turn %s into a CFURL\n", pathOrURL);
+    NSURL *url;
+    if ([pathOrURLString hasPrefix:@"http://"] || [pathOrURLString hasPrefix:@"https://"])
+        url = [NSURL URLWithString:pathOrURLString];
+    else
+        url = [NSURL fileURLWithPath:pathOrURLString];
+    if (!url) {
+        fprintf(stderr, "Failed to parse \"%s\" as a URL\n", pathOrURL.c_str());
         return;
     }
 
+    const string testURL([[url absoluteString] UTF8String]);
+    
     resetWebViewToConsistentStateBeforeTesting();
 
-    layoutTestController = new LayoutTestController(testRepaintDefault, repaintSweepHorizontallyDefault);
+    gLayoutTestController = new LayoutTestController(testURL, expectedPixelHash);
     topLoadingFrame = nil;
     done = NO;
 
     if (disallowedURLs)
         CFSetRemoveAllValues(disallowedURLs);
-    if (shouldLogFrameLoadDelegates(pathOrURL))
-        layoutTestController->setDumpFrameLoadCallbacks(true);
+    if (shouldLogFrameLoadDelegates(pathOrURL.c_str()))
+        gLayoutTestController->setDumpFrameLoadCallbacks(true);
 
     if ([WebHistory optionalSharedHistory])
         [WebHistory setOptionalSharedHistory:nil];
     lastMousePosition = NSZeroPoint;
     lastClickPosition = NSZeroPoint;
 
-    if (currentTest != nil)
-        CFRelease(currentTest);
-    currentTest = (NSString *)pathOrURLString;
     [prevTestBFItem release];
     prevTestBFItem = [[[[mainFrame webView] backForwardList] currentItem] retain];
 
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
 
-    BOOL _shouldIgnoreWebCoreNodeLeaks = shouldIgnoreWebCoreNodeLeaks(CFURLGetString(URL));
-    if (_shouldIgnoreWebCoreNodeLeaks)
+    bool ignoreWebCoreNodeLeaks = shouldIgnoreWebCoreNodeLeaks(testURL);
+    if (ignoreWebCoreNodeLeaks)
         [WebCoreStatistics startIgnoringWebCoreNodeLeaks];
 
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    [mainFrame loadRequest:[NSURLRequest requestWithURL:(NSURL *)URL]];
-    CFRelease(URL);
+    [mainFrame loadRequest:[NSURLRequest requestWithURL:url]];
     [pool release];
     while (!done) {
         pool = [[NSAutoreleasePool alloc] init];
@@ -878,7 +1039,7 @@ static void runTest(const char *pathOrURL)
 
     WorkQueue::shared()->clear();
 
-    if (layoutTestController->closeRemainingWindowsWhenComplete()) {
+    if (gLayoutTestController->closeRemainingWindowsWhenComplete()) {
         NSArray* array = [DumpRenderTreeWindow openWindows];
 
         unsigned count = [array count];
@@ -905,10 +1066,10 @@ static void runTest(const char *pathOrURL)
     ASSERT(CFArrayGetCount(openWindowsRef) == 1);
     ASSERT(CFArrayGetValueAtIndex(openWindowsRef, 0) == [[mainFrame webView] window]);
 
-    delete layoutTestController;
-    layoutTestController = 0;
+    gLayoutTestController->deref();
+    gLayoutTestController = 0;
 
-    if (_shouldIgnoreWebCoreNodeLeaks)
+    if (ignoreWebCoreNodeLeaks)
         [WebCoreStatistics stopIgnoringWebCoreNodeLeaks];
 }
 
