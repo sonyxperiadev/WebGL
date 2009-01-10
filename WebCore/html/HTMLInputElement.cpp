@@ -58,7 +58,7 @@
 #if USE(LOW_BANDWIDTH_DISPLAY)
 #include "FrameLoader.h"
 #endif
-#ifdef ANDROID // multiple additions: see below
+#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
 #include "TextIterator.h"
@@ -197,7 +197,6 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
         if (name().isEmpty())
             return false;
 
-#ifndef ANDROID_KEYBOARD_NAVIGATION
         // Never allow keyboard tabbing to leave you in the same radio group.  Always
         // skip any other elements in the group.
         Node* currentFocusedNode = document()->focusedNode();
@@ -207,7 +206,6 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
                 focusedInput->name() == name())
                 return false;
         }
-#endif    
         
         // Allow keyboard focus if we're checked or if nothing in the group is checked.
         return checked() || !checkedRadioButtons(this).checkedButtonForGroup(name());
@@ -1297,11 +1295,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                     clickElement = true;
                     break;
                 case RADIO:
-#ifdef ANDROID_KEYBOARD_NAVIGATION
-// allow enter to change state of radio
-                    if (!checked())
-                        clickElement = true;
-#endif
                     break; // Don't do anything for enter on a radio button.
             }
         } else if (charCode == ' ') {
@@ -1348,7 +1341,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             }
         }
 
-#ifndef ANDROID_KEYBOARD_NAVIGATION
 // allow enter to change state of radio
         if (inputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
             // Left and up mean "previous radio button".
@@ -1384,7 +1376,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 }
             }
         }
-#endif
     }
 
     if (evt->type() == eventNames().keyupEvent && evt->isKeyboardEvent()) {

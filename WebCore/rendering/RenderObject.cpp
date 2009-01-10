@@ -533,7 +533,12 @@ int RenderObject::offsetTop() const
     RenderObject* offsetPar = offsetParent();
     if (!offsetPar)
         return 0;
+#ifdef ANDROID_FIX
+    // This is to fix https://bugs.webkit.org/show_bug.cgi?id=23178.
+    int y = yPos() - borderTopExtra() + offsetPar->borderTopExtra() - offsetPar->borderTop();
+#else
     int y = yPos() - borderTopExtra() - offsetPar->borderTop();
+#endif
     if (!isPositioned()) {
         if (isRelPositioned())
             y += static_cast<const RenderBox*>(this)->relativePositionOffsetY();

@@ -18,6 +18,9 @@
 BASE_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
+# if you need to make webcore huge (for debugging), enable this line
+#LOCAL_PRELINK_MODULE := false
+
 # Define our module and find the intermediates directory
 LOCAL_MODULE := libwebcore
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
@@ -77,7 +80,11 @@ LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
 	external/icu4c/common \
 	external/libxml2/include \
-	external/skia/libsgl/ports \
+	external/skia/include/effects \
+	external/skia/include/images \
+	external/skia/include/ports \
+	external/skia/include/utils \
+	external/skia/src/ports \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH)/WebCore \
@@ -176,3 +183,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 # Build the plugin test separately from libwebcore
 include $(BASE_PATH)/WebKit/android/plugins/sample/Android.mk
+
+# Build the wds client
+include $(BASE_PATH)/WebKit/android/wds/client/Android.mk

@@ -1356,28 +1356,14 @@ void* IconDatabase::syncThreadMainLoop()
         
         bool didAnyWork = true;
         while (didAnyWork) {
-#ifdef ANDROID_FIX
-            // We should write the pending icons to the database before trying
-            // to read any requested icons to ensure that a requested icon has
-            // the correct data.
             bool didWrite = writeToDatabase();
             if (shouldStopThreadActivity())
                 break;
-
+               
             didAnyWork = readFromDatabase();
             if (shouldStopThreadActivity())
                 break;
-#else
-            didAnyWork = readFromDatabase();
-            if (shouldStopThreadActivity())
-                break;
-                
-            bool didWrite = writeToDatabase();
-            if (shouldStopThreadActivity())
-                break;
-#endif
-
-                
+               
             // Prune unretained icons after the first time we sync anything out to the database
             // This way, pruning won't be the only operation we perform to the database by itself
             // We also don't want to bother doing this if the thread should be terminating (the user is quitting)

@@ -33,11 +33,7 @@ class TextRun;
 struct WidthIterator {
     WidthIterator(const Font*, const TextRun&);
 
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    bool advance(int to, GlyphBuffer* = 0);
-#else
     void advance(int to, GlyphBuffer* = 0);
-#endif
     bool advanceOneCharacter(float& width, GlyphBuffer* = 0);
 
     const Font* m_font;

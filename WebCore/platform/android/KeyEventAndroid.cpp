@@ -205,13 +205,13 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(int keyCode, UChar32 unichar,
     , m_keyIdentifier(keyIdentifierForAndroidKeyCode(keyCode))
     , m_autoRepeat(repeatCount > 0)
     , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(keyCode))
+    , m_nativeVirtualKeyCode(keyCode)
     , m_isKeypad(false)
     , m_shiftKey((mods & ShiftKey) != 0)
     , m_ctrlKey((mods & CtrlKey) != 0)
     , m_altKey((mods & AltKey) != 0)
     , m_metaKey((mods & MetaKey) != 0)
     // added for android
-    , m_nativeVirtualKeyCode(keyCode)
     , m_repeatCount(repeatCount)
     , m_unichar(unichar)
 {

@@ -417,9 +417,6 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
     WidthIterator it(this, run);
     it.advance(from);
     float beforeWidth = it.m_runWidthSoFar;
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    bool adjustedWidths =
-#endif
     it.advance(to, &glyphBuffer);
 
     // We couldn't generate any glyphs for the run.  Give up.
@@ -432,9 +429,6 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
         float finalRoundingWidth = it.m_finalRoundingWidth;
         it.advance(run.length());
         startX += finalRoundingWidth + it.m_runWidthSoFar - afterWidth;
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-        adjustedWidths = true;  // give up on simple/fast case
-#endif
     } else
         startX += beforeWidth;
 
@@ -443,11 +437,6 @@ void Font::drawSimpleText(GraphicsContext* context, const TextRun& run, const Fl
         for (int i = 0, end = glyphBuffer.size() - 1; i < glyphBuffer.size() / 2; ++i, --end)
             glyphBuffer.swap(i, end);
 
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    // mark the GlyphBuffer as having adjusted widths or not
-    // used by drawGlyph as an optimization hint
-    glyphBuffer.setHasAdjustedWidths(adjustedWidths);
-#endif
     // Calculate the starting point of the glyphs to be displayed by adding
     // all the advances up to the first glyph.
     FloatPoint startPoint(startX, point.y());

@@ -29,14 +29,6 @@
 
 namespace WebCore {
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    // in android, we have no pointer, so we can't access area elements
-    // via mapMouseEvent.  instead, we store the RenderImage here so we
-    // can use it to find its dimensions to focus on it and draw a ring
-    // around it
-    class RenderImage;
-#endif
-
 class HitTestResult;
 
 class HTMLAreaElement : public HTMLAnchorElement {
@@ -78,11 +70,6 @@ public:
     virtual String target() const;
     void setTarget(const String&);
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    IntRect getAreaRect() const;
-    void setMap(RenderImage* map) { m_map = map; }
-#endif
-
 private:
     enum Shape { Default, Poly, Rect, Circle, Unknown };
     Path getRegion(const IntSize&) const;
@@ -91,9 +78,6 @@ private:
     int m_coordsLen;
     IntSize m_lastSize;
     Shape m_shape;
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    RenderImage* m_map;
-#endif
 };
 
 } //namespace

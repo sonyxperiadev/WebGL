@@ -76,7 +76,7 @@ void CachedCSSStyleSheet::data(PassRefPtr<SharedBuffer> data, bool allDataReceiv
     if (m_data.get()) {
         m_sheet = m_decoder->decode(m_data->data(), encodedSize());
         m_sheet += m_decoder->flush();
-#ifdef ANDROID_FIX
+#ifdef ANDROID_FIX // FIXME  Newer webkit makes decode temporary; remove on webkit update
         // report decoded size too
         setDecodedSize(m_sheet.length() * sizeof(UChar));
 #endif

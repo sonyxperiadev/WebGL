@@ -2510,19 +2510,6 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
     if (m_inPageCache)
         return false;
 
-#ifdef ANDROID_RESET_SELECTION
-        WebCore::Node* oldFocus = frame()->getCacheBuilder().currentFocus();
-        if (oldFocus) {
-            if (oldFocus->hasTagName(WebCore::HTMLNames::inputTag)) {
-                WebCore::HTMLInputElement* input = static_cast<WebCore::HTMLInputElement*>(oldFocus);
-                if (input->isTextField())
-                    input->setSelectionRange(-1, -1);
-            } else if (oldFocus->hasTagName(WebCore::HTMLNames::textareaTag)) {
-                WebCore::HTMLTextAreaElement* textArea = static_cast<WebCore::HTMLTextAreaElement*>(oldFocus);
-                textArea->setSelectionRange(-1, -1);
-            }
-        }
-#endif
     bool focusChangeBlocked = false;
     RefPtr<Node> oldFocusedNode = m_focusedNode;
     m_focusedNode = 0;

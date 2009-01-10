@@ -1876,8 +1876,8 @@ void Node::showTreeAndMark(const Node* markedNode1, const char* markedLabel1, co
 #else
         for (const Node* tmpNode = node; tmpNode && tmpNode != rootNode; tmpNode = tmpNode->parentNode())
             fprintf(stderr, "\t");
-#endif
         node->showNode();
+#endif
     }
 }
 

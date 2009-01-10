@@ -19,6 +19,31 @@
 
 #include "SkRect.h"
 
+// MatchInfo methods
+////////////////////////////////////////////////////////////////////////////////
+
+MatchInfo::MatchInfo() {
+    m_picture = 0;
+}
+
+MatchInfo::~MatchInfo() {
+    m_picture->safeUnref();
+}
+
+MatchInfo::MatchInfo(const MatchInfo& src) {
+    m_location = src.m_location;
+    m_picture = src.m_picture;
+    m_picture->safeRef();
+}
+
+void MatchInfo::set(const SkRegion& region, SkPicture* pic) {
+    m_picture->safeUnref();
+    m_location = region;
+    m_picture = pic;
+    SkASSERT(pic);
+    pic->ref();
+}
+
 // GlyphSet methods
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -81,33 +106,17 @@ FindCanvas::FindCanvas(int width, int height, const UChar* lower,
 
     setBounder(&mBounder);
     mOutset = -SkIntToScalar(2);
-    mRegions = new WTF::Vector<SkRegion>();
-#if RECORD_MATCHES
-    mPicture = new SkPicture();
-    mRecordingCanvas = mPicture->beginRecording(width, height);
-#endif
+    mMatches = new WTF::Vector<MatchInfo>();
     mWorkingIndex = 0;
+    mWorkingCanvas = 0;
+    mWorkingPicture = 0;
 }
 
 FindCanvas::~FindCanvas() {
     setBounder(NULL);
     /* Just in case getAndClear was not called. */
-    delete mRegions;
-#if RECORD_MATCHES
-    mPicture->unref();
-#endif
-}
-
-// SkPaint.measureText is used to get a rectangle surrounding the specified
-// text.  It is a tighter bounds than we want.  We want the height to account
-// for the ascent and descent of the font, so that the rectangles will line up,
-// regardless of the characters contained in them.
-static void correctSize(const SkPaint& paint, SkRect& rect)
-{
-    SkPaint::FontMetrics fontMetrics;
-    paint.getFontMetrics(&fontMetrics);
-    rect.fTop = fontMetrics.fAscent;
-    rect.fBottom = fontMetrics.fDescent;    
+    delete mMatches;
+    mWorkingPicture->safeUnref();
 }
 
 // Each version of addMatch returns a rectangle for a match.
@@ -117,21 +126,24 @@ SkRect FindCanvas::addMatchNormal(int index,
         const SkScalar pos[], SkScalar y) {
     const uint16_t* lineStart = glyphs - index;
     /* Use the original paint, since "text" is in glyphs */
-    SkScalar before = paint.measureText(lineStart, index * sizeof(uint16_t),
-            NULL);
+    SkScalar before = paint.measureText(lineStart, index * sizeof(uint16_t), 0);
     SkRect rect;
-    int countInBytes = count << 1;
-    paint.measureText(glyphs, countInBytes, &rect);
-    correctSize(paint, rect);
-    rect.offset(pos[0] + before, y);
-    getTotalMatrix().mapRect(&rect);
+    rect.fLeft = pos[0] + before;
+    int countInBytes = count * sizeof(uint16_t);
+    rect.fRight = paint.measureText(glyphs, countInBytes, 0) + rect.fLeft;
+    SkPaint::FontMetrics fontMetrics;
+    paint.getFontMetrics(&fontMetrics);
+    SkScalar baseline = y;
+    rect.fTop = baseline + fontMetrics.fAscent;
+    rect.fBottom = baseline + fontMetrics.fDescent;
+    const SkMatrix& matrix = getTotalMatrix();
+    matrix.mapRect(&rect);
     // Add the text to our picture.
-#if RECORD_MATCHES
-    mRecordingCanvas->setMatrix(getTotalMatrix());
-    SkPoint point;
-    matrix.mapXY(pos[0] + before, y, &point);
-    mRecordingCanvas->drawText(glyphs, countInBytes, point.fX, point.fY, paint);
-#endif
+    SkCanvas* canvas = getWorkingCanvas();
+    int saveCount = canvas->save();
+    canvas->concat(matrix);
+    canvas->drawText(glyphs, countInBytes, pos[0] + before, y, paint);
+    canvas->restoreToCount(saveCount);
     return rect;
 }
 
@@ -140,27 +152,31 @@ SkRect FindCanvas::addMatchPos(int index,
         const SkScalar xPos[], SkScalar /* y */) {
     SkRect r;
     r.setEmpty();
-    const SkScalar* pos = &xPos[index << 1];
-    int countInBytes = count << 1;
+    const SkPoint* temp = reinterpret_cast<const SkPoint*> (xPos);
+    const SkPoint* points = &temp[index];
+    int countInBytes = count * sizeof(uint16_t);
     SkPaint::FontMetrics fontMetrics;
     paint.getFontMetrics(&fontMetrics);
-    for (int j = 0; j < countInBytes; j += 2) {
+    // Need to check each character individually, since the heights may be
+    // different.
+    for (int j = 0; j < count; j++) {
         SkRect bounds;
-        paint.getTextWidths(&(glyphs[j >> 1]), 2, NULL, &bounds);
-        bounds.fTop = fontMetrics.fAscent;
-        bounds.fBottom = fontMetrics.fDescent;
-        bounds.offset(pos[j], pos[j+1]);
-        /* Accumulate and then add the resulting rect to mRegions */
+        bounds.fLeft = points[j].fX;
+        bounds.fRight = bounds.fLeft +
+                paint.measureText(&glyphs[j], sizeof(uint16_t), 0);
+        SkScalar baseline = points[j].fY;
+        bounds.fTop = baseline + fontMetrics.fAscent;
+        bounds.fBottom = baseline + fontMetrics.fDescent;
+        /* Accumulate and then add the resulting rect to mMatches */
         r.join(bounds);
     }
-    getTotalMatrix().mapRect(&r);
-    // Add the text to our picture.
-#if RECORD_MATCHES
-    mRecordingCanvas->setMatrix(getTotalMatrix());
-    // FIXME: Need to do more work to get xPos and constY in the proper
-    // coordinates.
-    //mRecordingCanvas->drawPosText(glyphs, countInBytes, positions, paint);
-#endif
+    SkMatrix matrix = getTotalMatrix();
+    matrix.mapRect(&r);
+    SkCanvas* canvas = getWorkingCanvas();
+    int saveCount = canvas->save();
+    canvas->concat(matrix);
+    canvas->drawPosText(glyphs, countInBytes, points, paint);
+    canvas->restoreToCount(saveCount);
     return r;
 }
 
@@ -168,24 +184,28 @@ SkRect FindCanvas::addMatchPosH(int index,
         const SkPaint& paint, int count, const uint16_t* glyphs,
         const SkScalar position[], SkScalar constY) {
     SkRect r;
-    r.setEmpty();
+    // We only care about the positions starting at the index of our match
     const SkScalar* xPos = &position[index];
-    for (int j = 0; j < count; j++) {
-        SkRect bounds;
-        paint.getTextWidths(&glyphs[j], 1, NULL, &bounds);
-        bounds.offset(xPos[j], constY);
-        /* Accumulate and then add the resulting rect to mRegions */
-        r.join(bounds);
-    }
-    correctSize(paint, r);
-    getTotalMatrix().mapRect(&r);
-    // Add the text to our picture.
-#if RECORD_MATCHES
-    mRecordingCanvas->setMatrix(getTotalMatrix());
-    // FIXME: Need to do more work to get xPos and constY in the proper
-    // coordinates.
-    //mRecordingCanvas->drawPosTextH(glyphs, count << 1, xPos, constY, paint);
-#endif
+    // This assumes that the position array is monotonic increasing
+    // The left bounds will be the position of the left most character
+    r.fLeft = xPos[0];
+    // The right bounds will be the position of the last character plus its
+    // width
+    int lastIndex = count - 1;
+    r.fRight = paint.measureText(&glyphs[lastIndex], sizeof(uint16_t), 0)
+            + xPos[lastIndex];
+    // Grab font metrics to determine the top and bottom of the bounds
+    SkPaint::FontMetrics fontMetrics;
+    paint.getFontMetrics(&fontMetrics);
+    r.fTop = constY + fontMetrics.fAscent;
+    r.fBottom = constY + fontMetrics.fDescent;
+    const SkMatrix& matrix = getTotalMatrix();
+    matrix.mapRect(&r);
+    SkCanvas* canvas = getWorkingCanvas();
+    int saveCount = canvas->save();
+    canvas->concat(matrix);
+    canvas->drawPosTextH(glyphs, count * sizeof(uint16_t), xPos, constY, paint);
+    canvas->restoreToCount(saveCount);
     return r;
 }
 
@@ -236,10 +256,7 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
                           const uint16_t* glyphs,
                           const SkScalar positions[], SkScalar y)) {
     SkASSERT(paint.getTextEncoding() == SkPaint::kGlyphID_TextEncoding);
-    SkASSERT(mRegions);
-#if RECORD_MATCHES
-    SkASSERT(mRecordingCanvas);
-#endif
+    SkASSERT(mMatches);
     GlyphSet* glyphSet = getGlyphs(paint);
     const int count = glyphSet->getCount();
     int numCharacters = byteLength >> 1;
@@ -249,7 +266,8 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
     if (mWorkingIndex) {
         SkPoint newY;
         getTotalMatrix().mapXY(0, y, &newY);
-        if (mWorkingRegion.getBounds().fBottom < SkScalarRound(newY.fY)) {
+        SkIRect bounds = mWorkingRegion.getBounds();
+        if (bounds.fBottom < SkScalarRound(newY.fY)) {
             // Now we know that this line is lower than our partial match.
             SkPaint clonePaint(paint);
             clonePaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
@@ -260,14 +278,16 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
                 if (mWorkingIndex == count) {
                     // We already know that it is not clipped out because we
                     // checked for that before saving the working region.
-                    mNumFound++;
-                    mRegions->append(mWorkingRegion);
+                    insertMatchInfo(mWorkingRegion);
+
+                    resetWorkingCanvas();
                     mWorkingIndex = 0;
                     mWorkingRegion.setEmpty();
                     // We have found a match, so continue on this line from
                     // scratch.
                 }
             } else {
+                resetWorkingCanvas();
                 mWorkingIndex = 0;
                 mWorkingRegion.setEmpty();
             }
@@ -288,7 +308,6 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
             }
             // The last count characters match, so we found the entire
             // search string.
-            mNumFound++;
             int remaining = count - mWorkingIndex;
             int matchIndex = index - remaining + 1;
             // Set up a pointer to the matching text in 'chars'.
@@ -325,7 +344,7 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
                     // the previous line(s).
                     regionToAdd.op(mWorkingRegion, SkRegion::kUnion_Op);
                 }
-                mRegions->append(regionToAdd);
+                insertMatchInfo(regionToAdd);
 #if INCLUDE_SUBSTRING_MATCHES
                 // Reset index to the location of the match and reset j to the
                 // beginning, so that on the next iteration of the loop, index
@@ -338,6 +357,9 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
                 // character from our hidden match
                 index = matchIndex;
             }
+            // Whether the clip contained it or not, we need to start over
+            // with our recording canvas
+            resetWorkingCanvas();
         } else {
             // Index needs to be set to index - j + 1.
             // This is a ridiculous case, but imagine the situation where the
@@ -389,6 +411,14 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
     mWorkingIndex = 0;
 }
 
+SkCanvas* FindCanvas::getWorkingCanvas() {
+    if (!mWorkingPicture) {
+        mWorkingPicture = new SkPicture;
+        mWorkingCanvas = mWorkingPicture->beginRecording(0,0);
+    }
+    return mWorkingCanvas;
+}
+
 GlyphSet* FindCanvas::getGlyphs(const SkPaint& paint) {
     SkTypeface* typeface = paint.getTypeface();
     GlyphSet* end = mGlyphSets.end();
@@ -401,4 +431,19 @@ GlyphSet* FindCanvas::getGlyphs(const SkPaint& paint) {
     GlyphSet set(paint, mLowerText, mUpperText, mLength);
     *mGlyphSets.append() = set;
     return &(mGlyphSets.top());
+}
+
+void FindCanvas::insertMatchInfo(const SkRegion& region) {
+    mNumFound++;
+    mWorkingPicture->endRecording();
+    MatchInfo matchInfo;
+    mMatches->append(matchInfo);
+    mMatches->last().set(region, mWorkingPicture);
+}
+
+void FindCanvas::resetWorkingCanvas() {
+    mWorkingPicture->unref();
+    mWorkingPicture = 0;
+    // Do not need to reset mWorkingCanvas itself because we only access it via
+    // getWorkingCanvas.
 }

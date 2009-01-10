@@ -39,9 +39,6 @@
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
 #endif
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-#include "HTMLAreaElement.h"
-#endif
 
 #include "SystemTime.h"
 
@@ -188,11 +185,6 @@ RenderImage::RenderImage(Node* node)
 
 RenderImage::~RenderImage()
 {
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    // Set area elements' RenderImage to null, so they do not reference
-    // the deleted RenderImage.
-    setAreaElements(NULL);
-#endif
     if (m_cachedImage)
         m_cachedImage->removeClient(this);
     RenderImageScaleObserver::imageDestroyed(this);
@@ -598,18 +590,4 @@ Image* RenderImage::nullImage()
     return Image::nullImage();
 }
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-void RenderImage::setAreaElements(RenderImage* image)
-{
-    HTMLMapElement* map = imageMap();
-    if (map) {
-        for (Node* current = map->firstChild(); current; current = current->traverseNextNode(map)) {
-            if (current->hasTagName(WebCore::HTMLNames::areaTag)) {
-                HTMLAreaElement* area = static_cast<HTMLAreaElement*>(current);
-                area->setMap(image);
-            }
-        }
-    }
-}
-#endif
 } // namespace WebCore

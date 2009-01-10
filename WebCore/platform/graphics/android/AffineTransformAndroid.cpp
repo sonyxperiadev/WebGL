@@ -195,8 +195,7 @@ bool AffineTransform::operator==(const AffineTransform &m2) const
 
 AffineTransform &AffineTransform::operator*= (const AffineTransform &m2)
 {
-    // is this the correct order???
-    m_transform.setConcat(m_transform, m2.m_transform);
+    m_transform.setConcat(m2.m_transform, m_transform);
     return *this;
 }
 
@@ -204,8 +203,7 @@ AffineTransform AffineTransform::operator* (const AffineTransform &m2)
 {
     AffineTransform cat;
     
-    // is this the correct order???
-    cat.m_transform.setConcat(m_transform, m2.m_transform);
+    cat.m_transform.setConcat(m2.m_transform, m_transform);
     return cat;
 }
 

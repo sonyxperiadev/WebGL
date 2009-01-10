@@ -29,10 +29,6 @@
 #include "Length.h"
 #include "RenderObject.h"
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-#include "RenderImage.h"
-#endif
-
 using namespace std;
 
 namespace WebCore {
@@ -45,9 +41,6 @@ HTMLAreaElement::HTMLAreaElement(Document *doc)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
     , m_shape(Unknown)
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    , m_map(0)
-#endif
 {
 }
 
@@ -231,15 +224,4 @@ void HTMLAreaElement::setTarget(const String& value)
     setAttribute(targetAttr, value);
 }
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-IntRect HTMLAreaElement::getAreaRect() const
-{
-    if (m_map) {
-        if (isDefault())
-          return m_map->absoluteBoundingBoxRect();
-        return getRect(m_map);
-    }
-    return IntRect();
-}
-#endif
 }

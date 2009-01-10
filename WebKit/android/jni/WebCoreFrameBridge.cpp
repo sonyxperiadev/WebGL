@@ -70,6 +70,7 @@
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"
 #include "WebViewCore.h"
+#include "wds/DebugServer.h"
 
 #include <runtime_root.h>
 #include <runtime_object.h>
@@ -736,6 +737,9 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Create a Frame and the page holds its reference
     WebCore::Frame* frame = WebCore::Frame::create(page, NULL, loaderC).get();
     loaderC->setFrame(frame);
+#if ENABLE(WDS)
+    WDS::server()->addFrame(frame);
+#endif
 
     // Create a WebViewCore to access the Java WebViewCore associated with this page
     WebViewCore* webViewCore = new WebViewCore(env, javaview, frame);
@@ -793,6 +797,9 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
     view->deref();
 
     SET_NATIVE_FRAME(env, obj, 0);
+#if ENABLE(WDS)
+    WDS::server()->removeFrame(pFrame);
+#endif
 }
 
 static void LoadUrl(JNIEnv *env, jobject obj, jstring url)

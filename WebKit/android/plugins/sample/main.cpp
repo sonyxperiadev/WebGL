@@ -349,6 +349,7 @@ int16 NPP_HandleEvent(NPP instance, void* event)
                       evt->data.key.modifiers);
             if (evt->data.key.action == kDown_ANPKeyAction) {
                 obj->mUnichar = evt->data.key.unichar;
+                browser->invalidaterect(instance, NULL);
             }
             return 1;
 

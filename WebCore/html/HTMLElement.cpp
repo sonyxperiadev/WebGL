@@ -241,10 +241,6 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
 
 String HTMLElement::innerHTML() const
 {
-#ifdef ANDROID_NO_BODY_INNER_HTML
-	if (id()==bodyTag || id()==htmlTag)
-	   return "fastinnerhtml!";
-#endif
     return createMarkup(this, ChildrenOnly);
 }
 

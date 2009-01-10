@@ -21,13 +21,12 @@
 #include "Node.h"
 #include "Profile.h"
 
-/*
 // This stub file was created to avoid building and linking in all the
 // Inspector codebase. If you would like to enable the Inspector, do the
 // following steps:
-// 1. Replace this file in WebCore/Makefile.android with the common
+// 1. Replace this file in WebCore/Android.mk with the common
 //    implementation, ie page/InsepctorController.cpp
-// 2. Add the JS API files to JavaScriptCore/Makefile.android:
+// 2. Add the JS API files to JavaScriptCore/Android.mk:
 // ?  API/JSBase.cpp \
 //      API/JSCallbackConstructor.cpp \
 //      API/JSCallbackFunction.cpp \
@@ -37,14 +36,13 @@
 //      API/JSObjectRef.cpp \
 //      API/JSStringRef.cpp \
 //      API/JSValueRef.cpp
-// 3. Add the following LOCAL_C_INCLUDES to JavaScriptCore/Makefile.android:
+// 3. Add the following LOCAL_C_INCLUDES to JavaScriptCore/Android.mk:
 // ?$(LOCAL_PATH)/API \
 //      $(LOCAL_PATH)/ForwardingHeaders \
 //      $(LOCAL_PATH)/../../WebKit \
 // 4. Rebuild WebKit
 //
-// Note, for a functional Inspector, you must implement InspectorClientAndroid
-*/
+// Note, for a functional Inspector, you must implement InspectorClientAndroid.
 
 namespace WebCore {
 
@@ -54,8 +52,11 @@ struct InspectorResource : public RefCounted<InspectorResource> {
 struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 };
 
-InspectorController::InspectorController(Page*, InspectorClient*) :
-    m_startProfiling(this, NULL) {}
+InspectorController::InspectorController(Page*, InspectorClient*)
+    : m_startProfiling(this, NULL)
+{
+}
+
 InspectorController::~InspectorController() {}
 
 void InspectorController::windowScriptObjectAvailable() {}

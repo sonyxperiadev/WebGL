@@ -1156,10 +1156,22 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     }
     if (!node->isTextNode())
         static_cast<WebCore::Element*>(node)->focus(false);
-    //setFocus on things that WebCore doesn't recognize as supporting focus
-    //for instance, if there is an onclick element that does not support focus
+    if (node->document()->focusedNode() != node) {
+        // This happens when Element::focus() fails as we may try to set the 
+        // focus to a node which WebCore doesn't recognize as a focusable node. 
+        // So we need to do some extra work, as it does in Element::focus(), 
+        // besides calling Document::setFocusedNode.
+        if (oldFocusNode) {
+            // copied from clearSelectionIfNeeded in FocusController.cpp
+            WebCore::SelectionController* s = oldDoc->frame()->selection();
+            if (!s->isNone())
+                s->clear();
+        }
+        //setFocus on things that WebCore doesn't recognize as supporting focus
+        //for instance, if there is an onclick element that does not support focus
+        node->document()->setFocusedNode(node);
+    }
     DBG_NAV_LOGD("setFocusedNode node=%p", node);
-    node->document()->setFocusedNode(node);
     m_lastFocused = node;
     m_lastFocusedBounds = node->getRect();
     return true;
@@ -1527,7 +1539,7 @@ public:
         WebCore::HTMLOptionElement* option;
         for (int i = 0; i < count; i++) {
             option = static_cast<WebCore::HTMLOptionElement*>(
-                    m_select->item(array[m_select->listToOptionIndex(i)]));
+                    m_select->item(m_select->listToOptionIndex(array[i])));
             option->setSelected(true);
         }
 		m_viewImpl->contentInvalidate(m_select->getRect());
@@ -1609,78 +1621,40 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
     m_popupReply = reply;
 }
 
-bool WebViewCore::keyUp(KeyCode keyCode, int keyVal)
+bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown)
 {
-    DBG_NAV_LOGD("keyCode=%d", keyCode);
+    DBG_NAV_LOGD("key: keyCode=%d", keyCode);
+
+    WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
+    WebCore::Node* focusNode = m_mainFrame->getCacheBuilder().currentFocus();
+    if (focusNode) {
+        eventHandler = focusNode->document()->frame()->eventHandler();
+    }
+
+    int mods = 0; // PlatformKeyboardEvent::ModifierKey
+    if (isShift) {
+        mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
+    }
+    if (isAlt) {
+        mods |= WebCore::PlatformKeyboardEvent::AltKey;
+    }
+    WebCore::PlatformKeyboardEvent evt(keyCode, unichar,
+            isDown ? WebCore::PlatformKeyboardEvent::KeyDown : WebCore::PlatformKeyboardEvent::KeyUp,
+            repeatCount, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey> (mods));
+    return eventHandler->keyEvent(evt);
+}
+
+bool WebViewCore::click() {
     bool keyHandled = false;
     WebCore::Node* focusNode = m_mainFrame->getCacheBuilder().currentFocus();
     if (focusNode) {
-        WebCore::Frame* focusFrame = focusNode->document()->frame();
-        switch (keyCode) {
-        case kKeyCodeNewline:
-        case kKeyCodeDpadCenter: {
-            focusFrame->loader()->resetMultipleFormSubmissionProtection();
-            WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
-            webFrame->setUserInitiatedClick(true);
-            if ((focusNode->hasTagName(WebCore::HTMLNames::inputTag) &&
-                    ((WebCore::HTMLInputElement*)focusNode)->isTextField()) ||
-                    focusNode->hasTagName(WebCore::HTMLNames::textareaTag)) {
-                // Create the key down event.
-                WebCore::PlatformKeyboardEvent keydown(keyCode, keyVal,
-                        WebCore::PlatformKeyboardEvent::KeyDown, 0,
-                        NO_MODIFIER_KEYS);
-                // Create the key up event.
-                WebCore::PlatformKeyboardEvent keyup(keyCode, keyVal,
-                        WebCore::PlatformKeyboardEvent::KeyUp, 0,
-                        NO_MODIFIER_KEYS);
-                // Send both events.
-                keyHandled = focusFrame->eventHandler()->keyEvent(keydown);
-                keyHandled |= focusFrame->eventHandler()->keyEvent(keyup);
-            } else {
-                keyHandled = handleMouseClick(focusFrame, focusNode);
-            }
-            webFrame->setUserInitiatedClick(false);
-            break;
-        }
-        default:
-            keyHandled = false;
-        }
+        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(true);
+        keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
+        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(false);
     }
+    // match in setFinalFocus()
     m_blockFocusChange = false;
     return keyHandled;
-}
-
-bool WebViewCore::sendKeyToFocusNode(int keyCode, UChar32 unichar,
-                 int repeatCount, bool isShift, bool isAlt, KeyAction action) {
-    WebCore::Node* focusNode = m_mainFrame->getCacheBuilder().currentFocus();
-    if (focusNode) {
-        WebCore::Frame* focusFrame = focusNode->document()->frame();
-        WebCore::PlatformKeyboardEvent::Type type;
-        switch (action) {
-        case DownKeyAction:
-            type = WebCore::PlatformKeyboardEvent::KeyDown;
-            break;
-        case UpKeyAction:
-            type = WebCore::PlatformKeyboardEvent::KeyUp;
-            break;
-        default:
-            SkDebugf("---- unexpected KeyAction %d\n", action);
-            return false;
-        }
-
-        int mods = 0;   // PlatformKeyboardEvent::ModifierKey
-        if (isShift) {
-            mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
-        }
-        if (isAlt) {
-            mods |= WebCore::PlatformKeyboardEvent::AltKey;
-        }
-
-        WebCore::PlatformKeyboardEvent evt(keyCode, unichar, type, repeatCount,
-                static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(mods));
-        return focusFrame->eventHandler()->keyEvent(evt);
-    }
-    return false;
 }
 
 bool WebViewCore::handleTouchEvent(int action, int x, int y)
@@ -2008,29 +1982,27 @@ static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
     viewImpl->setGlobalBounds(x, y, h, v);
 }
 
-static jboolean KeyUp(JNIEnv *env, jobject obj, jint key, jint val)
+static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar, 
+        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isDown)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterWV counter;
 #endif
-//    LOGV("webviewcore::nativeKeyUp(%u)\n", (unsigned)key);
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeKeyUp");
-    return viewImpl->keyUp((KeyCode)key, val);
+    LOG_ASSERT(viewImpl, "viewImpl not set in Key");
+
+    return viewImpl->key(keyCode, unichar, repeatCount, isShift, isAlt, isDown);
 }
 
-static bool SendKeyToFocusNode(JNIEnv *env, jobject jwebviewcore,
-                               jint keyCode, jint unichar, jint repeatCount,
-                               jboolean isShift, jboolean isAlt, jint action)
+static jboolean Click(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterWV counter;
 #endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, jwebviewcore);
-    LOG_ASSERT(viewImpl, "viewImpl not set in SendKeyToFocusNode");
-    return viewImpl->sendKeyToFocusNode((KeyCode)keyCode, unichar, repeatCount,
-                   isShift, isAlt, static_cast<WebViewCore::KeyAction>(action));
+    return viewImpl->click();
 }
 
 static void DeleteSelection(JNIEnv *env, jobject obj,
@@ -2390,9 +2362,10 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) CopyContentToPicture },
     { "nativeDrawContent", "(Landroid/graphics/Canvas;I)Z",
         (void*) DrawContent } ,
-    { "nativeKeyUp", "(II)Z",
-        (void*) KeyUp },
-    { "nativeSendKeyToFocusNode", "(IIIZZI)Z", (void*) SendKeyToFocusNode },
+    { "nativeKey", "(IIIZZZ)Z",
+        (void*) Key },
+    { "nativeClick", "()Z",
+        (void*) Click },
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",

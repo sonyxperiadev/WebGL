@@ -42,8 +42,6 @@
 
 namespace WebCore {
 
-// using namespace EventNames;
-
 unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
 
 bool EventHandler::tabsToAllControls(KeyboardEvent* ) const
@@ -86,10 +84,10 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
     return false;
 }
 
-// This function is called for mouse events by FrameView::handleMousePressEvent()
-// It is used to ensure that events are sync. correctly between frames, for example
+// This function is called for mouse events by FrameView::handleMousePressEvent().
+// It is used to ensure that events are sync'ed correctly between frames. For example
 // if the user presses down in one frame and up in another frame, this function will
-// return true if that is the case, and pass the event to the correct frame
+// returns true, and pass the event to the correct frame.
 bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& event, 
     Frame* subframe, HitTestResult* hoveredNode)
 {
@@ -97,8 +95,8 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
     return false;
 }
 
-// This is called to route Wheel Events to child widgets when they are a RenderWidget
-// as the parent usually gets Wheel Event. Don't have a mouse with a wheel to confirm
+// This is called to route wheel events to child widgets when they are RenderWidget
+// as the parent usually gets wheel event. Don't have a mouse with a wheel to confirm
 // the operation of this function.
 bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& , Widget* widget)
 {
@@ -127,6 +125,6 @@ class Clipboard : public RefCounted<Clipboard> {};
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const { return PassRefPtr<Clipboard>(NULL); }
 
-    // new as of SVN change 36269, Sept 8, 2008
+// new as of SVN change 36269, Sept 8, 2008
 const double EventHandler::TextDragDelay = 0.0;
 }

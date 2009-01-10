@@ -79,7 +79,7 @@ void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
     setEncodedSize(m_data.get() ? m_data->size() : 0);
     if (m_data.get())
         m_script = m_encoding.decode(m_data->data(), encodedSize());
-#ifdef ANDROID_FIX
+#ifdef ANDROID_FIX // FIXME  Newer webkit calls setDecodedSize in CachedScript::script(); remove on webkit update
     // report decoded size too
     setDecodedSize(m_script.length() * sizeof(UChar));
 #endif

@@ -68,23 +68,11 @@ typedef unsigned char   flex_uint8_t;
 
 #define ANDROID_EXPOSE_COLUMN_GAP
 
-// This change was made before we changed ListBoxes to operate the same way
-// as drop down lists.
-// FIXME: Check to make sure we can delete it.
-#define ANDROID_NAVIGATE_LISTBOX
-
-// Allows us to get the rectangle of an <area> element so we can navigate to it
-// This could be submitted back to webkit if anyone else wants to use the
-// hit rectangles for navigation.
-#define ANDROID_NAVIGATE_AREAMAPS
-
 #define ANDROID_LAYOUT
 
 // Allows us to select all of the text in a <textarea> in onfocus
 #define ANDROID_SELECT_TEXT_AREAS
 
-#define ANDROID_KEYBOARD_NAVIGATION
-#define ANDROID_NO_BODY_INNER_HTML
 #define ANDROID_FIX
 // note: if uncomment ANDROID_INSTRUMENT here, you must also 
 // uncomment it on line 31 of JavaScriptCore/kjs/config.h
@@ -100,14 +88,6 @@ typedef unsigned char   flex_uint8_t;
 // Fix for an issue where WebKit was scrolling a focused element onscreen.
 // Unnecessary for us, since we handle scrolling outside of WebKit.
 #define ANDROID_SCROLL_FIX
-
-// Fixes an issue where going back to a page that sets focus to a textfield
-// results in restoring the selection rather than selecting all.
-#define ANDROID_DO_NOT_RESTORE_PREVIOUS_SELECTION
-
-// Fix for issue 986508. May be possible to combine with
-// ANDROID_DO_NOT_RESTORE_PREVIOUS_SELECTION
-#define ANDROID_RESET_SELECTION
 
 #define ANDROID_META_SUPPORT
 
@@ -131,7 +111,7 @@ typedef unsigned char   flex_uint8_t;
 
 // Changes needed to support native plugins (npapi.h). If the change is generic,
 // it may be under a different #define (see: PLUGIN_PLATFORM_SETVALUE,
-// PLUGIN_SCHEDULE_TIMER, ANDROID_PLUGIN_MAIN_THREAD_SCHEDULER_FIXES)
+// PLUGIN_SCHEDULE_TIMER)
 #define ANDROID_PLUGINS
 
 // Prevent Webkit from drawing the selection in textfields/textareas, since we 
@@ -144,15 +124,6 @@ typedef unsigned char   flex_uint8_t;
 // ResourceRequest.
 #define ANDROID_USER_GESTURE
 
-// Inform webkit (Font.cpp) that we NEVER want to perform rounding hacks for
-// text, since we always measure/draw in subpixel mode (performance)
-#define ANDROID_NEVER_ROUND_FONT_METRICS
-
-// Add bool to GlyphBuffer as a drawing hint, marking buffers whose array of
-// widths happen to exactly match the values returned from the font. This allows
-// the drawing code to ignore the position array if they choose (performace)
-#define ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-
 // Add support for the orientation window property
 #define ANDROID_ORIENTATION_SUPPORT
 
@@ -163,12 +134,6 @@ typedef unsigned char   flex_uint8_t;
 // This adds platformInit() and platformSetValue() to pluginview
 // Will submit this as a patch to apple
 #define PLUGIN_PLATFORM_SETVALUE
-
-// This fixes a bug in PluginMainThreadScheduler: it is obviously
-// missing a reset of m_callPending. This means that it never wakes up
-// the main thread after the first time triggered.
-// https://bugs.webkit.org/show_bug.cgi?id=21503
-#define ANDROID_PLUGIN_MAIN_THREAD_SCHEDULER_FIXES
 
 // This enables logging the DOM tree, Render tree even for the release build
 #define ANDROID_DOM_LOGGING
@@ -187,4 +152,3 @@ typedef unsigned char   flex_uint8_t;
 
 // Enable dumping the display tree to a file (triggered in WebView.java)
 #define ANDROID_DUMP_DISPLAY_TREE
-

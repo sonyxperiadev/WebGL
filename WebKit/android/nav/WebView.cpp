@@ -419,10 +419,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_matches = 0;
     m_hasCurrentLocation = false;
     m_isFindPaintSetUp = false;
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-    m_matchesPicture = 0;
-#endif
 }
 
 ~WebView()
@@ -437,10 +433,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     delete m_navPictureUI;
     if (m_matches)
         delete m_matches;
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-    m_matchesPicture->safeUnref();
-#endif
 }
 
 void clearFocus(int x, int y, bool inval)
@@ -548,9 +540,7 @@ void setUpFindPaint()
     const SkScalar roundiness = SkIntToScalar(2);
     SkCornerPathEffect* cornerEffect = new SkCornerPathEffect(roundiness);
     m_findPaint.setPathEffect(cornerEffect);
-    // FIXME: Would like this to be opaque, but then the user cannot see the
-    // text behind it.  We will then need to redraw the text on top of it.
-    m_findPaint.setARGB(204, 132, 190, 0);
+    m_findPaint.setARGB(255, 132, 190, 0);
 
     // Set up the background blur paint.
     m_findBlurPaint.setAntiAlias(true);
@@ -583,26 +573,34 @@ void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused)
     // Offset the path for a blurred shadow
     SkPath blurPath;
     matchPath.offset(SK_Scalar1, SkIntToScalar(2), &blurPath);
+    int saveCount = 0;
+    if (!focused) {
+        saveCount = canvas->save();
+        canvas->clipPath(matchPath, SkRegion::kDifference_Op);
+    }
     // Draw the blurred background
     canvas->drawPath(blurPath, m_findBlurPaint);
+    if (!focused) {
+        canvas->restoreToCount(saveCount);
+    }
     // Draw the foreground
     canvas->drawPath(matchPath, m_findPaint);
 }
 
+// Put a cap on the number of matches to draw.  If the current page has more
+// matches than this, only draw the focused match.
+#define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
+
 void drawMatches(SkCanvas* canvas)
 {
-    if (!m_matches || !m_matches->size()
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-                                            || !m_matchesPicture
-#endif
-                                            ) {
+    if (!m_matches || !m_matches->size()) {
         return;
     }
     if (m_findIndex >= m_matches->size()) {
         m_findIndex = 0;
     }
-    const SkRegion& currentMatchRegion = (*m_matches)[m_findIndex];
+    const MatchInfo& matchInfo = (*m_matches)[m_findIndex];
+    const SkRegion& currentMatchRegion = matchInfo.getLocation();
     const SkIRect& currentMatchBounds = currentMatchRegion.getBounds();
     int left = currentMatchBounds.fLeft;
     int top = currentMatchBounds.fTop;
@@ -636,36 +634,29 @@ void drawMatches(SkCanvas* canvas)
         setUpFindPaint();
 
     // Draw the current match
-   drawMatch(currentMatchRegion, canvas, true);
+    drawMatch(currentMatchRegion, canvas, true);
+    // Now draw the picture, so that it shows up on top of the rectangle
+    canvas->drawPicture(*matchInfo.getPicture());
 
     // Draw the rest
     unsigned numberOfMatches = m_matches->size();
-    int saveCount = 0;
-    if (numberOfMatches > 1) {
+    if (numberOfMatches > 1
+            && numberOfMatches < MAX_NUMBER_OF_MATCHES_TO_DRAW) {
+        SkIRect visibleIRect;
+        android_setrect(&visibleIRect, visible);
         for(unsigned i = 0; i < numberOfMatches; i++) {
             // The current match has already been drawn
             if (i == m_findIndex)
                 continue;
-            const SkRegion& region = (*m_matches)[i];
-            // Do not draw matches which intersect the current one
-            if (currentMatchRegion.intersects(region))
+            const SkRegion& region = (*m_matches)[i].getLocation();
+            // Do not draw matches which intersect the current one, or if it is
+            // offscreen
+            if (currentMatchRegion.intersects(region)
+                    || !region.intersects(visibleIRect))
                 continue;
             drawMatch(region, canvas, false);
         }
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-        // Set a clip so we do not draw the text for the other matches.
-        saveCount = canvas->save(SkCanvas::kClip_SaveFlag);
-        canvas->clipRect(currentMatch);
-#endif
     }
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-    canvas->drawPicture(*m_matchesPicture);
-    if (numberOfMatches > 1) {
-        canvas->restoreToCount(saveCount);
-    }
-#endif
 }
 
 void drawFocusRing(SkCanvas* canvas)
@@ -1112,6 +1103,18 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
 
 void notifyFocusSet(FrameCachePermission inEditingMode)
 {
+    CachedRoot* root = getFrameCache(DontAllowNewer);
+    if (root) {
+        // make sure the mFocusData in WebView.java is in sync with WebView.cpp
+        const CachedFrame* frame = 0;
+        const CachedNode* node = root->currentFocus(&frame);
+        const WebCore::IntPoint& focusLocation = root->focusLocation();
+        setFocusData(root->generation(),
+                frame ? (WebCore::Frame*) frame->framePointer() : 0,
+                node ? (WebCore::Node*) node->nodePointer() : 0, 
+                focusLocation.x(), focusLocation.y(), false);
+    }
+
     if (focusIsTextArea(inEditingMode))
         updateTextEntry();
     else if (inEditingMode)
@@ -1608,8 +1611,8 @@ void setFocusData(int buildGeneration, WebCore::Frame* framePtr,
 // m_currentMatchLocation.
 void inline storeCurrentMatchLocation()
 {
-    SkASSERT(m_findIndex < m_matches->size() && m_findIndex >= 0);
-    const SkIRect& bounds = (*m_matches)[m_findIndex].getBounds();
+    SkASSERT(m_findIndex < m_matches->size());
+    const SkIRect& bounds = (*m_matches)[m_findIndex].getLocation().getBounds();
     m_currentMatchLocation.set(bounds.fLeft, bounds.fTop);
     m_hasCurrentLocation = true;
 }
@@ -1635,12 +1638,7 @@ void findNext(bool forward)
 
 // With this call, WebView takes ownership of matches, and is responsible for
 // deleting it.
-void setMatches(WTF::Vector<SkRegion>* matches
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-                                            , SkPicture* pic
-#endif
-                                                            )
+void setMatches(WTF::Vector<MatchInfo>* matches)
 {
     if (m_matches)
         delete m_matches;
@@ -1648,7 +1646,7 @@ void setMatches(WTF::Vector<SkRegion>* matches
     if (m_matches->size()) {
         if (m_hasCurrentLocation) {
             for (unsigned i = 0; i < m_matches->size(); i++) {
-                const SkIRect& rect = (*m_matches)[i].getBounds();
+                const SkIRect& rect = (*m_matches)[i].getLocation().getBounds();
                 if (rect.fLeft == m_currentMatchLocation.fX
                         && rect.fTop == m_currentMatchLocation.fY) {
                     m_findIndex = i;
@@ -1664,12 +1662,6 @@ void setMatches(WTF::Vector<SkRegion>* matches
     } else {
         m_hasCurrentLocation = false;
     }
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-    m_matchesPicture->safeUnref();
-    m_matchesPicture = pic;
-    m_matchesPicture->ref();
-#endif
     viewInvalidate();
 }
 
@@ -1778,7 +1770,7 @@ private: // local state for WebView
     bool m_heightCanMeasure;
     int m_lastDx;
     SkMSec m_lastDxTime;
-    WTF::Vector<SkRegion>* m_matches;
+    WTF::Vector<MatchInfo>* m_matches;
     // Stores the location of the current match.
     SkIPoint m_currentMatchLocation;
     // Tells whether the value in m_currentMatchLocation is valid.
@@ -1789,10 +1781,6 @@ private: // local state for WebView
     SkPaint m_findPaint;
     // Paint used for the background of our Find matches.
     SkPaint m_findBlurPaint;
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-    SkPicture* m_matchesPicture;
-#endif
     unsigned m_findIndex;
 }; // end of WebView class
 
@@ -2096,14 +2084,9 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     canvas.setBitmapDevice(bitmap);
     canvas.drawPicture(*(root->getPicture()));
-    WTF::Vector<SkRegion>* matches = canvas.detachRegions();
+    WTF::Vector<MatchInfo>* matches = canvas.detachMatches();
     // With setMatches, the WebView takes ownership of matches
-    view->setMatches(matches
-// RECORD_MATCHES is defined in FindCanvas.h
-#if RECORD_MATCHES
-                            , canvas.getDrawnMatches()
-#endif
-                                                      );
+    view->setMatches(matches);
 
     env->ReleaseStringChars(findLower, findLowerChars);
     env->ReleaseStringChars(findUpper, findUpperChars);

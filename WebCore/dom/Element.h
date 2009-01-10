@@ -157,15 +157,7 @@ public:
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
-#ifdef ANDROID_DO_NOT_RESTORE_PREVIOUS_SELECTION
-    // Set the default to not restore the previous selection, since
-    // we want the selection to cover the whole textfield.
-    // FIXME: Would it be a better fix to simply ignore the input
-    // value in the implementation?
-    virtual void focus(bool restorePreviousSelection = false);
-#else
     virtual void focus(bool restorePreviousSelection = true);
-#endif
     virtual void updateFocusAppearance(bool restorePreviousSelection);
     void blur();
 

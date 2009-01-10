@@ -109,9 +109,6 @@ public:
     bool isTargetItem() const;
     
     FormData* formData();
-#ifdef ANDROID_FIX
-    const FormData* formData() const;
-#endif
     String formContentType() const;
     String formReferrer() const;
     String rssFeedReferrer() const;

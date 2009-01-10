@@ -37,10 +37,12 @@ namespace WebCore {
     
 class Document;
 class Frame;
+class HTMLAreaElement;
 class InlineTextBox;
 class Node;
 class PlatformGraphicsContext;
 class RenderFlow;
+class RenderImage;
 class RenderObject;
 class RenderLayer;
 class Text;
@@ -193,6 +195,7 @@ private:
     static Frame* FrameAnd(CacheBuilder* focusNav);
     static Frame* FrameAnd(const CacheBuilder* focusNav);
     static CacheBuilder* Builder(Frame* );
+    IntRect getAreaRect(const HTMLAreaElement* area) const;
     static Frame* HasFrame(Node* );
     static bool HasOverOrOut(Node* );
     static bool HasTriggerEvent(Node* );
@@ -208,6 +211,7 @@ private:
     Node* mLastKnownFocus;
     IntRect mLastKnownFocusBounds;
     android::CachedNodeType mAllowableTypes;
+    WTF::HashMap<const HTMLAreaElement* , RenderImage* > m_areaBoundsMap;
 #if DUMP_NAV_CACHE
 public:
     class Debug {

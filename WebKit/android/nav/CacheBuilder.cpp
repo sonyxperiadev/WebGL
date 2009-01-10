@@ -27,6 +27,7 @@
 #include "HTMLAreaElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
@@ -398,7 +399,7 @@ void CacheBuilder::Debug::groups() {
                 properties.truncate(properties.length() - 3);
             IntRect rect = node->getRect();
             if (node->hasTagName(HTMLNames::areaTag))
-                rect = static_cast<HTMLAreaElement*>(node)->getAreaRect();
+                rect = Builder(frame)->getAreaRect(static_cast<HTMLAreaElement*>(node));
             char buffer[DEBUG_BUFFER_SIZE];
             memset(buffer, 0, sizeof(buffer));
             mBuffer = buffer;
@@ -1004,12 +1005,20 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderStyle* style = nodeRenderer->style();
             if (style->visibility() == HIDDEN)
                 continue;
-#ifdef ANDROID_NAVIGATE_AREAMAPS
             if (nodeRenderer->isImage()) { // set all the area elements to have a link to their images
                 RenderImage* image = static_cast<RenderImage*>(nodeRenderer);
-                image->setImageForAreaElements();
+                HTMLMapElement* map = image->imageMap();
+                if (map) {
+                    Node* node;
+                    for (node = map->firstChild(); node; 
+                            node = node->traverseNextNode(map)) {
+                        if (!node->hasTagName(HTMLNames::areaTag))
+                            continue;
+                        HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
+                        m_areaBoundsMap.set(area, image);
+                    }
+                }
             }
-#endif
             isTransparent = style->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
             hasFocusRing = style->tapHighlightColor().alpha() > 0;
@@ -1043,10 +1052,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         IntRect absBounds;
         Node* lastChild = node->lastChild();
         WTF::Vector<IntRect>* columns = NULL;
-#ifdef ANDROID_NAVIGATE_AREAMAPS
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-            bounds = area->getAreaRect();
+            bounds = getAreaRect(area);
             bounds.move(globalOffsetX, globalOffsetY);
             absBounds = bounds;
             isUnclipped = true;  // FIXME: areamaps require more effort to detect
@@ -1054,7 +1062,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             takesFocus = true;
             goto keepNode;
         }
-#endif
         if (nodeRenderer == NULL)
             continue;
 
@@ -1183,6 +1190,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (isFocusable == false) {
                 if (node->isEventTargetNode() == false)
                     continue;
+                EventTargetNode* eventTargetNode = (EventTargetNode*) node;
+                if (eventTargetNode->disabled())
+                    continue;
                 bool overOrOut = HasOverOrOut(node);
                 bool hasTrigger = HasTriggerEvent(node);
                 if (overOrOut == false && hasTrigger == false)
@@ -1233,9 +1243,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             else
                 clip.intersect(parentClip);
             hasClip = true;
-            DBG_NAV_LOGD("absBounds={%d,%d,%d,%d} parentClip={%d,%d,%d,%d}\n", 
-                absBounds.x(), absBounds.y(), absBounds.width(), absBounds.height(), 
-                parentClip.x(), parentClip.y(), parentClip.width(), parentClip.height());
         }
         if (hasClip && cachedNode.clip(clip) == false) {
             cachedNode.setBounds(clip);
@@ -2365,6 +2372,16 @@ void CacheBuilder::FindResetNumber(FindState* state)
     state->mStorePtr = state->mStore;
 }
 
+IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area) const
+{
+    RenderImage* map = m_areaBoundsMap.get(area);
+    if (!map)
+        return IntRect();
+    if (area->isDefault())
+        return map->absoluteBoundingBoxRect();
+    return area->getRect(map);
+}
+
 void CacheBuilder::GetGlobalOffset(Node* node, int* x, int * y) 
 { 
     GetGlobalOffset(node->document()->frame(), x, y); 
@@ -2459,13 +2476,11 @@ Node* CacheBuilder::findByCenter(int x, int y) const
         if (node->isTextNode())
             continue;
         IntRect bounds;
-#ifdef ANDROID_NAVIGATE_AREAMAPS
         if (node->hasTagName(HTMLNames::areaTag)) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-            bounds = area->getAreaRect();
+            bounds = getAreaRect(area);
             bounds.move(globalOffsetX, globalOffsetY);
         } else
-#endif
             bounds = node->getRect();
         if (bounds.isEmpty())
             continue;
@@ -2775,12 +2790,8 @@ bool CacheBuilder::validNode(void* matchFrame, void* matchNode) const
         Node* node = frame->document();
         while (node != NULL) {
             if (node == matchNode) {
-#ifdef ANDROID_NAVIGATE_AREAMAPS
                 const IntRect& rect = node->hasTagName(HTMLNames::areaTag) ? 
-                        static_cast<HTMLAreaElement*>(node)->getAreaRect() : node->getRect();
-#else
-                const IntRect& rect = node->getRect();
-#endif
+                    getAreaRect(static_cast<HTMLAreaElement*>(node)) : node->getRect();
                 // Consider nodes with empty rects that are not at the origin
                 // to be valid, since news.google.com has valid nodes like this
                 if (rect.x() == 0 && rect.y() == 0 && rect.isEmpty())
