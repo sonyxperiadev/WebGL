@@ -71,15 +71,6 @@ public:
 
     void highQualityRepaintTimerFired(Timer<RenderImage>*);
 
-#ifdef ANDROID_NAVIGATE_AREAMAPS
-    // If this RenderImage has an imagemap, set its area elements to point to it so they
-    // can know its bounds for focus navigation and drawing the focus ring.
-    void setImageForAreaElements() { setAreaElements(this); }
-private:
-    // Helper function, also used to set the area elements to have no RenderImage in the 
-    // destructor, so they do not reference the deleted image.
-    void setAreaElements(RenderImage* image);
-#endif
 protected:
     virtual Image* image(int w = 0, int h = 0) { return m_cachedImage ? m_cachedImage->image() : nullImage(); }
     virtual bool errorOccurred() const { return m_cachedImage && m_cachedImage->errorOccurred(); }

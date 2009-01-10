@@ -414,13 +414,6 @@ FormData* HistoryItem::formData()
     return m_formData.get();
 }
 
-#ifdef ANDROID_FIX
-const FormData* HistoryItem::formData() const
-{
-    return m_formData.get();
-}
-#endif
-
 bool HistoryItem::isCurrentDocument(Document* doc) const
 {
     // FIXME: We should find a better way to check if this is the current document.

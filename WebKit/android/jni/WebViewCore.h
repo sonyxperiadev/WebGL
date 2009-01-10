@@ -189,24 +189,15 @@ namespace android {
         void setSizeScreenWidthAndScale(int width, int height, int screenWidth, int scale);
 
         /**
-         * Handle keyDown events from Java.
-         * @param keyCode The key pressed.
+         * Handle key events from Java.
          * @return Whether keyCode was handled by this class.
          */
-        bool keyUp(KeyCode keyCode, int keyValue);
+        bool key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown);
 
-        // These need to be lock-step with the KEY_ACTION values in
-        // WebViewCore.java
-        enum KeyAction {
-            DownKeyAction = 0,
-            UpKeyAction = 1
-        };
         /**
-         *  Send the key event to the focus node (if there is one). Return true
-         *  if there is a node, and it claims to have handled the event.
+         * Handle (mouse) click event from Java
          */
-        bool sendKeyToFocusNode(int code, UChar32 unichar, int repeatCount,
-                                bool isShift, bool isAlt, KeyAction);
+        bool click();
 
         /**
          * Handle touch event

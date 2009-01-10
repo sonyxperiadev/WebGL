@@ -107,35 +107,31 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                       const GlyphBuffer& glyphBuffer,  int from, int numGlyphs,
                       const FloatPoint& point) const {
-    SkPaint paint;
+    SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t));  // compile-time assert
 
+    SkPaint paint;
     if (!setupForText(&paint, gc, font)) {
         return;
     }
     
-    SkCanvas*   canvas = gc->platformContext()->mCanvas;
-
-    SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t));  // compile-time assert
-
-    const GlyphBufferGlyph*     glyphs = glyphBuffer.glyphs(from);
     SkScalar                    x = SkFloatToScalar(point.x());
     SkScalar                    y = SkFloatToScalar(point.y());
+    const GlyphBufferGlyph*     glyphs = glyphBuffer.glyphs(from);
+    const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
+    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
+    SkPoint*                    pos = storage.get();
+    
+    /*  We need an array of [x,y,x,y,x,y,...], but webkit is giving us
+        point.xy + [width, height, width, height, ...], so we have to convert
+     */
+    for (int i = 0; i < numGlyphs; i++) {
+        pos[i].set(x, y);
+        x += SkFloatToScalar(adv[i].width());
+        y += SkFloatToScalar(adv[i].height());
+    }
 
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    if (glyphBuffer.hasAdjustedWidths()) {
-        const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
-        SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
-        SkPoint*                    pos = storage.get();
-        
-        for (int i = 0; i < numGlyphs; i++) {
-            pos[i].set(x, y);
-            x += SkFloatToScalar(adv[i].width());
-            y += SkFloatToScalar(adv[i].height());
-        }
-        canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
-    } else
-#endif
-        canvas->drawText(glyphs, numGlyphs << 1, x, y, paint);
+    SkCanvas* canvas = gc->platformContext()->mCanvas;
+    canvas->drawPosText(glyphs, numGlyphs * sizeof(*glyphs), pos, paint);
 }
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& point, int h, int, int) const

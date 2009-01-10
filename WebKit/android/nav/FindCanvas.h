@@ -17,22 +17,36 @@
 #ifndef Find_Canvas_h
 #define Find_Canvas_h
 
-// The code marked with this is used to record the draw calls into an SkPicture,
-// which is passed to the caller to draw the matches on top of the opaque green
-// rectangles.  The code is a checkpoint.
-#define RECORD_MATCHES 0
-
 #include "SkBounder.h"
 #include "SkCanvas.h"
+#include "SkPicture.h"
 #include "SkRegion.h"
 #include "SkTDArray.h"
 #include "icu/unicode/umachine.h"
 
-#if RECORD_MATCHES
-class SkPicture;
-#endif
 class SkRect;
 class SkTypeface;
+
+// Stores both region information and an SkPicture of the match, so that the
+// region can be drawn, followed by drawing the matching text on top of it.
+// This class owns its SkPicture
+class MatchInfo {
+public:
+    MatchInfo();
+    ~MatchInfo();
+    MatchInfo(const MatchInfo& src);
+    const SkRegion& getLocation() const { return m_location; }
+    // Return a pointer to our picture, representing the matching text.  Does
+    // not transfer ownership of the picture.
+    SkPicture* getPicture() const { return m_picture; }
+    // This will make a copy of the region, and increase the ref count on the
+    // SkPicture.  If this MatchInfo already had one, unref it.
+    void set(const SkRegion& region, SkPicture* pic);
+private:
+    MatchInfo& operator=(MatchInfo& src);
+    SkRegion    m_location;
+    SkPicture*  m_picture;
+};
 
 // A class containing a typeface for reference, the length in glyphs, and
 // the upper and lower case representations of the search string.
@@ -113,19 +127,13 @@ public:
 
     int found() const { return mNumFound; }
 
-    // This method detaches our array of regions and passes ownership to
+    // This method detaches our array of matches and passes ownership to
     // the caller, who is then responsible for deleting them.
-    WTF::Vector<SkRegion>* detachRegions() {
-        WTF::Vector<SkRegion>* array = mRegions;
-        mRegions = NULL;
+    WTF::Vector<MatchInfo>* detachMatches() {
+        WTF::Vector<MatchInfo>* array = mMatches;
+        mMatches = NULL;
         return array;
     }
-
-#if RECORD_MATCHES
-    // This SkPicture contains only draw calls for the drawn text.  This is
-    // used to draw over the highlight rectangle so that it can be seen.
-    SkPicture* getDrawnMatches() const { return mPicture; }
-#endif
 
 private:
     // These calls are made by findHelper to store information about each match
@@ -144,7 +152,7 @@ private:
     SkRect addMatchPosH(int index,
         const SkPaint& paint, int count, const uint16_t* glyphs,
         const SkScalar position[], SkScalar constY);
-    
+
     // Helper for each of our draw calls
     void findHelper(const void* text, size_t byteLength, const SkPaint& paint,
                     const SkScalar xPos[], SkScalar y,
@@ -152,14 +160,25 @@ private:
                     const SkPaint& paint, int count, const uint16_t* glyphs,
                     const SkScalar pos[], SkScalar y));
 
+    // If we already have a working canvas, grab it.  Otherwise, create a new
+    // one.
+    SkCanvas* getWorkingCanvas();
+
     // Return the set of glyphs and its count for the text being searched for
     // and the parameter paint.  If one has already been created and cached
     // for this paint, use it.  If not, create a new one and cache it.
     GlyphSet* getGlyphs(const SkPaint& paint);
 
+    // Store all the accumulated info about a match in our vector.
+    void insertMatchInfo(const SkRegion& region);
+
+    // Throw away our cumulative information about our working SkCanvas.  After
+    // this call, next call to getWorkingCanvas will create a new one.
+    void resetWorkingCanvas();
+
     // Since we may transfer ownership of this array (see detachRects()), we
     // hold a pointer to the array instead of just the array itself.
-    WTF::Vector<SkRegion>*  mRegions;
+    WTF::Vector<MatchInfo>* mMatches;
     const UChar*            mLowerText;
     const UChar*            mUpperText;
     size_t                  mLength;
@@ -167,11 +186,9 @@ private:
     int                     mNumFound;
     SkScalar                mOutset;
     SkTDArray<GlyphSet>     mGlyphSets;
-#if RECORD_MATCHES
-    SkPicture*              mPicture;
-    SkCanvas*               mRecordingCanvas;
-#endif
 
+    SkPicture*              mWorkingPicture;
+    SkCanvas*               mWorkingCanvas;
     SkRegion                mWorkingRegion;
     int                     mWorkingIndex;
 };

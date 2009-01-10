@@ -182,16 +182,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     if (oldChild == newChild) // nothing to do
         return true;
     
-#ifdef ANDROID_FIX    
-    // if oldChild is null, it will cause crash in checkReplaceChild(). We 
-    // should check null first.
-    // Fix Android bug, http://b/issue?id=847893
-    if (!oldChild) {
-        ec = NOT_FOUND_ERR;
-        return false;
-    }    
-#endif
-    
     // Make sure replacing the old child with the new is ok
     checkReplaceChild(newChild.get(), oldChild, ec);
     if (ec)

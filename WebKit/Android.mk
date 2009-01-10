@@ -59,4 +59,8 @@ LOCAL_SRC_FILES := \
 	android/plugins/PluginViewAndroid.cpp \
 	android/plugins/PluginViewBridgeAndroid.cpp \
 	android/plugins/PluginWidgetAndroid.cpp \
-	android/plugins/SkANP.cpp
+	android/plugins/SkANP.cpp \
+	\
+	android/wds/Command.cpp \
+	android/wds/Connection.cpp \
+	android/wds/DebugServer.cpp

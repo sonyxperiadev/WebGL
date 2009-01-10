@@ -42,7 +42,7 @@ DragOperation DragController::dragOperation(DragData* dragData)
 {
     //FIXME: This logic is incomplete  
     ASSERT(0);      
-     if (dragData->containsURL())
+    if (dragData->containsURL())
         return DragOperationCopy;
 
    return DragOperationNone;

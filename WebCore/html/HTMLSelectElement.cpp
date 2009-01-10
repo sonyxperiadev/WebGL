@@ -586,12 +586,10 @@ void HTMLSelectElement::dispatchFocusEvent()
 
 void HTMLSelectElement::dispatchBlurEvent()
 {
-#ifndef ANDROID_NAVIGATE_LISTBOX
     // We only need to fire onChange here for menu lists, because we fire onChange for list boxes whenever the selection change is actually made.
     // This matches other browsers' behavior.
     if (usesMenuList())
         menuListOnChange();
-#endif
     HTMLFormControlElementWithState::dispatchBlurEvent();
 }
 

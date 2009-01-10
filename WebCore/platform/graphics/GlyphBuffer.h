@@ -61,10 +61,6 @@ typedef FloatSize GlyphBufferAdvance;
 
 class GlyphBuffer {
 public:
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    GlyphBuffer() : m_hasAdjustedWidths(true) {}
-#endif
-
     bool isEmpty() const { return m_fontData.isEmpty(); }
     int size() const { return m_fontData.size(); }
     
@@ -159,18 +155,6 @@ public:
 #endif
     }
     
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    void setHasAdjustedWidths(bool adjustedWidths) {
-        m_hasAdjustedWidths = adjustedWidths;
-    }
-    /** Returns true in the general case, which means that one or more of the
-        glyphs may have a width or height that has been changed from the raw
-        value returned by the font. If this returns false, then the drawing
-        code can use that as a hint if it means it can draw the run faster.
-    */
-    bool hasAdjustedWidths() const { return m_hasAdjustedWidths; }
-#endif
-
     void add(Glyph glyph, const SimpleFontData* font, GlyphBufferAdvance advance)
     {
         m_fontData.append(font);
@@ -191,12 +175,6 @@ private:
     Vector<GlyphBufferAdvance, 2048> m_advances;
 #if PLATFORM(WIN)
     Vector<FloatSize, 2048> m_offsets;
-#endif
-#ifdef ANDROID_GLYPHBUFFER_HAS_ADJUSTED_WIDTHS
-    // defaults to true for general case. Set to false sometimes in
-    // drawSimpleText as a hint to drawGlphs that the widths are exactly those
-    // from the font (i.e. no tweaks for rounding or CSS styling
-    bool m_hasAdjustedWidths;
 #endif
 };
 
