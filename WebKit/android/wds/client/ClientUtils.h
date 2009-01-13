@@ -28,6 +28,14 @@
 
 #include <arpa/inet.h>
 
+/*
+ * included for sockaddr_in structure, AF_INET definiton and etc.
+ */
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
+
 // Callers need to include Log.h and errno.h to use this macro
 #define log_errno(str) LOGE("%s: %s", str, strerror(errno))
 
