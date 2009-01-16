@@ -24,6 +24,7 @@ LOCAL_SRC_FILES := \
 	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinRadio.cpp \
+    android/TimeCounter.cpp \
 	android/sort.cpp \
 	\
 	android/jni/JavaBridge.cpp \
@@ -53,10 +54,7 @@ LOCAL_SRC_FILES := \
 	android/plugins/ANPSoundInterface.cpp \
 	android/plugins/ANPTypefaceInterface.cpp \
 	android/plugins/ANPWindowInterface.cpp \
-	android/plugins/PluginDataAndroid.cpp \
-	android/plugins/PluginPackageAndroid.cpp \
 	android/plugins/PluginTimer.cpp \
-	android/plugins/PluginViewAndroid.cpp \
 	android/plugins/PluginViewBridgeAndroid.cpp \
 	android/plugins/PluginWidgetAndroid.cpp \
 	android/plugins/SkANP.cpp \

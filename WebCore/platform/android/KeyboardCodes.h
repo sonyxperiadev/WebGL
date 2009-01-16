@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
  *
  * All rights reserved.

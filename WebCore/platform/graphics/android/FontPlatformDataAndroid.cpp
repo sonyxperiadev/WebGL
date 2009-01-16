@@ -2,6 +2,7 @@
  * This file is part of the internal font implementation.  It should not be included by anyone other than
  * FontMac.cpp, FontWin.cpp and Font.cpp.
  *
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or

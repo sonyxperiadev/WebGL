@@ -20,10 +20,6 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-#ifdef ANDROID_INSTRUMENT
-#define LOG_TAG "WebCore"
-#endif
-
 #include "config.h"
 #include "Document.h"
 
@@ -158,6 +154,10 @@
 #ifdef ANDROID_RESET_SELECTION
 #include "CacheBuilder.h"
 #include "HTMLTextAreaElement.h"
+#endif
+
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
 #endif
 
 using namespace std;
@@ -1097,23 +1097,6 @@ void Document::setDocumentChanged(bool b)
     m_docChanged = b;
 }
 
-#ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-static uint32_t sCounter = 0;
-    
-void Frame::resetCalculateStyleTimeCounter()
-{
-    sTotalTimeUsed = 0;
-    sCounter = 0;
-}
-
-void Frame::reportCalculateStyleTimeCounter()
-{
-    LOGD("*-* Total calcStyle time: %d ms called %d times\n", 
-            sTotalTimeUsed, sCounter);
-}
-#endif
-
 void Document::recalcStyle(StyleChange change)
 {
     // we should not enter style recalc while painting
@@ -1129,7 +1112,7 @@ void Document::recalcStyle(StyleChange change)
     suspendPostAttachCallbacks();
     
 #ifdef ANDROID_INSTRUMENT
-    uint32_t time = get_thread_msec();
+    android::TimeCounter::start(android::TimeCounter::CalculateStyleTimeCounter);
 #endif
     
     ASSERT(!renderer() || renderArena());
@@ -1178,11 +1161,7 @@ void Document::recalcStyle(StyleChange change)
             n->recalcStyle(change);
 
 #ifdef ANDROID_INSTRUMENT
-    time = get_thread_msec() - time;
-    sTotalTimeUsed += time;
-    sCounter++;
-    if (time > 1000)
-        LOGW("***** Document::recalcStyle() used %d ms\n", time);
+    android::TimeCounter::record(android::TimeCounter::CalculateStyleTimeCounter, __FUNCTION__);
 #endif
 
     if (changed() && view())

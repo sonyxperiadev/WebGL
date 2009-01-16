@@ -106,6 +106,10 @@
 #include "SVGViewSpec.h"
 #endif
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 using namespace JSC;
 
 namespace WebCore {
@@ -117,11 +121,6 @@ using namespace HTMLNames;
 
 #if USE(LOW_BANDWIDTH_DISPLAY)
 const unsigned int cMaxPendingSourceLengthInLowBandwidthDisplay = 128 * 1024;
-#endif
-
-#ifdef ANDROID_INSTRUMENT
-static double sCurrentTime = 0.0;
-static uint32_t sCurrentThreadTime = 0;
 #endif
 
 struct FormSubmission {
@@ -1876,11 +1875,8 @@ void FrameLoader::handleFallbackContent()
 void FrameLoader::provisionalLoadStarted()
 {
 #ifdef ANDROID_INSTRUMENT
-    if (!m_frame->tree()->parent()) {
-        m_frame->resetTimeCounter();
-        sCurrentTime = currentTime();
-        sCurrentThreadTime = get_thread_msec();
-    }
+    if (!m_frame->tree()->parent())
+        android::TimeCounter::reset();
 #endif
 
     Page* page = m_frame->page();
@@ -3269,11 +3265,8 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 page->progress()->progressCompleted(m_frame);
                 
 #ifdef ANDROID_INSTRUMENT
-            if (!m_frame->tree()->parent()) {
-                m_frame->reportTimeCounter(m_URL, 
-                        static_cast<int>((currentTime() - sCurrentTime) * 1000),
-                        (get_thread_msec() - sCurrentThreadTime));
-            }
+            if (!m_frame->tree()->parent())
+                android::TimeCounter::report(m_URL, cache()->getLiveSize(), cache()->getDeadSize());
 #endif
             return;
         }

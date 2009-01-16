@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  *
  * Redistribution and use in source and binary forms, with or without

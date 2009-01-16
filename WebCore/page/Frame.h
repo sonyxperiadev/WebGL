@@ -43,10 +43,6 @@ typedef int NSWritingDirection;
 #endif
 #endif
 
-#if PLATFORM(ANDROID)
-#include "CacheBuilder.h"
-#endif
-
 namespace WebCore {
 
 class Editor;
@@ -105,39 +101,6 @@ public:
     void setExcludeFromTextSearch(bool);
 
     friend class FramePrivate;
-
-#ifdef ANDROID_INSTRUMENT
-    void resetTimeCounter();
-    void reportTimeCounter(String url, int totalTime, int totalThreadTime);
-
-private:
-    void resetParsingTimeCounter();
-    void reportParsingTimeCounter();
-
-    void resetCSSTimeCounter();
-    void reportCSSTimeCounter();
-
-    void resetCalculateStyleTimeCounter();
-    void reportCalculateStyleTimeCounter();
-
-    void resetLayoutTimeCounter();
-    void reportLayoutTimeCounter();
-
-    void resetPaintTimeCounter();
-    void reportPaintTimeCounter();
-
-    void resetSharedTimerTimeCounter();
-    void reportSharedTimerTimeCounter();
-
-    void resetResourceLoadTimeCounter();
-    void reportResourceLoadTimeCounter();
-
-    void resetWebViewCoreTimeCounter();
-    void reportWebViewCoreTimeCounter();
-
-    void resetFramebridgeTimeCounter();
-    void reportFramebridgeTimeCounter();
-#endif
 
 private:
     Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
@@ -344,16 +307,6 @@ public:
 
 #endif
 
-#if PLATFORM(ANDROID)
-
-public:
-    CacheBuilder& getCacheBuilder() { return m_cacheBuilder; }
-
-private:
-    CacheBuilder m_cacheBuilder;
-    friend class CacheBuilder;
-
-#endif
 };
 
 } // namespace WebCore
