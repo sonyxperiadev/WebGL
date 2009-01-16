@@ -18,10 +18,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifdef ANDROID_INSTRUMENT
-#define LOG_TAG "WebCore"
-#endif
-
 #include "config.h"
 #include "CSSStyleSheet.h"
 
@@ -34,8 +30,7 @@
 #include "Node.h"
 
 #ifdef ANDROID_INSTRUMENT
-#include "SystemTime.h"
-#include "Frame.h"
+#include "TimeCounter.h"
 #endif
 
 namespace WebCore {
@@ -161,35 +156,16 @@ const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix
     return nullAtom; // Assume we wont match any namespaces.
 }
 
-#ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-static uint32_t sCounter = 0;
-    
-void Frame::resetCSSTimeCounter()
-{
-    sTotalTimeUsed = 0;
-    sCounter = 0;
-}
-
-void Frame::reportCSSTimeCounter()
-{
-    LOGD("*-* Total css parsing time: %d ms called %d times\n", 
-            sTotalTimeUsed, sCounter);   
-}
-#endif
-
 bool CSSStyleSheet::parseString(const String &string, bool strict)
 {
 #ifdef ANDROID_INSTRUMENT
-    uint32_t startTime = 0;
-    startTime = get_thread_msec();
+    android::TimeCounter::start(android::TimeCounter::CSSTimeCounter);
 #endif    
     setStrictParsing(strict);
     CSSParser p(strict);
     p.parseSheet(this, string);
 #ifdef ANDROID_INSTRUMENT
-    sTotalTimeUsed += get_thread_msec() - startTime;
-    sCounter++;
+    android::TimeCounter::record(android::TimeCounter::CSSTimeCounter, __FUNCTION__);
 #endif    
     return true;
 }

@@ -1,19 +1,27 @@
-/* libs/WebKitLib/WebKit/platform/bridge/android/CacheBuilder.h
-**
-** Copyright 2006, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
-**
-**     http://www.apache.org/licenses/LICENSE-2.0 
-**
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
-** limitations under the License.
-*/
+/*
+ * Copyright 2006, The Android Open Source Project
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #ifndef CacheBuilder_H
 #define CacheBuilder_H
@@ -23,15 +31,12 @@
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "TextDirection.h"
+#include "wtf/HashMap.h"
 #include "wtf/Vector.h"
 
 #define NAVIGATION_MAX_PHONE_LENGTH 14
 
-namespace android {
-    class CachedFrame;
-    class CachedNode;
-    class CachedRoot;
-}
+using namespace WebCore;
 
 namespace WebCore {
     
@@ -46,6 +51,14 @@ class RenderImage;
 class RenderObject;
 class RenderLayer;
 class Text;
+
+}
+
+namespace android {
+
+class CachedFrame;
+class CachedNode;
+class CachedRoot;
 
 class CacheBuilder {
 public:
@@ -65,17 +78,17 @@ public:
         FOUND_COMPLETE
     };
     CacheBuilder();
-    void allowAllTextDetection() { mAllowableTypes = android::ALL_CACHEDNODETYPES; }
-    void buildCache(android::CachedRoot* root);
+    void allowAllTextDetection() { mAllowableTypes = ALL_CACHEDNODETYPES; }
+    void buildCache(CachedRoot* root);
     static bool ConstructPartRects(Node* node, const IntRect& bounds, 
         IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result);
     Node* currentFocus() const;
-    void disallowAddressDetection() { mAllowableTypes = (android::CachedNodeType) (
-        mAllowableTypes & ~android::ADDRESS_CACHEDNODETYPE); }
-    void disallowEmailDetection() { mAllowableTypes = (android::CachedNodeType) (
-        mAllowableTypes & ~android::EMAIL_CACHEDNODETYPE); }
-    void disallowPhoneDetection() { mAllowableTypes = (android::CachedNodeType) (
-        mAllowableTypes & ~android::PHONE_CACHEDNODETYPE); }
+    void disallowAddressDetection() { mAllowableTypes = (CachedNodeType) (
+        mAllowableTypes & ~ADDRESS_CACHEDNODETYPE); }
+    void disallowEmailDetection() { mAllowableTypes = (CachedNodeType) (
+        mAllowableTypes & ~EMAIL_CACHEDNODETYPE); }
+    void disallowPhoneDetection() { mAllowableTypes = (CachedNodeType) (
+        mAllowableTypes & ~PHONE_CACHEDNODETYPE); }
     static FoundState FindAddress(const UChar* , unsigned length, int* start, int* end);
     Node* findByCenter(int x, int y) const;
     static void GetGlobalOffset(Frame* , int* x, int * y);
@@ -116,7 +129,7 @@ private:
         BoundsPart mPart;
         WTF::Vector<BoundsPart> mParts;   
         char mStore[NAVIGATION_MAX_PHONE_LENGTH + 1];
-        android::CachedNodeType mStoreType;
+        CachedNodeType mStoreType;
         int mPartIndex;
         Node* mNode;
         Node* mFinalNode;
@@ -171,14 +184,14 @@ private:
         bool mSomeParentTakesFocus;
     };
     void adjustForColumns(const ClipColumnTracker& track, 
-        android::CachedNode* node, IntRect* bounds);
+        CachedNode* node, IntRect* bounds);
     static bool AddPartRect(IntRect& bounds, int x, int y,
         WTF::Vector<IntRect>* result, IntRect* focusBounds);
     static bool AnyIsClick(Node* node);
     static bool AnyChildIsClick(Node* node);
     void BuildFrame(Frame* root, Frame* frame,
-        android::CachedRoot* cachedRoot, android::CachedFrame* cachedFrame);
-    bool CleanUpContainedNodes(android::CachedFrame* cachedFrame, 
+        CachedRoot* cachedRoot, CachedFrame* cachedFrame);
+    bool CleanUpContainedNodes(CachedFrame* cachedFrame, 
         const Tracker* last, int lastChildIndex);
     static bool ConstructTextRect(Text* textNode,
         InlineTextBox* textBox, int start, int relEnd, int x, int y, 
@@ -200,17 +213,17 @@ private:
     static bool HasOverOrOut(Node* );
     static bool HasTriggerEvent(Node* );
     static bool IsDomainChar(UChar ch);
-    bool isFocusableText(NodeWalk* , bool oldMore, Node* , android::CachedNodeType* type,
+    bool isFocusableText(NodeWalk* , bool oldMore, Node* , CachedNodeType* type,
         String* exported) const; //returns true if it is focusable
     static bool IsMailboxChar(UChar ch);
     static bool IsRealNode(Frame* , Node* );
     int overlap(int left, int right); // returns distance scale factor as 16.16 scalar
-    bool setData(android::CachedFrame* );
+    bool setData(CachedFrame* );
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
     Node* mLastKnownFocus;
     IntRect mLastKnownFocusBounds;
-    android::CachedNodeType mAllowableTypes;
+    CachedNodeType mAllowableTypes;
     WTF::HashMap<const HTMLAreaElement* , RenderImage* > m_areaBoundsMap;
 #if DUMP_NAV_CACHE
 public:

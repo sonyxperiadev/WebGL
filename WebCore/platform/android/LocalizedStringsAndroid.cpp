@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
  * Copyright (C) 2007 Holger Hans Peter Freyther

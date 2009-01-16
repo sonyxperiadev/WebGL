@@ -1,5 +1,6 @@
 /*
  *
+ * Copyright 2009, The Android Open Source Project
  * Copyright (c) 1994
  * Hewlett-Packard Company
  *

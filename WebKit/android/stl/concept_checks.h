@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (c) 1999
  * Silicon Graphics Computer Systems, Inc.
  *

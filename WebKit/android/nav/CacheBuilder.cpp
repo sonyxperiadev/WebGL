@@ -1,17 +1,26 @@
 /*
  * Copyright 2006, The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); 
- * you may not use this file except in compliance with the License.max 
- * You may obtain a copy of the License at 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0 
- *
- * Unless required by applicable law or agreed to in writing, software 
- * distributed under the License is distributed on an "AS IS" BASIS, 
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
- * See the License for the specific language governing permissions and 
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "CachedPrefix.h"
@@ -21,6 +30,8 @@
 #include "EventNames.h"
 #include "EventTargetNode.h"
 #include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 //#include "GraphicsContext.h"
@@ -59,18 +70,22 @@
 #define MINIMUM_FOCUSABLE_HEIGHT 3
 #define MAXIMUM_FOCUS_RING_COUNT 32
 
-namespace WebCore {
+namespace android {
 
 CacheBuilder* CacheBuilder::Builder(Frame* frame) { 
-    return &frame->m_cacheBuilder; 
+    return &((FrameLoaderClientAndroid*) frame->loader()->client())->getCacheBuilder(); 
 }
 
 Frame* CacheBuilder::FrameAnd(CacheBuilder* cacheBuilder) { 
-    return (Frame*) ((char*) cacheBuilder - OFFSETOF(Frame, m_cacheBuilder)); 
+    FrameLoaderClientAndroid* loader = (FrameLoaderClientAndroid*)
+        ((char*) cacheBuilder - OFFSETOF(FrameLoaderClientAndroid, m_cacheBuilder));
+    return loader->getFrame();
 }
 
 Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) { 
-    return (Frame*) ((char*) cacheBuilder - OFFSETOF(Frame, m_cacheBuilder)); 
+    FrameLoaderClientAndroid* loader = (FrameLoaderClientAndroid*)
+        ((char*) cacheBuilder - OFFSETOF(FrameLoaderClientAndroid, m_cacheBuilder)); 
+    return loader->getFrame();
 }
 
 #if DUMP_NAV_CACHE
@@ -795,14 +810,14 @@ void CacheBuilder::Debug::wideString(const String& str) {
 CacheBuilder::CacheBuilder()
 {
     mLastKnownFocus = NULL;
-    mAllowableTypes = android::ALL_CACHEDNODETYPES;
+    mAllowableTypes = ALL_CACHEDNODETYPES;
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     gNavCacheLogFile = NULL;
 #endif
 }
 
 void CacheBuilder::adjustForColumns(const ClipColumnTracker& track, 
-    android::CachedNode* node, IntRect* bounds)
+    CachedNode* node, IntRect* bounds)
 {
     int x = 0;
     int y = 0;
@@ -868,13 +883,14 @@ bool CacheBuilder::AnyIsClick(Node* node)
     return AnyChildIsClick(node);
 }
 
-void CacheBuilder::buildCache(android::CachedRoot* root)
+void CacheBuilder::buildCache(CachedRoot* root)
 {
     Frame* frame = FrameAnd(this);
     mLastKnownFocus = NULL;
-    BuildFrame(frame, frame, root, (android::CachedFrame*) root);
+    m_areaBoundsMap.clear();
+    BuildFrame(frame, frame, root, (CachedFrame*) root);
     root->finishInit(); // set up frame parent pointers, child pointers
-    setData((android::CachedFrame*) root);
+    setData((CachedFrame*) root);
 }
 
 static Node* OneAfter(Node* node) 
@@ -916,7 +932,7 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
 
 // keep nodes that are focusable
 void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
-    android::CachedRoot* cachedRoot, android::CachedFrame* cachedFrame)
+    CachedRoot* cachedRoot, CachedFrame* cachedFrame)
 {
     WTF::Vector<Tracker> tracker(1);
     {
@@ -939,7 +955,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     NodeWalk walk;
     Document* doc = frame->document();
     Node* parent = doc;
-    android::CachedNode cachedParentNode;
+    CachedNode cachedParentNode;
     cachedParentNode.init(parent);
 #if DUMP_NAV_CACHE
     cachedParentNode.mDebug.mNodeIndex = nodeIndex;
@@ -974,14 +990,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             clipTracker.removeLast();
         } while (true);
         Frame* child = HasFrame(node);
-        android::CachedNode cachedNode;
+        CachedNode cachedNode;
         if (child != NULL) {
             if (child->document() == NULL)
                 continue;
             RenderObject* nodeRenderer = node->renderer();
             if (nodeRenderer != NULL && nodeRenderer->style()->visibility() == HIDDEN)
                 continue;
-            android::CachedFrame cachedChild;
+            CachedFrame cachedChild;
             cachedChild.init(cachedRoot, cacheIndex, child);
             int childFrameIndex = cachedFrame->childCount();
             cachedFrame->addFrame(cachedChild);
@@ -994,7 +1010,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 node, nodeIndex, NULL);
 #endif
             cachedFrame->add(cachedNode);
-            android::CachedFrame* childPtr = cachedFrame->lastChild();
+            CachedFrame* childPtr = cachedFrame->lastChild();
             BuildFrame(root, child, cachedRoot, childPtr);
             continue;
         }
@@ -1047,7 +1063,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         TextDirection direction = LTR;
         String name;
         String exported;
-        android::CachedNodeType type = android::NORMAL_CACHEDNODETYPE;
+        CachedNodeType type = NORMAL_CACHEDNODETYPE;
         IntRect bounds;
         IntRect absBounds;
         Node* lastChild = node->lastChild();
@@ -1102,10 +1118,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
-        if (node->isTextNode() && mAllowableTypes != android::NORMAL_CACHEDNODETYPE) {
+        if (node->isTextNode() && mAllowableTypes != NORMAL_CACHEDNODETYPE) {
             if (last->mSomeParentTakesFocus) // don't look at text inside focusable node
                 continue;
-            android::CachedNodeType checkType;
+            CachedNodeType checkType;
             if (isFocusableText(&walk, more, node, &checkType, 
                     &exported) == false)
                 continue;
@@ -1118,7 +1134,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 DUMP_NAV_LOGD("%s\n", buffer);
             }
         #endif
-            type = (android::CachedNodeType) checkType;
+            type = (CachedNodeType) checkType;
             // !!! test ! is the following line correctly needed for frames to work?
             cachedNode.init(node);
             const ClipColumnTracker& clipTrack = clipTracker.last();
@@ -1158,6 +1174,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (anchorNode->isFocusable() == false)
                 continue;
             EventTargetNode* target = (EventTargetNode*) node;
+            if (target->disabled())
+                continue;
             hasMouseOver = target->getEventListener(eventNames().mouseoverEvent);
             isAnchor = true;
             KURL href = anchorNode->href();
@@ -1284,7 +1302,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         {
             int lastIndex = cachedFrame->size() - 1;
             if (node == focused) {
-                android::CachedNode* cachedNodePtr = cachedFrame->getIndex(lastIndex);
+                CachedNode* cachedNodePtr = cachedFrame->getIndex(lastIndex);
                 cachedRoot->setCachedFocus(cachedFrame, cachedNodePtr);
             }
             if (lastChild != NULL) {
@@ -1310,7 +1328,7 @@ tryNextNode:
     }
 }
 
-bool CacheBuilder::CleanUpContainedNodes(android::CachedFrame* cachedFrame, 
+bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame, 
     const Tracker* last, int lastChildIndex)
 {
     // if outer is body, disable outer
@@ -1320,7 +1338,7 @@ bool CacheBuilder::CleanUpContainedNodes(android::CachedFrame* cachedFrame,
     int childCount = lastChildIndex - last->mCachedNodeIndex;
     if (childCount == 0)
         return false;
-    android::CachedNode* lastCached = cachedFrame->getIndex(last->mCachedNodeIndex);
+    CachedNode* lastCached = cachedFrame->getIndex(last->mCachedNodeIndex);
     Node* lastNode = (Node*) lastCached->nodePointer();
     if ((childCount > 1 && lastNode->hasTagName(HTMLNames::selectTag) == false) ||
             lastNode->hasTagName(HTMLNames::bodyTag) ||
@@ -1330,7 +1348,7 @@ bool CacheBuilder::CleanUpContainedNodes(android::CachedFrame* cachedFrame,
         lastCached->setNavableRects();
         return false;
     }
-    android::CachedNode* onlyChildCached = cachedFrame->lastNode();
+    CachedNode* onlyChildCached = cachedFrame->lastNode();
     Node* onlyChild = (Node*) onlyChildCached->nodePointer();
     bool outerIsMouseMoveOnly = 
         lastNode->isKeyboardFocusable(NULL) == false && 
@@ -2507,7 +2525,7 @@ Node* CacheBuilder::findByCenter(int x, int y) const
 }
 
 bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node, 
-    android::CachedNodeType* type, String* exported) const
+    CachedNodeType* type, String* exported) const
 {
     Text* textNode = static_cast<Text*>(node);
     StringImpl* string = textNode->string();
@@ -2539,9 +2557,9 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
     int baseStart, firstStart = start;
     saveInline = baseInline;
     baseStart = start;
-    for (android::CachedNodeType checkType = android::ADDRESS_CACHEDNODETYPE;
-        checkType <= android::PHONE_CACHEDNODETYPE; 
-        checkType = (android::CachedNodeType) (checkType << 1))
+    for (CachedNodeType checkType = ADDRESS_CACHEDNODETYPE;
+        checkType <= PHONE_CACHEDNODETYPE; 
+        checkType = (CachedNodeType) (checkType << 1))
     {
         if ((checkType & mAllowableTypes) == 0)
             continue;
@@ -2549,7 +2567,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
         FindState findState;
         FindReset(&findState);
         start = baseStart;
-        if (checkType == android::ADDRESS_CACHEDNODETYPE) {
+        if (checkType == ADDRESS_CACHEDNODETYPE) {
             findState.mBases[0] = baseChars;
             findState.mWords[0] = baseChars + start;
             findState.mStarts[0] = baseChars + start;
@@ -2566,13 +2584,13 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                     inlineTextBox->end() - start + 1;
                 bool wasInitialized = findState.mInitialized;
                 switch (checkType) {
-                    case android::ADDRESS_CACHEDNODETYPE:
+                    case ADDRESS_CACHEDNODETYPE:
                         state = FindPartialAddress(baseChars, chars, length, &findState);
                     break;
-                    case android::EMAIL_CACHEDNODETYPE:
+                    case EMAIL_CACHEDNODETYPE:
                         state = FindPartialEMail(chars, length, &findState);
                     break;
-                    case android::PHONE_CACHEDNODETYPE:
+                    case PHONE_CACHEDNODETYPE:
                         state = FindPartialNumber(chars, length, &findState);
                     break;
                     default:
@@ -2605,7 +2623,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                             walk->mLastInline = lastPartialInline;
                         }
                         *type = checkType;
-                        if (checkType == android::PHONE_CACHEDNODETYPE) {
+                        if (checkType == PHONE_CACHEDNODETYPE) {
                             const UChar* store = findState.mStore;
                             *exported = String(store);
                         } else {
@@ -2658,7 +2676,7 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
                         node = node->traverseNextNode();
                         if (node == NULL || node->hasTagName(HTMLNames::aTag)) {
                             if (state == FOUND_PARTIAL && 
-                                    checkType == android::ADDRESS_CACHEDNODETYPE && 
+                                    checkType == ADDRESS_CACHEDNODETYPE && 
                                     findState.mProgress == ZIP_CODE && 
                                     findState.mNumberCount == 0) {
                                 baseChars = NULL;
@@ -2689,9 +2707,9 @@ tryNextCheckType:
         baseChars = string->characters();
     }
     if (foundBetter) {
-        android::CachedNodeType temp = *type;
+        CachedNodeType temp = *type;
         switch (temp) {
-            case android::ADDRESS_CACHEDNODETYPE: {
+            case ADDRESS_CACHEDNODETYPE: {
                 static const char geoString[] = "geo:0,0?q=";
                 exported->insert(String(geoString), 0);
                 int index = sizeof(geoString) - 1;
@@ -2699,10 +2717,10 @@ tryNextCheckType:
                 while ((index = exported->find(',', index)) >= 0)
                     exported->replace(index, 1, escapedComma);
                 } break;
-            case android::EMAIL_CACHEDNODETYPE:
+            case EMAIL_CACHEDNODETYPE:
                 exported->insert(WebCore::String("mailto:"), 0);
                 break;
-            case android::PHONE_CACHEDNODETYPE:
+            case PHONE_CACHEDNODETYPE:
                 exported->insert(WebCore::String("tel:"), 0);
                 break;
             default:
@@ -2747,7 +2765,7 @@ void CacheBuilder::setLastFocus(Node* node)
     mLastKnownFocusBounds = node->getRect();
 }
 
-bool CacheBuilder::setData(android::CachedFrame* cachedFrame) 
+bool CacheBuilder::setData(CachedFrame* cachedFrame) 
 {
     Frame* frame = FrameAnd(this);
     Document* doc = frame->document();
@@ -2772,7 +2790,7 @@ bool CacheBuilder::setData(android::CachedFrame* cachedFrame)
     cachedFrame->setContentsSize(layer->width(), layer->height());
     if (cachedFrame->childCount() == 0)
         return true;
-    android::CachedFrame* lastCachedFrame = cachedFrame->lastChild();
+    CachedFrame* lastCachedFrame = cachedFrame->lastChild();
     cachedFrame = cachedFrame->firstChild();
     do {
         CacheBuilder* cacheBuilder = Builder((Frame* )cachedFrame->framePointer());

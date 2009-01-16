@@ -1,6 +1,5 @@
-#ifdef ANDROID_PLUGINS
-
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,6 +23,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+
+#ifdef ANDROID_PLUGINS
+
 #define LOG_TAG "WebKit"
 
 #include "config.h"

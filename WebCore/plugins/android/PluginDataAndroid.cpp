@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
     Copyright (C) 2008 Trolltech ASA
     Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
 

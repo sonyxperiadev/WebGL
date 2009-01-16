@@ -23,10 +23,6 @@
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
 */
-#ifdef ANDROID_INSTRUMENT
-#define LOG_TAG "WebCore"
-#endif
-
 #include "config.h"
 #include "HTMLTokenizer.h"
 
@@ -51,6 +47,10 @@
 #include <wtf/ASCIICType.h>
 
 #include "HTMLEntityNames.c"
+
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
 
 #define PRELOAD_SCANNER_ENABLED 1
 // #define INSTRUMENT_LAYOUT_SCHEDULING 1
@@ -150,24 +150,6 @@ inline void Token::addAttribute(Document* doc, AtomicString& attrName, const Ato
 }
 
 // ----------------------------------------------------------------------------
-
-#ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-static uint32_t sCurrentTime = 0;
-static uint32_t sCounter = 0;
-    
-void Frame::resetParsingTimeCounter()
-{
-    sTotalTimeUsed = 0;
-    sCounter = 0;
-}
-
-void Frame::reportParsingTimeCounter()
-{
-    LOGD("*-* Total parsing time (may include calcStyle or Java callback): %d ms called %d times\n", 
-            sTotalTimeUsed, sCounter);   
-}
-#endif
 
 HTMLTokenizer::HTMLTokenizer(HTMLDocument* doc, bool reportErrors)
     : Tokenizer()
@@ -496,7 +478,7 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
     currentPrependingSrc = &prependingSrc;
 
 #ifdef ANDROID_INSTRUMENT
-    sTotalTimeUsed += get_thread_msec() - sCurrentTime;
+    android::TimeCounter::recordNoCounter(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
 #endif
     
     if (!parser->skipMode() && !followingFrameset) {
@@ -529,7 +511,7 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
     }
 
 #ifdef ANDROID_INSTRUMENT
-    sCurrentTime = get_thread_msec();
+    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
     
     if (!m_executingScript && !state.loadingExtScript()) {
@@ -1695,7 +1677,7 @@ bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     int processedCount = 0;
     double startTime = currentTime();
 #ifdef ANDROID_INSTRUMENT
-    sCurrentTime = get_thread_msec();
+    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
 
     Frame *frame = m_doc->frame();
@@ -1824,11 +1806,7 @@ bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     m_state = state;
 
 #ifdef ANDROID_INSTRUMENT
-    uint32_t time = get_thread_msec() - sCurrentTime;
-    sTotalTimeUsed += time;
-    sCounter++;
-    if (time > 1000)
-        LOGW("***** HTMLTokenizer::write() used %d ms\n", time);
+    android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
 #endif
 
     if (noMoreData && !inWrite && !state.loadingExtScript() && !m_executingScript && !m_timer.isActive()) {

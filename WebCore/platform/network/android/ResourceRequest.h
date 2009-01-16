@@ -1,5 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *

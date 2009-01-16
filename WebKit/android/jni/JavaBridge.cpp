@@ -1,18 +1,27 @@
 /*
-** Copyright 2006-2008, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
-**
-**     http://www.apache.org/licenses/LICENSE-2.0 
-**
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
-** limitations under the License.
-*/
+ * Copyright 2006, The Android Open Source Project
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define LOG_TAG "webcoreglue"
 
@@ -30,8 +39,7 @@
 #include "WebCoreJni.h"
 
 #ifdef ANDROID_INSTRUMENT
-#include "Frame.h"
-#include "SystemTime.h"
+#include "TimeCounter.h"
 #endif
 
 #include <jni.h>
@@ -44,23 +52,6 @@
 // (not including big images using ashmem)
 #define IMAGE_POOL_BUDGET   (512 * 1024)
 
-#ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-
-namespace WebCore {
-void Frame::resetSharedTimerTimeCounter()
-{
-    sTotalTimeUsed = 0;
-}
-
-void Frame::reportSharedTimerTimeCounter()
-{
-    LOG(LOG_DEBUG, "WebCore", "*-* Total native 2 (shared timer) time: %d ms\n", 
-            sTotalTimeUsed);   
-}
-}
-#endif
-
 namespace android {
 
 // ----------------------------------------------------------------------------
@@ -69,7 +60,7 @@ static jfieldID gJavaBridge_ObjectID;
 
 // ----------------------------------------------------------------------------
    
-class JavaBridge : public WebCore::TimerClient, public WebCore::CookieClient
+class JavaBridge : public TimerClient, public CookieClient
 {
 public:
     JavaBridge(JNIEnv* env, jobject obj);
@@ -135,8 +126,8 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     LOG_ASSERT(mCookies, "Could not find method cookies");
     LOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
 
-    WebCore::JavaSharedClient::SetTimerClient(this);
-    WebCore::JavaSharedClient::SetCookieClient(this);
+    JavaSharedClient::SetTimerClient(this);
+    JavaSharedClient::SetCookieClient(this);
     gJavaBridge = this;
 }   
     
@@ -148,8 +139,8 @@ JavaBridge::~JavaBridge()
         mJavaObject = 0;
     }
     
-    WebCore::JavaSharedClient::SetTimerClient(NULL);
-    WebCore::JavaSharedClient::SetCookieClient(NULL);
+    JavaSharedClient::SetTimerClient(NULL);
+    JavaSharedClient::SetCookieClient(NULL);
 }
 
 void
@@ -262,12 +253,12 @@ void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
     if (sSharedTimerFiredCallback)
     {
 #ifdef ANDROID_INSTRUMENT
-        uint32_t startTime = WebCore::get_thread_msec();
+        TimeCounter::start(TimeCounter::SharedTimerTimeCounter);
 #endif
         SkAutoMemoryUsageProbe  mup("JavaBridge::sharedTimerFired");
         sSharedTimerFiredCallback();
 #ifdef ANDROID_INSTRUMENT
-        sTotalTimeUsed += WebCore::get_thread_msec() - startTime;
+        TimeCounter::record(TimeCounter::SharedTimerTimeCounter, __FUNCTION__);
 #endif
     }
 }
@@ -291,7 +282,7 @@ void JavaBridge::SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer)
 
 void JavaBridge::ServiceFuncPtrQueue(JNIEnv*)
 {
-    WebCore::JavaSharedClient::ServiceFunctionPtrQueue();
+    JavaSharedClient::ServiceFunctionPtrQueue();
 }
 
 // ----------------------------------------------------------------------------

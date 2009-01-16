@@ -1,19 +1,27 @@
-/* 
-**
-** Copyright 2007, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+/*
+ * Copyright 2007, The Android Open Source Project
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 #define LOG_TAG "WebCore"
 
 #include "config.h"
@@ -65,28 +73,33 @@
 
 extern android::AssetManager* globalAssetManager();
 
-namespace WebCore {
+namespace android {
 
 static const int EXTRA_LAYOUT_DELAY = 1000;
 
 // FIXME: Need some data for how big this should be.
 #define MAX_SESSION_HISTORY 50
-static Vector<KURL> gSessionHistory;
+static WTF::Vector<KURL> gSessionHistory;
 
 bool historyContains(const UChar* chars, unsigned len) {
     const KURL url(String(chars, len));
-    Vector<KURL>::const_iterator end = gSessionHistory.end();
-    for (Vector<KURL>::const_iterator i = gSessionHistory.begin(); i != end; ++i) {
+    WTF::Vector<KURL>::const_iterator end = gSessionHistory.end();
+    for (WTF::Vector<KURL>::const_iterator i = gSessionHistory.begin(); i != end; ++i) {
         if (equalIgnoringRef(url, *i))
             return true;
     }
     return false;
 }
 
-FrameLoaderClientAndroid::FrameLoaderClientAndroid(android::WebFrame* webframe)
+FrameLoaderClientAndroid::FrameLoaderClientAndroid(WebFrame* webframe)
     : m_frame(NULL)
     , m_webFrame(webframe) {
     Retain(m_webFrame);
+}
+
+FrameLoaderClientAndroid* FrameLoaderClientAndroid::get(const WebCore::Frame* frame)
+{
+    return static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
 }
 
 void FrameLoaderClientAndroid::frameLoaderDestroyed() {
@@ -273,14 +286,14 @@ void FrameLoaderClientAndroid::dispatchDidReceiveTitle(const String& title) {
 
 void FrameLoaderClientAndroid::dispatchDidCommitLoad() {
     ASSERT(m_frame);
-    android::WebViewCore::getWebViewCore(m_frame->view())->updateFrameGeneration(m_frame);
+    WebViewCore::getWebViewCore(m_frame->view())->updateFrameGeneration(m_frame);
 }
 
 static void loadDataIntoFrame(Frame* frame, const String& url,
         const String& data) {
     ResourceRequest request(url);
     CString cstr = data.utf8();
-    RefPtr<SharedBuffer> buf = SharedBuffer::create(cstr.data(), cstr.length());
+    RefPtr<WebCore::SharedBuffer> buf = WebCore::SharedBuffer::create(cstr.data(), cstr.length());
     SubstituteData subData(buf, String("text/html"), String("utf-8"),
             request.url());
     frame->loader()->load(request, subData);
@@ -299,29 +312,29 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
         return;
     }
 
-    android::AssetManager* am = globalAssetManager();
+    AssetManager* am = globalAssetManager();
     
     // Check to see if the error code was not generated internally
-    android::WebFrame::RAW_RES_ID id = android::WebFrame::NODOMAIN;
+    WebFrame::RAW_RES_ID id = WebFrame::NODOMAIN;
     if ((error.errorCode() == ErrorFile ||
             error.errorCode() == ErrorFileNotFound) &&
             (!error.localizedDescription().isEmpty())) {
-        id = android::WebFrame::LOADERROR;
+        id = WebFrame::LOADERROR;
     }
     String filename = m_webFrame->getRawResourceFilename(id);
     if (filename.isEmpty())
         return;
 
     // Grab the error page from the asset manager
-    android::Asset* a = am->openNonAsset(
-            filename.utf8().data(), android::Asset::ACCESS_BUFFER);
+    Asset* a = am->openNonAsset(
+            filename.utf8().data(), Asset::ACCESS_BUFFER);
     if (!a)
         return;
 
     // Take the failing url and encode html entities so javascript urls are not
     // executed.
     CString failingUrl = error.failingURL().utf8();
-    Vector<char> url;
+    WTF::Vector<char> url;
     int len = failingUrl.length();
     const char* data = failingUrl.data();
     for (int i = 0; i < len; i++) {
@@ -373,7 +386,7 @@ void FrameLoaderClientAndroid::dispatchDidFirstLayout() {
     // see WebViewCore::didLayout
     if (!m_frame->tree()->parent()) {
         // Only need to notify Java side for the top frame
-        android::WebViewCore::getWebViewCore(m_frame->view())->didFirstLayout();
+        WebViewCore::getWebViewCore(m_frame->view())->didFirstLayout();
     }
 }
 
@@ -548,7 +561,7 @@ void FrameLoaderClientAndroid::postProgressEstimateChangedNotification() {
 void FrameLoaderClientAndroid::postProgressFinishedNotification() {
     if (!m_frame->tree()->parent()) {
         // only need to notify Java for the top frame
-        android::WebViewCore::getWebViewCore(m_frame->view())->notifyProgressFinished();
+        WebViewCore::getWebViewCore(m_frame->view())->notifyProgressFinished();
     }
 }
 
@@ -726,11 +739,11 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     ASSERT(item);
     // We should have added a bridge when the child item was added to its
     // parent.
-    android::WebHistoryItem* bridge = item->bridge();
+    WebHistoryItem* bridge = item->bridge();
     ASSERT(bridge);
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
-        bridge->setScale(android::WebViewCore::getWebViewCore(m_frame->view())->scale());
+        bridge->setScale(WebViewCore::getWebViewCore(m_frame->view())->scale());
     }
 
     WebCore::notifyHistoryItemChanged(item);
@@ -739,7 +752,7 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
 
 void FrameLoaderClientAndroid::restoreViewState() {
 #ifdef ANDROID_HISTORY_CLIENT
-    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(m_frame->view());
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
     HistoryItem* item = m_frame->loader()->currentHistoryItem();
     // restore the scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
@@ -805,7 +818,7 @@ bool FrameLoaderClientAndroid::canCachePage() const {
 void FrameLoaderClientAndroid::download(ResourceHandle* handle, const ResourceRequest&,
                                 const ResourceRequest&, const ResourceResponse&) {
     // Get the C++ side of the load listener and tell it to handle the download
-    android::WebCoreResourceLoader* loader = handle->getInternal()->m_loader;
+    WebCoreResourceLoader* loader = handle->getInternal()->m_loader;
     loader->downloadFile();
 }
 
@@ -824,8 +837,8 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
     newFrame->tree()->setName(name);
     // Create a new FrameView and WebFrameView for the child frame to draw into.
     FrameView* frameView = new WebCore::FrameView(newFrame);
-    android::WebFrameView* webFrameView = new android::WebFrameView(frameView, 
-            android::WebViewCore::getWebViewCore(parent->view()));
+    WebFrameView* webFrameView = new WebFrameView(frameView, 
+            WebViewCore::getWebViewCore(parent->view()));
     // frameView Retains webFrameView, so call Release for webFrameView
     Release(webFrameView);
     // Attach the frameView to the newFrame.
@@ -906,9 +919,9 @@ Widget* FrameLoaderClientAndroid::createPlugin(
                     break;
                 }
             }
-            android::AssetManager* am = globalAssetManager();
-            android::Asset* a = am->open("webkit/youtube.html",
-                    android::Asset::ACCESS_BUFFER);
+            AssetManager* am = globalAssetManager();
+            Asset* a = am->open("webkit/youtube.html",
+                    Asset::ACCESS_BUFFER);
             if (!a)
                 return NULL;
             String s = String((const char*)a->getBuffer(false), a->getLength());
@@ -940,8 +953,8 @@ void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {
 }
 
 Widget* FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, Element*,
-                                        const KURL& baseURL, const Vector<String>& paramNames,
-                                        const Vector<String>& paramValues) {
+                                        const KURL& baseURL, const WTF::Vector<String>& paramNames,
+                                        const WTF::Vector<String>& paramValues) {
     // don't support widget yet
     notImplemented();
     return 0;
@@ -1015,9 +1028,9 @@ void FrameLoaderClientAndroid::didPerformFirstNavigation() const {
 
 void FrameLoaderClientAndroid::registerForIconNotification(bool listen) {
     if (listen)
-        android::WebIconDatabase::RegisterForIconNotification(this);
+        WebIconDatabase::RegisterForIconNotification(this);
     else
-        android::WebIconDatabase::UnregisterForIconNotification(this);
+        WebIconDatabase::UnregisterForIconNotification(this);
 }
 
 // This is the WebIconDatabaseClient method for receiving a notification when we
@@ -1057,7 +1070,7 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     }
 
     // Remember the old WebFrameView
-    android::WebFrameView* webFrameView = static_cast<android::WebFrameView*> (
+    WebFrameView* webFrameView = static_cast<WebFrameView*> (
             m_frame->view()->platformWidget());
     Retain(webFrameView);
 

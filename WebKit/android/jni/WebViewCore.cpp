@@ -1,17 +1,26 @@
 /*
  * Copyright 2006, The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "webcoreglue"
@@ -31,6 +40,7 @@
 #include "EventNames.h"
 #include "Font.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -99,55 +109,12 @@ FILE* gRenderTreeFile = 0;
 #endif
 
 #ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-static uint32_t sTotalPaintTimeUsed = 0;
-static uint32_t sCounter = 0;
-
-namespace WebCore {
-void Frame::resetWebViewCoreTimeCounter()
-{
-    sTotalTimeUsed = 0;
-}
-
-void Frame::reportWebViewCoreTimeCounter()
-{
-    LOG(LOG_DEBUG, "WebCore", "*-* Total native 4 (webview core) time: %d ms\n",
-            sTotalTimeUsed);
-}
-// This should be in Frame.cpp, but android LOG is conflict with webcore LOG
-void Frame::resetPaintTimeCounter()
-{
-    sTotalPaintTimeUsed = 0;
-    sCounter = 0;
-}
-
-void Frame::reportPaintTimeCounter()
-{
-    LOG(LOG_DEBUG, "WebCore", "*-* Total draw time: %d ms called %d times\n",
-            sTotalPaintTimeUsed, sCounter);
-}
-}
+#include "TimeCounter.h"
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
-
-#ifdef ANDROID_INSTRUMENT
-class TimeCounterWV {
-public:
-    TimeCounterWV() {
-        m_startTime = WebCore::get_thread_msec();
-    }
-
-    ~TimeCounterWV() {
-        sTotalTimeUsed += WebCore::get_thread_msec() - m_startTime;
-    }
-
-private:
-    uint32_t m_startTime;
-};
-#endif
 
 // ----------------------------------------------------------------------------
 
@@ -411,7 +378,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // and check to see if any already split pieces need to be redrawn.
     if (content->build())
         rebuildPictureSet(content);
-    WebCore::CacheBuilder& builder = m_mainFrame->getCacheBuilder();
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Node* oldFocusNode = builder.currentFocus();
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds = oldFocusNode ?
@@ -753,24 +720,24 @@ void WebViewCore::notifyProgressFinished()
     sendNotifyProgressFinished();
 }
 
-void WebViewCore::doMaxScroll(WebCore::CacheBuilder::Direction dir)
+void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
 {
     int dx = 0, dy = 0;
 
     switch (dir) {
-    case WebCore::CacheBuilder::LEFT:
+    case CacheBuilder::LEFT:
         dx = -m_maxXScroll;
         break;
-    case WebCore::CacheBuilder::UP:
+    case CacheBuilder::UP:
         dy = -m_maxYScroll;
         break;
-    case WebCore::CacheBuilder::RIGHT:
+    case CacheBuilder::RIGHT:
         dx = m_maxXScroll;
         break;
-    case WebCore::CacheBuilder::DOWN:
+    case CacheBuilder::DOWN:
         dy = m_maxYScroll;
         break;
-    case WebCore::CacheBuilder::UNINITIALIZED:
+    case CacheBuilder::UNINITIALIZED:
     default:
         LOG_ASSERT(0, "unexpected focus selector");
     }
@@ -864,13 +831,13 @@ void WebViewCore::dumpRenderTree(bool useFile)
 void WebViewCore::dumpNavTree()
 {
 #if DUMP_NAV_CACHE
-    m_mainFrame->getCacheBuilder().mDebug.print();
+    FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().mDebug.print();
 #endif
 }
 
 WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
 {
-    WebCore::CacheBuilder& builder = m_mainFrame->getCacheBuilder();
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     if (!builder.validNode(frame, node))
         return WebCore::String();
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
@@ -893,7 +860,7 @@ bool WebViewCore::prepareFrameCache()
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
     m_temp->setGeneration(++m_buildGeneration);
-    WebCore::CacheBuilder& builder = m_mainFrame->getCacheBuilder();
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
 #ifdef ANDROID_META_SUPPORT
@@ -1101,7 +1068,7 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
     }
     // if the nav cache has been rebuilt since this focus request was generated,
     // send a request back to the UI side to recompute the kit-side focus
-    if (m_buildGeneration > buildGeneration || (node && !m_mainFrame->getCacheBuilder().validNode(frame, node))) {
+    if (m_buildGeneration > buildGeneration || (node && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, node))) {
         DBG_NAV_LOGD("m_buildGeneration=%d > buildGeneration=%d",
            m_buildGeneration, buildGeneration);
         gRecomputeFocusMutex.lock();
@@ -1125,7 +1092,7 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
 {
     if (!frame)
         frame = m_mainFrame;
-    WebCore::CacheBuilder& builder = m_mainFrame->getCacheBuilder();
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Node* oldFocusNode = builder.currentFocus();
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
@@ -1182,7 +1149,7 @@ static WebCore::Frame* FocusedFrame(WebCore::Frame* frame)
 {
     if (!frame)
         return 0;
-    WebCore::Node* focusNode = frame->getCacheBuilder().currentFocus();
+    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
     if (!focusNode)
         return 0;
     WebCore::Document* doc = focusNode->document();
@@ -1193,7 +1160,7 @@ static WebCore::Frame* FocusedFrame(WebCore::Frame* frame)
 
 static WebCore::RenderTextControl* FocusedTextControl(WebCore::Frame* frame)
 {
-    WebCore::Node* focusNode = frame->getCacheBuilder().currentFocus();
+    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
     WebCore::RenderObject* renderer = focusNode->renderer();
     if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
         return static_cast<WebCore::RenderTextControl*>(renderer);
@@ -1206,7 +1173,7 @@ WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
 {
     if (!frame || !node)
         return m_mainFrame;
-    WebCore::Node* current = m_mainFrame->getCacheBuilder().currentFocus();
+    WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (current == node)
         return frame;
     return finalKitFocus(frame, node, x, y) ? frame : m_mainFrame;
@@ -1227,7 +1194,7 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
     renderText->absolutePosition(renderX, renderY);
     WebCore::InlineTextBox *textBox = renderText->firstTextBox();
     int globalX, globalY;
-    WebCore::CacheBuilder::GetGlobalOffset(node, &globalX, &globalY);
+    CacheBuilder::GetGlobalOffset(node, &globalX, &globalY);
     int x = pt.x() - globalX;
     int y = pt.y() - globalY;
     do {
@@ -1352,7 +1319,7 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
 #if DUMP_NAV_CACHE
     {
         char buffer[256];
-        WebCore::CacheBuilder::Debug debug;
+        CacheBuilder::Debug debug;
         debug.init(buffer, sizeof(buffer));
         debug.print("copy: ");
         debug.wideString(result);
@@ -1450,7 +1417,7 @@ void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, in
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
 
-    WebCore::Node* currentFocus = m_mainFrame->getCacheBuilder().currentFocus();
+    WebCore::Node* currentFocus = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     // Make sure we have the same focus and it is a text field.
     if (node == currentFocus && currentFocus) {
         WebCore::RenderObject* renderer = currentFocus->renderer();
@@ -1505,7 +1472,7 @@ public:
     virtual void replyInt(int index)
     {
         // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !m_viewImpl->m_mainFrame->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
             return;
         if (-1 == index) {
             if (m_select->selectedIndex() != -1) {
@@ -1531,7 +1498,7 @@ public:
     virtual void replyIntArray(const int* array, int count) 
     {
         // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !m_viewImpl->m_mainFrame->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
             return;
 #ifdef ANDROID_DESELECT_SELECT
         m_select->deselectItems();
@@ -1626,7 +1593,7 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
     DBG_NAV_LOGD("key: keyCode=%d", keyCode);
 
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
-    WebCore::Node* focusNode = m_mainFrame->getCacheBuilder().currentFocus();
+    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (focusNode) {
         eventHandler = focusNode->document()->frame()->eventHandler();
     }
@@ -1646,7 +1613,7 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
 
 bool WebViewCore::click() {
     bool keyHandled = false;
-    WebCore::Node* focusNode = m_mainFrame->getCacheBuilder().currentFocus();
+    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (focusNode) {
         WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(true);
         keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
@@ -1708,7 +1675,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
     if (frame) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
-    WebCore::EditorClientAndroid* client = static_cast<WebCore::EditorClientAndroid*>(m_mainFrame->editor()->client());
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());
     client->setFromClick(true);
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
@@ -1718,7 +1685,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
 
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    if (framePtr && !m_mainFrame->getCacheBuilder().validNode(framePtr, nodePtr))
+    if (framePtr && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr))
         return false;
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     // Need to special case area tags because an image map could have an area element in the middle
@@ -1948,7 +1915,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
         jint screenWidth, jfloat scale)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
@@ -1965,7 +1932,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
@@ -1986,7 +1953,7 @@ static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
         jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isDown)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in Key");
@@ -1997,7 +1964,7 @@ static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
 static jboolean Click(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
@@ -2009,7 +1976,7 @@ static void DeleteSelection(JNIEnv *env, jobject obj,
                     jint frame, jint node, jint x, jint y, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     LOGV("webviewcore::nativeDeleteSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2022,7 +1989,7 @@ static void SetSelection(JNIEnv *env, jobject obj,
     jint frame, jint node, jint x, jint y, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     LOGV("webviewcore::nativeSetSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2037,7 +2004,7 @@ static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
         jstring replace, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     LOGV("webviewcore::nativeReplaceTextfieldText()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2051,7 +2018,7 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
     jint keyValue, jboolean down, jboolean cap, jboolean fn, jboolean sym)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     LOGV("webviewcore::nativePassToJs()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2063,7 +2030,7 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame, jint node, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     LOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2074,7 +2041,7 @@ static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame, jint node, j
 static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
@@ -2093,7 +2060,7 @@ static void SplitContent(JNIEnv *env, jobject obj)
 static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoice");
@@ -2110,7 +2077,7 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
         jint size)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoices");
@@ -2136,8 +2103,8 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
         return 0;
     const jchar* addrChars = env->GetStringChars(addr, 0);
     int start, end;
-    bool success = WebCore::CacheBuilder::FindAddress(addrChars, length,
-        &start, &end) == WebCore::CacheBuilder::FOUND_COMPLETE;
+    bool success = CacheBuilder::FindAddress(addrChars, length,
+        &start, &end) == CacheBuilder::FOUND_COMPLETE;
     jstring ret = 0;
     if (success) {
         ret = env->NewString((jchar*) addrChars + start, end - start);
@@ -2159,7 +2126,7 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
         jboolean isClick, jboolean retry)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
@@ -2183,7 +2150,7 @@ static void SetFinalFocus(JNIEnv *env, jobject obj, jint frame, jint node,
         jint x, jint y, jboolean block)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
@@ -2196,7 +2163,7 @@ static void SetKitFocus(JNIEnv *env, jobject obj, jint moveGeneration,
         jboolean ignoreNullFocus)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterWV counter;
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);

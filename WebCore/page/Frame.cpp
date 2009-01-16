@@ -25,10 +25,6 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-#ifdef ANDROID_INSTRUMENT
-#define LOG_TAG "WebCore"
-#endif
-
 #include "config.h"
 #include "Frame.h"
 #include "FramePrivate.h"
@@ -93,11 +89,6 @@
 
 #if PLATFORM(ANDROID)
 #include "WebViewCore.h"
-#endif
-
-#ifdef ANDROID_INSTRUMENT
-#include "CString.h"
-#include "Cache.h"
 #endif
 
 using namespace std;
@@ -1852,39 +1843,5 @@ FramePrivate::FramePrivate(Page* page, Frame* parent, Frame* thisFrame, HTMLFram
 FramePrivate::~FramePrivate()
 {
 }
-
-#ifdef ANDROID_INSTRUMENT
-void Frame::resetTimeCounter() {
-    JSC::JSGlobalObject::resetTimeCounter();
-    resetLayoutTimeCounter();
-    resetPaintTimeCounter();
-    resetCSSTimeCounter();
-    resetParsingTimeCounter();
-    resetCalculateStyleTimeCounter();
-    resetFramebridgeTimeCounter();
-    resetSharedTimerTimeCounter();
-    resetResourceLoadTimeCounter();
-    resetWebViewCoreTimeCounter();
-    LOGD("*-* Start browser instrument\n");
-}
-
-void Frame::reportTimeCounter(String url, int total, int totalThreadTime)
-{
-    LOGD("*-* Total load time: %d ms, thread time: %d ms for %s\n",
-            total, totalThreadTime, url.utf8().data());
-    JSC::JSGlobalObject::reportTimeCounter();
-    reportLayoutTimeCounter();
-    reportPaintTimeCounter();
-    reportCSSTimeCounter();
-    reportParsingTimeCounter();
-    reportCalculateStyleTimeCounter();
-    reportFramebridgeTimeCounter();
-    reportSharedTimerTimeCounter();
-    reportResourceLoadTimeCounter();
-    reportWebViewCoreTimeCounter();
-    LOGD("Current cache has %d bytes live and %d bytes dead",
-            cache()->getLiveSize(), cache()->getDeadSize());
-}
-#endif
 
 } // namespace WebCore

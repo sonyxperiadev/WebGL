@@ -22,10 +22,6 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-#ifdef ANDROID_INSTRUMENT
-#define LOG_TAG "WebCore"
-#endif
-
 #include "config.h"
 #include "FrameView.h"
 
@@ -53,8 +49,8 @@
 #include "SystemTime.h"
 
 #ifdef ANDROID_INSTRUMENT
-#include "SystemTime.h"
 #include "FrameTree.h"
+#include "TimeCounter.h"
 #endif
 
 namespace WebCore {
@@ -383,23 +379,6 @@ RenderObject* FrameView::layoutRoot(bool onlyDuringLayout) const
     return onlyDuringLayout && layoutPending() ? 0 : d->m_layoutRoot;
 }
 
-#ifdef ANDROID_INSTRUMENT
-static uint32_t sTotalTimeUsed = 0;
-static uint32_t sCounter = 0;
-    
-void Frame::resetLayoutTimeCounter()
-{
-    sTotalTimeUsed = 0;
-    sCounter = 0;
-}
-
-void Frame::reportLayoutTimeCounter()
-{
-    LOGD("*-* Total layout time: %d ms called %d times\n", 
-            sTotalTimeUsed, sCounter);   
-}
-#endif
-
 void FrameView::layout(bool allowSubtree)
 {
     if (d->m_midLayout)
@@ -478,9 +457,8 @@ void FrameView::layout(bool allowSubtree)
     }
 
 #ifdef ANDROID_INSTRUMENT
-    uint32_t startTime = 0;
     if (!m_frame->tree() || !m_frame->tree()->parent())
-        startTime = get_thread_msec();
+        android::TimeCounter::start(android::TimeCounter::LayoutTimeCounter);
 #endif
 
     d->m_nestedLayoutCount++;
@@ -587,13 +565,8 @@ void FrameView::layout(bool allowSubtree)
 #endif
 
 #ifdef ANDROID_INSTRUMENT
-    if (!m_frame->tree()->parent()) {
-        uint32_t time = get_thread_msec() - startTime;
-        sTotalTimeUsed += time;
-        sCounter++;
-        if (time > 1000)
-            LOGW("***** FrameView::layout() used %d ms\n", time);
-    }
+    if (!m_frame->tree()->parent())
+        android::TimeCounter::record(android::TimeCounter::LayoutTimeCounter, __FUNCTION__);
 #endif
     ASSERT(!root->needsLayout());
 

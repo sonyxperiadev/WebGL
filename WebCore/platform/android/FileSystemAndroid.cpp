@@ -1,4 +1,5 @@
 /*
+ * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * All rights reserved.
  *

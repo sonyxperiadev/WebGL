@@ -684,6 +684,10 @@ LOCAL_SRC_FILES := \
 	plugins/PluginView.cpp \
 	plugins/npapi.cpp \
 	\
+	plugins/android/PluginDataAndroid.cpp \
+	plugins/android/PluginPackageAndroid.cpp \
+	plugins/android/PluginViewAndroid.cpp \
+	\
 	rendering/AutoTableLayout.cpp \
 	rendering/CounterNode.cpp \
 	rendering/EllipsisBox.cpp \

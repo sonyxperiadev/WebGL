@@ -1,18 +1,27 @@
 /*
-** Copyright 2006-2008, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ * Copyright 2006, The Android Open Source Project
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define LOG_TAG "webcoreglue"
 
@@ -86,49 +95,10 @@
 #include <android_runtime/android_util_AssetManager.h>
 
 #ifdef ANDROID_INSTRUMENT
-#include "SystemTime.h"
-
-static uint32_t sTotalJavaTimeUsed = 0;
-static uint32_t sTotalNativeTimeUsed = 0;
-
-namespace WebCore {
-void Frame::resetFramebridgeTimeCounter()
-{
-    sTotalJavaTimeUsed = 0;
-    sTotalNativeTimeUsed = 0;
-}
-
-void Frame::reportFramebridgeTimeCounter()
-{
-    LOG(LOG_DEBUG, "WebCore", "*-* Total Java callback (frame bridge) time: %d ms\n",
-            sTotalJavaTimeUsed);
-    LOG(LOG_DEBUG, "WebCore", "*-* Total native 1 (frame bridge) time: %d ms\n",
-            sTotalNativeTimeUsed);
-}
-}
+#include "TimeCounter.h"
 #endif
 
 namespace android {
-
-#ifdef ANDROID_INSTRUMENT
-class TimeCounterFB {
-public:
-    TimeCounterFB(bool native = false) {
-        mNative = native;
-        mStartTime = WebCore::get_thread_msec();
-    }
-
-    ~TimeCounterFB() {
-        if (mNative)
-            sTotalNativeTimeUsed += WebCore::get_thread_msec() - mStartTime;
-        else
-            sTotalJavaTimeUsed += WebCore::get_thread_msec() - mStartTime;
-    }
-private:
-    bool mNative;
-    uint32_t mStartTime;
-};
-#endif
 
 // ----------------------------------------------------------------------------
 
@@ -246,8 +216,8 @@ WebFrame::~WebFrame()
 
 WebFrame* WebFrame::getWebFrame(const WebCore::Frame* frame)
 {
-    WebCore::FrameLoaderClientAndroid* client =
-            static_cast<WebCore::FrameLoaderClientAndroid*> (frame->loader()->client());
+    FrameLoaderClientAndroid* client =
+            static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
     return client->webFrame();
 }
 
@@ -286,7 +256,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   bool isHighPriority, bool synchronous)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: startLoadingResource(%p, %s)",
             loader, request.url().string().ascii().data());
@@ -389,7 +359,7 @@ WebFrame::reportError(int errorCode, const WebCore::String& description,
         const WebCore::String& failingUrl)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -405,7 +375,7 @@ void
 WebFrame::loadStarted(WebCore::Frame* frame)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     const WebCore::KURL& url = frame->loader()->activeDocumentLoader()->url();
     if (url.isEmpty())
@@ -446,7 +416,7 @@ void
 WebFrame::transitionToCommitted(WebCore::Frame* frame)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
@@ -460,7 +430,7 @@ void
 WebFrame::didFinishLoad(WebCore::Frame* frame)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     WebCore::FrameLoader* loader = frame->loader();
@@ -483,7 +453,7 @@ void
 WebFrame::addHistoryItem(WebCore::HistoryItem* item)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: addHistoryItem");
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -494,7 +464,7 @@ void
 WebFrame::removeHistoryItem(int index)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: removeHistoryItem at %d", index);
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -505,7 +475,7 @@ void
 WebFrame::updateHistoryIndex(int newIndex)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -516,7 +486,7 @@ void
 WebFrame::setTitle(const WebCore::String& title)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
 #ifndef NDEBUG
     LOGV("setTitle(%s)", title.ascii().data());
@@ -534,7 +504,7 @@ void
 WebFrame::windowObjectCleared(WebCore::Frame* frame)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: windowObjectCleared");
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -547,7 +517,7 @@ void
 WebFrame::setProgress(float newProgress)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     int progress = (int) (100 * newProgress);
@@ -565,7 +535,7 @@ void
 WebFrame::didReceiveIcon(WebCore::Image* icon)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -582,7 +552,7 @@ void
 WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     WebCore::String urlStr(url.string());
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -596,7 +566,7 @@ bool
 WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     // Internal loads are ok but any request that is due to a user hitting a key
     // should be checked.
@@ -604,6 +574,9 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
 #ifdef ANDROID_USER_GESTURE
     userGesture = request.userGesture();
 #endif
+    // always handle "POST" in place
+    if (equalIgnoringCase(request.httpMethod(), "POST"))
+        return true;
     WebCore::KURL requestUrl = request.url();
     if (!mUserInitiatedClick && !userGesture &&
         (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
@@ -628,7 +601,7 @@ WebCore::Frame*
 WebFrame::createWindow(bool dialog, bool userGesture)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     jobject obj = env->CallObjectMethod(mJavaFrame->frame(env).get(),
@@ -644,7 +617,7 @@ void
 WebFrame::requestFocus() const
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestFocus);
@@ -655,7 +628,7 @@ void
 WebFrame::closeWindow(WebViewCore* webViewCore)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     assert(webViewCore);
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
@@ -671,7 +644,7 @@ void
 WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter;
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
     PolicyFunctionWrapper* p = new PolicyFunctionWrapper;
@@ -693,7 +666,7 @@ WebFrame::getRawResourceFilename(RAW_RES_ID id) const
 static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decision)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeCallPolicyFunction must take a valid frame pointer!");
@@ -707,13 +680,13 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 {
     JSC::initializeThreading();
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
-    WebCore::ChromeClientAndroid*      chromeC = new WebCore::ChromeClientAndroid;
-    WebCore::EditorClientAndroid*      editorC = new WebCore::EditorClientAndroid;
-    WebCore::ContextMenuClient* contextMenuC = new WebCore::ContextMenuClientAndroid;
-    WebCore::DragClient*        dragC = new WebCore::DragClientAndroid;
-    WebCore::InspectorClientAndroid* inspectorC = new WebCore::InspectorClientAndroid;
+    ChromeClientAndroid*      chromeC = new ChromeClientAndroid;
+    EditorClientAndroid*      editorC = new EditorClientAndroid;
+    WebCore::ContextMenuClient* contextMenuC = new ContextMenuClientAndroid;
+    WebCore::DragClient*        dragC = new DragClientAndroid;
+    InspectorClientAndroid* inspectorC = new InspectorClientAndroid;
     // Create a new page
     WebCore::Page* page = new WebCore::Page(chromeC, contextMenuC, editorC, dragC, inspectorC);
     /* TODO: Don't turn on PageCache until we can restore the ScrollView State.
@@ -733,7 +706,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     chromeC->setWebFrame(webFrame);
     Release(webFrame);
 
-    WebCore::FrameLoaderClientAndroid* loaderC = new WebCore::FrameLoaderClientAndroid(webFrame);
+    FrameLoaderClientAndroid* loaderC = new FrameLoaderClientAndroid(webFrame);
     // Create a Frame and the page holds its reference
     WebCore::Frame* frame = WebCore::Frame::create(page, NULL, loaderC).get();
     loaderC->setFrame(frame);
@@ -778,7 +751,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 static void DestroyFrame(JNIEnv* env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeDestroyFrame must take a valid frame pointer!");
@@ -805,7 +778,7 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
 static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
@@ -821,7 +794,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
         jstring mimeType, jstring encoding, jstring failUrl)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadData must take a valid frame pointer!");
@@ -848,7 +821,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
 static void StopLoading(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeStopLoading must take a valid frame pointer!");
@@ -861,7 +834,7 @@ static void StopLoading(JNIEnv *env, jobject obj)
 static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeExternalRepresentation must take a valid frame pointer!");
@@ -877,7 +850,7 @@ static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
 static jstring DocumentAsText(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
@@ -896,7 +869,7 @@ static jstring DocumentAsText(JNIEnv *env, jobject obj)
 static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeReload must take a valid frame pointer!");
@@ -911,7 +884,7 @@ static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
 static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeGoBackOrForward must take a valid frame pointer!");
@@ -927,7 +900,7 @@ static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
 static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, jstring script)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
@@ -951,7 +924,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         jobject javascriptObj, jstring interfaceName)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = (WebCore::Frame*)nativeFramePointer;
     LOG_ASSERT(pFrame, "nativeAddJavascriptInterface must take a valid frame pointer!");
@@ -981,7 +954,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
 static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::cache()->setDisabled(disabled);
 }
@@ -989,7 +962,7 @@ static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
 static jboolean CacheDisabled(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     return WebCore::cache()->disabled();
 }
@@ -997,7 +970,7 @@ static jboolean CacheDisabled(JNIEnv *env, jobject obj)
 static void ClearCache(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     if (!WebCore::cache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
@@ -1014,7 +987,7 @@ static void ClearCache(JNIEnv *env, jobject obj)
 static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "DocumentHasImages must take a valid frame pointer!");
@@ -1025,7 +998,7 @@ static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
 static jboolean HasPasswordField(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "HasPasswordField must take a valid frame pointer!");
@@ -1053,7 +1026,7 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
 static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "GetUsernamePassword must take a valid frame pointer!");
@@ -1098,7 +1071,7 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     jstring username, jstring password)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "SetUsernamePassword must take a valid frame pointer!");
@@ -1137,7 +1110,7 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
 static jobject GetFormTextData(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterFB counter(true);
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "GetFormTextData must take a valid frame pointer!");
