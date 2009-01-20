@@ -108,7 +108,6 @@ namespace android {
 
 struct WebFrame::JavaBrowserFrame
 {
-    JavaVM*     mJVM;
     jobject     mObj;
     jobject     mHistoryList; // WebBackForwardList object
     jmethodID   mStartLoadingResource;
@@ -146,7 +145,6 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 {
     jclass clazz = env->GetObjectClass(obj);
     mJavaFrame = new JavaBrowserFrame;
-    mJavaFrame->mJVM = jnienv_to_javavm(env);
     mJavaFrame->mObj = adoptGlobalRef(env, obj);
     mJavaFrame->mHistoryList = adoptGlobalRef(env, historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
@@ -206,7 +204,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 WebFrame::~WebFrame()
 {
     if (mJavaFrame->mObj) {
-        JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteGlobalRef(mJavaFrame->mObj);
         env->DeleteGlobalRef(mJavaFrame->mHistoryList);
         mJavaFrame->mObj = 0;
@@ -264,7 +262,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     WebCore::String method = request.httpMethod();
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::String urlStr = request.url().string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jstring jMethodStr = NULL;
@@ -362,7 +360,7 @@ WebFrame::reportError(int errorCode, const WebCore::String& description,
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     jstring descStr = env->NewString((unsigned short*)description.characters(), description.length());
     jstring failUrl = env->NewString((unsigned short*)failingUrl.characters(), failingUrl.length());
@@ -391,7 +389,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
              !isMainFrame))
         return;
 
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::String urlString(url.string());
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
@@ -418,7 +416,7 @@ WebFrame::transitionToCommitted(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mTransitionToCommitted,
@@ -432,7 +430,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::FrameLoader* loader = frame->loader();
     const WebCore::KURL& url = loader->activeDocumentLoader()->url();
     if (url.isEmpty())
@@ -456,7 +454,7 @@ WebFrame::addHistoryItem(WebCore::HistoryItem* item)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: addHistoryItem");
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebHistory::AddItem(mJavaFrame->history(env), item);
 }
 
@@ -467,7 +465,7 @@ WebFrame::removeHistoryItem(int index)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: removeHistoryItem at %d", index);
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebHistory::RemoveItem(mJavaFrame->history(env), index);
 }
 
@@ -478,7 +476,7 @@ WebFrame::updateHistoryIndex(int newIndex)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebHistory::UpdateHistoryIndex(mJavaFrame->history(env), newIndex);
 }
 
@@ -491,7 +489,7 @@ WebFrame::setTitle(const WebCore::String& title)
 #ifndef NDEBUG
     LOGV("setTitle(%s)", title.ascii().data());
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jTitleStr = env->NewString((unsigned short *)title.characters(), title.length());
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetTitle,
@@ -507,7 +505,7 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOGV("::WebCore:: windowObjectCleared");
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mWindowObjectCleared, (int)frame);
     checkException(env);
@@ -519,7 +517,7 @@ WebFrame::setProgress(float newProgress)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     int progress = (int) (100 * newProgress);
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mSetProgress, progress);
     checkException(env);
@@ -538,7 +536,7 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobject bitmap = webcoreImageToJavaBitmap(env, icon);
     if (!bitmap)
         return;
@@ -555,7 +553,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     WebCore::String urlStr(url.string());
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jUrlStr = env->NewString((unsigned short*)urlStr.characters(), urlStr.length());
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
@@ -587,7 +585,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     // Empty urls should not be sent to java
     if (url.isEmpty())
         return true;
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
 
     // check to see whether browser app wants to hijack url loading.
@@ -603,7 +601,7 @@ WebFrame::createWindow(bool dialog, bool userGesture)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobject obj = env->CallObjectMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mCreateWindow, dialog, userGesture);
     if (obj) {
@@ -619,7 +617,7 @@ WebFrame::requestFocus() const
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestFocus);
     checkException(env);
 }
@@ -631,7 +629,7 @@ WebFrame::closeWindow(WebViewCore* webViewCore)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     assert(webViewCore);
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mCloseWindow,
             webViewCore->getJavaObject().get());
 }
@@ -646,7 +644,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     PolicyFunctionWrapper* p = new PolicyFunctionWrapper;
     p->func = func;
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
@@ -655,7 +653,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 WebCore::String
 WebFrame::getRawResourceFilename(RAW_RES_ID id) const
 {
-    JNIEnv* env = javavm_to_jnienv(mJavaFrame->mJVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring ret = (jstring) env->CallObjectMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mGetRawResFilename, (int)id);
 

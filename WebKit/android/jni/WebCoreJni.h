@@ -66,12 +66,6 @@ jobject adoptGlobalRef(JNIEnv*, jobject);
 // occurred and logs the exception.
 bool checkException(JNIEnv* env);
 
-// Get the JavaVM pointer for the given JNIEnv pointer
-JavaVM* jnienv_to_javavm(JNIEnv* env);
-
-// Get the JNIEnv pointer for the given JavaVM pointer
-JNIEnv* javavm_to_jnienv(JavaVM* vm);
-
 // Create a WebCore::String object from a jstring object.
 WebCore::String to_string(JNIEnv* env, jstring str);
 

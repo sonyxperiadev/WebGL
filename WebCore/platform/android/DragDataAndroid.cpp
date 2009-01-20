@@ -61,7 +61,7 @@ class Clipboard : public RefCounted<Clipboard> {};
 
 PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
 {
-    return PassRefPtr<Clipboard>(NULL);
+    return PassRefPtr<Clipboard>(0);
 }
     
 bool DragData::containsCompatibleContent() const

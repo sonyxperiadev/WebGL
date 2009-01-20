@@ -26,112 +26,101 @@
 #include "config.h"
 #include "Widget.h"
 
-#include "Document.h"
-#include "Element.h"
 #include "Font.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
-#include "HostWindow.h"
 #include "NotImplemented.h"
-
 #include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
 #include "WebViewCore.h"
 
 namespace WebCore {
 
-    class WidgetPrivate
-    {
-      public:
-        Font                m_font;
-    };
+Widget::Widget(PlatformWidget widget)
+{
+    init(widget);
+}
 
-    Widget::Widget(PlatformWidget widget) : m_data(new WidgetPrivate)
-    {
-        init(widget);
-    }
+Widget::~Widget()
+{
+    ASSERT(!parent());
+    releasePlatformWidget();
+}
 
-    Widget::~Widget()
-    {
-        ASSERT(!parent());
-        releasePlatformWidget();
-        delete m_data;
-    }
+IntRect Widget::frameRect() const
+{
+    // FIXME: use m_frame instead?
+    if (!platformWidget())
+        return IntRect(0, 0, 0, 0);
+    return platformWidget()->getBounds();
+}
 
-    IntRect Widget::frameRect() const
-    {
-        // FIXME: use m_frame instead?
-        if (!platformWidget())
-            return IntRect(0, 0, 0, 0);
-        return platformWidget()->getBounds();
-    }
+void Widget::setFocus()
+{
+    notImplemented();
+}
 
-    void Widget::setFocus()
-    {
-        notImplemented();
-    }
+void Widget::paint(GraphicsContext* ctx, const IntRect& r)
+{
+    // FIXME: in what case, will this be called for the top frame?
+    if (!platformWidget())
+        return;
+    platformWidget()->draw(ctx, r);
+}
 
-    void Widget::paint(GraphicsContext* ctx, const IntRect& r)
-    {
-        // FIXME: in what case, will this be called for the top frame?
-        if (!platformWidget())
-            return;
-        platformWidget()->draw(ctx, r);
-    }
+void Widget::releasePlatformWidget()
+{
+    Release(platformWidget());
+}
 
-    void Widget::releasePlatformWidget()
-    {
-        Release(platformWidget());
-    }
+void Widget::retainPlatformWidget()
+{
+    Retain(platformWidget());
+}
 
-    void Widget::retainPlatformWidget()
-    {
-        Retain(platformWidget());
-    }
+void Widget::setCursor(const Cursor& cursor)
+{
+    notImplemented();
+}
 
-    void Widget::setCursor(const Cursor& cursor)
-    {
-        notImplemented();
-    }
+void Widget::show()
+{
+    notImplemented(); 
+}
 
-    void Widget::show()
-    {
-        notImplemented(); 
-    }
+void Widget::hide()
+{
+    notImplemented(); 
+}
 
-    void Widget::hide()
-    {
-        notImplemented(); 
-    }
+void Widget::setFrameRect(const IntRect& rect)
+{
+    // FIXME: set m_frame instead?
+    // platformWidget() is NULL when called from Scrollbar
+    if (!platformWidget())
+        return;
+    platformWidget()->setLocation(rect.x(), rect.y());
+    platformWidget()->setSize(rect.width(), rect.height());
+}
 
-    void Widget::setFrameRect(const IntRect& rect)
-    {
-        // FIXME: set m_frame instead?
-        // platformWidget() is NULL when called from Scrollbar
-        if (!platformWidget())
-            return;
-        platformWidget()->setLocation(rect.x(), rect.y());
-        platformWidget()->setSize(rect.width(), rect.height());
-    }
+void Widget::setIsSelected(bool isSelected)
+{
+    notImplemented();
+}
 
-    void Widget::setIsSelected(bool isSelected)
-    {
-        notImplemented();
-    }
-
-    int Widget::screenWidth() const
-    {
-        const Widget* widget = this;
-        while (!widget->isFrameView()) {
-            widget = widget->parent();
-            if (!widget)
-                break;
-        }
+int Widget::screenWidth() const
+{
+    const Widget* widget = this;
+    while (!widget->isFrameView()) {
+        widget = widget->parent();
         if (!widget)
-            return 0;
-
-        return android::WebViewCore::getWebViewCore(
-                static_cast<const ScrollView*>(widget))->screenWidth();
+            break;
     }
+    if (!widget)
+        return 0;
+
+    return android::WebViewCore::getWebViewCore(
+            static_cast<const ScrollView*>(widget))->screenWidth();
+}
 
 } // WebCore namepsace

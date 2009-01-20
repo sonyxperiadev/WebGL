@@ -90,6 +90,7 @@
 #include "HistoryItem.h"
 #include "android_graphics.h"
 #include <ui/KeycodeLabels.h>
+#include "jni_utility.h"
 
 #if DEBUG_NAV_UI
 #include "SkTime.h"
@@ -135,7 +136,6 @@ struct WebViewCoreFields {
 // ----------------------------------------------------------------------------
 
 struct WebViewCore::JavaGlue {
-    JavaVM*     m_JVM;
     jobject     m_obj;
     jmethodID   m_spawnScrollTo;
     jmethodID   m_scrollTo;
@@ -201,7 +201,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     jclass clazz = env->GetObjectClass(javaWebViewCore);
     m_javaGlue = new JavaGlue;
-    m_javaGlue->m_JVM = jnienv_to_javavm(env);
     m_javaGlue->m_obj = adoptGlobalRef(env, javaWebViewCore);
     m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
@@ -236,7 +235,7 @@ WebViewCore::~WebViewCore()
     Release(m_popupReply);
 
     if (m_javaGlue->m_obj) {
-        JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteGlobalRef(m_javaGlue->m_obj);
         m_javaGlue->m_obj = 0;
     }
@@ -563,7 +562,7 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 
 //    LOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), animate ? m_javaGlue->m_spawnScrollTo : m_javaGlue->m_scrollTo, x, y);
     checkException(env);
 }
@@ -571,7 +570,7 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 void WebViewCore::sendMarkNodeInvalid(WebCore::Node* node)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendMarkNodeInvalid, (int) node);
     checkException(env);
 }
@@ -579,7 +578,7 @@ void WebViewCore::sendMarkNodeInvalid(WebCore::Node* node)
 void WebViewCore::sendNotifyFocusSet()
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendNotifyFocusSet);
     checkException(env);
 }
@@ -587,7 +586,7 @@ void WebViewCore::sendNotifyFocusSet()
 void WebViewCore::sendNotifyProgressFinished()
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendNotifyProgressFinished);
     checkException(env);
 }
@@ -595,7 +594,7 @@ void WebViewCore::sendNotifyProgressFinished()
 void WebViewCore::sendRecomputeFocus()
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendRecomputeFocus);
     checkException(env);
 }
@@ -603,7 +602,7 @@ void WebViewCore::sendRecomputeFocus()
 void WebViewCore::viewInvalidate(const SkIRect& rect)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendViewInvalidate,
         rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
     checkException(env);
@@ -612,7 +611,7 @@ void WebViewCore::viewInvalidate(const SkIRect& rect)
 void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendViewInvalidate,
         rect.x(), rect.y(), rect.right(), rect.bottom());
     checkException(env);
@@ -622,14 +621,14 @@ void WebViewCore::scrollBy(int dx, int dy)
 {
     if (!(dx | dy))
         return;
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy, dx, dy);
     checkException(env);
 }
 
 void WebViewCore::contentDraw()
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw);
     checkException(env);
 }
@@ -677,7 +676,7 @@ void WebViewCore::didFirstLayout()
         return;
     LOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
 
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout);
     checkException(env);
 
@@ -691,7 +690,7 @@ void WebViewCore::restoreScale(int scale)
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScale, scale);
     checkException(env);
 }
@@ -702,7 +701,7 @@ void WebViewCore::needTouchEvents(bool need)
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 #if ENABLE(TOUCH_EVENTS) // Android
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
     checkException(env);
 #endif
@@ -1384,7 +1383,7 @@ WebCore::Frame* WebViewCore::deleteSelection(WebCore::Frame* frame, WebCore::Nod
 void WebViewCore::replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y,
         int oldStart, int oldEnd, jstring replace, int start, int end)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
 
     WebCore::String webcoreString = to_string(env, replace);
     frame = setSelection(frame, node, x, y, oldStart, oldEnd);
@@ -1423,7 +1422,7 @@ void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, in
         WebCore::RenderObject* renderer = currentFocus->renderer();
         if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
             WebCore::RenderTextControl* renderText = static_cast<WebCore::RenderTextControl*>(renderer);
-            JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
             WebCore::String current = to_string(env, currentText);
             WebCore::String test = renderText->text();
             // If the text changed during the key event, update the UI text field.
@@ -1548,7 +1547,7 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
     LOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
 
     // Create an array of java Strings for the drop down.
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobjectArray labelArray = makeLabelArray(env, labels, count);
 
     // Create an array determining whether each item is enabled.
@@ -1765,7 +1764,7 @@ void WebViewCore::popupReply(const int* array, int count)
 
 void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& text)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsAlert, jUrlStr, jInputStr);
@@ -1776,7 +1775,7 @@ void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& tex
 
 bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsConfirm, jUrlStr, jInputStr);
@@ -1788,7 +1787,7 @@ bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& t
 
 bool WebViewCore::jsPrompt(const WebCore::String& url, const WebCore::String& text, const WebCore::String& defaultValue, WebCore::String& result)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
     jstring jDefaultStr = env->NewString((unsigned short *)defaultValue.characters(), defaultValue.length());
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
@@ -1807,7 +1806,7 @@ bool WebViewCore::jsPrompt(const WebCore::String& url, const WebCore::String& te
 
 bool WebViewCore::jsUnload(const WebCore::String& url, const WebCore::String& message)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)message.characters(), message.length());
     jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
@@ -1820,13 +1819,13 @@ bool WebViewCore::jsUnload(const WebCore::String& url, const WebCore::String& me
 AutoJObject
 WebViewCore::getJavaObject()
 {
-    return getRealObject(javavm_to_jnienv(m_javaGlue->m_JVM), m_javaGlue->m_obj);
+    return getRealObject(JSC::Bindings::getJNIEnv(), m_javaGlue->m_obj);
 }
 
 jobject
 WebViewCore::getWebViewJavaObject()
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     return env->GetObjectField(m_javaGlue->object(env).get(), gWebViewCoreFields.m_webView);
 }
 
@@ -1835,7 +1834,7 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
 {
     if (m_blockTextfieldUpdates)
         return;
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue->m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (changeToPassword) {
         env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateTextfield,
                 (int) ptr, true, 0, m_textGeneration);

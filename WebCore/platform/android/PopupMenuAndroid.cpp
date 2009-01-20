@@ -36,7 +36,7 @@ PopupMenu::~PopupMenu()
 {
 }
 
-void PopupMenu::show(const IntRect& rect, FrameView* view, int index)
+void PopupMenu::show(const IntRect&, FrameView*, int)
 {
 
 }

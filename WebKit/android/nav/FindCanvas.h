@@ -32,6 +32,7 @@
 #include "SkRegion.h"
 #include "SkTDArray.h"
 #include "icu/unicode/umachine.h"
+#include "wtf/Vector.h"
 
 class SkRect;
 class SkTypeface;

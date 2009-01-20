@@ -28,11 +28,8 @@
 #include "ScrollView.h"
 
 #include "FloatRect.h"
-#include "Frame.h"
 #include "FrameView.h"
-#include "HostWindow.h"
 #include "IntRect.h"
-#include "NotImplemented.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
 #include "WebViewCore.h"

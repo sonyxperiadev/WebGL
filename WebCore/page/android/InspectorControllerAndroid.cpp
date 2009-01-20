@@ -24,8 +24,10 @@
  */
 
 #include "config.h"
-#include "InspectorClient.h"
 #include "InspectorController.h"
+
+#include "InspectorClient.h"
+
 #include "Frame.h"
 #include "Node.h"
 #include "Profile.h"
@@ -62,7 +64,7 @@ struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> 
 };
 
 InspectorController::InspectorController(Page*, InspectorClient* client)
-    : m_startProfiling(this, NULL)
+    : m_startProfiling(this, 0)
 {
     m_client = client;
 }
@@ -91,7 +93,6 @@ void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, con
 void InspectorController::inspectedPageDestroyed() {}
 void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, JSC::UString& sourceString) {}
 
-    // new as of SVN change 36269, Sept 8, 2008
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
 void InspectorController::startGroup(MessageSource source, JSC::ExecState* exec, const JSC::ArgList& arguments, unsigned lineNumber, const String& sourceURL) {}
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL) {}
@@ -99,10 +100,10 @@ void InspectorController::startTiming(const JSC::UString& title) {}
 bool InspectorController::stopTiming(const JSC::UString& title, double& elapsed) { return false; }
 void InspectorController::count(const JSC::UString& title, unsigned lineNumber, const String& sourceID) {}
 
-    // new as of SVN change 38068, Nov 5, 2008
 void InspectorController::mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) {}
 void InspectorController::handleMousePressOnNode(Node*) {}
 void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
 void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
 void InspectorController::didPause() {}
-}
+
+}  // namespace WebCore

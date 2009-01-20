@@ -66,7 +66,6 @@ public:
     static void Error(JNIEnv*, jobject, jint, jstring, jstring);
 
 private:
-    JavaVM*     mJvm;
     jobject     mJLoader;
 };
 

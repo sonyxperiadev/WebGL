@@ -28,14 +28,10 @@
 #include "config.h"
 #include "EventHandler.h"
 
-#include "EventNames.h"
-#include "FloatPoint.h"
 #include "FocusController.h"
 #include "Frame.h"
-#include "FrameView.h"
 #include "KeyboardEvent.h"
 #include "MouseEventWithHitTestResults.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
@@ -73,13 +69,13 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 
 // This function is used to route the mouse down event to the native widgets, it seems like a
 // work around for the Mac platform which does not support double clicks, but browsers do.
-bool EventHandler::passMouseDownEventToWidget(Widget* widget)
+bool EventHandler::passMouseDownEventToWidget(Widget*)
 {
     // return false so the normal propogation handles the event
     return false;
 }
 
-bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
+bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
 {
     notImplemented();
     return false;
@@ -89,8 +85,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 // It is used to ensure that events are sync'ed correctly between frames. For example
 // if the user presses down in one frame and up in another frame, this function will
 // returns true, and pass the event to the correct frame.
-bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& event, 
-    Frame* subframe, HitTestResult* hoveredNode)
+bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults&, Frame*, HitTestResult*)
 {
     notImplemented();
     return false;
@@ -99,7 +94,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
 // This is called to route wheel events to child widgets when they are RenderWidget
 // as the parent usually gets wheel event. Don't have a mouse with a wheel to confirm
 // the operation of this function.
-bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& , Widget* widget)
+bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget*)
 {
     notImplemented();
     return false;
@@ -111,7 +106,7 @@ bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& m
 }
 
 bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mev, 
-    Frame* subframe, HitTestResult* hoveredNode)
+    Frame* subframe, HitTestResult*)
 {
     return passSubframeEventToSubframe(mev, subframe);
 }
@@ -121,11 +116,14 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return passSubframeEventToSubframe(mev, subframe);
 }
 
-// functions new to Jun-07 tip of tree merge:
-class Clipboard : public RefCounted<Clipboard> {};
+class Clipboard : public RefCounted<Clipboard> {
+};
 
-PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const { return PassRefPtr<Clipboard>(NULL); }
-
-// new as of SVN change 36269, Sept 8, 2008
-const double EventHandler::TextDragDelay = 0.0;
+PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
+{
+    return PassRefPtr<Clipboard>(0);
 }
+
+const double EventHandler::TextDragDelay = 0.0;
+
+}  // namespace WebCore

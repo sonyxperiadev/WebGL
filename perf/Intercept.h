@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,43 +23,58 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RenderSkinCombo_h
-#define RenderSkinCombo_h
+#ifndef INTERCEPT_H
+#define INTERCEPT_H
 
-#include "RenderSkinAndroid.h"
-#include "SkRect.h"
-
-class SkCanvas;
+#include "jni_utility.h"
+#include "MyJavaVM.h"
+#include "PlatformString.h"
+#include "Timer.h"
+#include "Vector.h"
+#include "WebCoreFrameBridge.h"
+#include "WebCoreResourceLoader.h"
 
 namespace WebCore {
+    class Page;
+    class ResourceHandle;
+    class ResourceRequest;
+}
 
-// This is very similar to RenderSkinButton - maybe they should be the same class?
-class RenderSkinCombo : public RenderSkinAndroid
-{
+using namespace android;
+using namespace WebCore;
+using namespace WTF;
+
+class MyResourceLoader : public WebCoreResourceLoader {
 public:
-    RenderSkinCombo();
-    virtual ~RenderSkinCombo() {}
+    MyResourceLoader(ResourceHandle* handle, String url)
+        : WebCoreResourceLoader(JSC::Bindings::getJNIEnv(), MY_JOBJECT)
+        , m_handle(handle)
+        , m_url(url) {}
 
-    /**
-     * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
-     */
-    static void Init(android::AssetManager*);
+    void handleRequest();
 
-    /**
-     * Draw the provided Node on the SkCanvas, using the dimensions provided by
-     * x,y,w,h.  Return true if we did not draw, and WebKit needs to draw it,
-     * false otherwise.
-     */
-    static bool Draw(SkCanvas* , Node* , int x, int y, int w, int h);
-
-    // The image is an extra 30 pixels wider than the RenderObject, so this accounts for that.
-    static int extraWidth() { return arrowMargin; }
-    
 private:
-    
-    static const int arrowMargin = 30;
-}; 
+    void loadData(const String&);
+    void loadFile(const String&);
+    ResourceHandle* m_handle;
+    String m_url;
+};
 
-} // WebCore
+class MyWebFrame : public WebFrame {
+public:
+    MyWebFrame(Page* page)
+        : WebFrame(JSC::Bindings::getJNIEnv(), MY_JOBJECT, MY_JOBJECT, page)
+        , m_timer(this, &MyWebFrame::timerFired) {}
+
+    virtual WebCoreResourceLoader* startLoadingResource(ResourceHandle* handle,
+            const ResourceRequest& req, bool, bool);
+
+    virtual bool canHandleRequest(const ResourceRequest&) { return true; }
+
+private:
+    void timerFired(Timer<MyWebFrame>*);
+    Vector<MyResourceLoader*> m_requests;
+    Timer<MyWebFrame> m_timer;
+};
 
 #endif

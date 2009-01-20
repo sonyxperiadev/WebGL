@@ -30,7 +30,6 @@
 
 namespace WebCore {
 
-class PopupMenu;
 class RenderSkinButton;
 class RenderSkinRadio;
 class RenderSkinCombo;
@@ -93,7 +92,6 @@ protected:
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
-
 private:
     void addIntrinsicMargins(RenderStyle* style) const;
     void close();
@@ -105,7 +103,7 @@ private:
     RenderSkinCombo*    m_combo;
 };
 
-};
+} // namespace WebCore
 
-#endif
+#endif // RenderThemeAndroid_h
 

@@ -70,13 +70,12 @@ static struct resourceloader_t {
 
 WebCoreResourceLoader::WebCoreResourceLoader(JNIEnv *env, jobject jLoadListener)
 {
-    mJvm = jnienv_to_javavm(env);
     mJLoader = env->NewGlobalRef(jLoadListener);
 }
 
 WebCoreResourceLoader::~WebCoreResourceLoader()
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     SET_NATIVE_HANDLE(env, mJLoader, 0);
     env->DeleteGlobalRef(mJLoader);
     mJLoader = 0;
@@ -84,14 +83,14 @@ WebCoreResourceLoader::~WebCoreResourceLoader()
 
 void WebCoreResourceLoader::cancel()
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(mJLoader, gResourceLoader.mCancelMethodID);
     checkException(env);
 }
 
 void WebCoreResourceLoader::downloadFile()
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(mJLoader, gResourceLoader.mDownloadFileMethodID);
     checkException(env);
 }
@@ -103,7 +102,7 @@ void WebCoreResourceLoader::downloadFile()
 */
 bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url)
 {
-    JNIEnv* env = javavm_to_jnienv(JSC::Bindings::getJavaVM());
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebCore::String urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");

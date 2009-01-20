@@ -93,18 +93,6 @@ WebCore::String to_string(JNIEnv* env, jstring str)
     return ret;
 }
 
-JavaVM* jnienv_to_javavm(JNIEnv* env)
-{
-    JavaVM* vm;
-    return env->GetJavaVM(&vm) >= 0 ? vm : NULL;
-}
-
-JNIEnv* javavm_to_jnienv(JavaVM* vm)
-{
-    JNIEnv* env;
-    return vm->GetEnv((void **)&env, JNI_VERSION_1_4) >= 0 ? env : NULL;
-}
-
 }
 
 struct RegistrationMethod {

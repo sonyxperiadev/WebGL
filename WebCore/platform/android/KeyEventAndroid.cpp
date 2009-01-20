@@ -24,16 +24,17 @@
  */
 
 #include "config.h"
+#include "PlatformKeyboardEvent.h"
+
 #include "KeyboardCodes.h"
 #include "NotImplemented.h"
-#include "PlatformKeyboardEvent.h"
 #include <ui/KeycodeLabels.h>
 
 namespace WebCore {
 
 // compare to same function in gdk/KeyEventGdk.cpp
 static int windowsKeyCodeForKeyEvent(unsigned int keyCode) {
-// Does not provide all key codes, and does not handle all keys.
+    // Does not provide all key codes, and does not handle all keys.
     switch(keyCode) {
         case kKeyCodeDel:
             return VK_BACK;
@@ -161,9 +162,8 @@ static int windowsKeyCodeForKeyEvent(unsigned int keyCode) {
 
 static String keyIdentifierForAndroidKeyCode(int keyCode)
 {
-/*  Does not return all of the same key identifiers, and
- *  does not handle all the keys.
- */
+    // Does not return all of the same key identifiers, and
+    // does not handle all the keys.
     switch (keyCode) {
         case kKeyCodeClear:
             return "Clear";
@@ -180,7 +180,7 @@ static String keyIdentifierForAndroidKeyCode(int keyCode)
             return "Right";
         case kKeyCodeDpadUp:
             return "Up";
-            // Standard says that DEL becomes U+00007F.
+        // Standard says that DEL becomes U+00007F.
         case kKeyCodeDel:
             return "U+00007F";
         default:

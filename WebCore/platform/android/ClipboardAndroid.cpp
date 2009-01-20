@@ -28,35 +28,13 @@
 #include "ClipboardAndroid.h"
 
 #include "CachedImage.h"
-#include "CSSHelper.h"
-#include "CString.h"
-#include "Document.h"
-#include "DragData.h"
 #include "Element.h"
-#include "EventHandler.h"
 #include "Frame.h"
-#include "FrameLoader.h"
-#include "FrameView.h"
-#include "HTMLNames.h"
-#include "Image.h"
-//#include "MimeTypeRegistry.h"
-#include "markup.h"
-#include "Page.h"
-#include "Pasteboard.h"
-#include "PlatformMouseEvent.h"
-#include "PlatformString.h"
 #include "Range.h"
-#include "RenderImage.h"
-#include "ResourceResponse.h"
-#include "StringHash.h"
-
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
-// format string for 
+// format string for
 static const char szShellDotUrlTemplate[] = "[InternetShortcut]\r\nURL=%s\r\n";
 
 // We provide the IE clipboard types (URL and Text), and the clipboard types specified in the WHATWG Web Applications 1.0 draft
@@ -119,8 +97,9 @@ String ClipboardAndroid::getData(const String& type, bool& success) const
         return "";
     }
 
+    /*
     ClipboardDataType dataType = clipboardTypeFromMIMEType(type);
-   /* if (dataType == ClipboardDataTypeText)
+    if (dataType == ClipboardDataTypeText)
         return getPlainText(m_dataObject.get(), success);
     else if (dataType == ClipboardDataTypeURL) 
         return getURL(m_dataObject.get(), success);

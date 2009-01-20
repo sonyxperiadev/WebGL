@@ -28,9 +28,6 @@
 #include "DragController.h"
 
 #include "DragData.h"
-#include "Frame.h"
-#include "FrameView.h"
-#include "Page.h"
 
 namespace WebCore {
 
@@ -49,7 +46,6 @@ DragOperation DragController::dragOperation(DragData* dragData)
    return DragOperationNone;
 } 
 
-// functions new to Jun-07 tip of tree merge:
 const float DragController::DragImageAlpha = 1.0f;
 static IntSize dummy;
 const IntSize& DragController::maxDragImageSize() { return dummy; }
@@ -58,4 +54,4 @@ const int DragController::DragIconBottomInset = 0;
 const int DragController::LinkDragBorderInset = 0;
 const int DragController::MaxOriginalImageArea = 0;
 
-}
+}  // namespace WebCore

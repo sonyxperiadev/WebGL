@@ -198,7 +198,7 @@ private:
     
     IntRect m_frame; // Not used when a native widget exists.
 
-#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(ANDROID)
+#if PLATFORM(MAC) || PLATFORM(GTK)
     WidgetPrivate* m_data;
 #endif
 #if PLATFORM(ANDROID)

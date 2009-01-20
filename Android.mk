@@ -186,3 +186,8 @@ include $(BASE_PATH)/WebKit/android/plugins/sample/Android.mk
 
 # Build the wds client
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
+
+# Build the performance command line tool.
+# XXX: Uncomment this include to build webcore_test. In order for the test to
+# link with libwebcore, remove -fvisibility=hidden from LOCAL_CFLAGS above
+#include $(BASE_PATH)/perf/Android.mk

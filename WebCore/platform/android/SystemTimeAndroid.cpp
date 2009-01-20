@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "SystemTime.h"
+
 #include <sys/time.h>
 
 namespace WebCore {
@@ -55,4 +56,4 @@ uint32_t get_thread_msec()
 #endif
 }
 
-}
+}  // namespace WebCore

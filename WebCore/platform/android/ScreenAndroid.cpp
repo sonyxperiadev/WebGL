@@ -25,6 +25,7 @@
  */
 
 #define LOG_TAG "WebCore"
+
 #include "config.h"
 #include "Screen.h"
 
