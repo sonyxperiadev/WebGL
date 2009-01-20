@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,31 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "FileChooser.h"
+#ifndef MY_JAVA_VM_H
+#define MY_JAVA_VM_H
 
-#include "Font.h"
+// Make it 1 just to appease any assertions or checks for valid objects
+#define MY_JOBJECT ((jobject) 1)
 
-namespace WebCore {
+void InitializeJavaVM();
 
-String FileChooser::basenameForWidth(const Font& font, int width) const 
-{ 
-    // FIXME: This could be a lot faster, but assuming the data will not often be 
-    // much longer than the provided width, this may be fast enough.
-    String output = m_filenames[0].copy();
-    while (font.width(TextRun(output.impl())) > width && output.length() > 4) {
-        output = output.replace(output.length() - 4, 4, String("..."));
-    }
-    return output;
-}
-
-
-// The following two strings are used for File Upload form control, ie
-// <input type="file">. The first is the text that appears on the button
-// that when pressed, the user can browse for and select a file. The
-// second string is rendered on the screen when no file has been selected.
-String fileButtonChooseFileLabel() { return String("Uploads Disabled"); }
-String fileButtonNoFileSelectedLabel() { return String("No file selected"); }
-
-}   // WebCore
-
+#endif

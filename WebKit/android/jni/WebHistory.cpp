@@ -43,6 +43,7 @@
 #include "TextEncoding.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
+#include "jni_utility.h"
 
 #include <JNIHelp.h>
 #include <SkUtils.h>
@@ -231,15 +232,14 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
 
     // Write our flattened data to the java array.
     jbyte* bytes = env->GetByteArrayElements(b, NULL);
-    memcpy(bytes, v.data(), v.size());
+    if (bytes)
+        memcpy(bytes, v.data(), v.size());
     env->ReleaseByteArrayElements(b, bytes, 0);
     return b;
 }
 
 WebHistoryItem::WebHistoryItem(JNIEnv* env, jobject obj,
         WebCore::HistoryItem* item) {
-    JavaVM* vm;
-    mJVM = env->GetJavaVM(&vm) >= 0 ? vm : NULL;
     mObject = adoptGlobalRef(env, obj);
     mScale = 100;
     mActive = false;
@@ -249,8 +249,7 @@ WebHistoryItem::WebHistoryItem(JNIEnv* env, jobject obj,
 
 WebHistoryItem::~WebHistoryItem() {
     if (mObject) {
-        JNIEnv* env;
-        env = mJVM->GetEnv((void **)&env, JNI_VERSION_1_4) >= 0 ? env : NULL;
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env)
             return;
         env->DeleteGlobalRef(mObject);
@@ -278,8 +277,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
             webItem = webItem->parent();
         item = webItem->historyItem();
     }
-    JNIEnv* env;
-    env = webItem->mJVM->GetEnv((void **)&env, JNI_VERSION_1_4) >= 0 ? env : NULL;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (!env)
         return;
 

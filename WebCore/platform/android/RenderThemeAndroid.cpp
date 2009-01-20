@@ -25,7 +25,7 @@
 
 #include "config.h"
 #include "RenderThemeAndroid.h"
-#include "PopupMenu.h"
+
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
@@ -48,6 +48,7 @@
 #define LISTBOX_PADDING 5
 
 namespace WebCore {
+
 static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
 {
     return info.context->platformContext()->mCanvas;
@@ -59,7 +60,6 @@ static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
  *      the object to be painted, the PaintInfo, from which we get the canvas, the bounding rectangle, 
  *  returns false, meaning no one else has to paint it
 */
-
 static bool paintBrush(RenderSkinAndroid* rSkin, RenderObject* o, const RenderObject::PaintInfo& i,  const IntRect& ir)
 {
     Node* element = o->element();
@@ -96,7 +96,6 @@ RenderThemeAndroid::~RenderThemeAndroid()
 
 void RenderThemeAndroid::close()
 {
-
 }
 
 bool RenderThemeAndroid::stateChanged(RenderObject* o, ControlState state) const
@@ -280,9 +279,6 @@ bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintIn
     if (o->style() && o->style()->backgroundColor().alpha() == 0)
         return true;
     Node* element = o->element();
-    SkCanvas* canvas = getCanvasFromInfo(i);
-    m_combo->notifyState(element);
-    canvas->save();
     int height = ir.height();
     int y = ir.y();
     // If the combo box is too large, leave it at its max height, and center it.
@@ -290,11 +286,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintIn
         y += (height - MAX_COMBO_HEIGHT) >> 1;
         height = MAX_COMBO_HEIGHT;
     }
-    canvas->translate(SkIntToScalar(ir.x()), SkIntToScalar(y));
-    m_combo->setDim(ir.width(), height);
-    m_combo->draw(i.context->platformContext());
-    canvas->restore();
-    return false;
+    return m_combo->Draw(getCanvasFromInfo(i), element, ir.x(), y, ir.width(), height);
 }
 
 bool RenderThemeAndroid::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 
@@ -304,12 +296,28 @@ bool RenderThemeAndroid::paintMenuList(RenderObject* o, const RenderObject::Pain
 
 void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
 {
+    // Copied from RenderThemeSafari.
+    const float baseFontSize = 11.0f;
+    const int baseBorderRadius = 5;
+    float fontScale = style->fontSize() / baseFontSize;
+    
+    style->resetPadding();
+    style->setBorderRadius(IntSize(int(baseBorderRadius + fontScale - 1), int(baseBorderRadius + fontScale - 1))); // FIXME: Round up?
+
+    const int minHeight = 15;
+    style->setMinHeight(Length(minHeight, Fixed));
+    
+    style->setLineHeight(RenderStyle::initialLineHeight());
+    // Found these padding numbers by trial and error.
+    const int padding = 4;
+    style->setPaddingTop(Length(padding, Fixed));
+    style->setPaddingLeft(Length(padding, Fixed));
+    // Added to make room for our arrow.
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
-    addIntrinsicMargins(style);
 }
 
 bool RenderThemeAndroid::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 
-{ 
+{
     return paintCombo(o, i, ir);
 }
 

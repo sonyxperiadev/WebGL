@@ -53,6 +53,7 @@
 #include "SkTime.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
+#include "jni_utility.h"
 
 #ifdef GET_NATIVE_VIEW
 #undef GET_NATIVE_VIEW
@@ -350,7 +351,6 @@ enum OutOfFocusFix {
 };
 
 struct JavaGlue {
-    JavaVM*     m_JVM;
     jobject     m_obj;
     jmethodID   m_clearTextEntry;
     jmethodID   m_scrollBy;
@@ -381,7 +381,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
-    m_javaGlue.m_JVM = jnienv_to_javavm(env);
     m_javaGlue.m_obj = adoptGlobalRef(env, javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(II)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
@@ -434,7 +433,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
 {
     if (m_javaGlue.m_obj)
     {
-        JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteGlobalRef(m_javaGlue.m_obj);
         m_javaGlue.m_obj = 0;
     }
@@ -476,7 +475,7 @@ void clearFocus(int x, int y, bool inval)
 void clearTextEntry()
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_clearTextEntry);
     checkException(env);
 }
@@ -890,7 +889,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
 int getScaledMaxXScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxXScroll);
     checkException(env);
     return result;
@@ -899,7 +898,7 @@ int getScaledMaxXScroll()
 int getScaledMaxYScroll()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     int result = env->CallIntMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getScaledMaxYScroll);
     checkException(env);
     return result;
@@ -908,7 +907,7 @@ int getScaledMaxYScroll()
 void getVisibleRect(WebCore::IntRect* rect)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobject jRect = env->CallObjectMethod(m_javaGlue.object(env).get(), m_javaGlue.m_getVisibleRect);
     checkException(env);
     int left = (int) env->GetIntField(jRect, m_javaGlue.m_rectLeft);
@@ -1573,7 +1572,7 @@ void sendFinalFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendFinalFocus,
         (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
@@ -1582,7 +1581,7 @@ void sendFinalFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int
 void sendKitFocus()
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendKitFocus);
     checkException(env);
 }
@@ -1596,7 +1595,7 @@ void sendMotionUp(int buildGeneration,
         " x=%d y=%d slop=%d", buildGeneration,
         m_generation, framePtr, nodePtr, x, y, slop);
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp, m_generation,
         buildGeneration, (jint) framePtr, (jint) nodePtr, x, y, slop, isClick, retry);
     checkException(env);
@@ -1609,7 +1608,7 @@ void setFocusData(int buildGeneration, WebCore::Frame* framePtr,
     DBG_NAV_LOGD("moveGeneration=%d buildGeneration=%d framePtr=%p nodePtr=%p"
         " x=%d y=%d", m_generation, buildGeneration, framePtr, nodePtr, x, y);
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_setFocusData, m_generation,
         buildGeneration, (jint) framePtr, (jint) nodePtr, x, y, ignoreNullFocus);
     checkException(env);
@@ -1678,7 +1677,7 @@ void scrollBy(int dx, int dy)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy, dx, dy);
     checkException(env);
 }
@@ -1730,14 +1729,14 @@ bool updateFocusNode(JNIEnv* env)
 
 void updateTextEntry()
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_updateTextEntry);
     checkException(env);
 }
 
 void displaySoftKeyboard()
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
             m_javaGlue.m_displaySoftKeyboard);
     checkException(env);
@@ -1745,21 +1744,21 @@ void displaySoftKeyboard()
 
 void viewInvalidate()
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidate);
     checkException(env);
 }
 
 void viewInvalidateRect(int l, int t, int r, int b)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_viewInvalidateRect, l, r, t, b);
     checkException(env);
 }
 
 void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 {
-    JNIEnv* env = javavm_to_jnienv(m_javaGlue.m_JVM);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_postInvalidateDelayed,
         delay, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
     checkException(env);

@@ -94,7 +94,6 @@ public:
     static void ServiceFuncPtrQueue(JNIEnv*);
 
 private:
-    JavaVM*     mJvm;
     jobject     mJavaObject;
     jmethodID   mSetSharedTimer;
     jmethodID   mStopSharedTimer;
@@ -109,7 +108,6 @@ static JavaBridge* gJavaBridge;
 
 JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 {
-    mJvm = jnienv_to_javavm(env);
     mJavaObject = adoptGlobalRef(env, obj);
     jclass clazz = env->GetObjectClass(obj);
 
@@ -134,7 +132,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 JavaBridge::~JavaBridge()
 {
     if (mJavaObject) {
-        JNIEnv* env = javavm_to_jnienv(mJvm);
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteGlobalRef(mJavaObject);
         mJavaObject = 0;
     }
@@ -146,7 +144,7 @@ JavaBridge::~JavaBridge()
 void
 JavaBridge::setSharedTimer(long long timemillis)
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSetSharedTimer, timemillis);
 }
@@ -154,7 +152,7 @@ JavaBridge::setSharedTimer(long long timemillis)
 void
 JavaBridge::stopSharedTimer()
 {    
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mStopSharedTimer);
 }
@@ -162,7 +160,7 @@ JavaBridge::stopSharedTimer()
 void
 JavaBridge::setCookies(WebCore::KURL const& url, WebCore::KURL const& docUrl, WebCore::String const& value)
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WebCore::String& urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     const WebCore::String& docUrlStr = docUrl.string();
@@ -179,7 +177,7 @@ JavaBridge::setCookies(WebCore::KURL const& url, WebCore::KURL const& docUrl, We
 WebCore::String
 JavaBridge::cookies(WebCore::KURL const& url)
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WebCore::String& urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
 
@@ -195,7 +193,7 @@ JavaBridge::cookies(WebCore::KURL const& url)
 bool
 JavaBridge::cookiesEnabled()
 {
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     jboolean ret = env->CallBooleanMethod(obj.get(), mCookiesEnabled);
     return (ret != 0);
@@ -215,8 +213,7 @@ void JavaBridge::signalServiceFuncPtrQueue()
     // In order to signal the main thread we must go through JNI. This
     // is the only usage on most threads, so we need to ensure a JNI
     // environment is setup.
-    JSC::Bindings::getJNIEnv();
-    JNIEnv* env = javavm_to_jnienv(mJvm);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSignalFuncPtrQueue);
 }

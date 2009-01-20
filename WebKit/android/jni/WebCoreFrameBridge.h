@@ -61,7 +61,7 @@ class WebFrame : public WebCoreRefObject {
     // helper function
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
-    WebCoreResourceLoader* startLoadingResource(WebCore::ResourceHandle*,
+    virtual WebCoreResourceLoader* startLoadingResource(WebCore::ResourceHandle*,
             const WebCore::ResourceRequest& request,
             bool isHighPriority,
             bool synchronous);
@@ -93,7 +93,7 @@ class WebFrame : public WebCoreRefObject {
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 
-    bool canHandleRequest(const WebCore::ResourceRequest& request);
+    virtual bool canHandleRequest(const WebCore::ResourceRequest& request);
 
     WebCore::Frame* createWindow(bool dialog, bool userGesture);
 

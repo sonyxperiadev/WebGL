@@ -55,7 +55,6 @@
 #include "heap.h"
 #include <memory>
 #include <new>
-#include <wtf/Vector.h>
 
 #endif
 

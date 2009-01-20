@@ -51,7 +51,6 @@ public:
     WebHistoryItem(WebHistoryItem* parent)
         : mParent(parent)
         , mObject(NULL)
-        , mJVM(NULL)
         , mScale(100)
         , mActive(false)
         , mHistoryItem(NULL) {}
@@ -67,7 +66,6 @@ public:
 private:
     RefPtr<WebHistoryItem> mParent;
     jobject         mObject;
-    JavaVM*         mJVM;
     int             mScale;
     bool            mActive;
     WebCore::HistoryItem* mHistoryItem;

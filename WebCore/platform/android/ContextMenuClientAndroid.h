@@ -45,6 +45,6 @@ public:
     virtual void stopSpeaking();
 };
 
-}
+} // namespace WebCore
 
-#endif
+#endif  // ContextMenuClientAndroid_h
