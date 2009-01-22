@@ -76,24 +76,11 @@ HTMLFormElement::HTMLFormElement(Document* doc)
     , m_doingsubmit(false)
     , m_inreset(false)
     , m_malformed(false)
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name is removed from HTMLDocument's NameCountMap
-    , oldNameCount(0)
-#endif
 {
 }
 
 HTMLFormElement::~HTMLFormElement()
 {
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name is removed from HTMLDocument's NameCountMap
-    if (oldNameCount && document()->isHTMLDocument()) {
-        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
-        doc->removeNamedItem(m_name);
-    }
-#endif
     if (!m_autocomplete)
         document()->unregisterForDocumentActivationCallbacks(this);
 
@@ -120,12 +107,6 @@ void HTMLFormElement::insertedIntoDocument()
 {
     if (document()->isHTMLDocument())
         static_cast<HTMLDocument*>(document())->addNamedItem(m_name);
-#ifdef ANDROID_FIX    
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name is removed from HTMLDocument's NameCountMap
-    if (document()->isHTMLDocument())
-        oldNameCount++;
-#endif
 
     HTMLElement::insertedIntoDocument();
 }
@@ -134,12 +115,6 @@ void HTMLFormElement::removedFromDocument()
 {
     if (document()->isHTMLDocument())
         static_cast<HTMLDocument*>(document())->removeNamedItem(m_name);
-#ifdef ANDROID_FIX    
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name is removed from HTMLDocument's NameCountMap
-    if (document()->isHTMLDocument())
-        oldNameCount--;
-#endif
    
     HTMLElement::removedFromDocument();
 }

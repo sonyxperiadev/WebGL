@@ -56,11 +56,6 @@ HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document* doc
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_NPObject(0)
 #endif
-#ifdef ANDROID_FIX    
-// addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-// ensure that m_name is removed from HTMLDocument's NameCountMap
-    , oldNameIdCount(0)
-#endif
 {
 }
 

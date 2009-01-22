@@ -287,18 +287,6 @@ int CachedFrame::compare(BestData& testData, const BestData& bestData, const Cac
     return UNDECIDED;
 }
 
-bool CachedFrame::containsFrame(const CachedFrame* test) const
-{
-    if (this == test)
-        return true;
-    for (const CachedFrame* frame = mCachedFrames.begin(); 
-            frame != mCachedFrames.end(); frame++) {
-        if (frame->containsFrame(test))
-            return true;
-    }
-    return false;
-}
-
 const CachedNode* CachedFrame::currentFocus(const CachedFrame** framePtr) const 
 {
     if (framePtr)
@@ -908,6 +896,16 @@ void CachedFrame::resetClippedOut()
             frame++) {
         frame->resetClippedOut();
     }
+}
+
+bool CachedFrame::sameFrame(const CachedFrame* test) const
+{
+    ASSERT(test);
+    if (mIndex != test->mIndex)
+        return false;
+    if (mIndex == -1) // index within parent's array of children, or -1 if root
+        return true;
+    return mParent->sameFrame(test->mParent);
 }
 
 void CachedFrame::setData() 

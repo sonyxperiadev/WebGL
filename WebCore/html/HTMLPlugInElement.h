@@ -88,11 +88,6 @@ protected:
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* m_NPObject;
 #endif
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name is removed from HTMLDocument's NameCountMap
-    int oldNameIdCount;
-#endif
 };
 
 } // namespace WebCore

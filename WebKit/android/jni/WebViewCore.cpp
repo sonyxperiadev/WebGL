@@ -1684,20 +1684,21 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
 
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    if (framePtr && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr))
-        return false;
+    bool valid = framePtr == NULL || FrameLoaderClientAndroid::get(
+            m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
+    if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle
     // so when attempting to get the default, the point chosen would be follow the wrong link.
-    if (nodePtr && nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
-        webFrame->setUserInitiatedClick(true);
-        WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0, true, true);
-        webFrame->setUserInitiatedClick(false);
-        return true;
-    }
-    WebCore::RenderObject* renderer = nodePtr ? nodePtr->renderer() : 0;
-    if (renderer) {
-        if (renderer->isMenuList()) {
+        if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
+            webFrame->setUserInitiatedClick(true);
+            WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0, 
+                true, true);
+            webFrame->setUserInitiatedClick(false);
+            return true;
+        }
+        WebCore::RenderObject* renderer = nodePtr->renderer();
+        if (renderer && renderer->isMenuList()) {
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
             const WTF::Vector<WebCore::HTMLElement*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
@@ -1727,7 +1728,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             return true;
         }
     }
-    if (!framePtr)
+    if (!valid || !framePtr)
         framePtr = m_mainFrame;
     webFrame->setUserInitiatedClick(true);
     DBG_NAV_LOGD("m_mousePos={%d,%d}", m_mousePos.x(), m_mousePos.y());

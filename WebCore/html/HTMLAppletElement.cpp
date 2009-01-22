@@ -43,15 +43,6 @@ HTMLAppletElement::HTMLAppletElement(Document* doc)
 
 HTMLAppletElement::~HTMLAppletElement()
 {
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure the m_name and m_id are removed from HTMLDocument's NameCountMap
-    if (oldNameIdCount && document()->isHTMLDocument()) {
-        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
-        doc->removeNamedItem(m_name);
-        doc->removeExtraNamedItem(m_id);        
-    }
-#endif
 }
 
 void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
@@ -91,11 +82,6 @@ void HTMLAppletElement::insertedIntoDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->addNamedItem(m_name);
         document->addExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure the m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount++;
-#endif
     }
 
     HTMLPlugInElement::insertedIntoDocument();
@@ -107,11 +93,6 @@ void HTMLAppletElement::removedFromDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->removeNamedItem(m_name);
         document->removeExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure the m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount--;
-#endif
     }
 
     HTMLPlugInElement::removedFromDocument();

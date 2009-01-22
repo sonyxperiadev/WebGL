@@ -776,14 +776,12 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
         const WebCore::IntRect& cachedBounds = m_frameCacheUI->rootHistory()->focusBounds();
         const CachedFrame* webFrame = 0;
         const CachedNode* webFocusNode = webRoot->currentFocus(&webFrame);
-        if (webFocusNode && webRoot->containsFrame(cachedFrame)) {
+        if (webFocusNode && webFrame && webFrame->sameFrame(cachedFrame)) {
             if (useReplay && !m_replay.count()) {
                 DBG_NAV_LOG("!m_replay.count()");
                 return DoNothing;
             }
-            if (webFocusNode->index() == cachedFocusNode->index() &&
-                    webFrame->indexInParent() == cachedFrame->indexInParent())
-            {
+            if (webFocusNode->index() == cachedFocusNode->index()) {
                 DBG_NAV_LOG("index ==");
                 return DoNothing;
             }
@@ -796,7 +794,18 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("webBounds contains");
                 return DoNothing;
             }
-        }
+            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) webBounds=(%d,%d,w=%d,"
+                "%h=d)", cachedBounds.x(), cachedBounds.y(),
+                cachedBounds.width(), cachedBounds.height(), webBounds.x(),
+                webBounds.y(), webBounds.width(), webBounds.height());
+        } else
+            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) cachedFrame=%p (%d)"
+                " webFocusNode=%p (%d) webFrame=%p (%d)",
+                cachedBounds.x(), cachedBounds.y(),
+                cachedBounds.width(), cachedBounds.height(),
+                cachedFrame, cachedFrame ? cachedFrame->indexInParent() : -1,
+                webFocusNode, webFocusNode ? webFocusNode->index() : -1,
+                webFrame, webFrame ? webFrame->indexInParent() : -1);
         const CachedFrame* foundFrame = 0;
         int x, y;
         const CachedNode* found = findAt(webRoot, cachedBounds, &foundFrame, &x, &y);
@@ -806,9 +815,9 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
             foundFrame, foundFrame ? foundFrame->indexInParent() : -1);
         if (found) {
             WebCore::IntRect newBounds = found->bounds();
-            DBG_NAV_LOGD("cachedBounds=(%d,%d,%d,%d) found=(%d,%d,%d,%d)",
-                cachedBounds.x(), cachedBounds.y(), cachedBounds.width(), cachedBounds.height(),
-                newBounds.x(), newBounds.y(), newBounds.width(), newBounds.height());
+            DBG_NAV_LOGD("found=(%d,%d,w=%d,h=%d) x=%d y=%d",
+                newBounds.x(), newBounds.y(), newBounds.width(),
+                newBounds.height(), x, y);
         }
 #endif
         webRoot->setCachedFocus(const_cast<CachedFrame*>(foundFrame),

@@ -54,15 +54,6 @@ HTMLObjectElement::HTMLObjectElement(Document* doc, bool createdByParser)
 
 HTMLObjectElement::~HTMLObjectElement()
 {
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-    if (oldNameIdCount && document()->isHTMLDocument()) {
-        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
-        doc->removeNamedItem(m_name);
-        doc->removeExtraNamedItem(m_id);
-    }
-#endif
 }
 
 RenderWidget* HTMLObjectElement::renderWidgetForJSBindings() const
@@ -199,11 +190,6 @@ void HTMLObjectElement::insertedIntoDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->addNamedItem(m_name);
         document->addExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount++;
-#endif
     }
 
     HTMLPlugInElement::insertedIntoDocument();
@@ -215,11 +201,6 @@ void HTMLObjectElement::removedFromDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->removeNamedItem(m_name);
         document->removeExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount--;
-#endif
     }
 
     HTMLPlugInElement::removedFromDocument();

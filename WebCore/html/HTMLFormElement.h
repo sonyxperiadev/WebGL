@@ -157,11 +157,6 @@ private:
     bool m_inreset : 1;
     bool m_malformed : 1;
     AtomicString m_name;
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name is removed from HTMLDocument's NameCountMap
-    int oldNameCount;
-#endif
 };
 
 } // namespace WebCore

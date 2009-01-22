@@ -124,11 +124,6 @@ private:
     AtomicString m_name;
     AtomicString m_id;
     CompositeOperator m_compositeOperator;
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-    int oldNameIdCount;
-#endif
 };
 
 } //namespace
