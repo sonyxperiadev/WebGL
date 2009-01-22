@@ -44,11 +44,6 @@ HTMLImageElement::HTMLImageElement(Document* doc, HTMLFormElement* f)
     , ismap(false)
     , m_form(f)
     , m_compositeOperator(CompositeSourceOver)
-#ifdef ANDROID_FIX    
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-    , oldNameIdCount(0)
-#endif
 {
     if (f)
         f->registerImgElement(this);
@@ -60,25 +55,11 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc)
     , ismap(false)
     , m_form(0)
     , m_compositeOperator(CompositeSourceOver)
-#ifdef ANDROID_FIX    
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-    , oldNameIdCount(0)
-#endif
 {
 }
 
 HTMLImageElement::~HTMLImageElement()
 {
-#ifdef ANDROID_FIX
-    // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-    // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-    if (oldNameIdCount && document()->isHTMLDocument()) {
-        HTMLDocument* doc = static_cast<HTMLDocument*>(document());
-        doc->removeNamedItem(m_name);
-        doc->removeExtraNamedItem(m_id);        
-    }
-#endif
     if (m_form)
         m_form->removeImgElement(this);
 }
@@ -211,11 +192,6 @@ void HTMLImageElement::insertedIntoDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->addNamedItem(m_name);
         document->addExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount++;
-#endif
     }
 
     HTMLElement::insertedIntoDocument();
@@ -227,11 +203,6 @@ void HTMLImageElement::removedFromDocument()
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         document->removeNamedItem(m_name);
         document->removeExtraNamedItem(m_id);
-#ifdef ANDROID_FIX
-        // addressing webkit bug, http://bugs.webkit.org/show_bug.cgi?id=16512
-        // ensure that m_name and m_id are removed from HTMLDocument's NameCountMap
-        oldNameIdCount--;
-#endif
     }
 
     HTMLElement::removedFromDocument();

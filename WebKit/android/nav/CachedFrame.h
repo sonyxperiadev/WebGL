@@ -66,7 +66,6 @@ public:
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     size_t childCount() { return mCachedFrames.size(); }
     void clearFocus();
-    bool containsFrame(const CachedFrame* ) const;
     const CachedNode* currentFocus() const { return currentFocus(NULL); }
     const CachedNode* currentFocus(const CachedFrame** ) const;
     bool directionChange() const;
@@ -92,6 +91,7 @@ public:
     CachedFrame* lastChild() { return &mCachedFrames.last(); }
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
+    bool sameFrame(const CachedFrame* ) const;
     void removeLast() { mCachedNodes.removeLast(); }
     void resetClippedOut();
     void setContentsSize(int width, int height) { mContents.setWidth(width);
