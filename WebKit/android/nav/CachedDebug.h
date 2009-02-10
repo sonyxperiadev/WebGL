@@ -43,19 +43,8 @@
 #endif
 
 #if DEBUG_NAV_UI
-#define DBG_NAV_LOGD_NO_PARAM   0   /* needed so we can call (format, ...) */
-#define DBG_NAV_LOG_THROTTLE_INTERVAL   1000
 #define DBG_NAV_LOG(message) LOGD("%s %s", __FUNCTION__, message)
 #define DBG_NAV_LOGD(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
-#define DBG_NAV_LOGD_THROTTLE(format, ...) \
-do { \
-    static uint32_t gPrevLogTime = 0; \
-    uint32_t curTime = SkTime::GetMSecs(); \
-    if (curTime - gPrevLogTime > DBG_NAV_LOG_THROTTLE_INTERVAL) { \
-        LOGD("%s " format, __FUNCTION__, __VA_ARGS__); \
-        gPrevLogTime = curTime; \
-    } \
-} while (false)
 #define DEBUG_NAV_UI_LOGD(...) LOGD(__VA_ARGS__)
 #else
 #define DBG_NAV_LOG(message) ((void)0)

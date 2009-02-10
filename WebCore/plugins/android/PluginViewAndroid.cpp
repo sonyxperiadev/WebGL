@@ -78,6 +78,7 @@
 extern void ANPAudioTrackInterfaceV0_Init(ANPInterface* value);
 extern void ANPCanvasInterfaceV0_Init(ANPInterface* value);
 extern void ANPLogInterfaceV0_Init(ANPInterface* value);
+extern void ANPMatrixInterfaceV0_Init(ANPInterface* value);
 extern void ANPOffscreenInterfaceV0_Init(ANPInterface* value);
 extern void ANPPaintInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
@@ -96,6 +97,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(AudioTrackInterfaceV0)    },
     { VARPROCLINE(LogInterfaceV0)           },
     { VARPROCLINE(CanvasInterfaceV0)        },
+    { VARPROCLINE(MatrixInterfaceV0)        },
     { VARPROCLINE(PaintInterfaceV0)         },
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
@@ -309,7 +311,8 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     const int width = rect.width();
     const int height = rect.height();
 
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(rect.location());
+    // the rect is relative to the frameview's (0,0), so use convertToContainingWindow
+    IntPoint p = parent()->convertToContainingWindow(rect.location());
     m_npWindow.x = p.x();
     m_npWindow.y = p.y();
     

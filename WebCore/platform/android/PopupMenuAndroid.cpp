@@ -27,8 +27,9 @@
 
 namespace WebCore {
 
-// Now we handle all of this in WebViewCore.cpp
-PopupMenu::PopupMenu(PopupMenuClient* menuList) : m_popupClient(menuList)
+// Now we handle all of this in WebViewCore.cpp.
+PopupMenu::PopupMenu(PopupMenuClient* menuList)
+    : m_popupClient(menuList)
 {
 }
 
@@ -49,8 +50,9 @@ void PopupMenu::updateFromElement()
 {
 }
 
-// functions new to Jun-07 tip of tree merge:
-bool PopupMenu::itemWritingDirectionIsNatural() { return false; }
-
+bool PopupMenu::itemWritingDirectionIsNatural()
+{
+    return false;
 }
 
+} // namespace WebCore

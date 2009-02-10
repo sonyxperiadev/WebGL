@@ -687,6 +687,9 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     InspectorClientAndroid* inspectorC = new InspectorClientAndroid;
     // Create a new page
     WebCore::Page* page = new WebCore::Page(chromeC, contextMenuC, editorC, dragC, inspectorC);
+    // css files without explicit MIMETYPE is treated as generic text files in
+    // the Java side. So we can't enforce CSS MIMETYPE.
+    page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
     /* TODO: Don't turn on PageCache until we can restore the ScrollView State.
      * This caused bug http://b/issue?id=1202983
     page->settings()->setUsesPageCache(true);

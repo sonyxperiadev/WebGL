@@ -177,8 +177,13 @@ private:
         TextDirection mDirection;
         bool mHasClip;
     };
+    struct TabIndexTracker {
+        int mTabIndex;
+        Node* mLastChild;
+    };
     struct Tracker {
         int mCachedNodeIndex;
+        int mTabIndex;
         Node* mLastChild;
         Node* mParentLastChild;
         bool mSomeParentTakesFocus;

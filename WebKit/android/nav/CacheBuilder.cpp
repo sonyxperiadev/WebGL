@@ -453,14 +453,16 @@ void CacheBuilder::Debug::groups() {
             } else 
                 print("\"\"");
             RenderObject* renderer = node->renderer();
+            int tabindex = node->isElementNode() ? node->tabIndex() : 0;
             if (renderer) {
                 const IntRect& absB = renderer->absoluteBoundingBoxRect();
-                snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s},", 
-                    absB.x(), absB.y(), absB.width(), absB.height(),
-                    renderer->hasOverflowClip() ? "true" : "false");
+                snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s"
+                    ", %d},",absB.x(), absB.y(), absB.width(), absB.height(),
+                    renderer->hasOverflowClip() ? "true" : "false", tabindex);
                 print(scratch);
             } else
-                print(", {0, 0, 0, 0}, false},");
+                print(", {0, 0, 0, 0}, false, 0},");
+
             flush();
             snprintf(scratch, sizeof(scratch), "// %d: ", count);
             mPrefix = "\n// ";
@@ -945,6 +947,11 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         ClipColumnTracker* baseTracker = clipTracker.data(); // sentinel
         bzero(baseTracker, sizeof(ClipColumnTracker));
     }
+    WTF::Vector<TabIndexTracker> tabIndexTracker(1);
+    {
+        TabIndexTracker* baseTracker = tabIndexTracker.data(); // sentinel
+        bzero(baseTracker, sizeof(TabIndexTracker));
+    }
 #if DUMP_NAV_CACHE
     char* frameNamePtr = cachedFrame->mDebug.mFrameName;
     Builder(frame)->mDebug.frameName(frameNamePtr, frameNamePtr + 
@@ -964,8 +971,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     Node* node = parent;
     int cacheIndex = 1;
     Node* focused = doc->focusedNode();
-    if (focused)
+    if (focused) {
         setLastFocus(focused);
+        cachedRoot->setFocusBounds(mLastKnownFocusBounds);
+    }
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
@@ -988,6 +997,12 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (node != lastClip->mLastChild)
                 break;
             clipTracker.removeLast();
+        } while (true);
+        do {
+            const TabIndexTracker* lastTabIndex = &tabIndexTracker.last();
+            if (node != lastTabIndex->mLastChild)
+                break;
+            tabIndexTracker.removeLast();
         } while (true);
         Frame* child = HasFrame(node);
         CachedNode cachedNode;
@@ -1013,6 +1028,17 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             CachedFrame* childPtr = cachedFrame->lastChild();
             BuildFrame(root, child, cachedRoot, childPtr);
             continue;
+        }
+        int tabIndex = node->tabIndex();
+        Node* lastChild = node->lastChild();
+        if (tabIndex <= 0)
+            tabIndex = tabIndexTracker.last().mTabIndex;
+        else if (tabIndex > 0 && lastChild) {
+            DBG_NAV_LOGD("tabIndex=%d node=%p", tabIndex, node);
+            tabIndexTracker.grow(tabIndexTracker.size() + 1);
+            TabIndexTracker& indexTracker = tabIndexTracker.last();
+            indexTracker.mTabIndex = tabIndex;
+            indexTracker.mLastChild = OneAfter(lastChild);
         }
         RenderObject* nodeRenderer = node->renderer();
         bool isTransparent = false;
@@ -1066,7 +1092,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         CachedNodeType type = NORMAL_CACHEDNODETYPE;
         IntRect bounds;
         IntRect absBounds;
-        Node* lastChild = node->lastChild();
         WTF::Vector<IntRect>* columns = NULL;
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
@@ -1171,7 +1196,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
                 (const HTMLAnchorElement*) node;
-            if (anchorNode->isFocusable() == false)
+            if (!anchorNode->isFocusable() && !HasTriggerEvent(node))
                 continue;
             EventTargetNode* target = (EventTargetNode*) node;
             if (target->disabled())
@@ -1290,6 +1315,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         if (last->mParentLastChild == NULL)
             last->mParentLastChild = OneAfter(node->parentNode()->lastChild());
         cachedNode.setParentGroup(last->mParentLastChild);
+        cachedNode.setTabIndex(tabIndex);
         cachedNode.setTextSize(textSize);
         cachedNode.setType(type);
         cachedNode.setWantsKeyEvents(wantsKeyEvents);
@@ -1316,8 +1342,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             } 
         }
         cacheIndex++;
-tryNextNode:
-        ;
     }
     while (tracker.size() > 1) {
         Tracker* last = &tracker.last();
@@ -2961,7 +2985,8 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             clip.mNode = test;
         } while (test != last && (test = test->traverseNextNode()) != NULL);
     }
-    if (result->size() == 0) {
+    if (result->size() == 0 || focusBounds->width() < MINIMUM_FOCUSABLE_WIDTH
+            || focusBounds->height() < MINIMUM_FOCUSABLE_HEIGHT) {
         if (bounds.width() < MINIMUM_FOCUSABLE_WIDTH)
             return false;
         if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)

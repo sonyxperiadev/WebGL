@@ -43,7 +43,6 @@ public:
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     bool didFirstLayout() const { return mDidFirstLayout; }
     bool directionChange() const { return mDirectionChange; }
-    const WebCore::IntRect& focusBounds() const { return mFocusBounds; }
     int minWorkingHorizontal() const { return mMinWorkingHorizontal; }
     int minWorkingVertical() const { return mMinWorkingVertical; }
     int maxWorkingHorizontal() const { return mMaxWorkingHorizontal; }
@@ -61,7 +60,6 @@ private:
         const CachedNode* mNode;
         CachedFrame::Direction mDirection;
     } mVisited[NAVIGATION_VISIT_DEPTH];
-    WebCore::IntRect mFocusBounds; // chosen focus ring
     WebCore::IntRect mMouseBounds; // constricted bounds, if focus ring is partially visible
     WebCore::IntRect mNavBounds; // focus ring bounds plus optional keystroke movement
     WebCore::IntRect mPriorBounds; // prior chosen focus ring (for reversing narrowing)

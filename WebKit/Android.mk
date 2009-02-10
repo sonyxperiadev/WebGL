@@ -16,15 +16,17 @@
 ##
 
 LOCAL_SRC_FILES := \
-	android/ChromeClientAndroid.cpp \
-	android/DragClientAndroid.cpp \
-	android/EditorClientAndroid.cpp \
-	android/FrameLoaderClientAndroid.cpp \
+	android/WebCoreSupport/ChromeClientAndroid.cpp \
+	android/WebCoreSupport/ContextMenuClientAndroid.cpp \
+	android/WebCoreSupport/DragClientAndroid.cpp \
+	android/WebCoreSupport/EditorClientAndroid.cpp \
+	android/WebCoreSupport/FrameLoaderClientAndroid.cpp \
+	\
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinRadio.cpp \
-    android/TimeCounter.cpp \
+	android/TimeCounter.cpp \
 	android/sort.cpp \
 	\
 	android/jni/JavaBridge.cpp \
@@ -50,6 +52,7 @@ LOCAL_SRC_FILES := \
 	\
 	android/plugins/ANPCanvasInterface.cpp \
 	android/plugins/ANPLogInterface.cpp \
+	android/plugins/ANPMatrixInterface.cpp \
 	android/plugins/ANPPaintInterface.cpp \
 	android/plugins/ANPSoundInterface.cpp \
 	android/plugins/ANPTypefaceInterface.cpp \

@@ -125,6 +125,14 @@ void CachedFrame::clearFocus()
 // returns 0 if test is preferable to best, 1 if not preferable, or -1 if unknown
 int CachedFrame::compare(BestData& testData, const BestData& bestData, const CachedNode* focus) const
 {
+    if (testData.mNode->tabIndex() != bestData.mNode->tabIndex()) {
+        if (testData.mNode->tabIndex() < bestData.mNode->tabIndex()
+                || (focus && focus->tabIndex() < bestData.mNode->tabIndex())) {
+            testData.mNode->setCondition(CachedNode::HIGHER_TAB_INDEX);
+            return REJECT_TEST;
+        }
+        return TEST_IS_BEST;
+    }
 //    start here;
     // if the test minor axis line intersects the line segment between focus center and best center, choose it
     // give more weight to exact major axis alignment (rows, columns)
@@ -662,7 +670,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
         testData.mNode->setCondition(CachedNode::NOT_FOCUS_NODE);
         return REJECT_TEST;
     }
-//    if (test->bounds().contains(history()->focusBounds())) {
+//    if (test->bounds().contains(mRoot->focusBounds())) {
 //        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
 //        return REJECT_TEST;
 //    }
@@ -733,7 +741,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 int CachedFrame::framePartCommon(BestData& testData,
     const CachedNode* test, BestData* bestData, const CachedNode* focus) const
 {
-    if (testData.mNodeBounds.contains(history()->focusBounds())) {
+    if (testData.mNodeBounds.contains(mRoot->focusBounds())) {
         testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
         return REJECT_TEST;
     }

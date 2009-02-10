@@ -69,6 +69,31 @@ static void anp_clipPath(ANPCanvas* canvas, const ANPPath* path) {
     canvas->skcanvas->clipPath(*path);
 }
 
+static void anp_getTotalMatrix(ANPCanvas* canvas, ANPMatrix* matrix) {
+    const SkMatrix& src = canvas->skcanvas->getTotalMatrix();
+    *matrix = *reinterpret_cast<const ANPMatrix*>(&src);
+}
+
+static bool anp_getLocalClipBounds(ANPCanvas* canvas, ANPRectF* r,
+                                   bool antialias) {
+    SkRect bounds;
+    if (canvas->skcanvas->getClipBounds(&bounds,
+                antialias ? SkCanvas::kAA_EdgeType : SkCanvas::kBW_EdgeType)) {
+        SkANP::SetRect(r, bounds);
+        return true;
+    }
+    return false;
+}
+
+static bool anp_getDeviceClipBounds(ANPCanvas* canvas, ANPRectI* r) {
+    const SkRegion& clip = canvas->skcanvas->getTotalClip();
+    if (!clip.isEmpty()) {
+        SkANP::SetRect(r, clip.getBounds());
+        return true;
+    }
+    return false;
+}
+
 static void anp_drawColor(ANPCanvas* canvas, ANPColor color) {
     canvas->skcanvas->drawColor(color);
 }
@@ -146,6 +171,9 @@ void ANPCanvasInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, skew);
     ASSIGN(i, clipRect);
     ASSIGN(i, clipPath);
+    ASSIGN(i, getTotalMatrix);
+    ASSIGN(i, getLocalClipBounds);
+    ASSIGN(i, getDeviceClipBounds);
     ASSIGN(i, drawColor);
     ASSIGN(i, drawPaint);
     ASSIGN(i, drawRect);

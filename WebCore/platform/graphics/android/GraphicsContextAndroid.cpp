@@ -297,6 +297,41 @@ private:
     State& operator=(const State&);
 };
 
+static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
+    SkShader::TileMode mode = SkShader::kClamp_TileMode;
+    
+    switch (sm) {
+        case SpreadMethodPad:
+            mode = SkShader::kClamp_TileMode;
+            break;
+        case SpreadMethodReflect:
+            mode = SkShader::kMirror_TileMode;
+            break;
+        case SpreadMethodRepeat:
+            mode = SkShader::kRepeat_TileMode;
+            break;
+    }
+    return mode;
+}
+
+static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
+                         Gradient* grad, GradientSpreadMethod sm) {
+    switch (cs) {
+        case PatternColorSpace:
+            // createPlatformPattern() returns a new inst
+            paint->setShader(pat->createPlatformPattern(
+                                                        AffineTransform()))->safeUnref();
+            break;
+        case GradientColorSpace: {
+            // grad->getShader() returns a cached obj
+            paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
+            break;
+        }
+        default:
+            break;
+    }
+}
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
@@ -628,6 +663,11 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     
     android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
+
+    extactShader(&paint, m_common->state.fillColorSpace,
+                 m_common->state.fillPattern.get(),
+                 m_common->state.fillGradient.get(), spreadMethod());
+
     GC2Canvas(this)->drawRect(r, paint);
 }
 
@@ -1009,41 +1049,6 @@ void GraphicsContext::addPath(const Path& p) {
 void GraphicsContext::drawPath() {
     this->fillPath();
     this->strokePath();
-}
-
-static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
-    SkShader::TileMode mode = SkShader::kClamp_TileMode;
-
-    switch (sm) {
-        case SpreadMethodPad:
-            mode = SkShader::kClamp_TileMode;
-            break;
-        case SpreadMethodReflect:
-            mode = SkShader::kMirror_TileMode;
-            break;
-        case SpreadMethodRepeat:
-            mode = SkShader::kRepeat_TileMode;
-            break;
-    }
-    return mode;
-}
-
-void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat, Gradient* grad,
-                  GradientSpreadMethod sm) {
-    switch (cs) {
-        case PatternColorSpace:
-            // createPlatformPattern() returns a new inst
-            paint->setShader(pat->createPlatformPattern(
-                                            AffineTransform()))->safeUnref();
-            break;
-        case GradientColorSpace: {
-            // grad->getShader() returns a cached obj
-            paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
-            break;
-        }
-        default:
-            break;
-    }
 }
 
 void GraphicsContext::fillPath() {

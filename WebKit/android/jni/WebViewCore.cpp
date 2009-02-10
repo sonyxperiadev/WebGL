@@ -280,6 +280,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_useReplay = false;
     m_skipContentDraw = false;
     m_findIsUp = false;
+    m_domtree_version = 0;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -382,16 +383,19 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds = oldFocusNode ?
         oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
-    DBG_NAV_LOGD_THROTTLE("m_lastFocused=%p oldFocusNode=%p"
+    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
         " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}",
         m_lastFocused, oldFocusNode,
         m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
+    unsigned latestVersion = m_mainFrame->document()->domTreeVersion();
     if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds
-            || m_findIsUp) {
+            || m_findIsUp || latestVersion != m_domtree_version) {
         m_lastFocused = oldFocusNode;
         m_lastFocusedBounds = oldBounds;
-        DBG_NAV_LOG("call updateFrameCache");
+        DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
+            m_domtree_version, latestVersion);
+        m_domtree_version = latestVersion;
         updateFrameCache();
     }
 }
@@ -508,8 +512,8 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
         if (pictureSet->upToDate(index))
             continue;
         const SkIRect& inval = pictureSet->bounds(index);
-        DBG_SET_LOGD("draw [%d] {%d,%d,w=%d,h=%d}", index, inval.fLeft,
-            inval.fTop, inval.width(), inval.height());
+        DBG_SET_LOGD("pictSet=%p [%d] {%d,%d,w=%d,h=%d}", pictureSet, index,
+            inval.fLeft, inval.fTop, inval.width(), inval.height());
         pictureSet->setPicture(index, rebuildPicture(inval));
     }
     pictureSet->validate(__FUNCTION__);
@@ -599,21 +603,13 @@ void WebViewCore::sendRecomputeFocus()
     checkException(env);
 }
 
-void WebViewCore::viewInvalidate(const SkIRect& rect)
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendViewInvalidate,
-        rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
-    checkException(env);
-}
-
 void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
-{
+{    
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendViewInvalidate,
-        rect.x(), rect.y(), rect.right(), rect.bottom());
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_sendViewInvalidate,
+                        rect.x(), rect.y(), rect.right(), rect.bottom());
     checkException(env);
 }
 
@@ -749,12 +745,12 @@ void WebViewCore::setScrollOffset(int dx, int dy)
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
-        m_mainFrame->sendScrollEvent();
         // The visible rect is located within our coordinate space so it
         // contains the actual scroll position. Setting the location makes hit
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
+        m_mainFrame->sendScrollEvent();
     }
 }
 
@@ -1011,7 +1007,10 @@ void WebViewCore::drawPlugins()
 
     if (!inval.isEmpty()) {
         // inval.getBounds() is our rectangle
-        this->viewInvalidate(inval.getBounds());
+        const SkIRect& bounds = inval.getBounds();
+        WebCore::IntRect r(bounds.fLeft, bounds.fTop,
+                           bounds.width(), bounds.height());
+        this->viewInvalidate(r);
     }
 }
 
@@ -1021,7 +1020,7 @@ void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y, bool block)
 {
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d", frame, node, x, y);
-    bool result = finalKitFocus(frame, node, x, y);
+    bool result = finalKitFocus(frame, node, x, y, false);
     if (block) {
         m_blockFocusChange = true;
         if (!result && node)
@@ -1082,12 +1081,16 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
     releaseFrameCache(newCache);
     if (!node && ignoreNullFocus)
         return true;
-    finalKitFocus(frame, node, x, y);
+    finalKitFocus(frame, node, x, y, false);
     return true;
 }
 
+// Update mouse position and may change focused node.
+// If donotChangeDOMFocus is true, the function does not changed focused node
+// in the DOM tree. Changing the focus in DOM may trigger onblur event
+// handler on the current focused node before firing mouse up and down events.
 bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y)
+    int x, int y, bool donotChangeDOMFocus)
 {
     if (!frame)
         frame = m_mainFrame;
@@ -1103,41 +1106,48 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
                 WebCore::MouseEventMoved, 1, false, false, false, false, WebCore::currentTime());
         frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
     }
-    WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
-    if (!node) {
-        if (oldFocusNode)
-            oldDoc->setFocusedNode(0);
-        return false;
-    } else if (!valid) {
-        DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
-        sendMarkNodeInvalid(node);
-        if (oldFocusNode)
-            oldDoc->setFocusedNode(0);
-        return false;
-    }
-    // If we jump frames (docs), kill the focus on the old doc
-    builder.setLastFocus(node);
-    if (oldFocusNode && node->document() != oldDoc) {
-        oldDoc->setFocusedNode(0);
-    }
-    if (!node->isTextNode())
-        static_cast<WebCore::Element*>(node)->focus(false);
-    if (node->document()->focusedNode() != node) {
-        // This happens when Element::focus() fails as we may try to set the 
-        // focus to a node which WebCore doesn't recognize as a focusable node. 
-        // So we need to do some extra work, as it does in Element::focus(), 
-        // besides calling Document::setFocusedNode.
-        if (oldFocusNode) {
-            // copied from clearSelectionIfNeeded in FocusController.cpp
-            WebCore::SelectionController* s = oldDoc->frame()->selection();
-            if (!s->isNone())
-                s->clear();
+
+    if (!donotChangeDOMFocus) {
+        WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
+        if (!node) {
+            if (oldFocusNode)
+                oldDoc->setFocusedNode(0);
+            return false;
+        } else if (!valid) {
+            DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
+            sendMarkNodeInvalid(node);
+            if (oldFocusNode)
+                oldDoc->setFocusedNode(0);
+            return false;
         }
-        //setFocus on things that WebCore doesn't recognize as supporting focus
-        //for instance, if there is an onclick element that does not support focus
-        node->document()->setFocusedNode(node);
+        // If we jump frames (docs), kill the focus on the old doc
+        if (oldFocusNode && node->document() != oldDoc) {
+            oldDoc->setFocusedNode(0);
+        }
+        if (!node->isTextNode())
+            static_cast<WebCore::Element*>(node)->focus(false);
+        if (node->document()->focusedNode() != node) {
+            // This happens when Element::focus() fails as we may try to set the
+            // focus to a node which WebCore doesn't recognize as a focusable node.
+            // So we need to do some extra work, as it does in Element::focus(),
+            // besides calling Document::setFocusedNode.
+            if (oldFocusNode) {
+                // copied from clearSelectionIfNeeded in FocusController.cpp
+                WebCore::SelectionController* s = oldDoc->frame()->selection();
+                if (!s->isNone())
+                    s->clear();
+            }
+            //setFocus on things that WebCore doesn't recognize as supporting focus
+            //for instance, if there is an onclick element that does not support focus
+            node->document()->setFocusedNode(node);
+        }
+    } else {   // !donotChangeDOMFocus
+        if (!node || !valid)
+            return false;
     }
+
     DBG_NAV_LOGD("setFocusedNode node=%p", node);
+    builder.setLastFocus(node);
     m_lastFocused = node;
     m_lastFocusedBounds = node->getRect();
     return true;
@@ -1175,7 +1185,7 @@ WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
     WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (current == node)
         return frame;
-    return finalKitFocus(frame, node, x, y) ? frame : m_mainFrame;
+    return finalKitFocus(frame, node, x, y, false) ? frame : m_mainFrame;
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
@@ -1470,6 +1480,10 @@ public:
     // index is listIndex of the selected item, or -1 if nothing is selected.
     virtual void replyInt(int index)
     {
+        if (-2 == index) {
+            // Special value for cancel. Do nothing.
+            return;
+        }
         // If the select element no longer exists, do to a page change, etc, silently return.
         if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
             return;
@@ -1493,8 +1507,8 @@ public:
     }
 
     // Response if the listbox allows multiple selection.  array stores the listIndices
-    // of selected positions.  
-    virtual void replyIntArray(const int* array, int count) 
+    // of selected positions.
+    virtual void replyIntArray(const int* array, int count)
     {
         // If the select element no longer exists, do to a page change, etc, silently return.
         if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
@@ -1540,9 +1554,9 @@ static jobjectArray makeLabelArray(JNIEnv* env, const uint16_t** labels, size_t 
 void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, size_t count, const int enabled[], size_t enabledCount,
         bool multiple, const int selected[], size_t selectedCountOrSelection)
 {
-    // Reuse m_popupReply
-    Release(m_popupReply);
-    m_popupReply = 0;
+    // If m_popupReply is not null, then we already have a list showing.
+    if (m_popupReply != 0)
+        return;
 
     LOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
 
@@ -1661,7 +1675,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
         return; // short circuit if a newer touch has been generated
     }
     if (retry)
-        finalKitFocus(frame, node, x, y);
+        finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
     else if (!commonKitFocus(touchGeneration, buildGeneration,
             frame, node, x, y, false)) {
         return;
@@ -1692,7 +1706,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // so when attempting to get the default, the point chosen would be follow the wrong link.
         if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
             webFrame->setUserInitiatedClick(true);
-            WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0, 
+            WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0,
                 true, true);
             webFrame->setUserInitiatedClick(false);
             return true;
@@ -1940,7 +1954,7 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
     viewImpl->setScrollOffset(dx, dy);
 }
 
-static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h, 
+static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
                             jint v)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -1949,7 +1963,7 @@ static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
     viewImpl->setGlobalBounds(x, y, h, v);
 }
 
-static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar, 
+static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
         jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isDown)
 {
 #ifdef ANDROID_INSTRUMENT

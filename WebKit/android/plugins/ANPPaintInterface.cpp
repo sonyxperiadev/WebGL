@@ -158,6 +158,19 @@ static int anp_getTextWidths(ANPPaint* paint, const void* text,
                                 reinterpret_cast<SkRect*>(bounds));
 }
 
+static float anp_getFontMetrics(ANPPaint* paint, ANPFontMetrics* metrics) {
+    SkPaint::FontMetrics fm;
+    SkScalar spacing = paint->getFontMetrics(&fm);
+    if (metrics) {
+        metrics->fTop = SkScalarToFloat(fm.fTop);
+        metrics->fAscent = SkScalarToFloat(fm.fAscent);
+        metrics->fDescent = SkScalarToFloat(fm.fDescent);
+        metrics->fBottom = SkScalarToFloat(fm.fBottom);
+        metrics->fLeading = SkScalarToFloat(fm.fLeading);
+    }
+    return SkScalarToFloat(spacing);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -195,5 +208,6 @@ void ANPPaintInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, setTypeface);
     ASSIGN(i, measureText);
     ASSIGN(i, getTextWidths);
+    ASSIGN(i, getFontMetrics);
 }
 

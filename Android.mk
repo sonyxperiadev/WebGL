@@ -120,6 +120,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/storage \
 	$(LOCAL_PATH)/WebCore/xml \
 	$(LOCAL_PATH)/WebKit/android \
+	$(LOCAL_PATH)/WebKit/android/WebCoreSupport \
 	$(LOCAL_PATH)/WebKit/android/jni \
 	$(LOCAL_PATH)/WebKit/android/nav \
 	$(LOCAL_PATH)/WebKit/android/plugins \

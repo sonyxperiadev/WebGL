@@ -119,9 +119,11 @@ namespace android {
          */
         void contentDraw();
 
-        // invalidate the view/display, NOT the content/DOM
+        /** Invalidate the view/screen, NOT the content/DOM, but expressed in
+         *  content/DOM coordinates (i.e. they need to eventually be scaled,
+         *  by webview into view.java coordinates
+         */
         void viewInvalidate(const WebCore::IntRect& rect);
-        void viewInvalidate(const SkIRect& rect);
 
         /**
          * Invalidate part of the content that may be offscreen at the moment
@@ -381,6 +383,7 @@ namespace android {
         WebCore::Node* m_snapAnchorNode;
         int m_screenWidth;
         int m_scale;
+        unsigned m_domtree_version;
         
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
@@ -393,7 +396,7 @@ namespace android {
         bool commonKitFocus(int generation, int buildGeneration, 
             WebCore::Frame* frame, WebCore::Node* node, int x, int y,
             bool ignoreNullFocus);
-        bool finalKitFocus(WebCore::Frame* frame, WebCore::Node* node, int x, int y);
+        bool finalKitFocus(WebCore::Frame* frame, WebCore::Node* node, int x, int y, bool donotChangeDOMFocus);
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );

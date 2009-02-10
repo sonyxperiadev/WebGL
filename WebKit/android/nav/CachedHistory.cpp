@@ -82,7 +82,7 @@ void CachedHistory::reset()
 {
     memset(mVisited, 0, sizeof(mVisited));
 //    mLastScroll = 0;
-    mPriorBounds = mFocusBounds = WebCore::IntRect(0, 0, 0, 0);
+    mPriorBounds = WebCore::IntRect(0, 0, 0, 0);
     mDirectionChange = false;
     mFocusIsInput = false;
     mPriorIsInput = false;
@@ -107,12 +107,11 @@ void CachedHistory::setWorking(CachedFrame::Direction newMove,
     if (focus != NULL) {
         WebCore::IntRect focusBounds;
         focus->getBounds(&focusBounds);
-        if (focusBounds.isEmpty() == false && focusBounds != mFocusBounds)
-            mNavBounds = mFocusBounds = focusBounds;
+        if (focusBounds.isEmpty() == false)
+            mNavBounds = focusBounds;
         mPriorIsInput = mFocusIsInput;
         mFocusIsInput = focus->isInput(); // focus->localName() == "input";
-    } else
-        mFocusBounds = WebCore::IntRect(0, 0, 0, 0);
+    }
     if (change) {   // uninitialized or change in direction
         if (lastAxis != CachedFrame::LEFT && navBounds->height() > 0) {
             mMinWorkingHorizontal = navBounds->y();
@@ -177,7 +176,6 @@ void CachedHistory::Debug::print(CachedRoot* root) const
     }
     DUMP_NAV_LOGD("// };\n");
 //    DUMP_NAV_LOGD("// int mLastScroll=%d;\n", b->mLastScroll);
-    DEBUG_PRINT_RECT(mFocusBounds);
     DEBUG_PRINT_RECT(mNavBounds);
     DEBUG_PRINT_RECT(mPriorBounds);
     DEBUG_PRINT_BOOL(mDirectionChange);

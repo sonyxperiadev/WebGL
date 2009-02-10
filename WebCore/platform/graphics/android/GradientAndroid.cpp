@@ -39,7 +39,7 @@ class PlatformGradientRec {
 public:
     PlatformGradientRec() : m_shader(NULL) {}
     ~PlatformGradientRec() { m_shader->safeUnref(); }
-    
+
     SkShader*           m_shader;
     SkShader::TileMode  m_tileMode;
 };
@@ -49,6 +49,7 @@ namespace WebCore {
 void Gradient::platformDestroy()
 {
     delete m_gradient;
+    m_gradient = 0;
 }
 
 static U8CPU F2B(float x)
@@ -64,23 +65,23 @@ SkShader* Gradient::getShader(SkShader::TileMode mode) {
     }
 
     SkPoint pts[2];
-    
+
     android_setpt(&pts[0], m_p0);
     android_setpt(&pts[1], m_p1);
     size_t count = m_stops.size();
     SkAutoMalloc    storage(count * (sizeof(SkColor) + sizeof(SkScalar)));
     SkColor*        colors = (SkColor*)storage.get();
     SkScalar*       pos = (SkScalar*)(colors + count);
-    
+
     Vector<ColorStop>::iterator iter = m_stops.begin();
     int i = -1;
     while (i++, iter != m_stops.end()) {
         pos[i] = SkFloatToScalar(iter->stop);
-        colors[i] = SkColorSetARGB(F2B(iter->alpha), F2B(iter->red), 
+        colors[i] = SkColorSetARGB(F2B(iter->alpha), F2B(iter->red),
             F2B(iter->green), F2B(iter->blue));
-        ++iter; 
+        ++iter;
     }
-    
+
     SkShader* s;
     if (0 == count) {
         // it seems the spec says a zero-size gradient draws transparent
@@ -110,6 +111,6 @@ void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
     paint.setShader(this->getShader(mode));
     android_gc2canvas(context)->drawRect(*android_setrect(&r, rect), paint);
 }
-    
+
 
 } //namespace

@@ -191,8 +191,11 @@ int count()
         m_start += triggerSize();
         if (m_start == m_end)
             break;
-        if (m_start >= limit)
-            m_start -= sizeof(m_buffer);
+        if (m_start < limit)
+            continue;
+        m_start -= sizeof(m_buffer);
+        if (m_start == m_end)
+            break;
     }
     m_start = saveStart;
     DBG_NAV_LOGD("count=%d", result);
@@ -671,24 +674,23 @@ void drawFocusRing(SkCanvas* canvas)
 {
     const CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
-        DBG_NAV_LOGD_THROTTLE("!root", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!root");
         m_followedLink = false;
         return;
     }
     const CachedNode* node = root->currentFocus();
     if (!node) {
-        DBG_NAV_LOGD_THROTTLE("!node", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!node");
         m_followedLink = false;
         return;
     }
     if (!node->hasFocusRing()) {
-        DBG_NAV_LOGD_THROTTLE("!node->hasFocusRing()",
-                              DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!node->hasFocusRing()");
         return;
     }
     const WTF::Vector<WebCore::IntRect>& rings = node->focusRings();
     if (!rings.size()) {
-        DBG_NAV_LOGD_THROTTLE("!rings.size()", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!rings.size()");
         return;
     }
 
@@ -714,7 +716,8 @@ void drawFocusRing(SkCanvas* canvas)
     SkRect sbounds;
     android_setrect(&sbounds, bounds);
     if (canvas->quickReject(sbounds, SkCanvas::kAA_EdgeType)) {
-        DBG_NAV_LOGD_THROTTLE("canvas->quickReject", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("canvas->quickReject");
+        m_followedLink = false;
         return;
     }
     FocusRing::Flavor flavor = FocusRing::NORMAL_FLAVOR;
@@ -727,7 +730,7 @@ void drawFocusRing(SkCanvas* canvas)
         }
 #if DEBUG_NAV_UI
         const WebCore::IntRect& ring = rings[0];
-        DBG_NAV_LOGD_THROTTLE("cachedFocusNode=%d (nodePointer=%p) flavor=%s rings=%d"
+        DBG_NAV_LOGD("cachedFocusNode=%d (nodePointer=%p) flavor=%s rings=%d"
             " (%d, %d, %d, %d)", node->index(), node->nodePointer(),
             flavor == FocusRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
             flavor == FocusRing::INVALID_FLAVOR ? "INVALID_FLAVOR" :
@@ -773,9 +776,16 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
     if (uiWidth != webWidth) {
         DBG_NAV_LOGD("uiWidth=%d webWidth=%d", uiWidth, webWidth);
     } else {
-        const WebCore::IntRect& cachedBounds = m_frameCacheUI->rootHistory()->focusBounds();
+        const WebCore::IntRect& cachedBounds = m_frameCacheUI->focusBounds();
         const CachedFrame* webFrame = 0;
         const CachedNode* webFocusNode = webRoot->currentFocus(&webFrame);
+        DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) cachedFrame=%p (%d)"
+            " webFocusNode=%p (%d) webFrame=%p (%d)",
+            cachedBounds.x(), cachedBounds.y(),
+            cachedBounds.width(), cachedBounds.height(),
+            cachedFrame, cachedFrame ? cachedFrame->indexInParent() : -1,
+            webFocusNode, webFocusNode ? webFocusNode->index() : -1,
+            webFrame, webFrame ? webFrame->indexInParent() : -1);
         if (webFocusNode && webFrame && webFrame->sameFrame(cachedFrame)) {
             if (useReplay && !m_replay.count()) {
                 DBG_NAV_LOG("!m_replay.count()");
@@ -785,7 +795,10 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("index ==");
                 return DoNothing;
             }
-            const WebCore::IntRect& webBounds = webRoot->rootHistory()->focusBounds();
+            const WebCore::IntRect& webBounds = webRoot->focusBounds();
+            DBG_NAV_LOGD("webBounds=(%d,%d,w=%d,h=%d)",
+                webBounds.x(), webBounds.y(),
+                webBounds.width(), webBounds.height());
             if (cachedBounds.contains(webBounds)) {
                 DBG_NAV_LOG("contains");
                 return DoNothing;
@@ -794,18 +807,7 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("webBounds contains");
                 return DoNothing;
             }
-            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) webBounds=(%d,%d,w=%d,"
-                "%h=d)", cachedBounds.x(), cachedBounds.y(),
-                cachedBounds.width(), cachedBounds.height(), webBounds.x(),
-                webBounds.y(), webBounds.width(), webBounds.height());
-        } else
-            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) cachedFrame=%p (%d)"
-                " webFocusNode=%p (%d) webFrame=%p (%d)",
-                cachedBounds.x(), cachedBounds.y(),
-                cachedBounds.width(), cachedBounds.height(),
-                cachedFrame, cachedFrame ? cachedFrame->indexInParent() : -1,
-                webFocusNode, webFocusNode ? webFocusNode->index() : -1,
-                webFrame, webFrame ? webFrame->indexInParent() : -1);
+        }
         const CachedFrame* foundFrame = 0;
         int x, y;
         const CachedNode* found = findAt(webRoot, cachedBounds, &foundFrame, &x, &y);
@@ -1023,7 +1025,8 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
     int dx = 0;
     int dy = 0;
     int counter = count;
-    root->setScrollOnly(m_followedLink);
+    if (!focus || !focus->isInput() || !m_followedLink)
+        root->setScrollOnly(m_followedLink);
     while (--counter >= 0) {
         WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
         cachedNode = root->moveFocus(direction, &cachedFrame, &scroll);
@@ -1086,7 +1089,7 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
             m_replay.add(params.d.d, sizeof(params));
         }
     } else {
-        if (visibleRect.intersects(root->rootHistory()->focusBounds()) == false) {
+        if (visibleRect.intersects(root->focusBounds()) == false) {
             setFocusData(root->generation(), 0, 0, 0, 0, true);
             sendKitFocus(); // will build cache and retry
         }

@@ -145,9 +145,12 @@ void BallAnimation::draw(ANPCanvas* canvas) {
     bounce(&m_y, &m_dy, obj->window->height - OH);
     
     if (obj->mUnichar) {
+        ANPFontMetrics fm;
+        gPaintI.getFontMetrics(m_paint, &fm);
+        
         gPaintI.setColor(m_paint, 0xFF0000FF);
         char c = static_cast<char>(obj->mUnichar);
-        gCanvasI.drawText(canvas, &c, 1, 10, 30, m_paint);
+        gCanvasI.drawText(canvas, &c, 1, 10, -fm.fTop, m_paint);
     }
 }
 

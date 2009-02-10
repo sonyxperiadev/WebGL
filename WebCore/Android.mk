@@ -560,7 +560,6 @@ LOCAL_SRC_FILES := \
 	platform/Widget.cpp \
 	\
 	platform/android/ClipboardAndroid.cpp \
-	platform/android/ContextMenuClientAndroid.cpp \
 	platform/android/CursorAndroid.cpp \
 	platform/android/DragDataAndroid.cpp \
 	platform/android/EventLoopAndroid.cpp \

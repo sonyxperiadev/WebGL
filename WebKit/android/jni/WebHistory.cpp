@@ -231,10 +231,7 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
         return NULL;
 
     // Write our flattened data to the java array.
-    jbyte* bytes = env->GetByteArrayElements(b, NULL);
-    if (bytes)
-        memcpy(bytes, v.data(), v.size());
-    env->ReleaseByteArrayElements(b, bytes, 0);
+    env->SetByteArrayRegion(b, 0, v.size(), (const jbyte*)v.data());
     return b;
 }
 

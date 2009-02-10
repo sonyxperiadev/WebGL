@@ -69,6 +69,7 @@ public:
         BEST_DIRECTION, // can be reached by another direction
         CHILD,
         DISABLED,
+        HIGHER_TAB_INDEX,
         IN_FOCUS,
         IN_FOCUS_CHILDREN,
         NOT_ENCLOSING_FOCUS,
@@ -160,9 +161,11 @@ public:
     void setNavableRects() { mNavableRects = mFocusRing.size(); }
     void setParentGroup(void* group) { mParentGroup = group; }
     void setParentIndex(int parent) { mParentIndex = parent; }
+    void setTabIndex(int index) { mTabIndex = index; }
     void setTextSize(int textSize) { mTextSize = textSize; }
     void setType(CachedNodeType type) { mType = type; }
     void setWantsKeyEvents(bool wantsKeys) { mWantsKeyEvents = wantsKeys; }
+    int tabIndex() const { return mTabIndex; }
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
     int textSize() const { return mTextSize; }
     CachedNodeType type() const { return mType; }
@@ -180,6 +183,7 @@ private:
     int mNavableRects; // FIXME: could be bitfield once I limit max number of rects
     int mParentIndex;
     int mTextSize;
+    int mTabIndex;
     mutable Condition mCondition : 5; // why the node was not chosen on the first pass
     CachedNodeType mType : 3;
     bool mClippedOut : 1;
