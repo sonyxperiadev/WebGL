@@ -257,7 +257,7 @@ namespace android {
         void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
             jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
 
-        void saveDocumentState(WebCore::Frame* frame, WebCore::Node* node, int x, int y);
+        void saveDocumentState(WebCore::Frame* frame);
 
         // TODO: I don't like this hack but I need to access the java object in
         // order to send it as a parameter to java

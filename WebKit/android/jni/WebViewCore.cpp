@@ -113,6 +113,12 @@ FILE* gRenderTreeFile = 0;
 #include "TimeCounter.h"
 #endif
 
+/*  We pass this flag when recording the actual content, so that we don't spend
+    time actually regionizing complex path clips, when all we really want to do
+    is record them.
+ */
+#define PICT_RECORD_FLAGS   SkPicture::kUsePathBoundsForClip_RecordingFlag
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
@@ -315,7 +321,8 @@ void WebViewCore::recordPicture(SkPicture* picture)
         return;
     // draw into the picture's recording canvas
     WebCore::FrameView* view = m_mainFrame->view();
-    SkAutoPictureRecord arp(picture, view->contentsWidth(), view->contentsHeight());
+    SkAutoPictureRecord arp(picture, view->contentsWidth(),
+                            view->contentsHeight(), PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
 
     // Copy m_buttons so we can pass it to our graphics context.
@@ -452,12 +459,19 @@ void WebViewCore::copyContentToPicture(SkPicture* picture)
     m_contentMutex.lock();
     PictureSet copyContent = PictureSet(m_content);
     m_contentMutex.unlock();
-    copyContent.toPicture(picture);
+    
+    int w = copyContent.width();
+    int h = copyContent.height();
+    copyContent.draw(picture->beginRecording(w, h, PICT_RECORD_FLAGS));
+    picture->endRecording();
     DBG_SET_LOG("end");
 }
 
 bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreDrawTimeCounter);
+#endif
     DBG_SET_LOG("start");
     m_contentMutex.lock();
     PictureSet copyContent = PictureSet(m_content);
@@ -521,6 +535,9 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 
 bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreRecordTimeCounter);
+#endif
     DBG_SET_LOG("start");
     m_contentMutex.lock();
     PictureSet contentCopy(m_content);
@@ -847,6 +864,9 @@ bool WebViewCore::prepareFrameCache()
         DBG_NAV_LOG("!m_frameCacheOutOfDate");
         return false;
     }
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreBuildNavTimeCounter);
+#endif
     m_frameCacheOutOfDate = false;
 #if DEBUG_NAV_UI
     DBG_NAV_LOG("m_frameCacheOutOfDate was true");
@@ -1442,9 +1462,11 @@ void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, in
     }
 }
 
-void WebViewCore::saveDocumentState(WebCore::Frame* frame, WebCore::Node* node, int x, int y)
+void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
-    frame = changedKitFocus(frame, node, x, y);
+    if (!FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder()
+            .validNode(frame, 0))
+        frame = m_mainFrame;
     WebCore::HistoryItem *item = frame->loader()->currentHistoryItem();
 
     // item can be null when there is no offical URL for the current page. This happens
@@ -2041,7 +2063,7 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
         x, y, generation, currentText, keyCode, keyValue, down, cap, fn, sym);
 }
 
-static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame, jint node, jint x, jint y)
+static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2049,7 +2071,7 @@ static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame, jint node, j
     LOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
-    viewImpl->saveDocumentState((WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
+    viewImpl->saveDocumentState((WebCore::Frame*) frame);
 }
 
 static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -2365,7 +2387,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ReplaceTextfieldText } ,
     { "passToJs", "(IIIIILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
-    { "nativeSaveDocumentState", "(IIII)V",
+    { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",
         (void*) FindAddress },

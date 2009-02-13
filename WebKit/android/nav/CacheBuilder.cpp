@@ -1218,6 +1218,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             // FIXME: Are we sure there will always be a style and font, and it's correct?
             RenderStyle* style = nodeRenderer->style();
             if (style) {
+                isUnclipped |= !style->hasAppearance();
                 textSize = style->fontSize();
                 isRtlText = style->direction() == RTL ||
                         style->textAlign() == WebCore::RIGHT ||

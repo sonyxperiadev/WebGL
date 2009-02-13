@@ -43,9 +43,16 @@ namespace android {
 
 static double sStartTotalTime;
 static uint32_t sStartThreadTime;
+static double sLastTotalTime;
+static uint32_t sLastThreadTime;
 
+uint32_t TimeCounter::sStartWebCoreThreadTime;
+uint32_t TimeCounter::sEndWebCoreThreadTime;
+bool TimeCounter::sRecordWebCoreTime;
 uint32_t TimeCounter::sTotalTimeUsed[TimeCounter::TotalTimeCounterCount];
+uint32_t TimeCounter::sLastTimeUsed[TimeCounter::TotalTimeCounterCount];
 uint32_t TimeCounter::sCounter[TimeCounter::TotalTimeCounterCount];
+uint32_t TimeCounter::sLastCounter[TimeCounter::TotalTimeCounterCount];
 uint32_t TimeCounter::sStartTime[TimeCounter::TotalTimeCounterCount];
 
 static const char* timeCounterNames[] = {
@@ -54,10 +61,12 @@ static const char* timeCounterNames[] = {
     "Java callback (frame bridge)",
     "layout", 
     "native 1 (frame bridge)",
- //   "paint", 
     "parsing (may include calcStyle or Java callback)", 
     "native 3 (resource load)", 
     "native 2 (shared timer)", 
+    "build nav (webview core)",
+    "draw content (webview core)",
+    "record content (webview core)",
     "native 4 (webview core)"
 };
 
@@ -69,7 +78,8 @@ void TimeCounter::record(enum Type type, const char* functionName)
 
 void TimeCounter::recordNoCounter(enum Type type, const char* functionName)
 {
-    uint32_t elapsed = get_thread_msec() - sStartTime[type];
+    uint32_t time = sEndWebCoreThreadTime = get_thread_msec();
+    uint32_t elapsed = time - sStartTime[type];
     sTotalTimeUsed[type] += elapsed;
     if (elapsed > 1000)
         LOGW("***** %s() used %d ms\n", functionName, elapsed);
@@ -81,10 +91,11 @@ void TimeCounter::report(const KURL& url, int live, int dead)
     int totalTime = static_cast<int>((currentTime() - sStartTotalTime) * 1000);
     int threadTime = get_thread_msec() - sStartThreadTime;
     LOGD("*-* Total load time: %d ms, thread time: %d ms for %s\n",
-            totalTime, threadTime, urlString.utf8().data());
+        totalTime, threadTime, urlString.utf8().data());
 // FIXME: JSGlobalObject no longer records time
 //    JSC::JSGlobalObject::reportTimeCounter();
-    for (Type type = (Type) 0; type < TotalTimeCounterCount; type = (Type) (type + 1)) {
+    for (Type type = (Type) 0; type < TotalTimeCounterCount; type 
+            = (Type) (type + 1)) {
         char scratch[256];
         int index = sprintf(scratch, "*-* Total %s time: %d ms", 
             timeCounterNames[type], sTotalTimeUsed[type]);
@@ -93,6 +104,36 @@ void TimeCounter::report(const KURL& url, int live, int dead)
         LOGD("%s", scratch);
     }
     LOGD("Current cache has %d bytes live and %d bytes dead", live, dead);
+}
+
+void TimeCounter::reportNow()
+{
+    double current = currentTime();
+    uint32_t currentThread = get_thread_msec();
+    int elapsedTime = static_cast<int>((current - sLastTotalTime) * 1000);
+    int elapsedThreadTime = currentThread - sLastThreadTime;
+    LOGD("*-* Elapsed time: %d ms, ui thread time: %d ms, webcore thread time:"
+        " %d ms\n", elapsedTime, elapsedThreadTime, sEndWebCoreThreadTime -
+        sStartWebCoreThreadTime);
+// FIXME: JSGlobalObject no longer records time
+//    JSC::JSGlobalObject::reportTimeCounter();
+    for (Type type = (Type) 0; type < TotalTimeCounterCount; type 
+            = (Type) (type + 1)) {
+        if (sTotalTimeUsed[type] == sLastTimeUsed[type])
+            continue;
+        char scratch[256];
+        int index = sprintf(scratch, "*-* Diff %s time: %d ms",
+            timeCounterNames[type], sTotalTimeUsed[type] - sLastTimeUsed[type]);
+        if (sCounter[type] > sLastCounter[type])
+            sprintf(&scratch[index], " called %d times", sCounter[type]
+                - sLastCounter[type]);
+        LOGD("%s", scratch);
+    }
+    memcpy(sLastTimeUsed, sTotalTimeUsed, sizeof(sTotalTimeUsed));
+    memcpy(sLastCounter, sCounter, sizeof(sCounter));
+    sLastTotalTime = current;
+    sLastThreadTime = currentThread;
+    sRecordWebCoreTime = true;
 }
 
 void TimeCounter::reset() {
@@ -107,9 +148,13 @@ void TimeCounter::reset() {
 
 void TimeCounter::start(enum Type type)
 {
-    sStartTime[type] = get_thread_msec();
+    uint32_t time = get_thread_msec();
+    if (sRecordWebCoreTime) {
+        sStartWebCoreThreadTime = time;
+        sRecordWebCoreTime = false;
+    }
+    sStartTime[type] = time;
 }
-
 
 #endif
 

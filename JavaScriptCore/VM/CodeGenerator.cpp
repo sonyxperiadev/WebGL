@@ -783,7 +783,12 @@ RegisterID* CodeGenerator::emitEqualityOp(OpcodeID opcode, RegisterID* dst, Regi
 
         if (src1->index() == dstIndex
             && src1->isTemporary()
-            && static_cast<unsigned>(src2->index()) < m_codeBlock->constantRegisters.size()
+            // FIXME: replace the following line by
+            //  && m_codeBlock->isConstant(src2->index())
+            // after next merge:
+            // see http://trac.webkit.org/changeset/38229
+            // and http://trac.webkit.org/changeset/38230
+            && (src2->index() >= m_codeBlock->numVars && src2->index() < m_codeBlock->numVars + m_codeBlock->numConstants)
             && m_codeBlock->constantRegisters[src2->index() - m_codeBlock->numVars].jsValue(m_scopeChain->globalObject()->globalExec())->isString()) {
             const UString& value = asString(m_codeBlock->constantRegisters[src2->index() - m_codeBlock->numVars].jsValue(m_scopeChain->globalObject()->globalExec()))->value();
             if (value == "undefined") {

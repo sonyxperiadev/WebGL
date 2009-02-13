@@ -601,24 +601,6 @@ void PictureSet::split(PictureSet* out) const
     out->dump("split-out");
 }
 
-void PictureSet::toPicture(SkPicture* result) const
-{
-    DBG_SET_LOGD("%p", this);
-    SkPicture tempPict;
-    SkAutoPictureRecord arp(&tempPict, mWidth, mHeight);
-    SkCanvas* recorder = arp.getRecordingCanvas();
-    const Pictures* last = mPictures.end();
-    for (const Pictures* working = mPictures.begin(); working != last; working++) {
-        int saved = recorder->save();
-        SkPath pathBounds;
-        working->mArea.getBoundaryPath(&pathBounds);
-        recorder->clipPath(pathBounds);
-        recorder->drawPicture(*working->mPicture);
-        recorder->restoreToCount(saved);
-    }
-    result->swap(tempPict);
-}
-
 bool PictureSet::validate(const char* funct) const
 {
     bool valid = true;

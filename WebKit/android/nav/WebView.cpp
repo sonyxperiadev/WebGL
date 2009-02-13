@@ -55,6 +55,10 @@
 #include "WebViewCore.h"
 #include "jni_utility.h"
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 #ifdef GET_NATIVE_VIEW
 #undef GET_NATIVE_VIEW
 #endif
@@ -775,6 +779,7 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
     int webWidth = webRoot->width();
     if (uiWidth != webWidth) {
         DBG_NAV_LOGD("uiWidth=%d webWidth=%d", uiWidth, webWidth);
+        return DoNothing; // allow text inputs to preserve their state
     } else {
         const WebCore::IntRect& cachedBounds = m_frameCacheUI->focusBounds();
         const CachedFrame* webFrame = 0;
@@ -1922,6 +1927,13 @@ static bool nativeFocusNodeWantsKeyEvents(JNIEnv* env, jobject jwebview) {
     return view->focusNodeWantsKeyEvents();
 }
 
+static void nativeInstrumentReport(JNIEnv *env, jobject obj)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounter::reportNow();
+#endif
+}
+
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
 {
     int L, T, R, B;
@@ -2230,6 +2242,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetFocusRingBounds },
     { "nativeGetNavBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetNavBounds },
+    { "nativeInstrumentReport", "()V",
+        (void*) nativeInstrumentReport },
     { "nativeMarkNodeInvalid", "(I)V",
         (void*) nativeMarkNodeInvalid },
     { "nativeMotionUp", "(IIIZ)V",

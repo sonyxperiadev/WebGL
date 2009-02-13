@@ -73,7 +73,6 @@ namespace android {
         void setPicture(size_t i, SkPicture* p);
         size_t size() const { return mPictures.size(); }
         void split(PictureSet* result) const;
-        void toPicture(SkPicture* ) const;
         bool upToDate(size_t i) const { return mPictures[i].mPicture != NULL; }
         int width() const { return mWidth; }
         void dump(const char* label) const;
