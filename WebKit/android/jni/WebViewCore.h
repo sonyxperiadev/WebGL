@@ -105,8 +105,9 @@ namespace android {
          * Scroll to the point x,y relative to the current position.
          * @param x The relative x position.
          * @param y The relative y position.
+         * @param animate If it is true, animate to the new scroll position
          */
-        void scrollBy(int x, int y);
+        void scrollBy(int x, int y, bool animate);
 
         /**
          * Record the invalid rectangle
@@ -181,7 +182,8 @@ namespace android {
         
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
-        
+        // Rebuild the nav cache if the dom changed
+        void checkNavCache();
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
@@ -196,7 +198,8 @@ namespace android {
 
         void setGlobalBounds(int x, int y, int h, int v);
 
-        void setSizeScreenWidthAndScale(int width, int height, int screenWidth, int scale);
+        void setSizeScreenWidthAndScale(int width, int height, int screenWidth, 
+            int scale, int realScreenWidth, int screenHeight);
 
         /**
          * Handle key events from Java.

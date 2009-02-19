@@ -77,7 +77,11 @@ void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
 
 void CachedImage::load(DocLoader* docLoader)
 {
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    if (!docLoader || (docLoader->autoLoadImages() && !docLoader->shouldBlockNetworkImage(m_url)))
+#else
     if (!docLoader || docLoader->autoLoadImages())
+#endif
         CachedResource::load(docLoader, true, false, true);
     else
         m_loading = false;

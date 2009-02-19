@@ -360,6 +360,7 @@ enum OutOfFocusFix {
 struct JavaGlue {
     jobject     m_obj;
     jmethodID   m_clearTextEntry;
+    jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
     jmethodID   m_sendFinalFocus;
     jmethodID   m_sendKitFocus;
@@ -389,8 +390,9 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = adoptGlobalRef(env, javaWebView);
-    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(II)V");
+    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
+    m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendFinalFocus = GetJMethod(env, clazz, "sendFinalFocus", "(IIII)V");
     m_javaGlue.m_sendKitFocus = GetJMethod(env, clazz, "sendKitFocus", "()V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIIIIZZ)V");
@@ -500,7 +502,9 @@ void debugDump()
 // their subpictures according to their current focus state.
 // Called from the UI thread.  This is the one place in the UI thread where we
 // access the buttons stored in the WebCore thread.
-void nativeRecordButtons(bool pressed, bool invalidate)
+// hasFocus keeps track of whether the WebView has focus && windowFocus.
+// If not, we do not want to draw the button in a focused or pressed state
+void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
 {
     bool focusIsButton = false;
     const CachedNode* cachedFocus = 0;
@@ -527,7 +531,12 @@ void nativeRecordButtons(bool pressed, bool invalidate)
             WebCore::RenderSkinAndroid::State state;
             if (ptr->matches(focus)) {
                 focusIsButton = true;
-                if (m_followedLink || pressed) {
+                // If the WebView is out of focus/window focus, set the state to
+                // normal, but still keep track of the fact that the focus is a
+                // button
+                if (!hasFocus) {
+                    state = WebCore::RenderSkinAndroid::kNormal;
+                } else if (m_followedLink || pressed) {
                     state = WebCore::RenderSkinAndroid::kPressed;
                 } else {
                     state = WebCore::RenderSkinAndroid::kFocused;
@@ -1403,7 +1412,8 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
     root->setCachedFocus(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
     bool newNodeIsTextArea = focusIsTextArea(DontAllowNewer);
-    if (result->type() == NORMAL_CACHEDNODETYPE || newNodeIsTextArea) {
+    CachedNodeType type = result->type();
+    if (type == NORMAL_CACHEDNODETYPE || newNodeIsTextArea) {
         sendMotionUp(root->generation(),
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
@@ -1427,11 +1437,24 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         updateTextEntry();
         displaySoftKeyboard();
     } else {
-        if (isClick)
+        if (isClick) {
             setFollowedLink(true);
+            if (type != NORMAL_CACHEDNODETYPE) {
+                overrideUrlLoading(result->getExport());
+            }
+        }
         if (oldNodeIsTextArea)
             clearTextEntry();
     }
+}
+
+void overrideUrlLoading(const WebCore::String& url)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jName = env->NewString((jchar*) url.characters(), url.length());
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_overrideLoading, jName);
+    env->DeleteLocalRef(jName);
 }
 
 void setFindIsUp(bool up)
@@ -1695,7 +1718,8 @@ void scrollBy(int dx, int dy)
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy, dx, dy);
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy, 
+        dx, dy, true);
     checkException(env);
 }
 
@@ -1994,12 +2018,12 @@ static void nativeRecomputeFocus(JNIEnv *env, jobject obj)
     view->recomputeFocus();
 }
 
-static void nativeRecordButtons(JNIEnv* env, jobject obj, bool pressed,
-        bool invalidate)
+static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
+        bool pressed, bool invalidate)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->nativeRecordButtons(pressed, invalidate);
+    view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
 
 static void nativeResetFocus(JNIEnv *env, jobject obj)
@@ -2254,7 +2278,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeNotifyFocusSet },
     { "nativeRecomputeFocus", "()V",
         (void*) nativeRecomputeFocus },
-    { "nativeRecordButtons", "(ZZ)V",
+    { "nativeRecordButtons", "(ZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeResetFocus", "()V",
         (void*) nativeResetFocus },

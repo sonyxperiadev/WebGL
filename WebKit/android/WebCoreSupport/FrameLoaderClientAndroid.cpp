@@ -991,7 +991,8 @@ ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url,
         return ObjectContentFrame;
     if (Image::supportsType(mimeType))
         return ObjectContentImage;
-    return ObjectContentNone;
+    // Use OtherPlugin so embed and object tags draw the null plugin view
+    return ObjectContentOtherPlugin;
 }
 
 // This function allows the application to set the correct CSS media

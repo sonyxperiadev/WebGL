@@ -210,7 +210,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_obj = adoptGlobalRef(env, javaWebViewCore);
     m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
-    m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(II)V");
+    m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[Z[I)V");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[ZI)V");
@@ -385,15 +385,21 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // and check to see if any already split pieces need to be redrawn.
     if (content->build())
         rebuildPictureSet(content);
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    WebCore::Node* oldFocusNode = builder.currentFocus();
     m_frameCacheOutOfDate = true;
+}
+
+void WebViewCore::checkNavCache()
+{
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)
+        ->getCacheBuilder();
+    WebCore::Node* oldFocusNode = builder.currentFocus();
     WebCore::IntRect oldBounds = oldFocusNode ?
         oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
     DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
         " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}",
         m_lastFocused, oldFocusNode,
-        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
+        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), 
+        m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
     unsigned latestVersion = m_mainFrame->document()->domTreeVersion();
     if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds
@@ -630,12 +636,13 @@ void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
     checkException(env);
 }
 
-void WebViewCore::scrollBy(int dx, int dy)
+void WebViewCore::scrollBy(int dx, int dy, bool animate)
 {
     if (!(dx | dy))
         return;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy, dx, dy);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_scrollBy, 
+        dx, dy, animate);
     checkException(env);
 }
 
@@ -753,7 +760,7 @@ void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
     default:
         LOG_ASSERT(0, "unexpected focus selector");
     }
-    this->scrollBy(dx, dy);
+    this->scrollBy(dx, dy, true);
 }
 
 void WebViewCore::setScrollOffset(int dx, int dy)
@@ -777,25 +784,59 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
     m_mainFrame->view()->platformWidget()->setWindowBounds(x, y, h, v);
 }
 
-void WebViewCore::setSizeScreenWidthAndScale(int width, int height, int screenWidth, int scale)
+void WebViewCore::setSizeScreenWidthAndScale(int width, int height, 
+    int screenWidth, int scale, int realScreenWidth, int screenHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
     int osw = m_screenWidth;
+    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%d)",
+        ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_scale = scale;
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
-    DBG_NAV_LOGD("old:(w=%d,h=%d,s=%d) new:(w=%d,h=%d,s=%d)",
-        ow, oh, osw, width, height, screenWidth);
     if (ow != width || oh != height || osw != screenWidth) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
-        DBG_NAV_LOGD("renderer=%p", r);
+        DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r, 
+            realScreenWidth, screenHeight);
         if (r) {
+            // get current screen center position
+            WebCore::IntPoint screenCenter = WebCore::IntPoint(
+                m_scrollOffsetX + (realScreenWidth >> 1),
+                m_scrollOffsetY + (screenHeight >> 1));
+            WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                hitTestResultAtPoint(screenCenter, false);
+            WebCore::Node* node = hitTestResult.innerNode();
+            WebCore::IntRect bounds;
+            WebCore::IntPoint offset;
+            if (node) {
+                bounds = node->getRect();
+                DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
+                    bounds.x(), bounds.y(), bounds.width(), bounds.height());
+                offset = WebCore::IntPoint(screenCenter.x() - bounds.x(),
+                    screenCenter.y() - bounds.y());
+                if (offset.x() < 0 || offset.x() > realScreenWidth ||
+                    offset.y() < 0 || offset.y() > screenHeight) 
+                {
+                    DBG_NAV_LOGD("offset out of bounds:(x=%d,y=%d)",
+                        offset.x(), offset.y());
+                    node = 0;
+                }
+            }
             r->setNeedsLayoutAndPrefWidthsRecalc();
             m_mainFrame->forceLayout(true);
+            // scroll to restore current screen center
+            if (!node)
+                return;
+            const WebCore::IntRect& newBounds = node->getRect();
+            DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
+                "h=%d,ns=%d)", newBounds.x(), newBounds.y(), 
+                newBounds.width(), newBounds.height());
+            scrollBy(newBounds.x() - bounds.x(), newBounds.y() - bounds.y(),
+                false);
         }
     }
 }
@@ -1948,7 +1989,7 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
 }
 
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
-        jint screenWidth, jfloat scale)
+        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -1962,7 +2003,8 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     if (scale < 0)
         s = viewImpl->scale();
 
-    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, s);
+    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, s,
+        realScreenWidth, screenHeight);
 }
 
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
@@ -2331,6 +2373,12 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
     WebCore::FrameLoader::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
+static void CheckNavCache(JNIEnv *env, jobject obj)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    viewImpl->checkNavCache();
+}
+
 static void ClearContent(JNIEnv *env, jobject obj)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -2359,6 +2407,8 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
  * JNI registration.
  */
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
+    { "nativeCheckNavCache", "()V",
+        (void*) CheckNavCache },
     { "nativeClearContent", "()V",
         (void*) ClearContent },
     { "nativeCopyContentToPicture", "(Landroid/graphics/Picture;)V",
@@ -2373,7 +2423,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
         (void*) SendListBoxChoice },
-    { "nativeSetSize", "(IIIF)V",
+    { "nativeSetSize", "(IIIFII)V",
         (void*) SetSize },
     { "nativeSetScrollOffset", "(II)V",
         (void*) SetScrollOffset },
