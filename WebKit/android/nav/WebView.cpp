@@ -1363,8 +1363,9 @@ void markNodeInvalid(WebCore::Node* node)
     viewInvalidate();
 }
 
-void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
+bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
 {
+    bool pageScrolled = false;
     m_followedLink = false;
     const CachedFrame* frame;
     WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop, slop * 2, slop * 2);
@@ -1382,6 +1383,7 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
                 if (dx) {
                     scrollBy(dx, 0);
                     retry = true; // don't recompute later since we scrolled
+                    pageScrolled = true;
                 }
             }
         }
@@ -1401,7 +1403,7 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
             m_replay.add(params.d, sizeof(params));
         }
         clearTextEntry();
-        return;
+        return pageScrolled;
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
         result->index(), x, y, rx, ry);
@@ -1446,6 +1448,7 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         if (oldNodeIsTextArea)
             clearTextEntry();
     }
+    return pageScrolled;
 }
 
 void overrideUrlLoading(const WebCore::String& url)
@@ -1980,12 +1983,12 @@ static void nativeMarkNodeInvalid(JNIEnv *env, jobject obj, int node)
     view->markNodeInvalid((WebCore::Node*) node);
 }
 
-static void nativeMotionUp(JNIEnv *env, jobject obj,
+static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop, bool isClick)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->motionUp(x, y, slop, isClick, true, false);
+    return view->motionUp(x, y, slop, isClick, true, false);
 }
 
 static bool nativeUpdateFocusNode(JNIEnv *env, jobject obj)
@@ -2270,7 +2273,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeInstrumentReport },
     { "nativeMarkNodeInvalid", "(I)V",
         (void*) nativeMarkNodeInvalid },
-    { "nativeMotionUp", "(IIIZ)V",
+    { "nativeMotionUp", "(IIIZ)Z",
         (void*) nativeMotionUp },
     { "nativeMoveFocus", "(IIZ)Z",
         (void*) nativeMoveFocus },
