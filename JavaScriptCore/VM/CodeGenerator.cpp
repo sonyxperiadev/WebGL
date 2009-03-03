@@ -226,7 +226,7 @@ CodeGenerator::CodeGenerator(ProgramNode* programNode, const Debugger* debugger,
     m_globalVarStorageOffset = -RegisterFile::CallFrameHeaderSize - m_codeBlock->numParameters - registerFile->size();
 
     // Add previously defined symbols to bookkeeping.
-    m_globals.grow(symbolTable->size());
+    m_globals.resize(symbolTable->size());
     SymbolTable::iterator end = symbolTable->end();
     for (SymbolTable::iterator it = symbolTable->begin(); it != end; ++it)
         registerFor(it->second.getIndex()).setIndex(it->second.getIndex() + m_globalVarStorageOffset);
@@ -322,7 +322,7 @@ CodeGenerator::CodeGenerator(FunctionBodyNode* functionBody, const Debugger* deb
     const Identifier* parameters = functionBody->parameters();
     size_t parameterCount = functionBody->parameterCount();
     m_nextParameter = -RegisterFile::CallFrameHeaderSize - parameterCount - 1;
-    m_parameters.grow(1 + parameterCount); // reserve space for "this"
+    m_parameters.resize(1 + parameterCount); // reserve space for "this"
 
     // Add "this" as a parameter
     m_thisRegister.setIndex(m_nextParameter);

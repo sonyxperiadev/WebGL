@@ -36,10 +36,6 @@
 #include "RegisterFile.h"
 #include <wtf/HashMap.h>
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace JSC {
 
     class CodeBlock;
@@ -149,10 +145,7 @@ namespace JSC {
         {
             if (!m_timeoutCheckCount)
                 resetTimeoutCheck();
-#ifdef ANDROID_INSTRUMENT
-            if (!m_timeoutCheckCount)
-                android::TimeCounter::start(android::TimeCounter::JavaScriptTimeCounter);
-#endif
+            
             ++m_timeoutCheckCount;
         }
         
@@ -160,10 +153,6 @@ namespace JSC {
         {
             ASSERT(m_timeoutCheckCount);
             --m_timeoutCheckCount;
-#ifdef ANDROID_INSTRUMENT
-            if (!m_timeoutCheckCount)
-                android::TimeCounter::record(android::TimeCounter::JavaScriptTimeCounter, __FUNCTION__);
-#endif
         }
 
         inline void initTimeout()

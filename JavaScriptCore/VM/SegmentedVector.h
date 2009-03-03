@@ -33,9 +33,6 @@
 
 namespace JSC {
 
-    // SegmentedVector is just like Vector, but it doesn't move the values
-    // stored in its buffer when it grows. Therefore, it is safe to keep
-    // pointers into a SegmentedVector.
     template <typename T, size_t SegmentSize> class SegmentedVector {
     public:
         SegmentedVector()
@@ -46,120 +43,121 @@ namespace JSC {
 
         ~SegmentedVector()
         {
-            deleteAllSegments();
-        }
-
-        size_t size() const { return m_size; }
-
-        T& at(size_t index)
-        {
-            if (index < SegmentSize)
-                return m_inlineSegment[index];
-            return segmentFor(index)->at(subscriptFor(index));
-        }
-
-        T& operator[](size_t index)
-        {
-            return at(index);
+            for (size_t i = 1; i < m_segments.size(); i++)
+                delete m_segments[i];
         }
 
         T& last()
         {
-            return at(size() - 1);
+            ASSERT(m_size);
+            return m_segments.last()->last();
         }
 
         template <typename U> void append(const U& value)
         {
-            ++m_size;
-
-            if (m_size <= SegmentSize) {
-                m_inlineSegment.uncheckedAppend(value);
-                return;
-            }
-
-            if (!segmentExistsFor(m_size - 1))
+            if (!(m_size % SegmentSize) && m_size)
                 m_segments.append(new Segment);
-            segmentFor(m_size - 1)->uncheckedAppend(value);
+            m_segments.last()->uncheckedAppend(value);
+            m_size++;
         }
 
         void removeLast()
         {
-            if (m_size <= SegmentSize)
-                m_inlineSegment.removeLast();
-            else
-                segmentFor(m_size - 1)->removeLast();
-            --m_size;
+            ASSERT(m_size);
+            m_size--;
+            m_segments.last()->removeLast();
+            if (!(m_size % SegmentSize) && m_size >= SegmentSize) {
+                delete m_segments.last();
+                m_segments.removeLast();
+            }
+        }
+
+        size_t size() const
+        {
+            return m_size;
+        }
+
+        T& operator[](size_t index)
+        {
+            ASSERT(index < m_size);
+            if (index < SegmentSize)
+                return m_inlineSegment[index];
+            return m_segments[index / SegmentSize]->at(index % SegmentSize);
+        }
+
+        void resize(size_t size)
+        {
+            if (size < m_size)
+                shrink(size);
+            else if (size > m_size)
+                grow(size);
+            ASSERT(size == m_size);
+        }
+
+    private:
+        void shrink(size_t size)
+        {
+            ASSERT(size < m_size);
+            size_t numSegments = size / SegmentSize;
+            size_t extra = size % SegmentSize;
+            if (extra)
+                numSegments++;
+            if (!numSegments) {
+                for (size_t i = 1; i < m_segments.size(); i++)
+                    delete m_segments[i];
+                m_segments.resize(1);
+                m_inlineSegment.resize(0);
+                return;
+            }
+
+            for (size_t i = numSegments; i < m_segments.size(); i++)
+                delete m_segments[i];
+
+            m_segments.resize(numSegments);
+            if (extra)
+                m_segments.last()->resize(extra);
+            m_size = size;
         }
 
         void grow(size_t size)
         {
             ASSERT(size > m_size);
-            ensureSegmentsFor(size);
+            if (size <= SegmentSize) {
+                m_inlineSegment.resize(size);
+                m_size = size;
+                return;
+            }
+
+            size_t numSegments = size / SegmentSize;
+            size_t extra = size % SegmentSize;
+            if (extra)
+                numSegments++;
+            size_t oldSize = m_segments.size();
+
+            if (numSegments == oldSize) {
+                m_segments.last()->resize(extra);
+                m_size = size;
+                return;
+            }
+
+            m_segments.last()->resize(SegmentSize);
+
+            m_segments.resize(numSegments);
+
+            ASSERT(oldSize < m_segments.size());
+            for (size_t i = oldSize; i < (numSegments - 1); i++) {
+                Segment* segment = new Segment;
+                segment->resize(SegmentSize);
+                m_segments[i] = segment;
+            }
+
+            Segment* segment = new Segment;
+            segment->resize(extra ? extra : SegmentSize);
+            m_segments[numSegments - 1] = segment;
             m_size = size;
         }
 
-        void clear()
-        {
-            deleteAllSegments();
-            m_segments.resize(1);
-            m_inlineSegment.clear();
-            m_size = 0;
-        }
-
-    private:
         typedef Vector<T, SegmentSize> Segment;
-        
-        void deleteAllSegments()
-        {
-            // Skip the first segment, because it's our inline segment, which was
-            // not created by new.
-            for (size_t i = 1; i < m_segments.size(); i++)
-                delete m_segments[i];
-        }
-        
-        bool segmentExistsFor(size_t index)
-        {
-            return index / SegmentSize < m_segments.size();
-        }
-        
-        Segment* segmentFor(size_t index)
-        {
-            return m_segments[index / SegmentSize];
-        }
-        
-        size_t subscriptFor(size_t index)
-        {
-            return index % SegmentSize;
-        }
-        
-        void ensureSegmentsFor(size_t size)
-        {
-            size_t segmentCount = m_size / SegmentSize;
-            if (m_size % SegmentSize)
-                ++segmentCount;
-            segmentCount = std::max<size_t>(segmentCount, 1); // We always have at least our inline segment.
-
-            size_t neededSegmentCount = size / SegmentSize;
-            if (size % SegmentSize)
-                ++neededSegmentCount;
-
-            // Fill up to N - 1 segments.
-            size_t end = neededSegmentCount - 1;
-            for (size_t i = segmentCount - 1; i < end; ++i)
-                ensureSegment(i, SegmentSize);
-            
-            // Grow segment N to accomodate the remainder.
-            ensureSegment(end, subscriptFor(size - 1) + 1);
-        }
-
-        void ensureSegment(size_t segmentIndex, size_t size)
-        {
-            ASSERT(segmentIndex <= m_segments.size());
-            if (segmentIndex == m_segments.size())
-                m_segments.append(new Segment);
-            m_segments[segmentIndex]->grow(size);
-        }
-
         size_t m_size;
         Segment m_inlineSegment;
         Vector<Segment*, 32> m_segments;

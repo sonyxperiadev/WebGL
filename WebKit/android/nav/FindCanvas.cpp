@@ -275,15 +275,8 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
     if (mWorkingIndex) {
         SkPoint newY;
         getTotalMatrix().mapXY(0, y, &newY);
-        SkIRect workingBounds = mWorkingRegion.getBounds();
-        int newYInt = SkScalarRound(newY.fY);
-        if (workingBounds.fTop > newYInt) {
-            // The new text is above the working region, so we know it's not
-            // a continuation.
-            resetWorkingCanvas();
-            mWorkingIndex = 0;
-            mWorkingRegion.setEmpty();
-        } else if (workingBounds.fBottom < newYInt) {
+        SkIRect bounds = mWorkingRegion.getBounds();
+        if (bounds.fBottom < SkScalarRound(newY.fY)) {
             // Now we know that this line is lower than our partial match.
             SkPaint clonePaint(paint);
             clonePaint.setTextEncoding(SkPaint::kUTF8_TextEncoding);
@@ -308,9 +301,6 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
                 mWorkingRegion.setEmpty();
             }
         }
-        // If neither one is true, then we are likely continuing on the same
-        // line, but are in a new draw call because the paint has changed.  In
-        // this case, we can continue without adding a space.
     }
     // j is the position in the search text
     // Start off with mWorkingIndex in case we are continuing from a prior call
@@ -406,20 +396,21 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
     // call.
     // Keep track of a partial match that may start on this line.
     if (j > 0) {    // if j is greater than 0, we have a partial match
-        int relativeCount = j - mWorkingIndex;  // Number of characters in this
-                                                // part of the match.
-        int partialIndex = index - relativeCount; // Index that starts our
-                                                  // partial match.
+        int partialIndex = index - j + mWorkingIndex;
         const uint16_t* partialGlyphs = chars + partialIndex;
-        SkRect partial = (this->*addMatch)(partialIndex, paint, relativeCount,
+        SkRect partial = (this->*addMatch)(partialIndex, paint, j,
                 partialGlyphs, positions, y);
         partial.inset(mOutset, mOutset);
+        getTotalMatrix().mapRect(&partial);
         SkIRect dest;
         partial.roundOut(&dest);
         // Only save a partial if it is in the current clip.
         if (getTotalClip().contains(dest)) {
             mWorkingRegion.op(dest, SkRegion::kUnion_Op);
             mWorkingIndex = j;
+            // From one perspective, it seems like we would want to draw here,
+            // since we have all the information (paint, matrix, etc)
+            // However, we only want to draw if we find the rest
             return;
         }
     }

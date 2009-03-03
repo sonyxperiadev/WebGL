@@ -41,21 +41,18 @@ namespace android {
 class TimeCounter {
 public:
     enum Type {
-        // function base counters
-        CSSTimeCounter,
-        JavaScriptTimeCounter,
         CalculateStyleTimeCounter,
+        CSSTimeCounter,
         JavaCallbackTimeCounter,
-        ParsingTimeCounter,
         LayoutTimeCounter,
-        // file base counters
-        NativeCallbackTimeCounter,  // WebCoreFrameBridge.cpp
-        ResourceTimeCounter,        // WebCoreResourceLoader.cpp
-        SharedTimerTimeCounter,     // JavaBridge.cpp
+        NativeCallbackTimeCounter,
+        ParsingTimeCounter,
+        ResourceTimeCounter,
+        SharedTimerTimeCounter,
         WebViewCoreBuildNavTimeCounter,
+        WebViewCoreDrawTimeCounter,
         WebViewCoreRecordTimeCounter,
-        WebViewCoreTimeCounter,     // WebViewCore.cpp
-        WebViewUIDrawTimeCounter,
+        WebViewCoreTimeCounter,
         TotalTimeCounterCount
     };
 

@@ -305,11 +305,8 @@ public:
                 pluginDatabase->setPluginDirectories(paths);
                 // Set the home directory for plugin temporary files
                 WebCore::sPluginPath = paths[0];
-                // Reload plugins. We call Page::refreshPlugins() instead
-                // of pluginDatabase->refresh(), as we need to ensure that
-                // the list of mimetypes exposed by the browser are also
-                // updated.
-                WebCore::Page::refreshPlugins(false);
+                // Reload plugins.
+                pluginDatabase->refresh();
             }
         }
 #endif
