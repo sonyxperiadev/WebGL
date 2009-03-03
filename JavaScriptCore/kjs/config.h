@@ -28,7 +28,6 @@
 #if PLATFORM(ANDROID)
 
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
-//#define ANDROID_INSTRUMENT
 #endif
 
 #if PLATFORM(WIN_OS)

@@ -476,7 +476,7 @@ void WebViewCore::copyContentToPicture(SkPicture* picture)
 bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
 {
 #ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreDrawTimeCounter);
+    TimeCounterAuto counter(TimeCounter::WebViewUIDrawTimeCounter);
 #endif
     DBG_SET_LOG("start");
     m_contentMutex.lock();
@@ -1153,21 +1153,20 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
 bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y, bool donotChangeDOMFocus)
 {
-    if (!frame)
+    CacheBuilder& builder = FrameLoaderClientAndroid::
+        get(m_mainFrame)->getCacheBuilder();
+    if (!frame || builder.validNode(frame, NULL) == false)
         frame = m_mainFrame;
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Node* oldFocusNode = builder.currentFocus();
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
     // a valid frame.  Do not want to make a call on frame unless it is valid.
+    WebCore::PlatformMouseEvent mouseEvent(m_mousePos, m_mousePos,
+        WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
+        false, WebCore::currentTime());
+    frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
     bool valid = builder.validNode(frame, node);
-    if (valid) {
-        WebCore::PlatformMouseEvent mouseEvent(m_mousePos, m_mousePos, WebCore::NoButton,
-                WebCore::MouseEventMoved, 1, false, false, false, false, WebCore::currentTime());
-        frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
-    }
-
     if (!donotChangeDOMFocus) {
         WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
         if (!node) {
@@ -1737,7 +1736,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
             " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
         return; // short circuit if a newer touch has been generated
     }
-    if (retry)
+    if (retry || isClick)
         finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
     else if (!commonKitFocus(touchGeneration, buildGeneration,
             frame, node, x, y, false)) {
@@ -2021,6 +2020,9 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint dx, jint dy)
 static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
                             jint v)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
@@ -2131,6 +2133,9 @@ static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 
 static void SplitContent(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->splitContent();
 }
@@ -2174,6 +2179,9 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
 
 static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     if (!addr)
         return 0;
     int length = env->GetStringLength(addr);
@@ -2194,6 +2202,9 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
 
 static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     return viewImpl->handleTouchEvent(action, x, y);
@@ -2215,6 +2226,9 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
         jint node)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WebCore::String result = viewImpl->retrieveHref((WebCore::Frame*) frame,
@@ -2252,6 +2266,9 @@ static void SetKitFocus(JNIEnv *env, jobject obj, jint moveGeneration,
 
 static void UnblockFocus(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->unblockFocus();
@@ -2259,6 +2276,9 @@ static void UnblockFocus(JNIEnv *env, jobject obj)
 
 static void UpdateFrameCache(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->updateFrameCache();
@@ -2266,6 +2286,9 @@ static void UpdateFrameCache(JNIEnv *env, jobject obj)
 
 static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -2284,6 +2307,9 @@ static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
 
 static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -2303,6 +2329,9 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 
 static void SetSnapAnchor(JNIEnv *env, jobject obj, jint x, jint y)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -2311,6 +2340,9 @@ static void SetSnapAnchor(JNIEnv *env, jobject obj, jint x, jint y)
 
 static void SnapToAnchor(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -2319,6 +2351,9 @@ static void SnapToAnchor(JNIEnv *env, jobject obj)
 
 static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -2327,6 +2362,9 @@ static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
 
 static jstring GetSelection(JNIEnv *env, jobject obj, jobject selRgn)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     SkRegion* selectionRegion = GraphicsJNI::getNativeRegion(env, selRgn);
@@ -2364,29 +2402,44 @@ static void RefreshPlugins(JNIEnv *env,
                                  jobject obj,
                                  jboolean reloadOpenPages)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     // Refresh the list of plugins, optionally reloading all open
     // pages.
     WebCore::refreshPlugins(reloadOpenPages);
 }
 
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebCore::FrameLoader::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
 static void CheckNavCache(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->checkNavCache();
 }
 
 static void ClearContent(JNIEnv *env, jobject obj)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->clearContent();
 }
 
 static void CopyContentToPicture(JNIEnv *env, jobject obj, jobject pict)
 {
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     if (!viewImpl)
         return;
@@ -2396,6 +2449,7 @@ static void CopyContentToPicture(JNIEnv *env, jobject obj, jobject pict)
 
 static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
 {
+    // Note: this is called from UI thread, don't count it for WebViewCoreTimeCounter
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     return viewImpl->drawContent(canvas, color);

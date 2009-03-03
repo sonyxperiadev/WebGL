@@ -56,18 +56,19 @@ uint32_t TimeCounter::sLastCounter[TimeCounter::TotalTimeCounterCount];
 uint32_t TimeCounter::sStartTime[TimeCounter::TotalTimeCounterCount];
 
 static const char* timeCounterNames[] = {
-    "calculate style", 
     "css parsing", 
+    "javascript",
+    "calculate style", 
     "Java callback (frame bridge)",
+    "parsing (may include calcStyle or Java callback)", 
     "layout", 
     "native 1 (frame bridge)",
-    "parsing (may include calcStyle or Java callback)", 
-    "native 3 (resource load)", 
-    "native 2 (shared timer)", 
+    "native 2 (resource load)", 
+    "native 3 (shared timer)", 
     "build nav (webview core)",
-    "draw content (webview core)",
     "record content (webview core)",
-    "native 4 (webview core)"
+    "native 4 (webview core)",
+    "draw content (webview ui)",
 };
 
 void TimeCounter::record(enum Type type, const char* functionName)
@@ -92,8 +93,6 @@ void TimeCounter::report(const KURL& url, int live, int dead)
     int threadTime = get_thread_msec() - sStartThreadTime;
     LOGD("*-* Total load time: %d ms, thread time: %d ms for %s\n",
         totalTime, threadTime, urlString.utf8().data());
-// FIXME: JSGlobalObject no longer records time
-//    JSC::JSGlobalObject::reportTimeCounter();
     for (Type type = (Type) 0; type < TotalTimeCounterCount; type 
             = (Type) (type + 1)) {
         char scratch[256];
@@ -115,8 +114,6 @@ void TimeCounter::reportNow()
     LOGD("*-* Elapsed time: %d ms, ui thread time: %d ms, webcore thread time:"
         " %d ms\n", elapsedTime, elapsedThreadTime, sEndWebCoreThreadTime -
         sStartWebCoreThreadTime);
-// FIXME: JSGlobalObject no longer records time
-//    JSC::JSGlobalObject::reportTimeCounter();
     for (Type type = (Type) 0; type < TotalTimeCounterCount; type 
             = (Type) (type + 1)) {
         if (sTotalTimeUsed[type] == sLastTimeUsed[type])
@@ -137,8 +134,6 @@ void TimeCounter::reportNow()
 }
 
 void TimeCounter::reset() {
-// FIXME: JSGlobalObject no longer records time
-//    JSC::JSGlobalObject::resetTimeCounter();
     bzero(sTotalTimeUsed, sizeof(sTotalTimeUsed));
     bzero(sCounter, sizeof(sCounter));
     LOGD("*-* Start browser instrument\n");

@@ -1093,6 +1093,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         IntRect bounds;
         IntRect absBounds;
         WTF::Vector<IntRect>* columns = NULL;
+        int minimumFocusableWidth = MINIMUM_FOCUSABLE_WIDTH;
+        int minimumFocusableHeight = MINIMUM_FOCUSABLE_HEIGHT;
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
@@ -1224,6 +1226,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         style->textAlign() == WebCore::RIGHT ||
                         style->textAlign() == WebCore::WEBKIT_RIGHT;
             }
+            minimumFocusableWidth += 4;
+            minimumFocusableHeight += 4;
         }
         takesFocus = true;
         if (isAnchor) {
@@ -1255,9 +1259,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 bounds.setLocation(IntPoint(x, y));
                 bounds.setSize(IntSize(width, height));
             }
-            if (bounds.width() < MINIMUM_FOCUSABLE_WIDTH)
+            if (bounds.width() < minimumFocusableWidth)
                 continue;
-            if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
+            if (bounds.height() < minimumFocusableHeight)
                 continue;
             bounds.move(globalOffsetX, globalOffsetY);
         }
