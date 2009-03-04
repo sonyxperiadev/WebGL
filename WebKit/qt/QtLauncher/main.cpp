@@ -1,0 +1,353 @@
+/*
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2006 George Staikos <staikos@kde.org>
+ * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
+ * Copyright (C) 2006 Zack Rusin <zack@kde.org>
+ * Copyright (C) 2006 Simon Hausmann <hausmann@kde.org>
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <qwebpage.h>
+#include <qwebview.h>
+#include <qwebframe.h>
+#include <qwebsettings.h>
+
+#include <QtGui>
+#include <QDebug>
+#if QT_VERSION >= 0x040400 && !defined(QT_NO_PRINTER)
+#include <QPrintPreviewDialog>
+#endif
+
+#include <QtUiTools/QUiLoader>
+
+class WebPage : public QWebPage
+{
+public:
+    WebPage(QWidget *parent) : QWebPage(parent) {}
+
+    virtual QWebPage *createWindow(QWebPage::WebWindowType);
+    virtual QObject* createPlugin(const QString&, const QUrl&, const QStringList&, const QStringList&);
+};
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+public:
+    MainWindow(const QString& url = QString()): currentZoom(100) {
+        view = new QWebView(this);
+        setCentralWidget(view);
+
+        view->setPage(new WebPage(view));
+
+        connect(view, SIGNAL(loadFinished(bool)),
+                this, SLOT(loadFinished()));
+        connect(view, SIGNAL(titleChanged(const QString&)),
+                this, SLOT(setWindowTitle(const QString&)));
+        connect(view->page(), SIGNAL(linkHovered(const QString&, const QString&, const QString &)),
+                this, SLOT(showLinkHover(const QString&, const QString&)));
+        connect(view->page(), SIGNAL(windowCloseRequested()), this, SLOT(deleteLater()));
+
+        setupUI();
+
+        QUrl qurl = guessUrlFromString(url);
+        if (qurl.isValid()) {
+            urlEdit->setText(qurl.toString());
+            view->load(qurl);
+
+            // the zoom values are chosen to be like in Mozilla Firefox 3
+            zoomLevels << 30 << 50 << 67 << 80 << 90;
+            zoomLevels << 100;
+            zoomLevels << 110 << 120 << 133 << 150 << 170 << 200 << 240 << 300;
+        }
+    }
+
+    QWebPage *webPage() const {
+        return view->page();
+    }
+
+protected slots:
+
+    void changeLocation() {
+        QUrl url = guessUrlFromString(urlEdit->text());
+        urlEdit->setText(url.toString());
+        view->load(url);
+        view->setFocus(Qt::OtherFocusReason);
+    }
+
+    void loadFinished() {
+        urlEdit->setText(view->url().toString());
+
+        QUrl::FormattingOptions opts;
+        opts |= QUrl::RemoveScheme;
+        opts |= QUrl::RemoveUserInfo;
+        opts |= QUrl::StripTrailingSlash;
+        QString s = view->url().toString(opts);
+        s = s.mid(2);
+        if (s.isEmpty())
+            return;
+
+        if (!urlList.contains(s))
+            urlList += s;
+        urlModel.setStringList(urlList);
+    }
+
+    void showLinkHover(const QString &link, const QString &toolTip) {
+        statusBar()->showMessage(link);
+#ifndef QT_NO_TOOLTIP
+        if (!toolTip.isEmpty())
+            QToolTip::showText(QCursor::pos(), toolTip);
+#endif
+    }
+
+    void newWindow() {
+        MainWindow *mw = new MainWindow;
+        mw->show();
+    }
+
+    void zoomIn() {
+        int i = zoomLevels.indexOf(currentZoom);
+        Q_ASSERT(i >= 0);
+        if (i < zoomLevels.count() - 1)
+            currentZoom = zoomLevels[i + 1];
+
+        view->setZoomFactor(qreal(currentZoom)/100.0);
+    }
+
+    void zoomOut() {
+        int i = zoomLevels.indexOf(currentZoom);
+        Q_ASSERT(i >= 0);
+        if (i > 0)
+            currentZoom = zoomLevels[i - 1];
+
+        view->setZoomFactor(qreal(currentZoom)/100.0);
+    }
+
+    void resetZoom()
+    {
+       currentZoom = 100;
+       view->setZoomFactor(1.0);
+    }
+
+    void toggleZoomTextOnly(bool b)
+    {
+        view->page()->settings()->setAttribute(QWebSettings::ZoomTextOnly, b);
+    }
+
+    void print() {
+#if QT_VERSION >= 0x040400 && !defined(QT_NO_PRINTER)
+        QPrintPreviewDialog dlg(this);
+        connect(&dlg, SIGNAL(paintRequested(QPrinter *)),
+                view, SLOT(print(QPrinter *)));
+        dlg.exec();
+#endif
+    }
+
+    void setEditable(bool on) {
+        view->page()->setEditable(on);
+        formatMenuAction->setVisible(on);
+    }
+
+    void dumpHtml() {
+        qDebug() << "HTML: " << view->page()->mainFrame()->toHtml();
+    }
+private:
+
+    QVector<int> zoomLevels;
+    int currentZoom;
+
+    // create the status bar, tool bar & menu
+    void setupUI() {
+        progress = new QProgressBar(this);
+        progress->setRange(0, 100);
+        progress->setMinimumSize(100, 20);
+        progress->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+        progress->hide();
+        statusBar()->addPermanentWidget(progress);
+
+        connect(view, SIGNAL(loadProgress(int)), progress, SLOT(show()));
+        connect(view, SIGNAL(loadProgress(int)), progress, SLOT(setValue(int)));
+        connect(view, SIGNAL(loadFinished(bool)), progress, SLOT(hide()));
+
+        urlEdit = new QLineEdit(this);
+        urlEdit->setSizePolicy(QSizePolicy::Expanding, urlEdit->sizePolicy().verticalPolicy());
+        connect(urlEdit, SIGNAL(returnPressed()),
+                SLOT(changeLocation()));
+        QCompleter *completer = new QCompleter(this);
+        urlEdit->setCompleter(completer);
+        completer->setModel(&urlModel);
+
+        QToolBar *bar = addToolBar("Navigation");
+        bar->addAction(view->pageAction(QWebPage::Back));
+        bar->addAction(view->pageAction(QWebPage::Forward));
+        bar->addAction(view->pageAction(QWebPage::Reload));
+        bar->addAction(view->pageAction(QWebPage::Stop));
+        bar->addWidget(urlEdit);
+
+        QMenu *fileMenu = menuBar()->addMenu("&File");
+        QAction *newWindow = fileMenu->addAction("New Window", this, SLOT(newWindow()));
+#if QT_VERSION >= 0x040400
+        fileMenu->addAction(tr("Print"), this, SLOT(print()));
+#endif
+        fileMenu->addAction("Close", this, SLOT(close()));
+
+        QMenu *editMenu = menuBar()->addMenu("&Edit");
+        editMenu->addAction(view->pageAction(QWebPage::Undo));
+        editMenu->addAction(view->pageAction(QWebPage::Redo));
+        editMenu->addSeparator();
+        editMenu->addAction(view->pageAction(QWebPage::Cut));
+        editMenu->addAction(view->pageAction(QWebPage::Copy));
+        editMenu->addAction(view->pageAction(QWebPage::Paste));
+        editMenu->addSeparator();
+        QAction *setEditable = editMenu->addAction("Set Editable", this, SLOT(setEditable(bool)));
+        setEditable->setCheckable(true);
+
+        QMenu *viewMenu = menuBar()->addMenu("&View");
+        viewMenu->addAction(view->pageAction(QWebPage::Stop));
+        viewMenu->addAction(view->pageAction(QWebPage::Reload));
+        viewMenu->addSeparator();
+        QAction *zoomIn = viewMenu->addAction("Zoom &In", this, SLOT(zoomIn()));
+        QAction *zoomOut = viewMenu->addAction("Zoom &Out", this, SLOT(zoomOut()));
+        QAction *resetZoom = viewMenu->addAction("Reset Zoom", this, SLOT(resetZoom()));
+        QAction *zoomTextOnly = viewMenu->addAction("Zoom Text Only", this, SLOT(toggleZoomTextOnly(bool)));
+        zoomTextOnly->setCheckable(true);
+        zoomTextOnly->setChecked(false);
+        viewMenu->addSeparator();
+        viewMenu->addAction("Dump HTML", this, SLOT(dumpHtml()));
+
+        QMenu *formatMenu = new QMenu("F&ormat");
+        formatMenuAction = menuBar()->addMenu(formatMenu);
+        formatMenuAction->setVisible(false);
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleBold));
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleItalic));
+        formatMenu->addAction(view->pageAction(QWebPage::ToggleUnderline));
+        QMenu *writingMenu = formatMenu->addMenu(tr("Writing Direction"));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionDefault));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionLeftToRight));
+        writingMenu->addAction(view->pageAction(QWebPage::SetTextDirectionRightToLeft));
+
+        newWindow->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_N));
+        view->pageAction(QWebPage::Back)->setShortcut(QKeySequence::Back);
+        view->pageAction(QWebPage::Stop)->setShortcut(Qt::Key_Escape);
+        view->pageAction(QWebPage::Forward)->setShortcut(QKeySequence::Forward);
+        view->pageAction(QWebPage::Reload)->setShortcut(QKeySequence::Refresh);
+        view->pageAction(QWebPage::Undo)->setShortcut(QKeySequence::Undo);
+        view->pageAction(QWebPage::Redo)->setShortcut(QKeySequence::Redo);
+        view->pageAction(QWebPage::Cut)->setShortcut(QKeySequence::Cut);
+        view->pageAction(QWebPage::Copy)->setShortcut(QKeySequence::Copy);
+        view->pageAction(QWebPage::Paste)->setShortcut(QKeySequence::Paste);
+        zoomIn->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Plus));
+        zoomOut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
+        resetZoom->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+        view->pageAction(QWebPage::ToggleBold)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_B));
+        view->pageAction(QWebPage::ToggleItalic)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_I));
+        view->pageAction(QWebPage::ToggleUnderline)->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_U));
+    }
+
+    QUrl guessUrlFromString(const QString &string) {
+        QString urlStr = string.trimmed();
+        QRegExp test(QLatin1String("^[a-zA-Z]+\\:.*"));
+
+        // Check if it looks like a qualified URL. Try parsing it and see.
+        bool hasSchema = test.exactMatch(urlStr);
+        if (hasSchema) {
+            QUrl url(urlStr, QUrl::TolerantMode);
+            if (url.isValid())
+                return url;
+        }
+
+        // Might be a file.
+        if (QFile::exists(urlStr))
+            return QUrl::fromLocalFile(urlStr);
+
+        // Might be a shorturl - try to detect the schema.
+        if (!hasSchema) {
+            int dotIndex = urlStr.indexOf(QLatin1Char('.'));
+            if (dotIndex != -1) {
+                QString prefix = urlStr.left(dotIndex).toLower();
+                QString schema = (prefix == QLatin1String("ftp")) ? prefix : QLatin1String("http");
+                QUrl url(schema + QLatin1String("://") + urlStr, QUrl::TolerantMode);
+                if (url.isValid())
+                    return url;
+            }
+        }
+
+        // Fall back to QUrl's own tolerant parser.
+        return QUrl(string, QUrl::TolerantMode);
+    }
+
+    QWebView *view;
+    QLineEdit *urlEdit;
+    QProgressBar *progress;
+
+    QAction *formatMenuAction;
+
+    QStringList urlList;
+    QStringListModel urlModel;
+};
+
+QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
+{
+    MainWindow *mw = new MainWindow;
+    return mw->webPage();
+}
+
+QObject *WebPage::createPlugin(const QString &classId, const QUrl &url, const QStringList &paramNames, const QStringList &paramValues)
+{
+    Q_UNUSED(url);
+    Q_UNUSED(paramNames);
+    Q_UNUSED(paramValues);
+    QUiLoader loader;
+    return loader.createWidget(classId, view());
+}
+
+#include "main.moc"
+
+int main(int argc, char **argv)
+{
+    QApplication app(argc, argv);
+    QString url = QString("%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
+
+    QWebSettings::setMaximumPagesInCache(4);
+
+    app.setApplicationName("QtLauncher");
+#if QT_VERSION >= 0x040400
+    app.setApplicationVersion("0.1");
+#endif
+
+    QWebSettings::setObjectCacheCapacities((16*1024*1024) / 8, (16*1024*1024) / 8, 16*1024*1024);
+
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
+
+    const QStringList args = app.arguments();
+    if (args.count() > 1)
+        url = args.at(1);
+
+    MainWindow window(url);
+    window.show();
+
+    return app.exec();
+}
+

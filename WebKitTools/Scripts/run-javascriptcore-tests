@@ -1,0 +1,189 @@
+#!/usr/bin/perl -w
+
+# Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+# Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer. 
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution. 
+# 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+#     its contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Script to run the Web Kit Open Source Project JavaScriptCore tests (adapted from Mozilla).
+
+use strict;
+use FindBin;
+use Getopt::Long qw(:config pass_through);
+use lib $FindBin::Bin;
+use webkitdirs;
+use POSIX;
+
+my $coverageSupport = 0;
+GetOptions('coverage!' => \$coverageSupport);
+
+my @coverageSupportOption = ();
+if ($coverageSupport) {
+    push @coverageSupportOption, "GCC_GENERATE_TEST_COVERAGE_FILES=YES";
+    push @coverageSupportOption, "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=YES";
+    push @coverageSupportOption, "EXTRA_LINK= -ftest-coverage -fprofile-arcs";
+    push @coverageSupportOption, "OTHER_CFLAGS= -MD";
+    push @coverageSupportOption, "OTHER_LDFLAGS= -ftest-coverage -fprofile-arcs -framework AppKit";
+}
+
+# determine configuration
+my $configuration;
+setConfiguration();
+$configuration = configuration();
+
+my @jsArgs;
+my @xcodeArgs;
+my $root;
+my $run64Bit;
+
+# pre-evaluate arguments.  jsDriver args have - preceding, xcode args do not.
+# special arguments
+#     --root=<path to webkit root> use pre-built root
+#     --gtk build gtk 
+#     --no-64-bit or --64-bit
+foreach my $arg(@ARGV) {
+    print $arg."\n";
+    if( $arg =~ /root=(.*)/ ){
+        $root = $1;
+    } elsif( $arg =~ /^--gtk$/i || $arg =~ /^--qt$/i || $arg =~ /^--wx$/i ){
+    } elsif( $arg =~ /(no-)?64-bit/ ) {
+        $run64Bit = !defined($1);
+    } elsif( $arg =~ /^-/ or !($arg =~/=/)){
+        push( @jsArgs, $arg );
+    } else {
+        push( @xcodeArgs, $arg );
+    }
+}
+
+setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
+
+if (isOSX() && !isTiger()) {
+    my $preferredArch = preferredArchitecture("JavaScriptCore");
+    setRun64Bit($run64Bit);
+    my $arch = preferredArchitecture("JavaScriptCore");
+    if ($arch ne $preferredArch) {
+        push(@jsArgs, "-a", $arch);
+    }
+}
+
+if(!defined($root)){
+    chdirWebKit();
+    push(@xcodeArgs, "--" . $configuration);
+    
+    # FIXME: These should be stored per-config and ignored here
+    push(@xcodeArgs, "--qt")  if isQt();
+    push(@xcodeArgs, "--gtk")  if isGtk();
+    push(@xcodeArgs, "--wx")  if isWx();
+
+    my $arch = preferredArchitecture("JavaScriptCore");
+    push(@xcodeArgs, "ARCHS=$arch") if (isOSX());
+    
+    my $buildResult = system "perl", "WebKitTools/Scripts/build-jsc", @xcodeArgs;
+    if ($buildResult) {
+        print STDERR "Compiling jsc failed!\n";
+        exit exitStatus($buildResult);
+    }
+}
+
+# Find JavaScriptCore directory
+chdirWebKit();
+chdir("JavaScriptCore");
+
+my $productDir = productDir();
+chdir "tests/mozilla" or die;
+$productDir .= "/JavaScriptCore" if isQt();
+$productDir .= "/Programs" if isGtk();
+$ENV{DYLD_FRAMEWORK_PATH} = $productDir;
+setPathForRunningWebKitApp(\%ENV) if isCygwin();
+
+sub jscPath($)
+{
+    my ($productDir) = @_;
+    my $jscName = "jsc";
+    $jscName .= "_debug"  if (isCygwin() && ($configuration eq "Debug"));
+    return "$productDir/$jscName";
+}
+
+my $result = system "perl", "jsDriver.pl", "-e", "squirrelfish", "-s", jscPath($productDir), "-f", "actual.html", @jsArgs;
+exit exitStatus($result)  if $result;
+
+my %failures;
+
+open EXPECTED, "expected.html" or die;
+while (<EXPECTED>) {
+    last if /failures reported\.$/;
+}
+while (<EXPECTED>) {
+    chomp;
+    $failures{$_} = 1;
+}
+close EXPECTED;
+
+my %newFailures;
+
+open ACTUAL, "actual.html" or die;
+while (<ACTUAL>) {
+    last if /failures reported\.$/;
+}
+while (<ACTUAL>) {
+    chomp;
+    if ($failures{$_}) {
+        delete $failures{$_};
+    } else {
+        $newFailures{$_} = 1;
+    }
+}
+close ACTUAL;
+
+my $numNewFailures = keys %newFailures;
+if ($numNewFailures) {
+    print "\n** Danger, Will Robinson! Danger! The following failures have been introduced:\n";
+    foreach my $failure (sort keys %newFailures) {
+        print "\t$failure\n";
+    }
+}
+
+my $numOldFailures = keys %failures;
+if ($numOldFailures) {
+    print "\nYou fixed the following test";
+    print "s" if $numOldFailures != 1;
+    print ":\n";
+    foreach my $failure (sort keys %failures) {
+        print "\t$failure\n";
+    }
+}
+
+print "\n";
+
+print "$numNewFailures regression";
+print "s" if $numNewFailures != 1;
+print " found.\n";
+
+print "$numOldFailures test";
+print "s" if $numOldFailures != 1;
+print " fixed.\n";
+
+print "OK.\n" if $numNewFailures == 0;
+exit(1)  if $numNewFailures;

@@ -1,0 +1,76 @@
+noinst_PROGRAMS += \
+	Programs/GtkLauncher \
+	Programs/DumpRenderTree
+
+# GtkLauncher
+Programs_GtkLauncher_CPPFLAGS = \
+	-I$(srcdir)/WebKit/gtk \
+	-I$(top_builddir)/WebKit/gtk \
+	$(global_cppflags) \
+	$(javascriptcore_cppflags)
+
+Programs_GtkLauncher_SOURCES = \
+	WebKitTools/GtkLauncher/main.c
+
+Programs_GtkLauncher_CFLAGS = \
+	-fno-strict-aliasing \
+	-O2 \
+	$(global_cflags) \
+	$(GTK_CFLAGS)
+
+Programs_GtkLauncher_LDADD = \
+	libwebkit-1.0.la \
+	$(GTK_LIBS)
+
+# DumpRenderTree
+Programs_DumpRenderTree_CPPFLAGS = \
+	-I$(srcdir)/WebKitTools/DumpRenderTree \
+	-I$(srcdir)/WebKitTools/DumpRenderTree/gtk \
+	-I$(srcdir)/WebKit/gtk \
+	-I$(top_builddir)/WebKit/gtk \
+	$(global_cppflags) \
+	$(javascriptcore_cppflags)
+
+Programs_DumpRenderTree_SOURCES = \
+	WebKitTools/DumpRenderTree/AccessibilityController.h \
+	WebKitTools/DumpRenderTree/AccessibilityUIElement.h \
+	WebKitTools/DumpRenderTree/DumpRenderTree.h \
+	WebKitTools/DumpRenderTree/DumpRenderTreePrefix.h \
+	WebKitTools/DumpRenderTree/GCController.cpp \
+	WebKitTools/DumpRenderTree/GCController.h \
+	WebKitTools/DumpRenderTree/JavaScriptThreading.h \
+	WebKitTools/DumpRenderTree/LayoutTestController.cpp \
+	WebKitTools/DumpRenderTree/LayoutTestController.h \
+	WebKitTools/DumpRenderTree/PixelDumpSupport.h \
+	WebKitTools/DumpRenderTree/WorkQueue.cpp \
+	WebKitTools/DumpRenderTree/WorkQueue.h \
+	WebKitTools/DumpRenderTree/WorkQueueItem.h \
+	WebKitTools/DumpRenderTree/config.h \
+	WebKitTools/DumpRenderTree/gtk/DumpRenderTree.cpp \
+	WebKitTools/DumpRenderTree/gtk/DumpRenderTreeGtk.h \
+	WebKitTools/DumpRenderTree/gtk/GCControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/LayoutTestControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp
+
+Programs_DumpRenderTree_CXXFLAGS = \
+	$(global_cxxflags) \
+	$(Programs_DumpRenderTree_CFLAGS)
+
+Programs_DumpRenderTree_CFLAGS = \
+	-fno-strict-aliasing \
+	-O2 \
+	$(global_cflags) \
+	$(GLOBALDEPS_CFLAGS) \
+	$(CAIRO_CFLAGS) \
+	$(GTK_CFLAGS)
+
+Programs_DumpRenderTree_LDADD = \
+	libwebkit-1.0.la \
+	$(GLOBALDEPS_LIBS) \
+	$(CAIRO_LIBS) \
+	$(GTK_LIBS)
+
+# clean target
+CLEANFILES += \
+	Programs/GtkLauncher \
+	Programs/DumpRenderTree

@@ -1,0 +1,350 @@
+#!/usr/bin/perl -w
+
+# Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer. 
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution. 
+# 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+#     its contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Simplified build script for WebKit Open Source Project.
+
+use strict;
+use File::Basename;
+use File::Spec;
+use FindBin;
+use Getopt::Long qw(:config pass_through);
+use lib $FindBin::Bin;
+use webkitdirs;
+use POSIX;
+
+my $originalWorkingDirectory = getcwd();
+
+my $databaseSupport = 1;
+my $domStorageSupport = 1;
+my $iconDatabaseSupport = 1;
+my $offlineWebApplicationSupport = 1;
+my $svgSupport = 1;
+my $svgExperimentalSupport = 0;
+my $svgAnimationSupport = 1;
+my $svgFiltersSupport = $svgExperimentalSupport;
+my $svgForeignObjectSupport = 1;
+my $svgUseSupport = 1;
+my $svgFontsSupport = 1;
+my $svgAsImageSupport = 1;
+my $xpathSupport = 1;
+my $xsltSupport = 1;
+my $coverageSupport = 0;
+my $videoSupport = (isOSX() || isCygwin()); # Enable by default on OSX and Windows
+my $showHelp = 0;
+my $clean = 0;
+my $buildUniversal = 0;
+my $buildSixtyFourBit = 0;
+
+my $programName = basename($0);
+my $usage = <<EOF;
+Usage: $programName [options] [options to pass to build system]
+  --help                        Show this help message
+  --cairo-win32                 Build using Cairo (rather than CoreGraphics) on Windows
+  --clean                       Cleanup the build directory
+  --universal                   Build 2-way universal (PPC and Intel 32-bit)
+  --64-bit                      Build 64-bit, combine with --universal to build 4-way universal
+  --[no-]offline-web-applications   Toggle Offline Web Application Support (default : $offlineWebApplicationSupport)
+  --[no-]database               Toggle Database Support (default: $databaseSupport)
+  --[no-]dom-storage            Toggle DOM Storage Support (default: $domStorageSupport)
+  --[no-]icon-database          Toggle Icon database support (default: $iconDatabaseSupport)
+  --[no-]svg                    Toggle SVG support (default: $svgSupport)
+  --[no-]svg-experimental       Toggle SVG experimental features support (default: $svgExperimentalSupport, 
+                                implies SVG Support)
+  --[no-]svg-animation          Toggle SVG animation support (default: $svgAnimationSupport, implies SVG Support)
+  --[no-]svg-filters            Toggle SVG filters support (default: $svgFiltersSupport, implies SVG Support)
+  --[no-]svg-foreign-object     Toggle SVG foreign object support (default: $svgForeignObjectSupport, implies SVG Support)
+  --[no-]svg-fonts              Toggle SVG fonts support (default: $svgFontsSupport, implies SVG Support)
+  --[no-]svg-as-image           Toggle SVG as Image support (default: $svgAsImageSupport, implies SVG Support)
+  --[no-]svg-use                Toggle SVG use element support (default: $svgUseSupport, implies SVG Support)
+  --[no-]xpath                  Toggle XPath support (default: $xpathSupport)
+  --[no-]xslt                   Toggle XSLT support (default: $xsltSupport)
+  --[no-]video                  Toggle Video support (default: $videoSupport)
+  --[no-]coverage               Toggle code coverage support (default: $coverageSupport)
+EOF
+
+GetOptions('database!' => \$databaseSupport,
+           'dom-storage!' => \$domStorageSupport,
+           'icon-database!' => \$iconDatabaseSupport,
+           'offline-web-applications!' => \$offlineWebApplicationSupport,
+           'svg!' => \$svgSupport,
+           'svg-experimental!' => \$svgExperimentalSupport,
+           'svg-animation!' => \$svgAnimationSupport,
+           'svg-filters!' => \$svgFiltersSupport,
+           'svg-foreign-object!' => \$svgForeignObjectSupport,
+           'svg-fonts!' => \$svgFontsSupport,
+           'svg-as-image!' => \$svgAsImageSupport,
+           'svg-use!' => \$svgUseSupport,
+           'xpath!' => \$xpathSupport,
+           'xslt!' => \$xsltSupport,
+           'video!' => \$videoSupport,
+           'coverage!' => \$coverageSupport,
+           'help' => \$showHelp,
+           'universal' => \$buildUniversal,
+           '64-bit' => \$buildSixtyFourBit,
+           'clean' => \$clean);
+
+if ($showHelp) {
+   print STDERR $usage;
+   exit 1;
+}
+
+$svgExperimentalSupport = 0 unless $svgSupport;
+$svgAnimationSupport = 0 unless $svgSupport;
+$svgFiltersSupport = 0 unless $svgSupport;
+$svgForeignObjectSupport = 0 unless $svgSupport;
+$svgFontsSupport = 0 unless $svgSupport;
+$svgAsImageSupport = 0 unless $svgSupport;
+$svgUseSupport = 0 unless $svgSupport;
+
+if ($svgExperimentalSupport) {
+    $svgAnimationSupport = 1;
+    $svgFiltersSupport = 1;
+    $svgForeignObjectSupport = 1;
+    $svgFontsSupport = 1;
+    $svgAsImageSupport = 1;
+    $svgUseSupport = 1;
+}
+
+checkRequiredSystemConfig();
+setConfiguration();
+chdirWebKit();
+
+# FIXME: Migrate build-wxwebkit commands into build-webkit.
+if (isWx()) {
+    my @opts = ();
+    $ENV{"WEBKITOUTPUTDIR"} = productDir();
+    foreach (@ARGV) {
+        if ($_ eq "wxgc" || $_ eq "wxpython") {
+            push(@opts, $_);
+        }
+    }
+    if ($clean) {
+        push(@opts, "clean");
+    }
+    system "WebKitTools/wx/build-wxwebkit @opts";
+    exit exitStatus($?);
+}
+
+
+my $productDir = productDir();
+my @overrideFeatureDefinesOption = ();
+
+push @overrideFeatureDefinesOption, "ENABLE_DATABASE" if $databaseSupport;
+push @overrideFeatureDefinesOption, "ENABLE_DOM_STORAGE" if $domStorageSupport;
+push @overrideFeatureDefinesOption, "ENABLE_ICONDATABASE" if $iconDatabaseSupport;
+push @overrideFeatureDefinesOption, "ENABLE_OFFLINE_WEB_APPLICATIONS" if $offlineWebApplicationSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG" if $svgSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_ANIMATION" if $svgAnimationSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_AS_IMAGE" if $svgAsImageSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_FILTERS" if $svgFiltersSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_FONTS" if $svgFontsSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_FOREIGN_OBJECT" if $svgForeignObjectSupport;
+push @overrideFeatureDefinesOption, "ENABLE_SVG_USE" if $svgUseSupport;
+push @overrideFeatureDefinesOption, "ENABLE_VIDEO" if $videoSupport;
+push @overrideFeatureDefinesOption, "ENABLE_XPATH" if $xpathSupport;
+push @overrideFeatureDefinesOption, "ENABLE_XSLT" if $xsltSupport;
+my $overrideFeatureDefinesString = "FEATURE_DEFINES=" . join(" ", @overrideFeatureDefinesOption);
+
+my @coverageSupportOption = ();
+if ($coverageSupport) {
+    push @coverageSupportOption, "GCC_GENERATE_TEST_COVERAGE_FILES=YES";
+    push @coverageSupportOption, "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=YES";
+    push @coverageSupportOption, "EXTRA_LINK= -ftest-coverage -fprofile-arcs";
+    push @coverageSupportOption, "OTHER_CFLAGS= -MD";
+    push @coverageSupportOption, "OTHER_LDFLAGS=\$(OTHER_LDFLAGS) -ftest-coverage -fprofile-arcs -framework AppKit";
+}
+
+# Check that all the project directories are there.
+my @projects = ("JavaScriptCore", "JavaScriptGlue", "WebCore", "WebKit");
+my @otherDirs = ("WebKitLibraries");
+for my $dir (@projects, @otherDirs) {
+    if (! -d $dir) {
+        die "Error: No $dir directory found. Please do a fresh checkout.\n";
+    }
+}
+
+my @options = ();
+
+if ($clean && isOSX()) {
+    push(@options, "-alltargets");
+    push(@options, "clean");
+}
+
+if ($buildSixtyFourBit && isOSX()) {
+    my $cpuVendor = `sysctl -n machdep.cpu.vendor`;
+    chomp $cpuVendor;
+
+    if ($buildUniversal) {
+        push(@options, "ARCHS=ppc ppc64 i386 x86_64");
+    } elsif ($cpuVendor eq "GenuineIntel") {
+        push(@options, "ARCHS=i386 x86_64");
+    } else {
+        push(@options, "ARCHS=ppc ppc64");
+    }
+} elsif ($buildUniversal && isOSX()) {
+    push(@options, "ARCHS=ppc i386");
+}
+
+# enable autotool options accordingly
+if (isGtk()) {
+    push @options, autotoolsFlag($databaseSupport, "database");
+    push @options, autotoolsFlag($domStorageSupport, "dom-storage");
+    push @options, autotoolsFlag($iconDatabaseSupport, "icon-database");
+    push @options, autotoolsFlag($offlineWebApplicationSupport, "offline-web-applications");
+    push @options, autotoolsFlag($svgSupport, "svg");
+    push @options, autotoolsFlag($svgAnimationSupport, "svg-animation");
+    push @options, autotoolsFlag($svgFiltersSupport, "svg-filters");
+    push @options, autotoolsFlag($svgForeignObjectSupport, "svg-foreign-object");
+    push @options, autotoolsFlag($svgFontsSupport, "svg-fonts");
+    push @options, autotoolsFlag($svgAsImageSupport, "svg-as-image");
+    push @options, autotoolsFlag($svgUseSupport, "svg-use-element");
+    push @options, autotoolsFlag($xpathSupport, "xpath");
+    push @options, autotoolsFlag($xsltSupport, "xslt");
+    push @options, autotoolsFlag($videoSupport, "video");
+    push @options, autotoolsFlag($coverageSupport, "coverage");
+}
+
+if (isOSX()) {
+
+    push(@options, XcodeOptions());
+
+    # Copy library and header from WebKitLibraries to a findable place in the product directory.
+    my $srcLib = "WebKitLibraries/libWebKitSystemInterfaceTiger.a";
+    my $lib = "$productDir/libWebKitSystemInterfaceTiger.a";
+    if (!-e $lib || -M $lib > -M $srcLib) {
+        print "Updating $lib\n";
+        system "ditto", $srcLib, $lib;
+        system "ranlib", $lib;
+    }
+
+    $srcLib = "WebKitLibraries/libWebKitSystemInterfaceLeopard.a";
+    $lib = "$productDir/libWebKitSystemInterfaceLeopard.a";
+    if (!-e $lib || -M $lib > -M $srcLib) {
+        print "Updating $lib\n";
+        system "ditto", $srcLib, $lib;
+        system "ranlib", $lib;
+    }
+
+    my $srcHeader = "WebKitLibraries/WebKitSystemInterface.h";
+    my $header = "$productDir/usr/local/include/WebKitSystemInterface.h";
+    if (!-e $header || -M $header > -M $srcHeader) {
+        print "Updating $header\n";
+        system "mkdir", "-p", "$productDir/usr/local/include";
+        system "ditto", $srcHeader, $header;
+    }
+
+    $srcLib = "WebKitLibraries/libWebCoreSQLite3.a";
+    $lib = "$productDir/libWebCoreSQLite3.a";
+    if (!-e $lib || -M $lib > -M $srcLib) {
+        print "Updating $lib\n";
+        system "ditto", $srcLib, $lib;
+        system "ranlib", $lib;
+    }
+
+    my $srcHeaderDir = "WebKitLibraries/WebCoreSQLite3";
+    my $headerDir = "$productDir/WebCoreSQLite3";
+    if (!-e $headerDir || -M $headerDir > -M $srcHeaderDir) {
+        print "Updating $headerDir\n";
+        system "ditto", $srcHeaderDir, $headerDir;
+    }
+}
+
+if (isCygwin()) {
+    # Copy WebKitSupportLibrary to the correct location in WebKitLibraries so it can be found.
+    # Will fail if WebKitSupportLibrary.zip is not in source root.
+    (system("perl WebKitTools/Scripts/update-webkit-support-libs") == 0) or die;
+}
+
+# Force re-link of existing libraries if different than expected
+removeLibraryDependingOnSVG("WebCore", $svgSupport);
+
+# Build, and abort if the build fails.
+for my $dir (@projects) {
+    chdir $dir or die;
+    my $result = 0;
+
+    if (isGtk()) {
+        if ($dir ne "WebKit") {
+            chdir ".." or die;
+            next;
+        }
+
+        $result = buildGtkProject($dir, $clean,  @options);
+    } elsif (isQt()) {
+        if ($dir ne "WebKit") {
+            chdir ".." or die;
+            next;
+        }
+        $result = buildQMakeQtProject($dir, $clean);
+    } elsif (isOSX()) {
+        $result = system "xcodebuild", "-project", "$dir.xcodeproj", @options, $overrideFeatureDefinesString, @coverageSupportOption, @ARGV;
+    } elsif (isCygwin()) {
+        if ($dir eq "WebKit") {
+            $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
+        }
+    }
+
+    if (exitStatus($result)) {
+        if (isCygwin()) {
+            print "\n\n===== BUILD FAILED ======\n\n";
+            my $scriptDir = relativeScriptsDir();
+            print "Please ensure you have run $scriptDir/update-webkit to install depenedencies.\n\n";
+            my $baseProductDir = baseProductDir();
+            print "You can view build errors by checking the BuildLog.htm files located at:\n$baseProductDir/obj/<project>/<config>.\n";
+        }
+        exit exitStatus($result);
+    }
+    chdir ".." or die;
+}
+
+# Don't report the "WebKit is now built" message after a clean operation.
+exit if $clean;
+
+# Write out congratulations message.
+
+my $launcherPath = launcherPath();
+my $launcherName = launcherName();
+
+print "\n";
+print "===========================================================\n";
+print " WebKit is now built. To run $launcherName with this newly-built\n";
+print " code, use the \"$launcherPath\" script.\n";
+if ($svgSupport) {
+    print "\n NOTE: WebKit has been built with SVG support enabled.\n";
+    print " $launcherName will have SVG viewing capabilities.\n";
+}
+if ($svgAnimationSupport or $svgFiltersSupport or $svgForeignObjectSupport or $svgFontsSupport or $svgAsImageSupport or $svgUseSupport) {
+    print " Your build supports the following (optional) SVG features: \n";
+    print "  * Basic SVG animation.\n" if $svgAnimationSupport;
+    print "  * SVG filters.\n" if $svgFiltersSupport;
+    print "  * SVG foreign object.\n" if $svgForeignObjectSupport;
+    print "  * SVG fonts.\n" if $svgFontsSupport;
+    print "  * SVG as image.\n" if $svgAsImageSupport;
+    print "  * SVG <use> support.\n" if $svgUseSupport;
+}
+print "===========================================================\n";
