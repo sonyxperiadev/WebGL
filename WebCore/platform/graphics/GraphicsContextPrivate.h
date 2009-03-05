@@ -26,7 +26,7 @@
 #ifndef GraphicsContextPrivate_h
 #define GraphicsContextPrivate_h
 
-#include "Font.h"
+#include "TransformationMatrix.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
 #include "Pattern.h"
@@ -58,18 +58,21 @@ namespace WebCore {
             , fillRule(RULE_NONZERO)
             , fillColorSpace(SolidColorSpace)
             , fillColor(Color::black)
+            , shouldAntialias(true)
             , paintingDisabled(false)
             , shadowBlur(0)
+            , shadowsIgnoreTransforms(false)
         {
         }
 
-        Font font;
         int textDrawingMode;
         
         StrokeStyle strokeStyle;
         float strokeThickness;
 #if PLATFORM(CAIRO)
         float globalAlpha;
+#elif PLATFORM(QT)
+        TransformationMatrix pathTransform;
 #endif
         ColorSpace strokeColorSpace;
         Color strokeColor;
@@ -83,11 +86,15 @@ namespace WebCore {
         RefPtr<Gradient> fillGradient;
         RefPtr<Pattern> fillPattern;
 
+        bool shouldAntialias;
+
         bool paintingDisabled;
         
         IntSize shadowSize;
         unsigned shadowBlur;
         Color shadowColor;
+
+        bool shadowsIgnoreTransforms;
     };
 
     class GraphicsContextPrivate {

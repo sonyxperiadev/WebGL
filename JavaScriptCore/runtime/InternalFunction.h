@@ -25,7 +25,7 @@
 #define InternalFunction_h
 
 #include "JSObject.h"
-#include "identifier.h"
+#include "Identifier.h"
 
 namespace JSC {
 
@@ -38,22 +38,22 @@ namespace JSC {
 
         const UString& name(JSGlobalData*);
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* proto) 
+        static PassRefPtr<Structure> createStructure(JSValuePtr proto) 
         { 
-            return StructureID::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | HasStandardGetOwnPropertySlot)); 
+            return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | HasStandardGetOwnPropertySlot)); 
         }
 
     protected:
-        InternalFunction(PassRefPtr<StructureID> structure) : JSObject(structure) { }
-        InternalFunction(JSGlobalData*, PassRefPtr<StructureID>, const Identifier&);
+        InternalFunction(PassRefPtr<Structure> structure) : JSObject(structure) { }
+        InternalFunction(JSGlobalData*, PassRefPtr<Structure>, const Identifier&);
 
     private:
         virtual CallType getCallData(CallData&) = 0;
     };
 
-    InternalFunction* asInternalFunction(JSValue*);
+    InternalFunction* asInternalFunction(JSValuePtr);
 
-    inline InternalFunction* asInternalFunction(JSValue* value)
+    inline InternalFunction* asInternalFunction(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&InternalFunction::info));
         return static_cast<InternalFunction*>(asObject(value));

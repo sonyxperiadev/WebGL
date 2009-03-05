@@ -46,6 +46,7 @@ void EditorClientAndroid::pageDestroyed() {
 bool EditorClientAndroid::shouldDeleteRange(Range*) { return true; }
 bool EditorClientAndroid::shouldShowDeleteInterface(HTMLElement*) { notImplemented(); return false; }
 bool EditorClientAndroid::smartInsertDeleteEnabled() { notImplemented(); return false; } 
+bool EditorClientAndroid::isSelectTrailingWhitespaceEnabled(){ notImplemented(); return false; }
 bool EditorClientAndroid::isContinuousSpellCheckingEnabled() { notImplemented(); return false; }
 void EditorClientAndroid::toggleContinuousSpellChecking() { notImplemented(); }
 bool EditorClientAndroid::isGrammarCheckingEnabled() { notImplemented(); return false; }

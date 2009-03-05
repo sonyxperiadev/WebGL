@@ -25,6 +25,7 @@
 #if ENABLE(SVG)
 #include "SVGElement.h"
 
+#include "CSSCursorImageValue.h"
 #include "DOMImplementation.h"
 #include "Document.h"
 #include "Event.h"
@@ -33,7 +34,9 @@
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "PlatformString.h"
+#include "RegisteredEventListener.h"
 #include "RenderObject.h"
+#include "SVGCursorElement.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementInstance.h"
 #include "SVGNames.h"
@@ -42,7 +45,6 @@
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
 #include "XMLNames.h"
-#include "RegisteredEventListener.h"
 
 namespace WebCore {
 
@@ -51,11 +53,17 @@ using namespace HTMLNames;
 SVGElement::SVGElement(const QualifiedName& tagName, Document* doc)
     : StyledElement(tagName, doc)
     , m_shadowParent(0)
+    , m_cursorElement(0)
+    , m_cursorImageValue(0)
 {
 }
 
 SVGElement::~SVGElement()
 {
+    if (m_cursorElement)
+        m_cursorElement->removeClient(this);
+    if (m_cursorImageValue)
+        m_cursorImageValue->removeReferencedElement(this);
 }
 
 bool SVGElement::isSupported(StringImpl* feature, StringImpl* version) const
@@ -180,13 +188,12 @@ static bool hasLoadListener(SVGElement* node)
 {
     Node* currentNode = node;
     while (currentNode && currentNode->isElementNode()) {
-        RegisteredEventListenerList *list = static_cast<Element*>(currentNode)->localEventListeners();
-        if (list) {
-            RegisteredEventListenerList::Iterator end = list->end();
-            for (RegisteredEventListenerList::Iterator it = list->begin(); it != end; ++it)
-                if ((*it)->eventType() == eventNames().loadEvent &&
-                    (*it)->useCapture() == true || currentNode == node)
-                    return true;
+        const RegisteredEventListenerVector& listeners = static_cast<Element*>(currentNode)->eventListeners();
+        size_t size = listeners.size();
+        for (size_t i = 0; i < size; ++i) {
+            const RegisteredEventListener& r = *listeners[i];
+            if (r.eventType() == eventNames().loadEvent && r.useCapture() || currentNode == node)
+                return true;
         }
         currentNode = currentNode->parentNode();
     }
@@ -204,8 +211,7 @@ void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
         if (hasLoadListener(currentTarget.get())) {
             RefPtr<Event> event = Event::create(eventNames().loadEvent, false, false);
             event->setTarget(currentTarget);
-            ExceptionCode ignored = 0;
-            currentTarget->dispatchGenericEvent(event.release(), ignored);
+            currentTarget->dispatchGenericEvent(event.release());
         }
         currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : 0;
     }
@@ -279,6 +285,11 @@ void SVGElement::updateAnimatedSVGAttribute(const String& name) const
 void SVGElement::setSynchronizedSVGAttributes(bool value) const
 {
     m_areSVGAttributesValid = value;
+}
+
+ContainerNode* SVGElement::eventParentNode()
+{
+    return m_shadowParent ? m_shadowParent : StyledElement::eventParentNode();
 }
 
 }

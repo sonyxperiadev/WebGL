@@ -91,6 +91,7 @@ void SimpleFontData::platformCommonDestroy()
 {
     // We don't hash this on Win32, so it's effectively owned by us.
     delete m_smallCapsFontData;
+    m_smallCapsFontData = 0;
 
     ScriptFreeCache(&m_scriptCache);
     delete m_scriptFontProperties;
@@ -124,7 +125,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     // FIXME: Microsoft documentation seems to imply that characters can be output using a given font and DC
     // merely by testing code page intersection.  This seems suspect though.  Can't a font only partially
     // cover a given code page?
-    IMLangFontLink2* langFontLink = FontCache::getFontLinkInterface();
+    IMLangFontLink2* langFontLink = fontCache()->getFontLinkInterface();
     if (!langFontLink)
         return false;
 
@@ -176,6 +177,7 @@ void SimpleFontData::determinePitch()
 float SimpleFontData::widthForGDIGlyph(Glyph glyph) const
 {
     HDC hdc = GetDC(0);
+    SetGraphicsMode(hdc, GM_ADVANCED);
     HGDIOBJ oldFont = SelectObject(hdc, m_font.hfont());
     int width;
     GetCharWidthI(hdc, glyph, 1, 0, &width);

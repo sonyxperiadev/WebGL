@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,25 +29,22 @@
 #ifndef SubresourceLoader_h
 #define SubresourceLoader_h
  
-#include "ResourceHandleClient.h"
 #include "ResourceLoader.h"
-#include <wtf/PassRefPtr.h>
  
 namespace WebCore {
 
-    class FormData;
-    class String;
-    class ResourceHandle;
     class ResourceRequest;
     class SubresourceLoaderClient;
     
     class SubresourceLoader : public ResourceLoader {
     public:
         static PassRefPtr<SubresourceLoader> create(Frame*, SubresourceLoaderClient*, const ResourceRequest&, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true, bool shouldContentSniff = true);
-        
-        virtual ~SubresourceLoader();
 
-        virtual bool load(const ResourceRequest&);
+        void clearClient() { m_client = 0; }
+
+    private:
+        SubresourceLoader(Frame*, SubresourceLoaderClient*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
+        virtual ~SubresourceLoader();
         
         virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
@@ -55,15 +52,11 @@ namespace WebCore {
         virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
         virtual void didFinishLoading();
         virtual void didFail(const ResourceError&);
+        virtual bool shouldUseCredentialStorage();
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
-        virtual void receivedCancellation(const AuthenticationChallenge&);
-        
-        void clearClient() { m_client = 0; }
-
-    private:
-        SubresourceLoader(Frame*, SubresourceLoaderClient*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
-
+        virtual void receivedCancellation(const AuthenticationChallenge&);        
         virtual void didCancel(const ResourceError&);
+
         SubresourceLoaderClient* m_client;
         bool m_loadingMultipartContent;
     };

@@ -36,12 +36,12 @@
 #include "NP_jsobject.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "PausedTimeouts.h"
 #include "runtime_root.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "Settings.h"
-#include "StringSourceProvider.h"
 
-#include <kjs/completion.h>
+#include <runtime/Completion.h>
 #include <debugger/Debugger.h>
 #include <runtime/JSLock.h>
 
@@ -87,10 +87,12 @@ ScriptController::~ScriptController()
     disconnectPlatformScriptObjects();
 }
 
-JSValue* ScriptController::evaluate(const String& sourceURL, int baseLine, const String& str) 
+ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode) 
 {
     // evaluate code. Returns the JS return value or 0
     // if there was none, an error occured or the type couldn't be converted.
+    
+    const SourceCode& jsSourceCode = sourceCode.jsSourceCode();
 
     initScriptIfNeeded();
     // inlineCode is true for <a href="javascript:doSomething()">
@@ -99,6 +101,7 @@ JSValue* ScriptController::evaluate(const String& sourceURL, int baseLine, const
     // See smart window.open policy for where this is used.
     ExecState* exec = m_windowShell->window()->globalExec();
     const String* savedSourceURL = m_sourceURL;
+    String sourceURL = jsSourceCode.provider()->url();
     m_sourceURL = &sourceURL;
 
     JSLock lock(false);
@@ -108,7 +111,7 @@ JSValue* ScriptController::evaluate(const String& sourceURL, int baseLine, const
     m_frame->keepAlive();
 
     m_windowShell->window()->startTimeoutCheck();
-    Completion comp = Interpreter::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), makeSource(str, sourceURL, baseLine), m_windowShell);
+    Completion comp = JSC::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), jsSourceCode, m_windowShell);
     m_windowShell->window()->stopTimeoutCheck();
 
     if (comp.complType() == Normal || comp.complType() == ReturnValue) {
@@ -117,7 +120,7 @@ JSValue* ScriptController::evaluate(const String& sourceURL, int baseLine, const
     }
 
     if (comp.complType() == Throw)
-        m_frame->domWindow()->console()->reportException(exec, comp.value());
+        reportException(exec, comp.value());
 
     m_sourceURL = savedSourceURL;
     return noValue();
@@ -177,6 +180,11 @@ void ScriptController::initScript()
 
 bool ScriptController::processingUserGesture() const
 {
+    return processingUserGestureEvent() || isJavaScriptAnchorNavigation();
+}
+
+bool ScriptController::processingUserGestureEvent() const
+{
     if (!m_windowShell)
         return false;
 
@@ -198,13 +206,37 @@ bool ScriptController::processingUserGesture() const
             type == eventNames().focusEvent || type == eventNames().blurEvent ||
             type == eventNames().submitEvent)
             return true;
-    } else { // no event
-        if (m_sourceURL && m_sourceURL->isNull() && !m_processingTimerCallback) {
-            // This is the <a href="javascript:window.open('...')> case -> we let it through
-            return true;
-        }
-        // This is the <script>window.open(...)</script> case or a timer callback -> block it
     }
+    
+    return false;
+}
+
+// FIXME: This seems like an insufficient check to verify a click on a javascript: anchor.
+bool ScriptController::isJavaScriptAnchorNavigation() const
+{
+    // This is the <a href="javascript:window.open('...')> case -> we let it through
+    if (m_sourceURL && m_sourceURL->isNull() && !m_processingTimerCallback)
+        return true;
+
+    // This is the <script>window.open(...)</script> case or a timer callback -> block it
+    return false;
+}
+
+bool ScriptController::anyPageIsProcessingUserGesture() const
+{
+    Page* page = m_frame->page();
+    if (!page)
+        return false;
+
+    const HashSet<Page*>& pages = page->group().pages();
+    HashSet<Page*>::const_iterator end = pages.end();
+    for (HashSet<Page*>::const_iterator it = pages.begin(); it != end; ++it) {
+        for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+            if (frame->script()->processingUserGesture())
+                return true;
+        }
+    }
+
     return false;
 }
 
@@ -238,6 +270,10 @@ void ScriptController::updateDocument()
         (*it)->updateDocument();
 }
 
+void ScriptController::updateSecurityOrigin()
+{
+    // Our bindings do not do anything in this case.
+}
 
 Bindings::RootObject* ScriptController::bindingRootObject()
 {
@@ -294,17 +330,17 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
     // Create a JSObject bound to this element
     JSLock lock(false);
     ExecState* exec = globalObject()->globalExec();
-    JSValue* jsElementValue = toJS(exec, plugin);
-    if (!jsElementValue || !jsElementValue->isObject())
+    JSValuePtr jsElementValue = toJS(exec, plugin);
+    if (!jsElementValue || !jsElementValue.isObject())
         return _NPN_CreateNoScriptObject();
 
     // Wrap the JSObject in an NPObject
-    return _NPN_CreateScriptObject(0, jsElementValue->getObject(), bindingRootObject());
+    return _NPN_CreateScriptObject(0, jsElementValue.getObject(), bindingRootObject());
 }
 #endif
 
 #if !PLATFORM(MAC)
-void ScriptController::clearPlatformScriptObjects()
+void ScriptController::updatePlatformScriptObjects()
 {
 }
 
@@ -348,29 +384,6 @@ void ScriptController::clearScriptObjects()
         m_windowScriptNPObject = 0;
     }
 #endif
-
-    clearPlatformScriptObjects();
-}
-
-void ScriptController::pauseTimeouts(OwnPtr<PausedTimeouts>& result)
-{
-    if (!haveWindowShell()) {
-        result.clear();
-        return;
-    }
-
-    windowShell()->window()->pauseTimeouts(result);
-}
-
-void ScriptController::resumeTimeouts(OwnPtr<PausedTimeouts>& pausedTimeouts)
-{
-    if (!haveWindowShell()) {
-        // Callers can assume we will always clear the passed in timeouts
-        pausedTimeouts.clear();
-        return;
-    }
-
-    windowShell()->window()->resumeTimeouts(pausedTimeouts);
 }
 
 } // namespace WebCore

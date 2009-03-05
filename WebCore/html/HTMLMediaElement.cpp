@@ -44,9 +44,10 @@
 #include "MediaQueryEvaluator.h"
 #include "MIMETypeRegistry.h"
 #include "MediaPlayer.h"
+#include "Page.h"
 #include "RenderVideo.h"
-#include "SystemTime.h"
 #include "TimeRanges.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 
 using namespace std;
@@ -83,11 +84,13 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
     , m_player(0)
 {
     document()->registerForDocumentActivationCallbacks(this);
+    document()->registerForMediaVolumeCallbacks(this);
 }
 
 HTMLMediaElement::~HTMLMediaElement()
 {
     document()->unregisterForDocumentActivationCallbacks(this);
+    document()->unregisterForMediaVolumeCallbacks(this);
 }
 
 bool HTMLMediaElement::checkDTD(const Node* newChild)
@@ -196,7 +199,7 @@ void HTMLMediaElement::asyncEventTimerFired(Timer<HTMLMediaElement>*)
         dispatchEventForType(asyncEventsToDispatch[n], false, true);
 }
 
-String serializeTimeOffset(float time)
+static String serializeTimeOffset(float time)
 {
     String timeString = String::number(time);
     // FIXME serialize time offset values properly (format not specified yet)
@@ -204,7 +207,7 @@ String serializeTimeOffset(float time)
     return timeString;
 }
 
-float parseTimeOffset(const String& timeString, bool* ok = 0)
+static float parseTimeOffset(const String& timeString, bool* ok = 0)
 {
     const UChar* characters = timeString.characters();
     unsigned length = timeString.length();
@@ -345,7 +348,7 @@ void HTMLMediaElement::load(ExceptionCode& ec)
         renderer()->updateFromElement();
     
     // 14
-    m_previousProgressTime = WebCore::currentTime();
+    m_previousProgressTime = WTF::currentTime();
     m_previousProgress = 0;
     if (m_begun)
         // 350ms is not magic, it is in the spec!
@@ -490,7 +493,7 @@ void HTMLMediaElement::progressEventTimerFired(Timer<HTMLMediaElement>*)
 {
     ASSERT(m_player);
     unsigned progress = m_player->bytesLoaded();
-    double time = WebCore::currentTime();
+    double time = WTF::currentTime();
     double timedelta = time - m_previousProgressTime;
     if (timedelta)
         m_bufferingRate = (float)(0.8 * m_bufferingRate + 0.2 * ((float)(progress - m_previousProgress)) / timedelta);
@@ -971,7 +974,10 @@ void HTMLMediaElement::updateVolume()
     if (!m_player)
         return;
 
-    m_player->setVolume(m_muted ? 0 : m_volume);
+    Page* page = document()->page();
+    float volumeMultiplier = page ? page->mediaVolume() : 1;
+
+    m_player->setVolume(m_muted ? 0 : m_volume * volumeMultiplier);
     
     if (renderer())
         renderer()->updateFromElement();
@@ -1047,7 +1053,12 @@ void HTMLMediaElement::documentDidBecomeActive()
     if (renderer())
         renderer()->updateFromElement();
 }
-    
+
+void HTMLMediaElement::mediaVolumeDidChange()
+{
+    updateVolume();
+}
+
 void HTMLMediaElement::defaultEventHandler(Event* event)
 {
     if (renderer() && renderer()->isMedia())

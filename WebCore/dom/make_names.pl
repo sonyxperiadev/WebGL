@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
-# Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+# Copyright (C) 2009, Julien Chaffraix <jchaffraix@webkit.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -45,8 +46,6 @@ my %attrs = ();
 my %parameters = ();
 my $extraDefines = 0;
 my $preprocessor = "/usr/bin/gcc -E -P -x c++";
-my %svgCustomMappings = ();
-my %htmlCustomMappings = ();
 
 GetOptions('tags=s' => \$tagsFile, 
     'attrs=s' => \$attrsFile,
@@ -88,9 +87,13 @@ if ($printWrapperFactory) {
 
 sub initializeTagPropertyHash
 {
-    return ('interfaceName' => upperCaseName($_[0])."Element",
-            'applyAudioHack' => 0,
-            'exportString' => 0);
+    return ('constructorNeedsCreatedByParser' => 0,
+            'constructorNeedsFormElement' => 0,
+            'exportString' => 0,
+            'interfaceName' => defaultInterfaceName($_[0]),
+            # By default, the JSInterfaceName is the same as the interfaceName.
+            'JSInterfaceName' => defaultInterfaceName($_[0]),
+            'wrapperOnlyIfMediaIsAvailable' => 0);
 }
 
 sub initializeAttrPropertyHash
@@ -109,6 +112,12 @@ sub initializeParametersHash
             'exportStrings' => 0);
 }
 
+sub defaultInterfaceName
+{
+    die "No namespace found" if !$parameters{'namespace'};
+    return $parameters{'namespace'} . upperCaseName($_[0]) . "Element"
+}
+
 ### Parsing handlers
 
 sub tagsHandler
@@ -122,6 +131,11 @@ sub tagsHandler
 
     if ($property) {
         die "Unknown property $property for tag $tag\n" if !defined($tags{$tag}{$property});
+        # The code rely on JSInterfaceName deriving from interfaceName to check for custom JSInterfaceName.
+        # So just override JSInterfaceName if it was not already set.
+        if ($property eq "interfaceName" && $tags{$tag}{'JSInterfaceName'} eq $tags{$tag}{'interfaceName'}) {
+                $tags{$tag}{'JSInterfaceName'} = $value;
+        }
         $tags{$tag}{$property} = $value;
     }
 }
@@ -205,25 +219,44 @@ sub printMacros
 
 sub printConstructors
 {
-    my ($F, $namesRef) = @_;
-    my %names = %$namesRef;
+    my $F = shift;
 
     print F "#if $parameters{'guardFactoryWith'}\n" if $parameters{'guardFactoryWith'};
-    for my $name (sort keys %names) {
-        my $ucName = $names{$name}{"interfaceName"};
+    for my $name (sort keys %tags) {
+        my $ucName = $tags{$name}{'interfaceName'};
 
-        print F "$parameters{'namespace'}Element* ${name}Constructor(Document* doc, bool createdByParser)\n";
-        print F "{\n";
-        print F "    return new $parameters{'namespace'}${ucName}($parameters{'namespace'}Names::${name}Tag, doc);\n";
-        print F "}\n\n";
+        # Print the method signature avoiding unused arguments' name.
+        print F "static PassRefPtr<$parameters{'namespace'}Element> ${name}Constructor(Document* doc";
+        if ($parameters{'namespace'} eq "HTML") {
+            print F ", HTMLFormElement* formElement";
+            if ($tags{$name}{'constructorNeedsFormElement'}) {
+                print F " formElement";
+            }
+        }
+        print F ", bool";
+        if ($tags{$name}{'constructorNeedsCreatedByParser'}) {
+            print F " createdByParser"; 
+        }
+        print F ")\n{\n";
+
+        # Now call the constructor with the right parameters.
+        print F "    return new ${ucName}($parameters{'namespace'}Names::${name}Tag, doc";
+        if ($tags{$name}{'constructorNeedsFormElement'}) {
+            print F ", formElement";
+        }
+        if ($tags{$name}{'constructorNeedsCreatedByParser'}) {
+            print F ", createdByParser";
+        }
+        print F ");\n}\n\n";
     }
     print F "#endif\n" if $parameters{'guardFactoryWith'};
 }
 
 sub printFunctionInits
 {
-    my ($F, $namesRef) = @_;
-    for my $name (sort keys %$namesRef) {
+    my $F = shift;
+
+    for my $name (sort keys %tags) {
         print F "    gFunctionMap->set($parameters{'namespace'}Names::${name}Tag.localName().impl(), ${name}Constructor);\n";
     }
 }
@@ -308,16 +341,23 @@ sub printNamesHeaderFile
     if (keys %tags) {
         print F "// Tags\n";
         printMacros($F, "extern const WebCore::QualifiedName", "Tag", \%tags);
-        print F "\n\nWebCore::QualifiedName** get$parameters{'namespace'}Tags(size_t* size);\n";
     }
     
     if (keys %attrs) {
         print F "// Attributes\n";
         printMacros($F, "extern const WebCore::QualifiedName", "Attr", \%attrs);
-        print F "\n\nWebCore::QualifiedName** get$parameters{'namespace'}Attr(size_t* size);\n";
     }
     print F "#endif\n\n";
-    print F "void init();\n\n";
+    
+    if (keys %tags) {
+        print F "WebCore::QualifiedName** get$parameters{'namespace'}Tags(size_t* size);\n";
+    }
+
+    if (keys %attrs) {
+        print F "WebCore::QualifiedName** get$parameters{'namespace'}Attrs(size_t* size);\n";
+    }
+    
+    print F "\nvoid init();\n\n";
     print F "} }\n\n";
     print F "#endif\n\n";
     
@@ -425,25 +465,29 @@ print F "\nvoid init()
 
 sub printJSElementIncludes
 {
-    my ($F, $namesRef) = @_;
-    my %names = %$namesRef;
-    for my $name (sort keys %names) {
-        next if (hasCustomMapping($name));
+    my $F = shift;
 
-        my $ucName = $names{$name}{"interfaceName"};
-        print F "#include \"JS$parameters{'namespace'}${ucName}.h\"\n";
+    my %tagsSeen;
+    for my $tagName (sort keys %tags) {
+        my $JSInterfaceName = $tags{$tagName}{"JSInterfaceName"};
+        next if defined($tagsSeen{$JSInterfaceName}) || usesDefaultJSWrapper($tagName);
+        $tagsSeen{$JSInterfaceName} = 1;
+
+        print F "#include \"JS${JSInterfaceName}.h\"\n";
     }
 }
 
 sub printElementIncludes
 {
-    my ($F, $namesRef, $shouldSkipCustomMappings) = @_;
-    my %names = %$namesRef;
-    for my $name (sort keys %names) {
-        next if ($shouldSkipCustomMappings && hasCustomMapping($name));
+    my $F = shift;
 
-        my $ucName = $names{$name}{"interfaceName"};
-        print F "#include \"$parameters{'namespace'}${ucName}.h\"\n";
+    my %tagsSeen;
+    for my $tagName (sort keys %tags) {
+        my $interfaceName = $tags{$tagName}{"interfaceName"};
+        next if defined($tagsSeen{$interfaceName});
+        $tagsSeen{$interfaceName} = 1;
+
+        print F "#include \"${interfaceName}.h\"\n";
     }
 }
 
@@ -515,15 +559,30 @@ print F <<END
 END
 ;
 
-printElementIncludes($F, \%tags, 0);
+if ($parameters{'namespace'} eq "HTML") {
+    print F "#include \"HTMLFormElement.h\"\n";
+}
+
+printElementIncludes($F);
 
 print F <<END
 #include <wtf/HashMap.h>
 
 using namespace WebCore;
 
-typedef $parameters{'namespace'}Element* (*ConstructorFunc)(Document* doc, bool createdByParser);
-typedef WTF::HashMap<AtomicStringImpl*, ConstructorFunc> FunctionMap;
+END
+;
+
+print F "typedef PassRefPtr<$parameters{'namespace'}Element> (*ConstructorFunction)(Document*";
+
+if ($parameters{'namespace'} eq "HTML") {
+    print F ", HTMLFormElement* formElement";
+}
+
+print F ", bool createdByParser);\n";
+
+print F <<END
+typedef WTF::HashMap<AtomicStringImpl*, ConstructorFunction> FunctionMap;
 
 static FunctionMap* gFunctionMap = 0;
 
@@ -532,7 +591,7 @@ namespace WebCore {
 END
 ;
 
-printConstructors($F, \%tags);
+printConstructors($F);
 
 print F "#if $parameters{'guardFactoryWith'}\n" if $parameters{'guardFactoryWith'};
 
@@ -548,16 +607,18 @@ static inline void createFunctionMapIfNecessary()
 END
 ;
 
-printFunctionInits($F, \%tags);
+printFunctionInits($F);
 
 print F "}\n";
-print F "#endif\n\n" if $parameters{'guardFactoryWith'};
+print F "#endif\n" if $parameters{'guardFactoryWith'};
 
-print F <<END
-$parameters{'namespace'}Element* $parameters{'namespace'}ElementFactory::create$parameters{'namespace'}Element(const QualifiedName& qName, Document* doc, bool createdByParser)
-{
-END
-;
+print F "\nPassRefPtr<$parameters{'namespace'}Element> $parameters{'namespace'}ElementFactory::create$parameters{'namespace'}Element(const QualifiedName& qName, Document* doc";
+
+if ($parameters{"namespace"} eq "HTML") {
+    print F ", HTMLFormElement* formElement";
+}
+
+print F ", bool createdByParser)\n{\n";
 
 print F "#if $parameters{'guardFactoryWith'}\n" if $parameters{'guardFactoryWith'};
 
@@ -573,13 +634,18 @@ print F <<END
 #endif
 
     createFunctionMapIfNecessary();
-    ConstructorFunc func = gFunctionMap->get(qName.localName().impl());
+    ConstructorFunction func = gFunctionMap->get(qName.localName().impl());
     if (func)
-        return func(doc, createdByParser);
-
-    return new $parameters{'namespace'}Element(qName, doc);
 END
 ;
+
+if ($parameters{"namespace"} eq "HTML") {
+    print F "        return func(doc, formElement, createdByParser);\n";
+} else {
+    print F "        return func(doc, createdByParser);\n";
+}
+
+print F "    return new $parameters{'namespace'}Element(qName, doc);\n";
 
 if ($parameters{'guardFactoryWith'}) {
 
@@ -595,7 +661,7 @@ END
 print F <<END
 }
 
-} // namespace
+} // namespace WebCore
 
 END
 ;
@@ -611,10 +677,12 @@ sub printFactoryHeaderFile
 
     printLicenseHeader($F);
 
-print F "#ifndef $parameters{'namespace'}ELEMENTFACTORY_H\n";
-print F "#define $parameters{'namespace'}ELEMENTFACTORY_H\n\n";
+    print F<<END
+#ifndef $parameters{'namespace'}ElementFactory_h
+#define $parameters{'namespace'}ElementFactory_h
 
-print F "
+#include <wtf/PassRefPtr.h>
+
 namespace WebCore {
     class Element;
     class Document;
@@ -625,121 +693,79 @@ namespace WebCore {
 namespace WebCore {
 
     class $parameters{'namespace'}Element;
+END
+;
 
+if ($parameters{'namespace'} eq "HTML") {
+    print F "     class HTMLFormElement;\n";
+}
+
+print F<<END
     // The idea behind this class is that there will eventually be a mapping from namespace URIs to ElementFactories that can dispense
-    // elements.  In a compound document world, the generic createElement function (will end up being virtual) will be called.
-    class $parameters{'namespace'}ElementFactory
-    {
+    // elements. In a compound document world, the generic createElement function (will end up being virtual) will be called.
+    class $parameters{'namespace'}ElementFactory {
     public:
-        WebCore::Element* createElement(const WebCore::QualifiedName& qName, WebCore::Document* doc, bool createdByParser = true);
-        static $parameters{'namespace'}Element* create$parameters{'namespace'}Element(const WebCore::QualifiedName& qName, WebCore::Document* doc, bool createdByParser = true);
+        PassRefPtr<Element> createElement(const WebCore::QualifiedName&, WebCore::Document*, bool createdByParser = true);
+END
+;
+print F "        static PassRefPtr<$parameters{'namespace'}Element> create$parameters{'namespace'}Element(const WebCore::QualifiedName&, WebCore::Document*";
+
+if ($parameters{'namespace'} eq "HTML") {
+    print F ", HTMLFormElement* = 0";
+}
+
+print F ", bool /*createdByParser*/ = true);\n";
+
+printf F<<END
     };
 }
 
-#endif
+#endif // $parameters{'namespace'}ElementFactory_h
 
-";
+END
+;
 
     close F;
 }
 
 ## Wrapper Factory routines
 
-sub initializeCustomMappings
-{
-    if (!keys %svgCustomMappings) {
-        # These are used to map a tag to another one in WrapperFactory
-        # (for example, "h2" is mapped to "h1" so that they use the same JS Wrapper ("h1" wrapper))
-        # Mapping to an empty string will not generate a wrapper
-        %svgCustomMappings = ('animateMotion' => '',
-                              'hkern' => '',
-                              'mpath' => '');
-        %htmlCustomMappings = ('abbr' => '',
-                               'acronym' => '',
-                               'address' => '',
-                               'b' => '',
-                               'bdo' => '',
-                               'big' => '',
-                               'center' => '',
-                               'cite' => '',
-                               'code' => '',
-                               'colgroup' => 'col',
-                               'dd' => '',
-                               'dfn' => '',
-                               'dt' => '',
-                               'em' => '',
-                               'h2' => 'h1',
-                               'h3' => 'h1',
-                               'h4' => 'h1',
-                               'h5' => 'h1',
-                               'h6' => 'h1',
-                               'i' => '',
-                               'image' => 'img',
-                               'ins' => 'del',
-                               'kbd' => '',
-                               'keygen' => 'select',
-                               'listing' => 'pre',
-                               'layer' => '',
-                               'nobr' => '',
-                               'noembed' => '',
-                               'noframes' => '',
-                               'nolayer' => '',
-                               'noscript' => '',
-                               'plaintext' => '',
-                               's' => '',
-                               'samp' => '',
-                               'small' => '',
-                               'span' => '',
-                               'strike' => '',
-                               'strong' => '',
-                               'sub' => '',
-                               'sup' => '',
-                               'tfoot' => 'tbody',
-                               'th' => 'td',
-                               'thead' => 'tbody',
-                               'tt' => '',
-                               'u' => '',
-                               'var' => '',
-                               'wbr' => '',
-                               'xmp' => 'pre');
-    }
-}
-
-sub hasCustomMapping
+sub usesDefaultJSWrapper
 {
     my $name = shift;
-    initializeCustomMappings();
-    return 1 if $parameters{'namespace'} eq "HTML" && exists($htmlCustomMappings{$name});
-    return 1 if $parameters{'namespace'} eq "SVG" && exists($svgCustomMappings{$name});
-    return 0;
+
+    # A tag reuses the default wrapper if its JSInterfaceName matches the default namespace Element.
+    return $tags{$name}{'JSInterfaceName'} eq $parameters{"namespace"} . "Element";
 }
 
 sub printWrapperFunctions
 {
-    my ($F, $namesRef) = @_;
-    my %names = %$namesRef;
-    for my $name (sort keys %names) {
-        # Custom mapping do not need a JS wrapper
-        next if (hasCustomMapping($name));
+    my $F = shift;
 
-        my $ucName = $names{$name}{"interfaceName"};
+    my %tagsSeen;
+    for my $tagName (sort keys %tags) {
+        # Avoid defining the same wrapper method twice.
+        my $JSInterfaceName = $tags{$tagName}{"JSInterfaceName"};
+        next if defined($tagsSeen{$JSInterfaceName}) || usesDefaultJSWrapper($tagName);
+        $tagsSeen{$JSInterfaceName} = 1;
+
         # Hack for the media tags
-        if ($names{$name}{"applyAudioHack"}) {
+        if ($tags{$tagName}{"wrapperOnlyIfMediaIsAvailable"}) {
             print F <<END
-static JSNode* create${ucName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
+static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
 {
     if (!MediaPlayer::isAvailable())
         return CREATE_DOM_NODE_WRAPPER(exec, $parameters{'namespace'}Element, element.get());
-    return CREATE_DOM_NODE_WRAPPER(exec, $parameters{'namespace'}${ucName}, element.get());
+    return CREATE_DOM_NODE_WRAPPER(exec, ${JSInterfaceName}, element.get());
 }
 
 END
 ;
         } else {
             print F <<END
-static JSNode* create${ucName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
+static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
 {
-    return CREATE_DOM_NODE_WRAPPER(exec, $parameters{'namespace'}${ucName}, element.get());
+    return CREATE_DOM_NODE_WRAPPER(exec, ${JSInterfaceName}, element.get());
 }
 
 END
@@ -762,12 +788,14 @@ sub printWrapperFactoryCppFile
 
     print F "#include \"JS$parameters{'namespace'}ElementWrapperFactory.h\"\n";
 
-    printJSElementIncludes($F, \%tags);
+    printJSElementIncludes($F);
 
     print F "\n#include \"$parameters{'namespace'}Names.h\"\n\n";
 
-    printElementIncludes($F, \%tags, 1);
+    printElementIncludes($F);
 
+    print F "\n#include <wtf/StdLibExtras.h>\n\n";
+    
     print F <<END
 using namespace JSC;
 
@@ -780,33 +808,24 @@ typedef JSNode* (*Create$parameters{'namespace'}ElementWrapperFunction)(ExecStat
 END
 ;
 
-    printWrapperFunctions($F, \%tags);
+    printWrapperFunctions($F);
 
     print F <<END
 JSNode* createJS$parameters{'namespace'}Wrapper(ExecState* exec, PassRefPtr<$parameters{'namespace'}Element> element)
 {   
-    static HashMap<WebCore::AtomicStringImpl*, Create$parameters{'namespace'}ElementWrapperFunction> map;
+    typedef HashMap<WebCore::AtomicStringImpl*, Create$parameters{'namespace'}ElementWrapperFunction> FunctionMap;
+    DEFINE_STATIC_LOCAL(FunctionMap, map, ());
     if (map.isEmpty()) {
 END
 ;
 
     for my $tag (sort keys %tags) {
-        next if (hasCustomMapping($tag));
+        # Do not add the name to the map if it does not have a JS wrapper constructor or uses the default wrapper.
+        next if usesDefaultJSWrapper($tag, \%tags);
 
-        my $ucTag = $tags{$tag}{"interfaceName"};
+        my $ucTag = $tags{$tag}{"JSInterfaceName"};
         print F "       map.set(${tag}Tag.localName().impl(), create${ucTag}Wrapper);\n";
     }
-
-    if ($parameters{'namespace'} eq "HTML") {
-        for my $tag (sort keys %htmlCustomMappings) {
-            next if !$htmlCustomMappings{$tag};
-
-            my $ucCustomTag = $tags{$htmlCustomMappings{$tag}}{"interfaceName"};
-            print F "       map.set(${tag}Tag.localName().impl(), create${ucCustomTag}Wrapper);\n";
-        }
-    }
-
-    # Currently SVG has no need to add custom map.set as it only has empty elements
 
     print F <<END
     }

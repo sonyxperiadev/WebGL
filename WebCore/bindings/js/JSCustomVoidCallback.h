@@ -32,7 +32,7 @@
 #include "VoidCallback.h"
 
 #include <runtime/JSObject.h>
-#include <kjs/protect.h>
+#include <runtime/Protect.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -55,7 +55,7 @@ namespace WebCore {
         RefPtr<Frame> m_frame;
     };
 
-    PassRefPtr<VoidCallback> toVoidCallback(JSC::ExecState*, JSC::JSValue*);
+    PassRefPtr<VoidCallback> toVoidCallback(JSC::ExecState*, JSC::JSValuePtr);
 
 } // namespace WebCore
 

@@ -22,7 +22,7 @@
 #ifndef Debugger_h
 #define Debugger_h
 
-#include "protect.h"
+#include "Protect.h"
 
 namespace JSC {
 
@@ -53,6 +53,10 @@ namespace JSC {
     private:
         HashSet<JSGlobalObject*> m_globalObjects;
     };
+
+    // This method exists only for backwards compatibility with existing
+    // WebScriptDebugger clients
+    JSValuePtr evaluateInGlobalCallFrame(const UString&, JSValuePtr& exception, JSGlobalObject*);
 
 } // namespace JSC
 

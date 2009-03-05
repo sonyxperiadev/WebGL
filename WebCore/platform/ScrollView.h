@@ -95,6 +95,9 @@ public:
     virtual void setCanHaveScrollbars(bool flag);
     bool canHaveScrollbars() const { return horizontalScrollbarMode() != ScrollbarAlwaysOff || verticalScrollbarMode() != ScrollbarAlwaysOff; }
 
+    // Overridden by FrameView to create custom CSS scrollbars if applicable.
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
+
     // If the prohibits scrolling flag is set, then all scrolling in the view (even programmatic scrolling) is turned off.
     void setProhibitsScrolling(bool b) { m_prohibitsScrolling = b; }
     bool prohibitsScrolling() const { return m_prohibitsScrolling; }
@@ -102,7 +105,7 @@ public:
     // Whether or not a scroll view will blit visible contents when it is scrolled.  Blitting is disabled in situations
     // where it would cause rendering glitches (such as with fixed backgrounds or when the view is partially transparent).
     void setCanBlitOnScroll(bool);
-    bool canBlitOnScroll() const { return m_canBlitOnScroll; }
+    bool canBlitOnScroll() const;
 
     // The visible content rect has a location that is the scrolled offset of the document. The width and height are the viewport width
     // and height.  By default the scrollbars themselves are excluded from this rectangle, but an optional boolean argument allows them to be
@@ -110,13 +113,22 @@ public:
     IntRect visibleContentRect(bool includeScrollbars = false) const;
     int visibleWidth() const { return visibleContentRect().width(); }
     int visibleHeight() const { return visibleContentRect().height(); }
+
+    // Methods for getting/setting the size webkit should use to layout the contents.  By default this is the same as the visible
+    // content size.  Explicitly setting a layout size value will cause webkit to layout the contents using this size instead.
+    int layoutWidth() const;
+    int layoutHeight() const;
+    IntSize fixedLayoutSize() const;
+    void setFixedLayoutSize(const IntSize&);
+    bool useFixedLayout() const;
+    void setUseFixedLayout(bool enable);
     
     // Methods for getting/setting the size of the document contained inside the ScrollView (as an IntSize or as individual width and height
     // values).
     IntSize contentsSize() const;
     int contentsWidth() const { return contentsSize().width(); }
     int contentsHeight() const { return contentsSize().height(); }
-    void setContentsSize(const IntSize&);
+    virtual void setContentsSize(const IntSize&);
    
     // Methods for querying the current scrolled position (both as a point, a size, or as individual X and Y values).
     IntPoint scrollPosition() const { return visibleContentRect().location(); }
@@ -165,7 +177,7 @@ public:
     virtual void setParent(ScrollView*); // Overridden to update the overlapping scrollbar count.
 
     // Called when our frame rect changes (or the rect/scroll position of an ancestor changes).
-    virtual void frameRectsChanged() const;
+    virtual void frameRectsChanged();
     
     // Widget override to update our scrollbars and notify our contents of the resize.
     virtual void setFrameRect(const IntRect&);
@@ -229,8 +241,13 @@ private:
     bool m_prohibitsScrolling;
 
     HashSet<Widget*> m_children;
+
+    // This bool is unused on Mac OS because we directly ask the platform widget
+    // whether it is safe to blit on scroll.
     bool m_canBlitOnScroll;
+
     IntSize m_scrollOffset; // FIXME: Would rather store this as a position, but we will wait to make this change until more code is shared.
+    IntSize m_fixedLayoutSize;
     IntSize m_contentsSize;
 
     int m_scrollbarsAvoidingResizer;
@@ -240,6 +257,7 @@ private:
 
     IntPoint m_panScrollIconPoint;
     bool m_drawPanScrollIcon;
+    bool m_useFixedLayout;
 
     void init();
     void destroy();
@@ -253,7 +271,8 @@ private:
     void platformRemoveChild(Widget*);
     void platformSetScrollbarModes();
     void platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode& vertical) const;
-    void platformSetCanBlitOnScroll();
+    void platformSetCanBlitOnScroll(bool);
+    bool platformCanBlitOnScroll() const;
     IntRect platformVisibleContentRect(bool includeScrollbars) const;
     IntSize platformContentsSize() const;
     void platformSetContentsSize();

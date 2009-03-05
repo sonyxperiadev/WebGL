@@ -5,6 +5,7 @@
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,15 +39,16 @@
 #include "FrameView.h"
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
-#include "HTMLScriptElement.h"
 #include "HTMLStyleElement.h"
-#include "HTMLTokenizer.h"
-#include "ScriptController.h"
 #include "ProcessingInstruction.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptController.h"
+#include "ScriptElement.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "TextResourceDecoder.h"
 #include <wtf/Platform.h>
 #include <wtf/StringExtras.h>
@@ -55,7 +57,6 @@
 
 #if ENABLE(SVG)
 #include "SVGNames.h"
-#include "SVGScriptElement.h"
 #include "SVGStyleElement.h"
 #endif
 
@@ -65,30 +66,15 @@ namespace WebCore {
 
 const int maxErrors = 25;
 
-bool isScriptElement(Element* element)
+#if ENABLE(WML)
+bool XMLTokenizer::isWMLDocument() const
 {
-    return element->hasTagName(HTMLNames::scriptTag)
-#if ENABLE(SVG)
-        || element->hasTagName(SVGNames::scriptTag)
-#endif
-        ;
+    if (m_doc)
+        return m_doc->isWMLDocument();
+
+    return false;
 }
-
-ScriptElement* castToScriptElement(Element* element)
-{
-    ASSERT(isScriptElement(element));
-
-    if (element->hasTagName(HTMLNames::scriptTag))
-        return static_cast<HTMLScriptElement*>(element);
-
-#if ENABLE(SVG)
-    if (element->hasTagName(SVGNames::scriptTag))
-        return static_cast<SVGScriptElement*>(element);
 #endif
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
 
 void XMLTokenizer::setCurrentNode(Node* n)
 {
@@ -119,25 +105,6 @@ bool XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
     doWrite(s.toString());
     return false;
 }
-
-void XMLTokenizer::eventuallyMarkAsParserCreated(Element* element)
-{
-    if (element->hasTagName(HTMLNames::scriptTag))
-        static_cast<HTMLScriptElement*>(element)->setCreatedByParser(true);
-#if ENABLE(SVG)
-    else if (element->hasTagName(SVGNames::scriptTag))
-        static_cast<SVGScriptElement*>(element)->setCreatedByParser(true);
-#endif
-    else if (element->hasTagName(HTMLNames::styleTag))
-        static_cast<HTMLStyleElement*>(element)->setCreatedByParser(true);
-#if ENABLE(SVG)
-    else if (element->hasTagName(SVGNames::styleTag))
-        static_cast<SVGStyleElement*>(element)->setCreatedByParser(true);
-#endif
-    else if (element->hasTagName(HTMLNames::linkTag))
-        static_cast<HTMLLinkElement*>(element)->setCreatedByParser(true);
-}
-
 
 void XMLTokenizer::handleError(ErrorType type, const char* m, int lineNumber, int columnNumber)
 {
@@ -276,9 +243,16 @@ void XMLTokenizer::insertErrorMessageBlock()
     }
 #if ENABLE(SVG)
     else if (documentElement->namespaceURI() == SVGNames::svgNamespaceURI) {
-        // Until our SVG implementation has text support, it is best if we 
-        // wrap the erroneous SVG document in an xhtml document and render
-        // the combined document with error messages.
+        RefPtr<Node> rootElement = doc->createElementNS(HTMLNames::xhtmlNamespaceURI, "html", ec);
+        RefPtr<Node> body = doc->createElementNS(HTMLNames::xhtmlNamespaceURI, "body", ec);
+        rootElement->appendChild(body, ec);
+        body->appendChild(documentElement, ec);
+        doc->appendChild(rootElement.get(), ec);
+        documentElement = body.get();
+    }
+#endif
+#if ENABLE(WML)
+    else if (isWMLDocument()) {
         RefPtr<Node> rootElement = doc->createElementNS(HTMLNames::xhtmlNamespaceURI, "html", ec);
         RefPtr<Node> body = doc->createElementNS(HTMLNames::xhtmlNamespaceURI, "body", ec);
         rootElement->appendChild(body, ec);
@@ -301,30 +275,30 @@ void XMLTokenizer::insertErrorMessageBlock()
     doc->updateRendering();
 }
 
-void XMLTokenizer::notifyFinished(CachedResource* finishedObj)
+void XMLTokenizer::notifyFinished(CachedResource* unusedResource)
 {
-    ASSERT(m_pendingScript == finishedObj);
+    ASSERT_UNUSED(unusedResource, unusedResource == m_pendingScript);
     ASSERT(m_pendingScript->accessCount() > 0);
         
-    String cachedScriptUrl = m_pendingScript->url();
-    String scriptSource = m_pendingScript->script();
+    ScriptSourceCode sourceCode(m_pendingScript.get());
     bool errorOccurred = m_pendingScript->errorOccurred();
+
     m_pendingScript->removeClient(this);
     m_pendingScript = 0;
     
     RefPtr<Element> e = m_scriptElement;
     m_scriptElement = 0;
 
-    ScriptElement* scriptElement = castToScriptElement(e.get());
+    ScriptElement* scriptElement = toScriptElement(e.get());
     ASSERT(scriptElement);
 
     if (errorOccurred) 
         scriptElement->dispatchErrorEvent();
     else {
-        m_view->frame()->loader()->executeScript(cachedScriptUrl, 1, scriptSource);
+        m_view->frame()->loader()->executeScript(sourceCode);
         scriptElement->dispatchLoadEvent();
     }
-    
+
     m_scriptElement = 0;
     
     if (!m_requestingScript)

@@ -31,9 +31,15 @@
 #include "EditorClient.h"
 #include "Page.h"
 
+#include "WebView.h"
+#include "WebFrame.h"
+
 namespace WebCore {
 
 class EditorClientWx : public EditorClient {
+friend class ::wxWebView;
+friend class ::wxWebFrame;
+
 public:
     virtual ~EditorClientWx();
     void setPage(Page*);
@@ -42,6 +48,7 @@ public:
     virtual bool shouldDeleteRange(Range*);
     virtual bool shouldShowDeleteInterface(HTMLElement*);
     virtual bool smartInsertDeleteEnabled();
+    virtual bool isSelectTrailingWhitespaceEnabled();
     virtual bool isContinuousSpellCheckingEnabled();
     virtual void toggleContinuousSpellChecking();
     virtual bool isGrammarCheckingEnabled();

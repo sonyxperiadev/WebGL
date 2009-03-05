@@ -320,46 +320,28 @@ Node* HTMLCollection::nextItem() const
      return retval;
 }
 
-bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const String& name, bool caseSensitive) const
+bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const AtomicString& name) const
 {
     if (!element->isHTMLElement())
         return false;
     
     HTMLElement* e = static_cast<HTMLElement*>(element);
-    if (caseSensitive) {
-        if (checkName) {
-            // document.all returns only images, forms, applets, objects and embeds
-            // by name (though everything by id)
-            if (m_type == DocAll && 
-                !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-                  e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-                  e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-                  e->hasLocalName(selectTag)))
-                return false;
+    if (!checkName)
+        return e->getAttribute(idAttr) == name;
 
-            return e->getAttribute(nameAttr) == name && e->getAttribute(idAttr) != name;
-        } else
-            return e->getAttribute(idAttr) == name;
-    } else {
-        if (checkName) {
-            // document.all returns only images, forms, applets, objects and embeds
-            // by name (though everything by id)
-            if (m_type == DocAll && 
-                !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-                  e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-                  e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-                  e->hasLocalName(selectTag)))
-                return false;
+    // document.all returns only images, forms, applets, objects and embeds
+    // by name (though everything by id)
+    if (m_type == DocAll && 
+        !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
+          e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
+          e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
+          e->hasLocalName(selectTag)))
+        return false;
 
-            return equalIgnoringCase(e->getAttribute(nameAttr), name)
-                && !equalIgnoringCase(e->getAttribute(idAttr), name);
-        } else
-            return equalIgnoringCase(e->getAttribute(idAttr), name);
-    }
+    return e->getAttribute(nameAttr) == name && e->getAttribute(idAttr) != name;
 }
 
-
-Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
+Node* HTMLCollection::namedItem(const AtomicString& name) const
 {
     // http://msdn.microsoft.com/workshop/author/dhtml/reference/methods/nameditem.asp
     // This method first searches for an object with a matching id
@@ -370,7 +352,7 @@ Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
     m_idsDone = false;
 
     for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, caseSensitive)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -379,7 +361,7 @@ Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
     m_idsDone = true;
 
     for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, caseSensitive)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -449,12 +431,12 @@ void HTMLCollection::namedItems(const AtomicString& name, Vector<RefPtr<Node> >&
 }
 
 
-Node* HTMLCollection::nextNamedItem(const String& name) const
+Node* HTMLCollection::nextNamedItem(const AtomicString& name) const
 {
     resetCollectionInfo();
 
     for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, true)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -467,7 +449,7 @@ Node* HTMLCollection::nextNamedItem(const String& name) const
     m_idsDone = true;
 
     for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, true)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }

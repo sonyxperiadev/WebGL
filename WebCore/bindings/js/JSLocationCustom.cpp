@@ -37,17 +37,17 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValue* nonCachingStaticReplaceFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+static JSValuePtr nonCachingStaticReplaceFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
 {
     return new (exec) PrototypeFunction(exec, 1, propertyName, jsLocationPrototypeFunctionReplace);
 }
 
-JSValue* nonCachingStaticReloadFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+static JSValuePtr nonCachingStaticReloadFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
 {
     return new (exec) PrototypeFunction(exec, 0, propertyName, jsLocationPrototypeFunctionReload);
 }
 
-JSValue* nonCachingStaticAssignFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+static JSValuePtr nonCachingStaticAssignFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
 {
     return new (exec) PrototypeFunction(exec, 1, propertyName, jsLocationPrototypeFunctionAssign);
 }
@@ -76,7 +76,7 @@ bool JSLocation::customGetOwnPropertySlot(ExecState* exec, const Identifier& pro
             slot.setCustom(this, nonCachingStaticReplaceFunctionGetter);
             return true;
         } else if (entry->function() == jsLocationPrototypeFunctionReload) {
-            slot.setCustom(this, nonCachingStaticReplaceFunctionGetter);
+            slot.setCustom(this, nonCachingStaticReloadFunctionGetter);
             return true;
         } else if (entry->function() == jsLocationPrototypeFunctionAssign) {
             slot.setCustom(this, nonCachingStaticAssignFunctionGetter);
@@ -93,7 +93,7 @@ bool JSLocation::customGetOwnPropertySlot(ExecState* exec, const Identifier& pro
     return true;
 }
 
-bool JSLocation::customPut(ExecState* exec, const Identifier& propertyName, JSValue* value, PutPropertySlot& slot)
+bool JSLocation::customPut(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
 {
     Frame* frame = impl()->frame();
     if (!frame)
@@ -133,16 +133,16 @@ bool JSLocation::customGetPropertyNames(ExecState* exec, PropertyNameArray&)
     return false;
 }
 
-static void navigateIfAllowed(ExecState* exec, Frame* frame, const KURL& url, bool lockHistory)
+static void navigateIfAllowed(ExecState* exec, Frame* frame, const KURL& url, bool lockHistory, bool lockBackForwardList)
 {
     Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!url.protocolIs("javascript") || allowsAccessFromFrame(exec, frame)) {
         bool userGesture = activeFrame->script()->processingUserGesture();
-        frame->loader()->scheduleLocationChange(url.string(), activeFrame->loader()->outgoingReferrer(), lockHistory, userGesture);
+        frame->loader()->scheduleLocationChange(url.string(), activeFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, userGesture);
     }
 }
 
-void JSLocation::setHref(ExecState* exec, JSValue* value)
+void JSLocation::setHref(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
@@ -153,99 +153,99 @@ void JSLocation::setHref(ExecState* exec, JSValue* value)
     if (!activeFrame->loader()->shouldAllowNavigation(frame))
         return;
 
-    KURL url = activeFrame->loader()->completeURL(value->toString(exec));
-    navigateIfAllowed(exec, frame, url, false);
+    KURL url = activeFrame->loader()->completeURL(value.toString(exec));
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setProtocol(ExecState* exec, JSValue* value)
+void JSLocation::setProtocol(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setProtocol(value->toString(exec));
+    url.setProtocol(value.toString(exec));
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setHost(ExecState* exec, JSValue* value)
+void JSLocation::setHost(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setHostAndPort(value->toString(exec));
+    url.setHostAndPort(value.toString(exec));
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setHostname(ExecState* exec, JSValue* value)
+void JSLocation::setHostname(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setHost(value->toString(exec));
+    url.setHost(value.toString(exec));
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setPort(ExecState* exec, JSValue* value)
+void JSLocation::setPort(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
     // FIXME: Could make this a little less ugly if String provided a toUnsignedShort function.
-    const UString& portString = value->toString(exec);
+    const UString& portString = value.toString(exec);
     int port = charactersToInt(portString.data(), portString.size());
     if (port < 0 || port > 0xFFFF)
         port = 0;
     url.setPort(port);
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setPathname(ExecState* exec, JSValue* value)
+void JSLocation::setPathname(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setPath(value->toString(exec));
+    url.setPath(value.toString(exec));
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setSearch(ExecState* exec, JSValue* value)
+void JSLocation::setSearch(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
-    url.setQuery(value->toString(exec));
+    url.setQuery(value.toString(exec));
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-void JSLocation::setHash(ExecState* exec, JSValue* value)
+void JSLocation::setHash(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = impl()->frame();
     ASSERT(frame);
 
     KURL url = frame->loader()->url();
     String oldRef = url.ref();
-    String str = value->toString(exec);
+    String str = value.toString(exec);
     if (str.startsWith("#"))
         str = str.substring(1);
     if (oldRef == str || (oldRef.isNull() && str.isEmpty()))
         return;
     url.setRef(str);
 
-    navigateIfAllowed(exec, frame, url, false);
+    navigateIfAllowed(exec, frame, url, !frame->script()->anyPageIsProcessingUserGesture(), false);
 }
 
-JSValue* JSLocation::replace(ExecState* exec, const ArgList& args)
+JSValuePtr JSLocation::replace(ExecState* exec, const ArgList& args)
 {
     Frame* frame = impl()->frame();
     if (!frame)
@@ -257,11 +257,11 @@ JSValue* JSLocation::replace(ExecState* exec, const ArgList& args)
     if (!activeFrame->loader()->shouldAllowNavigation(frame))
         return jsUndefined();
 
-    navigateIfAllowed(exec, frame, activeFrame->loader()->completeURL(args.at(exec, 0)->toString(exec)), true);
+    navigateIfAllowed(exec, frame, activeFrame->loader()->completeURL(args.at(exec, 0).toString(exec)), true, true);
     return jsUndefined();
 }
 
-JSValue* JSLocation::reload(ExecState* exec, const ArgList& args)
+JSValuePtr JSLocation::reload(ExecState* exec, const ArgList&)
 {
     Frame* frame = impl()->frame();
     if (!frame)
@@ -278,7 +278,7 @@ JSValue* JSLocation::reload(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue* JSLocation::assign(ExecState* exec, const ArgList& args)
+JSValuePtr JSLocation::assign(ExecState* exec, const ArgList& args)
 {
     Frame* frame = impl()->frame();
     if (!frame)
@@ -291,11 +291,11 @@ JSValue* JSLocation::assign(ExecState* exec, const ArgList& args)
         return jsUndefined();
 
     // We want a new history item if this JS was called via a user gesture
-    navigateIfAllowed(exec, frame, activeFrame->loader()->completeURL(args.at(exec, 0)->toString(exec)), false);
+    navigateIfAllowed(exec, frame, activeFrame->loader()->completeURL(args.at(exec, 0).toString(exec)), !frame->script()->anyPageIsProcessingUserGesture(), false);
     return jsUndefined();
 }
 
-JSValue* JSLocation::toString(ExecState* exec, const ArgList&)
+JSValuePtr JSLocation::toString(ExecState* exec, const ArgList&)
 {
     Frame* frame = impl()->frame();
     if (!frame)

@@ -23,26 +23,30 @@
 #include "Text.h"
 
 #include "CString.h"
-#include "Document.h"
 #include "ExceptionCode.h"
 #include "RenderText.h"
 #include "TextBreakIterator.h"
 
 #if ENABLE(SVG)
 #include "RenderSVGInlineText.h"
-#endif // ENABLE(SVG)
+#endif
+
+#if ENABLE(WML)
+#include "WMLDocument.h"
+#include "WMLVariables.h"
+#endif
 
 namespace WebCore {
 
 // DOM Section 1.1.1
 
 Text::Text(Document* document, const String& text)
-    : CharacterData(document, text)
+    : CharacterData(document, text, true)
 {
 }
 
 Text::Text(Document* document)
-    : CharacterData(document)
+    : CharacterData(document, true)
 {
 }
 
@@ -76,7 +80,7 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
         document()->textNodeSplit(this);
 
     if (renderer())
-        static_cast<RenderText*>(renderer())->setText(m_data);
+        toRenderText(renderer())->setText(m_data);
 
     return newText.release();
 }
@@ -205,7 +209,7 @@ bool Text::rendererIsNeeded(RenderStyle *style)
     if (prev && prev->isBR()) // <span><br/> <br/></span>
         return false;
         
-    if (par->isInlineFlow()) {
+    if (par->isRenderInline()) {
         // <span><div/> <div/></span>
         if (prev && !prev->isInline())
             return false;
@@ -226,12 +230,12 @@ bool Text::rendererIsNeeded(RenderStyle *style)
     return true;
 }
 
-RenderObject *Text::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject *Text::createRenderer(RenderArena* arena, RenderStyle*)
 {
 #if ENABLE(SVG)
     if (parentNode()->isSVGElement())
         return new (arena) RenderSVGInlineText(this, m_data);
-#endif // ENABLE(SVG)
+#endif
     
     return new (arena) RenderText(this, m_data);
 }
@@ -251,7 +255,7 @@ void Text::recalcStyle(StyleChange change)
     if (changed()) {
         if (renderer()) {
             if (renderer()->isText())
-                static_cast<RenderText*>(renderer())->setText(m_data);
+                toRenderText(renderer())->setText(m_data);
         } else {
             if (attached())
                 detach();
@@ -296,6 +300,29 @@ PassRefPtr<Text> Text::createWithLengthLimit(Document* doc, const String& text, 
         
     return new Text(doc, nodeText);
 }
+
+#if ENABLE(WML)
+void Text::insertedIntoDocument()
+{
+    CharacterData::insertedIntoDocument();
+
+    if (!parentNode()->isWMLElement() || !length())
+        return;
+
+    WMLPageState* pageState = wmlPageStateForDocument(document());
+    if (!pageState->hasVariables())
+        return;
+
+    String text = data();
+    if (!text.impl() || text.impl()->containsOnlyWhitespace())
+        return;
+
+    text = substituteVariableReferences(text, document());
+
+    ExceptionCode ec;
+    setData(text, ec);
+}
+#endif
 
 #ifndef NDEBUG
 void Text::formatForDebugger(char *buffer, unsigned length) const

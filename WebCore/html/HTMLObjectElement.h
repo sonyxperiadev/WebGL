@@ -31,7 +31,7 @@ class KURL;
 
 class HTMLObjectElement : public HTMLPlugInImageElement {
 public:
-    HTMLObjectElement(Document*, bool createdByParser);
+    HTMLObjectElement(const QualifiedName&, Document*, bool createdByParser);
     ~HTMLObjectElement();
 
     virtual int tagPriority() const { return 5; }
@@ -102,7 +102,7 @@ public:
 
     bool containsJavaApplet() const;
 
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
     void updateDocNamedItem();

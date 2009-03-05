@@ -32,6 +32,7 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
+#include "CSSValueKeywords.h"
 #include "ClipboardEvent.h"
 #include "DeleteButtonController.h"
 #include "DeleteSelectionCommand.h"
@@ -64,6 +65,7 @@
 #include "htmlediting.h"
 #include "markup.h"
 #include "visible_units.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -100,15 +102,13 @@ EditorClient* Editor::client() const
 void Editor::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (EditorClient* c = client())
-        if (selectionForCommand(event).isContentEditable())
-            c->handleKeyboardEvent(event);
+        c->handleKeyboardEvent(event);
 }
 
 void Editor::handleInputMethodKeydown(KeyboardEvent* event)
 {
     if (EditorClient* c = client())
-        if (selectionForCommand(event).isContentEditable())
-            c->handleInputMethodKeydown(event);
+        c->handleInputMethodKeydown(event);
 }
 
 bool Editor::canEdit() const
@@ -215,56 +215,41 @@ bool Editor::canSmartCopyOrDelete()
     return client() && client()->smartInsertDeleteEnabled() && m_frame->selectionGranularity() == WordGranularity;
 }
 
+bool Editor::isSelectTrailingWhitespaceEnabled()
+{
+    return client() && client()->isSelectTrailingWhitespaceEnabled();
+}
+
 bool Editor::deleteWithDirection(SelectionController::EDirection direction, TextGranularity granularity, bool killRing, bool isTypingAction)
 {
-    // Delete the selection, if there is one.
-    // If not, make a selection using the passed-in direction and granularity.
-
-    if (!canEdit())
+    if (!canEdit() || !m_frame->document())
         return false;
 
     if (m_frame->selection()->isRange()) {
-        if (killRing)
-            addToKillRing(selectedRange().get(), false);
         if (isTypingAction) {
-            if (m_frame->document()) {
-                TypingCommand::deleteKeyPressed(m_frame->document(), canSmartCopyOrDelete(), granularity);
-                revealSelectionAfterEditingOperation();
-            }
+            TypingCommand::deleteKeyPressed(m_frame->document(), canSmartCopyOrDelete(), granularity);
+            revealSelectionAfterEditingOperation();
         } else {
+            if (killRing)
+                addToKillRing(selectedRange().get(), false);
             deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
             // Implicitly calls revealSelectionAfterEditingOperation().
         }
-    } else {
-        SelectionController selectionToDelete;
-        selectionToDelete.setSelection(m_frame->selection()->selection());
-        selectionToDelete.modify(SelectionController::EXTEND, direction, granularity);
-        if (killRing && selectionToDelete.isCaret() && granularity != CharacterGranularity)
-            selectionToDelete.modify(SelectionController::EXTEND, direction, CharacterGranularity);
-
-        RefPtr<Range> range = selectionToDelete.toRange();
-
-        if (killRing)
-            addToKillRing(range.get(), false);
-
-        if (!m_frame->selection()->setSelectedRange(range.get(), DOWNSTREAM, (granularity != CharacterGranularity)))
-            return true;
-
+    } else {        
         switch (direction) {
             case SelectionController::FORWARD:
             case SelectionController::RIGHT:
-                if (m_frame->document())
-                    TypingCommand::forwardDeleteKeyPressed(m_frame->document(), false, granularity);
+                TypingCommand::forwardDeleteKeyPressed(m_frame->document(), canSmartCopyOrDelete(), granularity, killRing);
                 break;
             case SelectionController::BACKWARD:
             case SelectionController::LEFT:
-                if (m_frame->document())
-                    TypingCommand::deleteKeyPressed(m_frame->document(), false, granularity);
+                TypingCommand::deleteKeyPressed(m_frame->document(), canSmartCopyOrDelete(), granularity, killRing);
                 break;
         }
         revealSelectionAfterEditingOperation();
     }
 
+    // FIXME: We should to move this down into deleteKeyPressed.
     // clear the "start new kill ring sequence" setting, because it was set to true
     // when the selection was updated by deleting the range
     if (killRing)
@@ -459,6 +444,135 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
 #else
     return 0;
 #endif
+}
+
+WritingDirection Editor::textDirectionForSelection(bool& hasNestedOrMultipleEmbeddings) const
+{
+    hasNestedOrMultipleEmbeddings = true;
+
+    if (m_frame->selection()->isNone())
+        return NaturalWritingDirection;
+
+    Position pos = m_frame->selection()->selection().start().downstream();
+
+    Node* node = pos.node();
+    if (!node)
+        return NaturalWritingDirection;
+
+    Position end;
+    if (m_frame->selection()->isRange()) {
+        end = m_frame->selection()->selection().end().upstream();
+
+        Node* pastLast = Range::create(m_frame->document(), rangeCompliantEquivalent(pos), rangeCompliantEquivalent(end))->pastLastNode();
+        for (Node* n = node; n && n != pastLast; n = n->traverseNextNode()) {
+            if (!n->isStyledElement())
+                continue;
+
+            RefPtr<CSSComputedStyleDeclaration> style = computedStyle(n);
+            RefPtr<CSSValue> unicodeBidi = style->getPropertyCSSValue(CSSPropertyUnicodeBidi);
+            if (!unicodeBidi)
+                continue;
+
+            ASSERT(unicodeBidi->isPrimitiveValue());
+            int unicodeBidiValue = static_cast<CSSPrimitiveValue*>(unicodeBidi.get())->getIdent();
+            if (unicodeBidiValue == CSSValueEmbed || unicodeBidiValue == CSSValueBidiOverride)
+                return NaturalWritingDirection;
+        }
+    }
+
+    if (m_frame->selection()->isCaret()) {
+        if (CSSMutableStyleDeclaration *typingStyle = m_frame->typingStyle()) {
+            RefPtr<CSSValue> unicodeBidi = typingStyle->getPropertyCSSValue(CSSPropertyUnicodeBidi);
+            if (unicodeBidi) {
+                ASSERT(unicodeBidi->isPrimitiveValue());
+                int unicodeBidiValue = static_cast<CSSPrimitiveValue*>(unicodeBidi.get())->getIdent();
+                if (unicodeBidiValue == CSSValueEmbed) {
+                    RefPtr<CSSValue> direction = typingStyle->getPropertyCSSValue(CSSPropertyDirection);
+                    ASSERT(!direction || direction->isPrimitiveValue());
+                    if (direction) {
+                        hasNestedOrMultipleEmbeddings = false;
+                        return static_cast<CSSPrimitiveValue*>(direction.get())->getIdent() == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
+                    }
+                } else if (unicodeBidiValue == CSSValueNormal) {
+                    hasNestedOrMultipleEmbeddings = false;
+                    return NaturalWritingDirection;
+                }
+            }
+        }
+        node = m_frame->selection()->selection().visibleStart().deepEquivalent().node();
+    }
+
+    // The selection is either a caret with no typing attributes or a range in which no embedding is added, so just use the start position
+    // to decide.
+    Node* block = enclosingBlock(node);
+    WritingDirection foundDirection = NaturalWritingDirection;
+
+    for (; node != block; node = node->parent()) {
+        if (!node->isStyledElement())
+            continue;
+
+        RefPtr<CSSComputedStyleDeclaration> style = computedStyle(node);
+        RefPtr<CSSValue> unicodeBidi = style->getPropertyCSSValue(CSSPropertyUnicodeBidi);
+        if (!unicodeBidi)
+            continue;
+
+        ASSERT(unicodeBidi->isPrimitiveValue());
+        int unicodeBidiValue = static_cast<CSSPrimitiveValue*>(unicodeBidi.get())->getIdent();
+        if (unicodeBidiValue == CSSValueNormal)
+            continue;
+
+        if (unicodeBidiValue == CSSValueBidiOverride)
+            return NaturalWritingDirection;
+
+        ASSERT(unicodeBidiValue == CSSValueEmbed);
+        RefPtr<CSSValue> direction = style->getPropertyCSSValue(CSSPropertyDirection);
+        if (!direction)
+            continue;
+
+        ASSERT(direction->isPrimitiveValue());
+        int directionValue = static_cast<CSSPrimitiveValue*>(direction.get())->getIdent();
+        if (directionValue != CSSValueLtr && directionValue != CSSValueRtl)
+            continue;
+
+        if (foundDirection != NaturalWritingDirection)
+            return NaturalWritingDirection;
+
+        // In the range case, make sure that the embedding element persists until the end of the range.
+        if (m_frame->selection()->isRange() && !end.node()->isDescendantOf(node))
+            return NaturalWritingDirection;
+
+        foundDirection = directionValue == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
+    }
+    hasNestedOrMultipleEmbeddings = false;
+    return foundDirection;
+}
+
+bool Editor::hasBidiSelection() const
+{
+    if (m_frame->selection()->isNone())
+        return false;
+
+    Node* startNode;
+    if (m_frame->selection()->isRange()) {
+        startNode = m_frame->selection()->selection().start().downstream().node();
+        Node* endNode = m_frame->selection()->selection().end().upstream().node();
+        if (enclosingBlock(startNode) != enclosingBlock(endNode))
+            return false;
+    } else
+        startNode = m_frame->selection()->selection().visibleStart().deepEquivalent().node();
+
+    RenderObject* renderer = startNode->renderer();
+    while (renderer && !renderer->isRenderBlock())
+        renderer = renderer->parent();
+
+    if (!renderer)
+        return false;
+
+    RenderStyle* style = renderer->style();
+    if (style->direction() == RTL)
+        return true;
+
+    return static_cast<RenderBlock*>(renderer)->containsNonZeroBidiLevel();
 }
 
 TriState Editor::selectionUnorderedListState() const
@@ -662,8 +776,8 @@ bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
     RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
     
     bool match = true;
-    DeprecatedValueListConstIterator<CSSProperty> end;
-    for (DeprecatedValueListConstIterator<CSSProperty> it = mutableStyle->valuesIterator(); it != end; ++it) {
+    CSSMutableStyleDeclaration::const_iterator end = mutableStyle->end();
+    for (CSSMutableStyleDeclaration::const_iterator it = mutableStyle->begin(); it != end; ++it) {
         int propertyID = (*it).id();
         if (!equalIgnoringCase(mutableStyle->getPropertyValue(propertyID), selectionStyle->getPropertyValue(propertyID))) {
             match = false;
@@ -682,8 +796,8 @@ bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
 
 static void updateState(CSSMutableStyleDeclaration* desiredStyle, CSSComputedStyleDeclaration* computedStyle, bool& atStart, TriState& state)
 {
-    DeprecatedValueListConstIterator<CSSProperty> end;
-    for (DeprecatedValueListConstIterator<CSSProperty> it = desiredStyle->valuesIterator(); it != end; ++it) {
+    CSSMutableStyleDeclaration::const_iterator end = desiredStyle->end();
+    for (CSSMutableStyleDeclaration::const_iterator it = desiredStyle->begin(); it != end; ++it) {
         int propertyID = (*it).id();
         String desiredProperty = desiredStyle->getPropertyValue(propertyID);
         String computedProperty = computedStyle->getPropertyValue(propertyID);
@@ -761,7 +875,7 @@ void Editor::appliedEditing(PassRefPtr<EditCommand> cmd)
     // because there is work that it must do in this situation.
     // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
     // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
-    // Don't clear the typing style or removedAnchor with this selection change.  We do those things elsewhere if necessary.
+    // Don't clear the typing style with this selection change.  We do those things elsewhere if necessary.
     if (newSelection == m_frame->selection()->selection() || m_frame->shouldChangeSelection(newSelection))
         m_frame->selection()->setSelection(newSelection, false, false);
         
@@ -1327,7 +1441,7 @@ static PassRefPtr<Range> paragraphAlignedRangeForRange(Range* arbitraryRange, in
     return paragraphRange;
 }
 
-static int findFirstGrammarDetailInRange(const Vector<GrammarDetail>& grammarDetails, int badGrammarPhraseLocation, int badGrammarPhraseLength, Range *searchRange, int startOffset, int endOffset, bool markAll)
+static int findFirstGrammarDetailInRange(const Vector<GrammarDetail>& grammarDetails, int badGrammarPhraseLocation, int /*badGrammarPhraseLength*/, Range *searchRange, int startOffset, int endOffset, bool markAll)
 {
     // Found some bad grammar. Find the earliest detail range that starts in our search range (if any).
     // Optionally add a DocumentMarker for each detail in the range.
@@ -1788,6 +1902,8 @@ void Editor::markBadGrammar(const Selection& selection)
 {
 #ifndef BUILDING_ON_TIGER
     markMisspellingsOrBadGrammar(this, selection, false);
+#else
+    UNUSED_PARAM(selection);
 #endif
 }
 
@@ -1905,8 +2021,7 @@ void Editor::addToKillRing(Range* range, bool prepend)
     if (m_shouldStartNewKillRingSequence)
         startNewKillRingSequence();
 
-    String text = plainText(range);
-    text.replace('\\', m_frame->backslashAsCurrencySymbol());
+    String text = m_frame->displayStringModifiedByEncoding(plainText(range));
     if (prepend)
         prependToKillRing(text);
     else
@@ -1956,7 +2071,7 @@ bool Editor::insideVisibleArea(const IntPoint& point) const
         return true;
 
     IntRect rectInPageCoords = container->getOverflowClipRect(0, 0);
-    IntRect rectInFrameCoords = IntRect(renderer->xPos() * -1, renderer->yPos() * -1,
+    IntRect rectInFrameCoords = IntRect(renderer->x() * -1, renderer->y() * -1,
                                     rectInPageCoords.width(), rectInPageCoords.height());
 
     return rectInFrameCoords.contains(point);
@@ -1982,7 +2097,7 @@ bool Editor::insideVisibleArea(Range* range) const
         return true;
 
     IntRect rectInPageCoords = container->getOverflowClipRect(0, 0);
-    IntRect rectInFrameCoords = IntRect(renderer->xPos() * -1, renderer->yPos() * -1,
+    IntRect rectInFrameCoords = IntRect(renderer->x() * -1, renderer->y() * -1,
                                     rectInPageCoords.width(), rectInPageCoords.height());
     IntRect resultRect = range->boundingBox();
     

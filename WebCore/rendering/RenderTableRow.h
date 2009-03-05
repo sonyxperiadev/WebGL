@@ -35,29 +35,29 @@ class RenderTableRow : public RenderContainer {
 public:
     RenderTableRow(Node*);
 
+    RenderTableSection* section() const { return static_cast<RenderTableSection*>(parent()); }
+    RenderTable* table() const { return static_cast<RenderTable*>(parent()->parent()); }
+
+private:
     virtual const char* renderName() const { return isAnonymous() ? "RenderTableRow (anonymous)" : "RenderTableRow"; }
 
     virtual bool isTableRow() const { return true; }
 
     virtual void destroy();
 
-    RenderTableSection* section() const { return static_cast<RenderTableSection*>(parent()); }
-    RenderTable* table() const { return static_cast<RenderTable*>(parent()->parent()); }
-
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const { return 0; }
+    virtual int lineHeight(bool, bool) const { return 0; }
     virtual void position(InlineBox*) { }
     virtual void layout();
-    virtual IntRect absoluteClippedOverflowRect();
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
     // The only time rows get a layer is when they have transparency.
-    virtual bool requiresLayer() { return isTransparent() || hasOverflowClip(); }
+    virtual bool requiresLayer() const { return isTransparent() || hasOverflowClip(); }
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void imageChanged(WrappedImagePtr);
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-protected:
     virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
 
 };

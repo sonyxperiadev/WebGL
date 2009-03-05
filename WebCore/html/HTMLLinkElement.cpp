@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -42,8 +42,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLLinkElement::HTMLLinkElement(Document *doc)
-    : HTMLElement(linkTag, doc)
+HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool createdByParser)
+    : HTMLElement(qName, doc)
     , m_cachedSheet(0)
     , m_disabledState(0)
     , m_loading(false)
@@ -51,8 +51,9 @@ HTMLLinkElement::HTMLLinkElement(Document *doc)
     , m_isStyleSheet(false)
     , m_isIcon(false)
     , m_isDNSPrefetch(false)
-    , m_createdByParser(false)
+    , m_createdByParser(createdByParser)
 {
+    ASSERT(hasTagName(linkTag));
 }
 
 HTMLLinkElement::~HTMLLinkElement()
@@ -113,7 +114,7 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
         tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isDNSPrefetch);
         process();
     } else if (attr->name() == hrefAttr) {
-        m_url = document()->completeURL(parseURL(attr->value())).string();
+        m_url = document()->completeURL(parseURL(attr->value()));
         process();
     } else if (attr->name() == typeAttr) {
         m_type = attr->value();
@@ -172,15 +173,15 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
-    if (m_isIcon && !m_url.isEmpty())
-        document()->setIconURL(m_url, type);
+    if (m_isIcon && m_url.isValid() && !m_url.isEmpty())
+        document()->setIconURL(m_url.string(), type);
 
-    if (m_isDNSPrefetch && !m_url.isEmpty())
-        prefetchDNS(KURL(m_url).host());
+    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+        prefetchDNS(m_url.host());
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if (m_disabledState != 2 && m_isStyleSheet && document()->frame()) {
+    if (m_disabledState != 2 && m_isStyleSheet && document()->frame() && m_url.isValid()) {
         // no need to load style sheets which aren't for the screen output
         // ### there may be in some situations e.g. for an editor or script to manipulate
         // also, don't load style sheets for standalone documents
@@ -205,7 +206,7 @@ void HTMLLinkElement::process()
                 m_cachedSheet->removeClient(this);
             }
             m_loading = true;
-            m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(m_url, chset);
+            m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(m_url.string(), chset);
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
             else if (!isAlternate()) { // request may have been denied if stylesheet is local and document is remote.
@@ -379,28 +380,23 @@ void HTMLLinkElement::setType(const String& value)
     setAttribute(typeAttr, value);
 }
 
-void HTMLLinkElement::getSubresourceAttributeStrings(Vector<String>& urls) const
-{    
-    if (m_isIcon) {
-        urls.append(href().string());
+void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    // Favicons are handled by a special case in LegacyWebArchive::create()
+    if (m_isIcon)
         return;
-    }
-    
+
     if (!m_isStyleSheet)
         return;
-        
+    
     // Append the URL of this link element.
-    urls.append(href().string());
+    addSubresourceURL(urls, href());
     
     // Walk the URLs linked by the linked-to stylesheet.
-    HashSet<String> styleURLs;
-    StyleSheet* styleSheet = const_cast<HTMLLinkElement*>(this)->sheet();
-    if (styleSheet)
-        styleSheet->addSubresourceURLStrings(styleURLs, href());
-    
-    HashSet<String>::iterator end = styleURLs.end();
-    for (HashSet<String>::iterator i = styleURLs.begin(); i != end; ++i)
-        urls.append(*i);
+    if (StyleSheet* styleSheet = const_cast<HTMLLinkElement*>(this)->sheet())
+        styleSheet->addSubresourceStyleURLs(urls);
 }
 
 }

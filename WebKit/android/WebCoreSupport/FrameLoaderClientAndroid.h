@@ -50,9 +50,6 @@ namespace android {
         virtual void frameLoaderDestroyed();
         
         virtual bool hasWebView() const; // mainly for assertions
-        virtual bool hasFrameView() const; // ditto
-
-        virtual bool privateBrowsingEnabled() const;
 
         virtual void makeRepresentation(DocumentLoader*);
         virtual void forceLayout();
@@ -62,13 +59,11 @@ namespace android {
 
         virtual void detachedFromParent2();
         virtual void detachedFromParent3();
-        virtual void detachedFromParent4();
-
-        virtual void loadedFromPageCache();
 
         virtual void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
 
         virtual void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
+        virtual bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier);
         virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&);
         virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&);        
         virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&);
@@ -92,6 +87,7 @@ namespace android {
         virtual void dispatchDidFinishDocumentLoad();
         virtual void dispatchDidFinishLoad();
         virtual void dispatchDidFirstLayout();
+        virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
         virtual Frame* dispatchCreatePage();
         virtual void dispatchShow();
@@ -108,7 +104,6 @@ namespace android {
         virtual void dispatchDidLoadMainResource(DocumentLoader*);
         virtual void revertToProvisionalState(DocumentLoader*);
         virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
-        virtual void clearUnarchivingState(DocumentLoader*);
 
         virtual void willChangeEstimatedProgress();
         virtual void didChangeEstimatedProgress();
@@ -125,11 +120,10 @@ namespace android {
 
         virtual void committedLoad(DocumentLoader*, const char*, int);
         virtual void finishedLoading(DocumentLoader*);
-        virtual void finalSetupForReplace(DocumentLoader*);
         
-        virtual void updateGlobalHistory(const KURL&);
-        virtual void updateGlobalHistoryForStandardLoad(const KURL&);
-        virtual void updateGlobalHistoryForReload(const KURL&);
+        virtual void updateGlobalHistory();
+        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
+
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
 #ifdef ANDROID_HISTORY_CLIENT
         virtual void dispatchDidAddHistoryItem(HistoryItem*) const;
@@ -148,13 +142,6 @@ namespace android {
 
         virtual bool shouldFallBack(const ResourceError&);
 
-        virtual void setDefersLoading(bool);
-
-        virtual bool willUseArchive(ResourceLoader*, const ResourceRequest&, const KURL& originalURL) const;
-        virtual bool isArchiveLoadPending(ResourceLoader*) const;
-        virtual void cancelPendingArchiveLoad(ResourceLoader*);
-        virtual void clearArchivedResources();
-
         virtual bool canHandleRequest(const ResourceRequest&) const;
         virtual bool canShowMIMEType(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
@@ -172,6 +159,10 @@ namespace android {
 
         virtual String userAgent(const KURL&);
         
+        virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
+        virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
+        virtual void transitionToCommittedForNewPage();
+
         virtual bool canCachePage() const;
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
 
@@ -188,13 +179,9 @@ namespace android {
         virtual String overrideMediaType() const;
 
         virtual void windowObjectCleared();
-
         virtual void didPerformFirstNavigation() const;
+        
         virtual void registerForIconNotification(bool listen = true);
-
-        virtual void savePlatformDataToCachedPage(CachedPage*);
-        virtual void transitionToCommittedFromCachedPage(CachedPage*);
-        virtual void transitionToCommittedForNewPage();
 
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);

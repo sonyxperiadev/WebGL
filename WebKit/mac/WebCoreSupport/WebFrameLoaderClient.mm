@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@
 
 #import "DOMElementInternal.h"
 #import "WebBackForwardList.h"
-#import "WebCachedPagePlatformData.h"
+#import "WebCachedFramePlatformData.h"
 #import "WebChromeClient.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocumentInternal.h"
@@ -56,7 +56,7 @@
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebNSURLExtras.h"
-#import "WebBaseNetscapePluginView.h"
+#import "WebNetscapePluginView.h"
 #import "WebNetscapePluginPackage.h"
 #import "WebNullPluginView.h"
 #import "WebPanelAuthenticationHandler.h"
@@ -67,14 +67,13 @@
 #import "WebPolicyDelegatePrivate.h"
 #import "WebPreferences.h"
 #import "WebResourceLoadDelegate.h"
-#import "WebResourcePrivate.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <WebKitSystemInterface.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/BlockExceptions.h>
-#import <WebCore/CachedPage.h>
+#import <WebCore/CachedFrame.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
@@ -85,6 +84,7 @@
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLFrameElement.h>
 #import <WebCore/HTMLFrameOwnerElement.h>
@@ -107,10 +107,15 @@
 #import <WebCore/Widget.h>
 #import <WebKit/DOMElement.h>
 #import <WebKit/DOMHTMLFormElement.h>
+#import <runtime/InitializeThreading.h>
 #import <wtf/PassRefPtr.h>
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 #import "WebJavaPlugIn.h"
+#endif
+
+#if USE(PLUGIN_HOST_PROCESS)
+#import "WebHostedNetscapePluginView.h"
 #endif
 
 using namespace WebCore;
@@ -141,6 +146,48 @@ NSString *WebPluginContainerKey = @"WebPluginContainer";
 static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     return loader ? static_cast<WebDocumentLoaderMac*>(loader)->dataSource() : nil;
+}
+
+// Quirk for the Apple Dictionary application.
+//
+// If a top level frame has a <script> element in its <head> for a script named MainPageJavaScript.js,
+// then for that frame's document, ignore changes to the scrolling attribute of frames. That script
+// has a bug in it where it sets the scrolling attribute on frames, and that erroneous scrolling
+// attribute needs to be ignored to avoid showing extra scroll bars in the window.
+// This quirk can be removed when Apple Dictionary is fixed (see <rdar://problem/6471058>).
+
+static void applyAppleDictionaryApplicationQuirkNonInlinePart(WebFrameLoaderClient* client, const ResourceRequest& request)
+{
+    if (!request.url().isLocalFile())
+        return;
+    if (!request.url().string().endsWith("MainPageJavaScript.js"))
+        return;
+    Frame* frame = core(client->webFrame());
+    if (!frame)
+        return;
+    if (frame->tree()->parent())
+        return;
+    Document* document = frame->document();
+    if (!document)
+        return;
+    HTMLHeadElement* head = document->head();
+    if (!head)
+        return;
+    for (Node* c = head->firstChild(); c; c = c->nextSibling()) {
+        if (c->hasTagName(scriptTag) && static_cast<Element*>(c)->getAttribute(srcAttr) == "MainPageJavaScript.js") {
+            document->setFrameElementsShouldIgnoreScrolling(true);
+            return;
+        }
+    }
+}
+
+static inline void applyAppleDictionaryApplicationQuirk(WebFrameLoaderClient* client, const ResourceRequest& request)
+{
+    // Use a one-time-initialized global variable so we can quickly determine there's nothing to do in
+    // all applications other than Apple Dictionary.
+    static bool isAppleDictionary = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Dictionary"];
+    if (isAppleDictionary)
+        applyAppleDictionaryApplicationQuirkNonInlinePart(client, request);
 }
 
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame *webFrame)
@@ -275,6 +322,8 @@ void WebFrameLoaderClient::setOriginalURLForDownload(WebDownload *download, cons
 
 bool WebFrameLoaderClient::dispatchDidLoadResourceFromMemoryCache(DocumentLoader* loader, const ResourceRequest& request, const ResourceResponse& response, int length)
 {
+    applyAppleDictionaryApplicationQuirk(this, request);
+
     WebView *webView = getWebView(m_webFrame.get());
     WebResourceDelegateImplementationCache* implementations = WebViewGetResourceLoadDelegateImplementations(webView);
     if (!implementations->didLoadResourceFromMemoryCacheFunc)
@@ -306,6 +355,8 @@ void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identi
 
 void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader* loader, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
+    applyAppleDictionaryApplicationQuirk(this, request);
+
     WebView *webView = getWebView(m_webFrame.get());
     WebResourceDelegateImplementationCache* implementations = WebViewGetResourceLoadDelegateImplementations(webView);
 
@@ -314,6 +365,19 @@ void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader* loader, unsig
 
     if (implementations->willSendRequestFunc)
         request = (NSURLRequest *)CallResourceLoadDelegate(implementations->willSendRequestFunc, webView, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:), [webView _objectForIdentifier:identifier], request.nsURLRequest(), redirectResponse.nsURLResponse(), dataSource(loader));
+}
+
+bool WebFrameLoaderClient::shouldUseCredentialStorage(DocumentLoader* loader, unsigned long identifier)
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebResourceDelegateImplementationCache* implementations = WebViewGetResourceLoadDelegateImplementations(webView);
+
+    if (implementations->shouldUseCredentialStorageFunc) {
+        if (id resource = [webView _objectForIdentifier:identifier])
+            return CallResourceLoadDelegateReturningBoolean(NO, implementations->shouldUseCredentialStorageFunc, webView, @selector(webView:resource:shouldUseCredentialStorageForDataSource:), resource, dataSource(loader));
+    }
+
+    return true;
 }
 
 void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge& challenge)
@@ -553,6 +617,14 @@ void WebFrameLoaderClient::dispatchDidFirstLayout()
         CallFrameLoadDelegate(implementations->didFirstLayoutInFrameFunc, webView, @selector(webView:didFirstLayoutInFrame:), m_webFrame.get());
 }
 
+void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
+    if (implementations->didFirstVisuallyNonEmptyLayoutInFrameFunc)
+        CallFrameLoadDelegate(implementations->didFirstVisuallyNonEmptyLayoutInFrameFunc, webView, @selector(webView:didFirstVisuallyNonEmptyLayoutInFrame:), m_webFrame.get());
+}
+
 Frame* WebFrameLoaderClient::dispatchCreatePage()
 {
     WebView *currentWebView = getWebView(m_webFrame.get());
@@ -711,13 +783,44 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
     [dataSource(loader) _finishedLoading];
 }
 
-void WebFrameLoaderClient::updateGlobalHistory(const KURL& url)
+void WebFrameLoaderClient::updateGlobalHistory()
 {
-    NSURL *cocoaURL = url;
-    const String& pageTitle = core(m_webFrame.get())->loader()->documentLoader()->title();
-    [[WebHistory optionalSharedHistory] _addItemForURL:cocoaURL title:pageTitle];
+    DocumentLoader* loader = core(m_webFrame.get())->loader()->documentLoader();
+
+    if (loader->urlForHistoryReflectsServerRedirect()) {
+        [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory()
+                                              withTitle:loader->title()
+                                                 method:loader->request().httpMethod()
+                                             wasFailure:loader->urlForHistoryReflectsFailure()
+                                      serverRedirectURL:loader->url()
+                                       isClientRedirect:NO];
+        return;
+    }
+
+    if (loader->urlForHistoryReflectsClientRedirect()) {
+        [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory() 
+                                              withTitle:loader->title()
+                                                 method:loader->request().httpMethod()
+                                             wasFailure:loader->urlForHistoryReflectsFailure()
+                                      serverRedirectURL:nil
+                                       isClientRedirect:YES];
+        return;
+    }
+
+    [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory() 
+                                          withTitle:loader->title()
+                                             method:loader->request().httpMethod()
+                                         wasFailure:loader->urlForHistoryReflectsFailure()
+                                  serverRedirectURL:nil
+                                   isClientRedirect:NO];
 }
- 
+
+void WebFrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+{
+    DocumentLoader* loader = core(m_webFrame.get())->loader()->documentLoader();
+    [[WebHistory optionalSharedHistory] _visitedURLForRedirectWithoutHistoryItem:loader->url()];
+}
+
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
 {
     WebView* view = getWebView(m_webFrame.get());
@@ -800,11 +903,13 @@ String WebFrameLoaderClient::generatedMIMETypeForURLScheme(const String& URLSche
 void WebFrameLoaderClient::frameLoadCompleted()
 {
     // Note: Can be called multiple times.
+
+    // See WebFrameLoaderClient::provisionalLoadStarted.
+    if ([getWebView(m_webFrame.get()) drawsBackground])
+        [[m_webFrame->_private->webFrameView _scrollView] setDrawsBackground:YES];
+
     // Even if already complete, we might have set a previous item on a frame that
     // didn't do any data loading on the past transaction. Make sure to clear these out.
-    NSScrollView *sv = [m_webFrame->_private->webFrameView _scrollView];
-    if ([getWebView(m_webFrame.get()) drawsBackground])
-        [sv setDrawsBackground:YES];
     core(m_webFrame.get())->loader()->setPreviousHistoryItem(0);
 }
 
@@ -846,9 +951,15 @@ void WebFrameLoaderClient::restoreViewState()
 
 void WebFrameLoaderClient::provisionalLoadStarted()
 {    
-    // FIXME: This is OK as long as no one resizes the window,
-    // but in the case where someone does, it means garbage outside
-    // the occupied part of the scroll view.
+    // Tell the scroll view not to draw a background so we can leave the contents of
+    // the old page showing during the beginning of the loading process.
+
+    // This will stay set to NO until:
+    //    1) The load gets far enough along: WebFrameLoader::frameLoadCompleted.
+    //    2) The window is resized: -[WebFrameView setFrameSize:].
+    // or 3) The view is moved out of the window: -[WebFrameView viewDidMoveToWindow].
+    // Please keep the comments in these four functions in agreement with each other.
+
     [[m_webFrame->_private->webFrameView _scrollView] setDrawsBackground:NO];
 }
 
@@ -906,19 +1017,19 @@ void WebFrameLoaderClient::setTitle(const String& title, const KURL& URL)
     [[[WebHistory optionalSharedHistory] itemForURL:nsURL] setTitle:titleNSString];
 }
 
-void WebFrameLoaderClient::savePlatformDataToCachedPage(CachedPage* cachedPage)
+void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFrame)
 {
-    WebCachedPagePlatformData* webPlatformData = new WebCachedPagePlatformData([m_webFrame->_private->webFrameView documentView]);
-    cachedPage->setCachedPagePlatformData(webPlatformData);
+    WebCachedFramePlatformData* webPlatformData = new WebCachedFramePlatformData([m_webFrame->_private->webFrameView documentView]);
+    cachedFrame->setCachedFramePlatformData(webPlatformData);
 }
 
-void WebFrameLoaderClient::transitionToCommittedFromCachedPage(CachedPage* cachedPage)
+void WebFrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame* cachedFrame)
 {
-    WebCachedPagePlatformData* platformData = reinterpret_cast<WebCachedPagePlatformData*>(cachedPage->cachedPagePlatformData());
+    WebCachedFramePlatformData* platformData = reinterpret_cast<WebCachedFramePlatformData*>(cachedFrame->cachedFramePlatformData());
     NSView <WebDocumentView> *cachedView = platformData->webDocumentView();
     ASSERT(cachedView != nil);
-    ASSERT(cachedPage->documentLoader());
-    [cachedView setDataSource:dataSource(cachedPage->documentLoader())];
+    ASSERT(cachedFrame->documentLoader());
+    [cachedView setDataSource:dataSource(cachedFrame->documentLoader())];
     
     // clean up webkit plugin instances before WebHTMLView gets freed.
     WebView *webView = getWebView(m_webFrame.get());
@@ -1279,6 +1390,15 @@ public:
 
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 
+static Class netscapePluginViewClass()
+{
+#if USE(PLUGIN_HOST_PROCESS)
+    return [WebHostedNetscapePluginView class];
+#else
+    return [WebNetscapePluginView class];
+#endif
+}
+
 Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element, const KURL& url,
     const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
@@ -1341,7 +1461,7 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element
             
 #if ENABLE(NETSCAPE_PLUGIN_API)
         else if ([pluginPackage isKindOfClass:[WebNetscapePluginPackage class]]) {
-            WebBaseNetscapePluginView *embeddedView = [[[WebBaseNetscapePluginView alloc]
+            WebBaseNetscapePluginView *pluginView = [[[netscapePluginViewClass() alloc]
                 initWithFrame:NSMakeRect(0, 0, size.width(), size.height())
                 pluginPackage:(WebNetscapePluginPackage *)pluginPackage
                 URL:URL
@@ -1352,7 +1472,7 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element
                 loadManually:loadManually
                 DOMElement:kit(element)] autorelease];
             
-            return new NetscapePluginWidget(embeddedView);
+            return new NetscapePluginWidget(pluginView);
         } 
 #endif
     } else
@@ -1390,8 +1510,8 @@ void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
     NSView *pluginView = pluginWidget->platformWidget();
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    if ([pluginView isKindOfClass:[WebBaseNetscapePluginView class]])
-        [representation _redirectDataToManualLoader:(WebBaseNetscapePluginView *)pluginView forPluginView:pluginView];
+    if ([pluginView isKindOfClass:[WebNetscapePluginView class]])
+        [representation _redirectDataToManualLoader:(WebNetscapePluginView *)pluginView forPluginView:pluginView];
     else {
 #else
     {
@@ -1434,7 +1554,7 @@ Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, Elemen
         } 
 #if ENABLE(NETSCAPE_PLUGIN_API)
         else if ([pluginPackage isKindOfClass:[WebNetscapePluginPackage class]]) {
-            view = [[[WebBaseNetscapePluginView alloc] initWithFrame:NSMakeRect(0, 0, size.width(), size.height())
+            view = [[[netscapePluginViewClass() alloc] initWithFrame:NSMakeRect(0, 0, size.width(), size.height())
                 pluginPackage:(WebNetscapePluginPackage *)pluginPackage
                 URL:nil
                 baseURL:baseURL
@@ -1525,12 +1645,13 @@ jobject WebFrameLoaderClient::javaApplet(NSView* view)
 
 @implementation WebFramePolicyListener
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 - (id)initWithWebCoreFrame:(Frame*)frame
 {

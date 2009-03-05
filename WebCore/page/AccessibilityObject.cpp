@@ -51,6 +51,7 @@
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -256,7 +257,7 @@ void AccessibilityObject::setSelectedText(const String&)
     notImplemented();
 }
 
-void AccessibilityObject::setSelectedTextRange(const PlainTextRange& range)
+void AccessibilityObject::setSelectedTextRange(const PlainTextRange&)
 {
 }
 
@@ -271,11 +272,11 @@ KURL AccessibilityObject::url() const
     return KURL();
 }
 
-void AccessibilityObject::setFocused(bool on)
+void AccessibilityObject::setFocused(bool)
 {
 }
 
-void AccessibilityObject::setValue(const String& string)
+void AccessibilityObject::setValue(const String&)
 {
 }
 
@@ -326,17 +327,17 @@ VisiblePositionRange AccessibilityObject::visiblePositionRange() const
     return VisiblePositionRange();
 }
 
-VisiblePositionRange AccessibilityObject::visiblePositionRangeForLine(unsigned lineCount) const
+VisiblePositionRange AccessibilityObject::visiblePositionRangeForLine(unsigned) const
 {
     return VisiblePositionRange();
 }
 
-VisiblePosition AccessibilityObject::visiblePositionForIndex(int index) const
+VisiblePosition AccessibilityObject::visiblePositionForIndex(int) const
 {
     return VisiblePosition();
 }
     
-int AccessibilityObject::indexForVisiblePosition(const VisiblePosition& pos) const
+int AccessibilityObject::indexForVisiblePosition(const VisiblePosition&) const
 {
     return 0;
 }
@@ -599,7 +600,7 @@ String AccessibilityObject::stringForVisiblePositionRange(const VisiblePositionR
     return String::adopt(resultVector);
 }
 
-IntRect AccessibilityObject::boundsForVisiblePositionRange(const VisiblePositionRange& visiblePositionRange) const
+IntRect AccessibilityObject::boundsForVisiblePositionRange(const VisiblePositionRange&) const
 {
     return IntRect();
 }
@@ -635,7 +636,7 @@ void AccessibilityObject::setSelectedVisiblePositionRange(const VisiblePositionR
 {
 }
 
-VisiblePosition AccessibilityObject::visiblePositionForPoint(const IntPoint& point) const
+VisiblePosition AccessibilityObject::visiblePositionForPoint(const IntPoint&) const
 {
     return VisiblePosition();
 }
@@ -738,7 +739,8 @@ VisiblePosition AccessibilityObject::nextSentenceEndPosition(const VisiblePositi
     // an empty line is considered a sentence. If it's skipped, then the sentence parser will not
     // see this empty line.  Instead, return the end position of the empty line.
     VisiblePosition endPosition;
-    String lineString = plainText(makeRange(startOfLine(visiblePos), endOfLine(visiblePos)).get());
+    
+    String lineString = plainText(makeRange(startOfLine(nextVisiblePos), endOfLine(nextVisiblePos)).get());
     if (lineString.isEmpty())
         endPosition = nextVisiblePos;
     else
@@ -761,6 +763,7 @@ VisiblePosition AccessibilityObject::previousSentenceStartPosition(const Visible
 
     // treat empty line as a separate sentence.
     VisiblePosition startPosition;
+    
     String lineString = plainText(makeRange(startOfLine(previousVisiblePos), endOfLine(previousVisiblePos)).get());
     if (lineString.isEmpty())
         startPosition = previousVisiblePos;
@@ -797,7 +800,7 @@ VisiblePosition AccessibilityObject::previousParagraphStartPosition(const Visibl
 }
 
 // NOTE: Consider providing this utility method as AX API
-VisiblePosition AccessibilityObject::visiblePositionForIndex(unsigned indexValue, bool lastIndexOK) const
+VisiblePosition AccessibilityObject::visiblePositionForIndex(unsigned, bool) const
 {
     return VisiblePosition();
 }
@@ -848,14 +851,14 @@ PlainTextRange AccessibilityObject::plainTextRangeForVisiblePositionRange(const 
 }
 
 // NOTE: Consider providing this utility method as AX API
-int AccessibilityObject::index(const VisiblePosition& position) const
+int AccessibilityObject::index(const VisiblePosition&) const
 {
     return -1;
 }
 
 // Given a line number, the range of characters of the text associated with this accessibility
 // object that contains the line number.
-PlainTextRange AccessibilityObject::doAXRangeForLine(unsigned lineNumber) const
+PlainTextRange AccessibilityObject::doAXRangeForLine(unsigned) const
 {
     return PlainTextRange();
 }
@@ -878,7 +881,7 @@ PlainTextRange AccessibilityObject::doAXRangeForPosition(const IntPoint& point) 
 // The composed character range in the text associated with this accessibility object that
 // is specified by the given index value. This parameterized attribute returns the complete
 // range of characters (including surrogate pairs of multi-byte glyphs) at the given index.
-PlainTextRange AccessibilityObject::doAXRangeForIndex(unsigned index) const
+PlainTextRange AccessibilityObject::doAXRangeForIndex(unsigned) const
 {
     return PlainTextRange();
 }
@@ -893,7 +896,7 @@ PlainTextRange AccessibilityObject::doAXStyleRangeForIndex(unsigned index) const
 
 // A substring of the text associated with this accessibility object that is
 // specified by the given character range.
-String AccessibilityObject::doAXStringForRange(const PlainTextRange& range) const
+String AccessibilityObject::doAXStringForRange(const PlainTextRange&) const
 {
     return String();
 }
@@ -901,7 +904,7 @@ String AccessibilityObject::doAXStringForRange(const PlainTextRange& range) cons
 // The bounding rectangle of the text associated with this accessibility object that is
 // specified by the given range. This is the bounding rectangle a sighted user would see
 // on the display screen, in pixels.
-IntRect AccessibilityObject::doAXBoundsForRange(const PlainTextRange& range) const
+IntRect AccessibilityObject::doAXBoundsForRange(const PlainTextRange&) const
 {
     return IntRect();
 }
@@ -925,7 +928,7 @@ FrameView* AccessibilityObject::documentFrameView() const
     return object->documentFrameView();
 }    
 
-AccessibilityObject* AccessibilityObject::doAccessibilityHitTest(const IntPoint& point) const
+AccessibilityObject* AccessibilityObject::doAccessibilityHitTest(const IntPoint&) const
 {
     return 0;
 }
@@ -1001,13 +1004,13 @@ void AccessibilityObject::removeAXObjectID()
 const String& AccessibilityObject::actionVerb() const
 {
     // FIXME: Need to add verbs for select elements.
-    static const String buttonAction = AXButtonActionVerb();
-    static const String textFieldAction = AXTextFieldActionVerb();
-    static const String radioButtonAction = AXRadioButtonActionVerb();
-    static const String checkedCheckBoxAction = AXCheckedCheckBoxActionVerb();
-    static const String uncheckedCheckBoxAction = AXUncheckedCheckBoxActionVerb();
-    static const String linkAction = AXLinkActionVerb();
-    static const String noAction;
+    DEFINE_STATIC_LOCAL(const String, buttonAction, (AXButtonActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, textFieldAction, (AXTextFieldActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, radioButtonAction, (AXRadioButtonActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, checkedCheckBoxAction, (AXCheckedCheckBoxActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, uncheckedCheckBoxAction, (AXUncheckedCheckBoxActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, linkAction, (AXLinkActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, noAction, ());
 
     switch (roleValue()) {
         case ButtonRole:
@@ -1027,4 +1030,8 @@ const String& AccessibilityObject::actionVerb() const
     }
 }
 
+void AccessibilityObject::updateBackingStore()
+{
+}
+    
 } // namespace WebCore

@@ -29,14 +29,14 @@ namespace JSC {
 
     class BooleanConstructor : public InternalFunction {
     public:
-        BooleanConstructor(ExecState*, PassRefPtr<StructureID>, BooleanPrototype*);
+        BooleanConstructor(ExecState*, PassRefPtr<Structure>, BooleanPrototype*);
 
     private:
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
     };
 
-    JSObject* constructBooleanFromImmediateBoolean(ExecState*, JSValue*);
+    JSObject* constructBooleanFromImmediateBoolean(ExecState*, JSValuePtr);
     JSObject* constructBoolean(ExecState*, const ArgList&);
 
 } // namespace JSC

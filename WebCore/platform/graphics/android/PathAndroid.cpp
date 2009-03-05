@@ -26,7 +26,10 @@
 #include "config.h"
 #include "Path.h"
 #include "FloatRect.h"
-#include "AffineTransform.h"
+#include "GraphicsContext.h"
+#include "ImageBuffer.h"
+#include "StrokeStyleApplier.h"
+#include "TransformationMatrix.h"
 
 #include "SkPath.h"
 #include "SkRegion.h"
@@ -260,9 +263,54 @@ void Path::apply(void* info, PathApplierFunction function) const
     }
 }
 
-void Path::transform(const AffineTransform& xform)
+void Path::transform(const TransformationMatrix& xform)
 {
     m_path->transform(xform);
+}
+    
+///////////////////////////////////////////////////////////////////////////////
+
+// Computes the bounding box for the stroke and style currently selected into
+// the given bounding box. This also takes into account the stroke width.
+static FloatRect boundingBoxForCurrentStroke(GraphicsContext* context)
+{
+    const SkPath* path = context->getCurrPath();
+    if (NULL == path) {
+        return FloatRect();
+    }
+
+    SkPaint paint;
+    context->setupStrokePaint(&paint);
+    SkPath fillPath;
+    paint.getFillPath(*path, &fillPath);
+    SkRect r;
+    fillPath.computeBounds(&r, SkPath::kExact_BoundsType);
+    return FloatRect(r.fLeft, r.fTop, r.width(), r.height());
+}
+    
+static GraphicsContext* scratchContext()
+{
+    static ImageBuffer* scratch = 0;
+    if (!scratch)
+        scratch = ImageBuffer::create(IntSize(1, 1), false).release();
+    // We don't bother checking for failure creating the ImageBuffer, since our
+    // ImageBuffer initializer won't fail.
+    return scratch->context();
+}    
+
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+{   
+    GraphicsContext* scratch = scratchContext();
+    scratch->save();
+    scratch->beginPath();
+    scratch->addPath(*this);
+    
+    if (applier)
+        applier->strokeStyle(scratch);
+    
+    FloatRect r = boundingBoxForCurrentStroke(scratch);
+    scratch->restore();
+    return r;
 }
 
 }

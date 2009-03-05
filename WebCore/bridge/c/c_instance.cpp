@@ -35,16 +35,44 @@
 #include "npruntime_impl.h"
 #include "runtime_root.h"
 #include <runtime/ArgList.h>
-#include <runtime/ExecState.h>
+#include <runtime/Error.h>
+#include <interpreter/CallFrame.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSNumberCell.h>
 #include <runtime/PropertyNameArray.h>
 #include <wtf/Assertions.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 namespace Bindings {
+
+using JSC::UString;
+
+static JSC::UString& globalExceptionString()
+{
+    DEFINE_STATIC_LOCAL(JSC::UString, exceptionStr, ());
+    return exceptionStr;
+}
+
+void CInstance::setGlobalException(UString exception)
+{
+    globalExceptionString() = exception;
+}
+
+void CInstance::moveGlobalExceptionToExecState(ExecState* exec)
+{
+    if (globalExceptionString().isNull())
+        return;
+
+    {
+        JSLock lock(false);
+        throwError(exec, GeneralError, globalExceptionString());
+    }
+
+    globalExceptionString() = UString();
+}
 
 CInstance::CInstance(NPObject* o, PassRefPtr<RootObject> rootObject)
     : Instance(rootObject)
@@ -70,7 +98,7 @@ bool CInstance::supportsInvokeDefaultMethod() const
     return _object->_class->invokeDefault;
 }
 
-JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const ArgList& args)
+JSValuePtr CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const ArgList& args)
 {
     // Overloading methods are not allowed by NPObjects.  Should only be one
     // name match for a particular method.
@@ -78,7 +106,7 @@ JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, 
 
     CMethod* method = static_cast<CMethod*>(methodList[0]);
 
-    NPIdentifier ident = _NPN_GetStringIdentifier(method->name());
+    NPIdentifier ident = method->identifier();
     if (!_object->_class->hasMethod(_object, ident))
         return jsUndefined();
 
@@ -98,13 +126,15 @@ JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, 
 
     {
         JSLock::DropAllLocks dropAllLocks(false);
+        ASSERT(globalExceptionString().isNull());
         _object->_class->invoke(_object, ident, cArgs.data(), count, &resultVariant);
+        moveGlobalExceptionToExecState(exec);
     }
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValuePtr resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
 #ifdef ANDROID_NPN_SETEXCEPTION
     MoveGlobalExceptionToExecState(exec);
@@ -113,7 +143,7 @@ JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, 
 }
 
 
-JSValue* CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
+JSValuePtr CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
 {
     if (!_object->_class->invokeDefault)
         return jsUndefined();
@@ -133,13 +163,15 @@ JSValue* CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
     VOID_TO_NPVARIANT(resultVariant);
     {
         JSLock::DropAllLocks dropAllLocks(false);
+        ASSERT(globalExceptionString().isNull());
         _object->_class->invokeDefault(_object, cArgs.data(), count, &resultVariant);
+        moveGlobalExceptionToExecState(exec);
     }
-    
+
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValuePtr resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
 #ifdef ANDROID_NPN_SETEXCEPTION
     MoveGlobalExceptionToExecState(exec);
@@ -152,7 +184,7 @@ bool CInstance::supportsConstruct() const
     return _object->_class->construct;
 }
     
-JSValue* CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
+JSValuePtr CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
 {
     if (!_object->_class->construct)
         return jsUndefined();
@@ -169,18 +201,20 @@ JSValue* CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
     VOID_TO_NPVARIANT(resultVariant);
     {
         JSLock::DropAllLocks dropAllLocks(false);
+        ASSERT(globalExceptionString().isNull());
         _object->_class->construct(_object, cArgs.data(), count, &resultVariant);
+        moveGlobalExceptionToExecState(exec);
     }
-    
+
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValuePtr resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
     return resultValue;
 }
 
-JSValue* CInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
+JSValuePtr CInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
 {
     if (hint == PreferString)
         return stringValue(exec);
@@ -189,26 +223,26 @@ JSValue* CInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) c
     return valueOf(exec);
 }
 
-JSValue* CInstance::stringValue(ExecState* exec) const
+JSValuePtr CInstance::stringValue(ExecState* exec) const
 {
     char buf[1024];
     snprintf(buf, sizeof(buf), "NPObject %p, NPClass %p", _object, _object->_class);
     return jsString(exec, buf);
 }
 
-JSValue* CInstance::numberValue(ExecState* exec) const
+JSValuePtr CInstance::numberValue(ExecState* exec) const
 {
     // FIXME: Implement something sensible.
     return jsNumber(exec, 0);
 }
 
-JSValue* CInstance::booleanValue() const
+JSValuePtr CInstance::booleanValue() const
 {
     // FIXME: Implement something sensible.
     return jsBoolean(false);
 }
 
-JSValue* CInstance::valueOf(ExecState* exec) const 
+JSValuePtr CInstance::valueOf(ExecState* exec) const 
 {
     return stringValue(exec);
 }
@@ -223,7 +257,10 @@ void CInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArray)
 
     {
         JSLock::DropAllLocks dropAllLocks(false);
-        if (!_object->_class->enumerate(_object, &identifiers, &count))
+        ASSERT(globalExceptionString().isNull());
+        bool ok = _object->_class->enumerate(_object, &identifiers, &count);
+        moveGlobalExceptionToExecState(exec);
+        if (!ok)
             return;
     }
 

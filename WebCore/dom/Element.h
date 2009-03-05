@@ -116,8 +116,12 @@ public:
     virtual void removedFromDocument();
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
+    PassRefPtr<Element> cloneElement();
+
     void normalizeAttributes();
 
+    virtual bool isFormControlElement() const { return false; }
+    virtual bool isFormControlElementWithState() const { return false; }
     virtual bool isInputTypeHidden() const { return false; }
     virtual bool isPasswordField() const { return false; }
 
@@ -136,7 +140,7 @@ public:
     // not part of the DOM
     void setAttributeMap(PassRefPtr<NamedAttrMap>);
 
-    virtual void copyNonAttributeProperties(const Element* source) {}
+    virtual void copyNonAttributeProperties(const Element* /*source*/) { }
 
     virtual void attach();
     virtual void detach();
@@ -152,7 +156,7 @@ public:
     void dispatchAttrRemovalEvent(Attribute*);
     void dispatchAttrAdditionEvent(Attribute*);
 
-    virtual void accessKeyAction(bool sendToAnyEvent) { }
+    virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
@@ -164,8 +168,6 @@ public:
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
-
-    bool contains(const Node*) const;
 
     String innerText() const;
     String outerText() const;
@@ -179,10 +181,13 @@ public:
     IntSize minimumSizeForResizing() const;
     void setMinimumSizeForResizing(const IntSize&);
 
-    // Use Document::registerForDocumentActivationCallbacks() to subscribe these
+    // Use Document::registerForDocumentActivationCallbacks() to subscribe to these
     virtual void documentWillBecomeInactive() { }
     virtual void documentDidBecomeActive() { }
-    
+
+    // Use Document::registerForMediaVolumeCallbacks() to subscribe to this
+    virtual void mediaVolumeDidChange() { }
+
     bool isFinishedParsingChildren() const { return m_parsingChildrenFinished; }
     virtual void finishParsingChildren();
     virtual void beginParsingChildren() { m_parsingChildrenFinished = false; }
@@ -218,20 +223,6 @@ protected:
     ElementRareData* ensureRareData();
     
     mutable RefPtr<NamedAttrMap> namedAttrMap;
-
-    // These two bits are really used by the StyledElement subclass, but they are pulled up here in order to be shared with other
-    // Element bits.
-    mutable bool m_isStyleAttributeValid : 1;
-    mutable bool m_synchronizingStyleAttribute : 1;
-
-#if ENABLE(SVG)
-    // These bit is are used by SVGElement subclasses, and it lives here for the same reason as above.
-    mutable bool m_areSVGAttributesValid : 1;
-    mutable bool m_synchronizingSVGAttributes : 1;
-#endif
-
-private:
-    bool m_parsingChildrenFinished : 1;
 };
     
 inline bool Node::hasTagName(const QualifiedName& name) const
@@ -247,6 +238,12 @@ inline bool Node::hasAttributes() const
 inline NamedAttrMap* Node::attributes() const
 {
     return isElementNode() ? static_cast<const Element*>(this)->attributes() : 0;
+}
+
+inline Element* Node::parentElement() const
+{
+    Node* parent = parentNode();
+    return parent && parent->isElementNode() ? static_cast<Element*>(parent) : 0;
 }
 
 } //namespace

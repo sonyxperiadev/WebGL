@@ -245,6 +245,18 @@ PlatformWidget ChromeClientAndroid::platformWindow() const {
     return viewBridge;
 }
 
+// new to webkit4 (Feb 27, 2009)
+void ChromeClientAndroid::contentsSizeChanged(Frame*, const IntSize&) const
+{
+    notImplemented();
+}
+
+// new to webkit4 (Feb 27, 2009)
+void ChromeClientAndroid::formStateDidChange(const Node*)
+{
+    notImplemented();
+}
+
 void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned int) {}
 void ChromeClientAndroid::setToolTip(const String&) {}
 void ChromeClientAndroid::print(Frame*) {}

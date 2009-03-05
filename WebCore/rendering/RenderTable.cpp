@@ -235,12 +235,12 @@ void RenderTable::calcWidth()
     LengthType widthType = style()->width().type();
     if (widthType > Relative && style()->width().isPositive()) {
         // Percent or fixed table
-        m_width = style()->width().calcMinValue(availableWidth);
-        m_width = max(minPrefWidth(), m_width);
+        setWidth(style()->width().calcMinValue(availableWidth));
+        setWidth(max(minPrefWidth(), width()));
     } else {
         // An auto width table should shrink to fit within the line width if necessary in order to 
         // avoid overlapping floats.
-        availableWidth = cb->lineWidth(m_y);
+        availableWidth = cb->lineWidth(y());
         
         // Subtract out any fixed margins from our available width for auto width tables.
         int marginTotal = 0;
@@ -253,10 +253,10 @@ void RenderTable::calcWidth()
         int availContentWidth = max(0, availableWidth - marginTotal);
         
         // Ensure we aren't bigger than our max width or smaller than our min width.
-        m_width = min(availContentWidth, maxPrefWidth());
+        setWidth(min(availContentWidth, maxPrefWidth()));
     }
     
-    m_width = max(m_width, minPrefWidth());
+    setWidth(max(width(), minPrefWidth()));
 
     // Finally, with our true width determined, compute our margins for real.
     m_marginRight = 0;
@@ -283,12 +283,12 @@ void RenderTable::layout()
     bool checkForRepaint = checkForRepaintDuringLayout();
     if (checkForRepaint) {
         oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
     }
     
-    view()->pushLayoutState(this, IntSize(m_x, m_y));
+    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()));
 
-    m_height = 0;
+    setHeight(0);
     m_overflowHeight = 0;
     m_overflowTop = 0;
     initMaxMarginValues();
@@ -298,7 +298,7 @@ void RenderTable::layout()
     int oldVisibleWidth = m_visibleWidth;
 #endif
     
-    int oldWidth = m_width;
+    int oldWidth = width();
     calcWidth();
 
 #ifdef ANDROID_LAYOUT
@@ -309,10 +309,10 @@ void RenderTable::layout()
         // if the width of a table is wider than its container width, or it has a nested table,
         // we will render it with single column.
         int cw = containingBlockWidth();
-        if (m_width > cw || hasChildTable()) {
+        if (width() > cw || hasChildTable()) {
             m_singleColumn = true; 
-            if (m_width > cw)
-	            m_width = cw;
+            if (width() > cw)
+	            setWidth(cw);
             if (m_minPrefWidth > cw)
 	            m_minPrefWidth = cw;
     		if (m_maxPrefWidth > cw)
@@ -320,14 +320,14 @@ void RenderTable::layout()
         }
     }    
 #endif
-    if (m_caption && m_width != oldWidth)
+    if (m_caption && width() != oldWidth)
         m_caption->setNeedsLayout(true, false);
 
     // FIXME: The optimisation below doesn't work since the internal table
     // layout could have changed.  we need to add a flag to the table
     // layout that tells us if something has changed in the min max
     // calculations to do it correctly.
-//     if ( oldWidth != m_width || columns.size() + 1 != columnPos.size() )
+//     if ( oldWidth != width() || columns.size() + 1 != columnPos.size() )
     m_tableLayout->layout();
 
     setCellWidths();
@@ -347,7 +347,7 @@ void RenderTable::layout()
             child->layout();
         }
 #else
-        if (child->needsLayout() && !(child->element() && child->element()->hasTagName(formTag)))
+        if (child->needsLayout() && !(child->element() && child->element()->hasTagName(formTag) && !child->isTableSection()))
             child->layout();
 #endif
         if (child->isTableSection()) {
@@ -355,10 +355,11 @@ void RenderTable::layout()
             calculatedHeight += section->calcRowHeight();
             if (collapsing)
                 section->recalcOuterBorder();
+            ASSERT(!section->needsLayout());
         }
     }
 
-    m_overflowWidth = m_width + (collapsing ? outerBorderRight() - borderRight() : 0);
+    m_overflowWidth = width() + (collapsing ? outerBorderRight() - borderRight() : 0);
     m_overflowLeft = collapsing ? borderLeft() - outerBorderLeft() : 0;
 
     // If any table section moved vertically, we will just repaint everything from that
@@ -369,28 +370,28 @@ void RenderTable::layout()
 
     // FIXME: Collapse caption margin.
     if (m_caption && m_caption->style()->captionSide() != CAPBOTTOM) {
-        IntRect captionRect(m_caption->xPos(), m_caption->yPos(), m_caption->width(), m_caption->height());
+        IntRect captionRect(m_caption->x(), m_caption->y(), m_caption->width(), m_caption->height());
 
-        m_caption->setPos(m_caption->marginLeft(), m_height);
+        m_caption->setLocation(m_caption->marginLeft(), height());
         if (!selfNeedsLayout() && m_caption->checkForRepaintDuringLayout())
             m_caption->repaintDuringLayoutIfMoved(captionRect);
 
-        m_height += m_caption->height() + m_caption->marginTop() + m_caption->marginBottom();
-        m_overflowLeft = min(m_overflowLeft, m_caption->xPos() + m_caption->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, m_caption->xPos() + m_caption->overflowWidth(false));
-        m_overflowTop = min(m_overflowTop, m_caption->yPos() + m_caption->overflowTop(false));
-        m_overflowHeight = max(m_overflowHeight, m_caption->yPos() + m_caption->overflowHeight(false));
+        setHeight(height() + m_caption->height() + m_caption->marginTop() + m_caption->marginBottom());
+        m_overflowLeft = min(m_overflowLeft, m_caption->x() + m_caption->overflowLeft(false));
+        m_overflowWidth = max(m_overflowWidth, m_caption->x() + m_caption->overflowWidth(false));
+        m_overflowTop = min(m_overflowTop, m_caption->y() + m_caption->overflowTop(false));
+        m_overflowHeight = max(m_overflowHeight, m_caption->y() + m_caption->overflowHeight(false));
 
-        if (m_height != oldTableTop) {
+        if (height() != oldTableTop) {
             sectionMoved = true;
-            movedSectionTop = min(m_height, oldTableTop);
+            movedSectionTop = min(height(), oldTableTop);
         }
     }
 
     int bpTop = borderTop() + (collapsing ? 0 : paddingTop());
     int bpBottom = borderBottom() + (collapsing ? 0 : paddingBottom());
     
-    m_height += bpTop;
+    setHeight(height() + bpTop);
 
     if (!isPositioned())
         calcHeight();
@@ -405,16 +406,15 @@ void RenderTable::layout()
     th = max(0, th);
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
-        if (!child->isTableSection())
-            continue;
-        // FIXME: Distribute extra height between all table body sections instead of giving it all to the first one.
-        static_cast<RenderTableSection*>(child)->layoutRows(child == m_firstBody ? max(0, th - calculatedHeight) : 0);
+        if (child->isTableSection())
+            // FIXME: Distribute extra height between all table body sections instead of giving it all to the first one.
+            static_cast<RenderTableSection*>(child)->layoutRows(child == m_firstBody ? max(0, th - calculatedHeight) : 0);
     }
 
     if (!m_firstBody && th > calculatedHeight && !style()->htmlHacks()) {
         // Completely empty tables (with no sections or anything) should at least honor specified height
         // in strict mode.
-        m_height += th;
+        setHeight(height() + th);
     }
     
     int bl = borderLeft();
@@ -424,38 +424,38 @@ void RenderTable::layout()
     // position the table sections
     RenderTableSection* section = m_head ? m_head : (m_firstBody ? m_firstBody : m_foot);
     while (section) {
-        if (!sectionMoved && section->yPos() != m_height) {
+        if (!sectionMoved && section->y() != height()) {
             sectionMoved = true;
-            movedSectionTop = min(m_height, section->yPos()) + section->overflowTop(false);
+            movedSectionTop = min(height(), section->y()) + section->overflowTop(false);
         }
-        section->setPos(bl, m_height);
+        section->setLocation(bl, height());
 
-        m_height += section->height();
-        m_overflowLeft = min(m_overflowLeft, section->xPos() + section->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, section->xPos() + section->overflowWidth(false));
-        m_overflowTop = min(m_overflowTop, section->yPos() + section->overflowTop(false));
-        m_overflowHeight = max(m_overflowHeight, section->yPos() + section->overflowHeight(false));
+        setHeight(height() + section->height());
+        m_overflowLeft = min(m_overflowLeft, section->x() + section->overflowLeft(false));
+        m_overflowWidth = max(m_overflowWidth, section->x() + section->overflowWidth(false));
+        m_overflowTop = min(m_overflowTop, section->y() + section->overflowTop(false));
+        m_overflowHeight = max(m_overflowHeight, section->y() + section->overflowHeight(false));
         section = sectionBelow(section);
     }
 
-    m_height += bpBottom;
+    setHeight(height() + bpBottom);
 
     if (m_caption && m_caption->style()->captionSide() == CAPBOTTOM) {
-        IntRect captionRect(m_caption->xPos(), m_caption->yPos(), m_caption->width(), m_caption->height());
+        IntRect captionRect(m_caption->x(), m_caption->y(), m_caption->width(), m_caption->height());
 
-        m_caption->setPos(m_caption->marginLeft(), m_height);
+        m_caption->setLocation(m_caption->marginLeft(), height());
         if (!selfNeedsLayout() && m_caption->checkForRepaintDuringLayout())
             m_caption->repaintDuringLayoutIfMoved(captionRect);
 
-        m_height += m_caption->height() + m_caption->marginTop() + m_caption->marginBottom();
-        m_overflowLeft = min(m_overflowLeft, m_caption->xPos() + m_caption->overflowLeft(false));
-        m_overflowWidth = max(m_overflowWidth, m_caption->xPos() + m_caption->overflowWidth(false));
+        setHeight(height() + m_caption->height() + m_caption->marginTop() + m_caption->marginBottom());
+        m_overflowLeft = min(m_overflowLeft, m_caption->x() + m_caption->overflowLeft(false));
+        m_overflowWidth = max(m_overflowWidth, m_caption->x() + m_caption->overflowWidth(false));
     }
 
     if (isPositioned())
         calcHeight();
 
-    m_overflowHeight = max(m_overflowHeight, m_height);
+    m_overflowHeight = max(m_overflowHeight, height());
 
     // table can be containing block of positioned elements.
     // FIXME: Only pass true if width or height changed.
@@ -464,9 +464,9 @@ void RenderTable::layout()
     if (!hasOverflowClip()) {
         for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next) {
             m_overflowLeft = min(m_overflowLeft, boxShadow->x - boxShadow->blur);
-            m_overflowWidth = max(m_overflowWidth, m_width + boxShadow->x + boxShadow->blur);
+            m_overflowWidth = max(m_overflowWidth, width() + boxShadow->x + boxShadow->blur);
             m_overflowTop = min(m_overflowTop, boxShadow->y - boxShadow->blur);
-            m_overflowHeight = max(m_overflowHeight, m_height + boxShadow->y + boxShadow->blur);
+            m_overflowHeight = max(m_overflowHeight, height() + boxShadow->y + boxShadow->blur);
         }
         
         if (hasReflection()) {
@@ -478,7 +478,7 @@ void RenderTable::layout()
         }
     }
 
-    view()->popLayoutState();
+    statePusher.pop();
 
     bool didFullRepaint = true;
     // Repaint with our new bounds if they are different from our old bounds.
@@ -500,8 +500,8 @@ void RenderTable::setCellWidths()
 
 void RenderTable::paint(PaintInfo& paintInfo, int tx, int ty)
 {
-    tx += xPos();
-    ty += yPos();
+    tx += x();
+    ty += y();
 
     PaintPhase paintPhase = paintInfo.phase;
 
@@ -1181,7 +1181,7 @@ int RenderTable::getBaselineOfFirstLineBox() const
     if (!firstNonEmptySection)
         return -1;
 
-    return firstNonEmptySection->yPos() + firstNonEmptySection->getBaselineOfFirstLineBox();
+    return firstNonEmptySection->y() + firstNonEmptySection->getBaselineOfFirstLineBox();
 }
 
 IntRect RenderTable::getOverflowClipRect(int tx, int ty)

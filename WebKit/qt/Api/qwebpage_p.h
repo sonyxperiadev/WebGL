@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008, 2009 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2008 Holger Hans Peter Freyther
 
     This library is free software; you can redistribute it and/or
@@ -112,6 +112,11 @@ public:
     void leaveEvent(QEvent *);
     bool handleScrolling(QKeyEvent*);
 
+#ifndef QT_NO_SHORTCUT
+    static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event);
+#endif
+    static const char* editorCommandForWebActions(QWebPage::WebAction action);
+
     WebCore::ChromeClientQt *chromeClient;
     WebCore::ContextMenuClientQt *contextMenuClient;
     WebCore::EditorClientQt *editorClient;
@@ -149,6 +154,7 @@ public:
     QWebPage::LinkDelegationPolicy linkPolicy;
 
     QSize viewportSize;
+    QSize fixedLayoutSize;
     QWebHistory history;
     QWebHitTestResult hitTestResult;
 #ifndef QT_NO_CONTEXTMENU
@@ -157,10 +163,13 @@ public:
     QWebSettings *settings;
     QPalette palette;
     bool editable;
+    bool useFixedLayout;
 
     QAction *actions[QWebPage::WebActionCount];
 
     QWebPluginFactory *pluginFactory;
+
+    static bool drtRun;
 };
 
 #endif

@@ -90,8 +90,7 @@ static int CeilingLog2(unsigned int i) {
     return log2;
 }
 
-void InitArenaPool(ArenaPool *pool, const char *name, 
-                   unsigned int size, unsigned int align)
+void InitArenaPool(ArenaPool* pool, const char*, unsigned size, unsigned align)
 {
      if (align == 0)
          align = ARENA_DEFAULT_ALIGN;
@@ -196,16 +195,6 @@ void* ArenaAllocate(ArenaPool *pool, unsigned int nb)
     }
 } /* --- end ArenaAllocate() --- */
 
-void* ArenaGrow(ArenaPool *pool, void *p, unsigned int size, unsigned int incr)
-{
-    void *newp;
- 
-    ARENA_ALLOCATE(newp, pool, size + incr);
-    if (newp)
-        memcpy(newp, p, size);
-    return newp;
-}
-
 /*
  * Free tail arenas linked after head, which may not be the true list head.
  * Reset pool->current to point to head in case it pointed at a tail arena.
@@ -256,19 +245,6 @@ static void FreeArenaList(ArenaPool *pool, Arena *head, bool reallyFree)
     pool->current = head;
 }
 
-void ArenaRelease(ArenaPool *pool, char *mark)
-{
-    Arena *a;
-
-    for (a = pool->first.next; a; a = a->next) {
-        if (UPTRDIFF(mark, a->base) < UPTRDIFF(a->avail, a->base)) {
-            a->avail = (uword)ARENA_ALIGN(pool, mark);
-            FreeArenaList(pool, a, false);
-            return;
-        }
-    }
-}
-
 void FreeArenaPool(ArenaPool *pool)
 {
     FreeArenaList(pool, &pool->first, false);
@@ -278,5 +254,17 @@ void FinishArenaPool(ArenaPool *pool)
 {
     FreeArenaList(pool, &pool->first, true);
 }
+
+#ifdef ANDROID_INSTRUMENT
+size_t ReportPoolSize(const ArenaPool* pool)
+{
+    size_t total = 0;
+    for (const Arena *a = &pool->first; a; a = a->next)
+        total += (a->limit - a->base);
+    for (const Arena *fa = arena_freelist; fa; fa = fa->next )
+        total += (fa->limit - fa->base);
+    return total;
+}
+#endif
 
 }

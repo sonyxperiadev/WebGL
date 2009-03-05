@@ -65,15 +65,15 @@ void JSMessagePort::mark()
     }
 }
 
-JSValue* JSMessagePort::startConversation(ExecState* exec, const ArgList& args)
+JSValuePtr JSMessagePort::startConversation(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
-    const UString& message = args.at(exec, 0)->toString(exec);
+    const UString& message = args.at(exec, 0).toString(exec);
 
     return toJS(exec, impl()->startConversation(globalObject->scriptExecutionContext(), message).get());
 }
 
-JSValue* JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -81,11 +81,11 @@ JSValue* JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
     RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0)->toString(exec), listener.release(), args.at(exec, 2)->toBoolean(exec));
+    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValue* JSMessagePort::removeEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSMessagePort::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -93,7 +93,7 @@ JSValue* JSMessagePort::removeEventListener(ExecState* exec, const ArgList& args
     JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0)->toString(exec), listener, args.at(exec, 2)->toBoolean(exec));
+    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 

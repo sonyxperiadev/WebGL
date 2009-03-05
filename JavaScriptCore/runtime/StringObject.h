@@ -28,15 +28,15 @@ namespace JSC {
 
     class StringObject : public JSWrapperObject {
     public:
-        StringObject(ExecState*, PassRefPtr<StructureID>);
-        StringObject(ExecState*, PassRefPtr<StructureID>, const UString&);
+        StringObject(ExecState*, PassRefPtr<Structure>);
+        StringObject(ExecState*, PassRefPtr<Structure>, const UString&);
 
         static StringObject* create(ExecState*, JSString*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
 
-        virtual void put(ExecState* exec, const Identifier& propertyName, JSValue*, PutPropertySlot&);
+        virtual void put(ExecState* exec, const Identifier& propertyName, JSValuePtr, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
@@ -45,13 +45,13 @@ namespace JSC {
 
         JSString* internalValue() const { return asString(JSWrapperObject::internalValue());}
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* prototype)
+        static PassRefPtr<Structure> createStructure(JSValuePtr prototype)
         {
-            return StructureID::create(prototype, TypeInfo(ObjectType));
+            return Structure::create(prototype, TypeInfo(ObjectType));
         }
 
     protected:
-        StringObject(PassRefPtr<StructureID>, JSString*);
+        StringObject(PassRefPtr<Structure>, JSString*);
 
     private:
         virtual UString toString(ExecState*) const;
@@ -59,9 +59,9 @@ namespace JSC {
         virtual JSString* toThisJSString(ExecState*);
   };
 
-    StringObject* asStringObject(JSValue*);
+    StringObject* asStringObject(JSValuePtr);
 
-    inline StringObject* asStringObject(JSValue* value)
+    inline StringObject* asStringObject(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&StringObject::info));
         return static_cast<StringObject*>(asObject(value));

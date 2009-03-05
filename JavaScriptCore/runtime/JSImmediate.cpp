@@ -32,20 +32,35 @@
 
 namespace JSC {
 
-JSObject* JSImmediate::toObject(JSValue* v, ExecState* exec)
+JSObject* JSImmediate::toThisObject(JSValuePtr v, ExecState* exec)
 {
     ASSERT(isImmediate(v));
     if (isNumber(v))
-        return constructNumberFromImmediateNumber(exec, v);
+        return constructNumber(exec, v);
     if (isBoolean(v))
         return constructBooleanFromImmediateBoolean(exec, v);
+    if (v.isNull())
+        return exec->globalThisValue();
     
-    JSNotAnObjectErrorStub* exception = createNotAnObjectErrorStub(exec, v->isNull());
+    JSNotAnObjectErrorStub* exception = createNotAnObjectErrorStub(exec, v.isNull());
     exec->setException(exception);
     return new (exec) JSNotAnObject(exec, exception);
 }
 
-JSObject* JSImmediate::prototype(JSValue* v, ExecState* exec)
+JSObject* JSImmediate::toObject(JSValuePtr v, ExecState* exec)
+{
+    ASSERT(isImmediate(v));
+    if (isNumber(v))
+        return constructNumber(exec, v);
+    if (isBoolean(v))
+        return constructBooleanFromImmediateBoolean(exec, v);
+    
+    JSNotAnObjectErrorStub* exception = createNotAnObjectErrorStub(exec, v.isNull());
+    exec->setException(exception);
+    return new (exec) JSNotAnObject(exec, exception);
+}
+
+JSObject* JSImmediate::prototype(JSValuePtr v, ExecState* exec)
 {
     ASSERT(isImmediate(v));
     if (isNumber(v))
@@ -53,23 +68,34 @@ JSObject* JSImmediate::prototype(JSValue* v, ExecState* exec)
     if (isBoolean(v))
         return exec->lexicalGlobalObject()->booleanPrototype();
 
-    JSNotAnObjectErrorStub* exception = createNotAnObjectErrorStub(exec, v->isNull());
+    JSNotAnObjectErrorStub* exception = createNotAnObjectErrorStub(exec, v.isNull());
     exec->setException(exception);
     return new (exec) JSNotAnObject(exec, exception);
 }
 
-UString JSImmediate::toString(JSValue* v)
+UString JSImmediate::toString(JSValuePtr v)
 {
     ASSERT(isImmediate(v));
-    if (isNumber(v))
+    if (isIntegerNumber(v))
         return UString::from(getTruncatedInt32(v));
-    if (v == jsBoolean(false))
+#if USE(ALTERNATE_JSIMMEDIATE)
+    if (isNumber(v)) {
+        ASSERT(isDoubleNumber(v));
+        double value = doubleValue(v);
+        if (value == 0.0) // +0.0 or -0.0
+            return "0";
+        return UString::from(value);
+    }
+#else
+        ASSERT(!isNumber(v));
+#endif
+    if (jsBoolean(false) == v)
         return "false";
-    if (v == jsBoolean(true))
+    if (jsBoolean(true) == v)
         return "true";
-    if (v->isNull())
+    if (v.isNull())
         return "null";
-    ASSERT(v == jsUndefined());
+    ASSERT(v.isUndefined());
     return "undefined";
 }
 

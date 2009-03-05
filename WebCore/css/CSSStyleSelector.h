@@ -24,6 +24,7 @@
 
 #include "CSSFontSelector.h"
 #include "KeyframeList.h"
+#include "LinkHash.h"
 #include "MediaQueryExp.h"
 #include "RenderStyle.h"
 #include "StringHash.h"
@@ -136,7 +137,7 @@ public:
         bool affectedByViewportChange() const;
 
         void allVisitedStateChanged() { m_checker.allVisitedStateChanged(); }
-        void visitedStateChanged(unsigned visitedHash) { m_checker.visitedStateChanged(visitedHash); }
+        void visitedStateChanged(LinkHash visitedHash) { m_checker.visitedStateChanged(visitedHash); }
 
         void addVariables(CSSVariablesRule* variables);
         CSSValue* resolveVariableDependentValue(CSSVariableDependentValue*);
@@ -191,14 +192,14 @@ public:
             bool checkScrollbarPseudoClass(CSSSelector*, RenderStyle::PseudoId& dynamicPseudo) const;
 
             void allVisitedStateChanged();
-            void visitedStateChanged(unsigned visitedHash);
+            void visitedStateChanged(LinkHash visitedHash);
 
             Document* m_document;
             bool m_strictParsing;
             bool m_collectRulesOnly;
             RenderStyle::PseudoId m_pseudoStyle;
             bool m_documentIsHTML;
-            mutable HashSet<unsigned, AlreadyHashed> m_linksCheckedForVisitedState;
+            mutable HashSet<LinkHash, LinkHashHash> m_linksCheckedForVisitedState;
         };
 
     private:
@@ -242,11 +243,11 @@ public:
         // set of matched decls four times, once for those properties that others depend on (like font-size),
         // and then a second time for all the remaining properties.  We then do the same two passes
         // for any !important rules.
-        Vector<CSSMutableStyleDeclaration*> m_matchedDecls;
+        Vector<CSSMutableStyleDeclaration*, 64> m_matchedDecls;
 
         // A buffer used to hold the set of matched rules for an element, and a temporary buffer used for
         // merge sorting.
-        Vector<CSSRuleData*> m_matchedRules;
+        Vector<CSSRuleData*, 32> m_matchedRules;
 
         RefPtr<CSSRuleList> m_ruleList;
 

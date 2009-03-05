@@ -26,7 +26,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
 #include "Font.h"
 #include "IntRect.h"
@@ -284,7 +284,7 @@ void GraphicsContext::clip(const FloatRect& r)
     wxPoint pos(0, 0);
 
     if (windc) {
-#ifndef __WXGTK__
+#if !defined(__WXGTK__) || wxCHECK_VERSION(2,9,0)
         wxWindow* window = windc->GetWindow();
 #else
         wxWindow* window = windc->m_owner;
@@ -349,10 +349,10 @@ void GraphicsContext::clipToImageBuffer(const FloatRect&, const ImageBuffer*)
     notImplemented();
 }
 
-AffineTransform GraphicsContext::getCTM() const
+TransformationMatrix GraphicsContext::getCTM() const
 { 
     notImplemented();
-    return AffineTransform();
+    return TransformationMatrix();
 }
 
 void GraphicsContext::translate(float tx, float ty) 
@@ -414,7 +414,13 @@ void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
     if (m_data->context)
+    {
+#if wxCHECK_VERSION(2,9,0)
+        m_data->context->SetLogicalFunction(static_cast<wxRasterOperationMode>(getWxCompositingOperation(op, false)));
+#else
         m_data->context->SetLogicalFunction(getWxCompositingOperation(op, false));
+#endif
+    }
 }
 
 void GraphicsContext::beginPath()
@@ -455,7 +461,7 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
         m_data->context->SetBrush(wxBrush(color));
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 {
     if (paintingDisabled())
         return;
@@ -464,7 +470,7 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     return;
 }
 
-void GraphicsContext::setUseAntialiasing(bool enable)
+void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
         return;

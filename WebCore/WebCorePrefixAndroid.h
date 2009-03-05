@@ -44,7 +44,7 @@
 // Unfortunately only one gets picked up if we compile all the files in one
 // library. Since they can operate together, include it here so it is always
 // pulled in.
-#include <kjs/config.h>
+#include <JavaScriptCore/config.h>
 
 #ifdef __cplusplus
 #define PREFIX_FOR_WEBCORE 1

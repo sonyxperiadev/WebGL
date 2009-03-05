@@ -83,6 +83,7 @@ LOCAL_C_INCLUDES := \
 	$(call include-path-for, corecg graphics) \
 	$(JNI_H_INCLUDE) \
 	external/icu4c/common \
+	external/icu4c/i18n \
 	external/libxml2/include \
 	external/skia/include/effects \
 	external/skia/include/images \
@@ -110,9 +111,11 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/page/animation \
 	$(LOCAL_PATH)/WebCore/platform \
 	$(LOCAL_PATH)/WebCore/platform/android \
+	$(LOCAL_PATH)/WebCore/platform/animation \
 	$(LOCAL_PATH)/WebCore/platform/graphics \
 	$(LOCAL_PATH)/WebCore/platform/graphics/android \
 	$(LOCAL_PATH)/WebCore/platform/graphics/network \
+	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders \
 	$(LOCAL_PATH)/WebCore/platform/network \
 	$(LOCAL_PATH)/WebCore/platform/network/android \
@@ -131,19 +134,23 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebKit/android/stl \
 	$(LOCAL_PATH)/JavaScriptCore \
 	$(LOCAL_PATH)/JavaScriptCore/API \
-	$(LOCAL_PATH)/JavaScriptCore/VM \
+	$(LOCAL_PATH)/JavaScriptCore/assembler \
+	$(LOCAL_PATH)/JavaScriptCore/bytecode \
+	$(LOCAL_PATH)/JavaScriptCore/bytecompiler \
 	$(LOCAL_PATH)/JavaScriptCore/debugger \
-	$(LOCAL_PATH)/JavaScriptCore/kjs \
-	$(LOCAL_PATH)/JavaScriptCore/icu \
+	$(LOCAL_PATH)/JavaScriptCore/parser \
+	$(LOCAL_PATH)/JavaScriptCore/jit \
+	$(LOCAL_PATH)/JavaScriptCore/interpreter \
 	$(LOCAL_PATH)/JavaScriptCore/pcre \
 	$(LOCAL_PATH)/JavaScriptCore/profiler \
 	$(LOCAL_PATH)/JavaScriptCore/runtime \
+	$(LOCAL_PATH)/JavaScriptCore/wrec \
 	$(LOCAL_PATH)/JavaScriptCore/wtf \
 	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode \
 	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode/icu \
 	$(LOCAL_PATH)/JavaScriptCore/ForwardingHeaders \
 	$(base_intermediates)/JavaScriptCore \
-	$(base_intermediates)/JavaScriptCore/kjs \
+	$(base_intermediates)/JavaScriptCore/parser \
 	$(base_intermediates)/JavaScriptCore/runtime \
 	$(base_intermediates)/WebCore/ \
 	$(base_intermediates)/WebCore/bindings/js \

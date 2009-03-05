@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008 Holger Hans Peter Freyther
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,18 +22,31 @@
 */
 #include "config.h"
 #include "FontCache.h"
+
 #include "FontDescription.h"
+#include "FontPlatformData.h"
 #include "Font.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
+
+FontCache* fontCache()
+{
+    DEFINE_STATIC_LOCAL(FontCache, globalFontCache, ());
+    return &globalFontCache;
+}
+
+FontCache::FontCache()
+{
+}
 
 void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
 {
 }
 
-FontPlatformData* FontCache::getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName)
+FontPlatformData* FontCache::getCachedFontPlatformData(const FontDescription& description, const AtomicString& family, bool checkingAlternateName)
 {
-    return 0;
+    return new FontPlatformData(description);
 }
 
 SimpleFontData* FontCache::getCachedFontData(const FontPlatformData*)
@@ -43,6 +57,10 @@ SimpleFontData* FontCache::getCachedFontData(const FontPlatformData*)
 FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription&)
 {
     return 0;
+}
+
+void FontCache::releaseFontData(const WebCore::SimpleFontData*)
+{
 }
 
 void FontCache::addClient(FontSelector*)

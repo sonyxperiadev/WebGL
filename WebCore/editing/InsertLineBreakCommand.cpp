@@ -51,24 +51,24 @@ bool InsertLineBreakCommand::preservesTypingStyle() const
     return true;
 }
 
-void InsertLineBreakCommand::insertNodeAfterPosition(Node *node, const Position &pos)
+void InsertLineBreakCommand::insertNodeAfterPosition(Node* node, const Position& pos)
 {
     // Insert the BR after the caret position. In the case the
     // position is a block, do an append. We don't want to insert
     // the BR *after* the block.
-    Node *cb = pos.node()->enclosingBlockFlowElement();
+    Element* cb = pos.node()->enclosingBlockFlowElement();
     if (cb == pos.node())
         appendNode(node, cb);
     else
         insertNodeAfter(node, pos.node());
 }
 
-void InsertLineBreakCommand::insertNodeBeforePosition(Node *node, const Position &pos)
+void InsertLineBreakCommand::insertNodeBeforePosition(Node* node, const Position& pos)
 {
     // Insert the BR after the caret position. In the case the
     // position is a block, do an append. We don't want to insert
     // the BR *before* the block.
-    Node *cb = pos.node()->enclosingBlockFlowElement();
+    Element* cb = pos.node()->enclosingBlockFlowElement();
     if (cb == pos.node())
         appendNode(node, cb);
     else
@@ -113,7 +113,7 @@ void InsertLineBreakCommand::doApply()
         insertNodeAt(nodeToInsert.get(), pos);
         
         if (needExtraLineBreak)
-            insertNodeBefore(nodeToInsert->cloneNode(false).get(), nodeToInsert.get());
+            insertNodeBefore(nodeToInsert->cloneNode(false), nodeToInsert);
         
         VisiblePosition endingPosition(Position(nodeToInsert.get(), 0));
         setEndingSelection(Selection(endingPosition));
@@ -125,7 +125,9 @@ void InsertLineBreakCommand::doApply()
             insertNodeBefore(nodeToInsert->cloneNode(false).get(), nodeToInsert.get());
         
         setEndingSelection(Selection(positionAfterNode(nodeToInsert.get()), DOWNSTREAM));
-    } else if (pos.offset() >= caretMaxOffset(pos.node())) {
+    // If we're inserting after all of the rendered text in a text node, or into a non-text node,
+    // a simple insertion is sufficient.
+    } else if (pos.offset() >= caretMaxOffset(pos.node()) || !pos.node()->isTextNode()) {
         insertNodeAt(nodeToInsert.get(), pos);
         setEndingSelection(Selection(positionAfterNode(nodeToInsert.get()), DOWNSTREAM));
     } else {
@@ -134,11 +136,11 @@ void InsertLineBreakCommand::doApply()
         
         // Do the split
         ExceptionCode ec = 0;
-        Text *textNode = static_cast<Text *>(pos.node());
+        Text* textNode = static_cast<Text*>(pos.node());
         RefPtr<Text> textBeforeNode = document()->createTextNode(textNode->substringData(0, selection.start().offset(), ec));
         deleteTextFromNode(textNode, 0, pos.offset());
-        insertNodeBefore(textBeforeNode.get(), textNode);
-        insertNodeBefore(nodeToInsert.get(), textNode);
+        insertNodeBefore(textBeforeNode, textNode);
+        insertNodeBefore(nodeToInsert, textNode);
         Position endingPosition = Position(textNode, 0);
         
         // Handle whitespace that occurs after the split

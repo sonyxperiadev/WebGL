@@ -243,7 +243,6 @@ public:
 private:
         void attr(const AtomicString& name, const AtomicString& value);
         void comma(const char* str);
-        int flowBoxes(RenderFlow* flow, int ifIndex, int indent);
         void flush();
         Frame* frameAnd() const;
         void frames();

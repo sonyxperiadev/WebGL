@@ -595,9 +595,10 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     const CachedFrame** framePtr, int* x, int* y) const
 {
     int best = INT_MAX;
+    bool inside = false;
     (const_cast<CachedRoot*>(this))->resetClippedOut();
     const CachedNode* directHit = NULL;
-    const CachedNode* node = findBestAt(rect, &best, &directHit, framePtr, x, y);
+    const CachedNode* node = findBestAt(rect, &best, &inside, &directHit, framePtr, x, y);
     DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(), 
         node == NULL ? NULL : node->nodePointer());
     if (node == NULL) {

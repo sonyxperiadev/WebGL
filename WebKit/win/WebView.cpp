@@ -29,6 +29,7 @@
 
 #include "CFDictionaryPropertyBag.h"
 #include "DOMCoreClasses.h"
+#include "MarshallingHelpers.h"
 #include "WebDatabaseManager.h"
 #include "WebDocumentLoader.h"
 #include "WebEditorClient.h"
@@ -67,6 +68,7 @@
 #include <WebCore/EventNames.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/FloatQuad.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameTree.h>
 #include <WebCore/FrameView.h>
@@ -92,6 +94,7 @@
 #include <WebCore/RenderTheme.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceHandleClient.h>
+#include <WebCore/ScriptValue.h>
 #include <WebCore/ScrollbarTheme.h>
 #include <WebCore/SelectionController.h>
 #include <WebCore/Settings.h>
@@ -123,6 +126,20 @@ static HashSet<WebView*> pendingDeleteBackingStoreSet;
 
 static String osVersion();
 static String webKitVersion();
+
+typedef CFURLCacheRef (*CopySharedURLCacheFunction)();
+
+static HMODULE findCFNetworkModule()
+{
+    if (HMODULE module = GetModuleHandleA("CFNetwork"))
+        return module;
+    return GetModuleHandleA("CFNetwork_debug");
+}
+
+static CopySharedURLCacheFunction findCopySharedURLCacheFunction()
+{
+    return reinterpret_cast<CopySharedURLCacheFunction>(GetProcAddress(findCFNetworkModule(), "CFURLCacheCopySharedURLCache"));
+}
 
 WebView* kit(Page* page)
 {
@@ -268,7 +285,6 @@ WebView::WebView()
 , m_useBackForwardList(true)
 , m_userAgentOverridden(false)
 , m_zoomMultiplier(1.0f)
-, m_zoomMultiplierIsTextOnly(true)
 , m_mouseActivated(false)
 , m_dragData(0)
 , m_currentCharacterCode(0)
@@ -283,6 +299,7 @@ WebView::WebView()
 , m_topLevelParent(0)
 , m_deleteBackingStoreTimerActive(false)
 , m_transparent(false)
+, m_selectTrailingWhitespaceEnabled(false)
 {
     JSC::initializeThreading();
 
@@ -366,11 +383,14 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
     if (s_didSetCacheModel && cacheModel == s_cacheModel)
         return;
 
-#ifdef CFURLCacheCopySharedURLCachePresent
-    RetainPtr<CFURLCacheRef> cfurlCache(AdoptCF, CFURLCacheCopySharedURLCache());
-#else
-    RetainPtr<CFURLCacheRef> cfurlCache = CFURLCacheSharedURLCache();
-#endif
+    // Once we require a newer version of CFNetwork with the CFURLCacheCopySharedURLCache function,
+    // we can call CFURLCacheCopySharedURLCache directly and eliminate copySharedURLCache.
+    static CopySharedURLCacheFunction copySharedURLCache = findCopySharedURLCacheFunction();
+    RetainPtr<CFURLCacheRef> cfurlCache;
+    if (copySharedURLCache)
+        cfurlCache.adoptCF(copySharedURLCache());
+    else
+        cfurlCache = CFURLCacheSharedURLCache();
 
     RetainPtr<CFStringRef> cfurlCacheDirectory(AdoptCF, wkCopyFoundationCacheDirectory());
     if (!cfurlCacheDirectory)
@@ -398,14 +418,12 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
 
         // Object cache capacities (in bytes)
         if (memSize >= 2048)
-            cacheTotalCapacity = 128 * 1024 * 1024;
+            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1536)
-            cacheTotalCapacity = 86 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
-        else if (memSize >= 256)
+        else if (memSize >= 512)
             cacheTotalCapacity = 16 * 1024 * 1024; 
 
         cacheMinDeadCapacity = 0;
@@ -432,14 +450,12 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
 
         // Object cache capacities (in bytes)
         if (memSize >= 2048)
-            cacheTotalCapacity = 128 * 1024 * 1024;
+            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1536)
-            cacheTotalCapacity = 86 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
-        else if (memSize >= 256)
+        else if (memSize >= 512)
             cacheTotalCapacity = 16 * 1024 * 1024; 
 
         cacheMinDeadCapacity = cacheTotalCapacity / 8;
@@ -486,14 +502,12 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
         // browsing pattern. Even growth above 128MB can have substantial 
         // value / MB for some content / browsing patterns.)
         if (memSize >= 2048)
-            cacheTotalCapacity = 256 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 172 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 128 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1536)
+            cacheTotalCapacity = 96 * 1024 * 1024;
+        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 256)
+        else if (memSize >= 512)
             cacheTotalCapacity = 32 * 1024 * 1024; 
 
         cacheMinDeadCapacity = cacheTotalCapacity / 4;
@@ -805,7 +819,7 @@ static void getUpdateRects(HRGN region, const IntRect& dirtyRect, Vector<IntRect
         rects.append(*rect);
 }
 
-void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStoreCompletelyDirty)
+void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStoreCompletelyDirty, WindowsToPaint windowsToPaint)
 {
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
 
@@ -835,7 +849,7 @@ void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStore
         }
 
         for (unsigned i = 0; i < paintRects.size(); ++i)
-            paintIntoBackingStore(frameView, bitmapDC, paintRects[i]);
+            paintIntoBackingStore(frameView, bitmapDC, paintRects[i], windowsToPaint);
 
         if (m_uiDelegatePrivate) {
             COMPtr<IWebUIDelegatePrivate2> uiDelegatePrivate2(Query, m_uiDelegatePrivate);
@@ -870,16 +884,23 @@ void WebView::paint(HDC dc, LPARAM options)
     OwnPtr<HRGN> region;
     int regionType = NULLREGION;
     PAINTSTRUCT ps;
+    WindowsToPaint windowsToPaint;
     if (!dc) {
         region.set(CreateRectRgn(0,0,0,0));
         regionType = GetUpdateRgn(m_viewWindow, region.get(), false);
         hdc = BeginPaint(m_viewWindow, &ps);
         rcPaint = ps.rcPaint;
+        // We're painting to the screen, and our child windows can handle
+        // painting themselves to the screen.
+        windowsToPaint = PaintWebViewOnly;
     } else {
         hdc = dc;
         ::GetClientRect(m_viewWindow, &rcPaint);
         if (options & PRF_ERASEBKGND)
             ::FillRect(hdc, &rcPaint, (HBRUSH)GetStockObject(WHITE_BRUSH));
+        // Since we aren't painting to the screen, we want to paint all our
+        // children into the HDC.
+        windowsToPaint = PaintWebViewAndChildren;
     }
 
     HDC bitmapDC = ::CreateCompatibleDC(hdc);
@@ -887,7 +908,7 @@ void WebView::paint(HDC dc, LPARAM options)
     ::SelectObject(bitmapDC, m_backingStoreBitmap.get());
 
     // Update our backing store if needed.
-    updateBackingStore(frameView, bitmapDC, backingStoreCompletelyDirty);
+    updateBackingStore(frameView, bitmapDC, backingStoreCompletelyDirty, windowsToPaint);
 
     // Now we blit the updated backing store
     IntRect windowDirtyRect = rcPaint;
@@ -928,7 +949,7 @@ void WebView::paint(HDC dc, LPARAM options)
         deleteBackingStoreSoon();
 }
 
-void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const IntRect& dirtyRect)
+void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const IntRect& dirtyRect, WindowsToPaint windowsToPaint)
 {
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
 
@@ -944,14 +965,18 @@ void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const In
     ::ReleaseDC(m_viewWindow, dc);
 #endif
 
-    FillRect(bitmapDC, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
+    GraphicsContext gc(bitmapDC, m_transparent);
+    gc.setShouldIncludeChildWindows(windowsToPaint == PaintWebViewAndChildren);
+    gc.save();
+    if (m_transparent)
+        gc.clearRect(dirtyRect);
+    else
+        FillRect(bitmapDC, &rect, (HBRUSH)GetStockObject(WHITE_BRUSH));
     if (frameView && frameView->frame() && frameView->frame()->contentRenderer()) {
-        GraphicsContext gc(bitmapDC, m_transparent);
-        gc.save();
         gc.clip(dirtyRect);
         frameView->paint(&gc, dirtyRect);
-        gc.restore();
     }
+    gc.restore();
 }
 
 void WebView::paintIntoWindow(HDC bitmapDC, HDC windowDC, const IntRect& dirtyRect)
@@ -1053,18 +1078,23 @@ bool WebView::handleContextMenuEvent(WPARAM wParam, LPARAM lParam)
             if (!renderer)
                 return false;
 
-            // Calculate the rect of the first line of the selection (cribbed from -[WebCoreFrameBridge firstRectForDOMRange:]).
+            // Calculate the rect of the first line of the selection (cribbed from -[WebCoreFrameBridge firstRectForDOMRange:],
+            // now Frame::firstRectForRange(), which perhaps this should call).
             int extraWidthToEndOfLine = 0;
 
             InlineBox* startInlineBox;
             int startCaretOffset;
             start.getInlineBoxAndOffset(DOWNSTREAM, startInlineBox, startCaretOffset);
-            IntRect startCaretRect = renderer->caretRect(startInlineBox, startCaretOffset, &extraWidthToEndOfLine);
+            IntRect startCaretRect = renderer->localCaretRect(startInlineBox, startCaretOffset, &extraWidthToEndOfLine);
+            if (startCaretRect != IntRect())
+                startCaretRect = renderer->localToAbsoluteQuad(FloatRect(startCaretRect)).enclosingBoundingBox();
 
             InlineBox* endInlineBox;
             int endCaretOffset;
             end.getInlineBoxAndOffset(UPSTREAM, endInlineBox, endCaretOffset);
-            IntRect endCaretRect = renderer->caretRect(endInlineBox, endCaretOffset);
+            IntRect endCaretRect = renderer->localCaretRect(endInlineBox, endCaretOffset);
+            if (endCaretRect != IntRect())
+                endCaretRect = renderer->localToAbsoluteQuad(FloatRect(endCaretRect)).enclosingBoundingBox();
 
             IntRect firstRect;
             if (startCaretRect.y() == endCaretRect.y())
@@ -1586,17 +1616,7 @@ bool WebView::keyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown)
     // IE does not dispatch keypress event for WM_SYSCHAR.
     if (systemKeyDown)
         return frame->eventHandler()->handleAccessKey(keyEvent);
-    if (frame->eventHandler()->keyEvent(keyEvent))
-        return true;
-
-    // Need to scroll the page if space is hit.
-    if (charCode == ' ') {
-        ScrollDirection direction = keyEvent.shiftKey() ? ScrollUp : ScrollDown;
-        if (!frame->eventHandler()->scrollOverflow(direction, ScrollByPage))
-            frame->view()->scroll(direction, ScrollByPage);
-        return true;
-    }
-    return false;
+    return frame->eventHandler()->keyEvent(keyEvent);
 }
 
 bool WebView::inResizer(LPARAM lParam)
@@ -1662,7 +1682,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
 {
     LRESULT lResult = 0;
     LONG_PTR longPtr = GetWindowLongPtr(hWnd, 0);
-    WebView* webView = reinterpret_cast<WebView*>(longPtr);
+    COMPtr<WebView> webView = reinterpret_cast<WebView*>(longPtr); // hold a ref, since the WebView could go away in an event handler.
     WebFrame* mainFrameImpl = webView ? webView->topLevelFrame() : 0;
     if (!mainFrameImpl || webView->isBeingDestroyed())
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -1758,7 +1778,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             COMPtr<IWebUIDelegatePrivate> uiDelegatePrivate;
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate)
-                uiDelegatePrivate->webViewReceivedFocus(webView);
+                uiDelegatePrivate->webViewReceivedFocus(webView.get());
 
             FocusController* focusController = webView->page()->focusController();
             if (Frame* frame = focusController->focusedFrame()) {
@@ -1776,7 +1796,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             HWND newFocusWnd = reinterpret_cast<HWND>(wParam);
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate)
-                uiDelegatePrivate->webViewLostFocus(webView, (OLE_HANDLE)(ULONG64)newFocusWnd);
+                uiDelegatePrivate->webViewLostFocus(webView.get(), (OLE_HANDLE)(ULONG64)newFocusWnd);
 
             FocusController* focusController = webView->page()->focusController();
             Frame* frame = focusController->focusedOrMainFrame();
@@ -1852,7 +1872,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             }
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate &&
-                SUCCEEDED(uiDelegatePrivate->webViewGetDlgCode(webView, keyCode, &dlgCode)))
+                SUCCEEDED(uiDelegatePrivate->webViewGetDlgCode(webView.get(), keyCode, &dlgCode)))
                 return dlgCode;
             handled = false;
             break;
@@ -2060,7 +2080,8 @@ HRESULT STDMETHODCALLTYPE WebView::canShowMIMEType(
 
     *canShow = MIMETypeRegistry::isSupportedImageMIMEType(mimeTypeStr) ||
         MIMETypeRegistry::isSupportedNonImageMIMEType(mimeTypeStr) ||
-        PluginInfoStore::supportsMIMEType(mimeTypeStr);
+        PluginInfoStore::supportsMIMEType(mimeTypeStr) ||
+        shouldUseEmbeddedView(mimeTypeStr);
     
     return S_OK;
 }
@@ -2147,6 +2168,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     sharedPreferences->willAddToWebView();
     m_preferences = sharedPreferences;
 
+    InitializeLoggingChannelsIfNecessary();
     WebKitSetWebDatabasesPathIfNecessary();
     WebKitSetApplicationCachePathIfNecessary();
     
@@ -2497,7 +2519,7 @@ HRESULT STDMETHODCALLTYPE WebView::setPageSizeMultiplier(
 void WebView::setZoomMultiplier(float multiplier, bool isTextOnly)
 {
     m_zoomMultiplier = multiplier;
-    m_zoomMultiplierIsTextOnly = isTextOnly;
+    m_page->settings()->setZoomsTextOnly(isTextOnly);
     if (Frame* coreFrame = core(m_mainFrame))
         coreFrame->setZoomFactor(multiplier, isTextOnly);
 }
@@ -2518,7 +2540,7 @@ HRESULT STDMETHODCALLTYPE WebView::pageSizeMultiplier(
 
 float WebView::zoomMultiplier(bool isTextOnly)
 {
-    if (isTextOnly != m_zoomMultiplierIsTextOnly)
+    if (isTextOnly != m_page->settings()->zoomsTextOnly())
         return 1.0f;
     return m_zoomMultiplier;
 }
@@ -2564,8 +2586,7 @@ HRESULT STDMETHODCALLTYPE WebView::userAgentForURL(
     /* [in] */ BSTR url,
     /* [retval][out] */ BSTR* userAgent)
 {
-    String urlStr(url, SysStringLen(url));
-    String userAgentString = this->userAgentForKURL(KURL(urlStr));
+    String userAgentString = userAgentForKURL(MarshallingHelpers::BSTRToKURL(url));
     *userAgent = SysAllocStringLen(userAgentString.characters(), userAgentString.length());
     if (!*userAgent && userAgentString.length())
         return E_OUTOFMEMORY;
@@ -2593,7 +2614,7 @@ HRESULT STDMETHODCALLTYPE WebView::setCustomTextEncodingName(
 
     if (oldEncoding != encodingName && (!oldEncoding || !encodingName || _tcscmp(oldEncoding, encodingName))) {
         if (Frame* coreFrame = core(m_mainFrame))
-            coreFrame->loader()->reloadAllowingStaleData(String(encodingName, SysStringLen(encodingName)));
+            coreFrame->loader()->reloadWithOverrideEncoding(String(encodingName, SysStringLen(encodingName)));
     }
 
     return S_OK;
@@ -2662,12 +2683,12 @@ HRESULT STDMETHODCALLTYPE WebView::stringByEvaluatingJavaScriptFromString(
     if (!coreFrame)
         return E_FAIL;
 
-    JSC::JSValue* scriptExecutionResult = coreFrame->loader()->executeScript(WebCore::String(script), true);
-    if(!scriptExecutionResult)
+    JSC::JSValuePtr scriptExecutionResult = coreFrame->loader()->executeScript(WebCore::String(script), true).jsValue();
+    if (!scriptExecutionResult)
         return E_FAIL;
-    else if (scriptExecutionResult->isString()) {
+    else if (scriptExecutionResult.isString()) {
         JSLock lock(false);
-        *result = BString(String(scriptExecutionResult->getString()));
+        *result = BString(String(scriptExecutionResult.getString()));
     }
 
     return S_OK;
@@ -2951,7 +2972,7 @@ HRESULT STDMETHODCALLTYPE WebView::selectionRect(RECT* rc)
     WebCore::Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        IntRect ir = enclosingIntRect(frame->selectionRect());
+        IntRect ir = enclosingIntRect(frame->selectionBounds());
         ir = frame->view()->convertToContainingWindow(ir);
         ir.move(-frame->view()->scrollOffset().width(), -frame->view()->scrollOffset().height());
         rc->left = ir.x();
@@ -3255,7 +3276,7 @@ HRESULT STDMETHODCALLTYPE WebView::canMakeTextLarger(
         /* [in] */ IUnknown* /*sender*/,
         /* [retval][out] */ BOOL* result)
 {
-    bool canGrowMore = canZoomIn(true);
+    bool canGrowMore = canZoomIn(m_page->settings()->zoomsTextOnly());
     *result = canGrowMore ? TRUE : FALSE;
     return S_OK;
 }
@@ -3277,7 +3298,7 @@ bool WebView::canZoomIn(bool isTextOnly)
 HRESULT STDMETHODCALLTYPE WebView::makeTextLarger( 
         /* [in] */ IUnknown* /*sender*/)
 {
-    return zoomIn(true);
+    return zoomIn(m_page->settings()->zoomsTextOnly());
 }
 
 HRESULT STDMETHODCALLTYPE WebView::zoomPageIn( 
@@ -3298,7 +3319,7 @@ HRESULT STDMETHODCALLTYPE WebView::canMakeTextSmaller(
         /* [in] */ IUnknown* /*sender*/,
         /* [retval][out] */ BOOL* result)
 {
-    bool canShrinkMore = canZoomOut(true);
+    bool canShrinkMore = canZoomOut(m_page->settings()->zoomsTextOnly());
     *result = canShrinkMore ? TRUE : FALSE;
     return S_OK;
 }
@@ -3320,7 +3341,7 @@ bool WebView::canZoomOut(bool isTextOnly)
 HRESULT STDMETHODCALLTYPE WebView::makeTextSmaller( 
         /* [in] */ IUnknown* /*sender*/)
 {
-    return zoomOut(true);
+    return zoomOut(m_page->settings()->zoomsTextOnly());
 }
 
 HRESULT STDMETHODCALLTYPE WebView::zoomPageOut( 
@@ -3341,6 +3362,7 @@ HRESULT STDMETHODCALLTYPE WebView::canMakeTextStandardSize(
     /* [in] */ IUnknown* /*sender*/,
     /* [retval][out] */ BOOL* result)
 {
+    // Since we always reset text zoom and page zoom together, this should continue to return an answer about text zoom even if its not enabled.
     bool notAlreadyStandard = canResetZoom(true);
     *result = notAlreadyStandard ? TRUE : FALSE;
     return S_OK;
@@ -3487,6 +3509,8 @@ HRESULT STDMETHODCALLTYPE WebView::setSmartInsertDeleteEnabled(
         /* [in] */ BOOL flag)
 {
     m_smartInsertDeleteEnabled = !!flag;
+    if (m_smartInsertDeleteEnabled)
+        setSelectTrailingWhitespaceEnabled(false);
     return S_OK;
 }
     
@@ -3496,7 +3520,23 @@ HRESULT STDMETHODCALLTYPE WebView::smartInsertDeleteEnabled(
     *enabled = m_smartInsertDeleteEnabled ? TRUE : FALSE;
     return S_OK;
 }
+ 
+HRESULT STDMETHODCALLTYPE WebView::setSelectTrailingWhitespaceEnabled( 
+        /* [in] */ BOOL flag)
+{
+    m_selectTrailingWhitespaceEnabled = !!flag;
+    if (m_selectTrailingWhitespaceEnabled)
+        setSmartInsertDeleteEnabled(false);
+    return S_OK;
+}
     
+HRESULT STDMETHODCALLTYPE WebView::isSelectTrailingWhitespaceEnabled( 
+        /* [retval][out] */ BOOL* enabled)
+{
+    *enabled = m_selectTrailingWhitespaceEnabled ? TRUE : FALSE;
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebView::setContinuousSpellCheckingEnabled( 
         /* [in] */ BOOL flag)
 {
@@ -3774,8 +3814,7 @@ HRESULT STDMETHODCALLTYPE WebView::paste(
 HRESULT STDMETHODCALLTYPE WebView::copyURL( 
         /* [in] */ BSTR url)
 {
-    String temp(url, SysStringLen(url));
-    m_page->focusController()->focusedOrMainFrame()->editor()->copyURL(KURL(temp), "");
+    m_page->focusController()->focusedOrMainFrame()->editor()->copyURL(MarshallingHelpers::BSTRToKURL(url), "");
     return S_OK;
 }
 
@@ -4121,6 +4160,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setShouldPaintCustomScrollbars(!!enabled);
 
+    hr = preferences->zoomsTextOnly(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setZoomsTextOnly(!!enabled);
+
     settings->setShowsURLsInToolTips(false);
     settings->setForceFTPDirectoryListings(true);
     settings->setDeveloperExtrasEnabled(developerExtrasEnabled());
@@ -4149,6 +4193,16 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings->setOfflineWebApplicationCacheEnabled(enabled);
+
+    hr = prefsPrivate->databasesEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setDatabasesEnabled(enabled);
+
+    hr = prefsPrivate->localStorageEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setLocalStorageEnabled(enabled);
 
 #if USE(SAFARI_THEME)
     hr = prefsPrivate->shouldPaintNativeControls(&enabled);
@@ -4963,6 +5017,27 @@ HRESULT STDMETHODCALLTYPE WebView::cookieEnabled(BOOL* enabled)
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebView::setMediaVolume(float volume)
+{
+    if (!m_page)
+        return E_FAIL;
+
+    m_page->setMediaVolume(volume);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::mediaVolume(float* volume)
+{
+    if (!volume)
+        return E_POINTER;
+
+    if (!m_page)
+        return E_FAIL;
+
+    *volume = m_page->mediaVolume();
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebView::setDefersCallbacks(BOOL defersCallbacks)
 {
     if (!m_page)
@@ -4984,6 +5059,23 @@ HRESULT STDMETHODCALLTYPE WebView::defersCallbacks(BOOL* defersCallbacks)
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebView::globalHistoryItem(IWebHistoryItem** item)
+{
+    if (!item)
+        return E_POINTER;
+
+    if (!m_page)
+        return E_FAIL;
+
+    if (!m_page->globalHistoryItem()) {
+        *item = 0;
+        return S_OK;
+    }
+
+    *item = WebHistoryItem::createInstance(m_page->globalHistoryItem());
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebView::setAlwaysUsesComplexTextCodePath(BOOL complex)
 {
     WebCoreSetAlwaysUsesComplexTextCodePath(complex);
@@ -4998,6 +5090,26 @@ HRESULT STDMETHODCALLTYPE WebView::alwaysUsesComplexTextCodePath(BOOL* complex)
 
     *complex = WebCoreAlwaysUsesComplexTextCodePath();
     return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::registerEmbeddedViewMIMEType(BSTR mimeType)
+{
+    if (!mimeType)
+        return E_POINTER;
+
+    if (!m_embeddedViewMIMETypes)
+        m_embeddedViewMIMETypes.set(new HashSet<String>);
+
+    m_embeddedViewMIMETypes->add(String(mimeType, ::SysStringLen(mimeType)));
+    return S_OK;
+}
+
+bool WebView::shouldUseEmbeddedView(const WebCore::String& mimeType) const
+{
+    if (!m_embeddedViewMIMETypes)
+        return false;
+
+    return m_embeddedViewMIMETypes->contains(mimeType);
 }
 
 bool WebView::onGetObject(WPARAM wParam, LPARAM lParam, LRESULT& lResult) const
@@ -5040,6 +5152,12 @@ STDMETHODIMP WebView::AccessibleObjectFromWindow(HWND hwnd, DWORD objectID, REFI
     if (!procPtr)
         return E_FAIL;
     return procPtr(hwnd, objectID, riid, ppObject);
+}
+
+HRESULT WebView::setMemoryCacheDelegateCallsEnabled(BOOL enabled)
+{
+    m_page->setMemoryCacheClientCallsEnabled(enabled);
+    return S_OK;
 }
 
 class EnumTextMatches : public IEnumTextMatches

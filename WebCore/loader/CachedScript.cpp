@@ -1,11 +1,9 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -38,6 +36,7 @@ namespace WebCore {
 CachedScript::CachedScript(const String& url, const String& charset)
     : CachedResource(url, Script)
     , m_encoding(charset)
+    , m_decodedDataDeletionTimer(this, &CachedScript::decodedDataDeletionTimerFired)
 {
     // It's javascript we want.
     // But some websites think their scripts are <some wrong mimetype here>
@@ -58,6 +57,11 @@ void CachedScript::addClient(CachedResourceClient* c)
         c->notifyFinished(this);
 }
 
+void CachedScript::allClientsRemoved()
+{
+    m_decodedDataDeletionTimer.startOneShot(0);
+}
+
 void CachedScript::setEncoding(const String& chs)
 {
     TextEncoding encoding(chs);
@@ -70,6 +74,19 @@ String CachedScript::encoding() const
     return m_encoding.name();
 }
 
+const String& CachedScript::script()
+{
+    ASSERT(!isPurgeable());
+
+    if (!m_script && m_data) {
+        m_script = m_encoding.decode(m_data->data(), encodedSize());
+        setDecodedSize(m_script.length() * sizeof(UChar));
+    }
+
+    m_decodedDataDeletionTimer.startOneShot(0);
+    return m_script;
+}
+
 void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 {
     if (!allDataReceived)
@@ -77,12 +94,6 @@ void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 
     m_data = data;
     setEncodedSize(m_data.get() ? m_data->size() : 0);
-    if (m_data.get())
-        m_script = m_encoding.decode(m_data->data(), encodedSize());
-#ifdef ANDROID_FIX // FIXME  Newer webkit calls setDecodedSize in CachedScript::script(); remove on webkit update
-    // report decoded size too
-    setDecodedSize(m_script.length() * sizeof(UChar));
-#endif
     m_loading = false;
     checkNotify();
 }
@@ -104,4 +115,17 @@ void CachedScript::error()
     checkNotify();
 }
 
+void CachedScript::destroyDecodedData()
+{
+    m_script = String();
+    setDecodedSize(0);
+    if (isSafeToMakePurgeable())
+        makePurgeable(true);
 }
+
+void CachedScript::decodedDataDeletionTimerFired(Timer<CachedScript>*)
+{
+    destroyDecodedData();
+}
+
+} // namespace WebCore

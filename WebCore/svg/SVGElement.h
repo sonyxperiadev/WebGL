@@ -30,10 +30,12 @@
 
 namespace WebCore {
 
-    class AffineTransform;
+    class TransformationMatrix;
+    class CSSCursorImageValue;
     class Document;
-    class SVGElementInstance;
+    class SVGCursorElement;
     class SVGDocumentExtensions;
+    class SVGElementInstance;
     class SVGSVGElement;
 
     class SVGElement : public StyledElement {
@@ -64,8 +66,8 @@ namespace WebCore {
 
         virtual bool isShadowNode() const { return m_shadowParent; }
         virtual Node* shadowParentNode() { return m_shadowParent; }
-        void setShadowParentNode(Node* node) { m_shadowParent = node; }
-        virtual Node* eventParentNode() { return isShadowNode() ? shadowParentNode() : parentNode(); }
+        void setShadowParentNode(ContainerNode* node) { m_shadowParent = node; }
+        virtual ContainerNode* eventParentNode();
 
         // For SVGTests
         virtual bool isValid() const { return true; }
@@ -82,7 +84,7 @@ namespace WebCore {
 
         void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
         
-        virtual AffineTransform* supplementalTransform() { return 0; }
+        virtual TransformationMatrix* supplementalTransform() { return 0; }
 
         virtual void updateAnimatedSVGAttribute(const String&) const;
         virtual void setSynchronizedSVGAttributes(bool) const;
@@ -117,6 +119,9 @@ namespace WebCore {
             m_svgPropertyMap.set(attrName.localName(), &base);
         }
 
+        void setCursorElement(SVGCursorElement* cursorElement) { m_cursorElement = cursorElement; }
+        void setCursorImageValue(CSSCursorImageValue* cursorImageValue) { m_cursorImageValue = cursorImageValue; }
+
     private:
         friend class SVGElementInstance;
 
@@ -125,8 +130,11 @@ namespace WebCore {
 
         virtual bool haveLoadedRequiredResources();
 
-        Node* m_shadowParent;
+        ContainerNode* m_shadowParent;
         mutable HashMap<String, const SVGAnimatedPropertyBase*> m_svgPropertyMap;
+
+        SVGCursorElement* m_cursorElement;
+        CSSCursorImageValue* m_cursorImageValue;
 
         HashSet<SVGElementInstance*> m_elementInstances;
     };

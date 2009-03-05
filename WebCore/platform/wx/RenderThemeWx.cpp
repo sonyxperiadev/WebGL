@@ -34,6 +34,7 @@
 
 #include "WebKit/wx/WebView.h"
 
+#include <wx/dcgraph.h>
 #include <wx/defs.h>
 #include <wx/renderer.h>
 #include <wx/dcclient.h>
@@ -130,7 +131,12 @@ bool RenderThemeWx::isControlStyled(const RenderStyle* style, const BorderData& 
     if (style->appearance() == TextFieldPart || style->appearance() == TextAreaPart)
         return style->border() != border;
 
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+    // Normally CSS can be used to set properties of form controls (such as adding a background bitmap).
+    // However, for this to work RenderThemeWx needs to adjust uncustomized elements (e.g. buttons) to reflect the
+    // changes made by CSS. Since we don't do that right now, the native parts of form elements appear in odd places. 
+    // Until we have time to implement that support, we return false here, so that we ignore customizations 
+    // and always use the native theme drawing to draw form controls.
+    return false;
 }
 
 void RenderThemeWx::adjustRepaintRect(const RenderObject* o, IntRect& r)
@@ -250,8 +256,12 @@ bool RenderThemeWx::paintButton(RenderObject* o, const RenderObject::PaintInfo& 
         wxRendererNative::Get().DrawPushButton(window, *dc, r, flags);
     else if(part == RadioPart) {
         if (isChecked(o))
-            flags |= wxCONTROL_CHECKED;        
+            flags |= wxCONTROL_CHECKED;
+#if wxCHECK_VERSION(2,9,0)
+        wxRendererNative::Get().DrawRadioButton(window, *dc, r, flags);
+#else
         wxRenderer_DrawRadioButton(window, *dc, r, flags);
+#endif
     }
     else if(part == CheckboxPart) {
         if (isChecked(o))
@@ -270,7 +280,12 @@ bool RenderThemeWx::paintTextField(RenderObject* o, const RenderObject::PaintInf
 {
     wxWindow* window = o->view()->frameView()->platformWidget();
     wxDC* dc = static_cast<wxDC*>(i.context->platformContext());
+#if wxCHECK_VERSION(2,9,0)
+    wxRendererNative::Get().DrawTextCtrl(window, *dc, r, 0);
+#else
     wxRenderer_DrawTextCtrl(window, *dc, r, 0);
+#endif
+
     return false;
 }
 
@@ -298,7 +313,11 @@ bool RenderThemeWx::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
     if (isPressed(o))
         flags |= wxCONTROL_PRESSED;
 
+#if wxCHECK_VERSION(2,9,0)
+    wxRendererNative::Get().DrawChoice(window, *dc, r, flags);
+#else
     wxRenderer_DrawChoice(window, *dc, r, flags);
+#endif
 
     return false;
 }

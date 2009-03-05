@@ -40,6 +40,7 @@
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/LocalizedStrings.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/WindowFeatures.h>
 #pragma warning(pop)
@@ -472,6 +473,11 @@ PlatformWidget WebChromeClient::platformWindow() const
     if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
         return 0;
     return viewWindow;
+}
+
+void WebChromeClient::contentsSizeChanged(Frame*, const IntSize&) const
+{
+    notImplemented();
 }
 
 void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)

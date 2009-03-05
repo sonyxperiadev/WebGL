@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #include "ApplicationCache.h"
 #include "ApplicationCacheGroup.h"
+#include "ApplicationCacheResource.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventException.h"
@@ -37,6 +38,7 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "StaticStringList.h"
 
 namespace WebCore {
 
@@ -55,7 +57,7 @@ ApplicationCache* DOMApplicationCache::associatedCache() const
     if (!m_frame)
         return 0;
  
-    return m_frame->loader()->documentLoader()->topLevelApplicationCache();
+    return m_frame->loader()->documentLoader()->applicationCache();
 }
 
 unsigned short DOMApplicationCache::status() const
@@ -63,22 +65,22 @@ unsigned short DOMApplicationCache::status() const
     ApplicationCache* cache = associatedCache();    
     if (!cache)
         return UNCACHED;
-    
-    switch (cache->group()->status()) {
+
+    switch (cache->group()->updateStatus()) {
         case ApplicationCacheGroup::Checking:
             return CHECKING;
         case ApplicationCacheGroup::Downloading:
             return DOWNLOADING;
         case ApplicationCacheGroup::Idle: {
+            if (cache->group()->isObsolete())
+                return OBSOLETE;
             if (cache != cache->group()->newestCache())
                 return UPDATEREADY;
-            
             return IDLE;
         }
-        default:
-            ASSERT_NOT_REACHED();
     }
-    
+
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
@@ -90,7 +92,7 @@ void DOMApplicationCache::update(ExceptionCode& ec)
         return;
     }
     
-    cache->group()->update(m_frame);
+    cache->group()->update(m_frame, ApplicationCacheUpdateWithoutBrowsingContext);
 }
 
 bool DOMApplicationCache::swapCache()
@@ -101,8 +103,14 @@ bool DOMApplicationCache::swapCache()
     ApplicationCache* cache = m_frame->loader()->documentLoader()->applicationCache();
     if (!cache)
         return false;
-    
-    // Check if we already have the newest cache
+
+    // If the group of application caches to which cache belongs has the lifecycle status obsolete, unassociate document from cache.
+    if (cache->group()->isObsolete()) {
+        cache->group()->disassociateDocumentLoader(m_frame->loader()->documentLoader());
+        return true;
+    }
+
+    // If there is no newer cache, raise an INVALID_STATE_ERR exception.
     ApplicationCache* newestCache = cache->group()->newestCache();
     if (cache == newestCache)
         return false;
@@ -119,29 +127,33 @@ void DOMApplicationCache::swapCache(ExceptionCode& ec)
         ec = INVALID_STATE_ERR;
 }
 
-unsigned DOMApplicationCache::length() const
+PassRefPtr<DOMStringList> DOMApplicationCache::items()
 {
-    ApplicationCache* cache = associatedCache();
-    if (!cache)
-        return 0;
-    
-    return cache->numDynamicEntries();
+    Vector<String> result;
+    if (ApplicationCache* cache = associatedCache()) {
+        unsigned numEntries = cache->numDynamicEntries();
+        result.reserveCapacity(numEntries);
+        for (unsigned i = 0; i < numEntries; ++i)
+            result.append(cache->dynamicEntry(i));
+    }
+    return StaticStringList::adopt(result);
 }
-    
-String DOMApplicationCache::item(unsigned item, ExceptionCode& ec)
+
+bool DOMApplicationCache::hasItem(const KURL& url, ExceptionCode& ec)
 {
     ApplicationCache* cache = associatedCache();
     if (!cache) {
         ec = INVALID_STATE_ERR;
-        return String();
+        return false;
     }
 
-    if (item >= length()) {
-        ec = INDEX_SIZE_ERR;
-        return String();
+    if (!url.isValid()) {
+        ec = SYNTAX_ERR;
+        return false;
     }
-    
-    return cache->dynamicEntry(item);
+
+    ApplicationCacheResource* resource = cache->resourceForURL(url.string());
+    return resource && (resource->type() & ApplicationCacheResource::Dynamic);
 }
     
 void DOMApplicationCache::add(const KURL& url, ExceptionCode& ec)
@@ -198,7 +210,7 @@ void DOMApplicationCache::addEventListener(const AtomicString& eventType, PassRe
     }    
 }
 
-void DOMApplicationCache::removeEventListener(const AtomicString& eventType, EventListener* eventListener, bool useCapture)
+void DOMApplicationCache::removeEventListener(const AtomicString& eventType, EventListener* eventListener, bool)
 {
     EventListenersMap::iterator iter = m_eventListeners.find(eventType);
     if (iter == m_eventListeners.end())
@@ -215,7 +227,7 @@ void DOMApplicationCache::removeEventListener(const AtomicString& eventType, Eve
 
 bool DOMApplicationCache::dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec)
 {
-    if (event->type().isEmpty()) {
+    if (!event || event->type().isEmpty()) {
         ec = EventException::UNSPECIFIED_EVENT_TYPE_ERR;
         return true;
     }
@@ -279,6 +291,11 @@ void DOMApplicationCache::callUpdateReadyListener()
 void DOMApplicationCache::callCachedListener()
 {
     callListener(eventNames().cachedEvent, m_onCachedListener.get());
+}
+
+void DOMApplicationCache::callObsoleteListener()
+{
+    callListener(eventNames().obsoleteEvent, m_onObsoleteListener.get());
 }
 
 } // namespace WebCore

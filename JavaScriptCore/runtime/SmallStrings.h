@@ -26,7 +26,7 @@
 #ifndef SmallStrings_h
 #define SmallStrings_h
 
-#include "ustring.h"
+#include "UString.h"
 #include <wtf/OwnPtr.h>
 
 namespace JSC {
@@ -55,9 +55,11 @@ namespace JSC {
         }
 
         UString::Rep* singleCharacterStringRep(unsigned char character);
-        
+
         void mark();
-        
+
+        unsigned count() const;
+
     private:
         void createEmptyString(JSGlobalData*);
         void createSingleCharacterString(JSGlobalData*, unsigned char);
@@ -66,7 +68,7 @@ namespace JSC {
         JSString* m_singleCharacterStrings[0x100];
         OwnPtr<SmallStringsStorage> m_storage;
     };
-    
-}
 
-#endif
+} // namespace JSC
+
+#endif // SmallStrings_h

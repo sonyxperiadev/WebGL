@@ -25,9 +25,10 @@
 #include "config.h"
 #include "RenderInline.h"
 
-#include "Document.h"
+#include "FloatQuad.h"
 #include "RenderArena.h"
 #include "RenderBlock.h"
+#include "RenderView.h"
 #include "VisiblePosition.h"
 
 namespace WebCore {
@@ -68,7 +69,7 @@ void RenderInline::styleDidChange(RenderStyle::Diff diff, const RenderStyle* old
     m_lineHeight = -1;
 
     // Update pseudos for :before and :after now.
-    if (!isAnonymous()) {
+    if (!isAnonymous() && document()->usesBeforeAfterRules()) {
         updateBeforeAfterContent(RenderStyle::BEFORE);
         updateBeforeAfterContent(RenderStyle::AFTER);
     }
@@ -115,7 +116,8 @@ void RenderInline::addChildToFlow(RenderObject* newChild, RenderObject* beforeCh
         // has to move into the inline continuation.  Call updateBeforeAfterContent to ensure that our :after
         // content gets properly destroyed.
         bool isLastChild = (beforeChild == lastChild());
-        updateBeforeAfterContent(RenderStyle::AFTER);
+        if (document()->usesBeforeAfterRules())
+            updateBeforeAfterContent(RenderStyle::AFTER);
         if (isLastChild && beforeChild != lastChild())
             beforeChild = 0; // We destroyed the last child, so now we need to update our insertion
                              // point to be 0.  It's just a straight append now.
@@ -187,7 +189,8 @@ void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
             // Someone may have indirectly caused a <q> to split.  When this happens, the :after content
             // has to move into the inline continuation.  Call updateBeforeAfterContent to ensure that the inline's :after
             // content gets properly destroyed.
-            curr->updateBeforeAfterContent(RenderStyle::AFTER);
+            if (document()->usesBeforeAfterRules())
+                curr->updateBeforeAfterContent(RenderStyle::AFTER);
 
             // Now we need to take all of the children starting from the first child
             // *after* currChild and append them all to the clone.
@@ -290,46 +293,33 @@ void RenderInline::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool to
         rects.append(IntRect(tx + curr->xPos(), ty + curr->yPos(), curr->width(), curr->height()));
 
     for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
-        if (!curr->isText())
-            curr->absoluteRects(rects, tx + curr->xPos(), ty + curr->yPos(), false);
+        if (curr->isBox()) {
+            RenderBox* box = toRenderBox(curr);
+            curr->absoluteRects(rects, tx + box->x(), ty + box->y(), false);
+        }
     }
 
     if (continuation() && topLevel)
         continuation()->absoluteRects(rects, 
-                                      tx - containingBlock()->xPos() + continuation()->xPos(),
-                                      ty - containingBlock()->yPos() + continuation()->yPos(),
+                                      tx - containingBlock()->x() + continuation()->x(),
+                                      ty - containingBlock()->y() + continuation()->y(),
                                       topLevel);
 }
 
-bool RenderInline::requiresLayer()
+void RenderInline::absoluteQuads(Vector<FloatQuad>& quads, bool topLevel)
 {
-    return isRelPositioned() || isTransparent() || hasMask();
-}
-
-int RenderInline::width() const
-{
-    // Return the width of the minimal left side and the maximal right side.
-    int leftSide = 0;
-    int rightSide = 0;
     for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-        if (curr == firstLineBox() || curr->xPos() < leftSide)
-            leftSide = curr->xPos();
-        if (curr == firstLineBox() || curr->xPos() + curr->width() > rightSide)
-            rightSide = curr->xPos() + curr->width();
+        FloatRect localRect(curr->xPos(), curr->yPos(), curr->width(), curr->height());
+        quads.append(localToAbsoluteQuad(localRect));
+    }
+    
+    for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
+        if (!curr->isText())
+            curr->absoluteQuads(quads, false);
     }
 
-    return rightSide - leftSide;
-}
-
-int RenderInline::height() const
-{
-    // See <rdar://problem/5289721>, for an unknown reason the linked list here is sometimes inconsistent, first is non-zero and last is zero.  We have been
-    // unable to reproduce this at all (and consequently unable to figure ot why this is happening).  The assert will hopefully catch the problem in debug
-    // builds and help us someday figure out why.  We also put in a redundant check of lastLineBox() to avoid the crash for now.
-    ASSERT(!firstLineBox() == !lastLineBox());  // Either both are null or both exist.
-    if (firstLineBox() && lastLineBox())
-        return lastLineBox()->yPos() + lastLineBox()->height() - firstLineBox()->yPos();
-    return 0;
+    if (continuation() && topLevel)
+        continuation()->absoluteQuads(quads, topLevel);
 }
 
 int RenderInline::offsetLeft() const
@@ -354,6 +344,8 @@ const char* RenderInline::renderName() const
         return "RenderInline (relative positioned)";
     if (isAnonymous())
         return "RenderInline (generated)";
+    if (isRunIn())
+        return "RenderInline (run-in)";
     return "RenderInline";
 }
 
@@ -367,17 +359,104 @@ VisiblePosition RenderInline::positionForCoordinates(int x, int y)
 {
     // Translate the coords from the pre-anonymous block to the post-anonymous block.
     RenderBlock* cb = containingBlock();
-    int parentBlockX = cb->xPos() + x;
-    int parentBlockY = cb->yPos() + y;
-    for (RenderObject* c = continuation(); c; c = c->continuation()) {
-        RenderObject* contBlock = c;
+    int parentBlockX = cb->x() + x;
+    int parentBlockY = cb->y() + y;
+    for (RenderFlow* c = continuation(); c; c = c->continuation()) {
+        RenderFlow* contBlock = c;
         if (c->isInline())
             contBlock = c->containingBlock();
         if (c->isInline() || c->firstChild())
-            return c->positionForCoordinates(parentBlockX - contBlock->xPos(), parentBlockY - contBlock->yPos());
+            return c->positionForCoordinates(parentBlockX - contBlock->x(), parentBlockY - contBlock->y());
     }
 
     return RenderFlow::positionForCoordinates(x, y);
+}
+
+IntRect RenderInline::linesBoundingBox() const
+{
+    IntRect result;
+    
+    // See <rdar://problem/5289721>, for an unknown reason the linked list here is sometimes inconsistent, first is non-zero and last is zero.  We have been
+    // unable to reproduce this at all (and consequently unable to figure ot why this is happening).  The assert will hopefully catch the problem in debug
+    // builds and help us someday figure out why.  We also put in a redundant check of lastLineBox() to avoid the crash for now.
+    ASSERT(!firstLineBox() == !lastLineBox());  // Either both are null or both exist.
+    if (firstLineBox() && lastLineBox()) {
+        // Return the width of the minimal left side and the maximal right side.
+        int leftSide = 0;
+        int rightSide = 0;
+        for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
+            if (curr == firstLineBox() || curr->xPos() < leftSide)
+                leftSide = curr->xPos();
+            if (curr == firstLineBox() || curr->xPos() + curr->width() > rightSide)
+                rightSide = curr->xPos() + curr->width();
+        }
+        result.setWidth(rightSide - leftSide);
+        result.setX(leftSide);
+        result.setHeight(lastLineBox()->yPos() + lastLineBox()->height() - firstLineBox()->yPos());
+        result.setY(firstLineBox()->yPos());
+    }
+
+    return result;
+}
+
+IntRect RenderInline::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
+{
+    // Only run-ins are allowed in here during layout.
+    ASSERT(!view() || !view()->layoutStateEnabled() || isRunIn());
+
+    if (!firstLineBox() && !continuation())
+        return IntRect();
+
+    // Find our leftmost position.
+    IntRect boundingBox(linesBoundingBox());
+    int left = boundingBox.x();
+    int top = boundingBox.y();
+
+    // Now invalidate a rectangle.
+    int ow = style() ? style()->outlineSize() : 0;
+    
+    // We need to add in the relative position offsets of any inlines (including us) up to our
+    // containing block.
+    RenderBlock* cb = containingBlock();
+    for (RenderObject* inlineFlow = this; inlineFlow && inlineFlow->isRenderInline() && inlineFlow != cb; 
+         inlineFlow = inlineFlow->parent()) {
+         if (inlineFlow->style()->position() == RelativePosition && inlineFlow->hasLayer())
+            toRenderBox(inlineFlow)->layer()->relativePositionOffset(left, top);
+    }
+
+    IntRect r(-ow + left, -ow + top, boundingBox.width() + ow * 2, boundingBox.height() + ow * 2);
+    if (cb->hasColumns())
+        cb->adjustRectForColumns(r);
+
+    if (cb->hasOverflowClip()) {
+        // cb->height() is inaccurate if we're in the middle of a layout of |cb|, so use the
+        // layer's size instead.  Even if the layer's size is wrong, the layer itself will repaint
+        // anyway if its size does change.
+        int x = r.x();
+        int y = r.y();
+        IntRect boxRect(0, 0, cb->layer()->width(), cb->layer()->height());
+        cb->layer()->subtractScrolledContentOffset(x, y); // For overflow:auto/scroll/hidden.
+        IntRect repaintRect(x, y, r.width(), r.height());
+        r = intersection(repaintRect, boxRect);
+    }
+    ASSERT(repaintContainer != this);
+    cb->computeRectForRepaint(r, repaintContainer);
+
+    if (ow) {
+        for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
+            if (!curr->isText()) {
+                IntRect childRect = curr->rectWithOutlineForRepaint(repaintContainer, ow);
+                r.unite(childRect);
+            }
+        }
+
+        if (continuation() && !continuation()->isInline()) {
+            IntRect contRect = continuation()->rectWithOutlineForRepaint(repaintContainer, ow);
+            r.unite(contRect);
+        }
+    }
+
+    return r;
 }
 
 } // namespace WebCore

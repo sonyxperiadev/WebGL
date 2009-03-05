@@ -1,14 +1,20 @@
 javascriptcore_cppflags += \
 	-I$(srcdir)/JavaScriptCore/API \
 	-I$(srcdir)/JavaScriptCore/ForwardingHeaders \
-	-I$(srcdir)/JavaScriptCore/VM \
+	-I$(srcdir)/JavaScriptCore/interpreter \
+	-I$(srcdir)/JavaScriptCore/bytecode \
+	-I$(srcdir)/JavaScriptCore/bytecompiler \
 	-I$(srcdir)/JavaScriptCore/debugger \
+	-I$(srcdir)/JavaScriptCore/jit \
 	-I$(srcdir)/JavaScriptCore/pcre \
 	-I$(srcdir)/JavaScriptCore/profiler \
 	-I$(srcdir)/JavaScriptCore/runtime \
+	-I$(srcdir)/JavaScriptCore/wrec \
+	-I$(srcdir)/JavaScriptCore/jit \
+	-I$(srcdir)/JavaScriptCore/assembler \
 	-I$(srcdir)/JavaScriptCore/wtf/unicode \
 	-I$(top_builddir)/JavaScriptCore/pcre \
-	-I$(top_builddir)/JavaScriptCore/kjs \
+	-I$(top_builddir)/JavaScriptCore/parser \
 	-I$(top_builddir)/JavaScriptCore/runtime
 
 javascriptcore_h_api += \
@@ -24,7 +30,7 @@ javascriptcore_h_api += \
 	JavaScriptCore/API/WebKitAvailability.h
 
 javascriptcore_built_nosources += \
-	DerivedSources/lexer.lut.h \
+	DerivedSources/Lexer.lut.h \
 	JavaScriptCore/runtime/ArrayPrototype.lut.h \
 	JavaScriptCore/runtime/DatePrototype.lut.h \
 	JavaScriptCore/runtime/MathObject.lut.h \
@@ -67,27 +73,40 @@ javascriptcore_sources += \
 	JavaScriptCore/ForwardingHeaders/JavaScriptCore/OpaqueJSString.h \
 	JavaScriptCore/ForwardingHeaders/JavaScriptCore/WebKitAvailability.h \
 	JavaScriptCore/JavaScriptCorePrefix.h \
-	JavaScriptCore/VM/CTI.cpp \
-	JavaScriptCore/VM/CTI.h \
-	JavaScriptCore/VM/CodeBlock.cpp \
-	JavaScriptCore/VM/CodeBlock.h \
-	JavaScriptCore/VM/CodeGenerator.h \
-	JavaScriptCore/VM/ExceptionHelpers.cpp \
-	JavaScriptCore/VM/ExceptionHelpers.h \
-	JavaScriptCore/VM/Instruction.h \
-	JavaScriptCore/runtime/JSPropertyNameIterator.cpp \
-	JavaScriptCore/runtime/JSPropertyNameIterator.h \
-	JavaScriptCore/VM/LabelID.h \
-	JavaScriptCore/VM/Machine.cpp \
-	JavaScriptCore/VM/Machine.h \
-	JavaScriptCore/VM/Opcode.cpp \
-	JavaScriptCore/VM/Opcode.h \
-	JavaScriptCore/VM/Register.h \
-	JavaScriptCore/VM/RegisterFile.h \
-	JavaScriptCore/VM/RegisterID.h \
-	JavaScriptCore/VM/SamplingTool.cpp \
-	JavaScriptCore/VM/SamplingTool.h \
-	JavaScriptCore/VM/SegmentedVector.h \
+	JavaScriptCore/jit/ExecutableAllocator.h \
+	JavaScriptCore/jit/JIT.cpp \
+	JavaScriptCore/jit/JITCall.cpp \
+	JavaScriptCore/jit/JITPropertyAccess.cpp \
+	JavaScriptCore/jit/JITArithmetic.cpp \
+	JavaScriptCore/jit/ExecutableAllocator.cpp \
+	JavaScriptCore/jit/ExecutableAllocatorPosix.cpp \
+	JavaScriptCore/jit/JIT.h \
+	JavaScriptCore/jit/JITInlineMethods.h \
+	JavaScriptCore/bytecode/StructureStubInfo.cpp \
+	JavaScriptCore/bytecode/StructureStubInfo.h \
+	JavaScriptCore/bytecode/CodeBlock.cpp \
+	JavaScriptCore/bytecode/CodeBlock.h \
+	JavaScriptCore/bytecode/JumpTable.cpp \
+	JavaScriptCore/bytecode/JumpTable.h \
+	JavaScriptCore/bytecode/EvalCodeCache.h \
+	JavaScriptCore/runtime/ExceptionHelpers.cpp \
+	JavaScriptCore/runtime/ExceptionHelpers.h \
+	JavaScriptCore/bytecode/Instruction.h \
+	JavaScriptCore/bytecompiler/Label.h \
+	JavaScriptCore/interpreter/Interpreter.cpp \
+	JavaScriptCore/interpreter/Interpreter.h \
+	JavaScriptCore/bytecode/Opcode.cpp \
+	JavaScriptCore/bytecode/Opcode.h \
+	JavaScriptCore/interpreter/Register.h \
+	JavaScriptCore/bytecompiler/RegisterID.h \
+	JavaScriptCore/bytecode/SamplingTool.cpp \
+	JavaScriptCore/bytecode/SamplingTool.h \
+	JavaScriptCore/bytecompiler/SegmentedVector.h \
+	JavaScriptCore/config.h \
+	JavaScriptCore/debugger/DebuggerActivation.cpp \
+	JavaScriptCore/debugger/DebuggerActivation.h \
+	JavaScriptCore/debugger/DebuggerCallFrame.cpp \
+	JavaScriptCore/debugger/DebuggerCallFrame.h \
 	JavaScriptCore/icu/unicode/parseerr.h \
 	JavaScriptCore/icu/unicode/platform.h \
 	JavaScriptCore/icu/unicode/putil.h \
@@ -110,52 +129,9 @@ javascriptcore_sources += \
 	JavaScriptCore/icu/unicode/utf_old.h \
 	JavaScriptCore/icu/unicode/utypes.h \
 	JavaScriptCore/icu/unicode/uversion.h \
-	JavaScriptCore/runtime/ArgList.h \
-	JavaScriptCore/runtime/Arguments.h \
-	JavaScriptCore/runtime/BatchedTransitionOptimizer.h \
-	JavaScriptCore/runtime/CollectorHeapIterator.h \
-	JavaScriptCore/debugger/DebuggerCallFrame.cpp \
-	JavaScriptCore/debugger/DebuggerCallFrame.h \
-	JavaScriptCore/runtime/ExecState.cpp \
-	JavaScriptCore/runtime/ExecState.h \
-	JavaScriptCore/runtime/InitializeThreading.cpp \
-	JavaScriptCore/runtime/InitializeThreading.h \
-	JavaScriptCore/runtime/JSActivation.cpp \
-	JavaScriptCore/runtime/JSActivation.h \
-	JavaScriptCore/runtime/JSGlobalData.cpp \
-	JavaScriptCore/runtime/JSGlobalData.h \
-	JavaScriptCore/runtime/JSStaticScopeObject.h \
-	JavaScriptCore/runtime/JSType.h \
-	JavaScriptCore/kjs/NodeInfo.h \
-	JavaScriptCore/kjs/Parser.h \
-	JavaScriptCore/runtime/PropertyNameArray.h \
-	JavaScriptCore/runtime/RegExpConstructor.h \
-	JavaScriptCore/runtime/RegExpMatchesArray.h \
-	JavaScriptCore/runtime/RegExpObject.h \
-	JavaScriptCore/runtime/RegExpPrototype.h \
-	JavaScriptCore/kjs/ResultType.h \
-	JavaScriptCore/runtime/ScopeChain.h \
-	JavaScriptCore/runtime/ScopeChainMark.h \
-	JavaScriptCore/kjs/SourceProvider.h \
-	JavaScriptCore/kjs/SourceCode.h \
-	JavaScriptCore/runtime/SymbolTable.h \
-	JavaScriptCore/runtime/Tracing.h \
-	JavaScriptCore/kjs/TypeInfo.h \
-	JavaScriptCore/kjs/collector.h \
-	JavaScriptCore/kjs/completion.h \
-	JavaScriptCore/kjs/config.h \
-	JavaScriptCore/debugger/Debugger.h \
-	JavaScriptCore/kjs/dtoa.h \
-	JavaScriptCore/kjs/identifier.h \
-	JavaScriptCore/kjs/interpreter.h \
-	JavaScriptCore/kjs/lexer.h \
-	JavaScriptCore/kjs/lookup.h \
-	JavaScriptCore/kjs/nodes.h \
-	JavaScriptCore/kjs/operations.h \
-	JavaScriptCore/kjs/protect.h \
-	JavaScriptCore/kjs/regexp.h \
-	JavaScriptCore/kjs/ustring.h \
-	JavaScriptCore/masm/X86Assembler.h \
+	JavaScriptCore/assembler/X86Assembler.h \
+	JavaScriptCore/assembler/AssemblerBuffer.h \
+	JavaScriptCore/assembler/MacroAssembler.h \
 	JavaScriptCore/os-win32/stdbool.h \
 	JavaScriptCore/os-win32/stdint.h \
 	JavaScriptCore/pcre/pcre.h \
@@ -179,73 +155,53 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/Profiler.h \
 	JavaScriptCore/profiler/TreeProfile.cpp \
 	JavaScriptCore/profiler/TreeProfile.h \
-	JavaScriptCore/runtime/ArrayConstructor.h \
-	JavaScriptCore/runtime/ArrayPrototype.h \
-	JavaScriptCore/runtime/BooleanConstructor.h \
-	JavaScriptCore/runtime/BooleanObject.h \
-	JavaScriptCore/runtime/BooleanPrototype.h \
-	JavaScriptCore/runtime/CallData.h \
-	JavaScriptCore/runtime/ClassInfo.h \
-	JavaScriptCore/runtime/DateConstructor.h \
-	JavaScriptCore/runtime/DateInstance.h \
-	JavaScriptCore/runtime/DateMath.h \
-	JavaScriptCore/runtime/DatePrototype.h \
-	JavaScriptCore/runtime/Error.h \
-	JavaScriptCore/runtime/ErrorConstructor.h \
-	JavaScriptCore/runtime/ErrorInstance.h \
-	JavaScriptCore/runtime/ErrorPrototype.h \
-	JavaScriptCore/runtime/FunctionConstructor.h \
-	JavaScriptCore/runtime/FunctionPrototype.h \
-	JavaScriptCore/runtime/GlobalEvalFunction.h \
-	JavaScriptCore/runtime/InternalFunction.h \
-	JavaScriptCore/runtime/JSArray.h \
-	JavaScriptCore/runtime/JSCell.h \
-	JavaScriptCore/runtime/JSFunction.h \
-	JavaScriptCore/runtime/JSGlobalObject.h \
-	JavaScriptCore/runtime/JSGlobalObjectFunctions.h \
-	JavaScriptCore/runtime/JSImmediate.h \
+	JavaScriptCore/interpreter/CallFrame.cpp \
+	JavaScriptCore/interpreter/CallFrame.h \
+	JavaScriptCore/runtime/InitializeThreading.cpp \
+	JavaScriptCore/runtime/InitializeThreading.h \
+	JavaScriptCore/runtime/JSActivation.cpp \
+	JavaScriptCore/runtime/JSActivation.h \
+	JavaScriptCore/runtime/JSByteArray.cpp \
+	JavaScriptCore/runtime/JSByteArray.h \
+	JavaScriptCore/runtime/JSGlobalData.cpp \
+	JavaScriptCore/runtime/JSGlobalData.h \
 	JavaScriptCore/runtime/JSNotAnObject.cpp \
 	JavaScriptCore/runtime/JSNotAnObject.h \
-	JavaScriptCore/runtime/JSNumberCell.h \
-	JavaScriptCore/runtime/JSObject.h \
-	JavaScriptCore/runtime/JSString.h \
-	JavaScriptCore/runtime/JSValue.h \
-	JavaScriptCore/runtime/JSVariableObject.h \
-	JavaScriptCore/runtime/MathObject.h \
-	JavaScriptCore/runtime/NativeErrorConstructor.h \
-	JavaScriptCore/runtime/NativeErrorPrototype.h \
-	JavaScriptCore/runtime/NumberConstructor.h \
-	JavaScriptCore/runtime/NumberObject.h \
-	JavaScriptCore/runtime/NumberPrototype.h \
-	JavaScriptCore/runtime/ObjectConstructor.h \
-	JavaScriptCore/runtime/ObjectPrototype.h \
-	JavaScriptCore/runtime/PropertyMapHashTable.h \
-	JavaScriptCore/runtime/PropertySlot.h \
-	JavaScriptCore/runtime/PrototypeFunction.h \
-	JavaScriptCore/runtime/PutPropertySlot.h \
+	JavaScriptCore/runtime/JSPropertyNameIterator.cpp \
+	JavaScriptCore/runtime/JSPropertyNameIterator.h \
 	JavaScriptCore/runtime/SmallStrings.cpp \
 	JavaScriptCore/runtime/SmallStrings.h \
-	JavaScriptCore/runtime/StringConstructor.h \
-	JavaScriptCore/runtime/StringObject.h \
-	JavaScriptCore/runtime/StringObjectThatMasqueradesAsUndefined.h \
-	JavaScriptCore/runtime/StringPrototype.h \
-	JavaScriptCore/runtime/StructureID.cpp \
-	JavaScriptCore/runtime/StructureID.h \
-	JavaScriptCore/runtime/StructureIDChain.cpp \
-	JavaScriptCore/runtime/StructureIDChain.h \
-	JavaScriptCore/runtime/StructureIDTransitionTable.h \
+	JavaScriptCore/runtime/Structure.cpp \
+	JavaScriptCore/runtime/Structure.h \
+	JavaScriptCore/runtime/StructureChain.cpp \
+	JavaScriptCore/runtime/StructureChain.h \
+	JavaScriptCore/runtime/StructureTransitionTable.h \
+	JavaScriptCore/runtime/TypeInfo.h \
+	JavaScriptCore/wrec/CharacterClass.cpp \
+	JavaScriptCore/wrec/CharacterClass.h \
 	JavaScriptCore/wrec/CharacterClassConstructor.cpp \
 	JavaScriptCore/wrec/CharacterClassConstructor.h \
+	JavaScriptCore/wrec/Escapes.h \
+	JavaScriptCore/wrec/Quantifier.h \
 	JavaScriptCore/wrec/WREC.cpp \
 	JavaScriptCore/wrec/WREC.h \
+	JavaScriptCore/wrec/WRECFunctors.cpp \
+	JavaScriptCore/wrec/WRECFunctors.h \
+	JavaScriptCore/wrec/WRECGenerator.cpp \
+	JavaScriptCore/wrec/WRECGenerator.h \
+	JavaScriptCore/wrec/WRECParser.cpp \
+	JavaScriptCore/wrec/WRECParser.h \
 	JavaScriptCore/wtf/ASCIICType.h \
 	JavaScriptCore/wtf/AVLTree.h \
 	JavaScriptCore/wtf/AlwaysInline.h \
 	JavaScriptCore/wtf/Assertions.cpp \
 	JavaScriptCore/wtf/Assertions.h \
+	JavaScriptCore/wtf/ByteArray.cpp \
+	JavaScriptCore/wtf/ByteArray.h \
+	JavaScriptCore/wtf/CurrentTime.cpp \
+	JavaScriptCore/wtf/CurrentTime.h \
 	JavaScriptCore/wtf/Deque.h \
 	JavaScriptCore/wtf/DisallowCType.h \
-	JavaScriptCore/wtf/FastMalloc.h \
 	JavaScriptCore/wtf/Forward.h \
 	JavaScriptCore/wtf/GOwnPtr.cpp \
 	JavaScriptCore/wtf/GOwnPtr.h \
@@ -263,7 +219,6 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Locker.h \
 	JavaScriptCore/wtf/MainThread.cpp \
 	JavaScriptCore/wtf/MainThread.h \
-	JavaScriptCore/wtf/MallocZoneSupport.h \
 	JavaScriptCore/wtf/MathExtras.h \
 	JavaScriptCore/wtf/MessageQueue.h \
 	JavaScriptCore/wtf/Noncopyable.h \
@@ -272,19 +227,24 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/OwnPtr.h \
 	JavaScriptCore/wtf/PassRefPtr.h \
 	JavaScriptCore/wtf/Platform.h \
+	JavaScriptCore/wtf/PtrAndFlags.h \
+	JavaScriptCore/wtf/RandomNumber.cpp \
+	JavaScriptCore/wtf/RandomNumber.h \
+	JavaScriptCore/wtf/RandomNumberSeed.h \
 	JavaScriptCore/wtf/RefCounted.h \
 	JavaScriptCore/wtf/RefCountedLeakCounter.cpp \
 	JavaScriptCore/wtf/RefCountedLeakCounter.h \
 	JavaScriptCore/wtf/RefPtr.h \
 	JavaScriptCore/wtf/RefPtrHashMap.h \
 	JavaScriptCore/wtf/RetainPtr.h \
+	JavaScriptCore/wtf/StdLibExtras.h \
 	JavaScriptCore/wtf/StringExtras.h \
 	JavaScriptCore/wtf/TCPackedCache.h \
 	JavaScriptCore/wtf/TCPageMap.h \
 	JavaScriptCore/wtf/TCSpinLock.h \
-	JavaScriptCore/wtf/TCSystemAlloc.h \
 	JavaScriptCore/wtf/ThreadSpecific.h \
 	JavaScriptCore/wtf/Threading.h \
+	JavaScriptCore/wtf/Threading.cpp \
 	JavaScriptCore/wtf/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/ThreadingPthreads.cpp \
 	JavaScriptCore/wtf/UnusedParam.h \
@@ -302,114 +262,196 @@ javascriptcore_sources += \
 # Debug build
 if ENABLE_DEBUG
 javascriptcore_built_sources += \
-	DerivedSources/grammar.cpp \
-	DerivedSources/grammar.h
+	DerivedSources/Grammar.cpp \
+	DerivedSources/Grammar.h
 
 javascriptcore_sources += \
-	JavaScriptCore/VM/CodeGenerator.cpp \
-	JavaScriptCore/VM/RegisterFile.cpp \
+	JavaScriptCore/interpreter/RegisterFile.cpp \
+	JavaScriptCore/interpreter/RegisterFile.h \
+	JavaScriptCore/bytecompiler/BytecodeGenerator.cpp \
+	JavaScriptCore/bytecompiler/BytecodeGenerator.h \
+	JavaScriptCore/bytecompiler/LabelScope.h \
+	JavaScriptCore/debugger/Debugger.cpp \
+	JavaScriptCore/debugger/Debugger.h \
+	JavaScriptCore/parser/Lexer.cpp \
+	JavaScriptCore/parser/Lexer.h \
+	JavaScriptCore/parser/NodeInfo.h \
+	JavaScriptCore/parser/Nodes.cpp \
+	JavaScriptCore/parser/Nodes.h \
+	JavaScriptCore/parser/Parser.cpp \
+	JavaScriptCore/parser/Parser.h \
+	JavaScriptCore/parser/ResultType.h \
+	JavaScriptCore/parser/SourceCode.h \
+	JavaScriptCore/parser/SourceProvider.h \
 	JavaScriptCore/runtime/ArgList.cpp \
+	JavaScriptCore/runtime/ArgList.h \
 	JavaScriptCore/runtime/Arguments.cpp \
+	JavaScriptCore/runtime/Arguments.h \
+	JavaScriptCore/runtime/ArrayConstructor.cpp \
+	JavaScriptCore/runtime/ArrayConstructor.h \
+	JavaScriptCore/runtime/ArrayPrototype.cpp \
+	JavaScriptCore/runtime/ArrayPrototype.h \
+	JavaScriptCore/runtime/BatchedTransitionOptimizer.h \
+	JavaScriptCore/runtime/BooleanConstructor.cpp \
+	JavaScriptCore/runtime/BooleanConstructor.h \
+	JavaScriptCore/runtime/BooleanObject.cpp \
+	JavaScriptCore/runtime/BooleanObject.h \
+	JavaScriptCore/runtime/BooleanPrototype.cpp \
+	JavaScriptCore/runtime/BooleanPrototype.h \
+	JavaScriptCore/runtime/CallData.cpp \
+	JavaScriptCore/runtime/CallData.h \
+	JavaScriptCore/runtime/ClassInfo.h \
+	JavaScriptCore/runtime/Collector.cpp \
+	JavaScriptCore/runtime/Collector.h \
+	JavaScriptCore/runtime/CollectorHeapIterator.h \
 	JavaScriptCore/runtime/CommonIdentifiers.cpp \
 	JavaScriptCore/runtime/CommonIdentifiers.h \
-	JavaScriptCore/runtime/GetterSetter.cpp \
-	JavaScriptCore/runtime/GetterSetter.h \
-	JavaScriptCore/runtime/JSLock.cpp \
-	JavaScriptCore/runtime/JSLock.h \
-	JavaScriptCore/runtime/JSStaticScopeObject.cpp \
-	JavaScriptCore/kjs/LabelScope.h \
-	JavaScriptCore/kjs/Parser.cpp \
-	JavaScriptCore/runtime/PropertyNameArray.cpp \
-	JavaScriptCore/runtime/RegExpConstructor.cpp \
-	JavaScriptCore/runtime/RegExpObject.cpp \
-	JavaScriptCore/runtime/RegExpPrototype.cpp \
-	JavaScriptCore/runtime/ScopeChain.cpp \
-	JavaScriptCore/kjs/collector.cpp \
-	JavaScriptCore/debugger/Debugger.cpp \
-	JavaScriptCore/kjs/dtoa.cpp \
-	JavaScriptCore/kjs/identifier.cpp \
-	JavaScriptCore/kjs/interpreter.cpp \
-	JavaScriptCore/kjs/lexer.cpp \
-	JavaScriptCore/kjs/lookup.cpp \
-	JavaScriptCore/kjs/nodes.cpp \
-	JavaScriptCore/kjs/nodes2string.cpp \
-	JavaScriptCore/kjs/operations.cpp \
-	JavaScriptCore/kjs/regexp.cpp \
-	JavaScriptCore/kjs/ustring.cpp \
-	JavaScriptCore/runtime/ArrayConstructor.cpp \
-	JavaScriptCore/runtime/ArrayPrototype.cpp \
-	JavaScriptCore/runtime/BooleanConstructor.cpp \
-	JavaScriptCore/runtime/BooleanObject.cpp \
-	JavaScriptCore/runtime/BooleanPrototype.cpp \
-	JavaScriptCore/runtime/CallData.cpp \
+	JavaScriptCore/runtime/Completion.h \
 	JavaScriptCore/runtime/ConstructData.cpp \
 	JavaScriptCore/runtime/ConstructData.h \
 	JavaScriptCore/runtime/DateConstructor.cpp \
+	JavaScriptCore/runtime/DateConstructor.h \
 	JavaScriptCore/runtime/DateInstance.cpp \
+	JavaScriptCore/runtime/DateInstance.h \
 	JavaScriptCore/runtime/DateMath.cpp \
+	JavaScriptCore/runtime/DateMath.h \
 	JavaScriptCore/runtime/DatePrototype.cpp \
+	JavaScriptCore/runtime/DatePrototype.h \
 	JavaScriptCore/runtime/Error.cpp \
+	JavaScriptCore/runtime/Error.h \
 	JavaScriptCore/runtime/ErrorConstructor.cpp \
+	JavaScriptCore/runtime/ErrorConstructor.h \
 	JavaScriptCore/runtime/ErrorInstance.cpp \
+	JavaScriptCore/runtime/ErrorInstance.h \
 	JavaScriptCore/runtime/ErrorPrototype.cpp \
+	JavaScriptCore/runtime/ErrorPrototype.h \
 	JavaScriptCore/runtime/FunctionConstructor.cpp \
+	JavaScriptCore/runtime/FunctionConstructor.h \
 	JavaScriptCore/runtime/FunctionPrototype.cpp \
+	JavaScriptCore/runtime/FunctionPrototype.h \
+	JavaScriptCore/runtime/GetterSetter.cpp \
+	JavaScriptCore/runtime/GetterSetter.h \
 	JavaScriptCore/runtime/GlobalEvalFunction.cpp \
+	JavaScriptCore/runtime/GlobalEvalFunction.h \
+	JavaScriptCore/runtime/Identifier.cpp \
+	JavaScriptCore/runtime/Identifier.h \
 	JavaScriptCore/runtime/InternalFunction.cpp \
+	JavaScriptCore/runtime/InternalFunction.h \
+	JavaScriptCore/runtime/Completion.cpp \
 	JavaScriptCore/runtime/JSArray.cpp \
+	JavaScriptCore/runtime/JSArray.h \
 	JavaScriptCore/runtime/JSCell.cpp \
+	JavaScriptCore/runtime/JSCell.h \
 	JavaScriptCore/runtime/JSFunction.cpp \
+	JavaScriptCore/runtime/JSFunction.h \
 	JavaScriptCore/runtime/JSGlobalObject.cpp \
+	JavaScriptCore/runtime/JSGlobalObject.h \
 	JavaScriptCore/runtime/JSGlobalObjectFunctions.cpp \
+	JavaScriptCore/runtime/JSGlobalObjectFunctions.h \
 	JavaScriptCore/runtime/JSImmediate.cpp \
+	JavaScriptCore/runtime/JSImmediate.h \
+	JavaScriptCore/runtime/JSLock.cpp \
+	JavaScriptCore/runtime/JSLock.h \
 	JavaScriptCore/runtime/JSNumberCell.cpp \
+	JavaScriptCore/runtime/JSNumberCell.h \
 	JavaScriptCore/runtime/JSObject.cpp \
+	JavaScriptCore/runtime/JSObject.h \
+	JavaScriptCore/runtime/JSStaticScopeObject.cpp \
+	JavaScriptCore/runtime/JSStaticScopeObject.h \
 	JavaScriptCore/runtime/JSString.cpp \
+	JavaScriptCore/runtime/JSString.h \
+	JavaScriptCore/runtime/JSType.h \
 	JavaScriptCore/runtime/JSValue.cpp \
+	JavaScriptCore/runtime/JSValue.h \
 	JavaScriptCore/runtime/JSVariableObject.cpp \
+	JavaScriptCore/runtime/JSVariableObject.h \
 	JavaScriptCore/runtime/JSWrapperObject.cpp \
 	JavaScriptCore/runtime/JSWrapperObject.h \
+	JavaScriptCore/runtime/Lookup.cpp \
+	JavaScriptCore/runtime/Lookup.h \
 	JavaScriptCore/runtime/MathObject.cpp \
+	JavaScriptCore/runtime/MathObject.h \
 	JavaScriptCore/runtime/NativeErrorConstructor.cpp \
+	JavaScriptCore/runtime/NativeErrorConstructor.h \
 	JavaScriptCore/runtime/NativeErrorPrototype.cpp \
+	JavaScriptCore/runtime/NativeErrorPrototype.h \
 	JavaScriptCore/runtime/NumberConstructor.cpp \
+	JavaScriptCore/runtime/NumberConstructor.h \
 	JavaScriptCore/runtime/NumberObject.cpp \
+	JavaScriptCore/runtime/NumberObject.h \
 	JavaScriptCore/runtime/NumberPrototype.cpp \
+	JavaScriptCore/runtime/NumberPrototype.h \
 	JavaScriptCore/runtime/ObjectConstructor.cpp \
+	JavaScriptCore/runtime/ObjectConstructor.h \
 	JavaScriptCore/runtime/ObjectPrototype.cpp \
+	JavaScriptCore/runtime/ObjectPrototype.h \
+	JavaScriptCore/runtime/Operations.cpp \
+	JavaScriptCore/runtime/Operations.h \
+	JavaScriptCore/runtime/PropertyMapHashTable.h \
+	JavaScriptCore/runtime/PropertyNameArray.cpp \
+	JavaScriptCore/runtime/PropertyNameArray.h \
 	JavaScriptCore/runtime/PropertySlot.cpp \
+	JavaScriptCore/runtime/PropertySlot.h \
+	JavaScriptCore/runtime/Protect.h \
 	JavaScriptCore/runtime/PrototypeFunction.cpp \
+	JavaScriptCore/runtime/PrototypeFunction.h \
+	JavaScriptCore/runtime/PutPropertySlot.h \
+	JavaScriptCore/runtime/RegExp.cpp \
+	JavaScriptCore/runtime/RegExp.h \
+	JavaScriptCore/runtime/RegExpConstructor.cpp \
+	JavaScriptCore/runtime/RegExpConstructor.h \
+	JavaScriptCore/runtime/RegExpMatchesArray.h \
+	JavaScriptCore/runtime/RegExpObject.cpp \
+	JavaScriptCore/runtime/RegExpObject.h \
+	JavaScriptCore/runtime/RegExpPrototype.cpp \
+	JavaScriptCore/runtime/RegExpPrototype.h \
+	JavaScriptCore/runtime/ScopeChain.cpp \
+	JavaScriptCore/runtime/ScopeChain.h \
+	JavaScriptCore/runtime/ScopeChainMark.h \
 	JavaScriptCore/runtime/StringConstructor.cpp \
+	JavaScriptCore/runtime/StringConstructor.h \
 	JavaScriptCore/runtime/StringObject.cpp \
+	JavaScriptCore/runtime/StringObject.h \
+	JavaScriptCore/runtime/StringObjectThatMasqueradesAsUndefined.h \
 	JavaScriptCore/runtime/StringPrototype.cpp \
+	JavaScriptCore/runtime/StringPrototype.h \
+	JavaScriptCore/runtime/SymbolTable.h \
+	JavaScriptCore/runtime/Tracing.h \
+	JavaScriptCore/runtime/UString.cpp \
+	JavaScriptCore/runtime/UString.h \
 	JavaScriptCore/wtf/FastMalloc.cpp \
-	JavaScriptCore/wtf/TCSystemAlloc.cpp
+	JavaScriptCore/wtf/FastMalloc.h \
+	JavaScriptCore/wtf/MallocZoneSupport.h \
+	JavaScriptCore/wtf/TCSystemAlloc.cpp \
+	JavaScriptCore/wtf/TCSystemAlloc.h \
+	JavaScriptCore/wtf/dtoa.cpp \
+	JavaScriptCore/wtf/dtoa.h
 
 else
 javascriptcore_built_nosources += \
-	DerivedSources/grammar.cpp \
-	DerivedSources/grammar.h
+	DerivedSources/Grammar.cpp \
+	DerivedSources/Grammar.h
 
 javascriptcore_sources += \
 	JavaScriptCore/AllInOneFile.cpp
 endif # END ENABLE_DEBUG
 
-DerivedSources/grammar.h: DerivedSources/grammar.cpp;
+DerivedSources/Grammar.h: DerivedSources/Grammar.cpp;
 
-DerivedSources/grammar.cpp: $(srcdir)/JavaScriptCore/kjs/grammar.y
-	$(BISON) -d -p kjsyy $(srcdir)/JavaScriptCore/kjs/grammar.y -o $@ > bison_out.txt 2>&1
-	$(PERL) -p -e 'END { if ($$conflict) { unlink "grammar.cpp"; die; } } $$conflict ||= /conflict/' < bison_out.txt
-	cat $(GENSOURCES)/grammar.hpp > $(GENSOURCES)/grammar.h
-	rm -f $(GENSOURCES)/grammar.hpp bison_out.txt
+DerivedSources/Grammar.cpp: $(srcdir)/JavaScriptCore/parser/Grammar.y
+	$(BISON) -d -p jscyy $(srcdir)/JavaScriptCore/parser/Grammar.y -o $@ > bison_out.txt 2>&1
+	$(PERL) -p -e 'END { if ($$conflict) { unlink "Grammar.cpp"; die; } } $$conflict ||= /conflict/' < bison_out.txt
+	cat $(GENSOURCES)/Grammar.hpp > $(GENSOURCES)/Grammar.h
+	rm -f $(GENSOURCES)/Grammar.hpp bison_out.txt
 
-DerivedSources/lexer.lut.h: $(CREATE_HASH_TABLE) $(srcdir)/JavaScriptCore/kjs/keywords.table
+DerivedSources/Lexer.lut.h: $(CREATE_HASH_TABLE) $(srcdir)/JavaScriptCore/parser/Keywords.table
 	$(PERL) $^ > $@
 
 JavaScriptCore/%.lut.h: $(CREATE_HASH_TABLE) $(srcdir)/JavaScriptCore/%.cpp
-	$^ -i > $@
+	$(PERL) $^ -i > $@
 
 JavaScriptCore/pcre/chartables.c: $(srcdir)/JavaScriptCore/pcre/dftables
-	$^ $@
+	$(PERL) $^ $@
 
 bin_PROGRAMS += \
 	Programs/jsc
@@ -434,6 +476,7 @@ Programs_minidom_CPPFLAGS = \
 	$(javascriptcore_cppflags)
 
 Programs_minidom_CFLAGS = \
+	-ansi \
 	-fno-strict-aliasing \
 	-O2 \
 	$(global_cflags) \
@@ -446,7 +489,7 @@ Programs_minidom_LDADD = \
 
 # jsc
 Programs_jsc_SOURCES = \
-	JavaScriptCore/kjs/Shell.cpp
+	JavaScriptCore/jsc.cpp
 
 Programs_jsc_CPPFLAGS = \
 	$(global_cppflags) \
@@ -475,8 +518,8 @@ javascriptcore_dist += \
 	JavaScriptCore/pcre/AUTHORS \
 	JavaScriptCore/pcre/dftables \
 	JavaScriptCore/pcre/ucptable.cpp \
-	JavaScriptCore/kjs/grammar.y \
-	JavaScriptCore/kjs/keywords.table
+	JavaScriptCore/parser/Grammar.y \
+	JavaScriptCore/parser/Keywords.table
 
 # Clean rules for JavaScriptCore
 CLEANFILES += \

@@ -69,6 +69,7 @@
 #include "RenderView.h"
 #include "ResourceHandle.h"
 #include "ScriptController.h"
+#include "ScriptValue.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
@@ -96,6 +97,7 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
+#include <runtime/JSLock.h>
 #endif
 
 namespace android {
@@ -385,7 +387,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 
     if (loadType == WebCore::FrameLoadTypeReplace ||
             loadType == WebCore::FrameLoadTypeSame ||
-            (loadType == WebCore::FrameLoadTypeRedirectWithLockedHistory &&
+            (loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList &&
              !isMainFrame))
         return;
 
@@ -787,7 +789,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     WebCore::String webcoreUrl = to_string(env, url);
     WebCore::ResourceRequest request(webcoreUrl);
     LOGV("LoadUrl %s", webcoreUrl.latin1().data());
-    pFrame->loader()->load(request);
+    pFrame->loader()->load(request, false);
 }
 
 
@@ -816,7 +818,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
             WebCore::KURL(to_string(env, failUrl)));
 
     // Perform the load
-    pFrame->loader()->load(request, substituteData);
+    pFrame->loader()->load(request, substituteData, false);
 }
 
 static void StopLoading(JNIEnv *env, jobject obj)
@@ -876,10 +878,15 @@ static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
     LOG_ASSERT(pFrame, "nativeReload must take a valid frame pointer!");
 
     WebCore::FrameLoader* loader = pFrame->loader();
-    if (allowStale)
-        loader->reloadAllowingStaleData(loader->documentLoader()->overrideEncoding());
-    else
-        loader->reload();
+    if (allowStale) {
+        // load the current page with FrameLoadTypeIndexedBackForward so that it
+        // will use cache when it is possible
+        WebCore::Page* page = pFrame->page();
+        WebCore::HistoryItem* item = page->backForwardList()->currentItem();
+        if (item)
+            page->goToItem(item, FrameLoadTypeIndexedBackForward);
+    } else
+        loader->reload(true);
 }
 
 static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
@@ -906,15 +913,11 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
 
-    JSC::JSValue* r =
+    WebCore::ScriptValue value =
             pFrame->loader()->executeScript(to_string(env, script), true);
     WebCore::String result = WebCore::String();
-    if (r) {
-        // note: r->getString() returns a UString.
-        result = WebCore::String(r->isString() ? r->getString() : 
-                r->toString(pFrame->script()->globalObject()->globalExec()));
-    }
-
+    if (!value.getString(result))
+        return NULL;
     unsigned len = result.length();
     if (len == 0)
         return NULL;
@@ -942,13 +945,17 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         JSC::Bindings::setJavaVM(vm);
         // Add the binding to JS environment
         JSC::ExecState* exec = window->globalExec();
-        JSC::JSObject *addedObject = JSC::Bindings::Instance::createRuntimeObject(
-                exec, JSC::Bindings::JavaInstance::create(javascriptObj, root));
-        // Add the binding name to the window's table of child objects.
-        JSC::PutPropertySlot slot;
-        window->put(exec,
-                JSC::Identifier(exec, to_string(env, interfaceName)),
-                addedObject, slot);
+        JSC::JSObject *addedObject = JSC::Bindings::JavaInstance::create(javascriptObj, 
+                root)->createRuntimeObject(exec);
+        const jchar* s = env->GetStringChars(interfaceName, NULL);
+        if (s) {
+            // Add the binding name to the window's table of child objects.
+            JSC::PutPropertySlot slot;
+            window->put(exec, JSC::Identifier(exec, (const UChar *)s, 
+                    env->GetStringLength(interfaceName)), addedObject, slot);
+            env->ReleaseStringChars(interfaceName, s);
+            checkException(env);
+        }
     }
 }
 
@@ -972,6 +979,13 @@ static void ClearCache(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+
+    JSC::JSLock lock(false);
+    JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
+            jsHeapStatistics.size, jsHeapStatistics.free);
+    LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead", 
+            cache()->getLiveSize(), cache()->getDeadSize());
 #endif
     if (!WebCore::cache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
@@ -1182,7 +1196,7 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) CreateFrame },
     { "nativeDestroyFrame", "()V",
         (void*) DestroyFrame },
-    { "stopLoading", "()V",
+    { "nativeStopLoading", "()V",
         (void*) StopLoading },
     { "nativeLoadUrl", "(Ljava/lang/String;)V",
         (void*) LoadUrl },

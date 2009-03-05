@@ -31,7 +31,7 @@
 
 #include "JSFunction.h"
 #include "CodeBlock.h"
-#include "Machine.h"
+#include "Interpreter.h"
 #include "Parser.h"
 
 namespace JSC {
@@ -60,11 +60,10 @@ JSObject* DebuggerCallFrame::thisObject() const
     if (!m_callFrame->codeBlock())
         return 0;
 
-    // FIXME: Why is it safe to assume this is an object?
     return asObject(m_callFrame->thisValue());
 }
 
-JSValue* DebuggerCallFrame::evaluate(const UString& script, JSValue*& exception) const
+JSValuePtr DebuggerCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
 {
     if (!m_callFrame->codeBlock())
         return noValue();
@@ -76,7 +75,7 @@ JSValue* DebuggerCallFrame::evaluate(const UString& script, JSValue*& exception)
     if (!evalNode)
         return Error::create(m_callFrame, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url());
 
-    return m_callFrame->scopeChain()->globalData->machine->execute(evalNode.get(), m_callFrame, thisObject(), m_callFrame->scopeChain(), &exception);
+    return m_callFrame->scopeChain()->globalData->interpreter->execute(evalNode.get(), m_callFrame, thisObject(), m_callFrame->scopeChain(), &exception);
 }
 
 } // namespace JSC

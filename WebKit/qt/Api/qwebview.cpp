@@ -156,15 +156,10 @@ QWebView::QWebView(QWidget *parent)
 {
     d = new QWebViewPrivate(this);
 
-    QPalette pal = palette();
-    pal.setBrush(QPalette::Background, Qt::white);
-
-    setAttribute(Qt::WA_OpaquePaintEvent);
 #if !defined(Q_WS_QWS)
     setAttribute(Qt::WA_InputMethodEnabled);
 #endif
 
-    setPalette(pal);
     setAcceptDrops(true);
 
     setMouseTracking(true);
@@ -245,6 +240,7 @@ void QWebView::setPage(QWebPage *page)
         connect(d->page, SIGNAL(microFocusChanged()),
                 this, SLOT(updateMicroFocus()));
     }
+    setAttribute(Qt::WA_OpaquePaintEvent, d->page);
     update();
 }
 
@@ -290,8 +286,8 @@ void QWebView::load(const QNetworkRequest &request,
 /*!
     Sets the content of the web view to the specified \a html.
 
-    External objects referenced in the HTML document are located relative to
-    \a baseUrl.
+    External objects such as stylesheets or images referenced in the HTML
+    document are located relative to \a baseUrl.
 
     When using this method, WebKit assumes that external resources such as
     JavaScript programs or style sheets are encoded in UTF-8 unless otherwise
@@ -515,11 +511,18 @@ qreal QWebView::zoomFactor() const
   By default, this property contains a value of 1.0.
 */
 
+/*!
+    Sets the value of the multiplier used to scale the text in a Web page to
+    the \a factor specified.
+*/
 void QWebView::setTextSizeMultiplier(qreal factor)
 {
     page()->mainFrame()->setTextSizeMultiplier(factor);
 }
 
+/*!
+    Returns the value of the multiplier used to scale the text in a Web page.
+*/
 qreal QWebView::textSizeMultiplier() const
 {
     return page()->mainFrame()->textSizeMultiplier();
@@ -546,6 +549,8 @@ bool QWebView::event(QEvent *e)
     if (d->page) {
 #ifndef QT_NO_CONTEXTMENU
         if (e->type() == QEvent::ContextMenu) {
+            if (!isEnabled())
+                return false;
             QContextMenuEvent *event = static_cast<QContextMenuEvent *>(e);
             if (d->page->swallowContextMenuEvent(event)) {
                 e->accept();

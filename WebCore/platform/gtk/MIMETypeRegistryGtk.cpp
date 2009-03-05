@@ -39,6 +39,7 @@ static const ExtensionMap extensionMap [] = {
     { "bmp", "image/bmp" },
     { "css", "text/css" },
     { "gif", "image/gif" },
+    { "htm", "text/html" },
     { "html", "text/html" },
     { "ico", "image/x-icon" },
     { "jpeg", "image/jpeg" },
@@ -54,6 +55,8 @@ static const ExtensionMap extensionMap [] = {
     { "xml", "text/xml" },
     { "xsl", "text/xsl" },
     { "xhtml", "application/xhtml+xml" },
+    { "wml", "text/vnd.wap.wml" },
+    { "wmlc", "application/vnd.wap.wmlc" },
     { 0, 0 }
 };
 

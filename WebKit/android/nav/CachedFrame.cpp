@@ -330,8 +330,8 @@ CachedNode* CachedFrame::find(WebCore::Node* node) // !!! probably debugging onl
 }
 #endif
 
-const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, 
-    int* best, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
+const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* best,
+    bool* inside, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
 {
     const CachedNode* result = NULL;
     int rectWidth = rect.width();
@@ -387,13 +387,17 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                 both.intersect(testRect);
                 if (both.isEmpty())
                     continue;
+                bool testInside = testRect.contains(center);
+                if (*inside && !testInside)
+                    continue;
                 WebCore::IntPoint testCenter = WebCore::IntPoint(testRect.x() + 
                     (testRect.width() >> 1), testRect.y() + (testRect.height() >> 1));
                 int dx = testCenter.x() - center.x();
                 int dy = testCenter.y() - center.y();
                 int distance = dx * dx + dy * dy;
-                if (*best > distance) {
+                if ((!*inside && testInside) || *best > distance) {
                     *best = distance;
+                    *inside = testInside;
                     result = test;
                     *framePtr = this;
                     *x = both.x() + (both.width() >> 1);
@@ -404,7 +408,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
     }
     for (const CachedFrame* frame = mCachedFrames.begin(); 
             frame != mCachedFrames.end(); frame++) {
-        const CachedNode* frameResult = frame->findBestAt(rect, best, directHit,
+        const CachedNode* frameResult = frame->findBestAt(rect, best, inside, directHit,
             framePtr, x, y);
         if (NULL != frameResult)
             result = frameResult;

@@ -64,9 +64,6 @@ ResourceLoader::ResourceLoader(Frame* frame, bool sendResourceLoadCallbacks, boo
     , m_shouldContentSniff(shouldContentSniff)
     , m_shouldBufferData(true)
     , m_defersLoading(frame->page()->defersLoading())
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    , m_wasLoadedFromApplicationCache(false)
-#endif
 {
 }
 
@@ -124,10 +121,8 @@ bool ResourceLoader::load(const ResourceRequest& r)
 #endif
     
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    if (m_documentLoader->scheduleApplicationCacheLoad(this, clientRequest, r.url())) {
-        m_wasLoadedFromApplicationCache = true;
+    if (m_documentLoader->scheduleApplicationCacheLoad(this, clientRequest, r.url()))
         return true;
-    }
 #endif
 
     if (m_defersLoading) {
@@ -197,6 +192,17 @@ void ResourceLoader::clearResourceData()
         m_resourceData->clear();
 }
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+bool ResourceLoader::scheduleLoadFallbackResourceFromApplicationCache(ApplicationCache* cache)
+{
+    if (documentLoader()->scheduleLoadFallbackResourceFromApplicationCache(this, m_request, cache)) {
+        handle()->cancel();
+        return true;
+    }
+    return false;
+}
+#endif
+
 void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     // Protect this in this delegate method since the additional processing can do
@@ -217,7 +223,7 @@ void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceRes
     m_request = request;
 }
 
-void ResourceLoader::didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
+void ResourceLoader::didSendData(unsigned long long, unsigned long long)
 {
 }
 
@@ -377,6 +383,12 @@ ResourceError ResourceLoader::cannotShowURLError()
 
 void ResourceLoader::willSendRequest(ResourceHandle*, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    if (!redirectResponse.isNull() && !protocolHostAndPortAreEqual(request.url(), redirectResponse.url())) {
+        if (scheduleLoadFallbackResourceFromApplicationCache())
+            return;
+    }
+#endif
     willSendRequest(request, redirectResponse);
 }
 
@@ -387,6 +399,12 @@ void ResourceLoader::didSendData(ResourceHandle*, unsigned long long bytesSent, 
 
 void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
 {
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    if (response.httpStatusCode() / 100 == 4 || response.httpStatusCode() / 100 == 5) {
+        if (scheduleLoadFallbackResourceFromApplicationCache())
+            return;
+    }
+#endif
     didReceiveResponse(response);
 }
 
@@ -402,6 +420,12 @@ void ResourceLoader::didFinishLoading(ResourceHandle*)
 
 void ResourceLoader::didFail(ResourceHandle*, const ResourceError& error)
 {
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    if (!error.isCancellation()) {
+        if (documentLoader()->scheduleLoadFallbackResourceFromApplicationCache(this, m_request))
+            return;
+    }
+#endif
     didFail(error);
 }
 
@@ -413,6 +437,12 @@ void ResourceLoader::wasBlocked(ResourceHandle*)
 void ResourceLoader::cannotShowURL(ResourceHandle*)
 {
     didFail(cannotShowURLError());
+}
+
+bool ResourceLoader::shouldUseCredentialStorage()
+{
+    RefPtr<ResourceLoader> protector(this);
+    return frameLoader()->shouldUseCredentialStorage(this);
 }
 
 void ResourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)

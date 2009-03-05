@@ -40,9 +40,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLBodyElement::HTMLBodyElement(Document* doc)
-    : HTMLElement(bodyTag, doc)
+HTMLBodyElement::HTMLBodyElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(bodyTag));
 }
 
 HTMLBodyElement::~HTMLBodyElement()
@@ -295,9 +296,11 @@ int HTMLBodyElement::scrollWidth() const
     return view ? view->contentsWidth() : 0;    
 }
 
-void HTMLBodyElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLBodyElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(background());
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(background()));
 }
 
 }

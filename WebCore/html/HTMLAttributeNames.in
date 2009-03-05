@@ -1,7 +1,7 @@
 namespace="HTML"
 namespacePrefix="xhtml"
 namespaceURI="http://www.w3.org/1999/xhtml"
-attrsNullNamespace="1"
+attrsNullNamespace
 
 abbr
 accept_charset
@@ -42,7 +42,7 @@ charset
 checked
 cellborder
 cite
-class exportString="1"
+class exportString
 classid
 clear
 code
@@ -84,7 +84,6 @@ keytype
 label
 lang
 language
-left
 leftmargin
 link
 longdesc
@@ -161,12 +160,7 @@ onwebkitanimationstart
 onwebkitanimationiteration
 onwebkitanimationend
 onwebkittransitionend
-pagex
-pagey
 placeholder
-plain
-pluginpage
-pluginspage
 pluginurl
 poster
 precision

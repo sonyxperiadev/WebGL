@@ -29,6 +29,7 @@
 #include "android_graphics.h"
 #include "CString.h"
 #include "DocumentLoader.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
@@ -77,20 +78,6 @@ namespace android {
 
 static const int EXTRA_LAYOUT_DELAY = 1000;
 
-// FIXME: Need some data for how big this should be.
-#define MAX_SESSION_HISTORY 50
-static WTF::Vector<KURL> gSessionHistory;
-
-bool historyContains(const UChar* chars, unsigned len) {
-    const KURL url(String(chars, len));
-    WTF::Vector<KURL>::const_iterator end = gSessionHistory.end();
-    for (WTF::Vector<KURL>::const_iterator i = gSessionHistory.begin(); i != end; ++i) {
-        if (equalIgnoringRef(url, *i))
-            return true;
-    }
-    return false;
-}
-
 FrameLoaderClientAndroid::FrameLoaderClientAndroid(WebFrame* webframe)
     : m_frame(NULL)
     , m_webFrame(webframe) {
@@ -114,18 +101,6 @@ bool FrameLoaderClientAndroid::hasWebView() const {
     // there is one web view per page, or top frame.
     // as android's view is created from Java side, it is always there.
     return true;
-}
-
-bool FrameLoaderClientAndroid::hasFrameView() const {
-    // FIXME,
-    // need to revisit for sub-frame case
-    return true;
-}
-
-bool FrameLoaderClientAndroid::privateBrowsingEnabled() const {
-    // FIXME, are we going to support private browsing?
-    notImplemented();
-    return false;
 }
 
 void FrameLoaderClientAndroid::makeRepresentation(DocumentLoader*) {
@@ -160,16 +135,6 @@ void FrameLoaderClientAndroid::detachedFromParent3() {
     notImplemented();
 }
 
-void FrameLoaderClientAndroid::detachedFromParent4() {
-    // FIXME, ready to release view
-    notImplemented();
-}
-
-void FrameLoaderClientAndroid::loadedFromPageCache() {
-    // don't support page cache
-    verifiedOk();
-}
-
 // This function is responsible for associating the "id" with a given
 // subresource load.  The following functions that accept an "id" are
 // called for each subresource, so they should not be dispatched to the m_frame.
@@ -181,6 +146,12 @@ void FrameLoaderClientAndroid::assignIdentifierToInitialRequest(unsigned long id
 void FrameLoaderClientAndroid::dispatchWillSendRequest(DocumentLoader*, unsigned long id,
                             ResourceRequest&, const ResourceResponse&) {
     lowPriority_notImplemented();
+}
+
+bool FrameLoaderClientAndroid::shouldUseCredentialStorage(DocumentLoader*, unsigned long  identifier)
+{
+    notImplemented();
+    return false;
 }
 
 void FrameLoaderClientAndroid::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*,
@@ -289,14 +260,17 @@ void FrameLoaderClientAndroid::dispatchDidCommitLoad() {
     WebViewCore::getWebViewCore(m_frame->view())->updateFrameGeneration(m_frame);
 }
 
-static void loadDataIntoFrame(Frame* frame, const String& url,
+static void loadDataIntoFrame(Frame* frame, KURL baseUrl, const String& url,
         const String& data) {
-    ResourceRequest request(url);
+    if (baseUrl.isEmpty()) {
+        baseUrl = blankURL();
+    }
+    ResourceRequest request(baseUrl);
     CString cstr = data.utf8();
     RefPtr<WebCore::SharedBuffer> buf = WebCore::SharedBuffer::create(cstr.data(), cstr.length());
     SubstituteData subData(buf, String("text/html"), String("utf-8"),
-            request.url());
-    frame->loader()->load(request, subData);
+            KURL(KURL(), url));
+    frame->loader()->load(request, subData, false);
 }
 
 void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceError& error) {
@@ -359,7 +333,8 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     
     // Create the request and the substitute data and tell the FrameLoader to
     // load with the replacement data.
-    loadDataIntoFrame(m_frame, error.failingURL(), s);
+    loadDataIntoFrame(m_frame, m_frame->loader()->baseURL(),
+            error.failingURL(), s);
 
     // Delete the asset.
     delete a;
@@ -382,12 +357,17 @@ void FrameLoaderClientAndroid::dispatchDidFinishLoad() {
 void FrameLoaderClientAndroid::dispatchDidFirstLayout() {
     ASSERT(m_frame);
     m_frame->document()->setExtraLayoutDelay(EXTRA_LAYOUT_DELAY);
-    // FIXME: Need to figure out if we need didLayout or didFirstLayout
-    // see WebViewCore::didLayout
+    // we need to do this here instead of dispatchDidFirstVisuallyNonEmptyLayout
+    // so that about:blank will update the screen.
     if (!m_frame->tree()->parent()) {
         // Only need to notify Java side for the top frame
         WebViewCore::getWebViewCore(m_frame->view())->didFirstLayout();
     }
+}
+
+void FrameLoaderClientAndroid::dispatchDidFirstVisuallyNonEmptyLayout()
+{
+    notImplemented();
 }
 
 Frame* FrameLoaderClientAndroid::dispatchCreatePage() {
@@ -526,10 +506,6 @@ void FrameLoaderClientAndroid::setMainDocumentError(DocumentLoader* docLoader, c
                 error.localizedDescription(), error.failingURL());
 }
 
-void FrameLoaderClientAndroid::clearUnarchivingState(DocumentLoader*) {
-    notImplemented();
-}
-
 // This function is called right before the progress is updated.
 void FrameLoaderClientAndroid::willChangeEstimatedProgress() {
     verifiedOk();
@@ -589,24 +565,16 @@ void FrameLoaderClientAndroid::finishedLoading(DocumentLoader* docLoader) {
     committedLoad(docLoader, 0, 0);
 }
 
-void FrameLoaderClientAndroid::finalSetupForReplace(DocumentLoader*) {
-    notImplemented();
+void FrameLoaderClientAndroid::updateGlobalHistory() {
+    ASSERT(m_frame);
+    ASSERT(m_frame->loader()->documentLoader());
+    m_webFrame->updateVisitedHistory(m_frame->loader()->documentLoader()->urlForHistory(), false);
 }
 
-void FrameLoaderClientAndroid::updateGlobalHistoryForStandardLoad(const KURL& url) {
-    ASSERT(m_frame);
-    const String& str = url.string();
-    if (!historyContains(str.characters(), str.length())) {
-        if (gSessionHistory.size() == MAX_SESSION_HISTORY)
-            gSessionHistory.remove(0);
-        gSessionHistory.append(url);
-    }
-    m_webFrame->updateVisitedHistory(url, false);
-}
-
-void FrameLoaderClientAndroid::updateGlobalHistoryForReload(const KURL& url) {
-    ASSERT(m_frame);
-    m_webFrame->updateVisitedHistory(url, true);
+void FrameLoaderClientAndroid::updateGlobalHistoryForRedirectWithoutHistoryItem() {
+    // Note, do we need to do anything where there is no HistoryItem? If we call
+    // updateGlobalHistory(), we will add bunch of "data:xxx" urls for gmail.com
+    // which is not what we want. Opt to do nothing now.
 }
 
 bool FrameLoaderClientAndroid::shouldGoToHistoryItem(HistoryItem* item) const {
@@ -629,55 +597,32 @@ void FrameLoaderClientAndroid::committedLoad(DocumentLoader* loader, const char*
 }
 
 ResourceError FrameLoaderClientAndroid::cancelledError(const ResourceRequest& request) {
-    return ResourceError(String(), InternalErrorCancelled, String(), String());
+    return ResourceError(String(), InternalErrorCancelled, request.url(), String());
 }
 
 ResourceError FrameLoaderClientAndroid::cannotShowURLError(const ResourceRequest& request) {
-    return ResourceError(String(), InternalErrorCannotShowUrl, String(), String());
+    return ResourceError(String(), InternalErrorCannotShowUrl, request.url(), String());
 }
 
 ResourceError FrameLoaderClientAndroid::interruptForPolicyChangeError(const ResourceRequest& request) {
-    return ResourceError(String(), InternalErrorInterrupted, String(), String());
+    return ResourceError(String(), InternalErrorInterrupted, request.url(), String());
 }
 
 ResourceError FrameLoaderClientAndroid::cannotShowMIMETypeError(const ResourceResponse& request) {
-    return ResourceError(String(), InternalErrorCannotShowMimeType, String(), String());
+    return ResourceError(String(), InternalErrorCannotShowMimeType, request.url(), String());
 }
 
 ResourceError FrameLoaderClientAndroid::fileDoesNotExistError(const ResourceResponse& request) {
-    return ResourceError(String(), InternalErrorFileDoesNotExist, String(), String());
+    return ResourceError(String(), InternalErrorFileDoesNotExist, request.url(), String());
 }
 
 ResourceError FrameLoaderClientAndroid::pluginWillHandleLoadError(const ResourceResponse& request) {
-    return ResourceError(String(), InternalErrorPluginWillHandleLoadError, String(), String());
+    return ResourceError(String(), InternalErrorPluginWillHandleLoadError, request.url(), String());
 }
 
 bool FrameLoaderClientAndroid::shouldFallBack(const ResourceError&) {
     notImplemented();
     return false;
-}
-
-void FrameLoaderClientAndroid::setDefersLoading(bool) {
-    notImplemented();
-}
-
-bool FrameLoaderClientAndroid::willUseArchive(ResourceLoader*, const ResourceRequest&,
-                                const KURL& originalURL) const {
-    lowPriority_notImplemented();
-    return false;
-}
-
-bool FrameLoaderClientAndroid::isArchiveLoadPending(ResourceLoader*) const {
-    lowPriority_notImplemented();
-    return false;
-}
-
-void FrameLoaderClientAndroid::cancelPendingArchiveLoad(ResourceLoader*) {
-    notImplemented();
-}
-
-void FrameLoaderClientAndroid::clearArchivedResources() {
-    notImplemented();
 }
 
 bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) const {
@@ -811,6 +756,49 @@ String FrameLoaderClientAndroid::userAgent(const KURL& u) {
     return m_webFrame->userAgentForURL(&u);
 }
 
+void FrameLoaderClientAndroid::savePlatformDataToCachedFrame(WebCore::CachedFrame*) {
+    notImplemented();
+}
+
+void FrameLoaderClientAndroid::transitionToCommittedFromCachedFrame(WebCore::CachedFrame*) {
+    notImplemented();
+}
+
+void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
+    ASSERT(m_frame);
+    if (m_frame->settings() && !m_frame->settings()->usesPageCache()) {
+        m_webFrame->transitionToCommitted(m_frame);
+        return;
+    }
+
+    // Remember the old WebFrameView
+    WebFrameView* webFrameView = static_cast<WebFrameView*> (
+            m_frame->view()->platformWidget());
+    Retain(webFrameView);
+
+    // Remove the old FrameView
+    m_frame->setView(NULL);
+
+    // Create a new FrameView and associate it with the saved webFrameView
+    FrameView* view = new FrameView(m_frame);
+    webFrameView->setView(view);
+
+    Release(webFrameView);
+
+    // Give the new FrameView to the Frame
+    m_frame->setView(view);
+
+    // Deref since FrameViews are created with a ref of 1
+    view->deref();
+
+    if (m_frame->ownerRenderer())
+        m_frame->ownerRenderer()->setWidget(view);
+
+    m_frame->view()->initScrollbars();
+
+    m_webFrame->transitionToCommitted(m_frame);
+}
+
 bool FrameLoaderClientAndroid::canCachePage() const {
     return true;
 }
@@ -880,7 +868,7 @@ static bool isValidYouTubeVideo(const String& path)
     for (unsigned int i = sizeof(slash_v_slash); i < len; i++) {
         char c = data[i];
         // Check for alpha-numeric characters only.
-        if (WTF::isASCIIAlphanumeric(c))
+        if (WTF::isASCIIAlphanumeric(c) || c == '_' || c == '-')
             continue;
         // The url can have more parameters such as &hl=en after the video id.
         // Once we start seeing extra parameters we can return true.
@@ -891,7 +879,10 @@ static bool isValidYouTubeVideo(const String& path)
 
 static bool isYouTubeUrl(const KURL& url, const String& mimeType)
 {
-    return url.host().endsWith("youtube.com") && isValidYouTubeVideo(url.path())
+    String host = url.host();
+    bool youtube = host.endsWith("youtube.com")
+            || host.endsWith("youtube-nocookie.com");
+    return youtube && isValidYouTubeVideo(url.path())
             && equalIgnoringCase(mimeType, "application/x-shockwave-flash");
 }
 
@@ -905,7 +896,7 @@ Widget* FrameLoaderClientAndroid::createPlugin(
         bool loadManually) {
     // Create an iframe for youtube urls.
     if (isYouTubeUrl(url, mimeType)) {
-        RefPtr<Frame> frame = createFrame(KURL(), String(),
+        RefPtr<Frame> frame = createFrame(blankURL(), String(),
                 static_cast<HTMLFrameOwnerElement*>(element),
                 String(), false, 0, 0);
         if (frame) {
@@ -928,7 +919,7 @@ Widget* FrameLoaderClientAndroid::createPlugin(
             s = s.replace("VIDEO_ID", videoId);
             delete a;
             loadDataIntoFrame(frame.get(),
-                    "file:///android_asset/webkit/", s);
+                    KURL("file:///android_asset/webkit/"), String(), s);
             return frame->view();
         }
         return NULL;
@@ -1046,61 +1037,4 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
         dispatchDidReceiveIcon();
     }
 }
-
-// functions new to Feb-19 tip of tree merge:
-// According to the changelog:
-// The very Mac-centric "makeDocumentView", "setDocumentViewFromCachedPage",
-// and "saveDocumentViewToCachedPage" become "transitionToCommittedForNewPage", 
-// "transitionToCommittedFromCachedPage", and "savePlatformDataToCachedPage" 
-// accordingly
-void FrameLoaderClientAndroid::savePlatformDataToCachedPage(CachedPage*) {
-    // don't support page cache
-    verifiedOk();
-}
-
-void FrameLoaderClientAndroid::transitionToCommittedFromCachedPage(CachedPage*) {
-    // don't support page cache
-    verifiedOk();
-}
-
-void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
-    ASSERT(m_frame);
-    if (m_frame->settings() && !m_frame->settings()->usesPageCache()) {
-        m_webFrame->transitionToCommitted(m_frame);
-        return;
-    }
-
-    // Remember the old WebFrameView
-    WebFrameView* webFrameView = static_cast<WebFrameView*> (
-            m_frame->view()->platformWidget());
-    Retain(webFrameView);
-
-    // Remove the old FrameView
-    m_frame->setView(NULL);
-
-    // Create a new FrameView and associate it with the saved webFrameView
-    FrameView* view = new FrameView(m_frame);
-    webFrameView->setView(view);
-
-    Release(webFrameView);
-
-    // Give the new FrameView to the Frame
-    m_frame->setView(view);
-
-    // Deref since FrameViews are created with a ref of 1
-    view->deref();
-
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(view);
-
-    m_frame->view()->initScrollbars();
-
-    m_webFrame->transitionToCommitted(m_frame);
-}
-
-// new as of webkit 34152
-void FrameLoaderClientAndroid::updateGlobalHistory(const KURL& url) {
-    m_webFrame->updateVisitedHistory(url, false);
-}
-
 }

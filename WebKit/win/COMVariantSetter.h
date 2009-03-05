@@ -36,7 +36,15 @@ namespace WebCore {
 
 template<typename T> struct COMVariantSetter {};
 
-template<> struct COMVariantSetter<WebCore::String>
+template<typename T> struct COMVariantSetterBase
+{
+    static inline VARENUM variantType(const T&)
+    {
+        return COMVariantSetter<T>::VariantType;
+    }
+};
+
+template<> struct COMVariantSetter<WebCore::String> : COMVariantSetterBase<WebCore::String>
 {
     static const VARENUM VariantType = VT_BSTR;
 
@@ -49,7 +57,7 @@ template<> struct COMVariantSetter<WebCore::String>
     }
 };
 
-template<> struct COMVariantSetter<unsigned long long>
+template<> struct COMVariantSetter<unsigned long long> : COMVariantSetterBase<unsigned long long>
 {
     static const VARENUM VariantType = VT_UI8;
 
@@ -62,7 +70,7 @@ template<> struct COMVariantSetter<unsigned long long>
     }
 };
 
-template<> struct COMVariantSetter<int>
+template<> struct COMVariantSetter<int> : COMVariantSetterBase<int>
 {
     static const VARENUM VariantType = VT_I4;
 
@@ -75,7 +83,7 @@ template<> struct COMVariantSetter<int>
     }
 };
 
-template<typename T> struct COMVariantSetter<COMPtr<T> >
+template<typename T> struct COMVariantSetter<COMPtr<T> > : COMVariantSetterBase<COMPtr<T> >
 {
     static const VARENUM VariantType = VT_UNKNOWN;
 
@@ -90,7 +98,7 @@ template<typename T> struct COMVariantSetter<COMPtr<T> >
 };
 
 template<typename COMType, typename UnderlyingType>
-struct COMIUnknownVariantSetter
+struct COMIUnknownVariantSetter : COMVariantSetterBase<UnderlyingType>
 {
     static const VARENUM VariantType = VT_UNKNOWN;
 
@@ -100,6 +108,63 @@ struct COMIUnknownVariantSetter
 
         V_VT(variant) = VariantType;
         V_UNKNOWN(variant) = COMType::createInstance(value);
+    }
+};
+
+class COMVariant {
+public:
+    COMVariant()
+    {
+        ::VariantInit(&m_variant);
+    }
+
+    template<typename UnderlyingType>
+    COMVariant(UnderlyingType value)
+    {
+        ::VariantInit(&m_variant);
+        COMVariantSetter<UnderlyingType>::setVariant(&m_variant, value);
+    }
+
+    ~COMVariant()
+    {
+        ::VariantClear(&m_variant);
+    }
+
+    COMVariant(const COMVariant& other)
+    {
+        ::VariantInit(&m_variant);
+        other.copyTo(&m_variant);
+    }
+
+    COMVariant& operator=(const COMVariant& other)
+    {
+        other.copyTo(&m_variant);
+        return *this;
+    }
+
+    void copyTo(VARIANT* dest) const
+    {
+        ::VariantCopy(dest, const_cast<VARIANT*>(&m_variant));
+    }
+
+    VARENUM variantType() const { return static_cast<VARENUM>(V_VT(&m_variant)); }
+
+private:
+    VARIANT m_variant;
+};
+
+template<> struct COMVariantSetter<COMVariant>
+{
+    static inline VARENUM variantType(const COMVariant& value)
+    {
+        return value.variantType();
+    }
+
+    static void setVariant(VARIANT* variant, const COMVariant& value)
+    {
+        ASSERT(V_VT(variant) == VT_EMPTY);
+
+        value.copyTo(variant);
     }
 };
 

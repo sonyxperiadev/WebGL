@@ -213,6 +213,7 @@ public:
     virtual bool isMenuButton() const { return false; }
     virtual bool isMenuItem() const { return false; }
     virtual bool isFileUploadButton() const { return false; };
+    virtual bool isInputImage() const { return false; }
     virtual bool isProgressIndicator() const { return false; };
     virtual bool isSlider() const { return false; };
     virtual bool isControl() const { return false; };
@@ -222,6 +223,7 @@ public:
     virtual bool isTableColumn() const { return false; };
     virtual bool isTableCell() const { return false; };
     virtual bool isFieldset() const { return false; };
+    virtual bool isGroup() const { return false; };
     
     virtual bool isChecked() const { return false; };
     virtual bool isEnabled() const { return false; };
@@ -392,7 +394,15 @@ public:
 #endif
 
     // a platform-specific method for determining if an attachment is ignored
+#if HAVE(ACCESSIBILITY)
     bool accessibilityIgnoreAttachment() const;
+#else
+    bool accessibilityIgnoreAttachment() const { return true; }
+#endif
+
+    // allows for an AccessibilityObject to update its render tree or perform
+    // other operations update type operations
+    virtual void updateBackingStore();
     
 protected:
     unsigned m_id;

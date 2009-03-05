@@ -35,6 +35,7 @@
 #include "c_runtime.h"
 #endif  // ANDROID_NPN_SETEXCEPTION
 #include "c_utility.h"
+#include "c_instance.h"
 #include "npruntime_impl.h"
 #include "npruntime_priv.h"
 #include "runtime_root.h"
@@ -42,9 +43,9 @@
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSLock.h>
 #include <runtime/PropertyNameArray.h>
-#include <kjs/SourceCode.h>
-#include <kjs/completion.h>
-#include <kjs/interpreter.h>
+#include <parser/SourceCode.h>
+#include <runtime/Completion.h>
+#include <runtime/Completion.h>
 
 using WebCore::String;
 using WebCore::StringSourceProvider;
@@ -115,17 +116,18 @@ bool _NPN_InvokeDefault(NPP, NPObject* o, const NPVariant* args, uint32_t argCou
         JSLock lock(false);
         
         // Call the function object.
-        JSValue* function = obj->imp;
+        JSValuePtr function = obj->imp;
         CallData callData;
-        CallType callType = function->getCallData(callData);
+        CallType callType = function.getCallData(callData);
         if (callType == CallTypeNone)
             return false;
         
         ArgList argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        rootObject->globalObject()->startTimeoutCheck();
-        JSValue* resultV = call(exec, function, callType, callData, function, argList);
-        rootObject->globalObject()->stopTimeoutCheck();
+        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
+        globalObject->startTimeoutCheck();
+        JSValuePtr resultV = call(exec, function, callType, callData, function, argList);
+        globalObject->stopTimeoutCheck();
 
         // Convert and return the result of the function call.
         convertValueToNPVariant(exec, resultV, result);
@@ -163,18 +165,19 @@ bool _NPN_Invoke(NPP npp, NPObject* o, NPIdentifier methodName, const NPVariant*
             return false;
         ExecState* exec = rootObject->globalObject()->globalExec();
         JSLock lock(false);
-        JSValue* function = obj->imp->get(exec, identifierFromNPIdentifier(i->value.string));
+        JSValuePtr function = obj->imp->get(exec, identifierFromNPIdentifier(i->value.string));
         CallData callData;
-        CallType callType = function->getCallData(callData);
+        CallType callType = function.getCallData(callData);
         if (callType == CallTypeNone)
             return false;
 
         // Call the function object.
         ArgList argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        rootObject->globalObject()->startTimeoutCheck();
-        JSValue* resultV = call(exec, function, callType, callData, obj->imp, argList);
-        rootObject->globalObject()->stopTimeoutCheck();
+        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
+        globalObject->startTimeoutCheck();
+        JSValuePtr resultV = call(exec, function, callType, callData, obj->imp, argList);
+        globalObject->stopTimeoutCheck();
 
         // Convert and return the result of the function call.
         convertValueToNPVariant(exec, resultV, result);
@@ -199,15 +202,15 @@ bool _NPN_Evaluate(NPP, NPObject* o, NPString* s, NPVariant* variant)
             return false;
 
         ExecState* exec = rootObject->globalObject()->globalExec();
-        
         JSLock lock(false);
         String scriptString = convertNPStringToUTF16(s);
-        rootObject->globalObject()->startTimeoutCheck();
-        Completion completion = Interpreter::evaluate(rootObject->globalObject()->globalExec(), rootObject->globalObject()->globalScopeChain(), makeSource(scriptString));
-        rootObject->globalObject()->stopTimeoutCheck();
+        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
+        globalObject->startTimeoutCheck();
+        Completion completion = JSC::evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(scriptString));
+        globalObject->stopTimeoutCheck();
         ComplType type = completion.complType();
         
-        JSValue* result;
+        JSValuePtr result;
         if (type == Normal) {
             result = completion.value();
             if (!result)
@@ -237,7 +240,7 @@ bool _NPN_GetProperty(NPP, NPObject* o, NPIdentifier propertyName, NPVariant* va
         PrivateIdentifier* i = static_cast<PrivateIdentifier*>(propertyName);
         
         JSLock lock(false);
-        JSValue* result;
+        JSValuePtr result;
         if (i->isString)
             result = obj->imp->get(exec, identifierFromNPIdentifier(i->value.string));
         else
@@ -365,9 +368,9 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
 
         ExecState* exec = rootObject->globalObject()->globalExec();
         JSLock lock(false);
-        JSValue* func = obj->imp->get(exec, identifierFromNPIdentifier(i->value.string));
+        JSValuePtr func = obj->imp->get(exec, identifierFromNPIdentifier(i->value.string));
         exec->clearException();
-        return !func->isUndefined();
+        return !func.isUndefined();
     }
     
     if (o->_class->hasMethod)
@@ -376,16 +379,11 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
     return false;
 }
 
-void _NPN_SetException(NPObject* o, const NPUTF8* message)
+void _NPN_SetException(NPObject*, const NPUTF8* message)
 {
-    // FIXME:
-    // Bug 19888: Implement _NPN_SetException() correctly
-    // <https://bugs.webkit.org/show_bug.cgi?id=19888>
-#ifdef ANDROID_NPN_SETEXCEPTION
-    if (o->_class == NPScriptObjectClass) {
-        JSC::Bindings::SetGlobalException(message);
-    }
-#endif  // ANDROID_NPN_SETEXCEPTION
+    // Ignorning the NPObject param is consistent with the Mozilla implementation.
+    UString exception(message);
+    CInstance::setGlobalException(exception);
 }
 
 bool _NPN_Enumerate(NPP, NPObject* o, NPIdentifier** identifier, uint32_t* count)
@@ -422,7 +420,7 @@ bool _NPN_Enumerate(NPP, NPObject* o, NPIdentifier** identifier, uint32_t* count
     return false;
 }
 
-bool _NPN_Construct(NPP npp, NPObject* o, const NPVariant* args, uint32_t argCount, NPVariant* result)
+bool _NPN_Construct(NPP, NPObject* o, const NPVariant* args, uint32_t argCount, NPVariant* result)
 {
     if (o->_class == NPScriptObjectClass) {
         JavaScriptObject* obj = reinterpret_cast<JavaScriptObject*>(o);
@@ -438,17 +436,18 @@ bool _NPN_Construct(NPP npp, NPObject* o, const NPVariant* args, uint32_t argCou
         JSLock lock(false);
         
         // Call the constructor object.
-        JSValue* constructor = obj->imp;
+        JSValuePtr constructor = obj->imp;
         ConstructData constructData;
-        ConstructType constructType = constructor->getConstructData(constructData);
+        ConstructType constructType = constructor.getConstructData(constructData);
         if (constructType == ConstructTypeNone)
             return false;
         
         ArgList argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        rootObject->globalObject()->startTimeoutCheck();
-        JSValue* resultV = construct(exec, constructor, constructType, constructData, argList);
-        rootObject->globalObject()->stopTimeoutCheck();
+        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
+        globalObject->startTimeoutCheck();
+        JSValuePtr resultV = construct(exec, constructor, constructType, constructData, argList);
+        globalObject->stopTimeoutCheck();
         
         // Convert and return the result.
         convertValueToNPVariant(exec, resultV, result);

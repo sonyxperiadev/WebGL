@@ -108,7 +108,7 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
         renderer()->setNeedsLayout(true);
 
         if (isURIAttribute)
-            m_imageLoader.updateFromElement();
+            m_imageLoader.updateFromElementIgnoringPreviousError();
     }
 }
 
@@ -118,7 +118,7 @@ bool SVGImageElement::hasRelativeValues() const
             y().isRelative() || height().isRelative());
 }
 
-RenderObject* SVGImageElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGImageElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGImage(this);
 }
@@ -154,9 +154,11 @@ const QualifiedName& SVGImageElement::imageSourceAttributeName() const
     return XLinkNames::hrefAttr;
 }
 
-void SVGImageElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void SVGImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(href());
+    SVGStyledTransformableElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(href()));
 }
 
 }

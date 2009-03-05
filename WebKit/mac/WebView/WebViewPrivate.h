@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -176,6 +176,10 @@ typedef enum {
 - (IBAction)zoomPageOut:(id)sender;
 - (BOOL)canResetPageZoom;
 - (IBAction)resetPageZoom:(id)sender;
+
+// Sets a master volume control for all media elements in the WebView. Valid values are 0..1.
+- (void)setMediaVolume:(float)volume;
+- (float)mediaVolume;
 
 @end
 
@@ -362,6 +366,8 @@ Could be worth adding to the API.
 - (BOOL)usesPageCache;
 - (void)setUsesPageCache:(BOOL)usesPageCache;
 
+- (WebHistoryItem *)_globalHistoryItem;
+
 /*!
  @method textIteratorForRect:
  @param rectangle from which we want the WebTextIterator to load text from
@@ -393,6 +399,12 @@ Could be worth adding to the API.
 
 - (id)_initWithFrame:(NSRect)f frameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews;
 - (BOOL)_usesDocumentViews;
+
+- (void)setSelectTrailingWhitespaceEnabled:(BOOL)flag;
+- (BOOL)isSelectTrailingWhitespaceEnabled;
+
+- (void)setMemoryCacheDelegateCallsEnabled:(BOOL)suspend;
+- (BOOL)areMemoryCacheDelegateCallsEnabled;
 
 @end
 
@@ -445,6 +457,8 @@ Could be worth adding to the API.
 
 // Addresses 4192534.  SPI for now.
 - (void)webView:(WebView *)sender didHandleOnloadEventsForFrame:(WebFrame *)frame;
+
+- (void)webView:(WebView *)sender didFirstVisuallyNonEmptyLayoutInFrame:(WebFrame *)frame;
 
 @end
 

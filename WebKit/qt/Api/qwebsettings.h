@@ -59,7 +59,11 @@ public:
         JavascriptCanAccessClipboard,
         DeveloperExtrasEnabled,
         LinksIncludedInFocusChain,
-        ZoomTextOnly
+        ZoomTextOnly,
+        PrintElementBackgrounds,
+        OfflineStorageDatabaseEnabled,
+        OfflineWebApplicationCacheEnabled,
+        LocalStorageDatabaseEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,
@@ -102,6 +106,16 @@ public:
     static void setMaximumPagesInCache(int pages);
     static int maximumPagesInCache();
     static void setObjectCacheCapacities(int cacheMinDeadCapacity, int cacheMaxDead, int totalCapacity);
+
+    static void setOfflineStoragePath(const QString& path);
+    static QString offlineStoragePath();
+    static void setOfflineStorageDefaultQuota(qint64 maximumSize);
+    static qint64 offlineStorageDefaultQuota();
+
+    static void setOfflineWebApplicationCachePath(const QString& path);
+    static QString offlineWebApplicationCachePath();
+
+    inline QWebSettingsPrivate* handle() const { return d; }
 
 private:
     friend class QWebPagePrivate;

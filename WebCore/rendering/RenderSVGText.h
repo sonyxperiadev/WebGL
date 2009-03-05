@@ -26,7 +26,7 @@
 
 #if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "RenderSVGBlock.h"
 
 namespace WebCore {
@@ -42,22 +42,24 @@ public:
     virtual bool isSVGText() const { return true; }
     
     bool calculateLocalTransform();
-    virtual AffineTransform localTransform() const { return m_localTransform; }
+    virtual TransformationMatrix localTransform() const { return m_localTransform; }
     
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     
-    virtual bool requiresLayer();
+    virtual bool requiresLayer() const { return false; }
     virtual void layout();
     
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
-    virtual IntRect absoluteClippedOverflowRect();
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
+
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
     virtual FloatRect relativeBBox(bool includeStroke = true) const;
     
     virtual InlineBox* createInlineBox(bool makePlaceHolderBox, bool isRootLineBox, bool isOnlyRun = false);
 
 private:
-    AffineTransform m_localTransform;
+    TransformationMatrix m_localTransform;
     IntRect m_absoluteBounds;
 };
 

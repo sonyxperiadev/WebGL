@@ -52,7 +52,8 @@
 #include "LocalizedStrings.h"
 #include "Settings.h"
 #include "Text.h"
-
+#include <wtf/StdLibExtras.h>
+    
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -224,7 +225,7 @@ PassRefPtr<Node> HTMLParser::parseToken(Token* t)
         while (charsLeft) {
             // split large blocks of text to nodes of manageable size
             n = Text::createWithLengthLimit(document, text, charsLeft);
-            if (!insertNode(n.get(), t->flat))
+            if (!insertNode(n.get(), t->selfClosingTag))
                 return 0;
         }
         return n;
@@ -254,7 +255,7 @@ PassRefPtr<Node> HTMLParser::parseToken(Token* t)
         }
     }
 
-    if (!insertNode(n.get(), t->flat)) {
+    if (!insertNode(n.get(), t->selfClosingTag)) {
         // we couldn't insert the node
 
         if (n->isElementNode()) {
@@ -487,7 +488,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                 elt->hasLocalName(titleTag) || elt->hasLocalName(isindexTag) ||
                 elt->hasLocalName(baseTag))) {
                 if (!head) {
-                    head = new HTMLHeadElement(document);
+                    head = new HTMLHeadElement(headTag, document);
                     e = head;
                     insertNode(e);
                     handled = true;
@@ -499,7 +500,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                         return false;
                 }
                 if (!haveFrameSet) {
-                    e = new HTMLBodyElement(document);
+                    e = new HTMLBodyElement(bodyTag, document);
                     startBody();
                     insertNode(e);
                     handled = true;
@@ -513,7 +514,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                 // This means the body starts here...
                 if (!haveFrameSet) {
                     popBlock(currentTagName);
-                    e = new HTMLBodyElement(document);
+                    e = new HTMLBodyElement(bodyTag, document);
                     startBody();
                     insertNode(e);
                     handled = true;
@@ -590,7 +591,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                         e = new HTMLTableSectionElement(tbodyTag, document); 
                     } else {
                         reportError(TablePartRequiredError, &localName, &trTag.localName());
-                        e = new HTMLTableRowElement(document);
+                        e = new HTMLTableRowElement(trTag, document);
                     }
 
                     insertNode(e);
@@ -637,7 +638,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
         }
 
         if (!document->documentElement()) {
-            e = new HTMLHtmlElement(document);
+            e = new HTMLHtmlElement(htmlTag, document);
             insertNode(e);
             handled = true;
         }
@@ -666,17 +667,17 @@ bool HTMLParser::commentCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return false;
 }
 
-bool HTMLParser::headCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::headCreateErrorCheck(Token*, RefPtr<Node>& result)
 {
     if (!head || current->localName() == htmlTag) {
-        head = new HTMLHeadElement(document);
+        head = new HTMLHeadElement(headTag, document);
         result = head;
     } else
         reportError(MisplacedHeadError);
     return false;
 }
 
-bool HTMLParser::bodyCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::bodyCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     // body no longer allowed if we have a frameset
     if (haveFrameSet)
@@ -686,7 +687,7 @@ bool HTMLParser::bodyCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::framesetCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::framesetCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     popBlock(headTag);
     if (inBody && !haveFrameSet && !haveContent) {
@@ -711,7 +712,7 @@ bool HTMLParser::formCreateErrorCheck(Token* t, RefPtr<Node>& result)
     // Only create a new form if we're not already inside one.
     // This is consistent with other browsers' behavior.
     if (!m_currentFormElement) {
-        m_currentFormElement = new HTMLFormElement(document);
+        m_currentFormElement = new HTMLFormElement(formTag, document);
         result = m_currentFormElement;
         pCloserCreateErrorCheck(t, result);
     }
@@ -721,16 +722,16 @@ bool HTMLParser::formCreateErrorCheck(Token* t, RefPtr<Node>& result)
 bool HTMLParser::isindexCreateErrorCheck(Token* t, RefPtr<Node>& result)
 {
     RefPtr<Node> n = handleIsindex(t);
-    if (!inBody) {
+    if (!inBody)
         m_isindexElement = n.release();
-    } else {
-        t->flat = true;
+    else {
+        t->selfClosingTag = true;
         result = n.release();
     }
     return false;
 }
 
-bool HTMLParser::selectCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::selectCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     return true;
 }
@@ -751,7 +752,7 @@ bool HTMLParser::dtCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::nestedCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::nestedCreateErrorCheck(Token* t, RefPtr<Node>&)
 {
     popBlock(t->tagName);
     return true;
@@ -764,19 +765,19 @@ bool HTMLParser::nestedPCloserCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::nestedStyleCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::nestedStyleCreateErrorCheck(Token* t, RefPtr<Node>&)
 {
     return allowNestedRedundantTag(t->tagName);
 }
 
-bool HTMLParser::tableCellCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::tableCellCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     popBlock(tdTag);
     popBlock(thTag);
     return true;
 }
 
-bool HTMLParser::tableSectionCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::tableSectionCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     popBlock(theadTag);
     popBlock(tbodyTag);
@@ -784,19 +785,19 @@ bool HTMLParser::tableSectionCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::noembedCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::noembedCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     setSkipMode(noembedTag);
     return true;
 }
 
-bool HTMLParser::noframesCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::noframesCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     setSkipMode(noframesTag);
     return true;
 }
 
-bool HTMLParser::noscriptCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::noscriptCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     if (!m_isParsingFragment) {
         Settings* settings = document->settings();
@@ -806,14 +807,14 @@ bool HTMLParser::noscriptCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::pCloserCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::pCloserCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     if (hasPElementInScope())
         popBlock(pTag);
     return true;
 }
 
-bool HTMLParser::pCloserStrictCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::pCloserStrictCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     if (document->inCompatMode())
         return true;
@@ -822,9 +823,9 @@ bool HTMLParser::pCloserStrictCreateErrorCheck(Token* t, RefPtr<Node>& result)
     return true;
 }
 
-bool HTMLParser::mapCreateErrorCheck(Token* t, RefPtr<Node>& result)
+bool HTMLParser::mapCreateErrorCheck(Token*, RefPtr<Node>& result)
 {
-    m_currentMapElement = new HTMLMapElement(document);
+    m_currentMapElement = new HTMLMapElement(mapTag, document);
     result = m_currentMapElement;
     return false;
 }
@@ -832,7 +833,7 @@ bool HTMLParser::mapCreateErrorCheck(Token* t, RefPtr<Node>& result)
 PassRefPtr<Node> HTMLParser::getNode(Token* t)
 {
     // Init our error handling table.
-    static FunctionMap gFunctionMap;
+    DEFINE_STATIC_LOCAL(FunctionMap, gFunctionMap, ());
     if (gFunctionMap.isEmpty()) {
         gFunctionMap.set(aTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(addressTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
@@ -895,7 +896,7 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
     if (CreateErrorCheckFunc errorCheckFunc = gFunctionMap.get(t->tagName.impl()))
         proceed = (this->*errorCheckFunc)(t, result);
     if (proceed)
-        result = HTMLElementFactory::createHTMLElement(t->tagName, document, m_currentFormElement.get());
+        result = HTMLElementFactory::createHTMLElement(QualifiedName(nullAtom, t->tagName, xhtmlNamespaceURI), document, m_currentFormElement.get());
     return result.release();
 }
 
@@ -943,7 +944,7 @@ void HTMLParser::processCloseTag(Token* t)
 
 bool HTMLParser::isHeaderTag(const AtomicString& tagName)
 {
-    static HashSet<AtomicStringImpl*> headerTags;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, headerTags, ());
     if (headerTags.isEmpty()) {
         headerTags.add(h1Tag.localName().impl());
         headerTags.add(h2Tag.localName().impl());
@@ -986,7 +987,7 @@ bool HTMLParser::isInline(Node* node) const
 
 bool HTMLParser::isResidualStyleTag(const AtomicString& tagName)
 {
-    static HashSet<AtomicStringImpl*> residualStyleTags;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, residualStyleTags, ());
     if (residualStyleTags.isEmpty()) {
         residualStyleTags.add(aTag.localName().impl());
         residualStyleTags.add(fontTag.localName().impl());
@@ -1013,7 +1014,7 @@ bool HTMLParser::isResidualStyleTag(const AtomicString& tagName)
 
 bool HTMLParser::isAffectedByResidualStyle(const AtomicString& tagName)
 {
-    static HashSet<AtomicStringImpl*> unaffectedTags;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, unaffectedTags, ());
     if (unaffectedTags.isEmpty()) {
         unaffectedTags.add(bodyTag.localName().impl());
         unaffectedTags.add(tableTag.localName().impl());
@@ -1488,7 +1489,7 @@ void HTMLParser::createHead()
     if (head || !document->documentElement())
         return;
 
-    head = new HTMLHeadElement(document);
+    head = new HTMLHeadElement(headTag, document);
     HTMLElement* body = document->body();
     ExceptionCode ec = 0;
     document->documentElement()->insertBefore(head, body, ec);
@@ -1504,11 +1505,11 @@ void HTMLParser::createHead()
 
 PassRefPtr<Node> HTMLParser::handleIsindex(Token* t)
 {
-    RefPtr<Node> n = new HTMLDivElement(document);
+    RefPtr<Node> n = new HTMLDivElement(divTag, document);
 
     NamedMappedAttrMap* attrs = t->attrs.get();
 
-    RefPtr<HTMLIsIndexElement> isIndex = new HTMLIsIndexElement(document, m_currentFormElement.get());
+    RefPtr<HTMLIsIndexElement> isIndex = new HTMLIsIndexElement(isindexTag, document, m_currentFormElement.get());
     isIndex->setAttributeMap(attrs);
     isIndex->setAttribute(typeAttr, "khtml_isindex");
 
@@ -1519,10 +1520,10 @@ PassRefPtr<Node> HTMLParser::handleIsindex(Token* t)
         t->attrs = 0;
     }
 
-    n->addChild(new HTMLHRElement(document));
+    n->addChild(new HTMLHRElement(hrTag, document));
     n->addChild(new Text(document, text));
     n->addChild(isIndex.release());
-    n->addChild(new HTMLHRElement(document));
+    n->addChild(new HTMLHRElement(hrTag, document));
 
     return n.release();
 }
@@ -1544,7 +1545,7 @@ void HTMLParser::finished()
 {
     // In the case of a completely empty document, here's the place to create the HTML element.
     if (current && current->isDocumentNode() && !document->documentElement())
-        insertNode(new HTMLHtmlElement(document));
+        insertNode(new HTMLHtmlElement(htmlTag, document));
 
     // This ensures that "current" is not left pointing to a node when the document is destroyed.
     freeBlock();

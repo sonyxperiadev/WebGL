@@ -29,6 +29,7 @@ namespace WebCore {
 class CachedScript;
 class Element;
 class ScriptElementData;
+class ScriptSourceCode;
 
 class ScriptElement {
 public:
@@ -77,7 +78,7 @@ public:
     void setHaveFiredLoadEvent(bool firedLoad) { m_firedLoad = firedLoad; }
 
     void requestScript(const String& sourceUrl);
-    void evaluateScript(const String& sourceUrl, const String& content);
+    void evaluateScript(const ScriptSourceCode&);
     void stopLoadRequest();
 
 private:
@@ -91,6 +92,8 @@ private:
     bool m_evaluated;
     bool m_firedLoad;
 };
+
+ScriptElement* toScriptElement(Element*);
 
 }
 

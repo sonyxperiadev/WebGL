@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth <speth@end.com>
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
@@ -38,6 +38,7 @@
 #import "ProcessingInstruction.h"
 #import "StyleSheet.h"
 #import "WebScriptObjectPrivate.h"
+#import <wtf/UnusedParam.h>
 
 @implementation DOMObject
 
@@ -56,15 +57,9 @@
     [super dealloc];
 }
 
-- (void)finalize
+- (id)copyWithZone:(NSZone *)unusedZone
 {
-    if (_internal)
-        WebCore::removeDOMWrapper(_internal);
-    [super finalize];
-}
-
-- (id)copyWithZone:(NSZone *)zone
-{
+    UNUSED_PARAM(unusedZone);
     return [self retain];
 }
 

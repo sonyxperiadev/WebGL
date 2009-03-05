@@ -27,14 +27,16 @@
 #include "NetworkStateNotifier.h"
 
 #include <wtf/Assertions.h>
+#include <wtf/StdLibExtras.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
 NetworkStateNotifier& networkStateNotifier()
 {
-    static NetworkStateNotifier networkStateNotifier;
+    AtomicallyInitializedStatic(NetworkStateNotifier*, networkStateNotifier = new NetworkStateNotifier);
     
-    return networkStateNotifier;
+    return *networkStateNotifier;
 }
 
 void NetworkStateNotifier::setNetworkStateChangedFunction(void(*function)())

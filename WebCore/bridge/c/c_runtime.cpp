@@ -73,23 +73,7 @@ void MoveGlobalExceptionToExecState(ExecState* exec)
 }
 #endif  // ANDROID_NPN_SETEXCEPTION
 
-// ---------------------- CMethod ----------------------
-
-const char* CMethod::name() const
-{
-    PrivateIdentifier *i = (PrivateIdentifier *)_methodIdentifier;
-    return i->isString ? i->value.string : 0;
-}
-
-// ---------------------- CField ----------------------
-
-const char* CField::name() const
-{
-    PrivateIdentifier *i = (PrivateIdentifier *)_fieldIdentifier;
-    return i->isString ? i->value.string : 0;
-}
-
-JSValue* CField::valueFromInstance(ExecState* exec, const Instance* inst) const
+JSValuePtr CField::valueFromInstance(ExecState* exec, const Instance* inst) const
 {
     const CInstance* instance = static_cast<const CInstance*>(inst);
     NPObject* obj = instance->getObject();
@@ -109,7 +93,7 @@ JSValue* CField::valueFromInstance(ExecState* exec, const Instance* inst) const
         MoveGlobalExceptionToExecState(exec);
 #endif  // ANDROID_NPN_SETEXCEPTION
         if (result) {
-            JSValue* result = convertNPVariantToValue(exec, &property, instance->rootObject());
+            JSValuePtr result = convertNPVariantToValue(exec, &property, instance->rootObject());
             _NPN_ReleaseVariantValue(&property);
             return result;
         }
@@ -117,7 +101,7 @@ JSValue* CField::valueFromInstance(ExecState* exec, const Instance* inst) const
     return jsUndefined();
 }
 
-void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValue* aValue) const
+void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValuePtr aValue) const
 {
     const CInstance* instance = static_cast<const CInstance*>(inst);
     NPObject* obj = instance->getObject();

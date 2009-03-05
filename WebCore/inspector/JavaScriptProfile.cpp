@@ -34,6 +34,7 @@
 #include <JavaScriptCore/OpaqueJSString.h>
 #include <runtime/JSObject.h>
 #include <runtime/JSValue.h>
+#include <wtf/StdLibExtras.h>
 
 using namespace JSC;
 
@@ -45,7 +46,7 @@ typedef HashMap<Profile*, JSObject*> ProfileMap;
 
 static ProfileMap& profileCache()
 { 
-    static ProfileMap staticProfiles;
+    DEFINE_STATIC_LOCAL(ProfileMap, staticProfiles, ());
     return staticProfiles;
 }
 
@@ -53,7 +54,7 @@ static ProfileMap& profileCache()
 
 static JSClassRef ProfileClass();
 
-static JSValueRef getTitleCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+static JSValueRef getTitleCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -62,7 +63,7 @@ static JSValueRef getTitleCallback(JSContextRef ctx, JSObjectRef thisObject, JSS
     return JSValueMakeString(ctx, OpaqueJSString::create(profile->title()).get());
 }
 
-static JSValueRef getHeadCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+static JSValueRef getHeadCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -71,7 +72,7 @@ static JSValueRef getHeadCallback(JSContextRef ctx, JSObjectRef thisObject, JSSt
     return toRef(toJS(toJS(ctx), profile->head()));
 }
 
-static JSValueRef getHeavyProfileCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+static JSValueRef getHeavyProfileCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -80,7 +81,7 @@ static JSValueRef getHeavyProfileCallback(JSContextRef ctx, JSObjectRef thisObje
     return toRef(toJS(toJS(ctx), profile->heavyProfile()));
 }
 
-static JSValueRef getTreeProfileCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+static JSValueRef getTreeProfileCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -89,7 +90,7 @@ static JSValueRef getTreeProfileCallback(JSContextRef ctx, JSObjectRef thisObjec
     return toRef(toJS(toJS(ctx), profile->treeProfile()));
 }
 
-static JSValueRef getUniqueIdCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
+static JSValueRef getUniqueIdCallback(JSContextRef ctx, JSObjectRef thisObject, JSStringRef, JSValueRef*)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -134,7 +135,7 @@ static JSValueRef exclude(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRe
     return JSValueMakeUndefined(ctx);
 }
 
-static JSValueRef restoreAll(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* /*exception*/)
+static JSValueRef restoreAll(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments*/, JSValueRef* /*exception*/)
 {
     if (!JSValueIsObjectOfClass(ctx, thisObject, ProfileClass()))
         return JSValueMakeUndefined(ctx);
@@ -275,7 +276,7 @@ JSClassRef ProfileClass()
     return profileClass;
 }
 
-JSValue* toJS(ExecState* exec, Profile* profile)
+JSValuePtr toJS(ExecState* exec, Profile* profile)
 {
     if (!profile)
         return jsNull();

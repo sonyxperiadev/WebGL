@@ -30,7 +30,6 @@
 #include "JSCustomSQLStatementCallback.h"
 
 #include "CString.h"
-#include "Console.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
@@ -60,10 +59,10 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
     ExecState* exec = globalObject->globalExec();
         
     JSC::JSLock lock(false);
-        
-    JSValue* function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+
+    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_callback->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -72,9 +71,9 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
         }
         function = m_callback;
     }
-        
+
     RefPtr<JSCustomSQLStatementCallback> protect(this);
-        
+
     ArgList args;
     args.append(toJS(exec, transaction));
     args.append(toJS(exec, resultSet));
@@ -82,14 +81,14 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
     globalObject->startTimeoutCheck();
     call(exec, function, callType, callData, m_callback, args);
     globalObject->stopTimeoutCheck();
-        
+
     if (exec->hadException()) {
-        m_frame->domWindow()->console()->reportCurrentException(exec);
-        
+        reportCurrentException(exec);
+
         raisedException = true;
     }
-        
+
     Document::updateDocumentsRendering();
 }
-    
+
 }

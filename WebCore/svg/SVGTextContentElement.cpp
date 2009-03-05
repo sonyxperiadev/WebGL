@@ -38,6 +38,7 @@
 #include "SVGInlineTextBox.h"
 #include "SVGNames.h"
 #include "XMLNames.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -124,7 +125,7 @@ struct SVGInlineTextBoxQueryWalker {
     {
     }
 
-    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
+    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix&,
                               const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         RenderStyle* style = textBox->textObject()->style();
@@ -498,7 +499,7 @@ void SVGTextContentElement::parseMappedAttribute(MappedAttribute* attr)
             return;
         if (SVGLangSpace::parseMappedAttribute(attr)) {
             if (attr->name().matches(XMLNames::spaceAttr)) {
-                static const AtomicString preserveString("preserve");
+                DEFINE_STATIC_LOCAL(const AtomicString, preserveString, ("preserve"));
 
                 if (attr->value() == preserveString)
                     addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValuePre);

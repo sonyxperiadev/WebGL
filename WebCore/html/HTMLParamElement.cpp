@@ -30,9 +30,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLParamElement::HTMLParamElement(Document* doc)
-    : HTMLElement(paramTag, doc)
+HTMLParamElement::HTMLParamElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(paramTag));
 }
 
 HTMLParamElement::~HTMLParamElement()
@@ -98,14 +99,16 @@ void HTMLParamElement::setValueType(const String& value)
     setAttribute(valuetypeAttr, value);
 }
 
-void HTMLParamElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLParamElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
     if (!equalIgnoringCase(name(), "data") &&
         !equalIgnoringCase(name(), "movie") &&
         !equalIgnoringCase(name(), "src"))
         return;
-        
-    urls.append(value());
+    
+    addSubresourceURL(urls, document()->completeURL(value()));
 }
 
 }

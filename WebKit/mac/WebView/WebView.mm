@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
 
 #import "DOMRangeInternal.h"
 #import "WebBackForwardListInternal.h"
-#import "WebBaseNetscapePluginView.h"
+#import "WebCache.h"
 #import "WebChromeClient.h"
 #import "WebContextMenuClient.h"
 #import "WebDOMOperationsPrivate.h"
@@ -107,6 +107,7 @@
 #import <WebCore/GCController.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HistoryItem.h>
+#import <WebCore/IconDatabase.h>
 #import <WebCore/Logging.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/Page.h>
@@ -115,9 +116,11 @@
 #import <WebCore/PlatformMouseEvent.h>
 #import <WebCore/ProgressTracker.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/ScriptValue.h>
 #import <WebCore/SelectionController.h>
 #import <WebCore/Settings.h>
 #import <WebCore/TextResourceDecoder.h>
+#import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreTextRenderer.h>
 #import <WebCore/WebCoreView.h>
@@ -129,13 +132,16 @@
 #import <runtime/DateInstance.h>
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
+#import <runtime/JSValue.h>
 #import <mach-o/dyld.h>
 #import <objc/objc-auto.h>
 #import <objc/objc-runtime.h>
+#import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/HashTraits.h>
 #import <wtf/RefCountedLeakCounter.h>
 #import <wtf/RefPtr.h>
+#import <wtf/StdLibExtras.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #import <WebKit/WebDashboardRegion.h>
@@ -193,6 +199,11 @@ macro(insertParagraphSeparator) \
 macro(insertTab) \
 macro(insertTabIgnoringFieldEditor) \
 macro(lowercaseWord) \
+macro(makeBaseWritingDirectionLeftToRight) \
+macro(makeBaseWritingDirectionRightToLeft) \
+macro(makeTextWritingDirectionLeftToRight) \
+macro(makeTextWritingDirectionNatural) \
+macro(makeTextWritingDirectionRightToLeft) \
 macro(moveBackward) \
 macro(moveBackwardAndModifySelection) \
 macro(moveDown) \
@@ -337,7 +348,6 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
     BOOL allowsUndo;
         
     float zoomMultiplier;
-    BOOL zoomMultiplierIsTextOnly;
 
     NSString *applicationNameForUserAgent;
     String userAgent;
@@ -375,6 +385,7 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
     NSInteger spellCheckerDocumentTag;
 
     BOOL smartInsertDeleteEnabled;
+    BOOL selectTrailingWhitespaceEnabled;
         
 #if ENABLE(DASHBOARD_SUPPORT)
     BOOL dashboardBehaviorAlwaysSendMouseEventsToAllWindows;
@@ -410,6 +421,8 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
 
 @interface WebView (WebCallDelegateFunctions)
 @end
+
+static void patchMailRemoveAttributesMethod();
 
 NSString *WebElementDOMNodeKey =            @"WebElementDOMNode";
 NSString *WebElementFrameKey =              @"WebElementFrame";
@@ -470,12 +483,13 @@ static BOOL grammarCheckingEnabled;
 
 @implementation WebViewPrivate
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 - init 
 {
@@ -485,7 +499,6 @@ static BOOL grammarCheckingEnabled;
     JSC::initializeThreading();
     allowsUndo = YES;
     zoomMultiplier = 1;
-    zoomMultiplierIsTextOnly = YES;
 #if ENABLE(DASHBOARD_SUPPORT)
     dashboardBehaviorAllowWheelScrolling = YES;
 #endif
@@ -665,6 +678,8 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
 
 - (void)_commonInitializationWithFrameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews
 {
+    WebCoreThreadViolationCheck();
+
 #ifndef NDEBUG
     WTF::RefCountedLeakCounter::suppressMessages(webViewIsOpen);
 #endif
@@ -689,12 +704,17 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
         [frameView release];
     }
 
-    WebKitInitializeLoggingChannelsIfNecessary();
-    WebCore::InitializeLoggingChannelsIfNecessary();
-    [WebHistoryItem initWindowWatcherIfNecessary];
-    WebKitInitializeDatabasesIfNecessary();
-    WebKitInitializeApplicationCachePathIfNecessary();
-    
+    static bool didOneTimeInitialization = false;
+    if (!didOneTimeInitialization) {
+        WebKitInitializeLoggingChannelsIfNecessary();
+        WebCore::InitializeLoggingChannelsIfNecessary();
+        [WebHistoryItem initWindowWatcherIfNecessary];
+        WebKitInitializeDatabasesIfNecessary();
+        WebKitInitializeApplicationCachePathIfNecessary();
+        patchMailRemoveAttributesMethod();
+        didOneTimeInitialization = true;
+    }
+
     _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self));
 
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
@@ -1067,8 +1087,10 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
 
 #ifndef NDEBUG
     // Need this to make leak messages accurate.
-    if (applicationIsTerminating)
+    if (applicationIsTerminating) {
         gcController().garbageCollectNow();
+        [WebCache empty];
+    }
 #endif
 }
 
@@ -1285,6 +1307,8 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     settings->setMinimumFontSize([preferences minimumFontSize]);
     settings->setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
     settings->setPluginsEnabled([preferences arePlugInsEnabled]);
+    settings->setDatabasesEnabled([preferences databasesEnabled]);
+    settings->setLocalStorageEnabled([preferences localStorageEnabled]);
     settings->setPrivateBrowsingEnabled([preferences privateBrowsingEnabled]);
     settings->setSansSerifFontFamily([preferences sansSerifFontFamily]);
     settings->setSerifFontFamily([preferences serifFontFamily]);
@@ -1294,6 +1318,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     settings->setTextAreasAreResizable([preferences textAreasAreResizable]);
     settings->setShrinksStandaloneImagesToFit([preferences shrinksStandaloneImagesToFit]);
     settings->setEditableLinkBehavior(core([preferences editableLinkBehavior]));
+    settings->setTextDirectionSubmenuInclusionBehavior(core([preferences textDirectionSubmenuInclusionBehavior]));
     settings->setDOMPasteAllowed([preferences isDOMPasteAllowed]);
     settings->setUsesPageCache([self usesPageCache]);
     settings->setShowsURLsInToolTips([preferences showsURLsInToolTips]);
@@ -1313,6 +1338,9 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     settings->setOfflineWebApplicationCacheEnabled([preferences offlineWebApplicationCacheEnabled]);
     settings->setZoomsTextOnly([preferences zoomsTextOnly]);
     settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
+#ifdef BUILDING_ON_LEOPARD
+    settings->setNeedsIChatMemoryCacheCallsQuirk([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.iChat"]);
+#endif
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1341,6 +1369,7 @@ static inline IMP getMethod(id o, SEL s)
     cache->plugInFailedWithErrorFunc = getMethod(delegate, @selector(webView:plugInFailedWithError:dataSource:));
     cache->willCacheResponseFunc = getMethod(delegate, @selector(webView:resource:willCacheResponse:fromDataSource:));
     cache->willSendRequestFunc = getMethod(delegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:));
+    cache->shouldUseCredentialStorageFunc = getMethod(delegate, @selector(webView:resource:shouldUseCredentialStorageForDataSource:));
 }
 
 WebResourceDelegateImplementationCache* WebViewGetResourceLoadDelegateImplementations(WebView *webView)
@@ -1370,6 +1399,7 @@ WebResourceDelegateImplementationCache* WebViewGetResourceLoadDelegateImplementa
     cache->didFinishDocumentLoadForFrameFunc = getMethod(delegate, @selector(webView:didFinishDocumentLoadForFrame:));
     cache->didFinishLoadForFrameFunc = getMethod(delegate, @selector(webView:didFinishLoadForFrame:));
     cache->didFirstLayoutInFrameFunc = getMethod(delegate, @selector(webView:didFirstLayoutInFrame:));
+    cache->didFirstVisuallyNonEmptyLayoutInFrameFunc = getMethod(delegate, @selector(webView:didFirstVisuallyNonEmptyLayoutInFrame:));
     cache->didHandleOnloadEventsForFrameFunc = getMethod(delegate, @selector(webView:didHandleOnloadEventsForFrame:));
     cache->didReceiveIconForFrameFunc = getMethod(delegate, @selector(webView:didReceiveIcon:forFrame:));
     cache->didReceiveServerRedirectForProvisionalLoadForFrameFunc = getMethod(delegate, @selector(webView:didReceiveServerRedirectForProvisionalLoadForFrame:));
@@ -1948,6 +1978,13 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     [[self preferences] _postPreferencesChangesNotification];
 }
 
+- (WebHistoryItem *)_globalHistoryItem
+{
+    if (!_private->page)
+        return nil;
+    return kit(_private->page->globalHistoryItem());
+}
+
 - (WebTextIterator *)textIteratorForRect:(NSRect)rect
 {
     IntPoint rectStart(rect.origin.x, rect.origin.y);
@@ -2010,6 +2047,28 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 - (void)_clearMainFrameName
 {
     _private->page->mainFrame()->tree()->clearName();
+}
+
+- (void)setSelectTrailingWhitespaceEnabled:(BOOL)flag
+{
+    _private->selectTrailingWhitespaceEnabled = flag;
+    if (flag)
+        [self setSmartInsertDeleteEnabled:false];
+}
+
+- (BOOL)isSelectTrailingWhitespaceEnabled
+{
+    return _private->selectTrailingWhitespaceEnabled;
+}
+
+- (void)setMemoryCacheDelegateCallsEnabled:(BOOL)enabled
+{
+    _private->page->setMemoryCacheClientCallsEnabled(enabled);
+}
+
+- (BOOL)areMemoryCacheDelegateCallsEnabled
+{
+    return _private->page->areMemoryCacheClientCallsEnabled();
 }
 
 @end
@@ -2192,6 +2251,30 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     FrameLoader::registerURLSchemeAsLocal(protocol);
 }
 
+- (id)_initWithArguments:(NSDictionary *) arguments
+{
+    NSCoder *decoder = [arguments objectForKey:@"decoder"];
+    if (decoder) {
+        self = [self initWithCoder:decoder];
+    } else {
+        ASSERT([arguments objectForKey:@"frame"]);
+        NSValue *frameValue = [arguments objectForKey:@"frame"];
+        NSRect frame = (frameValue ? [frameValue rectValue] : NSZeroRect);
+        NSString *frameName = [arguments objectForKey:@"frameName"];
+        NSString *groupName = [arguments objectForKey:@"groupName"];
+        self = [self initWithFrame:frame frameName:frameName groupName:groupName];
+    }
+
+    return self;
+}
+
+static bool needsWebViewInitThreadWorkaround()
+{
+    static BOOL isOldInstaller = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_WEBVIEW_INIT_THREAD_WORKAROUND)
+        && [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.installer"];
+    return isOldInstaller && !pthread_main_np();
+}
+
 - (id)initWithFrame:(NSRect)f
 {
     return [self initWithFrame:f frameName:nil groupName:nil];
@@ -2199,11 +2282,19 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 
 - (id)initWithFrame:(NSRect)f frameName:(NSString *)frameName groupName:(NSString *)groupName
 {
+    if (needsWebViewInitThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] initWithFrame:f frameName:frameName groupName:groupName];
+
+    WebCoreThreadViolationCheck();
     return [self _initWithFrame:f frameName:frameName groupName:groupName usesDocumentViews:YES];
 }
 
 - (id)initWithCoder:(NSCoder *)decoder
 {
+    if (needsWebViewInitThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] initWithCoder:decoder];
+
+    WebCoreThreadViolationCheck();
     WebView *result = nil;
 
     @try {
@@ -2447,7 +2538,10 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     BOOL windowIsKey = [window isKeyWindow];
     BOOL windowOrSheetIsKey = windowIsKey || [[window attachedSheet] isKeyWindow];
 
-    page->focusController()->setActive(windowIsKey);
+    NSResponder *firstResponder = [window firstResponder]; 
+    if ([firstResponder isKindOfClass:[NSView class]] 
+        && [(NSView*)firstResponder isDescendantOf:[[self mainFrame] frameView]])
+        page->focusController()->setActive(windowIsKey);
 
     Frame* focusedFrame = page->focusController()->focusedOrMainFrame();
     frame->selection()->setFocused(frame == focusedFrame && windowOrSheetIsKey);
@@ -2661,14 +2755,19 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 
 - (float)textSizeMultiplier
 {
-    return _private->zoomMultiplierIsTextOnly ? _private->zoomMultiplier : 1.0f;
+    return [self _realZoomMultiplierIsTextOnly] ? _private->zoomMultiplier : 1.0f;
 }
 
 - (void)_setZoomMultiplier:(float)m isTextOnly:(BOOL)isTextOnly
 {
     // NOTE: This has no visible effect when viewing a PDF (see <rdar://problem/4737380>)
     _private->zoomMultiplier = m;
-    _private->zoomMultiplierIsTextOnly = isTextOnly;
+    ASSERT(_private->page);
+    if (_private->page)
+        _private->page->settings()->setZoomsTextOnly(isTextOnly);
+    
+    // FIXME: it would be nice to rework this code so that _private->zoomMultiplier doesn't exist and callers
+    // all access _private->page->settings().
     Frame* coreFrame = core([self mainFrame]);
     if (coreFrame)
         coreFrame->setZoomFactor(m, isTextOnly);
@@ -2676,7 +2775,7 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 
 - (float)_zoomMultiplier:(BOOL)isTextOnly
 {
-    if (isTextOnly != _private->zoomMultiplierIsTextOnly)
+    if (isTextOnly != [self _realZoomMultiplierIsTextOnly])
         return 1.0f;
     return _private->zoomMultiplier;
 }
@@ -2688,7 +2787,10 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 
 - (BOOL)_realZoomMultiplierIsTextOnly
 {
-    return _private->zoomMultiplierIsTextOnly;
+    if (!_private->page)
+        return NO;
+    
+    return _private->page->settings()->zoomsTextOnly();
 }
 
 #define MinimumZoomMultiplier       0.5f
@@ -2825,7 +2927,7 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     if (encoding == oldEncoding || [encoding isEqualToString:oldEncoding])
         return;
     if (Frame* mainFrame = core([self mainFrame]))
-        mainFrame->loader()->reloadAllowingStaleData(encoding);
+        mainFrame->loader()->reloadWithOverrideEncoding(encoding);
 }
 
 - (NSString *)_mainFrameOverrideEncoding
@@ -3223,7 +3325,9 @@ static WebFrame *incrementFrame(WebFrame *curr, BOOL forward, BOOL wrapFlag)
 
 - (BOOL)drawsBackground
 {
-    return _private->drawsBackground;
+    // This method can be called beneath -[NSView dealloc] after we have cleared _private,
+    // indirectly via -[WebFrameView viewDidMoveToWindow].
+    return !_private || _private->drawsBackground;
 }
 
 - (void)setShouldUpdateWhileOffscreen:(BOOL)updateWhileOffscreen
@@ -3296,6 +3400,11 @@ static WebFrame *incrementFrame(WebFrame *curr, BOOL forward, BOOL wrapFlag)
 - (IBAction)reload:(id)sender
 {
     [[self mainFrame] reload];
+}
+
+- (IBAction)reloadFromOrigin:(id)sender
+{
+    [[self mainFrame] reloadFromOrigin];
 }
 
 // FIXME: This code should move into WebCore so that it is not duplicated in each WebKit.
@@ -3572,22 +3681,22 @@ static WebFrame *incrementFrame(WebFrame *curr, BOOL forward, BOOL wrapFlag)
     return coreFrame->shouldClose();
 }
 
-static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsValue)
+static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValuePtr jsValue)
 {
     NSAppleEventDescriptor* aeDesc = 0;
-    if (jsValue->isBoolean())
-        return [NSAppleEventDescriptor descriptorWithBoolean:jsValue->getBoolean()];
-    if (jsValue->isString())
-        return [NSAppleEventDescriptor descriptorWithString:String(jsValue->getString())];
-    if (jsValue->isNumber()) {
-        double value = jsValue->getNumber();
+    if (jsValue.isBoolean())
+        return [NSAppleEventDescriptor descriptorWithBoolean:jsValue.getBoolean()];
+    if (jsValue.isString())
+        return [NSAppleEventDescriptor descriptorWithString:String(jsValue.getString())];
+    if (jsValue.isNumber()) {
+        double value = jsValue.uncheckedGetNumber();
         int intValue = value;
         if (value == intValue)
             return [NSAppleEventDescriptor descriptorWithDescriptorType:typeSInt32 bytes:&intValue length:sizeof(intValue)];
         return [NSAppleEventDescriptor descriptorWithDescriptorType:typeIEEE64BitFloatingPoint bytes:&value length:sizeof(value)];
     }
-    if (jsValue->isObject()) {
-        JSObject* object = jsValue->getObject();
+    if (jsValue.isObject()) {
+        JSObject* object = jsValue.getObject();
         if (object->inherits(&DateInstance::info)) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = 0;
@@ -3600,7 +3709,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
             }
         }
         else if (object->inherits(&JSArray::info)) {
-            static HashSet<JSObject*> visitedElems;
+            DEFINE_STATIC_LOCAL(HashSet<JSObject*>, visitedElems, ());
             if (!visitedElems.contains(object)) {
                 visitedElems.add(object);
                 
@@ -3614,16 +3723,16 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
                 return aeDesc;
             }
         }
-        JSValue* primitive = object->toPrimitive(exec);
+        JSValuePtr primitive = object->toPrimitive(exec);
         if (exec->hadException()) {
             exec->clearException();
             return [NSAppleEventDescriptor nullDescriptor];
         }
         return aeDescFromJSValue(exec, primitive);
     }
-    if (jsValue->isUndefined())
+    if (jsValue.isUndefined())
         return [NSAppleEventDescriptor descriptorWithTypeCode:cMissingValue];
-    ASSERT(jsValue->isNull());
+    ASSERT(jsValue.isNull());
     return [NSAppleEventDescriptor nullDescriptor];
 }
 
@@ -3634,7 +3743,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
         return nil;
     if (!coreFrame->document())
         return nil;
-    JSValue* result = coreFrame->loader()->executeScript(script, true);
+    JSValuePtr result = coreFrame->loader()->executeScript(script, true).jsValue();
     if (!result) // FIXME: pass errors
         return 0;
     JSLock lock(false);
@@ -3749,7 +3858,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
 
 - (float)pageSizeMultiplier
 {
-    return !_private->zoomMultiplierIsTextOnly ? _private->zoomMultiplier : 1.0f;
+    return ![self _realZoomMultiplierIsTextOnly] ? _private->zoomMultiplier : 1.0f;
 }
 
 - (BOOL)canZoomPageIn
@@ -3780,6 +3889,20 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
 - (IBAction)resetPageZoom:(id)sender
 {
     return [self _resetZoom:sender isTextOnly:NO];
+}
+
+- (void)setMediaVolume:(float)volume
+{
+    if (_private->page)
+        _private->page->setMediaVolume(volume);
+}
+
+- (float)mediaVolume
+{
+    if (!_private->page)
+        return 0;
+
+    return _private->page->mediaVolume();
 }
 
 @end
@@ -4023,6 +4146,8 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue* jsVal
 - (void)setSmartInsertDeleteEnabled:(BOOL)flag
 {
     _private->smartInsertDeleteEnabled = flag;
+    if (flag)
+        [self setSelectTrailingWhitespaceEnabled:false];
 }
 
 - (BOOL)smartInsertDeleteEnabled
@@ -4298,15 +4423,13 @@ static WebFrameView *containingFrameView(NSView *view)
 
         // Object cache capacities (in bytes)
         if (memSize >= 2048)
-            cacheTotalCapacity = 128 * 1024 * 1024;
+            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1536)
-            cacheTotalCapacity = 86 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
-        else if (memSize >= 256)
-            cacheTotalCapacity = 16 * 1024 * 1024; 
+        else if (memSize >= 512)
+            cacheTotalCapacity = 16 * 1024 * 1024;
 
         cacheMinDeadCapacity = 0;
         cacheMaxDeadCapacity = 0;
@@ -4332,15 +4455,13 @@ static WebFrameView *containingFrameView(NSView *view)
 
         // Object cache capacities (in bytes)
         if (memSize >= 2048)
-            cacheTotalCapacity = 128 * 1024 * 1024;
+            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1536)
-            cacheTotalCapacity = 86 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
-        else if (memSize >= 256)
-            cacheTotalCapacity = 16 * 1024 * 1024; 
+        else if (memSize >= 512)
+            cacheTotalCapacity = 16 * 1024 * 1024;
 
         cacheMinDeadCapacity = cacheTotalCapacity / 8;
         cacheMaxDeadCapacity = cacheTotalCapacity / 4;
@@ -4386,15 +4507,13 @@ static WebFrameView *containingFrameView(NSView *view)
         // browsing pattern. Even growth above 128MB can have substantial 
         // value / MB for some content / browsing patterns.)
         if (memSize >= 2048)
-            cacheTotalCapacity = 256 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 172 * 1024 * 1024;
-        else if (memSize >= 1024)
             cacheTotalCapacity = 128 * 1024 * 1024;
-        else if (memSize >= 512)
+        else if (memSize >= 1536)
+            cacheTotalCapacity = 96 * 1024 * 1024;
+        else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
-        else if (memSize >= 256)
-            cacheTotalCapacity = 32 * 1024 * 1024; 
+        else if (memSize >= 512)
+            cacheTotalCapacity = 32 * 1024 * 1024;
 
         cacheMinDeadCapacity = cacheTotalCapacity / 4;
         cacheMaxDeadCapacity = cacheTotalCapacity / 2;
@@ -5172,6 +5291,18 @@ id CallResourceLoadDelegate(IMP implementation, WebView *self, SEL selector, id 
     return CallDelegate(implementation, self, self->_private->resourceProgressDelegate, selector, object1, object2, integer, object3);
 }
 
+BOOL CallResourceLoadDelegateReturningBoolean(BOOL result, IMP implementation, WebView *self, SEL selector, id object1, id object2)
+{
+    if (!self->_private->catchesDelegateExceptions)
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, id)>(objc_msgSend)(self->_private->resourceProgressDelegate, selector, self, object1, object2);
+    @try {
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, id)>(objc_msgSend)(self->_private->resourceProgressDelegate, selector, self, object1, object2);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return result;
+}
+
 // The form delegate needs to have it's own implementation, because the first argument is never the WebView
 
 id CallFormDelegate(WebView *self, SEL selector, id object1, id object2)
@@ -5220,3 +5351,39 @@ BOOL CallFormDelegateReturningBoolean(BOOL result, WebView *self, SEL selector, 
 }
 
 @end
+
+#ifdef BUILDING_ON_LEOPARD
+
+static IMP originalRecursivelyRemoveMailAttributesImp;
+
+static id objectElementDataAttribute(DOMHTMLObjectElement *self, SEL)
+{
+    return [self getAttribute:@"data"];
+}
+
+static void recursivelyRemoveMailAttributes(DOMNode *self, SEL selector, BOOL a, BOOL b, BOOL c)
+{
+    // While inside this Mail function, change the behavior of -[DOMHTMLObjectElement data] back to what it used to be
+    // before we fixed a bug in it (see http://trac.webkit.org/changeset/30044 for that change).
+
+    // It's a little bit strange to patch a method defined by WebKit, but it helps keep this workaround self-contained.
+
+    Method methodToPatch = class_getInstanceMethod(objc_getRequiredClass("DOMHTMLObjectElement"), @selector(data));
+    IMP originalDataImp = method_setImplementation(methodToPatch, reinterpret_cast<IMP>(objectElementDataAttribute));
+    originalRecursivelyRemoveMailAttributesImp(self, selector, a, b, c);
+    method_setImplementation(methodToPatch, originalDataImp);
+}
+
+#endif
+
+static void patchMailRemoveAttributesMethod()
+{
+#ifdef BUILDING_ON_LEOPARD
+    if (!WKAppVersionCheckLessThan(@"com.apple.mail", -1, 4.0))
+        return;
+    Method methodToPatch = class_getInstanceMethod(objc_getRequiredClass("DOMNode"), @selector(recursivelyRemoveMailAttributes:convertObjectsToImages:convertEditableElements:));
+    if (!methodToPatch)
+        return;
+    originalRecursivelyRemoveMailAttributesImp = method_setImplementation(methodToPatch, reinterpret_cast<IMP>(recursivelyRemoveMailAttributes));
+#endif
+}

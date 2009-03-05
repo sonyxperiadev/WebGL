@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,10 +57,10 @@
 #include "ResourceRequest.h"
 #include "SelectionController.h"
 #include "Settings.h"
-#include "SystemTime.h"
 #include "Text.h"
 #include "htmlediting.h"
 #include "markup.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -126,11 +126,9 @@ static PassRefPtr<DocumentFragment> documentFragmentFromDragData(DragData* dragD
     return 0;
 }
 
-bool DragController::dragIsMove(SelectionController* selection, DragData* dragData) 
+bool DragController::dragIsMove(SelectionController* selection)
 {
-    return m_document == m_dragInitiator
-        && selection->isContentEditable()
-        && !isCopyKeyDown();
+    return m_document == m_dragInitiator && selection->isContentEditable() && !isCopyKeyDown();
 }
 
 void DragController::cancelDrag()
@@ -191,7 +189,7 @@ bool DragController::performDrag(DragData* dragData)
         return true;
     } 
     
-    if ((m_dragDestinationAction & DragDestinationActionEdit) && concludeDrag(dragData, m_dragDestinationAction)) {
+    if ((m_dragDestinationAction & DragDestinationActionEdit) && concludeEditDrag(dragData)) {
         m_document = 0;
         return true;
     }
@@ -202,7 +200,7 @@ bool DragController::performDrag(DragData* dragData)
         return false;
 
     m_client->willPerformDragDestinationAction(DragDestinationActionLoad, dragData);
-    m_page->mainFrame()->loader()->load(ResourceRequest(dragData->asURL()));
+    m_page->mainFrame()->loader()->load(ResourceRequest(dragData->asURL()), false);
     return true;
 }
     
@@ -288,7 +286,7 @@ DragOperation DragController::tryDocumentDrag(DragData* dragData, DragDestinatio
             m_page->dragCaretController()->setSelection(dragCaret);
         }
         
-        return dragIsMove(innerFrame->selection(), dragData) ? DragOperationMove : DragOperationCopy;
+        return dragIsMove(innerFrame->selection()) ? DragOperationMove : DragOperationCopy;
     } 
     
     m_page->dragCaretController()->clear();
@@ -322,11 +320,10 @@ static bool setSelectionToDragCaret(Frame* frame, Selection& dragCaret, RefPtr<R
     return !frame->selection()->isNone() && frame->selection()->isContentEditable();
 }
 
-bool DragController::concludeDrag(DragData* dragData, DragDestinationAction actionMask)
+bool DragController::concludeEditDrag(DragData* dragData)
 {
     ASSERT(dragData);
     ASSERT(!m_isHandlingDrag);
-    ASSERT(actionMask & DragDestinationActionEdit);
     
     if (!m_document)
         return false;
@@ -394,7 +391,7 @@ bool DragController::concludeDrag(DragData* dragData, DragDestinationAction acti
         return false;
     DocLoader* loader = range->ownerDocument()->docLoader();
     loader->setAllowStaleResources(true);
-    if (dragIsMove(innerFrame->selection(), dragData) || dragCaret.isContentRichlyEditable()) { 
+    if (dragIsMove(innerFrame->selection()) || dragCaret.isContentRichlyEditable()) { 
         bool chosePlainText = false;
         RefPtr<DocumentFragment> fragment = documentFragmentFromDragData(dragData, range, true, chosePlainText);
         if (!fragment || !innerFrame->editor()->shouldInsertFragment(fragment, range, EditorInsertActionDropped)) {
@@ -403,7 +400,7 @@ bool DragController::concludeDrag(DragData* dragData, DragDestinationAction acti
         }
         
         m_client->willPerformDragDestinationAction(DragDestinationActionEdit, dragData);
-        if (dragIsMove(innerFrame->selection(), dragData)) {
+        if (dragIsMove(innerFrame->selection())) {
             bool smartMove = innerFrame->selectionGranularity() == WordGranularity 
                           && innerFrame->editor()->smartInsertDeleteEnabled() 
                           && dragData->canSmartReplace();
@@ -579,7 +576,7 @@ static IntPoint dragLocForDHTMLDrag(const IntPoint& mouseDraggedPoint, const Int
     
 static IntPoint dragLocForSelectionDrag(Frame* src)
 {
-    IntRect draggingRect = enclosingIntRect(src->selectionRect());
+    IntRect draggingRect = enclosingIntRect(src->selectionBounds());
     int xpos = draggingRect.right();
     xpos = draggingRect.x() < xpos ? draggingRect.x() : xpos;
     int ypos = draggingRect.bottom();
@@ -629,9 +626,12 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
     
     Node* node = dragSource.innerNonSharedNode();
     
-    if (!imageURL.isEmpty() && node && node->isElementNode()
-            && getImage(static_cast<Element*>(node)) 
+    Image* image = getImage(static_cast<Element*>(node));
+    if (!imageURL.isEmpty() && node && node->isElementNode() && image
             && (m_dragSourceAction & DragSourceActionImage)) {
+        // We shouldn't be starting a drag for an image that can't provide an extension. 
+        // This is an early detection for problems encountered later upon drop.
+        ASSERT(!image->filenameExtension().isEmpty());
         Element* element = static_cast<Element*>(node);
         if (!clipboard->hasData()) {
             m_draggingImageURL = imageURL; 
@@ -698,7 +698,7 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
         deleteDragImage(dragImage);
     return startedDrag;
 }
-    
+
 void DragController::doImageDrag(Element* element, const IntPoint& dragOrigin, const IntRect& rect, Clipboard* clipboard, Frame* frame, IntPoint& dragImageOffset)
 {
     IntPoint mouseDownPoint = dragOrigin;
@@ -750,11 +750,7 @@ void DragController::doSystemDrag(DragImageRef image, const IntPoint& dragLoc, c
     m_client->startDrag(image, viewProtector->windowToContents(frame->view()->contentsToWindow(dragLoc)),
         viewProtector->windowToContents(frame->view()->contentsToWindow(eventPos)), clipboard, frameProtector.get(), forLink);
     
-    // Drag has ended, dragEnded *should* have been called, however it is possible  
-    // for the UIDelegate to take over the drag, and fail to send the appropriate
-    // drag termination event.  As dragEnded just resets drag variables, we just 
-    // call it anyway to be on the safe side
-    dragEnded();
+    cleanupAfterSystemDrag();
 }
     
 // Manual drag caret manipulation

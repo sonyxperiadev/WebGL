@@ -30,6 +30,7 @@
 #include "Document.h"
 #include "RenderCounter.h"
 #include "RenderImageGeneratedContent.h"
+#include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderTable.h"
@@ -126,9 +127,9 @@ void RenderContainer::addChild(RenderObject* newChild, RenderObject* beforeChild
     }
     
     if (newChild->isText() && newChild->style()->textTransform() == CAPITALIZE) {
-        RefPtr<StringImpl> textToTransform = static_cast<RenderText*>(newChild)->originalText();
+        RefPtr<StringImpl> textToTransform = toRenderText(newChild)->originalText();
         if (textToTransform)
-            static_cast<RenderText*>(newChild)->setText(textToTransform.release(), true);
+            toRenderText(newChild)->setText(textToTransform.release(), true);
     }
 }
 
@@ -257,6 +258,9 @@ static RenderObject* findBeforeAfterParent(RenderObject* object)
 
 void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId type, RenderContainer* styledObject)
 {
+    // Double check that the document did in fact use generated content rules.  Otherwise we should not have been called.
+    ASSERT(document()->usesBeforeAfterRules());
+
     // In CSS2, before/after pseudo-content cannot nest.  Check this first.
     if (style()->styleType() == RenderStyle::BEFORE || style()->styleType() == RenderStyle::AFTER)
         return;
@@ -277,7 +281,7 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
 
     // Similarly, if we're the beginning of a <q>, and there's an inline continuation for our object,
     // then we don't generate the :after content.
-    if (newContentWanted && type == RenderStyle::AFTER && isRenderInline() && continuation())
+    if (newContentWanted && type == RenderStyle::AFTER && isRenderInline() && static_cast<RenderInline*>(this)->continuation())
         newContentWanted = false;
     
     // If we don't want generated content any longer, or if we have generated content, but it's no longer
@@ -297,7 +301,7 @@ void RenderContainer::updateBeforeAfterContentForContainer(RenderStyle::PseudoId
     if (!newContentWanted)
         return;
 
-    if (isInlineFlow() && !pseudoElementStyle->isDisplayInlineType() && pseudoElementStyle->floating() == FNONE &&
+    if (isRenderInline() && !pseudoElementStyle->isDisplayInlineType() && pseudoElementStyle->floating() == FNONE &&
         !(pseudoElementStyle->position() == AbsolutePosition || pseudoElementStyle->position() == FixedPosition))
         // According to the CSS2 spec (the end of section 12.1), the only allowed
         // display values for the pseudo style are NONE and INLINE for inline flows.
@@ -520,7 +524,7 @@ void RenderContainer::layout()
 {
     ASSERT(needsLayout());
 
-    view()->pushLayoutState(this, IntSize(m_x, m_y));
+    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()));
 
     RenderObject* child = m_firstChild;
     while (child) {
@@ -529,7 +533,7 @@ void RenderContainer::layout()
         child = child->nextSibling();
     }
 
-    view()->popLayoutState();
+    statePusher.pop();
     setNeedsLayout(false);
 }
 
@@ -576,7 +580,7 @@ void RenderContainer::removeLeftoverAnonymousBlock(RenderBlock* child)
     child->destroy();
 }
 
-VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
+VisiblePosition RenderContainer::positionForCoordinates(int xPos, int yPos)
 {
     // no children...return this render object's element, if there is one, and offset 0
     if (!m_firstChild)
@@ -586,8 +590,8 @@ VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
         int right = contentWidth() + borderRight() + paddingRight() + borderLeft() + paddingLeft();
         int bottom = contentHeight() + borderTop() + paddingTop() + borderBottom() + paddingBottom();
         
-        if (x < 0 || x > right || y < 0 || y > bottom) {
-            if (x <= right / 2)
+        if (xPos < 0 || xPos > right || yPos < 0 || yPos > bottom) {
+            if (xPos <= right / 2)
                 return VisiblePosition(Position(element(), 0));
             else
                 return VisiblePosition(Position(element(), maxDeepOffset(element())));
@@ -596,55 +600,60 @@ VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
 
     // Pass off to the closest child.
     int minDist = INT_MAX;
-    RenderObject* closestRenderer = 0;
-    int newX = x;
-    int newY = y;
+    RenderBox* closestRenderer = 0;
+    int newX = xPos;
+    int newY = yPos;
     if (isTableRow()) {
-        newX += xPos();
-        newY += yPos();
+        newX += x();
+        newY += y();
     }
-    for (RenderObject* renderer = m_firstChild; renderer; renderer = renderer->nextSibling()) {
-        if (!renderer->firstChild() && !renderer->isInline() && !renderer->isBlockFlow() 
-            || renderer->style()->visibility() != VISIBLE)
+    for (RenderObject* renderObject = m_firstChild; renderObject; renderObject = renderObject->nextSibling()) {
+        if (!renderObject->firstChild() && !renderObject->isInline() && !renderObject->isBlockFlow() 
+            || renderObject->style()->visibility() != VISIBLE)
             continue;
         
-        int top = borderTop() + paddingTop() + (isTableRow() ? 0 : renderer->yPos());
+        if (!renderObject->isBox())
+            continue;
+        
+        RenderBox* renderer = toRenderBox(renderObject);
+
+        int top = borderTop() + paddingTop() + (isTableRow() ? 0 : renderer->y());
         int bottom = top + renderer->contentHeight();
-        int left = borderLeft() + paddingLeft() + (isTableRow() ? 0 : renderer->xPos());
+        int left = borderLeft() + paddingLeft() + (isTableRow() ? 0 : renderer->x());
         int right = left + renderer->contentWidth();
         
-        if (x <= right && x >= left && y <= top && y >= bottom) {
+        if (xPos <= right && xPos >= left && yPos <= top && yPos >= bottom) {
             if (renderer->isTableRow())
-                return renderer->positionForCoordinates(x + newX - renderer->xPos(), y + newY - renderer->yPos());
-            return renderer->positionForCoordinates(x - renderer->xPos(), y - renderer->yPos());
+                return renderer->positionForCoordinates(xPos + newX - renderer->x(), yPos + newY - renderer->y());
+            return renderer->positionForCoordinates(xPos - renderer->x(), yPos - renderer->y());
         }
 
         // Find the distance from (x, y) to the box.  Split the space around the box into 8 pieces
         // and use a different compare depending on which piece (x, y) is in.
         IntPoint cmp;
-        if (x > right) {
-            if (y < top)
+        if (xPos > right) {
+            if (yPos < top)
                 cmp = IntPoint(right, top);
-            else if (y > bottom)
+            else if (yPos > bottom)
                 cmp = IntPoint(right, bottom);
             else
-                cmp = IntPoint(right, y);
-        } else if (x < left) {
-            if (y < top)
+                cmp = IntPoint(right, yPos);
+        } else if (xPos < left) {
+            if (yPos < top)
                 cmp = IntPoint(left, top);
-            else if (y > bottom)
+            else if (yPos > bottom)
                 cmp = IntPoint(left, bottom);
             else
-                cmp = IntPoint(left, y);
+                cmp = IntPoint(left, yPos);
         } else {
-            if (y < top)
-                cmp = IntPoint(x, top);
+            if (yPos < top)
+                cmp = IntPoint(xPos, top);
             else
-                cmp = IntPoint(x, bottom);
+                cmp = IntPoint(xPos, bottom);
         }
         
-        int x1minusx2 = cmp.x() - x;
-        int y1minusy2 = cmp.y() - y;
+        int x1minusx2 = cmp.x() - xPos;
+        int y1minusy2 = cmp.y() - yPos;
         
         int dist = x1minusx2 * x1minusx2 + y1minusy2 * y1minusy2;
         if (dist < minDist) {
@@ -654,7 +663,7 @@ VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
     }
     
     if (closestRenderer)
-        return closestRenderer->positionForCoordinates(newX - closestRenderer->xPos(), newY - closestRenderer->yPos());
+        return closestRenderer->positionForCoordinates(newX - closestRenderer->x(), newY - closestRenderer->y());
     
     return VisiblePosition(element(), 0, DOWNSTREAM);
 }
@@ -662,9 +671,8 @@ VisiblePosition RenderContainer::positionForCoordinates(int x, int y)
 void RenderContainer::addLineBoxRects(Vector<IntRect>& rects, unsigned start, unsigned end, bool)
 {
     if (!m_firstChild && (isInline() || isAnonymousBlock())) {
-        int x, y;
-        absolutePositionForContent(x, y);
-        absoluteRects(rects, x, y);
+        FloatPoint absPos = localToAbsolute(FloatPoint());
+        absoluteRects(rects, absPos.x(), absPos.y());
         return;
     }
 
@@ -674,24 +682,39 @@ void RenderContainer::addLineBoxRects(Vector<IntRect>& rects, unsigned start, un
     unsigned offset = start;
     for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset) {
         if (child->isText() || child->isInline() || child->isAnonymousBlock()) {
-            int x, y;
-            child->absolutePositionForContent(x, y);
-            child->absoluteRects(rects, x, y);
+            FloatPoint absPos = child->localToAbsolute(FloatPoint());
+            child->absoluteRects(rects, absPos.x(), absPos.y());
         }
     }
 }
 
-    
+void RenderContainer::collectAbsoluteLineBoxQuads(Vector<FloatQuad>& quads, unsigned start, unsigned end, bool /*useSelectionHeight*/)
+{
+    if (!m_firstChild && (isInline() || isAnonymousBlock())) {
+        absoluteQuads(quads);
+        return;
+    }
+
+    if (!m_firstChild)
+        return;
+
+    unsigned offset = start;
+    for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset) {
+        if (child->isText() || child->isInline() || child->isAnonymousBlock())
+            child->absoluteQuads(quads);
+    }
+}
+
 #ifdef ANDROID_LAYOUT
 bool RenderContainer::hasChildTable() const
 {
     if (!firstChild())
         return false;        
-	for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTable()) {
-        	return true;
+            return true;
         } else if (child->hasChildTable() == true) {
-        	return true;
+            return true;
         }
     }
     return false;

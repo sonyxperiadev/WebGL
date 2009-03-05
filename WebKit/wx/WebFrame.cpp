@@ -28,9 +28,11 @@
 #include "Document.h"
 #include "Editor.h"
 #include "Element.h"
+#include "EventHandler.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "HitTestResult.h"
 #include "HTMLFrameOwnerElement.h"
 #include "markup.h"
 #include "Page.h"
@@ -42,9 +44,10 @@
 #include "FrameLoaderClientWx.h"
 
 #include "ScriptController.h"
+#include "ScriptValue.h"
 #include "JSDOMBinding.h"
 #include <runtime/JSValue.h>
-#include <kjs/ustring.h>
+#include <runtime/UString.h>
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
@@ -53,6 +56,7 @@
 
 #include "WebFrame.h"
 #include "WebView.h"
+#include "WebFramePrivate.h"
 #include "WebViewPrivate.h"
 
 #include <wx/defs.h>
@@ -71,7 +75,7 @@ wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameDat
     m_title(wxEmptyString)
 {
 
-    m_impl = new WebViewPrivate();
+    m_impl = new WebFramePrivate();
  
     WebCore::HTMLFrameOwnerElement* parentFrame = 0;
     
@@ -138,7 +142,7 @@ void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
     if (m_impl->frame && m_impl->frame->loader()) {
         WebCore::FrameLoader* loader = m_impl->frame->loader();
         loader->begin(WebCore::KURL(static_cast<const char*>(baseUrl.mb_str(wxConvUTF8))));
-        loader->write(source);
+        loader->write(static_cast<const WebCore::String>(source));
         loader->end();
     }
 }
@@ -172,11 +176,19 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
     if (m_impl->frame) {
-        JSC::JSValue* result = m_impl->frame->loader()->executeScript(javascript, true);
+        JSC::JSValuePtr result = m_impl->frame->loader()->executeScript(javascript, true).jsValue();
         if (result)
-            returnValue = wxString(result->toString(m_impl->frame->script()->globalObject()->globalExec()).UTF8String().c_str(), wxConvUTF8);        
+            returnValue = wxString(result.toString(m_impl->frame->script()->globalObject()->globalExec()).UTF8String().c_str(), wxConvUTF8);        
     }
     return returnValue;
+}
+
+bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensitive, bool wrapSelection, bool startInSelection)
+{
+    if (m_impl->frame)
+        return m_impl->frame->findString(string, forward, caseSensitive, wrapSelection, startInSelection);
+
+    return false;
 }
 
 void wxWebFrame::LoadURL(const wxString& url)
@@ -232,6 +244,35 @@ bool wxWebFrame::CanGoForward()
 
     return false;
 }
+
+void wxWebFrame::Undo()
+{
+    if (m_impl->frame && m_impl->frame->editor() && CanUndo())
+        return m_impl->frame->editor()->undo();
+}
+
+void wxWebFrame::Redo()
+{
+    if (m_impl->frame && m_impl->frame->editor() && CanRedo())
+        return m_impl->frame->editor()->redo();
+}
+
+bool wxWebFrame::CanUndo()
+{
+    if (m_impl->frame && m_impl->frame->editor())
+        return m_impl->frame->editor()->canUndo();
+
+    return false;
+}
+
+bool wxWebFrame::CanRedo()
+{
+    if (m_impl->frame && m_impl->frame->editor())
+        return m_impl->frame->editor()->canRedo();
+
+    return false;
+}
+
 bool wxWebFrame::CanIncreaseTextSize() const
 {
     if (m_impl->frame) {
@@ -315,3 +356,21 @@ void wxWebFrame::Paste()
         m_impl->frame->editor()->paste();
 
 }
+
+wxWebViewDOMElementInfo wxWebFrame::HitTest(const wxPoint& pos) const
+{
+    wxWebViewDOMElementInfo domInfo;
+
+    if (m_impl->frame->view()) {
+        WebCore::HitTestResult result = m_impl->frame->eventHandler()->hitTestResultAtPoint(m_impl->frame->view()->windowToContents(pos), false);
+        if (result.innerNode()) {
+            domInfo.SetLink(result.absoluteLinkURL().string());
+            domInfo.SetText(result.textContent());
+            domInfo.SetImageSrc(result.absoluteImageURL().string());
+            domInfo.SetSelected(result.isSelected());
+        }
+    }
+
+    return domInfo;
+}
+

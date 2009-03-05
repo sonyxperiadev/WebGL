@@ -71,6 +71,15 @@ void setCookies(Document* document, const KURL& url, const KURL& policyURL, cons
         return;
 
     QList<QNetworkCookie> cookies = QNetworkCookie::parseCookies(QString(value).toAscii());
+#if QT_VERSION >= 0x040500
+    QList<QNetworkCookie>::Iterator it = cookies.begin();
+    while (it != cookies.end()) {
+        if (it->isHttpOnly())
+            it = cookies.erase(it);
+        else
+            ++it;
+    }
+#endif
     jar->setCookiesFromUrl(cookies, p);
 #else
     QCookieJar::cookieJar()->setCookies(u, p, (QString)value);
@@ -90,9 +99,14 @@ String cookies(const Document* document, const KURL& url)
         return String();
 
     QStringList resultCookies;
-    foreach (QNetworkCookie networkCookie, cookies)
+    foreach (QNetworkCookie networkCookie, cookies) {
+#if QT_VERSION >= 0x040500
+        if (networkCookie.isHttpOnly())
+            continue;
+#endif
         resultCookies.append(QString::fromAscii(
                              networkCookie.toRawForm(QNetworkCookie::NameAndValueOnly).constData()));
+    }
 
     return resultCookies.join(QLatin1String("; "));
 #else

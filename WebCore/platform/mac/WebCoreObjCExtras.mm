@@ -34,17 +34,17 @@
 #include <wtf/Assertions.h>
 #include <wtf/MainThread.h>
 #include <wtf/Threading.h>
+#include <wtf/UnusedParam.h>
 
 void WebCoreObjCFinalizeOnMainThread(Class cls)
 {
+    // This method relies on threading being initialized by the caller, otherwise
+    // WebCoreObjCScheduleDeallocateOnMainThread will crash.
 #if !defined(BUILDING_ON_TIGER) && !defined(DONT_FINALIZE_ON_MAIN_THREAD)
     objc_finalizeOnMainThread(cls);
+#else
+    UNUSED_PARAM(cls);
 #endif
-    
-    // The reason we call initializeThreading here is that we'd like to have 
-    // threading initialized early, otherwise WebCoreObjCScheduleDeallocateOnMainThread
-    // will crash
-    WTF::initializeThreading();
 }
 
 #ifdef BUILDING_ON_TIGER

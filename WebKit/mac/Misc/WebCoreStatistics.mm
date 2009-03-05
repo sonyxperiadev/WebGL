@@ -54,7 +54,7 @@ using namespace WebCore;
 + (size_t)javaScriptObjectsCount
 {
     JSLock lock(false);
-    return JSDOMWindow::commonJSGlobalData()->heap.size();
+    return JSDOMWindow::commonJSGlobalData()->heap.objectCount();
 }
 
 + (size_t)javaScriptGlobalObjectsCount
@@ -122,17 +122,17 @@ using namespace WebCore;
 
 + (size_t)cachedFontDataCount
 {
-    return FontCache::fontDataCount();
+    return fontCache()->fontDataCount();
 }
 
 + (size_t)cachedFontDataInactiveCount
 {
-    return FontCache::inactiveFontDataCount();
+    return fontCache()->inactiveFontDataCount();
 }
 
 + (void)purgeInactiveFontData
 {
-    FontCache::purgeInactiveFontData();
+    fontCache()->purgeInactiveFontData();
 }
 
 + (size_t)glyphPageCount
@@ -167,9 +167,29 @@ using namespace WebCore;
     WebCore::Node::startIgnoringLeaks();
 }
 
-+ (void)stopIgnoringWebCoreNodeLeaks;
++ (void)stopIgnoringWebCoreNodeLeaks
 {
     WebCore::Node::stopIgnoringLeaks();
+}
+
++ (NSDictionary *)memoryStatistics
+{
+    WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
+    JSLock lock(false);
+    Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    return [NSDictionary dictionaryWithObjectsAndKeys:
+                [NSNumber numberWithInt:fastMallocStatistics.heapSize], @"FastMallocHeapSize",
+                [NSNumber numberWithInt:fastMallocStatistics.freeSizeInHeap], @"FastMallocFreeSizeInHeap",
+                [NSNumber numberWithInt:fastMallocStatistics.freeSizeInCaches], @"FastMallocFreeSizeInCaches",
+                [NSNumber numberWithInt:fastMallocStatistics.returnedSize], @"FastMallocReturnedSize",
+                [NSNumber numberWithInt:jsHeapStatistics.size], @"JavaScriptHeapSize",
+                [NSNumber numberWithInt:jsHeapStatistics.free], @"JavaScriptFreeSize",
+            nil];
+}
+
++ (void)returnFreeMemoryToSystem
+{
+    WTF::releaseFastMallocFreeMemory();
 }
 
 // Deprecated

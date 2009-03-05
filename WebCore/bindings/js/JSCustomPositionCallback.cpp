@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JSCustomPositionCallback.h"
 
-#include "Console.h"
 #include "CString.h"
 #include "Frame.h"
 #include "JSGeoposition.h"
@@ -57,9 +56,9 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
     
     JSC::JSLock lock(false);
     
-    JSValue* function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_callback->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -79,7 +78,7 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
     globalObject->stopTimeoutCheck();
     
     if (exec->hadException()) {
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
         raisedException = true;
     }
 }

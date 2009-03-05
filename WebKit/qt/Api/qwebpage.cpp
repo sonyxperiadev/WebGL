@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008, 2009 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2007 Staikos Computing Services Inc.
     Copyright (C) 2007 Apple Inc.
 
@@ -31,6 +31,7 @@
 
 #include "Frame.h"
 #include "FrameTree.h"
+#include "FrameLoader.h"
 #include "FrameLoaderClientQt.h"
 #include "FrameView.h"
 #include "ChromeClientQt.h"
@@ -94,6 +95,22 @@
 #endif
 
 using namespace WebCore;
+
+bool QWebPagePrivate::drtRun = false;
+void QWEBKIT_EXPORT qt_drt_run(bool b)
+{
+    QWebPagePrivate::drtRun = b;
+}
+
+void QWEBKIT_EXPORT qt_webpage_setGroupName(QWebPage* page, const QString& groupName)
+{
+    page->handle()->page->setGroupName(groupName);
+}
+
+QString QWEBKIT_EXPORT qt_webpage_groupName(QWebPage* page)
+{
+    return page->handle()->page->groupName();
+}
 
 // Lookup table mapping QWebPage::WebActions to the associated Editor commands
 static const char* editorCommandWebActions[] = 
@@ -161,11 +178,13 @@ static const char* editorCommandWebActions[] =
     "InsertNewline", // InsertParagraphSeparator
     "InsertLineBreak", // InsertLineSeparator
 
+    "SelectAll", // SelectAll
+
     0 // WebActionCount
 };
 
 // Lookup the appropriate editor command to use for WebAction \a action
-static const char* editorCommandForWebActions(QWebPage::WebAction action)
+const char* QWebPagePrivate::editorCommandForWebActions(QWebPage::WebAction action)
 {
     if ((action > QWebPage::NoWebAction) && (action < int(sizeof(editorCommandWebActions) / sizeof(const char*))))
         return editorCommandWebActions[action];
@@ -220,6 +239,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     WebCore::InitializeLoggingChannelsIfNecessary();
     WebCore::PageGroup::setShouldTrackVisitedLinks(true);
     JSC::initializeThreading();
+    WebCore::FrameLoader::setLocalLoadPolicy(WebCore::FrameLoader::AllowLocalLoadsForLocalAndSubstituteData);
 
     chromeClient = new ChromeClientQt(q);
     contextMenuClient = new ContextMenuClientQt();
@@ -245,6 +265,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     insideOpenCall = false;
     forwardUnsupportedContent = false;
     editable = false;
+    useFixedLayout = false;
     linkPolicy = QWebPage::DontDelegateLinks;
 #ifndef QT_NO_CONTEXTMENU
     currentContextMenu = 0;
@@ -448,6 +469,35 @@ void QWebPagePrivate::updateAction(QWebPage::WebAction action)
             // those two are handled by QUndoStack
             break;
 #endif // QT_NO_UNDOSTACK
+        case QWebPage::MoveToNextChar:
+        case QWebPage::MoveToPreviousChar:
+        case QWebPage::MoveToNextWord:
+        case QWebPage::MoveToPreviousWord:
+        case QWebPage::MoveToNextLine:
+        case QWebPage::MoveToPreviousLine:
+        case QWebPage::MoveToStartOfLine:
+        case QWebPage::MoveToEndOfLine:
+        case QWebPage::MoveToStartOfBlock:
+        case QWebPage::MoveToEndOfBlock:
+        case QWebPage::MoveToStartOfDocument:
+        case QWebPage::MoveToEndOfDocument:
+        case QWebPage::SelectNextChar:
+        case QWebPage::SelectPreviousChar:
+        case QWebPage::SelectNextWord:
+        case QWebPage::SelectPreviousWord:
+        case QWebPage::SelectNextLine:
+        case QWebPage::SelectPreviousLine:
+        case QWebPage::SelectStartOfLine:
+        case QWebPage::SelectEndOfLine:
+        case QWebPage::SelectStartOfBlock:
+        case QWebPage::SelectEndOfBlock:
+        case QWebPage::SelectStartOfDocument:
+        case QWebPage::SelectEndOfDocument:
+        case QWebPage::DeleteStartOfWord:
+        case QWebPage::DeleteEndOfWord:
+        case QWebPage::SetTextDirectionDefault:
+        case QWebPage::SetTextDirectionLeftToRight:
+        case QWebPage::SetTextDirectionRightToLeft:
         case QWebPage::ToggleBold:
         case QWebPage::ToggleItalic:
         case QWebPage::ToggleUnderline:
@@ -479,6 +529,35 @@ void QWebPagePrivate::updateEditorActions()
     updateAction(QWebPage::Cut);
     updateAction(QWebPage::Copy);
     updateAction(QWebPage::Paste);
+    updateAction(QWebPage::MoveToNextChar);
+    updateAction(QWebPage::MoveToPreviousChar);
+    updateAction(QWebPage::MoveToNextWord);
+    updateAction(QWebPage::MoveToPreviousWord);
+    updateAction(QWebPage::MoveToNextLine);
+    updateAction(QWebPage::MoveToPreviousLine);
+    updateAction(QWebPage::MoveToStartOfLine);
+    updateAction(QWebPage::MoveToEndOfLine);
+    updateAction(QWebPage::MoveToStartOfBlock);
+    updateAction(QWebPage::MoveToEndOfBlock);
+    updateAction(QWebPage::MoveToStartOfDocument);
+    updateAction(QWebPage::MoveToEndOfDocument);
+    updateAction(QWebPage::SelectNextChar);
+    updateAction(QWebPage::SelectPreviousChar);
+    updateAction(QWebPage::SelectNextWord);
+    updateAction(QWebPage::SelectPreviousWord);
+    updateAction(QWebPage::SelectNextLine);
+    updateAction(QWebPage::SelectPreviousLine);
+    updateAction(QWebPage::SelectStartOfLine);
+    updateAction(QWebPage::SelectEndOfLine);
+    updateAction(QWebPage::SelectStartOfBlock);
+    updateAction(QWebPage::SelectEndOfBlock);
+    updateAction(QWebPage::SelectStartOfDocument);
+    updateAction(QWebPage::SelectEndOfDocument);
+    updateAction(QWebPage::DeleteStartOfWord);
+    updateAction(QWebPage::DeleteEndOfWord);
+    updateAction(QWebPage::SetTextDirectionDefault);
+    updateAction(QWebPage::SetTextDirectionLeftToRight);
+    updateAction(QWebPage::SetTextDirectionRightToLeft);
     updateAction(QWebPage::ToggleBold);
     updateAction(QWebPage::ToggleItalic);
     updateAction(QWebPage::ToggleUnderline);
@@ -516,7 +595,11 @@ void QWebPagePrivate::mousePressEvent(QMouseEvent *ev)
         return;
     }
 
-    bool accepted = frame->eventHandler()->handleMousePressEvent(PlatformMouseEvent(ev, 1));
+    bool accepted = false;
+    PlatformMouseEvent mev(ev, 1);
+    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
+    if (mev.button() != NoButton)
+        accepted = frame->eventHandler()->handleMousePressEvent(mev);
     ev->setAccepted(accepted);
 }
 
@@ -526,7 +609,11 @@ void QWebPagePrivate::mouseDoubleClickEvent(QMouseEvent *ev)
     if (!frame->view())
         return;
 
-    bool accepted = frame->eventHandler()->handleMousePressEvent(PlatformMouseEvent(ev, 2));
+    bool accepted = false;
+    PlatformMouseEvent mev(ev, 2);
+    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
+    if (mev.button() != NoButton)
+        accepted = frame->eventHandler()->handleMousePressEvent(mev);
     ev->setAccepted(accepted);
 
     tripleClickTimer.start(QApplication::doubleClickInterval(), q);
@@ -539,7 +626,11 @@ void QWebPagePrivate::mouseTripleClickEvent(QMouseEvent *ev)
     if (!frame->view())
         return;
 
-    bool accepted = frame->eventHandler()->handleMousePressEvent(PlatformMouseEvent(ev, 3));
+    bool accepted = false;
+    PlatformMouseEvent mev(ev, 3);
+    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
+    if (mev.button() != NoButton)
+        accepted = frame->eventHandler()->handleMousePressEvent(mev);
     ev->setAccepted(accepted);
 }
 
@@ -549,7 +640,11 @@ void QWebPagePrivate::mouseReleaseEvent(QMouseEvent *ev)
     if (!frame->view())
         return;
 
-    bool accepted = frame->eventHandler()->handleMouseReleaseEvent(PlatformMouseEvent(ev, 0));
+    bool accepted = false;
+    PlatformMouseEvent mev(ev, 0);
+    // ignore the event if we can't map Qt's mouse buttons to WebCore::MouseButton
+    if (mev.button() != NoButton)
+        accepted = frame->eventHandler()->handleMouseReleaseEvent(mev);
     ev->setAccepted(accepted);
 
 #ifndef QT_NO_CLIPBOARD
@@ -616,7 +711,7 @@ void QWebPagePrivate::wheelEvent(QWheelEvent *ev)
 #endif // QT_NO_WHEELEVENT
 
 #ifndef QT_NO_SHORTCUT
-static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event)
+QWebPage::WebAction QWebPagePrivate::editorActionForKeyEvent(QKeyEvent* event)
 {
     static struct {
         QKeySequence::StandardKey standardKey;
@@ -657,6 +752,7 @@ static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event)
         { QKeySequence::InsertParagraphSeparator, QWebPage::InsertParagraphSeparator },
         { QKeySequence::InsertLineSeparator, QWebPage::InsertLineSeparator },
 #endif
+        { QKeySequence::SelectAll, QWebPage::SelectAll },
         { QKeySequence::UnknownKey, QWebPage::NoWebAction }
     };
 
@@ -673,20 +769,9 @@ void QWebPagePrivate::keyPressEvent(QKeyEvent *ev)
     bool handled = false;
     WebCore::Frame* frame = page->focusController()->focusedOrMainFrame();
     WebCore::Editor* editor = frame->editor();
-#ifndef QT_NO_SHORTCUT
-    if (editor->canEdit()) {
-        QWebPage::WebAction action = editorActionForKeyEvent(ev);
-        if (action != QWebPage::NoWebAction) {
-            q->triggerAction(action);
-            handled = true;
-        }
-    } else {
-        if (ev == QKeySequence::Copy) {
-            q->triggerAction(QWebPage::Copy);
-            handled = true;
-        }
-    }
-#endif // QT_NO_SHORTCUT
+    // we forward the key event to WebCore first to handle potential DOM
+    // defined event handlers and later on end up in EditorClientQt::handleKeyboardEvent
+    // to trigger editor commands via triggerAction().
     if (!handled)
         handled = frame->eventHandler()->keyEvent(ev);
     if (!handled) {
@@ -727,9 +812,6 @@ void QWebPagePrivate::keyReleaseEvent(QKeyEvent *ev)
 
 void QWebPagePrivate::focusInEvent(QFocusEvent *ev)
 {
-    if (ev->reason() == Qt::PopupFocusReason)
-        return;
-
     FocusController *focusController = page->focusController();
     Frame *frame = focusController->focusedFrame();
     focusController->setActive(true);
@@ -742,9 +824,6 @@ void QWebPagePrivate::focusInEvent(QFocusEvent *ev)
 
 void QWebPagePrivate::focusOutEvent(QFocusEvent *ev)
 {
-    if (ev->reason() == Qt::PopupFocusReason)
-        return;
-
     // only set the focused frame inactive so that we stop painting the caret
     // and the focus frame. But don't tell the focus controller so that upon
     // focusInEvent() we can re-activate the frame.
@@ -813,15 +892,19 @@ void QWebPagePrivate::leaveEvent(QEvent *ev)
     \property QWebPage::palette
     \brief the page's palette
 
-    The background brush of the palette is used to draw the background of the main frame.
+    The base brush of the palette is used to draw the background of the main frame.
 
     By default, this property contains the application's default palette.
 */
 void QWebPage::setPalette(const QPalette &pal)
 {
     d->palette = pal;
-    if (d->mainFrame)
-        d->mainFrame->d->updateBackground();
+    if (!d->mainFrame || !d->mainFrame->d->frame->view())
+        return;
+
+    QBrush brush = pal.brush(QPalette::Base);
+    QColor backgroundColor = brush.style() == Qt::SolidPattern ? brush.color() : QColor();
+    QWebFramePrivate::core(d->mainFrame)->view()->updateBackgroundRecursively(backgroundColor, !backgroundColor.alpha());
 }
 
 QPalette QWebPage::palette() const
@@ -956,7 +1039,7 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
     case Qt::ImMicroFocus: {
         Frame *frame = d->page->focusController()->focusedFrame();
         if (frame) {
-            return QVariant(frame->selection()->caretRect());
+            return QVariant(frame->selection()->absoluteCaretBounds());
         }
         return QVariant();
     }
@@ -1035,6 +1118,10 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
 /*!
     \enum QWebPage::WebAction
 
+    This enum describes the types of action which can be performed on the web page.
+    Actions which are related to text editing, cursor movement, and text selection
+    only have an effect if \l contentEditable is true.
+
     \value NoWebAction No action is triggered.
     \value OpenLink Open the current link.
     \value OpenLinkInNewWindow Open the current link in a new window.
@@ -1088,6 +1175,7 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
     \value InspectElement Show the Web Inspector with the currently highlighted HTML element.
     \value InsertParagraphSeparator Insert a new paragraph.
     \value InsertLineSeparator Insert a new line.
+    \value SelectAll Selects all content.
     \omitvalue WebActionCount
 
 */
@@ -1367,7 +1455,7 @@ void QWebPage::triggerAction(WebAction action, bool checked)
             if (QWebFrame *targetFrame = d->hitTestResult.linkTargetFrame()) {
                 WTF::RefPtr<WebCore::Frame> wcFrame = targetFrame->d->frame;
                 targetFrame->d->frame->loader()->loadFrameRequestWithFormAndValues(frameLoadRequest(d->hitTestResult.linkUrl(), wcFrame.get()),
-                                                                                   /*lockHistory*/ false, /*event*/ 0,
+                                                                                   /*lockHistory*/ false, /*lockBackForwardList*/ false, /*event*/ 0,
                                                                                    /*HTMLFormElement*/ 0, /*formValues*/
                                                                                    WTF::HashMap<String, String>());
                 break;
@@ -1422,10 +1510,13 @@ void QWebPage::triggerAction(WebAction action, bool checked)
             editor->setBaseWritingDirection(RightToLeftWritingDirection);
             break;
         case InspectElement:
-            d->page->inspectorController()->inspect(d->hitTestResult.d->innerNonSharedNode.get());
+            if (!d->hitTestResult.isNull())
+                d->page->inspectorController()->inspect(d->hitTestResult.d->innerNonSharedNode.get());
+            else
+                d->page->inspectorController()->show();
             break;
         default:
-            command = editorCommandForWebActions(action);
+            command = QWebPagePrivate::editorCommandForWebActions(action);
             break;
     }
 
@@ -1464,6 +1555,56 @@ void QWebPage::setViewportSize(const QSize &size) const
     }
 }
 
+QSize QWebPage::fixedLayoutSize() const
+{
+    if (d->mainFrame && d->mainFrame->d->frame->view())
+        return d->mainFrame->d->frame->view()->fixedLayoutSize();
+
+    return d->fixedLayoutSize;
+}
+
+/*!
+    \property QWebPage::fixedLayoutSize
+    \since 4.6
+    \brief the size of the fixed layout
+
+    The size affects the layout of the page in the viewport.  If set to a fixed size of
+    1024x768 for example then webkit will layout the page as if the viewport were that size
+    rather than something different.
+*/
+void QWebPage::setFixedLayoutSize(const QSize &size) const
+{
+    d->fixedLayoutSize = size;
+
+    QWebFrame *frame = mainFrame();
+    if (frame->d->frame && frame->d->frame->view()) {
+        WebCore::FrameView* view = frame->d->frame->view();
+        view->setFixedLayoutSize(size);
+        frame->d->frame->forceLayout();
+    }
+}
+
+bool QWebPage::useFixedLayout() const
+{
+    return d->useFixedLayout;
+}
+
+/*!
+    \property QWebPage::usedFixedLayout
+    \since 4.6
+    \brief whether to use a fixed layout size
+*/
+void QWebPage::setUseFixedLayout(bool useFixedLayout)
+{
+    d->useFixedLayout = useFixedLayout;
+
+    QWebFrame *frame = mainFrame();
+    if (frame->d->frame && frame->d->frame->view()) {
+        WebCore::FrameView* view = frame->d->frame->view();
+        view->setUseFixedLayout(useFixedLayout);
+        frame->d->frame->forceLayout();
+    }
+}
 
 /*!
     \fn bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, QWebPage::NavigationType type)
@@ -1614,32 +1755,83 @@ QAction *QWebPage::action(WebAction action) const
         }
 #endif // QT_NO_UNDOSTACK
         case MoveToNextChar:
+            text = tr("Move the cursor to the next character");
+            break;
         case MoveToPreviousChar:
+            text = tr("Move the cursor to the previous character");
+            break;
         case MoveToNextWord:
+            text = tr("Move the cursor to the next word");
+            break;
         case MoveToPreviousWord:
+            text = tr("Move the cursor to the previous word");
+            break;
         case MoveToNextLine:
+            text = tr("Move the cursor to the next line");
+            break;
         case MoveToPreviousLine:
+            text = tr("Move the cursor to the previous line");
+            break;
         case MoveToStartOfLine:
+            text = tr("Move the cursor to the start of the line");
+            break;
         case MoveToEndOfLine:
+            text = tr("Move the cursor to the end of the line");
+            break;
         case MoveToStartOfBlock:
+            text = tr("Move the cursor to the start of the block");
+            break;
         case MoveToEndOfBlock:
+            text = tr("Move the cursor to the end of the block");
+            break;
         case MoveToStartOfDocument:
+            text = tr("Move the cursor to the start of the document");
+            break;
         case MoveToEndOfDocument:
+            text = tr("Move the cursor to the end of the document");
+            break;
         case SelectNextChar:
+            text = tr("Select to the next character");
+            break;
         case SelectPreviousChar:
+            text = tr("Select to the previous character");
+            break;
         case SelectNextWord:
+            text = tr("Select to the next word");
+            break;
         case SelectPreviousWord:
+            text = tr("Select to the previous word");
+            break;
         case SelectNextLine:
+            text = tr("Select to the next line");
+            break;
         case SelectPreviousLine:
+            text = tr("Select to the previous line");
+            break;
         case SelectStartOfLine:
+            text = tr("Select to the start of the line");
+            break;
         case SelectEndOfLine:
+            text = tr("Select to the end of the line");
+            break;
         case SelectStartOfBlock:
+            text = tr("Select to the start of the block");
+            break;
         case SelectEndOfBlock:
+            text = tr("Select to the end of the block");
+            break;
         case SelectStartOfDocument:
+            text = tr("Select to the start of the document");
+            break;
         case SelectEndOfDocument:
+            text = tr("Select to the end of the document");
+            break;
         case DeleteStartOfWord:
+            text = tr("Delete to the start of the word");
+            break;
         case DeleteEndOfWord:
-            break; // ####
+            text = tr("Delete to the end of the word");
+            break;
 
         case SetTextDirectionDefault:
             text = contextMenuItemTagDefaultDirection();
@@ -1813,7 +2005,7 @@ bool QWebPage::focusNextPrevChild(bool next)
 }
 
 /*!
-    \property QWebPage::editable
+    \property QWebPage::contentEditable
     \brief whether the content in this QWebPage is editable or not
     \since 4.5
 
@@ -1821,7 +2013,7 @@ bool QWebPage::focusNextPrevChild(bool next)
     cursor. If disabled (the default) only HTML elements in the web page with their
     \c{contenteditable} attribute set are editable.
 */
-void QWebPage::setEditable(bool editable)
+void QWebPage::setContentEditable(bool editable)
 {
     if (d->editable != editable) {
         d->editable = editable;
@@ -1841,7 +2033,7 @@ void QWebPage::setEditable(bool editable)
     }
 }
 
-bool QWebPage::isEditable() const
+bool QWebPage::isContentEditable() const
 {
     return d->editable;
 }
@@ -1974,7 +2166,11 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
     This enum describes the types of extensions that the page can support. Before using these extensions, you
     should verify that the extension is supported by calling supportsExtension().
 
-    Currently there are no extensions.
+    \value ChooseMultipleFilesExtension Whether the web page supports multiple file selection.
+    This extension is invoked when the web content requests one or more file names, for example
+    as a result of the user clicking on a "file upload" button in a HTML form where multiple
+    file selection is allowed.
+
 */
 
 /*!
@@ -1986,11 +2182,27 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
 */
 
 /*!
-    \class QWebPage::ExtensionReturn
-    \since 4.4
-    \brief The ExtensionOption class provides an extended output argument to QWebPage's extension support.
+    \class QWebPage::ChooseMultipleFilesExtensionOption
+    \since 4.5
+    \brief The ChooseMultipleFilesExtensionOption class describes the option
+    for the multiple files selection extension.
 
-    \sa QWebPage::extension()
+    The ChooseMultipleFilesExtensionOption class holds the frame originating the request
+    and the suggested filenames which might be provided.
+
+    \sa QWebPage::chooseFile(), QWebPage::ChooseMultipleFilesExtensionReturn
+*/
+
+/*!
+    \class QWebPage::ChooseMultipleFilesExtensionReturn
+    \since 4.5
+    \brief The ChooseMultipleFilesExtensionReturn describes the return value
+    for the multiple files selection extension.
+
+    The ChooseMultipleFilesExtensionReturn class holds the filenames selected by the user
+    when the extension is invoked.
+
+    \sa QWebPage::ChooseMultipleFilesExtensionOption
 */
 
 /*!
@@ -2001,15 +2213,22 @@ void QWebPage::updatePositionDependentActions(const QPoint &pos)
 
     You can call supportsExtension() to check if an extension is supported by the page.
 
-    By default, no extensions are supported, and this function returns false.
+    Returns true if the extension was called successfully; otherwise returns false.
 
     \sa supportsExtension(), Extension
 */
 bool QWebPage::extension(Extension extension, const ExtensionOption *option, ExtensionReturn *output)
 {
-    Q_UNUSED(extension)
-    Q_UNUSED(option)
-    Q_UNUSED(output)
+#ifndef QT_NO_FILEDIALOG
+    if (extension == ChooseMultipleFilesExtension) {
+        // FIXME: do not ignore suggestedFiles
+        QStringList suggestedFiles = static_cast<const ChooseMultipleFilesExtensionOption*>(option)->suggestedFileNames;
+        QStringList names = QFileDialog::getOpenFileNames(d->view, QString::null);
+        static_cast<ChooseMultipleFilesExtensionReturn*>(output)->fileNames = names;
+        return true;
+    }
+#endif
+
     return false;
 }
 
@@ -2020,8 +2239,12 @@ bool QWebPage::extension(Extension extension, const ExtensionOption *option, Ext
 */
 bool QWebPage::supportsExtension(Extension extension) const
 {
-    Q_UNUSED(extension)
+#ifndef QT_NO_FILEDIALOG
+    return extension == ChooseMultipleFilesExtension;
+#else
+    Q_UNUSED(extension);
     return false;
+#endif
 }
 
 /*!
@@ -2155,8 +2378,8 @@ QWebPluginFactory *QWebPage::pluginFactory() const
 }
 
 /*!
-    This function is called when a user agent for HTTP requests is needed. You can re-implement this
-    function to dynamically return different user agent's for different urls, based on the \a url parameter.
+    This function is called when a user agent for HTTP requests is needed. You can reimplement this
+    function to dynamically return different user agents for different URLs, based on the \a url parameter.
 
     The default implementation returns the following value:
 
@@ -2428,10 +2651,12 @@ quint64 QWebPage::bytesReceived() const {
 
 /*!
     \fn void QWebPage::contentsChanged()
+    \since 4.5
 
-    This signal is emitted whenever the content changes during editing.
+    This signal is emitted whenever the text in form elements changes
+    as well as other editable content.
 
-    \sa selectedText()
+    \sa contentEditable, QWebFrame::toHtml(), QWebFrame::toPlainText()
 */
 
 /*!
@@ -2538,6 +2763,40 @@ quint64 QWebPage::bytesReceived() const {
 
     This signal is emitted whenever the visibility of the menubar in a web browser
     window that hosts QWebPage should be changed to \a visible.
+*/
+
+/*!
+    \fn void QWebPage::databaseQuotaExceeded(QWebFrame* frame, QString databaseName);
+    \since 4.5
+
+    This signal is emitted whenever the web site shown in \a frame is asking to store data
+    to the database \a databaseName and the quota allocated to that web site is exceeded.
+*/
+
+/*!
+  \since 4.5
+  \fn void QWebPage::saveFrameStateRequested(QWebFrame* frame, QWebHistoryItem* item);
+
+  This signal is emitted shortly before the history of navigated pages
+  in \a frame is changed, for example when navigating back in the history.
+
+  The provided QWebHistoryItem, \a item, holds the history entry of the frame before
+  the change.
+
+  A potential use-case for this signal is to store custom data in
+  the QWebHistoryItem associated to the frame, using QWebHistoryItem::setUserData().
+*/
+
+/*!
+  \since 4.5
+  \fn void QWebPage::restoreFrameStateRequested(QWebFrame* frame);
+
+  This signal is emitted when the load of \a frame is finished and the application may now update its state accordingly.
+*/
+
+/*!
+  \fn QWebPagePrivate* QWebPage::handle() const
+  \internal
 */
 
 #include "moc_qwebpage.cpp"

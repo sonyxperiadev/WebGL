@@ -32,8 +32,10 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
-#include "collector.h"
+#include "Collector.h"
+#include "ExecutableAllocator.h"
 #include "SmallStrings.h"
+#include "JSValue.h"
 
 struct OpaqueJSClass;
 struct OpaqueJSClassContextData;
@@ -44,13 +46,15 @@ namespace JSC {
     class CommonIdentifiers;
     class Heap;
     class IdentifierTable;
+    class Instruction;
+    class Interpreter;
     class JSGlobalObject;
     class JSObject;
     class Lexer;
-    class Machine;
     class Parser;
     class ParserRefCounted;
-    class StructureID;
+    class ScopeNode;
+    class Structure;
     class UString;
     struct HashTable;
 
@@ -63,11 +67,20 @@ namespace JSC {
         static PassRefPtr<JSGlobalData> createLeaked();
         ~JSGlobalData();
 
-        Machine* machine;
+#if ENABLE(JSC_MULTIPLE_THREADS)
+        // Will start tracking threads that use the heap, which is resource-heavy.
+        void makeUsableFromMultipleThreads() { heap.makeUsableFromMultipleThreads(); }
+#endif
 
-        JSValue* exception;
-#if ENABLE(CTI)
-        void* throwReturnAddress;
+        const Vector<Instruction>& numericCompareFunction(ExecState*);
+        Vector<Instruction> lazyNumericCompareFunction;
+        bool initializingLazyNumericCompareFunction;
+
+        Interpreter* interpreter;
+
+        JSValuePtr exception;
+#if ENABLE(JIT)
+        void* exceptionLocation;
 #endif
 
         const HashTable* arrayTable;
@@ -78,13 +91,15 @@ namespace JSC {
         const HashTable* regExpConstructorTable;
         const HashTable* stringTable;
         
-        RefPtr<StructureID> activationStructureID;
-        RefPtr<StructureID> interruptedExecutionErrorStructure;
-        RefPtr<StructureID> staticScopeStructureID;
-        RefPtr<StructureID> stringStructureID;
-        RefPtr<StructureID> notAnObjectErrorStubStructure;
-        RefPtr<StructureID> notAnObjectStructure;
-        RefPtr<StructureID> numberStructureID;
+        RefPtr<Structure> activationStructure;
+        RefPtr<Structure> interruptedExecutionErrorStructure;
+        RefPtr<Structure> staticScopeStructure;
+        RefPtr<Structure> stringStructure;
+        RefPtr<Structure> notAnObjectErrorStubStructure;
+        RefPtr<Structure> notAnObjectStructure;
+#if !USE(ALTERNATE_JSIMMEDIATE)
+        RefPtr<Structure> numberStructure;
+#endif
 
         IdentifierTable* identifierTable;
         CommonIdentifiers* propertyNames;
@@ -113,10 +128,17 @@ namespace JSC {
 
         HashSet<JSObject*> arrayVisitedElements;
 
-        Heap heap;
+        ScopeNode* scopeNodeBeingReparsed;
 
+        Heap heap;
+#if ENABLE(ASSEMBLER)
+        PassRefPtr<ExecutablePool> poolForSize(size_t n) { return m_executableAllocator.poolForSize(n); }
+#endif
     private:
         JSGlobalData(bool isShared = false);
+#if ENABLE(ASSEMBLER)
+        ExecutableAllocator m_executableAllocator;
+#endif
 
         static JSGlobalData*& sharedInstanceInternal();
     };

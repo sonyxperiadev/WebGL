@@ -23,6 +23,7 @@
 
 #include "ErrorInstance.h"
 #include "JSFunction.h"
+#include "JSString.h"
 #include "NativeErrorPrototype.h"
 
 namespace JSC {
@@ -31,9 +32,9 @@ ASSERT_CLASS_FITS_IN_CELL(NativeErrorConstructor);
 
 const ClassInfo NativeErrorConstructor::info = { "Function", &InternalFunction::info, 0, 0 };
 
-NativeErrorConstructor::NativeErrorConstructor(ExecState* exec, PassRefPtr<StructureID> structure, NativeErrorPrototype* nativeErrorPrototype)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, nativeErrorPrototype->getDirect(exec->propertyNames().name)->getString()))
-    , m_errorStructure(ErrorInstance::createStructureID(nativeErrorPrototype))
+NativeErrorConstructor::NativeErrorConstructor(ExecState* exec, PassRefPtr<Structure> structure, NativeErrorPrototype* nativeErrorPrototype)
+    : InternalFunction(&exec->globalData(), structure, Identifier(exec, nativeErrorPrototype->getDirect(exec->propertyNames().name).getString()))
+    , m_errorStructure(ErrorInstance::createStructure(nativeErrorPrototype))
 {
     putDirect(exec->propertyNames().length, jsNumber(exec, 1), DontDelete | ReadOnly | DontEnum); // ECMA 15.11.7.5
     putDirect(exec->propertyNames().prototype, nativeErrorPrototype, DontDelete | ReadOnly | DontEnum);
@@ -42,8 +43,8 @@ NativeErrorConstructor::NativeErrorConstructor(ExecState* exec, PassRefPtr<Struc
 ErrorInstance* NativeErrorConstructor::construct(ExecState* exec, const ArgList& args)
 {
     ErrorInstance* object = new (exec) ErrorInstance(m_errorStructure);
-    if (!args.at(exec, 0)->isUndefined())
-        object->putDirect(exec->propertyNames().message, jsString(exec, args.at(exec, 0)->toString(exec)));
+    if (!args.at(exec, 0).isUndefined())
+        object->putDirect(exec->propertyNames().message, jsString(exec, args.at(exec, 0).toString(exec)));
     return object;
 }
 
@@ -58,7 +59,7 @@ ConstructType NativeErrorConstructor::getConstructData(ConstructData& constructD
     return ConstructTypeHost;
 }
 
-static JSValue* callNativeErrorConstructor(ExecState* exec, JSObject* constructor, JSValue*, const ArgList& args)
+static JSValuePtr callNativeErrorConstructor(ExecState* exec, JSObject* constructor, JSValuePtr, const ArgList& args)
 {
     return static_cast<NativeErrorConstructor*>(constructor)->construct(exec, args);
 }

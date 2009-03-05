@@ -347,7 +347,7 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
 	return m_decoder.m_image && m_decoder.m_image->fAllDataReceived;
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
     // do nothing, since the cache is managed elsewhere
 }
@@ -356,6 +356,12 @@ IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
     // for now, all (1) of our frames are the same size
     return this->size();
+}
+
+String ImageSource::filenameExtension() const
+{
+    // FIXME: need to add virtual to our decoders to return "jpg/png/gif/..."
+    return String();
 }
 
 }

@@ -33,6 +33,7 @@
 #include "CSSRule.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
+#include "CSSSelectorList.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
@@ -60,19 +61,170 @@
 #include "Text.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
-#include <runtime/ExecState.h>
-#include <runtime/JSLock.h>
 #include <wtf/RefCountedLeakCounter.h>
+
+#define DUMP_NODE_STATISTICS 0
+
+using namespace std;
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-// --------
-
 bool Node::isSupported(const String& feature, const String& version)
 {
     return DOMImplementation::hasFeature(feature, version);
+}
+
+#if DUMP_NODE_STATISTICS
+static HashSet<Node*> liveNodeSet;
+#endif
+
+void Node::dumpStatistics()
+{
+#if DUMP_NODE_STATISTICS
+    size_t nodesWithRareData = 0;
+
+    size_t elementNodes = 0;
+    size_t attrNodes = 0;
+    size_t textNodes = 0;
+    size_t cdataNodes = 0;
+    size_t commentNodes = 0;
+    size_t entityReferenceNodes = 0;
+    size_t entityNodes = 0;
+    size_t piNodes = 0;
+    size_t documentNodes = 0;
+    size_t docTypeNodes = 0;
+    size_t fragmentNodes = 0;
+    size_t notationNodes = 0;
+    size_t xpathNSNodes = 0;
+
+    HashMap<String, size_t> perTagCount;
+
+    size_t attributes = 0;
+    size_t mappedAttributes = 0;
+    size_t mappedAttributesWithStyleDecl = 0;
+    size_t attributesWithAttr = 0;
+    size_t attrMaps = 0;
+    size_t mappedAttrMaps = 0;
+
+    for (HashSet<Node*>::const_iterator it = liveNodeSet.begin(); it != liveNodeSet.end(); ++it) {
+        Node* node = *it;
+
+        if (node->hasRareData())
+            ++nodesWithRareData;
+
+        switch (node->nodeType()) {
+            case ELEMENT_NODE: {
+                ++elementNodes;
+
+                // Tag stats
+                Element* element = static_cast<Element*>(node);
+                pair<HashMap<String, size_t>::iterator, bool> result = perTagCount.add(element->tagName(), 1);
+                if (!result.second)
+                    result.first->second++;
+
+                // AttributeMap stats
+                if (NamedAttrMap* attrMap = element->attributes(true)) {
+                    attributes += attrMap->length();
+                    ++attrMaps;
+                    if (attrMap->isMappedAttributeMap())
+                        ++mappedAttrMaps;
+                    for (unsigned i = 0; i < attrMap->length(); ++i) {
+                        Attribute* attr = attrMap->attributeItem(i);
+                        if (attr->attr())
+                            ++attributesWithAttr;
+                        if (attr->isMappedAttribute()) {
+                            ++mappedAttributes;
+                            if (attr->style())
+                                ++mappedAttributesWithStyleDecl;
+                        }
+                    }
+                }
+                break;
+            }
+            case ATTRIBUTE_NODE: {
+                ++attrNodes;
+                break;
+            }
+            case TEXT_NODE: {
+                ++textNodes;
+                break;
+            }
+            case CDATA_SECTION_NODE: {
+                ++cdataNodes;
+                break;
+            }
+            case COMMENT_NODE: {
+                ++commentNodes;
+                break;
+            }
+            case ENTITY_REFERENCE_NODE: {
+                ++entityReferenceNodes;
+                break;
+            }
+            case ENTITY_NODE: {
+                ++entityNodes;
+                break;
+            }
+            case PROCESSING_INSTRUCTION_NODE: {
+                ++piNodes;
+                break;
+            }
+            case DOCUMENT_NODE: {
+                ++documentNodes;
+                break;
+            }
+            case DOCUMENT_TYPE_NODE: {
+                ++docTypeNodes;
+                break;
+            }
+            case DOCUMENT_FRAGMENT_NODE: {
+                ++fragmentNodes;
+                break;
+            }
+            case NOTATION_NODE: {
+                ++notationNodes;
+                break;
+            }
+            case XPATH_NAMESPACE_NODE: {
+                ++xpathNSNodes;
+                break;
+            }
+        }
+            
+    }
+
+    printf("Number of Nodes: %d\n\n", liveNodeSet.size());
+    printf("Number of Nodes with RareData: %zu\n\n", nodesWithRareData);
+
+    printf("NodeType distrubution:\n");
+    printf("  Number of Element nodes: %zu\n", elementNodes);
+    printf("  Number of Attribute nodes: %zu\n", attrNodes);
+    printf("  Number of Text nodes: %zu\n", textNodes);
+    printf("  Number of CDATASection nodes: %zu\n", cdataNodes);
+    printf("  Number of Comment nodes: %zu\n", commentNodes);
+    printf("  Number of EntityReference nodes: %zu\n", entityReferenceNodes);
+    printf("  Number of Entity nodes: %zu\n", entityNodes);
+    printf("  Number of ProcessingInstruction nodes: %zu\n", piNodes);
+    printf("  Number of Document nodes: %zu\n", documentNodes);
+    printf("  Number of DocumentType nodes: %zu\n", docTypeNodes);
+    printf("  Number of DocumentFragment nodes: %zu\n", fragmentNodes);
+    printf("  Number of Notation nodes: %zu\n", notationNodes);
+    printf("  Number of XPathNS nodes: %zu\n", xpathNSNodes);
+
+    printf("Element tag name distibution:\n");
+    for (HashMap<String, size_t>::const_iterator it = perTagCount.begin(); it != perTagCount.end(); ++it)
+        printf("  Number of <%s> tags: %zu\n", it->first.utf8().data(), it->second);
+
+    printf("Attribute Maps:\n");
+    printf("  Number of Attributes (non-Node and Node): %zu [%zu]\n", attributes, sizeof(Attribute));
+    printf("  Number of MappedAttributes: %zu [%zu]\n", mappedAttributes, sizeof(MappedAttribute));
+    printf("  Number of MappedAttributes with a StyleDeclaration: %zu\n", mappedAttributesWithStyleDecl);
+    printf("  Number of Attributes with an Attr: %zu\n", attributesWithAttr);
+    printf("  Number of NamedAttrMaps: %zu\n", attrMaps);
+    printf("  Number of NamedMappedAttrMap: %zu\n", mappedAttrMaps);
+#endif
 }
 
 #ifndef NDEBUG
@@ -140,7 +292,7 @@ Node::StyleChange Node::diff( RenderStyle *s1, RenderStyle *s2 )
     return ch;
 }
 
-Node::Node(Document* doc, bool isElement, bool isContainer)
+Node::Node(Document* doc, bool isElement, bool isContainer, bool isText)
     : m_document(doc)
     , m_previous(0)
     , m_next(0)
@@ -160,6 +312,16 @@ Node::Node(Document* doc, bool isElement, bool isContainer)
     , m_hasRareData(false)
     , m_isElement(isElement)
     , m_isContainer(isContainer)
+    , m_isText(isText)
+    , m_parsingChildrenFinished(true)
+#if ENABLE(SVG)
+    , m_areSVGAttributesValid(true)
+#endif
+    , m_isStyleAttributeValid(true)
+    , m_synchronizingStyleAttribute(false)
+#if ENABLE(SVG)
+    , m_synchronizingSVGAttributes(false)
+#endif
 {
 #ifndef NDEBUG
     if (shouldIgnoreLeaks)
@@ -167,20 +329,9 @@ Node::Node(Document* doc, bool isElement, bool isContainer)
     else
         nodeCounter.increment();
 #endif
-}
-
-void Node::setDocument(Document* doc)
-{
-    if (inDocument() || m_document == doc)
-        return;
-
-    willMoveToNewOwnerDocument();
-
-    updateDOMNodeDocument(this, m_document.get(), doc);
-
-    m_document = doc;
-
-    didMoveToNewOwnerDocument();
+#if DUMP_NODE_STATISTICS
+    liveNodeSet.add(this);
+#endif
 }
 
 Node::~Node()
@@ -192,7 +343,11 @@ Node::~Node()
     else
         nodeCounter.decrement();
 #endif
-    
+
+#if DUMP_NODE_STATISTICS
+    liveNodeSet.remove(this);
+#endif
+
     if (!hasRareData())
         ASSERT(!NodeRareData::rareDataMap().contains(this));
     else {
@@ -215,7 +370,21 @@ Node::~Node()
         m_next->setPreviousSibling(0);
 }
 
-inline NodeRareData* Node::rareData() const
+void Node::setDocument(Document* doc)
+{
+    if (inDocument() || m_document == doc)
+        return;
+
+    willMoveToNewOwnerDocument();
+
+    updateDOMNodeDocument(this, m_document.get(), doc);
+
+    m_document = doc;
+
+    didMoveToNewOwnerDocument();
+}
+
+NodeRareData* Node::rareData() const
 {
     ASSERT(hasRareData());
     return NodeRareData::rareDataFromMap(this);
@@ -268,7 +437,7 @@ PassRefPtr<NodeList> Node::childNodes()
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
         document()->addNodeListCache();
     }
 
@@ -412,12 +581,16 @@ bool Node::shouldUseInputMethod() const
     return isContentEditable();
 }
 
+RenderBox* Node::renderBox() const
+{
+    return m_renderer && m_renderer->isBox() ? static_cast<RenderBox*>(m_renderer) : 0;
+}
+
 IntRect Node::getRect() const
 {
-    int _x, _y;
-    if (renderer() && renderer()->absolutePosition(_x, _y))
-        return IntRect( _x, _y, renderer()->width(), renderer()->height() + renderer()->borderTopExtra() + renderer()->borderBottomExtra());
-
+    // FIXME: broken with transforms
+    if (renderer())
+        return renderer()->absoluteBoundingBoxRect();
     return IntRect();
 }
 
@@ -479,13 +652,13 @@ bool Node::canLazyAttach()
 void Node::setFocus(bool b)
 { 
     if (b || hasRareData())
-        ensureRareData()->m_focused = b;
+        ensureRareData()->setFocused(b);
 }
 
 bool Node::rareDataFocused() const
 {
     ASSERT(hasRareData());
-    return rareData()->m_focused;
+    return rareData()->isFocused();
 }
     
 bool Node::isFocusable() const
@@ -516,7 +689,7 @@ void Node::registerDynamicNodeList(DynamicNodeList* list)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
         document()->addNodeListCache();
     } else if (!m_document->hasNodeListCaches()) {
         // We haven't been receiving notifications while there were no registered lists, so the cache is invalid now.
@@ -672,7 +845,7 @@ Node* Node::traversePreviousSiblingPostOrder(const Node* stayWithin) const
     return 0;
 }
 
-void Node::checkSetPrefix(const AtomicString &_prefix, ExceptionCode& ec)
+void Node::checkSetPrefix(const AtomicString&, ExceptionCode& ec)
 {
     // Perform error checking as required by spec for setting Node.prefix. Used by
     // Element::setPrefix() and Attr::setPrefix()
@@ -702,19 +875,17 @@ void Node::checkSetPrefix(const AtomicString &_prefix, ExceptionCode& ec)
     }*/
 }
 
-bool Node::canReplaceChild(Node* newChild, Node* oldChild)
+bool Node::canReplaceChild(Node* newChild, Node*)
 {
     if (newChild->nodeType() != DOCUMENT_FRAGMENT_NODE) {
         if (!childTypeAllowed(newChild->nodeType()))
             return false;
-    }
-    else {
+    } else {
         for (Node *n = newChild->firstChild(); n; n = n->nextSibling()) {
             if (!childTypeAllowed(n->nodeType())) 
                 return false;
         }
     }
-    
     return true;
 }
 
@@ -850,6 +1021,13 @@ bool Node::isDescendantOf(const Node *other) const
             return true;
     }
     return false;
+}
+
+bool Node::contains(const Node* node) const
+{
+    if (!node)
+        return false;
+    return this == node || node->isDescendantOf(this);
 }
 
 bool Node::childAllowed(Node* newChild)
@@ -1059,7 +1237,7 @@ bool Node::rendererIsNeeded(RenderStyle *style)
     return (document()->documentElement() == this) || (style->display() != NONE);
 }
 
-RenderObject *Node::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject* Node::createRenderer(RenderArena*, RenderStyle*)
 {
     ASSERT(false);
     return 0;
@@ -1204,25 +1382,38 @@ bool Node::inSameContainingBlockFlowElement(Node *n)
 
 PassRefPtr<NodeList> Node::getElementsByTagName(const String& name)
 {
-    return getElementsByTagNameNS("*", name);
+    return getElementsByTagNameNS(starAtom, name);
 }
  
-PassRefPtr<NodeList> Node::getElementsByTagNameNS(const String& namespaceURI, const String& localName)
+PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceURI, const String& localName)
 {
     if (localName.isNull())
         return 0;
+    
+    NodeRareData* data = ensureRareData();
+    if (!data->nodeLists()) {
+        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        document()->addNodeListCache();
+    }
 
     String name = localName;
     if (document()->isHTMLDocument())
         name = localName.lower();
-    return TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : AtomicString(namespaceURI), name);
+    
+    AtomicString localNameAtom = name;
+        
+    pair<NodeListsNodeData::TagCacheMap::iterator, bool> result = data->nodeLists()->m_tagNodeListCaches.add(QualifiedName(nullAtom, localNameAtom, namespaceURI), 0);
+    if (result.second)
+        result.first->second = new DynamicNodeList::Caches;
+    
+    return TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : namespaceURI, localNameAtom, result.first->second);
 }
 
 PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
         document()->addNodeListCache();
     }
 
@@ -1237,7 +1428,7 @@ PassRefPtr<NodeList> Node::getElementsByClassName(const String& classNames)
 {
     NodeRareData* data = ensureRareData();
     if (!data->nodeLists()) {
-        data->setNodeLists(std::auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
+        data->setNodeLists(auto_ptr<NodeListsNodeData>(new NodeListsNodeData));
         document()->addNodeListCache();
     }
 
@@ -1256,19 +1447,19 @@ static bool forEachTagSelector(Functor& functor, CSSSelector* selector)
     do {
         if (functor(selector))
             return true;
-        if (CSSSelector* simpleSelector = selector->m_simpleSelector) {
+        if (CSSSelector* simpleSelector = selector->simpleSelector()) {
             if (forEachTagSelector(functor, simpleSelector))
                 return true;
         }
-    } while ((selector = selector->m_tagHistory));
+    } while ((selector = selector->tagHistory()));
 
     return false;
 }
 
 template <typename Functor>
-static bool forEachSelector(Functor& functor, CSSSelector* selector)
+static bool forEachSelector(Functor& functor, const CSSSelectorList& selectorList)
 {
-    for (; selector; selector = selector->next()) {
+    for (CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
         if (forEachTagSelector(functor, selector))
             return true;
     }
@@ -1282,16 +1473,16 @@ public:
     {
         if (selector->hasTag() && selector->m_tag.prefix() != nullAtom && selector->m_tag.prefix() != starAtom)
             return true;
-        if (selector->hasAttribute() && selector->m_attr.prefix() != nullAtom && selector->m_attr.prefix() != starAtom)
+        if (selector->hasAttribute() && selector->attribute().prefix() != nullAtom && selector->attribute().prefix() != starAtom)
             return true;
         return false;
     }
 };
 
-static bool selectorNeedsNamespaceResolution(CSSSelector* currentSelector)
+static bool selectorNeedsNamespaceResolution(const CSSSelectorList& selectorList)
 {
     SelectorNeedsNamespaceResolutionFunctor functor;
-    return forEachSelector(functor, currentSelector);
+    return forEachSelector(functor, selectorList);
 }
 
 PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& ec)
@@ -1303,14 +1494,16 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
     bool strictParsing = !document()->inCompatMode();
     CSSParser p(strictParsing);
 
-    std::auto_ptr<CSSSelector> querySelector = p.parseSelector(selectors, document());
-    if (!querySelector.get()) {
+    CSSSelectorList querySelectorList;
+    p.parseSelector(selectors, document(), querySelectorList);
+
+    if (!querySelectorList.first()) {
         ec = SYNTAX_ERR;
         return 0;
     }
 
     // throw a NAMESPACE_ERR if the selector includes any namespace prefixes.
-    if (selectorNeedsNamespaceResolution(querySelector.get())) {
+    if (selectorNeedsNamespaceResolution(querySelectorList)) {
         ec = NAMESPACE_ERR;
         return 0;
     }
@@ -1318,10 +1511,10 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
     CSSStyleSelector::SelectorChecker selectorChecker(document(), strictParsing);
 
     // FIXME: we could also optimize for the the [id="foo"] case
-    if (strictParsing && querySelector->m_match == CSSSelector::Id && inDocument() && !querySelector->next()) {
-        ASSERT(querySelector->m_attr == idAttr);
-        Element* element = document()->getElementById(querySelector->m_value);
-        if (element && (isDocumentNode() || element->isDescendantOf(this)) && selectorChecker.checkSelector(querySelector.get(), element))
+    if (strictParsing && inDocument() && querySelectorList.hasOneSelector() && querySelectorList.first()->m_match == CSSSelector::Id) {
+        ASSERT(querySelectorList.first()->attribute() == idAttr);
+        Element* element = document()->getElementById(querySelectorList.first()->m_value);
+        if (element && (isDocumentNode() || element->isDescendantOf(this)) && selectorChecker.checkSelector(querySelectorList.first(), element))
             return element;
         return 0;
     }
@@ -1330,7 +1523,7 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
     for (Node* n = firstChild(); n; n = n->traverseNextNode(this)) {
         if (n->isElementNode()) {
             Element* element = static_cast<Element*>(n);
-            for (CSSSelector* selector = querySelector.get(); selector; selector = selector->next()) {
+            for (CSSSelector* selector = querySelectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
                 if (selectorChecker.checkSelector(selector, element))
                     return element;
             }
@@ -1349,20 +1542,21 @@ PassRefPtr<NodeList> Node::querySelectorAll(const String& selectors, ExceptionCo
     bool strictParsing = !document()->inCompatMode();
     CSSParser p(strictParsing);
 
-    std::auto_ptr<CSSSelector> querySelector = p.parseSelector(selectors, document());
+    CSSSelectorList querySelectorList;
+    p.parseSelector(selectors, document(), querySelectorList);
 
-    if (!querySelector.get()) {
+    if (!querySelectorList.first()) {
         ec = SYNTAX_ERR;
         return 0;
     }
 
     // Throw a NAMESPACE_ERR if the selector includes any namespace prefixes.
-    if (selectorNeedsNamespaceResolution(querySelector.get())) {
+    if (selectorNeedsNamespaceResolution(querySelectorList)) {
         ec = NAMESPACE_ERR;
         return 0;
     }
 
-    return createSelectorNodeList(this, querySelector.get());
+    return createSelectorNodeList(this, querySelectorList);
 }
 
 Document *Node::ownerDocument() const
@@ -1428,7 +1622,7 @@ bool Node::isEqualNode(Node *other) const
     return true;
 }
 
-bool Node::isDefaultNamespace(const String &namespaceURI) const
+bool Node::isDefaultNamespace(const AtomicString &namespaceURI) const
 {
     // Implemented according to
     // http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/namespaces-algorithms.html#isDefaultNamespaceAlgo
@@ -1478,7 +1672,7 @@ bool Node::isDefaultNamespace(const String &namespaceURI) const
     }
 }
 
-String Node::lookupPrefix(const String &namespaceURI) const
+String Node::lookupPrefix(const AtomicString &namespaceURI) const
 {
     // Implemented according to
     // http://www.w3.org/TR/2004/REC-DOM-Level-3-Core-20040407/namespaces-algorithms.html#lookupNamespacePrefixAlgo
@@ -1573,7 +1767,7 @@ String Node::lookupNamespaceURI(const String &prefix) const
     }
 }
 
-String Node::lookupNamespacePrefix(const String &_namespaceURI, const Element *originalElement) const
+String Node::lookupNamespacePrefix(const AtomicString &_namespaceURI, const Element *originalElement) const
 {
     if (_namespaceURI.isNull())
         return String();
@@ -1759,7 +1953,7 @@ unsigned short Node::compareDocumentPosition(Node* otherNode)
     // Walk the two chains backwards and look for the first difference.
     unsigned index1 = chain1.size();
     unsigned index2 = chain2.size();
-    for (unsigned i = std::min(index1, index2); i; --i) {
+    for (unsigned i = min(index1, index2); i; --i) {
         Node* child1 = chain1[--index1];
         Node* child2 = chain2[--index2];
         if (child1 != child2) {
@@ -1902,6 +2096,9 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 void NodeListsNodeData::invalidateCaches()
 {
     m_childNodeListCaches.reset();
+    TagCacheMap::const_iterator tagCachesEnd = m_tagNodeListCaches.end();
+    for (TagCacheMap::const_iterator it = m_tagNodeListCaches.begin(); it != tagCachesEnd; ++it)
+        it->second->reset();
     invalidateCachesThatDependOnAttributes();
 }
 
@@ -1923,6 +2120,12 @@ bool NodeListsNodeData::isEmpty() const
 
     if (m_childNodeListCaches.refCount)
         return false;
+    
+    TagCacheMap::const_iterator tagCachesEnd = m_tagNodeListCaches.end();
+    for (TagCacheMap::const_iterator it = m_tagNodeListCaches.begin(); it != tagCachesEnd; ++it) {
+        if (it->second->refCount)
+            return false;
+    }
 
     CacheMap::const_iterator classCachesEnd = m_classNodeListCaches.end();
     for (CacheMap::const_iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it) {
@@ -1939,19 +2142,38 @@ bool NodeListsNodeData::isEmpty() const
     return true;
 }
 
-void Node::getSubresourceURLs(Vector<KURL>& urls) const
+void Node::getSubresourceURLs(ListHashSet<KURL>& urls) const
 {
-    Vector<String> subresourceStrings;
-    getSubresourceAttributeStrings(subresourceStrings);
-    
-    for (unsigned i = 0; i < subresourceStrings.size(); ++i) {
-        String& subresourceString(subresourceStrings[i]);
-        
-        // FIXME: Is parseURL appropriate here?
-        if (subresourceString.length())
-            urls.append(document()->completeURL(parseURL(subresourceString)));
-    }
+    addSubresourceAttributeURLs(urls);
 }
+
+ContainerNode* Node::eventParentNode()
+{
+    Node* parent = parentNode();
+    ASSERT(!parent || parent->isContainerNode());
+    return static_cast<ContainerNode*>(parent);
+}
+
+#ifdef ANDROID_INSTRUMENT
+static size_t nodeSize = 0;
+
+void* Node::operator new(size_t s) throw()
+{
+    nodeSize += s;
+    return ::operator new(s);
+}
+
+void Node::operator delete(void* ptr, size_t s)
+{
+    nodeSize -= s;
+    ::operator delete(ptr);
+}
+
+size_t Node::reportDOMNodesSize()
+{
+    return nodeSize;
+}
+#endif
 
 // --------
 

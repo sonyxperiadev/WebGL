@@ -33,13 +33,13 @@
 
 #if defined __cplusplus
 
-#if defined (_WIN32)
+#if defined(_WIN32) && !defined(_WIN32_WCE)
 #define _CRT_RAND_S
 #define _WIN32_WINNT 0x0500
 #include <windows.h>
 #endif
 
-#include "../../JavaScriptCore/kjs/config.h"
+#include "../../JavaScriptCore/config.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -79,5 +79,5 @@
 #include <wtf/GetPtr.h>
 
 #include "../../WebCore/bindings/js/JSDOMBinding.h"
-#include "../../JavaScriptCore/kjs/MathObject.h"
+#include "../../JavaScriptCore/runtime/MathObject.h"
 #endif

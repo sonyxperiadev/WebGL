@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JSCustomPositionErrorCallback.h"
 
-#include "Console.h"
 #include "CString.h"
 #include "Frame.h"
 #include "JSPositionError.h"
@@ -57,9 +56,9 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     
     JSC::JSLock lock(false);
     
-    JSValue* function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_callback->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -79,7 +78,7 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     globalObject->stopTimeoutCheck();
     
     if (exec->hadException())
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
 }
     
 } // namespace WebCore

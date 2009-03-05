@@ -4,7 +4,7 @@
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *           (C) 2007 Eric Seidel (eric@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
@@ -56,13 +56,6 @@ using namespace XMLNames;
 Element::Element(const QualifiedName& tagName, Document* doc)
     : ContainerNode(doc, true)
     , m_tagName(tagName)
-    , m_isStyleAttributeValid(true)
-    , m_synchronizingStyleAttribute(false)
-#if ENABLE(SVG)
-    , m_areSVGAttributesValid(true)
-    , m_synchronizingSVGAttributes(false)
-#endif
-    , m_parsingChildrenFinished(true)
 {
 }
 
@@ -85,7 +78,7 @@ inline ElementRareData* Element::ensureRareData()
     
 NodeRareData* Element::createRareData()
 {
-    return new ElementRareData(this);
+    return new ElementRareData;
 }
     
 PassRefPtr<Node> Element::cloneNode(bool deep)
@@ -104,6 +97,11 @@ PassRefPtr<Node> Element::cloneNode(bool deep)
         cloneChildNodes(clone.get());
 
     return clone.release();
+}
+
+PassRefPtr<Element> Element::cloneElement()
+{
+    return static_pointer_cast<Element>(cloneNode(false));
 }
 
 void Element::removeAttribute(const QualifiedName& name, ExceptionCode& ec)
@@ -219,7 +217,7 @@ void Element::scrollByUnits(int units, ScrollGranularity granularity)
                 direction = ScrollUp;
                 units = -units;
             }
-            rend->layer()->scroll(direction, granularity, units);
+            toRenderBox(rend)->layer()->scroll(direction, granularity, units);
         }
     }
 }
@@ -276,7 +274,7 @@ static int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 int Element::offsetLeft()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForLocalZoom(rend->offsetLeft(), rend);
     return 0;
 }
@@ -284,7 +282,7 @@ int Element::offsetLeft()
 int Element::offsetTop()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForLocalZoom(rend->offsetTop(), rend);
     return 0;
 }
@@ -292,7 +290,7 @@ int Element::offsetTop()
 int Element::offsetWidth()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->offsetWidth(), rend);
     return 0;
 }
@@ -300,7 +298,7 @@ int Element::offsetWidth()
 int Element::offsetHeight()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->offsetHeight(), rend);
     return 0;
 }
@@ -308,7 +306,7 @@ int Element::offsetHeight()
 Element* Element::offsetParent()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         if (RenderObject* offsetParent = rend->offsetParent())
             return static_cast<Element*>(offsetParent->element());
     return 0;
@@ -318,7 +316,7 @@ int Element::clientLeft()
 {
     document()->updateLayoutIgnorePendingStylesheets();
 
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->clientLeft(), rend);
     return 0;
 }
@@ -327,7 +325,7 @@ int Element::clientTop()
 {
     document()->updateLayoutIgnorePendingStylesheets();
 
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->clientTop(), rend);
     return 0;
 }
@@ -342,12 +340,14 @@ int Element::clientWidth()
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view())
-            return view->visibleWidth();
+            return view->layoutWidth();
     }
     
 
-    if (RenderObject* rend = renderer())
-        return adjustForAbsoluteZoom(rend->clientWidth(), rend);
+    if (RenderBox* rend = renderBox()) {
+        if (!rend->isRenderInline())
+            return adjustForAbsoluteZoom(rend->clientWidth(), rend);
+    }
     return 0;
 }
 
@@ -362,18 +362,20 @@ int Element::clientHeight()
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view())
-            return view->visibleHeight();
+            return view->layoutHeight();
     }
     
-    if (RenderObject* rend = renderer())
-        return adjustForAbsoluteZoom(rend->clientHeight(), rend);
+    if (RenderBox* rend = renderBox()) {
+        if (!rend->isRenderInline())
+            return adjustForAbsoluteZoom(rend->clientHeight(), rend);
+    }
     return 0;
 }
 
 int Element::scrollLeft()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->scrollLeft(), rend);
     return 0;
 }
@@ -381,7 +383,7 @@ int Element::scrollLeft()
 int Element::scrollTop()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         return adjustForAbsoluteZoom(rend->scrollTop(), rend);
     return 0;
 }
@@ -389,30 +391,34 @@ int Element::scrollTop()
 void Element::setScrollLeft(int newLeft)
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         rend->setScrollLeft(static_cast<int>(newLeft * rend->style()->effectiveZoom()));
 }
 
 void Element::setScrollTop(int newTop)
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
+    if (RenderBox* rend = renderBox())
         rend->setScrollTop(static_cast<int>(newTop * rend->style()->effectiveZoom()));
 }
 
 int Element::scrollWidth()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
-        return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
+    if (RenderBox* rend = renderBox()) {
+        if (rend->hasOverflowClip() || !rend->isRenderInline())
+            return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
+    }
     return 0;
 }
 
 int Element::scrollHeight()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderObject* rend = renderer())
-        return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
+    if (RenderBox* rend = renderBox()) {
+        if (rend->hasOverflowClip() || !rend->isRenderInline())
+            return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
+    }
     return 0;
 }
 
@@ -496,18 +502,18 @@ PassRefPtr<Attribute> Element::createAttribute(const QualifiedName& name, const 
     return Attribute::create(name, value);
 }
 
-void Element::attributeChanged(Attribute* attr, bool preserveDecls)
+void Element::attributeChanged(Attribute* attr, bool)
 {
+    if (!document()->axObjectCache()->accessibilityEnabled())
+        return;
+
     const QualifiedName& attrName = attr->name();
     if (attrName == aria_activedescendantAttr) {
         // any change to aria-activedescendant attribute triggers accessibility focus change, but document focus remains intact
-        if (document()->axObjectCache()->accessibilityEnabled())
-            document()->axObjectCache()->handleActiveDescendantChanged(renderer());
-    }
-    if (attrName == roleAttr) {
+        document()->axObjectCache()->handleActiveDescendantChanged(renderer());
+    } else if (attrName == roleAttr) {
         // the role attribute can change at any time, and the AccessibilityObject must pick up these changes
-        if (document()->axObjectCache()->accessibilityEnabled())
-            document()->axObjectCache()->handleAriaRoleChanged(renderer());
+        document()->axObjectCache()->handleAriaRoleChanged(renderer());
     }
 }
 
@@ -587,19 +593,12 @@ KURL Element::baseURI() const
     return KURL(parentBase, base.string());
 }
 
-bool Element::contains(const Node* node) const
-{
-    if (!node)
-        return false;
-    return this == node || node->isDescendantOf(this);
-}
-
 void Element::createAttributeMap() const
 {
     namedAttrMap = NamedAttrMap::create(const_cast<Element*>(this));
 }
 
-bool Element::isURLAttribute(Attribute *attr) const
+bool Element::isURLAttribute(Attribute*) const
 {
     return false;
 }
@@ -656,10 +655,10 @@ void Element::attach()
     ContainerNode::attach();
     if (hasRareData()) {   
         ElementRareData* data = rareData();
-        if (data->m_needsFocusAppearanceUpdateSoonAfterAttach) {
+        if (data->needsFocusAppearanceUpdateSoonAfterAttach()) {
             if (isFocusable() && document()->focusedNode() == this)
                 document()->updateFocusAppearanceSoon();
-            data->m_needsFocusAppearanceUpdateSoonAfterAttach = false;
+            data->setNeedsFocusAppearanceUpdateSoonAfterAttach(false);
         }
     }
 }
@@ -668,7 +667,7 @@ void Element::detach()
 {
     cancelFocusAppearanceUpdate();
     if (hasRareData())
-        rareData()->resetComputedStyle(this);
+        rareData()->resetComputedStyle();
     ContainerNode::detach();
 }
 
@@ -686,7 +685,7 @@ void Element::recalcStyle(StyleChange change)
 
     if ((change > NoChange || changed())) {
         if (hasRareData())
-            rareData()->resetComputedStyle(this);
+            rareData()->resetComputedStyle();
     }
     if (hasParentStyle && (change >= Inherit || changed())) {
         RefPtr<RenderStyle> newStyle = document()->styleSelector()->styleForElement(this);
@@ -884,7 +883,7 @@ void Element::dispatchAttrRemovalEvent(Attribute*)
 #endif
 }
 
-void Element::dispatchAttrAdditionEvent(Attribute *attr)
+void Element::dispatchAttrAdditionEvent(Attribute*)
 {
     ASSERT(!eventDispatchForbidden());
 #if 0
@@ -1090,7 +1089,7 @@ void Element::focus(bool restorePreviousSelection)
         page->focusController()->setFocusedNode(this, doc->frame());
 
     if (!isFocusable()) {
-        ensureRareData()->m_needsFocusAppearanceUpdateSoonAfterAttach = true;
+        ensureRareData()->setNeedsFocusAppearanceUpdateSoonAfterAttach(true);
         return;
     }
         
@@ -1098,7 +1097,7 @@ void Element::focus(bool restorePreviousSelection)
     updateFocusAppearance(restorePreviousSelection);
 }
 
-void Element::updateFocusAppearance(bool restorePreviousSelection)
+void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
 {
     if (this == rootEditableElement()) { 
         Frame* frame = document()->frame();
@@ -1199,7 +1198,7 @@ RenderStyle* Element::computedStyle()
 void Element::cancelFocusAppearanceUpdate()
 {
     if (hasRareData())
-        rareData()->m_needsFocusAppearanceUpdateSoonAfterAttach = false;
+        rareData()->setNeedsFocusAppearanceUpdateSoonAfterAttach(false);
     if (document()->focusedNode() == this)
         document()->cancelFocusAppearanceUpdate();
 }

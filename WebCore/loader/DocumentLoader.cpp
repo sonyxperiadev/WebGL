@@ -99,9 +99,6 @@ static inline String canonicalizedTitle(const String& title, Frame* frame)
                 continue;
             buffer[builderIndex++] = ' ';
             previousCharWasWS = true;
-        } else if (c == '\\') {
-            buffer[builderIndex++] = frame->backslashAsCurrencySymbol();
-            previousCharWasWS = false;
         } else {
             buffer[builderIndex++] = c;
             previousCharWasWS = false;
@@ -119,6 +116,11 @@ static inline String canonicalizedTitle(const String& title, Frame* frame)
         return "";
 
     buffer.shrink(builderIndex + 1);
+    
+    // Replace the backslashes with currency symbols if the encoding requires it.
+    if (frame->document())
+        frame->document()->displayBufferModifiedByEncoding(buffer.characters(), buffer.length());
+
     return String::adopt(buffer);
 }
 
@@ -154,6 +156,7 @@ DocumentLoader::DocumentLoader(const ResourceRequest& req, const SubstituteData&
     , m_loadingFromCachedPage(false)
     , m_stopRecordingResponses(false)
     , m_substituteResourceDeliveryTimer(this, &DocumentLoader::substituteResourceDeliveryTimerFired)
+    , m_urlForHistoryReflectsClientRedirect(false)
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     , m_candidateApplicationCacheGroup(0)
 #endif
@@ -173,9 +176,9 @@ DocumentLoader::~DocumentLoader()
     
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (m_applicationCache)
-        m_applicationCache->group()->documentLoaderDestroyed(this);
+        m_applicationCache->group()->disassociateDocumentLoader(this);
     else if (m_candidateApplicationCacheGroup)
-        m_candidateApplicationCacheGroup->documentLoaderDestroyed(this);
+        m_candidateApplicationCacheGroup->disassociateDocumentLoader(this);
 #endif
 }
 
@@ -257,10 +260,14 @@ void DocumentLoader::clearErrors()
 
 void DocumentLoader::mainReceivedError(const ResourceError& error, bool isComplete)
 {
+    ASSERT(!error.isNull());
+
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     ApplicationCacheGroup* group = m_candidateApplicationCacheGroup;
-    if (!group && m_applicationCache && !mainResourceApplicationCache())
+    if (!group && m_applicationCache) {
+        ASSERT(!mainResourceApplicationCache()); // If the main resource were loaded from a cache, it wouldn't fail.
         group = m_applicationCache->group();
+    }
     
     if (group)
         group->failedLoadingMainResource(this);
@@ -452,7 +459,9 @@ void DocumentLoader::setPrimaryLoadComplete(bool flag)
 #endif
             m_mainResourceLoader = 0;
         }
-        updateLoading();
+
+        if (this == frameLoader()->activeDocumentLoader())
+            updateLoading();
     }
 }
 
@@ -569,9 +578,9 @@ void DocumentLoader::getSubresources(Vector<PassRefPtr<ArchiveResource> >& subre
     if (!document)
         return;
 
-    const HashMap<String, CachedResource*>& allResources = document->docLoader()->allCachedResources();
-    HashMap<String, CachedResource*>::const_iterator end = allResources.end();
-    for (HashMap<String, CachedResource*>::const_iterator it = allResources.begin(); it != end; ++it) {
+    const DocLoader::DocumentResourceMap& allResources = document->docLoader()->allCachedResources();
+    DocLoader::DocumentResourceMap::const_iterator end = allResources.end();
+    for (DocLoader::DocumentResourceMap::const_iterator it = allResources.begin(); it != end; ++it) {
         RefPtr<ArchiveResource> subresource = this->subresource(KURL(it->second->url()));
         if (subresource)
             subresources.append(subresource.release());
@@ -696,6 +705,11 @@ KURL DocumentLoader::urlForHistory() const
     return m_originalRequestCopy.url();
 }
 
+bool DocumentLoader::urlForHistoryReflectsFailure() const
+{
+    return m_substituteData.isValid() || m_response.httpStatusCode() >= 400;
+}
+
 void DocumentLoader::loadFromCachedPage(PassRefPtr<CachedPage> cachedPage)
 {
     LOG(PageCache, "WebCorePageCache: DocumentLoader %p loading from cached page %p", this, cachedPage.get());
@@ -805,7 +819,7 @@ bool DocumentLoader::startLoadingMainResource(unsigned long identifier)
 
     // FIXME: Is there any way the extra fields could have not been added by now?
     // If not, it would be great to remove this line of code.
-    frameLoader()->addExtraFieldsToRequest(m_request, true, false);
+    frameLoader()->addExtraFieldsToMainResourceRequest(m_request);
 
     if (!m_mainResourceLoader->load(m_request, m_substituteData)) {
         // FIXME: If this should really be caught, we should just ASSERT this doesn't happen;
@@ -855,20 +869,6 @@ void DocumentLoader::setApplicationCache(PassRefPtr<ApplicationCache> applicatio
     m_applicationCache = applicationCache;
 }
 
-ApplicationCache* DocumentLoader::topLevelApplicationCache() const
-{
-    if (!m_frame)
-        return 0;
-    
-    if (m_applicationCache)
-        return m_applicationCache.get();
-    
-    if (Page* page = m_frame->page())
-        return page->mainFrame()->loader()->documentLoader()->applicationCache();
-    
-    return 0;
-}
-
 ApplicationCache* DocumentLoader::mainResourceApplicationCache() const
 {
     if (m_mainResourceApplicationCache)
@@ -880,23 +880,49 @@ ApplicationCache* DocumentLoader::mainResourceApplicationCache() const
 
 bool DocumentLoader::shouldLoadResourceFromApplicationCache(const ResourceRequest& request, ApplicationCacheResource*& resource)
 {
-    ApplicationCache* cache = topLevelApplicationCache();    
-    if (!cache)
+    ApplicationCache* cache = applicationCache();
+    if (!cache || !cache->isComplete())
+        return false;
+
+    // If the resource is not a HTTP/HTTPS GET, then abort
+    if (!ApplicationCache::requestIsHTTPOrHTTPSGet(request))
+        return false;
+
+    // If the resource's URL is an master entry, the manifest, an explicit entry, a fallback entry, or a dynamic entry
+    // in the application cache, then get the resource from the cache (instead of fetching it).
+    resource = cache->resourceForURL(request.url());
+
+    // Resources that match fallback namespaces or online whitelist entries are fetched from the network,
+    // unless they are also cached.
+    if (!resource && (cache->urlMatchesFallbackNamespace(request.url()) || cache->isURLInOnlineWhitelist(request.url())))
+        return false;
+
+    // Resources that are not present in the manifest will always fail to load (at least, after the
+    // cache has been primed the first time), making the testing of offline applications simpler.
+    return true;
+}
+
+bool DocumentLoader::getApplicationCacheFallbackResource(const ResourceRequest& request, ApplicationCacheResource*& resource, ApplicationCache* cache)
+{
+    if (!cache) {
+        cache = applicationCache();
+        if (!cache)
+            return false;
+    }
+    if (!cache->isComplete())
         return false;
     
     // If the resource is not a HTTP/HTTPS GET, then abort
     if (!ApplicationCache::requestIsHTTPOrHTTPSGet(request))
         return false;
-    
-    if (cache->isURLInOnlineWhitelist(request.url()))
+
+    KURL fallbackURL;
+    if (!cache->urlMatchesFallbackNamespace(request.url(), &fallbackURL))
         return false;
-    
-    resource = cache->resourceForURL(request.url());
-    
-    // Don't load foreign resources.
-    if (resource && (resource->type() & ApplicationCacheResource::Foreign))
-        resource = 0;
-    
+
+    resource = cache->resourceForURL(fallbackURL);
+    ASSERT(resource);
+
     return true;
 }
 
@@ -910,9 +936,23 @@ bool DocumentLoader::scheduleApplicationCacheLoad(ResourceLoader* loader, const 
 
     ApplicationCacheResource* resource;
     if (!shouldLoadResourceFromApplicationCache(request, resource))
-        // FIXME: Handle opportunistic caching namespaces
         return false;
     
+    m_pendingSubstituteResources.set(loader, resource);
+    deliverSubstituteResourcesAfterDelay();
+        
+    return true;
+}
+
+bool DocumentLoader::scheduleLoadFallbackResourceFromApplicationCache(ResourceLoader* loader, const ResourceRequest& request, ApplicationCache* cache)
+{
+    if (!frameLoader()->frame()->settings() || !frameLoader()->frame()->settings()->offlineWebApplicationCacheEnabled())
+        return false;
+
+    ApplicationCacheResource* resource;
+    if (!getApplicationCacheFallbackResource(request, resource, cache))
+        return false;
+
     m_pendingSubstituteResources.set(loader, resource);
     deliverSubstituteResourcesAfterDelay();
         

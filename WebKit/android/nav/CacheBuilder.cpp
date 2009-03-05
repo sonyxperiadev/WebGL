@@ -113,39 +113,6 @@ void CacheBuilder::Debug::comma(const char* str) {
     print(", ");
 }
 
-int CacheBuilder::Debug::flowBoxes(RenderFlow* flow, int ifIndex, int indent) {
-    char scratch[256];
-    const InlineFlowBox* box = flow->firstLineBox();
-    if (box == NULL)
-        return ifIndex;
-    do {
-        newLine();
-        int i = snprintf(scratch, sizeof(scratch), "// render flow:%p"
-            " box:%p%.*s", flow, box, indent, "        ");
-        for (; box; box = box->nextFlowBox()) {
-            i += snprintf(&scratch[i], sizeof(scratch) - i, 
-                " [%d]:{%d, %d, %d, %d}", ++ifIndex,
-                box->xPos(), box->yPos(), box->width(), box->height());
-            if (ifIndex % 4 == 0)
-                break;
-        }
-        print(scratch);
-    } while (box);
-    RenderObject const * const end = flow->lastChild();
-    if (end == NULL)
-        return ifIndex;
-    indent += 2;
-    if (indent > 8)
-        indent = 8;
-    for (const RenderObject* renderer = flow->firstChild(); renderer != end; 
-            renderer = renderer->nextSibling())
-    {
-        if (renderer->isInlineFlow())
-            ifIndex = flowBoxes((RenderFlow*) renderer, ifIndex, indent);
-    }
-    return ifIndex;
-}
-
 void CacheBuilder::Debug::flush() {
     int len;
     do {
@@ -542,16 +509,16 @@ void CacheBuilder::Debug::groups() {
                     InlineTextBox* textBox = renderText->firstTextBox();
                     unsigned rectIndex = 0;
                     while (textBox) {
-                        int renderX, renderY;
-                        renderText->absolutePosition(renderX, renderY);
-                        IntRect rect = textBox->selectionRect(renderX, renderY, 0, INT_MAX);
+                        FloatPoint pt = renderText->localToAbsolute();
+                        IntRect rect = textBox->selectionRect((int) pt.x(), (int) pt.y(), 0, INT_MAX);
                         mIndex = 0;
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, "{ %d, %d, %d, %d, %d", 
                             nodeIndex, rect.x(), rect.y(), rect.width(), rect.height());
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
-                            textBox->len(), textBox->selectionHeight(), textBox->selectionTop());
+                            textBox->len(), 0 /*textBox->selectionHeight()*/, 
+                            0 /*textBox->selectionTop()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
-                            textBox->spaceAdd(), textBox->start(), textBox->textPos());
+                            0 /*textBox->spaceAdd()*/, textBox->start(), 0 /*textBox->textPos()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
                             textBox->xPos(), textBox->yPos(), textBox->width(), textBox->height());
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
@@ -711,29 +678,24 @@ void CacheBuilder::Debug::renderTree(RenderObject* renderer, int indent,
             " hasBackground:%s isInlineFlow:%s isBlockFlow:%s"
             " textOverflow:%s",
             vis == VISIBLE ? "visible" : vis == HIDDEN ? "hidden" : "collapse", 
-            style->opacity(), renderer->width(), renderer->height(),
+            style->opacity(), 0 /*renderer->width()*/, 0 /*renderer->height()*/,
             style->hasBackground() ? "true" : "false",
-            renderer->isInlineFlow() ? "true" : "false",
+            0 /*renderer->isInlineFlow()*/ ? "true" : "false",
             renderer->isBlockFlow() ? "true" : "false",
             style->textOverflow() ? "true" : "false"
             );
         print(scratch);
         newLine(indent);
-        const IntRect& oRect = renderer->overflowRect(true);
+        const IntRect& oRect = renderer->absoluteClippedOverflowRect();
         const IntRect& cRect = renderer->getOverflowClipRect(0,0);
         snprintf(scratch, sizeof(scratch), 
             "// render xPos:%d yPos:%d overflowRect:{%d, %d, %d, %d} "
             " getOverflowClipRect:{%d, %d, %d, %d} ", 
-            renderer->xPos(), renderer->yPos(),
+            0 /*renderer->xPos()*/, 0 /*renderer->yPos()*/,
             oRect.x(), oRect.y(), oRect.width(), oRect.height(),
             cRect.x(), cRect.y(), cRect.width(), cRect.height()
             );
         print(scratch);
-        if (renderer->isInlineFlow()) {
-            RenderFlow* renderFlow = (RenderFlow*) renderer;
-            int ifIndex = 0;
-            flowBoxes(renderFlow, ifIndex, 0);
-        }
     }
 tryParent:
     RenderObject* parent = renderer->parent();
@@ -1141,7 +1103,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             clip.mHasClip = hasClip;
             clip.mDirection = direction;
             if (columns != NULL) {
-                const IntRect& oRect = nodeRenderer->overflowRect(true);
+                const IntRect& oRect = ((RenderBox*)nodeRenderer)->overflowRect(true);
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
@@ -1249,13 +1211,13 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
             bounds = node->getRect();
             // For Bank of America site
-            if (isTextField && nodeRenderer->paddingLeft() > 100) {
-                int paddingLeft = nodeRenderer->paddingLeft();
-                int paddingTop = nodeRenderer->paddingTop();
+            if (isTextField && ((RenderBox*)nodeRenderer)->paddingLeft() > 100) {
+                int paddingLeft = ((RenderBox*)nodeRenderer)->paddingLeft();
+                int paddingTop = ((RenderBox*)nodeRenderer)->paddingTop();
                 int x = bounds.x() + paddingLeft;
                 int y = bounds.y() + paddingTop;
-                int width = bounds.width() - paddingLeft - nodeRenderer->paddingRight();
-                int height = bounds.height() - paddingTop - nodeRenderer->paddingBottom();
+                int width = bounds.width() - paddingLeft - ((RenderBox*)nodeRenderer)->paddingRight();
+                int height = bounds.height() - paddingTop - ((RenderBox*)nodeRenderer)->paddingBottom();
                 bounds.setLocation(IntPoint(x, y));
                 bounds.setSize(IntSize(width, height));
             }
@@ -2964,14 +2926,14 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             if (renderer->hasOverflowClip() == false) {
                 if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
                     IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
-                    int left = bounds.x() + renderer->paddingLeft() 
-                        + renderer->borderLeft();
-                    int top = bounds.y() + renderer->paddingTop() 
-                        + renderer->borderTop();
-                    int right = bounds.right() - renderer->paddingRight() 
-                        - renderer->borderRight();
-                    int bottom = bounds.bottom() - renderer->paddingBottom() 
-                        - renderer->borderBottom();
+                    int left = bounds.x() + ((RenderBox*)renderer)->paddingLeft() 
+                        + ((RenderBox*)renderer)->borderLeft();
+                    int top = bounds.y() + ((RenderBox*)renderer)->paddingTop() 
+                        + ((RenderBox*)renderer)->borderTop();
+                    int right = bounds.right() - ((RenderBox*)renderer)->paddingRight() 
+                        - ((RenderBox*)renderer)->borderRight();
+                    int bottom = bounds.bottom() - ((RenderBox*)renderer)->paddingBottom() 
+                        - ((RenderBox*)renderer)->borderBottom();
                     if (left >= right || top >= bottom)
                         continue;
                     bounds = IntRect(left, top, right - left, bottom - top);
@@ -3016,8 +2978,7 @@ bool CacheBuilder::ConstructTextRect(Text* textNode,
     EVisibility vis = renderText->style()->visibility();
     StringImpl* string = textNode->string();
     const UChar* chars = string->characters();
-    int renderX, renderY;
-    renderText->absolutePosition(renderX, renderY);
+    FloatPoint pt = renderText->localToAbsolute();
     do {
         int textBoxStart = textBox->start();
         int textBoxEnd = textBoxStart + textBox->len();
@@ -3025,7 +2986,7 @@ bool CacheBuilder::ConstructTextRect(Text* textNode,
             continue;
         if (textBoxEnd > relEnd)
             textBoxEnd = relEnd;
-        IntRect bounds = textBox->selectionRect(renderX, renderY, 
+        IntRect bounds = textBox->selectionRect((int) pt.x(), (int) pt.y(), 
             start, textBoxEnd);
         bounds.intersect(clipBounds);
         if (bounds.isEmpty())

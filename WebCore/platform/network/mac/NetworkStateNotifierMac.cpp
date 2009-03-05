@@ -28,6 +28,11 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 
+#ifdef BUILDING_ON_TIGER
+// This function is available on Tiger, but not declared in the CFRunLoop.h header on Tiger.
+extern "C" CFRunLoopRef CFRunLoopGetMain();
+#endif
+
 namespace WebCore {
 
 static const double StateChangeTimerInterval = 2.0;
@@ -71,7 +76,7 @@ void NetworkStateNotifier::updateState()
     }
 }
 
-void NetworkStateNotifier::dynamicStoreCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info) 
+void NetworkStateNotifier::dynamicStoreCallback(SCDynamicStoreRef, CFArrayRef, void* info) 
 {
     NetworkStateNotifier* notifier = static_cast<NetworkStateNotifier*>(info);
     
@@ -95,6 +100,7 @@ void NetworkStateNotifier::networkStateChangeTimerFired(Timer<NetworkStateNotifi
 
 NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(false)
+    , m_networkStateChangedFunction(0)
     , m_networkStateChangeTimer(this, &NetworkStateNotifier::networkStateChangeTimerFired)
 {
     SCDynamicStoreContext context = { 0, this, 0, 0, 0 };
@@ -107,7 +113,7 @@ NetworkStateNotifier::NetworkStateNotifier()
     if (!configSource)
         return;
 
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), configSource.get(), kCFRunLoopCommonModes);
+    CFRunLoopAddSource(CFRunLoopGetMain(), configSource.get(), kCFRunLoopCommonModes);
     
     RetainPtr<CFMutableArrayRef> keys(AdoptCF, CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));
     RetainPtr<CFMutableArrayRef> patterns(AdoptCF, CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));

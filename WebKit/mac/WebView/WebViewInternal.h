@@ -159,6 +159,7 @@ typedef struct _WebResourceDelegateImplementationCache {
     IMP didLoadResourceFromMemoryCacheFunc;
     IMP willCacheResponseFunc;
     IMP plugInFailedWithErrorFunc;
+    IMP shouldUseCredentialStorageFunc;
 } WebResourceDelegateImplementationCache;
 
 typedef struct _WebFrameLoadDelegateImplementationCache {
@@ -177,6 +178,7 @@ typedef struct _WebFrameLoadDelegateImplementationCache {
     IMP didFailLoadWithErrorForFrameFunc;
     IMP didFinishLoadForFrameFunc;
     IMP didFirstLayoutInFrameFunc;
+    IMP didFirstVisuallyNonEmptyLayoutInFrameFunc;
     IMP didReceiveIconForFrameFunc;
     IMP didFinishDocumentLoadForFrameFunc;
 } WebFrameLoadDelegateImplementationCache;
@@ -215,5 +217,7 @@ id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, id, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, NSInteger, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
+
+BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id);
 
 #endif

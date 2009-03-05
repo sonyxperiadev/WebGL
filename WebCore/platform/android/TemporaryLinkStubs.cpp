@@ -424,6 +424,12 @@ String contextMenuItemTagRightToLeft()
     return String();
 }
 
+String contextMenuItemTagTextDirectionMenu()
+{
+    ASSERT(0);
+    return String();
+}
+
 }  // namespace WebCore
 
 // FIXME, no support for spelling yet.
@@ -601,21 +607,11 @@ void ContextMenuItem::setEnabled(bool)
     notImplemented();
 }
 
-namespace WebCore {
-
-float userIdleTime()
-{
-    notImplemented();
-    return 0;
-}
-
 // systemBeep() is called by the Editor to indicate that there was nothing to copy, and may be called from
 // other places too.
 void systemBeep()
 {
     notImplemented();
-}
-
 }
 
 // functions new to Jun-07 tip of tree merge:
@@ -750,14 +746,14 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 
 
 namespace JSC { namespace Bindings {
-bool dispatchJNICall(ExecState*, void const*, _jobject*, bool, JNIType,
-    _jmethodID*, jvalue*, jvalue&, char const*, JSValue*&)
+bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
+        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
 {
     notImplemented();
     return false;
 }
 
-} }  // namespace JSC::Bindings
+} }  // namespace Bindings
 
 char* dirname(const char*)
 {
@@ -811,12 +807,6 @@ ScrollbarTheme* ScrollbarTheme::nativeTheme()
     return &theme;
 }
 
-JSC::JSValue* toJS(JSC::ExecState*, JSC::Profile*)
-{
-    notImplemented();
-    return 0;
-}
-
 }  // namespace WebCore
 
 FileList::FileList()
@@ -862,30 +852,38 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
     notImplemented();
 }
 
+// as we don't use inspector/*.cpp, add stub here.
+
 namespace WebCore {
 
-JSC::JSValue* JavaScriptCallFrame::evaluate(JSC::UString const&, JSC::JSValue*&) const
+JSValuePtr toJS(ExecState*, Profile*)
+{
+    notImplemented();
+    return jsNull();
+}
+
+JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
+{
+    notImplemented();
+    return jsNull();
+}
+
+const ScopeChainNode* JavaScriptCallFrame::scopeChain() const
 {
     notImplemented();
     return 0;
 }
 
-const JSC::ScopeChainNode* JavaScriptCallFrame::scopeChain() const
+JSObject* JavaScriptCallFrame::thisObject() const
 {
     notImplemented();
     return 0;
 }
 
-JSC::JSObject* JavaScriptCallFrame::thisObject() const
+DebuggerCallFrame::Type JavaScriptCallFrame::type() const
 {
     notImplemented();
-    return 0;
-}
-
-JSC::DebuggerCallFrame::Type JavaScriptCallFrame::type() const
-{
-    notImplemented();
-    return (JSC::DebuggerCallFrame::Type) 0;
+    return (DebuggerCallFrame::Type) 0;
 }
 
 JavaScriptCallFrame* JavaScriptCallFrame::caller()
@@ -899,6 +897,7 @@ String JavaScriptCallFrame::functionName() const
     notImplemented();
     return String();
 }
+
 }
 
 JavaScriptDebugServer::JavaScriptDebugServer() :

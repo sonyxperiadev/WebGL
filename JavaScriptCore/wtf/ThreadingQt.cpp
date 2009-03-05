@@ -29,9 +29,10 @@
 #include "config.h"
 #include "Threading.h"
 
+#include "CurrentTime.h"
 #include "HashMap.h"
 #include "MainThread.h"
-#include "MathExtras.h"
+#include "RandomNumberSeed.h"
 
 #include <QCoreApplication>
 #include <QMutex>
@@ -64,7 +65,7 @@ void ThreadPrivate::run()
 }
 
 
-Mutex* atomicallyInitializedStaticMutex;
+static Mutex* atomicallyInitializedStaticMutex;
 
 static ThreadIdentifier mainThreadIdentifier;
 
@@ -80,8 +81,23 @@ static HashMap<ThreadIdentifier, QThread*>& threadMap()
     return map;
 }
 
+static ThreadIdentifier identifierByQthreadHandle(QThread*& thread)
+{
+    MutexLocker locker(threadMapMutex());
+
+    HashMap<ThreadIdentifier, QThread*>::iterator i = threadMap().begin();
+    for (; i != threadMap().end(); ++i) {
+        if (i->second == thread)
+            return i->first;
+    }
+
+    return 0;
+}
+
 static ThreadIdentifier establishIdentifierForThread(QThread*& thread)
 {
+    ASSERT(!identifierByQthreadHandle(thread));
+
     MutexLocker locker(threadMapMutex());
 
     static ThreadIdentifier identifierCount = 1;
@@ -100,19 +116,6 @@ static void clearThreadForIdentifier(ThreadIdentifier id)
     threadMap().remove(id);
 }
 
-static ThreadIdentifier identifierByQthreadHandle(QThread*& thread)
-{
-    MutexLocker locker(threadMapMutex());
-
-    HashMap<ThreadIdentifier, QThread*>::iterator i = threadMap().begin();
-    for (; i != threadMap().end(); ++i) {
-        if (i->second == thread)
-            return i->first;
-    }
-
-    return 0;
-}
-
 static QThread* threadForIdentifier(ThreadIdentifier id)
 {
     MutexLocker locker(threadMapMutex());
@@ -122,10 +125,10 @@ static QThread* threadForIdentifier(ThreadIdentifier id)
 
 void initializeThreading()
 {
-    if(!atomicallyInitializedStaticMutex) {
+    if (!atomicallyInitializedStaticMutex) {
         atomicallyInitializedStaticMutex = new Mutex;
         threadMapMutex();
-        wtf_random_init();
+        initializeRandomNumberGenerator();
         QThread* mainThread = QCoreApplication::instance()->thread();
         mainThreadIdentifier = identifierByQthreadHandle(mainThread);
         if (!mainThreadIdentifier)
@@ -134,7 +137,18 @@ void initializeThreading()
     }
 }
 
-ThreadIdentifier createThread(ThreadFunction entryPoint, void* data, const char*)
+void lockAtomicallyInitializedStaticMutex()
+{
+    ASSERT(atomicallyInitializedStaticMutex);
+    atomicallyInitializedStaticMutex->lock();
+}
+
+void unlockAtomicallyInitializedStaticMutex()
+{
+    atomicallyInitializedStaticMutex->unlock();
+}
+
+ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     ThreadPrivate* thread = new ThreadPrivate(entryPoint, data);
     if (!thread) {
@@ -157,7 +171,8 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
     bool res = thread->wait();
 
     clearThreadForIdentifier(threadID);
-    *result = static_cast<ThreadPrivate*>(thread)->getReturnValue();
+    if (result)
+        *result = static_cast<ThreadPrivate*>(thread)->getReturnValue();
 
     return !res;
 }
@@ -219,15 +234,20 @@ void ThreadCondition::wait(Mutex& mutex)
     m_condition->wait(mutex.impl());
 }
 
-bool ThreadCondition::timedWait(Mutex& mutex, double secondsToWait)
+bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 {
-    if (secondsToWait < 0.0) {
-        wait(mutex);
-        return true;
-    }
+    double currentTime = WTF::currentTime();
 
-    unsigned long millisecondsToWait = static_cast<unsigned long>(secondsToWait * 1000.0);
-    return m_condition->wait(mutex.impl(), millisecondsToWait);
+    // Time is in the past - return immediately.
+    if (absoluteTime < currentTime)
+        return false;
+
+    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
+    // Qt defines wait for up to ULONG_MAX milliseconds.
+    if (intervalMilliseconds >= ULONG_MAX)
+        intervalMilliseconds = ULONG_MAX;
+
+    return m_condition->wait(mutex.impl(), static_cast<unsigned long>(intervalMilliseconds));
 }
 
 void ThreadCondition::signal()

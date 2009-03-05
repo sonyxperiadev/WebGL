@@ -82,7 +82,6 @@
 #include "SkPicture.h"
 #include "SkUtils.h"
 #include "StringImpl.h"
-#include "SystemTime.h"
 #include "Text.h"
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
@@ -91,6 +90,7 @@
 #include "android_graphics.h"
 #include <ui/KeycodeLabels.h>
 #include "jni_utility.h"
+#include <wtf/CurrentTime.h>
 
 #if DEBUG_NAV_UI
 #include "SkTime.h"
@@ -299,8 +299,8 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
         return true;
 
     if (v->needsLayout())
-        v->layout();
-
+        v->layout(f->tree()->parent());
+    
     WebCore::Frame* child = f->tree()->firstChild();
     bool success = true;
     while (child) {
@@ -401,7 +401,12 @@ void WebViewCore::checkNavCache()
         m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), 
         m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
-    unsigned latestVersion = m_mainFrame->document()->domTreeVersion();
+    unsigned latestVersion = 0;
+    // as domTreeVersion only increment, we can just check the sum to see whether
+    // we need to update the frame cache
+    for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
+        latestVersion += frame->document()->domTreeVersion();
+    }
     if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds
             || m_findIsUp || latestVersion != m_domtree_version) {
         m_lastFocused = oldFocusNode;
@@ -827,7 +832,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 }
             }
             r->setNeedsLayoutAndPrefWidthsRecalc();
-            m_mainFrame->forceLayout(true);
+            m_mainFrame->forceLayout();
             // scroll to restore current screen center
             if (!node)
                 return;
@@ -1164,7 +1169,7 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     // a valid frame.  Do not want to make a call on frame unless it is valid.
     WebCore::PlatformMouseEvent mouseEvent(m_mousePos, m_mousePos,
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
-        false, WebCore::currentTime());
+        false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
     bool valid = builder.validNode(frame, node);
     if (!donotChangeDOMFocus) {
@@ -1259,8 +1264,7 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
         DBG_NAV_LOGD("node=%p pt=(%d,%d) renderText=0", node, pt.x(), pt.y());
         return -3; // error
     }
-    int renderX, renderY;
-    renderText->absolutePosition(renderX, renderY);
+    FloatPoint absPt = renderText->localToAbsolute();
     WebCore::InlineTextBox *textBox = renderText->firstTextBox();
     int globalX, globalY;
     CacheBuilder::GetGlobalOffset(node, &globalX, &globalY);
@@ -1271,11 +1275,11 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
         int textBoxEnd = textBoxStart + textBox->len();
         if (textBoxEnd <= textBoxStart)
             continue;
-        WebCore::IntRect bounds = textBox->selectionRect(renderX, renderY,
+        WebCore::IntRect bounds = textBox->selectionRect(absPt.x(), absPt.y(),
             textBoxStart, textBoxEnd);
         if (!bounds.contains(x, y))
             continue;
-        int offset = textBox->offsetForPosition(x - renderX);
+        int offset = textBox->offsetForPosition(x - absPt.x());
 #if DEBUG_NAV_UI
         int prior = offset > 0 ? textBox->positionForOffset(offset - 1) : -1;
         int current = textBox->positionForOffset(offset);
@@ -1283,7 +1287,7 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
         DBG_NAV_LOGD(
             "offset=%d pt.x=%d globalX=%d renderX=%d x=%d "
             "textBox->x()=%d textBox->start()=%d prior=%d current=%d next=%d",
-            offset, pt.x(), globalX, renderX, x,
+            offset, pt.x(), globalX, absPt.x(), x,
             textBox->xPos(), textBox->start(), prior, current, next
             );
 #endif
@@ -1785,7 +1789,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             for (int i = 0; i < size; i++) {
                 if (listItems[i]->hasTagName(WebCore::HTMLNames::optionTag)) {
                     WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(listItems[i]);
-                    *names.append() = stringConverter(option->optionText());
+                    *names.append() = stringConverter(option->text());
                     *enabledArray.append() = option->disabled() ? 0 : 1;
                     if (multiple && option->selected())
                         *selectedArray.append() = i;
@@ -1810,12 +1814,12 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     DBG_NAV_LOGD("m_mousePos={%d,%d}", m_mousePos.x(), m_mousePos.y());
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
-            WebCore::currentTime());
+            WTF::currentTime());
     // ignore the return from as it will return true if the hit point can trigger selection change
     framePtr->eventHandler()->handleMousePressEvent(mouseDown);
     WebCore::PlatformMouseEvent mouseUp(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventReleased, 1, false, false, false, false,
-            WebCore::currentTime());
+            WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedClick(false);
     return handled;
@@ -1953,9 +1957,8 @@ void WebViewCore::snapToAnchor()
 {
     if (m_snapAnchorNode) {
         if (m_snapAnchorNode->inDocument()) {
-            int rx, ry;
-            m_snapAnchorNode->renderer()->absolutePosition(rx, ry);
-            scrollTo(rx, ry);
+            FloatPoint pt = m_snapAnchorNode->renderer()->localToAbsolute();
+            scrollTo(pt.x(), pt.y());
         } else {
             m_snapAnchorNode = 0;
         }

@@ -27,26 +27,26 @@
 
 namespace JSC {
 
-static NEVER_INLINE JSValue* stringFromCharCodeSlowCase(ExecState* exec, const ArgList& args)
+static NEVER_INLINE JSValuePtr stringFromCharCodeSlowCase(ExecState* exec, const ArgList& args)
 {
     UChar* buf = static_cast<UChar*>(fastMalloc(args.size() * sizeof(UChar)));
     UChar* p = buf;
     ArgList::const_iterator end = args.end();
     for (ArgList::const_iterator it = args.begin(); it != end; ++it)
-        *p++ = static_cast<UChar>((*it).jsValue(exec)->toUInt32(exec));
+        *p++ = static_cast<UChar>((*it).jsValue(exec).toUInt32(exec));
     return jsString(exec, UString(buf, p - buf, false));
 }
 
-static JSValue* stringFromCharCode(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr stringFromCharCode(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
     if (LIKELY(args.size() == 1))
-        return jsSingleCharacterString(exec, args.at(exec, 0)->toUInt32(exec));
+        return jsSingleCharacterString(exec, args.at(exec, 0).toUInt32(exec));
     return stringFromCharCodeSlowCase(exec, args);
 }
 
 ASSERT_CLASS_FITS_IN_CELL(StringConstructor);
 
-StringConstructor::StringConstructor(ExecState* exec, PassRefPtr<StructureID> structure, StructureID* prototypeFunctionStructure, StringPrototype* stringPrototype)
+StringConstructor::StringConstructor(ExecState* exec, PassRefPtr<Structure> structure, Structure* prototypeFunctionStructure, StringPrototype* stringPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, stringPrototype->classInfo()->className))
 {
     // ECMA 15.5.3.1 String.prototype
@@ -64,7 +64,7 @@ static JSObject* constructWithStringConstructor(ExecState* exec, JSObject*, cons
 {
     if (args.isEmpty())
         return new (exec) StringObject(exec, exec->lexicalGlobalObject()->stringObjectStructure());
-    return new (exec) StringObject(exec, exec->lexicalGlobalObject()->stringObjectStructure(), args.at(exec, 0)->toString(exec));
+    return new (exec) StringObject(exec, exec->lexicalGlobalObject()->stringObjectStructure(), args.at(exec, 0).toString(exec));
 }
 
 ConstructType StringConstructor::getConstructData(ConstructData& constructData)
@@ -74,11 +74,11 @@ ConstructType StringConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.5.1
-static JSValue* callStringConstructor(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr callStringConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
     if (args.isEmpty())
         return jsEmptyString(exec);
-    return jsString(exec, args.at(exec, 0)->toString(exec));
+    return jsString(exec, args.at(exec, 0).toString(exec));
 }
 
 CallType StringConstructor::getCallData(CallData& callData)

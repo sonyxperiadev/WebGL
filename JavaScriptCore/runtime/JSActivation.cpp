@@ -30,7 +30,7 @@
 #include "JSActivation.h"
 
 #include "Arguments.h"
-#include "Machine.h"
+#include "Interpreter.h"
 #include "JSFunction.h"
 
 namespace JSC {
@@ -40,7 +40,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSActivation);
 const ClassInfo JSActivation::info = { "JSActivation", 0, 0, 0 };
 
 JSActivation::JSActivation(CallFrame* callFrame, PassRefPtr<FunctionBodyNode> functionBody)
-    : Base(callFrame->globalData().activationStructureID, new JSActivationData(functionBody, callFrame))
+    : Base(callFrame->globalData().activationStructure, new JSActivationData(functionBody, callFrame))
 {
 }
 
@@ -57,7 +57,7 @@ void JSActivation::mark()
     if (!registerArray)
         return;
 
-    size_t numParametersMinusThis = d()->functionBody->generatedByteCode().numParameters - 1;
+    size_t numParametersMinusThis = d()->functionBody->generatedBytecode().m_numParameters - 1;
 
     size_t i = 0;
     size_t count = numParametersMinusThis; 
@@ -67,7 +67,7 @@ void JSActivation::mark()
             r.mark();
     }
 
-    size_t numVars = d()->functionBody->generatedByteCode().numVars;
+    size_t numVars = d()->functionBody->generatedBytecode().m_numVars;
 
     // Skip the call frame, which sits between the parameters and vars.
     i += RegisterFile::CallFrameHeaderSize;
@@ -85,7 +85,7 @@ bool JSActivation::getOwnPropertySlot(ExecState* exec, const Identifier& propert
     if (symbolTableGet(propertyName, slot))
         return true;
 
-    if (JSValue** location = getDirectLocation(propertyName)) {
+    if (JSValuePtr* location = getDirectLocation(propertyName)) {
         slot.setValueSlot(location);
         return true;
     }
@@ -99,11 +99,11 @@ bool JSActivation::getOwnPropertySlot(ExecState* exec, const Identifier& propert
     // We don't call through to JSObject because there's no way to give an 
     // activation object getter properties or a prototype.
     ASSERT(!hasGetterSetterProperties());
-    ASSERT(prototype()->isNull());
+    ASSERT(prototype().isNull());
     return false;
 }
 
-void JSActivation::put(ExecState*, const Identifier& propertyName, JSValue* value, PutPropertySlot& slot)
+void JSActivation::put(ExecState*, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
 {
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
@@ -118,7 +118,7 @@ void JSActivation::put(ExecState*, const Identifier& propertyName, JSValue* valu
 }
 
 // FIXME: Make this function honor ReadOnly (const) and DontEnum
-void JSActivation::putWithAttributes(ExecState*, const Identifier& propertyName, JSValue* value, unsigned attributes)
+void JSActivation::putWithAttributes(ExecState*, const Identifier& propertyName, JSValuePtr value, unsigned attributes)
 {
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
@@ -151,7 +151,7 @@ bool JSActivation::isDynamicScope() const
     return d()->functionBody->usesEval();
 }
 
-JSValue* JSActivation::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValuePtr JSActivation::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSActivation* activation = asActivation(slot.slotBase());
 

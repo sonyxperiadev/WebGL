@@ -78,10 +78,10 @@ void InspectorController::willSendRequest(DocumentLoader*, unsigned long, Resour
 void InspectorController::didReceiveResponse(DocumentLoader*, unsigned long, ResourceResponse const&) {}
 void InspectorController::didReceiveContentLength(DocumentLoader*, unsigned long, int) {}
 void InspectorController::didFinishLoading(DocumentLoader*, unsigned long) {}
-void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, ResourceRequest const&, ResourceResponse const&, int) {}
+void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*) {}
 void InspectorController::frameDetachedFromParent(Frame*) {}
 
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, JSC::ExecState*, JSC::ArgList const&, unsigned int, String const&) {}
+void InspectorController::addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*) {}
 void InspectorController::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) {}
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
@@ -91,14 +91,14 @@ void InspectorController::inspect(Node*) {}
 bool InspectorController::windowVisible() { return false; }
 void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, const JSC::UString&) {}
 void InspectorController::inspectedPageDestroyed() {}
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, JSC::UString& sourceString) {}
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString) {}
 
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
-void InspectorController::startGroup(MessageSource source, JSC::ExecState* exec, const JSC::ArgList& arguments, unsigned lineNumber, const String& sourceURL) {}
+void InspectorController::startGroup(MessageSource source, ScriptCallStack* callFrame) {}
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL) {}
-void InspectorController::startTiming(const JSC::UString& title) {}
-bool InspectorController::stopTiming(const JSC::UString& title, double& elapsed) { return false; }
-void InspectorController::count(const JSC::UString& title, unsigned lineNumber, const String& sourceID) {}
+void InspectorController::startTiming(const String& title) {}
+bool InspectorController::stopTiming(const String& title, double& elapsed) { return false; }
+void InspectorController::count(const String& title, unsigned lineNumber, const String& sourceID) {}
 
 void InspectorController::mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) {}
 void InspectorController::handleMousePressOnNode(Node*) {}

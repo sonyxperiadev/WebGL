@@ -32,13 +32,8 @@
 #import "WebKitLogging.h"
 #import "WebNSURLExtras.h"
 #import "WebTypesInternal.h"
-#import <Foundation/NSError.h>
-#import <WebCore/Page.h>
+#import <WebCore/HistoryItem.h>
 #import <WebCore/PageGroup.h>
-#import <wtf/Assertions.h>
-#import <wtf/HashMap.h>
-#import <wtf/RetainPtr.h>
-#import <wtf/Vector.h>
 
 using namespace WebCore;
 
@@ -65,13 +60,16 @@ NSString *DatesArrayKey = @"WebHistoryDates";
     NSMutableDictionary *_entriesByURL;
     DateToEntriesMap* _entriesByDate;
     NSMutableArray *_orderedLastVisitedDays;
+    WebHistoryItem *_lastVisitedEntry;
     BOOL itemLimitSet;
     int itemLimit;
     BOOL ageInDaysLimitSet;
     int ageInDaysLimit;
 }
 
-- (void)addItem:(WebHistoryItem *)entry;
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title;
+
+- (BOOL)addItem:(WebHistoryItem *)entry discardDuplicate:(BOOL)discardDuplicate;
 - (void)addItems:(NSArray *)newEntries;
 - (BOOL)removeItem:(WebHistoryItem *)entry;
 - (BOOL)removeItems:(NSArray *)entries;
@@ -82,6 +80,7 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 - (BOOL)containsURL:(NSURL *)URL;
 - (WebHistoryItem *)itemForURL:(NSURL *)URL;
 - (WebHistoryItem *)itemForURLString:(NSString *)URLString;
+- (NSArray *)allItems;
 
 - (BOOL)loadFromURL:(NSURL *)URL collectDiscardedItemsInto:(NSMutableArray *)discardedItems error:(NSError **)error;
 - (BOOL)saveToURL:(NSURL *)URL error:(NSError **)error;
@@ -94,6 +93,9 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 - (int)historyAgeInDaysLimit;
 
 - (void)addVisitedLinksToPageGroup:(PageGroup&)group;
+
+- (WebHistoryItem *)lastVisitedEntry;
+- (void)setLastVisitedEntry:(WebHistoryItem *)lastVisitedEntry;
 
 @end
 
@@ -125,6 +127,7 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 {
     [_entriesByURL release];
     [_orderedLastVisitedDays release];
+    [_lastVisitedEntry release];
     delete _entriesByDate;
     [super dealloc];
 }
@@ -137,7 +140,7 @@ NSString *DatesArrayKey = @"WebHistoryDates";
 
 #pragma mark MODIFYING CONTENTS
 
-WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
+static WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 {
     CFTimeZoneRef timeZone = CFTimeZoneCopyDefault();
     CFGregorianDate date = CFAbsoluteTimeGetGregorianDate(interval, timeZone);
@@ -258,7 +261,36 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     }
 }
 
-- (void)addItem:(WebHistoryItem *)entry
+- (WebHistoryItem *)visitedURL:(NSURL *)url withTitle:(NSString *)title
+{
+    ASSERT(url);
+    ASSERT(title);
+    
+    NSString *URLString = [url _web_originalDataAsString];
+    WebHistoryItem *entry = [_entriesByURL objectForKey:URLString];
+
+    if (entry) {
+        LOG(History, "Updating global history entry %@", entry);
+        // Remove the item from date caches before changing its last visited date.  Otherwise we might get duplicate entries
+        // as seen in <rdar://problem/6570573>.
+        BOOL itemWasInDateCaches = [self removeItemFromDateCaches:entry];
+        ASSERT_UNUSED(itemWasInDateCaches, itemWasInDateCaches);
+
+        [entry _visitedWithTitle:title];
+    } else {
+        LOG(History, "Adding new global history entry for %@", url);
+        entry = [[WebHistoryItem alloc] initWithURLString:URLString title:title lastVisitedTimeInterval:[NSDate timeIntervalSinceReferenceDate]];
+        [entry _recordInitialVisit];
+        [_entriesByURL setObject:entry forKey:URLString];
+        [entry release];
+    }
+    
+    [self addItemToDateCaches:entry];
+
+    return entry;
+}
+
+- (BOOL)addItem:(WebHistoryItem *)entry discardDuplicate:(BOOL)discardDuplicate
 {
     ASSERT_ARG(entry, entry);
     ASSERT_ARG(entry, [entry lastVisitedTimeInterval] != 0);
@@ -267,6 +299,9 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 
     WebHistoryItem *oldEntry = [_entriesByURL objectForKey:URLString];
     if (oldEntry) {
+        if (discardDuplicate)
+            return NO;
+
         // The last reference to oldEntry might be this dictionary, so we hold onto a reference
         // until we're done with oldEntry.
         [oldEntry retain];
@@ -280,6 +315,8 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 
     [self addItemToDateCaches:entry];
     [_entriesByURL setObject:entry forKey:URLString];
+    
+    return YES;
 }
 
 - (BOOL)removeItem:(WebHistoryItem *)entry
@@ -336,7 +373,7 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     // faster (fewer compares) by inserting them from oldest to newest.
     NSEnumerator *enumerator = [newEntries reverseObjectEnumerator];
     while (WebHistoryItem *entry = [enumerator nextObject])
-        [self addItem:entry];
+        [self addItem:entry discardDuplicate:NO];
 }
 
 #pragma mark DATE-BASED RETRIEVAL
@@ -386,6 +423,11 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 - (WebHistoryItem *)itemForURL:(NSURL *)URL
 {
     return [self itemForURLString:[URL _web_originalDataAsString]];
+}
+
+- (NSArray *)allItems
+{
+    return [_entriesByURL allValues];
 }
 
 #pragma mark ARCHIVING/UNARCHIVING
@@ -516,8 +558,8 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
             if (ageLimitPassed || itemLimitPassed)
                 [discardedItems addObject:item];
             else {
-                [self addItem:item];
-                ++(*numberOfItemsLoaded);
+                if ([self addItem:item discardDuplicate:YES])
+                    ++(*numberOfItemsLoaded);
                 if (*numberOfItemsLoaded == itemCountLimit)
                     itemLimitPassed = YES;
 
@@ -606,6 +648,19 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     }
 }
 
+- (WebHistoryItem *)lastVisitedEntry
+{
+    return _lastVisitedEntry;
+}
+
+- (void)setLastVisitedEntry:(WebHistoryItem *)lastVisitedEntry
+{
+    if (_lastVisitedEntry == lastVisitedEntry)
+        return;
+    [_lastVisitedEntry release];
+    _lastVisitedEntry = [lastVisitedEntry retain];
+}
+
 @end
 
 @implementation WebHistory
@@ -661,11 +716,9 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
 
 - (void)removeAllItems
 {
-    if ([_historyPrivate removeAllItems]) {
-        [[NSNotificationCenter defaultCenter]
-            postNotificationName:WebHistoryAllItemsRemovedNotification
-                          object:self];
-    }
+    NSArray *entries = [_historyPrivate allItems];
+    if ([_historyPrivate removeAllItems])
+        [self _sendNotification:WebHistoryAllItemsRemovedNotification entries:entries];
 }
 
 - (void)addItems:(NSArray *)newEntries
@@ -759,21 +812,46 @@ WebHistoryDateKey timeIntervalForBeginningOfDay(NSTimeInterval interval)
     return [_historyPrivate itemForURLString:URLString];
 }
 
+- (NSArray *)allItems
+{
+    return [_historyPrivate allItems];
+}
+
 @end
 
 @implementation WebHistory (WebInternal)
 
-- (void)_addItemForURL:(NSURL *)URL title:(NSString *)title
+- (void)_visitedURL:(NSURL *)url withTitle:(NSString *)title method:(NSString *)method wasFailure:(BOOL)wasFailure serverRedirectURL:(NSString *)serverRedirectURL isClientRedirect:(BOOL)isClientRedirect
 {
-    WebHistoryItem *entry = [[WebHistoryItem alloc] initWithURL:URL title:title];
-    [entry _setLastVisitedTimeInterval:[NSDate timeIntervalSinceReferenceDate]];
+    if (isClientRedirect) {
+        ASSERT(!serverRedirectURL);
+        if (WebHistoryItem *lastVisitedEntry = [_historyPrivate lastVisitedEntry])
+            core(lastVisitedEntry)->addRedirectURL([url _web_originalDataAsString]);
+    }
 
-    LOG(History, "adding %@", entry);
-    [_historyPrivate addItem:entry];
-    [self _sendNotification:WebHistoryItemsAddedNotification
-                    entries:[NSArray arrayWithObject:entry]];
-                    
-    [entry release];
+    WebHistoryItem *entry = [_historyPrivate visitedURL:url withTitle:title];
+    [_historyPrivate setLastVisitedEntry:entry];
+
+    HistoryItem* item = core(entry);
+    item->setLastVisitWasFailure(wasFailure);
+
+    if ([method length])
+        item->setLastVisitWasHTTPNonGet([method caseInsensitiveCompare:@"GET"]);
+
+    if (serverRedirectURL) {
+        ASSERT(!isClientRedirect);
+        item->addRedirectURL(serverRedirectURL);
+    }
+
+    NSArray *entries = [[NSArray alloc] initWithObjects:entry, nil];
+    [self _sendNotification:WebHistoryItemsAddedNotification entries:entries];
+    [entries release];
+}
+
+- (void)_visitedURLForRedirectWithoutHistoryItem:(NSURL *)url
+{
+    if (WebHistoryItem *lastVisitedEntry = [_historyPrivate lastVisitedEntry])
+        core(lastVisitedEntry)->addRedirectURL([url _web_originalDataAsString]);
 }
 
 - (void)_addVisitedLinksToPageGroup:(WebCore::PageGroup&)group

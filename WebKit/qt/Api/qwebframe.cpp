@@ -23,6 +23,8 @@
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 #include "qwebframe_p.h"
+#include "qwebsecurityorigin.h"
+#include "qwebsecurityorigin_p.h"
 
 #include "DocumentLoader.h"
 #include "FocusController.h"
@@ -31,6 +33,7 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "IconDatabase.h"
+#include "InspectorController.h"
 #include "Page.h"
 #include "PutPropertySlot.h"
 #include "ResourceRequest.h"
@@ -41,6 +44,7 @@
 #include "SubstituteData.h"
 
 #include "markup.h"
+#include "htmlediting.h"
 #include "RenderTreeAsText.h"
 #include "Element.h"
 #include "Document.h"
@@ -52,17 +56,19 @@
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
 
+#include "CallFrame.h"
+#include "JSDOMBinding.h"
+#include "JSDOMWindow.h"
+#include "JSLock.h"
+#include "JSObject.h"
+#include "qt_instance.h"
+#include "qt_runtime.h"
 #include "runtime.h"
 #include "runtime_object.h"
 #include "runtime_root.h"
-#include "JSDOMWindow.h"
-#include "qt_instance.h"
 #include "ScriptController.h"
-#include "JSDOMBinding.h"
-#include "ExecState.h"
-#include "JSLock.h"
-#include "JSObject.h"
-#include "qt_runtime.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 
 #include "wtf/HashMap.h"
 
@@ -70,6 +76,7 @@
 #include <qevent.h>
 #include <qfileinfo.h>
 #include <qpainter.h>
+#include <QMultiMap>
 #if QT_VERSION >= 0x040400
 #include <qnetworkrequest.h>
 #else
@@ -77,6 +84,8 @@
 #endif
 #include <qregion.h>
 #include <qprinter.h>
+#include "HTMLMetaElement.h"
+#include "NodeList.h"
 
 using namespace WebCore;
 
@@ -84,6 +93,18 @@ using namespace WebCore;
 QT_BEGIN_NAMESPACE
 extern Q_GUI_EXPORT int qt_defaultDpi();
 QT_END_NAMESPACE
+
+void QWEBKIT_EXPORT qt_drt_setJavaScriptProfilingEnabled(QWebFrame* qframe, bool enabled)
+{
+    Frame* frame = QWebFramePrivate::core(qframe);
+    InspectorController* controller = frame->page()->inspectorController();
+    if (!controller)
+        return;
+    if (enabled)
+        controller->enableProfiler();
+    else
+        controller->disableProfiler();
+}
 
 void QWebFramePrivate::init(QWebFrame *qframe, WebCore::Page *webcorePage, QWebFrameData *frameData)
 {
@@ -96,9 +117,17 @@ void QWebFramePrivate::init(QWebFrame *qframe, WebCore::Page *webcorePage, QWebF
     frameLoaderClient = new FrameLoaderClientQt();
     RefPtr<Frame> newFrame = Frame::create(webcorePage, frameData->ownerElement, frameLoaderClient);
     frame = newFrame.get();
-    if (frameData->ownerElement)
-        frame->ref(); // balanced by adoptRef in FrameLoaderClientQt::createFrame
     frameLoaderClient->setFrame(qframe, frame);
+
+    // FIXME: All of the below should probably be moved over into WebCore
+    frame->tree()->setName(frameData->name);
+    if (QWebFrame* _parentFrame = parentFrame())
+        QWebFramePrivate::core(_parentFrame)->tree()->appendChild(frame);
+
+    // balanced by adoptRef in FrameLoaderClientQt::createFrame
+    if (frameData->ownerElement)
+        frame->ref();
+
     frame->init();
 }
 
@@ -116,16 +145,34 @@ WebCore::Scrollbar* QWebFramePrivate::verticalScrollBar() const
     return frame->view()->verticalScrollbar();
 }
 
-void QWebFramePrivate::updateBackground()
+void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, bool contents)
 {
-    WebCore::FrameView *view = frame->view();
-    if (!view)
+    if (!frame->view() || !frame->contentRenderer())
         return;
-    QBrush brush = page->palette().brush(QPalette::Background);
-    if (brush.style() == Qt::SolidPattern) {
-        view->setBaseBackgroundColor(brush.color());
-        if (!brush.color().alpha())
-            view->setTransparent(true);
+
+    QVector<QRect> vector = clip.rects();
+    if (vector.isEmpty())
+        return;
+
+    WebCore::FrameView* view = frame->view();
+    view->layoutIfNeededRecursive();
+
+    GraphicsContext context(painter);
+
+    if (!contents)
+        view->paint(&context, vector.first());
+    else
+        view->paintContents(&context, vector.first());
+
+    for (int i = 1; i < vector.size(); ++i) {
+        const QRect& clipRect = vector.at(i);
+        painter->save();
+        painter->setClipRect(clipRect, Qt::IntersectClip);
+        if (!contents)
+            view->paint(&context, clipRect);
+        else
+            view->paintContents(&context, clipRect);
+        painter->restore();
     }
 }
 
@@ -222,7 +269,7 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
       JSC::ExecState* exec = window->globalExec();
 
       JSC::JSObject *runtimeObject =
-        JSC::Bindings::Instance::createRuntimeObject(exec, JSC::Bindings::QtInstance::getQtInstance(object, root));
+          JSC::Bindings::QtInstance::getQtInstance(object, root)->createRuntimeObject(exec);
 
       JSC::PutPropertySlot slot;
       window->put(exec, JSC::Identifier(exec, (const UChar *) name.constData(), name.length()), runtimeObject, slot);
@@ -278,6 +325,53 @@ QString QWebFrame::title() const
     if (d->frame->document())
         return d->frame->loader()->documentLoader()->title();
     else return QString();
+}
+
+/*!
+    \since 4.5
+    \brief Returns the meta data in this frame as a QMultiMap
+
+    The meta data consists of the name and content attributes of the
+    of the \c{<meta>} tags in the HTML document.
+
+    For example:
+
+    \code
+    <html>
+        <head>
+            <meta name="description" content="This document is a tutorial about Qt development">
+            <meta name="keywords" content="Qt, WebKit, Programming">
+        </head>
+        ...
+    </html>
+    \endcode
+
+    Given the above HTML code the metaData() function will return a map with two entries:
+    \table
+    \header \o Key
+            \o Value
+    \row    \o "description"
+            \o "This document is a tutorial about Qt development"
+    \row    \o "keywords"
+            \o "Qt, WebKit, Programming"
+    \endtable
+
+    This function returns a multi map to support multiple meta tags with the same attribute name.
+*/
+QMultiMap<QString, QString> QWebFrame::metaData() const
+{
+    if(!d->frame->document())
+       return QMap<QString,QString>();
+
+    QMultiMap<QString,QString> map;
+    Document* doc = d->frame->document();
+    RefPtr<NodeList> list = doc->getElementsByTagName("meta");
+    unsigned len = list->length();
+    for (unsigned i = 0; i < len; i++) {
+        HTMLMetaElement* meta = static_cast<HTMLMetaElement*>(list->item(i));
+        map.insert(meta->name(), meta->content());
+    }
+    return map;
 }
 
 static inline QUrl ensureAbsoluteUrl(const QUrl &url)
@@ -446,7 +540,7 @@ void QWebFrame::load(const QNetworkRequest &req,
 
 /*!
   Sets the content of this frame to \a html. \a baseUrl is optional and used to resolve relative
-  URLs in the document.
+  URLs in the document, such as referenced images or stylesheets.
 
   When using this method WebKit assumes that external resources such as JavaScript programs or style
   sheets are encoded in UTF-8 unless otherwise specified. For example, the encoding of an external
@@ -542,12 +636,16 @@ void QWebFrame::setScrollBarPolicy(Qt::Orientation orientation, Qt::ScrollBarPol
 
     if (orientation == Qt::Horizontal) {
         d->horizontalScrollBarPolicy = policy;
-        if (d->frame->view())
+        if (d->frame->view()) {
             d->frame->view()->setHorizontalScrollbarMode((ScrollbarMode)policy);
+            d->frame->view()->updateDefaultScrollbarState();
+        }
     } else {
         d->verticalScrollBarPolicy = policy;
-        if (d->frame->view())
+        if (d->frame->view()) {
             d->frame->view()->setVerticalScrollbarMode((ScrollbarMode)policy);
+            d->frame->view()->updateDefaultScrollbarState();
+        }
     }
 }
 
@@ -617,14 +715,29 @@ int QWebFrame::scrollBarMinimum(Qt::Orientation orientation) const
 }
 
 /*!
+  \since 4.6
+  Returns the geometry for the scrollbar with orientation \a orientation.
+
+  If the scrollbar does not exist an empty rect is returned.
+*/
+QRect QWebFrame::scrollBarGeometry(Qt::Orientation orientation) const
+{
+    Scrollbar *sb;
+    sb = (orientation == Qt::Horizontal) ? d->horizontalScrollBar() : d->verticalScrollBar();
+    if (sb)
+        return sb->frameRect();
+    return QRect();
+}
+
+/*!
   \since 4.5
   Scrolls the frame \a dx pixels to the right and \a dy pixels downward. Both
   \a dx and \a dy may be negative.
   
-  \sa QWebFrame::scrollOffset
+  \sa QWebFrame::scrollPosition
 */
 
-void QWebFrame::scroll(int dx, int dy) const
+void QWebFrame::scroll(int dx, int dy)
 {
     if (!d->frame->view())
         return;
@@ -633,23 +746,25 @@ void QWebFrame::scroll(int dx, int dy) const
 }
 
 /*!
-  \property QWebFrame::scrollOffset
-  \brief The offset from the start this frame is currently scrolled to.
+  \property QWebFrame::scrollPosition
+  \since 4.5
+  \brief the position the frame is currently scrolled to.
 */
 
-QSize QWebFrame::scrollOffset() const
+QPoint QWebFrame::scrollPosition() const
 {
     if (!d->frame->view())
-        return QSize(0,0);
+        return QPoint(0,0);
 
-    return d->frame->view()->scrollOffset();
+    IntSize ofs = d->frame->view()->scrollOffset();
+    return QPoint(ofs.width(), ofs.height());
 }
 
-void QWebFrame::setScrollOffset(const QSize &offset) const
+void QWebFrame::setScrollPosition(const QPoint &pos)
 {
-    QSize current = scrollOffset();
-    int dx = offset.width() - current.width();
-    int dy = offset.height() - current.height();
+    QPoint current = scrollPosition();
+    int dx = pos.x() - current.x();
+    int dy = pos.y() - current.y();
     scroll(dx, dy);
 }
 
@@ -660,25 +775,7 @@ void QWebFrame::setScrollOffset(const QSize &offset) const
 */
 void QWebFrame::render(QPainter *painter, const QRegion &clip)
 {
-    if (!d->frame->view() || !d->frame->contentRenderer())
-        return;
-
-    d->frame->view()->layoutIfNeededRecursive();
-
-    GraphicsContext ctx(painter);
-    QVector<QRect> vector = clip.rects();
-    WebCore::FrameView* view = d->frame->view();
-    for (int i = 0; i < vector.size(); ++i) {
-        if (i > 0) {
-            painter->save();
-            painter->setClipRect(vector.at(i), Qt::IntersectClip);
-        }
-
-        view->paint(&ctx, vector.at(i));
-
-        if (i > 0)
-            painter->restore();
-    }
+    d->renderPrivate(painter, clip);
 }
 
 /*!
@@ -686,14 +783,19 @@ void QWebFrame::render(QPainter *painter, const QRegion &clip)
 */
 void QWebFrame::render(QPainter *painter)
 {
-    if (!d->frame->view() || !d->frame->contentRenderer())
+    if (!d->frame->view())
         return;
 
-    d->frame->view()->layoutIfNeededRecursive();
+    d->renderPrivate(painter, QRegion(d->frame->view()->frameRect()));
+}
 
-    GraphicsContext ctx(painter);
-    WebCore::FrameView* view = d->frame->view();
-    view->paint(&ctx, view->frameRect());
+/*!
+  \since 4.6
+  Render the frame's \a contents into \a painter while clipping to \a contents.
+*/
+void QWebFrame::renderContents(QPainter *painter, const QRegion &contents)
+{
+    d->renderPrivate(painter, contents, true);
 }
 
 /*!
@@ -708,11 +810,18 @@ void QWebFrame::render(QPainter *painter)
     QWebSettings.
 */
 
+/*!
+    Sets the value of the multiplier used to scale the text in a Web frame to
+    the \a factor specified.
+*/
 void QWebFrame::setTextSizeMultiplier(qreal factor)
 {
     d->frame->setZoomFactor(factor, /*isTextOnly*/true);
 }
 
+/*!
+    Returns the value of the multiplier used to scale the text in a Web frame.
+*/
 qreal QWebFrame::textSizeMultiplier() const
 {
     return d->frame->zoomFactor();
@@ -758,6 +867,8 @@ QRect QWebFrame::geometry() const
 /*!
     \property QWebFrame::contentsSize
     \brief the size of the contents in this frame
+
+    \sa contentsSizeChanged
 */
 QSize QWebFrame::contentsSize() const
 {
@@ -886,13 +997,25 @@ QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
     ScriptController *proxy = d->frame->script();
     QVariant rc;
     if (proxy) {
-        JSC::JSValue* v = proxy->evaluate(String(), 1, scriptSource);
+        JSC::JSValuePtr v = proxy->evaluate(ScriptSourceCode(scriptSource)).jsValue();
         if (v) {
             int distance = 0;
             rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject()->globalExec(), v, QMetaType::Void, &distance);
         }
     }
     return rc;
+}
+
+/*!
+    \since 4.5
+
+    Returns the frame's security origin.
+*/
+QWebSecurityOrigin QWebFrame::securityOrigin() const
+{
+    QWebFrame* that = const_cast<QWebFrame*>(this);
+    QWebSecurityOriginPrivate* priv = new QWebSecurityOriginPrivate(QWebFramePrivate::core(that)->document()->securityOrigin());
+    return QWebSecurityOrigin(priv);
 }
 
 WebCore::Frame* QWebFramePrivate::core(QWebFrame* webFrame)
@@ -960,14 +1083,12 @@ QWebFrame* QWebFramePrivate::kit(WebCore::Frame* coreFrame)
 */
 
 /*!
-  \since 4.5
-  \fn void QWebFrame::aboutToUpdateHistory(QWebHistoryItem* item);
+  \fn void QWebFrame::contentsSizeChanged(const QSize &size)
+  \since 4.6
 
-  This signal is emitted shortly before the history of navigated pages
-  is changed, for example when navigating back in the history.
+  This signal is emitted when the frame's contents size changes.
 
-  A potential use-case for this signal is to store custom data in
-  the QWebHistoryItem associated to the frame, using QWebHistoryItem::setUserData().
+  \sa contentsSize()
 */
 
 /*!
@@ -991,6 +1112,7 @@ QWebHitTestResult::QWebHitTestResult(QWebHitTestResultPrivate *priv)
 QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult &hitTest)
     : isContentEditable(false)
     , isContentSelected(false)
+    , isScrollBar(false)
 {
     if (!hitTest.innerNode())
         return;
@@ -1002,6 +1124,7 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
     linkTitle = hitTest.titleDisplayString();
     alternateText = hitTest.altDisplayString();
     imageUrl = hitTest.absoluteImageURL();
+    innerNode = hitTest.innerNode();
     innerNonSharedNode = hitTest.innerNonSharedNode();
     WebCore::Image *img = hitTest.image();
     if (img) {
@@ -1015,10 +1138,20 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
 
     isContentEditable = hitTest.isContentEditable();
     isContentSelected = hitTest.isSelected();
+    isScrollBar = hitTest.scrollbar();
 
     if (innerNonSharedNode && innerNonSharedNode->document()
         && innerNonSharedNode->document()->frame())
         frame = QWebFramePrivate::kit(innerNonSharedNode->document()->frame());
+
+    if (Node *block = WebCore::enclosingBlock(innerNode.get())) {
+        RenderObject *renderBlock = block->renderer();
+        while (renderBlock && renderBlock->isListItem())
+            renderBlock = renderBlock->containingBlock();
+
+        if (renderBlock)
+            enclosingBlock = renderBlock->absoluteClippedOverflowRect();
+    }
 }
 
 /*!
@@ -1085,13 +1218,24 @@ QPoint QWebHitTestResult::pos() const
 
 /*!
     \since 4.5
-    Returns the bounding box of the element.
+    Returns the bounding rect of the element.
 */
 QRect QWebHitTestResult::boundingRect() const
 {
     if (!d)
         return QRect();
     return d->boundingRect;
+}
+
+/*!
+    \since 4.6
+    Returns the rect of the smallest enclosing block element.
+*/
+QRect QWebHitTestResult::enclosingBlock() const
+{
+    if (!d)
+        return QRect();
+    return d->enclosingBlock;
 }
 
 /*!
@@ -1205,3 +1349,13 @@ QWebFrame *QWebHitTestResult::frame() const
     return d->frame;
 }
 
+/*!
+    \since 4.6
+    Returns true if the test includes a scrollbar.
+*/
+bool QWebHitTestResult::isScrollBar() const
+{
+    if (!d)
+        return false;
+    return d->isScrollBar;
+}

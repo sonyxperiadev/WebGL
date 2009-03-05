@@ -134,7 +134,6 @@ using JSC::ExecState;
 using JSC::Interpreter;
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::JSValue;
 using JSC::UString;
 
 using std::min;
@@ -323,7 +322,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.clipRect.top = 0;
     m_npWindow.clipRect.right = width;
     m_npWindow.clipRect.bottom = height;
-    
+
     if (m_plugin->pluginFuncs()->setwindow) {
         JSC::JSLock::DropAllLocks dropAllLocks(false);
         setCallingPlugin(true);
@@ -517,29 +516,6 @@ void PluginView::hide()
     Widget::hide();
 }
 
-void PluginView::paintMissingPluginIcon(GraphicsContext* context,
-                                        const IntRect& rect)
-{
-    static RefPtr<Image> gNullPluginImage;
-    if (!gNullPluginImage) {
-        gNullPluginImage = Image::loadPlatformResource("nullplugin");
-    }
-    Image* image = gNullPluginImage.get();
-
-    IntRect imageRect(frameRect().x(), frameRect().y(),
-                      image->width(), image->height());
-
-    int xOffset = (frameRect().width() - imageRect.width()) / 2;
-    int yOffset = (frameRect().height() - imageRect.height()) / 2;
-
-    imageRect.move(xOffset, yOffset);
-
-    if (!rect.intersects(imageRect))
-        return;
-
-    context->drawImage(image, imageRect.location());
-}
-
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 {
     if (!m_isStarted) {
@@ -558,9 +534,13 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 }
 
 // new as of SVN 38068, Nov 5 2008
-void PluginView::updatePluginWidget() const
+void PluginView::updatePluginWidget()
 {
-    notImplemented();
+    // I bet/hope we can move all of setNPWindowRect() into here
+    FrameView* frameView = static_cast<FrameView*>(parent());
+    if (frameView) {
+        m_windowRect = IntRect(frameView->contentsToWindow(frameRect().location()), frameRect().size());
+    }
 }
 
 // new as of SVN 38068, Nov 5 2008

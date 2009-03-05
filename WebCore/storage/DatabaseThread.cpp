@@ -25,6 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
 #include "DatabaseThread.h"
 
@@ -35,7 +36,7 @@
 
 namespace WebCore {
 
-DatabaseThread::DatabaseThread(Document* document)
+DatabaseThread::DatabaseThread()
     : m_threadID(0)
 {
     m_selfRef = this;
@@ -48,6 +49,8 @@ DatabaseThread::~DatabaseThread()
 
 bool DatabaseThread::start()
 {
+    MutexLocker lock(m_threadCreationMutex);
+
     if (m_threadID)
         return true;
 
@@ -75,7 +78,11 @@ void* DatabaseThread::databaseThreadStart(void* vDatabaseThread)
 
 void* DatabaseThread::databaseThread()
 {
-    LOG(StorageAPI, "Starting DatabaseThread %p", this);
+    {
+        // Wait for DatabaseThread::start() to complete.
+        MutexLocker lock(m_threadCreationMutex);
+        LOG(StorageAPI, "Started DatabaseThread %p", this);
+    }
 
     AutodrainedPool pool;
     while (true) {

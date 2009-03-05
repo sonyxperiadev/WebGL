@@ -29,12 +29,12 @@
 #include "config.h"
 #include "KeyframeAnimation.h"
 
+#include "AnimationController.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "CompositeAnimation.h"
 #include "EventNames.h"
 #include "RenderObject.h"
-#include "SystemTime.h"
 
 namespace WebCore {
 
@@ -59,9 +59,11 @@ KeyframeAnimation::~KeyframeAnimation()
         updateStateMachine(AnimationStateInputEndAnimation, -1);
 }
 
-void KeyframeAnimation::animate(CompositeAnimation* animation, RenderObject* renderer, const RenderStyle* currentStyle, 
-                                    const RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
+void KeyframeAnimation::animate(CompositeAnimation*, RenderObject*, const RenderStyle*, const RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
 {
+    // Fire the start timeout if needed
+    fireAnimationEventsIfNeeded();
+    
     // If we have not yet started, we will not have a valid start time, so just start the animation if needed.
     if (isNew() && m_animation->playState() == AnimPlayStatePlaying)
         updateStateMachine(AnimationStateInputStartAnimation, -1);
@@ -84,9 +86,7 @@ void KeyframeAnimation::animate(CompositeAnimation* animation, RenderObject* ren
     // We should cache the last pair or something.
 
     // Find the first key
-    double elapsedTime = (m_startTime > 0) ? ((!paused() ? currentTime() : m_pauseTime) - m_startTime) : 0;
-    if (elapsedTime < 0)
-        elapsedTime = 0;
+    double elapsedTime = getElapsedTime();
 
     double t = m_animation->duration() ? (elapsedTime / m_animation->duration()) : 1;
     int i = static_cast<int>(t);
@@ -200,11 +200,8 @@ bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double
         if (!element)
             return false;
 
-        // Keep a reference to this ImplicitAnimation so it doesn't go away in the handler
-        RefPtr<KeyframeAnimation> retainer(this);
-        
-        // Call the event handler
-        element->dispatchWebKitAnimationEvent(eventType, m_keyframes.animationName(), elapsedTime);
+        // Schedule event handling
+        m_object->animation()->addEventToDispatch(element, eventType, m_keyframes.animationName(), elapsedTime);
 
         // Restore the original (unanimated) style
         if (eventType == eventNames().webkitAnimationEndEvent && element->renderer())

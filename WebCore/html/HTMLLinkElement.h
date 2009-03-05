@@ -35,7 +35,7 @@ class KURL;
 
 class HTMLLinkElement : public HTMLElement, public CachedResourceClient {
 public:
-    HTMLLinkElement(Document*);
+    HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
     ~HTMLLinkElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -95,15 +95,14 @@ public:
     
     static void tokenizeRelAttribute(const AtomicString& value, bool& stylesheet, bool& alternate, bool& icon, bool& dnsPrefetch);
 
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
-    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
     virtual void finishParsingChildren();
 
 protected:
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
-    String m_url;
+    KURL m_url;
     String m_type;
     String m_media;
     int m_disabledState; // 0=unset(default), 1=enabled via script, 2=disabled

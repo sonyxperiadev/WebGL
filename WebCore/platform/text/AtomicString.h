@@ -89,13 +89,13 @@ public:
 
     static void remove(StringImpl*);
     
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
+    AtomicString(CFStringRef s) :  m_string(add(String(s).impl())) { }
+    CFStringRef createCFString() const { return m_string.createCFString(); }
+#endif    
 #ifdef __OBJC__
     AtomicString(NSString* s) : m_string(add(String(s).impl())) { }
     operator NSString*() const { return m_string; }
-#endif
-#if PLATFORM(SYMBIAN)
-    AtomicString(const TDesC& s) : m_string(add(String(s).impl())) { }
-    operator TPtrC() const { return m_string; }
 #endif
 #if PLATFORM(QT)
     AtomicString(const QString& s) : m_string(add(String(s).impl())) { }

@@ -43,7 +43,7 @@
 #include "JSFile.h"
 #include "XMLHttpRequest.h"
 #include <runtime/Error.h>
-#include <VM/Machine.h>
+#include <interpreter/Interpreter.h>
 
 using namespace JSC;
 
@@ -89,27 +89,22 @@ void JSXMLHttpRequest::mark()
 }
 
 // Custom functions
-JSValue* JSXMLHttpRequest::open(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::open(ExecState* exec, const ArgList& args)
 {
     if (args.size() < 2)
         return throwError(exec, SyntaxError, "Not enough arguments");
 
-    Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
-    if (!frame)
-        return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 1)->toString(exec));
-
-    ExceptionCode ec = 0;
-
-    String method = args.at(exec, 0)->toString(exec);
+    const KURL& url = impl()->scriptExecutionContext()->completeURL(args.at(exec, 1).toString(exec));
+    String method = args.at(exec, 0).toString(exec);
     bool async = true;
     if (args.size() >= 3)
-        async = args.at(exec, 2)->toBoolean(exec);
+        async = args.at(exec, 2).toBoolean(exec);
 
-    if (args.size() >= 4 && !args.at(exec, 3)->isUndefined()) {
+    ExceptionCode ec = 0;
+    if (args.size() >= 4 && !args.at(exec, 3).isUndefined()) {
         String user = valueToStringWithNullCheck(exec, args.at(exec, 3));
 
-        if (args.size() >= 5 && !args.at(exec, 4)->isUndefined()) {
+        if (args.size() >= 5 && !args.at(exec, 4).isUndefined()) {
             String password = valueToStringWithNullCheck(exec, args.at(exec, 4));
             impl()->open(method, url, async, user, password, ec);
         } else
@@ -121,39 +116,39 @@ JSValue* JSXMLHttpRequest::open(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequest::setRequestHeader(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::setRequestHeader(ExecState* exec, const ArgList& args)
 {
     if (args.size() < 2)
         return throwError(exec, SyntaxError, "Not enough arguments");
 
     ExceptionCode ec = 0;
-    impl()->setRequestHeader(args.at(exec, 0)->toString(exec), args.at(exec, 1)->toString(exec), ec);
+    impl()->setRequestHeader(args.at(exec, 0).toString(exec), args.at(exec, 1).toString(exec), ec);
     setDOMException(exec, ec);
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequest::send(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::send(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
     if (args.isEmpty())
         impl()->send(ec);
     else {
-        JSValue* val = args.at(exec, 0);
-        if (val->isUndefinedOrNull())
+        JSValuePtr val = args.at(exec, 0);
+        if (val.isUndefinedOrNull())
             impl()->send(ec);
-        else if (val->isObject(&JSDocument::s_info))
+        else if (val.isObject(&JSDocument::s_info))
             impl()->send(toDocument(val), ec);
-        else if (val->isObject(&JSFile::s_info))
+        else if (val.isObject(&JSFile::s_info))
             impl()->send(toFile(val), ec);
         else
-            impl()->send(val->toString(exec), ec);
+            impl()->send(val.toString(exec), ec);
     }
 
     int signedLineNumber;
     intptr_t sourceID;
     UString sourceURL;
-    JSValue* function;
-    exec->machine()->retrieveLastCaller(exec, signedLineNumber, sourceID, sourceURL, function);
+    JSValuePtr function;
+    exec->interpreter()->retrieveLastCaller(exec, signedLineNumber, sourceID, sourceURL, function);
     impl()->setLastSendLineNumber(signedLineNumber >= 0 ? signedLineNumber : 0);
     impl()->setLastSendURL(sourceURL);
 
@@ -161,27 +156,27 @@ JSValue* JSXMLHttpRequest::send(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequest::getResponseHeader(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::getResponseHeader(ExecState* exec, const ArgList& args)
 {
     if (args.size() < 1)
         return throwError(exec, SyntaxError, "Not enough arguments");
 
     ExceptionCode ec = 0;
-    JSValue* header = jsStringOrNull(exec, impl()->getResponseHeader(args.at(exec, 0)->toString(exec), ec));
+    JSValuePtr header = jsStringOrNull(exec, impl()->getResponseHeader(args.at(exec, 0).toString(exec), ec));
     setDOMException(exec, ec);
     return header;
 }
 
-JSValue* JSXMLHttpRequest::overrideMimeType(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::overrideMimeType(ExecState* exec, const ArgList& args)
 {
     if (args.size() < 1)
         return throwError(exec, SyntaxError, "Not enough arguments");
 
-    impl()->overrideMimeType(args.at(exec, 0)->toString(exec));
+    impl()->overrideMimeType(args.at(exec, 0).toString(exec));
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequest::addEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -189,11 +184,11 @@ JSValue* JSXMLHttpRequest::addEventListener(ExecState* exec, const ArgList& args
     RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0)->toString(exec), listener.release(), args.at(exec, 2)->toBoolean(exec));
+    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequest::removeEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequest::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -201,8 +196,13 @@ JSValue* JSXMLHttpRequest::removeEventListener(ExecState* exec, const ArgList& a
     JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0)->toString(exec), listener, args.at(exec, 2)->toBoolean(exec));
+    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
+}
+
+JSValuePtr JSXMLHttpRequest::responseText(ExecState* exec) const
+{
+    return jsOwnedStringOrNull(exec, impl()->responseText());
 }
 
 } // namespace WebCore

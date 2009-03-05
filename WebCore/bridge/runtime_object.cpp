@@ -47,7 +47,7 @@ RuntimeObjectImp::RuntimeObjectImp(ExecState* exec, PassRefPtr<Instance> i)
     instance->rootObject()->addRuntimeObject(this);
 }
     
-RuntimeObjectImp::RuntimeObjectImp(ExecState* exec, PassRefPtr<StructureID> structure, PassRefPtr<Instance> i)
+RuntimeObjectImp::RuntimeObjectImp(ExecState*, PassRefPtr<Structure> structure, PassRefPtr<Instance> i)
     : JSObject(structure)
     , instance(i)
 {
@@ -66,7 +66,7 @@ void RuntimeObjectImp::invalidate()
     instance = 0;
 }
 
-JSValue* RuntimeObjectImp::fallbackObjectGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValuePtr RuntimeObjectImp::fallbackObjectGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
     RuntimeObjectImp* thisObj = static_cast<RuntimeObjectImp*>(asObject(slot.slotBase()));
     RefPtr<Instance> instance = thisObj->instance;
@@ -77,14 +77,14 @@ JSValue* RuntimeObjectImp::fallbackObjectGetter(ExecState* exec, const Identifie
     instance->begin();
 
     Class *aClass = instance->getClass();
-    JSValue* result = aClass->fallbackObject(exec, instance.get(), propertyName);
+    JSValuePtr result = aClass->fallbackObject(exec, instance.get(), propertyName);
 
     instance->end();
             
     return result;
 }
 
-JSValue* RuntimeObjectImp::fieldGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValuePtr RuntimeObjectImp::fieldGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {    
     RuntimeObjectImp* thisObj = static_cast<RuntimeObjectImp*>(asObject(slot.slotBase()));
     RefPtr<Instance> instance = thisObj->instance;
@@ -96,14 +96,14 @@ JSValue* RuntimeObjectImp::fieldGetter(ExecState* exec, const Identifier& proper
 
     Class *aClass = instance->getClass();
     Field* aField = aClass->fieldNamed(propertyName, instance.get());
-    JSValue* result = instance->getValueOfField(exec, aField); 
+    JSValuePtr result = aField->valueFromInstance(exec, instance.get());
     
     instance->end();
             
     return result;
 }
 
-JSValue* RuntimeObjectImp::methodGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValuePtr RuntimeObjectImp::methodGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
     RuntimeObjectImp* thisObj = static_cast<RuntimeObjectImp*>(asObject(slot.slotBase()));
     RefPtr<Instance> instance = thisObj->instance;
@@ -115,7 +115,7 @@ JSValue* RuntimeObjectImp::methodGetter(ExecState* exec, const Identifier& prope
 
     Class *aClass = instance->getClass();
     MethodList methodList = aClass->methodsNamed(propertyName, instance.get());
-    JSValue* result = new (exec) RuntimeMethod(exec, propertyName, methodList);
+    JSValuePtr result = new (exec) RuntimeMethod(exec, propertyName, methodList);
 
     instance->end();
             
@@ -153,7 +153,7 @@ bool RuntimeObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& pro
         }
 
         // Try a fallback object.
-        if (!aClass->fallbackObject(exec, instance.get(), propertyName)->isUndefined()) {
+        if (!aClass->fallbackObject(exec, instance.get(), propertyName).isUndefined()) {
             slot.setCustom(this, fallbackObjectGetter);
             instance->end();
             return true;
@@ -161,18 +161,11 @@ bool RuntimeObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& pro
     }
         
     instance->end();
-#if PLATFORM(QT)
-    // For Qt instances we call the baseclass implementation to allow
-    // runtime objects to have custom properties or a prototype
-    if (instance->getBindingLanguage() == Instance::QtLanguage)
-        return JSObject::getOwnPropertySlot(exec, propertyName, slot);
-#endif
-    // For other platforms and/or binding languages we don't allow
-    // runtime properties/prototypes
-    return false;
+    
+    return instance->getOwnPropertySlot(this, exec, propertyName, slot);
 }
 
-void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, PutPropertySlot& slot)
+void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
 {
     if (!instance) {
         throwInvalidAccessError(exec);
@@ -185,13 +178,9 @@ void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSVa
     // Set the value of the property.
     Field *aField = instance->getClass()->fieldNamed(propertyName, instance.get());
     if (aField)
-        instance->setValueOfField(exec, aField, value);
-    else if (instance->supportsSetValueOfUndefinedField())
-        instance->setValueOfUndefinedField(exec, propertyName, value);
-#if PLATFORM(QT)
-    else if (instance->getBindingLanguage() == Instance::QtLanguage)
-        JSObject::put(exec,  propertyName, value, slot);
-#endif
+        aField->setValueToInstance(exec, instance.get(), value);
+    else if (!instance->setValueOfUndefinedField(exec, propertyName, value))
+        instance->put(this, exec, propertyName, value, slot);
 
     instance->end();
 }
@@ -202,23 +191,23 @@ bool RuntimeObjectImp::deleteProperty(ExecState*, const Identifier&)
     return false;
 }
 
-JSValue* RuntimeObjectImp::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
+JSValuePtr RuntimeObjectImp::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
 {
     if (!instance)
         return throwInvalidAccessError(exec);
     
     RefPtr<Instance> protector(instance);
     instance->begin();
-    JSValue* result = instance->defaultValue(exec, hint);
+    JSValuePtr result = instance->defaultValue(exec, hint);
     instance->end();
     return result;
 }
 
-static JSValue* callRuntimeObject(ExecState* exec, JSObject* function, JSValue*, const ArgList& args)
+static JSValuePtr callRuntimeObject(ExecState* exec, JSObject* function, JSValuePtr, const ArgList& args)
 {
     RefPtr<Instance> instance(static_cast<RuntimeObjectImp*>(function)->getInternalInstance());
     instance->begin();
-    JSValue* result = instance->invokeDefaultMethod(exec, args);
+    JSValuePtr result = instance->invokeDefaultMethod(exec, args);
     instance->end();
     return result;
 }
@@ -231,15 +220,15 @@ CallType RuntimeObjectImp::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-JSObject* callRuntimeConstructor(ExecState* exec, JSObject* constructor, const ArgList& args)
+static JSObject* callRuntimeConstructor(ExecState* exec, JSObject* constructor, const ArgList& args)
 {
     RefPtr<Instance> instance(static_cast<RuntimeObjectImp*>(constructor)->getInternalInstance());
     instance->begin();
-    JSValue* result = instance->invokeConstruct(exec, args);
+    JSValuePtr result = instance->invokeConstruct(exec, args);
     instance->end();
     
     ASSERT(result);
-    return result->isObject() ? static_cast<JSObject*>(result) : constructor;
+    return result.isObject() ? static_cast<JSObject*>(result.asCell()) : constructor;
 }
 
 ConstructType RuntimeObjectImp::getConstructData(ConstructData& constructData)

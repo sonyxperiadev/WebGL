@@ -29,6 +29,7 @@
 #include "RenderArena.h"
 #include "RenderObject.h"
 #include "StyleImage.h"
+#include <wtf/StdLibExtras.h>
 #include <algorithm>
 
 namespace WebCore {
@@ -232,7 +233,7 @@ bool RenderStyle::inheritedNotEqual(RenderStyle* other) const
            rareInheritedData != other->rareInheritedData;
 }
 
-bool positionedObjectMoved(const LengthBox& a, const LengthBox& b)
+static bool positionedObjectMoved(const LengthBox& a, const LengthBox& b)
 {
     // If any unit types are different, then we can't guarantee
     // that this was just a movement.
@@ -498,7 +499,8 @@ void RenderStyle::setCursorList(PassRefPtr<CursorList> other)
 
 void RenderStyle::clearCursorList()
 {
-    inherited.access()->cursorData = CursorList::create();
+    if (inherited->cursorData)
+        inherited.access()->cursorData = 0;
 }
 
 bool RenderStyle::contentDataEquivalent(const RenderStyle* otherStyle) const
@@ -635,7 +637,7 @@ void RenderStyle::setContent(CounterContent* c, bool add)
     newContentData->m_type = CONTENT_COUNTER;
 }
 
-void RenderStyle::applyTransform(AffineTransform& transform, const IntSize& borderBoxSize, bool includeTransformOrigin) const
+void RenderStyle::applyTransform(TransformationMatrix& transform, const IntSize& borderBoxSize, bool includeTransformOrigin) const
 {
     // transform-origin brackets the transform with translate operations.
     // Optimize for the case where the only transform is a translation, since the transform-origin is irrelevant
@@ -720,13 +722,13 @@ CounterDirectiveMap& RenderStyle::accessCounterDirectives()
 #if ENABLE(DASHBOARD_SUPPORT)
 const Vector<StyleDashboardRegion>& RenderStyle::initialDashboardRegions()
 {
-    static Vector<StyleDashboardRegion> emptyList;
+    DEFINE_STATIC_LOCAL(Vector<StyleDashboardRegion>, emptyList, ());
     return emptyList;
 }
 
 const Vector<StyleDashboardRegion>& RenderStyle::noneDashboardRegions()
 {
-    static Vector<StyleDashboardRegion> noneList;
+    DEFINE_STATIC_LOCAL(Vector<StyleDashboardRegion>, noneList, ());
     static bool noneListInitialized = false;
 
     if (!noneListInitialized) {
@@ -750,7 +752,7 @@ void RenderStyle::adjustAnimations()
     if (!animationList)
         return;
 
-    // get rid of empty transitions and anything beyond them
+    // Get rid of empty animations and anything beyond them
     for (size_t i = 0; i < animationList->size(); ++i) {
         if (animationList->animation(i)->isEmpty()) {
             animationList->resize(i);
@@ -773,7 +775,7 @@ void RenderStyle::adjustTransitions()
     if (!transitionList)
         return;
 
-    // get rid of empty transitions and anything beyond them
+    // Get rid of empty transitions and anything beyond them
     for (size_t i = 0; i < transitionList->size(); ++i) {
         if (transitionList->animation(i)->isEmpty()) {
             transitionList->resize(i);

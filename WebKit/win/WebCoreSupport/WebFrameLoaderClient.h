@@ -34,7 +34,7 @@
 #pragma warning(pop)
 
 namespace WebCore {
-    class PluginView;
+    class PluginManualLoader;
 }
 
 template <typename T> class COMPtr;
@@ -49,6 +49,7 @@ public:
     virtual void assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&);
 
     virtual void dispatchWillSendRequest(WebCore::DocumentLoader*, unsigned long identifier, WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse);
+    virtual bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
@@ -69,6 +70,7 @@ public:
     virtual void dispatchDidFinishDocumentLoad();
     virtual void dispatchDidFinishLoad();
     virtual void dispatchDidFirstLayout();
+    virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
     virtual WebCore::Frame* dispatchCreatePage();
     virtual void dispatchShow();
@@ -83,13 +85,15 @@ public:
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
     virtual void finishedLoading(WebCore::DocumentLoader*);
 
-    virtual void updateGlobalHistory(const WebCore::KURL&);
+    virtual void updateGlobalHistory();
+    virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
     virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
 
-    virtual void savePlatformDataToCachedPage(WebCore::CachedPage*);
+    virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
+    virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
     virtual bool canCachePage() const;
@@ -98,6 +102,8 @@ public:
                                const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
     virtual WebCore::Widget* createPlugin(const WebCore::IntSize&, WebCore::Element*, const WebCore::KURL&, const Vector<WebCore::String>&, const Vector<WebCore::String>&, const WebCore::String&, bool loadManually);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
+
+    virtual bool shouldUsePluginDocument(const WebCore::String& mimeType) const;
 
 protected:
     WebFrameLoaderClient(WebFrame*);
@@ -111,8 +117,8 @@ private:
 
     WebFrame* m_webFrame;
 
-    // Points to the plugin view that data should be redirected to.
-    WebCore::PluginView* m_pluginView;
+    // Points to the manual loader that data should be redirected to.
+    WebCore::PluginManualLoader* m_manualLoader;
 
     bool m_hasSentResponseToPlugin;
 };

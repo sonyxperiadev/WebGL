@@ -30,7 +30,6 @@
 #include "JSCustomSQLStatementErrorCallback.h"
 
 #include "CString.h"
-#include "Console.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
@@ -61,9 +60,9 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
         
     JSC::JSLock lock(false);
         
-    JSValue* handleEventFunction = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr handleEventFunction = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData handleEventCallData;
-    CallType handleEventCallType = handleEventFunction->getCallData(handleEventCallData);
+    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
     CallData callbackCallData;
     CallType callbackCallType = CallTypeNone;
 
@@ -81,7 +80,7 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
     args.append(toJS(exec, transaction));
     args.append(toJS(exec, error));
         
-    JSValue* result;
+    JSValuePtr result;
     globalObject->startTimeoutCheck();
     if (handleEventCallType != CallTypeNone)
         result = call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_callback, args);
@@ -90,7 +89,7 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
     globalObject->stopTimeoutCheck();
         
     if (exec->hadException()) {
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
             
         // The spec says:
         // "If the error callback returns false, then move on to the next statement..."
@@ -101,7 +100,7 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
         
     Document::updateDocumentsRendering();
 
-    return result->toBoolean(exec);
+    return result.toBoolean(exec);
 }
 
 }

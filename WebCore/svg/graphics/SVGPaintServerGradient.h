@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ *               2008 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,38 +29,28 @@
 
 #if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "Color.h"
+#include "Gradient.h"
 #include "GraphicsContext.h"
 #include "SVGPaintServer.h"
 
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(QT)
-#include <qglobal.h>
-QT_BEGIN_NAMESPACE
-class QGradient;
-QT_END_NAMESPACE
-#endif
-
 namespace WebCore {
 
     class ImageBuffer;
     class SVGGradientElement;
 
-#if PLATFORM(CG)
-    typedef std::pair<CGFloat, Color> SVGGradientStop;
-#else
     typedef std::pair<float, Color> SVGGradientStop;
-#endif
 
     class SVGPaintServerGradient : public SVGPaintServer {
     public:
         virtual ~SVGPaintServerGradient();
 
-        const Vector<SVGGradientStop>& gradientStops() const;
-        void setGradientStops(const Vector<SVGGradientStop>&);
+        void setGradient(PassRefPtr<Gradient>);
+        Gradient* gradient() const;
 
         GradientSpreadMethod spreadMethod() const;
         void setGradientSpreadMethod(const GradientSpreadMethod&);
@@ -70,63 +61,32 @@ namespace WebCore {
         bool boundingBoxMode() const;
         void setBoundingBoxMode(bool mode = true);
 
-        AffineTransform gradientTransform() const;
-        void setGradientTransform(const AffineTransform&);
+        TransformationMatrix gradientTransform() const;
+        void setGradientTransform(const TransformationMatrix&);
+
+        void setGradientStops(const Vector<SVGGradientStop>& stops) { m_stops = stops; }
+        const Vector<SVGGradientStop>& gradientStops() const { return m_stops; }
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
         virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-#if PLATFORM(CG)
         virtual void teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-        virtual void renderPath(GraphicsContext*&, const RenderObject*, SVGPaintTargetType) const;
-
-        virtual void invalidate();
-
-        // Helpers
-        void updateQuartzGradientStopsCache(const Vector<SVGGradientStop>&);
-        void updateQuartzGradientCache(const SVGPaintServerGradient*);
-        void handleBoundingBoxModeAndGradientTransformation(GraphicsContext*, const FloatRect& targetRect) const;
-#endif
-
-#if PLATFORM(QT)
-    protected:
-        void fillColorArray(QGradient&, const Vector<SVGGradientStop>&, float opacity) const;
-        virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const = 0;
-#endif
 
     protected:
         SVGPaintServerGradient(const SVGGradientElement* owner);
         
     private:
         Vector<SVGGradientStop> m_stops;
+        RefPtr<Gradient> m_gradient;
         GradientSpreadMethod m_spreadMethod;
         bool m_boundingBoxMode;
-        AffineTransform m_gradientTransform;
+        TransformationMatrix m_gradientTransform;
         const SVGGradientElement* m_ownerElement;
 
 #if PLATFORM(CG)
     public:
-        typedef struct {
-            CGFloat colorArray[4];
-            CGFloat offset;
-            CGFloat previousDeltaInverse;
-        } QuartzGradientStop;
-        
-        struct SharedStopCache : public RefCounted<SharedStopCache> {
-        public:
-            static PassRefPtr<SharedStopCache> create() { return adoptRef(new SharedStopCache); }
-            
-            Vector<QuartzGradientStop> m_stops;
-        
-        private:
-            SharedStopCache() { }
-        };
-
-        RefPtr<SharedStopCache> m_stopsCache;
-
-        CGShadingRef m_shadingCache;
         mutable GraphicsContext* m_savedContext;
-        mutable ImageBuffer* m_imageBuffer;
+        mutable OwnPtr<ImageBuffer> m_imageBuffer;
 #endif
     };
 

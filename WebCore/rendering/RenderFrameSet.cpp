@@ -129,8 +129,8 @@ void RenderFrameSet::paint(PaintInfo& paintInfo, int tx, int ty)
         return;
 
     // Add in our offsets.
-    tx += m_x;
-    ty += m_y;
+    tx += x();
+    ty += y();
 
     int rows = frameSet()->totalRows();
     int cols = frameSet()->totalCols();
@@ -464,8 +464,8 @@ void RenderFrameSet::layout()
         // Force a grid recalc.
         m_gridCalculated = false;
 #endif
-        m_width = view()->viewWidth();
-        m_height = view()->viewHeight();
+        setWidth(view()->viewWidth());
+        setHeight(view()->viewHeight());
     }
 
     size_t cols = frameSet()->totalCols();
@@ -490,8 +490,8 @@ void RenderFrameSet::layout()
         }
 #endif
     int borderThickness = frameSet()->border();
-    layOutAxis(m_rows, frameSet()->rowLengths(), m_height - (rows - 1) * borderThickness);
-    layOutAxis(m_cols, frameSet()->colLengths(), m_width - (cols - 1) * borderThickness);
+    layOutAxis(m_rows, frameSet()->rowLengths(), height() - (rows - 1) * borderThickness);
+    layOutAxis(m_cols, frameSet()->colLengths(), width() - (cols - 1) * borderThickness);
 #ifdef FLATTEN_FRAMESET
     }
 #endif
@@ -514,7 +514,7 @@ void RenderFrameSet::layout()
 
 void RenderFrameSet::positionFrames()
 {
-    RenderObject* child = firstChild();
+    RenderBox* child = firstChildBox();
     if (!child)
         return;
 
@@ -539,7 +539,8 @@ void RenderFrameSet::positionFrames()
                 rowHeight = l.value();
         }
         for (int c = 0; c < cols && child; c++) {
-            child->setPos(xPos, yPos);
+            child->setX(xPos);
+            child->setY(yPos);
             child->setWidth(m_cols.m_sizes[c]);
             child->setHeight(height);
             int colWidth = -1;
@@ -560,7 +561,7 @@ void RenderFrameSet::positionFrames()
 
             height = max(child->height(), height);
             xPos += child->width() + borderThickness;
-            child = child->nextSibling();
+            child = (RenderBox*)child->nextSibling();
         }
         ASSERT(height >= m_rows.m_sizes[r]);
         m_rows.m_sizes[r] = height;
@@ -574,10 +575,10 @@ void RenderFrameSet::positionFrames()
     int newHeight = yPos - borderThickness;
 
     // Distribute the extra width and height evenly across the grid.
-    int dWidth = (m_width - newWidth) / cols;
-    int dHeight = (m_height - newHeight) / rows;
+    int dWidth = (width() - newWidth) / cols;
+    int dHeight = (height() - newHeight) / rows;
     if (dWidth > 0) {
-        int availableWidth = m_width - (cols - 1) * borderThickness;
+        int availableWidth = width() - (cols - 1) * borderThickness;
         for (int c = 0; c < cols; c++)
             availableWidth -= m_cols.m_sizes[c] += dWidth;
         // If the extra width did not distribute evenly, add the remainder to
@@ -586,7 +587,7 @@ void RenderFrameSet::positionFrames()
             m_cols.m_sizes[cols - 1] += availableWidth;
     }
     if (dHeight > 0) {
-        int availableHeight = m_height - (rows - 1) * borderThickness;
+        int availableHeight = height() - (rows - 1) * borderThickness;
         for (int r = 0; r < rows; r++)
             availableHeight -= m_rows.m_sizes[r] += dHeight;
         // If the extra height did not distribute evenly, add the remainder to
@@ -596,9 +597,9 @@ void RenderFrameSet::positionFrames()
     }
     // Ensure the rows and columns are filled by falling through to the normal
     // layout
-    m_height = max(m_height, newHeight);
-    m_width = max(m_width, newWidth);
-    child = firstChild();
+    setHeight(max(height(), newHeight));
+    setWidth(max(width(), newWidth));
+    child = (RenderBox*)firstChild();
     yPos = 0;
 #endif // FLATTEN_FRAMESET
     
@@ -606,7 +607,7 @@ void RenderFrameSet::positionFrames()
         int xPos = 0;
         int height = m_rows.m_sizes[r];
         for (int c = 0; c < cols; c++) {
-            child->setPos(xPos, yPos);
+            child->setLocation(xPos, yPos);
             int width = m_cols.m_sizes[c];
 
             // has to be resized and itself resize its contents
@@ -619,7 +620,7 @@ void RenderFrameSet::positionFrames()
 
             xPos += width + borderThickness;
 
-            child = child->nextSibling();
+            child = child->nextSiblingBox();
             if (!child)
                 return;
         }
@@ -627,7 +628,7 @@ void RenderFrameSet::positionFrames()
     }
 
     // all the remaining frames are hidden to avoid ugly spurious unflowed frames
-    for (; child; child = child->nextSibling()) {
+    for (; child; child = child->nextSiblingBox()) {
         child->setWidth(0);
         child->setHeight(0);
         child->setNeedsLayout(false);
@@ -666,8 +667,9 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
         if (needsLayout())
             return false;
         if (evt->type() == eventNames().mousedownEvent && evt->button() == LeftButton) {
-            startResizing(m_cols, evt->pageX() - xPos());
-            startResizing(m_rows, evt->pageY() - yPos());
+            FloatPoint pos = localToAbsolute();
+            startResizing(m_cols, evt->pageX() - pos.x());
+            startResizing(m_rows, evt->pageY() - pos.y());
             if (m_cols.m_splitBeingResized != noSplit || m_rows.m_splitBeingResized != noSplit) {
                 setIsResizing(true);
                 return true;
@@ -675,8 +677,9 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
         }
     } else {
         if (evt->type() == eventNames().mousemoveEvent || (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton)) {
-            continueResizing(m_cols, evt->pageX() - xPos());
-            continueResizing(m_rows, evt->pageY() - yPos());
+            FloatPoint pos = localToAbsolute();
+            continueResizing(m_cols, evt->pageX() - pos.x());
+            continueResizing(m_rows, evt->pageY() - pos.y());
             if (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton) {
                 setIsResizing(false);
                 return true;
@@ -763,7 +766,7 @@ int RenderFrameSet::hitTestSplit(const GridAxis& axis, int position) const
     return noSplit;
 }
 
-bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle* style) const
+bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle*) const
 {
     return child->isFrame() || child->isFrameSet();
 }

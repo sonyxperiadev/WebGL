@@ -33,10 +33,6 @@
 #include "PageCache.h"
 #include <limits>
 
-#if ENABLE(DATABASE)
-#include "DatabaseTracker.h"
-#endif
-
 namespace WebCore {
 
 static void setNeedsReapplyStylesInAllFrames(Page* page)
@@ -55,6 +51,7 @@ Settings::Settings(Page* page)
     , m_layoutAlgorithm(kLayoutFitColumnToScreen)
 #endif
     , m_editableLinkBehavior(EditableLinkDefaultBehavior)
+    , m_textDirectionSubmenuInclusionBehavior(TextDirectionSubmenuAutomaticallyIncluded)
     , m_minimumFontSize(0)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
@@ -72,6 +69,8 @@ Settings::Settings(Page* page)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
     , m_arePluginsEnabled(false)
+    , m_databasesEnabled(false)
+    , m_localStorageEnabled(false)
     , m_isJavaScriptEnabled(false)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_shouldPrintBackgrounds(false)
@@ -98,6 +97,7 @@ Settings::Settings(Page* page)
     , m_zoomsTextOnly(false)
     , m_enforceCSSMIMETypeInStrictMode(true)
     , m_maximumDecodedImageSize(std::numeric_limits<size_t>::max())
+    , m_needsIChatMemoryCacheCallsQuirk(false)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -231,6 +231,16 @@ void Settings::setPluginsPath(const String& pluginsPath)
 }
 #endif
 
+void Settings::setDatabasesEnabled(bool databasesEnabled)
+{
+    m_databasesEnabled = databasesEnabled;
+}
+
+void Settings::setLocalStorageEnabled(bool localStorageEnabled)
+{
+    m_localStorageEnabled = localStorageEnabled;
+}
+
 void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
     m_privateBrowsingEnabled = privateBrowsingEnabled;
@@ -274,6 +284,11 @@ void Settings::setTextAreasAreResizable(bool textAreasAreResizable)
 void Settings::setEditableLinkBehavior(EditableLinkBehavior editableLinkBehavior)
 {
     m_editableLinkBehavior = editableLinkBehavior;
+}
+
+void Settings::setTextDirectionSubmenuInclusionBehavior(TextDirectionSubmenuInclusionBehavior behavior)
+{
+    m_textDirectionSubmenuInclusionBehavior = behavior;
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -508,5 +523,10 @@ void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
     gShouldPaintNativeControls = shouldPaintNativeControls;
 }
 #endif
+
+void Settings::setNeedsIChatMemoryCacheCallsQuirk(bool needsIChatMemoryCacheCallsQuirk)
+{
+    m_needsIChatMemoryCacheCallsQuirk = needsIChatMemoryCacheCallsQuirk;
+}
 
 } // namespace WebCore

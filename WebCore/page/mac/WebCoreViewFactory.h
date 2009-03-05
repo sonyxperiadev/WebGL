@@ -79,6 +79,7 @@
 - (NSString *)contextMenuItemTagStartSpeaking;
 - (NSString *)contextMenuItemTagStopSpeaking;
 - (NSString *)contextMenuItemTagWritingDirectionMenu;
+- (NSString *)contextMenuItemTagTextDirectionMenu;
 - (NSString *)contextMenuItemTagDefaultDirection;
 - (NSString *)contextMenuItemTagLeftToRight;
 - (NSString *)contextMenuItemTagRightToLeft;
@@ -103,6 +104,7 @@
 - (WebCoreTextMarker *)endOfTextMarkerRange:(WebCoreTextMarkerRange *)range;
 
 - (void)accessibilityHandleFocusChanged;
+- (CGRect)accessibilityConvertScreenRect:(CGRect)bounds;
 
 - (AXUIElementRef)AXUIElementForElement:(id)element;
 - (void)unregisterUniqueIdForUIElement:(id)element;

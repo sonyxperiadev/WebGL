@@ -26,31 +26,12 @@
 #include "config.h"
 #include "CachedPage.h"
 
-#include "AnimationController.h"
-#include "CachedPagePlatformData.h"
-#include "Document.h"
-#include "DocumentLoader.h"
-#include "Element.h"
-#include "EventHandler.h"
+#include "CachedFrame.h"
 #include "FocusController.h"
 #include "Frame.h"
-#include "FrameLoader.h"
-#include "FrameView.h"
-#include "GCController.h"
-#include "JSDOMWindow.h"
-#include "JSDOMWindowShell.h"
-#include "Logging.h"
 #include "Page.h"
-#include "PageGroup.h"
-#include "PausedTimeouts.h"
-#include "SystemTime.h"
-#include "ScriptController.h"
-#include <runtime/JSLock.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/RefCountedLeakCounter.h>
-
-#if ENABLE(SVG)
-#include "SVGDocumentExtensions.h"
-#endif
 
 using namespace JSC;
 
@@ -66,30 +47,12 @@ PassRefPtr<CachedPage> CachedPage::create(Page* page)
 }
 
 CachedPage::CachedPage(Page* page)
-    : m_timeStamp(0)
-    , m_document(page->mainFrame()->document())
-    , m_view(page->mainFrame()->view())
-    , m_mousePressNode(page->mainFrame()->eventHandler()->mousePressNode())
-    , m_URL(page->mainFrame()->loader()->url())
+    : m_timeStamp(currentTime())
+    , m_cachedMainFrame(page->mainFrame())
 {
 #ifndef NDEBUG
     cachedPageCounter.increment();
 #endif
-    
-    m_document->documentWillBecomeInactive(); 
-    
-    Frame* mainFrame = page->mainFrame();
-    mainFrame->clearTimers();
-
-    JSLock lock(false);
-
-    ScriptController* proxy = mainFrame->script();
-    if (proxy->haveWindowShell()) {
-        m_window = proxy->windowShell()->window();
-        m_window->pauseTimeouts(m_pausedTimeouts);
-    }
-
-    m_document->setInPageCache(true);
 }
 
 CachedPage::~CachedPage()
@@ -103,34 +66,9 @@ CachedPage::~CachedPage()
 
 void CachedPage::restore(Page* page)
 {
-    ASSERT(m_document->view() == m_view);
+    ASSERT(page && page->mainFrame());
+    m_cachedMainFrame.restore(page->mainFrame());
 
-    Frame* mainFrame = page->mainFrame();
-
-    JSLock lock(false);
-
-    ScriptController* proxy = mainFrame->script();
-    if (proxy->haveWindowShell()) {
-        JSDOMWindowShell* windowShell = proxy->windowShell();
-        if (m_window) {
-            windowShell->setWindow(m_window.get());
-            windowShell->window()->resumeTimeouts(m_pausedTimeouts);
-        } else {
-            windowShell->setWindow(mainFrame->domWindow());
-            proxy->attachDebugger(page->debugger());
-            windowShell->window()->setProfileGroup(page->group().identifier());
-        }
-    }
-
-#if ENABLE(SVG)
-    if (m_document && m_document->svgExtensions())
-        m_document->accessSVGExtensions()->unpauseAnimations();
-#endif
-
-    mainFrame->animation()->resumeAnimations(m_document.get());
-
-    mainFrame->eventHandler()->setMousePressNode(mousePressNode());
-        
     // Restore the focus appearance for the focused element.
     // FIXME: Right now we don't support pages w/ frames in the b/f cache.  This may need to be tweaked when we add support for that.
     Document* focusedDocument = page->focusController()->focusedOrMainFrame()->document();
@@ -142,75 +80,7 @@ void CachedPage::restore(Page* page)
 
 void CachedPage::clear()
 {
-    if (!m_document)
-        return;
-
-    if (m_cachedPagePlatformData)
-        m_cachedPagePlatformData->clear();
-        
-    ASSERT(m_view);
-    ASSERT(m_document->frame() == m_view->frame());
-
-    if (m_document->inPageCache()) {
-        Frame::clearTimers(m_view.get(), m_document.get());
-
-        m_document->setInPageCache(false);
-        // FIXME: We don't call willRemove here. Why is that OK?
-        m_document->detach();
-        m_document->removeAllEventListenersFromAllNodes();
-
-        m_view->clearFrame();
-    }
-
-    ASSERT(!m_document->inPageCache());
-
-    m_document = 0;
-    m_view = 0;
-    m_mousePressNode = 0;
-    m_URL = KURL();
-
-    JSLock lock(false);
-    m_pausedTimeouts.clear();
-    m_window = 0;
-
-    m_cachedPagePlatformData.clear();
-
-    gcController().garbageCollectSoon();
-}
-
-void CachedPage::setDocumentLoader(PassRefPtr<DocumentLoader> loader)
-{
-    m_documentLoader = loader;
-}
-
-DocumentLoader* CachedPage::documentLoader()
-{
-    return m_documentLoader.get();
-}
-
-void CachedPage::setTimeStamp(double timeStamp)
-{
-    m_timeStamp = timeStamp;
-}
-
-void CachedPage::setTimeStampToNow()
-{
-    m_timeStamp = currentTime();
-}
-
-double CachedPage::timeStamp() const
-{
-    return m_timeStamp;
-}
-
-void CachedPage::setCachedPagePlatformData(CachedPagePlatformData* data)
-{
-    m_cachedPagePlatformData.set(data);
-}
-
-CachedPagePlatformData* CachedPage::cachedPagePlatformData()
-{
-    return m_cachedPagePlatformData.get();
+    m_cachedMainFrame.clear();
 }
 
 } // namespace WebCore

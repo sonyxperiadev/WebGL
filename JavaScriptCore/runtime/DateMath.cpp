@@ -48,6 +48,7 @@
 #include <time.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StringExtras.h>
 
@@ -65,6 +66,10 @@
 
 #if HAVE(SYS_TIMEB_H)
 #include <sys/timeb.h>
+#endif
+
+#if HAVE(STRINGS_H)
+#include <strings.h>
 #endif
 
 using namespace WTF;
@@ -287,129 +292,15 @@ double getCurrentUTCTime()
     return floor(getCurrentUTCTimeWithMicroseconds());
 }
 
-#if PLATFORM(WIN_OS)
-
-static LARGE_INTEGER qpcFrequency;
-static bool syncedTime;
-
-static double highResUpTime()
-{
-    // We use QPC, but only after sanity checking its result, due to bugs:
-    // http://support.microsoft.com/kb/274323
-    // http://support.microsoft.com/kb/895980
-    // http://msdn.microsoft.com/en-us/library/ms644904.aspx ("...you can get different results on different processors due to bugs in the basic input/output system (BIOS) or the hardware abstraction layer (HAL)."
-
-    static LARGE_INTEGER qpcLast;
-    static DWORD tickCountLast;
-    static bool inited;
-
-    LARGE_INTEGER qpc;
-    QueryPerformanceCounter(&qpc);
-    DWORD tickCount = GetTickCount();
-
-    if (inited) {
-        __int64 qpcElapsed = ((qpc.QuadPart - qpcLast.QuadPart) * 1000) / qpcFrequency.QuadPart;
-        __int64 tickCountElapsed;
-        if (tickCount >= tickCountLast)
-            tickCountElapsed = (tickCount - tickCountLast);
-        else {
-#if COMPILER(MINGW)
-            __int64 tickCountLarge = tickCount + 0x100000000ULL;
-#else
-            __int64 tickCountLarge = tickCount + 0x100000000I64;
-#endif
-            tickCountElapsed = tickCountLarge - tickCountLast;
-        }
-
-        // force a re-sync if QueryPerformanceCounter differs from GetTickCount by more than 500ms.
-        // (500ms value is from http://support.microsoft.com/kb/274323)
-        __int64 diff = tickCountElapsed - qpcElapsed;
-        if (diff > 500 || diff < -500)
-            syncedTime = false;
-    } else
-        inited = true;
-
-    qpcLast = qpc;
-    tickCountLast = tickCount;
-
-    return (1000.0 * qpc.QuadPart) / static_cast<double>(qpcFrequency.QuadPart);;
-}
-
-static double lowResUTCTime()
-{
-    struct _timeb timebuffer;
-    _ftime(&timebuffer);
-    return timebuffer.time * msPerSecond + timebuffer.millitm;
-}
-
-static bool qpcAvailable()
-{
-    static bool available;
-    static bool checked;
-
-    if (checked)
-        return available;
-
-    available = QueryPerformanceFrequency(&qpcFrequency);
-    checked = true;
-    return available;
-}
-
-#endif
-
+// Returns current time in milliseconds since 1 Jan 1970.
 double getCurrentUTCTimeWithMicroseconds()
 {
-#if PLATFORM(WIN_OS)
-    // Use a combination of ftime and QueryPerformanceCounter.
-    // ftime returns the information we want, but doesn't have sufficient resolution.
-    // QueryPerformanceCounter has high resolution, but is only usable to measure time intervals.
-    // To combine them, we call ftime and QueryPerformanceCounter initially. Later calls will use QueryPerformanceCounter
-    // by itself, adding the delta to the saved ftime.  We periodically re-sync to correct for drift.
-    static bool started;
-    static double syncLowResUTCTime;
-    static double syncHighResUpTime;
-    static double lastUTCTime;
-
-    double lowResTime = lowResUTCTime();
-
-    if (!qpcAvailable())
-        return lowResTime;
-
-    double highResTime = highResUpTime();
-
-    if (!syncedTime) {
-        timeBeginPeriod(1); // increase time resolution around low-res time getter
-        syncLowResUTCTime = lowResTime = lowResUTCTime();
-        timeEndPeriod(1); // restore time resolution
-        syncHighResUpTime = highResTime;
-        syncedTime = true;
-    }
-
-    double highResElapsed = highResTime - syncHighResUpTime;
-    double utc = syncLowResUTCTime + highResElapsed;
-
-    // force a clock re-sync if we've drifted
-    double lowResElapsed = lowResTime - syncLowResUTCTime;
-    const double maximumAllowedDriftMsec = 15.625 * 2.0; // 2x the typical low-res accuracy
-    if (fabs(highResElapsed - lowResElapsed) > maximumAllowedDriftMsec)
-        syncedTime = false;
-
-    // make sure time doesn't run backwards (only correct if difference is < 2 seconds, since DST or clock changes could occur)
-    const double backwardTimeLimit = 2000.0;
-    if (utc < lastUTCTime && (lastUTCTime - utc) < backwardTimeLimit)
-        return lastUTCTime;
-    lastUTCTime = utc;
-#else
-    struct timeval tv;
-    gettimeofday(&tv, 0);
-    double utc = tv.tv_sec * msPerSecond + tv.tv_usec / 1000.0;
-#endif
-    return utc;
+    return currentTime() * 1000.0; 
 }
 
 void getLocalTime(const time_t* localTime, struct tm* localTM)
 {
-#if COMPILER(MSVC7) || COMPILER(MINGW)
+#if COMPILER(MSVC7) || COMPILER(MINGW) || PLATFORM(WIN_CE)
     *localTM = *localtime(localTime);
 #elif COMPILER(MSVC)
     localtime_s(localTM, localTime);
@@ -696,6 +587,15 @@ static int findMonth(const char* monthStr)
     return -1;
 }
 
+static bool parseLong(const char* string, char** stopPosition, int base, long* result)
+{
+    *result = strtol(string, stopPosition, base);
+    // Avoid the use of errno as it is not available on Windows CE
+    if (string == *stopPosition || *result == LONG_MIN || *result == LONG_MAX)
+        return false;
+    return true;
+}
+
 double parseDate(const UString &date)
 {
     // This parses a date in the form:
@@ -741,10 +641,9 @@ double parseDate(const UString &date)
         return NaN;
 
     // ' 09-Nov-99 23:12:40 GMT'
-    char *newPosStr;
-    errno = 0;
-    long day = strtol(dateString, &newPosStr, 10);
-    if (errno)
+    char* newPosStr;
+    long day;
+    if (!parseLong(dateString, &newPosStr, 10, &day))
         return NaN;
     dateString = newPosStr;
 
@@ -763,22 +662,20 @@ double parseDate(const UString &date)
         if (!*++dateString)
             return NaN;
         year = day;
-        month = strtol(dateString, &newPosStr, 10) - 1;
-        if (errno)
+        if (!parseLong(dateString, &newPosStr, 10, &month))
             return NaN;
+        month -= 1;
         dateString = newPosStr;
         if (*dateString++ != '/' || !*dateString)
             return NaN;
-        day = strtol(dateString, &newPosStr, 10);
-        if (errno)
+        if (!parseLong(dateString, &newPosStr, 10, &day))
             return NaN;
         dateString = newPosStr;
     } else if (*dateString == '/' && month == -1) {
         dateString++;
         // This looks like a MM/DD/YYYY date, not an RFC date.
         month = day - 1; // 0-based
-        day = strtol(dateString, &newPosStr, 10);
-        if (errno)
+        if (!parseLong(dateString, &newPosStr, 10, &day))
             return NaN;
         if (day < 1 || day > 31)
             return NaN;
@@ -819,8 +716,7 @@ double parseDate(const UString &date)
 
     // '99 23:12:40 GMT'
     if (year <= 0 && *dateString) {
-        year = strtol(dateString, &newPosStr, 10);
-        if (errno)
+        if (!parseLong(dateString, &newPosStr, 10, &year))
             return NaN;
     }
     
@@ -843,7 +739,7 @@ double parseDate(const UString &date)
             skipSpacesAndComments(dateString);
         }
 
-        hour = strtol(dateString, &newPosStr, 10);
+        parseLong(dateString, &newPosStr, 10, &hour);
         // Do not check for errno here since we want to continue
         // even if errno was set becasue we are still looking
         // for the timezone!
@@ -862,8 +758,7 @@ double parseDate(const UString &date)
             if (*dateString++ != ':')
                 return NaN;
 
-            minute = strtol(dateString, &newPosStr, 10);
-            if (errno)
+            if (!parseLong(dateString, &newPosStr, 10, &minute))
                 return NaN;
             dateString = newPosStr;
 
@@ -878,8 +773,7 @@ double parseDate(const UString &date)
             if (*dateString ==':') {
                 dateString++;
 
-                second = strtol(dateString, &newPosStr, 10);
-                if (errno)
+                if (!parseLong(dateString, &newPosStr, 10, &second))
                     return NaN;
                 dateString = newPosStr;
             
@@ -919,8 +813,8 @@ double parseDate(const UString &date)
         }
 
         if (*dateString == '+' || *dateString == '-') {
-            long o = strtol(dateString, &newPosStr, 10);
-            if (errno)
+            long o;
+            if (!parseLong(dateString, &newPosStr, 10, &o))
                 return NaN;
             dateString = newPosStr;
 
@@ -932,8 +826,8 @@ double parseDate(const UString &date)
             if (*dateString != ':') {
                 offset = ((o / 100) * 60 + (o % 100)) * sgn;
             } else { // GMT+05:00
-                long o2 = strtol(dateString, &newPosStr, 10);
-                if (errno)
+                long o2;
+                if (!parseLong(dateString, &newPosStr, 10, &o2))
                     return NaN;
                 dateString = newPosStr;
                 offset = (o * 60 + o2) * sgn;
@@ -954,8 +848,7 @@ double parseDate(const UString &date)
     skipSpacesAndComments(dateString);
 
     if (*dateString && year == -1) {
-        year = strtol(dateString, &newPosStr, 10);
-        if (errno)
+        if (!parseLong(dateString, &newPosStr, 10, &year))
             return NaN;
         dateString = newPosStr;
     }

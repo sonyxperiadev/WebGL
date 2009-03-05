@@ -29,21 +29,26 @@
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "CharacterNames.h"
+#include "ChromeClient.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "FormDataList.h"
 #include "Frame.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLOptionsCollection.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "Page.h"
 #include "RenderListBox.h"
 #include "RenderMenuList.h"
 #include <math.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
@@ -62,21 +67,6 @@ using namespace HTMLNames;
 
 static const DOMTimeStamp typeAheadTimeout = 1000;
 
-HTMLSelectElement::HTMLSelectElement(Document* doc, HTMLFormElement* f)
-    : HTMLFormControlElementWithState(selectTag, doc, f)
-    , m_minwidth(0)
-    , m_size(0)
-    , m_multiple(false)
-    , m_recalcListItems(false)
-    , m_lastOnChangeIndex(-1)
-    , m_activeSelectionAnchorIndex(-1)
-    , m_activeSelectionEndIndex(-1)
-    , m_activeSelectionState(false)
-    , m_repeatingChar(0)
-    , m_lastCharTime(0)
-{
-}
-
 HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElementWithState(tagName, doc, f)
     , m_minwidth(0)
@@ -90,6 +80,7 @@ HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document* doc
     , m_repeatingChar(0)
     , m_lastCharTime(0)
 {
+    ASSERT(hasTagName(selectTag) || hasTagName(keygenTag));
 }
 
 bool HTMLSelectElement::checkDTD(const Node* newChild)
@@ -114,8 +105,8 @@ void HTMLSelectElement::recalcStyle( StyleChange ch )
 
 const AtomicString& HTMLSelectElement::type() const
 {
-    static const AtomicString selectMultiple("select-multiple");
-    static const AtomicString selectOne("select-one");
+    DEFINE_STATIC_LOCAL(const AtomicString, selectMultiple, ("select-multiple"));
+    DEFINE_STATIC_LOCAL(const AtomicString, selectOne, ("select-one"));
     return m_multiple ? selectMultiple : selectOne;
 }
 
@@ -189,6 +180,10 @@ void HTMLSelectElement::setSelectedIndex(int optionIndex, bool deselect, bool fi
     // This only gets called with fireOnChange for menu lists. 
     if (fireOnChange && usesMenuList())
         menuListOnChange();
+
+    Frame* frame = document()->frame();
+    if (frame)
+        frame->page()->chrome()->client()->formStateDidChange(this);
 }
 
 int HTMLSelectElement::activeSelectionStartListIndex() const
@@ -418,7 +413,7 @@ void HTMLSelectElement::selectAll()
     listBoxOnChange();
 }
 
-RenderObject *HTMLSelectElement::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject* HTMLSelectElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     if (usesMenuList())
         return new (arena) RenderMenuList(this);
@@ -870,7 +865,7 @@ void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
             if (!option->disabled()) {
                 if (i >= start && i <= end)
                     option->setSelectedState(m_activeSelectionState);
-                else if (deselectOtherOptions)
+                else if (deselectOtherOptions || i >= m_cachedStateForActiveSelection.size())
                     option->setSelectedState(false);
                 else
                     option->setSelectedState(m_cachedStateForActiveSelection[i]);
@@ -989,7 +984,8 @@ void HTMLSelectElement::typeAheadFind(KeyboardEvent* event)
         if (!items[index]->hasTagName(optionTag) || items[index]->disabled())
             continue;
 
-        if (stripLeadingWhiteSpace(static_cast<HTMLOptionElement*>(items[index])->optionText()).startsWith(prefix, false)) {
+        String text = static_cast<HTMLOptionElement*>(items[index])->textIndentedToRespectGroupLabel();
+        if (stripLeadingWhiteSpace(text).startsWith(prefix, false)) {
             setSelectedIndex(listToOptionIndex(index));
             if(!usesMenuList())
                 listBoxOnChange();
@@ -1059,9 +1055,9 @@ void HTMLSelectElement::setSize(int size)
     setAttribute(sizeAttr, String::number(size));
 }
 
-Node* HTMLSelectElement::namedItem(const String &name, bool caseSensitive)
+Node* HTMLSelectElement::namedItem(const AtomicString& name)
 {
-    return options()->namedItem(name, caseSensitive);
+    return options()->namedItem(name);
 }
 
 Node* HTMLSelectElement::item(unsigned index)

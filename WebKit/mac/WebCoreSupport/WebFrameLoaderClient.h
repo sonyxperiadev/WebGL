@@ -40,7 +40,7 @@
 
 namespace WebCore {
     class AuthenticationChallenge;
-    class CachedPage;
+    class CachedFrame;
     class HistoryItem;
     class String;
     class ResourceLoader;
@@ -76,6 +76,7 @@ private:
     virtual void assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&);
 
     virtual void dispatchWillSendRequest(WebCore::DocumentLoader*, unsigned long identifier, WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse);
+    virtual bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
@@ -100,6 +101,7 @@ private:
     virtual void dispatchDidFinishDocumentLoad();
     virtual void dispatchDidFinishLoad();
     virtual void dispatchDidFirstLayout();
+    virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
     virtual WebCore::Frame* dispatchCreatePage();
     virtual void dispatchShow();
@@ -136,7 +138,9 @@ private:
 
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
     virtual void finishedLoading(WebCore::DocumentLoader*);
-    virtual void updateGlobalHistory(const WebCore::KURL&);
+    virtual void updateGlobalHistory();
+    virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
+
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
@@ -152,8 +156,8 @@ private:
 
     virtual WebCore::String userAgent(const WebCore::KURL&);
     
-    virtual void savePlatformDataToCachedPage(WebCore::CachedPage*);
-    virtual void transitionToCommittedFromCachedPage(WebCore::CachedPage*);
+    virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
+    virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;

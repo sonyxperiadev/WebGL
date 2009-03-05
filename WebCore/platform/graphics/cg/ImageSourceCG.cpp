@@ -27,8 +27,10 @@
 #include "ImageSource.h"
 
 #if PLATFORM(CG)
+#include "ImageSourceCG.h"
 
 #include "IntSize.h"
+#include "MIMETypeRegistry.h"
 #include "SharedBuffer.h"
 #include <ApplicationServices/ApplicationServices.h>
 
@@ -43,18 +45,23 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    clear();
+    clear(true);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool, size_t, SharedBuffer* data, bool allDataReceived)
 {
+    // We always destroy the decoder, because there is no API to get it to
+    // selectively release some of the frames it's holding, and if we don't
+    // release any of them, we use too much memory on large images.
     if (m_decoder) {
         CFRelease(m_decoder);
         m_decoder = 0;
     }
+    if (data)
+      setData(data, allDataReceived);
 }
 
-CFDictionaryRef imageSourceOptions()
+static CFDictionaryRef imageSourceOptions()
 {
     static CFDictionaryRef options;
     
@@ -87,6 +94,14 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 #endif
     CGImageSourceUpdateData(m_decoder, cfData, allDataReceived);
     CFRelease(cfData);
+}
+
+String ImageSource::filenameExtension() const
+{
+    if (!m_decoder)
+        return String();
+    CFStringRef imageSourceType = CGImageSourceGetType(m_decoder);
+    return WebCore::preferredExtensionForImageSourceType(imageSourceType);
 }
 
 bool ImageSource::isSizeAvailable()
@@ -210,7 +225,7 @@ float ImageSource::frameDurationAtIndex(size_t index)
     return duration;
 }
 
-bool ImageSource::frameHasAlphaAtIndex(size_t index)
+bool ImageSource::frameHasAlphaAtIndex(size_t)
 {
     // Might be interesting to do this optimization on Mac some day, but for now we're just using this
     // for the Cairo source, since it uses our decoders, and our decoders can answer this question.

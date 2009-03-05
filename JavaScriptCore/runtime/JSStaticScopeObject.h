@@ -43,8 +43,8 @@ namespace JSC{
         };
         
     public:
-        JSStaticScopeObject(ExecState* exec, const Identifier& ident, JSValue* value, unsigned attributes)
-            : JSVariableObject(exec->globalData().staticScopeStructureID, new JSStaticScopeObjectData())
+        JSStaticScopeObject(ExecState* exec, const Identifier& ident, JSValuePtr value, unsigned attributes)
+            : JSVariableObject(exec->globalData().staticScopeStructure, new JSStaticScopeObjectData())
         {
             d()->registerStore = value;
             symbolTable().add(ident.ustring().rep(), SymbolTableEntry(-1, attributes));
@@ -55,10 +55,10 @@ namespace JSC{
         virtual JSObject* toThisObject(ExecState*) const;
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
-        virtual void put(ExecState*, const Identifier&, JSValue*, PutPropertySlot&);
-        void putWithAttributes(ExecState*, const Identifier&, JSValue*, unsigned attributes);
+        virtual void put(ExecState*, const Identifier&, JSValuePtr, PutPropertySlot&);
+        void putWithAttributes(ExecState*, const Identifier&, JSValuePtr, unsigned attributes);
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* proto) { return StructureID::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValuePtr proto) { return Structure::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
 
     private:
         JSStaticScopeObjectData* d() { return static_cast<JSStaticScopeObjectData*>(JSVariableObject::d); }

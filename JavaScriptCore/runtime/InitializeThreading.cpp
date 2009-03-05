@@ -29,13 +29,16 @@
 #include "config.h"
 #include "InitializeThreading.h"
 
-#include "collector.h"
+#include "JSImmediate.h"
+#include "Collector.h"
 #include "DateMath.h"
 #include "dtoa.h"
-#include "identifier.h"
+#include "Identifier.h"
 #include "JSGlobalObject.h"
-#include "ustring.h"
+#include "UString.h"
 #include <wtf/Threading.h>
+
+using namespace WTF;
 
 namespace JSC {
 
@@ -46,9 +49,9 @@ static pthread_once_t initializeThreadingKeyOnce = PTHREAD_ONCE_INIT;
 static void initializeThreadingOnce()
 {
     WTF::initializeThreading();
+    initializeUString();
 #if ENABLE(JSC_MULTIPLE_THREADS)
     s_dtoaP5Mutex = new Mutex;
-    UString::null();
     initDateMath();
 #endif
 }

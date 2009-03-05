@@ -61,6 +61,7 @@
 #include "RenderListBox.h"
 #include "RenderListMarker.h"
 #include "RenderMenuList.h"
+#include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
@@ -70,6 +71,7 @@
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -246,6 +248,16 @@ bool AccessibilityRenderObject::isFileUploadButton() const
     
     return false;
 }
+    
+bool AccessibilityRenderObject::isInputImage() const
+{
+    if (m_renderer && m_renderer->element() && m_renderer->element()->hasTagName(inputTag)) {
+        HTMLInputElement* input = static_cast<HTMLInputElement*>(m_renderer->element());
+        return input->inputType() == HTMLInputElement::IMAGE;
+    }
+    
+    return false;
+}
 
 bool AccessibilityRenderObject::isProgressIndicator() const
 {
@@ -341,6 +353,10 @@ bool AccessibilityRenderObject::isReadOnly() const
         if (!document)
             return true;
         
+        HTMLElement* body = document->body();
+        if (body && body->isContentEditable())
+            return false;
+        
         Frame* frame = document->frame();
         if (!frame)
             return true;
@@ -425,6 +441,11 @@ bool AccessibilityRenderObject::isFieldset() const
     
     return m_renderer->isFieldset();
 }
+  
+bool AccessibilityRenderObject::isGroup() const
+{
+    return roleValue() == GroupRole;
+}
     
 const AtomicString& AccessibilityRenderObject::getAttribute(const QualifiedName& attribute) const
 {
@@ -449,8 +470,9 @@ Element* AccessibilityRenderObject::anchorElement() const
     
     // Search up the render tree for a RenderObject with a DOM node.  Defer to an earlier continuation, though.
     for (currRenderer = m_renderer; currRenderer && !currRenderer->element(); currRenderer = currRenderer->parent()) {
-        if (currRenderer->continuation())
-            return cache->get(currRenderer->continuation())->anchorElement();
+        RenderFlow* continuation = currRenderer->virtualContinuation();
+        if (continuation)
+            return cache->get(continuation)->anchorElement();
     }
     
     // bail if none found
@@ -470,10 +492,17 @@ Element* AccessibilityRenderObject::anchorElement() const
 
 Element* AccessibilityRenderObject::actionElement() const
 {
-    if (m_renderer->element() && m_renderer->element()->hasTagName(inputTag)) {
-        HTMLInputElement* input = static_cast<HTMLInputElement*>(m_renderer->element());
-        if (!input->disabled() && (isCheckboxOrRadio() || input->isTextButton()))
-            return input;
+    if (!m_renderer)
+        return 0;
+    
+    Node* node = m_renderer->element();
+    if (node) {
+        if (node->hasTagName(inputTag)) {
+            HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
+            if (!input->disabled() && (isCheckboxOrRadio() || input->isTextButton()))
+                return input;
+        } else if (node->hasTagName(buttonTag))
+            return static_cast<Element*>(node);
     }
             
     if (isFileUploadButton())
@@ -837,7 +866,7 @@ String AccessibilityRenderObject::title() const
     
     if (isInputTag || AccessibilityObject::isARIAInput(ariaRole) || isControl()) {
         HTMLLabelElement* label = labelForElement(static_cast<Element*>(node));
-        if (label)
+        if (label && !titleUIElement())
             return label->innerText();
     }
     
@@ -920,9 +949,8 @@ IntRect AccessibilityRenderObject::boundingBoxRect() const
     
     // FIXME: This doesn't work correctly with transforms.
     Vector<IntRect> rects;
-    int x, y;
-    obj->absolutePosition(x, y);
-    obj->absoluteRects(rects, x, y);
+    FloatPoint absPos = obj->localToAbsolute();
+    obj->absoluteRects(rects, absPos.x(), absPos.y());
     const size_t n = rects.size();
     for (size_t i = 0; i < n; ++i) {
         IntRect r = rects[i];
@@ -985,12 +1013,9 @@ AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
     if (m_renderer->document()->url() != linkURL)
         return 0;
     
-    Node* linkedNode = m_renderer->document()->getElementById(ref);
-    if (!linkedNode) {
-        linkedNode = m_renderer->document()->anchors()->namedItem(ref, !m_renderer->document()->inCompatMode());
-        if (!linkedNode)
-            return 0;
-    }
+    Node* linkedNode = m_renderer->document()->findAnchor(ref);
+    if (!linkedNode)
+        return 0;
     
     // the element we find may not be accessible, keep searching until we find a good one
     AccessibilityObject* linkedAXElement = m_renderer->document()->axObjectCache()->get(linkedNode->renderer());
@@ -1118,7 +1143,7 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         if (parentObjectUnignored()->ariaRoleAttribute() == MenuItemRole ||
             parentObjectUnignored()->ariaRoleAttribute() == MenuButtonRole)
             return true;
-         return m_renderer->isBR() || !static_cast<RenderText*>(m_renderer)->firstTextBox();
+         return m_renderer->isBR() || !toRenderText(m_renderer)->firstTextBox();
     }
     
     if (isHeading())
@@ -1153,12 +1178,12 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         }
         
         // check for one-dimensional image
-        if (m_renderer->height() <= 1 || m_renderer->width() <= 1)
+        RenderImage* image = static_cast<RenderImage*>(m_renderer);
+        if (image->height() <= 1 || image->width() <= 1)
             return true;
         
         // check whether rendered image was stretched from one-dimensional file image
         if (isNativeImage()) {
-            RenderImage* image = static_cast<RenderImage*>(m_renderer);
             if (image->cachedImage()) {
                 IntSize imageSize = image->cachedImage()->imageSize(image->view()->zoomFactor());
                 return imageSize.height() <= 1 || imageSize.width() <= 1;
@@ -1337,6 +1362,9 @@ KURL AccessibilityRenderObject::url() const
     if (isImage() && m_renderer->element() && m_renderer->element()->hasTagName(imgTag))
         return static_cast<HTMLImageElement*>(m_renderer->element())->src();
     
+    if (isInputImage())
+        return static_cast<HTMLInputElement*>(m_renderer->element())->src();
+    
     return KURL();
 }
 
@@ -1411,9 +1439,9 @@ bool AccessibilityRenderObject::isEnabled() const
     return m_renderer->element() ? m_renderer->element()->isEnabled() : true;
 }
 
-RenderObject* AccessibilityRenderObject::topRenderer() const
+RenderView* AccessibilityRenderObject::topRenderer() const
 {
-    return m_renderer->document()->topDocument()->renderer();
+    return m_renderer->document()->topDocument()->renderView();
 }
 
 Document* AccessibilityRenderObject::document() const
@@ -1621,19 +1649,19 @@ IntRect AccessibilityRenderObject::boundsForVisiblePositionRange(const VisiblePo
     
     // Create a mutable VisiblePositionRange.
     VisiblePositionRange range(visiblePositionRange);
-    IntRect rect1 = range.start.caretRect();
-    IntRect rect2 = range.end.caretRect();
+    IntRect rect1 = range.start.absoluteCaretBounds();
+    IntRect rect2 = range.end.absoluteCaretBounds();
     
     // readjust for position at the edge of a line.  This is to exclude line rect that doesn't need to be accounted in the range bounds
     if (rect2.y() != rect1.y()) {
         VisiblePosition endOfFirstLine = endOfLine(range.start);
         if (range.start == endOfFirstLine) {
             range.start.setAffinity(DOWNSTREAM);
-            rect1 = range.start.caretRect();
+            rect1 = range.start.absoluteCaretBounds();
         }
         if (range.end == endOfFirstLine) {
             range.end.setAffinity(UPSTREAM);
-            rect2 = range.end.caretRect();
+            rect2 = range.end.absoluteCaretBounds();
         }
     }
     
@@ -1675,7 +1703,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
 {
     // convert absolute point to view coordinates
     FrameView* frameView = m_renderer->document()->topDocument()->renderer()->view()->frameView();
-    RenderObject* renderer = topRenderer();
+    RenderView* renderView = topRenderer();
     Node* innerNode = 0;
     
     // locate the node containing the point
@@ -1689,7 +1717,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
 #endif
         HitTestRequest request(true, true);
         HitTestResult result(ourpoint);
-        renderer->layer()->hitTest(request, result);
+        renderView->layer()->hitTest(request, result);
         innerNode = result.innerNode();
         if (!innerNode || !innerNode->renderer())
             return VisiblePosition();
@@ -1697,7 +1725,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
         pointResult = result.localPoint();
         
         // done if hit something other than a widget
-        renderer = innerNode->renderer();
+        RenderObject* renderer = innerNode->renderer();
         if (!renderer->isWidget())
             break;
         
@@ -1711,7 +1739,7 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
         Document* document = frame->document();
         if (!document)
             break;
-        renderer = document->renderer();
+        renderView = document->renderView();
         frameView = static_cast<FrameView*>(widget);
     }
     
@@ -1842,13 +1870,11 @@ IntRect AccessibilityRenderObject::doAXBoundsForRange(const PlainTextRange& rang
 
 AccessibilityObject* AccessibilityRenderObject::doAccessibilityHitTest(const IntPoint& point) const
 {
-    if (!m_renderer)
+    if (!m_renderer || !m_renderer->hasLayer())
         return 0;
     
-    RenderLayer* layer = m_renderer->layer();
-    if (!layer)
-        return 0;
-    
+    RenderLayer* layer = toRenderBox(m_renderer)->layer();
+     
     HitTestRequest request(true, true);
     HitTestResult hitTestResult = HitTestResult(point);
     layer->hitTest(request, hitTestResult);
@@ -1940,6 +1966,9 @@ AccessibilityObject* AccessibilityRenderObject::activeDescendant() const
         return 0;
     
     Element* target = renderer()->document()->getElementById(activeDescendantAttrStr);
+    if (!target)
+        return 0;
+    
     AccessibilityObject* obj = renderer()->document()->axObjectCache()->get(target->renderer());
     if (obj->isAccessibilityRenderObject())
     // an activedescendant is only useful if it has a renderer, because that's what's needed to post the notification
@@ -1982,7 +2011,7 @@ static const ARIARoleMap& createARIARoleMap()
         AccessibilityRole webcoreRole;
     };
 
-    static const RoleEntry roles[] = {
+    const RoleEntry roles[] = {
         { "button", ButtonRole },
         { "checkbox", CheckBoxRole },
         { "group", GroupRole },
@@ -2185,12 +2214,20 @@ bool AccessibilityRenderObject::canSetTextRangeAttributes() const
 
 void AccessibilityRenderObject::childrenChanged()
 {
-    clearChildren();
+    // this method is meant as a quick way of marking dirty
+    // a portion of the accessibility tree
     
-    if (accessibilityIsIgnored()) {
-        AccessibilityObject* parent = parentObject();
-        if (parent)
-            parent->childrenChanged();
+    markChildrenDirty();
+    
+    // this object may not be accessible (and thus may not appear
+    // in the hierarchy), which means we need to go up the parent
+    // chain and mark the parent's dirty. Ideally, we would want
+    // to only access the next object that is not ignored, but
+    // asking an element if it's ignored can lead to an examination of the
+    // render tree which is dangerous.
+    for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
+        if (parent->isAccessibilityRenderObject())
+            static_cast<AccessibilityRenderObject *>(parent)->markChildrenDirty();
     }
 }
     
@@ -2214,6 +2251,11 @@ bool AccessibilityRenderObject::canHaveChildren() const
 
 const AccessibilityObject::AccessibilityChildrenVector& AccessibilityRenderObject::children()
 {
+    if (m_childrenDirty) {
+        clearChildren();        
+        m_childrenDirty = false;
+    }
+    
     if (!m_haveChildren)
         addChildren();
     return m_children;
@@ -2348,13 +2390,13 @@ void AccessibilityRenderObject::removeAXObjectID()
 const String& AccessibilityRenderObject::actionVerb() const
 {
     // FIXME: Need to add verbs for select elements.
-    static const String buttonAction = AXButtonActionVerb();
-    static const String textFieldAction = AXTextFieldActionVerb();
-    static const String radioButtonAction = AXRadioButtonActionVerb();
-    static const String checkedCheckBoxAction = AXCheckedCheckBoxActionVerb();
-    static const String uncheckedCheckBoxAction = AXUncheckedCheckBoxActionVerb();
-    static const String linkAction = AXLinkActionVerb();
-    static const String noAction;
+    DEFINE_STATIC_LOCAL(const String, buttonAction, (AXButtonActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, textFieldAction, (AXTextFieldActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, radioButtonAction, (AXRadioButtonActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, checkedCheckBoxAction, (AXCheckedCheckBoxActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, uncheckedCheckBoxAction, (AXUncheckedCheckBoxActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, linkAction, (AXLinkActionVerb()));
+    DEFINE_STATIC_LOCAL(const String, noAction, ());
     
     switch (roleValue()) {
         case ButtonRole:
@@ -2374,5 +2416,11 @@ const String& AccessibilityRenderObject::actionVerb() const
     }
 }
      
+void AccessibilityRenderObject::updateBackingStore()
+{
+    if (!m_renderer)
+        return;
+    m_renderer->view()->layoutIfNeeded();
+}    
     
 } // namespace WebCore

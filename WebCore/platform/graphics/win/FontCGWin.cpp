@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #include "config.h"
 #include "Font.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatConversion.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
@@ -227,7 +227,7 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
 
         XFORM xform;
         GetWorldTransform(hdc, &xform);
-        AffineTransform hdcTransform(xform.eM11, xform.eM21, xform.eM12, xform.eM22, xform.eDx, xform.eDy);
+        TransformationMatrix hdcTransform(xform.eM11, xform.eM21, xform.eM12, xform.eM22, xform.eDx, xform.eDy);
         CGAffineTransform initialGlyphTransform = hdcTransform.isInvertible() ? hdcTransform.inverse() : CGAffineTransformIdentity;
         if (font->platformData().syntheticOblique())
             initialGlyphTransform = CGAffineTransformConcat(initialGlyphTransform, CGAffineTransformMake(1, 0, tanf(syntheticObliqueAngle * piFloat / 180.0f), 1, 0, 0));
@@ -294,14 +294,18 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
 void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* font, const GlyphBuffer& glyphBuffer, 
                       int from, int numGlyphs, const FloatPoint& point) const
 {
-    if (font->m_font.useGDI()) {
-        drawGDIGlyphs(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
-        return;
+    CGContextRef cgContext = graphicsContext->platformContext();
+    bool shouldUseFontSmoothing = WebCoreShouldUseFontSmoothing();
+
+    if (font->platformData().useGDI()) {
+        static bool canUsePlatformNativeGlyphs = wkCanUsePlatformNativeGlyphs();
+        if (!canUsePlatformNativeGlyphs || !shouldUseFontSmoothing || (graphicsContext->textDrawingMode() & cTextStroke)) {
+            drawGDIGlyphs(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+            return;
+        }
     }
 
-    CGContextRef cgContext = graphicsContext->platformContext();
-
-    uint32_t oldFontSmoothingStyle = wkSetFontSmoothingStyle(cgContext, WebCoreShouldUseFontSmoothing());
+    uint32_t oldFontSmoothingStyle = wkSetFontSmoothingStyle(cgContext, shouldUseFontSmoothing);
 
     const FontPlatformData& platformData = font->platformData();
 
@@ -322,7 +326,7 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* fo
     FloatSize translation = glyphBuffer.offsetAt(from);
 
     CGContextSetFontSize(cgContext, platformData.size());
-    wkSetCGContextFontRenderingStyle(cgContext, font->isSystemFont(), false);
+    wkSetCGContextFontRenderingStyle(cgContext, font->isSystemFont(), false, font->platformData().useGDI());
 
     IntSize shadowSize;
     int shadowBlur;

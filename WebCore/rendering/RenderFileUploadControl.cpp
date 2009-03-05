@@ -151,7 +151,7 @@ void RenderFileUploadControl::updateFromElement()
 
 int RenderFileUploadControl::maxFilenameWidth() const
 {
-    return max(0, contentWidth() - m_button->renderer()->width() - afterButtonSpacing
+    return max(0, contentWidth() - m_button->renderBox()->width() - afterButtonSpacing
         - (m_fileChooser->icon() ? iconWidth + iconFilenameSpacing : 0));
 }
 
@@ -194,7 +194,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         
         // Determine where the filename should be placed
         int contentLeft = tx + borderLeft() + paddingLeft();
-        int buttonAndIconWidth = m_button->renderer()->width() + afterButtonSpacing
+        int buttonAndIconWidth = m_button->renderBox()->width() + afterButtonSpacing
             + (m_fileChooser->icon() ? iconWidth + iconFilenameSpacing : 0);
         int textX;
         if (style()->direction() == LTR)
@@ -207,20 +207,19 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
             + buttonRenderer->baselinePosition(true, false);
 
-        paintInfo.context->setFont(style()->font());
         paintInfo.context->setFillColor(style()->color());
         
         // Draw the filename
-        paintInfo.context->drawBidiText(textRun, IntPoint(textX, textY));
+        paintInfo.context->drawBidiText(style()->font(), textRun, IntPoint(textX, textY));
         
         if (m_fileChooser->icon()) {
             // Determine where the icon should be placed
             int iconY = ty + borderTop() + paddingTop() + (contentHeight() - iconHeight) / 2;
             int iconX;
             if (style()->direction() == LTR)
-                iconX = contentLeft + m_button->renderer()->width() + afterButtonSpacing;
+                iconX = contentLeft + m_button->renderBox()->width() + afterButtonSpacing;
             else
-                iconX = contentLeft + contentWidth() - m_button->renderer()->width() - afterButtonSpacing - iconWidth;
+                iconX = contentLeft + contentWidth() - m_button->renderBox()->width() - afterButtonSpacing - iconWidth;
 
             // Draw the file icon
             m_fileChooser->icon()->paint(paintInfo.context, IntRect(iconX, iconY, iconWidth, iconHeight));
@@ -294,7 +293,7 @@ String RenderFileUploadControl::fileTextValue()
 }
     
 HTMLFileUploadInnerButtonElement::HTMLFileUploadInnerButtonElement(Document* doc, Node* shadowParent)
-    : HTMLInputElement(doc)
+    : HTMLInputElement(inputTag, doc)
     , m_shadowParent(shadowParent)
 {
 }

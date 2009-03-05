@@ -39,7 +39,6 @@
 #include "JavaScriptDebugListener.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "PausedTimeouts.h"
 #include "PluginView.h"
 #include "ScrollView.h"
 #include "Widget.h"
@@ -47,8 +46,9 @@
 #include <runtime/CollectorHeapIterator.h>
 #include <debugger/DebuggerCallFrame.h>
 #include <runtime/JSLock.h>
-#include <kjs/Parser.h>
+#include <parser/Parser.h>
 #include <wtf/MainThread.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
 
 using namespace JSC;
@@ -59,7 +59,7 @@ typedef JavaScriptDebugServer::ListenerSet ListenerSet;
 
 JavaScriptDebugServer& JavaScriptDebugServer::shared()
 {
-    static JavaScriptDebugServer server;
+    DEFINE_STATIC_LOCAL(JavaScriptDebugServer, server, ());
     return server;
 }
 
@@ -78,7 +78,6 @@ JavaScriptDebugServer::~JavaScriptDebugServer()
 {
     deleteAllValues(m_pageListenersMap);
     deleteAllValues(m_breakpoints);
-    deleteAllValues(m_pausedTimeouts);
 }
 
 void JavaScriptDebugServer::addListener(JavaScriptDebugListener* listener)
@@ -364,23 +363,26 @@ void JavaScriptDebugServer::setJavaScriptPaused(Frame* frame, bool paused)
 
     frame->script()->setPaused(paused);
 
-    if (JSDOMWindow* window = toJSDOMWindow(frame)) {
-        if (paused) {
-            OwnPtr<PausedTimeouts> timeouts;
-            window->pauseTimeouts(timeouts);
-            m_pausedTimeouts.set(frame, timeouts.release());
-        } else {
-            OwnPtr<PausedTimeouts> timeouts(m_pausedTimeouts.take(frame));
-            window->resumeTimeouts(timeouts);
-        }
+    if (Document* document = frame->document()) {
+        if (paused)
+            document->suspendActiveDOMObjects();
+        else
+            document->resumeActiveDOMObjects();
     }
 
     setJavaScriptPaused(frame->view(), paused);
 }
 
+#if PLATFORM(MAC)
+
+void JavaScriptDebugServer::setJavaScriptPaused(FrameView*, bool)
+{
+}
+
+#else
+
 void JavaScriptDebugServer::setJavaScriptPaused(FrameView* view, bool paused)
 {
-#if !PLATFORM(MAC)
     if (!view)
         return;
 
@@ -394,8 +396,9 @@ void JavaScriptDebugServer::setJavaScriptPaused(FrameView* view, bool paused)
             continue;
         static_cast<PluginView*>(widget)->setJavaScriptPaused(paused);
     }
-#endif
 }
+
+#endif
 
 void JavaScriptDebugServer::pauseIfNeeded(Page* page)
 {
@@ -552,19 +555,19 @@ void JavaScriptDebugServer::recompileAllJSFunctions(Timer<JavaScriptDebugServer>
     }
 
     typedef HashMap<RefPtr<FunctionBodyNode>, RefPtr<FunctionBodyNode> > FunctionBodyMap;
-    typedef HashSet<SourceProvider*> SourceProviderSet;
+    typedef HashMap<SourceProvider*, ExecState*> SourceProviderMap;
 
     FunctionBodyMap functionBodies;
-    SourceProviderSet sourceProviders;
+    SourceProviderMap sourceProviders;
 
     size_t size = functions.size();
     for (size_t i = 0; i < size; ++i) {
         JSFunction* function = functions[i];
 
-        FunctionBodyNode* oldBody = function->m_body.get();
+        FunctionBodyNode* oldBody = function->body();
         pair<FunctionBodyMap::iterator, bool> result = functionBodies.add(oldBody, 0);
         if (!result.second) {
-            function->m_body = result.first->second;
+            function->setBody(result.first->second.get());
             continue;
         }
 
@@ -576,14 +579,17 @@ void JavaScriptDebugServer::recompileAllJSFunctions(Timer<JavaScriptDebugServer>
         newBody->finishParsing(oldBody->copyParameters(), oldBody->parameterCount());
 
         result.first->second = newBody;
-        function->m_body = newBody.release();
+        function->setBody(newBody.release());
 
-        if (hasListeners()) {
-            SourceProvider* provider = sourceCode.provider();
-            if (sourceProviders.add(provider).second)
-                sourceParsed(exec, SourceCode(provider), -1, 0);
-        }
+        if (hasListeners())
+            sourceProviders.add(sourceCode.provider(), exec);
     }
+
+    // Call sourceParsed() after reparsing all functions because it will execute
+    // JavaScript in the inspector.
+    SourceProviderMap::const_iterator end = sourceProviders.end();
+    for (SourceProviderMap::const_iterator iter = sourceProviders.begin(); iter != end; ++iter)
+        sourceParsed((*iter).second, SourceCode((*iter).first), -1, 0);
 }
 
 void JavaScriptDebugServer::didAddListener(Page* page)

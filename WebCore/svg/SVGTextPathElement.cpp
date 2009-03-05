@@ -24,7 +24,7 @@
 #if ENABLE(SVG)
 #include "SVGTextPathElement.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
 #include "RenderSVGTextPath.h"
 #include "SVGLengthList.h"
@@ -71,7 +71,7 @@ void SVGTextPathElement::parseMappedAttribute(MappedAttribute* attr)
     }
 }
 
-RenderObject* SVGTextPathElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGTextPathElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGTextPath(this);
 }

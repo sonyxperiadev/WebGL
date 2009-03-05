@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2008 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -55,23 +56,22 @@ typedef enum
 struct _WebKitWebView {
     GtkContainer parent_instance;
 
+    /*< private >*/
     WebKitWebViewPrivate *priv;
 };
 
 struct _WebKitWebViewClass {
     GtkContainerClass parent_class;
 
+    /*< public >*/
     /*
      * default handler/virtual methods
-     * DISCUSS: create_web_view needs a request and should we make this a signal with default handler? this would
-     * require someone doing a g_signal_stop_emission_by_name
-     * WebUIDelegate has nothing for create_frame, WebPolicyDelegate as well...
      */
-    WebKitWebView            * (* create_web_view)        (WebKitWebView* web_view);
+    WebKitWebView            * (* create_web_view)        (WebKitWebView        *web_view,
+                                                           WebKitWebFrame       *web_frame);
 
-    /*
-     * TODO: FIXME: Create something like WebPolicyDecisionListener_Protocol instead
-     */
+    gboolean                   (* web_view_ready)          (WebKitWebView* web_view);
+
     WebKitNavigationResponse   (* navigation_requested)   (WebKitWebView        *web_view,
                                                            WebKitWebFrame       *frame,
                                                            WebKitNetworkRequest *request);
@@ -109,6 +109,15 @@ struct _WebKitWebViewClass {
     void                       (* set_scroll_adjustments) (WebKitWebView        *web_view,
                                                            GtkAdjustment        *hadjustment,
                                                            GtkAdjustment        *vadjustment);
+    /* Padding for future expansion */
+    void (*_webkit_reserved0) (void);
+    void (*_webkit_reserved1) (void);
+    void (*_webkit_reserved2) (void);
+    void (*_webkit_reserved3) (void);
+    void (*_webkit_reserved4) (void);
+    void (*_webkit_reserved5) (void);
+    void (*_webkit_reserved6) (void);
+    void (*_webkit_reserved7) (void);
 };
 
 WEBKIT_API GType
@@ -159,6 +168,9 @@ WEBKIT_API void
 webkit_web_view_reload                          (WebKitWebView        *web_view);
 
 WEBKIT_API void
+webkit_web_view_reload_bypass_cache             (WebKitWebView        *web_view);
+
+WEBKIT_API void
 webkit_web_view_load_string                     (WebKitWebView        *web_view,
                                                  const gchar          *content,
                                                  const gchar          *content_mime_type,
@@ -172,7 +184,7 @@ webkit_web_view_load_html_string                (WebKitWebView        *web_view,
 
 WEBKIT_API gboolean
 webkit_web_view_search_text                     (WebKitWebView        *web_view,
-                                                 const gchar          *string,
+                                                 const gchar          *text,
                                                  gboolean              case_sensitive,
                                                  gboolean              forward,
                                                  gboolean              wrap);
@@ -249,6 +261,13 @@ webkit_web_view_get_settings                    (WebKitWebView        *web_view)
 
 WEBKIT_API WebKitWebInspector *
 webkit_web_view_get_inspector                   (WebKitWebView        *web_view);
+
+WEBKIT_API WebKitWebWindowFeatures*
+webkit_web_view_get_window_features             (WebKitWebView        *web_view);
+
+WEBKIT_API gboolean
+webkit_web_view_can_show_mime_type              (WebKitWebView        *web_view,
+                                                 const gchar          *mime_type);
 
 WEBKIT_API gboolean
 webkit_web_view_get_transparent                 (WebKitWebView        *web_view);

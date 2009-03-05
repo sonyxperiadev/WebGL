@@ -33,6 +33,8 @@
     #include "wx/wx.h"
 #endif
 
+#include "WebFrame.h"
+
 class WebViewPrivate;
 class WebViewFrameData;
 class wxWebFrame;
@@ -118,7 +120,14 @@ public:
     wxString GetAsMarkup();
     wxString GetExternalRepresentation();
     
+    void SetTransparent(bool transparent);
+    bool IsTransparent() const;
+    
     wxString RunScript(const wxString& javascript);
+
+    bool FindString(const wxString& string, bool forward = true,
+        bool caseSensitive = false, bool wrapSelection = true,
+        bool startInSelection = true);
     
     bool CanIncreaseTextSize() const;
     void IncreaseTextSize();
@@ -132,12 +141,16 @@ public:
     
     wxWebFrame* GetMainFrame() { return m_mainFrame; }
 
+    wxWebViewDOMElementInfo HitTest(const wxPoint& post) const;
+
 protected:
 
     // event handlers (these functions should _not_ be virtual)
     void OnPaint(wxPaintEvent& event);
     void OnSize(wxSizeEvent& event);
     void OnMouseEvents(wxMouseEvent& event);
+    void OnContextMenuEvents(wxContextMenuEvent& event);
+    void OnMenuSelectEvents(wxCommandEvent& event);
     void OnKeyEvents(wxKeyEvent& event);
     void OnSetFocus(wxFocusEvent& event);
     void OnKillFocus(wxFocusEvent& event);
@@ -183,37 +196,6 @@ enum {
     wxWEBVIEW_NAV_RELOAD = 8,
     wxWEBVIEW_NAV_FORM_RESUBMITTED = 16,
     wxWEBVIEW_NAV_OTHER = 32
-};
-
-class WXDLLIMPEXP_WEBKIT wxWebViewDOMElementInfo
-{
-public: 
-    wxWebViewDOMElementInfo();
-
-    ~wxWebViewDOMElementInfo() { }
-    
-    wxString GetTagName() const { return m_tagName; }
-    void SetTagName(const wxString& name) { m_tagName = name; }
-
-    bool IsSelected() const { return m_isSelected; }
-    void SetSelected(bool sel) { m_isSelected = sel; }
- 
-    wxString GetText() const { return m_text; }
-    void SetText(const wxString& text) { m_text = text; }
- 
-    wxString GetImageSrc() const { return m_imageSrc; }
-    void SetImageSrc(const wxString& src) { m_imageSrc = src; }
- 
-    wxString GetLink() const { return m_link; }
-    void SetLink(const wxString& link) { m_link = link; }
-
-private:
-    void* m_domElement;
-    bool m_isSelected;
-    wxString m_tagName;
-    wxString m_text;
-    wxString m_imageSrc;
-    wxString m_link;
 };
 
 class WXDLLIMPEXP_WEBKIT wxWebViewBeforeLoadEvent : public wxCommandEvent

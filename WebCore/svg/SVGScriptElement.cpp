@@ -25,26 +25,23 @@
 #if ENABLE(SVG)
 #include "SVGScriptElement.h"
 
+#include "Document.h"
 #include "EventNames.h"
 #include "SVGNames.h"
 
 namespace WebCore {
 
-SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document* doc)
+SVGScriptElement::SVGScriptElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
     : SVGElement(tagName, doc)
     , SVGURIReference()
     , SVGExternalResourcesRequired()
     , m_data(this, this)
 {
+    m_data.setCreatedByParser(createdByParser);
 }
 
 SVGScriptElement::~SVGScriptElement()
 {
-}
-
-void SVGScriptElement::setCreatedByParser(bool createdByParser)
-{
-    m_data.setCreatedByParser(createdByParser);
 }
 
 String SVGScriptElement::scriptContent() const
@@ -144,9 +141,11 @@ String SVGScriptElement::scriptCharset() const
     return m_data.scriptCharset();
 }
 
-void SVGScriptElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void SVGScriptElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(href());
+    SVGElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(href()));
 }
 
 bool SVGScriptElement::haveLoadedRequiredResources()

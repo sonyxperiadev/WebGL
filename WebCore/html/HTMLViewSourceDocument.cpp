@@ -50,6 +50,7 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(Frame* frame, const String& mimeT
     , m_tbody(0)
     , m_td(0)
 {
+    setUsesBeforeAfterRules(true);
 }
 
 Tokenizer* HTMLViewSourceDocument::createTokenizer()
@@ -61,23 +62,23 @@ Tokenizer* HTMLViewSourceDocument::createTokenizer()
 
 void HTMLViewSourceDocument::createContainingTable()
 {
-    RefPtr<Element> html = new HTMLHtmlElement(this);
+    RefPtr<Element> html = new HTMLHtmlElement(htmlTag, this);
     addChild(html);
     html->attach();
-    RefPtr<Element> body = new HTMLBodyElement(this);
+    RefPtr<Element> body = new HTMLBodyElement(bodyTag, this);
     html->addChild(body);
     body->attach();
     
     // Create a line gutter div that can be used to make sure the gutter extends down the height of the whole
     // document.
-    RefPtr<Element> div = new HTMLDivElement(this);
+    RefPtr<Element> div = new HTMLDivElement(divTag, this);
     RefPtr<NamedMappedAttrMap> attrs = NamedMappedAttrMap::create();
     attrs->insertAttribute(MappedAttribute::create(classAttr, "webkit-line-gutter-backdrop"), true);
     div->setAttributeMap(attrs.release());
     body->addChild(div);
     div->attach();
 
-    RefPtr<Element> table = new HTMLTableElement(this);
+    RefPtr<Element> table = new HTMLTableElement(tableTag, this);
     body->addChild(table);
     table->attach();
     m_tbody = new HTMLTableSectionElement(tbodyTag, this);
@@ -204,7 +205,7 @@ Element* HTMLViewSourceDocument::addSpanWithClassName(const String& className)
 void HTMLViewSourceDocument::addLine(const String& className)
 {
     // Create a table row.
-    RefPtr<Element> trow = new HTMLTableRowElement(this);
+    RefPtr<Element> trow = new HTMLTableRowElement(trTag, this);
     m_tbody->addChild(trow);
     trow->attach();
     

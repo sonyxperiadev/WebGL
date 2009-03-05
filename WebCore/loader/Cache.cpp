@@ -37,8 +37,8 @@
 #include "FrameView.h"
 #include "Image.h"
 #include "ResourceHandle.h"
-#include "SystemTime.h"
 #include <stdio.h>
+#include <wtf/CurrentTime.h>
 
 
 using namespace std;
@@ -95,7 +95,7 @@ static CachedResource* createResource(CachedResource::Type type, const KURL& url
     return 0;
 }
 
-CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String& charset, bool isPreload)
+CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Type type, const KURL& url, const String& charset, bool requestIsPreload)
 {
     // FIXME: Do we really need to special-case an empty URL?
     // Would it be better to just go on with the cache code and let it fail later?
@@ -103,25 +103,19 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
         return 0;
     
     // Look up the resource in our map.
-    CachedResource* resource = m_resources.get(url.string());
-
-    if (resource) {
-        if (isPreload && !resource->isPreloaded())
-            return 0;
-        if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
-            Document* doc = docLoader->doc();
-            if(doc && !isPreload)
-                FrameLoader::reportLocalLoadFailed(doc->frame(), resource->url());
-            return 0;
-        }
-    } else {
-        if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
-            Document* doc = docLoader->doc();
-            if(doc && !isPreload)
-                FrameLoader::reportLocalLoadFailed(doc->frame(), url.string());
-            return 0;
-        }
-
+    CachedResource* resource = resourceForURL(url.string());
+    
+    if (resource && requestIsPreload && !resource->isPreloaded())
+        return 0;
+    
+    if (FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, String(), docLoader->doc())) {
+        Document* doc = docLoader->doc();
+        if (doc && !requestIsPreload)
+            FrameLoader::reportLocalLoadFailed(doc->frame(), url.string());
+        return 0;
+    }
+    
+    if (!resource) {
         // The resource does not exist. Create it.
         resource = createResource(type, url, charset);
         ASSERT(resource);
@@ -169,7 +163,7 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
 CachedCSSStyleSheet* Cache::requestUserCSSStyleSheet(DocLoader* docLoader, const String& url, const String& charset)
 {
     CachedCSSStyleSheet* userSheet;
-    if (CachedResource* existing = m_resources.get(url)) {
+    if (CachedResource* existing = resourceForURL(url)) {
         if (existing->type() != CachedResource::CSSStyleSheet)
             return 0;
         userSheet = static_cast<CachedCSSStyleSheet*>(existing);
@@ -248,7 +242,13 @@ void Cache::revalidationFailed(CachedResource* revalidatingResource)
 
 CachedResource* Cache::resourceForURL(const String& url)
 {
-    return m_resources.get(url);
+    CachedResource* resource = m_resources.get(url);
+    if (resource && !resource->makePurgeable(false)) {
+        ASSERT(!resource->hasClients());
+        evict(resource);
+        return 0;
+    }
+    return resource;
 }
 
 unsigned Cache::deadCapacity() const 
@@ -278,7 +278,7 @@ void Cache::pruneLiveResources()
     unsigned targetSize = static_cast<unsigned>(capacity * cTargetPrunePercentage); // Cut by a percentage to avoid immediately pruning again.
     double currentTime = FrameView::currentPaintTimeStamp();
     if (!currentTime) // In case prune is called directly, outside of a Frame paint.
-        currentTime = WebCore::currentTime();
+        currentTime = WTF::currentTime();
     
     // Destroy any decoded data in live objects that we can.
     // Start from the tail, since this is the least recently accessed of the objects.
@@ -315,6 +315,25 @@ void Cache::pruneDeadResources()
 
     unsigned targetSize = static_cast<unsigned>(capacity * cTargetPrunePercentage); // Cut by a percentage to avoid immediately pruning again.
     int size = m_allResources.size();
+    
+    if (!m_inPruneDeadResources) {
+        // See if we have any purged resources we can evict.
+        for (int i = 0; i < size; i++) {
+            CachedResource* current = m_allResources[i].m_tail;
+            while (current) {
+                CachedResource* prev = current->m_prevInAllResourcesList;
+                if (current->wasPurged()) {
+                    ASSERT(!current->hasClients());
+                    ASSERT(!current->isPreloaded());
+                    evict(current);
+                }
+                current = prev;
+            }
+        }
+        if (targetSize && m_deadSize <= targetSize)
+            return;
+    }
+    
     bool canShrinkLRULists = true;
     m_inPruneDeadResources = true;
     for (int i = size - 1; i >= 0; i--) {
@@ -324,7 +343,7 @@ void Cache::pruneDeadResources()
         // First flush all the decoded data in this queue.
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
-            if (!current->hasClients() && !current->isPreloaded() && current->isLoaded() && current->decodedSize()) {
+            if (!current->hasClients() && !current->isPreloaded() && current->isLoaded()) {
                 // Destroy our decoded data. This will remove us from 
                 // m_liveDecodedResources, and possibly move us to a differnt 
                 // LRU list in m_allResources.
@@ -382,6 +401,15 @@ void Cache::evict(CachedResource* resource)
     // The resource may have already been removed by someone other than our caller,
     // who needed a fresh copy for a reload. See <http://bugs.webkit.org/show_bug.cgi?id=12479#c6>.
     if (resource->inCache()) {
+        if (!resource->isCacheValidator()) {
+            // Notify all doc loaders that might be observing this object still that it has been
+            // extracted from the set of resources.
+            // No need to do this for cache validator resources, they are replaced automatically by using CachedResourceHandles.
+            HashSet<DocLoader*>::iterator end = m_docLoaders.end();
+            for (HashSet<DocLoader*>::iterator itr = m_docLoaders.begin(); itr != end; ++itr)
+                (*itr)->removeCachedResource(resource);
+        }
+        
         // Remove from the resource map.
         m_resources.remove(resource->url());
         resource->setInCache(false);
@@ -389,12 +417,6 @@ void Cache::evict(CachedResource* resource)
         // Remove from the appropriate LRU list.
         removeFromLRUList(resource);
         removeFromLiveDecodedResourcesList(resource);
-        
-        // Notify all doc loaders that might be observing this object still that it has been
-        // extracted from the set of resources.
-        HashSet<DocLoader*>::iterator end = m_docLoaders.end();
-        for (HashSet<DocLoader*>::iterator itr = m_docLoaders.begin(); itr != end; ++itr)
-            (*itr)->removeCachedResource(resource);
 
         // Subtract from our size totals.
         int delta = -static_cast<int>(resource->size());
@@ -534,6 +556,10 @@ void Cache::resourceAccessed(CachedResource* resource)
     // the queue will possibly change.
     removeFromLRUList(resource);
     
+    // If this is the first time the resource has been accessed, adjust the size of the cache to account for its initial size.
+    if (!resource->accessCount())
+        adjustSize(resource->hasClients(), resource->size());
+    
     // Add to our access count.
     resource->increaseAccessCount();
     
@@ -631,60 +657,52 @@ void Cache::adjustSize(bool live, int delta)
     }
 }
 
+void Cache::TypeStatistic::addResource(CachedResource* o)
+{
+    bool purged = o->wasPurged();
+    bool purgeable = o->isPurgeable() && !purged; 
+    int pageSize = (o->encodedSize() + o->overheadSize() + 4095) & ~4095;
+    count++;
+    size += purged ? 0 : o->size(); 
+    liveSize += o->hasClients() ? o->size() : 0;
+    decodedSize += o->decodedSize();
+    purgeableSize += purgeable ? pageSize : 0;
+    purgedSize += purged ? pageSize : 0;
+}
+
 Cache::Statistics Cache::getStatistics()
 {
     Statistics stats;
     CachedResourceMap::iterator e = m_resources.end();
     for (CachedResourceMap::iterator i = m_resources.begin(); i != e; ++i) {
-        CachedResource *o = i->second;
-        switch (o->type()) {
-            case CachedResource::ImageResource:
-                stats.images.count++;
-                stats.images.size += o->size();
-                stats.images.liveSize += o->hasClients() ? o->size() : 0;
-                stats.images.decodedSize += o->decodedSize();
-                break;
-
-            case CachedResource::CSSStyleSheet:
-                stats.cssStyleSheets.count++;
-                stats.cssStyleSheets.size += o->size();
-                stats.cssStyleSheets.liveSize += o->hasClients() ? o->size() : 0;
-                stats.cssStyleSheets.decodedSize += o->decodedSize();
-                break;
-
-            case CachedResource::Script:
-                stats.scripts.count++;
-                stats.scripts.size += o->size();
-                stats.scripts.liveSize += o->hasClients() ? o->size() : 0;
-                stats.scripts.decodedSize += o->decodedSize();
-                break;
+        CachedResource* resource = i->second;
+        switch (resource->type()) {
+        case CachedResource::ImageResource:
+            stats.images.addResource(resource);
+            break;
+        case CachedResource::CSSStyleSheet:
+            stats.cssStyleSheets.addResource(resource);
+            break;
+        case CachedResource::Script:
+            stats.scripts.addResource(resource);
+            break;
 #if ENABLE(XSLT)
-            case CachedResource::XSLStyleSheet:
-                stats.xslStyleSheets.count++;
-                stats.xslStyleSheets.size += o->size();
-                stats.xslStyleSheets.liveSize += o->hasClients() ? o->size() : 0;
-                stats.xslStyleSheets.decodedSize += o->decodedSize();
-                break;
+        case CachedResource::XSLStyleSheet:
+            stats.xslStyleSheets.addResource(resource);
+            break;
 #endif
-            case CachedResource::FontResource:
-                stats.fonts.count++;
-                stats.fonts.size += o->size();
-                stats.fonts.liveSize += o->hasClients() ? o->size() : 0;
-                stats.fonts.decodedSize += o->decodedSize();
-                break;
+        case CachedResource::FontResource:
+            stats.fonts.addResource(resource);
+            break;
 #if ENABLE(XBL)
-            case CachedResource::XBL:
-                stats.xblDocs.count++;
-                stats.xblDocs.size += o->size();
-                stats.xblDocs.liveSize += o->hasClients() ? o->size() : 0;
-                stats.xblDocs.decodedSize += o->decodedSize();
-                break;
+        case CachedResource::XBL:
+            stats.xblDocs.addResource(resource)
+            break;
 #endif
-            default:
-                break;
+        default:
+            break;
         }
     }
-    
     return stats;
 }
 
@@ -703,6 +721,21 @@ void Cache::setDisabled(bool disabled)
 }
 
 #ifndef NDEBUG
+void Cache::dumpStats()
+{
+    Statistics s = getStatistics();
+    printf("%-11s %-11s %-11s %-11s %-11s %-11s %-11s\n", "", "Count", "Size", "LiveSize", "DecodedSize", "PurgeableSize", "PurgedSize");
+    printf("%-11s %-11s %-11s %-11s %-11s %-11s %-11s\n", "-----------", "-----------", "-----------", "-----------", "-----------", "-----------", "-----------");
+    printf("%-11s %11d %11d %11d %11d %11d %11d\n", "Images", s.images.count, s.images.size, s.images.liveSize, s.images.decodedSize, s.images.purgeableSize, s.images.purgedSize);
+    printf("%-11s %11d %11d %11d %11d %11d %11d\n", "CSS", s.cssStyleSheets.count, s.cssStyleSheets.size, s.cssStyleSheets.liveSize, s.cssStyleSheets.decodedSize, s.cssStyleSheets.purgeableSize, s.cssStyleSheets.purgedSize);
+#if ENABLE(XSLT)
+    printf("%-11s %11d %11d %11d %11d %11d %11d\n", "XSL", s.xslStyleSheets.count, s.xslStyleSheets.size, s.xslStyleSheets.liveSize, s.xslStyleSheets.decodedSize, s.xslStyleSheets.purgeableSize, s.xslStyleSheets.purgedSize);
+#endif
+    printf("%-11s %11d %11d %11d %11d %11d %11d\n", "JavaScript", s.scripts.count, s.scripts.size, s.scripts.liveSize, s.scripts.decodedSize, s.scripts.purgeableSize, s.scripts.purgedSize);
+    printf("%-11s %11d %11d %11d %11d %11d %11d\n", "Fonts", s.fonts.count, s.fonts.size, s.fonts.liveSize, s.fonts.decodedSize, s.fonts.purgeableSize, s.fonts.purgedSize);
+    printf("%-11s %-11s %-11s %-11s %-11s %-11s %-11s\n\n", "-----------", "-----------", "-----------", "-----------", "-----------", "-----------", "-----------");
+}
+
 void Cache::dumpLRULists(bool includeLive) const
 {
     printf("LRU-SP lists in eviction order (Kilobytes decoded, Kilobytes encoded, Access count, Referenced):\n");
@@ -714,7 +747,7 @@ void Cache::dumpLRULists(bool includeLive) const
         while (current) {
             CachedResource* prev = current->m_prevInAllResourcesList;
             if (includeLive || !current->hasClients())
-                printf("(%.1fK, %.1fK, %uA, %dR); ", current->decodedSize() / 1024.0f, current->encodedSize() / 1024.0f, current->accessCount(), current->hasClients());
+                printf("(%.1fK, %.1fK, %uA, %dR); ", current->decodedSize() / 1024.0f, (current->encodedSize() + current->overheadSize()) / 1024.0f, current->accessCount(), current->hasClients());
             current = prev;
         }
     }

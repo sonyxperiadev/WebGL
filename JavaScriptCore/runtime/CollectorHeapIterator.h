@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +24,10 @@
  */
 
 #include "config.h"
-#include "collector.h"
+#include "Collector.h"
+
+#ifndef CollectorHeapIterator_h
+#define CollectorHeapIterator_h
 
 namespace JSC {
 
@@ -83,3 +86,5 @@ namespace JSC {
     }
 
 } // namespace JSC
+
+#endif // CollectorHeapIterator_h

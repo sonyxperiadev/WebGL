@@ -88,13 +88,11 @@ void RenderPart::updateWidgetPosition()
     if (!m_widget)
         return;
     
-    int x, y, width, height;
-    absolutePosition(x, y);
-    x += borderLeft() + paddingLeft();
-    y += borderTop() + paddingTop();
-    width = m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
-    height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
-    IntRect newBounds(x,y,width,height);
+    FloatPoint absPos = localToAbsolute();
+    absPos.move(borderLeft() + paddingLeft(), borderTop() + paddingTop());
+    int w = width() - borderLeft() - borderRight() - paddingLeft() - paddingRight();
+    int h = height() - borderTop() - borderBottom() - paddingTop() - paddingBottom();
+    IntRect newBounds(absPos.x(), absPos.y(), w, h);
     bool boundsChanged = newBounds != m_widget->frameRect();
     if (boundsChanged) {
         // The widget changed positions.  Update the frame geometry.

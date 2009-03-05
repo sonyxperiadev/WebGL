@@ -28,35 +28,21 @@
 
 #include "StaticConstructors.h"
 #include "StringHash.h"
-#include <kjs/identifier.h>
+#include "ThreadGlobalData.h"
 #include <wtf/Threading.h>
 #include <wtf/HashSet.h>
 
-#if ENABLE(WORKERS)
-#include <wtf/ThreadSpecific.h>
-using namespace WTF;
-#endif
-
 #if USE(JSC)
+#include <runtime/Identifier.h>
 using JSC::Identifier;
 using JSC::UString;
 #endif
 
 namespace WebCore {
 
-#if ENABLE(WORKERS)
-static ThreadSpecific<HashSet<StringImpl*> >* staticStringTable;
-#else
-static HashSet<StringImpl*>* staticStringTable;
-#endif
-
-static inline HashSet<StringImpl*>* stringTable()
+static inline HashSet<StringImpl*>& stringTable()
 {
-#if ENABLE(WORKERS)
-    return *staticStringTable;
-#else
-    return staticStringTable;
-#endif
+    return threadGlobalData().atomicStringTable();
 }
 
 struct CStringTranslator {
@@ -99,7 +85,7 @@ PassRefPtr<StringImpl> AtomicString::add(const char* c)
         return 0;
     if (!*c)
         return StringImpl::empty();    
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable()->add<const char*, CStringTranslator>(c);
+    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<const char*, CStringTranslator>(c);
     if (!addResult.second)
         return *addResult.first;
     return adoptRef(*addResult.first);
@@ -191,10 +177,11 @@ PassRefPtr<StringImpl> AtomicString::add(const UChar* s, int length)
         return StringImpl::empty();
     
     UCharBuffer buf = { s, length }; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable()->add<UCharBuffer, UCharBufferTranslator>(buf);
-    if (!addResult.second)
-        return *addResult.first;
-    return adoptRef(*addResult.first);
+    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<UCharBuffer, UCharBufferTranslator>(buf);
+
+    // If the string is newly-translated, then we need to adopt it.
+    // The boolean in the pair tells us if that is so.
+    return addResult.second ? adoptRef(*addResult.first) : *addResult.first;
 }
 
 PassRefPtr<StringImpl> AtomicString::add(const UChar* s)
@@ -210,10 +197,11 @@ PassRefPtr<StringImpl> AtomicString::add(const UChar* s)
         return StringImpl::empty();
 
     UCharBuffer buf = {s, length}; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable()->add<UCharBuffer, UCharBufferTranslator>(buf);
-    if (!addResult.second)
-        return *addResult.first;
-    return adoptRef(*addResult.first);
+    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<UCharBuffer, UCharBufferTranslator>(buf);
+
+    // If the string is newly-translated, then we need to adopt it.
+    // The boolean in the pair tells us if that is so.
+    return addResult.second ? adoptRef(*addResult.first) : *addResult.first;
 }
 
 PassRefPtr<StringImpl> AtomicString::add(StringImpl* r)
@@ -224,7 +212,7 @@ PassRefPtr<StringImpl> AtomicString::add(StringImpl* r)
     if (r->length() == 0)
         return StringImpl::empty();
     
-    StringImpl* result = *stringTable()->add(r).first;
+    StringImpl* result = *stringTable().add(r).first;
     if (result == r)
         r->m_inTable = true;
     return result;
@@ -232,7 +220,7 @@ PassRefPtr<StringImpl> AtomicString::add(StringImpl* r)
 
 void AtomicString::remove(StringImpl* r)
 {
-    stringTable()->remove(r);
+    stringTable().remove(r);
 }
 
 #if USE(JSC)
@@ -247,7 +235,7 @@ PassRefPtr<StringImpl> AtomicString::add(const JSC::Identifier& identifier)
         return StringImpl::empty();
 
     HashAndCharacters buffer = { string->computedHash(), string->data(), length }; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable()->add<HashAndCharacters, HashAndCharactersTranslator>(buffer);
+    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<HashAndCharacters, HashAndCharactersTranslator>(buffer);
     if (!addResult.second)
         return *addResult.first;
     return adoptRef(*addResult.first);
@@ -264,12 +252,11 @@ PassRefPtr<StringImpl> AtomicString::add(const JSC::UString& ustring)
         return StringImpl::empty();
 
     HashAndCharacters buffer = { string->hash(), string->data(), length }; 
-    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable()->add<HashAndCharacters, HashAndCharactersTranslator>(buffer);
+    pair<HashSet<StringImpl*>::iterator, bool> addResult = stringTable().add<HashAndCharacters, HashAndCharactersTranslator>(buffer);
     if (!addResult.second)
         return *addResult.first;
     return adoptRef(*addResult.first);
 }
-#endif
 
 AtomicStringImpl* AtomicString::find(const JSC::Identifier& identifier)
 {
@@ -282,8 +269,8 @@ AtomicStringImpl* AtomicString::find(const JSC::Identifier& identifier)
         return static_cast<AtomicStringImpl*>(StringImpl::empty());
 
     HashAndCharacters buffer = { string->computedHash(), string->data(), length }; 
-    HashSet<StringImpl*>::iterator iterator = stringTable()->find<HashAndCharacters, HashAndCharactersTranslator>(buffer);
-    if (iterator == stringTable()->end())
+    HashSet<StringImpl*>::iterator iterator = stringTable().find<HashAndCharacters, HashAndCharactersTranslator>(buffer);
+    if (iterator == stringTable().end())
         return 0;
     return static_cast<AtomicStringImpl*>(*iterator);
 }
@@ -292,6 +279,7 @@ AtomicString::operator UString() const
 {
     return m_string;
 }
+#endif
 
 DEFINE_GLOBAL(AtomicString, nullAtom)
 DEFINE_GLOBAL(AtomicString, emptyAtom, "")
@@ -305,12 +293,6 @@ void AtomicString::init()
     if (!initialized) {
         // Initialization is not thread safe, so this function must be called from the main thread first.
         ASSERT(isMainThread());
-
-#if ENABLE(WORKERS)
-        staticStringTable = new ThreadSpecific<HashSet<StringImpl*> >;
-#else
-        staticStringTable = new HashSet<StringImpl*>;
-#endif
 
         // Use placement new to initialize the globals.
         new ((void*)&nullAtom) AtomicString;

@@ -29,12 +29,12 @@
 
 namespace JSC {
 
-static JSValue* regExpObjectGlobal(ExecState*, const Identifier&, const PropertySlot&);
-static JSValue* regExpObjectIgnoreCase(ExecState*, const Identifier&, const PropertySlot&);
-static JSValue* regExpObjectMultiline(ExecState*, const Identifier&, const PropertySlot&);
-static JSValue* regExpObjectSource(ExecState*, const Identifier&, const PropertySlot&);
-static JSValue* regExpObjectLastIndex(ExecState*, const Identifier&, const PropertySlot&);
-static void setRegExpObjectLastIndex(ExecState*, JSObject*, JSValue*);
+static JSValuePtr regExpObjectGlobal(ExecState*, const Identifier&, const PropertySlot&);
+static JSValuePtr regExpObjectIgnoreCase(ExecState*, const Identifier&, const PropertySlot&);
+static JSValuePtr regExpObjectMultiline(ExecState*, const Identifier&, const PropertySlot&);
+static JSValuePtr regExpObjectSource(ExecState*, const Identifier&, const PropertySlot&);
+static JSValuePtr regExpObjectLastIndex(ExecState*, const Identifier&, const PropertySlot&);
+static void setRegExpObjectLastIndex(ExecState*, JSObject*, JSValuePtr);
 
 } // namespace JSC
 
@@ -56,7 +56,7 @@ const ClassInfo RegExpObject::info = { "RegExp", 0, 0, ExecState::regExpTable };
 @end
 */
 
-RegExpObject::RegExpObject(PassRefPtr<StructureID> structure, PassRefPtr<RegExp> regExp)
+RegExpObject::RegExpObject(PassRefPtr<Structure> structure, PassRefPtr<RegExp> regExp)
     : JSObject(structure)
     , d(new RegExpObjectData(regExp, 0))
 {
@@ -71,91 +71,54 @@ bool RegExpObject::getOwnPropertySlot(ExecState* exec, const Identifier& propert
     return getStaticValueSlot<RegExpObject, JSObject>(exec, ExecState::regExpTable(exec), this, propertyName, slot);
 }
 
-JSValue* regExpObjectGlobal(ExecState*, const Identifier&, const PropertySlot& slot)
+JSValuePtr regExpObjectGlobal(ExecState*, const Identifier&, const PropertySlot& slot)
 {
     return jsBoolean(asRegExpObject(slot.slotBase())->regExp()->global());
 }
 
-JSValue* regExpObjectIgnoreCase(ExecState*, const Identifier&, const PropertySlot& slot)
+JSValuePtr regExpObjectIgnoreCase(ExecState*, const Identifier&, const PropertySlot& slot)
 {
     return jsBoolean(asRegExpObject(slot.slotBase())->regExp()->ignoreCase());
 }
  
-JSValue* regExpObjectMultiline(ExecState*, const Identifier&, const PropertySlot& slot)
+JSValuePtr regExpObjectMultiline(ExecState*, const Identifier&, const PropertySlot& slot)
 {            
     return jsBoolean(asRegExpObject(slot.slotBase())->regExp()->multiline());
 }
 
-JSValue* regExpObjectSource(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValuePtr regExpObjectSource(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     return jsString(exec, asRegExpObject(slot.slotBase())->regExp()->pattern());
 }
 
-JSValue* regExpObjectLastIndex(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValuePtr regExpObjectLastIndex(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     return jsNumber(exec, asRegExpObject(slot.slotBase())->lastIndex());
 }
 
-void RegExpObject::put(ExecState* exec, const Identifier& propertyName, JSValue* value, PutPropertySlot& slot)
+void RegExpObject::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
 {
     lookupPut<RegExpObject, JSObject>(exec, propertyName, value, ExecState::regExpTable(exec), this, slot);
 }
 
-void setRegExpObjectLastIndex(ExecState* exec, JSObject* baseObject, JSValue* value)
+void setRegExpObjectLastIndex(ExecState* exec, JSObject* baseObject, JSValuePtr value)
 {
-    asRegExpObject(baseObject)->setLastIndex(value->toInteger(exec));
+    asRegExpObject(baseObject)->setLastIndex(value.toInteger(exec));
 }
 
-bool RegExpObject::match(ExecState* exec, const ArgList& args)
-{
-    RegExpConstructor* regExpObj = exec->lexicalGlobalObject()->regExpConstructor();
-
-    UString input;
-    if (!args.isEmpty())
-        input = args.at(exec, 0)->toString(exec);
-    else {
-        input = regExpObj->input();
-        if (input.isNull()) {
-            throwError(exec, GeneralError, "No input.");
-            return false;
-        }
-    }
-
-    bool global = get(exec, exec->propertyNames().global)->toBoolean(exec);
-    int lastIndex = 0;
-    if (global) {
-        if (d->lastIndex < 0 || d->lastIndex > input.size()) {
-            d->lastIndex = 0;
-            return false;
-        }
-        lastIndex = static_cast<int>(d->lastIndex);
-    }
-
-    int foundIndex;
-    int foundLength;
-    regExpObj->performMatch(d->regExp.get(), input, lastIndex, foundIndex, foundLength);
-
-    if (global) {
-        lastIndex = foundIndex < 0 ? 0 : foundIndex + foundLength;
-        d->lastIndex = lastIndex;
-    }
-
-    return foundIndex >= 0;
-}
-
-JSValue* RegExpObject::test(ExecState* exec, const ArgList& args)
+JSValuePtr RegExpObject::test(ExecState* exec, const ArgList& args)
 {
     return jsBoolean(match(exec, args));
 }
 
-JSValue* RegExpObject::exec(ExecState* exec, const ArgList& args)
+JSValuePtr RegExpObject::exec(ExecState* exec, const ArgList& args)
 {
     if (match(exec, args))
         return exec->lexicalGlobalObject()->regExpConstructor()->arrayOfMatches(exec);
     return jsNull();
 }
 
-static JSValue* callRegExpObject(ExecState* exec, JSObject* function, JSValue*, const ArgList& args)
+static JSValuePtr callRegExpObject(ExecState* exec, JSObject* function, JSValuePtr, const ArgList& args)
 {
     return asRegExpObject(function)->exec(exec, args);
 }
@@ -164,6 +127,41 @@ CallType RegExpObject::getCallData(CallData& callData)
 {
     callData.native.function = callRegExpObject;
     return CallTypeHost;
+}
+
+// Shared implementation used by test and exec.
+bool RegExpObject::match(ExecState* exec, const ArgList& args)
+{
+    RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
+
+    UString input = args.isEmpty() ? regExpConstructor->input() : args.at(exec, 0).toString(exec);
+    if (input.isNull()) {
+        throwError(exec, GeneralError, "No input to " + toString(exec) + ".");
+        return false;
+    }
+
+    if (!regExp()->global()) {
+        int position;
+        int length;
+        regExpConstructor->performMatch(d->regExp.get(), input, 0, position, length);
+        return position >= 0;
+    }
+
+    if (d->lastIndex < 0 || d->lastIndex > input.size()) {
+        d->lastIndex = 0;
+        return false;
+    }
+
+    int position;
+    int length;
+    regExpConstructor->performMatch(d->regExp.get(), input, static_cast<int>(d->lastIndex), position, length);
+    if (position < 0) {
+        d->lastIndex = 0;
+        return false;
+    }
+
+    d->lastIndex = position + length;
+    return true;
 }
 
 } // namespace JSC

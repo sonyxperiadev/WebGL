@@ -24,6 +24,8 @@
 #ifndef HTMLFormControlElement_h
 #define HTMLFormControlElement_h
 
+#include "FormControlElement.h"
+#include "FormControlElementWithState.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
@@ -31,7 +33,7 @@ namespace WebCore {
 class FormDataList;
 class HTMLFormElement;
 
-class HTMLFormControlElement : public HTMLElement {
+class HTMLFormControlElement : public HTMLElement, public FormControlElement {
 public:
     HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElement();
@@ -53,8 +55,8 @@ public:
 
     virtual void reset() {}
 
-    bool valueMatchesRenderer() const { return m_valueMatchesRenderer; }
-    void setValueMatchesRenderer(bool b = true) const { m_valueMatchesRenderer = b; }
+    virtual bool valueMatchesRenderer() const { return m_valueMatchesRenderer; }
+    virtual void setValueMatchesRenderer(bool b = true) { m_valueMatchesRenderer = b; }
 
     void onChange();
 
@@ -79,7 +81,7 @@ public:
     virtual const AtomicString& name() const;
     void setName(const AtomicString& name);
 
-    virtual bool isGenericFormElement() const { return true; }
+    virtual bool isFormControlElement() const { return true; }
     virtual bool isRadioButton() const { return false; }
 
     /* Override in derived classes to get the encoded name=value pair for submitting.
@@ -89,7 +91,7 @@ public:
 
     virtual bool isSuccessfulSubmitButton() const { return false; }
     virtual bool isActivatedSubmit() const { return false; }
-    virtual void setActivatedSubmit(bool flag) { }
+    virtual void setActivatedSubmit(bool) { }
 
     virtual short tabIndex() const;
 
@@ -106,24 +108,22 @@ private:
     HTMLFormElement* m_form;
     bool m_disabled;
     bool m_readOnly;
-    mutable bool m_valueMatchesRenderer;
+    bool m_valueMatchesRenderer;
 };
 
-class HTMLFormControlElementWithState : public HTMLFormControlElement {
+class HTMLFormControlElementWithState : public HTMLFormControlElement, public FormControlElementWithState  {
 public:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElementWithState();
 
-    virtual void finishParsingChildren();
+    virtual bool isFormControlElementWithState() const { return true; }
 
-    virtual bool saveState(String& value) const = 0;
+    virtual FormControlElement* toFormControlElement() { return this; }
+    virtual void finishParsingChildren();
 
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
-
-private:
-    virtual void restoreState(const String& value) = 0;
 };
 
 } //namespace

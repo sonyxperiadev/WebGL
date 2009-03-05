@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
  *
@@ -150,6 +150,7 @@
 #import "DOMUIEventInternal.h"
 #import "DOMWebKitCSSKeyframeRuleInternal.h"
 #import "DOMWebKitCSSKeyframesRuleInternal.h"
+#import "DOMWebKitCSSMatrixInternal.h"
 #import "DOMWebKitCSSTransformValueInternal.h"
 #import "DOMWheelEventInternal.h"
 
@@ -299,7 +300,7 @@ namespace WebCore {
     class NodeFilter;
 
 #if ENABLE(SVG)
-    class AffineTransform;
+    class TransformationMatrix;
     class FloatPoint;
     class FloatRect;
 #endif // ENABLE(SVG)
@@ -335,6 +336,10 @@ namespace WebCore {
 // Helper functions for DOM wrappers and gluing to Objective-C
 
 namespace WebCore {
+
+    // Create an NSMapTable mapping from pointers to ObjC objects held with zeroing weak references.
+    NSMapTable* createWrapperCache();
+    NSMapTable* createWrapperCacheWithIntegerKeys(); // Same, but from integers to ObjC objects.
 
     id createDOMWrapper(JSC::JSObject*, PassRefPtr<JSC::Bindings::RootObject> origin, PassRefPtr<JSC::Bindings::RootObject> current);
 

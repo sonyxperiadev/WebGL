@@ -5,6 +5,7 @@
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,13 +40,15 @@
 #include "HTMLLinkElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTokenizer.h"
-#include "ScriptController.h"
-#include "ScriptElement.h"
 #include "ProcessingInstruction.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptController.h"
+#include "ScriptElement.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "TextResourceDecoder.h"
 #include <QDebug>
 #include <wtf/Platform.h>
@@ -445,7 +448,11 @@ void XMLTokenizer::parse()
         case QXmlStreamReader::EntityReference: {
             //qDebug()<<"---------- ENTITY = "<<m_stream.name().toString()
             //        <<", t = "<<m_stream.text().toString();
-            if (isXHTMLDocument()) {
+            if (isXHTMLDocument()
+#if ENABLE(WML)
+                || isWMLDocument()
+#endif
+               ) {
                 QString entity = m_stream.name().toString();
                 UChar c = decodeNamedEntity(entity.toUtf8().constData());
                 if (m_currentNode->isTextNode() || enterText()) {
@@ -533,9 +540,8 @@ void XMLTokenizer::parseStartElement()
         return;
     }
 
-    eventuallyMarkAsParserCreated(newElement.get());
-
-    if (isScriptElement(newElement.get()))
+    ScriptElement* scriptElement = toScriptElement(newElement.get());
+    if (scriptElement)
         m_scriptStartLine = lineNumber();
 
     if (!m_currentNode->addChild(newElement.get())) {
@@ -556,36 +562,39 @@ void XMLTokenizer::parseEndElement()
     RefPtr<Node> parent = n->parentNode();
     n->finishParsingChildren();
 
-    // don't load external scripts for standalone documents (for now)
-    if (n->isElementNode() && m_view && isScriptElement(static_cast<Element*>(n))) {
-        ASSERT(!m_pendingScript);
-        m_requestingScript = true;
-
-        Element* element = static_cast<Element*>(n); 
-        ScriptElement* scriptElement = castToScriptElement(element);
-
-        String scriptHref = scriptElement->sourceAttributeValue();
-        if (!scriptHref.isEmpty()) {
-            // we have a src attribute
-            String scriptCharset = scriptElement->scriptCharset();
-            if ((m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
-                m_scriptElement = element;
-                m_pendingScript->addClient(this);
-
-                // m_pendingScript will be 0 if script was already loaded and ref() executed it
-                if (m_pendingScript)
-                    pauseParsing();
-            } else
-                m_scriptElement = 0;
-
-        } else {
-            String scriptCode = scriptElement->scriptContent();
-            m_view->frame()->loader()->executeScript(m_doc->url().string(), m_scriptStartLine, scriptCode);
-        }
-
-        m_requestingScript = false;
+    if (!n->isElementNode() || !m_view) {
+        setCurrentNode(parent.get());
+        return;
     }
 
+    Element* element = static_cast<Element*>(n);
+    ScriptElement* scriptElement = toScriptElement(element);
+    if (!scriptElement) {
+        setCurrentNode(parent.get());
+        return;
+    }
+
+    // don't load external scripts for standalone documents (for now)
+    ASSERT(!m_pendingScript);
+    m_requestingScript = true;
+
+    String scriptHref = scriptElement->sourceAttributeValue();
+    if (!scriptHref.isEmpty()) {
+        // we have a src attribute 
+        String scriptCharset = scriptElement->scriptCharset();
+        if ((m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
+            m_scriptElement = element;
+            m_pendingScript->addClient(this);
+
+            // m_pendingScript will be 0 if script was already loaded and ref() executed it
+            if (m_pendingScript)
+                pauseParsing();
+        } else 
+            m_scriptElement = 0;
+    } else
+        m_view->frame()->loader()->executeScript(ScriptSourceCode(scriptElement->scriptContent(), m_doc->url(), m_scriptStartLine));
+
+    m_requestingScript = false;
     setCurrentNode(parent.get());
 }
 
@@ -744,6 +753,14 @@ void XMLTokenizer::parseDtd()
         || (publicId == QLatin1String("-//WAPFORUM//DTD XHTML Mobile 1.0//EN"))) {
         setIsXHTMLDocument(true); // controls if we replace entities or not.
     }
+#if ENABLE(WML)
+    else if (m_doc->isWMLDocument()
+             && publicId != QLatin1String("-//WAPFORUM//DTD WML 1.3//EN")
+             && publicId != QLatin1String("-//WAPFORUM//DTD WML 1.2//EN")
+             && publicId != QLatin1String("-//WAPFORUM//DTD WML 1.1//EN")
+             && publicId != QLatin1String("-//WAPFORUM//DTD WML 1.0//EN"))
+        handleError(fatal, "Invalid DTD Public ID", lineNumber(), columnNumber());
+#endif
     if (!m_parsingFragment)
         m_doc->addChild(DocumentType::create(m_doc, name, publicId, systemId));
     

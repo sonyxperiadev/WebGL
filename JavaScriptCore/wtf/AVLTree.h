@@ -29,12 +29,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef KJS_AVL_TREE_H_
-#define KJS_AVL_TREE_H_
+#ifndef AVL_TREE_H_
+#define AVL_TREE_H_
 
 #include "Assertions.h"
 
-namespace JSC {
+namespace WTF {
 
 // Here is the reference class for BSet.
 //
@@ -203,17 +203,19 @@ public:
                         break;
                     }
                     cmp = -target_cmp;
-                } else if (target_cmp != 0)
-                    if (!((cmp ^ target_cmp) & MASK_HIGH_BIT))
+                } else if (target_cmp != 0) {
+                    if (!((cmp ^ target_cmp) & MASK_HIGH_BIT)) {
                         // cmp and target_cmp are both negative or both positive.
                         depth = d;
-                    h = cmp < 0 ? get_lt(h) : get_gt(h);
-                    if (h == null())
-                        break;
-                    branch[d] = cmp > 0;
-                    path_h[d++] = h;
+                    }
                 }
+                h = cmp < 0 ? get_lt(h) : get_gt(h);
+                if (h == null())
+                    break;
+                branch[d] = cmp > 0;
+                path_h[d++] = h;
             }
+        }
 
         void start_iter_least(AVLTree &tree)
         {
@@ -822,7 +824,7 @@ AVLTree<Abstractor, maxDepth, BSet>::remove(key k)
             cmp_shortened_sub_with_path = cmp;
 
         // Get the handle of the opposite child, which may not be null.
-        child = cmp > 0 ? get_lt(h, false) : get_gt(h, false);
+        child = cmp > 0 ? get_lt(h) : get_gt(h);
     }
 
     if (parent == null())
@@ -841,8 +843,8 @@ AVLTree<Abstractor, maxDepth, BSet>::remove(key k)
 
     if (h != rm) {
         // Poke in the replacement for the node to be removed.
-        set_lt(h, get_lt(rm, false));
-        set_gt(h, get_gt(rm, false));
+        set_lt(h, get_lt(rm));
+        set_gt(h, get_gt(rm));
         set_bf(h, get_bf(rm));
         if (parent_rm == null())
             abs.root = h;
@@ -934,8 +936,8 @@ AVLTree<Abstractor, maxDepth, BSet>::subst(handle new_node)
     }
 
     /* Copy tree housekeeping fields from node in tree to new node. */
-    set_lt(new_node, get_lt(h, false));
-    set_gt(new_node, get_gt(h, false));
+    set_lt(new_node, get_lt(h));
+    set_gt(new_node, get_gt(h));
     set_bf(new_node, get_bf(h));
 
     if (parent == null())
@@ -951,7 +953,6 @@ AVLTree<Abstractor, maxDepth, BSet>::subst(handle new_node)
 
     return h;
 }
-
 
 }
 

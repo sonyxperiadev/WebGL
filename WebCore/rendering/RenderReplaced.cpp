@@ -26,6 +26,8 @@
 #include "GraphicsContext.h"
 #include "RenderBlock.h"
 #include "RenderLayer.h"
+#include "RenderTheme.h"
+#include "RenderView.h"
 
 using namespace std;
 
@@ -80,10 +82,10 @@ void RenderReplaced::layout()
     bool checkForRepaint = checkForRepaintDuringLayout();
     if (checkForRepaint) {
         oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
     }
     
-    m_height = minimumReplacedHeight();
+    setHeight(minimumReplacedHeight());
     
     calcWidth();
     calcHeight();
@@ -108,8 +110,8 @@ void RenderReplaced::paint(PaintInfo& paintInfo, int tx, int ty)
     if (!shouldPaint(paintInfo, tx, ty))
         return;
     
-    tx += m_x;
-    ty += m_y;
+    tx += x();
+    ty += y();
     
     if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection)) 
         paintBoxDecorations(paintInfo, tx, ty);
@@ -137,8 +139,11 @@ void RenderReplaced::paint(PaintInfo& paintInfo, int tx, int ty)
 
     paintReplaced(paintInfo, tx, ty);
     
-    if (drawSelectionTint)
-        paintInfo.context->fillRect(selectionRect(), selectionBackgroundColor());
+    if (drawSelectionTint) {
+        IntRect selectionPaintingRect = localSelectionRect();
+        selectionPaintingRect.move(tx, ty);
+        paintInfo.context->fillRect(selectionPaintingRect, selectionBackgroundColor());
+    }
 }
 
 bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, int& tx, int& ty)
@@ -154,8 +159,8 @@ bool RenderReplaced::shouldPaint(PaintInfo& paintInfo, int& tx, int& ty)
     if (style()->visibility() != VISIBLE)
         return false;
 
-    int currentTX = tx + m_x;
-    int currentTY = ty + m_y;
+    int currentTX = tx + x();
+    int currentTY = ty + y();
 
     // Early exit if the element touches the edges.
     int top = currentTY + overflowTop();
@@ -210,7 +215,7 @@ unsigned RenderReplaced::caretMaxRenderedOffset() const
     return 1; 
 }
 
-VisiblePosition RenderReplaced::positionForCoordinates(int x, int y)
+VisiblePosition RenderReplaced::positionForCoordinates(int xPos, int yPos)
 {
     InlineBox* box = inlineBoxWrapper();
     if (!box)
@@ -223,19 +228,19 @@ VisiblePosition RenderReplaced::positionForCoordinates(int x, int y)
     int top = root->topOverflow();
     int bottom = root->nextRootBox() ? root->nextRootBox()->topOverflow() : root->bottomOverflow();
 
-    if (y + yPos() < top)
+    if (yPos + y() < top)
         return VisiblePosition(element(), caretMinOffset(), DOWNSTREAM); // coordinates are above
     
-    if (y + yPos() >= bottom)
+    if (yPos + y() >= bottom)
         return VisiblePosition(element(), caretMaxOffset(), DOWNSTREAM); // coordinates are below
     
     if (element()) {
-        if (x <= width() / 2)
+        if (xPos <= width() / 2)
             return VisiblePosition(element(), 0, DOWNSTREAM);
         return VisiblePosition(element(), 1, DOWNSTREAM);
     }
 
-    return RenderBox::positionForCoordinates(x, y);
+    return RenderBox::positionForCoordinates(xPos, yPos);
 }
 
 IntRect RenderReplaced::selectionRect(bool clipToVisibleContent)
@@ -244,26 +249,33 @@ IntRect RenderReplaced::selectionRect(bool clipToVisibleContent)
 
     if (!isSelected())
         return IntRect();
+    
+    IntRect rect = localSelectionRect();
+    if (clipToVisibleContent)
+        computeAbsoluteRepaintRect(rect);
+    else {
+        FloatPoint absPos = localToAbsolute(FloatPoint());
+        rect.move(absPos.x(), absPos.y());
+    }
+    
+    return rect;
+}
+
+IntRect RenderReplaced::localSelectionRect(bool checkWhetherSelected) const
+{
+    if (checkWhetherSelected && !isSelected())
+        return IntRect();
+
     if (!m_inlineBoxWrapper)
         // We're a block-level replaced element.  Just return our own dimensions.
-        return absoluteBoundingBoxRect();
+        return IntRect(0, 0, width(), height());
 
     RenderBlock* cb =  containingBlock();
     if (!cb)
         return IntRect();
     
     RootInlineBox* root = m_inlineBoxWrapper->root();
-    IntRect rect(0, root->selectionTop() - yPos(), width(), root->selectionHeight());
-    
-    if (clipToVisibleContent)
-        computeAbsoluteRepaintRect(rect);
-    else {
-        int absx, absy;
-        absolutePositionForContent(absx, absy);
-        rect.move(absx, absy);
-    }
-    
-    return rect;
+    return IntRect(0, root->selectionTop() - y(), width(), root->selectionHeight());
 }
 
 void RenderReplaced::setSelectionState(SelectionState s)
@@ -315,7 +327,7 @@ void RenderReplaced::adjustOverflowForBoxShadow()
 {
     IntRect overflow;
     for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next) {
-        IntRect shadow = borderBox();
+        IntRect shadow = borderBoxRect();
         shadow.move(boxShadow->x, boxShadow->y);
         shadow.inflate(boxShadow->blur);
         overflow.unite(shadow);
@@ -324,7 +336,7 @@ void RenderReplaced::adjustOverflowForBoxShadow()
     if (!overflow.isEmpty()) {
         if (!gOverflowRectMap)
             gOverflowRectMap = new OverflowRectMap();
-        overflow.unite(borderBox());
+        overflow.unite(borderBoxRect());
         gOverflowRectMap->set(this, overflow);
         m_hasOverflow = true;
     } else if (m_hasOverflow) {
@@ -333,7 +345,7 @@ void RenderReplaced::adjustOverflowForBoxShadow()
     }
 }
 
-int RenderReplaced::overflowHeight(bool includeInterior) const
+int RenderReplaced::overflowHeight(bool) const
 {
     if (m_hasOverflow) {
         IntRect *r = &gOverflowRectMap->find(this)->second;
@@ -343,7 +355,7 @@ int RenderReplaced::overflowHeight(bool includeInterior) const
     return height();
 }
 
-int RenderReplaced::overflowWidth(bool includeInterior) const
+int RenderReplaced::overflowWidth(bool) const
 {
     if (m_hasOverflow) {
         IntRect *r = &gOverflowRectMap->find(this)->second;
@@ -353,7 +365,7 @@ int RenderReplaced::overflowWidth(bool includeInterior) const
     return width();
 }
 
-int RenderReplaced::overflowLeft(bool includeInterior) const
+int RenderReplaced::overflowLeft(bool) const
 {
     if (m_hasOverflow)
         return gOverflowRectMap->get(this).x();
@@ -361,7 +373,7 @@ int RenderReplaced::overflowLeft(bool includeInterior) const
     return 0;
 }
 
-int RenderReplaced::overflowTop(bool includeInterior) const
+int RenderReplaced::overflowTop(bool) const
 {
     if (m_hasOverflow)
         return gOverflowRectMap->get(this).y();
@@ -369,12 +381,39 @@ int RenderReplaced::overflowTop(bool includeInterior) const
     return 0;
 }
 
-IntRect RenderReplaced::overflowRect(bool includeInterior) const
+IntRect RenderReplaced::overflowRect(bool) const
 {
     if (m_hasOverflow)
         return gOverflowRectMap->find(this)->second;
 
-    return borderBox();
+    return borderBoxRect();
+}
+
+IntRect RenderReplaced::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
+{
+    if (style()->visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+        return IntRect();
+
+    // The selectionRect can project outside of the overflowRect, so use
+    // that for repainting to avoid selection painting glitches
+    IntRect r = localSelectionRect(false);
+
+    RenderView* v = view();
+    if (v) {
+        // FIXME: layoutDelta needs to be applied in parts before/after transforms and
+        // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
+        r.move(v->layoutDelta());
+    }
+
+    if (style()) {
+        if (style()->hasAppearance())
+            // The theme may wish to inflate the rect used when repainting.
+            theme()->adjustRepaintRect(this, r);
+        if (v)
+            r.inflate(style()->outlineSize());
+    }
+    computeRectForRepaint(r, repaintContainer);
+    return r;
 }
 
 }

@@ -44,12 +44,13 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLObjectElement::HTMLObjectElement(Document* doc, bool createdByParser) 
-    : HTMLPlugInImageElement(objectTag, doc)
+HTMLObjectElement::HTMLObjectElement(const QualifiedName& tagName, Document* doc, bool createdByParser) 
+    : HTMLPlugInImageElement(tagName, doc)
     , m_docNamedItem(true)
     , m_needWidgetUpdate(!createdByParser)
     , m_useFallbackContent(false)
 {
+    ASSERT(hasTagName(objectTag));
 }
 
 HTMLObjectElement::~HTMLObjectElement()
@@ -86,7 +87,7 @@ void HTMLObjectElement::parseMappedAttribute(MappedAttribute *attr)
         if (renderer() && isImageType()) {
           if (!m_imageLoader)
               m_imageLoader.set(new HTMLImageLoader(this));
-          m_imageLoader->updateFromElement();
+          m_imageLoader->updateFromElementIgnoringPreviousError();
         }
     } else if (attr->name() == classidAttr) {
         m_classId = val;
@@ -436,11 +437,13 @@ bool HTMLObjectElement::containsJavaApplet() const
     return false;
 }
 
-void HTMLObjectElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLObjectElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(data().string());
+    HTMLPlugInImageElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, data());
     if (useMap().startsWith("#"))
-        urls.append(useMap());
+        addSubresourceURL(urls, document()->completeURL(useMap()));
 }
 
 }

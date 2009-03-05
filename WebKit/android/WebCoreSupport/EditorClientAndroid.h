@@ -41,6 +41,7 @@ public:
     virtual bool shouldDeleteRange(Range*);
     virtual bool shouldShowDeleteInterface(HTMLElement*);
     virtual bool smartInsertDeleteEnabled(); 
+    virtual bool isSelectTrailingWhitespaceEnabled();
     virtual bool isContinuousSpellCheckingEnabled();
     virtual void toggleContinuousSpellChecking();
     virtual bool isGrammarCheckingEnabled();
@@ -58,6 +59,7 @@ public:
     virtual bool shouldApplyStyle(CSSStyleDeclaration*, Range*);
 //  virtual bool shouldChangeTypingStyle(CSSStyleDeclaration* fromStyle, CSSStyleDeclaration* toStyle);
 //  virtual bool doCommandBySelector(SEL selector);
+    virtual bool shouldMoveRangeAfterDelete(Range*, Range*);
 
     virtual void didBeginEditing();
     virtual void respondToChangedContents();
@@ -79,6 +81,9 @@ public:
     virtual void undo();
     virtual void redo();
 
+    virtual void handleKeyboardEvent(KeyboardEvent*);
+    virtual void handleInputMethodKeydown(KeyboardEvent*);
+
     virtual void textFieldDidBeginEditing(Element*);
     virtual void textFieldDidEndEditing(Element*);
     virtual void textDidChangeInTextField(Element*);
@@ -95,11 +100,8 @@ public:
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
     virtual void getGuessesForWord(const String&, Vector<String>& guesses);
-    virtual bool shouldMoveRangeAfterDelete(Range*, Range*);
     virtual void setInputMethodState(bool);
 
-    virtual void handleKeyboardEvent(KeyboardEvent*);
-    virtual void handleInputMethodKeydown(KeyboardEvent*);
     // Android specific:
     void setPage(Page* page) { m_page = page; }
     void setFromClick(bool fromClick) { m_notFromClick = !fromClick; }

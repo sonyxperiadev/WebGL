@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #include <WebCore/DOMWindow.h>
 #include <WebCore/Document.h>
 #include <WebCore/Element.h>
+#include <WebCore/Frame.h>
 #include <WebCore/SimpleFontData.h>
 #include <WebCore/HTMLFormElement.h>
 #include <WebCore/HTMLInputElement.h>
@@ -53,8 +54,19 @@
 // {3B0C0EFF-478B-4b0b-8290-D2321E08E23E}
 DEFINE_GUID(IID_DOMElement, 0x3b0c0eff, 0x478b, 0x4b0b, 0x82, 0x90, 0xd2, 0x32, 0x1e, 0x8, 0xe2, 0x3e);
 
-using namespace WebCore;
-using namespace HTMLNames;
+// Our normal style is just to say "using namespace WebCore" rather than having
+// individual using directives for each type from that namespace. But
+// "DOMObject" exists both in the WebCore namespace and unnamespaced in this
+// file, which leads to ambiguities if we say "using namespace WebCore".
+using namespace WebCore::HTMLNames;
+using WebCore::AtomicString;
+using WebCore::BString;
+using WebCore::Element;
+using WebCore::ExceptionCode;
+using WebCore::FontDescription;
+using WebCore::Frame;
+using WebCore::IntRect;
+using WebCore::String;
 
 // DOMObject - IUnknown -------------------------------------------------------
 
@@ -128,7 +140,7 @@ HRESULT STDMETHODCALLTYPE DOMNode::parentNode(
     if (!m_node || !m_node->parentNode())
         return E_FAIL;
     *result = DOMNode::createInstance(m_node->parentNode());
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMNode::childNodes( 
@@ -182,7 +194,7 @@ HRESULT STDMETHODCALLTYPE DOMNode::ownerDocument(
     if (!m_node)
         return E_FAIL;
     *result = DOMDocument::createInstance(m_node->ownerDocument());
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMNode::insertBefore( 
@@ -464,9 +476,7 @@ HRESULT STDMETHODCALLTYPE DOMNodeList::item(
         return E_FAIL;
 
     *result = DOMNode::createInstance(itemNode);
-    if (!(*result))
-        return E_FAIL;
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMNodeList::length( 
@@ -547,7 +557,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::documentElement(
     /* [retval][out] */ IDOMElement** result)
 {
     *result = DOMElement::createInstance(m_document->documentElement());
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMDocument::createElement( 
@@ -560,9 +570,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::createElement(
     String tagNameString(tagName);
     ExceptionCode ec;
     *result = DOMElement::createInstance(m_document->createElement(tagNameString, ec).get());
-    if (!(*result))
-        return E_FAIL;
-    return S_OK;    
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMDocument::createDocumentFragment( 
@@ -630,9 +638,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::getElementsByTagName(
 
     String tagNameString(tagName);
     *result = DOMNodeList::createInstance(m_document->getElementsByTagName(tagNameString).get());
-    if (!(*result))
-        return E_FAIL;
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMDocument::importNode( 
@@ -673,9 +679,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::getElementsByTagNameNS(
     String namespaceURIString(namespaceURI);
     String localNameString(localName);
     *result = DOMNodeList::createInstance(m_document->getElementsByTagNameNS(namespaceURIString, localNameString).get());
-    if (!(*result))
-        return E_FAIL;
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE DOMDocument::getElementById( 
@@ -687,9 +691,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::getElementById(
 
     String idString(elementId);
     *result = DOMElement::createInstance(m_document->getElementById(idString));
-    if (!(*result))
-        return E_FAIL;
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 // DOMDocument - IDOMViewCSS --------------------------------------------------
@@ -715,7 +717,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::getComputedStyle(
         return E_FAIL;
     
     *result = DOMCSSStyleDeclaration::createInstance(dv->getComputedStyle(element, pseudoEltString.impl()).get());
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 // DOMDocument - IDOMDocumentEvent --------------------------------------------
@@ -727,7 +729,7 @@ HRESULT STDMETHODCALLTYPE DOMDocument::createEvent(
     String eventTypeString(eventType, SysStringLen(eventType));
     WebCore::ExceptionCode ec = 0;
     *result = DOMEvent::createInstance(m_document->createEvent(eventTypeString, ec));
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 // DOMDocument - DOMDocument --------------------------------------------------
@@ -1061,8 +1063,29 @@ HRESULT STDMETHODCALLTYPE DOMElement::font(WebFontDescription* webFontDescriptio
     webFontDescription->family = family.characters();
     webFontDescription->familyLength = family.length();
     webFontDescription->size = fontDescription.computedSize();
-    webFontDescription->bold = fontDescription.weight() >= FontWeight600;
+    webFontDescription->bold = fontDescription.weight() >= WebCore::FontWeight600;
     webFontDescription->italic = fontDescription.italic();
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE DOMElement::renderedImage(HBITMAP* image)
+{
+    if (!image) {
+        ASSERT_NOT_REACHED();
+        return E_POINTER;
+    }
+    *image = 0;
+
+    ASSERT(m_element);
+
+    Frame* frame = m_element->document()->frame();
+    if (!frame)
+        return E_FAIL;
+
+    *image = frame->nodeImage(m_element);
+    if (!*image)
+        return E_FAIL;
 
     return S_OK;
 }
@@ -1082,7 +1105,7 @@ HRESULT STDMETHODCALLTYPE DOMElement::style(
         return E_FAIL;
 
     *result = DOMCSSStyleDeclaration::createInstance(style);
-    return S_OK;
+    return *result ? S_OK : E_FAIL;
 }
 
 // IDOMElementExtensions ------------------------------------------------------

@@ -97,10 +97,10 @@ public:
     int marginBorderPaddingRight();
     int marginLeft();
     int marginRight();
-    int borderLeft() { if (includeLeftEdge()) return object()->borderLeft(); return 0; }
-    int borderRight() { if (includeRightEdge()) return object()->borderRight(); return 0; }
-    int paddingLeft() { if (includeLeftEdge()) return object()->paddingLeft(); return 0; }
-    int paddingRight() { if (includeRightEdge()) return object()->paddingRight(); return 0; }
+    int borderLeft() { if (includeLeftEdge()) return renderBox()->borderLeft(); return 0; }
+    int borderRight() { if (includeRightEdge()) return renderBox()->borderRight(); return 0; }
+    int paddingLeft() { if (includeLeftEdge()) return renderBox()->paddingLeft(); return 0; }
+    int paddingRight() { if (includeRightEdge()) return renderBox()->paddingRight(); return 0; }
 
     bool includeLeftEdge() { return m_includeLeftEdge; }
     bool includeRightEdge() { return m_includeRightEdge; }
@@ -115,7 +115,7 @@ public:
     int getFlowSpacingWidth();
     bool onEndChain(RenderObject* endObject);
     virtual int placeBoxesHorizontally(int x, int& leftPosition, int& rightPosition, bool& needsWordSpacing);
-    virtual void verticallyAlignBoxes(int& heightOfBlock);
+    virtual int verticallyAlignBoxes(int heightOfBlock);
     void computeLogicalBoxHeights(int& maxPositionTop, int& maxPositionBottom,
                                   int& maxAscent, int& maxDescent, bool strictMode);
     void adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
@@ -124,8 +124,8 @@ public:
                               int& topPosition, int& bottomPosition, int& selectionTop, int& selectionBottom);
     void shrinkBoxesWithNoTextChildren(int topPosition, int bottomPosition);
     
-    virtual void setVerticalOverflowPositions(int top, int bottom) { }
-    virtual void setVerticalSelectionPositions(int top, int bottom) { }
+    virtual void setVerticalOverflowPositions(int /*top*/, int /*bottom*/) { }
+    virtual void setVerticalSelectionPositions(int /*top*/, int /*bottom*/) { }
     int maxHorizontalVisualOverflow() const { return m_maxHorizontalVisualOverflow; }
 
     void removeChild(InlineBox* child);
@@ -165,7 +165,7 @@ inline void InlineFlowBox::setHasBadChildList()
 
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
-void showTree(const WebCore::InlineBox*);
+void showTree(const WebCore::InlineFlowBox*);
 #endif
 
 #endif // InlineFlowBox_h

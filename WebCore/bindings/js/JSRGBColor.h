@@ -43,16 +43,16 @@ namespace WebCore {
             return exec->lexicalGlobalObject()->objectPrototype();
         }
 
-        static PassRefPtr<JSC::StructureID> createStructureID(JSC::JSValue* prototype)
+        static PassRefPtr<JSC::Structure> createStructure(JSC::JSValuePtr prototype)
         {
-            return JSC::StructureID::create(prototype, JSC::TypeInfo(JSC::ObjectType));
+            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType));
         }
 
     private:
         unsigned m_color;
     };
 
-    JSC::JSValue* getJSRGBColor(JSC::ExecState*, unsigned color);
+    JSC::JSValuePtr getJSRGBColor(JSC::ExecState*, unsigned color);
 
 } // namespace WebCore
 

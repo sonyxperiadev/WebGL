@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +36,7 @@
 #include <wtf/HashSet.h>
 
 #if PLATFORM(CG)
+#include "ImageSourceCG.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <wtf/RetainPtr.h>
 #endif
@@ -52,10 +54,6 @@ static HashSet<String>* supportedJavaScriptMIMETypes;
 static HashSet<String>* supportedNonImageMIMETypes;
 static HashSet<String>* supportedMediaMIMETypes;
 
-#if PLATFORM(CG)
-extern String getMIMETypeForUTI(const String& uti);
-#endif
-
 static void initializeSupportedImageMIMETypes()
 {
 #if PLATFORM(CG)
@@ -63,7 +61,7 @@ static void initializeSupportedImageMIMETypes()
     CFIndex count = CFArrayGetCount(supportedTypes.get());
     for (CFIndex i = 0; i < count; i++) {
         RetainPtr<CFStringRef> supportedType(AdoptCF, reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(supportedTypes.get(), i)));
-        String mimeType = getMIMETypeForUTI(supportedType.get());
+        String mimeType = MIMETypeForImageSourceType(supportedType.get());
         if (!mimeType.isEmpty()) {
             supportedImageMIMETypes->add(mimeType);
             supportedImageResourceMIMETypes->add(mimeType);
@@ -154,7 +152,7 @@ static void initializeSupportedImageMIMETypesForEncoding()
     CFIndex count = CFArrayGetCount(supportedTypes.get());
     for (CFIndex i = 0; i < count; i++) {
         RetainPtr<CFStringRef> supportedType(AdoptCF, reinterpret_cast<CFStringRef>(CFArrayGetValueAtIndex(supportedTypes.get(), i)));
-        String mimeType = getMIMETypeForUTI(supportedType.get());
+        String mimeType = MIMETypeForImageSourceType(supportedType.get());
         if (!mimeType.isEmpty())
             supportedImageMIMETypesForEncoding->add(mimeType);
     }
@@ -205,6 +203,10 @@ static void initializeSupportedJavaScriptMIMETypes()
 static void initializeSupportedNonImageMimeTypes()
 {
     static const char* types[] = {
+#if ENABLE(WML)
+        "text/vnd.wap.wml",
+        "application/vnd.wap.wmlc",
+#endif
         "text/html",
         "text/xml",
         "text/xsl",

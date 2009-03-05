@@ -37,7 +37,6 @@ namespace WebCore {
 RenderSVGViewportContainer::RenderSVGViewportContainer(SVGStyledElement* node)
     : RenderSVGContainer(node)
 {
-    setReplaced(true);
 }
 
 RenderSVGViewportContainer::~RenderSVGViewportContainer()
@@ -57,7 +56,7 @@ void RenderSVGViewportContainer::layout()
     IntRect oldOutlineBox;
     bool checkForRepaint = checkForRepaintDuringLayout() && selfNeedsLayout();
     if (checkForRepaint)
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
 
     calcBounds();    
     
@@ -91,7 +90,7 @@ void RenderSVGViewportContainer::applyContentTransforms(PaintInfo& paintInfo)
         if (style()->overflowX() != OVISIBLE)
             paintInfo.context->clip(enclosingIntRect(viewport())); // FIXME: Eventually we'll want float-precision clipping
         
-        paintInfo.context->concatCTM(AffineTransform().translate(viewport().x(), viewport().y()));
+        paintInfo.context->concatCTM(TransformationMatrix().translate(viewport().x(), viewport().y()));
     }
 
     RenderSVGContainer::applyContentTransforms(paintInfo);
@@ -133,7 +132,7 @@ void RenderSVGViewportContainer::calcViewport()
     }
 }
 
-AffineTransform RenderSVGViewportContainer::viewportTransform() const
+TransformationMatrix RenderSVGViewportContainer::viewportTransform() const
 {
     if (element()->hasTagName(SVGNames::svgTag)) {
         SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
@@ -143,12 +142,12 @@ AffineTransform RenderSVGViewportContainer::viewportTransform() const
         return marker->viewBoxToViewTransform(viewport().width(), viewport().height());
     }
  
-     return AffineTransform();
+     return TransformationMatrix();
 }
 
-AffineTransform RenderSVGViewportContainer::absoluteTransform() const
+TransformationMatrix RenderSVGViewportContainer::absoluteTransform() const
 {
-    AffineTransform ctm = RenderObject::absoluteTransform();
+    TransformationMatrix ctm = RenderObject::absoluteTransform();
     ctm.translate(viewport().x(), viewport().y());
     return viewportTransform() * ctm;
 }
@@ -159,9 +158,9 @@ bool RenderSVGViewportContainer::nodeAtPoint(const HitTestRequest& request, HitT
         && style()->overflowX() == OHIDDEN
         && style()->overflowY() == OHIDDEN) {
         // Check if we need to do anything at all.
-        IntRect overflowBox = overflowRect(false);
+        IntRect overflowBox = IntRect(0, 0, width(), height());
         overflowBox.move(_tx, _ty);
-        AffineTransform ctm = RenderObject::absoluteTransform();
+        TransformationMatrix ctm = RenderObject::absoluteTransform();
         ctm.translate(viewport().x(), viewport().y());
         double localX, localY;
         ctm.inverse().map(_x - _tx, _y - _ty, &localX, &localY);

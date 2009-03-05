@@ -26,7 +26,7 @@
 #ifndef CanvasRenderingContext2D_h
 #define CanvasRenderingContext2D_h
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatSize.h"
 #include "Font.h"
 #include "GraphicsTypes.h"
@@ -105,6 +105,7 @@ namespace WebCore {
         void rotate(float angleInRadians);
         void translate(float tx, float ty);
         void transform(float m11, float m12, float m21, float m22, float dx, float dy);
+        void setTransform(float m11, float m12, float m21, float m22, float dx, float dy);
 
         void setStrokeColor(const String& color);
         void setStrokeColor(float grayLevel);
@@ -193,6 +194,9 @@ namespace WebCore {
         void strokeText(const String& text, float x, float y, float maxWidth);
         PassRefPtr<TextMetrics> measureText(const String& text);
 
+        LineCap getLineCap() const { return state().m_lineCap; }
+        LineJoin getLineJoin() const { return state().m_lineJoin; }
+
     private:
         struct State {
             State();
@@ -208,7 +212,8 @@ namespace WebCore {
             String m_shadowColor;
             float m_globalAlpha;
             CompositeOperator m_globalComposite;
-            AffineTransform m_transform;
+            TransformationMatrix m_transform;
+            bool m_invertibleCTM;
             
             // Text state.
             TextAlign m_textAlign;
@@ -225,7 +230,14 @@ namespace WebCore {
 
         void applyShadow();
 
-        void willDraw(const FloatRect&);
+        enum CanvasWillDrawOption {
+            CanvasWillDrawApplyTransform = 1,
+            CanvasWillDrawApplyShadow = 1 << 1,
+            CanvasWillDrawApplyClip = 1 << 2,
+            CanvasWillDrawApplyAll = 0xffffffff
+        };
+        
+        void willDraw(const FloatRect&, unsigned options = CanvasWillDrawApplyAll);
 
         GraphicsContext* drawingContext() const;
 

@@ -42,12 +42,12 @@ ASSERT_CLASS_FITS_IN_CELL(JSXSLTProcessorConstructor)
 const ClassInfo JSXSLTProcessorConstructor::s_info = { "XSLTProcessorConsructor", 0, 0, 0 };
 
 JSXSLTProcessorConstructor::JSXSLTProcessorConstructor(ExecState* exec)
-    : DOMObject(JSXSLTProcessorConstructor::createStructureID(exec->lexicalGlobalObject()->objectPrototype()))
+    : DOMObject(JSXSLTProcessorConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
 {
     putDirect(exec->propertyNames().prototype, JSXSLTProcessorPrototype::self(exec), None);
 }
 
-static JSObject* constructXSLTProcessor(ExecState* exec, JSObject*, const ArgList& args)
+static JSObject* constructXSLTProcessor(ExecState* exec, JSObject*, const ArgList&)
 {
     return CREATE_DOM_OBJECT_WRAPPER(exec, XSLTProcessor, XSLTProcessor::create().get());
 }

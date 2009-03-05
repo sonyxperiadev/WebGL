@@ -246,7 +246,7 @@ void RenderFlow::destroy()
 
 void RenderFlow::dirtyLinesFromChangedChild(RenderObject* child)
 {
-    if (!parent() || (selfNeedsLayout() && !isInlineFlow()) || isTable())
+    if (!parent() || (selfNeedsLayout() && !isRenderInline()) || isTable())
         return;
 
     // If we have no first line box, then just bail early.
@@ -272,10 +272,10 @@ void RenderFlow::dirtyLinesFromChangedChild(RenderObject* child)
             if (wrapper)
                 box = wrapper->root();
         } else if (curr->isText()) {
-            InlineTextBox* textBox = static_cast<RenderText*>(curr)->lastTextBox();
+            InlineTextBox* textBox = toRenderText(curr)->lastTextBox();
             if (textBox)
                 box = textBox->root();
-        } else if (curr->isInlineFlow()) {
+        } else if (curr->isRenderInline()) {
             InlineRunBox* runBox = static_cast<RenderFlow*>(curr)->lastLineBox();
             if (runBox)
                 box = runBox->root();
@@ -310,9 +310,9 @@ void RenderFlow::dirtyLinesFromChangedChild(RenderObject* child)
     }
 }
 
-int RenderFlow::lineHeight(bool firstLine, bool isRootLineBox) const
+int RenderFlow::lineHeight(bool firstLine, bool /*isRootLineBox*/) const
 {
-    if (firstLine) {
+    if (firstLine && document()->usesFirstLineRules()) {
         RenderStyle* s = style(firstLine);
         Length lh = s->lineHeight();
         if (lh.isNegative()) {
@@ -346,7 +346,7 @@ void RenderFlow::dirtyLineBoxes(bool fullLayout, bool isRootLineBox)
     }
 }
 
-InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox, bool isRootLineBox, bool isOnlyRun)
+InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox, bool isRootLineBox, bool /*isOnlyRun*/)
 {
     checkConsistency();
 
@@ -355,7 +355,7 @@ InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox, bool isRootLineB
         return RenderContainer::createInlineBox(false, isRootLineBox);  // (or positioned element placeholders).
 
     InlineFlowBox* flowBox = 0;
-    if (isInlineFlow())
+    if (isRenderInline())
         flowBox = new (renderArena()) InlineFlowBox(this);
     else
         flowBox = new (renderArena()) RootInlineBox(this);
@@ -381,9 +381,9 @@ void RenderFlow::paintLines(PaintInfo& paintInfo, int tx, int ty)
         && paintInfo.phase != PaintPhaseMask)
         return;
 
-    bool inlineFlow = isInlineFlow();
+    bool inlineFlow = isRenderInline();
     if (inlineFlow)
-        ASSERT(m_layer); // The only way a compact/run-in/inline could paint like this is if it has a layer.
+        ASSERT(m_layer); // The only way an inline could paint like this is if it has a layer.
 
     // If we have no lines then we have no work to do.
     if (!firstLineBox())
@@ -400,7 +400,7 @@ void RenderFlow::paintLines(PaintInfo& paintInfo, int tx, int ty)
         return;
 
     PaintInfo info(paintInfo);
-    RenderFlowSequencedSet outlineObjects;
+    ListHashSet<RenderFlow*> outlineObjects;
     info.outlineObjects = &outlineObjects;
 
     // See if our root lines intersect with the dirty rect.  If so, then we paint
@@ -435,8 +435,8 @@ void RenderFlow::paintLines(PaintInfo& paintInfo, int tx, int ty)
     }
 
     if (info.phase == PaintPhaseOutline || info.phase == PaintPhaseSelfOutline || info.phase == PaintPhaseChildOutlines) {
-        RenderFlowSequencedSet::iterator end = info.outlineObjects->end();
-        for (RenderFlowSequencedSet::iterator it = info.outlineObjects->begin(); it != end; ++it) {
+        ListHashSet<RenderFlow*>::iterator end = info.outlineObjects->end();
+        for (ListHashSet<RenderFlow*>::iterator it = info.outlineObjects->begin(); it != end; ++it) {
             RenderFlow* flow = *it;
             flow->paintOutline(info.context, tx, ty);
         }
@@ -449,9 +449,9 @@ bool RenderFlow::hitTestLines(const HitTestRequest& request, HitTestResult& resu
     if (hitTestAction != HitTestForeground)
         return false;
 
-    bool inlineFlow = isInlineFlow();
+    bool inlineFlow = isRenderInline();
     if (inlineFlow)
-        ASSERT(m_layer); // The only way a compact/run-in/inline could paint like this is if it has a layer.
+        ASSERT(m_layer); // The only way an inline can hit test like this is if it has a layer.
 
     // If we have no lines then we have no work to do.
     if (!firstLineBox())
@@ -480,151 +480,11 @@ bool RenderFlow::hitTestLines(const HitTestRequest& request, HitTestResult& resu
     return false;
 }
 
-IntRect RenderFlow::absoluteClippedOverflowRect()
-{
-    if (isInlineFlow()) {
-        // Only compacts and run-ins are allowed in here during layout.
-        ASSERT(!view() || !view()->layoutState() || isCompact() || isRunIn());
-
-        if (!firstLineBox() && !continuation())
-            return IntRect();
-
-        // Find our leftmost position.
-        int left = 0;
-        int top = firstLineBox() ? firstLineBox()->yPos() : 0;
-        for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-            if (curr == firstLineBox() || curr->xPos() < left)
-                left = curr->xPos();
-        }
-
-        // Now invalidate a rectangle.
-        int ow = style() ? style()->outlineSize() : 0;
-        if (isCompact())
-            left -= m_x;
-        
-        // We need to add in the relative position offsets of any inlines (including us) up to our
-        // containing block.
-        RenderBlock* cb = containingBlock();
-        for (RenderObject* inlineFlow = this; inlineFlow && inlineFlow->isInlineFlow() && inlineFlow != cb; 
-             inlineFlow = inlineFlow->parent()) {
-             if (inlineFlow->style()->position() == RelativePosition && inlineFlow->hasLayer())
-                inlineFlow->layer()->relativePositionOffset(left, top);
-        }
-
-        IntRect r(-ow + left, -ow + top, width() + ow * 2, height() + ow * 2);
-        if (cb->hasColumns())
-            cb->adjustRectForColumns(r);
-
-        if (cb->hasOverflowClip()) {
-            // cb->height() is inaccurate if we're in the middle of a layout of |cb|, so use the
-            // layer's size instead.  Even if the layer's size is wrong, the layer itself will repaint
-            // anyway if its size does change.
-            int x = r.x();
-            int y = r.y();
-            IntRect boxRect(0, 0, cb->layer()->width(), cb->layer()->height());
-            cb->layer()->subtractScrollOffset(x, y); // For overflow:auto/scroll/hidden.
-            IntRect repaintRect(x, y, r.width(), r.height());
-            r = intersection(repaintRect, boxRect);
-        }
-        cb->computeAbsoluteRepaintRect(r);
-
-        if (ow) {
-            for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling()) {
-                if (!curr->isText()) {
-                    IntRect childRect = curr->getAbsoluteRepaintRectWithOutline(ow);
-                    r.unite(childRect);
-                }
-            }
-
-            if (continuation() && !continuation()->isInline()) {
-                IntRect contRect = continuation()->getAbsoluteRepaintRectWithOutline(ow);
-                r.unite(contRect);
-            }
-        }
-
-        return r;
-    }
-
-    return RenderContainer::absoluteClippedOverflowRect();
-}
-
-int RenderFlow::lowestPosition(bool includeOverflowInterior, bool includeSelf) const
-{
-    ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
-        return includeSelf && m_width > 0 ? overflowHeight(false) : 0;
-
-    int bottom = includeSelf && m_width > 0 ? m_height : 0;
-    if (!hasColumns()) {
-        // FIXME: Come up with a way to use the layer tree to avoid visiting all the kids.
-        // For now, we have to descend into all the children, since we may have a huge abs div inside
-        // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
-        // the abs div.
-        for (RenderObject* c = firstChild(); c; c = c->nextSibling()) {
-            if (!c->isFloatingOrPositioned() && !c->isText() && !c->isInlineFlow())
-                bottom = max(bottom, c->yPos() + c->lowestPosition(false));
-        }
-    }
-
-    if (includeSelf && isRelPositioned())
-        bottom += relativePositionOffsetY();         
-
-    return bottom;
-}
-
-int RenderFlow::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
-{
-    ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
-        return includeSelf && m_height > 0 ? overflowWidth(false) : 0;
-
-    int right = includeSelf && m_height > 0 ? m_width : 0;
-    if (!hasColumns()) {
-        // FIXME: Come up with a way to use the layer tree to avoid visiting all the kids.
-        // For now, we have to descend into all the children, since we may have a huge abs div inside
-        // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
-        // the abs div.
-        for (RenderObject* c = firstChild(); c; c = c->nextSibling()) {
-            if (!c->isFloatingOrPositioned() && !c->isText() && !c->isInlineFlow())
-                right = max(right, c->xPos() + c->rightmostPosition(false));
-        }
-    }
-
-    if (includeSelf && isRelPositioned())
-        right += relativePositionOffsetX();
-
-    return right;
-}
-
-int RenderFlow::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
-{
-    ASSERT(!isInlineFlow());
-    if (!includeOverflowInterior && (hasOverflowClip() || hasControlClip()))
-        return includeSelf && m_height > 0 ? overflowLeft(false) : m_width;
-
-    int left = includeSelf && m_height > 0 ? 0 : m_width;
-    if (!hasColumns()) {
-        // FIXME: Come up with a way to use the layer tree to avoid visiting all the kids.
-        // For now, we have to descend into all the children, since we may have a huge abs div inside
-        // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
-        // the abs div.
-        for (RenderObject* c = firstChild(); c; c = c->nextSibling()) {
-            if (!c->isFloatingOrPositioned() && !c->isText() && !c->isInlineFlow())
-                left = min(left, c->xPos() + c->leftmostPosition(false));
-        }
-    }
-
-    if (includeSelf && isRelPositioned())
-        left += relativePositionOffsetX(); 
-
-    return left;
-}
-
-IntRect RenderFlow::caretRect(InlineBox* inlineBox, int caretOffset, int* extraWidthToEndOfLine)
+IntRect RenderFlow::localCaretRect(InlineBox* inlineBox, int caretOffset, int* extraWidthToEndOfLine)
 {
     // Do the normal calculation in most cases.
     if (firstChild() || style()->display() == INLINE)
-        return RenderContainer::caretRect(inlineBox, caretOffset, extraWidthToEndOfLine);
+        return RenderContainer::localCaretRect(inlineBox, caretOffset, extraWidthToEndOfLine);
 
     // This is a special case:
     // The element is not an inline element, and it's empty. So we have to
@@ -684,20 +544,17 @@ IntRect RenderFlow::caretRect(InlineBox* inlineBox, int caretOffset, int* extraW
             // So *extraWidthToEndOfLine will always be 0 here.
 
             int myRight = x + caretWidth;
-            int ignore;
-            absolutePositionForContent(myRight, ignore);
+            // FIXME: why call localToAbsoluteForContent() twice here, too?
+            FloatPoint absRightPoint = localToAbsolute(FloatPoint(myRight, 0));
 
-            int containerRight = containingBlock()->xPos() + containingBlockWidth();
-            absolutePositionForContent(containerRight, ignore);
+            int containerRight = containingBlock()->x() + containingBlockWidth();
+            FloatPoint absContainerPoint = localToAbsolute(FloatPoint(containerRight, 0));
 
-            *extraWidthToEndOfLine = containerRight - myRight;
+            *extraWidthToEndOfLine = absContainerPoint.x() - absRightPoint.x();
         }
     }
 
-    int absx, absy;
-    absolutePositionForContent(absx, absy);
-    x += absx;
-    int y = absy + paddingTop() + borderTop();
+    int y = paddingTop() + borderTop();
 
     return IntRect(x, y, caretWidth, height);
 }
@@ -722,28 +579,27 @@ void RenderFlow::addFocusRingRects(GraphicsContext* graphicsContext, int tx, int
             graphicsContext->addFocusRingRect(IntRect(tx + curr->xPos(), ty + curr->yPos(), curr->width(), curr->height()));
 
         for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
-            if (!curr->isText() && !curr->isListMarker()) {
-                int x = 0;
-                int y = 0;
-                if (curr->layer()) 
-                    curr->absolutePosition(x, y);
-                else {
-                    x = tx + curr->xPos();
-                    y = ty + curr->yPos();
-                }
-                curr->addFocusRingRects(graphicsContext, x, y);
+            if (!curr->isText() && !curr->isListMarker() && curr->isBox()) {
+                RenderBox* box = toRenderBox(curr);
+                FloatPoint pos;
+                // FIXME: This doesn't work correctly with transforms.
+                if (box->layer()) 
+                    pos = curr->localToAbsolute();
+                else
+                    pos = FloatPoint(tx + box->x(), ty + box->y());
+                box->addFocusRingRects(graphicsContext, pos.x(), pos.y());
             }
     }
 
     if (continuation()) {
         if (isInline())
             continuation()->addFocusRingRects(graphicsContext, 
-                                              tx - containingBlock()->xPos() + continuation()->xPos(),
-                                              ty - containingBlock()->yPos() + continuation()->yPos());
+                                              tx - containingBlock()->x() + continuation()->x(),
+                                              ty - containingBlock()->y() + continuation()->y());
         else
             continuation()->addFocusRingRects(graphicsContext, 
-                                              tx - xPos() + continuation()->containingBlock()->xPos(),
-                                              ty - yPos() + continuation()->containingBlock()->yPos());
+                                              tx - x() + continuation()->containingBlock()->x(),
+                                              ty - y() + continuation()->containingBlock()->y());
     }
 }
 

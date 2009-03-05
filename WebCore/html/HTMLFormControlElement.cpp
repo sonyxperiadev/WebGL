@@ -35,7 +35,6 @@
 #include "HTMLParser.h"
 #include "HTMLTokenizer.h"
 #include "RenderTheme.h"
-#include "Tokenizer.h"
 
 namespace WebCore {
 
@@ -200,7 +199,7 @@ bool HTMLFormControlElement::isFocusable() const
 {
     if (disabled() || !renderer() || 
         (renderer()->style() && renderer()->style()->visibility() != VISIBLE) || 
-        renderer()->width() == 0 || renderer()->height() == 0)
+        !renderer()->isBox() || toRenderBox(renderer())->size().isEmpty())
         return false;
     return true;
 }
@@ -258,23 +257,23 @@ void HTMLFormControlElement::removeFromForm()
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElement(tagName, doc, f)
 {
-    doc->registerFormElementWithState(this);
+    FormControlElementWithState::registerFormControlElementWithState(this, document());
 }
 
 HTMLFormControlElementWithState::~HTMLFormControlElementWithState()
 {
-    document()->unregisterFormElementWithState(this);
+    FormControlElementWithState::unregisterFormControlElementWithState(this, document());
 }
 
 void HTMLFormControlElementWithState::willMoveToNewOwnerDocument()
 {
-    document()->unregisterFormElementWithState(this);
+    FormControlElementWithState::unregisterFormControlElementWithState(this, document());
     HTMLFormControlElement::willMoveToNewOwnerDocument();
 }
 
 void HTMLFormControlElementWithState::didMoveToNewOwnerDocument()
 {
-    document()->registerFormElementWithState(this);
+    FormControlElementWithState::registerFormControlElementWithState(this, document());
     HTMLFormControlElement::didMoveToNewOwnerDocument();
 }
 

@@ -27,6 +27,8 @@
 #ifndef HTMLCanvasElement_h
 #define HTMLCanvasElement_h
 
+#include "TransformationMatrix.h"
+#include "FloatRect.h"
 #include "HTMLElement.h"
 #include "IntSize.h"
 
@@ -41,7 +43,6 @@ class GraphicsContext;
 class HTMLCanvasElement;
 class ImageBuffer;
 class IntPoint;
-class InttRect;
 class IntSize;
 
 class CanvasObserver {
@@ -54,7 +55,7 @@ public:
 
 class HTMLCanvasElement : public HTMLElement {
 public:
-    HTMLCanvasElement(Document*);
+    HTMLCanvasElement(const QualifiedName&, Document*);
     virtual ~HTMLCanvasElement();
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -105,6 +106,7 @@ public:
 
     void setObserver(CanvasObserver* o) { m_observer = o; }
 
+    TransformationMatrix baseTransform() const;
 private:
     void createImageBuffer() const;
     void reset();
@@ -117,6 +119,7 @@ private:
 
     bool m_originClean;
     bool m_ignoreReset;
+    FloatRect m_dirtyRect;
 
     // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
     mutable bool m_createdImageBuffer;

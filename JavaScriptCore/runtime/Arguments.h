@@ -27,7 +27,7 @@
 #include "JSActivation.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
-#include "Machine.h"
+#include "Interpreter.h"
 
 namespace JSC {
 
@@ -73,17 +73,17 @@ namespace JSC {
             d->registers = &activation->registerAt(0);
         }
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* prototype) 
+        static PassRefPtr<Structure> createStructure(JSValuePtr prototype) 
         { 
-            return StructureID::create(prototype, TypeInfo(ObjectType)); 
+            return Structure::create(prototype, TypeInfo(ObjectType)); 
         }
 
     private:
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
-        virtual void put(ExecState*, const Identifier& propertyName, JSValue*, PutPropertySlot&);
-        virtual void put(ExecState*, unsigned propertyName, JSValue*, PutPropertySlot&);
+        virtual void put(ExecState*, const Identifier& propertyName, JSValuePtr, PutPropertySlot&);
+        virtual void put(ExecState*, unsigned propertyName, JSValuePtr, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
 
@@ -94,9 +94,9 @@ namespace JSC {
         OwnPtr<ArgumentsData> d;
     };
 
-    Arguments* asArguments(JSValue*);
+    Arguments* asArguments(JSValuePtr);
 
-    inline Arguments* asArguments(JSValue* value)
+    inline Arguments* asArguments(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&Arguments::info));
         return static_cast<Arguments*>(asObject(value));
@@ -106,8 +106,8 @@ namespace JSC {
     {
         function = callFrame->callee();
     
-        CodeBlock* codeBlock = &function->m_body->generatedByteCode();
-        int numParameters = codeBlock->numParameters;
+        CodeBlock* codeBlock = &function->body()->generatedBytecode();
+        int numParameters = codeBlock->m_numParameters;
         argc = callFrame->argumentCount();
 
         if (argc <= numParameters)
@@ -129,7 +129,7 @@ namespace JSC {
         int numArguments;
         getArgumentsData(callFrame, callee, firstParameterIndex, argv, numArguments);
 
-        d->numParameters = callee->m_body->parameterCount();
+        d->numParameters = callee->body()->parameterCount();
         d->firstParameterIndex = firstParameterIndex;
         d->numArguments = numArguments;
 
@@ -160,7 +160,7 @@ namespace JSC {
         : JSObject(callFrame->lexicalGlobalObject()->argumentsStructure())
         , d(new ArgumentsData)
     {
-        ASSERT(!callFrame->callee()->m_body->parameterCount());
+        ASSERT(!callFrame->callee()->body()->parameterCount());
 
         unsigned numArguments = callFrame->argumentCount() - 1;
 
@@ -206,8 +206,8 @@ namespace JSC {
     {
         ASSERT(!d()->registerArray);
 
-        size_t numParametersMinusThis = d()->functionBody->generatedByteCode().numParameters - 1;
-        size_t numVars = d()->functionBody->generatedByteCode().numVars;
+        size_t numParametersMinusThis = d()->functionBody->generatedBytecode().m_numParameters - 1;
+        size_t numVars = d()->functionBody->generatedBytecode().m_numVars;
         size_t numLocals = numVars + numParametersMinusThis;
 
         if (!numLocals)

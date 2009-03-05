@@ -36,9 +36,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAppletElement::HTMLAppletElement(Document* doc)
-    : HTMLPlugInElement(appletTag, doc)
+HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document* doc)
+    : HTMLPlugInElement(tagName, doc)
 {
+    ASSERT(hasTagName(appletTag));
 }
 
 HTMLAppletElement::~HTMLAppletElement()
@@ -98,12 +99,12 @@ void HTMLAppletElement::removedFromDocument()
     HTMLPlugInElement::removedFromDocument();
 }
 
-bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLAppletElement::rendererIsNeeded(RenderStyle*)
 {
     return !getAttribute(codeAttr).isNull();
 }
 
-RenderObject* HTMLAppletElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style)
 {
     Settings* settings = document()->settings();
 

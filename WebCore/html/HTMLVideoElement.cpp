@@ -40,10 +40,11 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLVideoElement::HTMLVideoElement(Document* doc)
-    : HTMLMediaElement(HTMLNames::videoTag, doc)
+HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document* doc)
+    : HTMLMediaElement(tagName, doc)
     , m_shouldShowPosterImage(false)
 {
+    ASSERT(hasTagName(videoTag));
 }
     
 bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style) 
@@ -92,7 +93,7 @@ void HTMLVideoElement::parseMappedAttribute(MappedAttribute* attr)
         if (m_shouldShowPosterImage) {
             if (!m_imageLoader)
                 m_imageLoader.set(new HTMLImageLoader(this));
-            m_imageLoader->updateFromElement();
+            m_imageLoader->updateFromElementIgnoringPreviousError();
         }
     } else if (attrName == widthAttr)
         addCSSLength(attr, CSSPropertyWidth, attr->value());

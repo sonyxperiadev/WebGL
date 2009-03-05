@@ -31,27 +31,20 @@ ASSERT_CLASS_FITS_IN_CELL(NumberObject);
 
 const ClassInfo NumberObject::info = { "Number", 0, 0, 0 };
 
-NumberObject::NumberObject(PassRefPtr<StructureID> structure)
+NumberObject::NumberObject(PassRefPtr<Structure> structure)
     : JSWrapperObject(structure)
 {
 }
 
-JSValue* NumberObject::getJSNumber()
+JSValuePtr NumberObject::getJSNumber()
 {
     return internalValue();
 }
 
-NumberObject* constructNumber(ExecState* exec, JSNumberCell* number)
+NumberObject* constructNumber(ExecState* exec, JSValuePtr number)
 {
     NumberObject* object = new (exec) NumberObject(exec->lexicalGlobalObject()->numberObjectStructure());
     object->setInternalValue(number);
-    return object;
-}
-
-NumberObject* constructNumberFromImmediateNumber(ExecState* exec, JSValue* value)
-{
-    NumberObject* object = new (exec) NumberObject(exec->lexicalGlobalObject()->numberObjectStructure());
-    object->setInternalValue(value);
     return object;
 }
 

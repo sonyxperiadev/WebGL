@@ -23,7 +23,8 @@
 #define ScriptController_h
 
 #include "JSDOMWindowShell.h"
-#include <kjs/protect.h>
+#include "ScriptInstance.h"
+#include <runtime/Protect.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(MAC)
@@ -42,7 +43,6 @@ namespace JSC {
     class JSGlobalObject;
 
     namespace Bindings {
-        class Instance;
         class RootObject;
     }
 }
@@ -54,6 +54,8 @@ class EventListener;
 class HTMLPlugInElement;
 class Frame;
 class Node;
+class ScriptSourceCode;
+class ScriptValue;
 class String;
 class Widget;
 
@@ -77,7 +79,7 @@ public:
         return m_windowShell->window();
     }
 
-    JSC::JSValue* evaluate(const String& sourceURL, int baseLine, const String& code);
+    ScriptValue evaluate(const ScriptSourceCode&);
 
     PassRefPtr<EventListener> createInlineEventListener(const String& functionName, const String& code, Node*);
 #if ENABLE(SVG)
@@ -87,6 +89,7 @@ public:
 
     void setProcessingTimerCallback(bool b) { m_processingTimerCallback = b; }
     bool processingUserGesture() const;
+    bool anyPageIsProcessingUserGesture() const;
 
     bool isEnabled();
 
@@ -101,13 +104,18 @@ public:
     void clearFormerWindow(JSDOMWindow* window) { m_liveFormerWindows.remove(window); }
     void updateDocument();
 
-    void pauseTimeouts(OwnPtr<PausedTimeouts>&);
-    void resumeTimeouts(OwnPtr<PausedTimeouts>&);
+    // Notifies the ScriptController that the securityOrigin of the current
+    // document was modified.  For example, this method is called when
+    // document.domain is set.  This method is *not* called when a new document
+    // is attached to a frame because updateDocument() is called instead.
+    void updateSecurityOrigin();
 
     void clearScriptObjects();
     void cleanupScriptObjectsForPlugin(void*);
 
-    PassRefPtr<JSC::Bindings::Instance> createScriptInstanceForWidget(Widget*);
+    void updatePlatformScriptObjects();
+
+    PassScriptInstance createScriptInstanceForWidget(Widget*);
     JSC::Bindings::RootObject* bindingRootObject();
 
     PassRefPtr<JSC::Bindings::RootObject> createRootObject(void* nativeHandle);
@@ -132,8 +140,10 @@ private:
     }
     void initScript();
 
-    void clearPlatformScriptObjects();
     void disconnectPlatformScriptObjects();
+
+    bool processingUserGestureEvent() const;
+    bool isJavaScriptAnchorNavigation() const;
 
     JSC::ProtectedPtr<JSDOMWindowShell> m_windowShell;
     HashSet<JSDOMWindow*> m_liveFormerWindows;

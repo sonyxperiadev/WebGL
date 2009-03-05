@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,15 +78,33 @@
 #define WTF_PLATFORM_SOLARIS 1
 #endif
 
+#if defined (__S60__) || defined (__SYMBIAN32__)
+/* we are cross-compiling, it is not really windows */
+#undef WTF_PLATFORM_WIN_OS
+#undef WTF_PLATFORM_WIN
+#undef WTF_PLATFORM_CAIRO
+#define WTF_PLATFORM_S60 1
+#define WTF_PLATFORM_SYMBIAN 1
+#endif
+
+
+/* PLATFORM(NETBSD) */
+/* Operating system level dependencies for NetBSD that should be used */
+/* regardless of operating environment */
+#if defined(__NetBSD__)
+#define WTF_PLATFORM_NETBSD 1
+#endif
+
 /* PLATFORM(UNIX) */
 /* Operating system level dependencies for Unix-like systems that */
 /* should be used regardless of operating environment */
 #if   PLATFORM(DARWIN)     \
    || PLATFORM(FREEBSD)    \
+   || PLATFORM(S60)        \
+   || PLATFORM(NETBSD)     \
    || defined(unix)        \
    || defined(__unix)      \
    || defined(__unix__)    \
-   || defined (__NetBSD__) \
    || defined(_AIX)
 #define WTF_PLATFORM_UNIX 1
 #endif
@@ -126,23 +144,21 @@
 #define WTF_PLATFORM_CI 1
 #endif
 
-/* PLATFORM(SKIA) */
+/* PLATFORM(SKIA) for Win/Linux, CG/CI for Mac */
 #if PLATFORM(CHROMIUM)
+#if PLATFORM(DARWIN)
+#define WTF_PLATFORM_CG 1
+#define WTF_PLATFORM_CI 1
+#define WTF_USE_ATSUI 1
+#else
 #define WTF_PLATFORM_SKIA 1
+#endif
 #endif
 
 /* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX)
+/* FIXME: This should be changed from a blacklist to a whitelist */
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM)
 #define WTF_PLATFORM_CAIRO 1
-#endif
-
-#ifdef __S60__
-// we are cross-compiling, it is not really windows
-#undef WTF_PLATFORM_WIN_OS
-#undef WTF_PLATFORM_WIN
-#undef WTF_PLATFORM_CAIRO
-#define WTF_PLATFORM_S60 1
-#define WTF_PLATFORM_SYMBIAN 1
 #endif
 
 #ifdef ANDROID
@@ -228,6 +244,20 @@
 #define WTF_PLATFORM_BIG_ENDIAN 1
 #endif
 
+/* PLATFORM(WIN_CE) && PLATFORM(QT)
+   We can not determine the endianess at compile time. For
+   Qt for Windows CE the endianess is specified in the
+   device specific makespec
+*/
+#if PLATFORM(WIN_CE) && PLATFORM(QT)
+#   include <QtGlobal>
+#   undef WTF_PLATFORM_BIG_ENDIAN
+#   undef WTF_PLATFORM_MIDDLE_ENDIAN
+#   if Q_BYTE_ORDER == Q_BIG_EDIAN
+#       define WTF_PLATFORM_BIG_ENDIAN 1
+#   endif
+#endif
+
 /* Compiler */
 
 /* COMPILER(MSVC) */
@@ -260,6 +290,16 @@
 #define WTF_COMPILER_CYGWIN 1
 #endif
 
+/* COMPILER(RVCT) */
+#if defined(__CC_ARM) || defined(__ARMCC__)
+#define WTF_COMPILER_RVCT 1
+#endif
+
+/* COMPILER(WINSCW) */
+#if defined(__WINSCW__)
+#define WTF_COMPILER_WINSCW 1
+#endif
+
 #if (PLATFORM(MAC) || PLATFORM(WIN)) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
@@ -290,6 +330,11 @@
 #endif
 #endif
 
+#if PLATFORM(CHROMIUM) && PLATFORM(DARWIN)
+#define WTF_PLATFORM_CF 1
+#define WTF_USE_PTHREADS 1
+#endif
+
 #if PLATFORM(WIN)
 #define WTF_USE_WININET 1
 #endif
@@ -305,9 +350,11 @@
 #endif
 #endif
 
+#if !defined(HAVE_ACCESSIBILITY)
 #if PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(CHROMIUM)
 #define HAVE_ACCESSIBILITY 1
 #endif
+#endif /* !defined(HAVE_ACCESSIBILITY) */
 
 #if COMPILER(GCC)
 #define HAVE_COMPUTED_GOTO 1
@@ -327,8 +374,25 @@
 #elif PLATFORM(WIN_OS)
 
 #define HAVE_FLOAT_H 1
+#if PLATFORM(WIN_CE)
+#define HAVE_ERRNO_H 0
+#else
 #define HAVE_SYS_TIMEB_H 1
+#endif
 #define HAVE_VIRTUALALLOC 1
+
+#elif PLATFORM(SYMBIAN)
+
+#define HAVE_ERRNO_H 1
+#define HAVE_MMAP 0
+#define HAVE_SBRK 1
+
+#define HAVE_SYS_TIME_H 1
+#define HAVE_STRINGS_H 1
+
+#if !COMPILER(RVCT)
+#define HAVE_SYS_PARAM_H 1
+#endif
 
 #else
 
@@ -402,22 +466,56 @@
 #define ENABLE_ARCHIVE 1
 #endif
 
-// CTI only supports x86 at the moment, and has only been tested on Mac and Windows.
-#if !defined(ENABLE_CTI) && PLATFORM(X86) && (PLATFORM(MAC) || PLATFORM(WIN))
-#define ENABLE_CTI 1
+#if !defined(WTF_USE_ALTERNATE_JSIMMEDIATE) && PLATFORM(X86_64) && PLATFORM(MAC)
+#define WTF_USE_ALTERNATE_JSIMMEDIATE 1
 #endif
 
-// WREC only supports x86 at the moment, and has only been tested on Mac and Windows.
-#if !defined(ENABLE_WREC) && ENABLE(CTI) && PLATFORM(X86) && (PLATFORM(MAC) || PLATFORM(WIN))
+#if !defined(ENABLE_JIT)
+/* x86-64 support is under development. */
+#if PLATFORM(X86_64) && PLATFORM(MAC)
+    #define ENABLE_JIT 0
+    #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
+/* The JIT is tested & working on x86 Mac */
+#elif PLATFORM(X86) && PLATFORM(MAC)
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+/* The JIT is tested & working on x86 Windows */
+#elif PLATFORM(X86) && PLATFORM(WIN)
+    #define ENABLE_JIT 1
+    #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
+#endif
+    #define ENABLE_JIT_OPTIMIZE_CALL 1
+    #define ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS 1
+    #define ENABLE_JIT_OPTIMIZE_ARITHMETIC 1
+#endif
+
+#if ENABLE(JIT)
+#if !(USE(JIT_STUB_ARGUMENT_VA_LIST) || USE(JIT_STUB_ARGUMENT_REGISTER) || USE(JIT_STUB_ARGUMENT_STACK))
+#error Please define one of the JIT_STUB_ARGUMENT settings.
+#elif (USE(JIT_STUB_ARGUMENT_VA_LIST) && USE(JIT_STUB_ARGUMENT_REGISTER)) \
+   || (USE(JIT_STUB_ARGUMENT_VA_LIST) && USE(JIT_STUB_ARGUMENT_STACK)) \
+   || (USE(JIT_STUB_ARGUMENT_REGISTER) && USE(JIT_STUB_ARGUMENT_STACK))
+#error Please do not define more than one of the JIT_STUB_ARGUMENT settings.
+#endif
+#endif
+
+/* WREC supports x86 & x86-64, and has been tested on Mac and Windows ('cept on 64-bit on Mac). */
+#if (!defined(ENABLE_WREC) && PLATFORM(X86) && PLATFORM(MAC)) \
+ || (!defined(ENABLE_WREC) && PLATFORM(X86_64) && PLATFORM(MAC)) \
+ || (!defined(ENABLE_WREC) && PLATFORM(X86) && PLATFORM(WIN))
 #define ENABLE_WREC 1
 #endif
 
-#if ENABLE(CTI) || ENABLE(WREC)
-#define ENABLE_MASM 1
+#if ENABLE(JIT) || ENABLE(WREC)
+#define ENABLE_ASSEMBLER 1
 #endif
 
-#if !defined(ENABLE_PAN_SCROLLING) && (PLATFORM(WIN) || PLATFORM(CHROMIUM) || (PLATFORM(WX) && PLATFORM(WIN_OS)))
+#if !defined(ENABLE_PAN_SCROLLING) && PLATFORM(WIN_OS)
 #define ENABLE_PAN_SCROLLING 1
+#endif
+
+#if !defined(ENABLE_ACTIVEX_TYPE_CONVERSION_WMPLAYER)
+#define ENABLE_ACTIVEX_TYPE_CONVERSION_WMPLAYER 1
 #endif
 
 /* Use the QtXmlStreamReader implementation for XMLTokenizer */
@@ -427,10 +525,8 @@
 #endif
 #endif
 
-// Use "fastcall" calling convention on MSVC
-#if COMPILER(MSVC)
-#define WTF_USE_FAST_CALL_CTI_ARGUMENT 1
-#define WTF_USE_CTI_ARGUMENT 1
+#if !PLATFORM(QT)
+#define WTF_USE_FONT_FAST_PATH 1
 #endif
 
 #endif /* WTF_Platform_h */

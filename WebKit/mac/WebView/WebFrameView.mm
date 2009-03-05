@@ -189,11 +189,10 @@ enum {
 
 - (WebDynamicScrollBarsView *)_scrollView
 {
-    // this can be called by [super dealloc] when cleaning up the keyview loop,
+    // This can be called by [super dealloc] when cleaning up the key view loop,
     // after _private has been nilled out.
-    if (_private == nil) {
+    if (_private == nil)
         return nil;
-    }
     return _private->frameScrollView;
 }
 
@@ -300,9 +299,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         didFirstTimeInitialization = true;
         InitWebCoreSystemInterface();
         
-        // Need to tell WebCore what function to call for the 
-        // "History Item has Changed" notification
-        // Note: We also do this in WebHistoryItem's init method
+        // Need to tell WebCore what function to call for the "History Item has Changed" notification.
+        // Note: We also do this in WebHistoryItem's init method.
         WebCore::notifyHistoryItemChanged = WKNotifyHistoryItemChanged;
 
         [WebViewFactory createSharedFactory];
@@ -310,9 +308,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         
-        // CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is set
-        // to NO, or has no value.  For compatibility with Mac OS X 10.4.6, deferred updates are OFF by
-        // default.
+        // CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is NO
+        // or has no value. For compatibility with Mac OS X 10.4.6, deferred updates are off by default.
         if (![defaults boolForKey:WebKitEnableDeferredUpdatesPreferenceKey])
             WKDisableCGDeferredUpdates();
 
@@ -322,7 +319,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     
     _private = [[WebFrameViewPrivate alloc] init];
 
-    WebDynamicScrollBarsView *scrollView  = [[WebDynamicScrollBarsView alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, frame.size.width, frame.size.height)];
+    WebDynamicScrollBarsView *scrollView = [[WebDynamicScrollBarsView alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, frame.size.width, frame.size.height)];
     _private->frameScrollView = scrollView;
     [scrollView setContentView:[[[WebClipView alloc] initWithFrame:[scrollView bounds]] autorelease]];
     [scrollView setDrawsBackground:NO];
@@ -331,9 +328,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [scrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [scrollView setLineScroll:40.0f];
     [self addSubview:scrollView];
-    // don't call our overridden version here; we need to make the standard NSView link between us
-    // and our subview so that previousKeyView and previousValidKeyView work as expected. This works
-    // together with our becomeFirstResponder and setNextKeyView overrides.
+
+    // Don't call our overridden version of setNextKeyView here; we need to make the standard NSView
+    // link between us and our subview so that previousKeyView and previousValidKeyView work as expected.
+    // This works together with our becomeFirstResponder and setNextKeyView overrides.
     [super setNextKeyView:scrollView];
     
     ++WebFrameViewCount;
@@ -396,29 +394,22 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     // the key loop similar to the way NSScrollView does this. Note that
     // WebView has similar code.
     
-    // If the scrollView won't accept first-responderness now, then we just become
-    // the first responder ourself like a normal view. This lets us be the first 
-    // responder in cases where no page has yet been loaded (see 3469791).
-    if ([[self _scrollView] acceptsFirstResponder]) {
-        NSWindow *window = [self window];
-        if ([window keyViewSelectionDirection] == NSSelectingPrevious) {
-            NSView *previousValidKeyView = [self previousValidKeyView];
-            // If we couldn't find a previous valid key view, ask the webview. This handles frameset
-            // cases like 3748628. Note that previousValidKeyView should never be self but can be
-            // due to AppKit oddness (mentioned in 3748628).
-            if (previousValidKeyView == nil || previousValidKeyView == self) {
-                previousValidKeyView = [[[self webFrame] webView] previousValidKeyView];
-            }
-            // I don't know if the following cases ever occur anymore, but I'm leaving in the old test for
-            // now to avoid causing trouble just before shipping Tiger.
-            ASSERT((previousValidKeyView != self) && (previousValidKeyView != [self _scrollView]));
-            if ((previousValidKeyView != self) && (previousValidKeyView != [self _scrollView])) {
-                [window makeFirstResponder:previousValidKeyView];
-            }
-        } else {
+    NSWindow *window = [self window];
+    if ([window keyViewSelectionDirection] == NSSelectingPrevious) {
+        NSView *previousValidKeyView = [self previousValidKeyView];
+        // If we couldn't find a previous valid key view, ask the WebView. This handles frameset
+        // cases (one is mentioned in Radar bug 3748628). Note that previousValidKeyView should
+        // never be self but can be due to AppKit oddness (mentioned in Radar bug 3748628).
+        if (previousValidKeyView == nil || previousValidKeyView == self)
+            previousValidKeyView = [[[self webFrame] webView] previousValidKeyView];
+        [window makeFirstResponder:previousValidKeyView];
+    } else {
+        // If the scroll view won't accept first-responderness now, then just become
+        // the first responder ourself like a normal view. This lets us be the first 
+        // responder in cases where no page has yet been loaded.
+        if ([[self _scrollView] acceptsFirstResponder])
             [window makeFirstResponder:[self _scrollView]];
-        }
-    }    
+    }
     
     return YES;
 }
@@ -491,10 +482,19 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)setFrameSize:(NSSize)size
 {
-    if (!NSEqualSizes(size, [self frame].size) && [[[self webFrame] webView] drawsBackground]) {
+    // See WebFrameLoaderClient::provisionalLoadStarted.
+    if (!NSEqualSizes(size, [self frame].size) && [[[self webFrame] webView] drawsBackground])
         [[self _scrollView] setDrawsBackground:YES];
-    }
     [super setFrameSize:size];
+}
+
+- (void)viewDidMoveToWindow
+{
+    // See WebFrameLoaderClient::provisionalLoadStarted.
+    // Need to check _private for nil because this can be called inside -[WebView initWithCoder:].
+    if (_private && [[[self webFrame] webView] drawsBackground])
+        [[self _scrollView] setDrawsBackground:YES];
+    [super viewDidMoveToWindow];
 }
 
 - (BOOL)_scrollOverflowInDirection:(ScrollDirection)direction granularity:(ScrollGranularity)granularity

@@ -50,10 +50,6 @@ public:
     void adjustStyle(CSSStyleSelector*, RenderStyle*, Element*,  bool UAHasAppearance,
                      const BorderData&, const FillLayer&, const Color& backgroundColor);
 
-    // This method is called once, from CSSStyleSelector::loadDefaultStyle(), to let each platform adjust
-    // the default CSS rules in html4.css.
-    static void adjustDefaultStyleSheet(CSSStyleSheet*);
-
     // This method is called to paint the widget as a background of the RenderObject.  A widget's foreground, e.g., the
     // text of a button, is always rendered by the engine itself.  The boolean return value indicates
     // whether the CSS border/background should also be painted.
@@ -63,6 +59,14 @@ public:
 
     // The remaining methods should be implemented by the platform-specific portion of the theme, e.g.,
     // RenderThemeMac.cpp for Mac OS X.
+
+    // These methods return the theme's extra style sheets rules, to let each platform
+    // adjust the default CSS rules in html4.css, quirks.css, or mediaControls.css
+    virtual String extraDefaultStyleSheet() { return String(); }
+    virtual String extraQuirksStyleSheet() { return String(); }
+#if ENABLE(VIDEO)
+    virtual String extraMediaControlsStyleSheet() { return String(); };
+#endif
 
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
@@ -100,27 +104,23 @@ public:
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle*) const { return false; }
 
-    // The selection color.
+    // Text selection colors.
     Color activeSelectionBackgroundColor() const;
     Color inactiveSelectionBackgroundColor() const;
+    Color activeSelectionForegroundColor() const;
+    Color inactiveSelectionForegroundColor() const;
+
+    // List box selection colors
+    Color activeListBoxSelectionBackgroundColor() const;
+    Color activeListBoxSelectionForegroundColor() const;
+    Color inactiveListBoxSelectionBackgroundColor() const;
+    Color inactiveListBoxSelectionForegroundColor() const;
 
     virtual Color platformTextSearchHighlightColor() const;
 
-    // The platform selection color.
-    virtual Color platformActiveSelectionBackgroundColor() const;
-    virtual Color platformInactiveSelectionBackgroundColor() const;
-    virtual Color platformActiveSelectionForegroundColor() const;
-    virtual Color platformInactiveSelectionForegroundColor() const;
-
-    // List Box selection color
-    virtual Color activeListBoxSelectionBackgroundColor() const;
-    virtual Color activeListBoxSelectionForegroundColor() const;
-    virtual Color inactiveListBoxSelectionBackgroundColor() const;
-    virtual Color inactiveListBoxSelectionForegroundColor() const;
-
     virtual void platformColorsDidChange();
 
-    virtual double caretBlinkFrequency() const { return 0.5; }
+    virtual double caretBlinkInterval() const { return 0.5; }
 
     // System fonts and colors for CSS.
     virtual void systemFont(int cssValueId, FontDescription&) const = 0;
@@ -128,6 +128,7 @@ public:
 
     virtual int minimumMenuListSize(RenderStyle*) const { return 0; }
 
+    virtual void adjustButtonInnerStyle(RenderStyle*) const;
     virtual void adjustSliderThumbSize(RenderObject*) const;
 
     virtual int popupInternalPaddingLeft(RenderStyle*) const { return 0; }
@@ -138,7 +139,26 @@ public:
     // Method for painting the caps lock indicator
     virtual bool paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return 0; };
 
+#if ENABLE(VIDEO)
+    // Media controls
+    virtual bool hitTestMediaControlPart(RenderObject*, const IntPoint& absPoint);
+#endif
+
 protected:
+    // The platform selection color.
+    virtual Color platformActiveSelectionBackgroundColor() const;
+    virtual Color platformInactiveSelectionBackgroundColor() const;
+    virtual Color platformActiveSelectionForegroundColor() const;
+    virtual Color platformInactiveSelectionForegroundColor() const;
+
+    virtual Color platformActiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformInactiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformActiveListBoxSelectionForegroundColor() const;
+    virtual Color platformInactiveListBoxSelectionForegroundColor() const;
+
+    virtual bool supportsSelectionForegroundColors() const { return true; }
+    virtual bool supportsListBoxSelectionForegroundColors() const { return true; }
+
 #if !USE(NEW_THEME)
     // Methods for each appearance value.
     virtual void adjustCheckboxStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
@@ -197,6 +217,9 @@ protected:
     virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
     virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaTimelineContainer(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaCurrentTime(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaTimeRemaining(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
 
 public:
     // Methods for state querying
@@ -212,8 +235,16 @@ public:
     bool isDefault(const RenderObject*) const;
 
 private:
-    mutable Color m_activeSelectionColor;
-    mutable Color m_inactiveSelectionColor;
+    mutable Color m_activeSelectionBackgroundColor;
+    mutable Color m_inactiveSelectionBackgroundColor;
+    mutable Color m_activeSelectionForegroundColor;
+    mutable Color m_inactiveSelectionForegroundColor;
+
+    mutable Color m_activeListBoxSelectionBackgroundColor;
+    mutable Color m_inactiveListBoxSelectionBackgroundColor;
+    mutable Color m_activeListBoxSelectionForegroundColor;
+    mutable Color m_inactiveListBoxSelectionForegroundColor;
+
 #if USE(NEW_THEME)
     Theme* m_theme; // The platform-specific theme.
 #endif

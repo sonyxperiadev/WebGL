@@ -37,10 +37,21 @@
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/StdLibExtras.h>
 
 using namespace WTF;
 
 namespace WebCore {
+
+FontCache* fontCache()
+{
+    DEFINE_STATIC_LOCAL(FontCache, globalFontCache, ());
+    return &globalFontCache;
+}
+
+FontCache::FontCache()
+{
+}
 
 struct FontPlatformDataCacheKey {
     FontPlatformDataCacheKey(const AtomicString& family = AtomicString(), unsigned size = 0, unsigned weight = 0, bool italic = false,
@@ -104,7 +115,7 @@ struct FontPlatformDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformDataC
     static const bool emptyValueIsZero = true;
     static const FontPlatformDataCacheKey& emptyValue()
     {
-        static FontPlatformDataCacheKey key(nullAtom);
+        DEFINE_STATIC_LOCAL(FontPlatformDataCacheKey, key, (nullAtom));
         return key;
     }
     static void constructDeletedValue(FontPlatformDataCacheKey& slot)
@@ -124,21 +135,24 @@ static FontPlatformDataCache* gFontPlatformDataCache = 0;
 static const AtomicString& alternateFamilyName(const AtomicString& familyName)
 {
     // Alias Courier <-> Courier New
-    static AtomicString courier("Courier"), courierNew("Courier New");
+    DEFINE_STATIC_LOCAL(AtomicString, courier, ("Courier"));
+    DEFINE_STATIC_LOCAL(AtomicString, courierNew, ("Courier New"));
     if (equalIgnoringCase(familyName, courier))
         return courierNew;
     if (equalIgnoringCase(familyName, courierNew))
         return courier;
 
     // Alias Times and Times New Roman.
-    static AtomicString times("Times"), timesNewRoman("Times New Roman");
+    DEFINE_STATIC_LOCAL(AtomicString, times, ("Times"));
+    DEFINE_STATIC_LOCAL(AtomicString, timesNewRoman, ("Times New Roman"));
     if (equalIgnoringCase(familyName, times))
         return timesNewRoman;
     if (equalIgnoringCase(familyName, timesNewRoman))
         return times;
     
     // Alias Arial and Helvetica
-    static AtomicString arial("Arial"), helvetica("Helvetica");
+    DEFINE_STATIC_LOCAL(AtomicString, arial, ("Arial"));
+    DEFINE_STATIC_LOCAL(AtomicString, helvetica, ("Helvetica"));
     if (equalIgnoringCase(familyName, arial))
         return helvetica;
     if (equalIgnoringCase(familyName, helvetica))
@@ -202,7 +216,7 @@ struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
     static const bool needsDestruction = true;
     static const FontPlatformData& emptyValue()
     {
-        static FontPlatformData key;
+        DEFINE_STATIC_LOCAL(FontPlatformData, key, ());
         return key;
     }
     static void constructDeletedValue(FontPlatformData& slot)

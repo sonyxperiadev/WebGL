@@ -33,6 +33,10 @@
 #include "RenderTableCell.h"
 #include "RenderView.h"
 
+#if ENABLE(WML)
+#include "WMLNames.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -71,7 +75,12 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
         beforeChild = lastChild();
 
     bool isTableRow = element() && element()->hasTagName(trTag);
-    
+
+#if ENABLE(WML)
+    if (!isTableRow && element() && element()->isWMLElement())
+        isTableRow = element()->hasTagName(WMLNames::trTag);
+#endif
+
     if (!child->isTableCell()) {
         if (isTableRow && child->element() && child->element()->hasTagName(formTag) && document()->isHTMLDocument()) {
             RenderContainer::addChild(child, beforeChild);
@@ -124,7 +133,7 @@ void RenderTableRow::layout()
     ASSERT(needsLayout());
 
     // Table rows do not add translation.
-    view()->pushLayoutState(this, IntSize());
+    LayoutStateMaintainer statePusher(view(), this, IntSize());
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableCell()) {
@@ -148,17 +157,18 @@ void RenderTableRow::layout()
         }
     }
 
-    view()->popLayoutState();
+    statePusher.pop();
     setNeedsLayout(false);
 }
 
-IntRect RenderTableRow::absoluteClippedOverflowRect()
+IntRect RenderTableRow::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
 {
     // For now, just repaint the whole table.
     // FIXME: Find a better way to do this, e.g., need to repaint all the cells that we
     // might have propagated a background color into.
+    // FIXME: do repaintContainer checks here
     if (RenderTable* parentTable = table())
-        return parentTable->absoluteClippedOverflowRect();
+        return parentTable->clippedOverflowRectForRepaint(repaintContainer);
 
     return IntRect();
 }
@@ -173,7 +183,7 @@ bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
         // at the moment (a demoted inline <form> for example). If we ever implement a
         // table-specific hit-test method (which we should do for performance reasons anyway),
         // then we can remove this check.
-        if (!child->hasLayer() && !child->isInlineFlow() && child->nodeAtPoint(request, result, x, y, tx, ty, action)) {
+        if (!child->hasLayer() && !child->isRenderInline() && child->nodeAtPoint(request, result, x, y, tx, ty, action)) {
             updateHitTestResult(result, IntPoint(x - tx, y - ty));
             return true;
         }
@@ -201,7 +211,7 @@ void RenderTableRow::paint(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
-void RenderTableRow::imageChanged(WrappedImagePtr image)
+void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
 {
     // FIXME: Examine cells and repaint only the rect the image paints in.
     repaint();

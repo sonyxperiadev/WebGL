@@ -39,17 +39,12 @@ RenderSVGHiddenContainer::~RenderSVGHiddenContainer()
 {
 }
 
-bool RenderSVGHiddenContainer::requiresLayer()
-{
-    return false;
-}
-
-int RenderSVGHiddenContainer::lineHeight(bool b, bool isRootLineBox) const
+int RenderSVGHiddenContainer::lineHeight(bool, bool) const
 {
     return 0;
 }
 
-int RenderSVGHiddenContainer::baselinePosition(bool b, bool isRootLineBox) const
+int RenderSVGHiddenContainer::baselinePosition(bool, bool) const
 {
     return 0;
 }
@@ -76,32 +71,37 @@ void RenderSVGHiddenContainer::paint(PaintInfo&, int, int)
     // This subtree does not paint.
 }
 
-IntRect RenderSVGHiddenContainer::absoluteClippedOverflowRect()
+IntRect RenderSVGHiddenContainer::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
 {
     return IntRect();
 }
 
-void RenderSVGHiddenContainer::absoluteRects(Vector<IntRect>& rects, int, int, bool)
+void RenderSVGHiddenContainer::absoluteRects(Vector<IntRect>&, int, int, bool)
 {
     // This subtree does not take up space or paint
 }
 
-AffineTransform RenderSVGHiddenContainer::absoluteTransform() const
+void RenderSVGHiddenContainer::absoluteQuads(Vector<FloatQuad>&, bool)
 {
-    return AffineTransform();
+    // This subtree does not take up space or paint
 }
 
-AffineTransform RenderSVGHiddenContainer::localTransform() const
+TransformationMatrix RenderSVGHiddenContainer::absoluteTransform() const
 {
-    return AffineTransform();
+    return TransformationMatrix();
 }
 
-bool RenderSVGHiddenContainer::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
+TransformationMatrix RenderSVGHiddenContainer::localTransform() const
+{
+    return TransformationMatrix();
+}
+
+bool RenderSVGHiddenContainer::nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int, HitTestAction)
 {
     return false;
 }
 
-FloatRect RenderSVGHiddenContainer::relativeBBox(bool includeStroke) const
+FloatRect RenderSVGHiddenContainer::relativeBBox(bool) const
 {
     return FloatRect();
 }

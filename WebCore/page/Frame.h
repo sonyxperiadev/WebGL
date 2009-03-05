@@ -28,10 +28,22 @@
 #ifndef Frame_h
 #define Frame_h
 
+#include "AnimationController.h"
 #include "DragImage.h"
 #include "EditAction.h"
+#include "Editor.h"
+#include "EventHandler.h"
+#include "FrameLoader.h"
+#include "FrameTree.h"
+#include "Range.h"
 #include "RenderLayer.h"
+#include "ScriptController.h"
+#include "SelectionController.h"
 #include "TextGranularity.h"
+
+#if PLATFORM(WIN)
+#include "FrameWin.h"
+#endif
 
 #if PLATFORM(MAC)
 #ifndef __OBJC__
@@ -41,6 +53,10 @@ class NSMutableDictionary;
 class NSString;
 typedef int NSWritingDirection;
 #endif
+#endif
+
+#if PLATFORM(WIN)
+typedef struct HBITMAP__* HBITMAP;
 #endif
 
 namespace WebCore {
@@ -59,6 +75,10 @@ class RenderPart;
 class Selection;
 class SelectionController;
 class Widget;
+
+#if FRAME_LOADS_USER_STYLESHEET
+    class UserStyleSheetLoader;
+#endif
 
 template <typename T> class Timer;
 
@@ -82,8 +102,10 @@ public:
     Document* document() const;
     FrameView* view() const;
 
+    void setDOMWindow(DOMWindow*);
     DOMWindow* domWindow() const;
     void clearFormerDOMWindow(DOMWindow*);
+
     Editor* editor() const;
     EventHandler* eventHandler() const;
     FrameLoader* loader() const;
@@ -104,8 +126,6 @@ public:
 
 private:
     Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
-
-    FramePrivate* d;
     
 // === undecided, would like to consider moving to another class
 
@@ -122,7 +142,7 @@ public:
     void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
 
     bool inViewSourceMode() const;
-    void setInViewSourceMode(bool = true) const;
+    void setInViewSourceMode(bool = true);
 
     void keepAlive(); // Used to keep the frame alive when running a script that might destroy it.
 #ifndef NDEBUG
@@ -134,9 +154,6 @@ public:
     void clearTimers();
     static void clearTimers(FrameView*, Document*);
 
-    // Convenience, to avoid repeating the code to dig down to get this.
-    UChar backslashAsCurrencySymbol() const;
-
     void setNeedsReapplyStyles();
     bool needsReapplyStyles() const;
     void reapplyStyles();
@@ -146,6 +163,11 @@ public:
     // This method -- and the corresponding list of former DOM windows --
     // should move onto ScriptController
     void clearDOMWindow();
+
+    String displayStringModifiedByEncoding(const String& str) const 
+    {
+        return document() ? document()->displayStringModifiedByEncoding(str) : str;
+    }
 
 private:
     void lifeSupportTimerFired(Timer<Frame>*);
@@ -232,7 +254,7 @@ public:
 
 public:
     TextGranularity selectionGranularity() const;
-    void setSelectionGranularity(TextGranularity) const;
+    void setSelectionGranularity(TextGranularity);
 
     bool shouldChangeSelection(const Selection&) const;
     bool shouldDeleteSelection(const Selection&) const;
@@ -244,8 +266,8 @@ public:
     void invalidateSelection();
 
     void setCaretVisible(bool = true);
-    void paintCaret(GraphicsContext*, const IntRect&) const;  
-    void paintDragCaret(GraphicsContext*, const IntRect&) const;
+    void paintCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;  
+    void paintDragCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;
 
     bool isContentEditable() const; // if true, everything in frame is editable
 
@@ -255,7 +277,7 @@ public:
     void setTypingStyle(CSSMutableStyleDeclaration*);
     void clearTypingStyle();
 
-    FloatRect selectionRect(bool clipToVisibleContent = true) const;
+    FloatRect selectionBounds(bool clipToVisibleContent = true) const;
     void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
 
     HTMLFormElement* currentForm() const;
@@ -305,6 +327,59 @@ public:
     NSDictionary* fontAttributesForSelectionStart() const;
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
 
+#endif
+
+#if PLATFORM(WIN)
+
+public:
+    // FIXME - We should have a single version of nodeImage instead of using platform types.
+    HBITMAP nodeImage(Node*) const;
+
+#endif
+
+private:
+    Page* m_page;
+    mutable FrameTree m_treeNode;
+    mutable FrameLoader m_loader;
+
+    mutable RefPtr<DOMWindow> m_domWindow;
+    HashSet<DOMWindow*> m_liveFormerWindows;
+
+    HTMLFrameOwnerElement* m_ownerElement;
+    RefPtr<FrameView> m_view;
+    RefPtr<Document> m_doc;
+
+    ScriptController m_script;
+
+    String m_kjsStatusBarText;
+    String m_kjsDefaultStatusBarText;
+
+    float m_zoomFactor;
+
+    TextGranularity m_selectionGranularity;
+
+    mutable SelectionController m_selectionController;
+    mutable Selection m_mark;
+    Timer<Frame> m_caretBlinkTimer;
+    mutable Editor m_editor;
+    mutable EventHandler m_eventHandler;
+    mutable AnimationController m_animationController;
+
+    RefPtr<CSSMutableStyleDeclaration> m_typingStyle;
+
+    Timer<Frame> m_lifeSupportTimer;
+
+    bool m_caretVisible;
+    bool m_caretPaint;
+    
+    bool m_highlightTextMatches;
+    bool m_inViewSourceMode;
+    bool m_needsReapplyStyles;
+    bool m_isDisconnected;
+    bool m_excludeFromTextSearch;
+
+#if FRAME_LOADS_USER_STYLESHEET
+    UserStyleSheetLoader* m_userStyleSheetLoader;
 #endif
 
 };

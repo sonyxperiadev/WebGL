@@ -27,10 +27,10 @@
 #include "Timer.h"
 
 #include "SharedTimer.h"
-#include "SystemTime.h"
 #include <limits.h>
 #include <limits>
 #include <math.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
@@ -46,7 +46,9 @@ namespace WebCore {
 
 // ----------------
 
-static bool deferringTimers;
+#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
+static bool deferringTimers; 
+#endif
 static Vector<TimerBase*>* timerHeap;
 static HashSet<const TimerBase*>* timersReadyToFire;
 
@@ -64,7 +66,8 @@ public:
 
     TimerBase* timer() const { return m_timer; }
 
-    void checkConsistency() const {
+    void checkConsistency() const
+    {
         ASSERT(m_index >= 0);
         ASSERT(m_index < (timerHeap ? static_cast<int>(timerHeap->size()) : 0));
     }
@@ -131,9 +134,10 @@ public:
 
     int index() const { return m_index; }
 
-    void checkConsistency(int offset = 0) const {
-        ASSERT(m_index + offset >= 0);
-        ASSERT(m_index + offset <= (timerHeap ? static_cast<int>(timerHeap->size()) : 0));
+    void checkConsistency(int offset = 0) const
+    {
+        ASSERT_UNUSED(offset, m_index + offset >= 0);
+        ASSERT_UNUSED(offset, m_index + offset <= (timerHeap ? static_cast<int>(timerHeap->size()) : 0));
     }
 
 private:
@@ -154,7 +158,11 @@ inline int operator-(TimerHeapIterator a, TimerHeapIterator b) { return a.index(
 
 void updateSharedTimer()
 {
-    if (timersReadyToFire || deferringTimers || !timerHeap || timerHeap->isEmpty())
+#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
+    if (timersReadyToFire || deferringTimers || !timerHeap || timerHeap->isEmpty()) 
+#else
+    if (timersReadyToFire || !timerHeap || timerHeap->isEmpty())
+#endif
         stopSharedTimer();
     else
         setSharedTimerFireTime(timerHeap->first()->m_nextFireTime);
@@ -378,19 +386,21 @@ void TimerBase::fireTimersInNestedEventLoop()
     updateSharedTimer();
 }
 
-// ----------------
+#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
+// ---------------- 
 
-bool isDeferringTimers()
-{
-    return deferringTimers;
-}
+bool isDeferringTimers() 
+{ 
+    return deferringTimers; 
+} 
 
-void setDeferringTimers(bool shouldDefer)
-{
-    if (shouldDefer == deferringTimers)
-        return;
-    deferringTimers = shouldDefer;
-    updateSharedTimer();
+void setDeferringTimers(bool shouldDefer) 
+{ 
+    if (shouldDefer == deferringTimers) 
+        return; 
+    deferringTimers = shouldDefer; 
+    updateSharedTimer(); 
 }
+#endif
 
 }

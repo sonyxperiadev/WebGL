@@ -27,7 +27,7 @@
 
 namespace WTF {
 
-    // These functions call abort() if an allocation fails.
+    // These functions call CRASH() if an allocation fails.
     void* fastMalloc(size_t n);
     void* fastZeroedMalloc(size_t n);
     void* fastCalloc(size_t n_elements, size_t element_size);
@@ -41,15 +41,20 @@ namespace WTF {
 
     void fastFree(void* p);
 
-    void* fastMallocExecutable(size_t n);
-    void fastFreeExecutable(void* p);
-
 #ifndef NDEBUG    
     void fastMallocForbid();
     void fastMallocAllow();
 #endif
 
     void releaseFastMallocFreeMemory();
+    
+    struct FastMallocStatistics {
+        size_t heapSize;
+        size_t freeSizeInHeap;
+        size_t freeSizeInCaches;
+        size_t returnedSize;
+    };
+    FastMallocStatistics fastMallocStatistics();
 
 } // namespace WTF
 

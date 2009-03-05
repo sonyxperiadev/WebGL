@@ -33,6 +33,7 @@
 #include "FrameLoaderClient.h"
 #include "ResourceResponse.h"
 #include "PluginView.h"
+#include "webkitwebpolicydecision.h"
 
 typedef struct _WebKitWebFrame WebKitWebFrame;
 
@@ -41,7 +42,7 @@ namespace WebKit {
     class FrameLoaderClient : public WebCore::FrameLoaderClient {
     public:
         FrameLoaderClient(WebKitWebFrame*);
-        virtual ~FrameLoaderClient() { }
+        virtual ~FrameLoaderClient();
         virtual void frameLoaderDestroyed();
 
         WebKitWebFrame*  webFrame() const { return m_frame; }
@@ -57,11 +58,10 @@ namespace WebKit {
         virtual void detachedFromParent2();
         virtual void detachedFromParent3();
 
-        virtual void loadedFromCachedPage();
-
         virtual void assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&);
 
         virtual void dispatchWillSendRequest(WebCore::DocumentLoader*, unsigned long  identifier, WebCore::ResourceRequest&, const WebCore::ResourceResponse& redirectResponse);
+        virtual bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long identifier);
         virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
         virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::AuthenticationChallenge&);
         virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceResponse&);
@@ -85,6 +85,7 @@ namespace WebKit {
         virtual void dispatchDidFinishDocumentLoad();
         virtual void dispatchDidFinishLoad();
         virtual void dispatchDidFirstLayout();
+        virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
         virtual WebCore::Frame* dispatchCreatePage();
         virtual void dispatchShow();
@@ -129,7 +130,8 @@ namespace WebKit {
         virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
         virtual void finishedLoading(WebCore::DocumentLoader*);
 
-        virtual void updateGlobalHistory(const WebCore::KURL&);
+        virtual void updateGlobalHistory();
+        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
         virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
 
         virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
@@ -160,8 +162,8 @@ namespace WebKit {
 
         virtual WebCore::String userAgent(const WebCore::KURL&);
 
-        virtual void savePlatformDataToCachedPage(WebCore::CachedPage*);
-        virtual void transitionToCommittedFromCachedPage(WebCore::CachedPage*);
+        virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
+        virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
 
         virtual bool canCachePage() const;
@@ -170,6 +172,7 @@ namespace WebKit {
         WebKitWebFrame* m_frame;
         WebCore::ResourceResponse m_response;
         WebCore::String m_userAgent;
+        WebKitWebPolicyDecision* m_policyDecision;
 
         // Plugin view to redirect data to
         WebCore::PluginView* m_pluginView;

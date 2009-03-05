@@ -31,6 +31,7 @@
 #include "HTMLOListElement.h"
 #include "RenderListMarker.h"
 #include "RenderView.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -143,7 +144,7 @@ static RenderObject* getParentOfFirstLineBox(RenderBlock* curr, RenderObject* ma
         if (currChild == marker)
             continue;
 
-        if (currChild->isInline() && (!currChild->isInlineFlow() || curr->generatesLineBoxesForInlineChild(currChild)))
+        if (currChild->isInline() && (!currChild->isRenderInline() || curr->generatesLineBoxesForInlineChild(currChild)))
             return curr;
 
         if (currChild->isFloating() || currChild->isPositioned())
@@ -234,12 +235,12 @@ void RenderListItem::layout()
 void RenderListItem::positionListMarker()
 {
     if (m_marker && !m_marker->isInside() && m_marker->inlineBoxWrapper()) {
-        int markerOldX = m_marker->xPos();
+        int markerOldX = m_marker->x();
         int yOffset = 0;
         int xOffset = 0;
-        for (RenderObject* o = m_marker->parent(); o != this; o = o->parent()) {
-            yOffset += o->yPos();
-            xOffset += o->xPos();
+        for (RenderBox* o = m_marker->parentBox(); o != this; o = o->parentBox()) {
+            yOffset += o->y();
+            xOffset += o->x();
         }
 
         bool adjustOverflow = false;
@@ -266,12 +267,12 @@ void RenderListItem::positionListMarker()
 
         if (adjustOverflow) {
             IntRect markerRect(markerXPos + xOffset, yOffset, m_marker->width(), m_marker->height());
-            RenderObject* o = m_marker;
+            RenderBox* o = m_marker;
             do {
-                o = o->parent();
+                o = o->parentBox();
                 if (o->isRenderBlock())
                     static_cast<RenderBlock*>(o)->addVisualOverflow(markerRect);
-                markerRect.move(-o->xPos(), -o->yPos());
+                markerRect.move(-o->x(), -o->y());
             } while (o != this);
         }
     }
@@ -279,7 +280,7 @@ void RenderListItem::positionListMarker()
 
 void RenderListItem::paint(PaintInfo& paintInfo, int tx, int ty)
 {
-    if (!m_height)
+    if (!height())
         return;
 
     RenderBlock::paint(paintInfo, tx, ty);
@@ -289,7 +290,7 @@ const String& RenderListItem::markerText() const
 {
     if (m_marker)
         return m_marker->text();
-    static String staticNullString;
+    DEFINE_STATIC_LOCAL(String, staticNullString, ());
     return staticNullString;
 }
 

@@ -99,8 +99,9 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         return 0;
     }
 
-    PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
-    unsigned char* data = result->data()->data().data();
+    // ! Can't use PassRefPtr<>, otherwise the second access will cause crash.
+    RefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
+    unsigned char* data = result->data()->data()->data();
     
     if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
         memset(data, 0, result->data()->length());
@@ -190,7 +191,7 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, con
     unsigned srcBytesPerRow = 4 * source->width();
     unsigned dstPixelsPerRow = dst.rowBytesAsPixels();
     
-    unsigned char* srcRows = source->data()->data().data() + originy * srcBytesPerRow + originx * 4;
+    unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
     SkPMColor* dstRows = dst.getAddr32(destx, desty);
     for (int y = 0; y < numRows; ++y) {
         for (int x = 0; x < numColumns; x++) {

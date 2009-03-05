@@ -1,7 +1,7 @@
 namespace="SVG"
 namespaceURI="http://www.w3.org/2000/svg"
 guardFactoryWith="ENABLE(SVG)"
-exportStrings="1"
+exportStrings
 
 a
 #if ENABLE_SVG_FONTS
@@ -14,7 +14,7 @@ altGlyphItem
 #if ENABLE_SVG_ANIMATION
 animate
 animateColor
-animateMotion
+animateMotion JSInterfaceName=SVGElement
 animateTransform
 set
 #endif
@@ -80,7 +80,7 @@ glyph
 glyphRef
 #endif
 #if ENABLE_SVG_FONTS
-hkern interfaceName=HKernElement
+hkern interfaceName=SVGHKernElement, JSInterfaceName=SVGElement
 #endif
 image
 line
@@ -91,26 +91,26 @@ metadata
 #if ENABLE_SVG_FONTS
 missing_glyph
 #endif
-mpath interfaceName=MPathElement
+mpath interfaceName=SVGMPathElement, JSInterfaceName=SVGElement
 path
 pattern
 polygon
 polyline
 radialGradient
 rect
-script
+script constructorNeedsCreatedByParser
 stop
-style
-svg interfaceName=SVGElement
+style constructorNeedsCreatedByParser
+svg interfaceName=SVGSVGElement
 switch
 symbol
 text
 textPath
 title
-tref interfaceName=TRefElement
-tspan interfaceName=TSpanElement
+tref interfaceName=SVGTRefElement
+tspan interfaceName=SVGTSpanElement
 use
 view
 #if 0
-vkern interfaceName=VKernElement
+vkern interfaceName=SVGVKernElement
 #endif

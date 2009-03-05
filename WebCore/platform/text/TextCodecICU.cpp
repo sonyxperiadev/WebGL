@@ -30,10 +30,12 @@
 #include "CharacterNames.h"
 #include "CString.h"
 #include "PlatformString.h"
+#include "ThreadGlobalData.h"
 #include <unicode/ucnv.h>
 #include <unicode/ucnv_cb.h>
 #include <wtf/Assertions.h>
 #include <wtf/StringExtras.h>
+#include <wtf/Threading.h>
 
 using std::auto_ptr;
 using std::min;
@@ -42,7 +44,16 @@ namespace WebCore {
 
 const size_t ConversionBufferSize = 16384;
 
-static UConverter* cachedConverterICU;
+ICUConverterWrapper::~ICUConverterWrapper()
+{
+    if (converter)
+        ucnv_close(converter);
+}
+
+static UConverter*& cachedConverterICU()
+{
+    return threadGlobalData().cachedConverterICU().converter;
+}
 
 static auto_ptr<TextCodec> newTextCodecICU(const TextEncoding& encoding, const void*)
 {
@@ -95,12 +106,12 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
             standardName = "GBK";
         // Similarly, EUC-KR encodings all map to an extended version.
         else if (strcmp(standardName, "KSC_5601") == 0 || strcmp(standardName, "EUC-KR") == 0 || strcmp(standardName, "cp1363") == 0)
-            standardName = "windows-949-2000";
+            standardName = "windows-949";
         // And so on.
         else if (strcasecmp(standardName, "iso-8859-9") == 0) // This name is returned in different case by ICU 3.2 and 3.6.
             standardName = "windows-1254";
         else if (strcmp(standardName, "TIS-620") == 0)
-            standardName = "windows-874-2000";
+            standardName = "windows-874";
 
         registrar(standardName, standardName);
 
@@ -132,19 +143,23 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     registrar("xmacukrainian", "x-mac-cyrillic");
 #endif
     registrar("cnbig5", "Big5");
-    registrar("cngb", "EUC-CN");
+    registrar("xxbig5", "Big5");
+    registrar("cngb", "GBK");
+    registrar("csgb231280", "GBK");
+    registrar("xeuccn", "GBK");
+    registrar("xgbk", "GBK");
     registrar("csISO88598I", "ISO_8859-8-I");
-    registrar("csgb231280", "EUC-CN");
-    registrar("dos874", "cp874");
     registrar("koi", "KOI8-R");
     registrar("logical", "ISO-8859-8-I");
     registrar("unicode11utf8", "UTF-8");
     registrar("unicode20utf8", "UTF-8");
+    registrar("xunicode20utf8", "UTF-8");
     registrar("visual", "ISO-8859-8");
     registrar("winarabic", "windows-1256");
     registrar("winbaltic", "windows-1257");
     registrar("wincyrillic", "windows-1251");
-    registrar("iso885911", "windows874-2000");
+    registrar("iso885911", "windows-874");
+    registrar("dos874", "windows-874");
     registrar("wingreek", "windows-1253");
     registrar("winhebrew", "windows-1255");
     registrar("winlatin2", "windows-1250");
@@ -153,15 +168,8 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     registrar("xcp1250", "windows-1250");
     registrar("xcp1251", "windows-1251");
     registrar("xeuc", "EUC-JP");
-    registrar("xeuccn", "EUC-CN");
-    registrar("xgbk", "EUC-CN");
-    registrar("xunicode20utf8", "UTF-8");
-    registrar("xwindows949", "windows-949-2000");
-    registrar("xxbig5", "Big5");
-
-    // This alias is present in modern versions of ICU, but it has no standard name,
-    // so we give one to it manually. It is not present in ICU 3.2.
-    registrar("windows874", "windows874-2000");
+    registrar("xwindows949", "windows-949");
+    registrar("xuhc", "windows-949");
 
     // These aliases are present in modern versions of ICU, but use different codecs, and have no standard names.
     // They are not present in ICU 3.2.
@@ -205,9 +213,10 @@ TextCodecICU::~TextCodecICU()
 void TextCodecICU::releaseICUConverter() const
 {
     if (m_converterICU) {
-        if (cachedConverterICU)
-            ucnv_close(cachedConverterICU);
-        cachedConverterICU = m_converterICU;
+        UConverter*& cachedConverter = cachedConverterICU();
+        if (cachedConverter)
+            ucnv_close(cachedConverter);
+        cachedConverter = m_converterICU;
         m_converterICU = 0;
     }
 }
@@ -221,12 +230,13 @@ void TextCodecICU::createICUConverter() const
 
     UErrorCode err;
 
-    if (cachedConverterICU) {
+    UConverter*& cachedConverter = cachedConverterICU();
+    if (cachedConverter) {
         err = U_ZERO_ERROR;
-        const char* cachedName = ucnv_getName(cachedConverterICU, &err);
+        const char* cachedName = ucnv_getName(cachedConverter, &err);
         if (U_SUCCESS(err) && m_encoding == cachedName) {
-            m_converterICU = cachedConverterICU;
-            cachedConverterICU = 0;
+            m_converterICU = cachedConverter;
+            cachedConverter = 0;
             return;
         }
     }
@@ -422,7 +432,7 @@ CString TextCodecICU::encode(const UChar* characters, size_t length, Unencodable
     // until then, we change the backslash into a yen sign.
     // Encoding will change the yen sign back into a backslash.
     String copy(characters, length);
-    copy.replace('\\', m_encoding.backslashAsCurrencySymbol());
+    copy = m_encoding.displayString(copy.impl());
 
     const UChar* source = copy.characters();
     const UChar* sourceLimit = source + copy.length();

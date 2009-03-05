@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #ifndef CanvasPixelArray_h
 #define CanvasPixelArray_h
 
+#include <wtf/ByteArray.h>
 #include <wtf/MathExtras.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -38,33 +39,24 @@ namespace WebCore {
     
     class CanvasPixelArray : public RefCounted<CanvasPixelArray> {
     public:
-        static PassRefPtr<CanvasPixelArray> create(unsigned size);
-
-        Vector<unsigned char>& data() { return m_data; }
-        unsigned length() const { return m_data.size(); }
-
+        static PassRefPtr<CanvasPixelArray> create(unsigned length);
+        
+        WTF::ByteArray* data() { return m_data.get(); }
+        unsigned length() const { return m_data->length(); }
+        
         void set(unsigned index, double value)
         {
-            if (index >= m_data.size())
-                return;
-            if (!(value > 0)) // Clamp NaN to 0
-                value = 0;
-            else if (value > 255)
-                value = 255;
-            m_data[index] = static_cast<unsigned char>(value + 0.5);
+            m_data->set(index, value);
         }
-
+        
         bool get(unsigned index, unsigned char& result) const
         {
-            if (index >= m_data.size())
-                return false;
-            result = m_data[index];
-            return true;
+            return m_data->get(index, result);
         }
 
     private:
-        CanvasPixelArray(unsigned size);
-        Vector<unsigned char> m_data;
+        CanvasPixelArray(unsigned length);
+        RefPtr<WTF::ByteArray> m_data;
     };
     
 } // namespace WebCore

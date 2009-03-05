@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -29,14 +27,16 @@
 
 #include "HTMLNames.h"
 #include "RenderLegend.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLLegendElement::HTMLLegendElement(Document *doc, HTMLFormElement *f)
-    : HTMLFormControlElement(legendTag, doc, f)
+HTMLLegendElement::HTMLLegendElement(const QualifiedName& tagName, Document *doc, HTMLFormElement *f)
+    : HTMLFormControlElement(tagName, doc, f)
 {
+    ASSERT(hasTagName(legendTag));
 }
 
 HTMLLegendElement::~HTMLLegendElement()
@@ -58,7 +58,7 @@ RenderObject* HTMLLegendElement::createRenderer(RenderArena* arena, RenderStyle*
 
 const AtomicString& HTMLLegendElement::type() const
 {
-    static const AtomicString legend("legend");
+    DEFINE_STATIC_LOCAL(const AtomicString, legend, ("legend"));
     return legend;
 }
 
@@ -97,7 +97,7 @@ Element *HTMLLegendElement::formElement()
     while ((node = node->traverseNextNode(fieldset))) {
         if (node->isHTMLElement()) {
             HTMLElement *element = static_cast<HTMLElement *>(node);
-            if (!element->hasLocalName(legendTag) && element->isGenericFormElement())
+            if (!element->hasLocalName(legendTag) && element->isFormControlElement())
                 return element;
         }
     }

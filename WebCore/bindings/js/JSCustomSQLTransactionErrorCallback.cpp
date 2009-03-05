@@ -30,7 +30,6 @@
 #include "JSCustomSQLTransactionErrorCallback.h"
 
 #include "CString.h"
-#include "Console.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
@@ -60,9 +59,9 @@ bool JSCustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
         
     JSC::JSLock lock(false);
         
-    JSValue* function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_callback->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -77,17 +76,17 @@ bool JSCustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
     ArgList args;
     args.append(toJS(exec, error));
 
-    JSValue* result;
+    JSValuePtr result;
     globalObject->startTimeoutCheck();
     result = call(exec, function, callType, callData, m_callback, args);
     globalObject->stopTimeoutCheck();
         
     if (exec->hadException())
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
         
     Document::updateDocumentsRendering();
     
-    return result->toBoolean(exec);
+    return result.toBoolean(exec);
 }
     
 }

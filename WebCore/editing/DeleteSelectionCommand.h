@@ -53,7 +53,6 @@ private:
     void initializeStartEnd(Position&, Position&);
     void initializePositionData();
     void saveTypingStyleState();
-    void saveFullySelectedAnchor();
     void insertPlaceholderForAncestorBlockContent();
     bool handleSpecialCaseBRDelete();
     void handleGeneralDelete();
@@ -63,8 +62,8 @@ private:
     void calculateEndingPosition();
     void calculateTypingStyleAfterDelete();
     void clearTransientState();
-    virtual void removeNode(Node*);
-    virtual void deleteTextFromNode(Text*, int, int);
+    virtual void removeNode(PassRefPtr<Node>);
+    virtual void deleteTextFromNode(PassRefPtr<Text>, unsigned, unsigned);
 
     bool m_hasSelectionToDelete;
     bool m_smartDelete;
@@ -72,6 +71,7 @@ private:
     bool m_needPlaceholder;
     bool m_replace;
     bool m_expandForSpecialElements;
+    bool m_pruneStartBlockIfNecessary;
 
     // This data is transient and should be cleared at the end of the doApply function.
     Selection m_selectionToDelete;

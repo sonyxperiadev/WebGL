@@ -115,6 +115,8 @@ namespace WebCore {
         virtual IntPoint screenToWindow(const IntPoint&) const = 0;
         virtual IntRect windowToScreen(const IntRect&) const = 0;
         virtual PlatformWidget platformWindow() const = 0;
+        virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {} // Platforms other than Mac can implement this if it ever becomes necessary for them to do so.
         // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
@@ -147,6 +149,10 @@ namespace WebCore {
         virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
+
+        // Notification that the given form element has changed. This function
+        // will be called frequently, so handling should be very fast.
+        virtual void formStateDidChange(const Node*) = 0;
 
 #if PLATFORM(MAC)
         virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }

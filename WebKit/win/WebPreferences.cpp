@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,13 +42,16 @@
 #pragma warning( pop )
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreGraphics/CoreGraphics.h>
 #include <shlobj.h>
 #include <shfolder.h>
 #include <tchar.h>
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnArrayPtr.h>
+
+#if PLATFORM(CG)
+#include <CoreGraphics/CoreGraphics.h>
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
 
 using namespace WebCore;
 
@@ -202,6 +205,8 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitPluginsEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitDatabasesEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
@@ -221,6 +226,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitIconDatabaseLocationKey), CFSTR(""));
     CFDictionaryAddValue(defaults, CFSTR(WebKitIconDatabaseEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitFontSmoothingTypePreferenceKey), CFSTR("2"));
+    CFDictionaryAddValue(defaults, CFSTR(WebKitFontSmoothingContrastPreferenceKey), CFSTR("2"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitCookieStorageAcceptPolicyPreferenceKey), CFSTR("2"));
     CFDictionaryAddValue(defaults, CFSTR(WebContinuousSpellCheckingEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebGrammarCheckingEnabledPreferenceKey), kCFBooleanFalse);
@@ -327,6 +333,16 @@ void WebPreferences::setStringValue(CFStringRef key, LPCTSTR value)
 void WebPreferences::setIntegerValue(CFStringRef key, int value)
 {
     if (integerValueForKey(key) == value)
+        return;
+
+    setValueForKey(key, cfNumber(value).get());
+
+    postPreferencesChangesNotification();
+}
+
+void WebPreferences::setFloatValue(CFStringRef key, float value)
+{
+    if (floatValueForKey(key) == value)
         return;
 
     setValueForKey(key, cfNumber(value).get());
@@ -963,8 +979,27 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothing(
 {
     setIntegerValue(CFSTR(WebKitFontSmoothingTypePreferenceKey), smoothingType);
     if (smoothingType == FontSmoothingTypeWindows)
-        smoothingType = FontSmoothingTypeStandard;
+        smoothingType = FontSmoothingTypeMedium;
+#if PLATFORM(CG)
     wkSetFontSmoothingLevel((int)smoothingType);
+#endif
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::fontSmoothingContrast( 
+    /* [retval][out] */ float* contrast)
+{
+    *contrast = floatValueForKey(CFSTR(WebKitFontSmoothingContrastPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothingContrast( 
+    /* [in] */ float contrast)
+{
+    setFloatValue(CFSTR(WebKitFontSmoothingContrastPreferenceKey), contrast);
+#if PLATFORM(CG)
+    wkSetFontSmoothingContrast(contrast);
+#endif
     return S_OK;
 }
 
@@ -1173,6 +1208,30 @@ HRESULT STDMETHODCALLTYPE WebPreferences::offlineWebApplicationCacheEnabled(BOOL
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebPreferences::setDatabasesEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitDatabasesEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::databasesEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitDatabasesEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setLocalStorageEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitLocalStorageEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::localStorageEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitLocalStorageEnabledPreferenceKey));
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebPreferences::localStorageDatabasePath(BSTR* location)
 {
     *location = stringValueForKey(CFSTR(WebKitLocalStorageDatabasePathPreferenceKey));
@@ -1182,6 +1241,18 @@ HRESULT STDMETHODCALLTYPE WebPreferences::localStorageDatabasePath(BSTR* locatio
 HRESULT STDMETHODCALLTYPE WebPreferences::setLocalStorageDatabasePath(BSTR location)
 {
     setStringValue(CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), location);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setZoomsTextOnly(BOOL zoomsTextOnly)
+{
+    setBoolValue(CFSTR(WebKitZoomsTextOnlyPreferenceKey), zoomsTextOnly);
+    return S_OK;
+}
+
+HRESULT WebPreferences::zoomsTextOnly(BOOL* zoomsTextOnly)
+{
+    *zoomsTextOnly = boolValueForKey(CFSTR(WebKitZoomsTextOnlyPreferenceKey));
     return S_OK;
 }
 

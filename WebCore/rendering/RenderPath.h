@@ -27,7 +27,7 @@
 
 #if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
 
 #include "RenderObject.h"
@@ -35,19 +35,16 @@
 namespace WebCore {
 
 class FloatPoint;
-class Path;
 class RenderSVGContainer;
 class SVGStyledTransformableElement;
 
-class RenderPath : public RenderObject
-{
+class RenderPath : public RenderObject {
 public:
-    RenderPath(RenderStyle*, SVGStyledTransformableElement*);
-    virtual ~RenderPath();
+    RenderPath(SVGStyledTransformableElement*);
 
     // Hit-detection seperated for the fill and the stroke
-    virtual bool fillContains(const FloatPoint&, bool requiresFill = true) const;
-    virtual bool strokeContains(const FloatPoint&, bool requiresStroke = true) const;
+    bool fillContains(const FloatPoint&, bool requiresFill = true) const;
+    bool strokeContains(const FloatPoint&, bool requiresStroke = true) const;
 
     // Returns an unscaled bounding box (not even including localTransform()) for this vector path
     virtual FloatRect relativeBBox(bool includeStroke = true) const;
@@ -59,31 +56,32 @@ public:
     virtual const char* renderName() const { return "RenderPath"; }
     
     bool calculateLocalTransform();
-    virtual AffineTransform localTransform() const;
+    virtual TransformationMatrix localTransform() const;
     
     virtual void layout();
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual bool requiresLayer();
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual bool requiresLayer() const { return false; }
     virtual int lineHeight(bool b, bool isRootLineBox = false) const;
     virtual int baselinePosition(bool b, bool isRootLineBox = false) const;
     virtual void paint(PaintInfo&, int parentX, int parentY);
 
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
     FloatRect drawMarkersIfNeeded(GraphicsContext*, const FloatRect&, const Path&) const;
-    virtual FloatRect strokeBBox() const;
     
 private:
     FloatPoint mapAbsolutePointToLocal(const FloatPoint&) const;
+    virtual IntRect outlineBoundsForRepaint(RenderBox* repaintContainer) const;
 
     mutable Path m_path;
     mutable FloatRect m_fillBBox;
     mutable FloatRect m_strokeBbox;
     FloatRect m_markerBounds;
-    AffineTransform m_localTransform;
+    TransformationMatrix m_localTransform;
     IntRect m_absoluteBounds;
 };
 

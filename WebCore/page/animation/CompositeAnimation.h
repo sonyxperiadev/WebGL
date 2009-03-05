@@ -37,30 +37,41 @@
 namespace WebCore {
 
 class CompositeAnimationPrivate;
+class AnimationBase;
 class AnimationController;
+class KeyframeAnimation;
 class RenderObject;
 class RenderStyle;
 
 // A CompositeAnimation represents a collection of animations that are running
 // on a single RenderObject, such as a number of properties transitioning at once.
-class CompositeAnimation : public Noncopyable {
+class CompositeAnimation : public RefCounted<CompositeAnimation> {
 public:
-    CompositeAnimation(AnimationController* animationController);
+    static PassRefPtr<CompositeAnimation> create(AnimationController* animationController)
+    {
+        return adoptRef(new CompositeAnimation(animationController));
+    };
+
     ~CompositeAnimation();
+    
+    void clearRenderer();
 
     PassRefPtr<RenderStyle> animate(RenderObject*, RenderStyle* currentStyle, RenderStyle* targetStyle);
-    bool isAnimating() const;
-
-    void setWaitingForStyleAvailable(bool);
-    void resetTransitions(RenderObject*);
+    double willNeedService() const;
+    
+    AnimationController* animationController();
 
     void suspendAnimations();
     void resumeAnimations();
     bool isSuspended() const;
+    
+    bool hasAnimations() const;
 
-    void styleAvailable();
     void setAnimating(bool);
     bool isAnimatingProperty(int property, bool isRunningNow) const;
+    
+    PassRefPtr<KeyframeAnimation> getAnimationForProperty(int property);
+
 
     void setAnimationStartTime(double t);
     void setTransitionStartTime(int property, double t);
@@ -68,7 +79,16 @@ public:
     void overrideImplicitAnimations(int property);
     void resumeOverriddenImplicitAnimations(int property);
 
+    bool pauseAnimationAtTime(const AtomicString& name, double t);
+    bool pauseTransitionAtTime(int property, double t);
+    unsigned numberOfActiveAnimations() const;
+
+    void addToStyleAvailableWaitList(AnimationBase*);
+    void removeFromStyleAvailableWaitList(AnimationBase*);
+
 private:
+    CompositeAnimation(AnimationController* animationController);
+    
     CompositeAnimationPrivate* m_data;
 };
 

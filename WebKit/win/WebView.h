@@ -34,6 +34,7 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/Timer.h>
 #include <WebCore/WindowMessageListener.h>
+#include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 
 class WebFrame;
@@ -390,7 +391,13 @@ public:
     
     virtual HRESULT STDMETHODCALLTYPE smartInsertDeleteEnabled( 
         /* [in] */ BOOL *enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setSelectTrailingWhitespaceEnabled( 
+        /* [in] */ BOOL flag);
     
+    virtual HRESULT STDMETHODCALLTYPE isSelectTrailingWhitespaceEnabled( 
+        /* [in] */ BOOL *enabled);
+
     virtual HRESULT STDMETHODCALLTYPE setContinuousSpellCheckingEnabled( 
         /* [in] */ BOOL flag);
     
@@ -690,6 +697,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE defersCallbacks(
         /* [out, retval] */ BOOL* defersCallbacks);
 
+    virtual HRESULT STDMETHODCALLTYPE globalHistoryItem(
+        /* [out, retval] */ IWebHistoryItem** item);
+
     virtual HRESULT STDMETHODCALLTYPE setAlwaysUsesComplexTextCodePath(
         /* [in] */ BOOL complex);
 
@@ -702,7 +712,21 @@ public:
     virtual HRESULT STDMETHODCALLTYPE cookieEnabled(
         /* [out, retval] */ BOOL* enabled);
 
+    virtual HRESULT STDMETHODCALLTYPE setMediaVolume(
+        /* [in] */ float volume);
+
+    virtual HRESULT STDMETHODCALLTYPE mediaVolume(
+        /* [out, retval] */ float* volume);
+
+    virtual HRESULT STDMETHODCALLTYPE registerEmbeddedViewMIMEType( 
+        /* [in] */ BSTR mimeType);
+
+    virtual HRESULT STDMETHODCALLTYPE setMemoryCacheDelegateCallsEnabled( 
+        /* [in] */ BOOL enabled);
+
     // WebView
+    bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
+
     WebCore::Page* page();
     bool handleMouseEvent(UINT, WPARAM, LPARAM);
     void setMouseActivated(bool flag) { m_mouseActivated = flag; }
@@ -719,13 +743,11 @@ public:
     bool keyPress(WPARAM, LPARAM, bool systemKeyDown = false);
     bool inResizer(LPARAM lParam);
     void paint(HDC, LPARAM);
-    void paintIntoBackingStore(WebCore::FrameView*, HDC bitmapDC, const WebCore::IntRect& dirtyRect);
     void paintIntoWindow(HDC bitmapDC, HDC windowDC, const WebCore::IntRect& dirtyRect);
     bool ensureBackingStore();
     void addToDirtyRegion(const WebCore::IntRect&);
     void addToDirtyRegion(HRGN);
     void scrollBackingStore(WebCore::FrameView*, int dx, int dy, const WebCore::IntRect& scrollViewRect, const WebCore::IntRect& clipRect);
-    void updateBackingStore(WebCore::FrameView*, HDC = 0, bool backingStoreCompletelyDirty = false);
     void deleteBackingStore();
     void repaint(const WebCore::IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
     void frameRect(RECT* rect);
@@ -802,6 +824,10 @@ private:
     HRESULT resetZoom(bool isTextOnly);
     bool active();
 
+    enum WindowsToPaint { PaintWebViewOnly, PaintWebViewAndChildren };
+    void paintIntoBackingStore(WebCore::FrameView*, HDC bitmapDC, const WebCore::IntRect& dirtyRect, WindowsToPaint);
+    void updateBackingStore(WebCore::FrameView*, HDC = 0, bool backingStoreCompletelyDirty = false, WindowsToPaint = PaintWebViewOnly);
+
 protected:
     HIMC getIMMContext();
     void releaseIMMContext(HIMC);
@@ -849,7 +875,6 @@ protected:
     WebCore::String m_userAgentCustom;
     WebCore::String m_userAgentStandard;
     float m_zoomMultiplier;
-    bool m_zoomMultiplierIsTextOnly;
     WebCore::String m_overrideEncoding;
     WebCore::String m_applicationName;
     bool m_mouseActivated;
@@ -862,6 +887,7 @@ protected:
     unsigned m_paintCount;
     bool m_hasSpellCheckerDocumentTag;
     bool m_smartInsertDeleteEnabled;
+    bool m_selectTrailingWhitespaceEnabled;
     bool m_didClose;
     bool m_hasCustomDropTarget;
     unsigned m_inIMEComposition;
@@ -877,6 +903,8 @@ protected:
     OwnPtr<TRACKMOUSEEVENT> m_mouseOutTracker;
 
     HWND m_topLevelParent;
+
+    OwnPtr<HashSet<WebCore::String> > m_embeddedViewMIMETypes;
 };
 
 #endif

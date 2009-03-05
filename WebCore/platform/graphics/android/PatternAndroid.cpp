@@ -40,7 +40,7 @@ static SkShader::TileMode toTileMode(bool doRepeat) {
     return doRepeat ? SkShader::kRepeat_TileMode : SkShader::kClamp_TileMode;
 }
 
-SkShader* Pattern::createPlatformPattern(const AffineTransform& transform) const
+SkShader* Pattern::createPlatformPattern(const TransformationMatrix& transform) const
 {
     SkBitmapRef* ref = tileImage()->nativeImageForCurrentFrame();
     SkShader* s = SkShader::CreateBitmapShader(ref->bitmap(),

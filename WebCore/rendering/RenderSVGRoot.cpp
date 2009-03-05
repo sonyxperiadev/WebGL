@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
+                  2004, 2005, 2007, 2008, 2009 Rob Buis <buis@kde.org>
                   2007 Eric Seidel <eric@webkit.org>
 
     This file is part of the KDE project
@@ -53,12 +53,12 @@ RenderSVGRoot::~RenderSVGRoot()
 {
 }
 
-int RenderSVGRoot::lineHeight(bool b, bool isRootLineBox) const
+int RenderSVGRoot::lineHeight(bool, bool) const
 {
     return height() + marginTop() + marginBottom();
 }
 
-int RenderSVGRoot::baselinePosition(bool b, bool isRootLineBox) const
+int RenderSVGRoot::baselinePosition(bool, bool) const
 {
     return height() + marginTop() + marginBottom();
 }
@@ -95,19 +95,19 @@ void RenderSVGRoot::layout()
     IntRect oldOutlineBox;
     bool checkForRepaint = checkForRepaintDuringLayout() && selfNeedsLayout();
     if (checkForRepaint)
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
 
     calcWidth();
     calcHeight();
 
     m_absoluteBounds = absoluteClippedOverflowRect();
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
-    m_width = static_cast<int>(m_width * svg->currentScale());
-    m_height = static_cast<int>(m_height * svg->currentScale());
+    setWidth(static_cast<int>(width() * svg->currentScale()));
+    setHeight(static_cast<int>(height() * svg->currentScale()));
     
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (selfNeedsLayout()) // either bounds or transform changed, force kids to relayout
-            child->setNeedsLayout(true);
+            child->setNeedsLayout(true, false);
         
         child->layoutIfNeeded();
         ASSERT(!child->needsLayout());
@@ -125,30 +125,30 @@ void RenderSVGRoot::applyContentTransforms(PaintInfo& paintInfo, int parentX, in
     // Translate from parent offsets (html renderers) to a relative transform (svg renderers)
     IntPoint origin;
     origin.move(parentX, parentY);
-    origin.move(m_x, m_y);
+    origin.move(x(), y());
     origin.move(borderLeft(), borderTop());
     origin.move(paddingLeft(), paddingTop());
 
     if (origin.x() || origin.y()) {
-        paintInfo.context->concatCTM(AffineTransform().translate(origin.x(), origin.y()));
+        paintInfo.context->concatCTM(TransformationMatrix().translate(origin.x(), origin.y()));
         paintInfo.rect.move(-origin.x(), -origin.y());
     }
 
     // Respect scroll offset caused by html parents
-    AffineTransform ctm = RenderContainer::absoluteTransform();
+    TransformationMatrix ctm = RenderContainer::absoluteTransform();
     paintInfo.rect.move(static_cast<int>(ctm.e()), static_cast<int>(ctm.f()));
 
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
-    paintInfo.context->concatCTM(AffineTransform().scale(svg->currentScale()));
+    paintInfo.context->concatCTM(TransformationMatrix().scale(svg->currentScale()));
 
     if (!viewport().isEmpty()) {
         if (style()->overflowX() != OVISIBLE)
             paintInfo.context->clip(enclosingIntRect(viewport())); // FIXME: Eventually we'll want float-precision clipping
         
-        paintInfo.context->concatCTM(AffineTransform().translate(viewport().x(), viewport().y()));
+        paintInfo.context->concatCTM(TransformationMatrix().translate(viewport().x(), viewport().y()));
     }
 
-    paintInfo.context->concatCTM(AffineTransform().translate(svg->currentTranslate().x(), svg->currentTranslate().y()));
+    paintInfo.context->concatCTM(TransformationMatrix().translate(svg->currentTranslate().x(), svg->currentTranslate().y()));
 }
 
 void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
@@ -165,7 +165,7 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
     // This should only exist for <svg> renderers
     if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection)) 
-        paintBoxDecorations(paintInfo, m_x + parentX, m_y + parentY);
+        paintBoxDecorations(paintInfo, x() + parentX, y() + parentY);
 
     if (!firstChild()) {
 #if ENABLE(SVG_FILTERS)
@@ -231,12 +231,12 @@ void RenderSVGRoot::calcViewport()
     }
 }
 
-IntRect RenderSVGRoot::absoluteClippedOverflowRect()
+IntRect RenderSVGRoot::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
 {
     IntRect repaintRect;
 
     for (RenderObject* current = firstChild(); current != 0; current = current->nextSibling())
-        repaintRect.unite(current->absoluteClippedOverflowRect());
+        repaintRect.unite(current->clippedOverflowRectForRepaint(repaintContainer));
 
 #if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
@@ -259,10 +259,16 @@ void RenderSVGRoot::absoluteRects(Vector<IntRect>& rects, int, int)
         current->absoluteRects(rects, 0, 0);
 }
 
-AffineTransform RenderSVGRoot::absoluteTransform() const
+void RenderSVGRoot::absoluteQuads(Vector<FloatQuad>& quads, bool)
 {
-    AffineTransform ctm = RenderContainer::absoluteTransform();
-    ctm.translate(m_x, m_y);
+    for (RenderObject* current = firstChild(); current != 0; current = current->nextSibling())
+        current->absoluteQuads(quads);
+}
+
+TransformationMatrix RenderSVGRoot::absoluteTransform() const
+{
+    TransformationMatrix ctm = RenderContainer::absoluteTransform();
+    ctm.translate(x(), y());
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
     ctm.scale(svg->currentScale());
     ctm.translate(svg->currentTranslate().x(), svg->currentTranslate().y());
@@ -287,14 +293,14 @@ FloatRect RenderSVGRoot::relativeBBox(bool includeStroke) const
     return rect;
 }
 
-AffineTransform RenderSVGRoot::localTransform() const
+TransformationMatrix RenderSVGRoot::localTransform() const
 {
-    return AffineTransform();
+    return TransformationMatrix();
 }
 
 bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
 {
-    AffineTransform ctm = RenderContainer::absoluteTransform();
+    TransformationMatrix ctm = RenderContainer::absoluteTransform();
 
     int sx = (_tx - static_cast<int>(ctm.e())); // scroll offset
     int sy = (_ty - static_cast<int>(ctm.f())); // scroll offset
@@ -302,8 +308,8 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     if (!viewport().isEmpty()
         && style()->overflowX() == OHIDDEN
         && style()->overflowY() == OHIDDEN) {
-        int tx = m_x - _tx + sx;
-        int ty = m_y - _ty + sy;
+        int tx = x() - _tx + sx;
+        int ty = y() - _ty + sy;
 
         // Check if we need to do anything at all.
         IntRect overflowBox = overflowRect(false);
@@ -325,6 +331,13 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     // Spec: Only graphical elements can be targeted by the mouse, period.
     // 16.4: "If there are no graphics elements whose relevant graphics content is under the pointer (i.e., there is no target element), the event is not dispatched."
     return false;
+}
+
+void RenderSVGRoot::position(InlineBox* box)
+{
+    RenderContainer::position(box);
+    if (m_absoluteBounds.isEmpty())
+        setNeedsLayout(true, false);
 }
 
 }

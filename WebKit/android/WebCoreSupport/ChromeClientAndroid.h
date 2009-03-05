@@ -97,6 +97,7 @@ namespace android {
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformWidget platformWindow() const;
+        virtual void contentsSizeChanged(Frame*, const IntSize&) const;
         // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned int);
@@ -108,6 +109,10 @@ namespace android {
         virtual void exceededDatabaseQuota(Frame*, const String&);
         
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+
+        // Notification that the given form element has changed. This function
+        // will be called frequently, so handling should be very fast.
+        virtual void formStateDidChange(const Node*);
 
     // Android-specific
         void setWebFrame(android::WebFrame* webframe);

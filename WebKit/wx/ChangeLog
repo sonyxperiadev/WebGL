@@ -1,3 +1,268 @@
+2009-01-27  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Dan Bernstein
+
+        Rework FrameLoaderClient to work on a CachedFrame basis instead of CachedPage
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::savePlatformDataToCachedFrame):
+        (WebCore::FrameLoaderClientWx::transitionToCommittedFromCachedFrame):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2009-01-23  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix, add missing include dir.
+
+        * presets/wxwebkit.bkl:
+
+2009-01-19  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Gavin Barraclough.
+
+        Remove temporary operator-> from JSValuePtr.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-01-14  miggilin  <mr.diggilin@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Fixing wx compilation for wx 2.9/trunk.
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+        * WebView.cpp:
+
+2009-01-12  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. JSValue* -> JSValuePtr.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-01-05  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by George Staikos.
+
+        Build fix for contentsSizeChanged
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::contentsSizeChanged):
+        * WebKitSupport/ChromeClientWx.h:
+
+2008-12-19  miggilin  <mr.diggilin@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add Context Menu support to wx bindings.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=22675
+
+        * WebKitSupport/ContextMenuClientWx.cpp:
+        (WebCore::ContextMenuClientWx::contextMenuDestroyed):
+        (WebCore::ContextMenuClientWx::getCustomMenuFromDefaultItems):
+        * WebView.cpp:
+        (wxWebView::OnMouseEvents):
+        (wxWebView::OnContextMenuEvents):
+        (wxWebView::OnMenuSelectEvents):
+        * WebView.h:
+
+
+2008-12-19  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fixes after recent changes.
+
+        * presets/wxwebkit.bkl:
+
+2008-12-18  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        - stub out FrameLoaderClient::shouldUseCredentialStorage().
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::shouldUseCredentialStorage):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2008-12-18  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by John Sullivan.
+
+        Stub out FrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidFirstVisuallyNonEmptyLayout):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2008-12-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Expose findString in wxWebView as FindString.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22458
+
+        * WebView.cpp:
+        (wxWebView::FindString):
+        * WebView.h:
+
+2008-12-09  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Dave Hyatt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22177
+
+        Add a callback on ChromeClient that the state of form elements on
+        the page has changed. This is to allow clients implementing session
+        saving to know when the current state is dirty.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::formStateDidChange):
+
+2008-12-02  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add HitTest to wxWebView (and wxWebFrame).
+        
+        https://bugs.webkit.org/show_bug.cgi?id=22459
+
+        * WebFrame.cpp:
+        (wxWebFrame::HitTest):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::HitTest):
+        * WebView.h:
+
+2008-11-24  Darin Fisher  <darin@chromium.org>
+
+        Fix bustage.
+
+        http://bugs.webkit.org/show_bug.cgi?id=15643
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::isSelectTrailingWhitespaceEnabled):
+        * WebKitSupport/EditorClientWx.h:
+
+2008-11-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        - https://bugs.webkit.org/show_bug.cgi?id=22470
+          remove unneeded URL argument from FrameLoaderClient::updateGlobalHistory
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::updateGlobalHistory): Remove argument.
+        * WebKitSupport/FrameLoaderClientWx.h: Ditto.
+
+2008-11-21  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Maintain an EditCommand stack in WebFramePrivate, and expose Undo and
+        Redo in wxWebView.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=22403
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        (wxWebFrame::Undo):
+        (wxWebFrame::Redo):
+        (wxWebFrame::CanUndo):
+        (wxWebFrame::CanRedo):
+        * WebFrame.h:
+        * WebFramePrivate.h: Added.
+        (WebFramePrivate::WebFramePrivate):
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::createWindow):
+        * WebKitSupport/EditCommandWx.h: Added.
+        (EditCommandWx::EditCommandWx):
+        (EditCommandWx::~EditCommandWx):
+        (EditCommandWx::editCommand):
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::registerCommandForUndo):
+        (WebCore::EditorClientWx::registerCommandForRedo):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+        * WebKitSupport/EditorClientWx.h:
+        * WebView.cpp:
+        (wxWebView::OnMouseEvents):
+        (wxWebView::OnKeyEvents):
+        * WebViewPrivate.h:
+
+2008-11-19  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22345
+        Define ScriptValue as a thin container for a JSC::Value*.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore renames.
+
+        * presets/wxwebkit.bkl:
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore renames.
+
+        * presets/wxwebkit.bkl:
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+        
+        Try to fix wx build.
+
+        * presets/wxwebkit.bkl:
+
+2008-11-15  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add API for setting transparent webview background.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=22281
+
+        * WebView.cpp:
+        (wxWebView::SetTransparent):
+        (wxWebView::IsTransparent):
+        * WebView.h:
+
+2008-11-11  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Remove pointless dependencies on the deleted kjs directory.
+
+        * presets/wxwebkit.bkl:
+
+2008-11-08  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fixes after addition of JSCore parser and bycompiler dirs. 
+
+        * presets/wxwebkit.bkl:
+
+2008-11-05  Cameron Zwarich  <zwarich@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Move more files to the runtime subdirectory of JavaScriptCore.
+
+        * WebFrame.cpp:
+        * WebView.cpp:
+
 2008-10-31  Kevin Ollivier  <kevino@theolliviers.com>
 
         wxMSW build fix. Missing header.

@@ -38,6 +38,7 @@ VPATH = \
     $(WebCore)/plugins \
     $(WebCore)/storage \
     $(WebCore)/xml \
+    $(WebCore)/wml \
     $(WebCore)/svg \
 #
 
@@ -64,7 +65,6 @@ DOM_CLASSES = \
     CSSVariablesDeclaration \
     CanvasGradient \
     CanvasPattern \
-    CanvasPixelArray \
     CanvasRenderingContext2D \
     CharacterData \
     Clipboard \
@@ -76,8 +76,8 @@ DOM_CLASSES = \
     DOMImplementation \
     DOMParser \
     DOMSelection \
+    DOMStringList \
     DOMWindow \
-    DedicatedWorker \
     Database \
     Document \
     DocumentFragment \
@@ -185,7 +185,6 @@ DOM_CLASSES = \
     PositionCallback \
     PositionError \
     PositionErrorCallback \
-    PositionOptions \
     ProcessingInstruction \
     ProgressEvent \
     RGBColor \
@@ -356,9 +355,14 @@ DOM_CLASSES = \
     WebKitAnimationEvent \
     WebKitCSSKeyframeRule \
     WebKitCSSKeyframesRule \
+    WebKitCSSMatrix \
     WebKitCSSTransformValue \
     WebKitTransitionEvent \
     WheelEvent \
+    Worker \
+    WorkerContext \
+    WorkerLocation \
+    WorkerNavigator \
     XMLHttpRequest \
     XMLHttpRequestException \
     XMLHttpRequestProgressEvent \
@@ -379,6 +383,7 @@ all : \
     \
     JSDOMWindowBase.lut.h \
     JSRGBColor.lut.h \
+    JSWorkerContextBase.lut.h \
     \
     JSJavaScriptCallFrame.h \
     \
@@ -389,6 +394,8 @@ all : \
     DocTypeStrings.cpp \
     HTMLEntityNames.c \
     HTMLNames.cpp \
+    WMLElementFactory.cpp \
+    WMLNames.cpp \
     JSSVGElementWrapperFactory.cpp \
     SVGElementFactory.cpp \
     SVGNames.cpp \
@@ -504,7 +511,23 @@ XPathGrammar.cpp : xml/XPathGrammar.y $(PROJECT_FILE)
 
 # user agent style sheets
 
-USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html4.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/svg.css 
+USER_AGENT_STYLE_SHEETS = $(WebCore)/css/html4.css $(WebCore)/css/quirks.css $(WebCore)/css/view-source.css $(WebCore)/css/themeWin.css $(WebCore)/css/themeWinQuirks.css 
+
+ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/svg.css 
+endif
+
+ifeq ($(findstring ENABLE_WML,$(FEATURE_DEFINES)), ENABLE_WML)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/wml.css
+endif
+
+ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControls.css
+ifeq ($(OS),MACOS)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControlsQT.css
+endif
+endif
+
 UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 	perl $< $@ UserAgentStyleSheetsData.cpp $(USER_AGENT_STYLE_SHEETS)
 
@@ -541,6 +564,8 @@ XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 	perl -I $(WebCore)/bindings/scripts $< --attrs $(WebCore)/xml/xmlattrs.in
 
 # --------
+
+# SVG tag and attribute names, and element factory
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
 
@@ -608,6 +633,26 @@ JSSVGElementWrapperFactory.cpp :
 	echo > $@
 
 endif
+
+# --------
+
+# WML tag and attribute names, and element factory
+
+ifeq ($(findstring ENABLE_WML,$(FEATURE_DEFINES)), ENABLE_WML)
+
+WMLElementFactory.cpp WMLNames.cpp : dom/make_names.pl wml/WMLTagNames.in wml/WMLAttributeNames.in
+	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/wml/WMLTagNames.in --attrs $(WebCore)/wml/WMLAttributeNames.in --factory --wrapperFactory
+
+else
+
+WMLElementFactory.cpp :
+	echo > $@
+
+WMLNames.cpp :
+	echo > $@
+
+endif
+
 
 # --------
 

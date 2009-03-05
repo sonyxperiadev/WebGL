@@ -29,6 +29,11 @@
 #include "Document.h"
 #include "JSDocument.h"
 #include "JSMessageChannel.h"
+#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
+#if ENABLE(WORKERS)
+#include "JSWorkerContext.h"
+#endif
+#endif
 #include "MessageChannel.h"
 
 using namespace JSC;
@@ -38,13 +43,15 @@ namespace WebCore {
 const ClassInfo JSMessageChannelConstructor::s_info = { "MessageChannelConstructor", 0, 0, 0 };
 
 JSMessageChannelConstructor::JSMessageChannelConstructor(ExecState* exec, ScriptExecutionContext* scriptExecutionContext)
-    : DOMObject(JSMessageChannelConstructor::createStructureID(exec->lexicalGlobalObject()->objectPrototype()))
+    : DOMObject(JSMessageChannelConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
     , m_scriptExecutionContext(scriptExecutionContext)
 {
     if (m_scriptExecutionContext->isDocument())
         m_contextWrapper = toJS(exec, static_cast<Document*>(scriptExecutionContext));
+#if ENABLE(WORKERS)
     else if (m_scriptExecutionContext->isWorkerContext())
-        ; // Not yet implemented.
+        m_contextWrapper = toJSDOMGlobalObject(scriptExecutionContext);
+#endif
     else
         ASSERT_NOT_REACHED();
 
@@ -69,8 +76,8 @@ JSObject* JSMessageChannelConstructor::construct(ExecState* exec, JSObject* cons
 void JSMessageChannelConstructor::mark()
 {
     DOMObject::mark();
-    if (!m_contextWrapper->marked())
-        m_contextWrapper->mark();
+    if (!m_contextWrapper.marked())
+        m_contextWrapper.mark();
 }
 
 } // namespace WebCore

@@ -34,6 +34,7 @@ public:
 #if PLATFORM(WIN)
         , m_hdc(0)
         , m_transparencyCount(0)
+        , m_shouldIncludeChildWindows(false)
 #endif
         , m_userToDeviceTransformKnownToBeIdentity(false)
     {
@@ -54,7 +55,7 @@ public:
     void scale(const FloatSize&) {}
     void rotate(float) {}
     void translate(float, float) {}
-    void concatCTM(const AffineTransform&) {}
+    void concatCTM(const TransformationMatrix&) {}
     void beginTransparencyLayer() {}
     void endTransparencyLayer() {}
 #endif
@@ -68,12 +69,13 @@ public:
     void scale(const FloatSize&);
     void rotate(float);
     void translate(float, float);
-    void concatCTM(const AffineTransform&);
+    void concatCTM(const TransformationMatrix&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
 
     HDC m_hdc;
     unsigned m_transparencyCount;
+    bool m_shouldIncludeChildWindows;
 #endif
 
     CGContextRef m_cgContext;

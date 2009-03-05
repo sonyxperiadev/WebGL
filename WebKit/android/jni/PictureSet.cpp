@@ -36,7 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
@@ -270,9 +270,9 @@ bool PictureSet::draw(SkCanvas* canvas)
         }
         canvas->translate(pathBounds.fLeft, pathBounds.fTop);
         canvas->save();
-        uint32_t startTime = WebCore::get_thread_msec();
+        uint32_t startTime = WTF::get_thread_msec();
         canvas->drawPicture(*working->mPicture);
-        size_t elapsed = working->mElapsed = WebCore::get_thread_msec() - startTime;
+        size_t elapsed = working->mElapsed = WTF::get_thread_msec() - startTime;
         working->mWroteElapsed = true;
         if (maxElapsed < elapsed && (pathBounds.width() >= MIN_SPLITTABLE ||
                 pathBounds.height() >= MIN_SPLITTABLE))

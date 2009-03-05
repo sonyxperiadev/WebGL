@@ -35,6 +35,7 @@
 #import "FontPlatformData.h"
 #import "WebCoreSystemInterface.h"
 #import "WebFontCache.h"
+#include <wtf/StdLibExtras.h>
 
 #ifdef BUILDING_ON_TIGER
 typedef int NSInteger;
@@ -44,7 +45,7 @@ namespace WebCore {
 
 static void fontCacheATSNotificationCallback(ATSFontNotificationInfoRef, void*)
 {
-    FontCache::invalidate();
+    fontCache()->invalidate();
 }
 
 void FontCache::platformInit()
@@ -139,10 +140,10 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
     const FontFamily* currFamily = &font.fontDescription().family();
     while (currFamily && !platformData) {
         if (currFamily->family().length()) {
-            static String matchWords[3] = { String("Arabic"), String("Pashto"), String("Urdu") };
-            static AtomicString geezaStr("Geeza Pro");
+            static String* matchWords[3] = { new String("Arabic"), new String("Pashto"), new String("Urdu") };
+            DEFINE_STATIC_LOCAL(AtomicString, geezaStr, ("Geeza Pro"));
             for (int j = 0; j < 3 && !platformData; ++j)
-                if (currFamily->family().contains(matchWords[j], false))
+                if (currFamily->family().contains(*matchWords[j], false))
                     platformData = getCachedFontPlatformData(font.fontDescription(), geezaStr);
         }
         currFamily = currFamily->next();
@@ -153,8 +154,8 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
 
 FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
 {
-    static AtomicString timesStr("Times");
-    static AtomicString lucidaGrandeStr("Lucida Grande");
+    DEFINE_STATIC_LOCAL(AtomicString, timesStr, ("Times"));
+    DEFINE_STATIC_LOCAL(AtomicString, lucidaGrandeStr, ("Lucida Grande"));
 
     // FIXME: Would be even better to somehow get the user's default font here.  For now we'll pick
     // the default that the user would get without changing any prefs.

@@ -37,8 +37,7 @@ class KeyboardEvent;
 
 class HTMLSelectElement : public HTMLFormControlElementWithState {
 public:
-    HTMLSelectElement(Document*, HTMLFormElement* = 0);
-    HTMLSelectElement(const QualifiedName& tagName, Document*, HTMLFormElement* = 0);
+    HTMLSelectElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual int tagPriority() const { return 6; }
     virtual bool checkDTD(const Node* newChild);
@@ -122,7 +121,7 @@ public:
     void setOption(unsigned index, HTMLOptionElement*, ExceptionCode&);
     void setLength(unsigned, ExceptionCode&);
 
-    Node* namedItem(const String& name, bool caseSensitive = true);
+    Node* namedItem(const AtomicString& name);
     Node* item(unsigned index);
 
     HTMLCollection::CollectionInfo* collectionInfo() { return &m_collectionInfo; }

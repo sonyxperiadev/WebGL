@@ -2,116 +2,116 @@ namespace="HTML"
 namespacePrefix="xhtml"
 namespaceURI="http://www.w3.org/1999/xhtml"
 
-a interfaceName=AnchorElement
-abbr
-acronym
-address
+a interfaceName=HTMLAnchorElement
+abbr interfaceName=HTMLElement
+acronym interfaceName=HTMLElement
+address interfaceName=HTMLElement
 applet
 area
 #if ENABLE_VIDEO
-audio applyAudioHack=1
+audio wrapperOnlyIfMediaIsAvailable
 #endif
-b
+b interfaceName=HTMLElement
 base
-basefont interfaceName=BaseFontElement
-bdo
-big
+basefont interfaceName=HTMLBaseFontElement
+bdo interfaceName=HTMLElement
+big interfaceName=HTMLElement
 blockquote
 body
-br interfaceName=BRElement
-button
+br interfaceName=HTMLBRElement
+button constructorNeedsFormElement
 canvas
-caption interfaceName=TableCaptionElement
-center
-cite
-code
-col interfaceName=TableColElement
-colgroup
-dd
-del interfaceName=ModElement
-dfn
-dir interfaceName=DirectoryElement
+caption interfaceName=HTMLTableCaptionElement
+center interfaceName=HTMLElement
+cite interfaceName=HTMLElement
+code interfaceName=HTMLElement
+col interfaceName=HTMLTableColElement
+colgroup interfaceName=HTMLTableColElement
+dd interfaceName=HTMLElement
+del interfaceName=HTMLModElement
+dfn interfaceName=HTMLElement
+dir interfaceName=HTMLDirectoryElement
 div
-dl interfaceName=DListElement
-dt
-em
+dl interfaceName=HTMLDListElement
+dt interfaceName=HTMLElement
+em interfaceName=HTMLElement
 embed
-fieldset interfaceName=FieldSetElement
+fieldset interfaceName=HTMLFieldSetElement, constructorNeedsFormElement
 font
 form
-frame
-frameset interfaceName=FrameSetElement
+frame constructorNeedsCreatedByParser
+frameset interfaceName=HTMLFrameSetElement
 head
-h1 interfaceName=HeadingElement
-h2
-h3
-h4
-h5
-h6
-hr interfaceName=HRElement
+h1 interfaceName=HTMLHeadingElement
+h2 interfaceName=HTMLHeadingElement
+h3 interfaceName=HTMLHeadingElement
+h4 interfaceName=HTMLHeadingElement
+h5 interfaceName=HTMLHeadingElement
+h6 interfaceName=HTMLHeadingElement
+hr interfaceName=HTMLHRElement
 html
-i
-iframe interfaceName=IFrameElement
+i interfaceName=HTMLElement
+iframe interfaceName=HTMLIFrameElement, constructorNeedsCreatedByParser
 image
-img interfaceName=ImageElement
-input
-ins
-isindex interfaceName=IsIndexElement
-kbd
-keygen
+img interfaceName=HTMLImageElement, constructorNeedsFormElement
+input constructorNeedsFormElement
+ins interfaceName=HTMLModElement
+isindex interfaceName=HTMLIsIndexElement, constructorNeedsFormElement
+kbd interfaceName=HTMLElement
+keygen JSInterfaceName=HTMLSelectElement, constructorNeedsFormElement
 label
-layer
-legend
-li interfaceName=LIElement
-link
-listing
+layer interfaceName=HTMLElement
+legend constructorNeedsFormElement
+li interfaceName=HTMLLIElement
+link constructorNeedsCreatedByParser
+listing interfaceName=HTMLPreElement
 map
 marquee
 menu
 meta
-nobr
-noembed
-noframes
-nolayer
-noscript
-object
-ol interfaceName=OListElement
-optgroup interfaceName=OptGroupElement
-option
-p interfaceName=ParagraphElement
+nobr interfaceName=HTMLElement
+noembed interfaceName=HTMLElement
+noframes interfaceName=HTMLElement
+nolayer interfaceName=HTMLElement
+noscript interfaceName=HTMLElement
+object constructorNeedsCreatedByParser
+ol interfaceName=HTMLOListElement
+optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement
+option constructorNeedsFormElement
+p interfaceName=HTMLParagraphElement
 param
-plaintext
+plaintext interfaceName=HTMLElement
 pre
-q interfaceName=QuoteElement
-s
-samp
-script
-select
-small
+q interfaceName=HTMLQuoteElement
+s interfaceName=HTMLElement
+samp interfaceName=HTMLElement
+script constructorNeedsCreatedByParser
+select constructorNeedsFormElement
+small interfaceName=HTMLElement
 #if ENABLE_VIDEO
-source applyAudioHack=1
+source wrapperOnlyIfMediaIsAvailable
 #endif
-span
-strike
-strong
-style
-sub
-sup
+span interfaceName=HTMLElement
+strike interfaceName=HTMLElement
+strong interfaceName=HTMLElement
+style constructorNeedsCreatedByParser
+sub interfaceName=HTMLElement
+sup interfaceName=HTMLElement
 table
-tbody interfaceName=TableSectionElement
-td interfaceName=TableCellElement
-textarea interfaceName=TextAreaElement
-tfoot
-th
-thead
+tbody interfaceName=HTMLTableSectionElement
+td interfaceName=HTMLTableCellElement
+textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement
+tfoot interfaceName=HTMLTableSectionElement
+th interfaceName=HTMLTableCellElement
+thead interfaceName=HTMLTableSectionElement
 title
-tr interfaceName=TableRowElement
-tt
-u
-ul interfaceName=UListElement
-var
+tr interfaceName=HTMLTableRowElement
+tt interfaceName=HTMLElement
+u interfaceName=HTMLElement
+ul interfaceName=HTMLUListElement
+var interfaceName=HTMLElement
 #if ENABLE_VIDEO
-video applyAudioHack=1
+video wrapperOnlyIfMediaIsAvailable
 #endif
-wbr
-xmp
+wbr interfaceName=HTMLElement
+xmp interfaceName=HTMLPreElement

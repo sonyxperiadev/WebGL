@@ -118,7 +118,7 @@ Vector<String> listDirectory(const String& path, const String& filter)
 
 CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
 {
-    QFile *temp = new QTemporaryFile(QString(prefix));
+    QFile *temp = new QTemporaryFile(QLatin1String(prefix));
     if (temp->open(QIODevice::ReadWrite)) {
         handle = temp;
         return String(temp->fileName()).utf8();
@@ -163,7 +163,7 @@ bool unloadModule(PlatformModule module)
 }
 #endif
 
-#if defined(Q_OS_WIN32)
+#if defined(Q_OS_WIN)
 bool unloadModule(PlatformModule module)
 {
     return ::FreeLibrary(module);

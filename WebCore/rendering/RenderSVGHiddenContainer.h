@@ -43,7 +43,7 @@ namespace WebCore {
 
         virtual const char* renderName() const { return "RenderSVGHiddenContainer"; }
         
-        virtual bool requiresLayer();
+        virtual bool requiresLayer() const { return false; }
         
         virtual int lineHeight(bool b, bool isRootLineBox = false) const;
         virtual int baselinePosition(bool b, bool isRootLineBox = false) const;
@@ -51,11 +51,12 @@ namespace WebCore {
         virtual void layout();
         virtual void paint(PaintInfo&, int parentX, int parentY);
         
-        virtual IntRect absoluteClippedOverflowRect();
+        virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
         virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool topLevel = true);
+        virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
         
-        virtual AffineTransform absoluteTransform() const;
-        virtual AffineTransform localTransform() const;
+        virtual TransformationMatrix absoluteTransform() const;
+        virtual TransformationMatrix localTransform() const;
 
         virtual FloatRect relativeBBox(bool includeStroke = true) const;
         virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);

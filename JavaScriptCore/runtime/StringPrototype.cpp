@@ -37,36 +37,36 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(StringPrototype);
 
-static JSValue* stringProtoFuncToString(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncCharAt(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncCharCodeAt(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncConcat(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncIndexOf(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncLastIndexOf(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncMatch(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncReplace(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSearch(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSlice(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSplit(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSubstr(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSubstring(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncToLowerCase(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncToUpperCase(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncLocaleCompare(ExecState*, JSObject*, JSValue*, const ArgList&);
+static JSValuePtr stringProtoFuncToString(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncCharAt(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncCharCodeAt(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncConcat(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncIndexOf(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncLastIndexOf(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncMatch(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncReplace(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSearch(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSlice(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSplit(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSubstr(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSubstring(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncToLowerCase(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncToUpperCase(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncLocaleCompare(ExecState*, JSObject*, JSValuePtr, const ArgList&);
 
-static JSValue* stringProtoFuncBig(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSmall(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncBlink(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncBold(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncFixed(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncItalics(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncStrike(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSub(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncSup(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncFontcolor(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncFontsize(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncAnchor(ExecState*, JSObject*, JSValue*, const ArgList&);
-static JSValue* stringProtoFuncLink(ExecState*, JSObject*, JSValue*, const ArgList&);
+static JSValuePtr stringProtoFuncBig(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSmall(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncBlink(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncBold(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncFixed(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncItalics(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncStrike(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSub(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncSup(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncFontcolor(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncFontsize(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncAnchor(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValuePtr stringProtoFuncLink(ExecState*, JSObject*, JSValuePtr, const ArgList&);
 
 }
 
@@ -117,7 +117,7 @@ const ClassInfo StringPrototype::info = { "String", &StringObject::info, 0, Exec
 */
 
 // ECMA 15.5.4
-StringPrototype::StringPrototype(ExecState* exec, PassRefPtr<StructureID> structure)
+StringPrototype::StringPrototype(ExecState* exec, PassRefPtr<Structure> structure)
     : StringObject(exec, structure)
 {
     // The constructor will be added later, after StringConstructor has been built
@@ -140,13 +140,12 @@ static inline UString substituteBackreferences(const UString& replacement, const
         if (i + 1 == replacement.size())
             break;
 
-        unsigned short ref = replacement[i + 1];
+        UChar ref = replacement[i + 1];
         if (ref == '$') {
             // "$$" -> "$"
             ++i;
             substitutedReplacement.append(replacement.data() + offset, i - offset);
             offset = i + 1;
-            substitutedReplacement.append('$');
             continue;
         }
 
@@ -162,7 +161,7 @@ static inline UString substituteBackreferences(const UString& replacement, const
         } else if (ref == '\'') {
             backrefStart = ovector[1];
             backrefLength = source.size() - backrefStart;
-        } else if (ref >= '0' && ref <= '9') {
+        } else if (reg && ref >= '0' && ref <= '9') {
             // 1- and 2-digit back references are allowed
             unsigned backrefIndex = ref - '0';
             if (backrefIndex > reg->numSubpatterns())
@@ -177,6 +176,8 @@ static inline UString substituteBackreferences(const UString& replacement, const
                         advance = 1;
                 }
             }
+            if (!backrefIndex)
+                continue;
             backrefStart = ovector[2 * backrefIndex];
             backrefLength = ovector[2 * backrefIndex + 1] - backrefStart;
         } else
@@ -203,25 +204,25 @@ static inline int localeCompare(const UString& a, const UString& b)
     return Collator::userDefault()->collate(reinterpret_cast<const ::UChar*>(a.data()), a.size(), reinterpret_cast<const ::UChar*>(b.data()), b.size());
 }
 
-JSValue* stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncReplace(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    JSString* sourceVal = thisValue->toThisJSString(exec);
+    JSString* sourceVal = thisValue.toThisJSString(exec);
     const UString& source = sourceVal->value();
 
-    JSValue* pattern = args.at(exec, 0);
+    JSValuePtr pattern = args.at(exec, 0);
 
-    JSValue* replacement = args.at(exec, 1);
+    JSValuePtr replacement = args.at(exec, 1);
     UString replacementString;
     CallData callData;
-    CallType callType = replacement->getCallData(callData);
+    CallType callType = replacement.getCallData(callData);
     if (callType == CallTypeNone)
-        replacementString = replacement->toString(exec);
+        replacementString = replacement.toString(exec);
 
-    if (pattern->isObject(&RegExpObject::info)) {
+    if (pattern.isObject(&RegExpObject::info)) {
         RegExp* reg = asRegExpObject(pattern)->regExp();
         bool global = reg->global();
 
-        RegExpConstructor* regExpObj = exec->lexicalGlobalObject()->regExpConstructor();
+        RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
 
         int lastIndex = 0;
         int startPosition = 0;
@@ -234,7 +235,7 @@ JSValue* stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue* thisValue, 
             int matchIndex;
             int matchLen;
             int* ovector;
-            regExpObj->performMatch(reg, source, startPosition, matchIndex, matchLen, &ovector);
+            regExpConstructor->performMatch(reg, source, startPosition, matchIndex, matchLen, &ovector);
             if (matchIndex < 0)
                 break;
 
@@ -257,7 +258,7 @@ JSValue* stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue* thisValue, 
                 args.append(jsNumber(exec, completeMatchStart));
                 args.append(sourceVal);
 
-                replacements.append(call(exec, replacement, callType, callData, exec->globalThisValue(), args)->toString(exec));
+                replacements.append(call(exec, replacement, callType, callData, exec->globalThisValue(), args).toString(exec));
                 if (exec->hadException())
                     break;
             } else
@@ -286,7 +287,7 @@ JSValue* stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue* thisValue, 
     }
 
     // First arg is a string
-    UString patternString = pattern->toString(exec);
+    UString patternString = pattern.toString(exec);
     int matchPos = source.find(patternString);
     int matchLen = patternString.size();
     // Do the replacement
@@ -299,95 +300,107 @@ JSValue* stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue* thisValue, 
         args.append(jsNumber(exec, matchPos));
         args.append(sourceVal);
 
-        replacementString = call(exec, replacement, callType, callData, exec->globalThisValue(), args)->toString(exec);
+        replacementString = call(exec, replacement, callType, callData, exec->globalThisValue(), args).toString(exec);
     }
 
-    return jsString(exec, source.substr(0, matchPos) + replacementString + source.substr(matchPos + matchLen));
+    int ovector[2] = { matchPos, matchPos + matchLen };
+    return jsString(exec, source.substr(0, matchPos)
+        + substituteBackreferences(replacementString, source, ovector, 0)
+        + source.substr(matchPos + matchLen));
 }
 
-JSValue* stringProtoFuncToString(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncToString(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
     // Also used for valueOf.
 
-    if (thisValue->isString())
+    if (thisValue.isString())
         return thisValue;
 
-    if (thisValue->isObject(&StringObject::info))
+    if (thisValue.isObject(&StringObject::info))
         return asStringObject(thisValue)->internalValue();
 
     return throwError(exec, TypeError);
 }
 
-JSValue* stringProtoFuncCharAt(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncCharAt(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     unsigned len = s.size();
-    JSValue* a0 = args.at(exec, 0);
-    if (JSImmediate::isNumber(a0)) {
-        uint32_t i;
-        if (JSImmediate::getUInt32(a0, i) && i < len)
+    JSValuePtr a0 = args.at(exec, 0);
+    if (a0.isUInt32Fast()) {
+        uint32_t i = a0.getUInt32Fast();
+        if (i < len)
             return jsSingleCharacterSubstring(exec, s, i);
         return jsEmptyString(exec);
     }
-    double dpos = a0->toInteger(exec);
+    double dpos = a0.toInteger(exec);
     if (dpos >= 0 && dpos < len)
         return jsSingleCharacterSubstring(exec, s, static_cast<unsigned>(dpos));
     return jsEmptyString(exec);
 }
 
-JSValue* stringProtoFuncCharCodeAt(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncCharCodeAt(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     unsigned len = s.size();
-    JSValue* a0 = args.at(exec, 0);
-    if (JSImmediate::isNumber(a0)) {
-        uint32_t i;
-        if (JSImmediate::getUInt32(a0, i) && i < len)
+    JSValuePtr a0 = args.at(exec, 0);
+    if (a0.isUInt32Fast()) {
+        uint32_t i = a0.getUInt32Fast();
+        if (i < len)
             return jsNumber(exec, s.data()[i]);
         return jsNaN(exec);
     }
-    double dpos = a0->toInteger(exec);
+    double dpos = a0.toInteger(exec);
     if (dpos >= 0 && dpos < len)
         return jsNumber(exec, s[static_cast<int>(dpos)]);
     return jsNaN(exec);
 }
 
-JSValue* stringProtoFuncConcat(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncConcat(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
 
     ArgList::const_iterator end = args.end();
     for (ArgList::const_iterator it = args.begin(); it != end; ++it)
-        s += (*it).jsValue(exec)->toString(exec);
+        s += (*it).jsValue(exec).toString(exec);
     return jsString(exec, s);
 }
 
-JSValue* stringProtoFuncIndexOf(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncIndexOf(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     int len = s.size();
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
-    UString u2 = a0->toString(exec);
-    double dpos = a1->toInteger(exec);
-    if (dpos < 0)
-        dpos = 0;
-    else if (dpos > len)
-        dpos = len;
-    return jsNumber(exec, s.find(u2, static_cast<int>(dpos)));
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
+    UString u2 = a0.toString(exec);
+    int pos;
+    if (a1.isUndefined())
+        pos = 0;
+    else if (a1.isUInt32Fast())
+        pos = min<uint32_t>(a1.getUInt32Fast(), len);
+    else {
+        double dpos = a1.toInteger(exec);
+        if (dpos < 0)
+            dpos = 0;
+        else if (dpos > len)
+            dpos = len;
+        pos = static_cast<int>(dpos);
+    }
+
+    return jsNumber(exec, s.find(u2, pos));
 }
 
-JSValue* stringProtoFuncLastIndexOf(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncLastIndexOf(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     int len = s.size();
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
 
-    UString u2 = a0->toString(exec);
-    double dpos = a1->toIntegerPreserveNaN(exec);
+    UString u2 = a0.toString(exec);
+    double dpos = a1.toIntegerPreserveNaN(exec);
     if (dpos < 0)
         dpos = 0;
     else if (!(dpos <= len)) // true for NaN
@@ -395,16 +408,16 @@ JSValue* stringProtoFuncLastIndexOf(ExecState* exec, JSObject*, JSValue* thisVal
     return jsNumber(exec, s.rfind(u2, static_cast<int>(dpos)));
 }
 
-JSValue* stringProtoFuncMatch(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncMatch(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
 
-    JSValue* a0 = args.at(exec, 0);
+    JSValuePtr a0 = args.at(exec, 0);
 
     UString u = s;
     RefPtr<RegExp> reg;
     RegExpObject* imp = 0;
-    if (a0->isObject(&RegExpObject::info))
+    if (a0.isObject(&RegExpObject::info))
         reg = asRegExpObject(a0)->regExp();
     else {
         /*
@@ -412,17 +425,17 @@ JSValue* stringProtoFuncMatch(ExecState* exec, JSObject*, JSValue* thisValue, co
          *  If regexp is not an object whose [[Class]] property is "RegExp", it is
          *  replaced with the result of the expression new RegExp(regexp).
          */
-        reg = RegExp::create(&exec->globalData(), a0->toString(exec));
+        reg = RegExp::create(&exec->globalData(), a0.toString(exec));
     }
-    RegExpConstructor* regExpObj = exec->lexicalGlobalObject()->regExpConstructor();
+    RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
     int pos;
     int matchLength;
-    regExpObj->performMatch(reg.get(), u, 0, pos, matchLength);
+    regExpConstructor->performMatch(reg.get(), u, 0, pos, matchLength);
     if (!(reg->global())) {
         // case without 'g' flag is handled like RegExp.prototype.exec
         if (pos < 0)
             return jsNull();
-        return regExpObj->arrayOfMatches(exec);
+        return regExpConstructor->arrayOfMatches(exec);
     }
 
     // return array of matches
@@ -432,7 +445,7 @@ JSValue* stringProtoFuncMatch(ExecState* exec, JSObject*, JSValue* thisValue, co
         list.append(jsSubstring(exec, u, pos, matchLength));
         lastIndex = pos;
         pos += matchLength == 0 ? 1 : matchLength;
-        regExpObj->performMatch(reg.get(), u, pos, pos, matchLength);
+        regExpConstructor->performMatch(reg.get(), u, pos, pos, matchLength);
     }
     if (imp)
         imp->setLastIndex(lastIndex);
@@ -446,15 +459,15 @@ JSValue* stringProtoFuncMatch(ExecState* exec, JSObject*, JSValue* thisValue, co
     return constructArray(exec, list);
 }
 
-JSValue* stringProtoFuncSearch(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncSearch(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
 
-    JSValue* a0 = args.at(exec, 0);
+    JSValuePtr a0 = args.at(exec, 0);
 
     UString u = s;
     RefPtr<RegExp> reg;
-    if (a0->isObject(&RegExpObject::info))
+    if (a0.isObject(&RegExpObject::info))
         reg = asRegExpObject(a0)->regExp();
     else { 
         /*
@@ -462,26 +475,26 @@ JSValue* stringProtoFuncSearch(ExecState* exec, JSObject*, JSValue* thisValue, c
          *  If regexp is not an object whose [[Class]] property is "RegExp", it is
          *  replaced with the result of the expression new RegExp(regexp).
          */
-        reg = RegExp::create(&exec->globalData(), a0->toString(exec));
+        reg = RegExp::create(&exec->globalData(), a0.toString(exec));
     }
-    RegExpConstructor* regExpObj = exec->lexicalGlobalObject()->regExpConstructor();
+    RegExpConstructor* regExpConstructor = exec->lexicalGlobalObject()->regExpConstructor();
     int pos;
     int matchLength;
-    regExpObj->performMatch(reg.get(), u, 0, pos, matchLength);
+    regExpConstructor->performMatch(reg.get(), u, 0, pos, matchLength);
     return jsNumber(exec, pos);
 }
 
-JSValue* stringProtoFuncSlice(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncSlice(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     int len = s.size();
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
 
     // The arg processing is very much like ArrayProtoFunc::Slice
-    double start = a0->toInteger(exec);
-    double end = a1->isUndefined() ? len : a1->toInteger(exec);
+    double start = a0.toInteger(exec);
+    double end = a1.isUndefined() ? len : a1.toInteger(exec);
     double from = start < 0 ? len + start : start;
     double to = end < 0 ? len + end : end;
     if (to > from && to > 0 && from < len) {
@@ -495,18 +508,18 @@ JSValue* stringProtoFuncSlice(ExecState* exec, JSObject*, JSValue* thisValue, co
     return jsEmptyString(exec);
 }
 
-JSValue* stringProtoFuncSplit(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncSplit(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
 
     JSArray* result = constructEmptyArray(exec);
     unsigned i = 0;
     int p0 = 0;
-    unsigned limit = a1->isUndefined() ? 0xFFFFFFFFU : a1->toUInt32(exec);
-    if (a0->isObject(&RegExpObject::info)) {
+    unsigned limit = a1.isUndefined() ? 0xFFFFFFFFU : a1.toUInt32(exec);
+    if (a0.isObject(&RegExpObject::info)) {
         RegExp* reg = asRegExpObject(a0)->regExp();
         if (s.isEmpty() && reg->match(s, 0) >= 0) {
             // empty string matched by regexp -> empty array
@@ -533,7 +546,7 @@ JSValue* stringProtoFuncSplit(ExecState* exec, JSObject*, JSValue* thisValue, co
             }
         }
     } else {
-        UString u2 = a0->toString(exec);
+        UString u2 = a0.toString(exec);
         if (u2.isEmpty()) {
             if (s.isEmpty()) {
                 // empty separator matches empty string -> empty array
@@ -557,16 +570,16 @@ JSValue* stringProtoFuncSplit(ExecState* exec, JSObject*, JSValue* thisValue, co
     return result;
 }
 
-JSValue* stringProtoFuncSubstr(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncSubstr(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     int len = s.size();
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
 
-    double start = a0->toInteger(exec);
-    double length = a1->isUndefined() ? len : a1->toInteger(exec);
+    double start = a0.toInteger(exec);
+    double length = a1.isUndefined() ? len : a1.toInteger(exec);
     if (start >= len || length <= 0)
         return jsEmptyString(exec);
     if (start < 0) {
@@ -579,16 +592,16 @@ JSValue* stringProtoFuncSubstr(ExecState* exec, JSObject*, JSValue* thisValue, c
     return jsSubstring(exec, s, static_cast<unsigned>(start), static_cast<unsigned>(length));
 }
 
-JSValue* stringProtoFuncSubstring(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncSubstring(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     int len = s.size();
 
-    JSValue* a0 = args.at(exec, 0);
-    JSValue* a1 = args.at(exec, 1);
+    JSValuePtr a0 = args.at(exec, 0);
+    JSValuePtr a1 = args.at(exec, 1);
 
-    double start = a0->toNumber(exec);
-    double end = a1->toNumber(exec);
+    double start = a0.toNumber(exec);
+    double end = a1.toNumber(exec);
     if (isnan(start))
         start = 0;
     if (isnan(end))
@@ -601,7 +614,7 @@ JSValue* stringProtoFuncSubstring(ExecState* exec, JSObject*, JSValue* thisValue
         start = len;
     if (end > len)
         end = len;
-    if (a1->isUndefined())
+    if (a1.isUndefined())
         end = len;
     if (start > end) {
         double temp = end;
@@ -611,9 +624,9 @@ JSValue* stringProtoFuncSubstring(ExecState* exec, JSObject*, JSValue* thisValue
     return jsSubstring(exec, s, static_cast<unsigned>(start), static_cast<unsigned>(end) - static_cast<unsigned>(start));
 }
 
-JSValue* stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    JSString* sVal = thisValue->toThisJSString(exec);
+    JSString* sVal = thisValue.toThisJSString(exec);
     const UString& s = sVal->value();
 
     int sSize = s.size();
@@ -645,9 +658,9 @@ JSValue* stringProtoFuncToLowerCase(ExecState* exec, JSObject*, JSValue* thisVal
     return jsString(exec, UString(buffer.releaseBuffer(), length, false));
 }
 
-JSValue* stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    JSString* sVal = thisValue->toThisJSString(exec);
+    JSString* sVal = thisValue.toThisJSString(exec);
     const UString& s = sVal->value();
 
     int sSize = s.size();
@@ -679,96 +692,155 @@ JSValue* stringProtoFuncToUpperCase(ExecState* exec, JSObject*, JSValue* thisVal
     return jsString(exec, UString(buffer.releaseBuffer(), length, false));
 }
 
-JSValue* stringProtoFuncLocaleCompare(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncLocaleCompare(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
     if (args.size() < 1)
       return jsNumber(exec, 0);
 
-    UString s = thisValue->toThisString(exec);
-    JSValue* a0 = args.at(exec, 0);
-    return jsNumber(exec, localeCompare(s, a0->toString(exec)));
+    UString s = thisValue.toThisString(exec);
+    JSValuePtr a0 = args.at(exec, 0);
+    return jsNumber(exec, localeCompare(s, a0.toString(exec)));
 }
 
-JSValue* stringProtoFuncBig(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncBig(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<big>" + s + "</big>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<big>" + s + "</big>");
 }
 
-JSValue* stringProtoFuncSmall(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncSmall(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<small>" + s + "</small>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<small>" + s + "</small>");
 }
 
-JSValue* stringProtoFuncBlink(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncBlink(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<blink>" + s + "</blink>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<blink>" + s + "</blink>");
 }
 
-JSValue* stringProtoFuncBold(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncBold(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<b>" + s + "</b>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<b>" + s + "</b>");
 }
 
-JSValue* stringProtoFuncFixed(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncFixed(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
+    UString s = thisValue.toThisString(exec);
     return jsString(exec, "<tt>" + s + "</tt>");
 }
 
-JSValue* stringProtoFuncItalics(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncItalics(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<i>" + s + "</i>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<i>" + s + "</i>");
 }
 
-JSValue* stringProtoFuncStrike(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncStrike(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<strike>" + s + "</strike>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<strike>" + s + "</strike>");
 }
 
-JSValue* stringProtoFuncSub(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncSub(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<sub>" + s + "</sub>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<sub>" + s + "</sub>");
 }
 
-JSValue* stringProtoFuncSup(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList&)
+JSValuePtr stringProtoFuncSup(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    UString s = thisValue->toThisString(exec);
-    return jsString(exec, "<sup>" + s + "</sup>");
+    UString s = thisValue.toThisString(exec);
+    return jsNontrivialString(exec, "<sup>" + s + "</sup>");
 }
 
-JSValue* stringProtoFuncFontcolor(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncFontcolor(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
-    JSValue* a0 = args.at(exec, 0);
-    return jsString(exec, "<font color=\"" + a0->toString(exec) + "\">" + s + "</font>");
+    UString s = thisValue.toThisString(exec);
+    JSValuePtr a0 = args.at(exec, 0);
+    return jsNontrivialString(exec, "<font color=\"" + a0.toString(exec) + "\">" + s + "</font>");
 }
 
-JSValue* stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncFontsize(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
-    JSValue* a0 = args.at(exec, 0);
-    return jsString(exec, "<font size=\"" + a0->toString(exec) + "\">" + s + "</font>");
+    UString s = thisValue.toThisString(exec);
+    JSValuePtr a0 = args.at(exec, 0);
+
+    uint32_t smallInteger;
+    if (a0.getUInt32(smallInteger) && smallInteger <= 9) {
+        unsigned stringSize = s.size();
+        unsigned bufferSize = 22 + stringSize;
+        UChar* buffer = static_cast<UChar*>(tryFastMalloc(bufferSize * sizeof(UChar)));
+        if (!buffer)
+            return jsUndefined();
+        buffer[0] = '<';
+        buffer[1] = 'f';
+        buffer[2] = 'o';
+        buffer[3] = 'n';
+        buffer[4] = 't';
+        buffer[5] = ' ';
+        buffer[6] = 's';
+        buffer[7] = 'i';
+        buffer[8] = 'z';
+        buffer[9] = 'e';
+        buffer[10] = '=';
+        buffer[11] = '"';
+        buffer[12] = '0' + smallInteger;
+        buffer[13] = '"';
+        buffer[14] = '>';
+        memcpy(&buffer[15], s.data(), stringSize * sizeof(UChar));
+        buffer[15 + stringSize] = '<';
+        buffer[16 + stringSize] = '/';
+        buffer[17 + stringSize] = 'f';
+        buffer[18 + stringSize] = 'o';
+        buffer[19 + stringSize] = 'n';
+        buffer[20 + stringSize] = 't';
+        buffer[21 + stringSize] = '>';
+        return jsNontrivialString(exec, UString(buffer, bufferSize, false));
+    }
+
+    return jsNontrivialString(exec, "<font size=\"" + a0.toString(exec) + "\">" + s + "</font>");
 }
 
-JSValue* stringProtoFuncAnchor(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncAnchor(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
-    JSValue* a0 = args.at(exec, 0);
-    return jsString(exec, "<a name=\"" + a0->toString(exec) + "\">" + s + "</a>");
+    UString s = thisValue.toThisString(exec);
+    JSValuePtr a0 = args.at(exec, 0);
+    return jsNontrivialString(exec, "<a name=\"" + a0.toString(exec) + "\">" + s + "</a>");
 }
 
-JSValue* stringProtoFuncLink(ExecState* exec, JSObject*, JSValue* thisValue, const ArgList& args)
+JSValuePtr stringProtoFuncLink(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    UString s = thisValue->toThisString(exec);
-    JSValue* a0 = args.at(exec, 0);
-    return jsString(exec, "<a href=\"" + a0->toString(exec) + "\">" + s + "</a>");
+    UString s = thisValue.toThisString(exec);
+    JSValuePtr a0 = args.at(exec, 0);
+    UString linkText = a0.toString(exec);
+
+    unsigned linkTextSize = linkText.size();
+    unsigned stringSize = s.size();
+    unsigned bufferSize = 15 + linkTextSize + stringSize;
+    UChar* buffer = static_cast<UChar*>(tryFastMalloc(bufferSize * sizeof(UChar)));
+    if (!buffer)
+        return jsUndefined();
+    buffer[0] = '<';
+    buffer[1] = 'a';
+    buffer[2] = ' ';
+    buffer[3] = 'h';
+    buffer[4] = 'r';
+    buffer[5] = 'e';
+    buffer[6] = 'f';
+    buffer[7] = '=';
+    buffer[8] = '"';
+    memcpy(&buffer[9], linkText.data(), linkTextSize * sizeof(UChar));
+    buffer[9 + linkTextSize] = '"';
+    buffer[10 + linkTextSize] = '>';
+    memcpy(&buffer[11 + linkTextSize], s.data(), stringSize * sizeof(UChar));
+    buffer[11 + linkTextSize + stringSize] = '<';
+    buffer[12 + linkTextSize + stringSize] = '/';
+    buffer[13 + linkTextSize + stringSize] = 'a';
+    buffer[14 + linkTextSize + stringSize] = '>';
+    return jsNontrivialString(exec, UString(buffer, bufferSize, false));
 }
 
 } // namespace JSC

@@ -27,15 +27,15 @@ namespace JSC {
 
     class BooleanObject : public JSWrapperObject {
     public:
-        explicit BooleanObject(PassRefPtr<StructureID>);
+        explicit BooleanObject(PassRefPtr<Structure>);
 
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;
     };
 
-    BooleanObject* asBooleanObject(JSValue*);
+    BooleanObject* asBooleanObject(JSValuePtr);
 
-    inline BooleanObject* asBooleanObject(JSValue* value)
+    inline BooleanObject* asBooleanObject(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&BooleanObject::info));
         return static_cast<BooleanObject*>(asObject(value));

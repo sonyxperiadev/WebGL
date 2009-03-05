@@ -6,7 +6,7 @@ needed by JavaScriptCore and the rest of WebKit.
 
                  Originally written by Philip Hazel
            Copyright (c) 1997-2006 University of Cambridge
-    Copyright (C) 2002, 2004, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2002, 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
     Copyright (C) 2007 Eric Seidel <eric@webkit.org>
 
 -----------------------------------------------------------------------------
@@ -236,8 +236,11 @@ static int checkEscape(const UChar** ptrPtr, const UChar* patternEnd, ErrorCode*
                 /* Handle an octal number following \. If the first digit is 8 or 9,
                  this is not octal. */
                 
-                if ((c = *ptr) >= '8')
+                if ((c = *ptr) >= '8') {
+                    c = '\\';
+                    ptr -= 1;
                     break;
+                }
 
             /* \0 always starts an octal number, but we may drop through to here with a
              larger first octal digit. */
@@ -298,8 +301,17 @@ static int checkEscape(const UChar** ptrPtr, const UChar* patternEnd, ErrorCode*
                     *errorCodePtr = ERR2;
                     return 0;
                 }
-                c = *ptr;
                 
+                c = *ptr;
+
+                /* To match Firefox, inside a character class, we also accept
+                   numbers and '_' as control characters */
+                if ((!isClass && !isASCIIAlpha(c)) || (!isASCIIAlphanumeric(c) && c != '_')) {
+                    c = '\\';
+                    ptr -= 2;
+                    break;
+                }
+
                 /* A letter is upper-cased; then the 0x40 bit is flipped. This coding
                  is ASCII-specific, but then the whole concept of \cx is ASCII-specific. */
                 c = toASCIIUpper(c) ^ 0x40;
@@ -477,7 +489,7 @@ static bool getOthercaseRange(int* cptr, int d, int* ocptr, int* odptr)
     int c, othercase = 0;
     
     for (c = *cptr; c <= d; c++) {
-        if ((othercase = kjs_pcre_ucp_othercase(c)) >= 0)
+        if ((othercase = jsc_pcre_ucp_othercase(c)) >= 0)
             break;
     }
     
@@ -488,7 +500,7 @@ static bool getOthercaseRange(int* cptr, int d, int* ocptr, int* odptr)
     int next = othercase + 1;
     
     for (++c; c <= d; c++) {
-        if (kjs_pcre_ucp_othercase(c) != next)
+        if (jsc_pcre_ucp_othercase(c) != next)
             break;
         next++;
     }
@@ -516,15 +528,15 @@ static bool getOthercaseRange(int* cptr, int d, int* ocptr, int* odptr)
 static int encodeUTF8(int cvalue, unsigned char *buffer)
 {
     int i;
-    for (i = 0; i < kjs_pcre_utf8_table1_size; i++)
-        if (cvalue <= kjs_pcre_utf8_table1[i])
+    for (i = 0; i < jsc_pcre_utf8_table1_size; i++)
+        if (cvalue <= jsc_pcre_utf8_table1[i])
             break;
     buffer += i;
     for (int j = i; j > 0; j--) {
         *buffer-- = 0x80 | (cvalue & 0x3f);
         cvalue >>= 6;
     }
-    *buffer = kjs_pcre_utf8_table2[i] | cvalue;
+    *buffer = jsc_pcre_utf8_table2[i] | cvalue;
     return i + 1;
 }
 
@@ -900,7 +912,7 @@ compileBranch(int options, int* brackets, unsigned char** codePtr,
                         
                         if (options & IgnoreCaseOption) {
                             int othercase;
-                            if ((othercase = kjs_pcre_ucp_othercase(c)) >= 0) {
+                            if ((othercase = jsc_pcre_ucp_othercase(c)) >= 0) {
                                 *class_utf8data++ = XCL_SINGLE;
                                 class_utf8data += encodeUTF8(othercase, class_utf8data);
                             }
@@ -1402,6 +1414,15 @@ compileBranch(int options, int* brackets, unsigned char** codePtr,
                         code[-ketoffset] = OP_KETRMAX + repeatType;
                 }
                 
+                // A quantifier after an assertion is mostly meaningless, but it
+                // can nullify the assertion if it has a 0 minimum.
+                else if (*previous == OP_ASSERT || *previous == OP_ASSERT_NOT) {
+                    if (repeatMin == 0) {
+                        code = previous;
+                        goto END_REPEAT;
+                    }
+                }
+                
                 /* Else there's some kind of shambles */
                 
                 else {
@@ -1468,12 +1489,12 @@ compileBranch(int options, int* brackets, unsigned char** codePtr,
                         bravalue = OP_BRA + *brackets;
                 }
                 
-                /* Process nested bracketed re. Assertions may not be repeated, but other
-                 kinds can be. We copy code into a non-variable in order to be able
-                 to pass its address because some compilers complain otherwise. Pass in a
-                 new setting for the ims options if they have changed. */
+                /* Process nested bracketed re. We copy code into a non-variable
+                 in order to be able to pass its address because some compilers
+                 complain otherwise. Pass in a new setting for the ims options
+                 if they have changed. */
                 
-                previous = (bravalue >= OP_BRAZERO) ? code : 0;
+                previous = code;
                 *code = bravalue;
                 tempcode = code;
                 tempreqvary = cd.reqVaryOpt;     /* Save value before bracket */
@@ -2041,8 +2062,8 @@ static int calculateCompiledPatternLength(const UChar* pattern, int patternLengt
                     
                     if (c > 127) {
                         int i;
-                        for (i = 0; i < kjs_pcre_utf8_table1_size; i++)
-                            if (c <= kjs_pcre_utf8_table1[i]) break;
+                        for (i = 0; i < jsc_pcre_utf8_table1_size; i++)
+                            if (c <= jsc_pcre_utf8_table1[i]) break;
                         length += i;
                         lastitemlength += i;
                     }
@@ -2495,8 +2516,8 @@ static int calculateCompiledPatternLength(const UChar* pattern, int patternLengt
 
                 if (c > 127) {
                     int i;
-                    for (i = 0; i < kjs_pcre_utf8_table1_size; i++)
-                        if (c <= kjs_pcre_utf8_table1[i])
+                    for (i = 0; i < jsc_pcre_utf8_table1_size; i++)
+                        if (c <= jsc_pcre_utf8_table1[i])
                             break;
                     length += i;
                     lastitemlength += i;
@@ -2586,7 +2607,7 @@ JSRegExp* jsRegExpCompile(const UChar* pattern, int patternLength,
     
     const UChar* ptr = (const UChar*)pattern;
     const UChar* patternEnd = pattern + patternLength;
-    unsigned char* code = (unsigned char*)codeStart;
+    unsigned char* code = const_cast<unsigned char*>(codeStart);
     int firstByte, reqByte;
     int bracketCount = 0;
     if (!cd.needOuterBracket)

@@ -39,11 +39,18 @@ typedef struct _WebKitWebHistoryItemPrivate WebKitWebHistoryItemPrivate;
 struct _WebKitWebHistoryItem {
     GObject parent_instance;
 
+    /*< private >*/
     WebKitWebHistoryItemPrivate *priv;
 };
 
 struct _WebKitWebHistoryItemClass {
     GObjectClass parent_class;
+
+    /* Padding for future expansion */
+    void (*_webkit_reserved0) (void);
+    void (*_webkit_reserved1) (void);
+    void (*_webkit_reserved2) (void);
+    void (*_webkit_reserved3) (void);
 };
 
 WEBKIT_API GType

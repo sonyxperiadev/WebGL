@@ -36,13 +36,14 @@
 #include "HTMLElementFactory.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
-#include "HTMLTokenizer.h"
+#include "HTMLTokenizer.h" // parseHTMLDocumentFragment
 #include "RenderWordBreak.h"
 #include "Settings.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "XMLTokenizer.h"
 #include "markup.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -97,7 +98,7 @@ int HTMLElement::tagPriority() const
 
 PassRefPtr<Node> HTMLElement::cloneNode(bool deep)
 {
-    RefPtr<HTMLElement> clone = HTMLElementFactory::createHTMLElement(tagQName().localName(), document(), 0, false);
+    RefPtr<HTMLElement> clone = HTMLElementFactory::createHTMLElement(tagQName(), document(), 0, false);
     if (!clone)
         return 0;
 
@@ -440,7 +441,7 @@ void HTMLElement::setInnerText(const String& text, ExceptionCode& ec)
                     return;
             }
             if (!(c == '\n' && i != 0 && prev == '\r')) {
-                fragment->appendChild(new HTMLBRElement(document()), ec);
+                fragment->appendChild(new HTMLBRElement(brTag, document()), ec);
                 if (ec)
                     return;
             }
@@ -576,37 +577,43 @@ void HTMLElement::insertAdjacentText(const String& where, const String& text, Ex
 
 void HTMLElement::addHTMLAlignment(MappedAttribute* attr)
 {
+    addHTMLAlignmentToStyledElement(this, attr);
+}
+
+void HTMLElement::addHTMLAlignmentToStyledElement(StyledElement* element, MappedAttribute* attr)
+{
     // vertical alignment with respect to the current baseline of the text
     // right or left means floating images
-    int propfloat = -1;
-    int propvalign = -1;
+    int floatValue = CSSValueInvalid;
+    int verticalAlignValue = CSSValueInvalid;
+
     const AtomicString& alignment = attr->value();
-    if (equalIgnoringCase(alignment, "absmiddle")) {
-        propvalign = CSSValueMiddle;
-    } else if (equalIgnoringCase(alignment, "absbottom")) {
-        propvalign = CSSValueBottom;
-    } else if (equalIgnoringCase(alignment, "left")) {
-        propfloat = CSSValueLeft;
-        propvalign = CSSValueTop;
+    if (equalIgnoringCase(alignment, "absmiddle"))
+        verticalAlignValue = CSSValueMiddle;
+    else if (equalIgnoringCase(alignment, "absbottom"))
+        verticalAlignValue = CSSValueBottom;
+    else if (equalIgnoringCase(alignment, "left")) {
+        floatValue = CSSValueLeft;
+        verticalAlignValue = CSSValueTop;
     } else if (equalIgnoringCase(alignment, "right")) {
-        propfloat = CSSValueRight;
-        propvalign = CSSValueTop;
-    } else if (equalIgnoringCase(alignment, "top")) {
-        propvalign = CSSValueTop;
-    } else if (equalIgnoringCase(alignment, "middle")) {
-        propvalign = CSSValueWebkitBaselineMiddle;
-    } else if (equalIgnoringCase(alignment, "center")) {
-        propvalign = CSSValueMiddle;
-    } else if (equalIgnoringCase(alignment, "bottom")) {
-        propvalign = CSSValueBaseline;
-    } else if (equalIgnoringCase(alignment, "texttop")) {
-        propvalign = CSSValueTextTop;
-    }
-    
-    if ( propfloat != -1 )
-        addCSSProperty( attr, CSSPropertyFloat, propfloat );
-    if ( propvalign != -1 )
-        addCSSProperty( attr, CSSPropertyVerticalAlign, propvalign );
+        floatValue = CSSValueRight;
+        verticalAlignValue = CSSValueTop;
+    } else if (equalIgnoringCase(alignment, "top"))
+        verticalAlignValue = CSSValueTop;
+    else if (equalIgnoringCase(alignment, "middle"))
+        verticalAlignValue = CSSValueWebkitBaselineMiddle;
+    else if (equalIgnoringCase(alignment, "center"))
+        verticalAlignValue = CSSValueMiddle;
+    else if (equalIgnoringCase(alignment, "bottom"))
+        verticalAlignValue = CSSValueBaseline;
+    else if (equalIgnoringCase(alignment, "texttop"))
+        verticalAlignValue = CSSValueTextTop;
+
+    if (floatValue != CSSValueInvalid)
+        element->addCSSProperty(attr, CSSPropertyFloat, floatValue);
+
+    if (verticalAlignValue != CSSValueInvalid)
+        element->addCSSProperty(attr, CSSPropertyVerticalAlign, verticalAlignValue);
 }
 
 bool HTMLElement::isFocusable() const
@@ -619,6 +626,8 @@ bool HTMLElement::isContentEditable() const
     if (document()->frame() && document()->frame()->isContentEditable())
         return true;
 
+    // FIXME: this is a terrible thing to do here:
+    // https://bugs.webkit.org/show_bug.cgi?id=21834
     document()->updateRendering();
 
     if (!renderer()) {
@@ -818,7 +827,7 @@ bool HTMLElement::childAllowed(Node *newChild)
 // This unfortunate function is only needed when checking against the DTD.  Other languages (like SVG) won't need this.
 bool HTMLElement::isRecognizedTagName(const QualifiedName& tagName)
 {
-    static HashSet<AtomicStringImpl*> tagList;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, tagList, ());
     if (tagList.isEmpty()) {
         size_t tagCount = 0;
         WebCore::QualifiedName** tags = HTMLNames::getHTMLTags(&tagCount);
@@ -830,9 +839,9 @@ bool HTMLElement::isRecognizedTagName(const QualifiedName& tagName)
 
 // The terms inline and block are used here loosely.  Don't make the mistake of assuming all inlines or all blocks
 // need to be in these two lists.
-HashSet<AtomicStringImpl*>* inlineTagList()
+static HashSet<AtomicStringImpl*>* inlineTagList()
 {
-    static HashSet<AtomicStringImpl*> tagList;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, tagList, ());
     if (tagList.isEmpty()) {
         tagList.add(ttTag.localName().impl());
         tagList.add(iTag.localName().impl());
@@ -889,9 +898,9 @@ HashSet<AtomicStringImpl*>* inlineTagList()
     return &tagList;
 }
 
-HashSet<AtomicStringImpl*>* blockTagList()
+static HashSet<AtomicStringImpl*>* blockTagList()
 {
-    static HashSet<AtomicStringImpl*> tagList;
+    DEFINE_STATIC_LOCAL(HashSet<AtomicStringImpl*>, tagList, ());
     if (tagList.isEmpty()) {
         tagList.add(addressTag.localName().impl());
         tagList.add(blockquoteTag.localName().impl());
@@ -1016,6 +1025,10 @@ HTMLFormElement* HTMLElement::virtualForm() const
 } // namespace WebCore
 
 #ifndef NDEBUG
+
+// For use in the debugger
+void dumpInnerHTML(WebCore::HTMLElement*);
+
 void dumpInnerHTML(WebCore::HTMLElement* element)
 {
     printf("%s\n", element->innerHTML().ascii().data());

@@ -47,12 +47,17 @@ struct HashAndCharactersTranslator;
 struct StringHash;
 struct UCharBufferTranslator;
 
+enum TextCaseSensitivity { TextCaseSensitive, TextCaseInsensitive };
+
+typedef bool (*CharacterMatchFunctionPtr)(UChar);
+
 class StringImpl : public RefCounted<StringImpl> {
     friend class AtomicString;
     friend struct CStringTranslator;
     friend struct HashAndCharactersTranslator;
     friend struct UCharBufferTranslator;
 private:
+    friend class ThreadGlobalData;
     StringImpl();
     StringImpl(const UChar*, unsigned length);
     StringImpl(const char*, unsigned length);
@@ -94,6 +99,12 @@ public:
     // Since StringImpl objects are immutable, there's no other reason to make a copy.
     PassRefPtr<StringImpl> copy();
 
+    // Makes a deep copy like copy() but only for a substring.
+    // (This ensures that you always get something suitable for a thread while subtring
+    // may not.  For example, in the empty string case, substring returns empty() which
+    // is not safe for another thread.)
+    PassRefPtr<StringImpl> substringCopy(unsigned pos, unsigned len  = UINT_MAX);
+
     PassRefPtr<StringImpl> substring(unsigned pos, unsigned len = UINT_MAX);
 
     UChar operator[](unsigned i) { ASSERT(i < m_length); return m_data[i]; }
@@ -124,14 +135,17 @@ public:
     PassRefPtr<StringImpl> stripWhiteSpace();
     PassRefPtr<StringImpl> simplifyWhiteSpace();
 
+    PassRefPtr<StringImpl> removeCharacters(CharacterMatchFunctionPtr);
+
     int find(const char*, int index = 0, bool caseSensitive = true);
     int find(UChar, int index = 0);
+    int find(CharacterMatchFunctionPtr, int index = 0);
     int find(StringImpl*, int index, bool caseSensitive = true);
 
     int reverseFind(UChar, int index);
     int reverseFind(StringImpl*, int index, bool caseSensitive = true);
     
-    bool startsWith(StringImpl* m_data, bool caseSensitive = true) { return find(m_data, 0, caseSensitive) == 0; }
+    bool startsWith(StringImpl* m_data, bool caseSensitive = true) { return reverseFind(m_data, 0, caseSensitive) == 0; }
     bool endsWith(StringImpl*, bool caseSensitive = true);
 
     PassRefPtr<StringImpl> replace(UChar, UChar);

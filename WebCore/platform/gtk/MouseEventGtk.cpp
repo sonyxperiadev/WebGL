@@ -27,11 +27,12 @@
 #include "config.h"
 #include "PlatformMouseEvent.h"
 
-#include "SystemTime.h"
 #include "Assertions.h"
 
 #include <gdk/gdk.h>
-#include <gtk/gtkversion.h>
+
+// GTK_CHECK_VERSION is defined in gtk/gtkversion.h
+#include <gtk/gtk.h>
 
 namespace WebCore {
 

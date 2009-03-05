@@ -31,11 +31,19 @@
 #include "CString.h"
 #include "Cache.h"
 #include "KURL.h"
+#include "GCController.h"
+#include "JSDOMWindow.h"
+#include "Node.h"
+#include "Nodes.h"
 #include "SystemTime.h"
+#include "StyleBase.h"
 #include <runtime/JSGlobalObject.h>
+#include <runtime/JSLock.h>
 #include <utils/Log.h>
 
+using namespace JSC;
 using namespace WebCore;
+using namespace WTF;
 
 namespace android {
 
@@ -86,7 +94,7 @@ void TimeCounter::recordNoCounter(enum Type type, const char* functionName)
         LOGW("***** %s() used %d ms\n", functionName, elapsed);
 }
 
-void TimeCounter::report(const KURL& url, int live, int dead)
+void TimeCounter::report(const KURL& url, int live, int dead, size_t arenaSize)
 {
     String urlString = url;
     int totalTime = static_cast<int>((currentTime() - sStartTotalTime) * 1000);
@@ -103,6 +111,14 @@ void TimeCounter::report(const KURL& url, int live, int dead)
         LOGD("%s", scratch);
     }
     LOGD("Current cache has %d bytes live and %d bytes dead", live, dead);
+    LOGD("Current render arena takes %d bytes", arenaSize);
+    JSLock lock(false);
+    Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    LOGD("Current JavaScript heap size is %d and has %d bytes free",
+            jsHeapStatistics.size, jsHeapStatistics.free);
+    LOGD("Current JavaScript nodes use %d bytes", JSC::Node::reportJavaScriptNodesSize());
+    LOGD("Current CSS styles use %d bytes", StyleBase::reportStyleSize());
+    LOGD("Current DOM nodes use %d bytes", WebCore::Node::reportDOMNodesSize());
 }
 
 void TimeCounter::reportNow()

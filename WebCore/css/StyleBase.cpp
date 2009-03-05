@@ -65,4 +65,25 @@ KURL StyleBase::baseURL() const
     return sheet->ownerNode()->document()->baseURL();
 }
 
+#ifdef ANDROID_INSTRUMENT
+static size_t styleSize = 0;
+
+void* StyleBase::operator new(size_t s) throw()
+{
+    styleSize += s;
+    return ::operator new(s);
+}
+
+void StyleBase::operator delete(void* ptr, size_t s)
+{
+    styleSize -= s;
+    ::operator delete(ptr);
+}
+
+size_t StyleBase::reportStyleSize()
+{
+    return styleSize;
+}
+#endif
+
 }

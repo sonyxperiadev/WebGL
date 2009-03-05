@@ -28,8 +28,9 @@
 
 #if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
+#include "Pattern.h"
 #include "SVGPaintServer.h"
 
 #include <memory>
@@ -57,28 +58,23 @@ namespace WebCore {
         ImageBuffer* tile() const;
         void setTile(std::auto_ptr<ImageBuffer>);
 
-        AffineTransform patternTransform() const;
-        void setPatternTransform(const AffineTransform&);
+        TransformationMatrix patternTransform() const;
+        void setPatternTransform(const TransformationMatrix&);
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
         virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-#if PLATFORM(CG) || PLATFORM(QT)
         virtual void teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-#endif
 
     private:
         SVGPaintServerPattern(const SVGPatternElement*);
         
         OwnPtr<ImageBuffer> m_tile;
         const SVGPatternElement* m_ownerElement;
-        AffineTransform m_patternTransform;
+        TransformationMatrix m_patternTransform;
         FloatRect m_patternBoundaries;
 
-#if PLATFORM(CG)
-        mutable CGColorSpaceRef m_patternSpace;
-        mutable CGPatternRef m_pattern;
-#endif                
+        mutable RefPtr<Pattern> m_pattern;
     };
 
 } // namespace WebCore

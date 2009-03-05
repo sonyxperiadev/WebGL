@@ -29,6 +29,7 @@
 #include "SharedBuffer.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 #include <time.h>
 
@@ -38,13 +39,16 @@ class Cache;
 class CachedResourceClient;
 class CachedResourceHandleBase;
 class DocLoader;
+class InspectorResource;
 class Request;
+class PurgeableBuffer;
 
 // A resource that is held in the cache. Classes who want to use this object should derive
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
 // This class also does the actual communication with the loader to obtain the resource from the network.
 class CachedResource {
     friend class Cache;
+    friend class InspectorResource;
     
 public:
     enum Type {
@@ -96,15 +100,16 @@ public:
     PreloadResult preloadResult() const { return m_preloadResult; }
     void setRequestedFromNetworkingLayer() { m_requestedFromNetworkingLayer = true; }
         
-    virtual void allClientsRemoved() { };
+    virtual void allClientsRemoved() { }
 
     unsigned count() const { return m_clients.size(); }
 
     Status status() const { return m_status; }
 
-    unsigned size() const { return encodedSize() + decodedSize(); }
+    unsigned size() const { return encodedSize() + decodedSize() + overheadSize(); }
     unsigned encodedSize() const { return m_encodedSize; }
     unsigned decodedSize() const { return m_decodedSize; }
+    unsigned overheadSize() const;
     
     bool isLoaded() const { return !m_loading; }
     void setLoading(bool b) { m_loading = b; }
@@ -129,7 +134,7 @@ public:
     
     void setRequest(Request*);
 
-    SharedBuffer* data() const { return m_data.get(); }
+    SharedBuffer* data() const { ASSERT(!m_purgeableData); return m_data.get(); }
 
     void setResponse(const ResourceResponse&);
     const ResourceResponse& response() const { return m_response; }
@@ -148,7 +153,7 @@ public:
     bool errorOccurred() const { return m_errorOccurred; }
     bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
     
-    virtual void destroyDecodedData() {};
+    virtual void destroyDecodedData() { }
 
     void setDocLoader(DocLoader* docLoader) { m_docLoader = docLoader; }
     
@@ -164,11 +169,17 @@ public:
     bool isCacheValidator() const { return m_resourceToRevalidate; }
     CachedResource* resourceToRevalidate() const { return m_resourceToRevalidate; }
     
+    bool isPurgeable() const;
+    bool wasPurged() const;
+    
 protected:
     void setEncodedSize(unsigned);
     void setDecodedSize(unsigned);
     void didAccessDecodedData(double timeStamp);
 
+    bool makePurgeable(bool purgeable);
+    bool isSafeToMakePurgeable() const;
+    
     HashCountedSet<CachedResourceClient*> m_clients;
 
     String m_url;
@@ -177,6 +188,7 @@ protected:
 
     ResourceResponse m_response;
     RefPtr<SharedBuffer> m_data;
+    OwnPtr<PurgeableBuffer> m_purgeableData;
 
     Type m_type;
     Status m_status;

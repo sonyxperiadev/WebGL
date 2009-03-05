@@ -30,7 +30,7 @@
 #include "Profiler.h"
 
 #include "CommonIdentifiers.h"
-#include "ExecState.h"
+#include "CallFrame.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "Profile.h"
@@ -101,7 +101,7 @@ static inline void dispatchFunctionToProfiles(const Vector<RefPtr<ProfileGenerat
     }
 }
 
-void Profiler::willExecute(ExecState* exec, JSValue* function)
+void Profiler::willExecute(ExecState* exec, JSValuePtr function)
 {
     ASSERT(!m_currentProfiles.isEmpty());
 
@@ -117,7 +117,7 @@ void Profiler::willExecute(ExecState* exec, const UString& sourceURL, int starti
     dispatchFunctionToProfiles(m_currentProfiles, &ProfileGenerator::willExecute, callIdentifier, exec->lexicalGlobalObject()->profileGroup());
 }
 
-void Profiler::didExecute(ExecState* exec, JSValue* function)
+void Profiler::didExecute(ExecState* exec, JSValuePtr function)
 {
     ASSERT(!m_currentProfiles.isEmpty());
 
@@ -131,11 +131,11 @@ void Profiler::didExecute(ExecState* exec, const UString& sourceURL, int startin
     dispatchFunctionToProfiles(m_currentProfiles, &ProfileGenerator::didExecute, createCallIdentifier(&exec->globalData(), noValue(), sourceURL, startingLineNumber), exec->lexicalGlobalObject()->profileGroup());
 }
 
-CallIdentifier Profiler::createCallIdentifier(JSGlobalData* globalData, JSValue* function, const UString& defaultSourceURL, int defaultLineNumber)
+CallIdentifier Profiler::createCallIdentifier(JSGlobalData* globalData, JSValuePtr function, const UString& defaultSourceURL, int defaultLineNumber)
 {
     if (!function)
         return CallIdentifier(GlobalCodeExecution, defaultSourceURL, defaultLineNumber);
-    if (!function->isObject())
+    if (!function.isObject())
         return CallIdentifier("(unknown)", defaultSourceURL, defaultLineNumber);
     if (asObject(function)->inherits(&JSFunction::info))
         return createCallIdentifierFromFunctionImp(globalData, asFunction(function));
@@ -147,7 +147,7 @@ CallIdentifier Profiler::createCallIdentifier(JSGlobalData* globalData, JSValue*
 CallIdentifier createCallIdentifierFromFunctionImp(JSGlobalData* globalData, JSFunction* function)
 {
     const UString& name = function->name(globalData);
-    return CallIdentifier(name.isEmpty() ? AnonymousFunction : name, function->m_body->sourceURL(), function->m_body->lineNo());
+    return CallIdentifier(name.isEmpty() ? AnonymousFunction : name, function->body()->sourceURL(), function->body()->lineNo());
 }
 
 } // namespace JSC

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,11 +40,12 @@
 #import "runtime_object.h"
 #import "runtime_root.h"
 #import <JavaScriptCore/APICast.h>
-#import <runtime/ExecState.h>
+#import <interpreter/CallFrame.h>
+#import <runtime/InitializeThreading.h>
 #import <runtime/JSGlobalObject.h>
 #import <runtime/JSLock.h>
-#import <kjs/completion.h>
-#import <kjs/interpreter.h>
+#import <runtime/Completion.h>
+#import <runtime/Completion.h>
 
 #ifdef BUILDING_ON_TIGER
 typedef unsigned NSUInteger;
@@ -56,28 +57,27 @@ using namespace WebCore;
 
 namespace WebCore {
 
-typedef HashMap<JSObject*, NSObject*> JSWrapperMap;
-static JSWrapperMap* JSWrapperCache;
+static NSMapTable* JSWrapperCache;
 
 NSObject* getJSWrapper(JSObject* impl)
 {
     if (!JSWrapperCache)
         return nil;
-    return JSWrapperCache->get(impl);
+    return static_cast<NSObject*>(NSMapGet(JSWrapperCache, impl));
 }
 
 void addJSWrapper(NSObject* wrapper, JSObject* impl)
 {
     if (!JSWrapperCache)
-        JSWrapperCache = new JSWrapperMap;
-    JSWrapperCache->set(impl, wrapper);
+        JSWrapperCache = createWrapperCache();
+    NSMapInsert(JSWrapperCache, impl, wrapper);
 }
 
 void removeJSWrapper(JSObject* impl)
 {
     if (!JSWrapperCache)
         return;
-    JSWrapperCache->remove(impl);
+    NSMapRemove(JSWrapperCache, impl);
 }
 
 id createJSWrapper(JSC::JSObject* object, PassRefPtr<JSC::Bindings::RootObject> origin, PassRefPtr<JSC::Bindings::RootObject> root)
@@ -92,7 +92,7 @@ static void addExceptionToConsole(ExecState* exec)
     JSDOMWindow* window = asJSDOMWindow(exec->dynamicGlobalObject());
     if (!window || !exec->hadException())
         return;
-    window->impl()->console()->reportCurrentException(exec);
+    reportCurrentException(exec);
 }
 
 } // namespace WebCore
@@ -103,12 +103,13 @@ static void addExceptionToConsole(ExecState* exec)
 
 @implementation WebScriptObject
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 + (id)scriptObjectForJSObject:(JSObjectRef)jsObject originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
 {
@@ -246,9 +247,6 @@ static void _didExecute(WebScriptObject *obj)
 
 - (void)finalize
 {
-    if (_private->imp)
-        WebCore::removeJSWrapper(_private->imp);
-
     if (_private->rootObject && _private->rootObject->isValid())
         _private->rootObject->gcUnprotect(_private->imp);
 
@@ -288,9 +286,9 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     ASSERT(!exec->hadException());
 
-    JSValue* function = [self _imp]->get(exec, Identifier(exec, String(name)));
+    JSValuePtr function = [self _imp]->get(exec, Identifier(exec, String(name)));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone)
         return nil;
 
@@ -301,7 +299,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         return nil;
 
     [self _rootObject]->globalObject()->startTimeoutCheck();
-    JSValue* result = call(exec, function, callType, callData, [self _imp], argList);
+    JSValuePtr result = call(exec, function, callType, callData, [self _imp], argList);
     [self _rootObject]->globalObject()->stopTimeoutCheck();
 
     if (exec->hadException()) {
@@ -326,11 +324,11 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     ASSERT(!exec->hadException());
 
-    JSValue* result;
+    JSValuePtr result;
     JSLock lock(false);
     
     [self _rootObject]->globalObject()->startTimeoutCheck();
-    Completion completion = Interpreter::evaluate([self _rootObject]->globalObject()->globalExec(), [self _rootObject]->globalObject()->globalScopeChain(), makeSource(String(script)));
+    Completion completion = JSC::evaluate([self _rootObject]->globalObject()->globalExec(), [self _rootObject]->globalObject()->globalScopeChain(), makeSource(String(script)));
     [self _rootObject]->globalObject()->stopTimeoutCheck();
     ComplType type = completion.complType();
     
@@ -390,7 +388,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         // leaving the lock permanently held
         JSLock lock(false);
         
-        JSValue* result = [self _imp]->get(exec, Identifier(exec, String(key)));
+        JSValuePtr result = [self _imp]->get(exec, Identifier(exec, String(key)));
         
         if (exec->hadException()) {
             addExceptionToConsole(exec);
@@ -431,9 +429,10 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
 - (NSString *)stringRepresentation
 {
-    if (![self _isSafeScript])
+    if (![self _isSafeScript]) {
         // This is a workaround for a gcc 3.3 internal compiler error.
         return @"Undefined";
+    }
 
     JSLock lock(false);
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
@@ -456,7 +455,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLock lock(false);
-    JSValue* result = [self _imp]->get(exec, index);
+    JSValuePtr result = [self _imp]->get(exec, index);
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -505,16 +504,16 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return toRef([self _imp]);
 }
 
-+ (id)_convertValueToObjcValue:(JSValue*)value originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
++ (id)_convertValueToObjcValue:(JSValuePtr)value originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
 {
-    if (value->isObject()) {
+    if (value.isObject()) {
         JSObject* object = asObject(value);
         ExecState* exec = rootObject->globalObject()->globalExec();
         JSLock lock(false);
         
         if (object->classInfo() != &RuntimeObjectImp::s_info) {
-            JSValue* runtimeObject = object->get(exec, Identifier(exec, "__apple_runtime_object"));
-            if (runtimeObject && runtimeObject->isObject())
+            JSValuePtr runtimeObject = object->get(exec, Identifier(exec, "__apple_runtime_object"));
+            if (runtimeObject && runtimeObject.isObject())
                 object = asObject(runtimeObject);
         }
 
@@ -529,18 +528,18 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         return [WebScriptObject scriptObjectForJSObject:toRef(object) originRootObject:originRootObject rootObject:rootObject];
     }
 
-    if (value->isString()) {
+    if (value.isString()) {
         const UString& u = asString(value)->value();
         return [NSString stringWithCharacters:u.data() length:u.size()];
     }
 
-    if (value->isNumber())
-        return [NSNumber numberWithDouble:value->getNumber()];
+    if (value.isNumber())
+        return [NSNumber numberWithDouble:value.uncheckedGetNumber()];
 
-    if (value->isBoolean())
-        return [NSNumber numberWithBool:value->getBoolean()];
+    if (value.isBoolean())
+        return [NSNumber numberWithBool:value.getBoolean()];
 
-    if (value->isUndefined())
+    if (value.isUndefined())
         return [WebUndefined undefined];
 
     // jsNull is not returned as NSNull because existing applications do not expect
@@ -560,16 +559,17 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 @implementation WebScriptObject (WebKitCocoaBindings)
 
 #if 0 
-// FIXME: presence of 'count' method on WebScriptObject breaks Democracy player
-//        http://bugs.webkit.org/show_bug.cgi?id=13129
+
+// FIXME: We'd like to add this, but we can't do that until this issue is resolved:
+// http://bugs.webkit.org/show_bug.cgi?id=13129: presence of 'count' method on
+// WebScriptObject breaks Democracy player.
 
 - (unsigned)count
 {
     id length = [self valueForKey:@"length"];
-    if ([length respondsToSelector:@selector(intValue)])
-        return [length intValue];
-    else
+    if (![length respondsToSelector:@selector(intValue)])
         return 0;
+    return [length intValue];
 }
 
 #endif
@@ -583,8 +583,10 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
 @implementation WebUndefined
 
-+ (id)allocWithZone:(NSZone *)zone
++ (id)allocWithZone:(NSZone *)unusedZone
 {
+    UNUSED_PARAM(unusedZone);
+
     static WebUndefined *sharedUndefined = 0;
     if (!sharedUndefined)
         sharedUndefined = [super allocWithZone:NULL];
@@ -596,17 +598,22 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return @"undefined";
 }
 
-- (id)initWithCoder:(NSCoder *)coder
+- (id)initWithCoder:(NSCoder *)unusedCoder
 {
+    UNUSED_PARAM(unusedCoder);
+
     return self;
 }
 
-- (void)encodeWithCoder:(NSCoder *)encoder
+- (void)encodeWithCoder:(NSCoder *)unusedCoder
 {
+    UNUSED_PARAM(unusedCoder);
 }
 
-- (id)copyWithZone:(NSZone *)zone
+- (id)copyWithZone:(NSZone *)unusedZone
 {
+    UNUSED_PARAM(unusedZone);
+
     return self;
 }
 
@@ -642,4 +649,3 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 }
 
 @end
-

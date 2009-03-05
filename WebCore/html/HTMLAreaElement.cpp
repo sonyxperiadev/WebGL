@@ -35,13 +35,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAreaElement::HTMLAreaElement(Document *doc)
-    : HTMLAnchorElement(areaTag, doc)
+HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document *doc)
+    : HTMLAnchorElement(tagName, doc)
     , m_coords(0)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
     , m_shape(Unknown)
 {
+    ASSERT(hasTagName(areaTag));
 }
 
 HTMLAreaElement::~HTMLAreaElement()
@@ -86,10 +87,10 @@ bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestRe
 
 IntRect HTMLAreaElement::getRect(RenderObject* obj) const
 {
-    int dx, dy;
-    obj->absolutePosition(dx, dy);
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = obj->localToAbsolute();
     Path p = getRegion(m_lastSize);
-    p.translate(IntSize(dx, dy));
+    p.translate(absPos - FloatPoint());
     return enclosingIntRect(p.boundingRect());
 }
 

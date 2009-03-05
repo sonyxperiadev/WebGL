@@ -98,7 +98,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::javaScriptObjectsCount(
         return E_POINTER;
 
     JSLock lock(false);
-    *count = (UINT)JSDOMWindow::commonJSGlobalData()->heap.size();
+    *count = (UINT)JSDOMWindow::commonJSGlobalData()->heap.objectCount();
     return S_OK;
 }
 
@@ -192,7 +192,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::cachedFontDataCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) FontCache::fontDataCount();
+    *count = (UINT) fontCache()->fontDataCount();
     return S_OK;
 }
 
@@ -201,13 +201,13 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::cachedFontDataInactiveCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) FontCache::inactiveFontDataCount();
+    *count = (UINT) fontCache()->inactiveFontDataCount();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebCoreStatistics::purgeInactiveFontData(void)
 {
-    FontCache::purgeInactiveFontData();
+    fontCache()->purgeInactiveFontData();
     return S_OK;
 }
 

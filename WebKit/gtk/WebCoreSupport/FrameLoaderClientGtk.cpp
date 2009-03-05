@@ -22,7 +22,9 @@
 #include "config.h"
 #include "FrameLoaderClientGtk.h"
 
+#include "Color.h"
 #include "DocumentLoader.h"
+#include "FormState.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "FrameTree.h"
@@ -33,6 +35,7 @@
 #include "JSDOMWindow.h"
 #include "Language.h"
 #include "MIMETypeRegistry.h"
+#include "MouseEvent.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
 #include "PluginDatabase.h"
@@ -43,7 +46,10 @@
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
 #include "webkitwebview.h"
+#include "webkitnetworkrequest.h"
 #include "webkitwebframe.h"
+#include "webkitwebnavigationaction.h"
+#include "webkitwebpolicydecision.h"
 #include "webkitprivate.h"
 
 #include <JavaScriptCore/APICast.h>
@@ -59,10 +65,17 @@ namespace WebKit {
 FrameLoaderClient::FrameLoaderClient(WebKitWebFrame* frame)
     : m_frame(frame)
     , m_userAgent("")
+    , m_policyDecision(0)
     , m_pluginView(0)
     , m_hasSentResponseToPlugin(false)
 {
     ASSERT(m_frame);
+}
+
+FrameLoaderClient::~FrameLoaderClient()
+{
+    if (m_policyDecision)
+        g_object_unref(m_policyDecision);
 }
 
 static String agentPlatform()
@@ -188,6 +201,13 @@ void FrameLoaderClient::committedLoad(DocumentLoader* loader, const char* data, 
     }
 }
 
+bool
+FrameLoaderClient::shouldUseCredentialStorage(DocumentLoader*, unsigned long  identifier)
+{
+    notImplemented();
+    return false;
+}
+
 void FrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long  identifier, const AuthenticationChallenge&)
 {
     notImplemented();
@@ -231,6 +251,7 @@ void FrameLoaderClient::postProgressFinishedNotification()
 
 void FrameLoaderClient::frameLoaderDestroyed()
 {
+    webkit_web_frame_core_frame_gone(m_frame);
     g_object_unref(m_frame);
     m_frame = 0;
     delete this;
@@ -241,23 +262,42 @@ void FrameLoaderClient::dispatchDidReceiveResponse(DocumentLoader*, unsigned lon
     m_response = response;
 }
 
-void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction policyFunction, const String&, const ResourceRequest&)
+void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction policyFunction, const String& mimeType, const ResourceRequest& resourceRequest)
 {
-    // FIXME: we need to call directly here (comment copied from Qt version)
     ASSERT(policyFunction);
     if (!policyFunction)
         return;
-    (core(m_frame)->loader()->*policyFunction)(PolicyUse);
+
+    WebKitWebView* page = getViewFromFrame(m_frame);
+    WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
+
+    WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
+    if (m_policyDecision)
+        g_object_unref(m_policyDecision);
+    m_policyDecision = policyDecision;
+
+    gboolean isHandled = false;
+    g_signal_emit_by_name(page, "mime-type-policy-decision-requested", m_frame, request, mimeType.utf8().data(), policyDecision, &isHandled);
+
+    g_object_unref(request);
+
+    if (isHandled)
+        return;
+
+    if (canShowMIMEType(mimeType))
+        webkit_web_policy_decision_use (policyDecision);
+    else
+        webkit_web_policy_decision_download (policyDecision);
 }
 
-void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&)
+void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>, const String& s)
 {
     ASSERT(policyFunction);
     if (!policyFunction)
         return;
     // FIXME: I think Qt version marshals this to another thread so when we
     // have multi-threaded download, we might need to do the same
-    (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
+    (core(m_frame)->loader()->*policyFunction)(PolicyUse);
 }
 
 void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>)
@@ -269,17 +309,65 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     WebKitWebView* webView = getViewFromFrame(m_frame);
     WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
     WebKitNavigationResponse response;
-
+    /*
+     * We still support the deprecated navigation-requested signal, if the
+     * application doesn't ignore the navigation then the new signal is
+     * emitted.
+     * navigation-policy-decision-requested must be emitted after
+     * navigation-requested as the policy decision can be async.
+     */
     g_signal_emit_by_name(webView, "navigation-requested", m_frame, request, &response);
-
-    g_object_unref(request);
 
     if (response == WEBKIT_NAVIGATION_RESPONSE_IGNORE) {
         (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
+        g_object_unref(request);
         return;
     }
 
-    (core(m_frame)->loader()->*policyFunction)(PolicyUse);
+    WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
+    if (m_policyDecision)
+        g_object_unref(m_policyDecision);
+    m_policyDecision = policyDecision;
+
+    gint button = -1;
+    gint modifierFlags = 0;
+
+    const Event* event = action.event();
+    if (event && event->isMouseEvent()) {
+        const MouseEvent* mouseEvent = static_cast<const MouseEvent*>(event);
+        // DOM button values are 0, 1 and 2 for left, middle and right buttons.
+        // GTK+ uses 1, 2 and 3, so let's add 1 to remain consistent.
+        button = mouseEvent->button() + 1;
+    }
+
+    UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(event));
+    if (keyStateEvent) {
+        if (keyStateEvent->shiftKey())
+            modifierFlags |= GDK_SHIFT_MASK;
+        if (keyStateEvent->ctrlKey())
+            modifierFlags |= GDK_CONTROL_MASK;
+        if (keyStateEvent->altKey())
+            modifierFlags |= GDK_MOD1_MASK;
+        if (keyStateEvent->metaKey())
+            modifierFlags |= GDK_MOD2_MASK;
+    }
+
+    GObject* navigationAction = G_OBJECT(g_object_new(WEBKIT_TYPE_WEB_NAVIGATION_ACTION,
+                                                     "reason", kit(action.type()),
+                                                      "original-uri", action.url().string().utf8().data(),
+                                                      "button", button,
+                                                      "modifier-state", modifierFlags,
+                                                      NULL));
+
+    gboolean isHandled = false;
+    g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
+
+    g_object_unref(navigationAction);
+    g_object_unref(request);
+
+    // FIXME Implement default behavior when we can query the backend what protocols it supports
+    if (!isHandled)
+        webkit_web_policy_decision_use(m_policyDecision);
 }
 
 Widget* FrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
@@ -298,14 +386,14 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
     Frame* coreFrame = core(webFrame());
 
     ASSERT(core(getViewFromFrame(webFrame())) == coreFrame->page());
-    WebKitWebFrame* gtkFrame = WEBKIT_WEB_FRAME(webkit_web_frame_init_with_web_view(getViewFromFrame(webFrame()), ownerElement));
-    RefPtr<Frame> childFrame(adoptRef(core(gtkFrame)));
+
+    RefPtr<Frame> childFrame = webkit_web_frame_init_with_web_view(getViewFromFrame(webFrame()), ownerElement);
 
     coreFrame->tree()->appendChild(childFrame);
 
     childFrame->tree()->setName(name);
     childFrame->init();
-    childFrame->loader()->loadURL(url, referrer, String(), FrameLoadTypeRedirectWithLockedHistory, 0, 0);
+    childFrame->loader()->loadURL(url, referrer, String(), FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -459,11 +547,6 @@ void FrameLoaderClient::detachedFromParent3()
     notImplemented();
 }
 
-void FrameLoaderClient::loadedFromCachedPage()
-{
-    notImplemented();
-}
-
 void FrameLoaderClient::dispatchDidHandleOnloadEvents()
 {
     notImplemented();
@@ -540,14 +623,22 @@ void FrameLoaderClient::dispatchDidFirstLayout()
     notImplemented();
 }
 
-void FrameLoaderClient::dispatchShow()
+void FrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
 {
     notImplemented();
 }
 
+void FrameLoaderClient::dispatchShow()
+{
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    webkit_web_view_notify_ready(webView);
+}
+
 void FrameLoaderClient::cancelPolicyCheck()
 {
-    notImplemented();
+    //FIXME Add support for more than one policy decision at once
+    if (m_policyDecision)
+        webkit_web_policy_decision_cancel(m_policyDecision);
 }
 
 void FrameLoaderClient::dispatchDidLoadMainResource(DocumentLoader*)
@@ -576,10 +667,10 @@ bool FrameLoaderClient::canHandleRequest(const ResourceRequest&) const
     return true;
 }
 
-bool FrameLoaderClient::canShowMIMEType(const String&) const
+bool FrameLoaderClient::canShowMIMEType(const String& type) const
 {
-    notImplemented();
-    return true;
+    return MIMETypeRegistry::isSupportedImageMIMEType(type) || MIMETypeRegistry::isSupportedNonImageMIMEType(type) ||
+        PluginDatabase::installedPlugins()->isMIMETypeRegistered(type);
 }
 
 bool FrameLoaderClient::representationExistsForURLScheme(const String&) const
@@ -715,8 +806,16 @@ bool FrameLoaderClient::canCachePage() const
 
 Frame* FrameLoaderClient::dispatchCreatePage()
 {
-    notImplemented();
-    return 0;
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    WebKitWebView* newWebView = 0;
+
+    g_signal_emit_by_name(webView, "create-web-view", m_frame, &newWebView);
+
+    if (!newWebView)
+        return 0;
+
+    WebKitWebViewPrivate* privateData = WEBKIT_WEB_VIEW_GET_PRIVATE(newWebView);
+    return core(privateData->mainFrame);
 }
 
 void FrameLoaderClient::dispatchUnableToImplementPolicy(const ResourceError&)
@@ -738,57 +837,42 @@ void FrameLoaderClient::startDownload(const ResourceRequest&)
     notImplemented();
 }
 
-void FrameLoaderClient::updateGlobalHistory(const KURL&)
+void FrameLoaderClient::updateGlobalHistory()
 {
     notImplemented();
 }
 
-void FrameLoaderClient::savePlatformDataToCachedPage(CachedPage*)
+void FrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+{
+    notImplemented();
+}
+
+void FrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame*)
 {
 }
 
-void FrameLoaderClient::transitionToCommittedFromCachedPage(CachedPage*)
+void FrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame*)
 {
 }
 
 void FrameLoaderClient::transitionToCommittedForNewPage()
 {
+    WebKitWebView* containingWindow = getViewFromFrame(m_frame);
+    IntSize size = IntSize(GTK_WIDGET(containingWindow)->allocation.width,
+                           GTK_WIDGET(containingWindow)->allocation.height);
+    bool transparent = webkit_web_view_get_transparent(containingWindow);
+    Color backgroundColor = transparent ? WebCore::Color::transparent : WebCore::Color::white;
     Frame* frame = core(m_frame);
     ASSERT(frame);
 
-    Page* page = frame->page();
-    ASSERT(page);
+    WebCore::FrameLoaderClient::transitionToCommittedForNewPage(frame, size, backgroundColor, transparent, IntSize(), false);
 
-    WebKitWebView* containingWindow = getViewFromFrame(m_frame);
-    bool isMainFrame = frame == page->mainFrame();
+    // We need to do further manipulation on the FrameView if it was the mainFrame
+    if (frame != frame->page()->mainFrame())
+        return;
 
-    if (isMainFrame && frame->view())
-        frame->view()->setParentVisible(false);
-
-    frame->setView(0);
-
-    FrameView* frameView;
-    if (isMainFrame) {
-        IntSize size = IntSize(GTK_WIDGET(containingWindow)->allocation.width,
-                               GTK_WIDGET(containingWindow)->allocation.height);
-        frameView = new FrameView(frame, size);
-        WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
-        frameView->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment);
-    } else
-        frameView = new FrameView(frame);
-
-    frame->setView(frameView);
-    // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
-    frameView->deref();
-
-    if (isMainFrame)
-        frameView->setParentVisible(true);
-
-    if (frame->ownerRenderer())
-        frame->ownerRenderer()->setWidget(frameView);
-
-    if (HTMLFrameOwnerElement* owner = frame->ownerElement())
-        frame->view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
+    frame->view()->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment);
 }
 
 }

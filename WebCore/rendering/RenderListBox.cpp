@@ -2,6 +2,7 @@
  * This file is part of the select element renderer in WebCore.
  *
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *               2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,10 +42,10 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
-#include "HTMLOptGroupElement.h"
-#include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
 #include "HitTestResult.h"
+#include "OptionGroupElement.h"
+#include "OptionElement.h"
 #include "Page.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
@@ -103,10 +104,10 @@ void RenderListBox::updateFromElement()
             HTMLElement* element = listItems[i];
             String text;
             Font itemFont = style()->font();
-            if (element->hasTagName(optionTag))
-                text = static_cast<HTMLOptionElement*>(element)->optionText();
-            else if (element->hasTagName(optgroupTag)) {
-                text = static_cast<HTMLOptGroupElement*>(element)->groupLabelText();
+            if (OptionElement* optionElement = toOptionElement(element))
+                text = optionElement->textIndentedToRespectGroupLabel();
+            else if (OptionGroupElement* optionGroupElement = toOptionGroupElement(element)) {
+                text = optionGroupElement->groupLabelText();
                 FontDescription d = itemFont.fontDescription();
                 d.setWeight(d.bolderWeight());
                 itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
@@ -223,7 +224,7 @@ void RenderListBox::calcHeight()
     int toAdd = paddingTop() + paddingBottom() + borderTop() + borderBottom();
  
     int itemHeight = RenderListBox::itemHeight();
-    m_height = itemHeight * size() - rowSpacing + toAdd;
+    setHeight(itemHeight * size() - rowSpacing + toAdd);
     
     RenderBlock::calcHeight();
     
@@ -237,7 +238,7 @@ void RenderListBox::calcHeight()
     }
 }
 
-int RenderListBox::baselinePosition(bool b, bool isRootLineBox) const
+int RenderListBox::baselinePosition(bool, bool) const
 {
     return height() + marginTop() + marginBottom() - baselineAdjustment;
 }
@@ -295,13 +296,14 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     const Vector<HTMLElement*>& listItems = select->listItems();
     HTMLElement* element = listItems[listIndex];
+    OptionElement* optionElement = toOptionElement(element);
 
     String itemText;
-    if (element->hasTagName(optionTag))
-        itemText = static_cast<HTMLOptionElement*>(element)->optionText();
-    else if (element->hasTagName(optgroupTag))
-        itemText = static_cast<HTMLOptGroupElement*>(element)->groupLabelText();
-       
+    if (optionElement)
+        itemText = optionElement->textIndentedToRespectGroupLabel();
+    else if (OptionGroupElement* optionGroupElement = toOptionGroupElement(element))
+        itemText = optionGroupElement->groupLabelText();      
+
     // Determine where the item text should be placed
     IntRect r = itemBoundingBoxRect(tx, ty, listIndex);
     r.move(optionsSpacingHorizontal, style()->font().ascent());
@@ -311,7 +313,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
         itemStyle = style();
     
     Color textColor = element->renderStyle() ? element->renderStyle()->color() : style()->color();
-    if (element->hasTagName(optionTag) && static_cast<HTMLOptionElement*>(element)->selected()) {
+    if (optionElement && optionElement->selected()) {
         if (document()->frame()->selection()->isFocusedAndActive() && document()->focusedNode() == node())
             textColor = theme()->activeListBoxSelectionForegroundColor();
         // Honor the foreground color for disabled items
@@ -328,15 +330,14 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
         itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
         itemFont.update(document()->styleSelector()->fontSelector());
     }
-    paintInfo.context->setFont(itemFont);
-    
+
     unsigned length = itemText.length();
     const UChar* string = itemText.characters();
     TextRun textRun(string, length, 0, 0, 0, itemStyle->direction() == RTL, itemStyle->unicodeBidi() == Override, false, false);
 
     // Draw the item text
     if (itemStyle->visibility() != HIDDEN)
-        paintInfo.context->drawBidiText(textRun, r.location());
+        paintInfo.context->drawBidiText(itemFont, textRun, r.location());
 }
 
 void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, int listIndex)
@@ -344,9 +345,10 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, in
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     const Vector<HTMLElement*>& listItems = select->listItems();
     HTMLElement* element = listItems[listIndex];
+    OptionElement* optionElement = toOptionElement(element);
 
     Color backColor;
-    if (element->hasTagName(optionTag) && static_cast<HTMLOptionElement*>(element)->selected()) {
+    if (optionElement && optionElement->selected()) {
         if (document()->frame()->selection()->isFocusedAndActive() && document()->focusedNode() == node())
             backColor = theme()->activeListBoxSelectionBackgroundColor();
         else
@@ -368,9 +370,9 @@ bool RenderListBox::isPointInOverflowControl(HitTestResult& result, int _x, int 
         return false;
 
     IntRect vertRect(_tx + width() - borderRight() - m_vBar->width(),
-                   _ty + borderTop() - borderTopExtra(),
-                   m_vBar->width(),
-                   height() + borderTopExtra() + borderBottomExtra() - borderTop() - borderBottom());
+                     _ty,
+                     m_vBar->width(),
+                     height() - borderTop() - borderBottom());
 
     if (vertRect.contains(_x, _y)) {
         result.setScrollbar(m_vBar.get());
@@ -401,9 +403,8 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
     const int iconRadius = 7;
     const int speedReducer = 4;
 
-    int offsetX;
-    int offsetY;
-    absolutePosition(offsetX, offsetY);
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absOffset = localToAbsolute();
 
     IntPoint currentMousePosition = document()->frame()->eventHandler()->currentMousePosition();
     // We need to check if the current mouse position is out of the window. When the mouse is out of the window, the position is incoherent
@@ -423,7 +424,7 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
 
     if (yDelta > 0)
         //offsetY = view()->viewHeight();
-        offsetY += listHeight();
+        absOffset.move(0, listHeight());
    else if (yDelta < 0)
        yDelta--;
 
@@ -431,7 +432,7 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
     yDelta /= speedReducer;
 
     IntPoint scrollPoint(0,0);
-    scrollPoint.setY(offsetY + yDelta);
+    scrollPoint.setY(absOffset.y() + yDelta);
     int newOffset = scrollToward(scrollPoint);
     if (newOffset < 0) 
         return;
@@ -444,11 +445,10 @@ void RenderListBox::panScroll(const IntPoint& panStartMousePosition)
 
 int RenderListBox::scrollToward(const IntPoint& destination)
 {
-    int rx = 0;
-    int ry = 0;
-    absolutePosition(rx, ry);
-    int offsetX = destination.x() - rx;
-    int offsetY = destination.y() - ry;
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = localToAbsolute();
+    int offsetX = destination.x() - absPos.x();
+    int offsetY = destination.y() - absPos.y();
 
     int rows = numVisibleItems();
     int offset = m_indexOffset;
@@ -581,7 +581,7 @@ void RenderListBox::setScrollTop(int newTop)
 
 IntRect RenderListBox::controlClipRect(int tx, int ty) const
 {
-    IntRect clipRect = contentBox();
+    IntRect clipRect = contentBoxRect();
     clipRect.move(tx, ty);
     return clipRect;
 }
@@ -597,13 +597,6 @@ void RenderListBox::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect&
     IntRect scrollRect = rect;
     scrollRect.move(width() - borderRight() - scrollbar->width(), borderTop());
     repaintRectangle(scrollRect);
-}
-
-bool RenderListBox::isScrollable() const
-{
-    if (numVisibleItems() < numItems())
-        return true;
-    return RenderObject::isScrollable();
 }
 
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()

@@ -38,7 +38,10 @@
 #include "FloatConversion.h"
 #include "Frame.h"
 #include "HTMLNames.h"
+#include "MouseEvent.h"
+#include "RenderMedia.h"
 #include "RenderSlider.h"
+#include "RenderTheme.h"
 
 namespace WebCore {
 
@@ -50,7 +53,7 @@ static const float cStepTime = 0.07f;
 static const float cSeekTime = 0.2f;
 
 MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTMLMediaElement* mediaElement) 
-    : HTMLDivElement(doc)
+    : HTMLDivElement(divTag, doc)
     , m_mediaElement(mediaElement) 
 {
     RefPtr<RenderStyle> rootStyle = RenderStyle::create();
@@ -67,8 +70,42 @@ MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTML
 
 // ----------------------------
 
+MediaTextDisplayElement::MediaTextDisplayElement(Document* doc, RenderStyle::PseudoId pseudo, HTMLMediaElement* mediaElement) 
+    : HTMLDivElement(divTag, doc)
+    , m_mediaElement(mediaElement)
+{
+    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
+    RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
+    if (renderer) {
+        setRenderer(renderer);
+        renderer->setStyle(style);
+    }
+    setAttached();
+    setInDocument(true);
+}
+
+void MediaTextDisplayElement::attachToParent(Element* parent)
+{
+    parent->addChild(this);
+    if (renderer())
+        parent->renderer()->addChild(renderer());
+}
+
+void MediaTextDisplayElement::update()
+{
+    if (renderer())
+        renderer()->updateFromElement();
+}
+
+MediaTimeDisplayElement::MediaTimeDisplayElement(Document* doc, HTMLMediaElement* element, bool currentTime)
+    : MediaTextDisplayElement(doc, currentTime ? RenderStyle::MEDIA_CONTROLS_CURRENT_TIME_DISPLAY : RenderStyle::MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, element)
+{
+}
+
+// ----------------------------
+
 MediaControlInputElement::MediaControlInputElement(Document* doc, RenderStyle::PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement) 
-    : HTMLInputElement(doc)
+    : HTMLInputElement(inputTag, doc)
     , m_mediaElement(mediaElement)
 {
     setInputType(type);
@@ -92,6 +129,14 @@ void MediaControlInputElement::update()
 {
     if (renderer())
         renderer()->updateFromElement();
+}
+
+bool MediaControlInputElement::hitTest(const IntPoint& absPoint)
+{
+    if (renderer() && renderer()->style()->hasAppearance())
+        return theme()->hitTestMediaControlPart(renderer(), absPoint);
+
+    return false;
 }
 
 // ----------------------------
@@ -202,6 +247,7 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
         ExceptionCode ec;
         m_mediaElement->setCurrentTime(time, ec);
     }
+
     // Media element stays in non-paused state when it reaches end. If the slider is now dragged
     // to some other position the playback resumes which does not match usual media player UIs.
     // Get the expected behavior by pausing explicitly in this case.
@@ -209,10 +255,13 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
         ExceptionCode ec;
         m_mediaElement->pause(ec);
     }
+
     // Pause playback during drag, but do it without using DOM API which would generate events 
     bool inDragMode = slider && slider->inDragMode();
     if (inDragMode != oldInDragMode)
         m_mediaElement->setPausedInternal(inDragMode);
+    if (inDragMode)
+        static_cast<RenderMedia*>(m_mediaElement->renderer())->updateTimeDisplay();
 }
 
 void MediaControlTimelineElement::update(bool updateDuration) 

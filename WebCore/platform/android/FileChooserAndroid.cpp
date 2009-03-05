@@ -31,7 +31,10 @@
 namespace WebCore {
 
 String FileChooser::basenameForWidth(const Font& font, int width) const 
-{ 
+{
+    if (m_filenames.size() == 0) {
+        return String();
+    }
     // FIXME: This could be a lot faster, but assuming the data will not
     // often be much longer than the provided width, this may be fast enough.
     String output = m_filenames[0].copy();

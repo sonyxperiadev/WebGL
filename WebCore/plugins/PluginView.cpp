@@ -52,10 +52,12 @@
 #include "PluginPackage.h"
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
+#include "ScriptValue.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
+#include "RenderBox.h"
 #include "RenderObject.h"
 #include "c_instance.h"
 #include "npruntime_impl.h"
@@ -69,7 +71,7 @@
 using JSC::ExecState;
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::JSValue;
+using JSC::JSValuePtr;
 using JSC::UString;
 
 using std::min;
@@ -138,7 +140,7 @@ void PluginView::setFrameRect(const IntRect& rect)
 #endif
 }
 
-void PluginView::frameRectsChanged() const
+void PluginView::frameRectsChanged()
 {
     updatePluginWidget();
 }
@@ -210,14 +212,14 @@ static char* createUTF8String(const String& str)
     return result;
 }
 
-static bool getString(ScriptController* proxy, JSValue* result, String& string)
+static bool getString(ScriptController* proxy, JSValuePtr result, String& string)
 {
-    if (!proxy || !result || result->isUndefined())
+    if (!proxy || !result || result.isUndefined())
         return false;
     JSLock lock(false);
 
     ExecState* exec = proxy->globalObject()->globalExec();
-    UString ustring = result->toString(exec);
+    UString ustring = result.toString(exec);
     exec->clearException();
 
     string = ustring;
@@ -244,7 +246,7 @@ void PluginView::performRequest(PluginRequest* request)
             m_streams.add(stream);
             stream->start();
         } else {
-            m_parentFrame->loader()->load(request->frameLoadRequest().resourceRequest(), targetFrameName);
+            m_parentFrame->loader()->load(request->frameLoadRequest().resourceRequest(), targetFrameName, false);
       
             // FIXME: <rdar://problem/4807469> This should be sent when the document has finished loading
             if (request->sendNotification()) {
@@ -265,7 +267,7 @@ void PluginView::performRequest(PluginRequest* request)
     
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
-    JSValue* result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups());
+    JSValuePtr result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
 
     if (targetFrameName.isNull()) {
         String resultString;
@@ -426,6 +428,12 @@ NPError PluginView::setValue(NPPVariable variable, void* value)
     case NPPVpluginTransparentBool:
         m_isTransparent = value;
         return NPERR_NO_ERROR;
+#if defined(XP_MACOSX)
+    case NPPVpluginDrawingModel:
+        return NPERR_NO_ERROR;
+    case NPPVpluginEventModel:
+        return NPERR_NO_ERROR;
+#endif
     default:
 #ifdef PLUGIN_PLATFORM_SETVALUE
         return platformSetValue(variable, value);
@@ -551,7 +559,11 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_popPopupsStateTimer(this, &PluginView::popPopupsStateTimerFired)
     , m_paramNames(0)
     , m_paramValues(0)
+#if defined(XP_MACOSX)
+    , m_isWindowed(false)
+#else
     , m_isWindowed(true)
+#endif
     , m_isTransparent(false)
     , m_haveInitialized(false)
 #if PLATFORM(GTK) || defined(Q_WS_X11)
@@ -564,8 +576,9 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_pluginWndProc(0)
     , m_lastMessage(0)
     , m_isCallingPluginWndProc(false)
+    , m_wmPrintHDC(0)
 #endif
-#if PLATFORM(WIN_OS) && PLATFORM(QT)
+#if (PLATFORM(QT) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
     , m_window(0)
 #endif
     , m_loadManually(loadManually)
@@ -600,6 +613,9 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
 
 void PluginView::didReceiveResponse(const ResourceResponse& response)
 {
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     ASSERT(m_loadManually);
     ASSERT(!m_manualStream);
 
@@ -611,6 +627,9 @@ void PluginView::didReceiveResponse(const ResourceResponse& response)
 
 void PluginView::didReceiveData(const char* data, int length)
 {
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     ASSERT(m_loadManually);
     ASSERT(m_manualStream);
     
@@ -619,6 +638,9 @@ void PluginView::didReceiveData(const char* data, int length)
 
 void PluginView::didFinishLoading()
 {
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     ASSERT(m_loadManually);
     ASSERT(m_manualStream);
 
@@ -627,6 +649,9 @@ void PluginView::didFinishLoading()
 
 void PluginView::didFail(const ResourceError& error)
 {
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     ASSERT(m_loadManually);
     ASSERT(m_manualStream);
 
@@ -910,13 +935,37 @@ void PluginView::invalidateWindowlessPluginRect(const IntRect& rect)
     if (!isVisible())
         return;
     
-    RenderObject* renderer = m_element->renderer();
-    if (!renderer)
+    if (!m_element->renderer())
         return;
+    RenderBox* renderer = toRenderBox(m_element->renderer());
     
     IntRect dirtyRect = rect;
     dirtyRect.move(renderer->borderLeft() + renderer->paddingLeft(), renderer->borderTop() + renderer->paddingTop());
     renderer->repaintRectangle(dirtyRect);
+}
+
+void PluginView::paintMissingPluginIcon(GraphicsContext* context, const IntRect& rect)
+{
+    static RefPtr<Image> nullPluginImage;
+    if (!nullPluginImage) {
+        nullPluginImage = Image::loadPlatformResource("nullPlugin");
+    }
+
+    IntRect imageRect(frameRect().x(), frameRect().y(), nullPluginImage->width(), nullPluginImage->height());
+
+    int xOffset = (frameRect().width() - imageRect.width()) / 2;
+    int yOffset = (frameRect().height() - imageRect.height()) / 2;
+
+    imageRect.move(xOffset, yOffset);
+    
+    if (!rect.intersects(imageRect)) {
+        return;
+    }
+    
+    context->save();
+    context->clip(windowClipRect());
+    context->drawImage(nullPluginImage.get(), imageRect.location());
+    context->restore();
 }
 
 } // namespace WebCore

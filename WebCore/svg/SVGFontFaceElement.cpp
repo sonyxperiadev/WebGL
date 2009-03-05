@@ -34,6 +34,7 @@
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "Document.h"
+#include "Font.h"
 #include "SVGDefinitionSrcElement.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceSrcElement.h"
@@ -133,7 +134,7 @@ unsigned SVGFontFaceElement::unitsPerEm() const
 {
     const AtomicString& value = getAttribute(units_per_emAttr);
     if (value.isEmpty())
-        return 1000;
+        return defaultUnitsPerEm;
 
     return static_cast<unsigned>(ceilf(value.toFloat()));
 }

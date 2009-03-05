@@ -31,15 +31,17 @@
 #include "HTMLSelectElement.h"
 #include "RenderMenuList.h"
 #include "NodeRenderStyle.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLOptGroupElement::HTMLOptGroupElement(Document* doc, HTMLFormElement* f)
-    : HTMLFormControlElement(optgroupTag, doc, f)
+HTMLOptGroupElement::HTMLOptGroupElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
+    : HTMLFormControlElement(tagName, doc, f)
     , m_style(0)
 {
+    ASSERT(hasTagName(optgroupTag));
 }
 
 bool HTMLOptGroupElement::isFocusable() const
@@ -49,7 +51,7 @@ bool HTMLOptGroupElement::isFocusable() const
 
 const AtomicString& HTMLOptGroupElement::type() const
 {
-    static const AtomicString optgroup("optgroup");
+    DEFINE_STATIC_LOCAL(const AtomicString, optgroup, ("optgroup"));
     return optgroup;
 }
 
@@ -155,9 +157,8 @@ RenderStyle* HTMLOptGroupElement::nonRendererRenderStyle() const
 
 String HTMLOptGroupElement::groupLabelText() const
 {
-    String itemText = getAttribute(labelAttr);
+    String itemText = document()->displayStringModifiedByEncoding(getAttribute(labelAttr));
     
-    itemText.replace('\\', document()->backslashAsCurrencySymbol());
     // In WinIE, leading and trailing whitespace is ignored in options and optgroups. We match this behavior.
     itemText = itemText.stripWhiteSpace();
     // We want to collapse our whitespace too.  This will match other browsers.
@@ -178,7 +179,7 @@ HTMLSelectElement* HTMLOptGroupElement::ownerSelectElement() const
     return static_cast<HTMLSelectElement*>(select);
 }
 
-void HTMLOptGroupElement::accessKeyAction(bool sendToAnyElement)
+void HTMLOptGroupElement::accessKeyAction(bool)
 {
     HTMLSelectElement* select = ownerSelectElement();
     // send to the parent to bring focus to the list box

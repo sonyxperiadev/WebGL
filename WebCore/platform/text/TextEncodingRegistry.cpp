@@ -32,8 +32,11 @@
 #include "TextCodecUTF16.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
+#include <wtf/HashFunctions.h>
 #include <wtf/HashMap.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
+#include <wtf/Threading.h>
 
 #if USE(ICU_UNICODE)
 #include "TextCodecICU.h"
@@ -57,10 +60,6 @@ const size_t maxEncodingNameLength = 63;
 // it will properly skip those characters too.
 struct TextEncodingNameHash {
 
-    // Golden ratio - arbitrary start value to avoid mapping all 0's to all 0's
-    // or anything like that.
-    static const unsigned PHI = 0x9e3779b9U;
-
     static bool equal(const char* s1, const char* s2)
     {
         char c1;
@@ -83,7 +82,7 @@ struct TextEncodingNameHash {
     // http://burtleburtle.net/bob/hash/doobs.html
     static unsigned hash(const char* s)
     {
-        unsigned h = PHI;
+        unsigned h = WTF::stringHashingStartValue;
         for (;;) {
             char c;
             do {
@@ -112,6 +111,15 @@ struct TextCodecFactory {
 
 typedef HashMap<const char*, const char*, TextEncodingNameHash> TextEncodingNameMap;
 typedef HashMap<const char*, TextCodecFactory> TextCodecMap;
+
+static Mutex& encodingRegistryMutex()
+{
+    // We don't have to use AtomicallyInitializedStatic here because
+    // this function is called on the main thread for any page before
+    // it is used in worker threads.
+    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    return mutex;
+}
 
 static TextEncodingNameMap* textEncodingNameMap;
 static TextCodecMap* textCodecMap;
@@ -154,13 +162,17 @@ static void addToTextEncodingNameMap(const char* alias, const char* name)
 
 static void addToTextCodecMap(const char* name, NewTextCodecFunction function, const void* additionalData)
 {
-    TextEncoding encoding(name);
-    ASSERT(encoding.isValid());
-    textCodecMap->add(encoding.name(), TextCodecFactory(function, additionalData));
+    const char* atomicName = textEncodingNameMap->get(name);
+    ASSERT(atomicName);
+    textCodecMap->add(atomicName, TextCodecFactory(function, additionalData));
 }
 
 static void buildBaseTextCodecMaps()
 {
+    ASSERT(isMainThread());
+    ASSERT(!textCodecMap);
+    ASSERT(!textEncodingNameMap);
+
     textCodecMap = new TextCodecMap;
     textEncodingNameMap = new TextEncodingNameMap;
 
@@ -199,6 +211,8 @@ static void extendTextCodecMaps()
 
 std::auto_ptr<TextCodec> newTextCodec(const TextEncoding& encoding)
 {
+    MutexLocker lock(encodingRegistryMutex());
+
     ASSERT(textCodecMap);
     TextCodecFactory factory = textCodecMap->get(encoding.name());
     ASSERT(factory.function);
@@ -211,6 +225,9 @@ const char* atomicCanonicalTextEncodingName(const char* name)
         return 0;
     if (!textEncodingNameMap)
         buildBaseTextCodecMaps();
+
+    MutexLocker lock(encodingRegistryMutex());
+
     if (const char* atomicName = textEncodingNameMap->get(name))
         return atomicName;
     if (didExtendTextCodecMaps)
@@ -238,6 +255,7 @@ const char* atomicCanonicalTextEncodingName(const UChar* characters, size_t leng
 
 bool noExtendedTextEncodingNameUsed()
 {
+    // If the calling thread did not use extended encoding names, it is fine for it to use a stale false value.
     return !didExtendTextCodecMaps;
 }
 

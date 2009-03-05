@@ -59,11 +59,15 @@
 #ifndef Threading_h
 #define Threading_h
 
+#if PLATFORM(WIN_CE)
+#include <windows.h>
+#endif
+
 #include <wtf/Assertions.h>
 #include <wtf/Locker.h>
 #include <wtf/Noncopyable.h>
 
-#if PLATFORM(WIN_OS)
+#if PLATFORM(WIN_OS) && !PLATFORM(WIN_CE)
 #include <windows.h>
 #elif PLATFORM(DARWIN)
 #include <libkern/OSAtomic.h>
@@ -108,6 +112,7 @@ typedef void* (*ThreadFunction)(void* argument);
 
 // Returns 0 if thread creation failed
 ThreadIdentifier createThread(ThreadFunction, void*, const char* threadName);
+ThreadIdentifier createThreadInternal(ThreadFunction, void*, const char* threadName);
 
 ThreadIdentifier currentThread();
 bool isMainThread();
@@ -129,12 +134,15 @@ struct PlatformMutex {
     size_t m_recursionCount;
 };
 struct PlatformCondition {
-    size_t m_timedOut;
-    size_t m_blocked;
-    size_t m_waitingForRemoval;
-    HANDLE m_gate;
-    HANDLE m_queue;
-    HANDLE m_mutex;
+    size_t m_waitersGone;
+    size_t m_waitersBlocked;
+    size_t m_waitersToUnblock; 
+    HANDLE m_blockLock;
+    HANDLE m_blockQueue;
+    HANDLE m_unblockLock;
+
+    bool timedWait(PlatformMutex&, DWORD durationMilliseconds);
+    void signal(bool unblockAll);
 };
 #else
 typedef void* PlatformMutex;
@@ -164,8 +172,9 @@ public:
     ~ThreadCondition();
     
     void wait(Mutex& mutex);
-    // Returns true if the condition was signaled before the timeout, false if the timeout was reached
-    bool timedWait(Mutex&, double interval);
+    // Returns true if the condition was signaled before absoluteTime, false if the absoluteTime was reached or is in the past.
+    // The absoluteTime is in seconds, starting on January 1, 1970. The time is assumed to use the same time zone as WTF::currentTime().
+    bool timedWait(Mutex&, double absoluteTime);
     void signal();
     void broadcast();
     
@@ -176,7 +185,7 @@ private:
 #if PLATFORM(WIN_OS)
 #define WTF_USE_LOCKFREE_THREADSAFESHARED 1
 
-#if COMPILER(MINGW) || COMPILER(MSVC7)
+#if COMPILER(MINGW) || COMPILER(MSVC7) || PLATFORM(WIN_CE)
 inline void atomicIncrement(int* addend) { InterlockedIncrement(reinterpret_cast<long*>(addend)); }
 inline int atomicDecrement(int* addend) { return InterlockedDecrement(reinterpret_cast<long*>(addend)); }
 #else
@@ -258,14 +267,8 @@ private:
 // Darwin is an exception to this rule: it is OK to call it from any thread, the only requirement is that the calls are not reentrant.
 void initializeThreading();
 
-#if !PLATFORM(WIN_OS) || PLATFORM(WX)
-extern Mutex* atomicallyInitializedStaticMutex;
-inline void lockAtomicallyInitializedStaticMutex() { atomicallyInitializedStaticMutex->lock(); }
-inline void unlockAtomicallyInitializedStaticMutex() { atomicallyInitializedStaticMutex->unlock(); }
-#else
 void lockAtomicallyInitializedStaticMutex();
 void unlockAtomicallyInitializedStaticMutex();
-#endif
 
 } // namespace WTF
 

@@ -57,13 +57,14 @@
 @interface NSObject (WebPlugin)
 - (id)objectForWebScript;
 - (NPObject *)createPluginScriptableObject;
+- (PassRefPtr<JSC::Bindings::Instance>)createPluginBindingsInstance:(PassRefPtr<JSC::Bindings::RootObject>)rootObject;
 @end
 
 using namespace JSC::Bindings;
 
 namespace WebCore {
 
-PassRefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(Widget* widget)
+PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widget)
 {
     NSView* widgetView = widget->platformWidget();
     if (!widgetView)
@@ -71,6 +72,9 @@ PassRefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWid
 
     RefPtr<RootObject> rootObject = createRootObject(widgetView);
 
+    if ([widgetView respondsToSelector:@selector(createPluginBindingsInstance:)])
+        return [widgetView createPluginBindingsInstance:rootObject.release()];
+        
     if ([widgetView respondsToSelector:@selector(objectForWebScript)]) {
         id objectForWebScript = [widgetView objectForWebScript];
         if (!objectForWebScript)
@@ -117,7 +121,7 @@ WebScriptObject* ScriptController::windowScriptObject()
     return m_windowScriptObject.get();
 }
 
-void ScriptController::clearPlatformScriptObjects()
+void ScriptController::updatePlatformScriptObjects()
 {
     if (m_windowScriptObject) {
         JSC::Bindings::RootObject* root = bindingRootObject();
@@ -134,9 +138,10 @@ void ScriptController::disconnectPlatformScriptObjects()
 }
 
 #if ENABLE(MAC_JAVA_BRIDGE)
+
 static pthread_t mainThread;
 
-static void updateRenderingForBindings(JSC::ExecState* exec, JSC::JSObject* rootObject)
+static void updateRenderingForBindings(JSC::ExecState*, JSC::JSObject* rootObject)
 {
     if (pthread_self() != mainThread)
         return;
@@ -165,6 +170,7 @@ void ScriptController::initJavaJSBindings()
     JSC::Bindings::JavaJSObject::initializeJNIThreading();
     JSC::Bindings::Instance::setDidExecuteFunction(updateRenderingForBindings);
 }
+
 #endif
 
 }

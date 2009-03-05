@@ -315,6 +315,8 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitJavaScriptEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitPluginsEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitLocalStorageEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImagesPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImageLoopingPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDisplayImagesKey,
@@ -327,6 +329,12 @@ static WebCacheModel cacheModelForMainBundle(void)
         @"0",                           WebKitPDFScaleFactorPreferenceKey,
         @"0",                           WebKitUseSiteSpecificSpoofingPreferenceKey,
         [NSNumber numberWithInt:WebKitEditableLinkDefaultBehavior], WebKitEditableLinkBehaviorPreferenceKey,
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+        [NSNumber numberWithInt:WebTextDirectionSubmenuAutomaticallyIncluded],
+#else
+        [NSNumber numberWithInt:WebTextDirectionSubmenuNeverIncluded],
+#endif
+                                        WebKitTextDirectionSubmenuInclusionBehaviorPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitDOMPasteAllowedPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitUsesPageCachePreferenceKey,
         [NSNumber numberWithInt:cacheModelForMainBundle()], WebKitCacheModelPreferenceKey,
@@ -905,6 +913,23 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setIntegerValue:behavior forKey:WebKitEditableLinkBehaviorPreferenceKey];
 }
 
+- (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior
+{
+    WebTextDirectionSubmenuInclusionBehavior value = static_cast<WebTextDirectionSubmenuInclusionBehavior>([self _integerValueForKey:WebKitTextDirectionSubmenuInclusionBehaviorPreferenceKey]);
+    if (value != WebTextDirectionSubmenuNeverIncluded &&
+        value != WebTextDirectionSubmenuAutomaticallyIncluded &&
+        value != WebTextDirectionSubmenuAlwaysIncluded) {
+        // Ensure that a valid result is returned.
+        value = WebTextDirectionSubmenuNeverIncluded;
+    }
+    return value;
+}
+
+- (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior
+{
+    [self _setIntegerValue:behavior forKey:WebKitTextDirectionSubmenuInclusionBehaviorPreferenceKey];
+}
+
 - (BOOL)_useSiteSpecificSpoofing
 {
     return [self _boolValueForKey:WebKitUseSiteSpecificSpoofingPreferenceKey];
@@ -913,6 +938,26 @@ static WebCacheModel cacheModelForMainBundle(void)
 - (void)_setUseSiteSpecificSpoofing:(BOOL)newValue
 {
     [self _setBoolValue:newValue forKey:WebKitUseSiteSpecificSpoofingPreferenceKey];
+}
+
+- (BOOL)databasesEnabled
+{
+    return [self _boolValueForKey:WebKitDatabasesEnabledPreferenceKey];
+}
+
+- (void)setDatabasesEnabled:(BOOL)databasesEnabled
+{
+    [self _setBoolValue:databasesEnabled forKey:WebKitDatabasesEnabledPreferenceKey];
+}
+
+- (BOOL)localStorageEnabled
+{
+    return [self _boolValueForKey:WebKitLocalStorageEnabledPreferenceKey];
+}
+
+- (void)setLocalStorageEnabled:(BOOL)localStorageEnabled
+{
+    [self _setBoolValue:localStorageEnabled forKey:WebKitLocalStorageEnabledPreferenceKey];
 }
 
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)ident

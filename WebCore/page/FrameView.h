@@ -4,7 +4,7 @@
              (C) 1998, 1999 Torben Weis (weis@kde.org)
              (C) 1999 Lars Knoll (knoll@kde.org)
              (C) 1999 Antti Koivisto (koivisto@kde.org)
-   Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -39,11 +39,12 @@ class EventTargetNode;
 class Frame;
 class FrameViewPrivate;
 class IntRect;
-class PlatformMouseEvent;
 class Node;
+class PlatformMouseEvent;
 class RenderLayer;
 class RenderObject;
 class RenderPartObject;
+class ScheduledEvent;
 class String;
 
 template <typename T> class Timer;
@@ -75,6 +76,10 @@ public:
 
     virtual void setCanHaveScrollbars(bool);
 
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
+
+    virtual void setContentsSize(const IntSize&);
+
     void layout(bool allowSubtree = true);
     bool didFirstLayout() const;
     void layoutTimerFired(Timer<FrameView>*);
@@ -84,13 +89,13 @@ public:
     bool layoutPending() const;
 
     RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
-    int layoutCount() const;
+    int layoutCount() const { return m_layoutCount; }
 
     // These two helper functions just pass through to the RenderView.
     bool needsLayout() const;
     void setNeedsLayout();
 
-    bool needsFullRepaint() const;
+    bool needsFullRepaint() const { return m_doFullRepaint; }
 
     void resetScrollbars();
 
@@ -101,12 +106,14 @@ public:
 
     Color baseBackgroundColor() const;
     void setBaseBackgroundColor(Color);
+    void updateBackgroundRecursively(const Color&, bool);
 
     bool shouldUpdateWhileOffscreen() const;
     void setShouldUpdateWhileOffscreen(bool);
 
     void adjustViewSize();
     void initScrollbars();
+    void updateDefaultScrollbarState();
     
     virtual IntRect windowClipRect(bool clipToContents = true) const;
     IntRect windowClipRectForLayer(const RenderLayer*, bool clipToLayerContents) const;
@@ -114,7 +121,8 @@ public:
     virtual bool isActive() const;
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual void valueChanged(Scrollbar*);
-    
+    virtual void getTickmarks(Vector<IntRect>&) const;
+
     virtual IntRect windowResizerRect() const;
 
     virtual void scrollRectIntoViewRecursively(const IntRect&);
@@ -158,7 +166,10 @@ public:
     
     void layoutIfNeededRecursive();
 
+    void setIsVisuallyNonEmpty() { m_isVisuallyNonEmpty = true; }
+
 private:
+    void reset();
     void init();
 
     virtual bool isFrameView() const;
@@ -183,9 +194,62 @@ private:
     IntSize m_margins;
     OwnPtr<HashSet<RenderPartObject*> > m_widgetUpdateSet;
     RefPtr<Frame> m_frame;
-    FrameViewPrivate* d;
+
+    bool m_doFullRepaint;
+    
+    ScrollbarMode m_vmode;
+    ScrollbarMode m_hmode;
+    bool m_useSlowRepaints;
+    unsigned m_slowRepaintObjectCount;
+
+    int m_borderX, m_borderY;
+
+    Timer<FrameView> m_layoutTimer;
+    bool m_delayedLayout;
+    RenderObject* m_layoutRoot;
+    
+    bool m_layoutSchedulingEnabled;
+    bool m_midLayout;
+    int m_layoutCount;
+    unsigned m_nestedLayoutCount;
+    Timer<FrameView> m_postLayoutTasksTimer;
+    bool m_firstLayoutCallbackPending;
+
+    bool m_firstLayout;
+    bool m_needToInitScrollbars;
+    bool m_isTransparent;
+    Color m_baseBackgroundColor;
+    IntSize m_lastLayoutSize;
+    float m_lastZoomFactor;
+
+    String m_mediaType;
+    
+    unsigned m_enqueueEvents;
+    Vector<ScheduledEvent*> m_scheduledEvents;
+    
+    bool m_overflowStatusDirty;
+    bool m_horizontalOverflow;
+    bool m_verticalOverflow;    
+    RenderObject* m_viewportRenderer;
+
+    bool m_wasScrolledByUser;
+    bool m_inProgrammaticScroll;
+    
+    unsigned m_deferringRepaints;
+    unsigned m_repaintCount;
+    IntRect m_repaintRect;
+    Vector<IntRect> m_repaintRects;
+
+    bool m_shouldUpdateWhileOffscreen;
+
+    RefPtr<Node> m_nodeToDraw;
+    PaintRestriction m_paintRestriction;
+    bool m_isPainting;
+
+    bool m_isVisuallyNonEmpty;
+    bool m_firstVisuallyNonEmptyLayoutCallbackPending;
 };
 
-}
+} // namespace WebCore
 
-#endif
+#endif // FrameView_h

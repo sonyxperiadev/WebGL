@@ -3,6 +3,7 @@
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
+ * Coypright (C) 2008 Holger Hans Peter Freyther
  *
  * All rights reserved.
  *
@@ -197,12 +198,12 @@ bool FrameLoaderClientQt::hasWebView() const
     return true;
 }
 
-void FrameLoaderClientQt::savePlatformDataToCachedPage(CachedPage*) 
+void FrameLoaderClientQt::savePlatformDataToCachedFrame(CachedFrame*) 
 {
     notImplemented();
 }
 
-void FrameLoaderClientQt::transitionToCommittedFromCachedPage(CachedPage*)
+void FrameLoaderClientQt::transitionToCommittedFromCachedFrame(CachedFrame*)
 {
 }
 
@@ -211,28 +212,14 @@ void FrameLoaderClientQt::transitionToCommittedForNewPage()
     ASSERT(m_frame);
     ASSERT(m_webFrame);
 
-    Page* page = m_frame->page();
-    ASSERT(page);
-
-    bool isMainFrame = m_frame == page->mainFrame();
-
-    m_frame->setView(0);
-
-    FrameView* frameView;
-    if (isMainFrame)
-        frameView = new FrameView(m_frame, m_webFrame->page()->viewportSize());
-    else
-        frameView = new FrameView(m_frame);
-
-    m_frame->setView(frameView);
-    // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
-    frameView->deref();
-
-    if (m_webFrame && m_webFrame->page())
-        m_webFrame->d->updateBackground();
-
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(frameView);
+    QBrush brush = m_webFrame->page()->palette().brush(QPalette::Base);
+    QColor backgroundColor = brush.style() == Qt::SolidPattern ? brush.color() : QColor();
+    WebCore::FrameLoaderClient::transitionToCommittedForNewPage(m_frame, m_webFrame->page()->viewportSize(),
+                                                                backgroundColor, !backgroundColor.alpha(),
+                                                                m_webFrame->page()->fixedLayoutSize(),
+                                                                m_webFrame->page()->useFixedLayout(),
+                                                                (ScrollbarMode)m_webFrame->scrollBarPolicy(Qt::Horizontal),
+                                                                (ScrollbarMode)m_webFrame->scrollBarPolicy(Qt::Vertical));
 }
 
 
@@ -370,6 +357,12 @@ void FrameLoaderClientQt::dispatchDidFinishDocumentLoad()
     if (dumpFrameLoaderCallbacks)
         printf("%s - didFinishDocumentLoadForFrame\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)));
 
+    if (QWebPagePrivate::drtRun) {
+        int unloadEventCount = m_frame->eventHandler()->pendingFrameUnloadEventCount();
+        if (unloadEventCount)
+            printf("%s - has %u onunload handler(s)\n", qPrintable(drtDescriptionSuitableForTestResult(m_frame)), unloadEventCount);
+    }
+
     if (m_frame->tree()->parent() || !m_webFrame)
         return;
 
@@ -396,6 +389,10 @@ void FrameLoaderClientQt::dispatchDidFirstLayout()
         emit m_webFrame->initialLayoutCompleted();
 }
 
+void FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout()
+{
+    notImplemented();
+}
 
 void FrameLoaderClientQt::dispatchShow()
 {
@@ -541,7 +538,9 @@ void FrameLoaderClientQt::frameLoadCompleted()
 
 void FrameLoaderClientQt::restoreViewState()
 {
-    notImplemented();
+    if (!m_webFrame)
+        return;
+    emit m_webFrame->page()->restoreFrameStateRequested(m_webFrame);
 }
 
 
@@ -621,11 +620,15 @@ void FrameLoaderClientQt::registerForIconNotification(bool)
     notImplemented();
 }
 
-void FrameLoaderClientQt::updateGlobalHistory(const WebCore::KURL& url)
+void FrameLoaderClientQt::updateGlobalHistory()
 {
     QWebHistoryInterface *history = QWebHistoryInterface::defaultInterface();
     if (history)
-        history->addHistoryEntry(url.prettyURL());
+        history->addHistoryEntry(m_frame->loader()->documentLoader()->urlForHistory().prettyURL());
+}
+
+void FrameLoaderClientQt::updateGlobalHistoryForRedirectWithoutHistoryItem()
+{
 }
 
 bool FrameLoaderClientQt::shouldGoToHistoryItem(WebCore::HistoryItem *item) const
@@ -636,7 +639,7 @@ bool FrameLoaderClientQt::shouldGoToHistoryItem(WebCore::HistoryItem *item) cons
 void FrameLoaderClientQt::saveViewStateToItem(WebCore::HistoryItem* item)
 {
     QWebHistoryItem historyItem(new QWebHistoryItemPrivate(item));
-    emit m_webFrame->aboutToUpdateHistory(&historyItem);
+    emit m_webFrame->page()->saveFrameStateRequested(m_webFrame, &historyItem);
 }
 
 bool FrameLoaderClientQt::canCachePage() const
@@ -785,6 +788,13 @@ void FrameLoaderClientQt::dispatchWillSendRequest(WebCore::DocumentLoader*, unsi
     //qDebug() << "FrameLoaderClientQt::dispatchWillSendRequest" << request.isNull() << request.url().string`();
 }
 
+bool
+FrameLoaderClientQt::shouldUseCredentialStorage(DocumentLoader*, unsigned long)
+{
+    notImplemented();
+    return false;
+}
+
 void FrameLoaderClientQt::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long, const AuthenticationChallenge&)
 {
     notImplemented();
@@ -881,6 +891,12 @@ void FrameLoaderClientQt::dispatchDecidePolicyForNewWindowAction(FramePolicyFunc
     if (!page->d->acceptNavigationRequest(0, r, QWebPage::NavigationType(action.type()))) {
         if (action.type() == NavigationTypeFormSubmitted || action.type() == NavigationTypeFormResubmitted)
             m_frame->loader()->resetMultipleFormSubmissionProtection();
+
+        if (action.type() == NavigationTypeLinkClicked && r.url().hasFragment()) {
+            ResourceRequest emptyRequest;
+            m_frame->loader()->activeDocumentLoader()->setLastCheckedRequest(emptyRequest);
+        }
+
         slotCallPolicyFunction(PolicyIgnore);
         return;
     }
@@ -902,6 +918,12 @@ void FrameLoaderClientQt::dispatchDecidePolicyForNavigationAction(FramePolicyFun
     if (!page->d->acceptNavigationRequest(m_webFrame, r, QWebPage::NavigationType(action.type()))) {
         if (action.type() == NavigationTypeFormSubmitted || action.type() == NavigationTypeFormResubmitted)
             m_frame->loader()->resetMultipleFormSubmissionProtection();
+
+        if (action.type() == NavigationTypeLinkClicked && r.url().hasFragment()) {
+            ResourceRequest emptyRequest;
+            m_frame->loader()->activeDocumentLoader()->setLastCheckedRequest(emptyRequest);
+        }
+
         slotCallPolicyFunction(PolicyIgnore);
         return;
     }
@@ -944,13 +966,10 @@ PassRefPtr<Frame> FrameLoaderClientQt::createFrame(const KURL& url, const String
 
     RefPtr<Frame> childFrame = adoptRef(webFrame->d->frame);
 
-    // FIXME: All of the below should probably be moved over into WebCore
-    childFrame->tree()->setName(name);
-    m_frame->tree()->appendChild(childFrame);
     // ### set override encoding if we have one
 
     FrameLoadType loadType = m_frame->loader()->loadType();
-    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedHistory;
+    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedBackForwardList;
 
     childFrame->loader()->loadURL(frameData.url, frameData.referrer, String(), childLoadType, 0, 0);
 
@@ -985,7 +1004,7 @@ ObjectContentType FrameLoaderClientQt::objectContentType(const KURL& url, const 
     if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
         return ObjectContentNetscapePlugin;
 
-    if (m_frame->page() && m_frame->page()->pluginData()->supportsMimeType(mimeType))
+    if (m_frame->page() && m_frame->page()->pluginData() && m_frame->page()->pluginData()->supportsMimeType(mimeType))
         return ObjectContentOtherPlugin;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
@@ -1011,10 +1030,33 @@ class QtPluginWidget: public Widget
 {
 public:
     QtPluginWidget(QWidget* w = 0): Widget(w) {}
+    ~QtPluginWidget()
+    {
+        if (platformWidget())
+            platformWidget()->deleteLater();
+    }
     virtual void invalidateRect(const IntRect& r)
     { 
         if (platformWidget())
             platformWidget()->update(r);
+    }
+    virtual void frameRectsChanged()
+    {
+        if (!platformWidget())
+            return;
+
+        IntRect windowRect = convertToContainingWindow(IntRect(0, 0, frameRect().width(), frameRect().height()));
+        platformWidget()->setGeometry(windowRect);
+
+        ScrollView* parentScrollView = parent();
+        if (!parentScrollView)
+            return;
+
+        ASSERT(parentScrollView->isFrameView());
+        IntRect clipRect(static_cast<FrameView*>(parentScrollView)->windowClipRect());
+        clipRect.move(-windowRect.x(), -windowRect.y());
+        clipRect.intersect(platformWidget()->rect());
+        platformWidget()->setMask(QRegion(clipRect.x(), clipRect.y(), clipRect.width(), clipRect.height()));
     }
 };
 
@@ -1042,12 +1084,12 @@ Widget* FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, Element* el
     QString urlStr(url.string());
     QUrl qurl = urlStr;
 
-    QObject *object = 0;
+    QObject* object = 0;
 
     if (mimeType == "application/x-qt-plugin" || mimeType == "application/x-qt-styled-widget") {
         object = m_webFrame->page()->createPlugin(classid, qurl, params, values);
 #ifndef QT_NO_STYLE_STYLESHEET
-        QWidget *widget = qobject_cast<QWidget *>(object);
+        QWidget* widget = qobject_cast<QWidget*>(object);
         if (widget && mimeType == "application/x-qt-styled-widget") {
 
             QString styleSheet = element->getAttribute("style");
@@ -1077,12 +1119,15 @@ Widget* FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, Element* el
 #endif
 
         if (object) {
-            QWidget *widget = qobject_cast<QWidget *>(object);
-            QWidget *view = m_webFrame->page()->view();
-            if (widget && view) {
-                widget->setParent(view);
-                QtPluginWidget* w= new QtPluginWidget();
+            QWidget* widget = qobject_cast<QWidget*>(object);
+            if (widget) {
+                QWidget* view = m_webFrame->page()->view();
+                if (view)
+                    widget->setParent(view);
+                QtPluginWidget* w = new QtPluginWidget();
                 w->setPlatformWidget(widget);
+                // Make sure it's invisible until properly placed into the layout
+                w->setFrameRect(IntRect(0, 0, 0, 0));
                 return w;
             }
             // FIXME: make things work for widgetless plugins as well

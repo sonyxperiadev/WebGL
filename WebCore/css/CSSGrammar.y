@@ -29,7 +29,6 @@
 #include "CSSPropertyNames.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
-#include "CSSNthSelector.h"
 #include "CSSStyleSheet.h"
 #include "Document.h"
 #include "HTMLNames.h"
@@ -65,6 +64,7 @@ using namespace HTMLNames;
     CSSRule* rule;
     CSSRuleList* ruleList;
     CSSSelector* selector;
+    Vector<CSSSelector*>* selectorList;
     CSSSelector::Relation relation;
     MediaList* mediaList;
     MediaQuery* mediaQuery;
@@ -92,7 +92,9 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 
 %}
 
-%expect 48
+%expect 49
+
+%nonassoc LOWEST_PREC
 
 %left UNIMPORTANT_TOK
 
@@ -154,6 +156,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %token <number> DEGS
 %token <number> RADS
 %token <number> GRADS
+%token <number> TURNS
 %token <number> MSECS
 %token <number> SECS
 %token <number> HERZ
@@ -226,7 +229,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %type <selector> specifier_list
 %type <selector> simple_selector
 %type <selector> selector
-%type <selector> selector_list
+%type <selectorList> selector_list
 %type <selector> selector_with_trailing_whitespace
 %type <selector> class
 %type <selector> attrib
@@ -321,8 +324,11 @@ webkit_mediaquery:
 
 webkit_selector:
     WEBKIT_SELECTOR_SYM '{' maybe_space selector_list '}' {
-        CSSParser* p = static_cast<CSSParser*>(parser);
-        p->m_floatingSelector = p->sinkFloatingSelector($4);
+        if ($4) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            if (p->m_selectorListForParseSelector)
+                p->m_selectorListForParseSelector->adoptSelectorVector(*$4);
+        }
     }
 ;
 
@@ -345,7 +351,7 @@ maybe_charset:
 
 closing_brace:
     '}'
-  | %prec maybe_sgml TOKEN_EOF
+  | %prec LOWEST_PREC TOKEN_EOF
   ;
 
 charset:
@@ -789,7 +795,13 @@ ruleset:
 
 selector_list:
     selector %prec UNIMPORTANT_TOK {
-        $$ = $1;
+        if ($1) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            $$ = p->reusableSelectorVector();
+            deleteAllValues(*$$);
+            $$->shrink(0);
+            $$->append(p->sinkFloatingSelector($1));
+        }
     }
     | selector_list ',' maybe_space selector %prec UNIMPORTANT_TOK {
         if ($1 && $4) {
@@ -826,10 +838,10 @@ selector:
         else if ($$) {
             CSSParser* p = static_cast<CSSParser*>(parser);
             CSSSelector* end = $$;
-            while (end->m_tagHistory)
-                end = end->m_tagHistory;
+            while (end->tagHistory())
+                end = end->tagHistory();
             end->m_relation = CSSSelector::Descendant;
-            end->m_tagHistory = p->sinkFloatingSelector($1);
+            end->setTagHistory(p->sinkFloatingSelector($1));
             if (Document* doc = p->document())
                 doc->setUsesDescendantRules(true);
         }
@@ -841,10 +853,10 @@ selector:
         else if ($$) {
             CSSParser* p = static_cast<CSSParser*>(parser);
             CSSSelector* end = $$;
-            while (end->m_tagHistory)
-                end = end->m_tagHistory;
+            while (end->tagHistory())
+                end = end->tagHistory();
             end->m_relation = $2;
-            end->m_tagHistory = p->sinkFloatingSelector($1);
+            end->setTagHistory(p->sinkFloatingSelector($1));
             if ($2 == CSSSelector::Child) {
                 if (Document* doc = p->document())
                     doc->setUsesDescendantRules(true);
@@ -945,10 +957,10 @@ specifier_list:
             $$ = $1;
             CSSParser* p = static_cast<CSSParser*>(parser);
             CSSSelector* end = $1;
-            while (end->m_tagHistory)
-                end = end->m_tagHistory;
+            while (end->tagHistory())
+                end = end->tagHistory();
             end->m_relation = CSSSelector::SubSelector;
-            end->m_tagHistory = p->sinkFloatingSelector($2);
+            end->setTagHistory(p->sinkFloatingSelector($2));
         }
     }
     | specifier_list error {
@@ -963,7 +975,6 @@ specifier:
         $$->m_match = CSSSelector::Id;
         if (!p->m_strict)
             $1.lower();
-        $$->m_attr = idAttr;
         $$->m_value = $1;
     }
   | HEX {
@@ -975,7 +986,6 @@ specifier:
             $$->m_match = CSSSelector::Id;
             if (!p->m_strict)
                 $1.lower();
-            $$->m_attr = idAttr;
             $$->m_value = $1;
         }
     }
@@ -991,7 +1001,6 @@ class:
         $$->m_match = CSSSelector::Class;
         if (!p->m_strict)
             $2.lower();
-        $$->m_attr = classAttr;
         $$->m_value = $2;
     }
   ;
@@ -1010,12 +1019,12 @@ attr_name:
 attrib:
     '[' maybe_space attr_name ']' {
         $$ = static_cast<CSSParser*>(parser)->createFloatingSelector();
-        $$->m_attr = QualifiedName(nullAtom, $3, nullAtom);
+        $$->setAttribute(QualifiedName(nullAtom, $3, nullAtom));
         $$->m_match = CSSSelector::Set;
     }
     | '[' maybe_space attr_name match maybe_space ident_or_string maybe_space ']' {
         $$ = static_cast<CSSParser*>(parser)->createFloatingSelector();
-        $$->m_attr = QualifiedName(nullAtom, $3, nullAtom);
+        $$->setAttribute(QualifiedName(nullAtom, $3, nullAtom));
         $$->m_match = (CSSSelector::Match)$4;
         $$->m_value = $6;
     }
@@ -1023,16 +1032,16 @@ attrib:
         AtomicString namespacePrefix = $3;
         CSSParser* p = static_cast<CSSParser*>(parser);
         $$ = p->createFloatingSelector();
-        $$->m_attr = QualifiedName(namespacePrefix, $4,
-                                   p->m_styleSheet->determineNamespace(namespacePrefix));
+        $$->setAttribute(QualifiedName(namespacePrefix, $4,
+                                   p->m_styleSheet->determineNamespace(namespacePrefix)));
         $$->m_match = CSSSelector::Set;
     }
     | '[' maybe_space namespace_selector attr_name match maybe_space ident_or_string maybe_space ']' {
         AtomicString namespacePrefix = $3;
         CSSParser* p = static_cast<CSSParser*>(parser);
         $$ = p->createFloatingSelector();
-        $$->m_attr = QualifiedName(namespacePrefix, $4,
-                                   p->m_styleSheet->determineNamespace(namespacePrefix));
+        $$->setAttribute(QualifiedName(namespacePrefix, $4,
+                                   p->m_styleSheet->determineNamespace(namespacePrefix)));
         $$->m_match = (CSSSelector::Match)$5;
         $$->m_value = $7;
     }
@@ -1088,6 +1097,11 @@ pseudo:
             CSSParser* p = static_cast<CSSParser*>(parser);
             if (Document* doc = p->document())
                 doc->setUsesFirstLineRules(true);
+        } else if (type == CSSSelector::PseudoBefore ||
+                   type == CSSSelector::PseudoAfter) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            if (Document* doc = p->document())
+                doc->setUsesBeforeAfterRules(true);
         }
     }
     | ':' ':' IDENT {
@@ -1102,14 +1116,19 @@ pseudo:
             CSSParser* p = static_cast<CSSParser*>(parser);
             if (Document* doc = p->document())
                 doc->setUsesFirstLineRules(true);
+        } else if (type == CSSSelector::PseudoBefore ||
+                   type == CSSSelector::PseudoAfter) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            if (Document* doc = p->document())
+                doc->setUsesBeforeAfterRules(true);
         }
     }
     // used by :nth-*(ax+b)
     | ':' FUNCTION NTH ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
-        $$ = static_cast<CSSSelector*>(p->createFloatingNthSelector());
+        $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->m_argument = $3;
+        $$->setArgument($3);
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
         if (type == CSSSelector::PseudoUnknown)
@@ -1125,9 +1144,9 @@ pseudo:
     // used by :nth-*
     | ':' FUNCTION INTEGER ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
-        $$ = static_cast<CSSSelector*>(p->createFloatingNthSelector());
+        $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->m_argument = String::number($3);
+        $$->setArgument(String::number($3));
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
         if (type == CSSSelector::PseudoUnknown)
@@ -1143,9 +1162,9 @@ pseudo:
     // used by :nth-*(odd/even) and :lang
     | ':' FUNCTION IDENT ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
-        $$ = static_cast<CSSSelector*>(p->createFloatingNthSelector());
+        $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
-        $$->m_argument = $3;
+        $$->setArgument($3);
         $2.lower();
         $$->m_value = $2;
         CSSSelector::PseudoType type = $$->pseudoType();
@@ -1167,7 +1186,7 @@ pseudo:
             CSSParser* p = static_cast<CSSParser*>(parser);
             $$ = p->createFloatingSelector();
             $$->m_match = CSSSelector::PseudoClass;
-            $$->m_simpleSelector = p->sinkFloatingSelector($4);
+            $$->setSimpleSelector(p->sinkFloatingSelector($4));
             $2.lower();
             $$->m_value = $2;
         }
@@ -1348,10 +1367,10 @@ term:
       $$.string = $1;
   }
   /* We might need to actually parse the number from a dimension, but we can't just put something that uses $$.string into unary_term. */
-  | DIMEN maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_DIMENSION }
-  | unary_operator DIMEN maybe_space { $$.id = 0; $$.string = $2; $$.unit = CSSPrimitiveValue::CSS_DIMENSION }
+  | DIMEN maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_DIMENSION; }
+  | unary_operator DIMEN maybe_space { $$.id = 0; $$.string = $2; $$.unit = CSSPrimitiveValue::CSS_DIMENSION; }
   | URI maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_URI; }
-  | UNICODERANGE maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_UNICODE_RANGE }
+  | UNICODERANGE maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_UNICODE_RANGE; }
   | hexcolor { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_PARSER_HEXCOLOR; }
   | '#' maybe_space { $$.id = 0; $$.string = CSSParserString(); $$.unit = CSSPrimitiveValue::CSS_PARSER_HEXCOLOR; } /* Handle error case: "color: #;" */
   /* FIXME: according to the specs a function can have a unary_operator in front. I know no case where this makes sense */
@@ -1377,6 +1396,7 @@ unary_term:
   | DEGS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_DEG; }
   | RADS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_RAD; }
   | GRADS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_GRAD; }
+  | TURNS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_TURN; }
   | MSECS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_MS; }
   | SECS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_S; }
   | HERZ maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_HZ; }

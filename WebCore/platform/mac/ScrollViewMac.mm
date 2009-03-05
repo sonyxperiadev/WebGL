@@ -92,12 +92,17 @@ void ScrollView::platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode
     [scrollView() scrollingModes:&horizontal vertical:&vertical];
     END_BLOCK_OBJC_EXCEPTIONS;
 }
-    
-void ScrollView::platformSetCanBlitOnScroll()
+
+void ScrollView::platformSetCanBlitOnScroll(bool canBlitOnScroll)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [[scrollView() contentView] setCopiesOnScroll:canBlitOnScroll()];
+    [[scrollView() contentView] setCopiesOnScroll:canBlitOnScroll];
     END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+bool ScrollView::platformCanBlitOnScroll() const
+{
+    return [[scrollView() contentView] copiesOnScroll];
 }
 
 IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
@@ -152,7 +157,7 @@ bool ScrollView::platformScroll(ScrollDirection, ScrollGranularity)
 {
     // FIXME: It would be nice to implement this so that all of the code in WebFrameView could go away.
     notImplemented();
-    return true;
+    return false;
 }
 
 void ScrollView::platformRepaintContentRectangle(const IntRect& rect, bool now)

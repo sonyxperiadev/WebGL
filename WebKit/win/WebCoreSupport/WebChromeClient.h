@@ -97,6 +97,7 @@ public:
     virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint& p) const;
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect& r) const;
     virtual PlatformWidget platformWindow() const;
+    virtual void contentsSizeChanged(WebCore::Frame*, const WebCore::IntSize&) const;
 
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
@@ -116,6 +117,8 @@ public:
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
 
     WebView* webView() const { return m_webView; }
+
+    virtual void formStateDidChange(const WebCore::Node*) { }
 
 private:
     COMPtr<IWebUIDelegate> uiDelegate();

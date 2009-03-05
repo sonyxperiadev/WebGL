@@ -27,8 +27,9 @@
 #include "InsertTextCommand.h"
 
 #include "CharacterNames.h"
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
+#include "CSSPropertyNames.h"
 #include "Document.h"
 #include "Element.h"
 #include "EditingText.h"
@@ -55,13 +56,6 @@ void InsertTextCommand::doApply()
 Position InsertTextCommand::prepareForTextInsertion(const Position& p)
 {
     Position pos = p;
-    // If an anchor was removed and the selection hasn't changed, we restore it.
-    RefPtr<Node> anchor = document()->frame()->editor()->removedAnchor();
-    if (anchor) {
-        insertNodeAt(anchor.get(), pos);
-        document()->frame()->editor()->setRemovedAnchor(0);
-        pos = Position(anchor.get(), 0);
-    }
     // Prepare for text input by looking at the specified position.
     // It may be necessary to insert a text node to receive characters.
     if (!pos.node()->isTextNode()) {
@@ -147,10 +141,7 @@ void InsertTextCommand::input(const String& originalText, bool selectInsertedTex
     if (!startPosition.isCandidate())
         startPosition = startPosition.downstream();
     
-    // FIXME: This typing around anchor behavior doesn't exactly match TextEdit.  In TextEdit,
-    // you won't be placed inside a link when typing after it if you've just placed the caret
-    // there with the mouse.
-    startPosition = positionAvoidingSpecialElementBoundary(startPosition, false);
+    startPosition = positionAvoidingSpecialElementBoundary(startPosition);
     
     Position endPosition;
     
@@ -188,8 +179,23 @@ void InsertTextCommand::input(const String& originalText, bool selectInsertedTex
     // Handle the case where there is a typing style.
     CSSMutableStyleDeclaration* typingStyle = document()->frame()->typingStyle();
     RefPtr<CSSComputedStyleDeclaration> endingStyle = endPosition.computedStyle();
+    RefPtr<CSSValue> unicodeBidi;
+    RefPtr<CSSValue> direction;
+    if (typingStyle) {
+        unicodeBidi = typingStyle->getPropertyCSSValue(CSSPropertyUnicodeBidi);
+        direction = typingStyle->getPropertyCSSValue(CSSPropertyDirection);
+    }
     endingStyle->diff(typingStyle);
-    if (typingStyle && typingStyle->length() > 0)
+    if (typingStyle && unicodeBidi) {
+        ASSERT(unicodeBidi->isPrimitiveValue());
+        typingStyle->setProperty(CSSPropertyUnicodeBidi, static_cast<CSSPrimitiveValue*>(unicodeBidi.get())->getIdent());
+        if (direction) {
+            ASSERT(direction->isPrimitiveValue());
+            typingStyle->setProperty(CSSPropertyDirection, static_cast<CSSPrimitiveValue*>(direction.get())->getIdent());
+        }
+    }
+
+    if (typingStyle && typingStyle->length())
         applyStyle(typingStyle);
 
     if (!selectInsertedText)
@@ -226,7 +232,7 @@ Position InsertTextCommand::insertTab(const Position& pos)
             // insert the span before it.
             if (offset > 0)
                 splitTextNode(textNode, offset);
-            insertNodeBefore(spanNode.get(), textNode);
+            insertNodeBefore(spanNode, textNode);
         }
     }
     

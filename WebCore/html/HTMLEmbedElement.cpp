@@ -40,10 +40,11 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLEmbedElement::HTMLEmbedElement(Document* doc)
-    : HTMLPlugInImageElement(embedTag, doc)
+HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* doc)
+    : HTMLPlugInImageElement(tagName, doc)
     , m_needWidgetUpdate(false)
 {
+    ASSERT(hasTagName(embedTag));
 }
 
 HTMLEmbedElement::~HTMLEmbedElement()
@@ -101,11 +102,9 @@ void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
         if (renderer() && isImageType()) {
             if (!m_imageLoader)
                 m_imageLoader.set(new HTMLImageLoader(this));
-            m_imageLoader->updateFromElement();
+            m_imageLoader->updateFromElementIgnoringPreviousError();
         }
-    } else if (attr->name() == pluginpageAttr || attr->name() == pluginspageAttr)
-        m_pluginPage = value;
-    else if (attr->name() == hiddenAttr) {
+    } else if (attr->name() == hiddenAttr) {
         if (equalIgnoringCase(value.string(), "yes") || equalIgnoringCase(value.string(), "true")) {
             // FIXME: Not dynamic, since we add this but don't remove it, but it may be OK for now
             // that this rarely-used attribute won't work properly if you remove it.
@@ -141,7 +140,7 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
     return true;
 }
 
-RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     if (isImageType())
         return new (arena) RenderImage(this);
@@ -249,9 +248,11 @@ void HTMLEmbedElement::setType(const String& value)
     setAttribute(typeAttr, value);
 }
 
-void HTMLEmbedElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLEmbedElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(src());
+    HTMLPlugInImageElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(src()));
 }
 
 }

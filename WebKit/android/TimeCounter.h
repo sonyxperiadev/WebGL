@@ -28,7 +28,7 @@
 
 #ifdef ANDROID_INSTRUMENT
 
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -61,7 +61,7 @@ public:
 
     static void record(enum Type type, const char* functionName);
     static void recordNoCounter(enum Type type, const char* functionName);
-    static void report(const WebCore::KURL& , int live, int dead);
+    static void report(const WebCore::KURL& , int live, int dead, size_t arenaSize);
     static void reportNow();
     static void reset();
     static void start(enum Type type);
@@ -80,9 +80,9 @@ private:
 class TimeCounterAuto {
 public:
     TimeCounterAuto(TimeCounter::Type type) : 
-        m_type(type), m_startTime(WebCore::get_thread_msec()) {}
+        m_type(type), m_startTime(WTF::get_thread_msec()) {}
     ~TimeCounterAuto() {
-        uint32_t time = WebCore::get_thread_msec();
+        uint32_t time = WTF::get_thread_msec();
         TimeCounter::sEndWebCoreThreadTime = time;
         TimeCounter::sTotalTimeUsed[m_type] += time - m_startTime;
         TimeCounter::sCounter[m_type]++;

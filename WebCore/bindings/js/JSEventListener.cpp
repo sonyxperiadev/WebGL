@@ -61,10 +61,9 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
     if (!scriptExecutionContext)
         return;
 
-    Frame* frame = 0;
     if (scriptExecutionContext->isDocument()) {
         JSDOMWindow* window = static_cast<JSDOMWindow*>(globalObject);
-        frame = window->impl()->frame();
+        Frame* frame = window->impl()->frame();
         if (!frame)
             return;
         // The window must still be active in its frame. See <https://bugs.webkit.org/show_bug.cgi?id=21921>.
@@ -79,9 +78,9 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
 
     ExecState* exec = globalObject->globalExec();
 
-    JSValue* handleEventFunction = listener->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr handleEventFunction = listener->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = handleEventFunction->getCallData(callData);
+    CallType callType = handleEventFunction.getCallData(callData);
     if (callType == CallTypeNone) {
         handleEventFunction = noValue();
         callType = listener->getCallData(callData);
@@ -96,12 +95,18 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
         Event* savedEvent = globalObject->currentEvent();
         globalObject->setCurrentEvent(event);
 
-        JSValue* retval;
+        // If this event handler is the first JavaScript to execute, then the
+        // dynamic global object should be set to the global object of the
+        // window in which the event occurred.
+        JSGlobalData* globalData = globalObject->globalData();
+        DynamicGlobalObjectScope globalObjectScope(exec, globalData->dynamicGlobalObject ? globalData->dynamicGlobalObject : globalObject);
+
+        JSValuePtr retval;
         if (handleEventFunction) {
             globalObject->startTimeoutCheck();
             retval = call(exec, handleEventFunction, callType, callData, listener, args);
         } else {
-            JSValue* thisValue;
+            JSValuePtr thisValue;
             if (isWindowEvent)
                 thisValue = globalObject->toThisObject(exec);
             else
@@ -113,21 +118,20 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
 
         globalObject->setCurrentEvent(savedEvent);
 
-        if (exec->hadException()) {
-            // FIXME: Report exceptions in non-Document contexts.
-            if (frame)
-                frame->domWindow()->console()->reportCurrentException(exec);
-        } else {
-            if (!retval->isUndefinedOrNull() && event->storesResultAsString())
-                event->storeResult(retval->toString(exec));
+        if (exec->hadException())
+            reportCurrentException(exec);
+        else {
+            if (!retval.isUndefinedOrNull() && event->storesResultAsString())
+                event->storeResult(retval.toString(exec));
             if (m_isInline) {
                 bool retvalbool;
-                if (retval->getBoolean(retvalbool) && !retvalbool)
+                if (retval.getBoolean(retvalbool) && !retvalbool)
                     event->preventDefault();
             }
         }
 
-        Document::updateDocumentsRendering();
+        if (scriptExecutionContext->isDocument())
+            Document::updateDocumentsRendering();
         deref();
     }
 }
@@ -259,7 +263,7 @@ JSObject* JSLazyEventListener::listenerObj() const
 }
 
 // Helper function
-inline JSValue* eventParameterName(JSLazyEventListener::LazyEventListenerType type, ExecState* exec)
+inline JSValuePtr eventParameterName(JSLazyEventListener::LazyEventListenerType type, ExecState* exec)
 {
     switch (type) {
     case JSLazyEventListener::HTMLLazyEventListener:
@@ -279,10 +283,9 @@ void JSLazyEventListener::parseCode() const
     if (m_parsed)
         return;
 
-    Frame* frame = 0;
     if (globalObject()->scriptExecutionContext()->isDocument()) {
         JSDOMWindow* window = static_cast<JSDOMWindow*>(globalObject());
-        frame = window->impl()->frame();
+        Frame* frame = window->impl()->frame();
         if (!frame)
             return;
         // FIXME: Is this check needed for non-Document contexts?
@@ -316,8 +319,8 @@ void JSLazyEventListener::parseCode() const
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
         ScopeChain scope = listenerAsFunction->scope();
 
-        JSValue* thisObj = toJS(exec, m_originalNode);
-        if (thisObj->isObject()) {
+        JSValuePtr thisObj = toJS(exec, m_originalNode);
+        if (thisObj.isObject()) {
             static_cast<JSEventTargetNode*>(asObject(thisObj))->pushEventHandlerScope(exec, scope);
             listenerAsFunction->setScope(scope);
         }

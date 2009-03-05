@@ -49,7 +49,7 @@ void JSDocument::mark()
     markActiveObjectsForContext(*Heap::heap(this)->globalData(), impl());
 }
 
-JSValue* JSDocument::location(ExecState* exec) const
+JSValuePtr JSDocument::location(ExecState* exec) const
 {
     Frame* frame = static_cast<Document*>(impl())->frame();
     if (!frame)
@@ -58,13 +58,13 @@ JSValue* JSDocument::location(ExecState* exec) const
     return toJS(exec, frame->domWindow()->location());
 }
 
-void JSDocument::setLocation(ExecState* exec, JSValue* value)
+void JSDocument::setLocation(ExecState* exec, JSValuePtr value)
 {
     Frame* frame = static_cast<Document*>(impl())->frame();
     if (!frame)
         return;
 
-    String str = value->toString(exec);
+    String str = value.toString(exec);
 
     // IE and Mozilla both resolve the URL relative to the source frame,
     // not the target frame.
@@ -73,10 +73,10 @@ void JSDocument::setLocation(ExecState* exec, JSValue* value)
         str = activeFrame->document()->completeURL(str).string();
 
     bool userGesture = activeFrame->script()->processingUserGesture();
-    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), false, userGesture);
+    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
 }
 
-JSValue* toJS(ExecState* exec, Document* document)
+JSValuePtr toJS(ExecState* exec, Document* document)
 {
     if (!document)
         return jsNull();

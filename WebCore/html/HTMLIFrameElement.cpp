@@ -34,9 +34,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLIFrameElement::HTMLIFrameElement(Document* doc)
-    : HTMLFrameElementBase(iframeTag, doc)
+HTMLIFrameElement::HTMLIFrameElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
+    : HTMLFrameElementBase(tagName, doc, createdByParser)
 {
+    ASSERT(hasTagName(iframeTag));
 }
 
 bool HTMLIFrameElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const

@@ -76,17 +76,17 @@ void RenderFrame::layout()
             root = static_cast<RenderView*>(view->frame()->document()->renderer());
         if (root) {
             // Resize the widget so that the RenderView will layout according to those dimensions.
-            view->resize(m_width, m_height);
+            view->resize(width(), height());
             view->layout();
             // We can only grow in width and height because if positionFrames gives us a width and we become smaller,
             // then the fixup process of forcing the frame to fill extra space will fail.
-            if (m_width > root->docWidth()) {
+            if (width() > root->docWidth()) {
                 view->resize(root->docWidth(), 0);
                 view->layout();
             }
             // Honor the height set by RenderFrameSet::positionFrames unless our document height is larger.
-            m_height = max(root->docHeight(), m_height);
-            m_width = max(root->docWidth(), m_width);
+            setHeight(max(root->docHeight(), height()));
+            setWidth(max(root->docWidth(), width()));
         }
     }
     setNeedsLayout(false);

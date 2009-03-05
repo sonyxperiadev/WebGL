@@ -30,7 +30,6 @@
 #include "JSCustomVoidCallback.h"
 
 #include "CString.h"
-#include "Console.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "JSDOMWindowCustom.h"
@@ -61,9 +60,9 @@ void JSCustomVoidCallback::handleEvent()
         
     JSC::JSLock lock(false);
         
-    JSValue* function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_callback->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -82,14 +81,14 @@ void JSCustomVoidCallback::handleEvent()
     globalObject->stopTimeoutCheck();
         
     if (exec->hadException())
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
         
     Document::updateDocumentsRendering();
 }
  
-PassRefPtr<VoidCallback> toVoidCallback(ExecState* exec, JSValue* value)
+PassRefPtr<VoidCallback> toVoidCallback(ExecState* exec, JSValuePtr value)
 {
-    JSObject* object = value->getObject();
+    JSObject* object = value.getObject();
     if (!object)
         return 0;
     

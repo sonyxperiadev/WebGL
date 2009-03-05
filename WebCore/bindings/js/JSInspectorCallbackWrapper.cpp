@@ -27,6 +27,7 @@
 #include "JSInspectorCallbackWrapper.h"
 
 #include "JSInspectedObjectWrapper.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace JSC;
 
@@ -38,23 +39,23 @@ typedef HashMap<JSObject*, JSInspectorCallbackWrapper*> WrapperMap;
 
 static WrapperMap& wrappers()
 {
-    static WrapperMap map;
+    DEFINE_STATIC_LOCAL(WrapperMap, map, ());
     return map;
 }
 
 const ClassInfo JSInspectorCallbackWrapper::s_info = { "JSInspectorCallbackWrapper", &JSQuarantinedObjectWrapper::s_info, 0, 0 };
 
-static StructureID* leakInspectorCallbackWrapperStructure()
+static Structure* leakInspectorCallbackWrapperStructure()
 {
-    StructureID::startIgnoringLeaks();
-    StructureID* structure = JSInspectorCallbackWrapper::createStructureID(jsNull()).releaseRef();
-    StructureID::stopIgnoringLeaks();
+    Structure::startIgnoringLeaks();
+    Structure* structure = JSInspectorCallbackWrapper::createStructure(jsNull()).releaseRef();
+    Structure::stopIgnoringLeaks();
     return structure;
 }
 
-JSValue* JSInspectorCallbackWrapper::wrap(ExecState* unwrappedExec, JSValue* unwrappedValue)
+JSValuePtr JSInspectorCallbackWrapper::wrap(ExecState* unwrappedExec, JSValuePtr unwrappedValue)
 {
-    if (!unwrappedValue->isObject())
+    if (!unwrappedValue.isObject())
         return unwrappedValue;
 
     JSObject* unwrappedObject = asObject(unwrappedValue);
@@ -65,18 +66,18 @@ JSValue* JSInspectorCallbackWrapper::wrap(ExecState* unwrappedExec, JSValue* unw
     if (JSInspectorCallbackWrapper* wrapper = wrappers().get(unwrappedObject))
         return wrapper;
 
-    JSValue* prototype = unwrappedObject->prototype();
-    ASSERT(prototype->isNull() || prototype->isObject());
+    JSValuePtr prototype = unwrappedObject->prototype();
+    ASSERT(prototype.isNull() || prototype.isObject());
 
-    if (prototype->isNull()) {
-        static StructureID* structure = leakInspectorCallbackWrapperStructure();
+    if (prototype.isNull()) {
+        static Structure* structure = leakInspectorCallbackWrapperStructure();
         return new (unwrappedExec) JSInspectorCallbackWrapper(unwrappedExec, unwrappedObject, structure);
     }
     return new (unwrappedExec) JSInspectorCallbackWrapper(unwrappedExec, unwrappedObject, asObject(wrap(unwrappedExec, prototype))->inheritorID());
 }
 
-JSInspectorCallbackWrapper::JSInspectorCallbackWrapper(ExecState* unwrappedExec, JSObject* unwrappedObject, PassRefPtr<StructureID> structureID)
-    : JSQuarantinedObjectWrapper(unwrappedExec, unwrappedObject, structureID)
+JSInspectorCallbackWrapper::JSInspectorCallbackWrapper(ExecState* unwrappedExec, JSObject* unwrappedObject, PassRefPtr<Structure> structure)
+    : JSQuarantinedObjectWrapper(unwrappedExec, unwrappedObject, structure)
 {
     ASSERT(!wrappers().contains(unwrappedObject));
     wrappers().set(unwrappedObject, this);
@@ -87,7 +88,7 @@ JSInspectorCallbackWrapper::~JSInspectorCallbackWrapper()
     wrappers().remove(unwrappedObject());
 }
 
-JSValue* JSInspectorCallbackWrapper::prepareIncomingValue(ExecState* unwrappedExec, JSValue* unwrappedValue) const
+JSValuePtr JSInspectorCallbackWrapper::prepareIncomingValue(ExecState* unwrappedExec, JSValuePtr unwrappedValue) const
 {
     if (JSQuarantinedObjectWrapper* wrapper = asWrapper(unwrappedValue)) {
         // The only time a wrapper should be passed into a JSInspectorCallbackWrapper is when a client-side storage callback

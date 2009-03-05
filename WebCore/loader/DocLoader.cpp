@@ -48,7 +48,6 @@ namespace WebCore {
 
 DocLoader::DocLoader(Document* doc)
     : m_cache(cache())
-    , m_cachePolicy(CachePolicyVerify)
     , m_doc(doc)
     , m_requestCount(0)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
@@ -64,8 +63,8 @@ DocLoader::DocLoader(Document* doc)
 DocLoader::~DocLoader()
 {
     clearPreloads();
-    HashMap<String, CachedResource*>::iterator end = m_docResources.end();
-    for (HashMap<String, CachedResource*>::iterator it = m_docResources.begin(); it != end; ++it)
+    DocumentResourceMap::iterator end = m_documentResources.end();
+    for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it)
         it->second->setDocLoader(0);
     m_cache->removeDocLoader(this);
 }
@@ -82,25 +81,36 @@ void DocLoader::checkForReload(const KURL& fullURL)
 
     if (fullURL.isEmpty())
         return;
+    
+    if (m_reloadedURLs.contains(fullURL.string()))
+        return;
+    
+    CachedResource* existing = cache()->resourceForURL(fullURL.string());
+    if (!existing || existing->isPreloaded())
+        return;
 
-    if (m_cachePolicy == CachePolicyVerify || m_cachePolicy == CachePolicyCache) {
-       if (!m_reloadedURLs.contains(fullURL.string())) {
-          CachedResource* existing = cache()->resourceForURL(fullURL.string());
-          if (existing && !existing->isPreloaded() && existing->mustRevalidate(m_cachePolicy)) {
-              cache()->revalidateResource(existing, this);
-              m_reloadedURLs.add(fullURL.string());
-          }
-       }
-    } else if ((m_cachePolicy == CachePolicyReload) || (m_cachePolicy == CachePolicyRefresh)) {
-       if (!m_reloadedURLs.contains(fullURL.string())) {
-           CachedResource* existing = cache()->resourceForURL(fullURL.string());
-           if (existing && !existing->isPreloaded()) {
-               // FIXME: Use revalidateResource() to implement HTTP 1.1 "Specific end-to-end revalidation" for regular reloading
-               cache()->remove(existing);
-               m_reloadedURLs.add(fullURL.string());
-           }
-       }
+    switch (cachePolicy()) {
+    case CachePolicyVerify:
+        if (!existing->mustRevalidate(CachePolicyVerify))
+            return;
+        cache()->revalidateResource(existing, this);
+        break;
+    case CachePolicyCache:
+        if (!existing->mustRevalidate(CachePolicyCache))
+            return;
+        cache()->revalidateResource(existing, this);
+        break;
+    case CachePolicyReload:
+        cache()->remove(existing);        
+        break;
+    case CachePolicyRevalidate:
+        cache()->revalidateResource(existing, this);
+        break;
+    default:
+        ASSERT_NOT_REACHED();
     }
+
+    m_reloadedURLs.add(fullURL.string());
 }
 
 CachedImage* DocLoader::requestImage(const String& url)
@@ -189,20 +199,17 @@ CachedResource* DocLoader::requestResource(CachedResource::Type type, const Stri
 {
     KURL fullURL = m_doc->completeURL(url);
 
-    if (!canRequest(type, fullURL))
+    if (!fullURL.isValid() || !canRequest(type, fullURL))
         return 0;
 
     if (cache()->disabled()) {
-        HashMap<String, CachedResource*>::iterator it = m_docResources.find(fullURL.string());
+        DocumentResourceMap::iterator it = m_documentResources.find(fullURL.string());
         
-        if (it != m_docResources.end()) {
+        if (it != m_documentResources.end()) {
             it->second->setDocLoader(0);
-            m_docResources.remove(it);
+            m_documentResources.remove(it);
         }
     }
-
-    if (frame() && frame()->loader()->isReloading())
-        setCachePolicy(CachePolicyReload);
 
     checkForReload(fullURL);
     CachedResource* resource = cache()->requestResource(this, type, fullURL, charset, isPreload);
@@ -212,7 +219,7 @@ CachedResource* DocLoader::requestResource(CachedResource::Type type, const Stri
         if (!canRequest(type, KURL(resource->url())))
             return 0;
 
-        m_docResources.set(resource->url(), resource);
+        m_documentResources.set(resource->url(), resource);
         checkCacheObjectStatus(resource);
     }
     return resource;
@@ -252,9 +259,9 @@ void DocLoader::setAutoLoadImages(bool enable)
     if (!m_autoLoadImages)
         return;
 
-    HashMap<String, CachedResource*>::iterator end = m_docResources.end();
-    for (HashMap<String, CachedResource*>::iterator it = m_docResources.begin(); it != end; ++it) {
-        CachedResource* resource = it->second;
+    DocumentResourceMap::iterator end = m_documentResources.end();
+    for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it) {
+        CachedResource* resource = it->second.get();
         if (resource->type() == CachedResource::ImageResource) {
             CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage*>(resource));
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
@@ -291,9 +298,9 @@ void DocLoader::setBlockNetworkImage(bool block)
     if (!m_autoLoadImages || m_blockNetworkImage)
         return;
 
-    HashMap<String, CachedResource*>::iterator end = m_docResources.end();
-    for (HashMap<String, CachedResource*>::iterator it = m_docResources.begin(); it != end; ++it) {
-        CachedResource* resource = it->second;
+    DocumentResourceMap::iterator end = m_documentResources.end();
+    for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it) {
+        CachedResource* resource = it->second.get();
         if (resource->type() == CachedResource::ImageResource) {
             CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage*>(resource));
             if (image->stillNeedsLoad())
@@ -303,14 +310,14 @@ void DocLoader::setBlockNetworkImage(bool block)
 }
 #endif
 
-void DocLoader::setCachePolicy(CachePolicy cachePolicy)
+CachePolicy DocLoader::cachePolicy() const
 {
-    m_cachePolicy = cachePolicy;
+    return frame() ? frame()->loader()->cachePolicy() : CachePolicyVerify;
 }
 
 void DocLoader::removeCachedResource(CachedResource* resource) const
 {
-    m_docResources.remove(resource->url());
+    m_documentResources.remove(resource->url());
 }
 
 void DocLoader::setLoadInProgress(bool load)

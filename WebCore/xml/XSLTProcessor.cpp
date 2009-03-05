@@ -36,7 +36,7 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLDocument.h"
-#include "HTMLTokenizer.h"
+#include "HTMLTokenizer.h" // for parseHTMLDocumentFragment
 #include "Page.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
@@ -74,7 +74,7 @@ SOFT_LINK(libxslt, xsltNextImport, xsltStylesheetPtr, (xsltStylesheetPtr style),
 
 namespace WebCore {
 
-void XSLTProcessor::genericErrorFunc(void* userData, const char* msg, ...)
+void XSLTProcessor::genericErrorFunc(void*, const char*, ...)
 {
     // It would be nice to do something with this error message.
 }
@@ -107,7 +107,7 @@ void XSLTProcessor::parseErrorFunc(void* userData, xmlError* error)
 static XSLTProcessor* globalProcessor = 0;
 static DocLoader* globalDocLoader = 0;
 static xmlDocPtr docLoaderFunc(const xmlChar* uri,
-                                    xmlDictPtr dict,
+                                    xmlDictPtr,
                                     int options,
                                     void* ctxt,
                                     xsltLoadType type)
@@ -284,7 +284,7 @@ PassRefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourc
     return result.release();
 }
 
-static inline RefPtr<DocumentFragment> createFragmentFromSource(const String& sourceString, const String& sourceMIMEType, Node* sourceNode, Document* outputDoc)
+static inline RefPtr<DocumentFragment> createFragmentFromSource(const String& sourceString, const String& sourceMIMEType, Document* outputDoc)
 {
     RefPtr<DocumentFragment> fragment = new DocumentFragment(outputDoc);
     
@@ -433,24 +433,24 @@ PassRefPtr<DocumentFragment> XSLTProcessor::transformToFragment(Node* sourceNode
     
     if (!transformToString(sourceNode, resultMIMEType, resultString, resultEncoding))
         return 0;
-    return createFragmentFromSource(resultString, resultMIMEType, sourceNode, outputDoc);
+    return createFragmentFromSource(resultString, resultMIMEType, outputDoc);
 }
 
-void XSLTProcessor::setParameter(const String& namespaceURI, const String& localName, const String& value)
+void XSLTProcessor::setParameter(const String& /*namespaceURI*/, const String& localName, const String& value)
 {
     // FIXME: namespace support?
     // should make a QualifiedName here but we'd have to expose the impl
     m_parameters.set(localName, value);
 }
 
-String XSLTProcessor::getParameter(const String& namespaceURI, const String& localName) const
+String XSLTProcessor::getParameter(const String& /*namespaceURI*/, const String& localName) const
 {
     // FIXME: namespace support?
     // should make a QualifiedName here but we'd have to expose the impl
     return m_parameters.get(localName);
 }
 
-void XSLTProcessor::removeParameter(const String& namespaceURI, const String& localName)
+void XSLTProcessor::removeParameter(const String& /*namespaceURI*/, const String& localName)
 {
     // FIXME: namespace support?
     m_parameters.remove(localName);

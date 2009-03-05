@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,110 +33,7 @@
 
 using namespace WTF;
 
-namespace JSC {
-
-static const UChar asciiNewlines[2] = { '\n', '\r' };
-static const UChar unicodeNewlines[2] = { 0x2028, 0x2029 };
-CharacterClass& getCharacterClassNewline() {
-    static CharacterClass charClass = {
-        asciiNewlines, 2,
-        0, 0,
-        unicodeNewlines, 2,
-        0, 0,
-    };
-    
-    return charClass;
-}
-
-static const CharacterClassRange asciiDigitsRange[1] = { { '0', '9' } };
-CharacterClass& getCharacterClassDigits() {
-    static CharacterClass charClass = {
-        0, 0,
-        asciiDigitsRange, 1,
-        0, 0,
-        0, 0,
-    };
-    
-    return charClass;
-}
-
-static const UChar asciiSpaces[1] = { ' ' };
-static const CharacterClassRange asciiSpacesRange[1] = { { '\t', '\r' } };
-static const UChar unicodeSpaces[8] = { 0x00a0, 0x1680, 0x180e, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000 };
-static const CharacterClassRange unicodeSpacesRange[1] = { { 0x2000, 0x200a } };
-CharacterClass& getCharacterClassSpaces() {
-    static CharacterClass charClass = {
-        asciiSpaces, 1,
-        asciiSpacesRange, 1,
-        unicodeSpaces, 8,
-        unicodeSpacesRange, 1,
-    };
-    
-    return charClass;
-}
-
-static const UChar asciiWordchar[1] = { '_' };
-static const CharacterClassRange asciiWordcharRange[3] = { { '0', '9' }, { 'A', 'Z' }, { 'a', 'z' } };
-CharacterClass& getCharacterClassWordchar() {
-    static CharacterClass charClass = {
-        asciiWordchar, 1,
-        asciiWordcharRange, 3,
-        0, 0,
-        0, 0,
-    };
-    
-    return charClass;
-}
-
-static const CharacterClassRange asciiNondigitsRange[2] = { { 0, '0' - 1 }, { '9' + 1, 0x7f } };
-static const CharacterClassRange unicodeNondigitsRange[1] = { { 0x0080, 0xffff } };
-CharacterClass& getCharacterClassNondigits() {
-    static CharacterClass charClass = {
-        0, 0,
-        asciiNondigitsRange, 2,
-        0, 0,
-        unicodeNondigitsRange, 1,
-    };
-    
-    return charClass;
-}
-
-static const CharacterClassRange asciiNonspacesRange[3] = { { 0, '\t' - 1 }, { '\r' + 1, ' ' - 1 }, { ' ' + 1, 0x7f } }; 
-static const CharacterClassRange unicodeNonspacesRange[9] = {
-    { 0x0080, 0x009f },
-    { 0x00a1, 0x167f },
-    { 0x1681, 0x180d },
-    { 0x180f, 0x1fff },
-    { 0x200b, 0x2027 },
-    { 0x202a, 0x202e },
-    { 0x2030, 0x205e },
-    { 0x2060, 0x2fff },
-    { 0x3001, 0xffff }
-}; 
-CharacterClass& getCharacterClassNonspaces() {
-    static CharacterClass charClass = {
-        0, 0,
-        asciiNonspacesRange, 3,
-        0, 0,
-        unicodeNonspacesRange, 9,
-    };
-    
-    return charClass;
-}
-
-static const UChar asciiNonwordchar[1] = { '`' };
-static const CharacterClassRange asciiNonwordcharRange[4] = { { 0, '0' - 1 }, { '9' + 1, 'A' - 1 }, { 'Z' + 1, '_' - 1 }, { 'z' + 1, 0x7f } };
-static const CharacterClassRange unicodeNonwordcharRange[1] = { { 0x0080, 0xffff } };
-CharacterClass& getCharacterClassNonwordchar() {
-    static CharacterClass charClass = {
-        asciiNonwordchar, 1,
-        asciiNonwordcharRange, 4,
-        0, 0,
-        unicodeNonwordcharRange, 1,
-    };
-    
-    return charClass;
-}
+namespace JSC { namespace WREC {
 
 void CharacterClassConstructor::addSorted(Vector<UChar>& matches, UChar ch)
 {
@@ -164,7 +61,7 @@ void CharacterClassConstructor::addSorted(Vector<UChar>& matches, UChar ch)
         matches.insert(pos, ch);
 }
 
-void CharacterClassConstructor::addSortedRange(Vector<CharacterClassRange>& ranges, UChar lo, UChar hi)
+void CharacterClassConstructor::addSortedRange(Vector<CharacterRange>& ranges, UChar lo, UChar hi)
 {
     unsigned end = ranges.size();
     
@@ -178,7 +75,7 @@ void CharacterClassConstructor::addSortedRange(Vector<CharacterClassRange>& rang
                 ranges[i].begin = lo;
                 return;
             }
-            CharacterClassRange r = {lo, hi};
+            CharacterRange r = {lo, hi};
             ranges.insert(i, r);
             return;
         }
@@ -206,8 +103,8 @@ void CharacterClassConstructor::addSortedRange(Vector<CharacterClassRange>& rang
         }
     }
 
-    // Range comes after all existing ranges.
-    CharacterClassRange r = {lo, hi};
+    // CharacterRange comes after all existing ranges.
+    CharacterRange r = {lo, hi};
     ranges.append(r);
 }
 
@@ -260,19 +157,19 @@ void CharacterClassConstructor::put(UChar ch)
                     // we're going to scan along, updating the start of the range
                     while (unicodeCurr <= hi) {
                         // Spin forwards over any characters that don't have two cases.
-                        for (; kjs_pcre_ucp_othercase(unicodeCurr) == -1; ++unicodeCurr) {
+                        for (; jsc_pcre_ucp_othercase(unicodeCurr) == -1; ++unicodeCurr) {
                             // if this was the last character in the range, we're done.
                             if (unicodeCurr == hi)
                                 return;
                         }
                         // if we fall through to here, unicodeCurr <= hi & has another case. Get the other case.
                         UChar rangeStart = unicodeCurr;
-                        UChar otherCurr = kjs_pcre_ucp_othercase(unicodeCurr);
+                        UChar otherCurr = jsc_pcre_ucp_othercase(unicodeCurr);
                         
                         // If unicodeCurr is not yet hi, check the next char in the range.  If it also has another case,
                         // and if it's other case value is one greater then the othercase value for the current last
                         // character included in the range, we can include next into the range.
-                        while ((unicodeCurr < hi) && (kjs_pcre_ucp_othercase(unicodeCurr + 1) == (otherCurr + 1))) {
+                        while ((unicodeCurr < hi) && (jsc_pcre_ucp_othercase(unicodeCurr + 1) == (otherCurr + 1))) {
                             // increment unicodeCurr; it points to the end of the range.
                             // increment otherCurr, due to the check above other for next must be 1 greater than the currrent other value.
                             ++unicodeCurr;
@@ -317,7 +214,7 @@ void CharacterClassConstructor::flush()
         } else {
             addSorted(m_matchesUnicode, m_charBuffer);
             if (m_isCaseInsensitive) {
-                int other = kjs_pcre_ucp_othercase(m_charBuffer);
+                int other = jsc_pcre_ucp_othercase(m_charBuffer);
                 if (other != -1)
                     addSorted(m_matchesUnicode, other);
             }
@@ -331,7 +228,7 @@ void CharacterClassConstructor::flush()
     }
 }
 
-void CharacterClassConstructor::append(CharacterClass& other)
+void CharacterClassConstructor::append(const CharacterClass& other)
 {
     // [x-\s] will add, 'x', '-', and all unicode spaces to new class (same as [x\s-]).
     // Need to check the spec, really, but think this matches PCRE behaviour.
@@ -355,6 +252,6 @@ void CharacterClassConstructor::append(CharacterClass& other)
     }
 }
 
-}
+} } // namespace JSC::WREC
 
 #endif // ENABLE(WREC)

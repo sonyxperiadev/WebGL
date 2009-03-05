@@ -32,10 +32,9 @@ namespace WebCore {
 class HTMLScriptElement : public HTMLElement
                         , public ScriptElement {
 public:
-    HTMLScriptElement(Document*);
+    HTMLScriptElement(const QualifiedName&, Document*, bool createdByParser);
     ~HTMLScriptElement();
 
-    void setCreatedByParser(bool);
     bool shouldExecuteAsJavaScript() const;
     virtual String scriptContent() const;
 
@@ -74,7 +73,7 @@ public:
 
     virtual String scriptCharset() const;
     
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 protected:
     virtual String sourceAttributeValue() const;

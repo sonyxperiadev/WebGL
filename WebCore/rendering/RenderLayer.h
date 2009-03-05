@@ -45,18 +45,17 @@
 #define RenderLayer_h
 
 #include "ScrollbarClient.h"
-#include "RenderObject.h"
+#include "RenderBox.h"
 #include "Timer.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-class AffineTransform;
+class TransformationMatrix;
 class CachedResource;
 class HitTestResult;
 class RenderFrameSet;
 class RenderMarquee;
-class RenderObject;
 class RenderReplica;
 class RenderScrollbarPart;
 class RenderStyle;
@@ -69,6 +68,12 @@ struct HitTestRequest;
 
 class ClipRects {
 public:
+    ClipRects()
+        : m_refCnt(0)
+        , m_fixed(false)
+    {
+    }
+
     ClipRects(const IntRect& r)
         : m_overflowClipRect(r)
         , m_fixedClipRect(r)
@@ -78,19 +83,34 @@ public:
     {
     }
 
-    ClipRects(const IntRect& overflowRect, const IntRect& fixedRect, const IntRect& posRect, bool fixed)
-        : m_overflowClipRect(overflowRect)
-        , m_fixedClipRect(fixedRect)
-        , m_posClipRect(posRect)
+    ClipRects(const ClipRects& other)
+        : m_overflowClipRect(other.overflowClipRect())
+        , m_fixedClipRect(other.fixedClipRect())
+        , m_posClipRect(other.posClipRect())
         , m_refCnt(0)
-        , m_fixed(fixed)
+        , m_fixed(other.fixed())
     {
     }
 
-    const IntRect& overflowClipRect() { return m_overflowClipRect; }
-    const IntRect& fixedClipRect() { return m_fixedClipRect; }
-    const IntRect& posClipRect() { return m_posClipRect; }
+    void reset(const IntRect& r)
+    {
+        m_overflowClipRect = r;
+        m_fixedClipRect = r;
+        m_posClipRect = r;
+        m_fixed = false;
+    }
+    
+    const IntRect& overflowClipRect() const { return m_overflowClipRect; }
+    void setOverflowClipRect(const IntRect& r) { m_overflowClipRect = r; }
+
+    const IntRect& fixedClipRect() const { return m_fixedClipRect; }
+    void setFixedClipRect(const IntRect&r) { m_fixedClipRect = r; }
+
+    const IntRect& posClipRect() const { return m_posClipRect; }
+    void setPosClipRect(const IntRect& r) { m_posClipRect = r; }
+
     bool fixed() const { return m_fixed; }
+    void setFixed(bool fixed) { m_fixed = fixed; }
 
     void ref() { m_refCnt++; }
     void deref(RenderArena* renderArena) { if (--m_refCnt == 0) destroy(renderArena); }
@@ -102,6 +122,23 @@ public:
 
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
+
+    bool operator==(const ClipRects& other) const
+    {
+        return m_overflowClipRect == other.overflowClipRect() &&
+               m_fixedClipRect == other.fixedClipRect() &&
+               m_posClipRect == other.posClipRect() &&
+               m_fixed == other.fixed();
+    }
+
+    ClipRects& operator=(const ClipRects& other)
+    {
+        m_overflowClipRect = other.overflowClipRect();
+        m_fixedClipRect = other.fixedClipRect();
+        m_posClipRect = other.posClipRect();
+        m_fixed = other.fixed();
+        return *this;
+    }
         
 private:
     // The normal operator new is disallowed on all render objects.
@@ -145,10 +182,10 @@ public:
     static ScrollBehavior getPartialBehavior(const ScrollAlignment& s) { return s.m_rectPartial; }
     static ScrollBehavior getHiddenBehavior(const ScrollAlignment& s) { return s.m_rectHidden; }
 
-    RenderLayer(RenderObject*);
+    RenderLayer(RenderBox*);
     ~RenderLayer();
 
-    RenderObject* renderer() const { return m_object; }
+    RenderBox* renderer() const { return m_renderer; }
     RenderLayer* parent() const { return m_parent; }
     RenderLayer* previousSibling() const { return m_previous; }
     RenderLayer* nextSibling() const { return m_next; }
@@ -176,7 +213,7 @@ public:
     RenderLayer* transparentAncestor();
     void beginTransparencyLayers(GraphicsContext*, const RenderLayer* rootLayer);
 
-    bool hasReflection() const { return m_object->hasReflection(); }
+    bool hasReflection() const { return renderer()->hasReflection(); }
     RenderReplica* reflection() const { return m_reflection; }
     RenderLayer* reflectionLayer() const;
 
@@ -208,10 +245,13 @@ public:
 
     // Scrolling methods for layers that can scroll their overflow.
     void scrollByRecursively(int xDelta, int yDelta);
-    void scrollOffset(int& x, int& y);
-    void subtractScrollOffset(int& x, int& y);
+    void addScrolledContentOffset(int& x, int& y) const;
+    void subtractScrolledContentOffset(int& x, int& y) const;
+    IntSize scrolledContentOffset() const { return IntSize(scrollXOffset() + m_scrollLeftOverflow, scrollYOffset()); }
+
     int scrollXOffset() const { return m_scrollX + m_scrollOriginX; }
     int scrollYOffset() const { return m_scrollY; }
+
     void scrollToOffset(int x, int y, bool updateScrollbars = true, bool repaint = true);
     void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY); }
     void scrollToYOffset(int y) { scrollToOffset(m_scrollX + m_scrollOriginX, y); }
@@ -232,9 +272,9 @@ public:
     int horizontalScrollbarHeight() const;
 
     void positionOverflowControls(int tx, int ty);
-    bool isPointInResizeControl(const IntPoint&);
+    bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&);
-    IntSize offsetFromResizeCorner(const IntPoint&) const;
+    IntSize offsetFromResizeCorner(const IntPoint& absolutePoint) const;
 
     void paintOverflowControls(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
     void paintScrollCorner(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
@@ -254,10 +294,11 @@ public:
 
     void updateTransform();
 
-    void relativePositionOffset(int& relX, int& relY) { relX += m_relX; relY += m_relY; }
+    void relativePositionOffset(int& relX, int& relY) const { relX += m_relX; relY += m_relY; }
+    IntSize relativePositionOffset() const { return IntSize(m_relX, m_relY); }
 
+    void clearClipRectsIncludingDescendants();
     void clearClipRects();
-    void clearClipRect();
 
     // Get the enclosing stacking context for this layer.  A stacking context is a layer
     // that has a non-auto z-index.
@@ -298,9 +339,15 @@ public:
     // |rootLayer}.  It also computes our background and foreground clip rects
     // for painting/event handling.
     void calculateRects(const RenderLayer* rootLayer, const IntRect& paintDirtyRect, IntRect& layerBounds,
-                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect) const;
-    void calculateClipRects(const RenderLayer* rootLayer);
+                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects = false) const;
+
+    // Compute and cache clip rects computed with the given layer as the root
+    void updateClipRects(const RenderLayer* rootLayer);
+    // Compute and return the clip rects. If useCached is true, will used previously computed clip rects on ancestors
+    // (rather than computing them all from scratch up the parent chain).
+    void calculateClipRects(const RenderLayer* rootLayer, ClipRects&, bool useCached = false) const;
     ClipRects* clipRects() const { return m_clipRects; }
+
     IntRect childrenClipRect() const; // Returns the foreground clip rect of the layer in the document's coordinate space.
     IntRect selfClipRect() const; // Returns the background clip rect of the layer in the document's coordinate space.
 
@@ -319,8 +366,8 @@ public:
     void setStaticX(int staticX) { m_staticX = staticX; }
     void setStaticY(int staticY) { m_staticY = staticY; }
 
-    bool hasTransform() const { return m_object->hasTransform(); }
-    AffineTransform* transform() const { return m_transform.get(); }
+    bool hasTransform() const { return renderer()->hasTransform(); }
+    TransformationMatrix* transform() const { return m_transform.get(); }
 
     void destroy(RenderArena*);
 
@@ -345,7 +392,8 @@ private:
     void collectLayers(Vector<RenderLayer*>*&, Vector<RenderLayer*>*&);
 
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
-                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot, bool appliedTransform = false);
+                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot,
+                    bool appliedTransform = false, bool temporaryClipRects = false);
     RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect, const IntPoint& hitTestPoint, bool appliedTransform = false);
     void computeScrollDimensions(bool* needHBar = 0, bool* needVBar = 0);
 
@@ -370,11 +418,14 @@ private:
 
     RenderLayer* enclosingTransformedAncestor() const;
 
+    // Convert a point in absolute coords into layer coords, taking transforms into account
+    IntPoint absoluteToContents(const IntPoint&) const;
+
     void updateScrollCornerStyle();
     void updateResizerStyle();
 
 protected:   
-    RenderObject* m_object;
+    RenderBox* m_renderer;
 
     RenderLayer* m_parent;
     RenderLayer* m_previous;
@@ -400,8 +451,8 @@ protected:
     // Our scroll offsets if the view is scrolled.
     int m_scrollX;
     int m_scrollY;
-    int m_scrollOriginX;
-    int m_scrollLeftOverflow;
+    int m_scrollOriginX;        // only non-zero for rtl content
+    int m_scrollLeftOverflow;   // only non-zero for rtl content
 
     // The width/height of our scrolled area.
     int m_scrollWidth;
@@ -426,6 +477,9 @@ protected:
     Vector<RenderLayer*>* m_overflowList;
 
     ClipRects* m_clipRects;      // Cached clip rects used when painting and hit testing.
+#ifndef NDEBUG
+    const RenderLayer* m_clipRectsRoot;   // Root layer used to compute clip rects.
+#endif
 
     bool m_scrollDimensionsDirty : 1;
     bool m_zOrderListsDirty : 1;
@@ -453,7 +507,7 @@ protected:
     int m_staticX;
     int m_staticY;
     
-    OwnPtr<AffineTransform> m_transform;
+    OwnPtr<TransformationMatrix> m_transform;
     
     // May ultimately be extended to many replicas (with their own paint order).
     RenderReplica* m_reflection;

@@ -26,34 +26,12 @@
 #include "config.h"
 #include "SystemTime.h"
 
-#include <sys/time.h>
-
 namespace WebCore {
 
-double currentTime()
+float userIdleTime()
 {
-    struct timeval tv;
-
-    gettimeofday(&tv, (struct timezone *) NULL);
-    double now = tv.tv_sec + (tv.tv_usec / 1000000.0);
-    
-    return now;
-}
-
-uint32_t get_thread_msec()
-{
-#if defined(HAVE_POSIX_CLOCKS)
-    struct timespec tm;
-
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
-    
-    return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
-#else
-    struct timeval tv;
-    
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000LL + tv.tv_usec / 1000;
-#endif
+    // Needed for PageCache, which we currently have disabled.
+    return 0.0F;
 }
 
 }  // namespace WebCore

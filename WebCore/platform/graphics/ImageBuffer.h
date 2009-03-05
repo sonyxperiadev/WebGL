@@ -27,6 +27,7 @@
 #ifndef ImageBuffer_h
 #define ImageBuffer_h
 
+#include "TransformationMatrix.h"
 #include "Image.h"
 #include "IntSize.h"
 #include "ImageBufferData.h"
@@ -67,7 +68,11 @@ namespace WebCore {
         void putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint);
 
         String toDataURL(const String& mimeType) const;
-
+#if !PLATFORM(CG)
+        TransformationMatrix baseTransform() const { return TransformationMatrix(); }
+#else
+        TransformationMatrix baseTransform() const { return TransformationMatrix(1, 0, 0, -1, 0, m_size.height()); }
+#endif
     private:
         ImageBufferData m_data;
 

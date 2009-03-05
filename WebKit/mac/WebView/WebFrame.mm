@@ -45,11 +45,13 @@
 #import "WebHTMLViewInternal.h"
 #import "WebIconFetcherInternal.h"
 #import "WebKitStatisticsPrivate.h"
+#import "WebKitVersionChecks.h"
 #import "WebNSURLExtras.h"
 #import "WebScriptDebugger.h"
 #import "WebViewInternal.h"
 #import <JavaScriptCore/APICast.h>
 #import <WebCore/AccessibilityObject.h>
+#import <WebCore/AnimationController.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
@@ -71,14 +73,16 @@
 #import <WebCore/RenderLayer.h>
 #import <WebCore/ReplaceSelectionCommand.h>
 #import <WebCore/SmartReplace.h>
-#import <WebCore/SystemTime.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/TypingCommand.h>
 #import <WebCore/htmlediting.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/ScriptValue.h>
 #import <WebCore/markup.h>
 #import <WebCore/visible_units.h>
 #import <runtime/JSLock.h>
+#import <runtime/JSValue.h>
+#include <wtf/CurrentTime.h>
 
 using namespace std;
 using namespace WebCore;
@@ -86,7 +90,7 @@ using namespace HTMLNames;
 
 using JSC::JSGlobalObject;
 using JSC::JSLock;
-using JSC::JSValue;
+using JSC::JSValuePtr;
 
 /*
 Here is the current behavior matrix for four types of navigations:
@@ -184,11 +188,6 @@ DOMNode *kit(Node* node)
     return [DOMNode _wrapNode:node];
 }
 
-DOMNode *kit(PassRefPtr<Node> node)
-{
-    return [DOMNode _wrapNode:node.get()];
-}
-
 Document* core(DOMDocument *document)
 {
     return [document _document];
@@ -245,6 +244,20 @@ EditableLinkBehavior core(WebKitEditableLinkBehavior editableLinkBehavior)
     }
     ASSERT_NOT_REACHED();
     return EditableLinkDefaultBehavior;
+}
+
+TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior behavior)
+{
+    switch (behavior) {
+        case WebTextDirectionSubmenuNeverIncluded:
+            return TextDirectionSubmenuNeverIncluded;
+        case WebTextDirectionSubmenuAutomaticallyIncluded:
+            return TextDirectionSubmenuAutomaticallyIncluded;
+        case WebTextDirectionSubmenuAlwaysIncluded:
+            return TextDirectionSubmenuAlwaysIncluded;
+    }
+    ASSERT_NOT_REACHED();
+    return TextDirectionSubmenuNeverIncluded;
 }
 
 @implementation WebFrame (WebInternal)
@@ -373,8 +386,8 @@ WebView *getWebView(WebFrame *webFrame)
     Frame* coreFrame = _private->coreFrame;
     for (Frame* frame = coreFrame; frame; frame = frame->tree()->traverseNext(coreFrame)) {
         WebFrame *webFrame = kit(frame);
-        // Never call setDrawsBackground:YES here on the scroll view or the background color will
-        // flash between pages loads. setDrawsBackground:YES will be called in _frameLoadCompleted.
+        // Don't call setDrawsBackground:YES here because it may be NO because of a load
+        // in progress; WebFrameLoaderClient keeps it set to NO during the load process.
         if (!drawsBackground)
             [[[webFrame frameView] _scrollView] setDrawsBackground:NO];
         [[[webFrame frameView] _scrollView] setBackgroundColor:backgroundColor];
@@ -536,25 +549,17 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSString *)_selectedString
 {
-    String text = _private->coreFrame->selectedText();
-    text.replace('\\', _private->coreFrame->backslashAsCurrencySymbol());
-    return text;
+    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->selectedText());
 }
 
 - (NSString *)_stringForRange:(DOMRange *)range
 {
     // This will give a system malloc'd buffer that can be turned directly into an NSString
     unsigned length;
-    UChar* buf = plainTextToMallocAllocatedBuffer([range _range], length);
+    UChar* buf = plainTextToMallocAllocatedBuffer([range _range], length, true);
     
     if (!buf)
         return [NSString string];
-    
-    UChar backslashAsCurrencySymbol = _private->coreFrame->backslashAsCurrencySymbol();
-    if (backslashAsCurrencySymbol != '\\')
-        for (unsigned n = 0; n < length; n++) 
-            if (buf[n] == '\\')
-                buf[n] = backslashAsCurrencySymbol;
 
     // Transfer buffer ownership to NSString
     return [[[NSString alloc] initWithCharactersNoCopy:buf length:length freeWhenDone:YES] autorelease];
@@ -639,7 +644,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     ASSERT(_private->coreFrame->document());
     
-    JSValue* result = _private->coreFrame->loader()->executeScript(string, forceUserGesture);
+    JSValuePtr result = _private->coreFrame->loader()->executeScript(string, forceUserGesture).jsValue();
 
     if (!_private->coreFrame) // In case the script removed our frame from the page.
         return @"";
@@ -647,17 +652,17 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
     // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
     // JSEvaluateScript instead, since they have less surprising semantics.
-    if (!result || !result->isBoolean() && !result->isString() && !result->isNumber())
+    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
         return @"";
 
     JSLock lock(false);
-    return String(result->toString(_private->coreFrame->script()->globalObject()->globalExec()));
+    return String(result.toString(_private->coreFrame->script()->globalObject()->globalExec()));
 }
 
 - (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
 {
     VisiblePosition visiblePosition([node _node], offset, static_cast<EAffinity>(affinity));
-    return visiblePosition.caretRect();
+    return visiblePosition.absoluteCaretBounds();
 }
 
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range
@@ -684,6 +689,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (id)_accessibilityTree
 {
+#if HAVE(ACCESSIBILITY)
     if (!AXObjectCache::accessibilityEnabled()) {
         AXObjectCache::enableAccessibility();
         if ([[NSApp accessibilityAttributeValue:NSAccessibilityEnhancedUserInterfaceAttribute] boolValue])
@@ -696,6 +702,9 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!root)
         return nil;
     return _private->coreFrame->document()->axObjectCache()->get(root)->wrapper();
+#else
+    return nil;
+#endif
 }
 
 - (DOMRange *)_rangeByAlteringCurrentSelection:(SelectionController::EAlteration)alteration direction:(SelectionController::EDirection)direction granularity:(TextGranularity)granularity
@@ -760,9 +769,21 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return TextIterator::rangeFromLocationAndLength(scope, nsrange.location, nsrange.length);
 }
 
+- (DOMRange *)convertNSRangeToDOMRange:(NSRange)nsrange
+{
+    // This method exists to maintain compatibility with Leopard's Dictionary.app. <rdar://problem/6002160>
+    return [self _convertNSRangeToDOMRange:nsrange];
+}
+
 - (DOMRange *)_convertNSRangeToDOMRange:(NSRange)nsrange
 {
     return [DOMRange _wrapRange:[self _convertToDOMRange:nsrange].get()];
+}
+
+- (NSRange)convertDOMRangeToNSRange:(DOMRange *)range
+{
+    // This method exists to maintain compatibility with Leopard's Dictionary.app. <rdar://problem/6002160>
+    return [self _convertDOMRangeToNSRange:range];
 }
 
 - (NSRange)_convertDOMRangeToNSRange:(DOMRange *)range
@@ -1008,13 +1029,15 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (BOOL)_canProvideDocumentSource
 {
-    String mimeType = _private->coreFrame->loader()->responseMIMEType();
-    
+    Frame* frame = _private->coreFrame;
+    String mimeType = frame->loader()->responseMIMEType();
+    PluginData* pluginData = frame->page() ? frame->page()->pluginData() : 0;
+
     if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
         Image::supportsType(mimeType) ||
-        (_private->coreFrame->page() && _private->coreFrame->page()->pluginData()->supportsMimeType(mimeType)))
+        (pluginData && pluginData->supportsMimeType(mimeType)))
         return NO;
-    
+
     return YES;
 }
 
@@ -1147,6 +1170,53 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 }
 #endif
 
+- (BOOL)_pauseAnimation:(NSString*)name onNode:(DOMNode *)node atTime:(NSTimeInterval)time
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    Node* coreNode = [node _node];
+    if (!coreNode || !coreNode->renderer())
+        return false;
+
+    return controller->pauseAnimationAtTime(coreNode->renderer(), name, time);
+}
+
+- (BOOL)_pauseTransitionOfProperty:(NSString*)name onNode:(DOMNode*)node atTime:(NSTimeInterval)time
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    Node* coreNode = [node _node];
+    if (!coreNode || !coreNode->renderer())
+        return false;
+
+    return controller->pauseTransitionAtTime(coreNode->renderer(), name, time);
+}
+
+- (unsigned) _numberOfActiveAnimations
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    return controller->numberOfActiveAnimations();
+}
+
 @end
 
 @implementation WebFrame
@@ -1238,7 +1308,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (void)loadRequest:(NSURLRequest *)request
 {
-    _private->coreFrame->loader()->load(request);
+    _private->coreFrame->loader()->load(request, false);
 }
 
 static NSURL *createUniqueWebDataURL()
@@ -1266,7 +1336,7 @@ static NSURL *createUniqueWebDataURL()
 
     SubstituteData substituteData(WebCore::SharedBuffer::wrapNSData(data), MIMEType, encodingName, [unreachableURL absoluteURL], responseURL);
 
-    _private->coreFrame->loader()->load(request, substituteData);
+    _private->coreFrame->loader()->load(request, substituteData, false);
 }
 
 
@@ -1308,7 +1378,16 @@ static NSURL *createUniqueWebDataURL()
 
 - (void)reload
 {
-    _private->coreFrame->loader()->reload();
+    if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_RELOAD_FROM_ORIGIN) &&
+        [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"])
+        _private->coreFrame->loader()->reload(GetCurrentKeyModifiers() & shiftKey);
+    else
+        _private->coreFrame->loader()->reload(false);
+}
+
+- (void)reloadFromOrigin
+{
+    _private->coreFrame->loader()->reload(true);
 }
 
 - (WebFrame *)findFrameNamed:(NSString *)name

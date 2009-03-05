@@ -36,7 +36,7 @@
 #include "ExceptionCode.h"
 #include "Pair.h"
 #include "Rect.h"
-#include "RenderObject.h"
+#include "RenderBox.h"
 #include "ShadowValue.h"
 #ifdef ANDROID_LAYOUT
 #include "Frame.h"
@@ -114,6 +114,7 @@ static const int computedProperties[] = {
     CSSPropertyPageBreakAfter,
     CSSPropertyPageBreakBefore,
     CSSPropertyPageBreakInside,
+    CSSPropertyPointerEvents,
     CSSPropertyPosition,
     CSSPropertyResize,
     CSSPropertyRight,
@@ -135,6 +136,13 @@ static const int computedProperties[] = {
     CSSPropertyZIndex,
     CSSPropertyZoom,
 
+    CSSPropertyWebkitAnimationDelay,
+    CSSPropertyWebkitAnimationDirection,
+    CSSPropertyWebkitAnimationDuration,
+    CSSPropertyWebkitAnimationIterationCount,
+    CSSPropertyWebkitAnimationName,
+    CSSPropertyWebkitAnimationPlayState,
+    CSSPropertyWebkitAnimationTimingFunction,
     CSSPropertyWebkitAppearance,
     CSSPropertyWebkitBackgroundClip,
     CSSPropertyWebkitBackgroundComposite,
@@ -190,8 +198,7 @@ static const int computedProperties[] = {
     CSSPropertyWebkitTextStrokeColor,
     CSSPropertyWebkitTextStrokeWidth,
     CSSPropertyWebkitTransform,
-    CSSPropertyWebkitTransformOriginX,
-    CSSPropertyWebkitTransformOriginY,
+    CSSPropertyWebkitTransformOrigin,
     CSSPropertyWebkitTransitionDelay,
     CSSPropertyWebkitTransitionDuration,
     CSSPropertyWebkitTransitionProperty,
@@ -218,7 +225,6 @@ static const int computedProperties[] = {
     CSSPropertyLightingColor,
     CSSPropertyStopColor,
     CSSPropertyStopOpacity,
-    CSSPropertyPointerEvents,
     CSSPropertyColorInterpolation,
     CSSPropertyColorInterpolationFilters,
     CSSPropertyColorRendering,
@@ -397,7 +403,11 @@ static PassRefPtr<CSSValue> getBorderRadiusCornerValue(IntSize radius)
 
 static IntRect sizingBox(RenderObject* renderer)
 {
-    return renderer->style()->boxSizing() == CONTENT_BOX ? renderer->contentBox() : renderer->borderBox();
+    if (!renderer->isBox())
+        return IntRect();
+    
+    RenderBox* box = toRenderBox(renderer);
+    return box->style()->boxSizing() == CONTENT_BOX ? box->contentBoxRect() : box->borderBoxRect();
 }
 
 static PassRefPtr<CSSValue> computedTransform(RenderObject* renderer)
@@ -407,7 +417,7 @@ static PassRefPtr<CSSValue> computedTransform(RenderObject* renderer)
     
     IntRect box = sizingBox(renderer);
 
-    AffineTransform transform;
+    TransformationMatrix transform;
     renderer->style()->applyTransform(transform, box.size(), false);
 
     RefPtr<WebKitCSSTransformValue> transformVal = WebKitCSSTransformValue::create(WebKitCSSTransformValue::MatrixTransformOperation);
@@ -422,6 +432,48 @@ static PassRefPtr<CSSValue> computedTransform(RenderObject* renderer)
     RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     list->append(transformVal);
 
+    return list.release();
+}
+
+static PassRefPtr<CSSValue> getDelayValue(const AnimationList* animList)
+{
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+    if (animList) {
+        for (size_t i = 0; i < animList->size(); ++i)
+            list->append(CSSPrimitiveValue::create(animList->animation(i)->delay(), CSSPrimitiveValue::CSS_S));
+    } else {
+        // Note that initialAnimationDelay() is used for both transitions and animations
+        list->append(CSSPrimitiveValue::create(Animation::initialAnimationDelay(), CSSPrimitiveValue::CSS_S));
+    }
+    return list.release();
+}
+
+static PassRefPtr<CSSValue> getDurationValue(const AnimationList* animList)
+{
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+    if (animList) {
+        for (size_t i = 0; i < animList->size(); ++i)
+            list->append(CSSPrimitiveValue::create(animList->animation(i)->duration(), CSSPrimitiveValue::CSS_S));
+    } else {
+        // Note that initialAnimationDuration() is used for both transitions and animations
+        list->append(CSSPrimitiveValue::create(Animation::initialAnimationDuration(), CSSPrimitiveValue::CSS_S));
+    }
+    return list.release();
+}
+
+static PassRefPtr<CSSValue> getTimingFunctionValue(const AnimationList* animList)
+{
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+    if (animList) {
+        for (size_t i = 0; i < animList->size(); ++i) {
+            const TimingFunction& tf = animList->animation(i)->timingFunction();
+            list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
+        }
+    } else {
+        // Note that initialAnimationTimingFunction() is used for both transitions and animations
+        const TimingFunction& tf = Animation::initialAnimationTimingFunction();
+        list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
+    }
     return list.release();
 }
 
@@ -725,24 +777,24 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyListStyleType:
             return CSSPrimitiveValue::create(style->listStyleType());
         case CSSPropertyMarginTop:
-            if (renderer)
+            if (renderer && renderer->isBox())
                 // FIXME: Supposed to return the percentage if percentage was specified.
-                return CSSPrimitiveValue::create(renderer->marginTop(), CSSPrimitiveValue::CSS_PX);
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->marginTop(), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->marginTop());
         case CSSPropertyMarginRight:
-            if (renderer)
+            if (renderer && renderer->isBox())
                 // FIXME: Supposed to return the percentage if percentage was specified.
-                return CSSPrimitiveValue::create(renderer->marginRight(), CSSPrimitiveValue::CSS_PX);
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->marginRight(), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->marginRight());
         case CSSPropertyMarginBottom:
-            if (renderer)
+            if (renderer && renderer->isBox())
                 // FIXME: Supposed to return the percentage if percentage was specified.
-                return CSSPrimitiveValue::create(renderer->marginBottom(), CSSPrimitiveValue::CSS_PX);
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->marginBottom(), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->marginBottom());
         case CSSPropertyMarginLeft:
-            if (renderer)
+            if (renderer && renderer->isBox())
                 // FIXME: Supposed to return the percentage if percentage was specified.
-                return CSSPrimitiveValue::create(renderer->marginLeft(), CSSPrimitiveValue::CSS_PX);
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->marginLeft(), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->marginLeft());
         case CSSPropertyWebkitMarqueeDirection:
             return CSSPrimitiveValue::create(style->marqueeDirection());
@@ -830,20 +882,20 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
 #endif
             return CSSPrimitiveValue::create(style->overflowY());
         case CSSPropertyPaddingTop:
-            if (renderer)
-                return CSSPrimitiveValue::create(renderer->paddingTop(), CSSPrimitiveValue::CSS_PX);
+            if (renderer && renderer->isBox())
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->paddingTop(false), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->paddingTop());
         case CSSPropertyPaddingRight:
-            if (renderer)
-                return CSSPrimitiveValue::create(renderer->paddingRight(), CSSPrimitiveValue::CSS_PX);
+            if (renderer && renderer->isBox())
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->paddingRight(false), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->paddingRight());
         case CSSPropertyPaddingBottom:
-            if (renderer)
-                return CSSPrimitiveValue::create(renderer->paddingBottom(), CSSPrimitiveValue::CSS_PX);
+            if (renderer && renderer->isBox())
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->paddingBottom(false), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->paddingBottom());
         case CSSPropertyPaddingLeft:
-            if (renderer)
-                return CSSPrimitiveValue::create(renderer->paddingLeft(), CSSPrimitiveValue::CSS_PX);
+            if (renderer && renderer->isBox())
+                return CSSPrimitiveValue::create(toRenderBox(renderer)->paddingLeft(false), CSSPrimitiveValue::CSS_PX);
             return CSSPrimitiveValue::create(style->paddingLeft());
         case CSSPropertyPageBreakAfter:
             return CSSPrimitiveValue::create(style->pageBreakAfter());
@@ -1046,6 +1098,67 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(firstRegion.release());
         }
 #endif
+        case CSSPropertyWebkitAnimationDelay:
+            return getDelayValue(style->animations());
+        case CSSPropertyWebkitAnimationDirection: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    if (t->animation(i)->direction())
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueAlternate));
+                    else
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueNormal));
+                }
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueNormal));
+            return list.release();
+        }
+        case CSSPropertyWebkitAnimationDuration:
+            return getDurationValue(style->animations());
+        case CSSPropertyWebkitAnimationIterationCount: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    int iterationCount = t->animation(i)->iterationCount();
+                    if (iterationCount < 0)
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueInfinite));
+                    else
+                        list->append(CSSPrimitiveValue::create(iterationCount, CSSPrimitiveValue::CSS_NUMBER));
+                }
+            } else
+                list->append(CSSPrimitiveValue::create(Animation::initialAnimationIterationCount(), CSSPrimitiveValue::CSS_NUMBER));
+            return list.release();
+        }
+        case CSSPropertyWebkitAnimationName: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    list->append(CSSPrimitiveValue::create(t->animation(i)->name(), CSSPrimitiveValue::CSS_STRING));
+                }
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueNone));
+            return list.release();
+        }
+        case CSSPropertyWebkitAnimationPlayState: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    int prop = t->animation(i)->playState();
+                    if (prop == AnimPlayStatePlaying)
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueRunning));
+                    else
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValuePaused));
+                }
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueRunning));
+            return list.release();
+        }
+        case CSSPropertyWebkitAnimationTimingFunction:
+            return getTimingFunctionValue(style->animations());
         case CSSPropertyWebkitAppearance:
             return CSSPrimitiveValue::create(style->appearance());
         case CSSPropertyWebkitBorderImage:
@@ -1089,77 +1202,45 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         }
         case CSSPropertyWebkitTransform:
             return computedTransform(renderer);
-        case CSSPropertyWebkitTransformOriginX:
+        case CSSPropertyWebkitTransformOrigin: {
+            RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
             if (renderer) {
                 IntRect box = sizingBox(renderer);
-                return CSSPrimitiveValue::create(style->transformOriginX().calcMinValue(box.width()), CSSPrimitiveValue::CSS_PX);
-            }
-            else
-                return CSSPrimitiveValue::create(style->transformOriginX());
-        case CSSPropertyWebkitTransformOriginY:
-            if (renderer) {
-                IntRect box = sizingBox(renderer);
-                return CSSPrimitiveValue::create(style->transformOriginY().calcMinValue(box.height()), CSSPrimitiveValue::CSS_PX);
-            }
-            else
-                return CSSPrimitiveValue::create(style->transformOriginY());
-        case CSSPropertyWebkitTransitionDelay: {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            const AnimationList* t = style->transitions();
-            if (t) {
-                for (size_t i = 0; i < t->size(); ++i)
-                    list->append(CSSPrimitiveValue::create(t->animation(i)->delay(), CSSPrimitiveValue::CSS_S));
-            }
-            else
-                list->append(CSSPrimitiveValue::create(RenderStyle::initialAnimationDelay(), CSSPrimitiveValue::CSS_S));
-            return list.release();
-        }
-        case CSSPropertyWebkitTransitionDuration: {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            const AnimationList* t = style->transitions();
-            if (t) {
-                for (size_t i = 0; i < t->size(); ++i)
-                    list->append(CSSPrimitiveValue::create(t->animation(i)->duration(), CSSPrimitiveValue::CSS_S));
-            }
-            else
-                list->append(CSSPrimitiveValue::create(RenderStyle::initialAnimationDuration(), CSSPrimitiveValue::CSS_S));
-            return list.release();
-        }
-        case CSSPropertyWebkitTransitionTimingFunction: {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            const AnimationList* t = style->transitions();
-            if (t) {
-                for (size_t i = 0; i < t->size(); ++i) {
-                    const TimingFunction& tf = t->animation(i)->timingFunction();
-                    list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
-                }
-            }
-            else {
-                const TimingFunction& tf = RenderStyle::initialAnimationTimingFunction();
-                list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
+                list->append(CSSPrimitiveValue::create(style->transformOriginX().calcMinValue(box.width()), CSSPrimitiveValue::CSS_PX));
+                list->append(CSSPrimitiveValue::create(style->transformOriginY().calcMinValue(box.height()), CSSPrimitiveValue::CSS_PX));
+            } else {
+                list->append(CSSPrimitiveValue::create(style->transformOriginX()));
+                list->append(CSSPrimitiveValue::create(style->transformOriginY()));
             }
             return list.release();
         }
+        case CSSPropertyWebkitTransitionDelay:
+            return getDelayValue(style->transitions());
+        case CSSPropertyWebkitTransitionDuration:
+            return getDurationValue(style->transitions());
         case CSSPropertyWebkitTransitionProperty: {
             RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
             const AnimationList* t = style->transitions();
             if (t) {
                 for (size_t i = 0; i < t->size(); ++i) {
                     int prop = t->animation(i)->property();
-                    const char* name;
+                    RefPtr<CSSValue> propertyValue;
                     if (prop == cAnimateNone)
-                        name = "none";
+                        propertyValue = CSSPrimitiveValue::createIdentifier(CSSValueNone);
                     else if (prop == cAnimateAll)
-                        name = "all";
+                        propertyValue = CSSPrimitiveValue::createIdentifier(CSSValueAll);
                     else
-                        name = getPropertyName(static_cast<CSSPropertyID>(prop));
-                    list->append(CSSPrimitiveValue::create(name, CSSPrimitiveValue::CSS_STRING));
+                        propertyValue = CSSPrimitiveValue::create(getPropertyName(static_cast<CSSPropertyID>(prop)), CSSPrimitiveValue::CSS_STRING);
+                    list->append(propertyValue);
                 }
-            }
-            else
-                list->append(CSSPrimitiveValue::create("all", CSSPrimitiveValue::CSS_STRING));
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueAll));
             return list.release();
         }
+        case CSSPropertyWebkitTransitionTimingFunction:
+            return getTimingFunctionValue(style->transitions());
+        case CSSPropertyPointerEvents:
+            return CSSPrimitiveValue::create(style->pointerEvents());
         case CSSPropertyBackground:
         case CSSPropertyBorder:
         case CSSPropertyBorderBottom:
@@ -1208,13 +1289,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyTextUnderlineWidth:
         case CSSPropertyUnicodeRange: // Only used in @font-face rules.
         case CSSPropertyWebkitAnimation:
-        case CSSPropertyWebkitAnimationDelay:
-        case CSSPropertyWebkitAnimationDirection:
-        case CSSPropertyWebkitAnimationDuration:
-        case CSSPropertyWebkitAnimationIterationCount:
-        case CSSPropertyWebkitAnimationName:
-        case CSSPropertyWebkitAnimationPlayState:
-        case CSSPropertyWebkitAnimationTimingFunction:
         case CSSPropertyWebkitBorderRadius:
         case CSSPropertyWebkitColumns:
         case CSSPropertyWebkitColumnRule:
@@ -1225,7 +1299,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitMask:
         case CSSPropertyWebkitPaddingStart:
         case CSSPropertyWebkitTextStroke:
-        case CSSPropertyWebkitTransformOrigin:
         case CSSPropertyWebkitTransition:
         case CSSPropertyWebkitVariableDeclarationBlock:
             // FIXME: The above are unimplemented.

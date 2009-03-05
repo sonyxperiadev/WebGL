@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,12 +25,14 @@
 #include "Chrome.h"
 #include "ContextMenuController.h"
 #include "FrameLoaderTypes.h"
+#include "LinkHash.h"
 #include "PlatformString.h"
+#include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
+
 #if PLATFORM(MAC)
 #include "SchedulePair.h"
 #endif
-#include <wtf/HashSet.h>
-#include <wtf/OwnPtr.h>
 
 #if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
 typedef struct HINSTANCE__* HINSTANCE;
@@ -63,8 +66,10 @@ namespace WebCore {
     class SessionStorage;
 #endif
     class Settings;
+#if ENABLE(WML)
+    class WMLPageState;
+#endif
 
-    enum TextCaseSensitivity { TextCaseSensitive, TextCaseInsensitive };
     enum FindDirection { FindDirectionForward, FindDirectionBackward };
 
     class Page : Noncopyable {
@@ -91,7 +96,10 @@ namespace WebCore {
         bool goBack();
         bool goForward();
         void goToItem(HistoryItem*, FrameLoadType);
-        
+
+        HistoryItem* globalHistoryItem() const { return m_globalHistoryItem.get(); }
+        void setGlobalHistoryItem(HistoryItem*);
+
         void setGroupName(const String&);
         const String& groupName() const;
 
@@ -142,6 +150,9 @@ namespace WebCore {
         bool cookieEnabled() const { return m_cookieEnabled; }
         void setCookieEnabled(bool enabled) { m_cookieEnabled = enabled; }
 
+        float mediaVolume() const { return m_mediaVolume; }
+        void setMediaVolume(float volume);
+
         void userStyleSheetLocationChanged();
         const String& userStyleSheet() const;
         
@@ -163,11 +174,15 @@ namespace WebCore {
         static void removeAllVisitedLinks();
 
         static void allVisitedStateChanged(PageGroup*);
-        static void visitedStateChanged(PageGroup*, unsigned visitedHash);
+        static void visitedStateChanged(PageGroup*, LinkHash visitedHash);
 
 #if ENABLE(DOM_STORAGE)
         SessionStorage* sessionStorage(bool optionalCreate = true);
         void setSessionStorage(PassRefPtr<SessionStorage>);
+#endif
+
+#if ENABLE(WML)
+        WMLPageState* wmlPageState();
 #endif
 
         void setCustomHTMLTokenizerTimeDelay(double);
@@ -177,6 +192,9 @@ namespace WebCore {
         void setCustomHTMLTokenizerChunkSize(int);
         bool hasCustomHTMLTokenizerChunkSize() const { return m_customHTMLTokenizerChunkSize != -1; }
         int customHTMLTokenizerChunkSize() const { ASSERT(m_customHTMLTokenizerChunkSize != -1); return m_customHTMLTokenizerChunkSize; }
+
+        void setMemoryCacheClientCallsEnabled(bool);
+        bool areMemoryCacheClientCallsEnabled() const { return m_areMemoryCacheClientCallsEnabled; }
 
     private:
         void initGroup();
@@ -193,6 +211,8 @@ namespace WebCore {
         RefPtr<BackForwardList> m_backForwardList;
         RefPtr<Frame> m_mainFrame;
 
+        RefPtr<HistoryItem> m_globalHistoryItem;
+
         mutable RefPtr<PluginData> m_pluginData;
 
         EditorClient* m_editorClient;
@@ -205,6 +225,8 @@ namespace WebCore {
 
         bool m_inLowQualityInterpolationMode;
         bool m_cookieEnabled;
+        bool m_areMemoryCacheClientCallsEnabled;
+        float m_mediaVolume;
     
         InspectorController* m_parentInspectorController;
 
@@ -227,8 +249,13 @@ namespace WebCore {
 #if ENABLE(DOM_STORAGE)
         RefPtr<SessionStorage> m_sessionStorage;
 #endif
+
 #if PLATFORM(WIN) || (PLATFORM(WX) && defined(__WXMSW__)) || (PLATFORM(QT) && defined(Q_WS_WIN))
         static HINSTANCE s_instanceHandle;
+#endif
+
+#if ENABLE(WML)
+        OwnPtr<WMLPageState> m_wmlPageState;
 #endif
     };
 

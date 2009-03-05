@@ -2,6 +2,7 @@
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2008 Xan Lopez <xan@gnome.org>
  * Copyright (C) 2008 Collabora Ltd.
+ * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,7 +25,7 @@
 #include "ResourceHandle.h"
 
 #include "Base64.h"
-#include "CookieJar.h"
+#include "CookieJarSoup.h"
 #include "DocLoader.h"
 #include "Frame.h"
 #include "HTTPParsers.h"
@@ -57,11 +58,20 @@ enum
     ERROR_BAD_NON_HTTP_METHOD
 };
 
+static void cleanupGioOperation(ResourceHandleInternal* handle);
+
 ResourceHandleInternal::~ResourceHandleInternal()
 {
     if (m_msg) {
         g_object_unref(m_msg);
         m_msg = 0;
+    }
+
+    cleanupGioOperation(this);
+
+    if (m_idleHandler) {
+        g_source_remove(m_idleHandler);
+        m_idleHandler = 0;
     }
 }
 
@@ -163,8 +173,6 @@ static void finishedCallback(SoupSession *session, SoupMessage* msg, gpointer da
         return;
 
     ResourceHandleInternal* d = handle->getInternal();
-    // The message has been handled.
-    d->m_msg = NULL;
 
     ResourceHandleClient* client = handle->client();
     if (!client)
@@ -199,6 +207,8 @@ static gboolean parseDataUrl(gpointer callback_data)
 {
     ResourceHandle* handle = static_cast<ResourceHandle*>(callback_data);
     ResourceHandleClient* client = handle->client();
+
+    handle->getInternal()->m_idleHandler = 0;
 
     ASSERT(client);
     if (!client)
@@ -264,10 +274,12 @@ static gboolean parseDataUrl(gpointer callback_data)
 
 bool ResourceHandle::startData(String urlString)
 {
-        // If parseDataUrl is called synchronously the job is not yet effectively started
-        // and webkit won't never know that the data has been parsed even didFinishLoading is called.
-        g_idle_add(parseDataUrl, this);
-        return true;
+    ResourceHandleInternal* d = this->getInternal();
+
+    // If parseDataUrl is called synchronously the job is not yet effectively started
+    // and webkit won't never know that the data has been parsed even didFinishLoading is called.
+    d->m_idleHandler = g_idle_add(parseDataUrl, this);
+    return true;
 }
 
 bool ResourceHandle::startHttp(String urlString)
@@ -298,7 +310,7 @@ bool ResourceHandle::startHttp(String urlString)
     if (!customHeaders.isEmpty()) {
         HTTPHeaderMap::const_iterator end = customHeaders.end();
         for (HTTPHeaderMap::const_iterator it = customHeaders.begin(); it != end; ++it)
-            soup_message_headers_append(msg->request_headers, it->first.utf8().data(), it->second.utf8().data());
+            soup_message_headers_append(msg->request_headers, it->first.string().utf8().data(), it->second.utf8().data());
     }
 
     FormData* httpBody = d->m_request.httpBody();
@@ -337,7 +349,7 @@ bool ResourceHandle::start(Frame* frame)
 
     if (equalIgnoringCase(protocol, "data"))
         return startData(urlString);
-    else if (equalIgnoringCase(protocol, "http") || equalIgnoringCase(protocol, "https"))
+    else if ((equalIgnoringCase(protocol, "http") || equalIgnoringCase(protocol, "https")) && SOUP_URI_VALID_FOR_HTTP(soup_uri_new(urlString.utf8().data())))
         return startHttp(urlString);
     else if (equalIgnoringCase(protocol, "file") || equalIgnoringCase(protocol, "ftp") || equalIgnoringCase(protocol, "ftps"))
         // FIXME: should we be doing any other protocols here?
@@ -358,10 +370,12 @@ void ResourceHandle::cancel()
     if (d->m_msg) {
         soup_session_cancel_message(session, d->m_msg, SOUP_STATUS_CANCELLED);
         // For re-entrancy troubles we call didFinishLoading when the message hasn't been handled yet.
-        d->client()->didFinishLoading(this);
+        if (client())
+            client()->didFinishLoading(this);
     } else if (d->m_cancellable) {
         g_cancellable_cancel(d->m_cancellable);
-        d->client()->didFinishLoading(this);
+        if (client())
+            client()->didFinishLoading(this);
     }
 }
 
@@ -411,11 +425,10 @@ static inline ResourceError networkErrorForFile(GFile* file, GError* error)
     return resourceError;
 }
 
-static void cleanupGioOperation(ResourceHandle* handle)
+static void cleanupGioOperation(ResourceHandleInternal* d)
 {
-    ResourceHandleInternal* d = handle->getInternal();
-
     if (d->m_gfile) {
+        g_object_set_data(G_OBJECT(d->m_gfile), "webkit-resource", 0);
         g_object_unref(d->m_gfile);
         d->m_gfile = NULL;
     }
@@ -424,6 +437,7 @@ static void cleanupGioOperation(ResourceHandle* handle)
         d->m_cancellable = NULL;
     }
     if (d->m_input_stream) {
+        g_object_set_data(G_OBJECT(d->m_input_stream), "webkit-resource", 0);
         g_object_unref(d->m_input_stream);
         d->m_input_stream = NULL;
     }
@@ -433,25 +447,31 @@ static void cleanupGioOperation(ResourceHandle* handle)
     }
 }
 
-static void closeCallback(GObject* source, GAsyncResult* res, gpointer data)
+static void closeCallback(GObject* source, GAsyncResult* res, gpointer)
 {
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    ResourceHandle* handle = static_cast<ResourceHandle*>(g_object_get_data(source, "webkit-resource"));
+    if (!handle)
+        return;
+
     ResourceHandleInternal* d = handle->getInternal();
     ResourceHandleClient* client = handle->client();
 
     g_input_stream_close_finish(d->m_input_stream, res, NULL);
-    cleanupGioOperation(handle);
+    cleanupGioOperation(d);
     client->didFinishLoading(handle);
 }
 
-static void readCallback(GObject* source, GAsyncResult* res, gpointer data)
+static void readCallback(GObject* source, GAsyncResult* res, gpointer)
 {
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    ResourceHandle* handle = static_cast<ResourceHandle*>(g_object_get_data(source, "webkit-resource"));
+    if (!handle)
+        return;
+
     ResourceHandleInternal* d = handle->getInternal();
     ResourceHandleClient* client = handle->client();
 
     if (d->m_cancelled || !client) {
-        cleanupGioOperation(handle);
+        cleanupGioOperation(d);
         return;
     }
 
@@ -460,12 +480,13 @@ static void readCallback(GObject* source, GAsyncResult* res, gpointer data)
 
     nread = g_input_stream_read_finish(d->m_input_stream, res, &error);
     if (error) {
-        client->didFail(handle, networkErrorForFile(d->m_gfile, error));
-        cleanupGioOperation(handle);
+        ResourceError resourceError = networkErrorForFile(d->m_gfile, error);
+        cleanupGioOperation(d);
+        client->didFail(handle, resourceError);
         return;
     } else if (!nread) {
         g_input_stream_close_async(d->m_input_stream, G_PRIORITY_DEFAULT,
-                                   NULL, closeCallback, handle);
+                                   NULL, closeCallback, NULL);
         return;
     }
 
@@ -474,17 +495,20 @@ static void readCallback(GObject* source, GAsyncResult* res, gpointer data)
 
     g_input_stream_read_async(d->m_input_stream, d->m_buffer, d->m_bufsize,
                               G_PRIORITY_DEFAULT, d->m_cancellable,
-                              readCallback, handle);
+                              readCallback, NULL);
 }
 
-static void openCallback(GObject* source, GAsyncResult* res, gpointer data)
+static void openCallback(GObject* source, GAsyncResult* res, gpointer)
 {
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    ResourceHandle* handle = static_cast<ResourceHandle*>(g_object_get_data(source, "webkit-resource"));
+    if (!handle)
+        return;
+
     ResourceHandleInternal* d = handle->getInternal();
     ResourceHandleClient* client = handle->client();
 
     if (d->m_cancelled || !client) {
-        cleanupGioOperation(handle);
+        cleanupGioOperation(d);
         return;
     }
 
@@ -492,8 +516,9 @@ static void openCallback(GObject* source, GAsyncResult* res, gpointer data)
     GError *error = NULL;
     in = g_file_read_finish(G_FILE(source), res, &error);
     if (error) {
-        client->didFail(handle, networkErrorForFile(d->m_gfile, error));
-        cleanupGioOperation(handle);
+        ResourceError resourceError = networkErrorForFile(d->m_gfile, error);
+        cleanupGioOperation(d);
+        client->didFail(handle, resourceError);
         return;
     }
 
@@ -501,19 +526,23 @@ static void openCallback(GObject* source, GAsyncResult* res, gpointer data)
     d->m_bufsize = 8192;
     d->m_buffer = static_cast<char*>(g_malloc(d->m_bufsize));
     d->m_total = 0;
+    g_object_set_data(G_OBJECT(d->m_input_stream), "webkit-resource", handle);
     g_input_stream_read_async(d->m_input_stream, d->m_buffer, d->m_bufsize,
                               G_PRIORITY_DEFAULT, d->m_cancellable,
-                              readCallback, handle);
+                              readCallback, NULL);
 }
 
-static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer data)
+static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer)
 {
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    ResourceHandle* handle = static_cast<ResourceHandle*>(g_object_get_data(source, "webkit-resource"));
+    if (!handle)
+        return;
+
     ResourceHandleInternal* d = handle->getInternal();
     ResourceHandleClient* client = handle->client();
 
     if (d->m_cancelled) {
-        cleanupGioOperation(handle);
+        cleanupGioOperation(d);
         return;
     }
 
@@ -534,8 +563,9 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer data)
         // and set a timeout to unmount it later after it's been idle
         // for a while).
 
-        client->didFail(handle, networkErrorForFile(d->m_gfile, error));
-        cleanupGioOperation(handle);
+        ResourceError resourceError = networkErrorForFile(d->m_gfile, error);
+        cleanupGioOperation(d);
+        client->didFail(handle, resourceError);
         return;
     }
 
@@ -543,8 +573,9 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer data)
         // FIXME: what if the URI points to a directory? Should we
         // generate a listing? How? What do other backends do here?
 
-        client->didFail(handle, networkErrorForFile(d->m_gfile, error));
-        cleanupGioOperation(handle);
+        ResourceError resourceError = networkErrorForFile(d->m_gfile, error);
+        cleanupGioOperation(d);
+        client->didFail(handle, resourceError);
         return;
     }
 
@@ -559,7 +590,7 @@ static void queryInfoCallback(GObject* source, GAsyncResult* res, gpointer data)
     client->didReceiveResponse(handle, response);
 
     g_file_read_async(d->m_gfile, G_PRIORITY_DEFAULT, d->m_cancellable,
-                      openCallback, handle);
+                      openCallback, NULL);
 }
 
 bool ResourceHandle::startGio(String urlString)
@@ -576,6 +607,7 @@ bool ResourceHandle::startGio(String urlString)
         urlString = urlString.left(fragPos);
 
     d->m_gfile = g_file_new_for_uri(urlString.utf8().data());
+    g_object_set_data(G_OBJECT(d->m_gfile), "webkit-resource", this);
     d->m_cancellable = g_cancellable_new();
     g_file_query_info_async(d->m_gfile,
                             G_FILE_ATTRIBUTE_STANDARD_TYPE ","
@@ -583,7 +615,7 @@ bool ResourceHandle::startGio(String urlString)
                             G_FILE_ATTRIBUTE_STANDARD_SIZE,
                             G_FILE_QUERY_INFO_NONE,
                             G_PRIORITY_DEFAULT, d->m_cancellable,
-                            queryInfoCallback, this);
+                            queryInfoCallback, NULL);
     return true;
 }
 

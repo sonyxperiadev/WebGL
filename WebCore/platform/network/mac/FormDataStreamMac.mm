@@ -42,6 +42,7 @@
 #import <wtf/Assertions.h>
 #import <wtf/HashMap.h>
 #import <wtf/MainThread.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/Threading.h>
 
 namespace WebCore {
@@ -49,14 +50,14 @@ namespace WebCore {
 typedef HashMap<CFReadStreamRef, RefPtr<FormData> > StreamFormDataMap;
 static StreamFormDataMap& getStreamFormDataMap()
 {
-    static StreamFormDataMap streamFormDataMap;
+    DEFINE_STATIC_LOCAL(StreamFormDataMap, streamFormDataMap, ());
     return streamFormDataMap;
 }
 
 typedef HashMap<CFReadStreamRef, RefPtr<ResourceHandle> > StreamResourceHandleMap;
 static StreamResourceHandleMap& getStreamResourceHandleMap()
 {
-    static StreamResourceHandleMap streamResourceHandleMap;
+    DEFINE_STATIC_LOCAL(StreamResourceHandleMap, streamResourceHandleMap, ());
     return streamResourceHandleMap;
 }
 
@@ -222,7 +223,7 @@ static void formFinalize(CFReadStreamRef stream, void* context)
     delete form;
 }
 
-static Boolean formOpen(CFReadStreamRef stream, CFStreamError* error, Boolean* openComplete, void* context)
+static Boolean formOpen(CFReadStreamRef, CFStreamError* error, Boolean* openComplete, void* context)
 {
     FormStreamFields* form = static_cast<FormStreamFields*>(context);
 
@@ -278,14 +279,14 @@ static Boolean formCanRead(CFReadStreamRef stream, void* context)
     return CFReadStreamHasBytesAvailable(form->currentStream);
 }
 
-static void formClose(CFReadStreamRef stream, void* context)
+static void formClose(CFReadStreamRef, void* context)
 {
     FormStreamFields* form = static_cast<FormStreamFields*>(context);
 
     closeCurrentStream(form);
 }
 
-static void formSchedule(CFReadStreamRef stream, CFRunLoopRef runLoop, CFStringRef runLoopMode, void* context)
+static void formSchedule(CFReadStreamRef, CFRunLoopRef runLoop, CFStringRef runLoopMode, void* context)
 {
     FormStreamFields* form = static_cast<FormStreamFields*>(context);
 
@@ -294,7 +295,7 @@ static void formSchedule(CFReadStreamRef stream, CFRunLoopRef runLoop, CFStringR
     form->scheduledRunLoopPairs.add(SchedulePair::create(runLoop, runLoopMode));
 }
 
-static void formUnschedule(CFReadStreamRef stream, CFRunLoopRef runLoop, CFStringRef runLoopMode, void* context)
+static void formUnschedule(CFReadStreamRef, CFRunLoopRef runLoop, CFStringRef runLoopMode, void* context)
 {
     FormStreamFields* form = static_cast<FormStreamFields*>(context);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,16 +30,15 @@
 #include "CanvasPixelArray.h"
 
 namespace WebCore {
-
-PassRefPtr<CanvasPixelArray> CanvasPixelArray::create(unsigned size)
-{
-    return adoptRef(new CanvasPixelArray(size));
-}
-
-CanvasPixelArray::CanvasPixelArray(unsigned size)
-    : m_data(size)
-{
-    ASSERT((reinterpret_cast<size_t>(m_data.data()) & 3) == 0);
-}
-
+    
+    PassRefPtr<CanvasPixelArray> CanvasPixelArray::create(unsigned length)
+    {
+        return adoptRef(new CanvasPixelArray(length));
+    }
+    
+    CanvasPixelArray::CanvasPixelArray(unsigned length)
+        : m_data(WTF::ByteArray::create(length))
+    {
+    }
+    
 }

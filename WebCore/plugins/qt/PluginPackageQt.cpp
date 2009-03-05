@@ -36,28 +36,6 @@
 
 namespace WebCore {
 
-void PluginPackage::determineQuirks(const String& mimeType)
-{
-    if (MIMETypeRegistry::isJavaAppletMIMEType(mimeType)) {
-        // Because a single process cannot create multiple VMs, and we cannot reliably unload a
-        // Java VM, we cannot unload the Java plugin, or we'll lose reference to our only VM
-        m_quirks.add(PluginQuirkDontUnloadPlugin);
-
-        // Setting the window region to an empty region causes bad scrolling repaint problems
-        // with the Java plug-in.
-        m_quirks.add(PluginQuirkDontClipToZeroRectWhenScrolling);
-    }
-    
-    if (mimeType == "application/x-shockwave-flash") {
-        // The flash plugin only requests windowless plugins if we return a mozilla user agent
-        m_quirks.add(PluginQuirkWantsMozillaUserAgent);
-        m_quirks.add(PluginQuirkThrottleInvalidate);
-        m_quirks.add(PluginQuirkThrottleWMUserPlusOneMessages);
-        m_quirks.add(PluginQuirkFlashURLNotifyBug);
-    }
-
-}
-
 bool PluginPackage::fetchInfo()
 {
     if (!load())
@@ -81,6 +59,7 @@ bool PluginPackage::fetchInfo()
         return false;
     }
     m_description = buf;
+    determineModuleVersionFromDescription();
 
     String s = gm();
     Vector<String> types;
@@ -112,7 +91,8 @@ bool PluginPackage::load()
     m_module = new QLibrary((QString)m_path);
     m_module->setLoadHints(QLibrary::ResolveAllSymbolsHint);
     if (!m_module->load()) {
-        LOG(Plugin, "%s not loaded", m_path.utf8().data());
+        LOG(Plugin, "%s not loaded (%s)", m_path.utf8().data(),
+                m_module->errorString().toLatin1().constData());
         return false;
     }
 

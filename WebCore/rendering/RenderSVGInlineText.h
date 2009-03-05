@@ -34,13 +34,18 @@ class RenderSVGInlineText : public RenderText {
 public:
     RenderSVGInlineText(Node*, PassRefPtr<StringImpl>);
     virtual const char* renderName() const { return "RenderSVGInlineText"; }
+        
+    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle*);
+
     virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool topLevel = true);
-    virtual bool requiresLayer() { return false; }
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
+
+    virtual bool requiresLayer() const { return false; }
     virtual IntRect selectionRect(bool clipToVisibleContent = true);
     virtual bool isSVGText() const { return true; }
     virtual InlineTextBox* createInlineTextBox();
 
-    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
+    virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
     virtual VisiblePosition positionForCoordinates(int x, int y);
 
     virtual void destroy();

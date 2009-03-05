@@ -31,9 +31,11 @@
 
 #include "CFDictionaryPropertyBag.h"
 #include "COMPropertyBag.h"
+#include "DOMHTMLClasses.h"
 #include "EmbeddedWidget.h"
 #include "MarshallingHelpers.h"
-#include "WebCachedPagePlatformData.h"
+#include "NotImplemented.h"
+#include "WebCachedFramePlatformData.h"
 #include "WebChromeClient.h"
 #include "WebDocumentLoader.h"
 #include "WebError.h"
@@ -46,6 +48,7 @@
 #include "WebURLResponse.h"
 #include "WebView.h"
 #pragma warning(push, 0)
+#include <WebCore/CachedFrame.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameTree.h>
@@ -71,7 +74,7 @@ static WebDataSource* getWebDataSource(DocumentLoader* loader)
 
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame* webFrame)
     : m_webFrame(webFrame)
-    , m_pluginView(0) 
+    , m_manualLoader(0) 
     , m_hasSentResponseToPlugin(false) 
 {
     ASSERT_ARG(webFrame, webFrame);
@@ -102,8 +105,27 @@ void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identi
     resourceLoadDelegate->identifierForInitialRequest(webView, webURLRequest.get(), getWebDataSource(loader), identifier);
 }
 
+bool WebFrameLoaderClient::shouldUseCredentialStorage(DocumentLoader* loader, unsigned long identifier)
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
+    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
+        return true;
+
+    COMPtr<IWebResourceLoadDelegatePrivate2> resourceLoadDelegatePrivate;
+    if (FAILED(resourceLoadDelegate->QueryInterface(IID_IWebResourceLoadDelegatePrivate2, reinterpret_cast<void**>(&resourceLoadDelegatePrivate))))
+        return true;
+
+    BOOL shouldUse;
+    if (SUCCEEDED(resourceLoadDelegatePrivate->shouldUseCredentialStorage(webView, identifier, getWebDataSource(loader), &shouldUse)))
+        return shouldUse;
+
+    return true;
+}
+
 void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge& challenge)
 {
+#if USE(CFNETWORK)
     ASSERT(challenge.sourceHandle());
 
     WebView* webView = m_webFrame->webView();
@@ -117,6 +139,9 @@ void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoa
     // If the ResourceLoadDelegate doesn't exist or fails to handle the call, we tell the ResourceHandle
     // to continue without credential - this is the best approximation of Mac behavior
     challenge.sourceHandle()->receivedRequestToContinueWithoutCredential(challenge);
+#else
+   notImplemented();
+#endif
 }
 
 void WebFrameLoaderClient::dispatchDidCancelAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge& challenge)
@@ -297,6 +322,17 @@ void WebFrameLoaderClient::dispatchDidFirstLayout()
         frameLoadDelegatePriv->didFirstLayoutInFrame(webView, m_webFrame);
 }
 
+void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePrivate;
+    if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate) {
+        COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePrivate2(Query, frameLoadDelegatePrivate);
+        if (frameLoadDelegatePrivate2)
+            frameLoadDelegatePrivate2->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
+    }
+}
+
 Frame* WebFrameLoaderClient::dispatchCreatePage()
 {
     WebView* webView = m_webFrame->webView();
@@ -331,12 +367,11 @@ void WebFrameLoaderClient::dispatchDidLoadMainResource(DocumentLoader*)
 
 void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError& error)
 {
-    if (!m_pluginView)
+    if (!m_manualLoader)
         return;
 
-    if (m_pluginView->status() == PluginStatusLoadedSuccessfully)
-        m_pluginView->didFail(error);
-    m_pluginView = 0;
+    m_manualLoader->didFail(error);
+    m_manualLoader = 0;
     m_hasSentResponseToPlugin = false;
 }
 
@@ -366,22 +401,22 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const char* dat
     // FIXME: This should probably go through the data source.
     const String& textEncoding = loader->response().textEncodingName();
 
-    if (!m_pluginView)
+    if (!m_manualLoader)
         receivedData(data, length, textEncoding);
 
-    if (!m_pluginView || m_pluginView->status() != PluginStatusLoadedSuccessfully)
+    if (!m_manualLoader)
         return;
 
     if (!m_hasSentResponseToPlugin) {
-        m_pluginView->didReceiveResponse(core(m_webFrame)->loader()->documentLoader()->response());
+        m_manualLoader->didReceiveResponse(core(m_webFrame)->loader()->documentLoader()->response());
         // didReceiveResponse sets up a new stream to the plug-in. on a full-page plug-in, a failure in
-        // setting up this stream can cause the main document load to be cancelled, setting m_pluginView
+        // setting up this stream can cause the main document load to be cancelled, setting m_manualLoader
         // to null
-        if (!m_pluginView)
+        if (!m_manualLoader)
             return;
         m_hasSentResponseToPlugin = true;
     }
-    m_pluginView->didReceiveData(data, length);
+    m_manualLoader->didReceiveData(data, length);
 }
 
 void WebFrameLoaderClient::receivedData(const char* data, int length, const String& textEncoding)
@@ -405,23 +440,44 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
     // Telling the frame we received some data and passing 0 as the data is our
     // way to get work done that is normally done when the first bit of data is
     // received, even for the case of a document with no data (like about:blank)
-    if (!m_pluginView) {
+    if (!m_manualLoader) {
         committedLoad(loader, 0, 0);
         return;
     }
 
-    if (m_pluginView->status() == PluginStatusLoadedSuccessfully)
-        m_pluginView->didFinishLoading();
-    m_pluginView = 0;
+    m_manualLoader->didFinishLoading();
+    m_manualLoader = 0;
     m_hasSentResponseToPlugin = false;
 }
 
-void WebFrameLoaderClient::updateGlobalHistory(const KURL& url)
+void WebFrameLoaderClient::updateGlobalHistory()
 {
     WebHistory* history = WebHistory::sharedHistory();
     if (!history)
         return;
-    history->addItem(url, core(m_webFrame)->loader()->documentLoader()->title());                 
+
+    DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
+
+    if (loader->urlForHistoryReflectsServerRedirect()) {
+        history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), loader->url(), false);                 
+        return;
+    }
+
+    if (loader->urlForHistoryReflectsClientRedirect()) {
+        history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), KURL(), true);
+        return;
+    }
+
+    history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), KURL(), false);
+}
+
+void WebFrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+{
+    WebHistory* history = WebHistory::sharedHistory();
+    if (!history)
+        return;
+    DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
+    history->visitedURLForRedirectWithoutHistoryItem(loader->url());
 }
 
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
@@ -464,56 +520,35 @@ void WebFrameLoaderClient::setTitle(const String& title, const KURL& url)
     itemPrivate->setTitle(BString(title));
 }
 
-void WebFrameLoaderClient::savePlatformDataToCachedPage(CachedPage* cachedPage)
+void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFrame)
 {
+#if USE(CFNETWORK)
     Frame* coreFrame = core(m_webFrame);
     if (!coreFrame)
         return;
 
-    ASSERT(coreFrame->loader()->documentLoader() == cachedPage->documentLoader());
+    ASSERT(coreFrame->loader()->documentLoader() == cachedFrame->documentLoader());
 
-    WebCachedPagePlatformData* webPlatformData = new WebCachedPagePlatformData(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader()->documentLoader())));
-    cachedPage->setCachedPagePlatformData(webPlatformData);
+    WebCachedFramePlatformData* webPlatformData = new WebCachedFramePlatformData(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader()->documentLoader())));
+    cachedFrame->setCachedFramePlatformData(webPlatformData);
+#else
+    notImplemented();
+#endif
+}
+
+void WebFrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame*)
+{
 }
 
 void WebFrameLoaderClient::transitionToCommittedForNewPage()
 {
-    Frame* frame = core(m_webFrame);
-    ASSERT(frame);
+    WebView* view = m_webFrame->webView();
 
-    Page* page = frame->page();
-    ASSERT(page);
-
-    bool isMainFrame = frame == page->mainFrame();
-
-    if (isMainFrame && frame->view())
-        frame->view()->setParentVisible(false);
-
-    frame->setView(0);
-
-    WebView* webView = m_webFrame->webView();
-
-    FrameView* frameView;
-    if (isMainFrame) {
-        RECT rect;
-        webView->frameRect(&rect);
-        frameView = new FrameView(frame, IntRect(rect).size());
-    } else
-        frameView = new FrameView(frame);
-
-    frame->setView(frameView);
-    frameView->deref(); // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
-
-    m_webFrame->updateBackground();
-
-    if (isMainFrame)
-        frameView->setParentVisible(true);
-
-    if (frame->ownerRenderer())
-        frame->ownerRenderer()->setWidget(frameView);
-
-    if (HTMLFrameOwnerElement* owner = frame->ownerElement())
-        frame->view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);
+    RECT rect;
+    view->frameRect(&rect);
+    bool transparent = view->transparent();
+    Color backgroundColor = transparent ? Color::transparent : Color::white;
+    WebCore::FrameLoaderClient::transitionToCommittedForNewPage(core(m_webFrame), IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
 }
 
 bool WebFrameLoaderClient::canCachePage() const
@@ -562,18 +597,14 @@ void WebFrameLoaderClient::loadURLIntoChild(const KURL& originalURL, const Strin
 
     HistoryItem* parentItem = coreFrame->loader()->currentHistoryItem();
     FrameLoadType loadType = coreFrame->loader()->loadType();
-    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedHistory;
+    FrameLoadType childLoadType = FrameLoadTypeRedirectWithLockedBackForwardList;
 
     KURL url = originalURL;
 
     // If we're moving in the backforward list, we might want to replace the content
     // of this child frame with whatever was there at that point.
     // Reload will maintain the frame contents, LoadSame will not.
-    if (parentItem && parentItem->children().size() &&
-        (isBackForwardLoadType(loadType)
-         || loadType == FrameLoadTypeReload
-         || loadType == FrameLoadTypeReloadAllowingStaleData))
-    {
+    if (parentItem && parentItem->children().size() && isBackForwardLoadType(loadType)) {
         if (HistoryItem* childItem = parentItem->childItemWithName(core(childFrame)->tree()->name())) {
             // Use the original URL to ensure we get all the side-effects, such as
             // onLoad handlers, of any redirects that happened. An example of where
@@ -593,7 +624,7 @@ void WebFrameLoaderClient::loadURLIntoChild(const KURL& originalURL, const Strin
 
     // FIXME: Handle loading WebArchives here
     String frameName = core(childFrame)->tree()->name();
-    core(childFrame)->loader()->loadURL(url, referrer, frameName, childLoadType, 0, 0);
+    core(childFrame)->loader()->loadURL(url, referrer, frameName, false, childLoadType, 0, 0);
 }
 
 Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
@@ -610,11 +641,16 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* e
             for (unsigned i = 0; i < paramNames.size(); i++) 
                 viewArguments.set(paramNames[i], paramValues[i]);
             COMPtr<IPropertyBag> viewArgumentsBag(AdoptCOM, COMPropertyBag<String>::adopt(viewArguments));
+            COMPtr<IDOMElement> containingElement(AdoptCOM, DOMElement::createInstance(element));
 
-            // Now create a new property bag where the view arguments is the only property.
-            HashMap<String, COMPtr<IUnknown> > arguments;
-            arguments.set(WebEmbeddedViewAttributesKey, COMPtr<IUnknown>(AdoptCOM, viewArgumentsBag.releaseRef()));
-            COMPtr<IPropertyBag> argumentsBag(AdoptCOM, COMPropertyBag<COMPtr<IUnknown> >::adopt(arguments));
+            HashMap<String, COMVariant> arguments;
+
+            arguments.set(WebEmbeddedViewAttributesKey, viewArgumentsBag);
+            arguments.set(WebEmbeddedViewBaseURLKey, url.string());
+            arguments.set(WebEmbeddedViewContainingElementKey, containingElement);
+            arguments.set(WebEmbeddedViewMIMETypeKey, mimeType);
+
+            COMPtr<IPropertyBag> argumentsBag(AdoptCOM, COMPropertyBag<COMVariant>::adopt(arguments));
 
             COMPtr<IWebEmbeddedView> view;
             HRESULT result = uiPrivate->embeddedViewWithArguments(webView, m_webFrame, argumentsBag.get(), &view);
@@ -694,7 +730,10 @@ void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
 {
     // Ideally, this function shouldn't be necessary, see <rdar://problem/4852889>
 
-    m_pluginView = static_cast<PluginView*>(pluginWidget);
+    if (pluginWidget->isPluginView())
+        m_manualLoader = static_cast<PluginView*>(pluginWidget);
+    else 
+        m_manualLoader = static_cast<EmbeddedWidget*>(pluginWidget);
 }
 
 WebHistory* WebFrameLoaderClient::webHistory() const
@@ -703,4 +742,13 @@ WebHistory* WebFrameLoaderClient::webHistory() const
         return 0;
 
     return WebHistory::sharedHistory();
+}
+
+bool WebFrameLoaderClient::shouldUsePluginDocument(const String& mimeType) const
+{
+    WebView* webView = m_webFrame->webView();
+    if (!webView)
+        return false;
+
+    return webView->shouldUseEmbeddedView(mimeType);
 }

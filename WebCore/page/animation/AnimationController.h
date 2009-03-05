@@ -33,11 +33,16 @@
 
 namespace WebCore {
 
+class AnimationBase;
 class AnimationControllerPrivate;
+class AtomicString;
 class Document;
+class Element;
 class Frame;
+class Node;
 class RenderObject;
 class RenderStyle;
+class String;
 
 class AnimationController {
 public:
@@ -50,27 +55,29 @@ public:
     void setAnimationStartTime(RenderObject*, double t);
     void setTransitionStartTime(RenderObject*, int property, double t);
 
+    bool pauseAnimationAtTime(RenderObject*, const String& name, double t); // To be used only for testing
+    bool pauseTransitionAtTime(RenderObject*, const String& property, double t); // To be used only for testing
+    unsigned numberOfActiveAnimations() const; // To be used only for testing
+    
     bool isAnimatingPropertyOnRenderer(RenderObject*, int property, bool isRunningNow) const;
 
     void suspendAnimations(Document*);
     void resumeAnimations(Document*);
-    void updateAnimationTimer();
 
     void startUpdateRenderingDispatcher();
+    void addEventToDispatch(PassRefPtr<Element>, const AtomicString& eventType, const String& name, double elapsedTime);
+    void addNodeChangeToDispatch(PassRefPtr<Node>);
 
-    void styleAvailable();
+    void addToStyleAvailableWaitList(AnimationBase*);
+    void removeFromStyleAvailableWaitList(AnimationBase*);
 
-    void setWaitingForStyleAvailable(bool waiting)
-    {
-        if (waiting)
-            m_numStyleAvailableWaiters++;
-        else
-            m_numStyleAvailableWaiters--;
-    }
+    double beginAnimationUpdateTime();
+    
+    void beginAnimationUpdate();
+    void endAnimationUpdate();
 
 private:
     AnimationControllerPrivate* m_data;
-    unsigned m_numStyleAvailableWaiters;    
 };
 
 } // namespace WebCore

@@ -25,7 +25,7 @@
 
 namespace JSC {
 
-    typedef HashMap<unsigned, JSValue*> SparseArrayValueMap;
+    typedef HashMap<unsigned, JSValuePtr> SparseArrayValueMap;
 
     struct ArrayStorage {
         unsigned m_length;
@@ -33,21 +33,21 @@ namespace JSC {
         unsigned m_numValuesInVector;
         SparseArrayValueMap* m_sparseValueMap;
         void* lazyCreationData; // A JSArray subclass can use this to fill the vector lazily.
-        JSValue* m_vector[1];
+        JSValuePtr m_vector[1];
     };
 
     class JSArray : public JSObject {
-        friend class CTI;
+        friend class JIT;
 
     public:
-        explicit JSArray(PassRefPtr<StructureID>);
-        JSArray(PassRefPtr<StructureID>, unsigned initialLength);
-        JSArray(ExecState*, PassRefPtr<StructureID>, const ArgList& initialValues);
+        explicit JSArray(PassRefPtr<Structure>);
+        JSArray(PassRefPtr<Structure>, unsigned initialLength);
+        JSArray(ExecState*, PassRefPtr<Structure>, const ArgList& initialValues);
         virtual ~JSArray();
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
-        virtual void put(ExecState*, unsigned propertyName, JSValue*); // FIXME: Make protected and add setItem.
+        virtual void put(ExecState*, unsigned propertyName, JSValuePtr); // FIXME: Make protected and add setItem.
 
         static const ClassInfo info;
 
@@ -55,20 +55,21 @@ namespace JSC {
         void setLength(unsigned); // OK to use on new arrays, but not if it might be a RegExpMatchArray.
 
         void sort(ExecState*);
-        void sort(ExecState*, JSValue* compareFunction, CallType, const CallData&);
+        void sort(ExecState*, JSValuePtr compareFunction, CallType, const CallData&);
+        void sortNumeric(ExecState*, JSValuePtr compareFunction, CallType, const CallData&);
 
-        void push(ExecState*, JSValue*);
-        JSValue* pop();
+        void push(ExecState*, JSValuePtr);
+        JSValuePtr pop();
 
         bool canGetIndex(unsigned i) { return i < m_fastAccessCutoff; }
-        JSValue* getIndex(unsigned i)
+        JSValuePtr getIndex(unsigned i)
         {
             ASSERT(canGetIndex(i));
             return m_storage->m_vector[i];
         }
 
         bool canSetIndex(unsigned i) { return i < m_fastAccessCutoff; }
-        JSValue* setIndex(unsigned i, JSValue* v)
+        JSValuePtr setIndex(unsigned i, JSValuePtr v)
         {
             ASSERT(canSetIndex(i));
             return m_storage->m_vector[i] = v;
@@ -76,13 +77,13 @@ namespace JSC {
 
         void fillArgList(ExecState*, ArgList&);
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* prototype)
+        static PassRefPtr<Structure> createStructure(JSValuePtr prototype)
         {
-            return StructureID::create(prototype, TypeInfo(ObjectType));
+            return Structure::create(prototype, TypeInfo(ObjectType));
         }
 
     protected:
-        virtual void put(ExecState*, const Identifier& propertyName, JSValue*, PutPropertySlot&);
+        virtual void put(ExecState*, const Identifier& propertyName, JSValuePtr, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
         virtual void getPropertyNames(ExecState*, PropertyNameArray&);
@@ -95,7 +96,7 @@ namespace JSC {
         virtual const ClassInfo* classInfo() const { return &info; }
 
         bool getOwnPropertySlotSlowCase(ExecState*, unsigned propertyName, PropertySlot&);
-        void putSlowCase(ExecState*, unsigned propertyName, JSValue*);
+        void putSlowCase(ExecState*, unsigned propertyName, JSValuePtr);
 
         bool increaseVectorLength(unsigned newLength);
         
@@ -108,14 +109,14 @@ namespace JSC {
         ArrayStorage* m_storage;
     };
 
-    JSArray* asArray(JSValue*);
+    JSArray* asArray(JSValuePtr);
 
     JSArray* constructEmptyArray(ExecState*);
     JSArray* constructEmptyArray(ExecState*, unsigned initialLength);
-    JSArray* constructArray(ExecState*, JSValue* singleItemValue);
+    JSArray* constructArray(ExecState*, JSValuePtr singleItemValue);
     JSArray* constructArray(ExecState*, const ArgList& values);
 
-    inline JSArray* asArray(JSValue* value)
+    inline JSArray* asArray(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&JSArray::info));
         return static_cast<JSArray*>(asObject(value));

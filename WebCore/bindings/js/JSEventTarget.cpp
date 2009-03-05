@@ -30,7 +30,15 @@
 #include "JSEventListener.h"
 #include "JSEventTargetNode.h"
 #include "JSMessagePort.h"
+#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
+#if ENABLE(WORKERS)
+#include "JSWorker.h"
+#include "JSWorkerContext.h"
+#endif
+#endif
 #include "JSXMLHttpRequestUpload.h"
+#include "Worker.h"
+#include "WorkerContext.h"
 
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
@@ -41,7 +49,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValue* toJS(ExecState* exec, EventTarget* target)
+JSValuePtr toJS(ExecState* exec, EventTarget* target)
 {
     if (!target)
         return jsNull();
@@ -70,7 +78,15 @@ JSValue* toJS(ExecState* exec, EventTarget* target)
 
     if (MessagePort* messagePort = target->toMessagePort())
         return toJS(exec, messagePort);
-    
+
+#if ENABLE(WORKERS)
+    if (Worker* worker = target->toWorker())
+        return toJS(exec, worker);
+
+    if (WorkerContext* workerContext = target->toWorkerContext())
+        return toJSDOMGlobalObject(workerContext);
+#endif
+
     ASSERT_NOT_REACHED();
     return jsNull();
 }

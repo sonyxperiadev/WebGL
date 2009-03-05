@@ -42,7 +42,7 @@ BEGIN
             VALUE "FileVersion", __VERSION_TEXT__
             VALUE "CompanyName", "Apple Inc."
             VALUE "InternalName", "WebKit"
-            VALUE "LegalCopyright", "Copyright Apple Inc. 2003-2008"
+            VALUE "LegalCopyright", "Copyright Apple Inc. 2003-2009"
             VALUE "OriginalFilename", "WebKit.dll"
             VALUE "ProductName", " WebKit"
             VALUE "ProductVersion", __BUILD_NUMBER_SHORT__
@@ -77,4 +77,8 @@ IDR_PAN_SOUTH_EAST_CURSOR        PNG                     "panSouthEastCursor.png
 IDR_PAN_SOUTH_WEST_CURSOR        PNG                     "panSouthWestCursor.png"
 IDR_PAN_NORTH_EAST_CURSOR        PNG                     "panNorthEastCursor.png"
 IDR_PAN_NORTH_WEST_CURSOR        PNG                     "panNorthWestCursor.png"
+IDR_SEARCH_CANCEL                PNG                     "searchCancel.png"
+IDR_SEARCH_CANCEL_PRESSED        PNG                     "searchCancelPressed.png"
+IDR_SEARCH_MAGNIFIER             PNG                     "searchMagnifier.png"
+IDR_SEARCH_MAGNIFIER_RESULTS     PNG                     "searchMagnifierResults.png"
 

@@ -22,25 +22,17 @@
 #if ENABLE(SVG)
 #include "JSSVGMatrix.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "SVGException.h"
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue* JSSVGMatrix::multiply(ExecState* exec, const ArgList& args)
+JSValuePtr JSSVGMatrix::inverse(ExecState* exec, const ArgList&)
 {
-    AffineTransform imp(*impl());
-
-    AffineTransform secondMatrix = toSVGMatrix(args.at(exec, 0));    
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.multiply(secondMatrix)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::inverse(ExecState* exec, const ArgList&)
-{
-    AffineTransform imp(*impl());
-    JSC::JSValue* result = toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.inverse()).get(), m_context.get());
+    TransformationMatrix imp(*impl());
+    JSC::JSValuePtr result = toJS(exec, JSSVGStaticPODTypeWrapper<TransformationMatrix>::create(imp.inverse()).get(), m_context.get());
 
     if (!imp.isInvertible())
         setDOMException(exec, SVGException::SVG_MATRIX_NOT_INVERTABLE);
@@ -48,83 +40,19 @@ JSValue* JSSVGMatrix::inverse(ExecState* exec, const ArgList&)
     return result;
 }
 
-JSValue* JSSVGMatrix::translate(ExecState* exec, const ArgList& args)
+JSValuePtr JSSVGMatrix::rotateFromVector(ExecState* exec, const ArgList& args)
 {
-    AffineTransform imp(*impl());
-
-    float x = args.at(exec, 0)->toFloat(exec);
-    float y = args.at(exec, 1)->toFloat(exec);
-
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.translate(x, y)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::scale(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
-
-    float scaleFactor = args.at(exec, 0)->toFloat(exec);
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.scale(scaleFactor)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::scaleNonUniform(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
-
-    float scaleFactorX = args.at(exec, 0)->toFloat(exec);
-    float scaleFactorY = args.at(exec, 1)->toFloat(exec);
-
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.scaleNonUniform(scaleFactorX, scaleFactorY)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::rotate(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
-
-    float angle = args.at(exec, 0)->toFloat(exec);
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.rotate(angle)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::rotateFromVector(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
+    TransformationMatrix imp(*impl());
  
-    float x = args.at(exec, 0)->toFloat(exec);
-    float y = args.at(exec, 1)->toFloat(exec);
+    float x = args.at(exec, 0).toFloat(exec);
+    float y = args.at(exec, 1).toFloat(exec);
 
-    JSC::JSValue* result = toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.rotateFromVector(x, y)).get(), m_context.get());
+    JSC::JSValuePtr result = toJS(exec, JSSVGStaticPODTypeWrapper<TransformationMatrix>::create(imp.rotateFromVector(x, y)).get(), m_context.get());
 
     if (x == 0.0 || y == 0.0)
         setDOMException(exec, SVGException::SVG_INVALID_VALUE_ERR);
 
     return result;
-}
-
-JSValue* JSSVGMatrix::flipX(ExecState* exec, const ArgList&)
-{
-    AffineTransform imp(*impl());
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.flipX()).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::flipY(ExecState* exec, const ArgList&)
-{
-    AffineTransform imp(*impl());
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.flipY()).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::skewX(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
-
-    float angle = args.at(exec, 0)->toFloat(exec);
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.skewX(angle)).get(), m_context.get());
-}
-
-JSValue* JSSVGMatrix::skewY(ExecState* exec, const ArgList& args)
-{
-    AffineTransform imp(*impl());
-
-    float angle = args.at(exec, 0)->toFloat(exec);
-    return toJS(exec, JSSVGStaticPODTypeWrapper<AffineTransform>::create(imp.skewY(angle)).get(), m_context.get());
 }
 
 }

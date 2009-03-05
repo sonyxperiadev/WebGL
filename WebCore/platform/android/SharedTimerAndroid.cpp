@@ -27,10 +27,10 @@
 #include "config.h"
 #include "SharedTimer.h"
 
-#include "SystemTime.h"
 #include "JavaSharedClient.h"
 #include "TimerClient.h"
 #include <utils/Log.h>
+#include <wtf/CurrentTime.h>
 
 using namespace android;
 
@@ -48,7 +48,7 @@ void setSharedTimerFiredFunction(void (*f)())
 // as the result of currentTime() is.
 void setSharedTimerFireTime(double fireTime)
 {
-    long long timeInMS = (long long)((fireTime - currentTime()) * 1000);
+    long long timeInMS = (long long)((fireTime - WTF::currentTime()) * 1000);
 
     LOGV("setSharedTimerFireTime: in %ld millisec", timeInMS);
     if (JavaSharedClient::GetTimerClient())
