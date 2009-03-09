@@ -43,6 +43,7 @@
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
+#include "NetworkStateNotifier.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformGraphicsContext.h"
@@ -290,6 +291,11 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
     // our interface query is valid with no NPP instance
     NPError error = NPERR_GENERIC_ERROR;
+    if ((value != NULL) && (variable == NPNVisOfflineBool)) {
+      bool* retValue = static_cast<bool*>(value);
+      *retValue = !networkStateNotifier().onLine();
+      return NPERR_NO_ERROR;
+    }
     (void)anp_getInterface(variable, value, &error);
     return error;
 }
@@ -431,6 +437,15 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             *retObject = android::WebViewCore::getWebViewCore(parent())->getWebViewJavaObject();
             return NPERR_NO_ERROR;
         }
+
+        case NPNVisOfflineBool: {
+            if (value == NULL) {
+              return NPERR_GENERIC_ERROR;
+            }
+            bool* retValue = static_cast<bool*>(value);
+            *retValue = !networkStateNotifier().onLine();
+            return NPERR_NO_ERROR;
+        }
             
         case kSupportedDrawingModel_ANPGetValue: {
             uint32_t* bits = reinterpret_cast<uint32_t*>(value);
@@ -549,4 +564,3 @@ void PluginView::setParentVisible(bool) {
 }
 
 } // namespace WebCore
-

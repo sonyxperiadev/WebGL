@@ -330,11 +330,12 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
     
     // Replace all occurances of %e with the error text
     s = s.replace("%e", error.localizedDescription());
-    
+
     // Create the request and the substitute data and tell the FrameLoader to
     // load with the replacement data.
-    loadDataIntoFrame(m_frame, m_frame->loader()->baseURL(),
-            error.failingURL(), s);
+    // use KURL(const char*) as KURL(const String& url) can trigger ASSERT for
+    // invalidate URL string.
+    loadDataIntoFrame(m_frame, KURL(data), error.failingURL(), s);
 
     // Delete the asset.
     delete a;
