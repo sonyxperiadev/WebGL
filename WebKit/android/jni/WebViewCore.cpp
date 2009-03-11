@@ -385,21 +385,15 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // and check to see if any already split pieces need to be redrawn.
     if (content->build())
         rebuildPictureSet(content);
-    m_frameCacheOutOfDate = true;
-}
-
-void WebViewCore::checkNavCache()
-{
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)
-        ->getCacheBuilder();
+    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Node* oldFocusNode = builder.currentFocus();
+    m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds = oldFocusNode ?
         oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
     DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
         " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}",
         m_lastFocused, oldFocusNode,
-        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), 
-        m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
+        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
     unsigned latestVersion = 0;
     // as domTreeVersion only increment, we can just check the sum to see whether
@@ -2420,15 +2414,6 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
     WebCore::FrameLoader::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
-static void CheckNavCache(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    viewImpl->checkNavCache();
-}
-
 static void ClearContent(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2464,8 +2449,6 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
  * JNI registration.
  */
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
-    { "nativeCheckNavCache", "()V",
-        (void*) CheckNavCache },
     { "nativeClearContent", "()V",
         (void*) ClearContent },
     { "nativeCopyContentToPicture", "(Landroid/graphics/Picture;)V",

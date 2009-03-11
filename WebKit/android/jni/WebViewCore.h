@@ -182,8 +182,7 @@ namespace android {
         
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
-        // Rebuild the nav cache if the dom changed
-        void checkNavCache();
+        
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);

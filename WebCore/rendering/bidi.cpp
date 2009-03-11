@@ -859,19 +859,23 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
 #ifdef ANDROID_LAYOUT
                 if (doTextWrap && !hasTextToWrap && o->isText()) {
                     Node* node = o->element();
-			        // as it is very common for sites to use a serial of <a> as 
-			        // tabs, we don't force text to wrap if all the text are
-			        // short and within an <a> tag, or only separated by short 
-                    // word like "|" or ";".
+                    // as it is very common for sites to use a serial of <a> or 
+                    // <li> as tabs, we don't force text to wrap if all the text 
+                    // are short and within an <a> or <li> tag, and only separated 
+                    // by short word like "|" or ";".
                     if (node && node->isTextNode() &&
                             !static_cast<Text*>(node)->containsOnlyWhitespace()) {
                         int length = static_cast<Text*>(node)->length();
-                        if (length > 20 || (length >3 &&
-								!node->parent()->hasTagName(HTMLNames::aTag)))                         	
-                        	hasTextToWrap = true;
+                        // FIXME, need a magic number to decide it is too long to 
+                        // be a tab. Pick 25 for now as it covers around 160px 
+                        // (half of 320px) with the default font.
+                        if (length > 25 || (length > 3 &&
+                                (!node->parent()->hasTagName(HTMLNames::aTag) &&
+                                !node->parent()->hasTagName(HTMLNames::liTag))))
+                            hasTextToWrap = true;
                     }
                 }
-#endif            
+#endif
             }
             o = bidiNext(this, o, 0, false, &endOfInline);
         }

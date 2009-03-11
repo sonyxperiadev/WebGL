@@ -100,6 +100,9 @@
 #include <runtime/JSLock.h>
 #endif
 
+using namespace JSC;
+using namespace JSC::Bindings;
+
 namespace android {
 
 // ----------------------------------------------------------------------------
@@ -924,6 +927,57 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     return env->NewString((unsigned short*)result.characters(), len);
 }
 
+// Wrap the JavaInstance used when binding custom javascript interfaces. Use a
+// weak reference so that the gc can collect the WebView. Override virtualBegin
+// and virtualEnd and swap the weak reference for the real object.
+class WeakJavaInstance : public JavaInstance {
+public:
+    static PassRefPtr<WeakJavaInstance> create(jobject obj,
+            PassRefPtr<RootObject> root) {
+        return adoptRef(new WeakJavaInstance(obj, root));
+    }
+
+protected:
+    WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
+        : JavaInstance(instance, rootObject)
+    {
+        JNIEnv* env = getJNIEnv();
+        // JavaInstance creates a global ref to instance in its constructor.
+        env->DeleteGlobalRef(_instance->_instance);
+        // Set the object to our WeakReference wrapper.
+        _instance->_instance = adoptGlobalRef(env, instance);
+    }
+
+    virtual void virtualBegin() {
+        _weakRef = _instance->_instance;
+        JNIEnv* env = getJNIEnv();
+        // This is odd. getRealObject returns an AutoJObject which is used to
+        // cleanly create and delete a local reference. But, here we need to
+        // maintain the local reference across calls to strong() and weak().
+        // So, create a new local reference to the real object here and delete
+        // it in weak().
+        _realObject = env->NewLocalRef(getRealObject(env, _weakRef).get());
+        // Point to the real object
+        _instance->_instance = _realObject;
+        // Call the base class method
+        INHERITED::virtualBegin();
+    }
+
+    virtual void virtualEnd() {
+        // Get rid of the local reference to the real object
+        getJNIEnv()->DeleteLocalRef(_realObject);
+        // Point back to the WeakReference.
+        _instance->_instance = _weakRef;
+        // Call the base class method
+        INHERITED::virtualEnd();
+    }
+
+private:
+    typedef JavaInstance INHERITED;
+    jobject _realObject;
+    jobject _weakRef;
+};
+
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
         jobject javascriptObj, jstring interfaceName)
 {
@@ -945,7 +999,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         JSC::Bindings::setJavaVM(vm);
         // Add the binding to JS environment
         JSC::ExecState* exec = window->globalExec();
-        JSC::JSObject *addedObject = JSC::Bindings::JavaInstance::create(javascriptObj, 
+        JSC::JSObject *addedObject = WeakJavaInstance::create(javascriptObj,
                 root)->createRuntimeObject(exec);
         const jchar* s = env->GetStringChars(interfaceName, NULL);
         if (s) {
