@@ -70,6 +70,12 @@ module core {
         attribute [DontEnum, ProtectedListener] EventListener onselectstart;
         attribute [DontEnum, ProtectedListener] EventListener onsubmit;
         attribute [DontEnum, ProtectedListener] EventListener onunload;
+#if ENABLE_TOUCH_EVENTS
+        attribute [DontEnum, ProtectedListener] EventListener ontouchstart;
+        attribute [DontEnum, ProtectedListener] EventListener ontouchend;
+        attribute [DontEnum, ProtectedListener] EventListener ontouchmove;
+        attribute [DontEnum, ProtectedListener] EventListener ontouchcancel;
+#endif
 
         [Custom] void addEventListener(in DOMString type, 
                                        in EventListener listener, 
