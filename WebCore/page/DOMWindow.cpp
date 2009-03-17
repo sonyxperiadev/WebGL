@@ -55,6 +55,7 @@
 #include "PlatformString.h"
 #include "Screen.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
 #include <algorithm>
 #include <wtf/MathExtras.h>
 
@@ -339,9 +340,13 @@ Storage* DOMWindow::localStorage() const
     Page* page = document->page();
     if (!page)
         return 0;
-    
+
+    Settings* settings = document->settings();
+    if (!settings || !settings->localStorageEnabled())
+        return 0;
+
     LocalStorage* localStorage = page->group().localStorage();
-    RefPtr<StorageArea> storageArea = localStorage ? localStorage->storageArea(m_frame, document->securityOrigin()) : 0; 
+    RefPtr<StorageArea> storageArea = localStorage ? localStorage->storageArea(document->securityOrigin()) : 0; 
     if (storageArea)
         m_localStorage = Storage::create(m_frame, storageArea.release());
 
@@ -358,7 +363,7 @@ void DOMWindow::postMessage(const String& message, MessagePort* messagePort, con
     // to generate the SYNTAX_ERR exception correctly.
     RefPtr<SecurityOrigin> target;
     if (targetOrigin != "*") {
-        target = SecurityOrigin::create(KURL(targetOrigin));
+        target = SecurityOrigin::createFromString(targetOrigin);
         if (target->isEmpty()) {
             ec = SYNTAX_ERR;
             return;
@@ -367,7 +372,7 @@ void DOMWindow::postMessage(const String& message, MessagePort* messagePort, con
 
     RefPtr<MessagePort> newMessagePort;
     if (messagePort)
-        newMessagePort = messagePort->clone(document(), ec);
+        newMessagePort = messagePort->clone(ec);
     if (ec)
         return;
 
@@ -399,6 +404,11 @@ void DOMWindow::postMessageTimerFired(PostMessageTimer* t)
             return;
         }
     }
+
+    MessagePort* messagePort = timer->event()->messagePort();
+    ASSERT(!messagePort || !messagePort->scriptExecutionContext());
+    if (messagePort)
+        messagePort->attachToContext(document());
 
     document()->dispatchWindowEvent(timer->event());
 }
@@ -520,7 +530,7 @@ String DOMWindow::prompt(const String& message, const String& defaultValue)
     return String();
 }
 
-bool DOMWindow::find(const String& string, bool caseSensitive, bool backwards, bool wrap, bool wholeWord, bool searchInFrames, bool showDialog) const
+bool DOMWindow::find(const String& string, bool caseSensitive, bool backwards, bool wrap, bool /*wholeWord*/, bool /*searchInFrames*/, bool /*showDialog*/) const
 {
     if (!m_frame)
         return false;
@@ -806,6 +816,10 @@ PassRefPtr<Database> DOMWindow::openDatabase(const String& name, const String& v
     Document* doc = m_frame->document();
     ASSERT(doc);
     if (!doc)
+        return 0;
+
+    Settings* settings = m_frame->settings();
+    if (!settings || !settings->databasesEnabled())
         return 0;
 
     return Database::openDatabase(doc, name, version, displayName, estimatedSize, ec);

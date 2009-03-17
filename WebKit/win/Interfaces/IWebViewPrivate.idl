@@ -122,7 +122,6 @@ interface IWebViewPrivate : IUnknown
 
     // SPI for DumpRenderTree
     HRESULT executeCoreCommandByName([in] BSTR name, [in] BSTR value);
-    HRESULT clearMainFrameName();
 
     HRESULT windowAncestryDidChange();
 
@@ -146,4 +145,16 @@ interface IWebViewPrivate : IUnknown
 
     HRESULT setCookieEnabled([in] BOOL enable);
     HRESULT cookieEnabled([out, retval] BOOL* enabled);
+
+    HRESULT setMediaVolume([in] float volume);
+    HRESULT mediaVolume([out, retval] float* volume);
+
+    // SPI for DumpRenderTree
+    HRESULT clearMainFrameName();
+
+    HRESULT globalHistoryItem([out, retval] IWebHistoryItem**);
+
+    HRESULT registerEmbeddedViewMIMEType([in] BSTR mimeType);
+
+    HRESULT setMemoryCacheDelegateCallsEnabled([in] BOOL enabled);
 }

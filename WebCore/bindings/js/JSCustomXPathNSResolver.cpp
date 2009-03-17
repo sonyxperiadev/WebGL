@@ -43,12 +43,12 @@ namespace WebCore {
 
 using namespace JSC;
 
-PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(JSC::ExecState* exec, JSC::JSValue* value)
+PassRefPtr<JSCustomXPathNSResolver> JSCustomXPathNSResolver::create(JSC::ExecState* exec, JSC::JSValuePtr value)
 {
-    if (value->isUndefinedOrNull())
+    if (value.isUndefinedOrNull())
         return 0;
 
-    JSObject* resolverObject = value->getObject();
+    JSObject* resolverObject = value.getObject();
     if (!resolverObject) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
@@ -81,9 +81,9 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    JSValue* function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
+    JSValuePtr function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
     CallData callData;
-    CallType callType = function->getCallData(callData);
+    CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
         callType = m_customResolver->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -100,15 +100,15 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     args.append(jsString(exec, prefix));
 
     globalObject->startTimeoutCheck();
-    JSValue* retval = call(exec, function, callType, callData, m_customResolver, args);
+    JSValuePtr retval = call(exec, function, callType, callData, m_customResolver, args);
     globalObject->stopTimeoutCheck();
 
     String result;
     if (exec->hadException())
-        m_frame->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
     else {
-        if (!retval->isUndefinedOrNull())
-            result = retval->toString(exec);
+        if (!retval.isUndefinedOrNull())
+            result = retval.toString(exec);
     }
 
     Document::updateDocumentsRendering();

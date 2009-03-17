@@ -55,6 +55,10 @@
 #include "WebViewCore.h"
 #include "jni_utility.h"
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 #ifdef GET_NATIVE_VIEW
 #undef GET_NATIVE_VIEW
 #endif
@@ -191,8 +195,11 @@ int count()
         m_start += triggerSize();
         if (m_start == m_end)
             break;
-        if (m_start >= limit)
-            m_start -= sizeof(m_buffer);
+        if (m_start < limit)
+            continue;
+        m_start -= sizeof(m_buffer);
+        if (m_start == m_end)
+            break;
     }
     m_start = saveStart;
     DBG_NAV_LOGD("count=%d", result);
@@ -353,6 +360,7 @@ enum OutOfFocusFix {
 struct JavaGlue {
     jobject     m_obj;
     jmethodID   m_clearTextEntry;
+    jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
     jmethodID   m_sendFinalFocus;
     jmethodID   m_sendKitFocus;
@@ -382,8 +390,9 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = adoptGlobalRef(env, javaWebView);
-    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(II)V");
+    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
+    m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendFinalFocus = GetJMethod(env, clazz, "sendFinalFocus", "(IIII)V");
     m_javaGlue.m_sendKitFocus = GetJMethod(env, clazz, "sendKitFocus", "()V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIIIIZZ)V");
@@ -493,7 +502,9 @@ void debugDump()
 // their subpictures according to their current focus state.
 // Called from the UI thread.  This is the one place in the UI thread where we
 // access the buttons stored in the WebCore thread.
-void nativeRecordButtons(bool pressed, bool invalidate)
+// hasFocus keeps track of whether the WebView has focus && windowFocus.
+// If not, we do not want to draw the button in a focused or pressed state
+void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
 {
     bool focusIsButton = false;
     const CachedNode* cachedFocus = 0;
@@ -520,7 +531,12 @@ void nativeRecordButtons(bool pressed, bool invalidate)
             WebCore::RenderSkinAndroid::State state;
             if (ptr->matches(focus)) {
                 focusIsButton = true;
-                if (m_followedLink || pressed) {
+                // If the WebView is out of focus/window focus, set the state to
+                // normal, but still keep track of the fact that the focus is a
+                // button
+                if (!hasFocus) {
+                    state = WebCore::RenderSkinAndroid::kNormal;
+                } else if (m_followedLink || pressed) {
                     state = WebCore::RenderSkinAndroid::kPressed;
                 } else {
                     state = WebCore::RenderSkinAndroid::kFocused;
@@ -671,24 +687,23 @@ void drawFocusRing(SkCanvas* canvas)
 {
     const CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
-        DBG_NAV_LOGD_THROTTLE("!root", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!root");
         m_followedLink = false;
         return;
     }
     const CachedNode* node = root->currentFocus();
     if (!node) {
-        DBG_NAV_LOGD_THROTTLE("!node", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!node");
         m_followedLink = false;
         return;
     }
     if (!node->hasFocusRing()) {
-        DBG_NAV_LOGD_THROTTLE("!node->hasFocusRing()",
-                              DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!node->hasFocusRing()");
         return;
     }
     const WTF::Vector<WebCore::IntRect>& rings = node->focusRings();
     if (!rings.size()) {
-        DBG_NAV_LOGD_THROTTLE("!rings.size()", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("!rings.size()");
         return;
     }
 
@@ -714,7 +729,8 @@ void drawFocusRing(SkCanvas* canvas)
     SkRect sbounds;
     android_setrect(&sbounds, bounds);
     if (canvas->quickReject(sbounds, SkCanvas::kAA_EdgeType)) {
-        DBG_NAV_LOGD_THROTTLE("canvas->quickReject", DBG_NAV_LOGD_NO_PARAM);
+        DBG_NAV_LOG("canvas->quickReject");
+        m_followedLink = false;
         return;
     }
     FocusRing::Flavor flavor = FocusRing::NORMAL_FLAVOR;
@@ -727,7 +743,7 @@ void drawFocusRing(SkCanvas* canvas)
         }
 #if DEBUG_NAV_UI
         const WebCore::IntRect& ring = rings[0];
-        DBG_NAV_LOGD_THROTTLE("cachedFocusNode=%d (nodePointer=%p) flavor=%s rings=%d"
+        DBG_NAV_LOGD("cachedFocusNode=%d (nodePointer=%p) flavor=%s rings=%d"
             " (%d, %d, %d, %d)", node->index(), node->nodePointer(),
             flavor == FocusRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
             flavor == FocusRing::INVALID_FLAVOR ? "INVALID_FLAVOR" :
@@ -772,10 +788,18 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
     int webWidth = webRoot->width();
     if (uiWidth != webWidth) {
         DBG_NAV_LOGD("uiWidth=%d webWidth=%d", uiWidth, webWidth);
+        return DoNothing; // allow text inputs to preserve their state
     } else {
-        const WebCore::IntRect& cachedBounds = m_frameCacheUI->rootHistory()->focusBounds();
+        const WebCore::IntRect& cachedBounds = m_frameCacheUI->focusBounds();
         const CachedFrame* webFrame = 0;
         const CachedNode* webFocusNode = webRoot->currentFocus(&webFrame);
+        DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) cachedFrame=%p (%d)"
+            " webFocusNode=%p (%d) webFrame=%p (%d)",
+            cachedBounds.x(), cachedBounds.y(),
+            cachedBounds.width(), cachedBounds.height(),
+            cachedFrame, cachedFrame ? cachedFrame->indexInParent() : -1,
+            webFocusNode, webFocusNode ? webFocusNode->index() : -1,
+            webFrame, webFrame ? webFrame->indexInParent() : -1);
         if (webFocusNode && webFrame && webFrame->sameFrame(cachedFrame)) {
             if (useReplay && !m_replay.count()) {
                 DBG_NAV_LOG("!m_replay.count()");
@@ -785,7 +809,10 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("index ==");
                 return DoNothing;
             }
-            const WebCore::IntRect& webBounds = webRoot->rootHistory()->focusBounds();
+            const WebCore::IntRect& webBounds = webRoot->focusBounds();
+            DBG_NAV_LOGD("webBounds=(%d,%d,w=%d,h=%d)",
+                webBounds.x(), webBounds.y(),
+                webBounds.width(), webBounds.height());
             if (cachedBounds.contains(webBounds)) {
                 DBG_NAV_LOG("contains");
                 return DoNothing;
@@ -794,18 +821,7 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("webBounds contains");
                 return DoNothing;
             }
-            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) webBounds=(%d,%d,w=%d,"
-                "%h=d)", cachedBounds.x(), cachedBounds.y(),
-                cachedBounds.width(), cachedBounds.height(), webBounds.x(),
-                webBounds.y(), webBounds.width(), webBounds.height());
-        } else
-            DBG_NAV_LOGD("cachedBounds=(%d,%d,w=%d,h=%d) cachedFrame=%p (%d)"
-                " webFocusNode=%p (%d) webFrame=%p (%d)",
-                cachedBounds.x(), cachedBounds.y(),
-                cachedBounds.width(), cachedBounds.height(),
-                cachedFrame, cachedFrame ? cachedFrame->indexInParent() : -1,
-                webFocusNode, webFocusNode ? webFocusNode->index() : -1,
-                webFrame, webFrame ? webFrame->indexInParent() : -1);
+        }
         const CachedFrame* foundFrame = 0;
         int x, y;
         const CachedNode* found = findAt(webRoot, cachedBounds, &foundFrame, &x, &y);
@@ -1023,7 +1039,8 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
     int dx = 0;
     int dy = 0;
     int counter = count;
-    root->setScrollOnly(m_followedLink);
+    if (!focus || !focus->isInput() || !m_followedLink)
+        root->setScrollOnly(m_followedLink);
     while (--counter >= 0) {
         WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
         cachedNode = root->moveFocus(direction, &cachedFrame, &scroll);
@@ -1086,7 +1103,7 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
             m_replay.add(params.d.d, sizeof(params));
         }
     } else {
-        if (visibleRect.intersects(root->rootHistory()->focusBounds()) == false) {
+        if (visibleRect.intersects(root->focusBounds()) == false) {
             setFocusData(root->generation(), 0, 0, 0, 0, true);
             sendKitFocus(); // will build cache and retry
         }
@@ -1346,8 +1363,9 @@ void markNodeInvalid(WebCore::Node* node)
     viewInvalidate();
 }
 
-void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
+bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
 {
+    bool pageScrolled = false;
     m_followedLink = false;
     const CachedFrame* frame;
     WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop, slop * 2, slop * 2);
@@ -1365,6 +1383,7 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
                 if (dx) {
                     scrollBy(dx, 0);
                     retry = true; // don't recompute later since we scrolled
+                    pageScrolled = true;
                 }
             }
         }
@@ -1384,7 +1403,7 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
             m_replay.add(params.d, sizeof(params));
         }
         clearTextEntry();
-        return;
+        return pageScrolled;
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
         result->index(), x, y, rx, ry);
@@ -1395,7 +1414,8 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
     root->setCachedFocus(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
     bool newNodeIsTextArea = focusIsTextArea(DontAllowNewer);
-    if (result->type() == NORMAL_CACHEDNODETYPE || newNodeIsTextArea) {
+    CachedNodeType type = result->type();
+    if (type == NORMAL_CACHEDNODETYPE || newNodeIsTextArea) {
         sendMotionUp(root->generation(),
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
@@ -1419,11 +1439,25 @@ void motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         updateTextEntry();
         displaySoftKeyboard();
     } else {
-        if (isClick)
+        if (isClick) {
             setFollowedLink(true);
+            if (type != NORMAL_CACHEDNODETYPE) {
+                overrideUrlLoading(result->getExport());
+            }
+        }
         if (oldNodeIsTextArea)
             clearTextEntry();
     }
+    return pageScrolled;
+}
+
+void overrideUrlLoading(const WebCore::String& url)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jName = env->NewString((jchar*) url.characters(), url.length());
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_overrideLoading, jName);
+    env->DeleteLocalRef(jName);
 }
 
 void setFindIsUp(bool up)
@@ -1687,7 +1721,8 @@ void scrollBy(int dx, int dy)
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy, dx, dy);
+    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy, 
+        dx, dy, true);
     checkException(env);
 }
 
@@ -1919,6 +1954,13 @@ static bool nativeFocusNodeWantsKeyEvents(JNIEnv* env, jobject jwebview) {
     return view->focusNodeWantsKeyEvents();
 }
 
+static void nativeInstrumentReport(JNIEnv *env, jobject obj)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounter::reportNow();
+#endif
+}
+
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
 {
     int L, T, R, B;
@@ -1941,12 +1983,12 @@ static void nativeMarkNodeInvalid(JNIEnv *env, jobject obj, int node)
     view->markNodeInvalid((WebCore::Node*) node);
 }
 
-static void nativeMotionUp(JNIEnv *env, jobject obj,
+static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop, bool isClick)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->motionUp(x, y, slop, isClick, true, false);
+    return view->motionUp(x, y, slop, isClick, true, false);
 }
 
 static bool nativeUpdateFocusNode(JNIEnv *env, jobject obj)
@@ -1979,12 +2021,12 @@ static void nativeRecomputeFocus(JNIEnv *env, jobject obj)
     view->recomputeFocus();
 }
 
-static void nativeRecordButtons(JNIEnv* env, jobject obj, bool pressed,
-        bool invalidate)
+static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
+        bool pressed, bool invalidate)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->nativeRecordButtons(pressed, invalidate);
+    view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
 
 static void nativeResetFocus(JNIEnv *env, jobject obj)
@@ -2227,9 +2269,11 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetFocusRingBounds },
     { "nativeGetNavBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetNavBounds },
+    { "nativeInstrumentReport", "()V",
+        (void*) nativeInstrumentReport },
     { "nativeMarkNodeInvalid", "(I)V",
         (void*) nativeMarkNodeInvalid },
-    { "nativeMotionUp", "(IIIZ)V",
+    { "nativeMotionUp", "(IIIZ)Z",
         (void*) nativeMotionUp },
     { "nativeMoveFocus", "(IIZ)Z",
         (void*) nativeMoveFocus },
@@ -2237,7 +2281,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeNotifyFocusSet },
     { "nativeRecomputeFocus", "()V",
         (void*) nativeRecomputeFocus },
-    { "nativeRecordButtons", "(ZZ)V",
+    { "nativeRecordButtons", "(ZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeResetFocus", "()V",
         (void*) nativeResetFocus },

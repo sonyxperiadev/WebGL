@@ -38,24 +38,16 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLImageElement::HTMLImageElement(Document* doc, HTMLFormElement* f)
-    : HTMLElement(imgTag, doc)
-    , m_imageLoader(this)
-    , ismap(false)
-    , m_form(f)
-    , m_compositeOperator(CompositeSourceOver)
-{
-    if (f)
-        f->registerImgElement(this);
-}
-
-HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc)
+HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* form)
     : HTMLElement(tagName, doc)
     , m_imageLoader(this)
     , ismap(false)
-    , m_form(0)
+    , m_form(form)
     , m_compositeOperator(CompositeSourceOver)
 {
+    ASSERT(hasTagName(imgTag));
+    if (form)
+        form->registerImgElement(this);
 }
 
 HTMLImageElement::~HTMLImageElement()
@@ -90,7 +82,7 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
         if (renderer() && renderer()->isImage())
             static_cast<RenderImage*>(renderer())->updateAltText();
     } else if (attrName == srcAttr)
-        m_imageLoader.updateFromElement();
+        m_imageLoader.updateFromElementIgnoringPreviousError();
     else if (attrName == widthAttr)
         addCSSLength(attr, CSSPropertyWidth, attr->value());
     else if (attrName == heightAttr)
@@ -194,6 +186,11 @@ void HTMLImageElement::insertedIntoDocument()
         document->addExtraNamedItem(m_id);
     }
 
+    // If we have been inserted from a renderer-less document,
+    // our loader may have not fetched the image, so do it now.
+    if (!m_imageLoader.image())
+        m_imageLoader.updateFromElement();
+
     HTMLElement::insertedIntoDocument();
 }
 
@@ -229,7 +226,7 @@ int HTMLImageElement::width(bool ignorePendingStylesheets) const
     else
         document()->updateLayout();
 
-    return renderer() ? renderer()->contentWidth() : 0;
+    return renderBox() ? renderBox()->contentWidth() : 0;
 }
 
 int HTMLImageElement::height(bool ignorePendingStylesheets) const
@@ -253,7 +250,7 @@ int HTMLImageElement::height(bool ignorePendingStylesheets) const
     else
         document()->updateLayout();
 
-    return renderer() ? renderer()->contentHeight() : 0;
+    return renderBox() ? renderBox()->contentHeight() : 0;
 }
 
 int HTMLImageElement::naturalWidth() const
@@ -407,9 +404,10 @@ int HTMLImageElement::x() const
     RenderObject* r = renderer();
     if (!r)
         return 0;
-    int x, y;
-    r->absolutePosition(x, y);
-    return x;
+
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = r->localToAbsolute();
+    return absPos.x();
 }
 
 int HTMLImageElement::y() const
@@ -417,9 +415,10 @@ int HTMLImageElement::y() const
     RenderObject* r = renderer();
     if (!r)
         return 0;
-    int x, y;
-    r->absolutePosition(x, y);
-    return y;
+
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = r->localToAbsolute();
+    return absPos.y();
 }
 
 bool HTMLImageElement::complete() const
@@ -427,10 +426,12 @@ bool HTMLImageElement::complete() const
     return m_imageLoader.imageComplete();
 }
 
-void HTMLImageElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(src().string());
-    urls.append(useMap());
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, src());
+    addSubresourceURL(urls, document()->completeURL(useMap()));
 }
 
 }

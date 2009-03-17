@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,4 +55,15 @@ interface IWebHistoryItemPrivate : IUnknown
     HRESULT target([out, retval] BSTR* target);
     HRESULT isTargetItem([out, retval] BOOL* result);
     [local] HRESULT children([out] unsigned* childCount, [out, retval] SAFEARRAY** children);
+    HRESULT lastVisitWasFailure([out, retval] BOOL* wasFailure);
+    HRESULT setLastVisitWasFailure([in] BOOL wasFailure);
+    HRESULT lastVisitWasHTTPNonGet([out, retval] BOOL* HTTPNonGet);
+    HRESULT setLastVisitWasHTTPNonGet([in] BOOL wasHTTPNonGet);
+
+    HRESULT redirectURLs([out, retval] IEnumVARIANT** result);
+    HRESULT visitedWithTitle([in] BSTR title);
+
+    HRESULT getDailyVisitCounts([out] int* number, [out, retval] int** counts);
+    HRESULT getWeeklyVisitCounts([out] int* number, [out, retval] int** counts);
+    HRESULT recordInitialVisit();
 }

@@ -33,8 +33,10 @@
 #include "StringHash.h"
 #include "TextBreakIterator.h"
 #include "TextEncoding.h"
-#include <kjs/dtoa.h>
+#include "ThreadGlobalData.h"
+#include <wtf/dtoa.h>
 #include <wtf/Assertions.h>
+#include <wtf/Threading.h>
 #include <wtf/unicode/Unicode.h>
 
 using namespace WTF;
@@ -164,8 +166,7 @@ StringImpl::~StringImpl()
 
 StringImpl* StringImpl::empty()
 {
-    static StringImpl* e = new StringImpl;
-    return e;
+    return threadGlobalData().emptyString();
 }
 
 bool StringImpl::containsOnlyWhitespace()
@@ -186,6 +187,17 @@ PassRefPtr<StringImpl> StringImpl::substring(unsigned pos, unsigned len)
     if (len > m_length - pos)
         len = m_length - pos;
     return create(m_data + pos, len);
+}
+
+PassRefPtr<StringImpl> StringImpl::substringCopy(unsigned pos, unsigned len)
+{
+    if (pos >= m_length)
+        pos = m_length;
+    if (len > m_length - pos)
+        len = m_length - pos;
+    if (!len)
+        return adoptRef(new StringImpl);
+    return substring(pos, len);
 }
 
 UChar32 StringImpl::characterStartingAt(unsigned i)
@@ -332,6 +344,38 @@ PassRefPtr<StringImpl> StringImpl::stripWhiteSpace()
         end--;
 
     return create(m_data + start, end + 1 - start);
+}
+
+PassRefPtr<StringImpl> StringImpl::removeCharacters(CharacterMatchFunctionPtr findMatch)
+{
+    const UChar* from = m_data;
+    const UChar* fromend = from + m_length;
+
+    // Assume the common case will not remove any characters
+    while (from != fromend && !findMatch(*from))
+        from++;
+    if (from == fromend)
+        return this;
+
+    StringBuffer data(m_length);
+    UChar* to = data.characters();
+    unsigned outc = from - m_data;
+
+    if (outc)
+        memcpy(to, m_data, outc * sizeof(UChar));
+
+    while (true) {
+        while (from != fromend && findMatch(*from))
+            from++;
+        while (from != fromend && !findMatch(*from))
+            to[outc++] = *from++;
+        if (from == fromend)
+            break;
+    }
+
+    data.shrink(outc);
+
+    return adopt(data);
 }
 
 PassRefPtr<StringImpl> StringImpl::simplifyWhiteSpace()
@@ -508,6 +552,11 @@ int StringImpl::find(const char* chs, int index, bool caseSensitive)
 int StringImpl::find(UChar c, int start)
 {
     return WebCore::find(m_data, m_length, c, start);
+}
+
+int StringImpl::find(CharacterMatchFunctionPtr matchFunction, int start)
+{
+    return WebCore::find(m_data, m_length, matchFunction, start);
 }
 
 int StringImpl::find(StringImpl* str, int index, bool caseSensitive)

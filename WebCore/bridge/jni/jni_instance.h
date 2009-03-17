@@ -33,6 +33,12 @@
 
 #include <JavaVM/jni.h>
 
+#if PLATFORM(ANDROID)
+namespace android {
+class WeakJavaInstance;
+}
+#endif
+
 namespace JSC {
 
 namespace Bindings {
@@ -46,6 +52,9 @@ friend class JavaArray;
 friend class JavaField;
 friend class JavaInstance;
 friend class JavaMethod;
+#if PLATFORM(ANDROID)
+friend class android::WeakJavaInstance;
+#endif
 
 protected:
     JObjectWrapper(jobject instance);    
@@ -77,24 +86,24 @@ public:
     
     virtual Class *getClass() const;
     
-    virtual JSValue* valueOf(ExecState*) const;
-    virtual JSValue* defaultValue(ExecState*, PreferredPrimitiveType) const;
+    virtual JSValuePtr valueOf(ExecState*) const;
+    virtual JSValuePtr defaultValue(ExecState*, PreferredPrimitiveType) const;
 
-    virtual JSValue* invokeMethod(ExecState* exec, const MethodList& method, const ArgList& args);
+    virtual JSValuePtr invokeMethod(ExecState* exec, const MethodList& method, const ArgList& args);
 
     jobject javaInstance() const { return _instance->_instance; }
     
-    JSValue* stringValue(ExecState*) const;
-    JSValue* numberValue(ExecState*) const;
-    JSValue* booleanValue() const;
-
-    virtual BindingLanguage getBindingLanguage() const { return JavaLanguage; }
+    JSValuePtr stringValue(ExecState*) const;
+    JSValuePtr numberValue(ExecState*) const;
+    JSValuePtr booleanValue() const;
 
 protected:
     virtual void virtualBegin();
     virtual void virtualEnd();
 
+#if !PLATFORM(ANDROID) // Submit patch to webkit.org
 private:
+#endif
     JavaInstance(jobject instance, PassRefPtr<RootObject>);
 
     RefPtr<JObjectWrapper> _instance;

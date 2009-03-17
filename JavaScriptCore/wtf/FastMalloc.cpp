@@ -191,7 +191,7 @@ void* fastMalloc(size_t n)
     ASSERT(!isForbidden());
     void* result = malloc(n);
     if (!result)
-        abort();
+        CRASH();
     return result;
 }
 
@@ -206,7 +206,7 @@ void* fastCalloc(size_t n_elements, size_t element_size)
     ASSERT(!isForbidden());
     void* result = calloc(n_elements, element_size);
     if (!result)
-        abort();
+        CRASH();
     return result;
 }
 
@@ -227,33 +227,17 @@ void* fastRealloc(void* p, size_t n)
     ASSERT(!isForbidden());
     void* result = realloc(p, n);
     if (!result)
-        abort();
+        CRASH();
     return result;
 }
 
 void releaseFastMallocFreeMemory() { }
-
-#if HAVE(VIRTUALALLOC)
-void* fastMallocExecutable(size_t n)
+    
+FastMallocStatistics fastMallocStatistics()
 {
-    return VirtualAlloc(0, n, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    FastMallocStatistics statistics = { 0, 0, 0, 0 };
+    return statistics;
 }
-
-void fastFreeExecutable(void* p)
-{ 
-    VirtualFree(p, 0, MEM_RELEASE); 
-}
-#else
-void* fastMallocExecutable(size_t n)
-{
-    return fastMalloc(n);
-}
-
-void fastFreeExecutable(void* p)
-{ 
-    fastFree(p);
-}
-#endif
 
 } // namespace WTF
 
@@ -686,11 +670,11 @@ static void InitSizeClasses() {
   // Do some sanity checking on add_amount[]/shift_amount[]/class_array[]
   if (ClassIndex(0) < 0) {
     MESSAGE("Invalid class index %d for size 0\n", ClassIndex(0));
-    abort();
+    CRASH();
   }
   if (static_cast<size_t>(ClassIndex(kMaxSize)) >= sizeof(class_array)) {
     MESSAGE("Invalid class index %d for kMaxSize\n", ClassIndex(kMaxSize));
-    abort();
+    CRASH();
   }
 
   // Compute the size classes we want to use
@@ -742,7 +726,7 @@ static void InitSizeClasses() {
   if (sc != kNumClasses) {
     MESSAGE("wrong number of size classes: found %" PRIuS " instead of %d\n",
             sc, int(kNumClasses));
-    abort();
+    CRASH();
   }
 
   // Initialize the mapping arrays
@@ -760,25 +744,25 @@ static void InitSizeClasses() {
     const size_t sc = SizeClass(size);
     if (sc == 0) {
       MESSAGE("Bad size class %" PRIuS " for %" PRIuS "\n", sc, size);
-      abort();
+      CRASH();
     }
     if (sc > 1 && size <= class_to_size[sc-1]) {
       MESSAGE("Allocating unnecessarily large class %" PRIuS " for %" PRIuS
               "\n", sc, size);
-      abort();
+      CRASH();
     }
     if (sc >= kNumClasses) {
       MESSAGE("Bad size class %" PRIuS " for %" PRIuS "\n", sc, size);
-      abort();
+      CRASH();
     }
     const size_t s = class_to_size[sc];
     if (size > s) {
      MESSAGE("Bad size %" PRIuS " for %" PRIuS " (sc = %" PRIuS ")\n", s, size, sc);
-      abort();
+      CRASH();
     }
     if (s == 0) {
       MESSAGE("Bad size %" PRIuS " for %" PRIuS " (sc = %" PRIuS ")\n", s, size, sc);
-      abort();
+      CRASH();
     }
   }
 
@@ -861,7 +845,7 @@ class PageHeapAllocator {
       if (free_avail_ < kAlignedSize) {
         // Need more room
         free_area_ = reinterpret_cast<char*>(MetaDataAlloc(kAllocIncrement));
-        if (free_area_ == NULL) abort();
+        if (free_area_ == NULL) CRASH();
         free_avail_ = kAllocIncrement;
       }
       result = free_area_;
@@ -995,7 +979,6 @@ static ALWAYS_INLINE bool DLL_IsEmpty(const Span* list) {
   return list->next == list;
 }
 
-#ifndef WTF_CHANGES
 static int DLL_Length(const Span* list) {
   int result = 0;
   for (Span* s = list->next; s != list; s = s->next) {
@@ -1003,7 +986,6 @@ static int DLL_Length(const Span* list) {
   }
   return result;
 }
-#endif
 
 #if 0 /* Not needed at the moment -- causes compiler warnings if not used */
 static void DLL_Print(const char* label, const Span* list) {
@@ -1055,11 +1037,30 @@ template <int BITS> class MapSelector {
   typedef PackedCache<BITS, uint64_t> CacheType;
 };
 
+#if defined(WTF_CHANGES)
+#if PLATFORM(X86_64)
+// On all known X86-64 platforms, the upper 16 bits are always unused and therefore 
+// can be excluded from the PageMap key.
+// See http://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details
+
+static const size_t kBitsUnusedOn64Bit = 16;
+#else
+static const size_t kBitsUnusedOn64Bit = 0;
+#endif
+
+// A three-level map for 64-bit machines
+template <> class MapSelector<64> {
+ public:
+  typedef TCMalloc_PageMap3<64 - kPageShift - kBitsUnusedOn64Bit> Type;
+  typedef PackedCache<64, uint64_t> CacheType;
+};
+#endif
+
 // A two-level map for 32-bit machines
 template <> class MapSelector<32> {
  public:
-  typedef TCMalloc_PageMap2<32-kPageShift> Type;
-  typedef PackedCache<32-kPageShift, uint16_t> CacheType;
+  typedef TCMalloc_PageMap2<32 - kPageShift> Type;
+  typedef PackedCache<32 - kPageShift, uint16_t> CacheType;
 };
 
 // -------------------------------------------------------------------------
@@ -1109,6 +1110,8 @@ class TCMalloc_PageHeap {
       pagemap_.Ensure(p, 1);
       return GetDescriptor(p);
   }
+    
+  size_t ReturnedBytes() const;
 #endif
 
   // Dump state to stderr
@@ -1491,6 +1494,21 @@ void TCMalloc_PageHeap::RegisterSizeClass(Span* span, size_t sc) {
     pagemap_.set(span->start+i, span);
   }
 }
+    
+#ifdef WTF_CHANGES
+size_t TCMalloc_PageHeap::ReturnedBytes() const {
+    size_t result = 0;
+    for (unsigned s = 0; s < kMaxPages; s++) {
+        const int r_length = DLL_Length(&free_[s].returned);
+        unsigned r_pages = s * r_length;
+        result += r_pages << kPageShift;
+    }
+    
+    for (Span* s = large_.returned.next; s != &large_.returned; s = s->next)
+        result += s->length << kPageShift;
+    return result;
+}
+#endif
 
 #ifndef WTF_CHANGES
 static double PagesToMB(uint64_t pages) {
@@ -3023,7 +3041,7 @@ static inline void* SpanToMallocResult(Span *span) {
 }
 
 #ifdef WTF_CHANGES
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 #endif
 static ALWAYS_INLINE void* do_malloc(size_t size) {
   void* ret = NULL;
@@ -3056,8 +3074,8 @@ static ALWAYS_INLINE void* do_malloc(size_t size) {
   }
   if (!ret) {
 #ifdef WTF_CHANGES
-    if (abortOnFailure) // This branch should be optimized out by the compiler.
-        abort();
+    if (crashOnFailure) // This branch should be optimized out by the compiler.
+        CRASH();
 #else
     errno = ENOMEM;
 #endif
@@ -3226,9 +3244,9 @@ static inline struct mallinfo do_mallinfo() {
 #ifndef WTF_CHANGES
 extern "C" 
 #else
-#define do_malloc do_malloc<abortOnFailure>
+#define do_malloc do_malloc<crashOnFailure>
 
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 void* malloc(size_t);
 
 void* fastMalloc(size_t size)
@@ -3241,7 +3259,7 @@ void* tryFastMalloc(size_t size)
     return malloc<false>(size);
 }
 
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 ALWAYS_INLINE
 #endif
 void* malloc(size_t size) {
@@ -3265,7 +3283,7 @@ void free(void* ptr) {
 #ifndef WTF_CHANGES
 extern "C" 
 #else
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 void* calloc(size_t, size_t);
 
 void* fastCalloc(size_t n, size_t elem_size)
@@ -3278,7 +3296,7 @@ void* tryFastCalloc(size_t n, size_t elem_size)
     return calloc<false>(n, elem_size);
 }
 
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 ALWAYS_INLINE
 #endif
 void* calloc(size_t n, size_t elem_size) {
@@ -3298,6 +3316,8 @@ void* calloc(size_t n, size_t elem_size) {
   return result;
 }
 
+// Since cfree isn't used anywhere, we don't compile it in.
+#ifndef WTF_CHANGES
 #ifndef WTF_CHANGES
 extern "C" 
 #endif
@@ -3307,11 +3327,12 @@ void cfree(void* ptr) {
 #endif
   do_free(ptr);
 }
+#endif
 
 #ifndef WTF_CHANGES
 extern "C" 
 #else
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 void* realloc(void*, size_t);
 
 void* fastRealloc(void* old_ptr, size_t new_size)
@@ -3324,7 +3345,7 @@ void* tryFastRealloc(void* old_ptr, size_t new_size)
     return realloc<false>(old_ptr, new_size);
 }
 
-template <bool abortOnFailure>
+template <bool crashOnFailure>
 ALWAYS_INLINE
 #endif
 void* realloc(void* old_ptr, size_t new_size) {
@@ -3383,16 +3404,6 @@ void* realloc(void* old_ptr, size_t new_size) {
   } else {
     return old_ptr;
   }
-}
-
-void* fastMallocExecutable(size_t n)
-{
-    return malloc<false>(n);
-}
-
-void fastFreeExecutable(void* p)
-{ 
-    free(p);
 }
 
 #ifdef WTF_CHANGES
@@ -3821,13 +3832,41 @@ void FastMallocZone::init()
 
 #endif
 
+#if WTF_CHANGES
 void releaseFastMallocFreeMemory()
 {
+    // Flush free pages in the current thread cache back to the page heap.
+    // Low watermark mechanism in Scavenge() prevents full return on the first pass.
+    // The second pass flushes everything.
+    if (TCMalloc_ThreadCache* threadCache = TCMalloc_ThreadCache::GetCacheIfPresent()) {
+        threadCache->Scavenge();
+        threadCache->Scavenge();
+    }
+
     SpinLockHolder h(&pageheap_lock);
     pageheap->ReleaseFreePages();
 }
+    
+FastMallocStatistics fastMallocStatistics()
+{
+    FastMallocStatistics statistics;
+    {
+        SpinLockHolder lockHolder(&pageheap_lock);
+        statistics.heapSize = static_cast<size_t>(pageheap->SystemBytes());
+        statistics.freeSizeInHeap = static_cast<size_t>(pageheap->FreeBytes());
+        statistics.returnedSize = pageheap->ReturnedBytes();
+        statistics.freeSizeInCaches = 0;
+        for (TCMalloc_ThreadCache* threadCache = thread_heaps; threadCache ; threadCache = threadCache->next_)
+            statistics.freeSizeInCaches += threadCache->Size();
+    }
+    for (unsigned cl = 0; cl < kNumClasses; ++cl) {
+        const int length = central_cache[cl].length();
+        const int tc_length = central_cache[cl].tc_length();
+        statistics.freeSizeInCaches += ByteSizeForClass(cl) * (length + tc_length);
+    }
+    return statistics;
+}
 
-#if WTF_CHANGES
 } // namespace WTF
 #endif
 

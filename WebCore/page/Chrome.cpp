@@ -35,7 +35,6 @@
 #include "InspectorController.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "PausedTimeouts.h"
 #include "ResourceHandle.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
@@ -60,9 +59,6 @@ public:
     ~PageGroupLoadDeferrer();
 private:
     Vector<RefPtr<Frame>, 16> m_deferredFrames;
-#if !PLATFORM(MAC)
-    Vector<pair<RefPtr<Frame>, PausedTimeouts*>, 16> m_pausedTimeouts;
-#endif
 };
 
 Chrome::Chrome(Page* page, ChromeClient* client)
@@ -100,6 +96,16 @@ IntRect Chrome::windowToScreen(const IntRect& rect) const
 PlatformWidget Chrome::platformWindow() const
 {
     return m_client->platformWindow();
+}
+
+void Chrome::contentsSizeChanged(Frame* frame, const IntSize& size) const
+{
+    m_client->contentsSizeChanged(frame, size);
+}
+
+void Chrome::scrollRectIntoView(const IntRect& rect, const ScrollView* scrollView) const
+{
+    m_client->scrollRectIntoView(rect, scrollView);
 }
 
 void Chrome::setWindowRect(const FloatRect& rect) const
@@ -253,10 +259,7 @@ void Chrome::runJavaScriptAlert(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String text = message;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-
-    m_client->runJavaScriptAlert(frame, text);
+    m_client->runJavaScriptAlert(frame, frame->displayStringModifiedByEncoding(message));
 }
 
 bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
@@ -266,10 +269,7 @@ bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String text = message;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    return m_client->runJavaScriptConfirm(frame, text);
+    return m_client->runJavaScriptConfirm(frame, frame->displayStringModifiedByEncoding(message));
 }
 
 bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const String& defaultValue, String& result)
@@ -279,15 +279,10 @@ bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const Strin
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String promptText = prompt;
-    promptText.replace('\\', frame->backslashAsCurrencySymbol());
-    String defaultValueText = defaultValue;
-    defaultValueText.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    bool ok = m_client->runJavaScriptPrompt(frame, promptText, defaultValueText, result);
+    bool ok = m_client->runJavaScriptPrompt(frame, frame->displayStringModifiedByEncoding(prompt), frame->displayStringModifiedByEncoding(defaultValue), result);
     
     if (ok)
-        result.replace(frame->backslashAsCurrencySymbol(), '\\');
+        result = frame->displayStringModifiedByEncoding(result);
     
     return ok;
 }
@@ -295,10 +290,7 @@ bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const Strin
 void Chrome::setStatusbarText(Frame* frame, const String& status)
 {
     ASSERT(frame);
-    String text = status;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    m_client->setStatusbarText(text);
+    m_client->setStatusbarText(frame->displayStringModifiedByEncoding(status));
 }
 
 bool Chrome::shouldInterruptJavaScript()
@@ -440,8 +432,8 @@ void ChromeClient::enableSuddenTermination()
 }
 
 bool ChromeClient::paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
-                                        ScrollbarControlState, ScrollbarPart, bool vertical,
-                                        float value, float proportion, ScrollbarControlPartMask)
+                                        ScrollbarControlState, ScrollbarPart, bool,
+                                        float, float, ScrollbarControlPartMask)
 {
     return false;
 }
@@ -466,10 +458,8 @@ PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
 
 #if !PLATFORM(MAC)
             for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                OwnPtr<PausedTimeouts> timeouts;
-                frame->script()->pauseTimeouts(timeouts);
-                if (timeouts)
-                    m_pausedTimeouts.append(make_pair(RefPtr<Frame>(frame), timeouts.release()));
+                if (Document* document = frame->document())
+                    document->suspendActiveDOMObjects();
             }
 #endif
         }
@@ -483,17 +473,18 @@ PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
 
 PageGroupLoadDeferrer::~PageGroupLoadDeferrer()
 {
-    for (size_t i = 0; i < m_deferredFrames.size(); ++i)
-        if (Page* page = m_deferredFrames[i]->page())
+    for (size_t i = 0; i < m_deferredFrames.size(); ++i) {
+        if (Page* page = m_deferredFrames[i]->page()) {
             page->setDefersLoading(false);
 
 #if !PLATFORM(MAC)
-    for (size_t i = 0; i < m_pausedTimeouts.size(); i++) {
-        Frame* frame = m_pausedTimeouts[i].first.get();
-        OwnPtr<PausedTimeouts> timeouts(m_pausedTimeouts[i].second);
-        frame->script()->resumeTimeouts(timeouts);
-    }
+            for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+                if (Document* document = frame->document())
+                    document->resumeActiveDOMObjects();
+            }
 #endif
+        }
+    }
 }
 
 

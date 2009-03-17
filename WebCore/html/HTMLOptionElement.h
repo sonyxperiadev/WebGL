@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
@@ -26,6 +24,7 @@
 #define HTMLOptionElement_h
 
 #include "HTMLFormControlElement.h"
+#include "OptionElement.h"
 
 namespace WebCore {
 
@@ -33,12 +32,12 @@ class HTMLSelectElement;
 class HTMLFormElement;
 class MappedAttribute;
 
-class HTMLOptionElement : public HTMLFormControlElement {
+class HTMLOptionElement : public HTMLFormControlElement, public OptionElement {
     friend class HTMLSelectElement;
     friend class RenderMenuList;
 
 public:
-    HTMLOptionElement(Document*, HTMLFormElement* = 0);
+    HTMLOptionElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
     virtual int tagPriority() const { return 2; }
@@ -57,12 +56,12 @@ public:
     int index() const;
     virtual void parseMappedAttribute(MappedAttribute*);
 
-    String value() const;
+    virtual String value() const;
     void setValue(const String&);
 
-    bool selected() const { return m_selected; }
+    virtual bool selected() const;
     void setSelected(bool);
-    void setSelectedState(bool);
+    virtual void setSelectedState(bool);
 
     HTMLSelectElement* ownerSelectElement() const;
 
@@ -73,9 +72,9 @@ public:
 
     String label() const;
     void setLabel(const String&);
-    
-    String optionText();
-    
+
+    virtual String textIndentedToRespectGroupLabel() const;
+
     virtual bool disabled() const;
     
     virtual void insertedIntoDocument();
@@ -83,9 +82,8 @@ public:
     
 private:
     virtual RenderStyle* nonRendererRenderStyle() const;
-    
-    String m_value;
-    bool m_selected;
+
+    OptionElementData m_data;
     RefPtr<RenderStyle> m_style;
 };
 

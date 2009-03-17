@@ -86,9 +86,13 @@ void ContextMenuController::handleContextMenuEvent(Event* event)
     IntPoint point = IntPoint(mouseEvent->pageX(), mouseEvent->pageY());
     HitTestResult result(point);
 
-    if (Frame* frame = event->target()->toNode()->document()->frame())
+    if (Frame* frame = event->target()->toNode()->document()->frame()) {
+        float zoomFactor = frame->pageZoomFactor();
+        point.setX(static_cast<int>(point.x() * zoomFactor));
+        point.setY(static_cast<int>(point.y() * zoomFactor));
         result = frame->eventHandler()->hitTestResultAtPoint(point, false);
-    
+    }
+
     if (!result.innerNonSharedNode())
         return;
 
@@ -215,7 +219,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         case ContextMenuItemTagOpenLink:
             if (Frame* targetFrame = result.targetFrame())
                 targetFrame->loader()->loadFrameRequestWithFormAndValues(FrameLoadRequest(ResourceRequest(result.absoluteLinkURL(), 
-                    frame->loader()->outgoingReferrer())), false, 0, 0, HashMap<String, String>());
+                    frame->loader()->outgoingReferrer())), false, false, 0, 0, HashMap<String, String>());
             else
                 openNewWindow(result.absoluteLinkURL(), frame);
             break;
@@ -254,6 +258,15 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             break;
         case ContextMenuItemTagRightToLeft:
             frame->editor()->setBaseWritingDirection(RightToLeftWritingDirection);
+            break;
+        case ContextMenuItemTagTextDirectionDefault:
+            frame->editor()->command("MakeTextWritingDirectionNatural").execute();
+            break;
+        case ContextMenuItemTagTextDirectionLeftToRight:
+            frame->editor()->command("MakeTextWritingDirectionLeftToRight").execute();
+            break;
+        case ContextMenuItemTagTextDirectionRightToLeft:
+            frame->editor()->command("MakeTextWritingDirectionRightToLeft").execute();
             break;
 #if PLATFORM(MAC)
         case ContextMenuItemTagSearchInSpotlight:

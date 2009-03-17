@@ -89,6 +89,7 @@ namespace WebKit {
         virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint&) const;
         virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&) const;
         virtual PlatformWidget platformWindow() const;
+        virtual void contentsSizeChanged(WebCore::Frame*, const WebCore::IntSize&) const;
 
         virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
@@ -99,6 +100,8 @@ namespace WebKit {
         virtual void exceededDatabaseQuota(WebCore::Frame*, const WebCore::String&);
 
         virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
+
+        virtual void formStateDidChange(const WebCore::Node*) { }
 
     private:
         WebKitWebView* m_webView;

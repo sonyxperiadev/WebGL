@@ -28,9 +28,13 @@
 
 #include "android_npapi.h"
 #include "SkCanvas.h"
+#include "SkMatrix.h"
 #include "SkPaint.h"
 #include "SkPath.h"
 #include "SkTypeface.h"
+
+struct ANPMatrix : SkMatrix {
+};
 
 struct ANPPath : SkPath {
 };
@@ -65,6 +69,7 @@ public:
     static SkRect* SetRect(SkRect* dst, const ANPRectF& src);
     static SkIRect* SetRect(SkIRect* dst, const ANPRectI& src);
     static ANPRectI* SetRect(ANPRectI* dst, const SkIRect& src);
+    static ANPRectF* SetRect(ANPRectF* dst, const SkRect& src);
     static SkBitmap* SetBitmap(SkBitmap* dst, const ANPBitmap& src);
     static bool SetBitmap(ANPBitmap* dst, const SkBitmap& src);
     

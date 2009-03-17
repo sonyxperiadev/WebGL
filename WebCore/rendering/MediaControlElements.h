@@ -43,6 +43,13 @@ namespace WebCore {
 class Event;
 class Frame;
 
+enum MediaControlElements {
+    MediaFullscreenButton, MediaMuteButton, MediaPlayButton,
+    MediaSeekBackButton, MediaSeekForwardButton, MediaSlider, MediaSliderThumb,
+    MediaUnMuteButton, MediaPauseButton, MediaTimelineContainer, MediaCurrentTimeDisplay, 
+    MediaTimeRemainingDisplay, MediaControlsPanel
+};
+
 class MediaControlShadowRootElement : public HTMLDivElement {
 public:
     MediaControlShadowRootElement(Document*, HTMLMediaElement*);
@@ -54,6 +61,25 @@ private:
     HTMLMediaElement* m_mediaElement;    
 };
 
+ // ----------------------------
+ 
+class MediaTextDisplayElement : public HTMLDivElement
+{
+public:
+    MediaTextDisplayElement(Document*, RenderStyle::PseudoId, HTMLMediaElement*);
+    void attachToParent(Element*);
+    void update();
+protected:
+    HTMLMediaElement* m_mediaElement;   
+};
+
+// ----------------------------
+
+class MediaTimeDisplayElement : public MediaTextDisplayElement {
+public:
+    MediaTimeDisplayElement(Document*, HTMLMediaElement*, bool currentTime);
+};
+
 // ----------------------------
 
 class MediaControlInputElement : public HTMLInputElement {
@@ -61,6 +87,7 @@ public:
     MediaControlInputElement(Document*, RenderStyle::PseudoId, const String& type, HTMLMediaElement*);
     void attachToParent(Element*);
     void update();
+    bool hitTest(const IntPoint& absPoint);
 protected:
     HTMLMediaElement* m_mediaElement;   
 };

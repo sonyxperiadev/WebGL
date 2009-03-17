@@ -26,11 +26,11 @@
 #include "config.h"
 #include "ProfileGenerator.h"
 
-#include "ExecState.h"
+#include "CallFrame.h"
 #include "JSGlobalObject.h"
 #include "JSStringRef.h"
 #include "JSFunction.h"
-#include "Machine.h"
+#include "Interpreter.h"
 #include "Profile.h"
 #include "Profiler.h"
 #include "Tracing.h"
@@ -59,10 +59,10 @@ void ProfileGenerator::addParentForConsoleStart(ExecState* exec)
     int lineNumber;
     intptr_t sourceID;
     UString sourceURL;
-    JSValue* function;
+    JSValuePtr function;
 
-    exec->machine()->retrieveLastCaller(exec, lineNumber, sourceID, sourceURL, function);
-    m_currentNode = ProfileNode::create(Profiler::createCallIdentifier(&exec->globalData(), function ? function->toThisObject(exec) : 0, sourceURL, lineNumber), m_head.get(), m_head.get());
+    exec->interpreter()->retrieveLastCaller(exec, lineNumber, sourceID, sourceURL, function);
+    m_currentNode = ProfileNode::create(Profiler::createCallIdentifier(&exec->globalData(), function ? function.toThisObject(exec) : 0, sourceURL, lineNumber), m_head.get(), m_head.get());
     m_head->insertNode(m_currentNode.get());
 }
 

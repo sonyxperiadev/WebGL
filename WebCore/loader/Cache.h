@@ -1,6 +1,4 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
@@ -74,7 +72,10 @@ public:
         int size;
         int liveSize;
         int decodedSize;
-        TypeStatistic() : count(0), size(0), liveSize(0), decodedSize(0) { }
+        int purgeableSize;
+        int purgedSize;
+        TypeStatistic() : count(0), size(0), liveSize(0), decodedSize(0), purgeableSize(0), purgedSize(0) { }
+        void addResource(CachedResource*);
     };
     
     struct Statistics {
@@ -165,6 +166,7 @@ private:
     LRUList* lruListFor(CachedResource*);
     void resourceAccessed(CachedResource*);
 #ifndef NDEBUG
+    void dumpStats();
     void dumpLRULists(bool includeLive) const;
 #endif
 

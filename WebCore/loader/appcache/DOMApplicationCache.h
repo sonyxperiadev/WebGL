@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@ namespace WebCore {
 
 class ApplicationCache;
 class AtomicStringImpl;
+class DOMStringList;
 class Frame;
 class KURL;
 class String;
@@ -55,6 +56,7 @@ public:
         CHECKING = 2,
         DOWNLOADING = 3,
         UPDATEREADY = 4,
+        OBSOLETE = 5
     };
 
     unsigned short status() const;
@@ -62,8 +64,8 @@ public:
     void update(ExceptionCode&);
     void swapCache(ExceptionCode&);
     
-    unsigned length() const;
-    String item(unsigned item, ExceptionCode&);
+    PassRefPtr<DOMStringList> items();
+    bool hasItem(const KURL&, ExceptionCode&);
     void add(const KURL&, ExceptionCode&);
     void remove(const KURL&, ExceptionCode&);
 
@@ -99,6 +101,9 @@ public:
     void setOncached(PassRefPtr<EventListener> eventListener) { m_onCachedListener = eventListener; }
     EventListener* oncached() const { return m_onCachedListener.get(); }
 
+    void setOnobsolete(PassRefPtr<EventListener> eventListener) { m_onObsoleteListener = eventListener; }
+    EventListener* onobsolete() const { return m_onObsoleteListener.get(); }
+
     virtual ScriptExecutionContext* scriptExecutionContext() const;
     DOMApplicationCache* toDOMApplicationCache() { return this; }
 
@@ -109,6 +114,7 @@ public:
     void callProgressListener();
     void callUpdateReadyListener();
     void callCachedListener();
+    void callObsoleteListener();
     
 private:
     DOMApplicationCache(Frame*);
@@ -127,6 +133,7 @@ private:
     RefPtr<EventListener> m_onProgressListener;
     RefPtr<EventListener> m_onUpdateReadyListener;
     RefPtr<EventListener> m_onCachedListener;
+    RefPtr<EventListener> m_onObsoleteListener;
     
     EventListenersMap m_eventListeners;
 

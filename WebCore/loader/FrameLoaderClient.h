@@ -30,6 +30,7 @@
 #define FrameLoaderClient_h
 
 #include "FrameLoaderTypes.h"
+#include "ScrollTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/Platform.h>
 #include <wtf/Vector.h>
@@ -44,7 +45,8 @@ class NSView;
 namespace WebCore {
 
     class AuthenticationChallenge;
-    class CachedPage;
+    class CachedFrame;
+    class Color;
     class DocumentLoader;
     class Element;
     class FormState;
@@ -74,7 +76,7 @@ namespace WebCore {
 
     class FrameLoaderClient {
     public:
-        virtual ~FrameLoaderClient() { }
+        virtual ~FrameLoaderClient();
         virtual void frameLoaderDestroyed() = 0;
         
         virtual bool hasWebView() const = 0; // mainly for assertions
@@ -93,6 +95,7 @@ namespace WebCore {
         virtual void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&) = 0;
 
         virtual void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse) = 0;
+        virtual bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier) = 0;
         virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;
         virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;        
         virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&) = 0;
@@ -116,6 +119,7 @@ namespace WebCore {
         virtual void dispatchDidFinishDocumentLoad() = 0;
         virtual void dispatchDidFinishLoad() = 0;
         virtual void dispatchDidFirstLayout() = 0;
+        virtual void dispatchDidFirstVisuallyNonEmptyLayout() = 0;
 
         virtual Frame* dispatchCreatePage() = 0;
         virtual void dispatchShow() = 0;
@@ -150,7 +154,9 @@ namespace WebCore {
         virtual void committedLoad(DocumentLoader*, const char*, int) = 0;
         virtual void finishedLoading(DocumentLoader*) = 0;
         
-        virtual void updateGlobalHistory(const KURL&) = 0;
+        virtual void updateGlobalHistory() = 0;
+        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem() = 0;
+
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
 #ifdef ANDROID_HISTORY_CLIENT
         virtual void dispatchDidAddHistoryItem(HistoryItem*) const = 0;
@@ -186,8 +192,8 @@ namespace WebCore {
 
         virtual String userAgent(const KURL&) = 0;
         
-        virtual void savePlatformDataToCachedPage(CachedPage*) = 0;
-        virtual void transitionToCommittedFromCachedPage(CachedPage*) = 0;
+        virtual void savePlatformDataToCachedFrame(CachedFrame*) = 0;
+        virtual void transitionToCommittedFromCachedFrame(CachedFrame*) = 0;
         virtual void transitionToCommittedForNewPage() = 0;
 
         virtual bool canCachePage() const = 0;
@@ -214,6 +220,12 @@ namespace WebCore {
 #endif
         virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
 #endif
+
+        virtual bool shouldUsePluginDocument(const String& /*mimeType*/) const { return false; }
+
+    protected:
+        static void transitionToCommittedForNewPage(Frame*, const IntSize&, const Color&, bool, const IntSize &, bool,
+                                                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
     };
 
 } // namespace WebCore

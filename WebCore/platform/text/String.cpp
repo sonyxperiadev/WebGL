@@ -25,7 +25,7 @@
 #include "FloatConversion.h"
 #include "StringBuffer.h"
 #include "TextEncoding.h"
-#include <kjs/dtoa.h>
+#include <wtf/dtoa.h>
 #include <limits>
 #include <stdarg.h>
 #include <wtf/ASCIICType.h>
@@ -248,6 +248,13 @@ String String::substring(unsigned pos, unsigned len) const
     return m_impl->substring(pos, len);
 }
 
+String String::substringCopy(unsigned pos, unsigned len) const
+{
+    if (!m_impl) 
+        return String();
+    return m_impl->substringCopy(pos, len);
+}
+
 String String::lower() const
 {
     if (!m_impl)
@@ -274,6 +281,13 @@ String String::simplifyWhiteSpace() const
     if (!m_impl)
         return String();
     return m_impl->simplifyWhiteSpace();
+}
+
+String String::removeCharacters(CharacterMatchFunctionPtr findMatch) const
+{
+    if (!m_impl)
+        return String();
+    return m_impl->removeCharacters(findMatch);
 }
 
 String String::foldCase() const
@@ -362,6 +376,16 @@ String String::format(const char *format, ...)
     
     return StringImpl::create(buffer.data(), len);
 #endif
+}
+
+String String::number(short n)
+{
+    return String::format("%hd", n);
+}
+
+String String::number(unsigned short n)
+{
+    return String::format("%hu", n);
 }
 
 String String::number(int n)
@@ -791,7 +815,7 @@ double charactersToDouble(const UChar* data, size_t length, bool* ok)
         bytes[i] = data[i] < 0x7F ? data[i] : '?';
     bytes[length] = '\0';
     char* end;
-    double val = JSC::strtod(bytes.data(), &end);
+    double val = WTF::strtod(bytes.data(), &end);
     if (ok)
         *ok = (end == 0 || *end == '\0');
     return val;
@@ -823,7 +847,9 @@ PassRefPtr<SharedBuffer> utf8Buffer(const String& string)
 } // namespace WebCore
 
 #ifndef NDEBUG
-// For debugging only -- leaks memory
+// For use in the debugger - leaks memory
+WebCore::String* string(const char*);
+
 WebCore::String* string(const char* s)
 {
     return new WebCore::String(s);

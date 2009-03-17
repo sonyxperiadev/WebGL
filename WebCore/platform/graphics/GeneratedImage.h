@@ -53,15 +53,14 @@ public:
     virtual IntSize size() const { return m_size; }
 
     // Assume that generated content has no decoded data we need to worry about
-    virtual void destroyDecodedData(bool incremental = false, bool preserveNearbyFrames = false) { }
+    virtual void destroyDecodedData(bool /*destroyAll*/ = true) { }
     virtual unsigned decodedSize() const { return 0; }
 
 protected:
     virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator);
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
+    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
                              const FloatPoint& phase, CompositeOperator, const FloatRect& destRect);
     
-protected:
     GeneratedImage(PassRefPtr<Generator> generator, const IntSize& size)
         : m_generator(generator)
         , m_size(size)

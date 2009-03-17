@@ -170,7 +170,7 @@ static void* TryMmap(size_t size, size_t *actual_size, size_t alignment) {
     extra = alignment - pagesize;
   }
   void* result = mmap(NULL, size + extra,
-                      PROT_READ|PROT_WRITE,
+                      PROT_READ | PROT_WRITE,
                       MAP_PRIVATE|MAP_ANONYMOUS,
                       -1, 0);
   if (result == reinterpret_cast<void*>(MAP_FAILED)) {
@@ -224,7 +224,7 @@ static void* TryVirtualAlloc(size_t size, size_t *actual_size, size_t alignment)
   }
   void* result = VirtualAlloc(NULL, size + extra,
                               MEM_RESERVE | MEM_COMMIT | MEM_TOP_DOWN, 
-                              PAGE_EXECUTE_READWRITE);
+                              PAGE_READWRITE);
 
   if (result == NULL) {
     VirtualAlloc_failure = true;
@@ -302,7 +302,7 @@ static void* TryDevMem(size_t size, size_t *actual_size, size_t alignment) {
     devmem_failure = true;
     return NULL;
   }
-  void *result = mmap(0, size + extra, PROT_WRITE|PROT_READ,
+  void *result = mmap(0, size + extra, PROT_READ | PROT_WRITE,
                       MAP_SHARED, physmem_fd, physmem_base);
   if (result == reinterpret_cast<void*>(MAP_FAILED)) {
     devmem_failure = true;
@@ -383,8 +383,6 @@ void* TCMalloc_SystemAlloc(size_t size, size_t *actual_size, size_t alignment) {
 
 void TCMalloc_SystemRelease(void* start, size_t length)
 {
-  UNUSED_PARAM(start);
-  UNUSED_PARAM(length);
 #if HAVE(MADV_DONTNEED)
   if (FLAGS_malloc_devmem_start) {
     // It's not safe to use MADV_DONTNEED if we've been mapping
@@ -421,18 +419,20 @@ void TCMalloc_SystemRelease(void* start, size_t length)
 #endif
 
 #if HAVE(MMAP)
-  void *newAddress = mmap(start, length, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
-  UNUSED_PARAM(newAddress);
+  void* newAddress = mmap(start, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
   // If the mmap failed then that's ok, we just won't return the memory to the system.
-  ASSERT(newAddress == start || newAddress == reinterpret_cast<void*>(MAP_FAILED));
+  ASSERT_UNUSED(newAddress, newAddress == start || newAddress == reinterpret_cast<void*>(MAP_FAILED));
   return;
+#endif
+
+#if !HAVE(MADV_DONTNEED) && !HAVE(MMAP)
+  UNUSED_PARAM(start);
+  UNUSED_PARAM(length);
 #endif
 }
 
 #if HAVE(VIRTUALALLOC)
-void TCMalloc_SystemCommit(void* start, size_t length)
+void TCMalloc_SystemCommit(void*, size_t)
 {
-    UNUSED_PARAM(start);
-    UNUSED_PARAM(length);
 }
 #endif

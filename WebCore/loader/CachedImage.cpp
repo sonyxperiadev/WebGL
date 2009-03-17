@@ -33,7 +33,8 @@
 #include "FrameView.h"
 #include "Request.h"
 #include "Settings.h"
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(CG)
@@ -77,7 +78,11 @@ void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
 
 void CachedImage::load(DocLoader* docLoader)
 {
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    if (!docLoader || (docLoader->autoLoadImages() && !docLoader->shouldBlockNetworkImage(m_url)))
+#else
     if (!docLoader || docLoader->autoLoadImages())
+#endif
         CachedResource::load(docLoader, true, false, true);
     else
         m_loading = false;
@@ -89,8 +94,13 @@ void CachedImage::addClient(CachedResourceClient* c)
 
     if (m_decodedDataDeletionTimer.isActive())
         m_decodedDataDeletionTimer.stop();
+    
+    if (m_data && !m_image && !m_errorOccurred) {
+        createImage();
+        m_image->setData(m_data, true);
+    }
 
-    if (m_image && !m_image->rect().isEmpty())
+    if (m_image && !m_image->isNull())
         c->imageChanged(this);
 
     if (!m_loading)
@@ -107,20 +117,20 @@ void CachedImage::allClientsRemoved()
 
 static Image* brokenImage()
 {
-    static RefPtr<Image> brokenImage;
-    if (!brokenImage)
-        brokenImage = Image::loadPlatformResource("missingImage");
+    DEFINE_STATIC_LOCAL(RefPtr<Image>, brokenImage, (Image::loadPlatformResource("missingImage")));
     return brokenImage.get();
 }
 
 static Image* nullImage()
 {
-    static RefPtr<BitmapImage> nullImage = BitmapImage::create();
+    DEFINE_STATIC_LOCAL(RefPtr<BitmapImage>, nullImage, (BitmapImage::create()));
     return nullImage.get();
 }
 
 Image* CachedImage::image() const
 {
+    ASSERT(!isPurgeable());
+
     if (m_errorOccurred)
         return brokenImage();
 
@@ -162,6 +172,8 @@ bool CachedImage::imageHasRelativeHeight() const
 
 IntSize CachedImage::imageSize(float multiplier) const
 {
+    ASSERT(!isPurgeable());
+
     if (!m_image)
         return IntSize();
     if (multiplier == 1.0f)
@@ -181,6 +193,8 @@ IntSize CachedImage::imageSize(float multiplier) const
 
 IntRect CachedImage::imageRect(float multiplier) const
 {
+    ASSERT(!isPurgeable());
+
     if (!m_image)
         return IntRect();
     if (multiplier == 1.0f || (!m_image->hasRelativeWidth() && !m_image->hasRelativeHeight()))
@@ -206,11 +220,11 @@ IntRect CachedImage::imageRect(float multiplier) const
     return IntRect(x, y, width, height);
 }
 
-void CachedImage::notifyObservers()
+void CachedImage::notifyObservers(const IntRect* changeRect)
 {
     CachedResourceClientWalker w(m_clients);
     while (CachedResourceClient* c = w.next())
-        c->imageChanged(this);
+        c->imageChanged(this, changeRect);
 }
 
 void CachedImage::clear()
@@ -280,6 +294,8 @@ void CachedImage::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
             return;
         }
         
+        // It would be nice to only redraw the decoded band of the image, but with the current design
+        // (decoding delayed until painting) that seems hard.
         notifyObservers();
 
         if (m_image)
@@ -313,7 +329,14 @@ void CachedImage::checkNotify()
 
 void CachedImage::destroyDecodedData()
 {
-    if (m_image && !m_errorOccurred)
+    bool canDeleteImage = !m_image || (m_image->hasOneRef() && m_image->isBitmapImage());
+    if (isSafeToMakePurgeable() && canDeleteImage && !m_loading) {
+        // Image refs the data buffer so we should not make it purgeable while the image is alive. 
+        // Invoking addClient() will reconstruct the image object.
+        m_image = 0;
+        setDecodedSize(0);
+        makePurgeable(true);
+    } else if (m_image && !m_errorOccurred)
         m_image->destroyDecodedData();
 }
 
@@ -355,6 +378,12 @@ void CachedImage::animationAdvanced(const Image* image)
 {
     if (image == m_image)
         notifyObservers();
+}
+
+void CachedImage::changedInRect(const Image* image, const IntRect& rect)
+{
+    if (image == m_image)
+        notifyObservers(&rect);
 }
 
 } //namespace WebCore

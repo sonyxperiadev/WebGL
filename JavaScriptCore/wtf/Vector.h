@@ -37,7 +37,7 @@ namespace WTF {
     using std::max;
 
     // WTF_ALIGN_OF / WTF_ALIGNED
-    #if COMPILER(GCC) || COMPILER(MINGW)
+    #if COMPILER(GCC) || COMPILER(MINGW) || COMPILER(RVCT) || COMPILER(WINSCW)
         #define WTF_ALIGN_OF(type) __alignof__(type)
         #define WTF_ALIGNED(variable_type, variable, n) variable_type variable __attribute__((__aligned__(n)))
     #elif COMPILER(MSVC)
@@ -279,8 +279,10 @@ namespace WTF {
 
         void deallocateBuffer(T* bufferToDeallocate)
         {
-            if (m_buffer == bufferToDeallocate)
+            if (m_buffer == bufferToDeallocate) {
                 m_buffer = 0;
+                m_capacity = 0;
+            }
             fastFree(bufferToDeallocate);
         }
 
@@ -346,6 +348,8 @@ namespace WTF {
             std::swap(m_buffer, other.m_buffer);
             std::swap(m_capacity, other.m_capacity);
         }
+        
+        void restoreInlineBufferIfNeeded() { }
 
         using Base::allocateBuffer;
         using Base::deallocateBuffer;
@@ -392,6 +396,14 @@ namespace WTF {
             if (bufferToDeallocate == inlineBuffer())
                 return;
             Base::deallocateBuffer(bufferToDeallocate);
+        }
+        
+        void restoreInlineBufferIfNeeded()
+        {
+            if (m_buffer)
+                return;
+            m_buffer = inlineBuffer();
+            m_capacity = inlineCapacity;
         }
 
         using Base::buffer;
@@ -442,7 +454,7 @@ namespace WTF {
 
         ~Vector()
         {
-            clear();
+            if (m_size) shrink(0);
         }
 
         Vector(const Vector&);
@@ -492,8 +504,9 @@ namespace WTF {
         void resize(size_t size);
         void reserveCapacity(size_t newCapacity);
         void shrinkCapacity(size_t newCapacity);
+        void shrinkToFit() { shrinkCapacity(size()); }
 
-        void clear() { if (m_size) shrink(0); }
+        void clear() { shrinkCapacity(0); }
 
         template<typename U> void append(const U*, size_t);
         template<typename U> void append(const U&);
@@ -725,7 +738,8 @@ namespace WTF {
         if (newCapacity >= capacity())
             return;
 
-        resize(min(m_size, newCapacity));
+        if (newCapacity < size()) 
+            shrink(newCapacity);
 
         T* oldBuffer = begin();
         if (newCapacity > 0) {
@@ -736,6 +750,7 @@ namespace WTF {
         }
 
         m_buffer.deallocateBuffer(oldBuffer);
+        m_buffer.restoreInlineBufferIfNeeded();
     }
 
     // Templatizing these is better than just letting the conversion happen implicitly,

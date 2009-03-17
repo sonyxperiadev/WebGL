@@ -30,7 +30,6 @@
 #include "JSCustomSQLTransactionCallback.h"
 
 #include "CString.h"
-#include "Console.h"
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "Logging.h"
@@ -102,9 +101,9 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         
     JSC::JSLock lock(false);
         
-    JSValue* handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
+    JSValuePtr handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
     CallData handleEventCallData;
-    CallType handleEventCallType = handleEventFunction->getCallData(handleEventCallData);
+    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
     CallData callbackCallData;
     CallType callbackCallType = CallTypeNone;
 
@@ -129,7 +128,7 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
     globalObject->stopTimeoutCheck();
         
     if (exec->hadException()) {
-        m_data->frame()->domWindow()->console()->reportCurrentException(exec);
+        reportCurrentException(exec);
         
         raisedException = true;
     }

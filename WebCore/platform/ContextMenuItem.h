@@ -120,6 +120,10 @@ namespace WebCore {
         ContextMenuItemTagPDFSinglePageScrolling,
         ContextMenuItemTagPDFFacingPagesScrolling,
         ContextMenuItemTagInspectElement,
+        ContextMenuItemTagTextDirectionMenu, // Text Direction sub-menu
+        ContextMenuItemTagTextDirectionDefault,
+        ContextMenuItemTagTextDirectionLeftToRight,
+        ContextMenuItemTagTextDirectionRightToLeft,
         ContextMenuItemBaseApplicationTag = 10000
     };
 
@@ -170,7 +174,21 @@ namespace WebCore {
 #elif defined ANDROID
     typedef void* PlatformMenuItemDescription;
 #elif PLATFORM(WX)
-    typedef wxMenuItem* PlatformMenuItemDescription;
+    struct PlatformMenuItemDescription {
+        PlatformMenuItemDescription()
+            : type(ActionType),
+              action(ContextMenuItemTagNoAction),
+              checked(false),
+              enabled(true)
+        {}
+
+        ContextMenuItemType type;
+        ContextMenuAction action;
+        String title;
+        wxMenu * subMenu;
+        bool checked;
+        bool enabled;
+    };
 #else
     typedef void* PlatformMenuItemDescription;
 #endif

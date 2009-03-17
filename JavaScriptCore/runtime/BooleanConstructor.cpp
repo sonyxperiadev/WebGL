@@ -28,7 +28,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(BooleanConstructor);
 
-BooleanConstructor::BooleanConstructor(ExecState* exec, PassRefPtr<StructureID> structure, BooleanPrototype* booleanPrototype)
+BooleanConstructor::BooleanConstructor(ExecState* exec, PassRefPtr<Structure> structure, BooleanPrototype* booleanPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, booleanPrototype->classInfo()->className))
 {
     putDirectWithoutTransition(exec->propertyNames().prototype, booleanPrototype, DontEnum | DontDelete | ReadOnly);
@@ -41,7 +41,7 @@ BooleanConstructor::BooleanConstructor(ExecState* exec, PassRefPtr<StructureID> 
 JSObject* constructBoolean(ExecState* exec, const ArgList& args)
 {
     BooleanObject* obj = new (exec) BooleanObject(exec->lexicalGlobalObject()->booleanObjectStructure());
-    obj->setInternalValue(jsBoolean(args.at(exec, 0)->toBoolean(exec)));
+    obj->setInternalValue(jsBoolean(args.at(exec, 0).toBoolean(exec)));
     return obj;
 }
 
@@ -57,9 +57,9 @@ ConstructType BooleanConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.6.1
-static JSValue* callBooleanConstructor(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr callBooleanConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
-    return jsBoolean(args.at(exec, 0)->toBoolean(exec));
+    return jsBoolean(args.at(exec, 0).toBoolean(exec));
 }
 
 CallType BooleanConstructor::getCallData(CallData& callData)
@@ -68,7 +68,7 @@ CallType BooleanConstructor::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-JSObject* constructBooleanFromImmediateBoolean(ExecState* exec, JSValue* immediateBooleanValue)
+JSObject* constructBooleanFromImmediateBoolean(ExecState* exec, JSValuePtr immediateBooleanValue)
 {
     BooleanObject* obj = new (exec) BooleanObject(exec->lexicalGlobalObject()->booleanObjectStructure());
     obj->setInternalValue(immediateBooleanValue);

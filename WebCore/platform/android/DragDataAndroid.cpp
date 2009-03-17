@@ -27,6 +27,7 @@
 #include "config.h"
 #include "DragData.h"
 
+#include "Clipboard.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 
@@ -57,11 +58,9 @@ Color DragData::asColor() const
     return Color();
 }
     
-class Clipboard : public RefCounted<Clipboard> {};
-
 PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
 {
-    return PassRefPtr<Clipboard>(0);
+    return 0;
 }
     
 bool DragData::containsCompatibleContent() const
@@ -74,7 +73,7 @@ bool DragData::containsURL() const
     return false;
 }
     
-String DragData::asURL(String* title) const
+String DragData::asURL(String*) const
 {
     return String();
 }
@@ -85,8 +84,13 @@ PassRefPtr<DocumentFragment> DragData::asFragment(Document*) const
     return 0;
 }
 
-// functions new to Jun-07 tip of tree merge:
-void DragData::asFilenames(Vector<String>&) const {}
-bool DragData::containsFiles() const { return false; }
-
+void DragData::asFilenames(Vector<String>&) const
+{
 }
+
+bool DragData::containsFiles() const
+{
+    return false;
+}
+
+} // namespace WebCore

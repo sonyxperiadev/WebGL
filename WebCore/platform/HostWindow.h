@@ -52,9 +52,13 @@ public:
     // Methods for doing coordinate conversions to and from screen coordinates.
     virtual IntPoint screenToWindow(const IntPoint&) const = 0;
     virtual IntRect windowToScreen(const IntRect&) const = 0;
-    
+
     // Method for retrieving the native window.
     virtual PlatformWidget platformWindow() const = 0;
+    
+    // For scrolling a rect into view recursively.  Useful in the cases where a WebView is embedded inside some containing
+    // platform-specific ScrollView.
+    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const = 0;
 };
 
 } // namespace WebCore

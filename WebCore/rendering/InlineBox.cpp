@@ -23,6 +23,7 @@
 #include "HitTestResult.h"
 #include "InlineFlowBox.h"
 #include "RenderArena.h"
+#include "RenderBox.h"
 #include "RootInlineBox.h"
 
 using namespace std;
@@ -129,8 +130,10 @@ void InlineBox::adjustPosition(int dx, int dy)
 {
     m_x += dx;
     m_y += dy;
-    if (m_object->isReplaced() || m_object->isBR())
-        m_object->setPos(m_object->xPos() + dx, m_object->yPos() + dy);
+    if (m_object->isReplaced()) {
+        RenderBox* box = toRenderBox(m_object);
+        box->move(dx, dy);
+    }
 }
 
 void InlineBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
@@ -239,7 +242,7 @@ bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidt
     return !(boxRect.intersects(ellipsisRect));
 }
 
-int InlineBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&)
+int InlineBox::placeEllipsisBox(bool, int, int, bool&)
 {
     // Use -1 to mean "we didn't set the position."
     return -1;

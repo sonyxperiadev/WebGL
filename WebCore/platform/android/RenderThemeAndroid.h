@@ -97,10 +97,6 @@ private:
     void close();
 
     bool supportsFocus(ControlPart appearance);
-    // FIXME: There should be a way to use one RenderSkinRadio for both radio and checkbox
-    RenderSkinRadio*    m_radio;
-    RenderSkinRadio*    m_checkbox;
-    RenderSkinCombo*    m_combo;
 };
 
 } // namespace WebCore

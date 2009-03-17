@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -97,9 +97,18 @@ public:
     virtual HRESULT STDMETHODCALLTYPE target(BSTR* target);
     virtual HRESULT STDMETHODCALLTYPE isTargetItem(BOOL* result);
     virtual HRESULT STDMETHODCALLTYPE children(unsigned* childCount, SAFEARRAY** children);
-
+    virtual HRESULT STDMETHODCALLTYPE lastVisitWasFailure(BOOL* wasFailure);
+    virtual HRESULT STDMETHODCALLTYPE setLastVisitWasFailure(BOOL wasFailure);
+    virtual HRESULT STDMETHODCALLTYPE lastVisitWasHTTPNonGet(BOOL* HTTPNonGet);
+    virtual HRESULT STDMETHODCALLTYPE setLastVisitWasHTTPNonGet(BOOL HTTPNonGet);
+    virtual HRESULT STDMETHODCALLTYPE redirectURLs(IEnumVARIANT**);
+    virtual HRESULT STDMETHODCALLTYPE visitedWithTitle(BSTR title);
+    virtual HRESULT STDMETHODCALLTYPE getDailyVisitCounts(int* number, int** counts);
+    virtual HRESULT STDMETHODCALLTYPE getWeeklyVisitCounts(int* number, int** counts);
+    virtual HRESULT STDMETHODCALLTYPE recordInitialVisit();
     // WebHistoryItem
     WebCore::HistoryItem* historyItem() const;
+
 protected:
     ULONG m_refCount;
 

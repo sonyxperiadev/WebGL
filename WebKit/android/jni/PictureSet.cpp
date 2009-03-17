@@ -36,7 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
@@ -76,9 +76,9 @@ void PictureSet::add(const Pictures* temp)
 void PictureSet::add(const SkRegion& area, SkPicture* picture,
     uint32_t elapsed, bool split)
 {
-    DBG_SET_LOGD("%p {%d,%d,r=%d,b=%d} elapsed=%d split=%d", this,
+    DBG_SET_LOGD("%p area={%d,%d,r=%d,b=%d} pict=%p elapsed=%d split=%d", this,
         area.getBounds().fLeft, area.getBounds().fTop,
-        area.getBounds().fRight, area.getBounds().fBottom,
+        area.getBounds().fRight, area.getBounds().fBottom, picture,
         elapsed, split);
     picture->safeRef();
     /* if nothing is drawn beneath part of the new picture, mark it as a base */
@@ -207,7 +207,7 @@ void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
 
 void PictureSet::clear()
 {
- //   dump(__FUNCTION__);
+    DBG_SET_LOG("");
     Pictures* last = mPictures.end();
     for (Pictures* working = mPictures.begin(); working != last; working++) {
         working->mArea.setEmpty();
@@ -219,7 +219,6 @@ void PictureSet::clear()
 
 bool PictureSet::draw(SkCanvas* canvas)
 {
-    DBG_SET_LOG("");
     validate(__FUNCTION__);
     Pictures* first = mPictures.begin();
     Pictures* last = mPictures.end();
@@ -242,7 +241,7 @@ bool PictureSet::draw(SkCanvas* canvas)
             break;
         }
     }
-    DBG_SET_LOGD("first=%d last=%d", first - mPictures.begin(),
+    DBG_SET_LOGD("%p first=%d last=%d", this, first - mPictures.begin(),
         last - mPictures.begin());
     uint32_t maxElapsed = 0;
     for (working = first; working != last; working++) {
@@ -271,9 +270,9 @@ bool PictureSet::draw(SkCanvas* canvas)
         }
         canvas->translate(pathBounds.fLeft, pathBounds.fTop);
         canvas->save();
-        uint32_t startTime = WebCore::get_thread_msec();
+        uint32_t startTime = WTF::get_thread_msec();
         canvas->drawPicture(*working->mPicture);
-        size_t elapsed = working->mElapsed = WebCore::get_thread_msec() - startTime;
+        size_t elapsed = working->mElapsed = WTF::get_thread_msec() - startTime;
         working->mWroteElapsed = true;
         if (maxElapsed < elapsed && (pathBounds.width() >= MIN_SPLITTABLE ||
                 pathBounds.height() >= MIN_SPLITTABLE))
@@ -309,20 +308,32 @@ bool PictureSet::draw(SkCanvas* canvas)
 void PictureSet::dump(const char* label) const
 {
 #if PICTURE_SET_DUMP
-    DBG_SET_LOGD("%p %s (%d)", this, label, mPictures.size());
+    DBG_SET_LOGD("%p %s (%d) (w=%d,h=%d)", this, label, mPictures.size(),
+        mWidth, mHeight);
     const Pictures* last = mPictures.end();
     for (const Pictures* working = mPictures.begin(); working != last; working++) {
         const SkIRect& bounds = working->mArea.getBounds();
+        const SkIRect& unsplit = working->mUnsplit;
         MeasureStream measure;
         if (working->mPicture != NULL)
             working->mPicture->serialize(&measure);
-        LOGD(" [%d] {%d,%d,r=%d,b=%d} elapsed=%d split=%s"
-            " wroteElapsed=%s base=%s pictSize=%d",
+        LOGD(" [%d]"
+            " mArea.bounds={%d,%d,r=%d,b=%d}"
+            " mPicture=%p"
+            " mUnsplit={%d,%d,r=%d,b=%d}"
+            " mElapsed=%d"
+            " mSplit=%s"
+            " mWroteElapsed=%s"
+            " mBase=%s"
+            " pict-size=%d",
             working - mPictures.begin(),
             bounds.fLeft, bounds.fTop, bounds.fRight, bounds.fBottom,
+            working->mPicture,
+            unsplit.fLeft, unsplit.fTop, unsplit.fRight, unsplit.fBottom,
             working->mElapsed, working->mSplit ? "true" : "false",
-            working->mWroteElapsed ? "true" : "false", 
-            working->mBase ? "true" : "false", measure.mTotal);
+            working->mWroteElapsed ? "true" : "false",
+            working->mBase ? "true" : "false",
+            measure.mTotal);
     }
 #endif
 }
@@ -465,7 +476,7 @@ bool PictureSet::reuseSubdivided(const SkRegion& inval)
 
 void PictureSet::set(const PictureSet& src)
 {
-    DBG_SET_LOG("start");
+    DBG_SET_LOGD("start %p src=%p", this, &src);
     clear();
     mWidth = src.mWidth;
     mHeight = src.mHeight;
@@ -514,55 +525,35 @@ void PictureSet::setPicture(size_t i, SkPicture* p)
 void PictureSet::split(PictureSet* out) const
 {
     dump(__FUNCTION__);
+    DBG_SET_LOGD("%p", this);
     SkIRect totalBounds;
     out->mWidth = mWidth;
     out->mHeight = mHeight;
     totalBounds.set(0, 0, mWidth, mHeight);
     SkRegion* total = new SkRegion(totalBounds);
     const Pictures* last = mPictures.end();
+    const Pictures* working;
     uint32_t balance = 0;
-    bool firstTime = true;
-    const Pictures* singleton = NULL;
-    int singleOut = -1;
-    for (const Pictures* working = mPictures.begin(); working != last; working++) {
+    int multiUnsplitFastPictures = 0; // > 1 has more than 1
+    for (working = mPictures.begin(); working != last; working++) {
+        if (working->mElapsed >= MAX_DRAW_TIME || working->mSplit)
+            continue;
+        if (++multiUnsplitFastPictures > 1)
+            break;
+    }
+    for (working = mPictures.begin(); working != last; working++) {
         uint32_t elapsed = working->mElapsed;
         if (elapsed < MAX_DRAW_TIME) {
-            if (working->mSplit) {
+            bool split = working->mSplit;
+            DBG_SET_LOGD("elapsed=%d working=%p total->getBounds()="
+                "{%d,%d,r=%d,b=%d} split=%s", elapsed, working,
+                total->getBounds().fLeft, total->getBounds().fTop,
+                total->getBounds().fRight, total->getBounds().fBottom,
+                split ? "true" : "false");
+            if (multiUnsplitFastPictures <= 1 || split) {
                 total->op(working->mArea, SkRegion::kDifference_Op);
-                DBG_SET_LOGD("%p total->getBounds()={%d,%d,r=%d,b=%d", this,
-                    total->getBounds().fLeft, total->getBounds().fTop,
-                    total->getBounds().fRight, total->getBounds().fBottom);
-                singleOut = out->mPictures.end() - out->mPictures.begin();
-                out->add(working->mArea, working->mPicture, elapsed, true);
-                continue;
-            }
-            if (firstTime) {
-                singleton = working;
-                DBG_SET_LOGD("%p firstTime working=%p working->mArea="
-                    "{%d,%d,r=%d,b=%d}", this, working,
-                    working->mArea.getBounds().fLeft,
-                    working->mArea.getBounds().fTop,
-                    working->mArea.getBounds().fRight,
-                    working->mArea.getBounds().fBottom);
-                out->add(working->mArea, working->mPicture, elapsed, false);
-                firstTime = false;
-            } else {
-                if (singleOut >= 0) {
-                    Pictures& outWork = out->mPictures[singleOut];
-                    DBG_SET_LOGD("%p clear singleton outWork=%p outWork->mArea="
-                        "{%d,%d,r=%d,b=%d}", this, &outWork,
-                        outWork.mArea.getBounds().fLeft,
-                        outWork.mArea.getBounds().fTop,
-                        outWork.mArea.getBounds().fRight,
-                        outWork.mArea.getBounds().fBottom);
-                    outWork.mArea.setEmpty();
-                    outWork.mPicture->safeUnref();
-                    outWork.mPicture = NULL;
-                    singleOut = -1;
-                }
-                singleton = NULL;
-            }
-            if (balance < elapsed)
+                out->add(working->mArea, working->mPicture, elapsed, split);
+            } else if (balance < elapsed)
                 balance = elapsed;
             continue;
         }
@@ -600,31 +591,14 @@ void PictureSet::split(PictureSet* out) const
             top = bottom;
         }
     }
-    DBG_SET_LOGD("%p w=%d h=%d total->isEmpty()=%s singleton=%p",
-        this, mWidth, mHeight, total->isEmpty() ? "true" : "false", singleton);
-    if (total->isEmpty() == false && singleton == NULL)
+    DBG_SET_LOGD("%p w=%d h=%d total->isEmpty()=%s multiUnsplitFastPictures=%d",
+        this, mWidth, mHeight, total->isEmpty() ? "true" : "false",
+        multiUnsplitFastPictures);
+    if (!total->isEmpty() && multiUnsplitFastPictures > 1)
         out->add(*total, NULL, balance, false);
     delete total;
     validate(__FUNCTION__);
     out->dump("split-out");
-}
-
-void PictureSet::toPicture(SkPicture* result) const
-{
-    DBG_SET_LOGD("%p", this);
-    SkPicture tempPict;
-    SkAutoPictureRecord arp(&tempPict, mWidth, mHeight);
-    SkCanvas* recorder = arp.getRecordingCanvas();
-    const Pictures* last = mPictures.end();
-    for (const Pictures* working = mPictures.begin(); working != last; working++) {
-        int saved = recorder->save();
-        SkPath pathBounds;
-        working->mArea.getBoundaryPath(&pathBounds);
-        recorder->clipPath(pathBounds);
-        recorder->drawPicture(*working->mPicture);
-        recorder->restoreToCount(saved);
-    }
-    result->swap(tempPict);
 }
 
 bool PictureSet::validate(const char* funct) const

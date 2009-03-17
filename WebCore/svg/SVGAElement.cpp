@@ -96,7 +96,7 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 }
 
-RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     if (static_cast<SVGElement*>(parent())->isTextContent())
         return new (arena) RenderSVGInline(this);
@@ -151,7 +151,7 @@ void SVGAElement::defaultEventHandler(Event* evt)
             }
 #endif
             if (document()->frame())
-                document()->frame()->loader()->urlSelected(document()->completeURL(url), target, evt, false, true);
+                document()->frame()->loader()->urlSelected(document()->completeURL(url), target, evt, false, false, true);
         }
 
         evt->setDefaultHandled();

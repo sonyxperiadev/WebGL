@@ -42,6 +42,7 @@
 #include "XLinkNames.h"
 #include <math.h>
 #include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 using namespace std;
@@ -65,7 +66,7 @@ public:
             m_eventBase->removeEventListener(m_condition->m_name, this, false);
     }
 
-    virtual void handleEvent(Event* event, bool isWindowEvent) 
+    virtual void handleEvent(Event* event, bool) 
     {
         m_animation->handleConditionEvent(event, m_condition);
     }
@@ -193,7 +194,7 @@ SMILTime SVGSMILElement::parseClockValue(const String& data)
     
     String parse = data.stripWhiteSpace();
 
-    static const AtomicString indefiniteValue("indefinite");
+    DEFINE_STATIC_LOCAL(const AtomicString, indefiniteValue, ("indefinite"));
     if (parse == indefiniteValue)
         return SMILTime::indefinite();
 
@@ -457,8 +458,8 @@ bool SVGSMILElement::isFrozen() const
     
 SVGSMILElement::Restart SVGSMILElement::restart() const
 {    
-    static const AtomicString never("never");
-    static const AtomicString whenNotActive("whenNotActive");
+    DEFINE_STATIC_LOCAL(const AtomicString, never, ("never"));
+    DEFINE_STATIC_LOCAL(const AtomicString, whenNotActive, ("whenNotActive"));
     const AtomicString& value = getAttribute(SVGNames::restartAttr);
     if (value == never)
         return RestartNever;
@@ -469,7 +470,7 @@ SVGSMILElement::Restart SVGSMILElement::restart() const
     
 SVGSMILElement::FillMode SVGSMILElement::fill() const
 {   
-    static const AtomicString freeze("freeze");
+    DEFINE_STATIC_LOCAL(const AtomicString, freeze, ("freeze"));
     const AtomicString& value = getAttribute(SVGNames::fillAttr);
     return value == freeze ? FillFreeze : FillRemove;
 }
@@ -506,7 +507,7 @@ SMILTime SVGSMILElement::repeatCount() const
     if (value.isNull())
         return SMILTime::unresolved();
 
-    static const AtomicString indefiniteValue("indefinite");
+    DEFINE_STATIC_LOCAL(const AtomicString, indefiniteValue, ("indefinite"));
     if (value == indefiniteValue)
         return SMILTime::indefinite();
     bool ok;
@@ -861,7 +862,7 @@ void SVGSMILElement::progress(SMILTime elapsed, SVGSMILElement* resultElement)
 void SVGSMILElement::notifyDependentsIntervalChanged(NewOrExistingInterval newOrExisting)
 {
     ASSERT(m_intervalBegin.isFinite());
-    static HashSet<SVGSMILElement*> loopBreaker;
+    DEFINE_STATIC_LOCAL(HashSet<SVGSMILElement*>, loopBreaker, ());
     if (loopBreaker.contains(this))
         return;
     loopBreaker.add(this);
@@ -875,7 +876,7 @@ void SVGSMILElement::notifyDependentsIntervalChanged(NewOrExistingInterval newOr
     loopBreaker.remove(this);
 }
     
-void SVGSMILElement::createInstanceTimesFromSyncbase(SVGSMILElement* syncbase, NewOrExistingInterval newOrExisting)
+void SVGSMILElement::createInstanceTimesFromSyncbase(SVGSMILElement* syncbase, NewOrExistingInterval)
 {
     // FIXME: To be really correct, this should handle updating exising interval by changing 
     // the associated times instead of creating new ones.
@@ -910,7 +911,7 @@ void SVGSMILElement::removeTimeDependent(SVGSMILElement* animation)
     m_timeDependents.remove(animation);
 }
     
-void SVGSMILElement::handleConditionEvent(Event* event, Condition* condition)
+void SVGSMILElement::handleConditionEvent(Event*, Condition* condition)
 {
     if (condition->m_beginOrEnd == Begin)
         addBeginTime(elapsed() + condition->m_offset);

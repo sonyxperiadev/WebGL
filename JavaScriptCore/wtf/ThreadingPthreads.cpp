@@ -29,18 +29,24 @@
 #include "config.h"
 #include "Threading.h"
 
+#include "StdLibExtras.h"
+
 #if USE(PTHREADS)
 
+#include "CurrentTime.h"
 #include "HashMap.h"
 #include "MainThread.h"
-#include "MathExtras.h"
+#include "RandomNumberSeed.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <sys/time.h>
 
 namespace WTF {
 
-Mutex* atomicallyInitializedStaticMutex;
+typedef HashMap<ThreadIdentifier, pthread_t> ThreadMap;
+
+static Mutex* atomicallyInitializedStaticMutex;
 
 #if !PLATFORM(DARWIN)
 static ThreadIdentifier mainThreadIdentifier; // The thread that was the first to call initializeThreading(), which must be the main thread.
@@ -48,7 +54,7 @@ static ThreadIdentifier mainThreadIdentifier; // The thread that was the first t
 
 static Mutex& threadMapMutex()
 {
-    static Mutex mutex;
+    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
     return mutex;
 }
 
@@ -57,7 +63,7 @@ void initializeThreading()
     if (!atomicallyInitializedStaticMutex) {
         atomicallyInitializedStaticMutex = new Mutex;
         threadMapMutex();
-        wtf_random_init();
+        initializeRandomNumberGenerator();
 #if !PLATFORM(DARWIN)
         mainThreadIdentifier = currentThread();
 #endif
@@ -65,14 +71,40 @@ void initializeThreading()
     }
 }
 
-static HashMap<ThreadIdentifier, pthread_t>& threadMap()
+void lockAtomicallyInitializedStaticMutex()
 {
-    static HashMap<ThreadIdentifier, pthread_t> map;
+    ASSERT(atomicallyInitializedStaticMutex);
+    atomicallyInitializedStaticMutex->lock();
+}
+
+void unlockAtomicallyInitializedStaticMutex()
+{
+    atomicallyInitializedStaticMutex->unlock();
+}
+
+static ThreadMap& threadMap()
+{
+    DEFINE_STATIC_LOCAL(ThreadMap, map, ());
     return map;
+}
+
+static ThreadIdentifier identifierByPthreadHandle(const pthread_t& pthreadHandle)
+{
+    MutexLocker locker(threadMapMutex());
+
+    ThreadMap::iterator i = threadMap().begin();
+    for (; i != threadMap().end(); ++i) {
+        if (pthread_equal(i->second, pthreadHandle))
+            return i->first;
+    }
+
+    return 0;
 }
 
 static ThreadIdentifier establishIdentifierForPthreadHandle(pthread_t& pthreadHandle)
 {
+    ASSERT(!identifierByPthreadHandle(pthreadHandle));
+
     MutexLocker locker(threadMapMutex());
 
     static ThreadIdentifier identifierCount = 1;
@@ -80,19 +112,6 @@ static ThreadIdentifier establishIdentifierForPthreadHandle(pthread_t& pthreadHa
     threadMap().add(identifierCount, pthreadHandle);
     
     return identifierCount++;
-}
-
-static ThreadIdentifier identifierByPthreadHandle(const pthread_t& pthreadHandle)
-{
-    MutexLocker locker(threadMapMutex());
-
-    HashMap<ThreadIdentifier, pthread_t>::iterator i = threadMap().begin();
-    for (; i != threadMap().end(); ++i) {
-        if (pthread_equal(i->second, pthreadHandle))
-            return i->first;
-    }
-
-    return 0;
 }
 
 static pthread_t pthreadHandleForIdentifier(ThreadIdentifier id)
@@ -111,7 +130,7 @@ static void clearPthreadHandleForIdentifier(ThreadIdentifier id)
     threadMap().remove(id);
 }
 
-ThreadIdentifier createThread(ThreadFunction entryPoint, void* data, const char*)
+ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     pthread_t threadHandle;
     if (pthread_create(&threadHandle, NULL, entryPoint, data)) {
@@ -119,18 +138,8 @@ ThreadIdentifier createThread(ThreadFunction entryPoint, void* data, const char*
         return 0;
     }
 
-    ThreadIdentifier threadID = establishIdentifierForPthreadHandle(threadHandle);
-    return threadID;
+    return establishIdentifierForPthreadHandle(threadHandle);
 }
-
-#if PLATFORM(MAC)
-// This function is deprecated but needs to be kept around for backward
-// compatibility. Use the 3-argument version of createThread above instead.
-ThreadIdentifier createThread(ThreadFunction entryPoint, void* data)
-{
-    return createThread(entryPoint, data, 0);
-}
-#endif
 
 int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 {
@@ -208,7 +217,7 @@ void Mutex::unlock()
     if (pthread_mutex_unlock(&m_mutex) != 0)
         ASSERT(false);
 }
-                
+
 ThreadCondition::ThreadCondition()
 { 
     pthread_cond_init(&m_condition, NULL);
@@ -225,28 +234,22 @@ void ThreadCondition::wait(Mutex& mutex)
         ASSERT(false);
 }
 
-bool ThreadCondition::timedWait(Mutex& mutex, double secondsToWait)
+bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 {
-    if (secondsToWait < 0.0) {
+    if (absoluteTime < currentTime())
+        return false;
+
+    if (absoluteTime > INT_MAX) {
         wait(mutex);
         return true;
     }
 
-    int intervalSeconds = static_cast<int>(secondsToWait);
-    int intervalMicroseconds = static_cast<int>((secondsToWait - intervalSeconds) * 1000000.0);
+    int timeSeconds = static_cast<int>(absoluteTime);
+    int timeNanoseconds = static_cast<int>((absoluteTime - timeSeconds) * 1E9);
 
-    // Current time comes in sec/microsec
-    timeval currentTime;
-    gettimeofday(&currentTime, NULL);
-
-    // Target time comes in sec/nanosec
     timespec targetTime;
-    targetTime.tv_sec = currentTime.tv_sec + intervalSeconds;
-    targetTime.tv_nsec = (currentTime.tv_usec + intervalMicroseconds) * 1000;
-    if (targetTime.tv_nsec > 1000000000) {
-        targetTime.tv_nsec -= 1000000000;
-        targetTime.tv_sec++;
-    }
+    targetTime.tv_sec = timeSeconds;
+    targetTime.tv_nsec = timeNanoseconds;
 
     return pthread_cond_timedwait(&m_condition, &mutex.impl(), &targetTime) == 0;
 }

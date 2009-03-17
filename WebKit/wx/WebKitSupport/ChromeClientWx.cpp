@@ -122,7 +122,7 @@ Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest& request, cons
 
         WebViewPrivate* impl = newFrame->webview->m_impl;
         if (impl)
-            myPage = impl->frame->page();
+            myPage = impl->page;
     }
     
     return myPage;
@@ -312,6 +312,11 @@ IntPoint ChromeClientWx::screenToWindow(const IntPoint& point) const
 PlatformWidget ChromeClientWx::platformWindow() const
 {
     return 0;
+}
+
+void ChromeClientWx::contentsSizeChanged(Frame*, const IntSize&) const
+{
+    notImplemented();
 }
 
 void ChromeClientWx::scrollBackingStore(int dx, int dy, 

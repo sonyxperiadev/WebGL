@@ -29,7 +29,7 @@
 
 #if PLATFORM(CAIRO)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
@@ -38,15 +38,17 @@
 
 namespace WebCore {
 
-void FrameData::clear()
+bool FrameData::clear(bool clearMetadata)
 {
+    if (clearMetadata)
+        m_haveMetadata = false;
+
     if (m_frame) {
         cairo_surface_destroy(m_frame);
         m_frame = 0;
-        // NOTE: We purposefully don't reset metadata here, so that even if we
-        // throw away previously-decoded data, animation loops can still access
-        // properties like frame durations without re-decoding.
+        return true;
     }
+    return false;
 }
 
 BitmapImage::BitmapImage(cairo_surface_t* surface, ImageObserver* observer)
@@ -139,7 +141,7 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         imageObserver()->didDraw(this);
 }
 
-void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const AffineTransform& patternTransform,
+void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator op, const FloatRect& destRect)
 {
     cairo_surface_t* image = nativeImageForCurrentFrame();

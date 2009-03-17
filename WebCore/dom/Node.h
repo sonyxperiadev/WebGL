@@ -25,10 +25,11 @@
 #define Node_h
 
 #include "DocPtr.h"
+#include "KURLHash.h"
 #include "PlatformString.h"
 #include "TreeShared.h"
 #include <wtf/Assertions.h>
-#include <wtf/HashSet.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 
@@ -42,7 +43,6 @@ class Element;
 class Event;
 class EventListener;
 class IntRect;
-class KURL;
 class KeyboardEvent;
 class NSResolver;
 class NamedAttrMap;
@@ -51,8 +51,8 @@ class PlatformKeyboardEvent;
 class PlatformMouseEvent;
 class PlatformWheelEvent;
 class QualifiedName;
-class RegisteredEventListener;
 class RenderArena;
+class RenderBox;
 class RenderObject;
 class RenderStyle;
 class StringBuilder;
@@ -95,10 +95,12 @@ public:
     static void startIgnoringLeaks();
     static void stopIgnoringLeaks();
 
+    static void dumpStatistics();
+
     enum StyleChange { NoChange, NoInherit, Inherit, Detach, Force };    
     static StyleChange diff(RenderStyle*, RenderStyle*);
 
-    Node(Document*, bool isElement = false, bool isContainer = false);
+    Node(Document*, bool isElement = false, bool isContainer = false, bool isText = false);
     virtual ~Node();
 
     // DOM methods & attributes for Node
@@ -109,10 +111,10 @@ public:
     virtual void setNodeValue(const String&, ExceptionCode&);
     virtual NodeType nodeType() const = 0;
     Node* parentNode() const { return parent(); }
-    Node* parentElement() const { return parent(); } // IE extension
+    Element* parentElement() const;
     Node* previousSibling() const { return m_previous; }
     Node* nextSibling() const { return m_next; }
-    virtual PassRefPtr<NodeList> childNodes();
+    PassRefPtr<NodeList> childNodes();
     Node* firstChild() const { return isContainerNode() ? containerFirstChild() : 0; }
     Node* lastChild() const { return isContainerNode() ? containerLastChild() : 0; }
     bool hasAttributes() const;
@@ -120,7 +122,7 @@ public:
 
     virtual KURL baseURI() const;
     
-    void getSubresourceURLs(Vector<KURL>&) const;
+    void getSubresourceURLs(ListHashSet<KURL>&) const;
 
     // These should all actually return a node, but this is only important for language bindings,
     // which will already know and hold a ref on the right node to return. Returning bool allows
@@ -141,10 +143,10 @@ public:
 
     bool isSameNode(Node* other) const { return this == other; }
     bool isEqualNode(Node*) const;
-    bool isDefaultNamespace(const String& namespaceURI) const;
-    String lookupPrefix(const String& namespaceURI) const;
+    bool isDefaultNamespace(const AtomicString& namespaceURI) const;
+    String lookupPrefix(const AtomicString& namespaceURI) const;
     String lookupNamespaceURI(const String& prefix) const;
-    String lookupNamespacePrefix(const String& namespaceURI, const Element* originalElement) const;
+    String lookupNamespacePrefix(const AtomicString& namespaceURI, const Element* originalElement) const;
     
     String textContent(bool convertBRsToNewlines = false) const;
     void setTextContent(const String&, ExceptionCode&);
@@ -156,6 +158,8 @@ public:
 
     bool isElementNode() const { return m_isElement; }
     bool isContainerNode() const { return m_isContainer; }
+    bool isTextNode() const { return m_isText; }
+
     virtual bool isHTMLElement() const { return false; }
 
 #if ENABLE(SVG)
@@ -164,10 +168,15 @@ public:
     static bool isSVGElement() { return false; }
 #endif
 
+#if ENABLE(WML)
+    virtual bool isWMLElement() const { return false; }
+#else
+    static bool isWMLElement() { return false; }
+#endif
+
     virtual bool isStyledElement() const { return false; }
     virtual bool isFrameOwnerElement() const { return false; }
     virtual bool isAttributeNode() const { return false; }
-    virtual bool isTextNode() const { return false; }
     virtual bool isCommentNode() const { return false; }
     virtual bool isCharacterDataNode() const { return false; }
     bool isDocumentNode() const;
@@ -179,7 +188,7 @@ public:
     bool isInShadowTree();
 
     // The node's parent for the purpose of event capture and bubbling.
-    virtual Node* eventParentNode() { return parentNode(); }
+    virtual ContainerNode* eventParentNode();
 
     bool isBlockFlow() const;
     bool isBlockFlowOrBlockTable() const;
@@ -281,6 +290,7 @@ public:
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
 
+    virtual bool isAutofilled() const { return false; }
     virtual bool isControl() const { return false; } // Eventually the notion of what is a control will be extensible.
     virtual bool isEnabled() const { return true; }
     virtual bool isChecked() const { return false; }
@@ -365,8 +375,13 @@ public:
     RenderObject* previousRenderer();
     void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
     
+    // Use with caution. Does no type checking.  Mostly a convenience method for shadow nodes of form controls, where we know exactly
+    // what kind of renderer we made.
+    RenderBox* renderBox() const;
+    
     void checkSetPrefix(const AtomicString& prefix, ExceptionCode&);
     bool isDescendantOf(const Node*) const;
+    bool contains(const Node*) const;
 
     // These two methods are mutually exclusive.  The former is used to do strict error-checking
     // when adding children via the public DOM API (e.g., appendChild()).  The latter is called only when parsing, 
@@ -447,14 +462,14 @@ public:
     // These functions are called whenever you are connected or disconnected from a tree.  That tree may be the main
     // document tree, or it could be another disconnected tree.  Override these functions to do any work that depends
     // on connectedness to some ancestor (e.g., an ancestor <form> for example).
-    virtual void insertedIntoTree(bool deep) { }
-    virtual void removedFromTree(bool deep) { }
+    virtual void insertedIntoTree(bool /*deep*/) { }
+    virtual void removedFromTree(bool /*deep*/) { }
 
     /**
      * Notifies the node that it's list of children have changed (either by adding or removing child nodes), or a child
      * node that is of the type CDATA_SECTION_NODE, TEXT_NODE or COMMENT_NODE has changed its value.
      */
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0) {};
+    virtual void childrenChanged(bool /*changedByParser*/ = false, Node* /*beforeChange*/ = 0, Node* /*afterChange*/ = 0, int /*childCountDelta*/ = 0) { }
 
 #if !defined(NDEBUG) || defined(ANDROID_DOM_LOGGING)
     virtual void formatForDebugger(char* buffer, unsigned length) const;
@@ -472,7 +487,7 @@ public:
     void notifyLocalNodeListsAttributeChanged();
     
     PassRefPtr<NodeList> getElementsByTagName(const String&);
-    PassRefPtr<NodeList> getElementsByTagNameNS(const String& namespaceURI, const String& localName);
+    PassRefPtr<NodeList> getElementsByTagNameNS(const AtomicString& namespaceURI, const String& localName);
     PassRefPtr<NodeList> getElementsByName(const String& elementName);
     PassRefPtr<NodeList> getElementsByClassName(const String& classNames);
 
@@ -481,11 +496,21 @@ public:
 
     unsigned short compareDocumentPosition(Node*);
 
+#ifdef ANDROID_INSTRUMENT
+    // Overridden to prevent the normal new from being called.
+    void* operator new(size_t) throw();
+
+    // Overridden to prevent the normal delete from being called.
+    void operator delete(void*, size_t);
+
+    static size_t reportDOMNodesSize();
+#endif
+
 protected:
     virtual void willMoveToNewOwnerDocument() { }
     virtual void didMoveToNewOwnerDocument() { }
     
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const { }
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
     void setTabIndexExplicitly(short);
     
     bool hasRareData() const { return m_hasRareData; }
@@ -506,13 +531,15 @@ private:
     virtual const AtomicString& virtualPrefix() const;
     virtual const AtomicString& virtualLocalName() const;
     virtual const AtomicString& virtualNamespaceURI() const;
-    
+
+    Element* ancestorElement() const;
+
+    void appendTextContent(bool convertBRsToNewlines, StringBuilder&) const;
+
     DocPtr<Document> m_document;
     Node* m_previous;
     Node* m_next;
     RenderObject* m_renderer;
-
-    // make sure we don't use more than 16 bits here -- adding more would increase the size of all Nodes
 
     unsigned m_styleChange : 2;
     bool m_hasId : 1;
@@ -529,12 +556,37 @@ private:
     bool m_hasRareData : 1;
     const bool m_isElement : 1;
     const bool m_isContainer : 1;
-    // no bits left   
+    const bool m_isText : 1;
 
-    Element* ancestorElement() const;
+protected:
+    // These bits are used by the Element derived class, pulled up here so they can
+    // be stored in the same memory word as the Node bits above.
+    bool m_parsingChildrenFinished : 1;
+#if ENABLE(SVG)
+    mutable bool m_areSVGAttributesValid : 1;
+#endif
 
-    void appendTextContent(bool convertBRsToNewlines, StringBuilder&) const;
+    // These bits are used by the StyledElement derived class, and live here for the
+    // same reason as above.
+    mutable bool m_isStyleAttributeValid : 1;
+    mutable bool m_synchronizingStyleAttribute : 1;
+
+#if ENABLE(SVG)
+    // This bit is used by the SVGElement derived class, and lives here for the same
+    // reason as above.
+    mutable bool m_synchronizingSVGAttributes : 1;
+#endif
+
+    // 11 bits remaining
 };
+
+// Used in Node::addSubresourceAttributeURLs() and in addSubresourceStyleURLs()
+inline void addSubresourceURL(ListHashSet<KURL>& urls, const KURL& url)
+{
+    if (!url.isNull())
+        urls.add(url);
+}
+
 } //namespace
 
 #ifndef NDEBUG

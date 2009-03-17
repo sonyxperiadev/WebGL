@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="Windows-1252"?>
+<?xml version="1.0" encoding="windows-1251"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="8,00"
 	Name="WTF"
 	ProjectGUID="{AA8A5A85-592B-4357-BC60-E0E91E026AF6}"
 	RootNamespace="WTF"
@@ -42,7 +42,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../parser/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
 				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
@@ -105,7 +105,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../parser/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
 				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
@@ -167,7 +167,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
+				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../parser/;../../wtf/;../../wtf/unicode/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
 				PreprocessorDefinitions="__STD_C"
 				ForcedIncludeFiles=""
 			/>
@@ -230,6 +230,14 @@
 			RelativePath="..\..\wtf\Assertions.h"
 			>
 		</File>
+	    <File
+    		RelativePath="..\..\wtf\ByteArray.cpp"
+    		>
+    	</File>
+    	<File
+    		RelativePath="..\..\wtf\ByteArray.h"
+    		>
+    	</File>
 		<File
 			RelativePath="..\..\wtf\unicode\Collator.h"
 			>
@@ -243,7 +251,23 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\CurrentTime.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\CurrentTime.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Deque.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\dtoa.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\dtoa.h"
 			>
 		</File>
 		<File
@@ -351,6 +375,22 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\PtrAndFlags.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumber.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumber.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumberSeed.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\RefCounted.h"
 			>
 		</File>
@@ -368,6 +408,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\RetainPtr.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StdLibExtras.h"
 			>
 		</File>
 		<File
@@ -395,6 +439,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\Threading.cpp"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Threading.h"
 			>
 		</File>
@@ -404,6 +452,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\ThreadSpecific.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadSpecificWin.cpp"
 			>
 		</File>
 		<File

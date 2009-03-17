@@ -28,6 +28,8 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Node.h"
+#include "TextEncoding.h"
+#include <wtf/Deque.h>
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
@@ -41,6 +43,7 @@ CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, con
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(!parentSheet || parentSheet->useStrictParsing())
 {
 }
 
@@ -50,6 +53,7 @@ CSSStyleSheet::CSSStyleSheet(Node *parentNode, const String& href, const String&
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(false)
 {
 }
 
@@ -58,6 +62,7 @@ CSSStyleSheet::CSSStyleSheet(CSSRule *ownerRule, const String& href, const Strin
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(!ownerRule || ownerRule->useStrictParsing())
 {
     CSSStyleSheet* parentSheet = ownerRule ? ownerRule->parentStyleSheet() : 0;
     m_doc = parentSheet ? parentSheet->doc() : 0;
@@ -205,24 +210,36 @@ void CSSStyleSheet::styleSheetChanged()
         documentToUpdate->updateStyleSelector();
 }
 
-void CSSStyleSheet::addSubresourceURLStrings(HashSet<String>& urls, const String& base) const
-{        
-    RefPtr<CSSRuleList> ruleList = const_cast<CSSStyleSheet*>(this)->cssRules();
-    
-    // Add the URLs for each child import rule, and recurse for the stylesheet belonging to each of those rules.
-    for (unsigned i = 0; i < ruleList->length(); ++i) {
-        CSSRule* rule = ruleList->item(i);
-        if (rule->type() != CSSRule::IMPORT_RULE)
-            continue;
+KURL CSSStyleSheet::completeURL(const String& url) const
+{
+    // Always return a null URL when passed a null string.
+    // FIXME: Should we change the KURL constructor to have this behavior?
+    // See also Document::completeURL(const String&)
+    if (url.isNull() || m_charset.isEmpty())
+        return StyleSheet::completeURL(url);
+    const TextEncoding encoding = TextEncoding(m_charset);
+    return KURL(baseURL(), url, encoding);
+}
 
-        CSSImportRule* importRule = static_cast<CSSImportRule*>(rule);
-        CSSStyleSheet* ruleSheet = importRule->styleSheet();
-        if (!ruleSheet)
-            continue;
+void CSSStyleSheet::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
+{
+    Deque<CSSStyleSheet*> styleSheetQueue;
+    styleSheetQueue.append(this);
 
-        KURL fullURL(KURL(base), importRule->href());
-        urls.add(fullURL.string());
-        ruleSheet->addSubresourceURLStrings(urls, fullURL.string());
+    while (!styleSheetQueue.isEmpty()) {
+        CSSStyleSheet* styleSheet = styleSheetQueue.first();
+        styleSheetQueue.removeFirst();
+
+        RefPtr<CSSRuleList> ruleList = styleSheet->cssRules();
+
+        for (unsigned i = 0; i < ruleList->length(); ++i) {
+            CSSRule* rule = ruleList->item(i);
+            if (rule->isImportRule()) {
+                if (CSSStyleSheet* ruleStyleSheet = static_cast<CSSImportRule*>(rule)->styleSheet())
+                    styleSheetQueue.append(ruleStyleSheet);
+            }
+            rule->addSubresourceStyleURLs(urls);
+        }
     }
 }
 

@@ -24,11 +24,16 @@
  */
 
 #include "config.h"
-#include "Document.h"
-#include "Node.h"
-#include "PlatformGraphicsContext.h"
 #include "RenderSkinRadio.h"
+
+#include "android_graphics.h"
+#include "Document.h"
+#include "IntRect.h"
+#include "Node.h"
+#include "RenderSkinAndroid.h"
+#include "SkBitmap.h"
 #include "SkCanvas.h"
+#include "SkRect.h"
 
 static const char* checks[] = { "res/drawable/checkbox_off_background.png", "res/drawable/checkbox_on_background.png",
                                 "res/drawable/radiobutton_off_background.png", "res/drawable/radiobutton_on_background.png"};
@@ -36,55 +41,45 @@ static const SkScalar SIZE = SkIntToScalar(19); // Default height and width - co
 
 namespace WebCore {
 
-SkBitmap RenderSkinRadio::m_bitmap[4];
-bool     RenderSkinRadio::m_decoded;
-
-RenderSkinRadio::RenderSkinRadio(bool isCheckBox)
-{
-    m_checked = false;
-    m_enabled = true;
-    m_isCheckBox = isCheckBox;
-}
+static SkBitmap s_bitmap[4];
+static bool     s_decoded;
 
 void RenderSkinRadio::Init(android::AssetManager* am)
 {
-    if (m_decoded)
+    if (s_decoded)
         return;
-    m_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[0], &m_bitmap[0]);
-    m_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[1], &m_bitmap[1]) && m_decoded;
-    m_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[2], &m_bitmap[2]) && m_decoded;
-    m_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[3], &m_bitmap[3]) && m_decoded;
-}
-    
-
-bool RenderSkinRadio::draw(PlatformGraphicsContext* pgc)
-{
-    if (!m_decoded) // Seems like an unnecessary slowdown, since it should always decode
-        return false;
-    SkCanvas* canvas = pgc->mCanvas;
-    if (!m_enabled) {
-        SkRect r;
-        r.set(0, 0, m_size, m_size);
-        canvas->saveLayerAlpha(&r, 0x80);
-    } else {
-        canvas->save();
-    }
-    if (SIZE != m_size) {
-        SkScalar scale = SkScalarDiv(m_size, SIZE);
-        canvas->scale(scale, scale);
-    }
-    canvas->drawBitmap(m_bitmap[m_checked + 2*(!m_isCheckBox)], 0, 0, &m_paint);
-    canvas->restore();
-    return false; // True if we need to redraw
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[0], &s_bitmap[0]);
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[1], &s_bitmap[1]) && s_decoded;
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[2], &s_bitmap[2]) && s_decoded;
+    s_decoded = RenderSkinAndroid::DecodeBitmap(am, checks[3], &s_bitmap[3]) && s_decoded;
 }
 
-void RenderSkinRadio::notifyState(Node* element)
+void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
+        bool isCheckBox)
 {
-    if (!element) {
+    if (!s_decoded || !element) {
         return;
     }
-    m_checked = element->isChecked();
-    m_enabled = element->isEnabled();
+    SkRect r;
+    android_setrect(&r, ir);
+    int saveLayerCount = 0;
+    int saveScaleCount = 0;
+    if (!element->isEnabled()) {
+        saveLayerCount = canvas->saveLayerAlpha(&r, 0x80);
+    }
+    SkScalar width = r.width();
+    if (SIZE != width) {
+        SkScalar scale = SkScalarDiv(width, SIZE);
+        saveScaleCount =  canvas->scale(scale, scale);
+    }
+    canvas->drawBitmap(s_bitmap[element->isChecked() + 2*(!isCheckBox)],
+            r.fLeft, r.fTop, NULL);
+    if (saveLayerCount != 0) {
+        canvas->restoreToCount(saveLayerCount);
+    } else if (saveScaleCount != 0) {
+        canvas->restoreToCount(saveScaleCount);
+    }
+    return;
 }
 
 } //WebCore

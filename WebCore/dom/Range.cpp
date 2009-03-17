@@ -26,16 +26,12 @@
 #include "RangeException.h"
 
 #include "CString.h"
-#include "Document.h"
 #include "DocumentFragment.h"
-#include "ExceptionCode.h"
-#include "HTMLElement.h"
-#include "HTMLNames.h"
 #include "NodeWithIndex.h"
 #include "ProcessingInstruction.h"
-#include "RenderBlock.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "VisiblePosition.h"
 #include "markup.h"
 #include "visible_units.h"
 #include <stdio.h>
@@ -44,7 +40,6 @@
 namespace WebCore {
 
 using namespace std;
-using namespace HTMLNames;
 
 #ifndef NDEBUG
 static WTF::RefCountedLeakCounter rangeCounter("Range");
@@ -1425,18 +1420,16 @@ void Range::surroundContents(PassRefPtr<Node> passNewParent, ExceptionCode& ec)
     // allowed by the type of node?
 
     // BAD_BOUNDARYPOINTS_ERR: Raised if the Range partially selects a non-Text node.
-    if (m_start.container()->nodeType() != Node::TEXT_NODE) {
-        if (m_start.offset() > 0 && m_start.offset() < maxStartOffset()) {
-            ec = RangeException::BAD_BOUNDARYPOINTS_ERR;
-            return;
-        }
+    Node* startNonTextContainer = m_start.container();
+    if (startNonTextContainer->nodeType() == Node::TEXT_NODE)
+        startNonTextContainer = startNonTextContainer->parentNode();
+    Node* endNonTextContainer = m_end.container();
+    if (endNonTextContainer->nodeType() == Node::TEXT_NODE)
+        endNonTextContainer = endNonTextContainer->parentNode();
+    if (startNonTextContainer != endNonTextContainer) {
+        ec = RangeException::BAD_BOUNDARYPOINTS_ERR;
+        return;
     }
-    if (m_end.container()->nodeType() != Node::TEXT_NODE) {
-        if (m_end.offset() > 0 && m_end.offset() < maxEndOffset()) {
-            ec = RangeException::BAD_BOUNDARYPOINTS_ERR;
-            return;
-        }
-    }    
 
     ec = 0;
     while (Node* n = newParent->firstChild()) {

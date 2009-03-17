@@ -236,9 +236,20 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         if (hasCFMHeader)
             return NO;
 #endif
+
+#if USE(PLUGIN_HOST_PROCESS)
+        NSArray *archs = [bundle executableArchitectures];
         
+        if ([archs containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureX86_64]])
+            pluginHostArchitecture = CPU_TYPE_X86_64;
+        else if ([archs containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureI386]])
+            pluginHostArchitecture = CPU_TYPE_X86;
+        else
+            return NO;
+#else
         if (![self isNativeLibraryData:data])
             return NO;
+#endif
     }
 
     if (![self getPluginInfoFromPLists] && ![self getPluginInfoFromResources])
@@ -271,6 +282,13 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #endif
     return WebMachOExecutableType;
 }
+
+#if USE(PLUGIN_HOST_PROCESS)
+- (cpu_type_t)pluginHostArchitecture
+{
+    return pluginHostArchitecture;
+}
+#endif
 
 - (void)launchRealPlayer
 {
@@ -346,8 +364,8 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #endif
             NP_Initialize = (NP_InitializeFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_Initialize"));
             NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_GetEntryPoints"));
-            NPP_Shutdown = (NPP_ShutdownProcPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_Shutdown"));
-            if (!NP_Initialize || !NP_GetEntryPoints || !NPP_Shutdown)
+            NP_Shutdown = (NPP_ShutdownProcPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_Shutdown"));
+            if (!NP_Initialize || !NP_GetEntryPoints || !NP_Shutdown)
                 goto abort;
 #ifdef SUPPORT_CFM
         }
@@ -439,9 +457,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.createobject = (NPN_CreateObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_CreateObject);
         browserFuncs.retainobject = (NPN_RetainObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_RetainObject);
         browserFuncs.releaseobject = (NPN_ReleaseObjectProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_ReleaseObject);
+        browserFuncs.hasmethod = (NPN_HasMethodProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_HasProperty);
         browserFuncs.invoke = (NPN_InvokeProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_Invoke);
         browserFuncs.invokeDefault = (NPN_InvokeDefaultProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_InvokeDefault);
         browserFuncs.evaluate = (NPN_EvaluateProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_Evaluate);
+        browserFuncs.hasproperty = (NPN_HasPropertyProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_HasProperty);
         browserFuncs.getproperty = (NPN_GetPropertyProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_GetProperty);
         browserFuncs.setproperty = (NPN_SetPropertyProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_SetProperty);
         browserFuncs.removeproperty = (NPN_RemovePropertyProcPtr)tVectorForFunctionPointer((FunctionPointer)_NPN_RemoveProperty);
@@ -457,7 +477,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         LOG(Plugins, "%f main timing started", mainStart);
         NPP_ShutdownProcPtr shutdownFunction;
         npErr = pluginMainFunc(&browserFuncs, &pluginFuncs, &shutdownFunction);
-        NPP_Shutdown = (NPP_ShutdownProcPtr)functionPointerForTVector((TransitionVector)shutdownFunction);
+        NP_Shutdown = (NPP_ShutdownProcPtr)functionPointerForTVector((TransitionVector)shutdownFunction);
         if (!isBundle)
             // Don't free pluginMainFunc if we got it from a bundle because it is owned by CFBundle in that case.
             free(pluginMainFunc);
@@ -479,24 +499,24 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         pluginVersion = pluginFuncs.version;
         LOG(Plugins, "pluginMainFunc: %d, size=%d, version=%d", npErr, pluginSize, pluginVersion);
         
-        NPP_New = (NPP_NewProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.newp);
-        NPP_Destroy = (NPP_DestroyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.destroy);
-        NPP_SetWindow = (NPP_SetWindowProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.setwindow);
-        NPP_NewStream = (NPP_NewStreamProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.newstream);
-        NPP_DestroyStream = (NPP_DestroyStreamProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.destroystream);
-        NPP_StreamAsFile = (NPP_StreamAsFileProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.asfile);
-        NPP_WriteReady = (NPP_WriteReadyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.writeready);
-        NPP_Write = (NPP_WriteProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.write);
-        NPP_Print = (NPP_PrintProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.print);
-        NPP_HandleEvent = (NPP_HandleEventProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.event);
-        NPP_URLNotify = (NPP_URLNotifyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.urlnotify);
-        NPP_GetValue = (NPP_GetValueProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.getvalue);
-        NPP_SetValue = (NPP_SetValueProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.setvalue);
+        pluginFuncs.newp = (NPP_NewProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.newp);
+        pluginFuncs.destroy = (NPP_DestroyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.destroy);
+        pluginFuncs.setwindow = (NPP_SetWindowProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.setwindow);
+        pluginFuncs.newstream = (NPP_NewStreamProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.newstream);
+        pluginFuncs.destroystream = (NPP_DestroyStreamProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.destroystream);
+        pluginFuncs.asfile = (NPP_StreamAsFileProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.asfile);
+        pluginFuncs.writeready = (NPP_WriteReadyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.writeready);
+        pluginFuncs.write = (NPP_WriteProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.write);
+        pluginFuncs.print = (NPP_PrintProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.print);
+        pluginFuncs.event = (NPP_HandleEventProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.event);
+        pluginFuncs.urlnotify = (NPP_URLNotifyProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.urlnotify);
+        pluginFuncs.getvalue = (NPP_GetValueProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.getvalue);
+        pluginFuncs.setvalue = (NPP_SetValueProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.setvalue);
 
         // LiveConnect support
-        NPP_GetJavaClass = (NPP_GetJavaClassProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.javaClass);
-        if (NPP_GetJavaClass) {
-            LOG(LiveConnect, "%@:  CFM entry point for NPP_GetJavaClass = %p", [self name], NPP_GetJavaClass);
+        pluginFuncs.javaClass = (NPP_GetJavaClassProcPtr)functionPointerForTVector((TransitionVector)pluginFuncs.javaClass);
+        if (pluginFuncs.javaClass) {
+            LOG(LiveConnect, "%@:  CFM entry point for NPP_GetJavaClass = %p", [self name], pluginFuncs.javaClass);
         } else {
             LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", [self name]);
         }
@@ -546,9 +566,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         browserFuncs.createobject = _NPN_CreateObject;
         browserFuncs.retainobject = _NPN_RetainObject;
         browserFuncs.releaseobject = _NPN_ReleaseObject;
+        browserFuncs.hasmethod = _NPN_HasMethod;
         browserFuncs.invoke = _NPN_Invoke;
         browserFuncs.invokeDefault = _NPN_InvokeDefault;
         browserFuncs.evaluate = _NPN_Evaluate;
+        browserFuncs.hasproperty = _NPN_HasProperty;
         browserFuncs.getproperty = _NPN_GetProperty;
         browserFuncs.setproperty = _NPN_SetProperty;
         browserFuncs.removeproperty = _NPN_RemoveProperty;
@@ -580,27 +602,10 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         pluginSize = pluginFuncs.size;
         pluginVersion = pluginFuncs.version;
         
-        NPP_New = pluginFuncs.newp;
-        NPP_Destroy = pluginFuncs.destroy;
-        NPP_SetWindow = pluginFuncs.setwindow;
-        NPP_NewStream = pluginFuncs.newstream;
-        NPP_DestroyStream = pluginFuncs.destroystream;
-        NPP_StreamAsFile = pluginFuncs.asfile;
-        NPP_WriteReady = pluginFuncs.writeready;
-        NPP_Write = pluginFuncs.write;
-        NPP_Print = pluginFuncs.print;
-        NPP_HandleEvent = pluginFuncs.event;
-        NPP_URLNotify = pluginFuncs.urlnotify;
-        NPP_GetValue = pluginFuncs.getvalue;
-        NPP_SetValue = pluginFuncs.setvalue;
-
-        // LiveConnect support
-        NPP_GetJavaClass = pluginFuncs.javaClass;
-        if (NPP_GetJavaClass){
-            LOG(LiveConnect, "%@:  mach-o entry point for NPP_GetJavaClass = %p", [self name], NPP_GetJavaClass);
-        } else {
+        if (pluginFuncs.javaClass)
+            LOG(LiveConnect, "%@:  mach-o entry point for NPP_GetJavaClass = %p", [self name], pluginFuncs.javaClass);
+        else
             LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", [self name]);
-        }
 
 #ifdef SUPPORT_CFM
     }
@@ -617,69 +622,6 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 abort:
     [self _unloadWithShutdown:NO];
     return NO;
-}
-
-- (NPP_SetWindowProcPtr)NPP_SetWindow
-{
-    return NPP_SetWindow;
-}
-
-- (NPP_NewProcPtr)NPP_New
-{
-    return NPP_New;
-}
-
-- (NPP_DestroyProcPtr)NPP_Destroy
-{
-    return NPP_Destroy;
-}
-
-- (NPP_NewStreamProcPtr)NPP_NewStream
-{
-    return NPP_NewStream;
-}
-
-- (NPP_StreamAsFileProcPtr)NPP_StreamAsFile
-{
-    return NPP_StreamAsFile;
-}
-- (NPP_DestroyStreamProcPtr)NPP_DestroyStream
-{
-    return NPP_DestroyStream;
-}
-
-- (NPP_WriteReadyProcPtr)NPP_WriteReady
-{
-    return NPP_WriteReady;
-}
-- (NPP_WriteProcPtr)NPP_Write
-{
-    return NPP_Write;
-}
-
-- (NPP_HandleEventProcPtr)NPP_HandleEvent
-{
-    return NPP_HandleEvent;
-}
-
--(NPP_URLNotifyProcPtr)NPP_URLNotify
-{
-    return NPP_URLNotify;
-}
-
--(NPP_GetValueProcPtr)NPP_GetValue
-{
-    return NPP_GetValue;
-}
-
--(NPP_SetValueProcPtr)NPP_SetValue
-{
-    return NPP_SetValue;
-}
-
--(NPP_PrintProcPtr)NPP_Print
-{
-    return NPP_Print;
 }
 
 - (NPPluginFuncs *)pluginFuncs
@@ -775,8 +717,8 @@ TransitionVector tVectorForFunctionPointer(FunctionPointer fp)
         return;
     }
 
-    if (shutdown && NPP_Shutdown)
-        NPP_Shutdown();
+    if (shutdown && NP_Shutdown)
+        NP_Shutdown();
 
     if (resourceRef != -1)
         [self closeResourceFile:resourceRef];

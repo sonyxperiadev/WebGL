@@ -68,7 +68,7 @@ void RenderVideo::videoSizeChanged()
 
 IntRect RenderVideo::videoBox() const 
 {
-    IntRect contentRect = contentBox();
+    IntRect contentRect = contentBoxRect();
     
     if (intrinsicSize().isEmpty() || contentRect.isEmpty())
         return IntRect();
@@ -124,11 +124,11 @@ void RenderVideo::updatePlayer()
         mediaPlayer->setVisible(false);
         return;
     }
-    int x;
-    int y;
-    absolutePosition(x, y);
+    
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = localToAbsolute();
     IntRect videoBounds = videoBox(); 
-    videoBounds.move(x, y);
+    videoBounds.move(absPos.x(), absPos.y());
     mediaPlayer->setFrameView(document()->view());
     mediaPlayer->setRect(videoBounds);
     mediaPlayer->setVisible(true);
@@ -174,7 +174,7 @@ int RenderVideo::calcReplacedWidth(bool includeMaxWidth) const
     if (isWidthSpecified())
         width = calcReplacedWidthUsing(style()->width());
     else
-        width = calcAspectRatioWidth();
+        width = calcAspectRatioWidth() * style()->effectiveZoom();
 
     int minW = calcReplacedWidthUsing(style()->minWidth());
     int maxW = !includeMaxWidth || style()->maxWidth().isUndefined() ? width : calcReplacedWidthUsing(style()->maxWidth());
@@ -188,7 +188,7 @@ int RenderVideo::calcReplacedHeight() const
     if (isHeightSpecified())
         height = calcReplacedHeightUsing(style()->height());
     else
-        height = calcAspectRatioHeight();
+        height = calcAspectRatioHeight() * style()->effectiveZoom();
 
     int minH = calcReplacedHeightUsing(style()->minHeight());
     int maxH = style()->maxHeight().isUndefined() ? height : calcReplacedHeightUsing(style()->maxHeight());

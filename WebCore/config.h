@@ -67,11 +67,6 @@
 #include <wx/defs.h>
 #endif
 
-#if !PLATFORM(SYMBIAN)
-#define IMPORT_C
-#define EXPORT_C
-#endif
-
 // ANDROID def should be after all PLATFORM to avoid override.
 // USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
 #ifdef ANDROID
@@ -156,7 +151,6 @@
 #define U_HAVE_INTTYPES_H 0
 
 #include <stdio.h>
-#include <snprintf.h>
 #include <limits.h>
 #include <wtf/MathExtras.h>
 #endif

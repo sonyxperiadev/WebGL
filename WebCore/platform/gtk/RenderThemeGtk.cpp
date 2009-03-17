@@ -23,9 +23,10 @@
 #include "config.h"
 #include "RenderThemeGtk.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "GraphicsContext.h"
 #include "NotImplemented.h"
+#include "RenderBox.h"
 #include "RenderObject.h"
 #include "gtkdrawing.h"
 
@@ -82,10 +83,16 @@ bool RenderThemeGtk::controlSupportsTints(const RenderObject* o) const
 
 int RenderThemeGtk::baselinePosition(const RenderObject* o) const
 {
+    if (!o->isBox())
+        return 0;
+
     // FIXME: This strategy is possibly incorrect for the GTK+ port.
     if (o->style()->appearance() == CheckboxPart ||
-        o->style()->appearance() == RadioPart)
-        return o->marginTop() + o->height() - 2;
+        o->style()->appearance() == RadioPart) {
+        const RenderBox* box = toRenderBox(o);
+        return box->marginTop() + box->height() - 2;
+    }
+
     return RenderTheme::baselinePosition(o);
 }
 
@@ -161,7 +168,7 @@ static bool paintMozWidget(RenderTheme* theme, GtkThemeWidgetType type, RenderOb
             break;
     }
 
-    AffineTransform ctm = i.context->getCTM();
+    TransformationMatrix ctm = i.context->getCTM();
 
     IntPoint pos = ctm.mapPoint(rect.location());
     GdkRectangle gdkRect = IntRect(pos.x(), pos.y(), rect.width(), rect.height());
@@ -409,7 +416,7 @@ Color RenderThemeGtk::inactiveListBoxSelectionForegroundColor() const
     return widget->style->text[GTK_STATE_ACTIVE];
 }
 
-double RenderThemeGtk::caretBlinkFrequency() const
+double RenderThemeGtk::caretBlinkInterval() const
 {
     GtkSettings* settings = gtk_settings_get_default();
 

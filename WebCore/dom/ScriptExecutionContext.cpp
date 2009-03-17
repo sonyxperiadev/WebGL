@@ -28,31 +28,30 @@
 #include "ScriptExecutionContext.h"
 
 #include "ActiveDOMObject.h"
+#include "Document.h"
 #include "MessagePort.h"
-#include "Timer.h"
+#include "SecurityOrigin.h"
+#include "WorkerContext.h"
+#include "WorkerThread.h"
+#include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class MessagePortTimer : public TimerBase {
+class ProcessMessagesSoonTask : public ScriptExecutionContext::Task {
 public:
-    MessagePortTimer(PassRefPtr<ScriptExecutionContext> context)
-        : m_context(context)
+    static PassRefPtr<ProcessMessagesSoonTask> create()
     {
+        return adoptRef(new ProcessMessagesSoonTask);
     }
 
-private:
-    virtual void fired()
+    virtual void performTask(ScriptExecutionContext* context)
     {
-        m_context->dispatchMessagePortEvents();
-        delete this;
+        context->dispatchMessagePortEvents();
     }
-
-    RefPtr<ScriptExecutionContext> m_context;
 };
 
 ScriptExecutionContext::ScriptExecutionContext()
-    : m_firedMessagePortTimer(false)
 {
 }
 
@@ -73,13 +72,7 @@ ScriptExecutionContext::~ScriptExecutionContext()
 
 void ScriptExecutionContext::processMessagePortMessagesSoon()
 {
-    if (m_firedMessagePortTimer)
-        return;
-
-    MessagePortTimer* timer = new MessagePortTimer(this);
-    timer->startOneShot(0);
-
-    m_firedMessagePortTimer = true;
+    postTask(ProcessMessagesSoonTask::create());
 }
 
 void ScriptExecutionContext::dispatchMessagePortEvents()
@@ -90,11 +83,11 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
     Vector<MessagePort*> ports;
     copyToVector(m_messagePorts, ports);
 
-    m_firedMessagePortTimer = false;
-
     unsigned portCount = ports.size();
     for (unsigned i = 0; i < portCount; ++i) {
         MessagePort* port = ports[i];
+        // The port may be destroyed, and another one created at the same address, but this is safe, as the worst that can happen
+        // as a result is that dispatchMessages() will be called needlessly.
         if (m_messagePorts.contains(port) && port->queueIsOpen())
             port->dispatchMessages();
     }
@@ -103,17 +96,60 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
 void ScriptExecutionContext::createdMessagePort(MessagePort* port)
 {
     ASSERT(port);
+#if ENABLE(WORKERS)
+    ASSERT((isDocument() && isMainThread())
+        || (isWorkerContext() && currentThread() == static_cast<WorkerContext*>(this)->thread()->threadID()));
+#endif
+
     m_messagePorts.add(port);
 }
 
 void ScriptExecutionContext::destroyedMessagePort(MessagePort* port)
 {
     ASSERT(port);
+#if ENABLE(WORKERS)
+    ASSERT((isDocument() && isMainThread())
+        || (isWorkerContext() && currentThread() == static_cast<WorkerContext*>(this)->thread()->threadID()));
+#endif
+
     m_messagePorts.remove(port);
+}
+
+bool ScriptExecutionContext::canSuspendActiveDOMObjects()
+{
+    // No protection against m_activeDOMObjects changing during iteration: canSuspend() shouldn't execute arbitrary JS.
+    HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
+    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
+        ASSERT(iter->first->scriptExecutionContext() == this);
+        if (!iter->first->canSuspend())
+            return false;
+    }
+    return true;
+}
+
+void ScriptExecutionContext::suspendActiveDOMObjects()
+{
+    // No protection against m_activeDOMObjects changing during iteration: suspend() shouldn't execute arbitrary JS.
+    HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
+    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
+        ASSERT(iter->first->scriptExecutionContext() == this);
+        iter->first->suspend();
+    }
+}
+
+void ScriptExecutionContext::resumeActiveDOMObjects()
+{
+    // No protection against m_activeDOMObjects changing during iteration: resume() shouldn't execute arbitrary JS.
+    HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
+    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
+        ASSERT(iter->first->scriptExecutionContext() == this);
+        iter->first->resume();
+    }
 }
 
 void ScriptExecutionContext::stopActiveDOMObjects()
 {
+    // No protection against m_activeDOMObjects changing during iteration: stop() shouldn't execute arbitrary JS.
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
@@ -134,5 +170,13 @@ void ScriptExecutionContext::destroyedActiveDOMObject(ActiveDOMObject* object)
     m_activeDOMObjects.remove(object);
 }
 
+void ScriptExecutionContext::setSecurityOrigin(PassRefPtr<SecurityOrigin> securityOrigin)
+{
+    m_securityOrigin = securityOrigin;
+}
+
+ScriptExecutionContext::Task::~Task()
+{
+}
 
 } // namespace WebCore

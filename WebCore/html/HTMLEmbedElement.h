@@ -29,7 +29,7 @@ namespace WebCore {
 
 class HTMLEmbedElement : public HTMLPlugInImageElement {
 public:
-    HTMLEmbedElement(Document*);
+    HTMLEmbedElement(const QualifiedName&, Document*);
     ~HTMLEmbedElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -60,10 +60,9 @@ public:
     String type() const;
     void setType(const String&);
 
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
-    String m_pluginPage;
     bool m_needWidgetUpdate;
 };
 

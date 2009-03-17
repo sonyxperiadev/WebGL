@@ -27,6 +27,7 @@
 #include "RenderSVGContainer.h"
 
 #include "AXObjectCache.h"
+#include "FloatQuad.h"
 #include "GraphicsContext.h"
 #include "RenderView.h"
 #include "SVGRenderSupport.h"
@@ -44,7 +45,6 @@ RenderSVGContainer::RenderSVGContainer(SVGStyledElement* node)
     , m_height(0)
     , m_drawsContents(true)
 {
-    setReplaced(true);
 }
 
 RenderSVGContainer::~RenderSVGContainer()
@@ -198,25 +198,19 @@ void RenderSVGContainer::setDrawsContents(bool drawsContents)
     m_drawsContents = drawsContents;
 }
 
-AffineTransform RenderSVGContainer::localTransform() const
+TransformationMatrix RenderSVGContainer::localTransform() const
 {
     return m_localTransform;
 }
 
-bool RenderSVGContainer::requiresLayer()
+int RenderSVGContainer::lineHeight(bool, bool) const
 {
-    // Only allow an <svg> element to generate a layer when it's positioned in a non-SVG context
-    return false;
+    return height();
 }
 
-int RenderSVGContainer::lineHeight(bool b, bool isRootLineBox) const
+int RenderSVGContainer::baselinePosition(bool, bool) const
 {
-    return height() + marginTop() + marginBottom();
-}
-
-int RenderSVGContainer::baselinePosition(bool b, bool isRootLineBox) const
-{
-    return height() + marginTop() + marginBottom();
+    return height();
 }
 
 bool RenderSVGContainer::calculateLocalTransform()
@@ -237,7 +231,7 @@ void RenderSVGContainer::layout()
     bool checkForRepaint = checkForRepaintDuringLayout() && selfWillPaint();
     if (checkForRepaint) {
         oldBounds = m_absoluteBounds;
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
     }
     
     calculateLocalTransform();
@@ -299,7 +293,7 @@ void RenderSVGContainer::applyContentTransforms(PaintInfo& paintInfo)
         paintInfo.context->concatCTM(localTransform());
 }
 
-void RenderSVGContainer::applyAdditionalTransforms(PaintInfo& paintInfo)
+void RenderSVGContainer::applyAdditionalTransforms(PaintInfo&)
 {
     // no-op
 }
@@ -322,7 +316,7 @@ bool RenderSVGContainer::selfWillPaint() const
     return false;
 }
 
-void RenderSVGContainer::paint(PaintInfo& paintInfo, int parentX, int parentY)
+void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
 {
     if (paintInfo.context->paintingDisabled() || !drawsContents())
         return;
@@ -358,17 +352,17 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int parentX, int parentY)
         paintOutline(paintInfo.context, m_absoluteBounds.x(), m_absoluteBounds.y(), m_absoluteBounds.width(), m_absoluteBounds.height(), style());
 }
 
-AffineTransform RenderSVGContainer::viewportTransform() const
+TransformationMatrix RenderSVGContainer::viewportTransform() const
 {
-     return AffineTransform();
+     return TransformationMatrix();
 }
 
-IntRect RenderSVGContainer::absoluteClippedOverflowRect()
+IntRect RenderSVGContainer::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
 {
     FloatRect repaintRect;
 
     for (RenderObject* current = firstChild(); current != 0; current = current->nextSibling())
-        repaintRect.unite(current->absoluteClippedOverflowRect());
+        repaintRect.unite(current->clippedOverflowRectForRepaint(repaintContainer));
 
 #if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
@@ -383,7 +377,7 @@ IntRect RenderSVGContainer::absoluteClippedOverflowRect()
     return enclosingIntRect(repaintRect);
 }
 
-void RenderSVGContainer::addFocusRingRects(GraphicsContext* graphicsContext, int tx, int ty)
+void RenderSVGContainer::addFocusRingRects(GraphicsContext* graphicsContext, int, int)
 {
     graphicsContext->addFocusRingRect(m_absoluteBounds);
 }
@@ -391,6 +385,11 @@ void RenderSVGContainer::addFocusRingRects(GraphicsContext* graphicsContext, int
 void RenderSVGContainer::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
     rects.append(absoluteClippedOverflowRect());
+}
+
+void RenderSVGContainer::absoluteQuads(Vector<FloatQuad>& quads, bool)
+{
+    quads.append(absoluteClippedOverflowRect());
 }
 
 FloatRect RenderSVGContainer::relativeBBox(bool includeStroke) const
@@ -424,6 +423,14 @@ bool RenderSVGContainer::nodeAtPoint(const HitTestRequest& request, HitTestResul
     // Spec: Only graphical elements can be targeted by the mouse, period.
     // 16.4: "If there are no graphics elements whose relevant graphics content is under the pointer (i.e., there is no target element), the event is not dispatched."
     return false;
+}
+
+IntRect RenderSVGContainer::outlineBoundsForRepaint(RenderBox* /*repaintContainer*/) const
+{
+    // FIXME: handle non-root repaintContainer
+    IntRect result = m_absoluteBounds;
+    adjustRectForOutlineAndShadow(result);
+    return result;
 }
 
 }

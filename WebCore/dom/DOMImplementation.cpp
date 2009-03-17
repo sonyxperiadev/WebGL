@@ -4,6 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig (sam@webkit.org)
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -46,17 +47,25 @@
 #include "Settings.h"
 #include "TextDocument.h"
 #include "XMLNames.h"
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(SVG)
 #include "SVGNames.h"
 #include "SVGDocument.h"
 #endif
 
+#if ENABLE(WML)
+#include "WMLNames.h"
+#include "WMLDocument.h"
+#endif
+
 namespace WebCore {
 
 #if ENABLE(SVG)
 
-static void addString(HashSet<String, CaseFoldingHash>& set, const char* string)
+typedef HashSet<String, CaseFoldingHash> FeatureSet;
+
+static void addString(FeatureSet& set, const char* string)
 {
     set.add(string);
 }
@@ -64,7 +73,7 @@ static void addString(HashSet<String, CaseFoldingHash>& set, const char* string)
 static bool isSVG10Feature(const String &feature)
 {
     static bool initialized = false;
-    static HashSet<String, CaseFoldingHash> svgFeatures;
+    DEFINE_STATIC_LOCAL(FeatureSet, svgFeatures, ());
     if (!initialized) {
 #if ENABLE(SVG_USE) && ENABLE(SVG_FOREIGN_OBJECT) && ENABLE(SVG_FILTER) && ENABLE(SVG_FONTS)
         addString(svgFeatures, "svg");
@@ -89,7 +98,7 @@ static bool isSVG10Feature(const String &feature)
 static bool isSVG11Feature(const String &feature)
 {
     static bool initialized = false;
-    static HashSet<String, CaseFoldingHash> svgFeatures;
+    DEFINE_STATIC_LOCAL(FeatureSet, svgFeatures, ());
     if (!initialized) {
         // Sadly, we cannot claim to implement any of the SVG 1.1 generic feature sets
         // lack of Font and Filter support.
@@ -225,6 +234,11 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
         doc = SVGDocument::create(0);
     else
 #endif
+#if ENABLE(WML)
+    if (namespaceURI == WMLNames::wmlNamespaceURI)
+        doc = WMLDocument::create(0);
+    else
+#endif
     if (namespaceURI == HTMLNames::xhtmlNamespaceURI)
         doc = Document::createXHTML(0);
     else
@@ -273,8 +287,8 @@ bool DOMImplementation::isXMLMIMEType(const String& mimeType)
 {
     if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "text/xsl")
         return true;
-    static const char* validChars = "[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]"; // per RFCs: 3023, 2045
-    static RegularExpression xmlTypeRegExp(String("^") + validChars + "+/" + validChars + "+\\+xml$");
+    static const char* const validChars = "[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]"; // per RFCs: 3023, 2045
+    DEFINE_STATIC_LOCAL(RegularExpression, xmlTypeRegExp, (String("^") + validChars + "+/" + validChars + "+\\+xml$", TextCaseSensitive));
     return xmlTypeRegExp.match(mimeType) > -1;
 }
 
@@ -308,7 +322,12 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
         return HTMLDocument::create(frame);
     if (type == "application/xhtml+xml")
         return Document::createXHTML(frame);
-        
+
+#if ENABLE(WML)
+    if (type == "text/vnd.wap.wml" || type == "application/vnd.wap.wmlc")
+        return WMLDocument::create(frame);
+#endif
+
 #if ENABLE(FTPDIR)
     // Plugins cannot take FTP from us either
     if (type == "application/x-ftp-directory")

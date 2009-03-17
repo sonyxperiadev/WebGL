@@ -56,6 +56,7 @@
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -94,11 +95,11 @@ static void appendAttributeValue(Vector<UChar>& result, const String& attr, bool
     unsigned len = attr.length();
     unsigned lastCopiedFrom = 0;
 
-    static const String ampEntity("&amp;");
-    static const String gtEntity("&gt;");
-    static const String ltEntity("&lt;");
-    static const String quotEntity("&quot;");
-    static const String nbspEntity("&nbsp;");
+    DEFINE_STATIC_LOCAL(const String, ampEntity, ("&amp;"));
+    DEFINE_STATIC_LOCAL(const String, gtEntity, ("&gt;"));
+    DEFINE_STATIC_LOCAL(const String, ltEntity, ("&lt;"));
+    DEFINE_STATIC_LOCAL(const String, quotEntity, ("&quot;"));
+    DEFINE_STATIC_LOCAL(const String, nbspEntity, ("&nbsp;"));
     
     for (unsigned i = 0; i < len; ++i) {
         UChar c = uchars[i];
@@ -142,10 +143,10 @@ static void appendEscapedContent(Vector<UChar>& result, pair<const UChar*, size_
     unsigned len = range.second;
     unsigned lastCopiedFrom = 0;
     
-    static const String ampEntity("&amp;");
-    static const String gtEntity("&gt;");
-    static const String ltEntity("&lt;");
-    static const String nbspEntity("&nbsp;");
+    DEFINE_STATIC_LOCAL(const String, ampEntity, ("&amp;"));
+    DEFINE_STATIC_LOCAL(const String, gtEntity, ("&gt;"));
+    DEFINE_STATIC_LOCAL(const String, ltEntity, ("&lt;"));
+    DEFINE_STATIC_LOCAL(const String, nbspEntity, ("&nbsp;"));
 
     for (unsigned i = 0; i < len; ++i) {
         UChar c = uchars[i];
@@ -316,8 +317,8 @@ static bool shouldAddNamespaceElem(const Element* elem)
 static bool shouldAddNamespaceAttr(const Attribute* attr, HashMap<AtomicStringImpl*, AtomicStringImpl*>& namespaces)
 {
     // Don't add namespace attributes twice
-    static const AtomicString xmlnsURI = "http://www.w3.org/2000/xmlns/";
-    static const QualifiedName xmlnsAttr(nullAtom, "xmlns", xmlnsURI);
+    DEFINE_STATIC_LOCAL(const AtomicString, xmlnsURI, ("http://www.w3.org/2000/xmlns/"));
+    DEFINE_STATIC_LOCAL(const QualifiedName, xmlnsAttr, (nullAtom, "xmlns", xmlnsURI));
     if (attr->name() == xmlnsAttr) {
         namespaces.set(emptyAtom.impl(), attr->value().impl());
         return false;
@@ -342,7 +343,7 @@ static void appendNamespace(Vector<UChar>& result, const AtomicString& prefix, c
     AtomicStringImpl* foundNS = namespaces.get(pre);
     if (foundNS != ns.impl()) {
         namespaces.set(pre, ns.impl());
-        static const String xmlns("xmlns");
+        DEFINE_STATIC_LOCAL(const String, xmlns, ("xmlns"));
         result.append(' ');
         append(result, xmlns);
         if (!prefix.isEmpty()) {
@@ -483,17 +484,19 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                     RefPtr<CSSComputedStyleDeclaration> computedStyleForElement = computedStyle(element);
                     RefPtr<CSSMutableStyleDeclaration> fromComputedStyle = CSSMutableStyleDeclaration::create();
                     
-                    DeprecatedValueListConstIterator<CSSProperty> end;
-                    for (DeprecatedValueListConstIterator<CSSProperty> it = style->valuesIterator(); it != end; ++it) {
-                        const CSSProperty& property = *it;
-                        CSSValue* value = property.value();
-                        // The property value, if it's a percentage, may not reflect the actual computed value.  
-                        // For example: style="height: 1%; overflow: visible;" in quirksmode
-                        // FIXME: There are others like this, see <rdar://problem/5195123> Slashdot copy/paste fidelity problem
-                        if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE)
-                            if (static_cast<CSSPrimitiveValue*>(value)->primitiveType() == CSSPrimitiveValue::CSS_PERCENTAGE)
-                                if (RefPtr<CSSValue> computedPropertyValue = computedStyleForElement->getPropertyCSSValue(property.id()))
-                                    fromComputedStyle->addParsedProperty(CSSProperty(property.id(), computedPropertyValue));
+                    {
+                        CSSMutableStyleDeclaration::const_iterator end = style->end();
+                        for (CSSMutableStyleDeclaration::const_iterator it = style->begin(); it != end; ++it) {
+                            const CSSProperty& property = *it;
+                            CSSValue* value = property.value();
+                            // The property value, if it's a percentage, may not reflect the actual computed value.  
+                            // For example: style="height: 1%; overflow: visible;" in quirksmode
+                            // FIXME: There are others like this, see <rdar://problem/5195123> Slashdot copy/paste fidelity problem
+                            if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE)
+                                if (static_cast<CSSPrimitiveValue*>(value)->primitiveType() == CSSPrimitiveValue::CSS_PERCENTAGE)
+                                    if (RefPtr<CSSValue> computedPropertyValue = computedStyleForElement->getPropertyCSSValue(property.id()))
+                                        fromComputedStyle->addParsedProperty(CSSProperty(property.id(), computedPropertyValue));
+                        }
                     }
                     
                     style->merge(fromComputedStyle.get());
@@ -501,7 +504,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                 if (convert)
                     style->setProperty(CSSPropertyDisplay, CSSValueInline, true);
                 if (style->length() > 0) {
-                    static const String stylePrefix(" style=\"");
+                    DEFINE_STATIC_LOCAL(const String, stylePrefix, (" style=\""));
                     append(result, stylePrefix);
                     appendAttributeValue(result, style->cssText(), documentIsHTML);
                     result.append('\"');
@@ -674,7 +677,7 @@ static bool elementHasTextDecorationProperty(const Node* node)
     return !propertyMissingOrEqualToNone(style.get(), CSSPropertyTextDecoration);
 }
 
-String joinMarkups(const Vector<String> preMarkups, const Vector<String>& postMarkups)
+static String joinMarkups(const Vector<String>& preMarkups, const Vector<String>& postMarkups)
 {
     size_t length = 0;
 
@@ -702,7 +705,7 @@ String joinMarkups(const Vector<String> preMarkups, const Vector<String>& postMa
 // FIXME: At least, annotation and style info should probably not be included in range.markupString()
 String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterchange annotate, bool convertBlocksToInlines)
 {
-    static const String interchangeNewlineString = String("<br class=\"") + AppleInterchangeNewline + "\">";
+    DEFINE_STATIC_LOCAL(const String, interchangeNewlineString, ("<br class=\"" AppleInterchangeNewline "\">"));
 
     if (!range)
         return "";
@@ -854,12 +857,9 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                     || commonAncestorBlock->hasTagName(xmpTag))
             specialCommonAncestor = commonAncestorBlock;
     }
-    
-    bool selectedOneOrMoreParagraphs = startOfParagraph(visibleStart) != startOfParagraph(visibleEnd) ||
-                                       isStartOfParagraph(visibleStart) && isEndOfParagraph(visibleEnd);
                                       
     // Retain the Mail quote level by including all ancestor mail block quotes.
-    if (lastClosed && annotate && selectedOneOrMoreParagraphs) {
+    if (lastClosed && annotate) {
         for (Node *ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode())
             if (isMailBlockquote(ancestor))
                 specialCommonAncestor = ancestor;
@@ -905,14 +905,14 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 
                 if (style->length()) {
                     Vector<UChar> openTag;
-                    static const String divStyle("<div style=\"");
+                    DEFINE_STATIC_LOCAL(const String, divStyle, ("<div style=\""));
                     append(openTag, divStyle);
                     appendAttributeValue(openTag, style->cssText(), documentIsHTML);
                     openTag.append('\"');
                     openTag.append('>');
                     preMarkups.append(String::adopt(openTag));
 
-                    static const String divCloseTag("</div>");
+                    DEFINE_STATIC_LOCAL(const String, divCloseTag, ("</div>"));
                     markups.append(divCloseTag);
                 }
             } else {
@@ -929,8 +929,8 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         }
     }
     
-    static const String styleSpanOpen = String("<span class=\"" AppleStyleSpanClass "\" style=\"");
-    static const String styleSpanClose("</span>");
+    DEFINE_STATIC_LOCAL(const String, styleSpanOpen, ("<span class=\"" AppleStyleSpanClass "\" style=\""));
+    DEFINE_STATIC_LOCAL(const String, styleSpanClose, ("</span>"));
     
     // Add a wrapper span with the styles that all of the nodes in the markup inherit.
     Node* parentOfLastClosed = lastClosed ? lastClosed->parentNode() : 0;
@@ -1104,9 +1104,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
         fragment->appendChild(document->createTextNode(string), ec);
         ASSERT(ec == 0);
         if (string.endsWith("\n")) {
-            RefPtr<Element> element;
-            element = document->createElementNS(xhtmlNamespaceURI, "br", ec);
-            ASSERT(ec == 0);
+            RefPtr<Element> element = createBreakElement(document);
             element->setAttribute(classAttr, AppleInterchangeNewline);            
             fragment->appendChild(element.release(), ec);
             ASSERT(ec == 0);
@@ -1121,8 +1119,13 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
     }
 
     // Break string into paragraphs. Extra line breaks turn into empty paragraphs.
-    Node* block = enclosingBlock(context->firstNode());
-    bool useClonesOfEnclosingBlock = block && !block->hasTagName(bodyTag) && !block->hasTagName(htmlTag) && block != editableRootForPosition(context->startPosition());
+    Node* blockNode = enclosingBlock(context->firstNode());
+    Element* block = static_cast<Element*>(blockNode);
+    bool useClonesOfEnclosingBlock = blockNode
+        && blockNode->isElementNode()
+        && !block->hasTagName(bodyTag)
+        && !block->hasTagName(htmlTag)
+        && block != editableRootForPosition(context->startPosition());
     
     Vector<String> list;
     string.split('\n', true, list); // true gets us empty strings in the list
@@ -1133,11 +1136,13 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
         RefPtr<Element> element;
         if (s.isEmpty() && i + 1 == numLines) {
             // For last line, use the "magic BR" rather than a P.
-            element = document->createElementNS(xhtmlNamespaceURI, "br", ec);
-            ASSERT(ec == 0);
+            element = createBreakElement(document);
             element->setAttribute(classAttr, AppleInterchangeNewline);            
         } else {
-            element = useClonesOfEnclosingBlock ? static_cast<Element*>(block->cloneNode(false).get()) : createDefaultParagraphElement(document);
+            if (useClonesOfEnclosingBlock)
+                element = block->cloneElement();
+            else
+                element = createDefaultParagraphElement(document);
             fillContainerFromString(element.get(), s);
         }
         fragment->appendChild(element.release(), ec);

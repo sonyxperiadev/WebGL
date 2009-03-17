@@ -34,10 +34,17 @@
 #include "JSObject.h"
 #include <wtf/Platform.h>
 
+#if PLATFORM(DARWIN)
+#include <mach-o/dyld.h>
+
+static const int32_t webkitFirstVersionWithConcurrentGlobalContexts = 0x2100500; // 528.5.0
+#endif
+
 using namespace JSC;
 
 JSContextGroupRef JSContextGroupCreate()
 {
+    initializeThreading();
     return toRef(JSGlobalData::create().releaseRef());
 }
 
@@ -54,8 +61,21 @@ void JSContextGroupRelease(JSContextGroupRef group)
 
 JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass)
 {
-    JSLock lock(true);
-    return JSGlobalContextCreateInGroup(toRef(&JSGlobalData::sharedInstance()), globalObjectClass);
+    initializeThreading();
+#if PLATFORM(DARWIN)
+    // When running on Tiger or Leopard, or if the application was linked before JSGlobalContextCreate was changed
+    // to use a unique JSGlobalData, we use a shared one for compatibility.
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    if (NSVersionOfLinkTimeLibrary("JavaScriptCore") <= webkitFirstVersionWithConcurrentGlobalContexts) {
+#else
+    {
+#endif
+        JSLock lock(true);
+        return JSGlobalContextCreateInGroup(toRef(&JSGlobalData::sharedInstance()), globalObjectClass);
+    }
+#endif // PLATFORM(DARWIN)
+
+    return JSGlobalContextCreateInGroup(0, globalObjectClass);
 }
 
 JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClassRef globalObjectClass)
@@ -66,6 +86,10 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
 
     RefPtr<JSGlobalData> globalData = group ? PassRefPtr<JSGlobalData>(toJS(group)) : JSGlobalData::create();
 
+#if ENABLE(JSC_MULTIPLE_THREADS)
+    globalData->makeUsableFromMultipleThreads();
+#endif
+
     if (!globalObjectClass) {
         JSGlobalObject* globalObject = new (globalData.get()) JSGlobalObject;
         return JSGlobalContextRetain(toGlobalRef(globalObject->globalExec()));
@@ -73,7 +97,7 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
 
     JSGlobalObject* globalObject = new (globalData.get()) JSCallbackObject<JSGlobalObject>(globalObjectClass);
     ExecState* exec = globalObject->globalExec();
-    JSValue* prototype = globalObjectClass->prototype(exec);
+    JSValuePtr prototype = globalObjectClass->prototype(exec);
     if (!prototype)
         prototype = jsNull();
     globalObject->resetPrototype(prototype);

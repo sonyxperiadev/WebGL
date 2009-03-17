@@ -202,12 +202,6 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
     }
 }
 
-#if !PLATFORM(QT)
-void RenderTheme::adjustDefaultStyleSheet(CSSStyleSheet*)
-{
-}
-#endif
-
 bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     // If painting is disabled, but we aren't updating control tints, then just bail.
@@ -278,6 +272,12 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             if (o->parent()->isSlider())
                 return paintMediaSliderThumb(o, paintInfo, r);
             break;
+        case MediaTimeRemainingPart:
+            return paintMediaTimeRemaining(o, paintInfo, r);
+        case MediaCurrentTimePart:
+            return paintMediaCurrentTime(o, paintInfo, r);
+        case MediaTimelineContainerPart:
+            return paintMediaTimelineContainer(o, paintInfo, r);
         case MenulistButtonPart:
         case TextFieldPart:
         case TextAreaPart:
@@ -372,18 +372,71 @@ bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInf
     return false;
 }
 
+#if ENABLE(VIDEO)
+bool RenderTheme::hitTestMediaControlPart(RenderObject* o, const IntPoint& absPoint)
+{
+    if (!o->isBox())
+        return false;
+
+    FloatPoint localPoint = o->absoluteToLocal(absPoint, false, true);  // respect transforms
+    return toRenderBox(o)->borderBoxRect().contains(roundedIntPoint(localPoint));
+}
+#endif
+
 Color RenderTheme::activeSelectionBackgroundColor() const
 {
-    if (!m_activeSelectionColor.isValid())
-        m_activeSelectionColor = platformActiveSelectionBackgroundColor().blendWithWhite();
-    return m_activeSelectionColor;
+    if (!m_activeSelectionBackgroundColor.isValid())
+        m_activeSelectionBackgroundColor = platformActiveSelectionBackgroundColor().blendWithWhite();
+    return m_activeSelectionBackgroundColor;
 }
 
 Color RenderTheme::inactiveSelectionBackgroundColor() const
 {
-    if (!m_inactiveSelectionColor.isValid())
-        m_inactiveSelectionColor = platformInactiveSelectionBackgroundColor().blendWithWhite();
-    return m_inactiveSelectionColor;
+    if (!m_inactiveSelectionBackgroundColor.isValid())
+        m_inactiveSelectionBackgroundColor = platformInactiveSelectionBackgroundColor().blendWithWhite();
+    return m_inactiveSelectionBackgroundColor;
+}
+
+Color RenderTheme::activeSelectionForegroundColor() const
+{
+    if (!m_activeSelectionForegroundColor.isValid() && supportsSelectionForegroundColors())
+        m_activeSelectionForegroundColor = platformActiveSelectionForegroundColor();
+    return m_activeSelectionForegroundColor;
+}
+
+Color RenderTheme::inactiveSelectionForegroundColor() const
+{
+    if (!m_inactiveSelectionForegroundColor.isValid() && supportsSelectionForegroundColors())
+        m_inactiveSelectionForegroundColor = platformInactiveSelectionForegroundColor();
+    return m_inactiveSelectionForegroundColor;
+}
+
+Color RenderTheme::activeListBoxSelectionBackgroundColor() const
+{
+    if (!m_activeListBoxSelectionBackgroundColor.isValid())
+        m_activeListBoxSelectionBackgroundColor = platformActiveListBoxSelectionBackgroundColor();
+    return m_activeListBoxSelectionBackgroundColor;
+}
+
+Color RenderTheme::inactiveListBoxSelectionBackgroundColor() const
+{
+    if (!m_inactiveListBoxSelectionBackgroundColor.isValid())
+        m_inactiveListBoxSelectionBackgroundColor = platformInactiveListBoxSelectionBackgroundColor();
+    return m_inactiveListBoxSelectionBackgroundColor;
+}
+
+Color RenderTheme::activeListBoxSelectionForegroundColor() const
+{
+    if (!m_activeListBoxSelectionForegroundColor.isValid() && supportsListBoxSelectionForegroundColors())
+        m_activeListBoxSelectionForegroundColor = platformActiveListBoxSelectionForegroundColor();
+    return m_activeListBoxSelectionForegroundColor;
+}
+
+Color RenderTheme::inactiveListBoxSelectionForegroundColor() const
+{
+    if (!m_inactiveListBoxSelectionForegroundColor.isValid() && supportsListBoxSelectionForegroundColors())
+        m_inactiveListBoxSelectionForegroundColor = platformInactiveListBoxSelectionForegroundColor();
+    return m_inactiveListBoxSelectionForegroundColor;
 }
 
 Color RenderTheme::platformActiveSelectionBackgroundColor() const
@@ -392,50 +445,56 @@ Color RenderTheme::platformActiveSelectionBackgroundColor() const
     return Color(0, 0, 255);
 }
 
+Color RenderTheme::platformActiveSelectionForegroundColor() const
+{
+    // Use a white color by default if the platform theme doesn't define anything.
+    return Color::white;
+}
+
 Color RenderTheme::platformInactiveSelectionBackgroundColor() const
 {
     // Use a grey color by default if the platform theme doesn't define anything.
-    return Color(128, 128, 128);
-}
-
-Color RenderTheme::platformActiveSelectionForegroundColor() const
-{
-    return Color();
+    // This color matches Firefox's inactive color.
+    return Color(176, 176, 176);
 }
 
 Color RenderTheme::platformInactiveSelectionForegroundColor() const
 {
-    return Color();
+    // Use a black color by default.
+    return Color::black;
 }
 
-Color RenderTheme::activeListBoxSelectionBackgroundColor() const
+Color RenderTheme::platformActiveListBoxSelectionBackgroundColor() const
 {
-    return activeSelectionBackgroundColor();
+    return platformActiveSelectionBackgroundColor();
 }
 
-Color RenderTheme::activeListBoxSelectionForegroundColor() const
+Color RenderTheme::platformActiveListBoxSelectionForegroundColor() const
 {
-    // Use a white color by default if the platform theme doesn't define anything.
-    return Color(255, 255, 255);
+    return platformActiveSelectionForegroundColor();
 }
 
-Color RenderTheme::inactiveListBoxSelectionBackgroundColor() const
+Color RenderTheme::platformInactiveListBoxSelectionBackgroundColor() const
 {
-    return inactiveSelectionBackgroundColor();
+    return platformInactiveSelectionBackgroundColor();
 }
 
-Color RenderTheme::inactiveListBoxSelectionForegroundColor() const
+Color RenderTheme::platformInactiveListBoxSelectionForegroundColor() const
 {
-    // Use a black color by default if the platform theme doesn't define anything.
-    return Color(0, 0, 0);
+    return platformInactiveSelectionForegroundColor();
 }
 
 int RenderTheme::baselinePosition(const RenderObject* o) const
 {
+    if (!o->isBox())
+        return 0;
+
+    const RenderBox* box = toRenderBox(o);
+
 #if USE(NEW_THEME)
-    return o->height() + o->marginTop() + m_theme->baselinePositionAdjustment(o->style()->appearance()) * o->style()->effectiveZoom();
+    return box->height() + box->marginTop() + m_theme->baselinePositionAdjustment(o->style()->appearance()) * o->style()->effectiveZoom();
 #else
-    return o->height() + o->marginTop();
+    return box->height() + box->marginTop();
 #endif
 }
 
@@ -602,7 +661,8 @@ bool RenderTheme::isDefault(const RenderObject* o) const
 }
 
 #if !USE(NEW_THEME)
-void RenderTheme::adjustCheckboxStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+
+void RenderTheme::adjustCheckboxStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     // A summary of the rules for checkbox designed to match WinIE:
     // width/height - honored (WinIE actually scales its control for small widths, but lets it overflow for small heights.)
@@ -619,7 +679,7 @@ void RenderTheme::adjustCheckboxStyle(CSSStyleSelector* selector, RenderStyle* s
     style->setBoxShadow(0);
 }
 
-void RenderTheme::adjustRadioStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustRadioStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     // A summary of the rules for checkbox designed to match WinIE:
     // width/height - honored (WinIE actually scales its control for small widths, but lets it overflow for small heights.)
@@ -636,35 +696,40 @@ void RenderTheme::adjustRadioStyle(CSSStyleSelector* selector, RenderStyle* styl
     style->setBoxShadow(0);
 }
 
-void RenderTheme::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     // Most platforms will completely honor all CSS, and so we have no need to adjust the style
     // at all by default.  We will still allow the theme a crack at setting up a desired vertical size.
     setButtonSize(style);
 }
+
 #endif
 
-void RenderTheme::adjustTextFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustTextAreaStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustSliderTrackStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustButtonInnerStyle(RenderStyle*) const
 {
 }
 
-void RenderTheme::adjustSliderThumbStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+}
+
+void RenderTheme::adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
@@ -672,30 +737,37 @@ void RenderTheme::adjustSliderThumbSize(RenderObject*) const
 {
 }
 
-void RenderTheme::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustSearchFieldDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
-void RenderTheme::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderTheme::adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
 
 void RenderTheme::platformColorsDidChange()
 {
-    m_activeSelectionColor = Color();
-    m_inactiveSelectionColor = Color();
+    m_activeSelectionForegroundColor = Color();
+    m_inactiveSelectionForegroundColor = Color();
+    m_activeSelectionBackgroundColor = Color();
+    m_inactiveSelectionBackgroundColor = Color();
+
+    m_activeListBoxSelectionForegroundColor = Color();
+    m_inactiveListBoxSelectionForegroundColor = Color();
+    m_activeListBoxSelectionBackgroundColor = Color();
+    m_inactiveListBoxSelectionForegroundColor = Color();
 }
 
 Color RenderTheme::systemColor(int cssValueId) const

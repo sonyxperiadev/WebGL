@@ -104,7 +104,16 @@ namespace WebCore {
         bool m_shouldAllowPopups;
     };
 
-    class PluginView : public Widget, private PluginStreamClient {
+    class PluginManualLoader {
+    public:
+        virtual ~PluginManualLoader() {}
+        virtual void didReceiveResponse(const ResourceResponse&) = 0;
+        virtual void didReceiveData(const char*, int) = 0;
+        virtual void didFinishLoading() = 0;
+        virtual void didFail(const ResourceError&) = 0;
+    };
+
+    class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader {
     public:
         static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
@@ -159,7 +168,7 @@ namespace WebCore {
 
         // Widget functions
         virtual void setFrameRect(const IntRect&);
-        virtual void frameRectsChanged() const;
+        virtual void frameRectsChanged();
         virtual void setFocus();
         virtual void show();
         virtual void hide();
@@ -210,7 +219,13 @@ namespace WebCore {
         void setCallingPlugin(bool) const;
 
         void invalidateWindowlessPluginRect(const IntRect&);
-        
+
+#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+        void paintWindowedPluginIntoContext(GraphicsContext*, const IntRect&) const;
+        static HDC WINAPI hookedBeginPaint(HWND, PAINTSTRUCT*);
+        static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
+#endif
+
         Frame* m_parentFrame;
         RefPtr<PluginPackage> m_plugin;
         Element* m_element;
@@ -233,7 +248,7 @@ namespace WebCore {
 #ifndef NP_NO_CARBON
         bool dispatchNPEvent(NPEvent&);
 #endif
-        void updatePluginWidget() const;
+        void updatePluginWidget();
         void paintMissingPluginIcon(GraphicsContext*, const IntRect&);
 
         void handleKeyboardEvent(KeyboardEvent*);
@@ -282,17 +297,20 @@ namespace WebCore {
         WNDPROC m_pluginWndProc;
         unsigned m_lastMessage;
         bool m_isCallingPluginWndProc;
+        HDC m_wmPrintHDC;
 #endif
 
 #ifdef PLUGIN_SCHEDULE_TIMER
         PluginTimerList m_timerList;
 #endif
 
-#if PLATFORM(WIN_OS) && PLATFORM(QT)
-        // Only under Qt on Windows, the plugin widget (HWND) does not match the native widget (QWidget).
-        PlatformPluginWidget m_window; // for windowed plug-ins
+#if (PLATFORM(QT) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
+        // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
+        // but is using the containing window as its reference for positioning/painting.
+        PlatformPluginWidget m_window;
 public:
         PlatformPluginWidget platformPluginWidget() const { return m_window; }
+        void setPlatformPluginWidget(PlatformPluginWidget widget) { m_window = widget; }
 #elif defined(ANDROID_PLUGINS)
 public:
         PlatformPluginWidget m_window;
@@ -304,8 +322,17 @@ public:
 
 private:
 
-        mutable IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
-        mutable IntRect m_windowRect; // Our window rect.
+#if defined(XP_MACOSX)
+        NP_CGContext m_npCgContext;
+        OwnPtr<Timer<PluginView> > m_nullEventTimer;
+
+        void setNPWindowIfNeeded();
+        void nullEventTimerFired(Timer<PluginView>*);
+        Point globalMousePosForPlugin() const;
+#endif
+
+        IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
+        IntRect m_windowRect; // Our window rect.
 
         bool m_loadManually;
         RefPtr<PluginStream> m_manualStream;

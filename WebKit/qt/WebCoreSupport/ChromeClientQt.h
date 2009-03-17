@@ -106,6 +106,7 @@ namespace WebCore {
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformWidget platformWindow() const;
+        virtual void contentsSizeChanged(Frame*, const IntSize&) const;
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
@@ -116,6 +117,8 @@ namespace WebCore {
         virtual void exceededDatabaseQuota(Frame*, const String&);
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+
+        virtual void formStateDidChange(const Node*) { }
 
         QWebPage* m_webPage;
         WebCore::KURL lastHoverURL;

@@ -58,6 +58,7 @@ namespace WebCore {
 #include <float.h>
 #include <math.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef WCHAR_MAX
 	#define WCHAR_MAX	0xFFFF
@@ -182,7 +183,7 @@ _NUMERIC_LIMITS (unsigned long long,	0,	ULLONG_MAX,	0,      false,	true,	true);
 #endif
 //--------------------------------------------------------------------------------------
 
-typedef int ptrdiff_t;
+using ::ptrdiff_t;
 
 typedef bool (* Comparator)(const void*, const void*);
 extern void sort(const void** start, const void** end, Comparator comp);

@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -32,11 +30,12 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLStyleElement::HTMLStyleElement(Document* doc)
-    : HTMLElement(styleTag, doc)
+HTMLStyleElement::HTMLStyleElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
+    : HTMLElement(tagName, doc)
     , m_loading(false)
-    , m_createdByParser(false)
+    , m_createdByParser(createdByParser)
 {
+    ASSERT(hasTagName(styleTag));
 }
 
 // other stuff...
@@ -135,16 +134,12 @@ void HTMLStyleElement::setType(const AtomicString &value)
     setAttribute(typeAttr, value);
 }
 
-void HTMLStyleElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {    
-    HashSet<String> styleURLs;
-    StyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet();
-    if (styleSheet)
-        styleSheet->addSubresourceURLStrings(styleURLs, ownerDocument()->baseURL());
-    
-    HashSet<String>::iterator end = styleURLs.end();
-    for (HashSet<String>::iterator i = styleURLs.begin(); i != end; ++i)
-        urls.append(*i);
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    if (StyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet())
+        styleSheet->addSubresourceStyleURLs(urls);
 }
 
 }

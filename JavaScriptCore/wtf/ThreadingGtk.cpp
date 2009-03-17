@@ -32,15 +32,17 @@
 
 #if !USE(PTHREADS)
 
+#include "CurrentTime.h"
 #include "HashMap.h"
 #include "MainThread.h"
-#include "MathExtras.h"
+#include "RandomNumberSeed.h"
 
 #include <glib.h>
+#include <limits.h>
 
 namespace WTF {
 
-Mutex* atomicallyInitializedStaticMutex;
+static Mutex* atomicallyInitializedStaticMutex;
 
 static ThreadIdentifier mainThreadIdentifier;
 
@@ -59,27 +61,27 @@ void initializeThreading()
     if (!atomicallyInitializedStaticMutex) {
         atomicallyInitializedStaticMutex = new Mutex;
         threadMapMutex();
-        wtf_random_init();
+        initializeRandomNumberGenerator();
         mainThreadIdentifier = currentThread();
         initializeMainThread();
     }
+}
+
+void lockAtomicallyInitializedStaticMutex()
+{
+    ASSERT(atomicallyInitializedStaticMutex);
+    atomicallyInitializedStaticMutex->lock();
+}
+
+void unlockAtomicallyInitializedStaticMutex()
+{
+    atomicallyInitializedStaticMutex->unlock();
 }
 
 static HashMap<ThreadIdentifier, GThread*>& threadMap()
 {
     static HashMap<ThreadIdentifier, GThread*> map;
     return map;
-}
-
-static ThreadIdentifier establishIdentifierForThread(GThread*& thread)
-{
-    MutexLocker locker(threadMapMutex());
-
-    static ThreadIdentifier identifierCount = 1;
-
-    threadMap().add(identifierCount, thread);
-
-    return identifierCount++;
 }
 
 static ThreadIdentifier identifierByGthreadHandle(GThread*& thread)
@@ -93,6 +95,19 @@ static ThreadIdentifier identifierByGthreadHandle(GThread*& thread)
     }
 
     return 0;
+}
+
+static ThreadIdentifier establishIdentifierForThread(GThread*& thread)
+{
+    ASSERT(!identifierByGthreadHandle(thread));
+
+    MutexLocker locker(threadMapMutex());
+
+    static ThreadIdentifier identifierCount = 1;
+
+    threadMap().add(identifierCount, thread);
+
+    return identifierCount++;
 }
 
 static GThread* threadForIdentifier(ThreadIdentifier id)
@@ -111,7 +126,7 @@ static void clearThreadForIdentifier(ThreadIdentifier id)
     threadMap().remove(id);
 }
 
-ThreadIdentifier createThread(ThreadFunction entryPoint, void* data, const char*)
+ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     GThread* thread;
     if (!(thread = g_thread_create(entryPoint, data, TRUE, 0))) {
@@ -129,7 +144,9 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 
     GThread* thread = threadForIdentifier(threadID);
 
-    *result = g_thread_join(thread);
+    void* joinResult = g_thread_join(thread);
+    if (result)
+        *result = joinResult;
 
     clearThreadForIdentifier(threadID);
     return 0;
@@ -190,25 +207,24 @@ void ThreadCondition::wait(Mutex& mutex)
     g_cond_wait(m_condition.get(), mutex.impl().get());
 }
 
-bool ThreadCondition::timedWait(Mutex& mutex, double interval)
+bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 {
-    if (interval < 0.0) {
+    // Time is in the past - return right away.
+    if (absoluteTime < currentTime())
+        return false;
+    
+    // Time is too far in the future for g_cond_timed_wait - wait forever.
+    if (absoluteTime > INT_MAX) {
         wait(mutex);
         return true;
     }
-    
-    int intervalSeconds = static_cast<int>(interval);
-    int intervalMicroseconds = static_cast<int>((interval - intervalSeconds) * 1000000.0);
+
+    int timeSeconds = static_cast<int>(absoluteTime);
+    int timeMicroseconds = static_cast<int>((absoluteTime - timeSeconds) * 1000000.0);
     
     GTimeVal targetTime;
-    g_get_current_time(&targetTime);
-        
-    targetTime.tv_sec += intervalSeconds;
-    targetTime.tv_usec += intervalMicroseconds;
-    if (targetTime.tv_usec > 1000000) {
-        targetTime.tv_usec -= 1000000;
-        targetTime.tv_sec++;
-    }
+    targetTime.tv_sec = timeSeconds;
+    targetTime.tv_usec = timeMicroseconds;
 
     return g_cond_timed_wait(m_condition.get(), mutex.impl().get(), &targetTime);
 }

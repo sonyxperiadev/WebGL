@@ -24,10 +24,11 @@
 #define RenderBox_h
 
 #include "RenderObject.h"
+#include "ScrollTypes.h"
 
 namespace WebCore {
 
-    enum WidthType { Width, MinWidth, MaxWidth };
+enum WidthType { Width, MinWidth, MaxWidth };
 
 class RenderBox : public RenderObject {
 public:
@@ -35,6 +36,129 @@ public:
     virtual ~RenderBox();
 
     virtual const char* renderName() const { return "RenderBox"; }
+
+    int x() const { return m_frameRect.x(); }
+    int y() const { return m_frameRect.y(); }
+    int width() const { ASSERT(!isRenderInline()); return m_frameRect.width(); }
+    int height() const { ASSERT(!isRenderInline()); return m_frameRect.height(); }
+    
+    void setX(int x) { m_frameRect.setX(x); }
+    void setY(int y) { m_frameRect.setY(y); }
+    void setWidth(int width) { m_frameRect.setWidth(width); }
+    void setHeight(int height) { m_frameRect.setHeight(height); }
+    
+    IntPoint location() const { return m_frameRect.location(); }
+    IntSize size() const { ASSERT(!isRenderInline()); return m_frameRect.size(); }
+
+    void setLocation(const IntPoint& location) { m_frameRect.setLocation(location); }
+    void setLocation(int x, int y) { setLocation(IntPoint(x, y)); }
+    
+    void setSize(const IntSize& size) { m_frameRect.setSize(size); }
+    void move(int dx, int dy) { m_frameRect.move(dx, dy); }
+
+    IntRect frameRect() const { ASSERT(!isRenderInline()); return m_frameRect; }
+    void setFrameRect(const IntRect& rect) { m_frameRect = rect; }
+
+    IntRect borderBoxRect() const { return IntRect(0, 0, width(), height()); }
+    virtual IntRect borderBoundingBox() const { return borderBoxRect(); } // This will work on inlines to return the bounding box of all of the lines' border boxes.
+
+    // The content area of the box (excludes padding and border).
+    IntRect contentBoxRect() const { return IntRect(borderLeft() + paddingLeft(), borderTop() + paddingTop(), contentWidth(), contentHeight()); }
+    // The content box in absolute coords. Ignores transforms.
+    IntRect absoluteContentBox() const;
+    // The content box converted to absolute coords (taking transforms into account).
+    FloatQuad absoluteContentQuad() const;
+
+    // Bounds of the outline box in absolute coords. Respects transforms
+    virtual IntRect outlineBoundsForRepaint(RenderBox* /*repaintContainer*/) const;
+    virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
+
+    // Use this with caution! No type checking is done!
+    RenderBox* previousSiblingBox() const;
+    RenderBox* nextSiblingBox() const;
+    RenderBox* parentBox() const;
+
+    // The height of a block when you include normal flow overflow spillage out of the bottom
+    // of the block (e.g., a <div style="height:25px"> that has a 100px tall image inside
+    // it would have an overflow height of borderTop() + paddingTop() + 100px.
+    virtual int overflowHeight(bool /*includeInterior*/ = true) const { return height(); }
+    virtual int overflowWidth(bool /*includeInterior*/ = true) const { return width(); }
+    virtual void setOverflowHeight(int) { }
+    virtual void setOverflowWidth(int) { }
+    virtual int overflowLeft(bool /*includeInterior*/ = true) const { return 0; }
+    virtual int overflowTop(bool /*includeInterior*/ = true) const { return 0; }
+    virtual IntRect overflowRect(bool /*includeInterior*/ = true) const { return borderBoxRect(); }
+
+    int contentWidth() const { return clientWidth() - paddingLeft() - paddingRight(); }
+    int contentHeight() const { return clientHeight() - paddingTop() - paddingBottom(); }
+
+    // IE extensions. Used to calculate offsetWidth/Height.  Overridden by inlines (RenderFlow)
+    // to return the remaining width on a given line (and the height of a single line).
+    virtual int offsetWidth() const { return width(); }
+    virtual int offsetHeight() const { return height(); }
+    virtual int offsetLeft() const;
+    virtual int offsetTop() const;
+    virtual RenderBox* offsetParent() const;
+
+    // More IE extensions.  clientWidth and clientHeight represent the interior of an object
+    // excluding border and scrollbar.  clientLeft/Top are just the borderLeftWidth and borderTopWidth.
+    int clientLeft() const { return borderLeft(); }
+    int clientTop() const { return borderTop(); }
+    int clientWidth() const;
+    int clientHeight() const;
+
+    // scrollWidth/scrollHeight will be the same as clientWidth/clientHeight unless the
+    // object has overflow:hidden/scroll/auto specified and also has overflow.
+    // scrollLeft/Top return the current scroll position.  These methods are virtual so that objects like
+    // textareas can scroll shadow content (but pretend that they are the objects that are
+    // scrolling).
+    virtual int scrollLeft() const;
+    virtual int scrollTop() const;
+    virtual int scrollWidth() const;
+    virtual int scrollHeight() const;
+    virtual void setScrollLeft(int);
+    virtual void setScrollTop(int);
+
+    bool hasHorizontalBordersPaddingOrMargin() const { return hasHorizontalBordersOrPadding() || marginLeft() != 0 || marginRight() != 0; }
+    bool hasHorizontalBordersOrPadding() const { return borderLeft() != 0 || borderRight() != 0 || paddingLeft() != 0 || paddingRight() != 0; }
+
+    int marginTop() const { return m_marginTop; }
+    int marginBottom() const { return m_marginBottom; }
+    int marginLeft() const { return m_marginLeft; }
+    int marginRight() const { return m_marginRight; }
+
+    // Virtual since table cells override
+    virtual int paddingTop(bool includeIntrinsicPadding = true) const;
+    virtual int paddingBottom(bool includeIntrinsicPadding = true) const;
+    virtual int paddingLeft(bool includeIntrinsicPadding = true) const;
+    virtual int paddingRight(bool includeIntrinsicPadding = true) const;
+
+    virtual int borderTop() const { return style()->borderTopWidth(); }
+    virtual int borderBottom() const { return style()->borderBottomWidth(); }
+    virtual int borderLeft() const { return style()->borderLeftWidth(); }
+    virtual int borderRight() const { return style()->borderRightWidth(); }
+
+    // The following seven functions are used to implement collapsing margins.
+    // All objects know their maximal positive and negative margins.  The
+    // formula for computing a collapsed margin is |maxPosMargin| - |maxNegmargin|.
+    // For a non-collapsing box, such as a leaf element, this formula will simply return
+    // the margin of the element.  Blocks override the maxTopMargin and maxBottomMargin
+    // methods.
+    virtual bool isSelfCollapsingBlock() const { return false; }
+    int collapsedMarginTop() const { return maxTopMargin(true) - maxTopMargin(false); }
+    int collapsedMarginBottom() const { return maxBottomMargin(true) - maxBottomMargin(false); }
+    virtual bool isTopMarginQuirk() const { return false; }
+    virtual bool isBottomMarginQuirk() const { return false; }
+    virtual int maxTopMargin(bool positive) const { return positive ? std::max(0, marginTop()) : -std::min(0, marginTop()); }
+    virtual int maxBottomMargin(bool positive) const { return positive ? std::max(0, marginBottom()) : -std::min(0, marginBottom()); }
+
+    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
+    
+    IntRect reflectionBox() const;
+    int reflectionOffset() const;
+    // Given a rect in the object's coordinate space, returns the corresponding rect in the reflection.
+    IntRect reflectedRect(const IntRect&) const;
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
@@ -49,30 +173,17 @@ public:
     virtual int overrideHeight() const;
     virtual void setOverrideSize(int);
 
-    virtual bool absolutePosition(int& x, int& y, bool fixed = false) const;
+    virtual FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
+    virtual FloatPoint absoluteToLocal(FloatPoint containerPoint, bool fixed = false, bool useTransforms = false) const;
 
-    virtual int xPos() const { return m_x; }
-    virtual int yPos() const { return m_y; }
-    virtual void setPos(int x, int y);
-
-    virtual int width() const { return m_width; }
-    virtual int height() const { return m_height; }
-    virtual void setWidth(int width) { m_width = width; }
-    virtual void setHeight(int height) { m_height = height; }
-
-    virtual int marginTop() const { return m_marginTop; }
-    virtual int marginBottom() const { return m_marginBottom; }
-    virtual int marginLeft() const { return m_marginLeft; }
-    virtual int marginRight() const { return m_marginRight; }
-
-    virtual IntRect borderBox() const { return IntRect(0, -borderTopExtra(), width(), height() + borderTopExtra() + borderBottomExtra()); }
-
+    virtual IntSize offsetFromContainer(RenderObject*) const;
+    
     int calcBorderBoxWidth(int width) const;
     int calcBorderBoxHeight(int height) const;
     int calcContentBoxWidth(int width) const;
     int calcContentBoxHeight(int height) const;
 
-    virtual void borderFitAdjust(int& x, int& w) const {}; // Shrink the box in which the border paints if border-fit is set.
+    virtual void borderFitAdjust(int& /*x*/, int& /*w*/) const { } // Shrink the box in which the border paints if border-fit is set.
 
     // This method is now public so that centered objects like tables that are
     // shifted right by left-aligned floats can recompute their left and
@@ -95,9 +206,10 @@ public:
     virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
 
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed = false);
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual void computeRectForRepaint(IntRect&, RenderBox* repaintContainer, bool fixed = false);
     IntSize offsetForPositionedInContainer(RenderObject*) const;
+    virtual FloatQuad localToContainerQuad(const FloatQuad&, RenderBox* repaintContainer, bool fixed = false) const;
 
     virtual void repaintDuringLayoutIfMoved(const IntRect&);
 
@@ -128,6 +240,8 @@ public:
 
     int calcPercentageHeight(const Length& height);
 
+    // Block flows subclass availableWidth to handle multi column layout (shrinking the width available to children when laying out.)
+    virtual int availableWidth() const { return contentWidth(); }
     virtual int availableHeight() const;
     int availableHeightUsing(const Length&) const;
 
@@ -135,10 +249,25 @@ public:
 
     int relativePositionOffsetX() const;
     int relativePositionOffsetY() const;
+    IntSize relativePositionOffset() const { return IntSize(relativePositionOffsetX(), relativePositionOffsetY()); }
+    
+    RenderLayer* layer() const { return m_layer; }
+    virtual bool requiresLayer() const { return isRoot() || isPositioned() || isRelPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
 
-    virtual RenderLayer* layer() const { return m_layer; }
-
-    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
+    virtual int verticalScrollbarWidth() const;
+    int horizontalScrollbarHeight() const;
+    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f);
+    virtual bool canBeProgramaticallyScrolled(bool) const;
+    virtual void autoscroll();
+    virtual void stopAutoscroll() { }
+    virtual void panScroll(const IntPoint&);
+    bool hasAutoVerticalScrollbar() const { return hasOverflowClip() && (style()->overflowY() == OAUTO || style()->overflowY() == OOVERLAY); }
+    bool hasAutoHorizontalScrollbar() const { return hasOverflowClip() && (style()->overflowX() == OAUTO || style()->overflowX() == OOVERLAY); }
+    bool scrollsOverflow() const { return scrollsOverflowX() || scrollsOverflowY(); }
+    bool scrollsOverflowX() const { return hasOverflowClip() && (style()->overflowX() == OSCROLL || hasAutoHorizontalScrollbar()); }
+    bool scrollsOverflowY() const { return hasOverflowClip() && (style()->overflowY() == OSCROLL || hasAutoVerticalScrollbar()); }
+    
+    virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
     virtual void paintFillLayerExtended(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight,
                                         int tx, int ty, int width, int height, InlineFlowBox* = 0, CompositeOperator = CompositeSourceOver);
@@ -154,23 +283,27 @@ public:
 
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
     virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
-    virtual void imageChanged(WrappedImagePtr);
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     // Called when a positioned object moves but doesn't change size.  A simplified layout is done
     // that just updates the object's position.
     virtual void tryLayoutDoingPositionedMovementOnly()
     {
-        int oldWidth = m_width;
+        int oldWidth = width();
         calcWidth();
         // If we shrink to fit our width may have changed, so we still need full layout.
-        if (oldWidth != m_width)
+        if (oldWidth != width())
             return;
         calcHeight();
         setNeedsLayout(false);
     }
 
-    virtual IntRect maskClipRect();
+    IntRect maskClipRect();
     
+#if ENABLE(SVG)
+    virtual TransformationMatrix localTransform() const;
+#endif
+
 protected:
     virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
     virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
@@ -189,6 +322,9 @@ protected:
     virtual bool shouldCalculateSizeAsReplaced() const { return isReplaced() && !isInlineBlockOrInlineTable(); }
 
 private:
+    bool includeVerticalScrollbarSize() const { return hasOverflowClip() && (style()->overflowY() == OSCROLL || style()->overflowY() == OAUTO); }
+    bool includeHorizontalScrollbarSize() const { return hasOverflowClip() && (style()->overflowX() == OSCROLL || style()->overflowX() == OAUTO); }
+
     void paintRootBoxDecorations(PaintInfo&, int tx, int ty);
     // Returns true if we did a full repaint
     bool repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground);
@@ -199,11 +335,11 @@ private:
     int containingBlockHeightForPositioned(const RenderObject* containingBlock) const;
 
     void calcAbsoluteVertical();
-    void calcAbsoluteHorizontalValues(Length width, const RenderObject* cb, TextDirection containerDirection,
+    void calcAbsoluteHorizontalValues(Length width, const RenderBox* cb, TextDirection containerDirection,
                                       int containerWidth, int bordersPlusPadding,
                                       Length left, Length right, Length marginLeft, Length marginRight,
                                       int& widthValue, int& marginLeftValue, int& marginRightValue, int& xPos);
-    void calcAbsoluteVerticalValues(Length height, const RenderObject* cb,
+    void calcAbsoluteVerticalValues(Length height, const RenderBox* cb,
                                     int containerHeight, int bordersPlusPadding,
                                     Length top, Length bottom, Length marginTop, Length marginBottom,
                                     int& heightValue, int& marginTopValue, int& marginBottomValue, int& yPos);
@@ -216,17 +352,15 @@ private:
     // These include tables, positioned objects, floats and flexible boxes.
     virtual void calcPrefWidths() = 0;
 
+private:
+    // The width/height of the contents + borders + padding.  The x/y location is relative to our container (which is not always our parent).
+    IntRect m_frameRect;
+
 protected:
-    // The width/height of the contents + borders + padding.
-    int m_width;
-    int m_height;
 
 #ifdef ANDROID_LAYOUT
     int m_visibleWidth;
 #endif
-
-    int m_x;
-    int m_y;
 
     int m_marginLeft;
     int m_marginRight;
@@ -250,6 +384,33 @@ private:
     static bool s_wasFloating;
     static bool s_hadOverflowClip;
 };
+
+inline RenderBox* toRenderBox(RenderObject* o)
+{ 
+    ASSERT(!o || o->isBox());
+    return static_cast<RenderBox*>(o);
+}
+
+inline const RenderBox* toRenderBox(const RenderObject* o)
+{ 
+    ASSERT(!o || o->isBox());
+    return static_cast<const RenderBox*>(o);
+}
+
+inline RenderBox* RenderBox::previousSiblingBox() const
+{
+    return toRenderBox(previousSibling());
+}
+
+inline RenderBox* RenderBox::nextSiblingBox() const
+{ 
+    return toRenderBox(nextSibling());
+}
+
+inline RenderBox* RenderBox::parentBox() const
+{
+    return toRenderBox(parent());
+}
 
 } // namespace WebCore
 

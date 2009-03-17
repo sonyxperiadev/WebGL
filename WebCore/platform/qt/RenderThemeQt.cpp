@@ -6,6 +6,7 @@
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  *               2006 Dirk Mueller <mueller@kde.org>
  *               2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * All rights reserved.
  *
@@ -45,7 +46,9 @@
 #include <QStyleOptionFrameV2>
 
 #include "Color.h"
+#include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
+#include "FontSelector.h"
 #include "Document.h"
 #include "Page.h"
 #include "Font.h"
@@ -53,6 +56,7 @@
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
+#include "RenderBox.h"
 
 namespace WebCore {
 
@@ -151,9 +155,12 @@ bool RenderThemeQt::supportsFocusRing(const RenderStyle* style) const
 
 int RenderThemeQt::baselinePosition(const RenderObject* o) const
 {
+    if (!o->isBox())
+        return 0;
+
     if (o->style()->appearance() == CheckboxPart ||
         o->style()->appearance() == RadioPart)
-        return o->marginTop() + o->height() - 2; // Same as in old khtml
+        return toRenderBox(o)->marginTop() + toRenderBox(o)->height() - 2; // Same as in old khtml
     return RenderTheme::baselinePosition(o);
 }
 
@@ -398,6 +405,7 @@ void RenderThemeQt::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* s
     fontFamily.setFamily(m_buttonFontFamily);
     fontDescription.setFamily(fontFamily);
     style->setFontDescription(fontDescription);
+    style->font().update(selector->fontSelector());
     style->setLineHeight(RenderStyle::initialLineHeight());
 
     setButtonSize(style);
@@ -567,8 +575,6 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
     opt.rect.moveTo(QPoint(0,0));
     opt.rect.setSize(r.size());
 
-    opt.frame = false;
-
     p.drawComplexControl(QStyle::CC_ComboBox, opt);
     p.painter->translate(-topLeft);
     return false;
@@ -715,8 +721,10 @@ ControlPart RenderThemeQt::applyTheme(QStyleOption& option, RenderObject* o) con
         // Readonly is supported on textfields.
         option.state |= QStyle::State_ReadOnly;
 
-    if (supportsFocus(o->style()->appearance()) && isFocused(o))
+    if (supportsFocus(o->style()->appearance()) && isFocused(o)) {
         option.state |= QStyle::State_HasFocus;
+        option.state |= QStyle::State_KeyboardFocusChange;
+    }
 
     if (isHovered(o))
         option.state |= QStyle::State_MouseOver;
@@ -754,16 +762,18 @@ ControlPart RenderThemeQt::applyTheme(QStyleOption& option, RenderObject* o) con
     return result;
 }
 
-void RenderTheme::adjustDefaultStyleSheet(CSSStyleSheet* style)
+#if ENABLE(VIDEO)
+
+String RenderThemeQt::extraMediaControlsStyleSheet()
 {
-    QFile platformStyleSheet(":/webcore/resources/html4-adjustments-qt.css");
+    QFile platformStyleSheet(QLatin1String(":/webcore/css/mediaControls-extras.css"));
     if (platformStyleSheet.open(QFile::ReadOnly)) {
         QByteArray sheetData = platformStyleSheet.readAll();
-        style->parseString(QString::fromUtf8(sheetData.constData(), sheetData.length()));
+        return QString::fromUtf8(sheetData.constData(), sheetData.length());
     }
-}
 
-#if ENABLE(VIDEO)
+    return String();
+}
 
 // Helper class to transform the painter's world matrix to the object's content area, scaled to 0,0,100,100
 class WorldMatrixTransformer
@@ -940,6 +950,11 @@ void RenderThemeQt::adjustSliderThumbSize(RenderObject* o) const
         o->style()->setWidth(Length(parentHeight / 3, Fixed));
         o->style()->setHeight(Length(parentHeight, Fixed));
     }
+}
+
+double RenderThemeQt::caretBlinkInterval() const
+{
+    return  QApplication::cursorFlashTime() / 1000.0 / 2.0;
 }
 
 }

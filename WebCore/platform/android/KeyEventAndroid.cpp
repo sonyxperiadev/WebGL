@@ -246,7 +246,6 @@ bool PlatformKeyboardEvent::currentCapsLockState()
     return false;
 }
 
-// functions new to Feb-19 tip of tree merge:
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
 {
     // Copied with modification from the mac port.
@@ -265,4 +264,4 @@ void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCom
     }
 }
 
-}   // WebCore
+} // namespace WebCore

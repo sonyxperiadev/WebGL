@@ -26,30 +26,23 @@
 #include "config.h"
 #include "SystemTime.h"
 
-#include <DateMath.h>
 #include <windows.h>
 
-#if COMPILER(MINGW)
+#if COMPILER(MINGW) || (PLATFORM(QT) && COMPILER(MSVC))
 #include <float.h>
 #define FLOAT_MAX FLT_MAX
 #endif
 
 namespace WebCore {
 
-double currentTime()
-{
-    // Call through to our high-resolution JSC time code, since calls like GetSystemTimeAsFileTime and ftime are only accurate within 15ms.
-    // This resolution can be improved with timeBeginPeriod/timeEndPeriod on Vista, but these calls don't
-    // improve the resolution of date/time getters (GetSystemTimeAsFileTime, ftime, etc.) on XP.
-    return JSC::getCurrentUTCTimeWithMicroseconds() * 0.001;
-}
-
 float userIdleTime()
 {
+#if !PLATFORM(WIN_CE)
     LASTINPUTINFO lastInputInfo = {0};
     lastInputInfo.cbSize = sizeof(LASTINPUTINFO);
     if (::GetLastInputInfo(&lastInputInfo))
         return (GetTickCount() - lastInputInfo.dwTime) * 0.001; // ::GetTickCount returns ms of uptime valid for up to 49.7 days.
+#endif
     return FLT_MAX; // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed. 
 }
 

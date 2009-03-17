@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLTextAreaElement.h"
 
+#include "ChromeClient.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -35,9 +36,10 @@
 #include "HTMLNames.h"
 #include "Page.h"
 #include "RenderStyle.h"
-#include "RenderTextControl.h"
+#include "RenderTextControlMultiLine.h"
 #include "Selection.h"
 #include "Text.h"
+#include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
@@ -50,20 +52,30 @@ using namespace HTMLNames;
 static const int defaultRows = 2;
 static const int defaultCols = 20;
 
-HTMLTextAreaElement::HTMLTextAreaElement(Document* document, HTMLFormElement* form)
-    : HTMLFormControlElementWithState(textareaTag, document, form)
+static inline void notifyFormStateChanged(const HTMLTextAreaElement* element)
+{
+    Frame* frame = element->document()->frame();
+    if (!frame)
+        return;
+    frame->page()->chrome()->client()->formStateDidChange(element);
+}
+
+HTMLTextAreaElement::HTMLTextAreaElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+    : HTMLFormControlElementWithState(tagName, document, form)
     , m_rows(defaultRows)
     , m_cols(defaultCols)
     , m_wrap(SoftWrap)
     , m_cachedSelectionStart(-1)
     , m_cachedSelectionEnd(-1)
 {
+    ASSERT(hasTagName(textareaTag));
     setValueMatchesRenderer();
+    notifyFormStateChanged(this);
 }
 
 const AtomicString& HTMLTextAreaElement::type() const
 {
-    static const AtomicString textarea("textarea");
+    DEFINE_STATIC_LOCAL(const AtomicString, textarea, ("textarea"));
     return textarea;
 }
 
@@ -184,7 +196,7 @@ void HTMLTextAreaElement::parseMappedAttribute(MappedAttribute* attr)
 
 RenderObject* HTMLTextAreaElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    return new (arena) RenderTextControl(this, true);
+    return new (arena) RenderTextControlMultiLine(this);
 }
 
 bool HTMLTextAreaElement::appendFormData(FormDataList& encoding, bool)
@@ -241,7 +253,7 @@ void HTMLTextAreaElement::updateFocusAppearance(bool restorePreviousSelection)
 void HTMLTextAreaElement::defaultEventHandler(Event* event)
 {
     if (renderer() && (event->isMouseEvent() || event->isDragEvent() || event->isWheelEvent() || event->type() == eventNames().blurEvent))
-        static_cast<RenderTextControl*>(renderer())->forwardEvent(event);
+        static_cast<RenderTextControlMultiLine*>(renderer())->forwardEvent(event);
 
     HTMLFormControlElementWithState::defaultEventHandler(event);
 }
@@ -258,7 +270,8 @@ void HTMLTextAreaElement::updateValue() const
 
     ASSERT(renderer());
     m_value = static_cast<RenderTextControl*>(renderer())->text();
-    setValueMatchesRenderer();
+    const_cast<HTMLTextAreaElement*>(this)->setValueMatchesRenderer();
+    notifyFormStateChanged(this);
 }
 
 String HTMLTextAreaElement::value() const
@@ -270,11 +283,17 @@ String HTMLTextAreaElement::value() const
 void HTMLTextAreaElement::setValue(const String& value)
 {
     // Code elsewhere normalizes line endings added by the user via the keyboard or pasting.
-    // We must normalize line endings coming from JS.
-    m_value = value;
-    m_value.replace("\r\n", "\n");
-    m_value.replace('\r', '\n');
+    // We normalize line endings coming from JavaScript here.
+    String normalizedValue = value.isNull() ? "" : value;
+    normalizedValue.replace("\r\n", "\n");
+    normalizedValue.replace('\r', '\n');
 
+    // Return early because we don't want to move the caret or trigger other side effects
+    // when the value isn't changing. This matches Firefox behavior, at least.
+    if (normalizedValue == this->value())
+        return;
+
+    m_value = normalizedValue;
     setValueMatchesRenderer();
     if (inDocument())
         document()->updateRendering();
@@ -292,6 +311,7 @@ void HTMLTextAreaElement::setValue(const String& value)
     }
 
     setChanged();
+    notifyFormStateChanged(this);
 }
 
 String HTMLTextAreaElement::defaultValue() const

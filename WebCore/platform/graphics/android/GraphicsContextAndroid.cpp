@@ -40,7 +40,7 @@
 #include "SkPaint.h"
 #include "SkPorterDuff.h"
 #include "PlatformGraphicsContext.h"
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 
 #include "android_graphics.h"
 #include "SkGradientShader.h"
@@ -297,6 +297,41 @@ private:
     State& operator=(const State&);
 };
 
+static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
+    SkShader::TileMode mode = SkShader::kClamp_TileMode;
+    
+    switch (sm) {
+        case SpreadMethodPad:
+            mode = SkShader::kClamp_TileMode;
+            break;
+        case SpreadMethodReflect:
+            mode = SkShader::kMirror_TileMode;
+            break;
+        case SpreadMethodRepeat:
+            mode = SkShader::kRepeat_TileMode;
+            break;
+    }
+    return mode;
+}
+
+static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
+                         Gradient* grad, GradientSpreadMethod sm) {
+    switch (cs) {
+        case PatternColorSpace:
+            // createPlatformPattern() returns a new inst
+            paint->setShader(pat->createPlatformPattern(
+                                                        TransformationMatrix()))->safeUnref();
+            break;
+        case GradientColorSpace: {
+            // grad->getShader() returns a cached obj
+            paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
+            break;
+        }
+        default:
+            break;
+    }
+}
+    
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
@@ -352,6 +387,10 @@ bool GraphicsContext::willFill() const {
 
 bool GraphicsContext::willStroke() const {
     return m_data->mState->mStrokeColor != 0;
+}
+    
+const SkPath* GraphicsContext::getCurrPath() const {
+    return m_data->mState->mPath;
 }
     
 // Draws a filled rectangle with a stroked border.
@@ -628,6 +667,11 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     
     android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
+
+    extactShader(&paint, m_common->state.fillColorSpace,
+                 m_common->state.fillPattern.get(),
+                 m_common->state.fillGradient.get(), spreadMethod());
+
     GC2Canvas(this)->drawRect(r, paint);
 }
 
@@ -731,19 +775,21 @@ KRenderingDeviceContext* GraphicsContext::createRenderingDeviceContext()
 }
 #endif
 
+/*  These are the flags we need when we call saveLayer for transparency.
+    Since it does not appear that webkit intends this to also save/restore
+    the matrix or clip, I do not give those flags (for performance)
+ */
+#define TRANSPARENCY_SAVEFLAGS                                  \
+    (SkCanvas::SaveFlags)(SkCanvas::kHasAlphaLayer_SaveFlag |   \
+                          SkCanvas::kFullColorLayer_SaveFlag)
+    
 void GraphicsContext::beginTransparencyLayer(float opacity)
 {
     if (paintingDisabled())
         return;
 
     SkCanvas* canvas = GC2Canvas(this);
-
-    if (opacity < 1)
-    {
-        canvas->saveLayerAlpha(NULL, (int)(opacity * 255), SkCanvas::kHasAlphaLayer_SaveFlag);
-    }
-    else
-        canvas->save();
+    canvas->saveLayerAlpha(NULL, (int)(opacity * 255), TRANSPARENCY_SAVEFLAGS);
 }
 
 void GraphicsContext::endTransparencyLayer()
@@ -936,7 +982,7 @@ void GraphicsContext::translate(float x, float y)
     GC2Canvas(this)->translate(SkFloatToScalar(x), SkFloatToScalar(y));
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& xform)
+void GraphicsContext::concatCTM(const TransformationMatrix& xform)
 {
     if (paintingDisabled())
         return;
@@ -986,67 +1032,38 @@ if (urlRef) {
 #endif
 }
 
-void GraphicsContext::setUseAntialiasing(bool useAA) {
+void GraphicsContext::setPlatformShouldAntialias(bool useAA)
+{
     if (paintingDisabled())
         return;
     m_data->mState->mUseAA = useAA;
 }
 
-AffineTransform GraphicsContext::getCTM() const {
-    return AffineTransform(GC2Canvas(this)->getTotalMatrix());
+TransformationMatrix GraphicsContext::getCTM() const
+{
+    return TransformationMatrix(GC2Canvas(this)->getTotalMatrix());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
     
-void GraphicsContext::beginPath() {
+void GraphicsContext::beginPath()
+{
     m_data->beginPath();
 }
 
-void GraphicsContext::addPath(const Path& p) {
+void GraphicsContext::addPath(const Path& p)
+{
     m_data->addPath(*p.platformPath());
 }
 
-void GraphicsContext::drawPath() {
+void GraphicsContext::drawPath()
+{
     this->fillPath();
     this->strokePath();
 }
 
-static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
-    SkShader::TileMode mode = SkShader::kClamp_TileMode;
-
-    switch (sm) {
-        case SpreadMethodPad:
-            mode = SkShader::kClamp_TileMode;
-            break;
-        case SpreadMethodReflect:
-            mode = SkShader::kMirror_TileMode;
-            break;
-        case SpreadMethodRepeat:
-            mode = SkShader::kRepeat_TileMode;
-            break;
-    }
-    return mode;
-}
-
-void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat, Gradient* grad,
-                  GradientSpreadMethod sm) {
-    switch (cs) {
-        case PatternColorSpace:
-            // createPlatformPattern() returns a new inst
-            paint->setShader(pat->createPlatformPattern(
-                                            AffineTransform()))->safeUnref();
-            break;
-        case GradientColorSpace: {
-            // grad->getShader() returns a cached obj
-            paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
-            break;
-        }
-        default:
-            break;
-    }
-}
-
-void GraphicsContext::fillPath() {
+void GraphicsContext::fillPath()
+{
     SkPath* path = m_data->getPath();
     if (paintingDisabled() || !path)
         return;
@@ -1070,7 +1087,8 @@ void GraphicsContext::fillPath() {
     GC2Canvas(this)->drawPath(*path, paint);
 }
 
-void GraphicsContext::strokePath() {
+void GraphicsContext::strokePath()
+{
     const SkPath* path = m_data->getPath();
     if (paintingDisabled() || !path || strokeStyle() == NoStroke)
         return;
@@ -1107,7 +1125,8 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc) {
+SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc)
+{
     return gc->platformContext()->mCanvas;
 }
 

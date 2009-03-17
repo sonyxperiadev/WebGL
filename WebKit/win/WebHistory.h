@@ -42,7 +42,7 @@ namespace WebCore {
 
 class WebPreferences;
 
-class WebHistory : public IWebHistory {
+class WebHistory : public IWebHistory, public IWebHistoryPrivate {
 public:
     static WebHistory* createInstance();
 private:
@@ -107,9 +107,16 @@ public:
     virtual HRESULT STDMETHODCALLTYPE historyAgeInDaysLimit( 
         /* [retval][out] */ int* limit);
 
+    // IWebHistoryPrivate
+
+    virtual HRESULT STDMETHODCALLTYPE allItems( 
+        /* [out][in] */ int* count,
+        /* [retval][out] */ IWebHistoryItem** items);
+
     // WebHistory
     static WebHistory* sharedHistory();
-    void addItem(const WebCore::KURL&, const WebCore::String&);
+    void visitedURL(const WebCore::KURL&, const WebCore::String& title, const WebCore::String& httpMethod, bool wasFailure, const WebCore::KURL& serverRedirectURL, bool isClientRedirect);
+    void visitedURLForRedirectWithoutHistoryItem(const WebCore::KURL&);
     void addVisitedLinksToPageGroup(WebCore::PageGroup&);
 
 private:
@@ -127,7 +134,7 @@ private:
     HRESULT saveHistoryGuts(CFURLRef url, IWebError** error);
     HRESULT postNotification(NotificationType notifyType, IPropertyBag* userInfo = 0);
     HRESULT removeItem(IWebHistoryItem* entry);
-    HRESULT addItem(IWebHistoryItem* entry);
+    HRESULT addItem(IWebHistoryItem* entry, bool discardDuplicate, bool* added);
     HRESULT removeItemForURLString(CFStringRef urlString);
     HRESULT addItemToDateCaches(IWebHistoryItem* entry);
     HRESULT removeItemFromDateCaches(IWebHistoryItem* entry);
@@ -144,6 +151,7 @@ private:
     RetainPtr<CFMutableArrayRef> m_datesWithEntries;
     RetainPtr<CFMutableArrayRef> m_entriesByDate;
     COMPtr<WebPreferences> m_preferences;
+    COMPtr<WebHistoryItem> m_lastVisitedEntry;
 };
 
 #endif

@@ -35,7 +35,6 @@
 #include <wtf/MessageQueue.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
-#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -47,12 +46,12 @@ namespace WebCore {
     class String;
     class WorkerContext;
 
-    class MessagePort : public ThreadSafeShared<MessagePort>, public EventTarget {
+    class MessagePort : public RefCounted<MessagePort>, public EventTarget {
     public:
         static PassRefPtr<MessagePort> create(ScriptExecutionContext* scriptExecutionContext) { return adoptRef(new MessagePort(scriptExecutionContext)); }
         ~MessagePort();
 
-        PassRefPtr<MessagePort> clone(ScriptExecutionContext*, ExceptionCode&);
+        PassRefPtr<MessagePort> clone(ExceptionCode&); // Returns a port that isn't attached to any context.
 
         bool active() const { return m_entangledPort; }
         void postMessage(const String& message, ExceptionCode&);
@@ -68,7 +67,8 @@ namespace WebCore {
         void unentangle();
 
         void contextDestroyed();
-        virtual ScriptExecutionContext* scriptExecutionContext() const { return m_scriptExecutionContext; }
+        void attachToContext(ScriptExecutionContext*);
+        virtual ScriptExecutionContext* scriptExecutionContext() const;
 
         virtual MessagePort* toMessagePort() { return this; }
 
@@ -83,22 +83,20 @@ namespace WebCore {
         typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
         EventListenersMap& eventListeners() { return m_eventListeners; }
 
-        using ThreadSafeShared<MessagePort>::ref;
-        using ThreadSafeShared<MessagePort>::deref;
+        using RefCounted<MessagePort>::ref;
+        using RefCounted<MessagePort>::deref;
 
         bool hasPendingActivity();
 
+        // FIXME: Per current spec, setting onmessage should automagically start the port (unlike addEventListener("message", ...)).
         void setOnmessage(PassRefPtr<EventListener> eventListener) { m_onMessageListener = eventListener; }
         EventListener* onmessage() const { return m_onMessageListener.get(); }
 
         void setOnclose(PassRefPtr<EventListener> eventListener) { m_onCloseListener = eventListener; }
         EventListener* onclose() const { return m_onCloseListener.get(); }
 
-        void setJSWrapperIsInaccessible() { m_jsWrapperIsInaccessible = true; }
-        bool jsWrapperIsInaccessible() const { return m_jsWrapperIsInaccessible; }
-
     private:
-        friend class CloseMessagePortTimer;
+        friend class MessagePortCloseEventTask;
 
         MessagePort(ScriptExecutionContext*);
 
@@ -108,7 +106,19 @@ namespace WebCore {
         void dispatchCloseEvent();
 
         MessagePort* m_entangledPort;
-        MessageQueue<RefPtr<Event> > m_messageQueue;
+
+        // FIXME: EventData is necessary to pass messages to other threads. In single threaded case, we can just queue a created event.
+        struct EventData : public RefCounted<EventData> {
+            static PassRefPtr<EventData> create(const String& message, PassRefPtr<MessagePort>);
+            ~EventData();
+
+            String message;
+            RefPtr<MessagePort> messagePort;
+
+        private:
+            EventData(const String& message, PassRefPtr<MessagePort>);
+        };
+        MessageQueue<RefPtr<EventData> > m_messageQueue; // FIXME: No need to use MessageQueue in single threaded case.
         bool m_queueIsOpen;
 
         ScriptExecutionContext* m_scriptExecutionContext;
@@ -118,8 +128,7 @@ namespace WebCore {
 
         EventListenersMap m_eventListeners;
 
-        bool m_pendingCloseEvent;
-        bool m_jsWrapperIsInaccessible;
+        bool m_pendingCloseEvent; // The port is GC protected while waiting for a close event to be dispatched.
     };
 
 } // namespace WebCore

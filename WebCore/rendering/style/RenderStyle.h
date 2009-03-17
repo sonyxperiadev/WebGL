@@ -25,7 +25,7 @@
 #ifndef RenderStyle_h
 #define RenderStyle_h
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "AnimationList.h"
 #include "BorderData.h"
 #include "BorderValue.h"
@@ -72,6 +72,7 @@
 #include "TransformOperations.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -110,8 +111,9 @@ public:
     // static pseudo styles. Dynamic ones are produced on the fly.
     enum PseudoId { NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, FIRST_LINE_INHERITED, SCROLLBAR, FILE_UPLOAD_BUTTON, INPUT_PLACEHOLDER,
                     SLIDER_THUMB, SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON, MEDIA_CONTROLS_PANEL,
-                    MEDIA_CONTROLS_PLAY_BUTTON, MEDIA_CONTROLS_MUTE_BUTTON, MEDIA_CONTROLS_TIMELINE, MEDIA_CONTROLS_TIME_DISPLAY,
-                    MEDIA_CONTROLS_SEEK_BACK_BUTTON, MEDIA_CONTROLS_SEEK_FORWARD_BUTTON , MEDIA_CONTROLS_FULLSCREEN_BUTTON,
+                    MEDIA_CONTROLS_PLAY_BUTTON, MEDIA_CONTROLS_MUTE_BUTTON, MEDIA_CONTROLS_TIMELINE, MEDIA_CONTROLS_TIMELINE_CONTAINER,
+                    MEDIA_CONTROLS_CURRENT_TIME_DISPLAY, MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, MEDIA_CONTROLS_SEEK_BACK_BUTTON, 
+                    MEDIA_CONTROLS_SEEK_FORWARD_BUTTON, MEDIA_CONTROLS_FULLSCREEN_BUTTON, 
                     SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER };
     static const int FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON;
 
@@ -139,7 +141,8 @@ protected:
                    (_box_direction == other._box_direction) &&
                    (_visuallyOrdered == other._visuallyOrdered) &&
                    (_htmlHacks == other._htmlHacks) &&
-                   (_force_backgrounds_to_white == other._force_backgrounds_to_white);
+                   (_force_backgrounds_to_white == other._force_backgrounds_to_white) &&
+                   (_pointerEvents == other._pointerEvents);
         }
 
         bool operator!=(const InheritedFlags& other) const { return !(*this == other); }
@@ -162,6 +165,7 @@ protected:
         bool _visuallyOrdered : 1;
         bool _htmlHacks :1;
         bool _force_backgrounds_to_white : 1;
+        unsigned _pointerEvents : 4; // EPointerEvents
     } inherited_flags;
 
 // don't inherit
@@ -268,6 +272,7 @@ protected:
         inherited_flags._htmlHacks=false;
         inherited_flags._box_direction = initialBoxDirection();
         inherited_flags._force_backgrounds_to_white = false;
+        inherited_flags._pointerEvents = initialPointerEvents();
 
         noninherited_flags._effectiveDisplay = noninherited_flags._originalDisplay = initialDisplay();
         noninherited_flags._overflowX = initialOverflowX();
@@ -624,11 +629,12 @@ public:
     Length transformOriginX() const { return rareNonInheritedData->m_transform->m_x; }
     Length transformOriginY() const { return rareNonInheritedData->m_transform->m_y; }
     bool hasTransform() const { return !rareNonInheritedData->m_transform->m_operations.operations().isEmpty(); }
-    void applyTransform(AffineTransform&, const IntSize& borderBoxSize, bool includeTransformOrigin = true) const;
+    void applyTransform(TransformationMatrix&, const IntSize& borderBoxSize, bool includeTransformOrigin = true) const;
     bool hasMask() const { return rareNonInheritedData->m_mask.hasImage() || rareNonInheritedData->m_maskBoxImage.hasImage(); }
     // End CSS3 Getters
 
     // Apple-specific property getter methods
+    EPointerEvents pointerEvents() const { return static_cast<EPointerEvents>(inherited_flags._pointerEvents); }
     const AnimationList* animations() const { return rareNonInheritedData->m_animations.get(); }
     const AnimationList* transitions() const { return rareNonInheritedData->m_transitions.get(); }
 
@@ -923,6 +929,8 @@ public:
     // End CSS3 Setters
 
     // Apple-specific property setters
+    void setPointerEvents(EPointerEvents p) { inherited_flags._pointerEvents = p; }
+
     void clearAnimations()
     {
         rareNonInheritedData.access()->m_animations.clear();
@@ -1107,19 +1115,12 @@ public:
     static bool initialVisuallyOrdered() { return false; }
     static float initialTextStrokeWidth() { return 0; }
     static unsigned short initialColumnCount() { return 1; }
-    static const TransformOperations& initialTransform() { static TransformOperations ops; return ops; }
+    static const TransformOperations& initialTransform() { DEFINE_STATIC_LOCAL(TransformOperations, ops, ()); return ops; }
     static Length initialTransformOriginX() { return Length(50.0, Percent); }
     static Length initialTransformOriginY() { return Length(50.0, Percent); }
+    static EPointerEvents initialPointerEvents() { return PE_AUTO; }
 
     // Keep these at the end.
-    static float initialAnimationDelay() { return 0; }
-    static bool initialAnimationDirection() { return false; }
-    static double initialAnimationDuration() { return 0; }
-    static int initialAnimationIterationCount() { return 1; }
-    static String initialAnimationName() { return String(); }
-    static unsigned initialAnimationPlayState() { return AnimPlayStatePlaying; }
-    static int initialAnimationProperty() { return cAnimateAll; }
-    static TimingFunction initialAnimationTimingFunction() { return TimingFunction(); }
     static int initialLineClamp() { return -1; }
     static bool initialTextSizeAdjust() { return true; }
     static ETextSecurity initialTextSecurity() { return TSNONE; }

@@ -28,7 +28,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatConversion.h"
 #include "GraphicsContextPrivate.h"
 #include "GraphicsContextPlatformPrivateCG.h"
@@ -191,11 +191,13 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     }
 
     CGContextRef context = platformContext();
-    CGContextSaveGState(context);
-
-    CGContextSetShouldAntialias(context, false);
+    
+    if (shouldAntialias())
+        CGContextSetShouldAntialias(context, false);
 
     if (patWidth) {
+        CGContextSaveGState(context);
+
         // Do a rect fill of our endpoints.  This ensures we always have the
         // appearance of being a border.  We then draw the actual dotted/dashed line.
         setCGFillColor(context, strokeColor());  // The save/restore make it safe to mutate the fill color here without setting it back to the old color.
@@ -245,7 +247,11 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 
     CGContextStrokePath(context);
 
-    CGContextRestoreGState(context);
+    if (patWidth)
+        CGContextRestoreGState(context);
+        
+    if (shouldAntialias())
+        CGContextSetShouldAntialias(context, true);
 }
 
 // This method is only used to draw the little circles used in lists.
@@ -358,7 +364,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     CGContextRestoreGState(context);
 }
 
-void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool shouldAntialias)
+void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool antialiased)
 {
     if (paintingDisabled() || !fillColor().alpha() && (strokeThickness() <= 0 || strokeStyle() == NoStroke))
         return;
@@ -368,9 +374,8 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
 
     CGContextRef context = platformContext();
 
-    CGContextSaveGState(context);
-
-    CGContextSetShouldAntialias(context, shouldAntialias);
+    if (antialiased != shouldAntialias())
+        CGContextSetShouldAntialias(context, antialiased);
     
     CGContextBeginPath(context);
     CGContextMoveToPoint(context, points[0].x(), points[0].y());
@@ -379,15 +384,16 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     CGContextClosePath(context);
 
     drawPath();
-
-    CGContextRestoreGState(context);
+    
+    if (antialiased != shouldAntialias())
+        CGContextSetShouldAntialias(context, shouldAntialias());
 }
 
-static void applyStrokePattern(GraphicsContext* context, Pattern* pattern)
+void GraphicsContext::applyStrokePattern()
 {
-    CGContextRef cgContext = context->platformContext();
+    CGContextRef cgContext = platformContext();
     
-    CGPatternRef platformPattern = pattern->createPlatformPattern(context->getCTM());
+    CGPatternRef platformPattern = m_common->state.strokePattern.get()->createPlatformPattern(getCTM());
     if (!platformPattern)
         return;
 
@@ -400,11 +406,11 @@ static void applyStrokePattern(GraphicsContext* context, Pattern* pattern)
     CGPatternRelease(platformPattern);
 }
 
-static void applyFillPattern(GraphicsContext* context, Pattern* pattern)
+void GraphicsContext::applyFillPattern()
 {
-    CGContextRef cgContext = context->platformContext();
+    CGContextRef cgContext = platformContext();
 
-    CGPatternRef platformPattern = pattern->createPlatformPattern(context->getCTM());
+    CGPatternRef platformPattern = m_common->state.fillPattern.get()->createPlatformPattern(getCTM());
     if (!platformPattern)
         return;
 
@@ -460,9 +466,9 @@ void GraphicsContext::drawPath()
     }
     
     if (state.fillColorSpace == PatternColorSpace)
-        applyFillPattern(this, m_common->state.fillPattern.get());
+        applyFillPattern();
     if (state.strokeColorSpace == PatternColorSpace)
-        applyStrokePattern(this, m_common->state.strokePattern.get());
+        applyStrokePattern();
 
     CGPathDrawingMode drawingMode;
     if (calculateDrawingMode(state, drawingMode))
@@ -489,7 +495,7 @@ void GraphicsContext::fillPath()
             fillPathWithFillRule(context, fillRule());
         break;
     case PatternColorSpace:
-        applyFillPattern(this, m_common->state.fillPattern.get());
+        applyFillPattern();
         fillPathWithFillRule(context, fillRule());
         break;
     case GradientColorSpace:
@@ -512,11 +518,11 @@ void GraphicsContext::strokePath()
     CGContextRef context = platformContext();
     switch (m_common->state.strokeColorSpace) {
     case SolidColorSpace:
-        if (fillColor().alpha())
+        if (strokeColor().alpha())
             CGContextStrokePath(context);
         break;
     case PatternColorSpace:
-        applyStrokePattern(this, m_common->state.strokePattern.get());
+        applyStrokePattern();
         CGContextStrokePath(context);
         break;
     case GradientColorSpace:
@@ -540,7 +546,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
             CGContextFillRect(context, rect);
         break;
     case PatternColorSpace:
-        applyFillPattern(this, m_common->state.fillPattern.get());
+        applyFillPattern();
         CGContextFillRect(context, rect);
         break;
     case GradientColorSpace:
@@ -614,6 +620,21 @@ void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
     CGContextEOClip(platformContext());
 }
 
+void GraphicsContext::clipPath(WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+
+    CGContextRef context = platformContext();
+
+    if (!CGContextIsPathEmpty(context)) {
+        if (clipRule == RULE_EVENODD)
+            CGContextEOClip(context);
+        else
+            CGContextClip(context);
+    }
+}
+
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
 {
     if (paintingDisabled())
@@ -670,23 +691,30 @@ void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Col
 {
     if (paintingDisabled())
         return;
+    CGFloat width = size.width();
+    CGFloat height = size.height();
+    CGFloat blurRadius = blur;
     CGContextRef context = platformContext();
-    CGAffineTransform transform = CGContextGetCTM(context);
 
-    CGFloat A = transform.a * transform.a + transform.b * transform.b;
-    CGFloat B = transform.a * transform.c + transform.b * transform.d;
-    CGFloat C = B;
-    CGFloat D = transform.c * transform.c + transform.d * transform.d;
+    if (!m_common->state.shadowsIgnoreTransforms) {
+        CGAffineTransform transform = CGContextGetCTM(context);
 
-    CGFloat smallEigenvalue = narrowPrecisionToCGFloat(sqrt(0.5 * ((A + D) - sqrt(4 * B * C + (A - D) * (A - D)))));
+        CGFloat A = transform.a * transform.a + transform.b * transform.b;
+        CGFloat B = transform.a * transform.c + transform.b * transform.d;
+        CGFloat C = B;
+        CGFloat D = transform.c * transform.c + transform.d * transform.d;
 
-    // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
-    CGFloat blurRadius = min(blur * smallEigenvalue, narrowPrecisionToCGFloat(1000.0));
+        CGFloat smallEigenvalue = narrowPrecisionToCGFloat(sqrt(0.5 * ((A + D) - sqrt(4 * B * C + (A - D) * (A - D)))));
 
-    CGSize sizeInDeviceSpace = CGSizeApplyAffineTransform(size, transform);
+        // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
+        blurRadius = min(blur * smallEigenvalue, narrowPrecisionToCGFloat(1000.0));
 
-    CGFloat width = sizeInDeviceSpace.width;
-    CGFloat height = sizeInDeviceSpace.height;
+        CGSize sizeInDeviceSpace = CGSizeApplyAffineTransform(size, transform);
+
+        width = sizeInDeviceSpace.width;
+        height = sizeInDeviceSpace.height;
+
+    }
 
     // Work around <rdar://problem/5539388> by ensuring that the offsets will get truncated
     // to the desired integer.
@@ -747,7 +775,27 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
 {
     if (paintingDisabled())
         return;
-    CGContextStrokeRectWithWidth(platformContext(), r, lineWidth);
+
+    CGContextRef context = platformContext();
+    switch (m_common->state.strokeColorSpace) {
+    case SolidColorSpace:
+        if (strokeColor().alpha())
+            CGContextStrokeRectWithWidth(context, r, lineWidth);
+        break;
+    case PatternColorSpace:
+        applyStrokePattern();
+        CGContextStrokeRectWithWidth(context, r, lineWidth);
+        break;
+    case GradientColorSpace:
+        CGContextSaveGState(context);
+        setStrokeThickness(lineWidth);
+        CGContextAddRect(context, r);
+        CGContextReplacePathWithStrokedPath(context);
+        CGContextClip(context);
+        CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
+        CGContextRestoreGState(context);
+        break;
+    }
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -848,7 +896,7 @@ void GraphicsContext::translate(float x, float y)
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 {
     if (paintingDisabled())
         return;
@@ -857,7 +905,7 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-AffineTransform GraphicsContext::getCTM() const
+TransformationMatrix GraphicsContext::getCTM() const
 {
     return CGContextGetCTM(platformContext());
 }
@@ -909,8 +957,6 @@ void GraphicsContext::drawLineForText(const IntPoint& point, int width, bool pri
     if (width <= 0)
         return;
 
-    CGContextSaveGState(platformContext());
-
     float x = point.x();
     float y = point.y();
     float lineLength = width;
@@ -918,6 +964,8 @@ void GraphicsContext::drawLineForText(const IntPoint& point, int width, bool pri
     // Use a minimum thickness of 0.5 in user space.
     // See http://bugs.webkit.org/show_bug.cgi?id=4255 for details of why 0.5 is the right minimum thickness to use.
     float thickness = max(strokeThickness(), 0.5f);
+
+    bool restoreAntialiasMode = false;
 
     if (!printing) {
         // On screen, use a minimum thickness of 1.0 in user space (later rounded to an integral number in device space).
@@ -933,15 +981,21 @@ void GraphicsContext::drawLineForText(const IntPoint& point, int width, bool pri
             y = lineRect.origin.y;
             lineLength = lineRect.size.width;
             thickness = lineRect.size.height;
-            CGContextSetShouldAntialias(platformContext(), false);
+            if (shouldAntialias()) {
+                CGContextSetShouldAntialias(platformContext(), false);
+                restoreAntialiasMode = true;
+            }
         }
     }
     
     if (fillColor() != strokeColor())
         setCGFillColor(platformContext(), strokeColor());
     CGContextFillRect(platformContext(), CGRectMake(x, y, lineLength, thickness));
-
-    CGContextRestoreGState(platformContext());
+    if (fillColor() != strokeColor())
+        setCGFillColor(platformContext(), fillColor());
+        
+    if (restoreAntialiasMode)
+        CGContextSetShouldAntialias(platformContext(), true);
 }
 
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
@@ -1078,7 +1132,7 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
     setCGFillColor(platformContext(), color);
 }
 
-void GraphicsContext::setUseAntialiasing(bool enable)
+void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
         return;

@@ -24,16 +24,18 @@
 #include "JSNumberCell.h"
 
 #include "NumberObject.h"
-#include "ustring.h"
+#include "UString.h"
 
 namespace JSC {
 
-JSValue* JSNumberCell::toPrimitive(ExecState*, PreferredPrimitiveType) const
+#if !USE(ALTERNATE_JSIMMEDIATE)
+
+JSValuePtr JSNumberCell::toPrimitive(ExecState*, PreferredPrimitiveType) const
 {
     return const_cast<JSNumberCell*>(this);
 }
 
-bool JSNumberCell::getPrimitiveNumber(ExecState*, double& number, JSValue*& value)
+bool JSNumberCell::getPrimitiveNumber(ExecState*, double& number, JSValuePtr& value)
 {
     number = m_value;
     value = this;
@@ -96,29 +98,29 @@ bool JSNumberCell::getTruncatedUInt32(uint32_t& uint32) const
     return true;
 }
 
-JSValue* JSNumberCell::getJSNumber()
+JSValuePtr JSNumberCell::getJSNumber()
 {
     return this;
 }
 
-NEVER_INLINE JSValue* jsNumberCell(ExecState* exec, double d)
+JSValuePtr jsNumberCell(ExecState* exec, double d)
 {
     return new (exec) JSNumberCell(exec, d);
 }
 
-NEVER_INLINE JSValue* jsNaN(ExecState* exec)
-{
-    return new (exec) JSNumberCell(exec, NaN);
-}
-
-NEVER_INLINE JSValue* jsNumberCell(JSGlobalData* globalData, double d)
+JSValuePtr jsNumberCell(JSGlobalData* globalData, double d)
 {
     return new (globalData) JSNumberCell(globalData, d);
 }
 
-NEVER_INLINE JSValue* jsNaN(JSGlobalData* globalData)
+#else
+
+JSValuePtr jsNumberCell(ExecState*, double)
 {
-    return new (globalData) JSNumberCell(globalData, NaN);
+    ASSERT_NOT_REACHED();
+    return noValue();
 }
+
+#endif
 
 } // namespace JSC

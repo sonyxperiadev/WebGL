@@ -105,8 +105,9 @@ namespace android {
          * Scroll to the point x,y relative to the current position.
          * @param x The relative x position.
          * @param y The relative y position.
+         * @param animate If it is true, animate to the new scroll position
          */
-        void scrollBy(int x, int y);
+        void scrollBy(int x, int y, bool animate);
 
         /**
          * Record the invalid rectangle
@@ -119,9 +120,11 @@ namespace android {
          */
         void contentDraw();
 
-        // invalidate the view/display, NOT the content/DOM
+        /** Invalidate the view/screen, NOT the content/DOM, but expressed in
+         *  content/DOM coordinates (i.e. they need to eventually be scaled,
+         *  by webview into view.java coordinates
+         */
         void viewInvalidate(const WebCore::IntRect& rect);
-        void viewInvalidate(const SkIRect& rect);
 
         /**
          * Invalidate part of the content that may be offscreen at the moment
@@ -194,7 +197,8 @@ namespace android {
 
         void setGlobalBounds(int x, int y, int h, int v);
 
-        void setSizeScreenWidthAndScale(int width, int height, int screenWidth, int scale);
+        void setSizeScreenWidthAndScale(int width, int height, int screenWidth, 
+            int scale, int realScreenWidth, int screenHeight);
 
         /**
          * Handle key events from Java.
@@ -255,7 +259,7 @@ namespace android {
         void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
             jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
 
-        void saveDocumentState(WebCore::Frame* frame, WebCore::Node* node, int x, int y);
+        void saveDocumentState(WebCore::Frame* frame);
 
         // TODO: I don't like this hack but I need to access the java object in
         // order to send it as a parameter to java
@@ -381,6 +385,7 @@ namespace android {
         WebCore::Node* m_snapAnchorNode;
         int m_screenWidth;
         int m_scale;
+        unsigned m_domtree_version;
         
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
@@ -393,7 +398,7 @@ namespace android {
         bool commonKitFocus(int generation, int buildGeneration, 
             WebCore::Frame* frame, WebCore::Node* node, int x, int y,
             bool ignoreNullFocus);
-        bool finalKitFocus(WebCore::Frame* frame, WebCore::Node* node, int x, int y);
+        bool finalKitFocus(WebCore::Frame* frame, WebCore::Node* node, int x, int y, bool donotChangeDOMFocus);
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );

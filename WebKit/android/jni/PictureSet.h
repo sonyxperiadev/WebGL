@@ -57,7 +57,7 @@ namespace android {
         virtual ~PictureSet();
         void add(const SkRegion& area, SkPicture* picture,
             uint32_t elapsed, bool split);
-        const SkIRect& bounds(size_t i) {
+        const SkIRect& bounds(size_t i) const {
             return mPictures[i].mArea.getBounds(); }
         bool build();
         // Update mWidth/mHeight, and adds any additional inval region
@@ -71,10 +71,9 @@ namespace android {
         void set(const PictureSet& );
         void setDrawTimes(const PictureSet& );
         void setPicture(size_t i, SkPicture* p);
-        size_t size() { return mPictures.size(); }
+        size_t size() const { return mPictures.size(); }
         void split(PictureSet* result) const;
-        void toPicture(SkPicture* ) const;
-        bool upToDate(size_t i) { return mPictures[i].mPicture != NULL; }
+        bool upToDate(size_t i) const { return mPictures[i].mPicture != NULL; }
         int width() const { return mWidth; }
         void dump(const char* label) const;
         bool validate(const char* label) const;

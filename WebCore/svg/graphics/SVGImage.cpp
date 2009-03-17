@@ -50,9 +50,34 @@
 
 namespace WebCore {
 
+class SVGImageChromeClient : public EmptyChromeClient {
+public:
+    SVGImageChromeClient(SVGImage* image)
+        : m_image(image)
+    {
+    }
+
+    SVGImage* image() const { return m_image; }
+    
+private:
+    virtual void chromeDestroyed()
+    {
+        m_image = 0;
+    }
+
+    virtual void repaint(const IntRect& r, bool, bool, bool)
+    {
+        if (m_image && m_image->imageObserver())
+            m_image->imageObserver()->changedInRect(m_image, r);
+    }
+
+    SVGImage* m_image;
+};
+
 SVGImage::SVGImage(ImageObserver* observer)
     : Image(observer)
     , m_document(0)
+    , m_chromeClient(0)
     , m_page(0)
     , m_frame(0)
     , m_frameView(0)
@@ -63,6 +88,14 @@ SVGImage::~SVGImage()
 {
     if (m_frame)
         m_frame->loader()->frameDetached(); // Break both the loader and view references to the frame
+
+    // Clear these manually so we can safely delete the ChromeClient afterwards
+    m_frameView.clear();
+    m_frame.clear();
+    m_page.clear();
+    
+    // Verify that page teardown destroyed the Chrome
+    ASSERT(!m_chromeClient->image());
 }
 
 void SVGImage::setContainerSize(const IntSize& containerSize)
@@ -150,7 +183,9 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
         context->beginTransparencyLayer(1.0f);
     context->translate(dstRect.location().x(), dstRect.location().y());
     context->scale(FloatSize(dstRect.width()/srcRect.width(), dstRect.height()/srcRect.height()));
-    
+
+    m_frame->view()->resize(size());
+
     if (m_frame->view()->needsLayout())
         m_frame->view()->layout();
     m_frame->view()->paint(context, enclosingIntRect(srcRect));
@@ -185,16 +220,17 @@ bool SVGImage::dataChanged(bool allDataReceived)
         return true;
     
     if (allDataReceived) {
-        static ChromeClient* dummyChromeClient = new EmptyChromeClient;
         static FrameLoaderClient* dummyFrameLoaderClient =  new EmptyFrameLoaderClient;
         static EditorClient* dummyEditorClient = new EmptyEditorClient;
         static ContextMenuClient* dummyContextMenuClient = new EmptyContextMenuClient;
         static DragClient* dummyDragClient = new EmptyDragClient;
         static InspectorClient* dummyInspectorClient = new EmptyInspectorClient;
 
+        m_chromeClient.set(new SVGImageChromeClient(this));
+        
         // FIXME: If this SVG ends up loading itself, we'll leak this Frame (and associated DOM & render trees).
         // The Cache code does not know about CachedImages holding Frames and won't know to break the cycle.
-        m_page.set(new Page(dummyChromeClient, dummyContextMenuClient, dummyEditorClient, dummyDragClient, dummyInspectorClient));
+        m_page.set(new Page(m_chromeClient.get(), dummyContextMenuClient, dummyEditorClient, dummyDragClient, dummyInspectorClient));
         m_page->settings()->setJavaScriptEnabled(false);
         m_page->settings()->setPluginsEnabled(false);
 
@@ -204,7 +240,7 @@ bool SVGImage::dataChanged(bool allDataReceived)
         m_frame->setView(m_frameView.get());
         m_frame->init();
         ResourceRequest fakeRequest(KURL(""));
-        m_frame->loader()->load(fakeRequest); // Make sure the DocumentLoader is created
+        m_frame->loader()->load(fakeRequest, false); // Make sure the DocumentLoader is created
         m_frame->loader()->cancelContentPolicyCheck(); // cancel any policy checks
         m_frame->loader()->commitProvisionalLoad(0);
         m_frame->loader()->setResponseMIMEType("image/svg+xml");

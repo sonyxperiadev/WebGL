@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
  * Copyright (C) 2008 Jan Michael C. Alonzo
+ * Copyright (C) 2008 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,7 +30,10 @@
 #include <webkit/webkitdefines.h>
 #include <webkit/webkitwebview.h>
 #include <webkit/webkitwebframe.h>
+#include <webkit/webkitwebpolicydecision.h>
+#include <webkit/webkitwebnavigationaction.h>
 #include <webkit/webkitwebsettings.h>
+#include <webkit/webkitwebwindowfeatures.h>
 #include <webkit/webkitwebbackforwardlist.h>
 
 #include "BackForwardList.h"
@@ -39,6 +43,7 @@
 #include "Frame.h"
 #include "InspectorClientGtk.h"
 #include "FrameLoaderClient.h"
+#include "WindowFeatures.h"
 
 #include <glib.h>
 
@@ -55,6 +60,9 @@ namespace WebKit {
     WebKitWebHistoryItem* kit(WebCore::HistoryItem*);
 
     WebCore::BackForwardList* core(WebKitWebBackForwardList*);
+
+    WebKitWebNavigationReason kit(WebCore::NavigationType type);
+    WebCore::NavigationType core(WebKitWebNavigationReason reason);
 }
 
 extern "C" {
@@ -69,6 +77,7 @@ extern "C" {
         WebCore::Page* corePage;
         WebKitWebSettings* webSettings;
         WebKitWebInspector* webInspector;
+        WebKitWebWindowFeatures* webWindowFeatures;
 
         WebKitWebFrame* mainFrame;
         WebCore::String applicationNameForUserAgent;
@@ -97,8 +106,7 @@ extern "C" {
     #define WEBKIT_WEB_FRAME_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate))
     typedef struct _WebKitWebFramePrivate WebKitWebFramePrivate;
     struct _WebKitWebFramePrivate {
-        WTF::RefPtr<WebCore::Frame> coreFrame;
-        WebCore::FrameLoaderClient* client;
+        WebCore::Frame* coreFrame;
         WebKitWebView* webView;
 
         gchar* name;
@@ -106,8 +114,11 @@ extern "C" {
         gchar* uri;
     };
 
-    WebKitWebFrame*
+    PassRefPtr<WebCore::Frame>
     webkit_web_frame_init_with_web_view(WebKitWebView*, WebCore::HTMLFrameOwnerElement*);
+
+    void
+    webkit_web_frame_core_frame_gone(WebKitWebFrame*);
 
     WebKitWebHistoryItem*
     webkit_web_history_item_new_with_core_item(WebCore::HistoryItem*);
@@ -120,6 +131,18 @@ extern "C" {
 
     void
     webkit_web_inspector_set_inspected_uri(WebKitWebInspector* web_inspector, const gchar* inspected_uri);
+
+    WebKitWebWindowFeatures*
+    webkit_web_window_features_new_from_core_features (const WebCore::WindowFeatures& features);
+
+    void
+    webkit_web_view_notify_ready (WebKitWebView* web_view);
+
+    WebKitWebPolicyDecision*
+    webkit_web_policy_decision_new (WebKitWebFrame*, WebCore::FramePolicyFunction);
+
+    void
+    webkit_web_policy_decision_cancel (WebKitWebPolicyDecision* decision);
 
     // FIXME: Move these to webkitwebframe.h once their API has been discussed.
 
@@ -135,8 +158,20 @@ extern "C" {
     WEBKIT_API gchar*
     webkit_web_frame_dump_render_tree (WebKitWebFrame* frame);
 
+    WEBKIT_API bool
+    webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+
+    WEBKIT_API bool
+    webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
+
+    WEBKIT_API unsigned int
+    webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
+
     WEBKIT_API gchar*
     webkit_web_view_get_selected_text (WebKitWebView* web_view);
+
+    WEBKIT_API void
+    webkit_web_settings_add_extra_plugin_directory (WebKitWebView *web_view, const gchar* directory);
 }
 
 #endif

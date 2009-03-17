@@ -43,6 +43,7 @@
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
+#include "NetworkStateNotifier.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformGraphicsContext.h"
@@ -78,6 +79,7 @@
 extern void ANPAudioTrackInterfaceV0_Init(ANPInterface* value);
 extern void ANPCanvasInterfaceV0_Init(ANPInterface* value);
 extern void ANPLogInterfaceV0_Init(ANPInterface* value);
+extern void ANPMatrixInterfaceV0_Init(ANPInterface* value);
 extern void ANPOffscreenInterfaceV0_Init(ANPInterface* value);
 extern void ANPPaintInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
@@ -96,6 +98,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(AudioTrackInterfaceV0)    },
     { VARPROCLINE(LogInterfaceV0)           },
     { VARPROCLINE(CanvasInterfaceV0)        },
+    { VARPROCLINE(MatrixInterfaceV0)        },
     { VARPROCLINE(PaintInterfaceV0)         },
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
@@ -132,7 +135,6 @@ using JSC::ExecState;
 using JSC::Interpreter;
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::JSValue;
 using JSC::UString;
 
 using std::min;
@@ -289,6 +291,11 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
     // our interface query is valid with no NPP instance
     NPError error = NPERR_GENERIC_ERROR;
+    if ((value != NULL) && (variable == NPNVisOfflineBool)) {
+      bool* retValue = static_cast<bool*>(value);
+      *retValue = !networkStateNotifier().onLine();
+      return NPERR_NO_ERROR;
+    }
     (void)anp_getInterface(variable, value, &error);
     return error;
 }
@@ -309,7 +316,8 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     const int width = rect.width();
     const int height = rect.height();
 
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(rect.location());
+    // the rect is relative to the frameview's (0,0), so use convertToContainingWindow
+    IntPoint p = parent()->convertToContainingWindow(rect.location());
     m_npWindow.x = p.x();
     m_npWindow.y = p.y();
     
@@ -320,7 +328,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.clipRect.top = 0;
     m_npWindow.clipRect.right = width;
     m_npWindow.clipRect.bottom = height;
-    
+
     if (m_plugin->pluginFuncs()->setwindow) {
         JSC::JSLock::DropAllLocks dropAllLocks(false);
         setCallingPlugin(true);
@@ -429,6 +437,15 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             *retObject = android::WebViewCore::getWebViewCore(parent())->getWebViewJavaObject();
             return NPERR_NO_ERROR;
         }
+
+        case NPNVisOfflineBool: {
+            if (value == NULL) {
+              return NPERR_GENERIC_ERROR;
+            }
+            bool* retValue = static_cast<bool*>(value);
+            *retValue = !networkStateNotifier().onLine();
+            return NPERR_NO_ERROR;
+        }
             
         case kSupportedDrawingModel_ANPGetValue: {
             uint32_t* bits = reinterpret_cast<uint32_t*>(value);
@@ -514,29 +531,6 @@ void PluginView::hide()
     Widget::hide();
 }
 
-void PluginView::paintMissingPluginIcon(GraphicsContext* context,
-                                        const IntRect& rect)
-{
-    static RefPtr<Image> gNullPluginImage;
-    if (!gNullPluginImage) {
-        gNullPluginImage = Image::loadPlatformResource("nullplugin");
-    }
-    Image* image = gNullPluginImage.get();
-
-    IntRect imageRect(frameRect().x(), frameRect().y(),
-                      image->width(), image->height());
-
-    int xOffset = (frameRect().width() - imageRect.width()) / 2;
-    int yOffset = (frameRect().height() - imageRect.height()) / 2;
-
-    imageRect.move(xOffset, yOffset);
-
-    if (!rect.intersects(imageRect))
-        return;
-
-    context->drawImage(image, imageRect.location());
-}
-
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 {
     if (!m_isStarted) {
@@ -555,9 +549,13 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 }
 
 // new as of SVN 38068, Nov 5 2008
-void PluginView::updatePluginWidget() const
+void PluginView::updatePluginWidget()
 {
-    notImplemented();
+    // I bet/hope we can move all of setNPWindowRect() into here
+    FrameView* frameView = static_cast<FrameView*>(parent());
+    if (frameView) {
+        m_windowRect = IntRect(frameView->contentsToWindow(frameRect().location()), frameRect().size());
+    }
 }
 
 // new as of SVN 38068, Nov 5 2008
@@ -566,4 +564,3 @@ void PluginView::setParentVisible(bool) {
 }
 
 } // namespace WebCore
-

@@ -29,20 +29,19 @@
 #ifndef InspectorController_h
 #define InspectorController_h
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "JavaScriptDebugListener.h"
-#endif
-
 #include "Console.h"
 #include "PlatformString.h"
 #include "StringHash.h"
 #include "Timer.h"
-
 #include <JavaScriptCore/JSContextRef.h>
-
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+#include "JavaScriptDebugListener.h"
+#endif
+
 
 namespace JSC {
     class Profile;
@@ -51,6 +50,7 @@ namespace JSC {
 
 namespace WebCore {
 
+class CachedResource;
 class Database;
 class DocumentLoader;
 class GraphicsContext;
@@ -59,14 +59,15 @@ class InspectorClient;
 class JavaScriptCallFrame;
 class Node;
 class Page;
+class ResourceRequest;
 class ResourceResponse;
 class ResourceError;
+class ScriptCallStack;
 class SharedBuffer;
 
 struct ConsoleMessage;
 struct InspectorDatabaseResource;
 struct InspectorResource;
-class ResourceRequest;
 
 class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -160,7 +161,7 @@ public:
     bool windowVisible();
     void setWindowVisible(bool visible = true, bool attached = false);
 
-    void addMessageToConsole(MessageSource, MessageLevel, JSC::ExecState*, const JSC::ArgList& arguments, unsigned lineNumber, const String& sourceID);
+    void addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
     void toggleRecordButton(bool);
@@ -195,7 +196,7 @@ public:
     void didCommitLoad(DocumentLoader*);
     void frameDetachedFromParent(Frame*);
 
-    void didLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length);
+    void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
 
     void identifierForInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
     void willSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
@@ -203,7 +204,7 @@ public:
     void didReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived);
     void didFinishLoading(DocumentLoader*, unsigned long identifier);
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
-    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, JSC::UString& sourceString);
+    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString);
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -237,12 +238,12 @@ public:
 
     void drawNodeHighlight(GraphicsContext&) const;
     
-    void count(const JSC::UString& title, unsigned lineNumber, const String& sourceID);
+    void count(const String& title, unsigned lineNumber, const String& sourceID);
 
-    void startTiming(const JSC::UString& title);
-    bool stopTiming(const JSC::UString& title, double& elapsed);
+    void startTiming(const String& title);
+    bool stopTiming(const String& title, double& elapsed);
 
-    void startGroup(MessageSource source, JSC::ExecState* exec, const JSC::ArgList& arguments, unsigned lineNumber, const String& sourceURL);
+    void startGroup(MessageSource source, ScriptCallStack* callFrame);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
 private:

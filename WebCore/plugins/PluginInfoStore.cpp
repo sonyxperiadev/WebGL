@@ -27,6 +27,9 @@
 #include "PluginInfoStore.h"
 
 #include "KURL.h"
+#if PLATFORM(ANDROID)
+#include "Page.h"
+#endif
 #include "PluginData.h"
 #include "PluginDatabase.h"
 #include "PluginPackage.h"
@@ -93,11 +96,15 @@ bool PluginInfoStore::supportsMIMEType(const WebCore::String& mimeType)
 
 void refreshPlugins(bool reloadOpenPages)
 {
+#if PLATFORM(ANDROID)
+    Page::refreshPlugins(reloadOpenPages);
+#else
     PluginDatabase::installedPlugins()->refresh();
 
     if (reloadOpenPages) {
         // FIXME: reload open pages
     }
+#endif
 }
 
 }

@@ -181,7 +181,7 @@ void Loader::cancelRequests(DocLoader* docLoader)
 Loader::Host::Host(const AtomicString& name, unsigned maxRequestsInFlight)
     : m_name(name)
     , m_maxRequestsInFlight(maxRequestsInFlight)
-    , m_processingResource(false)
+    , m_numResourcesProcessing(0)
 {
 }
 
@@ -252,7 +252,8 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
             const String& lastModified = resourceToRevalidate->response().httpHeaderField("Last-Modified");
             const String& eTag = resourceToRevalidate->response().httpHeaderField("ETag");
             if (!lastModified.isEmpty() || !eTag.isEmpty()) {
-                if (docLoader->cachePolicy() == CachePolicyReload || docLoader->cachePolicy() == CachePolicyRefresh)
+                ASSERT(docLoader->cachePolicy() != CachePolicyReload);
+                if (docLoader->cachePolicy() == CachePolicyRevalidate)
                     resourceRequest.setHTTPHeaderField("Cache-Control", "max-age=0");
                 if (!lastModified.isEmpty())
                     resourceRequest.setHTTPHeaderField("If-Modified-Since", lastModified);
@@ -285,7 +286,7 @@ void Loader::Host::didFinishLoading(SubresourceLoader* loader)
     if (i == m_requestsLoading.end())
         return;
     
-    m_processingResource = true;
+    ProcessingResource processingResource(this);
 
     Request* request = i->second;
     m_requestsLoading.remove(i);
@@ -315,8 +316,6 @@ void Loader::Host::didFinishLoading(SubresourceLoader* loader)
     printf("HOST %s COUNT %d RECEIVED %s\n", u.host().latin1().data(), m_requestsLoading.size(), resource->url().latin1().data());
 #endif
     servePendingRequests();
-    
-    m_processingResource = false;
 }
 
 void Loader::Host::didFail(SubresourceLoader* loader, const ResourceError&)
@@ -332,7 +331,7 @@ void Loader::Host::didFail(SubresourceLoader* loader, bool cancelled)
     if (i == m_requestsLoading.end())
         return;
 
-    m_processingResource = true;
+    ProcessingResource processingResource(this);
     
     Request* request = i->second;
     m_requestsLoading.remove(i);
@@ -359,8 +358,6 @@ void Loader::Host::didFail(SubresourceLoader* loader, bool cancelled)
     docLoader->checkForPendingPreloads();
 
     servePendingRequests();
-
-    m_processingResource = false;
 }
 
 void Loader::Host::didReceiveResponse(SubresourceLoader* loader, const ResourceResponse& response)
@@ -382,6 +379,7 @@ void Loader::Host::didReceiveResponse(SubresourceLoader* loader, const ResourceR
         if (response.httpStatusCode() == 304) {
             // 304 Not modified / Use local copy
             m_requestsLoading.remove(loader);
+            loader->clearClient();
             request->docLoader()->decrementRequestCount();
 
             // Existing resource is ok, just use it updating the expiration time.
@@ -398,16 +396,16 @@ void Loader::Host::didReceiveResponse(SubresourceLoader* loader, const ResourceR
         // Did not get 304 response, continue as a regular resource load.
         cache()->revalidationFailed(resource);
     }
-    
+
     resource->setResponse(response);
-    
+
     String encoding = response.textEncodingName();
     if (!encoding.isNull())
-        request->cachedResource()->setEncoding(encoding);
+        resource->setEncoding(encoding);
     
     if (request->isMultipart()) {
-        ASSERT(request->cachedResource()->isImage());
-        static_cast<CachedImage*>(request->cachedResource())->clear();
+        ASSERT(resource->isImage());
+        static_cast<CachedImage*>(resource)->clear();
         if (request->docLoader()->frame())
             request->docLoader()->frame()->loader()->checkCompleted();
     } else if (response.isMultipart()) {
@@ -415,10 +413,10 @@ void Loader::Host::didReceiveResponse(SubresourceLoader* loader, const ResourceR
         
         // We don't count multiParts in a DocLoader's request count
         request->docLoader()->decrementRequestCount();
-            
+
         // If we get a multipart response, we must have a handle
         ASSERT(loader->handle());
-        if (!request->cachedResource()->isImage())
+        if (!resource->isImage())
             loader->handle()->cancel();
     }
 }
@@ -435,12 +433,11 @@ void Loader::Host::didReceiveData(SubresourceLoader* loader, const char* data, i
     if (resource->errorOccurred())
         return;
     
-    m_processingResource = true;
+    ProcessingResource processingResource(this);
     
     if (resource->response().httpStatusCode() / 100 == 4) {
         // Treat a 4xx response like a network error.
         resource->error();
-        m_processingResource = false;
         return;
     }
 
@@ -452,8 +449,6 @@ void Loader::Host::didReceiveData(SubresourceLoader* loader, const char* data, i
         resource->data(copiedData.release(), true);
     } else if (request->isIncremental())
         resource->data(loader->resourceData(), false);
-    
-    m_processingResource = false;
 }
     
 void Loader::Host::cancelPendingRequests(RequestQueue& requestsPending, DocLoader* docLoader)

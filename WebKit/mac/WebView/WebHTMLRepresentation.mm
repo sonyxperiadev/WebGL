@@ -39,7 +39,6 @@
 #import "WebKitStatisticsPrivate.h"
 #import "WebNSAttributedStringExtras.h"
 #import "WebNSObjectExtras.h"
-#import "WebResourcePrivate.h"
 #import "WebView.h"
 #import <Foundation/NSURLResponse.h>
 #import <WebCore/Document.h>
@@ -55,6 +54,7 @@
 #import <WebCore/TextResourceDecoder.h>
 #import <WebKit/DOMHTMLInputElement.h>
 #import <wtf/Assertions.h>
+#import <wtf/StdLibExtras.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -92,22 +92,19 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 + (NSArray *)supportedMIMETypes
 {
-    static RetainPtr<NSArray> staticSupportedMIMETypes =
-        concatenateArrays([self supportedNonImageMIMETypes], [self supportedImageMIMETypes]);
+    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, staticSupportedMIMETypes, (concatenateArrays([self supportedNonImageMIMETypes], [self supportedImageMIMETypes])));
     return staticSupportedMIMETypes.get();
 }
 
 + (NSArray *)supportedNonImageMIMETypes
 {
-    static RetainPtr<NSArray> staticSupportedNonImageMIMETypes =
-        stringArray(MIMETypeRegistry::getSupportedNonImageMIMETypes());
+    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, staticSupportedNonImageMIMETypes, (stringArray(MIMETypeRegistry::getSupportedNonImageMIMETypes())));
     return staticSupportedNonImageMIMETypes.get();
 }
 
 + (NSArray *)supportedImageMIMETypes
 {
-    static RetainPtr<NSArray> staticSupportedImageMIMETypes =
-        stringArray(MIMETypeRegistry::getSupportedImageMIMETypes());
+    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, staticSupportedImageMIMETypes, (stringArray(MIMETypeRegistry::getSupportedImageMIMETypes())));
     return staticSupportedImageMIMETypes.get();
 }
 

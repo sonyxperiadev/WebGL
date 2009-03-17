@@ -29,15 +29,42 @@
 
 #if PLATFORM(CG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include "FloatRect.h"
+#include "GraphicsContext.h"
 #include "IntRect.h"
 #include "PlatformString.h"
+#include "StrokeStyleApplier.h"
 
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
+
+static size_t putBytesNowhere(void*, const void*, size_t count)
+{
+    return count;
+}
+
+static CGContextRef createScratchContext()
+{
+    CGDataConsumerCallbacks callbacks = { putBytesNowhere, 0 };
+    CGDataConsumerRef consumer = CGDataConsumerCreate(0, &callbacks);
+    CGContextRef context = CGPDFContextCreate(consumer, 0, 0);
+    CGDataConsumerRelease(consumer);
+
+    CGFloat black[4] = { 0, 0, 0, 1 };
+    CGContextSetFillColor(context, black);
+    CGContextSetStrokeColor(context, black);
+
+    return context;
+}
+
+static inline CGContextRef scratchContext()
+{
+    static CGContextRef context = createScratchContext();
+    return context;
+}
 
 Path::Path()
     : m_path(CGPathCreateMutable())
@@ -61,7 +88,6 @@ Path& Path::operator=(const Path& other)
     m_path = path;
     return *this;
 }
-
 
 static void copyClosingSubpathsApplierFunction(void* info, const CGPathElement* element)
 {
@@ -109,6 +135,25 @@ bool Path::contains(const FloatPoint &point, WindRule rule) const
     return ret;
 }
 
+bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
+{
+    ASSERT(applier);
+
+    CGContextRef context = scratchContext();
+
+    CGContextSaveGState(context);
+    CGContextBeginPath(context);
+    CGContextAddPath(context, platformPath());
+
+    GraphicsContext gc(context);
+    applier->strokeStyle(&gc);
+
+    bool hitSuccess = CGContextPathContainsPoint(context, point, kCGPathStroke);
+    CGContextRestoreGState(context);
+    
+    return hitSuccess;
+}
+
 void Path::translate(const FloatSize& size)
 {
     CGAffineTransform translation = CGAffineTransformMake(1, 0, 0, 1, size.width(), size.height());
@@ -121,6 +166,26 @@ void Path::translate(const FloatSize& size)
 FloatRect Path::boundingRect() const
 {
     return CGPathGetBoundingBox(m_path);
+}
+
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+{
+    CGContextRef context = scratchContext();
+
+    CGContextSaveGState(context);
+    CGContextBeginPath(context);
+    CGContextAddPath(context, platformPath());
+
+    if (applier) {
+        GraphicsContext graphicsContext(context);
+        applier->strokeStyle(&graphicsContext);
+    }
+
+    CGContextReplacePathWithStrokedPath(context);
+    CGRect box = CGContextIsPathEmpty(context) ? CGRectZero : CGContextGetPathBoundingBox(context);
+    CGContextRestoreGState(context);
+
+    return box;
 }
 
 void Path::moveTo(const FloatPoint& point)
@@ -184,8 +249,8 @@ bool Path::isEmpty() const
 
 static void CGPathToCFStringApplierFunction(void* info, const CGPathElement *element)
 {
-    CFMutableStringRef string = (CFMutableStringRef)info;
-    CFStringRef typeString = CFSTR("");
+    CFMutableStringRef string = static_cast<CFMutableStringRef>(info);
+
     CGPoint* points = element->points;
     switch (element->type) {
     case kCGPathElementMoveToPoint:
@@ -204,7 +269,8 @@ static void CGPathToCFStringApplierFunction(void* info, const CGPathElement *ele
                 points[2].x, points[2].y);
         break;
     case kCGPathElementCloseSubpath:
-        typeString = CFSTR("X"); break;
+        CFStringAppendFormat(string, 0, CFSTR("Z "));
+        break;
     }
 }
 
@@ -241,7 +307,7 @@ struct PathApplierInfo {
     PathApplierFunction function;
 };
 
-void CGPathApplierToPathApplier(void *info, const CGPathElement *element)
+static void CGPathApplierToPathApplier(void *info, const CGPathElement *element)
 {
     PathApplierInfo* pinfo = (PathApplierInfo*)info;
     FloatPoint points[3];
@@ -277,7 +343,7 @@ void Path::apply(void* info, PathApplierFunction function) const
     CGPathApply(m_path, &pinfo, CGPathApplierToPathApplier);
 }
 
-void Path::transform(const AffineTransform& transform)
+void Path::transform(const TransformationMatrix& transform)
 {
     CGMutablePathRef path = CGPathCreateMutable();
     CGAffineTransform transformCG = transform;

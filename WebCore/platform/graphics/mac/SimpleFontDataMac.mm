@@ -42,6 +42,7 @@
 #import <float.h>
 #import <unicode/uchar.h>
 #import <wtf/Assertions.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
 
 @interface NSFont (WebAppKitSecretAPI)
@@ -54,7 +55,7 @@ const float smallCapsFontSizeMultiplier = 0.7f;
 const float contextDPI = 72.0f;
 static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x * (contextDPI / (contextDPI * unitsPerEm)); }
 
-bool initFontData(SimpleFontData* fontData)
+static bool initFontData(SimpleFontData* fontData)
 {
     if (!fontData->m_font.cgFont())
         return false;
@@ -92,9 +93,7 @@ bool initFontData(SimpleFontData* fontData)
 
 static NSString *webFallbackFontFamily(void)
 {
-    static RetainPtr<NSString> webFallbackFontFamily = nil;
-    if (!webFallbackFontFamily)
-        webFallbackFontFamily = [[NSFont systemFontOfSize:16.0f] familyName];
+    DEFINE_STATIC_LOCAL(RetainPtr<NSString>, webFallbackFontFamily, ([[NSFont systemFontOfSize:16.0f] familyName]));
     return webFallbackFontFamily.get();
 }
 
@@ -315,7 +314,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
                 smallCapsFont.m_syntheticBold = (fontTraits & NSBoldFontMask) && !(smallCapsFontTraits & NSBoldFontMask);
                 smallCapsFont.m_syntheticOblique = (fontTraits & NSItalicFontMask) && !(smallCapsFontTraits & NSItalicFontMask);
 
-                m_smallCapsFontData = FontCache::getCachedFontData(&smallCapsFont);
+                m_smallCapsFontData = fontCache()->getCachedFontData(&smallCapsFont);
             }
             END_BLOCK_OBJC_EXCEPTIONS;
         }
@@ -325,7 +324,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
 {
-    NSString *string = [[NSString alloc] initWithCharactersNoCopy:(UniChar*)characters length:length freeWhenDone:NO];
+    NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<unichar*>(characters) length:length freeWhenDone:NO];
     NSCharacterSet *set = [[m_font.font() coveredCharacterSet] invertedSet];
     bool result = set && [string rangeOfCharacterFromSet:set].location == NSNotFound;
     [string release];

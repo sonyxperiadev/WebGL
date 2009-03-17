@@ -30,12 +30,13 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 GEN := $(intermediates)/css/CSSValueKeywords.h
 $(GEN): SCRIPT := $(LOCAL_PATH)/css/makevalues.pl
+$(GEN): PRIVATE_INTERMEDIATES := $(intermediates)
 $(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.in
 	@echo "Generating CSSValueKeywords.h <= CSSValueKeywords.in"
-	@mkdir -p $(dir $@)
-	@cp -f $< $(dir $@)
-	@cp -f $(SCRIPT) $(dir $@)
-	@cd $(dir $@) ; perl ./$(notdir $(SCRIPT))
+	mkdir -p $(dir $@)
+	cp -f $(SCRIPT) $(dir $@)
+	perl -ne 'print lc' $< > $(PRIVATE_INTERMEDIATES)/css/CSSValueKeywords.in
+	@cd $(PRIVATE_INTERMEDIATES)/css ; perl makevalues.pl
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
@@ -123,7 +124,7 @@ $(intermediates)/css/UserAgentStyleSheets.cpp : $(GEN)
 
 
 # lookup tables for old-style JavaScript bindings
-create_hash_table := $(LOCAL_PATH)/../JavaScriptCore/kjs/create_hash_table
+create_hash_table := $(LOCAL_PATH)/../JavaScriptCore/create_hash_table
 
 GEN := $(addprefix $(intermediates)/, \
 			bindings/js/JSDOMWindowBase.lut.h \
@@ -149,7 +150,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -175,6 +176,7 @@ GEN := \
     $(intermediates)/css/JSStyleSheetList.h  \
     $(intermediates)/css/JSWebKitCSSKeyframeRule.h \
     $(intermediates)/css/JSWebKitCSSKeyframesRule.h \
+    $(intermediates)/css/JSWebKitCSSMatrix.h \
     $(intermediates)/css/JSWebKitCSSTransformValue.h 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -202,6 +204,7 @@ GEN := \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
+    $(intermediates)/dom/JSDOMStringList.h \
     $(intermediates)/dom/JSDocument.h \
     $(intermediates)/dom/JSDocumentFragment.h \
     $(intermediates)/dom/JSDocumentType.h \
@@ -231,8 +234,8 @@ GEN := \
     $(intermediates)/dom/JSText.h \
     $(intermediates)/dom/JSTextEvent.h \
     $(intermediates)/dom/JSTouch.h \
-    $(intermediates)/dom/JSTouchList.h \
     $(intermediates)/dom/JSTouchEvent.h \
+    $(intermediates)/dom/JSTouchList.h \
     $(intermediates)/dom/JSTreeWalker.h \
     $(intermediates)/dom/JSUIEvent.h \
     $(intermediates)/dom/JSWebKitAnimationEvent.h \
@@ -252,7 +255,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 GEN := \
     $(intermediates)/html/JSCanvasGradient.h \
     $(intermediates)/html/JSCanvasPattern.h \
-    $(intermediates)/html/JSCanvasPixelArray.h \
     $(intermediates)/html/JSCanvasRenderingContext2D.h \
     $(intermediates)/html/JSFile.h \
     $(intermediates)/html/JSFileList.h \
@@ -383,8 +385,7 @@ GEN := \
     $(intermediates)/page/JSNavigator.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSPositionErrorCallback.h \
-    $(intermediates)/page/JSPositionOptions.h \
-    $(intermediates)/page/JSScreen.h 
+    $(intermediates)/page/JSScreen.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/JS%.h : $(LOCAL_PATH)/page/%.idl $(js_binding_scripts)

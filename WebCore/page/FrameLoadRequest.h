@@ -33,16 +33,14 @@ namespace WebCore {
     struct FrameLoadRequest {
     public:
         FrameLoadRequest()
-            : m_lockHistory(false)
 #ifdef ANDROID_USER_GESTURE
-            , m_wasUserGesture(true)
+            : m_wasUserGesture(true)
 #endif
         {
         }
 
         FrameLoadRequest(const ResourceRequest& resourceRequest)
             : m_resourceRequest(resourceRequest)
-            , m_lockHistory(false)
 #ifdef ANDROID_USER_GESTURE
             , m_wasUserGesture(true)
 #endif
@@ -52,7 +50,6 @@ namespace WebCore {
         FrameLoadRequest(const ResourceRequest& resourceRequest, const String& frameName)
             : m_resourceRequest(resourceRequest)
             , m_frameName(frameName)
-            , m_lockHistory(false)
 #ifdef ANDROID_USER_GESTURE
             , m_wasUserGesture(true)
 #endif
@@ -67,9 +64,6 @@ namespace WebCore {
         const String& frameName() const { return m_frameName; }
         void setFrameName(const String& frameName) { m_frameName = frameName; }
 
-        bool lockHistory() const { return m_lockHistory; }
-        void setLockHistory(bool lock) { m_lockHistory = lock; }
-
 #ifdef ANDROID_USER_GESTURE
         void setWasUserGesture(bool wasUserGesture) { m_wasUserGesture = wasUserGesture; }
         bool wasUserGesture() const { return m_wasUserGesture; }
@@ -78,7 +72,6 @@ namespace WebCore {
     private:
         ResourceRequest m_resourceRequest;
         String m_frameName;
-        bool m_lockHistory;
 #ifdef ANDROID_USER_GESTURE
         bool m_wasUserGesture;
 #endif

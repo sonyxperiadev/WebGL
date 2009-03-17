@@ -78,6 +78,18 @@ MessagePort* EventTarget::toMessagePort()
     return 0;
 }
 
+#if ENABLE(WORKERS)
+Worker* EventTarget::toWorker()
+{
+    return 0;
+}
+
+WorkerContext* EventTarget::toWorkerContext()
+{
+    return 0;
+}
+#endif
+
 #ifndef NDEBUG
 void forbidEventDispatch()
 {

@@ -39,6 +39,7 @@
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "HistoryItem.h"
+#include "IconDatabase.h"
 #include "Page.h"
 #include "TextEncoding.h"
 #include "WebCoreFrameBridge.h"
@@ -142,9 +143,10 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
 {
     LOG_ASSERT(frame, "RestoreState needs a valid Frame pointer!");
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
+    WebCore::Page* page = pFrame->page();
 
     // Set the current index in the list.
-    WebCore::BackForwardList* list = pFrame->page()->backForwardList();
+    WebCore::BackForwardList* list = page->backForwardList();
     WebCore::HistoryItem* currentItem = list->entries()[index].get();
     list->goToItem(currentItem);
 
@@ -153,12 +155,9 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     loader->setCurrentHistoryItem(currentItem);
     loader->setPreviousHistoryItem(list->backItem());
 
-    // Update the request with the current item's info.
-    WebCore::ResourceRequest& request = loader->documentLoader()->request();
-    request.setURL(currentItem->url());
-    request.setMainDocumentURL(currentItem->url());
-    // Reload the current page
-    loader->reloadAllowingStaleData(loader->documentLoader()->overrideEncoding());
+    // load the current page with FrameLoadTypeIndexedBackForward so that it
+    // will use cache when it is possible
+    page->goToItem(currentItem, FrameLoadTypeIndexedBackForward);
 }
 
 static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray data)
@@ -200,13 +199,13 @@ static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray d
 #endif
 }
 
-// 7 empty strings + no document state + children count = 9 unsigned values
+// 6 empty strings + no document state + children count = 8 unsigned values
 // 1 char for isTargetItem
 // ANDROID_HISTORY_CLIENT adds 1 int for scale.
 #ifdef ANDROID_HISTORY_CLIENT
-#define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 10 + sizeof(char)))
-#else
 #define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 9 + sizeof(char)))
+#else
+#define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 8 + sizeof(char)))
 #endif
 
 jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::HistoryItem* item)
@@ -231,10 +230,7 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
         return NULL;
 
     // Write our flattened data to the java array.
-    jbyte* bytes = env->GetByteArrayElements(b, NULL);
-    if (bytes)
-        memcpy(bytes, v.data(), v.size());
-    env->ReleaseByteArrayElements(b, bytes, 0);
+    env->SetByteArrayRegion(b, 0, v.size(), (const jbyte*)v.data());
     return b;
 }
 
@@ -423,9 +419,6 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     // Form content type
     write_string(v, item->formContentType());
 
-    // Form referrer
-    write_string(v, item->formReferrer());
-
     // Form data
     const WebCore::FormData* formData = item->formData();
     if (formData)
@@ -555,7 +548,6 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 
     // Generate a new ResourceRequest object for populating form information.
     WebCore::String formContentType;
-    WebCore::String formReferrer;
     WTF::PassRefPtr<WebCore::FormData> formData = NULL;
 
     // Read the form content type
@@ -565,20 +557,6 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         LOGV("Content type    %d %.*s", l, l, data);
         if (data + l < end)
             formContentType = e.decode(data, l);
-        else
-            return false;
-        data += l;
-    }
-    if (end - data < sizeofUnsigned)
-        return false;
-
-    // Read the form referrer
-    memcpy(&l, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (l) {
-        LOGV("Referrer        %d %.*s", l, l, data);
-        if (data + l < end)
-            formReferrer = e.decode(data, l);
         else
             return false;
         data += l;
@@ -605,7 +583,6 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         WebCore::ResourceRequest r;
         r.setHTTPMethod("POST");
         r.setHTTPContentType(formContentType);
-        r.setHTTPReferrer(formReferrer);
         r.setHTTPBody(formData);
         newItem->setFormInfoFromRequest(r);
     }
@@ -759,12 +736,6 @@ static void unit_test()
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
     LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length contentType should fail!");
-    // Form referrer
-    offset += 4;
-    memset(test3, 0, HISTORY_MIN_SIZE);
-    ptr = (const char*)test3;
-    *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length referrer should fail!");
     // Form data
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);

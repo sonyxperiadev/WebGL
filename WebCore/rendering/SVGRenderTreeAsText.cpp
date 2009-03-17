@@ -88,7 +88,7 @@ TextStream& operator<<(TextStream& ts, const IntRect& r)
     return ts << "at (" << r.x() << "," << r.y() << ") size " << r.width() << "x" << r.height();
 }
 
-bool hasFractions(double val)
+static bool hasFractions(double val)
 {
     double epsilon = 0.0001;
     int ival = static_cast<int>(val);
@@ -151,7 +151,7 @@ TextStream& operator<<(TextStream& ts, const FloatSize& s)
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, const AffineTransform& transform)
+TextStream& operator<<(TextStream& ts, const TransformationMatrix& transform)
 {
     if (transform.isIdentity())
         ts << "identity";
@@ -233,8 +233,10 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
 
     if (!object.localTransform().isIdentity())
         ts << " [transform=" << object.localTransform() << "]";
-    if (svgStyle->imageRendering() != SVGRenderStyle::initialImageRendering())
-        ts << " [image rendering=" << svgStyle->imageRendering() << "]";
+    if (svgStyle->imageRendering() != SVGRenderStyle::initialImageRendering()) {
+        unsigned imageRenderingAsInteger = svgStyle->imageRendering();
+        ts << " [image rendering=" << imageRenderingAsInteger << "]";
+    }
     if (style->opacity() != RenderStyle::initialOpacity())
         ts << " [opacity=" << style->opacity() << "]";
     if (object.isRenderPath()) {
@@ -329,7 +331,7 @@ static TextStream& operator<<(TextStream& ts, const RenderSVGText& text)
         return ts;
 
     Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(box->svgTextChunks());
-    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << box->width() << "x" << box->height() << " contains " << chunks.size() << " chunk(s)";
+    ts << " at (" << text.x() << "," << text.y() << ") size " << box->width() << "x" << box->height() << " contains " << chunks.size() << " chunk(s)";
 
     if (text.parent() && (text.parent()->style()->color() != text.style()->color()))
         ts << " [color=" << text.style()->color().name() << "]";
@@ -514,7 +516,9 @@ void write(TextStream& ts, const RenderSVGInlineText& text, int indent)
             ts << " {" << tagName << "}";
     }
 
-    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << text.width() << "x" << text.height() << "\n";
+    IntRect linesBox = text.linesBoundingBox();
+
+    ts << " at (" << text.firstRunX() << "," << text.firstRunY() << ") size " << linesBox.width() << "x" << linesBox.height() << "\n";
     writeSVGInlineText(ts, text, indent);
 }
 

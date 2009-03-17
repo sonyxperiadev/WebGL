@@ -32,7 +32,7 @@ namespace WebCore {
 
     class JSInspectorCallbackWrapper : public JSQuarantinedObjectWrapper {
     public:
-        static JSC::JSValue* wrap(JSC::ExecState* unwrappedExec, JSC::JSValue* unwrappedValue);
+        static JSC::JSValuePtr wrap(JSC::ExecState* unwrappedExec, JSC::JSValuePtr unwrappedValue);
 
         virtual ~JSInspectorCallbackWrapper();
 
@@ -40,12 +40,12 @@ namespace WebCore {
         static const JSC::ClassInfo s_info;
 
     protected:
-        JSInspectorCallbackWrapper(JSC::ExecState* unwrappedExec, JSC::JSObject* unwrappedObject, PassRefPtr<JSC::StructureID>);
+        JSInspectorCallbackWrapper(JSC::ExecState* unwrappedExec, JSC::JSObject* unwrappedObject, PassRefPtr<JSC::Structure>);
 
         virtual bool allowsCallAsFunction() const { return true; }
 
-        virtual JSC::JSValue* prepareIncomingValue(JSC::ExecState* unwrappedExec, JSC::JSValue* unwrappedValue) const;
-        virtual JSC::JSValue* wrapOutgoingValue(JSC::ExecState* unwrappedExec, JSC::JSValue* unwrappedValue) const { return wrap(unwrappedExec, unwrappedValue); }
+        virtual JSC::JSValuePtr prepareIncomingValue(JSC::ExecState* unwrappedExec, JSC::JSValuePtr unwrappedValue) const;
+        virtual JSC::JSValuePtr wrapOutgoingValue(JSC::ExecState* unwrappedExec, JSC::JSValuePtr unwrappedValue) const { return wrap(unwrappedExec, unwrappedValue); }
     };
 
 } // namespace WebCore

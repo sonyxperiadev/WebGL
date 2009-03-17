@@ -22,13 +22,13 @@
 #define ArrayPrototype_h
 
 #include "JSArray.h"
-#include "lookup.h"
+#include "Lookup.h"
 
 namespace JSC {
 
     class ArrayPrototype : public JSArray {
     public:
-        explicit ArrayPrototype(PassRefPtr<StructureID>);
+        explicit ArrayPrototype(PassRefPtr<Structure>);
 
         bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
 

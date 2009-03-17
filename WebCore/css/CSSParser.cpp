@@ -47,7 +47,6 @@
 #include "CSSReflectValue.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
-#include "CSSNthSelector.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
 #include "CSSUnicodeRangeValue.h"
@@ -69,7 +68,7 @@
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
-#include <kjs/dtoa.h>
+#include <wtf/dtoa.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "DashboardRegion.h"
@@ -133,7 +132,6 @@ CSSParser::CSSParser(bool strictParsing)
     , m_mediaQuery(0)
     , m_valueList(0)
     , m_parsedProperties(static_cast<CSSProperty**>(fastMalloc(32 * sizeof(CSSProperty*))))
-    , m_floatingSelector(0)
     , m_numParsedProperties(0)
     , m_maxParsedProperties(32)
     , m_inParseShorthand(0)
@@ -172,6 +170,7 @@ CSSParser::~CSSParser()
     deleteAllValues(m_floatingSelectors);
     deleteAllValues(m_floatingValueLists);
     deleteAllValues(m_floatingFunctions);
+    deleteAllValues(m_reusableSelectorVector);
 }
 
 void CSSParserString::lower()
@@ -305,17 +304,18 @@ bool CSSParser::parseColor(CSSMutableStyleDeclaration* declaration, const String
     return (m_numParsedProperties && m_parsedProperties[0]->m_id == CSSPropertyColor);
 }
 
-std::auto_ptr<CSSSelector> CSSParser::parseSelector(const String& string, Document* doc)
+void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorList& selectorList)
 {    
     RefPtr<CSSStyleSheet> dummyStyleSheet = CSSStyleSheet::create(doc);
 
     m_styleSheet = dummyStyleSheet.get();
+    m_selectorListForParseSelector = &selectorList;
 
     setupParser("@-webkit-selector{", string, "}");
 
     cssyyparse(this);
 
-    return std::auto_ptr<CSSSelector>(m_floatingSelector);
+    m_selectorListForParseSelector = 0;
 }
 
 bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string)
@@ -411,7 +411,7 @@ bool CSSParser::validUnit(CSSParserValue* value, Units unitflags, bool strict)
         b = (unitflags & FNumber);
         if (!b && ((unitflags & (FLength | FAngle | FTime)) && (value->fValue == 0 || !strict))) {
             value->unit = (unitflags & FLength) ? CSSPrimitiveValue::CSS_PX :
-                          ((unitflags & FAngle) ? CSSPrimitiveValue::CSS_DEG : CSSPrimitiveValue::CSS_S);
+                          ((unitflags & FAngle) ? CSSPrimitiveValue::CSS_DEG : CSSPrimitiveValue::CSS_MS);
             b = true;
         }
         if (!b && (unitflags & FInteger) && value->isInt)
@@ -438,6 +438,7 @@ bool CSSParser::validUnit(CSSParserValue* value, Units unitflags, bool strict)
     case CSSPrimitiveValue::CSS_DEG:
     case CSSPrimitiveValue::CSS_RAD:
     case CSSPrimitiveValue::CSS_GRAD:
+    case CSSPrimitiveValue::CSS_TURN:
         b = (unitflags & FAngle);
         break;
     case CSSPrimitiveValue::CSS_HZ:
@@ -476,6 +477,8 @@ static int unitFromString(CSSParserValue* value)
         return CSSPrimitiveValue::CSS_RAD;
     if (equal(value->string, "grad"))
         return CSSPrimitiveValue::CSS_GRAD;
+    if (equal(value->string, "turn"))
+        return CSSPrimitiveValue::CSS_TURN;
     if (equal(value->string, "ms"))
         return CSSPrimitiveValue::CSS_MS;
     if (equal(value->string, "s"))
@@ -832,7 +835,7 @@ bool CSSParser::parseValue(int propId, bool important)
                 hotspot = IntPoint(coords[0], coords[1]);
             if (m_strict || coords.size() == 0) {
                 if (!uri.isNull())
-                    list->append(CSSCursorImageValue::create(KURL(m_styleSheet->baseURL(), uri).string(), hotspot));
+                    list->append(CSSCursorImageValue::create(m_styleSheet->completeURL(uri), hotspot));
             }
             if ((m_strict && !value) || (value && !(value->unit == CSSParserValue::Operator && value->iValue == ',')))
                 return false;
@@ -898,7 +901,7 @@ bool CSSParser::parseValue(int propId, bool important)
             // ### allow string in non strict mode?
             String uri = parseURL(value->string);
             if (!uri.isNull()) {
-                parsedValue = CSSImageValue::create(KURL(m_styleSheet->baseURL(), uri).string());
+                parsedValue = CSSImageValue::create(m_styleSheet->completeURL(uri));
                 m_valueList->next();
             }
         } else if (value->unit == CSSParserValue::Function && equalIgnoringCase(value->function->name, "-webkit-gradient(")) {
@@ -1076,8 +1079,8 @@ bool CSSParser::parseValue(int propId, bool important)
         }
         break;
 
-    case CSSPropertyZoom:          // normal | reset | <number> | <percentage> | inherit
-        if (id == CSSValueNormal || id == CSSValueReset)
+    case CSSPropertyZoom:          // normal | reset | document | <number> | <percentage> | inherit
+        if (id == CSSValueNormal || id == CSSValueReset || id == CSSValueDocument)
             valid_primitive = true;
         else
             valid_primitive = (!id && validUnit(value, FNumber | FPercent | FNonNeg, true));
@@ -1111,8 +1114,7 @@ bool CSSParser::parseValue(int propId, bool important)
             while ((val = m_valueList->current())) {
                 if (val->unit == CSSPrimitiveValue::CSS_URI) {
                     String value = parseURL(val->string);
-                    parsedValue = CSSPrimitiveValue::create(KURL(m_styleSheet->baseURL(), value).string(),
-                        CSSPrimitiveValue::CSS_URI);
+                    parsedValue = CSSPrimitiveValue::create(m_styleSheet->completeURL(value), CSSPrimitiveValue::CSS_URI);
                 }
                 if (!parsedValue)
                     break;
@@ -1395,6 +1397,14 @@ bool CSSParser::parseValue(int propId, bool important)
         else // Always parse this property in strict mode, since it would be ambiguous otherwise when used in the 'columns' shorthand property.
             valid_primitive = validUnit(value, FLength, true);
         break;
+    case CSSPropertyPointerEvents:
+        // none | visiblePainted | visibleFill | visibleStroke | visible |
+        // painted | fill | stroke | auto | all | inherit
+        if (id == CSSValueVisible || id == CSSValueNone || id == CSSValueAll || id == CSSValueAuto ||
+            (id >= CSSValueVisiblepainted && id <= CSSValueStroke))
+            valid_primitive = true;
+        break;
+            
     // End of CSS3 properties
 
     // Apple specific properties.  These will never be standardized and are purely to
@@ -1802,7 +1812,8 @@ bool CSSParser::parseTransitionShorthand(bool important)
 {
     const int properties[] = { CSSPropertyWebkitTransitionProperty,
                                CSSPropertyWebkitTransitionDuration,
-                               CSSPropertyWebkitTransitionTimingFunction };
+                               CSSPropertyWebkitTransitionTimingFunction,
+                               CSSPropertyWebkitTransitionDelay };
     const int numProperties = sizeof(properties) / sizeof(properties[0]);
     
     ShorthandScope scope(this, CSSPropertyWebkitTransition);
@@ -1966,7 +1977,7 @@ bool CSSParser::parseContent(int propId, bool important)
         if (val->unit == CSSPrimitiveValue::CSS_URI) {
             // url
             String value = parseURL(val->string);
-            parsedValue = CSSImageValue::create(KURL(m_styleSheet->baseURL(), value).string());
+            parsedValue = CSSImageValue::create(m_styleSheet->completeURL(value));
         } else if (val->unit == CSSParserValue::Function) {
             // attr(X) | counter(X [,Y]) | counters(X, Y, [,Z]) | -webkit-gradient(...)
             CSSParserValueList* args = val->function->args;
@@ -2037,7 +2048,7 @@ bool CSSParser::parseFillImage(RefPtr<CSSValue>& value)
     if (m_valueList->current()->unit == CSSPrimitiveValue::CSS_URI) {
         String uri = parseURL(m_valueList->current()->string);
         if (!uri.isNull())
-            value = CSSImageValue::create(KURL(m_styleSheet->baseURL(), uri).string());
+            value = CSSImageValue::create(m_styleSheet->completeURL(uri));
         return true;
     }
 
@@ -2301,8 +2312,6 @@ bool CSSParser::parseFillProperty(int propId, int& propId1, int& propId2,
 PassRefPtr<CSSValue> CSSParser::parseAnimationDelay()
 {
     CSSParserValue* value = m_valueList->current();
-    if (value->id == CSSValueNow)
-        return CSSPrimitiveValue::createIdentifier(value->id);
     if (validUnit(value, FTime, m_strict))
         return CSSPrimitiveValue::create(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
     return 0;
@@ -2364,9 +2373,9 @@ PassRefPtr<CSSValue> CSSParser::parseAnimationProperty()
     if (result)
         return CSSPrimitiveValue::createIdentifier(result);
     if (equalIgnoringCase(value->string, "all"))
-        return CSSPrimitiveValue::createIdentifier(cAnimateAll); // FIXME: Why not use CSSValueAll instead?
+        return CSSPrimitiveValue::createIdentifier(CSSValueAll);
     if (equalIgnoringCase(value->string, "none"))
-        return CSSPrimitiveValue::createIdentifier(cAnimateNone); // FIXME: Why not use CSSValueNone instead?
+        return CSSPrimitiveValue::createIdentifier(CSSValueNone);
     return 0;
 }
 
@@ -3089,7 +3098,7 @@ bool CSSParser::parseFontFaceSrc()
         RefPtr<CSSFontFaceSrcValue> parsedValue;
         if (val->unit == CSSPrimitiveValue::CSS_URI && !expectComma) {
             String value = parseURL(val->string);
-            parsedValue = CSSFontFaceSrcValue::create(KURL(m_styleSheet->baseURL(), value).string());
+            parsedValue = CSSFontFaceSrcValue::create(m_styleSheet->completeURL(value));
             uriValue = parsedValue;
             allowFormat = true;
             expectComma = true;
@@ -3692,7 +3701,7 @@ bool CSSParser::parseBorderImage(int propId, bool important, RefPtr<CSSValue>& r
         String uri = parseURL(val->string);
         if (uri.isNull())
             return false;
-        context.commitImage(CSSImageValue::create(KURL(m_styleSheet->baseURL(), uri).string()));
+        context.commitImage(CSSImageValue::create(m_styleSheet->completeURL(uri)));
     } else if (val->unit == CSSParserValue::Function) {
         RefPtr<CSSValue> value;
         if ((equalIgnoringCase(val->function->name, "-webkit-gradient(") && parseGradient(value)) ||
@@ -3794,7 +3803,7 @@ static PassRefPtr<CSSPrimitiveValue> parseGradientPoint(CSSParserValue* a, bool 
     return result;
 }
 
-bool parseGradientColorStop(CSSParser* p, CSSParserValue* a, CSSGradientColorStop& stop)
+static bool parseGradientColorStop(CSSParser* p, CSSParserValue* a, CSSGradientColorStop& stop)
 {
     if (a->unit != CSSParserValue::Function)
         return false;
@@ -4146,19 +4155,7 @@ bool CSSParser::parseTransformOrigin(int propId, int& propId1, int& propId2, Ref
     return value;
 }
 
-#ifdef CSS_DEBUG
-
-static inline int yyerror(const char *str)
-{
-    kdDebug(6080) << "CSS parse error " << str << endl;
-    return 1;
-}
-
-#else
-
 static inline int yyerror(const char*) { return 1; }
-
-#endif
 
 #define END_TOKEN 0
 
@@ -4207,6 +4204,7 @@ int CSSParser::lex(void* yylvalWithoutType)
     case QEMS:
         length--;
     case GRADS:
+    case TURNS:
         length--;
     case DEGS:
     case RADS:
@@ -4393,13 +4391,6 @@ CSSSelector* CSSParser::createFloatingSelector()
     m_floatingSelectors.add(selector);
     return selector;
 }
-    
-CSSNthSelector* CSSParser::createFloatingNthSelector()
-{
-    CSSNthSelector* selector = new CSSNthSelector;
-    m_floatingSelectors.add(selector);
-    return selector;
-}
 
 CSSSelector* CSSParser::sinkFloatingSelector(CSSSelector* selector)
 {
@@ -4556,12 +4547,12 @@ WebKitCSSKeyframesRule* CSSParser::createKeyframesRule()
     return rulePtr;
 }
 
-CSSRule* CSSParser::createStyleRule(CSSSelector* selector)
+CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
 {
     CSSStyleRule* result = 0;
-    if (selector) {
+    if (selectors) {
         RefPtr<CSSStyleRule> rule = CSSStyleRule::create(m_styleSheet);
-        rule->setSelector(sinkFloatingSelector(selector));
+        rule->adoptSelectorVector(*selectors);
         if (m_hasFontFaceOnlyValues)
             deleteFontFaceOnlyValues();
         rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
@@ -4591,23 +4582,37 @@ CSSRule* CSSParser::createFontFaceRule()
     return result;
 }
 
+#if !ENABLE(CSS_VARIABLES)
+
+CSSRule* CSSParser::createVariablesRule(MediaList*, bool)
+{
+    return 0;
+}
+
+bool CSSParser::addVariable(const CSSParserString&, CSSParserValueList*)
+{
+    return false;
+}
+
+bool CSSParser::addVariableDeclarationBlock(const CSSParserString&)
+{
+    return false;
+}
+
+#else
+
 CSSRule* CSSParser::createVariablesRule(MediaList* mediaList, bool variablesKeyword)
 {
-#if ENABLE(CSS_VARIABLES)
     RefPtr<CSSVariablesRule> rule = CSSVariablesRule::create(m_styleSheet, mediaList, variablesKeyword);
     rule->setDeclaration(CSSVariablesDeclaration::create(rule.get(), m_variableNames, m_variableValues));
     clearVariables();    
     CSSRule* result = rule.get();
     m_parsedStyleObjects.append(rule.release());
     return result;
-#else
-    return 0;
-#endif
 }
 
 bool CSSParser::addVariable(const CSSParserString& name, CSSParserValueList* valueList)
 {
-#if ENABLE(CSS_VARIABLES)
     if (checkForVariables(valueList)) {
         delete valueList;
         return false;
@@ -4615,22 +4620,20 @@ bool CSSParser::addVariable(const CSSParserString& name, CSSParserValueList* val
     m_variableNames.append(String(name));
     m_variableValues.append(CSSValueList::createFromParserValueList(valueList));
     return true;
-#else
-    return false;
-#endif
 }
 
-bool CSSParser::addVariableDeclarationBlock(const CSSParserString& name)
+bool CSSParser::addVariableDeclarationBlock(const CSSParserString&)
 {
-#if ENABLE(CSS_VARIABLES)
+// FIXME: Disabling declarations as variable values for now since they no longer have a common base class with CSSValues.
+#if 0
     m_variableNames.append(String(name));
     m_variableValues.append(CSSMutableStyleDeclaration::create(0, m_parsedProperties, m_numParsedProperties));
     clearProperties();
-    return true;
-#else
-    return false;
 #endif
+    return true;
 }
+
+#endif
 
 void CSSParser::clearVariables()
 {

@@ -60,30 +60,36 @@ namespace WebCore {
         virtual bool isStyleSheet() const { return false; }
         virtual bool isXSLStyleSheet() const { return false; }
 
-        virtual bool isValueList() const { return false; }
         virtual bool isMutableStyleDeclaration() const { return false; }
 
         virtual String cssText() const;
 
         virtual void checkLoaded();
 
-        void setStrictParsing(bool b) { m_strictParsing = b; }
-        bool useStrictParsing() const { return m_strictParsing; }
+        bool useStrictParsing() const { return !m_parent || m_parent->useStrictParsing(); }
 
         virtual void insertedIntoParent() { }
 
         StyleSheet* stylesheet();
 
+#ifdef ANDROID_INSTRUMENT
+        // Overridden to prevent the normal new from being called.
+        void* operator new(size_t) throw();
+
+        // Overridden to prevent the normal delete from being called.
+        void operator delete(void*, size_t);
+
+        static size_t reportStyleSize();
+#endif
+
     protected:
         StyleBase(StyleBase* parent)
             : m_parent(parent)
-            , m_strictParsing(!parent || parent->useStrictParsing())
         {
         }
 
     private:
         StyleBase* m_parent;
-        bool m_strictParsing;
     };
 }
 

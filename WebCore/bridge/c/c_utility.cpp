@@ -66,24 +66,24 @@ static String convertUTF8ToUTF16WithLatin1Fallback(const NPUTF8* UTF8Chars, int 
 }
 
 // Variant value must be released with NPReleaseVariantValue()
-void convertValueToNPVariant(ExecState* exec, JSValue* value, NPVariant* result)
+void convertValueToNPVariant(ExecState* exec, JSValuePtr value, NPVariant* result)
 {
     JSLock lock(false);
 
     VOID_TO_NPVARIANT(*result);
 
-    if (value->isString()) {
-        UString ustring = value->toString(exec);
+    if (value.isString()) {
+        UString ustring = value.toString(exec);
         CString cstring = ustring.UTF8String();
         NPString string = { (const NPUTF8*)cstring.c_str(), static_cast<uint32_t>(cstring.size()) };
         NPN_InitializeVariantWithStringCopy(result, &string);
-    } else if (value->isNumber()) {
-        DOUBLE_TO_NPVARIANT(value->toNumber(exec), *result);
-    } else if (value->isBoolean()) {
-        BOOLEAN_TO_NPVARIANT(value->toBoolean(exec), *result);
-    } else if (value->isNull()) {
+    } else if (value.isNumber()) {
+        DOUBLE_TO_NPVARIANT(value.toNumber(exec), *result);
+    } else if (value.isBoolean()) {
+        BOOLEAN_TO_NPVARIANT(value.toBoolean(exec), *result);
+    } else if (value.isNull()) {
         NULL_TO_NPVARIANT(*result);
-    } else if (value->isObject()) {
+    } else if (value.isObject()) {
         JSObject* object = asObject(value);
         if (object->classInfo() == &RuntimeObjectImp::s_info) {
             RuntimeObjectImp* imp = static_cast<RuntimeObjectImp*>(object);
@@ -105,7 +105,7 @@ void convertValueToNPVariant(ExecState* exec, JSValue* value, NPVariant* result)
     }
 }
 
-JSValue* convertNPVariantToValue(ExecState* exec, const NPVariant* variant, RootObject* rootObject)
+JSValuePtr convertNPVariantToValue(ExecState* exec, const NPVariant* variant, RootObject* rootObject)
 {
     JSLock lock(false);
     
@@ -131,7 +131,7 @@ JSValue* convertNPVariantToValue(ExecState* exec, const NPVariant* variant, Root
             return ((JavaScriptObject*)obj)->imp;
 
         // Wrap NPObject in a CInstance.
-        return Instance::createRuntimeObject(exec, CInstance::create(obj, rootObject));
+        return CInstance::create(obj, rootObject)->createRuntimeObject(exec);
     }
     
     return jsUndefined();

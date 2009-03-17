@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -51,7 +52,7 @@ WebCore::Frame* core(WebKitWebFrame* frame)
         return 0;
 
     WebKitWebFramePrivate* priv = frame->priv;
-    return priv ? priv->coreFrame.get() : 0;
+    return priv ? priv->coreFrame : 0;
 }
 
 WebKitWebFrame* kit(WebCore::Frame* coreFrame)
@@ -81,6 +82,16 @@ WebKitWebView* kit(WebCore::Page* corePage)
     ASSERT(corePage->chrome());
     WebKit::ChromeClient* client = static_cast<WebKit::ChromeClient*>(corePage->chrome()->client());
     return client ? client->webView() : 0;
+}
+
+WebKitWebNavigationReason kit(WebCore::NavigationType type)
+{
+    return (WebKitWebNavigationReason)type;
+}
+
+WebCore::NavigationType core(WebKitWebNavigationReason type)
+{
+    return (WebCore::NavigationType)type;
 }
 
 } /** end namespace WebKit */

@@ -73,11 +73,6 @@ ObjcClass* ObjcClass::classForIsA(ClassStructPtr isa)
     return aClass;
 }
 
-const char* ObjcClass::name() const
-{
-    return object_getClassName(_isa);
-}
-
 MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) const
 {
     MethodList methodList;
@@ -133,7 +128,7 @@ MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) cons
                     mappedName = [thisClass webScriptNameForSelector:objcMethodSelector];
 
                 if ((mappedName && [mappedName isEqual:(NSString*)methodName.get()]) || strcmp(objcMethodSelectorName, buffer) == 0) {
-                    Method* aMethod = new ObjcMethod(thisClass, objcMethodSelectorName); // deleted when the dictionary is destroyed
+                    Method* aMethod = new ObjcMethod(thisClass, objcMethodSelector); // deleted when the dictionary is destroyed
                     CFDictionaryAddValue(_methods.get(), methodName.get(), aMethod);
                     methodList.append(aMethod);
                     break;
@@ -244,7 +239,7 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
     return aField;
 }
 
-JSValue* ObjcClass::fallbackObject(ExecState* exec, Instance* instance, const Identifier &propertyName)
+JSValuePtr ObjcClass::fallbackObject(ExecState* exec, Instance* instance, const Identifier &propertyName)
 {
     ObjcInstance* objcInstance = static_cast<ObjcInstance*>(instance);
     id targetObject = objcInstance->getObject();

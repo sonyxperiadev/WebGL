@@ -26,7 +26,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "NotImplemented.h"
 #include "Path.h"
 
@@ -173,6 +173,16 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     m_data->restore();
 }
 
+void GraphicsContext::setShouldIncludeChildWindows(bool include)
+{
+    m_data->m_shouldIncludeChildWindows = include;
+}
+
+bool GraphicsContext::shouldIncludeChildWindows() const
+{
+    return m_data->m_shouldIncludeChildWindows;
+}
+
 GraphicsContext::WindowsBitmap::WindowsBitmap(HDC hdc, IntSize size)
     : m_hdc(0)
     , m_size(size)
@@ -222,14 +232,16 @@ GraphicsContext::WindowsBitmap* GraphicsContext::createWindowsBitmap(IntSize siz
 void GraphicsContext::drawWindowsBitmap(WindowsBitmap* image, const IntPoint& point)
 {
     RetainPtr<CGColorSpaceRef> deviceRGB(AdoptCF, CGColorSpaceCreateDeviceRGB());
-    RetainPtr<CFDataRef> imageData(AdoptCF, CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, image->buffer(), image->bufferLength(), kCFAllocatorNull));
+    // FIXME: Creating CFData is non-optimal, but needed to avoid crashing when printing.  Ideally we should 
+    // make a custom CGDataProvider that controls the WindowsBitmap lifetime.  see <rdar://6394455>
+    RetainPtr<CFDataRef> imageData(AdoptCF, CFDataCreate(kCFAllocatorDefault, image->buffer(), image->bufferLength()));
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(imageData.get()));
     RetainPtr<CGImageRef> cgImage(AdoptCF, CGImageCreate(image->size().width(), image->size().height(), 8, 32, image->bytesPerRow(), deviceRGB.get(),
                                                          kCGBitmapByteOrder32Little | kCGImageAlphaFirst, dataProvider.get(), 0, true, kCGRenderingIntentDefault));
     CGContextDrawImage(m_data->m_cgContext, CGRectMake(point.x(), point.y(), image->size().width(), image->size().height()), cgImage.get());   
 }
 
-void GraphicsContextPlatformPrivate::concatCTM(const AffineTransform& transform)
+void GraphicsContextPlatformPrivate::concatCTM(const TransformationMatrix& transform)
 {
     if (!m_hdc)
         return;

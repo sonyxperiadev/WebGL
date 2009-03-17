@@ -29,7 +29,7 @@
 #include "PlatformString.h"
 #include <debugger/DebuggerCallFrame.h>
 #include <runtime/JSGlobalObject.h>
-#include <kjs/interpreter.h>
+#include <runtime/Completion.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSObject.h>
 #include <runtime/JSValue.h>
@@ -88,7 +88,7 @@ JSObject* JavaScriptCallFrame::thisObject() const
 }
 
 // Evaluate some JavaScript code in the scope of this frame.
-JSValue* JavaScriptCallFrame::evaluate(const UString& script, JSValue*& exception) const
+JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
 {
     ASSERT(m_isValid);
     if (!m_isValid)

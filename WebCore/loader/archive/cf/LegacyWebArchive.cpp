@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "LegacyWebArchive.h"
 
 #include "CString.h"
+#include "Cache.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
@@ -37,14 +38,15 @@
 #include "FrameTree.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
-#include "KURL.h"
+#include "IconDatabase.h"
+#include "KURLHash.h"
 #include "Logging.h"
 #include "markup.h"
 #include "Node.h"
 #include "Range.h"
 #include "SelectionController.h"
 #include "SharedBuffer.h"
-
+#include <wtf/ListHashSet.h>
 #include <wtf/RetainPtr.h>
 
 namespace WebCore {
@@ -374,15 +376,21 @@ RetainPtr<CFDataRef> LegacyWebArchive::rawDataRepresentation()
         LOG(Archives, "LegacyWebArchive - Failed to create property list for archive, returning no data");
         return 0;
     }
-    
-    // FIXME: On Mac, WebArchives have been written out as Binary Property Lists until this change.
-    // Unless we jump through CFWriteStream hoops, they'll now be textual XML data.  Is this okay?
-    RetainPtr<CFDataRef> plistData(AdoptCF, CFPropertyListCreateXMLData(0, propertyList.get()));
+
+    RetainPtr<CFWriteStreamRef> stream(AdoptCF, CFWriteStreamCreateWithAllocatedBuffers(0, 0));
+
+    CFWriteStreamOpen(stream.get());
+    CFPropertyListWriteToStream(propertyList.get(), stream.get(), kCFPropertyListBinaryFormat_v1_0, 0);
+
+    RetainPtr<CFDataRef> plistData(AdoptCF, static_cast<CFDataRef>(CFWriteStreamCopyProperty(stream.get(), kCFStreamPropertyDataWritten)));
+
+    CFWriteStreamClose(stream.get());
+
     if (!plistData) {
         LOG(Archives, "LegacyWebArchive - Failed to convert property list into raw data, returning no data");
         return 0;
     }
-    
+
     return plistData;
 }
 
@@ -488,7 +496,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
 
     Vector<PassRefPtr<LegacyWebArchive> > subframeArchives;
     Vector<PassRefPtr<ArchiveResource> > subresources;
-    HashSet<String> uniqueSubresources;
+    HashSet<KURL> uniqueSubresources;
     
     Vector<Node*>::iterator it = nodes.begin();
     Vector<Node*>::iterator end = nodes.end();
@@ -508,24 +516,50 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
             else
                 LOG_ERROR("Unabled to archive subframe %s", childFrame->tree()->name().string().utf8().data());
         } else {
-            Vector<KURL> subresourceURLs;
+            ListHashSet<KURL> subresourceURLs;
             (*it)->getSubresourceURLs(subresourceURLs);
             
             DocumentLoader* documentLoader = frame->loader()->documentLoader();
-            for (unsigned i = 0; i < subresourceURLs.size(); ++i) {
-                if (uniqueSubresources.contains(subresourceURLs[i].string()))
+            ListHashSet<KURL>::iterator iterEnd = subresourceURLs.end();
+            for (ListHashSet<KURL>::iterator iter = subresourceURLs.begin(); iter != iterEnd; ++iter) {
+                const KURL& subresourceURL = *iter;
+                if (uniqueSubresources.contains(subresourceURL))
                     continue;
-                uniqueSubresources.add(subresourceURLs[i].string());
-                RefPtr<ArchiveResource> resource = documentLoader->subresource(subresourceURLs[i]);
-                if (resource)
+
+                uniqueSubresources.add(subresourceURL);
+
+                RefPtr<ArchiveResource> resource = documentLoader->subresource(subresourceURL);
+                if (resource) {
                     subresources.append(resource.release());
-                else
-                    // FIXME: should do something better than spew to console here
-                    LOG_ERROR("Failed to archive subresource for %s", subresourceURLs[i].string().utf8().data());
+                    continue;
+                }
+
+                CachedResource *cachedResource = cache()->resourceForURL(subresourceURL);
+                if (cachedResource) {
+                    resource = ArchiveResource::create(cachedResource->data(), subresourceURL, cachedResource->response());
+                    if (resource) {
+                        subresources.append(resource.release());
+                        continue;
+                    }
+                }
+
+                // FIXME: should do something better than spew to console here
+                LOG_ERROR("Failed to archive subresource for %s", subresourceURL.string().utf8().data());
             }
         }
     }
-    
+
+    // Add favicon if one exists for this page
+    if (iconDatabase() && iconDatabase()->isEnabled()) {
+        const String& iconURL = iconDatabase()->iconURLForPageURL(responseURL);
+        if (!iconURL.isEmpty() && iconDatabase()->iconDataKnownForIconURL(iconURL)) {
+            if (Image* iconImage = iconDatabase()->iconForPageURL(responseURL, IntSize(16, 16))) {
+                RefPtr<ArchiveResource> resource = ArchiveResource::create(iconImage->data(), KURL(iconURL), "image/x-icon", "", "");
+                subresources.append(resource.release());
+            }
+        }
+    }
+
     return create(mainResource, subresources, subframeArchives);
 }
 

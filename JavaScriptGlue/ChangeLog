@@ -1,3 +1,175 @@
+2009-02-03  Mark Rowe  <mrowe@apple.com>
+
+        Merge r40345.
+
+    2009-01-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix for <rdar://problem/6525537>
+        Hang occurs when closing Installer window (iTunes, Aperture)
+
+        * JSUtils.cpp:
+        (getThreadGlobalObject): Use the shared JSGlobalData instance.
+
+2009-01-22  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Anders Carlsson.
+
+        Disable GCC_WARN_ABOUT_MISSING_PROTOTYPES temporarily.
+
+        Current versions of Xcode only respect it for C and Objective-C files,
+        and our code doesn't currently compile if it is applied to C++ and
+        Objective-C++ files.
+
+        * Configurations/Base.xcconfig:
+
+2009-01-19  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Gavin Barraclough.
+
+        Remove temporary operator-> from JSValuePtr.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectMark):
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertySlot):
+
+2009-01-14  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        - update copyright
+
+        * Info.plist:
+
+2009-01-09  David Levin  <levin@chromium.org>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23175
+
+        Added forwarding header.
+
+        * ForwardingHeaders/wtf/PtrAndFlags.h: Added.
+
+2009-01-05  Gavin Barraclough  <baraclough@apple.com>
+
+        Rubber Stamped by Oliver Hunt.
+
+        Replace all uses of JSValue* with new wrapper class, JSValuePtr.
+        See JavaScriptCore/ChangeLog for more detailed description.
+
+        * JSObject.cpp:
+        (nativeCallFunction):
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (KJSValueToCFType):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        (JSValueWrapper::GetValue):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        * JSValueWrapper.h:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2008-12-15  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Cameron Zwarich.
+
+        <rdar://problem/6289933> Change WebKit-related projects to build with GCC 4.2 on Leopard.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2008-12-08  David Kilzer  <ddkilzer@apple.com>
+
+        Bug 22555: Sort "children" sections in Xcode project files
+
+        <https://bugs.webkit.org/show_bug.cgi?id=22555>
+
+        Reviewed by Eric Seidel.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Sorted.
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore rename.
+
+        * ForwardingHeaders/runtime/CallFrame.h: Copied from JavaScriptGlue/ForwardingHeaders/runtime/ExecState.h.
+        * ForwardingHeaders/runtime/ExecState.h: Removed.
+        * config.h:
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore rename.
+
+        * ForwardingHeaders/interpreter: Added.
+        * ForwardingHeaders/interpreter/CallFrame.h: Copied from ForwardingHeaders/runtime/ExecState.h.
+        * ForwardingHeaders/runtime/ExecState.h: Removed.
+
+2008-11-15  Darin Adler  <darin@apple.com>
+
+        Rubber stamped by Geoff Garen.
+
+        - do the long-planned StructureID -> Structure rename
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::JSGlueGlobalObject):
+        (JSRun::JSRun):
+        * JSRun.h:
+        (JSGlueGlobalObject::userObjectStructure):
+        * JSUtils.cpp:
+        (getThreadGlobalObject):
+        * UserObjectImp.cpp:
+        (UserObjectImp::UserObjectImp):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2008-11-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore renames.
+
+        * JSRun.cpp:
+        (JSRun::Evaluate):
+        (JSRun::CheckSyntax):
+
+2008-11-05  Cameron Zwarich  <zwarich@apple.com>
+
+        Not reviewed.
+
+        Fix the JavaScriptGlue build. This wouldn't show up unless one was
+        doing a clean build, because changes in JavaScriptCore don't cause
+        anything in JavaScriptGlue to get rebuilt.
+
+        * JSRun.cpp:
+        * JSUtils.h:
+        * JavaScriptGlue.cpp:
+
 2008-11-04  Cameron Zwarich  <zwarich@apple.com>
 
         Reviewed by Mark Rowe.

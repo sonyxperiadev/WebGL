@@ -38,8 +38,17 @@ using namespace WTF;
 
 namespace WebCore {
 
-const RGBA32 lightenedBlack = 0xFF545454;
-const RGBA32 darkenedWhite = 0xFFABABAB;
+#if !COMPILER(MSVC)
+const RGBA32 Color::black;
+const RGBA32 Color::white;
+const RGBA32 Color::darkGray;
+const RGBA32 Color::gray;
+const RGBA32 Color::lightGray;
+const RGBA32 Color::transparent;
+#endif
+
+static const RGBA32 lightenedBlack = 0xFF545454;
+static const RGBA32 darkenedWhite = 0xFFABABAB;
 
 RGBA32 makeRGB(int r, int g, int b)
 {
@@ -51,7 +60,7 @@ RGBA32 makeRGBA(int r, int g, int b, int a)
     return max(0, min(a, 255)) << 24 | max(0, min(r, 255)) << 16 | max(0, min(g, 255)) << 8 | max(0, min(b, 255));
 }
 
-int colorFloatToRGBAByte(float f)
+static int colorFloatToRGBAByte(float f)
 {
     // We use lroundf and 255 instead of nextafterf(256, 0) to match CG's rounding
     return max(0, min(static_cast<int>(lroundf(255.0f * f)), 255));

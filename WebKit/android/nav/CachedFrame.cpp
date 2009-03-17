@@ -125,6 +125,14 @@ void CachedFrame::clearFocus()
 // returns 0 if test is preferable to best, 1 if not preferable, or -1 if unknown
 int CachedFrame::compare(BestData& testData, const BestData& bestData, const CachedNode* focus) const
 {
+    if (testData.mNode->tabIndex() != bestData.mNode->tabIndex()) {
+        if (testData.mNode->tabIndex() < bestData.mNode->tabIndex()
+                || (focus && focus->tabIndex() < bestData.mNode->tabIndex())) {
+            testData.mNode->setCondition(CachedNode::HIGHER_TAB_INDEX);
+            return REJECT_TEST;
+        }
+        return TEST_IS_BEST;
+    }
 //    start here;
     // if the test minor axis line intersects the line segment between focus center and best center, choose it
     // give more weight to exact major axis alignment (rows, columns)
@@ -322,8 +330,8 @@ CachedNode* CachedFrame::find(WebCore::Node* node) // !!! probably debugging onl
 }
 #endif
 
-const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, 
-    int* best, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
+const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* best,
+    bool* inside, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
 {
     const CachedNode* result = NULL;
     int rectWidth = rect.width();
@@ -379,13 +387,17 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                 both.intersect(testRect);
                 if (both.isEmpty())
                     continue;
+                bool testInside = testRect.contains(center);
+                if (*inside && !testInside)
+                    continue;
                 WebCore::IntPoint testCenter = WebCore::IntPoint(testRect.x() + 
                     (testRect.width() >> 1), testRect.y() + (testRect.height() >> 1));
                 int dx = testCenter.x() - center.x();
                 int dy = testCenter.y() - center.y();
                 int distance = dx * dx + dy * dy;
-                if (*best > distance) {
+                if ((!*inside && testInside) || *best > distance) {
                     *best = distance;
+                    *inside = testInside;
                     result = test;
                     *framePtr = this;
                     *x = both.x() + (both.width() >> 1);
@@ -396,7 +408,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
     }
     for (const CachedFrame* frame = mCachedFrames.begin(); 
             frame != mCachedFrames.end(); frame++) {
-        const CachedNode* frameResult = frame->findBestAt(rect, best, directHit,
+        const CachedNode* frameResult = frame->findBestAt(rect, best, inside, directHit,
             framePtr, x, y);
         if (NULL != frameResult)
             result = frameResult;
@@ -662,7 +674,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
         testData.mNode->setCondition(CachedNode::NOT_FOCUS_NODE);
         return REJECT_TEST;
     }
-//    if (test->bounds().contains(history()->focusBounds())) {
+//    if (test->bounds().contains(mRoot->focusBounds())) {
 //        testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
 //        return REJECT_TEST;
 //    }
@@ -733,7 +745,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 int CachedFrame::framePartCommon(BestData& testData,
     const CachedNode* test, BestData* bestData, const CachedNode* focus) const
 {
-    if (testData.mNodeBounds.contains(history()->focusBounds())) {
+    if (testData.mNodeBounds.contains(mRoot->focusBounds())) {
         testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_FOCUS);
         return REJECT_TEST;
     }

@@ -23,13 +23,13 @@
 
 #include "ErrorPrototype.h"
 #include "JSString.h"
-#include "ustring.h"
+#include "UString.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(NativeErrorPrototype);
 
-NativeErrorPrototype::NativeErrorPrototype(ExecState* exec, PassRefPtr<StructureID> structure, const UString& name, const UString& message)
+NativeErrorPrototype::NativeErrorPrototype(ExecState* exec, PassRefPtr<Structure> structure, const UString& name, const UString& message)
     : JSObject(structure)
 {
     putDirect(exec->propertyNames().name, jsString(exec, name), 0);

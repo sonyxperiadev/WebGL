@@ -59,18 +59,16 @@ public:
 
     Length styleOrColWidth() const;
 
-    virtual bool requiresLayer();
+    virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
 
     virtual void calcPrefWidths();
     virtual void calcWidth();
-    virtual void setWidth(int);
-
 #ifdef ANDROID_LAYOUT
     // RenderTableSection needs to access this in setCellWidths()
     int getVisibleWidth() { return m_visibleWidth; }
 #endif    
 
-    virtual bool expandsToEncloseOverhangingFloats() const { return true; }
+    void updateWidth(int);
 
     int borderLeft() const;
     int borderRight() const;
@@ -101,33 +99,39 @@ public:
     void paintCollapsedBorder(GraphicsContext*, int x, int y, int w, int h);
     void paintBackgroundsBehindCell(PaintInfo&, int tx, int ty, RenderObject* backgroundObject);
 
-    // Lie about position to outside observers.
-    virtual int yPos() const { return m_y + m_topExtra; }
-
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed = false);
-    virtual bool absolutePosition(int& x, int& y, bool fixed = false) const;
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual void computeRectForRepaint(IntRect&, RenderBox* repaintContainer, bool fixed = false);
+    virtual FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
+    virtual FloatPoint absoluteToLocal(FloatPoint containerPoint, bool fixed = false, bool useTransforms = false) const;
 
     virtual int baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
 
-    void setCellTopExtra(int p) { m_topExtra = p; }
-    void setCellBottomExtra(int p) { m_bottomExtra = p; }
+    void setIntrinsicPaddingTop(int p) { m_intrinsicPaddingTop = p; }
+    void setIntrinsicPaddingBottom(int p) { m_intrinsicPaddingBottom = p; }
+    void setIntrinsicPadding(int top, int bottom) { setIntrinsicPaddingTop(top); setIntrinsicPaddingBottom(bottom); }
+    void clearIntrinsicPadding() { setIntrinsicPadding(0, 0); }
 
-    virtual int borderTopExtra() const { return m_topExtra; }
-    virtual int borderBottomExtra() const { return m_bottomExtra; }
+    int intrinsicPaddingTop() const { return m_intrinsicPaddingTop; }
+    int intrinsicPaddingBottom() const { return m_intrinsicPaddingBottom; }
+
+    virtual int paddingTop(bool includeIntrinsicPadding = true) const;
+    virtual int paddingBottom(bool includeIntrinsicPadding = true) const;
+
+    virtual void setOverrideSize(int);
 
 protected:
     virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
     virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+
+    virtual FloatQuad localToContainerQuad(const FloatQuad&, RenderBox* repaintContainer, bool fixed = false) const;
 
 private:
     int m_row;
     int m_column;
     int m_rowSpan;
     int m_columnSpan;
-    int m_topExtra : 31;
-    int m_bottomExtra : 31;
-    bool m_widthChanged : 1;
+    int m_intrinsicPaddingTop;
+    int m_intrinsicPaddingBottom;
     int m_percentageHeight;
 };
 

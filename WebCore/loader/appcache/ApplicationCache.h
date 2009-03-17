@@ -28,13 +28,12 @@
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
+#include "PlatformString.h"
+#include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-
-#include "StringHash.h"
-#include "PlatformString.h"
 
 namespace WebCore {
 
@@ -43,7 +42,9 @@ class ApplicationCacheResource;
 class DocumentLoader;
 class KURL;
 class ResourceRequest;
-    
+
+typedef Vector<std::pair<KURL, KURL> > FallbackURLVector;
+
 class ApplicationCache : public RefCounted<ApplicationCache> {
 public:
     static PassRefPtr<ApplicationCache> create() { return adoptRef(new ApplicationCache); }
@@ -57,7 +58,9 @@ public:
     
     void setGroup(ApplicationCacheGroup*);
     ApplicationCacheGroup* group() const { return m_group; }
-    
+
+    bool isComplete() const;
+
     ApplicationCacheResource* resourceForRequest(const ResourceRequest&);
     ApplicationCacheResource* resourceForURL(const String& url);
 
@@ -67,9 +70,13 @@ public:
     bool addDynamicEntry(const String& url);
     void removeDynamicEntry(const String& url);
     
-    void setOnlineWhitelist(const HashSet<String>& onlineWhitelist);
-    const HashSet<String>& onlineWhitelist() const { return m_onlineWhitelist; }
-    bool isURLInOnlineWhitelist(const KURL&);
+    void setOnlineWhitelist(const Vector<KURL>& onlineWhitelist);
+    const Vector<KURL>& onlineWhitelist() const { return m_onlineWhitelist; }
+    bool isURLInOnlineWhitelist(const KURL&); // There is an entry in online whitelist that has the same origin as the resource's URL and that is a prefix match for the resource's URL.
+
+    void setFallbackURLs(const FallbackURLVector&);
+    const FallbackURLVector& fallbackURLs() const { return m_fallbackURLs; }
+    bool urlMatchesFallbackNamespace(const KURL&, KURL* fallbackURL = 0);
     
 #ifndef NDEBUG
     void dump();
@@ -84,15 +91,20 @@ public:
     void clearStorageID();
     
     static bool requestIsHTTPOrHTTPSGet(const ResourceRequest&);
+
 private:
     ApplicationCache();
     
     ApplicationCacheGroup* m_group;
     ResourceMap m_resources;
     ApplicationCacheResource* m_manifest;
-    
-    HashSet<String> m_onlineWhitelist;
-    
+
+    Vector<KURL> m_onlineWhitelist;
+    FallbackURLVector m_fallbackURLs;
+
+    // While an update is in progress, changes in dynamic entries are queued for later execution.
+    Vector<std::pair<KURL, bool> > m_pendingDynamicEntryActions;
+
     unsigned m_storageID;
 };
 

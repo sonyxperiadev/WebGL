@@ -83,7 +83,9 @@ private:
     unsigned m_heapInsertionOrder; // Used to keep order among equal-fire-time timers
 
     friend void updateSharedTimer();
+#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
     friend void setDeferringTimers(bool);
+#endif
     friend class TimerHeapElement;
     friend bool operator<(const TimerHeapElement&, const TimerHeapElement&);
 };
@@ -102,10 +104,12 @@ private:
     TimerFiredFunction m_function;
 };
 
+#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
 // Set to true to prevent any timers from firing.
 // When set back to false, timers that were deferred will fire.
 bool isDeferringTimers();
 void setDeferringTimers(bool);
+#endif
 
 }
 

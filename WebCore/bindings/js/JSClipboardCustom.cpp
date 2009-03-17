@@ -48,7 +48,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-JSValue* JSClipboard::types(ExecState* exec) const
+JSValuePtr JSClipboard::types(ExecState* exec) const
 {
     Clipboard* clipboard = impl();
 
@@ -63,7 +63,7 @@ JSValue* JSClipboard::types(ExecState* exec) const
     return constructArray(exec, list);
 }
 
-JSValue* JSClipboard::clearData(ExecState* exec, const ArgList& args)
+JSValuePtr JSClipboard::clearData(ExecState* exec, const ArgList& args)
 {
     Clipboard* clipboard = impl();
 
@@ -73,7 +73,7 @@ JSValue* JSClipboard::clearData(ExecState* exec, const ArgList& args)
     }
 
     if (args.size() == 1) {
-        clipboard->clearData(args.at(exec, 0)->toString(exec));
+        clipboard->clearData(args.at(exec, 0).toString(exec));
         return jsUndefined();
     }
 
@@ -81,7 +81,7 @@ JSValue* JSClipboard::clearData(ExecState* exec, const ArgList& args)
     return throwError(exec, SyntaxError, "clearData: Invalid number of arguments");
 }
 
-JSValue* JSClipboard::getData(ExecState* exec, const ArgList& args)
+JSValuePtr JSClipboard::getData(ExecState* exec, const ArgList& args)
 {
     // FIXME: It does not match the rest of the JS bindings to throw on invalid number of arguments.
     if (args.size() != 1)
@@ -90,14 +90,14 @@ JSValue* JSClipboard::getData(ExecState* exec, const ArgList& args)
     Clipboard* clipboard = impl();
 
     bool success;
-    String result = clipboard->getData(args.at(exec, 0)->toString(exec), success);
+    String result = clipboard->getData(args.at(exec, 0).toString(exec), success);
     if (!success)
         return jsUndefined();
 
     return jsString(exec, result);
 }
 
-JSValue* JSClipboard::setData(ExecState* exec, const ArgList& args)
+JSValuePtr JSClipboard::setData(ExecState* exec, const ArgList& args)
 {
     Clipboard* clipboard = impl();
 
@@ -105,10 +105,10 @@ JSValue* JSClipboard::setData(ExecState* exec, const ArgList& args)
     if (args.size() != 2)
         return throwError(exec, SyntaxError, "setData: Invalid number of arguments");
 
-    return jsBoolean(clipboard->setData(args.at(exec, 0)->toString(exec), args.at(exec, 1)->toString(exec)));
+    return jsBoolean(clipboard->setData(args.at(exec, 0).toString(exec), args.at(exec, 1).toString(exec)));
 }
 
-JSValue* JSClipboard::setDragImage(ExecState* exec, const ArgList& args)
+JSValuePtr JSClipboard::setDragImage(ExecState* exec, const ArgList& args)
 {
     Clipboard* clipboard = impl();
 
@@ -119,8 +119,8 @@ JSValue* JSClipboard::setDragImage(ExecState* exec, const ArgList& args)
     if (args.size() != 3)
         return throwError(exec, SyntaxError, "setDragImage: Invalid number of arguments");
 
-    int x = args.at(exec, 1)->toInt32(exec);
-    int y = args.at(exec, 2)->toInt32(exec);
+    int x = args.at(exec, 1).toInt32(exec);
+    int y = args.at(exec, 2).toInt32(exec);
 
     // See if they passed us a node
     Node* node = toNode(args.at(exec, 0));

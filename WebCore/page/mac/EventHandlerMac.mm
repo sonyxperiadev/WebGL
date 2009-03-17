@@ -26,6 +26,7 @@
 #include "config.h"
 #include "EventHandler.h"
 
+#include "AXObjectCache.h"
 #include "BlockExceptions.h"
 #include "ChromeClient.h"
 #include "ClipboardMac.h"
@@ -42,16 +43,15 @@
 #include "RenderWidget.h"
 #include "Scrollbar.h"
 #include "Settings.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
 
 const double EventHandler::TextDragDelay = 0.15;
 
 static RetainPtr<NSEvent>& currentEvent()
 {
-    static RetainPtr<NSEvent> event;
+    DEFINE_STATIC_LOCAL(RetainPtr<NSEvent>, event, ());
     return event;
 }
 
@@ -641,6 +641,17 @@ bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& me
 bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
 {
     return passSubframeEventToSubframe(mev, subframe);
+}
+
+unsigned EventHandler::accessKeyModifiers()
+{
+    // Control+Option key combinations are usually unused on Mac OS X, but not when VoiceOver is enabled.
+    // So, we use Control in this case, even though it conflicts with Emacs-style key bindings.
+    // See <https://bugs.webkit.org/show_bug.cgi?id=21107> for more detail.
+    if (AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
+        return PlatformKeyboardEvent::CtrlKey;
+
+    return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
 }
 
 }

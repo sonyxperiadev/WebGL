@@ -506,6 +506,9 @@ media-seek-back-button
 media-seek-forward-button
 media-slider
 media-sliderthumb
+media-timeline-container
+media-current-time-display
+media-time-remaining-display
 menulist
 menulist-button
 menulist-text
@@ -556,12 +559,6 @@ visual
 lines
 
 #
-# CSS_PROP__WEBKIT_TRANSITION_DELAY
-# CSS_PROP__WEBKIT_ANIMATION_DELAY
-#
-now
-
-#
 # CSS_PROP__WEBKIT_ANIMATION_DIRECTION
 #
 # alternate
@@ -590,4 +587,18 @@ ease-in-out
 #
 # CSS_PROP_ZOOM
 #
+document
 reset
+
+#
+# CSS_PROP_POINTER_EVENTS
+#
+visiblePainted
+visibleFill
+visibleStroke
+#visible
+painted
+fill
+stroke
+#all
+#none

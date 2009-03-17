@@ -67,6 +67,9 @@ void JSDOMApplicationCache::mark()
     if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->oncached()))
         listener->mark();
 
+    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onobsolete()))
+        listener->mark();
+
     typedef DOMApplicationCache::EventListenersMap EventListenersMap;
     typedef DOMApplicationCache::ListenerVector ListenerVector;
     EventListenersMap& eventListeners = m_impl->eventListeners();
@@ -78,12 +81,27 @@ void JSDOMApplicationCache::mark()
     }
 }
 
-JSValue* JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
+#if ENABLE(APPLICATION_CAHE_DYNAMIC_ENTRIES)
+
+JSValuePtr JSDOMApplicationCache::hasItem(ExecState* exec, const ArgList& args)
 {
     Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 0)->toString(exec));
+    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
+
+    ExceptionCode ec = 0;
+    bool result = impl()->hasItem(url, ec);
+    setDOMException(exec, ec);
+    return jsBoolean(result);
+}
+
+JSValuePtr JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
+{
+    Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
+    if (!frame)
+        return jsUndefined();
+    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
     
     ExceptionCode ec = 0;
     impl()->add(url, ec);
@@ -91,12 +109,12 @@ JSValue* JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue* JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
+JSValuePtr JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
 {
     Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 0)->toString(exec));
+    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
     
     ExceptionCode ec = 0;
     impl()->remove(url, ec);
@@ -104,7 +122,9 @@ JSValue* JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue* JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList& args)
+#endif
+
+JSValuePtr JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -112,11 +132,11 @@ JSValue* JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList&
     RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0)->toString(exec), listener.release(), args.at(exec, 2)->toBoolean(exec));
+    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValue* JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -124,7 +144,7 @@ JSValue* JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgLi
     JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0)->toString(exec), listener, args.at(exec, 2)->toBoolean(exec));
+    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 

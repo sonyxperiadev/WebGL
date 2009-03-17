@@ -29,6 +29,7 @@
 #include "config.h"
 #include "ImageSource.h"
 #include "ImageDecoderQt.h"
+#include "NotImplemented.h"
 #include "SharedBuffer.h"
 
 #include <QBuffer>
@@ -36,25 +37,6 @@
 #include <QImageReader>
 
 namespace WebCore {
-static bool canHandleImage(const SharedBuffer& _data)
-{
-    // We need at least 4 bytes to figure out what kind of image we're dealing with.
-    if (_data.size() < 4)
-        return false;
-
-    QByteArray data = QByteArray::fromRawData(_data.data(), _data.size());
-    QBuffer buffer(&data);
-    if (!buffer.open(QBuffer::ReadOnly))
-        return false;
-
-    return !QImageReader::imageFormat(&buffer).isEmpty();
-}
-
-ImageDecoderQt* createDecoder(const SharedBuffer& data) {
-    if (!canHandleImage(data))
-        return 0;
-    return new ImageDecoderQt();
-}
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -63,7 +45,7 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    delete m_decoder;
+    clear(true);
 }
 
 bool ImageSource::initialized() const
@@ -78,12 +60,20 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
     if (!m_decoder)
-        m_decoder = createDecoder(*data);
+        m_decoder = ImageDecoderQt::create(*data);
 
     if (!m_decoder)
         return;
 
     m_decoder->setData(data->buffer(), allDataReceived);
+}
+
+String ImageSource::filenameExtension() const
+{
+    if (!m_decoder)
+        return String();
+
+    return m_decoder->filenameExtension();
 }
 
 bool ImageSource::isSizeAvailable()
@@ -162,12 +152,19 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
     return (m_decoder && m_decoder->imageAtIndex(index) != 0);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
-    delete  m_decoder;
-    m_decoder = 0;
-}
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
 
+    delete m_decoder;
+    m_decoder = 0;
+    if (data)
+      setData(data, allDataReceived);
+}
 
 }
 

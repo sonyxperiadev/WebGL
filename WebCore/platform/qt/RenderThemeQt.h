@@ -70,6 +70,12 @@ public:
 
     virtual void adjustSliderThumbSize(RenderObject*) const;
 
+    virtual double caretBlinkInterval() const;
+
+#if ENABLE(VIDEO)
+    virtual String extraMediaControlsStyleSheet();
+#endif
+
 protected:
     virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
     virtual void setCheckboxSize(RenderStyle*) const;

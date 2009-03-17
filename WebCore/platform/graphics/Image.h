@@ -30,6 +30,7 @@
 #include "Color.h"
 #include "GraphicsTypes.h"
 #include "ImageSource.h"
+#include "IntRect.h"
 #include <wtf/RefPtr.h>
 #include <wtf/PassRefPtr.h>
 #include "SharedBuffer.h"
@@ -66,13 +67,11 @@ class SkBitmapRef;
 
 namespace WebCore {
 
-class AffineTransform;
+class TransformationMatrix;
 class FloatPoint;
 class FloatRect;
 class FloatSize;
 class GraphicsContext;
-class IntRect;
-class IntSize;
 class SharedBuffer;
 class String;
 
@@ -96,7 +95,7 @@ public:
     virtual bool hasSingleSecurityOrigin() const { return false; }
 
     static Image* nullImage();
-    bool isNull() const;
+    bool isNull() const { return size().isEmpty(); }
 
     // These are only used for SVGImage right now
     virtual void setContainerSize(const IntSize&) { }
@@ -105,14 +104,16 @@ public:
     virtual bool hasRelativeHeight() const { return false; }
 
     virtual IntSize size() const = 0;
-    IntRect rect() const;
-    int width() const;
-    int height() const;
+    IntRect rect() const { return IntRect(IntPoint(), size()); }
+    int width() const { return size().width(); }
+    int height() const { return size().height(); }
 
     bool setData(PassRefPtr<SharedBuffer> data, bool allDataReceived);
-    virtual bool dataChanged(bool allDataReceived) { return false; }
+    virtual bool dataChanged(bool /*allDataReceived*/) { return false; }
+    
+    virtual String filenameExtension() const { return String(); } // null string if unknown
 
-    virtual void destroyDecodedData(bool incremental = false, bool preserveNearbyFrames = false) = 0;
+    virtual void destroyDecodedData(bool destroyAll = true) = 0;
     virtual unsigned decodedSize() const = 0;
 
     SharedBuffer* data() { return m_data.get(); }
@@ -166,9 +167,9 @@ protected:
     virtual bool mayFillWithSolidColor() const { return false; }
     virtual Color solidColor() const { return Color(); }
     
-    virtual void startAnimation() { }
+    virtual void startAnimation(bool /*catchUpIfNecessary*/ = true) { }
     
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
+    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
                              const FloatPoint& phase, CompositeOperator, const FloatRect& destRect);
 #if PLATFORM(CG)
     // These are private to CG.  Ideally they would be only in the .cpp file, but the callback requires access

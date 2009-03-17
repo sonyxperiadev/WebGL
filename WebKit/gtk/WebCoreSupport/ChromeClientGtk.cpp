@@ -1,7 +1,9 @@
 /*
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2007, 2008 Holger Hans Peter Freyther
  * Copyright (C) 2007, 2008 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2008 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2008 Gustavo Noronha Silva <gns@gnome.org>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,12 +26,14 @@
 #include "FileSystem.h"
 #include "FileChooser.h"
 #include "FloatRect.h"
+#include "FrameLoadRequest.h"
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "CString.h"
 #include "HitTestResult.h"
 #include "KURL.h"
 #include "webkitwebview.h"
+#include "webkitnetworkrequest.h"
 #include "webkitprivate.h"
 #include "NotImplemented.h"
 #include "WindowFeatures.h"
@@ -48,6 +52,7 @@ namespace WebKit {
 ChromeClient::ChromeClient(WebKitWebView* webView)
     : m_webView(webView)
 {
+    ASSERT(m_webView);
 }
 
 void ChromeClient::chromeDestroyed()
@@ -57,10 +62,8 @@ void ChromeClient::chromeDestroyed()
 
 FloatRect ChromeClient::windowRect()
 {
-    if (!m_webView)
-        return FloatRect();
     GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(m_webView));
-    if (window) {
+    if (GTK_WIDGET_TOPLEVEL(window)) {
         gint left, top, width, height;
         gtk_window_get_position(GTK_WINDOW(window), &left, &top);
         gtk_window_get_size(GTK_WINDOW(window), &width, &height);
@@ -69,15 +72,21 @@ FloatRect ChromeClient::windowRect()
     return FloatRect();
 }
 
-void ChromeClient::setWindowRect(const FloatRect& r)
+void ChromeClient::setWindowRect(const FloatRect& rect)
 {
-    notImplemented();
+    IntRect intrect = IntRect(rect);
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+
+    g_object_set(webWindowFeatures,
+                 "x", intrect.x(),
+                 "y", intrect.y(),
+                 "width", intrect.width(),
+                 "height", intrect.height(),
+                 NULL);
 }
 
 FloatRect ChromeClient::pageRect()
 {
-    if (!m_webView)
-        return FloatRect();
     GtkAllocation allocation = GTK_WIDGET(m_webView)->allocation;
     return IntRect(allocation.x, allocation.y, allocation.width, allocation.height);
 }
@@ -90,39 +99,38 @@ float ChromeClient::scaleFactor()
 
 void ChromeClient::focus()
 {
-    if (!m_webView)
-        return;
     gtk_widget_grab_focus(GTK_WIDGET(m_webView));
 }
 
 void ChromeClient::unfocus()
 {
-    if (!m_webView)
-        return;
     GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(m_webView));
-    if (window)
+    if (GTK_WIDGET_TOPLEVEL(window))
         gtk_window_set_focus(GTK_WINDOW(window), NULL);
 }
 
-Page* ChromeClient::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& features)
+Page* ChromeClient::createWindow(Frame* frame, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& coreFeatures)
 {
-    if (features.dialog) {
-        notImplemented();
-        return 0;
-    } else {
-        /* TODO: FrameLoadRequest is not used */
-        WebKitWebView* webView = WEBKIT_WEB_VIEW_GET_CLASS(m_webView)->create_web_view(m_webView);
-        if (!webView)
-            return 0;
+    WebKitWebView* webView = 0;
 
-        WebKitWebViewPrivate* privateData = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
-        return privateData->corePage;
-    }
+    g_signal_emit_by_name(m_webView, "create-web-view", kit(frame), &webView);
+
+    if (!webView)
+        return 0;
+
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_window_features_new_from_core_features(coreFeatures);
+    g_object_set(webView, "window-features", webWindowFeatures, NULL);
+    g_object_unref(webWindowFeatures);
+
+    if (!frameLoadRequest.isEmpty())
+        webkit_web_view_open(webView, frameLoadRequest.resourceRequest().url().string().utf8().data());
+
+    return core(webView);
 }
 
 void ChromeClient::show()
 {
-    notImplemented();
+    webkit_web_view_notify_ready(m_webView);
 }
 
 bool ChromeClient::canRunModal()
@@ -136,52 +144,72 @@ void ChromeClient::runModal()
     notImplemented();
 }
 
-void ChromeClient::setToolbarsVisible(bool)
+void ChromeClient::setToolbarsVisible(bool visible)
 {
-    notImplemented();
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+
+    g_object_set(webWindowFeatures, "toolbar-visible", visible, NULL);
 }
 
 bool ChromeClient::toolbarsVisible()
 {
-    notImplemented();
-    return false;
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+    gboolean visible;
+
+    g_object_get(webWindowFeatures, "toolbar-visible", &visible, NULL);
+    return visible;
 }
 
-void ChromeClient::setStatusbarVisible(bool)
+void ChromeClient::setStatusbarVisible(bool visible)
 {
-    notImplemented();
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+
+    g_object_set(webWindowFeatures, "statusbar-visible", visible, NULL);
 }
 
 bool ChromeClient::statusbarVisible()
 {
-    notImplemented();
-    return false;
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+    gboolean visible;
+
+    g_object_get(webWindowFeatures, "statusbar-visible", &visible, NULL);
+    return visible;
 }
 
-void ChromeClient::setScrollbarsVisible(bool)
+void ChromeClient::setScrollbarsVisible(bool visible)
 {
-    notImplemented();
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+
+    g_object_set(webWindowFeatures, "scrollbar-visible", visible, NULL);
 }
 
 bool ChromeClient::scrollbarsVisible() {
-    notImplemented();
-    return false;
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+    gboolean visible;
+
+    g_object_get(webWindowFeatures, "scrollbar-visible", &visible, NULL);
+    return visible;
 }
 
-void ChromeClient::setMenubarVisible(bool)
+void ChromeClient::setMenubarVisible(bool visible)
 {
-    notImplemented();
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+
+    g_object_set(webWindowFeatures, "menubar-visible", visible, NULL);
 }
 
 bool ChromeClient::menubarVisible()
 {
-    notImplemented();
-    return false;
+    WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
+    gboolean visible;
+
+    g_object_get(webWindowFeatures, "menubar-visible", &visible, NULL);
+    return visible;
 }
 
 void ChromeClient::setResizable(bool)
 {
-    notImplemented();
+    // Ignored for now
 }
 
 void ChromeClient::closeWindowSoon()
@@ -191,8 +219,6 @@ void ChromeClient::closeWindowSoon()
 
 bool ChromeClient::canTakeFocus(FocusDirection)
 {
-    if (!m_webView)
-        return false;
     return GTK_WIDGET_CAN_FOCUS(m_webView);
 }
 
@@ -269,9 +295,6 @@ IntRect ChromeClient::windowResizerRect() const
 
 void ChromeClient::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
 {
-    if (!m_webView)
-        return;
-
     GdkRectangle rect = windowRect;
     GdkWindow* window = GTK_WIDGET(m_webView)->window;
 
@@ -286,9 +309,6 @@ void ChromeClient::repaint(const IntRect& windowRect, bool contentChanged, bool 
 
 void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
-    if (!m_webView)
-        return;
-
     GdkWindow* window = GTK_WIDGET(m_webView)->window;
     if (!window)
         return;
@@ -328,7 +348,12 @@ IntPoint ChromeClient::screenToWindow(const IntPoint& point) const
 
 PlatformWidget ChromeClient::platformWindow() const
 {
-    return m_webView ? GTK_WIDGET(m_webView) : 0;
+    return GTK_WIDGET(m_webView);
+}
+
+void ChromeClient::contentsSizeChanged(Frame*, const IntSize&) const
+{
+    notImplemented();
 }
 
 void ChromeClient::mouseDidMoveOverElement(const HitTestResult& hit, unsigned modifierFlags)
@@ -353,7 +378,7 @@ void ChromeClient::setToolTip(const String& toolTip)
 {
 #if GTK_CHECK_VERSION(2,12,0)
     if (toolTip.isEmpty())
-        g_object_set(G_OBJECT(m_webView), "has-tooltip", FALSE, NULL);
+        g_object_set(m_webView, "has-tooltip", FALSE, NULL);
     else
         gtk_widget_set_tooltip_text(GTK_WIDGET(m_webView), toolTip.utf8().data());
 #else
@@ -381,9 +406,7 @@ void ChromeClient::exceededDatabaseQuota(Frame* frame, const String&)
 
 void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
 {
-    // FIXME: Support multiple files.
-
-    RefPtr<FileChooser> fileChooser = prpFileChooser;
+    RefPtr<FileChooser> chooser = prpFileChooser;
 
     GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Upload File"),
                                                     GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(platformWindow()))),
@@ -392,11 +415,26 @@ void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
                                                     GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
                                                     NULL);
 
+    gtk_file_chooser_set_select_multiple(GTK_FILE_CHOOSER(dialog), chooser->allowsMultipleFiles());
+
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
-        gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
-        if (filename)
-            fileChooser->chooseFile(filenameToString(filename));
-        g_free(filename);
+        if (gtk_file_chooser_get_select_multiple(GTK_FILE_CHOOSER(dialog))) {
+            GSList* filenames = gtk_file_chooser_get_filenames(GTK_FILE_CHOOSER(dialog));
+            Vector<String> names;
+            for (GSList* item = filenames ; item ; item = item->next) {
+                if (!item->data)
+                    continue;
+                names.append(filenameToString(static_cast<char*>(item->data)));
+                g_free(item->data);
+            }
+            g_slist_free(filenames);
+            chooser->chooseFiles(names);
+        } else {
+            gchar* filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+            if (filename)
+                chooser->chooseFile(filenameToString(filename));
+            g_free(filename);
+        }
     }
     gtk_widget_destroy(dialog);
 }

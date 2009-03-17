@@ -506,9 +506,9 @@ void RenderListMarker::styleDidChange(RenderStyle::Diff diff, const RenderStyle*
     }
 }
 
-InlineBox* RenderListMarker::createInlineBox(bool, bool isRootLineBox, bool)
+InlineBox* RenderListMarker::createInlineBox(bool, bool unusedIsRootLineBox, bool)
 {
-    ASSERT(!isRootLineBox);
+    ASSERT_UNUSED(unusedIsRootLineBox, !unusedIsRootLineBox);
     ListMarkerBox* box = new (renderArena()) ListMarkerBox(this);
     m_inlineBoxWrapper = box;
     return box;
@@ -530,7 +530,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
     IntRect marker = getRelativeMarkerRect();
     marker.move(tx, ty);
 
-    IntRect box(tx + m_x, ty + m_y, m_width, m_height);
+    IntRect box(tx + x(), ty + y(), width(), height());
 
     if (box.y() > paintInfo.rect.bottom() || box.y() + box.height() < paintInfo.rect.y())
         return;
@@ -539,7 +539,6 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         paintBoxDecorations(paintInfo, box.x(), box.y());
 
     GraphicsContext* context = paintInfo.context;
-    context->setFont(style()->font());
 
     if (isImage()) {
 #if PLATFORM(MAC)
@@ -619,15 +618,15 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
     const Font& font = style()->font();
     if (style()->direction() == LTR) {
         int width = font.width(textRun);
-        context->drawText(textRun, marker.location());
+        context->drawText(style()->font(), textRun, marker.location());
         const UChar periodSpace[2] = { '.', ' ' };
-        context->drawText(TextRun(periodSpace, 2), marker.location() + IntSize(width, 0));
+        context->drawText(style()->font(), TextRun(periodSpace, 2), marker.location() + IntSize(width, 0));
     } else {
         const UChar spacePeriod[2] = { ' ', '.' };
         TextRun spacePeriodRun(spacePeriod, 2);
         int width = font.width(spacePeriodRun);
-        context->drawText(spacePeriodRun, marker.location());
-        context->drawText(textRun, marker.location() + IntSize(width, 0));
+        context->drawText(style()->font(), spacePeriodRun, marker.location());
+        context->drawText(style()->font(), textRun, marker.location() + IntSize(width, 0));
     }
 }
 
@@ -637,11 +636,11 @@ void RenderListMarker::layout()
     ASSERT(!prefWidthsDirty());
 
     if (isImage()) {
-        m_width = m_image->imageSize(this, style()->effectiveZoom()).width();
-        m_height = m_image->imageSize(this, style()->effectiveZoom()).height();
+        setWidth(m_image->imageSize(this, style()->effectiveZoom()).width());
+        setHeight(m_image->imageSize(this, style()->effectiveZoom()).height());
     } else {
-        m_width = minPrefWidth();
-        m_height = style()->font().height();
+        setWidth(minPrefWidth());
+        setHeight(style()->font().height());
     }
 
     m_marginLeft = m_marginRight = 0;
@@ -656,13 +655,13 @@ void RenderListMarker::layout()
     setNeedsLayout(false);
 }
 
-void RenderListMarker::imageChanged(WrappedImagePtr o)
+void RenderListMarker::imageChanged(WrappedImagePtr o, const IntRect*)
 {
     // A list marker can't have a background or border image, so no need to call the base class method.
     if (o != m_image->data())
         return;
 
-    if (m_width != m_image->imageSize(this, style()->effectiveZoom()).width() || m_height != m_image->imageSize(this, style()->effectiveZoom()).height() || m_image->errorOccurred())
+    if (width() != m_image->imageSize(this, style()->effectiveZoom()).width() || height() != m_image->imageSize(this, style()->effectiveZoom()).height() || m_image->errorOccurred())
         setNeedsLayoutAndPrefWidthsRecalc();
     else
         repaint();
@@ -830,7 +829,7 @@ bool RenderListMarker::isInside() const
 IntRect RenderListMarker::getRelativeMarkerRect()
 {
     if (isImage())
-        return IntRect(m_x, m_y, m_image->imageSize(this, style()->effectiveZoom()).width(), m_image->imageSize(this, style()->effectiveZoom()).height());
+        return IntRect(x(), y(), m_image->imageSize(this, style()->effectiveZoom()).width(), m_image->imageSize(this, style()->effectiveZoom()).height());
 
     switch (style()->listStyleType()) {
         case DISC:
@@ -840,7 +839,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
             const Font& font = style()->font();
             int ascent = font.ascent();
             int bulletWidth = (ascent * 2 / 3 + 1) / 2;
-            return IntRect(m_x + 1, m_y + 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
+            return IntRect(x() + 1, y() + 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
         }
         case LNONE:
             return IntRect();
@@ -867,7 +866,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
             int itemWidth = font.width(m_text);
             const UChar periodSpace[2] = { '.', ' ' };
             int periodSpaceWidth = font.width(TextRun(periodSpace, 2));
-            return IntRect(m_x, m_y + font.ascent(), itemWidth + periodSpaceWidth, font.height());
+            return IntRect(x(), y() + font.ascent(), itemWidth + periodSpaceWidth, font.height());
     }
 
     return IntRect();
@@ -890,14 +889,13 @@ IntRect RenderListMarker::selectionRect(bool clipToVisibleContent)
         return IntRect();
 
     RootInlineBox* root = inlineBoxWrapper()->root();
-    IntRect rect(0, root->selectionTop() - yPos(), width(), root->selectionHeight());
+    IntRect rect(0, root->selectionTop() - y(), width(), root->selectionHeight());
             
     if (clipToVisibleContent)
         computeAbsoluteRepaintRect(rect);
     else {
-        int absx, absy;
-        absolutePosition(absx, absy);
-        rect.move(absx, absy);
+        FloatPoint absPos = localToAbsolute();
+        rect.move(absPos.x(), absPos.y());
     }
     
     return rect;

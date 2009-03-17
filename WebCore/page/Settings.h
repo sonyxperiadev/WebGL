@@ -43,6 +43,12 @@ namespace WebCore {
         EditableLinkNeverLive
     };
 
+    enum TextDirectionSubmenuInclusionBehavior {
+        TextDirectionSubmenuNeverIncluded,
+        TextDirectionSubmenuAutomaticallyIncluded,
+        TextDirectionSubmenuAlwaysIncluded
+    };
+
     class Settings {
     public:
         Settings(Page*);
@@ -120,6 +126,12 @@ namespace WebCore {
         const String& pluginsPath() const { return m_pluginsPath; }
 #endif
 
+        void setDatabasesEnabled(bool);
+        bool databasesEnabled() const { return m_databasesEnabled; }
+
+        void setLocalStorageEnabled(bool);
+        bool localStorageEnabled() const { return m_localStorageEnabled; }
+
         void setPrivateBrowsingEnabled(bool);
         bool privateBrowsingEnabled() const { return m_privateBrowsingEnabled; }
         
@@ -137,7 +149,10 @@ namespace WebCore {
 
         void setEditableLinkBehavior(EditableLinkBehavior);
         EditableLinkBehavior editableLinkBehavior() const { return m_editableLinkBehavior; }
-        
+
+        void setTextDirectionSubmenuInclusionBehavior(TextDirectionSubmenuInclusionBehavior);
+        TextDirectionSubmenuInclusionBehavior textDirectionSubmenuInclusionBehavior() const { return m_textDirectionSubmenuInclusionBehavior; }
+
 #if ENABLE(DASHBOARD_SUPPORT)
         void setUsesDashboardBackwardCompatibilityMode(bool);
         bool usesDashboardBackwardCompatibilityMode() const { return m_usesDashboardBackwardCompatibilityMode; }
@@ -230,6 +245,9 @@ namespace WebCore {
         static bool shouldPaintNativeControls() { return gShouldPaintNativeControls; }
 #endif
 
+        void setNeedsIChatMemoryCacheCallsQuirk(bool);
+        bool needsIChatMemoryCacheCallsQuirk() const { return m_needsIChatMemoryCacheCallsQuirk; }
+
     private:
         Page* m_page;
         
@@ -250,6 +268,7 @@ namespace WebCore {
         LayoutAlgorithm m_layoutAlgorithm;
 #endif
         EditableLinkBehavior m_editableLinkBehavior;
+        TextDirectionSubmenuInclusionBehavior m_textDirectionSubmenuInclusionBehavior;
         int m_minimumFontSize;
         int m_minimumLogicalFontSize;
         int m_defaultFontSize;
@@ -289,6 +308,8 @@ namespace WebCore {
         bool m_loadsImagesAutomatically : 1;
         bool m_privateBrowsingEnabled : 1;
         bool m_arePluginsEnabled : 1;
+        bool m_databasesEnabled : 1;
+        bool m_localStorageEnabled : 1;
         bool m_isJavaScriptEnabled : 1;
         bool m_javaScriptCanOpenWindowsAutomatically : 1;
         bool m_shouldPrintBackgrounds : 1;
@@ -315,6 +336,7 @@ namespace WebCore {
         bool m_zoomsTextOnly : 1;
         bool m_enforceCSSMIMETypeInStrictMode : 1;
         size_t m_maximumDecodedImageSize;
+        bool m_needsIChatMemoryCacheCallsQuirk : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

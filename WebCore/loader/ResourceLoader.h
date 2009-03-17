@@ -40,6 +40,7 @@
 
 namespace WebCore {
 
+    class ApplicationCache;
     class DocumentLoader;
     class Frame;
     class FrameLoader;
@@ -82,6 +83,7 @@ namespace WebCore {
         virtual void didFinishLoading();
         virtual void didFail(const ResourceError&);
 
+        virtual bool shouldUseCredentialStorage();
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
         void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
         virtual void receivedCancellation(const AuthenticationChallenge&);
@@ -96,6 +98,7 @@ namespace WebCore {
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
         virtual void willStopBufferingData(ResourceHandle*, const char* data, int length) { willStopBufferingData(data, length); } 
+        virtual bool shouldUseCredentialStorage(ResourceHandle*) { return shouldUseCredentialStorage(); }
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didReceiveAuthenticationChallenge(challenge); } 
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didCancelAuthenticationChallenge(challenge); } 
         virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge& challenge) { receivedCancellation(challenge); }
@@ -111,6 +114,10 @@ namespace WebCore {
 
     protected:
         ResourceLoader(Frame*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        bool scheduleLoadFallbackResourceFromApplicationCache(ApplicationCache* = 0);
+#endif
 
         virtual void didCancel(const ResourceError&);
         void didFinishLoadingOnePart();
@@ -139,9 +146,6 @@ namespace WebCore {
         bool m_shouldContentSniff;
         bool m_shouldBufferData;
         bool m_defersLoading;
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        bool m_wasLoadedFromApplicationCache;
-#endif
         ResourceRequest m_deferredRequest;
     };
 

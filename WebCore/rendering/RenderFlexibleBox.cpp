@@ -28,6 +28,7 @@
 #include "CharacterNames.h"
 #include "RenderLayer.h"
 #include "RenderView.h"
+#include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_LAYOUT
 #include "Document.h"
@@ -49,11 +50,11 @@ public:
         lastOrdinal = 1; 
         if (!forward) {
             // No choice, since we're going backwards, we have to find out the highest ordinal up front.
-            RenderObject* child = box->firstChild();
+            RenderBox* child = box->firstChildBox();
             while (child) {
                 if (child->style()->boxOrdinalGroup() > lastOrdinal)
                     lastOrdinal = child->style()->boxOrdinalGroup();
-                child = child->nextSibling();
+                child = child->nextSiblingBox();
             }
         }
         
@@ -65,29 +66,28 @@ public:
         currentOrdinal = forward ? 0 : lastOrdinal+1;
     }
 
-    RenderObject* first() {
+    RenderBox* first() {
         reset();
         return next();
     }
     
-    RenderObject* next() {
-
+    RenderBox* next() {
         do { 
             if (!current) {
                 if (forward) {
                     currentOrdinal++; 
                     if (currentOrdinal > lastOrdinal)
                         return 0;
-                    current = box->firstChild();
+                    current = box->firstChildBox();
                 } else {
                     currentOrdinal--;
                     if (currentOrdinal == 0)
                         return 0;
-                    current = box->lastChild();
+                    current = box->lastChildBox();
                 }
             }
             else
-                current = forward ? current->nextSibling() : current->previousSibling();
+                current = forward ? current->nextSiblingBox() : current->previousSiblingBox();
             if (current && current->style()->boxOrdinalGroup() > lastOrdinal)
                 lastOrdinal = current->style()->boxOrdinalGroup();
         } while (!current || current->style()->boxOrdinalGroup() != currentOrdinal ||
@@ -97,7 +97,7 @@ public:
 
 private:
     RenderFlexibleBox* box;
-    RenderObject* current;
+    RenderBox* current;
     bool forward;
     unsigned int currentOrdinal;
     unsigned int lastOrdinal;
@@ -116,13 +116,10 @@ RenderFlexibleBox::~RenderFlexibleBox()
 
 void RenderFlexibleBox::calcHorizontalPrefWidths()
 {
-    RenderObject *child = firstChild();
-    while (child) {
+    for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {
         // positioned children don't affect the minmaxwidth
-        if (child->isPositioned() || child->style()->visibility() == COLLAPSE) {
-            child = child->nextSibling();
+        if (child->isPositioned() || child->style()->visibility() == COLLAPSE)
             continue;
-        }
 
         // A margin basically has three types: fixed, percentage, and auto (variable).
         // Auto and percentage margins simply become 0 when computing min/max width.
@@ -138,21 +135,15 @@ void RenderFlexibleBox::calcHorizontalPrefWidths()
 
         m_minPrefWidth += child->minPrefWidth() + margin;
         m_maxPrefWidth += child->maxPrefWidth() + margin;
-
-        child = child->nextSibling();
     }    
 }
 
 void RenderFlexibleBox::calcVerticalPrefWidths()
 {
-    RenderObject *child = firstChild();
-    while(child != 0)
-    {
+    for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {
         // Positioned children and collapsed children don't affect the min/max width
-        if (child->isPositioned() || child->style()->visibility() == COLLAPSE) {
-            child = child->nextSibling();
+        if (child->isPositioned() || child->style()->visibility() == COLLAPSE)
             continue;
-        }
 
         // A margin basically has three types: fixed, percentage, and auto (variable).
         // Auto/percentage margins simply become 0 when computing min/max width.
@@ -170,8 +161,6 @@ void RenderFlexibleBox::calcVerticalPrefWidths()
         
         w = child->maxPrefWidth() + margin;
         m_maxPrefWidth = max(w, m_maxPrefWidth);
-
-        child = child->nextSibling();
     }    
 }
 
@@ -221,26 +210,23 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     bool checkForRepaint = checkForRepaintDuringLayout();
     if (checkForRepaint) {
         oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
     }
 
-    if (!hasReflection())
-        view()->pushLayoutState(this, IntSize(m_x, m_y));
-    else
-        view()->disableLayoutState();
+    LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasTransform() || hasReflection());
 
-    int previousWidth = m_width;
-    int previousHeight = m_height;
+    int previousWidth = width();
+    int previousHeight = height();
 
-#ifdef ANDROID_LAYOUT
+    #ifdef ANDROID_LAYOUT
     int previousVisibleWidth = m_visibleWidth;
 #endif
-    
+
     calcWidth();
     calcHeight();
-    m_overflowWidth = m_width;
+    m_overflowWidth = width();
 
-    if (previousWidth != m_width || previousHeight != m_height ||
+    if (previousWidth != width() || previousHeight != height() ||
         (parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL &&
          parent()->style()->boxAlign() == BSTRETCH))
         relayoutChildren = true;
@@ -252,8 +238,8 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
             && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
         relayoutChildren = true;
 #endif
+    setHeight(0);
 
-    m_height = 0;
     m_overflowHeight = 0;
     m_flexingChildren = m_stretchingChildren = false;
 
@@ -272,21 +258,21 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     else
         layoutVerticalBox(relayoutChildren);
 
-    int oldHeight = m_height;
+    int oldHeight = height();
     calcHeight();
-    if (oldHeight != m_height) {
+    if (oldHeight != height()) {
         // If the block got expanded in size, then increase our overflowheight to match.
-        if (m_overflowHeight > m_height)
+        if (m_overflowHeight > height())
             m_overflowHeight -= (borderBottom() + paddingBottom() + horizontalScrollbarHeight());
-        if (m_overflowHeight < m_height)
-            m_overflowHeight = m_height;
+        if (m_overflowHeight < height())
+            m_overflowHeight = height();
     }
-    if (previousHeight != m_height)
+    if (previousHeight != height())
         relayoutChildren = true;
 
     layoutPositionedObjects(relayoutChildren || isRoot());
 
-    if (!isFloatingOrPositioned() && m_height == 0) {
+    if (!isFloatingOrPositioned() && height() == 0) {
         // We are a block with no border and padding and a computed height
         // of 0.  The CSS spec states that zero-height blocks collapse their margins
         // together.
@@ -305,15 +291,15 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     }
 
     // Always ensure our overflow width is at least as large as our width.
-    if (m_overflowWidth < m_width)
-        m_overflowWidth = m_width;
+    if (m_overflowWidth < width())
+        m_overflowWidth = width();
 
     if (!hasOverflowClip()) {
         for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next) {
             m_overflowLeft = min(m_overflowLeft, boxShadow->x - boxShadow->blur);
-            m_overflowWidth = max(m_overflowWidth, m_width + boxShadow->x + boxShadow->blur);
+            m_overflowWidth = max(m_overflowWidth, width() + boxShadow->x + boxShadow->blur);
             m_overflowTop = min(m_overflowTop, boxShadow->y - boxShadow->blur);
-            m_overflowHeight = max(m_overflowHeight, m_height + boxShadow->y + boxShadow->blur);
+            m_overflowHeight = max(m_overflowHeight, height() + boxShadow->y + boxShadow->blur);
         }
         
         if (hasReflection()) {
@@ -325,10 +311,7 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
         }
     }
 
-    if (!hasReflection())
-        view()->popLayoutState();
-    else
-        view()->enableLayoutState();
+    statePusher.pop();
 
     // Update our scrollbars if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.
@@ -354,11 +337,11 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
     unsigned int lowestFlexGroup = 0;
     bool haveFlex = false;
     int remainingSpace = 0;
-    m_overflowHeight = m_height;
+    m_overflowHeight = height();
 
     // The first walk over our kids is to find out if we have any flexible children.
     FlexBoxIterator iterator(this);
-    RenderObject* child = iterator.next();
+    RenderBox* child = iterator.next();
     while (child) {
         // Check to see if this child flexes.
         if (!child->isPositioned() && child->style()->boxFlex() > 0.0f) {
@@ -383,8 +366,8 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
     // their preferred widths.  The second pass handles flexing the children.
     do {
         // Reset our height.
-        m_height = yPos;
-        m_overflowHeight = m_height;
+        setHeight(yPos);
+        m_overflowHeight = height();
         xPos = borderLeft() + paddingLeft();
                 
         // Our first pass is done without flexing.  We simply lay the children
@@ -422,28 +405,28 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
                 maxDescent = max(maxDescent, descent);
                 
                 // Now update our height.
-                m_height = max(yPos + maxAscent + maxDescent, m_height);
+                setHeight(max(yPos + maxAscent + maxDescent, height()));
             }
             else
-                m_height = max(m_height, yPos + child->marginTop() + child->height() + child->marginBottom());
+                setHeight(max(height(), yPos + child->marginTop() + child->height() + child->marginBottom()));
 
             child = iterator.next();
         }
         
         if (!iterator.first() && hasLineIfEmpty())
-            m_height += lineHeight(true, true);
+            setHeight(height() + lineHeight(true, true));
         
-        m_height += toAdd;
+        setHeight(height() + toAdd);
 
         // Always make sure our overflowheight is at least our height.
-        if (m_overflowHeight < m_height)
-            m_overflowHeight = m_height;
+        if (m_overflowHeight < height())
+            m_overflowHeight = height();
         
-        oldHeight = m_height;
+        oldHeight = height();
         calcHeight();
 
         relayoutChildren = false;
-        if (oldHeight != m_height)
+        if (oldHeight != height())
             heightSpecified = true;
         
         // Now that our height is actually known, we can place our boxes.
@@ -467,7 +450,7 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
             // fill the height of a containing box by default.
             // Now do a layout.
             int oldChildHeight = child->height();
-            static_cast<RenderBox*>(child)->calcHeight();
+            toRenderBox(child)->calcHeight();
             if (oldChildHeight != child->height())
                 child->setChildNeedsLayout(true, false);
             child->layoutIfNeeded();
@@ -500,7 +483,7 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
                 static_cast<RenderBlock*>(child)->addVisualOverflow(static_cast<RenderBlock*>(child)->floatRect());
 
             m_overflowHeight = max(m_overflowHeight, childY + child->overflowHeight(false));
-            m_overflowTop = min(m_overflowTop, child->yPos() + child->overflowTop(false));
+            m_overflowTop = min(m_overflowTop, child->y() + child->overflowTop(false));
             
             xPos += child->width() + child->marginRight();
     
@@ -641,7 +624,7 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
                     remainingSpace -= (remainingSpace/totalChildren);
                     totalChildren--;
 
-                    placeChild(child, child->xPos()+offset, child->yPos());
+                    placeChild(child, child->x()+offset, child->y());
                     child = iterator.next();
                 }
             }
@@ -656,7 +639,7 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
                     child = iterator.next();
                     continue;
                 }
-                placeChild(child, child->xPos()+offset, child->yPos());
+                placeChild(child, child->x()+offset, child->y());
                 child = iterator.next();
             }
         }
@@ -668,20 +651,20 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
     }
     
     if (child) {
-        m_overflowLeft = min(child->xPos() + child->overflowLeft(false), m_overflowLeft);
+        m_overflowLeft = min(child->x() + child->overflowLeft(false), m_overflowLeft);
 
-        RenderObject* lastChild = child;
+        RenderBox* lastChild = child;
         while ((child = iterator.next())) {
             if (!child->isPositioned())
                 lastChild = child;
         }
-        m_overflowWidth = max(lastChild->xPos() + lastChild->overflowWidth(false), m_overflowWidth);
+        m_overflowWidth = max(lastChild->x() + lastChild->overflowWidth(false), m_overflowWidth);
     }
     
     // So that the calcHeight in layoutBlock() knows to relayout positioned objects because of
     // a height change, we revert our height back to the intrinsic height before returning.
     if (heightSpecified)
-        m_height = oldHeight;
+        setHeight(oldHeight);
 }
 
 void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
@@ -689,7 +672,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
     int xPos = borderLeft() + paddingLeft();
     int yPos = borderTop() + paddingTop();
     if( style()->direction() == RTL )
-        xPos = m_width - paddingRight() - borderRight();
+        xPos = width() - paddingRight() - borderRight();
     int toAdd = borderBottom() + paddingBottom() + horizontalScrollbarHeight();
     bool heightSpecified = false;
     int oldHeight = 0;
@@ -701,7 +684,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
     
     // The first walk over our kids is to find out if we have any flexible children.
     FlexBoxIterator iterator(this);
-    RenderObject *child = iterator.next();
+    RenderBox* child = iterator.next();
     while (child) {
         // Check to see if this child flexes.
         if (!child->isPositioned() && child->style()->boxFlex() > 0.0f) {
@@ -794,7 +777,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                     continue;
 
                 const UChar ellipsisAndSpace[2] = { horizontalEllipsis, ' ' };
-                static AtomicString ellipsisAndSpaceStr(ellipsisAndSpace, 2);
+                DEFINE_STATIC_LOCAL(AtomicString, ellipsisAndSpaceStr, (ellipsisAndSpace, 2));
 
                 const Font& font = style(numVisibleLines == 1)->font();
                 int ellipsisAndSpaceWidth = font.width(TextRun(ellipsisAndSpace, 2));
@@ -830,9 +813,9 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
     // Our first pass is done without flexing.  We simply lay the children
     // out within the box.
     do {
-        m_height = borderTop() + paddingTop();
-        int minHeight = m_height + toAdd;
-        m_overflowHeight = m_height;
+        setHeight(borderTop() + paddingTop());
+        int minHeight = height() + toAdd;
+        m_overflowHeight = height();
 
         child = iterator.first();
         while (child) {
@@ -850,7 +833,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                         child->setStaticX(borderRight()+paddingRight());
                 }
                 if (child->hasStaticY())
-                    child->setStaticY(m_height);
+                    child->setStaticY(height());
                 child = iterator.next();
                 continue;
             } 
@@ -859,7 +842,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
             child->calcVerticalMargins();
     
             // Add in the child's marginTop to our height.
-            m_height += child->marginTop();
+            setHeight(height() + child->marginTop());
     
             // Now do a layout.
             child->layoutIfNeeded();
@@ -886,39 +869,39 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
             }
     
             // Place the child.
-            placeChild(child, childX, m_height);
-            m_height += child->height() + child->marginBottom();
+            placeChild(child, childX, height());
+            setHeight(height() + child->height() + child->marginBottom());
     
             if (child->isRenderBlock())
                 static_cast<RenderBlock*>(child)->addVisualOverflow(static_cast<RenderBlock*>(child)->floatRect());
 
             // See if this child has made our overflow need to grow.
-            m_overflowWidth = max(child->xPos() + child->overflowWidth(false), m_overflowWidth);
-            m_overflowLeft = min(child->xPos() + child->overflowLeft(false), m_overflowLeft);
+            m_overflowWidth = max(child->x() + child->overflowWidth(false), m_overflowWidth);
+            m_overflowLeft = min(child->x() + child->overflowLeft(false), m_overflowLeft);
             
             child = iterator.next();
         }
 
-        yPos = m_height;
+        yPos = height();
         
         if (!iterator.first() && hasLineIfEmpty())
-            m_height += lineHeight(true, true);
+            setHeight(height() + lineHeight(true, true));
     
-        m_height += toAdd;
+        setHeight(height() + toAdd);
 
         // Negative margins can cause our height to shrink below our minimal height (border/padding).
         // If this happens, ensure that the computed height is increased to the minimal height.
-        if (m_height < minHeight)
-            m_height = minHeight;
+        if (height() < minHeight)
+            setHeight(minHeight);
 
         // Always make sure our overflowheight is at least our height.
-        if (m_overflowHeight < m_height)
-            m_overflowHeight = m_height;
+        if (m_overflowHeight < height())
+            m_overflowHeight = height();
 
         // Now we have to calc our height, so we know how much space we have remaining.
-        oldHeight = m_height;
+        oldHeight = height();
         calcHeight();
-        if (oldHeight != m_height)
+        if (oldHeight != height())
             heightSpecified = true;
 
         remainingSpace = borderTop() + paddingTop() + contentHeight() - yPos;
@@ -1050,7 +1033,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                     offset += remainingSpace/totalChildren;
                     remainingSpace -= (remainingSpace/totalChildren);
                     totalChildren--;
-                    placeChild(child, child->xPos(), child->yPos()+offset);
+                    placeChild(child, child->x(), child->y()+offset);
                     child = iterator.next();
                 }
             }
@@ -1065,7 +1048,7 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
                     child = iterator.next();
                     continue;
                 }
-                placeChild(child, child->xPos(), child->yPos()+offset);
+                placeChild(child, child->x(), child->y()+offset);
                 child = iterator.next();
             }
         }
@@ -1077,28 +1060,28 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
     }
     
     if (child) {
-        m_overflowTop = min(child->yPos() + child->overflowTop(false), m_overflowTop);
+        m_overflowTop = min(child->y() + child->overflowTop(false), m_overflowTop);
 
-        RenderObject* lastChild = child;
+        RenderBox* lastChild = child;
         while ((child = iterator.next())) {
             if (!child->isPositioned())
                 lastChild = child;
         }
-        m_overflowHeight = max(lastChild->yPos() + lastChild->overflowHeight(false), m_overflowHeight);
+        m_overflowHeight = max(lastChild->y() + lastChild->overflowHeight(false), m_overflowHeight);
     }
 
     // So that the calcHeight in layoutBlock() knows to relayout positioned objects because of
     // a height change, we revert our height back to the intrinsic height before returning.
     if (heightSpecified)
-        m_height = oldHeight; 
+        setHeight(oldHeight); 
 }
 
-void RenderFlexibleBox::placeChild(RenderObject* child, int x, int y)
+void RenderFlexibleBox::placeChild(RenderBox* child, int x, int y)
 {
-    IntRect oldRect(child->xPos(), child->yPos() , child->width(), child->height());
+    IntRect oldRect(child->x(), child->y() , child->width(), child->height());
 
     // Place the child.
-    child->setPos(x, y);
+    child->setLocation(x, y);
 
     // If the child moved, we have to repaint it as well as any floating/positioned
     // descendants.  An exception is if we need a layout.  In this case, we know we're going to
@@ -1107,7 +1090,7 @@ void RenderFlexibleBox::placeChild(RenderObject* child, int x, int y)
         child->repaintDuringLayoutIfMoved(oldRect);
 }
 
-int RenderFlexibleBox::allowedChildFlex(RenderObject* child, bool expanding, unsigned int group)
+int RenderFlexibleBox::allowedChildFlex(RenderBox* child, bool expanding, unsigned int group)
 {
     if (child->isPositioned() || child->style()->boxFlex() == 0.0f || child->style()->boxFlexGroup() != group)
         return 0;

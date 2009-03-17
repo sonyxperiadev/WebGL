@@ -32,6 +32,7 @@
 #import "FrameView.h"
 #import "RenderView.h"
 #import "Selection.h"
+#import "WebCoreViewFactory.h"
 
 #import <ApplicationServices/ApplicationServices.h> 
 
@@ -46,7 +47,7 @@ void SelectionController::notifyAccessibilityForSelectionChange()
     if (UAZoomEnabled() && m_sel.isCaret() && m_sel.start().node()) {
         RenderView *renderView = static_cast<RenderView*>(m_sel.start().node()->renderer());
         if (renderView) {
-            IntRect selectionRect = caretRect();
+            IntRect selectionRect = absoluteCaretBounds();
             IntRect viewRect = renderView->viewRect();
             FrameView* frameView = renderView->view()->frameView(); 
             if (frameView) {
@@ -54,6 +55,9 @@ void SelectionController::notifyAccessibilityForSelectionChange()
                 viewRect = frameView->contentsToScreen(viewRect);
                 CGRect cgCaretRect = CGRectMake(selectionRect.x(), selectionRect.y(), selectionRect.width(), selectionRect.height());
                 CGRect cgViewRect = CGRectMake(viewRect.x(), viewRect.y(), viewRect.width(), viewRect.height());
+                cgCaretRect = [[WebCoreViewFactory sharedFactory] accessibilityConvertScreenRect:cgCaretRect];
+                cgViewRect = [[WebCoreViewFactory sharedFactory] accessibilityConvertScreenRect:cgViewRect];              
+
                 (void)UAZoomChangeFocus(&cgViewRect, &cgCaretRect, kUAZoomFocusTypeInsertionPoint);
             }
         }

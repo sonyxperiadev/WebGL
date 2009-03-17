@@ -28,6 +28,7 @@
 
 #include "BitmapImage.h"
 #include "Document.h"
+#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
@@ -36,11 +37,16 @@
 #include "HitTestResult.h"
 #include "Page.h"
 #include "RenderView.h"
+#include <wtf/CurrentTime.h>
+
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
 #endif
 
-#include "SystemTime.h"
+#if ENABLE(WML)
+#include "WMLImageElement.h"
+#include "WMLNames.h"
+#endif
 
 using namespace std;
 
@@ -169,7 +175,7 @@ bool RenderImageScaleObserver::shouldImagePaintAtLowQuality(RenderImage* image, 
 
 HashMap<RenderImage*, RenderImageScaleData*>* RenderImageScaleObserver::gImages = 0;
 
-void RenderImage::highQualityRepaintTimerFired(Timer<RenderImage>* timer)
+void RenderImage::highQualityRepaintTimerFired(Timer<RenderImage>*)
 {
     RenderImageScaleObserver::highQualityRepaintTimerFired(this);
 }
@@ -181,6 +187,8 @@ RenderImage::RenderImage(Node* node)
     , m_cachedImage(0)
 {
     updateAltText();
+
+    view()->frameView()->setIsVisuallyNonEmpty();
 }
 
 RenderImage::~RenderImage()
@@ -248,13 +256,13 @@ bool RenderImage::setImageSizeForAltText(CachedImage* newImage /* = 0 */)
     return true;
 }
 
-void RenderImage::imageChanged(WrappedImagePtr newImage)
+void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 {
     if (documentBeingDestroyed())
         return;
 
     if (hasBoxDecorations() || hasMask())
-        RenderReplaced::imageChanged(newImage);
+        RenderReplaced::imageChanged(newImage, rect);
     
     if (newImage != imagePtr() || !newImage)
         return;
@@ -277,28 +285,36 @@ void RenderImage::imageChanged(WrappedImagePtr newImage)
         // layout when we get added in to the render tree hierarchy later.
         if (containingBlock()) {
             // lets see if we need to relayout at all..
-            int oldwidth = m_width;
-            int oldheight = m_height;
+            int oldwidth = width();
+            int oldheight = height();
             if (!prefWidthsDirty())
                 setPrefWidthsDirty(true);
             calcWidth();
             calcHeight();
 
-            if (imageSizeChanged || m_width != oldwidth || m_height != oldheight) {
+            if (imageSizeChanged || width() != oldwidth || height() != oldheight) {
                 shouldRepaint = false;
                 if (!selfNeedsLayout())
                     setNeedsLayout(true);
             }
 
-            m_width = oldwidth;
-            m_height = oldheight;
+            setWidth(oldwidth);
+            setHeight(oldheight);
         }
     }
 
     if (shouldRepaint) {
-        // FIXME: We always just do a complete repaint, since we always pass in the full image
-        // rect at the moment anyway.
-        repaintRectangle(contentBox());
+        IntRect repaintRect;
+        if (rect) {
+            // The image changed rect is in source image coordinates (pre-zooming),
+            // so map from the bounds of the image to the contentsBox.
+            repaintRect = enclosingIntRect(mapRect(*rect, FloatRect(FloatPoint(), imageSize(1.0f)), contentBoxRect()));
+            // Guard against too-large changed rects.
+            repaintRect.intersect(contentBoxRect());
+        } else
+            repaintRect = contentBoxRect();
+        
+        repaintRectangle(repaintRect);
     }
 }
 
@@ -359,9 +375,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
             }
 
             if (!m_altText.isEmpty()) {
-                String text = m_altText;
-                text.replace('\\', backslashAsCurrencySymbol());
-                context->setFont(style()->font());
+                String text = document()->displayStringModifiedByEncoding(m_altText);
                 context->setFillColor(style()->color());
                 int ax = tx + leftBorder + leftPad;
                 int ay = ty + topBorder + topPad;
@@ -374,9 +388,9 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
                 int textWidth = font.width(textRun);
                 if (errorPictureDrawn) {
                     if (usableWidth >= textWidth && font.height() <= imageY)
-                        context->drawText(textRun, IntPoint(ax, ay + ascent));
+                        context->drawText(style()->font(), textRun, IntPoint(ax, ay + ascent));
                 } else if (usableWidth >= textWidth && cHeight >= font.height())
-                    context->drawText(textRun, IntPoint(ax, ay + ascent));
+                    context->drawText(style()->font(), textRun, IntPoint(ax, ay + ascent));
             }
         }
     } else if (hasImage() && cWidth > 0 && cHeight > 0) {
@@ -386,7 +400,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
 
 #if PLATFORM(MAC)
         if (style()->highlight() != nullAtom && !paintInfo.context->paintingDisabled())
-            paintCustomHighlight(tx - m_x, ty - m_y, style()->highlight(), true);
+            paintCustomHighlight(tx - x(), ty - y(), style()->highlight(), true);
 #endif
 
         IntSize contentSize(cWidth, cHeight);
@@ -414,8 +428,8 @@ bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     bool inside = RenderReplaced::nodeAtPoint(request, result, _x, _y, _tx, _ty, hitTestAction);
 
     if (inside && element()) {
-        int tx = _tx + m_x;
-        int ty = _ty + m_y;
+        int tx = _tx + x();
+        int ty = _ty + y();
         
         HTMLMapElement* map = imageMap();
         if (map) {
@@ -437,6 +451,10 @@ void RenderImage::updateAltText()
         m_altText = static_cast<HTMLInputElement*>(element())->altText();
     else if (element()->hasTagName(imgTag))
         m_altText = static_cast<HTMLImageElement*>(element())->altText();
+#if ENABLE(WML)
+    else if (element()->hasTagName(WMLNames::imgTag))
+        m_altText = static_cast<WMLImageElement*>(element())->altText();
+#endif
 }
 
 bool RenderImage::isWidthSpecified() const
@@ -476,8 +494,10 @@ bool RenderImage::isHeightSpecified() const
 int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
 {
     if (imageHasRelativeWidth())
-        if (RenderObject* cb = isPositioned() ? container() : containingBlock())
-            setImageContainerSize(IntSize(cb->availableWidth(), cb->availableHeight()));
+        if (RenderObject* cb = isPositioned() ? container() : containingBlock()) {
+            if (cb->isBox())
+                setImageContainerSize(IntSize(toRenderBox(cb)->availableWidth(), toRenderBox(cb)->availableHeight()));
+        }
 
     int width;
     if (isWidthSpecified())

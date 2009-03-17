@@ -346,7 +346,7 @@ void TextResourceDecoder::setEncoding(const TextEncoding& encoding, EncodingSour
     if (source == EncodingFromMetaTag && strcasecmp(encoding.name(), "x-user-defined") == 0)
         m_decoder.reset("windows-1252"); 
     else if (source == EncodingFromMetaTag || source == EncodingFromXMLHeader || source == EncodingFromCSSCharset)        
-        m_decoder.reset(encoding.closest8BitEquivalent());
+        m_decoder.reset(encoding.closestByteBasedEquivalent());
     else
         m_decoder.reset(encoding);
 
@@ -793,6 +793,7 @@ String TextResourceDecoder::flush()
 {
     String result = m_decoder.decode(m_buffer.data(), m_buffer.size(), true, m_contentType == XML, m_sawError);
     m_buffer.clear();
+    m_decoder.reset(m_decoder.encoding());
     return result;
 }
 

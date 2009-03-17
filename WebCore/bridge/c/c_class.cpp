@@ -32,7 +32,7 @@
 #include "c_instance.h"
 #include "c_runtime.h"
 #include "npruntime_impl.h"
-#include <kjs/identifier.h>
+#include <runtime/Identifier.h>
 #include <runtime/JSLock.h>
 
 namespace JSC { namespace Bindings {
@@ -68,11 +68,6 @@ CClass* CClass::classForIsA(NPClass* isa)
     }
 
     return aClass;
-}
-
-const char* CClass::name() const
-{
-    return "";
 }
 
 MethodList CClass::methodsNamed(const Identifier& identifier, Instance* instance) const

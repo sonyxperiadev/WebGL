@@ -42,7 +42,7 @@
 #include "Node.h"
 #include "Range.h"
 #include "RemoveNodeCommand.h"
-#include "RenderObject.h"
+#include "RenderBox.h"
 #include "SelectionController.h"
 
 namespace WebCore {
@@ -71,7 +71,12 @@ static bool isDeletableElement(const Node* node)
     const unsigned minimumVisibleBorders = 3;
 
     RenderObject* renderer = node->renderer();
-    if (!renderer || renderer->width() < minimumWidth || renderer->height() < minimumHeight)
+    if (!renderer || !renderer->isBox())
+        return false;
+
+    RenderBox* box = toRenderBox(renderer);
+    IntRect borderBoundingBox = box->borderBoundingBox();
+    if (borderBoundingBox.width() < minimumWidth || borderBoundingBox.height() < minimumHeight)
         return false;
 
     if (renderer->isTable())
@@ -142,7 +147,7 @@ void DeleteButtonController::respondToChangedSelection(const Selection& oldSelec
 
 void DeleteButtonController::createDeletionUI()
 {
-    RefPtr<HTMLDivElement> container = new HTMLDivElement(m_target->document());
+    RefPtr<HTMLDivElement> container = new HTMLDivElement(divTag, m_target->document());
     container->setId(containerElementIdentifier);
 
     CSSMutableStyleDeclaration* style = container->getInlineStyleDecl();
@@ -150,7 +155,7 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSSPropertyWebkitUserSelect, CSSValueNone);
     style->setProperty(CSSPropertyWebkitUserModify, CSSValueNone);
 
-    RefPtr<HTMLDivElement> outline = new HTMLDivElement(m_target->document());
+    RefPtr<HTMLDivElement> outline = new HTMLDivElement(divTag, m_target->document());
     outline->setId(outlineElementIdentifier);
 
     const int borderWidth = 4;
@@ -163,10 +168,10 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSSPropertyWebkitUserSelect, CSSValueNone);
     style->setProperty(CSSPropertyWebkitUserModify, CSSValueNone);
     style->setProperty(CSSPropertyZIndex, String::number(-1000000));
-    style->setProperty(CSSPropertyTop, String::number(-borderWidth - m_target->renderer()->borderTop()) + "px");
-    style->setProperty(CSSPropertyRight, String::number(-borderWidth - m_target->renderer()->borderRight()) + "px");
-    style->setProperty(CSSPropertyBottom, String::number(-borderWidth - m_target->renderer()->borderBottom()) + "px");
-    style->setProperty(CSSPropertyLeft, String::number(-borderWidth - m_target->renderer()->borderLeft()) + "px");
+    style->setProperty(CSSPropertyTop, String::number(-borderWidth - m_target->renderBox()->borderTop()) + "px");
+    style->setProperty(CSSPropertyRight, String::number(-borderWidth - m_target->renderBox()->borderRight()) + "px");
+    style->setProperty(CSSPropertyBottom, String::number(-borderWidth - m_target->renderBox()->borderBottom()) + "px");
+    style->setProperty(CSSPropertyLeft, String::number(-borderWidth - m_target->renderBox()->borderLeft()) + "px");
     style->setProperty(CSSPropertyBorder, String::number(borderWidth) + "px solid rgba(0, 0, 0, 0.6)");
     style->setProperty(CSSPropertyWebkitBorderRadius, String::number(borderRadius) + "px");
 
@@ -190,8 +195,8 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSSPropertyWebkitUserSelect, CSSValueNone);
     style->setProperty(CSSPropertyWebkitUserModify, CSSValueNone);
     style->setProperty(CSSPropertyZIndex, String::number(1000000));
-    style->setProperty(CSSPropertyTop, String::number((-buttonHeight / 2) - m_target->renderer()->borderTop() - (borderWidth / 2) + buttonBottomShadowOffset) + "px");
-    style->setProperty(CSSPropertyLeft, String::number((-buttonWidth / 2) - m_target->renderer()->borderLeft() - (borderWidth / 2)) + "px");
+    style->setProperty(CSSPropertyTop, String::number((-buttonHeight / 2) - m_target->renderBox()->borderTop() - (borderWidth / 2) + buttonBottomShadowOffset) + "px");
+    style->setProperty(CSSPropertyLeft, String::number((-buttonWidth / 2) - m_target->renderBox()->borderLeft() - (borderWidth / 2)) + "px");
     style->setProperty(CSSPropertyWidth, String::number(buttonWidth) + "px");
     style->setProperty(CSSPropertyHeight, String::number(buttonHeight) + "px");
 

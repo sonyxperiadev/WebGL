@@ -263,6 +263,7 @@ const char* CachedNode::Debug::condition(Condition t) const
         case BEST_DIRECTION: return "BEST_DIRECTION"; break;
         case CHILD: return "CHILD"; break;
         case DISABLED: return "DISABLED"; break;
+        case HIGHER_TAB_INDEX: return "HIGHER_TAB_INDEX"; break;
         case IN_FOCUS: return "IN_FOCUS"; break;
         case IN_FOCUS_CHILDREN: return "IN_FOCUS_CHILDREN"; break;
         case NOT_ENCLOSING_FOCUS: return "NOT_ENCLOSING_FOCUS"; break;
@@ -300,6 +301,7 @@ void CachedNode::Debug::print() const
         scratch[index++] = *ch++;
     DUMP_NAV_LOGD("%.*s\"\n", index, scratch);
     DEBUG_PRINT_RECT(mBounds);
+    DEBUG_PRINT_RECT(mHitBounds);
     const WTF::Vector<WebCore::IntRect>& rects = b->focusRings();
     size_t size = rects.size();
     DUMP_NAV_LOGD("// IntRect focusRings={ // size=%d\n", size);
@@ -315,11 +317,13 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("// int mNavableRects=%d;\n", b->mNavableRects);
     DUMP_NAV_LOGD("// int mParentIndex=%d;\n", b->mParentIndex);
     DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
+    DUMP_NAV_LOGD("// int mTabIndex=%d;\n", b->mTabIndex);
     DUMP_NAV_LOGD("// Condition mCondition=%s;\n", condition(b->mCondition));
     DUMP_NAV_LOGD("// Type mType=%s;\n", type(b->mType));
     DEBUG_PRINT_BOOL(mClippedOut);
     DEBUG_PRINT_BOOL(mDisabled);
     DEBUG_PRINT_BOOL(mFixedUpFocusRects);
+    DEBUG_PRINT_BOOL(mHasFocusRing);
     DEBUG_PRINT_BOOL(mHasMouseOver);
     DEBUG_PRINT_BOOL(mIsAnchor);
     DEBUG_PRINT_BOOL(mIsArea);
@@ -327,11 +331,13 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mIsInput);
     DEBUG_PRINT_BOOL(mIsParentAnchor);
     DEBUG_PRINT_BOOL(mIsPassword);
+    DEBUG_PRINT_BOOL(mIsRtlText);
     DEBUG_PRINT_BOOL(mIsTextArea);
     DEBUG_PRINT_BOOL(mIsTextField);
     DEBUG_PRINT_BOOL(mIsTransparent);
     DEBUG_PRINT_BOOL(mIsUnclipped);
     DEBUG_PRINT_BOOL(mLast);
+    DEBUG_PRINT_BOOL(mWantsKeyEvents);
     DUMP_NAV_LOGD("\n");
 }
 

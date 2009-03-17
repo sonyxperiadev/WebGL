@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "Cursor.h"
+
 #include "NotImplemented.h"
 
 namespace WebCore {
@@ -52,284 +53,243 @@ Cursor& Cursor::operator=(const Cursor&)
     return *this;
 }
 
+static Cursor c;
 const Cursor& pointerCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& crossCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& handCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& moveCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& iBeamCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& waitCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& helpCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& eastResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northEastResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northWestResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southEastResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southWestResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& westResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northSouthResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& eastWestResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northEastSouthWestResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northWestSouthEastResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& columnResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& rowResizeCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& verticalTextCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& cellCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& contextMenuCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& noDropCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& copyCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& progressCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& aliasCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& noneCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
-// new as of SVN change 36269, Sept 8, 2008
 const Cursor& middlePanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& eastPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northEastPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& northWestPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southEastPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& southWestPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& westPanningCursor()
 {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
-// new as of SVN change 38068, Nov 5, 2008
 const Cursor& grabCursor() {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
 const Cursor& grabbingCursor() {
     notImplemented();
-    static Cursor c;
     return c;
 }
 
-}
+} // namespace WebCore

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -50,10 +51,9 @@
 #include "TextResourceDecoder.h"
 #include "Widget.h"
 #include "ScriptController.h"
-#include <kjs/collector.h>
-#include <runtime/JSLock.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(DOM_STORAGE)
 #include "LocalStorage.h"
@@ -63,6 +63,10 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "JavaScriptDebugServer.h"
+#endif
+
+#if ENABLE(WML)
+#include "WMLPageState.h"
 #endif
 
 namespace WebCore {
@@ -100,7 +104,7 @@ static void networkStateChanged()
         eventTarget->dispatchEventForType(eventName, false, false);
     }
 }
-    
+
 Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient)
     : m_chrome(new Chrome(this, chromeClient))
     , m_dragCaretController(new SelectionController(0, true))
@@ -117,6 +121,8 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
     , m_defersLoading(false)
     , m_inLowQualityInterpolationMode(false)
     , m_cookieEnabled(true)
+    , m_areMemoryCacheClientCallsEnabled(true)
+    , m_mediaVolume(1)
     , m_parentInspectorController(0)
     , m_didLoadUserStyleSheet(false)
     , m_userStyleSheetModificationTime(0)
@@ -213,6 +219,11 @@ void Page::goToItem(HistoryItem* item, FrameLoadType type)
     m_mainFrame->loader()->goToItem(item, type);
 }
 
+void Page::setGlobalHistoryItem(HistoryItem* item)
+{
+    m_globalHistoryItem = item;
+}
+
 void Page::setGroupName(const String& name)
 {
     if (m_group && !m_group->name().isEmpty()) {
@@ -232,7 +243,7 @@ void Page::setGroupName(const String& name)
 
 const String& Page::groupName() const
 {
-    static String nullString;
+    DEFINE_STATIC_LOCAL(String, nullString, ());
     return m_group ? m_group->name() : nullString;
 }
 
@@ -281,6 +292,8 @@ void Page::refreshPlugins(bool reload)
 
 PluginData* Page::pluginData() const
 {
+    if (!settings()->arePluginsEnabled())
+        return 0;
     if (!m_pluginData)
         m_pluginData = PluginData::create(this);
     return m_pluginData.get();
@@ -381,6 +394,21 @@ void Page::setInLowQualityImageInterpolationMode(bool mode)
     m_inLowQualityInterpolationMode = mode;
 }
 
+void Page::setMediaVolume(float volume)
+{
+    if (volume < 0 || volume > 1)
+        return;
+
+    if (m_mediaVolume == volume)
+        return;
+
+    m_mediaVolume = volume;
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+        if (frame->document())
+            frame->document()->mediaVolumeDidChange();
+    }
+}
+
 void Page::userStyleSheetLocationChanged()
 {
 #if !FRAME_LOADS_USER_STYLESHEET
@@ -469,7 +497,7 @@ void Page::allVisitedStateChanged(PageGroup* group)
     }
 }
 
-void Page::visitedStateChanged(PageGroup* group, unsigned visitedLinkHash)
+void Page::visitedStateChanged(PageGroup* group, LinkHash visitedLinkHash)
 {
     ASSERT(group);
     ASSERT(allPages);
@@ -561,6 +589,15 @@ void Page::changePendingBeforeUnloadEventCount(int delta)
     return; 
 }
 
+#if ENABLE(WML)
+WMLPageState* Page::wmlPageState()
+{
+    if (!m_wmlPageState)    
+        m_wmlPageState.set(new WMLPageState(this));
+    return m_wmlPageState.get(); 
+}
+#endif
+
 void Page::setCustomHTMLTokenizerTimeDelay(double customHTMLTokenizerTimeDelay)
 {
     if (customHTMLTokenizerTimeDelay < 0) {
@@ -577,6 +614,19 @@ void Page::setCustomHTMLTokenizerChunkSize(int customHTMLTokenizerChunkSize)
         return;
     }
     m_customHTMLTokenizerChunkSize = customHTMLTokenizerChunkSize;
+}
+
+void Page::setMemoryCacheClientCallsEnabled(bool enabled)
+{
+    if (m_areMemoryCacheClientCallsEnabled == enabled)
+        return;
+
+    m_areMemoryCacheClientCallsEnabled = enabled;
+    if (!enabled)
+        return;
+
+    for (RefPtr<Frame> frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
+        frame->loader()->tellClientAboutPastMemoryCacheLoads();
 }
 
 } // namespace WebCore

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Gustavo Noronha Silva
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +24,35 @@
 #include "webkitmarshal.h"
 #include "InspectorClientGtk.h"
 #include "webkitprivate.h"
+
+/**
+ * SECTION:webkitwebinspector
+ * @short_description: Access to the WebKit Inspector
+ *
+ * The WebKit Inspector is a graphical tool to inspect and change
+ * the content of a #WebKitWebView. It also includes an interactive
+ * JavaScriptDebugger. Using this class one can get a GtkWidget which
+ * can be embedded into an application to show the inspector.
+ *
+ * The inspector is available when the #WebKitWebSettings of the
+ * #WebKitWebView has set the #WebKitWebSettings:enable-developer-extras
+ * to true otherwise no inspector is available.
+ *
+ * <informalexample><programlisting>
+ * /<!-- -->* Enable the developer extras *<!-- -->/
+ * WebKitWebSettings *setting = webkit_web_view_get_settings (WEBKIT_WEB_VIEW(my_webview));
+ * g_object_set (G_OBJECT(settings), "enable-developer-extras", TRUE, NULL);
+ *
+ * /<!-- -->* load some data or reload to be able to inspect the page*<!-- -->/
+ * webkit_web_view_open (WEBKIT_WEB_VIEW(my_webview), "http://www.gnome.org");
+ *
+ * /<!-- -->* Embed the inspector somewhere *<!-- -->/
+ * WebKitWebInspector *inspector = webkit_web_view_get_inspector (WEBKIT_WEB_VIEW(my_webview));
+ * g_signal_connect (G_OBJECT (inspector), "inspect-web-view", G_CALLBACK(create_gtk_window_around_it), NULL);
+ * g_signal_connect (G_OBJECT (inspector), "show-window", G_CALLBACK(show_inpector_window), NULL));
+ * g_signal_connect (G_OBJECT (inspector), "notify::inspected-uri", G_CALLBACK(inspected_uri_changed_do_stuff), NULL);
+ * </programlisting></informalexample>
+ */
 
 using namespace WebKit;
 
@@ -116,7 +146,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      *
      * Emitted when the inspector window should be displayed. Notice
      * that the window must have been created already by handling
-     * ::inspect-web-view.
+     * #WebKitWebInspector::inspect-web-view.
      *
      * Since: 1.0.3
      */
@@ -173,13 +203,13 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      *
      * Emitted when the inspector window should be closed. You can
      * destroy the window or hide it so that it can be displayed again
-     * by handling ::show-window later on.
+     * by handling #WebKitWebInspector::show-window later on.
      *
      * Notice that the inspected #WebKitWebView may no longer exist
      * when this signal is emitted.
      *
      * Notice, too, that if you decide to destroy the window,
-     * ::inspect-web-view will be emmited again, when the user
+     * #WebKitWebInspector::inspect-web-view will be emmited again, when the user
      * inspects an element.
      *
      * Since: 1.0.3
@@ -313,7 +343,7 @@ void webkit_web_inspector_set_web_view(WebKitWebInspector *web_inspector, WebKit
  *
  * Obtains the #WebKitWebView that is used to render the
  * inspector. The #WebKitWebView instance is created by the
- * application, by handling the ::inspect-web-view signal. This means
+ * application, by handling the #WebKitWebInspector::inspect-web-view signal. This means
  * that this method may return %NULL if the user hasn't inspected
  * anything.
  *

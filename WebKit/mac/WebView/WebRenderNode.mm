@@ -32,6 +32,7 @@
 #import "WebFrameView.h"
 #import "WebHTMLView.h"
 #import <WebCore/Frame.h>
+#import <WebCore/RenderText.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/Widget.h>
@@ -86,10 +87,30 @@ static WebRenderNode *copyRenderNode(RenderObject* node)
     Widget* widget = renderWidget ? renderWidget->widget() : 0;
     NSView *view = widget ? widget->platformWidget() : nil;
 
-    int nx, ny;
-    node->absolutePosition(nx, ny);
+    // FIXME: broken with transforms
+    FloatPoint absPos = node->localToAbsolute(FloatPoint());
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    if (node->isBox()) {
+        RenderBox* box = toRenderBox(node);
+        x = box->x();
+        y = box->y();
+        width = box->width();
+        height = box->height();
+    } else if (node->isText()) {
+        // FIXME: Preserve old behavior even though it's strange.
+        RenderText* text = toRenderText(node);
+        x = text->firstRunX();
+        y = text->firstRunY();
+        IntRect box = text->linesBoundingBox();
+        width = box.width();
+        height = box.height();
+    }
+    
     WebRenderNode *result = [[WebRenderNode alloc] initWithName:name
-        position:NSMakePoint(nx, ny) rect:NSMakeRect(node->xPos(), node->yPos(), node->width(), node->height())
+        position:absPos rect:NSMakeRect(x, y, width, height)
         view:view children:children];
 
     [name release];

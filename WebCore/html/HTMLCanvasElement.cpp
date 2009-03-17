@@ -42,7 +42,6 @@
 #include "Page.h"
 #include "RenderHTMLCanvas.h"
 #include "Settings.h"
-#include <kjs/interpreter.h>
 #include <math.h>
 #include <stdio.h>
 
@@ -59,14 +58,15 @@ static const int defaultHeight = 150;
 // in exchange for a smaller maximum canvas size.
 const float HTMLCanvasElement::MaxCanvasArea = 32768 * 8192; // Maximum canvas area in CSS pixels
 
-HTMLCanvasElement::HTMLCanvasElement(Document* doc)
-    : HTMLElement(canvasTag, doc)
+HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
     , m_size(defaultWidth, defaultHeight)
     , m_observer(0)
     , m_originClean(true)
     , m_ignoreReset(false)
     , m_createdImageBuffer(false)
 {
+    ASSERT(hasTagName(canvasTag));
 }
 
 HTMLCanvasElement::~HTMLCanvasElement()
@@ -155,16 +155,15 @@ void HTMLCanvasElement::willDraw(const FloatRect& rect)
 {
     m_imageBuffer->clearImage();
     
-    if (RenderObject* ro = renderer()) {
-#ifdef CANVAS_INCREMENTAL_REPAINT
-        // Handle CSS triggered scaling
-        float widthScale = static_cast<float>(ro->width()) / static_cast<float>(m_size.width());
-        float heightScale = static_cast<float>(ro->height()) / static_cast<float>(m_size.height());
-        FloatRect r(rect.x() * widthScale, rect.y() * heightScale, rect.width() * widthScale, rect.height() * heightScale);
-        ro->repaintRectangle(enclosingIntRect(r));
-#else
-        ro->repaint();
-#endif
+    if (RenderBox* ro = renderBox()) {
+        FloatRect destRect = ro->contentBoxRect();
+        FloatRect r = mapRect(rect, FloatRect(0, 0, m_size.width(), m_size.height()), destRect);
+        r.intersect(destRect);
+        if (m_dirtyRect.contains(r))
+            return;
+
+        m_dirtyRect.unite(r);
+        ro->repaintRectangle(enclosingIntRect(m_dirtyRect));
     }
     
     if (m_observer)
@@ -207,6 +206,9 @@ void HTMLCanvasElement::reset()
 
 void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
 {
+    // Clear the dirty rect
+    m_dirtyRect = FloatRect();
+
     if (context->paintingDisabled())
         return;
     
@@ -253,7 +255,10 @@ void HTMLCanvasElement::createImageBuffer() const
     IntSize size = convertLogicalToDevice(unscaledSize);
     if (!size.width() || !size.height())
         return;
+
     m_imageBuffer.set(ImageBuffer::create(size, false).release());
+    m_imageBuffer->context()->scale(FloatSize(size.width() / unscaledSize.width(), size.height() / unscaledSize.height()));
+    m_imageBuffer->context()->setShadowsIgnoreTransforms(true);
 }
 
 GraphicsContext* HTMLCanvasElement::drawingContext() const
@@ -266,6 +271,18 @@ ImageBuffer* HTMLCanvasElement::buffer() const
     if (!m_createdImageBuffer)
         createImageBuffer();
     return m_imageBuffer.get();
+}
+    
+TransformationMatrix HTMLCanvasElement::baseTransform() const
+{
+    ASSERT(m_createdImageBuffer);
+    FloatSize unscaledSize(width(), height());
+    IntSize size = convertLogicalToDevice(unscaledSize);
+    TransformationMatrix transform;
+    if (size.width() && size.height())
+        transform.scale(size.width() / unscaledSize.width(), size.height() / unscaledSize.height());
+    transform.multiply(m_imageBuffer->baseTransform());
+    return transform;
 }
 
 }

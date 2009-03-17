@@ -1,3 +1,207 @@
+2009-01-26  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Clean up after r40240.
+
+        * WebKit.xcodeproj/project.pbxproj: Reinstate WebKitPluginHost.defs.
+
+2009-01-25  Darin Adler  <darin@apple.com>
+
+        Try to fix full build on Mac Leopard.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed WebKitPluginClient.defs from the WebKit target.
+        Maybe this is temporary, but I had to do it to get the full build to succeed.
+
+2009-01-25  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Improve the consistency of settings in our .xcconfig files.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-01-23  Brady Eidson  <beidson@apple.com>
+
+        Rubberstamped by Darin Adler
+
+        Rename CachedPagePlatformData to CachedFramePlatformData to more accurately reflect its true role.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-01-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add ProxyInstance files.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-01-04  David Kilzer  <ddkilzer@apple.com>
+
+        Don't install internal headers in WebKit framework
+
+        Reviewed by Darin Adler.
+
+        * WebKit.xcodeproj/project.pbxproj: Remove roles from internal
+        headers so they're not installed.
+
+2009-01-02  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated.
+
+2008-12-23  Darin Adler  <darin@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        - fix https://bugs.webkit.org/show_bug.cgi?id=22976
+          crash due to Mail's use of WebArchive and WebResource on non-main thread
+
+        * StringsNotToBeLocalized.txt: Updated.
+
+        * WebKit.xcodeproj/project.pbxproj: Added new file WebNSObjectExtras.mm and
+        existing file WebResourceInternal.h.
+
+2008-12-08  David Kilzer  <ddkilzer@apple.com>
+
+        Bug 22555: Sort "children" sections in Xcode project files
+
+        <https://bugs.webkit.org/show_bug.cgi?id=22555>
+
+        Reviewed by Eric Seidel.
+
+        * WebKit.xcodeproj/project.pbxproj: Sorted.
+
+2008-12-08  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2008-12-05  Dan Bernstein  <mitz@apple.com>
+
+        Mac build fix.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-12-05  Dan Bernstein  <mitz@apple.com>
+
+        Mac build fix.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-12-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add HostedNetscapePluginStream.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-12-03  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Move WebPluginRequest to its own file.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-12-03  Steve Falkenburg  <sfalken@apple.com>
+
+        Update strings not to be localized.
+
+        Reviewed by Adam Roben.
+
+        * StringsNotToBeLocalized.txt:
+
+2008-11-26  Mark Rowe  <mrowe@apple.com>
+
+        Build fix.
+
+        Fix up the references to files under WebKit/mac/Plugins/Hosted.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-26  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Add plug-in host related files to the Xcode project.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-14  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        - part of <rdar://problem/6234337> Add a Text Direction menu to the default context menu when appropriate
+
+        * English.lproj/Localizable.strings: Added the Text Direction submenu
+        title.
+
+2008-11-13  John Sullivan  <sullivan@apple.com>
+
+        fixed <rdar://problem/6361578> Web Kit UI strings: a few edits
+
+        Reviewed by Tim Hatcher
+
+        * English.lproj/Localizable.strings:
+        updated for these changes
+        
+        * StringsNotToBeLocalized.txt:
+        removed unused exception
+
+2008-11-12  John Sullivan  <sullivan@apple.com>
+
+        fixed <rdar://problem/3839110> Authentication dialogs talk about passwords being sent "in the clear"
+
+        Reviewed by Tim Hatcher
+
+        * English.lproj/Localizable.strings:
+        * StringsNotToBeLocalized.txt:
+        updated for this change
+
+2008-11-10  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Kevin Decker.
+        
+        Add WebHostedNetscapePluginView to the project.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-10  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        Add a new WebBaseNetscapePluginView class.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-10  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+                
+        Rename WebBaseNetscapePluginView to WebNetscapePluginView.
+
+        * StringsNotToBeLocalized.txt:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-05  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        Remove WebPlugInStreamLoaderDelegate.h
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2008-11-03  Darin Adler  <darin@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        - https://bugs.webkit.org/show_bug.cgi?id=22061
+          create script to check for exit-time destructors
+
+        * WebKit.xcodeproj/project.pbxproj: Added a script
+        phase that runs the check-for-exit-time-destructors script.
+
 2008-10-31  Anders Carlsson  <andersca@apple.com>
 
         Reviewed by Kevin Decker.

@@ -2,6 +2,7 @@
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2008 Collabora Ltd.
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +25,29 @@
 #include "webkitwebsettings.h"
 #include "webkitprivate.h"
 
+#include "FileSystem.h"
+#include "PluginDatabase.h"
+
+/**
+ * SECTION:webkitwebsettings
+ * @short_description: Control the behaviour of a #WebKitWebView
+ *
+ * #WebKitWebSettings can be applied to a #WebKitWebView to control
+ * the to be used text encoding, color, font sizes, printing mode,
+ * script support, loading of images and various other things.
+ *
+ * <informalexample><programlisting>
+ * /<!-- -->* Create a new websettings and disable java script *<!-- -->/
+ * WebKitWebSettings *settings = webkit_web_settings_new ();
+ * g_object_set (G_OBJECT(settings), "enable-scripts", FALSE, NULL);
+ *
+ * /<!-- -->* Apply the result *<!-- -->/
+ * webkit_web_view_set_settings (WEBKIT_WEB_VIEW(my_webview), settings);
+ * </programlisting></informalexample>
+ */
+
+using namespace WebCore;
+
 extern "C" {
 
 G_DEFINE_TYPE(WebKitWebSettings, webkit_web_settings, G_TYPE_OBJECT)
@@ -40,6 +64,7 @@ struct _WebKitWebSettingsPrivate {
     guint default_monospace_font_size;
     guint minimum_font_size;
     guint minimum_logical_font_size;
+    gboolean enforce_96_dpi;
     gboolean auto_load_images;
     gboolean auto_shrink_images;
     gboolean print_backgrounds;
@@ -67,6 +92,7 @@ enum {
     PROP_DEFAULT_MONOSPACE_FONT_SIZE,
     PROP_MINIMUM_FONT_SIZE,
     PROP_MINIMUM_LOGICAL_FONT_SIZE,
+    PROP_ENFORCE_96_DPI,
     PROP_AUTO_LOAD_IMAGES,
     PROP_AUTO_SHRINK_IMAGES,
     PROP_PRINT_BACKGROUNDS,
@@ -162,7 +188,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     "default-font-size",
                                     "Default Font Size",
                                     "The default font size used to display text.",
-                                    5, G_MAXINT, 10,
+                                    5, G_MAXINT, 12,
                                     flags));
 
     g_object_class_install_property(gobject_class,
@@ -190,6 +216,26 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     "Minimum Logical Font Size",
                                     "The minimum logical font size used to display text.",
                                     1, G_MAXINT, 5,
+                                    flags));
+
+    /**
+    * WebKitWebSettings:enforce-96-dpi:
+    *
+    * Enforce a resolution of 96 DPI. This is meant for compatibility
+    * with web pages which cope badly with different screen resolutions
+    * and for automated testing.
+    * Web browsers and applications that typically display arbitrary
+    * content from the web should provide a preference for this.
+    *
+    * Since: 1.0.3
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENFORCE_96_DPI,
+                                    g_param_spec_boolean(
+                                    "enforce-96-dpi",
+                                    "Enforce 96 DPI",
+                                    "Enforce a resolution of 96 DPI",
+                                    FALSE,
                                     flags));
 
     g_object_class_install_property(gobject_class,
@@ -360,6 +406,9 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_MINIMUM_LOGICAL_FONT_SIZE:
         priv->minimum_logical_font_size = g_value_get_int(value);
         break;
+    case PROP_ENFORCE_96_DPI:
+        priv->enforce_96_dpi = g_value_get_boolean(value);
+        break;
     case PROP_AUTO_LOAD_IMAGES:
         priv->auto_load_images = g_value_get_boolean(value);
         break;
@@ -432,6 +481,9 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
         break;
     case PROP_MINIMUM_LOGICAL_FONT_SIZE:
         g_value_set_int(value, priv->minimum_logical_font_size);
+        break;
+    case PROP_ENFORCE_96_DPI:
+        g_value_set_boolean(value, priv->enforce_96_dpi);
         break;
     case PROP_AUTO_LOAD_IMAGES:
         g_value_set_boolean(value, priv->auto_load_images);
@@ -514,6 +566,22 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  NULL));
 
     return copy;
+}
+
+/**
+ * webkit_web_settings_add_extra_plugin_directory:
+ * @web_view: a #WebKitWebView
+ * @directory: the directory to add
+ *
+ * Adds the @directory to paths where @web_view will search for plugins.
+ *
+ * Since: 1.0.3
+ */
+void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* webView, const gchar* directory)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    PluginDatabase::installedPlugins()->addExtraPluginDirectory(filenameToString(directory));
 }
 
 }

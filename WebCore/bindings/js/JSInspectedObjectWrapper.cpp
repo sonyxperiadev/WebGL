@@ -28,6 +28,7 @@
 
 #include "JSInspectorCallbackWrapper.h"
 #include <runtime/JSGlobalObject.h>
+#include <wtf/StdLibExtras.h>
 
 using namespace JSC;
 
@@ -40,15 +41,15 @@ typedef HashMap<JSGlobalObject*, WrapperMap*> GlobalObjectWrapperMap;
 
 static GlobalObjectWrapperMap& wrappers()
 {
-    static GlobalObjectWrapperMap map;
+    DEFINE_STATIC_LOCAL(GlobalObjectWrapperMap, map, ());
     return map;
 }
 
 const ClassInfo JSInspectedObjectWrapper::s_info = { "JSInspectedObjectWrapper", &JSQuarantinedObjectWrapper::s_info, 0, 0 };
 
-JSValue* JSInspectedObjectWrapper::wrap(ExecState* unwrappedExec, JSValue* unwrappedValue)
+JSValuePtr JSInspectedObjectWrapper::wrap(ExecState* unwrappedExec, JSValuePtr unwrappedValue)
 {
-    if (!unwrappedValue->isObject())
+    if (!unwrappedValue.isObject())
         return unwrappedValue;
 
     JSObject* unwrappedObject = asObject(unwrappedValue);
@@ -60,16 +61,16 @@ JSValue* JSInspectedObjectWrapper::wrap(ExecState* unwrappedExec, JSValue* unwra
         if (JSInspectedObjectWrapper* wrapper = wrapperMap->get(unwrappedObject))
             return wrapper;
 
-    JSValue* prototype = unwrappedObject->prototype();
-    ASSERT(prototype->isNull() || prototype->isObject());
+    JSValuePtr prototype = unwrappedObject->prototype();
+    ASSERT(prototype.isNull() || prototype.isObject());
 
-    if (prototype->isNull())
-        return new (unwrappedExec) JSInspectedObjectWrapper(unwrappedExec, unwrappedObject, JSQuarantinedObjectWrapper::createStructureID(jsNull()));
-    return new (unwrappedExec) JSInspectedObjectWrapper(unwrappedExec, unwrappedObject, JSQuarantinedObjectWrapper::createStructureID(asObject(wrap(unwrappedExec, prototype))));
+    if (prototype.isNull())
+        return new (unwrappedExec) JSInspectedObjectWrapper(unwrappedExec, unwrappedObject, JSQuarantinedObjectWrapper::createStructure(jsNull()));
+    return new (unwrappedExec) JSInspectedObjectWrapper(unwrappedExec, unwrappedObject, JSQuarantinedObjectWrapper::createStructure(asObject(wrap(unwrappedExec, prototype))));
 }
 
-JSInspectedObjectWrapper::JSInspectedObjectWrapper(ExecState* unwrappedExec, JSObject* unwrappedObject, PassRefPtr<StructureID> structureID)
-    : JSQuarantinedObjectWrapper(unwrappedExec, unwrappedObject, structureID)
+JSInspectedObjectWrapper::JSInspectedObjectWrapper(ExecState* unwrappedExec, JSObject* unwrappedObject, PassRefPtr<Structure> structure)
+    : JSQuarantinedObjectWrapper(unwrappedExec, unwrappedObject, structure)
 {
     WrapperMap* wrapperMap = wrappers().get(unwrappedGlobalObject());
     if (!wrapperMap) {
@@ -95,11 +96,11 @@ JSInspectedObjectWrapper::~JSInspectedObjectWrapper()
     }
 }
 
-JSValue* JSInspectedObjectWrapper::prepareIncomingValue(ExecState*, JSValue* value) const
+JSValuePtr JSInspectedObjectWrapper::prepareIncomingValue(ExecState*, JSValuePtr value) const
 {
     // The Inspector is only allowed to pass primitive values and wrapped objects to objects from the inspected page.
 
-    if (!value->isObject())
+    if (!value.isObject())
         return value;
 
     JSQuarantinedObjectWrapper* wrapper = asWrapper(value);

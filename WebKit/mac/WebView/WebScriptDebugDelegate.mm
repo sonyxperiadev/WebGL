@@ -26,22 +26,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "WebScriptDebugger.h"
 #import "WebDataSource.h"
 #import "WebDataSourceInternal.h"
 #import "WebFrameInternal.h"
 #import "WebScriptDebugDelegate.h"
+#import "WebScriptDebugger.h"
 #import "WebViewInternal.h"
-#import <debugger/DebuggerCallFrame.h>
-#import <runtime/ExecState.h>
-#import <runtime/JSGlobalObject.h>
-#import <runtime/JSFunction.h>
-#import <runtime/JSLock.h>
-#import <kjs/interpreter.h>
 #import <WebCore/Frame.h>
-#import <WebCore/WebScriptObjectPrivate.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/WebScriptObjectPrivate.h>
 #import <WebCore/runtime_root.h>
+#import <debugger/Debugger.h>
+#import <debugger/DebuggerActivation.h>
+#import <debugger/DebuggerCallFrame.h>
+#import <interpreter/CallFrame.h>
+#import <runtime/Completion.h>
+#import <runtime/JSFunction.h>
+#import <runtime/JSGlobalObject.h>
+#import <runtime/JSLock.h>
 
 using namespace JSC;
 using namespace WebCore;
@@ -53,7 +55,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 
 @interface WebScriptCallFrame (WebScriptDebugDelegateInternal)
 
-- (id)_convertValueToObjcValue:(JSValue*)value;
+- (id)_convertValueToObjcValue:(JSValuePtr)value;
 
 @end
 
@@ -62,6 +64,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
     WebScriptObject        *globalObject;   // the global object's proxy (not retained)
     WebScriptCallFrame     *caller;         // previous stack frame
     DebuggerCallFrame* debuggerCallFrame;
+    WebScriptDebugger* debugger;
 }
 @end
 
@@ -85,12 +88,13 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 
 @implementation WebScriptCallFrame (WebScriptDebugDelegateInternal)
 
-- (WebScriptCallFrame *)_initWithGlobalObject:(WebScriptObject *)globalObj caller:(WebScriptCallFrame *)caller debuggerCallFrame:(const DebuggerCallFrame&)debuggerCallFrame
+- (WebScriptCallFrame *)_initWithGlobalObject:(WebScriptObject *)globalObj debugger:(WebScriptDebugger *)debugger caller:(WebScriptCallFrame *)caller debuggerCallFrame:(const DebuggerCallFrame&)debuggerCallFrame
 {
     if ((self = [super init])) {
         _private = [[WebScriptCallFramePrivate alloc] init];
         _private->globalObject = globalObj;
         _private->caller = [caller retain];
+        _private->debugger = debugger;
     }
     return self;
 }
@@ -109,7 +113,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
     _private->debuggerCallFrame = 0;
 }
 
-- (id)_convertValueToObjcValue:(JSValue*)value
+- (id)_convertValueToObjcValue:(JSValuePtr)value
 {
     if (!value)
         return nil;
@@ -177,8 +181,12 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
     NSMutableArray *scopes = [[NSMutableArray alloc] init];
 
     ScopeChainIterator end = scopeChain->end();
-    for (ScopeChainIterator it = scopeChain->begin(); it != end; ++it)
-        [scopes addObject:[self _convertValueToObjcValue:(*it)]];
+    for (ScopeChainIterator it = scopeChain->begin(); it != end; ++it) {
+        JSObject* object = *it;
+        if (object->isActivationObject())
+            object = new (scopeChain->globalData) DebuggerActivation(object);
+        [scopes addObject:[self _convertValueToObjcValue:object]];
+    }
 
     NSArray *result = [NSArray arrayWithArray:scopes];
     [scopes release];
@@ -204,7 +212,7 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
     if (!_private->debuggerCallFrame)
         return nil;
 
-    JSValue* exception = _private->debuggerCallFrame->exception();
+    JSValuePtr exception = _private->debuggerCallFrame->exception();
     return exception ? [self _convertValueToObjcValue:exception] : nil;
 }
 
@@ -221,8 +229,25 @@ NSString * const WebScriptErrorLineNumberKey = @"WebScriptErrorLineNumber";
 
     JSLock lock(false);
 
-    JSValue* exception = noValue();
-    JSValue* result = _private->debuggerCallFrame->evaluate(String(script), exception);
+    // If this is the global call frame and there is no dynamic global object,
+    // Dashcode is attempting to execute JS in the evaluator using a stale
+    // WebScriptCallFrame. Instead, we need to set the dynamic global object
+    // and evaluate the JS in the global object's global call frame.
+    JSGlobalObject* globalObject = _private->debugger->globalObject();
+    if (self == _private->debugger->globalCallFrame() && !globalObject->globalData()->dynamicGlobalObject) {
+        JSGlobalObject* globalObject = _private->debugger->globalObject();
+
+        DynamicGlobalObjectScope globalObjectScope(globalObject->globalExec(), globalObject);
+
+        JSValuePtr exception = noValue();
+        JSValuePtr result = evaluateInGlobalCallFrame(String(script), exception, globalObject);
+        if (exception)
+            return [self _convertValueToObjcValue:exception];
+        return result ? [self _convertValueToObjcValue:result] : nil;        
+    }
+
+    JSValuePtr exception = noValue();
+    JSValuePtr result = _private->debuggerCallFrame->evaluate(String(script), exception);
     if (exception)
         return [self _convertValueToObjcValue:exception];
     return result ? [self _convertValueToObjcValue:result] : nil;

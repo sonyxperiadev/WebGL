@@ -102,6 +102,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/GCController.cpp \
 	bindings/js/JSAttrCustom.cpp \
 	bindings/js/JSAudioConstructor.cpp \
+	bindings/js/JSCDATASectionCustom.cpp \
 	bindings/js/JSCSSRuleCustom.cpp \
 	bindings/js/JSCSSStyleDeclarationCustom.cpp \
 	bindings/js/JSCSSValueCustom.cpp \
@@ -115,11 +116,10 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSDOMApplicationCacheCustom.cpp \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
+	bindings/js/JSDOMStringListCustom.cpp \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
-	bindings/js/JSDedicatedWorkerConstructor.cpp \
-	bindings/js/JSDedicatedWorkerCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSDocumentFragmentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
@@ -171,13 +171,17 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSStyleSheetListCustom.cpp \
 	bindings/js/JSTextCustom.cpp \
 	bindings/js/JSTreeWalkerCustom.cpp \
+	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
 	bindings/js/JSXMLHttpRequestConstructor.cpp \
 	bindings/js/JSXMLHttpRequestCustom.cpp \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
-	bindings/js/PausedTimeouts.cpp \
 	bindings/js/ScheduledAction.cpp \
+	bindings/js/ScriptCachedFrameData.cpp \
+	bindings/js/ScriptCallFrame.cpp \
+	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
+	bindings/js/ScriptValue.cpp \
 	\
 	bridge/NP_jsobject.cpp \
 	bridge/c/c_class.cpp \
@@ -214,17 +218,18 @@ LOCAL_SRC_FILES := \
 	css/CSSInitialValue.cpp \
 	css/CSSMediaRule.cpp \
 	css/CSSMutableStyleDeclaration.cpp \
-	css/CSSNthSelector.cpp \
 	css/CSSPageRule.cpp \
 	css/CSSParser.cpp \
 	css/CSSParserValues.cpp \
 	css/CSSPrimitiveValue.cpp \
 	css/CSSProperty.cpp \
+	css/CSSPropertyLonghand.cpp \
 	css/CSSReflectValue.cpp \
 	css/CSSRule.cpp \
 	css/CSSRuleList.cpp \
 	css/CSSSegmentedFontFace.cpp \
 	css/CSSSelector.cpp \
+	css/CSSSelectorList.cpp \
 	css/CSSStyleDeclaration.cpp \
 	css/CSSStyleRule.cpp \
 	css/CSSStyleSelector.cpp \
@@ -249,6 +254,7 @@ LOCAL_SRC_FILES := \
 	css/StyleSheetList.cpp \
 	css/WebKitCSSKeyframeRule.cpp \
 	css/WebKitCSSKeyframesRule.cpp \
+	css/WebKitCSSMatrix.cpp \
 	css/WebKitCSSTransformValue.cpp \
 	\
 	dom/ActiveDOMObject.cpp \
@@ -267,7 +273,7 @@ LOCAL_SRC_FILES := \
 	dom/Comment.cpp \
 	dom/ContainerNode.cpp \
 	dom/DOMImplementation.cpp \
-	dom/DedicatedWorker.cpp \
+	dom/DOMStringList.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentType.cpp \
@@ -282,6 +288,9 @@ LOCAL_SRC_FILES := \
 	dom/EventTargetNode.cpp \
 	dom/ExceptionBase.cpp \
 	dom/ExceptionCode.cpp \
+	dom/FormControlElement.cpp \
+	dom/FormControlElementWithState.cpp \
+	dom/InputElement.cpp \
 	dom/KeyboardEvent.cpp \
 	dom/MappedAttribute.cpp \
 	dom/MessageChannel.cpp \
@@ -298,6 +307,8 @@ LOCAL_SRC_FILES := \
 	dom/NodeFilterCondition.cpp \
 	dom/NodeIterator.cpp \
 	dom/Notation.cpp \
+	dom/OptionElement.cpp \
+	dom/OptionGroupElement.cpp \
 	dom/OverflowEvent.cpp \
 	dom/Position.cpp \
 	dom/PositionIterator.cpp \
@@ -310,6 +321,7 @@ LOCAL_SRC_FILES := \
 	dom/ScriptExecutionContext.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
+	dom/StaticStringList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -355,7 +367,6 @@ LOCAL_SRC_FILES := \
 	editing/MoveSelectionCommand.cpp \
 	editing/RemoveCSSPropertyCommand.cpp \
 	editing/RemoveFormatCommand.cpp \
-	editing/RemoveNodeAttributeCommand.cpp \
 	editing/RemoveNodeCommand.cpp \
 	editing/RemoveNodePreservingChildrenCommand.cpp \
 	editing/ReplaceSelectionCommand.cpp \
@@ -377,6 +388,7 @@ LOCAL_SRC_FILES := \
 	editing/android/EditorAndroid.cpp \
 	\
 	history/BackForwardList.cpp \
+	history/CachedFrame.cpp \
 	history/CachedPage.cpp \
 	history/HistoryItem.cpp \
 	history/PageCache.cpp \
@@ -479,8 +491,10 @@ LOCAL_SRC_FILES := \
 	loader/CachedScript.cpp \
 	loader/DocLoader.cpp \
 	loader/DocumentLoader.cpp \
+	loader/DocumentThreadableLoader.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
+	loader/FrameLoaderClient.cpp \
 	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
@@ -495,6 +509,7 @@ LOCAL_SRC_FILES := \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
 	\
+	loader/ThreadableLoader.cpp \
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
@@ -508,6 +523,7 @@ LOCAL_SRC_FILES := \
 	page/Console.cpp \
 	page/ContextMenuController.cpp \
 	page/DOMSelection.cpp \
+	page/DOMTimer.cpp \
 	page/DOMWindow.cpp \
 	page/DragController.cpp \
 	page/EventHandler.cpp \
@@ -521,6 +537,7 @@ LOCAL_SRC_FILES := \
 	page/Location.cpp \
 	page/MouseEventWithHitTestResults.cpp \
 	page/Navigator.cpp \
+	page/NavigatorBase.cpp \
 	page/Page.cpp \
 	page/PageGroup.cpp \
 	page/PrintContext.cpp \
@@ -542,13 +559,13 @@ LOCAL_SRC_FILES := \
 	platform/Arena.cpp \
 	platform/ContextMenu.cpp \
 	platform/DeprecatedPtrListImpl.cpp \
-	platform/DeprecatedValueListImpl.cpp \
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
 	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
 	platform/Length.cpp \
+	platform/LinkHash.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
 	platform/ScrollView.cpp \
@@ -556,11 +573,11 @@ LOCAL_SRC_FILES := \
 	platform/ScrollbarThemeComposite.cpp \
 	platform/SharedBuffer.cpp \
 	platform/Theme.cpp \
+	platform/ThreadGlobalData.cpp \
 	platform/Timer.cpp \
 	platform/Widget.cpp \
 	\
 	platform/android/ClipboardAndroid.cpp \
-	platform/android/ContextMenuClientAndroid.cpp \
 	platform/android/CursorAndroid.cpp \
 	platform/android/DragDataAndroid.cpp \
 	platform/android/EventLoopAndroid.cpp \
@@ -574,15 +591,19 @@ LOCAL_SRC_FILES := \
 	platform/android/ScrollViewAndroid.cpp \
 	platform/android/SearchPopupMenuAndroid.cpp \
 	platform/android/SharedTimerAndroid.cpp \
+	platform/android/SoundAndroid.cpp \
 	platform/android/SystemTimeAndroid.cpp \
 	platform/android/TemporaryLinkStubs.cpp \
 	platform/android/TextBreakIteratorInternalICU.cpp \
 	platform/android/WidgetAndroid.cpp \
 	\
-	platform/graphics/AffineTransform.cpp \
+	platform/animation/Animation.cpp \
+	platform/animation/AnimationList.cpp \
+	\
 	platform/graphics/BitmapImage.cpp \
 	platform/graphics/Color.cpp \
 	platform/graphics/FloatPoint.cpp \
+	platform/graphics/FloatQuad.cpp \
 	platform/graphics/FloatRect.cpp \
 	platform/graphics/FloatSize.cpp \
 	platform/graphics/Font.cpp \
@@ -591,6 +612,7 @@ LOCAL_SRC_FILES := \
 	platform/graphics/FontDescription.cpp \
 	platform/graphics/FontFallbackList.cpp \
 	platform/graphics/FontFamily.cpp \
+	platform/graphics/FontFastPath.cpp \
 	platform/graphics/GeneratedImage.cpp \
 	platform/graphics/GlyphPageTreeNode.cpp \
 	platform/graphics/GlyphWidthMap.cpp \
@@ -608,7 +630,6 @@ LOCAL_SRC_FILES := \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
 	\
-	platform/graphics/android/AffineTransformAndroid.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
 	platform/graphics/android/FontCustomPlatformData.cpp \
@@ -623,12 +644,23 @@ LOCAL_SRC_FILES := \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
+	platform/graphics/android/TransformationMatrixAndroid.cpp \
 	platform/graphics/android/android_graphics.cpp \
 	\
 	platform/graphics/WidthIterator.cpp \
+	\
+	platform/graphics/transforms/MatrixTransformOperation.cpp \
+	platform/graphics/transforms/RotateTransformOperation.cpp \
+	platform/graphics/transforms/ScaleTransformOperation.cpp \
+	platform/graphics/transforms/SkewTransformOperation.cpp \
+	platform/graphics/transforms/TransformOperations.cpp \
+	platform/graphics/transforms/TransformationMatrix.cpp \
+	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
 	platform/network/FormData.cpp \
+	platform/network/FormDataBuilder.cpp \
+	platform/network/HTTPHeaderMap.cpp \
 	platform/network/HTTPParsers.cpp \
 	platform/network/NetworkStateNotifier.cpp \
 	platform/network/ProtectionSpace.cpp \
@@ -648,6 +680,7 @@ LOCAL_SRC_FILES := \
 	platform/sql/SQLiteDatabase.cpp \
 	platform/sql/SQLiteStatement.cpp \
 	platform/sql/SQLiteTransaction.cpp \
+	storage/DatabaseAuthorizer.cpp \
 	\
 	platform/text/AtomicString.cpp \
 	platform/text/Base64.cpp \
@@ -744,6 +777,8 @@ LOCAL_SRC_FILES := \
 	rendering/RenderTableSection.cpp \
 	rendering/RenderText.cpp \
 	rendering/RenderTextControl.cpp \
+	rendering/RenderTextControlMultiLine.cpp \
+	rendering/RenderTextControlSingleLine.cpp \
 	rendering/RenderTextFragment.cpp \
 	rendering/RenderTheme.cpp \
 	rendering/RenderTreeAsText.cpp \
@@ -755,22 +790,16 @@ LOCAL_SRC_FILES := \
 	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
 	\
-	rendering/style/Animation.cpp \
-	rendering/style/AnimationList.cpp \
 	rendering/style/BindingURI.cpp \
 	rendering/style/ContentData.cpp \
 	rendering/style/CounterDirectives.cpp \
 	rendering/style/FillLayer.cpp \
 	rendering/style/KeyframeList.cpp \
-	rendering/style/MatrixTransformOperation.cpp \
 	rendering/style/NinePieceImage.cpp \
 	rendering/style/RenderStyle.cpp \
-	rendering/style/RotateTransformOperation.cpp \
 	rendering/style/SVGRenderStyle.cpp \
 	rendering/style/SVGRenderStyleDefs.cpp \
-	rendering/style/ScaleTransformOperation.cpp \
 	rendering/style/ShadowData.cpp \
-	rendering/style/SkewTransformOperation.cpp \
 	rendering/style/StyleBackgroundData.cpp \
 	rendering/style/StyleBoxData.cpp \
 	rendering/style/StyleCachedImage.cpp \
@@ -784,10 +813,6 @@ LOCAL_SRC_FILES := \
 	rendering/style/StyleSurroundData.cpp \
 	rendering/style/StyleTransformData.cpp \
 	rendering/style/StyleVisualData.cpp \
-	rendering/style/TransformOperations.cpp \
-	rendering/style/TranslateTransformOperation.cpp \
-	\
-	storage/DatabaseAuthorizer.cpp \
 	\
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \

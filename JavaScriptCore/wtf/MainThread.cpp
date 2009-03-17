@@ -29,6 +29,7 @@
 #include "config.h"
 #include "MainThread.h"
 
+#include "StdLibExtras.h"
 #include "Threading.h"
 #include "Vector.h"
 
@@ -49,17 +50,17 @@ struct FunctionWithContext {
 
 typedef Vector<FunctionWithContext> FunctionQueue;
 
-static bool callbacksPaused; // This global varialble is only accessed from main thread.
+static bool callbacksPaused; // This global variable is only accessed from main thread.
 
 Mutex& mainThreadFunctionQueueMutex()
 {
-    static Mutex staticMutex;
+    DEFINE_STATIC_LOCAL(Mutex, staticMutex, ());
     return staticMutex;
 }
 
 static FunctionQueue& functionQueue()
 {
-    static FunctionQueue staticFunctionQueue;
+    DEFINE_STATIC_LOCAL(FunctionQueue, staticFunctionQueue, ());
     return staticFunctionQueue;
 }
 

@@ -29,7 +29,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ErrorConstructor);
 
-ErrorConstructor::ErrorConstructor(ExecState* exec, PassRefPtr<StructureID> structure, ErrorPrototype* errorPrototype)
+ErrorConstructor::ErrorConstructor(ExecState* exec, PassRefPtr<Structure> structure, ErrorPrototype* errorPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, errorPrototype->classInfo()->className))
 {
     // ECMA 15.11.3.1 Error.prototype
@@ -41,8 +41,8 @@ ErrorConstructor::ErrorConstructor(ExecState* exec, PassRefPtr<StructureID> stru
 ErrorInstance* constructError(ExecState* exec, const ArgList& args)
 {
     ErrorInstance* obj = new (exec) ErrorInstance(exec->lexicalGlobalObject()->errorStructure());
-    if (!args.at(exec, 0)->isUndefined())
-        obj->putDirect(exec->propertyNames().message, jsString(exec, args.at(exec, 0)->toString(exec)));
+    if (!args.at(exec, 0).isUndefined())
+        obj->putDirect(exec->propertyNames().message, jsString(exec, args.at(exec, 0).toString(exec)));
     return obj;
 }
 
@@ -58,7 +58,7 @@ ConstructType ErrorConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.9.2
-static JSValue* callErrorConstructor(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr callErrorConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
     // "Error()" gives the sames result as "new Error()"
     return constructError(exec, args);

@@ -27,9 +27,13 @@
  */
 
 #include "config.h"
+
+#include "AnimationController.h"
+#include "CompositeAnimation.h"
 #include "CSSPropertyNames.h"
 #include "EventNames.h"
 #include "ImplicitAnimation.h"
+#include "KeyframeAnimation.h"
 #include "RenderObject.h"
 
 namespace WebCore {
@@ -56,12 +60,8 @@ bool ImplicitAnimation::shouldSendEventForListener(Document::ListenerType inList
     return m_object->document()->hasListenerType(inListenerType);
 }
 
-void ImplicitAnimation::animate(CompositeAnimation* animation, RenderObject* renderer, RenderStyle* currentStyle,
-                                RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
+void ImplicitAnimation::animate(CompositeAnimation*, RenderObject*, RenderStyle*, RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
 {
-    if (paused())
-        return;
-
     // If we get this far and the animation is done, it means we are cleaning up a just finished animation.
     // So just return. Everything is already all cleaned up.
     if (postActive())
@@ -78,10 +78,22 @@ void ImplicitAnimation::animate(CompositeAnimation* animation, RenderObject* ren
 
     if (blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0)))
         setAnimating();
+
+    // Fire the start timeout if needed
+    fireAnimationEventsIfNeeded();
 }
 
 void ImplicitAnimation::onAnimationEnd(double elapsedTime)
 {
+    // If we have a keyframe animation on this property, this transition is being overridden. The keyframe
+    // animation keeps an unanimated style in case a transition starts while the keyframe animation is
+    // running. But now that the transition has completed, we need to update this style with its new
+    // destination. If we didn't, the next time through we would think a transition had started
+    // (comparing the old unanimated style with the new final style of the transition).
+    RefPtr<KeyframeAnimation> keyframeAnim = m_compAnim->getAnimationForProperty(m_animatingProperty);
+    if (keyframeAnim)
+        keyframeAnim->setUnanimatedStyle(m_toStyle);
+    
     if (!sendTransitionEvent(eventNames().webkitTransitionEndEvent, elapsedTime)) {
         // We didn't dispatch an event, which would call endAnimation(), so we'll just call it here.
         endAnimation(true);
@@ -107,14 +119,11 @@ bool ImplicitAnimation::sendTransitionEvent(const AtomicString& eventType, doubl
             if (!element)
                 return false;
 
-            // Keep a reference to this ImplicitAnimation so it doesn't go away in the handler
-            RefPtr<ImplicitAnimation> retainer(this);
-            
-            // Call the event handler
-            element->dispatchWebKitTransitionEvent(eventType, propertyName, elapsedTime);
+            // Schedule event handling
+            m_object->animation()->addEventToDispatch(element, eventType, propertyName, elapsedTime);
 
             // Restore the original (unanimated) style
-            if (eventType == eventNames().webkitAnimationEndEvent && element->renderer())
+            if (eventType == eventNames().webkitTransitionEndEvent && element->renderer())
                 setChanged(element.get());
 
             return true; // Did dispatch an event

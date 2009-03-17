@@ -31,14 +31,14 @@
 
 #include "JavaScriptGlue.h"
 
+#include <JavaScriptCore/Collector.h>
 #include <JavaScriptCore/JSValue.h>
+#include <JavaScriptCore/Completion.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSGlobalObject.h>
-#include <JavaScriptCore/interpreter.h>
-#include <JavaScriptCore/protect.h>
-#include <JavaScriptCore/collector.h>
-#include <JavaScriptCore/ustring.h>
+#include <JavaScriptCore/Protect.h>
+#include <JavaScriptCore/UString.h>
 
 #include <wtf/RefPtr.h>
 
@@ -54,9 +54,9 @@ UString CFStringToUString(CFStringRef inCFString);
 CFStringRef UStringToCFString(const UString& inUString);
 Identifier CFStringToIdentifier(CFStringRef inCFString, ExecState*);
 CFStringRef IdentifierToCFString(const Identifier& inIdentifier);
-JSUserObject *KJSValueToJSObject(JSValue* inValue, ExecState *exec);
-CFTypeRef KJSValueToCFType(JSValue* inValue, ExecState *exec);
-JSValue* JSObjectKJSValue(JSUserObject* ptr);
+JSUserObject *KJSValueToJSObject(JSValuePtr inValue, ExecState *exec);
+CFTypeRef KJSValueToCFType(JSValuePtr inValue, ExecState *exec);
+JSValuePtr JSObjectKJSValue(JSUserObject* ptr);
 CFTypeRef GetCFNull(void);
 
 inline CFTypeRef RetainCFType(CFTypeRef x) { if (x) x = CFRetain(x); return x; }

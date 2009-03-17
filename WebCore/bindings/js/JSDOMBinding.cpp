@@ -46,6 +46,7 @@
 #include "ScriptController.h"
 #include "XMLHttpRequestException.h"
 #include <runtime/PrototypeFunction.h>
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(SVG)
 #include "JSSVGException.h"
@@ -97,10 +98,10 @@ static inline void removeWrappers(const JSWrapperCache&)
 static HashSet<DOMObject*>& wrapperSet()
 {
 #if ENABLE(WORKERS)
-    static ThreadSpecific<HashSet<DOMObject*> > staticWrapperSet;
+    DEFINE_STATIC_LOCAL(ThreadSpecific<HashSet<DOMObject*> >, staticWrapperSet, ());
     return *staticWrapperSet;
 #else
-    static HashSet<DOMObject*> staticWrapperSet;
+    DEFINE_STATIC_LOCAL(HashSet<DOMObject*>, staticWrapperSet, ());
     return staticWrapperSet;
 #endif
 }
@@ -289,16 +290,18 @@ void markDOMNodesForDocument(Document* doc)
 
 void markActiveObjectsForContext(JSGlobalData& globalData, ScriptExecutionContext* scriptExecutionContext)
 {
-    // If an element has pending activity that may result in listeners being called
-    // (e.g. an XMLHttpRequest), we need to keep all JS wrappers alive.
+    // If an element has pending activity that may result in event listeners being called
+    // (e.g. an XMLHttpRequest), we need to keep JS wrappers alive.
 
     const HashMap<ActiveDOMObject*, void*>& activeObjects = scriptExecutionContext->activeDOMObjects();
     HashMap<ActiveDOMObject*, void*>::const_iterator activeObjectsEnd = activeObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::const_iterator iter = activeObjects.begin(); iter != activeObjectsEnd; ++iter) {
         if (iter->first->hasPendingActivity()) {
             DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, iter->second);
-            // An object with pending activity must have a wrapper to mark its listeners, so no null check.
-            if (!wrapper->marked())
+            // Generally, an active object with pending activity must have a wrapper to mark its listeners.
+            // However, some ActiveDOMObjects don't have JS wrappers (timers created by setTimeout is one example).
+            // FIXME: perhaps need to make sure even timers have a markable 'wrapper'.
+            if (wrapper && !wrapper->marked())
                 wrapper->mark();
         }
     }
@@ -308,40 +311,8 @@ void markActiveObjectsForContext(JSGlobalData& globalData, ScriptExecutionContex
     for (HashSet<MessagePort*>::const_iterator iter = messagePorts.begin(); iter != portsEnd; ++iter) {
         if ((*iter)->hasPendingActivity()) {
             DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, *iter);
-            // An object with pending activity must have a wrapper to mark its listeners, so no null check.
+            // A port with pending activity must have a wrapper to mark its listeners, so no null check.
             if (!wrapper->marked())
-                wrapper->mark();
-        }
-    }
-}
-
-void markCrossHeapDependentObjectsForContext(JSGlobalData& globalData, ScriptExecutionContext* scriptExecutionContext)
-{
-    const HashSet<MessagePort*>& messagePorts = scriptExecutionContext->messagePorts();
-    HashSet<MessagePort*>::const_iterator portsEnd = messagePorts.end();
-    for (HashSet<MessagePort*>::const_iterator iter = messagePorts.begin(); iter != portsEnd; ++iter) {
-        MessagePort* port = *iter;
-        RefPtr<MessagePort> entangledPort = port->entangledPort();
-        if (entangledPort) {
-            // No wrapper, or wrapper is already marked - no need to examine cross-heap dependencies.
-            DOMObject* wrapper = getCachedDOMObjectWrapper(globalData, port);
-            if (!wrapper || wrapper->marked())
-                continue;
-
-            // Don't use cross-heap model of marking on same-heap pairs. Otherwise, they will never be destroyed, because a port will mark its entangled one,
-            // and it will never get a chance to be marked as inaccessible. So, the port will keep getting marked in this function.
-            if ((port->scriptExecutionContext() == entangledPort->scriptExecutionContext()) || (port->scriptExecutionContext()->isDocument() && entangledPort->scriptExecutionContext()->isDocument()))
-                continue;
-
-            // If the wrapper hasn't been marked during the mark phase of GC, then the port shouldn't protect its entangled one.
-            // It's important not to call this when there is no wrapper. E.g., if GC is triggered after a MessageChannel is created, but before its ports are used from JS,
-            // irreversibly telling the object that its (not yet existing) wrapper is inaccessible would be wrong. Similarly, ports posted via postMessage() may not
-            // have wrappers until delivered.
-            port->setJSWrapperIsInaccessible();
-
-            // If the port is protected by its entangled one, mark it.
-            // This is an atomic read of a boolean value, no synchronization between threads is required (at least on platforms that guarantee cache coherency).
-            if (!entangledPort->jsWrapperIsInaccessible())
                 wrapper->mark();
         }
     }
@@ -369,67 +340,86 @@ void markDOMObjectWrapper(JSGlobalData& globalData, void* object)
     wrapper->mark();
 }
 
-JSValue* jsStringOrNull(ExecState* exec, const String& s)
+JSValuePtr jsStringOrNull(ExecState* exec, const String& s)
 {
     if (s.isNull())
         return jsNull();
     return jsString(exec, s);
 }
 
-JSValue* jsOwnedStringOrNull(ExecState* exec, const UString& s)
+JSValuePtr jsOwnedStringOrNull(ExecState* exec, const UString& s)
 {
     if (s.isNull())
         return jsNull();
     return jsOwnedString(exec, s);
 }
 
-JSValue* jsStringOrUndefined(ExecState* exec, const String& s)
+JSValuePtr jsStringOrUndefined(ExecState* exec, const String& s)
 {
     if (s.isNull())
         return jsUndefined();
     return jsString(exec, s);
 }
 
-JSValue* jsStringOrFalse(ExecState* exec, const String& s)
+JSValuePtr jsStringOrFalse(ExecState* exec, const String& s)
 {
     if (s.isNull())
         return jsBoolean(false);
     return jsString(exec, s);
 }
 
-JSValue* jsStringOrNull(ExecState* exec, const KURL& url)
+JSValuePtr jsStringOrNull(ExecState* exec, const KURL& url)
 {
     if (url.isNull())
         return jsNull();
     return jsString(exec, url.string());
 }
 
-JSValue* jsStringOrUndefined(ExecState* exec, const KURL& url)
+JSValuePtr jsStringOrUndefined(ExecState* exec, const KURL& url)
 {
     if (url.isNull())
         return jsUndefined();
     return jsString(exec, url.string());
 }
 
-JSValue* jsStringOrFalse(ExecState* exec, const KURL& url)
+JSValuePtr jsStringOrFalse(ExecState* exec, const KURL& url)
 {
     if (url.isNull())
         return jsBoolean(false);
     return jsString(exec, url.string());
 }
 
-UString valueToStringWithNullCheck(ExecState* exec, JSValue* value)
+UString valueToStringWithNullCheck(ExecState* exec, JSValuePtr value)
 {
-    if (value->isNull())
+    if (value.isNull())
         return UString();
-    return value->toString(exec);
+    return value.toString(exec);
 }
 
-UString valueToStringWithUndefinedOrNullCheck(ExecState* exec, JSValue* value)
+UString valueToStringWithUndefinedOrNullCheck(ExecState* exec, JSValuePtr value)
 {
-    if (value->isUndefinedOrNull())
+    if (value.isUndefinedOrNull())
         return UString();
-    return value->toString(exec);
+    return value.toString(exec);
+}
+
+void reportException(JSC::ExecState* exec, JSValuePtr exception)
+{
+    UString errorMessage = exception.toString(exec);
+    JSObject* exceptionObject = exception.toObject(exec);
+    int lineNumber = exceptionObject->get(exec, Identifier(exec, "line")).toInt32(exec);
+    UString exceptionSourceURL = exceptionObject->get(exec, Identifier(exec, "sourceURL")).toString(exec);
+    exec->clearException();
+
+    ScriptExecutionContext* scriptExecutionContext = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
+    scriptExecutionContext->reportException(errorMessage, lineNumber, exceptionSourceURL);
+}
+
+void reportCurrentException(JSC::ExecState* exec)
+{
+    JSValuePtr exception = exec->exception();
+    exec->clearException();
+    reportException(exec, exception);
 }
 
 void setDOMException(ExecState* exec, ExceptionCode ec)
@@ -440,7 +430,7 @@ void setDOMException(ExecState* exec, ExceptionCode ec)
     ExceptionCodeDescription description;
     getExceptionCodeDescription(ec, description);
 
-    JSValue* errorObject = noValue();
+    JSValuePtr errorObject = noValue();
     switch (description.type) {
         case DOMExceptionType:
             errorObject = toJS(exec, DOMCoreException::create(description));
@@ -499,12 +489,12 @@ void printErrorMessageForFrame(Frame* frame, const String& message)
         window->printErrorMessage(message);
 }
 
-JSValue* objectToStringFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+JSValuePtr objectToStringFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
 {
     return new (exec) PrototypeFunction(exec, 0, propertyName, objectProtoFuncToString);
 }
 
-ExecState* execStateFromNode(Node* node)
+ScriptState* scriptStateFromNode(Node* node)
 {
     if (!node)
         return 0;
@@ -519,17 +509,17 @@ ExecState* execStateFromNode(Node* node)
     return frame->script()->globalObject()->globalExec();
 }
 
-StructureID* getCachedDOMStructure(ExecState* exec, const ClassInfo* classInfo)
+Structure* getCachedDOMStructure(ExecState* exec, const ClassInfo* classInfo)
 {
     JSDOMStructureMap& structures = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->structures();
     return structures.get(classInfo).get();
 }
 
-StructureID* cacheDOMStructure(ExecState* exec, PassRefPtr<StructureID> structureID, const ClassInfo* classInfo)
+Structure* cacheDOMStructure(ExecState* exec, PassRefPtr<Structure> structure, const ClassInfo* classInfo)
 {
     JSDOMStructureMap& structures = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->structures();
     ASSERT(!structures.contains(classInfo));
-    return structures.set(classInfo, structureID).first->second.get();
+    return structures.set(classInfo, structure).first->second.get();
 }
 
 JSObject* getCachedDOMConstructor(ExecState* exec, const ClassInfo* classInfo)

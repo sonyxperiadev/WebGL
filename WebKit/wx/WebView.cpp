@@ -37,6 +37,9 @@
 #include "Logging.h"
 #include "markup.h"
 #include "Page.h"
+#include "ContextMenu.h"
+#include "ContextMenuItem.h"
+#include "ContextMenuController.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformString.h"
@@ -57,7 +60,7 @@
 #include "ScriptController.h"
 #include "JSDOMBinding.h"
 #include <runtime/JSValue.h>
-#include <kjs/ustring.h>
+#include <runtime/UString.h>
 
 #include "wx/wxprec.h"
 #ifndef WX_PRECOMP
@@ -70,6 +73,7 @@
 
 #include <wx/defs.h>
 #include <wx/dcbuffer.h>
+#include <wx/dcgraph.h>
 
 #if defined(_MSC_VER)
 int rint(double val)
@@ -172,6 +176,8 @@ BEGIN_EVENT_TABLE(wxWebView, wxWindow)
     EVT_PAINT(wxWebView::OnPaint)
     EVT_SIZE(wxWebView::OnSize)
     EVT_MOUSE_EVENTS(wxWebView::OnMouseEvents)
+    EVT_CONTEXT_MENU(wxWebView::OnContextMenuEvents)
+    EVT_MENU(wxID_ANY, wxWebView::OnMenuSelectEvents)
     EVT_KEY_DOWN(wxWebView::OnKeyEvents)
     EVT_KEY_UP(wxWebView::OnKeyEvents)
     EVT_CHAR(wxWebView::OnKeyEvents)
@@ -312,6 +318,30 @@ wxString wxWebView::GetExternalRepresentation()
     return wxEmptyString;
 }
 
+void wxWebView::SetTransparent(bool transparent)
+{
+    WebCore::Frame* frame = 0;
+    if (m_mainFrame)
+        frame = m_mainFrame->GetFrame();
+    
+    if (!frame || !frame->view())
+        return;
+
+    frame->view()->setTransparent(transparent);
+}
+
+bool wxWebView::IsTransparent() const
+{
+    WebCore::Frame* frame = 0;
+    if (m_mainFrame)
+        frame = m_mainFrame->GetFrame();
+
+   if (!frame || !frame->view())
+        return false;
+
+    return frame->view()->isTransparent();
+}
+
 wxString wxWebView::RunScript(const wxString& javascript)
 {
     if (m_mainFrame)
@@ -439,6 +469,14 @@ void wxWebView::OnPaint(wxPaintEvent& event)
     }
 }
 
+bool wxWebView::FindString(const wxString& string, bool forward, bool caseSensitive, bool wrapSelection, bool startInSelection)
+{
+    if (m_mainFrame)
+        return m_mainFrame->FindString(string, forward, caseSensitive, wrapSelection, startInSelection);
+
+    return false;
+}
+
 void wxWebView::OnSize(wxSizeEvent& event)
 { 
     if (m_isInitialized && m_mainFrame) {
@@ -474,15 +512,58 @@ void wxWebView::OnMouseEvents(wxMouseEvent& event)
     
     WebCore::PlatformMouseEvent wkEvent(event, globalPoint);
 
-    if (type == wxEVT_LEFT_DOWN || type == wxEVT_MIDDLE_DOWN || type == wxEVT_RIGHT_DOWN)
+    if (type == wxEVT_LEFT_DOWN || type == wxEVT_MIDDLE_DOWN || type == wxEVT_RIGHT_DOWN || 
+                type == wxEVT_LEFT_DCLICK || type == wxEVT_MIDDLE_DCLICK || type == wxEVT_RIGHT_DCLICK)
         frame->eventHandler()->handleMousePressEvent(wkEvent);
     
-    else if (type == wxEVT_LEFT_UP || type == wxEVT_MIDDLE_UP || type == wxEVT_RIGHT_UP || 
-                type == wxEVT_LEFT_DCLICK || type == wxEVT_MIDDLE_DCLICK || type == wxEVT_RIGHT_DCLICK)
+    else if (type == wxEVT_LEFT_UP || type == wxEVT_MIDDLE_UP || type == wxEVT_RIGHT_UP)
         frame->eventHandler()->handleMouseReleaseEvent(wkEvent);
 
     else if (type == wxEVT_MOTION)
         frame->eventHandler()->mouseMoved(wkEvent);
+}
+
+void wxWebView::OnContextMenuEvents(wxContextMenuEvent& event)
+{
+    m_impl->page->contextMenuController()->clearContextMenu();
+    wxPoint localEventPoint = ScreenToClient(event.GetPosition());
+
+    if (!m_mainFrame)
+        return;
+        
+    WebCore::Frame* focusedFrame = m_mainFrame->GetFrame();
+    if (!focusedFrame->view())
+        return;
+
+    //Create WebCore mouse event from the wxContextMenuEvent
+    wxMouseEvent mouseEvent(wxEVT_RIGHT_DOWN);
+    mouseEvent.m_x = localEventPoint.x;
+    mouseEvent.m_y = localEventPoint.y;
+    WebCore::PlatformMouseEvent wkEvent(mouseEvent, event.GetPosition());
+
+    bool handledEvent = focusedFrame->eventHandler()->sendContextMenuEvent(wkEvent);
+    if (!handledEvent)
+        return;
+
+    WebCore::ContextMenu* coreMenu = m_impl->page->contextMenuController()->contextMenu();
+    if (!coreMenu)
+        return;
+
+    WebCore::PlatformMenuDescription menuWx = coreMenu->platformDescription();
+    if (!menuWx)
+        return;
+
+    PopupMenu(menuWx, localEventPoint);
+}
+
+void wxWebView::OnMenuSelectEvents(wxCommandEvent& event)
+{
+    WebCore::ContextMenuItem* item = WebCore::ContextMenu::itemWithId (event.GetId());
+    if (!item)
+        return;
+
+    m_impl->page->contextMenuController()->contextMenuItemSelected(item);
+    delete item;
 }
 
 bool wxWebView::CanCopy()
@@ -538,13 +619,24 @@ void wxWebView::OnKeyEvents(wxKeyEvent& event)
         // WebCore doesn't handle these events itself, so we need to do
         // it and not send the event down or else CTRL+C will erase the text
         // and replace it with c.
-        if (event.CmdDown() && event.GetKeyCode() == static_cast<int>('C'))
-            Copy();
-        else if (event.CmdDown() && event.GetKeyCode() == static_cast<int>('X'))
-            Cut();
-        else if (event.CmdDown() && event.GetKeyCode() == static_cast<int>('V'))
-            Paste();
-        else {    
+        if (event.CmdDown() && event.GetEventType() == wxEVT_KEY_UP) {
+            if (event.GetKeyCode() == static_cast<int>('C'))
+                Copy();
+            else if (event.GetKeyCode() == static_cast<int>('X'))
+                Cut();
+            else if (event.GetKeyCode() == static_cast<int>('V'))
+                Paste();
+            else if (event.GetKeyCode() == static_cast<int>('Z')) {
+                if (event.ShiftDown()) {
+                    if (m_mainFrame->CanRedo())
+                        m_mainFrame->Redo();
+                }
+                else {
+                    if (m_mainFrame->CanUndo())
+                        m_mainFrame->Undo();
+                }
+            }
+        } else {    
             WebCore::PlatformKeyboardEvent wkEvent(event);
             if (wkEvent.type() == WebCore::PlatformKeyboardEvent::Char && wkEvent.altKey())
                 frame->eventHandler()->handleAccessKey(wkEvent);
@@ -592,3 +684,12 @@ void wxWebView::OnActivate(wxActivateEvent& event)
 
     event.Skip();
 }
+
+wxWebViewDOMElementInfo wxWebView::HitTest(const wxPoint& pos) const
+{
+    if (m_mainFrame)
+        return m_mainFrame->HitTest(pos);
+
+    return wxWebViewDOMElementInfo();
+}
+

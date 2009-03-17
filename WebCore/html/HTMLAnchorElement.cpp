@@ -107,17 +107,22 @@ bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
     if (!document()->frame()->eventHandler()->tabsToLinks(event))
         return false;
 
+    if (!renderer() || !renderer()->isBox())
+        return false;
+    
     // Before calling absoluteRects, check for the common case where the renderer
     // or one of the continuations is non-empty, since this is a faster check and
     // almost always returns true.
-    for (RenderObject* r = renderer(); r; r = r->continuation())
-        if (r->width() > 0 && r->height() > 0)
+    RenderBox* box = toRenderBox(renderer());
+    if (!box->borderBoundingBox().isEmpty())
+        return true;
+    for (RenderFlow* r = box->virtualContinuation(); r; r = r->continuation())
+        if (!r->borderBoundingBox().isEmpty())
             return true;
 
     Vector<IntRect> rects;
-    int x, y;
-    renderer()->absolutePosition(x, y);
-    renderer()->absoluteRects(rects, x, y);
+    FloatPoint absPos = renderer()->localToAbsolute();
+    renderer()->absoluteRects(rects, absPos.x(), absPos.y());
     size_t n = rects.size();
     for (size_t i = 0; i < n; ++i)
         if (!rects[i].isEmpty())
@@ -200,10 +205,10 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
             if (img && img->isServerMap()) {
                 RenderImage* r = static_cast<RenderImage*>(img->renderer());
                 if (r && e) {
-                    int absx, absy;
-                    r->absolutePosition(absx, absy);
-                    int x = e->pageX() - absx;
-                    int y = e->pageY() - absy;
+                    // FIXME: broken with transforms
+                    FloatPoint absPos = r->localToAbsolute();
+                    int x = e->pageX() - absPos.x();
+                    int y = e->pageY() - absPos.y();
                     url += "?";
                     url += String::number(x);
                     url += ",";
@@ -217,7 +222,7 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
         }
 
         if (!evt->defaultPrevented() && document()->frame())
-            document()->frame()->loader()->urlSelected(document()->completeURL(url), getAttribute(targetAttr), evt, false, true);
+            document()->frame()->loader()->urlSelected(document()->completeURL(url), getAttribute(targetAttr), evt, false, false, true);
 
         evt->setDefaultHandled();
     } else if (isLink() && isContentEditable()) {
@@ -311,32 +316,32 @@ bool HTMLAnchorElement::canStartSelection() const
     return isContentEditable();
 }
 
-String HTMLAnchorElement::accessKey() const
+const AtomicString& HTMLAnchorElement::accessKey() const
 {
     return getAttribute(accesskeyAttr);
 }
 
-void HTMLAnchorElement::setAccessKey(const String &value)
+void HTMLAnchorElement::setAccessKey(const AtomicString& value)
 {
     setAttribute(accesskeyAttr, value);
 }
 
-String HTMLAnchorElement::charset() const
+const AtomicString& HTMLAnchorElement::charset() const
 {
     return getAttribute(charsetAttr);
 }
 
-void HTMLAnchorElement::setCharset(const String &value)
+void HTMLAnchorElement::setCharset(const AtomicString& value)
 {
     setAttribute(charsetAttr, value);
 }
 
-String HTMLAnchorElement::coords() const
+const AtomicString& HTMLAnchorElement::coords() const
 {
     return getAttribute(coordsAttr);
 }
 
-void HTMLAnchorElement::setCoords(const String &value)
+void HTMLAnchorElement::setCoords(const AtomicString& value)
 {
     setAttribute(coordsAttr, value);
 }
@@ -346,57 +351,57 @@ KURL HTMLAnchorElement::href() const
     return document()->completeURL(getAttribute(hrefAttr));
 }
 
-void HTMLAnchorElement::setHref(const String &value)
+void HTMLAnchorElement::setHref(const AtomicString& value)
 {
     setAttribute(hrefAttr, value);
 }
 
-String HTMLAnchorElement::hreflang() const
+const AtomicString& HTMLAnchorElement::hreflang() const
 {
     return getAttribute(hreflangAttr);
 }
 
-void HTMLAnchorElement::setHreflang(const String &value)
+void HTMLAnchorElement::setHreflang(const AtomicString& value)
 {
     setAttribute(hreflangAttr, value);
 }
 
-String HTMLAnchorElement::name() const
+const AtomicString& HTMLAnchorElement::name() const
 {
     return getAttribute(nameAttr);
 }
 
-void HTMLAnchorElement::setName(const String &value)
+void HTMLAnchorElement::setName(const AtomicString& value)
 {
     setAttribute(nameAttr, value);
 }
 
-String HTMLAnchorElement::rel() const
+const AtomicString& HTMLAnchorElement::rel() const
 {
     return getAttribute(relAttr);
 }
 
-void HTMLAnchorElement::setRel(const String &value)
+void HTMLAnchorElement::setRel(const AtomicString& value)
 {
     setAttribute(relAttr, value);
 }
 
-String HTMLAnchorElement::rev() const
+const AtomicString& HTMLAnchorElement::rev() const
 {
     return getAttribute(revAttr);
 }
 
-void HTMLAnchorElement::setRev(const String &value)
+void HTMLAnchorElement::setRev(const AtomicString& value)
 {
     setAttribute(revAttr, value);
 }
 
-String HTMLAnchorElement::shape() const
+const AtomicString& HTMLAnchorElement::shape() const
 {
     return getAttribute(shapeAttr);
 }
 
-void HTMLAnchorElement::setShape(const String &value)
+void HTMLAnchorElement::setShape(const AtomicString& value)
 {
     setAttribute(shapeAttr, value);
 }
@@ -412,17 +417,17 @@ String HTMLAnchorElement::target() const
     return getAttribute(targetAttr);
 }
 
-void HTMLAnchorElement::setTarget(const String &value)
+void HTMLAnchorElement::setTarget(const AtomicString& value)
 {
     setAttribute(targetAttr, value);
 }
 
-String HTMLAnchorElement::type() const
+const AtomicString& HTMLAnchorElement::type() const
 {
     return getAttribute(typeAttr);
 }
 
-void HTMLAnchorElement::setType(const String &value)
+void HTMLAnchorElement::setType(const AtomicString& value)
 {
     setAttribute(typeAttr, value);
 }

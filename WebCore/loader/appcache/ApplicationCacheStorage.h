@@ -44,20 +44,26 @@ class KURL;
 class ApplicationCacheStorage {
 public:
     void setCacheDirectory(const String&);
+    const String& cacheDirectory() const;
     
-    ApplicationCacheGroup* cacheGroupForURL(const KURL&);
+    ApplicationCacheGroup* cacheGroupForURL(const KURL&); // Cache to load a main resource from.
+    ApplicationCacheGroup* fallbackCacheGroupForURL(const KURL&); // Cache that has a fallback entry to load a main resource from if normal loading fails.
 
     ApplicationCacheGroup* findOrCreateCacheGroup(const KURL& manifestURL);
     void cacheGroupDestroyed(ApplicationCacheGroup*);
+    void cacheGroupMadeObsolete(ApplicationCacheGroup*);
         
-    bool storeNewestCache(ApplicationCacheGroup*);
+    bool storeNewestCache(ApplicationCacheGroup*); // Updates the cache group, but doesn't remove old cache.
     void store(ApplicationCacheResource*, ApplicationCache*);
+    bool storeUpdatedType(ApplicationCacheResource*, ApplicationCache*);
 
+    // Removes the group if the cache to be removed is the newest one (so, storeNewestCache() needs to be called beforehand when updating).
     void remove(ApplicationCache*);
     
     void empty();
     
     static bool storeCopyOfCache(const String& cacheDirectory, ApplicationCache*);
+
 private:
     PassRefPtr<ApplicationCache> loadCache(unsigned storageID);
     ApplicationCacheGroup* loadCacheGroup(const KURL& manifestURL);
@@ -78,13 +84,13 @@ private:
     String m_cacheDirectory;
 
     SQLiteDatabase m_database;
-    
-    // In order to quickly determinate if a given resource exists in an application cache,
-    // we keep a hash set of the hosts of the manifest URLs of all cache groups.
+
+    // In order to quickly determine if a given resource exists in an application cache,
+    // we keep a hash set of the hosts of the manifest URLs of all non-obsolete cache groups.
     HashCountedSet<unsigned, AlreadyHashed> m_cacheHostSet;
     
     typedef HashMap<String, ApplicationCacheGroup*> CacheGroupMap;
-    CacheGroupMap m_cachesInMemory;
+    CacheGroupMap m_cachesInMemory; // Excludes obsolete cache groups.
 };
  
 ApplicationCacheStorage& cacheStorage();

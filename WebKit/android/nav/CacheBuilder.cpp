@@ -113,39 +113,6 @@ void CacheBuilder::Debug::comma(const char* str) {
     print(", ");
 }
 
-int CacheBuilder::Debug::flowBoxes(RenderFlow* flow, int ifIndex, int indent) {
-    char scratch[256];
-    const InlineFlowBox* box = flow->firstLineBox();
-    if (box == NULL)
-        return ifIndex;
-    do {
-        newLine();
-        int i = snprintf(scratch, sizeof(scratch), "// render flow:%p"
-            " box:%p%.*s", flow, box, indent, "        ");
-        for (; box; box = box->nextFlowBox()) {
-            i += snprintf(&scratch[i], sizeof(scratch) - i, 
-                " [%d]:{%d, %d, %d, %d}", ++ifIndex,
-                box->xPos(), box->yPos(), box->width(), box->height());
-            if (ifIndex % 4 == 0)
-                break;
-        }
-        print(scratch);
-    } while (box);
-    RenderObject const * const end = flow->lastChild();
-    if (end == NULL)
-        return ifIndex;
-    indent += 2;
-    if (indent > 8)
-        indent = 8;
-    for (const RenderObject* renderer = flow->firstChild(); renderer != end; 
-            renderer = renderer->nextSibling())
-    {
-        if (renderer->isInlineFlow())
-            ifIndex = flowBoxes((RenderFlow*) renderer, ifIndex, indent);
-    }
-    return ifIndex;
-}
-
 void CacheBuilder::Debug::flush() {
     int len;
     do {
@@ -453,14 +420,16 @@ void CacheBuilder::Debug::groups() {
             } else 
                 print("\"\"");
             RenderObject* renderer = node->renderer();
+            int tabindex = node->isElementNode() ? node->tabIndex() : 0;
             if (renderer) {
                 const IntRect& absB = renderer->absoluteBoundingBoxRect();
-                snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s},", 
-                    absB.x(), absB.y(), absB.width(), absB.height(),
-                    renderer->hasOverflowClip() ? "true" : "false");
+                snprintf(scratch, sizeof(scratch), ", {%d, %d, %d, %d}, %s"
+                    ", %d},",absB.x(), absB.y(), absB.width(), absB.height(),
+                    renderer->hasOverflowClip() ? "true" : "false", tabindex);
                 print(scratch);
             } else
-                print(", {0, 0, 0, 0}, false},");
+                print(", {0, 0, 0, 0}, false, 0},");
+
             flush();
             snprintf(scratch, sizeof(scratch), "// %d: ", count);
             mPrefix = "\n// ";
@@ -540,16 +509,16 @@ void CacheBuilder::Debug::groups() {
                     InlineTextBox* textBox = renderText->firstTextBox();
                     unsigned rectIndex = 0;
                     while (textBox) {
-                        int renderX, renderY;
-                        renderText->absolutePosition(renderX, renderY);
-                        IntRect rect = textBox->selectionRect(renderX, renderY, 0, INT_MAX);
+                        FloatPoint pt = renderText->localToAbsolute();
+                        IntRect rect = textBox->selectionRect((int) pt.x(), (int) pt.y(), 0, INT_MAX);
                         mIndex = 0;
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, "{ %d, %d, %d, %d, %d", 
                             nodeIndex, rect.x(), rect.y(), rect.width(), rect.height());
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
-                            textBox->len(), textBox->selectionHeight(), textBox->selectionTop());
+                            textBox->len(), 0 /*textBox->selectionHeight()*/, 
+                            0 /*textBox->selectionTop()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
-                            textBox->spaceAdd(), textBox->start(), textBox->textPos());
+                            0 /*textBox->spaceAdd()*/, textBox->start(), 0 /*textBox->textPos()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
                             textBox->xPos(), textBox->yPos(), textBox->width(), textBox->height());
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
@@ -709,29 +678,24 @@ void CacheBuilder::Debug::renderTree(RenderObject* renderer, int indent,
             " hasBackground:%s isInlineFlow:%s isBlockFlow:%s"
             " textOverflow:%s",
             vis == VISIBLE ? "visible" : vis == HIDDEN ? "hidden" : "collapse", 
-            style->opacity(), renderer->width(), renderer->height(),
+            style->opacity(), 0 /*renderer->width()*/, 0 /*renderer->height()*/,
             style->hasBackground() ? "true" : "false",
-            renderer->isInlineFlow() ? "true" : "false",
+            0 /*renderer->isInlineFlow()*/ ? "true" : "false",
             renderer->isBlockFlow() ? "true" : "false",
             style->textOverflow() ? "true" : "false"
             );
         print(scratch);
         newLine(indent);
-        const IntRect& oRect = renderer->overflowRect(true);
+        const IntRect& oRect = renderer->absoluteClippedOverflowRect();
         const IntRect& cRect = renderer->getOverflowClipRect(0,0);
         snprintf(scratch, sizeof(scratch), 
             "// render xPos:%d yPos:%d overflowRect:{%d, %d, %d, %d} "
             " getOverflowClipRect:{%d, %d, %d, %d} ", 
-            renderer->xPos(), renderer->yPos(),
+            0 /*renderer->xPos()*/, 0 /*renderer->yPos()*/,
             oRect.x(), oRect.y(), oRect.width(), oRect.height(),
             cRect.x(), cRect.y(), cRect.width(), cRect.height()
             );
         print(scratch);
-        if (renderer->isInlineFlow()) {
-            RenderFlow* renderFlow = (RenderFlow*) renderer;
-            int ifIndex = 0;
-            flowBoxes(renderFlow, ifIndex, 0);
-        }
     }
 tryParent:
     RenderObject* parent = renderer->parent();
@@ -945,6 +909,11 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         ClipColumnTracker* baseTracker = clipTracker.data(); // sentinel
         bzero(baseTracker, sizeof(ClipColumnTracker));
     }
+    WTF::Vector<TabIndexTracker> tabIndexTracker(1);
+    {
+        TabIndexTracker* baseTracker = tabIndexTracker.data(); // sentinel
+        bzero(baseTracker, sizeof(TabIndexTracker));
+    }
 #if DUMP_NAV_CACHE
     char* frameNamePtr = cachedFrame->mDebug.mFrameName;
     Builder(frame)->mDebug.frameName(frameNamePtr, frameNamePtr + 
@@ -964,8 +933,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     Node* node = parent;
     int cacheIndex = 1;
     Node* focused = doc->focusedNode();
-    if (focused)
+    if (focused) {
         setLastFocus(focused);
+        cachedRoot->setFocusBounds(mLastKnownFocusBounds);
+    }
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
@@ -988,6 +959,12 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             if (node != lastClip->mLastChild)
                 break;
             clipTracker.removeLast();
+        } while (true);
+        do {
+            const TabIndexTracker* lastTabIndex = &tabIndexTracker.last();
+            if (node != lastTabIndex->mLastChild)
+                break;
+            tabIndexTracker.removeLast();
         } while (true);
         Frame* child = HasFrame(node);
         CachedNode cachedNode;
@@ -1013,6 +990,17 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             CachedFrame* childPtr = cachedFrame->lastChild();
             BuildFrame(root, child, cachedRoot, childPtr);
             continue;
+        }
+        int tabIndex = node->tabIndex();
+        Node* lastChild = node->lastChild();
+        if (tabIndex <= 0)
+            tabIndex = tabIndexTracker.last().mTabIndex;
+        else if (tabIndex > 0 && lastChild) {
+            DBG_NAV_LOGD("tabIndex=%d node=%p", tabIndex, node);
+            tabIndexTracker.grow(tabIndexTracker.size() + 1);
+            TabIndexTracker& indexTracker = tabIndexTracker.last();
+            indexTracker.mTabIndex = tabIndex;
+            indexTracker.mLastChild = OneAfter(lastChild);
         }
         RenderObject* nodeRenderer = node->renderer();
         bool isTransparent = false;
@@ -1066,8 +1054,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         CachedNodeType type = NORMAL_CACHEDNODETYPE;
         IntRect bounds;
         IntRect absBounds;
-        Node* lastChild = node->lastChild();
         WTF::Vector<IntRect>* columns = NULL;
+        int minimumFocusableWidth = MINIMUM_FOCUSABLE_WIDTH;
+        int minimumFocusableHeight = MINIMUM_FOCUSABLE_HEIGHT;
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
@@ -1114,7 +1103,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             clip.mHasClip = hasClip;
             clip.mDirection = direction;
             if (columns != NULL) {
-                const IntRect& oRect = nodeRenderer->overflowRect(true);
+                const IntRect& oRect = ((RenderBox*)nodeRenderer)->overflowRect(true);
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
         }
@@ -1171,7 +1160,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
                 (const HTMLAnchorElement*) node;
-            if (anchorNode->isFocusable() == false)
+            if (!anchorNode->isFocusable() && !HasTriggerEvent(node))
                 continue;
             EventTargetNode* target = (EventTargetNode*) node;
             if (target->disabled())
@@ -1193,11 +1182,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             // FIXME: Are we sure there will always be a style and font, and it's correct?
             RenderStyle* style = nodeRenderer->style();
             if (style) {
+                isUnclipped |= !style->hasAppearance();
                 textSize = style->fontSize();
                 isRtlText = style->direction() == RTL ||
                         style->textAlign() == WebCore::RIGHT ||
                         style->textAlign() == WebCore::WEBKIT_RIGHT;
             }
+            minimumFocusableWidth += 4;
+            minimumFocusableHeight += 4;
         }
         takesFocus = true;
         if (isAnchor) {
@@ -1219,19 +1211,19 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
             bounds = node->getRect();
             // For Bank of America site
-            if (isTextField && nodeRenderer->paddingLeft() > 100) {
-                int paddingLeft = nodeRenderer->paddingLeft();
-                int paddingTop = nodeRenderer->paddingTop();
+            if (isTextField && ((RenderBox*)nodeRenderer)->paddingLeft() > 100) {
+                int paddingLeft = ((RenderBox*)nodeRenderer)->paddingLeft();
+                int paddingTop = ((RenderBox*)nodeRenderer)->paddingTop();
                 int x = bounds.x() + paddingLeft;
                 int y = bounds.y() + paddingTop;
-                int width = bounds.width() - paddingLeft - nodeRenderer->paddingRight();
-                int height = bounds.height() - paddingTop - nodeRenderer->paddingBottom();
+                int width = bounds.width() - paddingLeft - ((RenderBox*)nodeRenderer)->paddingRight();
+                int height = bounds.height() - paddingTop - ((RenderBox*)nodeRenderer)->paddingBottom();
                 bounds.setLocation(IntPoint(x, y));
                 bounds.setSize(IntSize(width, height));
             }
-            if (bounds.width() < MINIMUM_FOCUSABLE_WIDTH)
+            if (bounds.width() < minimumFocusableWidth)
                 continue;
-            if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
+            if (bounds.height() < minimumFocusableHeight)
                 continue;
             bounds.move(globalOffsetX, globalOffsetY);
         }
@@ -1290,6 +1282,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         if (last->mParentLastChild == NULL)
             last->mParentLastChild = OneAfter(node->parentNode()->lastChild());
         cachedNode.setParentGroup(last->mParentLastChild);
+        cachedNode.setTabIndex(tabIndex);
         cachedNode.setTextSize(textSize);
         cachedNode.setType(type);
         cachedNode.setWantsKeyEvents(wantsKeyEvents);
@@ -1316,8 +1309,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             } 
         }
         cacheIndex++;
-tryNextNode:
-        ;
     }
     while (tracker.size() > 1) {
         Tracker* last = &tracker.last();
@@ -2935,14 +2926,14 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             if (renderer->hasOverflowClip() == false) {
                 if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
                     IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
-                    int left = bounds.x() + renderer->paddingLeft() 
-                        + renderer->borderLeft();
-                    int top = bounds.y() + renderer->paddingTop() 
-                        + renderer->borderTop();
-                    int right = bounds.right() - renderer->paddingRight() 
-                        - renderer->borderRight();
-                    int bottom = bounds.bottom() - renderer->paddingBottom() 
-                        - renderer->borderBottom();
+                    int left = bounds.x() + ((RenderBox*)renderer)->paddingLeft() 
+                        + ((RenderBox*)renderer)->borderLeft();
+                    int top = bounds.y() + ((RenderBox*)renderer)->paddingTop() 
+                        + ((RenderBox*)renderer)->borderTop();
+                    int right = bounds.right() - ((RenderBox*)renderer)->paddingRight() 
+                        - ((RenderBox*)renderer)->borderRight();
+                    int bottom = bounds.bottom() - ((RenderBox*)renderer)->paddingBottom() 
+                        - ((RenderBox*)renderer)->borderBottom();
                     if (left >= right || top >= bottom)
                         continue;
                     bounds = IntRect(left, top, right - left, bottom - top);
@@ -2961,7 +2952,8 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             clip.mNode = test;
         } while (test != last && (test = test->traverseNextNode()) != NULL);
     }
-    if (result->size() == 0) {
+    if (result->size() == 0 || focusBounds->width() < MINIMUM_FOCUSABLE_WIDTH
+            || focusBounds->height() < MINIMUM_FOCUSABLE_HEIGHT) {
         if (bounds.width() < MINIMUM_FOCUSABLE_WIDTH)
             return false;
         if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
@@ -2986,8 +2978,7 @@ bool CacheBuilder::ConstructTextRect(Text* textNode,
     EVisibility vis = renderText->style()->visibility();
     StringImpl* string = textNode->string();
     const UChar* chars = string->characters();
-    int renderX, renderY;
-    renderText->absolutePosition(renderX, renderY);
+    FloatPoint pt = renderText->localToAbsolute();
     do {
         int textBoxStart = textBox->start();
         int textBoxEnd = textBoxStart + textBox->len();
@@ -2995,7 +2986,7 @@ bool CacheBuilder::ConstructTextRect(Text* textNode,
             continue;
         if (textBoxEnd > relEnd)
             textBoxEnd = relEnd;
-        IntRect bounds = textBox->selectionRect(renderX, renderY, 
+        IntRect bounds = textBox->selectionRect((int) pt.x(), (int) pt.y(), 
             start, textBoxEnd);
         bounds.intersect(clipBounds);
         if (bounds.isEmpty())

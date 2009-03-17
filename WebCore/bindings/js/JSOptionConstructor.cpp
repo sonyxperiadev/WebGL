@@ -34,7 +34,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSOptionConstructor)
 const ClassInfo JSOptionConstructor::s_info = { "OptionConstructor", 0, 0, 0 };
 
 JSOptionConstructor::JSOptionConstructor(ExecState* exec, ScriptExecutionContext* context)
-    : DOMObject(JSOptionConstructor::createStructureID(exec->lexicalGlobalObject()->objectPrototype()))
+    : DOMObject(JSOptionConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
 {
     ASSERT(context->isDocument());
     m_document = static_cast<JSDocument*>(asObject(toJS(exec, static_cast<Document*>(context))));
@@ -52,16 +52,16 @@ static JSObject* constructHTMLOptionElement(ExecState* exec, JSObject* construct
     RefPtr<Text> text;
     if (ec == 0)
         text = document->createTextNode("");
-    if (ec == 0 && !args.at(exec, 0)->isUndefined())
-        text->setData(args.at(exec, 0)->toString(exec), ec);
+    if (ec == 0 && !args.at(exec, 0).isUndefined())
+        text->setData(args.at(exec, 0).toString(exec), ec);
     if (ec == 0)
         element->appendChild(text.release(), ec);
-    if (ec == 0 && !args.at(exec, 1)->isUndefined())
-        element->setValue(args.at(exec, 1)->toString(exec));
+    if (ec == 0 && !args.at(exec, 1).isUndefined())
+        element->setValue(args.at(exec, 1).toString(exec));
     if (ec == 0)
-        element->setDefaultSelected(args.at(exec, 2)->toBoolean(exec));
+        element->setDefaultSelected(args.at(exec, 2).toBoolean(exec));
     if (ec == 0)
-        element->setSelected(args.at(exec, 3)->toBoolean(exec));
+        element->setSelected(args.at(exec, 3).toBoolean(exec));
 
     if (ec) {
         setDOMException(exec, ec);

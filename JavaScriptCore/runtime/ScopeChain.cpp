@@ -21,6 +21,7 @@
 #include "config.h"
 #include "ScopeChain.h"
 
+#include "JSActivation.h"
 #include "JSGlobalObject.h"
 #include "JSObject.h"
 #include "PropertyNameArray.h"
@@ -49,5 +50,19 @@ void ScopeChainNode::print() const
 }
 
 #endif
+
+int ScopeChain::localDepth() const
+{
+    int scopeDepth = 0;
+    ScopeChainIterator iter = this->begin();
+    ScopeChainIterator end = this->end();
+    while (!(*iter)->isObject(&JSActivation::info)) {
+        ++iter;
+        if (iter == end)
+            break;
+        ++scopeDepth;
+    }
+    return scopeDepth;
+}
 
 } // namespace JSC

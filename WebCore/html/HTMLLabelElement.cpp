@@ -35,9 +35,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLLabelElement::HTMLLabelElement(Document *doc)
-    : HTMLElement(labelTag, doc)
+HTMLLabelElement::HTMLLabelElement(const QualifiedName& tagName, Document *doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(labelTag));
 }
 
 HTMLLabelElement::~HTMLLabelElement()
@@ -58,7 +59,7 @@ HTMLElement* HTMLLabelElement::correspondingControl()
         while ((node = node->traverseNextNode(this))) {
             if (node->isHTMLElement()) {
                 HTMLElement* element = static_cast<HTMLElement*>(node);
-                if (element->isGenericFormElement())
+                if (element->isFormControlElement())
                     return element;
             }
         }

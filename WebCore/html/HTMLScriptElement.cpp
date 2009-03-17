@@ -32,10 +32,12 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLScriptElement::HTMLScriptElement(Document* doc)
-    : HTMLElement(scriptTag, doc)
+HTMLScriptElement::HTMLScriptElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
+    : HTMLElement(tagName, doc)
     , m_data(this, this)
 {
+    ASSERT(hasTagName(scriptTag));
+    m_data.setCreatedByParser(createdByParser);
 }
 
 HTMLScriptElement::~HTMLScriptElement()
@@ -45,11 +47,6 @@ HTMLScriptElement::~HTMLScriptElement()
 bool HTMLScriptElement::isURLAttribute(Attribute* attr) const
 {
     return attr->name() == sourceAttributeValue();
-}
-
-void HTMLScriptElement::setCreatedByParser(bool createdByParser)
-{
-    m_data.setCreatedByParser(createdByParser);
 }
 
 bool HTMLScriptElement::shouldExecuteAsJavaScript() const
@@ -186,9 +183,11 @@ String HTMLScriptElement::scriptContent() const
     return m_data.scriptContent();
 }
 
-void HTMLScriptElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLScriptElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(src().string());
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, src());
 }
 
 String HTMLScriptElement::sourceAttributeValue() const

@@ -40,9 +40,10 @@
 #include "PageURLRecord.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
-#include "SystemTime.h"
 #include <runtime/InitializeThreading.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
+#include <wtf/StdLibExtras.h>
 
 #if PLATFORM(WIN_OS)
 #include <windows.h>
@@ -55,8 +56,6 @@
 #if PLATFORM(DARWIN)
 #include <pthread.h>
 #endif
-
-#include <errno.h>
 
 // For methods that are meant to support API from the main thread - should not be called internally
 #define ASSERT_NOT_SYNC_THREAD() ASSERT(!m_syncThreadRunning || !IS_ICON_SYNC_THREAD())
@@ -180,6 +179,9 @@ void IconDatabase::close()
     m_syncThreadRunning = false;    
     m_threadTerminationRequested = false;
     m_removeIconsRequested = false;
+
+    m_syncDB.close();
+    ASSERT(!isOpen());
 }
 
 void IconDatabase::removeAllIcons()
@@ -385,7 +387,7 @@ static inline void loadDefaultIconRecord(IconRecord* defaultIconRecord)
         0x00, 0x00, 0x01, 0x52, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x0A, 
         0xFC, 0x80, 0x00, 0x00, 0x27, 0x10, 0x00, 0x0A, 0xFC, 0x80, 0x00, 0x00, 0x27, 0x10 };
         
-    static RefPtr<SharedBuffer> defaultIconBuffer(SharedBuffer::create(defaultIconData, sizeof(defaultIconData)));
+    DEFINE_STATIC_LOCAL(RefPtr<SharedBuffer>, defaultIconBuffer, (SharedBuffer::create(defaultIconData, sizeof(defaultIconData))));
     defaultIconRecord->setImageData(defaultIconBuffer);
 }
 #endif
@@ -855,7 +857,7 @@ String IconDatabase::databasePath() const
 
 String IconDatabase::defaultDatabaseFilename()
 {
-    static String defaultDatabaseFilename = "WebpageIcons.db";
+    DEFINE_STATIC_LOCAL(String, defaultDatabaseFilename, ("WebpageIcons.db"));
     return defaultDatabaseFilename.copy();
 }
 
@@ -1359,7 +1361,7 @@ void* IconDatabase::syncThreadMainLoop()
             bool didWrite = writeToDatabase();
             if (shouldStopThreadActivity())
                 break;
-               
+                
             didAnyWork = readFromDatabase();
             if (shouldStopThreadActivity())
                 break;

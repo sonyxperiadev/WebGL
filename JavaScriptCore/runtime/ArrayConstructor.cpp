@@ -26,13 +26,13 @@
 
 #include "ArrayPrototype.h"
 #include "JSArray.h"
-#include "lookup.h"
+#include "Lookup.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ArrayConstructor);
 
-ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<StructureID> structure, ArrayPrototype* arrayPrototype)
+ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<Structure> structure, ArrayPrototype* arrayPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, arrayPrototype->classInfo()->className))
 {
     // ECMA 15.4.3.1 Array.prototype
@@ -45,9 +45,9 @@ ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<StructureID> stru
 static JSObject* constructArrayWithSizeQuirk(ExecState* exec, const ArgList& args)
 {
     // a single numeric argument denotes the array size (!)
-    if (args.size() == 1 && args.at(exec, 0)->isNumber()) {
-        uint32_t n = args.at(exec, 0)->toUInt32(exec);
-        if (n != args.at(exec, 0)->toNumber(exec))
+    if (args.size() == 1 && args.at(exec, 0).isNumber()) {
+        uint32_t n = args.at(exec, 0).toUInt32(exec);
+        if (n != args.at(exec, 0).toNumber(exec))
             return throwError(exec, RangeError, "Array size is not a small enough positive integer.");
         return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), n);
     }
@@ -68,7 +68,7 @@ ConstructType ArrayConstructor::getConstructData(ConstructData& constructData)
     return ConstructTypeHost;
 }
 
-static JSValue* callArrayConstructor(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr callArrayConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
     return constructArrayWithSizeQuirk(exec, args);
 }

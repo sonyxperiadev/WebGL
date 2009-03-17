@@ -47,6 +47,7 @@ class QWebFramePrivate;
 class QWebPage;
 class QWebHitTestResult;
 class QWebHistoryItem;
+class QWebSecurityOrigin;
 
 namespace WebCore {
     class WidgetPrivate;
@@ -69,6 +70,7 @@ public:
 
     QPoint pos() const;
     QRect boundingRect() const;
+    QRect enclosingBlock() const;
     QString title() const;
 
     QString linkText() const;
@@ -85,6 +87,8 @@ public:
     bool isContentSelected() const;
 
     QWebFrame *frame() const;
+
+    bool isScrollBar() const;
 
 private:
     QWebHitTestResult(QWebHitTestResultPrivate *priv);
@@ -104,7 +108,7 @@ class QWEBKIT_EXPORT QWebFrame : public QObject
     Q_PROPERTY(QUrl url READ url WRITE setUrl)
     Q_PROPERTY(QIcon icon READ icon)
     Q_PROPERTY(QSize contentsSize READ contentsSize)
-    Q_PROPERTY(QSize scrollOffset READ scrollOffset WRITE setScrollOffset)
+    Q_PROPERTY(QPoint scrollPosition READ scrollPosition WRITE setScrollPosition)
 private:
     QWebFrame(QWebPage *parent, QWebFrameData *frameData);
     QWebFrame(QWebFrame *parent, QWebFrameData *frameData);
@@ -133,6 +137,7 @@ public:
     void setUrl(const QUrl &url);
     QUrl url() const;
     QIcon icon() const;
+    QMultiMap<QString, QString> metaData() const;
 
     QString frameName() const;
 
@@ -146,13 +151,15 @@ public:
     int scrollBarValue(Qt::Orientation orientation) const;
     int scrollBarMinimum(Qt::Orientation orientation) const;
     int scrollBarMaximum(Qt::Orientation orientation) const;
+    QRect scrollBarGeometry(Qt::Orientation orientation) const;
 
-    void scroll(int, int) const;
-    QSize scrollOffset() const;
-    void setScrollOffset(const QSize &offset) const;
+    void scroll(int, int);
+    QPoint scrollPosition() const;
+    void setScrollPosition(const QPoint &pos);
 
     void render(QPainter *painter, const QRegion &clip);
     void render(QPainter *painter);
+    void renderContents(QPainter *painter, const QRegion &contents);
 
     void setTextSizeMultiplier(qreal factor);
     qreal textSizeMultiplier() const;
@@ -167,6 +174,8 @@ public:
     QWebHitTestResult hitTestContent(const QPoint &pos) const;
 
     virtual bool event(QEvent *);
+
+    QWebSecurityOrigin securityOrigin() const;
 
 public Q_SLOTS:
     QVariant evaluateJavaScript(const QString& scriptSource);
@@ -185,7 +194,7 @@ Q_SIGNALS:
 
     void iconChanged();
 
-    void aboutToUpdateHistory(QWebHistoryItem* item);
+    void contentsSizeChanged(const QSize &size);
 
 private:
     friend class QWebPage;

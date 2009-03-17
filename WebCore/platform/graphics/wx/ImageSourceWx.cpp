@@ -30,6 +30,7 @@
 #include "GIFImageDecoder.h"
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
+#include "NotImplemented.h"
 #include "PNGImageDecoder.h"
 #include "SharedBuffer.h"
 #include "XBMImageDecoder.h"
@@ -92,7 +93,7 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    delete m_decoder;
+    clear(true);
 }
 
 bool ImageSource::initialized() const
@@ -141,6 +142,12 @@ int ImageSource::repetitionCount()
     return m_decoder->repetitionCount();
 }
 
+String ImageSource::filenameExtension() const
+{
+    notImplemented();
+    return String();
+}
+
 size_t ImageSource::frameCount() const
 {
     return m_decoder ? m_decoder->frameCount() : 0;
@@ -152,10 +159,18 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
     return (m_decoder && m_decoder->frameBufferAtIndex(index) != 0);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
-    delete  m_decoder;
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
+
+    delete m_decoder;
     m_decoder = 0;
+    if (data)
+      setData(data, allDataReceived);
 }
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
@@ -205,8 +220,9 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
         }
 
     }
-
+#if !wxCHECK_VERSION(2,9,0)
     bmp->UseAlpha();
+#endif
     ASSERT(bmp->IsOk());
     return bmp;
 }

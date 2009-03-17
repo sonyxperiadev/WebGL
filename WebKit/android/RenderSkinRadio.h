@@ -26,41 +26,33 @@
 #ifndef RenderSkinRadio_h
 #define RenderSkinRadio_h
 
-#include "RenderSkinAndroid.h"
-#include "SkBitmap.h"
-#include "SkPaint.h"
-#include "SkRect.h"
+class SkCanvas;
+
+namespace android {
+    class AssetManager;
+}
 
 namespace WebCore {
 
 class Node;
+class IntRect;
 
 /* RenderSkin for a radio button or a checkbox
  */
-class RenderSkinRadio : public RenderSkinAndroid
+class RenderSkinRadio
 {
 public:
-    /* This skin represents a checkbox if isCheckBox is true, otherwise it is a radio button */
-    RenderSkinRadio(bool isCheckBox);
-    virtual ~RenderSkinRadio() {}
-    
     /**
      * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
      */
     static void Init(android::AssetManager*);
 
-    virtual bool draw(PlatformGraphicsContext*);
-    virtual void notifyState(Node* element);
-    virtual void setDim(int width, int height) { RenderSkinAndroid::setDim(width, height); m_size = SkIntToScalar(height); }
-
-protected:
-    static SkBitmap m_bitmap[4];  // Bitmaps representing all states
-    static bool     m_decoded;    // True if all assets were decoded.
-    bool        m_isCheckBox;
-    bool        m_checked;
-    bool        m_enabled;
-    SkPaint     m_paint;    
-    SkScalar    m_size;
+    /**
+     * Draw the element to the canvas at the specified size and location.
+     * param isCheckBox If true, draws a checkbox.  Else, draw a radio button.
+     */
+    static void Draw(SkCanvas* canvas, Node* element, const IntRect&,
+            bool isCheckBox);
 };
 
 } // WebCore

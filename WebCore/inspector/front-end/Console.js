@@ -180,7 +180,8 @@ WebInspector.Console.prototype = {
             // Add message to the resource panel
             if (msg.url in WebInspector.resourceURLMap) {
                 msg.resource = WebInspector.resourceURLMap[msg.url];
-                WebInspector.panels.resources.addMessageToResource(msg.resource, msg);
+                if (WebInspector.panels.resources)
+                    WebInspector.panels.resources.addMessageToResource(msg.resource, msg);
             }
 
             this.commandSincePreviousMessage = false;
@@ -223,7 +224,8 @@ WebInspector.Console.prototype = {
     {
         if (clearInspectorController)
             InspectorController.clearMessages();
-        WebInspector.panels.resources.clearMessages();
+        if (WebInspector.panels.resources)
+            WebInspector.panels.resources.clearMessages();
 
         this.messages = [];
 
@@ -267,7 +269,7 @@ WebInspector.Console.prototype = {
         } else {
             // There is no expressionString, so the completion should happen against global properties.
             // Or if the debugger is paused, against properties in scope of the selected call frame.
-            if (WebInspector.panels.scripts.paused)
+            if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
                 result = WebInspector.panels.scripts.variablesInScopeForSelectedCallFrame();
             else
                 result = InspectorController.inspectedWindow();
@@ -394,7 +396,7 @@ WebInspector.Console.prototype = {
 
     _evalInInspectedWindow: function(expression)
     {
-        if (WebInspector.panels.scripts.paused)
+        if (WebInspector.panels.scripts && WebInspector.panels.scripts.paused)
             return WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression);
 
         var inspectedWindow = InspectorController.inspectedWindow();
@@ -475,7 +477,7 @@ WebInspector.Console.prototype = {
             WebInspector.hoveredDOMNode = null;
     },
 
-    _format: function(output)
+    _format: function(output, inline)
     {
         var type = Object.type(output, InspectorController.inspectedWindow());
         if (type === "object") {
@@ -507,38 +509,38 @@ WebInspector.Console.prototype = {
 
         var span = document.createElement("span");
         span.addStyleClass("console-formatted-" + type);
-        this[formatter](output, span);
+        this[formatter](output, span, inline);
         return span;
     },
 
-    _formatvalue: function(val, elem)
+    _formatvalue: function(val, elem, inline)
     {
         elem.appendChild(document.createTextNode(val));
     },
 
-    _formatstring: function(str, elem)
+    _formatstring: function(str, elem, inline)
     {
         elem.appendChild(document.createTextNode("\"" + str + "\""));
     },
 
-    _formatregexp: function(re, elem)
+    _formatregexp: function(re, elem, inline)
     {
         var formatted = String(re).replace(/([\\\/])/g, "\\$1").replace(/\\(\/[gim]*)$/, "$1").substring(1);
         elem.appendChild(document.createTextNode(formatted));
     },
 
-    _formatarray: function(arr, elem)
+    _formatarray: function(arr, elem, inline)
     {
         elem.appendChild(document.createTextNode("["));
         for (var i = 0; i < arr.length; ++i) {
-            elem.appendChild(this._format(arr[i]));
+            elem.appendChild(this._format(arr[i], true));
             if (i < arr.length - 1)
                 elem.appendChild(document.createTextNode(", "));
         }
         elem.appendChild(document.createTextNode("]"));
     },
 
-    _formatnode: function(node, elem)
+    _formatnode: function(node, elem, inline)
     {
         var anchor = document.createElement("a");
         anchor.className = "inspectible-node";
@@ -546,15 +548,22 @@ WebInspector.Console.prototype = {
         anchor.representedNode = node;
         anchor.addEventListener("mouseover", this._mouseOverNode.bind(this), false);
         anchor.addEventListener("mouseout", this._mouseOutOfNode.bind(this), false);
-        elem.appendChild(anchor);
+
+        if (inline)
+            elem.appendChild(anchor);
+        else
+            elem.appendChild(new WebInspector.ObjectPropertiesSection(node, anchor, null, null, true).element);
     },
 
-    _formatobject: function(obj, elem)
+    _formatobject: function(obj, elem, inline)
     {
-        elem.appendChild(document.createTextNode(Object.describe(obj)));
+        if (inline)
+            elem.appendChild(document.createTextNode(Object.describe(obj)));
+        else
+            elem.appendChild(new WebInspector.ObjectPropertiesSection(obj, null, null, null, true).element);
     },
 
-    _formaterror: function(obj, elem)
+    _formaterror: function(obj, elem, inline)
     {
         elem.appendChild(document.createTextNode(obj.name + ": " + obj.message + " "));
 
@@ -604,7 +613,7 @@ WebInspector.ConsoleMessage = function(source, level, line, url, groupLevel, rep
             span.addStyleClass("console-formatted-trace");
             var stack = Array.prototype.slice.call(arguments, 6);
             var funcNames = stack.map(function(f) {
-                return f.name || WebInspector.UIString("(anonymous function)");
+                return f || WebInspector.UIString("(anonymous function)");
             });
             span.appendChild(document.createTextNode(funcNames.join("\n")));
             this.formattedMessage = span;
@@ -634,7 +643,7 @@ WebInspector.ConsoleMessage.prototype = {
 
         function formatForConsole(obj)
         {
-            return WebInspector.console._format(obj);
+            return WebInspector.console._format(obj, true);
         }
 
         if (Object.type(parameters[0], InspectorController.inspectedWindow()) === "string") {
@@ -666,6 +675,8 @@ WebInspector.ConsoleMessage.prototype = {
         for (var i = 0; i < parameters.length; ++i) {
             if (typeof parameters[i] === "string")
                 formattedResult.appendChild(WebInspector.linkifyStringAsFragment(parameters[i]));
+            else if (parameters.length === 1)
+                formattedResult.appendChild(WebInspector.console._format(parameters[0]));
             else
                 formattedResult.appendChild(formatForConsole(parameters[i]));
             if (i < parameters.length - 1)
@@ -687,6 +698,9 @@ WebInspector.ConsoleMessage.prototype = {
         switch (this.source) {
             case WebInspector.ConsoleMessage.MessageSource.HTML:
                 element.addStyleClass("console-html-source");
+                break;
+            case WebInspector.ConsoleMessage.MessageSource.WML:
+                element.addStyleClass("console-wml-source");
                 break;
             case WebInspector.ConsoleMessage.MessageSource.XML:
                 element.addStyleClass("console-xml-source");
@@ -766,6 +780,9 @@ WebInspector.ConsoleMessage.prototype = {
             case WebInspector.ConsoleMessage.MessageSource.HTML:
                 sourceString = "HTML";
                 break;
+            case WebInspector.ConsoleMessage.MessageSource.WML:
+                sourceString = "WML";
+                break;
             case WebInspector.ConsoleMessage.MessageSource.XML:
                 sourceString = "XML";
                 break;
@@ -820,13 +837,14 @@ WebInspector.ConsoleMessage.prototype = {
     }
 }
 
-// Note: Keep these constants in sync with the ones in Chrome.h
+// Note: Keep these constants in sync with the ones in Console.h
 WebInspector.ConsoleMessage.MessageSource = {
     HTML: 0,
-    XML: 1,
-    JS: 2,
-    CSS: 3,
-    Other: 4,
+    WML: 1,
+    XML: 2,
+    JS: 3,
+    CSS: 4,
+    Other: 5
 }
 
 WebInspector.ConsoleMessage.MessageLevel = {

@@ -36,7 +36,7 @@ class HTMLTableSectionElement;
 
 class HTMLTableElement : public HTMLElement {
 public:
-    HTMLTableElement(Document*);
+    HTMLTableElement(const QualifiedName&, Document*);
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 9; }
@@ -103,7 +103,7 @@ public:
     void addSharedCellDecls(Vector<CSSMutableStyleDeclaration*>&);
     void addSharedGroupDecls(bool rows, Vector<CSSMutableStyleDeclaration*>&);
 
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
     void addSharedCellBordersDecl(Vector<CSSMutableStyleDeclaration*>&);

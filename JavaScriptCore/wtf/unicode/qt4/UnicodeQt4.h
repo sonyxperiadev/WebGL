@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2006 George Staikos <staikos@kde.org>
  *  Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
+ *  Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -19,8 +20,8 @@
  *
  */
 
-#ifndef KJS_UNICODE_QT4_H
-#define KJS_UNICODE_QT4_H
+#ifndef WTF_UNICODE_QT4_H
+#define WTF_UNICODE_QT4_H
 
 #include <QChar>
 #include <QString>
@@ -170,7 +171,7 @@ enum CharCategory {
     Symbol_Math = U_MASK(QChar::Symbol_Math),
     Symbol_Currency = U_MASK(QChar::Symbol_Currency),
     Symbol_Modifier = U_MASK(QChar::Symbol_Modifier),
-    Symbol_Other = U_MASK(QChar::Symbol_Other),
+    Symbol_Other = U_MASK(QChar::Symbol_Other)
 };
 
 
@@ -522,4 +523,4 @@ inline CharCategory category(UChar32 c)
 
 } }
 
-#endif
+#endif // WTF_UNICODE_QT4_H

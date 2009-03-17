@@ -46,7 +46,6 @@
 #import "WebPDFRepresentation.h"
 #import "WebResourceInternal.h"
 #import "WebResourceLoadDelegate.h"
-#import "WebResourcePrivate.h"
 #import "WebViewInternal.h"
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/FrameLoader.h>
@@ -59,6 +58,7 @@
 #import <WebCore/WebCoreURLResponse.h>
 #import <WebKit/DOMHTML.h>
 #import <WebKit/DOMPrivate.h>
+#import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 
 using namespace WebCore;
@@ -75,12 +75,13 @@ using namespace WebCore;
 
 @implementation WebDataSourcePrivate 
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 - (void)dealloc
 {

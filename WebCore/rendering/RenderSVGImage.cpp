@@ -29,6 +29,7 @@
 
 #include "Attr.h"
 #include "FloatConversion.h"
+#include "FloatQuad.h"
 #include "GraphicsContext.h"
 #include "PointerEventsHitRules.h"
 #include "SVGImageElement.h"
@@ -127,7 +128,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
 
 bool RenderSVGImage::calculateLocalTransform()
 {
-    AffineTransform oldTransform = m_localTransform;
+    TransformationMatrix oldTransform = m_localTransform;
     m_localTransform = static_cast<SVGStyledTransformableElement*>(element())->animatedLocalTransform();
     return (m_localTransform != oldTransform);
 }
@@ -141,13 +142,13 @@ void RenderSVGImage::layout()
     bool checkForRepaint = checkForRepaintDuringLayout();
     if (checkForRepaint) {
         oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBox();
+        oldOutlineBox = absoluteOutlineBounds();
     }
     
     calculateLocalTransform();
     
     // minimum height
-    m_height = errorOccurred() ? intrinsicSize().height() : 0;
+    setHeight(errorOccurred() ? intrinsicSize().height() : 0);
 
     calcWidth();
     calcHeight();
@@ -193,13 +194,13 @@ void RenderSVGImage::paint(PaintInfo& paintInfo, int, int)
     paintInfo.context->restore();
 }
 
-bool RenderSVGImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int, int, HitTestAction hitTestAction)
+bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult& result, int _x, int _y, int, int, HitTestAction hitTestAction)
 {
     // We only draw in the forground phase, so we only hit-test then.
     if (hitTestAction != HitTestForeground)
         return false;
 
-    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_IMAGE_HITTESTING, style()->svgStyle()->pointerEvents());
+    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_IMAGE_HITTESTING, style()->pointerEvents());
     
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
@@ -217,19 +218,14 @@ bool RenderSVGImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
     return false;
 }
 
-bool RenderSVGImage::requiresLayer()
-{
-    return false;
-}
-
 FloatRect RenderSVGImage::relativeBBox(bool) const
 {
     return m_localBounds;
 }
 
-void RenderSVGImage::imageChanged(WrappedImagePtr image)
+void RenderSVGImage::imageChanged(WrappedImagePtr image, const IntRect* rect)
 {
-    RenderImage::imageChanged(image);
+    RenderImage::imageChanged(image, rect);
 
     // We override to invalidate a larger rect, since SVG images can draw outside their "bounds"
     repaintRectangle(absoluteClippedOverflowRect());
@@ -237,6 +233,7 @@ void RenderSVGImage::imageChanged(WrappedImagePtr image)
 
 void RenderSVGImage::calculateAbsoluteBounds()
 {
+    // FIXME: broken with CSS transforms
     FloatRect absoluteRect = absoluteTransform().mapRect(relativeBBox(true));
 
 #if ENABLE(SVG_FILTERS)
@@ -252,12 +249,13 @@ void RenderSVGImage::calculateAbsoluteBounds()
     m_absoluteBounds = enclosingIntRect(absoluteRect);
 }
 
-IntRect RenderSVGImage::absoluteClippedOverflowRect()
+IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
 {
+    // FIXME: handle non-root repaintContainer
     return m_absoluteBounds;
 }
 
-void RenderSVGImage::addFocusRingRects(GraphicsContext* graphicsContext, int tx, int ty)
+void RenderSVGImage::addFocusRingRects(GraphicsContext* graphicsContext, int, int)
 {
     // this is called from paint() after the localTransform has already been applied
     IntRect contentRect = enclosingIntRect(relativeBBox());
@@ -267,6 +265,11 @@ void RenderSVGImage::addFocusRingRects(GraphicsContext* graphicsContext, int tx,
 void RenderSVGImage::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
     rects.append(absoluteClippedOverflowRect());
+}
+
+void RenderSVGImage::absoluteQuads(Vector<FloatQuad>& quads, bool)
+{
+    quads.append(FloatRect(absoluteClippedOverflowRect()));
 }
 
 }

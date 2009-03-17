@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -24,34 +24,36 @@
 #ifndef JSGlobalObjectFunctions_h
 #define JSGlobalObjectFunctions_h
 
-#include "JSImmediate.h" // temporary until JSValue* becomes a class we can forward-declare
+#include <wtf/unicode/Unicode.h>
 
 namespace JSC {
 
     class ArgList;
     class ExecState;
     class JSObject;
+    class JSValuePtr;
 
     // FIXME: These functions should really be in JSGlobalObject.cpp, but putting them there
     // is a 0.5% reduction.
 
-    JSValue* globalFuncEval(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncParseInt(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncParseFloat(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncIsNaN(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncIsFinite(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncDecodeURI(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncDecodeURIComponent(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncEncodeURI(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncEncodeURIComponent(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncEscape(ExecState*, JSObject*, JSValue*, const ArgList&);
-    JSValue* globalFuncUnescape(ExecState*, JSObject*, JSValue*, const ArgList&);
+    JSValuePtr globalFuncEval(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncParseInt(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncParseFloat(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncIsNaN(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncIsFinite(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncDecodeURI(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncDecodeURIComponent(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncEncodeURI(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncEncodeURIComponent(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncEscape(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+    JSValuePtr globalFuncUnescape(ExecState*, JSObject*, JSValuePtr, const ArgList&);
 #ifndef NDEBUG
-    JSValue* globalFuncKJSPrint(ExecState*, JSObject*, JSValue*, const ArgList&);
+    JSValuePtr globalFuncJSCPrint(ExecState*, JSObject*, JSValuePtr, const ArgList&);
 #endif
 
     static const double mantissaOverflowLowerBound = 9007199254740992.0;
     double parseIntOverflow(const char*, int length, int radix);
+    bool isStrWhiteSpace(UChar);
 
 } // namespace JSC
 

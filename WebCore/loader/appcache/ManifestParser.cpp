@@ -32,9 +32,11 @@
 #include "KURL.h"
 #include "TextEncoding.h"
 
+using namespace std;
+
 namespace WebCore {
 
-enum Mode { Explicit, Fallback, OnlineWhitelist };
+enum Mode { Explicit, Fallback, OnlineWhitelist, Unknown };
     
 bool parseManifest(const KURL& manifestURL, const char* data, int length, Manifest& manifest)
 {
@@ -45,34 +47,22 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
     Mode mode = Explicit;
     String s = UTF8Encoding().decode(data, length);
     
-    if (s.isEmpty())
+    // Look for the magic signature: "^\xFEFF?CACHE MANIFEST[ \t]?" (the BOM is removed by decode()).
+    // Example: "CACHE MANIFEST #comment" is a valid signature.
+    // Example: "CACHE MANIFEST;V2" is not.
+    if (!s.startsWith("CACHE MANIFEST"))
         return false;
-    
-    // Replace nulls with U+FFFD REPLACEMENT CHARACTER
-    s.replace(0, replacementCharacter);
-    
-    // Look for the magic signature
-    if (!s.startsWith("CACHE MANIFEST")) {
-        // The magic signature was not found.
-        return false;
-    }
     
     const UChar* end = s.characters() + s.length();    
     const UChar* p = s.characters() + 14; // "CACHE MANIFEST" is 14 characters.
-    
-    while (p < end) {
-        // Skip whitespace
-        if (*p == ' ' || *p == '\t') {
-            p++;
-        } else
-            break;
-    }
-    
-    if (p < end && *p != '\n' && *p != '\r') {
-        // The magic signature was invalid
+
+    if (p < end && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r')
         return false;
-    }
-    
+
+    // Skip to the end of the line.
+    while (p < end && *p != '\r' && *p != '\n')
+        p++;
+
     while (1) {
         // Skip whitespace
         while (p < end && (*p == '\n' || *p == '\r' || *p == ' ' || *p == '\t'))
@@ -104,8 +94,19 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             mode = Fallback;
         else if (line == "NETWORK:")
             mode = OnlineWhitelist;
+        else if (line.endsWith(":"))
+            mode = Unknown;
+        else if (mode == Unknown)
+            continue;
         else if (mode == Explicit || mode == OnlineWhitelist) {
-            KURL url(manifestURL, line);
+            const UChar* p = line.characters();
+            const UChar* lineEnd = p + line.length();
+            
+            // Look for whitespace separating the URL from subsequent ignored tokens.
+            while (p < lineEnd && *p != '\t' && *p != ' ') 
+                p++;
+
+            KURL url(manifestURL, String(line.characters(), p - line.characters()));
             
             if (!url.isValid())
                 continue;
@@ -119,11 +120,11 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             if (mode == Explicit)
                 manifest.explicitURLs.add(url.string());
             else
-                manifest.onlineWhitelistedURLs.add(url.string());
+                manifest.onlineWhitelistedURLs.append(url);
             
         } else if (mode == Fallback) {
-            const UChar *p = line.characters();
-            const UChar *lineEnd = p + line.length();
+            const UChar* p = line.characters();
+            const UChar* lineEnd = p + line.length();
             
             // Look for whitespace separating the two URLs
             while (p < lineEnd && *p != '\t' && *p != ' ') 
@@ -137,23 +138,31 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             KURL namespaceURL(manifestURL, String(line.characters(), p - line.characters()));
             if (!namespaceURL.isValid())
                 continue;
-            
-            // Check that the namespace URL has the same scheme/host/port as the manifest URL.
+            if (namespaceURL.hasRef())
+                namespaceURL.setRef(String());
+
             if (!protocolHostAndPortAreEqual(manifestURL, namespaceURL))
                 continue;
                                    
+            // Skip whitespace separating fallback namespace from URL.
             while (p < lineEnd && (*p == '\t' || *p == ' '))
                 p++;
 
-            KURL fallbackURL(String(p, line.length() - (p - line.characters())));
+            // Look for whitespace separating the URL from subsequent ignored tokens.
+            const UChar* fallbackStart = p;
+            while (p < lineEnd && *p != '\t' && *p != ' ') 
+                p++;
 
+            KURL fallbackURL(manifestURL, String(fallbackStart, p - fallbackStart));
             if (!fallbackURL.isValid())
                 continue;
-            
-            if (!equalIgnoringCase(fallbackURL.protocol(), manifestURL.protocol()))
+            if (fallbackURL.hasRef())
+                fallbackURL.setRef(String());
+
+            if (!protocolHostAndPortAreEqual(manifestURL, fallbackURL))
                 continue;
-            
-            manifest.fallbackURLs.add(namespaceURL, fallbackURL);            
+
+            manifest.fallbackURLs.append(make_pair(namespaceURL, fallbackURL));            
         } else 
             ASSERT_NOT_REACHED();
     }

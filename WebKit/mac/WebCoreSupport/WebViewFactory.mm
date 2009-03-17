@@ -344,6 +344,11 @@
     return UI_STRING("Writing Direction", "Writing direction context sub-menu item");
 }
 
+- (NSString *)contextMenuItemTagTextDirectionMenu
+{
+    return UI_STRING("Text Direction", "Text direction context sub-menu item");
+}
+
 - (NSString *)contextMenuItemTagDefaultDirection
 {
     return UI_STRING("Default", "Default writing direction context menu item");
@@ -415,6 +420,18 @@
 - (AXUIElementRef)AXUIElementForElement:(id)element
 {
     return WKCreateAXUIElementRef(element);
+}
+
+- (CGRect)accessibilityConvertScreenRect:(CGRect)bounds
+{
+    NSArray *screens = [NSScreen screens];
+    if ([screens count]) {
+        CGFloat screenHeight = NSHeight([[screens objectAtIndex:0] frame]);
+        bounds.origin.y = (screenHeight - (bounds.origin.y + bounds.size.height));
+    } else
+        bounds = CGRectZero;    
+
+    return bounds;
 }
 
 - (void)unregisterUniqueIdForUIElement:(id)element

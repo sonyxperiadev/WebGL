@@ -29,10 +29,9 @@
 #ifndef WXWEBVIEWPRIVATE_H
 #define WXWEBVIEWPRIVATE_H
 
-
 #include "config.h"
-#include "Frame.h"
-#include "FrameView.h"
+#include "HTMLFrameOwnerElement.h"
+#include "Page.h"
 #include "wtf/RefPtr.h"
 #include "KURL.h"
 
@@ -40,11 +39,9 @@ class WebViewPrivate
 {
 public:
     WebViewPrivate() :
-        frame(0),
         page(0)
     {}
     
-    WTF::RefPtr<WebCore::Frame> frame;
     WebCore::Page* page;
 };
 

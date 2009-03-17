@@ -30,6 +30,11 @@
 #include "RenderTextFragment.h"
 #include "RenderTheme.h"
 
+#if ENABLE(WML)
+#include "WMLDoElement.h"
+#include "WMLNames.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -48,7 +53,7 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Create an anonymous block.
         ASSERT(!firstChild());
         m_inner = createAnonymousBlock();
-        m_inner->style()->setBoxFlex(1.0f);
+        setupInnerStyle(m_inner->style());
         RenderFlexibleBox::addChild(m_inner);
     }
     
@@ -83,7 +88,7 @@ void RenderButton::styleDidChange(RenderStyle::Diff diff, const RenderStyle* old
     if (m_buttonText)
         m_buttonText->setStyle(style());
     if (m_inner) // RenderBlock handled updating the anonymous block's style.
-        m_inner->style()->setBoxFlex(1.0f);
+        setupInnerStyle(m_inner->style());
     setReplaced(isInline());
 
     if (!m_default && theme()->isDefault(this)) {
@@ -97,6 +102,16 @@ void RenderButton::styleDidChange(RenderStyle::Diff diff, const RenderStyle* old
     }
 }
 
+void RenderButton::setupInnerStyle(RenderStyle* innerStyle) 
+{
+    ASSERT(innerStyle->refCount() == 1);
+    // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
+    // safe to modify.
+    innerStyle->setBoxFlex(1.0f);
+    if (style()->hasAppearance())
+        theme()->adjustButtonInnerStyle(innerStyle);
+}
+
 void RenderButton::updateFromElement()
 {
     // If we're an input element, we may need to change our button text.
@@ -105,6 +120,19 @@ void RenderButton::updateFromElement()
         String value = input->valueWithDefault();
         setText(value);
     }
+
+
+#if ENABLE(WML)
+    else if (element()->hasTagName(WMLNames::doTag)) {
+        WMLDoElement* doElement = static_cast<WMLDoElement*>(element());
+
+        String value = doElement->label();
+        if (value.isEmpty())
+            value = doElement->name();
+
+        setText(value);
+    }
+#endif
 }
 
 bool RenderButton::canHaveChildren() const
@@ -144,7 +172,7 @@ void RenderButton::updateBeforeAfterContent(RenderStyle::PseudoId type)
 IntRect RenderButton::controlClipRect(int tx, int ty) const
 {
     // Clip to the padding box to at least give content the extra padding space.
-    return IntRect(tx + borderLeft(), ty + borderTop(), m_width - borderLeft() - borderRight(), m_height - borderTop() - borderBottom());
+    return IntRect(tx + borderLeft(), ty + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
 }
 
 void RenderButton::timerFired(Timer<RenderButton>*)

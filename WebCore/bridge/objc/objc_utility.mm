@@ -126,13 +126,13 @@ bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSi
     [], other       exception
 
 */
-ObjcValue convertValueToObjcValue(ExecState* exec, JSValue* value, ObjcValueType type)
+ObjcValue convertValueToObjcValue(ExecState* exec, JSValuePtr value, ObjcValueType type)
 {
     ObjcValue result;
     double d = 0;
 
-    if (value->isNumber() || value->isString() || value->isBoolean())
-        d = value->toNumber(exec);
+    if (value.isNumber() || value.isString() || value.isBoolean())
+        d = value.toNumber(exec);
 
     switch (type) {
         case ObjcObjectType: {
@@ -142,7 +142,7 @@ ObjcValue convertValueToObjcValue(ExecState* exec, JSValue* value, ObjcValueType
             RootObject* originRootObject = findRootObject(originGlobalObject);
 
             JSGlobalObject* globalObject = 0;
-            if (value->isObject() && asObject(value)->isGlobalObject())
+            if (value.isObject() && asObject(value)->isGlobalObject())
                 globalObject = static_cast<JSGlobalObject*>(asObject(value));
 
             if (!globalObject)
@@ -194,7 +194,7 @@ ObjcValue convertValueToObjcValue(ExecState* exec, JSValue* value, ObjcValueType
     return result;
 }
 
-JSValue* convertNSStringToString(ExecState* exec, NSString *nsstring)
+JSValuePtr convertNSStringToString(ExecState* exec, NSString *nsstring)
 {
     JSLock lock(false);
     
@@ -203,7 +203,7 @@ JSValue* convertNSStringToString(ExecState* exec, NSString *nsstring)
     chars = (unichar *)malloc(sizeof(unichar)*length);
     [nsstring getCharacters:chars];
     UString u((const UChar*)chars, length);
-    JSValue* aValue = jsString(exec, u);
+    JSValuePtr aValue = jsString(exec, u);
     free((void *)chars);
     return aValue;
 }
@@ -226,7 +226,7 @@ JSValue* convertNSStringToString(ExecState* exec, NSString *nsstring)
     id              object wrapper
     other           should not happen
 */
-JSValue* convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType type, RootObject* rootObject)
+JSValuePtr convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType type, RootObject* rootObject)
 {
     JSLock lock(false);
     
@@ -253,7 +253,7 @@ JSValue* convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType ty
                 return jsNull();
             if (obj == 0)
                 return jsUndefined();
-            return Instance::createRuntimeObject(exec, ObjcInstance::create(obj, rootObject));
+            return ObjcInstance::create(obj, rootObject)->createRuntimeObject(exec);
         }
         case ObjcCharType:
             return jsNumber(exec, *(char*)buffer);

@@ -23,14 +23,17 @@
 
 #include "CSSHelper.h"
 #include "CSSPropertyNames.h"
+#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
 #include "Color.h"
 #include "Counter.h"
 #include "ExceptionCode.h"
+#include "Node.h"
 #include "Pair.h"
 #include "Rect.h"
 #include "RenderStyle.h"
 #include <wtf/ASCIICType.h>
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "DashboardRegion.h"
@@ -39,6 +42,78 @@
 using namespace WTF;
 
 namespace WebCore {
+
+// A more stylish solution than sharing would be to turn CSSPrimitiveValue (or CSSValues in general) into non-virtual,
+// non-refcounted simple type with value semantics. In practice these sharing tricks get similar memory benefits 
+// with less need for refactoring.
+
+PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::createIdentifier(int ident)
+{
+    static RefPtr<CSSPrimitiveValue>* identValueCache = new RefPtr<CSSPrimitiveValue>[numCSSValueKeywords];
+    if (ident >= 0 && ident < numCSSValueKeywords) {
+        RefPtr<CSSPrimitiveValue> primitiveValue = identValueCache[ident];
+        if (!primitiveValue) {
+            primitiveValue = adoptRef(new CSSPrimitiveValue(ident));
+            identValueCache[ident] = primitiveValue;
+        }
+        return primitiveValue.release();
+    } 
+    return adoptRef(new CSSPrimitiveValue(ident));
+}
+
+PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::createColor(unsigned rgbValue)
+{
+    typedef HashMap<unsigned, RefPtr<CSSPrimitiveValue> > ColorValueCache;
+    static ColorValueCache* colorValueCache = new ColorValueCache;
+    // These are the empty and deleted values of the hash table.
+    if (rgbValue == Color::transparent) {
+        static CSSPrimitiveValue* colorTransparent = new CSSPrimitiveValue(Color::transparent);
+        return colorTransparent;
+    }
+    if (rgbValue == Color::white) {
+        static CSSPrimitiveValue* colorWhite = new CSSPrimitiveValue(Color::white);
+        return colorWhite;
+    }
+    RefPtr<CSSPrimitiveValue> primitiveValue = colorValueCache->get(rgbValue);
+    if (primitiveValue)
+        return primitiveValue.release();
+    primitiveValue = adoptRef(new CSSPrimitiveValue(rgbValue));
+    // Just wipe out the cache and start rebuilding when it gets too big.
+    const int maxColorCacheSize = 512;
+    if (colorValueCache->size() >= maxColorCacheSize)
+        colorValueCache->clear();
+    colorValueCache->add(rgbValue, primitiveValue);
+    
+    return primitiveValue.release();
+}
+
+PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::create(double value, UnitTypes type)
+{
+    // Small integers are very common. Try to share them.
+    const int cachedIntegerCount = 128;
+    // Other common primitive types have UnitTypes smaller than this.
+    const int maxCachedUnitType = CSS_PX;
+    typedef RefPtr<CSSPrimitiveValue>(* IntegerValueCache)[maxCachedUnitType + 1];
+    static IntegerValueCache integerValueCache = new RefPtr<CSSPrimitiveValue>[cachedIntegerCount][maxCachedUnitType + 1];
+    if (type <= maxCachedUnitType && value >= 0 && value < cachedIntegerCount) {
+        int intValue = static_cast<int>(value);
+        if (value == intValue) {
+            RefPtr<CSSPrimitiveValue> primitiveValue = integerValueCache[intValue][type];
+            if (!primitiveValue) {
+                primitiveValue = adoptRef(new CSSPrimitiveValue(value, type));
+                integerValueCache[intValue][type] = primitiveValue;
+            }
+            return primitiveValue.release();
+        }
+    }
+
+    return adoptRef(new CSSPrimitiveValue(value, type));
+}
+
+PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::create(const String& value, UnitTypes type)
+{
+    return adoptRef(new CSSPrimitiveValue(value, type));
+}
 
 static const char* valueOrPropertyName(int valueOrPropertyID)
 {
@@ -410,7 +485,7 @@ void CSSPrimitiveValue::setFloatValue(unsigned short unitType, double floatValue
     m_type = unitType;
 }
 
-double scaleFactorForConversion(unsigned short unitType)
+static double scaleFactorForConversion(unsigned short unitType)
 {
     double factor = 1.0;
     switch (unitType) {
@@ -664,6 +739,9 @@ String CSSPrimitiveValue::cssText() const
         case CSS_KHZ:
             text = String::format("%.6lgkhz", m_value.num);
             break;
+        case CSS_TURN:
+            text = String::format("%.6lgturn", m_value.num);
+            break;
         case CSS_DIMENSION:
             // FIXME
             break;
@@ -686,7 +764,7 @@ String CSSPrimitiveValue::cssText() const
             // FIXME: Add list-style and separator
             break;
         case CSS_RECT: {
-            static const String rectParen("rect(");
+            DEFINE_STATIC_LOCAL(const String, rectParen, ("rect("));
 
             Rect* rectVal = getRectValue();
             Vector<UChar> result;
@@ -709,9 +787,9 @@ String CSSPrimitiveValue::cssText() const
         }
         case CSS_RGBCOLOR:
         case CSS_PARSER_HEXCOLOR: {
-            static const String commaSpace(", ");
-            static const String rgbParen("rgb(");
-            static const String rgbaParen("rgba(");
+            DEFINE_STATIC_LOCAL(const String, commaSpace, (", "));
+            DEFINE_STATIC_LOCAL(const String, rgbParen, ("rgb("));
+            DEFINE_STATIC_LOCAL(const String, rgbaParen, ("rgba("));
 
             RGBA32 rgbColor = m_value.rgbcolor;
             if (m_type == CSS_PARSER_HEXCOLOR)
@@ -819,6 +897,7 @@ CSSParserValue CSSPrimitiveValue::parserValue() const
         case CSS_HZ:
         case CSS_KHZ:
         case CSS_DIMENSION:
+        case CSS_TURN:
             value.fValue = m_value.num;
             value.unit = m_type;
             break;
@@ -865,6 +944,12 @@ CSSParserValue CSSPrimitiveValue::parserValue() const
     }
     
     return value;
+}
+
+void CSSPrimitiveValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const CSSStyleSheet* styleSheet)
+{
+    if (m_type == CSS_URI)
+        addSubresourceURL(urls, styleSheet->completeURL(m_value.string));
 }
 
 } // namespace WebCore

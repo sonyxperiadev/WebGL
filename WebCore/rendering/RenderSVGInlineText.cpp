@@ -29,10 +29,12 @@
 #include "RenderSVGInlineText.h"
 
 #include "FloatConversion.h"
+#include "FloatQuad.h"
 #include "RenderBlock.h"
 #include "RenderSVGRoot.h"
 #include "SVGInlineTextBox.h"
 #include "SVGRootInlineBox.h"
+#include "VisiblePosition.h"
 
 namespace WebCore {
 
@@ -53,9 +55,25 @@ RenderSVGInlineText::RenderSVGInlineText(Node* n, PassRefPtr<StringImpl> str)
 {
 }
 
+
+void RenderSVGInlineText::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+{
+    // Skip RenderText's work.
+    RenderObject::styleDidChange(diff, oldStyle);
+    
+    // SVG text is apparently always transformed.
+    if (RefPtr<StringImpl> textToTransform = originalText())
+        setText(textToTransform.release(), true);
+}
+
 void RenderSVGInlineText::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
     rects.append(computeAbsoluteRectForRange(0, textLength()));
+}
+
+void RenderSVGInlineText::absoluteQuads(Vector<FloatQuad>& quads, bool)
+{
+    quads.append(FloatRect(computeAbsoluteRectForRange(0, textLength())));
 }
 
 IntRect RenderSVGInlineText::selectionRect(bool)
@@ -107,14 +125,15 @@ IntRect RenderSVGInlineText::computeAbsoluteRectForRange(int startPos, int endPo
         rect.unite(box->selectionRect(0, 0, startPos, endPos));
 
     // Mimic RenderBox::computeAbsoluteRepaintRect() functionality. But only the subset needed for SVG and respecting SVG transformations.
-    int x, y;
-    cb->container()->absolutePosition(x, y);
+    FloatPoint absPos = cb->container()->localToAbsolute();
 
     // Remove HTML parent translation offsets here! These need to be retrieved from the RenderSVGRoot object.
     // But do take the containingBlocks's container position into account, ie. SVG text in scrollable <div>.
-    AffineTransform htmlParentCtm = root->RenderContainer::absoluteTransform();
+    TransformationMatrix htmlParentCtm = root->RenderContainer::absoluteTransform();
 
-    FloatRect fixedRect(narrowPrecisionToFloat(rect.x() + x - xPos() - htmlParentCtm.e()), narrowPrecisionToFloat(rect.y() + y - yPos() - htmlParentCtm.f()), rect.width(), rect.height());
+    FloatRect fixedRect(narrowPrecisionToFloat(rect.x() + absPos.x() - (firstTextBox() ? firstTextBox()->xPos() : 0) - htmlParentCtm.e()),
+                        narrowPrecisionToFloat(rect.y() + absPos.y() - (firstTextBox() ? firstTextBox()->yPos() : 0) - htmlParentCtm.f()), rect.width(), rect.height());
+    // FIXME: broken with CSS transforms
     return enclosingIntRect(absoluteTransform().mapRect(fixedRect));
 }
 
@@ -123,9 +142,10 @@ InlineTextBox* RenderSVGInlineText::createInlineTextBox()
     return new (renderArena()) SVGInlineTextBox(this);
 }
 
-IntRect RenderSVGInlineText::caretRect(InlineBox* inlineBox, int caretOffset, int* extraWidthToEndOfLine)
+IntRect RenderSVGInlineText::localCaretRect(InlineBox*, int, int*)
 {
-    // SVG doesn't have any editable content where a caret rect would be needed
+    // SVG doesn't have any editable content where a caret rect would be needed.
+    // FIXME: That's not sufficient. The localCaretRect function is also used for selection.
     return IntRect();
 }
 
@@ -137,7 +157,7 @@ VisiblePosition RenderSVGInlineText::positionForCoordinates(int x, int y)
         return VisiblePosition(element(), 0, DOWNSTREAM);
 
     SVGRootInlineBox* rootBox = textBox->svgRootInlineBox();
-    RenderObject* object = rootBox ? rootBox->object() : 0;
+    RenderBlock* object = rootBox ? rootBox->block() : 0;
 
     if (!object)
         return VisiblePosition(element(), 0, DOWNSTREAM);
@@ -145,7 +165,7 @@ VisiblePosition RenderSVGInlineText::positionForCoordinates(int x, int y)
     int offset = 0;
 
     for (SVGInlineTextBox* box = textBox; box; box = static_cast<SVGInlineTextBox*>(box->nextTextBox())) {
-        if (box->svgCharacterHitsPosition(x + object->xPos(), y + object->yPos(), offset)) {
+        if (box->svgCharacterHitsPosition(x + object->x(), y + object->y(), offset)) {
             // If we're not at the end/start of the box, stop looking for other selected boxes.
             if (box->direction() == LTR) {
                 if (offset <= (int) box->end() + 1)

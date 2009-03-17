@@ -30,7 +30,6 @@
 #define AnimationBase_h
 
 #include "AtomicString.h"
-#include "Timer.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -45,60 +44,6 @@ class RenderObject;
 class RenderStyle;
 class TimingFunction;
 
-class AnimationTimerBase {
-public:
-    AnimationTimerBase(AnimationBase* anim)
-        : m_timer(this, &AnimationTimerBase::timerFired)
-        , m_anim(anim)
-    {
-        m_timer.startOneShot(0);
-    }
-
-    virtual ~AnimationTimerBase() { }
-
-    void startTimer(double timeout = 0)
-    {
-        m_timer.startOneShot(timeout);
-    }
-
-    void cancelTimer()
-    {
-        m_timer.stop();
-    }
-
-    virtual void timerFired(Timer<AnimationTimerBase>*) = 0;
-
-private:
-    Timer<AnimationTimerBase> m_timer;
-
-protected:
-    AnimationBase* m_anim;
-};
-
-class AnimationTimerCallback : public AnimationTimerBase {
-public:
-    AnimationTimerCallback(AnimationBase* anim) 
-        : AnimationTimerBase(anim)
-        , m_elapsedTime(0)
-    {
-    }
-
-    virtual ~AnimationTimerCallback() { }
-
-    virtual void timerFired(Timer<AnimationTimerBase>*);
-
-    void startTimer(double timeout, const AtomicString& eventType, double elapsedTime)
-    {
-        m_eventType = eventType;
-        m_elapsedTime = elapsedTime;
-        AnimationTimerBase::startTimer(timeout);
-    }
-
-private:
-    AtomicString m_eventType;
-    double m_elapsedTime;
-};
-
 class AnimationBase : public RefCounted<AnimationBase> {
     friend class CompositeAnimationPrivate;
 
@@ -107,13 +52,9 @@ public:
     virtual ~AnimationBase();
 
     RenderObject* renderer() const { return m_object; }
-    double startTime() const { return m_startTime; }
+    void clearRenderer() { m_object = 0; }
+    
     double duration() const;
-
-    void cancelTimers()
-    {
-        m_animationTimerCallback.cancelTimer();
-    }
 
     // Animations and Transitions go through the states below. When entering the STARTED state
     // the animation is started. This may or may not require deferred response from the animator.
@@ -176,16 +117,16 @@ public:
     // "animating" means that something is running that requires a timer to keep firing
     // (e.g. a software animation)
     void setAnimating(bool inAnimating = true) { m_isAnimating = inAnimating; }
-    bool isAnimating() const { return m_isAnimating; }
+    double willNeedService() const;
 
     double progress(double scale, double offset, const TimingFunction*) const;
 
-    virtual void animate(CompositeAnimation*, RenderObject*, const RenderStyle* currentStyle, 
-                         const RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle) { }
+    virtual void animate(CompositeAnimation*, RenderObject*, const RenderStyle* /*currentStyle*/, 
+        const RenderStyle* /*targetStyle*/, RefPtr<RenderStyle>& /*animatedStyle*/) { }
 
     virtual bool shouldFireEvents() const { return false; }
 
-    void animationTimerCallbackFired(const AtomicString& eventType, double elapsedTime);
+    void fireAnimationEventsIfNeeded();
 
     bool animationsMatch(const Animation*) const;
 
@@ -198,7 +139,7 @@ public:
     virtual bool overridden() const { return false; }
 
     // Does this animation/transition involve the given property?
-    virtual bool affectsProperty(int property) const { return false; }
+    virtual bool affectsProperty(int /*property*/) const { return false; }
     bool isAnimatingProperty(int property, bool isRunningNow) const
     {
         if (isRunningNow)
@@ -209,6 +150,21 @@ public:
 
     bool isTransformFunctionListValid() const { return m_transformFunctionListValid; }
     
+    void pauseAtTime(double t);
+    
+    double beginAnimationUpdateTime() const;
+    
+    double getElapsedTime() const;
+    
+    AnimationBase* next() const { return m_next; }
+    void setNext(AnimationBase* animation) { m_next = animation; }
+    
+    void styleAvailable() 
+    {
+        ASSERT(waitingForStyleAvailable());
+        updateStateMachine(AnimationBase::AnimationStateInputStyleAvailable, -1);
+    }
+    
 protected:
     virtual void overrideAnimations() { }
     virtual void resumeOverriddenAnimations() { }
@@ -216,16 +172,16 @@ protected:
     CompositeAnimation* compositeAnimation() { return m_compAnim; }
 
     // These are called when the corresponding timer fires so subclasses can do any extra work
-    virtual void onAnimationStart(double elapsedTime) { }
-    virtual void onAnimationIteration(double elapsedTime) { }
-    virtual void onAnimationEnd(double elapsedTime) { }
-    virtual bool startAnimation(double beginTime) { return false; }
-    virtual void endAnimation(bool reset) { }
+    virtual void onAnimationStart(double /*elapsedTime*/) { }
+    virtual void onAnimationIteration(double /*elapsedTime*/) { }
+    virtual void onAnimationEnd(double /*elapsedTime*/) { }
+    virtual bool startAnimation(double /*beginTime*/) { return false; }
+    virtual void endAnimation(bool /*reset*/) { }
 
-    void primeEventTimers();
+    void goIntoEndingOrLoopingState();
 
     static bool propertiesEqual(int prop, const RenderStyle* a, const RenderStyle* b);
-    static int getPropertyAtIndex(int);
+    static int getPropertyAtIndex(int, bool& isShorthand);
     static int getNumProperties();
 
     // Return true if we need to start software animation timers
@@ -233,20 +189,21 @@ protected:
     
     static void setChanged(Node*);
 
-protected:
     AnimState m_animState;
-    int m_iteration;
 
     bool m_isAnimating;       // transition/animation requires continual timer firing
     bool m_waitedForResponse;
     double m_startTime;
     double m_pauseTime;
+    double m_requestedStartTime;
     RenderObject* m_object;
 
-    AnimationTimerCallback m_animationTimerCallback;
     RefPtr<Animation> m_animation;
     CompositeAnimation* m_compAnim;
     bool m_transformFunctionListValid;
+    double m_totalDuration, m_nextIterationDuration;
+    
+    AnimationBase* m_next;
 };
 
 } // namespace WebCore

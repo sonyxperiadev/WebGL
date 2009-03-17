@@ -69,11 +69,12 @@ bool RenderTableCol::canHaveChildren() const
     return style()->display() == TABLE_COLUMN_GROUP;
 }
 
-IntRect RenderTableCol::absoluteClippedOverflowRect()
+IntRect RenderTableCol::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
 {
     // For now, just repaint the whole table.
     // FIXME: Find a better way to do this, e.g., need to repaint all the cells that we
     // might have propagated a background color or borders into.
+    // FIXME: check for repaintContainer each time here?
     RenderObject* table = parent();
     if (table && !table->isTable())
         table = table->parent();
@@ -83,7 +84,7 @@ IntRect RenderTableCol::absoluteClippedOverflowRect()
     return IntRect();
 }
 
-void RenderTableCol::imageChanged(WrappedImagePtr image)
+void RenderTableCol::imageChanged(WrappedImagePtr, const IntRect*)
 {
     // FIXME: Repaint only the rect the image paints in.
     repaint();

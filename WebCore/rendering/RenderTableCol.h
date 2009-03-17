@@ -44,10 +44,10 @@ public:
 
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
     virtual bool canHaveChildren() const;
-    virtual bool requiresLayer() { return false; }
+    virtual bool requiresLayer() const { return false; }
 
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual void imageChanged(WrappedImagePtr);
+    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     int span() const { return m_span; }
     void setSpan(int s) { m_span = s; }

@@ -31,7 +31,7 @@
 
 #if PLATFORM(CAIRO)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "CairoPath.h"
 #include "FloatRect.h"
 #include "Font.h"
@@ -62,6 +62,15 @@
 
 namespace WebCore {
 
+static const unsigned aquaFocusRingColor = 0xFF7DADD9;
+
+Color focusRingColor()
+{
+    static Color focusRingColor = aquaFocusRingColor;
+
+    return focusRingColor;
+}
+
 static inline void setColor(cairo_t* cr, const Color& col)
 {
     float red, green, blue, alpha;
@@ -90,9 +99,6 @@ static inline cairo_pattern_t* applySpreadMethod(cairo_pattern_t* pattern, Gradi
         case SpreadMethodRepeat:
             cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
             break;
-        default:
-            cairo_pattern_set_extend(pattern, CAIRO_EXTEND_NONE);
-            break;
     }
     return pattern;
 }
@@ -111,7 +117,7 @@ GraphicsContext::~GraphicsContext()
     delete m_data;
 }
 
-AffineTransform GraphicsContext::getCTM() const
+TransformationMatrix GraphicsContext::getCTM() const
 {
     cairo_t* cr = platformContext();
     cairo_matrix_t m;
@@ -444,19 +450,19 @@ void GraphicsContext::fillPath()
     cairo_set_fill_rule(cr, fillRule() == RULE_EVENODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
     switch (m_common->state.fillColorSpace) {
     case SolidColorSpace:
-        if (fillColor().alpha()) {
-            setColor(cr, fillColor());
-            cairo_clip(cr);
-            cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
-        }
-        break;
-    case PatternColorSpace:
-        cairo_set_source(cr, m_common->state.fillPattern.get()->createPlatformPattern(getCTM()));
+        setColor(cr, fillColor());
         cairo_clip(cr);
         cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
         break;
+    case PatternColorSpace: {
+        TransformationMatrix affine;
+        cairo_set_source(cr, m_common->state.fillPattern->createPlatformPattern(affine));
+        cairo_clip(cr);
+        cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
+        break;
+    }
     case GradientColorSpace:
-        cairo_pattern_t* pattern = m_common->state.fillGradient.get()->platformGradient();
+        cairo_pattern_t* pattern = m_common->state.fillGradient->platformGradient();
         pattern = applySpreadMethod(pattern, spreadMethod());
         cairo_set_source(cr, pattern);
         cairo_clip(cr);
@@ -475,18 +481,16 @@ void GraphicsContext::strokePath()
     cairo_save(cr);
     switch (m_common->state.strokeColorSpace) {
     case SolidColorSpace:
-        if (strokeColor().alpha()) {
-            setColor(cr, strokeColor());
-            if (m_common->state.globalAlpha < 1.0f) {
-                cairo_push_group(cr);
-                cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
-                cairo_pop_group_to_source(cr);
-            }
-            cairo_stroke(cr);
-        }
+        float red, green, blue, alpha;
+        strokeColor().getRGBA(red, green, blue, alpha);
+        if (m_common->state.globalAlpha < 1.0f)
+            alpha *= m_common->state.globalAlpha;
+        cairo_set_source_rgba(cr, red, green, blue, alpha);
+        cairo_stroke(cr);
         break;
-    case PatternColorSpace:
-        cairo_set_source(cr, m_common->state.strokePattern.get()->createPlatformPattern(getCTM()));
+    case PatternColorSpace: {
+        TransformationMatrix affine;
+        cairo_set_source(cr, m_common->state.strokePattern->createPlatformPattern(affine));
         if (m_common->state.globalAlpha < 1.0f) {
             cairo_push_group(cr);
             cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
@@ -494,8 +498,9 @@ void GraphicsContext::strokePath()
         }
         cairo_stroke(cr);
         break;
+    }
     case GradientColorSpace:
-        cairo_pattern_t* pattern = m_common->state.strokeGradient.get()->platformGradient();
+        cairo_pattern_t* pattern = m_common->state.strokeGradient->platformGradient();
         pattern = applySpreadMethod(pattern, spreadMethod());
         cairo_set_source(cr, pattern);
         if (m_common->state.globalAlpha < 1.0f) {
@@ -546,6 +551,16 @@ void GraphicsContext::clip(const FloatRect& rect)
     cairo_clip(cr);
     cairo_set_fill_rule(cr, savedFillRule);
     m_data->clip(rect);
+}
+
+void GraphicsContext::clipPath(WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    cairo_set_fill_rule(cr, clipRule == RULE_EVENODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+    cairo_clip(cr);
 }
 
 void GraphicsContext::drawFocusRing(const Color& color)
@@ -729,7 +744,7 @@ void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
     notImplemented();
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 {
     if (paintingDisabled())
         return;
@@ -1079,7 +1094,7 @@ GdkDrawable* GraphicsContext::gdkDrawable() const
 }
 #endif
 
-void GraphicsContext::setUseAntialiasing(bool enable)
+void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
         return;

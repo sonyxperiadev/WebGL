@@ -55,8 +55,11 @@ public:
 
     virtual Color platformActiveSelectionBackgroundColor() const;
     virtual Color platformInactiveSelectionBackgroundColor() const;
-    virtual Color activeListBoxSelectionBackgroundColor() const;
-    
+    virtual Color platformActiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformActiveListBoxSelectionForegroundColor() const;
+    virtual Color platformInactiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformInactiveListBoxSelectionForegroundColor() const;
+
     virtual void platformColorsDidChange();
 
     // System fonts.
@@ -76,6 +79,8 @@ public:
     virtual Color systemColor(int cssValueId) const;
 
 protected:
+    virtual bool supportsSelectionForegroundColors() const { return false; }
+
     virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
@@ -109,6 +114,7 @@ protected:
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+#if ENABLE(VIDEO)
     virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
@@ -116,10 +122,20 @@ protected:
     virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaTimelineContainer(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaCurrentTime(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaTimeRemaining(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    // Media controls
+    virtual bool hitTestMediaControlPart(RenderObject*, const IntPoint& absPoint);
+    virtual String extraMediaControlsStyleSheet();
+#endif
 
 private:
     IntRect inflateRect(const IntRect&, const IntSize&, const int* margins, float zoomLevel = 1.0f) const;
 
+    FloatRect convertToPaintingRect(const RenderObject* inputRenderer, const RenderObject* partRenderer, const FloatRect& inputRect, const IntRect& r) const;
+    
     // Get the control size based off the font.  Used by some of the controls (like buttons).
     NSControlSize controlSizeForFont(RenderStyle*) const;
     NSControlSize controlSizeForSystemFont(RenderStyle*) const;

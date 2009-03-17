@@ -52,13 +52,15 @@ public:
         , m_selectionState(SelectionNone)
         , m_hasColumns(false)
         , m_isContinuation(false)
+        , m_cellWidthChanged(false)
     {
     }
 #ifndef NDEBUG
     virtual ~RenderFlow();
 #endif
 
-    virtual RenderFlow* continuation() const { return m_continuation; }
+    virtual RenderFlow* virtualContinuation() const { return continuation(); }
+    RenderFlow* continuation() const { return m_continuation; }
     void setContinuation(RenderFlow* c) { m_continuation = c; }
     RenderFlow* continuationBefore(RenderObject* beforeChild);
 
@@ -87,13 +89,7 @@ public:
     void paintLines(PaintInfo&, int tx, int ty);
     bool hitTestLines(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
-    virtual IntRect absoluteClippedOverflowRect();
-
-    virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
-    virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
-    virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
-
-    virtual IntRect caretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
+    virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
     void paintOutlineForLine(GraphicsContext*, int tx, int ty, const IntRect& prevLine, const IntRect& thisLine, const IntRect& nextLine);
@@ -133,6 +129,9 @@ protected:
     
     // from RenderInline
     bool m_isContinuation : 1; // Whether or not we're a continuation of an inline.
+    
+    // from RenderTableCell
+    bool m_cellWidthChanged : 1;
 };
 
 #ifdef NDEBUG

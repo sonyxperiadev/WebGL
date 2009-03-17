@@ -50,7 +50,10 @@ class RenderThemeWin : public RenderTheme {
 public:
     RenderThemeWin();
     ~RenderThemeWin();
-       
+
+    virtual String extraDefaultStyleSheet();
+    virtual String extraQuirksStyleSheet();
+
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle*) const;
 
@@ -89,6 +92,8 @@ public:
     virtual bool paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
     virtual void adjustSliderThumbSize(RenderObject*) const;
 
+    virtual void adjustButtonInnerStyle(RenderStyle*) const;
+
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
@@ -112,6 +117,8 @@ public:
 
     static void setWebKitIsBeingUnloaded();
 
+    virtual bool supportsFocusRing(const RenderStyle*) const;
+
 private:
     void addIntrinsicMargins(RenderStyle*) const;
     void close();
@@ -121,7 +128,7 @@ private:
     unsigned determineSliderThumbState(RenderObject*);
     unsigned determineButtonState(RenderObject*);
 
-    bool supportsFocus(ControlPart);
+    bool supportsFocus(ControlPart) const;
 
     ThemeData getThemeData(RenderObject*);
     ThemeData getClassicThemeData(RenderObject* o);

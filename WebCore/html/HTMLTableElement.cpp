@@ -41,14 +41,15 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLTableElement::HTMLTableElement(Document *doc)
-    : HTMLElement(tableTag, doc)
+HTMLTableElement::HTMLTableElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
     , m_borderAttr(false)
     , m_borderColorAttr(false)
     , m_frameAttr(false)
     , m_rulesAttr(UnsetRules)
     , m_padding(1)
 {
+    ASSERT(hasTagName(tableTag));
 }
 
 bool HTMLTableElement::checkDTD(const Node* newChild)
@@ -155,7 +156,7 @@ PassRefPtr<HTMLElement> HTMLTableElement::createCaption()
 {
     if (HTMLTableCaptionElement* existingCaption = caption())
         return existingCaption;
-    RefPtr<HTMLTableCaptionElement> caption = new HTMLTableCaptionElement(document());
+    RefPtr<HTMLTableCaptionElement> caption = new HTMLTableCaptionElement(captionTag, document());
     ExceptionCode ec;
     setCaption(caption, ec);
     return caption.release();
@@ -208,14 +209,14 @@ PassRefPtr<HTMLElement> HTMLTableElement::insertRow(int index, ExceptionCode& ec
         parent = lastBody();
         if (!parent) {
             RefPtr<HTMLTableSectionElement> newBody = new HTMLTableSectionElement(tbodyTag, document());
-            RefPtr<HTMLTableRowElement> newRow = new HTMLTableRowElement(document());
+            RefPtr<HTMLTableRowElement> newRow = new HTMLTableRowElement(trTag, document());
             newBody->appendChild(newRow, ec);
             appendChild(newBody.release(), ec);
             return newRow.release();
         }
     }
 
-    RefPtr<HTMLTableRowElement> newRow = new HTMLTableRowElement(document());
+    RefPtr<HTMLTableRowElement> newRow = new HTMLTableRowElement(trTag, document());
     parent->insertBefore(newRow, row, ec);
     return newRow.release();
 }
@@ -520,8 +521,8 @@ void HTMLTableElement::addSharedCellBordersDecl(Vector<CSSMutableStyleDeclaratio
 {
     CellBorders borders = cellBorders();
 
-    static const AtomicString cellBorderNames[] = { "none", "solid", "inset", "solid-cols", "solid-rows" };
-    const AtomicString& cellborderValue = cellBorderNames[borders];
+    static const AtomicString* cellBorderNames[] = { new AtomicString("none"), new AtomicString("solid"), new AtomicString("inset"), new AtomicString("solid-cols"), new AtomicString("solid-rows") };
+    const AtomicString& cellborderValue = *cellBorderNames[borders];
     CSSMappedAttributeDeclaration* decl = getMappedAttributeDecl(ePersistent, cellborderAttr, cellborderValue);
     if (!decl) {
         decl = CSSMappedAttributeDeclaration::create().releaseRef(); // This single ref pins us in the table until the document dies.
@@ -565,7 +566,7 @@ void HTMLTableElement::addSharedCellBordersDecl(Vector<CSSMutableStyleDeclaratio
                 break;
         }
 
-        setMappedAttributeDecl(ePersistent, cellborderAttr, cellBorderNames[borders], decl);
+        setMappedAttributeDecl(ePersistent, cellborderAttr, *cellBorderNames[borders], decl);
         decl->setParent(0);
         decl->setNode(0);
         decl->setMappedState(ePersistent, cellborderAttr, cellborderValue);
@@ -747,9 +748,11 @@ void HTMLTableElement::setWidth(const String &value)
     setAttribute(widthAttr, value);
 }
 
-void HTMLTableElement::getSubresourceAttributeStrings(Vector<String>& urls) const
+void HTMLTableElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
-    urls.append(getAttribute(HTMLNames::backgroundAttr).string());
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(getAttribute(backgroundAttr)));
 }
 
 }

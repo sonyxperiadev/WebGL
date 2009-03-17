@@ -46,7 +46,8 @@ static Instance* pluginInstance(Node* node)
     if (!(node->hasTagName(objectTag) || node->hasTagName(embedTag) || node->hasTagName(appletTag)))
         return 0;
     HTMLPlugInElement* plugInElement = static_cast<HTMLPlugInElement*>(node);
-    Instance* instance = plugInElement->getInstance();
+    // The plugin element holds an owning reference, so we don't have to.
+    Instance* instance = plugInElement->getInstance().get();
     if (!instance || !instance->rootObject())
         return 0;
     return instance;
@@ -57,10 +58,10 @@ static RuntimeObjectImp* getRuntimeObject(ExecState* exec, Node* node)
     Instance* instance = pluginInstance(node);
     if (!instance)
         return 0;
-    return JSC::Bindings::Instance::createRuntimeObject(exec, instance);
+    return instance->createRuntimeObject(exec);
 }
 
-JSValue* runtimeObjectGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValuePtr runtimeObjectGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSHTMLElement* thisObj = static_cast<JSHTMLElement*>(asObject(slot.slotBase()));
     HTMLElement* element = static_cast<HTMLElement*>(thisObj->impl());
@@ -68,7 +69,7 @@ JSValue* runtimeObjectGetter(ExecState* exec, const Identifier& propertyName, co
     return runtimeObject ? runtimeObject : jsUndefined();
 }
 
-JSValue* runtimeObjectPropertyGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValuePtr runtimeObjectPropertyGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
     JSHTMLElement* thisObj = static_cast<JSHTMLElement*>(asObject(slot.slotBase()));
     HTMLElement* element = static_cast<HTMLElement*>(thisObj->impl());
@@ -89,7 +90,7 @@ bool runtimeObjectCustomGetOwnPropertySlot(ExecState* exec, const Identifier& pr
     return true;
 }
 
-bool runtimeObjectCustomPut(ExecState* exec, const Identifier& propertyName, JSValue* value, HTMLElement* element, PutPropertySlot& slot)
+bool runtimeObjectCustomPut(ExecState* exec, const Identifier& propertyName, JSValuePtr value, HTMLElement* element, PutPropertySlot& slot)
 {
     RuntimeObjectImp* runtimeObject = getRuntimeObject(exec, element);
     if (!runtimeObject)
@@ -100,11 +101,11 @@ bool runtimeObjectCustomPut(ExecState* exec, const Identifier& propertyName, JSV
     return true;
 }
 
-static JSValue* callPlugin(ExecState* exec, JSObject* function, JSValue*, const ArgList& args)
+static JSValuePtr callPlugin(ExecState* exec, JSObject* function, JSValuePtr, const ArgList& args)
 {
     Instance* instance = pluginInstance(static_cast<JSHTMLElement*>(function)->impl());
     instance->begin();
-    JSValue* result = instance->invokeDefaultMethod(exec, args);
+    JSValuePtr result = instance->invokeDefaultMethod(exec, args);
     instance->end();
     return result;
 }

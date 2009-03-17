@@ -94,7 +94,9 @@ public:
     virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint&) const;
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&) const;
     virtual PlatformWidget platformWindow() const;
-
+    virtual void contentsSizeChanged(WebCore::Frame*, const WebCore::IntSize&) const;
+    virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const;
+    
     virtual void setStatusbarText(const WebCore::String&);
 
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
@@ -131,6 +133,7 @@ public:
 
     virtual void enableSuddenTermination();
     virtual void disableSuddenTermination();
+    virtual void formStateDidChange(const WebCore::Node*) { }
 
 private:
     WebView *m_webView;

@@ -37,10 +37,14 @@
 #include "HitTestResult.h"
 #include "NotImplemented.h"
 #include "WindowFeatures.h"
+#include "DatabaseTracker.h"
+#include "SecurityOrigin.h"
 
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 #include "qwebframe_p.h"
+#include "qwebsecurityorigin.h"
+#include "qwebsecurityorigin_p.h"
 
 #include <qtooltip.h>
 
@@ -305,8 +309,8 @@ void ChromeClientQt::repaint(const IntRect& windowRect, bool contentChanged, boo
         if (view) {
             QRect rect(windowRect);
             rect = rect.intersected(QRect(QPoint(0, 0), m_webPage->viewportSize()));
-            if (!windowRect.isEmpty())
-                view->update(windowRect);
+            if (!rect.isEmpty())
+                view->update(rect);
         }
         emit m_webPage->repaintRequested(windowRect);
     }
@@ -338,6 +342,11 @@ IntPoint ChromeClientQt::screenToWindow(const IntPoint& point) const
 PlatformWidget ChromeClientQt::platformWindow() const
 {
     return m_webPage->view();
+}
+
+void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) const
+{
+    emit QWebFramePrivate::kit(frame)->contentsSizeChanged(size);
 }
 
 void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
@@ -377,20 +386,46 @@ void ChromeClientQt::print(Frame *frame)
     emit m_webPage->printRequested(QWebFramePrivate::kit(frame));
 }
 
-void ChromeClientQt::exceededDatabaseQuota(Frame*, const String&)
+void ChromeClientQt::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
-    notImplemented();
+    quint64 quota = QWebSettings::offlineStorageDefaultQuota();
+#if ENABLE(DATABASE)
+    if (!DatabaseTracker::tracker().hasEntryForOrigin(frame->document()->securityOrigin()))
+        DatabaseTracker::tracker().setQuota(frame->document()->securityOrigin(), quota);
+#endif
+    emit m_webPage->databaseQuotaExceeded(QWebFramePrivate::kit(frame), databaseName);
 }
 
 void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileChooser)
 {
-    // FIXME: Support multiple files.
-
     RefPtr<FileChooser> fileChooser = prpFileChooser;
-    QString suggestedFile = fileChooser->filenames()[0];
-    QString file = m_webPage->chooseFile(QWebFramePrivate::kit(frame), suggestedFile);
-    if (!file.isEmpty())
-        fileChooser->chooseFile(file);
+    bool supportMulti = m_webPage->supportsExtension(QWebPage::ChooseMultipleFilesExtension);
+
+    if (fileChooser->allowsMultipleFiles() && supportMulti) {
+        QWebPage::ChooseMultipleFilesExtensionOption option;
+        option.parentFrame = QWebFramePrivate::kit(frame);
+
+        if (!fileChooser->filenames().isEmpty())
+            for (int i = 0; i < fileChooser->filenames().size(); ++i)
+                option.suggestedFileNames += fileChooser->filenames()[i];
+
+        QWebPage::ChooseMultipleFilesExtensionReturn output;
+        m_webPage->extension(QWebPage::ChooseMultipleFilesExtension, &option, &output);
+
+        if (!output.fileNames.isEmpty()) {
+            Vector<String> names;
+            for (int i = 0; i < output.fileNames.count(); ++i)
+                names.append(output.fileNames.at(i));
+            fileChooser->chooseFiles(names);
+        }
+    } else {
+        QString suggestedFile;
+        if (!fileChooser->filenames().isEmpty())
+            suggestedFile = fileChooser->filenames()[0];
+        QString file = m_webPage->chooseFile(QWebFramePrivate::kit(frame), suggestedFile);
+        if (!file.isEmpty())
+            fileChooser->chooseFile(file);
+    }
 }
 
 }

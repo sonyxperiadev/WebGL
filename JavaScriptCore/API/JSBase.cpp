@@ -28,12 +28,12 @@
 #include "JSBasePrivate.h"
 
 #include "APICast.h"
-#include "completion.h"
+#include "Completion.h"
 #include "OpaqueJSString.h"
 #include "SourceCode.h"
-#include <runtime/ExecState.h>
+#include <interpreter/CallFrame.h>
 #include <runtime/InitializeThreading.h>
-#include <kjs/interpreter.h>
+#include <runtime/Completion.h>
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSObject.h>
@@ -48,10 +48,10 @@ JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef th
 
     JSObject* jsThisObject = toJS(thisObject);
 
-    // Interpreter::evaluate sets "this" to the global object if it is NULL
+    // evaluate sets "this" to the global object if it is NULL
     JSGlobalObject* globalObject = exec->dynamicGlobalObject();
     SourceCode source = makeSource(script->ustring(), sourceURL->ustring(), startingLineNumber);
-    Completion completion = Interpreter::evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), source, jsThisObject);
+    Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), source, jsThisObject);
 
     if (completion.complType() == Throw) {
         if (exception)
@@ -73,7 +73,7 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
     JSLock lock(exec);
 
     SourceCode source = makeSource(script->ustring(), sourceURL->ustring(), startingLineNumber);
-    Completion completion = Interpreter::checkSyntax(exec->dynamicGlobalObject()->globalExec(), source);
+    Completion completion = checkSyntax(exec->dynamicGlobalObject()->globalExec(), source);
     if (completion.complType() == Throw) {
         if (exception)
             *exception = toRef(completion.value());

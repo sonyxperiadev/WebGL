@@ -75,9 +75,10 @@ void RenderWidget::destroy()
     if (RenderView* v = view())
         v->removeWidget(this);
 
-    if (AXObjectCache::accessibilityEnabled())
+    if (AXObjectCache::accessibilityEnabled()) {
+        document()->axObjectCache()->childrenChanged(this->parent());
         document()->axObjectCache()->remove(this);
-
+    }
     remove();
 
     if (m_widget) {
@@ -94,7 +95,7 @@ void RenderWidget::destroy()
     RenderArena* arena = renderArena();
 
     if (layer)
-        layer->clearClipRect();
+        layer->clearClipRects();
 
     if (style() && (style()->height().isPercent() || style()->minHeight().isPercent() || style()->maxHeight().isPercent()))
         RenderBlock::removePercentHeightDescendant(this);
@@ -172,8 +173,8 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
     if (!shouldPaint(paintInfo, tx, ty))
         return;
 
-    tx += m_x;
-    ty += m_y;
+    tx += x();
+    ty += y();
 
     if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection))
         paintBoxDecorations(paintInfo, tx, ty);
@@ -188,7 +189,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
 
 #if PLATFORM(MAC)
     if (style()->highlight() != nullAtom && !paintInfo.context->paintingDisabled())
-        paintCustomHighlight(tx - m_x, ty - m_y, style()->highlight(), true);
+        paintCustomHighlight(tx - x(), ty - y(), style()->highlight(), true);
 #endif
 
     if (m_widget) {
@@ -218,16 +219,14 @@ void RenderWidget::updateWidgetPosition()
     if (!m_widget)
         return;
 
-    int x;
-    int y;
-    absolutePosition(x, y);
-    x += borderLeft() + paddingLeft();
-    y += borderTop() + paddingTop();
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = localToAbsolute();
+    absPos.move(borderLeft() + paddingLeft(), borderTop() + paddingTop());
 
-    int width = m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
-    int height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
+    int w = width() - borderLeft() - borderRight() - paddingLeft() - paddingRight();
+    int h = height() - borderTop() - borderBottom() - paddingTop() - paddingBottom();
 
-    IntRect newBounds(x, y, width, height);
+    IntRect newBounds(absPos.x(), absPos.y(), w, h);
     IntRect oldBounds(m_widget->frameRect());
     if (newBounds != oldBounds) {
         // The widget changed positions.  Update the frame geometry.
@@ -273,7 +272,7 @@ bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
     
     // Check to see if we are really over the widget itself (and not just in the border/padding area).
     if (inside && !hadResult && result.innerNode() == element())
-        result.setIsOverWidget(contentBox().contains(result.localPoint()));
+        result.setIsOverWidget(contentBoxRect().contains(result.localPoint()));
     return inside;
 }
 

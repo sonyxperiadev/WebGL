@@ -29,7 +29,9 @@
 #include "FileSystem.h"
 
 #include "CString.h"
+#include <fnmatch.h>
 #include <dlfcn.h>
+#include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include "cutils/log.h"
@@ -96,6 +98,35 @@ int writeToFile(PlatformFileHandle handle, const char* data, int length)
 String homeDirectoryPath() 
 {
     return sPluginPath;
+}
+
+// new as of webkit4, Feb 28, 2009
+Vector<String> listDirectory(const String& path, const String& filter)
+{
+    Vector<String> entries;
+    CString cpath = path.utf8();
+    CString cfilter = filter.utf8();
+    DIR* dir = opendir(cpath.data());
+    if (dir) {
+        struct dirent * dp;
+        while ((dp = readdir(dir)) != NULL) {
+            const char* name = dp->d_name;
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                continue;
+            }
+            if (fnmatch(cfilter.data(), name, 0) != 0) {
+                continue;
+            }
+            char filePath[1024];
+            if ((int) (sizeof(filePath) - 1) < snprintf(filePath,
+                    sizeof(filePath), "%s/%s", cpath.data(), name)) {
+                continue; // buffer overflow
+            }
+            entries.append(filePath);
+        }
+        closedir(dir);
+    }
+    return entries;
 }
 
 }

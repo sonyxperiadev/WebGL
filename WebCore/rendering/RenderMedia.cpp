@@ -35,11 +35,12 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
+#include "HTMLNames.h"
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
 #include "MediaPlayer.h"
 #include "RenderSlider.h"
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 
 using namespace std;
@@ -81,6 +82,11 @@ RenderMedia::~RenderMedia()
 void RenderMedia::destroy()
 {
     if (m_controlsShadowRoot && m_controlsShadowRoot->renderer()) {
+
+        // detach the panel before removing the shadow renderer to prevent a crash in m_controlsShadowRoot->detach() 
+        //  when display: style changes
+        m_panel->detach();
+
         removeChild(m_controlsShadowRoot->renderer());
         m_controlsShadowRoot->detach();
     }
@@ -99,16 +105,16 @@ MediaPlayer* RenderMedia::player() const
 
 void RenderMedia::layout()
 {
-    IntSize oldSize = contentBox().size();
+    IntSize oldSize = contentBoxRect().size();
 
     RenderReplaced::layout();
 
-    RenderObject* controlsRenderer = m_controlsShadowRoot ? m_controlsShadowRoot->renderer() : 0;
+    RenderBox* controlsRenderer = m_controlsShadowRoot ? m_controlsShadowRoot->renderBox() : 0;
     if (!controlsRenderer)
         return;
-    IntSize newSize = contentBox().size();
+    IntSize newSize = contentBoxRect().size();
     if (newSize != oldSize || controlsRenderer->needsLayout()) {
-        controlsRenderer->setPos(borderLeft() + paddingLeft(), borderTop() + paddingTop());
+        controlsRenderer->setLocation(borderLeft() + paddingLeft(), borderTop() + paddingTop());
         controlsRenderer->style()->setHeight(Length(newSize.height(), Fixed));
         controlsRenderer->style()->setWidth(Length(newSize.width(), Fixed));
         controlsRenderer->setNeedsLayout(true, false);
@@ -145,7 +151,7 @@ void RenderMedia::createPanel()
 {
     ASSERT(!m_panel);
     RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_PANEL);
-    m_panel = new HTMLDivElement(document());
+    m_panel = new HTMLDivElement(HTMLNames::divTag, document());
     RenderObject* renderer = m_panel->createRenderer(renderArena(), style);
     if (renderer) {
         m_panel->setRenderer(renderer);
@@ -185,27 +191,41 @@ void RenderMedia::createSeekForwardButton()
     m_seekForwardButton->attachToParent(m_panel.get());
 }
 
+void RenderMedia::createTimelineContainer()
+{
+    ASSERT(!m_timelineContainer);
+    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_TIMELINE_CONTAINER);
+    m_timelineContainer = new HTMLDivElement(HTMLNames::divTag, document());
+    RenderObject* renderer = m_timelineContainer->createRenderer(renderArena(), style);
+    if (renderer) {
+        m_timelineContainer->setRenderer(renderer);
+        renderer->setStyle(style);
+        m_timelineContainer->setAttached();
+        m_timelineContainer->setInDocument(true);
+        m_panel->addChild(m_timelineContainer);
+        m_panel->renderer()->addChild(renderer);
+    }
+}
+
 void RenderMedia::createTimeline()
 {
     ASSERT(!m_timeline);
     m_timeline = new MediaControlTimelineElement(document(), mediaElement());
-    m_timeline->attachToParent(m_panel.get());
+    m_timeline->attachToParent(m_timelineContainer.get());
 }
   
-void RenderMedia::createTimeDisplay()
+void RenderMedia::createCurrentTimeDisplay()
 {
-    ASSERT(!m_timeDisplay);
-    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_TIME_DISPLAY);
-    m_timeDisplay = new HTMLDivElement(document());
-    RenderObject* renderer = m_timeDisplay->createRenderer(renderArena(), style);
-    if (renderer) {
-        m_timeDisplay->setRenderer(renderer);
-        renderer->setStyle(style);
-        m_timeDisplay->setAttached();
-        m_timeDisplay->setInDocument(true);
-        m_panel->addChild(m_timeDisplay);
-        m_panel->renderer()->addChild(renderer);
-    }
+    ASSERT(!m_currentTimeDisplay);
+    m_currentTimeDisplay = new MediaTimeDisplayElement(document(), mediaElement(), true);
+    m_currentTimeDisplay->attachToParent(m_timelineContainer.get());
+}
+
+void RenderMedia::createTimeRemainingDisplay()
+{
+    ASSERT(!m_timeRemainingDisplay);
+    m_timeRemainingDisplay = new MediaTimeDisplayElement(document(), mediaElement(), false);
+    m_timeRemainingDisplay->attachToParent(m_timelineContainer.get());
 }
 
 void RenderMedia::createFullscreenButton()
@@ -229,10 +249,12 @@ void RenderMedia::updateControls()
             m_panel = 0;
             m_muteButton = 0;
             m_playButton = 0;
+            m_timelineContainer = 0;
             m_timeline = 0;
             m_seekBackButton = 0;
             m_seekForwardButton = 0;
-            m_timeDisplay = 0;
+            m_currentTimeDisplay = 0;
+            m_timeRemainingDisplay = 0;
             m_fullscreenButton = 0;
             m_controlsShadowRoot = 0;
         }
@@ -247,17 +269,23 @@ void RenderMedia::updateControls()
         createPanel();
         createMuteButton();
         createPlayButton();
+        createTimelineContainer();
         createTimeline();
         createSeekBackButton();
         createSeekForwardButton();
-        createTimeDisplay();
+        createCurrentTimeDisplay();
+        createTimeRemainingDisplay();
         createFullscreenButton();
     }
-    
-    if (media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA)
-        m_timeUpdateTimer.stop();
-    else
+
+    if (media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA) {
+        if (m_timeUpdateTimer.isActive())
+            m_timeUpdateTimer.stop();
+    } else if (style()->visibility() == VISIBLE && m_timeline && m_timeline->renderer() && m_timeline->renderer()->style()->display() != NONE ) {
         m_timeUpdateTimer.startRepeating(cTimeUpdateRepeatDelay);
+    }
+
+    m_previousVisible = style()->visibility();
     
     if (m_muteButton)
         m_muteButton->update();
@@ -286,30 +314,45 @@ String RenderMedia::formatTime(float time)
 {
     if (!isfinite(time))
         time = 0;
-    int seconds = (int)time; 
+    int seconds = (int)fabsf(time); 
     int hours = seconds / (60 * 60);
     int minutes = (seconds / 60) % 60;
     seconds %= 60;
-    return String::format("%02d:%02d:%02d", hours, minutes, seconds);
+    if (hours) {
+        if (hours > 9)
+            return String::format("%s%02d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
+        else
+            return String::format("%s%01d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
+    }
+    else
+        return String::format("%s%02d:%02d", (time < 0 ? "-" : ""), minutes, seconds);
 }
 
 void RenderMedia::updateTimeDisplay()
 {
-    if (!m_timeDisplay)
+    if (!m_currentTimeDisplay || !m_currentTimeDisplay->renderer() || m_currentTimeDisplay->renderer()->style()->display() == NONE || style()->visibility() != VISIBLE)
         return;
-    String timeString = formatTime(mediaElement()->currentTime());
+    float now = mediaElement()->currentTime();
+    float duration = mediaElement()->duration();
+
+    String timeString = formatTime(now);
     ExceptionCode ec;
-    m_timeDisplay->setInnerText(timeString, ec);
-}
+    m_currentTimeDisplay->setInnerText(timeString, ec);
     
+    timeString = formatTime(now - duration);
+    m_timeRemainingDisplay->setInnerText(timeString, ec);
+}
+
 void RenderMedia::updateControlVisibility() 
 {
     if (!m_panel || !m_panel->renderer())
         return;
+
     // Don't fade for audio controls.
     HTMLMediaElement* media = mediaElement();
     if (player() && !player()->hasVideo() || !media->isVideo())
         return;
+
     // do fading manually, css animations don't work well with shadow trees
     bool visible = style()->visibility() == VISIBLE && (m_mouseOver || media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA);
     if (visible == (m_opacityAnimationTo > 0))
@@ -319,7 +362,7 @@ void RenderMedia::updateControlVisibility()
         // don't fade gradually if it the element has just changed visibility
         m_previousVisible = style()->visibility();
         m_opacityAnimationTo = m_previousVisible == VISIBLE ? 1.0f : 0;
-        changeOpacity(m_panel.get(), 0);
+        changeOpacity(m_panel.get(), m_opacityAnimationTo);
         return;
     }
 
@@ -355,23 +398,28 @@ void RenderMedia::opacityAnimationTimerFired(Timer<RenderMedia>*)
     float opacity = narrowPrecisionToFloat(m_opacityAnimationFrom + (m_opacityAnimationTo - m_opacityAnimationFrom) * time / cOpacityAnimationDuration);
     changeOpacity(m_panel.get(), opacity);
 }
-    
+
 void RenderMedia::forwardEvent(Event* event)
 {
     if (event->isMouseEvent() && m_controlsShadowRoot) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         IntPoint point(mouseEvent->pageX(), mouseEvent->pageY());
-        if (m_muteButton && m_muteButton->renderer() && m_muteButton->renderer()->absoluteBoundingBoxRect().contains(point))
+        if (m_muteButton && m_muteButton->hitTest(point))
             m_muteButton->defaultEventHandler(event);
-        if (m_playButton && m_playButton->renderer() && m_playButton->renderer()->absoluteBoundingBoxRect().contains(point))
+
+        if (m_playButton && m_playButton->hitTest(point))
             m_playButton->defaultEventHandler(event);
-        if (m_seekBackButton && m_seekBackButton->renderer() && m_seekBackButton->renderer()->absoluteBoundingBoxRect().contains(point))
+
+        if (m_seekBackButton && m_seekBackButton->hitTest(point))
             m_seekBackButton->defaultEventHandler(event);
-        if (m_seekForwardButton && m_seekForwardButton->renderer() && m_seekForwardButton->renderer()->absoluteBoundingBoxRect().contains(point))
+
+        if (m_seekForwardButton && m_seekForwardButton->hitTest(point))
             m_seekForwardButton->defaultEventHandler(event);
-        if (m_timeline && m_timeline->renderer() && m_timeline->renderer()->absoluteBoundingBoxRect().contains(point))
+
+        if (m_timeline && m_timeline->hitTest(point))
             m_timeline->defaultEventHandler(event);
-        if (m_fullscreenButton && m_fullscreenButton->renderer() && m_fullscreenButton->renderer()->absoluteBoundingBoxRect().contains(point))
+
+        if (m_fullscreenButton && m_fullscreenButton->hitTest(point))
             m_fullscreenButton->defaultEventHandler(event);
         
         if (event->type() == eventNames().mouseoverEvent) {
@@ -392,7 +440,7 @@ int RenderMedia::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return bottom;
     
-    return max(bottom,  m_controlsShadowRoot->renderer()->yPos() + m_controlsShadowRoot->renderer()->lowestPosition(includeOverflowInterior, includeSelf));
+    return max(bottom,  m_controlsShadowRoot->renderBox()->y() + m_controlsShadowRoot->renderer()->lowestPosition(includeOverflowInterior, includeSelf));
 }
 
 int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
@@ -401,7 +449,7 @@ int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSel
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return right;
     
-    return max(right, m_controlsShadowRoot->renderer()->xPos() + m_controlsShadowRoot->renderer()->rightmostPosition(includeOverflowInterior, includeSelf));
+    return max(right, m_controlsShadowRoot->renderBox()->x() + m_controlsShadowRoot->renderer()->rightmostPosition(includeOverflowInterior, includeSelf));
 }
 
 int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
@@ -410,7 +458,7 @@ int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return left;
     
-    return min(left, m_controlsShadowRoot->renderer()->xPos() +  m_controlsShadowRoot->renderer()->leftmostPosition(includeOverflowInterior, includeSelf));
+    return min(left, m_controlsShadowRoot->renderBox()->x() +  m_controlsShadowRoot->renderer()->leftmostPosition(includeOverflowInterior, includeSelf));
 }
 
 } // namespace WebCore

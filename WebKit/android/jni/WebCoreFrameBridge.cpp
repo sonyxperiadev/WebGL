@@ -69,6 +69,7 @@
 #include "RenderView.h"
 #include "ResourceHandle.h"
 #include "ScriptController.h"
+#include "ScriptValue.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
@@ -96,7 +97,11 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
+#include <runtime/JSLock.h>
 #endif
+
+using namespace JSC;
+using namespace JSC::Bindings;
 
 namespace android {
 
@@ -385,7 +390,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 
     if (loadType == WebCore::FrameLoadTypeReplace ||
             loadType == WebCore::FrameLoadTypeSame ||
-            (loadType == WebCore::FrameLoadTypeRedirectWithLockedHistory &&
+            (loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList &&
              !isMainFrame))
         return;
 
@@ -687,6 +692,9 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     InspectorClientAndroid* inspectorC = new InspectorClientAndroid;
     // Create a new page
     WebCore::Page* page = new WebCore::Page(chromeC, contextMenuC, editorC, dragC, inspectorC);
+    // css files without explicit MIMETYPE is treated as generic text files in
+    // the Java side. So we can't enforce CSS MIMETYPE.
+    page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
     /* TODO: Don't turn on PageCache until we can restore the ScrollView State.
      * This caused bug http://b/issue?id=1202983
     page->settings()->setUsesPageCache(true);
@@ -784,7 +792,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     WebCore::String webcoreUrl = to_string(env, url);
     WebCore::ResourceRequest request(webcoreUrl);
     LOGV("LoadUrl %s", webcoreUrl.latin1().data());
-    pFrame->loader()->load(request);
+    pFrame->loader()->load(request, false);
 }
 
 
@@ -813,7 +821,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
             WebCore::KURL(to_string(env, failUrl)));
 
     // Perform the load
-    pFrame->loader()->load(request, substituteData);
+    pFrame->loader()->load(request, substituteData, false);
 }
 
 static void StopLoading(JNIEnv *env, jobject obj)
@@ -873,10 +881,15 @@ static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
     LOG_ASSERT(pFrame, "nativeReload must take a valid frame pointer!");
 
     WebCore::FrameLoader* loader = pFrame->loader();
-    if (allowStale)
-        loader->reloadAllowingStaleData(loader->documentLoader()->overrideEncoding());
-    else
-        loader->reload();
+    if (allowStale) {
+        // load the current page with FrameLoadTypeIndexedBackForward so that it
+        // will use cache when it is possible
+        WebCore::Page* page = pFrame->page();
+        WebCore::HistoryItem* item = page->backForwardList()->currentItem();
+        if (item)
+            page->goToItem(item, FrameLoadTypeIndexedBackForward);
+    } else
+        loader->reload(true);
 }
 
 static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
@@ -903,20 +916,67 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
 
-    JSC::JSValue* r =
+    WebCore::ScriptValue value =
             pFrame->loader()->executeScript(to_string(env, script), true);
     WebCore::String result = WebCore::String();
-    if (r) {
-        // note: r->getString() returns a UString.
-        result = WebCore::String(r->isString() ? r->getString() : 
-                r->toString(pFrame->script()->globalObject()->globalExec()));
-    }
-
+    if (!value.getString(result))
+        return NULL;
     unsigned len = result.length();
     if (len == 0)
         return NULL;
     return env->NewString((unsigned short*)result.characters(), len);
 }
+
+// Wrap the JavaInstance used when binding custom javascript interfaces. Use a
+// weak reference so that the gc can collect the WebView. Override virtualBegin
+// and virtualEnd and swap the weak reference for the real object.
+class WeakJavaInstance : public JavaInstance {
+public:
+    static PassRefPtr<WeakJavaInstance> create(jobject obj,
+            PassRefPtr<RootObject> root) {
+        return adoptRef(new WeakJavaInstance(obj, root));
+    }
+
+protected:
+    WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
+        : JavaInstance(instance, rootObject)
+    {
+        JNIEnv* env = getJNIEnv();
+        // JavaInstance creates a global ref to instance in its constructor.
+        env->DeleteGlobalRef(_instance->_instance);
+        // Set the object to our WeakReference wrapper.
+        _instance->_instance = adoptGlobalRef(env, instance);
+    }
+
+    virtual void virtualBegin() {
+        _weakRef = _instance->_instance;
+        JNIEnv* env = getJNIEnv();
+        // This is odd. getRealObject returns an AutoJObject which is used to
+        // cleanly create and delete a local reference. But, here we need to
+        // maintain the local reference across calls to strong() and weak().
+        // So, create a new local reference to the real object here and delete
+        // it in weak().
+        _realObject = env->NewLocalRef(getRealObject(env, _weakRef).get());
+        // Point to the real object
+        _instance->_instance = _realObject;
+        // Call the base class method
+        INHERITED::virtualBegin();
+    }
+
+    virtual void virtualEnd() {
+        // Get rid of the local reference to the real object
+        getJNIEnv()->DeleteLocalRef(_realObject);
+        // Point back to the WeakReference.
+        _instance->_instance = _weakRef;
+        // Call the base class method
+        INHERITED::virtualEnd();
+    }
+
+private:
+    typedef JavaInstance INHERITED;
+    jobject _realObject;
+    jobject _weakRef;
+};
 
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
         jobject javascriptObj, jstring interfaceName)
@@ -939,13 +999,17 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         JSC::Bindings::setJavaVM(vm);
         // Add the binding to JS environment
         JSC::ExecState* exec = window->globalExec();
-        JSC::JSObject *addedObject = JSC::Bindings::Instance::createRuntimeObject(
-                exec, JSC::Bindings::JavaInstance::create(javascriptObj, root));
-        // Add the binding name to the window's table of child objects.
-        JSC::PutPropertySlot slot;
-        window->put(exec,
-                JSC::Identifier(exec, to_string(env, interfaceName)),
-                addedObject, slot);
+        JSC::JSObject *addedObject = WeakJavaInstance::create(javascriptObj,
+                root)->createRuntimeObject(exec);
+        const jchar* s = env->GetStringChars(interfaceName, NULL);
+        if (s) {
+            // Add the binding name to the window's table of child objects.
+            JSC::PutPropertySlot slot;
+            window->put(exec, JSC::Identifier(exec, (const UChar *)s, 
+                    env->GetStringLength(interfaceName)), addedObject, slot);
+            env->ReleaseStringChars(interfaceName, s);
+            checkException(env);
+        }
     }
 }
 
@@ -969,6 +1033,13 @@ static void ClearCache(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+
+    JSC::JSLock lock(false);
+    JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
+            jsHeapStatistics.size, jsHeapStatistics.free);
+    LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead", 
+            cache()->getLiveSize(), cache()->getDeadSize());
 #endif
     if (!WebCore::cache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
@@ -1179,7 +1250,7 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) CreateFrame },
     { "nativeDestroyFrame", "()V",
         (void*) DestroyFrame },
-    { "stopLoading", "()V",
+    { "nativeStopLoading", "()V",
         (void*) StopLoading },
     { "nativeLoadUrl", "(Ljava/lang/String;)V",
         (void*) LoadUrl },

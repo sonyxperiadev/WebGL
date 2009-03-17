@@ -50,6 +50,7 @@ class Node;
 class RenderObject;
 class RenderListBox;
 class RenderTextControl;
+class RenderView;
 class Selection;
 class String;
 class Widget;
@@ -76,6 +77,7 @@ public:
     virtual bool isWebArea() const;
     virtual bool isCheckboxOrRadio() const;
     virtual bool isFileUploadButton() const;
+    virtual bool isInputImage() const;
     virtual bool isProgressIndicator() const;
     virtual bool isSlider() const;
     virtual bool isMenuRelated() const;
@@ -85,6 +87,7 @@ public:
     virtual bool isMenuItem() const;
     virtual bool isControl() const;
     virtual bool isFieldset() const;
+    virtual bool isGroup() const;
 
     virtual bool isEnabled() const;
     virtual bool isSelected() const;
@@ -145,7 +148,7 @@ public:
     
     void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
     RenderObject* renderer() const { return m_renderer; }
-    RenderObject* topRenderer() const;
+    RenderView* topRenderer() const;
     RenderTextControl* textControl() const;
     Document* document() const;
     FrameView* topDocumentFrameView() const;  
@@ -207,9 +210,12 @@ public:
     virtual String doAXStringForRange(const PlainTextRange&) const;
     virtual IntRect doAXBoundsForRange(const PlainTextRange&) const;
     
+    virtual void updateBackingStore();
+    
 protected:
     RenderObject* m_renderer;
     AccessibilityRole m_ariaRole;
+    mutable bool m_childrenDirty;
     
     void setRenderObject(RenderObject* renderer) { m_renderer = renderer; }
     virtual void removeAXObjectID();
@@ -229,6 +235,7 @@ private:
     AccessibilityObject* internalLinkElement() const;
     AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement* map) const;
 
+    void markChildrenDirty() const { m_childrenDirty = true; }
 };
     
 } // namespace WebCore

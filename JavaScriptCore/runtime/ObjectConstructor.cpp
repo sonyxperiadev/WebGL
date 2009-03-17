@@ -28,7 +28,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ObjectConstructor);
 
-ObjectConstructor::ObjectConstructor(ExecState* exec, PassRefPtr<StructureID> structure, ObjectPrototype* objectPrototype)
+ObjectConstructor::ObjectConstructor(ExecState* exec, PassRefPtr<Structure> structure, ObjectPrototype* objectPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, "Object"))
 {
     // ECMA 15.2.3.1
@@ -41,10 +41,10 @@ ObjectConstructor::ObjectConstructor(ExecState* exec, PassRefPtr<StructureID> st
 // ECMA 15.2.2
 static ALWAYS_INLINE JSObject* constructObject(ExecState* exec, const ArgList& args)
 {
-    JSValue* arg = args.at(exec, 0);
-    if (arg->isUndefinedOrNull())
+    JSValuePtr arg = args.at(exec, 0);
+    if (arg.isUndefinedOrNull())
         return new (exec) JSObject(exec->lexicalGlobalObject()->emptyObjectStructure());
-    return arg->toObject(exec);
+    return arg.toObject(exec);
 }
 
 static JSObject* constructWithObjectConstructor(ExecState* exec, JSObject*, const ArgList& args)
@@ -58,7 +58,7 @@ ConstructType ObjectConstructor::getConstructData(ConstructData& constructData)
     return ConstructTypeHost;
 }
 
-static JSValue* callObjectConstructor(ExecState* exec, JSObject*, JSValue*, const ArgList& args)
+static JSValuePtr callObjectConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
 {
     return constructObject(exec, args);
 }

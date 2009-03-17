@@ -52,12 +52,12 @@ public:
      */
     static bool Draw(SkCanvas* , Node* , int x, int y, int w, int h);
 
-    // The image is an extra 30 pixels wider than the RenderObject, so this accounts for that.
+    // The image is wider than the RenderObject, so this accounts for that.
     static int extraWidth() { return arrowMargin; }
     
 private:
     
-    static const int arrowMargin = 30;
+    static const int arrowMargin = 22;
 }; 
 
 } // WebCore

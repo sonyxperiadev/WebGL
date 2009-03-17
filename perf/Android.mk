@@ -88,6 +88,7 @@ LOCAL_C_INCLUDES := \
 	$(WEBKIT)/android/jni \
 	$(WEBKIT)/android/nav \
 	$(WEBKIT)/android/plugins \
+	$(WEBKIT)/android/WebCoreSupport \
 	$(JSC)/API \
 	$(JSC)/VM \
 	$(JSC)/debugger \

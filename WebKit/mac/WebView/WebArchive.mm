@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,12 +30,13 @@
 #import "WebArchiveInternal.h"
 
 #import "WebKitLogging.h"
+#import "WebNSObjectExtras.h"
 #import "WebResourceInternal.h"
-#import "WebResourcePrivate.h"
 #import "WebTypesInternal.h"
-
+#import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/ArchiveResource.h>
 #import <WebCore/LegacyWebArchive.h>
+#import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 
 using namespace WebCore;
@@ -46,8 +47,7 @@ static NSString * const WebMainResourceKey = @"WebMainResource";
 static NSString * const WebSubresourcesKey = @"WebSubresources";
 static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
-@interface WebArchivePrivate : NSObject
-{
+@interface WebArchivePrivate : NSObject {
 @public
     WebResource *cachedMainResource;
     NSArray *cachedSubresources;
@@ -63,18 +63,20 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
 @implementation WebArchivePrivate
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 - (id)init
 {
     self = [super init];
-    if (self)
-        coreArchive = LegacyWebArchive::create().releaseRef();
+    if (!self)
+        return nil;
+    coreArchive = LegacyWebArchive::create().releaseRef();
     return self;
 }
 
@@ -85,9 +87,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
         [self release];
         return nil;
     }
-    
     coreArchive = _coreArchive.releaseRef();
-    
     return self;
 }
 
@@ -100,7 +100,8 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 {
     ASSERT(coreArchive);
     ASSERT(newCoreArchive);
-    coreArchive->deref();
+    if (coreArchive)
+        coreArchive->deref();
     coreArchive = newCoreArchive.releaseRef();
 }
 
@@ -109,9 +110,10 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
     if (WebCoreObjCScheduleDeallocateOnMainThread([WebArchivePrivate class], self))
         return;
 
-    ASSERT(coreArchive);
-    coreArchive->deref();
-    coreArchive = 0;
+    if (coreArchive) {
+        coreArchive->deref();
+        coreArchive = 0;
+    }
     
     [cachedMainResource release];
     [cachedSubresources release];
@@ -122,9 +124,10 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
 - (void)finalize
 {
-    ASSERT(coreArchive);
-    coreArchive->deref();
-    coreArchive = 0;
+    if (coreArchive) {
+        coreArchive->deref();
+        coreArchive = 0;
+    }
     
     [super finalize];
 }
@@ -135,6 +138,8 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 
 - (id)init
 {
+    WebCoreThreadViolationCheck();
+
     self = [super init];
     if (!self)
         return nil;
@@ -156,6 +161,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (id)initWithMainResource:(WebResource *)mainResource subresources:(NSArray *)subresources subframeArchives:(NSArray *)subframeArchives
 {
+#ifdef MAIL_THREAD_WORKAROUND
+    if (needMailThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] initWithMainResource:mainResource subresources:subresources subframeArchives:subframeArchives];
+#endif
+
+    WebCoreThreadViolationCheck();
+
     self = [super init];
     if (!self)
         return nil;
@@ -207,6 +219,8 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (id)initWithData:(NSData *)data
 {
+    WebCoreThreadViolationCheck();
+
     self = [super init];
     if (!self)
         return nil;
@@ -216,7 +230,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 #endif
 
     _private = [[WebArchivePrivate alloc] init];
-    [_private setCoreArchive:LegacyWebArchive::create(SharedBuffer::wrapNSData(data).get())];
+    RefPtr<LegacyWebArchive> coreArchive = LegacyWebArchive::create(SharedBuffer::wrapNSData(data).get());
+    if (!coreArchive) {
+        [self release];
+        return nil;
+    }
+        
+    [_private setCoreArchive:coreArchive.release()];
         
 #if !LOG_DISABLED
     CFAbsoluteTime end = CFAbsoluteTimeGetCurrent();
@@ -271,6 +291,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (WebResource *)mainResource
 {
+#ifdef MAIL_THREAD_WORKAROUND
+    if (needMailThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] mainResource];
+#endif
+
+    WebCoreThreadViolationCheck();
+
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this. 
     if (!_private->cachedMainResource) {
@@ -284,6 +311,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (NSArray *)subresources
 {
+#ifdef MAIL_THREAD_WORKAROUND
+    if (needMailThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] subresources];
+#endif
+
+    WebCoreThreadViolationCheck();
+
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this.     
     if (!_private->cachedSubresources) {
@@ -309,6 +343,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (NSArray *)subframeArchives
 {
+#ifdef MAIL_THREAD_WORKAROUND
+    if (needMailThreadWorkaround())
+        return [[self _webkit_invokeOnMainThread] subframeArchives];
+#endif
+
+    WebCoreThreadViolationCheck();
+
     // Currently from WebKit API perspective, WebArchives are entirely immutable once created
     // If they ever become mutable, we'll need to rethink this.  
     if (!_private->cachedSubframeArchives) {
@@ -332,6 +373,8 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (NSData *)data
 {
+    WebCoreThreadViolationCheck();
+
 #if !LOG_DISABLED
     CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
 #endif
@@ -353,6 +396,8 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (id)_initWithCoreLegacyWebArchive:(PassRefPtr<WebCore::LegacyWebArchive>)coreLegacyWebArchive
 {
+    WebCoreThreadViolationCheck();
+
     self = [super init];
     if (!self)
         return nil;
@@ -368,6 +413,8 @@ static BOOL isArrayOfClass(id object, Class elementClass)
 
 - (WebCore::LegacyWebArchive *)_coreLegacyWebArchive
 {
+    WebCoreThreadViolationCheck();
+
     return [_private coreArchive];
 }
 

@@ -30,6 +30,7 @@
 #include "JSAudioConstructor.h"
 
 #include "HTMLAudioElement.h"
+#include "HTMLNames.h"
 #include "JSHTMLAudioElement.h"
 #include "ScriptExecutionContext.h"
 #include "Text.h"
@@ -41,7 +42,7 @@ namespace WebCore {
 const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", 0, 0, 0 };
 
 JSAudioConstructor::JSAudioConstructor(ExecState* exec, ScriptExecutionContext* context)
-    : DOMObject(JSAudioConstructor::createStructureID(exec->lexicalGlobalObject()->objectPrototype()))
+    : DOMObject(JSAudioConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
 {
     ASSERT(context->isDocument());
     m_document = static_cast<JSDocument*>(asObject(toJS(exec, static_cast<Document*>(context))));
@@ -53,9 +54,9 @@ static JSObject* constructAudio(ExecState* exec, JSObject* constructor, const Ar
 {
     // FIXME: Why doesn't this need the call toJS on the document like JSImageConstructor?
 
-    RefPtr<HTMLAudioElement> audio = new HTMLAudioElement(static_cast<JSAudioConstructor*>(constructor)->document());
+    RefPtr<HTMLAudioElement> audio = new HTMLAudioElement(HTMLNames::audioTag, static_cast<JSAudioConstructor*>(constructor)->document());
     if (args.size() > 0) {
-        audio->setSrc(args.at(exec, 0)->toString(exec));
+        audio->setSrc(args.at(exec, 0).toString(exec));
         audio->scheduleLoad();
     }
     return asObject(toJS(exec, audio.release()));

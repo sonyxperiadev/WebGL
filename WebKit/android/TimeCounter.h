@@ -28,7 +28,7 @@
 
 #ifdef ANDROID_INSTRUMENT
 
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -41,27 +41,38 @@ namespace android {
 class TimeCounter {
 public:
     enum Type {
-        CalculateStyleTimeCounter,
+        // function base counters
         CSSTimeCounter,
+        JavaScriptTimeCounter,
+        CalculateStyleTimeCounter,
         JavaCallbackTimeCounter,
-        LayoutTimeCounter,
-        NativeCallbackTimeCounter,
-    //    PaintTimeCounter, // FIXME: WebCore no longer records draw time
         ParsingTimeCounter,
-        ResourceTimeCounter,
-        SharedTimerTimeCounter,
-        WebViewCoreTimeCounter,
+        LayoutTimeCounter,
+        // file base counters
+        NativeCallbackTimeCounter,  // WebCoreFrameBridge.cpp
+        ResourceTimeCounter,        // WebCoreResourceLoader.cpp
+        SharedTimerTimeCounter,     // JavaBridge.cpp
+        WebViewCoreBuildNavTimeCounter,
+        WebViewCoreRecordTimeCounter,
+        WebViewCoreTimeCounter,     // WebViewCore.cpp
+        WebViewUIDrawTimeCounter,
         TotalTimeCounterCount
     };
 
     static void record(enum Type type, const char* functionName);
     static void recordNoCounter(enum Type type, const char* functionName);
-    static void report(const WebCore::KURL& , int live, int dead);
+    static void report(const WebCore::KURL& , int live, int dead, size_t arenaSize);
+    static void reportNow();
     static void reset();
     static void start(enum Type type);
 private:
+    static uint32_t sStartWebCoreThreadTime;
+    static uint32_t sEndWebCoreThreadTime;
+    static bool sRecordWebCoreTime;
     static uint32_t sTotalTimeUsed[TotalTimeCounterCount];
+    static uint32_t sLastTimeUsed[TotalTimeCounterCount];
     static uint32_t sCounter[TotalTimeCounterCount];
+    static uint32_t sLastCounter[TotalTimeCounterCount];
     static uint32_t sStartTime[TotalTimeCounterCount];
     friend class TimeCounterAuto;
 };
@@ -69,9 +80,12 @@ private:
 class TimeCounterAuto {
 public:
     TimeCounterAuto(TimeCounter::Type type) : 
-        m_type(type), m_startTime(WebCore::get_thread_msec()) {}
+        m_type(type), m_startTime(WTF::get_thread_msec()) {}
     ~TimeCounterAuto() {
-        TimeCounter::sTotalTimeUsed[m_type] += WebCore::get_thread_msec() - m_startTime;
+        uint32_t time = WTF::get_thread_msec();
+        TimeCounter::sEndWebCoreThreadTime = time;
+        TimeCounter::sTotalTimeUsed[m_type] += time - m_startTime;
+        TimeCounter::sCounter[m_type]++;
     }
 private:
     TimeCounter::Type m_type;

@@ -77,7 +77,7 @@ void JSXMLHttpRequestUpload::mark()
     }
 }
 
-JSValue* JSXMLHttpRequestUpload::addEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequestUpload::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -85,11 +85,11 @@ JSValue* JSXMLHttpRequestUpload::addEventListener(ExecState* exec, const ArgList
     RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0)->toString(exec), listener.release(), args.at(exec, 2)->toBoolean(exec));
+    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValue* JSXMLHttpRequestUpload::removeEventListener(ExecState* exec, const ArgList& args)
+JSValuePtr JSXMLHttpRequestUpload::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
@@ -97,7 +97,7 @@ JSValue* JSXMLHttpRequestUpload::removeEventListener(ExecState* exec, const ArgL
     JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0)->toString(exec), listener, args.at(exec, 2)->toBoolean(exec));
+    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
     return jsUndefined();
 }
 

@@ -124,9 +124,9 @@ bool ObjcInstance::supportsInvokeDefaultMethod() const
     return [_instance.get() respondsToSelector:@selector(invokeDefaultMethodWithArguments:)];
 }
 
-JSValue* ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodList, const ArgList &args)
+JSValuePtr ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodList, const ArgList &args)
 {
-    JSValue* result = jsUndefined();
+    JSValuePtr result = jsUndefined();
     
     JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
 
@@ -141,11 +141,7 @@ JSValue* ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodLis
     method = static_cast<ObjcMethod*>(methodList[0]);
     NSMethodSignature* signature = method->getMethodSignature();
     NSInvocation* invocation = [NSInvocation invocationWithMethodSignature:signature];
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
-    [invocation setSelector:sel_registerName(method->name())];
-#else
-    [invocation setSelector:(SEL)method->name()];
-#endif
+    [invocation setSelector:method->selector()];
     [invocation setTarget:_instance.get()];
 
     if (method->isFallbackMethod()) {
@@ -246,12 +242,12 @@ JSValue* ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodLis
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValue*&>(result);
+    return const_cast<JSValuePtr&>(result);
 }
 
-JSValue* ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
+JSValuePtr ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
 {
-    JSValue* result = jsUndefined();
+    JSValuePtr result = jsUndefined();
 
     JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
     setGlobalException(nil);
@@ -297,20 +293,14 @@ JSValue* ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValue*&>(result);
+    return const_cast<JSValuePtr&>(result);
 }
 
-bool ObjcInstance::supportsSetValueOfUndefinedField()
+bool ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier& property, JSValuePtr aValue)
 {
     id targetObject = getObject();
-    if ([targetObject respondsToSelector:@selector(setValue:forUndefinedKey:)])
-        return true;
-    return false;
-}
-
-void ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier &property, JSValue* aValue)
-{
-    id targetObject = getObject();
+    if (![targetObject respondsToSelector:@selector(setValue:forUndefinedKey:)])
+        return false;
 
     JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
 
@@ -330,11 +320,13 @@ void ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier &p
 
         moveGlobalExceptionToExecState(exec);
     }
+    
+    return true;
 }
 
-JSValue* ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier& property) const
+JSValuePtr ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier& property) const
 {
-    JSValue* result = jsUndefined();
+    JSValuePtr result = jsUndefined();
     
     id targetObject = getObject();
 
@@ -358,10 +350,10 @@ JSValue* ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifie
 
     // Work around problem in some versions of GCC where result gets marked volatile and
     // it can't handle copying from a volatile to non-volatile.
-    return const_cast<JSValue*&>(result);
+    return const_cast<JSValuePtr&>(result);
 }
 
-JSValue* ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
+JSValuePtr ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint) const
 {
     if (hint == PreferString)
         return stringValue(exec);
@@ -374,24 +366,24 @@ JSValue* ObjcInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint
     return valueOf(exec);
 }
 
-JSValue* ObjcInstance::stringValue(ExecState* exec) const
+JSValuePtr ObjcInstance::stringValue(ExecState* exec) const
 {
     return convertNSStringToString(exec, [getObject() description]);
 }
 
-JSValue* ObjcInstance::numberValue(ExecState* exec) const
+JSValuePtr ObjcInstance::numberValue(ExecState* exec) const
 {
     // FIXME:  Implement something sensible
     return jsNumber(exec, 0);
 }
 
-JSValue* ObjcInstance::booleanValue() const
+JSValuePtr ObjcInstance::booleanValue() const
 {
     // FIXME:  Implement something sensible
     return jsBoolean(false);
 }
 
-JSValue* ObjcInstance::valueOf(ExecState* exec) const 
+JSValuePtr ObjcInstance::valueOf(ExecState* exec) const 
 {
     return stringValue(exec);
 }

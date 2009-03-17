@@ -75,7 +75,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-void PluginView::updatePluginWidget() const
+void PluginView::updatePluginWidget()
 {
     if (!parent() || !m_isWindowed)
         return;
@@ -128,8 +128,7 @@ void PluginView::hide()
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 {
     if (!m_isStarted) {
-        // Draw the "missing plugin" image
-        //paintMissingPluginIcon(context, rect);
+        paintMissingPluginIcon(context, rect);
         return;
     }
 
@@ -228,8 +227,6 @@ void PluginView::stop()
 
     // Clear the window
     m_npWindow.window = 0;
-    delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
-    m_npWindow.ws_info = 0;
     if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
         PluginView::setCurrentPluginView(this);
         setCallingPlugin(true);
@@ -237,6 +234,9 @@ void PluginView::stop()
         setCallingPlugin(false);
         PluginView::setCurrentPluginView(0);
     }
+
+    delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
+    m_npWindow.ws_info = 0;
 
     // Destroy the plugin
     {
@@ -373,8 +373,14 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
         return NPERR_NO_ERROR;
     }
 
+    case NPNVToolkit:
+        if (m_plugin->quirks().contains(PluginQuirkRequiresGtkToolKit)) {
+            *((uint32 *)value) = 2;
+            return NPERR_NO_ERROR;
+        }
+        // fall through
     default:
-            return getValueStatic(variable, value);
+        return getValueStatic(variable, value);
     }
 }
 

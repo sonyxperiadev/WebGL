@@ -24,13 +24,17 @@
 #include "StyleBase.h"
 
 #include "CSSParserValues.h"
+#include "KURLHash.h"
+#include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class CSSStyleSheet;
+
 typedef int ExceptionCode;
 
-class CSSValue : public StyleBase {
+class CSSValue : public RefCounted<CSSValue> {
 public:
     // FIXME: Change name to Type.
     enum UnitTypes {
@@ -40,6 +44,8 @@ public:
         CSS_CUSTOM = 3,
         CSS_INITIAL = 4
     };
+
+    virtual ~CSSValue() { }
 
     // FIXME: Change this to return UnitTypes.
     virtual unsigned short cssValueType() const { return CSS_CUSTOM; }
@@ -64,8 +70,7 @@ public:
     virtual bool isVariableDependentValue() const { return false; }
     virtual CSSParserValue parserValue() const { ASSERT_NOT_REACHED(); return CSSParserValue(); }
 
-protected:
-    CSSValue() : StyleBase(0) { }
+    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*) { }
 };
 
 } // namespace WebCore

@@ -181,6 +181,9 @@ namespace WebCore {
 
         void setIsXHTMLDocument(bool isXHTML) { m_isXHTMLDocument = isXHTML; }
         bool isXHTMLDocument() const { return m_isXHTMLDocument; }
+#if ENABLE(WML)
+        bool isWMLDocument() const;
+#endif
 
         // from CachedResourceClient
         virtual void notifyFinished(CachedResource* finishedObj);
@@ -224,7 +227,6 @@ public:
     private:
         friend bool parseXMLDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent);
 
-        static void eventuallyMarkAsParserCreated(Element* element);
         void initializeParserContext(const char* chunk = 0);
         void setCurrentNode(Node*);
 
@@ -285,9 +287,6 @@ void setLoaderForLibXMLCallbacks(DocLoader*);
 
 HashMap<String, String> parseAttributes(const String&, bool& attrsOK);
 bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0);
-
-bool isScriptElement(Element*);
-ScriptElement* castToScriptElement(Element*);
 
 } // namespace WebCore
 

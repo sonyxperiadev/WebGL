@@ -29,8 +29,6 @@
 #include "config.h"
 #include "ImageData.h"
 
-#include "CanvasPixelArray.h"
-
 namespace WebCore {
 
 PassRefPtr<ImageData> ImageData::create(unsigned width, unsigned height)

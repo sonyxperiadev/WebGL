@@ -43,6 +43,7 @@
 #include "TextEncoding.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(GTK)
@@ -263,8 +264,7 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
     timeout.tv_sec = 0;
     timeout.tv_usec = selectTimeoutMS * 1000;       // select waits microseconds
 
-    // Temporarily disable timers since signals may interrupt select(), raising EINTR errors on some platforms
-    setDeferringTimers(true);
+    // Retry 'select' if it was interrupted by a process signal.
     int rc = 0;
     do {
         FD_ZERO(&fdread);
@@ -277,7 +277,6 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
         if (maxfd >= 0)
             rc = ::select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
     } while (rc == -1 && errno == EINTR);
-    setDeferringTimers(false);
 
     if (-1 == rc) {
 #ifndef NDEBUG
@@ -324,7 +323,7 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
 #ifndef NDEBUG
             char* url = 0;
             curl_easy_getinfo(d->m_handle, CURLINFO_EFFECTIVE_URL, &url);
-            printf("Curl ERROR for url='%s', error: '%s'\n", url, curl_easy_strerror(msg->data.result));
+            fprintf(stderr, "Curl ERROR for url='%s', error: '%s'\n", url, curl_easy_strerror(msg->data.result));
 #endif
             if (d->client())
                 d->client()->didFail(job, ResourceError());
@@ -349,6 +348,7 @@ void ResourceHandleManager::removeFromCurl(ResourceHandle* job)
     curl_multi_remove_handle(m_curlMultiHandle, d->m_handle);
     curl_easy_cleanup(d->m_handle);
     d->m_handle = 0;
+    job->deref();
 }
 
 void ResourceHandleManager::setupPUT(ResourceHandle*, struct curl_slist**)
@@ -362,12 +362,14 @@ void ResourceHandleManager::setupPUT(ResourceHandle*, struct curl_slist**)
 void ResourceHandleManager::setupPOST(ResourceHandle* job, struct curl_slist** headers)
 {
     ResourceHandleInternal* d = job->getInternal();
-    Vector<FormDataElement> elements;
-    // Fix crash when httpBody is null (see bug #16906).
-    if (job->request().httpBody())
-        elements = job->request().httpBody()->elements();
-    size_t numElements = elements.size();
+    curl_easy_setopt(d->m_handle, CURLOPT_POST, TRUE);
+    curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDSIZE, 0);
 
+    if (!job->request().httpBody())
+        return;
+
+    Vector<FormDataElement> elements = job->request().httpBody()->elements();
+    size_t numElements = elements.size();
     if (!numElements)
         return;
 
@@ -375,7 +377,6 @@ void ResourceHandleManager::setupPOST(ResourceHandle* job, struct curl_slist** h
     if (numElements == 1) {
         job->request().httpBody()->flatten(d->m_postBytes);
         if (d->m_postBytes.size() != 0) {
-            curl_easy_setopt(d->m_handle, CURLOPT_POST, TRUE);
             curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDSIZE, d->m_postBytes.size());
             curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDS, d->m_postBytes.data());
         }
@@ -422,8 +423,6 @@ void ResourceHandleManager::setupPOST(ResourceHandle* job, struct curl_slist** h
             size += elements[i].m_data.size();
     }
 
-    curl_easy_setopt(d->m_handle, CURLOPT_POST, TRUE);
-
     // cURL guesses that we want chunked encoding as long as we specify the header
     if (chunkedTransfer)
         *headers = curl_slist_append(*headers, "Transfer-Encoding: chunked");
@@ -442,6 +441,7 @@ void ResourceHandleManager::add(ResourceHandle* job)
 {
     // we can be called from within curl, so to avoid re-entrancy issues
     // schedule this job to be added the next time we enter curl download loop
+    job->ref();
     m_resourceHandleList.append(job);
     if (!m_downloadTimer.isActive())
         m_downloadTimer.startOneShot(pollTimeSeconds);
@@ -453,6 +453,7 @@ bool ResourceHandleManager::removeScheduledJob(ResourceHandle* job)
     for (int i = 0; i < size; i++) {
         if (job == m_resourceHandleList[i]) {
             m_resourceHandleList.remove(i);
+            job->deref();
             return true;
         }
     }
@@ -585,7 +586,7 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
     // timeout will occur and do curl_multi_perform
     if (ret && ret != CURLM_CALL_MULTI_PERFORM) {
 #ifndef NDEBUG
-        printf("Error %d starting job %s\n", ret, encodeWithURLEscapeSequences(job->request().url().string()).latin1().data());
+        fprintf(stderr, "Error %d starting job %s\n", ret, encodeWithURLEscapeSequences(job->request().url().string()).latin1().data());
 #endif
         job->cancel();
         return;

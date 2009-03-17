@@ -23,10 +23,10 @@
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
-#	kjs/AllInOneFile.cpp \
-#	kjs/CollectorHeapIntrospector.cpp \
-#	kjs/grammar.y \
-#	kjs/testkjs.cpp \
+#	JSC/AllInOneFile.cpp \
+#	JSC/CollectorHeapIntrospector.cpp \
+#	JSC/grammar.y \
+#	JSC/testJSC.cpp \
 #	pcre/dftables.c \
 #	pcre/pcre_maketables.c \
 #	pcre/ucptable.cpp \
@@ -51,32 +51,25 @@
 
 LOCAL_SRC_FILES := \
 	\
-	VM/CTI.cpp \
-	VM/CodeBlock.cpp \
-	VM/CodeGenerator.cpp \
-	VM/ExceptionHelpers.cpp \
-	VM/Machine.cpp \
-	VM/Opcode.cpp \
-	VM/RegisterFile.cpp \
-	VM/SamplingTool.cpp \
+	\
+	bytecode/CodeBlock.cpp \
+	bytecode/JumpTable.cpp \
+	bytecode/Opcode.cpp \
+	bytecode/SamplingTool.cpp \
+	bytecode/StructureStubInfo.cpp \
+	bytecompiler/BytecodeGenerator.cpp \
 	\
 	debugger/Debugger.cpp \
+	debugger/DebuggerActivation.cpp \
 	debugger/DebuggerCallFrame.cpp \
 	\
-	kjs/Parser.cpp \
-	kjs/Shell.cpp \
-	kjs/collector.cpp \
-	kjs/dtoa.cpp \
-	kjs/identifier.cpp \
-	kjs/interpreter.cpp \
-	kjs/lexer.cpp \
-	kjs/lookup.cpp \
-	kjs/nodes.cpp \
-	kjs/nodes2string.cpp \
-	kjs/operations.cpp \
-	kjs/regexp.cpp \
-	kjs/ustring.cpp \
+	interpreter/CallFrame.cpp \
+	interpreter/Interpreter.cpp \
+	interpreter/RegisterFile.cpp \
 	\
+	parser/Lexer.cpp \
+	parser/Nodes.cpp \
+	parser/Parser.cpp \
 	pcre/pcre_compile.cpp \
 	pcre/pcre_exec.cpp \
 	pcre/pcre_tables.cpp \
@@ -98,7 +91,9 @@ LOCAL_SRC_FILES := \
 	runtime/BooleanObject.cpp \
 	runtime/BooleanPrototype.cpp \
 	runtime/CallData.cpp \
+	runtime/Collector.cpp \
 	runtime/CommonIdentifiers.cpp \
+	runtime/Completion.cpp \
 	runtime/ConstructData.cpp \
 	runtime/DateConstructor.cpp \
 	runtime/DateInstance.cpp \
@@ -108,15 +103,17 @@ LOCAL_SRC_FILES := \
 	runtime/ErrorConstructor.cpp \
 	runtime/ErrorInstance.cpp \
 	runtime/ErrorPrototype.cpp \
-	runtime/ExecState.cpp \
+	runtime/ExceptionHelpers.cpp \
 	runtime/FunctionConstructor.cpp \
 	runtime/FunctionPrototype.cpp \
 	runtime/GetterSetter.cpp \
 	runtime/GlobalEvalFunction.cpp \
+	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
 	runtime/InternalFunction.cpp \
 	runtime/JSActivation.cpp \
 	runtime/JSArray.cpp \
+	runtime/JSByteArray.cpp \
 	runtime/JSCell.cpp \
 	runtime/JSFunction.cpp \
 	runtime/JSGlobalData.cpp \
@@ -133,6 +130,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSValue.cpp \
 	runtime/JSVariableObject.cpp \
 	runtime/JSWrapperObject.cpp \
+	runtime/Lookup.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
 	runtime/NativeErrorPrototype.cpp \
@@ -141,9 +139,11 @@ LOCAL_SRC_FILES := \
 	runtime/NumberPrototype.cpp \
 	runtime/ObjectConstructor.cpp \
 	runtime/ObjectPrototype.cpp \
+	runtime/Operations.cpp \
 	runtime/PropertyNameArray.cpp \
 	runtime/PropertySlot.cpp \
 	runtime/PrototypeFunction.cpp \
+	runtime/RegExp.cpp \
 	runtime/RegExpConstructor.cpp \
 	runtime/RegExpObject.cpp \
 	runtime/RegExpPrototype.cpp \
@@ -152,34 +152,44 @@ LOCAL_SRC_FILES := \
 	runtime/StringConstructor.cpp \
 	runtime/StringObject.cpp \
 	runtime/StringPrototype.cpp \
-	runtime/StructureID.cpp \
-	runtime/StructureIDChain.cpp \
+	runtime/Structure.cpp \
+	runtime/StructureChain.cpp \
+	runtime/UString.cpp \
 	\
+	wrec/CharacterClass.cpp \
 	wrec/CharacterClassConstructor.cpp \
 	wrec/WREC.cpp \
+	wrec/WRECFunctors.cpp \
+	wrec/WRECGenerator.cpp \
+	wrec/WRECParser.cpp \
 	\
 	wtf/android/MainThreadAndroid.cpp \
 	wtf/Assertions.cpp \
+	wtf/ByteArray.cpp \
+	wtf/CurrentTime.cpp \
+	wtf/dtoa.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MainThread.cpp \
+	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/TCSystemAlloc.cpp \
+	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.
-GEN := $(intermediates)/kjs/grammar.cpp
-$(GEN) : PRIVATE_YACCFLAGS := -p kjsyy
-$(GEN) : $(LOCAL_PATH)/kjs/grammar.y
+GEN := $(intermediates)/parser/Grammar.cpp
+$(GEN) : PRIVATE_YACCFLAGS := -p jscyy
+$(GEN) : $(LOCAL_PATH)/parser/Grammar.y
 	$(call local-transform-y-to-cpp,.cpp)
 $(GEN) : $(LOCAL_BISON)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 # generated headers
-KJS_OBJECTS := $(addprefix $(intermediates)/runtime/, \
+JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				ArrayPrototype.lut.h \
 				DatePrototype.lut.h \
 				MathObject.lut.h \
@@ -188,18 +198,18 @@ KJS_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				RegExpObject.lut.h \
 				StringPrototype.lut.h \
 			)
-$(KJS_OBJECTS): PRIVATE_PATH := $(LOCAL_PATH)
-$(KJS_OBJECTS): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/kjs/create_hash_table $< -i > $@
-$(KJS_OBJECTS): $(LOCAL_PATH)/kjs/create_hash_table
-$(KJS_OBJECTS): $(intermediates)/%.lut.h : $(LOCAL_PATH)/%.cpp
+$(JSC_OBJECTS): PRIVATE_PATH := $(LOCAL_PATH)
+$(JSC_OBJECTS): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/create_hash_table $< -i > $@
+$(JSC_OBJECTS): $(LOCAL_PATH)/create_hash_table
+$(JSC_OBJECTS): $(intermediates)/%.lut.h : $(LOCAL_PATH)/%.cpp
 	$(transform-generated-source)
 
 
-LEXER_HEADER := $(intermediates)/lexer.lut.h
+LEXER_HEADER := $(intermediates)/Lexer.lut.h
 $(LEXER_HEADER): PRIVATE_PATH := $(LOCAL_PATH)
-$(LEXER_HEADER): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/kjs/create_hash_table $< -i > $@
-$(LEXER_HEADER): $(LOCAL_PATH)/kjs/create_hash_table
-$(LEXER_HEADER): $(intermediates)/%.lut.h : $(LOCAL_PATH)/kjs/keywords.table
+$(LEXER_HEADER): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/create_hash_table $< -i > $@
+$(LEXER_HEADER): $(LOCAL_PATH)/create_hash_table
+$(LEXER_HEADER): $(intermediates)/%.lut.h : $(LOCAL_PATH)/parser/Keywords.table
 	$(transform-generated-source)
 
 CHARTABLES := $(intermediates)/chartables.c
@@ -211,4 +221,4 @@ $(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
 
 $(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
 
-LOCAL_GENERATED_SOURCES += $(KJS_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)

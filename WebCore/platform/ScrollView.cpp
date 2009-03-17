@@ -33,6 +33,7 @@
 #include "PlatformWheelEvent.h"
 #include "Scrollbar.h"
 #include "ScrollbarTheme.h"
+#include <wtf/StdLibExtras.h>
 
 using std::max;
 
@@ -47,10 +48,9 @@ ScrollView::ScrollView()
     , m_scrollbarsSuppressed(false)
     , m_inUpdateScrollbars(false)
     , m_drawPanScrollIcon(false)
+    , m_useFixedLayout(false)
 {
     platformInit();
-    if (platformWidget())
-        platformSetCanBlitOnScroll();
 }
 
 ScrollView::~ScrollView()
@@ -79,7 +79,7 @@ void ScrollView::removeChild(Widget* child)
 void ScrollView::setHasHorizontalScrollbar(bool hasBar)
 {
     if (hasBar && !m_horizontalScrollbar && !platformHasHorizontalAdjustment()) {
-        m_horizontalScrollbar = Scrollbar::createNativeScrollbar(this, HorizontalScrollbar, RegularScrollbar);
+        m_horizontalScrollbar = createScrollbar(HorizontalScrollbar);
         addChild(m_horizontalScrollbar.get());
     } else if (!hasBar && m_horizontalScrollbar) {
         removeChild(m_horizontalScrollbar.get());
@@ -90,12 +90,17 @@ void ScrollView::setHasHorizontalScrollbar(bool hasBar)
 void ScrollView::setHasVerticalScrollbar(bool hasBar)
 {
     if (hasBar && !m_verticalScrollbar && !platformHasVerticalAdjustment()) {
-        m_verticalScrollbar = Scrollbar::createNativeScrollbar(this, VerticalScrollbar, RegularScrollbar);
+        m_verticalScrollbar = createScrollbar(VerticalScrollbar);
         addChild(m_verticalScrollbar.get());
     } else if (!hasBar && m_verticalScrollbar) {
         removeChild(m_verticalScrollbar.get());
         m_verticalScrollbar = 0;
     }
+}
+
+PassRefPtr<Scrollbar> ScrollView::createScrollbar(ScrollbarOrientation orientation)
+{
+    return Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
 }
 
 void ScrollView::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode)
@@ -142,11 +147,20 @@ void ScrollView::setCanHaveScrollbars(bool canScroll)
 
 void ScrollView::setCanBlitOnScroll(bool b)
 {
-    if (m_canBlitOnScroll == b)
+    if (platformWidget()) {
+        platformSetCanBlitOnScroll(b);
         return;
+    }
+
     m_canBlitOnScroll = b;
+}
+
+bool ScrollView::canBlitOnScroll() const
+{
     if (platformWidget())
-        platformSetCanBlitOnScroll();
+        return platformCanBlitOnScroll();
+
+    return m_canBlitOnScroll;
 }
 
 IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
@@ -156,6 +170,42 @@ IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
     return IntRect(IntPoint(m_scrollOffset.width(), m_scrollOffset.height()),
                    IntSize(max(0, width() - (verticalScrollbar() && !includeScrollbars ? verticalScrollbar()->width() : 0)), 
                            max(0, height() - (horizontalScrollbar() && !includeScrollbars ? horizontalScrollbar()->height() : 0))));
+}
+
+int ScrollView::layoutWidth() const
+{
+    return m_fixedLayoutSize.isEmpty() || !m_useFixedLayout ? visibleWidth() : m_fixedLayoutSize.width();
+}
+
+int ScrollView::layoutHeight() const
+{
+    return m_fixedLayoutSize.isEmpty() || !m_useFixedLayout ? visibleHeight() : m_fixedLayoutSize.height();
+}
+
+IntSize ScrollView::fixedLayoutSize() const
+{
+    return m_fixedLayoutSize;
+}
+
+void ScrollView::setFixedLayoutSize(const IntSize& newSize)
+{
+    if (fixedLayoutSize() == newSize)
+        return;
+    m_fixedLayoutSize = newSize;
+    updateScrollbars(scrollOffset());
+}
+
+bool ScrollView::useFixedLayout() const
+{
+    return m_useFixedLayout;
+}
+
+void ScrollView::setUseFixedLayout(bool enable)
+{
+    if (useFixedLayout() == enable)
+        return;
+    m_useFixedLayout = enable;
+    updateScrollbars(scrollOffset());
 }
 
 IntSize ScrollView::contentsSize() const
@@ -211,16 +261,27 @@ void ScrollView::scrollRectIntoViewRecursively(const IntRect& r)
     if (platformProhibitsScrolling())
         return;
 #endif
-    if (prohibitsScrolling())
-        return;
-
-    IntPoint p(max(0, r.x()), max(0, r.y()));
+    // FIXME: This method is not transform-aware.  It should just be moved to FrameView so that an accurate
+    // position for the child view can be determined.
+    IntRect rect = r;
     ScrollView* view = this;
     while (view) {
-        view->setScrollPosition(p);
-        p.move(view->x() - view->scrollOffset().width(), view->y() - view->scrollOffset().height());
+        if (view->prohibitsScrolling()) // Allow the views to scroll into view recursively until we hit one that prohibits scrolling.
+            return;
+        view->setScrollPosition(rect.location());
+        rect.move(view->x() - view->scrollOffset().width(), view->y() - view->scrollOffset().height());
+        if (view->parent())
+            rect.intersect(view->frameRect());
         view = view->parent();
     }
+    
+    // We may be embedded inside some containing platform scroll view that we don't manage.  This is the case
+    // in Mail.app on OS X, for example, where the WebKit view for message bodies is inside a Cocoa NSScrollView
+    // that contains both it and message headers.  Let the HostWindow know about this scroll so that it can pass the message
+    // on up the view chain.
+    // This rect is not clamped, since Mail actually relies on receiving an unclamped rect with negative coordinates in order to
+    // expose the headers.
+    hostWindow()->scrollRectIntoView(rect, this);
 }
 
 void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
@@ -395,7 +456,7 @@ void ScrollView::scrollContents(const IntSize& scrollDelta)
         IntPoint panIconDirtySquareLocation = IntPoint(m_panScrollIconPoint.x() - (panIconDirtySquareSizeLength / 2), m_panScrollIconPoint.y() - (panIconDirtySquareSizeLength / 2));
         IntRect panScrollIconDirtyRect = IntRect(panIconDirtySquareLocation , IntSize(panIconDirtySquareSizeLength, panIconDirtySquareSizeLength));
         panScrollIconDirtyRect.intersect(clipRect);
-        hostWindow()->repaint(panScrollIconDirtyRect, true, true);
+        hostWindow()->repaint(panScrollIconDirtyRect, true);
     }
 
     if (canBlitOnScroll() && !rootPreventsBlitting()) { // The main frame can just blit the WebView window
@@ -588,7 +649,7 @@ void ScrollView::setFrameRect(const IntRect& newRect)
     frameRectsChanged();
 }
 
-void ScrollView::frameRectsChanged() const
+void ScrollView::frameRectsChanged()
 {
     if (platformWidget())
         return;
@@ -673,10 +734,8 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     }
 
     // Paint the panScroll Icon
-    static RefPtr<Image> panScrollIcon;
     if (m_drawPanScrollIcon) {
-        if (!panScrollIcon)
-            panScrollIcon = Image::loadPlatformResource("panIcon");
+        DEFINE_STATIC_LOCAL(RefPtr<Image>, panScrollIcon, (Image::loadPlatformResource("panIcon")));
         context->drawImage(panScrollIcon.get(), m_panScrollIconPoint);
     }
 }
@@ -694,7 +753,7 @@ void ScrollView::setParentVisible(bool visible)
     
     Widget::setParentVisible(visible);
 
-    if (!isVisible())
+    if (!isSelfVisible())
         return;
         
     HashSet<Widget*>::iterator end = m_children.end();
@@ -778,10 +837,6 @@ void ScrollView::platformRemoveChild(Widget*)
 #endif
 
 #if !PLATFORM(MAC)
-void ScrollView::platformSetCanBlitOnScroll()
-{
-}
-
 void ScrollView::platformSetScrollbarsSuppressed(bool repaintOnUnsuppress)
 {
 }
@@ -796,12 +851,25 @@ void ScrollView::platformSetScrollbarModes()
 void ScrollView::platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode& vertical) const
 {
 }
+#endif
 
+void ScrollView::platformSetCanBlitOnScroll(bool)
+{
+}
+
+bool ScrollView::platformCanBlitOnScroll() const
+{
+    return false;
+}
+
+#if !PLATFORM(ANDROID)
 IntRect ScrollView::platformVisibleContentRect(bool) const
 {
     return IntRect();
 }
+#endif
 
+#if !PLATFORM(ANDROID)
 IntSize ScrollView::platformContentsSize() const
 {
     return IntSize();

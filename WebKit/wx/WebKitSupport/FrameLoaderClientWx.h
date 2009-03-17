@@ -90,8 +90,6 @@ namespace WebCore {
         virtual void detachedFromParent2();
         virtual void detachedFromParent3();
 
-        virtual void loadedFromCachedPage();
-
         virtual void frameLoaderDestroyed();
         virtual bool canHandleRequest(const ResourceRequest&) const;
 
@@ -108,6 +106,7 @@ namespace WebCore {
         virtual void dispatchDidFinishDocumentLoad();
         virtual void dispatchDidFinishLoad();
         virtual void dispatchDidFirstLayout();
+        virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
         virtual void dispatchShow();
         virtual void cancelPolicyCheck();
@@ -145,11 +144,11 @@ namespace WebCore {
 
         virtual String userAgent(const KURL&);
 
-        virtual void savePlatformDataToCachedPage(WebCore::CachedPage*);
-        virtual void transitionToCommittedFromCachedPage(WebCore::CachedPage*);
+        virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
+        virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
         
-        virtual void updateGlobalHistory(const KURL&);
+        virtual void updateGlobalHistory();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
         virtual void saveScrollPositionAndViewStateToItem(HistoryItem*);
         virtual bool canCachePage() const;
@@ -169,6 +168,7 @@ namespace WebCore {
         virtual void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
         
         virtual void dispatchWillSendRequest(DocumentLoader*, unsigned long, ResourceRequest&, const ResourceResponse&);
+        virtual bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier);
         virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&);
         virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&);
         virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long, const ResourceResponse&);

@@ -31,6 +31,8 @@
 #include "DateConstructor.h"
 #include "ErrorConstructor.h"
 #include "FunctionConstructor.h"
+#include "Identifier.h"
+#include "InitializeThreading.h"
 #include "JSArray.h"
 #include "JSCallbackConstructor.h"
 #include "JSCallbackFunction.h"
@@ -45,13 +47,13 @@
 #include "ObjectPrototype.h"
 #include "PropertyNameArray.h"
 #include "RegExpConstructor.h"
-#include "identifier.h"
 #include <wtf/Platform.h>
 
 using namespace JSC;
 
 JSClassRef JSClassCreate(const JSClassDefinition* definition)
 {
+    initializeThreading();
     RefPtr<OpaqueJSClass> jsClass = (definition->attributes & kJSClassAttributeNoAutomaticPrototype)
         ? OpaqueJSClass::createNoAutomaticPrototype(definition)
         : OpaqueJSClass::create(definition);
@@ -103,7 +105,7 @@ JSObjectRef JSObjectMakeConstructor(JSContextRef ctx, JSClassRef jsClass, JSObje
     exec->globalData().heap.registerThread();
     JSLock lock(exec);
 
-    JSValue* jsPrototype = jsClass 
+    JSValuePtr jsPrototype = jsClass 
         ? jsClass->prototype(exec)
         : exec->lexicalGlobalObject()->objectPrototype();
     
@@ -233,9 +235,9 @@ JSValueRef JSObjectGetPrototype(JSContextRef, JSObjectRef object)
 void JSObjectSetPrototype(JSContextRef, JSObjectRef object, JSValueRef value)
 {
     JSObject* jsObject = toJS(object);
-    JSValue* jsValue = toJS(value);
+    JSValuePtr jsValue = toJS(value);
 
-    jsObject->setPrototype(jsValue->isObject() ? jsValue : jsNull());
+    jsObject->setPrototype(jsValue.isObject() ? jsValue : jsNull());
 }
 
 bool JSObjectHasProperty(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName)
@@ -257,7 +259,7 @@ JSValueRef JSObjectGetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef
 
     JSObject* jsObject = toJS(object);
 
-    JSValue* jsValue = jsObject->get(exec, propertyName->identifier(&exec->globalData()));
+    JSValuePtr jsValue = jsObject->get(exec, propertyName->identifier(&exec->globalData()));
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec->exception());
@@ -274,7 +276,7 @@ void JSObjectSetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef prope
 
     JSObject* jsObject = toJS(object);
     Identifier name(propertyName->identifier(&exec->globalData()));
-    JSValue* jsValue = toJS(value);
+    JSValuePtr jsValue = toJS(value);
 
     if (attributes && !jsObject->hasProperty(exec, name))
         jsObject->putWithAttributes(exec, name, jsValue, attributes);
@@ -298,7 +300,7 @@ JSValueRef JSObjectGetPropertyAtIndex(JSContextRef ctx, JSObjectRef object, unsi
 
     JSObject* jsObject = toJS(object);
 
-    JSValue* jsValue = jsObject->get(exec, propertyIndex);
+    JSValuePtr jsValue = jsObject->get(exec, propertyIndex);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec->exception());
@@ -315,7 +317,7 @@ void JSObjectSetPropertyAtIndex(JSContextRef ctx, JSObjectRef object, unsigned p
     JSLock lock(exec);
 
     JSObject* jsObject = toJS(object);
-    JSValue* jsValue = toJS(value);
+    JSValuePtr jsValue = toJS(value);
     
     jsObject->put(exec, propertyIndex, jsValue);
     if (exec->hadException()) {

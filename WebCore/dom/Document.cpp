@@ -4,6 +4,8 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2008 David Levin (levin@chromium.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,8 +35,10 @@
 #include "CString.h"
 #include "CachedCSSStyleSheet.h"
 #include "Comment.h"
+#include "Console.h"
 #include "CookieJar.h"
 #include "DOMImplementation.h"
+#include "DOMTimer.h"
 #include "DOMWindow.h"
 #include "DocLoader.h"
 #include "DocumentFragment.h"
@@ -53,6 +57,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLAnchorElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLDocument.h"
@@ -71,6 +76,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "ImageLoader.h"
+#include "InspectorController.h"
 #include "KeyboardEvent.h"
 #include "Logging.h"
 #include "MessageEvent.h"
@@ -87,21 +93,20 @@
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
 #include "RegisteredEventListener.h"
-#include "RegularExpression.h"
 #include "RenderArena.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "SegmentedString.h"
 #include "SelectionController.h"
 #include "Settings.h"
-#include "StringHash.h"
 #include "StyleSheetList.h"
-#include "SystemTime.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
 #include "TextResourceDecoder.h"
 #include "TreeWalker.h"
+#include "Timer.h"
 #include "UIEvent.h"
 #include "WebKitAnimationEvent.h"
 #include "WebKitTransitionEvent.h"
@@ -111,11 +116,19 @@
 #include "XMLTokenizer.h"
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
-#include <runtime/JSLock.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/HashFunctions.h>
+#include <wtf/MainThread.h>
+#include <wtf/StdLibExtras.h>
+#include <wtf/PassRefPtr.h>
 
 #if ENABLE(DATABASE)
 #include "Database.h"
 #include "DatabaseThread.h"
+#endif
+
+#if ENABLE(DOM_STORAGE)
+#include "StorageEvent.h"
 #endif
 
 #if ENABLE(XPATH)
@@ -160,6 +173,13 @@
 #include "TimeCounter.h"
 #endif
 
+#if ENABLE(WML)
+#include "WMLDocument.h"
+#include "WMLElement.h"
+#include "WMLElementFactory.h"
+#include "WMLNames.h"
+#endif
+
 using namespace std;
 using namespace WTF;
 using namespace Unicode;
@@ -177,9 +197,6 @@ static const int cLayoutScheduleThreshold = 250;
 
 // Use 1 to represent the document's default form.
 static HTMLFormElement* const defaultForm = reinterpret_cast<HTMLFormElement*>(1);
-
-// Golden ratio - arbitrary start value to avoid mapping all 0's to all 0's
-static const unsigned PHI = 0x9e3779b9U;
 
 // DOM Level 2 says (letters added):
 //
@@ -283,6 +300,7 @@ Document::Document(Frame* frame, bool isXHTML)
     : ContainerNode(0)
     , m_domtree_version(0)
     , m_styleSheets(StyleSheetList::create(this))
+    , m_frameElementsShouldIgnoreScrolling(false)
     , m_title("")
     , m_titleSetExplicitly(false)
     , m_imageLoadEventTimer(this, &Document::imageLoadEventTimerFired)
@@ -353,6 +371,7 @@ Document::Document(Frame* frame, bool isXHTML)
     m_usesSiblingRules = false;
     m_usesFirstLineRules = false;
     m_usesFirstLetterRules = false;
+    m_usesBeforeAfterRules = false;
     m_gotoAnchorNeededAfterStylesheetsLoad = false;
  
     m_styleSelector = 0;
@@ -517,16 +536,13 @@ void Document::childrenChanged(bool changedByParser, Node* beforeChange, Node* a
     m_documentElement = 0;
 }
 
-Element* Document::documentElement() const
+void Document::cacheDocumentElement() const
 {
-    if (!m_documentElement) {
-        Node* n = firstChild();
-        while (n && !n->isElementNode())
-            n = n->nextSibling();
-        m_documentElement = static_cast<Element*>(n);
-    }
-
-    return m_documentElement.get();
+    ASSERT(!m_documentElement);
+    Node* n = firstChild();
+    while (n && !n->isElementNode())
+        n = n->nextSibling();
+    m_documentElement = static_cast<Element*>(n);
 }
 
 PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionCode& ec)
@@ -537,7 +553,7 @@ PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionC
     }
 
     if (m_isXHTML)
-        return HTMLElementFactory::createHTMLElement(name, this, 0, false);
+        return HTMLElementFactory::createHTMLElement(QualifiedName(nullAtom, name, xhtmlNamespaceURI), this, 0, false);
 
     return createElement(QualifiedName(nullAtom, name, nullAtom), false, ec);
 }
@@ -735,9 +751,9 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
 
 bool Document::hasPrefixNamespaceMismatch(const QualifiedName& qName)
 {
-    static const AtomicString xmlnsNamespaceURI("http://www.w3.org/2000/xmlns/");
-    static const AtomicString xmlns("xmlns");
-    static const AtomicString xml("xml");
+    DEFINE_STATIC_LOCAL(const AtomicString, xmlnsNamespaceURI, ("http://www.w3.org/2000/xmlns/"));
+    DEFINE_STATIC_LOCAL(const AtomicString, xmlns, ("xmlns"));
+    DEFINE_STATIC_LOCAL(const AtomicString, xml, ("xml"));
 
     // These checks are from DOM Core Level 2, createElementNS
     // http://www.w3.org/TR/DOM-Level-2-Core/core.html#ID-DocCrElNS
@@ -762,10 +778,14 @@ PassRefPtr<Element> Document::createElement(const QualifiedName& qName, bool cre
 
     // FIXME: Use registered namespaces and look up in a hash to find the right factory.
     if (qName.namespaceURI() == xhtmlNamespaceURI)
-        e = HTMLElementFactory::createHTMLElement(qName.localName(), this, 0, createdByParser);
+        e = HTMLElementFactory::createHTMLElement(qName, this, 0, createdByParser);
 #if ENABLE(SVG)
     else if (qName.namespaceURI() == SVGNames::svgNamespaceURI)
         e = SVGElementFactory::createSVGElement(qName, this, createdByParser);
+#endif
+#if ENABLE(WML)
+    else if (qName.namespaceURI() == WMLNames::wmlNamespaceURI || isWMLDocument())
+        e = WMLElementFactory::createWMLElement(qName, this, createdByParser);
 #endif
     
     if (!e)
@@ -902,7 +922,7 @@ Element* Document::elementFromPoint(int x, int y) const
 
     HitTestRequest request(true, true);
     HitTestResult result(IntPoint(x, y));
-    renderer()->layer()->hitTest(request, result); 
+    renderView()->layer()->hitTest(request, result); 
 
     Node* n = result.innerNode();
     while (n && !n->isElementNode())
@@ -1107,7 +1127,7 @@ void Document::recalcStyle(StyleChange change)
     
     if (m_inStyleRecalc)
         return; // Guard against re-entrancy. -dwh
-        
+
     m_inStyleRecalc = true;
     suspendPostAttachCallbacks();
     
@@ -1184,12 +1204,17 @@ bail_out:
 
 void Document::updateRendering()
 {
-    if (hasChangedChild() && !inPageCache())
-        recalcStyle(NoChange);
-    
-    // Tell the animation controller that the style is available and it can start animations
+    if (!hasChangedChild() || inPageCache())
+        return;
+        
     if (m_frame)
-        m_frame->animation()->styleAvailable();
+        m_frame->animation()->beginAnimationUpdate();
+        
+    recalcStyle(NoChange);
+    
+    // Tell the animation controller that updateRendering is finished and it can do any post-processing
+    if (m_frame)
+        m_frame->animation()->endAnimationUpdate();
 }
 
 void Document::updateDocumentsRendering()
@@ -1289,6 +1314,7 @@ void Document::detach()
     ASSERT(!m_inPageCache);
 
     clearAXObjectCache();
+    stopActiveDOMObjects();
     
     RenderObject* render = renderer();
 
@@ -1329,6 +1355,9 @@ void Document::clearFramePointer()
 
 void Document::removeAllEventListenersFromAllNodes()
 {
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i)
+        m_windowEventListeners[i]->setRemoved(true);
     m_windowEventListeners.clear();
     removeAllDisconnectedNodeEventListeners();
     for (Node *n = this; n; n = n->traverseNextNode()) {
@@ -1354,6 +1383,11 @@ void Document::removeAllDisconnectedNodeEventListeners()
     for (HashSet<Node*>::iterator i = m_disconnectedNodesWithEventListeners.begin(); i != end; ++i)
         EventTargetNodeCast(*i)->removeAllEventListeners();
     m_disconnectedNodesWithEventListeners.clear();
+}
+
+RenderView* Document::renderView() const
+{
+    return static_cast<RenderView*>(renderer());
 }
 
 void Document::clearAXObjectCache()
@@ -1426,7 +1460,7 @@ void Document::open(Document* ownerDocument)
     if (ownerDocument) {
         setURL(ownerDocument->url());
         m_cookieURL = ownerDocument->cookieURL();
-        m_securityOrigin = ownerDocument->securityOrigin();
+        ScriptExecutionContext::setSecurityOrigin(ownerDocument->securityOrigin());
     }
 
     if (m_frame) {
@@ -1556,7 +1590,7 @@ void Document::implicitClose()
     if (!this->body() && isHTMLDocument()) {
         if (Node* documentElement = this->documentElement()) {
             ExceptionCode ec = 0;
-            documentElement->appendChild(new HTMLBodyElement(this), ec);
+            documentElement->appendChild(new HTMLBodyElement(bodyTag, this), ec);
             ASSERT(!ec);
         }
     }
@@ -1652,13 +1686,14 @@ void Document::setParsing(bool b)
 
 bool Document::shouldScheduleLayout()
 {
-    // We can update layout if:
-    // (a) we actually need a layout
-    // (b) our stylesheets are all loaded
-    // (c) we have a <body>
-    return (renderer() && renderer()->needsLayout() && haveStylesheetsLoaded() &&
-            documentElement() && documentElement()->renderer() &&
-            (!documentElement()->hasTagName(htmlTag) || body()));
+    // This function will only be called when FrameView thinks a layout is needed.
+    // This enforces a couple extra rules.
+    //
+    //    (a) Only schedule a layout once the stylesheets are loaded.
+    //    (b) Only schedule layout once we have a body element.
+
+    return haveStylesheetsLoaded()
+        && body() || (documentElement() && !documentElement()->hasTagName(htmlTag));
 }
 
 int Document::minimumLayoutDelay()
@@ -1729,12 +1764,20 @@ void Document::clear()
 
     removeChildren();
 
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i)
+        m_windowEventListeners[i]->setRemoved(true);
     m_windowEventListeners.clear();
 }
 
 const KURL& Document::virtualURL() const
 {
     return m_url;
+}
+
+KURL Document::virtualCompleteURL(const String& url) const
+{
+    return completeURL(url);
 }
 
 void Document::setURL(const KURL& url)
@@ -1756,7 +1799,15 @@ void Document::setBaseElementURL(const KURL& baseElementURL)
 
 void Document::updateBaseURL()
 {
-    m_baseURL = m_baseElementURL.isEmpty() ? KURL(documentURI()) : m_baseElementURL;
+    // DOM 3 Core: When the Document supports the feature "HTML" [DOM Level 2 HTML], the base URI is computed using
+    // first the value of the href attribute of the HTML BASE element if any, and the value of the documentURI attribute
+    // from the Document interface otherwise.
+    if (m_baseElementURL.isEmpty()) {
+        // The documentURI attribute is an arbitrary string. DOM 3 Core does not specify how it should be resolved,
+        // so we use a null base URL.
+        m_baseURL = KURL(KURL(), documentURI());
+    } else
+        m_baseURL = m_baseElementURL;
     if (!m_baseURL.isValid())
         m_baseURL = KURL();
 
@@ -2044,7 +2095,7 @@ MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& r
         return MouseEventWithHitTestResults(event, HitTestResult(IntPoint()));
 
     HitTestResult result(documentPoint);
-    renderer()->layer()->hitTest(request, result);
+    renderView()->layer()->hitTest(request, result);
 
     if (!request.readonly)
         updateRendering();
@@ -2695,22 +2746,32 @@ DOMWindow* Document::domWindow() const
 
 PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& ec)
 {
-    if (eventType == "UIEvents" || eventType == "UIEvent")
-        return UIEvent::create();
-    if (eventType == "MouseEvents" || eventType == "MouseEvent")
-        return MouseEvent::create();
-    if (eventType == "MutationEvents" || eventType == "MutationEvent")
-        return MutationEvent::create();
-    if (eventType == "KeyboardEvents" || eventType == "KeyboardEvent")
-        return KeyboardEvent::create();
-    if (eventType == "HTMLEvents" || eventType == "Event" || eventType == "Events")
+    if (eventType == "Event" || eventType == "Events" || eventType == "HTMLEvents")
         return Event::create();
-    if (eventType == "ProgressEvent")
-        return ProgressEvent::create();
-    if (eventType == "TextEvent")
-        return TextEvent::create();
+    if (eventType == "KeyboardEvent" || eventType == "KeyboardEvents")
+        return KeyboardEvent::create();
+    if (eventType == "MessageEvent")
+        return MessageEvent::create();
+    if (eventType == "MouseEvent" || eventType == "MouseEvents")
+        return MouseEvent::create();
+    if (eventType == "MutationEvent" || eventType == "MutationEvents")
+        return MutationEvent::create();
     if (eventType == "OverflowEvent")
         return OverflowEvent::create();
+    if (eventType == "ProgressEvent")
+        return ProgressEvent::create();
+#if ENABLE(DOM_STORAGE)
+    if (eventType == "StorageEvent")
+        return StorageEvent::create();
+#endif
+    if (eventType == "TextEvent")
+        return TextEvent::create();
+    if (eventType == "UIEvent" || eventType == "UIEvents")
+        return UIEvent::create();
+    if (eventType == "WebKitAnimationEvent")
+        return WebKitAnimationEvent::create();
+    if (eventType == "WebKitTransitionEvent")
+        return WebKitTransitionEvent::create();
     if (eventType == "WheelEvent")
         return WheelEvent::create();
 #if ENABLE(SVG)
@@ -2719,12 +2780,6 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
     if (eventType == "SVGZoomEvents")
         return SVGZoomEvent::create();
 #endif
-    if (eventType == "MessageEvent")
-        return MessageEvent::create();
-    if (eventType == "WebKitAnimationEvent")
-        return WebKitAnimationEvent::create();
-    if (eventType == "WebKitTransitionEvent")
-        return WebKitTransitionEvent::create();
 #if ENABLE(TOUCH_EVENTS) // Android
     if (eventType == "TouchEvent")
         return TouchEvent::create();
@@ -2766,18 +2821,19 @@ CSSStyleDeclaration* Document::getOverrideStyle(Element*, const String&)
     return 0;
 }
 
-void Document::handleWindowEvent(Event* evt, bool useCapture)
+void Document::handleWindowEvent(Event* event, bool useCapture)
 {
     if (m_windowEventListeners.isEmpty())
         return;
         
-    // if any html event listeners are registered on the window, then dispatch them here
-    RegisteredEventListenerList listenersCopy = m_windowEventListeners;
-    RegisteredEventListenerList::iterator it = listenersCopy.begin();
-    
-    for (; it != listenersCopy.end(); ++it)
-        if ((*it)->eventType() == evt->type() && (*it)->useCapture() == useCapture && !(*it)->removed()) 
-            (*it)->listener()->handleEvent(evt, true);
+    // If any HTML event listeners are registered on the window, dispatch them here.
+    RegisteredEventListenerVector listenersCopy = m_windowEventListeners;
+    size_t size = listenersCopy.size();
+    for (size_t i = 0; i < size; ++i) {
+        RegisteredEventListener& r = *listenersCopy[i];
+        if (r.eventType() == event->type() && r.useCapture() == useCapture && !r.removed())
+            r.listener()->handleEvent(event, true);
+    }
 }
 
 void Document::setWindowInlineEventListenerForType(const AtomicString& eventType, PassRefPtr<EventListener> listener)
@@ -2790,24 +2846,27 @@ void Document::setWindowInlineEventListenerForType(const AtomicString& eventType
 
 EventListener* Document::windowInlineEventListenerForType(const AtomicString& eventType)
 {
-    RegisteredEventListenerList::iterator it = m_windowEventListeners.begin();
-    for (; it != m_windowEventListeners.end(); ++it) {
-        if ((*it)->eventType() == eventType && (*it)->listener()->isInline())
-            return (*it)->listener();
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        RegisteredEventListener& r = *m_windowEventListeners[i];
+        if (r.eventType() == eventType && r.listener()->isInline())
+            return r.listener();
     }
     return 0;
 }
 
 void Document::removeWindowInlineEventListenerForType(const AtomicString& eventType)
 {
-    RegisteredEventListenerList::iterator it = m_windowEventListeners.begin();
-    for (; it != m_windowEventListeners.end(); ++it) {
-        if ((*it)->eventType() == eventType && (*it)->listener()->isInline()) {
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        RegisteredEventListener& r = *m_windowEventListeners[i];
+        if (r.eventType() == eventType && r.listener()->isInline()) {
             if (eventType == eventNames().unloadEvent)
                 removePendingFrameUnloadEventCount();
             else if (eventType == eventNames().beforeunloadEvent)
                 removePendingFrameBeforeUnloadEventCount();
-            m_windowEventListeners.remove(it);
+            r.setRemoved(true);
+            m_windowEventListeners.remove(i);
             return;
         }
     }
@@ -2822,20 +2881,22 @@ void Document::addWindowEventListener(const AtomicString& eventType, PassRefPtr<
     // Remove existing identical listener set with identical arguments.
     // The DOM 2 spec says that "duplicate instances are discarded" in this case.
     removeWindowEventListener(eventType, listener.get(), useCapture);
+    addListenerTypeIfNeeded(eventType);
     m_windowEventListeners.append(RegisteredEventListener::create(eventType, listener, useCapture));
 }
 
 void Document::removeWindowEventListener(const AtomicString& eventType, EventListener* listener, bool useCapture)
 {
-    RegisteredEventListenerList::iterator it = m_windowEventListeners.begin();
-    for (; it != m_windowEventListeners.end(); ++it) {
-        RegisteredEventListener& r = **it;
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        RegisteredEventListener& r = *m_windowEventListeners[i];
         if (r.eventType() == eventType && r.listener() == listener && r.useCapture() == useCapture) {
             if (eventType == eventNames().unloadEvent)
                 removePendingFrameUnloadEventCount();
             else if (eventType == eventNames().beforeunloadEvent)
                 removePendingFrameBeforeUnloadEventCount();
-            m_windowEventListeners.remove(it);
+            r.setRemoved(true);
+            m_windowEventListeners.remove(i);
             return;
         }
     }
@@ -2843,10 +2904,11 @@ void Document::removeWindowEventListener(const AtomicString& eventType, EventLis
 
 bool Document::hasWindowEventListener(const AtomicString& eventType)
 {
-    RegisteredEventListenerList::iterator it = m_windowEventListeners.begin();
-    for (; it != m_windowEventListeners.end(); ++it)
-        if ((*it)->eventType() == eventType)
+    size_t size = m_windowEventListeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        if (m_windowEventListeners[i]->eventType() == eventType)
             return true;
+    }
     return false;
 }
 
@@ -2905,34 +2967,48 @@ void Document::removeImage(ImageLoader* image)
 {
     // Remove instances of this image from both lists.
     // Use loops because we allow multiple instances to get into the lists.
-    while (m_imageLoadEventDispatchSoonList.removeRef(image)) { }
-    while (m_imageLoadEventDispatchingList.removeRef(image)) { }
+    size_t size = m_imageLoadEventDispatchSoonList.size();
+    for (size_t i = 0; i < size; ++i) {
+        if (m_imageLoadEventDispatchSoonList[i] == image)
+            m_imageLoadEventDispatchSoonList[i] = 0;
+    }
+    size = m_imageLoadEventDispatchingList.size();
+    for (size_t i = 0; i < size; ++i) {
+        if (m_imageLoadEventDispatchingList[i] == image)
+            m_imageLoadEventDispatchingList[i] = 0;
+    }
     if (m_imageLoadEventDispatchSoonList.isEmpty())
         m_imageLoadEventTimer.stop();
 }
 
 void Document::dispatchImageLoadEventsNow()
 {
-    // need to avoid re-entering this function; if new dispatches are
+    // Need to avoid re-entering this function; if new dispatches are
     // scheduled before the parent finishes processing the list, they
-    // will set a timer and eventually be processed
+    // will set a timer and eventually be processed.
     if (!m_imageLoadEventDispatchingList.isEmpty())
         return;
-
+#ifdef BUILDING_ON_LEOPARD
+    bool shouldReenableMemoryCacheClientCalls = false;
+    if (settings() && settings()->needsIChatMemoryCacheCallsQuirk() && page()->areMemoryCacheClientCallsEnabled()) {
+        shouldReenableMemoryCacheClientCalls = true;
+        page()->setMemoryCacheClientCallsEnabled(false);
+    }
+#endif
     m_imageLoadEventTimer.stop();
-    
+
     m_imageLoadEventDispatchingList = m_imageLoadEventDispatchSoonList;
     m_imageLoadEventDispatchSoonList.clear();
-    for (DeprecatedPtrListIterator<ImageLoader> it(m_imageLoadEventDispatchingList); it.current();) {
-        ImageLoader* image = it.current();
-        // Must advance iterator *before* dispatching call.
-        // Otherwise, it might be advanced automatically if dispatching the call had a side effect
-        // of destroying the current ImageLoader, and then we would advance past the *next* item,
-        // missing one altogether.
-        ++it;
-        image->dispatchLoadEvent();
+    size_t size = m_imageLoadEventDispatchingList.size();
+    for (size_t i = 0; i < size; ++i) {
+        if (ImageLoader* image = m_imageLoadEventDispatchingList[i])
+            image->dispatchLoadEvent();
     }
     m_imageLoadEventDispatchingList.clear();
+#ifdef BUILDING_ON_LEOPARD
+    if (shouldReenableMemoryCacheClientCalls && page())
+        page()->setMemoryCacheClientCallsEnabled(true);
+#endif
 }
 
 void Document::imageLoadEventTimerFired(Timer<Document>*)
@@ -2952,7 +3028,11 @@ String Document::cookie() const
     if (page() && !page()->cookieEnabled())
         return String();
 
-    return cookies(this, cookieURL());
+    KURL cookieURL = this->cookieURL();
+    if (cookieURL.isEmpty())
+        return String();
+
+    return cookies(this, cookieURL);
 }
 
 void Document::setCookie(const String& value)
@@ -2960,7 +3040,11 @@ void Document::setCookie(const String& value)
     if (page() && !page()->cookieEnabled())
         return;
 
-    setCookies(this, cookieURL(), policyBaseURL(), value);
+    KURL cookieURL = this->cookieURL();
+    if (cookieURL.isEmpty())
+        return;
+
+    setCookies(this, cookieURL, policyBaseURL(), value);
 }
 
 String Document::referrer() const
@@ -2972,7 +3056,7 @@ String Document::referrer() const
 
 String Document::domain() const
 {
-    return m_securityOrigin->domain();
+    return securityOrigin()->domain();
 }
 
 void Document::setDomain(const String& newDomain)
@@ -2983,13 +3067,15 @@ void Document::setDomain(const String& newDomain)
     // FIXME: We should add logging indicating why a domain was not allowed.
 
     // If the new domain is the same as the old domain, still call
-    // m_securityOrigin.setDomainForDOM. This will change the
+    // securityOrigin()->setDomainForDOM. This will change the
     // security check behavior. For example, if a page loaded on port 8000
     // assigns its current domain using document.domain, the page will
     // allow other pages loaded on different ports in the same domain that
     // have also assigned to access this page.
     if (equalIgnoringCase(domain(), newDomain)) {
-        m_securityOrigin->setDomainFromDOM(newDomain);
+        securityOrigin()->setDomainFromDOM(newDomain);
+        if (m_frame)
+            m_frame->script()->updateSecurityOrigin();
         return;
     }
 
@@ -3010,7 +3096,9 @@ void Document::setDomain(const String& newDomain)
     if (test != newDomain)
         return;
 
-    m_securityOrigin->setDomainFromDOM(newDomain);
+    securityOrigin()->setDomainFromDOM(newDomain);
+    if (m_frame)
+        m_frame->script()->updateSecurityOrigin();
 }
 
 String Document::lastModified() const
@@ -3167,27 +3255,16 @@ void Document::setDecoder(PassRefPtr<TextResourceDecoder> decoder)
     m_decoder = decoder;
 }
 
-UChar Document::backslashAsCurrencySymbol() const
-{
-    if (!m_decoder)
-        return '\\';
-    return m_decoder->encoding().backslashAsCurrencySymbol();
-}
-
 KURL Document::completeURL(const String& url) const
 {
     // Always return a null URL when passed a null string.
     // FIXME: Should we change the KURL constructor to have this behavior?
+    // See also [CSS]StyleSheet::completeURL(const String&)
     if (url.isNull())
         return KURL();
     if (!m_decoder)
         return KURL(m_baseURL, url);
     return KURL(m_baseURL, url, m_decoder->encoding());
-}
-
-bool Document::inPageCache()
-{
-    return m_inPageCache;
 }
 
 void Document::setInPageCache(bool flag)
@@ -3231,6 +3308,23 @@ void Document::registerForDocumentActivationCallbacks(Element* e)
 void Document::unregisterForDocumentActivationCallbacks(Element* e)
 {
     m_documentActivationCallbackElements.remove(e);
+}
+
+void Document::mediaVolumeDidChange() 
+{
+    HashSet<Element*>::iterator end = m_mediaVolumeCallbackElements.end();
+    for (HashSet<Element*>::iterator i = m_mediaVolumeCallbackElements.begin(); i != end; ++i)
+        (*i)->mediaVolumeDidChange();
+}
+
+void Document::registerForMediaVolumeCallbacks(Element* e)
+{
+    m_mediaVolumeCallbackElements.add(e);
+}
+
+void Document::unregisterForMediaVolumeCallbacks(Element* e)
+{
+    m_mediaVolumeCallbackElements.remove(e);
 }
 
 void Document::setShouldCreateRenderers(bool f)
@@ -3912,14 +4006,17 @@ Vector<String> Document::formElementsState() const
 {
     Vector<String> stateVector;
     stateVector.reserveCapacity(m_formElementsWithState.size() * 3);
-    typedef ListHashSet<HTMLFormControlElementWithState*>::const_iterator Iterator;
+    typedef ListHashSet<FormControlElementWithState*>::const_iterator Iterator;
     Iterator end = m_formElementsWithState.end();
     for (Iterator it = m_formElementsWithState.begin(); it != end; ++it) {
-        HTMLFormControlElementWithState* e = *it;
+        FormControlElementWithState* e = *it;
         String value;
         if (e->saveState(value)) {
-            stateVector.append(e->name().string());
-            stateVector.append(e->type().string());
+            FormControlElement* formControlElement = e->toFormControlElement();
+            ASSERT(formControlElement);
+
+            stateVector.append(formControlElement->name().string());
+            stateVector.append(formControlElement->type().string());
             stateVector.append(value);
         }
     }
@@ -4049,7 +4146,7 @@ unsigned FormElementKeyHash::hash(const FormElementKey& k)
 
     unsigned l = sizeof(k) / (sizeof(uint16_t) * 2);
     const uint16_t* s = reinterpret_cast<const uint16_t*>(&k);
-    uint32_t hash = PHI;
+    uint32_t hash = WTF::stringHashingStartValue;
 
     // Main loop
     for (; l > 0; l--) {
@@ -4101,14 +4198,14 @@ bool Document::useSecureKeyboardEntryWhenActive() const
 
 void Document::initSecurityContext()
 {
-    if (m_securityOrigin && !m_securityOrigin->isEmpty())
+    if (securityOrigin() && !securityOrigin()->isEmpty())
         return;  // m_securityOrigin has already been initialized.
 
     if (!m_frame) {
         // No source for a security context.
         // This can occur via document.implementation.createDocument().
         m_cookieURL = KURL("");
-        m_securityOrigin = SecurityOrigin::createEmpty();
+        ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::createEmpty());
         return;
     }
 
@@ -4116,7 +4213,7 @@ void Document::initSecurityContext()
     // loading URL.
     const KURL& url = m_frame->loader()->url();
     m_cookieURL = url;
-    m_securityOrigin = SecurityOrigin::create(url);
+    ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::create(url));
 
     if (FrameLoader::allowSubstituteDataAccessToLocal()) {
         // If this document was loaded with substituteData, then the document can
@@ -4125,10 +4222,10 @@ void Document::initSecurityContext()
         // discussion.
         DocumentLoader* documentLoader = m_frame->loader()->documentLoader();
         if (documentLoader && documentLoader->substituteData().isValid())
-            m_securityOrigin->grantLoadLocalResources();
+            securityOrigin()->grantLoadLocalResources();
     }
 
-    if (!m_securityOrigin->isEmpty())
+    if (!securityOrigin()->isEmpty())
         return;
 
     // If we do not obtain a meaningful origin from the URL, then we try to
@@ -4142,13 +4239,15 @@ void Document::initSecurityContext()
         m_cookieURL = ownerFrame->document()->cookieURL();
         // We alias the SecurityOrigins to match Firefox, see Bug 15313
         // https://bugs.webkit.org/show_bug.cgi?id=15313
-        m_securityOrigin = ownerFrame->document()->securityOrigin();
+        ScriptExecutionContext::setSecurityOrigin(ownerFrame->document()->securityOrigin());
     }
 }
 
 void Document::setSecurityOrigin(SecurityOrigin* securityOrigin)
 {
-    m_securityOrigin = securityOrigin;
+    ScriptExecutionContext::setSecurityOrigin(securityOrigin);
+    // FIXME: Find a better place to enable DNS prefetch, which is a loader concept,
+    // not applicable to arbitrary documents.
     initDNSPrefetch();
 }
 
@@ -4184,176 +4283,6 @@ DOMSelection* Document::getSelection() const
     return frame() ? frame()->domWindow()->getSelection() : 0;
 }
 
-static inline int findSlashDotDotSlash(const UChar* characters, size_t length)
-{
-    if (length < 4)
-        return -1;
-    unsigned loopLimit = length - 3;
-    for (unsigned i = 0; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '.' && characters[i + 2] == '.' && characters[i + 3] == '/')
-            return i;
-    }
-    return -1;
-}
-
-static inline int findSlashSlash(const UChar* characters, size_t length, int position)
-{
-    if (length < 2)
-        return -1;
-    unsigned loopLimit = length - 1;
-    for (unsigned i = position; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '/')
-            return i;
-    }
-    return -1;
-}
-
-static inline int findSlashDotSlash(const UChar* characters, size_t length)
-{
-    if (length < 3)
-        return -1;
-    unsigned loopLimit = length - 2;
-    for (unsigned i = 0; i < loopLimit; ++i) {
-        if (characters[i] == '/' && characters[i + 1] == '.' && characters[i + 2] == '/')
-            return i;
-    }
-    return -1;
-}
-
-static inline bool containsColonSlashSlash(const UChar* characters, unsigned length)
-{
-    if (length < 3)
-        return false;
-    unsigned loopLimit = length - 2;
-    for (unsigned i = 0; i < loopLimit; ++i) {
-        if (characters[i] == ':' && characters[i + 1] == '/' && characters[i + 2] == '/')
-            return true;
-    }
-    return false;
-}
-
-static inline void cleanPath(Vector<UChar, 512>& path)
-{
-    // FIXME: Shold not do this in the query or anchor part.
-    int pos;
-    while ((pos = findSlashDotDotSlash(path.data(), path.size())) != -1) {
-        int prev = reverseFind(path.data(), path.size(), '/', pos - 1);
-        // don't remove the host, i.e. http://foo.org/../foo.html
-        if (prev < 0 || (prev > 3 && path[prev - 2] == ':' && path[prev - 1] == '/'))
-            path.remove(pos, 3);
-        else
-            path.remove(prev, pos - prev + 3);
-    }
-
-    // FIXME: Shold not do this in the query part.
-    // Set refPos to -2 to mean "I haven't looked for the anchor yet".
-    // We don't want to waste a function call on the search for the the anchor
-    // in the vast majority of cases where there is no "//" in the path.
-    pos = 0;
-    int refPos = -2;
-    while ((pos = findSlashSlash(path.data(), path.size(), pos)) != -1) {
-        if (refPos == -2)
-            refPos = find(path.data(), path.size(), '#');
-        if (refPos > 0 && pos >= refPos)
-            break;
-
-        if (pos == 0 || path[pos - 1] != ':')
-            path.remove(pos);
-        else
-            pos += 2;
-    }
-
-    // FIXME: Shold not do this in the query or anchor part.
-    while ((pos = findSlashDotSlash(path.data(), path.size())) != -1)
-        path.remove(pos, 2);
-}
-
-static inline bool matchLetter(UChar c, UChar lowercaseLetter)
-{
-    return (c | 0x20) == lowercaseLetter;
-}
-
-static inline bool needsTrailingSlash(const UChar* characters, unsigned length)
-{
-    if (length < 6)
-        return false;
-    if (!matchLetter(characters[0], 'h')
-            || !matchLetter(characters[1], 't')
-            || !matchLetter(characters[2], 't')
-            || !matchLetter(characters[3], 'p'))
-        return false;
-    if (!(characters[4] == ':'
-            || (matchLetter(characters[4], 's') && characters[5] == ':')))
-        return false;
-
-    unsigned pos = characters[4] == ':' ? 5 : 6;
-
-    // Skip initial two slashes if present.
-    if (pos + 1 < length && characters[pos] == '/' && characters[pos + 1] == '/')
-        pos += 2;
-
-    // Find next slash.
-    while (pos < length && characters[pos] != '/')
-        ++pos;
-
-    return pos == length;
-}
-
-unsigned Document::visitedLinkHash(const AtomicString& attributeURL) const
-{
-    const UChar* characters = attributeURL.characters();
-    unsigned length = attributeURL.length();
-    if (!length)
-        return 0;
-
-    // This is a poor man's completeURL. Faster with less memory allocation.
-    // FIXME: It's missing a lot of what completeURL does and a lot of what KURL does.
-    // For example, it does not handle international domain names properly.
-
-    // FIXME: It is wrong that we do not do further processing on strings that have "://" in them:
-    //    1) The "://" could be in the query or anchor.
-    //    2) The URL's path could have a "/./" or a "/../" or a "//" sequence in it.
-
-    // FIXME: needsTrailingSlash does not properly return true for a URL that has no path, but does
-    // have a query or anchor.
-
-    bool hasColonSlashSlash = containsColonSlashSlash(characters, length);
-
-    if (hasColonSlashSlash && !needsTrailingSlash(characters, length))
-        return AlreadyHashed::avoidDeletedValue(attributeURL.string().impl()->hash());
-
-    Vector<UChar, 512> buffer;
-
-    if (hasColonSlashSlash) {
-        // FIXME: This is incorrect for URLs that have a query or anchor; the "/" needs to go at the
-        // end of the path, *before* the query or anchor.
-        buffer.append(characters, length);
-        buffer.append('/');
-        return AlreadyHashed::avoidDeletedValue(StringImpl::computeHash(buffer.data(), buffer.size()));
-    }
-
-    switch (characters[0]) {
-        case '/':
-            buffer.append(m_baseURL.string().characters(), m_baseURL.pathStart());
-            break;
-        case '#':
-            buffer.append(m_baseURL.string().characters(), m_baseURL.pathEnd());
-            break;
-        default:
-            buffer.append(m_baseURL.string().characters(), m_baseURL.pathAfterLastSlash());
-            break;
-    }
-    buffer.append(characters, length);
-    cleanPath(buffer);
-    if (needsTrailingSlash(buffer.data(), buffer.size())) {
-        // FIXME: This is incorrect for URLs that have a query or anchor; the "/" needs to go at the
-        // end of the path, *before* the query or anchor.
-        buffer.append('/');
-    }
-
-    return AlreadyHashed::avoidDeletedValue(StringImpl::computeHash(buffer.data(), buffer.size()));
-}
-
 #if ENABLE(DATABASE)
 
 void Document::addOpenDatabase(Database* database)
@@ -4379,7 +4308,7 @@ DatabaseThread* Document::databaseThread()
     if (!m_databaseThread && !m_hasOpenDatabases) {
         // Create the database thread on first request - but not if at least one database was already opened,
         // because in that case we already had a database thread and terminated it and should not create another.
-        m_databaseThread = DatabaseThread::create(this);
+        m_databaseThread = DatabaseThread::create();
         if (!m_databaseThread->start())
             m_databaseThread = 0;
     }
@@ -4403,6 +4332,14 @@ void Document::stopDatabases()
         m_databaseThread->requestTermination();
 }
 
+#endif
+
+#if ENABLE(WML)
+void Document::resetWMLPageState()
+{
+    if (WMLPageState* pageState = wmlPageStateForDocument(this))
+        pageState->reset();
+}
 #endif
 
 void Document::attachRange(Range* range)
@@ -4430,7 +4367,7 @@ HTMLCanvasElement* Document::getCSSCanvasElement(const String& name)
 {
     RefPtr<HTMLCanvasElement> result = m_cssCanvasElements.get(name).get();
     if (!result) {
-        result = new HTMLCanvasElement(this);
+        result = new HTMLCanvasElement(canvasTag, this);
         m_cssCanvasElements.set(name, result);
     }
     return result.get();
@@ -4490,4 +4427,118 @@ void Document::removeTouchEventListener(Node* node)
 }
 
 #endif
+
+void Document::addTimeout(int timeoutId, DOMTimer* timer)
+{
+    ASSERT(!m_timeouts.contains(timeoutId));
+    m_timeouts.set(timeoutId, timer);
+}
+
+void Document::removeTimeout(int timeoutId)
+{
+    m_timeouts.remove(timeoutId);
+}
+
+DOMTimer* Document::findTimeout(int timeoutId)
+{
+    return m_timeouts.get(timeoutId);
+}
+
+void Document::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
+{
+    if (DOMWindow* window = domWindow())
+        window->console()->addMessage(JSMessageSource, ErrorMessageLevel, errorMessage, lineNumber, sourceURL);
+}
+
+void Document::addMessage(MessageDestination destination, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+{
+    switch (destination) {
+    case InspectorControllerDestination:
+        if (page())
+            page()->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceURL);
+        return;
+    case ConsoleDestination:
+        if (DOMWindow* window = domWindow())
+            window->console()->addMessage(source, level, message, lineNumber, sourceURL);
+        return;
+    }
+    ASSERT_NOT_REACHED();
+}
+
+void Document::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString)
+{
+    if (page())
+        page()->inspectorController()->resourceRetrievedByXMLHttpRequest(identifier, sourceString);
+}
+
+class ScriptExecutionContextTaskTimer : public TimerBase {
+public:
+    ScriptExecutionContextTaskTimer(PassRefPtr<Document> context, PassRefPtr<ScriptExecutionContext::Task> task)
+        : m_context(context)
+        , m_task(task)
+    {
+    }
+
+private:
+    virtual void fired()
+    {
+        m_task->performTask(m_context.get());
+        delete this;
+    }
+
+    RefPtr<Document> m_context;
+    RefPtr<ScriptExecutionContext::Task> m_task;
+};
+
+struct PerformTaskContext {
+    PerformTaskContext(ScriptExecutionContext* scriptExecutionContext, PassRefPtr<ScriptExecutionContext::Task> task)
+        : scriptExecutionContext(scriptExecutionContext)
+        , task(task)
+    {
+    }
+
+    ScriptExecutionContext* scriptExecutionContext; // The context should exist until task execution.
+    RefPtr<ScriptExecutionContext::Task> task;
+};
+
+static void performTask(void* ctx)
+{
+    PerformTaskContext* ptctx = reinterpret_cast<PerformTaskContext*>(ctx);
+    ptctx->task->performTask(ptctx->scriptExecutionContext);
+    delete ptctx;
+}
+
+void Document::postTask(PassRefPtr<Task> task)
+{
+    if (isMainThread()) {
+        ScriptExecutionContextTaskTimer* timer = new ScriptExecutionContextTaskTimer(static_cast<Document*>(this), task);
+        timer->startOneShot(0);
+    } else {
+        callOnMainThread(performTask, new PerformTaskContext(this, task));
+    }
+}
+
+Element* Document::findAnchor(const String& name)
+{
+    if (name.isEmpty())
+        return 0;
+    if (Element* element = getElementById(name))
+        return element;
+    for (Node* node = this; node; node = node->traverseNextNode()) {
+        if (node->hasTagName(aTag)) {
+            HTMLAnchorElement* anchor = static_cast<HTMLAnchorElement*>(node);
+            if (inCompatMode()) {
+                // Quirks mode, case insensitive comparison of names.
+                if (equalIgnoringCase(anchor->name(), name))
+                    return anchor;
+            } else {
+                // Strict mode, names need to match exactly.
+                if (anchor->name() == name)
+                    return anchor;
+            }
+        }
+    }
+    return 0;
+}
+
 } // namespace WebCore

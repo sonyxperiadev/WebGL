@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *           (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -32,10 +32,13 @@ namespace WebCore {
 
 class Attribute;
 class Frame;
+class RegisteredEventListener;
+
+typedef Vector<RefPtr<RegisteredEventListener> > RegisteredEventListenerVector;
 
 class EventTargetNode : public Node, public EventTarget {
 public:
-    EventTargetNode(Document*, bool isElement = false, bool isContainer = false);
+    EventTargetNode(Document*, bool isElement = false, bool isContainer = false, bool isText = false);
     virtual ~EventTargetNode();
 
     virtual bool isEventTargetNode() const { return true; }
@@ -75,7 +78,7 @@ public:
     void dispatchStorageEvent(const AtomicString &eventType, const String& key, const String& oldValue, const String& newValue, Frame* source);
     bool dispatchWebKitAnimationEvent(const AtomicString& eventType, const String& animationName, double elapsedTime);
     bool dispatchWebKitTransitionEvent(const AtomicString& eventType, const String& propertyName, double elapsedTime);
-    bool dispatchGenericEvent(PassRefPtr<Event>, ExceptionCode&);
+    bool dispatchGenericEvent(PassRefPtr<Event>);
 
     virtual void handleLocalEvents(Event*, bool useCapture);
 
@@ -98,7 +101,7 @@ public:
      */
     virtual bool disabled() const;
 
-    RegisteredEventListenerList* localEventListeners() const { return m_regdListeners; }
+    const RegisteredEventListenerVector& eventListeners() const;
 
     EventListener* onabort() const;
     void setOnabort(PassRefPtr<EventListener>);
@@ -194,10 +197,6 @@ public:
     using Node::ref;
     using Node::deref;
  
-protected:
-    friend class EventTarget;
-    RegisteredEventListenerList* m_regdListeners;
-
 private:
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }

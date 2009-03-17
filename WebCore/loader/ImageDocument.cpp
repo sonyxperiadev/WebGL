@@ -76,7 +76,12 @@ private:
 
 class ImageDocumentElement : public HTMLImageElement {
 public:
-    ImageDocumentElement(ImageDocument* doc) : HTMLImageElement(doc), m_imageDocument(doc) { }
+    ImageDocumentElement(ImageDocument* doc)
+        : HTMLImageElement(imgTag, doc)
+        , m_imageDocument(doc)
+    {
+    }
+
     virtual ~ImageDocumentElement();
     virtual void willMoveToNewOwnerDocument();
 
@@ -86,13 +91,13 @@ private:
 
 // --------
 
-bool ImageTokenizer::write(const SegmentedString& s, bool appendData)
+bool ImageTokenizer::write(const SegmentedString&, bool)
 {
     ASSERT_NOT_REACHED();
     return false;
 }
 
-bool ImageTokenizer::writeRawData(const char* data, int len)
+bool ImageTokenizer::writeRawData(const char*, int)
 {
     CachedImage* cachedImage = m_doc->cachedImage();
     cachedImage->data(m_doc->frame()->loader()->documentLoader()->mainResourceData(), false);
@@ -336,7 +341,7 @@ bool ImageDocument::shouldShrinkToFit() const
 
 // --------
 
-void ImageEventListener::handleEvent(Event* event, bool isWindowEvent)
+void ImageEventListener::handleEvent(Event* event, bool)
 {
     if (event->type() == eventNames().resizeEvent)
         m_doc->windowSizeChanged();

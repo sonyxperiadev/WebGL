@@ -71,7 +71,7 @@ public:
     bool directionChange() const;
     const CachedNode* document() const { return mCachedNodes.begin(); }
     bool empty() const { return mCachedNodes.size() < 2; } // must have 1 past doc
-    const CachedNode* findBestAt(const WebCore::IntRect& , int* best,
+    const CachedNode* findBestAt(const WebCore::IntRect& , int* best, bool* inside,
         const CachedNode** , const CachedFrame** , int* x, int* y) const;
     const CachedFrame* findBestFrameAt(int x, int y) const;
     const CachedNode* findBestHitAt(const WebCore::IntRect& , 

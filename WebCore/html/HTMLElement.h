@@ -85,8 +85,6 @@ public:
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
-    virtual bool isGenericFormElement() const { return false; }
-
     virtual HTMLTagStatus endTagRequirement() const;
     virtual int tagPriority() const;
     virtual bool childAllowed(Node* newChild); // Error-checking during parsing that checks the DTD
@@ -103,6 +101,8 @@ public:
 
     HTMLFormElement* form() const { return virtualForm(); }
     HTMLFormElement* findFormAncestor() const;
+
+    static void addHTMLAlignmentToStyledElement(StyledElement*, MappedAttribute*);
 
 protected:
     void addHTMLAlignment(MappedAttribute*);

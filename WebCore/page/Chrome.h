@@ -59,6 +59,9 @@ namespace WebCore {
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformWidget platformWindow() const;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
+
+        void contentsSizeChanged(Frame*, const IntSize&) const;
 
         void setWindowRect(const FloatRect&) const;
         FloatRect windowRect() const;

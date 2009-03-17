@@ -21,6 +21,7 @@
 #include "JSImageConstructor.h"
 
 #include "HTMLImageElement.h"
+#include "HTMLNames.h"
 #include "JSNode.h"
 #include "ScriptExecutionContext.h"
 
@@ -33,7 +34,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSImageConstructor)
 const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", 0, 0, 0 };
 
 JSImageConstructor::JSImageConstructor(ExecState* exec, ScriptExecutionContext* context)
-    : DOMObject(JSImageConstructor::createStructureID(exec->lexicalGlobalObject()->objectPrototype()))
+    : DOMObject(JSImageConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
 {
     ASSERT(context->isDocument());
     m_document = static_cast<JSDocument*>(asObject(toJS(exec, static_cast<Document*>(context))));
@@ -47,11 +48,11 @@ static JSObject* constructImage(ExecState* exec, JSObject* constructor, const Ar
     int height = 0;
     if (args.size() > 0) {
         widthSet = true;
-        width = args.at(exec, 0)->toInt32(exec);
+        width = args.at(exec, 0).toInt32(exec);
     }
     if (args.size() > 1) {
         heightSet = true;
-        height = args.at(exec, 1)->toInt32(exec);
+        height = args.at(exec, 1).toInt32(exec);
     }
 
     Document* document = static_cast<JSImageConstructor*>(constructor)->document();
@@ -61,7 +62,7 @@ static JSObject* constructImage(ExecState* exec, JSObject* constructor, const Ar
     // will be called (which will cause the image element to be marked if necessary).
     toJS(exec, document);
 
-    RefPtr<HTMLImageElement> image = new HTMLImageElement(document);
+    RefPtr<HTMLImageElement> image = new HTMLImageElement(HTMLNames::imgTag, document);
     if (widthSet)
         image->setWidth(width);
     if (heightSet)

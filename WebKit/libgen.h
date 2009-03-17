@@ -1,1 +1,0 @@
-char    *dirname(const char *);

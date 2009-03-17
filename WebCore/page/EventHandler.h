@@ -148,7 +148,7 @@ public:
 
     bool needsKeyboardEventDisambiguationQuirks() const;
 
-    static unsigned accessKeyModifiers() { return s_accessKeyModifiers; }
+    static unsigned accessKeyModifiers();
     bool handleAccessKey(const PlatformKeyboardEvent&);
     bool keyEvent(const PlatformKeyboardEvent&);
     void defaultKeyboardEventHandler(KeyboardEvent*);
@@ -273,6 +273,7 @@ private:
     bool passMouseDownEventToWidget(Widget*);
     bool passWheelEventToWidget(PlatformWheelEvent&, Widget*);
 
+    void defaultSpaceEventHandler(KeyboardEvent*);
     void defaultTabEventHandler(KeyboardEvent*);
 
     void allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const;
@@ -339,14 +340,12 @@ private:
     
     RefPtr<HTMLFrameSetElement> m_frameSetBeingResized;
 
-    IntSize m_offsetFromResizeCorner;    
+    IntSize m_offsetFromResizeCorner;   // in the coords of m_resizeLayer
     
     IntPoint m_currentMousePosition;
     IntPoint m_mouseDownPos; // in our view's coords
     double m_mouseDownTimestamp;
     PlatformMouseEvent m_mouseDown;
-
-    static unsigned s_accessKeyModifiers;
     
     unsigned m_pendingFrameUnloadEventCount;
     unsigned m_pendingFrameBeforeUnloadEventCount;

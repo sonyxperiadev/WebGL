@@ -43,7 +43,7 @@ struct ObjectImpList {
     CFTypeRef data;
 };
 
-static CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpList* inImps);
+static CFTypeRef KJSValueToCFTypeInternal(JSValuePtr inValue, ExecState *exec, ObjectImpList* inImps);
 static JSGlueGlobalObject* getThreadGlobalObject();
 
 //--------------------------------------------------------------------------
@@ -100,11 +100,11 @@ CFStringRef IdentifierToCFString(const Identifier& inIdentifier)
 //--------------------------------------------------------------------------
 // KJSValueToJSObject
 //--------------------------------------------------------------------------
-JSUserObject* KJSValueToJSObject(JSValue* inValue, ExecState *exec)
+JSUserObject* KJSValueToJSObject(JSValuePtr inValue, ExecState *exec)
 {
     JSUserObject* result = 0;
 
-    if (inValue->isObject(&UserObjectImp::info)) {
+    if (inValue.isObject(&UserObjectImp::info)) {
         UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
         result = userObjectImp->GetJSUserObject();
         if (result)
@@ -126,11 +126,11 @@ JSUserObject* KJSValueToJSObject(JSValue* inValue, ExecState *exec)
 //--------------------------------------------------------------------------
 // JSObjectKJSValue
 //--------------------------------------------------------------------------
-JSValue* JSObjectKJSValue(JSUserObject* ptr)
+JSValuePtr JSObjectKJSValue(JSUserObject* ptr)
 {
     JSLock lock(true);
 
-    JSValue* result = jsUndefined();
+    JSValuePtr result = jsUndefined();
     if (ptr)
     {
         bool handled = false;
@@ -196,7 +196,7 @@ JSValue* JSObjectKJSValue(JSUserObject* ptr)
 // KJSValueToCFTypeInternal
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFTypeRef
-CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpList* inImps)
+CFTypeRef KJSValueToCFTypeInternal(JSValuePtr inValue, ExecState *exec, ObjectImpList* inImps)
 {
     if (!inValue)
         return 0;
@@ -205,24 +205,24 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
 
     JSLock lock(true);
 
-        if (inValue->isBoolean())
+        if (inValue.isBoolean())
             {
-                result = inValue->toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
+                result = inValue.toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
                 RetainCFType(result);
                 return result;
             }
 
-        if (inValue->isString())
+        if (inValue.isString())
             {
-                UString uString = inValue->toString(exec);
+                UString uString = inValue.toString(exec);
                 result = UStringToCFString(uString);
                 return result;
             }
 
-        if (inValue->isNumber())
+        if (inValue.isNumber())
             {
-                double number1 = inValue->toNumber(exec);
-                double number2 = (double)inValue->toInteger(exec);
+                double number1 = inValue.toNumber(exec);
+                double number2 = (double)inValue.toInteger(exec);
                 if (number1 ==  number2)
                 {
                     int intValue = (int)number2;
@@ -235,9 +235,9 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
                 return result;
             }
 
-        if (inValue->isObject())
+        if (inValue.isObject())
             {
-                            if (inValue->isObject(&UserObjectImp::info)) {
+                            if (inValue.isObject(&UserObjectImp::info)) {
                                 UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
                     JSUserObject* ptr = userObjectImp->GetJSUserObject();
                     if (ptr)
@@ -247,7 +247,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
                 }
                 else
                 {
-                    JSObject *object = inValue->toObject(exec);
+                    JSObject *object = inValue.toObject(exec);
                     UInt8 isArray = false;
 
                     // if two objects reference each
@@ -299,7 +299,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
                     if (isArray)
                     {
                         // This is an KJS array
-                        unsigned int length = object->get(exec, Identifier(exec, "length"))->toUInt32(exec);
+                        unsigned int length = object->get(exec, Identifier(exec, "length")).toUInt32(exec);
                         result = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
                         if (result)
                         {
@@ -348,7 +348,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
                 return result;
             }
 
-    if (inValue->isUndefinedOrNull())
+    if (inValue.isUndefinedOrNull())
         {
             result = RetainCFType(GetCFNull());
             return result;
@@ -358,7 +358,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue* inValue, ExecState *exec, ObjectImpL
     return 0;
 }
 
-CFTypeRef KJSValueToCFType(JSValue* inValue, ExecState *exec)
+CFTypeRef KJSValueToCFType(JSValuePtr inValue, ExecState *exec)
 {
     return KJSValueToCFTypeInternal(inValue, exec, 0);
 }
@@ -408,8 +408,7 @@ static JSGlueGlobalObject* getThreadGlobalObject()
     pthread_once(&globalObjectKeyOnce, initializeGlobalObjectKey);
     JSGlueGlobalObject* globalObject = static_cast<JSGlueGlobalObject*>(pthread_getspecific(globalObjectKey));
     if (!globalObject) {
-        RefPtr<JSGlobalData> globalData = JSGlobalData::create();
-        globalObject = new (globalData.get()) JSGlueGlobalObject(JSGlueGlobalObject::createStructureID(jsNull()));
+        globalObject = new (&JSGlobalData::sharedInstance()) JSGlueGlobalObject(JSGlueGlobalObject::createStructure(jsNull()));
         gcProtect(globalObject);
         pthread_setspecific(globalObjectKey, globalObject);
     }

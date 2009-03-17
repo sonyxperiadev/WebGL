@@ -40,6 +40,7 @@
 #include "SVGUseElement.h"
 #include "XLinkNames.h"
 #include <math.h>
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -158,7 +159,7 @@ bool SVGAnimationElement::beginElement(ExceptionCode& ec)
     return beginElementAt(0, ec);
 }
 
-bool SVGAnimationElement::beginElementAt(float offset, ExceptionCode& ec)
+bool SVGAnimationElement::beginElementAt(float offset, ExceptionCode&)
 {
     addBeginTime(elapsed() + offset);
     return true;
@@ -169,7 +170,7 @@ bool SVGAnimationElement::endElement(ExceptionCode& ec)
     return endElementAt(0, ec);
 }
 
-bool SVGAnimationElement::endElementAt(float offset, ExceptionCode& ec)
+bool SVGAnimationElement::endElementAt(float offset, ExceptionCode&)
 {
     if (offset < 0)
         return false;
@@ -196,10 +197,10 @@ SVGAnimationElement::AnimationMode SVGAnimationElement::animationMode() const
 
 SVGAnimationElement::CalcMode SVGAnimationElement::calcMode() const
 {    
-    static const AtomicString discrete("discrete");
-    static const AtomicString linear("linear");
-    static const AtomicString paced("paced");
-    static const AtomicString spline("spline");
+    DEFINE_STATIC_LOCAL(const AtomicString, discrete, ("discrete"));
+    DEFINE_STATIC_LOCAL(const AtomicString, linear, ("linear"));
+    DEFINE_STATIC_LOCAL(const AtomicString, paced, ("paced"));
+    DEFINE_STATIC_LOCAL(const AtomicString, spline, ("spline"));
     const AtomicString& value = getAttribute(SVGNames::calcModeAttr);
     if (value == discrete)
         return CalcModeDiscrete;
@@ -214,8 +215,8 @@ SVGAnimationElement::CalcMode SVGAnimationElement::calcMode() const
 
 SVGAnimationElement::AttributeType SVGAnimationElement::attributeType() const
 {    
-    static const AtomicString css("CSS");
-    static const AtomicString xml("XML");
+    DEFINE_STATIC_LOCAL(const AtomicString, css, ("CSS"));
+    DEFINE_STATIC_LOCAL(const AtomicString, xml, ("XML"));
     const AtomicString& value = getAttribute(SVGNames::attributeTypeAttr);
     if (value == css)
         return AttributeTypeCSS;
@@ -241,14 +242,14 @@ String SVGAnimationElement::fromValue() const
 
 bool SVGAnimationElement::isAdditive() const
 {
-    static const AtomicString sum("sum");
+    DEFINE_STATIC_LOCAL(const AtomicString, sum, ("sum"));
     const AtomicString& value = getAttribute(SVGNames::additiveAttr);
     return value == sum || animationMode() == ByAnimation;
 }
 
 bool SVGAnimationElement::isAccumulated() const
 {
-    static const AtomicString sum("sum");
+    DEFINE_STATIC_LOCAL(const AtomicString, sum, ("sum"));
     const AtomicString& value = getAttribute(SVGNames::accumulateAttr);
     return value == sum && animationMode() != ToAnimation;
 }

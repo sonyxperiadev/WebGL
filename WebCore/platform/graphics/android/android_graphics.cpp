@@ -98,7 +98,7 @@ static const struct CompositOpToPorterDuffMode {
     uint8_t mPorterDuffMode;
 } gMapCompositOpsToPorterDuffModes[] = {
     { WebCore::CompositeClear,           SkPorterDuff::kClear_Mode },
-    { WebCore::CompositeCopy,            SkPorterDuff::kSrcOver_Mode },  // TODO
+    { WebCore::CompositeCopy,            SkPorterDuff::kSrc_Mode },
     { WebCore::CompositeSourceOver,      SkPorterDuff::kSrcOver_Mode },
     { WebCore::CompositeSourceIn,        SkPorterDuff::kSrcIn_Mode },
     { WebCore::CompositeSourceOut,       SkPorterDuff::kSrcOut_Mode },

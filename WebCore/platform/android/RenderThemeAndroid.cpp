@@ -54,26 +54,6 @@ static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
     return info.context->platformContext()->mCanvas;
 }
 
-/*  Helper function that paints the RenderObject
- *  paramters:
- *      the skin to use, 
- *      the object to be painted, the PaintInfo, from which we get the canvas, the bounding rectangle, 
- *  returns false, meaning no one else has to paint it
-*/
-static bool paintBrush(RenderSkinAndroid* rSkin, RenderObject* o, const RenderObject::PaintInfo& i,  const IntRect& ir)
-{
-    Node* element = o->element();
-    SkCanvas* canvas = getCanvasFromInfo(i);
-    canvas->save();
-    canvas->translate(SkIntToScalar(ir.x()), SkIntToScalar(ir.y()));
-    rSkin->setDim(ir.width(), ir.height());
-    rSkin->notifyState(element);
-    rSkin->draw(i.context->platformContext());
-    canvas->restore();
-    return false;
-}
-
-
 RenderTheme* theme()
 {
     static RenderThemeAndroid androidTheme;
@@ -82,16 +62,10 @@ RenderTheme* theme()
 
 RenderThemeAndroid::RenderThemeAndroid()
 {
-    m_radio = new RenderSkinRadio(false);
-    m_checkbox = new RenderSkinRadio(true);
-    m_combo = new RenderSkinCombo();
 }
 
 RenderThemeAndroid::~RenderThemeAndroid()
 {
-    delete m_radio;
-    delete m_checkbox;
-    delete m_combo;
 }
 
 void RenderThemeAndroid::close()
@@ -194,7 +168,8 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector* selector, RenderSty
 
 bool RenderThemeAndroid::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
 {
-    return paintBrush(m_checkbox, o, i, ir);
+    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, true);
+    return false;
 }
 
 bool RenderThemeAndroid::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
@@ -213,7 +188,8 @@ bool RenderThemeAndroid::paintButton(RenderObject* o, const RenderObject::PaintI
 
 bool RenderThemeAndroid::paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
 {
-    return paintBrush(m_radio, o, i, ir);
+    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, false);
+    return false;
 }
 
 void RenderThemeAndroid::setCheckboxSize(RenderStyle* style) const
@@ -286,7 +262,8 @@ bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintIn
         y += (height - MAX_COMBO_HEIGHT) >> 1;
         height = MAX_COMBO_HEIGHT;
     }
-    return m_combo->Draw(getCanvasFromInfo(i), element, ir.x(), y, ir.width(), height);
+    return RenderSkinCombo::Draw(getCanvasFromInfo(i), element, ir.x(), y,
+            ir.width(), height);
 }
 
 bool RenderThemeAndroid::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 

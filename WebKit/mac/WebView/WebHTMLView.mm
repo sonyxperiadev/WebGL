@@ -32,7 +32,7 @@
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchive.h"
-#import "WebBaseNetscapePluginView.h"
+#import "WebNetscapePluginView.h"
 #import "WebClipView.h"
 #import "WebDOMOperationsPrivate.h"
 #import "WebDataSourceInternal.h"
@@ -112,6 +112,7 @@
 #import <WebKit/DOMPrivate.h>
 #import <WebKitSystemInterface.h>
 #import <limits>
+#import <runtime/InitializeThreading.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -380,7 +381,7 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     NSEvent *keyDownEvent; // Kept after handling the event.
     
     NSSize lastLayoutSize;
-    
+
     NSPoint lastScrollPosition;
 
     WebPluginController *pluginController;
@@ -393,22 +394,23 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     NSTimer *autoscrollTimer;
     NSEvent *autoscrollTriggerEvent;
     
-    NSArray* pageRects;
+    NSArray *pageRects;
 
-    NSMutableDictionary* highlighters;
+    NSMutableDictionary *highlighters;
 
-    BOOL resigningFirstResponder;
+#ifdef BUILDING_ON_TIGER
     BOOL nextResponderDisabledOnce;
+#endif
     
     WebTextCompleteController *compController;
     
     BOOL transparentBackground;
 
-    WebHTMLViewInterpretKeyEventsParameters *interpretKeyEventsParameters;
+    WebHTMLViewInterpretKeyEventsParameters* interpretKeyEventsParameters;
     BOOL receivedNOOP;
     
     WebDataSource *dataSource;
-    WebCore::CachedImage *promisedDragTIFFDataSource;
+    WebCore::CachedImage* promisedDragTIFFDataSource;
     
     CFRunLoopTimerRef updateFocusedAndActiveStateTimer;
     CFRunLoopTimerRef updateMouseoverTimer;
@@ -440,6 +442,7 @@ static NSCellStateValue kit(TriState state)
 
 + (void)initialize
 {
+    JSC::initializeThreading();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -661,13 +664,15 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
                                              subresources:0]))
         return fragment;
 
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
     if ([types containsObject:NSPICTPboardType] &&
         (fragment = [self _documentFragmentFromPasteboard:pasteboard 
                                                   forType:NSPICTPboardType
                                                 inContext:context
                                              subresources:0]))
         return fragment;
-        
+#endif
+
     // Only 10.5 and higher support setting and retrieving pasteboard types with UTIs, but we don't believe
     // that any applications on Tiger put types for which we only have a UTI, like PNG, on the pasteboard.
     if ([types containsObject:(NSString*)kUTTypePNG] &&
@@ -1016,6 +1021,14 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
     [[NSNotificationCenter defaultCenter]
         postNotificationName:WKMouseMovedNotification() object:self
         userInfo:[NSDictionary dictionaryWithObject:fakeEvent forKey:@"NSEvent"]];
+}
+
+- (id)_bridge
+{
+    // This method exists to maintain compatibility with Leopard's Dictionary.app, since it
+    // calls _bridge to get access to convertNSRangeToDOMRange: and convertDOMRangeToNSRange:.
+    // Return the WebFrame, which implements the compatibility methods. <rdar://problem/6002160>
+    return [self _frame];
 }
 
 - (void)_updateMouseoverWithFakeEvent
@@ -1464,10 +1477,11 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 {
     static NSArray *types = nil;
     if (!types) {
-        types = [[NSArray alloc] initWithObjects:WebArchivePboardType, NSHTMLPboardType,
-            NSFilenamesPboardType, NSTIFFPboardType, NSPICTPboardType, NSURLPboardType, 
-            NSRTFDPboardType, NSRTFPboardType, NSStringPboardType, NSColorPboardType,
-            kUTTypePNG, nil];
+        types = [[NSArray alloc] initWithObjects:WebArchivePboardType, NSHTMLPboardType, NSFilenamesPboardType, NSTIFFPboardType,
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+            NSPICTPboardType,
+#endif
+            NSURLPboardType, NSRTFDPboardType, NSRTFPboardType, NSStringPboardType, NSColorPboardType, kUTTypePNG, nil];
         CFRetain(types);
     }
     return types;
@@ -1517,7 +1531,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     NSImage *dragImage = [[[NSImage alloc] initWithSize: imageSize] autorelease];
     [dragImage lockFocus];
     
-    [[NSColor colorWithCalibratedRed: 0.7f green: 0.7f blue: 0.7f alpha: 0.8f] set];
+    [[NSColor colorWithDeviceRed: 0.7f green: 0.7f blue: 0.7f alpha: 0.8f] set];
     
     // Drag a rectangle with rounded corners/
     NSBezierPath *path = [NSBezierPath bezierPath];
@@ -1531,8 +1545,8 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     [path appendBezierPathWithRect: NSMakeRect(imageSize.width - DRAG_LABEL_RADIUS - 20.0f, DRAG_LABEL_RADIUS, DRAG_LABEL_RADIUS + 20.0f, imageSize.height - 2.0f * DRAG_LABEL_RADIUS)];
     [path fill];
     
-    NSColor *topColor = [NSColor colorWithCalibratedWhite:0.0f alpha:0.75f];
-    NSColor *bottomColor = [NSColor colorWithCalibratedWhite:1.0f alpha:0.5f];
+    NSColor *topColor = [NSColor colorWithDeviceWhite:0.0f alpha:0.75f];
+    NSColor *bottomColor = [NSColor colorWithDeviceWhite:1.0f alpha:0.5f];
     if (drawURLString) {
         if (clipURLString)
             urlString = [WebStringTruncator centerTruncateString: urlString toWidth:imageSize.width - (DRAG_LABEL_BORDER_X * 2.0f) withFont:urlFont];
@@ -1931,6 +1945,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
         [resource release];
         return fragment;
     }
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
     if (pboardType == NSPICTPboardType) {
         WebResource *resource = [[WebResource alloc] initWithData:[pasteboard dataForType:NSPICTPboardType]
                                                               URL:uniqueURLWithRelativePart(@"image.pict")
@@ -1941,6 +1956,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
         [resource release];
         return fragment;
     }
+#endif
     // Only 10.5 and higher support setting and retrieving pasteboard types with UTIs, but we don't believe
     // that any applications on Tiger put types for which we only have a UTI, like PNG, on the pasteboard.
     if ([pboardType isEqualToString:(NSString*)kUTTypePNG]) {
@@ -2071,6 +2087,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 {
     [NSApp registerServicesMenuSendTypes:[[self class] _selectionPasteboardTypes] 
                              returnTypes:[[self class] _insertablePasteboardTypes]];
+    JSC::initializeThreading();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -2219,6 +2236,9 @@ WEBCORE_COMMAND(insertNewlineIgnoringFieldEditor)
 WEBCORE_COMMAND(insertParagraphSeparator)
 WEBCORE_COMMAND(insertTab)
 WEBCORE_COMMAND(insertTabIgnoringFieldEditor)
+WEBCORE_COMMAND(makeTextWritingDirectionLeftToRight)
+WEBCORE_COMMAND(makeTextWritingDirectionNatural)
+WEBCORE_COMMAND(makeTextWritingDirectionRightToLeft)
 WEBCORE_COMMAND(moveBackward)
 WEBCORE_COMMAND(moveBackwardAndModifySelection)
 WEBCORE_COMMAND(moveDown)
@@ -2383,10 +2403,20 @@ WEBCORE_COMMAND(yankAndSelect)
         return [self _canEdit];
     }
     
-    if (action == @selector(changeBaseWritingDirection:)) {
-        NSWritingDirection writingDirection = static_cast<NSWritingDirection>([item tag]);
-        if (writingDirection == NSWritingDirectionNatural)
-            return NO;
+    if (action == @selector(changeBaseWritingDirection:)
+            || action == @selector(makeBaseWritingDirectionLeftToRight:)
+            || action == @selector(makeBaseWritingDirectionRightToLeft:)) {
+        NSWritingDirection writingDirection;
+
+        if (action == @selector(changeBaseWritingDirection:)) {
+            writingDirection = static_cast<NSWritingDirection>([item tag]);
+            if (writingDirection == NSWritingDirectionNatural)
+                return NO;
+        } else if (action == @selector(makeBaseWritingDirectionLeftToRight:))
+            writingDirection = NSWritingDirectionLeftToRight;
+        else
+            writingDirection = NSWritingDirectionRightToLeft;
+
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             RefPtr<CSSStyleDeclaration> style = CSSMutableStyleDeclaration::create();
@@ -2421,7 +2451,7 @@ WEBCORE_COMMAND(yankAndSelect)
                || action == @selector(lowercaseWord:)
                || action == @selector(uppercaseWord:))
         return [self _hasSelection] && [self _isEditable];
-    
+
     if (action == @selector(centerSelectionInVisibleArea:)
                || action == @selector(jumpToSelection:)
                || action == @selector(copyFont:))
@@ -2744,12 +2774,13 @@ static void _updateFocusedAndActiveStateTimerCallback(CFRunLoopTimerRef timer, v
     double start = CFAbsoluteTimeGetCurrent();
 #endif
 
-    Frame* coreFrame = core([self _frame]);
-    if (FrameView* coreView = coreFrame->view())
-        coreView->setMediaType(_private->printing ? "print" : "screen");
-    if (Document* document = coreFrame->document())
-        document->setPrinting(_private->printing);
-    coreFrame->reapplyStyles();
+    if (Frame* coreFrame = core([self _frame])) {
+        if (FrameView* coreView = coreFrame->view())
+            coreView->setMediaType(_private->printing ? "print" : "screen");
+        if (Document* document = coreFrame->document())
+            document->setPrinting(_private->printing);
+        coreFrame->reapplyStyles();
+    }
     
 #ifdef LOG_TIMES        
     double thisTime = CFAbsoluteTimeGetCurrent() - start;
@@ -3208,9 +3239,9 @@ done:
     NSFileWrapper *wrapper = nil;
     NSURL *draggingImageURL = nil;
     
-    if (WebCore::CachedResource* tiffResource = [self promisedDragTIFFDataSource]) {
+    if (WebCore::CachedImage* tiffResource = [self promisedDragTIFFDataSource]) {
         
-        SharedBuffer *buffer = tiffResource->data();
+        SharedBuffer *buffer = static_cast<CachedResource*>(tiffResource)->data();
         if (!buffer)
             goto noPromisedData;
         
@@ -3218,7 +3249,11 @@ done:
         NSURLResponse *response = tiffResource->response().nsURLResponse();
         draggingImageURL = [response URL];
         wrapper = [[[NSFileWrapper alloc] initRegularFileWithContents:data] autorelease];
-        [wrapper setPreferredFilename:[response suggestedFilename]];
+        NSString* filename = [response suggestedFilename];
+        String trueExtension = tiffResource->image()->filenameExtension();
+        if (![filename hasSuffix:trueExtension])
+            filename = [[filename stringByAppendingString:@"."] stringByAppendingString:trueExtension];
+        [wrapper setPreferredFilename:filename];
     }
     
 noPromisedData:
@@ -3322,14 +3357,12 @@ noPromisedData:
     BOOL resign = [super resignFirstResponder];
     if (resign) {
         [_private->compController endRevertingChange:NO moveLeft:NO];
-        _private->resigningFirstResponder = YES;
         if (![self maintainsInactiveSelection]) { 
             [self deselectAll];
             if (![[self _webView] _isPerformingProgrammaticFocus])
                 [self clearFocus];
         }
         [self _updateFocusedAndActiveState];
-        _private->resigningFirstResponder = NO;
     }
     return resign;
 }
@@ -3744,7 +3777,7 @@ noPromisedData:
 
 - (NSString *)_colorAsString:(NSColor *)color
 {
-    NSColor *rgbColor = [color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
+    NSColor *rgbColor = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     // FIXME: If color is non-nil and rgbColor is nil, that means we got some kind
     // of fancy color that can't be converted to RGB. Changing that to "transparent"
     // might not be great, but it's probably OK.
@@ -4373,8 +4406,12 @@ NSStrokeColorAttributeName        /* NSColor, default nil: same as foreground co
 
 static BOOL writingDirectionKeyBindingsEnabled()
 {
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    return YES;
+#else
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     return [defaults boolForKey:@"NSAllowsBaseWritingDirectionKeyBindings"] || [defaults boolForKey:@"AppleTextDirection"];
+#endif
 }
 
 - (void)_changeBaseWritingDirectionTo:(NSWritingDirection)direction
@@ -4393,19 +4430,31 @@ static BOOL writingDirectionKeyBindingsEnabled()
         coreFrame->editor()->setBaseWritingDirection(direction == NSWritingDirectionLeftToRight ? LeftToRightWritingDirection : RightToLeftWritingDirection);
 }
 
-- (void)changeBaseWritingDirectionToLTR:(id)sender
+- (void)makeBaseWritingDirectionLeftToRight:(id)sender
 {
     COMMAND_PROLOGUE
 
     [self _changeBaseWritingDirectionTo:NSWritingDirectionLeftToRight];
 }
 
-- (void)changeBaseWritingDirectionToRTL:(id)sender
+- (void)makeBaseWritingDirectionRightToLeft:(id)sender
 {
     COMMAND_PROLOGUE
 
     [self _changeBaseWritingDirectionTo:NSWritingDirectionRightToLeft];
 }
+
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+- (void)changeBaseWritingDirectionToLTR:(id)sender
+{
+    [self makeBaseWritingDirectionLeftToRight:sender];
+}
+
+- (void)changeBaseWritingDirectionToRTL:(id)sender
+{
+    [self makeBaseWritingDirectionRightToLeft:sender];
+}
+#endif
 
 #if 0
 
@@ -4430,8 +4479,19 @@ static BOOL writingDirectionKeyBindingsEnabled()
 
 #endif
 
+#ifndef BUILDING_ON_TIGER
+
+// Override this so that AppKit will send us arrow keys as key down events so we can
+// support them via the key bindings mechanism.
+- (BOOL)_wantsKeyDownForEvent:(NSEvent *)event
+{
+    return YES;
+}
+
+#else
+
 // Super-hack alert.
-// Workaround for bug 3789278.
+// All this code accomplishes the same thing as the _wantsKeyDownForEvent method above.
 
 // Returns a selector only if called while:
 //   1) first responder is self
@@ -4497,6 +4557,8 @@ static BOOL writingDirectionKeyBindingsEnabled()
     return [super nextResponder];
 }
 
+#endif
+
 // Despite its name, this is called at different times than windowDidBecomeKey is.
 // It takes into account all the other factors that determine when NSCell draws
 // with different tints, so it's the right call to use for control tints. We'd prefer
@@ -4541,7 +4603,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
 {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NSEnumerator *enumerator = [self objectEnumerator];
-    WebBaseNetscapePluginView *view;
+    WebNetscapePluginView *view;
     while ((view = [enumerator nextObject]) != nil)
         if ([view isKindOfClass:[WebBaseNetscapePluginView class]])
             [view performSelector:selector withObject:object];
@@ -4746,7 +4808,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     // FIXME: the dictionary API expects the rect for the first line of selection. Passing
     // the rect for the entire selection, as we do here, positions the pop-up window near
     // the bottom of the selection rather than at the selected word.
-    NSRect rect = [self convertRect:coreFrame->selectionRect() toView:nil];
+    NSRect rect = [self convertRect:coreFrame->selectionBounds() toView:nil];
     rect.origin = [[self window] convertBaseToScreen:rect.origin];
     NSData *data = [attrString RTFFromRange:NSMakeRange(0, [attrString length]) documentAttributes:nil];
     dictionaryServiceWindowShow(data, rect, (writingDirection == NSWritingDirectionRightToLeft) ? 1 : 0);
@@ -4754,7 +4816,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     // The HIDictionaryWindowShow function requires the origin, in CG screen coordinates, of the first character of text in the selection.
     // FIXME 4945808: We approximate this in a way that works well when a single word is selected, and less well in some other cases
     // (but no worse than we did in Tiger)
-    NSRect rect = coreFrame->selectionRect();
+    NSRect rect = coreFrame->selectionBounds();
 
     NSDictionary *attributes = [attrString fontAttributesInRange:NSMakeRange(0,1)];
     NSFont *font = [attributes objectForKey:NSFontAttributeName];
@@ -5160,11 +5222,18 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
             Editor::Command command = [self coreCommandBySelector:selector];
             if (command.isSupported())
                 eventWasHandled = command.execute(event);
-            else {
+            else if ([self _canEdit]) {
+                // If the command is unsupported and the WebHTMLView is editable, then pass the
+                // selector to super and say that the event was handled. If the WebHTMLView is
+                // not editable, then do not say that the event was handled. This is important
+                // because of selectors like scrollPageDown:, which come as input method events
+                // when editing is enabled but keyboard events when it is not. These events are
+                // handled by the next responder in the responder chain.
                 _private->selectorForDoCommandBySelector = selector;
                 [super doCommandBySelector:selector];
                 _private->selectorForDoCommandBySelector = 0;
-            }
+            } else
+                eventWasHandled = false;
         }
 
         if (parameters)
@@ -5225,7 +5294,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         
         String eventText = text;
         eventText.replace(NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
-        if (coreFrame) {
+        if (coreFrame && coreFrame->editor()->canEdit()) {
             if (!coreFrame->editor()->hasComposition())
                 eventHandled = coreFrame->editor()->insertText(eventText, event);
             else {
@@ -5563,7 +5632,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 - (NSRect)selectionRect
 {
     if ([self _hasSelection])
-        return core([self _frame])->selectionRect();
+        return core([self _frame])->selectionBounds();
     return NSZeroRect;
 }
 
@@ -5599,7 +5668,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 - (NSRect)selectionImageRect
 {
     if ([self _hasSelection])
-        return core([self _frame])->selectionRect();
+        return core([self _frame])->selectionBounds();
     return NSZeroRect;
 }
 

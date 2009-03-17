@@ -68,6 +68,10 @@ enum {
     WebMenuItemPDFSinglePageScrolling,
     WebMenuItemPDFFacingPagesScrolling,
     WebMenuItemTagInspectElement,
+    WebMenuItemTagTextDirectionMenu,
+    WebMenuItemTagTextDirectionDefault,
+    WebMenuItemTagTextDirectionLeftToRight,
+    WebMenuItemTagTextDirectionRightToLeft,
     WebMenuItemTagBaseApplication = 10000
 };
 @class WebSecurityOrigin;

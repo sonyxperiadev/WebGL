@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
@@ -41,8 +39,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFrameSetElement::HTMLFrameSetElement(Document *doc)
-    : HTMLElement(framesetTag, doc)
+HTMLFrameSetElement::HTMLFrameSetElement(const QualifiedName& tagName, Document *doc)
+    : HTMLElement(tagName, doc)
     , m_rows(0)
     , m_cols(0)
     , m_totalRows(1)
@@ -54,6 +52,7 @@ HTMLFrameSetElement::HTMLFrameSetElement(Document *doc)
     , frameBorderSet(false)
     , noresize(false)
 {
+    ASSERT(hasTagName(framesetTag));
 }
 
 HTMLFrameSetElement::~HTMLFrameSetElement()

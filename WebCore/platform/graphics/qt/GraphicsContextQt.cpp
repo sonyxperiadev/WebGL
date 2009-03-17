@@ -39,7 +39,7 @@
 #include <windows.h>
 #endif
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "Color.h"
 #include "FloatConversion.h"
 #include "Font.h"
@@ -280,7 +280,7 @@ PlatformGraphicsContext* GraphicsContext::platformContext() const
     return m_data->p();
 }
 
-AffineTransform GraphicsContext::getCTM() const
+TransformationMatrix GraphicsContext::getCTM() const
 {
     return platformContext()->combinedMatrix();
 }
@@ -293,6 +293,11 @@ void GraphicsContext::savePlatformState()
 void GraphicsContext::restorePlatformState()
 {
     m_data->p()->restore();
+
+    if (!m_data->currentPath.isEmpty() && m_common->state.pathTransform.isInvertible()) {
+        QMatrix matrix = m_common->state.pathTransform;
+        m_data->currentPath = m_data->currentPath * matrix;
+    }
 }
 
 /* FIXME: DISABLED WHILE MERGING BACK FROM UNITY
@@ -520,6 +525,15 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     p->restore();
 }
 
+QPen GraphicsContext::pen()
+{
+    if (paintingDisabled())
+        return QPen();
+
+    QPainter *p = m_data->p();
+    return p->pen();
+}
+
 void GraphicsContext::fillPath()
 {
     if (paintingDisabled())
@@ -533,15 +547,18 @@ void GraphicsContext::fillPath()
         if (fillColor().alpha())
             p->fillPath(path, p->brush());
         break;
-    case PatternColorSpace:
-        p->fillPath(path, QBrush(m_common->state.fillPattern.get()->createPlatformPattern(getCTM())));
+    case PatternColorSpace: {
+        TransformationMatrix affine;
+        p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
         break;
+    }
     case GradientColorSpace:
-        QGradient* gradient = m_common->state.fillGradient.get()->platformGradient();
+        QGradient* gradient = m_common->state.fillGradient->platformGradient();
         *gradient = applySpreadMethod(*gradient, spreadMethod());  
         p->fillPath(path, QBrush(*gradient));
         break;
     }
+    m_data->currentPath = QPainterPath();
 }
 
 void GraphicsContext::strokePath()
@@ -559,13 +576,14 @@ void GraphicsContext::strokePath()
             p->strokePath(path, pen);
         break;
     case PatternColorSpace: {
-        pen.setBrush(QBrush(m_common->state.strokePattern.get()->createPlatformPattern(getCTM())));
+        TransformationMatrix affine;
+        pen.setBrush(QBrush(m_common->state.strokePattern->createPlatformPattern(affine)));
         p->setPen(pen);
         p->strokePath(path, pen);
         break;
     }
     case GradientColorSpace: {
-        QGradient* gradient = m_common->state.strokeGradient.get()->platformGradient();
+        QGradient* gradient = m_common->state.strokeGradient->platformGradient();
         *gradient = applySpreadMethod(*gradient, spreadMethod()); 
         pen.setBrush(QBrush(*gradient));
         p->setPen(pen);
@@ -573,6 +591,7 @@ void GraphicsContext::strokePath()
         break;
     }
     }
+    m_data->currentPath = QPainterPath();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
@@ -587,13 +606,16 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         if (fillColor().alpha())
             p->fillRect(rect, p->brush());
         break;
-    case PatternColorSpace:
-        p->fillRect(rect, QBrush(m_common->state.fillPattern.get()->createPlatformPattern(getCTM())));
+    case PatternColorSpace: {
+        TransformationMatrix affine;
+        p->fillRect(rect, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
         break;
+    }
     case GradientColorSpace:
         p->fillRect(rect, QBrush(*(m_common->state.fillGradient.get()->platformGradient())));
         break;
     }
+    m_data->currentPath = QPainterPath();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& c)
@@ -621,7 +643,9 @@ void GraphicsContext::beginPath()
 
 void GraphicsContext::addPath(const Path& path)
 {
-    m_data->currentPath = *(path.platformPath());
+    QPainterPath newPath = m_data->currentPath;
+    newPath.addPath(*(path.platformPath()));
+    m_data->currentPath = newPath;
 }
 
 bool GraphicsContext::inTransparencyLayer() const
@@ -643,6 +667,17 @@ void GraphicsContext::clip(const FloatRect& rect)
     if (p->clipRegion().isEmpty())
         p->setClipRect(rect);
     else p->setClipRect(rect, Qt::IntersectClip);
+}
+
+void GraphicsContext::clipPath(WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+
+    QPainter *p = m_data->p();
+    QPainterPath newPath = m_data->currentPath;
+    newPath.setFillRule(clipRule == RULE_EVENODD ? Qt::OddEvenFill : Qt::WindingFill);
+    p->setClipPath(newPath);
 }
 
 /**
@@ -823,8 +858,9 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
         if (dashLength % 2)
             count *= 2;
 
+        float penWidth = narrowPrecisionToFloat(double(pen.widthF()));
         for (unsigned i = 0; i < count; i++)
-            pattern.append(dashes[i % dashLength] / narrowPrecisionToFloat(pen.widthF()));
+            pattern.append(dashes[i % dashLength] / penWidth);
 
         pen.setDashPattern(pattern);
         pen.setDashOffset(dashOffset);
@@ -901,6 +937,12 @@ void GraphicsContext::translate(float x, float y)
         return;
 
     m_data->p()->translate(x, y);
+
+    if (!m_data->currentPath.isEmpty()) {
+        QMatrix matrix;
+        m_data->currentPath = m_data->currentPath * matrix.translate(-x, -y);
+        m_common->state.pathTransform.translate(x, y);
+    }
 }
 
 IntPoint GraphicsContext::origin()
@@ -917,6 +959,12 @@ void GraphicsContext::rotate(float radians)
         return;
 
     m_data->p()->rotate(180/M_PI*radians);
+
+    if (!m_data->currentPath.isEmpty()) {
+        QMatrix matrix;
+        m_data->currentPath = m_data->currentPath * matrix.rotate(-180/M_PI*radians);
+        m_common->state.pathTransform.rotate(radians);
+    }
 }
 
 void GraphicsContext::scale(const FloatSize& s)
@@ -925,6 +973,12 @@ void GraphicsContext::scale(const FloatSize& s)
         return;
 
     m_data->p()->scale(s.width(), s.height());
+
+    if (!m_data->currentPath.isEmpty()) {
+        QMatrix matrix;
+        m_data->currentPath = m_data->currentPath * matrix.scale(1 / s.width(), 1 / s.height());
+        m_common->state.pathTransform.scale(s.width(), s.height());
+    }
 }
 
 void GraphicsContext::clipOut(const IntRect& rect)
@@ -982,24 +1036,25 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect,
     m_data->p()->setClipPath(path, Qt::IntersectClip);
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 {
     if (paintingDisabled())
         return;
 
     m_data->p()->setMatrix(transform, true);
+
+    // Transformations to the context shouldn't transform the currentPath. 
+    // We have to undo every change made to the context from the currentPath to avoid wrong drawings.
+    if (!m_data->currentPath.isEmpty() && transform.isInvertible()) {
+        QMatrix matrix = transform.inverse();
+        m_data->currentPath = m_data->currentPath * matrix;
+        m_common->state.pathTransform.multiply(transform);
+    }
 }
 
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
 {
     notImplemented();
-}
-
-void GraphicsContext::setPlatformFont(const Font& aFont)
-{
-    if (paintingDisabled())
-        return;
-    m_data->p()->setFont(aFont.font());
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& color)
@@ -1039,7 +1094,7 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
     m_data->p()->setBrush(QBrush(color));
 }
 
-void GraphicsContext::setUseAntialiasing(bool enable)
+void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
         return;
@@ -1051,8 +1106,8 @@ void GraphicsContext::setUseAntialiasing(bool enable)
 
 HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
-    // painting through native HDC is only supported for plugin, where mayCreateBitmap is always TRUE
-    Q_ASSERT(mayCreateBitmap == TRUE);
+    // painting through native HDC is only supported for plugin, where mayCreateBitmap is always true
+    Q_ASSERT(mayCreateBitmap);
 
     if (dstRect.isEmpty())
         return 0;
@@ -1090,6 +1145,7 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
         memset(bmpInfo.bmBits, 0, bufferSize);
     }
 
+#if !PLATFORM(WIN_CE)
     // Make sure we can do world transforms.
     SetGraphicsMode(bitmapDC, GM_ADVANCED);
 
@@ -1102,15 +1158,15 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
     xform.eDx = -dstRect.x();
     xform.eDy = -dstRect.y();
     ::SetWorldTransform(bitmapDC, &xform);
-
+#endif
 
     return bitmapDC;
 }
 
 void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
-    // painting through native HDC is only supported for plugin, where mayCreateBitmap is always TRUE
-    Q_ASSERT(mayCreateBitmap == TRUE);
+    // painting through native HDC is only supported for plugin, where mayCreateBitmap is always true
+    Q_ASSERT(mayCreateBitmap);
 
     if (hdc) {
 

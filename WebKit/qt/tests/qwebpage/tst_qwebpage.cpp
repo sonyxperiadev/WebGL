@@ -27,7 +27,11 @@
 #include <qwebhistory.h>
 #include <qnetworkrequest.h>
 #include <QDebug>
+#include <QLineEdit>
 #include <QMenu>
+#include <qwebsecurityorigin.h>
+#include <qwebdatabase.h>
+#include <QPushButton>
 
 // Will try to wait for the condition while allowing event processing
 #define QTRY_COMPARE(__expr, __expected) \
@@ -81,14 +85,26 @@ public:
 public slots:
     void init();
     void cleanup();
+    void cleanupFiles();
 
 private slots:
+    void initTestCase();
+    void cleanupTestCase();
+
     void acceptNavigationRequest();
     void loadFinished();
     void acceptNavigationRequestWithNewWindow();
     void userStyleSheet();
     void modified();
     void contextMenuCrash();
+    void database();
+    void createPlugin();
+    void destroyPlugin();
+    void createViewlessPlugin();
+    void multiplePageGroupsAndLocalStorage();
+    void cursorMovements();
+    void textSelection();
+    void textEditing();
 
 private:
 
@@ -115,6 +131,23 @@ void tst_QWebPage::init()
 void tst_QWebPage::cleanup()
 {
     delete m_view;
+}
+
+void tst_QWebPage::cleanupFiles()
+{
+    QFile::remove("Databases.db");
+    QDir::current().rmdir("http_www.myexample.com_0");
+    QFile::remove("http_www.myexample.com_0.localstorage");
+}
+
+void tst_QWebPage::initTestCase()
+{
+    cleanupFiles(); // In case there are old files from previous runs
+}
+
+void tst_QWebPage::cleanupTestCase()
+{
+    cleanupFiles(); // Be nice
 }
 
 class NavigationRequestOverride : public QWebPage
@@ -203,7 +236,7 @@ public:
         return true;
     }
 
-    virtual QWebPage* createWindow(WebWindowType type) {
+    virtual QWebPage* createWindow(WebWindowType) {
         QWebPage* page = new TestPage(this);
         createdWindows.append(page);
         return page;
@@ -320,7 +353,7 @@ void tst_QWebPage::modified()
     m_page->mainFrame()->setUrl(QUrl("data:text/html,<body>This is fourth page"));
     QVERIFY(m_page->history()->count() == 2);
     m_page->mainFrame()->setUrl(QUrl("data:text/html,<body>This is fifth page"));
-    QVERIFY(::waitForSignal(m_page->mainFrame(), SIGNAL(aboutToUpdateHistory(QWebHistoryItem*))));
+    QVERIFY(::waitForSignal(m_page, SIGNAL(saveFrameStateRequested(QWebFrame*, QWebHistoryItem*))));
 }
 
 void tst_QWebPage::contextMenuCrash()
@@ -337,6 +370,614 @@ void tst_QWebPage::contextMenuCrash()
     QVERIFY(contextMenu);
     delete contextMenu;
 }
+
+void tst_QWebPage::database()
+{
+    QString path = QDir::currentPath();
+    m_page->settings()->setOfflineStoragePath(path);
+    QVERIFY(m_page->settings()->offlineStoragePath() == path);
+
+    QWebSettings::setOfflineStorageDefaultQuota(1024 * 1024);
+    QVERIFY(QWebSettings::offlineStorageDefaultQuota() == 1024 * 1024);
+
+    QString dbFileName = path + "Databases.db";
+
+    if (QFile::exists(dbFileName))
+        QFile::remove(dbFileName);
+
+    qRegisterMetaType<QWebFrame*>("QWebFrame*");
+    QSignalSpy spy(m_page, SIGNAL(databaseQuotaExceeded(QWebFrame *, QString)));
+    m_view->setHtml(QString("<html><head><script>var db; db=openDatabase('testdb', '1.0', 'test database API', 50000); </script></head><body><div></div></body></html>"), QUrl("http://www.myexample.com"));
+    QTRY_COMPARE(spy.count(), 1);
+    m_page->mainFrame()->evaluateJavaScript("var db2; db2=openDatabase('testdb', '1.0', 'test database API', 50000);");
+    QTRY_COMPARE(spy.count(),1);
+
+    m_page->mainFrame()->evaluateJavaScript("localStorage.test='This is a test for local storage';");
+    m_view->setHtml(QString("<html><body id='b'>text</body></html>"), QUrl("http://www.myexample.com"));
+
+    QVariant s1 = m_page->mainFrame()->evaluateJavaScript("localStorage.test");
+    QCOMPARE(s1.toString(), QString("This is a test for local storage"));
+
+    m_page->mainFrame()->evaluateJavaScript("sessionStorage.test='This is a test for session storage';");
+    m_view->setHtml(QString("<html><body id='b'>text</body></html>"), QUrl("http://www.myexample.com"));
+    QVariant s2 = m_page->mainFrame()->evaluateJavaScript("sessionStorage.test");
+    QCOMPARE(s2.toString(), QString("This is a test for session storage"));
+
+    m_view->setHtml(QString("<html><head></head><body><div></div></body></html>"), QUrl("http://www.myexample.com"));
+    m_page->mainFrame()->evaluateJavaScript("var db3; db3=openDatabase('testdb', '1.0', 'test database API', 50000);db3.transaction(function(tx) { tx.executeSql('CREATE TABLE IF NOT EXISTS Test (text TEXT)', []); }, function(tx, result) { }, function(tx, error) { });");
+    QTest::qWait(200);
+
+    QWebSecurityOrigin origin = m_page->mainFrame()->securityOrigin();
+    QList<QWebDatabase> dbs = origin.databases();
+    if (dbs.count() > 0) {
+        QString fileName = dbs[0].fileName();
+        QVERIFY(QFile::exists(fileName));
+        QWebDatabase::removeDatabase(dbs[0]);
+        QVERIFY(!QFile::exists(fileName));
+    }
+    QTest::qWait(1000);
+}
+
+class PluginPage : public QWebPage
+{
+public:
+    PluginPage(QObject *parent = 0)
+        : QWebPage(parent) {}
+
+    struct CallInfo
+    {
+        CallInfo(const QString &c, const QUrl &u,
+                 const QStringList &pn, const QStringList &pv,
+                 QObject *r)
+            : classid(c), url(u), paramNames(pn),
+              paramValues(pv), returnValue(r)
+            {}
+        QString classid;
+        QUrl url;
+        QStringList paramNames;
+        QStringList paramValues;
+        QObject *returnValue;
+    };
+
+    QList<CallInfo> calls;
+
+protected:
+    virtual QObject *createPlugin(const QString &classid, const QUrl &url,
+                                  const QStringList &paramNames,
+                                  const QStringList &paramValues)
+    {
+        QObject *result = 0;
+        if (classid == "pushbutton")
+            result = new QPushButton();
+        else if (classid == "lineedit")
+            result = new QLineEdit();
+        if (result)
+            result->setObjectName(classid);
+        calls.append(CallInfo(classid, url, paramNames, paramValues, result));
+        return result;
+    }
+};
+
+void tst_QWebPage::createPlugin()
+{
+    QSignalSpy loadSpy(m_view, SIGNAL(loadFinished(bool)));
+
+    PluginPage* newPage = new PluginPage(m_view);
+    m_view->setPage(newPage);
+
+    // plugins not enabled by default, so the plugin shouldn't be loaded
+    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QCOMPARE(newPage->calls.count(), 0);
+
+    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+
+    // type has to be application/x-qt-plugin
+    m_view->setHtml(QString("<html><body><object type='application/x-foobarbaz' classid='pushbutton' id='mybutton'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 2);
+    QCOMPARE(newPage->calls.count(), 0);
+
+    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 3);
+    QCOMPARE(newPage->calls.count(), 1);
+    {
+        PluginPage::CallInfo ci = newPage->calls.takeFirst();
+        QCOMPARE(ci.classid, QString::fromLatin1("pushbutton"));
+        QCOMPARE(ci.url, QUrl());
+        QCOMPARE(ci.paramNames.count(), 3);
+        QCOMPARE(ci.paramValues.count(), 3);
+        QCOMPARE(ci.paramNames.at(0), QString::fromLatin1("type"));
+        QCOMPARE(ci.paramValues.at(0), QString::fromLatin1("application/x-qt-plugin"));
+        QCOMPARE(ci.paramNames.at(1), QString::fromLatin1("classid"));
+        QCOMPARE(ci.paramValues.at(1), QString::fromLatin1("pushbutton"));
+        QCOMPARE(ci.paramNames.at(2), QString::fromLatin1("id"));
+        QCOMPARE(ci.paramValues.at(2), QString::fromLatin1("mybutton"));
+        QVERIFY(ci.returnValue != 0);
+        QVERIFY(ci.returnValue->inherits("QPushButton"));
+    }
+    // test JS bindings
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("document.getElementById('mybutton').toString()").toString(),
+             QString::fromLatin1("[object HTMLObjectElement]"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mybutton.toString()").toString(),
+             QString::fromLatin1("[object HTMLObjectElement]"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("typeof mybutton.objectName").toString(),
+             QString::fromLatin1("string"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mybutton.objectName").toString(),
+             QString::fromLatin1("pushbutton"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("typeof mybutton.clicked").toString(),
+             QString::fromLatin1("function"));
+    QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mybutton.clicked.toString()").toString(),
+             QString::fromLatin1("function clicked() {\n    [native code]\n}"));
+
+    m_view->setHtml(QString("<html><body><table>"
+                            "<tr><object type='application/x-qt-plugin' classid='lineedit' id='myedit'/></tr>"
+                            "<tr><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></tr>"
+                            "</table></body></html>"), QUrl("http://foo.bar.baz"));
+    QTRY_COMPARE(loadSpy.count(), 4);
+    QCOMPARE(newPage->calls.count(), 2);
+    {
+        PluginPage::CallInfo ci = newPage->calls.takeFirst();
+        QCOMPARE(ci.classid, QString::fromLatin1("lineedit"));
+        QCOMPARE(ci.url, QUrl());
+        QCOMPARE(ci.paramNames.count(), 3);
+        QCOMPARE(ci.paramValues.count(), 3);
+        QCOMPARE(ci.paramNames.at(0), QString::fromLatin1("type"));
+        QCOMPARE(ci.paramValues.at(0), QString::fromLatin1("application/x-qt-plugin"));
+        QCOMPARE(ci.paramNames.at(1), QString::fromLatin1("classid"));
+        QCOMPARE(ci.paramValues.at(1), QString::fromLatin1("lineedit"));
+        QCOMPARE(ci.paramNames.at(2), QString::fromLatin1("id"));
+        QCOMPARE(ci.paramValues.at(2), QString::fromLatin1("myedit"));
+        QVERIFY(ci.returnValue != 0);
+        QVERIFY(ci.returnValue->inherits("QLineEdit"));
+    }
+    {
+        PluginPage::CallInfo ci = newPage->calls.takeFirst();
+        QCOMPARE(ci.classid, QString::fromLatin1("pushbutton"));
+        QCOMPARE(ci.url, QUrl());
+        QCOMPARE(ci.paramNames.count(), 3);
+        QCOMPARE(ci.paramValues.count(), 3);
+        QCOMPARE(ci.paramNames.at(0), QString::fromLatin1("type"));
+        QCOMPARE(ci.paramValues.at(0), QString::fromLatin1("application/x-qt-plugin"));
+        QCOMPARE(ci.paramNames.at(1), QString::fromLatin1("classid"));
+        QCOMPARE(ci.paramValues.at(1), QString::fromLatin1("pushbutton"));
+        QCOMPARE(ci.paramNames.at(2), QString::fromLatin1("id"));
+        QCOMPARE(ci.paramValues.at(2), QString::fromLatin1("mybutton"));
+        QVERIFY(ci.returnValue != 0);
+        QVERIFY(ci.returnValue->inherits("QPushButton"));
+    }
+
+    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, false);
+
+    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
+    QTRY_COMPARE(loadSpy.count(), 5);
+    QCOMPARE(newPage->calls.count(), 0);
+}
+
+class PluginTrackedPage : public QWebPage
+{
+public:
+
+    int count;
+    QPointer<QWidget> widget;
+
+    PluginTrackedPage(QWidget *parent = 0) : QWebPage(parent), count(0) {
+       settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    }
+
+    virtual QObject* createPlugin(const QString&, const QUrl&, const QStringList&, const QStringList&) {
+       count++;
+       QWidget *w = new QWidget;
+       widget = w;
+       return w;
+    }
+};
+
+void tst_QWebPage::destroyPlugin()
+{
+    PluginTrackedPage* page = new PluginTrackedPage(m_view);
+    m_view->setPage(page);
+
+    // we create the plugin, so the widget should be constructed
+    QString content("<html><body><object type=\"application/x-qt-plugin\" classid=\"QProgressBar\"></object></body></html>");
+    m_view->setHtml(content);
+    QVERIFY(page->widget != 0);
+    QCOMPARE(page->count, 1);
+
+    // navigate away, the plugin widget should be destructed
+    m_view->setHtml("<html><body>Hi</body></html>");
+    QTestEventLoop::instance().enterLoop(1);
+    QVERIFY(page->widget == 0);
+}
+
+void tst_QWebPage::createViewlessPlugin()
+{
+    PluginTrackedPage* page = new PluginTrackedPage;
+    QString content("<html><body><object type=\"application/x-qt-plugin\" classid=\"QProgressBar\"></object></body></html>");
+    page->mainFrame()->setHtml(content);
+    QCOMPARE(page->count, 1);
+    QVERIFY(page->widget != 0);
+    delete page;
+}
+
+// import private API
+void QWEBKIT_EXPORT qt_webpage_setGroupName(QWebPage* page, const QString& groupName);
+QString QWEBKIT_EXPORT qt_webpage_groupName(QWebPage* page);
+void QWEBKIT_EXPORT qt_websettings_setLocalStorageDatabasePath(QWebSettings* settings, const QString& path);
+
+void tst_QWebPage::multiplePageGroupsAndLocalStorage()
+{
+    QDir dir(QDir::currentPath());
+    dir.mkdir("path1");
+    dir.mkdir("path2");
+
+    QWebView view1;
+    QWebView view2;
+
+    qt_websettings_setLocalStorageDatabasePath(view1.page()->settings(), QDir::toNativeSeparators(QDir::currentPath() + "/path1"));
+    qt_webpage_setGroupName(view1.page(), "group1");
+    qt_websettings_setLocalStorageDatabasePath(view2.page()->settings(), QDir::toNativeSeparators(QDir::currentPath() + "/path2"));
+    qt_webpage_setGroupName(view2.page(), "group2");
+    QCOMPARE(qt_webpage_groupName(view1.page()), QString("group1"));
+    QCOMPARE(qt_webpage_groupName(view2.page()), QString("group2"));
+
+
+    view1.setHtml(QString("<html><body> </body></html>"), QUrl("http://www.myexample.com"));
+    view2.setHtml(QString("<html><body> </body></html>"), QUrl("http://www.myexample.com"));
+
+    view1.page()->mainFrame()->evaluateJavaScript("localStorage.test='value1';");
+    view2.page()->mainFrame()->evaluateJavaScript("localStorage.test='value2';");
+
+    view1.setHtml(QString("<html><body> </body></html>"), QUrl("http://www.myexample.com"));
+    view2.setHtml(QString("<html><body> </body></html>"), QUrl("http://www.myexample.com"));
+
+    QVariant s1 = view1.page()->mainFrame()->evaluateJavaScript("localStorage.test");
+    QCOMPARE(s1.toString(), QString("value1"));
+
+    QVariant s2 = view2.page()->mainFrame()->evaluateJavaScript("localStorage.test");
+    QCOMPARE(s2.toString(), QString("value2"));
+
+    QTest::qWait(1000);
+
+    QFile::remove(QDir::toNativeSeparators(QDir::currentPath() + "/path1/http_www.myexample.com_0.localstorage"));
+    QFile::remove(QDir::toNativeSeparators(QDir::currentPath() + "/path2/http_www.myexample.com_0.localstorage"));
+    dir.rmdir(QDir::toNativeSeparators("./path1"));
+    dir.rmdir(QDir::toNativeSeparators("./path2"));
+}
+
+class CursorTrackedPage : public QWebPage
+{
+public:
+
+    CursorTrackedPage(QWidget *parent = 0): QWebPage(parent) {
+        setViewportSize(QSize(1024, 768)); // big space
+    }
+
+    QString selectedText() {
+        return mainFrame()->evaluateJavaScript("window.getSelection().toString()").toString();
+    }
+
+    int selectionStartOffset() {
+        return mainFrame()->evaluateJavaScript("window.getSelection().getRangeAt(0).startOffset").toInt();
+    }
+
+    int selectionEndOffset() {
+        return mainFrame()->evaluateJavaScript("window.getSelection().getRangeAt(0).endOffset").toInt();
+    }
+
+    // true if start offset == end offset, i.e. no selected text
+    int isSelectionCollapsed() {
+        return mainFrame()->evaluateJavaScript("window.getSelection().getRangeAt(0).collapsed").toBool();
+    }
+};
+
+void tst_QWebPage::cursorMovements()
+{
+    CursorTrackedPage* page = new CursorTrackedPage;
+    QString content("<html><body<p id=one>The quick brown fox</p><p id=two>jumps over the lazy dog</p><p>May the source<br/>be with you!</p></body></html>");
+    page->mainFrame()->setHtml(content);
+
+    // this will select the first paragraph
+    QString script = "var range = document.createRange(); " \
+        "var node = document.getElementById(\"one\"); " \
+        "range.selectNode(node); " \
+        "getSelection().addRange(range);";
+    page->mainFrame()->evaluateJavaScript(script);
+    QCOMPARE(page->selectedText().trimmed(), QString::fromLatin1("The quick brown fox"));
+
+    // these actions must exist
+    QVERIFY(page->action(QWebPage::MoveToNextChar) != 0);
+    QVERIFY(page->action(QWebPage::MoveToPreviousChar) != 0);
+    QVERIFY(page->action(QWebPage::MoveToNextWord) != 0);
+    QVERIFY(page->action(QWebPage::MoveToPreviousWord) != 0);
+    QVERIFY(page->action(QWebPage::MoveToNextLine) != 0);
+    QVERIFY(page->action(QWebPage::MoveToPreviousLine) != 0);
+    QVERIFY(page->action(QWebPage::MoveToStartOfLine) != 0);
+    QVERIFY(page->action(QWebPage::MoveToEndOfLine) != 0);
+    QVERIFY(page->action(QWebPage::MoveToStartOfBlock) != 0);
+    QVERIFY(page->action(QWebPage::MoveToEndOfBlock) != 0);
+    QVERIFY(page->action(QWebPage::MoveToStartOfDocument) != 0);
+    QVERIFY(page->action(QWebPage::MoveToEndOfDocument) != 0);
+
+    // right now they are disabled because contentEditable is false
+    QCOMPARE(page->action(QWebPage::MoveToNextChar)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousChar)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToNextWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToNextLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfBlock)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfBlock)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfDocument)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfDocument)->isEnabled(), false);
+
+    // make it editable before navigating the cursor
+    page->setContentEditable(true);
+
+    // here the actions are enabled after contentEditable is true
+    QCOMPARE(page->action(QWebPage::MoveToNextChar)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousChar)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToNextWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToNextLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToPreviousLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfBlock)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfBlock)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToStartOfDocument)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::MoveToEndOfDocument)->isEnabled(), true);
+
+    // cursor will be before the word "jump"
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 0);
+
+    // cursor will be between 'j' and 'u' in the word "jump"
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 1);
+
+    // cursor will be between 'u' and 'm' in the word "jump"
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 2);
+
+    // cursor will be after the word "jump"
+    page->triggerAction(QWebPage::MoveToNextWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 5);
+
+    // cursor will be after the word "lazy"
+    page->triggerAction(QWebPage::MoveToNextWord);
+    page->triggerAction(QWebPage::MoveToNextWord);
+    page->triggerAction(QWebPage::MoveToNextWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 19);
+
+    // cursor will be between 'z' and 'y' in "lazy"
+    page->triggerAction(QWebPage::MoveToPreviousChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 18);
+
+    // cursor will be between 'a' and 'z' in "lazy"
+    page->triggerAction(QWebPage::MoveToPreviousChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 17);
+
+    // cursor will be before the word "lazy"
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 15);
+
+    // cursor will be before the word "quick"
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 4);
+
+    // cursor will be between 'p' and 's' in the word "jumps"
+    page->triggerAction(QWebPage::MoveToNextWord);
+    page->triggerAction(QWebPage::MoveToNextWord);
+    page->triggerAction(QWebPage::MoveToNextWord);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 4);
+
+    // cursor will be before the word "jumps"
+    page->triggerAction(QWebPage::MoveToStartOfLine);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 0);
+
+    // cursor will be after the word "dog"
+    page->triggerAction(QWebPage::MoveToEndOfLine);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 23);
+
+    // cursor will be between 'w' and 'n' in "brown"
+    page->triggerAction(QWebPage::MoveToStartOfLine);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 14);
+
+    // cursor will be after the word "fox"
+    page->triggerAction(QWebPage::MoveToEndOfLine);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 19);
+
+    // cursor will be before the word "The"
+    page->triggerAction(QWebPage::MoveToStartOfDocument);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 0);
+
+    // cursor will be after the word "you!"
+    page->triggerAction(QWebPage::MoveToEndOfDocument);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 12);
+
+    // cursor will be before the word "be"
+    page->triggerAction(QWebPage::MoveToStartOfBlock);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 2);
+
+    // cursor will be after the word "you!"
+    page->triggerAction(QWebPage::MoveToEndOfBlock);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 12);
+
+    // try to move before the document start
+    page->triggerAction(QWebPage::MoveToStartOfDocument);
+    page->triggerAction(QWebPage::MoveToPreviousChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 0);
+    page->triggerAction(QWebPage::MoveToStartOfDocument);
+    page->triggerAction(QWebPage::MoveToPreviousWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 0);
+
+    // try to move past the document end
+    page->triggerAction(QWebPage::MoveToEndOfDocument);
+    page->triggerAction(QWebPage::MoveToNextChar);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 12);
+    page->triggerAction(QWebPage::MoveToEndOfDocument);
+    page->triggerAction(QWebPage::MoveToNextWord);
+    QVERIFY(page->isSelectionCollapsed());
+    QCOMPARE(page->selectionStartOffset(), 12);
+
+    delete page;
+}
+
+void tst_QWebPage::textSelection()
+{
+    CursorTrackedPage* page = new CursorTrackedPage;
+    QString content("<html><body<p id=one>The quick brown fox</p>" \
+        "<p id=two>jumps over the lazy dog</p>" \
+        "<p>May the source<br/>be with you!</p></body></html>");
+    page->mainFrame()->setHtml(content);
+
+    // this will select the first paragraph
+    QString script = "var range = document.createRange(); " \
+        "var node = document.getElementById(\"one\"); " \
+        "range.selectNode(node); " \
+        "getSelection().addRange(range);";
+    page->mainFrame()->evaluateJavaScript(script);
+    QCOMPARE(page->selectedText().trimmed(), QString::fromLatin1("The quick brown fox"));
+
+    // these actions must exist
+    QVERIFY(page->action(QWebPage::SelectNextChar) != 0);
+    QVERIFY(page->action(QWebPage::SelectPreviousChar) != 0);
+    QVERIFY(page->action(QWebPage::SelectNextWord) != 0);
+    QVERIFY(page->action(QWebPage::SelectPreviousWord) != 0);
+    QVERIFY(page->action(QWebPage::SelectNextLine) != 0);
+    QVERIFY(page->action(QWebPage::SelectPreviousLine) != 0);
+    QVERIFY(page->action(QWebPage::SelectStartOfLine) != 0);
+    QVERIFY(page->action(QWebPage::SelectEndOfLine) != 0);
+    QVERIFY(page->action(QWebPage::SelectStartOfBlock) != 0);
+    QVERIFY(page->action(QWebPage::SelectEndOfBlock) != 0);
+    QVERIFY(page->action(QWebPage::SelectStartOfDocument) != 0);
+    QVERIFY(page->action(QWebPage::SelectEndOfDocument) != 0);
+
+    // right now they are disabled because contentEditable is false
+    QCOMPARE(page->action(QWebPage::SelectNextChar)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectPreviousChar)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectNextWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectPreviousWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectNextLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectPreviousLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectStartOfLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectEndOfLine)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectStartOfBlock)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectEndOfBlock)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectStartOfDocument)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SelectEndOfDocument)->isEnabled(), false);
+
+    // make it editable before navigating the cursor
+    page->setContentEditable(true);
+
+    // here the actions are enabled after contentEditable is true
+    QCOMPARE(page->action(QWebPage::SelectNextChar)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectPreviousChar)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectNextWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectPreviousWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectNextLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectPreviousLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectStartOfLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectEndOfLine)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectStartOfBlock)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectEndOfBlock)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectStartOfDocument)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SelectEndOfDocument)->isEnabled(), true);
+
+    delete page;
+}
+
+void tst_QWebPage::textEditing()
+{
+    CursorTrackedPage* page = new CursorTrackedPage;
+    QString content("<html><body<p id=one>The quick brown fox</p>" \
+        "<p id=two>jumps over the lazy dog</p>" \
+        "<p>May the source<br/>be with you!</p></body></html>");
+    page->mainFrame()->setHtml(content);
+
+    // this will select the first paragraph
+    QString script = "var range = document.createRange(); " \
+        "var node = document.getElementById(\"one\"); " \
+        "range.selectNode(node); " \
+        "getSelection().addRange(range);";
+    page->mainFrame()->evaluateJavaScript(script);
+    QCOMPARE(page->selectedText().trimmed(), QString::fromLatin1("The quick brown fox"));
+
+    // these actions must exist
+    QVERIFY(page->action(QWebPage::DeleteStartOfWord) != 0);
+    QVERIFY(page->action(QWebPage::DeleteEndOfWord) != 0);
+    QVERIFY(page->action(QWebPage::SetTextDirectionDefault) != 0);
+    QVERIFY(page->action(QWebPage::SetTextDirectionLeftToRight) != 0);
+    QVERIFY(page->action(QWebPage::SetTextDirectionRightToLeft) != 0);
+    QVERIFY(page->action(QWebPage::ToggleBold) != 0);
+    QVERIFY(page->action(QWebPage::ToggleItalic) != 0);
+    QVERIFY(page->action(QWebPage::ToggleUnderline) != 0);
+
+    // right now they are disabled because contentEditable is false
+    QCOMPARE(page->action(QWebPage::DeleteStartOfWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::DeleteEndOfWord)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionDefault)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionLeftToRight)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionRightToLeft)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::ToggleBold)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::ToggleItalic)->isEnabled(), false);
+    QCOMPARE(page->action(QWebPage::ToggleUnderline)->isEnabled(), false);
+
+    // make it editable before navigating the cursor
+    page->setContentEditable(true);
+
+    // here the actions are enabled after contentEditable is true
+    QCOMPARE(page->action(QWebPage::DeleteStartOfWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::DeleteEndOfWord)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionDefault)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionLeftToRight)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::SetTextDirectionRightToLeft)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::ToggleBold)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::ToggleItalic)->isEnabled(), true);
+    QCOMPARE(page->action(QWebPage::ToggleUnderline)->isEnabled(), true);
+
+    delete page;
+}
+
 
 QTEST_MAIN(tst_QWebPage)
 #include "tst_qwebpage.moc"

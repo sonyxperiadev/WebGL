@@ -72,10 +72,20 @@ struct ANPRectI {
 };
 
 struct ANPCanvas;
+struct ANPMatrix;
 struct ANPPaint;
 struct ANPPath;
 struct ANPRegion;
 struct ANPTypeface;
+
+enum ANPMatrixFlags {
+    kIdentity_ANPMatrixFlag     = 0,
+    kTranslate_ANPMatrixFlag    = 0x01,
+    kScale_ANPMatrixFlag        = 0x02,
+    kAffine_ANPMatrixFlag       = 0x04,
+    kPerspective_ANPMatrixFlag  = 0x08,
+};
+typedef uint32_t ANPMatrixFlag;
 
 ///////////////////////////////////////////////////////////////////////////////
 // NPN_GetValue
@@ -89,9 +99,10 @@ struct ANPTypeface;
 #define kLogInterfaceV0_ANPGetValue         ((NPNVariable)1000)
 #define kAudioTrackInterfaceV0_ANPGetValue  ((NPNVariable)1001)
 #define kCanvasInterfaceV0_ANPGetValue      ((NPNVariable)1002)
-#define kPaintInterfaceV0_ANPGetValue       ((NPNVariable)1003)
-#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1004)
-#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1005)
+#define kMatrixInterfaceV0_ANPGetValue      ((NPNVariable)1003)
+#define kPaintInterfaceV0_ANPGetValue       ((NPNVariable)1004)
+#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1005)
+#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1006)
 
 /*  queries for which drawing model is desired (for the draw event)
  
@@ -148,6 +159,59 @@ struct ANPLogInterfaceV0 : ANPInterface {
     void (*log)(NPP instance, ANPLogType, const char format[], ...);
 };
 
+struct ANPMatrixInterfaceV0 : ANPInterface {
+    /*  Return a new identity matrix
+     */
+    ANPMatrix*  (*newMatrix)();
+    /*  Delete a matrix previously allocated by newMatrix()
+     */
+    void        (*deleteMatrix)(ANPMatrix*);
+
+    ANPMatrixFlag (*getFlags)(const ANPMatrix*);
+
+    void        (*copy)(ANPMatrix* dst, const ANPMatrix* src);
+
+    /*  Return the matrix values in a float array (allcoated by the caller),
+        where the values are treated as follows:
+        w  = x * [6] + y * [7] + [8];
+        x' = (x * [0] + y * [1] + [2]) / w;
+        y' = (x * [3] + y * [4] + [5]) / w;
+     */
+    void        (*get3x3)(const ANPMatrix*, float[9]);
+    /*  Initialize the matrix from values in a float array,
+        where the values are treated as follows:
+         w  = x * [6] + y * [7] + [8];
+         x' = (x * [0] + y * [1] + [2]) / w;
+         y' = (x * [3] + y * [4] + [5]) / w;
+     */
+    void        (*set3x3)(ANPMatrix*, const float[9]);
+
+    void        (*setIdentity)(ANPMatrix*);
+    void        (*preTranslate)(ANPMatrix*, float tx, float ty);
+    void        (*postTranslate)(ANPMatrix*, float tx, float ty);
+    void        (*preScale)(ANPMatrix*, float sx, float sy);
+    void        (*postScale)(ANPMatrix*, float sx, float sy);
+    void        (*preSkew)(ANPMatrix*, float kx, float ky);
+    void        (*postSkew)(ANPMatrix*, float kx, float ky);
+    void        (*preRotate)(ANPMatrix*, float degrees);
+    void        (*postRotate)(ANPMatrix*, float degrees);
+    void        (*preConcat)(ANPMatrix*, const ANPMatrix*);
+    void        (*postConcat)(ANPMatrix*, const ANPMatrix*);
+
+    /*  Return true if src is invertible, and if so, return its inverse in dst.
+        If src is not invertible, return false and ignore dst.
+     */
+    bool        (*invert)(ANPMatrix* dst, const ANPMatrix* src);
+
+    /*  Transform the x,y pairs in src[] by this matrix, and store the results
+        in dst[]. The count parameter is treated as the number of pairs in the
+        array. It is legal for src and dst to point to the same memory, but
+        illegal for the two arrays to partially overlap.
+     */
+    void        (*mapPoints)(ANPMatrix*, float dst[], const float src[],
+                             int32_t count);
+};
+
 typedef uint32_t ANPColor;
 #define ANP_MAKE_COLOR(a, r, g, b)  \
                                 (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
@@ -201,6 +265,19 @@ enum ANPTypefaceStyles {
     kItalic_ANPTypefaceStyle    = 1 << 1
 };
 typedef uint32_t ANPTypefaceStyle;
+
+struct ANPFontMetrics {
+    //! The greatest distance above the baseline for any glyph (will be <= 0)
+    float   fTop;
+    //! The recommended distance above the baseline (will be <= 0)
+    float   fAscent;
+    //! The recommended distance below the baseline (will be >= 0)
+    float   fDescent;
+    //! The greatest distance below the baseline for any glyph (will be >= 0)
+    float   fBottom;
+    //! The recommended distance to add between lines of text (will be >= 0)
+    float   fLeading;
+};
 
 struct ANPTypefaceInterfaceV0 : ANPInterface {
     /** Return a new reference to the typeface that most closely matches the
@@ -311,6 +388,12 @@ struct ANPPaintInterfaceV0 : ANPInterface {
      */
     int (*getTextWidths)(ANPPaint*, const void* text, uint32_t byteLength,
                          float widths[], ANPRectF bounds[]);
+    
+    /** Return in metrics the spacing values for text, respecting the paint's
+        typeface and pointsize, and return the spacing between lines
+        (descent - ascent + leading). If metrics is NULL, it will be ignored.
+     */
+    float (*getFontMetrics)(ANPPaint*, ANPFontMetrics* metrics);
 };
 
 struct ANPCanvasInterfaceV0 : ANPInterface {
@@ -334,8 +417,22 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
     void        (*scale)(ANPCanvas*, float sx, float sy);
     void        (*rotate)(ANPCanvas*, float degrees);
     void        (*skew)(ANPCanvas*, float kx, float ky);
+    void        (*concat)(ANPCanvas*, const ANPMatrix*);
     void        (*clipRect)(ANPCanvas*, const ANPRectF*);
     void        (*clipPath)(ANPCanvas*, const ANPPath*);
+
+    /*  Return the current matrix on the canvas
+     */
+    void        (*getTotalMatrix)(ANPCanvas*, ANPMatrix*);
+    /*  Return the current clip bounds in local coordinates, expanding it to
+        account for antialiasing edge effects if aa is true. If the
+        current clip is empty, return false and ignore the bounds argument.
+     */
+    bool        (*getLocalClipBounds)(ANPCanvas*, ANPRectF* bounds, bool aa);
+    /*  Return the current clip bounds in device coordinates in bounds. If the
+        current clip is empty, return false and ignore the bounds argument.
+     */
+    bool        (*getDeviceClipBounds)(ANPCanvas*, ANPRectI* bounds);
     
     void        (*drawColor)(ANPCanvas*, ANPColor);
     void        (*drawPaint)(ANPCanvas*, const ANPPaint*);

@@ -29,18 +29,27 @@
 #include "CharacterNames.h"
 #include "Document.h"
 #include "EditingText.h"
-#include "HTMLElement.h"
+#include "HTMLBRElement.h"
+#include "HTMLDivElement.h"
+#include "HTMLElementFactory.h"
 #include "HTMLInterchange.h"
+#include "HTMLLIElement.h"
 #include "HTMLNames.h"
+#include "HTMLOListElement.h"
+#include "HTMLUListElement.h"
 #include "PositionIterator.h"
 #include "RenderObject.h"
-#include "RegularExpression.h"
 #include "Range.h"
 #include "Selection.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "VisiblePosition.h"
 #include "visible_units.h"
+#include <wtf/StdLibExtras.h>
+
+#if ENABLE(WML)
+#include "WMLNames.h"
+#endif
 
 using namespace std;
 
@@ -75,6 +84,9 @@ bool canHaveChildrenForEditing(const Node* node)
            !node->hasTagName(embedTag) &&
            !node->hasTagName(appletTag) &&
            !node->hasTagName(selectTag) &&
+#if ENABLE(WML)
+           !node->hasTagName(WMLNames::doTag) &&
+#endif
            !node->isTextNode();
 }
 
@@ -294,7 +306,7 @@ bool isBlock(const Node* node)
 // knowing about these kinds of special cases.
 Node* enclosingBlock(Node* node)
 {
-    return enclosingNodeOfType(Position(node, 0), &isBlock);
+    return static_cast<Element*>(enclosingNodeOfType(Position(node, 0), isBlock));
 }
 
 Position rangeCompliantEquivalent(const Position& pos)
@@ -364,9 +376,9 @@ int maxDeepOffset(const Node *node)
 
 String stringWithRebalancedWhitespace(const String& string, bool startIsStartOfParagraph, bool endIsEndOfParagraph)
 {
-    static String twoSpaces("  ");
-    static String nbsp("\xa0");
-    static String pattern(" \xa0");
+    DEFINE_STATIC_LOCAL(String, twoSpaces, ("  "));
+    DEFINE_STATIC_LOCAL(String, nbsp, ("\xa0"));
+    DEFINE_STATIC_LOCAL(String, pattern, (" \xa0"));
 
     String rebalancedString = string;
 
@@ -393,7 +405,7 @@ bool isTableStructureNode(const Node *node)
 
 const String& nonBreakingSpaceString()
 {
-    static String nonBreakingSpaceString = String(&noBreakSpace, 1);
+    DEFINE_STATIC_LOCAL(String, nonBreakingSpaceString, (&noBreakSpace, 1));
     return nonBreakingSpaceString;
 }
 
@@ -592,9 +604,23 @@ Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), 
     return 0;
 }
 
+Node* highestEnclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*))
+{
+    Node* highest = 0;
+    Node* root = highestEditableRoot(p);
+    for (Node* n = p.node(); n; n = n->parentNode()) {
+        if ((*nodeIsOfType)(n))
+            highest = n;
+        if (n == root)
+            break;
+    }
+    
+    return highest;
+}
+
 Node* enclosingTableCell(const Position& p)
 {
-    return enclosingNodeOfType(p, &isTableCell);
+    return static_cast<Element*>(enclosingNodeOfType(p, isTableCell));
 }
 
 Node* enclosingAnchorElement(const Position& p)
@@ -608,7 +634,7 @@ Node* enclosingAnchorElement(const Position& p)
     return node;
 }
 
-Node* enclosingList(Node* node)
+HTMLElement* enclosingList(Node* node)
 {
     if (!node)
         return 0;
@@ -617,7 +643,7 @@ Node* enclosingList(Node* node)
     
     for (Node* n = node->parentNode(); n; n = n->parentNode()) {
         if (n->hasTagName(ulTag) || n->hasTagName(olTag))
-            return n;
+            return static_cast<HTMLElement*>(n);
         if (n == root)
             return 0;
     }
@@ -644,12 +670,12 @@ Node* enclosingListChild(Node *node)
     return 0;
 }
 
-static Node* embeddedSublist(Node* listItem)
+static HTMLElement* embeddedSublist(Node* listItem)
 {
     // Check the DOM so that we'll find collapsed sublists without renderers.
     for (Node* n = listItem->firstChild(); n; n = n->nextSibling()) {
         if (isListElement(n))
-            return n;
+            return static_cast<HTMLElement*>(n);
     }
     
     return 0;
@@ -660,7 +686,7 @@ static Node* appendedSublist(Node* listItem)
     // Check the DOM so that we'll find collapsed sublists without renderers.
     for (Node* n = listItem->nextSibling(); n; n = n->nextSibling()) {
         if (isListElement(n))
-            return n;
+            return static_cast<HTMLElement*>(n);
         if (n->renderer() && n->renderer()->isListItem())
             return 0;
     }
@@ -687,22 +713,14 @@ Node* enclosingEmptyListItem(const VisiblePosition& visiblePos)
     return listChildNode;
 }
 
-Node* outermostEnclosingListChild(Node* node)
+HTMLElement* outermostEnclosingList(Node* node)
 {
-    Node* listNode = 0;
-    Node* nextNode = node;
-    while ((nextNode = enclosingListChild(nextNode)))
-        listNode = nextNode;
-    return listNode;
-}
-
-Node* outermostEnclosingList(Node* node)
-{
-    Node* listNode = 0;
-    Node* nextNode = node;
-    while ((nextNode = enclosingList(nextNode)))
-        listNode = nextNode;
-    return listNode;
+    HTMLElement* list = enclosingList(node);
+    if (!list)
+        return 0;
+    while (HTMLElement* nextList = enclosingList(list))
+        list = nextList;
+    return list;
 }
 
 Node* highestAncestor(Node* node)
@@ -733,52 +751,39 @@ bool isTableCell(const Node* node)
     return r->isTableCell();
 }
 
-PassRefPtr<Element> createDefaultParagraphElement(Document *document)
+PassRefPtr<HTMLElement> createDefaultParagraphElement(Document* document)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> element = document->createElementNS(xhtmlNamespaceURI, "div", ec);
-    ASSERT(ec == 0);
-    return element.release();
+    return new HTMLDivElement(divTag, document);
 }
 
-PassRefPtr<Element> createBreakElement(Document *document)
+PassRefPtr<HTMLElement> createBreakElement(Document* document)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> breakNode = document->createElementNS(xhtmlNamespaceURI, "br", ec);
-    ASSERT(ec == 0);
-    return breakNode.release();
+    return new HTMLBRElement(brTag, document);
 }
 
-PassRefPtr<Element> createOrderedListElement(Document *document)
+PassRefPtr<HTMLElement> createOrderedListElement(Document* document)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> element = document->createElementNS(xhtmlNamespaceURI, "ol", ec);
-    ASSERT(ec == 0);
-    return element.release();
+    return new HTMLOListElement(olTag, document);
 }
 
-PassRefPtr<Element> createUnorderedListElement(Document *document)
+PassRefPtr<HTMLElement> createUnorderedListElement(Document* document)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> element = document->createElementNS(xhtmlNamespaceURI, "ul", ec);
-    ASSERT(ec == 0);
-    return element.release();
+    return new HTMLUListElement(ulTag, document);
 }
 
-PassRefPtr<Element> createListItemElement(Document *document)
+PassRefPtr<HTMLElement> createListItemElement(Document* document)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> breakNode = document->createElementNS(xhtmlNamespaceURI, "li", ec);
-    ASSERT(ec == 0);
-    return breakNode.release();
+    return new HTMLLIElement(liTag, document);
 }
 
-PassRefPtr<Element> createElement(Document* document, const String& tagName)
+PassRefPtr<HTMLElement> createHTMLElement(Document* document, const QualifiedName& name)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> breakNode = document->createElementNS(xhtmlNamespaceURI, tagName, ec);
-    ASSERT(ec == 0);
-    return breakNode.release();
+    return HTMLElementFactory::createHTMLElement(name, document, 0, false);
+}
+
+PassRefPtr<HTMLElement> createHTMLElement(Document* document, const AtomicString& tagName)
+{
+    return createHTMLElement(document, QualifiedName(nullAtom, tagName, xhtmlNamespaceURI));
 }
 
 bool isTabSpanNode(const Node *node)
@@ -856,6 +861,16 @@ Node *nearestMailBlockquote(const Node *node)
     return 0;
 }
 
+unsigned numEnclosingMailBlockquotes(const Position& p)
+{
+    unsigned num = 0;
+    for (Node* n = p.node(); n; n = n->parentNode())
+        if (isMailBlockquote(n))
+            num++;
+    
+    return num;
+}
+
 bool isMailBlockquote(const Node *node)
 {
     if (!node || !node->isElementNode() && !node->hasTagName(blockquoteTag))
@@ -871,18 +886,15 @@ int caretMinOffset(const Node* n)
     return r ? r->caretMinOffset() : 0;
 }
 
+// If a node can contain candidates for VisiblePositions, return the offset of the last candidate, otherwise 
+// return the number of children for container nodes and the length for unrendered text nodes.
 int caretMaxOffset(const Node* n)
 {
-    RenderObject* r = n->renderer();
-    ASSERT(!n->isCharacterDataNode() || !r || r->isText()); // FIXME: This was a runtime check that seemingly couldn't fail; changed it to an assertion for now.
-    if (r)
-        return r->caretMaxOffset();
-
-    if (n->isCharacterDataNode()) {
-        const CharacterData* c = static_cast<const CharacterData*>(n);
-        return static_cast<int>(c->length());
-    }
-    return 1;
+    // For rendered text nodes, return the last position that a caret could occupy.
+    if (n->isTextNode() && n->renderer())
+        return n->renderer()->caretMaxOffset();
+    // For containers return the number of children.  For others do the same as above.
+    return maxDeepOffset(n);
 }
 
 bool lineBreakExistsAtPosition(const VisiblePosition& visiblePosition)

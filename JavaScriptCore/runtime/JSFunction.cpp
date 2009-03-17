@@ -27,10 +27,10 @@
 
 #include "CodeBlock.h"
 #include "CommonIdentifiers.h"
-#include "ExecState.h"
+#include "CallFrame.h"
 #include "FunctionPrototype.h"
 #include "JSGlobalObject.h"
-#include "Machine.h"
+#include "Interpreter.h"
 #include "ObjectPrototype.h"
 #include "Parser.h"
 #include "PropertyNameArray.h"
@@ -43,7 +43,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSFunction);
 
-const ClassInfo JSFunction::info = { "Function", 0, 0, 0 };
+const ClassInfo JSFunction::info = { "Function", &InternalFunction::info, 0, 0 };
 
 JSFunction::JSFunction(ExecState* exec, const Identifier& name, FunctionBodyNode* body, ScopeChainNode* scopeChainNode)
     : Base(&exec->globalData(), exec->lexicalGlobalObject()->functionStructure(), name)
@@ -54,12 +54,12 @@ JSFunction::JSFunction(ExecState* exec, const Identifier& name, FunctionBodyNode
 
 JSFunction::~JSFunction()
 {
-#if ENABLE(CTI) 
+#if ENABLE(JIT) 
     // JIT code for other functions may have had calls linked directly to the code for this function; these links
     // are based on a check for the this pointer value for this JSFunction - which will no longer be valid once
     // this memory is freed and may be reused (potentially for another, different JSFunction).
-    if (m_body.get() && m_body->isGenerated())
-        m_body->generatedByteCode().unlinkCallers();
+    if (m_body && m_body->isGenerated())
+        m_body->generatedBytecode().unlinkCallers();
 #endif
 }
 
@@ -77,24 +77,24 @@ CallType JSFunction::getCallData(CallData& callData)
     return CallTypeJS;
 }
 
-JSValue* JSFunction::call(ExecState* exec, JSValue* thisValue, const ArgList& args)
+JSValuePtr JSFunction::call(ExecState* exec, JSValuePtr thisValue, const ArgList& args)
 {
-    return exec->machine()->execute(m_body.get(), exec, this, thisValue->toThisObject(exec), args, m_scopeChain.node(), exec->exceptionSlot());
+    return exec->interpreter()->execute(m_body.get(), exec, this, thisValue.toThisObject(exec), args, m_scopeChain.node(), exec->exceptionSlot());
 }
 
-JSValue* JSFunction::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
-{
-    JSFunction* thisObj = asFunction(slot.slotBase());
-    return exec->machine()->retrieveArguments(exec, thisObj);
-}
-
-JSValue* JSFunction::callerGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValuePtr JSFunction::argumentsGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSFunction* thisObj = asFunction(slot.slotBase());
-    return exec->machine()->retrieveCaller(exec, thisObj);
+    return exec->interpreter()->retrieveArguments(exec, thisObj);
 }
 
-JSValue* JSFunction::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValuePtr JSFunction::callerGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+{
+    JSFunction* thisObj = asFunction(slot.slotBase());
+    return exec->interpreter()->retrieveCaller(exec, thisObj);
+}
+
+JSValuePtr JSFunction::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
     JSFunction* thisObj = asFunction(slot.slotBase());
     return jsNumber(exec, thisObj->m_body->parameterCount());
@@ -103,7 +103,7 @@ JSValue* JSFunction::lengthGetter(ExecState* exec, const Identifier&, const Prop
 bool JSFunction::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().prototype) {
-        JSValue** location = getDirectLocation(propertyName);
+        JSValuePtr* location = getDirectLocation(propertyName);
 
         if (!location) {
             JSObject* prototype = new (exec) JSObject(m_scopeChain.globalObject()->emptyObjectStructure());
@@ -133,7 +133,7 @@ bool JSFunction::getOwnPropertySlot(ExecState* exec, const Identifier& propertyN
     return Base::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValue* value, PutPropertySlot& slot)
+void JSFunction::put(ExecState* exec, const Identifier& propertyName, JSValuePtr value, PutPropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return;
@@ -147,32 +147,6 @@ bool JSFunction::deleteProperty(ExecState* exec, const Identifier& propertyName)
     return Base::deleteProperty(exec, propertyName);
 }
 
-/* Returns the parameter name corresponding to the given index. eg:
- * function f1(x, y, z): getParameterName(0) --> x
- *
- * If a name appears more than once, only the last index at which
- * it appears associates with it. eg:
- * function f2(x, x): getParameterName(0) --> null
- */
-const Identifier& JSFunction::getParameterName(int index)
-{
-    const Identifier* parameters = m_body->parameters();
-
-    if (static_cast<size_t>(index) >= m_body->parameterCount())
-        return m_scopeChain.globalObject()->globalData()->propertyNames->nullIdentifier;
-  
-    const Identifier& name = parameters[index];
-
-    // Are there any subsequent parameters with the same name?
-    size_t size = m_body->parameterCount();
-    for (size_t i = index + 1; i < size; ++i) {
-        if (parameters[i] == name)
-            return m_scopeChain.globalObject()->globalData()->propertyNames->nullIdentifier;
-    }
-
-    return name;
-}
-
 // ECMA 13.2.2 [[Construct]]
 ConstructType JSFunction::getConstructData(ConstructData& constructData)
 {
@@ -183,16 +157,16 @@ ConstructType JSFunction::getConstructData(ConstructData& constructData)
 
 JSObject* JSFunction::construct(ExecState* exec, const ArgList& args)
 {
-    StructureID* structure;
-    JSValue* prototype = get(exec, exec->propertyNames().prototype);
-    if (prototype->isObject())
+    Structure* structure;
+    JSValuePtr prototype = get(exec, exec->propertyNames().prototype);
+    if (prototype.isObject())
         structure = asObject(prototype)->inheritorID();
     else
         structure = exec->lexicalGlobalObject()->emptyObjectStructure();
     JSObject* thisObj = new (exec) JSObject(structure);
 
-    JSValue* result = exec->machine()->execute(m_body.get(), exec, this, thisObj, args, m_scopeChain.node(), exec->exceptionSlot());
-    if (exec->hadException() || !result->isObject())
+    JSValuePtr result = exec->interpreter()->execute(m_body.get(), exec, this, thisObj, args, m_scopeChain.node(), exec->exceptionSlot());
+    if (exec->hadException() || !result.isObject())
         return thisObj;
     return asObject(result);
 }

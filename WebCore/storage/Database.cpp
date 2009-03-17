@@ -50,37 +50,42 @@
 #include "SQLResultSet.h"
 #include <runtime/InitializeThreading.h>
 #include <wtf/MainThread.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 static Mutex& guidMutex()
 {
-    // FIXME: this is not a thread-safe way to initialize a shared global.
-    static Mutex mutex;
+    // Note: We don't have to use AtomicallyInitializedStatic here because
+    // this function is called once in the constructor on the main thread
+    // before any other threads that call this function are used.
+    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
     return mutex;
 }
 
-static HashMap<int, String>& guidToVersionMap()
+typedef HashMap<int, String> GuidVersionMap;
+static GuidVersionMap& guidToVersionMap()
 {
-    static HashMap<int, String> map;
+    DEFINE_STATIC_LOCAL(GuidVersionMap, map, ());
     return map;
 }
 
-static HashMap<int, HashSet<Database*>*>& guidToDatabaseMap()
+typedef HashMap<int, HashSet<Database*>*> GuidDatabaseMap;
+static GuidDatabaseMap& guidToDatabaseMap()
 {
-    static HashMap<int, HashSet<Database*>*> map;
+    DEFINE_STATIC_LOCAL(GuidDatabaseMap, map, ());
     return map;
 }
 
 const String& Database::databaseInfoTableName()
 {
-    static String name = "__WebKitDatabaseInfoTable__";
+    DEFINE_STATIC_LOCAL(String, name, ("__WebKitDatabaseInfoTable__"));
     return name;
 }
 
 static const String& databaseVersionKey()
 {
-    static String key = "WebKitDatabaseVersionKey";
+    DEFINE_STATIC_LOCAL(String, key, ("WebKitDatabaseVersionKey"));
     return key;
 }
 
@@ -177,6 +182,8 @@ Database::~Database()
 
 bool Database::openAndVerifyVersion(ExceptionCode& e)
 {
+    if (!m_document->databaseThread())
+        return false;
     m_databaseAuthorizer = DatabaseAuthorizer::create();
 
     RefPtr<DatabaseOpenTask> task = DatabaseOpenTask::create(this);
@@ -216,7 +223,7 @@ static bool retrieveTextResultFromDatabase(SQLiteDatabase& db, const String& que
 
 bool Database::getVersionFromDatabase(String& version)
 {
-    static String getVersionQuery = "SELECT value FROM " + databaseInfoTableName() + " WHERE key = '" + databaseVersionKey() + "';";
+    DEFINE_STATIC_LOCAL(String, getVersionQuery, ("SELECT value FROM " + databaseInfoTableName() + " WHERE key = '" + databaseVersionKey() + "';"));
 
     m_databaseAuthorizer->disable();
 
@@ -252,7 +259,7 @@ static bool setTextValueInDatabase(SQLiteDatabase& db, const String& query, cons
 
 bool Database::setVersionInDatabase(const String& version)
 {
-    static String setVersionQuery = "INSERT INTO " + databaseInfoTableName() + " (key, value) VALUES ('" + databaseVersionKey() + "', ?);";
+    DEFINE_STATIC_LOCAL(String, setVersionQuery, ("INSERT INTO " + databaseInfoTableName() + " (key, value) VALUES ('" + databaseVersionKey() + "', ?);"));
 
     m_databaseAuthorizer->disable();
 
@@ -277,7 +284,7 @@ bool Database::versionMatchesExpected() const
 
 void Database::markAsDeletedAndClose()
 {
-    if (m_deleted)
+    if (m_deleted || !m_document->databaseThread())
         return;
 
     LOG(StorageAPI, "Marking %s (%p) as deleted", stringIdentifier().ascii().data(), this);
@@ -288,7 +295,7 @@ void Database::markAsDeletedAndClose()
         return;
     }
 
-    document()->databaseThread()->unscheduleDatabaseTasks(this);
+    m_document->databaseThread()->unscheduleDatabaseTasks(this);
 
     RefPtr<DatabaseCloseTask> task = DatabaseCloseTask::create(this);
 
@@ -352,19 +359,22 @@ void Database::enableAuthorizer()
 
 static int guidForOriginAndName(const String& origin, const String& name)
 {
-    static int currentNewGUID = 1;
-    static Mutex stringIdentifierMutex;
-    static HashMap<String, int> stringIdentifierToGUIDMap;
-
     String stringID;
     if (origin.endsWith("/"))
         stringID = origin + name;
     else
         stringID = origin + "/" + name;
 
+    // Note: We don't have to use AtomicallyInitializedStatic here because
+    // this function is called once in the constructor on the main thread
+    // before any other threads that call this function are used.
+    DEFINE_STATIC_LOCAL(Mutex, stringIdentifierMutex, ());
     MutexLocker locker(stringIdentifierMutex);
+    typedef HashMap<String, int> IDGuidMap;
+    DEFINE_STATIC_LOCAL(IDGuidMap, stringIdentifierToGUIDMap, ());
     int guid = stringIdentifierToGUIDMap.get(stringID);
     if (!guid) {
+        static int currentNewGUID = 1;
         guid = currentNewGUID++;
         stringIdentifierToGUIDMap.set(stringID, guid);
     }
@@ -557,6 +567,8 @@ void Database::deliverPendingCallback(void* context)
 
 Vector<String> Database::tableNames()
 {
+    if (!m_document->databaseThread())
+        return Vector<String>();
     RefPtr<DatabaseTableNamesTask> task = DatabaseTableNamesTask::create(this);
 
     task->lockForSynchronousScheduling();

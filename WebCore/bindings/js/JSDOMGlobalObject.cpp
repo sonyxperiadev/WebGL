@@ -30,6 +30,12 @@
 #include "Document.h"
 #include "JSDOMWindow.h"
 #include "JSEventListener.h"
+#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
+#if ENABLE(WORKERS)
+#include "JSWorkerContext.h"
+#endif
+#endif
+#include "WorkerContext.h"
 
 using namespace JSC;
 
@@ -40,7 +46,7 @@ JSDOMGlobalObject::JSDOMGlobalObjectData::JSDOMGlobalObjectData()
 {
 }
 
-JSDOMGlobalObject::JSDOMGlobalObject(PassRefPtr<StructureID> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
+JSDOMGlobalObject::JSDOMGlobalObject(PassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
     : JSGlobalObject(structure, data, thisValue)
 {
 }
@@ -84,42 +90,42 @@ void JSDOMGlobalObject::mark()
     }
 }
 
-JSEventListener* JSDOMGlobalObject::findJSEventListener(JSValue* val, bool isInline)
+JSEventListener* JSDOMGlobalObject::findJSEventListener(JSValuePtr val, bool isInline)
 {
-    if (!val->isObject())
+    if (!val.isObject())
         return 0;
     JSObject* object = asObject(val);
     ListenersMap& listeners = isInline ? d()->jsInlineEventListeners : d()->jsEventListeners;
     return listeners.get(object);
 }
 
-PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(ExecState* exec, JSValue* val, bool isInline)
+PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(ExecState*, JSValuePtr val, bool isInline)
 {
     if (JSEventListener* listener = findJSEventListener(val, isInline))
         return listener;
 
-    if (!val->isObject())
+    if (!val.isObject())
         return 0;
 
     // The JSEventListener constructor adds it to our jsEventListeners map.
     return JSEventListener::create(asObject(val), this, isInline).get();
 }
 
-JSUnprotectedEventListener* JSDOMGlobalObject::findJSUnprotectedEventListener(ExecState* exec, JSValue* val, bool isInline)
+JSUnprotectedEventListener* JSDOMGlobalObject::findJSUnprotectedEventListener(ExecState*, JSValuePtr val, bool isInline)
 {
-    if (!val->isObject())
+    if (!val.isObject())
         return 0;
 
     UnprotectedListenersMap& listeners = isInline ? d()->jsUnprotectedInlineEventListeners : d()->jsUnprotectedEventListeners;
     return listeners.get(asObject(val));
 }
 
-PassRefPtr<JSUnprotectedEventListener> JSDOMGlobalObject::findOrCreateJSUnprotectedEventListener(ExecState* exec, JSValue* val, bool isInline)
+PassRefPtr<JSUnprotectedEventListener> JSDOMGlobalObject::findOrCreateJSUnprotectedEventListener(ExecState* exec, JSValuePtr val, bool isInline)
 {
     if (JSUnprotectedEventListener* listener = findJSUnprotectedEventListener(exec, val, isInline))
         return listener;
 
-    if (!val->isObject())
+    if (!val.isObject())
         return 0;
 
     // The JSUnprotectedEventListener constructor adds it to our jsUnprotectedEventListeners map.
@@ -161,7 +167,12 @@ JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionCo
     if (scriptExecutionContext->isDocument())
         return toJSDOMWindow(static_cast<Document*>(scriptExecutionContext)->frame());
 
-    // Not implemented yet.
+#if ENABLE(WORKERS)
+    if (scriptExecutionContext->isWorkerContext())
+        return static_cast<WorkerContext*>(scriptExecutionContext)->script()->workerContextWrapper();
+#endif
+
+    ASSERT_NOT_REACHED();
     return 0;
 }
 

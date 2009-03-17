@@ -66,7 +66,7 @@ int InlineFlowBox::marginLeft()
         return 0;
     if (margin.isFixed())
         return margin.value();
-    return object()->marginLeft();
+    return renderBox()->marginLeft();
 }
 
 int InlineFlowBox::marginRight()
@@ -79,7 +79,7 @@ int InlineFlowBox::marginRight()
         return 0;
     if (margin.isFixed())
         return margin.value();
-    return object()->marginRight();
+    return renderBox()->marginRight();
 }
 
 int InlineFlowBox::marginBorderPaddingLeft()
@@ -249,11 +249,11 @@ void InlineFlowBox::determineSpacingForFlowBoxes(bool lastLine, RenderObject* en
         if (!flow->lastLineBox()->isConstructed()) {
             if (ltr) {
                 if (!nextLineBox() &&
-                    ((lastLine && !object()->continuation()) || nextOnLineExists() || onEndChain(endObject)))
+                    ((lastLine && !flow->continuation()) || nextOnLineExists() || onEndChain(endObject)))
                     includeRightEdge = true;
             } else {
                 if ((!prevLineBox() || prevLineBox()->isConstructed()) &&
-                    ((lastLine && !object()->continuation()) || prevOnLineExists() || onEndChain(endObject)))
+                    ((lastLine && !flow->continuation()) || prevOnLineExists() || onEndChain(endObject)))
                     includeLeftEdge = true;
             }
         }
@@ -289,7 +289,7 @@ int InlineFlowBox::placeBoxesHorizontally(int x, int& leftPosition, int& rightPo
     for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
         if (curr->object()->isText()) {
             InlineTextBox* text = static_cast<InlineTextBox*>(curr);
-            RenderText* rt = static_cast<RenderText*>(text->object());
+            RenderText* rt = toRenderText(text->object());
             if (rt->textLength()) {
                 if (needsWordSpacing && isSpaceOrNewline(rt->characters()[text->start()]))
                     x += rt->style(m_firstLine)->font().wordSpacing();
@@ -325,25 +325,20 @@ int InlineFlowBox::placeBoxesHorizontally(int x, int& leftPosition, int& rightPo
                     // Our offset that we cache needs to be from the edge of the right border box and
                     // not the left border box.  We have to subtract |x| from the width of the block
                     // (which can be obtained from the root line box).
-                    curr->setXPos(root()->object()->width()-x);
+                    curr->setXPos(root()->block()->width()-x);
                 continue; // The positioned object has no effect on the width.
             }
-            if (curr->object()->isInlineFlow()) {
+            if (curr->object()->isRenderInline()) {
                 InlineFlowBox* flow = static_cast<InlineFlowBox*>(curr);
-                if (curr->object()->isCompact()) {
-                    int ignoredX = x;
-                    flow->placeBoxesHorizontally(ignoredX, leftPosition, rightPosition, needsWordSpacing);
-                } else {
-                    x += flow->marginLeft();
-                    x = flow->placeBoxesHorizontally(x, leftPosition, rightPosition, needsWordSpacing);
-                    x += flow->marginRight();
-                }
-            } else if (!curr->object()->isCompact() && (!curr->object()->isListMarker() || static_cast<RenderListMarker*>(curr->object())->isInside())) {
-                x += curr->object()->marginLeft();
+                x += flow->marginLeft();
+                x = flow->placeBoxesHorizontally(x, leftPosition, rightPosition, needsWordSpacing);
+                x += flow->marginRight();
+            } else if (!curr->object()->isListMarker() || static_cast<RenderListMarker*>(curr->object())->isInside()) {
+                x += curr->renderBox()->marginLeft();
                 curr->setXPos(x);
-                leftPosition = min(x + curr->object()->overflowLeft(false), leftPosition);
-                rightPosition = max(x + curr->object()->overflowWidth(false), rightPosition);
-                x += curr->width() + curr->object()->marginRight();
+                leftPosition = min(x + curr->renderBox()->overflowLeft(false), leftPosition);
+                rightPosition = max(x + curr->renderBox()->overflowWidth(false), rightPosition);
+                x += curr->width() + curr->renderBox()->marginRight();
             }
         }
     }
@@ -355,7 +350,7 @@ int InlineFlowBox::placeBoxesHorizontally(int x, int& leftPosition, int& rightPo
     return x;
 }
 
-void InlineFlowBox::verticallyAlignBoxes(int& heightOfBlock)
+int InlineFlowBox::verticallyAlignBoxes(int heightOfBlock)
 {
     int maxPositionTop = 0;
     int maxPositionBottom = 0;
@@ -389,6 +384,8 @@ void InlineFlowBox::verticallyAlignBoxes(int& heightOfBlock)
         shrinkBoxesWithNoTextChildren(topPosition, bottomPosition);
     
     heightOfBlock += maxHeight;
+    
+    return heightOfBlock;
 }
 
 void InlineFlowBox::adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
@@ -456,7 +453,7 @@ void InlineFlowBox::computeLogicalBoxHeights(int& maxPositionTop, int& maxPositi
             if (maxPositionBottom < curr->height())
                 maxPositionBottom = curr->height();
         }
-        else if (curr->hasTextChildren() || curr->object()->hasHorizontalBordersOrPadding() || strictMode) {
+        else if (curr->hasTextChildren() || curr->renderBox()->hasHorizontalBordersOrPadding() || strictMode) {
             int ascent = curr->baseline() - curr->yPos();
             int descent = curr->height() - ascent;
             if (maxAscent < ascent)
@@ -491,7 +488,7 @@ void InlineFlowBox::placeBoxesVertically(int y, int maxHeight, int maxAscent, bo
         else if (curr->yPos() == PositionBottom)
             curr->setYPos(y + maxHeight - curr->height());
         else {
-            if (!curr->hasTextChildren() && !curr->object()->hasHorizontalBordersOrPadding() && !strictMode)
+            if (!curr->hasTextChildren() && !curr->renderBox()->hasHorizontalBordersOrPadding() && !strictMode)
                 childAffectsTopBottomPos = false;
             curr->setYPos(curr->yPos() + y + maxAscent - curr->baseline());
         }
@@ -522,21 +519,21 @@ void InlineFlowBox::placeBoxesVertically(int y, int maxHeight, int maxAscent, bo
             }
 
             if (curr->object()->hasReflection()) {
-                overflowTop = min(overflowTop, curr->object()->reflectionBox().y());
-                overflowBottom = max(overflowBottom, curr->object()->reflectionBox().bottom());
+                overflowTop = min(overflowTop, curr->renderBox()->reflectionBox().y());
+                overflowBottom = max(overflowBottom, curr->renderBox()->reflectionBox().bottom());
             }
 
             if (curr->isInlineFlowBox()) {
-                newHeight += curr->object()->borderTop() + curr->object()->paddingTop() +
-                            curr->object()->borderBottom() + curr->object()->paddingBottom();
-                newY -= curr->object()->borderTop() + curr->object()->paddingTop();
-                newBaseline += curr->object()->borderTop() + curr->object()->paddingTop();
+                newHeight += curr->renderBox()->borderTop() + curr->renderBox()->paddingTop() +
+                            curr->renderBox()->borderBottom() + curr->renderBox()->paddingBottom();
+                newY -= curr->renderBox()->borderTop() + curr->renderBox()->paddingTop();
+                newBaseline += curr->renderBox()->borderTop() + curr->renderBox()->paddingTop();
             }
         } else if (!curr->object()->isBR()) {
-            newY += curr->object()->marginTop();
-            newHeight = curr->height() - (curr->object()->marginTop() + curr->object()->marginBottom());
-            overflowTop = curr->object()->overflowTop(false);
-            overflowBottom = curr->object()->overflowHeight(false) - newHeight;
+            newY += curr->renderBox()->marginTop();
+            newHeight = curr->height() - (curr->renderBox()->marginTop() + curr->renderBox()->marginBottom());
+            overflowTop = curr->renderBox()->overflowTop(false);
+            overflowBottom = curr->renderBox()->overflowHeight(false) - newHeight;
         }
 
         curr->setYPos(newY);
@@ -575,7 +572,7 @@ void InlineFlowBox::shrinkBoxesWithNoTextChildren(int topPos, int bottomPos)
     }
 
     // See if we have text children. If not, then we need to shrink ourselves to fit on the line.
-    if (!hasTextChildren() && !object()->hasHorizontalBordersOrPadding()) {
+    if (!hasTextChildren() && !renderBox()->hasHorizontalBordersOrPadding()) {
         if (yPos() < topPos)
             setYPos(topPos);
         if (yPos() + height() > bottomPos)
@@ -597,7 +594,7 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
     // Now check ourselves.
     IntRect rect(tx + m_x, ty + m_y, m_width, m_height);
-    if (object()->style()->visibility() == VISIBLE && rect.contains(x, y)) {
+    if (visibleToHitTesting() && rect.contains(x, y)) {
         object()->updateHitTestResult(result, IntPoint(x - tx, y - ty)); // Don't add in m_x or m_y here, we want coords in the containing block's space.
         return true;
     }
@@ -628,7 +625,7 @@ void InlineFlowBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
             // Add ourselves to the paint info struct's list of inlines that need to paint their
             // outlines.
             if (object()->style()->visibility() == VISIBLE && object()->hasOutline() && !isRootInlineBox()) {
-                if ((object()->continuation() || object()->isInlineContinuation()) && !object()->hasLayer()) {
+                if ((flowObject()->continuation() || object()->isInlineContinuation()) && !object()->hasLayer()) {
                     // Add ourselves to the containing block of the entire continuation so that it can
                     // paint us atomically.
                     RenderBlock* block = object()->containingBlock()->containingBlock();
@@ -855,7 +852,7 @@ void InlineFlowBox::paintMask(RenderObject::PaintInfo& paintInfo, int tx, int ty
 static bool shouldDrawTextDecoration(RenderObject* obj)
 {
     for (RenderObject* curr = obj->firstChild(); curr; curr = curr->nextSibling()) {
-        if (curr->isInlineFlow())
+        if (curr->isRenderInline())
             return true;
         if (curr->isText() && !curr->isBR()) {
             if (!curr->style()->collapseWhiteSpace())

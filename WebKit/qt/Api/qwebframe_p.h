@@ -78,10 +78,10 @@ public:
     Qt::ScrollBarPolicy horizontalScrollBarPolicy;
     Qt::ScrollBarPolicy verticalScrollBarPolicy; 
 
-    void updateBackground();
-
     static WebCore::Frame* core(QWebFrame*);
     static QWebFrame* kit(WebCore::Frame*);
+
+    void renderPrivate(QPainter *painter, const QRegion &clip, bool contents = false);
 
     QWebFrame *q;
     WebCore::FrameLoaderClientQt *frameLoaderClient;
@@ -96,11 +96,12 @@ public:
 class QWebHitTestResultPrivate
 {
 public:
-    QWebHitTestResultPrivate() : isContentEditable(false), isContentSelected(false) {}
+    QWebHitTestResultPrivate() : isContentEditable(false), isContentSelected(false), isScrollBar(false) {}
     QWebHitTestResultPrivate(const WebCore::HitTestResult &hitTest);
 
     QPoint pos;
     QRect boundingRect;
+    QRect enclosingBlock;
     QString title;
     QString linkText;
     QUrl linkUrl;
@@ -111,7 +112,9 @@ public:
     QPixmap pixmap;
     bool isContentEditable;
     bool isContentSelected;
+    bool isScrollBar;
     QPointer<QWebFrame> frame;
+    RefPtr<WebCore::Node> innerNode;
     RefPtr<WebCore::Node> innerNonSharedNode;
 };
 

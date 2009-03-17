@@ -26,10 +26,9 @@
 #include "SVGStyledTransformableElement.h"
 
 #include "Attr.h"
-#include "RegularExpression.h"
 #include "RenderPath.h"
 #include "SVGDocument.h"
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "SVGStyledElement.h"
 #include "SVGTransformList.h"
 
@@ -48,25 +47,25 @@ SVGStyledTransformableElement::~SVGStyledTransformableElement()
 {
 }
 
-AffineTransform SVGStyledTransformableElement::getCTM() const
+TransformationMatrix SVGStyledTransformableElement::getCTM() const
 {
     return SVGTransformable::getCTM(this);
 }
 
-AffineTransform SVGStyledTransformableElement::getScreenCTM() const
+TransformationMatrix SVGStyledTransformableElement::getScreenCTM() const
 {
     return SVGTransformable::getScreenCTM(this);
 }
 
-AffineTransform SVGStyledTransformableElement::animatedLocalTransform() const
+TransformationMatrix SVGStyledTransformableElement::animatedLocalTransform() const
 {
     return m_supplementalTransform ? transform()->concatenate().matrix() * *m_supplementalTransform : transform()->concatenate().matrix();
 }
     
-AffineTransform* SVGStyledTransformableElement::supplementalTransform()
+TransformationMatrix* SVGStyledTransformableElement::supplementalTransform()
 {
     if (!m_supplementalTransform)
-        m_supplementalTransform.set(new AffineTransform());
+        m_supplementalTransform.set(new TransformationMatrix());
     return m_supplementalTransform.get();
 }
 
@@ -107,10 +106,10 @@ FloatRect SVGStyledTransformableElement::getBBox() const
     return SVGTransformable::getBBox(this);
 }
 
-RenderObject* SVGStyledTransformableElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGStyledTransformableElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     // By default, any subclass is expected to do path-based drawing
-    return new (arena) RenderPath(style, this);
+    return new (arena) RenderPath(this);
 }
 
 Path SVGStyledTransformableElement::toClipPath() const

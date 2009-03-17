@@ -36,6 +36,11 @@
 #include "XLinkNames.h"
 #endif
 
+#if ENABLE(WML)
+#include "WMLImageElement.h"
+#include "WMLNames.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -172,9 +177,7 @@ String displayString(const String& string, const Node* node)
 {
     if (!node)
         return string;
-    String copy(string);
-    copy.replace('\\', node->document()->backslashAsCurrencySymbol());
-    return copy;
+    return node->document()->displayStringModifiedByEncoding(string);
 }
 
 String HitTestResult::altDisplayString() const
@@ -192,6 +195,13 @@ String HitTestResult::altDisplayString() const
         return displayString(input->alt(), m_innerNonSharedNode.get());
     }
     
+#if ENABLE(WML)
+    if (m_innerNonSharedNode->hasTagName(WMLNames::imgTag)) {
+        WMLImageElement* image = static_cast<WMLImageElement*>(m_innerNonSharedNode.get());
+        return displayString(image->altText(), m_innerNonSharedNode.get());
+    }
+#endif
+
     return String();
 }
 
@@ -214,7 +224,7 @@ IntRect HitTestResult::imageRect() const
 {
     if (!image())
         return IntRect();
-    return m_innerNonSharedNode->renderer()->absoluteContentBox();
+    return m_innerNonSharedNode->renderBox()->absoluteContentBox();
 }
 
 KURL HitTestResult::absoluteImageURL() const
@@ -226,18 +236,22 @@ KURL HitTestResult::absoluteImageURL() const
         return KURL();
 
     AtomicString urlString;
-    if (m_innerNonSharedNode->hasTagName(imgTag) || m_innerNonSharedNode->hasTagName(inputTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(srcAttr);
+    if (m_innerNonSharedNode->hasTagName(embedTag)
+        || m_innerNonSharedNode->hasTagName(imgTag)
+        || m_innerNonSharedNode->hasTagName(inputTag)
+        || m_innerNonSharedNode->hasTagName(objectTag)    
 #if ENABLE(SVG)
-    else if (m_innerNonSharedNode->hasTagName(SVGNames::imageTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(XLinkNames::hrefAttr);
+        || m_innerNonSharedNode->hasTagName(SVGNames::imageTag)
 #endif
-    else if (m_innerNonSharedNode->hasTagName(embedTag) || m_innerNonSharedNode->hasTagName(objectTag)) {
+#if ENABLE(WML)
+        || m_innerNonSharedNode->hasTagName(WMLNames::imgTag)
+#endif
+       ) {
         Element* element = static_cast<Element*>(m_innerNonSharedNode.get());
         urlString = element->getAttribute(element->imageSourceAttributeName());
     } else
         return KURL();
-    
+
     return m_innerNonSharedNode->document()->completeURL(parseURL(urlString));
 }
 
@@ -252,6 +266,10 @@ KURL HitTestResult::absoluteLinkURL() const
 #if ENABLE(SVG)
     else if (m_innerURLElement->hasTagName(SVGNames::aTag))
         urlString = m_innerURLElement->getAttribute(XLinkNames::hrefAttr);
+#endif
+#if ENABLE(WML)
+    else if (m_innerURLElement->hasTagName(WMLNames::aTag))
+        urlString = m_innerURLElement->getAttribute(hrefAttr);
 #endif
     else
         return KURL();
@@ -270,7 +288,11 @@ bool HitTestResult::isLiveLink() const
     if (m_innerURLElement->hasTagName(SVGNames::aTag))
         return m_innerURLElement->isLink();
 #endif
-    
+#if ENABLE(WML)
+    if (m_innerURLElement->hasTagName(WMLNames::aTag))
+        return m_innerURLElement->isLink();
+#endif
+
     return false;
 }
 

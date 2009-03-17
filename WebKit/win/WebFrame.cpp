@@ -313,6 +313,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
 
     HDC dc = (HDC)(ULONG64)deviceContext;
     GraphicsContext gc(dc);
+    gc.setShouldIncludeChildWindows(true);
     gc.save();
     LONG width = rect.right - rect.left;
     LONG height = rect.bottom - rect.top;
@@ -475,7 +476,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::loadRequest(
     if (!coreFrame)
         return E_FAIL;
 
-    coreFrame->loader()->load(requestImpl->resourceRequest());
+    coreFrame->loader()->load(requestImpl->resourceRequest(), false);
     return S_OK;
 }
 
@@ -486,15 +487,20 @@ void WebFrame::loadData(PassRefPtr<WebCore::SharedBuffer> data, BSTR mimeType, B
         mimeTypeString = "text/html";
 
     String encodingString(textEncodingName, SysStringLen(textEncodingName));
-    KURL baseKURL(String(baseURL ? baseURL : L"", SysStringLen(baseURL)));
-    KURL failingKURL(String(failingURL, SysStringLen(failingURL)));
+
+    // FIXME: We should really be using MarshallingHelpers::BSTRToKURL here,
+    // but that would turn a null BSTR into a null KURL, and we crash inside of
+    // WebCore if we use a null KURL in constructing the ResourceRequest.
+    KURL baseKURL = KURL(KURL(), String(baseURL ? baseURL : L"", SysStringLen(baseURL)));
+
+    KURL failingKURL = MarshallingHelpers::BSTRToKURL(failingURL);
 
     ResourceRequest request(baseKURL);
     SubstituteData substituteData(data, mimeTypeString, encodingString, failingKURL);
 
     // This method is only called from IWebFrame methods, so don't ASSERT that the Frame pointer isn't null.
     if (Frame* coreFrame = core(this))
-        coreFrame->loader()->load(request, substituteData);
+        coreFrame->loader()->load(request, substituteData, false);
 }
 
 
@@ -910,8 +916,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::selectedString(
     if (!coreFrame)
         return E_FAIL;
 
-    String text = coreFrame->selectedText();
-    text.replace('\\', coreFrame->backslashAsCurrencySymbol());
+    String text = coreFrame->displayStringModifiedByEncoding(coreFrame->selectedText());
 
     *result = BString(text).release();
     return S_OK;
@@ -1322,10 +1327,6 @@ String WebFrame::userAgent(const KURL& url)
     return d->webView->userAgentForKURL(url);
 }
 
-void WebFrame::transitionToCommittedFromCachedPage(CachedPage*)
-{
-}
-
 void WebFrame::saveViewStateToItem(HistoryItem*)
 {
 }
@@ -1343,10 +1344,10 @@ ResourceError WebFrame::blockedError(const ResourceRequest& request)
     return ResourceError(String(WebKitErrorDomain), WebKitErrorCannotUseRestrictedPort, request.url().string(), String());
 }
 
-ResourceError WebFrame::cannotShowURLError(const ResourceRequest&)
+ResourceError WebFrame::cannotShowURLError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    // FIXME: Need to implement the String descriptions for errors in the WebKitErrorDomain and have them localized
+    return ResourceError(String(WebKitErrorDomain), WebKitErrorCannotShowURL, request.url().string(), String());
 }
 
 ResourceError WebFrame::interruptForPolicyChangeError(const ResourceRequest& request)
@@ -1812,6 +1813,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     float headerHeight = 0, footerHeight = 0;
     headerAndFooterHeights(&headerHeight, &footerHeight);
     GraphicsContext spoolCtx(pctx);
+    spoolCtx.setShouldIncludeChildWindows(true);
 
     for (UINT ii = startPage; ii < endPage; ii++) {
         IntRect pageRect = m_pageRects[ii];
@@ -2036,13 +2038,10 @@ void WebFrame::updateBackground()
 {
     Color backgroundColor = webView()->transparent() ? Color::transparent : Color::white;
     Frame* coreFrame = core(this);
-    for (Frame* frame = coreFrame; frame; frame = frame->tree()->traverseNext(coreFrame)) {
-        FrameView* view = frame->view();
-        if (!view)
-            continue;
 
-        view->setTransparent(webView()->transparent());
-        view->setBaseBackgroundColor(backgroundColor);
-    }
+    if (!coreFrame || !coreFrame->view())
+        return;
+
+    coreFrame->view()->updateBackgroundRecursively(backgroundColor, webView()->transparent());
 }
 

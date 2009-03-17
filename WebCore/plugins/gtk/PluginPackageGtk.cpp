@@ -80,47 +80,20 @@ static PlatformModuleVersion getModuleVersion(const char *description)
     return version;
 }
 
-void PluginPackage::determineQuirks(const String& mimeType)
-{
-    if (MIMETypeRegistry::isJavaAppletMIMEType(mimeType)) {
-        // Because a single process cannot create multiple VMs, and we cannot reliably unload a
-        // Java VM, we cannot unload the Java plugin, or we'll lose reference to our only VM
-        m_quirks.add(PluginQuirkDontUnloadPlugin);
-
-        // Setting the window region to an empty region causes bad scrolling repaint problems
-        // with the Java plug-in.
-        m_quirks.add(PluginQuirkDontClipToZeroRectWhenScrolling);
-        return;
-    }
-    
-    if (mimeType == "application/x-shockwave-flash") {
-        static const PlatformModuleVersion flashTenVersion(0x0a000000);
-
-        if (compareFileVersion(flashTenVersion) >= 0) {
-            // Flash 10.0 b218 doesn't like having a NULL window handle
-            m_quirks.add(PluginQuirkDontSetNullWindowHandleOnDestroy);
-        } else {
-            // Flash 9 and older requests windowless plugins if we return a mozilla user agent
-            m_quirks.add(PluginQuirkWantsMozillaUserAgent);
-        }
-
-        m_quirks.add(PluginQuirkThrottleInvalidate);
-        m_quirks.add(PluginQuirkThrottleWMUserPlusOneMessages);
-        m_quirks.add(PluginQuirkFlashURLNotifyBug);
-    }
-}
-
 bool PluginPackage::fetchInfo()
 {
 #if defined(XP_UNIX)
     if (!load())
         return false;
 
-    NP_GetMIMEDescriptionFuncPtr NP_GetMIMEDescription;
-    NPP_GetValueProcPtr NPP_GetValue;
+    NP_GetMIMEDescriptionFuncPtr NP_GetMIMEDescription = 0;
+    NPP_GetValueProcPtr NPP_GetValue = 0;
 
     g_module_symbol(m_module, "NP_GetMIMEDescription", (void**)&NP_GetMIMEDescription);
     g_module_symbol(m_module, "NP_GetValue", (void**)&NPP_GetValue);
+
+    if (!NP_GetMIMEDescription || !NPP_GetValue)
+        return false;
 
     char* buffer = 0;
     NPError err = NPP_GetValue(0, NPPVpluginNameString, &buffer);
@@ -131,7 +104,7 @@ bool PluginPackage::fetchInfo()
     err = NPP_GetValue(0, NPPVpluginDescriptionString, &buffer);
     if (err == NPERR_NO_ERROR) {
         m_description = buffer;
-        m_moduleVersion = getModuleVersion(buffer); 
+        determineModuleVersionFromDescription();
     }
 
     const gchar* types = NP_GetMIMEDescription();
@@ -182,7 +155,9 @@ bool PluginPackage::load()
 
     m_isLoaded = true;
 
-    NP_InitializeFuncPtr NP_Initialize;
+    NP_InitializeFuncPtr NP_Initialize = 0;
+    m_NPP_Shutdown = 0;
+
     NPError npErr;
 
     g_module_symbol(m_module, "NP_Initialize", (void**)&NP_Initialize);
@@ -194,8 +169,10 @@ bool PluginPackage::load()
     memset(&m_pluginFuncs, 0, sizeof(m_pluginFuncs));
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
 
+    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
     m_browserFuncs.size = sizeof (m_browserFuncs);
     m_browserFuncs.version = NP_VERSION_MINOR;
+
     m_browserFuncs.geturl = NPN_GetURL;
     m_browserFuncs.posturl = NPN_PostURL;
     m_browserFuncs.requestread = NPN_RequestRead;
@@ -219,6 +196,7 @@ bool PluginPackage::load()
     m_browserFuncs.getJavaPeer = NPN_GetJavaPeer;
     m_browserFuncs.pushpopupsenabledstate = NPN_PushPopupsEnabledState;
     m_browserFuncs.poppopupsenabledstate = NPN_PopPopupsEnabledState;
+    m_browserFuncs.pluginthreadasynccall = NPN_PluginThreadAsyncCall;
 
     m_browserFuncs.releasevariantvalue = _NPN_ReleaseVariantValue;
     m_browserFuncs.getstringidentifier = _NPN_GetStringIdentifier;
@@ -226,6 +204,7 @@ bool PluginPackage::load()
     m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
     m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
     m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
+    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
     m_browserFuncs.createobject = _NPN_CreateObject;
     m_browserFuncs.retainobject = _NPN_RetainObject;
     m_browserFuncs.releaseobject = _NPN_ReleaseObject;

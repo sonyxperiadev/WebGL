@@ -42,16 +42,14 @@ namespace WebCore {
     class EventListener;
     class EventTargetNode;
     class MessagePort;
-    class RegisteredEventListener;
     class ScriptExecutionContext;
     class SVGElementInstance;
+    class Worker;
+    class WorkerContext;
     class XMLHttpRequest;
     class XMLHttpRequestUpload;
 
     typedef int ExceptionCode;
-
-    template<typename T> class DeprecatedValueList;
-    typedef DeprecatedValueList<RefPtr<RegisteredEventListener> > RegisteredEventListenerList;
 
     class EventTarget {
     public:
@@ -64,6 +62,10 @@ namespace WebCore {
 #endif
 #if ENABLE(SVG)
         virtual SVGElementInstance* toSVGElementInstance();
+#endif
+#if ENABLE(WORKERS)
+        virtual Worker* toWorker();
+        virtual WorkerContext* toWorkerContext();
 #endif
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
@@ -78,7 +80,7 @@ namespace WebCore {
         // Handlers to do/undo actions on the target node before an event is dispatched to it and after the event
         // has been dispatched.  The data pointer is handed back by the preDispatch and passed to postDispatch.
         virtual void* preDispatchEventHandler(Event*) { return 0; }
-        virtual void postDispatchEventHandler(Event*, void* dataFromPreDispatch) { }
+        virtual void postDispatchEventHandler(Event*, void* /*dataFromPreDispatch*/) { }
 
     protected:
         virtual ~EventTarget();
@@ -88,14 +90,16 @@ namespace WebCore {
         virtual void derefEventTarget() = 0;
     };
 
+    void forbidEventDispatch();
+    void allowEventDispatch();
+
 #ifndef NDEBUG
-void forbidEventDispatch();
-void allowEventDispatch();
-bool eventDispatchForbidden();
+    bool eventDispatchForbidden();
 #else
-inline void forbidEventDispatch() { }
-inline void allowEventDispatch() { }
-#endif // NDEBUG 
+    inline void forbidEventDispatch() { }
+    inline void allowEventDispatch() { }
+#endif
 
 }
+
 #endif

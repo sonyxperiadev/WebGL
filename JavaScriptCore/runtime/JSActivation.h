@@ -33,7 +33,7 @@
 #include "JSVariableObject.h"
 #include "RegisterFile.h"
 #include "SymbolTable.h"
-#include "nodes.h"
+#include "Nodes.h"
 
 namespace JSC {
 
@@ -50,11 +50,13 @@ namespace JSC {
 
         virtual bool isDynamicScope() const;
 
+        virtual bool isActivationObject() const { return true; }
+
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
 
-        virtual void put(ExecState*, const Identifier&, JSValue*, PutPropertySlot&);
+        virtual void put(ExecState*, const Identifier&, JSValuePtr, PutPropertySlot&);
 
-        virtual void putWithAttributes(ExecState*, const Identifier&, JSValue*, unsigned attributes);
+        virtual void putWithAttributes(ExecState*, const Identifier&, JSValuePtr, unsigned attributes);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
 
         virtual JSObject* toThisObject(ExecState*) const;
@@ -64,12 +66,12 @@ namespace JSC {
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;
 
-        static PassRefPtr<StructureID> createStructureID(JSValue* proto) { return StructureID::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValuePtr proto) { return Structure::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
 
     private:
         struct JSActivationData : public JSVariableObjectData {
             JSActivationData(PassRefPtr<FunctionBodyNode> functionBody, Register* registers)
-                : JSVariableObjectData(&functionBody->symbolTable(), registers)
+                : JSVariableObjectData(&functionBody->generatedBytecode().symbolTable(), registers)
                 , functionBody(functionBody)
             {
             }
@@ -77,15 +79,15 @@ namespace JSC {
             RefPtr<FunctionBodyNode> functionBody;
         };
         
-        static JSValue* argumentsGetter(ExecState*, const Identifier&, const PropertySlot&);
+        static JSValuePtr argumentsGetter(ExecState*, const Identifier&, const PropertySlot&);
         NEVER_INLINE PropertySlot::GetValueFunc getArgumentsGetter();
 
         JSActivationData* d() const { return static_cast<JSActivationData*>(JSVariableObject::d); }
     };
 
-    JSActivation* asActivation(JSValue*);
+    JSActivation* asActivation(JSValuePtr);
 
-    inline JSActivation* asActivation(JSValue* value)
+    inline JSActivation* asActivation(JSValuePtr value)
     {
         ASSERT(asObject(value)->inherits(&JSActivation::info));
         return static_cast<JSActivation*>(asObject(value));

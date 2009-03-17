@@ -28,7 +28,7 @@
 #include "SkANP.h"
 
 static ANPTypeface* anp_createFromName(const char name[], ANPTypefaceStyle s) {
-    SkTypeface* tf = SkTypeface::Create(name,
+    SkTypeface* tf = SkTypeface::CreateFromName(name,
                                         static_cast<SkTypeface::Style>(s));
     return reinterpret_cast<ANPTypeface*>(tf);
 }
@@ -53,7 +53,7 @@ static void anp_unref(ANPTypeface* tf) {
 }
 
 static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {
-    SkTypeface::Style s = tf ? tf->getStyle() : SkTypeface::kNormal;
+    SkTypeface::Style s = tf ? tf->style() : SkTypeface::kNormal;
     return static_cast<ANPTypefaceStyle>(s);
 }
 

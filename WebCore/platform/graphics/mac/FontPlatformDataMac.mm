@@ -34,7 +34,7 @@ FontPlatformData::FontPlatformData(NSFont *f, bool b , bool o)
         CFRetain(f);
     m_size = f ? [f pointSize] : 0.0f;
 #ifndef BUILDING_ON_TIGER
-    m_cgFont = CTFontCopyGraphicsFont(toCTFontRef(f), 0);
+    m_cgFont.adoptCF(CTFontCopyGraphicsFont(toCTFontRef(f), 0));
     m_atsuFontID = CTFontGetPlatformFont(toCTFontRef(f), 0);
 #else
     m_cgFont = wkGetCGFontFromNSFont(f);
@@ -86,7 +86,7 @@ void FontPlatformData::setFont(NSFont *font)
     m_font = font;
     m_size = font ? [font pointSize] : 0.0f;
 #ifndef BUILDING_ON_TIGER
-    m_cgFont = CTFontCopyGraphicsFont(toCTFontRef(font), 0);
+    m_cgFont.adoptCF(CTFontCopyGraphicsFont(toCTFontRef(font), 0));
     m_atsuFontID = CTFontGetPlatformFont(toCTFontRef(font), 0);
 #else
     m_cgFont = wkGetCGFontFromNSFont(font);

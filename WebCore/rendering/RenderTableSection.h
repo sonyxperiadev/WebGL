@@ -33,6 +33,7 @@
 namespace WebCore {
 
 class RenderTableCell;
+class RenderTableRow;
 
 class RenderTableSection : public RenderContainer {
 public:
@@ -47,12 +48,9 @@ public:
 
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const { return 0; }
-    virtual void position(InlineBox*) { }
-
     virtual int getBaselineOfFirstLineBox() const;
 
-    void addCell(RenderTableCell*, RenderObject* row);
+    void addCell(RenderTableCell*, RenderTableRow* row);
 
     void setCellWidths();
     int calcRowHeight();
@@ -69,7 +67,7 @@ public:
 
     struct RowStruct {
         Row* row;
-        RenderObject* rowRenderer;
+        RenderTableRow* rowRenderer;
         int baseline;
         Length height;
     };
@@ -80,9 +78,9 @@ public:
     void appendColumn(int pos);
     void splitColumn(int pos, int newSize);
 
-    virtual int overflowWidth(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? m_width : m_overflowWidth; }
+    virtual int overflowWidth(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? width() : m_overflowWidth; }
     virtual int overflowLeft(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowLeft; }
-    virtual int overflowHeight(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? m_height : m_overflowHeight; }
+    virtual int overflowHeight(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? height() : m_overflowHeight; }
     virtual int overflowTop(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowTop; }
 
     virtual int lowestPosition(bool includeOverflowInterior, bool includeSelf) const;
@@ -101,7 +99,7 @@ public:
     int outerBorderRight() const { return m_outerBorderRight; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void imageChanged(WrappedImagePtr);
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     int numRows() const { return m_gridRows; }
     int numColumns() const;
@@ -126,6 +124,9 @@ public:
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
 private:
+    virtual int lineHeight(bool, bool) const { return 0; }
+    virtual void position(InlineBox*) { }
+
     bool ensureRows(int);
     void clearGrid();
 

@@ -25,7 +25,7 @@
  */
 
 #include "config.h"
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "BitmapImage.h"
 #include "Image.h"
 #include "FloatRect.h"
@@ -59,14 +59,19 @@ android::AssetManager* globalAssetManager() {
 
 namespace WebCore {
     
-void FrameData::clear()
+bool FrameData::clear(bool clearMetadata)
 {
+    if (clearMetadata)
+        m_haveMetadata = false;
+
     if (m_frame) {
         m_frame->unref();
         m_frame = 0;
         m_duration = 0.;
         m_hasAlpha = true;
+        return true;
     }
+    return false;
 }
 
 BitmapImage::BitmapImage(SkBitmapRef* ref, ImageObserver* observer)
@@ -211,7 +216,7 @@ void BitmapImage::setURL(const String& str)
 ///////////////////////////////////////////////////////////////////////////////
 
 void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
-                        const AffineTransform& patternTransform,
+                        const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator compositeOp,
                         const FloatRect& destRect)
 {

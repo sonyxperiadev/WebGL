@@ -34,27 +34,6 @@
 
 namespace WebCore {
 
-// format string for
-static const char szShellDotUrlTemplate[] = "[InternetShortcut]\r\nURL=%s\r\n";
-
-// We provide the IE clipboard types (URL and Text), and the clipboard types specified in the WHATWG Web Applications 1.0 draft
-// see http://www.whatwg.org/specs/web-apps/current-work/ Section 6.3.5.3
-
-enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardDataTypeText };
-
-static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
-{
-    String qType = type.stripWhiteSpace().lower();
-
-    // two special cases for IE compatibility
-    if (qType == "text" || qType == "text/plain" || qType.startsWith("text/plain;"))
-        return ClipboardDataTypeText;
-    if (qType == "url" || qType == "text/uri-list")
-        return ClipboardDataTypeURL;
-
-    return ClipboardDataTypeNone;
-}
-
 ClipboardAndroid::ClipboardAndroid(ClipboardAccessPolicy policy, bool isForDragging)
     : Clipboard(policy, isForDragging)
 {
@@ -64,137 +43,62 @@ ClipboardAndroid::~ClipboardAndroid()
 {
 }
 
-void ClipboardAndroid::clearData(const String& type)
+void ClipboardAndroid::clearData(const String&)
 {
-    //FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
     ASSERT(isForDragging());
-    if (policy() != ClipboardWritable)
-        return;
-
-    ClipboardDataType dataType = clipboardTypeFromMIMEType(type);
-
-    if (dataType == ClipboardDataTypeURL) {
-           }
-    if (dataType == ClipboardDataTypeText) {
-       
-    }
-
 }
 
 void ClipboardAndroid::clearAllData()
 {
-    //FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
     ASSERT(isForDragging());
-    if (policy() != ClipboardWritable)
-        return;
-    
 }
 
-String ClipboardAndroid::getData(const String& type, bool& success) const
+String ClipboardAndroid::getData(const String&, bool& success) const
 {     
     success = false;
-    if (policy() != ClipboardReadable) {
-        return "";
-    }
-
-    /*
-    ClipboardDataType dataType = clipboardTypeFromMIMEType(type);
-    if (dataType == ClipboardDataTypeText)
-        return getPlainText(m_dataObject.get(), success);
-    else if (dataType == ClipboardDataTypeURL) 
-        return getURL(m_dataObject.get(), success);
-    */
     return "";
 }
 
-bool ClipboardAndroid::setData(const String &type, const String &data)
+bool ClipboardAndroid::setData(const String&, const String&)
 {
-    //FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
     ASSERT(isForDragging());
-    if (policy() != ClipboardWritable)
-        return false;
-
-    ClipboardDataType platformType = clipboardTypeFromMIMEType(type);
-
-    if (platformType == ClipboardDataTypeURL) {
-        KURL url = KURL(data);
-#if 0 && defined ANDROID // FIXME HACK : KURL no longer defines a public method isValid()
-        if (!url.isValid())
-            return false;
-#endif
-        return false; // WebCore::writeURL(m_writableDataObject.get(), url, String(), false, true);
-    } else if ( platformType == ClipboardDataTypeText) {
-        return false;
-    }
     return false;
 }
-
 
 // extensions beyond IE's API
 HashSet<String> ClipboardAndroid::types() const
 { 
-    HashSet<String> results; 
-    if (policy() != ClipboardReadable && policy() != ClipboardTypesReadable)
-        return results;
-
-    return results;
+    return HashSet<String>();
 }
 
-void ClipboardAndroid::setDragImage(CachedImage* image, Node *node, const IntPoint &loc)
+void ClipboardAndroid::setDragImage(CachedImage*, const IntPoint&)
 {
-    if (policy() != ClipboardImageWritable && policy() != ClipboardWritable) 
-        return;
-        
-    if (m_dragImage)
-        m_dragImage->removeClient(this);
-    m_dragImage = image;
-    if (m_dragImage)
-        m_dragImage->addClient(this);
-
-    m_dragLoc = loc;
-    m_dragImageElement = node;
 }
 
-void ClipboardAndroid::setDragImage(CachedImage* img, const IntPoint &loc)
+void ClipboardAndroid::setDragImageElement(Node*, const IntPoint&)
 {
-    setDragImage(img, 0, loc);
 }
 
-void ClipboardAndroid::setDragImageElement(Node *node, const IntPoint &loc)
+DragImageRef ClipboardAndroid::createDragImage(IntPoint&) const
 {
-    setDragImage(0, node, loc);
+    return 0;
 }
 
-DragImageRef ClipboardAndroid::createDragImage(IntPoint& loc) const
+void ClipboardAndroid::declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*)
 {
-    void* result = 0;
-    //FIXME: Need to be able to draw element <rdar://problem/5015942>
-    if (m_dragImage) {
-        result = createDragImageFromImage(m_dragImage->image());        
-        loc = m_dragLoc;
-    }
-    return result;
 }
 
-
-void ClipboardAndroid::declareAndWriteDragImage(Element* element, const KURL& url, const String& title, Frame* frame)
+void ClipboardAndroid::writeURL(const KURL&, const String&, Frame*)
 {
-
 }
 
-void ClipboardAndroid::writeURL(const KURL& kurl, const String& titleStr, Frame*)
-{
-
-}
-
-void ClipboardAndroid::writeRange(Range* selectedRange, Frame* frame)
+void ClipboardAndroid::writeRange(Range* selectedRange, Frame*)
 {
     ASSERT(selectedRange);
 }
 
 bool ClipboardAndroid::hasData()
 {
-
     return false;
 }
 

@@ -48,6 +48,14 @@ ANPRectI* SkANP::SetRect(ANPRectI* dst, const SkIRect& src) {
     return dst;
 }
 
+ANPRectF* SkANP::SetRect(ANPRectF* dst, const SkRect& src) {
+    dst->left = SkScalarToFloat(src.fLeft);
+    dst->top = SkScalarToFloat(src.fTop);
+    dst->right = SkScalarToFloat(src.fRight);
+    dst->bottom = SkScalarToFloat(src.fBottom);
+    return dst;
+}
+
 SkBitmap* SkANP::SetBitmap(SkBitmap* dst, const ANPBitmap& src) {
     SkBitmap::Config config = SkBitmap::kNo_Config;
     

@@ -24,6 +24,7 @@
 #ifndef HTMLFormElement_h
 #define HTMLFormElement_h
 
+#include "FormDataBuilder.h"
 #include "HTMLCollection.h" 
 #include "HTMLElement.h"
 
@@ -39,9 +40,9 @@ class HTMLInputElement;
 class HTMLFormCollection;
 class TextEncoding;
 
-class HTMLFormElement : public HTMLElement {
+class HTMLFormElement : public HTMLElement { 
 public:
-    HTMLFormElement(Document*);
+    HTMLFormElement(const QualifiedName&, Document*);
     virtual ~HTMLFormElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
@@ -59,11 +60,11 @@ public:
     unsigned length() const;
     Node* item(unsigned index);
 
-    String enctype() const { return m_enctype; }
+    String enctype() const { return m_formDataBuilder.encodingType(); }
     void setEnctype(const String&);
 
-    String encoding() const { return m_enctype; }
-    void setEncoding(const String& enctype) { setEnctype(enctype); }
+    String encoding() const { return m_formDataBuilder.encodingType(); }
+    void setEncoding(const String& value) { setEnctype(value); }
 
     bool autoComplete() const { return m_autocomplete; }
 
@@ -75,8 +76,7 @@ public:
     void removeImgElement(HTMLImageElement*);
 
     bool prepareSubmit(Event*);
-    void submit();
-    void submit(Event*, bool activateSubmitButton = false);
+    void submit(Event* = 0, bool activateSubmitButton = false, bool lockHistory = false, bool lockBackForwardList = false);
     void reset();
 
     // Used to indicate a malformed state to keep from applying the bottom margin of the form.
@@ -91,7 +91,7 @@ public:
     String name() const;
     void setName(const String&);
 
-    String acceptCharset() const;
+    String acceptCharset() const { return m_formDataBuilder.acceptCharset(); }
     void setAcceptCharset(const String&);
 
     String action() const;
@@ -129,16 +129,16 @@ protected:
     virtual void didMoveToNewOwnerDocument();
 
 private:
-    void parseEnctype(const String&);
     bool isMailtoForm() const;
     TextEncoding dataEncoding() const;
-    PassRefPtr<FormData> formData(const char* boundary) const;
+    PassRefPtr<FormData> createFormData(const CString& boundary);
     unsigned formElementIndex(HTMLFormControlElement*);
 
     friend class HTMLFormCollection;
 
     typedef HashMap<RefPtr<AtomicStringImpl>, RefPtr<HTMLFormControlElement> > AliasMap;
-    
+
+    FormDataBuilder m_formDataBuilder;
     AliasMap* m_elementAliases;
     HTMLCollection::CollectionInfo* collectionInfo;
 
@@ -147,10 +147,6 @@ private:
     Vector<HTMLImageElement*> imgElements;
     String m_url;
     String m_target;
-    String m_enctype;
-    String m_acceptcharset;
-    bool m_post : 1;
-    bool m_multipart : 1;
     bool m_autocomplete : 1;
     bool m_insubmit : 1;
     bool m_doingsubmit : 1;

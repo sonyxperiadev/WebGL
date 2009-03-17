@@ -340,7 +340,7 @@ struct SVGTextRunWalkerMeasuredLengthData {
     const Font* font;
 };
 
-bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerMeasuredLengthData& data)
+static bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerMeasuredLengthData& data)
 {
     if (data.at >= data.from && data.at < data.to)
         data.length += identifier.horizontalAdvanceX * data.scale;
@@ -349,7 +349,7 @@ bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTex
     return data.at < data.to;
 }
 
-void floatWidthMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerMeasuredLengthData& data)
+static void floatWidthMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerMeasuredLengthData& data)
 {
     // Handle system font fallback
     FontDescription fontDescription(data.font->fontDescription());
@@ -442,13 +442,13 @@ struct SVGTextRunWalkerDrawTextData {
     Vector<UChar> fallbackCharacters;
 };
 
-bool drawTextUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerDrawTextData& data)
+static bool drawTextUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerDrawTextData& data)
 {
     data.glyphIdentifiers.append(identifier);
     return true;
 }
 
-void drawTextMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerDrawTextData& data)
+static void drawTextMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerDrawTextData& data)
 {
     ASSERT(run.length() == 1);
     data.glyphIdentifiers.append(SVGGlyphIdentifier());
@@ -506,6 +506,7 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
         }
 
         data.extraCharsAvailable = 0;
+        data.charsConsumed = 0;
 
         SVGTextRunWalker<SVGTextRunWalkerDrawTextData> runWalker(fontData, fontElement, data, drawTextUsingSVGFontCallback, drawTextMissingGlyphCallback);
         runWalker.walk(run, isVerticalText, language, from, to);
@@ -552,10 +553,10 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
                     currentPoint.move(identifier.horizontalAdvanceX * scale, 0.0f);
             } else {
                 // Handle system font fallback
-                FontDescription fontDescription(context->font().fontDescription());
+                FontDescription fontDescription(m_fontDescription);
                 fontDescription.setFamily(FontFamily());
                 Font font(fontDescription, 0, 0); // spacing handled by SVG text code.
-                font.update(context->font().fontSelector());
+                font.update(fontSelector());
 
                 TextRun fallbackCharacterRun(run);
                 fallbackCharacterRun.setText(&data.fallbackCharacters[run.rtl() ? data.fallbackCharacters.size() - fallbackCharacterIndex - 1 : fallbackCharacterIndex], 1);
@@ -581,7 +582,7 @@ FloatRect Font::selectionRectForTextUsingSVGFont(const TextRun& run, const IntPo
                      point.y(), floatWidthOfSubStringUsingSVGFont(this, run, 0, from, to, charsConsumed, glyphName), height);
 }
 
-int Font::offsetForPositionForTextUsingSVGFont(const TextRun&, int position, bool includePartialGlyphs) const
+int Font::offsetForPositionForTextUsingSVGFont(const TextRun&, int, bool) const
 {
     // TODO: Fix text selection when HTML text is drawn using a SVG Font
     // We need to integrate the SVG text selection code in the offsetForPosition() framework.

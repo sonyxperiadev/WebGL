@@ -22,9 +22,10 @@
 #define JSDOMBinding_h
 
 #include "JSDOMGlobalObject.h"
-#include <kjs/interpreter.h>
-#include <kjs/lookup.h>
+#include <runtime/Completion.h>
+#include <runtime/Lookup.h>
 #include <runtime/JSFunction.h>
+#include "ScriptState.h"
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
@@ -49,8 +50,8 @@ namespace WebCore {
     // Base class for all objects in this binding except Window.
     class DOMObject : public JSC::JSObject {
     protected:
-        explicit DOMObject(PassRefPtr<JSC::StructureID> structureID) 
-            : JSObject(structureID)
+        explicit DOMObject(PassRefPtr<JSC::Structure> structure) 
+            : JSObject(structure)
         {
         }
 
@@ -71,19 +72,18 @@ namespace WebCore {
     void markDOMNodesForDocument(Document*);
     void markActiveObjectsForContext(JSC::JSGlobalData&, ScriptExecutionContext*);
     void markDOMObjectWrapper(JSC::JSGlobalData& globalData, void* object);
-    void markCrossHeapDependentObjectsForContext(JSC::JSGlobalData&, ScriptExecutionContext*);
 
-    JSC::StructureID* getCachedDOMStructure(JSC::ExecState*, const JSC::ClassInfo*);
-    JSC::StructureID* cacheDOMStructure(JSC::ExecState*, PassRefPtr<JSC::StructureID>, const JSC::ClassInfo*);
+    JSC::Structure* getCachedDOMStructure(JSC::ExecState*, const JSC::ClassInfo*);
+    JSC::Structure* cacheDOMStructure(JSC::ExecState*, PassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
 
     JSC::JSObject* getCachedDOMConstructor(JSC::ExecState*, const JSC::ClassInfo*);
     void cacheDOMConstructor(JSC::ExecState*, const JSC::ClassInfo*, JSC::JSObject* constructor);
 
-    template<class WrapperClass> inline JSC::StructureID* getDOMStructure(JSC::ExecState* exec)
+    template<class WrapperClass> inline JSC::Structure* getDOMStructure(JSC::ExecState* exec)
     {
-        if (JSC::StructureID* structure = getCachedDOMStructure(exec, &WrapperClass::s_info))
+        if (JSC::Structure* structure = getCachedDOMStructure(exec, &WrapperClass::s_info))
             return structure;
-        return cacheDOMStructure(exec, WrapperClass::createStructureID(WrapperClass::createPrototype(exec)), &WrapperClass::s_info);
+        return cacheDOMStructure(exec, WrapperClass::createStructure(WrapperClass::createPrototype(exec)), &WrapperClass::s_info);
     }
     template<class WrapperClass> inline JSC::JSObject* getDOMPrototype(JSC::ExecState* exec)
     {
@@ -98,7 +98,7 @@ namespace WebCore {
         cacheDOMObjectWrapper(exec->globalData(), object, wrapper);
         return wrapper;
     }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue* getDOMObjectWrapper(JSC::ExecState* exec, DOMClass* object)
+    template<class WrapperClass, class DOMClass> inline JSC::JSValuePtr getDOMObjectWrapper(JSC::ExecState* exec, DOMClass* object)
     {
         if (!object)
             return JSC::jsNull();
@@ -117,7 +117,7 @@ namespace WebCore {
         cacheDOMObjectWrapper(exec->globalData(), object, wrapper);
         return wrapper;
     }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue* getDOMObjectWrapper(JSC::ExecState* exec, DOMClass* object, SVGElement* context)
+    template<class WrapperClass, class DOMClass> inline JSC::JSValuePtr getDOMObjectWrapper(JSC::ExecState* exec, DOMClass* object, SVGElement* context)
     {
         if (!object)
             return JSC::jsNull();
@@ -136,7 +136,7 @@ namespace WebCore {
         cacheDOMNodeWrapper(node->document(), node, wrapper);
         return wrapper;
     }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue* getDOMNodeWrapper(JSC::ExecState* exec, DOMClass* node)
+    template<class WrapperClass, class DOMClass> inline JSC::JSValuePtr getDOMNodeWrapper(JSC::ExecState* exec, DOMClass* node)
     {
         if (!node)
             return JSC::jsNull();
@@ -147,26 +147,29 @@ namespace WebCore {
 
     const JSC::HashTable* getHashTableForGlobalData(JSC::JSGlobalData&, const JSC::HashTable* staticTable);
 
+    void reportException(JSC::ExecState*, JSC::JSValuePtr exception);
+    void reportCurrentException(JSC::ExecState*);
+
     // Convert a DOM implementation exception code into a JavaScript exception in the execution state.
     void setDOMException(JSC::ExecState*, ExceptionCode);
 
-    JSC::JSValue* jsStringOrNull(JSC::ExecState*, const String&); // null if the string is null
-    JSC::JSValue* jsStringOrNull(JSC::ExecState*, const KURL&); // null if the URL is null
+    JSC::JSValuePtr jsStringOrNull(JSC::ExecState*, const String&); // null if the string is null
+    JSC::JSValuePtr jsStringOrNull(JSC::ExecState*, const KURL&); // null if the URL is null
 
-    JSC::JSValue* jsStringOrUndefined(JSC::ExecState*, const String&); // undefined if the string is null
-    JSC::JSValue* jsStringOrUndefined(JSC::ExecState*, const KURL&); // undefined if the URL is null
+    JSC::JSValuePtr jsStringOrUndefined(JSC::ExecState*, const String&); // undefined if the string is null
+    JSC::JSValuePtr jsStringOrUndefined(JSC::ExecState*, const KURL&); // undefined if the URL is null
 
-    JSC::JSValue* jsStringOrFalse(JSC::ExecState*, const String&); // boolean false if the string is null
-    JSC::JSValue* jsStringOrFalse(JSC::ExecState*, const KURL&); // boolean false if the URL is null
+    JSC::JSValuePtr jsStringOrFalse(JSC::ExecState*, const String&); // boolean false if the string is null
+    JSC::JSValuePtr jsStringOrFalse(JSC::ExecState*, const KURL&); // boolean false if the URL is null
 
     // See JavaScriptCore for explanation: Should be used for any UString that is already owned by another
     // object, to let the engine know that collecting the JSString wrapper is unlikely to save memory.
-    JSC::JSValue* jsOwnedStringOrNull(JSC::ExecState*, const JSC::UString&); 
+    JSC::JSValuePtr jsOwnedStringOrNull(JSC::ExecState*, const JSC::UString&); 
 
-    JSC::UString valueToStringWithNullCheck(JSC::ExecState*, JSC::JSValue*); // null if the value is null
-    JSC::UString valueToStringWithUndefinedOrNullCheck(JSC::ExecState*, JSC::JSValue*); // null if the value is null or undefined
+    JSC::UString valueToStringWithNullCheck(JSC::ExecState*, JSC::JSValuePtr); // null if the value is null
+    JSC::UString valueToStringWithUndefinedOrNullCheck(JSC::ExecState*, JSC::JSValuePtr); // null if the value is null or undefined
 
-    template <typename T> inline JSC::JSValue* toJS(JSC::ExecState* exec, PassRefPtr<T> ptr) { return toJS(exec, ptr.get()); }
+    template <typename T> inline JSC::JSValuePtr toJS(JSC::ExecState* exec, PassRefPtr<T> ptr) { return toJS(exec, ptr.get()); }
 
     bool checkNodeSecurity(JSC::ExecState*, Node*);
 
@@ -176,9 +179,9 @@ namespace WebCore {
     bool allowsAccessFromFrame(JSC::ExecState*, Frame*);
     bool allowsAccessFromFrame(JSC::ExecState*, Frame*, String& message);
     void printErrorMessageForFrame(Frame*, const String& message);
-    JSC::JSValue* objectToStringFunctionGetter(JSC::ExecState*, const JSC::Identifier& propertyName, const JSC::PropertySlot&);
+    JSC::JSValuePtr objectToStringFunctionGetter(JSC::ExecState*, const JSC::Identifier& propertyName, const JSC::PropertySlot&);
 
-    JSC::ExecState* execStateFromNode(Node*);
+    ScriptState* scriptStateFromNode(Node*);
 
 } // namespace WebCore
 

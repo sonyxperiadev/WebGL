@@ -39,6 +39,7 @@
 #include "DocumentLoader.h"
 #include "Element.h"
 #include "FloatConversion.h"
+#include "FloatQuad.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -59,8 +60,8 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "Settings.h"
+#include "ScriptCallStack.h"
 #include "SharedBuffer.h"
-#include "SystemTime.h"
 #include "TextEncoding.h"
 #include "TextIterator.h"
 #include "ScriptController.h"
@@ -69,11 +70,13 @@
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/OpaqueJSString.h>
 #include <runtime/JSLock.h>
-#include <kjs/ustring.h>
+#include <runtime/UString.h>
 #include <runtime/CollectorHeapIterator.h>
 #include <profiler/Profile.h>
 #include <profiler/Profiler.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/RefCounted.h>
+#include <wtf/StdLibExtras.h>
 
 #if ENABLE(DATABASE)
 #include "Database.h"
@@ -169,18 +172,31 @@ struct ConsoleMessage {
     {
     }
 
-    ConsoleMessage(MessageSource s, MessageLevel l, ExecState* exec, const ArgList& args, unsigned li, const String& u, unsigned g)
+    ConsoleMessage(MessageSource s, MessageLevel l, ScriptCallStack* callStack, unsigned g, bool storeTrace = false)
         : source(s)
         , level(l)
-        , wrappedArguments(args.size())
-        , line(li)
-        , url(u)
+        , wrappedArguments(callStack->at(0).argumentCount())
+        , frames(storeTrace ? callStack->size() : 0)
         , groupLevel(g)
         , repeatCount(1)
     {
+        const ScriptCallFrame& lastCaller = callStack->at(0);
+        line = lastCaller.lineNumber();
+        url = lastCaller.sourceURL().string();
+
+        // FIXME: For now, just store function names as strings.
+        // As ScriptCallStack start storing line number and source URL for all
+        // frames, refactor to use that, as well.
+        if (storeTrace) {
+            unsigned stackSize = callStack->size();
+            for (unsigned i = 0; i < stackSize; ++i)
+                frames[i] = callStack->at(i).functionName();
+        }
+
         JSLock lock(false);
-        for (unsigned i = 0; i < args.size(); ++i)
-            wrappedArguments[i] = JSInspectedObjectWrapper::wrap(exec, args.at(exec, i));
+
+        for (unsigned i = 0; i < lastCaller.argumentCount(); ++i)
+            wrappedArguments[i] = JSInspectedObjectWrapper::wrap(callStack->state(), lastCaller.argumentAt(i).jsValue());
     }
     
     bool isEqual(ExecState* exec, ConsoleMessage* msg) const
@@ -188,10 +204,20 @@ struct ConsoleMessage {
         if (msg->wrappedArguments.size() != this->wrappedArguments.size() ||
            (!exec && msg->wrappedArguments.size()))
             return false;
-        
+
         for (size_t i = 0; i < msg->wrappedArguments.size(); ++i) {
             ASSERT_ARG(exec, exec);
             if (!JSValueIsEqual(toRef(exec), toRef(msg->wrappedArguments[i].get()), toRef(this->wrappedArguments[i].get()), 0))
+                return false;
+        }
+
+        size_t frameCount = msg->frames.size();
+        if (frameCount != this->frames.size())
+            return false;
+        
+        for (size_t i = 0; i < frameCount; ++i) {
+            const ScriptString& myFrameFunctionName = this->frames[i];
+            if (myFrameFunctionName != msg->frames[i])
                 return false;
         }
     
@@ -206,7 +232,8 @@ struct ConsoleMessage {
     MessageSource source;
     MessageLevel level;
     String message;
-    Vector<ProtectedPtr<JSValue> > wrappedArguments;
+    Vector<ProtectedJSValuePtr> wrappedArguments;
+    Vector<ScriptString> frames;
     unsigned line;
     String url;
     unsigned groupLevel;
@@ -216,7 +243,7 @@ struct ConsoleMessage {
 // XMLHttpRequestResource Class
 
 struct XMLHttpRequestResource {
-    XMLHttpRequestResource(JSC::UString& sourceString)
+    XMLHttpRequestResource(const JSC::UString& sourceString)
     {
         JSC::JSLock lock(false);
         this->sourceString = sourceString.rep();
@@ -301,7 +328,7 @@ struct InspectorResource : public RefCounted<InspectorResource> {
             JSValueProtect(context, newScriptObject);
     }
 
-    void setXMLHttpRequestProperties(JSC::UString& data)
+    void setXMLHttpRequestProperties(const JSC::UString& data)
     {
         xmlHttpRequestResource.set(new XMLHttpRequestResource(data));
     }
@@ -321,6 +348,17 @@ struct InspectorResource : public RefCounted<InspectorResource> {
             CachedResource* cachedResource = frame->document()->docLoader()->cachedResource(requestURL.string());
             if (!cachedResource)
                 return String();
+
+            if (cachedResource->isPurgeable()) {
+                // If the resource is purgeable then make it unpurgeable to get
+                // get its data. This might fail, in which case we return an
+                // empty String.
+                // FIXME: should we do something else in the case of a purged
+                // resource that informs the user why there is no data in the
+                // inspector?
+                if (!cachedResource->makePurgeable(false))
+                    return String();
+            }
 
             buffer = cachedResource->data();
             textEncodingName = cachedResource->encoding();
@@ -858,24 +896,24 @@ static JSValueRef localizedStrings(JSContextRef ctx, JSObjectRef /*function*/, J
     return JSValueMakeString(ctx, jsStringRef(url).get());
 }
 
-static JSValueRef platform(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments[]*/, JSValueRef* /*exception*/)
+static JSValueRef platform(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef /*thisObject*/, size_t /*argumentCount*/, const JSValueRef[] /*arguments[]*/, JSValueRef* /*exception*/)
 {
 #if PLATFORM(MAC)
 #ifdef BUILDING_ON_TIGER
-    static const String platform = "mac-tiger";
+    DEFINE_STATIC_LOCAL(const String, platform, ("mac-tiger"));
 #else
-    static const String platform = "mac-leopard";
+    DEFINE_STATIC_LOCAL(const String, platform, ("mac-leopard"));
 #endif
 #elif PLATFORM(WIN_OS)
-    static const String platform = "windows";
+    DEFINE_STATIC_LOCAL(const String, platform, ("windows"));
 #elif PLATFORM(QT)
-    static const String platform = "qt";
+    DEFINE_STATIC_LOCAL(const String, platform, ("qt"));
 #elif PLATFORM(GTK)
-    static const String platform = "gtk";
+    DEFINE_STATIC_LOCAL(const String, platform, ("gtk"));
 #elif PLATFORM(WX)
-    static const String platform = "wx";
+    DEFINE_STATIC_LOCAL(const String, platform, ("wx"));
 #else
-    static const String platform = "unknown";
+    DEFINE_STATIC_LOCAL(const String, platform, ("unknown"));
 #endif
 
     JSValueRef platformValue = JSValueMakeString(ctx, jsStringRef(platform).get());
@@ -923,7 +961,7 @@ static JSValueRef setAttachedWindowHeight(JSContextRef ctx, JSObjectRef /*functi
     return JSValueMakeUndefined(ctx);
 }
 
-static JSValueRef wrapCallback(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+static JSValueRef wrapCallback(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* /*exception*/)
 {
     InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
     if (!controller)
@@ -1298,12 +1336,12 @@ void InspectorController::setWindowVisible(bool visible, bool attached)
     m_showAfterVisible = CurrentPanel;
 }
 
-void InspectorController::addMessageToConsole(MessageSource source, MessageLevel level, ExecState* exec, const ArgList& arguments, unsigned lineNumber, const String& sourceURL)
+void InspectorController::addMessageToConsole(MessageSource source, MessageLevel level, ScriptCallStack* callStack)
 {
     if (!enabled())
         return;
 
-    addConsoleMessage(exec, new ConsoleMessage(source, level, exec, arguments, lineNumber, sourceURL, m_groupLevel));
+    addConsoleMessage(callStack->state(), new ConsoleMessage(source, level, callStack, m_groupLevel, level == TraceMessageLevel));
 }
 
 void InspectorController::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
@@ -1349,11 +1387,11 @@ void InspectorController::toggleRecordButton(bool isProfiling)
     callFunction(m_scriptContext, m_scriptObject, "setRecordingProfile", 1, &isProvingValue, exception);
 }
 
-void InspectorController::startGroup(MessageSource source, ExecState* exec, const ArgList& arguments, unsigned lineNumber, const String& sourceURL)
+void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack)
 {    
     ++m_groupLevel;
 
-    addConsoleMessage(exec, new ConsoleMessage(source, StartGroupMessageLevel, exec, arguments, lineNumber, sourceURL, m_groupLevel));
+    addConsoleMessage(callStack->state(), new ConsoleMessage(source, StartGroupMessageLevel, callStack, m_groupLevel));
 }
 
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL)
@@ -1434,7 +1472,7 @@ void InspectorController::toggleSearchForNodeInPage()
         hideHighlight();
 }
 
-void InspectorController::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
+void InspectorController::mouseDidMoveOverElement(const HitTestResult& result, unsigned)
 {
     if (!enabled() || !m_searchingForNode)
         return;
@@ -1765,7 +1803,7 @@ static void addHeaders(JSContextRef context, JSObjectRef object, const HTTPHeade
     HTTPHeaderMap::const_iterator end = headers.end();
     for (HTTPHeaderMap::const_iterator it = headers.begin(); it != end; ++it) {
         JSValueRef value = JSValueMakeString(context, jsStringRef(it->second).get());
-        JSObjectSetProperty(context, object, jsStringRef(it->first).get(), value, kJSPropertyAttributeNone, exception);
+        JSObjectSetProperty(context, object, jsStringRef((it->first).string()).get(), value, kJSPropertyAttributeNone, exception);
         if (exception && *exception)
             return;
     }
@@ -2184,7 +2222,12 @@ void InspectorController::addScriptConsoleMessage(const ConsoleMessage* message)
     arguments[argumentCount++] = groupLevelValue;
     arguments[argumentCount++] = repeatCountValue;
 
-    if (!message->wrappedArguments.isEmpty()) {
+    if (!message->frames.isEmpty()) {
+        unsigned remainingSpaceInArguments = maximumMessageArguments - argumentCount;
+        unsigned argumentsToAdd = min(remainingSpaceInArguments, static_cast<unsigned>(message->frames.size()));
+        for (unsigned i = 0; i < argumentsToAdd; ++i)
+            arguments[argumentCount++] = JSValueMakeString(m_scriptContext, jsStringRef(message->frames[i]).get());
+    } else if (!message->wrappedArguments.isEmpty()) {
         unsigned remainingSpaceInArguments = maximumMessageArguments - argumentCount;
         unsigned argumentsToAdd = min(remainingSpaceInArguments, static_cast<unsigned>(message->wrappedArguments.size()));
         for (unsigned i = 0; i < argumentsToAdd; ++i)
@@ -2337,22 +2380,22 @@ void InspectorController::removeResource(InspectorResource* resource)
     }
 }
 
-void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader, const ResourceRequest& request, const ResourceResponse& response, int length)
+void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader, const CachedResource* cachedResource)
 {
     if (!enabled())
         return;
 
     // If the resource URL is already known, we don't need to add it again since this is just a cached load.
-    if (m_knownResources.contains(request.url().string()))
+    if (m_knownResources.contains(cachedResource->url()))
         return;
 
     RefPtr<InspectorResource> resource = InspectorResource::create(m_nextIdentifier--, loader, loader->frame());
     resource->finished = true;
 
-    updateResourceRequest(resource.get(), request);
-    updateResourceResponse(resource.get(), response);
+    resource->requestURL = KURL(cachedResource->url());
+    updateResourceResponse(resource.get(), cachedResource->response());
 
-    resource->length = length;
+    resource->length = cachedResource->encodedSize();
     resource->cached = true;
     resource->startTime = currentTime();
     resource->responseReceivedTime = resource->startTime;
@@ -2360,7 +2403,7 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
 
     ASSERT(m_inspectedPage);
 
-    if (loader->frame() == m_inspectedPage->mainFrame() && request.url() == loader->requestURL())
+    if (loader->frame() == m_inspectedPage->mainFrame() && cachedResource->url() == loader->requestURL())
         m_mainResource = resource;
 
     addResource(resource.get());
@@ -2389,7 +2432,7 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
         addAndUpdateScriptResource(resource.get());
 }
 
-void InspectorController::willSendRequest(DocumentLoader* loader, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
+void InspectorController::willSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     if (!enabled())
         return;
@@ -2452,7 +2495,7 @@ void InspectorController::didReceiveContentLength(DocumentLoader*, unsigned long
         updateScriptResource(resource, resource->length);
 }
 
-void InspectorController::didFinishLoading(DocumentLoader* loader, unsigned long identifier)
+void InspectorController::didFinishLoading(DocumentLoader*, unsigned long identifier)
 {
     if (!enabled())
         return;
@@ -2474,7 +2517,7 @@ void InspectorController::didFinishLoading(DocumentLoader* loader, unsigned long
     }
 }
 
-void InspectorController::didFailLoading(DocumentLoader* loader, unsigned long identifier, const ResourceError& /*error*/)
+void InspectorController::didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError& /*error*/)
 {
     if (!enabled())
         return;
@@ -2497,7 +2540,7 @@ void InspectorController::didFailLoading(DocumentLoader* loader, unsigned long i
     }
 }
 
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, JSC::UString& sourceString)
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString)
 {
     if (!enabled())
         return;
@@ -2637,44 +2680,69 @@ void InspectorController::removeBreakpoint(intptr_t sourceID, unsigned lineNumbe
 }
 #endif
 
-static void drawOutlinedRect(GraphicsContext& context, const IntRect& rect, const Color& fillColor)
+static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, const Color& fillColor)
 {
-    static const int outlineThickness = 1;
+    static const int outlineThickness = 2;
     static const Color outlineColor(62, 86, 180, 228);
 
-    IntRect outline = rect;
-    outline.inflate(outlineThickness);
+    Path quadPath;
+    quadPath.moveTo(quad.p1());
+    quadPath.addLineTo(quad.p2());
+    quadPath.addLineTo(quad.p3());
+    quadPath.addLineTo(quad.p4());
+    quadPath.closeSubpath();
+    
+    // Clear the quad
+    {
+        context.save();
+        context.setCompositeOperation(CompositeClear);
+        context.addPath(quadPath);
+        context.fillPath();
+        context.restore();
+    }
 
-    context.clearRect(outline);
+    // Clip out the quad, then draw with a 2px stroke to get a pixel
+    // of outline (because inflating a quad is hard)
+    {
+        context.save();
+        context.addPath(quadPath);
+        context.clipOut(quadPath);
 
-    context.save();
-    context.clipOut(rect);
-    context.fillRect(outline, outlineColor);
-    context.restore();
+        context.addPath(quadPath);
+        context.setStrokeThickness(outlineThickness);
+        context.setStrokeColor(outlineColor);
+        context.strokePath();
 
-    context.fillRect(rect, fillColor);
+        context.restore();
+    }
+    
+    // Now do the fill
+    context.addPath(quadPath);
+    context.setFillColor(fillColor);
+    context.fillPath();
 }
 
-static void drawHighlightForBoxes(GraphicsContext& context, const Vector<IntRect>& lineBoxRects, const IntRect& contentBox, const IntRect& paddingBox, const IntRect& borderBox, const IntRect& marginBox)
+static void drawHighlightForBoxes(GraphicsContext& context, const Vector<FloatQuad>& lineBoxQuads, const FloatQuad& contentQuad, const FloatQuad& paddingQuad, const FloatQuad& borderQuad, const FloatQuad& marginQuad)
 {
     static const Color contentBoxColor(125, 173, 217, 128);
     static const Color paddingBoxColor(125, 173, 217, 160);
     static const Color borderBoxColor(125, 173, 217, 192);
     static const Color marginBoxColor(125, 173, 217, 228);
 
-    if (!lineBoxRects.isEmpty()) {
-        for (size_t i = 0; i < lineBoxRects.size(); ++i)
-            drawOutlinedRect(context, lineBoxRects[i], contentBoxColor);
+    if (!lineBoxQuads.isEmpty()) {
+        for (size_t i = 0; i < lineBoxQuads.size(); ++i)
+            drawOutlinedQuad(context, lineBoxQuads[i], contentBoxColor);
         return;
     }
 
-    if (marginBox != borderBox)
-        drawOutlinedRect(context, marginBox, marginBoxColor);
-    if (borderBox != paddingBox)
-        drawOutlinedRect(context, borderBox, borderBoxColor);
-    if (paddingBox != contentBox)
-        drawOutlinedRect(context, paddingBox, paddingBoxColor);
-    drawOutlinedRect(context, contentBox, contentBoxColor);
+    if (marginQuad != borderQuad)
+        drawOutlinedQuad(context, marginQuad, marginBoxColor);
+    if (borderQuad != paddingQuad)
+        drawOutlinedQuad(context, borderQuad, borderBoxColor);
+    if (paddingQuad != contentQuad)
+        drawOutlinedQuad(context, paddingQuad, paddingBoxColor);
+
+    drawOutlinedQuad(context, contentQuad, contentBoxColor);
 }
 
 static inline void convertFromFrameToMainFrame(Frame* frame, IntRect& rect)
@@ -2682,45 +2750,63 @@ static inline void convertFromFrameToMainFrame(Frame* frame, IntRect& rect)
     rect = frame->page()->mainFrame()->view()->windowToContents(frame->view()->contentsToWindow(rect));
 }
 
+static inline IntSize frameToMainFrameOffset(Frame* frame)
+{
+    IntPoint mainFramePoint = frame->page()->mainFrame()->view()->windowToContents(frame->view()->contentsToWindow(IntPoint()));
+    return mainFramePoint - IntPoint();
+}
+
 void InspectorController::drawNodeHighlight(GraphicsContext& context) const
 {
     if (!m_highlightedNode)
         return;
 
-    RenderObject* renderer = m_highlightedNode->renderer();
+    RenderBox* renderer = m_highlightedNode->renderBox();
     Frame* containingFrame = m_highlightedNode->document()->frame();
     if (!renderer || !containingFrame)
         return;
 
-    IntRect contentBox = renderer->absoluteContentBox();
-    IntRect boundingBox = renderer->absoluteBoundingBoxRect();
+    IntRect contentBox = renderer->contentBoxRect();
 
     // FIXME: Should we add methods to RenderObject to obtain these rects?
-    IntRect paddingBox(contentBox.x() - renderer->paddingLeft(), contentBox.y() - renderer->paddingTop(), contentBox.width() + renderer->paddingLeft() + renderer->paddingRight(), contentBox.height() + renderer->paddingTop() + renderer->paddingBottom());
-    IntRect borderBox(paddingBox.x() - renderer->borderLeft(), paddingBox.y() - renderer->borderTop(), paddingBox.width() + renderer->borderLeft() + renderer->borderRight(), paddingBox.height() + renderer->borderTop() + renderer->borderBottom());
-    IntRect marginBox(borderBox.x() - renderer->marginLeft(), borderBox.y() - renderer->marginTop(), borderBox.width() + renderer->marginLeft() + renderer->marginRight(), borderBox.height() + renderer->marginTop() + renderer->marginBottom());
+    IntRect paddingBox(contentBox.x() - renderer->paddingLeft(), contentBox.y() - renderer->paddingTop(),
+                       contentBox.width() + renderer->paddingLeft() + renderer->paddingRight(), contentBox.height() + renderer->paddingTop() + renderer->paddingBottom());
+    IntRect borderBox(paddingBox.x() - renderer->borderLeft(), paddingBox.y() - renderer->borderTop(),
+                      paddingBox.width() + renderer->borderLeft() + renderer->borderRight(), paddingBox.height() + renderer->borderTop() + renderer->borderBottom());
+    IntRect marginBox(borderBox.x() - renderer->marginLeft(), borderBox.y() - renderer->marginTop(),
+                      borderBox.width() + renderer->marginLeft() + renderer->marginRight(), borderBox.height() + renderer->marginTop() + renderer->marginBottom());
 
-    convertFromFrameToMainFrame(containingFrame, contentBox);
-    convertFromFrameToMainFrame(containingFrame, paddingBox);
-    convertFromFrameToMainFrame(containingFrame, borderBox);
-    convertFromFrameToMainFrame(containingFrame, marginBox);
-    convertFromFrameToMainFrame(containingFrame, boundingBox);
 
-    Vector<IntRect> lineBoxRects;
+    IntSize mainFrameOffset = frameToMainFrameOffset(containingFrame);
+
+    FloatQuad absContentQuad = renderer->localToAbsoluteQuad(FloatRect(contentBox));
+    FloatQuad absPaddingQuad = renderer->localToAbsoluteQuad(FloatRect(paddingBox));
+    FloatQuad absBorderQuad = renderer->localToAbsoluteQuad(FloatRect(borderBox));
+    FloatQuad absMarginQuad = renderer->localToAbsoluteQuad(FloatRect(marginBox));
+
+    absContentQuad.move(mainFrameOffset);
+    absPaddingQuad.move(mainFrameOffset);
+    absBorderQuad.move(mainFrameOffset);
+    absMarginQuad.move(mainFrameOffset);
+
+    IntRect boundingBox = renderer->absoluteBoundingBoxRect(true);
+    boundingBox.move(mainFrameOffset);
+
+    Vector<FloatQuad> lineBoxQuads;
     if (renderer->isInline() || (renderer->isText() && !m_highlightedNode->isSVGElement())) {
         // FIXME: We should show margins/padding/border for inlines.
-        renderer->addLineBoxRects(lineBoxRects);
+        renderer->collectAbsoluteLineBoxQuads(lineBoxQuads);
     }
 
-    for (unsigned i = 0; i < lineBoxRects.size(); ++i)
-        convertFromFrameToMainFrame(containingFrame, lineBoxRects[i]);
+    for (unsigned i = 0; i < lineBoxQuads.size(); ++i)
+        lineBoxQuads[i] += mainFrameOffset;
 
-    if (lineBoxRects.isEmpty() && contentBox.isEmpty()) {
+    if (lineBoxQuads.isEmpty() && contentBox.isEmpty()) {
         // If we have no line boxes and our content box is empty, we'll just draw our bounding box.
         // This can happen, e.g., with an <a> enclosing an <img style="float:right">.
         // FIXME: Can we make this better/more accurate? The <a> in the above case has no
         // width/height but the highlight makes it appear to be the size of the <img>.
-        lineBoxRects.append(boundingBox);
+        lineBoxQuads.append(FloatRect(boundingBox));
     }
 
     ASSERT(m_inspectedPage);
@@ -2739,12 +2825,12 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
 
     context.translate(-overlayRect.x(), -overlayRect.y());
 
-    drawHighlightForBoxes(context, lineBoxRects, contentBox, paddingBox, borderBox, marginBox);
+    drawHighlightForBoxes(context, lineBoxQuads, absContentQuad, absPaddingQuad, absBorderQuad, absMarginQuad);
 }
 
-void InspectorController::count(const UString& title, unsigned lineNumber, const String& sourceID)
+void InspectorController::count(const String& title, unsigned lineNumber, const String& sourceID)
 {
-    String identifier = String(title) + String::format("@%s:%d", sourceID.utf8().data(), lineNumber);
+    String identifier = title + String::format("@%s:%d", sourceID.utf8().data(), lineNumber);
     HashMap<String, unsigned>::iterator it = m_counts.find(identifier);
     int count;
     if (it == m_counts.end())
@@ -2756,16 +2842,16 @@ void InspectorController::count(const UString& title, unsigned lineNumber, const
 
     m_counts.add(identifier, count);
 
-    String message = String::format("%s: %d", title.UTF8String().c_str(), count);
+    String message = String::format("%s: %d", title.utf8().data(), count);
     addMessageToConsole(JSMessageSource, LogMessageLevel, message, lineNumber, sourceID);
 }
 
-void InspectorController::startTiming(const UString& title)
+void InspectorController::startTiming(const String& title)
 {
     m_times.add(title, currentTime() * 1000);
 }
 
-bool InspectorController::stopTiming(const UString& title, double& elapsed)
+bool InspectorController::stopTiming(const String& title, double& elapsed)
 {
     HashMap<String, double>::iterator it = m_times.find(title);
     if (it == m_times.end())
@@ -2804,9 +2890,10 @@ bool InspectorController::handleException(JSContextRef context, JSValueRef excep
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+
 // JavaScriptDebugListener functions
 
-void InspectorController::didParseSource(ExecState* exec, const SourceCode& source)
+void InspectorController::didParseSource(ExecState*, const SourceCode& source)
 {
     JSValueRef sourceIDValue = JSValueMakeNumber(m_scriptContext, source.provider()->asID());
     JSValueRef sourceURLValue = JSValueMakeString(m_scriptContext, jsStringRef(source.provider()->url()).get());
@@ -2818,7 +2905,7 @@ void InspectorController::didParseSource(ExecState* exec, const SourceCode& sour
     callFunction(m_scriptContext, m_scriptObject, "parsedScriptSource", 4, arguments, exception);
 }
 
-void InspectorController::failedToParseSource(ExecState* exec, const SourceCode& source, int errorLine, const UString& errorMessage)
+void InspectorController::failedToParseSource(ExecState*, const SourceCode& source, int errorLine, const UString& errorMessage)
 {
     JSValueRef sourceURLValue = JSValueMakeString(m_scriptContext, jsStringRef(source.provider()->url()).get());
     JSValueRef sourceValue = JSValueMakeString(m_scriptContext, jsStringRef(source.data()).get());
@@ -2836,6 +2923,7 @@ void InspectorController::didPause()
     JSValueRef exception = 0;
     callFunction(m_scriptContext, m_scriptObject, "pausedScript", 0, 0, exception);
 }
+
 #endif
 
 } // namespace WebCore

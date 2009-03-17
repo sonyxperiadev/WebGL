@@ -33,7 +33,10 @@
 #include "MarshallingHelpers.h"
 #include "WebLocalizableStrings.h"
 
+#if USE(CFNETWORK)
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
+
 #include <wtf/platform.h>
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
@@ -293,7 +296,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::initWithURL(
     /* [in] */ int expectedContentLength,
     /* [in] */ BSTR textEncodingName)
 {
-    m_response = ResourceResponse(KURL(url), String(mimeType), expectedContentLength, String(textEncodingName), String());
+    m_response = ResourceResponse(MarshallingHelpers::BSTRToKURL(url), String(mimeType), expectedContentLength, String(textEncodingName), String());
     return S_OK;
 }
 
@@ -360,7 +363,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::allHeaderFields(
 {
     ASSERT(m_response.isHTTP());
 
-    *headerFields = COMPropertyBag<String, CaseFoldingHash>::createInstance(m_response.httpHeaderFields());
+    *headerFields = COMPropertyBag<String, AtomicString, CaseFoldingHash>::createInstance(m_response.httpHeaderFields());
     return S_OK;
 }
 

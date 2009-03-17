@@ -40,8 +40,7 @@ public:
         Explicit = 1 << 2,
         Foreign = 1 << 3,
         Fallback = 1 << 4,
-        Opportunistic = 1 << 5,
-        Dynamic = 1 << 6
+        Dynamic = 1 << 5
     };
         
     static PassRefPtr<ApplicationCacheResource> create(const KURL& url, const ResourceResponse& response, unsigned type, PassRefPtr<SharedBuffer> buffer = SharedBuffer::create())

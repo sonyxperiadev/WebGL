@@ -38,6 +38,7 @@ module window {
         CustomMarkFunction,
         CustomNativeConverter,
         CustomPutFunction,
+        ExtendsDOMGlobalObject,
         GenerateNativeConverter,
         LegacyParent=JSDOMWindowBase
     ] DOMWindow {
@@ -226,6 +227,7 @@ module window {
         attribute CSSValueConstructor CSSValue;
         attribute CSSPrimitiveValueConstructor CSSPrimitiveValue;
         attribute CSSValueListConstructor CSSValueList;
+        attribute WebKitCSSTransformValueConstructor WebKitCSSTransformValue;
 
         attribute CSSRuleConstructor CSSRule;
         attribute CSSCharsetRuleConstructor CSSCharsetRule;
@@ -247,7 +249,7 @@ module window {
 
         // FIXME: Implement the commented-out global constructors for interfaces listed in DOM Level 3 Core specification.
         attribute DOMCoreExceptionConstructor DOMException;
-//        attribute DOMStringListConstructor DOMStringList;
+        attribute DOMStringListConstructor DOMStringList;
 //        attribute NameListConstructor NameList;
 //        attribute DOMImplementationListConstructor DOMImplementationList;
 //        attribute DOMImplementationSourceConstructor DOMImplementationSource;
@@ -348,6 +350,8 @@ module window {
         attribute ProgressEventConstructor ProgressEvent;
         attribute TextEventConstructor TextEvent;
         attribute UIEventConstructor UIEvent;
+        attribute WebKitAnimationEventConstructor WebKitAnimationEvent;
+        attribute WebKitTransitionEventConstructor WebKitTransitionEvent;
         attribute WheelEventConstructor WheelEvent;
         attribute MessageEventConstructor MessageEvent;
         attribute EventExceptionConstructor EventException;
@@ -355,7 +359,12 @@ module window {
         attribute TouchEventConstructor TouchEvent;
 #endif
 
+        attribute WebKitCSSKeyframeRuleConstructor WebKitCSSKeyframeRule;
+        attribute WebKitCSSKeyframesRuleConstructor WebKitCSSKeyframesRule;
+
+#if ENABLE_CHANNEL_MESSAGING
         attribute MessagePortConstructor MessagePort;
+#endif
 
         attribute ClipboardConstructor Clipboard;
 
@@ -375,6 +384,12 @@ module window {
 
         attribute XMLHttpRequestUploadConstructor XMLHttpRequestUpload;
         attribute XMLHttpRequestExceptionConstructor XMLHttpRequestException;
+
+        attribute PluginConstructor Plugin;
+        attribute PluginArrayConstructor PluginArray;
+
+        attribute MimeTypeConstructor MimeType;
+        attribute MimeTypeArrayConstructor MimeTypeArray;
 
 #if ENABLE_DOM_STORAGE
         attribute StorageConstructor Storage;

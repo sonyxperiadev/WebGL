@@ -98,7 +98,7 @@ namespace WebCore {
     const int cMisspellingLinePatternWidth = 4;
     const int cMisspellingLinePatternGapWidth = 1;
 
-    class AffineTransform;
+    class TransformationMatrix;
     class Font;
     class Generator;
     class Gradient;
@@ -145,9 +145,6 @@ namespace WebCore {
         ~GraphicsContext();
        
         PlatformGraphicsContext* platformContext() const;
-
-        const Font& font() const;
-        void setFont(const Font&);
         
         float strokeThickness() const;
         void setStrokeThickness(float);
@@ -166,6 +163,15 @@ namespace WebCore {
         void setFillColor(const Color&);
         void setFillPattern(PassRefPtr<Pattern>);
         void setFillGradient(PassRefPtr<Gradient>);
+        void setShadowsIgnoreTransforms(bool);
+
+        void setShouldAntialias(bool);
+        bool shouldAntialias() const;
+
+#if PLATFORM(CG)
+        void applyStrokePattern();
+        void applyFillPattern();
+#endif
 
 #if PLATFORM(SGL)
         /* these should be pused to apple. needed for CanvasStyle.cpp */
@@ -183,6 +189,10 @@ namespace WebCore {
         bool willFill() const;
         // returns true if there is a valid (non-transparent) stroke color
         bool willStroke() const;
+        
+        // may return NULL, since we lazily allocate the path. This is the path
+        // that is drawn by drawPath()
+        const SkPath* getCurrPath() const;
 
         /** platform-specific factory method to return a bitmap graphicscontext,
          called by <canvas> when we need to draw offscreen. Caller is responsible for
@@ -239,14 +249,15 @@ namespace WebCore {
         void clipOut(const IntRect&);
         void clipOutEllipseInRect(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
+        void clipPath(WindRule);
         void clipToImageBuffer(const FloatRect&, const ImageBuffer*);
 
         int textDrawingMode();
         void setTextDrawingMode(int);
 
-        void drawText(const TextRun&, const IntPoint&, int from = 0, int to = -1);
-        void drawBidiText(const TextRun&, const FloatPoint&);
-        void drawHighlightForText(const TextRun&, const IntPoint&, int h, const Color& backgroundColor, int from = 0, int to = -1);
+        void drawText(const Font&, const TextRun&, const IntPoint&, int from = 0, int to = -1);
+        void drawBidiText(const Font&, const TextRun&, const FloatPoint&);
+        void drawHighlightForText(const Font&, const TextRun&, const IntPoint&, int h, const Color& backgroundColor, int from = 0, int to = -1);
 
         FloatRect roundToDevicePixels(const FloatRect&);
         
@@ -297,16 +308,25 @@ namespace WebCore {
         
         void setURLForRect(const KURL&, const IntRect&);
 
-        void concatCTM(const AffineTransform&);
-        AffineTransform getCTM() const;
-
-        void setUseAntialiasing(bool = true);
+        void concatCTM(const TransformationMatrix&);
+        TransformationMatrix getCTM() const;
 
 #if PLATFORM(WIN)
         GraphicsContext(HDC, bool hasAlpha = false); // FIXME: To be removed.
         bool inTransparencyLayer() const;
         HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
         void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true, bool mayCreateBitmap = true);    // The passed in HDC should be the one handed back by getWindowsContext.
+
+        // When set to true, child windows should be rendered into this context
+        // rather than allowing them just to render to the screen. Defaults to
+        // false.
+        // FIXME: This is a layering violation. GraphicsContext shouldn't know
+        // what a "window" is. It would be much more appropriate for this flag
+        // to be passed as a parameter alongside the GraphicsContext, but doing
+        // that would require lots of changes in cross-platform code that we
+        // aren't sure we want to make.
+        void setShouldIncludeChildWindows(bool);
+        bool shouldIncludeChildWindows() const;
 
         class WindowsBitmap : public Noncopyable {
         public:
@@ -341,6 +361,7 @@ namespace WebCore {
 #if PLATFORM(QT)
         bool inTransparencyLayer() const;
         PlatformPath* currentPath();
+        QPen pen();
 #endif
 
 #if PLATFORM(GTK)
@@ -361,6 +382,8 @@ namespace WebCore {
         void setPlatformStrokeThickness(float);
 
         void setPlatformFillColor(const Color&);
+
+        void setPlatformShouldAntialias(bool b);
 
         void setPlatformShadow(const IntSize&, int blur, const Color&);
         void clearPlatformShadow();

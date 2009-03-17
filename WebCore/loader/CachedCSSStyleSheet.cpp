@@ -55,6 +55,12 @@ void CachedCSSStyleSheet::addClient(CachedResourceClient *c)
     if (!m_loading)
         c->setCSSStyleSheet(m_url, m_decoder->encoding().name(), this);
 }
+    
+void CachedCSSStyleSheet::allClientsRemoved()
+{
+    if (isSafeToMakePurgeable())
+        makePurgeable(true);
+}
 
 void CachedCSSStyleSheet::setEncoding(const String& chs)
 {
@@ -65,6 +71,22 @@ String CachedCSSStyleSheet::encoding() const
 {
     return m_decoder->encoding().name();
 }
+    
+const String CachedCSSStyleSheet::sheetText(bool enforceMIMEType) const 
+{ 
+    ASSERT(!isPurgeable());
+
+    if (!m_data || m_data->isEmpty() || !canUseSheet(enforceMIMEType))
+        return String();
+    
+    if (!m_decodedSheetText.isNull())
+        return m_decodedSheetText;
+    
+    // Don't cache the decoded text, regenerating is cheap and it can use quite a bit of memory
+    String sheetText = m_decoder->decode(m_data->data(), m_data->size());
+    sheetText += m_decoder->flush();
+    return sheetText;
+}
 
 void CachedCSSStyleSheet::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 {
@@ -73,16 +95,15 @@ void CachedCSSStyleSheet::data(PassRefPtr<SharedBuffer> data, bool allDataReceiv
 
     m_data = data;
     setEncodedSize(m_data.get() ? m_data->size() : 0);
-    if (m_data.get()) {
-        m_sheet = m_decoder->decode(m_data->data(), encodedSize());
-        m_sheet += m_decoder->flush();
-#ifdef ANDROID_FIX // FIXME  Newer webkit makes decode temporary; remove on webkit update
-        // report decoded size too
-        setDecodedSize(m_sheet.length() * sizeof(UChar));
-#endif
+    // Decode the data to find out the encoding and keep the sheet text around during checkNotify()
+    if (m_data) {
+        m_decodedSheetText = m_decoder->decode(m_data->data(), m_data->size());
+        m_decodedSheetText += m_decoder->flush();
     }
     m_loading = false;
     checkNotify();
+    // Clear the decoded text as it is unlikely to be needed immediately again and is cheap to regenerate.
+    m_decodedSheetText = String();
 }
 
 void CachedCSSStyleSheet::checkNotify()

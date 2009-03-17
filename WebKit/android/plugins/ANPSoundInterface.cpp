@@ -94,7 +94,7 @@ static ANPAudioTrack* ANPCreateTrack(uint32_t sampleRate,
     
     track->mUser = user;
     track->mProc = proc;
-    track->mTrack = new android::AudioTrack(android::AudioTrack::MUSIC,
+    track->mTrack = new android::AudioTrack(android::AudioSystem::MUSIC,
                                             sampleRate,
                                             fromANPFormat(format),
                                             channelCount,

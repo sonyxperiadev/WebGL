@@ -31,9 +31,12 @@
 namespace WebCore {
 
 String FileChooser::basenameForWidth(const Font& font, int width) const 
-{ 
-    // FIXME: This could be a lot faster, but assuming the data will not often be 
-    // much longer than the provided width, this may be fast enough.
+{
+    if (m_filenames.size() == 0) {
+        return String();
+    }
+    // FIXME: This could be a lot faster, but assuming the data will not
+    // often be much longer than the provided width, this may be fast enough.
     String output = m_filenames[0].copy();
     while (font.width(TextRun(output.impl())) > width && output.length() > 4) {
         output = output.replace(output.length() - 4, 4, String("..."));
@@ -41,13 +44,19 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
     return output;
 }
 
-
 // The following two strings are used for File Upload form control, ie
 // <input type="file">. The first is the text that appears on the button
 // that when pressed, the user can browse for and select a file. The
 // second string is rendered on the screen when no file has been selected.
-String fileButtonChooseFileLabel() { return String("Uploads Disabled"); }
-String fileButtonNoFileSelectedLabel() { return String("No file selected"); }
+String fileButtonChooseFileLabel()
+{
+    return String("Uploads Disabled");
+}
 
-}   // WebCore
+String fileButtonNoFileSelectedLabel()
+{
+    return String("No file selected");
+}
+
+} // namesapce WebCore
 

@@ -44,12 +44,13 @@ public:
     virtual void calcWidth();
     virtual void calcHeight();
     virtual void calcPrefWidths();
-    virtual bool absolutePosition(int& xPos, int& yPos, bool fixed = false) const;
+    virtual FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
+    virtual FloatPoint absoluteToLocal(FloatPoint containerPoint, bool fixed = false, bool useTransforms = false) const;
     
     int docHeight() const;
     int docWidth() const;
 
-    // The same as the FrameView's visibleHeight/visibleWidth but with null check guards.
+    // The same as the FrameView's layoutHeight/layoutWidth but with null check guards.
     int viewHeight() const;
     int viewWidth() const;
     
@@ -59,7 +60,7 @@ public:
 
     virtual bool hasOverhangingFloats() { return false; }
 
-    virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed = false);
+    virtual void computeRectForRepaint(IntRect&, RenderBox* repaintContainer, bool fixed = false);
     virtual void repaintViewRectangle(const IntRect&, bool immediate = false);
 
     virtual void paint(PaintInfo&, int tx, int ty);
@@ -74,14 +75,15 @@ public:
     void setPrintImages(bool enable) { m_printImages = enable; }
     bool printImages() const { return m_printImages; }
     void setTruncatedAt(int y) { m_truncatedAt = y; m_bestTruncatedAt = m_truncatorWidth = 0; m_forcedPageBreak = false; }
-    void setBestTruncatedAt(int y, RenderObject *forRenderer, bool forcedBreak = false);
+    void setBestTruncatedAt(int y, RenderBox* forRenderer, bool forcedBreak = false);
     int bestTruncatedAt() const { return m_bestTruncatedAt; }
 
     int truncatedAt() const { return m_truncatedAt; }
 
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
 
-    IntRect selectionRect(bool clipToVisibleContent = true) const;
+    IntRect selectionBounds(bool clipToVisibleContent = true) const;
 
     void setMaximalOutlineSize(int o) { m_maximalOutlineSize = o; }
     int maximalOutlineSize() const { return m_maximalOutlineSize; }
@@ -98,14 +100,25 @@ public:
     void removeWidget(RenderObject*);
 
     // layoutDelta is used transiently during layout to store how far an object has moved from its
-    // last layout location, in order to repaint correctly
-    const IntSize& layoutDelta() const { return m_layoutDelta; }
-    void addLayoutDelta(const IntSize& delta) { m_layoutDelta += delta; }
+    // last layout location, in order to repaint correctly.
+    // If we're doing a full repaint m_layoutState will be 0, but in that case layoutDelta doesn't matter.
+    IntSize layoutDelta() const
+    {
+        return m_layoutState ? m_layoutState->m_layoutDelta : IntSize();
+    }
+    void addLayoutDelta(const IntSize& delta) 
+    {
+        if (m_layoutState)
+            m_layoutState->m_layoutDelta += delta;
+    }
+
+    bool doingFullRepaint() const { return m_frameView->needsFullRepaint(); }
 
     void pushLayoutState(RenderBox* renderer, const IntSize& offset)
     {
-        if (m_layoutStateDisableCount || m_frameView->needsFullRepaint())
+        if (doingFullRepaint())
             return;
+        // We push LayoutState even if layoutState is disabled because it stores layoutDelta too.
         m_layoutState = new (renderArena()) LayoutState(m_layoutState, renderer, offset);
     }
 
@@ -113,20 +126,30 @@ public:
 
     void popLayoutState()
     {
-        if (m_layoutStateDisableCount || m_frameView->needsFullRepaint())
+        if (doingFullRepaint())
             return;
         LayoutState* state = m_layoutState;
         m_layoutState = state->m_next;
         state->destroy(renderArena());
     }
 
-    LayoutState* layoutState() const { return m_layoutStateDisableCount ? 0 : m_layoutState; }
+    // Returns true if layoutState should be used for its cached offset and clip.
+    bool layoutStateEnabled() const { return m_layoutStateDisableCount == 0 && m_layoutState; }
+    LayoutState* layoutState() const { return m_layoutState; }
 
     // Suspends the LayoutState optimization. Used under transforms that cannot be represented by
     // LayoutState (common in SVG) and when manipulating the render tree during layout in ways
     // that can trigger repaint of a non-child (e.g. when a list item moves its list marker around).
+    // Note that even when disabled, LayoutState is still used to store layoutDelta.
     void disableLayoutState() { m_layoutStateDisableCount++; }
     void enableLayoutState() { ASSERT(m_layoutStateDisableCount > 0); m_layoutStateDisableCount--; }
+
+protected:
+    virtual FloatQuad localToContainerQuad(const FloatQuad&, RenderBox* repaintContainer, bool fixed = false) const;
+
+private:
+    // selectionRect should never be called on a RenderView
+    virtual IntRect selectionRect(bool);
 
 protected:
     FrameView* m_frameView;
@@ -151,9 +174,65 @@ private:
     int m_bestTruncatedAt;
     int m_truncatorWidth;
     bool m_forcedPageBreak;
-    IntSize m_layoutDelta;
     LayoutState* m_layoutState;
     unsigned m_layoutStateDisableCount;
+};
+
+// Stack-based class to assist with LayoutState push/pop
+class LayoutStateMaintainer : Noncopyable {
+public:
+    // ctor to push now
+    LayoutStateMaintainer(RenderView* view, RenderBox* root, IntSize offset, bool disableState = false)
+        : m_view(view)
+        , m_disabled(disableState)
+        , m_didStart(false)
+        , m_didEnd(false)
+    {
+        push(root, offset);
+    }
+    
+    // ctor to maybe push later
+    LayoutStateMaintainer(RenderView* view)
+        : m_view(view)
+        , m_disabled(false)
+        , m_didStart(false)
+        , m_didEnd(false)
+    {
+    }
+    
+    ~LayoutStateMaintainer()
+    {
+        ASSERT(m_didStart == m_didEnd);   // if this fires, it means that someone did a push(), but forgot to pop().
+    }
+
+    void push(RenderBox* root, IntSize offset)
+    {
+        ASSERT(!m_didStart);
+        // We push state even if disabled, because we still need to store layoutDelta
+        m_view->pushLayoutState(root, offset);
+        if (m_disabled)
+            m_view->disableLayoutState();
+        m_didStart = true;
+    }
+
+    void pop()
+    {
+        if (m_didStart) {
+            ASSERT(!m_didEnd);
+            m_view->popLayoutState();
+            if (m_disabled)
+                m_view->enableLayoutState();
+            m_didEnd = true;
+        }
+    }
+
+    bool didPush() const { return m_didStart; }
+
+private:
+    RenderView* m_view;
+    bool m_disabled : 1;        // true if the offset and clip part of layoutState is disabled
+    bool m_didStart : 1;        // true if we did a push or disable
+    bool m_didEnd : 1;          // true if we popped or re-enabled
 };
 
 } // namespace WebCore

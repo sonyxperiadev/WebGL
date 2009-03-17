@@ -30,6 +30,7 @@
 #include "Editor.h"
 #include "Frame.h"
 #include "GraphicsContext.h"
+#include "RenderBlock.h"
 #include "RenderSVGRoot.h"
 #include "SVGInlineFlowBox.h"
 #include "SVGInlineTextBox.h"
@@ -481,7 +482,7 @@ struct SVGRootInlineBoxPaintWalker {
         return false;
     }
 
-    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
+    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix& chunkCtm,
                               const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         RenderText* text = textBox->textObject();
@@ -611,10 +612,10 @@ int SVGRootInlineBox::placeBoxesHorizontally(int, int& leftPosition, int& rightP
     return 0;
 }
 
-void SVGRootInlineBox::verticallyAlignBoxes(int& heightOfBlock)
+int SVGRootInlineBox::verticallyAlignBoxes(int)
 {
     // height is set by layoutInlineBoxes.
-    heightOfBlock = height();
+    return height();
 }
 
 float cummulatedWidthOfInlineBoxCharacterRange(SVGInlineBoxCharacterRange& range)
@@ -842,7 +843,7 @@ static void applyTextLengthCorrectionToTextChunk(SVGTextChunk& chunk)
         SVGChar& firstChar = *(chunk.start);
 
         // Assure we apply the chunk scaling in the right origin
-        AffineTransform newChunkCtm;
+        TransformationMatrix newChunkCtm;
         newChunkCtm.translate(firstChar.x, firstChar.y);
         newChunkCtm = chunk.ctm * newChunkCtm;
         newChunkCtm.translate(-firstChar.x, -firstChar.y);
@@ -887,7 +888,7 @@ void SVGRootInlineBox::computePerCharacterLayoutInformation()
     // Finally the top left position of our box is known.
     // Propogate this knownledge to our RenderSVGText parent.
     FloatPoint topLeft = topLeftPositionOfCharacterRange(m_svgChars);
-    object()->setPos((int) floorf(topLeft.x()), (int) floorf(topLeft.y()));
+    block()->setLocation((int) floorf(topLeft.x()), (int) floorf(topLeft.y()));
 
     // Layout all InlineText/Flow boxes
     // BEWARE: This requires the root top/left position to be set correctly before!
@@ -914,6 +915,9 @@ void SVGRootInlineBox::buildLayoutInformation(InlineFlowBox* start, SVGCharacter
         else {
             ASSERT(curr->isInlineFlowBox());
             InlineFlowBox* flowBox = static_cast<InlineFlowBox*>(curr);
+
+            if (!flowBox->object()->element())
+                continue; // Skip generated content.
 
             bool isAnchor = flowBox->object()->element()->hasTagName(SVGNames::aTag);
             bool isTextPath = flowBox->object()->element()->hasTagName(SVGNames::textPathTag);
@@ -952,7 +956,7 @@ void SVGRootInlineBox::buildLayoutInformation(InlineFlowBox* start, SVGCharacter
                 Vector<SVGTextChunk>::iterator it = tempChunks.begin();
                 Vector<SVGTextChunk>::iterator end = tempChunks.end();
 
-                AffineTransform ctm;
+                TransformationMatrix ctm;
                 float computedLength = 0.0f;
  
                 for (; it != end; ++it) {
@@ -1035,10 +1039,10 @@ void SVGRootInlineBox::layoutInlineBoxes(InlineFlowBox* start, Vector<SVGChar>::
             int minY = enclosedStringRect.y();
             int maxY = minY + enclosedStringRect.height();
 
-            curr->setXPos(minX - object()->xPos());
+            curr->setXPos(minX - block()->x());
             curr->setWidth(enclosedStringRect.width());
 
-            curr->setYPos(minY - object()->yPos());
+            curr->setYPos(minY - block()->y());
             curr->setBaseline(font.ascent());
             curr->setHeight(enclosedStringRect.height());
 
@@ -1062,12 +1066,16 @@ void SVGRootInlineBox::layoutInlineBoxes(InlineFlowBox* start, Vector<SVGChar>::
             int maxY = INT_MIN;
 
             InlineFlowBox* flowBox = static_cast<InlineFlowBox*>(curr);
+            
+            if (!flowBox->object()->element())
+                continue; // Skip generated content.
+    
             layoutInlineBoxes(flowBox, it, minX, maxX, minY, maxY);
 
-            curr->setXPos(minX - object()->xPos());
+            curr->setXPos(minX - block()->x());
             curr->setWidth(maxX - minX);
 
-            curr->setYPos(minY - object()->yPos());
+            curr->setYPos(minY - block()->y());
             curr->setBaseline(font.ascent());
             curr->setHeight(maxY - minY);
 
@@ -1086,10 +1094,10 @@ void SVGRootInlineBox::layoutInlineBoxes(InlineFlowBox* start, Vector<SVGChar>::
     }
 
     if (start->isRootInlineBox()) {
-        int top = lowY - object()->yPos();
-        int bottom = highY - object()->yPos();
+        int top = lowY - block()->y();
+        int bottom = highY - block()->y();
 
-        start->setXPos(lowX - object()->xPos());
+        start->setXPos(lowX - block()->x());
         start->setYPos(top);
 
         start->setWidth(highX - lowX);
@@ -1516,6 +1524,9 @@ void SVGRootInlineBox::buildTextChunks(Vector<SVGChar>& svgChars, InlineFlowBox*
         } else {
             ASSERT(curr->isInlineFlowBox());
             InlineFlowBox* flowBox = static_cast<InlineFlowBox*>(curr);
+
+            if (!flowBox->object()->element())
+                continue; // Skip generated content.
 
             bool isTextPath = flowBox->object()->element()->hasTagName(SVGNames::textPathTag);
 

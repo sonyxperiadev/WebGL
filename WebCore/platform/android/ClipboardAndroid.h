@@ -40,10 +40,10 @@ namespace WebCore {
         ClipboardAndroid(ClipboardAccessPolicy policy, bool isForDragging);
         ~ClipboardAndroid();
     
-        void clearData(const String& type);
+        void clearData(const String&);
         void clearAllData();
-        String getData(const String& type, bool& success) const;
-        bool setData(const String& type, const String& data);
+        String getData(const String&, bool& success) const;
+        bool setData(const String&, const String&);
     
         // extensions beyond IE's API
         HashSet<String> types() const;
@@ -51,17 +51,12 @@ namespace WebCore {
         void setDragImage(CachedImage*, const IntPoint&);
         void setDragImageElement(Node*, const IntPoint&);
 		
-        virtual DragImageRef createDragImage(IntPoint& dragLoc) const;
-        virtual void declareAndWriteDragImage(Element*, const KURL&, const String& title, Frame*);
+        virtual DragImageRef createDragImage(IntPoint&) const;
+        virtual void declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*);
         virtual void writeURL(const KURL&, const String&, Frame*);
         virtual void writeRange(Range*, Frame*);
 
         virtual bool hasData();
-
-    private:
-        void resetFromClipboard();
-        void setDragImage(CachedImage*, Node*, const IntPoint&);
-        Frame* m_frame;
     };
 
 } // namespace WebCore

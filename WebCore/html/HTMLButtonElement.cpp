@@ -32,23 +32,25 @@
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
 #include "RenderButton.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLButtonElement::HTMLButtonElement(Document* doc, HTMLFormElement* form)
-    : HTMLFormControlElement(buttonTag, doc, form)
+HTMLButtonElement::HTMLButtonElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* form)
+    : HTMLFormControlElement(tagName, doc, form)
     , m_type(SUBMIT)
     , m_activeSubmit(false)
 {
+    ASSERT(hasTagName(buttonTag));
 }
 
 HTMLButtonElement::~HTMLButtonElement()
 {
 }
 
-RenderObject* HTMLButtonElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLButtonElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderButton(this);
 }
@@ -57,15 +59,15 @@ const AtomicString& HTMLButtonElement::type() const
 {
     switch (m_type) {
         case SUBMIT: {
-            static const AtomicString submit("submit");
+            DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit"));
             return submit;
         }
         case BUTTON: {
-            static const AtomicString button("button");
+            DEFINE_STATIC_LOCAL(const AtomicString, button, ("button"));
             return button;
         }
         case RESET: {
-            static const AtomicString reset("reset");
+            DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset"));
             return reset;
         }
     }

@@ -47,6 +47,7 @@ public:
     int documentWidth() { return mContents.width(); }
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,
         int* x, int* y) const;
+    const WebCore::IntRect& focusBounds() const { return mFocusBounds; }
     bool focusChild() const { return mFocusChild; }
     WebCore::IntPoint focusLocation() const;
     int generation() const { return mGeneration; }
@@ -72,6 +73,7 @@ public:
     bool scrollDelta(WebCore::IntRect& focusRingBounds, Direction , int* delta);
     const WebCore::IntRect& scrolledBounds() const { return mScrolledBounds; }
     void setCachedFocus(CachedFrame* , CachedNode* );
+    void setFocusBounds(const WebCore::IntRect& r) { mFocusBounds = r; }
     void setGeneration(int generation) { mGeneration = generation; }
     void setTextGeneration(int textGeneration) { mTextGeneration = textGeneration; }
     void setFocusChild(bool state) const { mFocusChild = state; }
@@ -87,7 +89,7 @@ public:
 private:
     CachedHistory* mHistory;
     SkPicture* mPicture;
- //   WebCore::IntRect mClippedBounds;
+    WebCore::IntRect mFocusBounds; // chosen focus ring
     mutable WebCore::IntRect mScrolledBounds; // view bounds + amount visible as result of scroll
     int mGeneration;
     int mTextGeneration;

@@ -30,18 +30,19 @@
 #include "JSGlobalData.h"
 
 #include "ArgList.h"
+#include "Collector.h"
 #include "CommonIdentifiers.h"
+#include "FunctionConstructor.h"
+#include "Interpreter.h"
 #include "JSActivation.h"
 #include "JSClassRef.h"
 #include "JSLock.h"
 #include "JSNotAnObject.h"
 #include "JSStaticScopeObject.h"
-#include "Machine.h"
 #include "Parser.h"
-#include "collector.h"
-#include "lexer.h"
-#include "lookup.h"
-#include "nodes.h"
+#include "Lexer.h"
+#include "Lookup.h"
+#include "Nodes.h"
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
 #include <wtf/Threading.h>
@@ -64,7 +65,8 @@ extern const HashTable regExpConstructorTable;
 extern const HashTable stringTable;
 
 JSGlobalData::JSGlobalData(bool isShared)
-    : machine(new Machine)
+    : initializingLazyNumericCompareFunction(false)
+    , interpreter(new Interpreter)
     , exception(noValue())
     , arrayTable(new HashTable(JSC::arrayTable))
     , dateTable(new HashTable(JSC::dateTable))
@@ -73,13 +75,15 @@ JSGlobalData::JSGlobalData(bool isShared)
     , regExpTable(new HashTable(JSC::regExpTable))
     , regExpConstructorTable(new HashTable(JSC::regExpConstructorTable))
     , stringTable(new HashTable(JSC::stringTable))
-    , activationStructureID(JSActivation::createStructureID(jsNull()))
-    , interruptedExecutionErrorStructure(JSObject::createStructureID(jsNull()))
-    , staticScopeStructureID(JSStaticScopeObject::createStructureID(jsNull()))
-    , stringStructureID(JSString::createStructureID(jsNull()))
-    , notAnObjectErrorStubStructure(JSNotAnObjectErrorStub::createStructureID(jsNull()))
-    , notAnObjectStructure(JSNotAnObject::createStructureID(jsNull()))
-    , numberStructureID(JSNumberCell::createStructureID(jsNull()))
+    , activationStructure(JSActivation::createStructure(jsNull()))
+    , interruptedExecutionErrorStructure(JSObject::createStructure(jsNull()))
+    , staticScopeStructure(JSStaticScopeObject::createStructure(jsNull()))
+    , stringStructure(JSString::createStructure(jsNull()))
+    , notAnObjectErrorStubStructure(JSNotAnObjectErrorStub::createStructure(jsNull()))
+    , notAnObjectStructure(JSNotAnObject::createStructure(jsNull()))
+#if !USE(ALTERNATE_JSIMMEDIATE)
+    , numberStructure(JSNumberCell::createStructure(jsNull()))
+#endif
     , identifierTable(createIdentifierTable())
     , propertyNames(new CommonIdentifiers(this))
     , emptyList(new ArgList)
@@ -91,21 +95,23 @@ JSGlobalData::JSGlobalData(bool isShared)
     , dynamicGlobalObject(0)
     , isSharedInstance(isShared)
     , clientData(0)
+    , scopeNodeBeingReparsed(0)
     , heap(this)
 {
 #if PLATFORM(MAC)
     startProfilerServerIfNeeded();
 #endif
+    interpreter->initialize(this);
 }
 
 JSGlobalData::~JSGlobalData()
 {
     // By the time this is destroyed, heap.destroy() must already have been called.
 
-    delete machine;
+    delete interpreter;
 #ifndef NDEBUG
     // Zeroing out to make the behavior more predictable when someone attempts to use a deleted instance.
-    machine = 0;
+    interpreter = 0;
 #endif
 
     arrayTable->deleteTable();
@@ -147,9 +153,9 @@ PassRefPtr<JSGlobalData> JSGlobalData::create()
 PassRefPtr<JSGlobalData> JSGlobalData::createLeaked()
 {
 #ifndef NDEBUG
-    StructureID::startIgnoringLeaks();
+    Structure::startIgnoringLeaks();
     RefPtr<JSGlobalData> data = create();
-    StructureID::stopIgnoringLeaks();
+    Structure::stopIgnoringLeaks();
     return data.release();
 #else
     return create();
@@ -164,8 +170,12 @@ bool JSGlobalData::sharedInstanceExists()
 JSGlobalData& JSGlobalData::sharedInstance()
 {
     JSGlobalData*& instance = sharedInstanceInternal();
-    if (!instance)
+    if (!instance) {
         instance = new JSGlobalData(true);
+#if ENABLE(JSC_MULTIPLE_THREADS)
+        instance->makeUsableFromMultipleThreads();
+#endif
+    }
     return *instance;
 }
 
@@ -176,8 +186,22 @@ JSGlobalData*& JSGlobalData::sharedInstanceInternal()
     return sharedInstance;
 }
 
+// FIXME: We can also detect forms like v1 < v2 ? -1 : 0, reverse comparison, etc.
+const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)
+{
+    if (!lazyNumericCompareFunction.size() && !initializingLazyNumericCompareFunction) {
+        initializingLazyNumericCompareFunction = true;
+        RefPtr<ProgramNode> programNode = parser->parse<ProgramNode>(exec, 0, makeSource(UString("(function (v1, v2) { return v1 - v2; })")), 0, 0);
+        RefPtr<FunctionBodyNode> functionBody = extractFunctionBody(programNode.get());
+        lazyNumericCompareFunction = functionBody->bytecode(exec->scopeChain()).instructions();
+        initializingLazyNumericCompareFunction = false;
+    }
+
+    return lazyNumericCompareFunction;
+}
+
 JSGlobalData::ClientData::~ClientData()
 {
 }
 
-}
+} // namespace JSC

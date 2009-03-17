@@ -25,6 +25,7 @@
 #include "AtomicString.h"
 #include "Color.h"
 #include "CSSParserValues.h"
+#include "CSSSelectorList.h"
 #include "MediaQuery.h"
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
@@ -37,7 +38,6 @@ namespace WebCore {
     class CSSRule;
     class CSSRuleList;
     class CSSSelector;
-    class CSSNthSelector;
     class CSSStyleSheet;
     class CSSValue;
     class CSSValueList;
@@ -117,7 +117,7 @@ namespace WebCore {
         bool parseHSLParameters(CSSParserValue*, double* colorValues, bool parseAlpha);
         PassRefPtr<CSSPrimitiveValue> parseColor(CSSParserValue* = 0);
         bool parseColorFromValue(CSSParserValue*, RGBA32&, bool = false);
-        std::auto_ptr<CSSSelector> parseSelector(const String&, Document* doc = 0);
+        void parseSelector(const String&, Document* doc, CSSSelectorList&);
 
         static bool parseColor(const String&, RGBA32& rgb, bool strict);
 
@@ -153,7 +153,6 @@ namespace WebCore {
         int yyparse();
 
         CSSSelector* createFloatingSelector();
-        CSSNthSelector* createFloatingNthSelector();
         CSSSelector* sinkFloatingSelector(CSSSelector*);
 
         CSSParserValueList* createFloatingValueList();
@@ -171,7 +170,7 @@ namespace WebCore {
         WebKitCSSKeyframesRule* createKeyframesRule();
         CSSRule* createMediaRule(MediaList*, CSSRuleList*);
         CSSRuleList* createRuleList();
-        CSSRule* createStyleRule(CSSSelector*);
+        CSSRule* createStyleRule(Vector<CSSSelector*>* selectors);
         CSSRule* createFontFaceRule();
         CSSRule* createVariablesRule(MediaList*, bool variablesKeyword);
 
@@ -188,6 +187,8 @@ namespace WebCore {
         bool checkForVariables(CSSParserValueList*);
         void addUnresolvedProperty(int propId, bool important);
         
+        Vector<CSSSelector*>* reusableSelectorVector() { return &m_reusableSelectorVector; }
+        
     public:
         bool m_strict;
         bool m_important;
@@ -198,7 +199,7 @@ namespace WebCore {
         MediaQuery* m_mediaQuery;
         CSSParserValueList* m_valueList;
         CSSProperty** m_parsedProperties;
-        CSSSelector* m_floatingSelector;
+        CSSSelectorList* m_selectorListForParseSelector;
         int m_numParsedProperties;
         int m_maxParsedProperties;
 
@@ -209,7 +210,7 @@ namespace WebCore {
         bool m_hasFontFaceOnlyValues;
 
         Vector<String> m_variableNames;
-        Vector<RefPtr<StyleBase> > m_variableValues;
+        Vector<RefPtr<CSSValue> > m_variableValues;
 
         AtomicString m_defaultNamespace;
 
@@ -252,6 +253,8 @@ namespace WebCore {
         MediaQuery* m_floatingMediaQuery;
         MediaQueryExp* m_floatingMediaQueryExp;
         Vector<MediaQueryExp*>* m_floatingMediaQueryExpList;
+        
+        Vector<CSSSelector*> m_reusableSelectorVector;
 
         // defines units allowed for a certain property, used in parseUnit
         enum Units {

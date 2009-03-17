@@ -4,6 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,13 +28,12 @@
 
 #include "Attr.h"
 #include "Color.h"
-#include "DeprecatedPtrList.h"
 #include "DocumentMarker.h"
 #include "HTMLCollection.h"
 #include "HTMLFormElement.h"
-#include "KURL.h"
 #include "ScriptExecutionContext.h"
 #include "StringHash.h"
+#include "TextResourceDecoder.h"
 #include "Timer.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/ListHashSet.h>
@@ -63,6 +63,7 @@ namespace WebCore {
     class Database;
     class DOMImplementation;
     class DOMSelection;
+    class DOMTimer;
     class DOMWindow;
     class DatabaseThread;
     class DocLoader;
@@ -73,12 +74,12 @@ namespace WebCore {
     class EntityReference;
     class Event;
     class EventListener;
+    class FormControlElementWithState;
     class Frame;
     class FrameView;
     class HTMLCanvasElement;
     class HTMLDocument;
     class HTMLElement;
-    class HTMLFormControlElementWithState;
     class HTMLFormElement;
     class HTMLHeadElement;
     class HTMLInputElement;
@@ -95,6 +96,7 @@ namespace WebCore {
     class Range;
     class RegisteredEventListener;
     class RenderArena;
+    class RenderView;
     class SecurityOrigin;
     class Settings;
     class StyleSheet;
@@ -214,7 +216,14 @@ public:
 
     DOMImplementation* implementation() const;
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-    Element* documentElement() const;
+    
+    Element* documentElement() const
+    {
+        if (!m_documentElement)
+            cacheDocumentElement();
+        return m_documentElement.get();
+    }
+    
     virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
     PassRefPtr<DocumentFragment> createDocumentFragment ();
     PassRefPtr<Text> createTextNode(const String& data);
@@ -272,6 +281,13 @@ public:
     PassRefPtr<HTMLCollection> windowNamedItems(const String& name);
     PassRefPtr<HTMLCollection> documentNamedItems(const String& name);
 
+    // Find first anchor with the given name.
+    // First searches for an element with the given ID, but if that fails, then looks
+    // for an anchor with the given name. ID matching is always case sensitive, but
+    // Anchor name matching is case sensitive in strict mode and not case sensitive in
+    // quirks mode for historical compatibility reasons.
+    Element* findAnchor(const String& name);
+
     HTMLCollection::CollectionInfo* collectionInfo(HTMLCollection::Type type)
     {
         ASSERT(type >= HTMLCollection::FirstUnnamedDocumentCachedType);
@@ -295,6 +311,9 @@ public:
 #endif
     virtual bool isPluginDocument() const { return false; }
     virtual bool isMediaDocument() const { return false; }
+#if ENABLE(WML)
+    virtual bool isWMLDocument() const { return false; }
+#endif
     
     CSSStyleSelector* styleSelector() const { return m_styleSelector; }
 
@@ -351,10 +370,12 @@ public:
     void setUsesFirstLineRules(bool b) { m_usesFirstLineRules = b; }
     bool usesFirstLetterRules() const { return m_usesFirstLetterRules; }
     void setUsesFirstLetterRules(bool b) { m_usesFirstLetterRules = b; }
+    bool usesBeforeAfterRules() const { return m_usesBeforeAfterRules; }
+    void setUsesBeforeAfterRules(bool b) { m_usesBeforeAfterRules = b; }
 
     // Machinery for saving and restoring state when you leave and then go back to a page.
-    void registerFormElementWithState(HTMLFormControlElementWithState* e) { m_formElementsWithState.add(e); }
-    void unregisterFormElementWithState(HTMLFormControlElementWithState* e) { m_formElementsWithState.remove(e); }
+    void registerFormElementWithState(FormControlElementWithState* e) { m_formElementsWithState.add(e); }
+    void unregisterFormElementWithState(FormControlElementWithState* e) { m_formElementsWithState.remove(e); }
     Vector<String> formElementsState() const;
     void setStateForNewFormElements(const Vector<String>&);
     bool hasStateForNewFormElements() const;
@@ -391,6 +412,8 @@ public:
 
     RenderArena* renderArena() { return m_renderArena; }
 
+    RenderView* renderView() const;
+
     void clearAXObjectCache();
     AXObjectCache* axObjectCache() const;
     
@@ -422,8 +445,6 @@ public:
     void setBaseElementTarget(const String& baseTarget) { m_baseTarget = baseTarget; }
 
     KURL completeURL(const String&) const;
-
-    unsigned visitedLinkHash(const AtomicString& attributeURL) const;
 
     // from cachedObjectClient
     virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
@@ -728,7 +749,7 @@ public:
 
     void setDocType(PassRefPtr<DocumentType>);
 
-    void finishedParsing();
+    virtual void finishedParsing();
 
 #if ENABLE(XPATH)
     // XPathEvaluator methods
@@ -785,6 +806,18 @@ public:
     void initDNSPrefetch();
     void parseDNSPrefetchControlHeader(const String&);
 
+    virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
+    virtual void addMessage(MessageDestination, MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+    virtual void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
+    virtual void postTask(PassRefPtr<Task>); // Executes the task on context's thread asynchronously.
+
+    void addTimeout(int timeoutId, DOMTimer*);
+    void removeTimeout(int timeoutId);
+    DOMTimer* findTimeout(int timeoutId);
+    
+protected:
+    Document(Frame*, bool isXHTML);
+
 #if ENABLE(TOUCH_EVENTS) // Android
 public:
     typedef HashMap< RefPtr<Node>, unsigned > TouchListenerMap;
@@ -797,14 +830,12 @@ private:
     TouchListenerMap m_touchEventListeners;
 #endif
 
-protected:
-    Document(Frame*, bool isXHTML);
-
 private:
     virtual void refScriptExecutionContext() { ref(); }
     virtual void derefScriptExecutionContext() { deref(); }
 
     virtual const KURL& virtualURL() const; // Same as url(), but needed for ScriptExecutionContext to implement it without a performance loss for direct calls.
+    virtual KURL virtualCompleteURL(const String&) const; // Same as completeURL() for the same reason as above.
 
     CSSStyleSelector* m_styleSelector;
     bool m_didCalculateStyleSelector;
@@ -881,10 +912,10 @@ private:
     RefPtr<StyleSheetList> m_styleSheets; // All of the stylesheets that are currently in effect for our media type and stylesheet set.
     ListHashSet<Node*> m_styleSheetCandidateNodes; // All of the nodes that could potentially provide stylesheets to the document (<link>, <style>, <?xml-stylesheet>)
 
-    RegisteredEventListenerList m_windowEventListeners;
+    RegisteredEventListenerVector m_windowEventListeners;
 
     typedef HashMap<FormElementKey, Vector<String>, FormElementKeyHash, FormElementKeyHashTraits> FormElementStateMap;
-    ListHashSet<HTMLFormControlElementWithState*> m_formElementsWithState;
+    ListHashSet<FormControlElementWithState*> m_formElementsWithState;
     FormElementStateMap m_stateForNewFormElements;
     
     Color m_linkColor;
@@ -904,10 +935,11 @@ private:
     bool m_usesSiblingRules;
     bool m_usesFirstLineRules;
     bool m_usesFirstLetterRules;
+    bool m_usesBeforeAfterRules;
     bool m_gotoAnchorNeededAfterStylesheetsLoad;
-
     bool m_isDNSPrefetchEnabled;
     bool m_haveExplicitlyDisabledDNSPrefetch;
+    bool m_frameElementsShouldIgnoreScrolling;
 
     String m_title;
     bool m_titleSetExplicitly;
@@ -921,8 +953,8 @@ private:
 
     mutable AXObjectCache* m_axObjectCache;
     
-    DeprecatedPtrList<ImageLoader> m_imageLoadEventDispatchSoonList;
-    DeprecatedPtrList<ImageLoader> m_imageLoadEventDispatchingList;
+    Vector<ImageLoader*> m_imageLoadEventDispatchSoonList;
+    Vector<ImageLoader*> m_imageLoadEventDispatchingList;
     Timer<Document> m_imageLoadEventTimer;
 
     Timer<Document> m_updateFocusAppearanceTimer;
@@ -956,7 +988,7 @@ private:
     String m_contentLanguage;
 
 public:
-    bool inPageCache();
+    bool inPageCache() const { return m_inPageCache; }
     void setInPageCache(bool flag);
     
     // Elements can register themselves for the "documentWillBecomeInactive()" and  
@@ -966,13 +998,34 @@ public:
     void documentWillBecomeInactive();
     void documentDidBecomeActive();
 
+    void registerForMediaVolumeCallbacks(Element*);
+    void unregisterForMediaVolumeCallbacks(Element*);
+    void mediaVolumeDidChange();
+
     void setShouldCreateRenderers(bool);
     bool shouldCreateRenderers();
     
     void setDecoder(PassRefPtr<TextResourceDecoder>);
     TextResourceDecoder* decoder() const { return m_decoder.get(); }
 
-    UChar backslashAsCurrencySymbol() const;
+    String displayStringModifiedByEncoding(const String& str) const {
+        if (m_decoder)
+            return m_decoder->encoding().displayString(str.impl());
+        return str;
+    }
+    PassRefPtr<StringImpl> displayStringModifiedByEncoding(PassRefPtr<StringImpl> str) const {
+        if (m_decoder)
+            return m_decoder->encoding().displayString(str);
+        return str;
+    }
+    void displayBufferModifiedByEncoding(UChar* buffer, unsigned len) const {
+        if (m_decoder)
+            m_decoder->encoding().displayBuffer(buffer, len);
+    }
+
+    // Quirk for the benefit of Apple's Dictionary application.
+    void setFrameElementsShouldIgnoreScrolling(bool ignore) { m_frameElementsShouldIgnoreScrolling = ignore; }
+    bool frameElementsShouldIgnoreScrolling() const { return m_frameElementsShouldIgnoreScrolling; }
 
 #if ENABLE(DASHBOARD_SUPPORT)
     void setDashboardRegionsDirty(bool f) { m_dashboardRegionsDirty = f; }
@@ -996,7 +1049,6 @@ public:
 #endif
 
     void initSecurityContext();
-    SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
 
     // Explicitly override the security origin for this document.
     // Note: It is dangerous to change the security origin of a document
@@ -1016,7 +1068,11 @@ public:
     
     void setUsingGeolocation(bool f) { m_usingGeolocation = f; }
     bool usingGeolocation() const { return m_usingGeolocation; };
-    
+
+#if ENABLE(WML)
+    void resetWMLPageState();
+#endif
+
 protected:
     void clearXMLVersion() { m_xmlVersion = String(); }
 
@@ -1027,7 +1083,7 @@ private:
     void updateFocusAppearanceTimerFired(Timer<Document>*);
     void updateBaseURL();
 
-    RefPtr<SecurityOrigin> m_securityOrigin;
+    void cacheDocumentElement() const;
 
     RenderObject* m_savedRenderer;
     int m_secureForms;
@@ -1074,6 +1130,7 @@ private:
     String m_iconURL;
     
     HashSet<Element*> m_documentActivationCallbackElements;
+    HashSet<Element*> m_mediaVolumeCallbackElements;
 
     bool m_useSecureKeyboardEntryWhenActive;
 
@@ -1102,6 +1159,9 @@ private:
 #ifdef ANDROID_MOBILE
     int mExtraLayoutDelay;
 #endif
+
+    typedef HashMap<int, DOMTimer*> TimeoutsMap;
+    TimeoutsMap m_timeouts;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

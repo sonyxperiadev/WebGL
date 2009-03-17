@@ -34,8 +34,7 @@ class HTMLFormElement;
 class HTMLImageElement : public HTMLElement {
     friend class HTMLFormElement;
 public:
-    HTMLImageElement(Document*, HTMLFormElement* = 0);
-    HTMLImageElement(const QualifiedName&, Document*);
+    HTMLImageElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     ~HTMLImageElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -114,7 +113,7 @@ public:
 
     bool haveFiredLoadEvent() const { return m_imageLoader.haveFiredLoadEvent(); }
 
-    virtual void getSubresourceAttributeStrings(Vector<String>&) const;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
     HTMLImageLoader m_imageLoader;

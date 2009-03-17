@@ -21,7 +21,8 @@
 #ifndef PropertyMapHashTable_h
 #define PropertyMapHashTable_h
 
-#include "ustring.h"
+#include "UString.h"
+#include <wtf/Vector.h>
 
 namespace JSC {
 
@@ -31,11 +32,19 @@ namespace JSC {
         unsigned attributes;
         unsigned index;
 
-        PropertyMapEntry(UString::Rep* k, int a)
-            : key(k)
+        PropertyMapEntry(UString::Rep* key, unsigned attributes)
+            : key(key)
             , offset(0)
-            , attributes(a)
+            , attributes(attributes)
             , index(0)
+        {
+        }
+
+        PropertyMapEntry(UString::Rep* key, unsigned offset, unsigned attributes, unsigned index)
+            : key(key)
+            , offset(offset)
+            , attributes(attributes)
+            , index(index)
         {
         }
     };
@@ -50,6 +59,7 @@ namespace JSC {
         unsigned keyCount;
         unsigned deletedSentinelCount;
         unsigned lastIndexUsed;
+        Vector<unsigned>* deletedOffsets;
         unsigned entryIndices[1];
 
         PropertyMapEntry* entries()

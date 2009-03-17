@@ -279,15 +279,38 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mPluginsPath);
         if (str) {
             WebCore::String pluginsPath = to_string(env, str);
-            s->setPluginsPath(pluginsPath);
-            // Set the plugin directories to this single entry.
-            Vector< ::WebCore::String > paths(1);
-            paths[0] = pluginsPath;
-            pluginDatabase->setPluginDirectories(paths);
-            // Set the home directory for plugin temporary files
-            WebCore::sPluginPath = paths[0];
-            // Reload plugins.
-            pluginDatabase->refresh();
+            // When a new browser Tab is created, the corresponding
+            // Java WebViewCore object will sync (with the native
+            // side) its associated WebSettings at initialization
+            // time. However, at that point, the WebSettings object's
+            // mPluginsPaths member is set to the empty string. The
+            // real plugin path will be set later by the tab and the
+            // WebSettings will be synced again.
+            //
+            // There is no point in instructing WebCore's
+            // PluginDatabase instance to set the plugin path to the
+            // empty string. Furthermore, if the PluginDatabase
+            // instance is already initialized, setting the path to
+            // the empty string will cause the PluginDatabase to
+            // forget about the plugin files it has already
+            // inspected. When the path is subsequently set to the
+            // correct value, the PluginDatabase will attempt to load
+            // and initialize plugins that are already loaded and
+            // initialized.
+            if (pluginsPath.length()) {
+                s->setPluginsPath(pluginsPath);
+                // Set the plugin directories to this single entry.
+                Vector< ::WebCore::String > paths(1);
+                paths[0] = pluginsPath;
+                pluginDatabase->setPluginDirectories(paths);
+                // Set the home directory for plugin temporary files
+                WebCore::sPluginPath = paths[0];
+                // Reload plugins. We call Page::refreshPlugins() instead
+                // of pluginDatabase->refresh(), as we need to ensure that
+                // the list of mimetypes exposed by the browser are also
+                // updated.
+                WebCore::Page::refreshPlugins(false);
+            }
         }
 #endif
 

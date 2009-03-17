@@ -51,8 +51,13 @@ ApplicationCache::~ApplicationCache()
     
 void ApplicationCache::setGroup(ApplicationCacheGroup* group)
 {
-    ASSERT(!m_group);
+    ASSERT(!m_group || group == m_group);
     m_group = group;
+}
+
+bool ApplicationCache::isComplete() const
+{
+    return !m_group->cacheIsBeingUpdated(this);
 }
 
 void ApplicationCache::setManifestResource(PassRefPtr<ApplicationCacheResource> manifest)
@@ -76,6 +81,7 @@ void ApplicationCache::addResource(PassRefPtr<ApplicationCacheResource> resource
     
     if (m_storageID) {
         ASSERT(!resource->storageID());
+        ASSERT(resource->type() & (ApplicationCacheResource::Dynamic | ApplicationCacheResource::Implicit));
         
         // Add the resource to the storage.
         cacheStorage().store(resource.get(), this);
@@ -129,7 +135,7 @@ unsigned ApplicationCache::numDynamicEntries() const
     return 0;
 }
     
-String ApplicationCache::dynamicEntry(unsigned index) const
+String ApplicationCache::dynamicEntry(unsigned) const
 {
     // FIXME: Implement
     return String();
@@ -137,20 +143,19 @@ String ApplicationCache::dynamicEntry(unsigned index) const
     
 bool ApplicationCache::addDynamicEntry(const String& url)
 {
-    if (!equalIgnoringCase(m_group->manifestURL().protocol(),
-                           KURL(url).protocol()))
+    if (!equalIgnoringCase(m_group->manifestURL().protocol(), KURL(url).protocol()))
         return false;
 
     // FIXME: Implement
     return true;
 }
     
-void ApplicationCache::removeDynamicEntry(const String& url)
+void ApplicationCache::removeDynamicEntry(const String&)
 {
     // FIXME: Implement
 }
 
-void ApplicationCache::setOnlineWhitelist(const HashSet<String>& onlineWhitelist)
+void ApplicationCache::setOnlineWhitelist(const Vector<KURL>& onlineWhitelist)
 {
     ASSERT(m_onlineWhitelist.isEmpty());
     m_onlineWhitelist = onlineWhitelist; 
@@ -158,14 +163,33 @@ void ApplicationCache::setOnlineWhitelist(const HashSet<String>& onlineWhitelist
 
 bool ApplicationCache::isURLInOnlineWhitelist(const KURL& url)
 {
-    if (!url.hasRef())
-        return m_onlineWhitelist.contains(url);
-    
-    KURL copy(url);
-    copy.setRef(String());
-    return m_onlineWhitelist.contains(copy);
+    size_t whitelistSize = m_onlineWhitelist.size();
+    for (size_t i = 0; i < whitelistSize; ++i) {
+        if (protocolHostAndPortAreEqual(url, m_onlineWhitelist[i]) && url.string().startsWith(m_onlineWhitelist[i].string()))
+            return true;
+    }
+    return false;
 }
-    
+
+void ApplicationCache::setFallbackURLs(const FallbackURLVector& fallbackURLs)
+{
+    ASSERT(m_fallbackURLs.isEmpty());
+    m_fallbackURLs = fallbackURLs;
+}
+
+bool ApplicationCache::urlMatchesFallbackNamespace(const KURL& url, KURL* fallbackURL)
+{
+    size_t fallbackCount = m_fallbackURLs.size();
+    for (size_t i = 0; i < fallbackCount; ++i) {
+        if (protocolHostAndPortAreEqual(url, m_fallbackURLs[i].first) && url.string().startsWith(m_fallbackURLs[i].first.string())) {
+            if (fallbackURL)
+                *fallbackURL = m_fallbackURLs[i].second;
+            return true;
+        }
+    }
+    return false;
+}
+
 void ApplicationCache::clearStorageID()
 {
     m_storageID = 0;

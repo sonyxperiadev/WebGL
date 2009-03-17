@@ -5,6 +5,7 @@
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,36 +39,38 @@
 #include "FrameView.h"
 #include "HTMLLinkElement.h"
 #include "HTMLStyleElement.h"
-#include "HTMLTokenizer.h"
-#include "ScriptController.h"
+#include "HTMLTokenizer.h" // for decodeNamedEntity
 #include "ProcessingInstruction.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptController.h"
 #include "ScriptElement.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "TextResourceDecoder.h"
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <wtf/Platform.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
+#include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(XSLT)
 #include <libxslt/xslt.h>
 #endif
 
-
 using namespace std;
 
 namespace WebCore {
 
-class PendingCallbacks {
+class PendingCallbacks : Noncopyable {
 public:
-    PendingCallbacks()
+    ~PendingCallbacks()
     {
-        m_callbacks.setAutoDelete(true);
+        deleteAllValues(m_callbacks);
     }
     
     void appendStartElementNSCallback(const xmlChar* xmlLocalName, const xmlChar* xmlPrefix, const xmlChar* xmlURI, int nb_namespaces,
@@ -79,12 +82,12 @@ public:
         callback->xmlPrefix = xmlStrdup(xmlPrefix);
         callback->xmlURI = xmlStrdup(xmlURI);
         callback->nb_namespaces = nb_namespaces;
-        callback->namespaces = reinterpret_cast<xmlChar**>(xmlMalloc(sizeof(xmlChar*) * nb_namespaces * 2));
+        callback->namespaces = static_cast<xmlChar**>(xmlMalloc(sizeof(xmlChar*) * nb_namespaces * 2));
         for (int i = 0; i < nb_namespaces * 2 ; i++)
             callback->namespaces[i] = xmlStrdup(namespaces[i]);
         callback->nb_attributes = nb_attributes;
         callback->nb_defaulted = nb_defaulted;
-        callback->attributes =  reinterpret_cast<xmlChar**>(xmlMalloc(sizeof(xmlChar*) * nb_attributes * 5));
+        callback->attributes = static_cast<xmlChar**>(xmlMalloc(sizeof(xmlChar*) * nb_attributes * 5));
         for (int i = 0; i < nb_attributes; i++) {
             // Each attribute has 5 elements in the array:
             // name, prefix, uri, value and an end pointer.
@@ -115,7 +118,7 @@ public:
         callback->s = xmlStrndup(s, len);
         callback->len = len;
         
-        m_callbacks.append(callback);        
+        m_callbacks.append(callback);
     }
     
     void appendProcessingInstructionCallback(const xmlChar* target, const xmlChar* data)
@@ -172,23 +175,20 @@ public:
 
     void callAndRemoveFirstCallback(XMLTokenizer* tokenizer)
     {
-        PendingCallback* cb = m_callbacks.getFirst();
-            
-        cb->call(tokenizer);
+        OwnPtr<PendingCallback> callback(m_callbacks.first());
         m_callbacks.removeFirst();
+        callback->call(tokenizer);
     }
     
     bool isEmpty() const { return m_callbacks.isEmpty(); }
     
 private:    
-    struct PendingCallback {        
-        
-        virtual ~PendingCallback() { } 
-
+    struct PendingCallback {  
+        virtual ~PendingCallback() { }
         virtual void call(XMLTokenizer* tokenizer) = 0;
     };  
     
-    struct PendingStartElementNSCallback : public PendingCallback {        
+    struct PendingStartElementNSCallback : public PendingCallback {
         virtual ~PendingStartElementNSCallback() {
             xmlFree(xmlLocalName);
             xmlFree(xmlPrefix);
@@ -204,8 +204,8 @@ private:
         
         virtual void call(XMLTokenizer* tokenizer) {
             tokenizer->startElementNs(xmlLocalName, xmlPrefix, xmlURI, 
-                                      nb_namespaces, (const xmlChar**)namespaces,
-                                      nb_attributes, nb_defaulted, (const xmlChar**)(attributes));
+                                      nb_namespaces, const_cast<const xmlChar**>(namespaces),
+                                      nb_attributes, nb_defaulted, const_cast<const xmlChar**>(attributes));
         }
 
         xmlChar* xmlLocalName;
@@ -320,8 +320,7 @@ private:
         int columnNumber;
     };
     
-public:
-    DeprecatedPtrList<PendingCallback> m_callbacks;
+    Deque<PendingCallback*> m_callbacks;
 };
 // --------------------------------
 
@@ -329,7 +328,7 @@ static int globalDescriptor = 0;
 static DocLoader* globalDocLoader = 0;
 static ThreadIdentifier libxmlLoaderThread = 0;
 
-static int matchFunc(const char* uri)
+static int matchFunc(const char*)
 {
     // Only match loads initiated due to uses of libxml2 from within XMLTokenizer to avoid
     // interfering with client applications that also use libxml2.  http://bugs.webkit.org/show_bug.cgi?id=17353
@@ -432,7 +431,7 @@ static int readFunc(void* context, char* buffer, int len)
     return data->readOutBytes(buffer, len);
 }
 
-static int writeFunc(void* context, const char* buffer, int len)
+static int writeFunc(void*, const char*, int)
 {
     // Always just do 0-byte writes
     return 0;
@@ -751,9 +750,9 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
         jsProxy->setEventHandlerLineno(0);
 
     newElement->beginParsingChildren();
-    eventuallyMarkAsParserCreated(newElement.get());
 
-    if (isScriptElement(newElement.get()))
+    ScriptElement* scriptElement = toScriptElement(newElement.get());
+    if (scriptElement)
         m_scriptStartLine = lineNumber();
 
     if (!m_currentNode->addChild(newElement.get())) {
@@ -781,37 +780,40 @@ void XMLTokenizer::endElementNs()
     Node* n = m_currentNode;
     RefPtr<Node> parent = n->parentNode();
     n->finishParsingChildren();
-    
-    // don't load external scripts for standalone documents (for now)
-    if (n->isElementNode() && m_view && isScriptElement(static_cast<Element*>(n))) {
-        ASSERT(!m_pendingScript);
-        m_requestingScript = true;
 
-        Element* element = static_cast<Element*>(n); 
-        ScriptElement* scriptElement = castToScriptElement(element);
-
-        String scriptHref = scriptElement->sourceAttributeValue();
-        if (!scriptHref.isEmpty()) {
-            // we have a src attribute 
-            String scriptCharset = scriptElement->scriptCharset();
-            if ((m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
-                m_scriptElement = element;
-                m_pendingScript->addClient(this);
-
-                // m_pendingScript will be 0 if script was already loaded and ref() executed it
-                if (m_pendingScript)
-                    pauseParsing();
-            } else 
-                m_scriptElement = 0;
-
-        } else {
-            String scriptCode = scriptElement->scriptContent();
-            m_view->frame()->loader()->executeScript(m_doc->url().string(), m_scriptStartLine, scriptCode);
-        }
-
-        m_requestingScript = false;
+    if (!n->isElementNode() || !m_view) {
+        setCurrentNode(parent.get());
+        return;
     }
 
+    Element* element = static_cast<Element*>(n);
+    ScriptElement* scriptElement = toScriptElement(element);
+    if (!scriptElement) {
+        setCurrentNode(parent.get());
+        return;
+    }
+
+    // don't load external scripts for standalone documents (for now)
+    ASSERT(!m_pendingScript);
+    m_requestingScript = true;
+
+    String scriptHref = scriptElement->sourceAttributeValue();
+    if (!scriptHref.isEmpty()) {
+        // we have a src attribute 
+        String scriptCharset = scriptElement->scriptCharset();
+        if ((m_pendingScript = m_doc->docLoader()->requestScript(scriptHref, scriptCharset))) {
+            m_scriptElement = element;
+            m_pendingScript->addClient(this);
+
+            // m_pendingScript will be 0 if script was already loaded and ref() executed it
+            if (m_pendingScript)
+                pauseParsing();
+        } else 
+            m_scriptElement = 0;
+    } else
+        m_view->frame()->loader()->executeScript(ScriptSourceCode(scriptElement->scriptContent(), m_doc->url(), m_scriptStartLine));
+
+    m_requestingScript = false;
     setCurrentNode(parent.get());
 }
 
@@ -950,8 +952,19 @@ void XMLTokenizer::internalSubset(const xmlChar* name, const xmlChar* externalID
         return;
     }
     
-    if (m_doc)
+    if (m_doc) {
+#if ENABLE(WML)
+        String extId = toString(externalID);
+        if (isWMLDocument()
+            && extId != "-//WAPFORUM//DTD WML 1.3//EN"
+            && extId != "-//WAPFORUM//DTD WML 1.2//EN"
+            && extId != "-//WAPFORUM//DTD WML 1.1//EN"
+            && extId != "-//WAPFORUM//DTD WML 1.0//EN")
+            handleError(fatal, "Invalid DTD Public ID", lineNumber(), columnNumber());
+#endif
+
         m_doc->addChild(DocumentType::create(m_doc, toString(name), toString(externalID), toString(systemID)));
+    }
 }
 
 static inline XMLTokenizer* getTokenizer(void* closure)
@@ -965,6 +978,8 @@ static inline XMLTokenizer* getTokenizer(void* closure)
 static inline bool hackAroundLibXMLEntityBug(void* closure)
 {
 #if LIBXML_VERSION >= 20627
+    UNUSED_PARAM(closure);
+
     // This bug has been fixed in libxml 2.6.27.
     return false;
 #else
@@ -980,7 +995,7 @@ static void startElementNsHandler(void* closure, const xmlChar* localname, const
     getTokenizer(closure)->startElementNs(localname, prefix, uri, nb_namespaces, namespaces, nb_attributes, nb_defaulted, libxmlAttributes);
 }
 
-static void endElementNsHandler(void* closure, const xmlChar* localname, const xmlChar* prefix, const xmlChar* uri)
+static void endElementNsHandler(void* closure, const xmlChar*, const xmlChar*, const xmlChar*)
 {
     if (hackAroundLibXMLEntityBug(closure))
         return;
@@ -1086,7 +1101,11 @@ static xmlEntityPtr getEntityHandler(void* closure, const xmlChar* name)
     }
 
     ent = xmlGetDocEntity(ctxt->myDoc, name);
-    if (!ent && getTokenizer(closure)->isXHTMLDocument()) {
+    if (!ent && (getTokenizer(closure)->isXHTMLDocument()
+#if ENABLE(WML)
+                 || getTokenizer(closure)->isWMLDocument()
+#endif
+       )) {
         ent = getXHTMLEntity(name);
         if (ent)
             ent->etype = XML_INTERNAL_GENERAL_ENTITY;
@@ -1114,7 +1133,7 @@ static void internalSubsetHandler(void* closure, const xmlChar* name, const xmlC
     xmlSAX2InternalSubset(closure, name, externalID, systemID);
 }
 
-static void externalSubsetHandler(void* closure, const xmlChar* name, const xmlChar* externalId, const xmlChar* systemId)
+static void externalSubsetHandler(void* closure, const xmlChar*, const xmlChar* externalId, const xmlChar*)
 {
     String extId = toString(externalId);
     if ((extId == "-//W3C//DTD XHTML 1.0 Transitional//EN")
@@ -1128,7 +1147,7 @@ static void externalSubsetHandler(void* closure, const xmlChar* name, const xmlC
         getTokenizer(closure)->setIsXHTMLDocument(true); // controls if we replace entities or not.
 }
 
-static void ignorableWhitespaceHandler(void* ctx, const xmlChar* ch, int len)
+static void ignorableWhitespaceHandler(void*, const xmlChar*, int)
 {
     // nothing to do, but we need this to work around a crasher
     // http://bugzilla.gnome.org/show_bug.cgi?id=172255
@@ -1294,9 +1313,9 @@ struct AttributeParseState {
     bool gotAttributes;
 };
 
-static void attributesStartElementNsHandler(void* closure, const xmlChar* xmlLocalName, const xmlChar* xmlPrefix,
-                                            const xmlChar* xmlURI, int nb_namespaces, const xmlChar** namespaces,
-                                            int nb_attributes, int nb_defaulted, const xmlChar** libxmlAttributes)
+static void attributesStartElementNsHandler(void* closure, const xmlChar* xmlLocalName, const xmlChar* /*xmlPrefix*/,
+                                            const xmlChar* /*xmlURI*/, int /*nb_namespaces*/, const xmlChar** /*namespaces*/,
+                                            int nb_attributes, int /*nb_defaulted*/, const xmlChar** libxmlAttributes)
 {
     if (strcmp(reinterpret_cast<const char*>(xmlLocalName), "attrs") != 0)
         return;
@@ -1338,5 +1357,3 @@ HashMap<String, String> parseAttributes(const String& string, bool& attrsOK)
 }
 
 }
-
-
