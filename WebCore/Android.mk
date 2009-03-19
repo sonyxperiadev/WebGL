@@ -630,6 +630,7 @@ LOCAL_SRC_FILES := \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
 	\
+	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
 	platform/graphics/android/FontCustomPlatformData.cpp \
@@ -644,6 +645,7 @@ LOCAL_SRC_FILES := \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
+	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/TransformationMatrixAndroid.cpp \
 	platform/graphics/android/android_graphics.cpp \
 	\

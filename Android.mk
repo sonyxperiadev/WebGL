@@ -80,11 +80,12 @@ LOCAL_LDLIBS += -lpthread -ldl
 
 # Build our list of include paths
 LOCAL_C_INCLUDES := \
-	$(call include-path-for, corecg graphics) \
 	$(JNI_H_INCLUDE) \
 	external/icu4c/common \
 	external/icu4c/i18n \
 	external/libxml2/include \
+	external/skia/emoji \
+	external/skia/include/core \
 	external/skia/include/effects \
 	external/skia/include/images \
 	external/skia/include/ports \

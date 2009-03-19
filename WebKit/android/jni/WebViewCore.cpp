@@ -201,7 +201,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_maxYScroll = 240/4;
     m_textGeneration = 0;
     m_screenWidth = 320;
-    m_scale = 1;
+    m_scale = 100;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -287,6 +287,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_skipContentDraw = false;
     m_findIsUp = false;
     m_domtree_version = 0;
+    m_check_domtree_version = true;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -361,6 +362,12 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // We may be mid-layout and thus cannot draw.
     if (!success)
         return;
+
+    {   // collect WebViewCoreRecordTimeCounter after layoutIfNeededRecursive
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreRecordTimeCounter);
+#endif
+
     // if the webkit page dimensions changed, discard the pictureset and redraw.
     WebCore::FrameView* view = m_mainFrame->view();
     int width = view->contentsWidth();
@@ -385,6 +392,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // and check to see if any already split pieces need to be redrawn.
     if (content->build())
         rebuildPictureSet(content);
+    } // WebViewCoreRecordTimeCounter
     CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Node* oldFocusNode = builder.currentFocus();
     m_frameCacheOutOfDate = true;
@@ -396,13 +404,15 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
     unsigned latestVersion = 0;
-    // as domTreeVersion only increment, we can just check the sum to see whether
-    // we need to update the frame cache
-    for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
-        latestVersion += frame->document()->domTreeVersion();
+    if (m_check_domtree_version) {
+        // as domTreeVersion only increment, we can just check the sum to see 
+        // whether we need to update the frame cache
+        for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
+            latestVersion += frame->document()->domTreeVersion();
+        }
     }
-    if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds
-            || m_findIsUp || latestVersion != m_domtree_version) {
+    if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds || m_findIsUp 
+            || (m_check_domtree_version && latestVersion != m_domtree_version)) {
         m_lastFocused = oldFocusNode;
         m_lastFocusedBounds = oldBounds;
         DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
@@ -456,6 +466,7 @@ void WebViewCore::clearContent()
     m_content.clear();
     m_contentMutex.unlock();
     m_addInval.setEmpty();
+    m_rebuildInval.setEmpty();
 }
 
 void WebViewCore::copyContentToPicture(SkPicture* picture)
@@ -515,6 +526,10 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
     recordingCanvas->save();
     view->platformWidget()->draw(&gc, WebCore::IntRect(inval.fLeft,
         inval.fTop, inval.width(), inval.height()));
+    m_rebuildInval.op(inval, SkRegion::kUnion_Op);
+    DBG_SET_LOGD("m_rebuildInval={%d,%d,r=%d,b=%d}",
+        m_rebuildInval.getBounds().fLeft, m_rebuildInval.getBounds().fTop,
+        m_rebuildInval.getBounds().fRight, m_rebuildInval.getBounds().fBottom);
 
     gButtonMutex.lock();
     updateButtonList(&buttons);
@@ -540,9 +555,6 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 
 bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreRecordTimeCounter);
-#endif
     DBG_SET_LOG("start");
     m_contentMutex.lock();
     PictureSet contentCopy(m_content);
@@ -555,6 +567,8 @@ bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
     }
     region->set(m_addInval);
     m_addInval.setEmpty();
+    region->op(m_rebuildInval, SkRegion::kUnion_Op);
+    m_rebuildInval.setEmpty();
     m_contentMutex.lock();
     contentCopy.setDrawTimes(m_content);
     m_content.set(contentCopy);
@@ -700,6 +714,7 @@ void WebViewCore::didFirstLayout()
     checkException(env);
 
     DBG_NAV_LOG("call updateFrameCache");
+    m_check_domtree_version = false;
     updateFrameCache();
     m_history.setDidFirstLayout(true);
 }
@@ -734,6 +749,7 @@ void WebViewCore::notifyFocusSet()
 void WebViewCore::notifyProgressFinished()
 {
     DBG_NAV_LOG("call updateFrameCache");
+    m_check_domtree_version = true;
     updateFrameCache();
     sendNotifyProgressFinished();
 }
@@ -1745,7 +1761,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
     // so just leave the function now.
     if (!isClick)
         return;
-    if (frame) {
+    if (frame && FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());

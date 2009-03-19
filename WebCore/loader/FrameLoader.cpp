@@ -113,6 +113,10 @@
 #include "RenderArena.h"
 #endif
 
+#if PLATFORM(ANDROID)
+#include "WebCoreFrameBridge.h"
+#endif
+
 namespace WebCore {
 
 #if ENABLE(SVG)
@@ -1697,9 +1701,14 @@ bool FrameLoader::gotoAnchor(const String& name)
         renderer = anchorNode->renderer();
         rect = anchorNode->getRect();
     }
+#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
+    android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(true);
+#endif
     if (renderer)
         renderer->enclosingLayer()->scrollRectToVisible(rect, true, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignTopAlways);
-
+#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
+    android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(false);
+#endif
     return true;
 }
 

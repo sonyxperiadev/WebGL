@@ -362,6 +362,7 @@ namespace android {
         static Mutex m_contentMutex; // protects ui/core thread pictureset access
         PictureSet m_content; // the set of pictures to draw (accessed by UI too)
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)
+        SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures
         // Used in passToJS to avoid updating the UI text field until after the
         // key event has been processed.
         bool m_blockTextfieldUpdates;
@@ -386,6 +387,7 @@ namespace android {
         int m_screenWidth;
         int m_scale;
         unsigned m_domtree_version;
+        bool m_check_domtree_version;
         
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

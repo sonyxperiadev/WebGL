@@ -24,14 +24,13 @@
  */
 
 #include "config.h"
+#include "BitmapAllocatorAndroid.h"
 #include "ImageDecoder.h"
 #include "ImageSource.h"
 #include "IntSize.h"
 #include "NotImplemented.h"
 #include "SharedBuffer.h"
 #include "PlatformString.h"
-
-#include "JavaSharedClient.h"
 
 #include "SkBitmapRef.h"
 #include "SkImageRef.h"
@@ -44,20 +43,10 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 //#define TRACE_SUBSAMPLE_BITMAPS
 //#define TRACE_RLE_BITMAPS
 
-#include "SkImageRef_GlobalPool.h"
-#include "SkImageRef_ashmem.h"
-
-// made this up, so we don't waste a file-descriptor on small images, plus
-// we don't want to lose too much on the round-up to a page size (4K)
-#define MIN_ASHMEM_ALLOC_SIZE   (32*1024)
 
 // don't use RLE for images smaller than this, since they incur a drawing cost
 // (and don't work as patterns yet) we only want to use RLE when we must
 #define MIN_RLE_ALLOC_SIZE      (512*1024)
-
-static bool should_use_ashmem(const SkBitmap& bm) {
-    return bm.getSize() >= MIN_ASHMEM_ALLOC_SIZE;
-}
 
 /*  Images larger than this should be subsampled. Using ashmem, the decoded
     pixels will be purged as needed, so this value can be pretty large. Making
@@ -102,46 +91,7 @@ public:
     bool fAllDataReceived;
 };
 
-using namespace android;
-
 namespace WebCore {
-
-class SharedBufferStream : public SkMemoryStream {
-public:
-    SharedBufferStream(SharedBuffer* buffer)
-            : SkMemoryStream(buffer->data(), buffer->size(), false) {
-        fBuffer = buffer;
-        buffer->ref();
-    }
-    
-    virtual ~SharedBufferStream() {
-        // we can't necessarily call fBuffer->deref() here, as we may be
-        // in a different thread from webkit, and SharedBuffer is not
-        // threadsafe. Therefore we defer it until it can be executed in the
-        // webkit thread.
-//        SkDebugf("-------- enqueue buffer %p for deref\n", fBuffer);
-        JavaSharedClient::EnqueueFunctionPtr(CallDeref, fBuffer);
-    }
-    
-private:
-    // don't allow this to change our data. should not get called, but we
-    // override here just to be sure
-    virtual void setMemory(const void* data, size_t length, bool copyData) {
-        sk_throw();
-    }
-    
-    // we share ownership of this with webkit
-    SharedBuffer* fBuffer;
-    
-    // will be invoked in the webkit thread
-    static void CallDeref(void* buffer) {
-//        SkDebugf("-------- call deref on buffer %p\n", buffer);
-        ((SharedBuffer*)buffer)->deref();
-    }
-};
-                           
-
-///////////////////////////////////////////////////////////////////////////////
 
 ImageSource::ImageSource() {
     m_decoder.m_image = NULL;
@@ -253,28 +203,20 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         SkBitmap* bm = &decoder->bitmap();
         SkPixelRef* ref = convertToRLE(bm, data->data(), data->size());
 
-        if (NULL == ref) {
-            SkStream* strm = new SharedBufferStream(data);
-            // imageref now owns the stream object
-            if (should_use_ashmem(*bm)) {
-//            SkDebugf("---- use ashmem for image [%d %d]\n", bm->width(), bm->height());
-                ref = new SkImageRef_ashmem(strm, bm->config(), decoder->fSampleSize);
-            } else {
-//            SkDebugf("---- use globalpool for image [%d %d]\n", bm->width(), bm->height());
-                ref = new SkImageRef_GlobalPool(strm, bm->config(), decoder->fSampleSize);
+        if (ref) {
+            bm->setPixelRef(ref)->unref();
+        } else {
+            BitmapAllocatorAndroid alloc(data, decoder->fSampleSize);
+            if (!alloc.allocPixelRef(bm, NULL)) {
+                return;
             }
-            
-      //      SkDebugf("----- allDataReceived [%d %d]\n", bm->width(), bm->height());
+            ref = bm->pixelRef();
         }
 
         // we promise to never change the pixels (makes picture recording fast)
         ref->setImmutable();
         // give it the URL if we have one
         ref->setURI(m_decoder.m_url);
-        // our bitmap is now the only owner of the imageref
-        bm->setPixelRef(ref)->unref();
-        
-//        SkDebugf("---- finished: [%d %d] %s\n", bm->width(), bm->height(), ref->getURI());
     }
 }
 

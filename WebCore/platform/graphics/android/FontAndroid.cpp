@@ -25,21 +25,23 @@
  */
 
 #include "config.h"
-#include "Font.h"
 
+#include "EmojiFont.h"
+#include "Font.h"
 #include "FontData.h"
 #include "FontFallbackList.h"
 #include "GraphicsContext.h"
 #include "GlyphBuffer.h"
-#include "PlatformGraphicsContext.h"
 #include "IntRect.h"
-
+#include "PlatformGraphicsContext.h"
 #include "SkCanvas.h"
 #include "SkLayerDrawLooper.h"
 #include "SkPaint.h"
 #include "SkTemplates.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
+
+using namespace android;
 
 namespace WebCore {
 
@@ -104,11 +106,13 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     }
     return true;
 }
-    
+
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                       const GlyphBuffer& glyphBuffer,  int from, int numGlyphs,
-                      const FloatPoint& point) const {
-    SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t));  // compile-time assert
+                      const FloatPoint& point) const
+{
+    // compile-time assert
+    SkASSERT(sizeof(GlyphBufferGlyph) == sizeof(uint16_t));
 
     SkPaint paint;
     if (!setupForText(&paint, gc, font)) {
@@ -122,20 +126,49 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
     SkPoint*                    pos = storage.get();
     
+    SkCanvas* canvas = gc->platformContext()->mCanvas;
+
     /*  We need an array of [x,y,x,y,x,y,...], but webkit is giving us
         point.xy + [width, height, width, height, ...], so we have to convert
      */
-    for (int i = 0; i < numGlyphs; i++) {
-        pos[i].set(x, y);
-        x += SkFloatToScalar(adv[i].width());
-        y += SkFloatToScalar(adv[i].height());
-    }
 
-    SkCanvas* canvas = gc->platformContext()->mCanvas;
-    canvas->drawPosText(glyphs, numGlyphs * sizeof(*glyphs), pos, paint);
+    if (EmojiFont::IsAvailable()) {
+        int localIndex = 0;
+        int localCount = 0;
+        for (int i = 0; i < numGlyphs; i++) {
+            if (EmojiFont::IsEmojiGlyph(glyphs[i])) {
+                if (localCount)
+                    canvas->drawPosText(&glyphs[localIndex],
+                                        localCount * sizeof(uint16_t),
+                                        &pos[localIndex], paint);
+                EmojiFont::Draw(canvas, glyphs[i], x, y, &paint);
+                // reset local index/count track for "real" glyphs
+                localCount = 0;
+                localIndex = i + 1;
+            } else {
+                pos[i].set(x, y);
+                localCount += 1;
+            }
+            x += SkFloatToScalar(adv[i].width());
+            y += SkFloatToScalar(adv[i].height());
+        }
+        // draw the last run of glyphs (if any)
+        if (localCount)
+            canvas->drawPosText(&glyphs[localIndex],
+                                localCount * sizeof(uint16_t),
+                                &pos[localIndex], paint);
+    } else {
+        for (int i = 0; i < numGlyphs; i++) {
+            pos[i].set(x, y);
+            x += SkFloatToScalar(adv[i].width());
+            y += SkFloatToScalar(adv[i].height());
+        }
+        canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
+    }
 }
 
-FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& point, int h, int, int) const
+FloatRect Font::selectionRectForComplexText(const TextRun& run,
+                                const IntPoint& point, int h, int, int) const
 {
     SkPaint              paint;
     SkScalar             width, left;
@@ -152,7 +185,8 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& 
                      roundf(SkScalarToFloat(spacing)));
 }
 
-void Font::drawComplexText(GraphicsContext* gc, TextRun const& run, FloatPoint const& point, int, int) const
+void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
+                           FloatPoint const& point, int, int) const
 {
     SkCanvas*   canvas = gc->platformContext()->mCanvas;
     SkPaint     paint;
@@ -181,7 +215,8 @@ float Font::floatWidthForComplexText(const TextRun& run) const
     return SkScalarToFloat(width);
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int x, bool includePartialGlyphs) const
+int Font::offsetForPositionForComplexText(const TextRun& run, int x,
+                                          bool includePartialGlyphs) const
 {
     SkPaint                         paint;
     int                             count = run.length();
