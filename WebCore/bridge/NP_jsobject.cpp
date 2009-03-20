@@ -379,11 +379,17 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
     return false;
 }
 
-void _NPN_SetException(NPObject*, const NPUTF8* message)
+void _NPN_SetException(NPObject* o, const NPUTF8* message)
 {
+#ifdef ANDROID_NPN_SETEXCEPTION
+    if (o->_class == NPScriptObjectClass) {
+        JSC::Bindings::SetGlobalException(message);
+    }
+#else
     // Ignorning the NPObject param is consistent with the Mozilla implementation.
     UString exception(message);
     CInstance::setGlobalException(exception);
+#endif  // ANDROID_NPN_SETEXCEPTION
 }
 
 bool _NPN_Enumerate(NPP, NPObject* o, NPIdentifier** identifier, uint32_t* count)
