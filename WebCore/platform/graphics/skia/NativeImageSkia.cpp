@@ -30,7 +30,9 @@
 
 #include "config.h"
 
+#if PLATFORM(SKIA)
 #include "skia/ext/image_operations.h"
+#endif
 
 #include "NativeImageSkia.h"
 #include "SkiaUtils.h"
@@ -63,9 +65,10 @@ bool NativeImageSkia::hasResizedBitmap(int w, int h) const
 
 SkBitmap NativeImageSkia::resizedBitmap(int w, int h) const
 {
+#if PLATFORM(SKIA)
     if (m_resizedImage.width() != w || m_resizedImage.height() != h)
         m_resizedImage = skia::ImageOperations::Resize(*this, skia::ImageOperations::RESIZE_LANCZOS3, w, h);
-
+#endif
     return m_resizedImage;
 }
 

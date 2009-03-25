@@ -25,7 +25,6 @@
 
 #include "config.h"
 #include "BitmapAllocatorAndroid.h"
-#include "ImageDecoder.h"
 #include "ImageSource.h"
 #include "IntSize.h"
 #include "NotImplemented.h"
@@ -33,10 +32,17 @@
 #include "PlatformString.h"
 
 #include "SkBitmapRef.h"
-#include "SkImageRef.h"
 #include "SkImageDecoder.h"
+#include "SkImageRef.h"
 #include "SkStream.h"
 #include "SkTemplates.h"
+
+#ifdef ANDROID_ANIMATED_GIF
+    #include "EmojiFont.h"
+    #include "skia/GIFImageDecoder.h"
+
+    using namespace android;
+#endif
 
 SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 
@@ -95,14 +101,24 @@ namespace WebCore {
 
 ImageSource::ImageSource() {
     m_decoder.m_image = NULL;
+#ifdef ANDROID_ANIMATED_GIF
+    m_decoder.m_gifDecoder = 0;
+#endif
 }
 
 ImageSource::~ImageSource() {
     delete m_decoder.m_image;
+#ifdef ANDROID_ANIMATED_GIF
+    delete m_decoder.m_gifDecoder;
+#endif
 }
 
 bool ImageSource::initialized() const {
-    return m_decoder.m_image != NULL;
+    return
+#ifdef ANDROID_ANIMATED_GIF
+        m_decoder.m_gifDecoder ||
+#endif
+        m_decoder.m_image != NULL;
 }
 
 static int computeSampleSize(const SkBitmap& bitmap) {
@@ -164,11 +180,32 @@ void ImageSource::setURL(const String& url)
     }
 }
 
+#ifdef ANDROID_ANIMATED_GIF
+// we only animate small GIFs for now, to save memory
+// also, we only support this in Japan, hence the Emoji check
+static bool should_use_animated_gif(int width, int height) {
+    return EmojiFont::IsAvailable() &&
+           width <= 32 && height <= 32;
+}
+#endif
+
 void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 {
-    if (NULL == m_decoder.m_image) {
+#ifdef ANDROID_ANIMATED_GIF
+    // This is only necessary if we allow ourselves to partially decode GIF
+    if (m_decoder.m_gifDecoder
+            && !m_decoder.m_gifDecoder->failed()) {
+        m_decoder.m_gifDecoder->setData(data, allDataReceived);
+        return;
+    }
+#endif
+    if (NULL == m_decoder.m_image
+#ifdef ANDROID_ANIMATED_GIF
+          && !m_decoder.m_gifDecoder
+#endif
+                                            ) {
         SkBitmap tmp;
-        
+
         SkMemoryStream stream(data->data(), data->size(), false);
         SkImageDecoder* codec = SkImageDecoder::Factory(&stream);
         SkAutoTDelete<SkImageDecoder> ad(codec);
@@ -180,6 +217,25 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
         int origW = tmp.width();
         int origH = tmp.height();
+
+#ifdef ANDROID_ANIMATED_GIF
+        // First, check to see if this is an animated GIF
+        const Vector<char>& buffer = data->buffer();
+        const char* contents = buffer.data();
+        if (buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0 &&
+                should_use_animated_gif(origW, origH)) {
+            // This means we are looking at a GIF, so create special
+            // GIF Decoder
+            // Need to wait for all data received if we are assigning an
+            // allocator (which we are not at the moment).
+            if (!m_decoder.m_gifDecoder /*&& allDataReceived*/)
+                m_decoder.m_gifDecoder = new GIFImageDecoder();
+            if (!m_decoder.m_gifDecoder->failed())
+                m_decoder.m_gifDecoder->setData(data, allDataReceived);
+            return;
+        }
+#endif
+        
         int sampleSize = computeSampleSize(tmp);
         if (sampleSize > 1) {
             codec->setSampleSize(sampleSize);
@@ -222,11 +278,20 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
 bool ImageSource::isSizeAvailable()
 {
-    return m_decoder.m_image != NULL;
+    return
+#ifdef ANDROID_ANIMATED_GIF
+            (m_decoder.m_gifDecoder
+                    && m_decoder.m_gifDecoder->isSizeAvailable()) ||
+#endif
+            m_decoder.m_image != NULL;
 }
 
 IntSize ImageSource::size() const
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder)
+        return m_decoder.m_gifDecoder->size();
+#endif
     if (m_decoder.m_image) {
         return IntSize(m_decoder.m_image->origWidth(), m_decoder.m_image->origHeight());
     }
@@ -235,19 +300,40 @@ IntSize ImageSource::size() const
 
 int ImageSource::repetitionCount()
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder)
+        return m_decoder.m_gifDecoder->repetitionCount();
+    if (!m_decoder.m_image) return 0;
+#endif
     return 1;
     // A property with value 0 means loop forever.
 }
 
 size_t ImageSource::frameCount() const
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder) {
+        return m_decoder.m_gifDecoder->failed() ? 0
+                : m_decoder.m_gifDecoder->frameCount();
+    }
+#endif
     // i.e. 0 frames if we're not decoded, or 1 frame if we are
     return m_decoder.m_image != NULL;
 }
 
 SkBitmapRef* ImageSource::createFrameAtIndex(size_t index)
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder) {
+        RGBA32Buffer* buffer =
+                m_decoder.m_gifDecoder->frameBufferAtIndex(index);
+        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+            return 0;
+        return new SkBitmapRef(buffer->bitmap());
+    }
+#else
     SkASSERT(index == 0);
+#endif
     SkASSERT(m_decoder.m_image != NULL);
     m_decoder.m_image->ref();
     return m_decoder.m_image;
@@ -255,8 +341,18 @@ SkBitmapRef* ImageSource::createFrameAtIndex(size_t index)
 
 float ImageSource::frameDurationAtIndex(size_t index)
 {
-    SkASSERT(index == 0);
     float duration = 0;
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder) {
+        RGBA32Buffer* buffer
+                = m_decoder.m_gifDecoder->frameBufferAtIndex(index);
+        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+            return 0;
+        duration = buffer->duration() / 1000.0f;
+    }
+#else
+    SkASSERT(index == 0);
+#endif
 
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
     // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
@@ -268,7 +364,21 @@ float ImageSource::frameDurationAtIndex(size_t index)
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder) {
+        if (!m_decoder.m_gifDecoder->supportsAlpha())
+            return false;
+
+        RGBA32Buffer* buffer =
+                m_decoder.m_gifDecoder->frameBufferAtIndex(index);
+        if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+            return false;
+
+        return buffer->hasAlpha();
+    }
+#else
     SkASSERT(0 == index);
+#endif
 
     if (NULL == m_decoder.m_image)
         return true;    // if we're not sure, assume the worse-case
@@ -285,12 +395,32 @@ bool ImageSource::frameHasAlphaAtIndex(size_t index)
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder) {
+        RGBA32Buffer* buffer =
+                m_decoder.m_gifDecoder->frameBufferAtIndex(index);
+        return buffer && buffer->status() == RGBA32Buffer::FrameComplete;
+    }
+#else
     SkASSERT(0 == index);
+#endif
 	return m_decoder.m_image && m_decoder.m_image->fAllDataReceived;
 }
 
 void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
+#ifdef ANDROID_ANIMATED_GIF
+    if (!destroyAll) {
+        if (m_decoder.m_gifDecoder)
+            m_decoder.m_gifDecoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
+    
+    delete m_decoder.m_gifDecoder;
+    m_decoder.m_gifDecoder = 0;
+    if (data)
+        setData(data, allDataReceived);
+#endif
     // do nothing, since the cache is managed elsewhere
 }
 
@@ -303,6 +433,10 @@ IntSize ImageSource::frameSizeAtIndex(size_t index) const
 String ImageSource::filenameExtension() const
 {
     // FIXME: need to add virtual to our decoders to return "jpg/png/gif/..."
+#ifdef ANDROID_ANIMATED_GIF
+    if (m_decoder.m_gifDecoder)
+        return m_decoder.m_gifDecoder->filenameExtension();
+#endif
     return String();
 }
 

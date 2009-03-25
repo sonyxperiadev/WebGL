@@ -262,6 +262,10 @@ bool BitmapImage::shouldAnimate()
 
 void BitmapImage::startAnimation(bool catchUpIfNecessary)
 {
+#ifdef ANDROID_ANIMATED_GIF
+    // We can't ever seem to keep up, so always let us just show the next frame
+    catchUpIfNecessary = false;
+#endif
     if (m_frameTimer || !shouldAnimate() || frameCount() <= 1)
         return;
 
