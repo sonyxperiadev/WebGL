@@ -903,8 +903,9 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 obj = obj->container();                
             }
             if (!isConstrained) {
-                int maxWidth = view()->frameView()->screenWidth() - 2 * ANDROID_FCTS_MARGIN_PADDING;
-                if (maxWidth > 0) {
+                int screenWidth = view()->frameView()->screenWidth();
+                if (screenWidth > 0 && width() > screenWidth) {
+                    int maxWidth = screenWidth - 2 * ANDROID_FCTS_MARGIN_PADDING;
                     setWidth(min(width(), maxWidth));
                     m_minPrefWidth = min(m_minPrefWidth, maxWidth);
                     m_maxPrefWidth = min(m_maxPrefWidth, maxWidth);
