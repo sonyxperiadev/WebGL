@@ -329,7 +329,11 @@ SkBitmapRef* ImageSource::createFrameAtIndex(size_t index)
                 m_decoder.m_gifDecoder->frameBufferAtIndex(index);
         if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
             return 0;
-        return new SkBitmapRef(buffer->bitmap());
+        SkBitmap& bitmap = buffer->bitmap();
+        SkPixelRef* pixelRef = bitmap.pixelRef();
+        if (pixelRef)
+            pixelRef->setURI(m_decoder.m_url);
+        return new SkBitmapRef(bitmap);
     }
 #else
     SkASSERT(index == 0);
