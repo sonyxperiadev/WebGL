@@ -133,6 +133,9 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
      */
 
     if (EmojiFont::IsAvailable()) {
+        // set filtering, to make scaled images look nice(r)
+        paint.setFilterBitmap(true);
+        
         int localIndex = 0;
         int localCount = 0;
         for (int i = 0; i < numGlyphs; i++) {
@@ -141,7 +144,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                     canvas->drawPosText(&glyphs[localIndex],
                                         localCount * sizeof(uint16_t),
                                         &pos[localIndex], paint);
-                EmojiFont::Draw(canvas, glyphs[i], x, y, &paint);
+                EmojiFont::Draw(canvas, glyphs[i], x, y, paint);
                 // reset local index/count track for "real" glyphs
                 localCount = 0;
                 localIndex = i + 1;
