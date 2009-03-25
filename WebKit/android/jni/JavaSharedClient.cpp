@@ -25,35 +25,28 @@
 
 #include "config.h"
 #include "JavaSharedClient.h"
-#define LOG_TAG "JavaSharedClient"
-#include "utils/Log.h"
+#include "TimerClient.h"
 #include "SkDeque.h"
 #include "SkThread.h"
 
 namespace android {
-    void AndroidSignalServiceFuncPtrQueue();
-
     TimerClient* JavaSharedClient::GetTimerClient()
     {
-        //LOG_ASSERT(gTimerClient != NULL, "gTimerClient not initialized!!!");
         return gTimerClient;
     }
 
     CookieClient* JavaSharedClient::GetCookieClient()
     {
-        //LOG_ASSERT(gCookieClient != NULL, "gCookieClient not initialized!!!");
         return gCookieClient;
     }
 
     void JavaSharedClient::SetTimerClient(TimerClient* client)
     {
-        //LOG_ASSERT(gTimerClient == NULL || client == NULL, "gTimerClient already set, aborting...");
         gTimerClient = client;
     }
 
     void JavaSharedClient::SetCookieClient(CookieClient* client)
     {
-        //LOG_ASSERT(gCookieClient == NULL || client == NULL, "gCookieClient already set, aborting...");
         gCookieClient = client;
     }
 
@@ -81,7 +74,7 @@ namespace android {
         
         gFuncPtrQMutex.release();
         
-        android::AndroidSignalServiceFuncPtrQueue();
+        gTimerClient->signalServiceFuncPtrQueue();
     }
 
     void JavaSharedClient::ServiceFunctionPtrQueue()

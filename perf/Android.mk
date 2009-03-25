@@ -41,16 +41,6 @@ LOCAL_CFLAGS += -include "WebCorePrefixAndroid.h"
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
 	external/webkit \
-	$(WEBCORE) \
-	$(WEBCORE)/page \
-	$(WEBCORE)/platform \
-	$(WEBCORE)/platform/graphics \
-	$(WEBCORE)/platform/network \
-	$(WEBCORE)/platform/text \
-	$(WEBCORE)/rendering \
-	$(WEBKIT) \
-	$(WEBKIT)/android/stl \
-	$(JSC) \
 	external/icu4c/common \
 	external/libxml2/include \
 	external/skia/include/effects \
@@ -59,6 +49,9 @@ LOCAL_C_INCLUDES := \
 	external/skia/include/utils \
 	external/skia/src/ports \
 	external/sqlite/dist \
+	$(WEBKIT) \
+	$(WEBKIT)/android/stl \
+	$(WEBCORE) \
 	$(WEBCORE)/bindings/js \
 	$(WEBCORE)/bridge \
 	$(WEBCORE)/bridge/c \
@@ -72,15 +65,23 @@ LOCAL_C_INCLUDES := \
 	$(WEBCORE)/loader \
 	$(WEBCORE)/loader/appcache \
 	$(WEBCORE)/loader/icon \
+	$(WEBCORE)/page \
 	$(WEBCORE)/page/android \
 	$(WEBCORE)/page/animation \
+	$(WEBCORE)/platform \
 	$(WEBCORE)/platform/android \
+	$(WEBCORE)/platform/animation \
+	$(WEBCORE)/platform/graphics \
 	$(WEBCORE)/platform/graphics/android \
 	$(WEBCORE)/platform/graphics/network \
+	$(WEBCORE)/platform/graphics/transforms \
 	$(WEBCORE)/platform/image-decoders \
+	$(WEBCORE)/platform/network \
 	$(WEBCORE)/platform/network/android \
 	$(WEBCORE)/platform/sql \
+	$(WEBCORE)/platform/text \
 	$(WEBCORE)/plugins \
+	$(WEBCORE)/rendering \
 	$(WEBCORE)/rendering/style \
 	$(WEBCORE)/storage \
 	$(WEBCORE)/xml \
@@ -89,18 +90,24 @@ LOCAL_C_INCLUDES := \
 	$(WEBKIT)/android/nav \
 	$(WEBKIT)/android/plugins \
 	$(WEBKIT)/android/WebCoreSupport \
+	$(JSC) \
 	$(JSC)/API \
-	$(JSC)/VM \
+	$(JSC)/assembler \
+	$(JSC)/bytecode \
+	$(JSC)/bytecompiler \
 	$(JSC)/debugger \
-	$(JSC)/kjs \
-	$(JSC)/icu \
+	$(JSC)/parser \
+	$(JSC)/jit \
+	$(JSC)/interpreter \
 	$(JSC)/pcre \
 	$(JSC)/profiler \
 	$(JSC)/runtime \
+	$(JSC)/wrec \
 	$(JSC)/wtf \
 	$(JSC)/wtf/unicode \
 	$(JSC)/wtf/unicode/icu \
 	$(JSC)/ForwardingHeaders \
+	$(base_intermediates)/WebCore/page \
 	$(call include-path-for, corecg graphics)
 
 LOCAL_SHARED_LIBRARIES := libwebcore

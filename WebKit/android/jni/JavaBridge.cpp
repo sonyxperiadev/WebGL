@@ -82,7 +82,7 @@ public:
 
     ////////////////////////////////////////////
 
-    void signalServiceFuncPtrQueue();
+    virtual void signalServiceFuncPtrQueue();
 
     // jni functions
     static void Constructor(JNIEnv* env, jobject obj);
@@ -104,7 +104,6 @@ private:
 };
 
 static void (*sSharedTimerFiredCallback)();
-static JavaBridge* gJavaBridge;
 
 JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 {
@@ -126,7 +125,6 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 
     JavaSharedClient::SetTimerClient(this);
     JavaSharedClient::SetCookieClient(this);
-    gJavaBridge = this;
 }   
     
 JavaBridge::~JavaBridge()
@@ -216,14 +214,6 @@ void JavaBridge::signalServiceFuncPtrQueue()
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSignalFuncPtrQueue);
-}
-
-// ----------------------------------------------------------------------------
-
-// visible to Shared
-void AndroidSignalServiceFuncPtrQueue()
-{
-    gJavaBridge->signalServiceFuncPtrQueue();
 }
 
 // ----------------------------------------------------------------------------
