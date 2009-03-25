@@ -892,6 +892,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     if (allowNewer == DontAllowNewer && m_viewImpl->m_lastGeneration < m_generation)
         return m_frameCacheUI;
     DBG_NAV_LOGD("%s", "m_viewImpl->m_updatedFrameCache == true");
+    bool hadFocus = m_frameCacheUI && m_frameCacheUI->currentFocus();
     m_viewImpl->gFrameCacheMutex.lock();
     OutOfFocusFix fix = DoNothing;
     if (allowNewer != DontAllowNewer)
@@ -904,6 +905,8 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     m_viewImpl->m_frameCacheKit = 0;
     m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
+    if (hadFocus && (!m_frameCacheUI || !m_frameCacheUI->currentFocus()))
+        viewInvalidate(); // redraw in case focus ring is still visible
     if (fix == UpdateTextEntry)
         updateTextEntry();
     else if (fix == ClearTextEntry)
