@@ -121,6 +121,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/platform/graphics \
 	$(LOCAL_PATH)/WebCore/platform/graphics/android \
 	$(LOCAL_PATH)/WebCore/platform/graphics/network \
+	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders \
 	$(LOCAL_PATH)/WebCore/platform/network \

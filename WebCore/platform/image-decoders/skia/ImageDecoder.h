@@ -39,6 +39,9 @@
 #include <wtf/Vector.h>
 
 #include "SkBitmap.h"
+#ifdef ANDROID_ANIMATED_GIF
+#include "SkColor.h"
+#endif
 
 namespace WebCore {
 
@@ -169,7 +172,7 @@ namespace WebCore {
             bmp.setConfig(SkBitmap::kARGB_8888_Config, width, height);
             if (!bmp.allocPixels())
                 return false;  // Allocation failure, maybe the bitmap was too big.
-
+                
             // Clear the image.
             bmp.eraseARGB(0, 0, 0, 0);
 
@@ -199,6 +202,10 @@ namespace WebCore {
         static void setRGBA(uint32_t* dest, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
         {
             // We store this data pre-multiplied.
+#ifdef ANDROID_ANIMATED_GIF
+            // Chrome should take this change as well.
+            *dest = SkPreMultiplyARGB(a, r, g, b);
+#else
             if (a == 0)
                 *dest = 0;
             else {
@@ -210,6 +217,7 @@ namespace WebCore {
                 }
                 *dest = (a << 24 | r << 16 | g << 8 | b);
             }
+#endif
         }
 
         void setRGBA(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
