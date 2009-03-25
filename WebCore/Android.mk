@@ -651,6 +651,8 @@ LOCAL_SRC_FILES := \
 	\
 	platform/graphics/WidthIterator.cpp \
 	\
+	platform/graphics/skia/NativeImageSkia.cpp \
+	\
 	platform/graphics/transforms/MatrixTransformOperation.cpp \
 	platform/graphics/transforms/RotateTransformOperation.cpp \
 	platform/graphics/transforms/ScaleTransformOperation.cpp \
@@ -658,6 +660,10 @@ LOCAL_SRC_FILES := \
 	platform/graphics/transforms/TransformOperations.cpp \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
+	\
+	platform/image-decoders/skia/GIFImageDecoder.cpp \
+	platform/image-decoders/skia/GIFImageReader.cpp \
+	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
 	platform/network/FormData.cpp \
