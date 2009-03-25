@@ -56,7 +56,12 @@ namespace android {
         PictureSet(const PictureSet& src) { set(src); }
         virtual ~PictureSet();
         void add(const SkRegion& area, SkPicture* picture,
-            uint32_t elapsed, bool split);
+            uint32_t elapsed, bool split) 
+        {
+            add(area, picture, elapsed, split, emptyPicture(picture));
+        }
+        void add(const SkRegion& area, SkPicture* picture,
+            uint32_t elapsed, bool split, bool empty);
         const SkIRect& bounds(size_t i) const {
             return mPictures[i].mArea.getBounds(); }
         bool build();
@@ -87,6 +92,7 @@ namespace android {
             bool mSplit : 8;
             bool mWroteElapsed : 8;
             bool mBase : 8; // true if nothing is drawn underneath this
+            bool mEmpty : 8; // true if the picture only draws white
         };
         void add(const Pictures* temp);
         WTF::Vector<Pictures> mPictures;
