@@ -74,7 +74,7 @@ void PictureSet::add(const Pictures* temp)
 }
 
 void PictureSet::add(const SkRegion& area, SkPicture* picture,
-    uint32_t elapsed, bool split)
+    uint32_t elapsed, bool split, bool empty)
 {
     DBG_SET_LOGD("%p area={%d,%d,r=%d,b=%d} pict=%p elapsed=%d split=%d", this,
         area.getBounds().fLeft, area.getBounds().fTop,
@@ -87,7 +87,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
     for (Pictures* working = mPictures.begin(); working != last; working++)
         diff.op(working->mArea, SkRegion::kDifference_Op);
     Pictures pictureAndBounds = {area, picture, area.getBounds(),
-        elapsed, split, false, diff.isEmpty() == false};
+        elapsed, split, false, diff.isEmpty() == false, empty};
     mPictures.append(pictureAndBounds);
 }
 
@@ -435,7 +435,7 @@ bool PictureSet::isEmpty() const
 {
     const Pictures* last = mPictures.end();
     for (const Pictures* working = mPictures.begin(); working != last; working++) {
-        if (emptyPicture(working->mPicture) == false)
+        if (!working->mEmpty)
             return false;
     }
     return true;
@@ -520,6 +520,7 @@ void PictureSet::setPicture(size_t i, SkPicture* p)
 {
     mPictures[i].mPicture->safeUnref();
     mPictures[i].mPicture = p;
+    mPictures[i].mEmpty = emptyPicture(p);
 }
 
 void PictureSet::split(PictureSet* out) const
@@ -552,7 +553,8 @@ void PictureSet::split(PictureSet* out) const
                 split ? "true" : "false");
             if (multiUnsplitFastPictures <= 1 || split) {
                 total->op(working->mArea, SkRegion::kDifference_Op);
-                out->add(working->mArea, working->mPicture, elapsed, split);
+                out->add(working->mArea, working->mPicture, elapsed, split,
+                    working->mEmpty);
             } else if (balance < elapsed)
                 balance = elapsed;
             continue;
@@ -585,7 +587,8 @@ void PictureSet::split(PictureSet* out) const
                 SkIRect cBounds;
                 cBounds.set(left, top, right, bottom);
                 out->add(SkRegion(cBounds), (across | down) != 1 ? NULL :
-                    working->mPicture, elapsed, true);
+                    working->mPicture, elapsed, true, 
+                    (across | down) != 1 ? false : working->mEmpty);
                 left = right;
             }
             top = bottom;
@@ -595,7 +598,7 @@ void PictureSet::split(PictureSet* out) const
         this, mWidth, mHeight, total->isEmpty() ? "true" : "false",
         multiUnsplitFastPictures);
     if (!total->isEmpty() && multiUnsplitFastPictures > 1)
-        out->add(*total, NULL, balance, false);
+        out->add(*total, NULL, balance, false, false);
     delete total;
     validate(__FUNCTION__);
     out->dump("split-out");
