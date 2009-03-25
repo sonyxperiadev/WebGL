@@ -1041,13 +1041,13 @@ int WebViewCore::retrieveFrameGeneration(WebCore::Frame* frame)
 
 void WebViewCore::addPlugin(PluginWidgetAndroid* w)
 {
-    SkDebugf("----------- addPlugin %p", w);
+//    SkDebugf("----------- addPlugin %p", w);
     *m_plugins.append() = w;
 }
 
 void WebViewCore::removePlugin(PluginWidgetAndroid* w)
 {
-    SkDebugf("----------- removePlugin %p", w);
+//    SkDebugf("----------- removePlugin %p", w);
     int index = m_plugins.find(w);
     if (index < 0) {
         SkDebugf("--------------- pluginwindow not found! %p\n", w);
