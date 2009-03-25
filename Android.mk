@@ -78,9 +78,14 @@ endif
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl
 
-# Build our list of include paths
+# Build our list of include paths. We include WebKit/android/icu first so that
+# any files that include <unicode/ucnv.h> will include our ucnv.h first. We
+# also add external/ as an include directory so that we can specify the real
+# icu header directory as a more exact reference to avoid including our ucnv.h.
 LOCAL_C_INCLUDES := \
 	$(JNI_H_INCLUDE) \
+	$(LOCAL_PATH)/WebKit/android/icu \
+	external/ \
 	external/icu4c/common \
 	external/icu4c/i18n \
 	external/libxml2/include \
