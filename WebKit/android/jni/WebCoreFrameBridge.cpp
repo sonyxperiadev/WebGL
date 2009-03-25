@@ -953,10 +953,10 @@ protected:
         JNIEnv* env = getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
-        // maintain the local reference across calls to strong() and weak().
-        // So, create a new local reference to the real object here and delete
-        // it in weak().
-        _realObject = env->NewLocalRef(getRealObject(env, _weakRef).get());
+        // maintain the local reference across calls to virtualBegin() and
+        // virtualEnd(). So, release the local reference from the AutoJObject
+        // and delete the local reference in virtualEnd().
+        _realObject = getRealObject(env, _weakRef).release();
         // Point to the real object
         _instance->_instance = _realObject;
         // Call the base class method
@@ -964,12 +964,12 @@ protected:
     }
 
     virtual void virtualEnd() {
-        // Get rid of the local reference to the real object
+        // Call the base class method first to pop the local frame.
+        INHERITED::virtualEnd();
+        // Get rid of the local reference to the real object.
         getJNIEnv()->DeleteLocalRef(_realObject);
         // Point back to the WeakReference.
         _instance->_instance = _weakRef;
-        // Call the base class method
-        INHERITED::virtualEnd();
     }
 
 private:
