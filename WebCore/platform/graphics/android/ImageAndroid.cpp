@@ -155,9 +155,6 @@ void BitmapImage::checkForSolidColor()
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
                        const FloatRect& srcRect, CompositeOperator compositeOp)
 {
-    if (!m_source.initialized())
-        return;
-
     startAnimation();
 
     SkBitmapRef* image = this->nativeImageForCurrentFrame();
