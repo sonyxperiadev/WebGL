@@ -42,6 +42,13 @@ public:
     jobject get() const {
         return m_obj;
     }
+    // Releases the local reference to the caller. The caller *must* delete the
+    // local reference when it is done with it.
+    jobject release() {
+        jobject obj = m_obj;
+        m_obj = 0;
+        return obj;
+    }
     JNIEnv* env() const {
         return m_env;
     }
