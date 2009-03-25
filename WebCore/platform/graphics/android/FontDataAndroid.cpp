@@ -112,17 +112,16 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     SkASSERT(sizeof(glyph) == 2);   // compile-time assert
 
-    if (EmojiFont::IsEmojiGlyph(glyph))
-        return EmojiFont::GetAdvanceWidth(glyph);
-
     SkPaint  paint;
 
     m_font.setupPaint(&paint);
 
-    paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
-    SkScalar width = paint.measureText(&glyph, 2);
-    
-    return SkScalarToFloat(width);
+    if (EmojiFont::IsEmojiGlyph(glyph))
+        return EmojiFont::GetAdvanceWidth(glyph, paint);
+    else {
+        paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+        return SkScalarToFloat(paint.measureText(&glyph, 2));
+    }
 }
 
 }
