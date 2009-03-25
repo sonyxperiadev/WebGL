@@ -32,6 +32,7 @@
 #	bindings/js/JSSVG*.cpp \
 #	bindings/js/JSStorageCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
+#	bindings/js/JSWorker*.cpp \
 #	bindings/js/*Gtk.cpp \
 #	bindings/js/*Qt.cpp \
 #	bindings/js/*Win.cpp \
@@ -40,6 +41,8 @@
 #	css/CSSGrammar.y \
 #	css/SVG*.cpp \
 #	dom/XMLTokenizerQt.cpp \
+#	dom/Worker*.cpp \
+#	editing/BackForwardListChromium.cpp \
 #	editing/SmartReplace*.cpp \
 #	html/FileList.cpp \
 #	html/HTMLAudioElement.cpp \
@@ -56,9 +59,12 @@
 #	page/Accessibility*.cpp \
 #	page/InspectorController.cpp \
 #	page/JavaScript*.cpp \
+#	page/WorkerNavigator.cpp \
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
 #	rendering/RenderSVG*.cpp \
+#	rendering/RenderThemeChromiumGtk.cpp \
+#	rendering/RenderThemeChromiumWin.cpp \
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
 #	rendering/RenderVideo.cpp \
@@ -79,9 +85,11 @@
 #	/cairo/* \
 #	/cf/* \
 #	/cg/* \
+#	/chromium/* \
 #	/curl/* \
 #	/gtk/* \
 #	/image-decoders/* \
+#	^inspector/* \
 #	^ksvg2/* \
 #	^loader\/appcache/* \
 #	^loader\/archive/* \
@@ -91,10 +99,12 @@
 #	^platform\/graphics\/filters/* \
 #	^platform\/network\/soup/* \
 #	/qt/* \
+#	/skia/* \
 #	^storage/* \
 #	^svg/* \
 #	/symbian/* \
 #	/win/* \
+#	/wml/* \
 #	/wx/* \
 
 
@@ -198,6 +208,7 @@ LOCAL_SRC_FILES := \
 	bridge/runtime_method.cpp \
 	bridge/runtime_object.cpp \
 	bridge/runtime_root.cpp \
+	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
 	css/CSSCharsetRule.cpp \
@@ -476,7 +487,6 @@ LOCAL_SRC_FILES := \
 	html/HTMLTokenizer.cpp \
 	html/HTMLUListElement.cpp \
 	html/HTMLViewSourceDocument.cpp \
-	\
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
@@ -508,8 +518,8 @@ LOCAL_SRC_FILES := \
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
-	\
 	loader/ThreadableLoader.cpp \
+	\
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
@@ -629,6 +639,7 @@ LOCAL_SRC_FILES := \
 	platform/graphics/SegmentedFontData.cpp \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
+	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/FontAndroid.cpp \
@@ -648,8 +659,6 @@ LOCAL_SRC_FILES := \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/TransformationMatrixAndroid.cpp \
 	platform/graphics/android/android_graphics.cpp \
-	\
-	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/skia/NativeImageSkia.cpp \
 	\
@@ -688,7 +697,6 @@ LOCAL_SRC_FILES := \
 	platform/sql/SQLiteDatabase.cpp \
 	platform/sql/SQLiteStatement.cpp \
 	platform/sql/SQLiteTransaction.cpp \
-	storage/DatabaseAuthorizer.cpp \
 	\
 	platform/text/AtomicString.cpp \
 	platform/text/Base64.cpp \
@@ -821,6 +829,8 @@ LOCAL_SRC_FILES := \
 	rendering/style/StyleSurroundData.cpp \
 	rendering/style/StyleTransformData.cpp \
 	rendering/style/StyleVisualData.cpp \
+	\
+	storage/DatabaseAuthorizer.cpp \
 	\
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \

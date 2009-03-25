@@ -15,6 +15,34 @@
 ## limitations under the License.
 ##
 
+# This comment block is read by tools/webkitsync/diff.cpp
+# Don't remove it or move it. 
+# If you edit it, keep it in alphabetical order
+#
+# The following files are intentionally not included
+# LOCAL_SRC_FILES_EXCLUDED := \
+#	css/RGBColor.idl \
+#	dom/EventListener.idl \
+#	dom/EventTarget.idl \
+#	dom/Worker*.idl \
+#	html/CanvasPixelArray.idl \
+#	html/HTMLAudioElement.idl \
+#	html/HTMLMediaElement.idl \
+#	page/AbstractView.idl \
+#	page/PositionCallback.idl \
+#	page/Worker*.idl \
+
+# This comment block is read by tools/webkitsync/diff.cpp
+# Don't remove it or move it. 
+# If you edit it, keep it in alphabetical order
+#
+# The following directory wildcard matches are intentionally not included
+# If an entry starts with '/', any subdirectory may match
+# If an entry starts with '^', the first directory must match
+# LOCAL_DIR_WILDCARD_EXCLUDED := \
+#	^storage/* \
+#	^svg/* \
+
 LOCAL_SRC_FILES :=
 # CSS property names and value keywords
 

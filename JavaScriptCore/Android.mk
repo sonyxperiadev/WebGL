@@ -23,14 +23,10 @@
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
-#	JSC/AllInOneFile.cpp \
-#	JSC/CollectorHeapIntrospector.cpp \
-#	JSC/grammar.y \
-#	JSC/testJSC.cpp \
-#	pcre/dftables.c \
-#	pcre/pcre_maketables.c \
+#	AllInOneFile.cpp \
+#	jsc.cpp \
+#	parser/Grammar.y \
 #	pcre/ucptable.cpp \
-#	wtf/OwnPtrWin.cpp \
 #	wtf/GOwnPtr.cpp \
 #	wtf/*Gtk.cpp \
 #	wtf/*Qt.cpp \
@@ -45,18 +41,20 @@
 # If an entry starts with '^', the first directory must match
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
 #	^API/* \
-#	^JavaScriptCore.apolloproj/* \
 #	/gtk/* \
+#	^jit/* \
+#	/mac/* \
 #	/qt/* \
+#	/win/* \
+#	/wx/* \
 
 LOCAL_SRC_FILES := \
-	\
-	\
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
 	bytecode/SamplingTool.cpp \
 	bytecode/StructureStubInfo.cpp \
+	\
 	bytecompiler/BytecodeGenerator.cpp \
 	\
 	debugger/Debugger.cpp \
@@ -70,6 +68,7 @@ LOCAL_SRC_FILES := \
 	parser/Lexer.cpp \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
+	\
 	pcre/pcre_compile.cpp \
 	pcre/pcre_exec.cpp \
 	pcre/pcre_tables.cpp \
@@ -163,7 +162,6 @@ LOCAL_SRC_FILES := \
 	wrec/WRECGenerator.cpp \
 	wrec/WRECParser.cpp \
 	\
-	wtf/android/MainThreadAndroid.cpp \
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
@@ -176,6 +174,9 @@ LOCAL_SRC_FILES := \
 	wtf/TCSystemAlloc.cpp \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
+	\
+	wtf/android/MainThreadAndroid.cpp \
+	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	wtf/unicode/icu/CollatorICU.cpp
