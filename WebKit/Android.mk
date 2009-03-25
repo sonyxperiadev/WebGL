@@ -29,6 +29,8 @@ LOCAL_SRC_FILES := \
 	android/TimeCounter.cpp \
 	android/sort.cpp \
 	\
+	android/icu/unicode/ucnv.cpp \
+	\
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
 	android/jni/PictureSet.cpp \
