@@ -1170,7 +1170,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             KURL href = anchorNode->href();
             if (!href.isEmpty() && !href.protocolIs("javascript"))
                 // Set the exported string for all non-javascript anchors.
-                exported = href.string();
+                exported = href.string().copy();
         }
         if (isTextField || isTextArea) {
             RenderTextControl* renderText = 
