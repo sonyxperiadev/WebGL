@@ -820,7 +820,7 @@ protected:
 
 #if ENABLE(TOUCH_EVENTS) // Android
 public:
-    typedef HashMap< RefPtr<Node>, unsigned > TouchListenerMap;
+    typedef HashMap<Node*, unsigned > TouchListenerMap;
 
     void addTouchEventListener(Node*);
     void removeTouchEventListener(Node*);
