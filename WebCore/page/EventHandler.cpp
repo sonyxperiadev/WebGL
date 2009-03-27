@@ -2165,7 +2165,7 @@ void EventHandler::defaultTextInputEventHandler(TextEvent* event)
     }
 }
 
-#if PLATFORM(QT) || PLATFORM(MAC)
+#if PLATFORM(QT) || PLATFORM(MAC) || PLATFORM(ANDROID)
 
 // These two platforms handle the space event in the platform-specific WebKit code.
 // Eventually it would be good to eliminate that and use the code here instead, but

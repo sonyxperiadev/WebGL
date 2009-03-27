@@ -28,15 +28,18 @@
  */
 
 #include "config.h"
+
+#include "EmojiFont.h"
 #include "Font.h"
 #include "FontCache.h"
 #include "SimpleFontData.h"
 #include "FloatRect.h"
 #include "FontDescription.h"
-
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkTime.h"
+
+using namespace android;
 
 namespace WebCore {
 
@@ -113,10 +116,12 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 
     m_font.setupPaint(&paint);
 
-    paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
-    SkScalar width = paint.measureText(&glyph, 2);
-    
-    return SkScalarToFloat(width);
+    if (EmojiFont::IsEmojiGlyph(glyph))
+        return EmojiFont::GetAdvanceWidth(glyph, paint);
+    else {
+        paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+        return SkScalarToFloat(paint.measureText(&glyph, 2));
+    }
 }
 
 }

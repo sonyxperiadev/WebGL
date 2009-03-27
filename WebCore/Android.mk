@@ -630,6 +630,7 @@ LOCAL_SRC_FILES := \
 	platform/graphics/SimpleFontData.cpp \
 	platform/graphics/StringTruncator.cpp \
 	\
+	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
 	platform/graphics/android/FontCustomPlatformData.cpp \
@@ -644,10 +645,13 @@ LOCAL_SRC_FILES := \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
+	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/TransformationMatrixAndroid.cpp \
 	platform/graphics/android/android_graphics.cpp \
 	\
 	platform/graphics/WidthIterator.cpp \
+	\
+	platform/graphics/skia/NativeImageSkia.cpp \
 	\
 	platform/graphics/transforms/MatrixTransformOperation.cpp \
 	platform/graphics/transforms/RotateTransformOperation.cpp \
@@ -656,6 +660,10 @@ LOCAL_SRC_FILES := \
 	platform/graphics/transforms/TransformOperations.cpp \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
+	\
+	platform/image-decoders/skia/GIFImageDecoder.cpp \
+	platform/image-decoders/skia/GIFImageReader.cpp \
+	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
 	platform/network/FormData.cpp \

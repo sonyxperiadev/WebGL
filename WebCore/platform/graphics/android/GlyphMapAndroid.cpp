@@ -28,12 +28,15 @@
  */
 
 #include "config.h"
-#include "GlyphPageTreeNode.h"
-#include "SimpleFontData.h"
 
+#include "EmojiFont.h"
+#include "GlyphPageTreeNode.h"
 #include "SkTemplates.h"
 #include "SkPaint.h"
 #include "SkUtils.h"
+#include "SimpleFontData.h"
+
+using namespace android;
 
 namespace WebCore {
 
@@ -59,9 +62,26 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
     }
 
     unsigned allGlyphs = 0; // track if any of the glyphIDs are non-zero
-    for (unsigned i = 0; i < length; i++) {
-        setGlyphDataForIndex(offset + i, glyphs[i], fontData);
-        allGlyphs |= glyphs[i];
+
+    // search for emoji. If we knew for sure that buffer was a contiguous range
+    // of chars, we could quick-reject the range to avoid this loop (usually)
+    if (EmojiFont::IsAvailable()) {
+        const UChar* curr = buffer;
+        for (unsigned i = 0; i < length; i++) {
+            SkUnichar uni = SkUTF16_NextUnichar(&curr);
+            uint16_t glyphID = glyphs[i];
+            // only sniff if the normal font failed to recognize it
+            if (!glyphID)
+                glyphID = EmojiFont::UnicharToGlyph(uni);
+            setGlyphDataForIndex(offset + i, glyphID, fontData);
+            allGlyphs |= glyphID;
+        }
+    } else {
+        for (unsigned i = 0; i < length; i++) {
+            uint16_t glyphID = glyphs[i];
+            setGlyphDataForIndex(offset + i, glyphID, fontData);
+            allGlyphs |= glyphID;
+        }
     }
     return allGlyphs != 0;
 }

@@ -156,3 +156,12 @@ typedef unsigned char   flex_uint8_t;
 
 // Enable dumping the display tree to a file (triggered in WebView.java)
 #define ANDROID_DUMP_DISPLAY_TREE
+
+// Allow webkit to initiate scroll when going to an anchor on a page
+// The implementation is not acceptable to webkit. Either scrollRectToVisible
+// needs additional flavor or parameter to know that it can't be ignored,
+// and/or script engine must keep whether event was user initiated.
+#define ANDROID_SCROLL_ON_GOTO_ANCHOR
+
+// Animated GIF support.
+#define ANDROID_ANIMATED_GIF

@@ -239,7 +239,7 @@ void ResourceResponseBase::parseCacheControlDirectives() const
         if ((equalIgnoringCase(directives[i].first, "private") || equalIgnoringCase(directives[i].first, "no-cache")) && !directives[i].second.isEmpty())
             parseCacheControlDirectiveValues(directives[i].second, directiveValues);
         else
-            directiveValues.append(directives[i].second);
+            directiveValues.append(directives[i].first);
         for (size_t i = 0; i < directiveValues.size(); ++i) {
             if (equalIgnoringCase(directiveValues[i], "no-cache"))
                 m_cacheControlContainsNoCache = true;

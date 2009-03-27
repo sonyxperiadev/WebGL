@@ -78,13 +78,19 @@ endif
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl
 
-# Build our list of include paths
+# Build our list of include paths. We include WebKit/android/icu first so that
+# any files that include <unicode/ucnv.h> will include our ucnv.h first. We
+# also add external/ as an include directory so that we can specify the real
+# icu header directory as a more exact reference to avoid including our ucnv.h.
 LOCAL_C_INCLUDES := \
-	$(call include-path-for, corecg graphics) \
 	$(JNI_H_INCLUDE) \
+	$(LOCAL_PATH)/WebKit/android/icu \
+	external/ \
 	external/icu4c/common \
 	external/icu4c/i18n \
 	external/libxml2/include \
+	external/skia/emoji \
+	external/skia/include/core \
 	external/skia/include/effects \
 	external/skia/include/images \
 	external/skia/include/ports \
@@ -115,6 +121,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/platform/graphics \
 	$(LOCAL_PATH)/WebCore/platform/graphics/android \
 	$(LOCAL_PATH)/WebCore/platform/graphics/network \
+	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
 	$(LOCAL_PATH)/WebCore/platform/image-decoders \
 	$(LOCAL_PATH)/WebCore/platform/network \

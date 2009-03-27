@@ -892,6 +892,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     if (allowNewer == DontAllowNewer && m_viewImpl->m_lastGeneration < m_generation)
         return m_frameCacheUI;
     DBG_NAV_LOGD("%s", "m_viewImpl->m_updatedFrameCache == true");
+    bool hadFocus = m_frameCacheUI && m_frameCacheUI->currentFocus();
     m_viewImpl->gFrameCacheMutex.lock();
     OutOfFocusFix fix = DoNothing;
     if (allowNewer != DontAllowNewer)
@@ -904,6 +905,8 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     m_viewImpl->m_frameCacheKit = 0;
     m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
+    if (hadFocus && (!m_frameCacheUI || !m_frameCacheUI->currentFocus()))
+        viewInvalidate(); // redraw in case focus ring is still visible
     if (fix == UpdateTextEntry)
         updateTextEntry();
     else if (fix == ClearTextEntry)
@@ -2132,9 +2135,11 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
         checkException(env);
         return 0;
     }
-
+    static const int MAX_16_BIT_INT = 65535;
     int width = root->documentWidth();
+    if (width > MAX_16_BIT_INT) width = MAX_16_BIT_INT;
     int height = root->documentHeight();
+    if (height > MAX_16_BIT_INT) height = MAX_16_BIT_INT;
     // Create a FindCanvas, which allows us to fake draw into it so we can
     // figure out where our search string is rendered (and how many times).
     FindCanvas canvas(width, height, (const UChar*) findLowerChars,
