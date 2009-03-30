@@ -2135,11 +2135,8 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
         checkException(env);
         return 0;
     }
-    static const int MAX_16_BIT_INT = 65535;
     int width = root->documentWidth();
-    if (width > MAX_16_BIT_INT) width = MAX_16_BIT_INT;
     int height = root->documentHeight();
-    if (height > MAX_16_BIT_INT) height = MAX_16_BIT_INT;
     // Create a FindCanvas, which allows us to fake draw into it so we can
     // figure out where our search string is rendered (and how many times).
     FindCanvas canvas(width, height, (const UChar*) findLowerChars,
