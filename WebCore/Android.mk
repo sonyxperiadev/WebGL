@@ -17,7 +17,6 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
@@ -33,6 +32,7 @@
 #	bindings/js/JSStorageCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
+#	bindings/js/Worker*.cpp \
 #	bindings/js/*Gtk.cpp \
 #	bindings/js/*Qt.cpp \
 #	bindings/js/*Win.cpp \
@@ -40,10 +40,11 @@
 #	bridge/test*.cpp \
 #	css/CSSGrammar.y \
 #	css/SVG*.cpp \
-#	dom/XMLTokenizerQt.cpp \
 #	dom/Worker*.cpp \
+#	dom/XMLTokenizerQt.cpp \
 #	editing/BackForwardListChromium.cpp \
 #	editing/SmartReplace*.cpp \
+#	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
 #	html/HTMLAudioElement.cpp \
 #	html/HTMLMediaElement.cpp \
@@ -54,6 +55,7 @@
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
 #	loader/UserStyleSheetLoader.cpp \
+#	loader/WorkerThreadableLoader.cpp \
 #	loader/icon/IconDatabaseNone.cpp \
 #	page/AXObjectCache.cpp \
 #	page/Accessibility*.cpp \
@@ -63,20 +65,18 @@
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
 #	rendering/RenderSVG*.cpp \
-#	rendering/RenderThemeChromiumGtk.cpp \
-#	rendering/RenderThemeChromiumWin.cpp \
+#	rendering/RenderThemeChromium*.cpp \
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
 #	rendering/RenderVideo.cpp \
 #	rendering/SVG*.cpp \
 #	xml/Access*.cpp \
 #	xml/NativeXPathNSResolver.cpp \
-#	xml/XPath*.cpp \
+#	xml/XPath* \
 #	xml/XSL*.cpp \
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
@@ -103,10 +103,19 @@
 #	^storage/* \
 #	^svg/* \
 #	/symbian/* \
+#	/v8/* \
 #	/win/* \
-#	/wml/* \
+#	^workers/* \
+#	^wml/* \
 #	/wx/* \
 
+# This comment block is read by tools/webkitsync/diff.cpp
+# Don't remove it or move it. 
+# If you edit it, keep it in alphabetical order
+#
+# These files are Android extensions
+# LOCAL_ANDROID_SRC_FILES_INCLUDED := \
+#	dom/Touch*.cpp \
 
 LOCAL_SRC_FILES := \
 	bindings/js/GCController.cpp \
@@ -392,11 +401,12 @@ LOCAL_SRC_FILES := \
 	editing/UnlinkCommand.cpp \
 	editing/VisiblePosition.cpp \
 	editing/WrapContentsInDummySpanCommand.cpp \
+	\
+	editing/android/EditorAndroid.cpp \
+	\
 	editing/htmlediting.cpp \
 	editing/markup.cpp \
 	editing/visible_units.cpp \
-	\
-	editing/android/EditorAndroid.cpp \
 	\
 	history/BackForwardList.cpp \
 	history/CachedFrame.cpp \
