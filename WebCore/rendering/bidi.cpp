@@ -801,6 +801,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
     if (firstChild()) {
 #ifdef ANDROID_LAYOUT
         // if we are in fitColumnToScreen mode and viewport width is not device-width, 
+        // and the current object is not float:right in LTR or not float:left in RTL,
         // and text align is auto, or justify or left in LTR, or right in RTL, we 
         // will wrap text around screen width so that it doesn't need to scroll 
         // horizontally when reading a paragraph.
@@ -810,9 +811,12 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         if (doTextWrap) {
             int ta = style()->textAlign();
             int dir = style()->direction();
-            doTextWrap = (ta == TAAUTO) || (ta == JUSTIFY) ||
+            EFloat cssfloat = style()->floating();
+            doTextWrap = ((dir == LTR && cssfloat != FRIGHT) ||
+                    (dir == RTL && cssfloat != FLEFT)) && 
+                    ((ta == TAAUTO) || (ta == JUSTIFY) ||
                     ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
-                    ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL));
+                    ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL)));
         }
         bool hasTextToWrap = false;
 #endif
