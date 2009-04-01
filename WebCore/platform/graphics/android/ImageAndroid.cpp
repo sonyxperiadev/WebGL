@@ -213,7 +213,7 @@ void BitmapImage::setURL(const String& str)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
+void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
                         const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator compositeOp,
                         const FloatRect& destRect)
@@ -224,8 +224,8 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
     }
     
     // in case we get called with an incomplete bitmap
-    const SkBitmap& bitmap = image->bitmap();
-    if (bitmap.getPixels() == NULL && bitmap.pixelRef() == NULL) {
+    const SkBitmap& origBitmap = image->bitmap();
+    if (origBitmap.getPixels() == NULL && origBitmap.pixelRef() == NULL) {
         return;
     }
     
@@ -234,7 +234,15 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect,
     if (dstR.isEmpty()) {
         return;
     }
-    
+
+    // now extract the proper subset of the src image
+    SkBitmap bitmap;
+    SkIRect srcR;
+    if (!origBitmap.extractSubset(&bitmap, *android_setrect(&srcR, srcRect))) {
+        SkDebugf("--- Image::drawPattern calling extractSubset failed\n");
+        return;
+    }
+
     SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
     SkPaint     paint;
     

@@ -19,7 +19,6 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
@@ -34,7 +33,6 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
@@ -165,7 +163,6 @@ LOCAL_SRC_FILES := \
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
-	wtf/dtoa.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MainThread.cpp \
@@ -177,8 +174,11 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/android/MainThreadAndroid.cpp \
 	\
+	wtf/dtoa.cpp \
+	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
+	\
 	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.

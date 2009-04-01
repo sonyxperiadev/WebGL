@@ -17,7 +17,6 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
@@ -34,7 +33,6 @@
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
-# If you edit it, keep it in alphabetical order
 #
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
@@ -42,6 +40,15 @@
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
 #	^storage/* \
 #	^svg/* \
+#	^workers/* \
+
+# This comment block is read by tools/webkitsync/diff.cpp
+# Don't remove it or move it. 
+# If you edit it, keep it in alphabetical order
+#
+# These files are Android extensions
+# LOCAL_ANDROID_SRC_FILES_INCLUDED := \
+#	dom/Touch*.idl \
 
 LOCAL_SRC_FILES :=
 # CSS property names and value keywords
@@ -201,7 +208,7 @@ GEN := \
     $(intermediates)/css/JSMediaList.h \
     $(intermediates)/css/JSRect.h \
     $(intermediates)/css/JSStyleSheet.h \
-    $(intermediates)/css/JSStyleSheetList.h  \
+    $(intermediates)/css/JSStyleSheetList.h \
     $(intermediates)/css/JSWebKitCSSKeyframeRule.h \
     $(intermediates)/css/JSWebKitCSSKeyframesRule.h \
     $(intermediates)/css/JSWebKitCSSMatrix.h \
