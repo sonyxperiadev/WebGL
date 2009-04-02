@@ -237,10 +237,6 @@ void HTMLTextAreaElement::updateFocusAppearance(bool restorePreviousSelection)
         // This matches some browsers' behavior; see bug 11746 Comment #15.
         // http://bugs.webkit.org/show_bug.cgi?id=11746#c15
         setSelectionRange(0, 0);
-#ifdef ANDROID_SELECT_TEXT_AREAS
-        // We need to select the entire text to match the platform text field.
-        select();
-#endif
     } else {
         // Restore the cached selection.  This matches other browsers' behavior.
         setSelectionRange(m_cachedSelectionStart, m_cachedSelectionEnd);
