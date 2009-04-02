@@ -1575,6 +1575,7 @@ public:
         }
         WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(
                 m_select->item(m_select->listToOptionIndex(index)));
+        SkASSERT(option);
         if (!option->selected()) {
             option->setSelected(true);
             m_select->onChange();
@@ -1596,6 +1597,7 @@ public:
         for (int i = 0; i < count; i++) {
             option = static_cast<WebCore::HTMLOptionElement*>(
                     m_select->item(m_select->listToOptionIndex(array[i])));
+            SkASSERT(option);
             option->setSelected(true);
         }
 		m_viewImpl->contentInvalidate(m_select->getRect());
@@ -1807,8 +1809,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                     WebCore::HTMLOptGroupElement* optGroup = static_cast<WebCore::HTMLOptGroupElement*>(listItems[i]);
                     *names.append() = stringConverter(optGroup->groupLabelText());
                     *enabledArray.append() = 0;
-                    if (multiple)
-                        *selectedArray.append() = 0;
                 }
             }
             WebCoreReply* reply = new ListBoxReply(select, select->document()->frame(), this);
