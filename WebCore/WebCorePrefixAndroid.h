@@ -92,10 +92,6 @@ typedef unsigned char   flex_uint8_t;
 
 #define ANDROID_META_SUPPORT
 
-// Give public access to a private method in HTMLSelectElement so that
-// we can use information from the java UI to deselect items of the element.
-#define ANDROID_DESELECT_SELECT
-
 // Converts ListBoxes to dropdown popup lists.
 #define ANDROID_LISTBOX_USES_MENU_LIST
 

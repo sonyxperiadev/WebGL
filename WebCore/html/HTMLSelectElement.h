@@ -141,13 +141,7 @@ private:
     void recalcListItems(bool updateSelectedStates = true) const;
     void checkListItems() const;
 
-#ifdef ANDROID_DESELECT_SELECT
-public:
-#endif
     void deselectItems(HTMLOptionElement* excludeElement = 0);
-#ifdef ANDROID_DESELECT_SELECT
-private:
-#endif
 #ifdef ANDROID_LISTBOX_USES_MENU_LIST
     bool usesMenuList() const { return true; }
 #else
