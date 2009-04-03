@@ -498,17 +498,6 @@ void InlineTextBox::paintSelection(GraphicsContext* context, int tx, int ty, Ren
     selectionStartEnd(sPos, ePos);
     if (sPos >= ePos)
         return;
-#ifdef ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
-    Node* element = m_object->element();
-    if (element) {
-        Node* ancestor = element->shadowAncestorNode();
-        if (ancestor && ancestor->renderer()) {
-            RenderObject* renderer = ancestor->renderer();
-            if (renderer->isTextField() || renderer->isTextArea())
-                return;
-        }
-    }
-#endif
 
     Color textColor = style->color();
     Color c = object()->selectionBackgroundColor();
