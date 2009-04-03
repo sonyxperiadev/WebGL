@@ -56,7 +56,6 @@ SkIRect* android_setrect_scaled(SkIRect* dst, const WebCore::FloatRect& src,
                                 float sx, float sy);
 
 SkPorterDuff::Mode android_convert_compositeOp(WebCore::CompositeOperator);
-SkShader::TileMode android_convert_TileRule(WebCore::Image::TileRule);
 
 WebCore::Color android_SkPMColorToWebCoreColor(SkPMColor pm);
 
