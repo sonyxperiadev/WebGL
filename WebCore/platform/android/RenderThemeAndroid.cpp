@@ -83,12 +83,14 @@ bool RenderThemeAndroid::stateChanged(RenderObject* o, ControlState state) const
 
 Color RenderThemeAndroid::platformActiveSelectionBackgroundColor() const
 {
-    return Color(46, 251, 0);
+    // Make these transparent because we handle the selection background
+    // in our custom widget.
+    return Color(Color::transparent);
 }
 
 Color RenderThemeAndroid::platformInactiveSelectionBackgroundColor() const
 {
-    return Color(255, 255, 0, 255);
+    return Color(Color::transparent);
 }
 
 Color RenderThemeAndroid::platformActiveSelectionForegroundColor() const
@@ -103,7 +105,7 @@ Color RenderThemeAndroid::platformInactiveSelectionForegroundColor() const
 
 Color RenderThemeAndroid::platformTextSearchHighlightColor() const
 {
-    return Color(192, 192, 192);
+    return Color(Color::transparent);
 }
 
 int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const

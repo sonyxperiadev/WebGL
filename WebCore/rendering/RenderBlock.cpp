@@ -1949,17 +1949,6 @@ GapRects RenderBlock::fillSelectionGaps(RenderBlock* rootBlock, int blockX, int 
     // FIXME: overflow: auto/scroll regions need more math here, since painting in the border box is different from painting in the padding box (one is scrolled, the other is
     // fixed).
     GapRects result;
-#ifdef ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
-    Node* node = element();
-    if (node) {
-        Node* ancestor = node->shadowAncestorNode();
-        if (ancestor && ancestor->renderer()) {
-            RenderObject* renderer = ancestor->renderer();
-            if (renderer->isTextField() || renderer->isTextArea())
-                return result;
-        }
-    }
-#endif
     if (!isBlockFlow()) // FIXME: Make multi-column selection gap filling work someday.
         return result;
 

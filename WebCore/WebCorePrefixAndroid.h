@@ -115,10 +115,6 @@ typedef unsigned char   flex_uint8_t;
 // PLUGIN_SCHEDULE_TIMER)
 #define ANDROID_PLUGINS
 
-// Prevent Webkit from drawing the selection in textfields/textareas, since we 
-// draw it ourselves in the UI thread.
-#define ANDROID_DO_NOT_DRAW_TEXTFIELD_SELECTION
-
 // This should possibly be patched back to WebKit since they seem to lose the
 // user gesture hint. If we do decide to patch this back, the user gesture flag
 // should probably be passed in the NavigationAction rather than the
