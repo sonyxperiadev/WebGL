@@ -1560,47 +1560,56 @@ public:
             // Special value for cancel. Do nothing.
             return;
         }
-        // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
+        // If the select element no longer exists, due to a page change, etc,
+        // silently return.
+        if (!m_select ||
+                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
+                        ->getCacheBuilder().validNode(m_frame, m_select))
             return;
-        if (-1 == index) {
-            if (m_select->selectedIndex() != -1) {
-#ifdef ANDROID_DESELECT_SELECT
-                m_select->deselectItems();
-#endif
-                m_select->onChange();
-                m_viewImpl->contentInvalidate(m_select->getRect());
-            }
-            return;
-        }
-        WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(
-                m_select->item(m_select->listToOptionIndex(index)));
-        SkASSERT(option);
-        if (!option->selected()) {
-            option->setSelected(true);
-            m_select->onChange();
-			m_viewImpl->contentInvalidate(m_select->getRect());
-        }
+        int optionIndex = m_select->listToOptionIndex(index);
+        m_select->setSelectedIndex(optionIndex, true, false);
+        m_select->onChange();
+        m_viewImpl->contentInvalidate(m_select->getRect());
     }
 
     // Response if the listbox allows multiple selection.  array stores the listIndices
     // of selected positions.
     virtual void replyIntArray(const int* array, int count)
     {
-        // If the select element no longer exists, do to a page change, etc, silently return.
-        if (!m_select || !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)->getCacheBuilder().validNode(m_frame, m_select))
+        // If the select element no longer exists, due to a page change, etc,
+        // silently return.
+        if (!m_select ||
+                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
+                        ->getCacheBuilder().validNode(m_frame, m_select))
             return;
-#ifdef ANDROID_DESELECT_SELECT
-        m_select->deselectItems();
-#endif
+
+        // If count is 1 or 0, use replyInt.
+        SkASSERT(count > 1);
+
+        const Vector<HTMLElement*>& items = m_select->listItems();
+        size_t totalItems = items.size();
+        // Keep track of the position of the value we are comparing against.
+        int arrayIndex = 0;
+        // The value we are comparing against.
+        int selection = array[arrayIndex];
         WebCore::HTMLOptionElement* option;
-        for (int i = 0; i < count; i++) {
-            option = static_cast<WebCore::HTMLOptionElement*>(
-                    m_select->item(m_select->listToOptionIndex(array[i])));
-            SkASSERT(option);
-            option->setSelected(true);
+        for (size_t listIndex = 0; listIndex < totalItems; listIndex++) {
+            if (items[listIndex]->hasLocalName(WebCore::HTMLNames::optionTag)) {
+                option = static_cast<WebCore::HTMLOptionElement*>(
+                        items[listIndex]);
+                if (listIndex == selection) {
+                    option->setSelectedState(true);
+                    arrayIndex++;
+                    if (arrayIndex == count)
+                        selection = -1;
+                    else
+                        selection = array[arrayIndex];
+                } else
+                    option->setSelectedState(false);
+            }
         }
-		m_viewImpl->contentInvalidate(m_select->getRect());
+        m_select->onChange();
+        m_viewImpl->contentInvalidate(m_select->getRect());
     }
 private:
     // The select element associated with this listbox.
