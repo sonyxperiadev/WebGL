@@ -127,16 +127,7 @@ SkPorterDuff::Mode android_convert_compositeOp(WebCore::CompositeOperator op)
     return SkPorterDuff::kSrcOver_Mode; // fall-back
 }
 
-SkShader::TileMode android_convert_TileRule(WebCore::Image::TileRule rule)
-{
-    // stretch == clamp
-    // repeat == repeat
-    // RoundTile???
-
-    return WebCore::Image::RepeatTile == rule ? SkShader::kRepeat_TileMode : SkShader::kClamp_TileMode;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 static U8CPU InvScaleByte(U8CPU component, uint32_t scale)
 {
