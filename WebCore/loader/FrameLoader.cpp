@@ -3492,13 +3492,7 @@ void FrameLoader::continueLoadAfterWillSubmitForm(PolicyAction)
 void FrameLoader::didFirstLayout()
 {
     if (Page* page = m_frame->page())
-#ifdef ANDROID_HISTORY_CLIENT
-        // this should match the logic in FrameStateCommittedPage, so that we 
-        // can restore the scroll position and view state as early as possible
-        if ((isBackForwardLoadType(m_loadType) || m_loadType == FrameLoadTypeReload) && page->backForwardList())
-#else
         if (isBackForwardLoadType(m_loadType) && page->backForwardList())
-#endif
             restoreScrollPositionAndViewState();
 
     m_firstLayoutDone = true;

@@ -218,7 +218,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsConfirm = GetJMethod(env, clazz, "jsConfirm", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsPrompt = GetJMethod(env, clazz, "jsPrompt", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
-    m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "()V");
+    m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
     m_javaGlue->m_sendMarkNodeInvalid = GetJMethod(env, clazz, "sendMarkNodeInvalid", "(I)V");
     m_javaGlue->m_sendNotifyFocusSet = GetJMethod(env, clazz, "sendNotifyFocusSet", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
@@ -704,13 +704,17 @@ void WebViewCore::didFirstLayout()
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-    const WebCore::KURL& url = m_mainFrame->loader()->url();
+    WebCore::FrameLoader* loader = m_mainFrame->loader();
+    const WebCore::KURL& url = loader->url();
     if (url.isEmpty())
         return;
     LOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
 
+    WebCore::FrameLoadType loadType = loader->loadType();
+
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout,
+            loadType == WebCore::FrameLoadTypeStandard);
     checkException(env);
 
     DBG_NAV_LOG("call updateFrameCache");
