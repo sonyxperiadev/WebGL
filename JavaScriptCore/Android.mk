@@ -39,6 +39,7 @@
 # If an entry starts with '^', the first directory must match
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
 #	^API/* \
+#	/chromium/* \
 #	/gtk/* \
 #	^jit/* \
 #	/mac/* \
