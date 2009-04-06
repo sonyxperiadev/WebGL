@@ -210,3 +210,6 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 # XXX: Uncomment this include to build webcore_test. In order for the test to
 # link with libwebcore, remove -fvisibility=hidden from LOCAL_CFLAGS above
 #include $(BASE_PATH)/perf/Android.mk
+
+# Build the webkit merge tool.
+include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
