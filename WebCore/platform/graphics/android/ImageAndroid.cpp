@@ -222,30 +222,51 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
     if (!image) { // If it's too early we won't have an image yet.
         return;
     }
-    
+
     // in case we get called with an incomplete bitmap
     const SkBitmap& origBitmap = image->bitmap();
     if (origBitmap.getPixels() == NULL && origBitmap.pixelRef() == NULL) {
         return;
     }
-    
+
     SkRect  dstR;    
     android_setrect(&dstR, destRect);
     if (dstR.isEmpty()) {
         return;
     }
 
+    // we may have to scale if the image has been subsampled (so save RAM)
+    bool imageIsSubSampled = image->origWidth() != origBitmap.width() ||
+                             image->origHeight() != origBitmap.height();
+    float scaleX = 1;
+    float scaleY = 1;
+    if (imageIsSubSampled) {
+        scaleX = (float)image->origWidth() / origBitmap.width();
+        scaleY = (float)image->origHeight() / origBitmap.height();
+//        SkDebugf("----- subsampled %g %g\n", scaleX, scaleY);
+    }
+
     // now extract the proper subset of the src image
     SkBitmap bitmap;
     SkIRect srcR;
-    if (!origBitmap.extractSubset(&bitmap, *android_setrect(&srcR, srcRect))) {
+    // invscale their srcrect, and round to an SkIRect for skia
+    if (imageIsSubSampled) {
+        float invX = 1 / scaleX;
+        float invY = 1 / scaleY;
+        FloatRect scaledSrcRect(srcRect.x() * invX, srcRect.y() * invY,
+                            srcRect.width() * invX, srcRect.height() * invY);
+        (void)android_setrect(&srcR, scaledSrcRect);
+    } else {
+        (void)android_setrect(&srcR, srcRect);
+    }
+    if (!origBitmap.extractSubset(&bitmap, srcR)) {
         SkDebugf("--- Image::drawPattern calling extractSubset failed\n");
         return;
     }
 
     SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
     SkPaint     paint;
-    
+
     SkShader* shader = SkShader::CreateBitmapShader(bitmap,
                                                     SkShader::kRepeat_TileMode,
                                                     SkShader::kRepeat_TileMode);
@@ -253,18 +274,30 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
     // now paint is the only owner of shader
     paint.setPorterDuffXfermode(android_convert_compositeOp(compositeOp));
     paint.setFilterBitmap(true);
-    
+
     SkMatrix matrix(patternTransform);
-    
-    float scaleX = (float)image->origWidth() / bitmap.width();
-    float scaleY = (float)image->origHeight() / bitmap.height();
-    matrix.preScale(SkFloatToScalar(scaleX), SkFloatToScalar(scaleY));
-    
-    matrix.postTranslate(SkFloatToScalar(phase.x()),
-                         SkFloatToScalar(phase.y()));
+
+    if (imageIsSubSampled) {
+        matrix.preScale(SkFloatToScalar(scaleX), SkFloatToScalar(scaleY));
+    }
+    // We also need to translate it such that the origin of the pattern is the
+    // origin of the destination rect, which is what WebKit expects. Skia uses
+    // the coordinate system origin as the base for the patter. If WebKit wants
+    // a shifted image, it will shift it from there using the patternTransform.
+    float tx = phase.x() + srcRect.x() * patternTransform.a();
+    float ty = phase.y() + srcRect.y() * patternTransform.d();
+    matrix.postTranslate(SkFloatToScalar(tx), SkFloatToScalar(ty));
     shader->setLocalMatrix(matrix);
+#if 0
+    SkDebugf("--- drawPattern: src [%g %g %g %g] dst [%g %g %g %g] transform [%g %g %g %g %g %g] matrix [%g %g %g %g %g %g]\n",
+             srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height(),
+             destRect.x(), destRect.y(), destRect.width(), destRect.height(),
+             patternTransform.a(), patternTransform.b(), patternTransform.c(),
+             patternTransform.d(), patternTransform.e(), patternTransform.f(),
+             matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+#endif
     canvas->drawRect(dstR, paint);
-    
+
 #ifdef TRACE_SUBSAMPLED_BITMAPS
     if (bitmap.width() != image->origWidth() ||
         bitmap.height() != image->origHeight()) {
