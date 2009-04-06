@@ -51,8 +51,8 @@ TransformationMatrix::TransformationMatrix(double a, double b, double c, double 
     m_transform.set(SkMatrix::kMTransX, SkDoubleToScalar(tx));
 
     m_transform.set(SkMatrix::kMScaleY, SkDoubleToScalar(d));
-    m_transform.set(SkMatrix::kMSkewX, SkDoubleToScalar(c));
-    m_transform.set(SkMatrix::kMTransX, SkDoubleToScalar(ty));
+    m_transform.set(SkMatrix::kMSkewY, SkDoubleToScalar(c));
+    m_transform.set(SkMatrix::kMTransY, SkDoubleToScalar(ty));
 }
 
 void TransformationMatrix::setMatrix(double a, double b, double c, double d, double tx, double ty)
@@ -62,8 +62,8 @@ void TransformationMatrix::setMatrix(double a, double b, double c, double d, dou
     m_transform.set(SkMatrix::kMTransX, SkDoubleToScalar(tx));
 
     m_transform.set(SkMatrix::kMScaleY, SkDoubleToScalar(d));
-    m_transform.set(SkMatrix::kMSkewX, SkDoubleToScalar(c));
-    m_transform.set(SkMatrix::kMTransX, SkDoubleToScalar(ty));
+    m_transform.set(SkMatrix::kMSkewY, SkDoubleToScalar(c));
+    m_transform.set(SkMatrix::kMTransY, SkDoubleToScalar(ty));
 }
 
 void TransformationMatrix::map(double x, double y, double *x2, double *y2) const
