@@ -34,6 +34,19 @@
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
 #
+# The following files are intentionally not generated
+# LOCAL_GENERATED_FILES_EXCLUDED := \
+#	JSSVGElementWrapperFactory.cpp \
+#	JSWorkerContextBase.lut.h \
+#	SVGElementFactory.cpp \
+#	SVGNames.cpp \
+#	WMLElementFactory.cpp \
+#	WMLNames.cpp \
+#	XLinkNames.cpp \
+
+# This comment block is read by tools/webkitsync/diff.cpp
+# Don't remove it or move it. 
+#
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
 # If an entry starts with '^', the first directory must match
