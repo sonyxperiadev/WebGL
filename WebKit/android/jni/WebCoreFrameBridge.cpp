@@ -789,7 +789,8 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
 
-    WebCore::String webcoreUrl = to_string(env, url);
+    WebCore::String webcoreUrl =
+            WebCore::encodeWithURLEscapeSequences(to_string(env, url));
     WebCore::ResourceRequest request(webcoreUrl);
     LOGV("LoadUrl %s", webcoreUrl.latin1().data());
     pFrame->loader()->load(request, false);
