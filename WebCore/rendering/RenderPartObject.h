@@ -36,6 +36,10 @@ public:
 
     virtual const char* renderName() const { return "RenderPartObject"; }
 
+#ifdef FLATTEN_IFRAME
+    virtual void calcWidth();
+    virtual void calcHeight();
+#endif
     virtual void layout();
     void updateWidget(bool onlyCreateNonNetscapePlugins);
 
