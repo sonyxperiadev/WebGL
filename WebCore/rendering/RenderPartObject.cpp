@@ -300,10 +300,9 @@ void RenderPartObject::layout()
 {
     ASSERT(needsLayout());
 
-    calcWidth();
-    calcHeight();
-    
 #ifdef FLATTEN_IFRAME
+    RenderPart::calcWidth();
+    RenderPart::calcHeight();
     // Some IFrames have a width and/or height of 1 when they are meant to be
     // hidden. If that is the case, don't try to expand.
     int w = width();
@@ -340,10 +339,17 @@ void RenderPartObject::layout()
             // Do not shrink iframes with specified sizes
             if (contentHeight > h || style()->height().isAuto())
                 setHeight(contentHeight);
-            setWidth(std::min(contentWidth, 800));
+            setWidth(contentWidth);
+
+            // Update one last time
+            updateWidgetPosition();
         }
     }
+#else
+    calcWidth();
+    calcHeight();
 #endif
+    
     adjustOverflowForBoxShadow();
 
     RenderPart::layout();
@@ -353,6 +359,60 @@ void RenderPartObject::layout()
 
     setNeedsLayout(false);
 }
+
+#ifdef FLATTEN_IFRAME
+void RenderPartObject::calcWidth() {
+    RenderPart::calcWidth();
+    if (!m_widget || !m_widget->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(m_widget);
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Update the dimensions to get the correct minimum preferred
+    // width
+    updateWidgetPosition();
+
+    // Set the width
+    setWidth(max(width(), root->minPrefWidth()));
+
+    // Update based on the new width
+    updateWidgetPosition();
+
+    // Layout to get the content width
+    while (view->needsLayout())
+        view->layout();
+
+    setWidth(view->contentsWidth());
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+}
+
+void RenderPartObject::calcHeight() {
+    RenderPart::calcHeight();
+    if (!m_widget || !m_widget->isFrameView())
+        return;
+    FrameView* view = static_cast<FrameView*>(m_widget);
+    RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
+    if (!root)
+        return;
+    // Update the widget
+    updateWidgetPosition();
+
+    // Layout to get the content height
+    while (view->needsLayout())
+        view->layout();
+
+    // Do not shrink the height if the size is specified
+    int h = view->contentsHeight();
+    if (h > height() || style()->height().isAuto())
+        setHeight(h);
+
+    // Update one last time to ensure the dimensions.
+    updateWidgetPosition();
+}
+#endif
 
 void RenderPartObject::viewCleared()
 {
