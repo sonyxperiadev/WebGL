@@ -246,6 +246,11 @@ public:
     virtual void updateGlobalHistory() { }
     virtual void updateGlobalHistoryForRedirectWithoutHistoryItem() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
+#ifdef ANDROID_HISTORY_CLIENT
+    virtual void dispatchDidAddHistoryItem(HistoryItem*) const {}
+    virtual void dispatchDidRemoveHistoryItem(HistoryItem*, int) const {}
+    virtual void dispatchDidChangeHistoryIndex(BackForwardList*) const {}
+#endif
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
 

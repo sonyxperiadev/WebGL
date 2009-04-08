@@ -754,6 +754,18 @@ void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
     GC2Canvas(this)->clipPath(path, SkRegion::kDifference_Op);
 }
 
+#if ENABLE(SVG)
+void GraphicsContext::clipPath(WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+    const SkPath* oldPath = m_data->getPath();
+    SkPath path(*oldPath);
+    path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
+    GC2Canvas(this)->clipPath(path);
+}
+#endif
+
 void GraphicsContext::clipOut(const Path& p)
 {
     if (paintingDisabled())
@@ -942,6 +954,30 @@ void GraphicsContext::setLineCap(LineCap cap)
         break;
     }
 }
+
+#if ENABLE(SVG)
+void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
+{
+    if (paintingDisabled())
+        return;
+
+    // FIXME: This is lifted directly off SkiaSupport, lines 49-74
+    // so it is not guaranteed to work correctly.
+    size_t dashLength = dashes.size();
+    if (!dashLength)
+        return;
+
+    size_t count = (dashLength % 2) == 0 ? dashLength : dashLength * 2;
+    SkScalar* intervals = new SkScalar[count];
+
+    for (unsigned int i = 0; i < count; i++)
+        intervals[i] = dashes[i % dashLength];
+// FIXME: setDashPathEffect not defined
+//    platformContext()->setDashPathEffect(new SkDashPathEffect(intervals, count, dashOffset));
+
+    delete[] intervals;
+}
+#endif
 
 void GraphicsContext::setLineJoin(LineJoin join)
 {

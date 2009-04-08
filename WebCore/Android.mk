@@ -25,10 +25,8 @@
 #	bindings/js/JSCustomSQL*.cpp \
 #	bindings/js/JSCustomVersionChangeCallback.cpp \
 #	bindings/js/JSDatabaseCustom.cpp \
-#	bindings/js/JSEventTargetSVGElementInstance.cpp \
 #	bindings/js/JSHTMLAudioElementConstructor.cpp \
 #	bindings/js/JSSQL*.cpp \
-#	bindings/js/JSSVG*.cpp \
 #	bindings/js/JSStorageCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
@@ -39,7 +37,6 @@
 #	bindings/js/*Wx.cpp \
 #	bridge/test*.cpp \
 #	css/CSSGrammar.y \
-#	css/SVG*.cpp \
 #	dom/Worker*.cpp \
 #	dom/XMLTokenizerQt.cpp \
 #	editing/BackForwardListChromium.cpp \
@@ -50,7 +47,6 @@
 #	html/HTMLMediaElement.cpp \
 #	html/HTMLSourceElement.cpp \
 #	html/HTMLVideoElement.cpp \
-#	loader/CachedResourceClientWalker.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
@@ -64,12 +60,10 @@
 #	page/WorkerNavigator.cpp \
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
-#	rendering/RenderSVG*.cpp \
 #	rendering/RenderThemeChromium*.cpp \
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
 #	rendering/RenderVideo.cpp \
-#	rendering/SVG*.cpp \
 #	xml/Access*.cpp \
 #	xml/NativeXPathNSResolver.cpp \
 #	xml/XPath* \
@@ -101,7 +95,6 @@
 #	/qt/* \
 #	/skia/* \
 #	^storage/* \
-#	^svg/* \
 #	/symbian/* \
 #	/v8/* \
 #	/win/* \
@@ -186,6 +179,20 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSPluginElementFunctions.cpp \
 	bindings/js/JSQuarantinedObjectWrapper.cpp \
 	bindings/js/JSRGBColor.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	bindings/js/JSSVGElementInstanceCustom.cpp \
+	bindings/js/JSSVGLengthCustom.cpp \
+	bindings/js/JSSVGMatrixCustom.cpp \
+	bindings/js/JSSVGPathSegCustom.cpp \
+	bindings/js/JSSVGPathSegListCustom.cpp \
+	bindings/js/JSSVGPointListCustom.cpp \
+	bindings/js/JSSVGTransformListCustom.cpp \
+    
+endif
+    
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSStyleSheetCustom.cpp \
 	bindings/js/JSStyleSheetListCustom.cpp \
 	bindings/js/JSTextCustom.cpp \
@@ -267,6 +274,16 @@ LOCAL_SRC_FILES := \
 	css/MediaQuery.cpp \
 	css/MediaQueryEvaluator.cpp \
 	css/MediaQueryExp.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	css/SVGCSSComputedStyleDeclaration.cpp \
+	css/SVGCSSParser.cpp \
+	css/SVGCSSStyleSelector.cpp \
+    
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/ShadowValue.cpp \
 	css/StyleBase.cpp \
 	css/StyleList.cpp \
@@ -403,7 +420,6 @@ LOCAL_SRC_FILES := \
 	editing/WrapContentsInDummySpanCommand.cpp \
 	\
 	editing/android/EditorAndroid.cpp \
-	\
 	editing/htmlediting.cpp \
 	editing/markup.cpp \
 	editing/visible_units.cpp \
@@ -792,6 +808,26 @@ LOCAL_SRC_FILES := \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	rendering/RenderSVGBlock.cpp \
+	rendering/RenderSVGContainer.cpp \
+	rendering/RenderSVGGradientStop.cpp \
+	rendering/RenderSVGHiddenContainer.cpp \
+	rendering/RenderSVGImage.cpp \
+	rendering/RenderSVGInline.cpp \
+	rendering/RenderSVGInlineText.cpp \
+	rendering/RenderSVGRoot.cpp \
+	rendering/RenderSVGTSpan.cpp \
+	rendering/RenderSVGText.cpp \
+	rendering/RenderSVGTextPath.cpp \
+	rendering/RenderSVGTransformableContainer.cpp \
+	rendering/RenderSVGViewportContainer.cpp \
+
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderScrollbar.cpp \
 	rendering/RenderScrollbarPart.cpp \
 	rendering/RenderScrollbarTheme.cpp \
@@ -812,6 +848,18 @@ LOCAL_SRC_FILES := \
 	rendering/RenderWidget.cpp \
 	rendering/RenderWordBreak.cpp \
 	rendering/RootInlineBox.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	rendering/SVGCharacterLayoutInfo.cpp \
+	rendering/SVGInlineFlowBox.cpp \
+	rendering/SVGInlineTextBox.cpp \
+	rendering/SVGRenderSupport.cpp \
+	rendering/SVGRenderTreeAsText.cpp \
+	rendering/SVGRootInlineBox.cpp \
+
+endif
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/TextControlInnerElements.cpp \
 	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
@@ -823,8 +871,14 @@ LOCAL_SRC_FILES := \
 	rendering/style/KeyframeList.cpp \
 	rendering/style/NinePieceImage.cpp \
 	rendering/style/RenderStyle.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/SVGRenderStyle.cpp \
 	rendering/style/SVGRenderStyleDefs.cpp \
+
+endif
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/ShadowData.cpp \
 	rendering/style/StyleBackgroundData.cpp \
 	rendering/style/StyleBoxData.cpp \
@@ -841,7 +895,179 @@ LOCAL_SRC_FILES := \
 	rendering/style/StyleVisualData.cpp \
 	\
 	storage/DatabaseAuthorizer.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	svg/ColorDistance.cpp \
+	svg/Filter.cpp \
+	svg/FilterEffect.cpp \
+	svg/SVGAElement.cpp \
+	svg/SVGAltGlyphElement.cpp \
+	svg/SVGAngle.cpp \
+	svg/SVGAnimateColorElement.cpp \
+	svg/SVGAnimateElement.cpp \
+	svg/SVGAnimateMotionElement.cpp \
+	svg/SVGAnimateTransformElement.cpp \
+	svg/SVGAnimatedPathData.cpp \
+	svg/SVGAnimatedPoints.cpp \
+	svg/SVGAnimationElement.cpp \
+	svg/SVGCircleElement.cpp \
+	svg/SVGClipPathElement.cpp \
+	svg/SVGColor.cpp \
+	svg/SVGComponentTransferFunctionElement.cpp \
+	svg/SVGCursorElement.cpp \
+	svg/SVGDefinitionSrcElement.cpp \
+	svg/SVGDefsElement.cpp \
+	svg/SVGDescElement.cpp \
+	svg/SVGDocument.cpp \
+	svg/SVGDocumentExtensions.cpp \
+	svg/SVGElement.cpp \
+	svg/SVGElementInstance.cpp \
+	svg/SVGElementInstanceList.cpp \
+	svg/SVGEllipseElement.cpp \
+	svg/SVGExternalResourcesRequired.cpp \
+	svg/SVGFEBlendElement.cpp \
+	svg/SVGFEColorMatrixElement.cpp \
+	svg/SVGFEComponentTransferElement.cpp \
+	svg/SVGFECompositeElement.cpp \
+	svg/SVGFEDiffuseLightingElement.cpp \
+	svg/SVGFEDisplacementMapElement.cpp \
+	svg/SVGFEDistantLightElement.cpp \
+	svg/SVGFEFloodElement.cpp \
+	svg/SVGFEFuncAElement.cpp \
+	svg/SVGFEFuncBElement.cpp \
+	svg/SVGFEFuncGElement.cpp \
+	svg/SVGFEFuncRElement.cpp \
+	svg/SVGFEGaussianBlurElement.cpp \
+	svg/SVGFEImageElement.cpp \
+	svg/SVGFELightElement.cpp \
+	svg/SVGFEMergeElement.cpp \
+	svg/SVGFEMergeNodeElement.cpp \
+	svg/SVGFEOffsetElement.cpp \
+	svg/SVGFEPointLightElement.cpp \
+	svg/SVGFESpecularLightingElement.cpp \
+	svg/SVGFESpotLightElement.cpp \
+	svg/SVGFETileElement.cpp \
+	svg/SVGFETurbulenceElement.cpp \
+	svg/SVGFilterElement.cpp \
+	svg/SVGFilterPrimitiveStandardAttributes.cpp \
+	svg/SVGFitToViewBox.cpp \
+	svg/SVGFont.cpp \
+	svg/SVGFontData.cpp \
+	svg/SVGFontElement.cpp \
+	svg/SVGFontFaceElement.cpp \
+	svg/SVGFontFaceFormatElement.cpp \
+	svg/SVGFontFaceNameElement.cpp \
+	svg/SVGFontFaceSrcElement.cpp \
+	svg/SVGFontFaceUriElement.cpp \
+	svg/SVGForeignObjectElement.cpp \
+	svg/SVGGElement.cpp \
+	svg/SVGGlyphElement.cpp \
+	svg/SVGGradientElement.cpp \
+	svg/SVGHKernElement.cpp \
+	svg/SVGImageElement.cpp \
+	svg/SVGImageLoader.cpp \
+	svg/SVGLangSpace.cpp \
+	svg/SVGLength.cpp \
+	svg/SVGLengthList.cpp \
+	svg/SVGLineElement.cpp \
+	svg/SVGLinearGradientElement.cpp \
+	svg/SVGLocatable.cpp \
+	svg/SVGMPathElement.cpp \
+	svg/SVGMarkerElement.cpp \
+	svg/SVGMaskElement.cpp \
+	svg/SVGMetadataElement.cpp \
+	svg/SVGMissingGlyphElement.cpp \
+	svg/SVGNumberList.cpp \
+	svg/SVGPaint.cpp \
+	svg/SVGParserUtilities.cpp \
+	svg/SVGPathElement.cpp \
+	svg/SVGPathSegArc.cpp \
+	svg/SVGPathSegClosePath.cpp \
+	svg/SVGPathSegCurvetoCubic.cpp \
+	svg/SVGPathSegCurvetoCubicSmooth.cpp \
+	svg/SVGPathSegCurvetoQuadratic.cpp \
+	svg/SVGPathSegCurvetoQuadraticSmooth.cpp \
+	svg/SVGPathSegLineto.cpp \
+	svg/SVGPathSegLinetoHorizontal.cpp \
+	svg/SVGPathSegLinetoVertical.cpp \
+	svg/SVGPathSegList.cpp \
+	svg/SVGPathSegMoveto.cpp \
+	svg/SVGPatternElement.cpp \
+	svg/SVGPointList.cpp \
+	svg/SVGPolyElement.cpp \
+	svg/SVGPolygonElement.cpp \
+	svg/SVGPolylineElement.cpp \
+	svg/SVGPreserveAspectRatio.cpp \
+	svg/SVGRadialGradientElement.cpp \
+	svg/SVGRectElement.cpp \
+	svg/SVGSVGElement.cpp \
+	svg/SVGScriptElement.cpp \
+	svg/SVGSetElement.cpp \
+	svg/SVGStopElement.cpp \
+	svg/SVGStringList.cpp \
+	svg/SVGStylable.cpp \
+	svg/SVGStyleElement.cpp \
+	svg/SVGStyledElement.cpp \
+	svg/SVGStyledLocatableElement.cpp \
+	svg/SVGStyledTransformableElement.cpp \
+	svg/SVGSwitchElement.cpp \
+	svg/SVGSymbolElement.cpp \
+	svg/SVGTRefElement.cpp \
+	svg/SVGTSpanElement.cpp \
+	svg/SVGTests.cpp \
+	svg/SVGTextContentElement.cpp \
+	svg/SVGTextElement.cpp \
+	svg/SVGTextPathElement.cpp \
+	svg/SVGTextPositioningElement.cpp \
+	svg/SVGTitleElement.cpp \
+	svg/SVGTransform.cpp \
+	svg/SVGTransformDistance.cpp \
+	svg/SVGTransformList.cpp \
+	svg/SVGTransformable.cpp \
+	svg/SVGURIReference.cpp \
+	svg/SVGUseElement.cpp \
+	svg/SVGViewElement.cpp \
+	svg/SVGViewSpec.cpp \
+	svg/SVGZoomAndPan.cpp \
+	svg/SVGZoomEvent.cpp \
 	\
+	svg/animation/SMILTime.cpp \
+	svg/animation/SMILTimeContainer.cpp \
+	svg/animation/SVGSMILElement.cpp \
+	\
+	svg/graphics/SVGImage.cpp \
+	svg/graphics/SVGPaintServer.cpp \
+	svg/graphics/SVGPaintServerGradient.cpp \
+	svg/graphics/SVGPaintServerLinearGradient.cpp \
+	svg/graphics/SVGPaintServerPattern.cpp \
+	svg/graphics/SVGPaintServerRadialGradient.cpp \
+	svg/graphics/SVGPaintServerSolid.cpp \
+	svg/graphics/SVGResource.cpp \
+	svg/graphics/SVGResourceClipper.cpp \
+	svg/graphics/SVGResourceFilter.cpp \
+	svg/graphics/SVGResourceMarker.cpp \
+	svg/graphics/SVGResourceMasker.cpp \
+	\
+	svg/graphics/filters/SVGFEConvolveMatrix.cpp \
+	svg/graphics/filters/SVGFEDiffuseLighting.cpp \
+	svg/graphics/filters/SVGFEDisplacementMap.cpp \
+	svg/graphics/filters/SVGFEFlood.cpp \
+	svg/graphics/filters/SVGFEGaussianBlur.cpp \
+	svg/graphics/filters/SVGFEImage.cpp \
+	svg/graphics/filters/SVGFEMerge.cpp \
+	svg/graphics/filters/SVGFEMorphology.cpp \
+	svg/graphics/filters/SVGFEOffset.cpp \
+	svg/graphics/filters/SVGFESpecularLighting.cpp \
+	svg/graphics/filters/SVGFETile.cpp \
+	svg/graphics/filters/SVGFETurbulence.cpp \
+	svg/graphics/filters/SVGFilterEffect.cpp \
+	svg/graphics/filters/SVGLightSource.cpp \
+	\
+	svg/graphics/skia/SVGResourceMaskerSkia.cpp \
+
+endif
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \

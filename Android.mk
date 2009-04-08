@@ -70,6 +70,10 @@ ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm -fvisibility=hidden
 endif
 
+ifeq ($(ENABLE_SVG),true)
+LOCAL_CFLAGS += -DENABLE_SVG=1
+endif
+
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_CFLAGS += -DANDROID_INSTRUMENT
 endif
@@ -170,6 +174,14 @@ LOCAL_C_INCLUDES := \
 	$(base_intermediates)/WebCore/platform \
 	$(base_intermediates)/WebCore/plugins \
 	$(base_intermediates)/WebCore/xml
+
+ifeq ($(ENABLE_SVG), true)
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	$(LOCAL_PATH)/WebCore/svg \
+	$(LOCAL_PATH)/WebCore/svg/animation \
+	$(LOCAL_PATH)/WebCore/svg/graphics \
+	$(base_intermediates)/WebCore/svg
+endif
 
 # Build the list of shared libraries
 LOCAL_SHARED_LIBRARIES := \
