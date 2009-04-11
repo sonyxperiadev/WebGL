@@ -37,10 +37,6 @@
 #include "RegisterFile.h"
 #include <wtf/HashMap.h>
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace JSC {
 
     class CodeBlock;
