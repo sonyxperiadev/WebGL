@@ -44,6 +44,8 @@ class UniscribeTest_TooBig_Test;  // A gunit test for UniscribeHelper.
 
 namespace WebCore {
 
+class GraphicsContext;
+
 #define UNISCRIBE_HELPER_STACK_RUNS 8
 #define UNISCRIBE_HELPER_STACK_CHARS 32
 
@@ -145,6 +147,16 @@ public:
         m_ascent = ascent;
     }
 
+    // When set to true, this class is used only to look up glyph
+    // indices for a range of Unicode characters without glyph placement.
+    // By default, it's false. This should be set to true when this
+    // class is used for glyph index look-up for non-BMP characters
+    // in GlyphPageNodeChromiumWin.cpp.
+    void setDisableFontFallback(bool disableFontFallback)
+    {
+        m_disableFontFallback = true;
+    }
+
     // You must call this after setting any options but before doing any
     // other calls like asking for widths or drawing.
     void init()
@@ -177,7 +189,8 @@ public:
     // be pre-set.
     //
     // The y position is the upper left corner, NOT the baseline.
-    void draw(HDC, int x, int y, int from, int to);
+    void draw(GraphicsContext* graphicsContext, HDC dc, int x, int y, int from,
+              int to);
 
     // Returns the first glyph assigned to the character at the given offset.
     // This function is used to retrieve glyph information when Uniscribe is
@@ -378,6 +391,7 @@ private:
     int m_letterSpacing;
     int m_spaceWidth;
     int m_wordSpacing;
+    bool m_disableFontFallback;
 
     // Uniscribe breaks the text into Runs. These are one length of text that is
     // in one script and one direction. This array is in reading order.

@@ -20,6 +20,7 @@
 #include "config.h"
 #include "JSOptionConstructor.h"
 
+#include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "JSHTMLOptionElement.h"
 #include "ScriptExecutionContext.h"
@@ -29,30 +30,34 @@ using namespace JSC;
 
 namespace WebCore {
 
-ASSERT_CLASS_FITS_IN_CELL(JSOptionConstructor)
+ASSERT_CLASS_FITS_IN_CELL(JSOptionConstructor);
 
 const ClassInfo JSOptionConstructor::s_info = { "OptionConstructor", 0, 0, 0 };
 
 JSOptionConstructor::JSOptionConstructor(ExecState* exec, ScriptExecutionContext* context)
     : DOMObject(JSOptionConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
+    , m_globalObject(toJSDOMGlobalObject(context))
 {
     ASSERT(context->isDocument());
-    m_document = static_cast<JSDocument*>(asObject(toJS(exec, static_cast<Document*>(context))));
 
+    putDirect(exec->propertyNames().prototype, JSHTMLOptionElementPrototype::self(exec), None);
     putDirect(exec->propertyNames().length, jsNumber(exec, 4), ReadOnly|DontDelete|DontEnum);
+}
+
+Document* JSOptionConstructor::document() const
+{
+    return static_cast<Document*>(m_globalObject->scriptExecutionContext());
 }
 
 static JSObject* constructHTMLOptionElement(ExecState* exec, JSObject* constructor, const ArgList& args)
 {
     Document* document = static_cast<JSOptionConstructor*>(constructor)->document();
 
-    ExceptionCode ec = 0;
+    RefPtr<HTMLOptionElement> element = static_pointer_cast<HTMLOptionElement>(document->createElement(HTMLNames::optionTag, false));
 
-    RefPtr<HTMLOptionElement> element = static_pointer_cast<HTMLOptionElement>(document->createElement("option", ec));
-    RefPtr<Text> text;
-    if (ec == 0)
-        text = document->createTextNode("");
-    if (ec == 0 && !args.at(exec, 0).isUndefined())
+    ExceptionCode ec = 0;
+    RefPtr<Text> text = document->createTextNode("");
+    if (!args.at(exec, 0).isUndefined())
         text->setData(args.at(exec, 0).toString(exec), ec);
     if (ec == 0)
         element->appendChild(text.release(), ec);
@@ -80,8 +85,8 @@ ConstructType JSOptionConstructor::getConstructData(ConstructData& constructData
 void JSOptionConstructor::mark()
 {
     DOMObject::mark();
-    if (!m_document->marked())
-        m_document->mark();
+    if (!m_globalObject->marked())
+        m_globalObject->mark();
 }
 
 } // namespace WebCore

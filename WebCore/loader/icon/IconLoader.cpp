@@ -35,6 +35,7 @@
 #include "ResourceHandle.h"
 #include "ResourceResponse.h"
 #include "ResourceRequest.h"
+#include "SharedBuffer.h"
 #include "SubresourceLoader.h"
 #include <wtf/UnusedParam.h>
 
@@ -61,14 +62,6 @@ void IconLoader::startLoading()
 {    
     if (m_resourceLoader)
         return;
-
-    // FIXME: http://bugs.webkit.org/show_bug.cgi?id=10902
-    // Once ResourceHandle will load without a DocLoader, we can remove this check.
-    // A frame may be documentless - one example is a frame containing only a PDF.
-    if (!m_frame->document()) {
-        LOG(IconDatabase, "Documentless-frame - icon won't be loaded");
-        return;
-    }
 
     // Set flag so we can detect the case where the load completes before
     // SubresourceLoader::create returns.

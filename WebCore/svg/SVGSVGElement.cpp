@@ -125,8 +125,8 @@ FloatRect SVGSVGElement::viewport() const
     TransformationMatrix viewBox = viewBoxToViewTransform(w, h);
     double wDouble = w;
     double hDouble = h;
-    viewBox.map(_x, _y, &_x, &_y);
-    viewBox.map(w, h, &wDouble, &hDouble);
+    viewBox.map(_x, _y, _x, _y);
+    viewBox.map(w, h, wDouble, hDouble);
     return FloatRect::narrowPrecision(_x, _y, wDouble, hDouble);
 }
 
@@ -387,7 +387,7 @@ TransformationMatrix SVGSVGElement::getCTM() const
     if (!isOutermostSVG())
         mat.translate(x().value(this), y().value(this));
 
-    if (attributes()->getNamedItem(SVGNames::viewBoxAttr)) {
+    if (attributes()->getAttributeItem(SVGNames::viewBoxAttr)) {
         TransformationMatrix viewBox = viewBoxToViewTransform(width().value(this), height().value(this));
         mat = viewBox * mat;
     }
@@ -414,7 +414,7 @@ TransformationMatrix SVGSVGElement::getScreenCTM() const
     TransformationMatrix mat = SVGStyledLocatableElement::getScreenCTM();
     mat.translate(rootLocation.x(), rootLocation.y());
 
-    if (attributes()->getNamedItem(SVGNames::viewBoxAttr)) {
+    if (attributes()->getAttributeItem(SVGNames::viewBoxAttr)) {
         TransformationMatrix viewBox = viewBoxToViewTransform(width().value(this), height().value(this));
         mat = viewBox * mat;
     }

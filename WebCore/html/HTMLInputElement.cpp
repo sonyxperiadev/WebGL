@@ -53,9 +53,6 @@
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
 #include "TextEvent.h"
-#if USE(LOW_BANDWIDTH_DISPLAY)
-#include "FrameLoader.h"
-#endif
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
@@ -447,7 +444,7 @@ int HTMLInputElement::selectionStart() const
         return m_data.cachedSelectionStart();
     if (!renderer())
         return 0;
-    return static_cast<RenderTextControl*>(renderer())->selectionStart();
+    return toRenderTextControl(renderer())->selectionStart();
 }
 
 int HTMLInputElement::selectionEnd() const
@@ -458,7 +455,7 @@ int HTMLInputElement::selectionEnd() const
         return m_data.cachedSelectionEnd();
     if (!renderer())
         return 0;
-    return static_cast<RenderTextControl*>(renderer())->selectionEnd();
+    return toRenderTextControl(renderer())->selectionEnd();
 }
 
 void HTMLInputElement::setSelectionStart(int start)
@@ -467,7 +464,7 @@ void HTMLInputElement::setSelectionStart(int start)
         return;
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->setSelectionStart(start);
+    toRenderTextControl(renderer())->setSelectionStart(start);
 }
 
 void HTMLInputElement::setSelectionEnd(int end)
@@ -476,7 +473,7 @@ void HTMLInputElement::setSelectionEnd(int end)
         return;
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->setSelectionEnd(end);
+    toRenderTextControl(renderer())->setSelectionEnd(end);
 }
 
 void HTMLInputElement::select()
@@ -485,7 +482,7 @@ void HTMLInputElement::select()
         return;
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->select();
+    toRenderTextControl(renderer())->select();
 }
 
 void HTMLInputElement::setSelectionRange(int start, int end)
@@ -578,7 +575,7 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
         InputElement::parseSizeAttribute(m_data, attr);
     else if (attr->name() == altAttr) {
         if (renderer() && inputType() == IMAGE)
-            static_cast<RenderImage*>(renderer())->updateAltText();
+            toRenderImage(renderer())->updateAltText();
     } else if (attr->name() == srcAttr) {
         if (renderer() && inputType() == IMAGE) {
             if (!m_imageLoader)
@@ -644,13 +641,6 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
 
 bool HTMLInputElement::rendererIsNeeded(RenderStyle *style)
 {
-#if USE(LOW_BANDWIDTH_DISPLAY)
-    if (document()->inLowBandwidthDisplay()) {
-        document()->frame()->loader()->needToSwitchOutLowBandwidthDisplay();
-        return false;
-    }
-#endif
-    
     switch (inputType()) {
         case BUTTON:
         case CHECKBOX:
@@ -715,7 +705,7 @@ void HTMLInputElement::attach()
             m_imageLoader.set(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
         if (renderer()) {
-            RenderImage* imageObj = static_cast<RenderImage*>(renderer());
+            RenderImage* imageObj = toRenderImage(renderer());
             imageObj->setCachedImage(m_imageLoader->image()); 
             
             // If we have no image at all because we have no src attribute, set
@@ -956,17 +946,17 @@ void HTMLInputElement::setValue(const String& value)
     if (inputType() == FILE && !value.isEmpty())
         return;
 
-    if (isTextField())
-        InputElement::updatePlaceholderVisibility(m_data, document());
-
     setValueMatchesRenderer(false);
     if (storesValueSeparateFromAttribute()) {
         if (inputType() == FILE)
             m_fileList->clear();
         else {
             m_data.setValue(constrainValue(value));
-            if (isTextField() && inDocument())
-                document()->updateRendering();
+            if (isTextField()) {
+                InputElement::updatePlaceholderVisibility(m_data, document());
+                if (inDocument())
+                    document()->updateRendering();
+            }
         }
         if (renderer())
             renderer()->updateFromElement();
@@ -1113,6 +1103,9 @@ void HTMLInputElement::postDispatchEventHandler(Event *evt, void* data)
 
 void HTMLInputElement::defaultEventHandler(Event* evt)
 {
+    // FIXME: It would be better to refactor this for the different types of input element.
+    // Having them all in one giant function makes this hard to read, and almost all the handling is type-specific.
+
     bool clickDefaultFormButton = false;
 
     if (isTextField() && evt->type() == eventNames().textInputEvent && evt->isTextEvent() && static_cast<TextEvent*>(evt)->data() == "\n")
@@ -1128,26 +1121,36 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             m_yPos = 0;
         } else {
             // FIXME: This doesn't work correctly with transforms.
+            // FIXME: pageX/pageY need adjusting for pageZoomFactor(). Use actualPageLocation()?
             IntPoint absOffset = roundedIntPoint(renderer()->localToAbsolute());
             m_xPos = me->pageX() - absOffset.x();
             m_yPos = me->pageY() - absOffset.y();
         }
     }
 
-    if (isTextField() && evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent() && focused() && document()->frame()
-        && document()->frame()->doTextFieldCommandFromEvent(this, static_cast<KeyboardEvent*>(evt))) {
+    if (isTextField()
+            && evt->type() == eventNames().keydownEvent
+            && evt->isKeyboardEvent()
+            && focused()
+            && document()->frame()
+            && document()->frame()->doTextFieldCommandFromEvent(this, static_cast<KeyboardEvent*>(evt))) {
         evt->setDefaultHandled();
         return;
     }
 
-    if (inputType() == RADIO && evt->isMouseEvent()
-        && evt->type() == eventNames().clickEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
+    if (inputType() == RADIO
+            && evt->isMouseEvent()
+            && evt->type() == eventNames().clickEvent
+            && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
         evt->setDefaultHandled();
         return;
     }
     
-    // Let the key handling done in EventTargetNode take precedence over the event handling here for editable text fields
-    if (!clickDefaultFormButton) {
+    // Call the base event handler before any of our own event handling for almost all events in text fields.
+    // Makes editing keyboard handling take precedence over the keydown and keypress handling in this function.
+    bool callBaseClassEarly = isTextField() && !clickDefaultFormButton
+        && (evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
+    if (callBaseClassEarly) {
         HTMLFormControlElementWithState::defaultEventHandler(evt);
         if (evt->defaultHandled())
             return;
@@ -1246,7 +1249,8 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 case SUBMIT:
                 case RADIO:
                     setActive(true, true);
-                    // No setDefaultHandled() - IE dispatches a keypress in this case.
+                    // No setDefaultHandled(), because IE dispatches a keypress in this case
+                    // and the caller will only dispatch a keypress if we don't call setDefaultHandled.
                     return;
                 default:
                     break;
@@ -1337,12 +1341,12 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         }
         // Fire onChange for text fields.
         RenderObject* r = renderer();
-        if (r && r->isTextField() && r->isEdited()) {
+        if (r && r->isTextField() && toRenderTextControl(r)->isEdited()) {
             onChange();
             // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
             r = renderer();
-            if (r)
-                r->setEdited(false);
+            if (r && r->isTextField())
+                toRenderTextControl(r)->setEdited(false);
         }
         // Form may never have been present, or may have been destroyed by the change event.
         if (form())
@@ -1357,20 +1361,11 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         static_cast<RenderTextControlSingleLine*>(renderer())->forwardEvent(evt);
 
-    if (inputType() == RANGE && renderer()) {
-        RenderSlider* slider = static_cast<RenderSlider*>(renderer());
-        if (evt->isMouseEvent() && evt->type() == eventNames().mousedownEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
-            MouseEvent* mEvt = static_cast<MouseEvent*>(evt);
-            if (!slider->mouseEventIsInThumb(mEvt)) {
-                IntPoint eventOffset(mEvt->offsetX(), mEvt->offsetY());
-                if (mEvt->target() != this) // Does this ever happen now? Was added for <video> controls
-                    eventOffset = roundedIntPoint(renderer()->absoluteToLocal(FloatPoint(mEvt->pageX(), mEvt->pageY()), false, true));
-                slider->setValueForPosition(slider->positionForOffset(eventOffset));
-            }
-        }
-        if (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent())
-            slider->forwardEvent(evt);
-    }
+    if (inputType() == RANGE && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent()))
+        static_cast<RenderSlider*>(renderer())->forwardEvent(evt);
+
+    if (!callBaseClassEarly && !evt->defaultHandled())
+        HTMLFormControlElementWithState::defaultEventHandler(evt);
 }
 
 bool HTMLInputElement::isURLAttribute(Attribute *attr) const
@@ -1453,6 +1448,16 @@ void HTMLInputElement::setMaxLength(int _maxLength)
     setAttribute(maxlengthAttr, String::number(_maxLength));
 }
 
+bool HTMLInputElement::multiple() const
+{
+    return !getAttribute(multipleAttr).isNull();
+}
+
+void HTMLInputElement::setMultiple(bool multiple)
+{
+    setAttribute(multipleAttr, multiple ? "" : 0);
+}
+    
 void HTMLInputElement::setSize(unsigned _size)
 {
     setAttribute(sizeAttr, String::number(_size));
@@ -1537,11 +1542,11 @@ void HTMLInputElement::onSearch()
     dispatchEventForType(eventNames().searchEvent, true, false);
 }
 
-Selection HTMLInputElement::selection() const
+VisibleSelection HTMLInputElement::selection() const
 {
    if (!renderer() || !isTextField() || m_data.cachedSelectionStart() == -1 || m_data.cachedSelectionEnd() == -1)
-        return Selection();
-   return static_cast<RenderTextControl*>(renderer())->selection(m_data.cachedSelectionStart(), m_data.cachedSelectionEnd());
+        return VisibleSelection();
+   return toRenderTextControl(renderer())->selection(m_data.cachedSelectionStart(), m_data.cachedSelectionEnd());
 }
 
 void HTMLInputElement::documentDidBecomeActive()

@@ -55,54 +55,15 @@ void RenderTextControlMultiLine::subtreeHasChanged()
         frame->textDidChangeInTextArea(static_cast<Element*>(node()));
 }
 
-void RenderTextControlMultiLine::layout()
-{
-    int oldHeight = height();
-    calcHeight();
-
-#ifdef ANDROID_LAYOUT
-    int oldVisibleWidth = m_visibleWidth;
-#endif
-
-    int oldWidth = width();
-    calcWidth();
-
-    bool relayoutChildren = oldHeight != height() || oldWidth != width();
-#ifdef ANDROID_LAYOUT
-    if (oldVisibleWidth != m_visibleWidth
-            && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-        relayoutChildren = true;
-    }
-#endif
-
-    RenderBox* innerTextRenderer = innerTextElement()->renderBox();
-
-    // Set the text block height
-    int desiredHeight = textBlockHeight();
-    if (desiredHeight != innerTextRenderer->height())
-        relayoutChildren = true;
-    innerTextRenderer->style()->setHeight(Length(desiredHeight, Fixed));
-
-    // Set the text block width
-    int desiredWidth = textBlockWidth();
-    if (desiredWidth != innerTextRenderer->width())
-        relayoutChildren = true;
-    innerTextRenderer->style()->setWidth(Length(desiredWidth, Fixed));
-
-    RenderBlock::layoutBlock(relayoutChildren);
-}
-
 bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
 {
     if (!RenderTextControl::nodeAtPoint(request, result, x, y, tx, ty, hitTestAction))
         return false;
 
-    if (result.innerNode() == element()) {
-        hitInnerTextBlock(result, x, y, tx, ty);
-        return true;
-    }
+    if (result.innerNode() == node() || result.innerNode() == innerTextElement())
+        hitInnerTextElement(result, x, y, tx, ty);
 
-    return false;
+    return true;
 }
 
 void RenderTextControlMultiLine::forwardEvent(Event* event)
@@ -146,10 +107,9 @@ PassRefPtr<RenderStyle> RenderTextControlMultiLine::createInnerTextStyle(const R
 
     adjustInnerTextStyle(startStyle, textBlockStyle.get());
 
-    // Forward overflow properties.
-    textBlockStyle->setOverflowX(startStyle->overflowX() == OVISIBLE ? OAUTO : startStyle->overflowX());
-    textBlockStyle->setOverflowY(startStyle->overflowY() == OVISIBLE ? OAUTO : startStyle->overflowY());
-
+    // FIXME: This code should just map wrap into CSS in the DOM code.
+    // Then here we should set the textBlockStyle appropriately based off this
+    // object's style()->whiteSpace() and style->wordWrap().
     // Set word wrap property based on wrap attribute.
     if (static_cast<HTMLTextAreaElement*>(node())->shouldWrapText()) {
         textBlockStyle->setWhiteSpace(PRE_WRAP);

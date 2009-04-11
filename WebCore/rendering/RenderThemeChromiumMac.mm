@@ -565,7 +565,7 @@ void RenderThemeChromiumMac::updateFocusedState(NSCell* cell, const RenderObject
 void RenderThemeChromiumMac::updatePressedState(NSCell* cell, const RenderObject* o)
 {
     bool oldPressed = [cell isHighlighted];
-    bool pressed = (o->element() && o->element()->active());
+    bool pressed = (o->node() && o->node()->active());
     if (pressed != oldPressed)
         [cell setHighlighted:pressed];
 }
@@ -573,8 +573,13 @@ void RenderThemeChromiumMac::updatePressedState(NSCell* cell, const RenderObject
 // FIXME: This used to be in the upstream version until it was converted to the new theme API in r37731.
 int RenderThemeChromiumMac::baselinePosition(const RenderObject* o) const
 {
-    if (o->style()->appearance() == CheckboxPart || o->style()->appearance() == RadioPart)
-        return o->marginTop() + o->height() - 2 * o->style()->effectiveZoom(); // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
+    if (!o->isBox())
+        return 0;
+
+    if (o->style()->appearance() == CheckboxPart || o->style()->appearance() == RadioPart) {
+        const RenderBox* box = toRenderBox(o);
+        return box->marginTop() + box->height() - 2 * o->style()->effectiveZoom(); // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
+    }
     return RenderTheme::baselinePosition(o);
 }
 
@@ -1311,7 +1316,11 @@ void RenderThemeChromiumMac::adjustMenuListStyle(CSSStyleSelector* selector, Ren
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style->setColor(e->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    bool isEnabled = true;
+    if (FormControlElement* formControlElement = toFormControlElement(e))
+        isEnabled = formControlElement->isEnabled();
+
+    style->setColor(isEnabled ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());

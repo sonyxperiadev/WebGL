@@ -21,33 +21,23 @@
 #include "config.h"
 #include "ScriptController.h"
 
-#include "Console.h"
-#include "DOMWindow.h"
-#include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "GCController.h"
-#include "JSDOMWindow.h"
+#include "HTMLPlugInElement.h"
 #include "JSDocument.h"
-#include "JSEventListener.h"
-#include "npruntime_impl.h"
+#include "JSLazyEventListener.h"
 #include "NP_jsobject.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "runtime_root.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "Settings.h"
-
-#include <runtime/Completion.h>
+#include "npruntime_impl.h"
+#include "runtime_root.h"
 #include <debugger/Debugger.h>
 #include <runtime/JSLock.h>
-
-#if ENABLE(NETSCAPE_PLUGIN_API)
-#include "HTMLPlugInElement.h"
-#endif
 
 using namespace JSC;
 
@@ -110,16 +100,16 @@ ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
     // so we start the keep alive timer here.
     m_frame->keepAlive();
 
-    m_windowShell->window()->startTimeoutCheck();
+    m_windowShell->window()->globalData()->timeoutChecker.start();
     Completion comp = JSC::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), jsSourceCode, m_windowShell);
-    m_windowShell->window()->stopTimeoutCheck();
+    m_windowShell->window()->globalData()->timeoutChecker.stop();
 
     if (comp.complType() == Normal || comp.complType() == ReturnValue) {
         m_sourceURL = savedSourceURL;
         return comp.value();
     }
 
-    if (comp.complType() == Throw)
+    if (comp.complType() == Throw || comp.complType() == Interrupted)
         reportException(exec, comp.value());
 
     m_sourceURL = savedSourceURL;
@@ -152,12 +142,14 @@ PassRefPtr<EventListener> ScriptController::createInlineEventListener(const Stri
 }
 
 #if ENABLE(SVG)
+
 PassRefPtr<EventListener> ScriptController::createSVGEventHandler(const String& functionName, const String& code, Node* node)
 {
     initScriptIfNeeded();
     JSLock lock(false);
     return JSLazyEventListener::create(JSLazyEventListener::SVGLazyEventListener, functionName, code, m_windowShell->window(), node, m_handlerLineno);
 }
+
 #endif
 
 void ScriptController::initScript()
@@ -300,6 +292,7 @@ PassRefPtr<Bindings::RootObject> ScriptController::createRootObject(void* native
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
+
 NPObject* ScriptController::windowScriptNPObject()
 {
     if (!m_windowScriptNPObject) {
@@ -323,23 +316,34 @@ NPObject* ScriptController::windowScriptNPObject()
 
 NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement* plugin)
 {
-    // Can't create NPObjects when JavaScript is disabled
-    if (!isEnabled())
+    JSObject* object = jsObjectForPluginElement(plugin);
+    if (!object)
         return _NPN_CreateNoScriptObject();
+
+    // Wrap the JSObject in an NPObject
+    return _NPN_CreateScriptObject(0, object, bindingRootObject());
+}
+
+#endif
+
+JSObject* ScriptController::jsObjectForPluginElement(HTMLPlugInElement* plugin)
+{
+    // Can't create JSObjects when JavaScript is disabled
+    if (!isEnabled())
+        return 0;
 
     // Create a JSObject bound to this element
     JSLock lock(false);
     ExecState* exec = globalObject()->globalExec();
     JSValuePtr jsElementValue = toJS(exec, plugin);
     if (!jsElementValue || !jsElementValue.isObject())
-        return _NPN_CreateNoScriptObject();
-
-    // Wrap the JSObject in an NPObject
-    return _NPN_CreateScriptObject(0, jsElementValue.getObject(), bindingRootObject());
+        return 0;
+    
+    return jsElementValue.getObject();
 }
-#endif
 
 #if !PLATFORM(MAC)
+
 void ScriptController::updatePlatformScriptObjects()
 {
 }
@@ -347,6 +351,7 @@ void ScriptController::updatePlatformScriptObjects()
 void ScriptController::disconnectPlatformScriptObjects()
 {
 }
+
 #endif
 
 void ScriptController::cleanupScriptObjectsForPlugin(void* nativeHandle)

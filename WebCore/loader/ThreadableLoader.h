@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,7 +38,7 @@
 namespace WebCore {
 
     class ResourceError;
-    class ResourceRequest;
+    struct ResourceRequest;
     class ResourceResponse;
     class ScriptExecutionContext;
     class ThreadableLoaderClient;
@@ -57,8 +57,8 @@ namespace WebCore {
     // just able to run on threads other than the main thread).
     class ThreadableLoader : Noncopyable {
     public:
+        static void loadResourceSynchronously(ScriptExecutionContext*, const ResourceRequest&, ThreadableLoaderClient&);
         static PassRefPtr<ThreadableLoader> create(ScriptExecutionContext*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff);
-        static unsigned long loadResourceSynchronously(ScriptExecutionContext*, const ResourceRequest&, ResourceError&, ResourceResponse&, Vector<char>& data);
 
         virtual void cancel() = 0;
         void ref() { refThreadableLoader(); }

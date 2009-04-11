@@ -108,9 +108,7 @@
 /*----------------------------------------------------------------------*/
 
 #define NP_VERSION_MAJOR 0
-#define NP_VERSION_MINOR 20
-
-
+#define NP_VERSION_MINOR 24
 
 /*----------------------------------------------------------------------*/
 /*             Definition of Basic Types                                */
@@ -343,13 +341,16 @@ typedef enum {
      */
     NPPVpluginWantsAllNetworkStreams = 18,
 
+    NPPVpluginPrivateModeBool = 19,
+    
+    /* Checks to see if the plug-in would like the browser to load the "src" attribute. */
+    NPPVpluginCancelSrcStream = 20,
+
 #ifdef XP_MACOSX
     /* Used for negotiating drawing models */
     NPPVpluginDrawingModel = 1000,
     /* Used for negotiating event models */
     NPPVpluginEventModel = 1001,
-    /* The plug-in text input vtable */
-    NPPVpluginTextInputFuncs = 1002,
     /* In the NPDrawingModelCoreAnimation drawing model, the browser asks the plug-in for a Core Animation layer. */
     NPPVpluginCoreAnimationLayer = 1003
 #endif
@@ -383,7 +384,9 @@ typedef enum {
     /* Get the NPObject wrapper for the plugins DOM element. */
     NPNVPluginElementNPObject = 16,
 
-    NPNVSupportsWindowless = 17
+    NPNVSupportsWindowless = 17,
+    
+    NPNVprivateModeBool = 18
 
 #ifdef XP_MACOSX
     , NPNVpluginDrawingModel = 1000 /* The NPDrawingModel specified by the plugin */
@@ -400,13 +403,17 @@ typedef enum {
 #endif
     , NPNVsupportsCocoaBool = 3001 /* TRUE if the browser supports the Cocoa event model */
     
-    , NPNVbrowserTextInputFuncs = 1002 /* The browser text input vtable */
 #endif /* XP_MACOSX */
     
 #ifdef ANDROID
     , NPNFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 } NPNVariable;
+
+typedef enum {
+   NPNURLVCookie = 501,
+   NPNURLVProxy
+} NPNURLVariable;
 
 /*
  * The type of a NPWindow - it specifies the type of the data structure
@@ -457,6 +464,7 @@ typedef enum {
     NPCocoaEventFocusChanged,
     NPCocoaEventWindowFocusChanged,
     NPCocoaEventScrollWheel,
+    NPCocoaEventTextInput
 } NPCocoaEventType;
 
 typedef struct _NPNSString NPNSString;
@@ -493,7 +501,10 @@ typedef struct _NPCocoaEvent {
         } draw;
         struct {
             NPBool hasFocus;
-        } focus;        
+        } focus;
+        struct {
+            NPNSString *text;
+        } text;
     } data;
 } NPCocoaEvent;
 
@@ -734,7 +745,11 @@ typedef struct NP_Port
 #define NPVERS_HAS_RESPONSE_HEADERS       17
 #define NPVERS_HAS_NPOBJECT_ENUM          18
 #define NPVERS_HAS_PLUGIN_THREAD_ASYNC_CALL 19
-#define NPVERS_MACOSX_HAS_EVENT_MODELS    20
+#define NPVERS_HAS_ALL_NETWORK_STREAMS    20
+#define NPVERS_HAS_URL_AND_AUTH_INFO      21
+#define NPVERS_HAS_PRIVATE_MODE           22
+#define NPVERS_MACOSX_HAS_EVENT_MODELS    23
+#define NPVERS_HAS_CANCEL_SRC_STREAM      24
 
 /*----------------------------------------------------------------------*/
 /*             Function Prototypes                */

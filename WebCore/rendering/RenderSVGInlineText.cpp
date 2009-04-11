@@ -56,7 +56,7 @@ RenderSVGInlineText::RenderSVGInlineText(Node* n, PassRefPtr<StringImpl> str)
 }
 
 
-void RenderSVGInlineText::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderSVGInlineText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     // Skip RenderText's work.
     RenderObject::styleDidChange(diff, oldStyle);
@@ -68,25 +68,24 @@ void RenderSVGInlineText::styleDidChange(RenderStyle::Diff diff, const RenderSty
 
 void RenderSVGInlineText::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
-    rects.append(computeAbsoluteRectForRange(0, textLength()));
+    rects.append(computeRepaintRectForRange(0, 0, textLength()));
 }
 
 void RenderSVGInlineText::absoluteQuads(Vector<FloatQuad>& quads, bool)
 {
-    quads.append(FloatRect(computeAbsoluteRectForRange(0, textLength())));
+    quads.append(FloatRect(computeRepaintRectForRange(0, 0, textLength())));
 }
 
-IntRect RenderSVGInlineText::selectionRect(bool)
+IntRect RenderSVGInlineText::selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool /*clipToVisibleContent*/)
 {
     ASSERT(!needsLayout());
 
-    IntRect rect;
     if (selectionState() == SelectionNone)
-        return rect;
+        return IntRect();
 
     // Early exit if we're ie. a <text> within a <defs> section.
     if (isChildOfHiddenContainer(this))
-        return rect;
+        return IntRect();
 
     // Now calculate startPos and endPos for painting selection.
     // We include a selection while endPos > 0
@@ -104,23 +103,22 @@ IntRect RenderSVGInlineText::selectionRect(bool)
     }
 
     if (startPos == endPos)
-        return rect;
+        return IntRect();
 
-    return computeAbsoluteRectForRange(startPos, endPos);
+    return computeRepaintRectForRange(repaintContainer, startPos, endPos);
 }
 
-IntRect RenderSVGInlineText::computeAbsoluteRectForRange(int startPos, int endPos)
+IntRect RenderSVGInlineText::computeRepaintRectForRange(RenderBoxModelObject* /*repaintContainer*/, int startPos, int endPos)
 {
-    IntRect rect;
-
     RenderBlock* cb = containingBlock();
     if (!cb || !cb->container())
-        return rect;
+        return IntRect();
 
     RenderSVGRoot* root = findSVGRootObject(parent());
     if (!root)
-        return rect;
+        return IntRect();
 
+    IntRect rect;
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox())
         rect.unite(box->selectionRect(0, 0, startPos, endPos));
 
@@ -129,15 +127,15 @@ IntRect RenderSVGInlineText::computeAbsoluteRectForRange(int startPos, int endPo
 
     // Remove HTML parent translation offsets here! These need to be retrieved from the RenderSVGRoot object.
     // But do take the containingBlocks's container position into account, ie. SVG text in scrollable <div>.
-    TransformationMatrix htmlParentCtm = root->RenderContainer::absoluteTransform();
+    TransformationMatrix htmlParentCtm = root->RenderBox::absoluteTransform();
 
-    FloatRect fixedRect(narrowPrecisionToFloat(rect.x() + absPos.x() - (firstTextBox() ? firstTextBox()->xPos() : 0) - htmlParentCtm.e()),
-                        narrowPrecisionToFloat(rect.y() + absPos.y() - (firstTextBox() ? firstTextBox()->yPos() : 0) - htmlParentCtm.f()), rect.width(), rect.height());
-    // FIXME: broken with CSS transforms
+    FloatRect fixedRect(narrowPrecisionToFloat(rect.x() + absPos.x() - htmlParentCtm.e()),
+                        narrowPrecisionToFloat(rect.y() + absPos.y() - htmlParentCtm.f()), rect.width(), rect.height());
+    // FIXME: broken with CSS transforms, and non-zero repaintContainer
     return enclosingIntRect(absoluteTransform().mapRect(fixedRect));
 }
 
-InlineTextBox* RenderSVGInlineText::createInlineTextBox()
+InlineTextBox* RenderSVGInlineText::createTextBox()
 {
     return new (renderArena()) SVGInlineTextBox(this);
 }
@@ -149,35 +147,41 @@ IntRect RenderSVGInlineText::localCaretRect(InlineBox*, int, int*)
     return IntRect();
 }
 
-VisiblePosition RenderSVGInlineText::positionForCoordinates(int x, int y)
+VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
 {
     SVGInlineTextBox* textBox = static_cast<SVGInlineTextBox*>(firstTextBox());
 
     if (!textBox || textLength() == 0)
-        return VisiblePosition(element(), 0, DOWNSTREAM);
+        return createVisiblePosition(0, DOWNSTREAM);
 
     SVGRootInlineBox* rootBox = textBox->svgRootInlineBox();
     RenderBlock* object = rootBox ? rootBox->block() : 0;
 
     if (!object)
-        return VisiblePosition(element(), 0, DOWNSTREAM);
+        return createVisiblePosition(0, DOWNSTREAM);
 
-    int offset = 0;
+    int closestOffsetInBox = 0;
 
+    // FIXME: This approach is wrong.  The correct code would first find the
+    // closest SVGInlineTextBox to the point, and *then* ask only that inline box
+    // what the closest text offset to that point is.  This code instead walks
+    // through all boxes in order, so when you click "near" a box, you'll actually
+    // end up returning the nearest offset in the last box, even if the
+    // nearest offset to your click is contained in another box.
     for (SVGInlineTextBox* box = textBox; box; box = static_cast<SVGInlineTextBox*>(box->nextTextBox())) {
-        if (box->svgCharacterHitsPosition(x + object->x(), y + object->y(), offset)) {
+        if (box->svgCharacterHitsPosition(point.x() + object->x(), point.y() + object->y(), closestOffsetInBox)) {
             // If we're not at the end/start of the box, stop looking for other selected boxes.
             if (box->direction() == LTR) {
-                if (offset <= (int) box->end() + 1)
+                if (closestOffsetInBox <= (int) box->end() + 1)
                     break;
             } else {
-                if (offset > (int) box->start())
+                if (closestOffsetInBox > (int) box->start())
                     break;
             }
         }
     }
 
-    return VisiblePosition(element(), offset, DOWNSTREAM);
+    return createVisiblePosition(closestOffsetInBox, DOWNSTREAM);
 }
 
 void RenderSVGInlineText::destroy()

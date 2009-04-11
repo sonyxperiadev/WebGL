@@ -70,6 +70,8 @@ namespace WebCore {
 
         virtual int minimumMenuListSize(RenderStyle*) const;
 
+        virtual void adjustSliderThumbSize(RenderObject*) const;
+
         virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r) { return paintButton(o, i, r); }
         virtual void setCheckboxSize(RenderStyle*) const;
 
@@ -81,6 +83,10 @@ namespace WebCore {
         virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
         virtual bool paintTextArea(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r) { return paintTextField(o, i, r); }
+
+        virtual bool paintSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+        virtual bool paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r) { return paintSliderTrack(o, i, r); }
 
         virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
@@ -104,7 +110,10 @@ namespace WebCore {
         virtual int popupInternalPaddingTop(RenderStyle*) const;
         virtual int popupInternalPaddingBottom(RenderStyle*) const;
 
-        virtual void adjustButtonInnerStyle(RenderStyle*) const;
+        virtual int buttonInternalPaddingLeft() const;
+        virtual int buttonInternalPaddingRight() const;
+        virtual int buttonInternalPaddingTop() const;
+        virtual int buttonInternalPaddingBottom() const;
 
         // Provide a way to pass the default font size from the Settings object
         // to the render theme.  FIXME: http://b/1129186 A cleaner way would be
@@ -119,6 +128,7 @@ namespace WebCore {
 
     private:
         unsigned determineState(RenderObject*);
+        unsigned determineSliderThumbState(RenderObject*);
         unsigned determineClassicState(RenderObject*);
 
         ThemeData getThemeData(RenderObject*);

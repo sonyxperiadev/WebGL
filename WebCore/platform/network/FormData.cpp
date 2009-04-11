@@ -29,7 +29,8 @@
 namespace WebCore {
 
 inline FormData::FormData()
-    : m_hasGeneratedFiles(false)
+    : m_identifier(0)
+    , m_hasGeneratedFiles(false)
     , m_alwaysStream(false)
 {
 }
@@ -37,6 +38,7 @@ inline FormData::FormData()
 inline FormData::FormData(const FormData& data)
     : RefCounted<FormData>()
     , m_elements(data.m_elements)
+    , m_identifier(data.m_identifier)
     , m_hasGeneratedFiles(false)
     , m_alwaysStream(false)
 {
@@ -98,7 +100,7 @@ PassRefPtr<FormData> FormData::deepCopy() const
     formData->m_alwaysStream = m_alwaysStream;
 
     size_t n = m_elements.size();
-    formData->m_elements.reserveCapacity(n);
+    formData->m_elements.reserveInitialCapacity(n);
     for (size_t i = 0; i < n; ++i) {
         const FormDataElement& e = m_elements[i];
         switch (e.m_type) {

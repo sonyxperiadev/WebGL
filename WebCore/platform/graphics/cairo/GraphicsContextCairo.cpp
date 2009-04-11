@@ -87,22 +87,6 @@ static inline void fillRectSourceOver(cairo_t* cr, const FloatRect& rect, const 
     cairo_fill(cr);
 }
 
-static inline cairo_pattern_t* applySpreadMethod(cairo_pattern_t* pattern, GradientSpreadMethod spreadMethod)
-{
-    switch (spreadMethod) {
-        case SpreadMethodPad:
-           cairo_pattern_set_extend(pattern, CAIRO_EXTEND_PAD);
-           break;
-        case SpreadMethodReflect:
-            cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REFLECT);
-            break;
-        case SpreadMethodRepeat:
-            cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
-            break;
-    }
-    return pattern;
-}
-
 GraphicsContext::GraphicsContext(PlatformGraphicsContext* cr)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate)
@@ -122,7 +106,7 @@ TransformationMatrix GraphicsContext::getCTM() const
     cairo_t* cr = platformContext();
     cairo_matrix_t m;
     cairo_get_matrix(cr, &m);
-    return m;
+    return TransformationMatrix(m.xx, m.yx, m.xy, m.yy, m.x0, m.y0);
 }
 
 cairo_t* GraphicsContext::platformContext() const
@@ -463,7 +447,6 @@ void GraphicsContext::fillPath()
     }
     case GradientColorSpace:
         cairo_pattern_t* pattern = m_common->state.fillGradient->platformGradient();
-        pattern = applySpreadMethod(pattern, spreadMethod());
         cairo_set_source(cr, pattern);
         cairo_clip(cr);
         cairo_paint_with_alpha(cr, m_common->state.globalAlpha);
@@ -501,7 +484,6 @@ void GraphicsContext::strokePath()
     }
     case GradientColorSpace:
         cairo_pattern_t* pattern = m_common->state.strokeGradient->platformGradient();
-        pattern = applySpreadMethod(pattern, spreadMethod());
         cairo_set_source(cr, pattern);
         if (m_common->state.globalAlpha < 1.0f) {
             cairo_push_group(cr);
@@ -750,8 +732,8 @@ void GraphicsContext::concatCTM(const TransformationMatrix& transform)
         return;
 
     cairo_t* cr = m_data->cr;
-    const cairo_matrix_t* matrix = reinterpret_cast<const cairo_matrix_t*>(&transform);
-    cairo_transform(cr, matrix);
+    const cairo_matrix_t matrix = cairo_matrix_t(transform);
+    cairo_transform(cr, &matrix);
     m_data->concatCTM(transform);
 }
 

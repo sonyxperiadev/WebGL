@@ -124,7 +124,7 @@ AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTabl
         if ((testCell->col() + (testCell->colSpan()-1)) < m_columnIndex)
             break;
         
-        Node* node = testCell->element();
+        Node* node = testCell->node();
         if (!node)
             continue;
         
@@ -137,7 +137,7 @@ AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTabl
     if (!cell)
         return 0;
 
-    return m_parentTable->axObjectCache()->get(cell);
+    return m_parentTable->axObjectCache()->getOrCreate(cell);
 }
     
 void AccessibilityTableColumn::addChildren()

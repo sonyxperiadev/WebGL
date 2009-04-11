@@ -153,7 +153,6 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     // Update the current and previous history item.
     WebCore::FrameLoader* loader = pFrame->loader();
     loader->setCurrentHistoryItem(currentItem);
-    loader->setPreviousHistoryItem(list->backItem());
 
     // load the current page with FrameLoadTypeIndexedBackForward so that it
     // will use cache when it is possible

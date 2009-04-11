@@ -26,10 +26,8 @@
 #include "config.h"
 #include "JSCustomPositionErrorCallback.h"
 
-#include "CString.h"
 #include "Frame.h"
 #include "JSPositionError.h"
-#include "Page.h"
 #include "ScriptController.h"
 #include <runtime/JSLock.h>
 
@@ -73,12 +71,14 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     ArgList args;
     args.append(toJS(exec, positionError));
     
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
     
     if (exec->hadException())
         reportCurrentException(exec);
+    
+    Document::updateDocumentsRendering();
 }
     
 } // namespace WebCore

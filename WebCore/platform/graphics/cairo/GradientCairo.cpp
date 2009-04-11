@@ -57,6 +57,22 @@ cairo_pattern_t* Gradient::platformGradient()
         ++stopIterator;
     }
 
+    switch (m_spreadMethod) {
+    case SpreadMethodPad:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_PAD);
+        break;
+    case SpreadMethodReflect:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_REFLECT);
+        break;
+    case SpreadMethodRepeat:
+        cairo_pattern_set_extend(m_gradient, CAIRO_EXTEND_REPEAT);
+        break;
+    }
+
+    cairo_matrix_t matrix = m_gradientSpaceTransformation;
+    cairo_matrix_invert(&matrix);
+    cairo_pattern_set_matrix(m_gradient, &matrix);
+
     return m_gradient;
 }
 

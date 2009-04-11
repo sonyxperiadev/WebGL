@@ -24,7 +24,7 @@
 #define RenderSVGRoot_h
 
 #if ENABLE(SVG)
-#include "RenderContainer.h"
+#include "RenderBox.h"
 #include "FloatRect.h"
 
 namespace WebCore {
@@ -32,10 +32,15 @@ namespace WebCore {
 class SVGStyledElement;
 class TransformationMatrix;
 
-class RenderSVGRoot : public RenderContainer {
+class RenderSVGRoot : public RenderBox {
 public:
     RenderSVGRoot(SVGStyledElement*);
     ~RenderSVGRoot();
+
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const { return &m_children; }
+    RenderObjectChildList* children() { return &m_children; }
 
     virtual bool isSVGRoot() const { return true; }
     virtual const char* renderName() const { return "RenderSVGRoot"; }
@@ -47,7 +52,7 @@ public:
     virtual void layout();
     virtual void paint(PaintInfo&, int parentX, int parentY);
     
-    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
     virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
@@ -63,13 +68,12 @@ public:
     FloatRect viewport() const;
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
-
-    virtual void position(InlineBox*);
     
 private:
     void calcViewport(); 
     void applyContentTransforms(PaintInfo&, int parentX, int parentY);
 
+    RenderObjectChildList m_children;
     FloatRect m_viewport;
     IntRect m_absoluteBounds;
 };

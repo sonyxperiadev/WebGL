@@ -81,7 +81,7 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const CS
     , m_iteratorCount(0)
 #endif
 {
-    m_properties.reserveCapacity(numProperties);
+    m_properties.reserveInitialCapacity(numProperties);
     for (int i = 0; i < numProperties; ++i) {
         ASSERT(properties[i]);
         m_properties.append(*properties[i]);
@@ -217,9 +217,10 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
             return getLayeredShorthandValue(properties, 6);
         }
         case CSSPropertyWebkitTransformOrigin: {
-            const int properties[2] = { CSSPropertyWebkitTransformOriginX,
-                                        CSSPropertyWebkitTransformOriginY };
-            return getShorthandValue(properties, 2);
+            const int properties[3] = { CSSPropertyWebkitTransformOriginX,
+                                        CSSPropertyWebkitTransformOriginY,
+                                        CSSPropertyWebkitTransformOriginZ };
+            return getShorthandValue(properties, 3);
         }
         case CSSPropertyWebkitTransition: {
             const int properties[4] = { CSSPropertyWebkitTransitionProperty, CSSPropertyWebkitTransitionDuration,
@@ -701,8 +702,8 @@ void CSSMutableStyleDeclaration::removePropertiesInSet(const int* set, unsigned 
     for (unsigned i = 0; i < length; ++i)
         toRemove.add(set[i]);
     
-    Vector<CSSProperty> newProperties;
-    newProperties.reserveCapacity(m_properties.size());
+    Vector<CSSProperty, 4> newProperties;
+    newProperties.reserveInitialCapacity(m_properties.size());
     
     unsigned size = m_properties.size();
     for (unsigned n = 0; n < size; ++n) {

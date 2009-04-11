@@ -25,6 +25,7 @@
 #define RenderThemeChromiumMac_h
 
 #import "RenderTheme.h"
+#import <AppKit/AppKit.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
 
@@ -77,6 +78,8 @@ namespace WebCore {
         virtual int popupInternalPaddingTop(RenderStyle*) const;
         virtual int popupInternalPaddingBottom(RenderStyle*) const;
         
+        virtual ScrollbarControlSize scrollbarControlSizeForPart(ControlPart) { return SmallScrollbar; }
+    
         virtual bool paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
         virtual Color systemColor(int cssValueId) const;

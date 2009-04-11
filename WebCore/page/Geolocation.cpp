@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,10 @@
 #include "config.h"
 #include "Geolocation.h"
 
+#include "Chrome.h"
 #include "Document.h"
 #include "Frame.h"
+#include "Page.h"
 #include "PositionError.h"
 
 namespace WebCore {
@@ -54,7 +56,11 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 Geolocation::Geolocation(Frame* frame)
     : m_frame(frame)
     , m_service(GeolocationService::create(this))
+    , m_allowGeolocation(Unknown)
+    , m_shouldClearCache(false)
 {
+    if (!m_frame)
+        return;
     ASSERT(m_frame->document());
     m_frame->document()->setUsingGeolocation(true);
 }
@@ -62,8 +68,6 @@ Geolocation::Geolocation(Frame* frame)
 void Geolocation::disconnectFrame()
 {
     m_service->stopUpdating();
-    if (m_frame->document())
-        m_frame->document()->setUsingGeolocation(false);
     m_frame = 0;
 }
 
@@ -119,6 +123,18 @@ void Geolocation::resume()
 {
     if (hasListeners())
         m_service->resume();
+}
+
+void Geolocation::setIsAllowed(bool allowed)
+{
+    m_allowGeolocation = allowed ? Yes : No;
+    
+    if (isAllowed())
+        geolocationServicePositionChanged(m_service.get());
+    else {
+        WTF::RefPtr<WebCore::PositionError> error = WebCore::PositionError::create(PositionError::PERMISSION_DENIED, "User disallowed GeoLocation");
+        handleError(error.get());
+    }
 }
 
 void Geolocation::sendErrorToOneShots(PositionError* error)
@@ -199,9 +215,31 @@ void Geolocation::handleError(PositionError* error)
     m_oneShots.clear();
 }
 
+void Geolocation::requestPermission()
+{
+    if (m_allowGeolocation > Unknown)
+        return;
+
+    if (!m_frame)
+        return;
+    
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+    
+    // Ask the chrome: it maintains the geolocation challenge policy itself.
+    page->chrome()->requestGeolocationPermissionForFrame(m_frame, this);
+    
+    m_allowGeolocation = InProgress;
+}
+
 void Geolocation::geolocationServicePositionChanged(GeolocationService* service)
 {
     ASSERT(service->lastPosition());
+    
+    requestPermission();
+    if (!isAllowed())
+        return;
     
     sendPositionToOneShots(service->lastPosition());
     sendPositionToWatchers(service->lastPosition());

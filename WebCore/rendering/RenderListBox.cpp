@@ -87,7 +87,7 @@ RenderListBox::~RenderListBox()
     setHasVerticalScrollbar(false);
 }
 
-void RenderListBox::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderListBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
     setReplaced(isInline());
@@ -527,7 +527,7 @@ void RenderListBox::valueChanged(Scrollbar*)
         m_indexOffset = newOffset;
         repaint();
         // Fire the scroll DOM event.
-        EventTargetNodeCast(node())->dispatchEventForType(eventNames().scrollEvent, false, false);
+        node()->dispatchEventForType(eventNames().scrollEvent, false, false);
     }
 }
 
@@ -579,6 +579,29 @@ void RenderListBox::setScrollTop(int newTop)
         m_vBar->setValue(index);
 }
 
+bool RenderListBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
+{
+    if (!RenderBlock::nodeAtPoint(request, result, x, y, tx, ty, hitTestAction))
+        return false;
+    const Vector<HTMLElement*>& listItems = static_cast<HTMLSelectElement*>(node())->listItems();
+    int size = numItems();
+    tx += this->x();
+    ty += this->y();
+    for (int i = 0; i < size; ++i) {
+        if (itemBoundingBoxRect(tx, ty, i).contains(x, y)) {
+            if (HTMLElement* node = listItems[i]) {
+                result.setInnerNode(node);
+                if (!result.innerNonSharedNode())
+                    result.setInnerNonSharedNode(node);
+                result.setLocalPoint(IntPoint(x - tx, y - ty));
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
 IntRect RenderListBox::controlClipRect(int tx, int ty) const
 {
     IntRect clipRect = contentBoxRect();
@@ -602,11 +625,11 @@ void RenderListBox::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect&
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()
 {
     RefPtr<Scrollbar> widget;
-    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(RenderStyle::SCROLLBAR);
+    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(this, VerticalScrollbar, this);
     else
-        widget = Scrollbar::createNativeScrollbar(this, VerticalScrollbar, SmallScrollbar);
+        widget = Scrollbar::createNativeScrollbar(this, VerticalScrollbar, theme()->scrollbarControlSizeForPart(ListboxPart));
     document()->view()->addChild(widget.get());        
     return widget.release();
 }

@@ -32,7 +32,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-ASSERT_CLASS_FITS_IN_CELL(JSQuarantinedObjectWrapper)
+ASSERT_CLASS_FITS_IN_CELL(JSQuarantinedObjectWrapper);
 
 const ClassInfo JSQuarantinedObjectWrapper::s_info = { "JSQuarantinedObjectWrapper", 0, 0, 0 };
 
@@ -58,7 +58,7 @@ JSValuePtr JSQuarantinedObjectWrapper::cachedValueGetter(ExecState*, const Ident
 
 JSQuarantinedObjectWrapper::JSQuarantinedObjectWrapper(ExecState* unwrappedExec, JSObject* unwrappedObject, PassRefPtr<Structure> structure)
     : JSObject(structure)
-    , m_unwrappedGlobalObject(unwrappedExec->dynamicGlobalObject())
+    , m_unwrappedGlobalObject(unwrappedExec->lexicalGlobalObject())
     , m_unwrappedObject(unwrappedObject)
 {
     ASSERT_ARG(unwrappedExec, unwrappedExec);
@@ -72,7 +72,7 @@ JSQuarantinedObjectWrapper::~JSQuarantinedObjectWrapper()
 
 bool JSQuarantinedObjectWrapper::allowsUnwrappedAccessFrom(ExecState* exec) const
 {
-    return m_unwrappedGlobalObject->profileGroup() == exec->dynamicGlobalObject()->profileGroup();
+    return m_unwrappedGlobalObject->profileGroup() == exec->lexicalGlobalObject()->profileGroup();
 }
 
 ExecState* JSQuarantinedObjectWrapper::unwrappedExecState() const
@@ -87,8 +87,9 @@ void JSQuarantinedObjectWrapper::transferExceptionToExecState(ExecState* exec) c
     if (!unwrappedExecState()->hadException())
         return;
 
-    exec->setException(wrapOutgoingValue(unwrappedExecState(), unwrappedExecState()->exception()));
+    JSValuePtr exception = unwrappedExecState()->exception();
     unwrappedExecState()->clearException();
+    exec->setException(wrapOutgoingValue(unwrappedExecState(), exception));
 }
 
 void JSQuarantinedObjectWrapper::mark()

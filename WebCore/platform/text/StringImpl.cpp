@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller ( mueller@kde.org )
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Andrew Wellington (proton@wiretapped.net)
  *
  * This library is free software; you can redistribute it and/or
@@ -54,6 +54,27 @@ static inline void deleteUCharVector(const UChar* p)
     fastFree(const_cast<UChar*>(p));
 }
 
+// Some of the factory methods create buffers using fastMalloc.
+// We must ensure that ll allocations of StringImpl are allocated using
+// fastMalloc so that we don't have mis-matched frees. We accomplish 
+// this by overriding the new and delete operators.
+void* StringImpl::operator new(size_t size, void* address)
+{
+    if (address)
+        return address;  // Allocating using an internal buffer
+    return fastMalloc(size);
+}
+
+void* StringImpl::operator new(size_t size)
+{
+    return fastMalloc(size);
+}
+
+void StringImpl::operator delete(void* address)
+{
+    fastFree(address);
+}
+
 // This constructor is used only to create the empty string.
 StringImpl::StringImpl()
     : m_length(0)
@@ -61,6 +82,7 @@ StringImpl::StringImpl()
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     // Ensure that the hash is computed so that AtomicStringHash can call existingHash()
     // with impunity. The empty string is special because it is never entered into
@@ -76,6 +98,7 @@ inline StringImpl::StringImpl(const UChar* characters, unsigned length)
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     UChar* data = newUCharVector(length);
     memcpy(data, characters, length * sizeof(UChar));
@@ -87,6 +110,7 @@ inline StringImpl::StringImpl(const StringImpl& str, WithTerminatingNullCharacte
     , m_hash(str.m_hash)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(true)
+    , m_bufferIsInternal(false)
 {
     UChar* data = newUCharVector(str.m_length + 1);
     memcpy(data, str.m_data, str.m_length * sizeof(UChar));
@@ -99,6 +123,7 @@ inline StringImpl::StringImpl(const char* characters, unsigned length)
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     ASSERT(characters);
     ASSERT(length);
@@ -117,6 +142,7 @@ inline StringImpl::StringImpl(UChar* characters, unsigned length, AdoptBuffer)
     , m_hash(0)
     , m_inTable(false)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     ASSERT(characters);
     ASSERT(length);
@@ -128,6 +154,7 @@ StringImpl::StringImpl(const UChar* characters, unsigned length, unsigned hash)
     , m_hash(hash)
     , m_inTable(true)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     ASSERT(hash);
     ASSERT(characters);
@@ -144,6 +171,7 @@ StringImpl::StringImpl(const char* characters, unsigned length, unsigned hash)
     , m_hash(hash)
     , m_inTable(true)
     , m_hasTerminatingNullCharacter(false)
+    , m_bufferIsInternal(false)
 {
     ASSERT(hash);
     ASSERT(characters);
@@ -161,7 +189,8 @@ StringImpl::~StringImpl()
 {
     if (m_inTable)
         AtomicString::remove(this);
-    deleteUCharVector(m_data);
+    if (!m_bufferIsInternal)
+        deleteUCharVector(m_data);
 }
 
 StringImpl* StringImpl::empty()
@@ -907,26 +936,8 @@ WTF::Unicode::Direction StringImpl::defaultWritingDirection()
 }
 
 // This is a hot function because it's used when parsing HTML.
-PassRefPtr<StringImpl> StringImpl::createStrippingNullCharacters(const UChar* characters, unsigned length)
+PassRefPtr<StringImpl> StringImpl::createStrippingNullCharactersSlowCase(const UChar* characters, unsigned length)
 {
-    ASSERT(characters);
-    ASSERT(length);
-
-    // Optimize for the case where there are no Null characters by quickly
-    // searching for nulls, and then using StringImpl::create, which will
-    // memcpy the whole buffer.  This is faster than assigning character by
-    // character during the loop. 
-
-    // Fast case.
-    int foundNull = 0;
-    for (unsigned i = 0; !foundNull && i < length; i++) {
-        int c = characters[i]; // more efficient than using UChar here (at least on Intel Mac OS)
-        foundNull |= !c;
-    }
-    if (!foundNull)
-        return StringImpl::create(characters, length);
-    
-    // Slow case.
     StringBuffer strippedCopy(length);
     unsigned strippedLength = 0;
     for (unsigned i = 0; i < length; i++) {
@@ -958,24 +969,44 @@ PassRefPtr<StringImpl> StringImpl::create(const UChar* characters, unsigned leng
 {
     if (!characters || !length)
         return empty();
-    return adoptRef(new StringImpl(characters, length));
+
+    // Allocate a single buffer large enough to contain the StringImpl
+    // struct as well as the data which it contains. This removes one 
+    // heap allocation from this call.
+    size_t size = sizeof(StringImpl) + length * sizeof(UChar);
+    char* buffer = static_cast<char*>(fastMalloc(size));
+    UChar* data = reinterpret_cast<UChar*>(buffer + sizeof(StringImpl));
+    memcpy(data, characters, length * sizeof(UChar));
+    StringImpl* string = new (buffer) StringImpl(data, length, AdoptBuffer());
+    string->m_bufferIsInternal = true;
+    return adoptRef(string);
 }
 
 PassRefPtr<StringImpl> StringImpl::create(const char* characters, unsigned length)
 {
     if (!characters || !length)
         return empty();
-    return adoptRef(new StringImpl(characters, length));
+
+    // Allocate a single buffer large enough to contain the StringImpl
+    // struct as well as the data which it contains. This removes one 
+    // heap allocation from this call.
+    size_t size = sizeof(StringImpl) + length * sizeof(UChar);
+    char* buffer = static_cast<char*>(fastMalloc(size));
+    UChar* data = reinterpret_cast<UChar*>(buffer + sizeof(StringImpl));
+    for (unsigned i = 0; i != length; ++i) {
+        unsigned char c = characters[i];
+        data[i] = c;
+    }
+    StringImpl* string = new (buffer) StringImpl(data, length, AdoptBuffer());
+    string->m_bufferIsInternal = true;
+    return adoptRef(string);
 }
 
 PassRefPtr<StringImpl> StringImpl::create(const char* string)
 {
     if (!string)
         return empty();
-    unsigned length = strlen(string);
-    if (!length)
-        return empty();
-    return adoptRef(new StringImpl(string, length));
+    return create(string, strlen(string));
 }
 
 PassRefPtr<StringImpl> StringImpl::createWithTerminatingNullCharacter(const StringImpl& string)
@@ -985,7 +1016,7 @@ PassRefPtr<StringImpl> StringImpl::createWithTerminatingNullCharacter(const Stri
 
 PassRefPtr<StringImpl> StringImpl::copy()
 {
-    return adoptRef(new StringImpl(m_data, m_length));
+    return create(m_data, m_length);
 }
 
 } // namespace WebCore

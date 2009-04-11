@@ -32,6 +32,8 @@
 #include "JSCanvasRenderingContext2D.cpp"
 #include "JSCDATASection.cpp"
 #include "JSCharacterData.cpp"
+#include "JSClientRect.cpp"
+#include "JSClientRectList.cpp"
 #include "JSClipboard.cpp"
 #include "JSComment.cpp"
 #include "JSConsole.cpp"
@@ -67,7 +69,6 @@
 #include "JSEntityReference.cpp"
 #include "JSEvent.cpp"
 #include "JSEventException.cpp"
-#include "JSEventTargetNode.cpp"
 #include "JSFile.cpp"
 #include "JSFileList.cpp"
 #include "JSHistory.cpp"
@@ -317,6 +318,7 @@
 #include "JSWebKitCSSKeyframesRule.cpp"
 #include "JSWebKitCSSTransformValue.cpp"
 #include "JSWebKitCSSMatrix.cpp"
+#include "JSWebKitPoint.cpp"
 #include "JSWebKitTransitionEvent.cpp"
 #include "JSWheelEvent.cpp"
 #include "JSWorker.cpp"
@@ -334,7 +336,6 @@
 #include "JSXPathNSResolver.cpp"
 #include "JSXPathResult.cpp"
 #include "JSXSLTProcessor.cpp"
-#include "SVGElementFactory.cpp"
 #include "UserAgentStyleSheetsData.cpp"
 
 // On MSVC, including StaticConstructors.h causes all global objects not to be

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,11 +42,8 @@ void JSMessagePort::mark()
 {
     DOMObject::mark();
 
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onmessage()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onclose()))
-        listener->mark();
+    markIfNotNull(m_impl->onmessage());
+    markIfNotNull(m_impl->onclose());
 
     if (MessagePort* entangledPort = m_impl->entangledPort()) {
         DOMObject* wrapper = getCachedDOMObjectWrapper(*Heap::heap(this)->globalData(), entangledPort);
@@ -58,10 +55,8 @@ void JSMessagePort::mark()
     typedef MessagePort::ListenerVector ListenerVector;
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) {
-            JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(vecIter->get());
-            listener->mark();
-        }
+        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) 
+            (*vecIter)->mark();
     }
 }
 
@@ -78,7 +73,7 @@ JSValuePtr JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
@@ -90,7 +85,7 @@ JSValuePtr JSMessagePort::removeEventListener(ExecState* exec, const ArgList& ar
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
+    JSEventListener* listener = globalObject->findJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));

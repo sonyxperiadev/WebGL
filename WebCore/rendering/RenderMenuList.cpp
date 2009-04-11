@@ -115,7 +115,7 @@ void RenderMenuList::removeChild(RenderObject* oldChild)
         m_innerBlock->removeChild(oldChild);
 }
 
-void RenderMenuList::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
 
@@ -143,7 +143,15 @@ void RenderMenuList::updateOptionsWidth()
             continue;
 
         String text = optionElement->textIndentedToRespectGroupLabel();
-        if (!text.isEmpty())
+        if (theme()->popupOptionSupportsTextIndent()) {
+            // Add in the option's text indent.  We can't calculate percentage values for now.
+            float optionWidth = 0;
+            if (RenderStyle* optionStyle = element->renderStyle())
+                optionWidth += optionStyle->textIndent().calcMinValue(0);
+            if (!text.isEmpty())
+                optionWidth += style()->font().floatWidth(text);
+            maxOptionWidth = max(maxOptionWidth, optionWidth);
+        } else if (!text.isEmpty())
             maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text));
     }
 
@@ -315,9 +323,15 @@ bool RenderMenuList::itemIsEnabled(unsigned listIndex) const
     if (!element->hasTagName(optionTag))
         return false;
     bool groupEnabled = true;
-    if (element->parentNode() && element->parentNode()->hasTagName(optgroupTag))
-        groupEnabled = element->parentNode()->isEnabled();
-    return element->isEnabled() && groupEnabled;
+    if (element->parentNode() && element->parentNode()->hasTagName(optgroupTag)) {
+        FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(element->parentNode()));
+        groupEnabled = formControlElement->isEnabled();
+    }
+
+    if (!groupEnabled)
+        return false;
+
+    return toFormControlElement(element)->isEnabled();
 }
 
 PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
@@ -326,7 +340,7 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
     HTMLElement* element = select->listItems()[listIndex];
     
     RenderStyle* style = element->renderStyle() ? element->renderStyle() : element->computedStyle();
-    return style ? PopupMenuStyle(style->color(), itemBackgroundColor(listIndex), style->font(), style->visibility() == VISIBLE) : menuStyle();
+    return style ? PopupMenuStyle(style->color(), itemBackgroundColor(listIndex), style->font(), style->visibility() == VISIBLE, style->textIndent(), style->direction()) : menuStyle();
 }
 
 Color RenderMenuList::itemBackgroundColor(unsigned listIndex) const
@@ -354,7 +368,7 @@ PopupMenuStyle RenderMenuList::menuStyle() const
 {
 
     RenderStyle* s = m_innerBlock ? m_innerBlock->style() : style();
-    return PopupMenuStyle(s->color(), s->backgroundColor(), s->font(), s->visibility() == VISIBLE);
+    return PopupMenuStyle(s->color(), s->backgroundColor(), s->font(), s->visibility() == VISIBLE, s->textIndent(), s->direction());
 }
 
 HostWindow* RenderMenuList::hostWindow() const
@@ -365,7 +379,7 @@ HostWindow* RenderMenuList::hostWindow() const
 PassRefPtr<Scrollbar> RenderMenuList::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
     RefPtr<Scrollbar> widget;
-    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(RenderStyle::SCROLLBAR);
+    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(client, orientation, this);
     else

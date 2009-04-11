@@ -83,15 +83,10 @@ void ContextMenuController::handleContextMenuEvent(Event* event)
     if (!event->isMouseEvent())
         return;
     MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-    IntPoint point = IntPoint(mouseEvent->pageX(), mouseEvent->pageY());
-    HitTestResult result(point);
+    HitTestResult result(mouseEvent->absoluteLocation());
 
-    if (Frame* frame = event->target()->toNode()->document()->frame()) {
-        float zoomFactor = frame->pageZoomFactor();
-        point.setX(static_cast<int>(point.x() * zoomFactor));
-        point.setY(static_cast<int>(point.y() * zoomFactor));
-        result = frame->eventHandler()->hitTestResultAtPoint(point, false);
-    }
+    if (Frame* frame = event->target()->toNode()->document()->frame())
+        result = frame->eventHandler()->hitTestResultAtPoint(mouseEvent->absoluteLocation(), false);
 
     if (!result.innerNonSharedNode())
         return;
@@ -193,14 +188,14 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
 #endif
         case ContextMenuItemTagSpellingGuess:
             ASSERT(frame->selectedText().length());
-            if (frame->editor()->shouldInsertText(item->title(), frame->selection()->toRange().get(),
+            if (frame->editor()->shouldInsertText(item->title(), frame->selection()->toNormalizedRange().get(),
                 EditorInsertActionPasted)) {
                 Document* document = frame->document();
                 RefPtr<ReplaceSelectionCommand> command =
                     ReplaceSelectionCommand::create(document, createFragmentFromMarkup(document, item->title(), ""),
                                                                                    true, false, true);
                 applyCommand(command);
-                frame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
+                frame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
             }
             break;
         case ContextMenuItemTagIgnoreSpelling:
@@ -238,7 +233,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             break;
         case ContextMenuItemTagStartSpeaking: {
             ExceptionCode ec;
-            RefPtr<Range> selectedRange = frame->selection()->toRange();
+            RefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
             if (!selectedRange || selectedRange->collapsed(ec)) {
                 Document* document = result.innerNonSharedNode()->document();
                 selectedRange = document->createRange();

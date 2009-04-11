@@ -262,11 +262,6 @@ void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
 	WebCore::networkStateNotifier().networkStateChange(online);
 }
 
-void JavaBridge::SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer)
-{
-    WebCore::setDeferringTimers(defer);
-}
-
 void JavaBridge::ServiceFuncPtrQueue(JNIEnv*)
 {
     JavaSharedClient::ServiceFunctionPtrQueue();
@@ -289,8 +284,6 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::SetCacheSize },
     { "setNetworkOnLine", "(Z)V",
         (void*) JavaBridge::SetNetworkOnLine },
-    { "setDeferringTimers", "(Z)V",
-        (void*) JavaBridge::SetDeferringTimers },
     { "nativeServiceFuncPtrQueue", "()V",
         (void*) JavaBridge::ServiceFuncPtrQueue },
 };

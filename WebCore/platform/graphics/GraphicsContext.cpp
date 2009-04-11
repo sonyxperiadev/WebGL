@@ -128,6 +128,11 @@ void GraphicsContext::setStrokeColor(const Color& color)
     setPlatformStrokeColor(color);
 }
 
+ColorSpace GraphicsContext::strokeColorSpace() const
+{
+    return m_common->state.strokeColorSpace;
+}
+
 void GraphicsContext::setShadow(const IntSize& size, int blur, const Color& color)
 {
     m_common->state.shadowSize = size;
@@ -176,16 +181,6 @@ WindRule GraphicsContext::fillRule() const
 void GraphicsContext::setFillRule(WindRule fillRule)
 {
     m_common->state.fillRule = fillRule;
-}
-
-GradientSpreadMethod GraphicsContext::spreadMethod() const
-{
-    return m_common->state.spreadMethod;
-}
-
-void GraphicsContext::setSpreadMethod(GradientSpreadMethod spreadMethod)
-{
-    m_common->state.spreadMethod = spreadMethod;
 }
 
 void GraphicsContext::setFillColor(const Color& color)
@@ -253,6 +248,31 @@ void GraphicsContext::setFillGradient(PassRefPtr<Gradient> gradient)
     }
     m_common->state.fillColorSpace = GradientColorSpace;
     m_common->state.fillGradient = gradient;
+}
+
+Gradient* GraphicsContext::fillGradient() const
+{
+    return m_common->state.fillGradient.get();
+}
+
+ColorSpace GraphicsContext::fillColorSpace() const
+{
+    return m_common->state.fillColorSpace;
+}
+
+Gradient* GraphicsContext::strokeGradient() const
+{
+    return m_common->state.strokeGradient.get();
+}
+
+Pattern* GraphicsContext::fillPattern() const
+{
+    return m_common->state.fillPattern.get();
+}
+
+Pattern* GraphicsContext::strokePattern() const
+{
+    return m_common->state.strokePattern.get();
 }
 
 void GraphicsContext::setShadowsIgnoreTransforms(bool ignoreTransforms)

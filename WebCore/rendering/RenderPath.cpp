@@ -81,7 +81,7 @@ FloatPoint RenderPath::mapAbsolutePointToLocal(const FloatPoint& point) const
     // absolute transform? 
     double localX;
     double localY;
-    absoluteTransform().inverse().map(point.x(), point.y(), &localX, &localY);
+    absoluteTransform().inverse().map(point.x(), point.y(), localX, localY);
     return FloatPoint::narrowPrecision(localX, localY);
 }
 
@@ -150,33 +150,27 @@ const Path& RenderPath::path() const
 bool RenderPath::calculateLocalTransform()
 {
     TransformationMatrix oldTransform = m_localTransform;
-    m_localTransform = static_cast<SVGStyledTransformableElement*>(element())->animatedLocalTransform();
+    m_localTransform = static_cast<SVGStyledTransformableElement*>(node())->animatedLocalTransform();
     return (m_localTransform != oldTransform);
 }
 
 void RenderPath::layout()
 {
-    IntRect oldBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout() && selfNeedsLayout();
-    if (checkForRepaint) {
-        oldBounds = m_absoluteBounds;
-        oldOutlineBox = absoluteOutlineBounds();
-    }
-        
+    // FIXME: using m_absoluteBounds breaks if containerForRepaint() is not the root
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && selfNeedsLayout(), &m_absoluteBounds);
+    
     calculateLocalTransform();
 
-    setPath(static_cast<SVGStyledTransformableElement*>(element())->toPathData());
+    setPath(static_cast<SVGStyledTransformableElement*>(node())->toPathData());
 
     m_absoluteBounds = absoluteClippedOverflowRect();
 
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
+    repainter.repaintAfterLayout();
 
     setNeedsLayout(false);
 }
 
-IntRect RenderPath::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
+IntRect RenderPath::clippedOverflowRectForRepaint(RenderBoxModelObject* /*repaintContainer*/)
 {
     // FIXME: handle non-root repaintContainer
     FloatRect repaintRect = absoluteTransform().mapRect(relativeBBox(true));
@@ -243,7 +237,7 @@ void RenderPath::paint(PaintInfo& paintInfo, int, int)
             paintInfo.context->setShouldAntialias(false);
         fillAndStrokePath(m_path, paintInfo.context, style(), this);
 
-        if (static_cast<SVGStyledElement*>(element())->supportsMarkers())
+        if (static_cast<SVGStyledElement*>(node())->supportsMarkers())
             m_markerBounds = drawMarkersIfNeeded(paintInfo.context, paintInfo.rect, m_path);
 
         finishRenderSVGContent(this, paintInfo, boundingBox, filter, savedInfo.context);
@@ -418,7 +412,7 @@ FloatRect RenderPath::drawMarkersIfNeeded(GraphicsContext* context, const FloatR
 {
     Document* doc = document();
 
-    SVGElement* svgElement = static_cast<SVGElement*>(element());
+    SVGElement* svgElement = static_cast<SVGElement*>(node());
     ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
 
     SVGStyledElement* styledElement = static_cast<SVGStyledElement*>(svgElement);
@@ -476,7 +470,7 @@ FloatRect RenderPath::drawMarkersIfNeeded(GraphicsContext* context, const FloatR
     return bounds;
 }
 
-IntRect RenderPath::outlineBoundsForRepaint(RenderBox* /*repaintContainer*/) const
+IntRect RenderPath::outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/) const
 {
     // FIXME: handle non-root repaintContainer
     IntRect result = m_absoluteBounds;

@@ -37,7 +37,7 @@
 #include "Page.h"
 #include "RenderStyle.h"
 #include "RenderTextControlMultiLine.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "Text.h"
 #include <wtf/StdLibExtras.h>
 
@@ -96,7 +96,7 @@ int HTMLTextAreaElement::selectionStart()
         return 0;
     if (document()->focusedNode() != this && m_cachedSelectionStart >= 0)
         return m_cachedSelectionStart;
-    return static_cast<RenderTextControl*>(renderer())->selectionStart();
+    return toRenderTextControl(renderer())->selectionStart();
 }
 
 int HTMLTextAreaElement::selectionEnd()
@@ -105,35 +105,35 @@ int HTMLTextAreaElement::selectionEnd()
         return 0;
     if (document()->focusedNode() != this && m_cachedSelectionEnd >= 0)
         return m_cachedSelectionEnd;
-    return static_cast<RenderTextControl*>(renderer())->selectionEnd();
+    return toRenderTextControl(renderer())->selectionEnd();
 }
 
 void HTMLTextAreaElement::setSelectionStart(int start)
 {
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->setSelectionStart(start);
+    toRenderTextControl(renderer())->setSelectionStart(start);
 }
 
 void HTMLTextAreaElement::setSelectionEnd(int end)
 {
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->setSelectionEnd(end);
+    toRenderTextControl(renderer())->setSelectionEnd(end);
 }
 
 void HTMLTextAreaElement::select()
 {
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->select();
+    toRenderTextControl(renderer())->select();
 }
 
 void HTMLTextAreaElement::setSelectionRange(int start, int end)
 {
     if (!renderer())
         return;
-    static_cast<RenderTextControl*>(renderer())->setSelectionRange(start, end);
+    toRenderTextControl(renderer())->setSelectionRange(start, end);
 }
 
 void HTMLTextAreaElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -206,7 +206,7 @@ bool HTMLTextAreaElement::appendFormData(FormDataList& encoding, bool)
 
     // FIXME: It's not acceptable to ignore the HardWrap setting when there is no renderer.
     // While we have no evidence this has ever been a practical problem, it would be best to fix it some day.
-    RenderTextControl* control = static_cast<RenderTextControl*>(renderer());
+    RenderTextControl* control = toRenderTextControl(renderer());
     const String& text = (m_wrap == HardWrap && control) ? control->textWithHardLineBreaks() : value();
     encoding.appendData(name(), text);
     return true;
@@ -233,10 +233,17 @@ void HTMLTextAreaElement::updateFocusAppearance(bool restorePreviousSelection)
     ASSERT(renderer());
     
     if (!restorePreviousSelection || m_cachedSelectionStart < 0) {
+#if ENABLE(ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
+        // Devices with trackballs or d-pads may focus on a textarea in route
+        // to another focusable node. By selecting all text, the next movement
+        // can more readily be interpreted as moving to the next node.
+        select();
+#else
         // If this is the first focus, set a caret at the beginning of the text.  
         // This matches some browsers' behavior; see bug 11746 Comment #15.
         // http://bugs.webkit.org/show_bug.cgi?id=11746#c15
         setSelectionRange(0, 0);
+#endif
     } else {
         // Restore the cached selection.  This matches other browsers' behavior.
         setSelectionRange(m_cachedSelectionStart, m_cachedSelectionEnd);
@@ -265,7 +272,7 @@ void HTMLTextAreaElement::updateValue() const
         return;
 
     ASSERT(renderer());
-    m_value = static_cast<RenderTextControl*>(renderer())->text();
+    m_value = toRenderTextControl(renderer())->text();
     const_cast<HTMLTextAreaElement*>(this)->setValueMatchesRenderer();
     notifyFormStateChanged(this);
 }
@@ -382,11 +389,11 @@ void HTMLTextAreaElement::setRows(int rows)
     setAttribute(rowsAttr, String::number(rows));
 }
 
-Selection HTMLTextAreaElement::selection() const
+VisibleSelection HTMLTextAreaElement::selection() const
 {
     if (!renderer() || m_cachedSelectionStart < 0 || m_cachedSelectionEnd < 0)
-        return Selection();
-    return static_cast<RenderTextControl*>(renderer())->selection(m_cachedSelectionStart, m_cachedSelectionEnd);
+        return VisibleSelection();
+    return toRenderTextControl(renderer())->selection(m_cachedSelectionStart, m_cachedSelectionEnd);
 }
 
 bool HTMLTextAreaElement::shouldUseInputMethod() const

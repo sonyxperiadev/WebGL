@@ -92,7 +92,6 @@ sources['dom'] = [
     'dom/Event.cpp',
     'dom/EventNames.cpp',
     'dom/EventTarget.cpp',
-    'dom/EventTargetNode.cpp',
     'dom/ExceptionBase.cpp',
     'dom/ExceptionCode.cpp',
     'dom/FormControlElementWithState.cpp',
@@ -141,9 +140,6 @@ sources['dom'] = [
     'dom/WebKitAnimationEvent.cpp',
     'dom/WebKitTransitionEvent.cpp',
     'dom/WheelEvent.cpp',
-    'dom/Worker.cpp',
-    'dom/WorkerContext.cpp',
-    'dom/WorkerLocation.cpp',
     'dom/XMLTokenizer.cpp',
     'dom/XMLTokenizerLibxml2.cpp',
 ]
@@ -180,7 +176,6 @@ sources['editing'] = [
     'editing/RemoveNodeCommand.cpp',
     'editing/RemoveNodePreservingChildrenCommand.cpp',
     'editing/ReplaceSelectionCommand.cpp',
-    'editing/Selection.cpp',
     'editing/SelectionController.cpp',
     'editing/SetNodeAttributeCommand.cpp',
     'editing/SmartReplace.cpp',
@@ -194,6 +189,7 @@ sources['editing'] = [
     'editing/UnlinkCommand.cpp',
     'editing/visible_units.cpp',
     'editing/VisiblePosition.cpp',
+    'editing/VisibleSelection.cpp',
     'editing/WrapContentsInDummySpanCommand.cpp',
 ]
 sources['history'] = [
@@ -228,7 +224,6 @@ sources['html'] = [
     'html/HTMLDListElement.cpp',
     'html/HTMLDocument.cpp',
     'html/HTMLElement.cpp',
-    'html/HTMLElementFactory.cpp',
     'html/HTMLEmbedElement.cpp',
     'html/HTMLFieldSetElement.cpp',
     'html/HTMLFontElement.cpp',
@@ -296,7 +291,11 @@ sources['html'] = [
     'html/TimeRanges.cpp'
 ]
 sources['inspector'] = [
+    'inspector/ConsoleMessage.cpp',
+    'inspector/InspectorDatabaseResource.cpp',
+    'inspector/InspectorDOMStorageResource.cpp',
     'inspector/InspectorController.cpp',
+    'inspector/InspectorResource.cpp',
     'inspector/JavaScriptCallFrame.cpp',
     'inspector/JavaScriptDebugServer.cpp',
     'inspector/JavaScriptProfile.cpp',
@@ -334,6 +333,8 @@ sources['loader'] = [
     'loader/CachedScript.cpp',
     'loader/CachedXBLDocument.cpp',
     'loader/CachedXSLStyleSheet.cpp',
+    'loader/CrossOriginAccessControl.cpp',
+    'loader/CrossOriginPreflightResultCache.cpp',
     'loader/DocLoader.cpp',
     'loader/DocumentLoader.cpp',
     'loader/DocumentThreadableLoader.cpp',
@@ -357,6 +358,7 @@ sources['loader'] = [
     'loader/TextResourceDecoder.cpp',
     'loader/ThreadableLoader.cpp',
     'loader/UserStyleSheetLoader.cpp',
+    'loader/WorkerThreadableLoader.cpp',
 ]
 sources['page'] = [
     'page/AccessibilityImageMapLink.cpp',
@@ -375,6 +377,7 @@ sources['page'] = [
     'page/Chrome.cpp',
     'page/Console.cpp',
     'page/ContextMenuController.cpp',
+    'page/Coordinates.cpp',
     'page/DOMSelection.cpp',
     'page/DOMTimer.cpp',
     'page/DOMWindow.cpp',
@@ -428,8 +431,6 @@ sources['plugins'] = [
 ]
 sources['rendering'] = [
     'rendering/AutoTableLayout.cpp',
-    'rendering/bidi.cpp',
-    'rendering/break_lines.cpp',
     'rendering/CounterNode.cpp',
     'rendering/EllipsisBox.cpp',
     'rendering/FixedTableLayout.cpp',
@@ -443,9 +444,9 @@ sources['rendering'] = [
     'rendering/PointerEventsHitRules.cpp',
     'rendering/RenderApplet.cpp',
     'rendering/RenderArena.cpp',
+    'rendering/RenderBR.cpp',
     'rendering/RenderBlock.cpp',
     'rendering/RenderBox.cpp',
-    'rendering/RenderBR.cpp',
     'rendering/RenderButton.cpp',
     'rendering/RenderContainer.cpp',
     'rendering/RenderCounter.cpp',
@@ -474,10 +475,6 @@ sources['rendering'] = [
     'rendering/RenderPath.cpp',
     'rendering/RenderReplaced.cpp',
     'rendering/RenderReplica.cpp',
-    'rendering/RenderScrollbar.cpp',
-    'rendering/RenderScrollbarPart.cpp',
-    'rendering/RenderScrollbarTheme.cpp',
-    'rendering/RenderSlider.cpp',
     'rendering/RenderSVGBlock.cpp',
     'rendering/RenderSVGContainer.cpp',
     'rendering/RenderSVGGradientStop.cpp',
@@ -486,11 +483,15 @@ sources['rendering'] = [
     'rendering/RenderSVGInline.cpp',
     'rendering/RenderSVGInlineText.cpp',
     'rendering/RenderSVGRoot.cpp',
+    'rendering/RenderSVGTSpan.cpp',
     'rendering/RenderSVGText.cpp',
     'rendering/RenderSVGTextPath.cpp',
     'rendering/RenderSVGTransformableContainer.cpp',
-    'rendering/RenderSVGTSpan.cpp',
     'rendering/RenderSVGViewportContainer.cpp',
+    'rendering/RenderScrollbar.cpp',
+    'rendering/RenderScrollbarPart.cpp',
+    'rendering/RenderScrollbarTheme.cpp',
+    'rendering/RenderSlider.cpp',
     'rendering/RenderTable.cpp',
     'rendering/RenderTableCell.cpp',
     'rendering/RenderTableCol.cpp',
@@ -514,23 +515,21 @@ sources['rendering'] = [
     'rendering/SVGRenderSupport.cpp',
     'rendering/SVGRenderTreeAsText.cpp',
     'rendering/SVGRootInlineBox.cpp',
-    'rendering/TextControlInnerElements.cpp'
+    'rendering/ScrollBehavior.cpp',
+    'rendering/TextControlInnerElements.cpp',
+    'rendering/TransformState.cpp',
+    'rendering/bidi.cpp',
+    'rendering/break_lines.cpp',
 ]
 sources['rendering/style'] = [
-    'rendering/style/Animation.cpp',
-    'rendering/style/AnimationList.cpp',
     'rendering/style/BindingURI.cpp',
     'rendering/style/ContentData.cpp',
     'rendering/style/CounterDirectives.cpp',
     'rendering/style/FillLayer.cpp',
     'rendering/style/KeyframeList.cpp',
-    'rendering/style/MatrixTransformOperation.cpp',
     'rendering/style/NinePieceImage.cpp',
     'rendering/style/RenderStyle.cpp',
-    'rendering/style/RotateTransformOperation.cpp',
-    'rendering/style/ScaleTransformOperation.cpp',
     'rendering/style/ShadowData.cpp',
-    'rendering/style/SkewTransformOperation.cpp',
     'rendering/style/StyleBackgroundData.cpp',
     'rendering/style/StyleBoxData.cpp',
     'rendering/style/StyleCachedImage.cpp',
@@ -546,8 +545,6 @@ sources['rendering/style'] = [
     'rendering/style/StyleVisualData.cpp',
     'rendering/style/SVGRenderStyle.cpp',
     'rendering/style/SVGRenderStyleDefs.cpp',
-    'rendering/style/TransformOperations.cpp',
-    'rendering/style/TranslateTransformOperation.cpp',
 ]
 sources['storage'] = [
     'storage/ChangeVersionWrapper.cpp',
@@ -572,6 +569,11 @@ sources['storage'] = [
     'storage/StorageArea.cpp',
     'storage/StorageEvent.cpp',
     'storage/StorageMap.cpp'
+]
+sources['workers'] = [
+    'workers/Worker.cpp',
+    'workers/WorkerContext.cpp',
+    'workers/WorkerLocation.cpp',
 ]
 sources['xml'] = [
     'xml/DOMParser.cpp',
@@ -635,7 +637,6 @@ sources['bindings/js'] = [
     "bindings/js/JSEventCustom.cpp",
     "bindings/js/JSEventListener.cpp",
     "bindings/js/JSEventTarget.cpp",
-    "bindings/js/JSEventTargetNodeCustom.cpp",
     "bindings/js/JSGeolocationCustom.cpp",
     "bindings/js/JSHTMLAllCollection.cpp",
     "bindings/js/JSHTMLAppletElementCustom.cpp",
@@ -657,6 +658,7 @@ sources['bindings/js'] = [
     "bindings/js/JSInspectedObjectWrapper.cpp",
     "bindings/js/JSInspectorCallbackWrapper.cpp",
     "bindings/js/JSJavaScriptCallFrameCustom.cpp",
+    "bindings/js/JSLazyEventListener.cpp",
     "bindings/js/JSLocationCustom.cpp",
     "bindings/js/JSMessageChannelConstructor.cpp",
     "bindings/js/JSMessageChannelCustom.cpp",
@@ -707,6 +709,7 @@ sources['bindings/js'] = [
     "bindings/js/WorkerScriptController.cpp",
 ]
 sources['bridge'] = [
+    'bridge/IdentifierRep.cpp',
     'bridge/NP_jsobject.cpp',
     'bridge/npruntime.cpp',
     'bridge/runtime.cpp',
@@ -726,7 +729,9 @@ sources['bridge/c'] = [
 # These may eventually move to a separate sources file
 sources['platform'] = [
     'platform/Arena.cpp',
+    'platform/ContentType.cpp',
     'platform/ContextMenu.cpp',
+    'platform/CrossThreadCopier.cpp',
     'platform/DeprecatedPtrListImpl.cpp',
     'platform/DragData.cpp',
     'platform/DragImage.cpp',
@@ -742,6 +747,7 @@ sources['platform'] = [
     'platform/SharedBuffer.cpp',
     'platform/Theme.cpp',
     'platform/ThreadGlobalData.cpp',
+    'platform/ThreadTimers.cpp',
     'platform/Timer.cpp',
     'platform/Widget.cpp'
 ]
@@ -789,7 +795,9 @@ sources['platform/graphics'] = [
 ]
 sources['platform/graphics/transforms'] = [
     'platform/graphics/transforms/MatrixTransformOperation.cpp',
+    'platform/graphics/transforms/Matrix3DTransformOperation.cpp',
     'platform/graphics/transforms/RotateTransformOperation.cpp',
+    'platform/graphics/transforms/PerspectiveTransformOperation.cpp',
     'platform/graphics/transforms/ScaleTransformOperation.cpp',
     'platform/graphics/transforms/SkewTransformOperation.cpp',
     'platform/graphics/transforms/TransformOperations.cpp',
@@ -831,8 +839,8 @@ sources['platform/text'] = [
     'platform/text/TextCodecLatin1.cpp',
     'platform/text/TextCodecUserDefined.cpp',
     'platform/text/TextCodecUTF16.cpp',
-    'platform/text/TextDecoder.cpp',
     'platform/text/TextEncoding.cpp',
+    'platform/text/TextEncodingDetectorICU.cpp',
     'platform/text/TextEncodingRegistry.cpp',
     'platform/text/TextStream.cpp',
     'platform/text/UnicodeRange.cpp',

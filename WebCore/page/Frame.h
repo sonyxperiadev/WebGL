@@ -29,6 +29,7 @@
 #define Frame_h
 
 #include "AnimationController.h"
+#include "Document.h"
 #include "DragImage.h"
 #include "EditAction.h"
 #include "Editor.h"
@@ -36,7 +37,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "Range.h"
-#include "RenderLayer.h"
+#include "ScrollBehavior.h"
 #include "ScriptController.h"
 #include "SelectionController.h"
 #include "TextGranularity.h"
@@ -61,19 +62,21 @@ typedef struct HBITMAP__* HBITMAP;
 
 namespace WebCore {
 
+class CSSMutableStyleDeclaration;
 class Editor;
 class EventHandler;
 class FrameLoader;
 class FrameLoaderClient;
-class FramePrivate;
 class FrameTree;
+class FrameView;
 class HTMLFrameOwnerElement;
 class HTMLTableCellElement;
-class ScriptController;
 class RegularExpression;
 class RenderPart;
-class Selection;
+class ScriptController;
 class SelectionController;
+class Settings;
+class VisibleSelection;
 class Widget;
 
 #if FRAME_LOADS_USER_STYLESHEET
@@ -122,7 +125,9 @@ public:
     bool excludeFromTextSearch() const;
     void setExcludeFromTextSearch(bool);
 
-    friend class FramePrivate;
+    void createView(const IntSize&, const Color&, bool, const IntSize &, bool,
+                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
+
 
 private:
     Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
@@ -172,25 +177,9 @@ public:
 private:
     void lifeSupportTimerFired(Timer<Frame>*);
 
-// === to be moved into Document
-
-public:
-    bool isFrameSet() const;
-
-// === to be moved into EventHandler
-
-public:
-    void sendResizeEvent();
-    void sendScrollEvent();
-
 // === to be moved into FrameView
 
 public: 
-    void forceLayout(bool allowSubtree = false);
-    void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth, bool adjustViewSize);
-
-    void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
-
     void setZoomFactor(float scale, bool isTextOnly);
     float zoomFactor() const;
     bool isZoomFactorTextOnly() const;
@@ -218,8 +207,8 @@ public:
     String selectedText() const;  
     bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
 
-    const Selection& mark() const; // Mark, to be used as emacs uses it.
-    void setMark(const Selection&);
+    const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
+    void setMark(const VisibleSelection&);
 
     void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
     String selectionStartStylePropertyValue(int stylePropertyID) const;
@@ -230,8 +219,8 @@ public:
 
     IntRect firstRectForRange(Range*) const;
     
-    void respondToChangedSelection(const Selection& oldSelection, bool closeTyping);
-    bool shouldChangeSelection(const Selection& oldSelection, const Selection& newSelection, EAffinity, bool stillSelecting) const;
+    void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
+    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
 
     RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
 
@@ -256,8 +245,8 @@ public:
     TextGranularity selectionGranularity() const;
     void setSelectionGranularity(TextGranularity);
 
-    bool shouldChangeSelection(const Selection&) const;
-    bool shouldDeleteSelection(const Selection&) const;
+    bool shouldChangeSelection(const VisibleSelection&) const;
+    bool shouldDeleteSelection(const VisibleSelection&) const;
     void clearCaretRectIfNeeded();
     void setFocusedNodeIfNeeded();
     void selectionLayoutChanged();
@@ -281,9 +270,8 @@ public:
     void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
 
     HTMLFormElement* currentForm() const;
-    
-    void revealSelection(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
-    void revealCaret(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
+
+    void revealSelection(const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, bool revealExtent = false);
     void setSelectionFromNone();
 
     void setUseSecureKeyboardEntry(bool);
@@ -359,7 +347,7 @@ private:
     TextGranularity m_selectionGranularity;
 
     mutable SelectionController m_selectionController;
-    mutable Selection m_mark;
+    mutable VisibleSelection m_mark;
     Timer<Frame> m_caretBlinkTimer;
     mutable Editor m_editor;
     mutable EventHandler m_eventHandler;

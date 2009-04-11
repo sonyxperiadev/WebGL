@@ -72,7 +72,7 @@ void BreakBlockquoteCommand::doApply()
     insertNodeAfter(breakNode.get(), topBlockquote);
     
     if (isLastVisiblePositionInNode(visiblePos, topBlockquote)) {
-        setEndingSelection(Selection(Position(breakNode.get(), 0), DOWNSTREAM));
+        setEndingSelection(VisibleSelection(Position(breakNode.get(), 0), DOWNSTREAM));
         rebalanceWhitespace();   
         return;
     }
@@ -85,19 +85,19 @@ void BreakBlockquoteCommand::doApply()
     // Split at pos if in the middle of a text node.
     if (startNode->isTextNode()) {
         Text* textNode = static_cast<Text*>(startNode);
-        if ((unsigned)pos.offset() >= textNode->length()) {
+        if ((unsigned)pos.m_offset >= textNode->length()) {
             startNode = startNode->traverseNextNode();
             ASSERT(startNode);
-        } else if (pos.offset() > 0)
-            splitTextNode(textNode, pos.offset());
-    } else if (pos.offset() > 0) {
+        } else if (pos.m_offset > 0)
+            splitTextNode(textNode, pos.m_offset);
+    } else if (pos.m_offset > 0) {
         startNode = startNode->traverseNextNode();
         ASSERT(startNode);
     }
     
     // If there's nothing inside topBlockquote to move, we're finished.
     if (!startNode->isDescendantOf(topBlockquote)) {
-        setEndingSelection(Selection(VisiblePosition(Position(startNode, 0))));
+        setEndingSelection(VisibleSelection(VisiblePosition(Position(startNode, 0))));
         return;
     }
     
@@ -107,7 +107,7 @@ void BreakBlockquoteCommand::doApply()
         ancestors.append(node);
     
     // Insert a clone of the top blockquote after the break.
-    RefPtr<Element> clonedBlockquote = topBlockquote->cloneElement();
+    RefPtr<Element> clonedBlockquote = topBlockquote->cloneElementWithoutChildren();
     insertNodeAfter(clonedBlockquote.get(), breakNode.get());
     
     // Clone startNode's ancestors into the cloned blockquote.
@@ -116,7 +116,7 @@ void BreakBlockquoteCommand::doApply()
     // or clonedBlockquote if ancestors is empty).
     RefPtr<Element> clonedAncestor = clonedBlockquote;
     for (size_t i = ancestors.size(); i != 0; --i) {
-        RefPtr<Element> clonedChild = ancestors[i - 1]->cloneElement(); // shallow clone
+        RefPtr<Element> clonedChild = ancestors[i - 1]->cloneElementWithoutChildren();
         // Preserve list item numbering in cloned lists.
         if (clonedChild->isElementNode() && clonedChild->hasTagName(olTag)) {
             Node* listChildNode = i > 1 ? ancestors[i - 2] : startNode;
@@ -168,7 +168,7 @@ void BreakBlockquoteCommand::doApply()
     addBlockPlaceholderIfNeeded(clonedBlockquote.get());
     
     // Put the selection right before the break.
-    setEndingSelection(Selection(Position(breakNode.get(), 0), DOWNSTREAM));
+    setEndingSelection(VisibleSelection(Position(breakNode.get(), 0), DOWNSTREAM));
     rebalanceWhitespace();
 }
 

@@ -13,6 +13,8 @@ CONFIG(QTDIR_build) {
     include($$QT_SOURCE_TREE/src/qbase.pri)
     PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
     DEFINES *= NDEBUG
+} else {
+    win32-*:!static: DEFINES += QT_MAKEDLL
 }
 
 isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = tmp
@@ -108,14 +110,18 @@ CONFIG(QTDIR_build) {
 !contains(DEFINES, ENABLE_SVG_USE=.): DEFINES += ENABLE_SVG_USE=1
 
 # HTML5 media support
-contains(QT_CONFIG, phonon):DEFINES += ENABLE_VIDEO=1
-else:DEFINES += ENABLE_VIDEO=0
+!contains(DEFINES, ENABLE_VIDEO=.) {
+    contains(QT_CONFIG, phonon):DEFINES += ENABLE_VIDEO=1
+    else:DEFINES += ENABLE_VIDEO=0
+}
 
 # Nescape plugins support (NPAPI)
-unix|win32-*:!embedded:!wince*:!symbian {
-    DEFINES += ENABLE_NETSCAPE_PLUGIN_API=1
-} else {
-    DEFINES += ENABLE_NETSCAPE_PLUGIN_API=0
+!contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=.) {
+    unix|win32-*:!embedded:!wince*:!symbian {
+        DEFINES += ENABLE_NETSCAPE_PLUGIN_API=1
+    } else {
+        DEFINES += ENABLE_NETSCAPE_PLUGIN_API=0
+    }
 }
 
 DEFINES += WTF_USE_JAVASCRIPTCORE_BINDINGS=1 WTF_CHANGES=1
@@ -183,6 +189,7 @@ INCLUDEPATH +=  $$PWD \
                 $$PWD/xml \
                 $$PWD/html \
                 $$PWD/wml \
+                $$PWD/workers \
                 $$PWD/bindings/js \
                 $$PWD/svg \
                 $$PWD/platform/image-decoders \
@@ -263,6 +270,8 @@ IDL_BINDINGS += \
     css/WebKitCSSTransformValue.idl \
     dom/Attr.idl \
     dom/CharacterData.idl \
+    dom/ClientRect.idl \
+    dom/ClientRectList.idl \
     dom/Clipboard.idl \
     dom/CDATASection.idl \
     dom/Comment.idl \
@@ -279,7 +288,6 @@ IDL_BINDINGS += \
     dom/EventException.idl \
 #    dom/EventListener.idl \
 #    dom/EventTarget.idl \
-    dom/EventTargetNode.idl \
     dom/KeyboardEvent.idl \
     dom/MouseEvent.idl \
     dom/MessageChannel.idl \
@@ -304,9 +312,6 @@ IDL_BINDINGS += \
     dom/WebKitAnimationEvent.idl \
     dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
-    dom/Worker.idl \
-    dom/WorkerContext.idl \
-    dom/WorkerLocation.idl \
     html/CanvasGradient.idl \
     html/CanvasPattern.idl \
     html/CanvasRenderingContext2D.idl \
@@ -375,8 +380,10 @@ IDL_BINDINGS += \
     html/ImageData.idl \
     html/TextMetrics.idl \
     inspector/JavaScriptCallFrame.idl \
+    inspector/InspectorController.idl \
     page/BarInfo.idl \
     page/Console.idl \
+    page/Coordinates.idl \
     page/DOMSelection.idl \
     page/DOMWindow.idl \
     page/Geolocation.idl \
@@ -386,11 +393,15 @@ IDL_BINDINGS += \
     page/Navigator.idl \
     page/PositionError.idl \
     page/Screen.idl \
+    page/WebKitPoint.idl \
     page/WorkerNavigator.idl \
     plugins/Plugin.idl \
     plugins/MimeType.idl \
     plugins/PluginArray.idl \
     plugins/MimeTypeArray.idl \
+    workers/Worker.idl \
+    workers/WorkerContext.idl \
+    workers/WorkerLocation.idl \
     xml/DOMParser.idl \
     xml/XMLHttpRequest.idl \
     xml/XMLHttpRequestException.idl \
@@ -424,7 +435,6 @@ SOURCES += \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
     bindings/js/JSEventTarget.cpp \
-    bindings/js/JSEventTargetNodeCustom.cpp \
     bindings/js/JSGeolocationCustom.cpp \
     bindings/js/JSHTMLAllCollection.cpp \
     bindings/js/JSHistoryCustom.cpp \
@@ -446,6 +456,7 @@ SOURCES += \
     bindings/js/JSImageDataCustom.cpp \
     bindings/js/JSInspectedObjectWrapper.cpp \
     bindings/js/JSInspectorCallbackWrapper.cpp \
+    bindings/js/JSInspectorControllerCustom.cpp \
     bindings/js/JSLocationCustom.cpp \
     bindings/js/JSNamedNodeMapCustom.cpp \
     bindings/js/JSNamedNodesCollection.cpp  \
@@ -463,6 +474,7 @@ SOURCES += \
     bindings/js/JSTextCustom.cpp \
     bindings/js/JSTreeWalkerCustom.cpp \
     bindings/js/JSWebKitCSSMatrixConstructor.cpp \
+    bindings/js/JSWebKitPointConstructor.cpp \
     bindings/js/JSXMLHttpRequestConstructor.cpp \
     bindings/js/JSXMLHttpRequestCustom.cpp \
     bindings/js/JSXMLHttpRequestUploadCustom.cpp \
@@ -476,13 +488,18 @@ SOURCES += \
     bindings/js/JSMimeTypeArrayCustom.cpp \
     bindings/js/JSDOMBinding.cpp \
     bindings/js/JSEventListener.cpp \
+    bindings/js/JSLazyEventListener.cpp \
     bindings/js/JSPluginElementFunctions.cpp \
     bindings/js/ScriptCachedFrameData.cpp \
     bindings/js/ScriptCallFrame.cpp \
     bindings/js/ScriptCallStack.cpp \
     bindings/js/ScriptController.cpp \
+    bindings/js/ScriptFunctionCall.cpp \
+    bindings/js/ScriptObject.cpp \
+    bindings/js/ScriptObjectQuarantine.cpp \
     bindings/js/ScriptValue.cpp \
     bindings/js/ScheduledAction.cpp \
+    bridge/IdentifierRep.cpp \
     bridge/NP_jsobject.cpp \
     bridge/npruntime.cpp \
     bridge/runtime_array.cpp \
@@ -562,6 +579,8 @@ SOURCES += \
     dom/ChildNodeList.cpp \
     dom/ClassNames.cpp \
     dom/ClassNodeList.cpp \
+    dom/ClientRect.cpp \
+    dom/ClientRectList.cpp \
     dom/Clipboard.cpp \
     dom/ClipboardEvent.cpp \
     dom/Comment.cpp \
@@ -580,7 +599,6 @@ SOURCES += \
     dom/Event.cpp \
     dom/EventNames.cpp \
     dom/EventTarget.cpp \
-    dom/EventTargetNode.cpp \
     dom/ExceptionBase.cpp \
     dom/ExceptionCode.cpp \
     dom/FormControlElementWithState.cpp \
@@ -664,7 +682,6 @@ SOURCES += \
     editing/RemoveNodePreservingChildrenCommand.cpp \
     editing/ReplaceSelectionCommand.cpp \
     editing/SelectionController.cpp \
-    editing/Selection.cpp \
     editing/SetNodeAttributeCommand.cpp \
     editing/SmartReplace.cpp \
     editing/SmartReplaceICU.cpp \
@@ -675,6 +692,7 @@ SOURCES += \
     editing/TypingCommand.cpp \
     editing/UnlinkCommand.cpp \
     editing/VisiblePosition.cpp \
+    editing/VisibleSelection.cpp \
     editing/visible_units.cpp \
     editing/WrapContentsInDummySpanCommand.cpp \
     history/BackForwardList.cpp \
@@ -706,7 +724,6 @@ SOURCES += \
     html/HTMLDListElement.cpp \
     html/HTMLDocument.cpp \
     html/HTMLElement.cpp \
-    html/HTMLElementFactory.cpp \
     html/HTMLEmbedElement.cpp \
     html/HTMLFieldSetElement.cpp \
     html/HTMLFontElement.cpp \
@@ -768,7 +785,11 @@ SOURCES += \
     html/HTMLViewSourceDocument.cpp \
     html/ImageData.cpp \
     html/PreloadScanner.cpp \
+    inspector/ConsoleMessage.cpp \
+    inspector/InspectorDatabaseResource.cpp \
+    inspector/InspectorDOMStorageResource.cpp \
     inspector/InspectorController.cpp \
+    inspector/InspectorResource.cpp \
     inspector/JavaScriptCallFrame.cpp \
     inspector/JavaScriptDebugServer.cpp \
     inspector/JavaScriptProfile.cpp \
@@ -786,12 +807,13 @@ SOURCES += \
     loader/CachedResource.cpp \
     loader/CachedScript.cpp \
     loader/CachedXSLStyleSheet.cpp \
+    loader/CrossOriginAccessControl.cpp \
+    loader/CrossOriginPreflightResultCache.cpp \
     loader/DocLoader.cpp \
     loader/DocumentLoader.cpp \
     loader/DocumentThreadableLoader.cpp \
     loader/FormState.cpp \
     loader/FrameLoader.cpp \
-    loader/FrameLoaderClient.cpp \
     loader/FTPDirectoryDocument.cpp \
     loader/FTPDirectoryParser.cpp \
     loader/icon/IconLoader.cpp \
@@ -810,6 +832,7 @@ SOURCES += \
     loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
     loader/ThreadableLoader.cpp \
+    loader/WorkerThreadableLoader.cpp \
     page/AccessibilityImageMapLink.cpp \
     page/AccessibilityObject.cpp \    
     page/AccessibilityList.cpp \    
@@ -831,6 +854,7 @@ SOURCES += \
     page/Chrome.cpp \
     page/Console.cpp \
     page/ContextMenuController.cpp \
+    page/Coordinates.cpp \
     page/DOMSelection.cpp \
     page/DOMTimer.cpp \
     page/DOMWindow.cpp \
@@ -866,7 +890,9 @@ SOURCES += \
     platform/text/AtomicString.cpp \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
+    platform/ContentType.cpp \
     platform/ContextMenu.cpp \
+    platform/CrossThreadCopier.cpp \
     platform/text/CString.cpp \
     platform/DeprecatedPtrListImpl.cpp \
     platform/DragData.cpp \
@@ -898,6 +924,8 @@ SOURCES += \
     platform/graphics/SimpleFontData.cpp \
     platform/graphics/transforms/TransformationMatrix.cpp \
     platform/graphics/transforms/MatrixTransformOperation.cpp \
+    platform/graphics/transforms/Matrix3DTransformOperation.cpp \
+    platform/graphics/transforms/PerspectiveTransformOperation.cpp \
     platform/graphics/transforms/RotateTransformOperation.cpp \
     platform/graphics/transforms/ScaleTransformOperation.cpp \
     platform/graphics/transforms/SkewTransformOperation.cpp \
@@ -934,11 +962,12 @@ SOURCES += \
     platform/text/TextCodecLatin1.cpp \
     platform/text/TextCodecUserDefined.cpp \
     platform/text/TextCodecUTF16.cpp \
-    platform/text/TextDecoder.cpp \
     platform/text/TextEncoding.cpp \
+    platform/text/TextEncodingDetectorNone.cpp \
     platform/text/TextEncodingRegistry.cpp \
     platform/text/TextStream.cpp \
     platform/ThreadGlobalData.cpp \
+    platform/ThreadTimers.cpp \
     platform/Timer.cpp \
     platform/text/UnicodeRange.cpp \
     platform/Widget.cpp \
@@ -963,14 +992,13 @@ SOURCES += \
     rendering/RenderArena.cpp \
     rendering/RenderBlock.cpp \
     rendering/RenderBox.cpp \
+    rendering/RenderBoxModelObject.cpp \
     rendering/RenderBR.cpp \
     rendering/RenderButton.cpp \
-    rendering/RenderContainer.cpp \
     rendering/RenderCounter.cpp \
     rendering/RenderFieldset.cpp \
     rendering/RenderFileUploadControl.cpp \
     rendering/RenderFlexibleBox.cpp \
-    rendering/RenderFlow.cpp \
     rendering/RenderFrame.cpp \
     rendering/RenderFrameSet.cpp \
     rendering/RenderHTMLCanvas.cpp \
@@ -978,13 +1006,14 @@ SOURCES += \
     rendering/RenderImageGeneratedContent.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
-    rendering/RenderLegend.cpp \
+    rendering/RenderLineBoxList.cpp \
     rendering/RenderListBox.cpp \
     rendering/RenderListItem.cpp \
     rendering/RenderListMarker.cpp \
     rendering/RenderMarquee.cpp \
     rendering/RenderMenuList.cpp \
     rendering/RenderObject.cpp \
+    rendering/RenderObjectChildList.cpp \
     rendering/RenderPart.cpp \
     rendering/RenderPartObject.cpp \
     rendering/RenderReplaced.cpp \
@@ -993,15 +1022,15 @@ SOURCES += \
     rendering/RenderScrollbarPart.cpp \
     rendering/RenderScrollbarTheme.cpp \
     rendering/RenderSlider.cpp \
+    rendering/RenderTable.cpp \
     rendering/RenderTableCell.cpp \
     rendering/RenderTableCol.cpp \
-    rendering/RenderTable.cpp \
     rendering/RenderTableRow.cpp \
     rendering/RenderTableSection.cpp \
+    rendering/RenderText.cpp \
     rendering/RenderTextControl.cpp \
     rendering/RenderTextControlMultiLine.cpp \
     rendering/RenderTextControlSingleLine.cpp \
-    rendering/RenderText.cpp \
     rendering/RenderTextFragment.cpp \
     rendering/RenderTheme.cpp \
     rendering/RenderTreeAsText.cpp \
@@ -1010,7 +1039,9 @@ SOURCES += \
     rendering/RenderWordBreak.cpp \
     rendering/RootInlineBox.cpp \
     rendering/SVGRenderTreeAsText.cpp \
+    rendering/ScrollBehavior.cpp \
     rendering/TextControlInnerElements.cpp \
+    rendering/TransformState.cpp \
     rendering/style/BindingURI.cpp \
     rendering/style/ContentData.cpp \
     rendering/style/CounterDirectives.cpp \
@@ -1166,6 +1197,8 @@ SOURCES += \
     ../WebKit/qt/Api/qwebsecurityorigin.cpp \
     ../WebKit/qt/Api/qwebdatabase.cpp
 
+
+    win32-*|wince*: SOURCES += platform/win/SystemTimeWin.cpp
 
     mac {
         SOURCES += \
@@ -1811,8 +1844,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/SVGRootInlineBox.cpp
 
 SOURCES += \
-        svg/graphics/qt/SVGResourceFilterQt.cpp \
-        svg/graphics/qt/SVGResourceMaskerQt.cpp
+        svg/graphics/qt/SVGResourceFilterQt.cpp
 
 
         # GENERATOR 5-C:
@@ -1881,7 +1913,7 @@ SOURCES += \
     # GENERATOR 6-B:
     cssvalues.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
     cssvalues.input = WALDOCSSVALUES
-    cssvalues.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} $$GENERATED_SOURCES_DIR && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
+    cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
     cssvalues.CONFIG = target_predeps no_link
     cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
     addExtraCompiler(cssvalues)
@@ -1939,12 +1971,21 @@ addExtraCompilerWithHeader(cssbison)
 
 # GENERATOR 5-A:
 htmlnames.output = $$GENERATED_SOURCES_DIR/HTMLNames.cpp
-htmlnames.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\"  --wrapperFactory --outputDir $$GENERATED_SOURCES_DIR
+htmlnames.commands = perl -I$$PWD/bindings/scripts $$PWD/dom/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\"  --factory --wrapperFactory --outputDir $$GENERATED_SOURCES_DIR
 htmlnames.input = HTML_NAMES
 htmlnames.dependency_type = TYPE_C
 htmlnames.CONFIG = target_predeps
 htmlnames.variable_out = GENERATED_SOURCES
 addExtraCompilerWithHeader(htmlnames)
+
+htmlelementfactory.output = $$GENERATED_SOURCES_DIR/HTMLElementFactory.cpp
+htmlelementfactory.commands = @echo -n ''
+htmlelementfactory.input = HTML_NAMES
+htmlelementfactory.depends = $$GENERATED_SOURCES_DIR/HTMLNames.cpp
+htmlelementfactory.CONFIG = target_predeps
+htmlelementfactory.variable_out = GENERATED_SOURCES
+htmlelementfactory.clean += ${QMAKE_FILE_OUT}
+addExtraCompilerWithHeader(htmlelementfactory)
 
 elementwrapperfactory.output = $$GENERATED_SOURCES_DIR/JSHTMLElementWrapperFactory.cpp
 elementwrapperfactory.commands = @echo -n ''

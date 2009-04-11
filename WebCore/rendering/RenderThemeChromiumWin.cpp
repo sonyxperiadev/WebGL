@@ -35,9 +35,11 @@
 #include "FontSelector.h"
 #include "FontUtilsChromiumWin.h"
 #include "GraphicsContext.h"
+#include "RenderBox.h"
+#include "RenderSlider.h"
 #include "ScrollbarTheme.h"
 #include "SkiaUtils.h"
-#include "ThemeHelperChromiumWin.h"
+#include "TransparencyWin.h"
 #include "UserAgentStyleSheets.h"
 #include "WindowsVersion.h"
 
@@ -51,6 +53,52 @@
     SIZEOF_STRUCT_WITH_SPECIFIED_LAST_MEMBER(NONCLIENTMETRICS, lfMessageFont)
 
 namespace WebCore {
+
+namespace {
+
+bool canvasHasMultipleLayers(const SkCanvas* canvas)
+{
+    SkCanvas::LayerIter iter(const_cast<SkCanvas*>(canvas), false);
+    iter.next();  // There is always at least one layer.
+    return !iter.done();  // There is > 1 layer if the the iterator can stil advance.
+}
+
+class ThemePainter : public TransparencyWin {
+public:
+    ThemePainter(GraphicsContext* context, const IntRect& r)
+    {
+        TransformMode transformMode = getTransformMode(context->getCTM());
+        init(context, getLayerMode(context, transformMode), transformMode, r);
+    }
+
+    ~ThemePainter()
+    {
+        composite();
+    }
+
+private:
+    static LayerMode getLayerMode(GraphicsContext* context, TransformMode transformMode)
+    {
+        if (context->platformContext()->isDrawingToImageBuffer())  // Might have transparent background.
+            return WhiteLayer;
+        else if (canvasHasMultipleLayers(context->platformContext()->canvas()))  // Needs antialiasing help.
+            return OpaqueCompositeLayer;
+        else  // Nothing interesting.
+            return transformMode == KeepTransform ? NoLayer : OpaqueCompositeLayer;
+    }
+
+    static TransformMode getTransformMode(const TransformationMatrix& matrix)
+    {
+        if (matrix.b() != 0 || matrix.c() != 0)  // Skew.
+            return Untransform;
+        else if (matrix.a() != 1.0 || matrix.d() != 1.0)  // Scale.
+            return ScaleTransform;
+        else  // Nothing interesting.
+            return KeepTransform;
+    }
+};
+
+}  // namespace
 
 static void getNonClientMetrics(NONCLIENTMETRICS* metrics) {
     static UINT size = WebCore::isVistaOrNewer() ?
@@ -89,6 +137,7 @@ static bool supportsFocus(ControlPart appearance)
     case PushButtonPart:
     case ButtonPart:
     case DefaultButtonPart:
+    case SearchFieldPart:
     case TextFieldPart:
     case TextAreaPart:
         return true;
@@ -212,7 +261,7 @@ RenderTheme* theme()
 
 String RenderThemeChromiumWin::extraDefaultStyleSheet()
 {
-    return String(themeWinUserAgentStyleSheet, sizeof(themeWinUserAgentStyleSheet));
+    return String(themeChromiumWinUserAgentStyleSheet, sizeof(themeChromiumWinUserAgentStyleSheet));
 }
 
 String RenderThemeChromiumWin::extraQuirksStyleSheet()
@@ -347,6 +396,20 @@ int RenderThemeChromiumWin::minimumMenuListSize(RenderStyle* style) const
     return 0;
 }
 
+void RenderThemeChromiumWin::adjustSliderThumbSize(RenderObject* o) const
+{
+    // These sizes match what WinXP draws for various menus.
+    const int sliderThumbAlongAxis = 11;
+    const int sliderThumbAcrossAxis = 21;
+    if (o->style()->appearance() == SliderThumbHorizontalPart || o->style()->appearance() == MediaSliderThumbPart) {
+        o->style()->setWidth(Length(sliderThumbAlongAxis, Fixed));
+        o->style()->setHeight(Length(sliderThumbAcrossAxis, Fixed));
+    } else if (o->style()->appearance() == SliderThumbVerticalPart) {
+        o->style()->setWidth(Length(sliderThumbAcrossAxis, Fixed));
+        o->style()->setHeight(Length(sliderThumbAlongAxis, Fixed));
+    }
+}
+
 void RenderThemeChromiumWin::setCheckboxSize(RenderStyle* style) const
 {
     // If the width and height are both specified, then we have nothing to do.
@@ -372,18 +435,31 @@ bool RenderThemeChromiumWin::paintButton(RenderObject* o, const RenderObject::Pa
 {
     const ThemeData& themeData = getThemeData(o);
 
-    WebCore::ThemeHelperWin helper(i.context, r);
-    ChromiumBridge::paintButton(helper.context(),
+    WebCore::ThemePainter painter(i.context, r);
+    ChromiumBridge::paintButton(painter.context(),
                                 themeData.m_part,
                                 themeData.m_state,
                                 themeData.m_classicState,
-                                helper.rect());
+                                painter.drawRect());
     return false;
 }
 
 bool RenderThemeChromiumWin::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
     return paintTextFieldInternal(o, i, r, true);
+}
+
+bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    const ThemeData& themeData = getThemeData(o);
+
+    WebCore::ThemePainter painter(i.context, r);
+    ChromiumBridge::paintTrackbar(painter.context(),
+                                  themeData.m_part,
+                                  themeData.m_state,
+                                  themeData.m_classicState,
+                                  painter.drawRect());
+    return false;
 }
 
 bool RenderThemeChromiumWin::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
@@ -400,10 +476,14 @@ void RenderThemeChromiumWin::adjustMenuListStyle(CSSStyleSelector* selector, Ren
 // Used to paint unstyled menulists (i.e. with the default border)
 bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
-    int borderRight = o->borderRight();
-    int borderLeft = o->borderLeft();
-    int borderTop = o->borderTop();
-    int borderBottom = o->borderBottom();
+    if (!o->isBox())
+        return false;
+
+    const RenderBox* box = toRenderBox(o);
+    int borderRight = box->borderRight();
+    int borderLeft = box->borderLeft();
+    int borderTop = box->borderTop();
+    int borderBottom = box->borderBottom();
 
     // If all the borders are 0, then tell skia not to paint the border on the
     // textfield.  FIXME: http://b/1210017 Figure out how to get Windows to not
@@ -418,10 +498,10 @@ bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const RenderObject::
     // the size of a button, make sure to shrink it appropriately and not put
     // its x position to the left of the menulist.
     const int buttonWidth = GetSystemMetrics(SM_CXVSCROLL);
-    int spacingLeft = borderLeft + o->paddingLeft();
-    int spacingRight = borderRight + o->paddingRight();
-    int spacingTop = borderTop + o->paddingTop();
-    int spacingBottom = borderBottom + o->paddingBottom();
+    int spacingLeft = borderLeft + box->paddingLeft();
+    int spacingRight = borderRight + box->paddingRight();
+    int spacingTop = borderTop + box->paddingTop();
+    int spacingBottom = borderBottom + box->paddingBottom();
 
     int buttonX;
     if (r.right() - r.x() < buttonWidth)
@@ -436,12 +516,12 @@ bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const RenderObject::
                  r.height() - (spacingTop + spacingBottom));
 
     // Get the correct theme data for a textfield and paint the menu.
-    WebCore::ThemeHelperWin helper(i.context, rect);
-    ChromiumBridge::paintMenuList(helper.context(),
+    WebCore::ThemePainter painter(i.context, rect);
+    ChromiumBridge::paintMenuList(painter.context(),
                                   CP_DROPDOWNBUTTON,
                                   determineState(o),
                                   determineClassicState(o),
-                                  helper.rect());
+                                  painter.drawRect());
     return false;
 }
 
@@ -476,13 +556,24 @@ int RenderThemeChromiumWin::popupInternalPaddingBottom(RenderStyle* style) const
     return menuListInternalPadding(style, BottomPadding);
 }
 
-void RenderThemeChromiumWin::adjustButtonInnerStyle(RenderStyle* style) const
+int RenderThemeChromiumWin::buttonInternalPaddingLeft() const
 {
-    // This inner padding matches Firefox.
-    style->setPaddingTop(Length(1, Fixed));
-    style->setPaddingRight(Length(3, Fixed));
-    style->setPaddingBottom(Length(1, Fixed));
-    style->setPaddingLeft(Length(3, Fixed));
+    return 3;
+}
+
+int RenderThemeChromiumWin::buttonInternalPaddingRight() const
+{
+    return 3;
+}
+
+int RenderThemeChromiumWin::buttonInternalPaddingTop() const
+{
+    return 1;
+}
+
+int RenderThemeChromiumWin::buttonInternalPaddingBottom() const
+{
+    return 1;
 }
 
 // static
@@ -499,7 +590,7 @@ unsigned RenderThemeChromiumWin::determineState(RenderObject* o)
     ControlPart appearance = o->style()->appearance();
     if (!isEnabled(o))
         result = TS_DISABLED;
-    else if (isReadOnlyControl(o) && (TextFieldPart == appearance || TextAreaPart == appearance))
+    else if (isReadOnlyControl(o) && (TextFieldPart == appearance || TextAreaPart == appearance || SearchFieldPart == appearance))
         result = ETS_READONLY; // Readonly is supported on textfields.
     else if (isPressed(o)) // Active overrides hover and focused.
         result = TS_PRESSED;
@@ -509,6 +600,20 @@ unsigned RenderThemeChromiumWin::determineState(RenderObject* o)
         result = TS_HOT;
     if (isChecked(o))
         result += 4; // 4 unchecked states, 4 checked states.
+    return result;
+}
+
+unsigned RenderThemeChromiumWin::determineSliderThumbState(RenderObject* o)
+{
+    unsigned result = TUS_NORMAL;
+    if (!isEnabled(o->parent()))
+        result = TUS_DISABLED;
+    else if (supportsFocus(o->style()->appearance()) && isFocused(o->parent()))
+        result = TUS_FOCUSED;
+    else if (static_cast<RenderSlider*>(o->parent())->inDragMode())
+        result = TUS_PRESSED;
+    else if (isHovered(o))
+        result = TUS_HOT;
     return result;
 }
 
@@ -530,37 +635,57 @@ ThemeData RenderThemeChromiumWin::getThemeData(RenderObject* o)
 {
     ThemeData result;
     switch (o->style()->appearance()) {
-    case PushButtonPart:
-    case ButtonPart:
-        result.m_part = BP_PUSHBUTTON;
-        result.m_classicState = DFCS_BUTTONPUSH;
-        break;
     case CheckboxPart:
         result.m_part = BP_CHECKBOX;
+        result.m_state = determineState(o);
         result.m_classicState = DFCS_BUTTONCHECK;
         break;
     case RadioPart:
         result.m_part = BP_RADIOBUTTON;
+        result.m_state = determineState(o);
         result.m_classicState = DFCS_BUTTONRADIO;
+        break;
+    case PushButtonPart:
+    case ButtonPart:
+        result.m_part = BP_PUSHBUTTON;
+        result.m_state = determineState(o);
+        result.m_classicState = DFCS_BUTTONPUSH;
+        break;
+    case SliderHorizontalPart:
+        result.m_part = TKP_TRACK;
+        result.m_state = TRS_NORMAL;
+        break;
+    case SliderVerticalPart:
+        result.m_part = TKP_TRACKVERT;
+        result.m_state = TRVS_NORMAL;
+        break;
+    case SliderThumbHorizontalPart:
+        result.m_part = TKP_THUMBBOTTOM;
+        result.m_state = determineSliderThumbState(o);
+        break;
+    case SliderThumbVerticalPart:
+        result.m_part = TKP_THUMBVERT;
+        result.m_state = determineSliderThumbState(o);
         break;
     case ListboxPart:
     case MenulistPart:
+    case SearchFieldPart:
     case TextFieldPart:
     case TextAreaPart:
-        result.m_part = ETS_NORMAL;
+        result.m_part = EP_EDITTEXT;
+        result.m_state = determineState(o);
         break;
     }
 
-    result.m_state = determineState(o);
     result.m_classicState |= determineClassicState(o);
 
     return result;
 }
 
 bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
-                                            const RenderObject::PaintInfo& i,
-                                            const IntRect& r,
-                                            bool drawEdges)
+                                                    const RenderObject::PaintInfo& i,
+                                                    const IntRect& r,
+                                                    bool drawEdges)
 {
     // Nasty hack to make us not paint the border on text fields with a
     // border-radius. Webkit paints elements with border-radius for us.
@@ -572,12 +697,12 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
 
     const ThemeData& themeData = getThemeData(o);
 
-    WebCore::ThemeHelperWin helper(i.context, r);
-    ChromiumBridge::paintTextField(helper.context(),
+    WebCore::ThemePainter painter(i.context, r);
+    ChromiumBridge::paintTextField(painter.context(),
                                    themeData.m_part,
                                    themeData.m_state,
                                    themeData.m_classicState,
-                                   helper.rect(),
+                                   painter.drawRect(),
                                    o->style()->backgroundColor(),
                                    true,
                                    drawEdges);

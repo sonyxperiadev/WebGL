@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,21 +21,15 @@
 #define JSEventListener_h
 
 #include "EventListener.h"
-#include "PlatformString.h"
 #include <runtime/Protect.h>
 
 namespace WebCore {
 
-    class Event;
     class JSDOMGlobalObject;
-    class Node;
 
     class JSAbstractEventListener : public EventListener {
     public:
-        virtual void handleEvent(Event*, bool isWindowEvent);
-        virtual bool isInline() const;
-        virtual JSC::JSObject* listenerObj() const = 0;
-        virtual JSDOMGlobalObject* globalObject() const = 0;
+        bool isInline() const { return m_isInline; }
 
     protected:
         JSAbstractEventListener(bool isInline)
@@ -44,27 +38,11 @@ namespace WebCore {
         }
 
     private:
+        virtual void handleEvent(Event*, bool isWindowEvent);
+        virtual JSDOMGlobalObject* globalObject() const = 0;
+        virtual bool virtualIsInline() const;
+
         bool m_isInline;
-    };
-
-    class JSUnprotectedEventListener : public JSAbstractEventListener {
-    public:
-        static PassRefPtr<JSUnprotectedEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
-        {
-            return adoptRef(new JSUnprotectedEventListener(listener, globalObject, isInline));
-        }
-        virtual ~JSUnprotectedEventListener();
-
-        virtual JSC::JSObject* listenerObj() const;
-        virtual JSDOMGlobalObject* globalObject() const;
-        void clearGlobalObject();
-        void mark();
-
-    private:
-        JSUnprotectedEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
-
-        JSC::JSObject* m_listener;
-        JSDOMGlobalObject* m_globalObject;
     };
 
     class JSEventListener : public JSAbstractEventListener {
@@ -75,49 +53,38 @@ namespace WebCore {
         }
         virtual ~JSEventListener();
 
-        virtual JSC::JSObject* listenerObj() const;
+        void clearGlobalObject();
+
+    private:
+        JSEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
+
+        virtual JSC::JSObject* function() const;
+        virtual void mark();
         virtual JSDOMGlobalObject* globalObject() const;
+
+        JSC::JSObject* m_listener;
+        JSDOMGlobalObject* m_globalObject;
+    };
+
+    class JSProtectedEventListener : public JSAbstractEventListener {
+    public:
+        static PassRefPtr<JSProtectedEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
+        {
+            return adoptRef(new JSProtectedEventListener(listener, globalObject, isInline));
+        }
+        virtual ~JSProtectedEventListener();
+
         void clearGlobalObject();
 
     protected:
-        JSEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
+        JSProtectedEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
 
         mutable JSC::ProtectedPtr<JSC::JSObject> m_listener;
-
-    private:
         JSC::ProtectedPtr<JSDOMGlobalObject> m_globalObject;
-    };
-
-    class JSLazyEventListener : public JSEventListener {
-    public:
-        enum LazyEventListenerType {
-            HTMLLazyEventListener
-#if ENABLE(SVG)
-            , SVGLazyEventListener
-#endif
-        };
-
-        virtual bool wasCreatedFromMarkup() const { return true; }
-
-        static PassRefPtr<JSLazyEventListener> create(LazyEventListenerType type, const String& functionName, const String& code, JSDOMGlobalObject* globalObject, Node* node, int lineNumber)
-        {
-            return adoptRef(new JSLazyEventListener(type, functionName, code, globalObject, node, lineNumber));
-        }
-        virtual JSC::JSObject* listenerObj() const;
-
-    protected:
-        JSLazyEventListener(LazyEventListenerType type, const String& functionName, const String& code, JSDOMGlobalObject*, Node*, int lineNumber);
 
     private:
-        void parseCode() const;
-
-        mutable String m_functionName;
-        mutable String m_code;
-        mutable bool m_parsed;
-        int m_lineNumber;
-        Node* m_originalNode;
-
-        LazyEventListenerType m_type;
+        virtual JSC::JSObject* function() const;
+        virtual JSDOMGlobalObject* globalObject() const;
     };
 
 } // namespace WebCore

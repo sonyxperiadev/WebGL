@@ -38,7 +38,7 @@
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
-#include "RenderFlow.h"
+#include "RenderBox.h"
 #include "WMLNames.h"
 
 namespace WebCore {
@@ -101,15 +101,14 @@ bool WMLAElement::isKeyboardFocusable(KeyboardEvent* event) const
     if (!document()->frame()->eventHandler()->tabsToLinks(event))
         return false;
 
+    if (!renderer() || !renderer()->isBoxModelObject())
+        return false;
+
     // Before calling absoluteRects, check for the common case where the renderer
-    // or one of the continuations is non-empty, since this is a faster check and
-    // almost always returns true.
-    RenderBox* box = toRenderBox(renderer());
+    // is non-empty, since this is a faster check and almost always returns true.
+    RenderBoxModelObject* box = toRenderBoxModelObject(renderer());
     if (!box->borderBoundingBox().isEmpty())
         return true;
-    for (RenderFlow* r = box->virtualContinuation(); r; r = r->continuation())
-        if (!r->borderBoundingBox().isEmpty())
-            return true;
 
     Vector<IntRect> rects;
     FloatPoint absPos = renderer()->localToAbsolute();
@@ -151,7 +150,7 @@ void WMLAElement::defaultEventHandler(Event* event)
  
         if (!event->defaultPrevented() && document()->frame()) {
             KURL url = document()->completeURL(parseURL(getAttribute(HTMLNames::hrefAttr)));
-            document()->frame()->loader()->urlSelected(url, target(), event, false, true);
+            document()->frame()->loader()->urlSelected(url, target(), event, false, false, true);
         }
 
         event->setDefaultHandled();

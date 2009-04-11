@@ -174,8 +174,8 @@ void RenderTextControlSingleLine::subtreeHasChanged()
     InputElement* input = inputElement();
     input->setValueFromRenderer(input->constrainValue(text()));
 
-    if (RenderObject* cancelButtonRenderer = m_cancelButton ? m_cancelButton->renderer() : 0)
-        updateCancelButtonVisibility(cancelButtonRenderer->style());
+    if (m_cancelButton)
+        updateCancelButtonVisibility();
 
     // If the incremental attribute is set, then dispatch the search event
     if (input->searchEventsShouldBeDispatched())
@@ -281,12 +281,14 @@ bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, Hit
     if (!RenderTextControl::nodeAtPoint(request, result, xPos, yPos, tx, ty, hitTestAction))
         return false;
 
-    if (result.innerNode() != element() && result.innerNode() != m_innerBlock.get())
-        return false;
+    // If we hit a node inside the inner text element, say that we hit that element,
+    // and if we hit our node (e.g. we're over the border or padding), also say that we hit the
+    // inner text element so that it gains focus.
+    if (result.innerNode()->isDescendantOf(innerTextElement()) || result.innerNode() == node())
+        hitInnerTextElement(result, xPos, yPos, tx, ty);
 
-    hitInnerTextBlock(result, xPos, yPos, tx, ty);
-
-    if (!m_innerBlock)
+    // If we're not a search field, or we already found the results or cancel buttons, we're done.
+    if (!m_innerBlock || result.innerNode() == m_resultsButton || result.innerNode() == m_cancelButton)
         return true;
 
     Node* innerNode = 0;
@@ -334,7 +336,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
         return;
     }
 
-    FloatPoint localPoint = innerTextRenderer->absoluteToLocal(FloatPoint(static_cast<MouseEvent*>(event)->pageX(), static_cast<MouseEvent*>(event)->pageY()), false, true);
+    FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
     if (m_resultsButton && localPoint.x() < innerTextRenderer->borderBoxRect().x())
         m_resultsButton->defaultEventHandler(event);
     else if (m_cancelButton && localPoint.x() > innerTextRenderer->borderBoxRect().right())
@@ -343,7 +345,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
         RenderTextControl::forwardEvent(event);
 }
 
-void RenderTextControlSingleLine::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderTextControl::styleDidChange(diff, oldStyle);
 
@@ -360,6 +362,8 @@ void RenderTextControlSingleLine::styleDidChange(RenderStyle::Diff diff, const R
 
     if (RenderObject* cancelRenderer = m_cancelButton ? m_cancelButton->renderer() : 0)
         cancelRenderer->setStyle(createCancelButtonStyle(style()));
+
+    setHasOverflowClip(false);
 }
 
 void RenderTextControlSingleLine::capsLockStateMayHaveChanged()
@@ -425,7 +429,7 @@ int RenderTextControlSingleLine::preferredContentWidth(float charWidth) const
 void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineHeight)
 {
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0) {
-        static_cast<RenderBlock*>(resultsRenderer)->calcHeight();
+        toRenderBlock(resultsRenderer)->calcHeight();
         setHeight(max(height(),
                   resultsRenderer->borderTop() + resultsRenderer->borderBottom() +
                   resultsRenderer->paddingTop() + resultsRenderer->paddingBottom() +
@@ -434,7 +438,7 @@ void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineH
     }
 
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0) {
-        static_cast<RenderBlock*>(cancelRenderer)->calcHeight();
+        toRenderBlock(cancelRenderer)->calcHeight();
         setHeight(max(height(),
                   cancelRenderer->borderTop() + cancelRenderer->borderBottom() +
                   cancelRenderer->paddingTop() + cancelRenderer->paddingBottom() +
@@ -482,8 +486,8 @@ void RenderTextControlSingleLine::updateFromElement()
     bool placeholderVisibilityShouldChange = m_placeholderVisible != placeholderShouldBeVisible();
     m_placeholderVisible = placeholderShouldBeVisible();
 
-    if (RenderObject* cancelButtonRenderer = m_cancelButton ? m_cancelButton->renderer() : 0)
-        updateCancelButtonVisibility(cancelButtonRenderer->style());
+    if (m_cancelButton)
+        updateCancelButtonVisibility();
 
     if (m_placeholderVisible) {
         ExceptionCode ec = 0;
@@ -505,7 +509,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
 {
     RefPtr<RenderStyle> textBlockStyle;
     if (placeholderShouldBeVisible()) {
-        RenderStyle* pseudoStyle = getCachedPseudoStyle(RenderStyle::INPUT_PLACEHOLDER);
+        RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER);
         textBlockStyle = RenderStyle::clone(pseudoStyle);
     } else {
         textBlockStyle = RenderStyle::create();   
@@ -562,11 +566,11 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createResultsButtonStyle(co
 
     RefPtr<RenderStyle> resultsBlockStyle;
     if (input->maxResults() < 0)
-        resultsBlockStyle = getCachedPseudoStyle(RenderStyle::SEARCH_DECORATION);
+        resultsBlockStyle = getCachedPseudoStyle(SEARCH_DECORATION);
     else if (!input->maxResults())
-        resultsBlockStyle = getCachedPseudoStyle(RenderStyle::SEARCH_RESULTS_DECORATION);
+        resultsBlockStyle = getCachedPseudoStyle(SEARCH_RESULTS_DECORATION);
     else
-        resultsBlockStyle = getCachedPseudoStyle(RenderStyle::SEARCH_RESULTS_BUTTON);
+        resultsBlockStyle = getCachedPseudoStyle(SEARCH_RESULTS_BUTTON);
 
     if (!resultsBlockStyle)
         resultsBlockStyle = RenderStyle::create();
@@ -582,7 +586,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createCancelButtonStyle(con
     ASSERT(node()->isHTMLElement());
     RefPtr<RenderStyle> cancelBlockStyle;
     
-    if (RefPtr<RenderStyle> pseudoStyle = getCachedPseudoStyle(RenderStyle::SEARCH_CANCEL_BUTTON))
+    if (RefPtr<RenderStyle> pseudoStyle = getCachedPseudoStyle(SEARCH_CANCEL_BUTTON))
         // We may be sharing style with another search field, but we must not share the cancel button style.
         cancelBlockStyle = RenderStyle::clone(pseudoStyle.get());
     else
@@ -591,15 +595,30 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createCancelButtonStyle(con
     if (startStyle)
         cancelBlockStyle->inheritFrom(startStyle);
 
-    updateCancelButtonVisibility(cancelBlockStyle.get());
+    cancelBlockStyle->setVisibility(visibilityForCancelButton());
     return cancelBlockStyle.release();
 }
 
-void RenderTextControlSingleLine::updateCancelButtonVisibility(RenderStyle* style) const
+void RenderTextControlSingleLine::updateCancelButtonVisibility() const
+{
+    if (!m_cancelButton->renderer())
+        return;
+
+    const RenderStyle* curStyle = m_cancelButton->renderer()->style();
+    EVisibility buttonVisibility = visibilityForCancelButton();
+    if (curStyle->visibility() == buttonVisibility)
+        return;
+
+    RefPtr<RenderStyle> cancelButtonStyle = RenderStyle::clone(curStyle);
+    cancelButtonStyle->setVisibility(buttonVisibility);
+    m_cancelButton->renderer()->setStyle(cancelButtonStyle);
+}
+
+EVisibility RenderTextControlSingleLine::visibilityForCancelButton() const
 {
     ASSERT(node()->isHTMLElement());
     HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
-    style->setVisibility(input->value().isEmpty() ? HIDDEN : VISIBLE);
+    return input->value().isEmpty() ? HIDDEN : VISIBLE;
 }
 
 const AtomicString& RenderTextControlSingleLine::autosaveName() const
@@ -684,7 +703,7 @@ PopupMenuStyle RenderTextControlSingleLine::itemStyle(unsigned) const
 
 PopupMenuStyle RenderTextControlSingleLine::menuStyle() const
 {
-    return PopupMenuStyle(style()->color(), style()->backgroundColor(), style()->font(), style()->visibility() == VISIBLE);
+    return PopupMenuStyle(style()->color(), style()->backgroundColor(), style()->font(), style()->visibility() == VISIBLE, style()->textIndent(), style()->direction());
 }
 
 int RenderTextControlSingleLine::clientInsetLeft() const
@@ -768,10 +787,65 @@ HostWindow* RenderTextControlSingleLine::hostWindow() const
     return document()->view()->hostWindow();
 }
 
+void RenderTextControlSingleLine::autoscroll()
+{
+    RenderLayer* layer = innerTextElement()->renderBox()->layer();
+    if (layer)
+        layer->autoscroll();
+}
+
+int RenderTextControlSingleLine::scrollWidth() const
+{
+    if (innerTextElement())
+        return innerTextElement()->scrollWidth();
+    return RenderBlock::scrollWidth();
+}
+
+int RenderTextControlSingleLine::scrollHeight() const
+{
+    if (innerTextElement())
+        return innerTextElement()->scrollHeight();
+    return RenderBlock::scrollHeight();
+}
+
+int RenderTextControlSingleLine::scrollLeft() const
+{
+    if (innerTextElement())
+        return innerTextElement()->scrollLeft();
+    return RenderBlock::scrollLeft();
+}
+
+int RenderTextControlSingleLine::scrollTop() const
+{
+    if (innerTextElement())
+        return innerTextElement()->scrollTop();
+    return RenderBlock::scrollTop();
+}
+
+void RenderTextControlSingleLine::setScrollLeft(int newLeft)
+{
+    if (innerTextElement())
+        innerTextElement()->setScrollLeft(newLeft);
+}
+
+void RenderTextControlSingleLine::setScrollTop(int newTop)
+{
+    if (innerTextElement())
+        innerTextElement()->setScrollTop(newTop);
+}
+
+bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
+{
+    RenderLayer* layer = innerTextElement()->renderBox()->layer();
+    if (layer && layer->scroll(direction, granularity, multiplier))
+        return true;
+    return RenderBlock::scroll(direction, granularity, multiplier);
+}
+
 PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
     RefPtr<Scrollbar> widget;
-    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(RenderStyle::SCROLLBAR);
+    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(client, orientation, this);
     else

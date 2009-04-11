@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -28,6 +28,7 @@
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameTree.h"
+#include "Geolocation.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
@@ -387,6 +388,16 @@ void Chrome::enableSuddenTermination()
     m_client->enableSuddenTermination();
 }
 
+void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+{
+    // Defer loads in case the client method runs a new event loop that would 
+    // otherwise cause the load to continue while we're in the middle of executing JavaScript.
+    PageGroupLoadDeferrer deferrer(m_page, true);
+
+    ASSERT(frame);
+    m_client->requestGeolocationPermissionForFrame(frame, geolocation);
+}
+
 void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
 {
     m_client->runOpenPanel(frame, fileChooser);
@@ -457,10 +468,8 @@ PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
                 m_deferredFrames.append(otherPage->mainFrame());
 
 #if !PLATFORM(MAC)
-            for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                if (Document* document = frame->document())
-                    document->suspendActiveDOMObjects();
-            }
+            for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext())
+                frame->document()->suspendActiveDOMObjects();
 #endif
         }
     }
@@ -478,10 +487,8 @@ PageGroupLoadDeferrer::~PageGroupLoadDeferrer()
             page->setDefersLoading(false);
 
 #if !PLATFORM(MAC)
-            for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                if (Document* document = frame->document())
-                    document->resumeActiveDOMObjects();
-            }
+            for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
+                frame->document()->resumeActiveDOMObjects();
 #endif
         }
     }

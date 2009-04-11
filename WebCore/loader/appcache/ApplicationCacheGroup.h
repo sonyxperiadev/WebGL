@@ -92,9 +92,11 @@ public:
 
 private:
     typedef void (DOMApplicationCache::*ListenerFunction)();
-    void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
-    void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
-    void postListenerTask(ListenerFunction, DocumentLoader*);
+    static void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
+    static void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
+    static void postListenerTask(ListenerFunction, DocumentLoader*);
+
+    PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);

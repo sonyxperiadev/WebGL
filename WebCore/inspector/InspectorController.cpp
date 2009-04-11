@@ -33,6 +33,7 @@
 #include "CString.h"
 #include "CachedResource.h"
 #include "Console.h"
+#include "ConsoleMessage.h"
 #include "DOMWindow.h"
 #include "DocLoader.h"
 #include "Document.h"
@@ -46,34 +47,40 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
-#include "HitTestResult.h"
 #include "HTMLFrameOwnerElement.h"
+#include "HitTestResult.h"
 #include "InspectorClient.h"
+#include "InspectorDatabaseResource.h"
+#include "InspectorDOMStorageResource.h"
+#include "InspectorResource.h"
 #include "JSDOMWindow.h"
 #include "JSInspectedObjectWrapper.h"
 #include "JSInspectorCallbackWrapper.h"
+#include "JSInspectorController.h"
 #include "JSNode.h"
 #include "JSRange.h"
 #include "JavaScriptProfile.h"
 #include "Page.h"
 #include "Range.h"
+#include "RenderInline.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "Settings.h"
 #include "ScriptCallStack.h"
+#include "ScriptController.h"
+#include "SecurityOrigin.h"
+#include "Settings.h"
 #include "SharedBuffer.h"
 #include "TextEncoding.h"
 #include "TextIterator.h"
-#include "ScriptController.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/OpaqueJSString.h>
-#include <runtime/JSLock.h>
-#include <runtime/UString.h>
-#include <runtime/CollectorHeapIterator.h>
 #include <profiler/Profile.h>
 #include <profiler/Profiler.h>
+#include <runtime/CollectorHeapIterator.h>
+#include <runtime/JSLock.h>
+#include <runtime/UString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
@@ -81,6 +88,12 @@
 #if ENABLE(DATABASE)
 #include "Database.h"
 #include "JSDatabase.h"
+#endif
+
+#if ENABLE(DOM_STORAGE)
+#include "Storage.h"
+#include "StorageArea.h"
+#include "JSStorage.h"
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -158,354 +171,7 @@ JSValueRef InspectorController::callFunction(JSContextRef context, JSObjectRef t
     return result;
 }
 
-// ConsoleMessage Struct
-
-struct ConsoleMessage {
-    ConsoleMessage(MessageSource s, MessageLevel l, const String& m, unsigned li, const String& u, unsigned g)
-        : source(s)
-        , level(l)
-        , message(m)
-        , line(li)
-        , url(u)
-        , groupLevel(g)
-        , repeatCount(1)
-    {
-    }
-
-    ConsoleMessage(MessageSource s, MessageLevel l, ScriptCallStack* callStack, unsigned g, bool storeTrace = false)
-        : source(s)
-        , level(l)
-        , wrappedArguments(callStack->at(0).argumentCount())
-        , frames(storeTrace ? callStack->size() : 0)
-        , groupLevel(g)
-        , repeatCount(1)
-    {
-        const ScriptCallFrame& lastCaller = callStack->at(0);
-        line = lastCaller.lineNumber();
-        url = lastCaller.sourceURL().string();
-
-        // FIXME: For now, just store function names as strings.
-        // As ScriptCallStack start storing line number and source URL for all
-        // frames, refactor to use that, as well.
-        if (storeTrace) {
-            unsigned stackSize = callStack->size();
-            for (unsigned i = 0; i < stackSize; ++i)
-                frames[i] = callStack->at(i).functionName();
-        }
-
-        JSLock lock(false);
-
-        for (unsigned i = 0; i < lastCaller.argumentCount(); ++i)
-            wrappedArguments[i] = JSInspectedObjectWrapper::wrap(callStack->state(), lastCaller.argumentAt(i).jsValue());
-    }
-    
-    bool isEqual(ExecState* exec, ConsoleMessage* msg) const
-    {
-        if (msg->wrappedArguments.size() != this->wrappedArguments.size() ||
-           (!exec && msg->wrappedArguments.size()))
-            return false;
-
-        for (size_t i = 0; i < msg->wrappedArguments.size(); ++i) {
-            ASSERT_ARG(exec, exec);
-            if (!JSValueIsEqual(toRef(exec), toRef(msg->wrappedArguments[i].get()), toRef(this->wrappedArguments[i].get()), 0))
-                return false;
-        }
-
-        size_t frameCount = msg->frames.size();
-        if (frameCount != this->frames.size())
-            return false;
-        
-        for (size_t i = 0; i < frameCount; ++i) {
-            const ScriptString& myFrameFunctionName = this->frames[i];
-            if (myFrameFunctionName != msg->frames[i])
-                return false;
-        }
-    
-        return msg->source == this->source
-            && msg->level == this->level
-            && msg->message == this->message
-            && msg->line == this->line
-            && msg->url == this->url
-            && msg->groupLevel == this->groupLevel;
-    }
-
-    MessageSource source;
-    MessageLevel level;
-    String message;
-    Vector<ProtectedJSValuePtr> wrappedArguments;
-    Vector<ScriptString> frames;
-    unsigned line;
-    String url;
-    unsigned groupLevel;
-    unsigned repeatCount;
-};
-
-// XMLHttpRequestResource Class
-
-struct XMLHttpRequestResource {
-    XMLHttpRequestResource(const JSC::UString& sourceString)
-    {
-        JSC::JSLock lock(false);
-        this->sourceString = sourceString.rep();
-    }
-
-    ~XMLHttpRequestResource()
-    {
-        JSC::JSLock lock(false);
-        sourceString.clear();
-    }
-
-    RefPtr<JSC::UString::Rep> sourceString;
-};
-
-// InspectorResource Struct
-
-struct InspectorResource : public RefCounted<InspectorResource> {
-    // Keep these in sync with WebInspector.Resource.Type
-    enum Type {
-        Doc,
-        Stylesheet,
-        Image,
-        Font,
-        Script,
-        XHR,
-        Media,
-        Other
-    };
-
-    static PassRefPtr<InspectorResource> create(long long identifier, DocumentLoader* documentLoader, Frame* frame)
-    {
-        return adoptRef(new InspectorResource(identifier, documentLoader, frame));
-    }
-    
-    ~InspectorResource()
-    {
-        setScriptObject(0, 0);
-    }
-
-    Type type() const
-    {
-        if (xmlHttpRequestResource)
-            return XHR;
-
-        if (requestURL == loader->requestURL())
-            return Doc;
-
-        if (loader->frameLoader() && requestURL == loader->frameLoader()->iconURL())
-            return Image;
-
-        CachedResource* cachedResource = frame->document()->docLoader()->cachedResource(requestURL.string());
-        if (!cachedResource)
-            return Other;
-
-        switch (cachedResource->type()) {
-            case CachedResource::ImageResource:
-                return Image;
-            case CachedResource::FontResource:
-                return Font;
-            case CachedResource::CSSStyleSheet:
-#if ENABLE(XSLT)
-            case CachedResource::XSLStyleSheet:
-#endif
-                return Stylesheet;
-            case CachedResource::Script:
-                return Script;
-            default:
-                return Other;
-        }
-    }
-
-    void setScriptObject(JSContextRef context, JSObjectRef newScriptObject)
-    {
-        if (scriptContext && scriptObject)
-            JSValueUnprotect(scriptContext, scriptObject);
-
-        scriptObject = newScriptObject;
-        scriptContext = context;
-
-        ASSERT((context && newScriptObject) || (!context && !newScriptObject));
-        if (context && newScriptObject)
-            JSValueProtect(context, newScriptObject);
-    }
-
-    void setXMLHttpRequestProperties(const JSC::UString& data)
-    {
-        xmlHttpRequestResource.set(new XMLHttpRequestResource(data));
-    }
-    
-    String sourceString() const
-     {
-         if (xmlHttpRequestResource)
-            return JSC::UString(xmlHttpRequestResource->sourceString);
-
-        RefPtr<SharedBuffer> buffer;
-        String textEncodingName;
-
-        if (requestURL == loader->requestURL()) {
-            buffer = loader->mainResourceData();
-            textEncodingName = frame->document()->inputEncoding();
-        } else {
-            CachedResource* cachedResource = frame->document()->docLoader()->cachedResource(requestURL.string());
-            if (!cachedResource)
-                return String();
-
-            if (cachedResource->isPurgeable()) {
-                // If the resource is purgeable then make it unpurgeable to get
-                // get its data. This might fail, in which case we return an
-                // empty String.
-                // FIXME: should we do something else in the case of a purged
-                // resource that informs the user why there is no data in the
-                // inspector?
-                if (!cachedResource->makePurgeable(false))
-                    return String();
-            }
-
-            buffer = cachedResource->data();
-            textEncodingName = cachedResource->encoding();
-        }
-
-        if (!buffer)
-            return String();
-
-        TextEncoding encoding(textEncodingName);
-        if (!encoding.isValid())
-            encoding = WindowsLatin1Encoding();
-        return encoding.decode(buffer->data(), buffer->size());
-     }
-
-    long long identifier;
-    RefPtr<DocumentLoader> loader;
-    RefPtr<Frame> frame;
-    OwnPtr<XMLHttpRequestResource> xmlHttpRequestResource;
-    KURL requestURL;
-    HTTPHeaderMap requestHeaderFields;
-    HTTPHeaderMap responseHeaderFields;
-    String mimeType;
-    String suggestedFilename;
-    JSContextRef scriptContext;
-    JSObjectRef scriptObject;
-    long long expectedContentLength;
-    bool cached;
-    bool finished;
-    bool failed;
-    int length;
-    int responseStatusCode;
-    double startTime;
-    double responseReceivedTime;
-    double endTime;
-
-protected:
-    InspectorResource(long long identifier, DocumentLoader* documentLoader, Frame* frame)
-        : identifier(identifier)
-        , loader(documentLoader)
-        , frame(frame)
-        , xmlHttpRequestResource(0)
-        , scriptContext(0)
-        , scriptObject(0)
-        , expectedContentLength(0)
-        , cached(false)
-        , finished(false)
-        , failed(false)
-        , length(0)
-        , responseStatusCode(0)
-        , startTime(-1.0)
-        , responseReceivedTime(-1.0)
-        , endTime(-1.0)
-    {
-    }
-};
-
-// InspectorDatabaseResource Struct
-
-#if ENABLE(DATABASE)
-struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
-    static PassRefPtr<InspectorDatabaseResource> create(Database* database, const String& domain, const String& name, const String& version)
-    {
-        return adoptRef(new InspectorDatabaseResource(database, domain, name, version));
-    }
-
-    void setScriptObject(JSContextRef context, JSObjectRef newScriptObject)
-    {
-        if (scriptContext && scriptObject)
-            JSValueUnprotect(scriptContext, scriptObject);
-
-        scriptObject = newScriptObject;
-        scriptContext = context;
-
-        ASSERT((context && newScriptObject) || (!context && !newScriptObject));
-        if (context && newScriptObject)
-            JSValueProtect(context, newScriptObject);
-    }
-
-    RefPtr<Database> database;
-    String domain;
-    String name;
-    String version;
-    JSContextRef scriptContext;
-    JSObjectRef scriptObject;
-    
-private:
-    InspectorDatabaseResource(Database* database, const String& domain, const String& name, const String& version)
-        : database(database)
-        , domain(domain)
-        , name(name)
-        , version(version)
-        , scriptContext(0)
-        , scriptObject(0)
-    {
-    }
-};
-#endif
-
-// JavaScript Callbacks
-
-#define SIMPLE_INSPECTOR_CALLBACK(jsFunction, inspectorControllerMethod) \
-static JSValueRef jsFunction(JSContextRef ctx, JSObjectRef, JSObjectRef thisObject, size_t, const JSValueRef[], JSValueRef*) \
-{ \
-    if (InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject))) \
-        controller->inspectorControllerMethod(); \
-    return JSValueMakeUndefined(ctx); \
-}
-
-SIMPLE_INSPECTOR_CALLBACK(hideDOMNodeHighlight, hideHighlight);
-SIMPLE_INSPECTOR_CALLBACK(loaded, scriptObjectReady);
-SIMPLE_INSPECTOR_CALLBACK(unloading, close);
-SIMPLE_INSPECTOR_CALLBACK(attach, attachWindow);
-SIMPLE_INSPECTOR_CALLBACK(detach, detachWindow);
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-SIMPLE_INSPECTOR_CALLBACK(enableDebugger, enableDebugger);
-SIMPLE_INSPECTOR_CALLBACK(disableDebugger, disableDebugger);
-SIMPLE_INSPECTOR_CALLBACK(pauseInDebugger, pauseInDebugger);
-SIMPLE_INSPECTOR_CALLBACK(resumeDebugger, resumeDebugger);
-SIMPLE_INSPECTOR_CALLBACK(stepOverStatementInDebugger, stepOverStatementInDebugger);
-SIMPLE_INSPECTOR_CALLBACK(stepIntoStatementInDebugger, stepIntoStatementInDebugger);
-SIMPLE_INSPECTOR_CALLBACK(stepOutOfFunctionInDebugger, stepOutOfFunctionInDebugger);
-#endif
-SIMPLE_INSPECTOR_CALLBACK(closeWindow, closeWindow);
-SIMPLE_INSPECTOR_CALLBACK(clearMessages, clearConsoleMessages);
-SIMPLE_INSPECTOR_CALLBACK(startProfiling, startUserInitiatedProfilingSoon);
-SIMPLE_INSPECTOR_CALLBACK(stopProfiling, stopUserInitiatedProfiling);
-SIMPLE_INSPECTOR_CALLBACK(enableProfiler, enableProfiler);
-SIMPLE_INSPECTOR_CALLBACK(disableProfiler, disableProfiler);
-SIMPLE_INSPECTOR_CALLBACK(toggleNodeSearch, toggleSearchForNodeInPage);
-
-#define BOOL_INSPECTOR_CALLBACK(jsFunction, inspectorControllerMethod) \
-static JSValueRef jsFunction(JSContextRef ctx, JSObjectRef, JSObjectRef thisObject, size_t, const JSValueRef[], JSValueRef*) \
-{ \
-    if (InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject))) \
-        return JSValueMakeBoolean(ctx, controller->inspectorControllerMethod()); \
-    return JSValueMakeUndefined(ctx); \
-}
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-BOOL_INSPECTOR_CALLBACK(debuggerEnabled, debuggerEnabled);
-BOOL_INSPECTOR_CALLBACK(pauseOnExceptions, pauseOnExceptions);
-#endif
-BOOL_INSPECTOR_CALLBACK(profilerEnabled, profilerEnabled);
-BOOL_INSPECTOR_CALLBACK(isWindowVisible, windowVisible);
-BOOL_INSPECTOR_CALLBACK(searchingForNode, searchingForNodeInPage);
-
-static bool addSourceToFrame(const String& mimeType, const String& source, Node* frameNode)
+bool InspectorController::addSourceToFrame(const String& mimeType, const String& source, Node* frameNode)
 {
     ASSERT_ARG(frameNode, frameNode);
 
@@ -541,362 +207,7 @@ static bool addSourceToFrame(const String& mimeType, const String& source, Node*
     return true;
 }
 
-static JSValueRef addResourceSourceToFrame(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    JSValueRef undefined = JSValueMakeUndefined(ctx);
-
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (argumentCount < 2 || !controller)
-        return undefined;
-
-    JSValueRef identifierValue = arguments[0];
-    if (!JSValueIsNumber(ctx, identifierValue))
-        return undefined;
-
-    long long identifier = static_cast<long long>(JSValueToNumber(ctx, identifierValue, exception));
-    if (exception && *exception)
-        return undefined;
-
-    RefPtr<InspectorResource> resource = controller->resources().get(identifier);
-    ASSERT(resource);
-    if (!resource)
-        return undefined;
-
-    String sourceString = resource->sourceString();
-    if (sourceString.isEmpty())
-        return undefined;
-
-    bool successfullyAddedSource = addSourceToFrame(resource->mimeType, sourceString, toNode(toJS(arguments[1])));
-    return JSValueMakeBoolean(ctx, successfullyAddedSource);
-}
-
-static JSValueRef addSourceToFrame(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    JSValueRef undefined = JSValueMakeUndefined(ctx);
-
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (argumentCount < 3 || !controller)
-        return undefined;
-
-    JSValueRef mimeTypeValue = arguments[0];
-    if (!JSValueIsString(ctx, mimeTypeValue))
-        return undefined;
-
-    JSValueRef sourceValue = arguments[1];
-    if (!JSValueIsString(ctx, sourceValue))
-        return undefined;
-
-    String mimeType = toString(ctx, mimeTypeValue, exception);
-    if (mimeType.isEmpty())
-        return undefined;
-
-    String source = toString(ctx, sourceValue, exception);
-    if (source.isEmpty())
-        return undefined;
-
-    bool successfullyAddedSource = addSourceToFrame(mimeType, source, toNode(toJS(arguments[2])));
-    return JSValueMakeBoolean(ctx, successfullyAddedSource);
-}
-
-static JSValueRef getResourceDocumentNode(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    JSValueRef undefined = JSValueMakeUndefined(ctx);
-
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!argumentCount || argumentCount > 1 || !controller)
-        return undefined;
-
-    JSValueRef identifierValue = arguments[0];
-    if (!JSValueIsNumber(ctx, identifierValue))
-        return undefined;
-
-    long long identifier = static_cast<long long>(JSValueToNumber(ctx, identifierValue, exception));
-    if (exception && *exception)
-        return undefined;
-
-    RefPtr<InspectorResource> resource = controller->resources().get(identifier);
-    ASSERT(resource);
-    if (!resource)
-        return undefined;
-
-    Frame* frame = resource->frame.get();
-
-    Document* document = frame->document();
-    if (!document)
-        return undefined;
-
-    if (document->isPluginDocument() || document->isImageDocument() || document->isMediaDocument())
-        return undefined;
-
-    ExecState* exec = toJSDOMWindowShell(resource->frame.get())->window()->globalExec();
-
-    JSC::JSLock lock(false);
-    JSValueRef documentValue = toRef(JSInspectedObjectWrapper::wrap(exec, toJS(exec, document)));
-    return documentValue;
-}
-
-static JSValueRef highlightDOMNode(JSContextRef context, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* /*exception*/)
-{
-    JSValueRef undefined = JSValueMakeUndefined(context);
-
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (argumentCount < 1 || !controller)
-        return undefined;
-
-    JSQuarantinedObjectWrapper* wrapper = JSQuarantinedObjectWrapper::asWrapper(toJS(arguments[0]));
-    if (!wrapper)
-        return undefined;
-    Node* node = toNode(wrapper->unwrappedObject());
-    if (!node)
-        return undefined;
-
-    controller->highlight(node);
-
-    return undefined;
-}
-
-static JSValueRef search(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 2 || !JSValueIsString(ctx, arguments[1]))
-        return JSValueMakeUndefined(ctx);
-
-    Node* node = toNode(toJS(arguments[0]));
-    if (!node)
-        return JSValueMakeUndefined(ctx);
-
-    String target = toString(ctx, arguments[1], exception);
-
-    JSObjectRef global = JSContextGetGlobalObject(ctx);
-
-    JSValueRef arrayProperty = JSObjectGetProperty(ctx, global, jsStringRef("Array").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef arrayConstructor = JSValueToObject(ctx, arrayProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef result = JSObjectCallAsConstructor(ctx, arrayConstructor, 0, 0, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSValueRef pushProperty = JSObjectGetProperty(ctx, result, jsStringRef("push").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef pushFunction = JSValueToObject(ctx, pushProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    RefPtr<Range> searchRange(rangeOfContents(node));
-
-    ExceptionCode ec = 0;
-    do {
-        RefPtr<Range> resultRange(findPlainText(searchRange.get(), target, true, false));
-        if (resultRange->collapsed(ec))
-            break;
-
-        // A non-collapsed result range can in some funky whitespace cases still not
-        // advance the range's start position (4509328). Break to avoid infinite loop.
-        VisiblePosition newStart = endVisiblePosition(resultRange.get(), DOWNSTREAM);
-        if (newStart == startVisiblePosition(searchRange.get(), DOWNSTREAM))
-            break;
-
-        JSC::JSLock lock(false);
-        JSValueRef arg0 = toRef(toJS(toJS(ctx), resultRange.get()));
-        JSObjectCallAsFunction(ctx, pushFunction, result, 1, &arg0, exception);
-        if (exception && *exception)
-            return JSValueMakeUndefined(ctx);
-
-        setStart(searchRange.get(), newStart);
-    } while (true);
-
-    return result;
-}
-
-#if ENABLE(DATABASE)
-static JSValueRef databaseTableNames(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 1)
-        return JSValueMakeUndefined(ctx);
-
-    JSQuarantinedObjectWrapper* wrapper = JSQuarantinedObjectWrapper::asWrapper(toJS(arguments[0]));
-    if (!wrapper)
-        return JSValueMakeUndefined(ctx);
-
-    Database* database = toDatabase(wrapper->unwrappedObject());
-    if (!database)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef global = JSContextGetGlobalObject(ctx);
-
-    JSValueRef arrayProperty = JSObjectGetProperty(ctx, global, jsStringRef("Array").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef arrayConstructor = JSValueToObject(ctx, arrayProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef result = JSObjectCallAsConstructor(ctx, arrayConstructor, 0, 0, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSValueRef pushProperty = JSObjectGetProperty(ctx, result, jsStringRef("push").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef pushFunction = JSValueToObject(ctx, pushProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    Vector<String> tableNames = database->tableNames();
-    unsigned length = tableNames.size();
-    for (unsigned i = 0; i < length; ++i) {
-        String tableName = tableNames[i];
-        JSValueRef tableNameValue = JSValueMakeString(ctx, jsStringRef(tableName).get());
-
-        JSValueRef pushArguments[] = { tableNameValue };
-        JSObjectCallAsFunction(ctx, pushFunction, result, 1, pushArguments, exception);
-        if (exception && *exception)
-            return JSValueMakeUndefined(ctx);
-    }
-
-    return result;
-}
-#endif
-
-static JSValueRef inspectedWindow(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments[]*/, JSValueRef* /*exception*/)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    JSDOMWindow* inspectedWindow = toJSDOMWindow(controller->inspectedPage()->mainFrame());
-    JSLock lock(false);
-    return toRef(JSInspectedObjectWrapper::wrap(inspectedWindow->globalExec(), inspectedWindow));
-}
-
-static JSValueRef setting(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    JSValueRef keyValue = arguments[0];
-    if (!JSValueIsString(ctx, keyValue))
-        return JSValueMakeUndefined(ctx);
-
-    const InspectorController::Setting& setting = controller->setting(toString(ctx, keyValue, exception));
-
-    switch (setting.type()) {
-        default:
-        case InspectorController::Setting::NoType:
-            return JSValueMakeUndefined(ctx);
-        case InspectorController::Setting::StringType:
-            return JSValueMakeString(ctx, jsStringRef(setting.string()).get());
-        case InspectorController::Setting::DoubleType:
-            return JSValueMakeNumber(ctx, setting.doubleValue());
-        case InspectorController::Setting::IntegerType:
-            return JSValueMakeNumber(ctx, setting.integerValue());
-        case InspectorController::Setting::BooleanType:
-            return JSValueMakeBoolean(ctx, setting.booleanValue());
-        case InspectorController::Setting::StringVectorType: {
-            Vector<JSValueRef> stringValues;
-            const Vector<String>& strings = setting.stringVector();
-            const unsigned length = strings.size();
-            for (unsigned i = 0; i < length; ++i)
-                stringValues.append(JSValueMakeString(ctx, jsStringRef(strings[i]).get()));
-
-            JSObjectRef stringsArray = JSObjectMakeArray(ctx, stringValues.size(), stringValues.data(), exception);
-            if (exception && *exception)
-                return JSValueMakeUndefined(ctx);
-            return stringsArray;
-        }
-    }
-}
-
-static JSValueRef setSetting(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    JSValueRef keyValue = arguments[0];
-    if (!JSValueIsString(ctx, keyValue))
-        return JSValueMakeUndefined(ctx);
-
-    InspectorController::Setting setting;
-
-    JSValueRef value = arguments[1];
-    switch (JSValueGetType(ctx, value)) {
-        default:
-        case kJSTypeUndefined:
-        case kJSTypeNull:
-            // Do nothing. The setting is already NoType.
-            ASSERT(setting.type() == InspectorController::Setting::NoType);
-            break;
-        case kJSTypeString:
-            setting.set(toString(ctx, value, exception));
-            break;
-        case kJSTypeNumber:
-            setting.set(JSValueToNumber(ctx, value, exception));
-            break;
-        case kJSTypeBoolean:
-            setting.set(JSValueToBoolean(ctx, value));
-            break;
-        case kJSTypeObject: {
-            JSObjectRef object = JSValueToObject(ctx, value, 0);
-            JSValueRef lengthValue = JSObjectGetProperty(ctx, object, jsStringRef("length").get(), exception);
-            if (exception && *exception)
-                return JSValueMakeUndefined(ctx);
-
-            Vector<String> strings;
-            const unsigned length = static_cast<unsigned>(JSValueToNumber(ctx, lengthValue, 0));
-            for (unsigned i = 0; i < length; ++i) {
-                JSValueRef itemValue = JSObjectGetPropertyAtIndex(ctx, object, i, exception);
-                if (exception && *exception)
-                    return JSValueMakeUndefined(ctx);
-                strings.append(toString(ctx, itemValue, exception));
-                if (exception && *exception)
-                    return JSValueMakeUndefined(ctx);
-            }
-
-            setting.set(strings);
-            break;
-        }
-    }
-
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    controller->setSetting(toString(ctx, keyValue, exception), setting);
-
-    return JSValueMakeUndefined(ctx);
-}
-
-static JSValueRef localizedStrings(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments[]*/, JSValueRef* /*exception*/)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    String url = controller->localizedStringsURL();
-    if (url.isNull())
-        return JSValueMakeNull(ctx);
-
-    return JSValueMakeString(ctx, jsStringRef(url).get());
-}
-
-static JSValueRef platform(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef /*thisObject*/, size_t /*argumentCount*/, const JSValueRef[] /*arguments[]*/, JSValueRef* /*exception*/)
+const String& InspectorController::platform() const
 {
 #if PLATFORM(MAC)
 #ifdef BUILDING_ON_TIGER
@@ -916,183 +227,8 @@ static JSValueRef platform(JSContextRef ctx, JSObjectRef /*function*/, JSObjectR
     DEFINE_STATIC_LOCAL(const String, platform, ("unknown"));
 #endif
 
-    JSValueRef platformValue = JSValueMakeString(ctx, jsStringRef(platform).get());
-
-    return platformValue;
+    return platform;
 }
-
-static JSValueRef moveByUnrestricted(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 2)
-        return JSValueMakeUndefined(ctx);
-
-    double x = JSValueToNumber(ctx, arguments[0], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    double y = JSValueToNumber(ctx, arguments[1], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    controller->moveWindowBy(narrowPrecisionToFloat(x), narrowPrecisionToFloat(y));
-
-    return JSValueMakeUndefined(ctx);
-}
-
-static JSValueRef setAttachedWindowHeight(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 1)
-        return JSValueMakeUndefined(ctx);
-
-    unsigned height = static_cast<unsigned>(JSValueToNumber(ctx, arguments[0], exception));
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    controller->setAttachedWindowHeight(height);
-
-    return JSValueMakeUndefined(ctx);
-}
-
-static JSValueRef wrapCallback(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* /*exception*/)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 1)
-        return JSValueMakeUndefined(ctx);
-
-    JSLock lock(false);
-    return toRef(JSInspectorCallbackWrapper::wrap(toJS(ctx), toJS(arguments[0])));
-}
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-static JSValueRef currentCallFrame(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments*/, JSValueRef* /*exception*/)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    JavaScriptCallFrame* callFrame = controller->currentCallFrame();
-    if (!callFrame || !callFrame->isValid())
-        return JSValueMakeNull(ctx);
-
-    ExecState* globalExec = callFrame->scopeChain()->globalObject()->globalExec();
-
-    JSLock lock(false);
-    return toRef(JSInspectedObjectWrapper::wrap(globalExec, toJS(toJS(ctx), callFrame)));
-}
-
-static JSValueRef setPauseOnExceptions(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* /*exception*/)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 1)
-        return JSValueMakeUndefined(ctx);
-
-    controller->setPauseOnExceptions(JSValueToBoolean(ctx, arguments[0]));
-
-    return JSValueMakeUndefined(ctx);
-}
-
-static JSValueRef addBreakpoint(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 2)
-        return JSValueMakeUndefined(ctx);
-
-    double sourceID = JSValueToNumber(ctx, arguments[0], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    double lineNumber = JSValueToNumber(ctx, arguments[1], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    controller->addBreakpoint(static_cast<int>(sourceID), static_cast<unsigned>(lineNumber));
-
-    return JSValueMakeUndefined(ctx);
-}
-
-static JSValueRef removeBreakpoint(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    if (argumentCount < 2)
-        return JSValueMakeUndefined(ctx);
-
-    double sourceID = JSValueToNumber(ctx, arguments[0], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    double lineNumber = JSValueToNumber(ctx, arguments[1], exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    controller->removeBreakpoint(static_cast<int>(sourceID), static_cast<unsigned>(lineNumber));
-
-    return JSValueMakeUndefined(ctx);
-}
-#endif
-
-static JSValueRef profiles(JSContextRef ctx, JSObjectRef /*function*/, JSObjectRef thisObject, size_t /*argumentCount*/, const JSValueRef[] /*arguments*/, JSValueRef* exception)
-{
-    InspectorController* controller = reinterpret_cast<InspectorController*>(JSObjectGetPrivate(thisObject));
-    if (!controller)
-        return JSValueMakeUndefined(ctx);
-
-    JSLock lock(false);
-
-    const Vector<RefPtr<Profile> >& profiles = controller->profiles();
-
-    JSObjectRef global = JSContextGetGlobalObject(ctx);
-
-    JSValueRef arrayProperty = JSObjectGetProperty(ctx, global, jsStringRef("Array").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef arrayConstructor = JSValueToObject(ctx, arrayProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef result = JSObjectCallAsConstructor(ctx, arrayConstructor, 0, 0, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSValueRef pushProperty = JSObjectGetProperty(ctx, result, jsStringRef("push").get(), exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    JSObjectRef pushFunction = JSValueToObject(ctx, pushProperty, exception);
-    if (exception && *exception)
-        return JSValueMakeUndefined(ctx);
-
-    for (size_t i = 0; i < profiles.size(); ++i) {
-        JSValueRef arg0 = toRef(toJS(toJS(ctx), profiles[i].get()));
-        JSObjectCallAsFunction(ctx, pushFunction, result, 1, &arg0, exception);
-        if (exception && *exception)
-            return JSValueMakeUndefined(ctx);
-    }
-
-    return result;
-}
-
-// InspectorController Class
 
 static unsigned s_inspectorControllerCount;
 static HashMap<String, InspectorController::Setting*>* s_settingCache;
@@ -1225,6 +361,13 @@ String InspectorController::localizedStringsURL()
     return m_client->localizedStringsURL();
 }
 
+String InspectorController::hiddenPanels()
+{
+    if (!enabled())
+        return String();
+    return m_client->hiddenPanels();
+}
+
 // Trying to inspect something in a frame with JavaScript disabled would later lead to
 // crashes trying to create JavaScript wrappers. Some day we could fix this issue, but
 // for now prevent crashes here by never targeting a node in such a frame.
@@ -1297,6 +440,7 @@ void InspectorController::hideHighlight()
 {
     if (!enabled())
         return;
+    m_highlightedNode = 0;
     m_client->hideHighlight();
 }
 
@@ -1358,7 +502,7 @@ void InspectorController::addConsoleMessage(ExecState* exec, ConsoleMessage* con
     ASSERT_ARG(consoleMessage, consoleMessage);
 
     if (m_previousMessage && m_previousMessage->isEqual(exec, consoleMessage)) {
-        ++m_previousMessage->repeatCount;
+        m_previousMessage->incrementCount();
         delete consoleMessage;
     } else {
         m_previousMessage = consoleMessage;
@@ -1366,7 +510,7 @@ void InspectorController::addConsoleMessage(ExecState* exec, ConsoleMessage* con
     }
 
     if (windowVisible())
-        addScriptConsoleMessage(m_previousMessage);
+        m_previousMessage->addToConsole(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
 }
 
 void InspectorController::clearConsoleMessages()
@@ -1520,83 +664,16 @@ void InspectorController::windowScriptObjectAvailable()
     if (!m_page || !enabled())
         return;
 
-    m_scriptContext = toRef(m_page->mainFrame()->script()->globalObject()->globalExec());
+    // Grant the inspector the ability to script the inspected page.
+    m_page->mainFrame()->document()->securityOrigin()->grantUniversalAccess();
 
-    JSObjectRef global = JSContextGetGlobalObject(m_scriptContext);
-    ASSERT(global);
-
-    static JSStaticFunction staticFunctions[] = {
-        // SIMPLE_INSPECTOR_CALLBACK
-        { "hideDOMNodeHighlight", WebCore::hideDOMNodeHighlight, kJSPropertyAttributeNone },
-        { "loaded", WebCore::loaded, kJSPropertyAttributeNone },
-        { "windowUnloading", WebCore::unloading, kJSPropertyAttributeNone },
-        { "attach", WebCore::attach, kJSPropertyAttributeNone },
-        { "detach", WebCore::detach, kJSPropertyAttributeNone },
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-        { "enableDebugger", WebCore::enableDebugger, kJSPropertyAttributeNone },
-        { "disableDebugger", WebCore::disableDebugger, kJSPropertyAttributeNone },
-        { "pauseInDebugger", WebCore::pauseInDebugger, kJSPropertyAttributeNone },
-        { "resumeDebugger", WebCore::resumeDebugger, kJSPropertyAttributeNone },
-        { "stepOverStatementInDebugger", WebCore::stepOverStatementInDebugger, kJSPropertyAttributeNone },
-        { "stepIntoStatementInDebugger", WebCore::stepIntoStatementInDebugger, kJSPropertyAttributeNone },
-        { "stepOutOfFunctionInDebugger", WebCore::stepOutOfFunctionInDebugger, kJSPropertyAttributeNone },
-#endif
-        { "closeWindow", WebCore::closeWindow, kJSPropertyAttributeNone },
-        { "clearMessages", WebCore::clearMessages, kJSPropertyAttributeNone },
-        { "startProfiling", WebCore::startProfiling, kJSPropertyAttributeNone },
-        { "stopProfiling", WebCore::stopProfiling, kJSPropertyAttributeNone },
-        { "enableProfiler", WebCore::enableProfiler, kJSPropertyAttributeNone },
-        { "disableProfiler", WebCore::disableProfiler, kJSPropertyAttributeNone },
-        { "toggleNodeSearch", WebCore::toggleNodeSearch, kJSPropertyAttributeNone },
-
-        // BOOL_INSPECTOR_CALLBACK
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-        { "debuggerEnabled", WebCore::debuggerEnabled, kJSPropertyAttributeNone },
-        { "pauseOnExceptions", WebCore::pauseOnExceptions, kJSPropertyAttributeNone },
-#endif
-        { "profilerEnabled", WebCore::profilerEnabled, kJSPropertyAttributeNone },
-        { "isWindowVisible", WebCore::isWindowVisible, kJSPropertyAttributeNone },
-        { "searchingForNode", WebCore::searchingForNode, kJSPropertyAttributeNone },
-
-        // Custom callbacks
-        { "addResourceSourceToFrame", WebCore::addResourceSourceToFrame, kJSPropertyAttributeNone },
-        { "addSourceToFrame", WebCore::addSourceToFrame, kJSPropertyAttributeNone },
-        { "getResourceDocumentNode", WebCore::getResourceDocumentNode, kJSPropertyAttributeNone },
-        { "highlightDOMNode", WebCore::highlightDOMNode, kJSPropertyAttributeNone },
-        { "search", WebCore::search, kJSPropertyAttributeNone },
-#if ENABLE(DATABASE)
-        { "databaseTableNames", WebCore::databaseTableNames, kJSPropertyAttributeNone },
-#endif
-        { "setting", WebCore::setting, kJSPropertyAttributeNone },
-        { "setSetting", WebCore::setSetting, kJSPropertyAttributeNone },
-        { "inspectedWindow", WebCore::inspectedWindow, kJSPropertyAttributeNone },
-        { "localizedStringsURL", WebCore::localizedStrings, kJSPropertyAttributeNone },
-        { "platform", WebCore::platform, kJSPropertyAttributeNone },
-        { "moveByUnrestricted", WebCore::moveByUnrestricted, kJSPropertyAttributeNone },
-        { "setAttachedWindowHeight", WebCore::setAttachedWindowHeight, kJSPropertyAttributeNone },
-        { "wrapCallback", WebCore::wrapCallback, kJSPropertyAttributeNone },
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-        { "currentCallFrame", WebCore::currentCallFrame, kJSPropertyAttributeNone },
-        { "setPauseOnExceptions", WebCore::setPauseOnExceptions, kJSPropertyAttributeNone },
-        { "addBreakpoint", WebCore::addBreakpoint, kJSPropertyAttributeNone },
-        { "removeBreakpoint", WebCore::removeBreakpoint, kJSPropertyAttributeNone },
-#endif
-        { "profiles", WebCore::profiles, kJSPropertyAttributeNone },
-        { 0, 0, 0 }
-    };
-
-    JSClassDefinition inspectorControllerDefinition = {
-        0, kJSClassAttributeNone, "InspectorController", 0, 0, staticFunctions,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-
-    JSClassRef controllerClass = JSClassCreate(&inspectorControllerDefinition);
-    ASSERT(controllerClass);
-
-    m_controllerScriptObject = JSObjectMake(m_scriptContext, controllerClass, reinterpret_cast<void*>(this));
-    ASSERT(m_controllerScriptObject);
-
-    JSObjectSetProperty(m_scriptContext, global, jsStringRef("InspectorController").get(), m_controllerScriptObject, kJSPropertyAttributeNone, 0);
+    // FIXME: This should be cleaned up. API Mix-up.
+    JSGlobalObject* globalObject = m_page->mainFrame()->script()->globalObject();
+    ExecState* exec = globalObject->globalExec();
+    m_scriptContext = toRef(exec);
+    JSValuePtr jsInspector = toJS(exec, this);
+    m_controllerScriptObject = toRef(asObject(jsInspector));
+    globalObject->putDirect(Identifier(exec, "InspectorController"), jsInspector);
 }
 
 void InspectorController::scriptObjectReady()
@@ -2103,145 +1180,20 @@ void InspectorController::populateScriptObjects()
 
     unsigned messageCount = m_consoleMessages.size();
     for (unsigned i = 0; i < messageCount; ++i)
-        addScriptConsoleMessage(m_consoleMessages[i]);
+        m_consoleMessages[i]->addToConsole(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
 
 #if ENABLE(DATABASE)
     DatabaseResourcesSet::iterator databasesEnd = m_databaseResources.end();
     for (DatabaseResourcesSet::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it)
-        addDatabaseScriptResource((*it).get());
+        (*it)->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+#endif
+#if ENABLE(DOM_STORAGE)
+    DOMStorageResourcesSet::iterator domStorageEnd = m_domStorageResources.end();
+    for (DOMStorageResourcesSet::iterator it = m_domStorageResources.begin(); it != domStorageEnd; ++it)
+        (*it)->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
 #endif
 
     callSimpleFunction(m_scriptContext, m_scriptObject, "populateInterface");
-}
-
-#if ENABLE(DATABASE)
-JSObjectRef InspectorController::addDatabaseScriptResource(InspectorDatabaseResource* resource)
-{
-    ASSERT_ARG(resource, resource);
-
-    if (resource->scriptObject)
-        return resource->scriptObject;
-
-    ASSERT(m_scriptContext);
-    ASSERT(m_scriptObject);
-    if (!m_scriptContext || !m_scriptObject)
-        return 0;
-
-    Frame* frame = resource->database->document()->frame();
-    if (!frame)
-        return 0;
-
-    JSValueRef exception = 0;
-
-    JSValueRef databaseProperty = JSObjectGetProperty(m_scriptContext, m_scriptObject, jsStringRef("Database").get(), &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return 0;
-
-    JSObjectRef databaseConstructor = JSValueToObject(m_scriptContext, databaseProperty, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return 0;
-
-    ExecState* exec = toJSDOMWindow(frame)->globalExec();
-
-    JSValueRef database;
-
-    {
-        JSC::JSLock lock(false);
-        database = toRef(JSInspectedObjectWrapper::wrap(exec, toJS(exec, resource->database.get())));
-    }
-
-    JSValueRef domainValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->domain).get());
-    JSValueRef nameValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->name).get());
-    JSValueRef versionValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->version).get());
-
-    JSValueRef arguments[] = { database, domainValue, nameValue, versionValue };
-    JSObjectRef result = JSObjectCallAsConstructor(m_scriptContext, databaseConstructor, 4, arguments, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return 0;
-
-    ASSERT(result);
-
-    callFunction(m_scriptContext, m_scriptObject, "addDatabase", 1, &result, exception);
-
-    if (exception)
-        return 0;
-
-    resource->setScriptObject(m_scriptContext, result);
-
-    return result;
-}
-
-void InspectorController::removeDatabaseScriptResource(InspectorDatabaseResource* resource)
-{
-    ASSERT(m_scriptContext);
-    ASSERT(m_scriptObject);
-    if (!m_scriptContext || !m_scriptObject)
-        return;
-
-    ASSERT(resource);
-    ASSERT(resource->scriptObject);
-    if (!resource || !resource->scriptObject)
-        return;
-
-    JSObjectRef scriptObject = resource->scriptObject;
-    resource->setScriptObject(0, 0);
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "removeDatabase", 1, &scriptObject, exception);
-}
-#endif
-
-void InspectorController::addScriptConsoleMessage(const ConsoleMessage* message)
-{
-    ASSERT_ARG(message, message);
-
-    JSValueRef exception = 0;
-
-    JSValueRef messageConstructorProperty = JSObjectGetProperty(m_scriptContext, m_scriptObject, jsStringRef("ConsoleMessage").get(), &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectRef messageConstructor = JSValueToObject(m_scriptContext, messageConstructorProperty, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSValueRef sourceValue = JSValueMakeNumber(m_scriptContext, message->source);
-    JSValueRef levelValue = JSValueMakeNumber(m_scriptContext, message->level);
-    JSValueRef lineValue = JSValueMakeNumber(m_scriptContext, message->line);
-    JSValueRef urlValue = JSValueMakeString(m_scriptContext, jsStringRef(message->url).get());
-    JSValueRef groupLevelValue = JSValueMakeNumber(m_scriptContext, message->groupLevel);
-    JSValueRef repeatCountValue = JSValueMakeNumber(m_scriptContext, message->repeatCount);
-
-    static const unsigned maximumMessageArguments = 256;
-    JSValueRef arguments[maximumMessageArguments];
-    unsigned argumentCount = 0;
-    arguments[argumentCount++] = sourceValue;
-    arguments[argumentCount++] = levelValue;
-    arguments[argumentCount++] = lineValue;
-    arguments[argumentCount++] = urlValue;
-    arguments[argumentCount++] = groupLevelValue;
-    arguments[argumentCount++] = repeatCountValue;
-
-    if (!message->frames.isEmpty()) {
-        unsigned remainingSpaceInArguments = maximumMessageArguments - argumentCount;
-        unsigned argumentsToAdd = min(remainingSpaceInArguments, static_cast<unsigned>(message->frames.size()));
-        for (unsigned i = 0; i < argumentsToAdd; ++i)
-            arguments[argumentCount++] = JSValueMakeString(m_scriptContext, jsStringRef(message->frames[i]).get());
-    } else if (!message->wrappedArguments.isEmpty()) {
-        unsigned remainingSpaceInArguments = maximumMessageArguments - argumentCount;
-        unsigned argumentsToAdd = min(remainingSpaceInArguments, static_cast<unsigned>(message->wrappedArguments.size()));
-        for (unsigned i = 0; i < argumentsToAdd; ++i)
-            arguments[argumentCount++] = toRef(message->wrappedArguments[i]);
-    } else {
-        JSValueRef messageValue = JSValueMakeString(m_scriptContext, jsStringRef(message->message).get());
-        arguments[argumentCount++] = messageValue;
-    }
-
-    JSObjectRef messageObject = JSObjectCallAsConstructor(m_scriptContext, messageConstructor, argumentCount, arguments, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    callFunction(m_scriptContext, m_scriptObject, "addMessageToConsole", 1, &messageObject, exception);
 }
 
 void InspectorController::addScriptProfile(Profile* profile)
@@ -2265,10 +1217,13 @@ void InspectorController::resetScriptObjects()
 
 #if ENABLE(DATABASE)
     DatabaseResourcesSet::iterator databasesEnd = m_databaseResources.end();
-    for (DatabaseResourcesSet::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it) {
-        InspectorDatabaseResource* resource = (*it).get();
-        resource->setScriptObject(0, 0);
-    }
+    for (DatabaseResourcesSet::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it)
+        (*it)->unbind();
+#endif
+#if ENABLE(DOM_STORAGE)
+    DOMStorageResourcesSet::iterator domStorageEnd = m_domStorageResources.end();
+    for (DOMStorageResourcesSet::iterator it = m_domStorageResources.begin(); it != domStorageEnd; ++it)
+        (*it)->unbind();
 #endif
 
     callSimpleFunction(m_scriptContext, m_scriptObject, "reset");
@@ -2311,6 +1266,9 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 
 #if ENABLE(DATABASE)
         m_databaseResources.clear();
+#endif
+#if ENABLE(DOM_STORAGE)
+        m_domStorageResources.clear();
 #endif
 
         if (windowVisible()) {
@@ -2555,6 +1513,21 @@ void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identi
         updateScriptResourceType(resource);
 }
 
+void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString)
+{
+    if (!enabled())
+        return;
+    
+    InspectorResource* resource = m_resources.get(identifier).get();
+    if (!resource)
+        return;
+    
+    resource->setXMLHttpRequestProperties(sourceString);
+    
+    if (windowVisible() && resource->scriptObject)
+        updateScriptResourceType(resource);
+}
+
 
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database* database, const String& domain, const String& name, const String& version)
@@ -2567,7 +1540,27 @@ void InspectorController::didOpenDatabase(Database* database, const String& doma
     m_databaseResources.add(resource);
 
     if (windowVisible())
-        addDatabaseScriptResource(resource.get());
+        resource->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+}
+#endif
+
+#if ENABLE(DOM_STORAGE)
+void InspectorController::didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame)
+{
+    if (!enabled())
+        return;
+
+    DOMStorageResourcesSet::iterator domStorageEnd = m_domStorageResources.end();
+    for (DOMStorageResourcesSet::iterator it = m_domStorageResources.begin(); it != domStorageEnd; ++it)
+        if ((*it)->isSameHostAndType(frame, isLocalStorage))
+            return;
+
+    RefPtr<Storage> domStorage = Storage::create(frame, storageArea);
+    RefPtr<InspectorDOMStorageResource> resource = InspectorDOMStorageResource::create(domStorage.get(), isLocalStorage, frame);
+
+    m_domStorageResources.add(resource);
+    if (windowVisible())
+        resource->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
 }
 #endif
 
@@ -2680,26 +1673,23 @@ void InspectorController::removeBreakpoint(intptr_t sourceID, unsigned lineNumbe
 }
 #endif
 
-static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, const Color& fillColor)
+static Path quadToPath(const FloatQuad& quad)
 {
-    static const int outlineThickness = 2;
-    static const Color outlineColor(62, 86, 180, 228);
-
     Path quadPath;
     quadPath.moveTo(quad.p1());
     quadPath.addLineTo(quad.p2());
     quadPath.addLineTo(quad.p3());
     quadPath.addLineTo(quad.p4());
     quadPath.closeSubpath();
-    
-    // Clear the quad
-    {
-        context.save();
-        context.setCompositeOperation(CompositeClear);
-        context.addPath(quadPath);
-        context.fillPath();
-        context.restore();
-    }
+    return quadPath;
+}
+
+static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, const Color& fillColor)
+{
+    static const int outlineThickness = 2;
+    static const Color outlineColor(62, 86, 180, 228);
+
+    Path quadPath = quadToPath(quad);
 
     // Clip out the quad, then draw with a 2px stroke to get a pixel
     // of outline (because inflating a quad is hard)
@@ -2722,27 +1712,38 @@ static void drawOutlinedQuad(GraphicsContext& context, const FloatQuad& quad, co
     context.fillPath();
 }
 
-static void drawHighlightForBoxes(GraphicsContext& context, const Vector<FloatQuad>& lineBoxQuads, const FloatQuad& contentQuad, const FloatQuad& paddingQuad, const FloatQuad& borderQuad, const FloatQuad& marginQuad)
+static void drawOutlinedQuadWithClip(GraphicsContext& context, const FloatQuad& quad, const FloatQuad& clipQuad, const Color& fillColor)
+{
+    context.save();
+    Path clipQuadPath = quadToPath(clipQuad);
+    context.clipOut(clipQuadPath);
+    drawOutlinedQuad(context, quad, fillColor);
+    context.restore();
+}
+
+static void drawHighlightForBox(GraphicsContext& context, const FloatQuad& contentQuad, const FloatQuad& paddingQuad, const FloatQuad& borderQuad, const FloatQuad& marginQuad)
 {
     static const Color contentBoxColor(125, 173, 217, 128);
     static const Color paddingBoxColor(125, 173, 217, 160);
     static const Color borderBoxColor(125, 173, 217, 192);
     static const Color marginBoxColor(125, 173, 217, 228);
 
-    if (!lineBoxQuads.isEmpty()) {
-        for (size_t i = 0; i < lineBoxQuads.size(); ++i)
-            drawOutlinedQuad(context, lineBoxQuads[i], contentBoxColor);
-        return;
-    }
-
     if (marginQuad != borderQuad)
-        drawOutlinedQuad(context, marginQuad, marginBoxColor);
+        drawOutlinedQuadWithClip(context, marginQuad, borderQuad, marginBoxColor);
     if (borderQuad != paddingQuad)
-        drawOutlinedQuad(context, borderQuad, borderBoxColor);
+        drawOutlinedQuadWithClip(context, borderQuad, paddingQuad, borderBoxColor);
     if (paddingQuad != contentQuad)
-        drawOutlinedQuad(context, paddingQuad, paddingBoxColor);
+        drawOutlinedQuadWithClip(context, paddingQuad, contentQuad, paddingBoxColor);
 
     drawOutlinedQuad(context, contentQuad, contentBoxColor);
+}
+
+static void drawHighlightForLineBoxes(GraphicsContext& context, const Vector<FloatQuad>& lineBoxQuads)
+{
+    static const Color lineBoxColor(125, 173, 217, 128);
+
+    for (size_t i = 0; i < lineBoxQuads.size(); ++i)
+        drawOutlinedQuad(context, lineBoxQuads[i], lineBoxColor);
 }
 
 static inline void convertFromFrameToMainFrame(Frame* frame, IntRect& rect)
@@ -2761,71 +1762,57 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
     if (!m_highlightedNode)
         return;
 
-    RenderBox* renderer = m_highlightedNode->renderBox();
+    RenderObject* renderer = m_highlightedNode->renderer();
     Frame* containingFrame = m_highlightedNode->document()->frame();
     if (!renderer || !containingFrame)
         return;
 
-    IntRect contentBox = renderer->contentBoxRect();
-
-    // FIXME: Should we add methods to RenderObject to obtain these rects?
-    IntRect paddingBox(contentBox.x() - renderer->paddingLeft(), contentBox.y() - renderer->paddingTop(),
-                       contentBox.width() + renderer->paddingLeft() + renderer->paddingRight(), contentBox.height() + renderer->paddingTop() + renderer->paddingBottom());
-    IntRect borderBox(paddingBox.x() - renderer->borderLeft(), paddingBox.y() - renderer->borderTop(),
-                      paddingBox.width() + renderer->borderLeft() + renderer->borderRight(), paddingBox.height() + renderer->borderTop() + renderer->borderBottom());
-    IntRect marginBox(borderBox.x() - renderer->marginLeft(), borderBox.y() - renderer->marginTop(),
-                      borderBox.width() + renderer->marginLeft() + renderer->marginRight(), borderBox.height() + renderer->marginTop() + renderer->marginBottom());
-
-
     IntSize mainFrameOffset = frameToMainFrameOffset(containingFrame);
-
-    FloatQuad absContentQuad = renderer->localToAbsoluteQuad(FloatRect(contentBox));
-    FloatQuad absPaddingQuad = renderer->localToAbsoluteQuad(FloatRect(paddingBox));
-    FloatQuad absBorderQuad = renderer->localToAbsoluteQuad(FloatRect(borderBox));
-    FloatQuad absMarginQuad = renderer->localToAbsoluteQuad(FloatRect(marginBox));
-
-    absContentQuad.move(mainFrameOffset);
-    absPaddingQuad.move(mainFrameOffset);
-    absBorderQuad.move(mainFrameOffset);
-    absMarginQuad.move(mainFrameOffset);
-
     IntRect boundingBox = renderer->absoluteBoundingBoxRect(true);
     boundingBox.move(mainFrameOffset);
-
-    Vector<FloatQuad> lineBoxQuads;
-    if (renderer->isInline() || (renderer->isText() && !m_highlightedNode->isSVGElement())) {
-        // FIXME: We should show margins/padding/border for inlines.
-        renderer->collectAbsoluteLineBoxQuads(lineBoxQuads);
-    }
-
-    for (unsigned i = 0; i < lineBoxQuads.size(); ++i)
-        lineBoxQuads[i] += mainFrameOffset;
-
-    if (lineBoxQuads.isEmpty() && contentBox.isEmpty()) {
-        // If we have no line boxes and our content box is empty, we'll just draw our bounding box.
-        // This can happen, e.g., with an <a> enclosing an <img style="float:right">.
-        // FIXME: Can we make this better/more accurate? The <a> in the above case has no
-        // width/height but the highlight makes it appear to be the size of the <img>.
-        lineBoxQuads.append(FloatRect(boundingBox));
-    }
 
     ASSERT(m_inspectedPage);
 
     FrameView* view = m_inspectedPage->mainFrame()->view();
     FloatRect overlayRect = view->visibleContentRect();
-
-    if (!overlayRect.contains(boundingBox) && !boundingBox.contains(enclosingIntRect(overlayRect))) {
-        Element* element;
-        if (m_highlightedNode->isElementNode())
-            element = static_cast<Element*>(m_highlightedNode.get());
-        else
-            element = static_cast<Element*>(m_highlightedNode->parent());
+    if (!overlayRect.contains(boundingBox) && !boundingBox.contains(enclosingIntRect(overlayRect)))
         overlayRect = view->visibleContentRect();
-    }
-
     context.translate(-overlayRect.x(), -overlayRect.y());
 
-    drawHighlightForBoxes(context, lineBoxQuads, absContentQuad, absPaddingQuad, absBorderQuad, absMarginQuad);
+    if (renderer->isBox()) {
+        RenderBox* renderBox = toRenderBox(renderer);
+
+        IntRect contentBox = renderBox->contentBoxRect();
+
+        IntRect paddingBox(contentBox.x() - renderBox->paddingLeft(), contentBox.y() - renderBox->paddingTop(),
+                           contentBox.width() + renderBox->paddingLeft() + renderBox->paddingRight(), contentBox.height() + renderBox->paddingTop() + renderBox->paddingBottom());
+        IntRect borderBox(paddingBox.x() - renderBox->borderLeft(), paddingBox.y() - renderBox->borderTop(),
+                          paddingBox.width() + renderBox->borderLeft() + renderBox->borderRight(), paddingBox.height() + renderBox->borderTop() + renderBox->borderBottom());
+        IntRect marginBox(borderBox.x() - renderBox->marginLeft(), borderBox.y() - renderBox->marginTop(),
+                          borderBox.width() + renderBox->marginLeft() + renderBox->marginRight(), borderBox.height() + renderBox->marginTop() + renderBox->marginBottom());
+
+        FloatQuad absContentQuad = renderBox->localToAbsoluteQuad(FloatRect(contentBox));
+        FloatQuad absPaddingQuad = renderBox->localToAbsoluteQuad(FloatRect(paddingBox));
+        FloatQuad absBorderQuad = renderBox->localToAbsoluteQuad(FloatRect(borderBox));
+        FloatQuad absMarginQuad = renderBox->localToAbsoluteQuad(FloatRect(marginBox));
+
+        absContentQuad.move(mainFrameOffset);
+        absPaddingQuad.move(mainFrameOffset);
+        absBorderQuad.move(mainFrameOffset);
+        absMarginQuad.move(mainFrameOffset);
+
+        drawHighlightForBox(context, absContentQuad, absPaddingQuad, absBorderQuad, absMarginQuad);
+    } else if (renderer->isRenderInline()) {
+        RenderInline* renderInline = toRenderInline(renderer);
+
+        // FIXME: We should show margins/padding/border for inlines.
+        Vector<FloatQuad> lineBoxQuads;
+        renderInline->absoluteQuadsForRange(lineBoxQuads);
+        for (unsigned i = 0; i < lineBoxQuads.size(); ++i)
+            lineBoxQuads[i] += mainFrameOffset;
+
+        drawHighlightForLineBoxes(context, lineBoxQuads);
+    }
 }
 
 void InspectorController::count(const String& title, unsigned lineNumber, const String& sourceID)

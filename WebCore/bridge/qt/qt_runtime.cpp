@@ -24,7 +24,9 @@
 #include "DateMath.h"
 #include "DatePrototype.h"
 #include "FunctionPrototype.h"
+#include "Interpreter.h"
 #include "JSArray.h"
+#include "JSByteArray.h"
 #include "JSDOMBinding.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
@@ -95,7 +97,8 @@ typedef enum {
     QObj,
     Object,
     Null,
-    RTArray
+    RTArray,
+    JSByteArray
 } JSRealType;
 
 #if defined(QTWK_RUNTIME_CONVERSION_DEBUG) || defined(QTWK_RUNTIME_MATCH_DEBUG)
@@ -120,6 +123,8 @@ static JSRealType valueRealType(ExecState* exec, JSValuePtr val)
         return Boolean;
     else if (val.isNull())
         return Null;
+    else if (isJSByteArray(&exec->globalData(), val))
+        return JSByteArray;
     else if (val.isObject()) {
         JSObject *object = val.toObject(exec);
         if (object->inherits(&RuntimeArray::s_info))  // RuntimeArray 'inherits' from Array, but not in C++
@@ -189,6 +194,9 @@ QVariant convertValueToQVariant(ExecState* exec, JSValuePtr value, QMetaType::Ty
                 break;
             case QObj:
                 hint = QMetaType::QObjectStar;
+                break;
+            case JSByteArray:
+                hint = QMetaType::QByteArray;
                 break;
             case Array:
             case RTArray:
@@ -425,12 +433,18 @@ QVariant convertValueToQVariant(ExecState* exec, JSValuePtr value, QMetaType::Ty
         }
 
         case QMetaType::QByteArray: {
-            UString ustring = value.toString(exec);
-            ret = QVariant(QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size()).toLatin1());
-            if (type == String)
-                dist = 5;
-            else
-                dist = 10;
+            if (type == JSByteArray) {
+                WTF::ByteArray* arr = asByteArray(value)->storage();
+                ret = QVariant(QByteArray(reinterpret_cast<const char*>(arr->data()), arr->length()));
+                dist = 0;
+            } else {
+                UString ustring = value.toString(exec);
+                ret = QVariant(QString::fromUtf16((const ushort*)ustring.rep()->data(),ustring.size()).toLatin1());
+                if (type == String)
+                    dist = 5;
+                else
+                    dist = 10;
+            }
             break;
         }
 
@@ -822,14 +836,15 @@ JSValuePtr convertQVariantToValue(ExecState* exec, PassRefPtr<RootObject> root, 
     }
 
     if (type == QMetaType::QByteArray) {
-        QByteArray ba = variant.value<QByteArray>();
-        UString ustring(ba.constData());
-        return jsString(exec, ustring);
+        QByteArray qtByteArray = variant.value<QByteArray>();
+        WTF::RefPtr<WTF::ByteArray> wtfByteArray = WTF::ByteArray::create(qtByteArray.length());
+        qMemCopy(wtfByteArray->data(), qtByteArray.constData(), qtByteArray.length());
+        return new (exec) JSC::JSByteArray(exec, JSC::JSByteArray::createStructure(jsNull()), wtfByteArray.get());
     }
 
     if (type == QMetaType::QObjectStar || type == QMetaType::QWidgetStar) {
         QObject* obj = variant.value<QObject*>();
-        return QtInstance::getQtInstance(obj, root)->createRuntimeObject(exec);
+        return QtInstance::getQtInstance(obj, root, QScriptEngine::QtOwnership)->createRuntimeObject(exec);
     }
 
     if (type == QMetaType::QVariantMap) {
@@ -1678,7 +1693,7 @@ void QtConnectionObject::execute(void **argv)
                     if (m_funcObject->inherits(&JSFunction::info)) {
                         JSFunction* fimp = static_cast<JSFunction*>(m_funcObject.get());
 
-                        JSObject* qt_sender = QtInstance::getQtInstance(sender(), ro)->createRuntimeObject(exec);
+                        JSObject* qt_sender = QtInstance::getQtInstance(sender(), ro, QScriptEngine::QtOwnership)->createRuntimeObject(exec);
                         JSObject* wrapper = new (exec) JSObject(JSObject::createStructure(jsNull()));
                         PutPropertySlot slot;
                         wrapper->put(exec, Identifier(exec, "__qt_sender__"), qt_sender, slot);

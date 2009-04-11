@@ -106,4 +106,6 @@ void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::S
 void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
 void InspectorController::didPause() {}
 
+void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString) {}
+void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>*) {}
 }  // namespace WebCore

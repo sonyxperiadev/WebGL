@@ -89,7 +89,7 @@ PassRefPtr<Range> Range::create(PassRefPtr<Document> ownerDocument, PassRefPtr<N
 
 PassRefPtr<Range> Range::create(PassRefPtr<Document> ownerDocument, const Position& start, const Position& end)
 {
-    return adoptRef(new Range(ownerDocument, start.container.get(), start.posOffset, end.container.get(), end.posOffset));
+    return adoptRef(new Range(ownerDocument, start.node(), start.m_offset, end.node(), end.m_offset));
 }
 
 Range::~Range()
@@ -264,17 +264,17 @@ void Range::collapse(bool toStart, ExceptionCode& ec)
 
 bool Range::isPointInRange(Node* refNode, int offset, ExceptionCode& ec)
 {
-    if (!refNode) {
-        ec = NOT_FOUND_ERR;
-        return false;
-    }
-
-    if (!m_start.container() && refNode->attached()) {
+    if (!m_start.container()) {
         ec = INVALID_STATE_ERR;
         return false;
     }
 
-    if (m_start.container() && !refNode->attached()) {
+    if (!refNode) {
+        ec = HIERARCHY_REQUEST_ERR;
+        return false;
+    }
+
+    if (!refNode->attached()) {
         // Firefox doesn't throw an exception for this case; it returns false.
         return false;
     }
@@ -299,22 +299,17 @@ short Range::comparePoint(Node* refNode, int offset, ExceptionCode& ec)
     // This method returns -1, 0 or 1 depending on if the point described by the 
     // refNode node and an offset within the node is before, same as, or after the range respectively.
 
-    if (!refNode) {
-        ec = NOT_FOUND_ERR;
-        return 0;
-    }
-
-    if (!m_start.container() && refNode->attached()) {
+    if (!m_start.container()) {
         ec = INVALID_STATE_ERR;
         return 0;
     }
 
-    if (m_start.container() && !refNode->attached()) {
-        // Firefox doesn't throw an exception for this case; it returns -1.
-        return -1;
+    if (!refNode) {
+        ec = HIERARCHY_REQUEST_ERR;
+        return 0;
     }
 
-    if (refNode->document() != m_ownerDocument) {
+    if (!refNode->attached() || refNode->document() != m_ownerDocument) {
         ec = WRONG_DOCUMENT_ERR;
         return 0;
     }
@@ -441,11 +436,14 @@ short Range::compareBoundaryPoints(CompareHow how, const Range* sourceRange, Exc
 
 short Range::compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB)
 {
-    ASSERT(containerA && containerB);
+    ASSERT(containerA);
+    ASSERT(containerB);
+
     if (!containerA)
         return -1;
     if (!containerB)
         return 1;
+
     // see DOM2 traversal & range section 2.5
 
     // case 1: both points have the same container
@@ -529,7 +527,7 @@ short Range::compareBoundaryPoints(Node* containerA, int offsetA, Node* containe
 
 short Range::compareBoundaryPoints(const Position& a, const Position& b)
 {
-    return compareBoundaryPoints(a.container.get(), a.posOffset, b.container.get(), b.posOffset);
+    return compareBoundaryPoints(a.node(), a.m_offset, b.node(), b.m_offset);
 }
 
 bool Range::boundaryPointsValid() const
@@ -556,8 +554,8 @@ bool Range::intersectsNode(Node* refNode, ExceptionCode& ec)
         return false;
     }
     
-    if (!m_start.container() && refNode->attached()
-            || m_start.container() && !refNode->attached()
+    if ((!m_start.container() && refNode->attached())
+            || (m_start.container() && !refNode->attached())
             || refNode->document() != m_ownerDocument) {
         // Firefox doesn't throw an exception for these cases; it returns false.
         return false;
@@ -840,6 +838,17 @@ PassRefPtr<DocumentFragment> Range::processContents(ActionType action, Exception
         processEnd = m_end.container();
         while (processEnd->parentNode() != commonRoot)
             processEnd = processEnd->parentNode();
+    }
+
+    // Collapse the range, making sure that the result is not within a node that was partially selected.
+    if (action == EXTRACT_CONTENTS || action == DELETE_CONTENTS) {
+        if (partialStart)
+            setStart(partialStart->parentNode(), partialStart->nodeIndex() + 1, ec);
+        else if (partialEnd)
+            setStart(partialEnd->parentNode(), partialEnd->nodeIndex(), ec);
+        if (ec)
+            return 0;
+        m_end = m_start;
     }
 
     // Now add leftContents, stuff in between, and rightContents to the fragment
@@ -1592,13 +1601,16 @@ void Range::addLineBoxRects(Vector<IntRect>& rects, bool useSelectionHeight)
     if (!start || !end)
         return;
 
-    RenderObject* stop = end->nextInPreOrderAfterChildren();
+    RenderObject* stop = end->childAt(m_end.offset());
+    if (!stop)
+        stop = end->nextInPreOrderAfterChildren();
+    
     for (RenderObject* r = start; r && r != stop; r = r->nextInPreOrder()) {
         // only ask leaf render objects for their line box rects
         if (!r->firstChild()) {
             int startOffset = r == start ? m_start.offset() : 0;
             int endOffset = r == end ? m_end.offset() : INT_MAX;
-            r->addLineBoxRects(rects, startOffset, endOffset, useSelectionHeight);
+            r->absoluteRectsForRange(rects, startOffset, endOffset, useSelectionHeight);
         }
     }
 }

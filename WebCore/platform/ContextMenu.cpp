@@ -192,7 +192,7 @@ static void createAndAppendTextDirectionSubMenu(const HitTestResult& result, Con
 static bool selectionContainsPossibleWord(Frame* frame)
 {
     // Current algorithm: look for a character that's not just a separator.
-    for (TextIterator it(frame->selection()->toRange().get()); !it.atEnd(); it.advance()) {
+    for (TextIterator it(frame->selection()->toNormalizedRange().get()); !it.atEnd(); it.advance()) {
         int length = it.length();
         const UChar* characters = it.characters();
         for (int i = 0; i < length; ++i)
@@ -252,7 +252,7 @@ void ContextMenu::populate()
     if (!node)
         return;
 #if PLATFORM(GTK)
-    if (!result.isContentEditable() && node->isControl())
+    if (!result.isContentEditable() && (node->isElementNode() && static_cast<Element*>(node)->isFormControlElement()))
         return;
 #endif
     Frame* frame = node->document()->frame();
@@ -328,12 +328,10 @@ void ContextMenu::populate()
         if (!inPasswordField) {
             // Consider adding spelling-related or grammar-related context menu items (never both, since a single selected range
             // is never considered a misspelling and bad grammar at the same time)
-            bool misspelling = frame->editor()->isSelectionMisspelled();
-            bool badGrammar = !misspelling && (frame->editor()->isGrammarCheckingEnabled() && frame->editor()->isSelectionUngrammatical());
-            
+            bool misspelling;
+            bool badGrammar;
+            Vector<String> guesses = frame->editor()->guessesForMisspelledOrUngrammaticalSelection(misspelling, badGrammar);
             if (misspelling || badGrammar) {
-                Vector<String> guesses = misspelling ? frame->editor()->guessesForMisspelledSelection()
-                    : frame->editor()->guessesForUngrammaticalSelection();
                 size_t size = guesses.size();
                 if (size == 0) {
                     // If there's bad grammar but no suggestions (e.g., repeated word), just leave off the suggestions
@@ -427,7 +425,7 @@ void ContextMenu::populate()
             if (Page* page = frame->page()) {
                 if (Settings* settings = page->settings()) {
                     bool includeTextDirectionSubmenu = settings->textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAlwaysIncluded
-                        || settings->textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAutomaticallyIncluded && frame->editor()->hasBidiSelection();
+                        || (settings->textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAutomaticallyIncluded && frame->editor()->hasBidiSelection());
                     if (includeTextDirectionSubmenu) {
                         ContextMenuItem TextDirectionMenuItem(SubmenuType, ContextMenuItemTagTextDirectionMenu, 
                             contextMenuItemTagTextDirectionMenu());

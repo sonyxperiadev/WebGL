@@ -93,11 +93,8 @@ static void networkStateChanged()
     for (unsigned i = 0; i < frames.size(); i++) {
         Document* document = frames[i]->document();
         
-        if (!document)
-            continue;
-
         // If the document does not have a body the event should be dispatched to the document
-        EventTargetNode* eventTarget = document->body();
+        Node* eventTarget = document->body();
         if (!eventTarget)
             eventTarget = document;
         
@@ -111,7 +108,7 @@ Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, Edi
     , m_dragController(new DragController(this, dragClient))
     , m_focusController(new FocusController(this))
     , m_contextMenuController(new ContextMenuController(this, contextMenuClient))
-    , m_inspectorController(new InspectorController(this, inspectorClient))
+    , m_inspectorController(InspectorController::create(this, inspectorClient))
     , m_settings(new Settings(this))
     , m_progress(new ProgressTracker)
     , m_backForwardList(BackForwardList::create(this))
@@ -157,11 +154,9 @@ Page::~Page()
     setGroupName(String());
     allPages->remove(this);
     
-    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-        if (frame->document())
-            frame->document()->documentWillBecomeInactive();
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
         frame->pageDestroyed();
-    }
+
     m_editorClient->pageDestroyed();
     if (m_parentInspectorController)
         m_parentInspectorController->pageDestroyed();
@@ -233,7 +228,7 @@ void Page::setGroupName(const String& name)
     }
 
     if (name.isEmpty())
-        m_group = 0;
+        m_group = m_singlePageGroup.get();
     else {
         m_singlePageGroup.clear();
         m_group = PageGroup::pageGroup(name);
@@ -358,13 +353,12 @@ void Page::unmarkAllTextMatches()
 
     Frame* frame = mainFrame();
     do {
-        if (Document* document = frame->document())
-            document->removeMarkers(DocumentMarker::TextMatch);
+        frame->document()->removeMarkers(DocumentMarker::TextMatch);
         frame = incrementFrame(frame, true, false);
     } while (frame);
 }
 
-const Selection& Page::selection() const
+const VisibleSelection& Page::selection() const
 {
     return focusController()->focusedOrMainFrame()->selection()->selection();
 }
@@ -404,8 +398,23 @@ void Page::setMediaVolume(float volume)
 
     m_mediaVolume = volume;
     for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-        if (frame->document())
-            frame->document()->mediaVolumeDidChange();
+        frame->document()->mediaVolumeDidChange();
+    }
+}
+
+void Page::didMoveOnscreen()
+{
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+        if (frame->view())
+            frame->view()->didMoveOnscreen();
+    }
+}
+
+void Page::willMoveOffscreen()
+{
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+        if (frame->view())
+            frame->view()->willMoveOffscreen();
     }
 }
 
@@ -461,7 +470,9 @@ const String& Page::userStyleSheet() const
     if (!data)
         return m_userStyleSheet;
 
-    m_userStyleSheet = TextResourceDecoder::create("text/css")->decode(data->data(), data->size());
+    RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("text/css");
+    m_userStyleSheet = decoder->decode(data->data(), data->size());
+    m_userStyleSheet += decoder->flush();
 
     return m_userStyleSheet;
 }

@@ -29,8 +29,6 @@
 #include "config.h"
 #include "JSCustomSQLStatementCallback.h"
 
-#include "CString.h"
-#include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
 #include "JSSQLResultSet.h"
@@ -78,9 +76,9 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
     args.append(toJS(exec, transaction));
     args.append(toJS(exec, resultSet));
         
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
 
     if (exec->hadException()) {
         reportCurrentException(exec);

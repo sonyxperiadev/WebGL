@@ -144,7 +144,7 @@ AccessibilityObject* AccessibilityListBox::listBoxOptionAccessibilityObject(HTML
     if (!element || element->hasTagName(hrTag))
         return 0;
     
-    AccessibilityObject* listBoxObject = m_renderer->document()->axObjectCache()->get(ListBoxOptionRole);
+    AccessibilityObject* listBoxObject = m_renderer->document()->axObjectCache()->getOrCreate(ListBoxOptionRole);
     static_cast<AccessibilityListBoxOption*>(listBoxObject)->setHTMLElement(element);
     
     return listBoxObject;
@@ -157,13 +157,13 @@ AccessibilityObject* AccessibilityListBox::doAccessibilityHitTest(const IntPoint
     if (!m_renderer)
         return 0;
     
-    Node* element = m_renderer->element();
-    if (!element)
+    Node* node = m_renderer->node();
+    if (!node)
         return 0;
     
     IntRect parentRect = boundingBoxRect();
     
-    const Vector<HTMLElement*>& listItems = static_cast<HTMLSelectElement*>(element)->listItems();
+    const Vector<HTMLElement*>& listItems = static_cast<HTMLSelectElement*>(node)->listItems();
     unsigned length = listItems.size();
     for (unsigned i = 0; i < length; i++) {
         IntRect rect = static_cast<RenderListBox*>(m_renderer)->itemBoundingBoxRect(parentRect.x(), parentRect.y(), i);
@@ -171,7 +171,7 @@ AccessibilityObject* AccessibilityListBox::doAccessibilityHitTest(const IntPoint
             return listBoxOptionAccessibilityObject(listItems[i]);
     }
     
-    return axObjectCache()->get(m_renderer);
+    return axObjectCache()->getOrCreate(m_renderer);
 }
 
 } // namespace WebCore

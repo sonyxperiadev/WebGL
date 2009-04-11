@@ -404,12 +404,12 @@ int32 PluginView::write(NPStream* stream, int32 len, void* buffer)
 
 NPError PluginView::destroyStream(NPStream* stream, NPReason reason)
 {
-    PluginStream* browserStream = static_cast<PluginStream*>(stream->ndata);
-
     if (!stream || PluginStream::ownerForStream(stream) != m_instance)
         return NPERR_INVALID_INSTANCE_ERROR;
 
+    PluginStream* browserStream = static_cast<PluginStream*>(stream->ndata);
     browserStream->cancelAndDestroyStream(reason);
+
     return NPERR_NO_ERROR;
 }
 
@@ -568,9 +568,6 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_haveInitialized(false)
 #if PLATFORM(GTK) || defined(Q_WS_X11)
     , m_needsXEmbed(false)
-#endif
-#if PLATFORM(QT)
-    , m_isNPAPIPlugin(false)
 #endif
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
     , m_pluginWndProc(0)

@@ -24,6 +24,9 @@
  */
 
 #include "config.h"
+
+#include "FormControlElement.h"
+
 #include "RenderThemeAndroid.h"
 
 #include "RenderSkinAndroid.h"
@@ -170,19 +173,20 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector* selector, RenderSty
 
 bool RenderThemeAndroid::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, true);
+    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->node(), ir, true);
     return false;
 }
 
 bool RenderThemeAndroid::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
 {
     // If it is a disabled button, simply paint it to the master picture.
-    Node* element = o->element();
-    if (!element->isEnabled()) {
+    Node* node = o->node();
+    FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(node));
+    if (formControlElement && !formControlElement->isEnabled()) {
         RenderSkinButton::Draw(getCanvasFromInfo(i), ir, RenderSkinAndroid::kDisabled);
     } else {
         // Store all the important information in the platform context.
-        i.context->platformContext()->storeButtonInfo(element, ir);
+        i.context->platformContext()->storeButtonInfo(node, ir);
     }
     // We always return false so we do not request to be redrawn.
     return false;
@@ -190,7 +194,7 @@ bool RenderThemeAndroid::paintButton(RenderObject* o, const RenderObject::PaintI
 
 bool RenderThemeAndroid::paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->element(), ir, false);
+    RenderSkinRadio::Draw(getCanvasFromInfo(i), o->node(), ir, false);
     return false;
 }
 
@@ -256,7 +260,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintIn
 {
     if (o->style() && o->style()->backgroundColor().alpha() == 0)
         return true;
-    Node* element = o->element();
+    Node* node = o->node();
     int height = ir.height();
     int y = ir.y();
     // If the combo box is too large, leave it at its max height, and center it.
@@ -264,7 +268,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* o, const RenderObject::PaintIn
         y += (height - MAX_COMBO_HEIGHT) >> 1;
         height = MAX_COMBO_HEIGHT;
     }
-    return RenderSkinCombo::Draw(getCanvasFromInfo(i), element, ir.x(), y,
+    return RenderSkinCombo::Draw(getCanvasFromInfo(i), node, ir.x(), y,
             ir.width(), height);
 }
 

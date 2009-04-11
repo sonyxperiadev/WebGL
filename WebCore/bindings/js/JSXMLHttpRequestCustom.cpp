@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,32 +59,19 @@ void JSXMLHttpRequest::mark()
             wrapper->mark();
     }
 
-    if (JSUnprotectedEventListener* onReadyStateChangeListener = static_cast<JSUnprotectedEventListener*>(m_impl->onreadystatechange()))
-        onReadyStateChangeListener->mark();
-
-    if (JSUnprotectedEventListener* onAbortListener = static_cast<JSUnprotectedEventListener*>(m_impl->onabort()))
-        onAbortListener->mark();
-
-    if (JSUnprotectedEventListener* onErrorListener = static_cast<JSUnprotectedEventListener*>(m_impl->onerror()))
-        onErrorListener->mark();
-
-    if (JSUnprotectedEventListener* onLoadListener = static_cast<JSUnprotectedEventListener*>(m_impl->onload()))
-        onLoadListener->mark();
-
-    if (JSUnprotectedEventListener* onLoadStartListener = static_cast<JSUnprotectedEventListener*>(m_impl->onloadstart()))
-        onLoadStartListener->mark();
-    
-    if (JSUnprotectedEventListener* onProgressListener = static_cast<JSUnprotectedEventListener*>(m_impl->onprogress()))
-        onProgressListener->mark();
+    markIfNotNull(m_impl->onreadystatechange());
+    markIfNotNull(m_impl->onabort());
+    markIfNotNull(m_impl->onerror());
+    markIfNotNull(m_impl->onload());
+    markIfNotNull(m_impl->onloadstart());
+    markIfNotNull(m_impl->onprogress());
     
     typedef XMLHttpRequest::EventListenersMap EventListenersMap;
     typedef XMLHttpRequest::ListenerVector ListenerVector;
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) {
-            JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(vecIter->get());
-            listener->mark();
-        }
+        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
+            (*vecIter)->mark();
     }
 }
 
@@ -181,7 +168,7 @@ JSValuePtr JSXMLHttpRequest::addEventListener(ExecState* exec, const ArgList& ar
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
@@ -193,7 +180,7 @@ JSValuePtr JSXMLHttpRequest::removeEventListener(ExecState* exec, const ArgList&
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
+    JSEventListener* listener = globalObject->findJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));

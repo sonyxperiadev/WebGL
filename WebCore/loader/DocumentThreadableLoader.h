@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,11 +39,12 @@
 
 namespace WebCore {
     class Document;
-    class ResourceRequest;
+    struct ResourceRequest;
     class ThreadableLoaderClient;
 
     class DocumentThreadableLoader : public RefCounted<DocumentThreadableLoader>, public ThreadableLoader, private SubresourceLoaderClient  {
     public:
+        static void loadResourceSynchronously(Document*, const ResourceRequest&, ThreadableLoaderClient&);
         static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff);
         virtual ~DocumentThreadableLoader();
 

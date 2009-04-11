@@ -289,6 +289,7 @@ inline bool KURL::protocolIs(const String& string, const char* protocol)
 void KURL::invalidate()
 {
     m_isValid = false;
+    m_protocolInHTTPFamily = false;
     m_schemeEnd = 0;
     m_userStart = 0;
     m_userEnd = 0;
@@ -604,6 +605,11 @@ bool KURL::hasRef() const
     return m_fragmentEnd != m_queryEnd;
 }
 
+String KURL::baseAsString() const
+{
+    return m_string.left(m_pathAfterLastSlash);
+}
+
 #ifdef NDEBUG
 
 static inline void assertProtocolIsGood(const char*)
@@ -638,7 +644,10 @@ bool KURL::protocolIs(const char* protocol) const
 
 String KURL::query() const
 {
-    return m_string.substring(m_pathEnd, m_queryEnd - m_pathEnd); 
+    if (m_queryEnd == m_pathEnd)
+        return String();
+
+    return m_string.substring(m_pathEnd + 1, m_queryEnd - (m_pathEnd + 1)); 
 }
 
 String KURL::path() const
@@ -677,13 +686,13 @@ void KURL::setPort(unsigned short i)
     if (!m_isValid)
         return;
 
-    // FIXME: Non-ASCII characters must be encoded and escaped to match parse() expectations,
-    // and to avoid changing more than just the port.
+    if (i) {
+        bool colonNeeded = m_portEnd == m_hostEnd;
+        int portStart = (colonNeeded ? m_hostEnd : m_hostEnd + 1);
 
-    bool colonNeeded = m_portEnd == m_hostEnd;
-    int portStart = (colonNeeded ? m_hostEnd : m_hostEnd + 1);
-
-    parse(m_string.left(portStart) + (colonNeeded ? ":" : "") + String::number(i) + m_string.substring(m_portEnd));
+        parse(m_string.left(portStart) + (colonNeeded ? ":" : "") + String::number(i) + m_string.substring(m_portEnd));
+    } else
+        parse(m_string.left(m_hostEnd) + m_string.substring(m_portEnd));
 }
 
 void KURL::setHostAndPort(const String& hostAndPort)
@@ -822,7 +831,11 @@ String KURL::prettyURL() const
     }
 
     append(result, path());
-    append(result, query());
+
+    if (m_pathEnd != m_queryEnd) {
+        result.append('?');
+        append(result, query());
+    }
 
     if (m_fragmentEnd != m_queryEnd) {
         result.append('#');
@@ -1047,7 +1060,7 @@ void KURL::parse(const char* url, const String* originalString)
         && matchLetter(url[2], 'l')
         && matchLetter(url[3], 'e');
 
-    bool isHTTPorHTTPS = matchLetter(url[0], 'h')
+    m_protocolInHTTPFamily = matchLetter(url[0], 'h')
         && matchLetter(url[1], 't')
         && matchLetter(url[2], 't')
         && matchLetter(url[3], 'p')
@@ -1129,7 +1142,7 @@ void KURL::parse(const char* url, const String* originalString)
             return;
         }
 
-        if (userStart == portEnd && !isHTTPorHTTPS && !isFile) {
+        if (userStart == portEnd && !m_protocolInHTTPFamily && !isFile) {
             // No authority found, which means that this is not a net_path, but rather an abs_path whose first two
             // path segments are empty. For file, http and https only, an empty authority is allowed.
             userStart -= 2;
@@ -1253,7 +1266,7 @@ void KURL::parse(const char* url, const String* originalString)
 
     // For canonicalization, ensure we have a '/' for no path.
     // Only do this for http and https.
-    if (isHTTPorHTTPS && pathEnd - pathStart == 0)
+    if (m_protocolInHTTPFamily && pathEnd - pathStart == 0)
         *p++ = '/';
 
     // add path, escaping bad characters
@@ -1291,7 +1304,7 @@ void KURL::parse(const char* url, const String* originalString)
 
     // If we didn't end up actually changing the original string and
     // it was already in a String, reuse it to avoid extra allocation.
-    if (originalString && strncmp(buffer.data(), url, m_fragmentEnd) == 0)
+    if (originalString && originalString->length() == static_cast<unsigned>(m_fragmentEnd) && strncmp(buffer.data(), url, m_fragmentEnd) == 0)
         m_string = *originalString;
     else
         m_string = String(buffer.data(), m_fragmentEnd);

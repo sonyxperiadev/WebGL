@@ -441,6 +441,9 @@ const int panIconSizeLength = 20;
 
 void ScrollView::scrollContents(const IntSize& scrollDelta)
 {
+    if (!hostWindow())
+        return;
+
     // Since scrolling is double buffered, we will be blitting the scroll view's intersection
     // with the clip rect every time to keep it smooth.
     IntRect clipRect = windowClipRect();
@@ -531,8 +534,8 @@ void ScrollView::adjustScrollbarsAvoidingResizerCount(int overlapDelta)
         // If we went from n to 0 or from 0 to n and we're the outermost view,
         // we need to invalidate the windowResizerRect(), since it will now need to paint
         // differently.
-        if (oldCount > 0 && m_scrollbarsAvoidingResizer == 0 ||
-            oldCount == 0 && m_scrollbarsAvoidingResizer > 0)
+        if ((oldCount > 0 && m_scrollbarsAvoidingResizer == 0) ||
+            (oldCount == 0 && m_scrollbarsAvoidingResizer > 0))
             invalidateRect(windowResizerRect());
     }
 }
@@ -615,10 +618,7 @@ void ScrollView::wheelEvent(PlatformWheelEvent& e)
         e.accept();
         float deltaX = e.deltaX();
         float deltaY = e.deltaY();
-        if (e.granularity() == ScrollByLineWheelEvent) {
-            deltaX *= cMouseWheelPixelsPerLineStep;
-            deltaY *= cMouseWheelPixelsPerLineStep;
-        } else if (e.granularity() == ScrollByPageWheelEvent) {
+        if (e.granularity() == ScrollByPageWheelEvent) {
             ASSERT(deltaX == 0);
             bool negative = deltaY < 0;
             deltaY = max(0, visibleHeight() - cAmountToKeepWhenPaging);

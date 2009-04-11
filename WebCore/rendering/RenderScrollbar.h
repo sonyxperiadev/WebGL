@@ -26,13 +26,14 @@
 #ifndef RenderScrollbar_h
 #define RenderScrollbar_h
 
+#include "RenderStyleConstants.h"
 #include "Scrollbar.h"
-#include "RenderStyle.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
 class RenderBox;
+class RenderStyle;
 class RenderScrollbarPart;
 class RenderStyle;
 
@@ -71,7 +72,7 @@ public:
     int minimumThumbLength();
 
 private:
-    PassRefPtr<RenderStyle> getScrollbarPseudoStyle(ScrollbarPart, RenderStyle::PseudoId);
+    PassRefPtr<RenderStyle> getScrollbarPseudoStyle(ScrollbarPart, PseudoId);
     void updateScrollbarPart(ScrollbarPart, bool destroy = false);
 
     RenderBox* m_owner;

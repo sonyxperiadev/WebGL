@@ -159,6 +159,8 @@ void Loader::servePendingRequests(Priority minimumPriority)
     
 void Loader::cancelRequests(DocLoader* docLoader)
 {
+    docLoader->clearPendingPreloads();
+
     if (m_nonHTTPProtocolHost.hasRequests())
         m_nonHTTPProtocolHost.cancelRequests(docLoader);
     
@@ -172,10 +174,7 @@ void Loader::cancelRequests(DocLoader* docLoader)
 
     scheduleServePendingRequests();
     
-    if (docLoader->loadInProgress())
-        ASSERT(docLoader->requestCount() == 1);
-    else
-        ASSERT(docLoader->requestCount() == 0);
+    ASSERT(docLoader->requestCount() == (docLoader->loadInProgress() ? 1 : 0));
 }
     
 Loader::Host::Host(const AtomicString& name, unsigned maxRequestsInFlight)
@@ -291,6 +290,9 @@ void Loader::Host::didFinishLoading(SubresourceLoader* loader)
     Request* request = i->second;
     m_requestsLoading.remove(i);
     DocLoader* docLoader = request->docLoader();
+    // Prevent the document from being destroyed before we are done with
+    // the docLoader that it will delete when the document gets deleted.
+    DocPtr<Document> protector(docLoader->doc());
     if (!request->isMultipart())
         docLoader->decrementRequestCount();
 
@@ -336,6 +338,9 @@ void Loader::Host::didFail(SubresourceLoader* loader, bool cancelled)
     Request* request = i->second;
     m_requestsLoading.remove(i);
     DocLoader* docLoader = request->docLoader();
+    // Prevent the document from being destroyed before we are done with
+    // the docLoader that it will delete when the document gets deleted.
+    DocPtr<Document> protector(docLoader->doc());
     if (!request->isMultipart())
         docLoader->decrementRequestCount();
 

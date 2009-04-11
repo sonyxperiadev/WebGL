@@ -158,8 +158,6 @@ void PluginView::init()
     m_npWindow.clipRect.right = 0;
     m_npWindow.clipRect.bottom = 0;
 
-    setIsNPAPIPlugin(true);
-
     show();
 
     m_status = PluginStatusLoadedSuccessfully;
@@ -222,11 +220,11 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
     switch (variable) {
     case NPNVToolkit:
-        *((uint32 *)value) = 0;
+        *static_cast<uint32*>(value) = 0;
         return NPERR_NO_ERROR;
 
     case NPNVjavascriptEnabledBool:
-        *((uint32 *)value) = true;
+        *static_cast<NPBool*>(value) = true;
         return NPERR_NO_ERROR;
 
     default:
@@ -277,7 +275,7 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
     }
 
     case NPNVsupportsCoreGraphicsBool:
-        *((uint32 *)value) = true;
+        *static_cast<NPBool*>(value) = true;
         return NPERR_NO_ERROR;
 
     default:
@@ -445,11 +443,8 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
 void PluginView::invalidateRect(const IntRect& rect)
 {
-    if (platformPluginWidget()) {
-        // TODO: optimize
-        platformPluginWidget()->update();
-        return;
-    }
+    if (platformPluginWidget())
+        platformPluginWidget()->update(convertToContainingWindow(rect));
 }
 
 void PluginView::invalidateRect(NPRect* rect)

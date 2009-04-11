@@ -35,23 +35,23 @@ public:
     RenderSVGInlineText(Node*, PassRefPtr<StringImpl>);
     virtual const char* renderName() const { return "RenderSVGInlineText"; }
         
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle*);
+    virtual void styleDidChange(StyleDifference, const RenderStyle*);
 
     virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool topLevel = true);
     virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
 
     virtual bool requiresLayer() const { return false; }
-    virtual IntRect selectionRect(bool clipToVisibleContent = true);
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
     virtual bool isSVGText() const { return true; }
-    virtual InlineTextBox* createInlineTextBox();
 
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
-    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual VisiblePosition positionForPoint(const IntPoint&);
 
     virtual void destroy();
 
 private:
-    IntRect computeAbsoluteRectForRange(int startPos, int endPos);
+    virtual InlineTextBox* createTextBox();
+    IntRect computeRepaintRectForRange(RenderBoxModelObject* repaintContainer, int startPos, int endPos);
 };
 
 }

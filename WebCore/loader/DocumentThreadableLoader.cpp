@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,6 +33,9 @@
 
 #include "AuthenticationChallenge.h"
 #include "Document.h"
+#include "DocumentThreadableLoader.h"
+#include "Frame.h"
+#include "FrameLoader.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
 #include "SubresourceLoader.h"
@@ -40,8 +43,43 @@
 
 namespace WebCore {
 
+void DocumentThreadableLoader::loadResourceSynchronously(Document* document, const ResourceRequest& request, ThreadableLoaderClient& client)
+{
+    bool sameOriginRequest = document->securityOrigin()->canRequest(request.url());
+
+    Vector<char> data;
+    ResourceError error;
+    ResourceResponse response;
+    unsigned long identifier = std::numeric_limits<unsigned long>::max();
+    if (document->frame())
+        identifier = document->frame()->loader()->loadResourceSynchronously(request, error, response, data);
+
+    // No exception for file:/// resources, see <rdar://problem/4962298>.
+    // Also, if we have an HTTP response, then it wasn't a network error in fact.
+    if (!error.isNull() && !request.url().isLocalFile() && response.httpStatusCode() <= 0) {
+        client.didFail(error);
+        return;
+    }
+
+    // FIXME: This check along with the one in willSendRequest is specific to xhr and
+    // should be made more generic.
+    if (sameOriginRequest && !document->securityOrigin()->canRequest(response.url())) {
+        client.didFailRedirectCheck();
+        return;
+    }
+
+    client.didReceiveResponse(response);
+
+    const char* bytes = static_cast<const char*>(data.data());
+    int len = static_cast<int>(data.size());
+    client.didReceiveData(bytes, len);
+
+    client.didFinishLoading(identifier);
+}
+
 PassRefPtr<DocumentThreadableLoader> DocumentThreadableLoader::create(Document* document, ThreadableLoaderClient* client, const ResourceRequest& request, LoadCallbacks callbacksSetting, ContentSniff contentSniff)
 {
+    ASSERT(document);
     RefPtr<DocumentThreadableLoader> loader = adoptRef(new DocumentThreadableLoader(document, client, request, callbacksSetting, contentSniff));
     if (!loader->m_loader)
         loader = 0;
@@ -81,7 +119,7 @@ void DocumentThreadableLoader::willSendRequest(SubresourceLoader*, ResourceReque
     // FIXME: This needs to be fixed to follow the redirect correctly even for cross-domain requests.
     if (!m_document->securityOrigin()->canRequest(request.url())) {
         RefPtr<DocumentThreadableLoader> protect(this);
-        m_client->didFail();
+        m_client->didFailRedirectCheck();
         cancel();
     }
 }
@@ -114,10 +152,7 @@ void DocumentThreadableLoader::didFinishLoading(SubresourceLoader* loader)
 void DocumentThreadableLoader::didFail(SubresourceLoader*, const ResourceError& error)
 {
     ASSERT(m_client);
-    if (error.isCancellation())
-        m_client->didGetCancelled();
-    else
-        m_client->didFail();
+    m_client->didFail(error);
 }
 
 void DocumentThreadableLoader::receivedCancellation(SubresourceLoader*, const AuthenticationChallenge& challenge)

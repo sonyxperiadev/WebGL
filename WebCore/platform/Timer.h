@@ -27,7 +27,6 @@
 #define Timer_h
 
 #include <wtf/Noncopyable.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -73,20 +72,13 @@ private:
     void heapPop();
     void heapPopMin();
 
-    static void collectFiringTimers(double fireTime, Vector<TimerBase*>&);
-    static void fireTimers(double fireTime, const Vector<TimerBase*>&);
-    static void sharedTimerFired();
-
     double m_nextFireTime; // 0 if inactive
     double m_repeatInterval; // 0 if not repeating
     int m_heapIndex; // -1 if not in heap
     unsigned m_heapInsertionOrder; // Used to keep order among equal-fire-time timers
 
-    friend void updateSharedTimer();
-#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
-    friend void setDeferringTimers(bool);
-#endif
     friend class TimerHeapElement;
+    friend class ThreadTimers;
     friend bool operator<(const TimerHeapElement&, const TimerHeapElement&);
 };
 
@@ -103,13 +95,6 @@ private:
     TimerFiredClass* m_object;
     TimerFiredFunction m_function;
 };
-
-#ifdef ANDROID_FIX // it is removed in http://trac.webkit.org/changeset/40080, but Android needs it
-// Set to true to prevent any timers from firing.
-// When set back to false, timers that were deferred will fire.
-bool isDeferringTimers();
-void setDeferringTimers(bool);
-#endif
 
 }
 

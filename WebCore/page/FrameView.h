@@ -35,7 +35,6 @@ namespace WebCore {
 
 class Color;
 class Event;
-class EventTargetNode;
 class Frame;
 class FrameViewPrivate;
 class IntRect;
@@ -97,6 +96,18 @@ public:
 
     bool needsFullRepaint() const { return m_doFullRepaint; }
 
+#if USE(ACCELERATED_COMPOSITING)
+    enum CompositingUpdate { NormalCompositingUpdate, ForcedCompositingUpdate };
+    void updateCompositingLayers(CompositingUpdate updateType = NormalCompositingUpdate);
+
+    // Called when changes to the GraphicsLayer hierarchy have to be synchronized with
+    // content rendered via the normal painting path.
+    void setNeedsOneShotDrawingSynchronization();
+#endif
+
+    void didMoveOnscreen();
+    void willMoveOffscreen();
+
     void resetScrollbars();
 
     void clear();
@@ -138,6 +149,8 @@ public:
 
     void beginDeferredRepaints();
     void endDeferredRepaints();
+    void checkStopDelayingDeferredRepaints();
+    void resetDeferredRepaintDelay();
 
 #if ENABLE(DASHBOARD_SUPPORT)
     void updateDashboardRegions();
@@ -146,7 +159,7 @@ public:
 
     void restoreScrollbar();
 
-    void scheduleEvent(PassRefPtr<Event>, PassRefPtr<EventTargetNode>);
+    void scheduleEvent(PassRefPtr<Event>, PassRefPtr<Node>);
     void pauseScheduledEvents();
     void resumeScheduledEvents();
     void postLayoutTimerFired(Timer<FrameView>*);
@@ -168,6 +181,12 @@ public:
 
     void setIsVisuallyNonEmpty() { m_isVisuallyNonEmpty = true; }
 
+    void forceLayout(bool allowSubtree = false);
+    void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth, bool adjustViewSize);
+
+    void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
+
+
 private:
     void reset();
     void init();
@@ -186,7 +205,14 @@ private:
     virtual void repaintContentRectangle(const IntRect&, bool immediate);
     virtual void contentsResized() { setNeedsLayout(); }
     virtual void visibleContentsResized() { layout(); }
+    
+    void deferredRepaintTimerFired(Timer<FrameView>*);
+    void doDeferredRepaints();
+    void updateDeferredRepaintDelay();
+    double adjustedDeferredRepaintDelay() const;
 
+    bool updateWidgets();
+    
     static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     unsigned m_refCount;
@@ -237,8 +263,10 @@ private:
     
     unsigned m_deferringRepaints;
     unsigned m_repaintCount;
-    IntRect m_repaintRect;
     Vector<IntRect> m_repaintRects;
+    Timer<FrameView> m_deferredRepaintTimer;
+    double m_deferredRepaintDelay;
+    double m_lastPaintTime;
 
     bool m_shouldUpdateWhileOffscreen;
 

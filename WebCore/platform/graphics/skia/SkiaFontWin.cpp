@@ -31,8 +31,13 @@
 #include "config.h"
 #include "SkiaFontWin.h"
 
+#include "PlatformContextSkia.h"
+#include "Gradient.h"
+#include "Pattern.h"
 #include "SkCanvas.h"
 #include "SkPaint.h"
+#include "SkShader.h"
+#include "TransformationMatrix.h"
 
 #include <wtf/ListHashSet.h>
 #include <wtf/Vector.h>
@@ -162,10 +167,10 @@ static bool getPathForGlyph(HDC dc, WORD glyph, SkPath* path)
             addPolyCurveToPath(polyCurve, path);
             curPoly += sizeof(WORD) * 2 + sizeof(POINTFX) * polyCurve->cpfx;
         }
+        path->close();
         curGlyph += polyHeader->cb;
     }
 
-    path->close();
     return true;
 }
 
@@ -213,6 +218,154 @@ void SkiaWinOutlineCache::removePathsForFont(HFONT hfont)
     for (Vector<CachedOutlineKey>::iterator i = outlinesToDelete.begin();
          i != outlinesToDelete.end(); ++i)
         deleteOutline(outlineCache.find(*i));
+}
+
+bool windowsCanHandleTextDrawing(GraphicsContext* context)
+{
+    // Check for non-translation transforms. Sometimes zooms will look better in
+    // Skia, and sometimes better in Windows. The main problem is that zooming
+    // in using Skia will show you the hinted outlines for the smaller size,
+    // which look weird. All else being equal, it's better to use Windows' text
+    // drawing, so we don't check for zooms.
+    const TransformationMatrix& matrix = context->getCTM();
+    if (matrix.b() != 0 || matrix.c() != 0)  // Check for skew.
+        return false;
+
+    // Check for stroke effects.
+    if (context->platformContext()->getTextDrawingMode() != cTextFill)
+        return false;
+
+    // Check for gradients.
+    if (context->fillGradient() || context->strokeGradient())
+        return false;
+
+    // Check for patterns.
+    if (context->fillPattern() || context->strokePattern())
+        return false;
+
+    // Check for shadow effects.
+    if (context->platformContext()->getDrawLooper())
+        return false;
+
+    return true;
+}
+
+// Draws the given text string using skia.  Note that gradient or
+// pattern may be NULL, in which case a solid colour is used.
+static bool skiaDrawText(HFONT hfont,
+                         HDC dc,
+                         SkCanvas* canvas,
+                         const SkPoint& point,
+                         SkPaint* paint,
+                         const TransformationMatrix& transformationMatrix,
+                         Gradient* gradient,
+                         Pattern* pattern,
+                         const WORD* glyphs,
+                         const int* advances,
+                         const GOFFSET* offsets,
+                         int numGlyphs)
+{
+    SkShader* shader = NULL;
+    if (gradient)
+        shader = gradient->platformGradient();
+    else if (pattern)
+        shader = pattern->createPlatformPattern(transformationMatrix);
+
+    paint->setShader(shader);
+    float x = point.fX, y = point.fY;
+
+    for (int i = 0; i < numGlyphs; i++) {
+        const SkPath* path = SkiaWinOutlineCache::lookupOrCreatePathForGlyph(dc, hfont, glyphs[i]);
+        if (!path)
+            return false;
+
+        float offsetX = 0.0f, offsetY = 0.0f;
+        if (offsets && (offsets[i].du != 0 || offsets[i].dv != 0)) {
+            offsetX = offsets[i].du;
+            offsetY = offsets[i].dv;
+        }
+
+        SkPath newPath;
+        newPath.addPath(*path, x + offsetX, y + offsetY);
+        canvas->drawPath(newPath, *paint);
+
+        x += advances[i];
+    }
+
+    return true;
+}
+
+bool paintSkiaText(GraphicsContext* context,
+                   HFONT hfont,
+                   int numGlyphs,
+                   const WORD* glyphs,
+                   const int* advances,
+                   const GOFFSET* offsets,
+                   const SkPoint* origin)
+{
+    HDC dc = GetDC(0);
+    HGDIOBJ oldFont = SelectObject(dc, hfont);
+
+    PlatformContextSkia* platformContext = context->platformContext();
+    int textMode = platformContext->getTextDrawingMode();
+
+    // Filling (if necessary). This is the common case.
+    SkPaint paint;
+    platformContext->setupPaintForFilling(&paint);
+    paint.setFlags(SkPaint::kAntiAlias_Flag);
+    bool didFill = false;
+
+    if ((textMode & cTextFill) && SkColorGetA(paint.getColor())) {
+        Gradient* fillGradient = 0;
+        Pattern* fillPattern = 0;
+        if (context->fillColorSpace() == GradientColorSpace)
+            fillGradient = context->fillGradient();
+        else if (context->fillColorSpace() == PatternColorSpace)
+            fillPattern = context->fillPattern();
+        if (!skiaDrawText(hfont, dc, platformContext->canvas(), *origin, &paint,
+                          context->getCTM(), fillGradient, fillPattern,
+                          &glyphs[0], &advances[0], &offsets[0], numGlyphs))
+            return false;
+        didFill = true;
+    }
+
+    // Stroking on top (if necessary).
+    if ((textMode & WebCore::cTextStroke)
+        && platformContext->getStrokeStyle() != NoStroke
+        && platformContext->getStrokeThickness() > 0) {
+
+        paint.reset();
+        platformContext->setupPaintForStroking(&paint, 0, 0);
+        paint.setFlags(SkPaint::kAntiAlias_Flag);
+        if (didFill) {
+            // If there is a shadow and we filled above, there will already be
+            // a shadow. We don't want to draw it again or it will be too dark
+            // and it will go on top of the fill.
+            //
+            // Note that this isn't strictly correct, since the stroke could be
+            // very thick and the shadow wouldn't account for this. The "right"
+            // thing would be to draw to a new layer and then draw that layer
+            // with a shadow. But this is a lot of extra work for something
+            // that isn't normally an issue.
+            paint.setLooper(0)->safeUnref();
+        }
+
+        Gradient* strokeGradient = 0;
+        Pattern* strokePattern = 0;
+        if (context->strokeColorSpace() == GradientColorSpace)
+            strokeGradient = context->strokeGradient();
+        else if (context->strokeColorSpace() == PatternColorSpace)
+            strokePattern = context->strokePattern();
+        if (!skiaDrawText(hfont, dc, platformContext->canvas(), *origin, &paint,
+                          context->getCTM(), strokeGradient, strokePattern,
+                          &glyphs[0], &advances[0], &offsets[0], numGlyphs))
+            return false;
+    }
+
+    SelectObject(dc, oldFont);
+    ReleaseDC(0, dc);
+
+    return true;
 }
 
 }  // namespace WebCore

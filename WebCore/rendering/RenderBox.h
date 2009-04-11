@@ -23,24 +23,26 @@
 #ifndef RenderBox_h
 #define RenderBox_h
 
-#include "RenderObject.h"
+#include "RenderBoxModelObject.h"
 #include "ScrollTypes.h"
 
 namespace WebCore {
 
 enum WidthType { Width, MinWidth, MaxWidth };
 
-class RenderBox : public RenderObject {
+class RenderBox : public RenderBoxModelObject {
 public:
     RenderBox(Node*);
     virtual ~RenderBox();
 
-    virtual const char* renderName() const { return "RenderBox"; }
+    // Use this with caution! No type checking is done!
+    RenderBox* firstChildBox() const;
+    RenderBox* lastChildBox() const;
 
     int x() const { return m_frameRect.x(); }
     int y() const { return m_frameRect.y(); }
-    int width() const { ASSERT(!isRenderInline()); return m_frameRect.width(); }
-    int height() const { ASSERT(!isRenderInline()); return m_frameRect.height(); }
+    int width() const { return m_frameRect.width(); }
+    int height() const { return m_frameRect.height(); }
     
     void setX(int x) { m_frameRect.setX(x); }
     void setY(int y) { m_frameRect.setY(y); }
@@ -48,7 +50,7 @@ public:
     void setHeight(int height) { m_frameRect.setHeight(height); }
     
     IntPoint location() const { return m_frameRect.location(); }
-    IntSize size() const { ASSERT(!isRenderInline()); return m_frameRect.size(); }
+    IntSize size() const { return m_frameRect.size(); }
 
     void setLocation(const IntPoint& location) { m_frameRect.setLocation(location); }
     void setLocation(int x, int y) { setLocation(IntPoint(x, y)); }
@@ -56,12 +58,12 @@ public:
     void setSize(const IntSize& size) { m_frameRect.setSize(size); }
     void move(int dx, int dy) { m_frameRect.move(dx, dy); }
 
-    IntRect frameRect() const { ASSERT(!isRenderInline()); return m_frameRect; }
+    IntRect frameRect() const { return m_frameRect; }
     void setFrameRect(const IntRect& rect) { m_frameRect = rect; }
 
     IntRect borderBoxRect() const { return IntRect(0, 0, width(), height()); }
-    virtual IntRect borderBoundingBox() const { return borderBoxRect(); } // This will work on inlines to return the bounding box of all of the lines' border boxes.
-
+    virtual IntRect borderBoundingBox() const { return borderBoxRect(); } 
+    
     // The content area of the box (excludes padding and border).
     IntRect contentBoxRect() const { return IntRect(borderLeft() + paddingLeft(), borderTop() + paddingTop(), contentWidth(), contentHeight()); }
     // The content box in absolute coords. Ignores transforms.
@@ -70,7 +72,7 @@ public:
     FloatQuad absoluteContentQuad() const;
 
     // Bounds of the outline box in absolute coords. Respects transforms
-    virtual IntRect outlineBoundsForRepaint(RenderBox* /*repaintContainer*/) const;
+    virtual IntRect outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/) const;
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
 
     // Use this with caution! No type checking is done!
@@ -96,9 +98,6 @@ public:
     // to return the remaining width on a given line (and the height of a single line).
     virtual int offsetWidth() const { return width(); }
     virtual int offsetHeight() const { return height(); }
-    virtual int offsetLeft() const;
-    virtual int offsetTop() const;
-    virtual RenderBox* offsetParent() const;
 
     // More IE extensions.  clientWidth and clientHeight represent the interior of an object
     // excluding border and scrollbar.  clientLeft/Top are just the borderLeftWidth and borderTopWidth.
@@ -119,26 +118,12 @@ public:
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
 
-    bool hasHorizontalBordersPaddingOrMargin() const { return hasHorizontalBordersOrPadding() || marginLeft() != 0 || marginRight() != 0; }
-    bool hasHorizontalBordersOrPadding() const { return borderLeft() != 0 || borderRight() != 0 || paddingLeft() != 0 || paddingRight() != 0; }
+    virtual int marginTop() const { return m_marginTop; }
+    virtual int marginBottom() const { return m_marginBottom; }
+    virtual int marginLeft() const { return m_marginLeft; }
+    virtual int marginRight() const { return m_marginRight; }
 
-    int marginTop() const { return m_marginTop; }
-    int marginBottom() const { return m_marginBottom; }
-    int marginLeft() const { return m_marginLeft; }
-    int marginRight() const { return m_marginRight; }
-
-    // Virtual since table cells override
-    virtual int paddingTop(bool includeIntrinsicPadding = true) const;
-    virtual int paddingBottom(bool includeIntrinsicPadding = true) const;
-    virtual int paddingLeft(bool includeIntrinsicPadding = true) const;
-    virtual int paddingRight(bool includeIntrinsicPadding = true) const;
-
-    virtual int borderTop() const { return style()->borderTopWidth(); }
-    virtual int borderBottom() const { return style()->borderBottomWidth(); }
-    virtual int borderLeft() const { return style()->borderLeftWidth(); }
-    virtual int borderRight() const { return style()->borderRightWidth(); }
-
-    // The following seven functions are used to implement collapsing margins.
+    // The following five functions are used to implement collapsing margins.
     // All objects know their maximal positive and negative margins.  The
     // formula for computing a collapsed margin is |maxPosMargin| - |maxNegmargin|.
     // For a non-collapsing box, such as a leaf element, this formula will simply return
@@ -147,8 +132,6 @@ public:
     virtual bool isSelfCollapsingBlock() const { return false; }
     int collapsedMarginTop() const { return maxTopMargin(true) - maxTopMargin(false); }
     int collapsedMarginBottom() const { return maxBottomMargin(true) - maxBottomMargin(false); }
-    virtual bool isTopMarginQuirk() const { return false; }
-    virtual bool isBottomMarginQuirk() const { return false; }
     virtual int maxTopMargin(bool positive) const { return positive ? std::max(0, marginTop()) : -std::min(0, marginTop()); }
     virtual int maxBottomMargin(bool positive) const { return positive ? std::max(0, marginBottom()) : -std::min(0, marginBottom()); }
 
@@ -160,6 +143,7 @@ public:
     // Given a rect in the object's coordinate space, returns the corresponding rect in the reflection.
     IntRect reflectedRect(const IntRect&) const;
 
+    virtual void layout();
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
@@ -168,13 +152,10 @@ public:
     virtual int minPrefWidth() const;
     virtual int maxPrefWidth() const;
 
-    virtual int overrideSize() const;
-    virtual int overrideWidth() const;
-    virtual int overrideHeight() const;
+    int overrideSize() const;
+    int overrideWidth() const;
+    int overrideHeight() const;
     virtual void setOverrideSize(int);
-
-    virtual FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
-    virtual FloatPoint absoluteToLocal(FloatPoint containerPoint, bool fixed = false, bool useTransforms = false) const;
 
     virtual IntSize offsetFromContainer(RenderObject*) const;
     
@@ -191,29 +172,28 @@ public:
     // shifted. -dwh
     void calcHorizontalMargins(const Length& marginLeft, const Length& marginRight, int containerWidth);
 
-    virtual void position(InlineBox*);
+    void positionLineBox(InlineBox*);
 
-    virtual void dirtyLineBoxes(bool fullLayout, bool isRootLineBox = false);
+    virtual InlineBox* createInlineBox();
+    void dirtyLineBoxes(bool fullLayout);
 
     // For inline replaced elements, this function returns the inline box that owns us.  Enables
     // the replaced RenderObject to quickly determine what line it is contained on and to easily
     // iterate over structures on the line.
-    virtual InlineBox* inlineBoxWrapper() const { return m_inlineBoxWrapper; }
-    virtual void setInlineBoxWrapper(InlineBox* boxWrapper) { m_inlineBoxWrapper = boxWrapper; }
-    virtual void deleteLineBoxWrapper();
+    InlineBox* inlineBoxWrapper() const { return m_inlineBoxWrapper; }
+    void setInlineBoxWrapper(InlineBox* boxWrapper) { m_inlineBoxWrapper = boxWrapper; }
+    void deleteLineBoxWrapper();
 
     virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
 
-    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
-    virtual void computeRectForRepaint(IntRect&, RenderBox* repaintContainer, bool fixed = false);
-    IntSize offsetForPositionedInContainer(RenderObject*) const;
-    virtual FloatQuad localToContainerQuad(const FloatQuad&, RenderBox* repaintContainer, bool fixed = false) const;
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
 
     virtual void repaintDuringLayoutIfMoved(const IntRect&);
 
-    virtual int containingBlockWidth() const;
+    virtual int containingBlockWidthForContent() const;
 
     virtual void calcWidth();
     virtual void calcHeight();
@@ -247,13 +227,6 @@ public:
 
     void calcVerticalMargins();
 
-    int relativePositionOffsetX() const;
-    int relativePositionOffsetY() const;
-    IntSize relativePositionOffset() const { return IntSize(relativePositionOffsetX(), relativePositionOffsetY()); }
-    
-    RenderLayer* layer() const { return m_layer; }
-    virtual bool requiresLayer() const { return isRoot() || isPositioned() || isRelPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
-
     virtual int verticalScrollbarWidth() const;
     int horizontalScrollbarHeight() const;
     virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f);
@@ -269,18 +242,14 @@ public:
     
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
-    virtual void paintFillLayerExtended(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight,
-                                        int tx, int ty, int width, int height, InlineFlowBox* = 0, CompositeOperator = CompositeSourceOver);
-    IntSize calculateBackgroundSize(const FillLayer*, int scaledWidth, int scaledHeight) const;
+    virtual IntRect overflowClipRect(int tx, int ty);
+    IntRect clipRect(int tx, int ty);
+    virtual bool hasControlClip() const { return false; }
+    virtual IntRect controlClipRect(int /*tx*/, int /*ty*/) const { return IntRect(); }
+    bool pushContentsClip(PaintInfo&, int tx, int ty);
+    void popContentsClip(PaintInfo&, PaintPhase originalPhase, int tx, int ty);
 
-    virtual int staticX() const;
-    virtual int staticY() const;
-    virtual void setStaticX(int staticX);
-    virtual void setStaticY(int staticY);
-
-    virtual IntRect getOverflowClipRect(int tx, int ty);
-    virtual IntRect getClipRect(int tx, int ty);
-
+    virtual void paintObject(PaintInfo&, int /*tx*/, int /*ty*/) { ASSERT_NOT_REACHED(); }
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
     virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
@@ -299,14 +268,25 @@ public:
     }
 
     IntRect maskClipRect();
+
+    virtual VisiblePosition positionForPoint(const IntPoint&);
+
+    void removeFloatingOrPositionedChildFromBlockLists();
     
+    virtual int firstLineBoxBaseline() const { return -1; }
+    virtual int lastLineBoxBaseline() const { return -1; }
+
+    bool shrinkToAvoidFloats() const;
+    virtual bool avoidsFloats() const;
+
 #if ENABLE(SVG)
     virtual TransformationMatrix localTransform() const;
 #endif
 
 protected:
-    virtual void styleWillChange(RenderStyle::Diff, const RenderStyle* newStyle);
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void updateBoxModelInfoFromStyle();
 
     void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
     void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, int clipY, int clipHeight, int tx, int ty, int width, int height, CompositeOperator = CompositeSourceOver);
@@ -321,6 +301,9 @@ protected:
     
     virtual bool shouldCalculateSizeAsReplaced() const { return isReplaced() && !isInlineBlockOrInlineTable(); }
 
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
+
 private:
     bool includeVerticalScrollbarSize() const { return hasOverflowClip() && (style()->overflowY() == OSCROLL || style()->overflowY() == OAUTO); }
     bool includeHorizontalScrollbarSize() const { return hasOverflowClip() && (style()->overflowX() == OSCROLL || style()->overflowX() == OAUTO); }
@@ -328,18 +311,16 @@ private:
     void paintRootBoxDecorations(PaintInfo&, int tx, int ty);
     // Returns true if we did a full repaint
     bool repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground);
-
-    void calculateBackgroundImageGeometry(const FillLayer*, int tx, int ty, int w, int h, IntRect& destRect, IntPoint& phase, IntSize& tileSize);
-    
-    int containingBlockWidthForPositioned(const RenderObject* containingBlock) const;
-    int containingBlockHeightForPositioned(const RenderObject* containingBlock) const;
+   
+    int containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const;
+    int containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const;
 
     void calcAbsoluteVertical();
-    void calcAbsoluteHorizontalValues(Length width, const RenderBox* cb, TextDirection containerDirection,
+    void calcAbsoluteHorizontalValues(Length width, const RenderBoxModelObject* cb, TextDirection containerDirection,
                                       int containerWidth, int bordersPlusPadding,
                                       Length left, Length right, Length marginLeft, Length marginRight,
                                       int& widthValue, int& marginLeftValue, int& marginRightValue, int& xPos);
-    void calcAbsoluteVerticalValues(Length height, const RenderBox* cb,
+    void calcAbsoluteVerticalValues(Length height, const RenderBoxModelObject* cb,
                                     int containerHeight, int bordersPlusPadding,
                                     Length top, Length bottom, Length marginTop, Length marginBottom,
                                     int& heightValue, int& marginTopValue, int& marginBottomValue, int& yPos);
@@ -350,7 +331,10 @@ private:
     // This function calculates the minimum and maximum preferred widths for an object.
     // These values are used in shrink-to-fit layout systems.
     // These include tables, positioned objects, floats and flexible boxes.
-    virtual void calcPrefWidths() = 0;
+    virtual void calcPrefWidths() { setPrefWidthsDirty(false); }
+
+protected:
+    bool isAfterContent(RenderObject* child) const;
 
 private:
     // The width/height of the contents + borders + padding.  The x/y location is relative to our container (which is not always our parent).
@@ -373,15 +357,11 @@ protected:
     // The preferred width of the element if it never breaks any lines at all.
     int m_maxPrefWidth;
 
-    // A pointer to our layer if we have one.
-    RenderLayer* m_layer;
-
     // For inline replaced elements, the inline box that owns us.
     InlineBox* m_inlineBoxWrapper;
 
 private:
     // Used to store state between styleWillChange and styleDidChange
-    static bool s_wasFloating;
     static bool s_hadOverflowClip;
 };
 
@@ -397,6 +377,9 @@ inline const RenderBox* toRenderBox(const RenderObject* o)
     return static_cast<const RenderBox*>(o);
 }
 
+// This will catch anyone doing an unnecessary cast.
+void toRenderBox(const RenderBox*);
+
 inline RenderBox* RenderBox::previousSiblingBox() const
 {
     return toRenderBox(previousSibling());
@@ -410,6 +393,16 @@ inline RenderBox* RenderBox::nextSiblingBox() const
 inline RenderBox* RenderBox::parentBox() const
 {
     return toRenderBox(parent());
+}
+
+inline RenderBox* RenderBox::firstChildBox() const
+{
+    return toRenderBox(firstChild());
+}
+
+inline RenderBox* RenderBox::lastChildBox() const
+{
+    return toRenderBox(lastChild());
 }
 
 } // namespace WebCore

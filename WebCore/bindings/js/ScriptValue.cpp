@@ -29,7 +29,9 @@
 #include "config.h"
 #include "ScriptValue.h"
 
-#include "PlatformString.h"
+#include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/JSValueRef.h>
+
 #include <runtime/JSLock.h>
 #include <runtime/Protect.h>
 #include <runtime/UString.h>
@@ -48,6 +50,14 @@ bool ScriptValue::getString(String& result) const
         return false;
     result = ustring;
     return true;
+}
+
+bool ScriptValue::isEqual(ScriptState* scriptState, const ScriptValue& anotherValue) const
+{
+    if (hasNoValue())
+        return anotherValue.hasNoValue();
+
+    return JSValueIsEqual(toRef(scriptState), toRef(jsValue()), toRef(anotherValue.jsValue()), 0);
 }
 
 bool ScriptValue::isNull() const

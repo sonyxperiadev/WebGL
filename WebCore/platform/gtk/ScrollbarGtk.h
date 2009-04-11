@@ -37,9 +37,8 @@ class ScrollbarGtk : public Scrollbar {
 public:
     friend class Scrollbar;
 
-    virtual ~ScrollbarGtk();
-
     virtual void setFrameRect(const IntRect&);
+    virtual void paint(GraphicsContext*, const IntRect&);
     
     virtual bool handleMouseMoveEvent(const PlatformMouseEvent&) { return false; }
     virtual bool handleMouseOutEvent(const PlatformMouseEvent&) { return false; }
@@ -58,6 +57,7 @@ protected:
     
 private:
     static void gtkValueChanged(GtkAdjustment*, ScrollbarGtk*);
+    IntPoint getLocationInParentWindow(const IntRect&);
     GtkAdjustment* m_adjustment;
 };
 

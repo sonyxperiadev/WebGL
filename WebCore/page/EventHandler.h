@@ -49,11 +49,11 @@ namespace WebCore {
 class AtomicString;
 class Clipboard;
 class Cursor;
-class EventTargetNode;
 class Event;
 class FloatPoint;
 class FloatRect;
 class Frame;
+class HitTestRequest;
 class HitTestResult;
 class HTMLFrameSetElement;
 class KeyboardEvent;
@@ -75,8 +75,6 @@ class PlatformTouchEvent;
 class Touch;
 #endif
     
-struct HitTestRequest;
-
 extern const int LinkDragHysteresis;
 extern const int ImageDragHysteresis;
 extern const int TextDragHysteresis;
@@ -101,7 +99,7 @@ public:
     RenderObject* autoscrollRenderer() const;
     void updateAutoscrollRenderer();
 
-    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent);
+    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false);
 
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }
@@ -174,6 +172,9 @@ public:
     void addPendingFrameBeforeUnloadEventCount();
     void removePendingFrameBeforeUnloadEventCount();
     void clearPendingFrameBeforeUnloadEventCount();
+
+    void sendResizeEvent();
+    void sendScrollEvent();
     
 #if PLATFORM(MAC)
     PassRefPtr<KeyboardEvent> currentKeyboardEvent() const;
@@ -224,7 +225,9 @@ private:
     void handleKeyboardSelectionMovement(KeyboardEvent*);
     
     Cursor selectCursor(const MouseEventWithHitTestResults&, Scrollbar*);
+#if ENABLE(PAN_SCROLLING)
     void setPanScrollCursor();
+#endif
 
     void hoverTimerFired(Timer<EventHandler>*);
 
@@ -293,9 +296,12 @@ private:
 
     void updateSelectionForMouseDrag(Node* targetNode, const IntPoint& localPoint);
 
+    bool capturesDragging() const { return m_capturesDragging; }
+
     Frame* m_frame;
 
     bool m_mousePressed;
+    bool m_capturesDragging;
     RefPtr<Node> m_mousePressNode;
 
     bool m_mouseDownMayStartSelect;

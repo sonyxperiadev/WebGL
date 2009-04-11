@@ -107,9 +107,9 @@ static PassRefPtr<DocumentFragment> documentFragmentFromDragData(DragData* dragD
             String title;
             String url = dragData->asURL(&title);
             if (!url.isEmpty()) {
-                ExceptionCode ec;
-                RefPtr<HTMLAnchorElement> anchor = static_cast<HTMLAnchorElement*>(document->createElement("a", ec).get());
+                RefPtr<HTMLAnchorElement> anchor = new HTMLAnchorElement(document);
                 anchor->setHref(url);
+                ExceptionCode ec;
                 RefPtr<Node> anchorText = document->createTextNode(title);
                 anchor->appendChild(anchorText, ec);
                 RefPtr<DocumentFragment> fragment = document->createDocumentFragment();
@@ -280,7 +280,7 @@ DragOperation DragController::tryDocumentDrag(DragData* dragData, DragDestinatio
         Frame* innerFrame = element->document()->frame();
         ASSERT(innerFrame);
         if (!asFileInput(element)) {
-            Selection dragCaret;
+            VisibleSelection dragCaret;
             if (Frame* frame = m_document->frame())
                 dragCaret = frame->visiblePositionForPoint(point);
             m_page->dragCaretController()->setSelection(dragCaret);
@@ -309,13 +309,13 @@ DragOperation DragController::operationForLoad(DragData* dragData)
     return dragOperation(dragData);
 }
 
-static bool setSelectionToDragCaret(Frame* frame, Selection& dragCaret, RefPtr<Range>& range, const IntPoint& point)
+static bool setSelectionToDragCaret(Frame* frame, VisibleSelection& dragCaret, RefPtr<Range>& range, const IntPoint& point)
 {
     frame->selection()->setSelection(dragCaret);
     if (frame->selection()->isNone()) {
         dragCaret = frame->visiblePositionForPoint(point);
         frame->selection()->setSelection(dragCaret);
-        range = dragCaret.toRange();
+        range = dragCaret.toNormalizedRange();
     }
     return !frame->selection()->isNone() && frame->selection()->isContentEditable();
 }
@@ -340,7 +340,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
             return false;
         if (!innerFrame)
             return false;
-        RefPtr<Range> innerRange = innerFrame->selection()->toRange();
+        RefPtr<Range> innerRange = innerFrame->selection()->toNormalizedRange();
         RefPtr<CSSStyleDeclaration> style = m_document->createCSSStyleDeclaration();
         ExceptionCode ec;
         style->setProperty("color", color.name(), ec);
@@ -381,9 +381,9 @@ bool DragController::concludeEditDrag(DragData* dragData)
         return true;
     }
 
-    Selection dragCaret(m_page->dragCaretController()->selection());
+    VisibleSelection dragCaret(m_page->dragCaretController()->selection());
     m_page->dragCaretController()->clear();
-    RefPtr<Range> range = dragCaret.toRange();
+    RefPtr<Range> range = dragCaret.toNormalizedRange();
     
     // For range to be null a WebKit client must have done something bad while
     // manually controlling drag behaviour
@@ -531,7 +531,7 @@ static CachedImage* getCachedImage(Element* element)
     RenderObject* renderer = element->renderer();
     if (!renderer || !renderer->isImage()) 
         return 0;
-    RenderImage* image = static_cast<RenderImage*>(renderer);
+    RenderImage* image = toRenderImage(renderer);
     return image->cachedImage();
 }
     
@@ -542,7 +542,7 @@ static Image* getImage(Element* element)
     if (!renderer || !renderer->isImage()) 
         return 0;
     
-    RenderImage* image = static_cast<RenderImage*>(renderer);
+    RenderImage* image = toRenderImage(renderer);
     if (image->cachedImage() && !image->cachedImage()->errorOccurred())
         return image->cachedImage()->image();
     return 0;
@@ -554,7 +554,7 @@ static void prepareClipboardForImageDrag(Frame* src, Clipboard* clipboard, Eleme
     ExceptionCode ec = 0;
     range->selectNode(node, ec);
     ASSERT(ec == 0);
-    src->selection()->setSelection(Selection(range.get(), DOWNSTREAM));           
+    src->selection()->setSelection(VisibleSelection(range.get(), DOWNSTREAM));           
     clipboard->declareAndWriteDragImage(node, !linkURL.isEmpty() ? linkURL : imageURL, label, src);
 }
     
@@ -661,7 +661,7 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
             Position pos = src->selection()->base();
             Node* node = enclosingAnchorElement(pos);
             if (node)
-                src->selection()->setSelection(Selection::selectionFromContentsOfNode(node));
+                src->selection()->setSelection(VisibleSelection::selectionFromContentsOfNode(node));
         }
 
         m_client->willPerformDragSourceAction(DragSourceActionLink, dragOrigin, clipboard);
@@ -673,7 +673,7 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
         } 
         doSystemDrag(dragImage, dragLoc, mouseDraggedPoint, clipboard, src, true);
     } else if (isSelected && (m_dragSourceAction & DragSourceActionSelection)) {
-        RefPtr<Range> selectionRange = src->selection()->toRange();
+        RefPtr<Range> selectionRange = src->selection()->toNormalizedRange();
         ASSERT(selectionRange);
         if (!clipboard->hasData()) 
             clipboard->writeRange(selectionRange.get(), src);
@@ -771,7 +771,7 @@ void DragController::placeDragCaret(const IntPoint& windowPoint)
     if (!frameView)
         return;
     IntPoint framePoint = frameView->windowToContents(windowPoint);
-    Selection dragCaret(frame->visiblePositionForPoint(framePoint));  
+    VisibleSelection dragCaret(frame->visiblePositionForPoint(framePoint));  
     m_page->dragCaretController()->setSelection(dragCaret);
 }
     

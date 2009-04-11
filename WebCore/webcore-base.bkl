@@ -67,6 +67,7 @@ wxWebCore port Bakefile project file.
         <include>$(SRCDIR)/bridge/c</include>
         <include>$(SRCDIR)/bridge/jni</include>
         <include>$(SRCDIR)/css</include>
+        <include>$(SRCDIR)/DerivedSources/WebCore</include>
         <include>$(SRCDIR)/dom</include>
         <include>$(SRCDIR)/editing</include>
         <include>$(SRCDIR)/history</include>
@@ -99,11 +100,8 @@ wxWebCore port Bakefile project file.
         <include>$(SRCDIR)/rendering</include>
         <include>$(SRCDIR)/rendering/style</include>
         <include>$(SRCDIR)/storage</include>
+        <include>$(SRCDIR)/workers</include>
         <include>$(SRCDIR)/xml</include>
-        <!-- FIXME: this is below the other headers because there currently exists both
-             WebCore/DerivedSources/HTMLElementFactory.h and WebCore/html/HTMLElementFactory.h 
-             and the latter is the one WebCore/dom/Document.cpp needs to compile. -->
-        <include>$(SRCDIR)/DerivedSources/WebCore</include>
         <include>$(WK_ROOT)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
         <include>$(WK_ROOT)/JavaScriptCore/ForwardingHeaders</include>

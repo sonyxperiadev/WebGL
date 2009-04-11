@@ -43,6 +43,7 @@ public:
 
     virtual bool shouldUseInputMethod() const { return !m_isPasswordField; }
     virtual bool isChecked() const { return false; }
+    virtual bool isAutofilled() const { return false; }
     virtual bool isIndeterminate() const { return false; }
     virtual bool isTextControl() const { return true; }
     virtual bool isRadioButton() const { return false; }
@@ -86,9 +87,19 @@ public:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
 
+    bool isConformedToInputMask(const String&);
+    bool isConformedToInputMask(UChar, unsigned, bool isUserInput = true);
+
 private:
+    void init();
+    String validateInputMask(const String&);
+    unsigned cursorPositionToMaskIndex(unsigned);
+
     InputElementData m_data;
     bool m_isPasswordField;
+    bool m_isEmptyOk;
+    String m_formatMask;
+    unsigned m_numOfCharsAllowedByMask;
 };
 
 }

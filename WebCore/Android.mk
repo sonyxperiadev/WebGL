@@ -138,7 +138,6 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSEventCustom.cpp \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \
-	bindings/js/JSEventTargetNodeCustom.cpp \
 	bindings/js/JSGeolocationCustom.cpp \
 	bindings/js/JSHTMLAllCollection.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \
@@ -160,6 +159,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSInspectedObjectWrapper.cpp \
 	bindings/js/JSInspectorCallbackWrapper.cpp \
 	bindings/js/JSJavaScriptCallFrameCustom.cpp \
+	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMessageChannelConstructor.cpp \
 	bindings/js/JSMessageChannelCustom.cpp \
@@ -198,6 +198,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSTextCustom.cpp \
 	bindings/js/JSTreeWalkerCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
+	bindings/js/JSWebKitPointConstructor.cpp \
 	bindings/js/JSXMLHttpRequestConstructor.cpp \
 	bindings/js/JSXMLHttpRequestCustom.cpp \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
@@ -207,8 +208,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
+	bindings/js/ScriptFunctionCall.cpp \
+	bindings/js/ScriptObject.cpp \
 	bindings/js/ScriptValue.cpp \
 	\
+	bridge/IdentifierRep.cpp \
 	bridge/NP_jsobject.cpp \
 	bridge/c/c_class.cpp \
 	bridge/c/c_instance.cpp \
@@ -305,6 +309,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ChildNodeList.cpp \
 	dom/ClassNames.cpp \
 	dom/ClassNodeList.cpp \
+	dom/ClientRect.cpp \
+	dom/ClientRectList.cpp \
 	dom/Clipboard.cpp \
 	dom/ClipboardEvent.cpp \
 	dom/Comment.cpp \
@@ -322,7 +328,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Event.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
-	dom/EventTargetNode.cpp \
 	dom/ExceptionBase.cpp \
 	dom/ExceptionCode.cpp \
 	dom/FormControlElement.cpp \
@@ -407,7 +412,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/RemoveNodeCommand.cpp \
 	editing/RemoveNodePreservingChildrenCommand.cpp \
 	editing/ReplaceSelectionCommand.cpp \
-	editing/Selection.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
 	editing/SplitElementCommand.cpp \
@@ -417,6 +421,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/TypingCommand.cpp \
 	editing/UnlinkCommand.cpp \
 	editing/VisiblePosition.cpp \
+	editing/VisibleSelection.cpp \
 	editing/WrapContentsInDummySpanCommand.cpp \
 	\
 	editing/android/EditorAndroid.cpp \
@@ -453,7 +458,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLDivElement.cpp \
 	html/HTMLDocument.cpp \
 	html/HTMLElement.cpp \
-	html/HTMLElementFactory.cpp \
 	html/HTMLEmbedElement.cpp \
 	html/HTMLFieldSetElement.cpp \
 	html/HTMLFontElement.cpp \
@@ -525,12 +529,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/CachedResourceClientWalker.cpp \
 	loader/CachedResourceHandle.cpp \
 	loader/CachedScript.cpp \
+	loader/CrossOriginAccessControl.cpp \
+	loader/CrossOriginPreflightResultCache.cpp \
 	loader/DocLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
-	loader/FrameLoaderClient.cpp \
 	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
@@ -558,6 +563,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Chrome.cpp \
 	page/Console.cpp \
 	page/ContextMenuController.cpp \
+	page/Coordinates.cpp \
 	page/DOMSelection.cpp \
 	page/DOMTimer.cpp \
 	page/DOMWindow.cpp \
@@ -593,13 +599,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/animation/KeyframeAnimation.cpp \
 	\
 	platform/Arena.cpp \
+	platform/ContentType.cpp \
 	platform/ContextMenu.cpp \
+	platform/CrossThreadCopier.cpp \
 	platform/DeprecatedPtrListImpl.cpp \
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
 	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
+	platform/KURLGoogle.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
@@ -610,6 +619,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/SharedBuffer.cpp \
 	platform/Theme.cpp \
 	platform/ThreadGlobalData.cpp \
+	platform/ThreadTimers.cpp \
 	platform/Timer.cpp \
 	platform/Widget.cpp \
 	\
@@ -639,6 +649,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/BitmapImage.cpp \
 	platform/graphics/Color.cpp \
 	platform/graphics/FloatPoint.cpp \
+	platform/graphics/FloatPoint3D.cpp \
 	platform/graphics/FloatQuad.cpp \
 	platform/graphics/FloatRect.cpp \
 	platform/graphics/FloatSize.cpp \
@@ -654,6 +665,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/GlyphWidthMap.cpp \
 	platform/graphics/Gradient.cpp \
 	platform/graphics/GraphicsContext.cpp \
+	platform/graphics/GraphicsLayer.cpp \
 	platform/graphics/GraphicsTypes.cpp \
 	platform/graphics/Image.cpp \
 	platform/graphics/IntRect.cpp \
@@ -688,7 +700,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/graphics/skia/NativeImageSkia.cpp \
 	\
+	platform/graphics/transforms/Matrix3DTransformOperation.cpp \
 	platform/graphics/transforms/MatrixTransformOperation.cpp \
+	platform/graphics/transforms/PerspectiveTransformOperation.cpp \
 	platform/graphics/transforms/RotateTransformOperation.cpp \
 	platform/graphics/transforms/ScaleTransformOperation.cpp \
 	platform/graphics/transforms/SkewTransformOperation.cpp \
@@ -696,8 +710,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
-	platform/image-decoders/skia/GIFImageDecoder.cpp \
-	platform/image-decoders/skia/GIFImageReader.cpp \
+  platform/image-decoders/skia/GIFImageDecoder.cpp \
+  platform/image-decoders/skia/GIFImageReader.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
@@ -717,7 +731,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
 	\
 	platform/posix/FileSystemPOSIX.cpp \
-	\
+  \
 	platform/sql/SQLValue.cpp \
 	platform/sql/SQLiteAuthorizer.cpp \
 	platform/sql/SQLiteDatabase.cpp \
@@ -740,8 +754,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextCodecLatin1.cpp \
 	platform/text/TextCodecUTF16.cpp \
 	platform/text/TextCodecUserDefined.cpp \
-	platform/text/TextDecoder.cpp \
 	platform/text/TextEncoding.cpp \
+	platform/text/TextEncodingDetectorICU.cpp \
 	platform/text/TextEncodingRegistry.cpp \
 	platform/text/TextStream.cpp \
 	platform/text/UnicodeRange.cpp \
@@ -780,13 +794,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderBR.cpp \
 	rendering/RenderBlock.cpp \
 	rendering/RenderBox.cpp \
+	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
-	rendering/RenderContainer.cpp \
 	rendering/RenderCounter.cpp \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
 	rendering/RenderFlexibleBox.cpp \
-	rendering/RenderFlow.cpp \
 	rendering/RenderForeignObject.cpp \
 	rendering/RenderFrame.cpp \
 	rendering/RenderFrameSet.cpp \
@@ -795,7 +808,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderImageGeneratedContent.cpp \
 	rendering/RenderInline.cpp \
 	rendering/RenderLayer.cpp \
-	rendering/RenderLegend.cpp \
+	rendering/RenderLayerBacking.cpp \
+	rendering/RenderLayerCompositor.cpp \
+	rendering/RenderLineBoxList.cpp \
 	rendering/RenderListBox.cpp \
 	rendering/RenderListItem.cpp \
 	rendering/RenderListMarker.cpp \
@@ -803,6 +818,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderMedia.cpp \
 	rendering/RenderMenuList.cpp \
 	rendering/RenderObject.cpp \
+	rendering/RenderObjectChildList.cpp \
 	rendering/RenderPart.cpp \
 	rendering/RenderPartObject.cpp \
 	rendering/RenderPath.cpp \
@@ -860,7 +876,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 endif
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	rendering/ScrollBehavior.cpp \
 	rendering/TextControlInnerElements.cpp \
+	rendering/TransformState.cpp \
 	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
 	\
