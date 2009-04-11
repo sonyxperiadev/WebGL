@@ -93,7 +93,7 @@ bool AccessibilityTable::isTableExposableThroughAccessibility()
     // Unfortunately, there is no good way to determine the difference
     // between a "layout" table and a "data" table
     
-    Node* tableNode = table->element();
+    Node* tableNode = table->node();
     if (!tableNode || !tableNode->hasTagName(tableTag))
         return false;
     
@@ -139,7 +139,7 @@ bool AccessibilityTable::isTableExposableThroughAccessibility()
             RenderTableCell* cell = firstBody->cellAt(row, col).cell;
             if (!cell)
                 continue;
-            Node* cellNode = cell->element();
+            Node* cellNode = cell->node();
             if (!cellNode)
                 continue;
             
@@ -241,7 +241,7 @@ void AccessibilityTable::addChildren()
                 if (!cell)
                     continue;
                 
-                AccessibilityObject* rowObject = axCache->get(cell->parent());
+                AccessibilityObject* rowObject = axCache->getOrCreate(cell->parent());
                 if (!rowObject->isTableRow())
                     continue;
                 
@@ -264,7 +264,7 @@ void AccessibilityTable::addChildren()
     // make the columns based on the number of columns in the first body
     unsigned length = initialTableSection->numColumns();
     for (unsigned i = 0; i < length; ++i) {
-        AccessibilityTableColumn* column = static_cast<AccessibilityTableColumn*>(axCache->get(ColumnRole));
+        AccessibilityTableColumn* column = static_cast<AccessibilityTableColumn*>(axCache->getOrCreate(ColumnRole));
         column->setColumnIndex((int)i);
         column->setParentTable(this);
         m_columns.append(column);
@@ -281,7 +281,7 @@ AccessibilityObject* AccessibilityTable::headerContainer()
     if (m_headerContainer)
         return m_headerContainer;
     
-    m_headerContainer = static_cast<AccessibilityTableHeaderContainer*>(axObjectCache()->get(TableHeaderContainerRole));
+    m_headerContainer = static_cast<AccessibilityTableHeaderContainer*>(axObjectCache()->getOrCreate(TableHeaderContainerRole));
     m_headerContainer->setParentTable(this);
     
     return m_headerContainer;
@@ -386,11 +386,13 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
     unsigned rowOffset = 0;
     while (tableSection) {
         
-        rowCount += tableSection->numRows();
+        unsigned numRows = tableSection->numRows();
         unsigned numCols = tableSection->numColumns();
         
-        if (row < rowCount && column < numCols) {
-            int sectionSpecificRow = row - rowOffset;
+        rowCount += numRows;
+        
+        unsigned sectionSpecificRow = row - rowOffset;            
+        if (row < rowCount && column < numCols && sectionSpecificRow < numRows) {
             cell = tableSection->cellAt(sectionSpecificRow, column).cell;
             
             // we didn't find the cell, which means there's spanning happening
@@ -422,9 +424,9 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
         if (cell)
             break;
         
-        rowOffset += rowCount;
+        rowOffset += numRows;
         // we didn't find anything between the rows we should have
-        if (row < rowOffset)
+        if (row < rowCount)
             break;
         tableSection = table->sectionBelow(tableSection, true);        
     }
@@ -432,7 +434,7 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
     if (!cell)
         return 0;
     
-    AccessibilityObject* cellObject = axObjectCache()->get(cell);
+    AccessibilityObject* cellObject = axObjectCache()->getOrCreate(cell);
     ASSERT(cellObject->isTableCell());
     
     return static_cast<AccessibilityTableCell*>(cellObject);
@@ -464,7 +466,7 @@ String AccessibilityTable::title() const
         return title;
     
     // see if there is a caption
-    Node *tableElement = m_renderer->element();
+    Node* tableElement = m_renderer->node();
     if (tableElement) {
         HTMLTableCaptionElement* caption = static_cast<HTMLTableElement*>(tableElement)->caption();
         if (caption)

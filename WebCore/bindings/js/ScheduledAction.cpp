@@ -88,9 +88,9 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
     for (size_t i = 0; i < size; ++i)
         args.append(m_args[i]);
 
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     call(exec, m_function, callType, callData, thisValue, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
 
     if (exec->hadException())
         reportCurrentException(exec);
@@ -136,8 +136,7 @@ void ScheduledAction::execute(Document* document)
     // FIXME: Is this really the right point to do the update? We need a place that works
     // for all possible entry points that might possibly execute script, but this seems
     // to be a bit too low-level.
-    if (Document* document = frame->document())
-        document->updateRendering();
+    frame->document()->updateRendering();
 
     frame->script()->setProcessingTimerCallback(false);
 }

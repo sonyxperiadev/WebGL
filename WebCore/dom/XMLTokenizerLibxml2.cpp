@@ -395,7 +395,7 @@ static void* openFunc(const char* uri)
     ASSERT(globalDocLoader);
     ASSERT(currentThread() == libxmlLoaderThread);
 
-    KURL url(uri);
+    KURL url(KURL(), uri);
 
     if (!shouldAllowExternalLoad(url))
         return &globalDescriptor;
@@ -706,7 +706,8 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
                                                          nb_attributes, nb_defaulted, libxmlAttributes);
         return;
     }
-    
+
+    bool isFirstElement = !m_sawFirstElement;
     m_sawFirstElement = true;
 
     exitText();
@@ -722,14 +723,14 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
             uri = m_defaultNamespaceURI;
     }
 
-    ExceptionCode ec = 0;
     QualifiedName qName(prefix, localName, uri);
-    RefPtr<Element> newElement = m_doc->createElement(qName, true, ec);
+    RefPtr<Element> newElement = m_doc->createElement(qName, true);
     if (!newElement) {
         stopParsing();
         return;
     }
     
+    ExceptionCode ec = 0;
     handleElementNamespaces(newElement.get(), libxmlNamespaces, nb_namespaces, ec);
     if (ec) {
         stopParsing();
@@ -763,6 +764,9 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
     setCurrentNode(newElement.get());
     if (m_view && !newElement->attached())
         newElement->attach();
+
+    if (isFirstElement && m_doc->frame())
+        m_doc->frame()->loader()->dispatchDocumentElementAvailable();
 }
 
 void XMLTokenizer::endElementNs()

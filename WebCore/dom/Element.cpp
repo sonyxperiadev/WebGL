@@ -29,6 +29,8 @@
 #include "AXObjectCache.h"
 #include "CSSStyleSelector.h"
 #include "CString.h"
+#include "ClientRect.h"
+#include "ClientRectList.h"
 #include "Document.h"
 #include "Editor.h"
 #include "ElementRareData.h"
@@ -44,6 +46,9 @@
 #include "Page.h"
 #include "PlatformString.h"
 #include "RenderBlock.h"
+#if ENABLE(SVG)
+#include "SVGNames.h"
+#endif
 #include "SelectionController.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
@@ -83,25 +88,30 @@ NodeRareData* Element::createRareData()
     
 PassRefPtr<Node> Element::cloneNode(bool deep)
 {
-    ExceptionCode ec = 0;
-    RefPtr<Element> clone = document()->createElementNS(namespaceURI(), nodeName(), ec);
-    ASSERT(!ec);
-    
-    // clone attributes
+    return deep ? cloneElementWithChildren() : cloneElementWithoutChildren();
+}
+
+PassRefPtr<Element> Element::cloneElementWithChildren()
+{
+    RefPtr<Element> clone = cloneElementWithoutChildren();
+    cloneChildNodes(clone.get());
+    return clone.release();
+}
+
+PassRefPtr<Element> Element::cloneElementWithoutChildren()
+{
+    RefPtr<Element> clone = document()->createElement(tagQName(), false);
+    // This will catch HTML elements in the wrong namespace that are not correctly copied.
+    // This is a sanity check as HTML overloads some of the DOM methods.
+    ASSERT(isHTMLElement() == clone->isHTMLElement());
+
+    // Clone attributes.
     if (namedAttrMap)
         clone->attributes()->setAttributes(*namedAttrMap);
 
     clone->copyNonAttributeProperties(this);
     
-    if (deep)
-        cloneChildNodes(clone.get());
-
     return clone.release();
-}
-
-PassRefPtr<Element> Element::cloneElement()
-{
-    return static_pointer_cast<Element>(cloneNode(false));
 }
 
 void Element::removeAttribute(const QualifiedName& name, ExceptionCode& ec)
@@ -189,9 +199,9 @@ void Element::scrollIntoView(bool alignToTop)
     if (renderer()) {
         // Align to the top / bottom and to the closest edge.
         if (alignToTop)
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignTopAlways);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways);
         else
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignBottomAlways);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignBottomAlways);
     }
 }
 
@@ -201,9 +211,9 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
     IntRect bounds = getRect();    
     if (renderer()) {
         if (centerIfNeeded)
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignCenterIfNeeded, RenderLayer::gAlignCenterIfNeeded);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded);
         else
-            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignToEdgeIfNeeded);
+            renderer()->enclosingLayer()->scrollRectToVisible(bounds, false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded);
     }
 }
 
@@ -274,7 +284,7 @@ static int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 int Element::offsetLeft()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForLocalZoom(rend->offsetLeft(), rend);
     return 0;
 }
@@ -282,7 +292,7 @@ int Element::offsetLeft()
 int Element::offsetTop()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForLocalZoom(rend->offsetTop(), rend);
     return 0;
 }
@@ -290,7 +300,7 @@ int Element::offsetTop()
 int Element::offsetWidth()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForAbsoluteZoom(rend->offsetWidth(), rend);
     return 0;
 }
@@ -298,7 +308,7 @@ int Element::offsetWidth()
 int Element::offsetHeight()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderBoxModelObject* rend = renderBoxModelObject())
         return adjustForAbsoluteZoom(rend->offsetHeight(), rend);
     return 0;
 }
@@ -306,9 +316,9 @@ int Element::offsetHeight()
 Element* Element::offsetParent()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox())
+    if (RenderObject* rend = renderer())
         if (RenderObject* offsetParent = rend->offsetParent())
-            return static_cast<Element*>(offsetParent->element());
+            return static_cast<Element*>(offsetParent->node());
     return 0;
 }
 
@@ -340,14 +350,11 @@ int Element::clientWidth()
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view())
-            return view->layoutWidth();
+            return adjustForAbsoluteZoom(view->layoutWidth(), document()->renderer());
     }
     
-
-    if (RenderBox* rend = renderBox()) {
-        if (!rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->clientWidth(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->clientWidth(), rend);
     return 0;
 }
 
@@ -362,13 +369,11 @@ int Element::clientHeight()
     if ((!inCompatMode && document()->documentElement() == this) ||
         (inCompatMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view())
-            return view->layoutHeight();
+            return adjustForAbsoluteZoom(view->layoutHeight(), document()->renderer());
     }
     
-    if (RenderBox* rend = renderBox()) {
-        if (!rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->clientHeight(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->clientHeight(), rend);
     return 0;
 }
 
@@ -405,21 +410,65 @@ void Element::setScrollTop(int newTop)
 int Element::scrollWidth()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox()) {
-        if (rend->hasOverflowClip() || !rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->scrollWidth(), rend);
     return 0;
 }
 
 int Element::scrollHeight()
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (RenderBox* rend = renderBox()) {
-        if (rend->hasOverflowClip() || !rend->isRenderInline())
-            return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
-    }
+    if (RenderBox* rend = renderBox())
+        return adjustForAbsoluteZoom(rend->scrollHeight(), rend);
     return 0;
+}
+
+PassRefPtr<ClientRectList> Element::getClientRects() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+
+    RenderBoxModelObject* renderBoxModelObject = this->renderBoxModelObject();
+    if (!renderBoxModelObject)
+        return ClientRectList::create();
+
+    // FIXME: Handle SVG elements.
+    // FIXME: Handle table/inline-table with a caption.
+
+    Vector<FloatQuad> quads;
+    renderBoxModelObject->absoluteQuads(quads);
+
+    if (FrameView* view = document()->view()) {
+        IntRect visibleContentRect = view->visibleContentRect();
+        for (size_t i = 0; i < quads.size(); ++i)
+            quads[i].move(-visibleContentRect.x(), -visibleContentRect.y());
+    }
+
+    return ClientRectList::create(quads);
+}
+
+PassRefPtr<ClientRect> Element::getBoundingClientRect() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+    RenderBoxModelObject* renderBoxModelObject = this->renderBoxModelObject();
+    if (!renderBoxModelObject)
+        return ClientRect::create();
+
+    Vector<FloatQuad> quads;
+    renderBoxModelObject->absoluteQuads(quads);
+
+    if (quads.isEmpty())
+        return ClientRect::create();
+
+    IntRect result = quads[0].enclosingBoundingBox();
+    for (size_t i = 1; i < quads.size(); ++i)
+        result.unite(quads[i].enclosingBoundingBox());
+
+    if (FrameView* view = document()->view()) {
+        IntRect visibleContentRect = view->visibleContentRect();
+        result.move(-visibleContentRect.x(), -visibleContentRect.y());
+    }
+
+    return ClientRect::create(result);
 }
 
 static inline bool shouldIgnoreAttributeCase(const Element* e)
@@ -1105,18 +1154,17 @@ void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
             return;
 
         // FIXME: We should restore the previous selection if there is one.
-        Selection newSelection = hasTagName(htmlTag) || hasTagName(bodyTag) ? Selection(Position(this, 0), DOWNSTREAM) : Selection::selectionFromContentsOfNode(this);
+        VisibleSelection newSelection = hasTagName(htmlTag) || hasTagName(bodyTag) ? VisibleSelection(Position(this, 0), DOWNSTREAM) : VisibleSelection::selectionFromContentsOfNode(this);
         
         if (frame->shouldChangeSelection(newSelection)) {
             frame->selection()->setSelection(newSelection);
             frame->revealSelection();
         }
-#ifdef ANDROID_SCROLL_FIX
-        // We handle the scrolling the screen with our navigation code,
-        // so ignore this call to put the rectangle on screen.
     }
-#else
-    } else if (renderer() && !renderer()->isWidget())
+    // FIXME: I'm not sure all devices will want this off, but this is
+    // currently turned off for Andriod.
+#if !ENABLE(DIRECTIONAL_PAD_NAVIGATION)
+    else if (renderer() && !renderer()->isWidget())
         renderer()->enclosingLayer()->scrollRectToVisible(getRect());
 #endif
 }

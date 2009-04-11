@@ -28,26 +28,21 @@
 #include "DOMTimer.h"
 #include "DOMWindow.h"
 #include "Element.h"
-#include "EventListener.h"
-#include "ExceptionCode.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoadRequest.h"
-#include "FrameLoader.h"
-#include "FrameTree.h"
-#include "GCController.h"
 #include "HTMLDocument.h"
 #include "InspectorController.h"
 #include "JSAudioConstructor.h"
 #include "JSDOMWindowCustom.h"
 #include "JSEvent.h"
-#include "JSEventListener.h"
 #include "JSHTMLCollection.h"
 #include "JSImageConstructor.h"
 #include "JSMessageChannelConstructor.h"
 #include "JSNode.h"
 #include "JSWebKitCSSMatrixConstructor.h"
 #include "JSOptionConstructor.h"
+#include "JSWebKitPointConstructor.h"
 #include "JSWorkerConstructor.h"
 #include "JSXMLHttpRequestConstructor.h"
 #include "JSXSLTProcessorConstructor.h"
@@ -62,10 +57,7 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "WindowFeatures.h"
-#include "htmlediting.h"
-#include <runtime/Error.h>
 #include <runtime/JSLock.h>
-#include <wtf/AlwaysInline.h>
 #include <wtf/MathExtras.h>
 
 using namespace JSC;
@@ -91,6 +83,8 @@ static JSValuePtr jsDOMWindowBaseOption(ExecState*, const Identifier&, const Pro
 static void setJSDOMWindowBaseOption(ExecState*, JSObject*, JSValuePtr);
 static JSValuePtr jsDOMWindowBaseWebKitCSSMatrix(ExecState*, const Identifier&, const PropertySlot&);
 static void setJSDOMWindowBaseWebKitCSSMatrix(ExecState*, JSObject*, JSValuePtr);
+static JSValuePtr jsDOMWindowBaseWebKitPoint(ExecState*, const Identifier&, const PropertySlot&);
+static void setJSDOMWindowBaseWebKitPoint(ExecState*, JSObject*, JSValuePtr);
 static JSValuePtr jsDOMWindowBaseXMLHttpRequest(ExecState*, const Identifier&, const PropertySlot&);
 static void setJSDOMWindowBaseXMLHttpRequest(ExecState*, JSObject*, JSValuePtr);
 static JSValuePtr jsDOMWindowBaseXSLTProcessor(ExecState*, const Identifier&, const PropertySlot&);
@@ -121,6 +115,7 @@ const ClassInfo JSDOMWindowBase::s_info = { "Window", 0, &JSDOMWindowBaseTable, 
   MessageChannel                jsDOMWindowBaseMessageChannel               DontDelete
   Option                        jsDOMWindowBaseOption                       DontDelete
   WebKitCSSMatrix               jsDOMWindowBaseWebKitCSSMatrix              DontDelete
+  WebKitPoint                   jsDOMWindowBaseWebKitPoint                  DontDelete
   Worker                        jsDOMWindowBaseWorker                       DontDelete
   XMLHttpRequest                jsDOMWindowBaseXMLHttpRequest               DontDelete
   XSLTProcessor                 jsDOMWindowBaseXSLTProcessor                DontDelete
@@ -137,9 +132,6 @@ JSDOMWindowBase::JSDOMWindowBaseData::JSDOMWindowBaseData(PassRefPtr<DOMWindow> 
 JSDOMWindowBase::JSDOMWindowBase(PassRefPtr<Structure> structure, PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
     : JSDOMGlobalObject(structure, new JSDOMWindowBaseData(window, shell), shell)
 {
-    // Time in milliseconds before the script timeout handler kicks in.
-    setTimeoutTime(10000);
-
     GlobalPropertyInfo staticGlobals[] = {
         GlobalPropertyInfo(Identifier(globalExec(), "document"), jsNull(), DontDelete | ReadOnly),
         GlobalPropertyInfo(Identifier(globalExec(), "window"), d()->shell, DontDelete | ReadOnly)
@@ -409,7 +401,7 @@ JSValuePtr jsDOMWindowBaseWebKitCSSMatrix(ExecState* exec, const Identifier&, co
 {
     if (!static_cast<JSDOMWindowBase*>(asObject(slot.slotBase()))->allowsAccessFrom(exec))
         return jsUndefined();
-    return getDOMConstructor<JSWebKitCSSMatrixConstructor>(exec, static_cast<JSDOMWindowBase*>(asObject(slot.slotBase())));
+    return getDOMConstructor<JSWebKitCSSMatrixConstructor>(exec);
 }
  
 JSValuePtr jsDOMWindowBaseXMLHttpRequest(ExecState* exec, const Identifier&, const PropertySlot& slot)
@@ -428,8 +420,17 @@ JSValuePtr jsDOMWindowBaseAudio(ExecState* exec, const Identifier&, const Proper
         return jsUndefined();
     return getDOMConstructor<JSAudioConstructor>(exec, static_cast<JSDOMWindowBase*>(asObject(slot.slotBase())));
 #else
+    UNUSED_PARAM(exec);
+    UNUSED_PARAM(slot);
     return jsUndefined();
 #endif
+}
+
+JSValuePtr jsDOMWindowBaseWebKitPoint(ExecState* exec, const Identifier&, const PropertySlot& slot)
+{
+    if (!static_cast<JSDOMWindowBase*>(asObject(slot.slotBase()))->allowsAccessFrom(exec))
+        return jsUndefined();
+    return getDOMConstructor<JSWebKitPointConstructor>(exec);
 }
 
 JSValuePtr jsDOMWindowBaseWorker(ExecState* exec, const Identifier&, const PropertySlot& slot)
@@ -439,6 +440,8 @@ JSValuePtr jsDOMWindowBaseWorker(ExecState* exec, const Identifier&, const Prope
         return jsUndefined();
     return getDOMConstructor<JSWorkerConstructor>(exec);
 #else
+    UNUSED_PARAM(exec);
+    UNUSED_PARAM(slot);
     return jsUndefined();
 #endif
 }
@@ -450,6 +453,8 @@ JSValuePtr jsDOMWindowBaseXSLTProcessor(ExecState* exec, const Identifier&, cons
         return jsUndefined();
     return getDOMConstructor<JSXSLTProcessorConstructor>(exec);
 #else
+    UNUSED_PARAM(exec);
+    UNUSED_PARAM(slot);
     return jsUndefined();
 #endif
 }
@@ -508,6 +513,14 @@ void setJSDOMWindowBaseWebKitCSSMatrix(ExecState* exec, JSObject* thisObject, JS
         return;
     // Shadowing a built-in constructor
     static_cast<JSDOMWindowBase*>(thisObject)->putDirect(Identifier(exec, "WebKitCSSMatrix"), value);
+}
+
+void setJSDOMWindowBaseWebKitPoint(ExecState* exec, JSObject* thisObject, JSValuePtr value)
+{
+    if (!static_cast<JSDOMWindowBase*>(thisObject)->allowsAccessFrom(exec))
+        return;
+    // Shadowing a built-in constructor
+    static_cast<JSDOMWindowBase*>(thisObject)->putDirect(Identifier(exec, "WebKitPoint"), value);
 }
 
 void setJSDOMWindowBaseXMLHttpRequest(ExecState* exec, JSObject* thisObject, JSValuePtr value)
@@ -609,7 +622,7 @@ bool JSDOMWindowBase::getOwnPropertySlot(ExecState* exec, const Identifier& prop
 
     // Allow shortcuts like 'Image1' instead of document.images.Image1
     Document* document = impl()->frame()->document();
-    if (document && document->isHTMLDocument()) {
+    if (document->isHTMLDocument()) {
         AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
         if (atomicPropertyName && (static_cast<HTMLDocument*>(document)->hasNamedItem(atomicPropertyName) || document->hasElementWithId(atomicPropertyName))) {
             slot.setCustom(this, namedItemGetter);
@@ -735,7 +748,12 @@ JSDOMWindowShell* JSDOMWindowBase::shell() const
 
 JSGlobalData* JSDOMWindowBase::commonJSGlobalData()
 {
-    static JSGlobalData* globalData = JSGlobalData::createLeaked().releaseRef();
+    static JSGlobalData* globalData;
+    if (!globalData) {
+        globalData = JSGlobalData::createLeaked().releaseRef();
+        globalData->timeoutChecker.setTimeoutInterval(10000); // 10 seconds
+    }
+
     return globalData;
 }
 

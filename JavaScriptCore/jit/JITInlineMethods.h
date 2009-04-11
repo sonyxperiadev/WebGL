@@ -69,8 +69,8 @@ ALWAYS_INLINE void JIT::emitGetVirtualRegister(int src, RegisterID dst)
 
         if (!atJumpTarget) {
             // The argument we want is already stored in eax
-            if (dst != X86::eax)
-                move(X86::eax, dst);
+            if (dst != cachedResultRegister)
+                move(cachedResultRegister, dst);
             killLastResultRegister();
             return;
         }
@@ -177,7 +177,7 @@ ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader(RegisterFile::CallFrameHeader
 ALWAYS_INLINE void JIT::emitPutVirtualRegister(unsigned dst, RegisterID from)
 {
     storePtr(from, Address(callFrameRegister, dst * sizeof(Register)));
-    m_lastResultBytecodeRegister = (from == X86::eax) ? dst : std::numeric_limits<int>::max();
+    m_lastResultBytecodeRegister = (from == cachedResultRegister) ? dst : std::numeric_limits<int>::max();
     // FIXME: #ifndef NDEBUG, Write the correct m_type to the register.
 }
 
@@ -187,20 +187,11 @@ ALWAYS_INLINE void JIT::emitInitRegister(unsigned dst)
     // FIXME: #ifndef NDEBUG, Write the correct m_type to the register.
 }
 
-ALWAYS_INLINE JIT::Jump JIT::emitNakedCall(X86::RegisterID r)
+ALWAYS_INLINE JIT::Call JIT::emitNakedCall(void* function)
 {
     ASSERT(m_bytecodeIndex != (unsigned)-1); // This method should only be called during hot/cold path generation, so that m_bytecodeIndex is set.
 
-    Jump nakedCall = call(r);
-    m_calls.append(CallRecord(nakedCall, m_bytecodeIndex));
-    return nakedCall;
-}
-
-ALWAYS_INLINE JIT::Jump JIT::emitNakedCall(void* function)
-{
-    ASSERT(m_bytecodeIndex != (unsigned)-1); // This method should only be called during hot/cold path generation, so that m_bytecodeIndex is set.
-
-    Jump nakedCall = call();
+    Call nakedCall = nearCall();
     m_calls.append(CallRecord(nakedCall, m_bytecodeIndex, function));
     return nakedCall;
 }
@@ -208,25 +199,21 @@ ALWAYS_INLINE JIT::Jump JIT::emitNakedCall(void* function)
 #if USE(JIT_STUB_ARGUMENT_REGISTER)
 ALWAYS_INLINE void JIT::restoreArgumentReference()
 {
-#if PLATFORM(X86_64)
-    move(X86::esp, X86::edi);
-#else
-    move(X86::esp, X86::ecx);
-#endif
+    move(stackPointerRegister, firstArgumentRegister);
     emitPutCTIParam(callFrameRegister, STUB_ARGS_callFrame);
 }
 ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline()
 {
     // In the trampoline on x86-64, the first argument register is not overwritten.
 #if !PLATFORM(X86_64)
-    move(X86::esp, X86::ecx);
-    addPtr(Imm32(sizeof(void*)), X86::ecx);
+    move(stackPointerRegister, firstArgumentRegister);
+    addPtr(Imm32(sizeof(void*)), firstArgumentRegister);
 #endif
 }
 #elif USE(JIT_STUB_ARGUMENT_STACK)
 ALWAYS_INLINE void JIT::restoreArgumentReference()
 {
-    storePtr(X86::esp, X86::esp);
+    poke(stackPointerRegister);
     emitPutCTIParam(callFrameRegister, STUB_ARGS_callFrame);
 }
 ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline() {}
@@ -238,7 +225,7 @@ ALWAYS_INLINE void JIT::restoreArgumentReference()
 ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline() {}
 #endif
 
-ALWAYS_INLINE JIT::Jump JIT::emitCTICall_internal(void* helper)
+ALWAYS_INLINE JIT::Call JIT::emitCTICall_internal(void* helper)
 {
     ASSERT(m_bytecodeIndex != (unsigned)-1); // This method should only be called during hot/cold path generation, so that m_bytecodeIndex is set.
 
@@ -246,7 +233,7 @@ ALWAYS_INLINE JIT::Jump JIT::emitCTICall_internal(void* helper)
     sampleInstruction(m_codeBlock->instructions().begin() + m_bytecodeIndex, true);
 #endif
     restoreArgumentReference();
-    Jump ctiCall = call();
+    Call ctiCall = call();
     m_calls.append(CallRecord(ctiCall, m_bytecodeIndex, helper));
 #if ENABLE(OPCODE_SAMPLING)
     sampleInstruction(m_codeBlock->instructions().begin() + m_bytecodeIndex, false);
@@ -258,15 +245,15 @@ ALWAYS_INLINE JIT::Jump JIT::emitCTICall_internal(void* helper)
 
 ALWAYS_INLINE JIT::Jump JIT::checkStructure(RegisterID reg, Structure* structure)
 {
-    return jnePtr(Address(reg, FIELD_OFFSET(JSCell, m_structure)), ImmPtr(structure));
+    return branchPtr(NotEqual, Address(reg, FIELD_OFFSET(JSCell, m_structure)), ImmPtr(structure));
 }
 
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfJSCell(RegisterID reg)
 {
 #if USE(ALTERNATE_JSIMMEDIATE)
-    return jzPtr(reg, tagMaskRegister);
+    return branchTestPtr(Zero, reg, tagMaskRegister);
 #else
-    return jz32(reg, Imm32(JSImmediate::TagMask));
+    return branchTest32(Zero, reg, Imm32(JSImmediate::TagMask));
 #endif
 }
 
@@ -285,9 +272,9 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfJSCell(RegisterID reg)
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotJSCell(RegisterID reg)
 {
 #if USE(ALTERNATE_JSIMMEDIATE)
-    return jnzPtr(reg, tagMaskRegister);
+    return branchTestPtr(NonZero, reg, tagMaskRegister);
 #else
-    return jnz32(reg, Imm32(JSImmediate::TagMask));
+    return branchTest32(NonZero, reg, Imm32(JSImmediate::TagMask));
 #endif
 }
 
@@ -311,29 +298,29 @@ ALWAYS_INLINE void JIT::linkSlowCaseIfNotJSCell(Vector<SlowCaseEntry>::iterator&
 #if USE(ALTERNATE_JSIMMEDIATE)
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfImmediateNumber(RegisterID reg)
 {
-    return jnzPtr(reg, tagTypeNumberRegister);
+    return branchTestPtr(NonZero, reg, tagTypeNumberRegister);
 }
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotImmediateNumber(RegisterID reg)
 {
-    return jzPtr(reg, tagTypeNumberRegister);
+    return branchTestPtr(Zero, reg, tagTypeNumberRegister);
 }
 #endif
 
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfImmediateInteger(RegisterID reg)
 {
 #if USE(ALTERNATE_JSIMMEDIATE)
-    return jaePtr(reg, tagTypeNumberRegister);
+    return branchPtr(AboveOrEqual, reg, tagTypeNumberRegister);
 #else
-    return jnz32(reg, Imm32(JSImmediate::TagTypeNumber));
+    return branchTest32(NonZero, reg, Imm32(JSImmediate::TagTypeNumber));
 #endif
 }
 
 ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotImmediateInteger(RegisterID reg)
 {
 #if USE(ALTERNATE_JSIMMEDIATE)
-    return jbPtr(reg, tagTypeNumberRegister);
+    return branchPtr(Below, reg, tagTypeNumberRegister);
 #else
-    return jz32(reg, Imm32(JSImmediate::TagTypeNumber));
+    return branchTest32(Zero, reg, Imm32(JSImmediate::TagTypeNumber));
 #endif
 }
 
@@ -362,7 +349,7 @@ ALWAYS_INLINE void JIT::emitFastArithDeTagImmediate(RegisterID reg)
 
 ALWAYS_INLINE JIT::Jump JIT::emitFastArithDeTagImmediateJumpIfZero(RegisterID reg)
 {
-    return jzSubPtr(Imm32(JSImmediate::TagTypeNumber), reg);
+    return branchSubPtr(Zero, Imm32(JSImmediate::TagTypeNumber), reg);
 }
 #endif
 

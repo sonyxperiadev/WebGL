@@ -123,20 +123,24 @@ namespace WebCore {
         DashedStroke
     };
 
+// FIXME: This is a place-holder until we decide to add
+// real color space support to WebCore.  At that time, ColorSpace will be a
+// class and instances will be held  off of Colors.   There will be
+// special singleton Gradient and Pattern color spaces to mark when
+// a fill or stroke is using a gradient or pattern instead of a solid color.
+// https://bugs.webkit.org/show_bug.cgi?id=20558
+    enum ColorSpace {
+        SolidColorSpace,
+        PatternColorSpace,
+        GradientColorSpace
+    };
+
     enum InterpolationQuality {
         InterpolationDefault,
         InterpolationNone,
         InterpolationLow,
         InterpolationMedium,
         InterpolationHigh
-    };
-
-    // FIXME: Currently these constants have to match the values used in the SVG
-    // DOM API. That's a mistake. We need to make cut that dependency.
-    enum GradientSpreadMethod {
-        SpreadMethodPad = 1,
-        SpreadMethodReflect = 2,
-        SpreadMethodRepeat = 3
     };
 
     class GraphicsContext : Noncopyable {
@@ -152,17 +156,28 @@ namespace WebCore {
         void setStrokeStyle(const StrokeStyle& style);
         Color strokeColor() const;
         void setStrokeColor(const Color&);
+
+        ColorSpace strokeColorSpace() const;
+
         void setStrokePattern(PassRefPtr<Pattern>);
+        Pattern* strokePattern() const;
+
         void setStrokeGradient(PassRefPtr<Gradient>);
+        Gradient* strokeGradient() const;
 
         WindRule fillRule() const;
         void setFillRule(WindRule);
-        GradientSpreadMethod spreadMethod() const;
-        void setSpreadMethod(GradientSpreadMethod);
         Color fillColor() const;
         void setFillColor(const Color&);
+
         void setFillPattern(PassRefPtr<Pattern>);
+        Pattern* fillPattern() const;
+
         void setFillGradient(PassRefPtr<Gradient>);
+        Gradient* fillGradient() const;
+
+        ColorSpace fillColorSpace() const;
+
         void setShadowsIgnoreTransforms(bool);
 
         void setShouldAntialias(bool);
@@ -206,6 +221,9 @@ namespace WebCore {
         void restore();
 
         // These draw methods will do both stroking and filling.
+        // FIXME: ...except drawRect(), which fills properly but always strokes
+        // using a 1-pixel stroke inset from the rect borders (of the correct
+        // stroke color).
         void drawRect(const IntRect&);
         void drawLine(const IntPoint&, const IntPoint&);
         void drawEllipse(const IntRect&);
@@ -402,3 +420,4 @@ namespace WebCore {
 } // namespace WebCore
 
 #endif // GraphicsContext_h
+

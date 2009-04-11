@@ -27,8 +27,8 @@
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "Document.h"
+#include "EventListener.h"
 #include "EventNames.h"
-#include "EventTargetNode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -45,6 +45,7 @@
 #include "InlineTextBox.h"
 #include "KURL.h"
 #include "PluginView.h"
+#include "RegisteredEventListener.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderListBox.h"
@@ -88,7 +89,19 @@ Frame* CacheBuilder::FrameAnd(const CacheBuilder* cacheBuilder) {
     return loader->getFrame();
 }
 
+
 #if DUMP_NAV_CACHE
+
+static bool hasEventListener(Node* node, const AtomicString& eventType) {
+    const RegisteredEventListenerVector& listeners = node->eventListeners();
+    size_t size = listeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        const RegisteredEventListener& r = *listeners[i];
+        if (r.eventType() == eventType)
+            return true;
+    }
+    return false;
+}
 
 #define DEBUG_BUFFER_SIZE 256
 #define DEBUG_WRAP_SIZE 150
@@ -345,24 +358,20 @@ void CacheBuilder::Debug::groups() {
         DUMP_NAV_LOGD("static DebugTestNode TEST%s_RECTS[] = {\n", name);
         do {
             String properties;
-            EventTargetNode* elementTarget = node->isEventTargetNode() ? 
-                (EventTargetNode*) node : NULL;
-            if (elementTarget) {
-                if (elementTarget->getEventListener(eventNames().clickEvent))
-                    properties.append("ONCLICK | ");
-                if (elementTarget->getEventListener(eventNames().mousedownEvent))
-                    properties.append("MOUSEDOWN | ");
-                if (elementTarget->getEventListener(eventNames().mouseupEvent)) 
-                    properties.append("MOUSEUP | ");
-                if (elementTarget->getEventListener(eventNames().mouseoverEvent)) 
-                    properties.append("MOUSEOVER | ");
-                if (elementTarget->getEventListener(eventNames().mouseoutEvent)) 
-                    properties.append("MOUSEOUT | ");
-                if (elementTarget->getEventListener(eventNames().keydownEvent))
-                    properties.append("KEYDOWN | ");
-                if (elementTarget->getEventListener(eventNames().keyupEvent))
-                    properties.append("KEYUP | ");
-            }
+            if (hasEventListener(node, eventNames().clickEvent))
+                properties.append("ONCLICK | ");
+            if (hasEventListener(node, eventNames().mousedownEvent))
+                properties.append("MOUSEDOWN | ");
+            if (hasEventListener(node, eventNames().mouseupEvent))
+                properties.append("MOUSEUP | ");
+            if (hasEventListener(node, eventNames().mouseoverEvent))
+                properties.append("MOUSEOVER | ");
+            if (hasEventListener(node, eventNames().mouseoutEvent))
+                properties.append("MOUSEOUT | ");
+            if (hasEventListener(node, eventNames().keydownEvent))
+                properties.append("KEYDOWN | ");
+            if (hasEventListener(node, eventNames().keyupEvent))
+                properties.append("KEYUP | ");
             if (CacheBuilder::HasFrame(node))
                 properties.append("FRAME | ");
             if (focus == node) {
@@ -552,8 +561,6 @@ bool CacheBuilder::Debug::isFocusable(Node* node) {
     if (node->isMouseFocusable())
         return true;
     if (node->isFocusable())
-        return true;
-    if (node->isEventTargetNode())
         return true;
     if (CacheBuilder::AnyIsClick(node))
         return false;
@@ -807,20 +814,35 @@ void CacheBuilder::adjustForColumns(const ClipColumnTracker& track,
     }    
 }
 
-bool CacheBuilder::AnyChildIsClick(Node* node)
-{
-    Node* child = node->firstChild();
-    while (child != NULL) {
-        if (child->isEventTargetNode()) {
-            EventTargetNode* target = (EventTargetNode*) child;
-            if (target->isFocusable() ||
-                    target->getEventListener(eventNames().clickEvent) || 
-                    target->getEventListener(eventNames().mousedownEvent) ||
-                    target->getEventListener(eventNames().mouseupEvent) ||
-                    target->getEventListener(eventNames().keydownEvent) ||
-                    target->getEventListener(eventNames().keyupEvent))
+// Checks if a node has one of event listener types.
+bool CacheBuilder::NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length) {
+    const RegisteredEventListenerVector& listeners = node->eventListeners();
+    size_t size = listeners.size();
+    for (size_t i = 0; i < size; ++i) {
+        const RegisteredEventListener& r = *listeners[i];
+        for (int j = 0; j < length; ++j) {
+            if (r.eventType() == eventTypes[j])
                 return true;
         }
+    }
+    return false;
+}
+
+bool CacheBuilder::AnyChildIsClick(Node* node)
+{
+    AtomicString eventTypes[5] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    Node* child = node->firstChild();
+    while (child != NULL) {
+        if (child->isFocusable() ||
+            NodeHasEventListeners(child, eventTypes, 5))
+                return true;
         if (AnyChildIsClick(child))
             return true;
         child = child->nextSibling();
@@ -832,18 +854,26 @@ bool CacheBuilder::AnyIsClick(Node* node)
 {
     if (node->hasTagName(HTMLNames::bodyTag))
         return AnyChildIsClick(node);
-    EventTargetNode* target = (EventTargetNode*) node;
-    if (target->getEventListener(eventNames().mouseoverEvent) == NULL && 
-            target->getEventListener(eventNames().mouseoutEvent) == NULL &&
-            target->getEventListener(eventNames().keydownEvent) == NULL &&
-            target->getEventListener(eventNames().keyupEvent) == NULL)
+
+    AtomicString eventTypeSetOne[4] = {
+        eventNames().mouseoverEvent,
+        eventNames().mouseoutEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    if (!NodeHasEventListeners(node, eventTypeSetOne, 4))
         return false;
-    if (target->getEventListener(eventNames().clickEvent)) 
+
+    AtomicString eventTypeSetTwo[3] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent
+    };
+
+    if (NodeHasEventListeners(node, eventTypeSetTwo, 3))
         return false;
-    if (target->getEventListener(eventNames().mousedownEvent))
-        return false;
-    if (target->getEventListener(eventNames().mouseupEvent))
-        return false;
+
     return AnyChildIsClick(node);
 }
 
@@ -1162,10 +1192,9 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 (const HTMLAnchorElement*) node;
             if (!anchorNode->isFocusable() && !HasTriggerEvent(node))
                 continue;
-            EventTargetNode* target = (EventTargetNode*) node;
-            if (target->disabled())
+            if (node->disabled())
                 continue;
-            hasMouseOver = target->getEventListener(eventNames().mouseoverEvent);
+            hasMouseOver = NodeHasEventListeners(node, &eventNames().mouseoverEvent, 1);
             isAnchor = true;
             KURL href = anchorNode->href();
             if (!href.isEmpty() && !href.protocolIs("javascript"))
@@ -1198,10 +1227,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             bool isFocusable = node->isKeyboardFocusable(NULL) || 
                 node->isMouseFocusable() || node->isFocusable();
             if (isFocusable == false) {
-                if (node->isEventTargetNode() == false)
-                    continue;
-                EventTargetNode* eventTargetNode = (EventTargetNode*) node;
-                if (eventTargetNode->disabled())
+                if (node->disabled())
                     continue;
                 bool overOrOut = HasOverOrOut(node);
                 bool hasTrigger = HasTriggerEvent(node);
@@ -1345,7 +1371,6 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
         lastNode->isKeyboardFocusable(NULL) == false && 
         lastNode->isMouseFocusable() == false &&
         lastNode->isFocusable() == false &&
-        lastNode->isEventTargetNode() == true && 
         HasOverOrOut(lastNode) == true && 
         HasTriggerEvent(lastNode) == false;
     if (cachedFrame->focusIndex() == lastChildIndex)
@@ -2432,20 +2457,26 @@ Frame* CacheBuilder::HasFrame(Node* node)
 
 bool CacheBuilder::HasOverOrOut(Node* node)
 {
-    EventTargetNode* target = (EventTargetNode*) node;
-    return target->getEventListener(eventNames().mouseoverEvent) || 
-        target->getEventListener(eventNames().mouseoutEvent);
+    // eventNames are thread-local data, I avoid using 'static' variable here.
+    AtomicString eventTypes[2] = {
+        eventNames().mouseoverEvent,
+        eventNames().mouseoutEvent
+    };
 
+    return NodeHasEventListeners(node, eventTypes, 2);
 }
 
 bool CacheBuilder::HasTriggerEvent(Node* node)
 {
-    EventTargetNode* target = (EventTargetNode*) node;
-    return target->getEventListener(eventNames().clickEvent) || 
-        target->getEventListener(eventNames().mousedownEvent) ||
-        target->getEventListener(eventNames().mouseupEvent) || 
-        target->getEventListener(eventNames().keydownEvent) ||
-        target->getEventListener(eventNames().keyupEvent);
+    AtomicString eventTypes[5] = {
+        eventNames().clickEvent,
+        eventNames().mousedownEvent,
+        eventNames().mouseupEvent,
+        eventNames().keydownEvent,
+        eventNames().keyupEvent
+    };
+
+    return NodeHasEventListeners(node, eventTypes, 5);
 }
 
 // #define EMAIL_PATTERN "x@y.d" // where 'x' is letters, numbers, and '-', '.', '_' ; 'y' is 'x' without the underscore, and 'd' is a valid domain
@@ -2504,8 +2535,6 @@ Node* CacheBuilder::findByCenter(int x, int y) const
             return node;
         if (node->isFocusable())
             return node;
-        if (node->isEventTargetNode() == false)
-            continue;
         if (AnyIsClick(node))
             continue;
         if (HasTriggerEvent(node) == false)

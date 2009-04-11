@@ -548,7 +548,7 @@ void RenderThemeMac::updateFocusedState(NSCell* cell, const RenderObject* o)
 void RenderThemeMac::updatePressedState(NSCell* cell, const RenderObject* o)
 {
     bool oldPressed = [cell isHighlighted];
-    bool pressed = (o->element() && o->element()->active());
+    bool pressed = (o->node() && o->node()->active());
     if (pressed != oldPressed)
         [cell setHighlighted:pressed];
 }
@@ -951,7 +951,11 @@ void RenderThemeMac::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style->setColor(e->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    bool isEnabled = true;
+    if (FormControlElement* formControlElement = toFormControlElement(e))
+        isEnabled = formControlElement->isEnabled();
+
+    style->setColor(isEnabled ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());
@@ -1451,8 +1455,8 @@ void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
             height = size.height;
         }
 
-        o->style()->setWidth(Length(width, Fixed));
-        o->style()->setHeight(Length(height, Fixed));
+        o->style()->setWidth(Length(static_cast<int>(width * zoomLevel), Fixed));
+        o->style()->setHeight(Length(static_cast<int>(height * zoomLevel), Fixed));
     }
 #endif
 }
@@ -1462,7 +1466,7 @@ void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
 
 bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1473,7 +1477,7 @@ bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObj
 
 bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1489,7 +1493,7 @@ bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::P
 
 bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1505,7 +1509,7 @@ bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::P
 
 bool RenderThemeMac::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1516,7 +1520,7 @@ bool RenderThemeMac::paintMediaSeekBackButton(RenderObject* o, const RenderObjec
 
 bool RenderThemeMac::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1527,7 +1531,7 @@ bool RenderThemeMac::paintMediaSeekForwardButton(RenderObject* o, const RenderOb
 
 bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1551,7 +1555,7 @@ bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::
 
 bool RenderThemeMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1562,7 +1566,7 @@ bool RenderThemeMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::
 
 bool RenderThemeMac::paintMediaTimelineContainer(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1573,7 +1577,7 @@ bool RenderThemeMac::paintMediaTimelineContainer(RenderObject* o, const RenderOb
 
 bool RenderThemeMac::paintMediaCurrentTime(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
@@ -1584,7 +1588,7 @@ bool RenderThemeMac::paintMediaCurrentTime(RenderObject* o, const RenderObject::
 
 bool RenderThemeMac::paintMediaTimeRemaining(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 

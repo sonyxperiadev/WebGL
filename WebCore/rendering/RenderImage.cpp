@@ -38,6 +38,7 @@
 #include "Page.h"
 #include "RenderView.h"
 #include <wtf/CurrentTime.h>
+#include <wtf/UnusedParam.h>
 
 #ifdef ANDROID_LAYOUT
 #include "Settings.h"
@@ -315,9 +316,32 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
             repaintRect = contentBoxRect();
         
         repaintRectangle(repaintRect);
+
+#if USE(ACCELERATED_COMPOSITING)
+        if (hasLayer()) {
+            // Tell any potential compositing layers that the image needs updating.
+            layer()->rendererContentChanged();
+        }
+#endif
     }
 }
 
+void RenderImage::notifyFinished(CachedResource* newImage)
+{
+    if (documentBeingDestroyed())
+        return;
+
+#if USE(ACCELERATED_COMPOSITING)
+    if ((newImage == m_cachedImage) && hasLayer()) {
+        // tell any potential compositing layers
+        // that the image is done and they can reference it directly.
+        layer()->rendererContentChanged();
+    }
+#else
+    UNUSED_PARAM(newImage);
+#endif
+}
+    
 void RenderImage::resetAnimation()
 {
     if (m_cachedImage) {
@@ -406,7 +430,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
         IntSize contentSize(cWidth, cHeight);
         bool useLowQualityScaling = RenderImageScaleObserver::shouldImagePaintAtLowQuality(this, contentSize);
         IntRect rect(IntPoint(tx + leftBorder + leftPad, ty + topBorder + topPad), contentSize);
-        HTMLImageElement* imageElt = (element() && element()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(element()) : 0;
+        HTMLImageElement* imageElt = (node() && node()->hasTagName(imgTag)) ? static_cast<HTMLImageElement*>(node()) : 0;
         CompositeOperator compositeOperator = imageElt ? imageElt->compositeOperator() : CompositeSourceOver;
         context->drawImage(image(cWidth, cHeight), rect, compositeOperator, useLowQualityScaling);
     }
@@ -419,41 +443,44 @@ int RenderImage::minimumReplacedHeight() const
 
 HTMLMapElement* RenderImage::imageMap()
 {
-    HTMLImageElement* i = element() && element()->hasTagName(imgTag) ? static_cast<HTMLImageElement*>(element()) : 0;
+    HTMLImageElement* i = node() && node()->hasTagName(imgTag) ? static_cast<HTMLImageElement*>(node()) : 0;
     return i ? i->document()->getImageMap(i->useMap()) : 0;
 }
 
 bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
 {
-    bool inside = RenderReplaced::nodeAtPoint(request, result, _x, _y, _tx, _ty, hitTestAction);
+    HitTestResult tempResult(result.point());
+    bool inside = RenderReplaced::nodeAtPoint(request, tempResult, _x, _y, _tx, _ty, hitTestAction);
 
-    if (inside && element()) {
+    if (inside && node()) {
         int tx = _tx + x();
         int ty = _ty + y();
         
         HTMLMapElement* map = imageMap();
         if (map) {
             // we're a client side image map
-            inside = map->mapMouseEvent(_x - tx, _y - ty, IntSize(contentWidth(), contentHeight()), result);
-            result.setInnerNonSharedNode(element());
+            inside = map->mapMouseEvent(_x - tx, _y - ty, IntSize(contentWidth(), contentHeight()), tempResult);
+            tempResult.setInnerNonSharedNode(node());
         }
     }
 
+    if (inside)
+        result = tempResult;
     return inside;
 }
 
 void RenderImage::updateAltText()
 {
-    if (!element())
+    if (!node())
         return;
 
-    if (element()->hasTagName(inputTag))
-        m_altText = static_cast<HTMLInputElement*>(element())->altText();
-    else if (element()->hasTagName(imgTag))
-        m_altText = static_cast<HTMLImageElement*>(element())->altText();
+    if (node()->hasTagName(inputTag))
+        m_altText = static_cast<HTMLInputElement*>(node())->altText();
+    else if (node()->hasTagName(imgTag))
+        m_altText = static_cast<HTMLImageElement*>(node())->altText();
 #if ENABLE(WML)
-    else if (element()->hasTagName(WMLNames::imgTag))
-        m_altText = static_cast<WMLImageElement*>(element())->altText();
+    else if (node()->hasTagName(WMLNames::imgTag))
+        m_altText = static_cast<WMLImageElement*>(node())->altText();
 #endif
 }
 
@@ -516,7 +543,7 @@ int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
     width = max(minW, min(width, maxW));
     // in SSR mode, we will fit the image to its container width
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
-        int cw = containingBlockWidth();
+        int cw = containingBlockWidthForContent();
         if (cw && width>cw)
             width = cw;
     }
@@ -555,7 +582,7 @@ int RenderImage::calcReplacedHeight() const
         	calcReplacedWidthUsing(style()->maxWidth());
         width = max(minW, min(width, maxW));
 
-        int cw = containingBlockWidth();
+        int cw = containingBlockWidthForContent();
         if (cw && width && width>cw)
             height = cw * height / width;   // preserve aspect ratio
     }

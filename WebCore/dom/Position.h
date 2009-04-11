@@ -40,7 +40,11 @@ class Node;
 class Range;
 class RenderObject;
 
-enum EUsingComposedCharacters { NotUsingComposedCharacters = false, UsingComposedCharacters = true };
+enum PositionMoveType {
+    CodePoint,       // Move by a single code point.
+    Character,       // Move to the next Unicode character break.
+    BackwardDeletion // Subject to platform conventions.
+};
 
 // FIXME: Reduce the number of operations we have on a Position.
 // This should be more like a humble struct, without so many different
@@ -48,20 +52,36 @@ enum EUsingComposedCharacters { NotUsingComposedCharacters = false, UsingCompose
 
 class Position {
 public:
-    RefPtr<Node> container;
-    int posOffset; // to be renamed to offset when we get rid of offset()
+    Position() : m_offset(0) { }
 
-    Position() : posOffset(0) { }
-    Position(PassRefPtr<Node> c, int o) : container(c), posOffset(o) { }
+    // This constructor should be private
+    Position(PassRefPtr<Node> anchorNode, int offset)
+        : m_anchorNode(anchorNode)
+        , m_offset(offset)
+    {}
 
-    void clear() { container.clear(); posOffset = 0; }
+    void clear() { m_anchorNode.clear(); m_offset = 0; }
 
-    Node* node() const { return container.get(); }
-    int offset() const { return posOffset; }
+    Node* anchorNode() const { return m_anchorNode.get(); }
+
+    // FIXME: Callers should be moved off of node(), node() is not always the container for this position.
+    // For nodes which editingIgnoresContent(node()) returns true, positions like [ignoredNode, 0]
+    // will be treated as before ignoredNode (thus node() is really after the position, not containing it).
+    Node* node() const { return m_anchorNode.get(); }
     Element* documentElement() const;
 
-    bool isNull() const { return !container; }
-    bool isNotNull() const { return container; }
+    void moveToPosition(PassRefPtr<Node> node, int offset)
+    {
+        m_anchorNode = node;
+        m_offset = offset;
+    }
+    void moveToOffset(int offset)
+    {
+        m_offset = offset;
+    }
+
+    bool isNull() const { return !m_anchorNode; }
+    bool isNotNull() const { return m_anchorNode; }
 
     Element* element() const;
     PassRefPtr<CSSComputedStyleDeclaration> computedStyle() const;
@@ -69,13 +89,19 @@ public:
     // Move up or down the DOM by one position.
     // Offsets are computed using render text for nodes that have renderers - but note that even when
     // using composed characters, the result may be inside a single user-visible character if a ligature is formed.
-    Position previous(EUsingComposedCharacters usingComposedCharacters=NotUsingComposedCharacters) const;
-    Position next(EUsingComposedCharacters usingComposedCharacters=NotUsingComposedCharacters) const;
+    Position previous(PositionMoveType = CodePoint) const;
+    Position next(PositionMoveType = CodePoint) const;
     static int uncheckedPreviousOffset(const Node*, int current);
+    static int uncheckedPreviousOffsetForBackwardDeletion(const Node*, int current);
     static int uncheckedNextOffset(const Node*, int current);
 
-    bool atStart() const;
-    bool atEnd() const;
+    // These can be either inside or just before/after the node, depending on
+    // if the node is ignored by editing or not.
+    bool atFirstEditingPositionForNode() const;
+    bool atLastEditingPositionForNode() const;
+
+    bool atStartOfTree() const;
+    bool atEndOfTree() const;
 
     // FIXME: Make these non-member functions and put them somewhere in the editing directory.
     // These aren't really basic "position" operations. More high level editing helper functions.
@@ -109,11 +135,20 @@ private:
 
     Position previousCharacterPosition(EAffinity) const;
     Position nextCharacterPosition(EAffinity) const;
+
+    RefPtr<Node> m_anchorNode;
+public:
+    // m_offset can be the offset inside m_anchorNode, or if editingIgnoresContent(m_anchorNode)
+    // returns true, then other places in editing will treat m_offset == 0 as "before the anchor"
+    // and m_offset > 0 as "after the anchor node".  See rangeCompliantEquivalent for more info.
+    int m_offset; // FIXME: This should be made private.
 };
 
 inline bool operator==(const Position& a, const Position& b)
 {
-    return a.container == b.container && a.posOffset == b.posOffset;
+    // FIXME: In <div><img></div> [div, 0] != [img, 0] even though most of the
+    // editing code will treat them as identical.
+    return a.anchorNode() == b.anchorNode() && a.m_offset == b.m_offset;
 }
 
 inline bool operator!=(const Position& a, const Position& b)
@@ -123,6 +158,12 @@ inline bool operator!=(const Position& a, const Position& b)
 
 Position startPosition(const Range*);
 Position endPosition(const Range*);
+
+// NOTE: first/lastDeepEditingPositionForNode can return "editing positions" (like [img, 0])
+// for elements which editing "ignores".  the rest of the editing code will treat [img, 0]
+// as "the last position before the img"
+Position firstDeepEditingPositionForNode(Node*);
+Position lastDeepEditingPositionForNode(Node*);
 
 } // namespace WebCore
 

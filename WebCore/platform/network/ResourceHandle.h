@@ -30,6 +30,10 @@
 #include "HTTPHeaderMap.h"
 #include <wtf/OwnPtr.h>
 
+#if USE(SOUP)
+typedef struct _SoupSession SoupSession;
+#endif
+
 #if PLATFORM(CF)
 typedef const struct __CFData * CFDataRef;
 #endif
@@ -79,7 +83,7 @@ class KURL;
 class ResourceError;
 class ResourceHandleClient;
 class ResourceHandleInternal;
-class ResourceRequest;
+struct ResourceRequest;
 class ResourceResponse;
 class SchedulePair;
 class SharedBuffer;
@@ -159,6 +163,10 @@ public:
     ResourceHandleInternal* getInternal() { return d.get(); }
 #endif
 
+#if USE(SOUP)
+    static SoupSession* defaultSession();
+#endif
+
     // Used to work around the fact that you don't get any more NSURLConnection callbacks until you return from the one you're in.
     static bool loadsBlocked();    
     
@@ -179,7 +187,7 @@ private:
 #if USE(SOUP)
     bool startData(String urlString);
     bool startHttp(String urlString);
-    bool startGio(String urlString);
+    bool startGio(KURL url);
 #endif
 
     void scheduleFailure(FailureType);

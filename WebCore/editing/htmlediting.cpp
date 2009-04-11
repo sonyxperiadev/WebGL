@@ -40,7 +40,7 @@
 #include "PositionIterator.h"
 #include "RenderObject.h"
 #include "Range.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "VisiblePosition.h"
@@ -98,8 +98,8 @@ int comparePositions(const Position& a, const Position& b)
     ASSERT(nodeA);
     Node* nodeB = b.node();
     ASSERT(nodeB);
-    int offsetA = a.offset();
-    int offsetB = b.offset();
+    int offsetA = a.m_offset;
+    int offsetB = b.m_offset;
 
     Node* shadowAncestorA = nodeA->shadowAncestorNode();
     if (shadowAncestorA == nodeA)
@@ -221,8 +221,8 @@ Position nextVisuallyDistinctCandidate(const Position& position)
 {
     Position p = position;
     Position downstreamStart = p.downstream();
-    while (!p.atEnd()) {
-        p = p.next(UsingComposedCharacters);
+    while (!p.atEndOfTree()) {
+        p = p.next(Character);
         if (p.isCandidate() && p.downstream() != downstreamStart)
             return p;
     }
@@ -244,8 +244,8 @@ Position previousVisuallyDistinctCandidate(const Position& position)
 {
     Position p = position;
     Position downstreamStart = p.downstream();
-    while (!p.atStart()) {
-        p = p.previous(UsingComposedCharacters);
+    while (!p.atStartOfTree()) {
+        p = p.previous(Character);
         if (p.isCandidate() && p.downstream() != downstreamStart)
             return p;
     }
@@ -255,14 +255,14 @@ Position previousVisuallyDistinctCandidate(const Position& position)
 VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& position, Node* highestRoot)
 {
     // position falls before highestRoot.
-    if (comparePositions(position, Position(highestRoot, 0)) == -1 && highestRoot->isContentEditable())
-        return VisiblePosition(Position(highestRoot, 0));
-        
+    if (comparePositions(position, firstDeepEditingPositionForNode(highestRoot)) == -1 && highestRoot->isContentEditable())
+        return firstDeepEditingPositionForNode(highestRoot);
+
     Position p = position;
     
     if (Node* shadowAncestor = p.node()->shadowAncestorNode())
         if (shadowAncestor != p.node())
-            p = Position(shadowAncestor, maxDeepOffset(shadowAncestor));
+            p = lastDeepEditingPositionForNode(shadowAncestor);
     
     while (p.node() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot))
         p = isAtomicNode(p.node()) ? positionAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
@@ -276,14 +276,14 @@ VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& positio
 VisiblePosition lastEditablePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
 {
     // When position falls after highestRoot, the result is easy to compute.
-    if (comparePositions(position, Position(highestRoot, maxDeepOffset(highestRoot))) == 1)
-        return VisiblePosition(Position(highestRoot, maxDeepOffset(highestRoot)));
-        
+    if (comparePositions(position, lastDeepEditingPositionForNode(highestRoot)) == 1)
+        return lastDeepEditingPositionForNode(highestRoot);
+
     Position p = position;
     
     if (Node* shadowAncestor = p.node()->shadowAncestorNode())
         if (shadowAncestor != p.node())
-            p = Position(shadowAncestor, 0);
+            p = firstDeepEditingPositionForNode(shadowAncestor);
     
     while (p.node() && !isEditablePosition(p) && p.node()->isDescendantOf(highestRoot))
         p = isAtomicNode(p.node()) ? positionBeforeNode(p.node()) : previousVisuallyDistinctCandidate(p);
@@ -294,6 +294,7 @@ VisiblePosition lastEditablePositionBeforePositionInRoot(const Position& positio
     return VisiblePosition(p);
 }
 
+// FIXME: The method name, comment, and code say three different things here!
 // Whether or not content before and after this node will collapse onto the same line as it.
 bool isBlock(const Node* node)
 {
@@ -309,39 +310,44 @@ Node* enclosingBlock(Node* node)
     return static_cast<Element*>(enclosingNodeOfType(Position(node, 0), isBlock));
 }
 
+// Internally editing uses "invalid" positions for historical reasons.  For
+// example, in <div><img /></div>, Editing might use (img, 1) for the position
+// after <img>, but we have to convert that to (div, 1) before handing the
+// position to a Range object.  Ideally all internal positions should
+// be "range compliant" for simplicity.
 Position rangeCompliantEquivalent(const Position& pos)
 {
     if (pos.isNull())
         return Position();
 
-    Node *node = pos.node();
-    
-    if (pos.offset() <= 0) {
+    Node* node = pos.node();
+
+    if (pos.m_offset <= 0) {
         if (node->parentNode() && (editingIgnoresContent(node) || isTableElement(node)))
             return positionBeforeNode(node);
         return Position(node, 0);
     }
-    
+
     if (node->offsetInCharacters())
-        return Position(node, min(node->maxCharacterOffset(), pos.offset()));
-    
+        return Position(node, min(node->maxCharacterOffset(), pos.m_offset));
+
     int maxCompliantOffset = node->childNodeCount();
-    if (pos.offset() > maxCompliantOffset) {
+    if (pos.m_offset > maxCompliantOffset) {
         if (node->parentNode())
             return positionAfterNode(node);
-        
+
         // there is no other option at this point than to
         // use the highest allowed position in the node
         return Position(node, maxCompliantOffset);
     } 
 
     // Editing should never generate positions like this.
-    if ((pos.offset() < maxCompliantOffset) && editingIgnoresContent(node)) {
+    if ((pos.m_offset < maxCompliantOffset) && editingIgnoresContent(node)) {
         ASSERT_NOT_REACHED();
         return node->parentNode() ? positionBeforeNode(node) : Position(node, 0);
     }
     
-    if (pos.offset() == maxCompliantOffset && (editingIgnoresContent(node) || isTableElement(node)))
+    if (pos.m_offset == maxCompliantOffset && (editingIgnoresContent(node) || isTableElement(node)))
         return positionAfterNode(node);
     
     return Position(pos);
@@ -356,7 +362,7 @@ Position rangeCompliantEquivalent(const VisiblePosition& vpos)
 // in a node.  It returns 1 for some elements even though they do not have children, which
 // creates technically invalid DOM Positions.  Be sure to call rangeCompliantEquivalent
 // on a Position before using it to create a DOM Range, or an exception will be thrown.
-int maxDeepOffset(const Node *node)
+int lastOffsetForEditing(const Node* node)
 {
     ASSERT(node);
     if (!node)
@@ -536,7 +542,7 @@ Position positionOutsideContainingSpecialElement(const Position &pos, Node **con
 Node* isFirstPositionAfterTable(const VisiblePosition& visiblePosition)
 {
     Position upstream(visiblePosition.deepEquivalent().upstream());
-    if (upstream.node() && upstream.node()->renderer() && upstream.node()->renderer()->isTable() && upstream.offset() == maxDeepOffset(upstream.node()))
+    if (upstream.node() && upstream.node()->renderer() && upstream.node()->renderer()->isTable() && upstream.atLastEditingPositionForNode())
         return upstream.node();
     
     return 0;
@@ -545,19 +551,21 @@ Node* isFirstPositionAfterTable(const VisiblePosition& visiblePosition)
 Node* isLastPositionBeforeTable(const VisiblePosition& visiblePosition)
 {
     Position downstream(visiblePosition.deepEquivalent().downstream());
-    if (downstream.node() && downstream.node()->renderer() && downstream.node()->renderer()->isTable() && downstream.offset() == 0)
+    if (downstream.node() && downstream.node()->renderer() && downstream.node()->renderer()->isTable() && downstream.atFirstEditingPositionForNode())
         return downstream.node();
     
     return 0;
 }
 
-Position positionBeforeNode(const Node *node)
+Position positionBeforeNode(const Node* node)
 {
+    // FIXME: This should ASSERT(node->parentNode())
     return Position(node->parentNode(), node->nodeIndex());
 }
 
-Position positionAfterNode(const Node *node)
+Position positionAfterNode(const Node* node)
 {
+    // FIXME: This should ASSERT(node->parentNode())
     return Position(node->parentNode(), node->nodeIndex() + 1);
 }
 
@@ -694,16 +702,17 @@ static Node* appendedSublist(Node* listItem)
     return 0;
 }
 
+// FIXME: This method should not need to call isStartOfParagraph/isEndOfParagraph
 Node* enclosingEmptyListItem(const VisiblePosition& visiblePos)
 {
     // Check that position is on a line by itself inside a list item
     Node* listChildNode = enclosingListChild(visiblePos.deepEquivalent().node());
     if (!listChildNode || !isStartOfParagraph(visiblePos) || !isEndOfParagraph(visiblePos))
         return 0;
-        
-    VisiblePosition firstInListChild(Position(listChildNode, 0));
-    VisiblePosition lastInListChild(Position(listChildNode, maxDeepOffset(listChildNode)));
-    
+
+    VisiblePosition firstInListChild(firstDeepEditingPositionForNode(listChildNode));
+    VisiblePosition lastInListChild(lastDeepEditingPositionForNode(listChildNode));
+
     if (firstInListChild != visiblePos || lastInListChild != visiblePos)
         return 0;
     
@@ -814,16 +823,16 @@ Position positionBeforeTabSpan(const Position& pos)
 
 PassRefPtr<Element> createTabSpanElement(Document* document, PassRefPtr<Node> tabTextNode)
 {
-    // make the span to hold the tab
-    ExceptionCode ec = 0;
-    RefPtr<Element> spanElement = document->createElementNS(xhtmlNamespaceURI, "span", ec);
-    ASSERT(ec == 0);
+    // Make the span to hold the tab.
+    RefPtr<Element> spanElement = document->createElement(spanTag, false);
     spanElement->setAttribute(classAttr, AppleTabSpanClass);
     spanElement->setAttribute(styleAttr, "white-space:pre");
 
-    // add tab text to that span
+    // Add tab text to that span.
     if (!tabTextNode)
         tabTextNode = document->createEditingTextNode("\t");
+
+    ExceptionCode ec = 0;
     spanElement->appendChild(tabTextNode, ec);
     ASSERT(ec == 0);
 
@@ -873,7 +882,7 @@ unsigned numEnclosingMailBlockquotes(const Position& p)
 
 bool isMailBlockquote(const Node *node)
 {
-    if (!node || !node->isElementNode() && !node->hasTagName(blockquoteTag))
+    if (!node || (!node->isElementNode() && !node->hasTagName(blockquoteTag)))
         return false;
         
     return static_cast<const Element *>(node)->getAttribute("type") == "cite";
@@ -894,7 +903,7 @@ int caretMaxOffset(const Node* n)
     if (n->isTextNode() && n->renderer())
         return n->renderer()->caretMaxOffset();
     // For containers return the number of children.  For others do the same as above.
-    return maxDeepOffset(n);
+    return lastOffsetForEditing(n);
 }
 
 bool lineBreakExistsAtPosition(const VisiblePosition& visiblePosition)
@@ -904,15 +913,15 @@ bool lineBreakExistsAtPosition(const VisiblePosition& visiblePosition)
         
     Position downstream(visiblePosition.deepEquivalent().downstream());
     return downstream.node()->hasTagName(brTag) ||
-           downstream.node()->isTextNode() && downstream.node()->renderer()->style()->preserveNewline() && visiblePosition.characterAfter() == '\n';
+           (downstream.node()->isTextNode() && downstream.node()->renderer()->style()->preserveNewline() && visiblePosition.characterAfter() == '\n');
 }
 
 // Modifies selections that have an end point at the edge of a table
 // that contains the other endpoint so that they don't confuse
 // code that iterates over selected paragraphs.
-Selection selectionForParagraphIteration(const Selection& original)
+VisibleSelection selectionForParagraphIteration(const VisibleSelection& original)
 {
-    Selection newSelection(original);
+    VisibleSelection newSelection(original);
     VisiblePosition startOfSelection(newSelection.visibleStart());
     VisiblePosition endOfSelection(newSelection.visibleEnd());
     
@@ -922,7 +931,7 @@ Selection selectionForParagraphIteration(const Selection& original)
     // (a table is itself a paragraph).
     if (Node* table = isFirstPositionAfterTable(endOfSelection))
         if (startOfSelection.deepEquivalent().node()->isDescendantOf(table))
-            newSelection = Selection(startOfSelection, endOfSelection.previous(true));
+            newSelection = VisibleSelection(startOfSelection, endOfSelection.previous(true));
     
     // If the start of the selection to modify is just before a table,
     // and if the end of the selection is inside that table, then the first paragraph
@@ -930,7 +939,7 @@ Selection selectionForParagraphIteration(const Selection& original)
     // containing the table itself.
     if (Node* table = isLastPositionBeforeTable(startOfSelection))
         if (endOfSelection.deepEquivalent().node()->isDescendantOf(table))
-            newSelection = Selection(startOfSelection.next(true), endOfSelection);
+            newSelection = VisibleSelection(startOfSelection.next(true), endOfSelection);
     
     return newSelection;
 }
@@ -976,12 +985,12 @@ PassRefPtr<Range> avoidIntersectionWithNode(const Range* range, Node* node)
     return Range::create(document, startContainer, startOffset, endContainer, endOffset);
 }
 
-Selection avoidIntersectionWithNode(const Selection& selection, Node* node)
+VisibleSelection avoidIntersectionWithNode(const VisibleSelection& selection, Node* node)
 {
     if (selection.isNone())
-        return Selection(selection);
+        return VisibleSelection(selection);
         
-    Selection updatedSelection(selection);
+    VisibleSelection updatedSelection(selection);
     Node* base = selection.base().node();
     Node* extent = selection.extent().node();
     ASSERT(base);

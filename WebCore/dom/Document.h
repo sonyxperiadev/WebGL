@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -33,7 +33,6 @@
 #include "HTMLFormElement.h"
 #include "ScriptExecutionContext.h"
 #include "StringHash.h"
-#include "TextResourceDecoder.h"
 #include "Timer.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/ListHashSet.h>
@@ -63,7 +62,6 @@ namespace WebCore {
     class Database;
     class DOMImplementation;
     class DOMSelection;
-    class DOMTimer;
     class DOMWindow;
     class DatabaseThread;
     class DocLoader;
@@ -77,6 +75,7 @@ namespace WebCore {
     class FormControlElementWithState;
     class Frame;
     class FrameView;
+    class HitTestRequest;
     class HTMLCanvasElement;
     class HTMLDocument;
     class HTMLElement;
@@ -84,7 +83,6 @@ namespace WebCore {
     class HTMLHeadElement;
     class HTMLInputElement;
     class HTMLMapElement;
-    class ImageLoader;
     class IntPoint;
     class JSNode;
     class MouseEventWithHitTestResults;
@@ -98,6 +96,7 @@ namespace WebCore {
     class RenderArena;
     class RenderView;
     class SecurityOrigin;
+    class SegmentedString;
     class Settings;
     class StyleSheet;
     class StyleSheetList;
@@ -125,7 +124,6 @@ namespace WebCore {
 #if ENABLE(DASHBOARD_SUPPORT)
     struct DashboardRegionValue;
 #endif
-    struct HitTestRequest;
 
     typedef int ExceptionCode;
 
@@ -235,18 +233,20 @@ public:
     PassRefPtr<EntityReference> createEntityReference(const String& name, ExceptionCode&);
     PassRefPtr<Node> importNode(Node* importedNode, bool deep, ExceptionCode&);
     virtual PassRefPtr<Element> createElementNS(const String& namespaceURI, const String& qualifiedName, ExceptionCode&);
-    PassRefPtr<Element> createElement(const QualifiedName&, bool createdByParser, ExceptionCode& ec);
+    PassRefPtr<Element> createElement(const QualifiedName&, bool createdByParser);
     Element* getElementById(const AtomicString&) const;
     bool hasElementWithId(AtomicStringImpl* id) const;
     bool containsMultipleElementsWithId(const AtomicString& elementId) { return m_duplicateIds.contains(elementId.impl()); }
 
     Element* elementFromPoint(int x, int y) const;
     String readyState() const;
-    String inputEncoding() const;
-    String defaultCharset() const;
 
-    String charset() const { return inputEncoding(); }
-    String characterSet() const { return inputEncoding(); }
+    String defaultCharset() const;
+    
+    // Synonyms backing similar DOM attributes. Use Document::encoding() to avoid virtual dispatch.
+    String inputEncoding() const { return Document::encoding(); }
+    String charset() const { return Document::encoding(); }
+    String characterSet() const { return Document::encoding(); }
 
     void setCharset(const String&);
 
@@ -314,6 +314,7 @@ public:
 #if ENABLE(WML)
     virtual bool isWMLDocument() const { return false; }
 #endif
+    virtual bool isFrameSet() const { return false; }
     
     CSSStyleSelector* styleSelector() const { return m_styleSelector; }
 
@@ -330,11 +331,7 @@ public:
      */
     bool haveStylesheetsLoaded() const
     {
-        return m_pendingStylesheets <= 0 || m_ignorePendingStylesheets
-#if USE(LOW_BANDWIDTH_DISPLAY)
-            || m_inLowBandwidthDisplay
-#endif
-            ;
+        return m_pendingStylesheets <= 0 || m_ignorePendingStylesheets;
     }
 
     /**
@@ -426,6 +423,7 @@ public:
     void implicitClose();
     void cancelParsing();
 
+    void write(const SegmentedString& text, Document* ownerDocument = 0);
     void write(const String& text, Document* ownerDocument = 0);
     void writeln(const String& text, Document* ownerDocument = 0);
     void finishParsing();
@@ -445,6 +443,8 @@ public:
     void setBaseElementTarget(const String& baseTarget) { m_baseTarget = baseTarget; }
 
     KURL completeURL(const String&) const;
+
+    virtual String userAgent(const KURL&) const;
 
     // from cachedObjectClient
     virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
@@ -532,8 +532,8 @@ public:
     void activeChainNodeDetached(Node*);
 
     // Updates for :target (CSS3 selector).
-    void setCSSTarget(Node*);
-    Node* getCSSTarget() const;
+    void setCSSTarget(Element*);
+    Element* cssTarget() const { return m_cssTarget; }
     
     void setDocumentChanged(bool);
 
@@ -644,11 +644,7 @@ public:
      */
     void processMetadataSettings(const String& content);
 #endif
-    
-    void dispatchImageLoadEventSoon(ImageLoader*);
-    void dispatchImageLoadEventsNow();
-    void removeImage(ImageLoader*);
-    
+
     // Returns the owning element in the parent document.
     // Returns 0 if this is the top level document.
     Element* ownerElement() const;
@@ -692,7 +688,7 @@ public:
     void removeImageMap(HTMLMapElement*);
     HTMLMapElement* getImageMap(const String& url) const;
 
-    HTMLElement* body();
+    HTMLElement* body() const;
     void setBody(PassRefPtr<HTMLElement>, ExceptionCode&);
 
     HTMLHeadElement* head();
@@ -776,13 +772,7 @@ public:
 
     void setUseSecureKeyboardEntryWhenActive(bool);
     bool useSecureKeyboardEntryWhenActive() const;
-    
-#if USE(LOW_BANDWIDTH_DISPLAY)
-    void setDocLoader(DocLoader* loader) { m_docLoader = loader; }
-    bool inLowBandwidthDisplay() const { return m_inLowBandwidthDisplay; }
-    void setLowBandwidthDisplay(bool lowBandWidth) { m_inLowBandwidthDisplay = lowBandWidth; }
-#endif
-    
+
     void addNodeListCache() { ++m_numNodeListCaches; }
     void removeNodeListCache() { ASSERT(m_numNodeListCaches > 0); --m_numNodeListCaches; }
     bool hasNodeListCaches() const { return m_numNodeListCaches; }
@@ -809,12 +799,9 @@ public:
     virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
     virtual void addMessage(MessageDestination, MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
     virtual void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
+    virtual void scriptImported(unsigned long, const String&);
     virtual void postTask(PassRefPtr<Task>); // Executes the task on context's thread asynchronously.
 
-    void addTimeout(int timeoutId, DOMTimer*);
-    void removeTimeout(int timeoutId);
-    DOMTimer* findTimeout(int timeoutId);
-    
 protected:
     Document(Frame*, bool isXHTML);
 
@@ -836,6 +823,8 @@ private:
 
     virtual const KURL& virtualURL() const; // Same as url(), but needed for ScriptExecutionContext to implement it without a performance loss for direct calls.
     virtual KURL virtualCompleteURL(const String&) const; // Same as completeURL() for the same reason as above.
+
+    String encoding() const;
 
     CSSStyleSelector* m_styleSelector;
     bool m_didCalculateStyleSelector;
@@ -953,13 +942,9 @@ private:
 
     mutable AXObjectCache* m_axObjectCache;
     
-    Vector<ImageLoader*> m_imageLoadEventDispatchSoonList;
-    Vector<ImageLoader*> m_imageLoadEventDispatchingList;
-    Timer<Document> m_imageLoadEventTimer;
-
     Timer<Document> m_updateFocusAppearanceTimer;
 
-    Node* m_cssTarget;
+    Element* m_cssTarget;
     
     bool m_processingLoadEvent;
     double m_startTime;
@@ -1008,20 +993,9 @@ public:
     void setDecoder(PassRefPtr<TextResourceDecoder>);
     TextResourceDecoder* decoder() const { return m_decoder.get(); }
 
-    String displayStringModifiedByEncoding(const String& str) const {
-        if (m_decoder)
-            return m_decoder->encoding().displayString(str.impl());
-        return str;
-    }
-    PassRefPtr<StringImpl> displayStringModifiedByEncoding(PassRefPtr<StringImpl> str) const {
-        if (m_decoder)
-            return m_decoder->encoding().displayString(str);
-        return str;
-    }
-    void displayBufferModifiedByEncoding(UChar* buffer, unsigned len) const {
-        if (m_decoder)
-            m_decoder->encoding().displayBuffer(buffer, len);
-    }
+    String displayStringModifiedByEncoding(const String&) const;
+    PassRefPtr<StringImpl> displayStringModifiedByEncoding(PassRefPtr<StringImpl>) const;
+    void displayBufferModifiedByEncoding(UChar* buffer, unsigned len) const;
 
     // Quirk for the benefit of Apple's Dictionary application.
     void setFrameElementsShouldIgnoreScrolling(bool ignore) { m_frameElementsShouldIgnoreScrolling = ignore; }
@@ -1079,7 +1053,6 @@ protected:
 private:
     void updateTitle();
     void removeAllDisconnectedNodeEventListeners();
-    void imageLoadEventTimerFired(Timer<Document>*);
     void updateFocusAppearanceTimerFired(Timer<Document>*);
     void updateBaseURL();
 
@@ -1152,16 +1125,9 @@ private:
 #endif
     
     bool m_usingGeolocation;
-
-#if USE(LOW_BANDWIDTH_DISPLAY)
-    bool m_inLowBandwidthDisplay;
-#endif
 #ifdef ANDROID_MOBILE
     int mExtraLayoutDelay;
 #endif
-
-    typedef HashMap<int, DOMTimer*> TimeoutsMap;
-    TimeoutsMap m_timeouts;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

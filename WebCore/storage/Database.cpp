@@ -40,7 +40,6 @@
 #include "FileSystem.h"
 #include "Frame.h"
 #include "InspectorController.h"
-#include "JSDOMWindow.h"
 #include "Logging.h"
 #include "NotImplemented.h"
 #include "Page.h"
@@ -48,9 +47,13 @@
 #include "SQLiteDatabase.h"
 #include "SQLiteStatement.h"
 #include "SQLResultSet.h"
-#include <runtime/InitializeThreading.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
+
+#if USE(JSC)
+#include "JSDOMWindow.h"
+#include <runtime/InitializeThreading.h>
+#endif
 
 namespace WebCore {
 
@@ -111,7 +114,7 @@ PassRefPtr<Database> Database::openDatabase(Document* document, const String& na
     document->setHasOpenDatabases();
 
     if (Page* page = document->frame()->page())
-        page->inspectorController()->didOpenDatabase(database.get(), document->domain(), name, expectedVersion);
+        page->inspectorController()->didOpenDatabase(database.get(), document->securityOrigin()->host(), name, expectedVersion);
 
     return database;
 }
@@ -131,9 +134,11 @@ Database::Database(Document* document, const String& name, const String& expecte
     if (m_name.isNull())
         m_name = "";
 
+#if USE(JSC)
     JSC::initializeThreading();
     // Database code violates the normal JSCore contract by calling jsUnprotect from a secondary thread, and thus needs additional locking.
     JSDOMWindow::commonJSGlobalData()->heap.setGCProtectNeedsLocking();
+#endif
 
     m_guid = guidForOriginAndName(m_securityOrigin->toString(), name);
 

@@ -78,12 +78,21 @@ CanvasStyle::CanvasStyle(float grayLevel, float alpha)
 }
 
 CanvasStyle::CanvasStyle(float r, float g, float b, float a)
-    : m_type(RGBA), m_alpha(a), m_red(r), m_green(g), m_blue(b)
+    : m_type(RGBA)
+    , m_alpha(a)
+    , m_red(r)
+    , m_green(g)
+    , m_blue(b)
 {
 }
 
 CanvasStyle::CanvasStyle(float c, float m, float y, float k, float a)
-    : m_type(CMYKA), m_alpha(a), m_cyan(c), m_magenta(m), m_yellow(y), m_black(k)
+    : m_type(CMYKA)
+    , m_alpha(a)
+    , m_cyan(c)
+    , m_magenta(m)
+    , m_yellow(y)
+    , m_black(k)
 {
 }
 
@@ -146,10 +155,10 @@ void CanvasStyle::applyStrokeColor(GraphicsContext* context)
             clr.setCmykF(m_cyan, m_magenta, m_yellow, m_black, m_alpha);
             currentPen.setColor(clr);
             context->platformContext()->setPen(currentPen);
-#elif PLATFORM(CAIRO)
-            notImplemented();
 #elif PLATFORM(SGL)
             context->setCMYKAStrokeColor(m_cyan, m_magenta, m_yellow, m_black, m_alpha);
+#else
+            context->setStrokeColor(Color(m_cyan, m_magenta, m_yellow, m_black, m_alpha));
 #endif
             break;
         }
@@ -211,6 +220,8 @@ void CanvasStyle::applyFillColor(GraphicsContext* context)
             context->platformContext()->setBrush(currentBrush);
 #elif PLATFORM(SGL)
             context->setCMYKAFillColor(m_cyan, m_magenta, m_yellow, m_black, m_alpha);
+#else
+            context->setFillColor(Color(m_cyan, m_magenta, m_yellow, m_black, m_alpha));
 #endif
             break;
         }

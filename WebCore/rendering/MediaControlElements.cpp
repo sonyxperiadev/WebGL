@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,13 +68,22 @@ MediaControlShadowRootElement::MediaControlShadowRootElement(Document* doc, HTML
     setInDocument(true);
 }
 
+void MediaControlShadowRootElement::updateStyle()
+{
+    if (renderer()) {
+        RenderStyle* timelineContainerStyle = m_mediaElement->renderer()->getCachedPseudoStyle(MEDIA_CONTROLS_TIMELINE_CONTAINER);
+        renderer()->setStyle(timelineContainerStyle);
+    }
+}
+
 // ----------------------------
 
-MediaTextDisplayElement::MediaTextDisplayElement(Document* doc, RenderStyle::PseudoId pseudo, HTMLMediaElement* mediaElement) 
+MediaTextDisplayElement::MediaTextDisplayElement(Document* doc, PseudoId pseudo, HTMLMediaElement* mediaElement) 
     : HTMLDivElement(divTag, doc)
     , m_mediaElement(mediaElement)
+    , m_pseudoStyleId(pseudo)
 {
-    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
+    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
     RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
     if (renderer) {
         setRenderer(renderer);
@@ -97,19 +106,28 @@ void MediaTextDisplayElement::update()
         renderer()->updateFromElement();
 }
 
+void MediaTextDisplayElement::updateStyle()
+{
+    if (renderer() && m_mediaElement->renderer()) {
+        RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+        renderer()->setStyle(style);
+    }
+}
+
 MediaTimeDisplayElement::MediaTimeDisplayElement(Document* doc, HTMLMediaElement* element, bool currentTime)
-    : MediaTextDisplayElement(doc, currentTime ? RenderStyle::MEDIA_CONTROLS_CURRENT_TIME_DISPLAY : RenderStyle::MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, element)
+    : MediaTextDisplayElement(doc, currentTime ? MEDIA_CONTROLS_CURRENT_TIME_DISPLAY : MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, element)
 {
 }
 
 // ----------------------------
 
-MediaControlInputElement::MediaControlInputElement(Document* doc, RenderStyle::PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement) 
+MediaControlInputElement::MediaControlInputElement(Document* doc, PseudoId pseudo, const String& type, HTMLMediaElement* mediaElement) 
     : HTMLInputElement(inputTag, doc)
     , m_mediaElement(mediaElement)
+    , m_pseudoStyleId(pseudo)
 {
     setInputType(type);
-    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(pseudo);
+    RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
     RenderObject* renderer = createRenderer(m_mediaElement->renderer()->renderArena(), style);
     if (renderer) {
         setRenderer(renderer);
@@ -131,6 +149,14 @@ void MediaControlInputElement::update()
         renderer()->updateFromElement();
 }
 
+void MediaControlInputElement::updateStyle()
+{
+    if (renderer() && m_mediaElement->renderer()) {
+        RenderStyle* style = m_mediaElement->renderer()->getCachedPseudoStyle(m_pseudoStyleId);
+        renderer()->setStyle(style);
+    }
+}
+
 bool MediaControlInputElement::hitTest(const IntPoint& absPoint)
 {
     if (renderer() && renderer()->style()->hasAppearance())
@@ -142,7 +168,7 @@ bool MediaControlInputElement::hitTest(const IntPoint& absPoint)
 // ----------------------------
 
 MediaControlMuteButtonElement::MediaControlMuteButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_MUTE_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_MUTE_BUTTON, "button", element)
 {
 }
 
@@ -158,18 +184,14 @@ void MediaControlMuteButtonElement::defaultEventHandler(Event* event)
 // ----------------------------
 
 MediaControlPlayButtonElement::MediaControlPlayButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_PLAY_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_PLAY_BUTTON, "button", element)
 {
 }
 
 void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 {
     if (event->type() == eventNames().clickEvent) {
-        ExceptionCode ec;
-        if (m_mediaElement->canPlay())
-            m_mediaElement->play(ec);
-        else 
-            m_mediaElement->pause(ec);
+        m_mediaElement->togglePlayState();
         event->setDefaultHandled();
     }
     HTMLInputElement::defaultEventHandler(event);
@@ -178,7 +200,7 @@ void MediaControlPlayButtonElement::defaultEventHandler(Event* event)
 // ----------------------------
 
 MediaControlSeekButtonElement::MediaControlSeekButtonElement(Document* doc, HTMLMediaElement* element, bool forward)
-    : MediaControlInputElement(doc, forward ? RenderStyle::MEDIA_CONTROLS_SEEK_FORWARD_BUTTON : RenderStyle::MEDIA_CONTROLS_SEEK_BACK_BUTTON, "button", element)
+    : MediaControlInputElement(doc, forward ? MEDIA_CONTROLS_SEEK_FORWARD_BUTTON : MEDIA_CONTROLS_SEEK_BACK_BUTTON, "button", element)
     , m_forward(forward)
     , m_seeking(false)
     , m_capturing(false)
@@ -193,8 +215,7 @@ void MediaControlSeekButtonElement::defaultEventHandler(Event* event)
             m_capturing = true;
             frame->eventHandler()->setCapturingMouseEventsNode(this);
         }
-        ExceptionCode ec;
-        m_mediaElement->pause(ec);
+        m_mediaElement->pause();
         m_seekTimer.startRepeating(cSeekRepeatDelay);
         event->setDefaultHandled();
     } else if (event->type() == eventNames().mouseupEvent) {
@@ -228,40 +249,34 @@ void MediaControlSeekButtonElement::seekTimerFired(Timer<MediaControlSeekButtonE
 // ----------------------------
 
 MediaControlTimelineElement::MediaControlTimelineElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_TIMELINE, "range", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_TIMELINE, "range", element)
 { 
     setAttribute(precisionAttr, "float");
 }
 
 void MediaControlTimelineElement::defaultEventHandler(Event* event)
 {
-    RenderSlider* slider = static_cast<RenderSlider*>(renderer());
-    bool oldInDragMode = slider && slider->inDragMode();
-    float oldTime = narrowPrecisionToFloat(value().toDouble());
-    bool oldEnded = m_mediaElement->ended();
+    if (event->type() == eventNames().mousedownEvent)
+        m_mediaElement->beginScrubbing();
 
     HTMLInputElement::defaultEventHandler(event);
 
+     if (event->type() == eventNames().mouseoverEvent || event->type() == eventNames().mouseoutEvent || event->type() == eventNames().mousemoveEvent ) {
+        return;
+    }
+
     float time = narrowPrecisionToFloat(value().toDouble());
-    if (oldTime != time || event->type() == eventNames().inputEvent) {
+    if (time != m_mediaElement->currentTime()) {
         ExceptionCode ec;
         m_mediaElement->setCurrentTime(time, ec);
     }
 
-    // Media element stays in non-paused state when it reaches end. If the slider is now dragged
-    // to some other position the playback resumes which does not match usual media player UIs.
-    // Get the expected behavior by pausing explicitly in this case.
-    if (oldEnded && !m_mediaElement->ended() && !m_mediaElement->paused()) {
-        ExceptionCode ec;
-        m_mediaElement->pause(ec);
-    }
-
-    // Pause playback during drag, but do it without using DOM API which would generate events 
-    bool inDragMode = slider && slider->inDragMode();
-    if (inDragMode != oldInDragMode)
-        m_mediaElement->setPausedInternal(inDragMode);
-    if (inDragMode)
+    RenderSlider* slider = static_cast<RenderSlider*>(renderer());
+    if (slider && slider->inDragMode())
         static_cast<RenderMedia*>(m_mediaElement->renderer())->updateTimeDisplay();
+
+    if (event->type() == eventNames().mouseupEvent)
+        m_mediaElement->endScrubbing();
 }
 
 void MediaControlTimelineElement::update(bool updateDuration) 
@@ -276,7 +291,7 @@ void MediaControlTimelineElement::update(bool updateDuration)
 // ----------------------------
 
 MediaControlFullscreenButtonElement::MediaControlFullscreenButtonElement(Document* doc, HTMLMediaElement* element)
-    : MediaControlInputElement(doc, RenderStyle::MEDIA_CONTROLS_FULLSCREEN_BUTTON, "button", element)
+    : MediaControlInputElement(doc, MEDIA_CONTROLS_FULLSCREEN_BUTTON, "button", element)
 {
 }
 

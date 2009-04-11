@@ -98,7 +98,7 @@
 
 namespace WTF {
 
-// MS_VC_EXCEPTION, THREADNAME_INFO, and setThreadName all come from <http://msdn.microsoft.com/en-us/library/xcb2z8hs.aspx>.
+// MS_VC_EXCEPTION, THREADNAME_INFO, and setThreadNameInternal all come from <http://msdn.microsoft.com/en-us/library/xcb2z8hs.aspx>.
 static const DWORD MS_VC_EXCEPTION = 0x406D1388;
 
 #pragma pack(push, 8)
@@ -110,16 +110,12 @@ typedef struct tagTHREADNAME_INFO {
 } THREADNAME_INFO;
 #pragma pack(pop)
 
-static void setThreadName(DWORD dwThreadID, LPCSTR szThreadName)
+void setThreadNameInternal(const char* szThreadName)
 {
-    // Visual Studio has a 31-character limit on thread names. Longer names will
-    // be truncated silently, but we'd like callers to know about the limit.
-    ASSERT_ARG(szThreadName, strlen(szThreadName) <= 31);
-
     THREADNAME_INFO info;
     info.dwType = 0x1000;
     info.szName = szThreadName;
-    info.dwThreadID = dwThreadID;
+    info.dwThreadID = GetCurrentThreadId();
     info.dwFlags = 0;
 
     __try {
@@ -157,7 +153,7 @@ void initializeThreading()
         initializeRandomNumberGenerator();
         initializeMainThread();
         mainThreadIdentifier = currentThread();
-        setThreadName(mainThreadIdentifier, "Main Thread");
+        setThreadNameInternal("Main Thread");
     }
 }
 
@@ -219,9 +215,6 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
         LOG_ERROR("Failed to create thread at entry point %p with data %p: %ld", entryPoint, data, errno);
         return 0;
     }
-
-    if (threadName)
-        setThreadName(threadIdentifier, threadName);
 
     threadID = static_cast<ThreadIdentifier>(threadIdentifier);
     storeThreadHandleByIdentifier(threadIdentifier, threadHandle);
@@ -457,10 +450,13 @@ bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
     if (absoluteTime < currentTime)
         return false;
 
-    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
-    if (intervalMilliseconds >= INT_MAX)
-        intervalMilliseconds = INT_MAX;
+    // Time is too far in the future (and would overflow unsigned long) - wait forever.
+    if (absoluteTime - currentTime > static_cast<double>(INT_MAX) / 1000.0) {
+        wait(mutex);
+        return true;
+    }
 
+    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
     return m_condition.timedWait(mutex.impl(), static_cast<unsigned long>(intervalMilliseconds));
 }
 

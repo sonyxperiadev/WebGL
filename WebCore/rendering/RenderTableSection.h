@@ -35,10 +35,15 @@ namespace WebCore {
 class RenderTableCell;
 class RenderTableRow;
 
-class RenderTableSection : public RenderContainer {
+class RenderTableSection : public RenderBox {
 public:
     RenderTableSection(Node*);
     ~RenderTableSection();
+
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const { return &m_children; }
+    RenderObjectChildList* children() { return &m_children; }
 
     virtual const char* renderName() const { return isAnonymous() ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
 
@@ -46,9 +51,12 @@ public:
 
     virtual void destroy();
 
-    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
+    virtual void layout();
 
-    virtual int getBaselineOfFirstLineBox() const;
+    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
+    virtual void removeChild(RenderObject* oldChild);
+
+    virtual int firstLineBoxBaseline() const;
 
     void addCell(RenderTableCell*, RenderTableRow* row);
 
@@ -99,6 +107,8 @@ public:
     int outerBorderRight() const { return m_outerBorderRight; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paintObject(PaintInfo&, int tx, int ty);
+
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     int numRows() const { return m_gridRows; }
@@ -119,16 +129,15 @@ public:
 
     int getBaseline(int row) { return m_grid[row].baseline; }
 
-    virtual RenderObject* removeChildNode(RenderObject*, bool fullRemove = true);
-
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
 private:
     virtual int lineHeight(bool, bool) const { return 0; }
-    virtual void position(InlineBox*) { }
 
     bool ensureRows(int);
     void clearGrid();
+
+    RenderObjectChildList m_children;
 
     Vector<RowStruct> m_grid;
     int m_gridRows;

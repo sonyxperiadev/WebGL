@@ -39,6 +39,7 @@
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Font.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
@@ -793,7 +794,7 @@ void WebViewCore::setScrollOffset(int dx, int dy)
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
-        m_mainFrame->sendScrollEvent();
+        m_mainFrame->eventHandler()->sendScrollEvent();
     }
 }
 
@@ -846,7 +847,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 }
             }
             r->setNeedsLayoutAndPrefWidthsRecalc();
-            m_mainFrame->forceLayout();
+            m_mainFrame->view()->forceLayout();
             // scroll to restore current screen center
             if (!node)
                 return;
@@ -1797,8 +1798,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // so when attempting to get the default, the point chosen would be follow the wrong link.
         if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
             webFrame->setUserInitiatedClick(true);
-            WebCore::EventTargetNodeCast(nodePtr)->dispatchSimulatedClick(0,
-                true, true);
+            nodePtr->dispatchSimulatedClick(0, true, true);
             webFrame->setUserInitiatedClick(false);
             return true;
         }

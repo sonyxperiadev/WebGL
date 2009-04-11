@@ -46,6 +46,7 @@
 #include "FrameView.h"
 #include "HTMLFrameOwnerElement.h"
 #include "History.h"
+#include "InspectorController.h"
 #include "Location.h"
 #include "MessageEvent.h"
 #include "Navigator.h"
@@ -56,6 +57,7 @@
 #include "Screen.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include "WebKitPoint.h"
 #include <algorithm>
 #include <wtf/MathExtras.h>
 
@@ -323,10 +325,10 @@ Storage* DOMWindow::sessionStorage() const
         return 0;
 
     Document* document = m_frame->document();
-    if (!document)
-        return 0;
 
     RefPtr<StorageArea> storageArea = page->sessionStorage()->storageArea(document->securityOrigin());
+    page->inspectorController()->didUseDOMStorage(storageArea.get(), false, m_frame);
+
     m_sessionStorage = Storage::create(m_frame, storageArea.release());
     return m_sessionStorage.get();
 }
@@ -347,8 +349,10 @@ Storage* DOMWindow::localStorage() const
 
     LocalStorage* localStorage = page->group().localStorage();
     RefPtr<StorageArea> storageArea = localStorage ? localStorage->storageArea(document->securityOrigin()) : 0; 
-    if (storageArea)
+    if (storageArea) {
+        page->inspectorController()->didUseDOMStorage(storageArea.get(), true, m_frame);
         m_localStorage = Storage::create(m_frame, storageArea.release());
+    }
 
     return m_localStorage.get();
 }
@@ -449,7 +453,20 @@ void DOMWindow::close()
     if (!m_frame)
         return;
 
-    if (m_frame->loader()->openedByDOM() || m_frame->loader()->getHistoryLength() <= 1)
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+
+    if (m_frame != page->mainFrame())
+        return;
+
+    Settings* settings = m_frame->settings();
+    bool allowScriptsToCloseWindows =
+        settings && settings->allowScriptsToCloseWindows();
+
+    if (m_frame->loader()->openedByDOM()
+        || m_frame->loader()->getHistoryLength() <= 1
+        || allowScriptsToCloseWindows)
         m_frame->scheduleClose();
 }
 
@@ -480,10 +497,7 @@ void DOMWindow::alert(const String& message)
     if (!m_frame)
         return;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateRendering();
+    m_frame->document()->updateRendering();
 
     Page* page = m_frame->page();
     if (!page)
@@ -497,10 +511,7 @@ bool DOMWindow::confirm(const String& message)
     if (!m_frame)
         return false;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateRendering();
+    m_frame->document()->updateRendering();
 
     Page* page = m_frame->page();
     if (!page)
@@ -514,10 +525,7 @@ String DOMWindow::prompt(const String& message, const String& defaultValue)
     if (!m_frame)
         return String();
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateRendering();
+    m_frame->document()->updateRendering();
 
     Page* page = m_frame->page();
     if (!page)
@@ -625,10 +633,7 @@ int DOMWindow::scrollX() const
     if (!view)
         return 0;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateLayoutIgnorePendingStylesheets();
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
     return static_cast<int>(view->scrollX() / m_frame->pageZoomFactor());
 }
@@ -649,10 +654,7 @@ int DOMWindow::scrollY() const
     if (!view)
         return 0;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateLayoutIgnorePendingStylesheets();
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
     return static_cast<int>(view->scrollY() / m_frame->pageZoomFactor());
 }
@@ -786,13 +788,30 @@ PassRefPtr<CSSRuleList> DOMWindow::getMatchedCSSRules(Element* elt, const String
         return 0;
 
     Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (!doc)
-        return 0;
 
     if (!pseudoElt.isEmpty())
         return doc->styleSelector()->pseudoStyleRulesForElement(elt, pseudoElt, authorOnly);
     return doc->styleSelector()->styleRulesForElement(elt, authorOnly);
+}
+
+PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, const WebKitPoint* p) const
+{
+    if (!node || !p)
+        return 0;
+        
+    FloatPoint pagePoint(p->x(), p->y());
+    pagePoint = node->convertToPage(pagePoint);
+    return WebKitPoint::create(pagePoint.x(), pagePoint.y());
+}
+
+PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromPageToNode(Node* node, const WebKitPoint* p) const
+{
+    if (!node || !p)
+        return 0;
+        
+    FloatPoint nodePoint(p->x(), p->y());
+    nodePoint = node->convertFromPage(nodePoint);
+    return WebKitPoint::create(nodePoint.x(), nodePoint.y());
 }
 
 double DOMWindow::devicePixelRatio() const
@@ -814,9 +833,6 @@ PassRefPtr<Database> DOMWindow::openDatabase(const String& name, const String& v
         return 0;
 
     Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (!doc)
-        return 0;
 
     Settings* settings = m_frame->settings();
     if (!settings || !settings->databasesEnabled())
@@ -831,10 +847,7 @@ void DOMWindow::scrollBy(int x, int y) const
     if (!m_frame)
         return;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateLayoutIgnorePendingStylesheets();
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
     FrameView* view = m_frame->view();
     if (!view)
@@ -848,10 +861,7 @@ void DOMWindow::scrollTo(int x, int y) const
     if (!m_frame)
         return;
 
-    Document* doc = m_frame->document();
-    ASSERT(doc);
-    if (doc)
-        doc->updateLayoutIgnorePendingStylesheets();
+    m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
     FrameView* view = m_frame->view();
     if (!view)

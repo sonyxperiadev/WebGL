@@ -42,6 +42,8 @@ public:
     FontPlatformData(const FontPlatformData&);
     FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic);
     FontPlatformData(const FontPlatformData& src, float textSize);
+    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique);
+
     ~FontPlatformData();
 
     FontPlatformData(WTF::HashTableDeletedValueType)

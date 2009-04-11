@@ -27,17 +27,19 @@
 #define JIT_h
 
 #include <wtf/Platform.h>
-#include <bytecode/SamplingTool.h>
 
 #if ENABLE(JIT)
 
 #define WTF_USE_CTI_REPATCH_PIC 1
 
 #include "Interpreter.h"
+#include "JITCode.h"
+#include "JITStubs.h"
 #include "Opcode.h"
 #include "RegisterFile.h"
 #include "MacroAssembler.h"
 #include "Profiler.h"
+#include <bytecode/SamplingTool.h>
 #include <wtf/AlwaysInline.h>
 #include <wtf/Vector.h>
 
@@ -113,7 +115,7 @@ namespace JSC {
     typedef VoidPtrPair (JIT_STUB *CTIHelper_2)(STUB_ARGS);
 
     struct CallRecord {
-        MacroAssembler::Jump from;
+        MacroAssembler::Call from;
         unsigned bytecodeIndex;
         void* to;
 
@@ -121,7 +123,7 @@ namespace JSC {
         {
         }
 
-        CallRecord(MacroAssembler::Jump from, unsigned bytecodeIndex, void* to = 0)
+        CallRecord(MacroAssembler::Call from, unsigned bytecodeIndex, void* to = 0)
             : from(from)
             , bytecodeIndex(bytecodeIndex)
             , to(to)
@@ -188,44 +190,73 @@ namespace JSC {
     };
 
     struct PropertyStubCompilationInfo {
-        MacroAssembler::Jump callReturnLocation;
+        MacroAssembler::Call callReturnLocation;
         MacroAssembler::Label hotPathBegin;
     };
 
     struct StructureStubCompilationInfo {
         MacroAssembler::DataLabelPtr hotPathBegin;
-        MacroAssembler::Jump hotPathOther;
-        MacroAssembler::Jump callReturnLocation;
+        MacroAssembler::Call hotPathOther;
+        MacroAssembler::Call callReturnLocation;
         MacroAssembler::Label coldPathOther;
     };
 
     extern "C" {
-        JSValueEncodedAsPointer* ctiTrampoline(
-#if PLATFORM(X86_64)
-            // FIXME: (bug #22910) this will force all arguments onto the stack (regparm(0) does not appear to have any effect).
-            // We can allow register passing here, and move the writes of these values into the trampoline.
-            void*, void*, void*, void*, void*, void*,
-#endif
-            void* code, RegisterFile*, CallFrame*, JSValuePtr* exception, Profiler**, JSGlobalData*);
         void ctiVMThrowTrampoline();
     };
 
-    void ctiSetReturnAddress(void** where, void* what);
-    void ctiPatchCallByReturnAddress(void* where, void* what);
+    void ctiSetReturnAddress(void** addressOfReturnAddress, void* newDestinationToReturnTo);
+    void ctiPatchCallByReturnAddress(MacroAssembler::ProcessorReturnAddress returnAddress, void* newCalleeFunction);
+    void ctiPatchNearCallByReturnAddress(MacroAssembler::ProcessorReturnAddress returnAddress, void* newCalleeFunction);
 
     class JIT : private MacroAssembler {
         using MacroAssembler::Jump;
         using MacroAssembler::JumpList;
         using MacroAssembler::Label;
 
+        // NOTES:
+        //
+        // regT0 has two special meanings.  The return value from a stub
+        // call will always be in regT0, and by default (unless
+        // a register is specified) emitPutVirtualRegister() will store
+        // the value from regT0.
+        //
+        // tempRegister2 is has no such dependencies.  It is important that
+        // on x86/x86-64 it is ecx for performance reasons, since the
+        // MacroAssembler will need to plant register swaps if it is not -
+        // however the code will still function correctly.
 #if PLATFORM(X86_64)
+        static const RegisterID returnValueRegister = X86::eax;
+        static const RegisterID cachedResultRegister = X86::eax;
+        static const RegisterID firstArgumentRegister = X86::edi;
+
         static const RegisterID timeoutCheckRegister = X86::r12;
         static const RegisterID callFrameRegister = X86::r13;
         static const RegisterID tagTypeNumberRegister = X86::r14;
         static const RegisterID tagMaskRegister = X86::r15;
-#else
+
+        static const RegisterID regT0 = X86::eax;
+        static const RegisterID regT1 = X86::edx;
+        static const RegisterID regT2 = X86::ecx;
+        // NOTE: privateCompileCTIMachineTrampolines() relies on this being callee preserved; this should be considered non-interface.
+        static const RegisterID regT3 = X86::ebx;
+#elif PLATFORM(X86)
+        static const RegisterID returnValueRegister = X86::eax;
+        static const RegisterID cachedResultRegister = X86::eax;
+        // On x86 we always use fastcall conventions = but on
+        // OS X if might make more sense to just use regparm.
+        static const RegisterID firstArgumentRegister = X86::ecx;
+
         static const RegisterID timeoutCheckRegister = X86::esi;
         static const RegisterID callFrameRegister = X86::edi;
+
+        static const RegisterID regT0 = X86::eax;
+        static const RegisterID regT1 = X86::edx;
+        static const RegisterID regT2 = X86::ecx;
+        // NOTE: privateCompileCTIMachineTrampolines() relies on this being callee preserved; this should be considered non-interface.
+        static const RegisterID regT3 = X86::ebx;
+#else
+    #error "JIT not supported on this platform."
 #endif
 
         static const int patchGetByIdDefaultStructure = -1;
@@ -255,9 +286,9 @@ namespace JSC {
         static const int patchOffsetGetByIdPropertyMapOffset = 31;
         static const int patchOffsetGetByIdPutResult = 31;
 #if ENABLE(OPCODE_SAMPLING)
-        static const int patchOffsetGetByIdSlowCaseCall = 53 + ctiArgumentInitSize;
+        static const int patchOffsetGetByIdSlowCaseCall = 61 + ctiArgumentInitSize;
 #else
-        static const int patchOffsetGetByIdSlowCaseCall = 30 + ctiArgumentInitSize;
+        static const int patchOffsetGetByIdSlowCaseCall = 38 + ctiArgumentInitSize;
 #endif
         static const int patchOffsetOpCallCompareToJump = 9;
 #else
@@ -284,13 +315,13 @@ namespace JSC {
             jit.privateCompile();
         }
 
-        static void compileGetByIdSelf(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, size_t cachedOffset, void* returnAddress)
+        static void compileGetByIdSelf(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, size_t cachedOffset, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             jit.privateCompileGetByIdSelf(stubInfo, structure, cachedOffset, returnAddress);
         }
 
-        static void compileGetByIdProto(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, size_t cachedOffset, void* returnAddress)
+        static void compileGetByIdProto(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, size_t cachedOffset, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             jit.privateCompileGetByIdProto(stubInfo, structure, prototypeStructure, cachedOffset, returnAddress, callFrame);
@@ -314,50 +345,42 @@ namespace JSC {
         }
 #endif
 
-        static void compileGetByIdChain(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, StructureChain* chain, size_t count, size_t cachedOffset, void* returnAddress)
+        static void compileGetByIdChain(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, StructureChain* chain, size_t count, size_t cachedOffset, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             jit.privateCompileGetByIdChain(stubInfo, structure, chain, count, cachedOffset, returnAddress, callFrame);
         }
 
-        static void compilePutByIdReplace(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, size_t cachedOffset, void* returnAddress)
+        static void compilePutByIdReplace(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, size_t cachedOffset, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             jit.privateCompilePutByIdReplace(stubInfo, structure, cachedOffset, returnAddress);
         }
         
-        static void compilePutByIdTransition(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* oldStructure, Structure* newStructure, size_t cachedOffset, StructureChain* chain, void* returnAddress)
+        static void compilePutByIdTransition(JSGlobalData* globalData, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* oldStructure, Structure* newStructure, size_t cachedOffset, StructureChain* chain, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             jit.privateCompilePutByIdTransition(stubInfo, oldStructure, newStructure, cachedOffset, chain, returnAddress);
         }
 
-        static void compileCTIMachineTrampolines(JSGlobalData* globalData)
+        static void compileCTIMachineTrampolines(JSGlobalData* globalData, RefPtr<ExecutablePool>* executablePool, void** ctiArrayLengthTrampoline, void** ctiStringLengthTrampoline, void** ctiVirtualCallPreLink, void** ctiVirtualCallLink, void** ctiVirtualCall)
+
         {
             JIT jit(globalData);
-            jit.privateCompileCTIMachineTrampolines();
+            jit.privateCompileCTIMachineTrampolines(executablePool, ctiArrayLengthTrampoline, ctiStringLengthTrampoline, ctiVirtualCallPreLink, ctiVirtualCallLink, ctiVirtualCall);
         }
 
-        static void patchGetByIdSelf(StructureStubInfo*, Structure*, size_t cachedOffset, void* returnAddress);
-        static void patchPutByIdReplace(StructureStubInfo*, Structure*, size_t cachedOffset, void* returnAddress);
+        static void patchGetByIdSelf(StructureStubInfo*, Structure*, size_t cachedOffset, ProcessorReturnAddress returnAddress);
+        static void patchPutByIdReplace(StructureStubInfo*, Structure*, size_t cachedOffset, ProcessorReturnAddress returnAddress);
 
-        static void compilePatchGetArrayLength(JSGlobalData* globalData, CodeBlock* codeBlock, void* returnAddress)
+        static void compilePatchGetArrayLength(JSGlobalData* globalData, CodeBlock* codeBlock, ProcessorReturnAddress returnAddress)
         {
             JIT jit(globalData, codeBlock);
             return jit.privateCompilePatchGetArrayLength(returnAddress);
         }
 
-        static void linkCall(JSFunction* callee, CodeBlock* calleeCodeBlock, void* ctiCode, CallLinkInfo* callLinkInfo, int callerArgCount);
+        static void linkCall(JSFunction* callee, CodeBlock* calleeCodeBlock, JITCode ctiCode, CallLinkInfo* callLinkInfo, int callerArgCount);
         static void unlinkCall(CallLinkInfo*);
-
-        inline static JSValuePtr execute(void* code, RegisterFile* registerFile, CallFrame* callFrame, JSGlobalData* globalData, JSValuePtr* exception)
-        {
-            return JSValuePtr::decode(ctiTrampoline(
-#if PLATFORM(X86_64)
-                0, 0, 0, 0, 0, 0,
-#endif
-                code, registerFile, callFrame, exception, Profiler::enabledProfilerReference(), globalData));
-        }
 
     private:
         JIT(JSGlobalData*, CodeBlock* = 0);
@@ -366,19 +389,19 @@ namespace JSC {
         void privateCompileLinkPass();
         void privateCompileSlowCases();
         void privateCompile();
-        void privateCompileGetByIdSelf(StructureStubInfo*, Structure*, size_t cachedOffset, void* returnAddress);
-        void privateCompileGetByIdProto(StructureStubInfo*, Structure*, Structure* prototypeStructure, size_t cachedOffset, void* returnAddress, CallFrame* callFrame);
+        void privateCompileGetByIdSelf(StructureStubInfo*, Structure*, size_t cachedOffset, ProcessorReturnAddress returnAddress);
+        void privateCompileGetByIdProto(StructureStubInfo*, Structure*, Structure* prototypeStructure, size_t cachedOffset, ProcessorReturnAddress returnAddress, CallFrame* callFrame);
 #if USE(CTI_REPATCH_PIC)
         void privateCompileGetByIdSelfList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, size_t cachedOffset);
         void privateCompileGetByIdProtoList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, Structure* prototypeStructure, size_t cachedOffset, CallFrame* callFrame);
         void privateCompileGetByIdChainList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, StructureChain* chain, size_t count, size_t cachedOffset, CallFrame* callFrame);
 #endif
-        void privateCompileGetByIdChain(StructureStubInfo*, Structure*, StructureChain*, size_t count, size_t cachedOffset, void* returnAddress, CallFrame* callFrame);
-        void privateCompilePutByIdReplace(StructureStubInfo*, Structure*, size_t cachedOffset, void* returnAddress);
-        void privateCompilePutByIdTransition(StructureStubInfo*, Structure*, Structure*, size_t cachedOffset, StructureChain*, void* returnAddress);
+        void privateCompileGetByIdChain(StructureStubInfo*, Structure*, StructureChain*, size_t count, size_t cachedOffset, ProcessorReturnAddress returnAddress, CallFrame* callFrame);
+        void privateCompilePutByIdReplace(StructureStubInfo*, Structure*, size_t cachedOffset, ProcessorReturnAddress returnAddress);
+        void privateCompilePutByIdTransition(StructureStubInfo*, Structure*, Structure*, size_t cachedOffset, StructureChain*, ProcessorReturnAddress returnAddress);
 
-        void privateCompileCTIMachineTrampolines();
-        void privateCompilePatchGetArrayLength(void* returnAddress);
+        void privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executablePool, void** ctiArrayLengthTrampoline, void** ctiStringLengthTrampoline, void** ctiVirtualCallPreLink, void** ctiVirtualCallLink, void** ctiVirtualCall);
+        void privateCompilePatchGetArrayLength(ProcessorReturnAddress returnAddress);
 
         void addSlowCase(Jump);
         void addJump(Jump, int);
@@ -396,7 +419,6 @@ namespace JSC {
         void compileOpConstructSetupArgs(Instruction*);
         enum CompileOpStrictEqType { OpStrictEq, OpNStrictEq };
         void compileOpStrictEq(Instruction* instruction, CompileOpStrictEqType type);
-        void putDoubleResultToJSNumberCellOrJSImmediate(X86Assembler::XMMRegisterID xmmSource, RegisterID jsNumberCell, unsigned dst, X86Assembler::JmpSrc* wroteJSNumberCell, X86Assembler::XMMRegisterID tempXmm, RegisterID tempReg1, RegisterID tempReg2);
 
         void compileFastArith_op_add(Instruction*);
         void compileFastArith_op_sub(Instruction*);
@@ -427,7 +449,7 @@ namespace JSC {
 
         void emitGetVirtualRegister(int src, RegisterID dst);
         void emitGetVirtualRegisters(int src1, RegisterID dst1, int src2, RegisterID dst2);
-        void emitPutVirtualRegister(unsigned dst, RegisterID from = X86::eax);
+        void emitPutVirtualRegister(unsigned dst, RegisterID from = regT0);
 
         void emitPutJITStubArg(RegisterID src, unsigned argumentNumber);
         void emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch);
@@ -458,6 +480,16 @@ namespace JSC {
 #if USE(ALTERNATE_JSIMMEDIATE)
         JIT::Jump emitJumpIfImmediateNumber(RegisterID);
         JIT::Jump emitJumpIfNotImmediateNumber(RegisterID);
+#else
+        JIT::Jump emitJumpIfImmediateNumber(RegisterID reg)
+        {
+            return emitJumpIfImmediateInteger(reg);
+        }
+        
+        JIT::Jump emitJumpIfNotImmediateNumber(RegisterID reg)
+        {
+            return emitJumpIfNotImmediateInteger(reg);
+        }
 #endif
 
         Jump getSlowCase(Vector<SlowCaseEntry>::iterator& iter)
@@ -492,21 +524,20 @@ namespace JSC {
         void restoreArgumentReference();
         void restoreArgumentReferenceForTrampoline();
 
-        Jump emitNakedCall(RegisterID);
-        Jump emitNakedCall(void* function);
-        Jump emitCTICall_internal(void*);
-        Jump emitCTICall(CTIHelper_j helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_o helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_p helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_v helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_s helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_b helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
-        Jump emitCTICall(CTIHelper_2 helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitNakedCall(void* function);
+        Call emitCTICall_internal(void*);
+        Call emitCTICall(CTIHelper_j helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_o helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_p helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_v helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_s helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_b helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
+        Call emitCTICall(CTIHelper_2 helper) { return emitCTICall_internal(reinterpret_cast<void*>(helper)); }
 
         void emitGetVariableObjectRegister(RegisterID variableObject, int index, RegisterID dst);
         void emitPutVariableObjectRegister(RegisterID src, RegisterID variableObject, int index);
         
-        void emitSlowScriptCheck();
+        void emitTimeoutCheck();
 #ifndef NDEBUG
         void printBytecodeOperandTypes(unsigned src1, unsigned src2);
 #endif

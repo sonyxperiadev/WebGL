@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,10 +26,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
 #include "Threading.h"
-
-#include "StdLibExtras.h"
 
 #if USE(PTHREADS)
 
@@ -37,7 +36,8 @@
 #include "HashMap.h"
 #include "MainThread.h"
 #include "RandomNumberSeed.h"
-
+#include "StdLibExtras.h"
+#include "UnusedParam.h"
 #include <errno.h>
 #include <limits.h>
 #include <sys/time.h>
@@ -48,7 +48,7 @@ typedef HashMap<ThreadIdentifier, pthread_t> ThreadMap;
 
 static Mutex* atomicallyInitializedStaticMutex;
 
-#if !PLATFORM(DARWIN)
+#if !PLATFORM(DARWIN) || PLATFORM(CHROMIUM)
 static ThreadIdentifier mainThreadIdentifier; // The thread that was the first to call initializeThreading(), which must be the main thread.
 #endif
 
@@ -64,7 +64,7 @@ void initializeThreading()
         atomicallyInitializedStaticMutex = new Mutex;
         threadMapMutex();
         initializeRandomNumberGenerator();
-#if !PLATFORM(DARWIN)
+#if !PLATFORM(DARWIN) || PLATFORM(CHROMIUM)
         mainThreadIdentifier = currentThread();
 #endif
         initializeMainThread();
@@ -133,12 +133,21 @@ static void clearPthreadHandleForIdentifier(ThreadIdentifier id)
 ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     pthread_t threadHandle;
-    if (pthread_create(&threadHandle, NULL, entryPoint, data)) {
+    if (pthread_create(&threadHandle, 0, entryPoint, data)) {
         LOG_ERROR("Failed to create pthread at entry point %p with data %p", entryPoint, data);
         return 0;
     }
 
     return establishIdentifierForPthreadHandle(threadHandle);
+}
+
+void setThreadNameInternal(const char* threadName)
+{
+#if PLATFORM(DARWIN) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    pthread_setname_np(threadName);
+#else
+    UNUSED_PARAM(threadName);
+#endif
 }
 
 int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
@@ -176,7 +185,7 @@ ThreadIdentifier currentThread()
 
 bool isMainThread()
 {
-#if PLATFORM(DARWIN)
+#if PLATFORM(DARWIN) && !PLATFORM(CHROMIUM)
     return pthread_main_np();
 #else
     return currentThread() == mainThreadIdentifier;
@@ -195,8 +204,8 @@ Mutex::~Mutex()
 
 void Mutex::lock()
 {
-    if (pthread_mutex_lock(&m_mutex) != 0)
-        ASSERT(false);
+    int result = pthread_mutex_lock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
 }
     
 bool Mutex::tryLock()
@@ -205,17 +214,17 @@ bool Mutex::tryLock()
     
     if (result == 0)
         return true;
-    else if (result == EBUSY)
+    if (result == EBUSY)
         return false;
 
-    ASSERT(false);
+    ASSERT_NOT_REACHED();
     return false;
 }
 
 void Mutex::unlock()
 {
-    if (pthread_mutex_unlock(&m_mutex) != 0)
-        ASSERT(false);
+    int result = pthread_mutex_unlock(&m_mutex);
+    ASSERT_UNUSED(result, !result);
 }
 
 ThreadCondition::ThreadCondition()
@@ -230,8 +239,8 @@ ThreadCondition::~ThreadCondition()
     
 void ThreadCondition::wait(Mutex& mutex)
 {
-    if (pthread_cond_wait(&m_condition, &mutex.impl()) != 0)
-        ASSERT(false);
+    int result = pthread_cond_wait(&m_condition, &mutex.impl());
+    ASSERT_UNUSED(result, !result);
 }
 
 bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
@@ -256,14 +265,14 @@ bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 
 void ThreadCondition::signal()
 {
-    if (pthread_cond_signal(&m_condition) != 0)
-        ASSERT(false);
+    int result = pthread_cond_signal(&m_condition);
+    ASSERT_UNUSED(result, !result);
 }
 
 void ThreadCondition::broadcast()
 {
-    if (pthread_cond_broadcast(&m_condition) != 0)
-        ASSERT(false);
+    int result = pthread_cond_broadcast(&m_condition);
+    ASSERT_UNUSED(result, !result);
 }
     
 } // namespace WTF

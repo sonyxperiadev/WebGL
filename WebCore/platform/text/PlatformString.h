@@ -27,15 +27,18 @@
 
 #include "StringImpl.h"
 
-#include <wtf/PassRefPtr.h>
+#ifdef __OBJC__
+#include <objc/objc.h>
+#endif
 
 #if USE(JSC)
 #include <runtime/Identifier.h>
 #else
-// runtime/Identifier.h includes HashMap.h and HashSet.h. We explicitly include 
-// them in the case of non-JSC builds to keep things consistent.
+// runtime/Identifier.h brings in a variety of wtf headers.  We explicitly
+// include them in the case of non-JSC builds to keep things consistent.
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
 #endif
 
 #if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
@@ -228,6 +231,9 @@ public:
     static String fromUTF8(const char*, size_t);
     static String fromUTF8(const char*);
 
+    // Tries to convert the passed in string to UTF-8, but will fall back to Latin-1 if the string is not valid UTF-8.
+    static String fromUTF8WithLatin1Fallback(const char*, size_t);
+    
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
     WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
 

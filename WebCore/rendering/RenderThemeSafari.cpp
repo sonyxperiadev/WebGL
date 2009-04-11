@@ -31,6 +31,7 @@
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "FormControlElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
@@ -834,7 +835,7 @@ void RenderThemeSafari::adjustMenuListStyle(CSSStyleSelector* selector, RenderSt
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style->setColor(e->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    style->setColor(e->isFormControlElement() && toFormControlElement(e)->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
     setButtonSize(style);
@@ -1145,7 +1146,7 @@ bool RenderThemeSafari::paintMediaFullscreenButton(RenderObject* o, const Render
 
 bool RenderThemeSafari::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1164,7 +1165,7 @@ bool RenderThemeSafari::paintMediaMuteButton(RenderObject* o, const RenderObject
 
 bool RenderThemeSafari::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1203,7 +1204,7 @@ bool RenderThemeSafari::paintMediaSeekForwardButton(RenderObject* o, const Rende
 
 bool RenderThemeSafari::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;

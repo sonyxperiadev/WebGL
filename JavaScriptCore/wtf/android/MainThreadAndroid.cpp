@@ -38,6 +38,10 @@ static void timeoutFired(void* )
     dispatchFunctionsFromMainThread();
 }
 
+void initializeMainThreadPlatform()
+{
+}
+
 void scheduleDispatchFunctionsOnMainThread()
 {
     JavaSharedClient::EnqueueFunctionPtr(timeoutFired, 0);

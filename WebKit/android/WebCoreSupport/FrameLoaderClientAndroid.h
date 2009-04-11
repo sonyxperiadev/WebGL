@@ -122,7 +122,7 @@ namespace android {
         virtual void finishedLoading(DocumentLoader*);
         
         virtual void updateGlobalHistory();
-        virtual void updateGlobalHistoryForRedirectWithoutHistoryItem();
+        virtual void updateGlobalHistoryRedirectLinks();
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
 #ifdef ANDROID_HISTORY_CLIENT
@@ -168,17 +168,18 @@ namespace android {
 
         virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-       virtual Widget* createPlugin(const IntSize&, Element*, const KURL&, 
+       virtual Widget* createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, 
             const WTF::Vector<WebCore::String, 0u>&, const WTF::Vector<String, 0u>&, 
             const String&, bool);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         
-        virtual Widget* createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+        virtual Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
         virtual void windowObjectCleared();
+        virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
         
         virtual void registerForIconNotification(bool listen = true);

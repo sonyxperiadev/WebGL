@@ -42,7 +42,7 @@
 namespace WebCore {
 
 RenderFrameSet::RenderFrameSet(HTMLFrameSetElement* frameSet)
-    : RenderContainer(frameSet)
+    : RenderBox(frameSet)
     , m_isResizing(false)
     , m_isChildResizing(false)
 #ifdef FLATTEN_FRAMESET
@@ -164,11 +164,11 @@ bool RenderFrameSet::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
     if (action != HitTestForeground)
         return false;
 
-    bool inside = RenderContainer::nodeAtPoint(request, result, x, y, tx, ty, action)
-        || m_isResizing || canResize(IntPoint(x, y));
+    bool inside = RenderBox::nodeAtPoint(request, result, x, y, tx, ty, action)
+        || m_isResizing;
 
     if (inside && frameSet()->noResize()
-            && !request.readonly && !result.innerNode()) {
+            && !request.readOnly() && !result.innerNode()) {
         result.setInnerNode(node());
         result.setInnerNonSharedNode(node());
     }
@@ -498,7 +498,7 @@ void RenderFrameSet::layout()
 
     positionFrames();
 
-    RenderContainer::layout();
+    RenderBox::layout();
 
     computeEdgeInfo();
 
@@ -668,8 +668,8 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
             return false;
         if (evt->type() == eventNames().mousedownEvent && evt->button() == LeftButton) {
             FloatPoint pos = localToAbsolute();
-            startResizing(m_cols, evt->pageX() - pos.x());
-            startResizing(m_rows, evt->pageY() - pos.y());
+            startResizing(m_cols, evt->absoluteLocation().x() - pos.x());
+            startResizing(m_rows, evt->absoluteLocation().y() - pos.y());
             if (m_cols.m_splitBeingResized != noSplit || m_rows.m_splitBeingResized != noSplit) {
                 setIsResizing(true);
                 return true;
@@ -678,8 +678,8 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
     } else {
         if (evt->type() == eventNames().mousemoveEvent || (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton)) {
             FloatPoint pos = localToAbsolute();
-            continueResizing(m_cols, evt->pageX() - pos.x());
-            continueResizing(m_rows, evt->pageY() - pos.y());
+            continueResizing(m_cols, evt->absoluteLocation().x() - pos.x());
+            continueResizing(m_rows, evt->absoluteLocation().y() - pos.y());
             if (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton) {
                 setIsResizing(false);
                 return true;
@@ -708,11 +708,6 @@ bool RenderFrameSet::isResizingRow() const
 bool RenderFrameSet::isResizingColumn() const
 {
     return m_isResizing && m_cols.m_splitBeingResized != noSplit;
-}
-
-bool RenderFrameSet::canResize(const IntPoint& p) const
-{
-    return hitTestSplit(m_cols, p.x()) != noSplit || hitTestSplit(m_rows, p.y()) != noSplit;
 }
 
 bool RenderFrameSet::canResizeRow(const IntPoint& p) const

@@ -143,7 +143,7 @@ inline void Token::addAttribute(AtomicString& attrName, const AtomicString& attr
         RefPtr<MappedAttribute> a = MappedAttribute::create(attrName, attributeValue);
         if (!attrs) {
             attrs = NamedMappedAttrMap::create();
-            attrs->reserveCapacity(10);
+            attrs->reserveInitialCapacity(10);
         }
         attrs->insertAttribute(a.release(), viewSourceMode);
     }
@@ -448,15 +448,6 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
             m_scriptTagSrcAttrValue = String();
         } else {
             // Parse m_scriptCode containing <script> info
-#if USE(LOW_BANDWIDTH_DISPLAY)
-            if (m_doc->inLowBandwidthDisplay()) {
-                // ideal solution is only skipping internal JavaScript if there is external JavaScript.
-                // but internal JavaScript can use document.write() to create an external JavaScript,
-                // so we have to skip internal JavaScript all the time.
-                m_doc->frame()->loader()->needToSwitchOutLowBandwidthDisplay();
-                doScriptExec = false;
-            } else
-#endif
             doScriptExec = m_scriptNode->shouldExecuteAsJavaScript();
             m_scriptNode = 0;
         }
@@ -1600,13 +1591,13 @@ inline bool HTMLTokenizer::continueProcessing(int& processedCount, double startT
     return true;
 }
 
-bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
+void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 {
     if (!m_buffer)
-        return false;
+        return;
     
     if (m_parserStopped)
-        return false;
+        return;
 
     SegmentedString source(str);
     if (m_executingScript)
@@ -1623,7 +1614,7 @@ bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
                 m_preloadScanner->write(source);
 #endif
         }
-        return false;
+        return;
     }
     
 
@@ -1639,7 +1630,7 @@ bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 
     // Once a timer is set, it has control of when the tokenizer continues.
     if (m_timer.isActive())
-        return false;
+        return;
 
     bool wasInWrite = m_inWrite;
     m_inWrite = true;
@@ -1784,11 +1775,8 @@ bool HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
 #endif
 
-    if (m_noMoreData && !m_inWrite && !state.loadingExtScript() && !m_executingScript && !m_timer.isActive()) {
+    if (m_noMoreData && !m_inWrite && !state.loadingExtScript() && !m_executingScript && !m_timer.isActive())
         end(); // this actually causes us to be deleted
-        return true;
-    }
-    return false;
 }
 
 void HTMLTokenizer::stopParsing()
@@ -2004,11 +1992,11 @@ void HTMLTokenizer::notifyFinished(CachedResource*)
 #endif
 
         if (errorOccurred)
-            EventTargetNodeCast(n.get())->dispatchEventForType(eventNames().errorEvent, true, false);
+            n->dispatchEventForType(eventNames().errorEvent, true, false);
         else {
             if (static_cast<HTMLScriptElement*>(n.get())->shouldExecuteAsJavaScript())
                 m_state = scriptExecution(sourceCode, m_state);
-            EventTargetNodeCast(n.get())->dispatchEventForType(eventNames().loadEvent, false, false);
+            n->dispatchEventForType(eventNames().loadEvent, false, false);
         }
 
         // The state of m_pendingScripts.isEmpty() can change inside the scriptExecution()

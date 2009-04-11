@@ -103,6 +103,13 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     trace(4);
 }
     
+FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
+    : mTypeface(NULL), mTextSize(size), mFakeBold(bold), mFakeItalic(oblique)
+{
+    inc_count();
+    trace(5);
+}
+
 FontPlatformData::~FontPlatformData()
 {
     dec_count();

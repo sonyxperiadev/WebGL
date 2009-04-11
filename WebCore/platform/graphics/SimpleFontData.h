@@ -131,7 +131,7 @@ public:
 #endif
 
 #if PLATFORM(WX)
-    wxFont getWxFont() const { return m_font.font(); }
+    wxFont* getWxFont() const { return m_font.font(); }
 #endif
 
 private:
@@ -205,6 +205,21 @@ public:
     mutable SCRIPT_FONTPROPERTIES* m_scriptFontProperties;
 #endif
 };
+    
+    
+#if !PLATFORM(QT)
+ALWAYS_INLINE float SimpleFontData::widthForGlyph(Glyph glyph) const
+{
+    float width = m_glyphToWidthMap.widthForGlyph(glyph);
+    if (width != cGlyphWidthUnknown)
+        return width;
+    
+    width = platformWidthForGlyph(glyph);
+    m_glyphToWidthMap.setWidthForGlyph(glyph, width);
+    
+    return width;
+}
+#endif
 
 } // namespace WebCore
 

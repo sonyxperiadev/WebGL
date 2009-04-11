@@ -38,6 +38,7 @@ public:
     static String getMIMETypeForExtension(const String& ext);
     static Vector<String> getExtensionsForMIMEType(const String& type);
     static String getPreferredExtensionForMIMEType(const String& type);
+
     static String getMIMETypeForPath(const String& path);
 
     // Check to see if a mime type is suitable for being loaded inline as an

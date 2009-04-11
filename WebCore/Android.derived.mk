@@ -253,6 +253,8 @@ GEN := \
     $(intermediates)/dom/JSAttr.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
+	$(intermediates)/dom/JSClientRect.h \
+	$(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
@@ -266,7 +268,6 @@ GEN := \
     $(intermediates)/dom/JSEntityReference.h \
     $(intermediates)/dom/JSEvent.h \
     $(intermediates)/dom/JSEventException.h \
-    $(intermediates)/dom/JSEventTargetNode.h \
     $(intermediates)/dom/JSKeyboardEvent.h \
     $(intermediates)/dom/JSMessageChannel.h \
     $(intermediates)/dom/JSMessageEvent.h \
@@ -429,6 +430,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(interme
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
     $(intermediates)/page/JSConsole.h \
+	$(intermediates)/page/JSCoordinates.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
     $(intermediates)/page/JSGeolocation.h \
@@ -438,7 +440,8 @@ GEN := \
     $(intermediates)/page/JSNavigator.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSPositionErrorCallback.h \
-    $(intermediates)/page/JSScreen.h
+    $(intermediates)/page/JSScreen.h \
+	$(intermediates)/page/JSWebKitPoint.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/JS%.h : $(LOCAL_PATH)/page/%.idl $(js_binding_scripts)
@@ -621,6 +624,7 @@ GEN := \
     $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
     $(intermediates)/xml/JSXPathEvaluator.h \
+	$(intermediates)/xml/JSXPathException.h \
     $(intermediates)/xml/JSXPathExpression.h \
     $(intermediates)/xml/JSXPathNSResolver.h \
     $(intermediates)/xml/JSXPathResult.h  \
@@ -638,9 +642,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/
 
 # HTML tag and attribute names
 
-GEN:= $(intermediates)/HTMLNames.cpp  $(intermediates)/JSHTMLElementWrapperFactory.cpp
+GEN:= $(intermediates)/HTMLNames.cpp $(intermediates)/HTMLElementFactory.cpp  $(intermediates)/JSHTMLElementWrapperFactory.cpp
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(html_tags) --attrs $(html_attrs) --wrapperFactory --output $(dir $@) 
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(html_tags) --attrs $(html_attrs) --factory --wrapperFactory --output $(dir $@) 
 $(GEN): html_tags := $(LOCAL_PATH)/html/HTMLTagNames.in
 $(GEN): html_attrs := $(LOCAL_PATH)/html/HTMLAttributeNames.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(html_tags) $(html_attrs)

@@ -33,7 +33,6 @@
 #include <string.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
-#include <wtf/unicode/Unicode.h>
 
 using namespace WTF;
 using namespace Unicode;
@@ -80,8 +79,8 @@ Lexer::Lexer(JSGlobalData* globalData)
     , m_globalData(globalData)
     , m_mainTable(JSC::mainTable)
 {
-    m_buffer8.reserveCapacity(initialReadBufferCapacity);
-    m_buffer16.reserveCapacity(initialReadBufferCapacity);
+    m_buffer8.reserveInitialCapacity(initialReadBufferCapacity);
+    m_buffer16.reserveInitialCapacity(initialReadBufferCapacity);
 }
 
 Lexer::~Lexer()
@@ -589,7 +588,7 @@ int Lexer::lex(void* p1, void* p2)
 
 bool Lexer::isWhiteSpace() const
 {
-    return m_current == '\t' || m_current == 0x0b || m_current == 0x0c || isSeparatorSpace(m_current);
+    return isWhiteSpace(m_current);
 }
 
 bool Lexer::isLineTerminator()
@@ -884,11 +883,11 @@ void Lexer::clear()
     m_identifiers.clear();
 
     Vector<char> newBuffer8;
-    newBuffer8.reserveCapacity(initialReadBufferCapacity);
+    newBuffer8.reserveInitialCapacity(initialReadBufferCapacity);
     m_buffer8.swap(newBuffer8);
 
     Vector<UChar> newBuffer16;
-    newBuffer16.reserveCapacity(initialReadBufferCapacity);
+    newBuffer16.reserveInitialCapacity(initialReadBufferCapacity);
     m_buffer16.swap(newBuffer16);
 
     m_isReparsing = false;

@@ -106,42 +106,42 @@ void InsertParagraphSeparatorCommand::doApply()
     if (endingSelection().isNone())
         return;
     
-    Position pos = endingSelection().start();
+    Position insertionPosition = endingSelection().start();
         
     EAffinity affinity = endingSelection().affinity();
         
     // Delete the current selection.
     if (endingSelection().isRange()) {
-        calculateStyleBeforeInsertion(pos);
+        calculateStyleBeforeInsertion(insertionPosition);
         deleteSelection(false, true);
-        pos = endingSelection().start();
+        insertionPosition = endingSelection().start();
         affinity = endingSelection().affinity();
     }
     
     // FIXME: The rangeCompliantEquivalent conversion needs to be moved into enclosingBlock.
-    Node* startBlockNode = enclosingBlock(rangeCompliantEquivalent(pos).node());
-    Position canonicalPos = VisiblePosition(pos).deepEquivalent();
+    Node* startBlockNode = enclosingBlock(rangeCompliantEquivalent(insertionPosition).node());
+    Position canonicalPos = VisiblePosition(insertionPosition).deepEquivalent();
     Element* startBlock = static_cast<Element*>(startBlockNode);
     if (!startBlockNode
             || !startBlockNode->isElementNode()
             || !startBlock->parentNode()
             || isTableCell(startBlock)
             || startBlock->hasTagName(formTag)
-            || canonicalPos.node()->renderer() && canonicalPos.node()->renderer()->isTable()
+            || (canonicalPos.node()->renderer() && canonicalPos.node()->renderer()->isTable())
             || canonicalPos.node()->hasTagName(hrTag)) {
         applyCommandToComposite(InsertLineBreakCommand::create(document()));
         return;
     }
     
     // Use the leftmost candidate.
-    pos = pos.upstream();
-    if (!pos.isCandidate())
-        pos = pos.downstream();
+    insertionPosition = insertionPosition.upstream();
+    if (!insertionPosition.isCandidate())
+        insertionPosition = insertionPosition.downstream();
 
     // Adjust the insertion position after the delete
-    pos = positionAvoidingSpecialElementBoundary(pos);
-    VisiblePosition visiblePos(pos, affinity);
-    calculateStyleBeforeInsertion(pos);
+    insertionPosition = positionAvoidingSpecialElementBoundary(insertionPosition);
+    VisiblePosition visiblePos(insertionPosition, affinity);
+    calculateStyleBeforeInsertion(insertionPosition);
 
     //---------------------------------------------------------------------
     // Handle special case of typing return on an empty list item
@@ -150,10 +150,6 @@ void InsertParagraphSeparatorCommand::doApply()
 
     //---------------------------------------------------------------------
     // Prepare for more general cases.
-    // FIXME: We shouldn't peel off the node here because then we lose track of
-    // the fact that it's the node that belongs to an editing position and
-    // not a rangeCompliantEquivalent.
-    Node *startNode = pos.node();
 
     bool isFirstInBlock = isStartOfBlock(visiblePos);
     bool isLastInBlock = isEndOfBlock(visiblePos);
@@ -167,7 +163,7 @@ void InsertParagraphSeparatorCommand::doApply()
     } else if (shouldUseDefaultParagraphElement(startBlock)) 
         blockToInsert = createDefaultParagraphElement(document());
     else
-        blockToInsert = startBlock->cloneElement();
+        blockToInsert = startBlock->cloneElementWithoutChildren();
     
     //---------------------------------------------------------------------
     // Handle case when position is in the last visible position in its block,
@@ -186,7 +182,7 @@ void InsertParagraphSeparatorCommand::doApply()
             insertNodeAfter(blockToInsert, startBlock);
 
         appendBlockPlaceholder(blockToInsert);
-        setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
+        setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
         applyStyleAfterInsertion(startBlock);
         return;
     }
@@ -198,20 +194,20 @@ void InsertParagraphSeparatorCommand::doApply()
         Node *refNode;
         if (isFirstInBlock && !nestNewBlock)
             refNode = startBlock;
-        else if (pos.node() == startBlock && nestNewBlock) {
-            refNode = startBlock->childNode(pos.offset());
+        else if (insertionPosition.node() == startBlock && nestNewBlock) {
+            refNode = startBlock->childNode(insertionPosition.m_offset);
             ASSERT(refNode); // must be true or we'd be in the end of block case
         } else
-            refNode = pos.node();
+            refNode = insertionPosition.node();
 
         // find ending selection position easily before inserting the paragraph
-        pos = pos.downstream();
+        insertionPosition = insertionPosition.downstream();
         
         insertNodeBefore(blockToInsert, refNode);
         appendBlockPlaceholder(blockToInsert.get());
-        setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
+        setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
         applyStyleAfterInsertion(startBlock);
-        setEndingSelection(Selection(pos, DOWNSTREAM));
+        setEndingSelection(VisibleSelection(insertionPosition, DOWNSTREAM));
         return;
     }
 
@@ -224,41 +220,45 @@ void InsertParagraphSeparatorCommand::doApply()
     // content will move down a line.
     if (isStartOfParagraph(visiblePos)) {
         RefPtr<Element> br = createBreakElement(document());
-        insertNodeAt(br.get(), pos);
-        pos = positionAfterNode(br.get());
+        insertNodeAt(br.get(), insertionPosition);
+        insertionPosition = positionAfterNode(br.get());
     }
     
     // Move downstream. Typing style code will take care of carrying along the 
     // style of the upstream position.
-    pos = pos.downstream();
-    startNode = pos.node();
+    insertionPosition = insertionPosition.downstream();
+
+    // At this point, the insertionPosition's node could be a container, and we want to make sure we include
+    // all of the correct nodes when building the ancestor list.  So this needs to be the deepest representation of the position
+    // before we walk the DOM tree.
+    insertionPosition = VisiblePosition(insertionPosition).deepEquivalent();
 
     // Build up list of ancestors in between the start node and the start block.
     Vector<Element*> ancestors;
-    if (startNode != startBlock) {
-        for (Element* n = startNode->parentElement(); n && n != startBlock; n = n->parentElement())
+    if (insertionPosition.node() != startBlock) {
+        for (Element* n = insertionPosition.node()->parentElement(); n && n != startBlock; n = n->parentElement())
             ancestors.append(n);
     }
 
     // Make sure we do not cause a rendered space to become unrendered.
     // FIXME: We need the affinity for pos, but pos.downstream() does not give it
-    Position leadingWhitespace = pos.leadingWhitespacePosition(VP_DEFAULT_AFFINITY);
+    Position leadingWhitespace = insertionPosition.leadingWhitespacePosition(VP_DEFAULT_AFFINITY);
     // FIXME: leadingWhitespacePosition is returning the position before preserved newlines for positions
     // after the preserved newline, causing the newline to be turned into a nbsp.
     if (leadingWhitespace.isNotNull()) {
         Text* textNode = static_cast<Text*>(leadingWhitespace.node());
         ASSERT(!textNode->renderer() || textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, leadingWhitespace.offset(), 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, leadingWhitespace.m_offset, 1, nonBreakingSpaceString());
     }
     
     // Split at pos if in the middle of a text node.
-    if (startNode->isTextNode()) {
-        Text *textNode = static_cast<Text *>(startNode);
-        bool atEnd = (unsigned)pos.offset() >= textNode->length();
-        if (pos.offset() > 0 && !atEnd) {
-            splitTextNode(textNode, pos.offset());
-            pos = Position(startNode, 0);
-            visiblePos = VisiblePosition(pos);
+    if (insertionPosition.node()->isTextNode()) {
+        Text* textNode = static_cast<Text*>(insertionPosition.node());
+        bool atEnd = (unsigned)insertionPosition.m_offset >= textNode->length();
+        if (insertionPosition.m_offset > 0 && !atEnd) {
+            splitTextNode(textNode, insertionPosition.m_offset);
+            insertionPosition.m_offset = 0;
+            visiblePos = VisiblePosition(insertionPosition);
             splitText = true;
         }
     }
@@ -274,7 +274,7 @@ void InsertParagraphSeparatorCommand::doApply()
     // Make clones of ancestors in between the start node and the start block.
     RefPtr<Element> parent = blockToInsert;
     for (size_t i = ancestors.size(); i != 0; --i) {
-        RefPtr<Element> child = ancestors[i - 1]->cloneElement(); // shallow clone
+        RefPtr<Element> child = ancestors[i - 1]->cloneElementWithoutChildren();
         appendNode(child, parent);
         parent = child.release();
     }
@@ -286,10 +286,10 @@ void InsertParagraphSeparatorCommand::doApply()
         appendNode(createBreakElement(document()).get(), blockToInsert.get());
         
     // Move the start node and the siblings of the start node.
-    if (startNode != startBlock) {
-        Node *n = startNode;
-        if (pos.offset() >= caretMaxOffset(startNode))
-            n = startNode->nextSibling();
+    if (insertionPosition.node() != startBlock) {
+        Node* n = insertionPosition.node();
+        if (insertionPosition.m_offset >= caretMaxOffset(n))
+            n = n->nextSibling();
 
         while (n && n != blockToInsert) {
             Node *next = n->nextSibling();
@@ -320,18 +320,17 @@ void InsertParagraphSeparatorCommand::doApply()
     // Handle whitespace that occurs after the split
     if (splitText) {
         updateLayout();
-        pos = Position(startNode, 0);
-        if (!pos.isRenderedCharacter()) {
+        insertionPosition = Position(insertionPosition.node(), 0);
+        if (!insertionPosition.isRenderedCharacter()) {
             // Clear out all whitespace and insert one non-breaking space
-            ASSERT(startNode);
-            ASSERT(startNode->isTextNode());
-            ASSERT(!startNode->renderer() || startNode->renderer()->style()->collapseWhiteSpace());
-            deleteInsignificantTextDownstream(pos);
-            insertTextIntoNode(static_cast<Text*>(startNode), 0, nonBreakingSpaceString());
+            ASSERT(insertionPosition.node()->isTextNode());
+            ASSERT(!insertionPosition.node()->renderer() || insertionPosition.node()->renderer()->style()->collapseWhiteSpace());
+            deleteInsignificantTextDownstream(insertionPosition);
+            insertTextIntoNode(static_cast<Text*>(insertionPosition.node()), 0, nonBreakingSpaceString());
         }
     }
 
-    setEndingSelection(Selection(Position(blockToInsert.get(), 0), DOWNSTREAM));
+    setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
     applyStyleAfterInsertion(startBlock);
 }
 

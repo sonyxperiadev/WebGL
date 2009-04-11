@@ -49,8 +49,11 @@ public:
     RenderMedia(HTMLMediaElement*, const IntSize& intrinsicSize);
     virtual ~RenderMedia();
     
-    virtual RenderObject* firstChild() const;
-    virtual RenderObject* lastChild() const;
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const;
+    RenderObjectChildList* children();
+
     virtual void removeChild(RenderObject*);
     virtual void destroy();
     
@@ -95,6 +98,8 @@ private:
     void changeOpacity(HTMLElement*, float opacity);
     void opacityAnimationTimerFired(Timer<RenderMedia>*);
 
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
     RefPtr<HTMLElement> m_controlsShadowRoot;
     RefPtr<HTMLElement> m_panel;
     RefPtr<MediaControlMuteButtonElement> m_muteButton;
@@ -106,8 +111,8 @@ private:
     RefPtr<HTMLElement> m_timelineContainer;
     RefPtr<MediaTimeDisplayElement> m_currentTimeDisplay;
     RefPtr<MediaTimeDisplayElement> m_timeRemainingDisplay;
-    EventTargetNode* m_lastUnderNode;
-    EventTargetNode* m_nodeUnderMouse;
+    Node* m_lastUnderNode;
+    Node* m_nodeUnderMouse;
     
     Timer<RenderMedia> m_timeUpdateTimer;
     Timer<RenderMedia> m_opacityAnimationTimer;

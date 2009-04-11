@@ -712,28 +712,29 @@ void RenderThemeWin::adjustSliderThumbSize(RenderObject* o) const
     }
 }
 
-void RenderThemeWin::adjustButtonInnerStyle(RenderStyle* style) const
+int RenderThemeWin::buttonInternalPaddingLeft() const
 {
-    // This inner padding matches Firefox.
-    style->setPaddingTop(Length(1, Fixed));
-    style->setPaddingRight(Length(3, Fixed));
-    style->setPaddingBottom(Length(1, Fixed));
-    style->setPaddingLeft(Length(3, Fixed));
+    return 3;
+}
+
+int RenderThemeWin::buttonInternalPaddingRight() const
+{
+    return 3;
+}
+
+int RenderThemeWin::buttonInternalPaddingTop() const
+{
+    return 1;
+}
+
+int RenderThemeWin::buttonInternalPaddingBottom() const
+{
+    return 1;
 }
 
 bool RenderThemeWin::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
     return paintTextField(o, i, r);
-}
-
-void RenderThemeWin::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
-{   
-    // Override padding size to match AppKit text positioning.
-    const int padding = 1;
-    style->setPaddingLeft(Length(padding, Fixed));
-    style->setPaddingRight(Length(padding, Fixed));
-    style->setPaddingTop(Length(padding, Fixed));
-    style->setPaddingBottom(Length(padding, Fixed));
 }
 
 bool RenderThemeWin::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)

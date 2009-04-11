@@ -40,6 +40,12 @@
 /* be used regardless of operating environment */
 #ifdef __APPLE__
 #define WTF_PLATFORM_DARWIN 1
+#include <AvailabilityMacros.h>
+#if !defined(MAC_OS_X_VERSION_10_5) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_5
+#define BUILDING_ON_TIGER 1
+#elif !defined(MAC_OS_X_VERSION_10_6) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_6
+#define BUILDING_ON_LEOPARD 1
+#endif
 #endif
 
 /* PLATFORM(WIN_OS) */
@@ -238,6 +244,11 @@
 #define WTF_PLATFORM_X86_64 1
 #endif
 
+/* PLATFORM(SH4) */
+#if defined(__SH4__)
+#define WTF_PLATFORM_SH4 1
+#endif
+
 /* PLATFORM(SPARC64) */
 #if defined(__sparc64__)
 #define WTF_PLATFORM_SPARC64 1
@@ -268,8 +279,14 @@
 #endif
 #endif
 
+/* COMPILER(RVCT) */
+#if defined(__CC_ARM) || defined(__ARMCC__)
+#define WTF_COMPILER_RVCT 1
+#endif
+
 /* COMPILER(GCC) */
-#if defined(__GNUC__)
+/* --gnu option of the RVCT compiler also defines __GNUC__ */
+#if defined(__GNUC__) && !COMPILER(RVCT)
 #define WTF_COMPILER_GCC 1
 #endif
 
@@ -288,11 +305,6 @@
 /* not really fully supported - is this relevant any more? */
 #if defined(__CYGWIN__)
 #define WTF_COMPILER_CYGWIN 1
-#endif
-
-/* COMPILER(RVCT) */
-#if defined(__CC_ARM) || defined(__ARMCC__)
-#define WTF_COMPILER_RVCT 1
 #endif
 
 /* COMPILER(WINSCW) */
@@ -325,9 +337,7 @@
 #define ENABLE_DASHBOARD_SUPPORT 1
 #endif
 #define HAVE_READLINE 1
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-#define HAVE_DTRACE 1
-#endif
+#define HAVE_RUNLOOP_TIMER 1
 #endif
 
 #if PLATFORM(CHROMIUM) && PLATFORM(DARWIN)
@@ -363,6 +373,7 @@
 #if PLATFORM(DARWIN)
 
 #define HAVE_ERRNO_H 1
+#define HAVE_LANGINFO_H 1
 #define HAVE_MMAP 1
 #define HAVE_MERGESORT 1
 #define HAVE_SBRK 1
@@ -370,6 +381,10 @@
 #define HAVE_SYS_PARAM_H 1
 #define HAVE_SYS_TIME_H 1
 #define HAVE_SYS_TIMEB_H 1
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#define HAVE_MADV_FREE_REUSE 1
+#endif
 
 #elif PLATFORM(WIN_OS)
 
@@ -394,11 +409,22 @@
 #define HAVE_SYS_PARAM_H 1
 #endif
 
+#elif PLATFORM(ANDROID)
+
+#define HAVE_ERRNO_H 1
+#define HAVE_LANGINFO_H 0
+#define HAVE_MMAP 1
+#define HAVE_SBRK 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_TIME_H 1
+
 #else
 
 /* FIXME: is this actually used or do other platforms generate their own config.h? */
 
 #define HAVE_ERRNO_H 1
+#define HAVE_LANGINFO_H 1
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1
@@ -466,14 +492,22 @@
 #define ENABLE_ARCHIVE 1
 #endif
 
+#if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
+#define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
+#endif
+
 #if !defined(WTF_USE_ALTERNATE_JSIMMEDIATE) && PLATFORM(X86_64) && PLATFORM(MAC)
 #define WTF_USE_ALTERNATE_JSIMMEDIATE 1
 #endif
 
+#if !defined(ENABLE_REPAINT_THROTTLING)
+#define ENABLE_REPAINT_THROTTLING 0
+#endif
+
 #if !defined(ENABLE_JIT)
-/* x86-64 support is under development. */
+/* The JIT is tested & working on x86_64 Mac */
 #if PLATFORM(X86_64) && PLATFORM(MAC)
-    #define ENABLE_JIT 0
+    #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
 /* The JIT is tested & working on x86 Mac */
 #elif PLATFORM(X86) && PLATFORM(MAC)

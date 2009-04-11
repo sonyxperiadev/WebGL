@@ -34,21 +34,21 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParamElement.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLMediaElement.h"
+#include "HTMLVideoElement.h"
+#endif
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "PluginData.h"
 #include "RenderView.h"
 #include "Text.h"
 
-#ifdef FLATTEN_IFRAME
-#include "RenderView.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderPartObject::RenderPartObject(HTMLFrameOwnerElement* element)
+RenderPartObject::RenderPartObject(Element* element)
     : RenderPart(element)
 {
     // init RenderObject attributes
@@ -132,10 +132,17 @@ static String serviceTypeForClassId(const String& classId, const PluginData* plu
 
 static inline bool shouldUseEmbedDescendant(HTMLObjectElement* objectElement, const PluginData* pluginData)
 {
+#if PLATFORM(MAC)
+    UNUSED_PARAM(objectElement);
+    UNUSED_PARAM(pluginData);
+    // On Mac, we always want to use the embed descendant.
+    return true;
+#else
     // If we have both an <object> and <embed>, we always want to use the <embed> except when we have
     // an ActiveX plug-in and plan to use it.
     return !(havePlugin(pluginData, activeXType())
         && serviceTypeForClassId(objectElement->classId(), pluginData) == activeXType());
+#endif
 }
 
 void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
@@ -146,8 +153,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
     Vector<String> paramValues;
     Frame* frame = m_view->frame();
 
-    if (element()->hasTagName(objectTag)) {
-        HTMLObjectElement* o = static_cast<HTMLObjectElement*>(element());
+    if (node()->hasTagName(objectTag)) {
+        HTMLObjectElement* o = static_cast<HTMLObjectElement*>(node());
 
         o->setNeedWidgetUpdate(false);
         if (!o->isFinishedParsingChildren())
@@ -261,8 +268,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
         bool success = frame->loader()->requestObject(this, url, AtomicString(o->name()), serviceType, paramNames, paramValues);
         if (!success && m_hasFallbackContent)
             o->renderFallbackContent();
-    } else if (element()->hasTagName(embedTag)) {
-        HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(element());
+    } else if (node()->hasTagName(embedTag)) {
+        HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(node());
         o->setNeedWidgetUpdate(false);
         url = o->url();
         serviceType = o->serviceType();
@@ -294,6 +301,30 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
 
         frame->loader()->requestObject(this, url, o->getAttribute(nameAttr), serviceType, paramNames, paramValues);
     }
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)        
+    else if (node()->hasTagName(videoTag) || node()->hasTagName(audioTag)) {
+        HTMLMediaElement* o = static_cast<HTMLMediaElement*>(node());
+
+        o->setNeedWidgetUpdate(false);
+        if (node()->hasTagName(videoTag)) {
+            HTMLVideoElement* vid = static_cast<HTMLVideoElement*>(node());
+            String poster = vid->poster();
+            if (!poster.isEmpty()) {
+                paramNames.append("_media_element_poster_");
+                paramValues.append(poster);
+            }
+        }
+
+        url = o->initialURL();
+        if (!url.isEmpty()) {
+            paramNames.append("_media_element_src_");
+            paramValues.append(url);
+        }
+
+        serviceType = "application/x-media-element-proxy-plugin";
+        frame->loader()->requestObject(this, url, nullAtom, serviceType, paramNames, paramValues);
+    }
+#endif
 }
 
 void RenderPartObject::layout()
@@ -349,8 +380,8 @@ void RenderPartObject::layout()
     calcWidth();
     calcHeight();
 #endif
-    
-    adjustOverflowForBoxShadow();
+
+    adjustOverflowForBoxShadowAndReflect();
 
     RenderPart::layout();
 
@@ -416,12 +447,12 @@ void RenderPartObject::calcHeight() {
 
 void RenderPartObject::viewCleared()
 {
-    if (element() && m_widget && m_widget->isFrameView()) {
+    if (node() && m_widget && m_widget->isFrameView()) {
         FrameView* view = static_cast<FrameView*>(m_widget);
         int marginw = -1;
         int marginh = -1;
-        if (element()->hasTagName(iframeTag)) {
-            HTMLIFrameElement* frame = static_cast<HTMLIFrameElement*>(element());
+        if (node()->hasTagName(iframeTag)) {
+            HTMLIFrameElement* frame = static_cast<HTMLIFrameElement*>(node());
             marginw = frame->getMarginWidth();
             marginh = frame->getMarginHeight();
         }

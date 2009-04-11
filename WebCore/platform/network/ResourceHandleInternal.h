@@ -47,6 +47,7 @@
 
 #if USE(SOUP)
 #include <libsoup/soup.h>
+class Frame;
 #endif
 
 #if PLATFORM(QT)
@@ -116,13 +117,15 @@ namespace WebCore {
 #if USE(SOUP)
             , m_msg(0)
             , m_cancelled(false)
+            , m_reportedHeaders(false)
             , m_gfile(0)
-            , m_input_stream(0)
+            , m_inputStream(0)
             , m_cancellable(0)
             , m_buffer(0)
-            , m_bufsize(0)
+            , m_bufferSize(0)
             , m_total(0)
             , m_idleHandler(0)
+            , m_frame(0)
 #endif
 #if PLATFORM(QT)
             , m_job(0)
@@ -190,12 +193,14 @@ namespace WebCore {
         SoupMessage* m_msg;
         ResourceResponse m_response;
         bool m_cancelled;
+        bool m_reportedHeaders;
         GFile* m_gfile;
-        GInputStream* m_input_stream;
+        GInputStream* m_inputStream;
         GCancellable* m_cancellable;
         char* m_buffer;
-        gsize m_bufsize, m_total;
+        gsize m_bufferSize, m_total;
         guint m_idleHandler;
+        Frame* m_frame;
 #endif
 #if PLATFORM(QT)
 #if QT_VERSION < 0x040400

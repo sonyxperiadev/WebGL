@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,38 +46,21 @@ void JSDOMApplicationCache::mark()
 {
     DOMObject::mark();
 
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onchecking()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onerror()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onnoupdate()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->ondownloading()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onprogress()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onupdateready()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->oncached()))
-        listener->mark();
-
-    if (JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(m_impl->onobsolete()))
-        listener->mark();
+    markIfNotNull(m_impl->onchecking());
+    markIfNotNull(m_impl->onerror());
+    markIfNotNull(m_impl->onnoupdate());
+    markIfNotNull(m_impl->ondownloading());
+    markIfNotNull(m_impl->onprogress());
+    markIfNotNull(m_impl->onupdateready());
+    markIfNotNull(m_impl->oncached());
+    markIfNotNull(m_impl->onobsolete());
 
     typedef DOMApplicationCache::EventListenersMap EventListenersMap;
     typedef DOMApplicationCache::ListenerVector ListenerVector;
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) {
-            JSUnprotectedEventListener* listener = static_cast<JSUnprotectedEventListener*>(vecIter->get());
-            listener->mark();
-        }
+        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
+            (*vecIter)->mark();
     }
 }
 
@@ -129,7 +112,7 @@ JSValuePtr JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgLis
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSUnprotectedEventListener> listener = globalObject->findOrCreateJSUnprotectedEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
@@ -141,7 +124,7 @@ JSValuePtr JSDOMApplicationCache::removeEventListener(ExecState* exec, const Arg
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSUnprotectedEventListener* listener = globalObject->findJSUnprotectedEventListener(exec, args.at(exec, 1));
+    JSEventListener* listener = globalObject->findJSEventListener(exec, args.at(exec, 1));
     if (!listener)
         return jsUndefined();
     impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));

@@ -328,10 +328,6 @@ public:
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
-#if USE(LOW_BANDWIDTH_DISPLAY)
-        flag = env->GetBooleanField(obj, gFieldIds->mUseDoubleTree);
-        pFrame->loader()->setUseLowBandwidthDisplay(flag);
-#endif
     }
 };
 

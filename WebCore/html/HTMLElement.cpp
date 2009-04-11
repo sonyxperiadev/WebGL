@@ -96,23 +96,6 @@ int HTMLElement::tagPriority() const
     return 1;
 }
 
-PassRefPtr<Node> HTMLElement::cloneNode(bool deep)
-{
-    RefPtr<HTMLElement> clone = HTMLElementFactory::createHTMLElement(tagQName(), document(), 0, false);
-    if (!clone)
-        return 0;
-
-    if (namedAttrMap)
-        clone->attributes()->setAttributes(*namedAttrMap);
-
-    clone->copyNonAttributeProperties(this);
-
-    if (deep)
-        cloneChildNodes(clone.get());
-
-    return clone.release();
-}
-
 bool HTMLElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
     if (attrName == alignAttr ||
@@ -947,8 +930,18 @@ bool HTMLElement::inEitherTagList(const Node* newChild)
         
     if (newChild->isHTMLElement()) {
         const HTMLElement* child = static_cast<const HTMLElement*>(newChild);
-        if (inlineTagList()->contains(child->tagQName().localName().impl()))
+        if (inlineTagList()->contains(child->tagQName().localName().impl())) {
+#if PLATFORM(MAC)
+            if (child->tagQName().localName() == styleTag) {
+                // Leopard Mail doesn't expect <style> to be in the body of the document, so don't allow it in that case.
+                // See <rdar://problem/6621310>
+                Settings* settings = newChild->document() ? newChild->document()->settings() : 0;
+                if (settings && settings->needsLeopardMailQuirks())
+                    return false;
+            }
+#endif
             return true;
+        }
         if (blockTagList()->contains(child->tagQName().localName().impl()))
             return true;
         return !isRecognizedTagName(child->tagQName()); // Accept custom html tags
@@ -999,7 +992,7 @@ bool HTMLElement::rendererIsNeeded(RenderStyle *style)
         if (settings && settings->isJavaScriptEnabled())
             return false;
     }
-    return (document()->documentElement() == this) || (style->display() != NONE);
+    return StyledElement::rendererIsNeeded(style);
 }
     
 RenderObject* HTMLElement::createRenderer(RenderArena* arena, RenderStyle* style)

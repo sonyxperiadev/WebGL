@@ -40,7 +40,7 @@ RenderForeignObject::RenderForeignObject(SVGForeignObjectElement* node)
 
 TransformationMatrix RenderForeignObject::translationForAttributes()
 {
-    SVGForeignObjectElement* foreign = static_cast<SVGForeignObjectElement*>(element());
+    SVGForeignObjectElement* foreign = static_cast<SVGForeignObjectElement*>(node());
     return TransformationMatrix().translate(foreign->x().value(foreign), foreign->y().value(foreign));
 }
 
@@ -53,7 +53,7 @@ void RenderForeignObject::paint(PaintInfo& paintInfo, int parentX, int parentY)
     paintInfo.context->concatCTM(TransformationMatrix().translate(parentX, parentY));
     paintInfo.context->concatCTM(localTransform());
     paintInfo.context->concatCTM(translationForAttributes());
-    paintInfo.context->clip(getClipRect(parentX, parentY));
+    paintInfo.context->clip(clipRect(parentX, parentY));
 
     float opacity = style()->opacity();
     if (opacity < 1.0f)
@@ -70,18 +70,18 @@ void RenderForeignObject::paint(PaintInfo& paintInfo, int parentX, int parentY)
     paintInfo.context->restore();
 }
 
-void RenderForeignObject::computeRectForRepaint(IntRect& rect, RenderBox* repaintContainer, bool fixed)
+void RenderForeignObject::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& rect, bool fixed)
 {
     TransformationMatrix transform = translationForAttributes() * localTransform();
     rect = transform.mapRect(rect);
 
-    RenderBlock::computeRectForRepaint(rect, repaintContainer, fixed);
+    RenderBlock::computeRectForRepaint(repaintContainer, rect, fixed);
 }
 
 bool RenderForeignObject::calculateLocalTransform()
 {
     TransformationMatrix oldTransform = m_localTransform;
-    m_localTransform = static_cast<SVGForeignObjectElement*>(element())->animatedLocalTransform();
+    m_localTransform = static_cast<SVGForeignObjectElement*>(node())->animatedLocalTransform();
     return (oldTransform != m_localTransform);
 }
 
@@ -92,13 +92,8 @@ void RenderForeignObject::layout()
     // Arbitrary affine transforms are incompatible with LayoutState.
     view()->disableLayoutState();
 
-    IntRect oldBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout();
-    if (checkForRepaint) {
-        oldBounds = m_absoluteBounds;
-        oldOutlineBox = absoluteOutlineBounds();
-    }
+    // FIXME: using m_absoluteBounds breaks if containerForRepaint() is not the root
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout(), &m_absoluteBounds);
     
     calculateLocalTransform();
     
@@ -106,8 +101,7 @@ void RenderForeignObject::layout()
 
     m_absoluteBounds = absoluteClippedOverflowRect();
 
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
+    repainter.repaintAfterLayout();
 
     view()->enableLayoutState();
     setNeedsLayout(false);
@@ -118,7 +112,7 @@ bool RenderForeignObject::nodeAtPoint(const HitTestRequest& request, HitTestResu
     TransformationMatrix totalTransform = absoluteTransform();
     totalTransform *= translationForAttributes();
     double localX, localY;
-    totalTransform.inverse().map(x, y, &localX, &localY);
+    totalTransform.inverse().map(x, y, localX, localY);
     return RenderBlock::nodeAtPoint(request, result, static_cast<int>(localX), static_cast<int>(localY), tx, ty, hitTestAction);
 }
 

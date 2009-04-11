@@ -36,16 +36,13 @@
 #include "ResourceRequest.h"
 #include "Timer.h"
 
-#if USE(LOW_BANDWIDTH_DISPLAY)
-#include "CachedResourceClient.h"
-#endif
-
 namespace WebCore {
 
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     class Archive;
 #endif
     class AuthenticationChallenge;
+    class CachedFrame;
     class CachedPage;
     class CachedResource;
     class Document;
@@ -56,6 +53,7 @@ namespace WebCore {
     class Frame;
     class FrameLoaderClient;
     class HistoryItem;
+    class HTMLAppletElement;
     class HTMLFormElement;
     class HTMLFrameOwnerElement;
     class IconLoader;
@@ -115,11 +113,7 @@ namespace WebCore {
         void* m_argument;
     };
 
-    class FrameLoader : Noncopyable
-#if USE(LOW_BANDWIDTH_DISPLAY)
-        , private CachedResourceClient
-#endif
-    {
+    class FrameLoader : Noncopyable {
     public:
         FrameLoader(Frame*, FrameLoaderClient*);
         ~FrameLoader();
@@ -196,10 +190,10 @@ namespace WebCore {
         void loadEmptyDocumentSynchronously();
 
         DocumentLoader* activeDocumentLoader() const;
-        DocumentLoader* documentLoader() const;
-        DocumentLoader* policyDocumentLoader() const;
-        DocumentLoader* provisionalDocumentLoader() const;
-        FrameState state() const;
+        DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
+        DocumentLoader* policyDocumentLoader() const { return m_policyDocumentLoader.get(); }
+        DocumentLoader* provisionalDocumentLoader() const { return m_provisionalDocumentLoader.get(); }
+        FrameState state() const { return m_state; }
         static double timeOfLastCompletedLoad();
 
         bool shouldUseCredentialStorage(ResourceLoader*);
@@ -283,6 +277,7 @@ namespace WebCore {
         void checkLoadComplete();
         void detachFromParent();
         void detachChildren();
+        void closeAndRemoveChild(Frame*);
 
         void addExtraFieldsToSubresourceRequest(ResourceRequest&);
         void addExtraFieldsToMainResourceRequest(ResourceRequest&);
@@ -355,9 +350,10 @@ namespace WebCore {
         void handledOnloadEvents();
         String userAgent(const KURL&) const;
 
-        Widget* createJavaAppletWidget(const IntSize&, Element*, const HashMap<String, String>& args);
+        Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const HashMap<String, String>& args);
 
         void dispatchWindowObjectAvailable();
+        void dispatchDocumentElementAvailable();
         void restoreDocumentState();
 
         Frame* opener();
@@ -424,10 +420,7 @@ namespace WebCore {
         // FIXME: These accessors are here for a dwindling number of users in WebKit, WebFrame
         // being the primary one.  After they're no longer needed there, they can be removed!
         HistoryItem* currentHistoryItem();
-        HistoryItem* previousHistoryItem();
-        HistoryItem* provisionalHistoryItem();
         void setCurrentHistoryItem(PassRefPtr<HistoryItem>);
-        void setPreviousHistoryItem(PassRefPtr<HistoryItem>);
         void setProvisionalHistoryItem(PassRefPtr<HistoryItem>);
 
         void continueLoadWithData(SharedBuffer*, const String& mimeType, const String& textEncoding, const KURL&); 
@@ -441,19 +434,12 @@ namespace WebCore {
         static bool restrictAccessToLocal();
         static bool allowSubstituteDataAccessToLocal();
 
-        static void registerURLSchemeAsLocal(const String& scheme);
+        static void registerURLSchemeAsLocal(const String&);
         static bool shouldTreatURLAsLocal(const String&);
-        static bool shouldTreatSchemeAsLocal(const String&);
+        static bool shouldTreatURLSchemeAsLocal(const String&);
 
-#if USE(LOW_BANDWIDTH_DISPLAY)    
-        bool addLowBandwidthDisplayRequest(CachedResource*);
-        void needToSwitchOutLowBandwidthDisplay() { m_needToSwitchOutLowBandwidthDisplay = true; }
-
-        // Client can control whether to use low bandwidth display on a per frame basis.
-        // However, this should only be used for the top frame, not sub-frame.
-        void setUseLowBandwidthDisplay(bool lowBandwidth) { m_useLowBandwidthDisplay = lowBandwidth; }
-        bool useLowBandwidthDisplay() const { return m_useLowBandwidthDisplay; }
-#endif
+        static void registerURLSchemeAsNoAccess(const String&);
+        static bool shouldTreatURLSchemeAsNoAccess(const String&);
 
         bool committingFirstRealLoad() const { return !m_creatingInitialEmptyDocument && !m_committedFirstRealDocumentLoad; }
 
@@ -563,7 +549,8 @@ namespace WebCore {
 
         void closeOldDataSources();
         void open(CachedPage&);
-        void opened();
+        void open(CachedFrame&);
+
         void updateHistoryAfterClientRedirect();
 
         void clear(bool clearWindowProperties = true, bool clearScriptObjects = true);
@@ -574,14 +561,6 @@ namespace WebCore {
         void scheduleRedirection(ScheduledRedirection*);
         void startRedirectionTimer();
         void stopRedirectionTimer();
-
-#if USE(LOW_BANDWIDTH_DISPLAY)
-        // implementation of CachedResourceClient        
-        virtual void notifyFinished(CachedResource*);
-
-        void removeAllLowBandwidthDisplayRequests();    
-        void switchOutLowBandwidthDisplayIfReady();        
-#endif
 
         void dispatchDidCommitLoad();
         void dispatchAssignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
@@ -682,26 +661,11 @@ namespace WebCore {
         bool m_didDispatchDidCommitLoad;
 #endif
 
-#if USE(LOW_BANDWIDTH_DISPLAY)
-        // whether to use low bandwidth dislay, set by client
-        bool m_useLowBandwidthDisplay;
-
-        // whether to call finishParsing() in switchOutLowBandwidthDisplayIfReady() 
-        bool m_finishedParsingDuringLowBandwidthDisplay;
-
-        // whether to call switchOutLowBandwidthDisplayIfReady;
-        // true if there is external css, javascript, or subframe/plugin
-        bool m_needToSwitchOutLowBandwidthDisplay;
-        
-        String m_pendingSourceInLowBandwidthDisplay;        
-        HashSet<CachedResource*> m_externalRequestsInLowBandwidthDisplay;
-#endif
-
 #if ENABLE(WML)
         bool m_forceReloadWmlDeck;
 #endif
     };
 
-}
+} // namespace WebCore
 
-#endif
+#endif // FrameLoader_h

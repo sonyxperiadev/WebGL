@@ -72,6 +72,8 @@ Settings::Settings(Page* page)
     , m_databasesEnabled(false)
     , m_localStorageEnabled(false)
     , m_isJavaScriptEnabled(false)
+    , m_isWebSecurityEnabled(true)
+    , m_allowUniversalAccessFromFileURLs(true)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_shouldPrintBackgrounds(false)
     , m_textAreasAreResizable(false)
@@ -80,6 +82,8 @@ Settings::Settings(Page* page)
 #endif
     , m_needsAdobeFrameReloadingQuirk(false)
     , m_needsKeyboardEventDisambiguationQuirks(false)
+    , m_needsLeopardMailQuirks(false)
+    , m_needsTigerMailQuirks(false)
     , m_isDOMPasteAllowed(false)
     , m_shrinksStandaloneImagesToFit(true)
     , m_usesPageCache(false)
@@ -92,12 +96,12 @@ Settings::Settings(Page* page)
     , m_webArchiveDebugModeEnabled(false)
     , m_inApplicationChromeMode(false)
     , m_offlineWebApplicationCacheEnabled(false)
-    , m_rangeMutationDisabledForOldAppleMail(false)
     , m_shouldPaintCustomScrollbars(false)
     , m_zoomsTextOnly(false)
     , m_enforceCSSMIMETypeInStrictMode(true)
+    , m_usesEncodingDetector(false)
     , m_maximumDecodedImageSize(std::numeric_limits<size_t>::max())
-    , m_needsIChatMemoryCacheCallsQuirk(false)
+    , m_allowScriptsToCloseWindows(false)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -214,6 +218,16 @@ void Settings::setJavaScriptEnabled(bool isJavaScriptEnabled)
     m_isJavaScriptEnabled = isJavaScriptEnabled;
 }
 
+void Settings::setWebSecurityEnabled(bool isWebSecurityEnabled)
+{
+    m_isWebSecurityEnabled = isWebSecurityEnabled;
+}
+
+void Settings::setAllowUniversalAccessFromFileURLs(bool allowUniversalAccessFromFileURLs)
+{
+    m_allowUniversalAccessFromFileURLs = allowUniversalAccessFromFileURLs;
+}
+
 void Settings::setJavaEnabled(bool isJavaEnabled)
 {
     m_isJavaEnabled = isJavaEnabled;
@@ -313,6 +327,16 @@ void Settings::setNeedsKeyboardEventDisambiguationQuirks(bool needsQuirks)
     m_needsKeyboardEventDisambiguationQuirks = needsQuirks;
 }
 
+void Settings::setNeedsLeopardMailQuirks(bool needsQuirks)
+{
+    m_needsLeopardMailQuirks = needsQuirks;
+}
+
+void Settings::setNeedsTigerMailQuirks(bool needsQuirks)
+{
+    m_needsTigerMailQuirks = needsQuirks;
+}
+    
 void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
 {
     m_isDOMPasteAllowed = DOMPasteAllowed;
@@ -483,11 +507,6 @@ void Settings::setLocalStorageDatabasePath(const String& path)
     m_localStorageDatabasePath = path;
 }
 
-void Settings::disableRangeMutationForOldAppleMail(bool disable)
-{
-    m_rangeMutationDisabledForOldAppleMail = disable;
-}
-
 void Settings::setApplicationChromeMode(bool mode)
 {
     m_inApplicationChromeMode = mode;
@@ -524,9 +543,14 @@ void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
 }
 #endif
 
-void Settings::setNeedsIChatMemoryCacheCallsQuirk(bool needsIChatMemoryCacheCallsQuirk)
+void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 {
-    m_needsIChatMemoryCacheCallsQuirk = needsIChatMemoryCacheCallsQuirk;
+    m_usesEncodingDetector = usesEncodingDetector;
+}
+
+void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)
+{
+    m_allowScriptsToCloseWindows = allowScriptsToCloseWindows;
 }
 
 } // namespace WebCore

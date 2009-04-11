@@ -34,6 +34,9 @@
 #include <windows.h>
 
 #include "FontUtilsChromiumWin.h"
+#include "PlatformContextSkia.h"
+#include "SkiaFontWin.h"
+#include "SkPoint.h"
 #include <wtf/Assertions.h>
 
 namespace WebCore {
@@ -58,7 +61,7 @@ static bool containsMissingGlyphs(WORD *glyphs,
                                   SCRIPT_FONTPROPERTIES* properties)
 {
     for (int i = 0; i < length; ++i) {
-        if (glyphs[i] == properties->wgDefault 
+        if (glyphs[i] == properties->wgDefault
             || (glyphs[i] == properties->wgInvalid
             && glyphs[i] != properties->wgBlank))
             return true;
@@ -112,6 +115,8 @@ UniscribeHelper::UniscribeHelper(const UChar* input,
     , m_spaceWidth(0)
     , m_wordSpacing(0)
     , m_ascent(0)
+    , m_disableFontFallback(false)
+
 {
     m_logfont.lfFaceName[0] = 0;
 }
@@ -285,11 +290,13 @@ int UniscribeHelper::xToCharacter(int x) const
     return 0;
 }
 
-void UniscribeHelper::draw(HDC dc, int x, int y, int from, int to)
+void UniscribeHelper::draw(GraphicsContext* graphicsContext,
+                           HDC dc, int x, int y, int from, int to)
 {
     HGDIOBJ oldFont = 0;
     int curX = x;
     bool firstRun = true;
+    bool useWindowsDrawing = windowsCanHandleTextDrawing(graphicsContext);
 
     for (size_t screenIndex = 0; screenIndex < m_runs.size(); screenIndex++) {
         int itemIndex = m_screenOrder[screenIndex];
@@ -360,7 +367,7 @@ void UniscribeHelper::draw(HDC dc, int x, int y, int from, int to)
         // Actually draw the glyphs we found.
         int glyphCount = afterGlyph - fromGlyph;
         if (fromGlyph >= 0 && glyphCount > 0) {
-            // Account for the preceeding space we need to add to this run. We
+            // Account for the preceding space we need to add to this run. We
             // don't need to count for the following space because that will be
             // counted in advanceForItem below when we move to the next run.
             innerOffset += shaping.m_prePadding;
@@ -377,30 +384,44 @@ void UniscribeHelper::draw(HDC dc, int x, int y, int from, int to)
             // Fonts with different ascents can be used to render different
             // runs.  'Across-runs' y-coordinate correction needs to be
             // adjusted for each font.
-            HRESULT hr = S_FALSE;
+            bool textOutOk = false;
             for (int executions = 0; executions < 2; ++executions) {
-                hr = ScriptTextOut(dc, shaping.m_scriptCache,
-                                   curX + innerOffset,
-                                   y - shaping.m_ascentOffset,
-                                   0, 0, &item.a, 0, 0,
-                                   &shaping.m_glyphs[fromGlyph],
-                                   glyphCount,
-                                   &shaping.m_advance[fromGlyph],
-                                   justify,
-                                   &shaping.m_offsets[fromGlyph]);
-                if (S_OK != hr && 0 == executions) {
-                    // If this ScriptTextOut is called from the renderer it
-                    // might fail because the sandbox is preventing it from
-                    // opening the font files.  If we are running in the
-                    // renderer, TryToPreloadFont is overridden to ask the
-                    // browser to preload the font for us so we can access it.
+                if (useWindowsDrawing) {
+                    HRESULT hr = ScriptTextOut(dc, shaping.m_scriptCache,
+                                               curX + innerOffset,
+                                               y - shaping.m_ascentOffset,
+                                               0, 0, &item.a, 0, 0,
+                                               &shaping.m_glyphs[fromGlyph],
+                                               glyphCount,
+                                               &shaping.m_advance[fromGlyph],
+                                               justify,
+                                               &shaping.m_offsets[fromGlyph]);
+                    ASSERT(S_OK == hr);
+                    textOutOk = (hr == S_OK);
+                } else {
+                    SkPoint origin;
+                    origin.fX = curX + + innerOffset;
+                    origin.fY = y + m_ascent - shaping.m_ascentOffset;
+                    textOutOk = paintSkiaText(graphicsContext,
+                                              shaping.m_hfont,
+                                              glyphCount,
+                                              &shaping.m_glyphs[fromGlyph],
+                                              &shaping.m_advance[fromGlyph],
+                                              &shaping.m_offsets[fromGlyph],
+                                              &origin);
+                }
+
+                if (!textOutOk && 0 == executions) {
+                    // If TextOut is called from the renderer it might fail
+                    // because the sandbox is preventing it from opening the
+                    // font files.  If we are running in the renderer,
+                    // TryToPreloadFont is overridden to ask the browser to
+                    // preload the font for us so we can access it.
                     tryToPreloadFont(shaping.m_hfont);
                     continue;
                 }
                 break;
             }
-
-            ASSERT(S_OK == hr);
         }
 
         curX += advanceForItem(itemIndex);
@@ -527,7 +548,10 @@ bool UniscribeHelper::shape(const UChar* input,
     HDC tempDC = 0;
     HGDIOBJ oldFont = 0;
     HRESULT hr;
-    bool lastFallbackTried = false;
+    // When used to fill up glyph pages for simple scripts in non-BMP,
+    // we don't want any font fallback in this class. The simple script
+    // font path can take care of font fallback.
+    bool lastFallbackTried = m_disableFontFallback;
     bool result;
 
     int generatedGlyphs = 0;
@@ -557,7 +581,7 @@ bool UniscribeHelper::shape(const UChar* input,
         //     PurifyMarkAsInitialized(
         //         &shaping.m_glyphs[0],
         //         sizeof(shaping.m_glyphs[0] * generatedGlyphs);
-        
+
         ZeroMemory(&shaping.m_glyphs[0],
                    sizeof(shaping.m_glyphs[0]) * shaping.m_glyphs.size());
 #endif
@@ -587,7 +611,8 @@ bool UniscribeHelper::shape(const UChar* input,
             tempDC = 0;
         }
 
-        if (nextWinFontData(&hfont, &scriptCache, &fontProperties, &ascent)) {
+        if (!m_disableFontFallback &&
+            nextWinFontData(&hfont, &scriptCache, &fontProperties, &ascent)) {
             // The primary font does not support this run. Try next font.
             // In case of web page rendering, they come from fonts specified in
             // CSS stylesheets.
@@ -702,6 +727,13 @@ void UniscribeHelper::fillShapes()
         if (!shape(&m_input[startItem], itemLength, numGlyphs, m_runs[i], shaping))
             continue;
 
+        // At the moment, the only time m_disableFontFallback is set is
+        // when we look up glyph indices for non-BMP code ranges. So,
+        // we can skip the glyph placement. When that becomes not the case
+        // any more, we have to add a new flag to control glyph placement.
+        if (m_disableFontFallback)
+          continue;
+
         // Compute placements. Note that offsets is documented incorrectly
         // and is actually an array.
 
@@ -779,9 +811,6 @@ void UniscribeHelper::adjustSpaceAdvances()
 
             int glyphIndex = shaping.m_logs[i];
             int currentAdvance = shaping.m_advance[glyphIndex];
-            // Don't give zero-width spaces a width.
-            if (!currentAdvance)
-                continue;
 
             // currentAdvance does not include additional letter-spacing, but
             // space_width does. Here we find out how off we are from the

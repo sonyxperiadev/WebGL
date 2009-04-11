@@ -357,7 +357,7 @@ void CanvasRenderingContext2D::scale(float sx, float sy)
         return;
 
     TransformationMatrix newTransform = state().m_transform;
-    newTransform.scale(sx, sy);
+    newTransform.scaleNonUniform(sx, sy);
     if (!newTransform.isInvertible()) {
         state().m_invertibleCTM = false;
         return;
@@ -365,7 +365,7 @@ void CanvasRenderingContext2D::scale(float sx, float sy)
 
     state().m_transform = newTransform;
     c->scale(FloatSize(sx, sy));
-    m_path.transform(TransformationMatrix().scale(1.0/sx, 1.0/sy));
+    m_path.transform(TransformationMatrix().scaleNonUniform(1.0/sx, 1.0/sy));
 }
 
 void CanvasRenderingContext2D::rotate(float angleInRadians)
@@ -867,7 +867,6 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     GraphicsContext* dc = drawingContext();
     if (!dc)
         return;
-    // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
     const CGFloat components[5] = { c, m, y, k, a };
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceCMYK();
@@ -875,6 +874,8 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     CGColorSpaceRelease(colorSpace);
     CGContextSetShadowWithColor(dc->platformContext(), adjustedShadowSize(width, -height), blur, shadowColor);
     CGColorRelease(shadowColor);
+#else
+    dc->setShadow(IntSize(width, -height), blur, Color(c, m, y, k, a));
 #endif
 }
 
@@ -1078,6 +1079,15 @@ void CanvasRenderingContext2D::setCompositeOperation(const String& operation)
     setGlobalCompositeOperation(operation);
 }
 
+void CanvasRenderingContext2D::prepareGradientForDashboard(CanvasGradient* gradient) const
+{
+#if ENABLE(DASHBOARD_SUPPORT)
+    if (Settings* settings = m_canvas->document()->settings())
+        if (settings->usesDashboardBackwardCompatibilityMode())
+            gradient->setDashboardCompatibilityMode();
+#endif
+}
+
 PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createLinearGradient(float x0, float y0, float x1, float y1, ExceptionCode& ec)
 {
     if (!isfinite(x0) || !isfinite(y0) || !isfinite(x1) || !isfinite(y1)) {
@@ -1085,7 +1095,9 @@ PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createLinearGradient(float 
         return 0;
     }
 
-    return CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1));
+    PassRefPtr<CanvasGradient> gradient = CanvasGradient::create(FloatPoint(x0, y0), FloatPoint(x1, y1));
+    prepareGradientForDashboard(gradient.get());
+    return gradient;
 }
 
 PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1, ExceptionCode& ec)
@@ -1095,7 +1107,9 @@ PassRefPtr<CanvasGradient> CanvasRenderingContext2D::createRadialGradient(float 
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    return CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1);
+    PassRefPtr<CanvasGradient> gradient =  CanvasGradient::create(FloatPoint(x0, y0), r0, FloatPoint(x1, y1), r1);
+    prepareGradientForDashboard(gradient.get());
+    return gradient;
 }
 
 PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageElement* image,
@@ -1422,6 +1436,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         m_canvas->willDraw(FloatRect(0, 0, m_canvas->width(), m_canvas->height()));
     }
     
+#if PLATFORM(CG)
     CanvasStyle* drawStyle = fill ? state().m_fillStyle.get() : state().m_strokeStyle.get();
     if (drawStyle->canvasGradient() || drawStyle->canvasPattern()) {
         // FIXME: The rect is not big enough for miters on stroked text.
@@ -1451,6 +1466,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 
         return;
     }
+#endif
 
     c->setTextDrawingMode(fill ? cTextFill : cTextStroke);
     c->drawBidiText(font, textRun, location);

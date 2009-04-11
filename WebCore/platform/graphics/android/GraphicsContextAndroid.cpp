@@ -315,7 +315,8 @@ static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
 }
 
 static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
-                         Gradient* grad, GradientSpreadMethod sm) {
+                         Gradient* grad)
+{
     switch (cs) {
         case PatternColorSpace:
             // createPlatformPattern() returns a new inst
@@ -324,6 +325,7 @@ static void extactShader(SkPaint* paint, ColorSpace cs, Pattern* pat,
             break;
         case GradientColorSpace: {
             // grad->getShader() returns a cached obj
+            GradientSpreadMethod sm = grad->spreadMethod();
             paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
             break;
         }
@@ -670,7 +672,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     extactShader(&paint, m_common->state.fillColorSpace,
                  m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get(), spreadMethod());
+                 m_common->state.fillGradient.get());
 
     GC2Canvas(this)->drawRect(r, paint);
 }
@@ -1077,7 +1079,13 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
 
 TransformationMatrix GraphicsContext::getCTM() const
 {
-    return TransformationMatrix(GC2Canvas(this)->getTotalMatrix());
+    const SkMatrix& m = GC2Canvas(this)->getTotalMatrix();
+    return TransformationMatrix(SkScalarToDouble(m.getScaleX()),      // a
+                                SkScalarToDouble(m.getSkewY()),       // b
+                                SkScalarToDouble(m.getSkewX()),       // c
+                                SkScalarToDouble(m.getScaleY()),      // d
+                                SkScalarToDouble(m.getTranslateX()),  // e
+                                SkScalarToDouble(m.getTranslateY())); // f
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1118,7 +1126,7 @@ void GraphicsContext::fillPath()
 
     extactShader(&paint, m_common->state.fillColorSpace,
                  m_common->state.fillPattern.get(),
-                 m_common->state.fillGradient.get(), spreadMethod());
+                 m_common->state.fillGradient.get());
 
     GC2Canvas(this)->drawPath(*path, paint);
 }
@@ -1134,7 +1142,7 @@ void GraphicsContext::strokePath()
 
     extactShader(&paint, m_common->state.strokeColorSpace,
                  m_common->state.strokePattern.get(),
-                 m_common->state.strokeGradient.get(), spreadMethod());
+                 m_common->state.strokeGradient.get());
     
     GC2Canvas(this)->drawPath(*path, paint);
 }

@@ -152,6 +152,7 @@ Source files for JSCore.
         bytecode/StructureStubInfo.cpp
         bytecode/JumpTable.cpp
         runtime/ExceptionHelpers.cpp
+        runtime/TimeoutChecker.cpp
         interpreter/Interpreter.cpp
         bytecode/Opcode.cpp
         bytecode/SamplingTool.cpp
@@ -169,6 +170,7 @@ Source files for JSCore.
         wtf/TCSystemAlloc.cpp
         wtf/Threading.cpp
         wtf/ThreadingNone.cpp
+        wtf/TypeTraits.cpp
         wtf/wx/MainThreadWx.cpp
         wtf/unicode/CollatorDefault.cpp
         wtf/unicode/icu/CollatorICU.cpp

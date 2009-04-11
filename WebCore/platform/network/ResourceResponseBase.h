@@ -49,7 +49,7 @@ public:
     bool isHTTP() const;
 
     const KURL& url() const;
-    void setUrl(const KURL& url);
+    void setURL(const KURL& url);
 
     const String& mimeType() const;
     void setMimeType(const String& mimeType);
@@ -95,6 +95,13 @@ public:
         if (!m_haveParsedCacheControl)
             parseCacheControlDirectives();
         return m_cacheControlContainsMustRevalidate;
+    }
+
+    // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
+    unsigned memoryUsage() const
+    {
+        // average size, mostly due to URL and Header Map strings
+        return 1280;
     }
 
     static bool compare(const ResourceResponse& a, const ResourceResponse& b);

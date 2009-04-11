@@ -156,7 +156,7 @@ NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTable
 
         if (cellAboveRenderer) {
             HTMLTableCellElement* aboveCell =
-                static_cast<HTMLTableCellElement*>(cellAboveRenderer->element());
+                static_cast<HTMLTableCellElement*>(cellAboveRenderer->node());
 
             if (aboveCell) {
                 // search within the above cell we found for a match
@@ -490,8 +490,6 @@ void Frame::setUseSecureKeyboardEntry(bool enable)
 NSMutableDictionary* Frame::dashboardRegionsDictionary()
 {
     Document* doc = document();
-    if (!doc)
-        return nil;
 
     const Vector<DashboardRegionValue>& regions = doc->dashboardRegions();
     size_t n = regions.size();
@@ -537,7 +535,7 @@ void Frame::setUserStyleSheetLocation(const KURL& url)
 {
     delete m_userStyleSheetLoader;
     m_userStyleSheetLoader = 0;
-    if (m_doc && m_doc->docLoader())
+    if (m_doc->docLoader())
         m_userStyleSheetLoader = new UserStyleSheetLoader(m_doc, url.string());
 }
 
@@ -545,8 +543,7 @@ void Frame::setUserStyleSheet(const String& styleSheet)
 {
     delete m_userStyleSheetLoader;
     m_userStyleSheetLoader = 0;
-    if (m_doc)
-        m_doc->setUserStyleSheet(styleSheet);
+    m_doc->setUserStyleSheet(styleSheet);
 }
 
 } // namespace WebCore

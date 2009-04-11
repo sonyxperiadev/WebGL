@@ -28,11 +28,11 @@ module core {
         InlineGetOwnPropertySlot,
         InterfaceUUID=48BB95FC-2D08-4c54-BE65-7558736A4CAE,
         ImplementationUUID=FF5CBE81-F817-429c-A6C2-0CCCD2328062
-    ] Document : EventTargetNode {
+    ] Document : Node {
 
         // DOM Level 1 Core
         readonly attribute DocumentType doctype;
-        readonly attribute DOMImplementation implementation;
+        readonly attribute [V8Custom] DOMImplementation implementation;
         readonly attribute Element documentElement;
 
         [ReturnsNew] Element createElement(in [ConvertNullToNullString] DOMString tagName)
@@ -122,11 +122,11 @@ module core {
                                                         in XPathNSResolver resolver)
             raises(DOMException);
         XPathNSResolver    createNSResolver(in Node nodeResolver);
-        [OldStyleObjC] XPathResult evaluate(in DOMString expression,
-                                            in Node contextNode,
-                                            in XPathNSResolver resolver,
-                                            in unsigned short type,
-                                            in XPathResult inResult)
+        [OldStyleObjC, V8Custom] XPathResult evaluate(in DOMString expression,
+                                                      in Node contextNode,
+                                                      in XPathNSResolver resolver,
+                                                      in unsigned short type,
+                                                      in XPathResult inResult)
             raises(DOMException);
 #endif // ENABLE_XPATH
 #endif // !defined(LANGUAGE_COM)
@@ -226,7 +226,7 @@ module core {
 
 #if !defined(LANGUAGE_COM)
 #if !defined(LANGUAGE_OBJECTIVE_C)
-        DOMObject getCSSCanvasContext(in DOMString contextId, in DOMString name, in long width, in long height);
+        [V8Custom] DOMObject getCSSCanvasContext(in DOMString contextId, in DOMString name, in long width, in long height);
 #endif
 #endif
 
@@ -234,9 +234,9 @@ module core {
         NodeList getElementsByClassName(in DOMString tagname);
 
         // NodeSelector - Selector API
-        Element querySelector(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+        Element querySelector(in DOMString selectors)
             raises(DOMException);
-        NodeList querySelectorAll(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+        NodeList querySelectorAll(in DOMString selectors)
             raises(DOMException);
 
 #if ENABLE_WML

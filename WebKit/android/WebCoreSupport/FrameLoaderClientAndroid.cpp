@@ -37,6 +37,7 @@
 // HTMLFormElement needed for a bad include
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
+#include "HTMLPlugInElement.h"
 #include "IconDatabase.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
@@ -110,7 +111,7 @@ void FrameLoaderClientAndroid::makeRepresentation(DocumentLoader*) {
 
 void FrameLoaderClientAndroid::forceLayout() {
     ASSERT(m_frame);
-    m_frame->forceLayout();
+    m_frame->view()->forceLayout();
     // FIXME, should we adjust view size here?
     m_frame->view()->adjustViewSize();
 }
@@ -572,7 +573,7 @@ void FrameLoaderClientAndroid::updateGlobalHistory() {
     m_webFrame->updateVisitedHistory(m_frame->loader()->documentLoader()->urlForHistory(), false);
 }
 
-void FrameLoaderClientAndroid::updateGlobalHistoryForRedirectWithoutHistoryItem() {
+void FrameLoaderClientAndroid::updateGlobalHistoryRedirectLinks() {
     // Note, do we need to do anything where there is no HistoryItem? If we call
     // updateGlobalHistory(), we will add bunch of "data:xxx" urls for gmail.com
     // which is not what we want. Opt to do nothing now.
@@ -676,7 +677,6 @@ String FrameLoaderClientAndroid::generatedMIMETypeForURLScheme(const String& URL
 void FrameLoaderClientAndroid::frameLoadCompleted() {
     // copied from Apple port, without this back with sub-frame will trigger ASSERT
     ASSERT(m_frame);
-    m_frame->loader()->setPreviousHistoryItem(0);
 }
 
 void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
@@ -889,7 +889,7 @@ static bool isYouTubeUrl(const KURL& url, const String& mimeType)
 
 Widget* FrameLoaderClientAndroid::createPlugin(
         const IntSize& size,
-        Element* element,
+        HTMLPlugInElement* element,
         const KURL& url,
         const WTF::Vector<String, 0u>& names,
         const WTF::Vector<String, 0u>& values,
@@ -897,8 +897,7 @@ Widget* FrameLoaderClientAndroid::createPlugin(
         bool loadManually) {
     // Create an iframe for youtube urls.
     if (isYouTubeUrl(url, mimeType)) {
-        RefPtr<Frame> frame = createFrame(blankURL(), String(),
-                static_cast<HTMLFrameOwnerElement*>(element),
+        RefPtr<Frame> frame = createFrame(blankURL(), String(), element,
                 String(), false, 0, 0);
         if (frame) {
             // grab everything after /v/
@@ -944,7 +943,7 @@ void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {
     notImplemented();
 }
 
-Widget* FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, Element*,
+Widget* FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, HTMLAppletElement*,
                                         const KURL& baseURL, const WTF::Vector<String>& paramNames,
                                         const WTF::Vector<String>& paramValues) {
     // don't support widget yet
@@ -1002,6 +1001,9 @@ void FrameLoaderClientAndroid::windowObjectCleared() {
     LOGV("::WebCore:: windowObjectCleared called on frame %p for %s\n", 
     		m_frame, m_frame->loader()->url().string().ascii().data());
     m_webFrame->windowObjectCleared(m_frame);
+}
+
+void FrameLoaderClientAndroid::documentElementAvailable() {
 }
 
 // functions new to Jun-07 tip of tree merge:

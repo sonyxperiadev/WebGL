@@ -34,7 +34,7 @@ namespace WebCore {
 
 class Document;
 class File;
-class ResourceRequest;
+struct ResourceRequest;
 class TextResourceDecoder;
 class ThreadableLoader;
 
@@ -129,15 +129,14 @@ private:
     virtual void didReceiveResponse(const ResourceResponse&);
     virtual void didReceiveData(const char* data, int lengthReceived);
     virtual void didFinishLoading(unsigned long identifier);
-    virtual void didFail();
-    virtual void didGetCancelled();
+    virtual void didFail(const ResourceError&);
+    virtual void didFailRedirectCheck();
     virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
 
     // Special versions for the preflight
     void didReceiveResponsePreflight(const ResourceResponse&);
     void didFinishLoadingPreflight();
 
-    void processSyncLoadResults(unsigned long identifier, const Vector<char>& data, const ResourceResponse&, ExceptionCode&);
     void updateAndDispatchOnProgress(unsigned int len);
 
     String responseMIMEType() const;
@@ -159,20 +158,14 @@ private:
     void createRequest(ExceptionCode&);
 
     void makeSameOriginRequest(ExceptionCode&);
-    void makeCrossSiteAccessRequest(ExceptionCode&);
+    void makeCrossOriginAccessRequest(ExceptionCode&);
 
-    void makeSimpleCrossSiteAccessRequest(ExceptionCode&);
-    void makeCrossSiteAccessRequestWithPreflight(ExceptionCode&);
+    void makeSimpleCrossOriginAccessRequest(ExceptionCode&);
+    void makeCrossOriginAccessRequestWithPreflight(ExceptionCode&);
     void handleAsynchronousPreflightResult();
 
     void loadRequestSynchronously(ResourceRequest&, ExceptionCode&);
     void loadRequestAsynchronously(ResourceRequest&);
-
-    bool isOnAccessControlResponseHeaderWhitelist(const String&) const;
-
-    bool isSimpleCrossSiteAccessRequest() const;
-    String accessControlOrigin() const;
-    bool accessControlCheck(const ResourceResponse&);
 
     void genericError();
     void networkError();
@@ -202,7 +195,7 @@ private:
     RefPtr<FormData> m_requestEntityBody;
     String m_mimeTypeOverride;
     bool m_async;
-    bool m_includeCredentials;
+    bool m_includeCredentials; // FIXME: Currently, setting this flag is not implemented, so it is always false.
 
     RefPtr<ThreadableLoader> m_loader;
     State m_state;
@@ -224,6 +217,7 @@ private:
 
     bool m_error;
 
+    bool m_uploadEventsAllowed;
     bool m_uploadComplete;
 
     bool m_sameOriginRequest;
@@ -235,6 +229,7 @@ private:
     
     unsigned m_lastSendLineNumber;
     String m_lastSendURL;
+    ExceptionCode m_exceptionCode;
 };
 
 } // namespace WebCore

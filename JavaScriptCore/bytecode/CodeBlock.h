@@ -32,6 +32,7 @@
 
 #include "EvalCodeCache.h"
 #include "Instruction.h"
+#include "JITCode.h"
 #include "JSGlobalObject.h"
 #include "JumpTable.h"
 #include "Nodes.h"
@@ -58,14 +59,14 @@ namespace JSC {
         uint32_t target;
         uint32_t scopeDepth;
 #if ENABLE(JIT)
-        void* nativeCode;
+        MacroAssembler::CodeLocationLabel nativeCode;
 #endif
     };
 
 #if ENABLE(JIT)
     // The code, and the associated pool from which it was allocated.
     struct JITCodeRef {
-        void* code;
+        JITCode code;
 #ifndef NDEBUG
         unsigned codeSize;
 #endif
@@ -117,19 +118,15 @@ namespace JSC {
 #if ENABLE(JIT)
     struct CallLinkInfo {
         CallLinkInfo()
-            : callReturnLocation(0)
-            , hotPathBegin(0)
-            , hotPathOther(0)
-            , coldPathOther(0)
-            , callee(0)
+            : callee(0)
         {
         }
     
         unsigned bytecodeIndex;
-        void* callReturnLocation;
-        void* hotPathBegin;
-        void* hotPathOther;
-        void* coldPathOther;
+        MacroAssembler::CodeLocationNearCall callReturnLocation;
+        MacroAssembler::CodeLocationDataLabelPtr hotPathBegin;
+        MacroAssembler::CodeLocationNearCall hotPathOther;
+        MacroAssembler::CodeLocationLabel coldPathOther;
         CodeBlock* callee;
         unsigned position;
         
@@ -161,14 +158,18 @@ namespace JSC {
         unsigned bytecodeOffset;
     };
 
-    struct PC {
-        PC(ptrdiff_t nativePCOffset, unsigned bytecodeIndex)
-            : nativePCOffset(nativePCOffset)
+    // This structure is used to map from a call return location
+    // (given as an offset in bytes into the JIT code) back to
+    // the bytecode index of the corresponding bytecode operation.
+    // This is then used to look up the corresponding handler.
+    struct CallReturnOffsetToBytecodeIndex {
+        CallReturnOffsetToBytecodeIndex(unsigned callReturnOffset, unsigned bytecodeIndex)
+            : callReturnOffset(callReturnOffset)
             , bytecodeIndex(bytecodeIndex)
         {
         }
 
-        ptrdiff_t nativePCOffset;
+        unsigned callReturnOffset;
         unsigned bytecodeIndex;
     };
 
@@ -176,17 +177,17 @@ namespace JSC {
 
     inline void* getStructureStubInfoReturnLocation(StructureStubInfo* structureStubInfo)
     {
-        return structureStubInfo->callReturnLocation;
+        return structureStubInfo->callReturnLocation.calleeReturnAddressValue();
     }
 
     inline void* getCallLinkInfoReturnLocation(CallLinkInfo* callLinkInfo)
     {
-        return callLinkInfo->callReturnLocation;
+        return callLinkInfo->callReturnLocation.calleeReturnAddressValue();
     }
 
-    inline ptrdiff_t getNativePCOffset(PC* pc)
+    inline unsigned getCallReturnOffset(CallReturnOffsetToBytecodeIndex* pc)
     {
-        return pc->nativePCOffset;
+        return pc->callReturnOffset;
     }
 
     // Binary chop algorithm, calls valueAtPosition on pre-sorted elements in array,
@@ -311,8 +312,7 @@ namespace JSC {
         unsigned getBytecodeIndex(CallFrame* callFrame, void* nativePC)
         {
             reparseForExceptionInfoIfNecessary(callFrame);
-            ptrdiff_t nativePCOffset = reinterpret_cast<void**>(nativePC) - reinterpret_cast<void**>(m_jitCode.code);
-            return binaryChop<PC, ptrdiff_t, getNativePCOffset>(m_exceptionInfo->m_pcVector.begin(), m_exceptionInfo->m_pcVector.size(), nativePCOffset)->bytecodeIndex;
+            return binaryChop<CallReturnOffsetToBytecodeIndex, unsigned, getCallReturnOffset>(m_exceptionInfo->m_callReturnIndexVector.begin(), m_exceptionInfo->m_callReturnIndexVector.size(), m_jitCode.code.offsetOf(nativePC))->bytecodeIndex;
         }
         
         bool functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex);
@@ -328,7 +328,7 @@ namespace JSC {
 
 #if ENABLE(JIT)
         void setJITCode(JITCodeRef& jitCode);
-        void* jitCode() { return m_jitCode.code; }
+        JITCode jitCode() { return m_jitCode.code; }
         ExecutablePool* executablePool() { return m_jitCode.executablePool.get(); }
 #endif
 
@@ -393,7 +393,7 @@ namespace JSC {
         LineInfo& lastLineInfo() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_lineInfo.last(); }
 
 #if ENABLE(JIT)
-        Vector<PC>& pcVector() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_pcVector; }
+        Vector<CallReturnOffsetToBytecodeIndex>& callReturnIndexVector() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_callReturnIndexVector; }
 #endif
 
         // Constant Pool
@@ -514,7 +514,7 @@ namespace JSC {
             Vector<GetByIdExceptionInfo> m_getByIdExceptionInfo;
 
 #if ENABLE(JIT)
-            Vector<PC> m_pcVector;
+            Vector<CallReturnOffsetToBytecodeIndex> m_callReturnIndexVector;
 #endif
         };
         OwnPtr<ExceptionInfo> m_exceptionInfo;

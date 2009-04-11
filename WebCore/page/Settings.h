@@ -112,6 +112,12 @@ namespace WebCore {
         void setJavaScriptEnabled(bool);
         bool isJavaScriptEnabled() const { return m_isJavaScriptEnabled; }
 
+        void setWebSecurityEnabled(bool);
+        bool isWebSecurityEnabled() const { return m_isWebSecurityEnabled; }
+
+        void setAllowUniversalAccessFromFileURLs(bool);
+        bool allowUniversalAccessFromFileURLs() const { return m_allowUniversalAccessFromFileURLs; }
+
         void setJavaScriptCanOpenWindowsAutomatically(bool);
         bool JavaScriptCanOpenWindowsAutomatically() const { return m_javaScriptCanOpenWindowsAutomatically; }
 
@@ -137,6 +143,9 @@ namespace WebCore {
         
         void setDefaultTextEncodingName(const String&);
         const String& defaultTextEncodingName() const { return m_defaultTextEncodingName; }
+        
+        void setUsesEncodingDetector(bool);
+        bool usesEncodingDetector() const { return m_usesEncodingDetector; }
 
         void setUserStyleSheetLocation(const KURL&);
         const KURL& userStyleSheetLocation() const { return m_userStyleSheetLocation; }
@@ -163,6 +172,12 @@ namespace WebCore {
 
         void setNeedsKeyboardEventDisambiguationQuirks(bool);
         bool needsKeyboardEventDisambiguationQuirks() const { return m_needsKeyboardEventDisambiguationQuirks; }
+
+        void setNeedsLeopardMailQuirks(bool);
+        bool needsLeopardMailQuirks() const { return m_needsLeopardMailQuirks; }
+
+        void setNeedsTigerMailQuirks(bool);
+        bool needsTigerMailQuirks() const { return m_needsTigerMailQuirks; }
 
         void setDOMPasteAllowed(bool);
         bool isDOMPasteAllowed() const { return m_isDOMPasteAllowed; }
@@ -218,9 +233,6 @@ namespace WebCore {
         void setLocalStorageDatabasePath(const String&);
         const String& localStorageDatabasePath() const { return m_localStorageDatabasePath; }
         
-        void disableRangeMutationForOldAppleMail(bool);
-        bool rangeMutationDisabledForOldAppleMail() const { return m_rangeMutationDisabledForOldAppleMail; }
-
         void setApplicationChromeMode(bool);
         bool inApplicationChromeMode() const { return m_inApplicationChromeMode; }
 
@@ -245,8 +257,8 @@ namespace WebCore {
         static bool shouldPaintNativeControls() { return gShouldPaintNativeControls; }
 #endif
 
-        void setNeedsIChatMemoryCacheCallsQuirk(bool);
-        bool needsIChatMemoryCacheCallsQuirk() const { return m_needsIChatMemoryCacheCallsQuirk; }
+        void setAllowScriptsToCloseWindows(bool);
+        bool allowScriptsToCloseWindows() const { return m_allowScriptsToCloseWindows; }
 
     private:
         Page* m_page;
@@ -311,6 +323,8 @@ namespace WebCore {
         bool m_databasesEnabled : 1;
         bool m_localStorageEnabled : 1;
         bool m_isJavaScriptEnabled : 1;
+        bool m_isWebSecurityEnabled : 1;
+        bool m_allowUniversalAccessFromFileURLs: 1;
         bool m_javaScriptCanOpenWindowsAutomatically : 1;
         bool m_shouldPrintBackgrounds : 1;
         bool m_textAreasAreResizable : 1;
@@ -319,6 +333,8 @@ namespace WebCore {
 #endif
         bool m_needsAdobeFrameReloadingQuirk : 1;
         bool m_needsKeyboardEventDisambiguationQuirks : 1;
+        bool m_needsLeopardMailQuirks : 1;
+        bool m_needsTigerMailQuirks : 1;
         bool m_isDOMPasteAllowed : 1;
         bool m_shrinksStandaloneImagesToFit : 1;
         bool m_usesPageCache: 1;
@@ -331,12 +347,12 @@ namespace WebCore {
         bool m_webArchiveDebugModeEnabled : 1;
         bool m_inApplicationChromeMode : 1;
         bool m_offlineWebApplicationCacheEnabled : 1;
-        bool m_rangeMutationDisabledForOldAppleMail : 1;
         bool m_shouldPaintCustomScrollbars : 1;
         bool m_zoomsTextOnly : 1;
         bool m_enforceCSSMIMETypeInStrictMode : 1;
+        bool m_usesEncodingDetector : 1;
         size_t m_maximumDecodedImageSize;
-        bool m_needsIChatMemoryCacheCallsQuirk : 1;
+        bool m_allowScriptsToCloseWindows : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

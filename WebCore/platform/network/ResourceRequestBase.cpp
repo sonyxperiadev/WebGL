@@ -76,7 +76,7 @@ auto_ptr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() const
     data->m_httpMethod = httpMethod().copy();
     data->m_httpHeaders.adopt(httpHeaderFields().copyData());
 
-    data->m_responseContentDispositionEncodingFallbackArray.reserveCapacity(m_responseContentDispositionEncodingFallbackArray.size());
+    data->m_responseContentDispositionEncodingFallbackArray.reserveInitialCapacity(m_responseContentDispositionEncodingFallbackArray.size());
     size_t encodingArraySize = m_responseContentDispositionEncodingFallbackArray.size();
     for (size_t index = 0; index < encodingArraySize; ++index) {
         data->m_responseContentDispositionEncodingFallbackArray.append(m_responseContentDispositionEncodingFallbackArray[index].copy());
@@ -130,7 +130,8 @@ void ResourceRequestBase::setCachePolicy(ResourceRequestCachePolicy cachePolicy)
     
     m_cachePolicy = cachePolicy;
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 double ResourceRequestBase::timeoutInterval() const
@@ -146,7 +147,8 @@ void ResourceRequestBase::setTimeoutInterval(double timeoutInterval)
     
     m_timeoutInterval = timeoutInterval; 
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 const KURL& ResourceRequestBase::mainDocumentURL() const
@@ -178,7 +180,8 @@ void ResourceRequestBase::setHTTPMethod(const String& httpMethod)
 
     m_httpMethod = httpMethod;
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 const HTTPHeaderMap& ResourceRequestBase::httpHeaderFields() const
@@ -201,7 +204,8 @@ void ResourceRequestBase::setHTTPHeaderField(const AtomicString& name, const Str
     
     m_httpHeaderFields.set(name, value); 
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 void ResourceRequestBase::setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2, const String& encoding3)
@@ -216,7 +220,8 @@ void ResourceRequestBase::setResponseContentDispositionEncodingFallbackArray(con
     if (!encoding3.isNull())
         m_responseContentDispositionEncodingFallbackArray.append(encoding3);
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 FormData* ResourceRequestBase::httpBody() const 
@@ -232,7 +237,8 @@ void ResourceRequestBase::setHTTPBody(PassRefPtr<FormData> httpBody)
     
     m_httpBody = httpBody; 
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 } 
 
 bool ResourceRequestBase::allowHTTPCookies() const 
@@ -248,7 +254,8 @@ void ResourceRequestBase::setAllowHTTPCookies(bool allowHTTPCookies)
     
     m_allowHTTPCookies = allowHTTPCookies; 
     
-    m_platformRequestUpdated = false;
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
 }
 
 void ResourceRequestBase::addHTTPHeaderField(const AtomicString& name, const String& value) 

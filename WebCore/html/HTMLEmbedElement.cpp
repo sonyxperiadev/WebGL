@@ -137,7 +137,7 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
         return false;
     }
 
-    return true;
+    return HTMLPlugInElement::rendererIsNeeded(style);
 }
 
 RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -164,7 +164,7 @@ void HTMLEmbedElement::attach()
         m_imageLoader->updateFromElement();
 
         if (renderer())
-            static_cast<RenderImage*>(renderer())->setCachedImage(m_imageLoader->image());
+            toRenderImage(renderer())->setCachedImage(m_imageLoader->image());
     }
 }
 

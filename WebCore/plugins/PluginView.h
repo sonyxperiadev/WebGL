@@ -199,11 +199,6 @@ namespace WebCore {
 
         static bool isCallingPlugin();
 
-#if PLATFORM(QT)
-        bool isNPAPIPlugin() const { return m_isNPAPIPlugin; }
-        void setIsNPAPIPlugin(bool b) { m_isNPAPIPlugin = b; }
-#endif
-
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
@@ -284,10 +279,6 @@ namespace WebCore {
         bool m_isTransparent;
         bool m_haveInitialized;
 
-#if PLATFORM(QT)
-        bool m_isNPAPIPlugin;
-#endif
-
 #if PLATFORM(GTK) || defined(Q_WS_X11)
         bool m_needsXEmbed;
 #endif
@@ -329,6 +320,9 @@ private:
         void setNPWindowIfNeeded();
         void nullEventTimerFired(Timer<PluginView>*);
         Point globalMousePosForPlugin() const;
+#endif
+#if PLATFORM(GTK) || defined(Q_WS_X11)
+        void setNPWindowIfNeeded();
 #endif
 
         IntRect m_clipRect; // The clip rect to apply to a windowed plug-in

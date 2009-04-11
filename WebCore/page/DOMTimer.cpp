@@ -27,7 +27,6 @@
 #include "config.h"
 #include "DOMTimer.h"
 
-#include "Document.h"
 #include "ScheduledAction.h"
 #include "ScriptExecutionContext.h"
 #include <wtf/HashSet.h>
@@ -39,7 +38,7 @@ namespace WebCore {
 
 static const int maxTimerNestingLevel = 5;
 static const double oneMillisecond = 0.001;
-static const double minTimerInterval = 0.010; // 10 milliseconds
+double DOMTimer::s_minTimerInterval = 0.010; // 10 milliseconds
 
 static int timerNestingLevel = 0;
 
@@ -58,18 +57,15 @@ DOMTimer::DOMTimer(ScriptExecutionContext* context, ScheduledAction* action, int
     
     m_nestingLevel = timerNestingLevel + 1;
 
-    // FIXME: Move the timeout map and API to ScriptExecutionContext to be able
-    // to create timeouts from Workers.
-    ASSERT(scriptExecutionContext() && scriptExecutionContext()->isDocument());
-    static_cast<Document*>(scriptExecutionContext())->addTimeout(m_timeoutId, this);
+    scriptExecutionContext()->addTimeout(m_timeoutId, this);
 
     double intervalMilliseconds = max(oneMillisecond, timeout * oneMillisecond);
 
     // Use a minimum interval of 10 ms to match other browsers, but only once we've
     // nested enough to notice that we're repeating.
     // Faster timers might be "better", but they're incompatible.
-    if (intervalMilliseconds < minTimerInterval && m_nestingLevel >= maxTimerNestingLevel)
-        intervalMilliseconds = minTimerInterval;
+    if (intervalMilliseconds < s_minTimerInterval && m_nestingLevel >= maxTimerNestingLevel)
+        intervalMilliseconds = s_minTimerInterval;
     if (singleShot)
         startOneShot(intervalMilliseconds);
     else
@@ -79,8 +75,7 @@ DOMTimer::DOMTimer(ScriptExecutionContext* context, ScheduledAction* action, int
 DOMTimer::~DOMTimer()
 {
     if (scriptExecutionContext()) {
-        ASSERT(scriptExecutionContext()->isDocument());
-        static_cast<Document*>(scriptExecutionContext())->removeTimeout(m_timeoutId);
+        scriptExecutionContext()->removeTimeout(m_timeoutId);
     }
 }
     
@@ -100,8 +95,7 @@ void DOMTimer::removeById(ScriptExecutionContext* context, int timeoutId)
     // respectively
     if (timeoutId <= 0)
         return;
-    ASSERT(context && context->isDocument());
-    delete static_cast<Document*>(context)->findTimeout(timeoutId);
+    delete context->findTimeout(timeoutId);
 }
 
 void DOMTimer::fired()
@@ -111,10 +105,10 @@ void DOMTimer::fired()
 
     // Simple case for non-one-shot timers.
     if (isActive()) {
-        if (repeatInterval() && repeatInterval() < minTimerInterval) {
+        if (repeatInterval() && repeatInterval() < s_minTimerInterval) {
             m_nestingLevel++;
             if (m_nestingLevel >= maxTimerNestingLevel)
-                augmentRepeatInterval(minTimerInterval - repeatInterval());
+                augmentRepeatInterval(s_minTimerInterval - repeatInterval());
         }
         
         // No access to member variables after this point, it can delete the timer.

@@ -129,7 +129,7 @@ void RenderSVGImage::adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& s
 bool RenderSVGImage::calculateLocalTransform()
 {
     TransformationMatrix oldTransform = m_localTransform;
-    m_localTransform = static_cast<SVGStyledTransformableElement*>(element())->animatedLocalTransform();
+    m_localTransform = static_cast<SVGStyledTransformableElement*>(node())->animatedLocalTransform();
     return (m_localTransform != oldTransform);
 }
 
@@ -137,13 +137,7 @@ void RenderSVGImage::layout()
 {
     ASSERT(needsLayout());
     
-    IntRect oldBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout();
-    if (checkForRepaint) {
-        oldBounds = absoluteClippedOverflowRect();
-        oldOutlineBox = absoluteOutlineBounds();
-    }
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
     
     calculateLocalTransform();
     
@@ -158,9 +152,8 @@ void RenderSVGImage::layout()
 
     calculateAbsoluteBounds();
 
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
-
+    repainter.repaintAfterLayout();
+    
     setNeedsLayout(false);
 }
 
@@ -205,7 +198,7 @@ bool RenderSVGImage::nodeAtPoint(const HitTestRequest&, HitTestResult& result, i
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
         double localX, localY;
-        absoluteTransform().inverse().map(_x, _y, &localX, &localY);
+        absoluteTransform().inverse().map(_x, _y, localX, localY);
 
         if (hitRules.canHitFill) {
             if (m_localBounds.contains(narrowPrecisionToFloat(localX), narrowPrecisionToFloat(localY))) {
@@ -228,7 +221,7 @@ void RenderSVGImage::imageChanged(WrappedImagePtr image, const IntRect* rect)
     RenderImage::imageChanged(image, rect);
 
     // We override to invalidate a larger rect, since SVG images can draw outside their "bounds"
-    repaintRectangle(absoluteClippedOverflowRect());
+    repaintRectangle(absoluteClippedOverflowRect());    // FIXME: Isn't this just repaint()?
 }
 
 void RenderSVGImage::calculateAbsoluteBounds()
@@ -249,7 +242,7 @@ void RenderSVGImage::calculateAbsoluteBounds()
     m_absoluteBounds = enclosingIntRect(absoluteRect);
 }
 
-IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBox* /*repaintContainer*/)
+IntRect RenderSVGImage::clippedOverflowRectForRepaint(RenderBoxModelObject* /*repaintContainer*/)
 {
     // FIXME: handle non-root repaintContainer
     return m_absoluteBounds;

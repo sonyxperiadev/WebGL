@@ -29,8 +29,6 @@
 #include "config.h"
 #include "JSCustomSQLTransactionErrorCallback.h"
 
-#include "CString.h"
-#include "DOMWindow.h"
 #include "Frame.h"
 #include "ScriptController.h"
 #include "JSSQLError.h"
@@ -77,9 +75,9 @@ bool JSCustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
     args.append(toJS(exec, error));
 
     JSValuePtr result;
-    globalObject->startTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.start();
     result = call(exec, function, callType, callData, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    globalObject->globalData()->timeoutChecker.stop();
         
     if (exec->hadException())
         reportCurrentException(exec);

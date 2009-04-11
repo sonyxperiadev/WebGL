@@ -56,9 +56,7 @@ static bool isTableRow(const Node* node)
 static bool isTableCellEmpty(Node* cell)
 {
     ASSERT(isTableCell(cell));
-    VisiblePosition firstInCell(Position(cell, 0));
-    VisiblePosition lastInCell(Position(cell, maxDeepOffset(cell)));
-    return firstInCell == lastInCell;
+    return VisiblePosition(firstDeepEditingPositionForNode(cell)) == VisiblePosition(lastDeepEditingPositionForNode(cell));
 }
 
 static bool isTableRowEmpty(Node* row)
@@ -88,7 +86,7 @@ DeleteSelectionCommand::DeleteSelectionCommand(Document *document, bool smartDel
 {
 }
 
-DeleteSelectionCommand::DeleteSelectionCommand(const Selection& selection, bool smartDelete, bool mergeBlocksAfterDelete, bool replace, bool expandForSpecialElements)
+DeleteSelectionCommand::DeleteSelectionCommand(const VisibleSelection& selection, bool smartDelete, bool mergeBlocksAfterDelete, bool replace, bool expandForSpecialElements)
     : CompositeEditCommand(selection.start().node()->document()), 
       m_hasSelectionToDelete(true), 
       m_smartDelete(smartDelete), 
@@ -312,8 +310,8 @@ static void updatePositionForNodeRemoval(Node* node, Position& position)
 {
     if (position.isNull())
         return;
-    if (node->parent() == position.node() && node->nodeIndex() < (unsigned)position.offset())
-        position = Position(position.node(), position.offset() - 1);
+    if (node->parent() == position.node() && node->nodeIndex() < (unsigned)position.m_offset)
+        position = Position(position.node(), position.m_offset - 1);
     if (position.node() == node || position.node()->isDescendantOf(node))
         position = positionBeforeNode(node);
 }
@@ -363,9 +361,9 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
         return;
     }
     
-    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(m_startBlock.get(), 0, DOWNSTREAM).previous()))
+    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(firstDeepEditingPositionForNode(m_startBlock.get())).previous()))
         m_needPlaceholder = true;
-    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(m_endBlock.get(), maxDeepOffset(m_endBlock.get()), DOWNSTREAM).next()))
+    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(lastDeepEditingPositionForNode(m_startBlock.get())).next()))
         m_needPlaceholder = true;
     
     // FIXME: Update the endpoints of the range being deleted.
@@ -379,9 +377,9 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
 static void updatePositionForTextRemoval(Node* node, int offset, int count, Position& position)
 {
     if (position.node() == node) {
-        if (position.offset() > offset + count)
-            position = Position(position.node(), position.offset() - count);
-        else if (position.offset() > offset)
+        if (position.m_offset > offset + count)
+            position = Position(position.node(), position.m_offset - count);
+        else if (position.m_offset > offset)
             position = Position(position.node(), offset);
     }
 }
@@ -398,7 +396,7 @@ void DeleteSelectionCommand::deleteTextFromNode(PassRefPtr<Text> node, unsigned 
 
 void DeleteSelectionCommand::handleGeneralDelete()
 {
-    int startOffset = m_upstreamStart.offset();
+    int startOffset = m_upstreamStart.m_offset;
     Node* startNode = m_upstreamStart.node();
     
     // Never remove the start block unless it's a table, in which case we won't merge content in.
@@ -413,7 +411,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
             deleteTextFromNode(text, caretMaxOffset(startNode), text->length() - caretMaxOffset(startNode));
     }
 
-    if (startOffset >= maxDeepOffset(startNode)) {
+    if (startOffset >= lastOffsetForEditing(startNode)) {
         startNode = startNode->traverseNextSibling();
         startOffset = 0;
     }
@@ -424,17 +422,16 @@ void DeleteSelectionCommand::handleGeneralDelete()
 
     if (startNode == m_downstreamEnd.node()) {
         // The selection to delete is all in one node.
-        if (!startNode->renderer() || 
-            (startOffset == 0 && m_downstreamEnd.offset() >= maxDeepOffset(startNode))) {
+        if (!startNode->renderer() || (startOffset == 0 && m_downstreamEnd.atLastEditingPositionForNode())) {
             // just delete
             removeNode(startNode);
-        } else if (m_downstreamEnd.offset() - startOffset > 0) {
+        } else if (m_downstreamEnd.m_offset - startOffset > 0) {
             if (startNode->isTextNode()) {
                 // in a text node that needs to be trimmed
-                Text *text = static_cast<Text *>(startNode);
-                deleteTextFromNode(text, startOffset, m_downstreamEnd.offset() - startOffset);
+                Text* text = static_cast<Text*>(startNode);
+                deleteTextFromNode(text, startOffset, m_downstreamEnd.m_offset - startOffset);
             } else {
-                removeChildrenInRange(startNode, startOffset, m_downstreamEnd.offset());
+                removeChildrenInRange(startNode, startOffset, m_downstreamEnd.m_offset);
                 m_endingPosition = m_upstreamStart;
             }
         }
@@ -465,14 +462,14 @@ void DeleteSelectionCommand::handleGeneralDelete()
                 // if we just removed a node from the end container, update end position so the
                 // check above will work
                 if (node->parentNode() == m_downstreamEnd.node()) {
-                    ASSERT(node->nodeIndex() < (unsigned)m_downstreamEnd.offset());
-                    m_downstreamEnd = Position(m_downstreamEnd.node(), m_downstreamEnd.offset() - 1);
+                    ASSERT(node->nodeIndex() < (unsigned)m_downstreamEnd.m_offset);
+                    m_downstreamEnd = Position(m_downstreamEnd.node(), m_downstreamEnd.m_offset - 1);
                 }
                 removeNode(node.get());
                 node = nextNode.get();
             } else {
                 Node* n = node->lastDescendant();
-                if (m_downstreamEnd.node() == n && m_downstreamEnd.offset() >= caretMaxOffset(n)) {
+                if (m_downstreamEnd.node() == n && m_downstreamEnd.m_offset >= caretMaxOffset(n)) {
                     removeNode(node.get());
                     node = 0;
                 } else
@@ -480,16 +477,16 @@ void DeleteSelectionCommand::handleGeneralDelete()
             }
         }
         
-        if (m_downstreamEnd.node() != startNode && !m_upstreamStart.node()->isDescendantOf(m_downstreamEnd.node()) && m_downstreamEnd.node()->inDocument() && m_downstreamEnd.offset() >= caretMinOffset(m_downstreamEnd.node())) {
-            if (m_downstreamEnd.offset() >= maxDeepOffset(m_downstreamEnd.node()) && !canHaveChildrenForEditing(m_downstreamEnd.node())) {
+        if (m_downstreamEnd.node() != startNode && !m_upstreamStart.node()->isDescendantOf(m_downstreamEnd.node()) && m_downstreamEnd.node()->inDocument() && m_downstreamEnd.m_offset >= caretMinOffset(m_downstreamEnd.node())) {
+            if (m_downstreamEnd.atLastEditingPositionForNode() && !canHaveChildrenForEditing(m_downstreamEnd.node())) {
                 // The node itself is fully selected, not just its contents.  Delete it.
                 removeNode(m_downstreamEnd.node());
             } else {
                 if (m_downstreamEnd.node()->isTextNode()) {
                     // in a text node that needs to be trimmed
                     Text *text = static_cast<Text *>(m_downstreamEnd.node());
-                    if (m_downstreamEnd.offset() > 0) {
-                        deleteTextFromNode(text, 0, m_downstreamEnd.offset());
+                    if (m_downstreamEnd.m_offset > 0) {
+                        deleteTextFromNode(text, 0, m_downstreamEnd.m_offset);
                         m_downstreamEnd = Position(text, 0);
                     }
                 // Remove children of m_downstreamEnd.node() that come after m_upstreamStart.
@@ -507,7 +504,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
                         if (n)
                             offset = n->nodeIndex() + 1;
                     }
-                    removeChildrenInRange(m_downstreamEnd.node(), offset, m_downstreamEnd.offset());
+                    removeChildrenInRange(m_downstreamEnd.node(), offset, m_downstreamEnd.m_offset);
                     m_downstreamEnd = Position(m_downstreamEnd.node(), offset);
                 }
             }
@@ -522,12 +519,12 @@ void DeleteSelectionCommand::fixupWhitespace()
     if (m_leadingWhitespace.isNotNull() && !m_leadingWhitespace.isRenderedCharacter()) {
         Text* textNode = static_cast<Text*>(m_leadingWhitespace.node());
         ASSERT(!textNode->renderer() || textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, m_leadingWhitespace.offset(), 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, m_leadingWhitespace.m_offset, 1, nonBreakingSpaceString());
     }
     if (m_trailingWhitespace.isNotNull() && !m_trailingWhitespace.isRenderedCharacter()) {
         Text* textNode = static_cast<Text*>(m_trailingWhitespace.node());
         ASSERT(!textNode->renderer() ||textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, m_trailingWhitespace.offset(), 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, m_trailingWhitespace.m_offset, 1, nonBreakingSpaceString());
     }
 }
 
@@ -696,7 +693,7 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
 
 void DeleteSelectionCommand::clearTransientState()
 {
-    m_selectionToDelete = Selection();
+    m_selectionToDelete = VisibleSelection();
     m_upstreamStart.clear();
     m_downstreamStart.clear();
     m_upstreamEnd.clear();
@@ -755,7 +752,7 @@ void DeleteSelectionCommand::doApply()
     // want to replace it with a placeholder BR!
     if (handleSpecialCaseBRDelete()) {
         calculateTypingStyleAfterDelete();
-        setEndingSelection(Selection(m_endingPosition, affinity));
+        setEndingSelection(VisibleSelection(m_endingPosition, affinity));
         clearTransientState();
         rebalanceWhitespace();
         return;
@@ -778,7 +775,7 @@ void DeleteSelectionCommand::doApply()
 
     calculateTypingStyleAfterDelete();
     
-    setEndingSelection(Selection(m_endingPosition, affinity));
+    setEndingSelection(VisibleSelection(m_endingPosition, affinity));
     clearTransientState();
 }
 

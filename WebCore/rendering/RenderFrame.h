@@ -41,7 +41,7 @@ public:
 #ifdef FLATTEN_FRAMESET
     virtual void layout();
 #endif
-    HTMLFrameElement* element() const { return static_cast<HTMLFrameElement*>(RenderPart::element()); }
+    HTMLFrameElement* element() const { return static_cast<HTMLFrameElement*>(RenderPart::node()); }
 
     FrameEdgeInfo edgeInfo() const;
 

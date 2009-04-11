@@ -28,6 +28,8 @@
 
 #include "android_graphics.h"
 #include "Document.h"
+#include "FormControlElement.h"
+#include "InputElement.h"
 #include "IntRect.h"
 #include "Node.h"
 #include "RenderSkinAndroid.h"
@@ -64,7 +66,13 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
     android_setrect(&r, ir);
     int saveLayerCount = 0;
     int saveScaleCount = 0;
-    if (!element->isEnabled()) {
+
+    bool enabled = false;
+    if (FormControlElement* control = toFormControlElement(static_cast<Element*>(element))) {
+        enabled = control->isEnabled();
+    }
+
+    if (!enabled) {
         saveLayerCount = canvas->saveLayerAlpha(&r, 0x80);
     }
     SkScalar width = r.width();
@@ -72,7 +80,12 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
         SkScalar scale = SkScalarDiv(width, SIZE);
         saveScaleCount =  canvas->scale(scale, scale);
     }
-    canvas->drawBitmap(s_bitmap[element->isChecked() + 2*(!isCheckBox)],
+    bool checked = false;
+    if (InputElement* inputElement = toInputElement(static_cast<Element*>(element))) {
+        checked = inputElement->isChecked();
+    }
+
+    canvas->drawBitmap(s_bitmap[checked + 2*(!isCheckBox)],
             r.fLeft, r.fTop, NULL);
     if (saveLayerCount != 0) {
         canvas->restoreToCount(saveLayerCount);

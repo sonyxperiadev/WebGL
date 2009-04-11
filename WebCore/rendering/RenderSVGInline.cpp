@@ -36,28 +36,9 @@ RenderSVGInline::RenderSVGInline(Node* n)
 {
 }
 
-InlineBox* RenderSVGInline::createInlineBox(bool unusedMakePlaceHolderBox, bool unusedIsRootLineBox, bool)
+InlineFlowBox* RenderSVGInline::createFlowBox()
 {
-#if ASSERT_DISABLED
-    UNUSED_PARAM(unusedIsRootLineBox);
-    UNUSED_PARAM(unusedMakePlaceHolderBox);
-#endif
-
-    ASSERT(!(!unusedIsRootLineBox && (isReplaced() || unusedMakePlaceHolderBox)));
-
-    ASSERT(isRenderInline());
-
-    InlineFlowBox* flowBox = new (renderArena()) SVGInlineFlowBox(this);
-
-    if (!m_firstLineBox)
-        m_firstLineBox = m_lastLineBox = flowBox;
-    else {
-        m_lastLineBox->setNextLineBox(flowBox);
-        flowBox->setPreviousLineBox(m_lastLineBox);
-        m_lastLineBox = flowBox;
-    }
-        
-    return flowBox;
+    return new (renderArena()) SVGInlineFlowBox(this);
 }
 
 }

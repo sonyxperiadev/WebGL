@@ -52,21 +52,20 @@ public:
 
     StringImpl* text() const { return m_text.get(); }
 
-    virtual InlineBox* createInlineBox(bool makePlaceHolderBox, bool isRootLineBox, bool isOnlyRun = false);
-    virtual InlineTextBox* createInlineTextBox();
-    virtual void dirtyLineBoxes(bool fullLayout, bool isRootInlineBox = false);
+    InlineTextBox* createInlineTextBox();
+    void dirtyLineBoxes(bool fullLayout);
 
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
-    virtual void addLineBoxRects(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
+    virtual void absoluteRectsForRange(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
     virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
-    virtual void collectAbsoluteLineBoxQuads(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
+    virtual void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
-    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual VisiblePosition positionForPoint(const IntPoint&);
 
     const UChar* characters() const { return m_text->characters(); }
     unsigned textLength() const { return m_text->length(); } // non virtual implementation of length()
-    virtual void position(InlineBox*);
+    void positionLineBox(InlineBox*);
 
     virtual unsigned width(unsigned from, unsigned len, const Font&, int xPos) const;
     virtual unsigned width(unsigned from, unsigned len, int xPos, bool firstLine = false) const;
@@ -88,21 +87,18 @@ public:
     int firstRunX() const;
     int firstRunY() const;
 
-    virtual int verticalPositionHint(bool firstLine) const;
-
     void setText(PassRefPtr<StringImpl>, bool force = false);
     void setTextWithOffset(PassRefPtr<StringImpl>, unsigned offset, unsigned len, bool force = false);
 
     virtual bool canBeSelectionLeaf() const { return true; }
-    virtual SelectionState selectionState() const { return static_cast<SelectionState>(m_selectionState); }
     virtual void setSelectionState(SelectionState s);
-    virtual IntRect selectionRect(bool clipToVisibleContent = true);
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
     virtual int marginLeft() const { return style()->marginLeft().calcMinValue(0); }
     virtual int marginRight() const { return style()->marginRight().calcMinValue(0); }
 
-    virtual IntRect clippedOverflowRectForRepaint(RenderBox* repaintContainer);
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
 
     InlineTextBox* firstTextBox() const { return m_firstTextBox; }
     InlineTextBox* lastTextBox() const { return m_lastTextBox; }
@@ -112,6 +108,7 @@ public:
     virtual unsigned caretMaxRenderedOffset() const;
 
     virtual int previousOffset(int current) const;
+    virtual int previousOffsetForBackwardDeletion(int current) const;
     virtual int nextOffset(int current) const;
 
     bool containsReversedText() const { return m_containsReversedText; }
@@ -122,13 +119,16 @@ public:
 
     void checkConsistency() const;
 
+    virtual void calcPrefWidths(int leadWidth);
+
 protected:
-    virtual void styleWillChange(RenderStyle::Diff, const RenderStyle*) { }
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    virtual void styleWillChange(StyleDifference, const RenderStyle*) { }
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     virtual void setTextInternal(PassRefPtr<StringImpl>);
-    virtual void calcPrefWidths(int leadWidth);
     virtual UChar previousCharacter();
+    
+    virtual InlineTextBox* createTextBox(); // Subclassed by SVG.
 
 private:
     // Make length() private so that callers that have a RenderText*
@@ -155,7 +155,6 @@ private:
     int m_beginMinWidth;
     int m_endMinWidth;
 
-    unsigned m_selectionState : 3; // enums on Windows are signed, so this needs to be unsigned to prevent it turning negative. 
     bool m_hasBreakableChar : 1; // Whether or not we can be broken into multiple lines.
     bool m_hasBreak : 1; // Whether or not we have a hard break (e.g., <pre> with '\n').
     bool m_hasTab : 1; // Whether or not we have a variable width tab character (e.g., <pre> with '\t').
@@ -180,6 +179,9 @@ inline const RenderText* toRenderText(const RenderObject* o)
     ASSERT(!o || o->isText());
     return static_cast<const RenderText*>(o);
 }
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderText(const RenderText*);
 
 #ifdef NDEBUG
 inline void RenderText::checkConsistency() const

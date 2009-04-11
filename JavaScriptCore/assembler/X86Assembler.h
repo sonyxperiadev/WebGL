@@ -41,6 +41,8 @@ inline bool CAN_SIGN_EXTEND_8_32(int32_t value) { return value == (int32_t)(sign
 #if PLATFORM(X86_64)
 inline bool CAN_SIGN_EXTEND_32_64(intptr_t value) { return value == (intptr_t)(int32_t)value; }
 inline bool CAN_SIGN_EXTEND_U32_64(intptr_t value) { return value == (intptr_t)(uint32_t)value; }
+
+#define REPTACH_OFFSET_CALL_R11 3
 #endif
 
 namespace X86 {
@@ -83,6 +85,29 @@ public:
     typedef X86::RegisterID RegisterID;
     typedef X86::XMMRegisterID XMMRegisterID;
 
+    typedef enum {
+        ConditionO,
+        ConditionNO,
+        ConditionB,
+        ConditionAE,
+        ConditionE,
+        ConditionNE,
+        ConditionBE,
+        ConditionA,
+        ConditionS,
+        ConditionNS,
+        ConditionP,
+        ConditionNP,
+        ConditionL,
+        ConditionGE,
+        ConditionLE,
+        ConditionG,
+
+        ConditionC  = ConditionB,
+        ConditionNC = ConditionAE,
+    } Condition;
+
+private:
     typedef enum {
         OP_ADD_EvGv                     = 0x01,
         OP_ADD_GvEv                     = 0x03,
@@ -147,26 +172,23 @@ public:
         OP2_SUBSD_VsdWsd    = 0x5C,
         OP2_MOVD_VdEd       = 0x6E,
         OP2_MOVD_EdVd       = 0x7E,
-        OP2_JO_rel32        = 0x80,
-        OP2_JB_rel32        = 0x82,
-        OP2_JAE_rel32       = 0x83,
-        OP2_JE_rel32        = 0x84,
-        OP2_JNE_rel32       = 0x85,
-        OP2_JBE_rel32       = 0x86,
-        OP2_JA_rel32        = 0x87,
-        OP2_JS_rel32        = 0x88,
-        OP2_JP_rel32        = 0x8A,
-        OP2_JL_rel32        = 0x8C,
-        OP2_JGE_rel32       = 0x8D,
-        OP2_JLE_rel32       = 0x8E,
-        OP2_JG_rel32        = 0x8F,
-        OP_SETE             = 0x94,
-        OP_SETNE            = 0x95,
+        OP2_JCC_rel32       = 0x80,
+        OP_SETCC            = 0x90,
         OP2_IMUL_GvEv       = 0xAF,
         OP2_MOVZX_GvEb      = 0xB6,
         OP2_MOVZX_GvEw      = 0xB7,
         OP2_PEXTRW_GdUdIb   = 0xC5,
     } TwoByteOpcodeID;
+
+    TwoByteOpcodeID jccRel32(Condition cond)
+    {
+        return (TwoByteOpcodeID)(OP2_JCC_rel32 + cond);
+    }
+
+    TwoByteOpcodeID setccOpcode(Condition cond)
+    {
+        return (TwoByteOpcodeID)(OP_SETCC + cond);
+    }
 
     typedef enum {
         GROUP1_OP_ADD = 0,
@@ -192,9 +214,6 @@ public:
         GROUP11_MOV = 0,
     } GroupOpcodeID;
     
-    // Opaque label types
-    
-private:
     class X86InstructionFormatter;
 public:
 
@@ -222,16 +241,22 @@ public:
     public:
         JmpDst()
             : m_offset(-1)
+            , m_used(false)
         {
         }
 
+        bool isUsed() const { return m_used; }
+        void used() { m_used = true; }
     private:
         JmpDst(int offset)
             : m_offset(offset)
+            , m_used(false)
         {
+            ASSERT(m_offset == offset);
         }
 
-        int m_offset;
+        int m_offset : 31;
+        bool m_used : 1;
     };
 
     X86Assembler()
@@ -640,6 +665,11 @@ public:
         m_formatter.oneByteOp64(OP_CMP_EvGv, src, base, offset);
     }
 
+    void cmpq_mr(int offset, RegisterID base, RegisterID src)
+    {
+        m_formatter.oneByteOp64(OP_CMP_GvEv, src, base, offset);
+    }
+
     void cmpq_ir(int imm, RegisterID dst)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
@@ -750,9 +780,14 @@ public:
         m_formatter.immediate8(imm);
     }
 
+    void setCC_r(Condition cond, RegisterID dst)
+    {
+        m_formatter.twoByteOp8(setccOpcode(cond), (GroupOpcodeID)0, dst);
+    }
+
     void sete_r(RegisterID dst)
     {
-        m_formatter.twoByteOp8(OP_SETE, (GroupOpcodeID)0, dst);
+        m_formatter.twoByteOp8(setccOpcode(ConditionE), (GroupOpcodeID)0, dst);
     }
 
     void setz_r(RegisterID dst)
@@ -762,7 +797,7 @@ public:
 
     void setne_r(RegisterID dst)
     {
-        m_formatter.twoByteOp8(OP_SETNE, (GroupOpcodeID)0, dst);
+        m_formatter.twoByteOp8(setccOpcode(ConditionNE), (GroupOpcodeID)0, dst);
     }
 
     void setnz_r(RegisterID dst)
@@ -898,6 +933,12 @@ public:
         m_formatter.oneByteOp64(OP_MOV_GvEv, dst, base, index, scale, offset);
     }
 
+    void movq_i32m(int imm, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp64(OP_GROUP11_EvIz, GROUP11_MOV, base, offset);
+        m_formatter.immediate32(imm);
+    }
+
     void movq_i64r(int64_t imm, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_MOV_EAXIv, dst);
@@ -969,9 +1010,13 @@ public:
         return m_formatter.immediateRel32();
     }
     
-    void jmp_r(RegisterID dst)
+    // Return a JmpSrc so we have a label to the jump, so we can use this
+    // To make a tail recursive call on x86-64.  The MacroAssembler
+    // really shouldn't wrap this as a Jump, since it can't be linked. :-/
+    JmpSrc jmp_r(RegisterID dst)
     {
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_JMPN, dst);
+        return JmpSrc(m_formatter.size());
     }
     
     void jmp_m(int offset, RegisterID base)
@@ -981,7 +1026,7 @@ public:
 
     JmpSrc jne()
     {
-        m_formatter.twoByteOp(OP2_JNE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionNE));
         return m_formatter.immediateRel32();
     }
     
@@ -992,73 +1037,79 @@ public:
 
     JmpSrc je()
     {
-        m_formatter.twoByteOp(OP2_JE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionE));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jl()
     {
-        m_formatter.twoByteOp(OP2_JL_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionL));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jb()
     {
-        m_formatter.twoByteOp(OP2_JB_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionB));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jle()
     {
-        m_formatter.twoByteOp(OP2_JLE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionLE));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jbe()
     {
-        m_formatter.twoByteOp(OP2_JBE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionBE));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jge()
     {
-        m_formatter.twoByteOp(OP2_JGE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionGE));
         return m_formatter.immediateRel32();
     }
 
     JmpSrc jg()
     {
-        m_formatter.twoByteOp(OP2_JG_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionG));
         return m_formatter.immediateRel32();
     }
 
     JmpSrc ja()
     {
-        m_formatter.twoByteOp(OP2_JA_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionA));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jae()
     {
-        m_formatter.twoByteOp(OP2_JAE_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionAE));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc jo()
     {
-        m_formatter.twoByteOp(OP2_JO_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionO));
         return m_formatter.immediateRel32();
     }
 
     JmpSrc jp()
     {
-        m_formatter.twoByteOp(OP2_JP_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionP));
         return m_formatter.immediateRel32();
     }
     
     JmpSrc js()
     {
-        m_formatter.twoByteOp(OP2_JS_rel32);
+        m_formatter.twoByteOp(jccRel32(ConditionS));
+        return m_formatter.immediateRel32();
+    }
+
+    JmpSrc jCC(Condition cond)
+    {
+        m_formatter.twoByteOp(jccRel32(cond));
         return m_formatter.immediateRel32();
     }
 
@@ -1191,7 +1242,7 @@ public:
 
     // Linking & patching:
 
-    void link(JmpSrc from, JmpDst to)
+    void linkJump(JmpSrc from, JmpDst to)
     {
         ASSERT(to.m_offset != -1);
         ASSERT(from.m_offset != -1);
@@ -1199,6 +1250,60 @@ public:
         reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(m_formatter.data()) + from.m_offset)[-1] = to.m_offset - from.m_offset;
     }
     
+    static void linkJump(void* code, JmpSrc from, void* to)
+    {
+        ASSERT(from.m_offset != -1);
+        ptrdiff_t linkOffset = reinterpret_cast<ptrdiff_t>(to) - (reinterpret_cast<ptrdiff_t>(code) + from.m_offset);
+        ASSERT(linkOffset == static_cast<int>(linkOffset));
+        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(code) + from.m_offset)[-1] = linkOffset;
+    }
+    
+    static void patchJump(intptr_t where, void* destination)
+    {
+        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
+        ASSERT(offset == static_cast<int32_t>(offset));
+        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
+    }
+    
+#if PLATFORM(X86_64)
+    // FIXME: transition these functions out of here - the assembler
+    // shouldn't know that that this is mov/call pair using r11. :-/
+    static void patchMacroAssemblerCall(intptr_t where, void* destination)
+    {
+        patchAddress(reinterpret_cast<void*>(where - REPTACH_OFFSET_CALL_R11), JmpDst(0), destination);
+    }
+#else
+    static void patchMacroAssemblerCall(intptr_t where, void* destination)
+    {
+        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
+        ASSERT(offset == static_cast<int32_t>(offset));
+        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
+    }
+#endif
+
+    void linkCall(JmpSrc from, JmpDst to)
+    {
+        ASSERT(to.m_offset != -1);
+        ASSERT(from.m_offset != -1);
+        
+        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(m_formatter.data()) + from.m_offset)[-1] = to.m_offset - from.m_offset;
+    }
+    
+    static void linkCall(void* code, JmpSrc from, void* to)
+    {
+        ASSERT(from.m_offset != -1);
+        ptrdiff_t linkOffset = reinterpret_cast<ptrdiff_t>(to) - (reinterpret_cast<ptrdiff_t>(code) + from.m_offset);
+        ASSERT(linkOffset == static_cast<int>(linkOffset));
+        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(code) + from.m_offset)[-1] = linkOffset;
+    }
+
+    static void patchCall(intptr_t where, void* destination)
+    {
+        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
+        ASSERT(offset == static_cast<int32_t>(offset));
+        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
+    }
+
     static void patchAddress(void* code, JmpDst position, void* value)
     {
         ASSERT(position.m_offset != -1);
@@ -1206,13 +1311,12 @@ public:
         reinterpret_cast<void**>(reinterpret_cast<ptrdiff_t>(code) + position.m_offset)[-1] = value;
     }
     
-    static void link(void* code, JmpSrc from, void* to)
+    static unsigned getCallReturnOffset(JmpSrc call)
     {
-        ASSERT(from.m_offset != -1);
-        
-        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(code) + from.m_offset)[-1] = reinterpret_cast<ptrdiff_t>(to) - (reinterpret_cast<ptrdiff_t>(code) + from.m_offset);
+        ASSERT(call.m_offset >= 0);
+        return call.m_offset;
     }
-    
+
     static void* getRelocatedAddress(void* code, JmpSrc jump)
     {
         return reinterpret_cast<void*>(reinterpret_cast<ptrdiff_t>(code) + jump.m_offset);
@@ -1248,13 +1352,6 @@ public:
     static void patchPointer(intptr_t where, intptr_t value)
     {
         reinterpret_cast<intptr_t*>(where)[-1] = value;
-    }
-    
-    static void patchBranchOffset(intptr_t where, void* destination)
-    {
-        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
-        ASSERT(offset == static_cast<int32_t>(offset));
-        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
     }
     
     void* executableCopy(ExecutablePool* allocator)
@@ -1601,13 +1698,8 @@ private:
         {
             ASSERT(mode != ModRmRegister);
 
-            // Encode sacle of (1,2,4,8) -> (0,1,2,3)
-            int shift = 0;
-            while (scale >>= 1)
-                shift++;
-
             putModRm(mode, reg, hasSib);
-            m_buffer.putByteUnchecked((shift << 6) | ((index & 7) << 3) | (base & 7));
+            m_buffer.putByteUnchecked((scale << 6) | ((index & 7) << 3) | (base & 7));
         }
 
         void registerModRM(int reg, RegisterID rm)

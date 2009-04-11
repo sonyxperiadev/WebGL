@@ -36,6 +36,7 @@
 #include <JavaScriptCore/JSContextRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -57,27 +58,30 @@ class GraphicsContext;
 class HitTestResult;
 class InspectorClient;
 class JavaScriptCallFrame;
+class StorageArea;
 class Node;
 class Page;
-class ResourceRequest;
+struct ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
 class SharedBuffer;
 
-struct ConsoleMessage;
-struct InspectorDatabaseResource;
-struct InspectorResource;
+class ConsoleMessage;
+class InspectorDatabaseResource;
+class InspectorDOMStorageResource;
+class InspectorResource;
 
-class InspectorController
+class InspectorController : public RefCounted<InspectorController>
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-                          : JavaScriptDebugListener
+                          , JavaScriptDebugListener
 #endif
                                                     {
 public:
     typedef HashMap<long long, RefPtr<InspectorResource> > ResourcesMap;
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
     typedef HashSet<RefPtr<InspectorDatabaseResource> > DatabaseResourcesSet;
+    typedef HashSet<RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesSet;
 
     typedef enum {
         CurrentPanel,
@@ -126,7 +130,11 @@ public:
         } m_simpleContent;
     };
 
-    InspectorController(Page*, InspectorClient*);
+    static PassRefPtr<InspectorController> create(Page* page, InspectorClient* inspectorClient)
+    {
+        return adoptRef(new InspectorController(page, inspectorClient));
+    }
+
     ~InspectorController();
 
     void inspectedPageDestroyed();
@@ -140,6 +148,7 @@ public:
     void setSetting(const String& key, const Setting&);
 
     String localizedStringsURL();
+    String hiddenPanels();
 
     void inspect(Node*);
     void highlight(Node*);
@@ -161,6 +170,7 @@ public:
     bool windowVisible();
     void setWindowVisible(bool visible = true, bool attached = false);
 
+    bool addSourceToFrame(const String& mimeType, const String& source, Node*);
     void addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
@@ -205,9 +215,13 @@ public:
     void didFinishLoading(DocumentLoader*, unsigned long identifier);
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString);
+    void scriptImported(unsigned long identifier, const JSC::UString& sourceString);
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
+#endif
+#if ENABLE(DOM_STORAGE)
+    void didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame);
 #endif
 
     const ResourcesMap& resources() const { return m_resources; }
@@ -246,11 +260,13 @@ public:
     void startGroup(MessageSource source, ScriptCallStack* callFrame);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
+    const String& platform() const;
+
 private:
+    InspectorController(Page*, InspectorClient*);
     void focusNode();
 
     void addConsoleMessage(JSC::ExecState*, ConsoleMessage*);
-    void addScriptConsoleMessage(const ConsoleMessage*);
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
@@ -268,11 +284,6 @@ private:
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
-
-#if ENABLE(DATABASE)
-    JSObjectRef addDatabaseScriptResource(InspectorDatabaseResource*);
-    void removeDatabaseScriptResource(InspectorDatabaseResource*);
-#endif
 
     JSValueRef callSimpleFunction(JSContextRef, JSObjectRef thisObject, const char* functionName) const;
     JSValueRef callFunction(JSContextRef, JSObjectRef thisObject, const char* functionName, size_t argumentCount, const JSValueRef arguments[], JSValueRef& exception) const;
@@ -301,6 +312,9 @@ private:
     HashMap<String, unsigned> m_counts;
 #if ENABLE(DATABASE)
     DatabaseResourcesSet m_databaseResources;
+#endif
+#if ENABLE(DOM_STORAGE)
+    DOMStorageResourcesSet m_domStorageResources;
 #endif
     JSObjectRef m_scriptObject;
     JSObjectRef m_controllerScriptObject;

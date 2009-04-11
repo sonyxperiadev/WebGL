@@ -317,6 +317,7 @@ namespace JSC {
         void emitDebugHook(DebugHookID, int firstLine, int lastLine);
 
         int scopeDepth() { return m_dynamicScopeDepth + m_finallyDepth; }
+        bool hasFinaliser() { return m_finallyDepth != 0; }
 
         void pushFinallyContext(Label* target, RegisterID* returnAddrDst);
         void popFinallyContext();
@@ -432,16 +433,18 @@ namespace JSC {
         ScopeNode* m_scopeNode;
         CodeBlock* m_codeBlock;
 
+        // Some of these objects keep pointers to one another. They are arranged
+        // to ensure a sane destruction order that avoids references to freed memory.
         HashSet<RefPtr<UString::Rep>, IdentifierRepHash> m_functions;
         RegisterID m_ignoredResultRegister;
         RegisterID m_thisRegister;
         RegisterID m_argumentsRegister;
         int m_activationRegisterIndex;
-        SegmentedVector<RegisterID, 512> m_calleeRegisters;
-        SegmentedVector<RegisterID, 512> m_parameters;
-        SegmentedVector<RegisterID, 512> m_globals;
-        SegmentedVector<LabelScope, 256> m_labelScopes;
-        SegmentedVector<Label, 256> m_labels;
+        SegmentedVector<RegisterID, 32> m_calleeRegisters;
+        SegmentedVector<RegisterID, 32> m_parameters;
+        SegmentedVector<RegisterID, 32> m_globals;
+        SegmentedVector<Label, 32> m_labels;
+        SegmentedVector<LabelScope, 8> m_labelScopes;
         RefPtr<RegisterID> m_lastConstant;
         int m_finallyDepth;
         int m_dynamicScopeDepth;
@@ -472,7 +475,7 @@ namespace JSC {
         bool m_regeneratingForExceptionInfo;
         CodeBlock* m_codeBlockBeingRegeneratedFrom;
 
-        static const unsigned s_maxEmitNodeDepth = 10000;
+        static const unsigned s_maxEmitNodeDepth = 5000;
     };
 
 }

@@ -507,6 +507,8 @@ void XMLTokenizer::parseStartElement()
         m_sawFirstElement = true;
         return;
     }
+
+    bool isFirstElement = !m_sawFirstElement;
     m_sawFirstElement = true;
 
     exitText();
@@ -520,14 +522,14 @@ void XMLTokenizer::parseStartElement()
         uri = m_defaultNamespaceURI;
     }
 
-    ExceptionCode ec = 0;
     QualifiedName qName(prefix, localName, uri);
-    RefPtr<Element> newElement = m_doc->createElement(qName, true, ec);
+    RefPtr<Element> newElement = m_doc->createElement(qName, true);
     if (!newElement) {
         stopParsing();
         return;
     }
 
+    ExceptionCode ec = 0;
     handleElementNamespaces(newElement.get(), m_stream.namespaceDeclarations(), ec);
     if (ec) {
         stopParsing();
@@ -552,6 +554,9 @@ void XMLTokenizer::parseStartElement()
     setCurrentNode(newElement.get());
     if (m_view && !newElement->attached())
         newElement->attach();
+
+    if (isFirstElement && m_doc->frame())
+        m_doc->frame()->loader()->dispatchDocumentElementAvailable();
 }
 
 void XMLTokenizer::parseEndElement()

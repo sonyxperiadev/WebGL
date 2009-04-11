@@ -504,6 +504,7 @@ void GraphicsContext::fillPath()
             CGContextEOClip(context);
         else
             CGContextClip(context);
+        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -529,6 +530,7 @@ void GraphicsContext::strokePath()
         CGContextSaveGState(context);
         CGContextReplacePathWithStrokedPath(context);
         CGContextClip(context);
+        CGContextConcatCTM(context, m_common->state.strokeGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.strokeGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -552,6 +554,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     case GradientColorSpace:
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
+        CGContextConcatCTM(context, m_common->state.fillGradient->gradientSpaceTransform());
         CGContextDrawShading(context, m_common->state.fillGradient->platformGradient());
         CGContextRestoreGState(context);
         break;
@@ -734,7 +737,7 @@ void GraphicsContext::setPlatformShadow(const IntSize& size, int blur, const Col
     if (!color.isValid())
         CGContextSetShadow(context, CGSizeMake(width, height), blurRadius);
     else {
-        CGColorRef colorCG = cgColor(color);
+        CGColorRef colorCG = createCGColor(color);
         CGContextSetShadowWithColor(context,
                                     CGSizeMake(width, height),
                                     blurRadius, 
@@ -907,7 +910,8 @@ void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 
 TransformationMatrix GraphicsContext::getCTM() const
 {
-    return CGContextGetCTM(platformContext());
+    CGAffineTransform t = CGContextGetCTM(platformContext());
+    return TransformationMatrix(t.a, t.b, t.c, t.d, t.tx, t.ty);
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)

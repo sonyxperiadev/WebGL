@@ -37,6 +37,10 @@
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 
+#if PLATFORM(SKIA)
+#include "PlatformContextSkia.h"
+#endif
+
 namespace WebCore {
 
 SVGPaintServer::SVGPaintServer()
@@ -82,7 +86,7 @@ SVGPaintServer* SVGPaintServer::fillPaintServer(const RenderStyle* style, const 
         AtomicString id(SVGURIReference::getTarget(fill->uri()));
         fillPaintServer = getPaintServerById(item->document(), id);
 
-        SVGElement* svgElement = static_cast<SVGElement*>(item->element());
+        SVGElement* svgElement = static_cast<SVGElement*>(item->node());
         ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
 
         if (item->isRenderPath() && fillPaintServer)
@@ -123,7 +127,7 @@ SVGPaintServer* SVGPaintServer::strokePaintServer(const RenderStyle* style, cons
         AtomicString id(SVGURIReference::getTarget(stroke->uri()));
         strokePaintServer = getPaintServerById(item->document(), id);
 
-        SVGElement* svgElement = static_cast<SVGElement*>(item->element());
+        SVGElement* svgElement = static_cast<SVGElement*>(item->node());
         ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
  
         if (item->isRenderPath() && strokePaintServer)
@@ -179,9 +183,9 @@ void SVGPaintServer::renderPath(GraphicsContext*& context, const RenderObject* p
         context->strokePath();
 }
 
-void SVGPaintServer::teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool) const
-{
 #if PLATFORM(SKIA)
+void SVGPaintServer::teardown(GraphicsContext*& context, const RenderObject*, SVGPaintTargetType, bool) const
+{
     // FIXME: Move this into the GraphicsContext
     // WebKit implicitly expects us to reset the path.
     // For example in fillAndStrokePath() of RenderPath.cpp the path is 
@@ -190,8 +194,12 @@ void SVGPaintServer::teardown(GraphicsContext*&, const RenderObject*, SVGPaintTa
     context->beginPath();
     context->platformContext()->setGradient(0);
     context->platformContext()->setPattern(0);
-#endif
 }
+#else
+void SVGPaintServer::teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool) const
+{
+}
+#endif
 
 DashArray dashArrayFromRenderingStyle(const RenderStyle* style)
 {

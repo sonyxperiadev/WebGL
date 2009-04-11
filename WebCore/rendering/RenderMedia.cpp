@@ -39,7 +39,6 @@
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
 #include "MediaPlayer.h"
-#include "RenderSlider.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 
@@ -89,6 +88,7 @@ void RenderMedia::destroy()
 
         removeChild(m_controlsShadowRoot->renderer());
         m_controlsShadowRoot->detach();
+        m_controlsShadowRoot = 0;
     }
     RenderReplaced::destroy();
 }
@@ -101,6 +101,28 @@ HTMLMediaElement* RenderMedia::mediaElement() const
 MediaPlayer* RenderMedia::player() const
 {
     return mediaElement()->player();
+}
+
+void RenderMedia::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderReplaced::styleDidChange(diff, oldStyle);
+
+    if (m_controlsShadowRoot) {
+        if (m_panel->renderer())
+            m_panel->renderer()->setStyle(getCachedPseudoStyle(MEDIA_CONTROLS_PANEL));
+
+        if (m_timelineContainer->renderer())
+            m_timelineContainer->renderer()->setStyle(getCachedPseudoStyle(MEDIA_CONTROLS_TIMELINE_CONTAINER));
+        
+        m_muteButton->updateStyle();
+        m_playButton->updateStyle();
+        m_seekBackButton->updateStyle();
+        m_seekForwardButton->updateStyle();
+        m_timeline->updateStyle();
+        m_fullscreenButton->updateStyle();
+        m_currentTimeDisplay->updateStyle();
+        m_timeRemainingDisplay->updateStyle();
+    }
 }
 
 void RenderMedia::layout()
@@ -123,16 +145,16 @@ void RenderMedia::layout()
     }
 }
 
-RenderObject* RenderMedia::firstChild() const 
-{ 
-    return m_controlsShadowRoot ? m_controlsShadowRoot->renderer() : 0; 
+const RenderObjectChildList* RenderMedia::children() const
+{
+    return m_controlsShadowRoot ? m_controlsShadowRoot->renderer()->virtualChildren() : 0; 
 }
 
-RenderObject* RenderMedia::lastChild() const 
-{ 
-    return m_controlsShadowRoot ? m_controlsShadowRoot->renderer() : 0;
+RenderObjectChildList* RenderMedia::children()
+{
+    return m_controlsShadowRoot ? m_controlsShadowRoot->renderer()->virtualChildren() : 0; 
 }
-    
+   
 void RenderMedia::removeChild(RenderObject* child)
 {
     ASSERT(m_controlsShadowRoot);
@@ -150,7 +172,7 @@ void RenderMedia::createControlsShadowRoot()
 void RenderMedia::createPanel()
 {
     ASSERT(!m_panel);
-    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_PANEL);
+    RenderStyle* style = getCachedPseudoStyle(MEDIA_CONTROLS_PANEL);
     m_panel = new HTMLDivElement(HTMLNames::divTag, document());
     RenderObject* renderer = m_panel->createRenderer(renderArena(), style);
     if (renderer) {
@@ -194,7 +216,7 @@ void RenderMedia::createSeekForwardButton()
 void RenderMedia::createTimelineContainer()
 {
     ASSERT(!m_timelineContainer);
-    RenderStyle* style = getCachedPseudoStyle(RenderStyle::MEDIA_CONTROLS_TIMELINE_CONTAINER);
+    RenderStyle* style = getCachedPseudoStyle(MEDIA_CONTROLS_TIMELINE_CONTAINER);
     m_timelineContainer = new HTMLDivElement(HTMLNames::divTag, document());
     RenderObject* renderer = m_timelineContainer->createRenderer(renderArena(), style);
     if (renderer) {
@@ -278,7 +300,7 @@ void RenderMedia::updateControls()
         createFullscreenButton();
     }
 
-    if (media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA) {
+    if (media->canPlay()) {
         if (m_timeUpdateTimer.isActive())
             m_timeUpdateTimer.stop();
     } else if (style()->visibility() == VISIBLE && m_timeline && m_timeline->renderer() && m_timeline->renderer()->style()->display() != NONE ) {
@@ -350,11 +372,11 @@ void RenderMedia::updateControlVisibility()
 
     // Don't fade for audio controls.
     HTMLMediaElement* media = mediaElement();
-    if (player() && !player()->hasVideo() || !media->isVideo())
+    if (!media->hasVideo())
         return;
 
     // do fading manually, css animations don't work well with shadow trees
-    bool visible = style()->visibility() == VISIBLE && (m_mouseOver || media->paused() || media->ended() || media->networkState() < HTMLMediaElement::LOADED_METADATA);
+    bool visible = style()->visibility() == VISIBLE && (m_mouseOver || media->canPlay());
     if (visible == (m_opacityAnimationTo > 0))
         return;
 
@@ -403,7 +425,7 @@ void RenderMedia::forwardEvent(Event* event)
 {
     if (event->isMouseEvent() && m_controlsShadowRoot) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-        IntPoint point(mouseEvent->pageX(), mouseEvent->pageY());
+        IntPoint point(mouseEvent->absoluteLocation());
         if (m_muteButton && m_muteButton->hitTest(point))
             m_muteButton->defaultEventHandler(event);
 
@@ -427,8 +449,10 @@ void RenderMedia::forwardEvent(Event* event)
             updateControlVisibility();
         }
         if (event->type() == eventNames().mouseoutEvent) {
-            // FIXME: moving over scrollbar thumb generates mouseout for the ancestor media element for some reason
-            m_mouseOver = absoluteBoundingBoxRect().contains(point);
+            // When the scrollbar thumb captures mouse events, we should treat the mouse as still being over our renderer if the new target is a descendant
+            Node* mouseOverNode = mouseEvent->relatedTarget() ? mouseEvent->relatedTarget()->toNode() : 0;
+            RenderObject* mouseOverRenderer = mouseOverNode ? mouseOverNode->renderer() : 0;
+            m_mouseOver = mouseOverRenderer && mouseOverRenderer->isDescendantOf(this);
             updateControlVisibility();
         }
     }
@@ -440,7 +464,7 @@ int RenderMedia::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return bottom;
     
-    return max(bottom,  m_controlsShadowRoot->renderBox()->y() + m_controlsShadowRoot->renderer()->lowestPosition(includeOverflowInterior, includeSelf));
+    return max(bottom,  m_controlsShadowRoot->renderBox()->y() + m_controlsShadowRoot->renderBox()->lowestPosition(includeOverflowInterior, includeSelf));
 }
 
 int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSelf) const
@@ -449,7 +473,7 @@ int RenderMedia::rightmostPosition(bool includeOverflowInterior, bool includeSel
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return right;
     
-    return max(right, m_controlsShadowRoot->renderBox()->x() + m_controlsShadowRoot->renderer()->rightmostPosition(includeOverflowInterior, includeSelf));
+    return max(right, m_controlsShadowRoot->renderBox()->x() + m_controlsShadowRoot->renderBox()->rightmostPosition(includeOverflowInterior, includeSelf));
 }
 
 int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf) const
@@ -458,7 +482,7 @@ int RenderMedia::leftmostPosition(bool includeOverflowInterior, bool includeSelf
     if (!m_controlsShadowRoot || !m_controlsShadowRoot->renderer())
         return left;
     
-    return min(left, m_controlsShadowRoot->renderBox()->x() +  m_controlsShadowRoot->renderer()->leftmostPosition(includeOverflowInterior, includeSelf));
+    return min(left, m_controlsShadowRoot->renderBox()->x() +  m_controlsShadowRoot->renderBox()->leftmostPosition(includeOverflowInterior, includeSelf));
 }
 
 } // namespace WebCore

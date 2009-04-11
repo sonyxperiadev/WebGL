@@ -31,12 +31,14 @@
 #include "config.h"
 #include "ImageBuffer.h"
 
+#include "Base64.h"
 #include "BitmapImage.h"
 #include "BitmapImageSingleFrameSkia.h"
 #include "GraphicsContext.h"
 #include "ImageData.h"
 #include "NotImplemented.h"
 #include "PlatformContextSkia.h"
+#include "PNGImageEncoder.h"
 #include "SkiaUtils.h"
 
 using namespace std;
@@ -63,6 +65,9 @@ ImageBuffer::ImageBuffer(const IntSize& size, bool grayScale, bool& success)
 
     m_data.m_platformContext.setCanvas(&m_data.m_canvas);
     m_context.set(new GraphicsContext(&m_data.m_platformContext));
+#if PLATFORM(WIN_OS)
+    m_context->platformContext()->setDrawingToImageBuffer(true);
+#endif
 
     // Make the background transparent. It would be nice if this wasn't
     // required, but the canvas is currently filled with the magic transparency
@@ -101,7 +106,7 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
     ASSERT(context());
 
     RefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
-    unsigned char* data = result->data()->data();
+    unsigned char* data = result->data()->data()->data();
 
     if (rect.x() < 0 || rect.y() < 0 ||
         (rect.x() + rect.width()) > m_size.width() ||
@@ -188,7 +193,7 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect,
 
     unsigned srcBytesPerRow = 4 * source->width();
 
-    const unsigned char* srcRow = source->data()->data() + originY * srcBytesPerRow + originX * 4;
+    const unsigned char* srcRow = source->data()->data()->data() + originY * srcBytesPerRow + originX * 4;
 
     for (int y = 0; y < numRows; ++y) {
         uint32_t* destRow = bitmap.getAddr32(destX, destY + y);
@@ -203,8 +208,18 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect,
 
 String ImageBuffer::toDataURL(const String&) const
 {
-    notImplemented();
-    return String();
+    // Encode the image into a vector.
+    Vector<unsigned char> pngEncodedData;
+    PNGImageEncoder::encode(*context()->platformContext()->bitmap(), &pngEncodedData);
+
+    // Convert it into base64.
+    Vector<char> base64EncodedData;
+    base64Encode(*reinterpret_cast<Vector<char>*>(&pngEncodedData), base64EncodedData);
+    // Append with a \0 so that it's a valid string.
+    base64EncodedData.append('\0');
+
+    // And the resulting string.
+    return String::format("data:image/png;base64,%s", base64EncodedData.data());
 }
 
 } // namespace WebCore

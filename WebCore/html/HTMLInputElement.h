@@ -33,7 +33,7 @@ namespace WebCore {
 class FileList;
 class HTMLImageLoader;
 class KURL;
-class Selection;
+class VisibleSelection;
 
 class HTMLInputElement : public HTMLFormControlElementWithState, public InputElement {
 public:
@@ -188,10 +188,13 @@ public:
     int maxLength() const;
     void setMaxLength(int);
 
+    bool multiple() const;
+    void setMultiple(bool);
+
     String useMap() const;
     void setUseMap(const String&);
 
-    bool isAutofilled() const { return m_autofilled; }
+    virtual bool isAutofilled() const { return m_autofilled; }
     void setAutofilled(bool value = true);
 
     FileList* files();
@@ -200,7 +203,7 @@ public:
     void addSearchResult();
     void onSearch();
 
-    Selection selection() const;
+    VisibleSelection selection() const;
 
     virtual String constrainValue(const String& proposedValue) const;
 

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -66,6 +66,9 @@ namespace WebCore {
 using namespace HTMLNames;
 
 static const DOMTimeStamp typeAheadTimeout = 1000;
+
+// Upper limit agreed upon with representatives of Opera and Mozilla.
+static const unsigned maxSelectItems = 10000;
 
 HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElementWithState(tagName, doc, f)
@@ -218,10 +221,7 @@ void HTMLSelectElement::add(HTMLElement *element, HTMLElement *before, Exception
     if (!element || !(element->hasLocalName(optionTag) || element->hasLocalName(hrTag)))
         return;
 
-    ec = 0;
     insertBefore(element, before, ec);
-    if (!ec)
-        setRecalcListItems();
 }
 
 void HTMLSelectElement::remove(int index)
@@ -236,8 +236,6 @@ void HTMLSelectElement::remove(int index)
     Element *item = items[listIndex];
     ASSERT(item->parentNode());
     item->parentNode()->removeChild(item, ec);
-    if (!ec)
-        setRecalcListItems();
 }
 
 String HTMLSelectElement::value()
@@ -296,46 +294,6 @@ void HTMLSelectElement::restoreState(const String& state)
     setChanged();
 }
 
-bool HTMLSelectElement::insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode& ec, bool shouldLazyAttach)
-{
-    bool result = HTMLFormControlElementWithState::insertBefore(newChild, refChild, ec, shouldLazyAttach);
-    if (result)
-        setRecalcListItems();
-    return result;
-}
-
-bool HTMLSelectElement::replaceChild(PassRefPtr<Node> newChild, Node *oldChild, ExceptionCode& ec, bool shouldLazyAttach)
-{
-    bool result = HTMLFormControlElementWithState::replaceChild(newChild, oldChild, ec, shouldLazyAttach);
-    if (result)
-        setRecalcListItems();
-    return result;
-}
-
-bool HTMLSelectElement::removeChild(Node* oldChild, ExceptionCode& ec)
-{
-    bool result = HTMLFormControlElementWithState::removeChild(oldChild, ec);
-    if (result)
-        setRecalcListItems();
-    return result;
-}
-
-bool HTMLSelectElement::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bool shouldLazyAttach)
-{
-    bool result = HTMLFormControlElementWithState::appendChild(newChild, ec, shouldLazyAttach);
-    if (result)
-        setRecalcListItems();
-    return result;
-}
-
-bool HTMLSelectElement::removeChildren()
-{
-    bool result = HTMLFormControlElementWithState::removeChildren();
-    if (result)
-        setRecalcListItems();
-    return result;
-}
-
 void HTMLSelectElement::parseMappedAttribute(MappedAttribute *attr)
 {
     bool oldUsesMenuList = usesMenuList();
@@ -349,7 +307,7 @@ void HTMLSelectElement::parseMappedAttribute(MappedAttribute *attr)
             attr->setValue(attrSize);
 
         m_size = max(size, 1);
-        if ((oldUsesMenuList != usesMenuList() || !oldUsesMenuList && m_size != oldSize) && attached()) {
+        if ((oldUsesMenuList != usesMenuList() || (!oldUsesMenuList && m_size != oldSize)) && attached()) {
             detach();
             attach();
             setRecalcListItems();
@@ -422,6 +380,9 @@ RenderObject* HTMLSelectElement::createRenderer(RenderArena* arena, RenderStyle*
 
 bool HTMLSelectElement::appendFormData(FormDataList& list, bool)
 {
+    if (name().isEmpty())
+        return false;
+
     bool successful = false;
     const Vector<HTMLElement*>& items = listItems();
 
@@ -536,6 +497,7 @@ void HTMLSelectElement::childrenChanged(bool changedByParser, Node* beforeChange
 void HTMLSelectElement::setRecalcListItems()
 {
     m_recalcListItems = true;
+    m_activeSelectionAnchorIndex = -1; // Manual selection anchor is reset when manipulating the select programmatically.
     if (renderer()) {
         if (usesMenuList())
             static_cast<RenderMenuList*>(renderer())->setOptionsChanged(true);
@@ -617,8 +579,6 @@ void HTMLSelectElement::defaultEventHandler(Event* evt)
 
 void HTMLSelectElement::menuListDefaultEventHandler(Event* evt)
 {
-    RenderMenuList* menuList = static_cast<RenderMenuList*>(renderer());
-
     if (evt->type() == eventNames().keydownEvent) {
         if (!renderer() || !evt->isKeyboardEvent())
             return;
@@ -630,7 +590,8 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* evt)
             // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
             // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
             saveLastSelection();
-            menuList->showPopup();
+            if (RenderMenuList* menuList = static_cast<RenderMenuList*>(renderer()))
+                menuList->showPopup();
             handled = true;
         }
 #elif defined ANDROID_KEYBOARD_NAVIGATION
@@ -677,7 +638,8 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* evt)
             // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
             // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
             saveLastSelection();
-            menuList->showPopup();
+            if (RenderMenuList* menuList = static_cast<RenderMenuList*>(renderer()))
+                menuList->showPopup();
             handled = true;
         }
         if (keyCode == '\r') {
@@ -700,13 +662,15 @@ void HTMLSelectElement::menuListDefaultEventHandler(Event* evt)
 
     if (evt->type() == eventNames().mousedownEvent && evt->isMouseEvent() && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
         focus();
-        if (menuList->popupIsVisible())
-            menuList->hidePopup();
-        else {
-            // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
-            // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
-            saveLastSelection();
-            menuList->showPopup();
+        if (RenderMenuList* menuList = static_cast<RenderMenuList*>(renderer())) {
+            if (menuList->popupIsVisible())
+                menuList->hidePopup();
+            else {
+                // Save the selection so it can be compared to the new selection when we call onChange during setSelectedIndex,
+                // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
+                saveLastSelection();
+                menuList->showPopup();
+            }
         }
         evt->setDefaultHandled();
     }
@@ -716,9 +680,11 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event* evt)
 {
     if (evt->type() == eventNames().mousedownEvent && evt->isMouseEvent() && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
         focus();
-        
-        MouseEvent* mEvt = static_cast<MouseEvent*>(evt);
-        int listIndex = static_cast<RenderListBox*>(renderer())->listIndexAtOffset(mEvt->offsetX(), mEvt->offsetY());
+
+        // Convert to coords relative to the list box if needed.
+        MouseEvent* mouseEvent = static_cast<MouseEvent*>(evt);
+        IntPoint localOffset = roundedIntPoint(renderer()->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
+        int listIndex = static_cast<RenderListBox*>(renderer())->listIndexAtOffset(localOffset.x(), localOffset.y());
         if (listIndex >= 0) {
             // Save the selection so it can be compared to the new selection when we call onChange during mouseup, or after autoscroll finishes.
             saveLastSelection();
@@ -727,13 +693,13 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event* evt)
             
             bool multiSelectKeyPressed = false;
 #if PLATFORM(MAC)
-            multiSelectKeyPressed = mEvt->metaKey();
+            multiSelectKeyPressed = mouseEvent->metaKey();
 #else
-            multiSelectKeyPressed = mEvt->ctrlKey();
+            multiSelectKeyPressed = mouseEvent->ctrlKey();
 #endif
 
-            bool shiftSelect = multiple() && mEvt->shiftKey();
-            bool multiSelect = multiple() && multiSelectKeyPressed && !mEvt->shiftKey();
+            bool shiftSelect = multiple() && mouseEvent->shiftKey();
+            bool multiSelect = multiple() && multiSelectKeyPressed && !mouseEvent->shiftKey();
             
             HTMLElement* clickedElement = listItems()[listIndex];            
             HTMLOptionElement* option = 0;
@@ -1068,8 +1034,8 @@ Node* HTMLSelectElement::item(unsigned index)
 void HTMLSelectElement::setOption(unsigned index, HTMLOptionElement* option, ExceptionCode& ec)
 {
     ec = 0;
-    if (index > INT_MAX)
-        index = INT_MAX;
+    if (index > maxSelectItems - 1)
+        index = maxSelectItems - 1;
     int diff = index  - length();
     HTMLElement* before = 0;
     // out of array bounds ? first insert empty dummies
@@ -1091,15 +1057,14 @@ void HTMLSelectElement::setOption(unsigned index, HTMLOptionElement* option, Exc
 void HTMLSelectElement::setLength(unsigned newLen, ExceptionCode& ec)
 {
     ec = 0;
-    if (newLen > INT_MAX)
-        newLen = INT_MAX;
+    if (newLen > maxSelectItems)
+        newLen = maxSelectItems;
     int diff = length() - newLen;
 
     if (diff < 0) { // add dummy elements
         do {
-            RefPtr<Element> option = document()->createElement("option", ec);
-            if (!option)
-                break;
+            RefPtr<Element> option = document()->createElement(optionTag, false);
+            ASSERT(option);
             add(static_cast<HTMLElement*>(option.get()), 0, ec);
             if (ec)
                 break;

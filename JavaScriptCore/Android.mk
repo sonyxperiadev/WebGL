@@ -48,6 +48,10 @@
 #	/wx/* \
 
 LOCAL_SRC_FILES := \
+  API/JSValueRef.cpp \
+	API/JSCallbackObject.cpp \
+	API/OpaqueJSString.cpp \
+	\
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
@@ -152,6 +156,7 @@ LOCAL_SRC_FILES := \
 	runtime/StringPrototype.cpp \
 	runtime/Structure.cpp \
 	runtime/StructureChain.cpp \
+	runtime/TimeoutChecker.cpp \
 	runtime/UString.cpp \
 	\
 	wrec/CharacterClass.cpp \
@@ -175,6 +180,7 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/android/MainThreadAndroid.cpp \
 	\
+	wtf/TypeTraits.cpp \
 	wtf/dtoa.cpp \
 	\
 	wtf/unicode/CollatorDefault.cpp \

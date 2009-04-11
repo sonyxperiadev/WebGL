@@ -27,24 +27,23 @@
 #include "RenderSVGRoot.h"
 
 #include "GraphicsContext.h"
-#include "RenderPath.h"
 #include "RenderSVGContainer.h"
 #include "RenderView.h"
 #include "SVGLength.h"
 #include "SVGRenderSupport.h"
-#include "SVGResourceClipper.h"
-#include "SVGResourceFilter.h"
-#include "SVGResourceMasker.h"
 #include "SVGSVGElement.h"
 #include "SVGStyledElement.h"
-#include "SVGURIReference.h"
+
+#if ENABLE(SVG_FILTERS)
+#include "SVGResourceFilter.h"
+#endif
 
 using namespace std;
 
 namespace WebCore {
 
 RenderSVGRoot::RenderSVGRoot(SVGStyledElement* node)
-    : RenderContainer(node)
+    : RenderBox(node)
 {
     setReplaced(true);
 }
@@ -91,17 +90,14 @@ void RenderSVGRoot::layout()
     // Arbitrary affine transforms are incompatible with LayoutState.
     view()->disableLayoutState();
 
-    IntRect oldBounds = m_absoluteBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout() && selfNeedsLayout();
-    if (checkForRepaint)
-        oldOutlineBox = absoluteOutlineBounds();
+    // FIXME: using m_absoluteBounds breaks if containerForRepaint() is not the root
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && selfNeedsLayout(), &m_absoluteBounds);
 
     calcWidth();
     calcHeight();
 
     m_absoluteBounds = absoluteClippedOverflowRect();
-    SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
     setWidth(static_cast<int>(width() * svg->currentScale()));
     setHeight(static_cast<int>(height() * svg->currentScale()));
     
@@ -113,8 +109,7 @@ void RenderSVGRoot::layout()
         ASSERT(!child->needsLayout());
     }
 
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
+    repainter.repaintAfterLayout();
 
     view()->enableLayoutState();
     setNeedsLayout(false);
@@ -135,10 +130,10 @@ void RenderSVGRoot::applyContentTransforms(PaintInfo& paintInfo, int parentX, in
     }
 
     // Respect scroll offset caused by html parents
-    TransformationMatrix ctm = RenderContainer::absoluteTransform();
+    TransformationMatrix ctm = RenderBox::absoluteTransform();
     paintInfo.rect.move(static_cast<int>(ctm.e()), static_cast<int>(ctm.f()));
 
-    SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
     paintInfo.context->concatCTM(TransformationMatrix().scale(svg->currentScale()));
 
     if (!viewport().isEmpty()) {
@@ -158,7 +153,6 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
     calcViewport();
 
-    SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
     // A value of zero disables rendering of the element. 
     if (viewport().width() <= 0. || viewport().height() <= 0.)
         return;
@@ -186,16 +180,17 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
     FloatRect boundingBox = relativeBBox(true);
     if (childPaintInfo.phase == PaintPhaseForeground)
-        prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);        
+        prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);
 
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
     childPaintInfo.context->concatCTM(svg->viewBoxToViewTransform(width(), height()));
-    RenderContainer::paint(childPaintInfo, 0, 0);
+    RenderBox::paint(childPaintInfo, 0, 0);
 
     if (childPaintInfo.phase == PaintPhaseForeground)
         finishRenderSVGContent(this, childPaintInfo, boundingBox, filter, paintInfo.context);
 
     childPaintInfo.context->restore();
-    
+
     if ((childPaintInfo.phase == PaintPhaseOutline || childPaintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth() && style()->visibility() == VISIBLE)
         paintOutline(childPaintInfo.context, m_absoluteBounds.x(), m_absoluteBounds.y(), m_absoluteBounds.width(), m_absoluteBounds.height(), style());
 }
@@ -207,31 +202,24 @@ FloatRect RenderSVGRoot::viewport() const
 
 void RenderSVGRoot::calcViewport()
 {
-    SVGElement* svgelem = static_cast<SVGElement*>(element());
-    if (svgelem->hasTagName(SVGNames::svgTag)) {
-        SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
 
-        if (!selfNeedsLayout() && !svg->hasRelativeValues())
-            return;
+    if (!selfNeedsLayout() && !svg->hasRelativeValues())
+        return;
 
-        float w, h;
-        SVGLength width = svg->width();
-        if (width.unitType() == LengthTypePercentage && svg->hasSetContainerSize())
-            w = svg->relativeWidthValue();
-        else
-            w = width.value(svg);
-        
-        SVGLength height = svg->height();
-        if (height.unitType() == LengthTypePercentage && svg->hasSetContainerSize())
-            h = svg->relativeHeightValue();
-        else
-            h = height.value(svg);
-
-        m_viewport = FloatRect(0, 0, w, h);
+    SVGLength width = svg->width();
+    SVGLength height = svg->height();
+    if (!svg->hasSetContainerSize()) {
+        m_viewport = FloatRect(0, 0, width.value(svg), height.value(svg));
+        return;
     }
+    m_viewport = FloatRect(0, 0, (width.unitType() == LengthTypePercentage) ?
+                                 svg->relativeWidthValue() : width.value(svg),
+                                 (height.unitType() == LengthTypePercentage) ?
+                                 svg->relativeHeightValue() : height.value(svg));
 }
 
-IntRect RenderSVGRoot::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
+IntRect RenderSVGRoot::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
 {
     IntRect repaintRect;
 
@@ -267,9 +255,9 @@ void RenderSVGRoot::absoluteQuads(Vector<FloatQuad>& quads, bool)
 
 TransformationMatrix RenderSVGRoot::absoluteTransform() const
 {
-    TransformationMatrix ctm = RenderContainer::absoluteTransform();
+    TransformationMatrix ctm = RenderBox::absoluteTransform();
     ctm.translate(x(), y());
-    SVGSVGElement* svg = static_cast<SVGSVGElement*>(element());
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
     ctm.scale(svg->currentScale());
     ctm.translate(svg->currentTranslate().x(), svg->currentTranslate().y());
     ctm.translate(viewport().x(), viewport().y());
@@ -300,7 +288,7 @@ TransformationMatrix RenderSVGRoot::localTransform() const
 
 bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
 {
-    TransformationMatrix ctm = RenderContainer::absoluteTransform();
+    TransformationMatrix ctm = RenderBox::absoluteTransform();
 
     int sx = (_tx - static_cast<int>(ctm.e())); // scroll offset
     int sy = (_ty - static_cast<int>(ctm.f())); // scroll offset
@@ -316,7 +304,7 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
         overflowBox.move(tx, ty);
         ctm.translate(viewport().x(), viewport().y());
         double localX, localY;
-        ctm.inverse().map(_x - _tx, _y - _ty, &localX, &localY);
+        ctm.inverse().map(_x - _tx, _y - _ty, localX, localY);
         if (!overflowBox.contains((int)localX, (int)localY))
             return false;
     }
@@ -331,13 +319,6 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     // Spec: Only graphical elements can be targeted by the mouse, period.
     // 16.4: "If there are no graphics elements whose relevant graphics content is under the pointer (i.e., there is no target element), the event is not dispatched."
     return false;
-}
-
-void RenderSVGRoot::position(InlineBox* box)
-{
-    RenderContainer::position(box);
-    if (m_absoluteBounds.isEmpty())
-        setNeedsLayout(true, false);
 }
 
 }

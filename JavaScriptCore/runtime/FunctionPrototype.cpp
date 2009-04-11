@@ -26,6 +26,7 @@
 #include "JSFunction.h"
 #include "JSString.h"
 #include "Interpreter.h"
+#include "Lexer.h"
 #include "PrototypeFunction.h"
 
 namespace JSC {
@@ -63,11 +64,29 @@ CallType FunctionPrototype::getCallData(CallData& callData)
 
 // Functions
 
+// Compatibility hack for the Optimost JavaScript library. (See <rdar://problem/6595040>.)
+static inline void insertSemicolonIfNeeded(UString& functionBody)
+{
+    ASSERT(functionBody[0] == '{');
+    ASSERT(functionBody[functionBody.size() - 1] == '}');
+
+    for (size_t i = functionBody.size() - 2; i > 0; --i) {
+        UChar ch = functionBody[i];
+        if (!Lexer::isWhiteSpace(ch) && !Lexer::isLineTerminator(ch)) {
+            if (ch != ';' && ch != '}')
+                functionBody = functionBody.substr(0, i + 1) + ";" + functionBody.substr(i + 1, functionBody.size() - (i + 1));
+            return;
+        }
+    }
+}
+
 JSValuePtr functionProtoFuncToString(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
     if (thisValue.isObject(&JSFunction::info)) {
         JSFunction* function = asFunction(thisValue);
-        return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + function->body()->toSourceString());
+        UString functionBody = function->body()->toSourceString();
+        insertSemicolonIfNeeded(functionBody);
+        return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + functionBody);
     }
 
     if (thisValue.isObject(&InternalFunction::info)) {
@@ -85,32 +104,25 @@ JSValuePtr functionProtoFuncApply(ExecState* exec, JSObject*, JSValuePtr thisVal
     if (callType == CallTypeNone)
         return throwError(exec, TypeError);
 
-    JSValuePtr thisArg = args.at(exec, 0);
-    JSValuePtr argArray = args.at(exec, 1);
-
-    JSValuePtr applyThis;
-    if (thisArg.isUndefinedOrNull())
-        applyThis = exec->globalThisValue();
-    else
-        applyThis = thisArg.toObject(exec);
+    JSValuePtr array = args.at(exec, 1);
 
     ArgList applyArgs;
-    if (!argArray.isUndefinedOrNull()) {
-        if (!argArray.isObject())
+    if (!array.isUndefinedOrNull()) {
+        if (!array.isObject())
             return throwError(exec, TypeError);
-        if (asObject(argArray)->classInfo() == &Arguments::info)
-            asArguments(argArray)->fillArgList(exec, applyArgs);
-        else if (exec->interpreter()->isJSArray(argArray))
-            asArray(argArray)->fillArgList(exec, applyArgs);
-        else if (asObject(argArray)->inherits(&JSArray::info)) {
-            unsigned length = asArray(argArray)->get(exec, exec->propertyNames().length).toUInt32(exec);
+        if (asObject(array)->classInfo() == &Arguments::info)
+            asArguments(array)->fillArgList(exec, applyArgs);
+        else if (isJSArray(&exec->globalData(), array))
+            asArray(array)->fillArgList(exec, applyArgs);
+        else if (asObject(array)->inherits(&JSArray::info)) {
+            unsigned length = asArray(array)->get(exec, exec->propertyNames().length).toUInt32(exec);
             for (unsigned i = 0; i < length; ++i)
-                applyArgs.append(asArray(argArray)->get(exec, i));
+                applyArgs.append(asArray(array)->get(exec, i));
         } else
             return throwError(exec, TypeError);
     }
 
-    return call(exec, thisValue, callType, callData, applyThis, applyArgs);
+    return call(exec, thisValue, callType, callData, args.at(exec, 0), applyArgs);
 }
 
 JSValuePtr functionProtoFuncCall(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
@@ -120,17 +132,9 @@ JSValuePtr functionProtoFuncCall(ExecState* exec, JSObject*, JSValuePtr thisValu
     if (callType == CallTypeNone)
         return throwError(exec, TypeError);
 
-    JSValuePtr thisArg = args.at(exec, 0);
-
-    JSObject* callThis;
-    if (thisArg.isUndefinedOrNull())
-        callThis = exec->globalThisValue();
-    else
-        callThis = thisArg.toObject(exec);
-
-    ArgList argsTail;
-    args.getSlice(1, argsTail);
-    return call(exec, thisValue, callType, callData, callThis, argsTail);
+    ArgList callArgs;
+    args.getSlice(1, callArgs);
+    return call(exec, thisValue, callType, callData, args.at(exec, 0), callArgs);
 }
 
 } // namespace JSC

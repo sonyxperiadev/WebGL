@@ -39,7 +39,8 @@
 using namespace WebCore;
 
 namespace WebCore {
-    
+
+class AtomicString;
 class Document;
 class Frame;
 class HTMLAreaElement;
@@ -194,6 +195,7 @@ private:
         WTF::Vector<IntRect>* result, IntRect* focusBounds);
     static bool AnyIsClick(Node* node);
     static bool AnyChildIsClick(Node* node);
+    static bool NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length);
     void BuildFrame(Frame* root, Frame* frame,
         CachedRoot* cachedRoot, CachedFrame* cachedFrame);
     bool CleanUpContainedNodes(CachedFrame* cachedFrame, 

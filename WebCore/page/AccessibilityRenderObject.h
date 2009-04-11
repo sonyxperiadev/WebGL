@@ -51,7 +51,7 @@ class RenderObject;
 class RenderListBox;
 class RenderTextControl;
 class RenderView;
-class Selection;
+class VisibleSelection;
 class String;
 class Widget;
     
@@ -125,6 +125,7 @@ public:
     virtual AccessibilityObject* previousSibling() const;
     virtual AccessibilityObject* nextSibling() const;
     virtual AccessibilityObject* parentObject() const;
+    virtual AccessibilityObject* parentObjectIfExists() const;
     virtual AccessibilityObject* observableObject() const;
     virtual void linkedUIElements(AccessibilityChildrenVector&) const;
     virtual AccessibilityObject* titleUIElement() const;
@@ -156,7 +157,7 @@ public:
     
     virtual KURL url() const;
     virtual PlainTextRange selectedTextRange() const;
-    virtual Selection selection() const;
+    virtual VisibleSelection selection() const;
     virtual String stringValue() const;
     virtual String ariaAccessiblityName(const String&) const;
     virtual String ariaLabeledByAttribute() const;
@@ -218,7 +219,6 @@ protected:
     mutable bool m_childrenDirty;
     
     void setRenderObject(RenderObject* renderer) { m_renderer = renderer; }
-    virtual void removeAXObjectID();
     
     virtual bool isDetached() const { return !m_renderer; }
 

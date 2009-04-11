@@ -39,8 +39,6 @@ namespace WebCore {
 
 RenderSVGContainer::RenderSVGContainer(SVGStyledElement* node)
     : RenderObject(node)
-    , m_firstChild(0)
-    , m_lastChild(0)
     , m_width(0)
     , m_height(0)
     , m_drawsContents(true)
@@ -49,143 +47,6 @@ RenderSVGContainer::RenderSVGContainer(SVGStyledElement* node)
 
 RenderSVGContainer::~RenderSVGContainer()
 {
-}
-
-bool RenderSVGContainer::canHaveChildren() const
-{
-    return true;
-}
-
-void RenderSVGContainer::addChild(RenderObject* newChild, RenderObject* beforeChild)
-{
-    insertChildNode(newChild, beforeChild);
-}
-
-void RenderSVGContainer::removeChild(RenderObject* oldChild)
-{
-    // We do this here instead of in removeChildNode, since the only extremely low-level uses of remove/appendChildNode
-    // cannot affect the positioned object list, and the floating object list is irrelevant (since the list gets cleared on
-    // layout anyway).
-    oldChild->removeFromObjectLists();
-
-    removeChildNode(oldChild);
-}
-
-void RenderSVGContainer::destroy()
-{
-    destroyLeftoverChildren();
-    RenderObject::destroy();
-}
-
-void RenderSVGContainer::destroyLeftoverChildren()
-{
-    while (m_firstChild) {
-        // Destroy any anonymous children remaining in the render tree, as well as implicit (shadow) DOM elements like those used in the engine-based text fields.
-        if (m_firstChild->element())
-            m_firstChild->element()->setRenderer(0);
-
-        m_firstChild->destroy();
-    }
-}
-
-RenderObject* RenderSVGContainer::removeChildNode(RenderObject* oldChild, bool fullRemove)
-{
-    ASSERT(oldChild->parent() == this);
-
-    // So that we'll get the appropriate dirty bit set (either that a normal flow child got yanked or
-    // that a positioned child got yanked).  We also repaint, so that the area exposed when the child
-    // disappears gets repainted properly.
-    if (!documentBeingDestroyed() && fullRemove) {
-        oldChild->setNeedsLayoutAndPrefWidthsRecalc();
-        oldChild->repaint();
-    }
-
-    // If we have a line box wrapper, delete it.
-    oldChild->deleteLineBoxWrapper();
-
-    if (!documentBeingDestroyed() && fullRemove) {
-        // If oldChild is the start or end of the selection, then clear the selection to
-        // avoid problems of invalid pointers.
-        // FIXME: The SelectionController should be responsible for this when it
-        // is notified of DOM mutations.
-        if (oldChild->isSelectionBorder())
-            view()->clearSelection();
-    }
-
-    // remove the child
-    if (oldChild->previousSibling())
-        oldChild->previousSibling()->setNextSibling(oldChild->nextSibling());
-    if (oldChild->nextSibling())
-        oldChild->nextSibling()->setPreviousSibling(oldChild->previousSibling());
-
-    if (m_firstChild == oldChild)
-        m_firstChild = oldChild->nextSibling();
-    if (m_lastChild == oldChild)
-        m_lastChild = oldChild->previousSibling();
-
-    oldChild->setPreviousSibling(0);
-    oldChild->setNextSibling(0);
-    oldChild->setParent(0);
-
-    if (AXObjectCache::accessibilityEnabled())
-        document()->axObjectCache()->childrenChanged(this);
-
-    return oldChild;
-}
-
-void RenderSVGContainer::appendChildNode(RenderObject* newChild, bool)
-{
-    ASSERT(!newChild->parent());
-    ASSERT(newChild->element()->isSVGElement());
-
-    newChild->setParent(this);
-    RenderObject* lChild = m_lastChild;
-
-    if (lChild) {
-        newChild->setPreviousSibling(lChild);
-        lChild->setNextSibling(newChild);
-    } else
-        m_firstChild = newChild;
-
-    m_lastChild = newChild;
-
-    newChild->setNeedsLayoutAndPrefWidthsRecalc(); // Goes up the containing block hierarchy.
-    if (!normalChildNeedsLayout())
-        setChildNeedsLayout(true); // We may supply the static position for an absolute positioned child.
-
-    if (AXObjectCache::accessibilityEnabled())
-        document()->axObjectCache()->childrenChanged(this);
-}
-
-void RenderSVGContainer::insertChildNode(RenderObject* child, RenderObject* beforeChild, bool)
-{
-    if (!beforeChild) {
-        appendChildNode(child);
-        return;
-    }
-
-    ASSERT(!child->parent());
-    ASSERT(beforeChild->parent() == this);
-    ASSERT(child->element()->isSVGElement());
-
-    if (beforeChild == m_firstChild)
-        m_firstChild = child;
-
-    RenderObject* prev = beforeChild->previousSibling();
-    child->setNextSibling(beforeChild);
-    beforeChild->setPreviousSibling(child);
-    if (prev)
-        prev->setNextSibling(child);
-    child->setPreviousSibling(prev);
-
-    child->setParent(this);
-
-    child->setNeedsLayoutAndPrefWidthsRecalc();
-    if (!normalChildNeedsLayout())
-        setChildNeedsLayout(true); // We may supply the static position for an absolute positioned child.
-
-    if (AXObjectCache::accessibilityEnabled())
-        document()->axObjectCache()->childrenChanged(this);
 }
 
 bool RenderSVGContainer::drawsContents() const
@@ -226,13 +87,8 @@ void RenderSVGContainer::layout()
     // Arbitrary affine transforms are incompatible with LayoutState.
     view()->disableLayoutState();
 
-    IntRect oldBounds;
-    IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout() && selfWillPaint();
-    if (checkForRepaint) {
-        oldBounds = m_absoluteBounds;
-        oldOutlineBox = absoluteOutlineBounds();
-    }
+    // FIXME: using m_absoluteBounds breaks if containerForRepaint() is not the root
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && selfWillPaint(), &m_absoluteBounds);
     
     calculateLocalTransform();
 
@@ -250,8 +106,7 @@ void RenderSVGContainer::layout()
 
     calcBounds();
 
-    if (checkForRepaint)
-        repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
+    repainter.repaintAfterLayout();
 
     view()->enableLayoutState();
     setNeedsLayout(false);
@@ -264,7 +119,7 @@ int RenderSVGContainer::calcReplacedWidth() const
         return max(0, style()->width().value());
     case Percent:
     {
-        const int cw = containingBlockWidth();
+        const int cw = containingBlock()->availableWidth();
         return cw > 0 ? max(0, style()->width().calcMinValue(cw)) : 0;
     }
     default:
@@ -357,7 +212,7 @@ TransformationMatrix RenderSVGContainer::viewportTransform() const
      return TransformationMatrix();
 }
 
-IntRect RenderSVGContainer::clippedOverflowRectForRepaint(RenderBox* repaintContainer)
+IntRect RenderSVGContainer::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
 {
     FloatRect repaintRect;
 
@@ -425,7 +280,7 @@ bool RenderSVGContainer::nodeAtPoint(const HitTestRequest& request, HitTestResul
     return false;
 }
 
-IntRect RenderSVGContainer::outlineBoundsForRepaint(RenderBox* /*repaintContainer*/) const
+IntRect RenderSVGContainer::outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/) const
 {
     // FIXME: handle non-root repaintContainer
     IntRect result = m_absoluteBounds;

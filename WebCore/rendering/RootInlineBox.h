@@ -43,7 +43,9 @@ public:
     {
     }
 
-    virtual bool isRootInlineBox() { return true; }
+    virtual bool isRootInlineBox() const { return true; }
+
+    virtual int height() const;
 
     virtual void destroy(RenderArena*);
     void detachEllipsisBox(RenderArena*);
@@ -53,15 +55,17 @@ public:
 
     virtual void adjustPosition(int dx, int dy);
 
-    virtual int topOverflow() { return m_overflow ? m_overflow->m_topOverflow : m_y; }
-    virtual int bottomOverflow() { return m_overflow ? m_overflow->m_bottomOverflow : m_y + m_height; }
-    virtual int leftOverflow() { return m_overflow ? m_overflow->m_leftOverflow : m_x; }
-    virtual int rightOverflow() { return m_overflow ? m_overflow->m_rightOverflow : m_x + m_width; }
+    virtual int topOverflow() const { return m_overflow ? m_overflow->m_topOverflow : m_y; }
+    virtual int bottomOverflow() const { return m_overflow ? m_overflow->m_bottomOverflow : m_y + m_renderer->style(m_firstLine)->font().height(); }
+    virtual int leftOverflow() const { return m_overflow ? m_overflow->m_leftOverflow : m_x; }
+    virtual int rightOverflow() const { return m_overflow ? m_overflow->m_rightOverflow : m_x + m_width; }
 
     virtual void setVerticalOverflowPositions(int top, int bottom);
     void setHorizontalOverflowPositions(int left, int right);
 
     virtual void setVerticalSelectionPositions(int top, int bottom);
+
+    virtual RenderLineBoxList* rendererLineBoxes() const;
 
 #if ENABLE(SVG)
     virtual void computePerCharacterLayoutInformation() { }
@@ -114,7 +118,7 @@ public:
     RenderBlock* block() const;
 
     int selectionTop();
-    int selectionBottom() { return m_overflow ? m_overflow->m_selectionBottom : m_y + m_height; }
+    int selectionBottom() { return m_overflow ? m_overflow->m_selectionBottom : m_y + height(); }
     int selectionHeight() { return max(0, selectionBottom() - selectionTop()); }
 
     InlineBox* closestLeafChildForXPos(int x, bool onlyEditableLeaves = false);
@@ -123,11 +127,15 @@ public:
     {
         ASSERT(!isDirty());
         if (!m_overflow)
-            m_overflow = new (m_object->renderArena()) Overflow(this);
+            m_overflow = new (m_renderer->renderArena()) Overflow(this);
         return m_overflow->floats;
     }
 
     Vector<RenderBox*>* floatsPtr() { ASSERT(!isDirty()); return m_overflow ? &m_overflow->floats : 0; }
+
+    virtual void extractLineBoxFromRenderObject();
+    virtual void attachLineBoxToRenderObject();
+    virtual void removeLineBoxFromRenderObject();
 
 protected:
     // Normally we are only as tall as the style on our block dictates, but we might have content
@@ -138,11 +146,11 @@ protected:
     struct Overflow {
         Overflow(RootInlineBox* box) 
             : m_topOverflow(box->m_y)
-            , m_bottomOverflow(box->m_y + box->m_height)
+            , m_bottomOverflow(box->m_y + box->height())
             , m_leftOverflow(box->m_x)
             , m_rightOverflow(box->m_x + box->m_width)
             , m_selectionTop(box->m_y)
-            , m_selectionBottom(box->m_y + box->m_height)
+            , m_selectionBottom(box->m_y + box->height())
         {
         }
 
@@ -184,7 +192,7 @@ inline void RootInlineBox::setHorizontalOverflowPositions(int left, int right)
     if (!m_overflow) {
         if (left == m_x && right == m_x + m_width)
             return;
-        m_overflow = new (m_object->renderArena()) Overflow(this);       
+        m_overflow = new (m_renderer->renderArena()) Overflow(this);       
     }
     m_overflow->m_leftOverflow = left; 
     m_overflow->m_rightOverflow = right; 
@@ -193,9 +201,10 @@ inline void RootInlineBox::setHorizontalOverflowPositions(int left, int right)
 inline void RootInlineBox::setVerticalSelectionPositions(int top, int bottom) 
 { 
     if (!m_overflow) {
-        if (top == m_y && bottom == m_y + m_height)
+        const Font& font = m_renderer->style(m_firstLine)->font();
+        if (top == m_y && bottom == m_y + font.height())
             return;
-        m_overflow = new (m_object->renderArena()) Overflow(this);
+        m_overflow = new (m_renderer->renderArena()) Overflow(this);
     }
     m_overflow->m_selectionTop = top; 
     m_overflow->m_selectionBottom = bottom; 

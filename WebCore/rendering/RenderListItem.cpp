@@ -49,7 +49,7 @@ RenderListItem::RenderListItem(Node* node)
     setInline(false);
 }
 
-void RenderListItem::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderListItem::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
 
@@ -153,11 +153,11 @@ static RenderObject* getParentOfFirstLineBox(RenderBlock* curr, RenderObject* ma
         if (currChild->isTable() || !currChild->isRenderBlock())
             break;
 
-        if (curr->isListItem() && currChild->style()->htmlHacks() && currChild->element() &&
-            (currChild->element()->hasTagName(ulTag)|| currChild->element()->hasTagName(olTag)))
+        if (curr->isListItem() && currChild->style()->htmlHacks() && currChild->node() &&
+            (currChild->node()->hasTagName(ulTag)|| currChild->node()->hasTagName(olTag)))
             break;
 
-        RenderObject* lineBox = getParentOfFirstLineBox(static_cast<RenderBlock*>(currChild), marker);
+        RenderObject* lineBox = getParentOfFirstLineBox(toRenderBlock(currChild), marker);
         if (lineBox)
             return lineBox;
     }
@@ -248,7 +248,7 @@ void RenderListItem::positionListMarker()
         RootInlineBox* root = m_marker->inlineBoxWrapper()->root();
 
         if (style()->direction() == LTR) {
-            int leftLineOffset = leftRelOffset(yOffset, leftOffset(yOffset));
+            int leftLineOffset = leftRelOffset(yOffset, leftOffset(yOffset, false), false);
             markerXPos = leftLineOffset - xOffset - paddingLeft() - borderLeft() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             if (markerXPos < root->leftOverflow()) {
@@ -256,7 +256,7 @@ void RenderListItem::positionListMarker()
                 adjustOverflow = true;
             }
         } else {
-            int rightLineOffset = rightRelOffset(yOffset, rightOffset(yOffset));
+            int rightLineOffset = rightRelOffset(yOffset, rightOffset(yOffset, false), false);
             markerXPos = rightLineOffset - xOffset + paddingRight() + borderRight() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             if (markerXPos + m_marker->width() > root->rightOverflow()) {
@@ -271,7 +271,7 @@ void RenderListItem::positionListMarker()
             do {
                 o = o->parentBox();
                 if (o->isRenderBlock())
-                    static_cast<RenderBlock*>(o)->addVisualOverflow(markerRect);
+                    toRenderBlock(o)->addVisualOverflow(markerRect);
                 markerRect.move(-o->x(), -o->y());
             } while (o != this);
         }

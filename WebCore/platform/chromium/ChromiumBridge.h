@@ -92,6 +92,7 @@ namespace WebCore {
 
         // JavaScript ---------------------------------------------------------
         static void notifyJSOutOfMemory(Frame*);
+        static bool allowScriptDespiteSettings(const KURL& documentURL);
 
         // Language -----------------------------------------------------------
         static String computedDefaultLanguage();
@@ -100,11 +101,10 @@ namespace WebCore {
         static bool layoutTestMode();
 
         // MimeType -----------------------------------------------------------
-        static bool isSupportedImageMIMEType(const char* mimeType);
-        static bool isSupportedJavascriptMIMEType(const char* mimeType);
-        static bool isSupportedNonImageMIMEType(const char* mimeType);
-        static bool matchesMIMEType(const String& pattern, const String& type);
-        static String mimeTypeForExtension(const String& ext);
+        static bool isSupportedImageMIMEType(const String& mimeType);
+        static bool isSupportedJavaScriptMIMEType(const String& mimeType);
+        static bool isSupportedNonImageMIMEType(const String& mimeType);
+        static String mimeTypeForExtension(const String& fileExtension);
         static String mimeTypeFromFile(const String& filePath);
         static String preferredExtensionForMIMEType(const String& mimeType);
 
@@ -114,7 +114,7 @@ namespace WebCore {
         static bool popupsAllowed(NPP);
 
         // Protocol -----------------------------------------------------------
-        static String uiResourceProtocol();
+        static String uiResourceProtocol();  // deprecated
 
         // Resources ----------------------------------------------------------
         static PassRefPtr<Image> loadPlatformImageResource(const char* name);
@@ -134,7 +134,6 @@ namespace WebCore {
         // StatsCounters ------------------------------------------------------
         static void decrementStatsCounter(const char* name);
         static void incrementStatsCounter(const char* name);
-        static void initV8CounterFunction();
 
         // SystemTime ---------------------------------------------------------
         static double currentTime();
@@ -153,14 +152,13 @@ namespace WebCore {
             GraphicsContext*, int part, int state, int classicState, const IntRect&, const IntRect& alignRect);
         static void paintTextField(
             GraphicsContext*, int part, int state, int classicState, const IntRect&, const Color&, bool fillContentArea, bool drawEdges);
+        static void paintTrackbar(
+            GraphicsContext*, int part, int state, int classicState, const IntRect&);
 #endif
 
         // Trace Event --------------------------------------------------------
         static void traceEventBegin(const char* name, void* id, const char* extra);
         static void traceEventEnd(const char* name, void* id, const char* extra);
-
-        // URL ----------------------------------------------------------------
-        static KURL inspectorURL();
 
         // Visited links ------------------------------------------------------
         static LinkHash visitedLinkHash(const UChar* url, unsigned length);

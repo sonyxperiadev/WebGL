@@ -47,7 +47,7 @@ QT_END_NAMESPACE
 #endif
 
 #if USE(GOOGLEURL)
-#include "GoogleURLPrivate.h"
+#include "KURLGooglePrivate.h"
 #endif
 
 namespace WebCore {
@@ -84,7 +84,7 @@ public:
     // For conversions for other structures that have already parsed and
     // canonicalized the URL. The input must be exactly what KURL would have
     // done with the same input.
-    KURL(const char* canonicalSpec, int canonicalSpecLen,
+    KURL(const CString& canonicalSpec,
          const url_parse::Parsed& parsed, bool isValid);
 #endif
 
@@ -119,9 +119,11 @@ public:
     String pass() const;
     String path() const;
     String lastPathComponent() const;
-    String query() const; // Includes the "?".
-    String ref() const; // Does *not* include the "#".
+    String query() const;
+    String ref() const;
     bool hasRef() const;
+
+    String baseAsString() const;
 
     String prettyURL() const;
     String fileSystemPath() const;
@@ -129,6 +131,7 @@ public:
     // Returns true if the current URL's protocol is the same as the null-
     // terminated ASCII argument. The argument must be lower-case.
     bool protocolIs(const char*) const;
+    bool protocolInHTTPFamily() const;
     bool isLocalFile() const;
 
     void setProtocol(const String&);
@@ -203,10 +206,10 @@ private:
     bool isHierarchical() const;
     static bool protocolIs(const String&, const char*);
 #if USE(GOOGLEURL)
-    friend class GoogleURLPrivate;
+    friend class KURLGooglePrivate;
     void parse(const char* url, const String* originalString);  // KURLMac calls this.
     void copyToBuffer(Vector<char, 512>& buffer) const;  // KURLCFNet uses this.
-    GoogleURLPrivate m_url;
+    KURLGooglePrivate m_url;
 #else  // !USE(GOOGLEURL)
     void init(const KURL&, const String&, const TextEncoding&);
     void copyToBuffer(Vector<char, 512>& buffer) const;
@@ -218,7 +221,9 @@ private:
     void parse(const char* url, const String* originalString);
 
     String m_string;
-    bool m_isValid;
+    bool m_isValid : 1;
+    bool m_protocolInHTTPFamily : 1;
+
     int m_schemeEnd;
     int m_userStart;
     int m_userEnd;
@@ -309,6 +314,11 @@ inline bool KURL::isEmpty() const
 inline bool KURL::isValid() const
 {
     return m_isValid;
+}
+
+inline bool KURL::protocolInHTTPFamily() const
+{
+    return m_protocolInHTTPFamily;
 }
 
 inline unsigned KURL::hostStart() const

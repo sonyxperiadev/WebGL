@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,6 +60,12 @@ public:
 
     void suspend();
     void resume();
+    
+    void setIsAllowed(bool);
+    bool isAllowed() const { return m_allowGeolocation == Yes; }
+    
+    void setShouldClearCache(bool shouldClearCache) { m_shouldClearCache = shouldClearCache; }
+    bool shouldClearCache() const { return m_shouldClearCache; }
 
 private:
     Geolocation(Frame*);
@@ -77,7 +83,7 @@ private:
     private:
         GeoNotifier(PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PositionOptions*);
     };
-    
+
     bool hasListeners() const { return !m_oneShots.isEmpty() || !m_watchers.isEmpty(); }
 
     void sendErrorToOneShots(PositionError*);
@@ -86,10 +92,13 @@ private:
     void sendPositionToWatchers(Geoposition*);
     
     void handleError(PositionError*);
-    
+
+    void requestPermission();
+
+    // GeolocationServiceClient
     virtual void geolocationServicePositionChanged(GeolocationService*);
     virtual void geolocationServiceErrorOccurred(GeolocationService*);
-            
+
     typedef HashSet<RefPtr<GeoNotifier> > GeoNotifierSet;
     typedef HashMap<int, RefPtr<GeoNotifier> > GeoNotifierMap;
     
@@ -97,6 +106,14 @@ private:
     GeoNotifierMap m_watchers;
     Frame* m_frame;
     OwnPtr<GeolocationService> m_service;
+
+    enum {
+        Unknown,
+        InProgress,
+        Yes,
+        No
+    } m_allowGeolocation;
+    bool m_shouldClearCache;
 };
     
 } // namespace WebCore

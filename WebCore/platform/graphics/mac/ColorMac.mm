@@ -27,6 +27,7 @@
 #import "Color.h"
 #import "ColorMac.h"
 
+#import <AppKit/AppKit.h>
 #import <wtf/Assertions.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
@@ -110,7 +111,7 @@ static CGColorRef CGColorFromNSColor(NSColor* color)
     return cgColor;
 }
 
-CGColorRef cgColor(const Color& c)
+CGColorRef createCGColor(const Color& c)
 {
     // We could directly create a CGColor here, but that would
     // skip any RGB caching the nsColor method does. A direct 

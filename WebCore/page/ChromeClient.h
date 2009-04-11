@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple, Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -42,15 +42,20 @@ namespace WebCore {
     class FileChooser;
     class FloatRect;
     class Frame;
+    class Geolocation;
     class HitTestResult;
     class IntRect;
     class Node;
     class Page;
     class String;
     class Widget;
-    
+
     struct FrameLoadRequest;
     struct WindowFeatures;
+
+#if USE(ACCELERATED_COMPOSITING)
+    class GraphicsLayer;
+#endif
 
     class ChromeClient {
     public:
@@ -148,11 +153,23 @@ namespace WebCore {
                                           float value, float proportion, ScrollbarControlPartMask);
         virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
 
+        // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
+        // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { }
+            
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*) = 0;
+
+#if USE(ACCELERATED_COMPOSITING)
+        // Pass 0 as the GraphicsLayer to detatch the root layer.
+        virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) { }
+        // Sets a flag to specify that the next time content is drawn to the window,
+        // the changes appear on the screen in synchrony with updates to GraphicsLayers.
+        virtual void setNeedsOneShotDrawingSynchronization() { }
+#endif
 
 #if PLATFORM(MAC)
         virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }

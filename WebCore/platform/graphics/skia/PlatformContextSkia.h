@@ -43,8 +43,6 @@
 
 #include <wtf/Vector.h>
 
-typedef struct _GdkDrawable GdkSkia;
-
 // This class holds the platform-specific state for GraphicsContext. We put
 // most of our Skia wrappers on this class. In theory, a lot of this stuff could
 // be moved to GraphicsContext directly, except that some code external to this
@@ -73,8 +71,27 @@ public:
     // to the constructor.
     void setCanvas(skia::PlatformCanvas*);
 
+#if PLATFORM(WIN_OS)
+    // If false we're rendering to a GraphicsContext for a web page, if false
+    // we're not (as is the case when rendering to a canvas object).
+    // If this is true the contents have not been marked up with the magic
+    // color and all text drawing needs to go to a layer so that the alpha is
+    // correctly updated.
+    void setDrawingToImageBuffer(bool);
+    bool isDrawingToImageBuffer() const;
+#endif
+
     void save();
     void restore();
+
+    // Begins a layer that is clipped to the image |imageBuffer| at the location
+    // |rect|. This layer is implicitly restored when the next restore is
+    // invoked.
+    // NOTE: |imageBuffer| may be deleted before the |restore| is invoked.
+#if defined(__linux__) || PLATFORM(WIN_OS)
+    void beginLayerClippedToImage(const WebCore::FloatRect&,
+                                  const WebCore::ImageBuffer*);
+#endif
 
     // Sets up the common flags on a paint for antialiasing, effects, etc.
     // This is implicitly called by setupPaintFill and setupPaintStroke, but
@@ -116,9 +133,15 @@ public:
 
     void beginPath();
     void addPath(const SkPath&);
-    const SkPath* currentPath() const { return &m_path; }
+    SkPath currentPathInLocalCoordinates() const;
 
-    SkColor fillColor() const;
+    // Returns the fill color. The returned color has it's alpha adjusted
+    // by the current alpha.
+    SkColor effectiveFillColor() const;
+
+    // Returns the stroke color. The returned color has it's alpha adjusted
+    // by the current alpha.
+    SkColor effectiveStrokeColor() const;
 
     skia::PlatformCanvas* canvas() { return m_canvas; }
 
@@ -142,12 +165,13 @@ public:
     // possible quality.
     bool isPrinting();
 
-#if defined(__linux__)
-    // FIXME: should be camelCase.
-    GdkSkia* gdk_skia() const { return m_gdkskia; }
+private:
+#if defined(__linux__) || PLATFORM(WIN_OS)
+    // Used when restoring and the state has an image clip. Only shows the pixels in
+    // m_canvas that are also in imageBuffer.
+    void applyClipFromImage(const WebCore::FloatRect&, const SkBitmap&);
 #endif
 
-private:
     // Defines drawing style.
     struct State;
 
@@ -161,12 +185,11 @@ private:
     // mStateStack.back().
     State* m_state;
 
-    // Current path.
+    // Current path in global coordinates.
     SkPath m_path;
 
-#if defined(__linux__)
-    // A pointer to a GDK Drawable wrapping of this Skia canvas
-    GdkSkia* m_gdkskia;
+#if PLATFORM(WIN_OS)
+    bool m_drawingToImageBuffer;
 #endif
 };
 

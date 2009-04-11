@@ -91,20 +91,19 @@ void RenderWidget::destroy()
     if (hasOverrideSize())
         setOverrideSize(-1);
 
-    RenderLayer* layer = m_layer;
-    RenderArena* arena = renderArena();
-
-    if (layer)
-        layer->clearClipRects();
-
     if (style() && (style()->height().isPercent() || style()->minHeight().isPercent() || style()->maxHeight().isPercent()))
         RenderBlock::removePercentHeightDescendant(this);
 
+    if (hasLayer()) {
+        layer()->clearClipRects();
+        destroyLayer();
+    }
+
+    // Grab the arena from node()->document()->renderArena() before clearing the node pointer.
+    // Clear the node before deref-ing, as this may be deleted when deref is called.
+    RenderArena* arena = renderArena();
     setNode(0);
     deref(arena);
-
-    if (layer)
-        layer->destroy(arena);
 }
 
 RenderWidget::~RenderWidget()
@@ -115,9 +114,9 @@ RenderWidget::~RenderWidget()
 
 void RenderWidget::setWidgetGeometry(const IntRect& frame)
 {
-    if (element() && m_widget->frameRect() != frame) {
+    if (node() && m_widget->frameRect() != frame) {
         RenderArena* arena = ref();
-        RefPtr<Node> protectedElement(element());
+        RefPtr<Node> protectedElement(node());
         m_widget->setFrameRect(frame);
         deref(arena);
     }
@@ -157,7 +156,7 @@ void RenderWidget::layout()
     setNeedsLayout(false);
 }
 
-void RenderWidget::styleDidChange(RenderStyle::Diff diff, const RenderStyle* oldStyle)
+void RenderWidget::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderReplaced::styleDidChange(diff, oldStyle);
     if (m_widget) {
@@ -192,6 +191,17 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
         paintCustomHighlight(tx - x(), ty - y(), style()->highlight(), true);
 #endif
 
+    bool clipToBorderRadius = style()->overflowX() != OVISIBLE && style()->hasBorderRadius(); 
+    if (clipToBorderRadius) {
+        // Push a clip if we have a border radius, since we want to round the foreground content that gets painted.
+        paintInfo.context->save();
+        paintInfo.context->addRoundedRectClip(IntRect(tx, ty, width(), height()),
+                                              style()->borderTopLeftRadius(),
+                                              style()->borderTopRightRadius(), 
+                                              style()->borderBottomLeftRadius(),
+                                              style()->borderBottomRightRadius());
+    }
+
     if (m_widget) {
         // Move the widget if necessary.  We normally move and resize widgets during layout, but sometimes
         // widgets can move without layout occurring (most notably when you scroll a document that
@@ -203,9 +213,14 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
         m_widget->paint(paintInfo.context, paintInfo.rect);
     }
 
+    if (clipToBorderRadius)
+        paintInfo.context->restore();
+
     // Paint a partially transparent wash over selected widgets.
-    if (isSelected() && !document()->printing())
+    if (isSelected() && !document()->printing()) {
+        // FIXME: selectionRect() is in absolute, not painting coordinates.
         paintInfo.context->fillRect(selectionRect(), selectionBackgroundColor());
+    }
 }
 
 void RenderWidget::deref(RenderArena *arena)
@@ -228,21 +243,21 @@ void RenderWidget::updateWidgetPosition()
 
     IntRect newBounds(absPos.x(), absPos.y(), w, h);
     IntRect oldBounds(m_widget->frameRect());
-    if (newBounds != oldBounds) {
-        // The widget changed positions.  Update the frame geometry.
-        if (checkForRepaintDuringLayout()) {
-            RenderView* v = view();
-            if (!v->printing()) {
-                v->repaintViewRectangle(oldBounds);
-                v->repaintViewRectangle(newBounds);
-            }
-        }
-
+    bool boundsChanged = newBounds != oldBounds;
+    if (boundsChanged) {
         RenderArena* arena = ref();
-        element()->ref();
+        node()->ref();
         m_widget->setFrameRect(newBounds);
-        element()->deref();
+        node()->deref();
         deref(arena);
+    }
+    
+    // if the frame bounds got changed, or if view needs layout (possibly indicating
+    // content size is wrong) we have to do a layout to set the right widget size
+    if (m_widget->isFrameView()) {
+        FrameView* frameView = static_cast<FrameView*>(m_widget);
+        if (boundsChanged || frameView->needsLayout())
+            frameView->layout();
     }
 }
 
@@ -271,7 +286,7 @@ bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
     bool inside = RenderReplaced::nodeAtPoint(request, result, x, y, tx, ty, action);
     
     // Check to see if we are really over the widget itself (and not just in the border/padding area).
-    if (inside && !hadResult && result.innerNode() == element())
+    if (inside && !hadResult && result.innerNode() == node())
         result.setIsOverWidget(contentBoxRect().contains(result.localPoint()));
     return inside;
 }

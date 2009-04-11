@@ -169,7 +169,7 @@ namespace WebCore {
         enum ErrorType { warning, nonFatal, fatal };
 
         // from Tokenizer
-        virtual bool write(const SegmentedString&, bool appendData);
+        virtual void write(const SegmentedString&, bool appendData);
         virtual void finish();
         virtual bool isWaitingForScripts() const;
         virtual void stopParsing();

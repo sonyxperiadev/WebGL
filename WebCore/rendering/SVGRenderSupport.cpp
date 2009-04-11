@@ -46,9 +46,9 @@ void prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& pa
     UNUSED_PARAM(rootFilter);
 #endif
 
-    SVGElement* svgElement = static_cast<SVGElement*>(object->element());
-    ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
     ASSERT(object);
+    SVGElement* svgElement = static_cast<SVGElement*>(object->node());
+    ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
 
     SVGStyledElement* styledElement = static_cast<SVGStyledElement*>(svgElement);
     const RenderStyle* style = object->style();
@@ -160,7 +160,7 @@ void clampImageBufferSizeToViewport(RenderObject* object, IntSize& size)
     if (!object || !object->isRenderView())
         return;
 
-    RenderView* view = static_cast<RenderView*>(object);
+    RenderView* view = toRenderView(object);
     if (!view->frameView())
         return;
 

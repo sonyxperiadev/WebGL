@@ -75,7 +75,6 @@ AccessibilityObject::~AccessibilityObject()
 
 void AccessibilityObject::detach()
 {
-    removeAXObjectID();
 #if HAVE(ACCESSIBILITY)
     setWrapper(0);
 #endif    
@@ -114,6 +113,11 @@ AccessibilityObject* AccessibilityObject::parentObjectUnignored() const
     return parent;
 }
 
+AccessibilityObject* AccessibilityObject::parentObjectIfExists() const
+{
+    return 0;
+}
+    
 int AccessibilityObject::layoutCount() const
 {
     return 0;
@@ -231,9 +235,9 @@ const AtomicString& AccessibilityObject::accessKey() const
     return nullAtom;
 }
 
-Selection AccessibilityObject::selection() const
+VisibleSelection AccessibilityObject::selection() const
 {
-    return Selection();
+    return VisibleSelection();
 }
 
 PlainTextRange AccessibilityObject::selectedTextRange() const
@@ -357,7 +361,7 @@ VisiblePositionRange AccessibilityObject::visiblePositionRangeForUnorderedPositi
 
     // use selection order to see if the positions are in order
     else
-        alreadyInOrder = Selection(visiblePos1, visiblePos2).isBaseFirst();
+        alreadyInOrder = VisibleSelection(visiblePos1, visiblePos2).isBaseFirst();
 
     if (alreadyInOrder) {
         startPos = visiblePos1;
@@ -400,7 +404,7 @@ static VisiblePosition updateAXLineStartForVisiblePosition(const VisiblePosition
         if (!p.node())
             break;
         renderer = p.node()->renderer();
-        if (!renderer || renderer->isRenderBlock() && !p.offset())
+        if (!renderer || (renderer->isRenderBlock() && !p.m_offset))
             break;
         InlineBox* box;
         int ignoredCaretOffset;
@@ -514,7 +518,7 @@ static VisiblePosition startOfStyleRange(const VisiblePosition visiblePos)
     return VisiblePosition(startRenderer->node(), 0, VP_DEFAULT_AFFINITY);
 }
 
-static VisiblePosition endOfStyleRange(const VisiblePosition visiblePos)
+static VisiblePosition endOfStyleRange(const VisiblePosition& visiblePos)
 {
     RenderObject* renderer = visiblePos.deepEquivalent().node()->renderer();
     RenderObject* endRenderer = renderer;
@@ -534,7 +538,7 @@ static VisiblePosition endOfStyleRange(const VisiblePosition visiblePos)
         endRenderer = r;
     }
 
-    return VisiblePosition(endRenderer->node(), maxDeepOffset(endRenderer->node()), VP_DEFAULT_AFFINITY);
+    return lastDeepEditingPositionForNode(endRenderer->node());
 }
 
 VisiblePositionRange AccessibilityObject::styleRangeForPosition(const VisiblePosition& visiblePos) const
@@ -566,7 +570,7 @@ static bool replacedNodeNeedsCharacter(Node* replacedNode)
     }
 
     // create an AX object, but skip it if it is not supposed to be seen
-    AccessibilityObject* object = replacedNode->renderer()->document()->axObjectCache()->get(replacedNode->renderer());
+    AccessibilityObject* object = replacedNode->renderer()->document()->axObjectCache()->getOrCreate(replacedNode->renderer());
     if (object->accessibilityIsIgnored())
         return false;
 
@@ -814,7 +818,7 @@ AccessibilityObject* AccessibilityObject::accessibilityObjectForPosition(const V
     if (!obj)
         return 0;
 
-    return obj->document()->axObjectCache()->get(obj);
+    return obj->document()->axObjectCache()->getOrCreate(obj);
 }
 
 int AccessibilityObject::lineForPosition(const VisiblePosition& visiblePos) const
@@ -994,11 +998,6 @@ unsigned AccessibilityObject::axObjectID() const
 void AccessibilityObject::setAXObjectID(unsigned axObjectID)
 {
     m_id = axObjectID;
-}
-
-void AccessibilityObject::removeAXObjectID()
-{
-    return;
 }
 
 const String& AccessibilityObject::actionVerb() const

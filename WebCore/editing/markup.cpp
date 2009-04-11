@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 #include "ProcessingInstruction.h"
 #include "QualifiedName.h"
 #include "Range.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
@@ -408,8 +408,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
             
             bool useRenderedText = !enclosingNodeWithTag(Position(const_cast<Node*>(node), 0), selectTag);
             String markup = escapeContentText(useRenderedText ? renderedText(node, range) : stringValueForRange(node, range), false);
-            if (annotate)
-                markup = convertHTMLTextToInterchangeFormat(markup, static_cast<const Text*>(node));
+            markup = convertHTMLTextToInterchangeFormat(markup, static_cast<const Text*>(node));
             append(result, markup);
             break;
         }
@@ -438,7 +437,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
         case Node::ELEMENT_NODE: {
             result.append('<');
             const Element* el = static_cast<const Element*>(node);
-            bool convert = convertBlocksToInlines & isBlock(const_cast<Node*>(node));
+            bool convert = convertBlocksToInlines && isBlock(const_cast<Node*>(node));
             append(result, el->nodeNamePreservingCase());
             NamedAttrMap *attrs = el->attributes();
             unsigned length = attrs->length();
@@ -587,26 +586,50 @@ static String getEndMarkup(const Node *node)
     return String::adopt(result);
 }
 
-static void appendMarkup(Vector<UChar>& result, Node* startNode, bool onlyIncludeChildren, Vector<Node*>* nodes, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+class MarkupAccumulator {
+public:
+    MarkupAccumulator(Node* nodeToSkip, Vector<Node*>* nodes)
+        : m_nodeToSkip(nodeToSkip)
+        , m_nodes(nodes)
+    {
+    }
+
+    void appendMarkup(Node* startNode, EChildrenOnly, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0);
+
+    String takeResult() { return String::adopt(m_result); }
+
+private:
+    Vector<UChar> m_result;
+    Node* m_nodeToSkip;
+    Vector<Node*>* m_nodes;
+};
+
+// FIXME: Would be nice to do this in a non-recursive way.
+void MarkupAccumulator::appendMarkup(Node* startNode, EChildrenOnly childrenOnly, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces)
 {
+    if (startNode == m_nodeToSkip)
+        return;
+
     HashMap<AtomicStringImpl*, AtomicStringImpl*> namespaceHash;
     if (namespaces)
         namespaceHash = *namespaces;
-    
-    if (!onlyIncludeChildren) {
-        if (nodes)
-            nodes->append(startNode);
-        
-        appendStartMarkup(result,startNode, 0, DoNotAnnotateForInterchange, false, &namespaceHash);
+
+    // start tag
+    if (!childrenOnly) {
+        if (m_nodes)
+            m_nodes->append(startNode);
+        appendStartMarkup(m_result, startNode, 0, DoNotAnnotateForInterchange, false, &namespaceHash);
     }
-    // print children
-    if (!(startNode->document()->isHTMLDocument() && doesHTMLForbidEndTag(startNode)))
+
+    // children
+    if (!(startNode->document()->isHTMLDocument() && doesHTMLForbidEndTag(startNode))) {
         for (Node* current = startNode->firstChild(); current; current = current->nextSibling())
-            appendMarkup(result, current, false, nodes, &namespaceHash);
-    
-    // Print my ending tag
-    if (!onlyIncludeChildren)
-        appendEndMarkup(result, startNode);
+            appendMarkup(current, IncludeNode, &namespaceHash);
+    }
+
+    // end tag
+    if (!childrenOnly)
+        appendEndMarkup(m_result, startNode);
 }
 
 static void completeURLs(Node* node, const String& baseURL)
@@ -690,7 +713,7 @@ static String joinMarkups(const Vector<String>& preMarkups, const Vector<String>
         length += postMarkups[i].length();
 
     Vector<UChar> result;
-    result.reserveCapacity(length);
+    result.reserveInitialCapacity(length);
 
     for (size_t i = preCount; i > 0; --i)
         append(result, preMarkups[i - 1]);
@@ -699,6 +722,24 @@ static String joinMarkups(const Vector<String>& preMarkups, const Vector<String>
         append(result, postMarkups[i]);
 
     return String::adopt(result);
+}
+
+static bool isSpecialAncestorBlock(Node* node)
+{
+    if (!node || !isBlock(node))
+        return false;
+        
+    return node->hasTagName(listingTag) ||
+           node->hasTagName(olTag) ||
+           node->hasTagName(preTag) ||
+           node->hasTagName(tableTag) ||
+           node->hasTagName(ulTag) ||
+           node->hasTagName(xmpTag) ||
+           node->hasTagName(h1Tag) ||
+           node->hasTagName(h2Tag) ||
+           node->hasTagName(h3Tag) ||
+           node->hasTagName(h4Tag) ||
+           node->hasTagName(h5Tag);
 }
 
 // FIXME: Shouldn't we omit style info when annotate == DoNotAnnotateForInterchange? 
@@ -849,12 +890,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 table = table->parentNode();
             if (table)
                 specialCommonAncestor = table;
-        } else if (commonAncestorBlock->hasTagName(listingTag)
-                    || commonAncestorBlock->hasTagName(olTag)
-                    || commonAncestorBlock->hasTagName(preTag)
-                    || commonAncestorBlock->hasTagName(tableTag)
-                    || commonAncestorBlock->hasTagName(ulTag)
-                    || commonAncestorBlock->hasTagName(xmpTag))
+        } else if (isSpecialAncestorBlock(commonAncestorBlock))
             specialCommonAncestor = commonAncestorBlock;
     }
                                       
@@ -888,7 +924,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
     // FIXME: Only include markup for a fully selected root (and ancestors of lastClosed up to that root) if
     // there are styles/attributes on those nodes that need to be included to preserve the appearance of the copied markup.
     // FIXME: Do this for all fully selected blocks, not just the body.
-    Node* fullySelectedRoot = body && *Selection::selectionFromContentsOfNode(body).toRange() == *updatedRange ? body : 0;
+    Node* fullySelectedRoot = body && *VisibleSelection::selectionFromContentsOfNode(body).toNormalizedRange() == *updatedRange ? body : 0;
     if (annotate && fullySelectedRoot)
         specialCommonAncestor = fullySelectedRoot;
         
@@ -1004,30 +1040,21 @@ PassRefPtr<DocumentFragment> createFragmentFromMarkup(Document* document, const 
     return fragment.release();
 }
 
-String createMarkup(const Node* node, EChildrenOnly includeChildren, Vector<Node*>* nodes)
+String createMarkup(const Node* node, EChildrenOnly childrenOnly, Vector<Node*>* nodes)
 {
-    Vector<UChar> result;
-
     if (!node)
         return "";
 
-    Document* document = node->document();
-    Frame* frame = document->frame();
-    DeleteButtonController* deleteButton = frame ? frame->editor()->deleteButtonController() : 0;
-
-    // disable the delete button so it's elements are not serialized into the markup
-    if (deleteButton) {
-        if (node->isDescendantOf(deleteButton->containerElement()))
+    HTMLElement* deleteButtonContainerElement = 0;
+    if (Frame* frame = node->document()->frame()) {
+        deleteButtonContainerElement = frame->editor()->deleteButtonController()->containerElement();
+        if (node->isDescendantOf(deleteButtonContainerElement))
             return "";
-        deleteButton->disable();
     }
 
-    appendMarkup(result, const_cast<Node*>(node), includeChildren, nodes);
-
-    if (deleteButton)
-        deleteButton->enable();
-
-    return String::adopt(result);
+    MarkupAccumulator accumulator(deleteButtonContainerElement, nodes);
+    accumulator.appendMarkup(const_cast<Node*>(node), childrenOnly);
+    return accumulator.takeResult();
 }
 
 static void fillContainerFromString(ContainerNode* paragraph, const String& string)
@@ -1140,7 +1167,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
             element->setAttribute(classAttr, AppleInterchangeNewline);            
         } else {
             if (useClonesOfEnclosingBlock)
-                element = block->cloneElement();
+                element = block->cloneElementWithoutChildren();
             else
                 element = createDefaultParagraphElement(document);
             fillContainerFromString(element.get(), s);

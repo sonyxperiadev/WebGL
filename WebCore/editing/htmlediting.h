@@ -37,13 +37,13 @@ class HTMLElement;
 class Node;
 class Position;
 class Range;
-class Selection;
+class VisibleSelection;
 class String;
 class VisiblePosition;
 
 Position rangeCompliantEquivalent(const Position&);
 Position rangeCompliantEquivalent(const VisiblePosition&);
-int maxDeepOffset(const Node*);
+int lastOffsetForEditing(const Node*);
 bool isAtomicNode(const Node*);
 bool editingIgnoresContent(const Node*);
 bool canHaveChildrenForEditing(const Node*);
@@ -72,7 +72,7 @@ Position positionBeforeNode(const Node*);
 Position positionAfterNode(const Node*);
 
 PassRefPtr<Range> avoidIntersectionWithNode(const Range*, Node*);
-Selection avoidIntersectionWithNode(const Selection&, Node*);
+VisibleSelection avoidIntersectionWithNode(const VisibleSelection&, Node*);
 
 bool isSpecialElement(const Node*);
 bool validBlockTag(const String&);
@@ -129,7 +129,7 @@ bool isTableCell(const Node*);
 
 bool lineBreakExistsAtPosition(const VisiblePosition&);
 
-Selection selectionForParagraphIteration(const Selection&);
+VisibleSelection selectionForParagraphIteration(const VisibleSelection&);
 
 int indexForVisiblePosition(VisiblePosition&);
 

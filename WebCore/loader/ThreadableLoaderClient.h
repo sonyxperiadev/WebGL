@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,6 +33,7 @@
 
 namespace WebCore {
 
+    class ResourceError;
     class ResourceResponse;
 
     class ThreadableLoaderClient {
@@ -41,9 +42,9 @@ namespace WebCore {
 
         virtual void didReceiveResponse(const ResourceResponse&) { }
         virtual void didReceiveData(const char*, int /*lengthReceived*/) { }
-        virtual void didFinishLoading(unsigned long /*identifer*/) { }
-        virtual void didFail() { }
-        virtual void didGetCancelled() { }
+        virtual void didFinishLoading(unsigned long /*identifier*/) { }
+        virtual void didFail(const ResourceError&) { }
+        virtual void didFailRedirectCheck() { }
 
         virtual void didReceiveAuthenticationCancellation(const ResourceResponse&) { }
 

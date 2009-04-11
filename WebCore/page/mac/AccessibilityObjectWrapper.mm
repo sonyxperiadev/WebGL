@@ -181,9 +181,11 @@ static WebCoreTextMarker* textMarkerForVisiblePosition(const VisiblePosition& vi
     if (!domNode)
         return nil;
 
-    if (domNode->isHTMLElement())
-        if (static_cast<HTMLElement*>(domNode)->isPasswordField())
+    if (domNode->isHTMLElement()) {
+        InputElement* inputElement = toInputElement(static_cast<Element*>(domNode));
+        if (inputElement && inputElement->isPasswordField())
             return nil;
+    }
 
     // locate the renderer, which must exist for a visible dom node
     RenderObject* renderer = domNode->renderer();
@@ -191,7 +193,7 @@ static WebCoreTextMarker* textMarkerForVisiblePosition(const VisiblePosition& vi
 
     // find or create an accessibility object for this renderer
     AXObjectCache* cache = renderer->document()->axObjectCache();
-    RefPtr<AccessibilityObject> obj = cache->get(renderer);
+    RefPtr<AccessibilityObject> obj = cache->getOrCreate(renderer);
 
     // create a text marker, adding an ID for the AccessibilityObject if needed
     TextMarkerData textMarkerData;
@@ -201,7 +203,7 @@ static WebCoreTextMarker* textMarkerForVisiblePosition(const VisiblePosition& vi
     bzero(&textMarkerData, sizeof(TextMarkerData));
     textMarkerData.axID = obj.get()->axObjectID();
     textMarkerData.node = domNode;
-    textMarkerData.offset = deepPos.offset();
+    textMarkerData.offset = deepPos.m_offset;
     textMarkerData.affinity = visiblePos.affinity();
     return [[WebCoreViewFactory sharedFactory] textMarkerWithBytes:&textMarkerData length:sizeof(textMarkerData)];
 }
@@ -226,7 +228,7 @@ static VisiblePosition visiblePositionForTextMarker(WebCoreTextMarker* textMarke
     if (!cache->isIDinUse(textMarkerData.axID))
         return VisiblePosition();
 
-    if (deepPos.node() != textMarkerData.node || deepPos.offset() != textMarkerData.offset)
+    if (deepPos.node() != textMarkerData.node || deepPos.m_offset != textMarkerData.offset)
         return VisiblePosition();
     
     return visiblePos;
@@ -374,7 +376,7 @@ static int blockquoteLevel(RenderObject* renderer)
         return 0;
     
     int result = 0;
-    for (Node* node = renderer->element(); node; node = node->parent()) {
+    for (Node* node = renderer->node(); node; node = node->parent()) {
         if (node->hasTagName(blockquoteTag))
             result += 1;
     }
@@ -423,7 +425,7 @@ static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, 
 
 static void AXAttributeStringSetHeadingLevel(NSMutableAttributedString* attrString, RenderObject* renderer, NSRange range)
 {
-    int parentHeadingLevel = AccessibilityRenderObject::headingLevel(renderer->parent()->element());
+    int parentHeadingLevel = AccessibilityRenderObject::headingLevel(renderer->parent()->node());
     
     if (parentHeadingLevel)
         [attrString addAttribute:@"AXHeadingLevel" value:[NSNumber numberWithInt:parentHeadingLevel] range:range];
@@ -437,7 +439,7 @@ static AccessibilityObject* AXLinkElementForNode(Node* node)
     if (!obj)
         return 0;
 
-    RefPtr<AccessibilityObject> axObj = obj->document()->axObjectCache()->get(obj);
+    RefPtr<AccessibilityObject> axObj = obj->document()->axObjectCache()->getOrCreate(obj);
     Element* anchor = axObj->anchorElement();
     if (!anchor)
         return 0;
@@ -446,7 +448,7 @@ static AccessibilityObject* AXLinkElementForNode(Node* node)
     if (!anchorRenderer)
         return 0;
     
-    return anchorRenderer->document()->axObjectCache()->get(anchorRenderer);
+    return anchorRenderer->document()->axObjectCache()->getOrCreate(anchorRenderer);
 }
 
 static void AXAttributeStringSetElement(NSMutableAttributedString* attrString, NSString* attribute, AccessibilityObject* object, NSRange range)
@@ -515,7 +517,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     }
 
     // create an AX object, but skip it if it is not supposed to be seen
-    RefPtr<AccessibilityObject> obj = replacedNode->renderer()->document()->axObjectCache()->get(replacedNode->renderer());
+    RefPtr<AccessibilityObject> obj = replacedNode->renderer()->document()->axObjectCache()->getOrCreate(replacedNode->renderer());
     if (obj->accessibilityIsIgnored())
         return nil;
     
@@ -561,7 +563,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
                 [attrString setAttributes:nil range:attrStringRange];
 
                 // add the attachment attribute
-                AccessibilityObject* obj = replacedNode->renderer()->document()->axObjectCache()->get(replacedNode->renderer());
+                AccessibilityObject* obj = replacedNode->renderer()->document()->axObjectCache()->getOrCreate(replacedNode->renderer());
                 AXAttributeStringSetElement(attrString, NSAccessibilityAttachmentTextAttribute, obj, attrStringRange);
             }
         }
@@ -580,6 +582,9 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
 
 - (NSArray*)accessibilityActionNames
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     static NSArray* actionElementActions = [[NSArray alloc] initWithObjects: NSAccessibilityPressAction, NSAccessibilityShowMenuAction, nil];
@@ -601,6 +606,9 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
 
 - (NSArray*)accessibilityAttributeNames
 {
+    if (!m_object)
+        return nil;
+    
     m_object->updateBackingStore();
     
     if (m_object->isAttachment())
@@ -871,7 +879,7 @@ static WebCoreTextMarkerRange* textMarkerRangeFromVisiblePositions(VisiblePositi
 static void convertToVector(NSArray* array, AccessibilityObject::AccessibilityChildrenVector& vector)
 {
     unsigned length = [array count];
-    vector.reserveCapacity(length);
+    vector.reserveInitialCapacity(length);
     for (unsigned i = 0; i < length; ++i) {
         AccessibilityObject* obj = [[array objectAtIndex:i] accessibilityObject];
         if (obj)
@@ -884,16 +892,23 @@ static NSMutableArray* convertToNSArray(const AccessibilityObject::Accessibility
     unsigned length = vector.size();
     NSMutableArray* array = [NSMutableArray arrayWithCapacity: length];
     for (unsigned i = 0; i < length; ++i) {
-        ASSERT(vector[i]->wrapper());
-        if (vector[i]->wrapper())
-            [array addObject:vector[i]->wrapper()];
+        AccessibilityObjectWrapper* wrapper = vector[i]->wrapper();
+        ASSERT(wrapper);
+        if (wrapper) {
+            // we want to return the attachment view instead of the object representing the attachment.
+            // otherwise, we get palindrome errors in the AX hierarchy
+            if (vector[i]->isAttachment() && [wrapper attachmentView])
+                [array addObject:[wrapper attachmentView]];
+            else
+                [array addObject:wrapper];
+        }
     }
     return array;
 }
 
 - (WebCoreTextMarkerRange*)textMarkerRangeForSelection
 {
-    Selection selection = m_object->selection();
+    VisibleSelection selection = m_object->selection();
     if (selection.isNone())
         return nil;
     return textMarkerRangeFromVisiblePositions(selection.visibleStart(), selection.visibleEnd());
@@ -1436,6 +1451,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (id)accessibilityFocusedUIElement
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     RefPtr<AccessibilityObject> focusedObj = m_object->focusedUIElement();
@@ -1448,6 +1466,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (id)accessibilityHitTest:(NSPoint)point
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     RefPtr<AccessibilityObject> axObject = m_object->doAccessibilityHitTest(IntPoint(point));
@@ -1458,6 +1479,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (BOOL)accessibilityIsAttributeSettable:(NSString*)attributeName
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     if ([attributeName isEqualToString: @"AXSelectedTextMarkerRange"])
@@ -1494,6 +1518,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 // Registering an object is also required for observing notifications. Only registered objects can be observed.
 - (BOOL)accessibilityIsIgnored
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     if (m_object->isAttachment())
@@ -1503,6 +1530,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (NSArray* )accessibilityParameterizedAttributeNames
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
 
     if (m_object->isAttachment()) 
@@ -1585,6 +1615,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilityPerformPressAction
 {
+    if (!m_object)
+        return;
+
     m_object->updateBackingStore();
 
     if (m_object->isAttachment())
@@ -1631,6 +1664,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilityPerformAction:(NSString*)action
 {
+    if (!m_object)
+        return;
+
     m_object->updateBackingStore();
 
     if ([action isEqualToString:NSAccessibilityPressAction])
@@ -1642,6 +1678,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString*)attributeName
 {
+    if (!m_object)
+        return;
+
     m_object->updateBackingStore();
 
     WebCoreTextMarkerRange* textMarkerRange = nil;
@@ -1721,7 +1760,7 @@ static RenderObject* rendererForView(NSView* view)
     if (!renderer)
         return nil;
 
-    AccessibilityObject* obj = renderer->document()->axObjectCache()->get(renderer);
+    AccessibilityObject* obj = renderer->document()->axObjectCache()->getOrCreate(renderer);
     if (obj)
         return obj->parentObjectUnignored()->wrapper();
     return nil;
@@ -2013,6 +2052,9 @@ static RenderObject* rendererForView(NSView* view)
 // API that AppKit uses for faster access
 - (NSUInteger)accessibilityIndexOfChild:(id)child
 {
+    if (!m_object)
+        return NSNotFound;
+
     m_object->updateBackingStore();
     
     const AccessibilityObject::AccessibilityChildrenVector& children = m_object->children();
@@ -2022,7 +2064,8 @@ static RenderObject* rendererForView(NSView* view)
     
     unsigned count = children.size();
     for (unsigned k = 0; k < count; ++k) {
-        if (children[k]->wrapper() == child)
+        AccessibilityObjectWrapper* wrapper = children[k]->wrapper();
+        if (wrapper == child || (children[k]->isAttachment() && [wrapper attachmentView] == child)) 
             return k;
     }
 
@@ -2031,6 +2074,9 @@ static RenderObject* rendererForView(NSView* view)
 
 - (NSUInteger)accessibilityArrayAttributeCount:(NSString *)attribute
 {
+    if (!m_object)
+        return 0;
+
     m_object->updateBackingStore();
     
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
@@ -2046,6 +2092,9 @@ static RenderObject* rendererForView(NSView* view)
 
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount 
 {
+    if (!m_object)
+        return nil;
+
     m_object->updateBackingStore();
     
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
@@ -2070,8 +2119,16 @@ static RenderObject* rendererForView(NSView* view)
         unsigned available = min(childCount - index, maxCount);
         
         NSMutableArray *subarray = [NSMutableArray arrayWithCapacity:available];
-        for (unsigned added = 0; added < available; ++index, ++added)
-            [subarray addObject:children[index]->wrapper()];
+        for (unsigned added = 0; added < available; ++index, ++added) {
+            AccessibilityObjectWrapper* wrapper = children[index]->wrapper();
+            if (wrapper) {
+                // The attachment view should be returned, otherwise AX palindrome errors occur.
+                if (children[index]->isAttachment() && [wrapper attachmentView])
+                    [subarray addObject:[wrapper attachmentView]];
+                else
+                    [subarray addObject:wrapper];
+            }
+        }
         
         return subarray;
     }

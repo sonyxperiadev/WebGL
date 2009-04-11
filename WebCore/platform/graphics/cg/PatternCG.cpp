@@ -50,12 +50,13 @@ static void patternReleaseCallback(void* info)
     static_cast<Image*>(info)->deref();
 }
 
-CGPatternRef Pattern::createPlatformPattern(const TransformationMatrix& transform) const
+CGPatternRef Pattern::createPlatformPattern(const TransformationMatrix& userSpaceTransformation) const
 {
     IntRect tileRect = tileImage()->rect();
 
-    TransformationMatrix patternTransform = transform;
-    patternTransform.scale(1, -1);
+    TransformationMatrix patternTransform = m_patternSpaceTransformation;
+    patternTransform.multiply(userSpaceTransformation);
+    patternTransform.scaleNonUniform(1, -1);
     patternTransform.translate(0, -tileRect.height());
 
     // If FLT_MAX should also be used for xStep or yStep, nothing is rendered. Using fractions of FLT_MAX also

@@ -27,9 +27,12 @@
 #import "GraphicsContext.h"
 
 #import "../cg/GraphicsContextPlatformPrivateCG.h"
+#import <AppKit/AppKit.h>
 #import <wtf/StdLibExtras.h>
 
 #import "WebCoreSystemInterface.h"
+
+@class NSColor;
 
 // FIXME: More of this should use CoreGraphics instead of AppKit.
 // FIXME: More of this should move into GraphicsContextCG.cpp.
@@ -47,7 +50,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
 
     int radius = (focusRingWidth() - 1) / 2;
     int offset = radius + focusRingOffset();
-    CGColorRef colorRef = color.isValid() ? cgColor(color) : 0;
+    CGColorRef colorRef = color.isValid() ? createCGColor(color) : 0;
 
     CGMutablePathRef focusRingPath = CGPathCreateMutable();
     const Vector<IntRect>& rects = focusRingRects();

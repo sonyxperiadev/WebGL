@@ -26,6 +26,7 @@
 
 #include "CodeBlock.h"
 #include "Interpreter.h"
+#include "JIT.h"
 #include "ObjectPrototype.h"
 #include "Lookup.h"
 #include "Operations.h"
@@ -67,8 +68,16 @@ static inline bool isNumericCompareFunction(CallType callType, const CallData& c
 {
     if (callType != CallTypeJS)
         return false;
-    
-    return callData.js.functionBody->bytecode(callData.js.scopeChain).isNumericCompareFunction();
+
+    CodeBlock& codeBlock = callData.js.functionBody->bytecode(callData.js.scopeChain);
+#if ENABLE(JIT)
+    // If the JIT is enabled then we need to preserve the invariant that every
+    // function with a CodeBlock also has JIT code.
+    if (!codeBlock.jitCode())
+        JIT::compile(callData.js.scopeChain->globalData, &codeBlock);
+#endif
+
+    return codeBlock.isNumericCompareFunction();
 }
 
 // ------------------------------ ArrayPrototype ----------------------------
@@ -278,10 +287,10 @@ JSValuePtr arrayProtoFuncConcat(ExecState* exec, JSObject*, JSValuePtr thisValue
     ArgList::const_iterator end = args.end();
     while (1) {
         if (curArg.isObject(&JSArray::info)) {
-            JSArray* curArray = asArray(curArg);
-            unsigned length = curArray->length();
+            unsigned length = curArg.get(exec, exec->propertyNames().length).toUInt32(exec);
+            JSObject* curObject = curArg.toObject(exec);
             for (unsigned k = 0; k < length; ++k) {
-                if (JSValuePtr v = getProperty(exec, curArray, k))
+                if (JSValuePtr v = getProperty(exec, curObject, k))
                     arr->put(exec, n, v);
                 n++;
             }
@@ -300,7 +309,7 @@ JSValuePtr arrayProtoFuncConcat(ExecState* exec, JSObject*, JSValuePtr thisValue
 
 JSValuePtr arrayProtoFuncPop(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
 {
-    if (exec->interpreter()->isJSArray(thisValue))
+    if (isJSArray(&exec->globalData(), thisValue))
         return asArray(thisValue)->pop();
 
     JSObject* thisObj = thisValue.toThisObject(exec);
@@ -319,7 +328,7 @@ JSValuePtr arrayProtoFuncPop(ExecState* exec, JSObject*, JSValuePtr thisValue, c
 
 JSValuePtr arrayProtoFuncPush(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
 {
-    if (exec->interpreter()->isJSArray(thisValue) && args.size() == 1) {
+    if (isJSArray(&exec->globalData(), thisValue) && args.size() == 1) {
         JSArray* array = asArray(thisValue);
         array->push(exec, args.begin()->jsValue(exec));
         return jsNumber(exec, array->length());

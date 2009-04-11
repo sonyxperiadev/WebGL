@@ -27,7 +27,7 @@
 namespace WebCore {
 
 class FormControlElement;
-class Selection;
+class VisibleSelection;
 class TextControlInnerElement;
 class TextControlInnerTextElement;
 
@@ -36,6 +36,7 @@ public:
     virtual ~RenderTextControl();
 
     virtual const char* renderName() const { return "RenderTextControl"; }
+    virtual bool isTextControl() const { return true; }
     virtual bool hasControlClip() const { return false; }
     virtual IntRect controlClipRect(int tx, int ty) const;
     virtual void calcHeight();
@@ -45,8 +46,8 @@ public:
     virtual bool canHaveChildren() const { return false; }
     virtual bool avoidsFloats() const { return true; }
     
-    virtual bool isEdited() const { return m_edited; }
-    virtual void setEdited(bool isEdited) { m_edited = isEdited; }
+    bool isEdited() const { return m_edited; }
+    void setEdited(bool isEdited) { m_edited = isEdited; }
 
     bool isUserEdited() const { return m_userEdited; }
     void setUserEdited(bool isUserEdited);
@@ -57,7 +58,7 @@ public:
     void setSelectionEnd(int);
     void select();
     void setSelectionRange(int start, int end);
-    Selection selection(int start, int end) const;
+    VisibleSelection selection(int start, int end) const;
 
     virtual void subtreeHasChanged();
     String text();
@@ -67,16 +68,6 @@ public:
     virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
 
     virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
-    virtual void autoscroll();
-
-    // Subclassed to forward to our inner div.
-    virtual int scrollLeft() const;
-    virtual int scrollTop() const;
-    virtual int scrollWidth() const;
-    virtual int scrollHeight() const;
-    virtual void setScrollLeft(int);
-    virtual void setScrollTop(int);
-    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f);
 
     VisiblePosition visiblePositionForIndex(int index);
     int indexForVisiblePosition(const VisiblePosition&);
@@ -88,10 +79,10 @@ protected:
     void adjustInnerTextStyle(const RenderStyle* startStyle, RenderStyle* textBlockStyle) const;
     void setInnerTextValue(const String&);
 
-    virtual void styleDidChange(RenderStyle::Diff, const RenderStyle* oldStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     void createSubtreeIfNeeded(TextControlInnerElement* innerBlock);
-    void hitInnerTextBlock(HitTestResult&, int x, int y, int tx, int ty);
+    void hitInnerTextElement(HitTestResult&, int x, int y, int tx, int ty);
     void forwardEvent(Event*);
 
     int textBlockWidth() const;
@@ -114,6 +105,21 @@ private:
     bool m_userEdited;
     RefPtr<TextControlInnerTextElement> m_innerText;
 };
+
+inline RenderTextControl* toRenderTextControl(RenderObject* o)
+{ 
+    ASSERT(!o || o->isTextControl());
+    return static_cast<RenderTextControl*>(o);
+}
+
+inline const RenderTextControl* toRenderTextControl(const RenderObject* o)
+{ 
+    ASSERT(!o || o->isTextControl());
+    return static_cast<const RenderTextControl*>(o);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderTextControl(const RenderTextControl*);
 
 } // namespace WebCore
 

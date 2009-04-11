@@ -76,12 +76,15 @@ javascriptcore_sources += \
 	JavaScriptCore/jit/ExecutableAllocator.h \
 	JavaScriptCore/jit/JIT.cpp \
 	JavaScriptCore/jit/JITCall.cpp \
+	JavaScriptCore/jit/JITCode.h \
 	JavaScriptCore/jit/JITPropertyAccess.cpp \
 	JavaScriptCore/jit/JITArithmetic.cpp \
 	JavaScriptCore/jit/ExecutableAllocator.cpp \
 	JavaScriptCore/jit/ExecutableAllocatorPosix.cpp \
 	JavaScriptCore/jit/JIT.h \
 	JavaScriptCore/jit/JITInlineMethods.h \
+	JavaScriptCore/jit/JITStubs.cpp \
+	JavaScriptCore/jit/JITStubs.h \
 	JavaScriptCore/bytecode/StructureStubInfo.cpp \
 	JavaScriptCore/bytecode/StructureStubInfo.h \
 	JavaScriptCore/bytecode/CodeBlock.cpp \
@@ -130,8 +133,11 @@ javascriptcore_sources += \
 	JavaScriptCore/icu/unicode/utypes.h \
 	JavaScriptCore/icu/unicode/uversion.h \
 	JavaScriptCore/assembler/X86Assembler.h \
+	JavaScriptCore/assembler/AbstractMacroAssembler.h \
 	JavaScriptCore/assembler/AssemblerBuffer.h \
 	JavaScriptCore/assembler/MacroAssembler.h \
+	JavaScriptCore/assembler/MacroAssemblerX86.h \
+	JavaScriptCore/assembler/MacroAssemblerX86Common.h \
 	JavaScriptCore/os-win32/stdbool.h \
 	JavaScriptCore/os-win32/stdint.h \
 	JavaScriptCore/pcre/pcre.h \
@@ -157,6 +163,8 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/TreeProfile.h \
 	JavaScriptCore/interpreter/CallFrame.cpp \
 	JavaScriptCore/interpreter/CallFrame.h \
+	JavaScriptCore/runtime/TimeoutChecker.cpp \
+	JavaScriptCore/runtime/TimeoutChecker.h \
 	JavaScriptCore/runtime/InitializeThreading.cpp \
 	JavaScriptCore/runtime/InitializeThreading.h \
 	JavaScriptCore/runtime/JSActivation.cpp \
@@ -247,6 +255,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Threading.cpp \
 	JavaScriptCore/wtf/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/ThreadingPthreads.cpp \
+	JavaScriptCore/wtf/TypeTraits.cpp \
+	JavaScriptCore/wtf/TypeTraits.h \
 	JavaScriptCore/wtf/UnusedParam.h \
 	JavaScriptCore/wtf/Vector.h \
 	JavaScriptCore/wtf/VectorTraits.h \

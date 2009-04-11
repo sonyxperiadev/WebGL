@@ -28,9 +28,10 @@
 #include "Gradient.h"
 
 #include "CSSParser.h"
-#include "NotImplemented.h"
+#include "GraphicsContext.h"
 
 #include <QGradient>
+#include <QPainter>
 
 namespace WebCore {
 
@@ -66,12 +67,24 @@ QGradient* Gradient::platformGradient()
         ++stopIterator;
     }
 
+    switch(m_spreadMethod) {
+    case SpreadMethodPad:
+        m_gradient->setSpread(QGradient::PadSpread);
+        break;
+    case SpreadMethodReflect:
+        m_gradient->setSpread(QGradient::ReflectSpread);
+        break;
+    case SpreadMethodRepeat:
+        m_gradient->setSpread(QGradient::RepeatSpread);
+        break;
+    }
+
     return m_gradient;
 }
 
 void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 {
-    notImplemented();
+    context->platformContext()->fillRect(rect, *platformGradient());
 }
 
 } //namespace

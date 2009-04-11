@@ -28,13 +28,15 @@
 
 #include "config.h"
 
-#include "AnimationController.h"
+#include "AnimationControllerPrivate.h"
 #include "CompositeAnimation.h"
 #include "CSSPropertyNames.h"
 #include "EventNames.h"
 #include "ImplicitAnimation.h"
 #include "KeyframeAnimation.h"
-#include "RenderObject.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -55,12 +57,12 @@ ImplicitAnimation::~ImplicitAnimation()
         updateStateMachine(AnimationStateInputEndAnimation, -1);
 }
 
-bool ImplicitAnimation::shouldSendEventForListener(Document::ListenerType inListenerType)
+bool ImplicitAnimation::shouldSendEventForListener(Document::ListenerType inListenerType) const
 {
     return m_object->document()->hasListenerType(inListenerType);
 }
 
-void ImplicitAnimation::animate(CompositeAnimation*, RenderObject*, RenderStyle*, RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
+void ImplicitAnimation::animate(CompositeAnimation*, RenderObject*, const RenderStyle*, RenderStyle* targetStyle, RefPtr<RenderStyle>& animatedStyle)
 {
     // If we get this far and the animation is done, it means we are cleaning up a just finished animation.
     // So just return. Everything is already all cleaned up.
@@ -76,11 +78,56 @@ void ImplicitAnimation::animate(CompositeAnimation*, RenderObject*, RenderStyle*
     if (!animatedStyle)
         animatedStyle = RenderStyle::clone(targetStyle);
 
-    if (blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0)))
+    bool needsAnim = blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
+    // FIXME: we also need to detect cases where we have to software animate for other reasons,
+    // such as a child using inheriting the transform. https://bugs.webkit.org/show_bug.cgi?id=23902
+    if (needsAnim)
         setAnimating();
+    else {
+#if USE(ACCELERATED_COMPOSITING)
+        // If we are running an accelerated animation, set a flag in the style which causes the style
+        // to compare as different to any other style. This ensures that changes to the property
+        // that is animating are correctly detected during the animation (e.g. when a transition
+        // gets interrupted).
+        animatedStyle->setIsRunningAcceleratedAnimation();
+#endif
+    }
 
     // Fire the start timeout if needed
     fireAnimationEventsIfNeeded();
+}
+
+void ImplicitAnimation::getAnimatedStyle(RefPtr<RenderStyle>& animatedStyle)
+{
+    if (!animatedStyle)
+        animatedStyle = RenderStyle::clone(m_toStyle.get());
+
+    blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
+}
+
+bool ImplicitAnimation::startAnimation(double beginTime)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_object && m_object->hasLayer()) {
+        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
+        if (layer->isComposited())
+            return layer->backing()->startTransition(beginTime, m_animatingProperty, m_fromStyle.get(), m_toStyle.get());
+    }
+#else
+    UNUSED_PARAM(beginTime);
+#endif
+    return false;
+}
+
+void ImplicitAnimation::endAnimation(bool /*reset*/)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_object && m_object->hasLayer()) {
+        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
+        if (layer->isComposited())
+            layer->backing()->transitionFinished(m_animatingProperty);
+    }
+#endif
 }
 
 void ImplicitAnimation::onAnimationEnd(double elapsedTime)
@@ -120,7 +167,7 @@ bool ImplicitAnimation::sendTransitionEvent(const AtomicString& eventType, doubl
                 return false;
 
             // Schedule event handling
-            m_object->animation()->addEventToDispatch(element, eventType, propertyName, elapsedTime);
+            m_compAnim->animationControllerPriv()->addEventToDispatch(element, eventType, propertyName, elapsedTime);
 
             // Restore the original (unanimated) style
             if (eventType == eventNames().webkitTransitionEndEvent && element->renderer())
@@ -137,7 +184,6 @@ void ImplicitAnimation::reset(RenderStyle* to)
 {
     ASSERT(to);
     ASSERT(m_fromStyle);
-    
 
     m_toStyle = to;
 
@@ -207,6 +253,23 @@ void ImplicitAnimation::validateTransformFunctionList()
 
     // Keyframes are valid
     m_transformFunctionListValid = true;
+}
+
+double ImplicitAnimation::willNeedService()
+{
+    double t = AnimationBase::willNeedService();
+#if USE(ACCELERATED_COMPOSITING)
+    if (t != 0 || preActive())
+        return t;
+        
+    // A return value of 0 means we need service. But if this is an accelerated animation we 
+    // only need service at the end of the transition.
+    if (animationOfPropertyIsAccelerated(m_animatingProperty) && !isFallbackAnimating()) {
+        bool isLooping;
+        getTimeToNextEvent(t, isLooping);
+    }
+#endif
+    return t;
 }
 
 } // namespace WebCore

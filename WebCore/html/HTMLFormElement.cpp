@@ -44,6 +44,7 @@
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "RenderTextControl.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/RandomNumber.h>
 
 #include <limits>
@@ -60,6 +61,14 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+static int64_t generateFormDataIdentifier()
+{
+    // Initialize to the current time to reduce the likelihood of generating
+    // identifiers that overlap with those from past/future browser sessions.
+    static int64_t nextIdentifier = static_cast<int64_t>(currentTime() * 1000000.0);
+    return ++nextIdentifier;
+}
 
 HTMLFormElement::HTMLFormElement(const QualifiedName& tagName, Document* doc)
     : HTMLElement(tagName, doc)
@@ -116,7 +125,7 @@ void HTMLFormElement::removedFromDocument()
 
 void HTMLFormElement::handleLocalEvents(Event* event, bool useCapture)
 {
-    EventTargetNode* targetNode = event->target()->toNode();
+    Node* targetNode = event->target()->toNode();
     if (!useCapture && targetNode && targetNode != this && (event->type() == eventNames().submitEvent || event->type() == eventNames().resetEvent)) {
         event->stopPropagation();
         return;
@@ -202,7 +211,8 @@ PassRefPtr<FormData> HTMLFormElement::createFormData(const CString& boundary)
                         if (!path.isEmpty()) {
                             if (Page* page = document()->page()) {
                                 String generatedFileName;
-                                if (shouldGenerateFile = page->chrome()->client()->shouldReplaceWithGeneratedFileForUpload(path, generatedFileName))
+                                shouldGenerateFile = page->chrome()->client()->shouldReplaceWithGeneratedFileForUpload(path, generatedFileName);
+                                if (shouldGenerateFile)
                                     fileName = generatedFileName;
                             }
                         }
@@ -240,6 +250,8 @@ PassRefPtr<FormData> HTMLFormElement::createFormData(const CString& boundary)
         m_formDataBuilder.addBoundaryToMultiPartHeader(encodedData, boundary, true);
 
     result->appendData(encodedData.data(), encodedData.size());
+
+    result->setIdentifier(generateFormDataIdentifier());
     return result;
 }
 
@@ -625,9 +637,11 @@ void HTMLFormElement::CheckedRadioButtons::removeButton(HTMLFormControlElement* 
     if (it == m_nameToCheckedRadioButtonMap->end() || it->second != element)
         return;
     
+    InputElement* inputElement = toInputElement(element);
+    ASSERT_UNUSED(inputElement, inputElement);
+    ASSERT(inputElement->isChecked());
     ASSERT(element->isRadioButton());
-    ASSERT(element->isChecked());
-    
+
     m_nameToCheckedRadioButtonMap->remove(it);
     if (m_nameToCheckedRadioButtonMap->isEmpty())
         m_nameToCheckedRadioButtonMap.clear();
