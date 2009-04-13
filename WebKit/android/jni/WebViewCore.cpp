@@ -1303,7 +1303,7 @@ static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
             "offset=%d pt.x=%d globalX=%d renderX=%d x=%d "
             "textBox->x()=%d textBox->start()=%d prior=%d current=%d next=%d",
             offset, pt.x(), globalX, absPt.x(), x,
-            textBox->xPos(), textBox->start(), prior, current, next
+            textBox->x(), textBox->start(), prior, current, next
             );
 #endif
         return textBox->start() + offset;
