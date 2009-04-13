@@ -1592,13 +1592,13 @@ public:
         SkASSERT(count > 1);
 
         const Vector<HTMLElement*>& items = m_select->listItems();
-        size_t totalItems = items.size();
+        int totalItems = static_cast<int>(items.size());
         // Keep track of the position of the value we are comparing against.
         int arrayIndex = 0;
         // The value we are comparing against.
         int selection = array[arrayIndex];
         WebCore::HTMLOptionElement* option;
-        for (size_t listIndex = 0; listIndex < totalItems; listIndex++) {
+        for (int listIndex = 0; listIndex < totalItems; listIndex++) {
             if (items[listIndex]->hasLocalName(WebCore::HTMLNames::optionTag)) {
                 option = static_cast<WebCore::HTMLOptionElement*>(
                         items[listIndex]);
