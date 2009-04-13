@@ -529,9 +529,10 @@ void CacheBuilder::Debug::groups() {
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
                             0 /*textBox->spaceAdd()*/, textBox->start(), 0 /*textBox->textPos()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
-                            textBox->xPos(), textBox->yPos(), textBox->width(), textBox->height());
+                            textBox->x(), textBox->y(), textBox->width(), textBox->height());
+                        int baseline = textBox->renderer()->style(textBox->isFirstLineStyle())->font().ascent();
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
-                            textBox->baseline(), ++rectIndex);
+                            baseline, ++rectIndex);
                         wideString(node->textContent().characters() + textBox->start(), textBox->len(), true);
                         DUMP_NAV_LOGD("%.*s\n", mIndex, mBuffer);
                         textBox = textBox->nextTextBox();
@@ -694,7 +695,8 @@ void CacheBuilder::Debug::renderTree(RenderObject* renderer, int indent,
         print(scratch);
         newLine(indent);
         const IntRect& oRect = renderer->absoluteClippedOverflowRect();
-        const IntRect& cRect = renderer->getOverflowClipRect(0,0);
+        RenderBox* box = toRenderBox(renderer);
+        const IntRect& cRect = box->overflowClipRect(0,0);
         snprintf(scratch, sizeof(scratch), 
             "// render xPos:%d yPos:%d overflowRect:{%d, %d, %d, %d} "
             " getOverflowClipRect:{%d, %d, %d, %d} ", 
