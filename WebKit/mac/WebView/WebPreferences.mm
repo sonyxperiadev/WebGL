@@ -306,6 +306,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         @"16",                          WebKitDefaultFontSizePreferenceKey,
         @"13",                          WebKitDefaultFixedFontSizePreferenceKey,
         @"ISO-8859-1",                  WebKitDefaultTextEncodingNamePreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitUsesEncodingDetectorPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitUserStyleSheetEnabledPreferenceKey,
         @"",                            WebKitUserStyleSheetLocationPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShouldPrintBackgroundsPreferenceKey,
@@ -313,6 +314,8 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitShrinksStandaloneImagesToFitPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitWebSecurityEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitAllowUniversalAccessFromFileURLsPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitPluginsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
@@ -663,7 +666,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     return [self _boolValueForKey: WebKitAllowAnimatedImagesPreferenceKey];
 }
 
-- (void)setAllowsAnimatedImages:(BOOL)flag;
+- (void)setAllowsAnimatedImages:(BOOL)flag
 {
     [self _setBoolValue: flag forKey: WebKitAllowAnimatedImagesPreferenceKey];
 }
@@ -688,7 +691,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     return [self _boolValueForKey: WebKitDisplayImagesKey];
 }
 
-- (void)setAutosaves:(BOOL)flag;
+- (void)setAutosaves:(BOOL)flag
 {
     _private->autosaves = flag;
 }
@@ -862,6 +865,36 @@ static WebCacheModel cacheModelForMainBundle(void)
     _private->automaticallyDetectsCacheModel = automaticallyDetectsCacheModel;
 }
 
+- (BOOL)usesEncodingDetector
+{
+    return [self _boolValueForKey: WebKitUsesEncodingDetectorPreferenceKey];
+}
+
+- (void)setUsesEncodingDetector:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitUsesEncodingDetectorPreferenceKey];
+}
+
+- (BOOL)isWebSecurityEnabled
+{
+    return [self _boolValueForKey: WebKitWebSecurityEnabledPreferenceKey];
+}
+
+- (void)setWebSecurityEnabled:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitWebSecurityEnabledPreferenceKey];
+}
+
+- (BOOL)allowUniversalAccessFromFileURLs
+{
+    return [self _boolValueForKey: WebKitAllowUniversalAccessFromFileURLsPreferenceKey];
+}
+
+- (void)setAllowUniversalAccessFromFileURLs:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitAllowUniversalAccessFromFileURLsPreferenceKey];
+}
+
 - (NSTimeInterval)_backForwardCacheExpirationInterval
 {
     // FIXME: There's probably no good reason to read from the standard user defaults instead of self.
@@ -878,7 +911,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setFloatValue:factor forKey:WebKitPDFScaleFactorPreferenceKey];
 }
 
-- (PDFDisplayMode)PDFDisplayMode;
+- (PDFDisplayMode)PDFDisplayMode
 {
     PDFDisplayMode value = [self _integerValueForKey:WebKitPDFDisplayModePreferenceKey];
     if (value != kPDFDisplaySinglePage && value != kPDFDisplaySinglePageContinuous && value != kPDFDisplayTwoUp && value != kPDFDisplayTwoUpContinuous) {

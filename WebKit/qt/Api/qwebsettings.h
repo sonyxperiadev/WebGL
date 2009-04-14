@@ -63,7 +63,8 @@ public:
         PrintElementBackgrounds,
         OfflineStorageDatabaseEnabled,
         OfflineWebApplicationCacheEnabled,
-        LocalStorageDatabaseEnabled
+        LocalStorageDatabaseEnabled,
+        AllowUniversalAccessFromFileUrls
     };
     enum WebGraphic {
         MissingImageGraphic,
@@ -111,9 +112,6 @@ public:
     static QString offlineStoragePath();
     static void setOfflineStorageDefaultQuota(qint64 maximumSize);
     static qint64 offlineStorageDefaultQuota();
-
-    static void setOfflineWebApplicationCachePath(const QString& path);
-    static QString offlineWebApplicationCachePath();
 
     inline QWebSettingsPrivate* handle() const { return d; }
 

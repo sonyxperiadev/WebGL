@@ -47,13 +47,15 @@ public:
 
     void pluginHostDied(NetscapePluginHostProxy*);
 
+    static void createPropertyListFile(WebNetscapePluginPackage *);
+    
 private:
     NetscapePluginHostProxy* hostForPackage(WebNetscapePluginPackage *);
 
     NetscapePluginHostManager();
     ~NetscapePluginHostManager();
     
-    bool spawnPluginHost(WebNetscapePluginPackage *, mach_port_t clientPort, mach_port_t& pluginHostPort);
+    bool spawnPluginHost(WebNetscapePluginPackage *, mach_port_t clientPort, mach_port_t& pluginHostPort, ProcessSerialNumber& pluginHostPSN);
     
     bool initializeVendorPort();
     

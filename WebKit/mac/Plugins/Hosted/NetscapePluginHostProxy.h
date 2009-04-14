@@ -39,7 +39,7 @@ class NetscapePluginInstanceProxy;
 
 class NetscapePluginHostProxy {
 public:
-    NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort);
+    NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort, const ProcessSerialNumber& pluginHostPSN);
     
     mach_port_t port() const { return m_pluginHostPort; }
     mach_port_t clientPort() const { return m_clientPort; }
@@ -52,9 +52,16 @@ public:
     void setMenuBarVisible(bool);
     void setModal(bool);
 
+    void applicationDidBecomeActive();
+    
+    bool processRequests();
+    
 private:
     ~NetscapePluginHostProxy();
     void pluginHostDied();
+
+    void beginModal();
+    void endModal();
     
     static void deadNameNotificationCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
 
@@ -62,6 +69,8 @@ private:
     PluginInstanceMap m_instances;
     
     mach_port_t m_clientPort;
+    mach_port_t m_portSet;
+    
 #ifdef USE_LIBDISPATCH
     dispatch_source_t m_clientPortSource;
 #else
@@ -70,10 +79,11 @@ private:
     mach_port_t m_pluginHostPort;
     RetainPtr<CFMachPortRef> m_deadNameNotificationPort;
     
+    RetainPtr<id> m_activationObserver;
     RetainPtr<NSWindow *> m_placeholderWindow;
-    unsigned m_modalCount;
-    
+    unsigned m_isModal;
     bool m_menuBarIsVisible;
+    const ProcessSerialNumber m_pluginHostPSN;
 };
     
 } // namespace WebKit

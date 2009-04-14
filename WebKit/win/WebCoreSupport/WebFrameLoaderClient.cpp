@@ -41,6 +41,7 @@
 #include "WebError.h"
 #include "WebFrame.h"
 #include "WebHistory.h"
+#include "WebHistoryItem.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
 #include "WebScriptDebugServer.h"
@@ -53,9 +54,11 @@
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameTree.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/HTMLAppletElement.h>
 #include <WebCore/HTMLFrameElement.h>
 #include <WebCore/HTMLFrameOwnerElement.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/Page.h>
 #include <WebCore/PluginPackage.h>
@@ -91,7 +94,9 @@ bool WebFrameLoaderClient::hasWebView() const
 
 void WebFrameLoaderClient::forceLayout()
 {
-    core(m_webFrame)->forceLayout(true);
+    FrameView* view = core(m_webFrame)->view();
+    if (view)
+        view->forceLayout(true);
 }
 
 void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -219,6 +224,25 @@ void WebFrameLoaderClient::dispatchDidFailLoading(DocumentLoader* loader, unsign
 
     COMPtr<WebError> webError(AdoptCOM, WebError::createInstance(error));
     resourceLoadDelegate->didFailLoadingWithError(webView, identifier, webError.get(), getWebDataSource(loader));
+}
+
+bool WebFrameLoaderClient::shouldCacheResponse(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& response, const unsigned char* data, const unsigned long long length)
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
+    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
+        return true;
+
+    COMPtr<IWebResourceLoadDelegatePrivate3> resourceLoadDelegatePrivate(Query, resourceLoadDelegate);
+    if (!resourceLoadDelegatePrivate)
+        return true;
+
+    COMPtr<IWebURLResponse> urlResponse(WebURLResponse::createInstance(response));
+    BOOL shouldCache;
+    if (SUCCEEDED(resourceLoadDelegatePrivate->shouldCacheResponse(webView, identifier, urlResponse.get(), data, length, getWebDataSource(loader), &shouldCache)))
+        return shouldCache;
+
+    return true;
 }
 
 void WebFrameLoaderClient::dispatchDidHandleOnloadEvents()
@@ -457,27 +481,31 @@ void WebFrameLoaderClient::updateGlobalHistory()
         return;
 
     DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
-
-    if (loader->urlForHistoryReflectsServerRedirect()) {
-        history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), loader->url(), false);                 
-        return;
-    }
-
-    if (loader->urlForHistoryReflectsClientRedirect()) {
-        history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), KURL(), true);
-        return;
-    }
-
-    history->visitedURL(loader->urlForHistory(), loader->title(), loader->request().httpMethod(), loader->urlForHistoryReflectsFailure(), KURL(), false);
+    history->visitedURL(loader->urlForHistory(), loader->title(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure());
+    updateGlobalHistoryRedirectLinks();
 }
 
-void WebFrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
 {
     WebHistory* history = WebHistory::sharedHistory();
     if (!history)
         return;
+
     DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
-    history->visitedURLForRedirectWithoutHistoryItem(loader->url());
+
+    if (!loader->clientRedirectSourceForHistory().isNull()) {
+        if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->clientRedirectSourceForHistory())) {
+            COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
+            webHistoryItem->historyItem()->addRedirectURL(loader->clientRedirectDestinationForHistory());
+        }
+    }
+
+    if (!loader->serverRedirectSourceForHistory().isNull()) {
+        if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->serverRedirectSourceForHistory())) {
+            COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
+            webHistoryItem->historyItem()->addRedirectURL(loader->serverRedirectDestinationForHistory());
+        }
+    }
 }
 
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
@@ -548,7 +576,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     view->frameRect(&rect);
     bool transparent = view->transparent();
     Color backgroundColor = transparent ? Color::transparent : Color::white;
-    WebCore::FrameLoaderClient::transitionToCommittedForNewPage(core(m_webFrame), IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
+    core(m_webFrame)->createView(IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
 }
 
 bool WebFrameLoaderClient::canCachePage() const
@@ -627,7 +655,7 @@ void WebFrameLoaderClient::loadURLIntoChild(const KURL& originalURL, const Strin
     core(childFrame)->loader()->loadURL(url, referrer, frameName, false, childLoadType, 0, 0);
 }
 
-Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+Widget* WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
     WebView* webView = m_webFrame->webView();
 

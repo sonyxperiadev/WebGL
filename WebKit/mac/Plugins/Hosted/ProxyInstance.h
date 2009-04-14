@@ -52,6 +52,10 @@ public:
     JSC::JSValuePtr fieldValue(JSC::ExecState*, const JSC::Bindings::Field*) const;
     void setFieldValue(JSC::ExecState*, const JSC::Bindings::Field*, JSC::JSValuePtr) const;
     
+    void invalidate();
+    
+    uint32_t objectID() const { return m_objectID; }
+    
 private:
     ProxyInstance(PassRefPtr<JSC::Bindings::RootObject>, NetscapePluginInstanceProxy*, uint32_t objectID);
     
@@ -68,6 +72,8 @@ private:
     virtual JSC::JSValuePtr defaultValue(JSC::ExecState*, JSC::PreferredPrimitiveType) const;
     virtual JSC::JSValuePtr valueOf(JSC::ExecState*) const;
     
+    virtual void getPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&);
+
     JSC::JSValuePtr stringValue(JSC::ExecState*) const;
     JSC::JSValuePtr numberValue(JSC::ExecState*) const;
     JSC::JSValuePtr booleanValue() const;

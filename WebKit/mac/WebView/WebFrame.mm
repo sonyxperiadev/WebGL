@@ -611,7 +611,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     // We need to give the part the opportunity to adjust the page height at each step.
     for (float i = 0; i < docHeight; i += currPageHeight) {
         float proposedBottom = min(docHeight, i + printHeight);
-        _private->coreFrame->adjustPageHeight(&proposedBottom, i, proposedBottom, i);
+        view->adjustPageHeight(&proposedBottom, i, proposedBottom, i);
         currPageHeight = max(1.0f, proposedBottom - i);
         for (float j = 0; j < docWidth; j += printWidth) {
             NSValue* val = [NSValue valueWithRect: NSMakeRect(j, i, printWidth, currPageHeight)];
@@ -622,7 +622,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return pages;
 }
 
-- (BOOL)_getVisibleRect:(NSRect*)rect;
+- (BOOL)_getVisibleRect:(NSRect*)rect
 {
     ASSERT_ARG(rect, rect);
     if (RenderPart* ownerRenderer = _private->coreFrame->ownerRenderer()) {
@@ -678,7 +678,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (startNode && startNode->renderer()) {
         RenderLayer *layer = startNode->renderer()->enclosingLayer();
         if (layer)
-            layer->scrollRectToVisible(enclosingIntRect(rangeRect), false, RenderLayer::gAlignToEdgeIfNeeded, RenderLayer::gAlignToEdgeIfNeeded);
+            layer->scrollRectToVisible(enclosingIntRect(rangeRect), false, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded);
     }
 }
 
@@ -701,7 +701,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     RenderView* root = static_cast<RenderView *>(_private->coreFrame->document()->renderer());
     if (!root)
         return nil;
-    return _private->coreFrame->document()->axObjectCache()->get(root)->wrapper();
+    return _private->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
 #else
     return nil;
 #endif
@@ -715,7 +715,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     SelectionController selection;
     selection.setSelection(_private->coreFrame->selection()->selection());
     selection.modify(alteration, direction, granularity);
-    return [DOMRange _wrapRange:selection.toRange().get()];
+    return [DOMRange _wrapRange:selection.toNormalizedRange().get()];
 }
 
 - (TextGranularity)_selectionGranularity
@@ -793,7 +793,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMRange *)_markDOMRange
 {
-    return [DOMRange _wrapRange:_private->coreFrame->mark().toRange().get()];
+    return [DOMRange _wrapRange:_private->coreFrame->mark().toNormalizedRange().get()];
 }
 
 // Given proposedRange, returns an extended range that includes adjacent whitespace that should
@@ -824,8 +824,8 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     RefPtr<Range> range = _private->coreFrame->document()->createRange();
     int exception = 0;
-    range->setStart(newStart.node(), newStart.offset(), exception);
-    range->setEnd(newStart.node(), newStart.offset(), exception);
+    range->setStart(newStart.node(), newStart.m_offset, exception);
+    range->setEnd(newStart.node(), newStart.m_offset, exception);
     return [DOMRange _wrapRange:range.get()];
 }
 
@@ -909,32 +909,11 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return [DOMDocumentFragment _wrapDocumentFragment:createFragmentFromNodes(_private->coreFrame->document(), nodesVector).get()];
 }
 
-- (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
-{
-    if (_private->coreFrame->selection()->isNone() || !fragment)
-        return;
-    
-    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), [fragment _documentFragment], selectReplacement, smartReplace, matchStyle));
-    _private->coreFrame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
-}
-
 - (void)_replaceSelectionWithNode:(DOMNode *)node selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
 {
     DOMDocumentFragment *fragment = [DOMDocumentFragment _wrapDocumentFragment:_private->coreFrame->document()->createDocumentFragment().get()];
     [fragment appendChild:node];
     [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:matchStyle];
-}
-
-- (void)_replaceSelectionWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
-{
-    DOMDocumentFragment *fragment = [self _documentFragmentWithMarkupString:markupString baseURLString:baseURLString];
-    [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:NO];
-}
-
-- (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
-{
-    [self _replaceSelectionWithFragment:kit(createFragmentFromText(_private->coreFrame->selection()->toRange().get(), text).get())
-        selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:YES];
 }
 
 - (void)_insertParagraphSeparatorInQuotedContent
@@ -943,23 +922,13 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return;
     
     TypingCommand::insertParagraphSeparatorInQuotedContent(_private->coreFrame->document());
-    _private->coreFrame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
+    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 - (VisiblePosition)_visiblePositionForPoint:(NSPoint)point
 {
-    IntPoint outerPoint(point);
-    HitTestResult result = _private->coreFrame->eventHandler()->hitTestResultAtPoint(outerPoint, true);
-    Node* node = result.innerNode();
-    if (!node)
-        return VisiblePosition();
-    RenderObject* renderer = node->renderer();
-    if (!renderer)
-        return VisiblePosition();
-    VisiblePosition visiblePos = renderer->positionForCoordinates(result.localPoint().x(), result.localPoint().y());
-    if (visiblePos.isNull())
-        visiblePos = VisiblePosition(Position(node, 0));
-    return visiblePos;
+    // FIXME: Someone with access to Apple's sources could remove this needless wrapper call.
+    return _private->coreFrame->visiblePositionForPoint(IntPoint(point));
 }
 
 - (DOMRange *)_characterRangeAtPoint:(NSPoint)point
@@ -1094,7 +1063,8 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (BOOL)_isFrameSet
 {
-    return _private->coreFrame->isFrameSet();
+    Document* document = _private->coreFrame->document();
+    return document && document->isFrameSet();
 }
 
 - (BOOL)_firstLayoutDone
@@ -1109,14 +1079,14 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSRange)_selectedNSRange
 {
-    return [self _convertToNSRange:_private->coreFrame->selection()->toRange().get()];
+    return [self _convertToNSRange:_private->coreFrame->selection()->toNormalizedRange().get()];
 }
 
 - (void)_selectNSRange:(NSRange)range
 {
     RefPtr<Range> domRange = [self _convertToDOMRange:range];
     if (domRange)
-        _private->coreFrame->selection()->setSelection(Selection(domRange.get(), SEL_DEFAULT_AFFINITY));
+        _private->coreFrame->selection()->setSelection(VisibleSelection(domRange.get(), SEL_DEFAULT_AFFINITY));
 }
 
 - (BOOL)_isDisplayingStandaloneImage
@@ -1215,6 +1185,27 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return false;
 
     return controller->numberOfActiveAnimations();
+}
+
+- (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
+{
+    if (_private->coreFrame->selection()->isNone() || !fragment)
+        return;
+    
+    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), [fragment _documentFragment], selectReplacement, smartReplace, matchStyle));
+    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
+}
+
+- (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
+{   
+    DOMDocumentFragment* fragment = kit(createFragmentFromText(_private->coreFrame->selection()->toNormalizedRange().get(), text).get());
+    [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:YES];
+}
+
+- (void)_replaceSelectionWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
+{
+    DOMDocumentFragment *fragment = [self _documentFragmentWithMarkupString:markupString baseURLString:baseURLString];
+    [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:NO];
 }
 
 @end

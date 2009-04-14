@@ -296,6 +296,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE registerURLSchemeAsLocal( 
         /* [in] */ BSTR scheme);
 
+    virtual HRESULT STDMETHODCALLTYPE close();
+
     // IWebIBActions
 
     virtual HRESULT STDMETHODCALLTYPE takeStringURLFrom( 
@@ -724,6 +726,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setMemoryCacheDelegateCallsEnabled( 
         /* [in] */ BOOL enabled);
 
+    virtual HRESULT STDMETHODCALLTYPE setJavaScriptURLsAreAllowed(
+        /* [in] */ BOOL areAllowed);
+
     // WebView
     bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
 
@@ -736,7 +741,7 @@ public:
     bool onInitMenuPopup(WPARAM, LPARAM);
     bool onUninitMenuPopup(WPARAM, LPARAM);
     void performContextMenuAction(WPARAM, LPARAM, bool byPosition);
-    bool mouseWheel(WPARAM, LPARAM, bool isHorizontal);
+    bool mouseWheel(WPARAM, LPARAM, bool isMouseHWheel);
     bool execCommand(WPARAM wParam, LPARAM lParam);
     bool keyDown(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyUp(WPARAM, LPARAM, bool systemKeyDown = false);
@@ -753,7 +758,6 @@ public:
     void frameRect(RECT* rect);
     void closeWindow();
     void closeWindowSoon();
-    void close();
     bool didClose() const { return m_didClose; }
 
     bool transparent() const { return m_transparent; }

@@ -29,16 +29,17 @@
 
 #import "NetscapePluginHostProxy.h"
 #import "NetscapePluginInstanceProxy.h"
+#import "WebFrameInternal.h"
+#import "WebHostedNetscapePluginView.h"
+#import "WebKitErrorsPrivate.h"
+#import "WebKitPluginHost.h"
+#import "WebKitSystemInterface.h"
+#import "WebNSURLExtras.h"
+#import "WebNSURLRequestExtras.h"
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
-#import "WebHostedNetscapePluginView.h"
-#import "WebFrameInternal.h"
-#import "WebKitErrorsPrivate.h"
-#import "WebNSURLExtras.h"
-#import "WebNSURLRequestExtras.h"
-#import "WebKitPluginHost.h"
-#import "WebKitSystemInterface.h"
+#import <WebCore/WebCoreURLResponse.h>
 
 using namespace WebCore;
 
@@ -151,7 +152,7 @@ void HostedNetscapePluginStream::didReceiveResponse(NetscapePlugInStreamLoader*,
         [theHeaders appendBytes:"\0" length:1];
     }
     
-    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r MIMEType], theHeaders);
+    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r _webcore_MIMEType], theHeaders);
 }
 
 static NPReason reasonForError(NSError *error)
@@ -167,7 +168,8 @@ static NPReason reasonForError(NSError *error)
 
 void HostedNetscapePluginStream::didFail(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceError& error)
 {
-    _WKPHStreamDidFail(m_instance->hostProxy()->port(), m_instance->pluginID(), m_streamID, reasonForError(error));
+    if (NetscapePluginHostProxy* hostProxy = m_instance->hostProxy())
+        _WKPHStreamDidFail(hostProxy->port(), m_instance->pluginID(), m_streamID, reasonForError(error));
 }
     
 bool HostedNetscapePluginStream::wantsAllStreams() const

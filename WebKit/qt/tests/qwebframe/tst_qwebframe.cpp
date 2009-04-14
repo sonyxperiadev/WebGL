@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008,2009 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -576,6 +576,9 @@ private slots:
     void ipv6HostEncoding();
     void metaData();
     void popupFocus();
+    void hitTestContent();
+    void jsByteArray();
+    void ownership();
 private:
     QString  evalJS(const QString&s) {
         // Convert an undefined return variant to the string "undefined"
@@ -2270,6 +2273,96 @@ void tst_QWebFrame::popupFocus()
     QTest::qWait(delay);
     QVERIFY2(m_popupTestPaintCount >= 4,
              "The input field should have a blinking caret");
+}
+
+void tst_QWebFrame::hitTestContent()
+{
+    QString html("<html><body><p>A paragraph</p><br/><br/><br/><a href=\"about:blank\" target=\"_foo\">link text</a></body></html>");
+
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+    frame->setHtml(html);
+    page.setViewportSize(QSize(200, 0)); //no height so link is not visible
+    QWebHitTestResult result = frame->hitTestContent(QPoint(10, 100));
+    QCOMPARE(result.linkText(), QString("link text"));
+    QCOMPARE(result.linkTarget(), QString("_foo"));
+}
+
+void tst_QWebFrame::jsByteArray()
+{
+    QByteArray ba("hello world");
+    m_myObject->setByteArrayProperty(ba);
+
+    // read-only property
+    QCOMPARE(m_myObject->byteArrayProperty(), ba);
+    QString type;
+    QVariant v = evalJSV("myObject.byteArrayProperty");
+    QCOMPARE(int(v.type()), int(QVariant::ByteArray));
+
+    QCOMPARE(v.toByteArray(), ba);
+}
+
+void tst_QWebFrame::ownership()
+{
+    // test ownership
+    {
+        QPointer<QObject> ptr = new QObject();
+        QVERIFY(ptr != 0);
+        {
+            QWebPage page;
+            QWebFrame* frame = page.mainFrame();
+            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::ScriptOwnership);
+        }
+        QVERIFY(ptr == 0);
+    }
+    {
+        QPointer<QObject> ptr = new QObject();
+        QVERIFY(ptr != 0);
+        QObject* before = ptr;
+        {
+            QWebPage page;
+            QWebFrame* frame = page.mainFrame();
+            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::QtOwnership);
+        }
+        QVERIFY(ptr == before);
+        delete ptr;
+    }
+    {
+        QObject* parent = new QObject();
+        QObject* child = new QObject(parent);
+        QWebPage page;
+        QWebFrame* frame = page.mainFrame();
+        frame->addToJavaScriptWindowObject("test", child, QScriptEngine::QtOwnership);
+        QVariant v = frame->evaluateJavaScript("test");
+        QCOMPARE(qvariant_cast<QObject*>(v), child);
+        delete parent;
+        v = frame->evaluateJavaScript("test");
+        QCOMPARE(qvariant_cast<QObject*>(v), (QObject *)0);
+    }
+    {
+        QPointer<QObject> ptr = new QObject();
+        QVERIFY(ptr != 0);
+        {
+            QWebPage page;
+            QWebFrame* frame = page.mainFrame();
+            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::AutoOwnership);
+        }
+        // no parent, so it should be like ScriptOwnership
+        QVERIFY(ptr == 0);
+    }
+    {
+        QObject* parent = new QObject();
+        QPointer<QObject> child = new QObject(parent);
+        QVERIFY(child != 0);
+        {
+            QWebPage page;
+            QWebFrame* frame = page.mainFrame();
+            frame->addToJavaScriptWindowObject("test", child, QScriptEngine::AutoOwnership);
+        }
+        // has parent, so it should be like QtOwnership
+        QVERIFY(child != 0);
+        delete parent;
+    }
 }
 
 QTEST_MAIN(tst_QWebFrame)

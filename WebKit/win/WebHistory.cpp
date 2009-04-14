@@ -41,6 +41,7 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/HistoryItem.h>
 #pragma warning( pop )
+#include <wtf/StdLibExtras.h>
 
 using namespace WebCore;
 
@@ -176,7 +177,7 @@ ULONG STDMETHODCALLTYPE WebHistory::Release(void)
 
 static inline COMPtr<WebHistory>& sharedHistoryStorage()
 {
-    static COMPtr<WebHistory> sharedHistory;
+    DEFINE_STATIC_LOCAL(COMPtr<WebHistory>, sharedHistory, ());
     return sharedHistory;
 }
 
@@ -680,18 +681,11 @@ HRESULT WebHistory::addItem(IWebHistoryItem* entry, bool discardDuplicate, bool*
     return hr;
 }
 
-void WebHistory::visitedURL(const KURL& url, const String& title, const String& httpMethod, bool wasFailure, const KURL& serverRedirectURL, bool isClientRedirect)
+void WebHistory::visitedURL(const KURL& url, const String& title, const String& httpMethod, bool wasFailure)
 {
-    if (isClientRedirect) {
-        ASSERT(serverRedirectURL.isEmpty());
-        if (m_lastVisitedEntry)
-            m_lastVisitedEntry->historyItem()->addRedirectURL(url.string());
-    }
-
     RetainPtr<CFStringRef> urlString(AdoptCF, url.string().createCFString());
 
     IWebHistoryItem* entry = (IWebHistoryItem*) CFDictionaryGetValue(m_entriesByURL.get(), urlString.get());
-
     if (entry) {
         COMPtr<IWebHistoryItemPrivate> entryPrivate(Query, entry);
         if (!entryPrivate)
@@ -724,21 +718,16 @@ void WebHistory::visitedURL(const KURL& url, const String& title, const String& 
 
     addItemToDateCaches(entry);
 
-    m_lastVisitedEntry.query(entry);
-
     COMPtr<IWebHistoryItemPrivate> entryPrivate(Query, entry);
     if (!entryPrivate)
         return;
 
     entryPrivate->setLastVisitWasFailure(wasFailure);
     if (!httpMethod.isEmpty())
-        entryPrivate->setLastVisitWasHTTPNonGet(!equalIgnoringCase(httpMethod, "GET"));
+        entryPrivate->setLastVisitWasHTTPNonGet(!equalIgnoringCase(httpMethod, "GET") && (url.protocolIs("http") || url.protocolIs("https")));
 
-    if (!serverRedirectURL.isEmpty()) {
-        ASSERT(!isClientRedirect);
-        COMPtr<WebHistoryItem> item(Query, entry);
-        item->historyItem()->addRedirectURL(serverRedirectURL);
-    }
+    COMPtr<WebHistoryItem> item(Query, entry);
+    item->historyItem()->setRedirectURLs(std::auto_ptr<Vector<String> >());
 
     CFDictionaryPropertyBag* userInfo = createUserInfoFromHistoryItem(
         getNotificationString(kWebHistoryItemsAddedNotification), entry);
@@ -746,15 +735,9 @@ void WebHistory::visitedURL(const KURL& url, const String& title, const String& 
     releaseUserInfo(userInfo);
 }
 
-void WebHistory::visitedURLForRedirectWithoutHistoryItem(const KURL& url)
-{
-    if (m_lastVisitedEntry)
-        m_lastVisitedEntry->historyItem()->addRedirectURL(url.string());
-}
-
 HRESULT WebHistory::itemForURLString(
     /* [in] */ CFStringRef urlString,
-    /* [retval][out] */ IWebHistoryItem** item)
+    /* [retval][out] */ IWebHistoryItem** item) const
 {
     if (!item)
         return E_FAIL;
@@ -790,6 +773,17 @@ HRESULT WebHistory::removeItemForURLString(CFStringRef urlString)
         PageGroup::removeAllVisitedLinks();
 
     return hr;
+}
+
+COMPtr<IWebHistoryItem> WebHistory::itemForURLString(const String& urlString) const
+{
+    RetainPtr<CFStringRef> urlCFString(AdoptCF, urlString.createCFString());
+    if (!urlCFString)
+        return 0;
+    COMPtr<IWebHistoryItem> item;
+    if (FAILED(itemForURLString(urlCFString.get(), &item)))
+        return 0;
+    return item;
 }
 
 HRESULT WebHistory::addItemToDateCaches(IWebHistoryItem* entry)

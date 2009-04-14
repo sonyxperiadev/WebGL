@@ -3,6 +3,7 @@
  *  Copyright (C) 2007, 2008 Holger Hans Peter Freyther
  *  Copyright (C) 2007 Christian Dywan <christian@twotoasts.de>
  *  Copyright (C) 2008 Collabora Ltd.  All rights reserved.
+ *  Copyright (C) 2009 Gustavo Noronha Silva <gns@gnome.org>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -28,10 +29,12 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "FrameTree.h"
+#include "HTMLAppletElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
+#include "HTMLPlugInElement.h"
 #include "JSDOMWindow.h"
 #include "Language.h"
 #include "MIMETypeRegistry.h"
@@ -40,6 +43,7 @@
 #include "PlatformString.h"
 #include "PluginDatabase.h"
 #include "RenderPart.h"
+#include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "CString.h"
 #include "ProgressTracker.h"
@@ -245,8 +249,12 @@ void FrameLoaderClient::postProgressEstimateChangedNotification()
 void FrameLoaderClient::postProgressFinishedNotification()
 {
     WebKitWebView* webView = getViewFromFrame(m_frame);
+    WebKitWebViewPrivate* privateData = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
 
-    g_signal_emit_by_name(webView, "load-finished", m_frame);
+    // We can get a stopLoad() from dispose when the object is being
+    // destroyed, don't emit the signal in that case.
+    if (!privateData->disposing)
+        g_signal_emit_by_name(webView, "load-finished", m_frame);
 }
 
 void FrameLoaderClient::frameLoaderDestroyed()
@@ -268,6 +276,11 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     if (!policyFunction)
         return;
 
+    if (resourceRequest.isNull()) {
+        (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
+        return;
+    }
+
     WebKitWebView* page = getViewFromFrame(m_frame);
     WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
 
@@ -287,7 +300,40 @@ void FrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction poli
     if (canShowMIMEType(mimeType))
         webkit_web_policy_decision_use (policyDecision);
     else
-        webkit_web_policy_decision_download (policyDecision);
+        webkit_web_policy_decision_ignore (policyDecision);
+}
+
+static WebKitWebNavigationAction* getNavigationAction(const NavigationAction& action)
+{
+    gint button = -1;
+
+    const Event* event = action.event();
+    if (event && event->isMouseEvent()) {
+        const MouseEvent* mouseEvent = static_cast<const MouseEvent*>(event);
+        // DOM button values are 0, 1 and 2 for left, middle and right buttons.
+        // GTK+ uses 1, 2 and 3, so let's add 1 to remain consistent.
+        button = mouseEvent->button() + 1;
+    }
+
+    gint modifierFlags = 0;
+    UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(event));
+    if (keyStateEvent) {
+        if (keyStateEvent->shiftKey())
+            modifierFlags |= GDK_SHIFT_MASK;
+        if (keyStateEvent->ctrlKey())
+            modifierFlags |= GDK_CONTROL_MASK;
+        if (keyStateEvent->altKey())
+            modifierFlags |= GDK_MOD1_MASK;
+        if (keyStateEvent->metaKey())
+            modifierFlags |= GDK_MOD2_MASK;
+    }
+
+    return WEBKIT_WEB_NAVIGATION_ACTION(g_object_new(WEBKIT_TYPE_WEB_NAVIGATION_ACTION,
+                                                     "reason", kit(action.type()),
+                                                     "original-uri", action.url().string().utf8().data(),
+                                                     "button", button,
+                                                     "modifier-state", modifierFlags,
+                                                     NULL));
 }
 
 void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>, const String& s)
@@ -295,9 +341,32 @@ void FrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFuncti
     ASSERT(policyFunction);
     if (!policyFunction)
         return;
+
+    if (resourceRequest.isNull()) {
+        (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
+        return;
+    }
+
+    WebKitWebPolicyDecision* policyDecision = webkit_web_policy_decision_new(m_frame, policyFunction);
+
+    if (m_policyDecision)
+        g_object_unref(m_policyDecision);
+    m_policyDecision = policyDecision;
+
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+    WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
+    WebKitWebNavigationAction* navigationAction = getNavigationAction(action);
+    gboolean isHandled = false;
+
+    g_signal_emit_by_name(webView, "new-window-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
+
+    g_object_unref(navigationAction);
+    g_object_unref(request);
+
     // FIXME: I think Qt version marshals this to another thread so when we
     // have multi-threaded download, we might need to do the same
-    (core(m_frame)->loader()->*policyFunction)(PolicyUse);
+    if (!isHandled)
+        (core(m_frame)->loader()->*policyFunction)(PolicyUse);
 }
 
 void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction policyFunction, const NavigationAction& action, const ResourceRequest& resourceRequest, PassRefPtr<FormState>)
@@ -305,6 +374,11 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
     ASSERT(policyFunction);
     if (!policyFunction)
         return;
+
+    if (resourceRequest.isNull()) {
+        (core(m_frame)->loader()->*policyFunction)(PolicyIgnore);
+        return;
+    }
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
     WebKitNetworkRequest* request = webkit_network_request_new(resourceRequest.url().string().utf8().data());
@@ -329,36 +403,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         g_object_unref(m_policyDecision);
     m_policyDecision = policyDecision;
 
-    gint button = -1;
-    gint modifierFlags = 0;
-
-    const Event* event = action.event();
-    if (event && event->isMouseEvent()) {
-        const MouseEvent* mouseEvent = static_cast<const MouseEvent*>(event);
-        // DOM button values are 0, 1 and 2 for left, middle and right buttons.
-        // GTK+ uses 1, 2 and 3, so let's add 1 to remain consistent.
-        button = mouseEvent->button() + 1;
-    }
-
-    UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(event));
-    if (keyStateEvent) {
-        if (keyStateEvent->shiftKey())
-            modifierFlags |= GDK_SHIFT_MASK;
-        if (keyStateEvent->ctrlKey())
-            modifierFlags |= GDK_CONTROL_MASK;
-        if (keyStateEvent->altKey())
-            modifierFlags |= GDK_MOD1_MASK;
-        if (keyStateEvent->metaKey())
-            modifierFlags |= GDK_MOD2_MASK;
-    }
-
-    GObject* navigationAction = G_OBJECT(g_object_new(WEBKIT_TYPE_WEB_NAVIGATION_ACTION,
-                                                     "reason", kit(action.type()),
-                                                      "original-uri", action.url().string().utf8().data(),
-                                                      "button", button,
-                                                      "modifier-state", modifierFlags,
-                                                      NULL));
-
+    WebKitWebNavigationAction* navigationAction = getNavigationAction(action);
     gboolean isHandled = false;
     g_signal_emit_by_name(webView, "navigation-policy-decision-requested", m_frame, request, navigationAction, policyDecision, &isHandled);
 
@@ -370,7 +415,7 @@ void FrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunct
         webkit_web_policy_decision_use(m_policyDecision);
 }
 
-Widget* FrameLoaderClient::createPlugin(const IntSize& pluginSize, Element* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
+Widget* FrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
     PluginView* pluginView = PluginView::create(core(m_frame), pluginSize, element, url, paramNames, paramValues, mimeType, loadManually);
 
@@ -393,7 +438,7 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
 
     childFrame->tree()->setName(name);
     childFrame->init();
-    childFrame->loader()->loadURL(url, referrer, String(), FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
+    childFrame->loader()->loadURL(url, referrer, String(), false, FrameLoadTypeRedirectWithLockedBackForwardList, 0, 0);
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -409,7 +454,7 @@ void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
     m_hasSentResponseToPlugin = false;
 }
 
-Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL,
+Widget* FrameLoaderClient::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL,
                                                   const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     notImplemented();
@@ -469,6 +514,10 @@ void FrameLoaderClient::windowObjectCleared()
     // The Win port has an example of how we might do this.
 }
 
+void FrameLoaderClient::documentElementAvailable()
+{
+}
+
 void FrameLoaderClient::didPerformFirstNavigation() const
 {
 }
@@ -524,7 +573,9 @@ void FrameLoaderClient::makeRepresentation(DocumentLoader*)
 
 void FrameLoaderClient::forceLayout()
 {
-    core(m_frame)->forceLayout(true);
+    FrameView* view = core(m_frame)->view();
+    if (view)
+        view->forceLayout(true);
 }
 
 void FrameLoaderClient::forceLayoutForNonHTML()
@@ -569,7 +620,10 @@ void FrameLoaderClient::dispatchWillPerformClientRedirect(const KURL&, double, d
 
 void FrameLoaderClient::dispatchDidChangeLocationWithinPage()
 {
-    notImplemented();
+    WebKitWebFramePrivate* priv = m_frame->priv;
+    g_free(priv->uri);
+    priv->uri = g_strdup(core(m_frame)->loader()->url().prettyURL().utf8().data());
+    g_object_notify(G_OBJECT(m_frame), "uri");
 }
 
 void FrameLoaderClient::dispatchWillClose()
@@ -590,11 +644,18 @@ void FrameLoaderClient::dispatchDidStartProvisionalLoad()
 
 void FrameLoaderClient::dispatchDidReceiveTitle(const String& title)
 {
-    g_signal_emit_by_name(m_frame, "title-changed", title.utf8().data());
+    WebKitWebFramePrivate* priv = m_frame->priv;
+    g_free(priv->title);
+    priv->title = g_strdup(title.utf8().data());
+
+    g_signal_emit_by_name(m_frame, "title-changed", priv->title);
+    g_object_notify(G_OBJECT(m_frame), "title");
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    if (m_frame == webkit_web_view_get_main_frame(webView))
+    if (m_frame == webkit_web_view_get_main_frame(webView)) {
         g_signal_emit_by_name(webView, "title-changed", m_frame, title.utf8().data());
+        g_object_notify(G_OBJECT(webView), "title");
+    }
 }
 
 void FrameLoaderClient::dispatchDidCommitLoad()
@@ -602,15 +663,28 @@ void FrameLoaderClient::dispatchDidCommitLoad()
     /* Update the URI once first data has been received.
      * This means the URI is valid and successfully identify the page that's going to be loaded.
      */
-    WebKitWebFramePrivate* frameData = WEBKIT_WEB_FRAME_GET_PRIVATE(m_frame);
-    g_free(frameData->uri);
-    frameData->uri = g_strdup(core(m_frame)->loader()->url().prettyURL().utf8().data());
+    g_object_freeze_notify(G_OBJECT(m_frame));
+
+    WebKitWebFramePrivate* priv = m_frame->priv;
+    g_free(priv->uri);
+    priv->uri = g_strdup(core(m_frame)->loader()->url().prettyURL().utf8().data());
+    g_free(priv->title);
+    priv->title = NULL;
+    g_object_notify(G_OBJECT(m_frame), "uri");
+    g_object_notify(G_OBJECT(m_frame), "title");
 
     g_signal_emit_by_name(m_frame, "load-committed");
 
     WebKitWebView* webView = getViewFromFrame(m_frame);
-    if (m_frame == webkit_web_view_get_main_frame(webView))
+    if (m_frame == webkit_web_view_get_main_frame(webView)) {
+        g_object_freeze_notify(G_OBJECT(webView));
+        g_object_notify(G_OBJECT(webView), "uri");
+        g_object_notify(G_OBJECT(webView), "title");
+        g_object_thaw_notify(G_OBJECT(webView));
         g_signal_emit_by_name(webView, "load-committed", m_frame);
+    }
+
+    g_object_thaw_notify(G_OBJECT(m_frame));
 }
 
 void FrameLoaderClient::dispatchDidFinishDocumentLoad()
@@ -746,51 +820,57 @@ void FrameLoaderClient::dispatchDidFailLoad(const ResourceError&)
     g_signal_emit_by_name(m_frame, "load-done", false);
 }
 
-void FrameLoaderClient::download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&)
+void FrameLoaderClient::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse&)
 {
-    notImplemented();
+    // FIXME: We could reuse the same handle here, but when I tried
+    // implementing that the main load would fail and stop, so I have
+    // simplified this case for now.
+    handle->cancel();
+    startDownload(request);
 }
 
 ResourceError FrameLoaderClient::cancelledError(const ResourceRequest&)
 {
     notImplemented();
-    return ResourceError();
+    ResourceError error("", 0, "", "");
+    error.setIsCancellation(true);
+    return error;
 }
 
 ResourceError FrameLoaderClient::blockedError(const ResourceRequest&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 ResourceError FrameLoaderClient::cannotShowURLError(const ResourceRequest&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 ResourceError FrameLoaderClient::interruptForPolicyChangeError(const ResourceRequest&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 ResourceError FrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 ResourceError FrameLoaderClient::fileDoesNotExistError(const ResourceResponse&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 ResourceError FrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse&)
 {
     notImplemented();
-    return ResourceError();
+    return ResourceError("", 0, "", "");
 }
 
 bool FrameLoaderClient::shouldFallBack(const ResourceError&)
@@ -832,9 +912,23 @@ void FrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceErro
     }
 }
 
-void FrameLoaderClient::startDownload(const ResourceRequest&)
+void FrameLoaderClient::startDownload(const ResourceRequest& request)
 {
-    notImplemented();
+    WebKitNetworkRequest* networkRequest = webkit_network_request_new(request.url().string().utf8().data());
+    WebKitDownload* download = webkit_download_new(networkRequest);
+    g_object_unref(networkRequest);
+
+    WebKitWebView* view = getViewFromFrame(m_frame);
+    gboolean handled;
+    g_signal_emit_by_name(view, "download-requested", download, &handled);
+
+    if (!handled) {
+        webkit_download_cancel(download);
+        g_object_unref(download);
+        return;
+    }
+
+    webkit_download_start(download);
 }
 
 void FrameLoaderClient::updateGlobalHistory()
@@ -842,7 +936,7 @@ void FrameLoaderClient::updateGlobalHistory()
     notImplemented();
 }
 
-void FrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+void FrameLoaderClient::updateGlobalHistoryRedirectLinks()
 {
     notImplemented();
 }
@@ -865,7 +959,7 @@ void FrameLoaderClient::transitionToCommittedForNewPage()
     Frame* frame = core(m_frame);
     ASSERT(frame);
 
-    WebCore::FrameLoaderClient::transitionToCommittedForNewPage(frame, size, backgroundColor, transparent, IntSize(), false);
+    frame->createView(size, backgroundColor, transparent, IntSize(), false);
 
     // We need to do further manipulation on the FrameView if it was the mainFrame
     if (frame != frame->page()->mainFrame())

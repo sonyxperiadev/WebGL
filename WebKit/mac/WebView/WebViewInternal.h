@@ -81,7 +81,6 @@ typedef WebCore::Page WebCorePage;
 - (id)_UIDelegateForwarder;
 - (id)_editingDelegateForwarder;
 - (id)_policyDelegateForwarder;
-- (id)_scriptDebugDelegateForwarder;
 - (void)_pushPerformingProgrammaticFocus;
 - (void)_popPerformingProgrammaticFocus;
 - (void)_incrementProgressForIdentifier:(id)identifier response:(NSURLResponse *)response;
@@ -145,6 +144,13 @@ typedef WebCore::Page WebCorePage;
 
 + (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
+#if USE(ACCELERATED_COMPOSITING)
+- (BOOL)_needsOneShotDrawingSynchronization;
+- (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
+- (void)_startedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
+- (void)_stoppedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
+#endif
+
 @end
 
 typedef struct _WebResourceDelegateImplementationCache {
@@ -183,8 +189,19 @@ typedef struct _WebFrameLoadDelegateImplementationCache {
     IMP didFinishDocumentLoadForFrameFunc;
 } WebFrameLoadDelegateImplementationCache;
 
+typedef struct _WebScriptDebugDelegateImplementationCache {
+    BOOL didParseSourceExpectsBaseLineNumber;
+    IMP didParseSourceFunc;
+    IMP failedToParseSourceFunc;
+    IMP didEnterCallFrameFunc;
+    IMP willExecuteStatementFunc;
+    IMP willLeaveCallFrameFunc;
+    IMP exceptionWasRaisedFunc;
+} WebScriptDebugDelegateImplementationCache;
+
 WebResourceDelegateImplementationCache* WebViewGetResourceLoadDelegateImplementations(WebView *webView);
 WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementations(WebView *webView);
+WebScriptDebugDelegateImplementationCache* WebViewGetScriptDebugDelegateImplementations(WebView *webView);
 
 #ifdef __cplusplus
 
@@ -219,5 +236,10 @@ id CallResourceLoadDelegate(IMP, WebView *, SEL, id, NSInteger, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
 
 BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id);
+
+id CallScriptDebugDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
+id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, id, NSInteger, id);
+id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, id, id, id);
+id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, NSInteger, id);
 
 #endif

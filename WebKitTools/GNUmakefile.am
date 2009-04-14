@@ -1,0 +1,121 @@
+noinst_PROGRAMS += \
+	Programs/GtkLauncher \
+	Programs/DumpRenderTree
+
+# GtkLauncher
+Programs_GtkLauncher_CPPFLAGS = \
+	-I$(srcdir)/WebKit/gtk \
+	-I$(top_builddir)/WebKit/gtk \
+	$(global_cppflags) \
+	$(javascriptcore_cppflags)
+
+Programs_GtkLauncher_SOURCES = \
+	WebKitTools/GtkLauncher/main.c
+
+Programs_GtkLauncher_CFLAGS = \
+	-ansi \
+	-fno-strict-aliasing \
+	-O2 \
+	$(global_cflags) \
+	$(GTK_CFLAGS) \
+	$(LIBSOUP_CFLAGS)
+
+Programs_GtkLauncher_LDADD = \
+	libwebkit-1.0.la \
+	$(GTK_LIBS)
+
+# DumpRenderTree
+dumprendertree_cppflags := \
+	-I$(srcdir)/WebKitTools/DumpRenderTree \
+	-I$(srcdir)/WebKitTools/DumpRenderTree/gtk \
+	-I$(srcdir)/WebKit/gtk \
+	-I$(top_builddir)/WebKit/gtk \
+	$(global_cppflags) \
+	$(javascriptcore_cppflags)
+
+Programs_DumpRenderTree_CPPFLAGS = $(dumprendertree_cppflags)
+
+Programs_DumpRenderTree_SOURCES = \
+	WebKitTools/DumpRenderTree/AccessibilityController.h \
+	WebKitTools/DumpRenderTree/AccessibilityUIElement.h \
+	WebKitTools/DumpRenderTree/DumpRenderTree.h \
+	WebKitTools/DumpRenderTree/DumpRenderTreePrefix.h \
+	WebKitTools/DumpRenderTree/GCController.cpp \
+	WebKitTools/DumpRenderTree/GCController.h \
+	WebKitTools/DumpRenderTree/JavaScriptThreading.h \
+	WebKitTools/DumpRenderTree/LayoutTestController.cpp \
+	WebKitTools/DumpRenderTree/LayoutTestController.h \
+	WebKitTools/DumpRenderTree/PixelDumpSupport.h \
+	WebKitTools/DumpRenderTree/WorkQueue.cpp \
+	WebKitTools/DumpRenderTree/WorkQueue.h \
+	WebKitTools/DumpRenderTree/WorkQueueItem.h \
+	WebKitTools/DumpRenderTree/config.h \
+	WebKitTools/DumpRenderTree/gtk/DumpRenderTree.cpp \
+	WebKitTools/DumpRenderTree/gtk/DumpRenderTreeGtk.h \
+	WebKitTools/DumpRenderTree/gtk/GCControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/LayoutTestControllerGtk.cpp \
+	WebKitTools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp
+
+Programs_DumpRenderTree_CXXFLAGS = \
+	$(global_cxxflags) \
+	$(Programs_DumpRenderTree_CFLAGS)
+
+Programs_DumpRenderTree_CFLAGS = \
+	-fno-strict-aliasing \
+	-O2 \
+	$(global_cflags) \
+	$(GLOBALDEPS_CFLAGS) \
+	$(CAIRO_CFLAGS) \
+	$(GTK_CFLAGS) \
+	$(LIBSOUP_CFLAGS)
+
+Programs_DumpRenderTree_LDADD = \
+	libwebkit-1.0.la \
+	$(GLOBALDEPS_LIBS) \
+	$(CAIRO_LIBS) \
+	$(GTK_LIBS)
+
+# clean target
+CLEANFILES += \
+	Programs/GtkLauncher \
+	Programs/DumpRenderTree
+
+
+if TARGET_X11
+
+# Build TestNetscapePlugin only for X11
+# since we don't support plugins for non-X11 builds at the moment.
+noinst_LTLIBRARIES += \
+	TestNetscapePlugin/libtestnetscapeplugin.la
+
+dumprendertree_cppflags += \
+	-DTEST_PLUGIN_DIR=\"${shell pwd}/${top_builddir}/TestNetscapePlugin/.libs\"
+
+TestNetscapePlugin_libtestnetscapeplugin_la_CPPFLAGS = \
+	-I$(srcdir)/WebKitTools/DumpRenderTree \
+	-I$(srcdir)/WebKitTools/DumpRenderTree/gtk/TestNetscapePlugin/ForwardingHeaders \
+	-I$(srcdir)/WebCore \
+	-I$(srcdir)/WebCore/bridge \
+	-I$(srcdir)/WebCore/plugins \
+	-I$(srcdir)/WebKitTools/DumpRenderTree/TestNetscapePlugIn.subproj \
+	$(global_cppflags) \
+	$(javascriptcore_cppflags)
+
+TestNetscapePlugin_libtestnetscapeplugin_la_SOURCES = \
+	WebKitTools/DumpRenderTree/gtk/TestNetscapePlugin/ForwardingHeaders/WebKit/npapi.h \
+	WebKitTools/DumpRenderTree/gtk/TestNetscapePlugin/ForwardingHeaders/WebKit/npfunctions.h \
+	WebKitTools/DumpRenderTree/gtk/TestNetscapePlugin/ForwardingHeaders/WebKit/npruntime.h \
+	WebKitTools/DumpRenderTree/gtk/TestNetscapePlugin/TestNetscapePlugin.cpp \
+	WebKitTools/DumpRenderTree/TestNetscapePlugIn.subproj/PluginObject.cpp \
+	WebKitTools/DumpRenderTree/TestNetscapePlugIn.subproj/PluginObject.h \
+	WebKitTools/DumpRenderTree/TestNetscapePlugIn.subproj/TestObject.cpp \
+	WebKitTools/DumpRenderTree/TestNetscapePlugIn.subproj/TestObject.h
+
+TestNetscapePlugin_libtestnetscapeplugin_la_LDFLAGS = \
+	-rpath ${shell pwd}/$(top_builddir)/TestNetscapePlugin/.libs \
+	$(no_undefined) \
+	-avoid-version \
+	-module
+
+CLEANFILES += TestNetscapePlugin/libtestnetscapeplugin.la
+endif

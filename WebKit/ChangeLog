@@ -1,3 +1,114 @@
+2009-03-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        * English.lproj/Localizable.strings: Updated.
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2009-03-13  Greg Bolsinga  <bolsinga@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update Geolocation perimission dialogs to be asynchronous.
+        https://bugs.webkit.org/show_bug.cgi?id=24505
+
+        Add WebGeolocation, a wrapper around WebCore::Geolocation. It mimics the
+        coding style set by WebSecurityOrigin.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-03-13  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/6610666> Revise the Cocoa event model text API
+        
+        Remove nptextinput.h
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-03-03  David Kilzer  <ddkilzer@apple.com>
+
+        <rdar://problem/6581203> WebCore and WebKit should install the same set of headers during installhdrs phase as build phase
+
+        Reviewed by Mark Rowe.
+
+        The fix is to add INSTALLHDRS_COPY_PHASE = YES and
+        INSTALLHDRS_SCRIPT_PHASE = YES to WebKit.xcconfig, then to
+        make sure various build phase scripts work with the installhdrs
+        build phase.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        - Added shell code to prevent running "Check For Global
+          Initializers", "Check For Exit Time Destructors" and "Check
+          For Weak VTables" scripts during the installhdrs build phase.
+        - Removed UMBRELLA_FRAMEWORKS_DIR from the Debug and Release
+          targets since it's no longer needed after defining
+          WEBCORE_PRIVATE_HEADERS_DIR in WebKit.xcconfig.
+
+2009-03-03  David Kilzer  <ddkilzer@apple.com>
+
+        Remove last vestiges of JAVASCRIPTCORE_PRIVATE_HEADERS_DIR from WebKit
+
+        Reviewed by Adam Roben.
+
+        Use of JAVASCRIPTCORE_PRIVATE_HEADERS_DIR was removed in r37465
+        since NPAPI headers had migrated from JavaScriptCore to WebCore
+        before that.
+
+        * WebKit.xcodeproj/project.pbxproj: Removed
+        JAVASCRIPTCORE_PRIVATE_HEADERS_DIR build setting from from Debug
+        and Release configurations.
+
+2009-03-02  Anders Carlsson  <andersca@apple.com>
+
+        WebNetscapePluginPackage.mm is an Objective-C++ file.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-03-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Rename WebNetscapePluginPackage.m to WebNetscapePluginPackage.mm
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-02-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add new files.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-02-13  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2009-02-07  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2009-02-04  Timothy Hatcher  <timothy@apple.com>
+
+        Removed the WebDefaultScriptDebugDelegate now that we have CallScriptDebugDelegate.
+
+        <rdar://problem/6508457> Launching widget in Dashcode debugger is
+        super-slow due forwardInvocation: calling debug delegate
+
+        Reviewed by Oliver Hunt.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2009-02-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+        
+        Remove WebKitPluginContainerView.{h|mm}, they aren't used anywhere.
+        
+        * WebKit.xcodeproj/project.pbxproj:
+
 2009-01-26  Mark Rowe  <mrowe@apple.com>
 
         Rubber-stamped by Sam Weinig.

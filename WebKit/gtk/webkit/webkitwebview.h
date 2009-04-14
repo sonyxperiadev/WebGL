@@ -23,6 +23,7 @@
 #define WEBKIT_WEB_VIEW_H
 
 #include <gtk/gtk.h>
+#include <libsoup/soup.h>
 #include <JavaScriptCore/JSBase.h>
 
 #include <webkit/webkitdefines.h>
@@ -49,8 +50,8 @@ typedef enum {
 
 typedef enum
 {
-    WEBKIT_WEB_VIEW_TARGET_INFO_HTML = - 1,
-    WEBKIT_WEB_VIEW_TARGET_INFO_TEXT = - 2
+    WEBKIT_WEB_VIEW_TARGET_INFO_HTML,
+    WEBKIT_WEB_VIEW_TARGET_INFO_TEXT
 } WebKitWebViewTargetInfo;
 
 struct _WebKitWebView {
@@ -126,6 +127,12 @@ webkit_web_view_get_type (void);
 WEBKIT_API GtkWidget *
 webkit_web_view_new (void);
 
+WEBKIT_API G_CONST_RETURN gchar *
+webkit_web_view_get_title                       (WebKitWebView        *web_view);
+
+WEBKIT_API G_CONST_RETURN gchar *
+webkit_web_view_get_uri                         (WebKitWebView        *web_view);
+
 WEBKIT_API void
 webkit_web_view_set_maintains_back_forward_list (WebKitWebView        *web_view,
                                                  gboolean              flag);
@@ -171,16 +178,24 @@ WEBKIT_API void
 webkit_web_view_reload_bypass_cache             (WebKitWebView        *web_view);
 
 WEBKIT_API void
+webkit_web_view_load_uri                        (WebKitWebView        *web_view,
+                                                 const gchar          *uri);
+
+WEBKIT_API void
 webkit_web_view_load_string                     (WebKitWebView        *web_view,
                                                  const gchar          *content,
-                                                 const gchar          *content_mime_type,
-                                                 const gchar          *content_encoding,
+                                                 const gchar          *mime_type,
+                                                 const gchar          *encoding,
                                                  const gchar          *base_uri);
 
 WEBKIT_API void
 webkit_web_view_load_html_string                (WebKitWebView        *web_view,
                                                  const gchar          *content,
                                                  const gchar          *base_uri);
+
+WEBKIT_API void
+webkit_web_view_load_request                    (WebKitWebView        *web_view,
+                                                 WebKitNetworkRequest *request);
 
 WEBKIT_API gboolean
 webkit_web_view_search_text                     (WebKitWebView        *web_view,
@@ -295,6 +310,19 @@ webkit_web_view_get_full_content_zoom           (WebKitWebView        *web_view)
 WEBKIT_API void
 webkit_web_view_set_full_content_zoom           (WebKitWebView        *web_view,
                                                  gboolean              full_content_zoom);
+
+WEBKIT_API SoupSession*
+webkit_get_default_session                      (void);
+
+WEBKIT_API const gchar*
+webkit_web_view_get_encoding                    (WebKitWebView        * webView);
+
+WEBKIT_API void
+webkit_web_view_set_custom_encoding             (WebKitWebView        * webView,
+                                                 const gchar          * encoding);
+
+WEBKIT_API const char*
+webkit_web_view_get_custom_encoding             (WebKitWebView        * webView);
 
 G_END_DECLS
 

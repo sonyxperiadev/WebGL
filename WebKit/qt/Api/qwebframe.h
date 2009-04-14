@@ -25,6 +25,7 @@
 #include <QtCore/qurl.h>
 #include <QtCore/qvariant.h>
 #include <QtGui/qicon.h>
+#include <QtScript/qscriptengine.h>
 #if QT_VERSION >= 0x040400
 #include <QtNetwork/qnetworkaccessmanager.h>
 #endif
@@ -77,6 +78,7 @@ public:
     QUrl linkUrl() const;
     QUrl linkTitle() const;
     QWebFrame *linkTargetFrame() const;
+    QString linkTarget() const;
 
     QString alternateText() const; // for img, area, input and applet
 
@@ -129,6 +131,7 @@ public:
     void setContent(const QByteArray &data, const QString &mimeType = QString(), const QUrl &baseUrl = QUrl());
 
     void addToJavaScriptWindowObject(const QString &name, QObject *object);
+    void addToJavaScriptWindowObject(const QString &name, QObject *object, QScriptEngine::ValueOwnership ownership);
     QString toHtml() const;
     QString toPlainText() const;
     QString renderTreeDump() const;
