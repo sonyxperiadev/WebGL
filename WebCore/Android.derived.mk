@@ -30,6 +30,20 @@
 #	page/AbstractView.idl \
 #	page/PositionCallback.idl \
 #	page/Worker*.idl \
+#	svg/ElementTimeControl.idl \
+#	svg/SVGAnimatedPathData.idl \
+#	svg/SVGAnimatedPoints.idl \
+#	svg/SVGExternalResourcesRequired.idl \
+#	svg/SVGFilterPrimitiveStandardAttributes.idl \
+#	svg/SVGFitToViewBox.idl \
+#	svg/SVGLangSpace.idl \
+#	svg/SVGLocatable.idl \
+#	svg/SVGStylable.idl \
+#	svg/SVGTests.idl \
+#	svg/SVGTransformable.idl \
+#	svg/SVGURIReference.idl \
+#	svg/SVGViewSpec.idl \
+#	svg/SVGZoomAndPan.idl \
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 

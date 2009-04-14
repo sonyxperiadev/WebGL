@@ -26,6 +26,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <stdlib.h>
+#include <string.h>
 
 using namespace std;
 
@@ -59,9 +61,10 @@ bool assert_debug;
 
 class Options {
 public:
-    Options() : mergeMake(true), copyOther(true), mergeCore(true),
+    Options() : emitPerforceCommands(true), mergeMake(true), copyOther(true), 
+        mergeCore(true),
         removeEmptyDirs(true), removeSVNDirs(true), debug(false), 
-        verbose(false), cleared(false)
+        execute(false), verbose(false), cleared(false)
     {
     }
     
@@ -76,12 +79,14 @@ public:
     string androidWebKit;
     string baseWebKit;
     string newWebKit;
+    bool emitPerforceCommands;
     bool mergeMake;
     bool copyOther;
     bool mergeCore;
     bool removeEmptyDirs;
     bool removeSVNDirs;
     bool debug;
+    bool execute;
     bool verbose;
 private:
     bool cleared;
@@ -757,7 +762,8 @@ void UpdateDerivedMake()
     char* makeFile = GetMakeAndExceptions(dir, "Android.derived.mk", &makeSize,
         &excludedFiles, &excludedGenerated, &excludedDirs, &androidFiles, 
         &start, &localStart);
-    fprintf(commandFile, "p4 edit %s/%s/%s\n", sandboxCmd, dir, "Android.derived.mk");
+    if (options.emitPerforceCommands)
+        fprintf(commandFile, "p4 edit %s/%s/%s\n", sandboxCmd, dir, "Android.derived.mk");
     fprintf(commandFile, "cat %s/%s/%s | sed \\\n", sandboxCmd, dir, "Android.derived.mk");
     string updateDerivedMake = ScratchFile(__FUNCTION__);
     string filelist = string("cd ") + newBase + "/" + dir + 
@@ -935,6 +941,18 @@ void UpdateDerivedMake()
         sandboxCmd, dir, "xAndroid.derived.mk", sandboxCmd, dir, "Android.derived.mk");
 }
 
+size_t MatchLen(const char* one, const char* two, size_t len)
+{
+    bool svgIn1 = strstr(one, "svg") || strstr(one, "SVG");
+    bool svgIn2 = strstr(two, "svg") || strstr(two, "SVG");
+    if (svgIn1 != svgIn2)
+        return 0;
+    size_t original = len;
+    while (*one++ == *two++ && --len >= 0)
+        ;
+    return original - len;
+}
+
 // create the list of sed commands to update the WebCore Make file
 void UpdateMake(const char* dir)
 {
@@ -945,6 +963,8 @@ void UpdateMake(const char* dir)
     char* makeFile = GetMakeAndExceptions(dir, "Android.mk", &makeSize,
         &excludedFiles, NULL, &excludedDirs, &androidFiles, &start, &localStart);
     char* lastFileName = NULL;
+    size_t lastFileNameLen = 0;
+    int lastLineNumber = -1;
     // get the actual list of files
     string updateMakeStr = ScratchFile(__FUNCTION__);
     string filelist = string("cd ") + newBase + "/" + dir + " ;" 
@@ -962,42 +982,71 @@ void UpdateMake(const char* dir)
         start += strlen(start) + 1;
     } while (start < makeFile + makeSize);
     myassert(start[0] != '\0');
-    fprintf(commandFile, "p4 edit %s/%s/%s\n", sandboxCmd, dir, "Android.mk");
+    if (options.emitPerforceCommands)
+        fprintf(commandFile, "p4 edit %s/%s/%s\n", sandboxCmd, dir, "Android.mk");
     fprintf(commandFile, "cat %s/%s/%s | sed ", sandboxCmd, dir, "Android.mk");
+    int lineNumber = 0;
     do {
         start += strlen(start) + 1;
-        if (start[0] == '\\')
-            continue;
-        if (strstr(start, "android") != NULL)
-            continue;
-        if (start[0] == '\0')
+        lineNumber++;
+        if (start - makeFile >= makeSize || start[0] == '$')
             break;
-        char* end = start + strlen(start);
-        if (end[-1] == '\r')
-            --end;
-        if (*--end != '\\')
-            break;
-        while (start < end && start[0] <= ' ')
-            start++;
-        while (start < end && end[-1] <= ' ')
-            --end;
-        if (start >= end)
+        if (start[0] == '\0' || !isspace(start[0]))
             continue;
-        *end = '\0';
-        
-        if (lastFileName != NULL)
-            myassert(strcmp(lastFileName, start) < 0);
-        while (newList[0] && strcmp(newList, start) < 0) { // add a file
-            string escaped = SedEscape(start);
-            fprintf(commandFile, "-e '/%s/ i\\\n_TAB_%s \\\\\n' ", 
-                escaped.c_str(), newList);
-            newList += strlen(newList) + 1;
+        skipSpace(&start);
+        if (start[0] == '\0' || start[0] == '\\')
+            continue;
+        size_t startLen = strlen(start);
+        if (start[startLen - 1] == '\\')
+            --startLen;
+        while (isspace(start[startLen - 1]))
+            --startLen;
+        size_t newListLen = strlen(newList);
+        if (lastFileName != NULL) {
+            myassert(strncmp(start, lastFileName, startLen) > 0 || 
+                startLen > lastFileNameLen);
         }
-        if (newList[0] == '\0' || strcmp(newList, start) > 0) {
+        if (strstr(start, "android") != NULL || strstr(start, "Android") != NULL) {
+            if (startLen == newListLen && strncmp(newList, start, startLen) == 0)
+                newList += newListLen + 1;
+            lastFileName = start;
+            lastFileNameLen = startLen;
+            lastLineNumber = lineNumber;
+            continue;
+        }
+        int compare;
+        bool backslash = lastFileName &&
+            lastFileName[strlen(lastFileName) - 1] == '\\';
+        do {
+            compare = strncmp(newList, start, startLen);
+            if (compare == 0 && startLen != newListLen)
+                compare = newListLen < startLen ? -1 : 1;
+            if (newList[0] == '\0' || compare >= 0) 
+                break;
+            // add a file
+            if (lastFileName && lineNumber - lastLineNumber > 1 &&
+                    MatchLen(lastFileName, newList, lastFileNameLen) >
+                    MatchLen(start, newList, startLen)) {
+                string escaped = SedEscape(lastFileName);
+                if (!backslash)
+                    fprintf(commandFile, "-e '/%s/ s/$/ \\\\/' ", escaped.c_str());
+                fprintf(commandFile, "-e '/%s/ a\\\n_TAB_%s%s\n' ", 
+                    SedEscape(lastFileName).c_str(), newList, 
+                    backslash ? " \\\\" : "");
+                lastFileName = newList;
+                lastFileNameLen = newListLen;
+            } else {
+                fprintf(commandFile, "-e '/%s/ i\\\n_TAB_%s \\\\\n' ", 
+                    SedEscape(start).c_str(), newList);
+            }
+            newList += newListLen + 1;
+            newListLen = strlen(newList);
+        } while (true);
+        if (newList[0] == '\0' || compare > 0) {
             // don't delete files added by Android
             string localMakeStr = ScratchFile("LocalMake");
-            string filter = string("echo '") + start + "' | " + androidFiles +
-                " > " + localMakeStr;
+            string filter = "echo '" + string(start).substr(0, startLen) + 
+                "' | " + androidFiles + " > " + localMakeStr;
             int err = system(filter.c_str());
             myassert(err == 0 || err == 256);
             char* localMake = GetFile(localMakeStr);
@@ -1006,8 +1055,10 @@ void UpdateMake(const char* dir)
                 fprintf(commandFile, "-e '/%s/ d' ", escaped.c_str());
             }
         } else
-            newList += strlen(newList) + 1;
+            newList += newListLen + 1;
         lastFileName = start;
+        lastFileNameLen = startLen;
+        lastLineNumber = lineNumber;
     } while (true);
     fprintf(commandFile, " | sed 's/^_TAB_/\t/' > %s/%s/%s\n", sandboxCmd, dir, "xAndroid.mk");
     fprintf(commandFile, "mv  %s/%s/%s %s/%s/%s\n", 
@@ -1119,6 +1170,7 @@ void CompareDirs(const char* workingDir, bool renamePass)
         if (order < 0) { // file in old list is not in new
             // check to see if file is read only ; if so, call p4 delete -- otherwise, just call delete
             if (oldDir == false) {
+                bool modifiedFile = false;
                 // check to see if android modified deleted file
                 if (sandOrder == 0) {
                     string rename(workingDir);
@@ -1144,11 +1196,14 @@ void CompareDirs(const char* workingDir, bool renamePass)
                             renamedDir = newName.c_str();
                             char* renamed = strrchr(renamedDir, '/');
                             *renamed++ = '\0'; // splits rename into two strings
-                            fprintf(commandFile, "p4 integrate \"%s/%s/%s\" \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile,
-                                sandboxCmd, renamedDir, renamed);
-                            fprintf(commandFile, "p4 resolve \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
+                            if (options.emitPerforceCommands) {
+                                fprintf(commandFile, "p4 integrate \"%s/%s/%s\" \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile,
+                                    sandboxCmd, renamedDir, renamed);
+                                fprintf(commandFile, "p4 resolve \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
+                            }
                             if (oldSandboxDiff) {
-                                fprintf(commandFile, "p4 open \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
+                                if (options.emitPerforceCommands)
+                                    fprintf(commandFile, "p4 open \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
                                 fprintf(commandFile,  "merge -q \"%s/%s/%s\" \"%s/%s/%s\" \"%s/%s/%s\"\n", 
                                     sandboxCmd, renamedDir, renamed, oldCmd, workingDir, oldFile, newCmd, renamedDir, renamed);
                                 bool success = Merge(workingDir, oldFile, renamedDir, renamed, "/dev/null");
@@ -1164,24 +1219,38 @@ void CompareDirs(const char* workingDir, bool renamePass)
                             } else {
                                 bool oldNewDiff = CompareFiles(oldBase, workingDir, oldList, newBase, renamedDir, renamed);
                                 if (oldNewDiff) {
-                                    fprintf(oopsFile, "p4 open \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
+                                    if (options.emitPerforceCommands)
+                                        fprintf(oopsFile, "p4 open \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
                                     fprintf(oopsFile, "cp \"%s/%s/%s\" \"%s/%s/%s\"\n",
                                             newCmd, renamedDir, renamed, sandboxCmd, renamedDir, renamed);
                                 }
                             }
                         } else if (oldSandboxDiff) {
+                            modifiedFile = true;
                             fprintf(stderr, "*** Modified file deleted: %s/%s\n", workingDir, oldFile);
 //                                FindDeletedAndroidChanges(workingDir, oldFile);
                         }
                     } // if renamePass == false
                 } // if sandOrder == 0
-                fprintf(commandFile, "p4 delete \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
+                if (modifiedFile) {
+                    fprintf(commandFile, "cat \"%s/%s/%s\" | sed -e '1 i\\\n#ifdef MANUAL_MERGE_REQUIRED\n' "
+                        "-e '$ a\\\n#endif \\/\\/ MANUAL_MERGE_REQUIRED\n' > \"%s/%s/x%s\"\n", 
+                        sandboxCmd, workingDir, oldFile, sandboxCmd, workingDir, oldFile);
+                    fprintf(commandFile, "mv \"%s/%s/x%s\" \"%s/%s/%s\"\n",
+                        sandboxCmd, workingDir, oldFile, sandboxCmd, workingDir, oldFile);
+                } else if (options.emitPerforceCommands)
+                    fprintf(commandFile, "p4 delete \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
+                else
+                    fprintf(commandFile, "rm \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
             } else { // if oldDir != false
  // !!! FIXME               start here;
                     // check to see if old directory is empty ... (e.g., WebCore/doc)
                     // ... and/or isn't in sandbox anyway (e.g., WebCore/LayoutTests)
                         // if old directory is in sandbox (e.g. WebCore/kcanvas) that should work
-                fprintf(commandFile, "p4 delete \"%s/%s/%s/...\"\n", sandboxCmd, workingDir, oldFile);
+                if (options.emitPerforceCommands)
+                    fprintf(commandFile, "p4 delete \"%s/%s/%s/...\"\n", sandboxCmd, workingDir, oldFile);
+                else
+                    fprintf(commandFile, "rm \"%s/%s/%s/...\"\n", sandboxCmd, workingDir, oldFile);
                 if (renamePass == false)
                     fprintf(stderr, "*** Directory deleted: %s/%s\n", workingDir, oldFile);
             }
@@ -1210,9 +1279,10 @@ void CompareDirs(const char* workingDir, bool renamePass)
                             fprintf(copyDirFile, "find \"%s/%s/%s\" -type f -print | "
                                 "sed 's@%s/\\(.*\\)@cp %s/\\1 %s/\\1@' | bash -s\n",
                                 newCmd, workingDir, newFile, newCmd, newCmd, sandboxCmd);
-                            fprintf(copyDirFile, "find \"%s/%s/%s\" -type f -print | "
-                                "p4 -x - add\n", 
-                                sandboxCmd, workingDir, newFile);
+                            if (options.emitPerforceCommands)
+                                fprintf(copyDirFile, "find \"%s/%s/%s\" -type f -print | "
+                                    "p4 -x - add\n", 
+                                    sandboxCmd, workingDir, newFile);
                         }
                     } else {
 //                        if (emptyDirectory(sandboxBase, workingDir)) {
@@ -1234,7 +1304,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         if (edit == false) {
                             fprintf(commandFile, "cp \"%s/%s/%s\" \"%s/%s/%s\"\n", 
                                 newCmd, workingDir, newFile, sandboxCmd, workingDir, newFile);
-                            fprintf(commandFile, "p4 add \"%s/%s/%s\"\n", sandboxCmd, workingDir, newFile);
+                                if (options.emitPerforceCommands)
+                                    fprintf(commandFile, "p4 add \"%s/%s/%s\"\n", sandboxCmd, workingDir, newFile);
                         }
                     }
                 }
@@ -1256,9 +1327,10 @@ void CompareDirs(const char* workingDir, bool renamePass)
                     fprintf(copyDirFile, "find \"%s/%s\" -type f -print | "
                         "sed 's@%s/\\(.*\\)@cp %s/\\1 %s/\\1@' | bash -s\n",
                         newCmd, newFile, newCmd, newCmd, sandboxCmd);
-                    fprintf(copyDirFile, "find \"%s/%s\" -type f -print | "
-                        "p4 -x - add\n", 
-                        sandboxCmd, newFile);
+                    if (options.emitPerforceCommands)
+                        fprintf(copyDirFile, "find \"%s/%s\" -type f -print | "
+                            "p4 -x - add\n", 
+                            sandboxCmd, newFile);
                 }
              } else
                 CompareDirs(newFile, renamePass);
@@ -1272,7 +1344,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
         //    Diff(oldBase, sandboxBase, workingDir, oldFile);
             bool oldNewDiff = CompareFiles(oldBase, newBase, workingDir, oldList);
             if (oldNewDiff && sandOrder == 0 && renamePass == false) { // if it changed, see if android also changed it
-                fprintf(commandFile, "p4 edit \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
+                if (options.emitPerforceCommands)
+                    fprintf(commandFile, "p4 edit \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
                 bool oldSandboxDiff = CompareFiles(oldBase, sandboxBase, workingDir, oldFile);
                 if (oldSandboxDiff) {
                     fprintf(commandFile,  "merge -q \"%s/%s/%s\" \"%s/%s/%s\" \"%s/%s/%s\"\n", 
@@ -1363,7 +1436,6 @@ static void copyToCommand(char* scratch, string file)
 }
 
 #define WEBKIT_EXCLUDED_DIRECTORIES \
-        "-not -path \"*.svn*\" " \
         "-not -path \"*Tests\" " /* includes LayoutTests, PageLoadTests */ \
         "-not -path \"*Tests/*\" " /* includes LayoutTests, PageLoadTests */ \
         "-not -path \"*Site\" " /* includes BugsSite, WebKitSite */ \
@@ -1377,7 +1449,7 @@ static void copyToCommand(char* scratch, string file)
         "-e '/\\/JavaScriptCore\\// d' " \
         "-e '/\\/WebCore\\// d' " \
         "-e '/Android.mk/ d' " \
-        "-e '/android/ d' "
+        "-e '/android$/ d' "
 
 void CopyOther(const char* fromBase, const char* toBase, const char* fromCmd,
     const char* toCmd)
@@ -1396,50 +1468,71 @@ void CopyOther(const char* fromBase, const char* toBase, const char* fromCmd,
         " > %s", toBase, copyOtherAndroid.c_str());
     doSystem(scratch);
     string copyOtherMkDir = ScratchFile("CopyOtherMkDir");
-    sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
-        "@mkdir %s/\\1@' "
-        "-e '/^[0-9].*/ d' "
-        "-e '/>.*/ d' "
-        "-e '/---/ d' "
-        "-e '/\\/JavaScriptCore\\// d' "
-        "-e '/\\/WebCore\\// d' "
-        "> %s", copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), toCmd, 
-        copyOtherMkDir.c_str());
-    copyToCommand(scratch, copyOtherMkDir);
+    if (0) {
+        sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
+            "@mkdir %s/\\1@' "
+            "-e '/^[0-9].*/ d' "
+            "-e '/>.*/ d' "
+            "-e '/---/ d' "
+            "-e '/\\/JavaScriptCore\\// d' "
+            "-e '/\\/WebCore\\// d' "
+            "> %s", copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), toCmd, 
+            copyOtherMkDir.c_str());
+        if (options.debug)
+            fprintf(stderr, "%s\n", scratch);
+        copyToCommand(scratch, copyOtherMkDir);
+    }
     string copyOtherDiff = ScratchFile("CopyOtherDiff");
-    sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
-        "@find %s/\\1 -type f -depth 1 -exec cp {} %s \";\" ; "
-        "find %s/\\1 -type f -depth 1 | p4 -x - add@' "
+    int scratchLen = sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
+        "@mkdir -p -v %s/\\1 ; find %s/\\1 -type f -depth 1 -exec cp {} %s/\\1 \";\" ; ",
+        copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), toCmd, fromCmd, 
+        toCmd);
+    if (options.emitPerforceCommands)
+        scratchLen += sprintf(&scratch[scratchLen],
+            "find %s/\\1 -type f -depth 1 | p4 -x - add@' ", toCmd);
+    scratchLen += sprintf(&scratch[scratchLen],
         "-e '/^[0-9].*/ d' "
         "-e '/>.*/ d' "
         "-e '/---/ d' "
         "-e '/\\/JavaScriptCore\\// d' "
         "-e '/\\/WebCore\\// d' "
-        "> %s", copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), fromCmd, 
-        toCmd, toCmd, copyOtherDiff.c_str());
+        "> %s", copyOtherDiff.c_str());
     copyToCommand(scratch, copyOtherDiff);
     string deleteOtherDiff = ScratchFile("DeleteOtherDiff");
     sprintf(scratch, "diff -r -q %s %s | sed -e "
         "'s@Only in %s/\\(.*\\)\\: \\(.*\\)"
-            "@p4 delete %s/\\1/\\2@' "
+            "@%s %s/\\1/\\2@' "
         ANDROID_EXCLUDED_FILES
-        "> %s", fromBase, toBase, toBase, toCmd, deleteOtherDiff.c_str());
+        "> %s", fromBase, toBase, toBase, 
+        options.emitPerforceCommands ? "p4 delete" : "rm",
+        toCmd, deleteOtherDiff.c_str());
+    if (options.debug)
+        fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, deleteOtherDiff);
     string addOtherDiff = ScratchFile("AddOtherDiff");
-    sprintf(scratch, "diff -r -q %s %s | sed -e "
+    scratchLen = sprintf(scratch, "diff -r -q %s %s | sed -e "
         "'s@Only in %s/\\(.*\\)\\: \\(.*\\)"
-            "@cp %s/\\1/\\2 %s/\\1/\\2 ; p4 add %s/\\1/\\2@' "
+            "@mkdir -p -v %s/\\1 ; cp %s/\\1/\\2 %s/\\1/\\2 ",
+            fromBase, toBase, fromBase, toCmd, fromCmd, toCmd);
+    if (options.emitPerforceCommands)
+        scratchLen += sprintf(&scratch[scratchLen],
+            "; p4 add %s/\\1/\\2@", toCmd);
+    scratchLen += sprintf(&scratch[scratchLen], "' "
         ANDROID_EXCLUDED_FILES
-        "> %s", fromBase, toBase, fromBase, fromCmd, toCmd, toCmd, 
-        addOtherDiff.c_str());
+        "> %s", addOtherDiff.c_str());
     copyToCommand(scratch, addOtherDiff);
     string editOtherDiff = ScratchFile("EditOtherDiff");
-    sprintf(scratch, "diff -r -q %s %s | sed -e "
-        "'s@Files %s/\\(.*\\) and %s/\\(.*\\) differ"
-            "@p4 edit %s/\\2 ; cp %s/\\1 %s/\\2@' "
+    scratchLen = sprintf(scratch, "diff -r -q %s %s | sed -e "
+        "'s@Files %s/\\(.*\\) and %s/\\(.*\\) differ@",
+        fromBase, toBase, fromBase, toBase);
+    if (options.emitPerforceCommands)
+        scratchLen += sprintf(&scratch[scratchLen],
+            "p4 edit %s/\\2 ; ", toCmd);
+    scratchLen += sprintf(&scratch[scratchLen], "cp %s/\\1 %s/\\2@' "
         ANDROID_EXCLUDED_FILES
-        "> %s", fromBase, toBase, fromBase, toBase, toCmd, fromCmd, toCmd, 
-        editOtherDiff.c_str());
+        "> %s", fromCmd, toCmd, editOtherDiff.c_str());
+    if (options.debug)
+        fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, editOtherDiff);
 }
 
@@ -1486,6 +1579,10 @@ bool ReadArgs(char* const args[], int argCount)
             options.removeEmptyDirs = true;
             continue;
         }
+        if (strncmp(arg, "-g", 2) == 0 || strcmp(arg, "--git") == 0) {
+            options.emitPerforceCommands = false;
+            continue;
+        }
         if (strncmp(arg, "-m", 2) == 0 || strcmp(arg, "--mergemake") == 0) {
             options.clearOnce();
             options.mergeMake = true;
@@ -1499,6 +1596,10 @@ bool ReadArgs(char* const args[], int argCount)
         if (strncmp(arg, "-o", 2) == 0 || strcmp(arg, "--copyother") == 0) {
             options.clearOnce();
             options.copyOther = true;
+            continue;
+        }
+        if (strncmp(arg, "-p", 2) == 0 || strcmp(arg, "--perforce") == 0) {
+            options.emitPerforceCommands = true;
             continue;
         }
         if (strncmp(arg, "-s", 2) == 0 || strcmp(arg, "--removesvn") == 0) {
@@ -1515,24 +1616,32 @@ bool ReadArgs(char* const args[], int argCount)
             system("rm pwd.txt");
             continue;
         }
+        if (strncmp(arg, "-x", 2) == 0 || strcmp(arg, "--execute") == 0) {
+            options.execute = true;
+            continue;
+        }
         if (strncmp(arg, "-h", 2) != 0 && strcmp(arg, "--help") != 0 && strcmp(arg, "-?") != 0)
             printf("%s not understood\n", args[index]);
         printf(
 "WebKit Merge for Android version 1.0\n"
 "usage: webkitmerge -a path -b path -n path [-c -e -m -o -s] [-v]\n"
 "options -c -e -m -o -s are set by default, unless one or more is passed.\n"
+"option -p is set by default, unless -g is passed.\n"
 "-a --android path     Set the Android webkit path to merge to.\n"
 "-b --basewebkit path  Set the common base for Android and the newer webkit.\n"
 "-c --mergecore        Create merge scripts for WebCore, JavaScriptCore .h .cpp.\n"
 "-d --debug            Show debugging printfs; loop forever on internal assert.\n"
 "-e --emptydirs        Remove empty directories from webkit trees.\n"
+"-g --git              Emit git commands.\n"
 "-h --help             Show this help.\n"
 "-m --mergemake        Create merge scripts for WebCore/Android.mk,\n"
 "                      WebCore/Android.derived.mk, and JavaScriptCore/Android.mk.\n"
 "-n --newwebkit path   Set the webkit to merge from.\n"
 "-o --copyother        Create script to copy other webkit directories.\n"
+"-p --perforce         Emit perforce commands.\n"
 "-s --removesvn        Remove svn directories from webkit trees.\n"
 "-v --verbose          Show status printfs.\n"
+"-x --execute          Execute the merge scripts.\n"
         );
         return false;
     }
@@ -1563,7 +1672,7 @@ int main (int argCount, char* const args[])
         err = system(removeEmpty.c_str());
         myassert(err == 0);
     }
-    if (options.mergeCore || options.mergeMake) {
+    if (options.mergeCore /* || options.mergeMake */) {
         if (options.verbose) 
             fprintf(stderr, "building rename map\n");
         commandFile = fopen("/dev/null", "w");
@@ -1610,6 +1719,34 @@ int main (int argCount, char* const args[])
         MakeExecutable(oopsShell);
         MakeExecutable(copyDirShell);
         MakeExecutable(commandShell);
+    }
+    if (options.execute) {
+        if (options.mergeCore) {
+            if (options.verbose) 
+                fprintf(stderr, "executing command.sh\n");
+            string execCommand = "cd " + options.androidWebKit + "; . " + outputDir + "commands.sh"; 
+            err = system(execCommand.c_str());
+            myassert(err == 0);
+            if (options.verbose) 
+                fprintf(stderr, "executing copyDir.sh\n");
+            string execCopy = "cd " + options.androidWebKit + "; . " + outputDir + "copyDir.sh"; 
+            err = system(execCopy.c_str());
+            myassert(err == 0);
+        }
+        if (options.mergeMake) {
+            if (options.verbose) 
+                fprintf(stderr, "executing make.sh\n");
+            string execMake = "cd " + options.androidWebKit + "; . " + outputDir + "make.sh"; 
+            err = system(execMake.c_str());
+            myassert(err == 0);
+        }
+        if (options.copyOther) {
+            if (options.verbose) 
+                fprintf(stderr, "executing copyOther.sh\n");
+            string execCopyOther = "cd " + options.androidWebKit + "; . " + outputDir + "copyOther.sh"; 
+            err = system(execCopyOther.c_str());
+            myassert(err == 0);
+        }
     }
     if (options.verbose) 
         fprintf(stderr, "done!\n");
