@@ -24,19 +24,16 @@
  */
 
 #include "config.h"
-
-#include "FormControlElement.h"
-
 #include "RenderThemeAndroid.h"
 
+#include "Color.h"
+#include "FormControlElement.h"
+#include "GraphicsContext.h"
+#include "PlatformGraphicsContext.h"
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
 #include "RenderSkinRadio.h"
-
-#include "GraphicsContext.h"
-#include "PlatformGraphicsContext.h"
-
 #include "SkCanvas.h"
 
 #define MAX_COMBO_HEIGHT 20
@@ -51,6 +48,10 @@
 #define LISTBOX_PADDING 5
 
 namespace WebCore {
+
+// This is the color of selection in a textfield.  It was obtained by checking
+// the color of selection in TextViews in the system.
+const RGBA32 SELECTION_COLOR = makeRGB(255, 146, 0);
 
 static SkCanvas* getCanvasFromInfo(const RenderObject::PaintInfo& info)
 {
@@ -86,9 +87,7 @@ bool RenderThemeAndroid::stateChanged(RenderObject* o, ControlState state) const
 
 Color RenderThemeAndroid::platformActiveSelectionBackgroundColor() const
 {
-    // Make these transparent because we handle the selection background
-    // in our custom widget.
-    return Color(Color::transparent);
+    return Color(SELECTION_COLOR);
 }
 
 Color RenderThemeAndroid::platformInactiveSelectionBackgroundColor() const

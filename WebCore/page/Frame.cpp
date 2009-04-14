@@ -614,7 +614,6 @@ void Frame::selectionLayoutChanged()
     bool shouldBlink = m_caretVisible
         && selection()->isCaret() && selection()->isContentEditable();
 
-    shouldBlink = false;
     // If the caret moved, stop the blink timer so we can restart with a
     // black caret in the new location.
     if (caretRectChanged || !shouldBlink)
