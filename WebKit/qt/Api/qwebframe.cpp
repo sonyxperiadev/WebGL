@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008,2009 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2007 Staikos Computing Services Inc.
 
     This library is free software; you can redistribute it and/or
@@ -104,6 +104,63 @@ void QWEBKIT_EXPORT qt_drt_setJavaScriptProfilingEnabled(QWebFrame* qframe, bool
         controller->enableProfiler();
     else
         controller->disableProfiler();
+}
+
+// Pause a given CSS animation or transition on the target node at a specific time.
+// If the animation or transition is already paused, it will update its pause time.
+// This method is only intended to be used for testing the CSS animation and transition system.
+bool QWEBKIT_EXPORT qt_drt_pauseAnimation(QWebFrame *qframe, const QString &animationName, double time, const QString &elementId)
+{
+    Frame* frame = QWebFramePrivate::core(qframe);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    Document* doc = frame->document();
+    Q_ASSERT(doc);
+
+    Node* coreNode = doc->getElementById(elementId);
+    if (!coreNode || !coreNode->renderer())
+        return false;
+
+    return controller->pauseAnimationAtTime(coreNode->renderer(), animationName, time);
+}
+
+bool QWEBKIT_EXPORT qt_drt_pauseTransitionOfProperty(QWebFrame *qframe, const QString &propertyName, double time, const QString &elementId)
+{
+    Frame* frame = QWebFramePrivate::core(qframe);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    Document* doc = frame->document();
+    Q_ASSERT(doc);
+
+    Node* coreNode = doc->getElementById(elementId);
+    if (!coreNode || !coreNode->renderer())
+        return false;
+
+    return controller->pauseTransitionAtTime(coreNode->renderer(), propertyName, time);
+}
+
+// Returns the total number of currently running animations (includes both CSS transitions and CSS animations).
+int QWEBKIT_EXPORT qt_drt_numberOfActiveAnimations(QWebFrame *qframe)
+{
+    Frame* frame = QWebFramePrivate::core(qframe);
+    if (!frame)
+        return false;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return false;
+
+    return controller->numberOfActiveAnimations();
 }
 
 void QWebFramePrivate::init(QWebFrame *qframe, WebCore::Page *webcorePage, QWebFrameData *frameData)
@@ -224,7 +281,7 @@ QWebFrame::QWebFrame(QWebPage *parent, QWebFrameData *frameData)
 
     if (!frameData->url.isEmpty()) {
         WebCore::ResourceRequest request(frameData->url, frameData->referrer);
-        d->frame->loader()->load(request, frameData->name);
+        d->frame->loader()->load(request, frameData->name, false);
     }
 }
 
@@ -255,24 +312,48 @@ QWebFrame::~QWebFrame()
     If you want to ensure that your QObjects remain accessible after loading a
     new URL, you should add them in a slot connected to the
     javaScriptWindowObjectCleared() signal.
+
+    The \a object will never be explicitly deleted by QtWebKit.
 */
 void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object)
 {
-      JSC::JSLock lock(false);
-      JSDOMWindow *window = toJSDOMWindow(d->frame);
-      JSC::Bindings::RootObject *root = d->frame->script()->bindingRootObject();
-      if (!window) {
-          qDebug() << "Warning: couldn't get window object";
-          return;
-      }
+    addToJavaScriptWindowObject(name, object, QScriptEngine::QtOwnership);
+}
 
-      JSC::ExecState* exec = window->globalExec();
+/*!
+    \fn void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object, QScriptEngine::ValueOwnership own)
+    \overload
 
-      JSC::JSObject *runtimeObject =
-          JSC::Bindings::QtInstance::getQtInstance(object, root)->createRuntimeObject(exec);
+    Make \a object available under \a name from within the frame's JavaScript
+    context. The \a object will be inserted as a child of the frame's window
+    object.
 
-      JSC::PutPropertySlot slot;
-      window->put(exec, JSC::Identifier(exec, (const UChar *) name.constData(), name.length()), runtimeObject, slot);
+    Qt properties will be exposed as JavaScript properties and slots as
+    JavaScript methods.
+
+    If you want to ensure that your QObjects remain accessible after loading a
+    new URL, you should add them in a slot connected to the
+    javaScriptWindowObjectCleared() signal.
+
+    The ownership of \a object is specified using \a own.
+*/
+void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object, QScriptEngine::ValueOwnership ownership)
+{
+    JSC::JSLock lock(false);
+    JSDOMWindow* window = toJSDOMWindow(d->frame);
+    JSC::Bindings::RootObject* root = d->frame->script()->bindingRootObject();
+    if (!window) {
+        qDebug() << "Warning: couldn't get window object";
+        return;
+    }
+
+    JSC::ExecState* exec = window->globalExec();
+
+    JSC::JSObject* runtimeObject =
+            JSC::Bindings::QtInstance::getQtInstance(object, root, ownership)->createRuntimeObject(exec);
+
+    JSC::PutPropertySlot slot;
+    window->put(exec, JSC::Identifier(exec, (const UChar *) name.constData(), name.length()), runtimeObject, slot);
 }
 
 /*!
@@ -475,7 +556,7 @@ void QWebFrame::load(const QWebNetworkRequest &req)
     if (!postData.isEmpty())
         request.setHTTPBody(WebCore::FormData::create(postData.constData(), postData.size()));
 
-    d->frame->loader()->load(request);
+    d->frame->loader()->load(request, false);
 
     if (d->parentFrame())
         d->page->d->insideOpenCall = false;
@@ -531,7 +612,7 @@ void QWebFrame::load(const QNetworkRequest &req,
     if (!body.isEmpty())
         request.setHTTPBody(WebCore::FormData::create(body.constData(), body.size()));
 
-    d->frame->loader()->load(request);
+    d->frame->loader()->load(request, false);
 
     if (d->parentFrame())
         d->page->d->insideOpenCall = false;
@@ -556,7 +637,7 @@ void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
     const QByteArray utf8 = html.toUtf8();
     WTF::RefPtr<WebCore::SharedBuffer> data = WebCore::SharedBuffer::create(utf8.constData(), utf8.length());
     WebCore::SubstituteData substituteData(data, WebCore::String("text/html"), WebCore::String("utf-8"), kurl);
-    d->frame->loader()->load(request, substituteData);
+    d->frame->loader()->load(request, substituteData, false);
 }
 
 /*!
@@ -577,7 +658,7 @@ void QWebFrame::setContent(const QByteArray &data, const QString &mimeType, cons
     if (actualMimeType.isEmpty())
         actualMimeType = QLatin1String("text/html");
     WebCore::SubstituteData substituteData(buffer, WebCore::String(actualMimeType), WebCore::String(), kurl);
-    d->frame->loader()->load(request, substituteData);
+    d->frame->loader()->load(request, substituteData, false);
 }
 
 
@@ -886,7 +967,7 @@ QWebHitTestResult QWebFrame::hitTestContent(const QPoint &pos) const
     if (!d->frame->view() || !d->frame->contentRenderer())
         return QWebHitTestResult();
 
-    HitTestResult result = d->frame->eventHandler()->hitTestResultAtPoint(d->frame->view()->windowToContents(pos), /*allowShadowContent*/ false);
+    HitTestResult result = d->frame->eventHandler()->hitTestResultAtPoint(d->frame->view()->windowToContents(pos), /*allowShadowContent*/ false, /*ignoreClipping*/ true);
     return QWebHitTestResult(new QWebHitTestResultPrivate(result));
 }
 
@@ -905,6 +986,10 @@ bool QWebFrame::event(QEvent *e)
 */
 void QWebFrame::print(QPrinter *printer) const
 {
+    QPainter painter;
+    if (!painter.begin(printer))
+        return;
+
     const qreal zoomFactorX = printer->logicalDpiX() / qt_defaultDpi();
     const qreal zoomFactorY = printer->logicalDpiY() / qt_defaultDpi();
 
@@ -950,7 +1035,6 @@ void QWebFrame::print(QPrinter *printer) const
         ascending = false;
     }
 
-    QPainter painter(printer);
     painter.scale(zoomFactorX, zoomFactorY);
     GraphicsContext ctx(&painter);
 
@@ -988,7 +1072,8 @@ void QWebFrame::print(QPrinter *printer) const
 #endif // QT_NO_PRINTER
 
 /*!
-    Evaluate JavaScript defined by \a scriptSource using this frame as context.
+    Evaluates the JavaScript defined by \a scriptSource using this frame as context
+    and returns the result of the last executed statement.
 
     \sa addToJavaScriptWindowObject(), javaScriptWindowObjectCleared()
 */
@@ -1135,6 +1220,9 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
     WebCore::Frame *wframe = hitTest.targetFrame();
     if (wframe)
         linkTargetFrame = QWebFramePrivate::kit(wframe);
+    Element* urlElement = hitTest.URLElement();
+    if (urlElement)
+        linkTarget = urlElement->target();
 
     isContentEditable = hitTest.isContentEditable();
     isContentSelected = hitTest.isSelected();
@@ -1279,7 +1367,22 @@ QUrl QWebHitTestResult::linkTitle() const
 }
 
 /*!
+  \since 4.6
+  Returns the name of the target frame that will load the link if it is activated.
+
+  \sa linkTargetFrame
+*/
+QString QWebHitTestResult::linkTarget() const
+{
+    if (!d)
+        return 0;
+    return d->linkTarget;
+}
+
+/*!
     Returns the frame that will load the link if it is activated.
+
+    \sa linkTarget
 */
 QWebFrame *QWebHitTestResult::linkTargetFrame() const
 {

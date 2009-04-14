@@ -50,7 +50,6 @@
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
 #pragma warning( push, 0 )
-#include <CoreGraphics/CGContext.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/BString.h>
@@ -105,10 +104,21 @@
 #include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSValue.h>
+
+#if PLATFORM(CG)
+#include <CoreGraphics/CGContext.h>
+#endif
+
+#if PLATFORM(CF)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
+#if USE(CFNETWORK)
 #include <CFNetwork/CFURLCachePriv.h>
 #include <CFNetwork/CFURLProtocolPriv.h>
-#include <CoreFoundation/CoreFoundation.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h> 
+#endif
+
 #include <wtf/HashSet.h>
 #include <dimm.h>
 #include <oleacc.h>
@@ -126,20 +136,6 @@ static HashSet<WebView*> pendingDeleteBackingStoreSet;
 
 static String osVersion();
 static String webKitVersion();
-
-typedef CFURLCacheRef (*CopySharedURLCacheFunction)();
-
-static HMODULE findCFNetworkModule()
-{
-    if (HMODULE module = GetModuleHandleA("CFNetwork"))
-        return module;
-    return GetModuleHandleA("CFNetwork_debug");
-}
-
-static CopySharedURLCacheFunction findCopySharedURLCacheFunction()
-{
-    return reinterpret_cast<CopySharedURLCacheFunction>(GetProcAddress(findCFNetworkModule(), "CFURLCacheCopySharedURLCache"));
-}
 
 WebView* kit(Page* page)
 {
@@ -328,7 +324,7 @@ WebView::~WebView()
     // <rdar://4958382> m_viewWindow will be destroyed when m_hostWindow is destroyed, but if
     // setHostWindow was never called we will leak our HWND. If we still have a valid HWND at
     // this point, we should just destroy it ourselves.
-    if (::IsWindow(m_viewWindow))
+    if (!isBeingDestroyed() && ::IsWindow(m_viewWindow))
         ::DestroyWindow(m_viewWindow);
 
     // the tooltip window needs to be explicitly destroyed since it isn't a WS_CHILD
@@ -380,18 +376,11 @@ void WebView::removeFromAllWebViewsSet()
 
 void WebView::setCacheModel(WebCacheModel cacheModel)
 {
+#if USE(CFNETWORK)
     if (s_didSetCacheModel && cacheModel == s_cacheModel)
         return;
 
-    // Once we require a newer version of CFNetwork with the CFURLCacheCopySharedURLCache function,
-    // we can call CFURLCacheCopySharedURLCache directly and eliminate copySharedURLCache.
-    static CopySharedURLCacheFunction copySharedURLCache = findCopySharedURLCacheFunction();
-    RetainPtr<CFURLCacheRef> cfurlCache;
-    if (copySharedURLCache)
-        cfurlCache.adoptCF(copySharedURLCache());
-    else
-        cfurlCache = CFURLCacheSharedURLCache();
-
+    RetainPtr<CFURLCacheRef> cfurlCache(AdoptCF, CFURLCacheCopySharedURLCache());
     RetainPtr<CFStringRef> cfurlCacheDirectory(AdoptCF, wkCopyFoundationCacheDirectory());
     if (!cfurlCacheDirectory)
         cfurlCacheDirectory.adoptCF(WebCore::localUserSpecificStorageDirectory().createCFString());
@@ -563,6 +552,7 @@ void WebView::setCacheModel(WebCacheModel cacheModel)
     s_didSetCacheModel = true;
     s_cacheModel = cacheModel;
     return;
+#endif
 }
 
 WebCacheModel WebView::cacheModel()
@@ -594,12 +584,18 @@ WebCacheModel WebView::maxCacheModelInAnyInstance()
     return cacheModel;
 }
 
-void WebView::close()
+HRESULT STDMETHODCALLTYPE WebView::close()
 {
     if (m_didClose)
-        return;
+        return S_OK;
 
     m_didClose = true;
+
+    if (m_uiDelegatePrivate) {
+        COMPtr<IWebUIDelegatePrivate5> uiDelegatePrivate5(Query, m_uiDelegatePrivate);
+        if (uiDelegatePrivate5)
+            uiDelegatePrivate5->webViewClosing(this);
+    }
 
     removeFromAllWebViewsSet();
 
@@ -648,6 +644,7 @@ void WebView::close()
     }
 
     deleteBackingStore();
+    return S_OK;
 }
 
 void WebView::repaint(const WebCore::IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
@@ -1333,7 +1330,7 @@ bool WebView::handleMouseEvent(UINT message, WPARAM wParam, LPARAM lParam)
     return handled;
 }
 
-bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isHorizontal)
+bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
 {
     // Ctrl+Mouse wheel doesn't ever go into WebCore.  It is used to
     // zoom instead (Mac zooms the whole Desktop, but Windows browsers trigger their
@@ -1347,7 +1344,7 @@ bool WebView::mouseWheel(WPARAM wParam, LPARAM lParam, bool isHorizontal)
         return true;
     }
 
-    PlatformWheelEvent wheelEvent(m_viewWindow, wParam, lParam, isHorizontal);
+    PlatformWheelEvent wheelEvent(m_viewWindow, wParam, lParam, isMouseHWheel);
     Frame* coreFrame = core(m_mainFrame);
     if (!coreFrame)
         return false;
@@ -1682,11 +1679,13 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
 {
     LRESULT lResult = 0;
     LONG_PTR longPtr = GetWindowLongPtr(hWnd, 0);
-    COMPtr<WebView> webView = reinterpret_cast<WebView*>(longPtr); // hold a ref, since the WebView could go away in an event handler.
+    WebView* webView = reinterpret_cast<WebView*>(longPtr);
     WebFrame* mainFrameImpl = webView ? webView->topLevelFrame() : 0;
     if (!mainFrameImpl || webView->isBeingDestroyed())
         return DefWindowProc(hWnd, message, wParam, lParam);
 
+    // hold a ref, since the WebView could go away in an event handler.
+    COMPtr<WebView> protector(webView);
     ASSERT(webView);
 
     // Windows Media Player has a modal message loop that will deliver messages
@@ -1734,7 +1733,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
         case WM_VISTA_MOUSEHWHEEL:
             if (Frame* coreFrame = core(mainFrameImpl))
                 if (coreFrame->view()->didFirstLayout())
-                    handled = webView->mouseWheel(wParam, lParam, (wParam & MK_SHIFT) || message == WM_VISTA_MOUSEHWHEEL);
+                    handled = webView->mouseWheel(wParam, lParam, message == WM_VISTA_MOUSEHWHEEL);
             break;
         case WM_SYSKEYDOWN:
             handled = webView->keyDown(wParam, lParam, true);
@@ -1778,7 +1777,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             COMPtr<IWebUIDelegatePrivate> uiDelegatePrivate;
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate)
-                uiDelegatePrivate->webViewReceivedFocus(webView.get());
+                uiDelegatePrivate->webViewReceivedFocus(webView);
 
             FocusController* focusController = webView->page()->focusController();
             if (Frame* frame = focusController->focusedFrame()) {
@@ -1796,7 +1795,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             HWND newFocusWnd = reinterpret_cast<HWND>(wParam);
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate)
-                uiDelegatePrivate->webViewLostFocus(webView.get(), (OLE_HANDLE)(ULONG64)newFocusWnd);
+                uiDelegatePrivate->webViewLostFocus(webView, (OLE_HANDLE)(ULONG64)newFocusWnd);
 
             FocusController* focusController = webView->page()->focusController();
             Frame* frame = focusController->focusedOrMainFrame();
@@ -1872,7 +1871,7 @@ static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, L
             }
             if (SUCCEEDED(webView->uiDelegate(&uiDelegate)) && uiDelegate &&
                 SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**) &uiDelegatePrivate)) && uiDelegatePrivate &&
-                SUCCEEDED(uiDelegatePrivate->webViewGetDlgCode(webView.get(), keyCode, &dlgCode)))
+                SUCCEEDED(uiDelegatePrivate->webViewGetDlgCode(webView, keyCode, &dlgCode)))
                 return dlgCode;
             handled = false;
             break;
@@ -3129,7 +3128,7 @@ HRESULT STDMETHODCALLTYPE WebView::centerSelectionInVisibleArea(
     if (!coreFrame)
         return E_FAIL;
 
-    coreFrame->revealSelection(RenderLayer::gAlignCenterAlways);
+    coreFrame->revealSelection(ScrollAlignment::alignCenterAlways);
     return S_OK;
 }
 
@@ -4204,6 +4203,16 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setLocalStorageEnabled(enabled);
 
+    hr = prefsPrivate->isWebSecurityEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setWebSecurityEnabled(!!enabled);
+
+    hr = prefsPrivate->allowUniversalAccessFromFileURLs(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setAllowUniversalAccessFromFileURLs(!!enabled);
+
 #if USE(SAFARI_THEME)
     hr = prefsPrivate->shouldPaintNativeControls(&enabled);
     if (FAILED(hr))
@@ -4231,9 +4240,11 @@ HRESULT updateSharedSettingsFromPreferencesIfNeeded(IWebPreferences* preferences
     if (FAILED(hr))
         return hr;
 
+#if USE(CFNETWORK)
     // Set cookie storage accept policy
     if (CFHTTPCookieStorageRef cookieStorage = currentCookieStorage())
         CFHTTPCookieStorageSetCookieAcceptPolicy(cookieStorage, acceptPolicy);
+#endif
 
     return S_OK;
 }
@@ -4680,7 +4691,7 @@ void WebView::releaseIMMContext(HIMC hIMC)
 void WebView::prepareCandidateWindow(Frame* targetFrame, HIMC hInputContext) 
 {
     IntRect caret;
-    if (RefPtr<Range> range = targetFrame->selection()->selection().toRange()) {
+    if (RefPtr<Range> range = targetFrame->selection()->selection().toNormalizedRange()) {
         ExceptionCode ec = 0;
         RefPtr<Range> tempRange = range->cloneRange(ec);
         caret = targetFrame->firstRectForRange(tempRange.get());
@@ -4843,7 +4854,7 @@ bool WebView::onIMERequestCharPosition(Frame* targetFrame, IMECHARPOSITION* char
 {
     IntRect caret;
     ASSERT(charPos->dwCharPos == 0 || targetFrame->editor()->hasComposition());
-    if (RefPtr<Range> range = targetFrame->editor()->hasComposition() ? targetFrame->editor()->compositionRange() : targetFrame->selection()->selection().toRange()) {
+    if (RefPtr<Range> range = targetFrame->editor()->hasComposition() ? targetFrame->editor()->compositionRange() : targetFrame->selection()->selection().toNormalizedRange()) {
         ExceptionCode ec = 0;
         RefPtr<Range> tempRange = range->cloneRange(ec);
         tempRange->setStart(tempRange->startContainer(ec), tempRange->startOffset(ec) + charPos->dwCharPos, ec);
@@ -4861,7 +4872,7 @@ bool WebView::onIMERequestCharPosition(Frame* targetFrame, IMECHARPOSITION* char
 
 bool WebView::onIMERequestReconvertString(Frame* targetFrame, RECONVERTSTRING* reconvertString, LRESULT* result)
 {
-    RefPtr<Range> selectedRange = targetFrame->selection()->toRange();
+    RefPtr<Range> selectedRange = targetFrame->selection()->toNormalizedRange();
     String text = selectedRange->text();
     if (!reconvertString) {
         *result = sizeof(RECONVERTSTRING) + text.length() * sizeof(UChar);
@@ -5157,6 +5168,12 @@ STDMETHODIMP WebView::AccessibleObjectFromWindow(HWND hwnd, DWORD objectID, REFI
 HRESULT WebView::setMemoryCacheDelegateCallsEnabled(BOOL enabled)
 {
     m_page->setMemoryCacheClientCallsEnabled(enabled);
+    return S_OK;
+}
+
+HRESULT WebView::setJavaScriptURLsAreAllowed(BOOL areAllowed)
+{
+    m_page->setJavaScriptURLsAreAllowed(areAllowed);
     return S_OK;
 }
 

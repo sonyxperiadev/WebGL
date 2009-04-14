@@ -84,11 +84,13 @@
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/HTMLAppletElement.h>
 #import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLFrameElement.h>
 #import <WebCore/HTMLFrameOwnerElement.h>
 #import <WebCore/HTMLNames.h>
+#import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/IconDatabase.h>
@@ -786,39 +788,27 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
 void WebFrameLoaderClient::updateGlobalHistory()
 {
     DocumentLoader* loader = core(m_webFrame.get())->loader()->documentLoader();
-
-    if (loader->urlForHistoryReflectsServerRedirect()) {
-        [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory()
-                                              withTitle:loader->title()
-                                                 method:loader->request().httpMethod()
-                                             wasFailure:loader->urlForHistoryReflectsFailure()
-                                      serverRedirectURL:loader->url()
-                                       isClientRedirect:NO];
-        return;
-    }
-
-    if (loader->urlForHistoryReflectsClientRedirect()) {
-        [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory() 
-                                              withTitle:loader->title()
-                                                 method:loader->request().httpMethod()
-                                             wasFailure:loader->urlForHistoryReflectsFailure()
-                                      serverRedirectURL:nil
-                                       isClientRedirect:YES];
-        return;
-    }
-
     [[WebHistory optionalSharedHistory] _visitedURL:loader->urlForHistory() 
                                           withTitle:loader->title()
-                                             method:loader->request().httpMethod()
-                                         wasFailure:loader->urlForHistoryReflectsFailure()
-                                  serverRedirectURL:nil
-                                   isClientRedirect:NO];
+                                             method:loader->originalRequestCopy().httpMethod()
+                                         wasFailure:loader->urlForHistoryReflectsFailure()];
+
+    updateGlobalHistoryRedirectLinks();
 }
 
-void WebFrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem()
+void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
 {
     DocumentLoader* loader = core(m_webFrame.get())->loader()->documentLoader();
-    [[WebHistory optionalSharedHistory] _visitedURLForRedirectWithoutHistoryItem:loader->url()];
+
+    if (!loader->clientRedirectSourceForHistory().isNull()) {
+        if (WebHistoryItem *item = [[WebHistory optionalSharedHistory] _itemForURLString:loader->clientRedirectSourceForHistory()])
+            core(item)->addRedirectURL(loader->clientRedirectDestinationForHistory());
+    }
+
+    if (!loader->serverRedirectSourceForHistory().isNull()) {
+        if (WebHistoryItem *item = [[WebHistory optionalSharedHistory] _itemForURLString:loader->serverRedirectSourceForHistory()])
+            core(item)->addRedirectURL(loader->serverRedirectDestinationForHistory());
+    }
 }
 
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
@@ -907,12 +897,7 @@ void WebFrameLoaderClient::frameLoadCompleted()
     // See WebFrameLoaderClient::provisionalLoadStarted.
     if ([getWebView(m_webFrame.get()) drawsBackground])
         [[m_webFrame->_private->webFrameView _scrollView] setDrawsBackground:YES];
-
-    // Even if already complete, we might have set a previous item on a frame that
-    // didn't do any data loading on the past transaction. Make sure to clear these out.
-    core(m_webFrame.get())->loader()->setPreviousHistoryItem(0);
 }
-
 
 void WebFrameLoaderClient::saveViewStateToItem(HistoryItem* item)
 {
@@ -1399,7 +1384,7 @@ static Class netscapePluginViewClass()
 #endif
 }
 
-Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element, const KURL& url,
+Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, HTMLPlugInElement* element, const KURL& url,
     const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -1442,6 +1427,12 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element
     }
     
     NSString *extension = [[URL path] pathExtension];
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    // don't allow proxy plug-in selection by file extension
+    if (element->hasTagName(videoTag) || element->hasTagName(audioTag))
+        extension = @"";
+#endif
+
     if (!pluginPackage && [extension length] != 0) {
         pluginPackage = [webView _pluginForExtension:extension];
         if (pluginPackage) {
@@ -1470,7 +1461,7 @@ Widget* WebFrameLoaderClient::createPlugin(const IntSize& size, Element* element
                 attributeKeys:kit(paramNames)
                 attributeValues:kit(paramValues)
                 loadManually:loadManually
-                DOMElement:kit(element)] autorelease];
+                element:element] autorelease];
             
             return new NetscapePluginWidget(pluginView);
         } 
@@ -1524,7 +1515,7 @@ void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
     END_BLOCK_OBJC_EXCEPTIONS;
 }
     
-Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, Element* element, const KURL& baseURL, 
+Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, HTMLAppletElement* element, const KURL& baseURL, 
     const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -1548,7 +1539,7 @@ Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, Elemen
             }
             if (parameterValue(paramNames, paramValues, "height").isNull()) {
                 [names addObject:@"height"];
-                [values addObject:[NSString stringWithFormat:@"%d", size.width()]];
+                [values addObject:[NSString stringWithFormat:@"%d", size.height()]];
             }
             view = pluginView(m_webFrame.get(), (WebPluginPackage *)pluginPackage, names, values, baseURL, kit(element), NO);
         } 
@@ -1562,7 +1553,7 @@ Widget* WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, Elemen
                 attributeKeys:kit(paramNames)
                 attributeValues:kit(paramValues)
                 loadManually:NO
-                DOMElement:kit(element)] autorelease];
+                element:element] autorelease];
         } else {
             ASSERT_NOT_REACHED();
         }
@@ -1594,6 +1585,9 @@ String WebFrameLoaderClient::overrideMediaType() const
     if (overrideType)
         return overrideType;
     return String();
+}
+
+void WebFrameLoaderClient::documentElementAvailable() {
 }
 
 void WebFrameLoaderClient::windowObjectCleared()

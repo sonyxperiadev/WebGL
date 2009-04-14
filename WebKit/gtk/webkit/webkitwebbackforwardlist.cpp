@@ -189,11 +189,11 @@ GList* webkit_web_back_forward_list_get_forward_list_with_limit(WebKitWebBackFor
     backForwardList->forwardListWithLimit(limit, items);
 
     for (unsigned i = 0; i < items.size(); i++) {
-        WebKitWebHistoryItem* webHistoryItem = webkit_web_history_item_new_with_core_item(items[i].get());
-        forwardItems = g_list_prepend(forwardItems, g_object_ref(webHistoryItem));
+        WebKitWebHistoryItem* webHistoryItem = kit(items[i]);
+        forwardItems = g_list_prepend(forwardItems, webHistoryItem);
     }
 
-    return g_list_reverse(forwardItems);
+    return forwardItems;
 }
 
 /**
@@ -219,12 +219,13 @@ GList* webkit_web_back_forward_list_get_back_list_with_limit(WebKitWebBackForwar
     backForwardList->backListWithLimit(limit, items);
 
     for (unsigned i = 0; i < items.size(); i++) {
-        WebKitWebHistoryItem* webHistoryItem = webkit_web_history_item_new_with_core_item(items[i].get());
-        backItems = g_list_prepend(backItems, g_object_ref(webHistoryItem));
+        WebKitWebHistoryItem* webHistoryItem = kit(items[i]);
+        backItems = g_list_prepend(backItems, webHistoryItem);
     }
 
-    return g_list_reverse(backItems);
+    return backItems;
 }
+
 /**
  * webkit_web_back_forward_list_get_back_item:
  * @web_back_forward_list: a #WebBackForwardList
@@ -387,6 +388,25 @@ void webkit_web_back_forward_list_set_limit(WebKitWebBackForwardList* webBackFor
     WebCore::BackForwardList* backForwardList = core(webBackForwardList);
     if (backForwardList)
         backForwardList->setCapacity(limit);
+}
+
+/**
+ * webkit_web_back_forward_list_add_item:
+ * @web_back_forward_list: a #WebKitWebBackForwardList
+ * @history_item: the #WebKitWebHistoryItem to add
+ *
+ * Adds the item to the #WebKitWebBackForwardList.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_back_forward_list_add_item(WebKitWebBackForwardList *webBackForwardList, WebKitWebHistoryItem *webHistoryItem)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_BACK_FORWARD_LIST(webBackForwardList));
+
+    WebCore::BackForwardList* backForwardList = core(webBackForwardList);
+    WebCore::HistoryItem* historyItem = core(webHistoryItem);
+
+    backForwardList->addItem(historyItem);
 }
 
 } /* end extern "C" */

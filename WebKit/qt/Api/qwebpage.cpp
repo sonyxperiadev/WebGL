@@ -64,6 +64,7 @@
 #include "HitTestResult.h"
 #include "WindowFeatures.h"
 #include "LocalizedStrings.h"
+#include "Cache.h"
 #include "runtime/InitializeThreading.h"
 
 #include <QApplication>
@@ -429,6 +430,14 @@ void QWebPagePrivate::_q_webActionTriggered(bool checked)
     q->triggerAction(action, checked);
 }
 
+#ifndef NDEBUG
+void QWebPagePrivate::_q_cleanupLeakMessages()
+{
+    // Need this to make leak messages accurate.
+    cache()->setCapacities(0, 0, 0);
+}
+#endif
+
 void QWebPagePrivate::updateAction(QWebPage::WebAction action)
 {
     QAction *a = actions[action];
@@ -454,60 +463,35 @@ void QWebPagePrivate::updateAction(QWebPage::WebAction action)
         case QWebPage::Reload:
             enabled = !loader->isLoading();
             break;
-        case QWebPage::Cut:
-            enabled = editor->canCut();
-            break;
-        case QWebPage::Copy:
-            enabled = editor->canCopy();
-            break;
-        case QWebPage::Paste:
-            enabled = editor->canPaste();
-            break;
 #ifndef QT_NO_UNDOSTACK
         case QWebPage::Undo:
         case QWebPage::Redo:
             // those two are handled by QUndoStack
             break;
 #endif // QT_NO_UNDOSTACK
-        case QWebPage::MoveToNextChar:
-        case QWebPage::MoveToPreviousChar:
-        case QWebPage::MoveToNextWord:
-        case QWebPage::MoveToPreviousWord:
-        case QWebPage::MoveToNextLine:
-        case QWebPage::MoveToPreviousLine:
-        case QWebPage::MoveToStartOfLine:
-        case QWebPage::MoveToEndOfLine:
-        case QWebPage::MoveToStartOfBlock:
-        case QWebPage::MoveToEndOfBlock:
-        case QWebPage::MoveToStartOfDocument:
-        case QWebPage::MoveToEndOfDocument:
-        case QWebPage::SelectNextChar:
-        case QWebPage::SelectPreviousChar:
-        case QWebPage::SelectNextWord:
-        case QWebPage::SelectPreviousWord:
-        case QWebPage::SelectNextLine:
-        case QWebPage::SelectPreviousLine:
-        case QWebPage::SelectStartOfLine:
-        case QWebPage::SelectEndOfLine:
-        case QWebPage::SelectStartOfBlock:
-        case QWebPage::SelectEndOfBlock:
-        case QWebPage::SelectStartOfDocument:
-        case QWebPage::SelectEndOfDocument:
-        case QWebPage::DeleteStartOfWord:
-        case QWebPage::DeleteEndOfWord:
+        case QWebPage::SelectAll: // editor command is always enabled
+            break;
         case QWebPage::SetTextDirectionDefault:
         case QWebPage::SetTextDirectionLeftToRight:
         case QWebPage::SetTextDirectionRightToLeft:
-        case QWebPage::ToggleBold:
-        case QWebPage::ToggleItalic:
-        case QWebPage::ToggleUnderline:
-            enabled = editor->canEditRichly();
-            if (enabled)
-                checked = editor->command(editorCommandForWebActions(action)).state() != FalseTriState;
-            else
-                checked = false;
+            enabled = editor->canEdit();
+            checked = false;
             break;
-        default: break;
+        default: {
+            // see if it's an editor command
+            const char* commandName = editorCommandForWebActions(action);
+
+            // if it's an editor command, let it's logic determine state
+            if (commandName) {
+                Editor::Command command = editor->command(commandName);
+                enabled = command.isEnabled();
+                if (enabled)
+                    checked = command.state() != FalseTriState;
+                else
+                    checked = false;
+            }
+            break;
+        }
     }
 
     a->setEnabled(enabled);
@@ -561,6 +545,8 @@ void QWebPagePrivate::updateEditorActions()
     updateAction(QWebPage::ToggleBold);
     updateAction(QWebPage::ToggleItalic);
     updateAction(QWebPage::ToggleUnderline);
+    updateAction(QWebPage::InsertParagraphSeparator);
+    updateAction(QWebPage::InsertLineSeparator);
 }
 
 void QWebPagePrivate::timerEvent(QTimerEvent *ev)
@@ -1052,9 +1038,9 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
     case Qt::ImCursorPosition: {
         Frame *frame = d->page->focusController()->focusedFrame();
         if (frame) {
-            Selection selection = frame->selection()->selection();
+            VisibleSelection selection = frame->selection()->selection();
             if (selection.isCaret()) {
-                return QVariant(selection.start().offset());
+                return QVariant(selection.start().m_offset);
             }
         }
         return QVariant();
@@ -1119,8 +1105,13 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
     \enum QWebPage::WebAction
 
     This enum describes the types of action which can be performed on the web page.
-    Actions which are related to text editing, cursor movement, and text selection
-    only have an effect if \l contentEditable is true.
+
+    Actions only have an effect when they are applicable. The availability of
+    actions can be be determined by checking \l{QAction::}{enabled()} on the
+    action returned by \l{QWebPage::}{action()}.
+
+    One method of enabling the text editing, cursor movement, and text selection actions
+    is by setting \l contentEditable to true.
 
     \value NoWebAction No action is triggered.
     \value OpenLink Open the current link.
@@ -1251,6 +1242,9 @@ QWebPage::QWebPage(QObject *parent)
     setView(qobject_cast<QWidget *>(parent));
 
     connect(this, SIGNAL(loadProgress(int)), this, SLOT(_q_onLoadProgressChanged(int)));
+#ifndef NDEBUG
+    connect(QCoreApplication::instance(), SIGNAL(aboutToQuit()), this, SLOT(_q_cleanupLeakMessages()));
+#endif
 }
 
 /*!
@@ -1340,7 +1334,7 @@ void QWebPage::javaScriptConsoleMessage(const QString& message, int lineNumber, 
 void QWebPage::javaScriptAlert(QWebFrame *frame, const QString& msg)
 {
 #ifndef QT_NO_MESSAGEBOX
-    QMessageBox::information(d->view, mainFrame()->title(), msg, QMessageBox::Ok);
+    QMessageBox::information(d->view, tr("JavaScript Alert - %1").arg(mainFrame()->url().host()), msg, QMessageBox::Ok);
 #endif
 }
 
@@ -1355,7 +1349,7 @@ bool QWebPage::javaScriptConfirm(QWebFrame *frame, const QString& msg)
 #ifdef QT_NO_MESSAGEBOX
     return true;
 #else
-    return QMessageBox::Yes == QMessageBox::information(d->view, mainFrame()->title(), msg, QMessageBox::Yes, QMessageBox::No);
+    return QMessageBox::Yes == QMessageBox::information(d->view, tr("JavaScript Confirm - %1").arg(mainFrame()->url().host()), msg, QMessageBox::Yes, QMessageBox::No);
 #endif
 }
 
@@ -1372,7 +1366,7 @@ bool QWebPage::javaScriptPrompt(QWebFrame *frame, const QString& msg, const QStr
 {
     bool ok = false;
 #ifndef QT_NO_INPUTDIALOG
-    QString x = QInputDialog::getText(d->view, mainFrame()->title(), msg, QLineEdit::Normal, defaultValue, &ok);
+    QString x = QInputDialog::getText(d->view, tr("JavaScript Prompt - %1").arg(mainFrame()->url().host()), msg, QLineEdit::Normal, defaultValue, &ok);
     if (ok && result) {
         *result = x;
     }
@@ -1471,9 +1465,16 @@ void QWebPage::triggerAction(WebAction action, bool checked)
             openNewWindow(url, frame);
             break;
         }
-        case CopyLinkToClipboard:
+        case CopyLinkToClipboard: {
+#if defined(Q_WS_X11)
+            bool oldSelectionMode = Pasteboard::generalPasteboard()->isSelectionMode();
+            Pasteboard::generalPasteboard()->setSelectionMode(true);
+            editor->copyURL(d->hitTestResult.linkUrl(), d->hitTestResult.linkText());
+            Pasteboard::generalPasteboard()->setSelectionMode(oldSelectionMode);
+#endif
             editor->copyURL(d->hitTestResult.linkUrl(), d->hitTestResult.linkText());
             break;
+        }
         case OpenImageInNewWindow:
             openNewWindow(d->hitTestResult.imageUrl(), frame);
             break;
@@ -1550,7 +1551,7 @@ void QWebPage::setViewportSize(const QSize &size) const
     if (frame->d->frame && frame->d->frame->view()) {
         WebCore::FrameView* view = frame->d->frame->view();
         view->setFrameRect(QRect(QPoint(0, 0), size));
-        frame->d->frame->forceLayout();
+        view->forceLayout();
         view->adjustViewSize();
     }
 }
@@ -1580,7 +1581,7 @@ void QWebPage::setFixedLayoutSize(const QSize &size) const
     if (frame->d->frame && frame->d->frame->view()) {
         WebCore::FrameView* view = frame->d->frame->view();
         view->setFixedLayoutSize(size);
-        frame->d->frame->forceLayout();
+        view->forceLayout();
     }
 }
 
@@ -1602,7 +1603,7 @@ void QWebPage::setUseFixedLayout(bool useFixedLayout)
     if (frame->d->frame && frame->d->frame->view()) {
         WebCore::FrameView* view = frame->d->frame->view();
         view->setUseFixedLayout(useFixedLayout);
-        frame->d->frame->forceLayout();
+        view->forceLayout();
     }
 }
 
@@ -1632,7 +1633,7 @@ bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QWebNetworkReques
                 return true;
 
             case DelegateExternalLinks:
-                if (WebCore::FrameLoader::shouldTreatSchemeAsLocal(request.url().scheme()))
+                if (WebCore::FrameLoader::shouldTreatURLSchemeAsLocal(request.url().scheme()))
                     return true;
                 emit linkClicked(request.url());
                 return false;
@@ -1790,6 +1791,9 @@ QAction *QWebPage::action(WebAction action) const
         case MoveToEndOfDocument:
             text = tr("Move the cursor to the end of the document");
             break;
+        case SelectAll:
+            text = tr("Select all");
+            break;
         case SelectNextChar:
             text = tr("Select to the next character");
             break;
@@ -1860,6 +1864,13 @@ QAction *QWebPage::action(WebAction action) const
 
         case InspectElement:
             text = contextMenuItemTagInspectElement();
+            break;
+
+        case InsertParagraphSeparator:
+            text = tr("Insert a new paragraph");
+            break;
+        case InsertLineSeparator:
+            text = tr("Insert a new line");
             break;
 
         case NoWebAction:
@@ -2389,7 +2400,8 @@ QWebPluginFactory *QWebPage::pluginFactory() const
     \list
     \o %Platform% and %Subplatform% are expanded to the windowing system and the operation system.
     \o %Security% expands to U if SSL is enabled, otherwise N. SSL is enabled if QSslSocket::supportsSsl() returns true.
-    \o %Locale% is replaced with QLocale::name().
+    \o %Locale% is replaced with QLocale::name(). The locale is determined from the view of the QWebPage. If no view is set on the QWebPage,
+    then a default constructed QLocale is used instead.
     \o %WebKitVersion% currently expands to 527+
     \o %AppVersion% expands to QCoreApplication::applicationName()/QCoreApplication::applicationVersion() if they're set; otherwise defaulting to Qt and the current Qt version.
     \endlist
@@ -2577,7 +2589,7 @@ void QWebPagePrivate::_q_onLoadProgressChanged(int) {
     \sa bytesReceived()
 */
 quint64 QWebPage::totalBytes() const {
-    return d->m_bytesReceived;
+    return d->m_totalBytes;
 }
 
 
@@ -2587,7 +2599,7 @@ quint64 QWebPage::totalBytes() const {
     \sa totalBytes()
 */
 quint64 QWebPage::bytesReceived() const {
-    return d->m_totalBytes;
+    return d->m_bytesReceived;
 }
 
 /*!
@@ -2621,10 +2633,13 @@ quint64 QWebPage::bytesReceived() const {
 /*!
     \fn void QWebPage::linkHovered(const QString &link, const QString &title, const QString &textContent)
 
-    This signal is emitted when the mouse is hovering over a link.
-    The first parameter is the \a link url, the second is the link \a title
-    if any, and third \a textContent is the text content. Method is emitter with both
-    empty parameters when the mouse isn't hovering over any link element.
+    This signal is emitted when the mouse hovers over a link.
+
+    \a link contains the link url.
+    \a title is the link element's title, if it is specified in the markup.
+    \a textContent provides text within the link element, e.g., text inside an HTML anchor tag.
+
+    When the mouse leaves the link element the signal is emitted with empty parameters.
 
     \sa linkClicked()
 */

@@ -169,7 +169,7 @@ static void clipboard_get_contents_cb(GtkClipboard* clipboard, GtkSelectionData*
 {
     WebKitWebView* webView = reinterpret_cast<WebKitWebView*>(data);
     Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
-    PassRefPtr<Range> selectedRange = frame->selection()->toRange();
+    PassRefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
 
     if (static_cast<gint>(info) == WEBKIT_WEB_VIEW_TARGET_INFO_HTML) {
         String markup = createMarkup(selectedRange.get(), 0, AnnotateForInterchange);
@@ -457,8 +457,11 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
 
 void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    WebKitWebViewPrivate* priv = m_webView->priv;
+    Frame* targetFrame = core(m_webView)->focusController()->focusedOrMainFrame();
+    if (!targetFrame || !targetFrame->editor()->canEdit())
+        return;
 
+    WebKitWebViewPrivate* priv = m_webView->priv;
     // TODO: Dispatch IE-compatible text input events for IM events.
     if (gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey()))
         event->setDefaultHandled();

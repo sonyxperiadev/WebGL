@@ -5,6 +5,7 @@
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2009 Jan Alonzo <jmalonzo@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,6 +32,7 @@
 
 #include "AnimationController.h"
 #include "CString.h"
+#include "DocumentLoader.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "FrameTree.h"
@@ -43,6 +45,7 @@
 #include "RenderTreeAsText.h"
 #include "JSDOMBinding.h"
 #include "ScriptController.h"
+#include "SubstituteData.h"
 
 #include <JavaScriptCore/APICast.h>
 
@@ -373,6 +376,60 @@ WebKitWebFrame* webkit_web_frame_get_parent(WebKitWebFrame* frame)
 }
 
 /**
+ * webkit_web_frame_load_uri:
+ * @frame: a #WebKitWebFrame
+ * @uri: an URI string
+ *
+ * Requests loading of the specified URI string.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_frame_load_uri(WebKitWebFrame* frame, const gchar* uri)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
+    g_return_if_fail(uri);
+
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return;
+
+    coreFrame->loader()->load(ResourceRequest(KURL(KURL(), String::fromUTF8(uri))), false);
+}
+
+/**
+ * webkit_web_frame_load_string:
+ * @frame: a #WebKitWebFrame
+ * @content: an URI string
+ * @mime_type: the MIME type, or %NULL
+ * @encoding: the encoding, or %NULL
+ * @base_uri: the base URI for relative locations
+ *
+ * Requests loading of the given @content with the specified @mime_type,
+ * @encoding and @base_uri.
+ *
+ * If @mime_type is %NULL, "text/html" is assumed.
+ *
+ * If @encoding is %NULL, "UTF-8" is assumed.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_frame_load_string(WebKitWebFrame* frame, const gchar* content, const gchar* contentMimeType, const gchar* contentEncoding, const gchar* baseUri)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
+    g_return_if_fail(content);
+
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return;
+
+    KURL url(KURL(), baseUri ? String::fromUTF8(baseUri) : "");
+    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(content, strlen(content));
+    SubstituteData substituteData(sharedBuffer.release(), contentMimeType ? String(contentMimeType) : "text/html", contentEncoding ? String(contentEncoding) : "UTF-8", blankURL(), url);
+
+    coreFrame->loader()->load(ResourceRequest(url), substituteData, false);
+}
+
+/**
  * webkit_web_frame_load_request:
  * @frame: a #WebKitWebFrame
  * @request: a #WebKitNetworkRequest
@@ -394,7 +451,7 @@ void webkit_web_frame_load_request(WebKitWebFrame* frame, WebKitNetworkRequest* 
 
     // TODO: Use the ResourceRequest carried by WebKitNetworkRequest when it is implemented.
     String string = String::fromUTF8(webkit_network_request_get_uri(request));
-    coreFrame->loader()->load(ResourceRequest(KURL(string)));
+    coreFrame->loader()->load(ResourceRequest(KURL(KURL(), string)), false);
 }
 
 /**
@@ -660,6 +717,14 @@ unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame)
         return 0;
 
     return controller->numberOfActiveAnimations();
+}
+
+gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame)
+{
+    Frame* coreFrame = core(frame);
+    DocumentLoader* docLoader = coreFrame->loader()->documentLoader();
+    String mimeType = docLoader->responseMIMEType();
+    return g_strdup(mimeType.utf8().data());
 }
 
 }

@@ -29,11 +29,13 @@
 #import "NetscapePluginInstanceProxy.h"
 #import "NetscapePluginHostManager.h"
 #import "NetscapePluginHostProxy.h"
+#import "WebTextInputWindowController.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import "WebUIDelegate.h"
 
 #import <CoreFoundation/CoreFoundation.h>
+#import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/runtime.h>
 #import <WebCore/runtime_root.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -66,9 +68,9 @@ extern "C" {
       attributeKeys:(NSArray *)keys
     attributeValues:(NSArray *)values
        loadManually:(BOOL)loadManually
-         DOMElement:(DOMElement *)element
+            element:(PassRefPtr<WebCore::HTMLPlugInElement>)element
 {
-    self = [super initWithFrame:frame pluginPackage:pluginPackage URL:URL baseURL:baseURL MIMEType:MIME attributeKeys:keys attributeValues:values loadManually:loadManually DOMElement:element];
+    self = [super initWithFrame:frame pluginPackage:pluginPackage URL:URL baseURL:baseURL MIMEType:MIME attributeKeys:keys attributeValues:values loadManually:loadManually element:element];
     if (!self)
         return nil;
     
@@ -149,7 +151,10 @@ extern "C" {
 
 - (BOOL)shouldStop
 {
-    return YES;
+    if (!_proxy)
+        return YES;
+    
+    return _proxy->shouldStop();
 }
 
 - (void)destroyPlugin
@@ -197,13 +202,17 @@ extern "C" {
     
     ASSERT([self window]);
     
-    NSWindow *theWindow = [self window];
+    NSWindow *window = [self window];
     
     NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
     [notificationCenter addObserver:self selector:@selector(windowFrameDidChange:) 
-                               name:NSWindowDidMoveNotification object:theWindow];
+                               name:NSWindowDidMoveNotification object:window];
     [notificationCenter addObserver:self selector:@selector(windowFrameDidChange:)
-                               name:NSWindowDidResizeNotification object:theWindow];    
+                               name:NSWindowDidResizeNotification object:window];    
+
+    if (_proxy)
+        _proxy->windowFrameChanged([window frame]);
+    [self updateAndSetWindow];
 }
 
 - (void)removeWindowObservers
@@ -245,10 +254,24 @@ extern "C" {
         _proxy->mouseEvent(self, event, NPCocoaEventMouseExited);
 }
 
+- (NSTextInputContext *)inputContext
+{
+    return [[WebTextInputWindowController sharedTextInputWindowController] inputContext];
+}
+
 - (void)keyDown:(NSEvent *)event
 {
-    if (_isStarted && _proxy)
-        _proxy->keyEvent(self, event, NPCocoaEventKeyDown);
+    if (!_isStarted || !_proxy)
+        return;
+    
+    NSString *string = nil;
+    if ([[WebTextInputWindowController sharedTextInputWindowController] interpretKeyEvent:event string:&string]) {
+        if (string)
+            _proxy->insertText(string);
+        return;
+    }
+    
+    _proxy->keyEvent(self, event, NPCocoaEventKeyDown);
 }
 
 - (void)keyUp:(NSEvent *)event
@@ -274,15 +297,32 @@ extern "C" {
 - (void)drawRect:(NSRect)rect
 {
     if (_proxy) {
-        if (_softwareRenderer)
-            WKSoftwareCARendererRender(_softwareRenderer, (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort], NSRectToCGRect(rect));
+        if (_softwareRenderer) {
+            if ([NSGraphicsContext currentContextDrawingToScreen])
+                WKSoftwareCARendererRender(_softwareRenderer, (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort], NSRectToCGRect(rect));
+            else
+                _proxy->print(reinterpret_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]), [self bounds].size.width, [self bounds].size.height);
+        }
+            
         return;
     }
     
     if (_pluginHostDied) {
-        // Fill the area with a nice red color for now.
-        [[NSColor redColor] set];
-        NSRectFill(rect);
+        static NSImage *nullPlugInImage;
+        if (!nullPlugInImage) {
+            NSBundle *bundle = [NSBundle bundleForClass:[WebHostedNetscapePluginView class]];
+            nullPlugInImage = [[NSImage alloc] initWithContentsOfFile:[bundle pathForResource:@"nullplugin" ofType:@"tiff"]];
+            [nullPlugInImage setFlipped:YES];
+        }
+        
+        if (!nullPlugInImage)
+            return;
+        
+        NSSize imageSize = [nullPlugInImage size];
+        NSSize viewSize = [self bounds].size;
+        
+        NSPoint point = NSMakePoint((viewSize.width - imageSize.width) / 2.0, (viewSize.height - imageSize.height) / 2.0);
+        [nullPlugInImage drawAtPoint:point fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
     }
 }
 

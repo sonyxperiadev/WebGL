@@ -54,6 +54,7 @@ namespace WebKit {
 
 class HostedNetscapePluginStream;
 class NetscapePluginHostProxy;
+class ProxyInstance;
     
 class NetscapePluginInstanceProxy : public RefCounted<NetscapePluginInstanceProxy> {
 public:
@@ -63,7 +64,12 @@ public:
     }
     ~NetscapePluginInstanceProxy();
     
-    uint32_t pluginID() const { return m_pluginID; }
+    uint32_t pluginID() const 
+    {
+        ASSERT(m_pluginID);
+        
+        return m_pluginID;
+    }
     uint32_t renderContextID() const { return m_renderContextID; }
     void setRenderContextID(uint32_t renderContextID) { m_renderContextID = renderContextID; }
     
@@ -86,17 +92,25 @@ public:
     
     void mouseEvent(NSView *pluginView, NSEvent *, NPCocoaEventType);
     void keyEvent(NSView *pluginView, NSEvent *, NPCocoaEventType);
+    void insertText(NSString *);
+    
+    void print(CGContextRef, unsigned width, unsigned height);
+    
     void startTimers(bool throttleTimers);
     void stopTimers();
     
+    void invalidateRect(double x, double y, double width, double height);
+    
     // NPRuntime
     bool getWindowNPObject(uint32_t& objectID);
+    bool getPluginElementNPObject(uint32_t& objectID);
     void releaseObject(uint32_t objectID);
     
     bool evaluate(uint32_t objectID, const WebCore::String& script, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool invoke(uint32_t objectID, const JSC::Identifier& methodName, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool invokeDefault(uint32_t objectID, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool construct(uint32_t objectID, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
+    bool enumerate(uint32_t objectID, data_t& resultData, mach_msg_type_number_t& resultLength);
     
     bool getProperty(uint32_t objectID, const JSC::Identifier& propertyName, data_t &resultData, mach_msg_type_number_t& resultLength);
     bool getProperty(uint32_t objectID, unsigned propertyName, data_t &resultData, mach_msg_type_number_t& resultLength);    
@@ -116,6 +130,17 @@ public:
     void marshalValue(JSC::ExecState*, JSC::JSValuePtr value, data_t& resultData, mach_msg_type_number_t& resultLength);
     JSC::JSValuePtr demarshalValue(JSC::ExecState*, const char* valueData, mach_msg_type_number_t valueLength);
 
+    void addInstance(ProxyInstance*);
+    void removeInstance(ProxyInstance*);
+    
+    void invalidate();
+    
+    void willCallPluginFunction();
+    void didCallPluginFunction();
+    bool shouldStop();
+    
+    uint32_t nextRequestID();
+    
     // Reply structs
     struct Reply {
         enum Type {
@@ -125,7 +150,11 @@ public:
             Boolean
         };
         
-        Reply(Type type) : m_type(type) { }
+        Reply(Type type) 
+            : m_type(type)
+        {
+        }
+        
         virtual ~Reply() { }
     
         Type m_type;
@@ -185,24 +214,23 @@ public:
         RetainPtr<CFDataRef> m_result;
     };
     
-    void setCurrentReply(Reply* reply)
+    void setCurrentReply(uint32_t requestID, Reply* reply)
     {
-        ASSERT(!m_currentReply.get());
-        m_currentReply = std::auto_ptr<Reply>(reply);
+        ASSERT(!m_replies.contains(requestID));
+        m_replies.set(requestID, reply);
     }
     
     template <typename T>
-    std::auto_ptr<T> waitForReply()
+    std::auto_ptr<T> waitForReply(uint32_t requestID)
     {
         m_waitingForReply = true;
-        
-        processRequestsAndWaitForReply();
-        
-        if (m_currentReply.get()) 
-            ASSERT(m_currentReply->m_type == T::ReplyType);
+
+        Reply* reply = processRequestsAndWaitForReply(requestID);
+        if (reply)
+            ASSERT(reply->m_type == T::ReplyType);
         
         m_waitingForReply = false;
-        return std::auto_ptr<T>(static_cast<T*>(m_currentReply.release()));
+        return std::auto_ptr<T>(static_cast<T*>(reply));
     }
     
 private:
@@ -215,7 +243,9 @@ private:
     void evaluateJavaScript(PluginRequest*);
     
     void stopAllStreams();
-    void processRequestsAndWaitForReply();
+    Reply* processRequestsAndWaitForReply(uint32_t requestID);
+    
+    void cleanup();
     
     NetscapePluginHostProxy* m_pluginHostProxy;
     WebHostedNetscapePluginView *m_pluginView;
@@ -226,14 +256,14 @@ private:
     
     HashMap<uint32_t, RefPtr<HostedNetscapePluginStream> > m_streams;
 
-    uint32_t m_currentRequestID;
+    uint32_t m_currentURLRequestID;
     
     uint32_t m_pluginID;
     uint32_t m_renderContextID;
     boolean_t m_useSoftwareRenderer;
     
     bool m_waitingForReply;
-    std::auto_ptr<Reply> m_currentReply;
+    HashMap<uint32_t, Reply*> m_replies;
     
     // NPRuntime
     uint32_t idForObject(JSC::JSObject*);
@@ -246,6 +276,13 @@ private:
     uint32_t m_objectIDCounter;
     typedef HashMap<uint32_t, JSC::ProtectedPtr<JSC::JSObject> > ObjectMap;
     ObjectMap m_objects;
+    
+    typedef HashSet<ProxyInstance*> ProxyInstanceSet;
+    ProxyInstanceSet m_instances;
+    
+    unsigned m_pluginFunctionCallDepth;
+    bool m_shouldStopSoon;
+    uint32_t m_currentRequestID;
 };
     
 } // namespace WebKit

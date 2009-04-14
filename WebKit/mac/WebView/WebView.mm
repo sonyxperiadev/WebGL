@@ -39,7 +39,6 @@
 #import "WebDatabaseManagerInternal.h"
 #import "WebDefaultEditingDelegate.h"
 #import "WebDefaultPolicyDelegate.h"
-#import "WebDefaultScriptDebugDelegate.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebDocument.h"
 #import "WebDocumentInternal.h"
@@ -84,6 +83,7 @@
 #import "WebPolicyDelegate.h"
 #import "WebPreferenceKeysPrivate.h"
 #import "WebPreferencesPrivate.h"
+#import "WebScriptDebugDelegate.h"
 #import "WebTextIterator.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
@@ -92,6 +92,7 @@
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/Cache.h>
 #import <WebCore/ColorMac.h>
+#import <WebCore/Cursor.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DragController.h>
@@ -128,15 +129,14 @@
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMPrivate.h>
 #import <WebKitSystemInterface.h>
+#import <mach-o/dyld.h>
+#import <objc/objc-auto.h>
+#import <objc/objc-runtime.h>
 #import <runtime/ArrayPrototype.h>
 #import <runtime/DateInstance.h>
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
 #import <runtime/JSValue.h>
-#import <mach-o/dyld.h>
-#import <objc/objc-auto.h>
-#import <objc/objc-runtime.h>
-#import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/HashTraits.h>
 #import <wtf/RefCountedLeakCounter.h>
@@ -232,6 +232,10 @@ macro(moveToEndOfParagraph) \
 macro(moveToEndOfParagraphAndModifySelection) \
 macro(moveToEndOfSentence) \
 macro(moveToEndOfSentenceAndModifySelection) \
+macro(moveToLeftEndOfLine) \
+macro(moveToLeftEndOfLineAndModifySelection) \
+macro(moveToRightEndOfLine) \
+macro(moveToRightEndOfLineAndModifySelection) \
 macro(moveUp) \
 macro(moveUpAndModifySelection) \
 macro(moveWordBackward) \
@@ -287,6 +291,11 @@ macro(yankAndSelect) \
 #define AppleKeyboardUIMode CFSTR("AppleKeyboardUIMode")
 #define UniversalAccessDomain CFSTR("com.apple.universalaccess")
 
+#if USE(ACCELERATED_COMPOSITING)
+#define UsingAcceleratedCompositingProperty @"_isUsingAcceleratedCompositing"
+#endif            
+
+
 static BOOL s_didSetCacheModel;
 static WebCacheModel s_cacheModel = WebCacheModelDocumentViewer;
 
@@ -340,7 +349,6 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
     id editingDelegate;
     id editingDelegateForwarder;
     id scriptDebugDelegate;
-    id scriptDebugDelegateForwarder;
 
     WebInspector *inspector;
     WebNodeHighlight *currentNodeHighlight;
@@ -362,6 +370,7 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
     
     WebResourceDelegateImplementationCache resourceLoadDelegateImplementations;
     WebFrameLoadDelegateImplementationCache frameLoadDelegateImplementations;
+    WebScriptDebugDelegateImplementationCache scriptDebugDelegateImplementations;
 
     void *observationInfo;
     
@@ -406,6 +415,14 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
     
     // When this flag is set, we will not make any subviews underneath this WebView.  This means no WebFrameViews and no WebHTMLViews.
     BOOL useDocumentViews;
+
+#if USE(ACCELERATED_COMPOSITING)
+    // When this flag is set, next time a WebHTMLView draws, it needs to temporarily disable screen updates
+    // so that the NSView drawing is visually synchronized with CALayer updates.
+    BOOL needsOneShotDrawingSynchronization;
+    // Number of WebHTMLViews using accelerated compositing. Used to implement _isUsingAcceleratedCompositing.
+    int acceleratedFramesCount;
+#endif    
 }
 @end
 
@@ -535,7 +552,6 @@ static BOOL grammarCheckingEnabled;
     [UIDelegateForwarder release];
     [frameLoadDelegateForwarder release];
     [editingDelegateForwarder release];
-    [scriptDebugDelegateForwarder release];
     
     [mediaStyle release];
     
@@ -661,6 +677,22 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     initialized = YES;
 }
 
+static bool runningLeopardMail()
+{
+#ifdef BUILDING_ON_LEOPARD
+    return [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.mail"];
+#endif
+    return NO;
+}
+
+static bool runningTigerMail()
+{
+#ifdef BUILDING_ON_TIGER
+    return [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.mail"];
+#endif
+    return NO;    
+}
+
 - (void)_registerDraggedTypes
 {
     NSArray *editableTypes = [WebHTMLView _insertablePasteboardTypes];
@@ -678,7 +710,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
 
 - (void)_commonInitializationWithFrameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
 
 #ifndef NDEBUG
     WTF::RefCountedLeakCounter::suppressMessages(webViewIsOpen);
@@ -722,11 +754,15 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
 #ifndef BUILDING_ON_TIGER
-    if (WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOADING_DURING_COMMON_RUNLOOP_MODES))
-        [self scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
-    else
-        [self scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+    NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
+#else
+    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
 #endif
+
+    if (WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOADING_DURING_COMMON_RUNLOOP_MODES))
+        [self scheduleInRunLoop:runLoop forMode:(NSString *)kCFRunLoopCommonModes];
+    else
+        [self scheduleInRunLoop:runLoop forMode:NSDefaultRunLoopMode];
 
     [self _addToAllWebViewsSet];
     [self setGroupName:groupName];
@@ -905,7 +941,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     return uniqueExtensions;
 }
 
-+ (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
++ (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType
 {
     MIMEType = [MIMEType lowercaseString];
     Class viewClass = [[WebFrameView _viewTypesAllowImageTypeOmission:YES] _webkit_objectForMIMEType:MIMEType];
@@ -938,7 +974,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     return NO;
 }
 
-- (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
+- (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType
 {
     if ([[self class] _viewClass:vClass andRepresentationClass:rClass forMIMEType:MIMEType])
         return YES;
@@ -1089,7 +1125,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     // Need this to make leak messages accurate.
     if (applicationIsTerminating) {
         gcController().garbageCollectNow();
-        [WebCache empty];
+        [WebCache setDisabled:YES];
     }
 #endif
 }
@@ -1296,6 +1332,7 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     settings->setDefaultFixedFontSize([preferences defaultFixedFontSize]);
     settings->setDefaultFontSize([preferences defaultFontSize]);
     settings->setDefaultTextEncodingName([preferences defaultTextEncodingName]);
+    settings->setUsesEncodingDetector([preferences usesEncodingDetector]);
     settings->setFantasyFontFamily([preferences fantasyFontFamily]);
     settings->setFixedFontFamily([preferences fixedFontFamily]);
     settings->setForceFTPDirectoryListings([preferences _forceFTPDirectoryListings]);
@@ -1303,6 +1340,8 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
     settings->setLocalStorageDatabasePath([preferences _localStorageDatabasePath]);
     settings->setJavaEnabled([preferences isJavaEnabled]);
     settings->setJavaScriptEnabled([preferences isJavaScriptEnabled]);
+    settings->setWebSecurityEnabled([preferences isWebSecurityEnabled]);
+    settings->setAllowUniversalAccessFromFileURLs([preferences allowUniversalAccessFromFileURLs]);
     settings->setJavaScriptCanOpenWindowsAutomatically([preferences javaScriptCanOpenWindowsAutomatically]);
     settings->setMinimumFontSize([preferences minimumFontSize]);
     settings->setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
@@ -1332,15 +1371,13 @@ static void WebKitInitializeApplicationCachePathIfNecessary()
         settings->setUserStyleSheetLocation([NSURL URLWithString:@""]);
     settings->setNeedsAdobeFrameReloadingQuirk([self _needsAdobeFrameReloadingQuirk]);
     settings->setNeedsKeyboardEventDisambiguationQuirks([self _needsKeyboardEventDisambiguationQuirks]);
+    settings->setNeedsLeopardMailQuirks(runningLeopardMail());
+    settings->setNeedsTigerMailQuirks(runningTigerMail());
     settings->setNeedsSiteSpecificQuirks(_private->useSiteSpecificSpoofing);
     settings->setWebArchiveDebugModeEnabled([preferences webArchiveDebugModeEnabled]);
-    settings->disableRangeMutationForOldAppleMail(WKAppVersionCheckLessThan(@"com.apple.mail", -1, 4.0));
     settings->setOfflineWebApplicationCacheEnabled([preferences offlineWebApplicationCacheEnabled]);
     settings->setZoomsTextOnly([preferences zoomsTextOnly]);
     settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
-#ifdef BUILDING_ON_LEOPARD
-    settings->setNeedsIChatMemoryCacheCallsQuirk([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.iChat"]);
-#endif
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1418,6 +1455,37 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     return &webView->_private->frameLoadDelegateImplementations;
 }
 
+- (void)_cacheScriptDebugDelegateImplementations
+{
+    WebScriptDebugDelegateImplementationCache *cache = &_private->scriptDebugDelegateImplementations;
+    id delegate = _private->scriptDebugDelegate;
+
+    if (!delegate) {
+        bzero(cache, sizeof(WebScriptDebugDelegateImplementationCache));
+        return;
+    }
+
+    cache->didParseSourceFunc = getMethod(delegate, @selector(webView:didParseSource:baseLineNumber:fromURL:sourceId:forWebFrame:));
+    if (cache->didParseSourceFunc)
+        cache->didParseSourceExpectsBaseLineNumber = YES;
+    else
+        cache->didParseSourceFunc = getMethod(delegate, @selector(webView:didParseSource:fromURL:sourceId:forWebFrame:));
+
+    cache->failedToParseSourceFunc = getMethod(delegate, @selector(webView:failedToParseSource:baseLineNumber:fromURL:withError:forWebFrame:));
+    cache->didEnterCallFrameFunc = getMethod(delegate, @selector(webView:didEnterCallFrame:sourceId:line:forWebFrame:));
+    cache->willExecuteStatementFunc = getMethod(delegate, @selector(webView:willExecuteStatement:sourceId:line:forWebFrame:));
+    cache->willLeaveCallFrameFunc = getMethod(delegate, @selector(webView:willLeaveCallFrame:sourceId:line:forWebFrame:));
+    cache->exceptionWasRaisedFunc = getMethod(delegate, @selector(webView:exceptionWasRaised:sourceId:line:forWebFrame:));
+}
+
+WebScriptDebugDelegateImplementationCache* WebViewGetScriptDebugDelegateImplementations(WebView *webView)
+{
+    static WebScriptDebugDelegateImplementationCache empty;
+    if (!webView)
+        return &empty;
+    return &webView->_private->scriptDebugDelegateImplementations;
+}
+
 - (id)_policyDelegateForwarder
 {
     if (!_private->policyDelegateForwarder)
@@ -1444,19 +1512,12 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     return _private->editingDelegateForwarder;
 }
 
-- (id)_scriptDebugDelegateForwarder
-{
-    if (!_private->scriptDebugDelegateForwarder)
-        _private->scriptDebugDelegateForwarder = [[_WebSafeForwarder alloc] initWithTarget:_private->scriptDebugDelegate defaultTarget:[WebDefaultScriptDebugDelegate sharedScriptDebugDelegate] catchExceptions:_private->catchesDelegateExceptions];
-    return _private->scriptDebugDelegateForwarder;
-}
-
 - (void)_closeWindow
 {
     [[self _UIDelegateForwarder] webViewClose:self];
 }
 
-+ (void)_unregisterViewClassAndRepresentationClassForMIMEType:(NSString *)MIMEType;
++ (void)_unregisterViewClassAndRepresentationClassForMIMEType:(NSString *)MIMEType
 {
     [[WebFrameView _viewTypesAllowImageTypeOmission:NO] removeObjectForKey:MIMEType];
     [[WebDataSource _repTypesAllowImageTypeOmission:NO] removeObjectForKey:MIMEType];
@@ -1467,7 +1528,7 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     MIMETypeRegistry::getSupportedNonImageMIMETypes().remove(MIMEType);
 }
 
-+ (void)_registerViewClass:(Class)viewClass representationClass:(Class)representationClass forURLScheme:(NSString *)URLScheme;
++ (void)_registerViewClass:(Class)viewClass representationClass:(Class)representationClass forURLScheme:(NSString *)URLScheme
 {
     NSString *MIMEType = [self _generatedMIMETypeForURLScheme:URLScheme];
     [self registerViewClass:viewClass representationClass:representationClass forMIMEType:MIMEType];
@@ -1559,7 +1620,11 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     static NSSet *manualNotifyKeys = nil;
     if (!manualNotifyKeys)
         manualNotifyKeys = [[NSSet alloc] initWithObjects:_WebMainFrameURLKey, _WebIsLoadingKey, _WebEstimatedProgressKey,
-            _WebCanGoBackKey, _WebCanGoForwardKey, _WebMainFrameTitleKey, _WebMainFrameIconKey, _WebMainFrameDocumentKey, nil];
+            _WebCanGoBackKey, _WebCanGoForwardKey, _WebMainFrameTitleKey, _WebMainFrameIconKey, _WebMainFrameDocumentKey,
+#if USE(ACCELERATED_COMPOSITING)
+            UsingAcceleratedCompositingProperty, // used by DRT
+#endif            
+            nil];
     if ([manualNotifyKeys containsObject:key])
         return NO;
     return YES;
@@ -1994,9 +2059,9 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
     if (!coreFrame)
         return nil;
     
-    Selection selectionInsideRect(coreFrame->visiblePositionForPoint(rectStart), coreFrame->visiblePositionForPoint(rectEnd));
+    VisibleSelection selectionInsideRect(coreFrame->visiblePositionForPoint(rectStart), coreFrame->visiblePositionForPoint(rectEnd));
     
-    return [[[WebTextIterator alloc] initWithRange:[DOMRange _wrapRange:selectionInsideRect.toRange().get()]] autorelease];
+    return [[[WebTextIterator alloc] initWithRange:[DOMRange _wrapRange:selectionInsideRect.toNormalizedRange().get()]] autorelease];
 }
 
 - (void)handleAuthenticationForResource:(id)identifier challenge:(NSURLAuthenticationChallenge *)challenge fromDataSource:(WebDataSource *)dataSource 
@@ -2069,6 +2134,59 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 - (BOOL)areMemoryCacheDelegateCallsEnabled
 {
     return _private->page->areMemoryCacheClientCallsEnabled();
+}
+
+- (void)_setJavaScriptURLsAreAllowed:(BOOL)areAllowed
+{
+    _private->page->setJavaScriptURLsAreAllowed(areAllowed);
+}
+
++ (NSCursor *)_pointingHandCursor
+{
+    return handCursor().impl();
+}
+
+#if USE(ACCELERATED_COMPOSITING)
+- (BOOL)_needsOneShotDrawingSynchronization
+{
+    return _private->needsOneShotDrawingSynchronization;
+}
+
+- (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization
+{
+    _private->needsOneShotDrawingSynchronization = needsSynchronization;
+}
+
+- (void)_startedAcceleratedCompositingForFrame:(WebFrame*)webFrame
+{
+    BOOL entering = _private->acceleratedFramesCount == 0;
+    if (entering)
+        [self willChangeValueForKey:UsingAcceleratedCompositingProperty];
+    ++_private->acceleratedFramesCount;
+    if (entering)
+        [self didChangeValueForKey:UsingAcceleratedCompositingProperty];
+}
+
+- (void)_stoppedAcceleratedCompositingForFrame:(WebFrame*)webFrame
+{
+    BOOL leaving = _private->acceleratedFramesCount == 1;
+    ASSERT(_private->acceleratedFramesCount > 0);
+    
+    if (leaving)
+        [self willChangeValueForKey:UsingAcceleratedCompositingProperty];
+    --_private->acceleratedFramesCount;
+    if (leaving)
+        [self didChangeValueForKey:UsingAcceleratedCompositingProperty];
+}
+#endif    
+
+- (BOOL)_isUsingAcceleratedCompositing
+{
+#if USE(ACCELERATED_COMPOSITING)
+    return _private->acceleratedFramesCount > 0;
+#else
+    return NO;
+#endif
 }
 
 @end
@@ -2270,9 +2388,10 @@ WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementati
 
 static bool needsWebViewInitThreadWorkaround()
 {
-    static BOOL isOldInstaller = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_WEBVIEW_INIT_THREAD_WORKAROUND)
-        && [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.installer"];
-    return isOldInstaller && !pthread_main_np();
+    static BOOL isOldClient = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_WEBVIEW_INIT_THREAD_WORKAROUND)
+        && ([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.installer"] ||
+            [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Automator"]);
+    return isOldClient && !pthread_main_np();
 }
 
 - (id)initWithFrame:(NSRect)f
@@ -2285,7 +2404,7 @@ static bool needsWebViewInitThreadWorkaround()
     if (needsWebViewInitThreadWorkaround())
         return [[self _webkit_invokeOnMainThread] initWithFrame:f frameName:frameName groupName:groupName];
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
     return [self _initWithFrame:f frameName:frameName groupName:groupName usesDocumentViews:YES];
 }
 
@@ -2294,7 +2413,7 @@ static bool needsWebViewInitThreadWorkaround()
     if (needsWebViewInitThreadWorkaround())
         return [[self _webkit_invokeOnMainThread] initWithCoder:decoder];
 
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundTwo();
     WebView *result = nil;
 
     @try {
@@ -2500,7 +2619,8 @@ static bool needsWebViewInitThreadWorkaround()
         
         [self removeWindowObservers];
         [self removeSizeObservers];
-    }
+    } else
+        _private->page->willMoveOffscreen();
 }
 
 - (void)viewDidMoveToWindow
@@ -2515,6 +2635,7 @@ static bool needsWebViewInitThreadWorkaround()
     if ([self window]) {
         [self addWindowObservers];
         [self addSizeObservers];
+        _private->page->didMoveOnscreen();
     }
 }
 
@@ -2538,10 +2659,14 @@ static bool needsWebViewInitThreadWorkaround()
     BOOL windowIsKey = [window isKeyWindow];
     BOOL windowOrSheetIsKey = windowIsKey || [[window attachedSheet] isKeyWindow];
 
-    NSResponder *firstResponder = [window firstResponder]; 
+    WebFrameView *mainFrameView = [[self mainFrame] frameView];
+    id <WebDocumentView> documentView = [mainFrameView documentView];
+    BOOL documentViewIsResigningFirstResponder = [documentView isKindOfClass:[WebHTMLView class]] && [(WebHTMLView *)documentView _isResigningFirstResponder];
+        
+    NSResponder *firstResponder = [window firstResponder];
     if ([firstResponder isKindOfClass:[NSView class]] 
-        && [(NSView*)firstResponder isDescendantOf:[[self mainFrame] frameView]])
-        page->focusController()->setActive(windowIsKey);
+        && [(NSView *)firstResponder isDescendantOf:mainFrameView])
+        page->focusController()->setActive(windowIsKey && !documentViewIsResigningFirstResponder);
 
     Frame* focusedFrame = page->focusController()->focusedOrMainFrame();
     frame->selection()->setFocused(frame == focusedFrame && windowOrSheetIsKey);
@@ -3001,6 +3126,11 @@ static bool needsWebViewInitThreadWorkaround()
 
 - (NSWindow *)hostWindow
 {
+    // -[WebView hostWindow] can sometimes be called from the WebView's [super dealloc] method
+    // so we check here to make sure it's not null.
+    if (!_private)
+        return nil;
+    
     return _private->hostWindow;
 }
 
@@ -3522,18 +3652,14 @@ static WebFrame *incrementFrame(WebFrame *curr, BOOL forward, BOOL wrapFlag)
 
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
-#ifndef BUILDING_ON_TIGER
     if (runLoop && mode)
         core(self)->addSchedulePair(SchedulePair::create(runLoop, (CFStringRef)mode));
-#endif
 }
 
 - (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
-#ifndef BUILDING_ON_TIGER
     if (runLoop && mode)
         core(self)->removeSchedulePair(SchedulePair::create(runLoop, (CFStringRef)mode));
-#endif
 }
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
@@ -3660,8 +3786,8 @@ static WebFrame *incrementFrame(WebFrame *curr, BOOL forward, BOOL wrapFlag)
 - (void)setScriptDebugDelegate:(id)delegate
 {
     _private->scriptDebugDelegate = delegate;
-    [_private->scriptDebugDelegateForwarder release];
-    _private->scriptDebugDelegateForwarder = nil;
+    [self _cacheScriptDebugDelegateImplementations];
+
     if (delegate)
         [self _attachScriptDebuggerToAllFrames];
     else
@@ -4058,7 +4184,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValuePtr jsV
     return kit(page->mainFrame()->editor()->rangeForPoint(IntPoint([self convertPoint:point toView:nil])).get());
 }
 
-- (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
+- (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag
 {
     // FIXME: This quirk is needed due to <rdar://problem/4985321> - We can phase it out once Aperture can adopt the new behavior on their end
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_APERTURE_QUIRK) && [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Aperture"])
@@ -4096,7 +4222,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValuePtr jsV
     Frame* coreFrame = core([self _selectedOrMainFrame]);
     if (!coreFrame)
         return nil;
-    return kit(coreFrame->selection()->toRange().get());
+    return kit(coreFrame->selection()->toNormalizedRange().get());
 }
 
 - (NSSelectionAffinity)selectionAffinity
@@ -4370,7 +4496,7 @@ FOR_EACH_RESPONDER_SELECTOR(FORWARD)
 
 @implementation WebView (WebViewEditingInMail)
 
-- (void)_insertNewlineInQuotedContent;
+- (void)_insertNewlineInQuotedContent
 {
     [[self _selectedOrMainFrame] _insertParagraphSeparatorInQuotedContent];
 }
@@ -5148,6 +5274,20 @@ static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SE
     return nil;
 }
 
+static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SEL selector, id object1, NSInteger integer1, NSInteger integer2, id object2)
+{
+    if (!delegate)
+        return nil;
+    if (!self->_private->catchesDelegateExceptions)
+        return implementation(delegate, selector, self, object1, integer1, integer2, object2);
+    @try {
+        return implementation(delegate, selector, self, object1, integer1, integer2, object2);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return nil;
+}
+
 static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SEL selector, id object1, id object2, NSInteger integer, id object3)
 {
     if (!delegate)
@@ -5156,6 +5296,34 @@ static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SE
         return implementation(delegate, selector, self, object1, object2, integer, object3);
     @try {
         return implementation(delegate, selector, self, object1, object2, integer, object3);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return nil;
+}
+
+static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SEL selector, id object1, NSInteger integer1, id object2, NSInteger integer2, id object3)
+{
+    if (!delegate)
+        return nil;
+    if (!self->_private->catchesDelegateExceptions)
+        return implementation(delegate, selector, self, object1, integer1, object2, integer2, object3);
+    @try {
+        return implementation(delegate, selector, self, object1, integer1, object2, integer2, object3);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return nil;
+}
+
+static inline id CallDelegate(IMP implementation, WebView *self, id delegate, SEL selector, id object1, NSInteger integer, id object2, id object3, id object4)
+{
+    if (!delegate)
+        return nil;
+    if (!self->_private->catchesDelegateExceptions)
+        return implementation(delegate, selector, self, object1, integer, object2, object3, object4);
+    @try {
+        return implementation(delegate, selector, self, object1, integer, object2, object3, object4);
     } @catch(id exception) {
         ReportDiscardedDelegateException(selector, exception);
     }
@@ -5301,6 +5469,26 @@ BOOL CallResourceLoadDelegateReturningBoolean(BOOL result, IMP implementation, W
         ReportDiscardedDelegateException(selector, exception);
     }
     return result;
+}
+
+id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, id object2, NSInteger integer, id object3)
+{
+    return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, object2, integer, object3);
+}
+
+id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, NSInteger integer1, id object2, NSInteger integer2, id object3)
+{
+    return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, integer1, object2, integer2, object3);
+}
+
+id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, NSInteger integer, id object2, id object3, id object4)
+{
+    return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, integer, object2, object3, object4);
+}
+
+id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, NSInteger integer1, NSInteger integer2, id object2)
+{
+    return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, integer1, integer2, object2);
 }
 
 // The form delegate needs to have it's own implementation, because the first argument is never the WebView

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@
 #import "WebElementDictionary.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
+#import "WebGeolocationInternal.h"
 #import "WebHTMLViewInternal.h"
 #import "WebHistoryInternal.h"
 #import "WebKitSystemInterface.h"
@@ -49,6 +50,7 @@
 #import <WebCore/FloatRect.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
+#import <WebCore/Geolocation.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/Page.h>
@@ -60,6 +62,10 @@
 #import <WebCore/WindowFeatures.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/Vector.h>
+
+#if USE(ACCELERATED_COMPOSITING)
+#import <WebCore/GraphicsLayer.h>
+#endif
 
 @interface NSView (WebNSViewDetails)
 - (NSView *)_findLastViewInKeyViewLoop;
@@ -641,6 +647,36 @@ void WebChromeClient::enableSuddenTermination()
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     [[NSProcessInfo processInfo] enableSuddenTermination];
 #endif
+}
+
+#if USE(ACCELERATED_COMPOSITING)
+void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
+{
+    WebFrameView *frameView = [kit(frame) frameView];
+    WebHTMLView *docView = (WebHTMLView *)[frameView documentView];
+    if (graphicsLayer)
+        [docView attachRootLayer:graphicsLayer->nativeLayer()];
+    else
+        [docView detachRootLayer];
+}
+
+void WebChromeClient::setNeedsOneShotDrawingSynchronization()
+{
+    [m_webView _setNeedsOneShotDrawingSynchronization:YES];
+}
+#endif
+
+void WebChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:frame->document()->securityOrigin()];
+    WebGeolocation *webGeolocation = [[WebGeolocation alloc] _initWithWebCoreGeolocation:geolocation];
+    CallUIDelegate(m_webView, @selector(webView:frame:requestGeolocationPermission:securityOrigin:), kit(frame), webGeolocation, webOrigin);
+    [webOrigin release];
+    [webGeolocation release];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
 }
 
 @implementation WebOpenPanelResultListener

@@ -70,8 +70,7 @@ inline int wxNavTypeFromWebNavType(NavigationType type){
 }
 
 FrameLoaderClientWx::FrameLoaderClientWx()
-    : RefCounted<FrameLoaderClientWx>(0)
-    , m_frame(0)
+    : m_frame(0)
 {
 }
 
@@ -93,16 +92,6 @@ void FrameLoaderClientWx::setWebView(wxWebView *webview)
 void FrameLoaderClientWx::detachFrameLoader()
 {
     m_frame = 0;
-}
-
-void FrameLoaderClientWx::ref()
-{
-    RefCounted<FrameLoaderClientWx>::ref();
-}
-
-void FrameLoaderClientWx::deref()
-{
-    RefCounted<FrameLoaderClientWx>::deref();
 }
 
 bool FrameLoaderClientWx::hasWebView() const
@@ -531,6 +520,11 @@ void FrameLoaderClientWx::updateGlobalHistory()
     notImplemented();
 }
 
+void FrameLoaderClientWx::updateGlobalHistoryRedirectLinks()
+{
+    notImplemented();
+}
+
 bool FrameLoaderClientWx::shouldGoToHistoryItem(WebCore::HistoryItem*) const
 {
     notImplemented();
@@ -791,7 +785,7 @@ ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const 
     return ObjectContentType();
 }
 
-Widget* FrameLoaderClientWx::createPlugin(const IntSize&, Element*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
+Widget* FrameLoaderClientWx::createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
 {
     notImplemented();
     return 0;
@@ -809,7 +803,7 @@ ResourceError FrameLoaderClientWx::pluginWillHandleLoadError(const ResourceRespo
     return ResourceError();
 }
 
-Widget* FrameLoaderClientWx::createJavaAppletWidget(const IntSize&, Element*, const KURL& baseURL,
+Widget* FrameLoaderClientWx::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL,
                                                     const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     notImplemented();
@@ -825,6 +819,10 @@ String FrameLoaderClientWx::overrideMediaType() const
 void FrameLoaderClientWx::windowObjectCleared()
 {
     notImplemented();
+}
+
+void FrameLoaderClientWx::documentElementAvailable()
+{
 }
 
 void FrameLoaderClientWx::didPerformFirstNavigation() const

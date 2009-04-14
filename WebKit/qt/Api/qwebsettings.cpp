@@ -183,6 +183,10 @@ void QWebSettingsPrivate::apply()
         value = attributes.value(QWebSettings::LocalStorageDatabaseEnabled,
                                       global->attributes.value(QWebSettings::LocalStorageDatabaseEnabled));
         settings->setLocalStorageEnabled(value);
+
+        value = attributes.value(QWebSettings::AllowUniversalAccessFromFileUrls,
+                                      global->attributes.value(QWebSettings::AllowUniversalAccessFromFileUrls));
+        settings->setAllowUniversalAccessFromFileURLs(value);
     } else {
         QList<QWebSettingsPrivate *> settings = *::allSettings();
         for (int i = 0; i < settings.count(); ++i)
@@ -236,10 +240,6 @@ QWebSettings *QWebSettings::globalSettings()
     setOfflineStoragePath() with an appropriate file path, and can limit the quota
     for each application by calling setOfflineStorageDefaultQuota().
 
-    The performance of Web applications can be enhanced with the use of an
-    offline cache. This can be enabled by calling setOfflineWebApplicationCache()
-    with an appropriate file path.
-
     \sa QWebPage::settings(), QWebView::settings(), {Browser}
 */
 
@@ -292,8 +292,7 @@ QWebSettings *QWebSettings::globalSettings()
         programs.
     \value JavaEnabled Enables or disables Java applets.
         Currently Java applets are not supported.
-    \value PluginsEnabled Enables or disables plugins in web pages.
-        Currently Flash and other plugins are not supported.
+    \value PluginsEnabled Enables or disables plugins in Web pages.
     \value PrivateBrowsingEnabled Private browsing prevents WebKit from
         recording visited pages in the history and storing web page icons.
     \value JavascriptCanOpenWindows Specifies whether JavaScript programs
@@ -315,6 +314,8 @@ QWebSettings *QWebSettings::globalSettings()
         web application cache feature is enabled or not.
     \value LocalStorageDatabaseEnabled Specifies whether support for the HTML 5
         local storage feature is enabled or not.
+    \value AllowUniversalAccessFromFileUrls Specifies whether documents from file
+        Urls should be granted universal access (e.g., to HTTP and HTTPS documents).
 */
 
 /*!
@@ -343,6 +344,7 @@ QWebSettings::QWebSettings()
     d->attributes.insert(QWebSettings::OfflineStorageDatabaseEnabled, true);
     d->attributes.insert(QWebSettings::OfflineWebApplicationCacheEnabled, true);
     d->attributes.insert(QWebSettings::LocalStorageDatabaseEnabled, true);
+    d->attributes.insert(QWebSettings::AllowUniversalAccessFromFileUrls, true);
     d->offlineStorageDefaultQuota = 5 * 1024 * 1024;
 
 }
@@ -710,9 +712,10 @@ qint64 QWebSettings::offlineStorageDefaultQuota()
     return QWebSettings::globalSettings()->d->offlineStorageDefaultQuota;
 }
 
-/*!
-    \since 4.5
-
+/*
+    \internal
+    \relates QWebSettings
+    
     Sets the path for HTML5 offline web application cache storage to \a path.
 
     \a path must point to an existing directory where the cache is stored.
@@ -721,22 +724,23 @@ qint64 QWebSettings::offlineStorageDefaultQuota()
 
     \sa offlineWebApplicationCachePath()
 */
-void QWebSettings::setOfflineWebApplicationCachePath(const QString& path)
+void QWEBKIT_EXPORT qt_websettings_setOfflineWebApplicationCachePath(const QString& path)
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     WebCore::cacheStorage().setCacheDirectory(path);
 #endif
 }
 
-/*!
-    \since 4.5
-
+/*
+    \internal
+    \relates QWebSettings
+    
     Returns the path of the HTML5 offline web application cache storage
     or an empty string if the feature is disabled.
 
     \sa setOfflineWebApplicationCachePath()
 */
-QString QWebSettings::offlineWebApplicationCachePath()
+QString QWEBKIT_EXPORT qt_websettings_offlineWebApplicationCachePath()
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     return WebCore::cacheStorage().cacheDirectory();
@@ -747,6 +751,7 @@ QString QWebSettings::offlineWebApplicationCachePath()
 
 /*
     \since 4.5
+    \relates QWebSettings
 
     Sets the path for HTML5 local storage databases to \a path.
 
@@ -756,7 +761,6 @@ QString QWebSettings::offlineWebApplicationCachePath()
 
     \sa localStorageDatabasePath()
 */
-
 void QWEBKIT_EXPORT qt_websettings_setLocalStorageDatabasePath(QWebSettings* settings, const QString& path)
 {
     QWebSettingsPrivate *d = settings->handle();
@@ -766,6 +770,7 @@ void QWEBKIT_EXPORT qt_websettings_setLocalStorageDatabasePath(QWebSettings* set
 
 /*
     \since 4.5
+    \relates QWebSettings
 
     Returns the path for HTML5 local storage databases
     or an empty string if the feature is disabled.

@@ -1,12 +1,13 @@
 /*
  *  Copyright (C) 2007, 2008 Holger Hans Peter Freyther
- *  Copyright (C) 2007, 2008 Christian Dywan <christian@imendio.com>
+ *  Copyright (C) 2007, 2008, 2009 Christian Dywan <christian@imendio.com>
  *  Copyright (C) 2007 Xan Lopez <xan@gnome.org>
  *  Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
  *  Copyright (C) 2008 Jan Alonzo <jmalonzo@unpluggable.com>
  *  Copyright (C) 2008 Gustavo Noronha Silva <gns@gnome.org>
  *  Copyright (C) 2008 Nuanti Ltd.
  *  Copyright (C) 2008 Collabora Ltd.
+ *  Copyright (C) 2009 Igalia S.L.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,6 +26,7 @@
 
 #include "config.h"
 
+#include "webkitdownload.h"
 #include "webkitwebview.h"
 #include "webkitenumtypes.h"
 #include "webkitmarshal.h"
@@ -43,6 +45,7 @@
 #include "ContextMenuController.h"
 #include "Cursor.h"
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "DragClientGtk.h"
 #include "Editor.h"
 #include "EditorClientGtk.h"
@@ -56,13 +59,12 @@
 #include "InspectorClientGtk.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
-#include "Editor.h"
 #include "PasteboardHelper.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
+#include "ResourceHandle.h"
 #include "ScriptValue.h"
 #include "Scrollbar.h"
-#include "SubstituteData.h"
 #include <wtf/GOwnPtr.h>
 
 #include <gdk/gdkkeysyms.h>
@@ -110,6 +112,7 @@ extern "C" {
 enum {
     /* normal signals */
     NAVIGATION_REQUESTED,
+    NEW_WINDOW_POLICY_DECISION_REQUESTED,
     NAVIGATION_POLICY_DECISION_REQUESTED,
     MIME_TYPE_POLICY_DECISION_REQUESTED,
     CREATE_WEB_VIEW,
@@ -133,12 +136,15 @@ enum {
     COPY_CLIPBOARD,
     PASTE_CLIPBOARD,
     CUT_CLIPBOARD,
+    DOWNLOAD_REQUESTED,
     LAST_SIGNAL
 };
 
 enum {
     PROP_0,
 
+    PROP_TITLE,
+    PROP_URI,
     PROP_COPY_TARGET_LIST,
     PROP_PASTE_TARGET_LIST,
     PROP_EDITABLE,
@@ -147,7 +153,9 @@ enum {
     PROP_WINDOW_FEATURES,
     PROP_TRANSPARENT,
     PROP_ZOOM_LEVEL,
-    PROP_FULL_CONTENT_ZOOM
+    PROP_FULL_CONTENT_ZOOM,
+    PROP_ENCODING,
+    PROP_CUSTOM_ENCODING
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
@@ -276,6 +284,12 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
 
     switch(prop_id) {
+    case PROP_TITLE:
+        g_value_set_string(value, webkit_web_view_get_title(webView));
+        break;
+    case PROP_URI:
+        g_value_set_string(value, webkit_web_view_get_uri(webView));
+        break;
 #if GTK_CHECK_VERSION(2,10,0)
     case PROP_COPY_TARGET_LIST:
         g_value_set_boxed(value, webkit_web_view_get_copy_target_list(webView));
@@ -305,6 +319,12 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
     case PROP_FULL_CONTENT_ZOOM:
         g_value_set_boolean(value, webkit_web_view_get_full_content_zoom(webView));
         break;
+    case PROP_ENCODING:
+        g_value_set_string(value, webkit_web_view_get_encoding(webView));
+        break;
+    case PROP_CUSTOM_ENCODING:
+        g_value_set_string(value, webkit_web_view_get_custom_encoding(webView));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     }
@@ -332,6 +352,9 @@ static void webkit_web_view_set_property(GObject* object, guint prop_id, const G
         break;
     case PROP_FULL_CONTENT_ZOOM:
         webkit_web_view_set_full_content_zoom(webView, g_value_get_boolean(value));
+        break;
+    case PROP_CUSTOM_ENCODING:
+        webkit_web_view_set_custom_encoding(webView, g_value_get_string(value));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -436,11 +459,23 @@ static gboolean webkit_web_view_key_press_event(GtkWidget* widget, GdkEventKey* 
     case GDK_Left:
         view->scrollBy(IntSize(-cScrollbarPixelsPerLineStep, 0));
         return TRUE;
+    case GDK_space:
+        if ((event->state & GDK_SHIFT_MASK) == GDK_SHIFT_MASK)
+            view->scrollBy(IntSize(0, -view->visibleHeight()));
+        else
+            view->scrollBy(IntSize(0, view->visibleHeight()));
+        return TRUE;
+    case GDK_Page_Up:
+        view->scrollBy(IntSize(0, -view->visibleHeight()));
+        return TRUE;
+    case GDK_Page_Down:
+        view->scrollBy(IntSize(0, view->visibleHeight()));
+        return TRUE;
     case GDK_Home:
-        frame->selection()->modify(alteration, SelectionController::BACKWARD, DocumentBoundary, true);
+        view->scrollBy(IntSize(0, -view->contentsHeight()));
         return TRUE;
     case GDK_End:
-        frame->selection()->modify(alteration, SelectionController::FORWARD, DocumentBoundary, true);
+        view->scrollBy(IntSize(0, view->contentsHeight()));
         return TRUE;
     }
 
@@ -496,10 +531,17 @@ static gboolean webkit_web_view_button_release_event(GtkWidget* widget, GdkEvent
     }
 
     Frame* mainFrame = core(webView)->mainFrame();
-    if (!mainFrame->view())
-        return FALSE;
+    if (mainFrame->view())
+        mainFrame->eventHandler()->handleMouseReleaseEvent(PlatformMouseEvent(event));
 
-    return mainFrame->eventHandler()->handleMouseReleaseEvent(PlatformMouseEvent(event));
+    /* We always return FALSE here because WebKit can, for the same click, decide
+     * to not handle press-event but handle release-event, which can totally confuse
+     * some GTK+ containers when there are no other events in between. This way we
+     * guarantee that this case never happens, and that if press-event goes through
+     * release-event also goes through.
+     */
+
+    return FALSE;
 }
 
 static gboolean webkit_web_view_motion_event(GtkWidget* widget, GdkEventMotion* event)
@@ -536,7 +578,7 @@ static void webkit_web_view_size_allocate(GtkWidget* widget, GtkAllocation* allo
         return;
 
     frame->view()->resize(allocation->width, allocation->height);
-    frame->forceLayout();
+    frame->view()->forceLayout();
     frame->view()->adjustViewSize();
 }
 
@@ -816,6 +858,8 @@ static void webkit_web_view_dispose(GObject* object)
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
 
+    priv->disposing = TRUE;
+
     if (priv->corePage) {
         webkit_web_view_stop_loading(WEBKIT_WEB_VIEW(object));
 
@@ -862,6 +906,17 @@ static void webkit_web_view_dispose(GObject* object)
     }
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
+}
+
+static void webkit_web_view_finalize(GObject* object)
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
+    WebKitWebViewPrivate* priv = webView->priv;
+
+    g_free(priv->encoding);
+    g_free(priv->customEncoding);
+
+    G_OBJECT_CLASS(webkit_web_view_parent_class)->finalize(object);
 }
 
 static gboolean webkit_create_web_view_request_handled(GSignalInvocationHint* ihint, GValue* returnAccu, const GValue* handlerReturn, gpointer dummy)
@@ -998,6 +1053,45 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             WEBKIT_TYPE_NETWORK_REQUEST);
 
     /**
+     * WebKitWebView::new-window-policy-decision-requested:
+     * @web_view: the object on which the signal is emitted
+     * @frame: the #WebKitWebFrame that required the navigation
+     * @request: a #WebKitNetworkRequest
+     * @navigation_action: a #WebKitWebNavigation
+     * @policy_decision: a #WebKitWebPolicyDecision
+     * @return: TRUE if the signal will be handled, FALSE to have the
+     *          default behavior apply
+     *
+     * Emitted when @frame requests opening a new window. With this
+     * signal the browser can use the context of the request to decide
+     * about the new window. If the request is not handled the default
+     * behavior is to allow opening the new window to load the url,
+     * which will cause a create-web-view signal emission where the
+     * browser handles the new window action but without information
+     * of the context that caused the navigation. The following
+     * navigation-policy-decision-requested emissions will load the
+     * page after the creation of the new window just with the
+     * information of this new navigation context, without any
+     * information about the action that made this new window to be
+     * opened.
+     *
+     * Since: 1.1.4
+     */
+    webkit_web_view_signals[NEW_WINDOW_POLICY_DECISION_REQUESTED] =
+        g_signal_new("new-window-policy-decision-requested",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            g_signal_accumulator_true_handled,
+            NULL,
+            webkit_marshal_BOOLEAN__OBJECT_OBJECT_OBJECT_OBJECT,
+            G_TYPE_BOOLEAN, 4,
+            WEBKIT_TYPE_WEB_FRAME,
+            WEBKIT_TYPE_NETWORK_REQUEST,
+            WEBKIT_TYPE_WEB_NAVIGATION_ACTION,
+            WEBKIT_TYPE_WEB_POLICY_DECISION);
+
+    /**
      * WebKitWebView::navigation-policy-decision-requested:
      * @web_view: the object on which the signal is emitted
      * @frame: the #WebKitWebFrame that required the navigation
@@ -1085,6 +1179,34 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_POINTER);
 
     /**
+     * WebKitWebView::download-requested:
+     * @web_view: the object on which the signal is emitted
+     * @download: a #WebKitDownload object that lets you control the
+     * download process
+     * @return: %TRUE if the download should be performed, %FALSE to cancel it.
+     *
+     * A new Download is being requested. By default, if the signal is
+     * not handled, the download is cancelled. Notice that while
+     * handling this signal you must set the target URI using
+     * webkit_download_set_target_uri().
+     *
+     * If you intend to handle downloads yourself rather than using
+     * the #WebKitDownload helper object you must handle this signal,
+     * and return %FALSE.
+     *
+     * Since: 1.1.2
+     */
+    webkit_web_view_signals[DOWNLOAD_REQUESTED] = g_signal_new("download-requested",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            g_signal_accumulator_true_handled,
+            NULL,
+            webkit_marshal_BOOLEAN__OBJECT,
+            G_TYPE_BOOLEAN, 1,
+            G_TYPE_OBJECT);
+
+    /**
      * WebKitWebView::load-started:
      * @web_view: the object on which the signal is emitted
      * @frame: the frame going to do the load
@@ -1151,6 +1273,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @title: the new title
      *
      * When a #WebKitWebFrame changes the document title this signal is emitted.
+     *
+     * Deprecated: 1.1.4: Use "notify::title" instead.
      */
     webkit_web_view_signals[TITLE_CHANGED] = g_signal_new("title-changed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1284,9 +1408,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_STRUCT_OFFSET(WebKitWebViewClass, script_confirm),
             g_signal_accumulator_true_handled,
             NULL,
-            webkit_marshal_BOOLEAN__OBJECT_STRING_BOOLEAN,
+            webkit_marshal_BOOLEAN__OBJECT_STRING_POINTER,
             G_TYPE_BOOLEAN, 3,
-            WEBKIT_TYPE_WEB_FRAME, G_TYPE_STRING, G_TYPE_BOOLEAN);
+            WEBKIT_TYPE_WEB_FRAME, G_TYPE_STRING, G_TYPE_POINTER);
 
     /**
      * WebKitWebView::script-prompt:
@@ -1396,6 +1520,7 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
 
     GObjectClass* objectClass = G_OBJECT_CLASS(webViewClass);
     objectClass->dispose = webkit_web_view_dispose;
+    objectClass->finalize = webkit_web_view_finalize;
     objectClass->get_property = webkit_web_view_get_property;
     objectClass->set_property = webkit_web_view_set_property;
 
@@ -1460,6 +1585,34 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     /*
      * properties
      */
+
+    /**
+    * WebKitWebView:title:
+    *
+    * Returns the @web_view's document title.
+    *
+    * Since: 1.1.4
+    */
+    g_object_class_install_property(objectClass, PROP_TITLE,
+                                    g_param_spec_string("title",
+                                                        "Title",
+                                                        "Returns the @web_view's document title",
+                                                        NULL,
+                                                        WEBKIT_PARAM_READABLE));
+
+    /**
+    * WebKitWebView:uri:
+    *
+    * Returns the current URI of the contents displayed by the @web_view.
+    *
+    * Since: 1.1.4
+    */
+    g_object_class_install_property(objectClass, PROP_URI,
+                                    g_param_spec_string("uri",
+                                                        "URI",
+                                                        "Returns the current URI of the contents displayed by the @web_view",
+                                                        NULL,
+                                                        WEBKIT_PARAM_READABLE));
 
 #if GTK_CHECK_VERSION(2,10,0)
     /**
@@ -1570,6 +1723,34 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                          FALSE,
                                                          WEBKIT_PARAM_READWRITE));
 
+    /**
+     * WebKitWebView:encoding:
+     *
+     * The default encoding of the web view.
+     *
+     * Since: 1.1.2
+     */
+    g_object_class_install_property(objectClass, PROP_ENCODING,
+                                    g_param_spec_string("encoding",
+                                                        "Encoding",
+                                                        "The default encoding of the web view",
+                                                        NULL,
+                                                        WEBKIT_PARAM_READABLE));
+
+    /**
+     * WebKitWebView:custom-encoding:
+     *
+     * The custom encoding of the web view.
+     *
+     * Since: 1.1.2
+     */
+    g_object_class_install_property(objectClass, PROP_CUSTOM_ENCODING,
+                                    g_param_spec_string("custom-encoding",
+                                                        "Custom Encoding",
+                                                        "The custom encoding of the web view",
+                                                        NULL,
+                                                        WEBKIT_PARAM_READWRITE));
+
     g_type_class_add_private(webViewClass, sizeof(WebKitWebViewPrivate));
 }
 
@@ -1625,7 +1806,9 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     Settings* settings = core(webView)->settings();
 
     gchar* defaultEncoding, *cursiveFontFamily, *defaultFontFamily, *fantasyFontFamily, *monospaceFontFamily, *sansSerifFontFamily, *serifFontFamily, *userStylesheetUri;
-    gboolean autoLoadImages, autoShrinkImages, printBackgrounds, enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas;
+    gboolean autoLoadImages, autoShrinkImages, printBackgrounds,
+        enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
+        enablePrivateBrowsing;
 
     g_object_get(webSettings,
                  "default-encoding", &defaultEncoding,
@@ -1643,6 +1826,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "resizable-text-areas", &resizableTextAreas,
                  "user-stylesheet-uri", &userStylesheetUri,
                  "enable-developer-extras", &enableDeveloperExtras,
+                 "enable-private-browsing", &enablePrivateBrowsing,
                  NULL);
 
     settings->setDefaultTextEncodingName(defaultEncoding);
@@ -1658,8 +1842,9 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setJavaScriptEnabled(enableScripts);
     settings->setPluginsEnabled(enablePlugins);
     settings->setTextAreasAreResizable(resizableTextAreas);
-    settings->setUserStyleSheetLocation(KURL(userStylesheetUri));
+    settings->setUserStyleSheetLocation(KURL(KURL(), userStylesheetUri));
     settings->setDeveloperExtrasEnabled(enableDeveloperExtras);
+    settings->setPrivateBrowsingEnabled(enablePrivateBrowsing);
 
     g_free(defaultEncoding);
     g_free(cursiveFontFamily);
@@ -1725,9 +1910,11 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
     else if (name == g_intern_string("resizable-text-areas"))
         settings->setTextAreasAreResizable(g_value_get_boolean(&value));
     else if (name == g_intern_string("user-stylesheet-uri"))
-        settings->setUserStyleSheetLocation(KURL(g_value_get_string(&value)));
+        settings->setUserStyleSheetLocation(KURL(KURL(), g_value_get_string(&value)));
     else if (name == g_intern_string("enable-developer-extras"))
         settings->setDeveloperExtrasEnabled(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-private-browsing"))
+        settings->setPrivateBrowsingEnabled(g_value_get_boolean(&value));
     else if (!g_object_class_find_property(G_OBJECT_GET_CLASS(webSettings), name))
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -1746,20 +1933,13 @@ static void webkit_web_view_init(WebKitWebView* webView)
     // We also add a simple wrapper class to provide the public
     // interface for the Web Inspector.
     priv->webInspector = WEBKIT_WEB_INSPECTOR(g_object_new(WEBKIT_TYPE_WEB_INSPECTOR, NULL));
-    webkit_web_inspector_set_inspector_client(priv->webInspector, inspectorClient);
+    webkit_web_inspector_set_inspector_client(priv->webInspector, priv->corePage);
 
     priv->horizontalAdjustment = GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
     priv->verticalAdjustment = GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
 
-#if GLIB_CHECK_VERSION(2,10,0)
     g_object_ref_sink(priv->horizontalAdjustment);
     g_object_ref_sink(priv->verticalAdjustment);
-#else
-    g_object_ref(priv->horizontalAdjustment);
-    gtk_object_sink(GTK_OBJECT(priv->horizontalAdjustment));
-    g_object_ref(priv->verticalAdjustment);
-    gtk_object_sink(GTK_OBJECT(priv->verticalAdjustment));
-#endif
 
     GTK_WIDGET_SET_FLAGS(webView, GTK_CAN_FOCUS);
     priv->mainFrame = WEBKIT_WEB_FRAME(webkit_web_frame_new(webView));
@@ -1887,6 +2067,42 @@ WebKitWebWindowFeatures* webkit_web_view_get_window_features(WebKitWebView* webV
 
     WebKitWebViewPrivate* priv = webView->priv;
     return priv->webWindowFeatures;
+}
+
+/**
+ * webkit_web_view_get_title:
+ * @web_view: a #WebKitWebView
+ *
+ * Returns the @web_view's document title
+ *
+ * Since: 1.1.4
+ *
+ * Return value: the title of @web_view
+ */
+G_CONST_RETURN gchar* webkit_web_view_get_title(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    WebKitWebViewPrivate* priv = webView->priv;
+    return priv->mainFrame->priv->title;
+}
+
+/**
+ * webkit_web_view_get_uri:
+ * @web_view: a #WebKitWebView
+ *
+ * Returns the current URI of the contents displayed by the @web_view
+ *
+ * Since: 1.1.4
+ *
+ * Return value: the URI of @web_view
+ */
+G_CONST_RETURN gchar* webkit_web_view_get_uri(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    WebKitWebViewPrivate* priv = webView->priv;
+    return priv->mainFrame->priv->uri;
 }
 
 /**
@@ -2048,13 +2264,29 @@ gboolean webkit_web_view_can_go_forward(WebKitWebView* webView)
     return TRUE;
 }
 
+/**
+ * webkit_web_view_open:
+ * @web_view: a #WebKitWebView
+ * @uri: an URI
+ *
+ * Requests loading of the specified URI string.
+ *
+ * Deprecated: 1.1.1: Use webkit_web_view_load_uri() instead.
+  */
 void webkit_web_view_open(WebKitWebView* webView, const gchar* uri)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(uri);
 
-    Frame* frame = core(webView)->mainFrame();
-    frame->loader()->load(ResourceRequest(KURL(String::fromUTF8(uri))));
+    // We used to support local paths, unlike the newer
+    // function webkit_web_view_load_uri
+    if (g_path_is_absolute(uri)) {
+        gchar* fileUri = g_strdup_printf("file://%s", uri);
+        webkit_web_view_load_uri(webView, fileUri);
+        g_free(fileUri);
+    }
+    else
+        webkit_web_view_load_uri(webView, uri);
 }
 
 void webkit_web_view_reload(WebKitWebView* webView)
@@ -2079,26 +2311,85 @@ void webkit_web_view_reload_bypass_cache(WebKitWebView* webView)
     core(webView)->mainFrame()->loader()->reload(true);
 }
 
-void webkit_web_view_load_string(WebKitWebView* webView, const gchar* content, const gchar* contentMimeType, const gchar* contentEncoding, const gchar* baseUri)
+/**
+ * webkit_web_view_load_uri:
+ * @web_view: a #WebKitWebView
+ * @uri: an URI string
+ *
+ * Requests loading of the specified URI string.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_view_load_uri(WebKitWebView* webView, const gchar* uri)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(uri);
+
+    WebKitWebFrame* frame = webView->priv->mainFrame;
+    webkit_web_frame_load_uri(frame, uri);
+}
+
+/**
++  * webkit_web_view_load_string:
++  * @web_view: a #WebKitWebView
++  * @content: an URI string
++  * @mime_type: the MIME type, or %NULL
++  * @encoding: the encoding, or %NULL
++  * @base_uri: the base URI for relative locations
++  *
++  * Requests loading of the given @content with the specified @mime_type,
++  * @encoding and @base_uri.
++  *
++  * If @mime_type is %NULL, "text/html" is assumed.
++  *
++  * If @encoding is %NULL, "UTF-8" is assumed.
++  */
+void webkit_web_view_load_string(WebKitWebView* webView, const gchar* content, const gchar* mimeType, const gchar* encoding, const gchar* baseUri)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(content);
 
-    Frame* frame = core(webView)->mainFrame();
-
-    KURL url(baseUri ? String::fromUTF8(baseUri) : "");
-    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(content, strlen(content));
-    SubstituteData substituteData(sharedBuffer.release(), contentMimeType ? String(contentMimeType) : "text/html", contentEncoding ? String(contentEncoding) : "UTF-8", KURL("about:blank"), url);
-
-    frame->loader()->load(ResourceRequest(url), substituteData);
+    WebKitWebFrame* frame = webView->priv->mainFrame;
+    webkit_web_frame_load_string(frame, content, mimeType, encoding, baseUri);
 }
-
+/**
+ * webkit_web_view_load_html_string:
+ * @web_view: a #WebKitWebView
+ * @content: an URI string
+ * @base_uri: the base URI for relative locations
+ *
+ * Requests loading of the given @content with the specified @base_uri.
+ *
+ * Deprecated: 1.1.1: Use webkit_web_view_load_string() instead.
+ */
 void webkit_web_view_load_html_string(WebKitWebView* webView, const gchar* content, const gchar* baseUri)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(content);
 
     webkit_web_view_load_string(webView, content, NULL, NULL, baseUri);
+}
+
+/**
+ * webkit_web_view_load_request:
+ * @web_view: a #WebKitWebView
+ * @request: a #WebKitNetworkRequest
+ *
+ * Requests loading of the specified asynchronous client request.
+ *
+ * Creates a provisional data source that will transition to a committed data
+ * source once any data has been received. Use webkit_web_view_stop_loading() to
+ * stop the load.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_view_load_request(WebKitWebView* webView, WebKitNetworkRequest* request)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(WEBKIT_IS_NETWORK_REQUEST(request));
+
+    WebKitWebFrame* frame = webView->priv->mainFrame;
+    webkit_web_frame_load_request(frame, request);
 }
 
 void webkit_web_view_stop_loading(WebKitWebView* webView)
@@ -2673,4 +2964,89 @@ void webkit_web_view_set_full_content_zoom(WebKitWebView* webView, gboolean zoom
     g_object_notify(G_OBJECT(webView), "full-content-zoom");
 }
 
+/**
+ * webkit_get_default_session:
+ *
+ * Retrieves the default #SoupSession used by all web views.
+ * Note that the session features are added by WebKit on demand,
+ * so if you insert your own #SoupCookieJar before any network
+ * traffic occurs, WebKit will use it instead of the default.
+ *
+ * Return value: the default #SoupSession
+ *
+ * Since: 1.1.1
+ */
+SoupSession* webkit_get_default_session ()
+{
+    return ResourceHandle::defaultSession();
+}
+
+}
+
+/**
+ * webkit_web_view_get_encoding:
+ * @web_view: a #WebKitWebView
+ *
+ * Returns the default encoding of the #WebKitWebView.
+ *
+ * Return value: the default encoding
+ *
+ * Since: 1.1.1
+ */
+const gchar* webkit_web_view_get_encoding(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    String encoding = core(webView)->mainFrame()->loader()->encoding();
+
+    if (!encoding.isEmpty()) {
+        WebKitWebViewPrivate* priv = webView->priv;
+        g_free(priv->encoding);
+        priv->encoding = g_strdup(encoding.utf8().data());
+        return priv->encoding;
+    } else
+      return NULL;
+}
+
+/**
+ * webkit_web_view_set_custom_encoding:
+ * @web_view: a #WebKitWebView
+ * @encoding: the new encoding, or %NULL to restore the default encoding
+ *
+ * Sets the current #WebKitWebView encoding, without modifying the default one,
+ * and reloads the page.
+ *
+ * Since: 1.1.1
+ */
+void webkit_web_view_set_custom_encoding(WebKitWebView* webView, const char* encoding)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    core(webView)->mainFrame()->loader()->reloadWithOverrideEncoding(String::fromUTF8(encoding));
+}
+
+/**
+ * webkit_web_view_get_custom_encoding:
+ * @web_view: a #WebKitWebView
+ *
+ * Returns the current encoding of the #WebKitWebView, not the default-encoding
+ * of WebKitWebSettings.
+ *
+ * Return value: a string containing the current custom encoding for @web_view, or %NULL if there's none set.
+ *
+ * Since: 1.1.1
+ */
+const char* webkit_web_view_get_custom_encoding(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    String overrideEncoding = core(webView)->mainFrame()->loader()->documentLoader()->overrideEncoding();
+
+    if (!overrideEncoding.isEmpty()) {
+        WebKitWebViewPrivate* priv = webView->priv;
+        g_free (priv->customEncoding);
+        priv->customEncoding = g_strdup(overrideEncoding.utf8().data());
+        return priv->customEncoding;
+    } else
+      return NULL;
 }

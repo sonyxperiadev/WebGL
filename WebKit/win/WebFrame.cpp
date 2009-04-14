@@ -69,10 +69,12 @@
 #include <WebCore/GDIObjectCounter.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/HistoryItem.h>
+#include <WebCore/HTMLAppletElement.h>
 #include <WebCore/HTMLFormElement.h>
 #include <WebCore/HTMLFormControlElement.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/MIMETypeRegistry.h>
@@ -1049,6 +1051,87 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     return S_OK;
 }
 
+HRESULT WebFrame::pauseAnimation(BSTR animationName, IDOMNode* node, double secondsFromNow, BOOL* animationWasRunning)
+{
+    if (!node || !animationWasRunning)
+        return E_POINTER;
+
+    *animationWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode)
+        return E_FAIL;
+
+    *animationWasRunning = controller->pauseAnimationAtTime(domNode->node()->renderer(), String(animationName, SysStringLen(animationName)), secondsFromNow);
+    return S_OK;
+}
+
+HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double secondsFromNow, BOOL* transitionWasRunning)
+{
+    if (!node || !transitionWasRunning)
+        return E_POINTER;
+
+    *transitionWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode)
+        return E_FAIL;
+
+    *transitionWasRunning = controller->pauseTransitionAtTime(domNode->node()->renderer(), String(propertyName, SysStringLen(propertyName)), secondsFromNow);
+    return S_OK;
+}
+
+HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
+{
+    if (!number)
+        return E_POINTER;
+
+    *number = 0;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    *number = controller->numberOfActiveAnimations();
+    return S_OK;
+}
+
+HRESULT WebFrame::isDisplayingStandaloneImage(BOOL* result)
+{
+    if (!result)
+        return E_POINTER;
+
+    *result = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    Document* document = frame->document();
+    *result = document && document->isImageDocument();
+    return S_OK;
+}
+
 HRESULT WebFrame::controlsInForm(IDOMElement* form, IDOMElement** controls, int* cControls)
 {
     if (!form)
@@ -1288,8 +1371,6 @@ String WebFrame::generatedMIMETypeForURLScheme(const String& /*URLScheme*/) cons
 
 void WebFrame::frameLoadCompleted()
 {
-    if (Frame* coreFrame = core(this))
-        coreFrame->loader()->setPreviousHistoryItem(0);
 }
 
 void WebFrame::restoreViewState()
@@ -1523,7 +1604,7 @@ void WebFrame::startDownload(const ResourceRequest&)
     notImplemented();
 }
 
-Widget* WebFrame::createJavaAppletWidget(const IntSize& pluginSize, Element* element, const KURL& /*baseURL*/, const Vector<String>& paramNames, const Vector<String>& paramValues)
+Widget* WebFrame::createJavaAppletWidget(const IntSize& pluginSize, HTMLAppletElement* element, const KURL& /*baseURL*/, const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
     PluginView* pluginView = PluginView::create(core(this), pluginSize, element, KURL(), paramNames, paramValues, "application/x-java-applet", false);
 
@@ -1595,6 +1676,10 @@ void WebFrame::windowObjectCleared()
     }
 }
 
+void WebFrame::documentElementAvailable()
+{
+}
+
 void WebFrame::didPerformFirstNavigation() const
 {
     COMPtr<IWebPreferences> preferences;
@@ -1643,7 +1728,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
         return S_OK;
 
     Frame* coreFrame = core(this);
-    if (!coreFrame)
+    if (!coreFrame || !coreFrame->document())
         return E_FAIL;
 
     m_inPrintingMode = !!value;
@@ -1652,7 +1737,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
     // according to the paper size
     float minLayoutWidth = 0.0f;
     float maxLayoutWidth = 0.0f;
-    if (m_inPrintingMode && !coreFrame->isFrameSet()) {
+    if (m_inPrintingMode && !coreFrame->document()->isFrameSet()) {
         if (!printDC) {
             ASSERT_NOT_REACHED();
             return E_POINTER;
@@ -1868,10 +1953,10 @@ HRESULT STDMETHODCALLTYPE WebFrame::isFrameSet(
     *result = FALSE;
 
     Frame* coreFrame = core(this);
-    if (!coreFrame)
+    if (!coreFrame || !coreFrame->document())
         return E_FAIL;
 
-    *result = coreFrame->isFrameSet() ? TRUE : FALSE;
+    *result = coreFrame->document()->isFrameSet() ? TRUE : FALSE;
     return S_OK;
 }
 

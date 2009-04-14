@@ -1,8 +1,355 @@
-2009-02-03  Mark Rowe  <mrowe@apple.com>
+2009-03-26  Simon Hausmann  <simon.hausmann@nokia.com>
 
-        Merge r40508.
+        Rubber-stamped by Tor Arne Vestbø.
 
-    2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+        Fix the documentation of the QLocale usage in userAgentForUrl.
+
+        * Api/qwebpage.cpp:
+
+2009-03-20  Erik L. Bunce  <elbunce@xendom.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix for InsertParagraphSeparator and InsertLineSeparator so that
+        QWebPage::action() creates QActions for them. Also make sure they get
+        updated appropriately.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::updateEditorActions):
+        (QWebPage::action):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::textEditing):
+
+2009-03-20  Erik L. Bunce  <elbunce@xendom.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Fix QWebPage::WebActions action states to more closely match when they are
+        actually applicable and remove erroneous documentation.
+
+        * Most WebActions implemented using editor commands now use the
+          Editor::Command::isEnabled() to control their availability.
+        * SelectAll is always enabled (since it's editor command is).
+        * SetTextDirection{} family of WebActions are available when canEdit() is true
+          and not just canEditRichly().
+
+        Fix and clarify documentation about the availability of various web actions.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::updateAction):
+        (QWebPagePrivate::updateEditorActions):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::textSelection):
+
+2009-03-19  Ariya Hidayat <ariya.hidayat@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fixes pedantic compilation in QtWebKit.
+
+        There are no semi-colons after namespace declarations.
+
+        * Api/qwebdatabase.h:
+        * Api/qwebsecurityorigin.h:
+
+2009-03-19  David Boddie  <dboddie@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: Removed obsolete warning about Flash and other plugins.
+
+        * Api/qwebsettings.cpp:
+
+2009-03-19  Paul Olav Tvete  <paul.tvete@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Properly escape tooltip text
+
+        ManualTest: http://xkcd.com/554/
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::setToolTip):
+
+2009-03-10  Adam Treat  <adam.treat@torchmobile.com>
+
+        Build fix for Qt after r41555.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::acceptNavigationRequest):
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Build fix, no review.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::inputMethodQuery):
+
+2009-03-07  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by Cameron Zwarich.
+
+        These methods are clearly returning the wrong values as the two were
+        returning swapped information.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::totalBytes):
+        (QWebPage::bytesReceived):
+
+2009-03-05  Ariya Hidayat  <ariya.hidayat@nokia.com>
+
+        Rubber-stamped by Simon Hausmann.
+
+        [Qt] NPAPI plugins are supported, adjust the API documentation.
+
+        * Api/qwebsettings.cpp:
+
+2009-03-04  Adam Barth  <abath@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24356
+
+        Fix WebKit style for allowUniversalAccessFromFileURLs.
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+
+2009-03-03  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24340
+
+        Expose AllowUniversalAccessFromFileUrls to Qt clients.
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+        (QWebSettings::QWebSettings):
+        * Api/qwebsettings.h:
+
+2009-03-03  Ariya Hidayat  <ariya.hidayat@trolltech.com>
+
+        Rubber-stamped by Simon Hausmann.
+
+        [Qt] Create and update the action for SelectAll.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::updateAction):
+        (QWebPagePrivate::updateEditorActions):
+        (QWebPage::action):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::textSelection):
+
+2009-03-02  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by Eric Seidel.
+
+        Add three new drt helper functions that enable all of the tests in
+        LayoutTests/animation/* and LayoutTests/transitions/* to now pass.
+
+        * Api/qwebframe.cpp:
+        (qt_drt_pauseAnimation):
+        (qt_drt_pauseTransitionOfProperty):
+        (qt_drt_numberOfActiveAnimations):
+
+2009-03-02  Benjamin C Meyer  <benjamin.meyer@torchmobile.com>
+
+        Reviewed by George Staikos.
+
+        https://bugs.webkit.org/show_bug.cgi?id=21230
+        On X11 match the behavior of Firefox and also copy the url to the
+        clipboard selection when the action Copy Link Location is executed.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::triggerAction):
+
+2009-02-25  Kavindra Palaraja  <kavindra.palaraja@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix the documentation for the linkHovered signal.
+
+        * Api/qwebpage.cpp:
+
+2009-02-23  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24094
+        Make sure to empty the cache on exit to get rid of superfluous leak messages
+        for CachedResource's in order to keep the leak messages accurate.  This
+        is analagous to what the Mac port is doing on application exit when all
+        WebView's have been closed.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::_q_cleanupLeakMessages):
+        (QWebPage::QWebPage):
+        * Api/qwebpage.h:
+        * Api/qwebpage_p.h:
+
+2009-02-23  Thiago Macieira  <thiago.macieira@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix the Copyright notices in a few files
+
+        * WebKit_pch.h:
+
+2009-02-16  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Avoid loading plugins when they're disabled in the settings.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::canShowMIMEType): Don't call into the
+        PluginDatabase if plugins are disabled in the settings.
+
+2009-02-13  Benjamin C Meyer  <benjamin.meyer@torchmobile.com>
+
+        Reviewed by Nikolas Zimmermann.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23738
+        Expose the url elements target frame string.  This is the sister function
+        to the existing linkTargetFrame which returns the QWebFrame*.  When the
+        linkTargetFrame is 0 it is useful to know what the target was to be.
+
+        * Api/qwebframe.cpp:
+        (QWebHitTestResultPrivate::QWebHitTestResultPrivate):
+        (QWebHitTestResult::linkTarget):
+        * Api/qwebframe.h:
+        * Api/qwebframe_p.h:
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2009-02-13  David Boddie  <dboddie@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Removed documentation for internal functions.
+
+        * Api/qwebsettings.cpp:
+
+2009-02-13  Martin Smith  <msmith@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Corrected some minor qdoc errors.
+
+        * Api/qwebsettings.cpp:
+
+2009-02-11  Dimitri Dupuis-latour  <dupuislatour@apple.com>
+
+        Stub out InspectorClientQt::hiddenPanels.
+
+        Reviewed by Timothy Hatcher.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::hiddenPanels):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2009-02-10  Karsten Heimrich  <kheimric@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fixes missing navigation/url update while clicking on anchor inside
+        webpage.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidChangeLocationWithinPage):
+        update and emit in case we navigate inside a webpage
+
+2009-02-10  Adam Treat  <adam.treat@torchmobile.com>
+
+        Fix the Qt build as class Selection is now VisibleSelection.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::inputMethodQuery):
+
+2009-02-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::updateGlobalHistoryRedirectLinks):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2009-02-06  Kavindra Palaraja  <kavindra.palaraja@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc - made 2 functions internal as they are not part of the API anymore (and this fixes 2 qdoc warnings)
+
+        * Api/qwebsettings.cpp:
+
+2009-02-06  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Added an overload of QWebFrame::addToJavaScriptWindowObject that takes a QScriptEngine::ValueOwnership parameter.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::addToJavaScriptWindowObject): New overload.
+        * Api/qwebframe.h:
+        * tests/qwebframe/tst_qwebframe.cpp: Added unit tests for ownership
+        models.
+
+2009-02-06  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Holger Freyther.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::documentElementAvailable):)
+        Fix compile error in Qt build introduced by the below change (r40694).
+
+2009-02-05  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Dave Hyatt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23708
+        Adds documentElementAvailable() callback to FrameLoaderClient.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClient::documentElementAvailable):
+        Stub out documentElementAvailable().
+        * WebCoreSupport/FrameLoaderClientQt.h:
+        Ditto.
+
+2009-02-04  David Boddie  <dboddie@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: Documented the return value of the evaluateJavaScript() function.
+
+        * Api/qwebframe.cpp:
+
+2009-02-03  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Added a unit test to verify the succesful conversion from QByteArray to
+        JSByteArray and back to QByteArray.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::QWebFrame):
+        (QWebFrame::load):
+        (QWebFrame::setHtml):
+        (QWebFrame::setContent):
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createFrame):
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Sam Weinig.
 
@@ -15,22 +362,78 @@
         (WebCore::FrameLoaderClientQt::createFrame):
         * WebCoreSupport/FrameLoaderClientQt.h:
 
-2009-02-03  Mark Rowe  <mrowe@apple.com>
+2009-02-02  Anders Carlsson  <andersca@apple.com>
 
-        Merge r40436.
+        Reviewed by Dan Bernstein.
 
-    2009-01-30  Geoffrey Garen  <ggaren@apple.com>
+        Update for changes to WebCore.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+        (WebCore::FrameLoaderClientQt::createJavaAppletWidget):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2009-02-02  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by Nikolas Zimmermann.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23587
+        Refactor HitTestRequest to eliminate all the ugly boolean arguments and
+        use an enum bitflag instead.  Cleanup all the code that constructs the
+        various HitTestRequests to make the code more readable.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::hitTestContent):
+
+2009-02-02  Adam Treat  <adam.treat@torchmobile.com>
+
+        Fix the Qt build to call forceLayout on the view instead.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setFixedLayoutSize):
+        (QWebPage::setUseFixedLayout):
+
+2009-02-02  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Darin Adler.
+
+        Move Frame::forceLayout, Frame::adjustPageHeight and Frame::forceLayoutWithPageWidthRange to FrameView
+
+        https://bugs.webkit.org/show_bug.cgi?id=23428
+
+        FrameView::forceLayout could be killed but the comment might
+        contain a value over the the plain FrameView::layout...
+
+        Adjust the WebCore/WebKit consumers of these methods.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setViewportSize):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::forceLayout):
+
+2009-01-30  Geoffrey Garen  <ggaren@apple.com>
 
         Build fix.
 
         * WebCoreSupport/FrameLoaderClientQt.cpp:
         (WebCore::FrameLoaderClientQt::createFrame):
 
-2009-02-03  Mark Rowe  <mrowe@apple.com>
+2009-01-30  Holger Hans Peter Freyther  <zecke@selfish.org>
 
-        Merge r40432.
+        Reviewed by Simon Hausmann.
 
-    2009-01-30  Geoffrey Garen  <ggaren@apple.com>
+        https://bugs.webkit.org/show_bug.cgi?id=22056
+
+        Kill FrameLoaderClient.cpp, move the code over to Frame::createView
+
+        FrameLoaderClient is supposed to be an interface, move the
+        to be shared code to Frame which is a controller and is
+        allowed to create a FrameView.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::transitionToCommittedForNewPage):
+
+2009-01-30  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Sam Weinig.
 
@@ -39,6 +442,64 @@
 
         * Api/qwebpage.cpp:
         (QWebPage::triggerAction):
+
+2009-01-30  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Remove FrameLoaderClient code that is now handled by FrameLoader itself
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::frameLoadCompleted):
+
+2009-01-30  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Hide the Offline Web Application Cache path API from the public API
+        for now.
+
+        * Api/qwebsettings.cpp:
+        (qt_websettings_setOfflineWebApplicationCachePath):
+        (qt_websettings_offlineWebApplicationCachePath):
+        * Api/qwebsettings.h:
+
+2009-01-28  Adam Treat  <adam.treat@torchmobile.com>
+
+        Reviewed by Nikolas Zimmermann and George Staikos.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23557
+        Do not clip the QWebFrame::hitTestContent method to the visible viewport
+        and add a regression test to make sure it works.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::hitTestContent):
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2009-01-28  Ariya Hidayat  <ariya.hidayat@trolltech.com>
+
+        Rubber-stamped by Simon Hausmann.
+
+        Provide default implementations of JavaScript dialog boxes like in
+        most web browsers, i.e. indicate that is from JavaScript and show the
+        frame URL.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::javaScriptAlert):
+        (QWebPage::javaScriptConfirm):
+        (QWebPage::javaScriptPrompt):
+
+2009-01-27  Ariya Hidayat  <ariya.hidayat@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        http://www.qtsoftware.com/developer/task-tracker/index_html?id=238391&method=entry
+
+        [Qt] If QPainter fails to start on a QPrinter instance, do not
+        continue printing.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::print):
 
 2009-01-27  Brady Eidson  <beidson@apple.com>
 

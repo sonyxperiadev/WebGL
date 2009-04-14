@@ -82,7 +82,7 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
 
 - (id)initWithBackForwardList:(PassRefPtr<BackForwardList>)backForwardList
 {   
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     self = [super init];
     if (!self)
         return nil;
@@ -115,20 +115,26 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
         return;
 
     BackForwardList* backForwardList = core(self);
-    ASSERT(backForwardList->closed());
-    backForwardLists().remove(backForwardList);
-    backForwardList->deref();
-        
+    ASSERT(backForwardList);
+    if (backForwardList) {
+        ASSERT(backForwardList->closed());
+        backForwardLists().remove(backForwardList);
+        backForwardList->deref();
+    }
+
     [super dealloc];
 }
 
 - (void)finalize
 {
-    WebCoreThreadViolationCheck();
+    WebCoreThreadViolationCheckRoundOne();
     BackForwardList* backForwardList = core(self);
-    ASSERT(backForwardList->closed());
-    backForwardLists().remove(backForwardList);
-    backForwardList->deref();
+    ASSERT(backForwardList);
+    if (backForwardList) {
+        ASSERT(backForwardList->closed());
+        backForwardLists().remove(backForwardList);
+        backForwardList->deref();
+    }
         
     [super finalize];
 }
@@ -138,7 +144,7 @@ WebBackForwardList *kit(BackForwardList* backForwardList)
     core(self)->close();
 }
 
-- (void)addItem:(WebHistoryItem *)entry;
+- (void)addItem:(WebHistoryItem *)entry
 {
     core(self)->addItem(core(entry));
     
@@ -198,14 +204,14 @@ static NSArray* vectorToNSArray(HistoryItemVector& list)
     return result;
 }
 
-- (NSArray *)backListWithLimit:(int)limit;
+- (NSArray *)backListWithLimit:(int)limit
 {
     HistoryItemVector list;
     core(self)->backListWithLimit(limit, list);
     return vectorToNSArray(list);
 }
 
-- (NSArray *)forwardListWithLimit:(int)limit;
+- (NSArray *)forwardListWithLimit:(int)limit
 {
     HistoryItemVector list;
     core(self)->forwardListWithLimit(limit, list);

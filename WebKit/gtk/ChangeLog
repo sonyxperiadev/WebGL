@@ -1,11 +1,810 @@
-2009-02-03  Mark Rowe  <mrowe@apple.com>
+2009-03-25  Gustavo Noronha Silva  <gns@gnome.org>
 
-        Merge r40508.
+        Reviewed by Holger Freyther.
 
-    2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+        https://bugs.webkit.org/show_bug.cgi?id=15793
+        [GTK] tooltip position doesn't update when hovering consecutive links
+
+        Work-around tooltips not updating their location when the elements
+        are consecutive, by clearing the tooltip when handling
+        mouseDidMoveOverElement.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::mouseDidMoveOverElement):
+
+2009-03-23  Alejandro Garcia Castro  <alex@igalia.com>
+
+        Reviewed by Holger Freyther.
+
+        [Gtk] Current API does not allow us to open target="_blank" links
+        in new tabs instead of windows
+        https://bugs.webkit.org/show_bug.cgi?id=23932
+
+        Added a signal to the API (new-window-policy-decision-requested)
+        that allows the browser to decide the policy for the new window
+        request, if the signal is not handled we open the new window as
+        usual.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::getNavigationAction):
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+        * webkit/webkitwebview.cpp:
+
+2009-03-20  Jan Michael Alonzo  <jmalonzo@gmail.com>
+
+        Not reviewed. Fix style issues with my previous commit (r41866) as
+        suggested by Holger in https://bugs.webkit.org/show_bug.cgi?id=24493
+
+        * tests/testwebhistoryitem.c:
+        (test_webkit_web_history_item_get_data):
+        (test_webkit_web_history_item_alternate_title):
+
+2009-03-20  Jan Michael Alonzo  <jmalonzo@gmail.com>
+
+        Reviewed by Holger Freyther.
+
+        [GTK] Misc patches for WebKitWebHistoryItem
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+
+        Add unit test for WebKitWebHistoryItem
+
+        * tests/testwebhistoryitem.c: Added.
+        (web_history_item_fixture_setup):
+        (web_history_item_fixture_teardown):
+        (test_webkit_web_history_item_get_data):
+        (test_webkit_web_history_item_alternate_title):
+        (main):
+
+2009-03-20  Jan Michael Alonzo  <jmalonzo@gmail.com>
+
+        Reviewed by Holger Freyther.
+
+        Separate gtk unit tests
+        https://bugs.webkit.org/show_bug.cgi?id=24039
+
+        Split the current single-file unit test to make it more
+        modularized and manageable in the future as more unit tests are
+        written.
+
+        * tests/main.c: Removed.
+        * tests/testwebbackforwardlist.c: Copied from WebKit/gtk/tests/main.c.
+        (main):
+        * tests/testwebframe.c: Copied from WebKit/gtk/tests/main.c.
+        (main):
+
+2009-03-16  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Adam Roben.
+
+        [gtk] API implementation: url and title
+        http://bugs.webkit.org/show_bug.cgi?id=14807
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidChangeLocationWithinPage):
+        (WebKit::FrameLoaderClient::dispatchDidReceiveTitle):
+        (WebKit::FrameLoaderClient::dispatchDidCommitLoad):
+        * webkit/webkitwebview.cpp:
+        * webkit/webkitwebview.h: Implement "title" and "uri" properties as well
+        as according functions. "uri" always reflects the current location
+        including navigation inside the same page. title-changed is deprecated.
+
+2009-03-15  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix default policy decision to be ignore, on MIME checks, if
+        WebKit doesn't know how to handle the MIME type. The documentation
+        is already correct, and this was an oversight when the policy
+        decision code was first committed. Since 1.1.2 will be the first
+        release to support download, there is no practical change in
+        behavior.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForMIMEType):
+
+2009-03-15  Xan Lopez  <xlopez@igalia.com>
+
+        * NEWS: update for 1.1.2.
+
+2009-03-14  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        [GTK] use of confirm dialog (yes/no) causes segfault
+        https://bugs.webkit.org/show_bug.cgi?id=20940
+
+        Change the script-confirm marshaller from OBJECT,STRING,BOOLEAN to
+        OBJECT,STRING,POINTER
+
+        * webkit/webkitwebview.cpp:
+        * webkitmarshal.list:
+
+2009-03-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alexey  Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24553
+        [GTK] Improvements to WebKitDownload
+
+        Rename 'state' to 'status' to match the naming in the frame
+        loader rework that we plan to land soonish, and make it a
+        property, for the same reason.
+
+        * webkit/webkitdownload.cpp:
+        (_WebKitDownloadPrivate::):
+        (_WebKitDownloadPrivate::webkit_download_finalize):
+        (_WebKitDownloadPrivate::webkit_download_get_property):
+        (_WebKitDownloadPrivate::webkit_download_set_property):
+        (_WebKitDownloadPrivate::webkit_download_class_init):
+        (_WebKitDownloadPrivate::webkit_download_init):
+        (_WebKitDownloadPrivate::webkit_download_start):
+        (_WebKitDownloadPrivate::webkit_download_cancel):
+        (_WebKitDownloadPrivate::webkit_download_set_destination_uri):
+        (_WebKitDownloadPrivate::webkit_download_get_status):
+        (_WebKitDownloadPrivate::webkit_download_set_status):
+        (_WebKitDownloadPrivate::webkit_download_received_data):
+        (_WebKitDownloadPrivate::webkit_download_finished_loading):
+        (_WebKitDownloadPrivate::webkit_download_error):
+        * webkit/webkitdownload.h:
+
+2009-03-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alexey  Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24553
+        [GTK] Improvements to WebKitDownload
+
+        Improved documentation for the download-requested signal, to make
+        its usage clear.
+
+        * webkit/webkitwebview.cpp:
+
+2009-03-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alp Toker.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24541
+        Scrolling with home and end keys not always works
+
+        Also make page up and page down keys be handled by the webview key
+        event code, so that they also work in cases where the GTK+
+        scrollbars don't handle them directly, like in the bugzill's patch
+        review page.
+
+        * webkit/webkitwebview.cpp:
+
+2009-03-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alp Toker.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24541
+        Scrolling with home and end keys not always works
+
+        Make home and end keys behave more consistently for scrolling the
+        view.
+
+        * webkit/webkitwebview.cpp:
+
+2009-03-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alp Toker.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24254
+        [GTK] spacebar doesn't scroll down
+
+        Make spacebar and shift+spacebar scroll like page up and down
+        respectively would.
+
+        * webkit/webkitwebview.cpp:
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+        [GTK] Misc patches for WebKitWebHistoryItem
+
+        Only run code in dispose once per instance.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_dispose):
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+        [GTK] Misc patches for WebKitWebHistoryItem
+
+        Call deref() on our internal HistoryItem on dispose, as we always
+        acquire it with a releaseRef() call to a PassRefPtr, which passes
+        ownership.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_dispose):
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+        [GTK] Misc patches for WebKitWebHistoryItem
+
+        return foo? foo : NULL == return foo
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (WebKit::core):
+
+2009-03-11  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        Gtk] Implement LayoutTestControllerGtk::setPrivateBrowsingEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=24487
+
+        Add private browsing option "enable-private-browsing" to WebKitWebSettings.
+
+        * webkit/webkitwebsettings.cpp:
+        (_WebKitWebSettingsPrivate::):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_class_init):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_set_property):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_get_property):
+        (_WebKitWebSettingsPrivate::webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+
+2009-03-11  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        [GTK] BackForward history leak?
+        https://bugs.webkit.org/show_bug.cgi?id=19528
+
+        Don't ref the history items when returning the back/forward list
+        Added test_webkit_web_history_item_lifetime test case for this.
+
+        * tests/main.c:
+        (test_webkit_web_history_item_lifetime):
+        (test_webkit_web_back_forward_list_order): Style fix.
+        (test_webkit_web_back_forward_list_add_item): Style fix.
+        (main):
+        * webkit/webkitwebbackforwardlist.cpp:
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_forward_list_with_limit):
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_back_list_with_limit):
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+        [GTK] Misc patches for WebKitWebHistoryItem
+
+        Use g_hash_table_new_full so we can save the manual unref on the
+        values when removing them from the table.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_dispose):
+
+2009-03-10  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24493
+        [GTK] Misc patches for WebKitWebHistoryItem
+
+        Use 'if (foo)' instead of 'if (foo != NULL)', per coding style
+        guidelines.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_history_item_remove):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_title):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_alternate_title):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_uri):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_original_uri):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_last_visited_time):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_target):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_is_target_item):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_children):
+
+2009-03-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Correct return value to false instead of NULL.
+
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_is_target_item):
+
+2009-03-08  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Mark Rowe.
+
+        Add javascript-profiling-enabled property and implement it. This
+        will enable/disable the profiler on the InstpectorController.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebinspector.cpp:
+        (_WebKitWebInspectorPrivate::webkit_web_inspector_class_init):
+        (_WebKitWebInspectorPrivate::webkit_web_inspector_set_property):
+        (_WebKitWebInspectorPrivate::webkit_web_inspector_get_property):
+        (_WebKitWebInspectorPrivate::webkit_web_inspector_set_inspector_client):
+        * webkit/webkitwebview.cpp:
+
+2009-03-05  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Olliej.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24295
+        webkit_web_back_forward_list_add_item needs a Since tag
+
+        Add missing Since tag to webkit_web_back_forward_list_add_item
+        documentation.
+
+        * webkit/webkitwebbackforwardlist.cpp:
+
+2009-03-05  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Mark Rowe.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24417
+        [GTK] WebKitDownload's _cancel and _dispose methods may emit warnings
+
+        NULL-check for timer on _cancel and _dispose, to avoid bad
+        warnings.
+
+        * webkit/webkitdownload.cpp:
+        (_WebKitDownloadPrivate::webkit_download_finalize):
+        (_WebKitDownloadPrivate::webkit_download_cancel):
+
+2009-03-02  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Mark Rowe.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24287
+        [GTK] Move auth dialog feature to WebKit/
+
+        Add WebKitSoupAuthDialog and add it to the session in webkit_init.
+
+        * webkit/webkitprivate.cpp:
+        (currentToplevelCallback):
+        (webkit_init):
+        * webkit/webkitsoupauthdialog.c: Added.
+        (webkit_soup_auth_dialog_class_init):
+        (webkit_soup_auth_dialog_init):
+        (webkit_soup_auth_dialog_session_feature_init):
+        (free_authData):
+        (set_password_callback):
+        (response_callback):
+        (table_add_entry):
+        (show_auth_dialog):
+        (find_password_callback):
+        (session_authenticate):
+        (attach):
+        * webkit/webkitsoupauthdialog.h: Added.
+
+2009-03-03  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=16826
+        [Gtk] Implement WebKitDownload
+
+        Implement download, and provide a nice object wrapping the
+        download process. Initial work done by Marco Barisione and
+        Pierre-Luc Beaudoin for Collabora.
+
+        * WebCoreSupport/ContextMenuClientGtk.cpp:
+        (WebKit::ContextMenuClient::downloadURL):
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::download):
+        (WebKit::FrameLoaderClient::startDownload):
+        * webkit/webkit.h:
+        * webkit/webkitdefines.h:
+        * webkit/webkitdownload.cpp: Added.
+        (_WebKitDownloadPrivate::):
+        (_WebKitDownloadPrivate::webkit_download_dispose):
+        (_WebKitDownloadPrivate::webkit_download_finalize):
+        (_WebKitDownloadPrivate::webkit_download_get_property):
+        (_WebKitDownloadPrivate::webkit_download_set_property):
+        (_WebKitDownloadPrivate::webkit_download_class_init):
+        (_WebKitDownloadPrivate::webkit_download_init):
+        (_WebKitDownloadPrivate::webkit_download_new):
+        (_WebKitDownloadPrivate::webkit_download_open_stream_for_uri):
+        (_WebKitDownloadPrivate::webkit_download_close_stream):
+        (_WebKitDownloadPrivate::webkit_download_start):
+        (_WebKitDownloadPrivate::webkit_download_cancel):
+        (_WebKitDownloadPrivate::webkit_download_get_uri):
+        (_WebKitDownloadPrivate::webkit_download_get_network_request):
+        (_WebKitDownloadPrivate::webkit_download_set_response):
+        (_WebKitDownloadPrivate::webkit_download_get_suggested_filename):
+        (_WebKitDownloadPrivate::webkit_download_get_destination_uri):
+        (_WebKitDownloadPrivate::webkit_download_set_destination_uri):
+        (_WebKitDownloadPrivate::webkit_download_get_state):
+        (_WebKitDownloadPrivate::webkit_download_get_total_size):
+        (_WebKitDownloadPrivate::webkit_download_get_current_size):
+        (_WebKitDownloadPrivate::webkit_download_get_progress):
+        (_WebKitDownloadPrivate::webkit_download_get_elapsed_time):
+        (_WebKitDownloadPrivate::webkit_download_received_data):
+        (_WebKitDownloadPrivate::webkit_download_finished_loading):
+        (_WebKitDownloadPrivate::webkit_download_error):
+        (_WebKitDownloadPrivate::DownloadClient::DownloadClient):
+        (_WebKitDownloadPrivate::DownloadClient::didReceiveResponse):
+        (_WebKitDownloadPrivate::DownloadClient::didReceiveData):
+        (_WebKitDownloadPrivate::DownloadClient::didFinishLoading):
+        (_WebKitDownloadPrivate::DownloadClient::didFail):
+        (_WebKitDownloadPrivate::DownloadClient::wasBlocked):
+        (_WebKitDownloadPrivate::DownloadClient::cannotShowURL):
+        * webkit/webkitdownload.h: Added.
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        * webkitmarshal.list:
+
+2009-03-01  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+         [Gtk] get the HTTP layout tests going
+         https://bugs.webkit.org/show_bug.cgi?id=24259
+
+        Added API to get the response mime type from a frame. We need this
+        so we can decide if we need to dump the frame as text or its
+        render tree
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebframe.cpp:
+
+2009-03-01  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Holger Freyther.
+
+        [Gtk] get the HTTP layout tests going
+        https://bugs.webkit.org/show_bug.cgi?id=24259
+
+        Create a WebKitWebHistoryItem for each WebCore::HistoryItem when
+        necessary.
+        Add necessary API additions for us to be able to dump a WebKitWebHistoryItem
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebbackforwardlist.cpp:
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_forward_list_with_limit):
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_back_list_with_limit):
+        * webkit/webkitwebhistoryitem.cpp:
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_new_with_core_item):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_new):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_new_with_data):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_target):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_is_target_item):
+        (_WebKitWebHistoryItemPrivate::webkit_web_history_item_get_children):
+        (WebKit::core):
+        (WebKit::kit):
+
+2009-03-01  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Holger Freyther.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_encoding):
+        * webkit/webkitwebview.h: Implement 'encoding' and 'custom-encoding'
+        properties as well as webkit_web_view_get_encoding.
+
+2009-03-01  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed simple wording fix for the NEWS file.
+
+        * NEWS:
+
+2009-03-01  Xan Lopez  <xan@gnome.org>
+
+        Add NEWS file to track progress between releases.
+
+        * NEWS: Added.
+
+2009-02-28  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Holger Freyther.
+
+        * webkit/webkitwebview.cpp: Let webkit_web_view_open add file:// if a
+        locale path is passed for compatibility, since we used to support that.
+
+2009-02-27  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by David Hyatt.
+
+        Automatically ignore empty requests to avoid crashing. This fixes
+        the crash in fast/loader/empty-embed-src-attribute.html.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForMIMEType):
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForNewWindowAction):
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForNavigationAction):
+
+2009-02-27  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24221
+        [GTK] Do not emit load-finished when being disposed
+
+        webkit_web_view_stop_load() is called from dispose() on
+        WebKitWebView. This eventually calls postProgressFinishedNotification
+        in FrameLoaderClientGtk, which emits load-finished. Add
+        a 'disposing' flag to WebView that we can check here, so
+        we avoid emitting signals on objects on their way to be
+        destroyed.  This fixes a bunch of critical warnings when
+        closing a loading WebView.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::postProgressFinishedNotification):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+
+2009-02-27  Xan Lopez  <xan@gnome.org>
+
+        Rubber-stamped by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24222
+        [GTK] Remove checks for old glib versions
+
+        libsoup, which is a hard dependency, needs at least glib 2.15.3,
+        so remove all glib checks for versions older than that.
+
+        * webkit/webkitwebview.cpp:
+
+2009-02-26  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=16947
+        [GTK] Missing HTTP Auth challenge
+
+        Add new marshalers list.
+
+        * webkitmarshal.list: Added.
+
+2009-02-26  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24193
+        [GTK] Checkbuttons not activated with space
+
+        Do not swallow key events with GtkIMContext for non-editable
+        content.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::handleInputMethodKeydown):
+
+2009-02-26  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24103
+        [GTK] Use correct return value for WebView button-release handler
+
+        We are returning whatever the core code tells us it did, but this
+        does not play well with the GTK+ model. GTK+ in general expects it
+        will see a button-release if it saw a button-press and no
+        motion/leave/etc events in between. EventHandler.cpp will, in some
+        cases, not handle press but handle release, confusing the parent
+        container of the WebView.
+
+        As a workaround return always FALSE for button-release (this is
+        the same than the Windows port does).
+
+        * webkit/webkitwebview.cpp:
+
+2009-02-26  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=17585
+        [gtk] get|set encoding api
+
+        Add functions to get and set a custom encoding an a view.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_custom_encoding):
+        (webkit_web_view_get_custom_encoding):
+        * webkit/webkitwebview.h:
+
+2009-02-23  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22624
+        [SOUP][GTK] Need API to get SoupSession from WebKit.
+
+        Add API to get the default soup session.
+
+        * webkit/webkitwebview.cpp:
+        * webkit/webkitwebview.h:
+
+2009-02-23  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22624
+        [SOUP][GTK] Need API to get SoupSession from WebKit.
+
+        Add soup dependency to pc file.
+
+        * webkit.pc.in:
+
+2009-02-23  Jan Michael Alonzo  <jmalonzo@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        [GTK] Back / Forward history menus are flipped
+        https://bugs.webkit.org/show_bug.cgi?id=22694
+
+        Don't call g_list_reverse when returning the back or forward list.
+
+        * tests/main.c:
+        (test_webkit_web_back_forward_list_order):
+        (main):
+        * webkit/webkitwebbackforwardlist.cpp:
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_forward_list_with_limit):
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_get_back_list_with_limit):
+
+2009-02-17  Xan Lopez  <xan@gnome.org>
+
+        Rubber-stamped by Alexey Proskuryakov.
+
+        Restoring change landed in r40715, which was accidentally undone
+        by r40918.
+
+        * webkit/webkitwebframe.cpp:
+
+2009-02-12  Christian Dywan  <christian@twotoasts.de>
+
+        Reviewed by Holger Freyther.
+
+        http://bugs.webkit.org/show_bug.cgi?id=17176
+        [GTK] API: hovering-over-link and webkit_web_view_open /_load_foo
+
+        * webkit/webkitwebframe.cpp:
+        * webkit/webkitwebframe.h:
+        * webkit/webkitwebview.cpp:
+        * webkit/webkitwebview.h: Introduce webkit_web_frame_load_uri,
+        webkit_web_frame_load_string, webkit_web_view_load_uri and
+        webkit_web_view_load_request and unify implementations.
+
+2009-02-11  Dimitri Dupuis-latour  <dupuislatour@apple.com>
+
+        Stub out InspectorClient::hiddenPanels.
+
+        Reviewed by Timothy Hatcher.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::hiddenPanels):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2009-02-07  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Unreviewed build fix Use toNormalizedRange().
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::clipboard_get_contents_cb):
+
+2009-02-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::updateGlobalHistoryRedirectLinks):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2009-02-06  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Holger Freyther.
+
+        Reported by Daniel Macks.
+
+        https://bugs.webkit.org/show_bug.cgi?id=20412
+
+        Use positive numbers for the target info IDs, gtk_target_list_add
+        casts them to 'guint'. Also just start them from 0, since the
+        values are not relevant or magic in any way, they are just used as
+        tokens for the user of the API.
+
+        * webkit/webkitwebview.h:
+
+2009-02-06  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23769
+
+        Do not use empty ResourceError errors.
+
+        Rather create bogus but non-null errors, since some codepaths
+        expect these. For example, see DocumentLoader::mainReceivedError.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::cancelledError):
+        (WebKit::FrameLoaderClient::blockedError):
+        (WebKit::FrameLoaderClient::cannotShowURLError):
+        (WebKit::FrameLoaderClient::interruptForPolicyChangeError):
+        (WebKit::FrameLoaderClient::cannotShowMIMETypeError):
+        (WebKit::FrameLoaderClient::fileDoesNotExistError):
+        (WebKit::FrameLoaderClient::pluginWillHandleLoadError):
+
+2009-02-06  Xan Lopez  <xan@gnome.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23761
+
+        Use two-arg KURL ctor.
+
+        We are using the one-arg ctor currently, but:
+
+        - It assumes the strings are already encoded, which is not
+        necesarily the case for us.
+
+        - The single-argument KURL ctors expect their input to already be
+        the output of a previous KURL::parse call, so for the general
+        case (ie, random user input) we need to use the two-arg ctor
+        anyway.
+
+        * webkit/webkitwebframe.cpp:
+        * webkit/webkitwebview.cpp:
+
+2009-02-05  Aaron Boodman <aa@chromium.org>
+
+        Reviewed by Dave Hyatt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23708
+        Adds documentElementAvailable() callback to FrameLoaderClient.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::documentElementAvailable):
+        Stub out documentElementAvailable()
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        Ditto.
+
+2009-02-03  Hiroyuki Ikezoe  <poincare@ikezoe.net>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22988
+        [GTK] Need a public method to add a WebKitWebHistoryItem to
+        WebKitWebBackForwardList.
+
+        Wrap WebCore::BackForwardList::addItem.
+
+        * tests/main.c:
+        (test_webkit_web_back_forward_list_add_item):
+        (main):
+        * webkit/webkitwebbackforwardlist.cpp:
+        (_WebKitWebBackForwardListPrivate::webkit_web_back_forward_list_add_item):
+        * webkit/webkitwebbackforwardlist.h:
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * webkit/webkitwebview.cpp:
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * webkit/webkitwebframe.cpp:
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createFrame):
+
+2009-02-02  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Sam Weinig.
-        
+
         Track redirects in global history.
 
         Keep GTK building.
@@ -15,16 +814,61 @@
         (WebKit::FrameLoaderClient::updateGlobalHistoryForRedirectWithoutHistoryItem):
         * WebCoreSupport/FrameLoaderClientGtk.h:
 
-2009-02-03  Mark Rowe  <mrowe@apple.com>
+2009-02-02  Anders Carlsson  <andersca@apple.com>
 
-        Merge r40436.
+        Build fix.
 
-    2009-01-30  Geoffrey Garen  <ggaren@apple.com>
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2009-02-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Update for changes to WebCore.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createPlugin):
+        (WebKit::FrameLoaderClient::createJavaAppletWidget):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2009-02-02  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Darin Adler.
+
+        Move Frame::forceLayout, Frame::adjustPageHeight and Frame::forceLayoutWithPageWidthRange to FrameView
+
+        https://bugs.webkit.org/show_bug.cgi?id=23428
+
+        FrameView::forceLayout could be killed but the comment might
+        contain a value over the the plain FrameView::layout...
+
+        Adjust the WebCore/WebKit consumers of these methods.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::forceLayout):
+        * webkit/webkitwebview.cpp:
+
+2009-01-30  Geoffrey Garen  <ggaren@apple.com>
 
         Build fix.
 
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
         (WebKit::FrameLoaderClient::createFrame):
+
+2009-01-30  Holger Hans Peter Freyther  <zecke@selfish.org>
+
+        Reviewed by Simon Hausmann.
+
+        https://bugs.webkit.org/show_bug.cgi?id=22056
+
+        Kill FrameLoaderClient.cpp, move the code over to Frame::createView
+
+        FrameLoaderClient is supposed to be an interface, move the
+        to be shared code to Frame which is a controller and is
+        allowed to create a FrameView.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
 
 2009-01-27  Brady Eidson  <beidson@apple.com>
 
@@ -157,29 +1001,29 @@
         Reviewed by Darin Adler.
 
         [GTK] Fix the reference counting of WebKitWebFrames
-        
+
         The ownership is the following: WebKitWebView owns a WebCore::Page.
         WebKitWebView is creating one WebKitWebFrame which will be the
         mainFrame of the WebCore::Page (having the reference on the Frame).
-        
+
         The FrameLoaderClient has the reference of the WebKitWebFrame for
         the main frame and also any other frame. This means when the
         WebCore::Frame goes away the FrameLoaderClient will go away which
         will normally remove the last reference of the WebKitWebFrame. Because
         an API user might have g_object_ref'ed the WebKitWebFrame null
         checks had to be added to WebKitWebFrame.
-        
+
         For WebCore::Frames created by the FrameLoaderClient the ownership
         will be passed down to the FrameTree, the WebKitWebFrame is not holding
         a reference to the WebCore::Frame.
-        
+
         Do not g_object_unref the mainFrame in the destructor of the
         WebKitWebFrame as this will happen from within the WebCore::Page
         destruction. Do not hold a reference to the WebCore::Frame (circle) in
         WebKitWebFrame, add null checks as the WebCore::Frame might have gone
         away. Do not keep track of the FrameLoaderClient in the private
         structures as it was mostly unusued.
-        
+
         https://bugs.webkit.org/show_bug.cgi?id=21837
 
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
@@ -415,7 +1259,7 @@
 
         Renderer::caretRect() is now localCaretRect(), which needs
         converting to absolute coordinates (taking transforms into account).
-        
+
         * webkit/webkitwebview.cpp:
 
 2008-12-01  Xan Lopez  <xan@gnome.org>
@@ -930,7 +1774,7 @@
 2008-10-06  David Hyatt  <hyatt@apple.com>
 
         Enable viewless Mac WebKit to paint some basic pages.
-        
+
         Reviewed by Sam Weinig
 
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
@@ -946,11 +1790,11 @@
 2008-10-03  David Hyatt  <hyatt@apple.com>
 
         https://bugs.webkit.org/show_bug.cgi?id=21340
-        
+
         Remove "containingWindow()/setContainingWindow()" from Widget.  HostWindow covers this now.
 
         Reviewed by Dan Bernstein & Darin Adler
-        
+
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
         (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
 
@@ -970,7 +1814,7 @@
 2008-10-03  David Hyatt  <hyatt@apple.com>
 
          Remove addToDirtyRegion.
-        
+
         Reviewed by Oliver Hunt
 
         * WebCoreSupport/ChromeClientGtk.cpp:
@@ -978,7 +1822,7 @@
 2008-10-02  David Hyatt  <hyatt@apple.com>
 
         https://bugs.webkit.org/show_bug.cgi?id=21314
-        
+
         Make scrollBackingStore cross-platform.
 
         Reviewed by Sam Weinig
@@ -991,9 +1835,9 @@
 2008-10-01  David Hyatt  <hyatt@apple.com>
 
         https://bugs.webkit.org/show_bug.cgi?id=21282
-        
+
         Make contentsToScreen/screenToContents cross-platform.  Only implemented by Mac/Win right now.
-        
+
         Reviewed by Adam Roben
 
         * WebCoreSupport/ChromeClientGtk.cpp:
@@ -1004,7 +1848,7 @@
 2008-09-30  Dave Hyatt  <hyatt@apple.com>
 
         http://bugs.webkit.org/show_bug.cgi?id=21250
-        
+
         Rename updateContents to repaintContentRectangle and make it cross-platform by always sending
         repaints up through the ChromeClient.
 
@@ -2396,9 +3240,9 @@
 
         http://bugs.webkit.org/show_bug.cgi?id=16802
         [GTK] Missing gtk properties
-        
+
         Add missing properties to WebKitViewFrame and WebKitWebView.
-        
+
         * WebView/webkitprivate.h: add some useful defines for param specs
         * WebView/webkitwebframe.cpp:
         (webkit_web_frame_get_property): added
@@ -2415,7 +3259,7 @@
         http://bugs.webkit.org/show_bug.cgi?id=16654
         [GTK] Signal "navigation-requested" does not react correctly on
         return TRUE from callbacks
-        
+
         * WebView/webkitwebview.cpp: use our own accumulator for signals
         returning WebKitNavigationResponse. The emission will be stopped
         when any callback returns anything but
@@ -2587,7 +3431,7 @@
         * WebView/webkitwebview.cpp:
         * WebView/webkitwebview.h:
 
-2007-12-19  Christian Dywan  <christian@twotoasts.de> 
+2007-12-19  Christian Dywan  <christian@twotoasts.de>
 
         Reviewed by Alp Toker.
 
@@ -2602,7 +3446,7 @@
         Reviewed by Holger Freyther.
 
         Delete when Destroy functions are called to avoid leaks
-        
+
         This matches the Mac port.
 
         * WebCoreSupport/ChromeClientGtk.cpp:
@@ -2849,7 +3693,7 @@
 
         * WebView/webkitprivate.h:
         (getFrameFromView): removed
-        
+
         * WebView/webkitwebview.cpp:
         (webkit_web_view_expose_event):
         (webkit_web_view_key_press_event): use focused frame
@@ -3275,7 +4119,7 @@
 
         http://bugs.webkit.org/show_bug.cgi?id=15745
         [GTK] Arrow keys do not Scroll
-        
+
         * Api/webkitgtkpage.cpp:
 
         Support Up/Down/Right/Left keys to scroll. Slight hack, see FIXME for
@@ -3848,12 +4692,12 @@
 2007-09-05  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Darin Adler, Maciej Stachowiak, Mark Rowe, Tim Hatcher.
-        
-        Fixed <rdar://problem/5326009> Make non-browser WebKit clients have no 
+
+        Fixed <rdar://problem/5326009> Make non-browser WebKit clients have no
         memory cache, or a very tiny one
-        
+
         Keep the GTK build working with an empty stub.
-        
+
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
         (WebKit::FrameLoaderClient::didPerformFirstNavigation):
         * WebCoreSupport/FrameLoaderClientGtk.h:
@@ -3863,7 +4707,7 @@
         Reviewed by Sam.
 
         <rdar://problem/5344848> IME is incorrectly used for key events when on non-editable regions
- 
+
         EditorClient::setInputMethodState stub
 
         * WebCoreSupport/EditorClientGtk.cpp:
@@ -3879,7 +4723,7 @@
 2007-08-17  Anders Carlsson  <andersca@apple.com>
 
         Build fix.
-        
+
         * WebCoreSupport/FrameLoaderClientGtk.cpp:
         (WebKit::FrameLoaderClient::createPlugin):
         * WebCoreSupport/FrameLoaderClientGtk.h:
@@ -3931,7 +4775,7 @@
 
         Minor changes to the WebKit::EditorClient to allow removing
         of text from TextFields. Remove the selectWordBeforeMenuEvent method
-        which is not used and not within WebCore::EditorClient. 
+        which is not used and not within WebCore::EditorClient.
 
         * WebCoreSupport/EditorClientGtk.cpp:
         (WebKit::EditorClient::shouldDeleteRange):
@@ -3949,7 +4793,7 @@
         classes into the WebKit namespace. Change the class names to not contain Gtk.
         The file names have to contain the Gtk suffix to not clash with files in WebCore (e.g.
         bridge/EditorClient.h).
-        
+
 
         * Api/webkitgtkframe.cpp:
         * Api/webkitgtkpage.cpp:
@@ -4424,7 +5268,7 @@
         GtkAdjustment of the GtkLayout and reimplement the set_scroll_adjustments method and pass
         the GtkAdjustments to ScrollView.
         This makes having one GdkWindow for the complete FrameTree possible.
-        
+
 
         * gtk/Api/webkitgtkframe.cpp:
         * gtk/Api/webkitgtkpage.cpp:
@@ -4515,7 +5359,7 @@
         * gtk/Api/webkitgtkpage.cpp: Implement webkit_gtk_page_can_go_backward() and
         webkit_gtk_page_can_go_forward() functions.
 
-2007-07-30  Diego Escalante Urrelo  <diegoe@gnome.org> 
+2007-07-30  Diego Escalante Urrelo  <diegoe@gnome.org>
 
         Reviewed by Alp Toker.
 

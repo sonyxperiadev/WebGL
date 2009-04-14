@@ -69,4 +69,10 @@ interface IWebPreferencesPrivate : IUnknown
 
     HRESULT setFontSmoothingContrast([in] float contrast);
     HRESULT fontSmoothingContrast([out, retval] float* contrast);
+
+    HRESULT isWebSecurityEnabled([out, retval] BOOL* enabled);
+    HRESULT setWebSecurityEnabled([in] BOOL enabled);
+
+    HRESULT allowUniversalAccessFromFileURLs([out, retval] BOOL *allowAccess);
+    HRESULT setAllowUniversalAccessFromFileURLs([in] BOOL allowAccess);
 }

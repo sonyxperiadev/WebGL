@@ -59,6 +59,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)applicationChromeModeEnabled;
 - (void)setApplicationChromeModeEnabled:(BOOL)flag;
 
+- (BOOL)usesEncodingDetector;
+- (void)setUsesEncodingDetector:(BOOL)flag;
+
 - (BOOL)respectStandardStyleKeyEquivalents;
 - (void)setRespectStandardStyleKeyEquivalents:(BOOL)flag;
 
@@ -88,6 +91,12 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)localStorageEnabled;
 - (void)setLocalStorageEnabled:(BOOL)localStorageEnabled;
+
+- (BOOL)isWebSecurityEnabled;
+- (void)setWebSecurityEnabled:(BOOL)flag;
+
+- (BOOL)allowUniversalAccessFromFileURLs;
+- (void)setAllowUniversalAccessFromFileURLs:(BOOL)flag;
 
 - (BOOL)zoomsTextOnly;
 - (void)setZoomsTextOnly:(BOOL)zoomsTextOnly;
