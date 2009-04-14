@@ -64,6 +64,7 @@
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
 #	rendering/RenderVideo.cpp \
+#	svg/SVGAllInOne.cpp \
 #	xml/Access*.cpp \
 #	xml/NativeXPathNSResolver.cpp \
 #	xml/XPath* \
@@ -106,10 +107,15 @@
 # Don't remove it or move it. 
 # If you edit it, keep it in alphabetical order
 #
-# These files are Android extensions
+# These files are Android extensions, or exclusion exceptions
 # LOCAL_ANDROID_SRC_FILES_INCLUDED := \
 #	dom/Touch*.cpp \
+#	platform/graphics/skia/NativeImageSkia.cpp \
+#	platform/image-decoders/skia/GIFImage*.cpp \
+#	svg/graphics/skia/SVGResourceMaskerSkia.cpp \
 
+# The remainder of the file is read by tools/webkitsync/diff.cpp
+# If you edit it, keep it in alphabetical order
 LOCAL_SRC_FILES := \
 	bindings/js/GCController.cpp \
 	bindings/js/JSAttrCustom.cpp \
@@ -188,8 +194,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSSVGPathSegCustom.cpp \
 	bindings/js/JSSVGPathSegListCustom.cpp \
 	bindings/js/JSSVGPointListCustom.cpp \
-	bindings/js/JSSVGTransformListCustom.cpp \
-    
+	bindings/js/JSSVGTransformListCustom.cpp
 endif
     
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -283,8 +288,7 @@ ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/SVGCSSComputedStyleDeclaration.cpp \
 	css/SVGCSSParser.cpp \
-	css/SVGCSSStyleSelector.cpp \
-    
+	css/SVGCSSStyleSelector.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -686,8 +690,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/FontDataAndroid.cpp \
 	platform/graphics/android/FontPlatformDataAndroid.cpp \
 	platform/graphics/android/GlyphMapAndroid.cpp \
-	platform/graphics/android/GraphicsContextAndroid.cpp \
 	platform/graphics/android/GradientAndroid.cpp \
+	platform/graphics/android/GraphicsContextAndroid.cpp \
 	platform/graphics/android/ImageAndroid.cpp \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \
@@ -839,8 +843,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGText.cpp \
 	rendering/RenderSVGTextPath.cpp \
 	rendering/RenderSVGTransformableContainer.cpp \
-	rendering/RenderSVGViewportContainer.cpp \
-
+	rendering/RenderSVGViewportContainer.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -872,9 +875,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/SVGInlineTextBox.cpp \
 	rendering/SVGRenderSupport.cpp \
 	rendering/SVGRenderTreeAsText.cpp \
-	rendering/SVGRootInlineBox.cpp \
-
+	rendering/SVGRootInlineBox.cpp
 endif
+
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
 	rendering/TextControlInnerElements.cpp \
@@ -893,9 +896,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/SVGRenderStyle.cpp \
-	rendering/style/SVGRenderStyleDefs.cpp \
-
+	rendering/style/SVGRenderStyleDefs.cpp
 endif
+
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/ShadowData.cpp \
 	rendering/style/StyleBackgroundData.cpp \
@@ -1082,9 +1085,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFilterEffect.cpp \
 	svg/graphics/filters/SVGLightSource.cpp \
 	\
-	svg/graphics/skia/SVGResourceMaskerSkia.cpp \
-
+	svg/graphics/skia/SVGResourceMaskerSkia.cpp
 endif
+
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
