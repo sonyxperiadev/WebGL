@@ -188,7 +188,7 @@
 #define LOG_DISABLED 1
 // Prevents Webkit from drawing the caret in textfields and textareas
 // This prevents unnecessary invals.
-#define ENABLE_TEXT_CARET 0
+#define ENABLE_TEXT_CARET 1
 #endif // ANDROID
 
 /* CPU */
