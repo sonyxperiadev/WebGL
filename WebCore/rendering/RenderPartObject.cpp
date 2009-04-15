@@ -349,10 +349,11 @@ void RenderPartObject::layout()
             // Update the dimensions to get the correct minimum preferred width
             updateWidgetPosition();
 
-            // Use the preferred width if it is larger.
-            setWidth(max(w, root->minPrefWidth()));
             int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
             int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+            // Use the preferred width if it is larger.
+            setWidth(max(w, root->minPrefWidth()) + extraWidth);
+
             // Resize the view to recalc the height.
             int height = h - extraHeight;
             int width = w - extraWidth;
@@ -367,10 +368,10 @@ void RenderPartObject::layout()
                 view->layout();
             int contentHeight = view->contentsHeight();
             int contentWidth = view->contentsWidth();
-            // Do not shrink iframes with specified sizes
-            if (contentHeight > h || style()->height().isAuto())
-                setHeight(contentHeight);
-            setWidth(contentWidth);
+            // Do not shrink iframes with a specified height.
+            if (contentHeight > (h - extraHeight)  || style()->height().isAuto())
+                setHeight(contentHeight + extraHeight);
+            setWidth(contentWidth + extraWidth);
 
             // Update one last time
             updateWidgetPosition();
@@ -404,8 +405,9 @@ void RenderPartObject::calcWidth() {
     // width
     updateWidgetPosition();
 
+    int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
     // Set the width
-    setWidth(max(width(), root->minPrefWidth()));
+    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
 
     // Update based on the new width
     updateWidgetPosition();
@@ -414,7 +416,7 @@ void RenderPartObject::calcWidth() {
     while (view->needsLayout())
         view->layout();
 
-    setWidth(view->contentsWidth());
+    setWidth(view->contentsWidth() + extraWidth);
 
     // Update one last time to ensure the dimensions.
     updateWidgetPosition();
@@ -437,8 +439,9 @@ void RenderPartObject::calcHeight() {
 
     // Do not shrink the height if the size is specified
     int h = view->contentsHeight();
-    if (h > height() || style()->height().isAuto())
-        setHeight(h);
+    int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    if (h > height() - extraHeight || style()->height().isAuto())
+        setHeight(h + extraHeight);
 
     // Update one last time to ensure the dimensions.
     updateWidgetPosition();
