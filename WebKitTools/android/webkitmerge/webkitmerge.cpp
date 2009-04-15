@@ -61,8 +61,8 @@ bool assert_debug;
 
 class Options {
 public:
-    Options() : emitPerforceCommands(true), mergeMake(true), copyOther(true), 
-        mergeCore(true),
+    Options() : emitGitCommands(false), emitPerforceCommands(false), 
+        mergeMake(true), copyOther(true), mergeCore(true),
         removeEmptyDirs(true), removeSVNDirs(true), debug(false), 
         execute(false), verbose(false), cleared(false)
     {
@@ -79,6 +79,7 @@ public:
     string androidWebKit;
     string baseWebKit;
     string newWebKit;
+    bool emitGitCommands;
     bool emitPerforceCommands;
     bool mergeMake;
     bool copyOther;
@@ -939,18 +940,21 @@ void UpdateDerivedMake()
     fprintf(commandFile, " | sed 's/^_TAB_/\t/' > %s/%s/%s\n", sandboxCmd, dir, "xAndroid.derived.mk");
     fprintf(commandFile, "mv  %s/%s/%s %s/%s/%s\n", 
         sandboxCmd, dir, "xAndroid.derived.mk", sandboxCmd, dir, "Android.derived.mk");
+    if (options.emitGitCommands)
+        fprintf(commandFile, "git add %s/%s\n", dir, "Android.derived.mk");
 }
 
-size_t MatchLen(const char* one, const char* two, size_t len)
+int MatchLen(const char* one, const char* two, size_t len)
 {
     bool svgIn1 = strstr(one, "svg") || strstr(one, "SVG");
     bool svgIn2 = strstr(two, "svg") || strstr(two, "SVG");
     if (svgIn1 != svgIn2)
         return 0;
-    size_t original = len;
-    while (*one++ == *two++ && --len >= 0)
+    int signedLen = (int) len;
+    int original = signedLen;
+    while (*one++ == *two++ && --signedLen >= 0)
         ;
-    return original - len;
+    return original - signedLen;
 }
 
 // create the list of sed commands to update the WebCore Make file
@@ -1063,6 +1067,8 @@ void UpdateMake(const char* dir)
     fprintf(commandFile, " | sed 's/^_TAB_/\t/' > %s/%s/%s\n", sandboxCmd, dir, "xAndroid.mk");
     fprintf(commandFile, "mv  %s/%s/%s %s/%s/%s\n", 
         sandboxCmd, dir, "xAndroid.mk", sandboxCmd, dir, "Android.mk");
+    if (options.emitGitCommands)
+        fprintf(commandFile, "git add %s/%s\n", dir, "Android.mk");
 }
 
 static bool emptyDirectory(const char* base, const char* work, const char* dir) {
@@ -1200,6 +1206,9 @@ void CompareDirs(const char* workingDir, bool renamePass)
                                 fprintf(commandFile, "p4 integrate \"%s/%s/%s\" \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile,
                                     sandboxCmd, renamedDir, renamed);
                                 fprintf(commandFile, "p4 resolve \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
+                            } else if (options.emitGitCommands) {
+                                fprintf(commandFile, "git mv \"%s/%s\" \"%s/%s\"\n", workingDir, oldFile,
+                                    renamedDir, renamed);
                             }
                             if (oldSandboxDiff) {
                                 if (options.emitPerforceCommands)
@@ -1216,6 +1225,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
 									fprintf(commandFile, "mv \"%s/%s/x%s\" \"%s/%s/%s\"\n",
 										sandboxCmd, renamedDir, renamed, sandboxCmd, renamedDir, renamed);
                                 }
+                                if (options.emitGitCommands)
+                                    fprintf(commandFile, "git add \"%s/%s\"\n", renamedDir, renamed);
                             } else {
                                 bool oldNewDiff = CompareFiles(oldBase, workingDir, oldList, newBase, renamedDir, renamed);
                                 if (oldNewDiff) {
@@ -1223,6 +1234,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                                         fprintf(oopsFile, "p4 open \"%s/%s/%s\"\n", sandboxCmd, renamedDir, renamed);
                                     fprintf(oopsFile, "cp \"%s/%s/%s\" \"%s/%s/%s\"\n",
                                             newCmd, renamedDir, renamed, sandboxCmd, renamedDir, renamed);
+                                    if (options.emitGitCommands)
+                                        fprintf(oopsFile, "git add \"%s/%s\"\n", renamedDir, renamed);
                                 }
                             }
                         } else if (oldSandboxDiff) {
@@ -1240,6 +1253,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         sandboxCmd, workingDir, oldFile, sandboxCmd, workingDir, oldFile);
                 } else if (options.emitPerforceCommands)
                     fprintf(commandFile, "p4 delete \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
+                else if (options.emitGitCommands)
+                    fprintf(commandFile, "git rm \"%s/%s\"\n", workingDir, oldFile);
                 else
                     fprintf(commandFile, "rm \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile);
             } else { // if oldDir != false
@@ -1249,6 +1264,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         // if old directory is in sandbox (e.g. WebCore/kcanvas) that should work
                 if (options.emitPerforceCommands)
                     fprintf(commandFile, "p4 delete \"%s/%s/%s/...\"\n", sandboxCmd, workingDir, oldFile);
+                else if (options.emitGitCommands)
+                    fprintf(commandFile, "git rm \"%s/%s/...\"\n", workingDir, oldFile);
                 else
                     fprintf(commandFile, "rm \"%s/%s/%s/...\"\n", sandboxCmd, workingDir, oldFile);
                 if (renamePass == false)
@@ -1283,6 +1300,9 @@ void CompareDirs(const char* workingDir, bool renamePass)
                                 fprintf(copyDirFile, "find \"%s/%s/%s\" -type f -print | "
                                     "p4 -x - add\n", 
                                     sandboxCmd, workingDir, newFile);
+                            else if (options.emitGitCommands)
+                                fprintf(copyDirFile, "git add \"%s/%s\"\n",
+                                    workingDir, newFile);
                         }
                     } else {
 //                        if (emptyDirectory(sandboxBase, workingDir)) {
@@ -1306,6 +1326,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                                 newCmd, workingDir, newFile, sandboxCmd, workingDir, newFile);
                                 if (options.emitPerforceCommands)
                                     fprintf(commandFile, "p4 add \"%s/%s/%s\"\n", sandboxCmd, workingDir, newFile);
+                                else if (options.emitGitCommands)
+                                    fprintf(commandFile, "git add \"%s/%s\"\n", workingDir, newFile);
                         }
                     }
                 }
@@ -1331,6 +1353,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         fprintf(copyDirFile, "find \"%s/%s\" -type f -print | "
                             "p4 -x - add\n", 
                             sandboxCmd, newFile);
+                    else if (options.emitGitCommands)
+                        fprintf(copyDirFile, "git add \"%s\"", newFile);
                 }
              } else
                 CompareDirs(newFile, renamePass);
@@ -1361,6 +1385,8 @@ void CompareDirs(const char* workingDir, bool renamePass)
                     }
                 } else fprintf(commandFile, "cp \"%s/%s/%s\" \"%s/%s/%s\"\n", newCmd, workingDir, oldFile ,
                     sandboxCmd, workingDir, oldFile);
+                if (options.emitGitCommands)
+                    fprintf(commandFile, "git add \"%s/%s\"\n", workingDir, oldFile);
             }
         }
         myassert(oldLen == newLen);
@@ -1446,29 +1472,40 @@ static void copyToCommand(char* scratch, string file)
 #define ANDROID_EXCLUDED_FILES \
         "-e '/^Files .* differ/ d' " \
         "-e '/^Only in .*/ d' " \
-        "-e '/\\/JavaScriptCore\\// d' " \
-        "-e '/\\/WebCore\\// d' " \
         "-e '/Android.mk/ d' " \
         "-e '/android$/ d' "
 
-void CopyOther(const char* fromBase, const char* toBase, const char* fromCmd,
-    const char* toCmd)
+#define ANDROID_EXCLUDED_DIRS \
+        "-e '/\\/JavaScriptCore\\// d' " \
+        "-e '/\\/WebCore\\// d' "
+
+#define ANDROID_EXCLUDED_DIRS_GIT \
+        "-e '/ JavaScriptCore\\// d' " \
+        "-e '/ WebCore\\// d' "
+        
+void CopyOther()
 {
+    string excludedFiles = ANDROID_EXCLUDED_FILES;
+    if (options.emitGitCommands)
+        excludedFiles += ANDROID_EXCLUDED_DIRS_GIT;
+    else
+        excludedFiles += ANDROID_EXCLUDED_DIRS;
     char scratch[1024];
     // directories to ignore in webkit 
     string copyOtherWebKit = ScratchFile("CopyOtherWebKit");
     sprintf(scratch, "cd %s ;  find . -type d -not -empty "
         WEBKIT_EXCLUDED_DIRECTORIES
-        " > %s", fromBase, copyOtherWebKit.c_str());
+        " > %s", newBase, copyOtherWebKit.c_str());
     doSystem(scratch);
     // directories to ignore in android
     string copyOtherAndroid = ScratchFile("CopyOtherAndroid");
     sprintf(scratch, "cd %s ;  find . -type d -not -empty "
+        "-not -path \"*.git*\" "
         "-not -path \"*android*\" "
-        " > %s", toBase, copyOtherAndroid.c_str());
+        " > %s", sandboxBase, copyOtherAndroid.c_str());
     doSystem(scratch);
-    string copyOtherMkDir = ScratchFile("CopyOtherMkDir");
     if (0) {
+        string copyOtherMkDir = ScratchFile("CopyOtherMkDir");
         sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
             "@mkdir %s/\\1@' "
             "-e '/^[0-9].*/ d' "
@@ -1476,7 +1513,7 @@ void CopyOther(const char* fromBase, const char* toBase, const char* fromCmd,
             "-e '/---/ d' "
             "-e '/\\/JavaScriptCore\\// d' "
             "-e '/\\/WebCore\\// d' "
-            "> %s", copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), toCmd, 
+            "> %s", copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), sandboxCmd, 
             copyOtherMkDir.c_str());
         if (options.debug)
             fprintf(stderr, "%s\n", scratch);
@@ -1484,53 +1521,73 @@ void CopyOther(const char* fromBase, const char* toBase, const char* fromCmd,
     }
     string copyOtherDiff = ScratchFile("CopyOtherDiff");
     int scratchLen = sprintf(scratch, "diff %s %s | sed -e 's@< \\./\\(.*\\)$"
-        "@mkdir -p -v %s/\\1 ; find %s/\\1 -type f -depth 1 -exec cp {} %s/\\1 \";\" ; ",
-        copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), toCmd, fromCmd, 
-        toCmd);
+        "@mkdir -p -v %s/\\1 ; find %s/\\1 -type f -depth 1 -exec cp {} %s/\\1 \";\"",
+        copyOtherWebKit.c_str(), copyOtherAndroid.c_str(), sandboxCmd, newCmd, 
+        sandboxCmd);
+    if (options.emitGitCommands)
+        scratchLen += sprintf(&scratch[scratchLen], " ; cd %s ; find ", sandboxCmd);
+    else
+        scratchLen += sprintf(&scratch[scratchLen], " ; find %s/", sandboxCmd);
+    scratchLen += sprintf(&scratch[scratchLen], "\\1 -type f -depth 1 | ");
     if (options.emitPerforceCommands)
-        scratchLen += sprintf(&scratch[scratchLen],
-            "find %s/\\1 -type f -depth 1 | p4 -x - add@' ", toCmd);
+        scratchLen += sprintf(&scratch[scratchLen], "p4 -x - add ");
+    else if (options.emitGitCommands)
+        scratchLen += sprintf(&scratch[scratchLen], "xargs git add ");
     scratchLen += sprintf(&scratch[scratchLen],
-        "-e '/^[0-9].*/ d' "
+        "@' -e '/^[0-9].*/ d' "
         "-e '/>.*/ d' "
         "-e '/---/ d' "
         "-e '/\\/JavaScriptCore\\// d' "
         "-e '/\\/WebCore\\// d' "
         "> %s", copyOtherDiff.c_str());
+    if (options.debug)
+        fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, copyOtherDiff);
     string deleteOtherDiff = ScratchFile("DeleteOtherDiff");
-    sprintf(scratch, "diff -r -q %s %s | sed -e "
-        "'s@Only in %s/\\(.*\\)\\: \\(.*\\)"
-            "@%s %s/\\1/\\2@' "
-        ANDROID_EXCLUDED_FILES
-        "> %s", fromBase, toBase, toBase, 
-        options.emitPerforceCommands ? "p4 delete" : "rm",
-        toCmd, deleteOtherDiff.c_str());
+    scratchLen = sprintf(scratch, "diff -r -q %s %s | sed -e "
+        "'s@Only in %s/\\(.*\\)\\: \\(.*\\)@",
+        newBase, sandboxBase, sandboxBase);
+    if (options.emitPerforceCommands)
+        scratchLen += sprintf(&scratch[scratchLen], "p4 delete %s/", sandboxCmd);
+    else if (options.emitGitCommands) 
+        scratchLen += sprintf(&scratch[scratchLen], "git rm ");
+    else
+        scratchLen += sprintf(&scratch[scratchLen], "rm %s/", sandboxCmd);
+    scratchLen += sprintf(&scratch[scratchLen], "\\1/\\2@' %s > %s",
+        excludedFiles.c_str(), deleteOtherDiff.c_str());
     if (options.debug)
         fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, deleteOtherDiff);
     string addOtherDiff = ScratchFile("AddOtherDiff");
     scratchLen = sprintf(scratch, "diff -r -q %s %s | sed -e "
         "'s@Only in %s/\\(.*\\)\\: \\(.*\\)"
-            "@mkdir -p -v %s/\\1 ; cp %s/\\1/\\2 %s/\\1/\\2 ",
-            fromBase, toBase, fromBase, toCmd, fromCmd, toCmd);
+            "@mkdir -p -v %s/\\1 ; cp %s/\\1/\\2 %s/\\1/\\2 ; ",
+            newBase, sandboxBase, newBase, sandboxCmd, newCmd, sandboxCmd);
     if (options.emitPerforceCommands)
         scratchLen += sprintf(&scratch[scratchLen],
-            "; p4 add %s/\\1/\\2@", toCmd);
-    scratchLen += sprintf(&scratch[scratchLen], "' "
-        ANDROID_EXCLUDED_FILES
-        "> %s", addOtherDiff.c_str());
+            "p4 add %s/\\1/\\2", sandboxCmd);
+    else if (options.emitGitCommands)
+        scratchLen += sprintf(&scratch[scratchLen],
+            "git add \\1/\\2");
+    scratchLen += sprintf(&scratch[scratchLen], "@' %s > %s",
+        excludedFiles.c_str(), addOtherDiff.c_str());
+    if (options.debug)
+        fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, addOtherDiff);
     string editOtherDiff = ScratchFile("EditOtherDiff");
     scratchLen = sprintf(scratch, "diff -r -q %s %s | sed -e "
         "'s@Files %s/\\(.*\\) and %s/\\(.*\\) differ@",
-        fromBase, toBase, fromBase, toBase);
+        newBase, sandboxBase, newBase, sandboxBase);
     if (options.emitPerforceCommands)
         scratchLen += sprintf(&scratch[scratchLen],
-            "p4 edit %s/\\2 ; ", toCmd);
-    scratchLen += sprintf(&scratch[scratchLen], "cp %s/\\1 %s/\\2@' "
-        ANDROID_EXCLUDED_FILES
-        "> %s", fromCmd, toCmd, editOtherDiff.c_str());
+            "p4 edit %s/\\2 ; ", sandboxCmd);
+    scratchLen += sprintf(&scratch[scratchLen], "cp %s/\\1 %s/\\2 ",
+       newCmd, sandboxCmd);
+    if (options.emitGitCommands)
+        scratchLen += sprintf(&scratch[scratchLen],
+            " ; git add \\2");
+    scratchLen += sprintf(&scratch[scratchLen], "@' %s > %s", 
+        excludedFiles.c_str(), editOtherDiff.c_str());
     if (options.debug)
         fprintf(stderr, "%s\n", scratch);
     copyToCommand(scratch, editOtherDiff);
@@ -1550,8 +1607,6 @@ bool ReadArgs(char* const args[], int argCount)
     const char* toolpath = args[index++];
     // first arg is path to this executable
     // use this to build default paths
-    
-    // set BASE to ?
     
     for (; index < argCount; index++) {
         const char* arg = args[index];
@@ -1580,8 +1635,9 @@ bool ReadArgs(char* const args[], int argCount)
             continue;
         }
         if (strncmp(arg, "-g", 2) == 0 || strcmp(arg, "--git") == 0) {
-            options.emitPerforceCommands = false;
-            continue;
+            options.emitGitCommands = true;
+            if (options.emitPerforceCommands == false)
+                continue;
         }
         if (strncmp(arg, "-m", 2) == 0 || strcmp(arg, "--mergemake") == 0) {
             options.clearOnce();
@@ -1600,7 +1656,8 @@ bool ReadArgs(char* const args[], int argCount)
         }
         if (strncmp(arg, "-p", 2) == 0 || strcmp(arg, "--perforce") == 0) {
             options.emitPerforceCommands = true;
-            continue;
+            if (options.emitGitCommands == false)
+                continue;
         }
         if (strncmp(arg, "-s", 2) == 0 || strcmp(arg, "--removesvn") == 0) {
             options.clearOnce();
@@ -1620,13 +1677,15 @@ bool ReadArgs(char* const args[], int argCount)
             options.execute = true;
             continue;
         }
-        if (strncmp(arg, "-h", 2) != 0 && strcmp(arg, "--help") != 0 && strcmp(arg, "-?") != 0)
+        if (options.emitGitCommands && options.emitPerforceCommands)
+            printf("choose one of --git and --perforce\n");
+        else if (strncmp(arg, "-h", 2) != 0 && strcmp(arg, "--help") != 0 && strcmp(arg, "-?") != 0)
             printf("%s not understood\n", args[index]);
         printf(
-"WebKit Merge for Android version 1.0\n"
-"usage: webkitmerge -a path -b path -n path [-c -e -m -o -s] [-v]\n"
-"options -c -e -m -o -s are set by default, unless one or more is passed.\n"
-"option -p is set by default, unless -g is passed.\n"
+"WebKit Merge for Android version 1.1\n"
+"Usage: webkitmerge -a path -b path -n path [-g or -p] [-c -d -e -m -o -s -v -x]\n"
+"Options -c -e -m -o -s are set unless one or more are passed.\n"
+"Leave -g and -p unset to copy, merge, and delete files outside of source control.\n"
 "-a --android path     Set the Android webkit path to merge to.\n"
 "-b --basewebkit path  Set the common base for Android and the newer webkit.\n"
 "-c --mergecore        Create merge scripts for WebCore, JavaScriptCore .h .cpp.\n"
@@ -1687,6 +1746,8 @@ int main (int argCount, char* const args[])
             fprintf(stderr, "building make.sh\n");
         string makeShell = outputDir + "make.sh";
         commandFile = fopen(makeShell.c_str(), "w");
+        if (options.emitGitCommands || options.emitPerforceCommands)
+            fprintf(commandFile, "cd %s\n", sandboxCmd);
         UpdateMake("WebCore");
         UpdateMake("JavaScriptCore");
         UpdateDerivedMake();
@@ -1698,7 +1759,9 @@ int main (int argCount, char* const args[])
             fprintf(stderr, "building copyOther.sh\n");
         string copyOtherShell = outputDir + "copyOther.sh";
         commandFile = fopen(copyOtherShell.c_str(), "w");
-        CopyOther(newBase, sandboxBase, newCmd, sandboxCmd);
+        if (options.emitGitCommands || options.emitPerforceCommands)
+            fprintf(commandFile, "cd %s\n", sandboxCmd);
+        CopyOther();
         fclose(commandFile);
         MakeExecutable(copyOtherShell);
     }
@@ -1707,10 +1770,16 @@ int main (int argCount, char* const args[])
             fprintf(stderr, "building command.sh copyDir.sh oops.sh\n");
         string commandShell = outputDir + "command.sh";
         commandFile = fopen(commandShell.c_str(), "w");
+        if (options.emitGitCommands || options.emitPerforceCommands)
+            fprintf(commandFile, "cd %s\n", sandboxCmd);
         string copyDirShell = outputDir + "copyDir.sh";
         copyDirFile = fopen(copyDirShell.c_str(), "w");
+        if (options.emitGitCommands || options.emitPerforceCommands)
+            fprintf(copyDirFile, "cd %s\n", sandboxCmd);
         string oopsShell = outputDir + "oops.sh";
         oopsFile = fopen(oopsShell.c_str(), "w");
+        if (options.emitGitCommands || options.emitPerforceCommands)
+            fprintf(oopsFile, "cd %s\n", sandboxCmd);
         CompareDirs("WebCore", false); // generate command script
         CompareDirs("JavaScriptCore", false);
         fclose(oopsFile);
