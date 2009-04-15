@@ -70,7 +70,9 @@
 #include "PluginWidgetAndroid.h"
 #include "Position.h"
 #include "ProgressTracker.h"
+#include "RenderBox.h"
 #include "RenderLayer.h"
+#include "RenderPart.h"
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderThemeAndroid.h"
@@ -374,6 +376,66 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     WebCore::FrameView* view = m_mainFrame->view();
     int width = view->contentsWidth();
     int height = view->contentsHeight();
+
+    // Use the contents width and height as a starting point.
+    SkIRect contentRect;
+    contentRect.set(0, 0, width, height);
+    SkIRect total(contentRect);
+
+    // Traverse all the frames and add their sizes if they are in the visible
+    // rectangle.
+    for (WebCore::Frame* frame = m_mainFrame->tree()->traverseNext(); frame;
+            frame = frame->tree()->traverseNext()) {
+        // If the frame doesn't have an owner then it is the top frame and the
+        // view size is the frame size.
+        WebCore::RenderPart* owner = frame->ownerRenderer();
+        if (owner) {
+            int x = owner->x();
+            int y = owner->y();
+
+            // Traverse the tree up to the parent to find the absolute position
+            // of this frame.
+            WebCore::Frame* parent = frame->tree()->parent();
+            while (parent) {
+                WebCore::RenderPart* parentOwner = parent->ownerRenderer();
+                if (parentOwner) {
+                    x += parentOwner->x();
+                    y += parentOwner->y();
+                }
+                parent = parent->tree()->parent();
+            }
+            // Use the owner dimensions so that padding and border are
+            // included.
+            int right = x + owner->width();
+            int bottom = y + owner->height();
+            SkIRect frameRect = {x, y, right, bottom};
+            if (SkIRect::Intersects(total, frameRect))
+                total.join(x, y, right, bottom);
+        }
+    }
+
+    // If the new total is larger than the content, resize the view to include
+    // all the content.
+    if (!contentRect.contains(total)) {
+        // Resize the view to change the overflow clip.
+        view->resize(total.width(), total.height());
+
+        // We have to force a layout in order for the clip to change.
+        m_mainFrame->contentRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+        view->forceLayout();
+
+        // Relayout similar to above
+        m_skipContentDraw = true;
+        bool success = layoutIfNeededRecursive(m_mainFrame);
+        m_skipContentDraw = false;
+        if (!success)
+            return;
+
+        // Set the computed content width
+        width = view->contentsWidth();
+        height = view->contentsHeight();
+    }
+
     content->checkDimensions(width, height, &m_addInval);
 
     // The inval region may replace existing pictures. The existing pictures
