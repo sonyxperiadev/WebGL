@@ -258,6 +258,7 @@ namespace android {
                 int oldStart, int oldEnd, jstring replace, int start, int end);
         void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
             jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
+        void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
 

@@ -1250,42 +1250,23 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
     bool valid = builder.validNode(frame, node);
-    // donotChangeDOMFocus prevents changing the focus because it will later be
-    // changed by handleMouseClick.  However, if we hit a textfield,
-    // handleMouseClick is not called.  We need to move the focus and set
-    // the focusController to active so that the cursor/selection is shown.
-    if (!donotChangeDOMFocus || (node && node->renderer()
-            && (node->renderer()->isTextField()
-                || node->renderer()->isTextArea()))) {
+    if (!donotChangeDOMFocus) {
         WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
-        // page and oldPage are only used to make the correct FocusController
-        // "active" so that we get a cursor/selection in the appropriate
-        // textfield
-        WebCore::Page* oldPage = oldDoc ? oldDoc->page() : 0;
         if (!node) {
             if (oldFocusNode)
                 oldDoc->setFocusedNode(0);
-            if (oldPage)
-                oldPage->focusController()->setActive(false);
             return false;
         } else if (!valid) {
             DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
             sendMarkNodeInvalid(node);
             if (oldFocusNode)
                 oldDoc->setFocusedNode(0);
-            if (oldPage)
-                oldPage->focusController()->setActive(false);
             return false;
         }
         // If we jump frames (docs), kill the focus on the old doc
         if (oldFocusNode && node->document() != oldDoc) {
             oldDoc->setFocusedNode(0);
         }
-        WebCore::Page* page = node->document()->page();
-        if (page && oldPage != page)
-            page->focusController()->setActive(true);
-        if (oldPage && page != oldPage)
-            oldPage->focusController()->setActive(false);
         if (!node->isTextNode())
             static_cast<WebCore::Element*>(node)->focus(false);
         if (node->document()->focusedNode() != node) {
@@ -1601,6 +1582,11 @@ void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, in
                 updateTextfield(currentFocus, false, test);
         }
     }
+}
+
+void WebViewCore::setFocusControllerActive(bool active)
+{
+    m_mainFrame->page()->focusController()->setActive(active);
 }
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
@@ -2215,6 +2201,17 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
         x, y, generation, currentText, keyCode, keyValue, down, cap, fn, sym);
 }
 
+static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
+    viewImpl->setFocusControllerActive(active);
+}
+
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2588,6 +2585,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ReplaceTextfieldText } ,
     { "passToJs", "(IIIIILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
+    { "nativeSetFocusControllerActive", "(Z)V",
+        (void*) SetFocusControllerActive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",
