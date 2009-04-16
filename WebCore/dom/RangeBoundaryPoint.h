@@ -140,7 +140,18 @@ inline void RangeBoundaryPoint::setToEnd(PassRefPtr<Node> container)
 {
     ASSERT(container);
     if (container->offsetInCharacters()) {
+#ifdef ANDROID_FIX
+        // Temporary fix of a crash where container becomes empty after
+        // assigning it to the first parameter of Position::moveToPosition,
+        // evaluating the second parameter expression,
+        // container->maxCharacterOffset(), causes NULL-pointer exception.
+        // This change can be removed after merge to a webkit revision
+        // after r42264.
+        int offset = container->maxCharacterOffset();
+        m_position.moveToPosition(container, offset);
+#else
         m_position.moveToPosition(container, container->maxCharacterOffset());
+#endif
         m_childBefore = 0;
     } else {
         m_childBefore = container->lastChild();
