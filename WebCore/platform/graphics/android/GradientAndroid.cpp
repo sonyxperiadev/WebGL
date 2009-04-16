@@ -104,6 +104,9 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
     m_gradient->m_shader->safeUnref();
     m_gradient->m_shader = s;
     m_gradient->m_tileMode = mode;
+    SkMatrix matrix = m_gradientSpaceTransformation;
+    s->setLocalMatrix(matrix);
+
     return s;
 }
 
