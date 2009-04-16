@@ -1100,12 +1100,6 @@ void GraphicsContext::addPath(const Path& p)
     m_data->addPath(*p.platformPath());
 }
 
-void GraphicsContext::drawPath()
-{
-    this->fillPath();
-    this->strokePath();
-}
-
 void GraphicsContext::fillPath()
 {
     SkPath* path = m_data->getPath();
@@ -1134,7 +1128,7 @@ void GraphicsContext::fillPath()
 void GraphicsContext::strokePath()
 {
     const SkPath* path = m_data->getPath();
-    if (paintingDisabled() || !path || strokeStyle() == NoStroke)
+    if (paintingDisabled() || !path)
         return;
     
     SkPaint paint;

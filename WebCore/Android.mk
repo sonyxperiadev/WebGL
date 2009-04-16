@@ -112,7 +112,6 @@
 #	dom/Touch*.cpp \
 #	platform/graphics/skia/NativeImageSkia.cpp \
 #	platform/image-decoders/skia/GIFImage*.cpp \
-#	svg/graphics/skia/SVGResourceMaskerSkia.cpp \
 
 # The remainder of the file is read by tools/webkitsync/diff.cpp
 # If you edit it, keep it in alphabetical order
@@ -1083,9 +1082,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFETile.cpp \
 	svg/graphics/filters/SVGFETurbulence.cpp \
 	svg/graphics/filters/SVGFilterEffect.cpp \
-	svg/graphics/filters/SVGLightSource.cpp \
-	\
-	svg/graphics/skia/SVGResourceMaskerSkia.cpp
+	svg/graphics/filters/SVGLightSource.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
