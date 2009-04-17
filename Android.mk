@@ -226,3 +226,8 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
+
+# Build libv8
+include $(BASE_PATH)/v8/Android.mk
+# Build v8shell
+include $(BASE_PATH)/v8/Android.v8shell.mk
