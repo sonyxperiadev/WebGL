@@ -1160,7 +1160,31 @@ void Debug::HandleStepIn(Handle<JSFunction> function,
   if (fp == Debug::step_in_fp()) {
     // Don't allow step into functions in the native context.
     if (function->context()->global() != Top::context()->builtins()) {
-      Debug::FloodWithOneShot(Handle<SharedFunctionInfo>(function->shared()));
+      if (function->shared()->code() ==
+          Builtins::builtin(Builtins::FunctionApply) ||
+          function->shared()->code() ==
+          Builtins::builtin(Builtins::FunctionCall)) {
+        // Handle function.apply and function.call separately to flood the
+        // function to be called and not the code for Builtins::FunctionApply or
+        // Builtins::FunctionCall. At the point of the call IC to call either
+        // Builtins::FunctionApply or Builtins::FunctionCall the expression
+        // stack has the following content:
+        //   symbol "apply" or "call"
+        //   function apply or call was called on
+        //   receiver for apply or call (first parameter to apply or call)
+        //   ... further arguments to apply or call.
+        JavaScriptFrameIterator it;
+        ASSERT(it.frame()->fp() == fp);
+        ASSERT(it.frame()->GetExpression(1)->IsJSFunction());
+        if (it.frame()->GetExpression(1)->IsJSFunction()) {
+          Handle<JSFunction>
+              actual_function(JSFunction::cast(it.frame()->GetExpression(1)));
+          Handle<SharedFunctionInfo> actual_shared(actual_function->shared());
+          Debug::FloodWithOneShot(actual_shared);
+        }
+      } else {
+        Debug::FloodWithOneShot(Handle<SharedFunctionInfo>(function->shared()));
+      }
     }
   }
 }
@@ -1801,6 +1825,9 @@ void Debugger::NotifyMessageHandler(v8::DebugEvent event,
         Debugger::host_dispatch_handler_(reinterpret_cast<void*>(dispatch),
                                          Debugger::host_dispatch_handler_data_);
       }
+      if (auto_continue && !HasCommands()) {
+        return;
+      }
       continue;
     }
 
@@ -2006,6 +2033,8 @@ void Debugger::ProcessCommand(Vector<const uint16_t> command) {
   Logger::DebugTag("Put command on command_queue.");
   command_queue_.Put(command_copy);
   command_received_->Signal();
+
+  // Set the debug command break flag to have the command processed.
   if (!Debug::InDebugger()) {
     StackGuard::DebugCommand();
   }
@@ -2018,7 +2047,7 @@ bool Debugger::HasCommands() {
 
 
 void Debugger::ProcessHostDispatch(void* dispatch) {
-// Puts a host dispatch comming from the public API on the queue.
+  // Puts a host dispatch comming from the public API on the queue.
   uint16_t hack[3];
   hack[0] = 0;
   hack[1] = reinterpret_cast<uint32_t>(dispatch) >> 16;
@@ -2026,6 +2055,11 @@ void Debugger::ProcessHostDispatch(void* dispatch) {
   Logger::DebugTag("Put dispatch on command_queue.");
   command_queue_.Put(Vector<uint16_t>(hack, 3).Clone());
   command_received_->Signal();
+
+  // Set the debug command break flag to have the host dispatch processed.
+  if (!Debug::InDebugger()) {
+    StackGuard::DebugCommand();
+  }
 }
 
 

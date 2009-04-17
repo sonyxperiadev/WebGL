@@ -1293,6 +1293,9 @@ THREADED_TEST(HiddenProperties) {
 
   i::Heap::CollectAllGarbage();
 
+  // Make sure delete of a non-existent hidden value works
+  CHECK(obj->DeleteHiddenValue(key));
+
   CHECK(obj->SetHiddenValue(key, v8::Integer::New(1503)));
   CHECK_EQ(1503, obj->GetHiddenValue(key)->Int32Value());
   CHECK(obj->SetHiddenValue(key, v8::Integer::New(2002)));
@@ -2492,6 +2495,44 @@ THREADED_TEST(SimpleExtensions) {
 }
 
 
+static const char* kEvalExtensionSource =
+  "function UseEval() {"
+  "  var x = 42;"
+  "  return eval('x');"
+  "}";
+
+
+THREADED_TEST(UseEvalFromExtension) {
+  v8::HandleScope handle_scope;
+  v8::RegisterExtension(new Extension("evaltest", kEvalExtensionSource));
+  const char* extension_names[] = { "evaltest" };
+  v8::ExtensionConfiguration extensions(1, extension_names);
+  v8::Handle<Context> context = Context::New(&extensions);
+  Context::Scope lock(context);
+  v8::Handle<Value> result = Script::Compile(v8_str("UseEval()"))->Run();
+  CHECK_EQ(result, v8::Integer::New(42));
+}
+
+
+static const char* kWithExtensionSource =
+  "function UseWith() {"
+  "  var x = 42;"
+  "  with({x:87}) { return x; }"
+  "}";
+
+
+THREADED_TEST(UseWithFromExtension) {
+  v8::HandleScope handle_scope;
+  v8::RegisterExtension(new Extension("withtest", kWithExtensionSource));
+  const char* extension_names[] = { "withtest" };
+  v8::ExtensionConfiguration extensions(1, extension_names);
+  v8::Handle<Context> context = Context::New(&extensions);
+  Context::Scope lock(context);
+  v8::Handle<Value> result = Script::Compile(v8_str("UseWith()"))->Run();
+  CHECK_EQ(result, v8::Integer::New(87));
+}
+
+
 THREADED_TEST(AutoExtensions) {
   v8::HandleScope handle_scope;
   Extension* extension = new Extension("autotest", kSimpleExtensionSource);
@@ -2884,7 +2925,19 @@ THREADED_TEST(Deleter) {
 
 static v8::Handle<Value> GetK(Local<String> name, const AccessorInfo&) {
   ApiTestFuzzer::Fuzz();
-  return v8::Undefined();
+  if (name->Equals(v8_str("foo")) ||
+      name->Equals(v8_str("bar")) ||
+      name->Equals(v8_str("baz"))) {
+    return v8::Undefined();
+  }
+  return v8::Handle<Value>();
+}
+
+
+static v8::Handle<Value> IndexedGetK(uint32_t index, const AccessorInfo&) {
+  ApiTestFuzzer::Fuzz();
+  if (index == 0 || index == 1) return v8::Undefined();
+  return v8::Handle<Value>();
 }
 
 
@@ -2901,8 +2954,8 @@ static v8::Handle<v8::Array> NamedEnum(const AccessorInfo&) {
 static v8::Handle<v8::Array> IndexedEnum(const AccessorInfo&) {
   ApiTestFuzzer::Fuzz();
   v8::Handle<v8::Array> result = v8::Array::New(2);
-  result->Set(v8::Integer::New(0), v8_str("hat"));
-  result->Set(v8::Integer::New(1), v8_str("gyt"));
+  result->Set(v8::Integer::New(0), v8_str("0"));
+  result->Set(v8::Integer::New(1), v8_str("1"));
   return result;
 }
 
@@ -2911,21 +2964,56 @@ THREADED_TEST(Enumerators) {
   v8::HandleScope scope;
   v8::Handle<v8::ObjectTemplate> obj = ObjectTemplate::New();
   obj->SetNamedPropertyHandler(GetK, NULL, NULL, NULL, NamedEnum);
-  obj->SetIndexedPropertyHandler(NULL, NULL, NULL, NULL, IndexedEnum);
+  obj->SetIndexedPropertyHandler(IndexedGetK, NULL, NULL, NULL, IndexedEnum);
   LocalContext context;
   context->Global()->Set(v8_str("k"), obj->NewInstance());
   v8::Handle<v8::Array> result = v8::Handle<v8::Array>::Cast(CompileRun(
+    "k[10] = 0;"
+    "k.a = 0;"
+    "k[5] = 0;"
+    "k.b = 0;"
+    "k[4294967295] = 0;"
+    "k.c = 0;"
+    "k[4294967296] = 0;"
+    "k.d = 0;"
+    "k[140000] = 0;"
+    "k.e = 0;"
+    "k[30000000000] = 0;"
+    "k.f = 0;"
     "var result = [];"
     "for (var prop in k) {"
     "  result.push(prop);"
     "}"
     "result"));
-  CHECK_EQ(5, result->Length());
-  CHECK_EQ(v8_str("foo"), result->Get(v8::Integer::New(0)));
-  CHECK_EQ(v8_str("bar"), result->Get(v8::Integer::New(1)));
-  CHECK_EQ(v8_str("baz"), result->Get(v8::Integer::New(2)));
-  CHECK_EQ(v8_str("hat"), result->Get(v8::Integer::New(3)));
-  CHECK_EQ(v8_str("gyt"), result->Get(v8::Integer::New(4)));
+  // Check that we get all the property names returned including the
+  // ones from the enumerators in the right order: indexed properties
+  // in numerical order, indexed interceptor properties, named
+  // properties in insertion order, named interceptor properties.
+  // This order is not mandated by the spec, so this test is just
+  // documenting our behavior.
+  CHECK_EQ(17, result->Length());
+  // Indexed properties in numerical order.
+  CHECK_EQ(v8_str("5"), result->Get(v8::Integer::New(0)));
+  CHECK_EQ(v8_str("10"), result->Get(v8::Integer::New(1)));
+  CHECK_EQ(v8_str("140000"), result->Get(v8::Integer::New(2)));
+  CHECK_EQ(v8_str("4294967295"), result->Get(v8::Integer::New(3)));
+  // Indexed interceptor properties in the order they are returned
+  // from the enumerator interceptor.
+  CHECK_EQ(v8_str("0"), result->Get(v8::Integer::New(4)));
+  CHECK_EQ(v8_str("1"), result->Get(v8::Integer::New(5)));
+  // Named properties in insertion order.
+  CHECK_EQ(v8_str("a"), result->Get(v8::Integer::New(6)));
+  CHECK_EQ(v8_str("b"), result->Get(v8::Integer::New(7)));
+  CHECK_EQ(v8_str("c"), result->Get(v8::Integer::New(8)));
+  CHECK_EQ(v8_str("4294967296"), result->Get(v8::Integer::New(9)));
+  CHECK_EQ(v8_str("d"), result->Get(v8::Integer::New(10)));
+  CHECK_EQ(v8_str("e"), result->Get(v8::Integer::New(11)));
+  CHECK_EQ(v8_str("30000000000"), result->Get(v8::Integer::New(12)));
+  CHECK_EQ(v8_str("f"), result->Get(v8::Integer::New(13)));
+  // Named interceptor properties.
+  CHECK_EQ(v8_str("foo"), result->Get(v8::Integer::New(14)));
+  CHECK_EQ(v8_str("bar"), result->Get(v8::Integer::New(15)));
+  CHECK_EQ(v8_str("baz"), result->Get(v8::Integer::New(16)));
 }
 
 

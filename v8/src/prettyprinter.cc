@@ -646,7 +646,7 @@ AstPrinter::~AstPrinter() {
 
 void AstPrinter::PrintIndented(const char* txt) {
   for (int i = 0; i < indent_; i++) {
-    Print(".   ");
+    Print(". ");
   }
   Print(txt);
 }
@@ -709,6 +709,7 @@ const char* AstPrinter::PrintProgram(FunctionLiteral* program) {
   Init();
   { IndentedScope indent("FUNC");
     PrintLiteralIndented("NAME", program->name(), true);
+    PrintLiteralIndented("INFERRED NAME", program->inferred_name(), true);
     PrintParameters(program->scope());
     PrintDeclarations(program->scope()->declarations());
     PrintStatements(program->body());
@@ -731,7 +732,7 @@ void AstPrinter::PrintParameters(Scope* scope) {
   if (scope->num_parameters() > 0) {
     IndentedScope indent("PARAMS");
     for (int i = 0; i < scope->num_parameters(); i++) {
-      PrintLiteralWithModeIndented("VAR ", scope->parameter(i),
+      PrintLiteralWithModeIndented("VAR", scope->parameter(i),
                                    scope->parameter(i)->name(),
                                    scope->parameter(i)->type());
     }
@@ -885,6 +886,7 @@ void AstPrinter::VisitDebuggerStatement(DebuggerStatement* node) {
 void AstPrinter::VisitFunctionLiteral(FunctionLiteral* node) {
   IndentedScope indent("FUNC LITERAL");
   PrintLiteralIndented("NAME", node->name(), false);
+  PrintLiteralIndented("INFERRED NAME", node->inferred_name(), false);
   PrintParameters(node->scope());
   // We don't want to see the function literal in this case: it
   // will be printed via PrintProgram when the code for it is
@@ -1022,7 +1024,7 @@ void AstPrinter::VisitProperty(Property* node) {
   Visit(node->obj());
   Literal* literal = node->key()->AsLiteral();
   if (literal != NULL && literal->handle()->IsSymbol()) {
-    PrintLiteralIndented("LITERAL", literal->handle(), false);
+    PrintLiteralIndented("NAME", literal->handle(), false);
   } else {
     PrintIndentedVisit("KEY", node->key());
   }

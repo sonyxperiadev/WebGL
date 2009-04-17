@@ -498,13 +498,31 @@ void CheckDebugBreakFunction(DebugLocalContext* env,
 // ---
 
 
-// Source for The JavaScript function which picks out the function name on the
+// Source for The JavaScript function which picks out the function name of the
 // top frame.
 const char* frame_function_name_source =
     "function frame_function_name(exec_state) {"
     "  return exec_state.frame(0).func().name();"
     "}";
 v8::Local<v8::Function> frame_function_name;
+
+
+// Source for The JavaScript function which picks out the source line for the
+// top frame.
+const char* frame_source_line_source =
+    "function frame_source_line(exec_state) {"
+    "  return exec_state.frame(0).sourceLine();"
+    "}";
+v8::Local<v8::Function> frame_source_line;
+
+
+// Source for The JavaScript function which picks out the source column for the
+// top frame.
+const char* frame_source_column_source =
+    "function frame_source_column(exec_state) {"
+    "  return exec_state.frame(0).sourceColumn();"
+    "}";
+v8::Local<v8::Function> frame_source_column;
 
 
 // Source for The JavaScript function which returns the number of frames.
@@ -517,6 +535,10 @@ v8::Handle<v8::Function> frame_count;
 
 // Global variable to store the last function hit - used by some tests.
 char last_function_hit[80];
+
+// Global variables to store the last source position - used by some tests.
+int last_source_line = -1;
+int last_source_column = -1;
 
 // Debug event handler which counts the break points which have been hit.
 int break_point_hit_count = 0;
@@ -543,6 +565,26 @@ static void DebugEventBreakPointHitCount(v8::DebugEvent event,
         v8::Handle<v8::String> function_name(result->ToString());
         function_name->WriteAscii(last_function_hit);
       }
+    }
+
+    if (!frame_source_line.IsEmpty()) {
+      // Get the source line.
+      const int argc = 1;
+      v8::Handle<v8::Value> argv[argc] = { exec_state };
+      v8::Handle<v8::Value> result = frame_source_line->Call(exec_state,
+                                                             argc, argv);
+      CHECK(result->IsNumber());
+      last_source_line = result->Int32Value();
+    }
+
+    if (!frame_source_column.IsEmpty()) {
+      // Get the source column.
+      const int argc = 1;
+      v8::Handle<v8::Value> argv[argc] = { exec_state };
+      v8::Handle<v8::Value> result = frame_source_column->Call(exec_state,
+                                                               argc, argv);
+      CHECK(result->IsNumber());
+      last_source_column = result->Int32Value();
     }
   }
 }
@@ -994,6 +1036,17 @@ TEST(BreakPointReturn) {
   break_point_hit_count = 0;
   v8::HandleScope scope;
   DebugLocalContext env;
+
+  // Create a functions for checking the source line and column when hitting
+  // a break point.
+  frame_source_line = CompileFunction(&env,
+                                      frame_source_line_source,
+                                      "frame_source_line");
+  frame_source_column = CompileFunction(&env,
+                                        frame_source_column_source,
+                                        "frame_source_column");
+
+
   v8::Debug::SetDebugEventListener(DebugEventBreakPointHitCount,
                                    v8::Undefined());
   v8::Script::Compile(v8::String::New("function foo(){}"))->Run();
@@ -1008,8 +1061,12 @@ TEST(BreakPointReturn) {
   int bp = SetBreakPoint(foo, 0);
   foo->Call(env->Global(), 0, NULL);
   CHECK_EQ(1, break_point_hit_count);
+  CHECK_EQ(0, last_source_line);
+  CHECK_EQ(16, last_source_column);
   foo->Call(env->Global(), 0, NULL);
   CHECK_EQ(2, break_point_hit_count);
+  CHECK_EQ(0, last_source_line);
+  CHECK_EQ(16, last_source_column);
 
   // Run without breakpoints.
   ClearBreakPoint(bp);
@@ -2406,6 +2463,96 @@ TEST(DebugStepNatives) {
 }
 
 
+// Test that step in works with function.apply.
+TEST(DebugStepFunctionApply) {
+  v8::HandleScope scope;
+  DebugLocalContext env;
+
+  // Create a function for testing stepping.
+  v8::Local<v8::Function> foo = CompileFunction(
+      &env,
+      "function bar(x, y, z) { if (x == 1) { a = y; b = z; } }"
+      "function foo(){ debugger; bar.apply(this, [1,2,3]); }",
+      "foo");
+
+  // Register a debug event listener which steps and counts.
+  v8::Debug::SetDebugEventListener(DebugEventStep);
+
+  step_action = StepIn;
+  break_point_hit_count = 0;
+  foo->Call(env->Global(), 0, NULL);
+
+  // With stepping all break locations are hit.
+  CHECK_EQ(6, break_point_hit_count);
+
+  v8::Debug::SetDebugEventListener(NULL);
+  CheckDebuggerUnloaded();
+
+  // Register a debug event listener which just counts.
+  v8::Debug::SetDebugEventListener(DebugEventBreakPointHitCount);
+
+  break_point_hit_count = 0;
+  foo->Call(env->Global(), 0, NULL);
+
+  // Without stepping only the debugger statement is hit.
+  CHECK_EQ(1, break_point_hit_count);
+
+  v8::Debug::SetDebugEventListener(NULL);
+  CheckDebuggerUnloaded();
+}
+
+
+// Test that step in works with function.call.
+TEST(DebugStepFunctionCall) {
+  v8::HandleScope scope;
+  DebugLocalContext env;
+
+  // Create a function for testing stepping.
+  v8::Local<v8::Function> foo = CompileFunction(
+      &env,
+      "function bar(x, y, z) { if (x == 1) { a = y; b = z; } }"
+      "function foo(a){ debugger;"
+      "                 if (a) {"
+      "                   bar.call(this, 1, 2, 3);"
+      "                 } else {"
+      "                   bar.call(this, 0);"
+      "                 }"
+      "}",
+      "foo");
+
+  // Register a debug event listener which steps and counts.
+  v8::Debug::SetDebugEventListener(DebugEventStep);
+  step_action = StepIn;
+
+  // Check stepping where the if condition in bar is false.
+  break_point_hit_count = 0;
+  foo->Call(env->Global(), 0, NULL);
+  CHECK_EQ(4, break_point_hit_count);
+
+  // Check stepping where the if condition in bar is true.
+  break_point_hit_count = 0;
+  const int argc = 1;
+  v8::Handle<v8::Value> argv[argc] = { v8::True() };
+  foo->Call(env->Global(), argc, argv);
+  CHECK_EQ(6, break_point_hit_count);
+
+  v8::Debug::SetDebugEventListener(NULL);
+  CheckDebuggerUnloaded();
+
+  // Register a debug event listener which just counts.
+  v8::Debug::SetDebugEventListener(DebugEventBreakPointHitCount);
+
+  break_point_hit_count = 0;
+  foo->Call(env->Global(), 0, NULL);
+
+  // Without stepping only the debugger statement is hit.
+  CHECK_EQ(1, break_point_hit_count);
+
+  v8::Debug::SetDebugEventListener(NULL);
+  CheckDebuggerUnloaded();
+}
+
+
 // Test break on exceptions. For each exception break combination the number
 // of debug event exception callbacks and message callbacks are collected. The
 // number of debug event exception callbacks are used to check that the
@@ -3300,6 +3447,12 @@ class DebuggerThread : public v8::internal::Thread {
 };
 
 
+static v8::Handle<v8::Value> ThreadedAtBarrier1(const v8::Arguments& args) {
+  threaded_debugging_barriers.barrier_1.Wait();
+  return v8::Undefined();
+}
+
+
 static void ThreadedMessageHandler(const uint16_t* message, int length,
                                    void *data) {
   static char print_buffer[1000];
@@ -3313,7 +3466,7 @@ static void ThreadedMessageHandler(const uint16_t* message, int length,
 
 
 void V8Thread::Run() {
-  const char* source_1 =
+  const char* source =
       "flag = true;\n"
       "function bar( new_value ) {\n"
       "  flag = new_value;\n"
@@ -3323,19 +3476,25 @@ void V8Thread::Run() {
       "function foo() {\n"
       "  var x = 1;\n"
       "  while ( flag == true ) {\n"
+      "    if ( x == 1 ) {\n"
+      "      ThreadedAtBarrier1();\n"
+      "    }\n"
       "    x = x + 1;\n"
       "  }\n"
       "}\n"
-      "\n";
-  const char* source_2 = "foo();\n";
+      "\n"
+      "foo();\n";
 
   v8::HandleScope scope;
   DebugLocalContext env;
   v8::Debug::SetMessageHandler(&ThreadedMessageHandler);
+  v8::Handle<v8::ObjectTemplate> global_template = v8::ObjectTemplate::New();
+  global_template->Set(v8::String::New("ThreadedAtBarrier1"),
+                       v8::FunctionTemplate::New(ThreadedAtBarrier1));
+  v8::Handle<v8::Context> context = v8::Context::New(NULL, global_template);
+  v8::Context::Scope context_scope(context);
 
-  CompileRun(source_1);
-  threaded_debugging_barriers.barrier_1.Wait();
-  CompileRun(source_2);
+  CompileRun(source);
 }
 
 void DebuggerThread::Run() {
@@ -3559,15 +3718,6 @@ TEST(SendCommandToUninitializedVM) {
   int dummy_length = AsciiToUtf16(dummy_command, dummy_buffer);
   v8::Debug::SendCommand(dummy_buffer, dummy_length);
 }
-
-
-// Source for a JavaScript function which returns the source line for the top
-// frame.
-static const char* frame_source_line_source =
-    "function frame_source_line(exec_state) {"
-    "  return exec_state.frame(0).sourceLine();"
-    "}";
-v8::Handle<v8::Function> frame_source_line;
 
 
 // Source for a JavaScript function which returns the data parameter of a
@@ -3875,19 +4025,33 @@ TEST(DebuggerHostDispatch) {
      "\"type\":\"request\","
      "\"command\":\"continue\"}";
 
+  // Create an empty function to call for processing debug commands
+  v8::Local<v8::Function> empty =
+      CompileFunction(&env, "function empty(){}", "empty");
+
   // Setup message and host dispatch handlers.
   v8::Debug::SetMessageHandler(DummyMessageHandler);
   v8::Debug::SetHostDispatchHandler(HostDispatchHandlerHitCount,
                                     NULL);
 
-  // Fill a host dispatch and a continue command on the command queue before
-  // running some code.
+  // Send a host dispatch by itself.
+  v8::Debug::SendHostDispatch(NULL);
+  empty->Call(env->Global(), 0, NULL);  // Run JavaScript to activate debugger.
+  CHECK_EQ(1, host_dispatch_hit_count);
+
+  // Fill a host dispatch and a continue command on the command queue.
   v8::Debug::SendHostDispatch(NULL);
   v8::Debug::SendCommand(buffer, AsciiToUtf16(command_continue, buffer));
-  CompileRun("void 0");
+  empty->Call(env->Global(), 0, NULL);  // Run JavaScript to activate debugger.
 
-  // The host dispatch callback should be called.
-  CHECK_EQ(1, host_dispatch_hit_count);
+  // Fill a continue command and a host dispatch on the command queue.
+  v8::Debug::SendCommand(buffer, AsciiToUtf16(command_continue, buffer));
+  v8::Debug::SendHostDispatch(NULL);
+  empty->Call(env->Global(), 0, NULL);  // Run JavaScript to activate debugger.
+  empty->Call(env->Global(), 0, NULL);  // Run JavaScript to activate debugger.
+
+  // All the host dispatch callback should be called.
+  CHECK_EQ(3, host_dispatch_hit_count);
 }
 
 

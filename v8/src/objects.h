@@ -441,6 +441,19 @@ enum StringRepresentationTag {
   kExternalStringTag = 0x3
 };
 
+
+// A ConsString with an empty string as the right side is a candidate
+// for being shortcut by the garbage collector unless it is a
+// symbol. It's not common to have non-flat symbols, so we do not
+// shortcut them thereby avoiding turning symbols into strings. See
+// heap.cc and mark-compact.cc.
+const uint32_t kShortcutTypeMask =
+    kIsNotStringMask |
+    kIsSymbolMask |
+    kStringRepresentationMask;
+const uint32_t kShortcutTypeTag = kConsStringTag;
+
+
 enum InstanceType {
   SHORT_SYMBOL_TYPE = kShortStringTag | kSymbolTag | kSeqStringTag,
   MEDIUM_SYMBOL_TYPE = kMediumStringTag | kSymbolTag | kSeqStringTag,
@@ -1572,11 +1585,15 @@ class FixedArray: public Array {
   bool IsEqualTo(FixedArray* other);
 #endif
 
-  // Swap two elements.
-  void Swap(int i, int j);
+  // Swap two elements in a pair of arrays.  If this array and the
+  // numbers array are the same object, the elements are only swapped
+  // once.
+  void SwapPairs(FixedArray* numbers, int i, int j);
 
-  // Sort this array and the smis as pairs wrt. the smis.
-  void SortPairs(FixedArray* smis);
+  // Sort prefix of this array and the numbers array as pairs wrt. the
+  // numbers.  If the numbers array and the this array are the same
+  // object, the prefix of this array is sorted.
+  void SortPairs(FixedArray* numbers, uint32_t len);
 
  protected:
   // Set operation on FixedArray without using write barriers.
@@ -2665,6 +2682,13 @@ class SharedFunctionInfo: public HeapObject {
   // [debug info]: Debug information.
   DECL_ACCESSORS(debug_info, Object)
 
+  // [inferred name]: Name inferred from variable or property
+  // assignment of this function. Used to facilitate debugging and
+  // profiling of JavaScript code written in OO style, where almost
+  // all functions are anonymous but are assigned to object
+  // properties.
+  DECL_ACCESSORS(inferred_name, String)
+
   // Position of the 'function' token in the script source.
   inline int function_token_position();
   inline void set_function_token_position(int function_token_position);
@@ -2724,7 +2748,8 @@ class SharedFunctionInfo: public HeapObject {
   static const int kEndPositionOffset = kStartPositionAndTypeOffset + kIntSize;
   static const int kFunctionTokenPositionOffset = kEndPositionOffset + kIntSize;
   static const int kDebugInfoOffset = kFunctionTokenPositionOffset + kIntSize;
-  static const int kSize = kDebugInfoOffset + kPointerSize;
+  static const int kInferredNameOffset = kDebugInfoOffset + kPointerSize;
+  static const int kSize = kInferredNameOffset + kPointerSize;
 
  private:
   // Bit positions in length_and_flg.

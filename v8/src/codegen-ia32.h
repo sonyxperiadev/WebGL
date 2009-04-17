@@ -35,9 +35,6 @@ class DeferredCode;
 class RegisterAllocator;
 class RegisterFile;
 
-// Mode to overwrite BinaryExpression values.
-enum OverwriteMode { NO_OVERWRITE, OVERWRITE_LEFT, OVERWRITE_RIGHT };
-
 enum InitState { CONST_INIT, NOT_CONST_INIT };
 enum TypeofState { INSIDE_TYPEOF, NOT_INSIDE_TYPEOF };
 
@@ -299,7 +296,8 @@ class CodeGenerator: public AstVisitor {
                               int end_position,
                               bool is_expression,
                               bool is_toplevel,
-                              Handle<Script> script);
+                              Handle<Script> script,
+                              Handle<String> inferred_name);
 
   // Accessors
   MacroAssembler* masm() { return masm_; }
@@ -434,7 +432,7 @@ class CodeGenerator: public AstVisitor {
   void GenericBinaryOperation(
       Token::Value op,
       SmiAnalysis* type,
-      const OverwriteMode overwrite_mode = NO_OVERWRITE);
+      OverwriteMode overwrite_mode);
 
   // If possible, combine two constant smi values using op to produce
   // a smi result, and push it on the virtual frame, all at compile time.

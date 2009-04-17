@@ -146,7 +146,6 @@ class Assembler;
 class BreakableStatement;
 class Code;
 class CodeGenerator;
-class CodeRegion;
 class CodeStub;
 class Context;
 class Debug;
@@ -512,6 +511,16 @@ inline Dest bit_cast(const Source& source) {
   memcpy(&dest, &source, sizeof(dest));
   return dest;
 }
+
+
+#ifdef ARM_GENERATED_CODE_COVERAGE
+#define CODE_COVERAGE_STRINGIFY(x) #x
+#define CODE_COVERAGE_TOSTRING(x) CODE_COVERAGE_STRINGIFY(x)
+#define __FILE_LINE__ __FILE__ ":" CODE_COVERAGE_TOSTRING(__LINE__)
+#define DEFINE_MASM(masm) masm->stop(__FILE_LINE__); masm->
+#else
+#define DEFINE_MASM(masm) masm->
+#endif
 
 
 } }  // namespace v8::internal

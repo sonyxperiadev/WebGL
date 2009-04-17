@@ -35,9 +35,6 @@ class DeferredCode;
 class RegisterAllocator;
 class RegisterFile;
 
-// Mode to overwrite BinaryExpression values.
-enum OverwriteMode { NO_OVERWRITE, OVERWRITE_LEFT, OVERWRITE_RIGHT };
-
 enum InitState { CONST_INIT, NOT_CONST_INIT };
 enum TypeofState { INSIDE_TYPEOF, NOT_INSIDE_TYPEOF };
 
@@ -160,7 +157,8 @@ class CodeGenerator: public AstVisitor {
                               int end_position,
                               bool is_expression,
                               bool is_toplevel,
-                              Handle<Script> script);
+                              Handle<Script> script,
+                              Handle<String> inferred_name);
 
   // Accessors
   MacroAssembler* masm() { return masm_; }
@@ -291,10 +289,13 @@ class CodeGenerator: public AstVisitor {
 
   void ToBoolean(JumpTarget* true_target, JumpTarget* false_target);
 
-  void GenericBinaryOperation(Token::Value op);
+  void GenericBinaryOperation(Token::Value op, OverwriteMode overwrite_mode);
   void Comparison(Condition cc, bool strict = false);
 
-  void SmiOperation(Token::Value op, Handle<Object> value, bool reversed);
+  void SmiOperation(Token::Value op,
+                    Handle<Object> value,
+                    bool reversed,
+                    OverwriteMode mode);
 
   void CallWithArguments(ZoneList<Expression*>* arguments, int position);
 

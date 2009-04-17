@@ -3286,8 +3286,14 @@ void CodeGenerator::LoadFromSlot(Slot* slot, TypeofState typeof_state) {
                ContextSlotOperandCheckExtensions(potential_slot,
                                                  value,
                                                  &slow));
+        if (potential_slot->var()->mode() == Variable::CONST) {
+          __ cmp(value.reg(), Factory::the_hole_value());
+          done.Branch(not_equal, &value);
+          __ mov(value.reg(), Factory::undefined_value());
+        }
         // There is always control flow to slow from
-        // ContextSlotOperandCheckExtensions.
+        // ContextSlotOperandCheckExtensions so we have to jump around
+        // it.
         done.Jump(&value);
       }
     }
@@ -3927,6 +3933,9 @@ void CodeGenerator::VisitAssignment(Assignment* node) {
 
     } else {
       Literal* literal = node->value()->AsLiteral();
+      bool overwrite_value =
+          (node->value()->AsBinaryOperation() != NULL &&
+           node->value()->AsBinaryOperation()->ResultOverwriteAllowed());
       Variable* right_var = node->value()->AsVariableProxy()->AsVariable();
       // There are two cases where the target is not read in the right hand
       // side, that are easy to test for: the right hand side is a literal,
@@ -3939,7 +3948,9 @@ void CodeGenerator::VisitAssignment(Assignment* node) {
         target.GetValue(NOT_INSIDE_TYPEOF);
       }
       Load(node->value());
-      GenericBinaryOperation(node->binary_op(), node->type());
+      GenericBinaryOperation(node->binary_op(),
+                             node->type(),
+                             overwrite_value ? OVERWRITE_RIGHT : NO_OVERWRITE);
     }
 
     if (var != NULL &&

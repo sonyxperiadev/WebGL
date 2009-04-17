@@ -263,8 +263,7 @@ bool StringShape::IsSequentialAscii() {
 
 
 bool StringShape::IsSequentialTwoByte() {
-  return (type_ & (kStringRepresentationMask | kStringEncodingMask)) ==
-         (kSeqStringTag | kTwoByteStringTag);
+  return full_representation_tag() == (kSeqStringTag | kTwoByteStringTag);
 }
 
 
@@ -274,8 +273,7 @@ bool StringShape::IsExternalAscii() {
 
 
 bool StringShape::IsExternalTwoByte() {
-  return (type_ & (kStringRepresentationMask | kStringEncodingMask)) ==
-         (kExternalStringTag | kTwoByteStringTag);
+  return full_representation_tag() == (kExternalStringTag | kTwoByteStringTag);
 }
 
 
@@ -2077,6 +2075,7 @@ ACCESSORS(SharedFunctionInfo, function_data, Object,
 ACCESSORS(SharedFunctionInfo, lazy_load_data, Object, kLazyLoadDataOffset)
 ACCESSORS(SharedFunctionInfo, script, Object, kScriptOffset)
 ACCESSORS(SharedFunctionInfo, debug_info, Object, kDebugInfoOffset)
+ACCESSORS(SharedFunctionInfo, inferred_name, String, kInferredNameOffset)
 
 BOOL_ACCESSORS(FunctionTemplateInfo, flag, hidden_prototype,
                kHiddenPrototypeBit)

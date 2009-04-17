@@ -212,10 +212,11 @@ Handle<Object> SetProperty(Handle<Object> object,
 }
 
 
-Handle<Object> IgnoreAttributesAndSetLocalProperty(Handle<JSObject> object,
-                           Handle<String> key,
-                           Handle<Object> value,
-                           PropertyAttributes attributes) {
+Handle<Object> IgnoreAttributesAndSetLocalProperty(
+    Handle<JSObject> object,
+    Handle<String> key,
+    Handle<Object> value,
+    PropertyAttributes attributes) {
   CALL_HEAP_FUNCTION(object->
       IgnoreAttributesAndSetLocalProperty(*key, *value, attributes), Object);
 }
@@ -491,17 +492,6 @@ Handle<FixedArray> GetKeysInFixedArrayFor(Handle<JSObject> object) {
         break;
       }
 
-      // Compute the property keys.
-      content = UnionOfKeys(content, GetEnumPropertyKeys(current));
-
-      // Add the property keys from the interceptor.
-      if (current->HasNamedInterceptor()) {
-        v8::Handle<v8::Array> result =
-            GetKeysForNamedInterceptor(object, current);
-        if (!result.IsEmpty())
-          content = AddKeysFromJSArray(content, v8::Utils::OpenHandle(*result));
-      }
-
       // Compute the element keys.
       Handle<FixedArray> element_keys =
           Factory::NewFixedArray(current->NumberOfEnumElements());
@@ -512,6 +502,17 @@ Handle<FixedArray> GetKeysInFixedArrayFor(Handle<JSObject> object) {
       if (current->HasIndexedInterceptor()) {
         v8::Handle<v8::Array> result =
             GetKeysForIndexedInterceptor(object, current);
+        if (!result.IsEmpty())
+          content = AddKeysFromJSArray(content, v8::Utils::OpenHandle(*result));
+      }
+
+      // Compute the property keys.
+      content = UnionOfKeys(content, GetEnumPropertyKeys(current));
+
+      // Add the property keys from the interceptor.
+      if (current->HasNamedInterceptor()) {
+        v8::Handle<v8::Array> result =
+            GetKeysForNamedInterceptor(object, current);
         if (!result.IsEmpty())
           content = AddKeysFromJSArray(content, v8::Utils::OpenHandle(*result));
       }
@@ -549,7 +550,7 @@ Handle<FixedArray> GetEnumPropertyKeys(Handle<JSObject> object) {
         index++;
       }
     }
-    (*storage)->SortPairs(*sort_array);
+    (*storage)->SortPairs(*sort_array, sort_array->length());
     Handle<FixedArray> bridge_storage =
         Factory::NewFixedArray(DescriptorArray::kEnumCacheBridgeLength);
     DescriptorArray* desc = object->map()->instance_descriptors();
