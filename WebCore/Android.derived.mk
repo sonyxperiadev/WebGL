@@ -217,7 +217,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
