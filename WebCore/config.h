@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Inc.
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -94,7 +94,7 @@
 #define ENABLE_VIDEO 0
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
-#define ENABLE_OFFLINE_WEB_APPLICATIONS 0
+#define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
 #endif
 

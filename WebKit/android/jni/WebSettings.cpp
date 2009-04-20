@@ -28,6 +28,9 @@
 #include <config.h>
 #include <wtf/Platform.h>
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "ApplicationCacheStorage.h"
+#endif
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -88,6 +91,10 @@ struct FieldIds {
 #ifdef ANDROID_PLUGINS
         mPluginsPath = env->GetFieldID(clazz, "mPluginsPath", "Ljava/lang/String;");
 #endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        mAppCacheEnabled = env->GetFieldID(clazz, "mAppCacheEnabled", "Z");
+        mAppCachePath = env->GetFieldID(clazz, "mAppCachePath", "Ljava/lang/String;");
+#endif
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -112,11 +119,15 @@ struct FieldIds {
         LOG_ASSERT(mLoadsImagesAutomatically, "Could not find field mLoadsImagesAutomatically");
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         LOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
-#endif        
+#endif
         LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
         LOG_ASSERT(mPluginsEnabled, "Could not find field mPluginsEnabled");
 #ifdef ANDROID_PLUGINS
         LOG_ASSERT(mPluginsPath, "Could not find field mPluginsPath");
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
+        LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
 #endif
         LOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
                 "Could not find field mJavaScriptCanOpenWindowsAutomatically");
@@ -158,12 +169,15 @@ struct FieldIds {
 #ifdef ANDROID_PLUGINS
     jfieldID mPluginsPath;
 #endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    jfieldID mAppCacheEnabled;
+    jfieldID mAppCachePath;
+#endif
     jfieldID mJavaScriptCanOpenWindowsAutomatically;
     jfieldID mUseWideViewport;
     jfieldID mSupportMultipleWindows;
     jfieldID mShrinksStandaloneImagesToFit;
     jfieldID mUseDoubleTree;
-
     // Ordinal() method and value field for enums
     jmethodID mOrdinal;
     jfieldID  mTextSizeValue;
@@ -313,7 +327,17 @@ public:
             }
         }
 #endif
-
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
+        s->setOfflineWebApplicationCacheEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
+        if (str) {
+            WebCore::String path = to_string(env, str);
+            if (path.length()) {
+                WebCore::cacheStorage().setCacheDirectory(path);
+            }
+        }
+#endif
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
         s->setJavaScriptCanOpenWindowsAutomatically(flag);
 

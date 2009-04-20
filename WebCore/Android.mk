@@ -553,6 +553,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
 	loader/ThreadableLoader.cpp \
+	loader/appcache/ApplicationCache.cpp \
+	loader/appcache/ApplicationCacheGroup.cpp \
+	loader/appcache/ApplicationCacheResource.cpp \
+	loader/appcache/ApplicationCacheStorage.cpp \
+	loader/appcache/DOMApplicationCache.cpp \
+	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconFetcher.cpp \
