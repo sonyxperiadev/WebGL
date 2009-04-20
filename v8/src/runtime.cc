@@ -4159,10 +4159,12 @@ static Object* Runtime_NewObject(Arguments args) {
     JSFunction* function = JSFunction::cast(constructor);
 
     // Handle stepping into constructors if step into is active.
+#ifdef ENABLE_DEBUGGER_SUPPORT
     if (Debug::StepInActive()) {
       HandleScope scope;
       Debug::HandleStepIn(Handle<JSFunction>(function), 0, true);
     }
+#endif
 
     if (function->has_initial_map() &&
         function->initial_map()->instance_type() == JS_FUNCTION_TYPE) {
@@ -4526,12 +4528,6 @@ static Object* Runtime_StackOverflow(Arguments args) {
 }
 
 
-static Object* Runtime_DebugBreak(Arguments args) {
-  ASSERT(args.length() == 0);
-  return Execution::DebugBreakHelper();
-}
-
-
 static Object* Runtime_StackGuard(Arguments args) {
   ASSERT(args.length() == 1);
 
@@ -4890,26 +4886,6 @@ static Object* Runtime_ResolvePossiblyDirectEval(Arguments args) {
   call->set(0, *callee);
   call->set(1, *receiver);
   return *call;
-}
-
-
-static Object* Runtime_CompileScript(Arguments args) {
-  HandleScope scope;
-  ASSERT(args.length() == 4);
-
-  CONVERT_ARG_CHECKED(String, source, 0);
-  CONVERT_ARG_CHECKED(String, script, 1);
-  CONVERT_CHECKED(Smi, line_attrs, args[2]);
-  int line = line_attrs->value();
-  CONVERT_CHECKED(Smi, col_attrs, args[3]);
-  int col = col_attrs->value();
-  Handle<JSFunction> boilerplate =
-      Compiler::Compile(source, script, line, col, NULL, NULL);
-  if (boilerplate.is_null()) return Failure::Exception();
-  Handle<JSFunction> fun =
-      Factory::NewFunctionFromBoilerplate(boilerplate,
-                                          Handle<Context>(Top::context()));
-  return *fun;
 }
 
 
@@ -5314,6 +5290,13 @@ static Object* Runtime_LookupAccessor(Arguments args) {
   CONVERT_CHECKED(String, name, args[1]);
   CONVERT_CHECKED(Smi, flag, args[2]);
   return obj->LookupAccessor(name, flag->value() == 0);
+}
+
+
+#ifdef ENABLE_DEBUGGER_SUPPORT
+static Object* Runtime_DebugBreak(Arguments args) {
+  ASSERT(args.length() == 0);
+  return Execution::DebugBreakHelper();
 }
 
 
@@ -6797,6 +6780,22 @@ static Object* Runtime_SystemBreak(Arguments args) {
 }
 
 
+static Object* Runtime_FunctionGetAssemblerCode(Arguments args) {
+#ifdef DEBUG
+  HandleScope scope;
+  ASSERT(args.length() == 1);
+  // Get the function and make sure it is compiled.
+  CONVERT_ARG_CHECKED(JSFunction, func, 0);
+  if (!func->is_compiled() && !CompileLazy(func, KEEP_EXCEPTION)) {
+    return Failure::Exception();
+  }
+  func->code()->PrintLn();
+#endif  // DEBUG
+  return Heap::undefined_value();
+}
+#endif  // ENABLE_DEBUGGER_SUPPORT
+
+
 // Finds the script object from the script data. NOTE: This operation uses
 // heap traversal to find the function generated for the source position
 // for the requested break point. For lazily compiled functions several heap
@@ -6843,21 +6842,6 @@ static Object* Runtime_GetScript(Arguments args) {
   Handle<Object> result =
       Runtime_GetScriptFromScriptName(Handle<String>(script_name));
   return *result;
-}
-
-
-static Object* Runtime_FunctionGetAssemblerCode(Arguments args) {
-#ifdef DEBUG
-  HandleScope scope;
-  ASSERT(args.length() == 1);
-  // Get the function and make sure it is compiled.
-  CONVERT_ARG_CHECKED(JSFunction, func, 0);
-  if (!func->is_compiled() && !CompileLazy(func, KEEP_EXCEPTION)) {
-    return Failure::Exception();
-  }
-  func->code()->PrintLn();
-#endif  // DEBUG
-  return Heap::undefined_value();
 }
 
 
