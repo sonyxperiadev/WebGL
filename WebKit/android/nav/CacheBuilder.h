@@ -253,7 +253,6 @@ private:
         void localName(Node* node);
         void newLine(int indent = 0);
         void print(const char* name, unsigned len);
-        void renderTree(RenderObject* , int indent, Node* , int count);
         void setIndent(int );
         void uChar(const UChar* name, unsigned len, bool hex);
         void validateFrame();

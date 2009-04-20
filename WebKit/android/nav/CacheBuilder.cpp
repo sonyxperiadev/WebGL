@@ -457,8 +457,6 @@ void CacheBuilder::Debug::groups() {
                     }
                 }
             }
-            if (renderer) 
-                renderTree(renderer, 0, node, count);
             count++;
             newLine();
         } while ((node = node->traverseNextNode()) != NULL);
@@ -652,65 +650,6 @@ void CacheBuilder::Debug::setIndent(int indent)
         "                                                                    ");
     print(scratch);
 }
-
-void CacheBuilder::Debug::renderTree(RenderObject* renderer, int indent,
-    Node* child, int count)
-{
-    char scratch[256];
-    Node* node = renderer->node();
-    if (node != child) {
-        count = ParentIndex(child, count, node);
-        if (renderer->isRenderBlock() == false)
-            goto tryParent;
-        RenderBlock* renderBlock = (RenderBlock*) renderer;
-        if (renderBlock->hasColumns() == false)
-            goto tryParent;
-        Vector<IntRect>* rects = renderBlock->columnRects();
-        newLine(indent);
-        snprintf(scratch, sizeof(scratch), "// render parent=%d", count);
-        print(scratch);
-        for (size_t x = 0; x < rects->size(); x++) {
-            const IntRect& rect = rects->at(x);
-            snprintf(scratch, sizeof(scratch), "(%d,%d,%d,%d) ", rect.x(),
-                rect.y(), rect.width(), rect.height());
-            print(scratch);
-        }
-    }
-    {
-        newLine(indent);
-        RenderStyle* style = renderer->style();
-        EVisibility vis = style->visibility();
-        ASSERT(vis == VISIBLE || vis == HIDDEN || vis == COLLAPSE);
-        snprintf(scratch, sizeof(scratch), 
-            "// render style visible:%s opacity:%g width:%d height:%d"
-            " hasBackground:%s isInlineFlow:%s isBlockFlow:%s"
-            " textOverflow:%s",
-            vis == VISIBLE ? "visible" : vis == HIDDEN ? "hidden" : "collapse", 
-            style->opacity(), 0 /*renderer->width()*/, 0 /*renderer->height()*/,
-            style->hasBackground() ? "true" : "false",
-            0 /*renderer->isInlineFlow()*/ ? "true" : "false",
-            renderer->isBlockFlow() ? "true" : "false",
-            style->textOverflow() ? "true" : "false"
-            );
-        print(scratch);
-        newLine(indent);
-        const IntRect& oRect = renderer->absoluteClippedOverflowRect();
-        RenderBox* box = toRenderBox(renderer);
-        const IntRect& cRect = box->overflowClipRect(0,0);
-        snprintf(scratch, sizeof(scratch), 
-            "// render xPos:%d yPos:%d overflowRect:{%d, %d, %d, %d} "
-            " getOverflowClipRect:{%d, %d, %d, %d} ", 
-            0 /*renderer->xPos()*/, 0 /*renderer->yPos()*/,
-            oRect.x(), oRect.y(), oRect.width(), oRect.height(),
-            cRect.x(), cRect.y(), cRect.width(), cRect.height()
-            );
-        print(scratch);
-    }
-tryParent:
-    RenderObject* parent = renderer->parent();
-    if (parent)
-        renderTree(parent, indent + 2, node, count);
-}   
 
 void CacheBuilder::Debug::uChar(const UChar* name, unsigned len, bool hex) {
     const UChar* end = name + len;
