@@ -32,6 +32,11 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
+# Define the JS engine used, either jsc or v8.
+# Be careful not to have white spaces after the line.
+JS_ENGINE := jsc
+
+ifeq ($(JS_ENGINE),jsc)
 # Include source files for JavaScriptCore
 d := JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
@@ -39,15 +44,36 @@ intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
+# Include the derived source files for WebCore.
+# Use the same path as WebCore module.
+d := WebCore
+LOCAL_PATH := $(BASE_PATH)/$d
+intermediates := $(base_intermediates)/$d
+include $(LOCAL_PATH)/JavaScriptCore.derived.mk
+WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
+
+else  # JS_ENGINE == v8
+
+d := V8Binding
+LOCAL_PATH := $(BASE_PATH)/$d
+WEBCORE_PATH := $(BASE_PATH)/WebCore
+intermediates := $(base_intermediates)/WebCore
+JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
+include $(LOCAL_PATH)/V8Binding.derived.mk
+WEBKIT_SRC_FILES += $(addprefix $d/, $(LOCAL_SRC_FILES))
+WEBKIT_SRC_FILES += $(addprefix WebCore/, $(webcore_src_files))
+
+include $(LOCAL_PATH)/wtf.mk
+WEBKIT_SRC_FILES += $(addprefix JavaScriptCore/,$(LOCAL_SRC_FILES))
+
+endif
+
 # Include source files for WebCore
 d := WebCore
 LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
-
-# Include the derived source files for WebCore. Uses the same path as
-# WebCore
 include $(LOCAL_PATH)/Android.derived.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
@@ -103,7 +129,6 @@ LOCAL_C_INCLUDES := \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH)/WebCore \
-	$(LOCAL_PATH)/WebCore/bindings/js \
 	$(LOCAL_PATH)/WebCore/bridge \
 	$(LOCAL_PATH)/WebCore/bridge/c \
 	$(LOCAL_PATH)/WebCore/bridge/jni \
@@ -144,28 +169,8 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebKit/android/nav \
 	$(LOCAL_PATH)/WebKit/android/plugins \
 	$(LOCAL_PATH)/WebKit/android/stl \
-	$(LOCAL_PATH)/JavaScriptCore \
-	$(LOCAL_PATH)/JavaScriptCore/API \
-	$(LOCAL_PATH)/JavaScriptCore/assembler \
-	$(LOCAL_PATH)/JavaScriptCore/bytecode \
-	$(LOCAL_PATH)/JavaScriptCore/bytecompiler \
-	$(LOCAL_PATH)/JavaScriptCore/debugger \
-	$(LOCAL_PATH)/JavaScriptCore/parser \
-	$(LOCAL_PATH)/JavaScriptCore/jit \
-	$(LOCAL_PATH)/JavaScriptCore/interpreter \
-	$(LOCAL_PATH)/JavaScriptCore/pcre \
-	$(LOCAL_PATH)/JavaScriptCore/profiler \
-	$(LOCAL_PATH)/JavaScriptCore/runtime \
-	$(LOCAL_PATH)/JavaScriptCore/wrec \
-	$(LOCAL_PATH)/JavaScriptCore/wtf \
-	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode \
-	$(LOCAL_PATH)/JavaScriptCore/wtf/unicode/icu \
-	$(LOCAL_PATH)/JavaScriptCore/ForwardingHeaders \
-	$(base_intermediates)/JavaScriptCore \
-	$(base_intermediates)/JavaScriptCore/parser \
-	$(base_intermediates)/JavaScriptCore/runtime \
+	$(BINDING_C_INCLUDES) \
 	$(base_intermediates)/WebCore/ \
-	$(base_intermediates)/WebCore/bindings/js \
 	$(base_intermediates)/WebCore/css \
 	$(base_intermediates)/WebCore/dom \
 	$(base_intermediates)/WebCore/html \
