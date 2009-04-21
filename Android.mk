@@ -63,10 +63,16 @@ include $(LOCAL_PATH)/V8Binding.derived.mk
 WEBKIT_SRC_FILES += $(addprefix $d/, $(LOCAL_SRC_FILES))
 WEBKIT_SRC_FILES += $(addprefix WebCore/, $(webcore_src_files))
 
-include $(LOCAL_PATH)/wtf.mk
-WEBKIT_SRC_FILES += $(addprefix JavaScriptCore/,$(LOCAL_SRC_FILES))
-
 endif
+
+
+# Include WTF source file.
+d := JavaScriptCore
+LOCAL_PATH := $(BASE_PATH)/$d
+intermediates := $(base_intermediates)/$d
+include $(LOCAL_PATH)/wtf.mk
+WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
+
 
 # Include source files for WebCore
 d := WebCore
