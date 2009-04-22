@@ -974,8 +974,7 @@ void WebViewCore::dumpNavTree()
 
 WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
 {
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    if (!builder.validNode(frame, node))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
         return WebCore::String();
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
         return WebCore::String();
@@ -1221,7 +1220,8 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
     }
     // if the nav cache has been rebuilt since this focus request was generated,
     // send a request back to the UI side to recompute the kit-side focus
-    if (m_buildGeneration > buildGeneration || (node && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, node))) {
+    if (m_buildGeneration > buildGeneration
+            || (node && !CacheBuilder::validNode(m_mainFrame, frame, node))) {
         DBG_NAV_LOGD("m_buildGeneration=%d > buildGeneration=%d",
            m_buildGeneration, buildGeneration);
         gRecomputeFocusMutex.lock();
@@ -1252,7 +1252,7 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         donotChangeDOMFocus ? "true" : "false");
     CacheBuilder& builder = FrameLoaderClientAndroid::
         get(m_mainFrame)->getCacheBuilder();
-    if (!frame || builder.validNode(frame, NULL) == false)
+    if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
     WebCore::Node* oldFocusNode = builder.currentFocus();
     // mouse event expects the position in the window coordinate
@@ -1263,7 +1263,7 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
-    bool valid = builder.validNode(frame, node);
+    bool valid = CacheBuilder::validNode(m_mainFrame, frame, node);
     if (!donotChangeDOMFocus) {
         WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
         if (!node) {
@@ -1605,8 +1605,7 @@ void WebViewCore::setFocusControllerActive(bool active)
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
-    if (!FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder()
-            .validNode(frame, 0))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     WebCore::HistoryItem *item = frame->loader()->currentHistoryItem();
 
@@ -1649,9 +1648,8 @@ public:
         }
         // If the select element no longer exists, due to a page change, etc,
         // silently return.
-        if (!m_select ||
-                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
-                        ->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
         int optionIndex = m_select->listToOptionIndex(index);
         m_select->setSelectedIndex(optionIndex, true, false);
@@ -1665,9 +1663,8 @@ public:
     {
         // If the select element no longer exists, due to a page change, etc,
         // silently return.
-        if (!m_select ||
-                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
-                        ->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
 
         // If count is 1 or 0, use replyInt.
@@ -1859,7 +1856,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
     // so just leave the function now.
     if (!isClick)
         return;
-    if (frame && FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, 0)) {
+    if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());
@@ -1872,8 +1869,8 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
 
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    bool valid = framePtr == NULL || FrameLoaderClientAndroid::get(
-            m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr);
+    bool valid = framePtr == NULL
+            || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle

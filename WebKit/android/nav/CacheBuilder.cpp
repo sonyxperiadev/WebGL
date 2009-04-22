@@ -390,7 +390,7 @@ void CacheBuilder::Debug::groups() {
                 properties.truncate(properties.length() - 3);
             IntRect rect = node->getRect();
             if (node->hasTagName(HTMLNames::areaTag))
-                rect = Builder(frame)->getAreaRect(static_cast<HTMLAreaElement*>(node));
+                rect = getAreaRect(static_cast<HTMLAreaElement*>(node));
             char buffer[DEBUG_BUFFER_SIZE];
             memset(buffer, 0, sizeof(buffer));
             mBuffer = buffer;
@@ -822,7 +822,6 @@ void CacheBuilder::buildCache(CachedRoot* root)
 {
     Frame* frame = FrameAnd(this);
     mLastKnownFocus = NULL;
-    m_areaBoundsMap.clear();
     BuildFrame(frame, frame, root, (CachedFrame*) root);
     root->finishInit(); // set up frame parent pointers, child pointers
     setData((CachedFrame*) root);
@@ -980,20 +979,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderStyle* style = nodeRenderer->style();
             if (style->visibility() == HIDDEN)
                 continue;
-            if (nodeRenderer->isImage()) { // set all the area elements to have a link to their images
-                RenderImage* image = static_cast<RenderImage*>(nodeRenderer);
-                HTMLMapElement* map = image->imageMap();
-                if (map) {
-                    Node* node;
-                    for (node = map->firstChild(); node; 
-                            node = node->traverseNextNode(map)) {
-                        if (!node->hasTagName(HTMLNames::areaTag))
-                            continue;
-                        HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-                        m_areaBoundsMap.set(area, image);
-                    }
-                }
-            }
             isTransparent = style->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
             hasFocusRing = style->tapHighlightColor().alpha() > 0;
@@ -2347,14 +2332,28 @@ void CacheBuilder::FindResetNumber(FindState* state)
     state->mStorePtr = state->mStore;
 }
 
-IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area) const
+IntRect CacheBuilder::getAreaRect(const HTMLAreaElement* area)
 {
-    RenderImage* map = m_areaBoundsMap.get(area);
-    if (!map)
-        return IntRect();
-    if (area->isDefault())
-        return map->absoluteBoundingBoxRect();
-    return area->getRect(map);
+    Node* node = area->document();
+    while ((node = node->traverseNextNode()) != NULL) {
+        RenderObject* renderer = node->renderer();
+        if (renderer && renderer->isRenderImage()) {
+            RenderImage* image = static_cast<RenderImage*>(renderer);
+            HTMLMapElement* map = image->imageMap();
+            if (map) {
+                Node* n;
+                for (n = map->firstChild(); n;
+                        n = n->traverseNextNode(map)) {
+                    if (n == area) {
+                        if (area->isDefault())
+                            return image->absoluteBoundingBoxRect();
+                        return area->getRect(image);
+                    }
+                }
+            }
+        }
+    }
+    return IntRect();
 }
 
 void CacheBuilder::GetGlobalOffset(Node* node, int* x, int * y) 
@@ -2430,59 +2429,6 @@ bool CacheBuilder::IsDomainChar(UChar ch)
     if (ch > 'z' - 0x20)
         return false;
     return (body[ch >> 5] & 1 << (ch & 0x1f)) != 0;
-}
-
-// does not find text to keep it fast
-// (this assume text nodes are more rarely moved than other nodes)
-Node* CacheBuilder::findByCenter(int x, int y) const
-{
-    DBG_NAV_LOGD("x=%d y=%d\n", x, y);
-    Frame* frame = FrameAnd(this);
-    Node* node = frame->document();
-    ASSERT(node != NULL);
-    int globalOffsetX, globalOffsetY;
-    GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
-    while ((node = node->traverseNextNode()) != NULL) {
-        Frame* child = HasFrame(node);
-        if (child != NULL) {
-            if (child->document() == NULL)
-                continue;
-            CacheBuilder* cacheBuilder = Builder(child);
-     //       if (cacheBuilder->mViewBounds.isEmpty())
-     //           continue;
-            Node* result = cacheBuilder->findByCenter(x, y);
-            if (result != NULL)
-                return result;
-        }
-        if (node->isTextNode())
-            continue;
-        IntRect bounds;
-        if (node->hasTagName(HTMLNames::areaTag)) {
-            HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
-            bounds = getAreaRect(area);
-            bounds.move(globalOffsetX, globalOffsetY);
-        } else
-            bounds = node->getRect();
-        if (bounds.isEmpty())
-            continue;
-        bounds.move(globalOffsetX, globalOffsetY);
-        if (x != bounds.x() + (bounds.width() >> 1))
-            continue;
-        if (y != bounds.y() + (bounds.height() >> 1))
-            continue;
-        if (node->isKeyboardFocusable(NULL))
-            return node;
-        if (node->isMouseFocusable())
-            return node;
-        if (node->isFocusable())
-            return node;
-        if (AnyIsClick(node))
-            continue;
-        if (HasTriggerEvent(node) == false)
-            continue;
-        return node;
-    }
-    return NULL;
 }
 
 bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node, 
@@ -2760,13 +2706,13 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
     return true;
 }
 
-bool CacheBuilder::validNode(void* matchFrame, void* matchNode) const
+bool CacheBuilder::validNode(Frame* startFrame, void* matchFrame,
+        void* matchNode)
 {
-    Frame* frame = FrameAnd(this);
-    if (matchFrame == frame) {
+    if (matchFrame == startFrame) {
         if (matchNode == NULL)
             return true;
-        Node* node = frame->document();
+        Node* node = startFrame->document();
         while (node != NULL) {
             if (node == matchNode) {
                 const IntRect& rect = node->hasTagName(HTMLNames::areaTag) ? 
@@ -2782,15 +2728,15 @@ bool CacheBuilder::validNode(void* matchFrame, void* matchNode) const
         DBG_NAV_LOGD("frame=%p valid node=%p invalid\n", matchFrame, matchNode);
         return false;
     }
-    Frame* child = frame->tree()->firstChild();
+    Frame* child = startFrame->tree()->firstChild();
     while (child) {
-        bool result = Builder(child)->validNode(matchFrame, matchNode);
+        bool result = validNode(child, matchFrame, matchNode);
         if (result)
             return result;
         child = child->tree()->nextSibling();
     }
 #if DEBUG_NAV_UI
-    if (frame->tree()->parent() == NULL)
+    if (startFrame->tree()->parent() == NULL)
         DBG_NAV_LOGD("frame=%p node=%p false\n", matchFrame, matchNode);
 #endif
     return false;
