@@ -15,6 +15,8 @@
 ## limitations under the License.
 ##
 
+LOCAL_CFLAGS += -DWTF_USE_JSC
+
 BINDING_C_INCLUDES := \
        $(BASE_PATH)/WebCore/bindings/js \
        $(BASE_PATH)/JavaScriptCore \
@@ -256,8 +258,8 @@ GEN := \
     $(intermediates)/dom/JSAttr.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
-	$(intermediates)/dom/JSClientRect.h \
-	$(intermediates)/dom/JSClientRectList.h \
+    $(intermediates)/dom/JSClientRect.h \
+    $(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
@@ -283,7 +285,7 @@ GEN := \
     $(intermediates)/dom/JSNodeIterator.h \
     $(intermediates)/dom/JSNodeList.h \
     $(intermediates)/dom/JSNotation.h \
-	$(intermediates)/dom/JSOverflowEvent.h \
+    $(intermediates)/dom/JSOverflowEvent.h \
     $(intermediates)/dom/JSProcessingInstruction.h \
     $(intermediates)/dom/JSProgressEvent.h \
     $(intermediates)/dom/JSRange.h \
@@ -325,7 +327,7 @@ GEN := \
     $(intermediates)/html/JSHTMLBodyElement.h \
     $(intermediates)/html/JSHTMLButtonElement.h \
     $(intermediates)/html/JSHTMLCanvasElement.h \
-	$(intermediates)/html/JSHTMLCollection.h \
+    $(intermediates)/html/JSHTMLCollection.h \
     $(intermediates)/html/JSHTMLDListElement.h \
     $(intermediates)/html/JSHTMLDirectoryElement.h \
     $(intermediates)/html/JSHTMLDivElement.h \
@@ -358,7 +360,7 @@ GEN := \
     $(intermediates)/html/JSHTMLObjectElement.h \
     $(intermediates)/html/JSHTMLOptGroupElement.h \
     $(intermediates)/html/JSHTMLOptionElement.h \
-	$(intermediates)/html/JSHTMLOptionsCollection.h \
+    $(intermediates)/html/JSHTMLOptionsCollection.h \
     $(intermediates)/html/JSHTMLParagraphElement.h \
     $(intermediates)/html/JSHTMLParamElement.h \
     $(intermediates)/html/JSHTMLPreElement.h \
@@ -433,7 +435,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(interme
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
     $(intermediates)/page/JSConsole.h \
-	$(intermediates)/page/JSCoordinates.h \
+    $(intermediates)/page/JSCoordinates.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
     $(intermediates)/page/JSGeolocation.h \
@@ -444,7 +446,7 @@ GEN := \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSPositionErrorCallback.h \
     $(intermediates)/page/JSScreen.h \
-	$(intermediates)/page/JSWebKitPoint.h
+    $(intermediates)/page/JSWebKitPoint.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/JS%.h : $(LOCAL_PATH)/page/%.idl $(js_binding_scripts)
@@ -627,7 +629,7 @@ GEN := \
     $(intermediates)/xml/JSXMLHttpRequestUpload.h \
     $(intermediates)/xml/JSXMLSerializer.h \
     $(intermediates)/xml/JSXPathEvaluator.h \
-	$(intermediates)/xml/JSXPathException.h \
+    $(intermediates)/xml/JSXPathException.h \
     $(intermediates)/xml/JSXPathExpression.h \
     $(intermediates)/xml/JSXPathNSResolver.h \
     $(intermediates)/xml/JSXPathResult.h  \

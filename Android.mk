@@ -61,7 +61,7 @@ intermediates := $(base_intermediates)/WebCore
 JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
 include $(LOCAL_PATH)/V8Binding.derived.mk
 WEBKIT_SRC_FILES += $(addprefix $d/, $(LOCAL_SRC_FILES))
-WEBKIT_SRC_FILES += $(addprefix WebCore/, $(webcore_src_files))
+WEBKIT_SRC_FILES += $(addprefix WebCore/, $(WEBCORE_SRC_FILES))
 
 endif
 
@@ -70,7 +70,7 @@ endif
 d := JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
-include $(LOCAL_PATH)/wtf.mk
+include $(LOCAL_PATH)/Android.wtf.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
 
