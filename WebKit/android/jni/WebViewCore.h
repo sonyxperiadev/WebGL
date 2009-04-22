@@ -326,7 +326,9 @@ namespace android {
         bool m_updatedFrameCache;
         bool m_useReplay;
         bool m_findIsUp;
+        bool m_blockNotifyFocus;
         static Mutex gRecomputeFocusMutex;
+        static Mutex gNotifyFocusMutex;
         WTF::Vector<int> m_recomputeEvents;
         // These two fields go together: we use the mutex to protect access to
         // m_buttons, so that we, and webview.cpp can look/modify the m_buttons

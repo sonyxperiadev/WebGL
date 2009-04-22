@@ -186,6 +186,7 @@ Mutex WebViewCore::gFrameCacheMutex;
 Mutex WebViewCore::gFrameGenerationMutex;
 Mutex WebViewCore::gRecomputeFocusMutex;
 Mutex WebViewCore::gButtonMutex;
+Mutex WebViewCore::gNotifyFocusMutex;
 Mutex WebViewCore::m_contentMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
@@ -993,12 +994,12 @@ bool WebViewCore::prepareFrameCache()
 #endif
     m_frameCacheOutOfDate = false;
 #if DEBUG_NAV_UI
-    DBG_NAV_LOG("m_frameCacheOutOfDate was true");
     m_now = SkTime::GetMSecs();
 #endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
     m_temp->setGeneration(++m_buildGeneration);
+    DBG_NAV_LOGD("m_buildGeneration=%d", m_buildGeneration);
     CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
@@ -1039,7 +1040,8 @@ void WebViewCore::releaseFrameCache(bool newCache)
         cachedFocusNode ? cachedFocusNode->nodePointer() : 0);
 #endif
     gFrameCacheMutex.unlock();
-    notifyFocusSet();
+    if (!m_blockNotifyFocus)
+        notifyFocusSet();
     // it's tempting to send an invalidate here, but it's a bad idea
     // the cache is now up to date, but the focus is not -- the event
     // may need to be recomputed from the prior history. An invalidate
@@ -1165,6 +1167,15 @@ void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
 {
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d", frame, node, x, y);
     bool result = finalKitFocus(frame, node, x, y, false);
+    bool callNotify = false;
+    gNotifyFocusMutex.lock();
+    if (m_blockNotifyFocus) {
+        m_blockNotifyFocus = false;
+        callNotify = true;
+    }
+    gNotifyFocusMutex.unlock();
+    if (callNotify)
+        notifyFocusSet();
     if (block) {
         m_blockFocusChange = true;
         if (!result && node)
@@ -1236,6 +1247,9 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
 bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y, bool donotChangeDOMFocus)
 {
+    DBG_NAV_LOGD("setFocusedNode frame=%p node=%p x=%d y=%d "
+        "donotChangeDOMFocus=%s", frame, node, x, y,
+        donotChangeDOMFocus ? "true" : "false");
     CacheBuilder& builder = FrameLoaderClientAndroid::
         get(m_mainFrame)->getCacheBuilder();
     if (!frame || builder.validNode(frame, NULL) == false)
@@ -1328,7 +1342,7 @@ WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
     WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (current == node)
         return frame;
-    return finalKitFocus(frame, node, x, y, false) ? frame : m_mainFrame;
+    return finalKitFocus(frame, node, x, y, true) ? frame : m_mainFrame;
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
