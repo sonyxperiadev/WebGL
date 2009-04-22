@@ -1659,7 +1659,7 @@ public:
         // If count is 1 or 0, use replyInt.
         SkASSERT(count > 1);
 
-        const Vector<HTMLElement*>& items = m_select->listItems();
+        const WTF::Vector<HTMLElement*>& items = m_select->listItems();
         int totalItems = static_cast<int>(items.size());
         // Keep track of the position of the value we are comparing against.
         int arrayIndex = 0;

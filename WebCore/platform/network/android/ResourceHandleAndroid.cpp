@@ -118,7 +118,7 @@ bool ResourceHandle::loadsBlocked()
 // Class to handle synchronized loading of resources.
 class SyncLoader : public ResourceHandleClient {
 public:
-    SyncLoader(ResourceError& error, ResourceResponse& response, Vector<char>& data) {
+    SyncLoader(ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data) {
         m_error = &error;
         m_response = &response;
         m_data = &data;
@@ -140,11 +140,11 @@ public:
 private:
     ResourceError*    m_error;
     ResourceResponse* m_response;
-    Vector<char>*     m_data;
+    WTF::Vector<char>*     m_data;
 };
 
 void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, 
-        ResourceError& error, ResourceResponse& response, Vector<char>& data,
+        ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data,
         Frame* frame) 
 {
     SyncLoader s(error, response, data);

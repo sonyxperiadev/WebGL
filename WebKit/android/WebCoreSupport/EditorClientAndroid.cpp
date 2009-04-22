@@ -215,9 +215,9 @@ void EditorClientAndroid::redo() {}
 
 // functions new to Jun-07 tip of tree merge:
 void EditorClientAndroid::showSpellingUI(bool) {}
-void EditorClientAndroid::getGuessesForWord(String const&, Vector<String>&) {}
+void EditorClientAndroid::getGuessesForWord(String const&, WTF::Vector<String>&) {}
 bool EditorClientAndroid::spellingUIIsShowing() { return false; }
-void EditorClientAndroid::checkGrammarOfString(unsigned short const*, int, Vector<GrammarDetail>&, int*, int*) {}
+void EditorClientAndroid::checkGrammarOfString(unsigned short const*, int, WTF::Vector<GrammarDetail>&, int*, int*) {}
 void EditorClientAndroid::checkSpellingOfString(unsigned short const*, int, int*, int*) {}
 void EditorClientAndroid::textFieldDidEndEditing(Element*) {}
 void EditorClientAndroid::textDidChangeInTextArea(Element*) {}

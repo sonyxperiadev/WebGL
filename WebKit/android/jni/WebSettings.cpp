@@ -314,7 +314,7 @@ public:
             if (pluginsPath.length()) {
                 s->setPluginsPath(pluginsPath);
                 // Set the plugin directories to this single entry.
-                Vector< ::WebCore::String > paths(1);
+                WTF::Vector< ::WebCore::String > paths(1);
                 paths[0] = pluginsPath;
                 pluginDatabase->setPluginDirectories(paths);
                 // Set the home directory for plugin temporary files
