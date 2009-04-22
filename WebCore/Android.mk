@@ -82,7 +82,6 @@
 #	^platform\/network\/soup/* \
 #	/qt/* \
 #	/skia/* \
-#	^storage/* \
 #	/symbian/* \
 #	/v8/* \
 #	/win/* \
@@ -795,7 +794,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/StyleTransformData.cpp \
 	rendering/style/StyleVisualData.cpp \
 	\
+	storage/ChangeVersionWrapper.cpp \
+	storage/Database.cpp \
 	storage/DatabaseAuthorizer.cpp \
+	storage/DatabaseTask.cpp \
+	storage/DatabaseThread.cpp \
+	storage/DatabaseTracker.cpp \
+	storage/OriginQuotaManager.cpp \
+	storage/OriginUsageRecord.cpp \
+	storage/SQLResultSet.cpp \
+	storage/SQLResultSetRowList.cpp \
+	storage/SQLStatement.cpp \
+	storage/SQLTransaction.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

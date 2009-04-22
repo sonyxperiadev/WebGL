@@ -81,7 +81,7 @@
 #include <wtf/Assertions.h>
 // center place to handle which option feature ANDROID will enable
 #undef ENABLE_DATABASE
-#define ENABLE_DATABASE 0
+#define ENABLE_DATABASE 1
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
 #ifndef ENABLE_SVG

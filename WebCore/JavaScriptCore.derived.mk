@@ -45,12 +45,8 @@ BINDING_C_INCLUDES := \
 
 # The following files are intentionally not included
 # LOCAL_SRC_FILES_EXCLUDED := \
-#	bindings/js/JSCustomSQL*.cpp \
 #	bindings/js/JSCustomVersionChangeCallback.cpp \
-#	bindings/js/JSDatabaseCustom.cpp \
 #	bindings/js/JSHTMLAudioElementConstructor.cpp \
-#	bindings/js/JSSQL*.cpp \
-#	bindings/js/JSStorageCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
 #	bindings/js/Worker*.cpp \
@@ -72,8 +68,13 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSConsoleCustom.cpp \
 	bindings/js/JSCustomPositionCallback.cpp \
 	bindings/js/JSCustomPositionErrorCallback.cpp \
+	bindings/js/JSCustomSQLStatementCallback.cpp \
+	bindings/js/JSCustomSQLStatementErrorCallback.cpp \
+	bindings/js/JSCustomSQLTransactionCallback.cpp \
+	bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
 	bindings/js/JSCustomVoidCallback.cpp \
 	bindings/js/JSCustomXPathNSResolver.cpp \
+	bindings/js/JSDatabaseCustom.cpp \
 	bindings/js/JSDOMApplicationCacheCustom.cpp \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
@@ -128,6 +129,8 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSPluginElementFunctions.cpp \
 	bindings/js/JSQuarantinedObjectWrapper.cpp \
 	bindings/js/JSRGBColor.cpp \
+	bindings/js/JSSQLResultSetRowListCustom.cpp \
+	bindings/js/JSSQLTransactionCustom.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -205,7 +208,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -469,6 +472,24 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/plugins/%.h
+
+# New section for Database storage API
+GEN := \
+    $(intermediates)/storage/JSDatabase.h \
+    $(intermediates)/storage/JSSQLError.h \
+    $(intermediates)/storage/JSSQLResultSet.h \
+    $(intermediates)/storage/JSSQLResultSetRowList.h \
+    $(intermediates)/storage/JSSQLTransaction.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/storage/JS%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
 
 #new section for svg
 ifeq ($(ENABLE_SVG), true)

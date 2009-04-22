@@ -31,7 +31,9 @@
 #include "AtomicString.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "ChromeClientAndroid.h"
 #include "Color.h"
+#include "DatabaseTracker.h"
 #include "Document.h"
 #include "Element.h"
 #include "Editor.h"
@@ -166,6 +168,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateTextfield;
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
+    jmethodID   m_exceededDatabaseQuota;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -232,6 +235,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
+    m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -1968,6 +1972,19 @@ void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& tex
     checkException(env);
 }
 
+void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCore::String& databaseIdentifier, const unsigned long long currentQuota)
+{
+#if ENABLE(DATABASE)
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jDatabaseIdentifierStr = env->NewString((unsigned short *)databaseIdentifier.characters(), databaseIdentifier.length());
+    jstring jUrlStr = env->NewString((unsigned short *)url.characters(), url.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_exceededDatabaseQuota, jUrlStr, jDatabaseIdentifierStr, currentQuota);
+    env->DeleteLocalRef(jDatabaseIdentifierStr);
+    env->DeleteLocalRef(jUrlStr);
+    checkException(env);
+#endif
+}
+
 bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -2526,6 +2543,20 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
     viewImpl->dumpNavTree();
 }
 
+// Called from the Java side to set a new quota for the origin in response.
+// to a notification that the original quota was exceeded.
+static void SetDatabaseQuota(JNIEnv* env, jobject obj, jlong quota) {
+#if ENABLE(DATABASE)
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    Frame* frame = viewImpl->mainFrame();
+
+    // The main thread is blocked awaiting this response, so now we can wake it
+    // up.
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
+    chromeC->wakeUpMainThreadWithNewQuota(quota);
+#endif
+}
+
 static void RefreshPlugins(JNIEnv *env,
                                  jobject obj,
                                  jboolean reloadOpenPages)
@@ -2660,7 +2691,9 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeDumpRenderTree", "(Z)V",
         (void*) DumpRenderTree },
     { "nativeDumpNavTree", "()V",
-        (void*) DumpNavTree }
+        (void*) DumpNavTree },
+    { "nativeSetDatabaseQuota", "(J)V",
+        (void*) SetDatabaseQuota }
 };
 
 int register_webviewcore(JNIEnv* env)

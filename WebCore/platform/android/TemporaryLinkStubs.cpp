@@ -766,14 +766,6 @@ char* dirname(const char*)
     return 0;
 }
 
-    // new as of SVN change 36269, Sept 8, 2008
-const String& Database::databaseInfoTableName()
-{
-    notImplemented();
-    static const String dummy;
-    return dummy;
-}
-
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
 void prefetchDNS(const String&)

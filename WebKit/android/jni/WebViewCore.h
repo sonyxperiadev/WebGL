@@ -172,6 +172,17 @@ namespace android {
                 const WebCore::String& defaultValue, WebCore::String& result);
         bool jsUnload(const WebCore::String& url, const WebCore::String& message);
 
+        /**
+         * Tell the Java side that the origin has exceeded it's database quota.
+         * @param url The URL of the page that caused the quota overflow
+         * @param databaseIdentifier the id of the database that caused the
+         *     quota overflow.
+         * @param currentQuota The current quota for the origin.
+         */
+        void exceededDatabaseQuota(const WebCore::String& url,
+                                   const WebCore::String& databaseIdentifier,
+                                   const unsigned long long currentQuota);
+
         //
         // Followings support calls from Java to native WebCore
         //

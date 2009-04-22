@@ -28,6 +28,9 @@
 #include <config.h>
 #include <wtf/Platform.h>
 
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "ApplicationCacheStorage.h"
 #endif
@@ -90,6 +93,10 @@ struct FieldIds {
         mPluginsEnabled = env->GetFieldID(clazz, "mPluginsEnabled", "Z");
 #ifdef ANDROID_PLUGINS
         mPluginsPath = env->GetFieldID(clazz, "mPluginsPath", "Ljava/lang/String;");
+#endif
+#if ENABLE(DATABASE)
+        mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
+        mDatabasePath = env->GetFieldID(clazz, "mDatabasePath", "Ljava/lang/String;");
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mAppCacheEnabled = env->GetFieldID(clazz, "mAppCacheEnabled", "Z");
@@ -181,6 +188,11 @@ struct FieldIds {
     // Ordinal() method and value field for enums
     jmethodID mOrdinal;
     jfieldID  mTextSizeValue;
+
+#if ENABLE(DATABASE)
+    jfieldID mDatabaseEnabled;
+    jfieldID mDatabasePath;
+#endif
 };
 
 static struct FieldIds* gFieldIds;
@@ -352,6 +364,12 @@ public:
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
+#if ENABLE(DATABASE)
+        flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
+        s->setDatabasesEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
+        WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+#endif
     }
 };
 

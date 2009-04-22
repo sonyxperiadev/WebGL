@@ -28,6 +28,8 @@
 
 #include "ChromeClient.h"
 
+#include "Threading.h"
+
 using namespace WebCore;
 
 namespace android {
@@ -114,10 +116,14 @@ namespace android {
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*);
 
-    // Android-specific
+        // Android-specific
         void setWebFrame(android::WebFrame* webframe);
+        void wakeUpMainThreadWithNewQuota(long newQuota);
     private:
         android::WebFrame* m_webFrame;
+        WTF::ThreadCondition m_quotaThreadCondition;
+        WTF::Mutex m_quotaThreadLock;
+        long m_newQuota;
     };
 
 }

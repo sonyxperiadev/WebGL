@@ -29,6 +29,7 @@
 
 #include "ChromeClientAndroid.h"
 #include "CString.h"
+#include "DatabaseTracker.h"
 #include "Document.h"
 #include "PlatformString.h"
 #include "FloatRect.h"
@@ -261,9 +262,57 @@ void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned
 void ChromeClientAndroid::setToolTip(const String&) {}
 void ChromeClientAndroid::print(Frame*) {}
 
-void ChromeClientAndroid::exceededDatabaseQuota(Frame*, const String&) {}
+/*
+ * This function is called on the main (webcore) thread by SQLTransaction::deliverQuotaIncreaseCallback.
+ * The way that the callback mechanism is designed inside SQLTransaction means that there must be a new quota
+ * (which may be equal to the old quota if the user did not allow more quota) when this function returns. As
+ * we call into the browser thread to ask what to do with the quota, we block here and get woken up when the
+ * browser calls the native WebViewCore::SetDatabaseQuota method with the new quota value.
+ */
+void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name)
+{
+#if ENABLE(DATABASE)
+    SecurityOrigin* origin = frame->document()->securityOrigin();
+
+    // TODO: This default quota value should be pulled from the web browser
+    // settings. For now, settle for 5 meg.
+    const unsigned long long defaultQuota = 1024 * 1024 * 5;
+
+
+    if (WebCore::DatabaseTracker::tracker().hasEntryForOrigin(origin)) {
+        // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
+        m_newQuota = -1;
+
+        // This origin is being tracked and has exceeded it's quota. Call into
+        // the Java side of things to inform the user.
+        const unsigned long long currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
+        android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota);
+
+        // We've sent notification to the browser so now wait for it to come back.
+        m_quotaThreadLock.lock();
+        while (m_newQuota == -1) {
+            m_quotaThreadCondition.wait(m_quotaThreadLock);
+        }
+        m_quotaThreadLock.unlock();
+
+        // Update the DatabaseTracker with the new quota value (if the user declined
+        // new quota, this may equal the old quota)
+        DatabaseTracker::tracker().setQuota(origin, m_newQuota);
+    } else {
+        // This origin is not being tracked, so set it's entry in the Origins table
+        // to the default quota, casusing it to be tracked from now on.
+        DatabaseTracker::tracker().setQuota(origin, defaultQuota);
+    }
+#endif
+}
 
 // new to change 38068 (Nov 6, 2008)
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
+
+void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {
+    MutexLocker locker(m_quotaThreadLock);
+    m_newQuota = newQuota;
+    m_quotaThreadCondition.signal();
+}
 
 }
