@@ -34,7 +34,7 @@ include $(BASE_PATH)/bison_check.mk
 
 # Define the JS engine used, either jsc or v8.
 # Be careful not to have white spaces after the line.
-JS_ENGINE := jsc
+JS_ENGINE := v8
 
 ifeq ($(JS_ENGINE),jsc)
 # Include source files for JavaScriptCore
@@ -135,9 +135,6 @@ LOCAL_C_INCLUDES := \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH)/WebCore \
-	$(LOCAL_PATH)/WebCore/bridge \
-	$(LOCAL_PATH)/WebCore/bridge/c \
-	$(LOCAL_PATH)/WebCore/bridge/jni \
 	$(LOCAL_PATH)/WebCore/css \
 	$(LOCAL_PATH)/WebCore/dom \
 	$(LOCAL_PATH)/WebCore/editing \
@@ -175,6 +172,9 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebKit/android/nav \
 	$(LOCAL_PATH)/WebKit/android/plugins \
 	$(LOCAL_PATH)/WebKit/android/stl \
+  $(LOCAL_PATH)/JavaScriptCore/wtf \
+  $(LOCAL_PATH)/JavaScriptCore/wtf/unicode \
+  $(LOCAL_PATH)/JavaScriptCore/wtf/unicode/icu \
 	$(BINDING_C_INCLUDES) \
 	$(base_intermediates)/WebCore/ \
 	$(base_intermediates)/WebCore/css \
@@ -185,7 +185,8 @@ LOCAL_C_INCLUDES := \
 	$(base_intermediates)/WebCore/page \
 	$(base_intermediates)/WebCore/platform \
 	$(base_intermediates)/WebCore/plugins \
-	$(base_intermediates)/WebCore/xml
+	$(base_intermediates)/WebCore/xml \
+  $(base_intermediates)/JavaScriptCore
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
@@ -218,6 +219,10 @@ endif
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2
 
+ifeq ($(JS_ENGINE),v8)
+LOCAL_STATIC_LIBRARIES += libv8
+endif
+
 # Redefine LOCAL_SRC_FILES to be all the WebKit source files
 LOCAL_SRC_FILES := $(WEBKIT_SRC_FILES)
 
@@ -239,6 +244,8 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
 
 # Build libv8
+ifeq ($(JS_ENGINE),v8)
 include $(BASE_PATH)/v8/Android.mk
-# Build v8shell
 include $(BASE_PATH)/v8/Android.v8shell.mk
+endif
+

@@ -6,7 +6,7 @@ include $(CLEAR_VARS)
 
 # Set up the target identity
 LOCAL_MODULE := libv8
-LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 intermediates := $(call local-intermediates-dir)
 
 LOCAL_CPP_EXTENSION := .cc
@@ -162,4 +162,4 @@ endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src
 
-include $(BUILD_SHARED_LIBRARY)
+include $(BUILD_STATIC_LIBRARY)
