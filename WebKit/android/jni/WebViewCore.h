@@ -304,6 +304,7 @@ namespace android {
         
         // draw the picture set with the specified background color
         bool drawContent(SkCanvas* , SkColor );
+        bool pictureReady();
         
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
@@ -383,6 +384,7 @@ namespace android {
         WebCore::IntPoint m_mousePos;
         bool m_frameCacheOutOfDate;
         bool m_blockFocusChange;
+        bool m_progressDone;
         int m_lastPassed;
         int m_lastVelocity;
         CachedHistory m_history;

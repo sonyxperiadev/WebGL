@@ -293,6 +293,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_findIsUp = false;
     m_domtree_version = 0;
     m_check_domtree_version = true;
+    m_progressDone = false;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -571,6 +572,18 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     return tookTooLong;
 }
 
+bool WebViewCore::pictureReady()
+{
+    bool done;
+    m_contentMutex.lock();
+    PictureSet copyContent = PictureSet(m_content);
+    done = m_progressDone;
+    m_contentMutex.unlock();
+    DBG_NAV_LOGD("done=%s empty=%s", done ? "true" : "false",
+        copyContent.isEmpty() ? "true" : "false");
+    return done || !copyContent.isEmpty();
+}
+
 SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 {
     WebCore::FrameView* view = m_mainFrame->view();
@@ -621,12 +634,13 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
+    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
     m_contentMutex.lock();
     PictureSet contentCopy(m_content);
+    m_progressDone = progress <= 0.0f || progress >= 1.0f;
     m_contentMutex.unlock();
     recordPictureSet(&contentCopy);
-    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
-    if (progress > 0.0f && progress < 1.0f && contentCopy.isEmpty()) {
+    if (!m_progressDone && contentCopy.isEmpty()) {
         DBG_SET_LOGD("empty (progress=%g)", progress);
         return false;
     }
@@ -2562,6 +2576,11 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
     return viewImpl->drawContent(canvas, color);
 }
 
+static bool PictureReady(JNIEnv* env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->pictureReady();
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2578,6 +2597,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) Key },
     { "nativeClick", "()Z",
         (void*) Click },
+    { "nativePictureReady", "()Z",
+        (void*) PictureReady } ,
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
