@@ -6,7 +6,11 @@
 #define v8_npobject_h
 
 #include <v8.h>
+#if PLATFORM(CHROMIUM)
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
 
 // These functions can be replaced by normal JS operation.
 // Getters

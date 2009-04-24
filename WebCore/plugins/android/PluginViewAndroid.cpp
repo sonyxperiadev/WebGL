@@ -50,19 +50,20 @@
 #include "PlatformKeyboardEvent.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
-// #include "kjs_binding.h"
-// #include "kjs_proxy.h"
 #include "android_graphics.h"
 #include "SkCanvas.h"
 #include "npruntime_impl.h"
-#include "runtime_root.h"
+// #include "runtime_root.h"
 #include "utils/SystemClock.h"
 #include "ScriptController.h"
 #include "Settings.h"
+
+#if USE(JSC)
 #include <runtime/JSLock.h>
-// #include <kjs/value.h>
+#endif
+
 #include <wtf/ASCIICType.h>
-#include "runtime.h"
+// #include "runtime.h"
 #include "WebViewCore.h"
 
 #include "PluginDebug.h"
@@ -130,12 +131,6 @@ static bool anp_getInterface(NPNVariable var, void* value, NPError* error) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-using JSC::ExecState;
-using JSC::Interpreter;
-using JSC::JSLock;
-using JSC::JSObject;
-using JSC::UString;
 
 using std::min;
 
@@ -330,7 +325,9 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.clipRect.bottom = height;
 
     if (m_plugin->pluginFuncs()->setwindow) {
+#if USE(JSC)   
         JSC::JSLock::DropAllLocks dropAllLocks(false);
+#endif        
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
@@ -355,8 +352,9 @@ void PluginView::stop()
     ASSERT(m_streams.isEmpty());
 
     m_isStarted = false;
-
+#if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(false);
+#endif
 
     PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
 

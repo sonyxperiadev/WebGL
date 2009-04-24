@@ -189,6 +189,9 @@
 // Prevents Webkit from drawing the caret in textfields and textareas
 // This prevents unnecessary invals.
 #define ENABLE_TEXT_CARET 1
+#if WTF_USE_V8
+#define ENABLE_JAVASCRIPT_DEBUGGER 0
+#endif
 #endif // ANDROID
 
 /* CPU */

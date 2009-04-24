@@ -41,8 +41,11 @@
 #include "V8CustomBinding.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
+
+#if ENABLE(XPATH)
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
+#endif
 
 #include <wtf/RefPtr.h>
 
@@ -51,7 +54,7 @@ namespace WebCore {
 CALLBACK_FUNC_DECL(DocumentEvaluate)
 {
     INC_STATS("DOM.Document.evaluate()");
-
+#if ENABLE(XPATH)
     Document* document = V8Proxy::DOMWrapperToNode<Document>(args.Holder());
     ExceptionCode ec = 0;
     String expression = toWebCoreString(args[0]);
@@ -81,6 +84,9 @@ CALLBACK_FUNC_DECL(DocumentEvaluate)
         return throwError(ec);
 
     return V8Proxy::ToV8Object(V8ClassIndex::XPATHRESULT, result.get());
+#else
+    return throwError(NOT_SUPPORTED_ERR);
+#endif
 }
 
 CALLBACK_FUNC_DECL(DocumentGetCSSCanvasContext)

@@ -33,7 +33,10 @@
 #include <utility>
 
 #include <v8.h>
+
+#ifdef ENABLE_DEBUGGER_SUPPORT
 #include <v8-debug.h>
+#endif
 
 #include "v8_proxy.h"
 #include "v8_index.h"
@@ -42,11 +45,16 @@
 #include "V8Collection.h"
 #include "V8DOMWindow.h"
 
+#if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+#endif
+
 #include "DOMObjectsInclude.h"
 
 #include "ScriptController.h"
 #include "V8DOMMap.h"
+
+#include "CString.h"
 
 namespace WebCore {
 
@@ -402,6 +410,17 @@ void V8Proxy::GCUnprotect(void* dom_object)
 }
 
 
+typedef std::pair<uintptr_t, Node*> GrouperPair;
+typedef Vector<GrouperPair> GrouperList;
+
+#if PLATFORM(ANDROID)
+// Sort GrouperPair by the group id. Node* is only involved to sort within
+// a group id, so it will be fine.
+static bool ComparePair(const GrouperPair& p1, const GrouperPair& p2) {
+  return p1.first < p2.first;
+}
+#endif
+
 // Create object groups for DOM tree nodes.
 static void GCPrologue()
 {
@@ -473,9 +492,6 @@ ACTIVE_DOM_OBJECT_TYPES(MAKE_CASE)
   }
 
   // Create object groups.
-  typedef std::pair<uintptr_t, Node*> GrouperPair;
-  typedef Vector<GrouperPair> GrouperList;
-
   DOMNodeMap node_map = getDOMNodeMap().impl();
   GrouperList grouper;
   grouper.reserveCapacity(node_map.size());
@@ -512,10 +528,14 @@ ACTIVE_DOM_OBJECT_TYPES(MAKE_CASE)
     grouper.append(GrouperPair(group_id, node));
   }
 
+#if PLATFORM(ANDROID)
+  std::stable_sort<GrouperPair>(grouper.begin(), grouper.end(), ComparePair); 
+#else
   // Group by sorting by the group id.  This will use the std::pair operator<,
   // which will really sort by both the group id and the Node*.  However the
   // Node* is only involved to sort within a group id, so it will be fine.
   std::sort(grouper.begin(), grouper.end());
+#endif
 
   // TODO(deanm): Should probably work in iterators here, but indexes were
   // easier for my simple mind.
@@ -1066,8 +1086,9 @@ bool V8Proxy::HandleOutOfMemory()
     // Destroy the global object.
     proxy->DestroyGlobal();
 
+#if PLATFORM(CHROMIUM)
     ChromiumBridge::notifyJSOutOfMemory(frame);
-
+#endif
     // Disable JS.
     Settings* settings = frame->settings();
     ASSERT(settings);
@@ -1122,15 +1143,19 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
 
     // Compile the script.
     v8::Local<v8::String> code = v8ExternalString(source.source());
+#if PLATFORM(CHROMIUM)
     ChromiumBridge::traceEventBegin("v8.compile", n, "");
+#endif
 
     // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
     // 1, whereas v8 starts at 0.
     v8::Handle<v8::Script> script = CompileScript(code, source.url(),
                                                   source.startLine() - 1);
+#if PLATFORM(CHROMIUM)
     ChromiumBridge::traceEventEnd("v8.compile", n, "");
-
     ChromiumBridge::traceEventBegin("v8.run", n, "");
+#endif
+
     v8::Local<v8::Value> result;
     {
       // Isolate exceptions that occur when executing the code.  These
@@ -1144,7 +1169,9 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
       // this based on whether the script source has a URL.
       result = RunScript(script, source.url().string().isNull());
     }
+#if PLATFORM(CHROMIUM)
     ChromiumBridge::traceEventEnd("v8.run", n, "");
+#endif
     return result;
 }
 
@@ -1662,12 +1689,16 @@ v8::Persistent<v8::FunctionTemplate> V8Proxy::GetTemplate(
           V8Custom::kXMLHttpRequestInternalFieldCount);
       break;
     }
+#if ENABLE(XPATH)    
     case V8ClassIndex::XPATHEVALUATOR:
       desc->SetCallHandler(USE_CALLBACK(XPathEvaluatorConstructor));
       break;
+#endif
+#if ENABLE(XSLT)
     case V8ClassIndex::XSLTPROCESSOR:
       desc->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
       break;
+#endif
     default:
       break;
   }
@@ -1788,13 +1819,20 @@ bool V8Proxy::isEnabled()
     // not be made at this layer.  instead, we should bridge out to the
     // embedder to allow them to override policy here.
 
+#if PLATFORM(CHROMIUM)
     if (origin->protocol() == ChromiumBridge::uiResourceProtocol())
         return true;   // Embedder's scripts are ok to run
+#endif
 
     // If the scheme is ftp: or file:, an empty file name indicates a directory
     // listing, which requires JavaScript to function properly.
     const char* kDirProtocols[] = { "ftp", "file" };
+#if PLATFORM(ANDROID)
+    // TODO(fqian): port arraysize function to Android.
+    for (size_t i = 0; i < 2; ++i) {
+#else
     for (size_t i = 0; i < arraysize(kDirProtocols); ++i) {
+#endif
         if (origin->protocol() == kDirProtocols[i]) {
             const KURL& url = document->url();
             return url.pathAfterLastSlash() == url.pathEnd();
@@ -3300,6 +3338,9 @@ void V8Proxy::CreateUtilityContext() {
 
 
 int V8Proxy::GetSourceLineNumber() {
+#if PLATFORM(ANDROID) 
+    return 0;
+#else    
     v8::HandleScope scope;
     v8::Handle<v8::Context> utility_context = V8Proxy::GetUtilityContext();
     if (utility_context.IsEmpty()) {
@@ -3317,10 +3358,14 @@ int V8Proxy::GetSourceLineNumber() {
         return 0;
     }
     return result->Int32Value();
+#endif
 }
 
 
 String V8Proxy::GetSourceName() {
+#if PLATFORM(ANDROID)
+    return String();
+#else
     v8::HandleScope scope;
     v8::Handle<v8::Context> utility_context = GetUtilityContext();
     if (utility_context.IsEmpty()) {
@@ -3334,13 +3379,14 @@ String V8Proxy::GetSourceName() {
         return String();
     }
     return ToWebCoreString(v8::Debug::Call(frame_source_name));
+#endif
 }
 
 void V8Proxy::RegisterExtension(v8::Extension* extension,
                                 const String& schemeRestriction) {
     v8::RegisterExtension(extension);
     V8ExtensionInfo info = {schemeRestriction, extension};
-    m_extensions.push_back(info);
+    m_extensions.append(info);
 }
 
 }  // namespace WebCore

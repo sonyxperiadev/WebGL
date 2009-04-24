@@ -31,13 +31,39 @@
 #ifndef npruntime_impl_h
 #define npruntime_impl_h
 
+#if PLATFORM(CHROMIUM)
 #include "bindings/npruntime.h"
+#else
+#include "npruntime.h"  // use V8Binding/npapi version
+#endif
 
 // This file exists to support WebCore, which expects to be able to call upon
 // portions of the NPRuntime implementation.
 
 // A simple mapping for now.  FIXME We should probably just adopt the
 // underscore prefix as our naming convention too.
+
+#define _NPN_ReleaseVariantValue NPN_ReleaseVariantValue
+#define _NPN_GetStringIdentifier NPN_GetStringIdentifier
+#define _NPN_GetStringIdentifiers NPN_GetStringIdentifiers
+#define _NPN_GetIntIdentifier NPN_GetIntIdentifier
+#define _NPN_IdentifierIsString NPN_IdentifierIsString
+#define _NPN_UTF8FromIdentifier NPN_UTF8FromIdentifier
+#define _NPN_IntFromIdentifier NPN_IntFromIdentifier
+#define _NPN_CreateObject NPN_CreateObject
+#define _NPN_RetainObject NPN_RetainObject
 #define _NPN_ReleaseObject NPN_ReleaseObject
+#define _NPN_DeallocateObject NPN_DeallocateObject
+#define _NPN_Invoke NPN_Invoke
+#define _NPN_InvokeDefault NPN_InvokeDefault
+#define _NPN_Evaluate NPN_Evaluate
+#define _NPN_GetProperty NPN_GetProperty
+#define _NPN_SetProperty NPN_SetProperty
+#define _NPN_RemoveProperty NPN_RemoveProperty
+#define _NPN_HasProperty NPN_HasProperty
+#define _NPN_HasMethod NPN_HasMethod
+#define _NPN_SetException NPN_SetException
+#define _NPN_Enumerate NPN_Enumerate
+#define _NPN_Construct NPN_Construct
 
 #endif

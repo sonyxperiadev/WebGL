@@ -648,8 +648,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/npapi.cpp \
 	\
 	plugins/android/PluginDataAndroid.cpp \
-	plugins/android/PluginPackageAndroid.cpp \
-	plugins/android/PluginViewAndroid.cpp \
+  plugins/android/PluginPackageAndroid.cpp \
+  plugins/android/PluginViewAndroid.cpp \
 	\
 	rendering/AutoTableLayout.cpp \
 	rendering/CounterNode.cpp \
@@ -697,7 +697,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderPartObject.cpp \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
-	rendering/RenderReplica.cpp \
+	rendering/RenderReplica.cpp
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

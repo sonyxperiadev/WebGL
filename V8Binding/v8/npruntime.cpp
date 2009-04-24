@@ -26,17 +26,17 @@
 
 #include "config.h"
 
-#include <map>
-#include <set>
-#include <string>
 #include <v8.h>
 
-#include "bindings/npruntime.h"
 #include "NPV8Object.h"
 #include "npruntime_priv.h"
 #include "V8NPObject.h"
 
 #include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+
+#include <utility>
 
 using namespace v8;
 
@@ -49,29 +49,78 @@ using namespace v8;
 // Need a platform abstraction which we can use.
 // static Lock StringIdentifierMapLock;
 
-namespace {
 
 // We use StringKey here as the key-type to avoid a string copy to
 // construct the map key and for faster comparisons than strcmp.
 struct StringKey {
+    StringKey() : string(NULL), length(0) {}
     StringKey(const char* str) : string(str), length(strlen(str)) {}
     const char* string;
-    const size_t length;
+    size_t length;
+
+    StringKey& operator=(const StringKey& other) {
+        this->string = other.string;
+        this->length = other.length;
+        return *this;
+    }
+
 };
 
-inline bool operator<(const StringKey& x, const StringKey& y) {
+inline bool operator==(const StringKey& x, const StringKey& y) {
     // Shorter strings are less than longer strings, memcmp breaks ties.
-    if (x.length < y.length)
-        return true;
-    else if (x.length > y.length)
+    if (x.length != y.length) {
         return false;
-    else
-        return memcmp(x.string, y.string, y.length) < 0;
+    } else {
+        ASSERT(x.string != NULL && y.string != NULL);
+        return memcmp(x.string, y.string, y.length) == 0;
+    }
 }
 
-}  // namespace
+struct StringKeyHash {
+    static unsigned hash(StringKey key) {
+        // sdbm hash function
+        unsigned hash = 0;
+        for (size_t i = 0; i < key.length; i++) {
+            char c = key.string[i];
 
-typedef std::map<const StringKey, PrivateIdentifier*> StringIdentifierMap;
+            hash += c;
+            hash += (hash << 10);
+            hash ^= (hash>> 6);
+        }
+
+        // 
+        hash += (hash << 3);
+        hash ^= (hash >> 11);
+        hash += (hash << 15);
+        if (hash == 0) {
+            hash = 27;
+        }
+        return hash;
+    }
+  
+    static bool equal(StringKey x, StringKey y) {
+        return x == y;
+    }
+
+    static const bool safeToCompareToEmptyOrDeleted = false;
+};
+
+namespace WTF {
+    template<> struct HashTraits<StringKey> : GenericHashTraits<StringKey> {
+        static const bool emptyValueIsZero = true;
+        static const bool needsDestruction = false;
+        static void constructDeletedValue(StringKey& slot) {
+            slot.string = NULL;
+            slot.length = 0;
+        }
+
+        static bool isDeletedValue(const StringKey& slot) {
+            return slot.string == NULL;
+        }
+    };
+}
+
+typedef WTF::HashMap<StringKey, PrivateIdentifier*, StringKeyHash> StringIdentifierMap;
 
 static StringIdentifierMap* getStringIdentifierMap() {
     static StringIdentifierMap* stringIdentifierMap = 0;
@@ -83,7 +132,7 @@ static StringIdentifierMap* getStringIdentifierMap() {
 // FIXME: Consider removing locks if we're singlethreaded already.
 // static Lock IntIdentifierMapLock;
 
-typedef std::map<int, PrivateIdentifier*> IntIdentifierMap;
+typedef WTF::HashMap<int, PrivateIdentifier*> IntIdentifierMap;
 
 static IntIdentifierMap* getIntIdentifierMap() {
     static IntIdentifierMap* intIdentifierMap = 0;
@@ -99,7 +148,6 @@ NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name) {
 
     if (name) {
         // AutoLock safeLock(StringIdentifierMapLock);
-
         StringKey key(name);
         StringIdentifierMap* identMap = getStringIdentifierMap();
         StringIdentifierMap::iterator iter = identMap->find(key);
@@ -116,7 +164,7 @@ NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name) {
         identifier->isString = true;
         identifier->value.string = reinterpret_cast<NPUTF8*>(nameStorage);
         key.string = nameStorage;
-        (*identMap)[key] = identifier;
+        identMap->set(key, identifier);
         return (NPIdentifier)identifier;
     }
 
@@ -146,7 +194,7 @@ NPIdentifier NPN_GetIntIdentifier(int32_t intid) {
         malloc(sizeof(PrivateIdentifier)));
     identifier->isString = false;
     identifier->value.number = intid;
-    (*identMap)[intid] = identifier;
+    identMap->set(intid, identifier);
     return (NPIdentifier)identifier;
 }
 
@@ -276,9 +324,9 @@ void _NPN_InitializeVariantWithStringCopy(NPVariant* variant,
 // Frame teardown to deactivate all objects associated
 // with a particular plugin.
 
-typedef std::set<NPObject*> NPObjectSet;
-typedef std::map<NPObject*, NPObject*> NPObjectMap;
-typedef std::map<NPObject*, NPObjectSet*> NPRootObjectMap;
+typedef WTF::HashSet<NPObject*> NPObjectSet;
+typedef WTF::HashMap<NPObject*, NPObject*> NPObjectMap;
+typedef WTF::HashMap<NPObject*, NPObjectSet*> NPRootObjectMap;
 
 // A map of live NPObjects with pointers to their Roots.
 NPObjectMap g_live_objects;
@@ -298,7 +346,7 @@ void _NPN_RegisterObject(NPObject* obj, NPObject* owner) {
     if (!owner) {
       // Registering a new owner object.
       ASSERT(g_root_objects.find(obj) == g_root_objects.end());
-      g_root_objects[obj] = new NPObjectSet();
+      g_root_objects.set(obj, new NPObjectSet());
     } else {
       // Always associate this object with it's top-most parent.
       // Since we always flatten, we only have to look up one level.
@@ -312,11 +360,11 @@ void _NPN_RegisterObject(NPObject* obj, NPObject* owner) {
       }
       ASSERT(g_root_objects.find(obj) == g_root_objects.end());
       if (g_root_objects.find(owner) != g_root_objects.end())
-        (g_root_objects[owner])->insert(obj);
+        g_root_objects.get(owner)->add(obj);
     }
 
     ASSERT(g_live_objects.find(obj) == g_live_objects.end());
-    g_live_objects[obj] = owner;
+    g_live_objects.set(obj, owner);
 }
 
 void _NPN_UnregisterObject(NPObject* obj) {
@@ -330,7 +378,7 @@ void _NPN_UnregisterObject(NPObject* obj) {
     if (owner == NULL) {
         // Unregistering a owner object; also unregister it's descendants.
         ASSERT(g_root_objects.find(obj) != g_root_objects.end());
-        NPObjectSet* set = g_root_objects[obj];
+        NPObjectSet* set = g_root_objects.get(obj);
         while (set->size() > 0) {
 #ifndef NDEBUG
             size_t size = set->size();
@@ -340,8 +388,8 @@ void _NPN_UnregisterObject(NPObject* obj) {
             ASSERT(g_root_objects.find(sub_object) == g_root_objects.end());
 
             // First, unregister the object.
-            set->erase(sub_object);
-            g_live_objects.erase(sub_object);
+            set->remove(sub_object);
+            g_live_objects.remove(sub_object);
 
             // Remove the JS references to the object.
             ForgetV8ObjectForNPObject(sub_object);
@@ -349,18 +397,18 @@ void _NPN_UnregisterObject(NPObject* obj) {
             ASSERT(set->size() < size);
         }
         delete set;
-        g_root_objects.erase(obj);
+        g_root_objects.remove(obj);
     } else {
         NPRootObjectMap::iterator owner_entry = g_root_objects.find(owner);
         if (owner_entry != g_root_objects.end()) {
           NPObjectSet* list = owner_entry->second;
           ASSERT(list->find(obj) != list->end());
-          list->erase(obj);
+          list->remove(obj);
         }
     }
     ForgetV8ObjectForNPObject(obj);
 
-    g_live_objects.erase(obj);
+    g_live_objects.remove(obj);
 }
 
 bool _NPN_IsAlive(NPObject* obj) {

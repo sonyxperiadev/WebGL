@@ -6,7 +6,11 @@
 #define v8_np_utils_h
 
 #include <v8.h>
+#if PLATFORM(CHROMIUM)
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
 
 namespace WebCore {
     class Frame;

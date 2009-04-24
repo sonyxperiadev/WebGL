@@ -174,6 +174,16 @@ $(GEN): $(make_css_file_arrays) $(style_sheets)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
+# XML attribute names
+
+GEN:= $(intermediates)/XMLNames.cpp
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --attrs $(xml_attrs) --output $(dir $@) 
+$(GEN): xml_attrs := $(LOCAL_PATH)/xml/xmlattrs.in
+$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xml_attrs)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
 # character set name table
 
 #gen_inputs := \

@@ -9,7 +9,6 @@
 #include "v8_index.h"
 #include "v8_custom.h"
 #include "v8_utility.h"
-#include "ChromiumBridge.h"
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h"  // for WebCore::String
@@ -20,10 +19,8 @@
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
 
-#include <iterator>
-#include <list>
-
-#ifdef ENABLE_DOM_STATS_COUNTERS
+#if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
+#include "ChromiumBridge.h"
 #define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
@@ -185,7 +182,7 @@ struct V8ExtensionInfo {
   String scheme;
   v8::Extension* extension;
 };
-typedef std::list<V8ExtensionInfo> V8ExtensionList;
+typedef WTF::Vector<V8ExtensionInfo> V8ExtensionList;
 
 class V8Proxy {
  public:

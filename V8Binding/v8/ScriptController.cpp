@@ -30,7 +30,10 @@
 #include "config.h"
 #include "ScriptController.h"
 
+#if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+#endif
+
 #include "CString.h"
 #include "Document.h"
 #include "DOMWindow.h"
@@ -312,10 +315,13 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
     if (widget->isFrameView())
         return 0;
 
+#if PLATFORM(CHROMIUM)
     NPObject* npObject = ChromiumBridge::pluginScriptableObject(widget);
+#else
+    NPObject* npObject = 0;  // TODO(fqian): fix this
+#endif
     if (!npObject)
         return 0;
-
     // Frame Memory Management for NPObjects
     // -------------------------------------
     // NPObjects are treated differently than other objects wrapped by JS.

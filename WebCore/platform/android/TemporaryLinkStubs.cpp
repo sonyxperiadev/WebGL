@@ -61,12 +61,15 @@
 #include "IconDatabase.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
+
+#if USE(JSC)
 #include "JavaScriptCallFrame.h"
 #include "JavaScriptDebugServer.h"
 #include "API/JSClassRef.h"
-#include "JavaScriptCallFrame.h"
 #include "JavaScriptProfile.h"
 #include "jni_utility.h"
+#endif
+
 #include "KURL.h"
 #include "Language.h"
 #include "loader.h"
@@ -745,6 +748,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 }
 
 
+#if USE(JSC)
 namespace JSC { namespace Bindings {
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
         jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
@@ -754,6 +758,7 @@ bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool
 }
 
 } }  // namespace Bindings
+#endif
 
 char* dirname(const char*)
 {
@@ -839,6 +844,7 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
+#if USE(JSC)
 using namespace JSC;
 
 
@@ -962,3 +968,5 @@ void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, in
 {
     notImplemented();
 }
+#endif
+

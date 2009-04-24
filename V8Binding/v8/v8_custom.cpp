@@ -42,8 +42,11 @@
 #include "V8HTMLImageElement.h"
 #include "V8HTMLOptionElement.h"
 #include "V8Node.h"
+
+#if ENABLE(XPATH)
 #include "V8XPathNSResolver.h"
 #include "V8XPathResult.h"
+#endif
 
 #include "Base64.h"
 #include "CanvasGradient.h"
@@ -692,148 +695,7 @@ static bool AllowSettingFrameSrcToJavascriptUrl(HTMLFrameElementBase* frame,
 }
 
 
-// Element ---------------------------------------------------------------------
-
-CALLBACK_FUNC_DECL(ElementSetAttribute) {
-  INC_STATS("DOM.Element.setAttribute()");
-  Element* imp = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
-  ExceptionCode ec = 0;
-  String name = ToWebCoreString(args[0]);
-  String value = ToWebCoreString(args[1]);
-
-  if (!AllowSettingSrcToJavascriptURL(imp, name, value)) {
-    return v8::Undefined();
-  }
-
-  imp->setAttribute(name, value, ec);
-  if (ec != 0) {
-    V8Proxy::SetDOMException(ec);
-    return v8::Handle<v8::Value>();
-  }
-  return v8::Undefined();
-}
-
-CALLBACK_FUNC_DECL(ElementSetAttributeNode) {
-  INC_STATS("DOM.Element.setAttributeNode()");
-  if (!V8Attr::HasInstance(args[0])) {
-    V8Proxy::SetDOMException(TYPE_MISMATCH_ERR);
-    return v8::Handle<v8::Value>();
-  }
-
-  Attr* newAttr = V8Proxy::DOMWrapperToNode<Attr>(args[0]);
-  Element* imp = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
-  ExceptionCode ec = 0;
-
-  if (!AllowSettingSrcToJavascriptURL(imp, newAttr->name(), newAttr->value())) {
-    return v8::Undefined();
-  }
-
-  RefPtr<Attr> result = imp->setAttributeNode(newAttr, ec);
-  if (ec != 0) {
-    V8Proxy::SetDOMException(ec);
-    return v8::Handle<v8::Value>();
-  }
-  return V8Proxy::NodeToV8Object(result.get());
-}
-
-CALLBACK_FUNC_DECL(ElementSetAttributeNS) {
-  INC_STATS("DOM.Element.setAttributeNS()");
-  Element* imp = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
-  ExceptionCode ec = 0;
-  String namespaceURI = valueToStringWithNullCheck(args[0]);
-  String qualifiedName = ToWebCoreString(args[1]);
-  String value = ToWebCoreString(args[2]);
-
-  if (!AllowSettingSrcToJavascriptURL(imp, qualifiedName, value)) {
-    return v8::Undefined();
-  }
-
-  imp->setAttributeNS(namespaceURI, qualifiedName, value, ec);
-  if (ec != 0) {
-    V8Proxy::SetDOMException(ec);
-    return v8::Handle<v8::Value>();
-  }
-  return v8::Undefined();
-}
-
-CALLBACK_FUNC_DECL(ElementSetAttributeNodeNS) {
-  INC_STATS("DOM.Element.setAttributeNodeNS()");
-  if (!V8Attr::HasInstance(args[0])) {
-    V8Proxy::SetDOMException(TYPE_MISMATCH_ERR);
-    return v8::Handle<v8::Value>();
-  }
-
-  Attr* newAttr = V8Proxy::DOMWrapperToNode<Attr>(args[0]);
-  Element* imp = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
-  ExceptionCode ec = 0;
-
-  if (!AllowSettingSrcToJavascriptURL(imp, newAttr->name(), newAttr->value())) {
-    return v8::Undefined();
-  }
-
-  RefPtr<Attr> result = imp->setAttributeNodeNS(newAttr, ec);
-  if (ec != 0) {
-    V8Proxy::SetDOMException(ec);
-    return v8::Handle<v8::Value>();
-  }
-  return V8Proxy::NodeToV8Object(result.get());
-}
-
-
-
-// Attr ------------------------------------------------------------------------
-
-ACCESSOR_SETTER(AttrValue) {
-  Attr* imp =
-      V8Proxy::DOMWrapperToNode<Attr>(info.Holder());
-  String v = valueToStringWithNullCheck(value);
-  Element* ownerElement = imp->ownerElement();
-
-  if (ownerElement &&
-      !AllowSettingSrcToJavascriptURL(ownerElement, imp->name(), v))
-    return;
-
-  ExceptionCode ec = 0;
-  imp->setValue(v, ec);
-  V8Proxy::SetDOMException(ec);
-}
-
-
-// HTMLFrameElement ------------------------------------------------------------
-
-ACCESSOR_SETTER(HTMLFrameElementSrc) {
-  HTMLFrameElement* imp =
-      V8Proxy::DOMWrapperToNode<HTMLFrameElement>(info.Holder());
-  String v = valueToStringWithNullCheck(value);
-
-  if (!AllowSettingFrameSrcToJavascriptUrl(imp, v)) return;
-
-  imp->setSrc(v);
-}
-
-ACCESSOR_SETTER(HTMLFrameElementLocation) {
-  HTMLFrameElement* imp =
-      V8Proxy::DOMWrapperToNode<HTMLFrameElement>(info.Holder());
-  String v = valueToStringWithNullCheck(value);
-
-  if (!AllowSettingFrameSrcToJavascriptUrl(imp, v)) return;
-
-  imp->setLocation(v);
-}
-
-
 // HTMLIFrameElement -----------------------------------------------------------
-
-ACCESSOR_SETTER(HTMLIFrameElementSrc) {
-  HTMLIFrameElement* imp =
-      V8Proxy::DOMWrapperToNode<HTMLIFrameElement>(info.Holder());
-  String v = valueToStringWithNullCheck(value);
-
-  if (!AllowSettingFrameSrcToJavascriptUrl(imp, v)) return;
-
-  imp->setSrc(v);
-}
-
 
 // TODO(mbelshe): This should move into V8DOMWindowCustom.cpp
 // Can't move it right now because it depends on V8ScheduledAction,
@@ -1079,48 +941,6 @@ ACCESSOR_GETTER(DOMWindowEventHandler) {
   return V8Proxy::EventListenerToV8Object(listener);
 }
 
-
-ACCESSOR_SETTER(ElementEventHandler) {
-  Node* node = V8Proxy::DOMWrapperToNode<Node>(info.Holder());
-
-  // Name starts with 'on', remove them.
-  String key = ToWebCoreString(name);
-  ASSERT(key.startsWith("on"));
-  String event_type = key.substring(2);
-
-  // Set handler if the value is a function.  Otherwise, clear the
-  // event handler.
-  if (value->IsFunction()) {
-    V8Proxy* proxy = V8Proxy::retrieve(node->document()->frame());
-    // the document might be created using createDocument,
-    // which does not have a frame, use the active frame
-    if (!proxy)
-      proxy = V8Proxy::retrieve(V8Proxy::retrieveActiveFrame());
-    if (!proxy)
-      return;
-
-    RefPtr<EventListener> listener =
-      proxy->FindOrCreateV8EventListener(value, true);
-    if (listener) {
-      node->setInlineEventListenerForType(event_type, listener);
-    }
-  } else {
-    node->removeInlineEventListenerForType(event_type);
-  }
-}
-
-
-ACCESSOR_GETTER(ElementEventHandler) {
-  Node* node = V8Proxy::DOMWrapperToNode<Node>(info.Holder());
-
-  // Name starts with 'on', remove them.
-  String key = ToWebCoreString(name);
-  ASSERT(key.startsWith("on"));
-  String event_type = key.substring(2);
-
-  EventListener* listener = node->inlineEventListenerForType(event_type);
-  return V8Proxy::EventListenerToV8Object(listener);
-}
 
 // --------------- Security Checks -------------------------
 NAMED_ACCESS_CHECK(DOMWindow) {

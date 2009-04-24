@@ -284,7 +284,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(HTMLOPTIONSCOLLECTION, HTMLOptionsCollection)                       \
   V(IMAGEDATA, ImageData)                                               \
   V(CANVASPIXELARRAY, CanvasPixelArray)                                 \
-  V(INSPECTORCONTROLLER, InspectorController)                           \
   V(KEYBOARDEVENT, KeyboardEvent)                                       \
   V(LOCATION, Location)                                                 \
   V(MEDIALIST, MediaList)
@@ -328,15 +327,16 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(XMLHTTPREQUESTEXCEPTION, XMLHttpRequestException)                   \
   V(XMLHTTPREQUESTPROGRESSEVENT, XMLHttpRequestProgressEvent)           \
   V(XMLSERIALIZER, XMLSerializer)                                       \
+  ACTIVE_DOM_OBJECT_TYPES(V)                                            \
+  VIDEO_NONNODE_TYPES(V)                                                \
+  WORKER_NONNODE_WRAPPER_TYPES(V)
+
+#define DOM_OBJECT_XPATH_TYPES(V)                                       \
   V(XPATHEVALUATOR, XPathEvaluator)                                     \
   V(XPATHEXCEPTION, XPathException)                                     \
   V(XPATHEXPRESSION, XPathExpression)                                   \
   V(XPATHNSRESOLVER, XPathNSResolver)                                   \
-  V(XPATHRESULT, XPathResult)                                           \
-  V(XSLTPROCESSOR, XSLTProcessor)                                       \
-  ACTIVE_DOM_OBJECT_TYPES(V)                                            \
-  VIDEO_NONNODE_TYPES(V)                                                \
-  WORKER_NONNODE_WRAPPER_TYPES(V)
+  V(XPATHRESULT, XPathResult)
 
 #define DOM_OBJECT_DATABASE_TYPES(V)                                    \
   V(DATABASE, Database)                                                 \
@@ -345,10 +345,32 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(SQLRESULTSETROWLIST, SQLResultSetRowList)                           \
   V(SQLTRANSACTION, SQLTransaction)
 
+#if PLATFORM(CHROMIUM)
 #define DOM_OBJECT_TYPES(V)                                             \
   DOM_OBJECT_TYPES_1(V)                                                 \
   DOM_OBJECT_TYPES_2(V)                                                 \
-  DOM_OBJECT_DATABASE_TYPES(V)
+  DOM_OBJECT_DATABASE_TYPES(V)                                          \
+  DOM_OBJECT_XPATH_TYPES(V)                                             \
+  V(XSLTPROCESSOR, XSLTProcessor)                                       \
+  V(INSPECTORCONTROLLER, InspectorController)
+#endif
+
+#if PLATFORM(ANDROID)
+#define DOM_OBJECT_TYPES(V)                                             \
+  DOM_OBJECT_TYPES_1(V)                                                 \
+  DOM_OBJECT_TYPES_2(V)                                                 \
+  V(COORDINATES, Coordinates)                                           \
+  V(GEOLOCATION, Geolocation)                                           \
+  V(GEOPOSITION, Geoposition)                                           \
+  V(POSITIONERROR, PositionError)                                       \
+  V(POSITIONERRORCALLBACK, PositionErrorCallback)                       \
+  V(TOUCHLIST, TouchList)                                               \
+  V(TOUCHEVENT, TouchEvent)                                             \
+  V(TOUCH, Touch)                                                       \
+  V(VOIDCALLBACK, VoidCallback)
+#endif
+
+// Other platform must define DOM_OBJECT_TYPES
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

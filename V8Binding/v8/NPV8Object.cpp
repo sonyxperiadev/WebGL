@@ -32,9 +32,10 @@
 #define min min
 #include <v8.h>
 #include "NPV8Object.h"
+#if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+#endif
 #include "Frame.h"
-#include "bindings/npruntime.h"
 #include "npruntime_priv.h"
 #include "PlatformString.h"
 #include "ScriptController.h"
@@ -241,12 +242,9 @@ bool NPN_InvokeDefault(NPP npp, NPObject *npobj, const NPVariant *args,
     return true;
 }
 
-bool NPN_Evaluate(NPP npp, NPObject *npobj, NPString *npscript, NPVariant *result)
-{
-    bool popupsAllowed = WebCore::ChromiumBridge::popupsAllowed(npp);
-    return NPN_EvaluateHelper(npp, popupsAllowed, npobj, npscript, result);
-}
-
+#if PLATFORM(ANDROID)
+static
+#endif
 bool NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npobj, NPString* npscript, NPVariant *result)
 {
     VOID_TO_NPVARIANT(*result);
@@ -280,6 +278,17 @@ bool NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npobj, NPString* 
 
     convertV8ObjectToNPVariant(v8result, npobj, result);
     return true;
+}
+
+bool NPN_Evaluate(NPP npp, NPObject *npobj, NPString *npscript, NPVariant *result)
+{
+#if PLATFORM(CHROMIUM)
+    bool popupsAllowed = WebCore::ChromiumBridge::popupsAllowed(npp);
+#else
+    // TODO(fqian): create an Android bridge
+    bool popupsAllowed = false;
+#endif
+    return NPN_EvaluateHelper(npp, popupsAllowed, npobj, npscript, result);
 }
 
 bool NPN_GetProperty(NPP npp, NPObject *npobj, NPIdentifier propertyName, NPVariant *result)
@@ -456,7 +465,7 @@ bool NPN_Enumerate(NPP npp, NPObject *npobj, NPIdentifier **identifier, uint32_t
         v8::Handle<v8::Value> enumeratorObj = script->Run();
         v8::Handle<v8::Function> enumerator = v8::Handle<v8::Function>::Cast(enumeratorObj);
         v8::Handle<v8::Value> argv[] = { obj };
-        v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), ARRAYSIZE_UNSAFE(argv), argv);
+        v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), 1, argv);
         if (propsObj.IsEmpty())
             return false;
 

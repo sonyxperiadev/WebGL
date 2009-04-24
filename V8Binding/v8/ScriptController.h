@@ -39,7 +39,11 @@
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
 
+#if PLATFORM(CHROMIUM)
 #include "bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
 
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>

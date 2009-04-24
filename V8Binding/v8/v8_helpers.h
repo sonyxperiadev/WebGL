@@ -5,7 +5,12 @@
 #ifndef V8_HELPERS_H__
 #define V8_HELPERS_H__
 
+#if PLATFORM(CHROMIUM)
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
+
 #include <v8.h>
 
 namespace WebCore {

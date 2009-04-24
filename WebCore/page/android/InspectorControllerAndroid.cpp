@@ -30,8 +30,9 @@
 
 #include "Frame.h"
 #include "Node.h"
+#if USE(JSC)
 #include "Profile.h"
-
+#endif
 // This stub file was created to avoid building and linking in all the
 // Inspector codebase. If you would like to enable the Inspector, do the
 // following steps:
@@ -89,9 +90,17 @@ void InspectorController::didOpenDatabase(Database*, String const&, String const
 bool InspectorController::enabled() const { return false; }
 void InspectorController::inspect(Node*) {}
 bool InspectorController::windowVisible() { return false; }
+#if USE(JSC)
 void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, const JSC::UString&) {}
-void InspectorController::inspectedPageDestroyed() {}
 void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString) {}
+void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
+void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
+void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString) {}
+#elif USE(V8)
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString) {}
+void InspectorController::scriptImported(unsigned long identifier, const String& sourceString) {}
+#endif
+void InspectorController::inspectedPageDestroyed() {}
 
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callFrame) {}
@@ -102,10 +111,10 @@ void InspectorController::count(const String& title, unsigned lineNumber, const 
 
 void InspectorController::mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) {}
 void InspectorController::handleMousePressOnNode(Node*) {}
-void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
-void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
-void InspectorController::didPause() {}
 
-void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString) {}
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+void InspectorController::didPause() {}
+#endif
+
 void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>*) {}
 }  // namespace WebCore

@@ -62,7 +62,6 @@
 #include "V8CSSStyleSheet.h"
 #include "V8CSSVariablesDeclaration.h"
 #include "V8CSSVariablesRule.h"
-#include "V8Database.h"
 #include "V8Document.h"
 #include "V8DocumentFragment.h"
 #include "V8DocumentType.h"
@@ -135,7 +134,6 @@
 #include "V8HTMLTitleElement.h"
 #include "V8HTMLUListElement.h"
 #include "V8ImageData.h"
-#include "V8InspectorController.h"
 #include "V8MediaList.h"
 #include "V8MessageChannel.h"
 #include "V8MessageEvent.h"
@@ -180,27 +178,38 @@
 #include "V8Range.h"
 #include "V8RangeException.h"
 #include "V8Rect.h"
-#include "V8SQLError.h"
-#include "V8SQLResultSet.h"
-#include "V8SQLResultSetRowList.h"
-#include "V8SQLTransaction.h"
 #include "V8NodeIterator.h"
 #include "V8TextMetrics.h"
 #include "V8TreeWalker.h"
 #include "V8StyleSheetList.h"
 #include "V8DOMImplementation.h"
+
+#if ENABLE(XPATH)
 #include "V8XPathResult.h"
 #include "V8XPathException.h"
 #include "V8XPathExpression.h"
 #include "V8XPathNSResolver.h"
+#include "V8XPathEvaluator.h"
+#endif
+#if ENABLE(XSLT)
+#include "V8XSLTProcessor.h"
+#endif
+
 #include "V8XMLHttpRequest.h"
 #include "V8XMLHttpRequestException.h"
 #include "V8XMLHttpRequestProgressEvent.h"
 #include "V8XMLHttpRequestUpload.h"
 #include "V8XMLSerializer.h"
-#include "V8XPathEvaluator.h"
-#include "V8XSLTProcessor.h"
 #include "V8RGBColor.h"
+
+#if PLATFORM(CHROMIUM)
+#include "V8InspectorController.h"
+#include "V8Database.h"
+#include "V8SQLError.h"
+#include "V8SQLResultSet.h"
+#include "V8SQLResultSetRowList.h"
+#include "V8SQLTransaction.h"
+#endif
 
 #if ENABLE(SVG_ANIMATION)
 #include "V8SVGAnimateColorElement.h"
@@ -366,6 +375,18 @@
 #include "V8WorkerContext.h"
 #include "V8WorkerLocation.h"
 #include "V8WorkerNavigator.h"
+#endif
+
+#if PLATFORM(ANDROID)
+#include "V8Coordinates.h"
+#include "V8Geolocation.h"
+#include "V8Geoposition.h"
+#include "V8PositionError.h"
+#include "V8PositionErrorCallback.h"
+#include "V8Touch.h"
+#include "V8TouchList.h"
+#include "V8TouchEvent.h"
+#include "V8VoidCallback.h"
 #endif
 
 namespace WebCore {

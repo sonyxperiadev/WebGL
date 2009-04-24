@@ -31,17 +31,18 @@
 #include "CString.h"
 #include "Cache.h"
 #include "KURL.h"
-#include "GCController.h"
-#include "JSDOMWindow.h"
 #include "Node.h"
-#include "Nodes.h"
 #include "SystemTime.h"
 #include "StyleBase.h"
+
+#if USE(JSC)
+#include "JSDOMWindow.h"
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSLock.h>
+#endif
+
 #include <utils/Log.h>
 
-using namespace JSC;
 using namespace WebCore;
 using namespace WTF;
 
@@ -112,11 +113,13 @@ void TimeCounter::report(const KURL& url, int live, int dead, size_t arenaSize)
     }
     LOGD("Current cache has %d bytes live and %d bytes dead", live, dead);
     LOGD("Current render arena takes %d bytes", arenaSize);
+#if USE(JSC)
     JSLock lock(false);
     Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
     LOGD("Current JavaScript heap size is %d and has %d bytes free",
             jsHeapStatistics.size, jsHeapStatistics.free);
     LOGD("Current JavaScript nodes use %d bytes", JSC::Node::reportJavaScriptNodesSize());
+#endif
     LOGD("Current CSS styles use %d bytes", StyleBase::reportStyleSize());
     LOGD("Current DOM nodes use %d bytes", WebCore::Node::reportDOMNodesSize());
 }

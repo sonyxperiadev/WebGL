@@ -15,14 +15,17 @@
 ## limitations under the License.
 ##
 
-LOCAL_CFLAGS += -DWTF_USE_V8
+LOCAL_CFLAGS += -DWTF_USE_V8=1
 
 v8binding_dir := $(LOCAL_PATH)
 
 BINDING_C_INCLUDES := \
   $(BASE_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
+	$(WEBCORE_PATH)/bindings/v8/custom \
+	$(WEBCORE_PATH)/bridge/jni \
   $(LOCAL_PATH)/v8 \
+	$(LOCAL_PATH)/npapi \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)
 
@@ -48,14 +51,10 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8CustomBinding.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
-	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
-	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
 	bindings/v8/custom/V8DOMParserConstructor.cpp \
 	bindings/v8/custom/V8DOMStringListCustom.cpp \
-	bindings/v8/custom/V8DatabaseCustom.cpp \
+	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
@@ -70,7 +69,6 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
-	bindings/v8/custom/V8InspectorControllerCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
@@ -80,8 +78,17 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
-	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
+
+ifeq ($(ENABLE_STORAGE), true)
+WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
+	bindings/v8/custom/V8DatabaseCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp
+	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
+	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
+	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
+	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
+	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp
+endif
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -98,10 +105,8 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp \
-	bindings/v8/custom/V8XPathEvaluatorConstructor.cpp \
-	bindings/v8/custom/V8XSLTProcessorCustom.cpp \
-  \
-  bridge/jni/jni_utility.cpp
+	\
+	bridge/jni/jni_utility.cpp
 
 LOCAL_SRC_FILES := \
 	v8/JSDOMBinding.cpp \
@@ -158,6 +163,7 @@ GEN := \
     $(intermediates)/css/V8StyleSheetList.h  \
     $(intermediates)/css/V8WebKitCSSKeyframeRule.h \
     $(intermediates)/css/V8WebKitCSSKeyframesRule.h \
+		$(intermediates)/css/V8WebKitCSSMatrix.h \
     $(intermediates)/css/V8WebKitCSSTransformValue.h 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/css/V8%.h : $(WEBCORE_PATH)/css/%.idl $(js_binding_scripts)
@@ -349,6 +355,27 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/plugins/%.h
 
+ifeq ($(ENABLE_STORAGE),true)
+# Storage support
+GEN := \
+    $(intermediates)/storage/V8Database.h \
+    $(intermediates)/storage/V8SQLError.h \
+    $(intermediates)/storage/V8SQLResultSet.h \
+    $(intermediates)/storage/V8SQLResultSetRowList.h \
+		$(intermediates)/storage/V8SQLTransaction.h \
+		$(intermediates)/storage/V8Storage.h \
+		$(intermediates)/storage/V8StorageEvent.h
+    
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+endif
+
 #new section for xml/DOMParser.idl
 GEN := \
     $(intermediates)/xml/V8DOMParser.h \
@@ -356,8 +383,11 @@ GEN := \
     $(intermediates)/xml/V8XMLHttpRequestException.h \
     $(intermediates)/xml/V8XMLHttpRequestProgressEvent.h \
     $(intermediates)/xml/V8XMLHttpRequestUpload.h \
-    $(intermediates)/xml/V8XMLSerializer.h \
-    $(intermediates)/xml/V8XPathEvaluator.h \
+    $(intermediates)/xml/V8XMLSerializer.h
+		
+
+#    $(intermediates)/xml/V8XPathEvaluator.h \
+		$(intermediates)/xml/V8XPathException.h \
     $(intermediates)/xml/V8XPathExpression.h \
     $(intermediates)/xml/V8XPathNSResolver.h \
     $(intermediates)/xml/V8XPathResult.h  \

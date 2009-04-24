@@ -106,7 +106,11 @@ static IconDatabaseClient* defaultClient()
 IconDatabase* iconDatabase()
 {
     if (!sharedIconDatabase) {
+#if USE(JSC)
         JSC::initializeThreading();
+#elif USE(V8)
+        // TODO(fqian): Do something for V8
+#endif
         sharedIconDatabase = new IconDatabase;
     }
     return sharedIconDatabase;

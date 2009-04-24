@@ -58,11 +58,13 @@ typedef struct PluginWidgetAndroid* PlatformPluginWidget;
 typedef PlatformWidget PlatformPluginWidget;
 #endif
 
+#if USE(JSC)
 namespace JSC {
     namespace Bindings {
         class Instance;
     }
 }
+#endif
 
 namespace WebCore {
     class Element;
@@ -124,7 +126,9 @@ namespace WebCore {
         void setNPWindowRect(const IntRect&);
         static PluginView* currentPluginView();
 
+#if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
+#endif
 
         PluginStatus status() const { return m_status; }
 

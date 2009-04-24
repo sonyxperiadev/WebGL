@@ -26,8 +26,11 @@
 #ifndef NP_RUNTIME_PRIV_H_
 #define NP_RUNTIME_PRIV_H_
 
-
+#if PLATFORM(CHROMIUM)
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -15,9 +15,10 @@
 ## limitations under the License.
 ##
 
-LOCAL_CFLAGS += -DWTF_USE_JSC
-
 BINDING_C_INCLUDES := \
+	     $(BASE_PATH)/WebCore/bridge \
+	     $(BASE_PATH)/WebCore/bridge/c \
+	     $(BASE_PATH)/WebCore/bridge/jni \
        $(BASE_PATH)/WebCore/bindings/js \
        $(BASE_PATH)/JavaScriptCore \
        $(BASE_PATH)/JavaScriptCore/API \
@@ -32,11 +33,7 @@ BINDING_C_INCLUDES := \
        $(BASE_PATH)/JavaScriptCore/profiler \
        $(BASE_PATH)/JavaScriptCore/runtime \
        $(BASE_PATH)/JavaScriptCore/wrec \
-       $(BASE_PATH)/JavaScriptCore/wtf \
-       $(BASE_PATH)/JavaScriptCore/wtf/unicode \
-       $(BASE_PATH)/JavaScriptCore/wtf/unicode/icu \
        $(BASE_PATH)/JavaScriptCore/ForwardingHeaders \
-       $(base_intermediates)/JavaScriptCore \
        $(base_intermediates)/JavaScriptCore/parser \
        $(base_intermediates)/JavaScriptCore/runtime \
        $(base_intermediates)/WebCore/bindings/js
@@ -668,16 +665,6 @@ $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(svg_tags) $(svg_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 endif
-
-# XML attribute names
-
-GEN:= $(intermediates)/XMLNames.cpp
-$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --attrs $(xml_attrs) --output $(dir $@) 
-$(GEN): xml_attrs := $(LOCAL_PATH)/xml/xmlattrs.in
-$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xml_attrs)
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN)
 
 # XLink attribute names
 

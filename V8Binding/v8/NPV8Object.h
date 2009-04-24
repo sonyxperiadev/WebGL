@@ -5,7 +5,12 @@
 #ifndef np_v8object_h
 #define np_v8object_h
 
+#if PLATFORM(CHROMIUM)
 #include "bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
+
 #include <v8.h>
 
 namespace WebCore {

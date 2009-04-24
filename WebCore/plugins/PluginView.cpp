@@ -38,7 +38,6 @@
 #include "Image.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
-#include "JSDOMWindow.h"
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
@@ -50,7 +49,6 @@
 #include "PluginMessageThrottlerWin.h"
 #endif
 #include "PluginPackage.h"
-#include "JSDOMBinding.h"
 #include "ScriptController.h"
 #include "ScriptValue.h"
 #include "PluginDatabase.h"
@@ -59,20 +57,28 @@
 #include "PluginPackage.h"
 #include "RenderBox.h"
 #include "RenderObject.h"
-#include "c_instance.h"
 #include "npruntime_impl.h"
-#include "runtime_root.h"
 #include "Settings.h"
+
+#if USE(JSC)
+#include "JSDOMWindow.h"
+#include "JSDOMBinding.h"
+#include "c_instance.h"
+#include "runtime_root.h"
 #include "runtime.h"
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
+#endif
+
 #include <wtf/ASCIICType.h>
 
+#if USE(JSC)
 using JSC::ExecState;
 using JSC::JSLock;
 using JSC::JSObject;
 using JSC::JSValuePtr;
 using JSC::UString;
+#endif
 
 using std::min;
 
@@ -169,7 +175,9 @@ bool PluginView::start()
     NPError npErr;
     {
         PluginView::setCurrentPluginView(this);
+#if USE(JSC)        
         JSC::JSLock::DropAllLocks dropAllLocks(false);
+#endif        
         setCallingPlugin(true);
         npErr = m_plugin->pluginFuncs()->newp((NPMIMEType)m_mimeType.data(), m_instance, m_mode, m_paramCount, m_paramNames, m_paramValues, NULL);
         setCallingPlugin(false);
@@ -212,6 +220,7 @@ static char* createUTF8String(const String& str)
     return result;
 }
 
+#if USE(JSC)
 static bool getString(ScriptController* proxy, JSValuePtr result, String& string)
 {
     if (!proxy || !result || result.isUndefined())
@@ -225,6 +234,7 @@ static bool getString(ScriptController* proxy, JSValuePtr result, String& string
     string = ustring;
     return true;
 }
+#endif
 
 void PluginView::performRequest(PluginRequest* request)
 {
@@ -251,7 +261,9 @@ void PluginView::performRequest(PluginRequest* request)
             // FIXME: <rdar://problem/4807469> This should be sent when the document has finished loading
             if (request->sendNotification()) {
                 PluginView::setCurrentPluginView(this);
+#if USE(JSC)                
                 JSC::JSLock::DropAllLocks dropAllLocks(false);
+#endif                
                 setCallingPlugin(true);
                 m_plugin->pluginFuncs()->urlnotify(m_instance, requestURL.string().utf8().data(), NPRES_DONE, request->notifyData());
                 setCallingPlugin(false);
@@ -264,7 +276,8 @@ void PluginView::performRequest(PluginRequest* request)
     // Targeted JavaScript requests are only allowed on the frame that contains the JavaScript plugin
     // and this has been made sure in ::load.
     ASSERT(targetFrameName.isEmpty() || m_parentFrame->tree()->find(targetFrameName) == m_parentFrame);
-    
+
+#if USE(JSC)
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
     JSValuePtr result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
@@ -280,6 +293,7 @@ void PluginView::performRequest(PluginRequest* request)
         m_streams.add(stream);
         stream->sendJavaScriptStream(requestURL, cstr);
     }
+#endif
 }
 
 void PluginView::requestTimerFired(Timer<PluginView>* timer)
@@ -484,6 +498,8 @@ void PluginView::setJavaScriptPaused(bool paused)
         m_requestTimer.startOneShot(0);
 }
 
+
+#if USE(JSC)
 PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
 {
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -513,8 +529,9 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
     return instance.release();
 #else
     return 0;
-#endif
+#endif  // NETSCAPE_PLUGIN_API
 }
+#endif  // JSC
 
 void PluginView::disconnectStream(PluginStream* stream)
 {

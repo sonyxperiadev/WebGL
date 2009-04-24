@@ -94,8 +94,6 @@
 #include "SQLResultSetRowList.h"
 #include "StyleSheet.h"
 #include "StyleSheetList.h"
-#include "SVGColor.h"
-#include "SVGPaint.h"
 #include "TextEvent.h"
 #include "TextMetrics.h"
 #include "TimeRanges.h"
@@ -121,6 +119,7 @@
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "XMLSerializer.h"
+#include "XPathEvaluator.h"
 #include "XPathException.h"
 #include "XPathExpression.h"
 #include "XPathNSResolver.h"
@@ -129,6 +128,7 @@
 #if ENABLE(SVG)
 #include "SVGAngle.h"
 #include "SVGAnimatedPoints.h"
+#include "SVGColor.h"
 #include "SVGElement.h"
 #include "SVGElementInstance.h"
 #include "SVGElementInstanceList.h"
@@ -136,6 +136,7 @@
 #include "SVGLength.h"
 #include "SVGLengthList.h"
 #include "SVGNumberList.h"
+#include "SVGPaint.h"
 #include "SVGPathSeg.h"
 #include "SVGPathSegArc.h"
 #include "SVGPathSegClosePath.h"
@@ -167,9 +168,17 @@
 #include "WorkerNavigator.h"
 #endif // WORKERS
 
-#if ENABLE(XPATH)
-#include "XPathEvaluator.h"
-#endif // XPATH
+#if PLATFORM(ANDROID)
+#include "Coordinates.h"
+#include "Geolocation.h"
+#include "Geoposition.h"
+#include "PositionError.h"
+#include "PositionErrorCallback.h"
+#include "Touch.h"
+#include "TouchList.h"
+#include "TouchEvent.h"
+#include "VoidCallback.h"
+#endif
 
 namespace WebCore {
 

@@ -48,8 +48,9 @@ namespace WebCore {
         virtual bool virtualIsInline() const { return false; }
     };
 
+#if USE(JSC)
     inline void markIfNotNull(EventListener* listener) { if (listener) listener->mark(); }
-
+#endif
 }
 
 #endif
