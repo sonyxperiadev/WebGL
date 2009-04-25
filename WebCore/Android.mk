@@ -648,8 +648,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/npapi.cpp \
 	\
 	plugins/android/PluginDataAndroid.cpp \
-  plugins/android/PluginPackageAndroid.cpp \
-  plugins/android/PluginViewAndroid.cpp \
+	plugins/android/PluginPackageAndroid.cpp \
+	plugins/android/PluginViewAndroid.cpp \
 	\
 	rendering/AutoTableLayout.cpp \
 	rendering/CounterNode.cpp \

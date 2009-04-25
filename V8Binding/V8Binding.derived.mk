@@ -109,6 +109,7 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bridge/jni/jni_utility.cpp
 
 LOCAL_SRC_FILES := \
+  v8/V8InitializeThreading.cpp \
 	v8/JSDOMBinding.cpp \
 	v8/JSXPathNSResolver.cpp \
 	v8/NPV8Object.cpp \

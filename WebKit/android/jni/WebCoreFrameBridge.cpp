@@ -61,6 +61,8 @@
 #include "JSDOMWindow.h"
 #include <runtime/InitializeThreading.h>
 #include <runtime/JSLock.h>
+#elif USE(V8)
+#include "V8InitializeThreading.h"
 #endif  // USE(JSC)
 
 #include "KURL.h"
@@ -689,7 +691,10 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 {
 #if USE(JSC)
     JSC::initializeThreading();
+#elif USE(V8)
+    V8::initializeThreading();
 #endif
+
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
