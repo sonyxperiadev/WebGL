@@ -44,13 +44,8 @@
 
 #include <jni.h>
 #include <JNIHelp.h>
-#include <SkImageRef_GlobalPool.h>
 #include <SkUtils.h>
 #include <utils/misc.h>
-
-// maximum bytes used to cache decoded images
-// (not including big images using ashmem)
-#define IMAGE_POOL_BUDGET   (512 * 1024)
 
 namespace android {
 
@@ -263,8 +258,6 @@ void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
 void JavaBridge::SetCacheSize(JNIEnv* env, jobject obj, jint bytes)
 {
     WebCore::cache()->setCapacities(0, bytes/2, bytes);
-    SkImageRef_GlobalPool::SetRAMBudget(IMAGE_POOL_BUDGET);
-    LOGV("--- set ImageRef budget %d\n", SkImageRef_GlobalPool::GetRAMBudget());
 }
 
 void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
