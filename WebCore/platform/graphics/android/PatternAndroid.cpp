@@ -40,14 +40,13 @@ static SkShader::TileMode toTileMode(bool doRepeat) {
     return doRepeat ? SkShader::kRepeat_TileMode : SkShader::kClamp_TileMode;
 }
 
-SkShader* Pattern::createPlatformPattern(const TransformationMatrix& transform) const
+SkShader* Pattern::createPlatformPattern(const TransformationMatrix& ) const
 {
     SkBitmapRef* ref = tileImage()->nativeImageForCurrentFrame();
     SkShader* s = SkShader::CreateBitmapShader(ref->bitmap(),
                                                toTileMode(m_repeatX),
                                                toTileMode(m_repeatY));
-    
-    // TODO: do I treat transform as a local matrix???
+    s->setLocalMatrix(m_patternSpaceTransformation);
     return s;
 }
 
