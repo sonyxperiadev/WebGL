@@ -151,7 +151,12 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     int scale = 1;
 
     SkRect bounds;
+#if PLATFORM(SGL)
+    // this is the API from skia/trunk
+    bounds = originalPath->getBounds();
+#else
     originalPath->computeBounds(&bounds, SkPath::kFast_BoundsType);
+#endif
 
     // We can immediately return false if the point is outside the bounding rect
     if (!bounds.contains(SkFloatToScalar(point.x()), SkFloatToScalar(point.y())))

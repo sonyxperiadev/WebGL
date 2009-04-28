@@ -59,7 +59,7 @@ class TPoint;
 class wxPoint;
 #endif
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA_SGL)
 struct SkPoint;
 struct SkIPoint;
 #endif
@@ -128,7 +128,7 @@ public:
     operator wxPoint() const;
 #endif
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA_SGL)
     IntPoint(const SkIPoint&);
     operator SkIPoint() const;
     operator SkPoint() const;
