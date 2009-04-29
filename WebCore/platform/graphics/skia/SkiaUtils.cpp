@@ -38,6 +38,7 @@
 #include "SkColorPriv.h"
 #include "SkMatrix.h"
 #include "SkRegion.h"
+#include "SkUnPreMultiply.h"
 
 namespace WebCore {
 
@@ -74,29 +75,12 @@ SkPorterDuff::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
     return SkPorterDuff::kSrcOver_Mode; // fall-back
 }
 
-static U8CPU InvScaleByte(U8CPU component, uint32_t scale)
-{
-    SkASSERT(component == (uint8_t)component);
-    return (component * scale + 0x8000) >> 16;
-}
-
-SkColor SkPMColorToColor(SkPMColor pm)
-{
-    if (0 == pm)
-        return 0;
-    
-    unsigned a = SkGetPackedA32(pm);
-    uint32_t scale = (255 << 16) / a;
-    
-    return SkColorSetARGB(a,
-                          InvScaleByte(SkGetPackedR32(pm), scale),
-                          InvScaleByte(SkGetPackedG32(pm), scale),
-                          InvScaleByte(SkGetPackedB32(pm), scale));
-}
-
 Color SkPMColorToWebCoreColor(SkPMColor pm)
 {
-    return SkPMColorToColor(pm);
+    SkColor c = SkUnPreMultiply::PMColorToColor(pm);
+    // need the cast to find the right constructor
+    return WebCore::Color((int)SkColorGetR(c), (int)SkColorGetG(c),
+                          (int)SkColorGetB(c), (int)SkColorGetA(c));
 }
 
 void IntersectRectAndRegion(const SkRegion& region, const SkRect& srcRect, SkRect* destRect) {

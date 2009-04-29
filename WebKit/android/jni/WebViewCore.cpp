@@ -748,10 +748,8 @@ void WebViewCore::contentDraw()
 void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
 {
     DBG_SET_LOGD("rect={%d,%d,w=%d,h=%d}", r.x(), r.y(), r.width(), r.height());
-    SkIRect rect, max;
-    android_setrect(&rect, r);
-    max.set(0, 0, INT_MAX, INT_MAX);
-    if (!rect.intersect(max))
+    SkIRect rect(r);
+    if (!rect.intersect(0, 0, INT_MAX, INT_MAX))
         return;
     m_addInval.op(rect, SkRegion::kUnion_Op);
     DBG_SET_LOGD("m_addInval={%d,%d,r=%d,b=%d}",

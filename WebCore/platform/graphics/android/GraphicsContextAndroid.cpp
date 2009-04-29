@@ -46,6 +46,7 @@
 #include "SkGradientShader.h"
 #include "SkBitmapRef.h"
 #include "SkString.h"
+#include "SkiaUtils.h"
 
 using namespace std;
 
@@ -411,9 +412,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  r;
-
-    android_setrect(&r, rect);
+    SkRect  r(rect);
 
     if (fillColor().alpha()) {
         m_data->setup_paint_fill(&paint);
@@ -499,9 +498,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         canvas->drawPoints(SkCanvas::kPoints_PointMode, count, verts, paint);
         canvas->restore();
     } else {
-        SkPoint pts[2];
-        android_setpt(&pts[0], point1);
-        android_setpt(&pts[1], point2);
+        SkPoint pts[2] = { point1, point2 };
         canvas->drawLine(pts[0].fX, pts[0].fY, pts[1].fX, pts[1].fY, paint);
     }
 }
@@ -557,10 +554,8 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  oval;
+    SkRect  oval(rect);
     
-    android_setrect(&oval, rect);
-
     if (fillColor().rgb() & 0xFF000000) {
         m_data->setup_paint_fill(&paint);
         GC2Canvas(this)->drawOval(oval, paint);
@@ -590,10 +585,8 @@ void GraphicsContext::strokeArc(const IntRect& r, int startAngle, int angleSpan)
 
     SkPath  path;
     SkPaint paint;
-    SkRect  oval;
+    SkRect  oval(r);
     
-    android_setrect(&oval, r);
-
     if (strokeStyle() == NoStroke) {
         m_data->setup_paint_fill(&paint);   // we want the fill color
         paint.setStyle(SkPaint::kStroke_Style);
@@ -655,7 +648,6 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     SkPaint paint;
     SkPath  path;
     SkScalar radii[8];
-    SkRect  r;
     
     radii[0] = SkIntToScalar(topLeft.width());
     radii[1] = SkIntToScalar(topLeft.height());
@@ -665,7 +657,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     radii[5] = SkIntToScalar(bottomRight.height());
     radii[6] = SkIntToScalar(bottomLeft.width());
     radii[7] = SkIntToScalar(bottomLeft.height());
-    path.addRoundRect(*android_setrect(&r, rect), radii);
+    path.addRoundRect(rect, radii);
     
     m_data->setup_paint_fill(&paint);
     GC2Canvas(this)->drawPath(path, paint);
@@ -674,16 +666,14 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
     SkPaint paint;
-    SkRect  r;
     
-    android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
 
     extactShader(&paint, m_common->state.fillColorSpace,
                  m_common->state.fillPattern.get(),
                  m_common->state.fillGradient.get());
 
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
@@ -693,13 +683,11 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 
     if (color.rgb() & 0xFF000000) {
         SkPaint paint;
-        SkRect  r;
         
-        android_setrect(&r, rect);
         m_data->setup_paint_common(&paint);
         paint.setColor(color.rgb());    // punch in the specified color
         paint.setShader(NULL);          // in case we had one set
-        GC2Canvas(this)->drawRect(r, paint);
+        GC2Canvas(this)->drawRect(rect, paint);
     }
 }
 
@@ -708,9 +696,7 @@ void GraphicsContext::clip(const FloatRect& rect)
     if (paintingDisabled())
         return;
     
-    SkRect  r;
-    
-    GC2Canvas(this)->clipRect(*android_setrect(&r, rect));
+    GC2Canvas(this)->clipRect(rect);
 }
 
 void GraphicsContext::clip(const Path& path)
@@ -731,8 +717,8 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
 //printf("-------- addInnerRoundedRectClip: [%d %d %d %d] thickness=%d\n", rect.x(), rect.y(), rect.width(), rect.height(), thickness);
 
     SkPath  path;
-    SkRect r;
-    android_setrect(&r, rect);
+    SkRect r(rect);
+
     path.addOval(r, SkPath::kCW_Direction);
     // only perform the inset if we won't invert r
     if (2*thickness < rect.width() && 2*thickness < rect.height())
@@ -748,9 +734,7 @@ void GraphicsContext::clipOut(const IntRect& r)
     if (paintingDisabled())
         return;
     
-    SkRect  rect;
-    
-    GC2Canvas(this)->clipRect(*android_setrect(&rect, r), SkRegion::kDifference_Op);
+    GC2Canvas(this)->clipRect(r, SkRegion::kDifference_Op);
 }
 
 void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
@@ -758,10 +742,9 @@ void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
     if (paintingDisabled())
         return;
     
-    SkRect  oval;
-    SkPath  path;
+    SkPath path;
 
-    path.addOval(*android_setrect(&oval, r), SkPath::kCCW_Direction);
+    path.addOval(r, SkPath::kCCW_Direction);
     GC2Canvas(this)->clipPath(path, SkRegion::kDifference_Op);
 }
 
@@ -916,7 +899,7 @@ void GraphicsContext::setAlpha(float alpha)
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
-    m_data->mState->mPorterDuffMode = android_convert_compositeOp(op);
+    m_data->mState->mPorterDuffMode = WebCoreCompositeToSkiaComposite(op);
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
@@ -925,12 +908,10 @@ void GraphicsContext::clearRect(const FloatRect& rect)
         return;
     
     SkPaint paint;
-    SkRect  r;
     
-    android_setrect(&r, rect);
     m_data->setup_paint_fill(&paint);
     paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
@@ -939,13 +920,10 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
         return;
     
     SkPaint paint;
-    SkRect  r;
-    
-    android_setrect(&r, rect);
 
     m_data->setup_paint_stroke(&paint, NULL);
     paint.setStrokeWidth(SkFloatToScalar(lineWidth));
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2Canvas(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -1043,8 +1021,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
         return FloatRect();
     
     const SkMatrix& matrix = GC2Canvas(this)->getTotalMatrix();
-    SkRect r;
-    android_setrect(&r, rect);
+    SkRect r(rect);
     matrix.mapRect(&r);
     FloatRect result(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop), SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
     return result;

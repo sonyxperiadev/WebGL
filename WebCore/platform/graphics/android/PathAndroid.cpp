@@ -31,6 +31,7 @@
 #include "StrokeStyleApplier.h"
 #include "TransformationMatrix.h"
 
+#include "SkPaint.h"
 #include "SkPath.h"
 #include "SkRegion.h"
 
@@ -194,18 +195,12 @@ void Path::addArc(const FloatPoint& p, float r, float sa, float ea,
 
 void Path::addRect(const FloatRect& rect)
 {
-    SkRect  r;
-    
-    android_setrect(&r, rect);
-    m_path->addRect(r);
+    m_path->addRect(rect);
 }
 
 void Path::addEllipse(const FloatRect& rect)
 {
-    SkRect  r;
-    
-    android_setrect(&r, rect);
-    m_path->addOval(r);
+    m_path->addOval(rect);
 }
 
 void Path::clear()

@@ -666,8 +666,7 @@ void drawMatches(SkCanvas* canvas)
     unsigned numberOfMatches = m_matches->size();
     if (numberOfMatches > 1
             && numberOfMatches < MAX_NUMBER_OF_MATCHES_TO_DRAW) {
-        SkIRect visibleIRect;
-        android_setrect(&visibleIRect, visible);
+        SkIRect visibleIRect(visible);
         for(unsigned i = 0; i < numberOfMatches; i++) {
             // The current match has already been drawn
             if (i == m_findIndex)
@@ -726,9 +725,7 @@ void drawFocusRing(SkCanvas* canvas)
     m_viewImpl->gButtonMutex.unlock();
     WebCore::IntRect bounds = node->bounds();
     bounds.inflate(SkScalarCeil(FOCUS_RING_OUTER_DIAMETER));
-    SkRect sbounds;
-    android_setrect(&sbounds, bounds);
-    if (canvas->quickReject(sbounds, SkCanvas::kAA_EdgeType)) {
+    if (canvas->quickReject(bounds, SkCanvas::kAA_EdgeType)) {
         DBG_NAV_LOG("canvas->quickReject");
         m_followedLink = false;
         return;

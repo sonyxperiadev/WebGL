@@ -25,139 +25,13 @@
 
 #include "config.h"
 #include "android_graphics.h"
-#include "IntPoint.h"
 #include "IntRect.h"
-#include "FloatPoint.h"
-#include "FloatRect.h"
 #include "SkCanvas.h"
-#include "SkColorPriv.h"
 #include "SkCornerPathEffect.h"
-#include "SkGradientShader.h"
 #include "SkPath.h"
 #include "SkRegion.h"
 
-SkPoint* android_setpt(SkPoint* dst, const WebCore::IntPoint& src)
-{
-    dst->set(SkIntToScalar(src.x()), SkIntToScalar(src.y()));
-    return dst;
-}
-
-SkPoint* android_setpt(SkPoint* dst, const WebCore::FloatPoint& src)
-{
-    dst->set(SkFloatToScalar(src.x()), SkFloatToScalar(src.y()));
-    return dst;
-}
-
-SkRect* android_setrect(SkRect* dst, const WebCore::IntRect& src)
-{
-    dst->set(SkIntToScalar(src.x()),
-             SkIntToScalar(src.y()),
-             SkIntToScalar(src.x() + src.width()),
-             SkIntToScalar(src.y() + src.height()));
-    return dst;
-}
-
-SkIRect* android_setrect(SkIRect* dst, const WebCore::IntRect& src)
-{
-    dst->set(src.x(), src.y(),
-             src.x() + src.width(),
-             src.y() + src.height());
-    return dst;
-}
-
-SkRect* android_setrect(SkRect* dst, const WebCore::FloatRect& src)
-{
-    dst->set(SkFloatToScalar(src.x()),
-             SkFloatToScalar(src.y()),
-             SkFloatToScalar(src.x() + src.width()),
-             SkFloatToScalar(src.y() + src.height()));
-    return dst;
-}
-
-SkIRect* android_setrect(SkIRect* dst, const WebCore::FloatRect& src)
-{
-    dst->set(SkScalarRound(SkFloatToScalar(src.x())),
-             SkScalarRound(SkFloatToScalar(src.y())),
-             SkScalarRound(SkFloatToScalar(src.x() + src.width())),
-             SkScalarRound(SkFloatToScalar(src.y() + src.height())));
-    return dst;
-}
-
-SkIRect* android_setrect_scaled(SkIRect* dst, const WebCore::FloatRect& src,
-                                float sx, float sy)
-{
-    dst->set(SkScalarRound(SkFloatToScalar(src.x() * sx)),
-             SkScalarRound(SkFloatToScalar(src.y() * sy)),
-             SkScalarRound(SkFloatToScalar((src.x() + src.width()) * sx)),
-             SkScalarRound(SkFloatToScalar((src.y() + src.height()) * sy)));
-    return dst;
-}
-
-static const struct CompositOpToPorterDuffMode {
-    uint8_t mCompositOp;
-    uint8_t mPorterDuffMode;
-} gMapCompositOpsToPorterDuffModes[] = {
-    { WebCore::CompositeClear,           SkPorterDuff::kClear_Mode },
-    { WebCore::CompositeCopy,            SkPorterDuff::kSrc_Mode },
-    { WebCore::CompositeSourceOver,      SkPorterDuff::kSrcOver_Mode },
-    { WebCore::CompositeSourceIn,        SkPorterDuff::kSrcIn_Mode },
-    { WebCore::CompositeSourceOut,       SkPorterDuff::kSrcOut_Mode },
-    { WebCore::CompositeSourceAtop,      SkPorterDuff::kSrcATop_Mode },
-    { WebCore::CompositeDestinationOver, SkPorterDuff::kDstOver_Mode },
-    { WebCore::CompositeDestinationIn,   SkPorterDuff::kDstIn_Mode },
-    { WebCore::CompositeDestinationOut,  SkPorterDuff::kDstOut_Mode },
-    { WebCore::CompositeDestinationAtop, SkPorterDuff::kDstATop_Mode },
-    { WebCore::CompositeXOR,             SkPorterDuff::kXor_Mode },
-    { WebCore::CompositePlusDarker,      SkPorterDuff::kDarken_Mode },
-    { WebCore::CompositeHighlight,       SkPorterDuff::kSrcOver_Mode },  // TODO
-    { WebCore::CompositePlusLighter,     SkPorterDuff::kLighten_Mode }
-};
-
-SkPorterDuff::Mode android_convert_compositeOp(WebCore::CompositeOperator op)
-{
-    const CompositOpToPorterDuffMode* table = gMapCompositOpsToPorterDuffModes;
-    
-    for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToPorterDuffModes); i++) {
-        if (table[i].mCompositOp == op) {
-            return (SkPorterDuff::Mode)table[i].mPorterDuffMode;
-        }
-    }
-
-    SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositOperator %d\n", op));
-    return SkPorterDuff::kSrcOver_Mode; // fall-back
-}
-
 ///////////////////////////////////////////////////////////////////////////////
-
-static U8CPU InvScaleByte(U8CPU component, uint32_t scale)
-{
-    SkASSERT(component == (uint8_t)component);
-    return (component * scale + 0x8000) >> 16;
-}
-
-// move this guy into SkColor.h
-static SkColor SkPMColorToColor(SkPMColor pm)
-{
-    if (0 == pm)
-        return 0;
-    
-    unsigned a = SkGetPackedA32(pm);
-    uint32_t scale = (255 << 16) / a;
-    
-    return SkColorSetARGB(a,
-                          InvScaleByte(SkGetPackedR32(pm), scale),
-                          InvScaleByte(SkGetPackedG32(pm), scale),
-                          InvScaleByte(SkGetPackedB32(pm), scale));
-}
-
-WebCore::Color android_SkPMColorToWebCoreColor(SkPMColor pm)
-{
-    SkColor c = SkPMColorToColor(pm);
-    
-    // need the cast to find the right constructor
-    return WebCore::Color((int)SkColorGetR(c), (int)SkColorGetG(c),
-                          (int)SkColorGetB(c), (int)SkColorGetA(c));
-}
 
 const static SkColor focusOuterColors[] = {
     SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal focus ring select
@@ -192,11 +66,12 @@ void FocusRing::DrawRing(SkCanvas* canvas,
     SkPath                  path;
     for (unsigned i = 0; i < rectCount; i++)
     {
-        SkIRect    r;
+        SkRect  r(rects[i]);
+        SkIRect ir;
 
-        android_setrect(&r, rects[i]);
-        r.inset(-FOCUS_RING_OUTER_OUTSET, -FOCUS_RING_OUTER_OUTSET);
-        rgn.op(r, SkRegion::kUnion_Op);
+        r.round(&ir);
+        ir.inset(-FOCUS_RING_OUTER_OUTSET, -FOCUS_RING_OUTER_OUTSET);
+        rgn.op(ir, SkRegion::kUnion_Op);
     }
     rgn.getBoundaryPath(&path);
 

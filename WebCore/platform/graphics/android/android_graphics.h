@@ -26,38 +26,16 @@
 #ifndef android_graphics_DEFINED
 #define android_graphics_DEFINED
 
-#include "Color.h"
-#include "Image.h"
 #include "wtf/Vector.h"
 
-#include "SkColor.h"
-#include "SkPorterDuff.h"
-#include "SkScalar.h"
-#include "SkShader.h"
+#include "SkTypes.h"
 
 class SkCanvas;
-struct SkPoint;
-struct SKRect;
 
 namespace WebCore {
-    class FloatRect;
-    class IntPoint;
     class IntRect;
     class GraphicsContext;
 }
-
-SkPoint* android_setpt(SkPoint* dst, const WebCore::IntPoint& src);
-SkPoint* android_setpt(SkPoint* dst, const WebCore::FloatPoint& src);
-SkRect* android_setrect(SkRect* dst, const WebCore::IntRect& src);
-SkRect* android_setrect(SkRect* dst, const WebCore::FloatRect& src);
-SkIRect* android_setrect(SkIRect* dst, const WebCore::IntRect& src);
-SkIRect* android_setrect(SkIRect* dst, const WebCore::FloatRect& src);
-SkIRect* android_setrect_scaled(SkIRect* dst, const WebCore::FloatRect& src,
-                                float sx, float sy);
-
-SkPorterDuff::Mode android_convert_compositeOp(WebCore::CompositeOperator);
-
-WebCore::Color android_SkPMColorToWebCoreColor(SkPMColor pm);
 
 SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc);
 

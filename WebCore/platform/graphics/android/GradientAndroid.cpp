@@ -73,9 +73,7 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
         this->getColor(0, &r, &g, &b, &a);
     }
 
-    SkPoint pts[2];
-    android_setpt(&pts[0], m_p0);
-    android_setpt(&pts[1], m_p1);
+    SkPoint pts[2] = { m_p0, m_p1 };    // convert to SkPoint
 
     const size_t count = m_stops.size();
     SkAutoMalloc    storage(count * (sizeof(SkColor) + sizeof(SkScalar)));
@@ -121,7 +119,7 @@ void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 
     paint.setAntiAlias(true);
     paint.setShader(this->getShader(mode));
-    android_gc2canvas(context)->drawRect(*android_setrect(&r, rect), paint);
+    android_gc2canvas(context)->drawRect(rect, paint);
 }
 
 

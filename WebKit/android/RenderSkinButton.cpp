@@ -90,8 +90,7 @@ void RenderSkinButton::Draw(SkCanvas* canvas, const IntRect& r, RenderSkinAndroi
             static_cast<unsigned>(RenderSkinAndroid::kNumStates));
 
     // Set up the ninepatch information for drawing.
-    SkRect bounds;
-    android_setrect(&bounds, r);
+    SkRect bounds(r);
     const PatchData& pd = gFiles[newState];
     int marginValue = pd.margin + pd.outset;
 

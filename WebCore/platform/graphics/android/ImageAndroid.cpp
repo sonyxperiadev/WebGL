@@ -42,6 +42,7 @@
 #include "SkShader.h"
 #include "SkString.h"
 #include "SkTemplates.h"
+#include "SkiaUtils.h"
 
 #include <utils/AssetManager.h>
 
@@ -148,12 +149,29 @@ void BitmapImage::checkForSolidColor()
                 return;  // keep solid == false
         }
         m_isSolidColor = true;
-        m_solidColor = android_SkPMColorToWebCoreColor(color);
+        m_solidColor = SkPMColorToWebCoreColor(color);
     }
 }
 
+static void round(SkIRect* dst, const WebCore::FloatRect& src)
+{
+    dst->set(SkScalarRound(SkFloatToScalar(src.x())),
+             SkScalarRound(SkFloatToScalar(src.y())),
+             SkScalarRound(SkFloatToScalar((src.x() + src.width()))),
+             SkScalarRound(SkFloatToScalar((src.y() + src.height()))));
+}
+
+static void round_scaled(SkIRect* dst, const WebCore::FloatRect& src,
+                         float sx, float sy)
+{
+    dst->set(SkScalarRound(SkFloatToScalar(src.x() * sx)),
+             SkScalarRound(SkFloatToScalar(src.y() * sy)),
+             SkScalarRound(SkFloatToScalar((src.x() + src.width()) * sx)),
+             SkScalarRound(SkFloatToScalar((src.y() + src.height()) * sy)));
+}
+
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
-                       const FloatRect& srcRect, CompositeOperator compositeOp)
+                   const FloatRect& srcRect, CompositeOperator compositeOp)
 {
     startAnimation();
 
@@ -174,12 +192,11 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     }
 
     SkIRect srcR;
-    SkRect  dstR;    
+    SkRect  dstR(dstRect);
     float invScaleX = (float)bitmap.width() / image->origWidth();
     float invScaleY = (float)bitmap.height() / image->origHeight();
 
-    android_setrect(&dstR, dstRect);
-    android_setrect_scaled(&srcR, srcRect, invScaleX, invScaleY);
+    round_scaled(&srcR, srcRect, invScaleX, invScaleY);
     if (srcR.isEmpty() || dstR.isEmpty()) {
 #ifdef TRACE_SKIPPED_BITMAPS
         SkDebugf("----- skip bitmapimage: [%d %d] src-empty %d dst-empty %d\n",
@@ -193,7 +210,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     SkPaint     paint;
 
     paint.setFilterBitmap(true);
-    paint.setPorterDuffXfermode(android_convert_compositeOp(compositeOp));
+    paint.setPorterDuffXfermode(WebCoreCompositeToSkiaComposite(compositeOp));
     canvas->drawBitmapRect(bitmap, &srcR, dstR, &paint);
 
 #ifdef TRACE_SUBSAMPLED_BITMAPS
@@ -229,12 +246,12 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
         return;
     }
 
-    SkRect  dstR;    
-    android_setrect(&dstR, destRect);
+    SkRect  dstR(destRect);
     if (dstR.isEmpty()) {
         return;
     }
 
+    SkIRect srcR;
     // we may have to scale if the image has been subsampled (so save RAM)
     bool imageIsSubSampled = image->origWidth() != origBitmap.width() ||
                              image->origHeight() != origBitmap.height();
@@ -244,21 +261,13 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
         scaleX = (float)image->origWidth() / origBitmap.width();
         scaleY = (float)image->origHeight() / origBitmap.height();
 //        SkDebugf("----- subsampled %g %g\n", scaleX, scaleY);
+        round_scaled(&srcR, srcRect, 1 / scaleX, 1 / scaleY);
+    } else {
+        round(&srcR, srcRect);
     }
 
     // now extract the proper subset of the src image
     SkBitmap bitmap;
-    SkIRect srcR;
-    // invscale their srcrect, and round to an SkIRect for skia
-    if (imageIsSubSampled) {
-        float invX = 1 / scaleX;
-        float invY = 1 / scaleY;
-        FloatRect scaledSrcRect(srcRect.x() * invX, srcRect.y() * invY,
-                            srcRect.width() * invX, srcRect.height() * invY);
-        (void)android_setrect(&srcR, scaledSrcRect);
-    } else {
-        (void)android_setrect(&srcR, srcRect);
-    }
     if (!origBitmap.extractSubset(&bitmap, srcR)) {
         SkDebugf("--- Image::drawPattern calling extractSubset failed\n");
         return;
@@ -272,7 +281,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
                                                     SkShader::kRepeat_TileMode);
     paint.setShader(shader)->unref();
     // now paint is the only owner of shader
-    paint.setPorterDuffXfermode(android_convert_compositeOp(compositeOp));
+    paint.setPorterDuffXfermode(WebCoreCompositeToSkiaComposite(compositeOp));
     paint.setFilterBitmap(true);
 
     SkMatrix matrix(patternTransform);

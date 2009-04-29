@@ -98,8 +98,7 @@ void PluginWidgetAndroid::inval(const WebCore::IntRect& rect,
         return;
     }
 
-    SkIRect r;
-    m_flipPixelRef->inval(*android_setrect(&r, rect));
+    m_flipPixelRef->inval(rect);
     
     if (signalRedraw && m_flipPixelRef->isDirty()) {
         m_core->invalPlugin(this);

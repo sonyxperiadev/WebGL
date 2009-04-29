@@ -62,8 +62,7 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
     if (!s_decoded || !element) {
         return;
     }
-    SkRect r;
-    android_setrect(&r, ir);
+    SkRect r(ir);
     int saveLayerCount = 0;
     int saveScaleCount = 0;
 
