@@ -33,7 +33,6 @@
 #include "PlatformString.h"
 #include "StringHash.h"
 #include "Timer.h"
-#include <JavaScriptCore/JSContextRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
@@ -43,11 +42,13 @@
 #include "JavaScriptDebugListener.h"
 #endif
 
-
+#if USE(JSC)
+#include <JavaScriptCore/JSContextRef.h>
 namespace JSC {
     class Profile;
     class UString;
 }
+#endif
 
 namespace WebCore {
 
@@ -176,10 +177,12 @@ public:
     void clearConsoleMessages();
     void toggleRecordButton(bool);
 
+#if USE(JSC)
     void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
     void addProfileMessageToConsole(PassRefPtr<JSC::Profile> prpProfile, unsigned lineNumber, const JSC::UString& sourceURL);
     void addScriptProfile(JSC::Profile* profile);
     const ProfilesArray& profiles() const { return m_profiles; }
+#endif
 
     void attachWindow();
     void detachWindow();
@@ -192,8 +195,10 @@ public:
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
     void handleMousePressOnNode(Node*);
 
+#if USE(JSC)
     JSContextRef scriptContext() const { return m_scriptContext; };
     void setScriptContext(JSContextRef context) { m_scriptContext = context; };
+#endif
 
     void inspectedWindowScriptObjectCleared(Frame*);
     void windowScriptObjectAvailable();
@@ -214,8 +219,13 @@ public:
     void didReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived);
     void didFinishLoading(DocumentLoader*, unsigned long identifier);
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
+#if USE(JSC)
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString);
     void scriptImported(unsigned long identifier, const JSC::UString& sourceString);
+#elif USE(V8)
+    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString);
+    void scriptImported(unsigned long identifier, const String& sourceString);
+#endif
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -266,15 +276,19 @@ private:
     InspectorController(Page*, InspectorClient*);
     void focusNode();
 
+#if USE(JSC)
     void addConsoleMessage(JSC::ExecState*, ConsoleMessage*);
+#endif
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
 
+#if USE(JSC)
     JSObjectRef addScriptResource(InspectorResource*);
+    JSObjectRef addAndUpdateScriptResource(InspectorResource*);
+#endif
     void removeScriptResource(InspectorResource*);
 
-    JSObjectRef addAndUpdateScriptResource(InspectorResource*);
     void updateScriptResourceRequest(InspectorResource*);
     void updateScriptResourceResponse(InspectorResource*);
     void updateScriptResourceType(InspectorResource*);
@@ -285,16 +299,20 @@ private:
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
+#if USE(JSC)
     JSValueRef callSimpleFunction(JSContextRef, JSObjectRef thisObject, const char* functionName) const;
     JSValueRef callFunction(JSContextRef, JSObjectRef thisObject, const char* functionName, size_t argumentCount, const JSValueRef arguments[], JSValueRef& exception) const;
 
     bool handleException(JSContextRef, JSValueRef exception, unsigned lineNumber) const;
+#endif
 
     void showWindow();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+#if USE(JSC)
     virtual void didParseSource(JSC::ExecState*, const JSC::SourceCode&);
     virtual void failedToParseSource(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
+#endif
     virtual void didPause();
 #endif
 
@@ -307,7 +325,9 @@ private:
     HashSet<String> m_knownResources;
     FrameResourcesMap m_frameResources;
     Vector<ConsoleMessage*> m_consoleMessages;
+#if USE(JSC)  
     ProfilesArray m_profiles;
+#endif
     HashMap<String, double> m_times;
     HashMap<String, unsigned> m_counts;
 #if ENABLE(DATABASE)
@@ -316,9 +336,11 @@ private:
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesSet m_domStorageResources;
 #endif
+#if USE(JSC)
     JSObjectRef m_scriptObject;
     JSObjectRef m_controllerScriptObject;
     JSContextRef m_scriptContext;
+#endif    
     bool m_windowVisible;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;

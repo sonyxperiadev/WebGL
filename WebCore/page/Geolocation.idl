@@ -28,10 +28,11 @@ module core {
     interface Geolocation {
         readonly attribute Geoposition lastPosition;
 
+#if !defined(V8_BINDING)
         [Custom] void getCurrentPosition(in PositionCallback successCallback, in PositionErrorCallback errorCallback, in PositionOptions options);
 
         [Custom] long watchPosition(in PositionCallback successCallback, in PositionErrorCallback errorCallback, in PositionOptions options);
-
+#endif
         void clearWatch(in long watchId);
     };
 

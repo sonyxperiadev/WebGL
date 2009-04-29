@@ -1575,7 +1575,9 @@ void Frame::pageDestroyed()
     if (page() && page()->focusController()->focusedFrame() == this)
         page()->focusController()->setFocusedFrame(0);
 
+#if USE(JSC)
     script()->clearWindowShell();
+#endif
 
     // This will stop any JS timers
     if (script()->haveWindowShell())

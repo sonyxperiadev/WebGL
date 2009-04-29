@@ -40,10 +40,15 @@
 #include "PageURLRecord.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
-#include <runtime/InitializeThreading.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
+
+#if USE(JSC)
+#include <runtime/InitializeThreading.h>
+#elif USE(V8)
+#include "V8InitializeThreading.h"
+#endif
 
 #if PLATFORM(WIN_OS)
 #include <windows.h>
@@ -106,7 +111,11 @@ static IconDatabaseClient* defaultClient()
 IconDatabase* iconDatabase()
 {
     if (!sharedIconDatabase) {
+#if USE(JSC)
         JSC::initializeThreading();
+#elif USE(V8)
+        V8::initializeThreading();
+#endif
         sharedIconDatabase = new IconDatabase;
     }
     return sharedIconDatabase;

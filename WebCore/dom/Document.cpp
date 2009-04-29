@@ -114,7 +114,9 @@
 #include "XMLHttpRequest.h"
 #include "XMLNames.h"
 #include "XMLTokenizer.h"
+#if USE(JSC)
 #include "JSDOMBinding.h"
+#endif
 #include "ScriptController.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/HashFunctions.h>
@@ -455,7 +457,10 @@ Document::~Document()
 
     removeAllEventListeners();
 
+
+#if USE(JSC)
     forgetAllDOMNodesForDocument(this);
+#endif
 
     if (m_docChanged && changedDocuments)
         changedDocuments->remove(this);

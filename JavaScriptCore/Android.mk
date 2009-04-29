@@ -72,12 +72,6 @@ LOCAL_SRC_FILES := \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
 	\
-	pcre/pcre_compile.cpp \
-	pcre/pcre_exec.cpp \
-	pcre/pcre_tables.cpp \
-	pcre/pcre_ucp_searchfuncs.cpp \
-	pcre/pcre_xclass.cpp \
-	\
 	profiler/HeavyProfile.cpp \
 	profiler/Profile.cpp \
 	profiler/ProfileGenerator.cpp \
@@ -166,27 +160,6 @@ LOCAL_SRC_FILES := \
 	wrec/WRECGenerator.cpp \
 	wrec/WRECParser.cpp \
 	\
-	wtf/Assertions.cpp \
-	wtf/ByteArray.cpp \
-	wtf/CurrentTime.cpp \
-	wtf/FastMalloc.cpp \
-	wtf/HashTable.cpp \
-	wtf/MainThread.cpp \
-	wtf/RandomNumber.cpp \
-	wtf/RefCountedLeakCounter.cpp \
-	wtf/TCSystemAlloc.cpp \
-	wtf/Threading.cpp \
-	wtf/ThreadingPthreads.cpp \
-	\
-	wtf/android/MainThreadAndroid.cpp \
-	\
-	wtf/TypeTraits.cpp \
-	wtf/dtoa.cpp \
-	\
-	wtf/unicode/CollatorDefault.cpp \
-	wtf/unicode/UTF8.cpp \
-	\
-	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.
 GEN := $(intermediates)/parser/Grammar.cpp
@@ -220,13 +193,4 @@ $(LEXER_HEADER): $(LOCAL_PATH)/create_hash_table
 $(LEXER_HEADER): $(intermediates)/%.lut.h : $(LOCAL_PATH)/parser/Keywords.table
 	$(transform-generated-source)
 
-CHARTABLES := $(intermediates)/chartables.c
-$(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)
-$(CHARTABLES): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/pcre/dftables $@
-$(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
-$(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
-	$(transform-generated-source)
-
-$(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
-
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES)
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER)

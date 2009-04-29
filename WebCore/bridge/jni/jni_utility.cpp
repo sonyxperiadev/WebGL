@@ -28,11 +28,14 @@
 
 #if ENABLE(MAC_JAVA_BRIDGE)
 
+#if USE(JSC)
 #include "jni_runtime.h"
 #include "runtime_array.h"
 #include "runtime_object.h"
 #include <runtime/JSArray.h>
 #include <runtime/JSLock.h>
+#endif
+
 #include <dlfcn.h>
 
 namespace JSC {
@@ -347,6 +350,7 @@ jvalue getJNIField( jobject obj, JNIType type, const char *name, const char *sig
     return result;
 }
 
+#if USE(JSC)
 static jobject convertArrayInstanceToJavaArray(ExecState* exec, JSArray* jsArray, const char* javaClassName)
 {
     JNIEnv *env = getJNIEnv();
@@ -576,6 +580,7 @@ jvalue convertValueToJValue(ExecState* exec, JSValuePtr value, JNIType _JNIType,
     }
     return result;
 }
+#endif  // USE(JSC)
 
 }  // end of namespace Bindings
 

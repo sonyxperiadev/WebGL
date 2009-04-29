@@ -395,9 +395,11 @@ module window {
 #if defined(V8_BINDING)
         // With JSC, these are added in JSDOMWindowBase.cpp.
         attribute XMLHttpRequestConstructor XMLHttpRequest;
-        attribute XSLTProcessorConstructor XSLTProcessor;
         attribute MessageChannelConstructor MessageChannel;
         attribute WebKitPointConstructor WebKitPoint;
+#if ENABLE_XSLT        
+        attribute XSLTProcessorConstructor XSLTProcessor;
+#endif
 #if ENABLE_WORKERS
         attribute WorkerConstructor Worker;
 #endif

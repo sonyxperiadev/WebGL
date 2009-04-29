@@ -30,6 +30,7 @@
 
 #include "config.h"
 #include "V8CustomBinding.h"
+#include "V8Proxy.h"
 
 #include "Element.h"
 #include "Document.h"

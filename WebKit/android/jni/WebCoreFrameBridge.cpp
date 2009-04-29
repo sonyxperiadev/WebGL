@@ -46,7 +46,6 @@
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include "GCController.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
 #include "HTMLElement.h"
@@ -56,9 +55,16 @@
 #include "IconDatabase.h"
 #include "Image.h"
 #include "InspectorClientAndroid.h"
+
+#if USE(JSC)
+#include "GCController.h"
 #include "JSDOMWindow.h"
 #include <runtime/InitializeThreading.h>
 #include <runtime/JSLock.h>
+#elif USE(V8)
+#include "V8InitializeThreading.h"
+#endif  // USE(JSC)
+
 #include "KURL.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -82,11 +88,17 @@
 #include "WebViewCore.h"
 #include "wds/DebugServer.h"
 
+#if USE(JSC)
 #include <runtime_root.h>
 #include <runtime_object.h>
+#endif  // USE(JSC)
+
 #include <jni_utility.h>
 #include "jni.h"
+
+#if USE(JSC)
 #include "jni_instance.h"
+#endif  // USE(JSC)
 
 #include <JNIHelp.h>
 #include <SkGraphics.h>
@@ -97,11 +109,7 @@
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
-#include <runtime/JSLock.h>
 #endif
-
-using namespace JSC;
-using namespace JSC::Bindings;
 
 namespace android {
 
@@ -681,7 +689,12 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
 
 static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAssetManager, jobject historyList)
 {
+#if USE(JSC)
     JSC::initializeThreading();
+#elif USE(V8)
+    V8::initializeThreading();
+#endif
+
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
@@ -928,21 +941,22 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     return env->NewString((unsigned short*)result.characters(), len);
 }
 
+#if USE(JSC)
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
 // weak reference so that the gc can collect the WebView. Override virtualBegin
 // and virtualEnd and swap the weak reference for the real object.
-class WeakJavaInstance : public JavaInstance {
+class WeakJavaInstance : public JSC::Bindings::JavaInstance {
 public:
     static PassRefPtr<WeakJavaInstance> create(jobject obj,
-            PassRefPtr<RootObject> root) {
+            PassRefPtr<JSC::Bindings::RootObject> root) {
         return adoptRef(new WeakJavaInstance(obj, root));
     }
 
 protected:
-    WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
-        : JavaInstance(instance, rootObject)
+    WeakJavaInstance(jobject instance, PassRefPtr<JSC::Bindings::RootObject> rootObject)
+        : JSC::Bindings::JavaInstance(instance, rootObject)
     {
-        JNIEnv* env = getJNIEnv();
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
         env->DeleteGlobalRef(_instance->_instance);
         // Set the object to our WeakReference wrapper.
@@ -951,7 +965,7 @@ protected:
 
     virtual void virtualBegin() {
         _weakRef = _instance->_instance;
-        JNIEnv* env = getJNIEnv();
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
         // maintain the local reference across calls to virtualBegin() and
@@ -968,16 +982,17 @@ protected:
         // Call the base class method first to pop the local frame.
         INHERITED::virtualEnd();
         // Get rid of the local reference to the real object.
-        getJNIEnv()->DeleteLocalRef(_realObject);
+        JSC::Bindings::getJNIEnv()->DeleteLocalRef(_realObject);
         // Point back to the WeakReference.
         _instance->_instance = _weakRef;
     }
 
 private:
-    typedef JavaInstance INHERITED;
+    typedef JSC::Bindings::JavaInstance INHERITED;
     jobject _realObject;
     jobject _weakRef;
 };
+#endif  // USE(JSC)
 
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
         jobject javascriptObj, jstring interfaceName)
@@ -992,6 +1007,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     env->GetJavaVM(&vm);
     LOGV("::WebCore:: addJSInterface: %p", pFrame);
 
+#if USE(JSC)
     // Copied from qwebframe.cpp
     JSC::JSLock lock(false);
     WebCore::JSDOMWindow *window = WebCore::toJSDOMWindow(pFrame);
@@ -1012,6 +1028,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
             checkException(env);
         }
     }
+#endif  // USE(JSC)
 }
 
 static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
@@ -1034,22 +1051,25 @@ static void ClearCache(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-
+#if USE(JSC)
     JSC::JSLock lock(false);
     JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
     LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
             jsHeapStatistics.size, jsHeapStatistics.free);
+#endif  // USE(JSC)           
     LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead", 
             cache()->getLiveSize(), cache()->getDeadSize());
-#endif
+#endif  // ANDROID_INSTRUMENT
     if (!WebCore::cache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
         // still live on if they are referenced by some Web page though.
         WebCore::cache()->setDisabled(true);
         WebCore::cache()->setDisabled(false);
     }
+#if USE(JSC)    
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
+#endif  // USE(JSC)
     // clear image cache
     SkImageRef_GlobalPool::SetRAMUsed(0);
 }
