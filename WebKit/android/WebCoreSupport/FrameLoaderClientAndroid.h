@@ -173,7 +173,7 @@ namespace android {
             const String&, bool);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         
-        virtual Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+        virtual Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const WTF::Vector<String>& paramNames, const WTF::Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;

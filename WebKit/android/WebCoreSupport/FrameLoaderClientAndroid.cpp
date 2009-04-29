@@ -976,6 +976,9 @@ ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url,
     if (equalIgnoringCase(mimeType, "text/html") ||
         equalIgnoringCase(mimeType, "text/xml") ||
         equalIgnoringCase(mimeType, "text/") ||
+#if ENABLE(SVG)
+        equalIgnoringCase(mimeType, "image/svg+xml") ||
+#endif
         equalIgnoringCase(mimeType, "application/xml") ||
         equalIgnoringCase(mimeType, "application/xhtml+xml") ||
         equalIgnoringCase(mimeType, "application/x-javascript"))

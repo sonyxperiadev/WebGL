@@ -252,7 +252,7 @@ void Path::apply(void* info, PathApplierFunction function) const
             break;
         case SkPath::kClose_Verb:
             elem.type = PathElementCloseSubpath;
-            elem.points = NULL;
+            elem.points = setfpts(fpts, 0, 0);
             break;
         case SkPath::kDone_Verb:
             return;

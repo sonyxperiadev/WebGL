@@ -92,8 +92,9 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
 
     SkShader* s;
     if (m_radial)
-        s = SkGradientShader::CreateRadial(pts[0], SkFloatToScalar(m_r0),
-                                           colors, pos, count, mode);
+        // FIXME: SVG always passes 0 for m_r0
+        s = SkGradientShader::CreateRadial(pts[0],
+            SkFloatToScalar(m_r0 ? m_r0 : m_r1), colors, pos, count, mode);
     else
         s = SkGradientShader::CreateLinear(pts, colors, pos, count, mode);
 
@@ -104,6 +105,9 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
     m_gradient->m_shader->safeUnref();
     m_gradient->m_shader = s;
     m_gradient->m_tileMode = mode;
+    SkMatrix matrix = m_gradientSpaceTransformation;
+    s->setLocalMatrix(matrix);
+
     return s;
 }
 

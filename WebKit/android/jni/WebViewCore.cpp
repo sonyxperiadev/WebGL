@@ -186,6 +186,7 @@ Mutex WebViewCore::gFrameCacheMutex;
 Mutex WebViewCore::gFrameGenerationMutex;
 Mutex WebViewCore::gRecomputeFocusMutex;
 Mutex WebViewCore::gButtonMutex;
+Mutex WebViewCore::gNotifyFocusMutex;
 Mutex WebViewCore::m_contentMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
@@ -292,6 +293,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_findIsUp = false;
     m_domtree_version = 0;
     m_check_domtree_version = true;
+    m_progressDone = false;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -570,6 +572,18 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     return tookTooLong;
 }
 
+bool WebViewCore::pictureReady()
+{
+    bool done;
+    m_contentMutex.lock();
+    PictureSet copyContent = PictureSet(m_content);
+    done = m_progressDone;
+    m_contentMutex.unlock();
+    DBG_NAV_LOGD("done=%s empty=%s", done ? "true" : "false",
+        copyContent.isEmpty() ? "true" : "false");
+    return done || !copyContent.isEmpty();
+}
+
 SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 {
     WebCore::FrameView* view = m_mainFrame->view();
@@ -620,12 +634,13 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
+    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
     m_contentMutex.lock();
     PictureSet contentCopy(m_content);
+    m_progressDone = progress <= 0.0f || progress >= 1.0f;
     m_contentMutex.unlock();
     recordPictureSet(&contentCopy);
-    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
-    if (progress > 0.0f && progress < 1.0f && contentCopy.isEmpty()) {
+    if (!m_progressDone && contentCopy.isEmpty()) {
         DBG_SET_LOGD("empty (progress=%g)", progress);
         return false;
     }
@@ -973,8 +988,7 @@ void WebViewCore::dumpNavTree()
 
 WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
 {
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    if (!builder.validNode(frame, node))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, node))
         return WebCore::String();
     if (!node->hasTagName(WebCore::HTMLNames::aTag))
         return WebCore::String();
@@ -993,12 +1007,12 @@ bool WebViewCore::prepareFrameCache()
 #endif
     m_frameCacheOutOfDate = false;
 #if DEBUG_NAV_UI
-    DBG_NAV_LOG("m_frameCacheOutOfDate was true");
     m_now = SkTime::GetMSecs();
 #endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
     m_temp->setGeneration(++m_buildGeneration);
+    DBG_NAV_LOGD("m_buildGeneration=%d", m_buildGeneration);
     CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
@@ -1039,7 +1053,8 @@ void WebViewCore::releaseFrameCache(bool newCache)
         cachedFocusNode ? cachedFocusNode->nodePointer() : 0);
 #endif
     gFrameCacheMutex.unlock();
-    notifyFocusSet();
+    if (!m_blockNotifyFocus)
+        notifyFocusSet();
     // it's tempting to send an invalidate here, but it's a bad idea
     // the cache is now up to date, but the focus is not -- the event
     // may need to be recomputed from the prior history. An invalidate
@@ -1165,6 +1180,15 @@ void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
 {
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d", frame, node, x, y);
     bool result = finalKitFocus(frame, node, x, y, false);
+    bool callNotify = false;
+    gNotifyFocusMutex.lock();
+    if (m_blockNotifyFocus) {
+        m_blockNotifyFocus = false;
+        callNotify = true;
+    }
+    gNotifyFocusMutex.unlock();
+    if (callNotify)
+        notifyFocusSet();
     if (block) {
         m_blockFocusChange = true;
         if (!result && node)
@@ -1210,7 +1234,8 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
     }
     // if the nav cache has been rebuilt since this focus request was generated,
     // send a request back to the UI side to recompute the kit-side focus
-    if (m_buildGeneration > buildGeneration || (node && !FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, node))) {
+    if (m_buildGeneration > buildGeneration
+            || (node && !CacheBuilder::validNode(m_mainFrame, frame, node))) {
         DBG_NAV_LOGD("m_buildGeneration=%d > buildGeneration=%d",
            m_buildGeneration, buildGeneration);
         gRecomputeFocusMutex.lock();
@@ -1236,9 +1261,12 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
 bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y, bool donotChangeDOMFocus)
 {
+    DBG_NAV_LOGD("setFocusedNode frame=%p node=%p x=%d y=%d "
+        "donotChangeDOMFocus=%s", frame, node, x, y,
+        donotChangeDOMFocus ? "true" : "false");
     CacheBuilder& builder = FrameLoaderClientAndroid::
         get(m_mainFrame)->getCacheBuilder();
-    if (!frame || builder.validNode(frame, NULL) == false)
+    if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
     WebCore::Node* oldFocusNode = builder.currentFocus();
     // mouse event expects the position in the window coordinate
@@ -1249,43 +1277,24 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
-    bool valid = builder.validNode(frame, node);
-    // donotChangeDOMFocus prevents changing the focus because it will later be
-    // changed by handleMouseClick.  However, if we hit a textfield,
-    // handleMouseClick is not called.  We need to move the focus and set
-    // the focusController to active so that the cursor/selection is shown.
-    if (!donotChangeDOMFocus || (node && node->renderer()
-            && (node->renderer()->isTextField()
-                || node->renderer()->isTextArea()))) {
+    bool valid = CacheBuilder::validNode(m_mainFrame, frame, node);
+    if (!donotChangeDOMFocus) {
         WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
-        // page and oldPage are only used to make the correct FocusController
-        // "active" so that we get a cursor/selection in the appropriate
-        // textfield
-        WebCore::Page* oldPage = oldDoc ? oldDoc->page() : 0;
         if (!node) {
             if (oldFocusNode)
                 oldDoc->setFocusedNode(0);
-            if (oldPage)
-                oldPage->focusController()->setActive(false);
             return false;
         } else if (!valid) {
             DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
             sendMarkNodeInvalid(node);
             if (oldFocusNode)
                 oldDoc->setFocusedNode(0);
-            if (oldPage)
-                oldPage->focusController()->setActive(false);
             return false;
         }
         // If we jump frames (docs), kill the focus on the old doc
         if (oldFocusNode && node->document() != oldDoc) {
             oldDoc->setFocusedNode(0);
         }
-        WebCore::Page* page = node->document()->page();
-        if (page && oldPage != page)
-            page->focusController()->setActive(true);
-        if (oldPage && page != oldPage)
-            oldPage->focusController()->setActive(false);
         if (!node->isTextNode())
             static_cast<WebCore::Element*>(node)->focus(false);
         if (node->document()->focusedNode() != node) {
@@ -1347,7 +1356,7 @@ WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
     WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (current == node)
         return frame;
-    return finalKitFocus(frame, node, x, y, false) ? frame : m_mainFrame;
+    return finalKitFocus(frame, node, x, y, true) ? frame : m_mainFrame;
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
@@ -1603,10 +1612,14 @@ void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, in
     }
 }
 
+void WebViewCore::setFocusControllerActive(bool active)
+{
+    m_mainFrame->page()->focusController()->setActive(active);
+}
+
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
-    if (!FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder()
-            .validNode(frame, 0))
+    if (!CacheBuilder::validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     WebCore::HistoryItem *item = frame->loader()->currentHistoryItem();
 
@@ -1649,9 +1662,8 @@ public:
         }
         // If the select element no longer exists, due to a page change, etc,
         // silently return.
-        if (!m_select ||
-                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
-                        ->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
         int optionIndex = m_select->listToOptionIndex(index);
         m_select->setSelectedIndex(optionIndex, true, false);
@@ -1665,15 +1677,14 @@ public:
     {
         // If the select element no longer exists, due to a page change, etc,
         // silently return.
-        if (!m_select ||
-                !FrameLoaderClientAndroid::get(m_viewImpl->m_mainFrame)
-                        ->getCacheBuilder().validNode(m_frame, m_select))
+        if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
+                m_frame, m_select))
             return;
 
         // If count is 1 or 0, use replyInt.
         SkASSERT(count > 1);
 
-        const Vector<HTMLElement*>& items = m_select->listItems();
+        const WTF::Vector<HTMLElement*>& items = m_select->listItems();
         int totalItems = static_cast<int>(items.size());
         // Keep track of the position of the value we are comparing against.
         int arrayIndex = 0;
@@ -1859,7 +1870,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
     // so just leave the function now.
     if (!isClick)
         return;
-    if (frame && FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().validNode(frame, 0)) {
+    if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());
@@ -1872,8 +1883,8 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
 
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    bool valid = framePtr == NULL || FrameLoaderClientAndroid::get(
-            m_mainFrame)->getCacheBuilder().validNode(framePtr, nodePtr);
+    bool valid = framePtr == NULL
+            || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle
@@ -2215,6 +2226,17 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
         x, y, generation, currentText, keyCode, keyValue, down, cap, fn, sym);
 }
 
+static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
+    viewImpl->setFocusControllerActive(active);
+}
+
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2554,6 +2576,11 @@ static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
     return viewImpl->drawContent(canvas, color);
 }
 
+static bool PictureReady(JNIEnv* env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->pictureReady();
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2570,6 +2597,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) Key },
     { "nativeClick", "()Z",
         (void*) Click },
+    { "nativePictureReady", "()Z",
+        (void*) PictureReady } ,
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
@@ -2588,6 +2617,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ReplaceTextfieldText } ,
     { "passToJs", "(IIIIILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
+    { "nativeSetFocusControllerActive", "(Z)V",
+        (void*) SetFocusControllerActive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",

@@ -99,7 +99,6 @@
 #	dom/Touch*.cpp \
 #	platform/graphics/skia/NativeImageSkia.cpp \
 #	platform/image-decoders/skia/GIFImage*.cpp \
-#	svg/graphics/skia/SVGResourceMaskerSkia.cpp \
 
 # The remainder of the file is read by tools/webkitsync/diff.cpp
 # If you edit it, keep it in alphabetical order
@@ -424,6 +423,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
 	loader/ThreadableLoader.cpp \
+	loader/appcache/ApplicationCache.cpp \
+	loader/appcache/ApplicationCacheGroup.cpp \
+	loader/appcache/ApplicationCacheResource.cpp \
+	loader/appcache/ApplicationCacheStorage.cpp \
+	loader/appcache/DOMApplicationCache.cpp \
+	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
 	loader/icon/IconFetcher.cpp \
@@ -569,10 +574,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
-	platform/graphics/android/TransformationMatrixAndroid.cpp \
 	platform/graphics/android/android_graphics.cpp \
 	\
+	platform/graphics/skia/FloatPointSkia.cpp \
+	platform/graphics/skia/FloatRectSkia.cpp \
+	platform/graphics/skia/IntPointSkia.cpp \
+	platform/graphics/skia/IntRectSkia.cpp \
 	platform/graphics/skia/NativeImageSkia.cpp \
+	platform/graphics/skia/SkiaUtils.cpp \
+	platform/graphics/skia/TransformationMatrixSkia.cpp \
 	\
 	platform/graphics/transforms/Matrix3DTransformOperation.cpp \
 	platform/graphics/transforms/MatrixTransformOperation.cpp \
@@ -584,8 +594,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
-  platform/image-decoders/skia/GIFImageDecoder.cpp \
-  platform/image-decoders/skia/GIFImageReader.cpp \
+	platform/image-decoders/skia/GIFImageDecoder.cpp \
+	platform/image-decoders/skia/GIFImageReader.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \

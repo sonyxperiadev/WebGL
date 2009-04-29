@@ -84,6 +84,7 @@ public:
 
     struct State {
         SkPath*             mPath;
+        SkPathEffect* mPathEffect;
         float               mMiterLimit;
         float               mAlpha;
         float               mStrokeThickness;
@@ -98,6 +99,7 @@ public:
         
         State() {
             mPath            = NULL;    // lazily allocated
+            mPathEffect = 0;
             mMiterLimit      = 4;
             mAlpha           = 1;
             mStrokeThickness = 0.0f;  // Same as default in GraphicsContextPrivate.h
@@ -114,10 +116,12 @@ public:
         State(const State& other) {
             memcpy(this, &other, sizeof(State));
             mPath = deepCopyPtr<SkPath>(other.mPath);
+            mPathEffect->safeRef();
         }
         
         ~State() {
             delete mPath;
+            mPathEffect->safeUnref();
         }
         
         void setShadow(int radius, int dx, int dy, SkColor c) {
@@ -269,6 +273,11 @@ public:
             rect->inset(-SK_ScalarHalf, -SK_ScalarHalf);
         }
 
+        SkPathEffect* pe = mState->mPathEffect;
+        if (pe) {
+            paint->setPathEffect(pe);
+            return false;
+        }
         switch (mCG->strokeStyle()) {
             case NoStroke:
             case SolidStroke:
@@ -284,7 +293,7 @@ public:
 
         if (width > 0) {
             SkScalar intervals[] = { width, width };
-            SkPathEffect* pe = new SkDashPathEffect(intervals, 2, 0);
+            pe = new SkDashPathEffect(intervals, 2, 0);
             paint->setPathEffect(pe)->unref();
             // return true if we're basically a dotted dash of squares
             return RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
@@ -963,8 +972,6 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     if (paintingDisabled())
         return;
 
-    // FIXME: This is lifted directly off SkiaSupport, lines 49-74
-    // so it is not guaranteed to work correctly.
     size_t dashLength = dashes.size();
     if (!dashLength)
         return;
@@ -973,9 +980,10 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     SkScalar* intervals = new SkScalar[count];
 
     for (unsigned int i = 0; i < count; i++)
-        intervals[i] = dashes[i % dashLength];
-// FIXME: setDashPathEffect not defined
-//    platformContext()->setDashPathEffect(new SkDashPathEffect(intervals, count, dashOffset));
+        intervals[i] = SkFloatToScalar(dashes[i % dashLength]);
+    SkPathEffect **effectPtr = &m_data->mState->mPathEffect;
+    (*effectPtr)->safeUnref();
+    *effectPtr = new SkDashPathEffect(intervals, count, SkFloatToScalar(dashOffset));
 
     delete[] intervals;
 }
@@ -1100,12 +1108,6 @@ void GraphicsContext::addPath(const Path& p)
     m_data->addPath(*p.platformPath());
 }
 
-void GraphicsContext::drawPath()
-{
-    this->fillPath();
-    this->strokePath();
-}
-
 void GraphicsContext::fillPath()
 {
     SkPath* path = m_data->getPath();
@@ -1134,7 +1136,7 @@ void GraphicsContext::fillPath()
 void GraphicsContext::strokePath()
 {
     const SkPath* path = m_data->getPath();
-    if (paintingDisabled() || !path || strokeStyle() == NoStroke)
+    if (paintingDisabled() || !path)
         return;
     
     SkPaint paint;

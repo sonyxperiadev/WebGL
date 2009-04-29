@@ -853,7 +853,7 @@ checkOldFocus:
 
 bool focusIsTextArea(FrameCachePermission allowNewer)
 {
-    CachedRoot* root = getFrameCache(allowNewer);
+    CachedRoot* root = getFrameCache(allowNewer, false);
     if (!root) {
         DBG_NAV_LOG("!root");
         return false;
@@ -882,6 +882,11 @@ void focusRingBounds(WebCore::IntRect* bounds)
 
 CachedRoot* getFrameCache(FrameCachePermission allowNewer)
 {
+    return getFrameCache(allowNewer, allowNewer != DontAllowNewer);
+}
+
+CachedRoot* getFrameCache(FrameCachePermission allowNewer, bool fixFocus)
+{
     if (!m_viewImpl->m_updatedFrameCache)
         return m_frameCacheUI;
     m_viewImpl->gRecomputeFocusMutex.lock();
@@ -895,7 +900,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     bool hadFocus = m_frameCacheUI && m_frameCacheUI->currentFocus();
     m_viewImpl->gFrameCacheMutex.lock();
     OutOfFocusFix fix = DoNothing;
-    if (allowNewer != DontAllowNewer)
+    if (fixFocus)
         fix = fixOutOfDateFocus(m_viewImpl->m_useReplay);
     delete m_frameCacheUI;
     delete m_navPictureUI;
@@ -1140,6 +1145,11 @@ bool moveFocus(int keyCode, int count, bool ignoreScroll, bool inval,
 
 void notifyFocusSet(FrameCachePermission inEditingMode)
 {
+    DBG_NAV_LOGD("inEditingMode=%s", inEditingMode ? "true" : "false");
+    if (focusIsTextArea(inEditingMode))
+        updateTextEntry();
+    else if (inEditingMode)
+        clearTextEntry();
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (root) {
         // make sure the mFocusData in WebView.java is in sync with WebView.cpp
@@ -1152,10 +1162,6 @@ void notifyFocusSet(FrameCachePermission inEditingMode)
                 focusLocation.x(), focusLocation.y(), false);
     }
 
-    if (focusIsTextArea(inEditingMode))
-        updateTextEntry();
-    else if (inEditingMode)
-        clearTextEntry();
 #if DEBUG_NAV_UI
     if (m_frameCacheUI) {
         const CachedNode* focus = m_frameCacheUI->currentFocus();
@@ -1617,7 +1623,9 @@ void getSelectionCaret(SkPath* path)
 void sendFinalFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
     DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
-    LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
+    m_viewImpl->gNotifyFocusMutex.lock();
+    m_viewImpl->m_blockNotifyFocus = true;
+    m_viewImpl->gNotifyFocusMutex.unlock();
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendFinalFocus,
         (jint) framePtr, (jint) nodePtr, x, y);
@@ -2119,7 +2127,7 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in nativeFindAll");
     view->setFindIsUp(true);
-    CachedRoot* root = view->getFrameCache(WebView::AllowNewer);
+    CachedRoot* root = view->getFrameCache(WebView::AllowNewer, false);
     if (!root) {
         env->ReleaseStringChars(findLower, findLowerChars);
         env->ReleaseStringChars(findUpper, findUpperChars);

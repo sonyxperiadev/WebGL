@@ -198,5 +198,3 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 # the above rule will make this build too
 $(intermediates)/css/UserAgentStyleSheets.cpp : $(GEN)
-
-

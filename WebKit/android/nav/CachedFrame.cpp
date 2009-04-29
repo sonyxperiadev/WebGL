@@ -973,7 +973,7 @@ bool CachedFrame::setFocus(WebCore::Frame* frame, WebCore::Node* node,
                 if (test->isFocus()) {
                     DBG_NAV_LOGD("already set? test=%d frame=%p node=%p x=%d y=%d", 
                         test->index(), frame, node, x, y);
-                    return true;
+                    return false;
                 }
                 const_cast<CachedRoot*>(mRoot)->setCachedFocus(this, test);
                 return true;

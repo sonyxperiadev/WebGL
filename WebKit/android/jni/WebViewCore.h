@@ -258,6 +258,7 @@ namespace android {
                 int oldStart, int oldEnd, jstring replace, int start, int end);
         void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
             jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
+        void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
 
@@ -303,6 +304,7 @@ namespace android {
         
         // draw the picture set with the specified background color
         bool drawContent(SkCanvas* , SkColor );
+        bool pictureReady();
         
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
@@ -325,7 +327,9 @@ namespace android {
         bool m_updatedFrameCache;
         bool m_useReplay;
         bool m_findIsUp;
+        bool m_blockNotifyFocus;
         static Mutex gRecomputeFocusMutex;
+        static Mutex gNotifyFocusMutex;
         WTF::Vector<int> m_recomputeEvents;
         // These two fields go together: we use the mutex to protect access to
         // m_buttons, so that we, and webview.cpp can look/modify the m_buttons
@@ -380,6 +384,7 @@ namespace android {
         WebCore::IntPoint m_mousePos;
         bool m_frameCacheOutOfDate;
         bool m_blockFocusChange;
+        bool m_progressDone;
         int m_lastPassed;
         int m_lastVelocity;
         CachedHistory m_history;
