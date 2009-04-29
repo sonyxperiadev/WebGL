@@ -35,12 +35,9 @@ PlatformGraphicsContext::PlatformGraphicsContext(SkCanvas* canvas, WTF::Vector<C
 {
 }
 
-PlatformGraphicsContext::PlatformGraphicsContext() : m_deleteCanvas(true)
+PlatformGraphicsContext::PlatformGraphicsContext()
+        : mCanvas(new SkCanvas), m_deleteCanvas(true), m_buttons(0)
 {
-    mCanvas = new SkCanvas;
-    // Since this is our own private SkCanvas, and has no relation to a picture
-    // storing button references would be meaningless.
-    m_buttons = NULL;
 }
 
 PlatformGraphicsContext::~PlatformGraphicsContext()
