@@ -32,11 +32,19 @@ WEBKIT_SRC_FILES :=
 # We have to use bison 2.3
 include $(BASE_PATH)/bison_check.mk
 
-# Define the JS engine used, either jsc or v8.
-# Be careful not to have white spaces after the line.
-JS_ENGINE := v8
+ifeq ($(ENABLE_V8),true)
 
-ifeq ($(JS_ENGINE),jsc)
+d := V8Binding
+LOCAL_PATH := $(BASE_PATH)/$d
+WEBCORE_PATH := $(BASE_PATH)/WebCore
+intermediates := $(base_intermediates)/WebCore
+JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
+include $(LOCAL_PATH)/V8Binding.derived.mk
+WEBKIT_SRC_FILES += $(addprefix $d/, $(LOCAL_SRC_FILES))
+WEBKIT_SRC_FILES += $(addprefix WebCore/, $(WEBCORE_SRC_FILES))
+
+else  # use JSC engine
+
 # Include source files for JavaScriptCore
 d := JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
@@ -51,17 +59,6 @@ LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/JavaScriptCore.derived.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
-
-else  # JS_ENGINE == v8
-
-d := V8Binding
-LOCAL_PATH := $(BASE_PATH)/$d
-WEBCORE_PATH := $(BASE_PATH)/WebCore
-intermediates := $(base_intermediates)/WebCore
-JAVASCRIPTCORE_PATH := $(BASE_PATH)/JavaScriptCore
-include $(LOCAL_PATH)/V8Binding.derived.mk
-WEBKIT_SRC_FILES += $(addprefix $d/, $(LOCAL_SRC_FILES))
-WEBKIT_SRC_FILES += $(addprefix WebCore/, $(WEBCORE_SRC_FILES))
 
 endif
 
@@ -219,7 +216,7 @@ endif
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2
 
-ifeq ($(JS_ENGINE),v8)
+ifeq ($(ENABLE_V8),true)
 LOCAL_STATIC_LIBRARIES += libv8
 endif
 
@@ -244,7 +241,7 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
 
 # Build libv8
-ifeq ($(JS_ENGINE),v8)
+ifeq ($(ENABLE_V8),true)
 include $(BASE_PATH)/v8/Android.mk
 include $(BASE_PATH)/v8/Android.v8shell.mk
 endif
