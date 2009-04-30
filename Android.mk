@@ -188,9 +188,11 @@ LOCAL_C_INCLUDES := \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	$(LOCAL_PATH)/WebCore/platform/graphics/filters \
 	$(LOCAL_PATH)/WebCore/svg \
 	$(LOCAL_PATH)/WebCore/svg/animation \
 	$(LOCAL_PATH)/WebCore/svg/graphics \
+	$(LOCAL_PATH)/WebCore/svg/graphics/filters \
 	$(base_intermediates)/WebCore/svg
 endif
 

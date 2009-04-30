@@ -574,7 +574,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/android_graphics.cpp \
-	\
+
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/graphics/filters/FEBlend.cpp \
+	platform/graphics/filters/FEColorMatrix.cpp \
+	platform/graphics/filters/FEComponentTransfer.cpp \
+	platform/graphics/filters/FEComposite.cpp
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/skia/FloatPointSkia.cpp \
 	platform/graphics/skia/FloatRectSkia.cpp \
 	platform/graphics/skia/IntPointSkia.cpp \
@@ -973,7 +982,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFETile.cpp \
 	svg/graphics/filters/SVGFETurbulence.cpp \
 	svg/graphics/filters/SVGFilterEffect.cpp \
-	svg/graphics/filters/SVGLightSource.cpp
+	svg/graphics/filters/SVGLightSource.cpp \
+	\
+	svg/graphics/skia/SVGResourceFilterSkia.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

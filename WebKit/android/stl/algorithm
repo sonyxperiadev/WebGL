@@ -49,10 +49,6 @@
 #include <SkScalar.h> // for SK_ScalarNaN
 #ifdef PREFIX_FOR_WEBCORE
 #include <SkTSearch.h>
-namespace WebCore {
-    class InlineTextBox;
-    class RenderLayer;
-}
 #endif
 
 #include <float.h>
@@ -63,14 +59,6 @@ namespace WebCore {
 #ifndef WCHAR_MAX
 	#define WCHAR_MAX	0xFFFF
 #endif
-
-namespace JSC {
-    class ProfileNode;
-}
-
-namespace WTF {
-    template <typename T> class RefPtr;
-}
 
 namespace std
 {
@@ -199,12 +187,17 @@ extern void sort(const void** start, const void** end, Comparator comp);
     }
 
     
-    inline void sort (WebCore::InlineTextBox** start, WebCore::InlineTextBox**end, 
-        bool (* comp)(const WebCore::InlineTextBox*, const WebCore::InlineTextBox*)) 
+    template<typename P> inline void sort (P** start, P**end,
+        bool (* comp)(const P*, const P*))
     {
         sort((const void**) start, (const void**) end, (Comparator) comp);
     }
     
+    template<typename P> void sort(P* start, P* end,
+            bool (* comp)(const P&, const P&)) {
+        stable_sort(start, end, *comp);
+    }
+
     template<typename P> inline void stable_sort(P** start, P** end,
        bool (* comp)(P*, P*))
     {
@@ -257,15 +250,6 @@ extern void sort(const void** start, const void** end, Comparator comp);
         int this_class_intentionally_left_empty;
     };
 #endif
-
-typedef bool (* ProfileComparator)(const WTF::RefPtr<JSC::ProfileNode>&, 
-    const WTF::RefPtr<JSC::ProfileNode>&);
-
-inline void sort(WTF::RefPtr<JSC::ProfileNode>* start, 
-        WTF::RefPtr<JSC::ProfileNode>* end, ProfileComparator comp) 
-{
-    sort((const void**) start, (const void**) end, (Comparator) comp);
-}
 
 }
 

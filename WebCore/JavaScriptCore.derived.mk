@@ -678,8 +678,9 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp  $(intermediates)/SVGElementFactory.cpp $(intermediates)/JSSVGElementWrapperFactory.cpp
+SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(svg_tags) --attrs $(svg_attrs) --factory --wrapperFactory --output $(dir $@) 
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(svg_tags) --attrs $(svg_attrs) --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactory --output $(dir $@)
 $(GEN): svg_tags := $(LOCAL_PATH)/svg/svgtags.in
 $(GEN): svg_attrs := $(LOCAL_PATH)/svg/svgattrs.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(svg_tags) $(svg_attrs)

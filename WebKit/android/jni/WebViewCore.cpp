@@ -267,6 +267,8 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
 {
     WebFrameView* webFrameView = static_cast<WebFrameView*>(view->platformWidget());
+    if (!webFrameView)
+        return 0;
     return webFrameView->webViewCore();
 }
 

@@ -87,7 +87,17 @@
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
 #endif
-#define ENABLE_SVG_EXPERIMENTAL_FEATURES 0
+#if ENABLE_SVG
+#define ENABLE_SVG_ANIMATION 0 // to enable:
+    // fix error: no matching function for call to 'sort(WebCore::SVGSMILElement**, WebCore::SVGSMILElement**, WebCore::PriorityCompare)'
+    // fix error: no matching function for call to 'sort(WebCore::SMILTime*, WebCore::SMILTime*)'
+    // add ENABLE_SVG_ANIMATION=1 to SVG_FLAGS in JavaScriptCore.derived.mk
+#define ENABLE_SVG_AS_IMAGE 1
+#define ENABLE_SVG_FILTERS 1
+#define ENABLE_SVG_FONTS 1
+#define ENABLE_SVG_FOREIGN_OBJECT 1
+#define ENABLE_SVG_USE 1
+#endif
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0

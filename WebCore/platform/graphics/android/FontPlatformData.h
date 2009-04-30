@@ -56,6 +56,7 @@ public:
     bool operator==(const FontPlatformData& a) const;
 
     void     setupPaint(SkPaint*) const;
+    float size() const { return mTextSize; }
     unsigned hash() const;
 
 private:

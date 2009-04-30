@@ -103,7 +103,10 @@ void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS
 void ScrollView::platformOffscreenContentRectangle(const IntRect& rect)
 {
-    android::WebViewCore::getWebViewCore(this)->offInvalidate(rect);
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(this);
+    if (!core)
+        return;
+    core->offInvalidate(rect);
 }
 #endif
 
