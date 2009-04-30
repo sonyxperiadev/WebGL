@@ -102,7 +102,6 @@
 
 #include <JNIHelp.h>
 #include <SkGraphics.h>
-#include <SkImageRef_GlobalPool.h>
 #include <utils/misc.h>
 #include <utils/AssetManager.h>
 #include <android_runtime/android_util_AssetManager.h>
@@ -1070,8 +1069,6 @@ static void ClearCache(JNIEnv *env, jobject obj)
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
 #endif  // USE(JSC)
-    // clear image cache
-    SkImageRef_GlobalPool::SetRAMUsed(0);
 }
 
 static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
