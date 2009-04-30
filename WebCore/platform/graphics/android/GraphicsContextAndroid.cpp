@@ -245,7 +245,7 @@ public:
 
     void setup_paint_fill(SkPaint* paint) const {
         this->setup_paint_common(paint);
-        paint->setColor(mState->mFillColor);
+        paint->setColor(mState->applyAlpha(mState->mFillColor));
     }
 
     /*  sets up the paint for stroking. Returns true if the style is really
@@ -253,7 +253,7 @@ public:
     */
     bool setup_paint_stroke(SkPaint* paint, SkRect* rect) {
         this->setup_paint_common(paint);
-        paint->setColor(mState->mStrokeColor);
+        paint->setColor(mState->applyAlpha(mState->mStrokeColor));
                          
         float width = mState->mStrokeThickness;
 

@@ -209,6 +209,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
     SkPaint     paint;
 
+    ctxt->setupFillPaint(&paint);   // need global alpha among other things
     paint.setFilterBitmap(true);
     paint.setPorterDuffXfermode(WebCoreCompositeToSkiaComposite(compositeOp));
     canvas->drawBitmapRect(bitmap, &srcR, dstR, &paint);
@@ -275,6 +276,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
 
     SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
     SkPaint     paint;
+    ctxt->setupFillPaint(&paint);   // need global alpha among other things
 
     SkShader* shader = SkShader::CreateBitmapShader(bitmap,
                                                     SkShader::kRepeat_TileMode,
