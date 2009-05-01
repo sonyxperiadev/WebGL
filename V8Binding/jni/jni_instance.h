@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,24 +28,24 @@
 #define _JNI_INSTANCE_H_
 
 #include <JavaVM/jni.h>
+#include <wtf/RefPtr.h>
 
 namespace android {
 class WeakJavaInstance;
 }
 
+using namespace WTF;
+
 namespace JSC {
 
 namespace Bindings {
 
+class JavaClass;
+
 class JObjectWrapper
 {
-friend class RefPtr<JObjectWrapper>;
-friend class JavaArray;
 friend class JavaInstance;
-friend class JavaMethod;
-friend class android::WeakJavaInstance;
-
-protected:
+public:
     JObjectWrapper(jobject instance);    
     ~JObjectWrapper();
     
@@ -55,31 +56,28 @@ protected:
             delete this; 
     }
 
-    jobject _instance;
-
 private:
     JNIEnv *_env;
     unsigned int _refCount;
+    jobject _instance;
 };
 
 class JavaInstance
 {
 public:
-    static PassRefPtr<JavaInstance> create(jobject instance)
-    {
-        return adoptRef(new JavaInstance(instance));
-    }
-    
+    JavaInstance(jobject instance);
     ~JavaInstance();
-    
-    NPVariant invokeMethod(NPIdentifier methodName, NPVariant* args, uint32_t argsCount);
+
+    JavaClass* getClass() const;
+
+    bool invokeMethod(const char* name, const NPVariant* args, uint32_t argsCount, NPVariant* result);
 
     jobject javaInstance() const { return _instance->_instance; }
 
 private:
-    JavaInstance(jobject instance);
-
     RefPtr<JObjectWrapper> _instance;
+    unsigned int _refCount;
+    mutable JavaClass* _class;
 };
 
 } // namespace Bindings

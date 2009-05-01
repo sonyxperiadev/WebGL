@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +26,7 @@
 
 #include "config.h"
 
+#include "jni_class.h"
 #include "jni_instance.h"
 #include "jni_runtime.h"
 #include "jni_utility.h"
@@ -44,20 +46,32 @@ using namespace JSC::Bindings;
 
 JavaInstance::JavaInstance (jobject instance)
 {
-    _instance = new JObjectWrapper (instance);
+    _instance = new JObjectWrapper(instance);
+    _class = 0;
 }
 
 JavaInstance::~JavaInstance () 
 {
+    delete _class;
 }
 
-#define NUM_LOCAL_REFS 64
+JavaClass* JavaInstance::getClass() const 
+{
+    if (_class == 0)
+        _class = new JavaClass(_instance->_instance);
+    return _class;
+}
 
-bool JavaInstance::invokeMethod(NPIdentifier methodName, NPVariant* args, uint32_t count, NPVariant* resultValue)
+bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, uint32_t count, NPVariant* resultValue)
 {
     int i;
     jvalue *jArgs;
-    Method *method = 0;
+    JavaMethod *method = 0;
+
+    VOID_TO_NPVARIANT(*resultValue);
+
+    MethodList methodList = getClass()->methodsNamed(methodName);
+
     size_t numMethods = methodList.size();
     
     // Try to find a good match for the overloaded method.  The 
@@ -65,7 +79,7 @@ bool JavaInstance::invokeMethod(NPIdentifier methodName, NPVariant* args, uint32
     // notion of method overloading and Java does.  We could 
     // get a bit more sophisticated and attempt to does some
     // type checking as we as checking the number of parameters.
-    Method *aMethod;
+    JavaMethod *aMethod;
     for (size_t methodIndex = 0; methodIndex < numMethods; methodIndex++) {
         aMethod = methodList[methodIndex];
         if (aMethod->numParameters() == count) {
@@ -75,7 +89,7 @@ bool JavaInstance::invokeMethod(NPIdentifier methodName, NPVariant* args, uint32
     }
     if (method == 0) {
         JS_LOG ("unable to find an appropiate method\n");
-        return jsUndefined();
+        return false;
     }
     
     const JavaMethod *jMethod = static_cast<const JavaMethod*>(method);
@@ -134,74 +148,11 @@ bool JavaInstance::invokeMethod(NPIdentifier methodName, NPVariant* args, uint32
                 break;
         }
     }
-        
-    switch (jMethod->JNIReturnType()){
-        case void_type: {
-            VOID_TO_NPVARIANT(*resultValue);
-        }
-        break;
-        
-        case object_type: {
-            if (result.l != 0) {
-                OBJECT_TO_NPVARIANT(JavaObjectToNPObject(JavaInstance::create(result.l)), *resultValue);
-            }
-            else {
-                VOID_TO_NPVARIANT(*resultValue);
-            }
-        }
-        break;
-        
-        case boolean_type: {
-            BOOLEAN_TO_NPVARIANT(result.z, *resultValue);
-        }
-        break;
-        
-        case byte_type: {
-            INT32_TO_NPVARIANT(result.b, *resultValue);
-        }
-        break;
-        
-        case char_type: {
-            INT32_TO_NPVARIANT(result.c, *resultValue);
-        }
-        break;
-        
-        case short_type: {
-            INT32_TO_NPVARIANT(result.s, *resultValue);
-        }
-        break;
-        
-        case int_type: {
-            INT32_TO_NPVARIANT(result.i, *resultValue);
-        }
-        break;
-       
-        // TODO(fqian): check if cast to double is needed.
-        case long_type: {
-            DOUBLE_TO_NPVARIANT(result.j, *resultValue);
-        }
-        break;
-        
-        case float_type: {
-            DOUBLE_TO_NPVARIANT(result.f, *resultValue);
-        }
-        break;
-        
-        case double_type: {
-            DOUBLE_TO_NPVARIANT(result.d, *resultValue);
-        }
-        break;
-
-        case invalid_type:
-        default: {
-            VOID_TO_NPVARIANT(*resultValue);
-        }
-        break;
-    }
-
+    
+    convertJValueToNPVariant(result, jMethod->JNIReturnType(), resultValue);
     free (jArgs);
 
-    return resultValue;
+    return true;
 }
 
 JObjectWrapper::JObjectWrapper(jobject instance)

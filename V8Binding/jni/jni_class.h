@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,22 +29,30 @@
 
 #include <jni_runtime.h>
 #include <wtf/HashMap.h>
+#include <wtf/Vector.h>
+#include "PlatformString.h"
+#include "StringHash.h"
 
 namespace JSC {
 
 namespace Bindings {
 
 typedef Vector<JavaMethod*> MethodList;
-class JavaClass
+typedef HashMap<WebCore::String, MethodList*> MethodListMap;
+typedef HashMap<WebCore::String, JavaField*> FieldMap;
+
+class JavaClass {
 public:
     JavaClass (jobject anInstance);
     ~JavaClass ();
 
-    MethodList methodsNamed(NPIdentifier name, Instance* instance) const;    
-    
+    MethodList methodsNamed(const char* name) const;    
+    JavaField* fieldNamed(const char* name) const;
+
 private:
     const char *_name;
     MethodListMap _methods;
+    FieldMap _fields;
 };
 
 } // namespace Bindings

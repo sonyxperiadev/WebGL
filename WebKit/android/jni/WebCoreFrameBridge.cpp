@@ -63,6 +63,8 @@
 #include <runtime/JSLock.h>
 #elif USE(V8)
 #include "V8InitializeThreading.h"
+#include "jni_npobject.h"
+#include "jni_instance.h"
 #endif  // USE(JSC)
 
 #include "KURL.h"
@@ -1028,6 +1030,16 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         }
     }
 #endif  // USE(JSC)
+
+#if USE(V8)
+    if (pFrame) {
+        const char* name = JSC::Bindings::getCharactersFromJStringInEnv(env, interfaceName);
+        NPObject* obj = JSC::Bindings::JavaInstanceToNPObject(new JSC::Bindings::JavaInstance(javascriptObj));
+        pFrame->script()->BindToWindowObject(pFrame, name, obj);
+        JSC::Bindings::releaseCharactersForJString(interfaceName, name);
+    }
+#endif
+
 }
 
 static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)

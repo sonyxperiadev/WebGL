@@ -23,9 +23,9 @@ BINDING_C_INCLUDES := \
   $(BASE_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
-	$(WEBCORE_PATH)/bridge/jni \
-  $(LOCAL_PATH)/v8 \
+	$(LOCAL_PATH)/v8 \
 	$(LOCAL_PATH)/npapi \
+	$(LOCAL_PATH)/jni \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)
 
@@ -104,9 +104,7 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8XMLHttpRequestConstructor.cpp \
 	bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
-	bindings/v8/custom/V8XMLSerializerConstructor.cpp \
-	\
-	bridge/jni/jni_utility.cpp
+	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
 LOCAL_SRC_FILES := \
   v8/V8InitializeThreading.cpp \
@@ -126,7 +124,13 @@ LOCAL_SRC_FILES := \
 	v8/v8_custom.cpp \
 	v8/v8_helpers.cpp \
 	v8/v8_index.cpp \
-	v8/v8_proxy.cpp
+	v8/v8_proxy.cpp \
+	\
+	jni/jni_class.cpp \
+	jni/jni_instance.cpp \
+	jni/jni_npobject.cpp \
+	jni/jni_runtime.cpp \
+	jni/jni_utility.cpp
 
 LOCAL_SHARED_LIBRARIES += libv8
 

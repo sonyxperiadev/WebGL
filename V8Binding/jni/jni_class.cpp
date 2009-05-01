@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,13 +25,8 @@
  */
 
 #include "config.h"
+
 #include "jni_class.h"
-
-#if ENABLE(MAC_JAVA_BRIDGE)
-
-#include "JSDOMWindow.h"
-#include <runtime/Identifier.h>
-#include <runtime/JSLock.h>
 #include "jni_utility.h"
 #include "jni_runtime.h"
 
@@ -60,7 +56,6 @@ JavaClass::JavaClass(jobject anInstance)
         jobject aJField = env->GetObjectArrayElement((jobjectArray)fields, i);
         JavaField *aField = new JavaField(env, aJField); // deleted in the JavaClass destructor
         {
-            JSLock lock(false);
             _fields.set(aField->name(), aField);
         }
         env->DeleteLocalRef(aJField);
@@ -74,8 +69,6 @@ JavaClass::JavaClass(jobject anInstance)
         JavaMethod *aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
         MethodList* methodList;
         {
-            JSLock lock(false);
-
             methodList = _methods.get(aMethod->name());
             if (!methodList) {
                 methodList = new MethodList();
@@ -95,8 +88,6 @@ JavaClass::JavaClass(jobject anInstance)
 JavaClass::~JavaClass() {
     free((void *)_name);
 
-    JSLock lock(false);
-
     deleteAllValues(_fields);
     _fields.clear();
 
@@ -109,38 +100,16 @@ JavaClass::~JavaClass() {
     _methods.clear();
 }
 
-MethodList JavaClass::methodsNamed(const Identifier& identifier, Instance*) const
+MethodList JavaClass::methodsNamed(const char* name) const
 {
-    MethodList *methodList = _methods.get(identifier.ustring().rep());
+    MethodList *methodList = _methods.get(name);
     
     if (methodList)
         return *methodList;
     return MethodList();
 }
 
-Field *JavaClass::fieldNamed(const Identifier& identifier, Instance*) const
+JavaField* JavaClass::fieldNamed(const char* name) const
 {
-    return _fields.get(identifier.ustring().rep());
+    return _fields.get(name);
 }
-
-bool JavaClass::isNumberClass() const
-{
-    return ((strcmp(_name, "java.lang.Byte") == 0 ||
-             strcmp(_name, "java.lang.Short") == 0 ||
-             strcmp(_name, "java.lang.Integer") == 0 ||
-             strcmp(_name, "java.lang.Long") == 0 ||
-             strcmp(_name, "java.lang.Float") == 0 ||
-             strcmp(_name, "java.lang.Double") == 0) );
-}
-
-bool JavaClass::isBooleanClass() const
-{
-    return strcmp(_name, "java.lang.Boolean") == 0;
-}
-
-bool JavaClass::isStringClass() const
-{
-    return strcmp(_name, "java.lang.String") == 0;
-}
-
-#endif // ENABLE(MAC_JAVA_BRIDGE)

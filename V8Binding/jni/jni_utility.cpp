@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,8 +25,10 @@
  */
 
 #include "config.h"
+#include "npruntime.h"
 #include "jni_utility.h"
 #include "jni_runtime.h"
+#include "jni_npobject.h"
 
 #include <dlfcn.h>
 
@@ -342,10 +345,10 @@ jvalue getJNIField( jobject obj, JNIType type, const char *name, const char *sig
 }
 
 
-jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* javaClassName)
+jvalue convertNPVariantToJValue(NPVariant value, JNIType _JNIType, const char* javaClassName)
 {
     jvalue result;
-    NPVariantType type = value->type;
+    NPVariantType type = value.type;
 
     switch (_JNIType){
         case array_type:
@@ -354,13 +357,9 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
            
             // First see if we have a Java instance.
             if (type == NPVariantType_Object) {
-                NPObject* objectImp = NPVARIANT_TO_OBJECT(*value);
-                if (objectImp->_class == &JavaNPClass) {
-                    JavaNPObject* imp = static_cast<JavaNPObject*>(objectImp);
-                    JavaInstance *instance = imp->_instance;
-                    if (instance)
-                        result.l = instance->javaInstance();
-                }
+                NPObject* objectImp = NPVARIANT_TO_OBJECT(value);
+                if (JavaInstance* instance = ExtractJavaInstance(objectImp))
+                    result.l = instance->javaInstance();
             }
             
             // Now convert value to a string if the target type is a java.lang.string, and we're not
@@ -377,9 +376,9 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 #else
                 if (type == NPVariantType_String) {
 #endif
-                    NPString src = NPVARIANT_TO_STRING(*variant);
+                    NPString src = NPVARIANT_TO_STRING(value);
                     JNIEnv *env = getJNIEnv();
-                    jobject javaString = env->functions->NewStringUTF(env, src.UTF8Characters, src.UTF8Length);
+                    jobject javaString = env->NewStringUTF(src.UTF8Characters);
                     result.l = javaString;
                 }
             } else if (result.l == 0) 
@@ -388,8 +387,8 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
         break;
         
         case boolean_type: {
-            if (type == NPVariantType_Boolean)
-                result.z = NPVARIANT_TO_BOOLEAN(*value);
+            if (type == NPVariantType_Bool)
+                result.z = NPVARIANT_TO_BOOLEAN(value);
             else
                 bzero(&result, sizeof(jvalue));  // as void case
         }
@@ -397,7 +396,7 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
             
         case byte_type: {
             if (type == NPVariantType_Int32)
-                result.b = (byte)NPVARIANT_TO_INT32(*value);
+                result.b = (char)NPVARIANT_TO_INT32(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -405,7 +404,7 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
         
         case char_type: {
             if (type == NPVariantType_Int32)
-                result.c = (char)NPVARIANT_TO_INT32(*value);
+                result.c = (char)NPVARIANT_TO_INT32(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -413,7 +412,7 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 
         case short_type: {
             if (type == NPVariantType_Int32)
-                result.s = (jshort)NPVARIANT_TO_INT32(*value);
+                result.s = (jshort)NPVARIANT_TO_INT32(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -421,7 +420,7 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 
         case int_type: {
             if (type == NPVariantType_Int32)
-                result.i = (jint)NPVARIANT_TO_INT32(*value);
+                result.i = (jint)NPVARIANT_TO_INT32(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -429,9 +428,9 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 
         case long_type: {
             if (type == NPVariantType_Int32)
-                result.j = (jlong)NPVARIANT_TO_INT32(*value);
+                result.j = (jlong)NPVARIANT_TO_INT32(value);
             else if (type == NPVariantType_Double)
-                result.j = (jlong)NPVARIANT_TO_DOUBLE(*value);
+                result.j = (jlong)NPVARIANT_TO_DOUBLE(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -439,9 +438,9 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 
         case float_type: {
             if (type == NPVariantType_Int32)
-                result.j = (jfloat)NPVARIANT_TO_INT32(*value);
+                result.j = (jfloat)NPVARIANT_TO_INT32(value);
             else if (type == NPVariantType_Double)
-                result.j = (jfloat)NPVARIANT_TO_DOUBLE(*value);
+                result.j = (jfloat)NPVARIANT_TO_DOUBLE(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -449,9 +448,9 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
 
         case double_type: {
             if (type == NPVariantType_Int32)
-                result.j = (jdouble)NPVARIANT_TO_INT32(*value);
+                result.j = (jdouble)NPVARIANT_TO_INT32(value);
             else if (type == NPVariantType_Double)
-                result.j = (jdouble)NPVARIANT_TO_DOUBLE(*value);
+                result.j = (jdouble)NPVARIANT_TO_DOUBLE(value);
             else
                 bzero(&result, sizeof(jvalue));
         }
@@ -467,6 +466,74 @@ jvalue convertNPVariantToJValue(NPVariant* value, JNIType _JNIType, const char* 
         break;
     }
     return result;
+}
+
+
+void convertJValueToNPVariant(jvalue value, JNIType _JNIType, NPVariant* result)
+{
+    switch (_JNIType){
+        case void_type: {
+            VOID_TO_NPVARIANT(*result);
+        }
+        break;
+        
+        case object_type: {
+            if (value.l != 0) {
+                OBJECT_TO_NPVARIANT(JavaInstanceToNPObject(new JavaInstance(value.l)), *result);
+            }
+            else {
+                VOID_TO_NPVARIANT(*result);
+            }
+        }
+        break;
+        
+        case boolean_type: {
+            BOOLEAN_TO_NPVARIANT(value.z, *result);
+        }
+        break;
+        
+        case byte_type: {
+            INT32_TO_NPVARIANT(value.b, *result);
+        }
+        break;
+        
+        case char_type: {
+            INT32_TO_NPVARIANT(value.c, *result);
+        }
+        break;
+        
+        case short_type: {
+            INT32_TO_NPVARIANT(value.s, *result);
+        }
+        break;
+        
+        case int_type: {
+            INT32_TO_NPVARIANT(value.i, *result);
+        }
+        break;
+       
+        // TODO(fqian): check if cast to double is needed.
+        case long_type: {
+            DOUBLE_TO_NPVARIANT(value.j, *result);
+        }
+        break;
+        
+        case float_type: {
+            DOUBLE_TO_NPVARIANT(value.f, *result);
+        }
+        break;
+        
+        case double_type: {
+            DOUBLE_TO_NPVARIANT(value.d, *result);
+        }
+        break;
+
+        case invalid_type:
+        default: {
+            VOID_TO_NPVARIANT(*result);
+        }
+        break;
+    }
 }
 
 }  // end of namespace Bindings

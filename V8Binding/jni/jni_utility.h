@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +28,7 @@
 #define _JNI_UTILITY_H_
 
 #include <JavaVM/jni.h>
+#include "npruntime.h"
 
 // The order of these items can not be modified as they are tightly
 // bound with the JVM on Mac OSX. If new types need to be added, they
@@ -52,8 +54,6 @@ namespace JSC {
 
 namespace Bindings {
 
-class JavaParameter;
-
 const char *getCharactersFromJString(jstring aJString);
 void releaseCharactersForJString(jstring aJString, const char *s);
 
@@ -66,7 +66,8 @@ JNIType JNITypeFromClassName(const char *name);
 JNIType JNITypeFromPrimitiveType(char type);
 const char *signatureFromPrimitiveType(JNIType type);
 
-jvalue convertNPVariantToJValue(NPVariant*, JNIType, const char* javaClassName);
+jvalue convertNPVariantToJValue(NPVariant, JNIType, const char* javaClassName);
+void convertJValueToNPVariant(jvalue, JNIType, NPVariant*);
 
 jvalue getJNIField(jobject obj, JNIType type, const char *name, const char *signature);
 

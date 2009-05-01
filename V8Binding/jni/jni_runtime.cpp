@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +44,22 @@ JavaParameter::JavaParameter (JNIEnv *env, jstring type)
 {
     _type = JavaString (env, type);
     _JNIType = JNITypeFromClassName (_type.UTF8String());
+}
+
+
+JavaField::JavaField (JNIEnv *env, jobject aField)
+{
+    // Get field type
+    jobject fieldType = callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;");
+    jstring fieldTypeName = (jstring)callJNIMethod<jobject>(fieldType, "getName", "()Ljava/lang/String;");
+    _type = JavaString(env, fieldTypeName);
+    _JNIType = JNITypeFromClassName (_type.UTF8String());
+
+    // Get field name
+    jstring fieldName = (jstring)callJNIMethod<jobject>(aField, "getName", "()Ljava/lang/String;");
+    _name = JavaString(env, fieldName);
+
+    _field = new JObjectWrapper(aField);
 }
 
 
@@ -95,41 +112,93 @@ JavaMethod::~JavaMethod()
     delete [] _parameters;
 };
 
-// JNI method signatures use '/' between components of a class name, but
-// we get '.' between components from the reflection API.
-static void appendClassName(UString& aString, const char* className)
-{
-    ASSERT(JSLock::lockCount() > 0);
-    
-    char *result, *cp = strdup(className);
-    
-    result = cp;
-    while (*cp) {
-        if (*cp == '.')
-            *cp = '/';
-        cp++;
-    }
-        
-    aString.append(result);
 
-    free (result);
-}
+class SignatureBuilder {
+public:
+    explicit SignatureBuilder(int init_size) {
+        if (init_size <= 0)
+            init_size = 16;
+        size_ = init_size;
+        length_ = 0;
+        storage_ = (char*)malloc(size_ * sizeof(char));
+    }
+
+    ~SignatureBuilder() {
+        free(storage_);
+    }
+
+    void append(const char* s) {
+        int l = strlen(s);
+        expandIfNeeded(l);
+        memcpy(storage_ + length_, s, l);
+        length_ += l;
+    }
+
+    // JNI method signatures use '/' between components of a class name, but
+    // we get '.' between components from the reflection API.
+    void appendClassName(const char* className) {
+       int l = strlen(className);
+       expandIfNeeded(l);
+
+       char* sp = storage_ + length_;
+       const char* cp = className;
+    
+       while (*cp) {
+           if (*cp == '.')
+               *sp = '/';
+           else
+               *sp = *cp;
+
+           cp++;
+           sp++;
+       }
+
+       length_ += l;
+    }
+
+    // make a duplicated copy of the content.
+    char* ascii() {
+        if (length_ == 0)
+            return NULL;
+        storage_[length_] = '\0';
+        return strndup(storage_, length_);
+    }
+
+private:
+    void expandIfNeeded(int l) {
+        // expand storage if needed
+        if (l + length_ >= size_) {
+            int new_size = 2 * size_;
+            if (l + length_ >= new_size)
+                new_size = l + length_ + 1;
+
+            char* new_storage = (char*)malloc(new_size * sizeof(char));
+            memcpy(new_storage, storage_, length_);
+            size_ = new_size;
+            free(storage_);
+            storage_ = new_storage;
+        }
+    }
+
+    int size_;
+    int length_;
+    char* storage_;
+};
 
 const char *JavaMethod::signature() const 
 {
     if (!_signature) {
-        JSLock lock(false);
-
-        UString signatureBuilder("(");
+        SignatureBuilder signatureBuilder(64);
+        signatureBuilder.append("(");
         for (int i = 0; i < _numParameters; i++) {
             JavaParameter* aParameter = parameterAt(i);
             JNIType _JNIType = aParameter->getJNIType();
             if (_JNIType == array_type)
-                appendClassName(signatureBuilder, aParameter->type());
+                signatureBuilder.appendClassName(aParameter->type());
             else {
                 signatureBuilder.append(signatureFromPrimitiveType(_JNIType));
                 if (_JNIType == object_type) {
-                    appendClassName(signatureBuilder, aParameter->type());
+                    signatureBuilder.appendClassName(aParameter->type());
                     signatureBuilder.append(";");
                 }
             }
@@ -138,16 +207,16 @@ const char *JavaMethod::signature() const
         
         const char *returnType = _returnType.UTF8String();
         if (_JNIReturnType == array_type) {
-            appendClassName(signatureBuilder, returnType);
+            signatureBuilder.appendClassName(returnType);
         } else {
             signatureBuilder.append(signatureFromPrimitiveType(_JNIReturnType));
             if (_JNIReturnType == object_type) {
-                appendClassName(signatureBuilder, returnType);
+                signatureBuilder.appendClassName(returnType);
                 signatureBuilder.append(";");
             }
         }
         
-        _signature = strdup(signatureBuilder.ascii());
+        _signature = signatureBuilder.ascii();
     }
     
     return _signature;

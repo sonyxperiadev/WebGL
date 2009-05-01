@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,15 +63,16 @@ public:
     
     ~JavaString() { }
     
-    int length() const { return _utf8String->length(); }
+    int length() const { return _utf8String.length(); }
     
     const char* UTF8String() const {
-        return _utf8String.c_str();
+        return _utf8String.data();
     }
 
 private:
     WebCore::CString _utf8String;
 };
+
 
 class JavaParameter
 {
@@ -85,6 +87,24 @@ public:
 private:
     JavaString _type;
     JNIType _JNIType;
+};
+
+
+class JavaField
+{
+public:
+    JavaField (JNIEnv *env, jobject aField);
+
+    const char* name() const { return _name.UTF8String(); }
+    const char* type() const { return _type.UTF8String(); }
+
+    JNIType getJNIType() const { return _JNIType; }
+    
+private:
+    JavaString _name;
+    JavaString _type;
+    JNIType _JNIType;
+    RefPtr<JObjectWrapper> _field;
 };
 
 
