@@ -66,6 +66,8 @@ namespace JSC {
 }
 #endif
 
+class NPObject;
+
 namespace WebCore {
     class Element;
     class Frame;
@@ -128,6 +130,8 @@ namespace WebCore {
 
 #if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
+#elif USE(V8)
+        NPObject* getNPObject();
 #endif
 
         PluginStatus status() const { return m_status; }

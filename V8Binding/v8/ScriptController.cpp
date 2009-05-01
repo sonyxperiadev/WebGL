@@ -46,6 +46,7 @@
 #include "npruntime_priv.h"
 #include "NPV8Object.h"
 #include "ScriptSourceCode.h"
+#include "PluginView.h"
 #include "Widget.h"
 
 #include "v8_proxy.h"
@@ -312,13 +313,17 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
 {
     ASSERT(widget != 0);
 
+#if PLATFORM(CHROMIUM)
     if (widget->isFrameView())
         return 0;
 
-#if PLATFORM(CHROMIUM)
     NPObject* npObject = ChromiumBridge::pluginScriptableObject(widget);
-#else
-    NPObject* npObject = 0;  // TODO(fqian): fix this
+#elif PLATFORM(ANDROID)
+    if (!widget->isPluginView())
+        return 0;
+
+    PluginView* pluginView = static_cast<PluginView*>(widget);
+    NPObject* npObject = pluginView->getNPObject();
 #endif
     if (!npObject)
         return 0;

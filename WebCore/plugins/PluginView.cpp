@@ -533,6 +533,35 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
 }
 #endif  // JSC
 
+#if USE(V8)
+// This is really JS engine independent
+NPObject* PluginView::getNPObject() {
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    if (!m_plugin || !m_plugin->pluginFuncs()->getvalue)
+        return 0;
+
+    NPObject* object = 0;
+
+    NPError npErr;
+    {
+        PluginView::setCurrentPluginView(this);
+        setCallingPlugin(true);
+        npErr = m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginScriptableNPObject, &object);
+        setCallingPlugin(false);
+        PluginView::setCurrentPluginView(0);
+    }
+
+    if (npErr != NPERR_NO_ERROR || !object)
+        return 0;
+
+    _NPN_ReleaseObject(object);
+    return object;
+#else
+    return 0;
+#endif  // NETSCAPE_PLUGIN_API
+}
+#endif  // V8
+
 void PluginView::disconnectStream(PluginStream* stream)
 {
     ASSERT(m_streams.contains(stream));
