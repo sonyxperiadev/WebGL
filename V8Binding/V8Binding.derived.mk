@@ -381,6 +381,157 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
 endif
 
+#new section for svg
+ifeq ($(ENABLE_SVG), true)
+GEN := \
+    $(intermediates)/svg/V8SVGAElement.h \
+    $(intermediates)/svg/V8SVGAltGlyphElement.h \
+    $(intermediates)/svg/V8SVGAngle.h \
+    $(intermediates)/svg/V8SVGCircleElement.h \
+    $(intermediates)/svg/V8SVGClipPathElement.h \
+    $(intermediates)/svg/V8SVGColor.h \
+    $(intermediates)/svg/V8SVGComponentTransferFunctionElement.h \
+    $(intermediates)/svg/V8SVGCursorElement.h \
+    $(intermediates)/svg/V8SVGDefinitionSrcElement.h \
+    $(intermediates)/svg/V8SVGDefsElement.h \
+    $(intermediates)/svg/V8SVGDescElement.h \
+    $(intermediates)/svg/V8SVGDocument.h \
+    $(intermediates)/svg/V8SVGElement.h \
+    $(intermediates)/svg/V8SVGElementInstance.h \
+    $(intermediates)/svg/V8SVGElementInstanceList.h \
+    $(intermediates)/svg/V8SVGEllipseElement.h \
+    $(intermediates)/svg/V8SVGException.h \
+    $(intermediates)/svg/V8SVGFEBlendElement.h \
+    $(intermediates)/svg/V8SVGFEColorMatrixElement.h \
+    $(intermediates)/svg/V8SVGFEComponentTransferElement.h \
+    $(intermediates)/svg/V8SVGFECompositeElement.h \
+    $(intermediates)/svg/V8SVGFEDiffuseLightingElement.h \
+    $(intermediates)/svg/V8SVGFEDisplacementMapElement.h \
+    $(intermediates)/svg/V8SVGFEDistantLightElement.h \
+    $(intermediates)/svg/V8SVGFEFloodElement.h \
+    $(intermediates)/svg/V8SVGFEFuncAElement.h \
+    $(intermediates)/svg/V8SVGFEFuncBElement.h \
+    $(intermediates)/svg/V8SVGFEFuncGElement.h \
+    $(intermediates)/svg/V8SVGFEFuncRElement.h \
+    $(intermediates)/svg/V8SVGFEGaussianBlurElement.h \
+    $(intermediates)/svg/V8SVGFEImageElement.h \
+    $(intermediates)/svg/V8SVGFEMergeElement.h \
+    $(intermediates)/svg/V8SVGFEMergeNodeElement.h \
+    $(intermediates)/svg/V8SVGFEOffsetElement.h \
+    $(intermediates)/svg/V8SVGFEPointLightElement.h \
+    $(intermediates)/svg/V8SVGFESpecularLightingElement.h \
+    $(intermediates)/svg/V8SVGFESpotLightElement.h \
+    $(intermediates)/svg/V8SVGFETileElement.h \
+    $(intermediates)/svg/V8SVGFETurbulenceElement.h \
+    $(intermediates)/svg/V8SVGFilterElement.h \
+    $(intermediates)/svg/V8SVGFontElement.h \
+    $(intermediates)/svg/V8SVGFontFaceElement.h \
+    $(intermediates)/svg/V8SVGFontFaceFormatElement.h \
+    $(intermediates)/svg/V8SVGFontFaceNameElement.h \
+    $(intermediates)/svg/V8SVGFontFaceSrcElement.h \
+    $(intermediates)/svg/V8SVGFontFaceUriElement.h \
+    $(intermediates)/svg/V8SVGForeignObjectElement.h \
+    $(intermediates)/svg/V8SVGGElement.h \
+    $(intermediates)/svg/V8SVGGlyphElement.h \
+    $(intermediates)/svg/V8SVGGradientElement.h \
+    $(intermediates)/svg/V8SVGHKernElement.h \
+    $(intermediates)/svg/V8SVGImageElement.h \
+    $(intermediates)/svg/V8SVGLength.h \
+    $(intermediates)/svg/V8SVGLengthList.h \
+    $(intermediates)/svg/V8SVGLineElement.h \
+    $(intermediates)/svg/V8SVGLinearGradientElement.h \
+    $(intermediates)/svg/V8SVGMarkerElement.h \
+    $(intermediates)/svg/V8SVGMaskElement.h \
+    $(intermediates)/svg/V8SVGMatrix.h \
+    $(intermediates)/svg/V8SVGMetadataElement.h \
+    $(intermediates)/svg/V8SVGMissingGlyphElement.h \
+    $(intermediates)/svg/V8SVGNumber.h \
+    $(intermediates)/svg/V8SVGNumberList.h \
+    $(intermediates)/svg/V8SVGPaint.h \
+    $(intermediates)/svg/V8SVGPathElement.h \
+    $(intermediates)/svg/V8SVGPathSeg.h \
+    $(intermediates)/svg/V8SVGPathSegArcAbs.h \
+    $(intermediates)/svg/V8SVGPathSegArcRel.h \
+    $(intermediates)/svg/V8SVGPathSegClosePath.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoCubicAbs.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoCubicRel.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoCubicSmoothAbs.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoCubicSmoothRel.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticAbs.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticRel.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticSmoothAbs.h \
+    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticSmoothRel.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoAbs.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoHorizontalAbs.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoHorizontalRel.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoRel.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoVerticalAbs.h \
+    $(intermediates)/svg/V8SVGPathSegLinetoVerticalRel.h \
+    $(intermediates)/svg/V8SVGPathSegList.h \
+    $(intermediates)/svg/V8SVGPathSegMovetoAbs.h \
+    $(intermediates)/svg/V8SVGPathSegMovetoRel.h \
+    $(intermediates)/svg/V8SVGPatternElement.h \
+    $(intermediates)/svg/V8SVGPoint.h \
+    $(intermediates)/svg/V8SVGPointList.h \
+    $(intermediates)/svg/V8SVGPolygonElement.h \
+    $(intermediates)/svg/V8SVGPolylineElement.h \
+    $(intermediates)/svg/V8SVGPreserveAspectRatio.h \
+    $(intermediates)/svg/V8SVGRadialGradientElement.h \
+    $(intermediates)/svg/V8SVGRect.h \
+    $(intermediates)/svg/V8SVGRectElement.h \
+    $(intermediates)/svg/V8SVGRenderingIntent.h \
+    $(intermediates)/svg/V8SVGSVGElement.h \
+    $(intermediates)/svg/V8SVGScriptElement.h \
+    $(intermediates)/svg/V8SVGStopElement.h \
+    $(intermediates)/svg/V8SVGStringList.h \
+    $(intermediates)/svg/V8SVGStyleElement.h \
+    $(intermediates)/svg/V8SVGSwitchElement.h \
+    $(intermediates)/svg/V8SVGSymbolElement.h \
+    $(intermediates)/svg/V8SVGTRefElement.h \
+    $(intermediates)/svg/V8SVGTSpanElement.h \
+    $(intermediates)/svg/V8SVGTextContentElement.h \
+    $(intermediates)/svg/V8SVGTextElement.h \
+    $(intermediates)/svg/V8SVGTextPathElement.h \
+    $(intermediates)/svg/V8SVGTextPositioningElement.h \
+    $(intermediates)/svg/V8SVGTitleElement.h \
+    $(intermediates)/svg/V8SVGTransform.h \
+    $(intermediates)/svg/V8SVGTransformList.h \
+    $(intermediates)/svg/V8SVGURIReference.h \
+    $(intermediates)/svg/V8SVGUnitTypes.h \
+    $(intermediates)/svg/V8SVGUseElement.h \
+    $(intermediates)/svg/V8SVGViewElement.h \
+    $(intermediates)/svg/V8SVGZoomEvent.h
+
+#    $(intermediates)/svg/V8SVGAnimateColorElement.h \
+    $(intermediates)/svg/V8SVGAnimateElement.h \
+    $(intermediates)/svg/V8SVGAnimateTransformElement.h \
+    $(intermediates)/svg/V8SVGAnimatedAngle.h \
+    $(intermediates)/svg/V8SVGAnimatedBoolean.h \
+    $(intermediates)/svg/V8SVGAnimatedEnumeration.h \
+    $(intermediates)/svg/V8SVGAnimatedInteger.h \
+    $(intermediates)/svg/V8SVGAnimatedLength.h \
+    $(intermediates)/svg/V8SVGAnimatedLengthList.h \
+    $(intermediates)/svg/V8SVGAnimatedNumber.h \
+    $(intermediates)/svg/V8SVGAnimatedNumberList.h \
+    $(intermediates)/svg/V8SVGAnimatedPoints.h \
+    $(intermediates)/svg/V8SVGAnimatedPreserveAspectRatio.h \
+    $(intermediates)/svg/V8SVGAnimatedRect.h \
+    $(intermediates)/svg/V8SVGAnimatedString.h \
+    $(intermediates)/svg/V8SVGAnimatedTransformList.h \
+    $(intermediates)/svg/V8SVGAnimationElement.h \
+
+#    $(intermediates)/svg/V8SVGSetElement.h \
+
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/svg/V8%.h : $(WEBCORE_PATH)/svg/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/svg/%.cpp : $(intermediates)/svg/%.h
+endif
+
 #new section for xml/DOMParser.idl
 GEN := \
     $(intermediates)/xml/V8DOMParser.h \
@@ -432,4 +583,30 @@ $(GEN): html_attrs := $(WEBCORE_PATH)/html/HTMLAttributeNames.in
 $(GEN): $(WEBCORE_PATH)/dom/make_names.pl $(html_tags) $(html_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
+
+# SVG tag and attribute names
+
+ifeq ($(ENABLE_SVG), true)
+GEN:= $(intermediates)/SVGNames.cpp  $(intermediates)/SVGElementFactory.cpp
+SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(WEBCORE_PATH)/bindings/scripts $< --tags $(svg_tags) --attrs $(svg_attrs) --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactory --output $(dir $@)
+$(GEN): svg_tags := $(WEBCORE_PATH)/svg/svgtags.in
+$(GEN): svg_attrs := $(WEBCORE_PATH)/svg/svgattrs.in
+$(GEN): $(WEBCORE_PATH)/dom/make_names.pl $(svg_tags) $(svg_attrs)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+endif
+
+# XLink attribute names
+
+ifeq ($(ENABLE_SVG), true)
+GEN:= $(intermediates)/XLinkNames.cpp
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(WEBCORE_PATH)/bindings/scripts $< --attrs $(xlink_attrs) --output $(dir $@)
+$(GEN): xlink_attrs := $(WEBCORE_PATH)/svg/xlinkattrs.in
+$(GEN): $(WEBCORE_PATH)/dom/make_names.pl $(xlink_attrs)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+endif
 
