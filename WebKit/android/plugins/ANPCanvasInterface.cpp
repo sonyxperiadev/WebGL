@@ -102,6 +102,12 @@ static void anp_drawPaint(ANPCanvas* canvas, const ANPPaint* paint) {
     canvas->skcanvas->drawPaint(*paint);
 }
 
+static void anp_drawLine(ANPCanvas* canvas, float x0, float y0,
+                         float x1, float y1, const ANPPaint* paint) {
+    canvas->skcanvas->drawLine(SkFloatToScalar(x0), SkFloatToScalar(y0),
+                           SkFloatToScalar(x1), SkFloatToScalar(y1), *paint);
+}
+
 static void anp_drawRect(ANPCanvas* canvas, const ANPRectF* rect,
                          const ANPPaint* paint) {
     SkRect  r;
