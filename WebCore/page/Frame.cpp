@@ -232,7 +232,9 @@ void Frame::setView(FrameView* view)
     if (!view && m_view) {
         // FIXME(for Cary): This is moved from FrameAndroid destructor. Do we 
         // need to call removeFrameGeneration per Frame or per FrameView?
-        android::WebViewCore::getWebViewCore(m_view.get())->removeFrameGeneration(this);
+        android::WebViewCore* core = android::WebViewCore::getWebViewCore(m_view.get());
+        if (core)
+            core->removeFrameGeneration(this);
     }
 #endif
 
