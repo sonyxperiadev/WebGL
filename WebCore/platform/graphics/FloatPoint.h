@@ -55,7 +55,7 @@ QT_END_NAMESPACE
 class TPoint;
 #endif
 
-#if PLATFORM(SKIA_SGL)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
 struct SkPoint;
 #endif
 
@@ -99,7 +99,7 @@ public:
     FloatPoint(const TPoint&);
 #endif
 
-#if PLATFORM(SKIA_SGL)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     operator SkPoint() const;
     FloatPoint(const SkPoint&);
 #endif
