@@ -204,6 +204,9 @@
 
 #if PLATFORM(CHROMIUM)
 #include "V8InspectorController.h"
+#endif
+
+#if PLATFORM(CHROMIUM) || ENABLE(DATABASE)
 #include "V8Database.h"
 #include "V8SQLError.h"
 #include "V8SQLResultSet.h"
