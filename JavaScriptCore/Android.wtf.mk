@@ -38,4 +38,5 @@ $(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
 
 $(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
 
-LOCAL_GENERATED_SOURCES += $(CHARTABLES)
+# We do not add $(CHARTABLES) to LOCAL_GENERATED_SOURCES because the chartables.c file
+# is explicitly #included in pcre_tables.cpp.
