@@ -338,12 +338,16 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(XPATHNSRESOLVER, XPathNSResolver)                                   \
   V(XPATHRESULT, XPathResult)
 
+#if ENABLE(DATABASE)
 #define DOM_OBJECT_DATABASE_TYPES(V)                                    \
   V(DATABASE, Database)                                                 \
   V(SQLERROR, SQLError)                                                 \
   V(SQLRESULTSET, SQLResultSet)                                         \
   V(SQLRESULTSETROWLIST, SQLResultSetRowList)                           \
   V(SQLTRANSACTION, SQLTransaction)
+#else
+#define DOM_OBJECT_DATABASE_TYPES(V)
+#endif
 
 #if PLATFORM(CHROMIUM)
 #define DOM_OBJECT_TYPES(V)                                             \
@@ -359,6 +363,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_TYPES(V)                                             \
   DOM_OBJECT_TYPES_1(V)                                                 \
   DOM_OBJECT_TYPES_2(V)                                                 \
+  DOM_OBJECT_DATABASE_TYPES(V)                                          \
   V(COORDINATES, Coordinates)                                           \
   V(GEOLOCATION, Geolocation)                                           \
   V(GEOPOSITION, Geoposition)                                           \

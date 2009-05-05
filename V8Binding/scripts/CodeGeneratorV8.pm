@@ -1594,6 +1594,7 @@ sub IsRefPtrType
     return 1 if $type eq "CSSStyleDeclaration";
     return 1 if $type eq "CSSValue";
     return 1 if $type eq "CSSRuleList";
+    return 1 if $type eq "Database";
     return 1 if $type eq "Document";
     return 1 if $type eq "DocumentFragment";
     return 1 if $type eq "DocumentType";

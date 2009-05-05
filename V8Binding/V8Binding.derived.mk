@@ -78,17 +78,13 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
-
-ifeq ($(ENABLE_STORAGE), true)
-WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8DatabaseCustom.cpp \
-	bindings/v8/custom/V8SQLTransactionCustom.cpp
+	bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
 	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
 	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
 	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp
-endif
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -141,7 +137,7 @@ js_binding_scripts := \
   $(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/scripts/generate-bindings.pl
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1
 
 GEN := \
     $(intermediates)/css/V8CSSCharsetRule.h \
@@ -360,16 +356,13 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/plugins/%.h
 
-ifeq ($(ENABLE_STORAGE),true)
-# Storage support
+# Database support
 GEN := \
     $(intermediates)/storage/V8Database.h \
     $(intermediates)/storage/V8SQLError.h \
     $(intermediates)/storage/V8SQLResultSet.h \
     $(intermediates)/storage/V8SQLResultSetRowList.h \
-    $(intermediates)/storage/V8SQLTransaction.h \
-    $(intermediates)/storage/V8Storage.h \
-    $(intermediates)/storage/V8StorageEvent.h
+    $(intermediates)/storage/V8SQLTransaction.h
     
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
@@ -379,7 +372,6 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
-endif
 
 #new section for svg
 ifeq ($(ENABLE_SVG), true)
