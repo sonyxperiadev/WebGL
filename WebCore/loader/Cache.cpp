@@ -30,9 +30,6 @@
 #include "CachedXSLStyleSheet.h"
 #include "DocLoader.h"
 #include "Document.h"
-#if USE(LOW_BANDWIDTH_DISPLAY)
-#include "Frame.h"
-#endif
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "Image.h"

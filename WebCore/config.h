@@ -76,7 +76,6 @@
 #define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
 #define WTF_USE_NPOBJECT 1
 #endif
-#define WTF_USE_LOW_BANDWIDTH_DISPLAY 1
 #define LOG_DISABLED 1
 #include <wtf/Assertions.h>
 // center place to handle which option feature ANDROID will enable
