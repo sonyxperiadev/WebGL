@@ -112,6 +112,7 @@ void BitmapImage::invalidatePlatformData()
 
 void BitmapImage::checkForSolidColor()
 {
+    m_checkedForSolidColor = true;
     m_isSolidColor = false;
     if (frameCount() == 1) {
         SkBitmapRef* ref = frameAtIndex(0);
