@@ -29,15 +29,6 @@
 #include "jni_runtime.h"
 #include "jni_utility.h"
 
-#ifdef NDEBUG
-#define JS_LOG(formatAndArgs...) ((void)0)
-#else
-#define JS_LOG(formatAndArgs...) { \
-    fprintf (stderr, "%s:%d -- %s:  ", __FILE__, __LINE__, __FUNCTION__); \
-    fprintf(stderr, formatAndArgs); \
-}
-#endif
-
 using namespace JSC::Bindings;
 
 JavaParameter::JavaParameter (JNIEnv *env, jstring type)
@@ -100,9 +91,7 @@ JavaMethod::JavaMethod (JNIEnv *env, jobject aMethod)
     jclass modifierClass = env->FindClass("java/lang/reflect/Modifier");
     int modifiers = callJNIMethod<jint>(aMethod, "getModifiers", "()I");
     _isStatic = (bool)callJNIStaticMethod<jboolean>(modifierClass, "isStatic", "(I)Z", modifiers);
-#ifdef ANDROID_FIX
     env->DeleteLocalRef(modifierClass);
-#endif
 }
 
 JavaMethod::~JavaMethod() 

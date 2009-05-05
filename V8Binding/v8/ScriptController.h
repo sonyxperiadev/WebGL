@@ -164,7 +164,7 @@ public:
 
     // JSC has a WindowShell object, but for V8, the ScriptController
     // is the WindowShell.
-    bool haveWindowShell() const { return true; }
+    bool haveWindowShell() const { return m_proxy->ContextInitialized(); }
 
     // Masquerade 'this' as the windowShell.
     // This is a bit of a hack, but provides reasonable compatibility

@@ -35,12 +35,18 @@
 namespace JSC { namespace Bindings {
 static NPObject* AllocJavaNPObject(NPP, NPClass*)
 {
-    return static_cast<NPObject*>(malloc(sizeof(JavaNPObject)));
+    JavaNPObject* obj =
+        static_cast<JavaNPObject*>(malloc(sizeof(JavaNPObject)));
+    if (obj == 0)
+        return 0;
+    bzero(obj, sizeof(JavaNPObject));
+    return reinterpret_cast<NPObject*>(obj);
 }
 
 static void FreeJavaNPObject(NPObject* npobj)
 {
     JavaNPObject* obj = reinterpret_cast<JavaNPObject*>(npobj);
+    obj->_instance = 0;  // free does not call the destructor
     free(obj);
 }
 
@@ -71,7 +77,7 @@ NPObject* JavaInstanceToNPObject(JavaInstance* instance) {
 // Returns null if obj is not a wrapper of JavaInstance
 JavaInstance* ExtractJavaInstance(NPObject* obj) {
     if (obj->_class == &JavaNPObjectClass) {
-        return reinterpret_cast<JavaNPObject*>(obj)->_instance;
+        return reinterpret_cast<JavaNPObject*>(obj)->_instance.get();
     }
     return 0;
 }
@@ -137,10 +143,13 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
         return false;
     }
 
-    jvalue value = getJNIField(instance->javaInstance(),
+    jobject local_ref = instance->getLocalRef();
+    jvalue value = getJNIField(local_ref,
                                field->getJNIType(),
                                field->name(),
                                field->type());
+    getJNIEnv()->DeleteLocalRef(local_ref);
+
     convertJValueToNPVariant(value, field->getJNIType(), result);
 
     return true;

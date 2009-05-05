@@ -78,11 +78,9 @@ JavaClass::JavaClass(jobject anInstance)
         methodList->append(aMethod);
         env->DeleteLocalRef(aJMethod);
     }    
-#ifdef ANDROID_FIX
     env->DeleteLocalRef(fields);
     env->DeleteLocalRef(methods);
     env->DeleteLocalRef(aClass);
-#endif
 }
 
 JavaClass::~JavaClass() {

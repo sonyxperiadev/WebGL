@@ -44,7 +44,6 @@ class JavaClass;
 
 class JObjectWrapper
 {
-friend class JavaInstance;
 public:
     JObjectWrapper(jobject instance);    
     ~JObjectWrapper();
@@ -56,10 +55,14 @@ public:
             delete this; 
     }
 
+    jobject getLocalRef() const;
+
 private:
     JNIEnv *_env;
     unsigned int _refCount;
-    jobject _instance;
+    jobject _instance;  // it is a global weak reference.
+
+    jmethodID mWeakRefGet;  // cache WeakReference::Get method id
 };
 
 class JavaInstance
@@ -68,11 +71,22 @@ public:
     JavaInstance(jobject instance);
     ~JavaInstance();
 
+    void ref() { _refCount++; }
+    void deref() 
+    { 
+        if (--_refCount == 0) 
+            delete this; 
+    }
+
     JavaClass* getClass() const;
 
     bool invokeMethod(const char* name, const NPVariant* args, uint32_t argsCount, NPVariant* result);
 
-    jobject javaInstance() const { return _instance->_instance; }
+    // Returns a local reference, and the caller must delete
+    // the returned reference after use.
+    jobject getLocalRef() const {
+        return _instance->getLocalRef();
+    }
 
 private:
     RefPtr<JObjectWrapper> _instance;
