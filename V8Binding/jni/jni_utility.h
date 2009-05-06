@@ -211,9 +211,7 @@ static T callJNIMethodV(jobject obj, const char *name, const char *sig, va_list 
             jmethodID mid = env->GetMethodID(cls, name, sig);
             if ( mid != NULL )
             {
-#ifdef ANDROID_FIX // Avoids references to cls without popping the local frame.
                 env->DeleteLocalRef(cls);
-#endif
                 return JNICaller<T>::callV(obj, mid, args);
             }
             else

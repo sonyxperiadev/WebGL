@@ -29,15 +29,14 @@
 #include "npruntime.h"
 #include "jni_runtime.h"
 
+#include <wtf/RefPtr.h>
 #include <JavaVM/jni.h>
 
 namespace JSC { namespace Bindings {
 
 struct JavaNPObject {
     NPObject _object;
-    JavaInstance* _instance;
-
-    ~JavaNPObject() { delete _instance; }
+    RefPtr<JavaInstance> _instance;
 };
 
 NPObject* JavaInstanceToNPObject(JavaInstance* instance);

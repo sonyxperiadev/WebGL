@@ -24,6 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#define LOG_TAG "v8binding"
+
 #include "config.h"
 
 #include "jni_class.h"
@@ -32,33 +34,30 @@
 #include "jni_utility.h"
 
 #include <assert.h>
+#include <utils/Log.h>
 
-#ifdef NDEBUG
-#define JS_LOG(formatAndArgs...) ((void)0)
-#else
-#define JS_LOG(formatAndArgs...) { \
-    fprintf (stderr, "%s:%d -- %s:  ", __FILE__, __LINE__, __FUNCTION__); \
-    fprintf(stderr, formatAndArgs); \
-}
-#endif
- 
 using namespace JSC::Bindings;
 
 JavaInstance::JavaInstance (jobject instance)
 {
     _instance = new JObjectWrapper(instance);
     _class = 0;
+    _refCount = 0;
 }
 
 JavaInstance::~JavaInstance () 
 {
+    _instance = 0;
     delete _class;
 }
 
 JavaClass* JavaInstance::getClass() const 
 {
-    if (_class == 0)
-        _class = new JavaClass(_instance->_instance);
+    if (_class == 0) {
+        jobject local_ref = getLocalRef();
+        _class = new JavaClass(local_ref);
+        getJNIEnv()->DeleteLocalRef(local_ref);
+    }
     return _class;
 }
 
@@ -88,7 +87,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
         }
     }
     if (method == 0) {
-        JS_LOG ("unable to find an appropiate method\n");
+        LOGW("unable to find an appropiate method\n");
         return false;
     }
     
@@ -110,7 +109,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
     // The following code can be conditionally removed once we have a Tiger update that
     // contains the new Java plugin.  It is needed for builds prior to Tiger.
     {    
-        jobject obj = _instance->_instance;
+        jobject obj = getLocalRef();
         switch (jMethod->JNIReturnType()){
             case void_type:
                 callJNIMethodIDA<void>(obj, jMethod->methodID(obj), jArgs);
@@ -147,6 +146,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
             default:
                 break;
         }
+        getJNIEnv()->DeleteLocalRef(obj);
     }
     
     convertJValueToNPVariant(result, jMethod->JNIReturnType(), resultValue);
@@ -163,17 +163,35 @@ JObjectWrapper::JObjectWrapper(jobject instance)
     // Cache the JNIEnv used to get the global ref for this java instanace.
     // It'll be used to delete the reference.
     _env = getJNIEnv();
-        
-    _instance = _env->NewGlobalRef (instance);
+
+    jclass localClsRef = _env->FindClass("java/lang/ref/WeakReference");
+    jmethodID weakRefInit = _env->GetMethodID(localClsRef, "<init>",
+                                    "(Ljava/lang/Object;)V");
+    mWeakRefGet = _env->GetMethodID(localClsRef, "get",
+                                   "()Ljava/lang/Object;");
+
+    jobject weakRef = _env->NewObject(localClsRef, weakRefInit, instance);
+
+    _instance = _env->NewGlobalRef(weakRef);
     
-    JS_LOG ("new global ref %p for %p\n", _instance, instance);
+    LOGV("new global ref %p for %p\n", _instance, instance);
 
     if  (_instance == NULL) {
         fprintf (stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
     }
+
+    _env->DeleteLocalRef(weakRef);
+    _env->DeleteLocalRef(localClsRef);
 }
 
 JObjectWrapper::~JObjectWrapper() {
-    JS_LOG ("deleting global ref %p\n", _instance);
-    _env->DeleteGlobalRef (_instance);
+    LOGV("deleting global ref %p\n", _instance);
+    _env->DeleteGlobalRef(_instance);
+}
+
+jobject JObjectWrapper::getLocalRef() const {
+    jobject real = _env->CallObjectMethod(_instance, mWeakRefGet);
+    if (!real)
+        LOGE("The real object has been deleted");
+    return _env->NewLocalRef(real);
 }
