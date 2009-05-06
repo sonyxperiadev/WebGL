@@ -973,20 +973,17 @@ ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url,
         }
         return ObjectContentFrame;
     }
-    if (equalIgnoringCase(mimeType, "text/html") ||
-        equalIgnoringCase(mimeType, "text/xml") ||
-        equalIgnoringCase(mimeType, "text/") ||
-#if ENABLE(SVG)
-        equalIgnoringCase(mimeType, "image/svg+xml") ||
-#endif
-        equalIgnoringCase(mimeType, "application/xml") ||
-        equalIgnoringCase(mimeType, "application/xhtml+xml") ||
-        equalIgnoringCase(mimeType, "application/x-javascript"))
-        return ObjectContentFrame;
+
     if (Image::supportsType(mimeType))
         return ObjectContentImage;
-    // Use OtherPlugin so embed and object tags draw the null plugin view
-    return ObjectContentOtherPlugin;
+
+    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
+        return ObjectContentOtherPlugin;
+
+    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
+        return ObjectContentFrame;
+
+    return ObjectContentNone;
 }
 
 // This function allows the application to set the correct CSS media

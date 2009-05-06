@@ -34,7 +34,6 @@
 #include "SkTDArray.h"
 
 class SkCanvas;
-class WebCore::Node;
 
 class Container {
 public:
