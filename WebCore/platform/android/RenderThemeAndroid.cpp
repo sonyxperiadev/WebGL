@@ -249,9 +249,21 @@ void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector* selector, RenderSt
     addIntrinsicMargins(style);
 }
 
+static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
+{
+    // Added to make room for our arrow.
+    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    // Code copied from RenderThemeMac.mm
+    // Makes sure that the text shows up on our treatment
+    bool isEnabled = true;
+    if (FormControlElement* formControlElement = toFormControlElement(e))
+        isEnabled = formControlElement->isEnabled();
+    style->setColor(isEnabled ? Color::black : Color::darkGray);
+}
+
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
 {
-    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    adjustMenuListStyleCommon(style, e);
     addIntrinsicMargins(style);
 }
 
@@ -294,8 +306,7 @@ void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector* selector, R
     const int padding = 4;
     style->setPaddingTop(Length(padding, Fixed));
     style->setPaddingLeft(Length(padding, Fixed));
-    // Added to make room for our arrow.
-    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    adjustMenuListStyleCommon(style, e);
 }
 
 bool RenderThemeAndroid::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& ir) 
