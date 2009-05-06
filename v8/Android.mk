@@ -150,11 +150,14 @@ $(GEN1): $(LOCAL_JS_LIBRARY_FILES)
 	python $(SCRIPT) $(GEN1) CORE $(LOCAL_JS_LIBRARY_FILES)
 LOCAL_GENERATED_SOURCES += $(intermediates)/libraries.cc
 
+# GCC 4.3.1 has a bug that generates wrong code, -fno-tree-sink fixes the
+# issue.
 LOCAL_CFLAGS += \
 	-Wno-endif-labels \
 	-Wno-import \
 	-Wno-format \
-	-fno-exceptions
+	-fno-exceptions \
+	-fno-tree-sink
 
 ifeq ($(TARGET_ARCH),arm)
 	LOCAL_CFLAGS += -DARM
