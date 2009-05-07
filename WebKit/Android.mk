@@ -40,6 +40,7 @@ LOCAL_SRC_FILES := \
 	android/jni/WebFrameView.cpp \
 	android/jni/WebHistory.cpp \
 	android/jni/WebIconDatabase.cpp \
+	android/jni/WebStorage.cpp \
 	android/jni/WebSettings.cpp \
 	android/jni/WebViewCore.cpp \
 	\

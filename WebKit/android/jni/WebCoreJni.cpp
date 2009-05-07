@@ -40,6 +40,7 @@ extern int register_webviewcore(JNIEnv*);
 extern int register_webhistory(JNIEnv*);
 extern int register_webicondatabase(JNIEnv*);
 extern int register_websettings(JNIEnv*);
+extern int register_webstorage(JNIEnv*);
 extern int register_webview(JNIEnv*);
 
 // Class, constructor, and get method on WeakReference
@@ -108,6 +109,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "WebHistory", android::register_webhistory },
     { "WebIconDatabase", android::register_webicondatabase },
     { "WebSettings", android::register_websettings },
+    { "WebStorage", android::register_webstorage },
     { "WebView", android::register_webview }
 };
 
