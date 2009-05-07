@@ -492,14 +492,11 @@ GEN := \
     $(intermediates)/svg/V8SVGUnitTypes.h \
     $(intermediates)/svg/V8SVGUseElement.h \
     $(intermediates)/svg/V8SVGViewElement.h \
-    $(intermediates)/svg/V8SVGZoomEvent.h
-
-#    $(intermediates)/svg/V8SVGAnimateColorElement.h \
-    $(intermediates)/svg/V8SVGAnimateElement.h \
-    $(intermediates)/svg/V8SVGAnimateTransformElement.h \
+    $(intermediates)/svg/V8SVGZoomEvent.h \
+    \
     $(intermediates)/svg/V8SVGAnimatedAngle.h \
-    $(intermediates)/svg/V8SVGAnimatedBoolean.h \
     $(intermediates)/svg/V8SVGAnimatedEnumeration.h \
+    $(intermediates)/svg/V8SVGAnimatedBoolean.h \
     $(intermediates)/svg/V8SVGAnimatedInteger.h \
     $(intermediates)/svg/V8SVGAnimatedLength.h \
     $(intermediates)/svg/V8SVGAnimatedLengthList.h \
@@ -509,10 +506,16 @@ GEN := \
     $(intermediates)/svg/V8SVGAnimatedPreserveAspectRatio.h \
     $(intermediates)/svg/V8SVGAnimatedRect.h \
     $(intermediates)/svg/V8SVGAnimatedString.h \
-    $(intermediates)/svg/V8SVGAnimatedTransformList.h \
-    $(intermediates)/svg/V8SVGAnimationElement.h \
+    $(intermediates)/svg/V8SVGAnimatedTransformList.h
 
-#    $(intermediates)/svg/V8SVGSetElement.h \
+ifeq ($(ENABLE_SVG_ANIMATION), true)
+GEN += \
+    $(intermediates)/svg/V8SVGAnimateColorElement.h \
+    $(intermediates)/svg/V8SVGAnimateElement.h \
+    $(intermediates)/svg/V8SVGAnimateTransformElement.h \
+    $(intermediates)/svg/V8SVGAnimationElement.h \
+    $(intermediates)/svg/V8SVGSetElement.h
+endif
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/svg/V8%.h : $(WEBCORE_PATH)/svg/%.idl $(js_binding_scripts)

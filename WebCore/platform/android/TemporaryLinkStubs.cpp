@@ -961,38 +961,3 @@ void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, in
     notImplemented();
 }
 #endif
-
-
-#if ENABLE(SVG) && USE(V8)
-#include "V8SVGAnimatedAngle.h"
-#include "V8SVGAnimatedBoolean.h"
-#include "V8SVGAnimatedEnumeration.h"
-#include "V8SVGAnimatedInteger.h"
-#include "V8SVGAnimatedLength.h"
-#include "V8SVGAnimatedLengthList.h"
-#include "V8SVGAnimatedNumber.h"
-#include "V8SVGAnimatedNumberList.h"
-#include "V8SVGAnimatedPreserveAspectRatio.h"
-#include "V8SVGAnimatedRect.h"
-#include "V8SVGAnimatedString.h"
-#include "V8SVGAnimatedTransformList.h"
-
-namespace WebCore {
-static v8::Persistent<v8::FunctionTemplate> dummyFunctionTemplate;
-
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedAngle::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedBoolean::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedEnumeration::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedInteger::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedLength::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedLengthList::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedNumber::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedNumberList::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedPreserveAspectRatio::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedRect::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedString::GetTemplate(){ return dummyFunctionTemplate; }
-v8::Persistent<v8::FunctionTemplate> V8SVGAnimatedTransformList::GetTemplate(){ return dummyFunctionTemplate; }
-
-}
-#endif
-
