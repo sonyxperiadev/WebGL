@@ -569,8 +569,16 @@ void FrameLoaderClientAndroid::finishedLoading(DocumentLoader* docLoader) {
 
 void FrameLoaderClientAndroid::updateGlobalHistory() {
     ASSERT(m_frame);
-    ASSERT(m_frame->loader()->documentLoader());
-    m_webFrame->updateVisitedHistory(m_frame->loader()->documentLoader()->urlForHistory(), false);
+
+    DocumentLoader* docLoader = m_frame->loader()->documentLoader();
+    ASSERT(docLoader);
+
+    // Code copied from FrameLoader.cpp:createHistoryItem
+    // Only add this URL to the database if it is a valid page
+    if (docLoader->unreachableURL().isEmpty()
+            && docLoader->response().httpStatusCode() < 400) {
+        m_webFrame->updateVisitedHistory(docLoader->urlForHistory(), false);
+    }
 }
 
 void FrameLoaderClientAndroid::updateGlobalHistoryRedirectLinks() {
