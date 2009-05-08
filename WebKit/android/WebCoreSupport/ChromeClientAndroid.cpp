@@ -203,7 +203,10 @@ void ChromeClientAndroid::setStatusbarText(const String&) { notImplemented(); }
 // Javascript. If true is returned, the script is cancelled.
 // To make a device more responsive, we default to return true to disallow long running script.
 // This implies that some of scripts will not be completed.
-bool ChromeClientAndroid::shouldInterruptJavaScript() { return true; }
+bool ChromeClientAndroid::shouldInterruptJavaScript() {
+  FrameView* frameView = m_webFrame->page()->mainFrame()->view();
+  return android::WebViewCore::getWebViewCore(frameView)->jsInterrupt();
+}
 
 bool ChromeClientAndroid::tabsToLinks() const { return false; }
 

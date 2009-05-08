@@ -171,6 +171,7 @@ namespace android {
         bool jsPrompt(const WebCore::String& url, const WebCore::String& message,
                 const WebCore::String& defaultValue, WebCore::String& result);
         bool jsUnload(const WebCore::String& url, const WebCore::String& message);
+        bool jsInterrupt();
 
         //
         // Followings support calls from Java to native WebCore
