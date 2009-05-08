@@ -212,6 +212,53 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
                              int32_t count);
 };
 
+struct ANPPathInterfaceV0 : ANPInterface {
+    /* Return a new path */
+    ANPPath* (*newPath)();
+
+    /* Delete a path previously allocated by ANPPath() */
+    void (*deletePath)(ANPPath*);
+
+    /* Make a deep copy of the src path, into the dst path (already allocated
+       by the caller).
+     */
+    void (*copy)(ANPPath* dst, const ANPPath* src);
+
+    /* Returns true if the two paths are the same (i.e. have the same points)
+     */
+    bool (*equal)(const ANPPath* path0, const ANPPath* path1);
+
+    /* Remove any previous points, initializing the path back to empty. */
+    void (*reset)(ANPPath*);
+
+    /* Return true if the path is empty (has no lines, quads or cubics). */
+    bool (*isEmpty)(const ANPPath*);
+
+    /* Return the path's bounds in bounds. */
+    void (*getBounds)(const ANPPath*, ANPRectF* bounds);
+
+    void (*moveTo)(ANPPath*, float x, float y);
+    void (*lineTo)(ANPPath*, float x, float y);
+    void (*quadTo)(ANPPath*, float x0, float y0, float x1, float y1);
+    void (*cubicTo)(ANPPath*, float x0, float y0, float x1, float y1,
+                    float x2, float y2);
+    void (*close)(ANPPath*);
+
+    /*  Offset the src path by [dx, dy]. If dst is null, apply the
+        change directly to the src path. If dst is not null, write the
+        changed path into dst, and leave the src path unchanged. In that case
+        dst must have been previously allocated by the caller.
+     */
+    void (*offset)(ANPPath* src, float dx, float dy, ANPPath* dst);
+
+    /*  Transform the path by the matrix. If dst is null, apply the
+        change directly to the src path. If dst is not null, write the
+        changed path into dst, and leave the src path unchanged. In that case
+        dst must have been previously allocated by the caller.
+     */
+    void (*transform)(ANPPath* src, const ANPMatrix*, ANPPath* dst);
+};
+
 typedef uint32_t ANPColor;
 #define ANP_MAKE_COLOR(a, r, g, b)  \
                                 (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
@@ -433,9 +480,11 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
         current clip is empty, return false and ignore the bounds argument.
      */
     bool        (*getDeviceClipBounds)(ANPCanvas*, ANPRectI* bounds);
-    
+
     void        (*drawColor)(ANPCanvas*, ANPColor);
     void        (*drawPaint)(ANPCanvas*, const ANPPaint*);
+    void        (*drawLine)(ANPCanvas*, float x0, float y0, float x1, float y1,
+                            const ANPPaint*);
     void        (*drawRect)(ANPCanvas*, const ANPRectF*, const ANPPaint*);
     void        (*drawOval)(ANPCanvas*, const ANPRectF*, const ANPPaint*);
     void        (*drawPath)(ANPCanvas*, const ANPPath*, const ANPPaint*);

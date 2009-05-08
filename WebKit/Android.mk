@@ -56,6 +56,7 @@ LOCAL_SRC_FILES := \
 	android/plugins/ANPLogInterface.cpp \
 	android/plugins/ANPMatrixInterface.cpp \
 	android/plugins/ANPPaintInterface.cpp \
+	android/plugins/ANPPathInterface.cpp \
 	android/plugins/ANPSoundInterface.cpp \
 	android/plugins/ANPTypefaceInterface.cpp \
 	android/plugins/ANPWindowInterface.cpp \
