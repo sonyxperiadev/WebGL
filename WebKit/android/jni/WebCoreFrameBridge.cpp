@@ -246,7 +246,8 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
     LOG_ASSERT(put, "Could not find put method on HashMap");
 
     // for POST, where (content_length != -1), we need to add "content-length" for the http headers.
-    if (content_length != -1) {
+    if (false) {
+//    if (content_length != -1) {
         WebCore::String length = WebCore::String::number(content_length);
         jstring key = env->NewStringUTF("content-length");
         jstring val = env->NewString((unsigned short *)length.characters(), length.length());
