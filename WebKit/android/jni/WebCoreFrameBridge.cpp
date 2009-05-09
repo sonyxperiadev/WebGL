@@ -233,7 +233,7 @@ WebFrame* WebFrame::getWebFrame(const WebCore::Frame* frame)
     return client->webFrame();
 }
 
-static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHeaderMap& map, int content_length)
+static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHeaderMap& map)
 {
     jclass mapClass = env->FindClass("java/util/HashMap");
     LOG_ASSERT(mapClass, "Could not find HashMap class!");
@@ -244,19 +244,6 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
     jmethodID put = env->GetMethodID(mapClass, "put",
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     LOG_ASSERT(put, "Could not find put method on HashMap");
-
-    // for POST, where (content_length != -1), we need to add "content-length" for the http headers.
-    if (false) {
-//    if (content_length != -1) {
-        WebCore::String length = WebCore::String::number(content_length);
-        jstring key = env->NewStringUTF("content-length");
-        jstring val = env->NewString((unsigned short *)length.characters(), length.length());
-        if (key && val) {
-            env->CallObjectMethod(hashMap, put, key, val);
-            env->DeleteLocalRef(key);
-            env->DeleteLocalRef(val);
-        }
-    }
 
     WebCore::HTTPHeaderMap::const_iterator end = map.end();
     for (WebCore::HTTPHeaderMap::const_iterator i = map.begin(); i != end; ++i) {
@@ -298,7 +285,6 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         jMethodStr = env->NewString(method.characters(), method.length());
     jbyteArray jPostDataStr = NULL;
     WebCore::FormData* formdata = request.httpBody();
-    int content_length = equalIgnoringCase(method, "POST") ? 0 : -1;
     if (formdata) {
         // We can use the formdata->flatten() but it will result in two 
         // memcpys, first through loading up the vector with the form data
@@ -337,11 +323,10 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                 }
                 env->ReleaseByteArrayElements(jPostDataStr, bytes, 0);
             }
-            content_length = size;
         }
     }
 
-    jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers, content_length);
+    jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers);
 
     // Convert the WebCore Cache Policy to a WebView Cache Policy.
     int cacheMode = 0;  // WebView.LOAD_NORMAL
