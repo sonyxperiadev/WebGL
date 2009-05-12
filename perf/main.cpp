@@ -39,7 +39,11 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
+#if USE(JSC)
 #include "InitializeThreading.h"
+#elif USE(V8)
+#include "V8InitializeThreading.h"
+#endif
 #include "InspectorClientAndroid.h"
 #include "Intercept.h"
 #include "IntRect.h"
@@ -117,8 +121,11 @@ int main(int argc, char** argv) {
         LOGE("Please supply a file to read\n");
         return 1;
     }
-
+#if USE(JSC)
     JSC::initializeThreading();
+#elif USE(V8)
+    V8::initializeThreading();
+#endif
 
     // Setting this allows data: urls to load from a local file.
     FrameLoader::setLocalLoadPolicy(FrameLoader::AllowLocalLoadsForAll);
@@ -169,7 +176,6 @@ int main(int argc, char** argv) {
     // assertion in the Cache code)
     frame->init();
     frame->selection()->setFocused(true);
-    frame->loader()->setUseLowBandwidthDisplay(false);
 
     // Set all the default settings the Browser normally uses.
     Settings* s = frame->settings();

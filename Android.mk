@@ -23,7 +23,7 @@ include $(CLEAR_VARS)
 
 # Define our module and find the intermediates directory
 LOCAL_MODULE := libwebcore
-LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 base_intermediates := $(call local-intermediates-dir)
 
 # Using := here prevents recursive expansion
@@ -94,9 +94,10 @@ LOCAL_PATH := $(BASE_PATH)
 LOCAL_CFLAGS += -Wno-endif-labels -Wno-import -Wno-format
 LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefixAndroid.h"
+LOCAL_CFLAGS += -fvisibility=hidden
 
 ifeq ($(TARGET_ARCH),arm)
-LOCAL_CFLAGS += -Darm -fvisibility=hidden
+LOCAL_CFLAGS += -Darm
 endif
 
 ifeq ($(ENABLE_SVG),true)
@@ -136,6 +137,7 @@ LOCAL_C_INCLUDES := \
 	external/skia/src/ports \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
+	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/WebCore \
 	$(LOCAL_PATH)/WebCore/css \
 	$(LOCAL_PATH)/WebCore/dom \
@@ -231,7 +233,30 @@ endif
 # Redefine LOCAL_SRC_FILES to be all the WebKit source files
 LOCAL_SRC_FILES := $(WEBKIT_SRC_FILES)
 
+# Define this for use in other makefiles.
+WEBKIT_C_INCLUDES := $(LOCAL_C_INCLUDES)
+WEBKIT_CFLAGS := $(LOCAL_CFLAGS)
+WEBKIT_GENERATED_SOURCES := $(LOCAL_GENERATED_SOURCES)
+WEBKIT_LDLIBS := $(LOCAL_LDLIBS)
+WEBKIT_SHARED_LIBRARIES := $(LOCAL_SHARED_LIBRARIES)
+WEBKIT_STATIC_LIBRARIES := $(LOCAL_STATIC_LIBRARIES)
+
 # Build the library all at once
+include $(BUILD_STATIC_LIBRARY)
+
+# Now build the shared library using only the exported jni entry point. This
+# will strip out any unused code from the entry point.
+include $(CLEAR_VARS)
+LOCAL_MODULE := libwebcore
+LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
+LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
+LOCAL_STATIC_LIBRARIES := libwebcore $(WEBKIT_STATIC_LIBRARIES)
+LOCAL_LDFLAGS := -fvisibility=hidden
+LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
+LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
+LOCAL_PATH := $(BASE_PATH)
+LOCAL_SRC_FILES := \
+	WebKit/android/jni/WebCoreJniOnLoad.cpp
 include $(BUILD_SHARED_LIBRARY)
 
 # Build the plugin test separately from libwebcore
@@ -240,10 +265,10 @@ include $(BASE_PATH)/WebKit/android/plugins/sample/Android.mk
 # Build the wds client
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 
-# Build the performance command line tool.
-# XXX: Uncomment this include to build webcore_test. In order for the test to
-# link with libwebcore, remove -fvisibility=hidden from LOCAL_CFLAGS above
-#include $(BASE_PATH)/perf/Android.mk
+# Build the performance command line tool but only if v8 is disabled.
+#ifneq ($(ENABLE_V8),true)
+include $(BASE_PATH)/perf/Android.mk
+#endif
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk

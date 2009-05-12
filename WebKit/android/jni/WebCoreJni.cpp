@@ -33,16 +33,6 @@
 
 namespace android {
 
-extern int register_webframe(JNIEnv*);
-extern int register_javabridge(JNIEnv*);
-extern int register_resource_loader(JNIEnv*);
-extern int register_webviewcore(JNIEnv*);
-extern int register_webhistory(JNIEnv*);
-extern int register_webicondatabase(JNIEnv*);
-extern int register_websettings(JNIEnv*);
-extern int register_webstorage(JNIEnv*);
-extern int register_webview(JNIEnv*);
-
 // Class, constructor, and get method on WeakReference
 jclass    gWeakRefClass;
 jmethodID gWeakRefInit;
@@ -94,39 +84,7 @@ WebCore::String to_string(JNIEnv* env, jstring str)
     return ret;
 }
 
-}
-
-struct RegistrationMethod {
-    const char* name;
-    int (*func)(JNIEnv*);
-};
-
-static RegistrationMethod gWebCoreRegMethods[] = {
-    { "JavaBridge", android::register_javabridge },
-    { "WebFrame", android::register_webframe },
-    { "WebCoreResourceLoader", android::register_resource_loader },
-    { "WebViewCore", android::register_webviewcore },
-    { "WebHistory", android::register_webhistory },
-    { "WebIconDatabase", android::register_webicondatabase },
-    { "WebSettings", android::register_websettings },
-    { "WebStorage", android::register_webstorage },
-    { "WebView", android::register_webview }
-};
-
-EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
-{
-    // Save the JavaVM pointer for use globally.
-    JSC::Bindings::setJavaVM(vm);
-
-    JNIEnv* env = NULL;
-    jint result = -1;
-
-    if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
-        LOGE("GetEnv failed!");
-        return result;
-    }
-    LOG_ASSERT(env, "Could not retrieve the env!");
-
+int register_webcorejni(JNIEnv* env) {
     // Instantiate the WeakReference fields.
     android::gWeakRefClass = env->FindClass("java/lang/ref/WeakReference");
     LOG_ASSERT(android::gWeakRefClass, "Could not find WeakReference");
@@ -138,20 +96,7 @@ EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
             "()Ljava/lang/Object;");
     LOG_ASSERT(android::gWeakRefInit,
             "Could not find get method for WeakReference");
+    return JNI_OK;
+}
 
-    const RegistrationMethod* method = gWebCoreRegMethods;
-    const RegistrationMethod* end = method + sizeof(gWebCoreRegMethods)/sizeof(RegistrationMethod);
-    while (method != end) {
-        if (method->func(env) < 0) {
-            LOGE("%s registration failed!", method->name);
-            return result;
-        }
-        method++;
-    }
-    
-    // Initialize rand() function. The rand() function is used in
-    // FileSystemAndroid to create a random temporary filename.
-    srand(time(NULL));
-
-    return JNI_VERSION_1_4;
 }
