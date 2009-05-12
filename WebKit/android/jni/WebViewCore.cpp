@@ -302,6 +302,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_domtree_version = 0;
     m_check_domtree_version = true;
     m_progressDone = false;
+    m_blockNotifyFocus = false;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
