@@ -171,6 +171,7 @@ namespace android {
         bool jsPrompt(const WebCore::String& url, const WebCore::String& message,
                 const WebCore::String& defaultValue, WebCore::String& result);
         bool jsUnload(const WebCore::String& url, const WebCore::String& message);
+        bool jsInterrupt();
 
         /**
          * Tell the Java side that the origin has exceeded it's database quota.
