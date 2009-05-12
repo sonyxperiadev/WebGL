@@ -143,10 +143,10 @@ bool ChromeClientAndroid::menubarVisible() { notImplemented(); return false; }
 void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
 
 // This function is called by the JavaScript bindings to print usually an error to
-// a message console.
+// a message console. Pass the message to the java side so that the client can
+// handle it as it sees fit.
 void ChromeClientAndroid::addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID) {
-    notImplemented();
-    LOGD("Console: %s line: %d source: %s\n", message.latin1().data(), lineNumber, sourceID.latin1().data());
+    android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->addMessageToConsole(message, lineNumber, sourceID);
 }
 
 bool ChromeClientAndroid::canRunBeforeUnloadConfirmPanel() { return true; }

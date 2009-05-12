@@ -179,6 +179,8 @@ namespace android {
                                    const WebCore::String& databaseIdentifier,
                                    const unsigned long long currentQuota);
 
+        void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID);
+
         //
         // Followings support calls from Java to native WebCore
         //

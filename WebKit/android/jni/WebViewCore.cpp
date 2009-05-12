@@ -169,6 +169,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_exceededDatabaseQuota;
+    jmethodID   m_addMessageToConsole;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -233,6 +234,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
+    m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -1785,6 +1787,16 @@ void WebViewCore::popupReply(const int* array, int count)
         Release(m_popupReply);
         m_popupReply = NULL;
     }
+}
+
+void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jMessageStr = env->NewString((unsigned short *)message.characters(), message.length());
+    jstring jSourceIDStr = env->NewString((unsigned short *)sourceID.characters(), sourceID.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_addMessageToConsole, jMessageStr, lineNumber, jSourceIDStr);
+    env->DeleteLocalRef(jMessageStr);
+    env->DeleteLocalRef(jSourceIDStr);
+    checkException(env);
 }
 
 void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& text)
