@@ -27,8 +27,9 @@
 #define CachedRoot_H
 
 #include "CachedFrame.h"
-#include "IntPoint.h"
+#include "IntRect.h"
 #include "SkPicture.h"
+#include "wtf/Vector.h"
 
 class SkRect;
 
@@ -43,6 +44,8 @@ public:
         bool findClosest);
     int checkForCenter(int x, int y) const;
     void checkForJiggle(int* ) const;
+    bool checkRings(const WTF::Vector<WebCore::IntRect>& rings,
+        const WebCore::IntRect& bounds) const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,

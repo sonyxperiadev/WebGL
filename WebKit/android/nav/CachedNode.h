@@ -40,6 +40,7 @@ namespace WebCore {
 namespace android {
 
 class CachedFrame;
+class CachedRoot;
 
 class CachedNode {
 public:
@@ -95,7 +96,7 @@ public:
     bool clippedOut() { return mClippedOut; }
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
-    void fixUpFocusRects();
+    void fixUpFocusRects(const CachedRoot* root);
     void focusRingBounds(WebCore::IntRect* ) const;
     WTF::Vector<WebCore::IntRect>& focusRings() { return mFocusRing; }
     const WTF::Vector<WebCore::IntRect>& focusRings() const { return mFocusRing; }
@@ -169,6 +170,8 @@ public:
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
     int textSize() const { return mTextSize; }
     CachedNodeType type() const { return mType; }
+    bool useBounds() const { return mUseBounds; }
+    bool useHitBounds() const { return mUseHitBounds; }
 private:
     WebCore::String mExport;
     WebCore::String mName;
@@ -203,6 +206,8 @@ private:
     bool mIsTransparent : 1;
     bool mIsUnclipped : 1;
     bool mLast : 1;             // true if this is the last node in a group
+    bool mUseBounds : 1;
+    bool mUseHitBounds : 1;
     bool mWantsKeyEvents : 1;   // true for nodes like plugins
 #ifdef BROWSER_DEBUG
 public:

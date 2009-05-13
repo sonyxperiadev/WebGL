@@ -24,6 +24,7 @@
  */
 
 #include "CachedPrefix.h"
+#include "android_graphics.h"
 #include "CachedHistory.h"
 #include "CachedNode.h"
 #include "SkBitmap.h"
@@ -530,6 +531,37 @@ public:
     int mMaxWidth;
 };
 
+class RingCheck : public CommonCheck {
+public:
+    RingCheck(const WTF::Vector<WebCore::IntRect>& rings,
+            const WebCore::IntPoint& location) : mSuccess(true) {
+        const WebCore::IntRect* r;
+        for (r = rings.begin(); r != rings.end(); r++) {
+            SkIRect fatter = {r->x(), r->y(), r->right(), r->bottom()};
+            fatter.inset(-FOCUS_RING_HIT_TEST_RADIUS, -FOCUS_RING_HIT_TEST_RADIUS);
+            DBG_NAV_LOGD("%s fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
+                fatter.fRight, fatter.fBottom);
+            mRings.op(fatter, SkRegion::kUnion_Op);
+        }
+        DBG_NAV_LOGD("translate=(%d,%d)", -location.x(), -location.y());
+        mRings.translate(-location.x(), -location.y());
+    }
+
+    virtual bool onIRect(const SkIRect& rect) {
+        if (mSuccess && mType == kDrawGlyph_Type) {
+            DBG_NAV_LOGD("contains (%d,%d,r=%d,b=%d) == %s", rect.fLeft, rect.fTop,
+                rect.fRight, rect.fBottom, mRings.contains(rect) ? "true" :
+                "false");
+            mSuccess &= mRings.contains(rect);
+        }
+        return false;
+    }
+
+    bool success() { return mSuccess; }
+    SkRegion mRings;
+    bool mSuccess;
+};
+
 bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction direction, 
     WebCore::IntPoint* scrollPtr, bool findClosest)
 {        
@@ -589,6 +621,23 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
         (xDelta < 0 ? xDelta : 0)), SkIntToScalar(-mViewBounds.y()));
     checker.drawPicture(*mPicture);
     *xDeltaPtr = jiggleCheck.jiggle();
+}
+
+bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
+        const WebCore::IntRect& bounds) const
+{
+    RingCheck ringCheck(rings, bounds.location());
+    BoundsCanvas checker(&ringCheck);
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, bounds.width(),
+        bounds.height());
+    checker.setBitmapDevice(bitmap);
+    checker.translate(SkIntToScalar(-bounds.x()), SkIntToScalar(-bounds.y()));
+    checker.drawPicture(*mPicture);
+    DBG_NAV_LOGD("bounds=(%d,%d,r=%d,b=%d) success=%s",
+        bounds.x(), bounds.y(), bounds.right(), bounds.bottom(),
+        ringCheck.success() ? "true" : "false");
+    return ringCheck.success();
 }
 
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
