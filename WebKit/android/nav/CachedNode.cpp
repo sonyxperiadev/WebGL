@@ -24,8 +24,8 @@
  */
 
 #include "CachedPrefix.h"
-#include "CachedFrame.h"
 #include "CachedHistory.h"
+#include "CachedRoot.h"
 #include "Node.h"
 #include "PlatformString.h"
 
@@ -78,13 +78,29 @@ bool CachedNode::clip(const WebCore::IntRect& bounds)
 
 #define OVERLAP 3
 
-void CachedNode::fixUpFocusRects()
+void CachedNode::fixUpFocusRects(const CachedRoot* root)
 {
     if (mFixedUpFocusRects)
         return;
     mFixedUpFocusRects = true;
+    // if the hit-test rect doesn't intersect any other rect, use it
+    if (mHitBounds != mBounds && mHitBounds.contains(mBounds) &&
+            root->checkRings(mFocusRing, mHitBounds)) {
+        DBG_NAV_LOGD("use mHitBounds (%d,%d,%d,%d)", mHitBounds.x(),
+            mHitBounds.y(), mHitBounds.width(), mHitBounds.height());
+        mUseHitBounds = true;
+        return;
+    }
     if (mNavableRects <= 1)
         return;
+    // if there is more than 1 rect, and the bounds doesn't intersect
+    // any other focus ring bounds, use it
+    if (root->checkRings(mFocusRing, mBounds)) {
+        DBG_NAV_LOGD("use mBounds (%d,%d,%d,%d)", mBounds.x(),
+            mBounds.y(), mBounds.width(), mBounds.height());
+        mUseBounds = true;
+        return;
+    }
 #if DEBUG_NAV_UI
     {
         WebCore::IntRect* boundsPtr = mFocusRing.begin() - 1;

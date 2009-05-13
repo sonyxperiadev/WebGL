@@ -700,12 +700,11 @@ void drawFocusRing(SkCanvas* canvas)
         DBG_NAV_LOG("!node->hasFocusRing()");
         return;
     }
-    const WTF::Vector<WebCore::IntRect>& rings = node->focusRings();
-    if (!rings.size()) {
-        DBG_NAV_LOG("!rings.size()");
+    const WTF::Vector<WebCore::IntRect>* rings = &node->focusRings();
+    if (!rings->size()) {
+        DBG_NAV_LOG("!rings->size()");
         return;
     }
-
     bool isButton = false;
     m_viewImpl->gButtonMutex.lock();
     // If this is a button drawn by us (rather than webkit) do not draw the
@@ -731,6 +730,7 @@ void drawFocusRing(SkCanvas* canvas)
         return;
     }
     FocusRing::Flavor flavor = FocusRing::NORMAL_FLAVOR;
+    WTF::Vector<WebCore::IntRect> oneRing;
     if (!isButton) {
         flavor = node->type() != NORMAL_CACHEDNODETYPE ?
             FocusRing::FAKE_FLAVOR : node->nodePointer() == m_invalidNode ?
@@ -738,15 +738,20 @@ void drawFocusRing(SkCanvas* canvas)
         if (flavor != FocusRing::INVALID_FLAVOR && m_followedLink) {
             flavor = (FocusRing::Flavor) (flavor + FocusRing::NORMAL_ANIMATING);
         }
+        bool useHitBounds = node->useHitBounds();
+        if (useHitBounds || node->useBounds()) {
+            oneRing.append(useHitBounds ? node->hitBounds() : node->bounds());
+            rings = &oneRing;
+        }
 #if DEBUG_NAV_UI
-        const WebCore::IntRect& ring = rings[0];
+        const WebCore::IntRect& ring = (*rings)[0];
         DBG_NAV_LOGD("cachedFocusNode=%d (nodePointer=%p) flavor=%s rings=%d"
             " (%d, %d, %d, %d)", node->index(), node->nodePointer(),
             flavor == FocusRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
             flavor == FocusRing::INVALID_FLAVOR ? "INVALID_FLAVOR" :
             flavor == FocusRing::NORMAL_ANIMATING ? "NORMAL_ANIMATING" :
             flavor == FocusRing::FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
-            rings.size(), ring.x(), ring.y(), ring.width(), ring.height());
+            rings->size(), ring.x(), ring.y(), ring.width(), ring.height());
 #endif
     }
     if (isButton || flavor >= FocusRing::NORMAL_ANIMATING) {
@@ -761,7 +766,7 @@ void drawFocusRing(SkCanvas* canvas)
         }
     }
     if (!isButton)
-        FocusRing::DrawRing(canvas, rings, flavor);
+        FocusRing::DrawRing(canvas, *rings, flavor);
 }
 
 OutOfFocusFix fixOutOfDateFocus(bool useReplay)

@@ -305,7 +305,7 @@ const CachedNode* CachedFrame::currentFocus(const CachedFrame** framePtr) const
     const CachedFrame* frame = hasFrame(result);
     if (frame != NULL)
         return frame->currentFocus(framePtr);
-    (const_cast<CachedNode*>(result))->fixUpFocusRects();
+    (const_cast<CachedNode*>(result))->fixUpFocusRects(mRoot);
     return result;
 }
 
