@@ -87,7 +87,7 @@ WebCore::String to_string(JNIEnv* env, jstring str)
 int register_webcorejni(JNIEnv* env) {
     // Instantiate the WeakReference fields.
     jclass weakRef = env->FindClass("java/lang/ref/WeakReference");
-    LOG_ASSERT(android::weakRef, "Could not find WeakReference");
+    LOG_ASSERT(weakRef, "Could not find WeakReference");
     android::gWeakRefClass = (jclass)env->NewGlobalRef(weakRef);
     android::gWeakRefInit = env->GetMethodID(android::gWeakRefClass,
             "<init>", "(Ljava/lang/Object;)V");

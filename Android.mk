@@ -266,9 +266,7 @@ include $(BASE_PATH)/WebKit/android/plugins/sample/Android.mk
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 
 # Build the performance command line tool but only if v8 is disabled.
-#ifneq ($(ENABLE_V8),true)
 include $(BASE_PATH)/perf/Android.mk
-#endif
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
