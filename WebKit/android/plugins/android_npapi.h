@@ -101,8 +101,9 @@ typedef uint32_t ANPMatrixFlag;
 #define kCanvasInterfaceV0_ANPGetValue      ((NPNVariable)1002)
 #define kMatrixInterfaceV0_ANPGetValue      ((NPNVariable)1003)
 #define kPaintInterfaceV0_ANPGetValue       ((NPNVariable)1004)
-#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1005)
-#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1006)
+#define kPathInterfaceV0_ANPGetValue        ((NPNVariable)1005)
+#define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1006)
+#define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
 
 /*  queries for which drawing model is desired (for the draw event)
  

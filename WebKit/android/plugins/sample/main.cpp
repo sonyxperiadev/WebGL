@@ -63,6 +63,7 @@ ANPAudioTrackInterfaceV0    gSoundI;
 ANPCanvasInterfaceV0        gCanvasI;
 ANPLogInterfaceV0           gLogI;
 ANPPaintInterfaceV0         gPaintI;
+ANPPathInterfaceV0          gPathI;
 ANPTypefaceInterfaceV0      gTypefaceI;
 
 #define ARRAY_COUNT(array)      (sizeof(array) / sizeof(array[0]))
@@ -103,6 +104,7 @@ NPError NP_Initialize(NPNetscapeFuncs* browserFuncs, NPPluginFuncs* pluginFuncs,
         { kLogInterfaceV0_ANPGetValue,          sizeof(gLogI),      &gLogI },
         { kCanvasInterfaceV0_ANPGetValue,       sizeof(gCanvasI),   &gCanvasI },
         { kPaintInterfaceV0_ANPGetValue,        sizeof(gPaintI),    &gPaintI },
+        { kPathInterfaceV0_ANPGetValue,         sizeof(gPathI),     &gPathI },
         { kTypefaceInterfaceV0_ANPGetValue,     sizeof(gPaintI),    &gTypefaceI },
         { kAudioTrackInterfaceV0_ANPGetValue,   sizeof(gSoundI),    &gSoundI },
     };
@@ -367,19 +369,17 @@ int16 NPP_HandleEvent(NPP instance, void* event)
                       instance, evt->data.touch.action, evt->data.touch.x,
                       evt->data.touch.y);
             if (kUp_ANPTouchAction == evt->data.touch.action) {
+                if (NULL == obj->track) {
+                    obj->track = createTrack(instance, "/sdcard/sample.snd");
+                }
                 if (obj->track) {
+                    gLogI.log(instance, kDebug_ANPLogType, "track %p %d",
+                              obj->track, gSoundI.isStopped(obj->track));
                     if (gSoundI.isStopped(obj->track)) {
                         gSoundI.start(obj->track);
                     } else {
                         gSoundI.pause(obj->track);
                     }
-                } else {
-                    obj->track = createTrack(instance, "/sdcard/sample.snd");
-                    gLogI.log(instance, kDebug_ANPLogType, "track %p %d",
-                              obj->track, gSoundI.isStopped(obj->track));
-                    gSoundI.start(obj->track);
-                    gLogI.log(instance, kDebug_ANPLogType, "track %p %d",
-                              obj->track, gSoundI.isStopped(obj->track));
                 }
             }
             return 1;

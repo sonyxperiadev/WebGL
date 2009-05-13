@@ -83,6 +83,7 @@ extern void ANPLogInterfaceV0_Init(ANPInterface* value);
 extern void ANPMatrixInterfaceV0_Init(ANPInterface* value);
 extern void ANPOffscreenInterfaceV0_Init(ANPInterface* value);
 extern void ANPPaintInterfaceV0_Init(ANPInterface* value);
+extern void ANPPathInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
 
@@ -101,6 +102,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(CanvasInterfaceV0)        },
     { VARPROCLINE(MatrixInterfaceV0)        },
     { VARPROCLINE(PaintInterfaceV0)         },
+    { VARPROCLINE(PathInterfaceV0)          },
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
 };

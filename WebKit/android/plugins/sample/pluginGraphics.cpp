@@ -36,6 +36,7 @@ extern NPNetscapeFuncs*        browser;
 extern ANPLogInterfaceV0       gLogI;
 extern ANPCanvasInterfaceV0    gCanvasI;
 extern ANPPaintInterfaceV0     gPaintI;
+extern ANPPathInterfaceV0      gPathI;
 extern ANPTypefaceInterfaceV0  gTypefaceI;
 
 static void inval(NPP instance) {
@@ -128,6 +129,8 @@ void BallAnimation::draw(ANPCanvas* canvas) {
     PluginObject *obj = (PluginObject*) instance->pdata;
     const float OW = 20;
     const float OH = 20;
+    const int W = obj->window->width;
+    const int H = obj->window->height;
 
     inval(instance, m_oval, true);  // inval the old
     m_oval.left = m_x;
@@ -135,9 +138,35 @@ void BallAnimation::draw(ANPCanvas* canvas) {
     m_oval.right = m_x + OW;
     m_oval.bottom = m_y + OH;
     inval(instance, m_oval, true);  // inval the new
-    
+
     gCanvasI.drawColor(canvas, 0xFFFFFFFF);
 
+    // test out the Path API
+    {
+        ANPPath* path = gPathI.newPath();
+
+        float cx = W * 0.5f;
+        float cy = H * 0.5f;
+        gPathI.moveTo(path, 0, 0);
+        gPathI.quadTo(path, cx, cy, W, 0);
+        gPathI.quadTo(path, cx, cy, W, H);
+        gPathI.quadTo(path, cx, cy, 0, H);
+        gPathI.quadTo(path, cx, cy, 0, 0);
+
+        gPaintI.setColor(m_paint, 0xFF0000FF);
+        gCanvasI.drawPath(canvas, path, m_paint);
+
+        ANPRectF bounds;
+        memset(&bounds, 0, sizeof(bounds));
+        gPathI.getBounds(path, &bounds);
+#if 0
+        gLogI.log(instance, kDebug_ANPLogType, "drawpath: center %g %g bounds [%g %g %g %g]\n",
+                  cx, cy,
+                  bounds.left, bounds.top, bounds.right, bounds.bottom);
+#endif
+        gPathI.deletePath(path);
+    }
+    
     gPaintI.setColor(m_paint, 0xFFFF0000);
     gCanvasI.drawOval(canvas, &m_oval, m_paint);
     
