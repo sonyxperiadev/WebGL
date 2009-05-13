@@ -272,9 +272,9 @@ void ChromeClientAndroid::print(Frame*) {}
  * we call into the browser thread to ask what to do with the quota, we block here and get woken up when the
  * browser calls the native WebViewCore::SetDatabaseQuota method with the new quota value.
  */
+#if ENABLE(DATABASE)
 void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name)
 {
-#if ENABLE(DATABASE)
     SecurityOrigin* origin = frame->document()->securityOrigin();
 
     // TODO: This default quota value should be pulled from the web browser
@@ -306,8 +306,8 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
         // to the default quota, casusing it to be tracked from now on.
         DatabaseTracker::tracker().setQuota(origin, defaultQuota);
     }
-#endif
 }
+#endif
 
 // new to change 38068 (Nov 6, 2008)
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }

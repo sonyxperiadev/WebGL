@@ -28,6 +28,8 @@
 #ifndef SQLStatement_h
 #define SQLStatement_h
 
+#if ENABLE(DATABASE)
+
 #include "PlatformString.h"
 
 #include "SQLError.h"
@@ -79,5 +81,7 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(DATABASE)
 
 #endif // SQLStatement_h
