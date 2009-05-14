@@ -127,11 +127,6 @@ namespace WebCore {
         void setPluginsEnabled(bool);
         bool arePluginsEnabled() const { return m_arePluginsEnabled; }
 
-#ifdef ANDROID_PLUGINS
-        void setPluginsPath(const String& pluginsPath);
-        const String& pluginsPath() const { return m_pluginsPath; }
-#endif
-
         void setDatabasesEnabled(bool);
         bool databasesEnabled() const { return m_databasesEnabled; }
 
@@ -265,9 +260,6 @@ namespace WebCore {
         
         String m_defaultTextEncodingName;
         String m_ftpDirectoryTemplatePath;
-#ifdef ANDROID_PLUGINS
-        String m_pluginsPath;
-#endif
         String m_localStorageDatabasePath;
         KURL m_userStyleSheetLocation;
         AtomicString m_standardFontFamily;

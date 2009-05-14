@@ -41,21 +41,12 @@
 #include "DocLoader.h"
 #include "Page.h"
 #include "RenderTable.h"
-#ifdef ANDROID_PLUGINS
-#include "PlatformString.h"
-#include "PluginDatabase.h"
-#endif
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
-
-namespace WebCore {
-// Defined in FileSystemAndroid.cpp
-extern String sPluginPath;
-}
 
 namespace android {
 
@@ -91,9 +82,6 @@ struct FieldIds {
 #endif
         mJavaScriptEnabled = env->GetFieldID(clazz, "mJavaScriptEnabled", "Z");
         mPluginsEnabled = env->GetFieldID(clazz, "mPluginsEnabled", "Z");
-#ifdef ANDROID_PLUGINS
-        mPluginsPath = env->GetFieldID(clazz, "mPluginsPath", "Ljava/lang/String;");
-#endif
 #if ENABLE(DATABASE)
         mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
         mDatabasePath = env->GetFieldID(clazz, "mDatabasePath", "Ljava/lang/String;");
@@ -129,9 +117,6 @@ struct FieldIds {
 #endif
         LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
         LOG_ASSERT(mPluginsEnabled, "Could not find field mPluginsEnabled");
-#ifdef ANDROID_PLUGINS
-        LOG_ASSERT(mPluginsPath, "Could not find field mPluginsPath");
-#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
         LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
@@ -173,9 +158,6 @@ struct FieldIds {
 #endif
     jfieldID mJavaScriptEnabled;
     jfieldID mPluginsEnabled;
-#ifdef ANDROID_PLUGINS
-    jfieldID mPluginsPath;
-#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     jfieldID mAppCacheEnabled;
     jfieldID mAppCachePath;
@@ -299,46 +281,6 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mPluginsEnabled);
         s->setPluginsEnabled(flag);
 
-#ifdef ANDROID_PLUGINS
-        ::WebCore::PluginDatabase *pluginDatabase =
-                  ::WebCore::PluginDatabase::installedPlugins();
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mPluginsPath);
-        if (str) {
-            WebCore::String pluginsPath = to_string(env, str);
-            // When a new browser Tab is created, the corresponding
-            // Java WebViewCore object will sync (with the native
-            // side) its associated WebSettings at initialization
-            // time. However, at that point, the WebSettings object's
-            // mPluginsPaths member is set to the empty string. The
-            // real plugin path will be set later by the tab and the
-            // WebSettings will be synced again.
-            //
-            // There is no point in instructing WebCore's
-            // PluginDatabase instance to set the plugin path to the
-            // empty string. Furthermore, if the PluginDatabase
-            // instance is already initialized, setting the path to
-            // the empty string will cause the PluginDatabase to
-            // forget about the plugin files it has already
-            // inspected. When the path is subsequently set to the
-            // correct value, the PluginDatabase will attempt to load
-            // and initialize plugins that are already loaded and
-            // initialized.
-            if (pluginsPath.length()) {
-                s->setPluginsPath(pluginsPath);
-                // Set the plugin directories to this single entry.
-                WTF::Vector< ::WebCore::String > paths(1);
-                paths[0] = pluginsPath;
-                pluginDatabase->setPluginDirectories(paths);
-                // Set the home directory for plugin temporary files
-                WebCore::sPluginPath = paths[0];
-                // Reload plugins. We call Page::refreshPlugins() instead
-                // of pluginDatabase->refresh(), as we need to ensure that
-                // the list of mimetypes exposed by the browser are also
-                // updated.
-                WebCore::Page::refreshPlugins(false);
-            }
-        }
-#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
         s->setOfflineWebApplicationCacheEnabled(flag);

@@ -33,6 +33,9 @@
 #include "JavaSharedClient.h"
 #include "KURL.h"
 #include "NetworkStateNotifier.h"
+#include "Page.h"
+#include "PluginClient.h"
+#include "PluginDatabase.h"
 #include "Timer.h"
 #include "TimerClient.h"
 #include "jni_utility.h"
@@ -55,7 +58,7 @@ static jfieldID gJavaBridge_ObjectID;
 
 // ----------------------------------------------------------------------------
    
-class JavaBridge : public TimerClient, public CookieClient
+class JavaBridge : public TimerClient, public CookieClient, public PluginClient
 {
 public:
     JavaBridge(JNIEnv* env, jobject obj);
@@ -70,6 +73,8 @@ public:
     virtual void setCookies(WebCore::KURL const& url, WebCore::KURL const& docURL, WebCore::String const& value);
     virtual WebCore::String cookies(WebCore::KURL const& url);
     virtual bool cookiesEnabled();
+
+    virtual WTF::Vector<WebCore::String> getPluginDirectories();
 
     ////////////////////////////////////////////
 
@@ -87,6 +92,7 @@ public:
     static void SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online);
     static void SetDeferringTimers(JNIEnv* env, jobject obj, jboolean defer);
     static void ServiceFuncPtrQueue(JNIEnv*);
+    static void UpdatePluginDirectories(JNIEnv* env, jobject obj, jobjectArray array, jboolean reload);
 
 private:
     jobject     mJavaObject;
@@ -95,6 +101,7 @@ private:
     jmethodID   mSetCookies;
     jmethodID   mCookies;
     jmethodID   mCookiesEnabled;
+    jmethodID   mGetPluginDirectories;
     jmethodID   mSignalFuncPtrQueue;
 };
 
@@ -110,6 +117,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mSetCookies = env->GetMethodID(clazz, "setCookies", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     mCookies = env->GetMethodID(clazz, "cookies", "(Ljava/lang/String;)Ljava/lang/String;");
     mCookiesEnabled = env->GetMethodID(clazz, "cookiesEnabled", "()Z");
+    mGetPluginDirectories = env->GetMethodID(clazz, "getPluginDirectories", "()[Ljava/lang/String;");
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
 
     LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
@@ -120,8 +128,9 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 
     JavaSharedClient::SetTimerClient(this);
     JavaSharedClient::SetCookieClient(this);
-}   
-    
+    JavaSharedClient::SetPluginClient(this);
+}
+
 JavaBridge::~JavaBridge()
 {
     if (mJavaObject) {
@@ -192,6 +201,25 @@ JavaBridge::cookiesEnabled()
     return (ret != 0);
 }
 
+WTF::Vector<WebCore::String>
+JavaBridge::getPluginDirectories()
+{
+    WTF::Vector<WebCore::String> directories;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jobjectArray array = (jobjectArray)
+            env->CallObjectMethod(obj.get(), mGetPluginDirectories);
+    int count = env->GetArrayLength(array);
+    for (int i = 0; i < count; i++) {
+        jstring dir = (jstring) env->GetObjectArrayElement(array, i);
+        directories.append(to_string(env, dir));
+        env->DeleteLocalRef(dir);
+    }
+    env->DeleteLocalRef(array);
+    checkException(env);
+    return directories;
+}
+
 void
 JavaBridge::setSharedTimerCallback(void (*f)())
 {
@@ -260,6 +288,23 @@ void JavaBridge::ServiceFuncPtrQueue(JNIEnv*)
     JavaSharedClient::ServiceFunctionPtrQueue();
 }
 
+void JavaBridge::UpdatePluginDirectories(JNIEnv* env, jobject obj,
+        jobjectArray array, jboolean reload) {
+    WTF::Vector<WebCore::String> directories;
+    int count = env->GetArrayLength(array);
+    for (int i = 0; i < count; i++) {
+        jstring dir = (jstring) env->GetObjectArrayElement(array, i);
+        directories.append(to_string(env, dir));
+        env->DeleteLocalRef(dir);
+    }
+    checkException(env);
+    WebCore::PluginDatabase *pluginDatabase =
+            WebCore::PluginDatabase::installedPlugins();
+    pluginDatabase->setPluginDirectories(directories);
+    // refreshPlugins() should refresh both PluginDatabase and Page's PluginData
+    WebCore::Page::refreshPlugins(reload);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -279,6 +324,8 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::SetNetworkOnLine },
     { "nativeServiceFuncPtrQueue", "()V",
         (void*) JavaBridge::ServiceFuncPtrQueue },
+    { "nativeUpdatePluginDirectories", "([Ljava/lang/String;Z)V",
+        (void*) JavaBridge::UpdatePluginDirectories }
 };
 
 int register_javabridge(JNIEnv* env)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2008, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,19 +22,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
-#include "main.h" // for NPAPI definitions
-#include "PluginObject.h"
 
-#ifndef pluginGraphics__DEFINED
-#define pluginGraphics__DEFINED
+#ifndef PLUGINCLIENT_H_
+#define PLUGINCLIENT_H_
 
-struct ANPBitmap;
-struct ANPCanvas;
-struct ANPRectI;
+#include "PlatformString.h"
+#include <wtf/Vector.h>
 
-void drawPlugin(NPP instance, const ANPBitmap& bitmap, const ANPRectI& clip);
-void drawPlugin(NPP instance, ANPCanvas*);
-uint32_t getMSecs();
+using namespace WebCore;
 
-#endif // pluginGraphics__DEFINED
+namespace android {
+
+    class PluginClient
+    {
+    public:
+        virtual ~PluginClient() {}
+        virtual Vector<String> getPluginDirectories() = 0;
+    };
+}
+
+#endif /* PLUGINCLIENT_H_ */

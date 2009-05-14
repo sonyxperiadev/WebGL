@@ -63,9 +63,14 @@ namespace WebCore {
 
         PluginPackage* findPlugin(const KURL&, String& mimeType);
 
-    private:
+#ifdef ANDROID_PLUGINS
         void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
+#endif
 
+    private:
+#ifndef ANDROID_PLUGINS
+        void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
+#endif
         void getPluginPathsInDirectories(HashSet<String>&) const;
         void getDeletedPlugins(PluginSet&) const;
 

@@ -68,7 +68,6 @@
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
-#include "PluginInfoStore.h"
 #include "PluginWidgetAndroid.h"
 #include "Position.h"
 #include "ProgressTracker.h"
@@ -2561,18 +2560,6 @@ static void SetDatabaseQuota(JNIEnv* env, jobject obj, jlong quota) {
 #endif
 }
 
-static void RefreshPlugins(JNIEnv *env,
-                                 jobject obj,
-                                 jboolean reloadOpenPages)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    // Refresh the list of plugins, optionally reloading all open
-    // pages.
-    WebCore::refreshPlugins(reloadOpenPages);
-}
-
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2686,8 +2673,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetBackgroundColor },
     { "nativeGetSelection", "(Landroid/graphics/Region;)Ljava/lang/String;",
         (void*) GetSelection },
-    { "nativeRefreshPlugins", "(Z)V",
-        (void*) RefreshPlugins },
     { "nativeRegisterURLSchemeAsLocal", "(Ljava/lang/String;)V",
         (void*) RegisterURLSchemeAsLocal },
     { "nativeDumpDomTree", "(Z)V",

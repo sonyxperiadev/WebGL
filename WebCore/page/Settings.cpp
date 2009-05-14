@@ -238,13 +238,6 @@ void Settings::setPluginsEnabled(bool arePluginsEnabled)
     m_arePluginsEnabled = arePluginsEnabled;
 }
 
-#ifdef ANDROID_PLUGINS
-void Settings::setPluginsPath(const String& pluginsPath)
-{
-    m_pluginsPath = pluginsPath;
-}
-#endif
-
 void Settings::setDatabasesEnabled(bool databasesEnabled)
 {
     m_databasesEnabled = databasesEnabled;

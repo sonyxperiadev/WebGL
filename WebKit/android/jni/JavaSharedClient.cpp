@@ -40,6 +40,11 @@ namespace android {
         return gCookieClient;
     }
 
+    PluginClient* JavaSharedClient::GetPluginClient()
+    {
+        return gPluginClient;
+    }
+
     void JavaSharedClient::SetTimerClient(TimerClient* client)
     {
         gTimerClient = client;
@@ -50,8 +55,14 @@ namespace android {
         gCookieClient = client;
     }
 
+    void JavaSharedClient::SetPluginClient(PluginClient* client)
+    {
+        gPluginClient = client;
+    }
+
     TimerClient*    JavaSharedClient::gTimerClient = NULL;
     CookieClient*   JavaSharedClient::gCookieClient = NULL;
+    PluginClient*   JavaSharedClient::gPluginClient = NULL;
 
     ///////////////////////////////////////////////////////////////////////////
     

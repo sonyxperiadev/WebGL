@@ -32,6 +32,11 @@
 #include "PluginPackage.h"
 #include <stdlib.h>
 
+#if PLATFORM(ANDROID)
+#include "JavaSharedClient.h"
+#include "PluginClient.h"
+#endif
+
 namespace WebCore {
 
 PluginDatabase* PluginDatabase::installedPlugins()
@@ -325,6 +330,11 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     String qtPath(getenv("QTWEBKIT_PLUGIN_PATH"));
     qtPath.split(UChar(':'), /* allowEmptyEntries */ false, qtPaths);
     paths.append(qtPaths);
+#endif
+
+#if PLATFORM(ANDROID)
+    if (android::JavaSharedClient::GetPluginClient())
+        return android::JavaSharedClient::GetPluginClient()->getPluginDirectories();
 #endif
 
     return paths;

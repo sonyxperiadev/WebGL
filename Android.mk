@@ -165,6 +165,7 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/WebCore/platform/sql \
 	$(LOCAL_PATH)/WebCore/platform/text \
 	$(LOCAL_PATH)/WebCore/plugins \
+	$(LOCAL_PATH)/WebCore/plugins/android \
 	$(LOCAL_PATH)/WebCore/rendering \
 	$(LOCAL_PATH)/WebCore/rendering/style \
 	$(LOCAL_PATH)/WebCore/storage \
@@ -258,9 +259,6 @@ LOCAL_PATH := $(BASE_PATH)
 LOCAL_SRC_FILES := \
 	WebKit/android/jni/WebCoreJniOnLoad.cpp
 include $(BUILD_SHARED_LIBRARY)
-
-# Build the plugin test separately from libwebcore
-include $(BASE_PATH)/WebKit/android/plugins/sample/Android.mk
 
 # Build the wds client
 include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
