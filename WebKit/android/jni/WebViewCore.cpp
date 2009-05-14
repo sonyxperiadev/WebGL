@@ -1199,7 +1199,7 @@ void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
     if (block) {
         m_blockFocusChange = true;
         if (!result && node)
-            touchUp(m_touchGeneration, 0, 0, 0, x, y, 0, true, true);
+            touchUp(m_touchGeneration, 0, 0, 0, x, y, 0, true);
     }
 }
 
@@ -1859,24 +1859,15 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y)
 
 void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
     WebCore::Frame* frame, WebCore::Node* node, int x, int y, int size,
-    bool isClick, bool retry)
+    bool retry)
 {
     if (m_touchGeneration > touchGeneration) {
         DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
             " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
         return; // short circuit if a newer touch has been generated
     }
-    if (retry || isClick)
-        finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
-    else if (!commonKitFocus(touchGeneration, buildGeneration,
-            frame, node, x, y, false)) {
-        return;
-    }
+    finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
     m_lastGeneration = touchGeneration;
-    // If this is just a touch and not a click, we have already done the change in focus,
-    // so just leave the function now.
-    if (!isClick)
-        return;
     if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
@@ -2370,7 +2361,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, 
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
         jint buildGeneration, jint frame, jint node, jint x, jint y, jint size,
-        jboolean isClick, jboolean retry)
+        jboolean retry)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2378,7 +2369,7 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration, buildGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y, size, isClick, retry);
+        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y, size, retry);
 }
 
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
@@ -2667,7 +2658,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(III)Z",
             (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIIIIIZZ)V",
+    { "nativeTouchUp", "(IIIIIIIZ)V",
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },

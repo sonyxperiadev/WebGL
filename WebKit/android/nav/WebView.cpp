@@ -113,7 +113,6 @@ struct MotionUpParams {
     int m_x;
     int m_y;
     int m_slop;
-    bool m_isClick;
 };
 
 struct FirstMoveFocusParams {
@@ -395,7 +394,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendFinalFocus = GetJMethod(env, clazz, "sendFinalFocus", "(IIII)V");
     m_javaGlue.m_sendKitFocus = GetJMethod(env, clazz, "sendKitFocus", "()V");
-    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIIIIZZ)V");
+    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIIIIZ)V");
     m_javaGlue.m_setFocusData = GetJMethod(env, clazz, "setFocusData", "(IIIIIIZ)V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
@@ -1240,7 +1239,7 @@ void recomputeFocus()
                 //    if (invalidFrame(cParams.m_frame, root) == false)
                 //        root->setFocus(cParams.m_frame, cParams.m_node,
                 //            cParams.m_x, cParams.m_y);
-                    motionUp(mParams.m_x, mParams.m_y, mParams.m_slop, mParams.m_isClick, inval, true);
+                    motionUp(mParams.m_x, mParams.m_y, mParams.m_slop, inval, true);
                     DBG_NAV_LOGD("motionUp m_x=%d m_y=%d", mParams.m_x, mParams.m_y);
                     } break;
                 case CommonParams::FirstMoveFocusParams: {
@@ -1374,7 +1373,7 @@ void markNodeInvalid(WebCore::Node* node)
     viewInvalidate();
 }
 
-bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
+bool motionUp(int x, int y, int slop, bool inval, bool retry)
 {
     bool pageScrolled = false;
     m_followedLink = false;
@@ -1400,7 +1399,7 @@ bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         }
         sendMotionUp(rootGeneration, frame ?
             (WebCore::Frame*) frame->framePointer() : 0,
-            0, x, y, slop, isClick, retry);
+            0, x, y, slop, retry);
         if (inval)
             viewInvalidate();
         if (!retry) {
@@ -1410,7 +1409,6 @@ bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
             params.m_x = x;
             params.m_y = y;
             params.m_slop = slop;
-	    params.m_isClick = isClick;
             m_replay.add(params.d, sizeof(params));
         }
         clearTextEntry();
@@ -1430,7 +1428,7 @@ bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         sendMotionUp(root->generation(),
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
-            slop, isClick, retry);
+            slop, retry);
         if (inval)
             viewInvalidate();
         if (!retry) {
@@ -1440,7 +1438,6 @@ bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
             params.m_x = x;
             params.m_y = y;
             params.m_slop = slop;
-            params.m_isClick = isClick;
         //    params.c.setFocus(oldFocusNode, oldFrame, root, focusLocation);
             m_replay.add(params.d, sizeof(params));
         }
@@ -1450,11 +1447,9 @@ bool motionUp(int x, int y, int slop, bool isClick, bool inval, bool retry)
         updateTextEntry();
         displaySoftKeyboard();
     } else {
-        if (isClick) {
-            setFollowedLink(true);
-            if (type != NORMAL_CACHEDNODETYPE) {
-                overrideUrlLoading(result->getExport());
-            }
+        setFollowedLink(true);
+        if (type != NORMAL_CACHEDNODETYPE) {
+            overrideUrlLoading(result->getExport());
         }
         if (oldNodeIsTextArea)
             clearTextEntry();
@@ -1644,7 +1639,7 @@ void sendKitFocus()
 
 void sendMotionUp(int buildGeneration,
     WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y, int slop,
-    bool isClick, bool retry)
+    bool retry)
 {
     m_viewImpl->m_touchGeneration = m_viewImpl->m_generation = ++m_generation;
     DBG_NAV_LOGD("buildGeneration=%d m_generation=%d framePtr=%p nodePtr=%p"
@@ -1653,7 +1648,7 @@ void sendMotionUp(int buildGeneration,
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp, m_generation,
-        buildGeneration, (jint) framePtr, (jint) nodePtr, x, y, slop, isClick, retry);
+        buildGeneration, (jint) framePtr, (jint) nodePtr, x, y, slop, retry);
     checkException(env);
 }
 
@@ -1997,11 +1992,11 @@ static void nativeMarkNodeInvalid(JNIEnv *env, jobject obj, int node)
 }
 
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
-    int x, int y, int slop, bool isClick)
+    int x, int y, int slop)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->motionUp(x, y, slop, isClick, true, false);
+    return view->motionUp(x, y, slop, true, false);
 }
 
 static bool nativeUpdateFocusNode(JNIEnv *env, jobject obj)
@@ -2285,7 +2280,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeInstrumentReport },
     { "nativeMarkNodeInvalid", "(I)V",
         (void*) nativeMarkNodeInvalid },
-    { "nativeMotionUp", "(IIIZ)Z",
+    { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
     { "nativeMoveFocus", "(IIZ)Z",
         (void*) nativeMoveFocus },

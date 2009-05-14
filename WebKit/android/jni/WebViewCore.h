@@ -234,7 +234,7 @@ namespace android {
          */
         void touchUp(int touchGeneration, int buildGeneration, 
             WebCore::Frame* frame, WebCore::Node* node, int x, int y, 
-            int size, bool isClick, bool retry);
+            int size, bool retry);
         
         /**
          * Sets the index of the label from a popup
