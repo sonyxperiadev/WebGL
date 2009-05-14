@@ -539,7 +539,7 @@ public:
         for (r = rings.begin(); r != rings.end(); r++) {
             SkIRect fatter = {r->x(), r->y(), r->right(), r->bottom()};
             fatter.inset(-FOCUS_RING_HIT_TEST_RADIUS, -FOCUS_RING_HIT_TEST_RADIUS);
-            DBG_NAV_LOGD("%s fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
+            DBG_NAV_LOGD("fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
                 fatter.fRight, fatter.fBottom);
             mRings.op(fatter, SkRegion::kUnion_Op);
         }
