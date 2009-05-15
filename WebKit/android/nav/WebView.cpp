@@ -806,10 +806,6 @@ OutOfFocusFix fixOutOfDateFocus(bool useReplay)
                 DBG_NAV_LOG("!m_replay.count()");
                 return DoNothing;
             }
-            if (webFocusNode->index() == cachedFocusNode->index()) {
-                DBG_NAV_LOG("index ==");
-                return DoNothing;
-            }
             const WebCore::IntRect& webBounds = webRoot->focusBounds();
             DBG_NAV_LOGD("webBounds=(%d,%d,w=%d,h=%d)",
                 webBounds.x(), webBounds.y(),

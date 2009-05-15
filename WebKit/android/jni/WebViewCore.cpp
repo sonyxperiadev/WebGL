@@ -1037,6 +1037,21 @@ bool WebViewCore::prepareFrameCache()
     recordPicture(m_tempPict);
     m_temp->setPicture(m_tempPict);
     m_temp->setTextGeneration(m_textGeneration);
+    if (m_temp->currentFocus())
+        return true;
+    WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
+    m_temp->setVisibleRect(WebCore::IntRect(m_scrollOffsetX,
+        m_scrollOffsetY, window->width(), window->height()));
+    int x, y;
+    const CachedFrame* frame;
+    const IntRect& bounds = m_history.navBounds();
+    const CachedNode* node = m_temp->findAt(bounds, &frame, &x, &y);
+    DBG_NAV_LOGD("node=%p frame=%p x=%d y=%d bounds=(%d,%d,w=%d,h=%d)",
+        node, frame, x, y, bounds.x(), bounds.y(), bounds.width(),
+        bounds.height());
+    if (node)
+        m_temp->setCachedFocus(const_cast<CachedFrame*>(frame),
+            const_cast<CachedNode*>(node));
     return true;
 }
 
@@ -1185,7 +1200,7 @@ void WebViewCore::setFinalFocus(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y, bool block)
 {
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d", frame, node, x, y);
-    bool result = finalKitFocus(frame, node, x, y, false);
+    bool result = finalKitFocus(frame, node, x, y);
     bool callNotify = false;
     gNotifyFocusMutex.lock();
     if (m_blockNotifyFocus) {
@@ -1218,25 +1233,13 @@ void WebViewCore::setKitFocus(int moveGeneration, int buildGeneration,
             m_moveGeneration, moveGeneration);
         return; // short-circuit if a newer move has already been generated
     }
-    if (!commonKitFocus(moveGeneration, buildGeneration, frame, node, x, y,
-            ignoreNullFocus))
-        return;
-    m_lastGeneration = moveGeneration;
-}
-
-bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-    bool ignoreNullFocus)
-{
-    DBG_NAV_LOGD("generation=%d buildGeneration=%d frame=%p"
-        " node=%p x=%d y=%d", generation, buildGeneration, frame, node, x, y);
     m_useReplay = true;
     bool newCache = prepareFrameCache(); // must wait for possible recompute before using
-    if (m_moveGeneration > generation) {
-        DBG_NAV_LOGD("m_moveGeneration=%d > generation=%d",
-            m_moveGeneration, generation);
+    if (m_moveGeneration > moveGeneration) {
+        DBG_NAV_LOGD("m_moveGeneration=%d > moveGeneration=%d",
+            m_moveGeneration, moveGeneration);
         releaseFrameCache(newCache);
-        return false; // short-circuit if a newer move has already been generated
+        return; // short-circuit if a newer move has already been generated
     }
     // if the nav cache has been rebuilt since this focus request was generated,
     // send a request back to the UI side to recompute the kit-side focus
@@ -1246,30 +1249,25 @@ bool WebViewCore::commonKitFocus(int generation, int buildGeneration,
            m_buildGeneration, buildGeneration);
         gRecomputeFocusMutex.lock();
         bool first = !m_recomputeEvents.size();
-        m_recomputeEvents.append(generation);
+        m_recomputeEvents.append(moveGeneration);
         gRecomputeFocusMutex.unlock();
         releaseFrameCache(newCache);
         if (first)
             sendRecomputeFocus();
-        return false;
+        return;
     }
     releaseFrameCache(newCache);
+    m_lastGeneration = moveGeneration;
     if (!node && ignoreNullFocus)
-        return true;
-    finalKitFocus(frame, node, x, y, false);
-    return true;
+        return;
+    finalKitFocus(frame, node, x, y);
 }
 
 // Update mouse position and may change focused node.
-// If donotChangeDOMFocus is true, the function does not changed focused node
-// in the DOM tree. Changing the focus in DOM may trigger onblur event
-// handler on the current focused node before firing mouse up and down events.
 bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, bool donotChangeDOMFocus)
+    int x, int y)
 {
-    DBG_NAV_LOGD("setFocusedNode frame=%p node=%p x=%d y=%d "
-        "donotChangeDOMFocus=%s", frame, node, x, y,
-        donotChangeDOMFocus ? "true" : "false");
+    DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d ", frame, node, x, y);
     CacheBuilder& builder = FrameLoaderClientAndroid::
         get(m_mainFrame)->getCacheBuilder();
     if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
@@ -1284,45 +1282,10 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
     bool valid = CacheBuilder::validNode(m_mainFrame, frame, node);
-    if (!donotChangeDOMFocus) {
-        WebCore::Document* oldDoc = oldFocusNode ? oldFocusNode->document() : 0;
-        if (!node) {
-            if (oldFocusNode)
-                oldDoc->setFocusedNode(0);
-            return false;
-        } else if (!valid) {
-            DBG_NAV_LOGD("sendMarkNodeInvalid node=%p", node);
-            sendMarkNodeInvalid(node);
-            if (oldFocusNode)
-                oldDoc->setFocusedNode(0);
-            return false;
-        }
-        // If we jump frames (docs), kill the focus on the old doc
-        if (oldFocusNode && node->document() != oldDoc) {
-            oldDoc->setFocusedNode(0);
-        }
-        if (!node->isTextNode())
-            static_cast<WebCore::Element*>(node)->focus(false);
-        if (node->document()->focusedNode() != node) {
-            // This happens when Element::focus() fails as we may try to set the
-            // focus to a node which WebCore doesn't recognize as a focusable node.
-            // So we need to do some extra work, as it does in Element::focus(),
-            // besides calling Document::setFocusedNode.
-            if (oldFocusNode) {
-                // copied from clearSelectionIfNeeded in FocusController.cpp
-                WebCore::SelectionController* s = oldDoc->frame()->selection();
-                if (!s->isNone())
-                    s->clear();
-            }
-            //setFocus on things that WebCore doesn't recognize as supporting focus
-            //for instance, if there is an onclick element that does not support focus
-            node->document()->setFocusedNode(node);
-        }
-    } else {   // !donotChangeDOMFocus
-        if (!node || !valid)
-            return false;
+    if (!node || !valid) {
+        DBG_NAV_LOGD("exit: node=%p valid=%s", node, valid ? "true" : "false");
+        return false;
     }
-
     DBG_NAV_LOGD("setFocusedNode node=%p", node);
     builder.setLastFocus(node);
     m_lastFocused = node;
@@ -1362,7 +1325,7 @@ WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
     WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
     if (current == node)
         return frame;
-    return finalKitFocus(frame, node, x, y, true) ? frame : m_mainFrame;
+    return finalKitFocus(frame, node, x, y) ? frame : m_mainFrame;
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
@@ -1865,7 +1828,7 @@ void WebViewCore::touchUp(int touchGeneration, int buildGeneration,
             " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
         return; // short circuit if a newer touch has been generated
     }
-    finalKitFocus(frame, node, x, y, true);  // don't change DOM focus
+    finalKitFocus(frame, node, x, y);
     m_lastGeneration = touchGeneration;
     if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();

@@ -414,10 +414,7 @@ namespace android {
 
         WebCore::Frame* changedKitFocus(WebCore::Frame* frame,
             WebCore::Node* node, int x, int y);
-        bool commonKitFocus(int generation, int buildGeneration, 
-            WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-            bool ignoreNullFocus);
-        bool finalKitFocus(WebCore::Frame* frame, WebCore::Node* node, int x, int y, bool donotChangeDOMFocus);
+        bool finalKitFocus(WebCore::Frame* , WebCore::Node* , int x, int y);
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
