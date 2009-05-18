@@ -1377,6 +1377,8 @@ bool motionUp(int x, int y, int slop, bool inval, bool retry)
     WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop, slop * 2, slop * 2);
     int rx, ry;
     CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root)
+        return false;
     const CachedNode* result = findAt(root, rect, &frame, &rx, &ry);
     if (!result) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
