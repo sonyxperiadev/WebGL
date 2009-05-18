@@ -626,6 +626,8 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
 bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const
 {
+    if (!mPicture)
+        return false;
     RingCheck ringCheck(rings, bounds.location());
     BoundsCanvas checker(&ringCheck);
     SkBitmap bitmap;
