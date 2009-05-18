@@ -23,8 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <config.h>
-#include <wtf/Platform.h>
+#include "config.h"
+
+#if ENABLE(DATABASE)
 
 #include <JNIHelp.h>
 
@@ -122,3 +123,6 @@ int register_webstorage(JNIEnv* env)
 }
 
 }
+
+#endif //ENABLE(DATABASE)
+

@@ -24,6 +24,8 @@
  */
 #define LOG_TAG "webcoreglue"
 
+#include "config.h"
+
 #include "jni_utility.h"
 #include <jni.h>
 #include <utils/Log.h>
@@ -37,9 +39,12 @@ extern int register_webviewcore(JNIEnv*);
 extern int register_webhistory(JNIEnv*);
 extern int register_webicondatabase(JNIEnv*);
 extern int register_websettings(JNIEnv*);
-extern int register_webstorage(JNIEnv*);
 extern int register_webview(JNIEnv*);
 extern int register_webcorejni(JNIEnv*);
+
+#if ENABLE(DATABASE)
+extern int register_webstorage(JNIEnv*);
+#endif
 
 }
 
@@ -57,7 +62,9 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "WebHistory", android::register_webhistory },
     { "WebIconDatabase", android::register_webicondatabase },
     { "WebSettings", android::register_websettings },
+#if ENABLE(DATABASE)
     { "WebStorage", android::register_webstorage },
+#endif
     { "WebView", android::register_webview }
 };
 

@@ -741,7 +741,9 @@ static bool runningTigerMail()
         WebKitInitializeLoggingChannelsIfNecessary();
         WebCore::InitializeLoggingChannelsIfNecessary();
         [WebHistoryItem initWindowWatcherIfNecessary];
+#if ENABLE(DATABASE)
         WebKitInitializeDatabasesIfNecessary();
+#endif
         WebKitInitializeApplicationCachePathIfNecessary();
         patchMailRemoveAttributesMethod();
         didOneTimeInitialization = true;

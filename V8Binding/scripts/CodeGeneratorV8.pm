@@ -265,7 +265,13 @@ sub GenerateHeader
     } elsif (IsWorkerClassName($className)) {
         push(@headerContent, "\n#if ENABLE(WORKERS)\n");
     }
-    
+
+    my $conditionalString;
+    if ($conditional) {
+        $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+        push(@headerContent, "\n#if ${conditionalString}\n\n");
+    }
+
     push(@headerContent, "\n#ifndef $className" . "_H");
     push(@headerContent, "\n#define $className" . "_H\n\n");
 
@@ -315,6 +321,8 @@ END
     } elsif (IsWorkerClassName($className)) {
         push(@headerContent, "\n#endif // ENABLE(WORKERS)\n");
     }
+
+    push(@headerContent, "#endif // ${conditionalString}\n\n") if $conditional;
 }
 
 
@@ -1044,6 +1052,12 @@ sub GenerateImplementation
     } elsif (IsWorkerClassName($className)) {
         push(@implFixedHeader, "#if ENABLE(WORKERS)\n\n");
     }
+
+    my $conditionalString;
+    if ($conditional) {
+        $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+        push(@implFixedHeader, "\n#if ${conditionalString}\n\n");
+    }
     
     if ($className =~ /^V8SVGAnimated/) {
         AddIncludesForSVGAnimatedType($interfaceName);
@@ -1374,6 +1388,7 @@ END
     } elsif (IsWorkerClassName($className)) {
         push(@implContent, "\n#endif // ENABLE(WORKERS)\n");
     }
+    push(@implContent, "\n#endif // ${conditionalString}\n") if $conditional;
 }
 
 

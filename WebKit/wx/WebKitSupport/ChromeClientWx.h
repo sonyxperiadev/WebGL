@@ -110,8 +110,9 @@ public:
 
     virtual void print(Frame*);
 
+#if ENABLE(DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&);
-
+#endif
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
 
     virtual void formStateDidChange(const Node*) { }
