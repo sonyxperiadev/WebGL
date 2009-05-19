@@ -45,11 +45,8 @@ LOCAL_MODULE := webcore_test
 # headers that this program pulls in are generated during the build of webcore.
 # We make all of our object files depend on those files so that they are built
 # before we try to compile our sources.
-LOCAL_MODULE_CLASS := EXECUTABLES
-intermediates := $(call local-intermediates-dir)
-$(intermediates)/%.o : $(WEBKIT_GENERATED_SOURCES)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(filter %.h, $(WEBKIT_GENERATED_SOURCES))
 
 LOCAL_MODULE_TAGS := tests
 
 include $(BUILD_EXECUTABLE)
-
