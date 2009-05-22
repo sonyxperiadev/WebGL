@@ -1780,7 +1780,11 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
 
 bool WebViewCore::click() {
     bool keyHandled = false;
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
+    WebCore::IntPoint pt = m_mousePos;
+    pt.move(m_scrollOffsetX, m_scrollOffsetY);
+    WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+        hitTestResultAtPoint(pt, false);
+    WebCore::Node* focusNode = hitTestResult.innerNode();
     if (focusNode) {
         WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(true);
         keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
