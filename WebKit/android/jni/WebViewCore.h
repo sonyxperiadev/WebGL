@@ -55,6 +55,7 @@ namespace WebCore {
 struct PluginWidgetAndroid;
 class SkPicture;
 class SkIRect;
+struct ANPEvent;
 
 namespace android {
     
@@ -299,6 +300,9 @@ namespace android {
         void removePlugin(PluginWidgetAndroid*);
         void invalPlugin(PluginWidgetAndroid*);
         void drawPlugins();
+
+        // send this event to all of the plugins in our list
+        void sendPluginEvent(const ANPEvent&);
 
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);

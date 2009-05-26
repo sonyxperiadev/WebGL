@@ -82,6 +82,11 @@ struct PluginWidgetAndroid {
      */
     void draw(SkCanvas* canvas = NULL);
     
+    /*  Send this event to the plugin instance, and return true if the plugin
+        handled it.
+     */
+    bool sendEvent(const ANPEvent&);
+
 private:
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;

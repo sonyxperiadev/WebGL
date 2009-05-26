@@ -143,3 +143,12 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
     }
 }
 
+bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
+    WebCore::PluginPackage* pkg = m_pluginView->plugin();
+    NPP instance = m_pluginView->instance();
+    // make a localCopy since the actual plugin may not respect its constness,
+    // and so we don't want our caller to have its param modified
+    ANPEvent localCopy = evt;
+    return pkg->pluginFuncs()->event(instance, &localCopy);
+}
+

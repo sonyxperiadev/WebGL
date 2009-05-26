@@ -602,10 +602,12 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
 // HandleEvent
 
 enum ANPEventTypes {
-    kNull_ANPEventType  = 0,
-    kKey_ANPEventType   = 1,
-    kTouch_ANPEventType = 2,
-    kDraw_ANPEventType  = 3,
+    kNull_ANPEventType      = 0,
+    kKey_ANPEventType       = 1,
+    kTouch_ANPEventType     = 2,
+    kDraw_ANPEventType      = 3,
+    kPause_ANPEventType     = 4,    // no extra data in the event
+    kResume_ANPEventType    = 5     // no extra data in the event
 };
 typedef int32_t ANPEventType;
 

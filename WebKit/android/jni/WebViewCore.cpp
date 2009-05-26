@@ -81,6 +81,7 @@
 #include "ResourceRequest.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "SkANP.h"
 #include "SkTemplates.h"
 #include "SkTypes.h"
 #include "SkCanvas.h"
@@ -1191,6 +1192,15 @@ void WebViewCore::drawPlugins()
         WebCore::IntRect r(bounds.fLeft, bounds.fTop,
                            bounds.width(), bounds.height());
         this->viewInvalidate(r);
+    }
+}
+
+void WebViewCore::sendPluginEvent(const ANPEvent& evt)
+{
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        (*iter)->sendEvent(evt);
     }
 }
 
@@ -2568,6 +2578,20 @@ static bool PictureReady(JNIEnv* env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->pictureReady();
 }
 
+static void Pause(JNIEnv* env, jobject obj)
+{
+    ANPEvent event;
+    SkANP::InitEvent(&event, kPause_ANPEventType);
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
+static void Resume(JNIEnv* env, jobject obj)
+{
+    ANPEvent event;
+    SkANP::InitEvent(&event, kResume_ANPEventType);
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2649,7 +2673,9 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeDumpNavTree", "()V",
         (void*) DumpNavTree },
     { "nativeSetDatabaseQuota", "(J)V",
-        (void*) SetDatabaseQuota }
+        (void*) SetDatabaseQuota },
+    { "nativePause", "()V", (void*) Pause },
+    { "nativeResume", "()V", (void*) Resume },
 };
 
 int register_webviewcore(JNIEnv* env)
