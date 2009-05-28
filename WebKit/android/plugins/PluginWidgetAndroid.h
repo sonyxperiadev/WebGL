@@ -49,7 +49,9 @@ struct PluginWidgetAndroid {
     // destroyed.
     PluginWidgetAndroid(WebCore::PluginView* view);
     ~PluginWidgetAndroid();
-    
+
+    WebCore::PluginView* pluginView() const { return m_pluginView; }
+
     /*  Can't determine our core at construction time, so PluginView calls this
         as soon as it has a parent.
      */
