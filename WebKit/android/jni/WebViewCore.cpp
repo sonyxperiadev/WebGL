@@ -1275,11 +1275,11 @@ void WebViewCore::setKitFocus(int moveGeneration, int buildGeneration,
 
 static bool nodeIsPlugin(Node* node) {
     RenderObject* renderer = node->renderer();
-    if (renderer->isWidget()) {
+    if (renderer && renderer->isWidget()) {
         Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
         return widget && widget->isPluginView();
     }
-    return NULL;
+    return 0;
 }
 
 // Update mouse position and may change focused node.
@@ -1311,9 +1311,8 @@ bool WebViewCore::finalKitFocus(WebCore::Frame* frame, WebCore::Node* node,
     m_lastFocusedBounds = node->getRect();
 
     // hack to give the plugin focus (for keys). better fix on the way
-    if (nodeIsPlugin(node)) {
+    if (nodeIsPlugin(node))
         node->document()->setFocusedNode(node);
-    }
     return true;
 }
 
