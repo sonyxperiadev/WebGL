@@ -65,7 +65,9 @@ public:
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     size_t childCount() { return mCachedFrames.size(); }
-    void clearFocus();
+    void clearCursor();
+    const CachedNode* currentCursor() const { return currentCursor(NULL); }
+    const CachedNode* currentCursor(const CachedFrame** ) const;
     const CachedNode* currentFocus() const { return currentFocus(NULL); }
     const CachedNode* currentFocus(const CachedFrame** ) const;
     bool directionChange() const;
@@ -76,15 +78,14 @@ public:
     const CachedFrame* findBestFrameAt(int x, int y) const;
     const CachedNode* findBestHitAt(const WebCore::IntRect& , 
         int* best, const CachedFrame** , int* x, int* y) const;
-    bool finishInit();
+    void finishInit();
     CachedFrame* firstChild() { return mCachedFrames.begin(); }
     const CachedFrame* firstChild() const { return mCachedFrames.begin(); }
-    int focusIndex() const { return mFocus; }
     void* framePointer() const { return mFrame; }
     CachedNode* getIndex(int index) { return index >= 0 ?
         &mCachedNodes[index] : NULL; }
     const CachedFrame* hasFrame(const CachedNode* node) const;
-    int indexInParent() const { return mIndex; }
+    int indexInParent() const { return mIndexInParent; }
     void init(const CachedRoot* root, int index, WebCore::Frame* frame);
     const CachedFrame* lastChild() const { return &mCachedFrames.last(); }
     CachedNode* lastNode() { return &mCachedNodes.last(); }
@@ -96,9 +97,11 @@ public:
     void resetClippedOut();
     void setContentsSize(int width, int height) { mContents.setWidth(width);
         mContents.setHeight(height); }
+    bool setCursor(WebCore::Frame* , WebCore::Node* , int x, int y);
+    void setCursorIndex(int index) { mCursorIndex = index; }
     void setData();
     bool setFocus(WebCore::Frame* , WebCore::Node* , int x, int y);
-    void setFocusIndex(int focusIndex) const { mFocus = focusIndex; }
+    void setFocusIndex(int index) { mFocusIndex = index; }
     void setLocalViewBounds(const WebCore::IntRect& bounds) { mLocalViewBounds = bounds; }
     int size() { return mCachedNodes.size(); }
     const CachedNode* validDocument() const;
@@ -121,7 +124,7 @@ protected:
         SkFixed mWorkingOverlap;   // this and below are fuzzy answers instead of bools
         SkFixed mNavOverlap;
         SkFixed mPreferred;
-        bool mFocusChild;
+        bool mCursorChild;
         bool mInNav;
         bool mNavOutside;
         bool mWorkingOutside;
@@ -186,9 +189,10 @@ protected:
     WTF::Vector<CachedFrame> mCachedFrames;
     void* mFrame; // WebCore::Frame*, used only to compare pointers
     CachedFrame* mParent;
-    int mIndex; // index within parent's array of children, or -1 if root
+    int mCursorIndex;
+    int mFocusIndex;
+    int mIndexInParent; // index within parent's array of children, or -1 if root
     const CachedRoot* mRoot;
-    mutable int mFocus;
 private:
     CachedHistory* history() const;
 #ifdef BROWSER_DEBUG

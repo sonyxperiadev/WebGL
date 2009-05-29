@@ -46,14 +46,14 @@ public:
     void checkForJiggle(int* ) const;
     bool checkRings(const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;
+    const WebCore::IntRect& cursorBounds() const { return mCursorBounds; }
+    WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,
         int* x, int* y) const;
     const WebCore::IntRect& focusBounds() const { return mFocusBounds; }
-    bool focusChild() const { return mFocusChild; }
     WebCore::IntPoint focusLocation() const;
-    int generation() const { return mGeneration; }
     SkPicture* getPicture() { return mPicture; }
     int getAndResetSelectionEnd();
     int getAndResetSelectionStart();
@@ -69,39 +69,40 @@ public:
     bool innerUp(const CachedNode* , BestData* ) const;
     WebCore::String imageURI(int x, int y) const;
     bool maskIfHidden(BestData* ) const;
-    const CachedNode* moveFocus(Direction , const CachedFrame** , WebCore::IntPoint* scroll);
+    const CachedNode* moveCursor(Direction , const CachedFrame** , WebCore::IntPoint* scroll);
     void reset();
 //    void resetNavClipBounds() { mClippedBounds = WebCore::IntRect(-1, -1, 0, 0); }
     CachedHistory* rootHistory() const { return mHistory; }
-    bool scrollDelta(WebCore::IntRect& focusRingBounds, Direction , int* delta);
+    bool scrollDelta(WebCore::IntRect& cursorRingBounds, Direction , int* delta);
     const WebCore::IntRect& scrolledBounds() const { return mScrolledBounds; }
+    void setCursor(CachedFrame* , CachedNode* );
     void setCachedFocus(CachedFrame* , CachedNode* );
+    void setCursorBounds(const WebCore::IntRect& r) { mCursorBounds = r; }
     void setFocusBounds(const WebCore::IntRect& r) { mFocusBounds = r; }
-    void setGeneration(int generation) { mGeneration = generation; }
     void setTextGeneration(int textGeneration) { mTextGeneration = textGeneration; }
-    void setFocusChild(bool state) const { mFocusChild = state; }
+    void setCursorChild(bool state) const { mCursorChild = state; }
     void setMaxScroll(int x, int y) { mMaxXScroll = x; mMaxYScroll = y; }
 //    void setNavClipBounds(const WebCore::IntRect& r) { mClippedBounds = r; }
     void setPicture(SkPicture* picture) { mPicture = picture; }
     void setScrollOnly(bool state) { mScrollOnly = state; }
     void setSelection(int start, int end) { mSelectionStart = start; mSelectionEnd = end; }
-    void setupScrolledBounds() const;
+    void setupScrolledBounds() const { mScrolledBounds = mViewBounds; }
     void setVisibleRect(const WebCore::IntRect& r) { mViewBounds = r; }
     int textGeneration() const { return mTextGeneration; }
     int width() const { return mPicture ? mPicture->width() : 0; }
 private:
     CachedHistory* mHistory;
     SkPicture* mPicture;
-    WebCore::IntRect mFocusBounds; // chosen focus ring
+    WebCore::IntRect mCursorBounds; // chosen cursor ring
+    WebCore::IntRect mFocusBounds; // dom text input focus node bounds
     mutable WebCore::IntRect mScrolledBounds; // view bounds + amount visible as result of scroll
-    int mGeneration;
     int mTextGeneration;
     int mMaxXScroll;
     int mMaxYScroll;
     // These two are ONLY used when the tree is rebuilt and the focus is a textfield/area
     int mSelectionStart;
     int mSelectionEnd;
-    mutable bool mFocusChild; // temporary state set if walked nodes are children of focus
+    mutable bool mCursorChild; // temporary state set if walked nodes are children of focus
     bool mScrollOnly;
 #if DUMP_NAV_CACHE
 public:

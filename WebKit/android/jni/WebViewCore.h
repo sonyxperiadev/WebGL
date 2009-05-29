@@ -58,7 +58,7 @@ class SkIRect;
 struct ANPEvent;
 
 namespace android {
-    
+
     class CachedRoot;
     class ListBoxReply;
 
@@ -133,12 +133,6 @@ namespace android {
         void offInvalidate(const WebCore::IntRect &rect);
 
         /**
-         * Called by webcore when the focus was set after returning to prior page
-         * used to rebuild and display any changes in focus
-         */
-        void notifyFocusSet();
-
-        /**
          * Called by webcore when the progress indicator is done
          * used to rebuild and display any changes in focus
          */
@@ -150,7 +144,7 @@ namespace android {
         void didFirstLayout();
 
         /**
-         * Notify the view to restore the screen width, which in turn restores 
+         * Notify the view to restore the screen width, which in turn restores
          * the scale.
          */
         void restoreScale(int);
@@ -192,16 +186,16 @@ namespace android {
         WebCore::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
 
         WebCore::String getSelection(SkRegion* );
-        
+
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
-        
+
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
-        void setFinalFocus(WebCore::Frame* frame, WebCore::Node* node, 
-            int x, int y, bool block);
-        void setKitFocus(int moveGeneration, int buildGeneration,
+        bool moveMouse(WebCore::Frame* frame, WebCore::Node* node,
+            int x, int y);
+        void moveMouseIfLatest(int moveGeneration,
             WebCore::Frame* frame, WebCore::Node* node, int x, int y,
             bool ignoreNullFocus);
 
@@ -210,7 +204,7 @@ namespace android {
 
         void setGlobalBounds(int x, int y, int h, int v);
 
-        void setSizeScreenWidthAndScale(int width, int height, int screenWidth, 
+        void setSizeScreenWidthAndScale(int width, int height, int screenWidth,
             int scale, int realScreenWidth, int screenHeight);
 
         /**
@@ -233,10 +227,9 @@ namespace android {
          * Handle motionUp event from the UI thread (called touchUp in the
          * WebCore thread).
          */
-        void touchUp(int touchGeneration, int buildGeneration, 
-            WebCore::Frame* frame, WebCore::Node* node, int x, int y, 
-            int size, bool retry);
-        
+        void touchUp(int touchGeneration,
+            WebCore::Frame* frame, WebCore::Node* node, int x, int y, int size);
+
         /**
          * Sets the index of the label from a popup
          */
@@ -245,7 +238,7 @@ namespace android {
 
         /**
          *  Delete text from start to end in the focused textfield. If there is no
-         *  focus, or if start == end, silently fail, but set selection to that value.  
+         *  focus, or if start == end, silently fail, but set selection to that value.
          *  If start and end are out of order, swap them.
          *  Use the frame, node, x, and y to ensure that the correct node is focused.
          *  Return a frame. Convenience so replaceTextfieldText can use this function.
@@ -267,7 +260,7 @@ namespace android {
          *  (if oldStart == oldEnd, this will be an insert at that position) with replace,
          *  and set the selection to (start, end).
          */
-        void replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y, 
+        void replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y,
                 int oldStart, int oldEnd, jstring replace, int start, int end);
         void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
             jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
@@ -309,30 +302,27 @@ namespace android {
 
         // other public functions
     public:
-        void removeFrameGeneration(WebCore::Frame* );
-        void updateFrameGeneration(WebCore::Frame* );
 
         // reset the picture set to empty
         void clearContent();
-        
+
         // flatten the picture set to a picture
         void copyContentToPicture(SkPicture* );
-        
+
         // draw the picture set with the specified background color
         bool drawContent(SkCanvas* , SkColor );
         bool pictureReady();
-        
+
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
         int screenWidth() const { return m_screenWidth; }
         int scale() const { return m_scale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
-        
+
         // utility to split slow parts of the picture set
         void splitContent();
-        
+
         // these members are shared with webview.cpp
-        int retrieveFrameGeneration(WebCore::Frame* );
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore
         SkPicture* m_navPictureKit;
@@ -343,10 +333,9 @@ namespace android {
         bool m_updatedFrameCache;
         bool m_useReplay;
         bool m_findIsUp;
-        bool m_blockNotifyFocus;
-        static Mutex gRecomputeFocusMutex;
-        static Mutex gNotifyFocusMutex;
-        WTF::Vector<int> m_recomputeEvents;
+        bool m_hasCursorBounds;
+        WebCore::IntRect m_cursorBounds;
+        static Mutex gCursorBoundsMutex;
         // These two fields go together: we use the mutex to protect access to
         // m_buttons, so that we, and webview.cpp can look/modify the m_buttons
         // field safely from our respective threads
@@ -367,12 +356,6 @@ namespace android {
                 bool multiple, const int selected[], size_t selectedCountOrSelection);
 
         friend class ListBoxReply;
-        struct FrameGen {
-            const WebCore::Frame* m_frame;
-            int m_generation;
-        };
-        WTF::Vector<FrameGen> m_frameGenerations;
-        static Mutex gFrameGenerationMutex;
         struct JavaGlue;
         struct JavaGlue*       m_javaGlue;
         WebCore::Frame*        m_mainFrame;
@@ -392,7 +375,6 @@ namespace android {
         int m_textGeneration;
         CachedRoot* m_temp;
         SkPicture* m_tempPict;
-        int m_buildGeneration;
         int m_maxXScroll;
         int m_maxYScroll;
         int m_scrollOffsetX; // webview.java's current scroll in X
@@ -409,7 +391,7 @@ namespace android {
         int m_scale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
-        
+
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
         void pluginInvalTimerFired(WebCore::Timer<WebViewCore>*) {
@@ -418,12 +400,10 @@ namespace android {
 
         WebCore::Frame* changedKitFocus(WebCore::Frame* frame,
             WebCore::Node* node, int x, int y);
-        bool finalKitFocus(WebCore::Frame* , WebCore::Node* , int x, int y);
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
         void sendMarkNodeInvalid(WebCore::Node* );
-        void sendNotifyFocusSet();
         void sendNotifyProgressFinished();
         void sendRecomputeFocus();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);

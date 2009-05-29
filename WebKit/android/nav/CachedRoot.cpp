@@ -58,18 +58,18 @@ public:
         kDrawText_Type,
         kDrawTextOnPath_Type
     };
-    
+
     static bool isTextType(Type t) {
         return t == kDrawPosTextH_Type || t == kDrawText_Type;
     }
-    
+
     CommonCheck() : mType(kNo_Type), mAllOpaque(true), mIsOpaque(true) {
         setEmpty();
     }
 
-    bool doRect(Type type) { 
+    bool doRect(Type type) {
         mType = type;
-        return doIRect(mUnion); 
+        return doIRect(mUnion);
     }
 
     bool joinGlyphs(const SkIRect& rect) {
@@ -78,7 +78,7 @@ public:
             mUnion.join(rect);
         return isGlyph;
     }
-    
+
     void setAllOpaque(bool opaque) { mAllOpaque = opaque; }
     void setEmpty() { mUnion.setEmpty(); }
     void setIsOpaque(bool opaque) { mIsOpaque = opaque; }
@@ -113,16 +113,16 @@ public:
 
 class BoundsCheck : public CommonCheck {
 public:
-    BoundsCheck() { 
+    BoundsCheck() {
         mAllDrawnIn.setEmpty();
         mLastAll.setEmpty();
         mLastOver.setEmpty();
     }
-    
+
     static int Area(SkIRect test) {
         return test.width() * test.height();
     }
-    
+
    void checkLast() {
         if (mAllDrawnIn.isEmpty())
             return;
@@ -132,16 +132,16 @@ public:
         }
         mAllDrawnIn.setEmpty();
     }
-    
+
     bool hidden() {
         return (mLastAll.isEmpty() && mLastOver.isEmpty()) ||
             mDrawnOver.contains(mBounds);
     }
-    
+
     virtual bool onIRect(const SkIRect& rect) {
         if (joinGlyphs(rect))
             return false;
-        bool interestingType = mType == kDrawBitmap_Type || 
+        bool interestingType = mType == kDrawBitmap_Type ||
             mType == kDrawRect_Type || isTextType(mType);
         if (SkIRect::Intersects(mBounds, rect) == false) {
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
@@ -155,7 +155,7 @@ public:
         }
         if (interestingType == false)
             return false;
-        if (mBoundsSlop.contains(rect) || 
+        if (mBoundsSlop.contains(rect) ||
                 (mBounds.fLeft == rect.fLeft && mBounds.fRight == rect.fRight &&
                 mBounds.fTop >= rect.fTop && mBounds.fBottom <= rect.fBottom) ||
                 (mBounds.fTop == rect.fTop && mBounds.fBottom == rect.fBottom &&
@@ -177,15 +177,15 @@ public:
 // should the opaqueness of the bitmap disallow its ability to draw over?
 // not sure that this test is needed
                 (mType != kDrawBitmap_Type ||
-                        (mIsOpaque && mAllOpaque)) && 
-#endif                        
+                        (mIsOpaque && mAllOpaque)) &&
+#endif
                         mLastAll.isEmpty() == false)
                     mDrawnOver.op(rect, SkRegion::kUnion_Op);
             } else {
 // FIXME
-// sometimes the text is not drawn entirely inside the focus area, even though
+// sometimes the text is not drawn entirely inside the cursor area, even though
 // it is the correct text. Until I figure out why, I allow text drawn at the
-// end that is not covered up by something else to represent the focusable link
+// end that is not covered up by something else to represent the link
 // example that triggers this that should be figured out:
 // http://cdn.labpixies.com/campaigns/blackjack/blackjack.html?lang=en&country=US&libs=assets/feature/core
 // ( http://tinyurl.com/ywsyzb )
@@ -202,7 +202,7 @@ public:
         }
         return false;
     }
-    
+
     SkIRect mBounds;
     SkIRect mBoundsSlop;
     SkRegion mDrawnOver;
@@ -258,7 +258,7 @@ public:
         SkCanvas::drawSprite(bitmap, left, top, paint);
     }
 
-    virtual void drawText(const void* text, size_t byteLength, SkScalar x, 
+    virtual void drawText(const void* text, size_t byteLength, SkScalar x,
                           SkScalar y, const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
@@ -266,7 +266,7 @@ public:
         mBounder.doRect(CommonCheck::kDrawText_Type);
     }
 
-    virtual void drawPosText(const void* text, size_t byteLength, 
+    virtual void drawPosText(const void* text, size_t byteLength,
                              const SkPoint pos[], const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
@@ -295,8 +295,8 @@ public:
         mBounder.doRect(CommonCheck::kDrawPosTextH_Type);
     }
 
-    virtual void drawTextOnPath(const void* text, size_t byteLength, 
-                                const SkPath& path, const SkMatrix* matrix, 
+    virtual void drawTextOnPath(const void* text, size_t byteLength,
+                                const SkPath& path, const SkMatrix* matrix,
                                 const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
@@ -308,7 +308,7 @@ public:
         mBounder.setType(CommonCheck::kDrawPicture_Type);
         SkCanvas::drawPicture(picture);
     }
-    
+
     virtual int saveLayer(const SkRect* bounds, const SkPaint* paint,
                           SaveFlags flags) {
         int depth = SkCanvas::saveLayer(bounds, paint, flags);
@@ -327,7 +327,7 @@ public:
         }
         SkCanvas::restore();
     }
-    
+
     int mTransparentLayer;
     CommonCheck& mBounder;
 };
@@ -338,20 +338,20 @@ and returns via center() the optimal amount to scroll in x to display the
 paragraph of text.
 
 The caller of CenterCheck has configured (but not allocated) a bitmap
-the height and three times the width of the view. The picture is drawn centered 
-in the bitmap, so text that would be revealed, if the view was scrolled up to 
+the height and three times the width of the view. The picture is drawn centered
+in the bitmap, so text that would be revealed, if the view was scrolled up to
 a view-width to the left or right, is considered.
 */
 class CenterCheck : public CommonCheck {
 public:
-    CenterCheck(int x, int y, int width) : mX(x), mY(y), 
+    CenterCheck(int x, int y, int width) : mX(x), mY(y),
             mHitLeft(x), mHitRight(x), mMostLeft(INT_MAX), mMostRight(-INT_MAX),
             mViewLeft(width), mViewRight(width << 1) {
-        mHit.set(x - CENTER_SLOP, y - CENTER_SLOP, 
+        mHit.set(x - CENTER_SLOP, y - CENTER_SLOP,
             x + CENTER_SLOP, y + CENTER_SLOP);
         mPartial.setEmpty();
     }
-    
+
     int center() {
         doRect(); // process the final line of text
         /* If the touch coordinates aren't near any text, return 0 */
@@ -382,12 +382,12 @@ public:
             center = 0; // paragraph is already fully visible
 #endif
         }
-        DBG_NAV_LOGD("scroll: leftOver=%d rightOver=%d center=%d", 
+        DBG_NAV_LOGD("scroll: leftOver=%d rightOver=%d center=%d",
             leftOver, rightOver, center);
         return center;
     }
-    
-protected:    
+
+protected:
     virtual bool onIRect(const SkIRect& rect) {
         if (joinGlyphs(rect)) // assembles glyphs into a text string
             return false;
@@ -395,9 +395,9 @@ protected:
             return false;
         /* Text on one line may be broken into several parts. Reassemble
            the text into a rectangle before considering it. */
-        if (rect.fTop < mPartial.fBottom && rect.fBottom > 
+        if (rect.fTop < mPartial.fBottom && rect.fBottom >
                 mPartial.fTop && mPartial.fRight + CENTER_SLOP >= rect.fLeft) {
-            DBG_NAV_LOGD("join mPartial=(%d, %d, %d, %d) rect=(%d, %d, %d, %d)", 
+            DBG_NAV_LOGD("join mPartial=(%d, %d, %d, %d) rect=(%d, %d, %d, %d)",
                 mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
                 rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
             mPartial.join(rect);
@@ -407,11 +407,11 @@ protected:
             doRect(); // process the previous line of text
         mPartial = rect;
         return false;
-    }    
-    
+    }
+
     void doRect()
     {
-        /* Record the outer bounds of the lines of text that was 'hit' by the 
+        /* Record the outer bounds of the lines of text that was 'hit' by the
            touch coordinates, given some slop */
         if (SkIRect::Intersects(mPartial, mHit)) {
             if (mHitLeft > mPartial.fLeft)
@@ -440,10 +440,10 @@ protected:
             mMostLeft = leftOver;
         if (mMostRight < rightOver)
             mMostRight = rightOver;
-        DBG_NAV_LOGD("leftOver=%d rightOver=%d mMostLeft=%d mMostRight=%d", 
+        DBG_NAV_LOGD("leftOver=%d rightOver=%d mMostLeft=%d mMostRight=%d",
             leftOver, rightOver, mMostLeft, mMostRight);
     }
-    
+
     static const int CENTER_SLOP = 10; // space between text parts and lines
     /* const */ SkIRect mHit; // sloppy hit rectangle
     SkIRect mPartial; // accumulated text bounds, per line
@@ -464,7 +464,7 @@ public:
     }
 
 // Currently webkit's bitmap draws always seem to be cull'd before this entry
-// point is called, so we assume that any bitmap that gets here is inside our 
+// point is called, so we assume that any bitmap that gets here is inside our
 // tiny clip (may not be true in the future)
     virtual void commonDrawBitmap(const SkBitmap& bitmap,
                               const SkMatrix& , const SkPaint& ) {
@@ -491,14 +491,14 @@ public:
         mMinX = mMinJiggle = abs(delta);
         mMaxWidth = width + mMinX;
     }
-    
+
     int jiggle() {
         if (mMinJiggle > mMaxJiggle)
             return mDelta;
         int avg = (mMinJiggle + mMaxJiggle + 1) >> 1;
         return mDelta < 0 ? -avg : avg;
     }
-    
+
     virtual bool onIRect(const SkIRect& rect) {
         if (joinGlyphs(rect))
             return false;
@@ -538,7 +538,7 @@ public:
         const WebCore::IntRect* r;
         for (r = rings.begin(); r != rings.end(); r++) {
             SkIRect fatter = {r->x(), r->y(), r->right(), r->bottom()};
-            fatter.inset(-FOCUS_RING_HIT_TEST_RADIUS, -FOCUS_RING_HIT_TEST_RADIUS);
+            fatter.inset(-CURSOR_RING_HIT_TEST_RADIUS, -CURSOR_RING_HIT_TEST_RADIUS);
             DBG_NAV_LOGD("fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
                 fatter.fRight, fatter.fBottom);
             mRings.op(fatter, SkRegion::kUnion_Op);
@@ -562,14 +562,14 @@ public:
     bool mSuccess;
 };
 
-bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction direction, 
+bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction direction,
     WebCore::IntPoint* scrollPtr, bool findClosest)
-{        
+{
     WebCore::IntRect newOutset;
     const CachedNode* newNode = best->mNode;
     // see if there's a middle node
-        // if the middle node is in the visited list, 
-        // or if none was computed and the newNode is in the visited list, 
+        // if the middle node is in the visited list,
+        // or if none was computed and the newNode is in the visited list,
         // treat result as NULL
     if (newNode != NULL && findClosest) {
         if (best->bounds().intersects(mHistory->mPriorBounds) == false &&
@@ -579,13 +579,13 @@ bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction directio
             innerMove(document(), best, direction, scrollPtr, false);
             return true;
         }
-        newNode->focusRingBounds(&newOutset);
+        newNode->cursorRingBounds(&newOutset);
     }
     int delta;
     bool newNodeInView = scrollDelta(newOutset, direction, &delta);
-    if (delta && scrollPtr && (newNode == NULL || newNodeInView == false || 
+    if (delta && scrollPtr && (newNode == NULL || newNodeInView == false ||
             (best->mNavOutside && best->mWorkingOutside)))
-        *scrollPtr = WebCore::IntPoint(direction & UP_DOWN ? 0 : delta, 
+        *scrollPtr = WebCore::IntPoint(direction & UP_DOWN ? 0 : delta,
             direction & UP_DOWN ? delta : 0);
     return false;
 }
@@ -594,14 +594,14 @@ bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction directio
 int CachedRoot::checkForCenter(int x, int y) const
 {
     int width = mViewBounds.width();
-    CenterCheck centerCheck(x + width - mViewBounds.x(), y - mViewBounds.y(), 
+    CenterCheck centerCheck(x + width - mViewBounds.x(), y - mViewBounds.y(),
         width);
     BoundsCanvas checker(&centerCheck);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width * 3,
         mViewBounds.height());
     checker.setBitmapDevice(bitmap);
-    checker.translate(SkIntToScalar(width - mViewBounds.x()), 
+    checker.translate(SkIntToScalar(width - mViewBounds.x()),
         SkIntToScalar(-mViewBounds.y()));
     checker.drawPicture(*mPicture);
     return centerCheck.center();
@@ -617,7 +617,7 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, mViewBounds.width() +
         absDelta, mViewBounds.height());
     checker.setBitmapDevice(bitmap);
-    checker.translate(SkIntToScalar(-mViewBounds.x() -  
+    checker.translate(SkIntToScalar(-mViewBounds.x() -
         (xDelta < 0 ? xDelta : 0)), SkIntToScalar(-mViewBounds.y()));
     checker.drawPicture(*mPicture);
     *xDeltaPtr = jiggleCheck.jiggle();
@@ -650,11 +650,11 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     (const_cast<CachedRoot*>(this))->resetClippedOut();
     const CachedNode* directHit = NULL;
     const CachedNode* node = findBestAt(rect, &best, &inside, &directHit, framePtr, x, y);
-    DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(), 
+    DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
         node == NULL ? NULL : node->nodePointer());
     if (node == NULL) {
         node = findBestHitAt(rect, &best, framePtr, x, y);
-        DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(), 
+        DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
             node == NULL ? NULL : node->nodePointer());
     }
     if (node == NULL) {
@@ -664,11 +664,17 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     return node;
 }
 
-WebCore::IntPoint CachedRoot::focusLocation() const
+WebCore::IntPoint CachedRoot::cursorLocation() const
 {
     const WebCore::IntRect& bounds = mHistory->mNavBounds;
-    return WebCore::IntPoint(bounds.x() + (bounds.width() >> 1), 
+    return WebCore::IntPoint(bounds.x() + (bounds.width() >> 1),
         bounds.y() + (bounds.height() >> 1));
+}
+
+WebCore::IntPoint CachedRoot::focusLocation() const
+{
+    return WebCore::IntPoint(mFocusBounds.x() + (mFocusBounds.width() >> 1),
+        mFocusBounds.y() + (mFocusBounds.height() >> 1));
 }
 
 // These reset the values because we only want to get the selection the first time.
@@ -705,7 +711,7 @@ void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point)
 #endif
 }
 
-void CachedRoot::init(WebCore::Frame* frame, CachedHistory* history) 
+void CachedRoot::init(WebCore::Frame* frame, CachedHistory* history)
 {
     CachedFrame::init(this, -1, frame);
     reset();
@@ -722,8 +728,8 @@ bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
     int testTop = mScrolledBounds.y();
     int viewBottom = mViewBounds.bottom();
-    if (mFocusBounds.isEmpty() == false &&
-            mFocusBounds.bottom() > viewBottom && viewBottom < mContents.height())
+    if (mCursorBounds.isEmpty() == false &&
+            mCursorBounds.bottom() > viewBottom && viewBottom < mContents.height())
         return false;
     if (mHistory->mNavBounds.isEmpty() == false) {
         int navTop = mHistory->mNavBounds.y();
@@ -733,7 +739,7 @@ bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const
             mScrolledBounds.setY(navTop);
         }
     }
-    frameDown(test, NULL, bestData, currentFocus());
+    frameDown(test, NULL, bestData, currentCursor());
     return true;
 }
 
@@ -746,8 +752,8 @@ bool CachedRoot::innerLeft(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
     int testRight = mScrolledBounds.right();
     int viewLeft = mViewBounds.x();
-    if (mFocusBounds.isEmpty() == false &&
-            mFocusBounds.x() < viewLeft && viewLeft > mContents.x())
+    if (mCursorBounds.isEmpty() == false &&
+            mCursorBounds.x() < viewLeft && viewLeft > mContents.x())
         return false;
     if (mHistory->mNavBounds.isEmpty() == false) {
         int navRight = mHistory->mNavBounds.right();
@@ -755,53 +761,53 @@ bool CachedRoot::innerLeft(const CachedNode* test, BestData* bestData) const
         if (testRight > navRight && navRight > (scrollLeft = mScrolledBounds.x()))
             mScrolledBounds.setWidth(navRight - scrollLeft);
     }
-    frameLeft(test, NULL, bestData, currentFocus());
+    frameLeft(test, NULL, bestData, currentCursor());
     return true;
 }
 
 
-void CachedRoot::innerMove(const CachedNode* node, BestData* bestData, 
+void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
     Direction direction, WebCore::IntPoint* scroll, bool firstCall)
 {
     bestData->reset();
-    mFocusChild = false;
-    bool outOfFocus = mFocus < 0;
-    bool firstTime = mHistory->didFirstLayout() && outOfFocus;
+    mCursorChild = false;
+    bool outOfCursor = mCursorIndex < 0;
+    bool firstTime = mHistory->didFirstLayout() && outOfCursor;
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-    LOGD("%s mHistory->didFirstLayout()=%s && mFocus=%d\n", __FUNCTION__,
-        mHistory->didFirstLayout() ? "true" : "false", mFocus);
+    LOGD("%s mHistory->didFirstLayout()=%s && mCursorIndex=%d\n", __FUNCTION__,
+        mHistory->didFirstLayout() ? "true" : "false", mCursorIndex);
 #endif
     if (firstTime)
         mHistory->reset();
-    const CachedNode* focus = currentFocus();
-    mHistory->setWorking(direction, focus, mViewBounds);
-    mFocusBounds = WebCore::IntRect(0, 0, 0, 0);
-    if (focus != NULL)
-        focus->getBounds(&mFocusBounds);
+    const CachedNode* cursor = currentCursor();
+    mHistory->setWorking(direction, cursor, mViewBounds);
+    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
+    if (cursor != NULL)
+        cursor->getBounds(&mCursorBounds);
     bool findClosest = false;
     if (mScrollOnly == false) {
         switch (direction) {
             case LEFT:
-                if (outOfFocus)
-                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.right(), 
+                if (outOfCursor)
+                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.right(),
                         mViewBounds.y(), 1, mViewBounds.height());
                 findClosest = innerLeft(node, bestData);
                 break;
-            case RIGHT: 
-                if (outOfFocus)
+            case RIGHT:
+                if (outOfCursor)
                     mHistory->mNavBounds = WebCore::IntRect(mViewBounds.x() - 1,
                         mViewBounds.y(), 1, mViewBounds.height());
                 findClosest = innerRight(node, bestData);
                 break;
             case UP:
-                if (outOfFocus)
-                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.x(), 
+                if (outOfCursor)
+                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.x(),
                         mViewBounds.bottom(), mViewBounds.width(), 1);
                 findClosest = innerUp(node, bestData);
                 break;
             case DOWN:
-                if (outOfFocus)
-                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.x(), 
+                if (outOfCursor)
+                    mHistory->mNavBounds = WebCore::IntRect(mViewBounds.x(),
                         mViewBounds.y() - 1, mViewBounds.width(), 1);
                 findClosest = innerDown(node, bestData);
                 break;
@@ -817,7 +823,7 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
         return;
     if (bestData->mNode != NULL) {
         mHistory->addToVisited(bestData->mNode, direction);
-        mHistory->mNavBounds = mFocusBounds = bestData->mNodeBounds;
+        mHistory->mNavBounds = mCursorBounds = bestData->mNodeBounds;
         mHistory->mMouseBounds = bestData->mMouseBounds;
     } else if (scroll->x() != 0 || scroll->y() != 0) {
         WebCore::IntRect newBounds = mHistory->mNavBounds;
@@ -846,8 +852,8 @@ bool CachedRoot::innerRight(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
     int testLeft = mScrolledBounds.x();
     int viewRight = mViewBounds.right();
-    if (mFocusBounds.isEmpty() == false &&
-            mFocusBounds.right() > viewRight && viewRight < mContents.width())
+    if (mCursorBounds.isEmpty() == false &&
+            mCursorBounds.right() > viewRight && viewRight < mContents.width())
         return false;
     if (mHistory->mNavBounds.isEmpty() == false) {
         int navLeft = mHistory->mNavBounds.x();
@@ -857,7 +863,7 @@ bool CachedRoot::innerRight(const CachedNode* test, BestData* bestData) const
             mScrolledBounds.setX(navLeft);
         }
     }
-    frameRight(test, NULL, bestData, currentFocus());
+    frameRight(test, NULL, bestData, currentCursor());
     return true;
 }
 
@@ -870,8 +876,8 @@ bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
     int testBottom = mScrolledBounds.bottom();
     int viewTop = mViewBounds.y();
-    if (mFocusBounds.isEmpty() == false &&
-            mFocusBounds.y() < viewTop && viewTop > mContents.y())
+    if (mCursorBounds.isEmpty() == false &&
+            mCursorBounds.y() < viewTop && viewTop > mContents.y())
         return false;
     if (mHistory->mNavBounds.isEmpty() == false) {
         int navBottom = mHistory->mNavBounds.bottom();
@@ -879,7 +885,7 @@ bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
         if (testBottom > navBottom && navBottom > (scrollTop = mScrolledBounds.y()))
             mScrolledBounds.setHeight(navBottom - scrollTop);
     }
-    frameUp(test, NULL, bestData, currentFocus());
+    frameUp(test, NULL, bestData, currentCursor());
     return true;
 }
 
@@ -907,7 +913,7 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     if (bestNode->isUnclipped())
         return false;
     // given the picture matching this nav cache
-        // create an SkBitmap with dimensions of the focus intersected w/ extended view
+        // create an SkBitmap with dimensions of the cursor intersected w/ extended view
     const WebCore::IntRect& nodeBounds = bestNode->getBounds();
     WebCore::IntRect bounds = nodeBounds;
     bounds.intersect(mScrolledBounds);
@@ -921,7 +927,7 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     marginBounds.intersect(mScrolledBounds);
     BoundsCheck boundsCheck;
     BoundsCanvas checker(&boundsCheck);
-    boundsCheck.mBounds.set(leftMargin, topMargin, 
+    boundsCheck.mBounds.set(leftMargin, topMargin,
         leftMargin + bounds.width(), topMargin + bounds.height());
     boundsCheck.mBoundsSlop = boundsCheck.mBounds;
     boundsCheck.mBoundsSlop.inset(-kSlop, -kSlop);
@@ -929,8 +935,8 @@ bool CachedRoot::maskIfHidden(BestData* best) const
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, marginBounds.width(),
         marginBounds.height());
     checker.setBitmapDevice(bitmap);
-    // insert probes to be called when the data corresponding to this focus ring is drawn
-        // need to know if focus ring was generated by text, image, or parent (like div)
+    // insert probes to be called when the data corresponding to this ring is drawn
+        // need to know if ring was generated by text, image, or parent (like div)
         // ? need to know (like imdb menu bar) to give up sometimes (when?)
     checker.translate(SkIntToScalar(leftMargin - bounds.x()),
         SkIntToScalar(topMargin - bounds.y()));
@@ -989,17 +995,17 @@ bool CachedRoot::maskIfHidden(BestData* best) const
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
         const SkIRect& modded = boundsCheck.mBounds;
         LOGD("%s partially occluded node:%p (%d) old:{%d,%d,%d,%d} new:{%d,%d,%d,%d}\n",
-            __FUNCTION__, best->mNode, best->mNode->index(), 
+            __FUNCTION__, best->mNode, best->mNode->index(),
             orig.fLeft, orig.fTop, orig.fRight, orig.fBottom,
             base.fLeft, base.fTop, base.fRight, base.fBottom);
 #endif
-        best->mMouseBounds = WebCore::IntRect(bounds.x() + base.fLeft - kMargin, 
+        best->mMouseBounds = WebCore::IntRect(bounds.x() + base.fLeft - kMargin,
             bounds.y() + base.fTop - kMargin, base.width(), base.height());
     }
     return false;
 }
 
-const CachedNode* CachedRoot::moveFocus(Direction direction, const CachedFrame** framePtr, 
+const CachedNode* CachedRoot::moveCursor(Direction direction, const CachedFrame** framePtr,
     WebCore::IntPoint* scroll)
 {
 #ifndef NDEBUG
@@ -1028,7 +1034,7 @@ void CachedRoot::reset()
     mMaxXScroll = mMaxYScroll = 0;
     mSelectionStart = mSelectionEnd = -1;
     mScrollOnly = false;
-    mFocusBounds = WebCore::IntRect(0, 0, 0, 0);
+    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
 }
 
 bool CachedRoot::scrollDelta(WebCore::IntRect& newOutset, Direction direction, int* delta)
@@ -1037,13 +1043,13 @@ bool CachedRoot::scrollDelta(WebCore::IntRect& newOutset, Direction direction, i
         case LEFT:
             *delta = -mMaxXScroll;
             return newOutset.x() >= mViewBounds.x();
-        case RIGHT: 
+        case RIGHT:
             *delta = mMaxXScroll;
             return newOutset.right() <= mViewBounds.right();
         case UP:
             *delta = -mMaxYScroll;
             return newOutset.y() >= mViewBounds.y();
-        case DOWN: 
+        case DOWN:
             *delta = mMaxYScroll;
             return newOutset.bottom() <= mViewBounds.bottom();
         default:
@@ -1055,46 +1061,63 @@ bool CachedRoot::scrollDelta(WebCore::IntRect& newOutset, Direction direction, i
 
 void CachedRoot::setCachedFocus(CachedFrame* frame, CachedNode* node)
 {
-#if !defined NDEBUG
-    ASSERT(CachedFrame::mDebug.mInUse);
-#endif
-#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-    const CachedNode* focus = currentFocus();
-    WebCore::IntRect bounds;
-    if (focus)
-        bounds = focus->bounds();
-    LOGD("%s old focus %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__, 
-        focus ? focus->index() : 0,
-        focus ? focus->nodePointer() : NULL, bounds.x(), bounds.y(), 
-        bounds.width(), bounds.height());
-#endif
-    clearFocus();
+    mFocusBounds = WebCore::IntRect(0, 0, 0, 0);
     if (node == NULL)
         return;
     node->setIsFocus(true);
-    ASSERT(node->isFrame() == false);
+    mFocusBounds = node->bounds();
     frame->setFocusIndex(node - frame->document());
-    ASSERT(frame->focusIndex() > 0 && frame->focusIndex() < (int) frame->size());
     CachedFrame* parent;
     while ((parent = frame->parent()) != NULL) {
         parent->setFocusIndex(frame->indexInParent());
         frame = parent;
     }
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
-    focus = currentFocus();
-    bounds = WebCore::IntRect(0, 0, 0, 0);
+    const CachedNode* focus = currentFocus();
+    WebCore::IntRect bounds = WebCore::IntRect(0, 0, 0, 0);
     if (focus)
         bounds = focus->bounds();
     LOGD("%s new focus %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
         focus ? focus->index() : 0,
-        focus ? focus->nodePointer() : NULL, bounds.x(), bounds.y(), 
+        focus ? focus->nodePointer() : NULL, bounds.x(), bounds.y(),
         bounds.width(), bounds.height());
 #endif
 }
 
-void CachedRoot::setupScrolledBounds() const
+void CachedRoot::setCursor(CachedFrame* frame, CachedNode* node)
 {
-    mScrolledBounds = mViewBounds;
+#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+    const CachedNode* cursor = currentCursor();
+    WebCore::IntRect bounds;
+    if (cursor)
+        bounds = cursor->bounds();
+    LOGD("%s old cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
+        cursor ? cursor->index() : 0,
+        cursor ? cursor->nodePointer() : NULL, bounds.x(), bounds.y(),
+        bounds.width(), bounds.height());
+#endif
+    clearCursor();
+    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
+    if (node == NULL)
+        return;
+    node->setIsCursor(true);
+    mCursorBounds = node->bounds();
+    frame->setCursorIndex(node - frame->document());
+    CachedFrame* parent;
+    while ((parent = frame->parent()) != NULL) {
+        parent->setCursorIndex(frame->indexInParent());
+        frame = parent;
+    }
+#if DEBUG_NAV_UI && !defined BROWSER_DEBUG
+    cursor = currentCursor();
+    bounds = WebCore::IntRect(0, 0, 0, 0);
+    if (cursor)
+        bounds = cursor->bounds();
+    LOGD("%s new cursor %d (nodePointer=%p) bounds={%d,%d,%d,%d}\n", __FUNCTION__,
+        cursor ? cursor->index() : 0,
+        cursor ? cursor->nodePointer() : NULL, bounds.x(), bounds.y(),
+        bounds.width(), bounds.height());
+#endif
 }
 
 #if DUMP_NAV_CACHE
@@ -1109,7 +1132,7 @@ void CachedRoot::setupScrolledBounds() const
 
 CachedRoot* CachedRoot::Debug::base() const {
     CachedRoot* nav = (CachedRoot*) ((char*) this - OFFSETOF(CachedRoot, mDebug));
-    return nav; 
+    return nav;
 }
 
 void CachedRoot::Debug::print() const
@@ -1122,10 +1145,10 @@ void CachedRoot::Debug::print() const
     CachedRoot* b = base();
     b->CachedFrame::mDebug.print();
     b->mHistory->mDebug.print(b);
-    DEBUG_PRINT_RECT(mFocusBounds);
-    DUMP_NAV_LOGD("// int mMaxXScroll=%d, mMaxYScroll=%d;\n", 
+    DEBUG_PRINT_RECT(mCursorBounds);
+    DUMP_NAV_LOGD("// int mMaxXScroll=%d, mMaxYScroll=%d;\n",
         b->mMaxXScroll, b->mMaxYScroll);
-    DEBUG_PRINT_BOOL(mFocusChild);
+    DEBUG_PRINT_BOOL(mCursorChild);
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     if (gNavCacheLogFile)
         fclose(gNavCacheLogFile);

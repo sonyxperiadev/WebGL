@@ -721,7 +721,6 @@ void CacheBuilder::Debug::wideString(const String& str) {
 
 CacheBuilder::CacheBuilder()
 {
-    mLastKnownFocus = NULL;
     mAllowableTypes = ALL_CACHEDNODETYPES;
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     gNavCacheLogFile = NULL;
@@ -821,7 +820,6 @@ bool CacheBuilder::AnyIsClick(Node* node)
 void CacheBuilder::buildCache(CachedRoot* root)
 {
     Frame* frame = FrameAnd(this);
-    mLastKnownFocus = NULL;
     BuildFrame(frame, frame, root, (CachedFrame*) root);
     root->finishInit(); // set up frame parent pointers, child pointers
     setData((CachedFrame*) root);
@@ -903,10 +901,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     Node* node = parent;
     int cacheIndex = 1;
     Node* focused = doc->focusedNode();
-    if (focused) {
-        setLastFocus(focused);
-        cachedRoot->setFocusBounds(mLastKnownFocusBounds);
-    }
+    if (focused)
+        cachedRoot->setFocusBounds(focused->getRect());
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
@@ -974,20 +970,20 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         RenderObject* nodeRenderer = node->renderer();
         bool isTransparent = false;
-        bool hasFocusRing = true;
+        bool hasCursorRing = true;
         if (nodeRenderer != NULL) {
             RenderStyle* style = nodeRenderer->style();
             if (style->visibility() == HIDDEN)
                 continue;
             isTransparent = style->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-            hasFocusRing = style->tapHighlightColor().alpha() > 0;
+            hasCursorRing = style->tapHighlightColor().alpha() > 0;
 #endif
         }
         bool more = walk.mMore;
         walk.reset();
      //   GetGlobalBounds(node, &bounds, false);
-        bool computeFocusRings = false;
+        bool computeCursorRings = false;
         bool hasClip = false;
         bool hasMouseOver = false;
         bool isAnchor = false;
@@ -1087,7 +1083,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 IntRect(0, 0, INT_MAX, INT_MAX);
             if (ConstructTextRects((WebCore::Text*) node, walk.mStart, 
                     (WebCore::Text*) walk.mFinalNode, walk.mEnd, globalOffsetX,
-                    globalOffsetY, &bounds, clip, &cachedNode.focusRings()) == false)
+                    globalOffsetY, &bounds, clip, &cachedNode.cursorRings()) == false)
                 continue;
             absBounds = bounds;
             cachedNode.setBounds(bounds);
@@ -1095,7 +1091,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
                 continue;
-            computeFocusRings = true;
+            computeCursorRings = true;
             isUnclipped = true;  // FIXME: to hide or partially occlude synthesized links, each
                                  // focus ring will also need the offset and length of characters
                                  // used to produce it
@@ -1179,14 +1175,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             bounds.move(globalOffsetX, globalOffsetY);
         }
-        computeFocusRings = true;
+        computeCursorRings = true;
     keepNode:
         cachedNode.init(node);
-        if (computeFocusRings == false) {
+        if (computeCursorRings == false) {
             cachedNode.setBounds(bounds);
-            cachedNode.focusRings().append(bounds);
+            cachedNode.cursorRings().append(bounds);
         } else if (ConstructPartRects(node, bounds, cachedNode.boundsPtr(), 
-                globalOffsetX, globalOffsetY, &cachedNode.focusRings()) == false)
+                globalOffsetX, globalOffsetY, &cachedNode.cursorRings()) == false)
             continue;
     keepTextNode:
         IntRect clip = hasClip ? bounds : absBounds;
@@ -1208,13 +1204,13 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (hasClip && cachedNode.clip(clip) == false) {
             cachedNode.setBounds(clip);
-            cachedNode.focusRings().append(clip);
+            cachedNode.cursorRings().append(clip);
             isUnclipped = true;
         }
         cachedNode.setNavableRects();
         cachedNode.setChildFrameIndex(-1);
         cachedNode.setExport(exported);
-        cachedNode.setHasFocusRing(hasFocusRing);
+        cachedNode.setHasCursorRing(hasCursorRing);
         cachedNode.setHasMouseOver(hasMouseOver);
         cachedNode.setHitBounds(absBounds);
         cachedNode.setIndex(cacheIndex);
@@ -1287,7 +1283,7 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
             lastNode->hasTagName(HTMLNames::bodyTag) ||
             lastNode->hasTagName(HTMLNames::formTag)) {
         lastCached->setBounds(IntRect(0, 0, 0, 0));
-        lastCached->focusRings().clear();
+        lastCached->cursorRings().clear();
         lastCached->setNavableRects();
         return false;
     }
@@ -1299,8 +1295,6 @@ bool CacheBuilder::CleanUpContainedNodes(CachedFrame* cachedFrame,
         lastNode->isFocusable() == false &&
         HasOverOrOut(lastNode) == true && 
         HasTriggerEvent(lastNode) == false;
-    if (cachedFrame->focusIndex() == lastChildIndex)
-        cachedFrame->setFocusIndex(last->mCachedNodeIndex);
     if (onlyChildCached->parent() == lastCached)
         onlyChildCached->setParentIndex(lastCached->parentIndex());
     if (outerIsMouseMoveOnly || onlyChild->isKeyboardFocusable(NULL))
@@ -2647,29 +2641,6 @@ bool CacheBuilder::IsMailboxChar(UChar ch)
     if (ch > 'z' - 0x20)
         return false;
     return (body[ch >> 5] & 1 << (ch & 0x1f)) != 0;
-}
-
-bool CacheBuilder::outOfDate()
-{
-    Node* kitFocusNode = currentFocus();
-    if (mLastKnownFocus != kitFocusNode) {
-        DBG_NAV_LOGD("%s\n", "mLastKnownFocus != kitFocusNode");
-        return true;
-    }
-    if (kitFocusNode == NULL)
-        return false;
-    IntRect kitBounds = kitFocusNode->getRect();
-    bool result = kitBounds != mLastKnownFocusBounds;
-    if (result == true)
-        DBG_NAV_LOGD("%s\n", "kitBounds != mLastKnownFocusBounds");
-    return result;
-}
-
-void CacheBuilder::setLastFocus(Node* node)
-{
-    ASSERT(node);
-    mLastKnownFocus = node;
-    mLastKnownFocusBounds = node->getRect();
 }
 
 bool CacheBuilder::setData(CachedFrame* cachedFrame) 

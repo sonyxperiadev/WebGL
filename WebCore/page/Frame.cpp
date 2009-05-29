@@ -228,16 +228,6 @@ FrameView* Frame::view() const
 
 void Frame::setView(FrameView* view)
 {
-#if PLATFORM(ANDROID)
-    if (!view && m_view) {
-        // FIXME(for Cary): This is moved from FrameAndroid destructor. Do we 
-        // need to call removeFrameGeneration per Frame or per FrameView?
-        android::WebViewCore* core = android::WebViewCore::getWebViewCore(m_view.get());
-        if (core)
-            core->removeFrameGeneration(this);
-    }
-#endif
-
     // Detach the document now, so any onUnload handlers get run - if
     // we wait until the view is destroyed, then things won't be
     // hooked up enough for some JavaScript calls to work.

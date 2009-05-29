@@ -91,8 +91,6 @@ public:
     static FoundState FindAddress(const UChar* , unsigned length, int* start, int* end);
     static void GetGlobalOffset(Frame* , int* x, int * y);
     static void GetGlobalOffset(Node* , int* x, int * y);
-    bool outOfDate();
-    void setLastFocus(Node* );
     static bool validNode(Frame* startFrame, void* framePtr, void* nodePtr);
 private:
     enum AddressProgress {
@@ -225,8 +223,6 @@ private:
     bool setData(CachedFrame* );
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
-    Node* mLastKnownFocus;
-    IntRect mLastKnownFocusBounds;
     CachedNodeType mAllowableTypes;
 #if DUMP_NAV_CACHE
 public:

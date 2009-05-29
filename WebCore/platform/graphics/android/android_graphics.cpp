@@ -33,32 +33,32 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-const static SkColor focusOuterColors[] = {
-    SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal focus ring select
-    SkColorSetARGB(0xff, 0x46, 0xb0, 0x00), // fake focus ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xb0, 0x16, 0x00), // invalid focus ring color
-    SkColorSetARGB(0xff, 0xAD, 0x5C, 0x0A), // normal focus ring pressed
-    SkColorSetARGB(0xff, 0x36, 0xc0, 0x00)  // fake focus ring pressed
+const static SkColor cursorOuterColors[] = {
+    SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal ring select
+    SkColorSetARGB(0xff, 0x46, 0xb0, 0x00), // fake ring select, for phone, email, text
+    SkColorSetARGB(0xff, 0xb0, 0x16, 0x00), // invalid ring color
+    SkColorSetARGB(0xff, 0xAD, 0x5C, 0x0A), // normal ring pressed
+    SkColorSetARGB(0xff, 0x36, 0xc0, 0x00)  // fake ring pressed
 };
 
-const static SkColor focusInnerColors[] = {
-    SkColorSetARGB(0xff, 0xFE, 0x92, 0x30), // normal focus ring select
-    SkColorSetARGB(0xff, 0x8c, 0xd9, 0x00), // fake focus ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xd9, 0x2c, 0x00), // invalid focus ring color
-    SkColorSetARGB(0xff, 0xFE, 0xBD, 0x3A), // normal focus ring pressed
-    SkColorSetARGB(0xff, 0x7c, 0xe9, 0x00)  // fake focus ring pressed
+const static SkColor cursorInnerColors[] = {
+    SkColorSetARGB(0xff, 0xFE, 0x92, 0x30), // normal ring select
+    SkColorSetARGB(0xff, 0x8c, 0xd9, 0x00), // fake ring select, for phone, email, text
+    SkColorSetARGB(0xff, 0xd9, 0x2c, 0x00), // invalid ring color
+    SkColorSetARGB(0xff, 0xFE, 0xBD, 0x3A), // normal ring pressed
+    SkColorSetARGB(0xff, 0x7c, 0xe9, 0x00)  // fake ring pressed
 };
 
-const static SkColor focusPressedColors[] = {
-    SkColorSetARGB(0x80, 0xFF, 0xC6, 0x4B), // normal focus ring pressed
-    SkColorSetARGB(0x80, 0x7c, 0xe9, 0x00)  // fake focus ring pressed
+const static SkColor cursorPressedColors[] = {
+    SkColorSetARGB(0x80, 0xFF, 0xC6, 0x4B), // normal ring pressed
+    SkColorSetARGB(0x80, 0x7c, 0xe9, 0x00)  // fake ring pressed
 };
 
-#define FOCUS_RING_ROUNDEDNESS SkIntToScalar(5) // used to draw corners
-#define FOCUS_RING_INNER_DIAMETER SkFixedToScalar(SkIntToFixed(3)>>1) // 3/2 == 1.5
-#define FOCUS_RING_OUTER_OUTSET 2 // used to inflate rects added to region
+#define CURSOR_RING_ROUNDEDNESS SkIntToScalar(5) // used to draw corners
+#define CURSOR_RING_INNER_DIAMETER SkFixedToScalar(SkIntToFixed(3)>>1) // 3/2 == 1.5
+#define CURSOR_RING_OUTER_OUTSET 2 // used to inflate rects added to region
 
-void FocusRing::DrawRing(SkCanvas* canvas,
+void CursorRing::DrawRing(SkCanvas* canvas,
     const Vector<WebCore::IntRect>& rects, Flavor flavor)
 {
     unsigned                rectCount = rects.size();
@@ -70,24 +70,24 @@ void FocusRing::DrawRing(SkCanvas* canvas,
         SkIRect ir;
 
         r.round(&ir);
-        ir.inset(-FOCUS_RING_OUTER_OUTSET, -FOCUS_RING_OUTER_OUTSET);
+        ir.inset(-CURSOR_RING_OUTER_OUTSET, -CURSOR_RING_OUTER_OUTSET);
         rgn.op(ir, SkRegion::kUnion_Op);
     }
     rgn.getBoundaryPath(&path);
 
     SkPaint paint;
     paint.setAntiAlias(true);
-    paint.setPathEffect(new SkCornerPathEffect(FOCUS_RING_ROUNDEDNESS))->unref();
+    paint.setPathEffect(new SkCornerPathEffect(CURSOR_RING_ROUNDEDNESS))->unref();
     if (flavor >= NORMAL_ANIMATING) { // pressed
-        paint.setColor(focusPressedColors[flavor - NORMAL_ANIMATING]);
+        paint.setColor(cursorPressedColors[flavor - NORMAL_ANIMATING]);
         canvas->drawPath(path, paint);
     }
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setStrokeWidth(FOCUS_RING_OUTER_DIAMETER);
-    paint.setColor(focusOuterColors[flavor]);
+    paint.setStrokeWidth(CURSOR_RING_OUTER_DIAMETER);
+    paint.setColor(cursorOuterColors[flavor]);
     canvas->drawPath(path, paint);
-    paint.setStrokeWidth(FOCUS_RING_INNER_DIAMETER);
-    paint.setColor(focusInnerColors[flavor]);
+    paint.setStrokeWidth(CURSOR_RING_INNER_DIAMETER);
+    paint.setColor(cursorInnerColors[flavor]);
     canvas->drawPath(path, paint);
 }
 
