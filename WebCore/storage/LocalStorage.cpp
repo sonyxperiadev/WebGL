@@ -26,6 +26,8 @@
 #include "config.h"
 #include "LocalStorage.h"
 
+#if ENABLE(DOM_STORAGE)
+
 #include "CString.h"
 #include "EventNames.h"
 #include "FileSystem.h"
@@ -97,7 +99,7 @@ PassRefPtr<StorageArea> LocalStorage::storageArea(SecurityOrigin* origin)
     RefPtr<LocalStorageArea> storageArea;
     if (storageArea = m_storageAreaMap.get(origin))
         return storageArea.release();
-        
+
     storageArea = LocalStorageArea::create(origin, this);
     m_storageAreaMap.set(origin, storageArea);
     return storageArea.release();
@@ -170,3 +172,6 @@ void LocalStorage::scheduleSync(PassRefPtr<LocalStorageArea> area)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(DOM_STORAGE)
+

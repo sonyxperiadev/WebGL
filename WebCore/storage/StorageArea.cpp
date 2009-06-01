@@ -26,6 +26,8 @@
 #include "config.h"
 #include "StorageArea.h"
 
+#if ENABLE(DOM_STORAGE)
+
 #include "CString.h"
 #include "ExceptionCode.h"
 #include "SecurityOrigin.h"
@@ -123,3 +125,6 @@ void StorageArea::importItem(const String& key, const String& value)
 }
 
 }
+
+#endif // ENABLE(DOM_STORAGE)
+

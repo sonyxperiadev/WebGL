@@ -62,7 +62,6 @@
 # If an entry starts with '/', any subdirectory may match
 # If an entry starts with '^', the first directory must match
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
-#	^storage/* \
 #	^workers/* \
 
 # This comment block is read by tools/webkitsync/diff.cpp
@@ -217,7 +216,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -489,6 +488,21 @@ GEN := \
     $(intermediates)/storage/JSSQLResultSet.h \
     $(intermediates)/storage/JSSQLResultSetRowList.h \
     $(intermediates)/storage/JSSQLTransaction.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/storage/JS%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+
+# new section for DOM Storage APIs
+GEN := \
+    $(intermediates)/storage/JSStorage.h \
+    $(intermediates)/storage/JSStorageEvent.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<

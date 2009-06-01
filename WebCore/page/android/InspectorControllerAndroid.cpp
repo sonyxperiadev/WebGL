@@ -61,8 +61,15 @@ namespace WebCore {
 struct InspectorResource : public RefCounted<InspectorResource> {
 };
 
+#if ENABLE(DATABASE)
 struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 };
+#endif
+
+#if ENABLE(DOM_STORAGE)
+struct InspectorDOMStorageResource : public RefCounted<InspectorDatabaseResource> {
+};
+#endif
 
 InspectorController::InspectorController(Page*, InspectorClient* client)
     : m_startProfiling(this, 0)
@@ -86,6 +93,9 @@ void InspectorController::addMessageToConsole(MessageSource, MessageLevel, Scrip
 void InspectorController::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) {}
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
+#endif
+#if ENABLE(DOM_STORAGE)
+    void InspectorController::didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame)  {}
 #endif
 bool InspectorController::enabled() const { return false; }
 void InspectorController::inspect(Node*) {}

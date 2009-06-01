@@ -44,7 +44,7 @@ namespace WebCore {
 
         static PageGroup* pageGroup(const String& groupName);
         static void closeLocalStorage();
-        
+
         const HashSet<Page*>& pages() const { return m_pages; }
 
         void addPage(Page*);
@@ -68,7 +68,9 @@ namespace WebCore {
 
     private:
         void addVisitedLink(LinkHash stringHash);
-
+#if ENABLE(DOM_STORAGE)
+        bool hasLocalStorage() { return m_localStorage; }
+#endif
         String m_name;
 
         HashSet<Page*> m_pages;
