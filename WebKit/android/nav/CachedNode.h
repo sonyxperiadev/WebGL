@@ -54,10 +54,10 @@ public:
         BUTTED_UP,
         CENTER_FURTHER,
         CLOSER,
-        CLOSER_IN_FOCUS,
+        CLOSER_IN_CURSOR,
         CLOSER_OVERLAP,
         CLOSER_TOP,
-        FOCUSABLE,
+        NAVABLE,
         FURTHER,
         IN_UMBRA,
         IN_WORKING,
@@ -71,11 +71,10 @@ public:
         CHILD,
         DISABLED,
         HIGHER_TAB_INDEX,
-        IN_FOCUS,
-        IN_FOCUS_CHILDREN,
-        NOT_ENCLOSING_FOCUS,
-    //    NOT_FOCUS_CHILD,
-        NOT_FOCUS_NODE,
+        IN_CURSOR,
+        IN_CURSOR_CHILDREN,
+        NOT_ENCLOSING_CURSOR,
+        NOT_CURSOR_NODE,
         OUTSIDE_OF_BEST, // containership
         OUTSIDE_OF_ORIGINAL, // containership
         CONDITION_SIZE // FIXME: test that CONDITION_SIZE fits in mCondition
@@ -89,33 +88,34 @@ public:
     WebCore::IntRect* boundsPtr() { return &mBounds; }
     int childFrameIndex() const { return mChildFrameIndex; }
     void clearCondition() const { mCondition = NOT_REJECTED; }
-    void clearFocus(CachedFrame* );
+    void clearCursor(CachedFrame* );
     static bool Clip(const WebCore::IntRect& outer, WebCore::IntRect* inner,
         WTF::Vector<WebCore::IntRect>* rings);
     bool clip(const WebCore::IntRect& );
     bool clippedOut() { return mClippedOut; }
+    void cursorRingBounds(WebCore::IntRect* ) const;
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
-    void fixUpFocusRects(const CachedRoot* root);
-    void focusRingBounds(WebCore::IntRect* ) const;
-    WTF::Vector<WebCore::IntRect>& focusRings() { return mFocusRing; }
-    const WTF::Vector<WebCore::IntRect>& focusRings() const { return mFocusRing; }
+    void fixUpCursorRects(const CachedRoot* root);
+    WTF::Vector<WebCore::IntRect>& cursorRings() { return mCursorRing; }
+    const WTF::Vector<WebCore::IntRect>& cursorRings() const { return mCursorRing; }
     const WebCore::IntRect& getBounds() const { return mBounds; }
     void getBounds(WebCore::IntRect* bounds) const { *bounds = mBounds; }
     const WebCore::String& getExport() const { return mExport; }
-    bool hasFocusRing() const { return mHasFocusRing; }
+    bool hasCursorRing() const { return mHasCursorRing; }
     bool hasMouseOver() const { return mHasMouseOver; }
     const WebCore::IntRect& hitBounds() const { return mHitBounds; }
     int index() const { return mIndex; }
     void init(WebCore::Node* node);
     bool isAnchor() const { return mIsAnchor; }
+    bool isCursor() const { return mIsCursor; }
     bool isArea() const { return mIsArea; }
     bool isFocus() const { return mIsFocus; }
-    bool isFocusable(const WebCore::IntRect& clip) const {
-        return clip.intersects(mBounds);
-    }
     bool isFrame() const { return mChildFrameIndex >= 0 ; }
     bool isInput() const { return mIsInput; }
+    bool isNavable(const WebCore::IntRect& clip) const {
+        return clip.intersects(mBounds);
+    }
     bool isPassword() const { return mIsPassword; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextArea() const { return mIsTextArea; }
@@ -141,12 +141,13 @@ public:
     void setCondition(Condition condition) const { mCondition = condition; }
     void setDisabled(bool disabled) { mDisabled = disabled; }
     void setExport(const WebCore::String& exported) { mExport = exported; }
-    void setHasFocusRing(bool hasFocusRing) { mHasFocusRing = hasFocusRing; }
+    void setHasCursorRing(bool hasRing) { mHasCursorRing = hasRing; }
     void setHasMouseOver(bool hasMouseOver) { mHasMouseOver = hasMouseOver; }
     void setHitBounds(const WebCore::IntRect& bounds) { mHitBounds = bounds; }
     void setIndex(int index) { mIndex = index; }
     void setIsAnchor(bool isAnchor) { mIsAnchor = isAnchor; }
     void setIsArea(bool isArea) { mIsArea = isArea; }
+    void setIsCursor(bool isCursor) { mIsCursor = isCursor; }
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
     void setIsInput(bool isInput) { mIsInput = isInput; }
     void setIsParentAnchor(bool isAnchor) { mIsParentAnchor = isAnchor; }
@@ -159,7 +160,7 @@ public:
     void setLast() { mLast = true; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WebCore::String& name) { mName = name; }
-    void setNavableRects() { mNavableRects = mFocusRing.size(); }
+    void setNavableRects() { mNavableRects = mCursorRing.size(); }
     void setParentGroup(void* group) { mParentGroup = group; }
     void setParentIndex(int parent) { mParentIndex = parent; }
     void setTabIndex(int index) { mTabIndex = index; }
@@ -177,7 +178,7 @@ private:
     WebCore::String mName;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;
-    WTF::Vector<WebCore::IntRect> mFocusRing;
+    WTF::Vector<WebCore::IntRect> mCursorRing;
     void* mNode; // WebCore::Node*, only used to match pointers
     void* mParentGroup; // WebCore::Node*, only used to match pointers
     int mChildFrameIndex; // set to -1 if node is not a frame
@@ -191,11 +192,12 @@ private:
     CachedNodeType mType : 3;
     bool mClippedOut : 1;
     bool mDisabled : 1;
-    bool mFixedUpFocusRects : 1;
-    bool mHasFocusRing : 1;
+    bool mFixedUpCursorRects : 1;
+    bool mHasCursorRing : 1;
     bool mHasMouseOver : 1;
     bool mIsAnchor : 1;
     bool mIsArea : 1;
+    bool mIsCursor : 1;
     bool mIsFocus : 1;
     bool mIsInput : 1;
     bool mIsParentAnchor : 1;

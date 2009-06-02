@@ -257,8 +257,7 @@ void FrameLoaderClientAndroid::dispatchDidReceiveTitle(const String& title) {
 }
 
 void FrameLoaderClientAndroid::dispatchDidCommitLoad() {
-    ASSERT(m_frame);
-    WebViewCore::getWebViewCore(m_frame->view())->updateFrameGeneration(m_frame);
+    verifiedOk();
 }
 
 static void loadDataIntoFrame(Frame* frame, KURL baseUrl, const String& url,

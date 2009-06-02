@@ -39,15 +39,15 @@ namespace WebCore {
 
 SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc);
 
-// Data and methods for focus rings
+// Data and methods for cursor rings
 
 // used to inflate node cache entry
-#define FOCUS_RING_HIT_TEST_RADIUS 5  
+#define CURSOR_RING_HIT_TEST_RADIUS 5
 
-// used to inval rectangle enclosing pressed state of focus ring
-#define FOCUS_RING_OUTER_DIAMETER SkFixedToScalar(SkIntToFixed(13)>>2) // 13/4 == 3.25
+// used to inval rectangle enclosing pressed state of ring
+#define CURSOR_RING_OUTER_DIAMETER SkFixedToScalar(SkIntToFixed(13)>>2) // 13/4 == 3.25
 
-struct FocusRing {
+struct CursorRing {
 public:
     enum Flavor {
         NORMAL_FLAVOR,
@@ -57,10 +57,9 @@ public:
         FAKE_ANIMATING,
         ANIMATING_COUNT = 2
     };
-    
-    static void DrawRing(SkCanvas* , 
+
+    static void DrawRing(SkCanvas* ,
         const Vector<WebCore::IntRect>& rects, Flavor );
 };
 
 #endif
-
