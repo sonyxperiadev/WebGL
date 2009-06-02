@@ -105,7 +105,7 @@ struct JavaGlue {
     jmethodID   m_getScaledMaxXScroll;
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
-    jmethodID   m_updateTextEntry;
+    jmethodID   m_rebuildWebTextView;
     jmethodID   m_displaySoftKeyboard;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
@@ -133,7 +133,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
-    m_javaGlue.m_updateTextEntry = GetJMethod(env, clazz, "updateTextEntry", "()V");
+    m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
     m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "()V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
@@ -730,7 +730,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll, bool inval,
 void notifyProgressFinished()
 {
     DBG_NAV_LOGD("cursorIsTextInput=%d", cursorIsTextInput(DontAllowNewer));
-    updateTextEntry();
+    rebuildWebTextView();
 #if DEBUG_NAV_UI
     if (m_frameCacheUI) {
         const CachedNode* focus = m_frameCacheUI->currentFocus();
@@ -839,7 +839,7 @@ bool motionUp(int x, int y, int slop)
     }
     viewInvalidate();
     if (newNodeIsTextInput) {
-        updateTextEntry();
+        rebuildWebTextView();
         displaySoftKeyboard();
     } else {
         setFollowedLink(true);
@@ -1137,10 +1137,11 @@ bool hasFocusNode()
     return focusNode;
 }
 
-void updateTextEntry()
+void rebuildWebTextView()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_updateTextEntry);
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+            m_javaGlue.m_rebuildWebTextView);
     checkException(env);
 }
 
