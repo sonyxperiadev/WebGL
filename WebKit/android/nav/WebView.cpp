@@ -1256,6 +1256,18 @@ static const CachedNode* getCursorNode(JNIEnv *env, jobject obj)
     return root ? root->currentCursor() : 0;
 }
 
+static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return 0;
+    const CachedNode* cursor = root->currentCursor();
+    if (cursor && cursor->wantsKeyEvents())
+        return cursor;
+    return root->currentFocus();
+}
+
 static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1410,37 +1422,37 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
 
 static bool nativeFocusIsPassword(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isPassword() : false;
 }
 
 static bool nativeFocusIsRtlText(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isRtlText() : false;
 }
 
 static bool nativeFocusIsTextField(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isTextField() : false;
 }
 
 static bool nativeFocusIsTextInput(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isTextField() || node->isTextArea() : false;
 }
 
 static jint nativeFocusMaxLength(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->maxLength() : false;
 }
 
 static jobject nativeFocusName(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     if (!node)
         return 0;
     const WebCore::String& name = node->name();
@@ -1449,7 +1461,7 @@ static jobject nativeFocusName(JNIEnv *env, jobject obj)
 
 static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     WebCore::IntRect bounds = node ? node->getBounds()
         : WebCore::IntRect(0, 0, 0, 0);
     jclass rectClass = env->FindClass("android/graphics/Rect");
@@ -1461,13 +1473,13 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
 
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return reinterpret_cast<int>(node ? node->nodePointer() : 0);
 }
 
 static jobject nativeFocusText(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     if (!node)
         return 0;
     WebCore::String value = node->getExport();
@@ -1477,7 +1489,7 @@ static jobject nativeFocusText(JNIEnv *env, jobject obj)
 
 static jint nativeFocusTextSize(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
+    const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->textSize() : 0;
 }
 
