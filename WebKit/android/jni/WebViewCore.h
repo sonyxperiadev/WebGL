@@ -237,33 +237,28 @@ namespace android {
         void popupReply(const int* array, int count);
 
         /**
-         *  Delete text from start to end in the focused textfield. If there is no
-         *  focus, or if start == end, silently fail, but set selection to that value.
+         *  Delete text from start to end in the focused textfield.
+         *  If start == end, set the selection, but perform no deletion.
+         *  If there is no focus, silently fail.
          *  If start and end are out of order, swap them.
-         *  Use the frame, node, x, and y to ensure that the correct node is focused.
-         *  Return a frame. Convenience so replaceTextfieldText can use this function.
          */
-        WebCore::Frame* deleteSelection(WebCore::Frame* frame, WebCore::Node* node, int x,
-            int y,int start, int end);
+        void deleteSelection(int start, int end);
 
         /**
          *  Set the selection of the currently focused textfield to (start, end).
          *  If start and end are out of order, swap them.
-         *  Use the frame, node, x, and y to ensure that the correct node is focused.
-         *  Return a frame. Convenience so deleteSelection can use this function.
          */
-        WebCore::Frame* setSelection(WebCore::Frame* frame, WebCore::Node* node, int x,
-            int y,int start, int end);
+        void setSelection(int start, int end);
         /**
-         *  In the currenlty focused textfield, represented by frame, node, x, and y (which
-         *  are used to ensure it has focus), replace the characters from oldStart to oldEnd
+         *  In the currently focused textfield, replace the characters from oldStart to oldEnd
          *  (if oldStart == oldEnd, this will be an insert at that position) with replace,
          *  and set the selection to (start, end).
          */
-        void replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-                int oldStart, int oldEnd, jstring replace, int start, int end);
-        void passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
-            jstring currentText, int jKeyCode, int keyVal, bool down, bool cap, bool fn, bool sym);
+        void replaceTextfieldText(int oldStart,
+            int oldEnd, const WebCore::String& replace, int start, int end);
+        void passToJs(int generation,
+            const WebCore::String& currentText, int jKeyCode, int keyVal,
+            bool down, bool cap, bool fn, bool sym);
         void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
@@ -345,6 +340,8 @@ namespace android {
 
         // internal functions
     private:
+        CacheBuilder& cacheBuilder();
+        WebCore::Node* currentFocus();
         // Compare the new set of buttons to the old one.  All of the new
         // buttons either replace our old ones or should be added to our list.
         // Then check the old buttons to see if any are no longer needed.

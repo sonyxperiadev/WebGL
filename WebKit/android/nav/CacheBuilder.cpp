@@ -1103,12 +1103,14 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             isInput = true;
             isTextField = input->isTextField();
+            if (isTextField)
+                wantsKeyEvents = true;
             isPassword = input->inputType() == HTMLInputElement::PASSWORD;
             maxLength = input->maxLength();
             name = String(input->name().string());
             isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
         } else if (node->hasTagName(HTMLNames::textareaTag))
-            isTextArea = true;
+            isTextArea = wantsKeyEvents = true;
         else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
                 (const HTMLAnchorElement*) node;

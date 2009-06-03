@@ -321,6 +321,16 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
     return success && !v->needsLayout();
 }
 
+CacheBuilder& WebViewCore::cacheBuilder()
+{
+    return FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
+}
+
+WebCore::Node* WebViewCore::currentFocus()
+{
+    return cacheBuilder().currentFocus();
+}
+
 void WebViewCore::recordPicture(SkPicture* picture)
 {
     // if there is no document yet, just return
@@ -462,8 +472,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     if (content->build())
         rebuildPictureSet(content);
     } // WebViewCoreRecordTimeCounter
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-    WebCore::Node* oldFocusNode = builder.currentFocus();
+    WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds = oldFocusNode ?
         oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
@@ -970,7 +979,7 @@ void WebViewCore::dumpRenderTree(bool useFile)
 void WebViewCore::dumpNavTree()
 {
 #if DUMP_NAV_CACHE
-    FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().mDebug.print();
+    cacheBuilder().mDebug.print();
 #endif
 }
 
@@ -999,7 +1008,7 @@ bool WebViewCore::prepareFrameCache()
 #endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
-    CacheBuilder& builder = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
+    CacheBuilder& builder = cacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
     builder.allowAllTextDetection();
 #ifdef ANDROID_META_SUPPORT
@@ -1183,11 +1192,9 @@ bool WebViewCore::moveMouse(WebCore::Frame* frame, WebCore::Node* node,
     int x, int y)
 {
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d ", frame, node, x, y);
-    CacheBuilder& builder = FrameLoaderClientAndroid::
-        get(m_mainFrame)->getCacheBuilder();
     if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
-    WebCore::Node* oldFocusNode = builder.currentFocus();
+    WebCore::Node* oldFocusNode = currentFocus();
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
@@ -1206,41 +1213,6 @@ bool WebViewCore::moveMouse(WebCore::Frame* frame, WebCore::Node* node,
     if (nodeIsPlugin(node))
         node->document()->setFocusedNode(node);
     return true;
-}
-
-// helper function to find the frame that has focus
-static WebCore::Frame* FocusedFrame(WebCore::Frame* frame)
-{
-    if (!frame)
-        return 0;
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
-    if (!focusNode)
-        return 0;
-    WebCore::Document* doc = focusNode->document();
-    if (!doc)
-        return 0;
-    return doc->frame();
-}
-
-static WebCore::RenderTextControl* FocusedTextControl(WebCore::Frame* frame)
-{
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(frame)->getCacheBuilder().currentFocus();
-    WebCore::RenderObject* renderer = focusNode->renderer();
-    if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-        return static_cast<WebCore::RenderTextControl*>(renderer);
-    }
-    return 0;
-}
-
-WebCore::Frame* WebViewCore::changedKitFocus(WebCore::Frame* frame,
-    WebCore::Node* node, int x, int y)
-{
-    if (!frame || !node)
-        return m_mainFrame;
-    WebCore::Node* current = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    if (current == node)
-        return frame;
-    return moveMouse(frame, node, x, y) ? frame : m_mainFrame;
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)
@@ -1392,110 +1364,86 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
     return result;
 }
 
-static void selectInFrame(WebCore::Frame* frame, int start, int end)
+void WebViewCore::setSelection(int start, int end)
 {
-    WebCore::Document* doc = frame->document();
-    if (!doc)
-        return;
-
-    WebCore::Node* focus = doc->focusedNode();
+    WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-
     WebCore::RenderObject* renderer = focus->renderer();
-    if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-        WebCore::RenderTextControl* rtc = static_cast<WebCore::RenderTextControl*>(renderer);
-        if (start > end) {
-            int temp = start;
-            start = end;
-            end = temp;
-        }
-        rtc->setSelectionRange(start, end);
-        frame->revealSelection();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
+        return;
+    WebCore::RenderTextControl* rtc = static_cast<WebCore::RenderTextControl*>(renderer);
+    if (start > end) {
+        int temp = start;
+        start = end;
+        end = temp;
     }
-}
-
-WebCore::Frame* WebViewCore::setSelection(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, int start, int end)
-{
-    // FIXME: Consider using a generation number to avoid doing this many more times than necessary.
-    frame = changedKitFocus(frame, node, x, y);
-    if (!frame)
-        return 0;
-    selectInFrame(frame, start, end);
-    return frame;
+    rtc->setSelectionRange(start, end);
+    focus->document()->frame()->revealSelection();
 }
 
 // Shortcut for no modifier keys
 #define NO_MODIFIER_KEYS (static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(0))
 
-WebCore::Frame* WebViewCore::deleteSelection(WebCore::Frame* frame, WebCore::Node* node,
-    int x, int y, int start, int end)
+void WebViewCore::deleteSelection(int start, int end)
 {
-    frame = setSelection(frame, node, x, y, start, end);
-    if (start != end) {
-        WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, WebCore::VK_BACK,
-                WebCore::PlatformKeyboardEvent::KeyDown, 0, NO_MODIFIER_KEYS);
-        frame->eventHandler()->keyEvent(downEvent);
-        WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, WebCore::VK_BACK,
-                WebCore::PlatformKeyboardEvent::KeyUp, 0, NO_MODIFIER_KEYS);
-        frame->eventHandler()->keyEvent(upEvent);
-    }
-    return frame;
+    setSelection(start, end);
+    if (start == end)
+        return;
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
+    WebCore::Frame* frame = focus->document()->frame();
+    WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, WebCore::VK_BACK,
+            WebCore::PlatformKeyboardEvent::KeyDown, 0, NO_MODIFIER_KEYS);
+    frame->eventHandler()->keyEvent(downEvent);
+    WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, WebCore::VK_BACK,
+            WebCore::PlatformKeyboardEvent::KeyUp, 0, NO_MODIFIER_KEYS);
+    frame->eventHandler()->keyEvent(upEvent);
 }
 
-void WebViewCore::replaceTextfieldText(WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-        int oldStart, int oldEnd, jstring replace, int start, int end)
+void WebViewCore::replaceTextfieldText(int oldStart,
+        int oldEnd, const WebCore::String& replace, int start, int end)
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-
-    WebCore::String webcoreString = to_string(env, replace);
-    frame = setSelection(frame, node, x, y, oldStart, oldEnd);
-    WebCore::TypingCommand::insertText(frame->document(), webcoreString, false);
-    selectInFrame(frame, start, end);
+    setSelection(oldStart, oldEnd);
+    WebCore::TypingCommand::insertText(currentFocus()->document(), replace,
+        false);
+    setSelection(start, end);
 }
 
-void WebViewCore::passToJs(WebCore::Frame* frame, WebCore::Node* node, int x, int y, int generation,
-     jstring currentText, int keyCode, int keyValue, bool down, bool cap, bool fn, bool sym)
+void WebViewCore::passToJs(
+    int generation, const WebCore::String& current, int keyCode,
+    int keyValue, bool down, bool cap, bool fn, bool sym)
 {
-    frame = changedKitFocus(frame, node, x, y);
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
+    WebCore::Frame* frame = currentFocus()->document()->frame();
     // Construct the ModifierKey value
-    int mods = 0;
-    if (cap) {
-        mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
-    }
-    if (fn) {
-        mods |= WebCore::PlatformKeyboardEvent::AltKey;
-    }
-    if (sym) {
-        mods |= WebCore::PlatformKeyboardEvent::CtrlKey;
-    }
+    WebCore::PlatformKeyboardEvent::ModifierKey mods =
+        static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>
+        ((cap ? WebCore::PlatformKeyboardEvent::ShiftKey : 0)
+        | (fn ? WebCore::PlatformKeyboardEvent::AltKey : 0)
+        | (sym ? WebCore::PlatformKeyboardEvent::CtrlKey : 0));
     WebCore::PlatformKeyboardEvent event(keyCode, keyValue,
             down ? WebCore::PlatformKeyboardEvent::KeyDown :
-                   WebCore::PlatformKeyboardEvent::KeyUp,
-            0, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(mods));
+                   WebCore::PlatformKeyboardEvent::KeyUp, 0, mods);
     // Block text field updates during a key press.
     m_blockTextfieldUpdates = true;
     frame->eventHandler()->keyEvent(event);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
-
-    WebCore::Node* currentFocus = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
-    // Make sure we have the same focus and it is a text field.
-    DBG_NAV_LOGD("node=%p currentFocus=%p xy=(%d, %d) keyCode=%d keyValue=%d",
-        node, currentFocus, x, y, keyCode, keyValue);
-    if (node == currentFocus && currentFocus) {
-        WebCore::RenderObject* renderer = currentFocus->renderer();
-        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
-            WebCore::RenderTextControl* renderText = static_cast<WebCore::RenderTextControl*>(renderer);
-            JNIEnv* env = JSC::Bindings::getJNIEnv();
-            WebCore::String current = to_string(env, currentText);
-            WebCore::String test = renderText->text();
-            // If the text changed during the key event, update the UI text field.
-            if (test != current)
-                updateTextfield(currentFocus, false, test);
-        }
-    }
+    DBG_NAV_LOGD("focus=%p keyCode=%d keyValue=%d", focus, keyCode, keyValue);
+    WebCore::RenderObject* renderer = focus->renderer();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
+        return;
+    WebCore::RenderTextControl* renderText =
+        static_cast<WebCore::RenderTextControl*>(renderer);
+    WebCore::String test = renderText->text();
+    if (test == current)
+        return;
+    // If the text changed during the key event, update the UI text field.
+    updateTextfield(focus, false, test);
 }
 
 void WebViewCore::setFocusControllerActive(bool active)
@@ -1677,7 +1625,7 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
     DBG_NAV_LOGD("key: keyCode=%d", keyCode);
 
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
-    WebCore::Node* focusNode = FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder().currentFocus();
+    WebCore::Node* focusNode = currentFocus();
     if (focusNode) {
         eventHandler = focusNode->document()->frame()->eventHandler();
     }
@@ -2072,49 +2020,39 @@ static jboolean Click(JNIEnv *env, jobject obj)
     return viewImpl->click();
 }
 
-static void DeleteSelection(JNIEnv *env, jobject obj,
-                    jint frame, jint node, jint x, jint y, jint start, jint end)
+static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeDeleteSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeDeleteSelection");
-    viewImpl->deleteSelection((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, start, end);
+    viewImpl->deleteSelection(start, end);
 }
 
-static void SetSelection(JNIEnv *env, jobject obj,
-    jint frame, jint node, jint x, jint y, jint start, jint end)
+static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSetSelection()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeDeleteSelection");
-    viewImpl->setSelection((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, start, end);
+    viewImpl->setSelection(start, end);
 }
 
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
-        jint framePtr, jint nodePtr, jint x, jint y, jint oldStart, jint oldEnd,
-        jstring replace, jint start, jint end)
+    jint oldStart, jint oldEnd, jstring replace, jint start, jint end)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeReplaceTextfieldText()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeReplaceTextfieldText");
-    viewImpl->replaceTextfieldText((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr, x, y, oldStart,
-            oldEnd, replace, start, end);
+    WebCore::String webcoreString = to_string(env, replace);
+    viewImpl->replaceTextfieldText(oldStart,
+            oldEnd, webcoreString, start, end);
 }
 
-static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
-    jint x, jint y, jint generation, jstring currentText, jint keyCode,
+static void PassToJs(JNIEnv *env, jobject obj,
+    jint generation, jstring currentText, jint keyCode,
     jint keyValue, jboolean down, jboolean cap, jboolean fn, jboolean sym)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2123,8 +2061,9 @@ static void PassToJs(JNIEnv *env, jobject obj, jint frame, jint node,
     LOGV("webviewcore::nativePassToJs()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativePassToJs");
-    viewImpl->passToJs((WebCore::Frame*) frame, (WebCore::Node*) node,
-        x, y, generation, currentText, keyCode, keyValue, down, cap, fn, sym);
+    WebCore::String current = to_string(env, currentText);
+    viewImpl->passToJs(
+        generation, current, keyCode, keyValue, down, cap, fn, sym);
 }
 
 static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
@@ -2525,17 +2464,17 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetScrollOffset },
     { "nativeSetGlobalBounds", "(IIII)V",
         (void*) SetGlobalBounds },
-    { "nativeSetSelection", "(IIIIII)V",
+    { "nativeSetSelection", "(II)V",
         (void*) SetSelection } ,
-    { "nativeDeleteSelection", "(IIIIII)V",
+    { "nativeDeleteSelection", "(II)V",
         (void*) DeleteSelection } ,
-    { "nativeReplaceTextfieldText", "(IIIIIILjava/lang/String;II)V",
+    { "nativeReplaceTextfieldText", "(IILjava/lang/String;II)V",
         (void*) ReplaceTextfieldText } ,
     { "nativeMoveMouse", "(IIII)V",
         (void*) MoveMouse },
     { "nativeMoveMouseIfLatest", "(IIIIIZ)V",
         (void*) MoveMouseIfLatest },
-    { "passToJs", "(IIIIILjava/lang/String;IIZZZZ)V",
+    { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
     { "nativeSetFocusControllerActive", "(Z)V",
         (void*) SetFocusControllerActive },

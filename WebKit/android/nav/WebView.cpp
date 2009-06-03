@@ -497,8 +497,12 @@ bool cursorIsTextInput(FrameCachePermission allowNewer)
         return false;
     }
     const CachedNode* cursor = root->currentCursor();
-    if (!cursor)
+    if (!cursor) {
+        DBG_NAV_LOG("!cursor");
         return false;
+    }
+    DBG_NAV_LOGD("%s",
+        cursor->isTextArea() || cursor->isTextField() ? "true" : "false");
     return cursor->isTextArea() || cursor->isTextField();
 }
 
@@ -612,13 +616,13 @@ WebCore::String imageURI(int x, int y)
     return root ? root->imageURI(x, y) : WebCore::String();
 }
 
-bool focusNodeWantsKeyEvents()
+bool cursorWantsKeyEvents()
 {
     const CachedRoot* root = getFrameCache(DontAllowNewer);
     if (root) {
-        const CachedNode* focus = root->currentFocus();
+        const CachedNode* focus = root->currentCursor();
         if (focus)
-            return focus->isWantsKeyEvents();
+            return focus->wantsKeyEvents();
     }
     return false;
 }
@@ -829,16 +833,16 @@ bool motionUp(int x, int y, int slop)
     setNavBounds(WebCore::IntRect(rx, ry, 1, 1));
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
-    bool newNodeIsTextInput = cursorIsTextInput(DontAllowNewer);
+    bool newNodeWantsKeyEvents = result->wantsKeyEvents();
     CachedNodeType type = result->type();
-    if (type == NORMAL_CACHEDNODETYPE || newNodeIsTextInput) {
+    if (type == NORMAL_CACHEDNODETYPE || newNodeWantsKeyEvents) {
         sendMotionUp(
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
             slop);
     }
     viewInvalidate();
-    if (newNodeIsTextInput) {
+    if (newNodeWantsKeyEvents) {
         rebuildWebTextView();
         displaySoftKeyboard();
     } else {
@@ -1477,10 +1481,10 @@ static jint nativeFocusTextSize(JNIEnv *env, jobject obj)
     return node ? node->textSize() : 0;
 }
 
-static bool nativeFocusNodeWantsKeyEvents(JNIEnv* env, jobject jwebview) {
+static bool nativeCursorWantsKeyEvents(JNIEnv* env, jobject jwebview) {
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->focusNodeWantsKeyEvents();
+    return view->cursorWantsKeyEvents();
 }
 
 static void nativeInstrumentReport(JNIEnv *env, jobject obj)
@@ -1763,6 +1767,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIsTextInput },
     { "nativeCursorText", "()Ljava/lang/String;",
         (void*) nativeCursorText },
+    { "nativeCursorWantsKeyEvents", "()Z",
+        (void*)nativeCursorWantsKeyEvents },
     { "nativeDebugDump", "()V",
         (void*) nativeDebugDump },
     { "nativeDestroy", "()V",
@@ -1801,8 +1807,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusText },
     { "nativeFocusTextSize", "()I",
         (void*) nativeFocusTextSize },
-    { "nativeFocusNodeWantsKeyEvents", "()Z",
-        (void*)nativeFocusNodeWantsKeyEvents },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetCursorRingBounds },
     { "nativeGetSelection", "()Landroid/graphics/Region;",

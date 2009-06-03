@@ -122,8 +122,6 @@ public:
     bool isTextField() const { return mIsTextField; }
     bool isTransparent() const { return mIsTransparent; }
     bool isUnclipped() const { return mIsUnclipped; }
-    bool isWantsKeyEvents() const { return mWantsKeyEvents; }
-
     int maxLength() const { return mMaxLength; };
     void move(int x, int y);
     const WebCore::String& name() const { return mName; }
@@ -173,6 +171,7 @@ public:
     CachedNodeType type() const { return mType; }
     bool useBounds() const { return mUseBounds; }
     bool useHitBounds() const { return mUseHitBounds; }
+    bool wantsKeyEvents() const { return mWantsKeyEvents; }
 private:
     WebCore::String mExport;
     WebCore::String mName;
