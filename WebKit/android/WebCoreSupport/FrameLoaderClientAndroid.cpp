@@ -569,7 +569,13 @@ void FrameLoaderClientAndroid::finishedLoading(DocumentLoader* docLoader) {
 void FrameLoaderClientAndroid::updateGlobalHistory() {
     ASSERT(m_frame);
     ASSERT(m_frame->loader()->documentLoader());
-    m_webFrame->updateVisitedHistory(m_frame->loader()->documentLoader()->urlForHistory(), false);
+    KURL url;
+    DocumentLoader* loader = m_frame->loader()->documentLoader();
+    if (loader->urlForHistoryReflectsServerRedirect())
+        url = loader->url();
+    else
+        url = loader->urlForHistory();
+    m_webFrame->updateVisitedHistory(url, false);
 }
 
 void FrameLoaderClientAndroid::updateGlobalHistoryForRedirectWithoutHistoryItem() {
