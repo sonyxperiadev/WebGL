@@ -577,6 +577,8 @@ void FrameLoaderClientAndroid::updateGlobalHistory() {
     if (docLoader->unreachableURL().isEmpty()
             && docLoader->response().httpStatusCode() < 400) {
         m_webFrame->updateVisitedHistory(docLoader->urlForHistory(), false);
+        if (!docLoader->serverRedirectSourceForHistory().isNull())
+            m_webFrame->updateVisitedHistory(KURL(docLoader->serverRedirectDestinationForHistory()), false);
     }
 }
 
