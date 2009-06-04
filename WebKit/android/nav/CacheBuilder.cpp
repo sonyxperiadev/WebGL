@@ -1007,8 +1007,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         IntRect bounds;
         IntRect absBounds;
         WTF::Vector<IntRect>* columns = NULL;
-        int minimumFocusableWidth = MINIMUM_FOCUSABLE_WIDTH;
-        int minimumFocusableHeight = MINIMUM_FOCUSABLE_HEIGHT;
         if (isArea) {
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
             bounds = getAreaRect(area);
@@ -1141,13 +1139,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         style->textAlign() == WebCore::RIGHT ||
                         style->textAlign() == WebCore::WEBKIT_RIGHT;
             }
-            minimumFocusableWidth += 4;
-            minimumFocusableHeight += 4;
         }
         takesFocus = true;
-        if (isAnchor) {
-            bounds = absBounds;
-        } else {
+        bounds = absBounds;
+        if (!isAnchor) {
             bool isFocusable = node->isKeyboardFocusable(NULL) || 
                 node->isMouseFocusable() || node->isFocusable();
             if (isFocusable == false) {
@@ -1159,23 +1154,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                     continue;
                 takesFocus = hasTrigger;
             }
-            bounds = node->getRect();
-            // For Bank of America site
-            if (isTextField && ((RenderBox*)nodeRenderer)->paddingLeft() > 100) {
-                int paddingLeft = ((RenderBox*)nodeRenderer)->paddingLeft();
-                int paddingTop = ((RenderBox*)nodeRenderer)->paddingTop();
-                int x = bounds.x() + paddingLeft;
-                int y = bounds.y() + paddingTop;
-                int width = bounds.width() - paddingLeft - ((RenderBox*)nodeRenderer)->paddingRight();
-                int height = bounds.height() - paddingTop - ((RenderBox*)nodeRenderer)->paddingBottom();
-                bounds.setLocation(IntPoint(x, y));
-                bounds.setSize(IntSize(width, height));
-            }
-            if (bounds.width() < minimumFocusableWidth)
-                continue;
-            if (bounds.height() < minimumFocusableHeight)
-                continue;
-            bounds.move(globalOffsetX, globalOffsetY);
         }
         computeCursorRings = true;
     keepNode:
