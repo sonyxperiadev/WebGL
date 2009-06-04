@@ -632,8 +632,7 @@ bool cursorWantsKeyEvents()
 }
 
 /* returns true if the key had no effect (neither scrolled nor changed cursor) */
-bool moveCursor(int keyCode, int count, bool ignoreScroll, bool inval,
-    void* lastSentCursor, const WebCore::IntRect* lastSentBounds)
+bool moveCursor(int keyCode, int count, bool ignoreScroll)
 {
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
@@ -657,7 +656,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll, bool inval,
     int xMax = getScaledMaxXScroll();
     int yMax = getScaledMaxYScroll();
     root->setMaxScroll(xMax, yMax);
-    CachedHistory savedHistory = *root->rootHistory();
     const CachedNode* cachedNode = 0;
     int dx = 0;
     int dy = 0;
@@ -698,25 +696,12 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll, bool inval,
             this->scrollBy(dx, dy);
         m_lastDx = dx;
         m_lastDxTime = SkTime::GetMSecs();
-        ignoreScroll = true; // if move re-executes, don't scroll the second time
     }
     bool result = false;
     if (cachedNode) {
-        WebCore::IntPoint pos;
         root->setCursor((CachedFrame*) cachedFrame, (CachedNode*) cachedNode);
-        root->getSimulatedMousePosition(&pos);
-        if (lastSentCursor == cachedNode->nodePointer() && lastSentBounds &&
-                *lastSentBounds == cachedNode->bounds())
-        {
-            sendMoveMouse((WebCore::Frame*) cachedFrame->framePointer(),
-                (WebCore::Node*) cachedNode->nodePointer(), pos.x(), pos.y());
-        } else {
-            sendMoveMouseIfLatest();
-            if (inval)
-                viewInvalidate();
-            DBG_NAV_LOGD("history.mDidFirstLayout=%s",
-                    savedHistory.didFirstLayout() ? "true" : "false");
-        }
+        sendMoveMouseIfLatest();
+        viewInvalidate();
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
@@ -1556,14 +1541,7 @@ static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     WebView* view = GET_NATIVE_VIEW(env, obj);
     DBG_NAV_LOGD("env=%p obj=%p view=%p", env, obj, view);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->moveCursor(key, count, ignoreScroll, true, 0, 0);
-}
-
-static void nativeRecomputeFocus(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-//    view->recomputeFocus();
+    return view->moveCursor(key, count, ignoreScroll);
 }
 
 static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
@@ -1841,8 +1819,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(IIZ)V",
         (void*) nativeMoveSelection },
-    { "nativeRecomputeFocus", "()V",
-        (void*) nativeRecomputeFocus },
     { "nativeRecordButtons", "(ZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",

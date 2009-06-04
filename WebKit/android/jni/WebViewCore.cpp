@@ -163,7 +163,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_didFirstLayout;
     jmethodID   m_sendMarkNodeInvalid;
     jmethodID   m_sendNotifyProgressFinished;
-    jmethodID   m_sendRecomputeFocus;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
     jmethodID   m_restoreScale;
@@ -228,7 +227,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
     m_javaGlue->m_sendMarkNodeInvalid = GetJMethod(env, clazz, "sendMarkNodeInvalid", "(I)V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
-    m_javaGlue->m_sendRecomputeFocus = GetJMethod(env, clazz, "sendRecomputeFocus", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
@@ -715,14 +713,6 @@ void WebViewCore::sendNotifyProgressFinished()
     checkException(env);
 }
 
-void WebViewCore::sendRecomputeFocus()
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendRecomputeFocus);
-    checkException(env);
-}
-
 void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
@@ -1191,7 +1181,6 @@ bool WebViewCore::moveMouse(WebCore::Frame* frame, WebCore::Node* node,
     DBG_NAV_LOGD("frame=%p node=%p x=%d y=%d ", frame, node, x, y);
     if (!frame || CacheBuilder::validNode(m_mainFrame, frame, NULL) == false)
         frame = m_mainFrame;
-    WebCore::Node* oldFocusNode = currentFocus();
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
@@ -1402,8 +1391,11 @@ void WebViewCore::deleteSelection(int start, int end)
 void WebViewCore::replaceTextfieldText(int oldStart,
         int oldEnd, const WebCore::String& replace, int start, int end)
 {
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
     setSelection(oldStart, oldEnd);
-    WebCore::TypingCommand::insertText(currentFocus()->document(), replace,
+    WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
     setSelection(start, end);
 }
@@ -1415,7 +1407,7 @@ void WebViewCore::passToJs(
     WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-    WebCore::Frame* frame = currentFocus()->document()->frame();
+    WebCore::Frame* frame = focus->document()->frame();
     // Construct the ModifierKey value
     WebCore::PlatformKeyboardEvent::ModifierKey mods =
         static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>
