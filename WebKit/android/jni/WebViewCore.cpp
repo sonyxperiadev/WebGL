@@ -291,7 +291,6 @@ void WebViewCore::reset(bool fromConstructor)
     clearContent();
     m_updatedFrameCache = true;
     m_frameCacheOutOfDate = true;
-    m_blockFocusChange = false;
     m_snapAnchorNode = 0;
     m_useReplay = false;
     m_skipContentDraw = false;
@@ -1156,10 +1155,6 @@ void WebViewCore::moveMouseIfLatest(int moveGeneration,
     DBG_NAV_LOGD("m_moveGeneration=%d moveGeneration=%d"
         " frame=%p node=%p x=%d y=%d",
         m_moveGeneration, moveGeneration, frame, node, x, y);
-    if (m_blockFocusChange) {
-        DBG_NAV_LOG("m_blockFocusChange");
-        return;
-    }
     if (m_moveGeneration > moveGeneration) {
         DBG_NAV_LOGD("m_moveGeneration=%d > moveGeneration=%d",
             m_moveGeneration, moveGeneration);
@@ -1657,8 +1652,6 @@ bool WebViewCore::click() {
         keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
         WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(false);
     }
-    // match in moveMouse()
-    m_blockFocusChange = false;
     return keyHandled;
 }
 
@@ -2245,16 +2238,6 @@ static void MoveMouseIfLatest(JNIEnv *env, jobject obj, jint moveGeneration,
         ignoreNullFocus);
 }
 
-static void UnblockFocus(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->unblockFocus();
-}
-
 static void UpdateFrameCache(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2500,8 +2483,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },
-    { "nativeUnblockFocus", "()V",
-        (void*) UnblockFocus },
     { "nativeUpdateFrameCache", "()V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
