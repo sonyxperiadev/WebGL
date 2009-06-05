@@ -176,7 +176,7 @@ namespace WebCore {
         bool canHandleRequest(const ResourceRequest&);
 
         // Also not cool.
-        void stopAllLoaders();
+        void stopAllLoaders(DatabasePolicy = DatabasePolicyStop);
         void stopForUserCancel(bool deferCheckLoadComplete = false);
 
         bool isLoadingMainResource() const { return m_isLoadingMainResource; }
@@ -301,7 +301,7 @@ namespace WebCore {
         void submitForm(const FrameLoadRequest&, Event*, bool lockHistory, bool lockBackForwardList);
 
         void stop();
-        void stopLoading(bool sendUnload);
+        void stopLoading(bool sendUnload, DatabasePolicy = DatabasePolicyStop);
         bool closeURL();
 
         void didExplicitOpen();
