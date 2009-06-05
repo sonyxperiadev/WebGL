@@ -178,6 +178,10 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
         delete m_matches;
 }
 
+WebViewCore* getWebViewCore() const {
+    return m_viewImpl;
+}
+
 void clearCursor(int x, int y, bool inval)
 {
     DBG_NAV_LOGD("x=%d y=%d inval=%s", x, y, inval ? "true" : "false");
@@ -1727,29 +1731,25 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
 
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (root) {
-        SkPicture* picture = root->getPicture();
-        if (picture) {
-            FILE* file = fopen(DISPLAY_TREE_LOG_FILE, "w");
-            if (file) {
-                SkFormatDumper dumper(dumpToFile, file);
-                // dump the URL
-                if (jurl) {
-                    const char* str = env->GetStringUTFChars(jurl, 0);
-                    SkDebugf("Dumping %s to %s\n", str, DISPLAY_TREE_LOG_FILE);
-                    dumpToFile(str, file);
-                    env->ReleaseStringUTFChars(jurl, str);
-                }
-                // now dump the display tree
-                SkDumpCanvas canvas(&dumper);
-                // this will playback the picture into the canvas, which will
-                // spew its contents to the dumper
-                picture->draw(&canvas);
-                // we're done with the file now
-                fwrite("\n", 1, 1, file);
-                fclose(file);
+    if (view && view->getWebViewCore()) {
+        FILE* file = fopen(DISPLAY_TREE_LOG_FILE, "w");
+        if (file) {
+            SkFormatDumper dumper(dumpToFile, file);
+            // dump the URL
+            if (jurl) {
+                const char* str = env->GetStringUTFChars(jurl, 0);
+                SkDebugf("Dumping %s to %s\n", str, DISPLAY_TREE_LOG_FILE);
+                dumpToFile(str, file);
+                env->ReleaseStringUTFChars(jurl, str);
             }
+            // now dump the display tree
+            SkDumpCanvas canvas(&dumper);
+            // this will playback the picture into the canvas, which will
+            // spew its contents to the dumper
+            view->getWebViewCore()->drawContent(&canvas, 0);
+            // we're done with the file now
+            fwrite("\n", 1, 1, file);
+            fclose(file);
         }
     }
 #endif
