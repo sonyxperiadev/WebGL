@@ -619,7 +619,7 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
     submitForm(frameRequest, event, lockHistory, lockBackForwardList);
 }
 
-void FrameLoader::stopLoading(bool sendUnload)
+void FrameLoader::stopLoading(bool sendUnload, DatabasePolicy databasePolicy)
 {
     if (m_frame->document() && m_frame->document()->tokenizer())
         m_frame->document()->tokenizer()->stopParsing();
@@ -660,7 +660,8 @@ void FrameLoader::stopLoading(bool sendUnload)
             cache()->loader()->cancelRequests(docLoader);
 
 #if ENABLE(DATABASE)
-        doc->stopDatabases();
+        if (databasePolicy == DatabasePolicyStop)
+            doc->stopDatabases();
 #endif
     }
 
@@ -2713,7 +2714,7 @@ void FrameLoader::stopLoadingSubframes()
         child->loader()->stopAllLoaders();
 }
 
-void FrameLoader::stopAllLoaders()
+void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy)
 {
     // If this method is called from within this method, infinite recursion can occur (3442218). Avoid this.
     if (m_inStopAllLoaders)
@@ -2725,9 +2726,9 @@ void FrameLoader::stopAllLoaders()
 
     stopLoadingSubframes();
     if (m_provisionalDocumentLoader)
-        m_provisionalDocumentLoader->stopLoading();
+        m_provisionalDocumentLoader->stopLoading(databasePolicy);
     if (m_documentLoader)
-        m_documentLoader->stopLoading();
+        m_documentLoader->stopLoading(databasePolicy);
 
     setProvisionalDocumentLoader(0);
     
