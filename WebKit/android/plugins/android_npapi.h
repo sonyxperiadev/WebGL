@@ -24,10 +24,10 @@
  */
 
 /*  Defines the android-specific types and functions as part of npapi
- 
+
     In particular, defines the window and event types that are passed to
     NPN_GetValue, NPP_SetWindow and NPP_HandleEvent.
- 
+
     To minimize what native libraries the plugin links against, some
     functionality is provided via function-ptrs (e.g. time, sound)
  */
@@ -91,9 +91,9 @@ typedef uint32_t ANPMatrixFlag;
 // NPN_GetValue
 
 /*  queries for a specific ANPInterface.
- 
+
     Maybe called with NULL for the NPP instance
- 
+
     NPN_GetValue(inst, interface_enum, ANPInterface*)
  */
 #define kLogInterfaceV0_ANPGetValue         ((NPNVariable)1000)
@@ -106,9 +106,9 @@ typedef uint32_t ANPMatrixFlag;
 #define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
 
 /*  queries for which drawing model is desired (for the draw event)
- 
+
     Should be called inside NPP_New(...)
- 
+
     NPN_GetValue(inst, ANPSupportedDrawingModel_EnumValue, uint32_t* bits)
  */
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
@@ -117,7 +117,7 @@ typedef uint32_t ANPMatrixFlag;
 // NPN_GetValue
 
 /** Reqeust to set the drawing model.
- 
+
     NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_DrawingModel)
  */
 #define kRequestDrawingModel_ANPSetValue    ((NPPVariable)1000)
@@ -138,7 +138,7 @@ typedef int32_t ANPDrawingModel;
 /*  Interfaces provide additional functionality to the plugin via function ptrs.
     Once an interface is retrived, it is valid for the lifetime of the plugin
     (just like browserfuncs).
- 
+
     All ANPInterfaces begin with an inSize field, which must be set by the
     caller (plugin) with the number of bytes allocated for the interface.
     e.g. SomeInterface si; si.inSize = sizeof(si); browser->getvalue(..., &si);
@@ -351,7 +351,7 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
      */
     ANPTypeface* (*createFromTypeface)(const ANPTypeface* family,
                                        ANPTypefaceStyle);
-    
+
     /** Return the owner count of the typeface. A newly created typeface has an
         owner count of 1. When the owner count is reaches 0, the typeface is
         deleted.
@@ -366,7 +366,7 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
         the typeface is deleted.
      */
     void (*unref)(ANPTypeface*);
-    
+
     /** Return the style bits for the specified typeface
      */
     ANPTypefaceStyle (*getStyle)(const ANPTypeface*);
@@ -376,19 +376,19 @@ struct ANPPaintInterfaceV0 : ANPInterface {
     /*  Return a new paint object, which holds all of the color and style
         attributes that affect how things (geometry, text, bitmaps) are drawn
         in a ANPCanvas.
-    
+
         The paint that is returned is not tied to any particular plugin
         instance, but it must only be accessed from one thread at a time.
      */
     ANPPaint*   (*newPaint)();
     void        (*deletePaint)(ANPPaint*);
-    
+
     ANPPaintFlags (*getFlags)(const ANPPaint*);
     void        (*setFlags)(ANPPaint*, ANPPaintFlags);
-    
+
     ANPColor    (*getColor)(const ANPPaint*);
     void        (*setColor)(ANPPaint*, ANPColor);
-    
+
     ANPPaintStyle (*getStyle)(const ANPPaint*);
     void        (*setStyle)(ANPPaint*, ANPPaintStyle);
 
@@ -400,7 +400,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
     void        (*setStrokeMiter)(ANPPaint*, float);
     void        (*setStrokeCap)(ANPPaint*, ANPPaintCap);
     void        (*setStrokeJoin)(ANPPaint*, ANPPaintJoin);
-    
+
     ANPTextEncoding (*getTextEncoding)(const ANPPaint*);
     ANPPaintAlign (*getTextAlign)(const ANPPaint*);
     float       (*getTextSize)(const ANPPaint*);
@@ -428,7 +428,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
      */
     float (*measureText)(ANPPaint*, const void* text, uint32_t byteLength,
                          ANPRectF* bounds);
-    
+
     /** Return the number of unichars specifed by the text.
         If widths is not null, returns the array of advance widths for each
             unichar.
@@ -436,7 +436,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
      */
     int (*getTextWidths)(ANPPaint*, const void* text, uint32_t byteLength,
                          float widths[], ANPRectF bounds[]);
-    
+
     /** Return in metrics the spacing values for text, respecting the paint's
         typeface and pointsize, and return the spacing between lines
         (descent - ascent + leading). If metrics is NULL, it will be ignored.
@@ -452,7 +452,7 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
         goes out of scope. In the case of creating a canvas to draw into the
         pixels provided by kDraw_ANPEventType, those pixels are only while
         handling that event.
-     
+
         The canvas that is returned is not tied to any particular plugin
         instance, but it must only be accessed from one thread at a time.
      */
@@ -505,7 +505,7 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         describing the subset of the window that will be drawn to (may be null)
         return true if the bitmap for that window can be accessed, and if so,
         fill out the specified ANPBitmap to point to the window's pixels.
-     
+
         When drawing is complete, call unlock(window)
      */
     bool    (*lockRect)(void* window, const ANPRectI* inval, ANPBitmap*);
@@ -567,11 +567,11 @@ typedef int32_t ANPAudioEvent;
 /** Called to feed sample data to the track. This will be called in a separate
     thread. However, you may call trackStop() from the callback (but you
     cannot delete the track).
- 
+
     For example, when you have written the last chunk of sample data, you can
     immediately call trackStop(). This will take effect after the current
     buffer has been played.
- 
+
     The "user" parameter is the same value that was passed to newTrack()
  */
 typedef void (*ANPAudioCallbackProc)(ANPAudioEvent event, void* user,
@@ -606,8 +606,7 @@ enum ANPEventTypes {
     kKey_ANPEventType       = 1,
     kTouch_ANPEventType     = 2,
     kDraw_ANPEventType      = 3,
-    kPause_ANPEventType     = 4,    // no extra data in the event
-    kResume_ANPEventType    = 5     // no extra data in the event
+    kLifecycle_ANPEventType = 4
 };
 typedef int32_t ANPEventType;
 
@@ -643,6 +642,14 @@ struct ANPDrawContext {
     } data;
 };
 
+enum ANPLifecycleActions {
+    kPause_ANPLifecycleAction      = 0,
+    kResume_ANPLifecycleAction     = 1,
+    kGainFocus_ANPLifecycleAction  = 2,
+    kLooseFocus_ANPLifecycleAction = 3,
+};
+typedef uint32_t ANPLifecycleAction;
+
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
@@ -663,6 +670,9 @@ struct ANPEvent {
             int32_t         x;  // relative to your "window" (0...width)
             int32_t         y;  // relative to your "window" (0...height)
         } touch;
+        struct {
+            ANPLifecycleAction  action;
+        } lifecycle;
         ANPDrawContext  drawContext;
         int32_t         other[8];
     } data;

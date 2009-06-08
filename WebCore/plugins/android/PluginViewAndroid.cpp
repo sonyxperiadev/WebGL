@@ -149,22 +149,22 @@ void PluginView::platformInit()
     m_isWindowed = false;   // we don't support windowed yet
 
     m_window = new PluginWidgetAndroid(this);
-    
+
     m_npWindow.type = NPWindowTypeDrawable;
     m_npWindow.window = 0;
 }
-    
+
 PluginView::~PluginView()
 {
     stop();
-    
+
     deleteAllValues(m_requests);
-    
+
     freeStringArray(m_paramNames, m_paramCount);
     freeStringArray(m_paramValues, m_paramCount);
-    
+
     m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
-  
+
 // Since we have no legacy plugins to check, we ignore the quirks check
 //    if (m_plugin && !m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin))
     if (m_plugin) {
@@ -186,38 +186,47 @@ void PluginView::init()
         ASSERT(m_status == PluginStatusCanNotFindPlugin);
         return;
     }
-    
+
     if (!m_plugin->load()) {
         m_plugin = 0;
         m_status = PluginStatusCanNotLoadPlugin;
         return;
     }
-    
+
     if (!start()) {
         m_status = PluginStatusCanNotLoadPlugin;
         return;
     }
-    
+
     m_status = PluginStatusLoadedSuccessfully;
 }
-    
+
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
     const AtomicString& type = event->type();
     bool isDown = (eventNames().mousedownEvent == type);
     bool isUp = (eventNames().mouseupEvent == type);
-    if (!isDown && !isUp) {
-        return;
-    }
-    
-    ANPEvent    evt;
-    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+    bool isOver = (eventNames().mouseoverEvent == type);
+    bool isOut = (eventNames().mouseoutEvent == type);
 
-    evt.data.touch.action = isDown ? kDown_ANPTouchAction : kUp_ANPTouchAction;
-    evt.data.touch.modifiers = 0;   // todo
-    // these are relative to plugin
-    evt.data.touch.x = event->pageX() - m_npWindow.x; 
-    evt.data.touch.y = event->pageY() - m_npWindow.y; 
+    ANPEvent    evt;
+
+    if (isDown || isUp) {
+        SkANP::InitEvent(&evt, kTouch_ANPEventType);
+        evt.data.touch.action = isDown ? kDown_ANPTouchAction : kUp_ANPTouchAction;
+        evt.data.touch.modifiers = 0;   // todo
+        // these are relative to plugin
+        evt.data.touch.x = event->pageX() - m_npWindow.x;
+        evt.data.touch.y = event->pageY() - m_npWindow.y;
+    }
+    else if (isOver || isOut) {
+        SkANP::InitEvent(&evt, kLifecycle_ANPEventType);
+        evt.data.lifecycle.action = isOver ? kGainFocus_ANPLifecycleAction : kLooseFocus_ANPLifecycleAction;
+    }
+    else {
+      return;
+    }
+
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultHandled();
     }
@@ -272,7 +281,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     evt.data.key.repeatCount = pke->repeatCount();
     evt.data.key.modifiers = make_modifiers(pke->shiftKey(), pke->altKey());
     evt.data.key.unichar = pke->unichar();
-    
+
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultHandled();
     }
@@ -309,7 +318,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
 {
     if (!m_isStarted)
         return;
-    
+
     const int width = rect.width();
     const int height = rect.height();
 
@@ -317,24 +326,24 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     IntPoint p = parent()->convertToContainingWindow(rect.location());
     m_npWindow.x = p.x();
     m_npWindow.y = p.y();
-    
+
     m_npWindow.width = width;
     m_npWindow.height = height;
-    
+
     m_npWindow.clipRect.left = 0;
     m_npWindow.clipRect.top = 0;
     m_npWindow.clipRect.right = width;
     m_npWindow.clipRect.bottom = height;
 
     if (m_plugin->pluginFuncs()->setwindow) {
-#if USE(JSC)   
+#if USE(JSC)
         JSC::JSLock::DropAllLocks dropAllLocks(false);
-#endif        
+#endif
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
     }
-    
+
     m_window->setWindow(m_npWindow.x, m_npWindow.y, width, height,
                         m_isTransparent);
 }
@@ -446,13 +455,13 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
             *retValue = !networkStateNotifier().onLine();
             return NPERR_NO_ERROR;
         }
-            
+
         case kSupportedDrawingModel_ANPGetValue: {
             uint32_t* bits = reinterpret_cast<uint32_t*>(value);
             *bits = (1 << kBitmap_ANPDrawingModel);
             return NPERR_NO_ERROR;
         }
-            
+
         default: {
             NPError error = NPERR_GENERIC_ERROR;
             (void)anp_getInterface(variable, value, &error);
@@ -538,12 +547,12 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         paintMissingPluginIcon(context, rect);
         return;
     }
-    
+
     IntRect frame = frameRect();
     if (!frame.width() || !frame.height()) {
         return;
     }
-    
+
     m_window->inval(rect, false);
     m_window->draw(android_gc2canvas(context));
 }
@@ -559,8 +568,8 @@ void PluginView::updatePluginWidget()
 }
 
 // new as of SVN 38068, Nov 5 2008
-void PluginView::setParentVisible(bool) { 
-    notImplemented(); 
+void PluginView::setParentVisible(bool) {
+    notImplemented();
 }
 
 } // namespace WebCore

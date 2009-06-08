@@ -2412,14 +2412,16 @@ static bool PictureReady(JNIEnv* env, jobject obj)
 static void Pause(JNIEnv* env, jobject obj)
 {
     ANPEvent event;
-    SkANP::InitEvent(&event, kPause_ANPEventType);
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kPause_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 }
 
 static void Resume(JNIEnv* env, jobject obj)
 {
     ANPEvent event;
-    SkANP::InitEvent(&event, kResume_ANPEventType);
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kResume_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 }
 
