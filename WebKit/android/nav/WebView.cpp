@@ -1228,7 +1228,7 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     return ret;
 }
 
-static void nativeClearFocus(JNIEnv *env, jobject obj, int x, int y)
+static void nativeClearCursor(JNIEnv *env, jobject obj, int x, int y)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
@@ -1424,37 +1424,37 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
     return ret;
 }
 
-static bool nativeFocusIsPassword(JNIEnv *env, jobject obj)
+static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isPassword() : false;
 }
 
-static bool nativeFocusIsRtlText(JNIEnv *env, jobject obj)
+static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isRtlText() : false;
 }
 
-static bool nativeFocusIsTextField(JNIEnv *env, jobject obj)
+static bool nativeFocusCandidateIsTextField(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isTextField() : false;
 }
 
-static bool nativeFocusIsTextInput(JNIEnv *env, jobject obj)
+static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->isTextField() || node->isTextArea() : false;
 }
 
-static jint nativeFocusMaxLength(JNIEnv *env, jobject obj)
+static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->maxLength() : false;
 }
 
-static jobject nativeFocusName(JNIEnv *env, jobject obj)
+static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     if (!node)
@@ -1463,7 +1463,7 @@ static jobject nativeFocusName(JNIEnv *env, jobject obj)
     return env->NewString((jchar*)name.characters(), name.length());
 }
 
-static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
+static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     WebCore::IntRect bounds = node ? node->getBounds()
@@ -1475,13 +1475,13 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
     return rect;
 }
 
-static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
+static jint nativeFocusCandidatePointer(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return reinterpret_cast<int>(node ? node->nodePointer() : 0);
 }
 
-static jobject nativeFocusText(JNIEnv *env, jobject obj)
+static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     if (!node)
@@ -1491,7 +1491,7 @@ static jobject nativeFocusText(JNIEnv *env, jobject obj)
         value.length()) : 0;
 }
 
-static jint nativeFocusTextSize(JNIEnv *env, jobject obj)
+static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj);
     return node ? node->textSize() : 0;
@@ -1550,7 +1550,7 @@ static bool nativeHasFocusNode(JNIEnv *env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->hasFocusNode();
 }
 
-static bool nativeMoveFocus(JNIEnv *env, jobject obj,
+static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     int key, int count, bool ignoreScroll)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1759,8 +1759,8 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
  * JNI registration
  */
 static JNINativeMethod gJavaWebViewMethods[] = {
-    { "nativeClearFocus", "(II)V",
-        (void*) nativeClearFocus },
+    { "nativeClearCursor", "(II)V",
+        (void*) nativeClearCursor },
     { "nativeCreate", "(I)V",
         (void*) nativeCreate },
     { "nativeCursorFramePointer", "()I",
@@ -1799,26 +1799,26 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
         (void*) nativeFindNext },
-    { "nativeFocusIsPassword", "()Z",
-        (void*) nativeFocusIsPassword },
-    { "nativeFocusIsRtlText", "()Z",
-        (void*) nativeFocusIsRtlText },
-    { "nativeFocusIsTextField", "()Z",
-        (void*) nativeFocusIsTextField },
-    { "nativeFocusIsTextInput", "()Z",
-        (void*) nativeFocusIsTextInput },
-    { "nativeFocusMaxLength", "()I",
-        (void*) nativeFocusMaxLength },
-    { "nativeFocusName", "()Ljava/lang/String;",
-        (void*) nativeFocusName },
-    { "nativeFocusNodeBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeFocusNodeBounds },
-    { "nativeFocusNodePointer", "()I",
-        (void*) nativeFocusNodePointer },
-    { "nativeFocusText", "()Ljava/lang/String;",
-        (void*) nativeFocusText },
-    { "nativeFocusTextSize", "()I",
-        (void*) nativeFocusTextSize },
+    { "nativeFocusCandidateIsPassword", "()Z",
+        (void*) nativeFocusCandidateIsPassword },
+    { "nativeFocusCandidateIsRtlText", "()Z",
+        (void*) nativeFocusCandidateIsRtlText },
+    { "nativeFocusCandidateIsTextField", "()Z",
+        (void*) nativeFocusCandidateIsTextField },
+    { "nativeFocusCandidateIsTextInput", "()Z",
+        (void*) nativeFocusCandidateIsTextInput },
+    { "nativeFocusCandidateMaxLength", "()I",
+        (void*) nativeFocusCandidateMaxLength },
+    { "nativeFocusCandidateName", "()Ljava/lang/String;",
+        (void*) nativeFocusCandidateName },
+    { "nativeFocusCandidateNodeBounds", "()Landroid/graphics/Rect;",
+        (void*) nativeFocusCandidateNodeBounds },
+    { "nativeFocusCandidatePointer", "()I",
+        (void*) nativeFocusCandidatePointer },
+    { "nativeFocusCandidateText", "()Ljava/lang/String;",
+        (void*) nativeFocusCandidateText },
+    { "nativeFocusCandidateTextSize", "()I",
+        (void*) nativeFocusCandidateTextSize },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetCursorRingBounds },
     { "nativeGetSelection", "()Landroid/graphics/Region;",
@@ -1835,8 +1835,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMarkNodeInvalid },
     { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
-    { "nativeMoveFocus", "(IIZ)Z",
-        (void*) nativeMoveFocus },
+    { "nativeMoveCursor", "(IIZ)Z",
+        (void*) nativeMoveCursor },
     { "nativeMoveGeneration", "()I",
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(IIZ)V",

@@ -276,7 +276,6 @@ namespace android {
         void setBackgroundColor(SkColor c);
         void setSnapAnchor(int x, int y);
         void snapToAnchor();
-        void unblockFocus() { m_blockFocusChange = false; }
         void updateFrameCache();
         void dumpDomTree(bool);
         void dumpRenderTree(bool);
@@ -380,7 +379,6 @@ namespace android {
         int m_scrollOffsetY; // webview.java's current scroll in Y
         WebCore::IntPoint m_mousePos;
         bool m_frameCacheOutOfDate;
-        bool m_blockFocusChange;
         bool m_progressDone;
         int m_lastPassed;
         int m_lastVelocity;
