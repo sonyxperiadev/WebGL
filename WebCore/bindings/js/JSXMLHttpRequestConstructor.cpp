@@ -43,7 +43,10 @@ JSXMLHttpRequestConstructor::JSXMLHttpRequestConstructor(ExecState* exec, Script
 
 static JSObject* constructXMLHttpRequest(ExecState* exec, JSObject* constructor, const ArgList&)
 {
-    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(static_cast<JSXMLHttpRequestConstructor*>(constructor)->document());
+    WebCore::Document* doc = static_cast<JSXMLHttpRequestConstructor*>(constructor)->document();
+    if (!doc)
+        return throwError(exec, ReferenceError, "XMLHttpRequest constructor associated document is unavailable");
+    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(doc);
     return CREATE_DOM_OBJECT_WRAPPER(exec, XMLHttpRequest, xmlHttpRequest.get());
 }
 
