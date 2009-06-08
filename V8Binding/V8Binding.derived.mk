@@ -56,6 +56,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8DOMStringListCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
+	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
@@ -113,6 +114,7 @@ LOCAL_SRC_FILES := \
 	v8/V8MessagePortCustom.cpp \
 	v8/V8NPObject.cpp \
 	v8/V8NPUtils.cpp \
+	v8/V8Utilities.cpp \
 	v8/V8WorkerContextCustom.cpp \
 	v8/V8WorkerCustom.cpp \
 	v8/npruntime.cpp \
@@ -137,7 +139,7 @@ js_binding_scripts := \
   $(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/scripts/generate-bindings.pl
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
 
 GEN := \
     $(intermediates)/css/V8CSSCharsetRule.h \
@@ -316,6 +318,17 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
+GEN := \
+    $(intermediates)/loader/appcache/V8DOMApplicationCache.h
+
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/loader/appcache/V8%.h : $(WEBCORE_PATH)/loader/appcache/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(intermediates)/loader/appcache/%.h
 
 GEN := \
     $(intermediates)/page/V8BarInfo.h \

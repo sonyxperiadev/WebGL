@@ -1658,6 +1658,16 @@ v8::Persistent<v8::FunctionTemplate> V8Proxy::GetTemplate(
     }
 #endif  // WORKERS
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    case V8ClassIndex::DOMAPPLICATIONCACHE: {
+        // Reserve one more internal field for keeping event listeners.
+        v8::Local<v8::ObjectTemplate> instance_template =
+            desc->InstanceTemplate();
+        instance_template->SetInternalFieldCount(
+            V8Custom::kDOMApplicationCacheFieldCount);
+        break;
+    }
+#endif
 
     // The following objects are created from JavaScript.
     case V8ClassIndex::DOMPARSER:
@@ -3064,6 +3074,12 @@ v8::Handle<v8::Value> V8Proxy::EventTargetToV8Object(EventTarget* target)
   if (worker)
       return ToV8Object(V8ClassIndex::WORKER, worker);
 #endif  // WORKERS
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+  DOMApplicationCache* app_cache = target->toDOMApplicationCache();
+  if (app_cache)
+      return ToV8Object(V8ClassIndex::DOMAPPLICATIONCACHE, app_cache);
+#endif
 
   Node* node = target->toNode();
   if (node)

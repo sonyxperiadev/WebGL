@@ -135,6 +135,13 @@ class V8Custom {
   static const int kStyleSheetInternalFieldCount =
                       kDefaultWrapperInternalFieldCount + 1;
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+  static const int kDOMApplicationCacheCacheIndex =
+                      kDefaultWrapperInternalFieldCount + 0;
+  static const int kDOMApplicationCacheFieldCount =
+                      kDefaultWrapperInternalFieldCount + 1;
+#endif
+
 #define DECLARE_PROPERTY_ACCESSOR_GETTER(NAME) \
 static v8::Handle<v8::Value> v8##NAME##AccessorGetter(\
     v8::Local<v8::String> name, const v8::AccessorInfo& info);
@@ -501,6 +508,13 @@ DECLARE_CALLBACK(WorkerContextSetInterval)
 DECLARE_CALLBACK(WorkerContextClearInterval)
 DECLARE_CALLBACK(WorkerContextAddEventListener)
 DECLARE_CALLBACK(WorkerContextRemoveEventListener)
+#endif
+
+// AppCache
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+DECLARE_PROPERTY_ACCESSOR(DOMApplicationCacheEventHandler)
+DECLARE_CALLBACK(DOMApplicationCacheAddEventListener)
+DECLARE_CALLBACK(DOMApplicationCacheRemoveEventListener)
 #endif
 
 #undef DECLARE_INDEXED_ACCESS_CHECK

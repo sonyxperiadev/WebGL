@@ -32,6 +32,7 @@
 #include "Database.h"
 #include "DocumentType.h"
 #include "DocumentFragment.h"
+#include "DOMApplicationCache.h"
 #include "DOMCoreException.h"
 #include "DOMImplementation.h"
 #include "DOMParser.h"

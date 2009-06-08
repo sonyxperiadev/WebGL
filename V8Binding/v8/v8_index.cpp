@@ -392,6 +392,10 @@
 #include "V8VoidCallback.h"
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "V8DOMApplicationCache.h"
+#endif
+
 namespace WebCore {
 
 FunctionTemplateFactory V8ClassIndex::GetFactory(V8WrapperType type) {
