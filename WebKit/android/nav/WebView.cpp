@@ -150,7 +150,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
     m_navPictureUI = 0;
-    m_invalidNode = 0;
     m_generation = 0;
     m_heightCanMeasure = false;
     m_followedLink = false;
@@ -457,10 +456,10 @@ void drawCursorRing(SkCanvas* canvas)
     WTF::Vector<WebCore::IntRect> oneRing;
     if (!isButton) {
         flavor = node->type() != NORMAL_CACHEDNODETYPE ?
-            CursorRing::FAKE_FLAVOR : node->nodePointer() == m_invalidNode ?
-            CursorRing::INVALID_FLAVOR : CursorRing::NORMAL_FLAVOR;
-        if (flavor != CursorRing::INVALID_FLAVOR && m_followedLink) {
-            flavor = (CursorRing::Flavor) (flavor + CursorRing::NORMAL_ANIMATING);
+            CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
+        if (m_followedLink) {
+            flavor = static_cast<CursorRing::Flavor>
+                    (flavor + CursorRing::NORMAL_ANIMATING);
         }
         bool useHitBounds = node->useHitBounds();
         if (useHitBounds || node->useBounds()) {
@@ -472,7 +471,6 @@ void drawCursorRing(SkCanvas* canvas)
         DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p) flavor=%s rings=%d"
             " (%d, %d, %d, %d)", node->index(), node->nodePointer(),
             flavor == CursorRing::FAKE_FLAVOR ? "FAKE_FLAVOR" :
-            flavor == CursorRing::INVALID_FLAVOR ? "INVALID_FLAVOR" :
             flavor == CursorRing::NORMAL_ANIMATING ? "NORMAL_ANIMATING" :
             flavor == CursorRing::FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
             rings->size(), ring.x(), ring.y(), ring.width(), ring.height());
@@ -486,7 +484,8 @@ void drawCursorRing(SkCanvas* canvas)
             postInvalidateDelayed(m_ringAnimationEnd - time, bounds);
         } else {
             m_followedLink = false;
-            flavor = (CursorRing::Flavor) (flavor - CursorRing::NORMAL_ANIMATING);
+            flavor = static_cast<CursorRing::Flavor>
+                    (flavor - CursorRing::NORMAL_ANIMATING);
         }
     }
     if (!isButton)
@@ -780,13 +779,6 @@ void setNavBounds(const WebCore::IntRect& rect)
     if (!root)
         return;
     root->rootHistory()->setNavBounds(rect);
-}
-
-void markNodeInvalid(WebCore::Node* node)
-{
-    DBG_NAV_LOGD("node=%p", node);
-    m_invalidNode = node;
-    viewInvalidate();
 }
 
 bool motionUp(int x, int y, int slop)
@@ -1177,7 +1169,6 @@ private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
     WebViewCore* m_viewImpl;
-    WebCore::Node* m_invalidNode;
     int m_generation; // associate unique ID with sent kit focus to match with ui
     SkPicture* m_navPictureUI;
     bool m_followedLink;
@@ -1510,13 +1501,6 @@ static jint nativeTextGeneration(JNIEnv *env, jobject obj)
     return root ? root->textGeneration() : 0;
 }
 
-static void nativeMarkNodeInvalid(JNIEnv *env, jobject obj, int node)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->markNodeInvalid((WebCore::Node*) node);
-}
-
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
@@ -1809,8 +1793,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeImageURI },
     { "nativeInstrumentReport", "()V",
         (void*) nativeInstrumentReport },
-    { "nativeMarkNodeInvalid", "(I)V",
-        (void*) nativeMarkNodeInvalid },
     { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",

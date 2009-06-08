@@ -36,7 +36,6 @@
 const static SkColor cursorOuterColors[] = {
     SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal ring select
     SkColorSetARGB(0xff, 0x46, 0xb0, 0x00), // fake ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xb0, 0x16, 0x00), // invalid ring color
     SkColorSetARGB(0xff, 0xAD, 0x5C, 0x0A), // normal ring pressed
     SkColorSetARGB(0xff, 0x36, 0xc0, 0x00)  // fake ring pressed
 };
@@ -44,7 +43,6 @@ const static SkColor cursorOuterColors[] = {
 const static SkColor cursorInnerColors[] = {
     SkColorSetARGB(0xff, 0xFE, 0x92, 0x30), // normal ring select
     SkColorSetARGB(0xff, 0x8c, 0xd9, 0x00), // fake ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xd9, 0x2c, 0x00), // invalid ring color
     SkColorSetARGB(0xff, 0xFE, 0xBD, 0x3A), // normal ring pressed
     SkColorSetARGB(0xff, 0x7c, 0xe9, 0x00)  // fake ring pressed
 };

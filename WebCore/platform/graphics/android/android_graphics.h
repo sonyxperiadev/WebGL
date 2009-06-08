@@ -52,7 +52,6 @@ public:
     enum Flavor {
         NORMAL_FLAVOR,
         FAKE_FLAVOR,
-        INVALID_FLAVOR,
         NORMAL_ANIMATING,
         FAKE_ANIMATING,
         ANIMATING_COUNT = 2

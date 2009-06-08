@@ -161,7 +161,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_jsUnload;
     jmethodID   m_jsInterrupt;
     jmethodID   m_didFirstLayout;
-    jmethodID   m_sendMarkNodeInvalid;
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
@@ -225,7 +224,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsInterrupt = GetJMethod(env, clazz, "jsInterrupt", "()Z");
     m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
-    m_javaGlue->m_sendMarkNodeInvalid = GetJMethod(env, clazz, "sendMarkNodeInvalid", "(I)V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
@@ -694,14 +692,6 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), animate ? m_javaGlue->m_spawnScrollTo : m_javaGlue->m_scrollTo, x, y);
-    checkException(env);
-}
-
-void WebViewCore::sendMarkNodeInvalid(WebCore::Node* node)
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_sendMarkNodeInvalid, (int) node);
     checkException(env);
 }
 
