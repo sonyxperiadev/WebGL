@@ -4,7 +4,7 @@
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 # Copyright (C) 2006 Alexey Proskuryakov <ap@webkit.org>
 # Copyright (C) 2006 Apple Computer, Inc.
-# Copyright (C) 2007 Google Inc.
+# Copyright (C) 2007, 2008, 2009 Google Inc.
 #
 # This file is part of the KDE project
 #
@@ -314,6 +314,8 @@ END
     push(@headerContent, "}\n\n");
     push(@headerContent, "#endif // $className" . "_H\n");
 
+    push(@headerContent, "#endif // ${conditionalString}\n\n") if $conditional;
+
     if ($className =~ /^V8SVG/) {
         push(@headerContent, "\n#endif // ENABLE(SVG)\n");
     } elsif (IsVideoClassName($className)) {
@@ -321,8 +323,6 @@ END
     } elsif (IsWorkerClassName($className)) {
         push(@headerContent, "\n#endif // ENABLE(WORKERS)\n");
     }
-
-    push(@headerContent, "#endif // ${conditionalString}\n\n") if $conditional;
 }
 
 
@@ -450,10 +450,11 @@ END
     return WorkerContextExecutionProxy::retrieve()->GetConstructor(type);
 END
   } else {
-    push(@implContentDecls, "    return V8Proxy::retrieve()->GetConstructor(type);");
+    push(@implContentDecls, "    return v8::Undefined();");
   }
 
   push(@implContentDecls, <<END);
+
   }
 
 END
@@ -931,6 +932,7 @@ sub GenerateBatchedAttributeData
     my $getter;
     my $setter;
     my $propAttr = "v8::None";
+    my $hasCustomSetter = 0;
 
     # Check attributes.
     if ($attrExt->{"DontEnum"}) {
@@ -954,13 +956,24 @@ sub GenerateBatchedAttributeData
       $propAttr = "v8::ReadOnly";
 
     # EventListeners
-    } elsif ($attrExt->{"ProtectedListener"}) {
+    } elsif ($attribute->signature->type eq "EventListener") {
       if ($interfaceName eq "DOMWindow") {
         $getter = "V8Custom::v8DOMWindowEventHandlerAccessorGetter";
         $setter = "V8Custom::v8DOMWindowEventHandlerAccessorSetter";
-      } else {
+      } elsif ($interfaceName eq "DOMApplicationCache") {
+        $getter = "V8Custom::v8DOMApplicationCacheEventHandlerAccessorGetter";
+        $setter = "V8Custom::v8DOMApplicationCacheEventHandlerAccessorSetter";
+      } elsif ($interfaceName eq "Node" || $interfaceName eq "SVGElementInstance") {
         $getter = "V8Custom::v8ElementEventHandlerAccessorGetter";
         $setter = "V8Custom::v8ElementEventHandlerAccessorSetter";
+      } else {
+        $getter = "V8Custom::v8${customAccessor}AccessorGetter";
+        if ($interfaceName eq "WorkerContext" and $attrName eq "self") {
+          $setter = "0";
+          $propAttr = "v8::ReadOnly";
+        } else {
+          $setter = "V8Custom::v8${customAccessor}AccessorSetter";
+        }
       }
 
     # Custom Getter and Setter
@@ -970,11 +983,13 @@ sub GenerateBatchedAttributeData
         $setter = "0";
         $propAttr = "v8::ReadOnly";
       } else {
+        $hasCustomSetter = 1;
         $setter = "V8Custom::v8${customAccessor}AccessorSetter";
       }
       
     # Custom Setter
     } elsif ($attrExt->{"CustomSetter"} || $attrExt->{"V8CustomSetter"}) {
+      $hasCustomSetter = 1;
       $getter = "${interfaceName}Internal::${attrName}AttrGetter";
       $setter = "V8Custom::v8${customAccessor}AccessorSetter";
 
@@ -988,12 +1003,26 @@ sub GenerateBatchedAttributeData
       # Replaceable accessor is put on instance template with ReadOnly attribute.
       $getter = "${interfaceName}Internal::${attrName}AttrGetter";
       $setter = "0";
-      $propAttr .= "|v8::ReadOnly";
-      
+
+      # Mark to avoid duplicate v8::ReadOnly flags in output.
+      $hasCustomSetter = 1;
+
+      # Handle the special case of window.top being marked upstream as Replaceable.
+      # TODO(dglazkov): Investigate why [Replaceable] is not marked as ReadOnly
+      # upstream and reach parity.
+      if (!($interfaceName eq "DOMWindow" and $attrName eq "top")) {
+        $propAttr .= "|v8::ReadOnly";
+      }
+
     # Normal
     } else {
       $getter = "${interfaceName}Internal::${attrName}AttrGetter";
       $setter = "${interfaceName}Internal::${attrName}AttrSetter";
+    }
+
+    if ($attrExt->{"Replaceable"} && !$hasCustomSetter) {
+      $setter = "0";
+      $propAttr .= "|v8::ReadOnly";
     }
 
     # Read only attributes
@@ -1052,7 +1081,7 @@ sub GenerateImplementation
     } elsif (IsWorkerClassName($className)) {
         push(@implFixedHeader, "#if ENABLE(WORKERS)\n\n");
     }
-
+ 
     my $conditionalString;
     if ($conditional) {
         $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
@@ -1388,6 +1417,7 @@ END
     } elsif (IsWorkerClassName($className)) {
         push(@implContent, "\n#endif // ENABLE(WORKERS)\n");
     }
+
     push(@implContent, "\n#endif // ${conditionalString}\n") if $conditional;
 }
 
@@ -1684,6 +1714,7 @@ sub GetNativeType
       return $type 
     }
     
+    return "int" if $type eq "int";
     return "int" if $type eq "short" or $type eq "unsigned short";
     return "int" if $type eq "long" or $type eq "unsigned long";
     return "unsigned long long" if $type eq "unsigned long long";
@@ -1698,6 +1729,7 @@ sub GetNativeType
     return "double" if $type eq "SVGNumber";
     return "SVGPaint::SVGPaintType" if $type eq "SVGPaintType";
     return "DOMTimeStamp" if $type eq "DOMTimeStamp";
+    return "unsigned" if $type eq "unsigned int";
     return "unsigned" if $type eq "RGBColor";
     return "Node*" if $type eq "EventTarget" and $isParameter;
 
@@ -1724,7 +1756,6 @@ my %typeCanFailConversion = (
     "Event" => 0,
     "EventListener" => 0,
     "EventTarget" => 0,
-    "Geoposition" => 0,
     "HTMLElement" => 0,
     "HTMLOptionElement" => 0,
     "Node" => 0,
@@ -1736,14 +1767,14 @@ my %typeCanFailConversion = (
     "SQLResultSet" => 0,
     "SVGAngle" => 0,
     "SVGElement" => 0,
-    "SVGLength" => 0,
-    "SVGMatrix" => 0,
+    "SVGLength" => 1,
+    "SVGMatrix" => 1,
     "SVGNumber" => 0,
     "SVGPaintType" => 0,
     "SVGPathSeg" => 0,
-    "SVGPoint" => 0,
-    "SVGRect" => 0,
-    "SVGTransform" => 0,
+    "SVGPoint" => 1,
+    "SVGRect" => 1,
+    "SVGTransform" => 1,
     "TouchList" => 0,
     "VoidCallback" => 1,
     "WebKitCSSMatrix" => 0,
@@ -1759,7 +1790,6 @@ my %typeCanFailConversion = (
     "unsigned short" => 0,
 );
 
-
 sub TranslateParameter
 {
     my $signature = shift;
@@ -1772,7 +1802,14 @@ sub TranslateParameter
 
 sub BasicTypeCanFailConversion
 {
-  # As can been seen from the above, no basic types can fail conversion.
+  my $signature = shift;
+  my $type = $codeGenerator->StripModule($signature->type);
+
+  return 1 if $type eq "SVGLength";
+  return 1 if $type eq "SVGMatrix";
+  return 1 if $type eq "SVGPoint";
+  return 1 if $type eq "SVGRect";
+  return 1 if $type eq "SVGTransform";
   return 0;
 }
 
@@ -1856,8 +1893,7 @@ sub JSValueToNative
         my $nativeType = GetNativeType($type);
         $implIncludes{"V8SVGPODTypeWrapper.h"} = 1;
 
-        # TODO(jhass): perform type checking like others???
-        return "*V8Proxy::ToNativeObject<V8SVGPODTypeWrapper<${nativeType}> >(V8ClassIndex::${classIndex}, $value)"
+        return "V8SVGPODTypeUtil::ToSVGPODType<${nativeType}>(V8ClassIndex::${classIndex}, $value${maybeOkParam})"
       }
       
       $implIncludes{"V8${type}.h"} = 1;
@@ -2037,7 +2073,7 @@ sub NativeToJSValue
       return "V8Proxy::ToV8Object(V8ClassIndex::RGBCOLOR, new RGBColor($value))";
     }
     
-    if ($type eq "WorkerLocation" or $type eq "WorkerNavigator") {
+    if ($type eq "WorkerContext" or $type eq "WorkerLocation" or $type eq "WorkerNavigator") {
       $implIncludes{"WorkerContextExecutionProxy.h"} = 1;
       my $classIndex = uc($type);
 

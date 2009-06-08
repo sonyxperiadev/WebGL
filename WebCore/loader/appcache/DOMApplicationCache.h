@@ -115,6 +115,12 @@ public:
     void callUpdateReadyListener();
     void callCachedListener();
     void callObsoleteListener();
+
+#if USE(V8)
+    EventListener* getAttributeEventListener(const AtomicString& eventType);
+    void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener);
+    void clearAttributeEventListener(const AtomicString& eventType);
+#endif
     
 private:
     DOMApplicationCache(Frame*);
@@ -125,6 +131,10 @@ private:
 
     ApplicationCache* associatedCache() const;
     bool swapCache();
+
+#if USE(V8)
+    RefPtr<EventListener>* getAttributeEventListenerStorage(const AtomicString& eventType);
+#endif
     
     RefPtr<EventListener> m_onCheckingListener;
     RefPtr<EventListener> m_onErrorListener;

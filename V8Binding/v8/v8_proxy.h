@@ -8,7 +8,7 @@
 #include <v8.h>
 #include "v8_index.h"
 #include "v8_custom.h"
-#include "v8_utility.h"
+#include "V8Utilities.h"
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h"  // for WebCore::String

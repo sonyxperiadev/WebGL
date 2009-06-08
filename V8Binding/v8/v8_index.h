@@ -39,6 +39,13 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define WORKER_NONNODE_WRAPPER_TYPES(V)
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                      \
+  V(DOMAPPLICATIONCACHE, DOMApplicationCache)
+#else
+#define APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)
+#endif
+
 #define DOM_NODE_TYPES(V)                                               \
   V(ATTR, Attr)                                                         \
   V(CHARACTERDATA, CharacterData)                                       \
@@ -328,6 +335,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(XMLHTTPREQUESTPROGRESSEVENT, XMLHttpRequestProgressEvent)           \
   V(XMLSERIALIZER, XMLSerializer)                                       \
   ACTIVE_DOM_OBJECT_TYPES(V)                                            \
+  APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                             \
   VIDEO_NONNODE_TYPES(V)                                                \
   WORKER_NONNODE_WRAPPER_TYPES(V)
 
