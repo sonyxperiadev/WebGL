@@ -68,6 +68,9 @@ static void anp_clipRect(ANPCanvas* canvas, const ANPRectF* rect) {
 static void anp_clipPath(ANPCanvas* canvas, const ANPPath* path) {
     canvas->skcanvas->clipPath(*path);
 }
+static void anp_concat(ANPCanvas* canvas, const ANPMatrix* matrix) {
+    canvas->skcanvas->concat(*matrix);
+}
 
 static void anp_getTotalMatrix(ANPCanvas* canvas, ANPMatrix* matrix) {
     const SkMatrix& src = canvas->skcanvas->getTotalMatrix();
@@ -152,7 +155,7 @@ static void anp_drawBitmapRect(ANPCanvas* canvas, const ANPBitmap* bitmap,
     SkBitmap    bm;
     SkRect      dstR;
     SkIRect     srcR, *srcPtr = NULL;
-    
+
     if (src) {
         srcPtr = SkANP::SetRect(&srcR, *src);
     }
@@ -166,7 +169,7 @@ static void anp_drawBitmapRect(ANPCanvas* canvas, const ANPBitmap* bitmap,
 
 void ANPCanvasInterfaceV0_Init(ANPInterface* value) {
     ANPCanvasInterfaceV0* i = reinterpret_cast<ANPCanvasInterfaceV0*>(value);
-    
+
     ASSIGN(i, newCanvas);
     ASSIGN(i, deleteCanvas);
     ASSIGN(i, save);
@@ -177,11 +180,13 @@ void ANPCanvasInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, skew);
     ASSIGN(i, clipRect);
     ASSIGN(i, clipPath);
+    ASSIGN(i, concat);
     ASSIGN(i, getTotalMatrix);
     ASSIGN(i, getLocalClipBounds);
     ASSIGN(i, getDeviceClipBounds);
     ASSIGN(i, drawColor);
     ASSIGN(i, drawPaint);
+    ASSIGN(i, drawLine);
     ASSIGN(i, drawRect);
     ASSIGN(i, drawOval);
     ASSIGN(i, drawPath);
