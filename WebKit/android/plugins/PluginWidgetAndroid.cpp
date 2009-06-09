@@ -99,7 +99,7 @@ void PluginWidgetAndroid::inval(const WebCore::IntRect& rect,
     }
 
     m_flipPixelRef->inval(rect);
-    
+
     if (signalRedraw && m_flipPixelRef->isDirty()) {
         m_core->invalPlugin(this);
     }
@@ -109,7 +109,7 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
     if (NULL == m_flipPixelRef || !m_flipPixelRef->isDirty()) {
         return;
     }
-    
+
     SkAutoFlipUpdate update(m_flipPixelRef);
     const SkBitmap& bitmap = update.bitmap();
     const SkRegion& dirty = update.dirty();
@@ -117,18 +117,18 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
     ANPEvent    event;
     SkANP::InitEvent(&event, kDraw_ANPEventType);
 
-    event.data.drawContext.model = m_drawingModel;
-    SkANP::SetRect(&event.data.drawContext.clip, dirty.getBounds());
-    
+    event.data.draw.model = m_drawingModel;
+    SkANP::SetRect(&event.data.draw.clip, dirty.getBounds());
+
     switch (m_drawingModel) {
         case kBitmap_ANPDrawingModel: {
             WebCore::PluginPackage* pkg = m_pluginView->plugin();
             NPP instance = m_pluginView->instance();
-            
-            if (SkANP::SetBitmap(&event.data.drawContext.data.bitmap,
+
+            if (SkANP::SetBitmap(&event.data.draw.data.bitmap,
                                  bitmap) &&
                     pkg->pluginFuncs()->event(instance, &event)) {
-            
+
                 if (canvas) {
                     SkBitmap bm(bitmap);
                     bm.setPixelRef(m_flipPixelRef);

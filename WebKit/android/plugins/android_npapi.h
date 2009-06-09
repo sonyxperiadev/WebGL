@@ -632,16 +632,6 @@ enum ANPTouchActions {
 };
 typedef int32_t ANPTouchAction;
 
-struct ANPDrawContext {
-    ANPDrawingModel model;
-    // relative to (0,0) in top-left of your plugin
-    ANPRectI        clip;
-    // use based on the value in model
-    union {
-        ANPBitmap   bitmap;
-    } data;
-};
-
 enum ANPLifecycleActions {
     kPause_ANPLifecycleAction      = 0,
     kResume_ANPLifecycleAction     = 1,
@@ -673,7 +663,15 @@ struct ANPEvent {
         struct {
             ANPLifecycleAction  action;
         } lifecycle;
-        ANPDrawContext  drawContext;
+        struct {
+            ANPDrawingModel model;
+            // relative to (0,0) in top-left of your plugin
+            ANPRectI        clip;
+            // use based on the value in model
+            union {
+                ANPBitmap   bitmap;
+            } data;
+        } draw;
         int32_t         other[8];
     } data;
 };
