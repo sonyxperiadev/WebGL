@@ -518,8 +518,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/SoundAndroid.cpp \
 	platform/android/SystemTimeAndroid.cpp \
 	platform/android/TemporaryLinkStubs.cpp \
-	platform/android/TextBreakIteratorInternalICU.cpp \
 	platform/android/WidgetAndroid.cpp \
+	\
+	platform/text/android/TextBreakIteratorInternalICU.cpp \
 	\
 	platform/animation/Animation.cpp \
 	platform/animation/AnimationList.cpp \
