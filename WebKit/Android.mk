@@ -53,6 +53,7 @@ LOCAL_SRC_FILES := \
 	android/nav/SelectText.cpp \
 	android/nav/WebView.cpp \
 	\
+	android/plugins/ANPBitmapInterface.cpp \
 	android/plugins/ANPCanvasInterface.cpp \
 	android/plugins/ANPLogInterface.cpp \
 	android/plugins/ANPMatrixInterface.cpp \

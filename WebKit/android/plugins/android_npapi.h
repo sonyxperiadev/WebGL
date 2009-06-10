@@ -49,6 +49,17 @@ enum ANPBitmapFormats {
 };
 typedef int32_t ANPBitmapFormat;
 
+struct ANPPixelPacking {
+    uint8_t AShift;
+    uint8_t ABits;
+    uint8_t RShift;
+    uint8_t RBits;
+    uint8_t GShift;
+    uint8_t GBits;
+    uint8_t BShift;
+    uint8_t BBits;
+};
+
 struct ANPBitmap {
     void*           baseAddr;
     ANPBitmapFormat format;
@@ -104,6 +115,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kPathInterfaceV0_ANPGetValue        ((NPNVariable)1005)
 #define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1006)
 #define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
+#define kBitmapInterfaceV0_ANPGetValue      ((NPNVariable)1008)
 
 /*  queries for which drawing model is desired (for the draw event)
 
@@ -158,6 +170,13 @@ struct ANPLogInterfaceV0 : ANPInterface {
     // dumps printf messages to the log file
     // e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
     void (*log)(NPP instance, ANPLogType, const char format[], ...);
+};
+
+struct ANPBitmapInterfaceV0 : ANPInterface {
+    /** Returns true if the specified bitmap format is supported, and if packing
+        is non-null, sets it to the packing info for that format.
+     */
+    bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
 };
 
 struct ANPMatrixInterfaceV0 : ANPInterface {
@@ -260,9 +279,23 @@ struct ANPPathInterfaceV0 : ANPInterface {
     void (*transform)(ANPPath* src, const ANPMatrix*, ANPPath* dst);
 };
 
+/** ANPColor is always defined to have the same packing on all platforms, and
+    it is always unpremultiplied.
+ 
+    This is in contrast to 32bit format(s) in bitmaps, which are premultiplied,
+    and their packing may vary depending on the platform, hence the need for
+    ANPBitmapInterface::getPixelPacking()
+ */
 typedef uint32_t ANPColor;
+#define ANPColor_ASHIFT     24
+#define ANPColor_RSHIFT     16
+#define ANPColor_GSHIFT     8
+#define ANPColor_BSHIFT     0
 #define ANP_MAKE_COLOR(a, r, g, b)  \
-                                (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
+                   (((a) << ANPColor_ASHIFT) |  \
+                    ((r) << ANPColor_RSHIFT) |  \
+                    ((g) << ANPColor_GSHIFT) |  \
+                    ((b) << ANPColor_BSHIFT))
 
 enum ANPPaintFlag {
     kAntiAlias_ANPPaintFlag         = 1 << 0,
