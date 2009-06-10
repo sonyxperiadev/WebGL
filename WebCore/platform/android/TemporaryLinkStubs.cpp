@@ -41,7 +41,6 @@
 #include "CString.h"
 #include "Cursor.h"
 #include "Database.h"
-//#include "DebuggerCallFrame.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "EditCommand.h"
@@ -93,14 +92,6 @@
 
 using namespace WebCore;
 
-// This function is called when the frame view has changed the state of it's border.
-// iFrames, which are have a FrameView, are drawn with a 1px left/right border and 2px top/bottom border
-// Check function _shouldDrawBorder in WebFrameView.mm
-// We don't draw borders unless css draws them.
-//void FrameView::updateBorder() { verifiedOk(); }
-//int WebCore::screenDepthPerComponent(Widget*) { ASSERT(0); notImplemented(); return 0; }
-//bool WebCore::screenIsMonochrome(Widget*) { ASSERT(0); notImplemented(); return false; }
-
 /********************************************************/
 /* Completely empty stubs (mostly to allow DRT to run): */
 /********************************************************/
@@ -127,7 +118,7 @@ namespace WebCore {
 // of a plugin can be used to render a mimetype that is not native to the browser.
 PluginInfo* PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
@@ -160,7 +151,7 @@ void refreshPlugins(bool)
 // the app may update progress with the amount of data loaded.
 void CheckCacheObjectStatus(DocLoader*, CachedResource*)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
@@ -171,42 +162,6 @@ void CheckCacheObjectStatus(DocLoader*, CachedResource*)
 Icon::~Icon() { }
 void Icon::paint(GraphicsContext*, const IntRect&) { }
 
-// *** The following strings should be localized *** //
-
-// The following functions are used to fetch localized text for HTML form
-// elements submit and reset. These strings are used when the page author
-// has not specified any text for these buttons.
-String submitButtonDefaultLabel()
-{
-    verifiedOk();
-    return "Submit";
-}
-
-String resetButtonDefaultLabel()
-{
-    verifiedOk();
-    return "Reset";
-}
-
-// The alt text for an input element is not used visually, but rather is
-// used for accessability - eg reading the web page. See
-// HTMLInputElement::altText() for more information.
-String inputElementAltText()
-{
-    notImplemented();
-    return String();
-}
-
-// This is the string that appears before an input box when the HTML element
-// <ISINDEX> is used. The returned string is used if no PROMPT attribute is
-// provided.
-// note: Safari and FireFox use (too long for us imho) "This is a searchable index. Enter search keywords:"
-String searchableIndexIntroduction()
-{
-    verifiedOk();
-    return String("Enter search:");
-}
-
 // This function provides the default value for the CSS property:
 // -webkit-focus-ring-color
 // It is also related to the CSS property outline-color:
@@ -214,223 +169,6 @@ Color focusRingColor()
 {
     verifiedOk();
     return 0xFF0000FF;
-}
-
-// LocalizedStrings
-String contextMenuItemTagOpenLinkInNewWindow()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagDownloadLinkToDisk()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCopyLinkToClipboard()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagOpenImageInNewWindow()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagDownloadImageToDisk()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCopyImageToClipboard()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagOpenFrameInNewWindow()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCopy()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagGoBack()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagGoForward()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagStop()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagReload()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCut()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagPaste()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagNoGuessesFound()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagIgnoreSpelling()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagLearnSpelling()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagSearchWeb()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagLookUpInDictionary()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagOpenLink()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagIgnoreGrammar()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagSpellingMenu()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagShowSpellingPanel(bool)
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCheckSpelling()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCheckSpellingWhileTyping()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagCheckGrammarWithSpelling()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagFontMenu()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagBold()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagItalic()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagUnderline()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagOutline()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagWritingDirectionMenu()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagDefaultDirection()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagLeftToRight()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagRightToLeft()
-{
-    ASSERT(0);
-    return String();
-}
-
-String contextMenuItemTagTextDirectionMenu()
-{
-    ASSERT(0);
-    return String();
 }
 
 }  // namespace WebCore
@@ -487,126 +225,126 @@ Pasteboard::~Pasteboard()
 
 ContextMenu::ContextMenu(const HitTestResult& result) : m_hitTestResult(result)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 ContextMenu::~ContextMenu()
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 void ContextMenu::appendItem(ContextMenuItem&)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 void ContextMenu::setPlatformDescription(PlatformMenuDescription menu)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     m_platformDescription = menu;
 }
 
 PlatformMenuDescription ContextMenu::platformDescription() const
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     return m_platformDescription;
 }
 
 ContextMenuItem::ContextMenuItem(PlatformMenuItemDescription)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 ContextMenuItem::ContextMenuItem(ContextMenu*)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu*)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 ContextMenuItem::~ContextMenuItem()
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 PlatformMenuItemDescription ContextMenuItem::releasePlatformDescription()
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
     return m_platformDescription;
 }
 
 ContextMenuItemType ContextMenuItem::type() const
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
     return ActionType;
 }
 
 void ContextMenuItem::setType(ContextMenuItemType)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 ContextMenuAction ContextMenuItem::action() const
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
     return ContextMenuItemTagNoAction;
 }
 
 void ContextMenuItem::setAction(ContextMenuAction)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 String ContextMenuItem::title() const
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
     return String();
 }
 
 void ContextMenuItem::setTitle(const String&)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 PlatformMenuDescription ContextMenuItem::platformSubMenu() const
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
     return 0;
 }
 
 void ContextMenuItem::setSubMenu(ContextMenu*)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 void ContextMenuItem::setChecked(bool)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
 void ContextMenuItem::setEnabled(bool)
 {
-    ASSERT(0);
+    ASSERT_NOT_REACHED();
     notImplemented();
 }
 
@@ -616,16 +354,6 @@ void systemBeep()
 {
     notImplemented();
 }
-
-// functions new to Jun-07 tip of tree merge:
-
-// void WebCore::CachedPage::close() {}
-
-//void WebCore::Frame::print() {}
-// void WebCore::Frame::issueTransposeCommand() {}
-//void WebCore::Frame::cleanupPlatformScriptObjects() {}
-// void WebCore::Frame::dashboardRegionsChanged() {}
-//bool WebCore::Frame::isCharacterSmartReplaceExempt(unsigned short, bool) { return false; }
 
 void* WebCore::Frame::dragImageForSelection()
 {
@@ -712,13 +440,6 @@ String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::K
 
 } // namespace WebCore
 
-// added for Nov-16-07 ToT integration
-//namespace WebCore {
-//void Frame::clearPlatformScriptObjects() { notImplemented(); }
-
-//}
-
-// functions new to Feb-19 tip of tree merge:
 namespace WebCore {
 // isCharacterSmartReplaceExempt is defined in SmartReplaceICU.cpp; in theory, we could use that one
 //      but we don't support all of the required icu functions
@@ -732,7 +453,6 @@ bool isCharacterSmartReplaceExempt(UChar32, bool)
 
 int MakeDataExecutable;
 
-// functions new to Mar-2 tip of tree merge:
 String KURL::fileSystemPath() const
 {
     notImplemented();
@@ -740,7 +460,6 @@ String KURL::fileSystemPath() const
 }
 
 
-// functions new to Jun-1 tip of tree merge:
 PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 {
     notImplemented();
