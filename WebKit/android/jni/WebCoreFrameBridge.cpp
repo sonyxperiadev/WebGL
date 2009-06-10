@@ -795,6 +795,29 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     pFrame->loader()->load(request, false);
 }
 
+static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+#endif
+    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
+    LOG_ASSERT(pFrame, "nativePostUrl must take a valid frame pointer!");
+
+    WebCore::KURL kurl(WebCore::KURL(), to_string(env, url));
+    WebCore::ResourceRequest request(kurl);
+    request.setHTTPContentType("application/x-www-form-urlencoded");
+
+    if (postData) {
+        jsize size = env->GetArrayLength(postData);
+        jbyte* bytes = env->GetByteArrayElements(postData, NULL);
+        request.setHTTPBody(WebCore::FormData::create((const void*)bytes, size));
+        env->ReleaseByteArrayElements(postData, bytes, 0);
+    }
+
+    LOGV("PostUrl %s", kurl.string().latin1().data());
+    pFrame->loader()->loadPostRequest(request, String(), String(), false,
+            WebCore::FrameLoadTypeStandard, 0, 0, true);
+}
 
 static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
         jstring mimeType, jstring encoding, jstring failUrl)
@@ -1252,6 +1275,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) StopLoading },
     { "nativeLoadUrl", "(Ljava/lang/String;)V",
         (void*) LoadUrl },
+    { "nativePostUrl", "(Ljava/lang/String;[B)V",
+        (void*) PostUrl },
     { "nativeLoadData", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
         (void*) LoadData },
     { "externalRepresentation", "()Ljava/lang/String;",
