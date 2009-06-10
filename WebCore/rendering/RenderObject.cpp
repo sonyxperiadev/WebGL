@@ -1703,11 +1703,22 @@ void RenderObject::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, Trans
 TransformationMatrix RenderObject::transformFromContainer(const RenderObject* containerObject, const IntSize& offsetInContainer) const
 {
     TransformationMatrix containerTransform;
+#ifdef ANDROID_FASTER_MATRIX
+    RenderLayer* layer;
+    const double tx = offsetInContainer.width();
+    const double ty = offsetInContainer.height();
+    if (hasLayer() && (layer = toRenderBox(this)->layer()) && layer->transform()) {
+        containerTransform = layer->currentTransform();
+        containerTransform.translateRight(tx, ty);
+    } else
+        containerTransform.translate(tx, ty);
+#else
     containerTransform.translate(offsetInContainer.width(), offsetInContainer.height());
     RenderLayer* layer;
     if (hasLayer() && (layer = toRenderBox(this)->layer()) && layer->transform())
         containerTransform.multLeft(layer->currentTransform());
-    
+#endif
+
 #if ENABLE(3D_RENDERING)
     if (containerObject && containerObject->style()->hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
