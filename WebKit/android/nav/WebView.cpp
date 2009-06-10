@@ -814,16 +814,15 @@ bool motionUp(int x, int y, int slop)
     setNavBounds(WebCore::IntRect(rx, ry, 1, 1));
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
-    bool newNodeWantsKeyEvents = result->wantsKeyEvents();
     CachedNodeType type = result->type();
-    if (type == NORMAL_CACHEDNODETYPE || newNodeWantsKeyEvents) {
+    if (type == NORMAL_CACHEDNODETYPE) {
         sendMotionUp(
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
             result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
             slop);
     }
     viewInvalidate();
-    if (newNodeWantsKeyEvents) {
+    if (result->isTextField() || result->isTextArea()) {
         rebuildWebTextView();
         displaySoftKeyboard();
     } else {
