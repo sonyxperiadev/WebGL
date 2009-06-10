@@ -29,6 +29,7 @@
 #include "FileSystem.h"
 
 #include "CString.h"
+#include "StringBuilder.h"
 #include <fnmatch.h>
 #include <dlfcn.h>
 #include <dirent.h>
@@ -42,7 +43,8 @@ namespace WebCore {
 // This is set in WebSettings.cpp
 String sPluginPath;
 
-CString fileSystemRepresentation(const String& path) {
+CString fileSystemRepresentation(const String& path)
+{
     return path.utf8();
 }
 
@@ -51,19 +53,20 @@ CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
     int number = rand() % 10000 + 1;
     CString filename;
     do {
-        String path = sPluginPath;
-        path.append("/");
-        path.append(prefix);
-        path.append(String::number(number));
-        filename = path.utf8();
-        const char *fstr = filename.data();
+        StringBuilder builder;
+        builder.append(sPluginPath);
+        builder.append('/');
+        builder.append(prefix);
+        builder.append(String::number(number));
+        filename = builder.toString().utf8();
+        const char* fstr = filename.data();
         handle = open(filename.data(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
         number++;
-    } while (handle == -1 && errno == EEXIST);
+        
+        if (handle != -1)
+            return filename;
+    } while (errno == EEXIST);
     
-    if (handle != -1) {
-        return filename;
-    }
     return CString();
 }
 
@@ -84,7 +87,7 @@ int writeToFile(PlatformFileHandle handle, const char* data, int length)
 {
     int totalBytesWritten = 0;
     while (totalBytesWritten < length) {
-        int bytesWritten = write(handle, data, length - totalBytesWritten);
+        int bytesWritten = write(handle, data, (size_t)(length - totalBytesWritten));
         if (bytesWritten < 0 && errno != EINTR)
             return -1;
         else if (bytesWritten > 0)
@@ -94,13 +97,11 @@ int writeToFile(PlatformFileHandle handle, const char* data, int length)
     return totalBytesWritten;
 }
 
-// new as of SVN change 36269, Sept 8, 2008
 String homeDirectoryPath() 
 {
     return sPluginPath;
 }
 
-// new as of webkit4, Feb 28, 2009
 Vector<String> listDirectory(const String& path, const String& filter)
 {
     Vector<String> entries;
@@ -108,15 +109,13 @@ Vector<String> listDirectory(const String& path, const String& filter)
     CString cfilter = filter.utf8();
     DIR* dir = opendir(cpath.data());
     if (dir) {
-        struct dirent * dp;
-        while ((dp = readdir(dir)) != NULL) {
+        struct dirent* dp;
+        while (dp = readdir(dir)) {
             const char* name = dp->d_name;
-            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+            if (!strcmp(name, ".") || !strcmp(name, ".."))
                 continue;
-            }
-            if (fnmatch(cfilter.data(), name, 0) != 0) {
+            if (fnmatch(cfilter.data(), name, 0))
                 continue;
-            }
             char filePath[1024];
             if ((int) (sizeof(filePath) - 1) < snprintf(filePath,
                     sizeof(filePath), "%s/%s", cpath.data(), name)) {
@@ -129,4 +128,4 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-}
+} // namespace WebCore

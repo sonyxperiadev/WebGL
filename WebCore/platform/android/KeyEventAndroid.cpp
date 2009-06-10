@@ -1,5 +1,10 @@
 /*
  * Copyright 2007, The Android Open Source Project
+ * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
+ * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +38,8 @@
 namespace WebCore {
 
 // compare to same function in gdk/KeyEventGdk.cpp
-static int windowsKeyCodeForKeyEvent(unsigned int keyCode) {
+static int windowsKeyCodeForKeyEvent(unsigned int keyCode)
+{
     // Does not provide all key codes, and does not handle all keys.
     switch(keyCode) {
         case kKeyCodeDel:
@@ -190,7 +196,7 @@ static String keyIdentifierForAndroidKeyCode(int keyCode)
     }
 }
 
-static inline String singleCharacterString(int c) 
+static inline String singleCharacterString(UChar32 c) 
 {
     if (!c)
         return String();
@@ -215,10 +221,10 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(int keyCode, UChar32 unichar,
     , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(keyCode))
     , m_nativeVirtualKeyCode(keyCode)
     , m_isKeypad(false)
-    , m_shiftKey((mods & ShiftKey) != 0)
-    , m_ctrlKey((mods & CtrlKey) != 0)
-    , m_altKey((mods & AltKey) != 0)
-    , m_metaKey((mods & MetaKey) != 0)
+    , m_shiftKey((mods & ShiftKey))
+    , m_ctrlKey((mods & CtrlKey))
+    , m_altKey((mods & AltKey))
+    , m_metaKey((mods & MetaKey))
     // added for android
     , m_repeatCount(repeatCount)
     , m_unichar(unichar)

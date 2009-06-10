@@ -37,12 +37,12 @@ namespace WebCore {
 
 String contextMenuItemTagInspectElement()
 {
-    return String::fromUTF8("Inspect Element");
+    return String("Inspect Element");
 }
 
 String unknownFileSizeText()
 {
-    return String::fromUTF8("Unknown");
+    return String("Unknown");
 }
 
 String imageTitle(const String& filename, const IntSize& size)
