@@ -281,7 +281,7 @@ struct ANPPathInterfaceV0 : ANPInterface {
 
 /** ANPColor is always defined to have the same packing on all platforms, and
     it is always unpremultiplied.
- 
+
     This is in contrast to 32bit format(s) in bitmaps, which are premultiplied,
     and their packing may vary depending on the platform, hence the need for
     ANPBitmapInterface::getPixelPacking()
@@ -670,6 +670,7 @@ enum ANPLifecycleActions {
     kResume_ANPLifecycleAction     = 1,
     kGainFocus_ANPLifecycleAction  = 2,
     kLooseFocus_ANPLifecycleAction = 3,
+    kFreeMemory_ANPLifecycleAction = 4,
 };
 typedef uint32_t ANPLifecycleAction;
 

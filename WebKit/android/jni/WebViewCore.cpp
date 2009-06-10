@@ -2415,6 +2415,14 @@ static void Resume(JNIEnv* env, jobject obj)
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 }
 
+static void FreeMemory(JNIEnv* env, jobject obj)
+{
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kFreeMemory_ANPLifecycleAction;
+    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -2497,6 +2505,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetDatabaseQuota },
     { "nativePause", "()V", (void*) Pause },
     { "nativeResume", "()V", (void*) Resume },
+    { "nativeFreeMemory", "()V", (void*) FreeMemory },
 };
 
 int register_webviewcore(JNIEnv* env)
