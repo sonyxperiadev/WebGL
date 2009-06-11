@@ -372,7 +372,7 @@ namespace WebCore {
 
 IntSize dragImageSize(void*)
 {
-    return IntSize(0, 0);
+    return IntSize();
 }
 
 void deleteDragImage(void*) {}
