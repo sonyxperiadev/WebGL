@@ -64,8 +64,6 @@ private:
     WebCore::IntRect mNavBounds; // focus ring bounds plus optional keystroke movement
     WebCore::IntRect mPriorBounds; // prior chosen focus ring (for reversing narrowing)
     bool mDirectionChange;
-    bool mFocusIsInput; // defer max/min to non-focus node if focus is too broad
-    bool mPriorIsInput; // defer max/min to non-focus node if focus is too broad
     bool mDidFirstLayout; // set true when page is newly laid out
     CachedFrame::Direction mLastMove;
     CachedFrame::Direction mPriorMove;

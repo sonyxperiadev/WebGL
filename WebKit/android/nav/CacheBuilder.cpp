@@ -988,7 +988,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         bool hasMouseOver = false;
         bool isAnchor = false;
         bool isArea = node->hasTagName(HTMLNames::areaTag);
-        bool isInput = false;
         bool isPassword = false;
         bool isTextArea = false;
         bool isTextField = false;
@@ -1099,7 +1098,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             HTMLInputElement* input = (HTMLInputElement*) node;
             if (input->inputType() == HTMLInputElement::FILE)
                 continue;
-            isInput = true;
             isTextField = input->isTextField();
             if (isTextField)
                 wantsKeyEvents = true;
@@ -1197,7 +1195,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setIsAnchor(isAnchor);
         cachedNode.setIsArea(isArea);
         cachedNode.setIsFocus(isFocus);
-        cachedNode.setIsInput(isInput);
         cachedNode.setIsPassword(isPassword);
         cachedNode.setIsRtlText(isRtlText);
         cachedNode.setIsTextArea(isTextArea);

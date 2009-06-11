@@ -1021,13 +1021,38 @@ bool WebViewCore::prepareFrameCache()
         return true;
     int x, y;
     const CachedFrame* frame;
-    const CachedNode* node = m_temp->findAt(bounds, &frame, &x, &y);
+    const CachedNode* node = m_temp->findAt(bounds, &frame, &x, &y, false);
+    if (!node)
+        return true;
+    // require that node have approximately the same bounds (+/- 4) and the same
+    // center (+/- 2)
+    IntPoint oldCenter = IntPoint(bounds.x() + (bounds.width() >> 1),
+        bounds.y() + (bounds.height() >> 1));
+    IntRect newBounds = node->bounds();
+    IntPoint newCenter = IntPoint(newBounds.x() + (newBounds.width() >> 1),
+        newBounds.y() + (newBounds.height() >> 1));
+    DBG_NAV_LOGD("oldCenter=(%d,%d) newCenter=(%d,%d)"
+        " bounds=(%d,%d,w=%d,h=%d) newBounds=(%d,%d,w=%d,h=%d)",
+        oldCenter.x(), oldCenter.y(), newCenter.x(), newCenter.y(),
+        bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+        newBounds.x(), newBounds.y(), newBounds.width(), newBounds.height());
+    if (abs(oldCenter.x() - newCenter.x()) > 2)
+        return true;
+    if (abs(oldCenter.y() - newCenter.y()) > 2)
+        return true;
+    if (abs(bounds.x() - newBounds.x()) > 4)
+        return true;
+    if (abs(bounds.y() - newBounds.y()) > 4)
+        return true;
+    if (abs(bounds.right() - newBounds.right()) > 4)
+        return true;
+    if (abs(bounds.bottom() - newBounds.bottom()) > 4)
+        return true;
     DBG_NAV_LOGD("node=%p frame=%p x=%d y=%d bounds=(%d,%d,w=%d,h=%d)",
         node, frame, x, y, bounds.x(), bounds.y(), bounds.width(),
         bounds.height());
-    if (node)
-        m_temp->setCursor(const_cast<CachedFrame*>(frame),
-            const_cast<CachedNode*>(node));
+    m_temp->setCursor(const_cast<CachedFrame*>(frame),
+        const_cast<CachedNode*>(node));
     return true;
 }
 

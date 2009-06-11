@@ -102,8 +102,9 @@ public:
     const WebCore::IntRect& getBounds() const { return mBounds; }
     void getBounds(WebCore::IntRect* bounds) const { *bounds = mBounds; }
     const WebCore::String& getExport() const { return mExport; }
-    bool hasCursorRing() const { return mHasCursorRing; }
+    bool hasCursorRing() const { return !mIsHidden && mHasCursorRing; }
     bool hasMouseOver() const { return mHasMouseOver; }
+    void hideCursor(CachedFrame* );
     const WebCore::IntRect& hitBounds() const { return mHitBounds; }
     int index() const { return mIndex; }
     void init(WebCore::Node* node);
@@ -112,7 +113,6 @@ public:
     bool isArea() const { return mIsArea; }
     bool isFocus() const { return mIsFocus; }
     bool isFrame() const { return mChildFrameIndex >= 0 ; }
-    bool isInput() const { return mIsInput; }
     bool isNavable(const WebCore::IntRect& clip) const {
         return clip.intersects(mBounds);
     }
@@ -147,7 +147,6 @@ public:
     void setIsArea(bool isArea) { mIsArea = isArea; }
     void setIsCursor(bool isCursor) { mIsCursor = isCursor; }
     void setIsFocus(bool isFocus) { mIsFocus = isFocus; }
-    void setIsInput(bool isInput) { mIsInput = isInput; }
     void setIsParentAnchor(bool isAnchor) { mIsParentAnchor = isAnchor; }
     void setIsPassword(bool isPassword) { mIsPassword = isPassword; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
@@ -165,6 +164,7 @@ public:
     void setTextSize(int textSize) { mTextSize = textSize; }
     void setType(CachedNodeType type) { mType = type; }
     void setWantsKeyEvents(bool wantsKeys) { mWantsKeyEvents = wantsKeys; }
+    void show() { mIsHidden = false; }
     int tabIndex() const { return mTabIndex; }
     const CachedNode* traverseNextNode() const { return mLast ? NULL : &this[1]; }
     int textSize() const { return mTextSize; }
@@ -198,7 +198,7 @@ private:
     bool mIsArea : 1;
     bool mIsCursor : 1;
     bool mIsFocus : 1;
-    bool mIsInput : 1;
+    bool mIsHidden : 1;
     bool mIsParentAnchor : 1;
     bool mIsPassword : 1;
     bool mIsRtlText : 1;

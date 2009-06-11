@@ -643,13 +643,14 @@ bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
 }
 
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
-    const CachedFrame** framePtr, int* x, int* y) const
+    const CachedFrame** framePtr, int* x, int* y, bool checkForHidden) const
 {
     int best = INT_MAX;
     bool inside = false;
     (const_cast<CachedRoot*>(this))->resetClippedOut();
     const CachedNode* directHit = NULL;
-    const CachedNode* node = findBestAt(rect, &best, &inside, &directHit, framePtr, x, y);
+    const CachedNode* node = findBestAt(rect, &best, &inside, &directHit,
+        framePtr, x, y, checkForHidden);
     DBG_NAV_LOGD("node=%d (%p)", node == NULL ? 0 : node->index(),
         node == NULL ? NULL : node->nodePointer());
     if (node == NULL) {
@@ -728,11 +729,12 @@ bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
     int testTop = mScrolledBounds.y();
     int viewBottom = mViewBounds.bottom();
-    if (mCursorBounds.isEmpty() == false &&
-            mCursorBounds.bottom() > viewBottom && viewBottom < mContents.height())
+    const WebCore::IntRect& navBounds = mHistory->mNavBounds;
+    if (navBounds.isEmpty() == false &&
+            navBounds.bottom() > viewBottom && viewBottom < mContents.height())
         return false;
-    if (mHistory->mNavBounds.isEmpty() == false) {
-        int navTop = mHistory->mNavBounds.y();
+    if (navBounds.isEmpty() == false) {
+        int navTop = navBounds.y();
         int scrollBottom;
         if (testTop < navTop && navTop < (scrollBottom = mScrolledBounds.bottom())) {
             mScrolledBounds.setHeight(scrollBottom - navTop);
@@ -752,11 +754,12 @@ bool CachedRoot::innerLeft(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
     int testRight = mScrolledBounds.right();
     int viewLeft = mViewBounds.x();
-    if (mCursorBounds.isEmpty() == false &&
-            mCursorBounds.x() < viewLeft && viewLeft > mContents.x())
+    const WebCore::IntRect& navBounds = mHistory->mNavBounds;
+    if (navBounds.isEmpty() == false &&
+            navBounds.x() < viewLeft && viewLeft > mContents.x())
         return false;
-    if (mHistory->mNavBounds.isEmpty() == false) {
-        int navRight = mHistory->mNavBounds.right();
+    if (navBounds.isEmpty() == false) {
+        int navRight = navBounds.right();
         int scrollLeft;
         if (testRight > navRight && navRight > (scrollLeft = mScrolledBounds.x()))
             mScrolledBounds.setWidth(navRight - scrollLeft);
@@ -770,20 +773,17 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
     Direction direction, WebCore::IntPoint* scroll, bool firstCall)
 {
     bestData->reset();
-    mCursorChild = false;
-    bool outOfCursor = mCursorIndex < 0;
-    bool firstTime = mHistory->didFirstLayout() && outOfCursor;
+    bool outOfCursor = mCursorIndex == CURSOR_CLEARED;
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
     LOGD("%s mHistory->didFirstLayout()=%s && mCursorIndex=%d\n", __FUNCTION__,
         mHistory->didFirstLayout() ? "true" : "false", mCursorIndex);
 #endif
-    if (firstTime)
+    if (mHistory->didFirstLayout() && mCursorIndex < CURSOR_SET) {
         mHistory->reset();
+        outOfCursor = true;
+    }
     const CachedNode* cursor = currentCursor();
     mHistory->setWorking(direction, cursor, mViewBounds);
-    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
-    if (cursor != NULL)
-        cursor->getBounds(&mCursorBounds);
     bool findClosest = false;
     if (mScrollOnly == false) {
         switch (direction) {
@@ -823,7 +823,7 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
         return;
     if (bestData->mNode != NULL) {
         mHistory->addToVisited(bestData->mNode, direction);
-        mHistory->mNavBounds = mCursorBounds = bestData->mNodeBounds;
+        mHistory->mNavBounds = bestData->mNodeBounds;
         mHistory->mMouseBounds = bestData->mMouseBounds;
     } else if (scroll->x() != 0 || scroll->y() != 0) {
         WebCore::IntRect newBounds = mHistory->mNavBounds;
@@ -852,11 +852,12 @@ bool CachedRoot::innerRight(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
     int testLeft = mScrolledBounds.x();
     int viewRight = mViewBounds.right();
-    if (mCursorBounds.isEmpty() == false &&
-            mCursorBounds.right() > viewRight && viewRight < mContents.width())
+    const WebCore::IntRect& navBounds = mHistory->mNavBounds;
+    if (navBounds.isEmpty() == false &&
+            navBounds.right() > viewRight && viewRight < mContents.width())
         return false;
-    if (mHistory->mNavBounds.isEmpty() == false) {
-        int navLeft = mHistory->mNavBounds.x();
+    if (navBounds.isEmpty() == false) {
+        int navLeft = navBounds.x();
         int scrollRight;
         if (testLeft < navLeft && navLeft < (scrollRight = mScrolledBounds.right())) {
             mScrolledBounds.setWidth(scrollRight - navLeft);
@@ -876,11 +877,12 @@ bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
     int testBottom = mScrolledBounds.bottom();
     int viewTop = mViewBounds.y();
-    if (mCursorBounds.isEmpty() == false &&
-            mCursorBounds.y() < viewTop && viewTop > mContents.y())
+    const WebCore::IntRect& navBounds = mHistory->mNavBounds;
+    if (navBounds.isEmpty() == false &&
+            navBounds.y() < viewTop && viewTop > mContents.y())
         return false;
-    if (mHistory->mNavBounds.isEmpty() == false) {
-        int navBottom = mHistory->mNavBounds.bottom();
+    if (navBounds.isEmpty() == false) {
+        int navBottom = navBounds.bottom();
         int scrollTop;
         if (testBottom > navBottom && navBottom > (scrollTop = mScrolledBounds.y()))
             mScrolledBounds.setHeight(navBottom - scrollTop);
@@ -1034,7 +1036,6 @@ void CachedRoot::reset()
     mMaxXScroll = mMaxYScroll = 0;
     mSelectionStart = mSelectionEnd = -1;
     mScrollOnly = false;
-    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
 }
 
 bool CachedRoot::scrollDelta(WebCore::IntRect& newOutset, Direction direction, int* delta)
@@ -1097,11 +1098,10 @@ void CachedRoot::setCursor(CachedFrame* frame, CachedNode* node)
         bounds.width(), bounds.height());
 #endif
     clearCursor();
-    mCursorBounds = WebCore::IntRect(0, 0, 0, 0);
     if (node == NULL)
         return;
     node->setIsCursor(true);
-    mCursorBounds = node->bounds();
+    node->show();
     frame->setCursorIndex(node - frame->document());
     CachedFrame* parent;
     while ((parent = frame->parent()) != NULL) {
@@ -1145,10 +1145,8 @@ void CachedRoot::Debug::print() const
     CachedRoot* b = base();
     b->CachedFrame::mDebug.print();
     b->mHistory->mDebug.print(b);
-    DEBUG_PRINT_RECT(mCursorBounds);
     DUMP_NAV_LOGD("// int mMaxXScroll=%d, mMaxYScroll=%d;\n",
         b->mMaxXScroll, b->mMaxYScroll);
-    DEBUG_PRINT_BOOL(mCursorChild);
 #ifdef DUMP_NAV_CACHE_USING_PRINTF
     if (gNavCacheLogFile)
         fclose(gNavCacheLogFile);
