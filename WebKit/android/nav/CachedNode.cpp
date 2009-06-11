@@ -205,6 +205,15 @@ void CachedNode::cursorRingBounds(WebCore::IntRect* bounds) const
     bounds->inflate(CURSOR_RING_HIT_TEST_RADIUS);
 }
 
+void CachedNode::hideCursor(CachedFrame* parent)
+{
+    if (isFrame()) {
+        CachedFrame* child = const_cast<CachedFrame*>(parent->hasFrame(this));
+        child->hideCursor();
+    }
+    mIsHidden = false;
+}
+
 void CachedNode::init(WebCore::Node* node)
 {
     bzero(this, sizeof(CachedNode));
@@ -343,7 +352,8 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mIsAnchor);
     DEBUG_PRINT_BOOL(mIsArea);
     DEBUG_PRINT_BOOL(mIsCursor);
-    DEBUG_PRINT_BOOL(mIsInput);
+    DEBUG_PRINT_BOOL(mIsFocus);
+    DEBUG_PRINT_BOOL(mIsHidden);
     DEBUG_PRINT_BOOL(mIsParentAnchor);
     DEBUG_PRINT_BOOL(mIsPassword);
     DEBUG_PRINT_BOOL(mIsRtlText);
@@ -352,6 +362,8 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mIsTransparent);
     DEBUG_PRINT_BOOL(mIsUnclipped);
     DEBUG_PRINT_BOOL(mLast);
+    DEBUG_PRINT_BOOL(mUseBounds);
+    DEBUG_PRINT_BOOL(mUseHitBounds);
     DEBUG_PRINT_BOOL(mWantsKeyEvents);
     DUMP_NAV_LOGD("\n");
 }

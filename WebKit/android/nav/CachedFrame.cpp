@@ -112,11 +112,12 @@ bool CachedFrame::checkVisited(const CachedNode* node, Direction direction) cons
 
 void CachedFrame::clearCursor()
 {
-    if (mCursorIndex < 0)
+    DBG_NAV_LOGD("mCursorIndex=%d", mCursorIndex);
+    if (mCursorIndex < CURSOR_SET)
         return;
     CachedNode& cursor = mCachedNodes[mCursorIndex];
     cursor.clearCursor(this);
-    mCursorIndex = -1;
+    mCursorIndex = CURSOR_CLEARED; // initialized and explicitly cleared
 }
 
 // returns 0 if test is preferable to best, 1 if not preferable, or -1 if unknown
@@ -290,7 +291,7 @@ const CachedNode* CachedFrame::currentCursor(const CachedFrame** framePtr) const
 {
     if (framePtr)
         *framePtr = this;
-    if (mCursorIndex < 0)
+    if (mCursorIndex < CURSOR_SET)
         return NULL;
     const CachedNode* result = &mCachedNodes[mCursorIndex];
     const CachedFrame* frame = hasFrame(result);
@@ -334,8 +335,10 @@ CachedNode* CachedFrame::find(WebCore::Node* node) // !!! probably debugging onl
 }
 #endif
 
-const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* best,
-    bool* inside, const CachedNode** directHit, const CachedFrame** framePtr, int* x, int* y) const
+const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
+    int* best, bool* inside, const CachedNode** directHit,
+    const CachedFrame** framePtr, int* x, int* y,
+    bool checkForHiddenStart) const
 {
     const CachedNode* result = NULL;
     int rectWidth = rect.width();
@@ -349,7 +352,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
         BestData testData;
         testData.mNode = test;
         testData.mMouseBounds = testData.mNodeBounds = test->getBounds();
-        bool checkForHidden = true;
+        bool checkForHidden = checkForHiddenStart;
         for (size_t part = 0; part < parts; part++) {
             if (test->cursorRings().at(part).intersects(rect)) {
                 if (checkForHidden && mRoot->maskIfHidden(&testData) == true)
@@ -412,8 +415,8 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect, int* bes
     }
     for (const CachedFrame* frame = mCachedFrames.begin();
             frame != mCachedFrames.end(); frame++) {
-        const CachedNode* frameResult = frame->findBestAt(rect, best, inside, directHit,
-            framePtr, x, y);
+        const CachedNode* frameResult = frame->findBestAt(rect, best, inside,
+            directHit, framePtr, x, y, checkForHiddenStart);
         if (NULL != frameResult)
             result = frameResult;
     }
@@ -747,7 +750,7 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test, Bes
 int CachedFrame::framePartCommon(BestData& testData,
     const CachedNode* test, BestData* bestData, const CachedNode* cursor) const
 {
-    if (testData.mNodeBounds.contains(mRoot->cursorBounds())) {
+    if (cursor && testData.mNodeBounds.contains(cursor->bounds())) {
         testData.mNode->setCondition(CachedNode::NOT_ENCLOSING_CURSOR);
         return REJECT_TEST;
     }
@@ -840,6 +843,15 @@ const CachedFrame* CachedFrame::hasFrame(const CachedNode* node) const
     return node->isFrame() ? &mCachedFrames[node->childFrameIndex()] : NULL;
 }
 
+void CachedFrame::hideCursor()
+{
+    DBG_NAV_LOGD("mCursorIndex=%d", mCursorIndex);
+    if (mCursorIndex < CURSOR_SET)
+        return;
+    CachedNode& cursor = mCachedNodes[mCursorIndex];
+    cursor.hideCursor(this);
+}
+
 CachedHistory* CachedFrame::history() const
 {
     return mRoot->rootHistory();
@@ -852,7 +864,7 @@ void CachedFrame::init(const CachedRoot* root, int childFrameIndex,
     mLocalViewBounds = WebCore::IntRect(0, 0, 0, 0);
     mViewBounds = WebCore::IntRect(0, 0, 0, 0);
     mRoot = root;
-    mCursorIndex = -1;
+    mCursorIndex = CURSOR_UNINITIALIZED; // not explicitly cleared
     mFocusIndex = -1;
     mFrame = frame;
     mParent = NULL; // set up parents after stretchy arrays are set up

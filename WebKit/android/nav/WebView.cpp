@@ -181,16 +181,26 @@ WebViewCore* getWebViewCore() const {
     return m_viewImpl;
 }
 
-void clearCursor(int x, int y, bool inval)
+// removes the cursor altogether (e.g., when going to a new page)
+void clearCursor()
 {
-    DBG_NAV_LOGD("x=%d y=%d inval=%s", x, y, inval ? "true" : "false");
     CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root || !root->currentCursor())
+    if (!root)
         return;
-    DBG_NAV_LOG("root->setCursor(0, 0)");
-    root->setCursor(0, 0);
-    if (inval)
-        viewInvalidate();
+    DBG_NAV_LOG("");
+    root->clearCursor();
+    viewInvalidate();
+}
+
+// leaves the cursor where it is, but suppresses drawing it
+void hideCursor()
+{
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root)
+        return;
+    DBG_NAV_LOG("");
+    root->hideCursor();
+    viewInvalidate();
 }
 
 void clearTextEntry()
@@ -659,7 +669,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     int dx = 0;
     int dy = 0;
     int counter = count;
-    if (!cursor || !cursor->isInput() || !m_followedLink)
+    if (!cursor || !m_followedLink)
         root->setScrollOnly(m_followedLink);
     while (--counter >= 0) {
         WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
@@ -744,7 +754,7 @@ const CachedNode* findAt(CachedRoot* root, const WebCore::IntRect& rect,
     WebCore::IntRect visibleRect;
     getVisibleRect(&visibleRect);
     root->setVisibleRect(visibleRect);
-    return root->findAt(rect, framePtr, rxPtr, ryPtr);
+    return root->findAt(rect, framePtr, rxPtr, ryPtr, true);
 }
 
 void selectBestAt(const WebCore::IntRect& rect)
@@ -796,7 +806,7 @@ bool motionUp(int x, int y, int slop)
         DBG_NAV_LOGD("no nodes found root=%p", root);
         setNavBounds(rect);
         if (root) {
-            root->clearCursor();
+            root->hideCursor();
             int dx = root->checkForCenter(x, y);
             if (dx) {
                 scrollBy(dx, 0);
@@ -1203,11 +1213,11 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     return ret;
 }
 
-static void nativeClearCursor(JNIEnv *env, jobject obj, int x, int y)
+static void nativeClearCursor(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->clearCursor(x, y, true);
+    view->clearCursor();
 }
 
 static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl)
@@ -1478,6 +1488,13 @@ static bool nativeCursorWantsKeyEvents(JNIEnv* env, jobject jwebview) {
     return view->cursorWantsKeyEvents();
 }
 
+static void nativeHideCursor(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    view->hideCursor();
+}
+
 static void nativeInstrumentReport(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -1720,7 +1737,7 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
  * JNI registration
  */
 static JNINativeMethod gJavaWebViewMethods[] = {
-    { "nativeClearCursor", "(II)V",
+    { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
     { "nativeCreate", "(I)V",
         (void*) nativeCreate },
@@ -1788,6 +1805,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeHasCursorNode },
     { "nativeHasFocusNode", "()Z",
         (void*) nativeHasFocusNode },
+    { "nativeHideCursor", "()V",
+        (void*) nativeHideCursor },
     { "nativeImageURI", "(II)Ljava/lang/String;",
         (void*) nativeImageURI },
     { "nativeInstrumentReport", "()V",

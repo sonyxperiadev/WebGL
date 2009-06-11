@@ -60,6 +60,11 @@ public:
         TEST_IS_BEST,
         REJECT_TEST 
     };
+    enum CursorInit {
+        CURSOR_UNINITIALIZED = -2,
+        CURSOR_CLEARED = -1,
+        CURSOR_SET = 0
+    };
     CachedFrame() {}
     void add(CachedNode& node) { mCachedNodes.append(node); }
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
@@ -73,8 +78,9 @@ public:
     bool directionChange() const;
     const CachedNode* document() const { return mCachedNodes.begin(); }
     bool empty() const { return mCachedNodes.size() < 2; } // must have 1 past doc
-    const CachedNode* findBestAt(const WebCore::IntRect& , int* best, bool* inside,
-        const CachedNode** , const CachedFrame** , int* x, int* y) const;
+    const CachedNode* findBestAt(const WebCore::IntRect& , int* best,
+        bool* inside, const CachedNode** , const CachedFrame** , int* x,
+        int* y, bool checkForHidden) const;
     const CachedFrame* findBestFrameAt(int x, int y) const;
     const CachedNode* findBestHitAt(const WebCore::IntRect& , 
         int* best, const CachedFrame** , int* x, int* y) const;
@@ -85,6 +91,7 @@ public:
     CachedNode* getIndex(int index) { return index >= 0 ?
         &mCachedNodes[index] : NULL; }
     const CachedFrame* hasFrame(const CachedNode* node) const;
+    void hideCursor();
     int indexInParent() const { return mIndexInParent; }
     void init(const CachedRoot* root, int index, WebCore::Frame* frame);
     const CachedFrame* lastChild() const { return &mCachedFrames.last(); }
