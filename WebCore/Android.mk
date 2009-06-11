@@ -22,6 +22,19 @@
 # LOCAL_SRC_FILES_EXCLUDED := \
 #	DerivedSources.cpp \
 #	WebCorePrefix.cpp \
+#	bindings/js/JSCustomSQL*.cpp \
+#	bindings/js/JSCustomVersionChangeCallback.cpp \
+#	bindings/js/JSDatabaseCustom.cpp \
+#	bindings/js/JSHTMLAudioElementConstructor.cpp \
+#	bindings/js/JSSQL*.cpp \
+#	bindings/js/JSStorageCustom.cpp \
+#	bindings/js/JSXSLTProcessor*.cpp \
+#	bindings/js/JSWorker*.cpp \
+#	bindings/js/Worker*.cpp \
+#	bindings/js/*Gtk.cpp \
+#	bindings/js/*Qt.cpp \
+#	bindings/js/*Win.cpp \
+#	bindings/js/*Wx.cpp \
 #	bridge/test*.cpp \
 #	css/CSSGrammar.y \
 #	dom/Worker*.cpp \
@@ -102,6 +115,130 @@
 # The remainder of the file is read by tools/webkitsync/diff.cpp
 # If you edit it, keep it in alphabetical order
 LOCAL_SRC_FILES := \
+	bindings/js/GCController.cpp \
+	bindings/js/JSAttrCustom.cpp \
+	bindings/js/JSAudioConstructor.cpp \
+	bindings/js/JSCDATASectionCustom.cpp \
+	bindings/js/JSCSSRuleCustom.cpp \
+	bindings/js/JSCSSStyleDeclarationCustom.cpp \
+	bindings/js/JSCSSValueCustom.cpp \
+	bindings/js/JSCanvasRenderingContext2DCustom.cpp \
+	bindings/js/JSClipboardCustom.cpp \
+	bindings/js/JSConsoleCustom.cpp \
+	bindings/js/JSCustomPositionCallback.cpp \
+	bindings/js/JSCustomPositionErrorCallback.cpp \
+	bindings/js/JSCustomSQLStatementCallback.cpp \
+	bindings/js/JSCustomSQLStatementErrorCallback.cpp \
+	bindings/js/JSCustomSQLTransactionCallback.cpp \
+	bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
+	bindings/js/JSCustomVoidCallback.cpp \
+	bindings/js/JSCustomXPathNSResolver.cpp \
+	bindings/js/JSDatabaseCustom.cpp \
+	bindings/js/JSDOMApplicationCacheCustom.cpp \
+	bindings/js/JSDOMBinding.cpp \
+	bindings/js/JSDOMGlobalObject.cpp \
+	bindings/js/JSDOMStringListCustom.cpp \
+	bindings/js/JSDOMWindowBase.cpp \
+	bindings/js/JSDOMWindowCustom.cpp \
+	bindings/js/JSDOMWindowShell.cpp \
+	bindings/js/JSDocumentCustom.cpp \
+	bindings/js/JSDocumentFragmentCustom.cpp \
+	bindings/js/JSElementCustom.cpp \
+	bindings/js/JSEventCustom.cpp \
+	bindings/js/JSEventListener.cpp \
+	bindings/js/JSEventTarget.cpp \
+	bindings/js/JSGeolocationCustom.cpp \
+	bindings/js/JSHTMLAllCollection.cpp \
+	bindings/js/JSHTMLAppletElementCustom.cpp \
+	bindings/js/JSHTMLCollectionCustom.cpp \
+	bindings/js/JSHTMLDocumentCustom.cpp \
+	bindings/js/JSHTMLElementCustom.cpp \
+	bindings/js/JSHTMLEmbedElementCustom.cpp \
+	bindings/js/JSHTMLFormElementCustom.cpp \
+	bindings/js/JSHTMLFrameElementCustom.cpp \
+	bindings/js/JSHTMLFrameSetElementCustom.cpp \
+	bindings/js/JSHTMLIFrameElementCustom.cpp \
+	bindings/js/JSHTMLInputElementCustom.cpp \
+	bindings/js/JSHTMLObjectElementCustom.cpp \
+	bindings/js/JSHTMLOptionsCollectionCustom.cpp \
+	bindings/js/JSHTMLSelectElementCustom.cpp \
+	bindings/js/JSHistoryCustom.cpp \
+	bindings/js/JSImageConstructor.cpp \
+	bindings/js/JSImageDataCustom.cpp \
+	bindings/js/JSInspectedObjectWrapper.cpp \
+	bindings/js/JSInspectorCallbackWrapper.cpp \
+	bindings/js/JSJavaScriptCallFrameCustom.cpp \
+	bindings/js/JSLazyEventListener.cpp \
+	bindings/js/JSLocationCustom.cpp \
+	bindings/js/JSMessageChannelConstructor.cpp \
+	bindings/js/JSMessageChannelCustom.cpp \
+	bindings/js/JSMessagePortCustom.cpp \
+	bindings/js/JSMimeTypeArrayCustom.cpp \
+	bindings/js/JSNamedNodeMapCustom.cpp \
+	bindings/js/JSNamedNodesCollection.cpp \
+	bindings/js/JSNavigatorCustom.cpp \
+	bindings/js/JSNodeCustom.cpp \
+	bindings/js/JSNodeFilterCondition.cpp \
+	bindings/js/JSNodeFilterCustom.cpp \
+	bindings/js/JSNodeIteratorCustom.cpp \
+	bindings/js/JSNodeListCustom.cpp \
+	bindings/js/JSOptionConstructor.cpp \
+	bindings/js/JSPluginArrayCustom.cpp \
+	bindings/js/JSPluginCustom.cpp \
+	bindings/js/JSPluginElementFunctions.cpp \
+	bindings/js/JSQuarantinedObjectWrapper.cpp \
+	bindings/js/JSRGBColor.cpp \
+	bindings/js/JSSQLResultSetRowListCustom.cpp \
+	bindings/js/JSSQLTransactionCustom.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	bindings/js/JSSVGElementInstanceCustom.cpp \
+	bindings/js/JSSVGLengthCustom.cpp \
+	bindings/js/JSSVGMatrixCustom.cpp \
+	bindings/js/JSSVGPathSegCustom.cpp \
+	bindings/js/JSSVGPathSegListCustom.cpp \
+	bindings/js/JSSVGPointListCustom.cpp \
+	bindings/js/JSSVGTransformListCustom.cpp
+endif
+    
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	bindings/js/JSStyleSheetCustom.cpp \
+	bindings/js/JSStyleSheetListCustom.cpp \
+	bindings/js/JSTextCustom.cpp \
+	bindings/js/JSTreeWalkerCustom.cpp \
+	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
+	bindings/js/JSWebKitPointConstructor.cpp \
+	bindings/js/JSXMLHttpRequestConstructor.cpp \
+	bindings/js/JSXMLHttpRequestCustom.cpp \
+	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
+	bindings/js/ScheduledAction.cpp \
+	bindings/js/ScriptCachedFrameData.cpp \
+	bindings/js/ScriptCallFrame.cpp \
+	bindings/js/ScriptCallStack.cpp \
+	bindings/js/ScriptController.cpp \
+	bindings/js/ScriptControllerAndroid.cpp \
+	bindings/js/ScriptFunctionCall.cpp \
+	bindings/js/ScriptObject.cpp \
+	bindings/js/ScriptValue.cpp \
+	\
+	bridge/IdentifierRep.cpp \
+	bridge/NP_jsobject.cpp \
+	bridge/c/c_class.cpp \
+	bridge/c/c_instance.cpp \
+	bridge/c/c_runtime.cpp \
+	bridge/c/c_utility.cpp \
+	bridge/jni/jni_class.cpp \
+	bridge/jni/jni_instance.cpp \
+	bridge/jni/jni_runtime.cpp \
+	bridge/jni/jni_utility.cpp \
+	bridge/npruntime.cpp \
+	bridge/runtime.cpp \
+	bridge/runtime_array.cpp \
+	bridge/runtime_method.cpp \
+	bridge/runtime_object.cpp \
+	bridge/runtime_root.cpp \
+	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
 	css/CSSCharsetRule.cpp \
@@ -576,6 +713,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/android_graphics.cpp \
 
+
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/filters/FEBlend.cpp \
@@ -603,8 +741,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
-	platform/image-decoders/skia/GIFImageDecoder.cpp \
-	platform/image-decoders/skia/GIFImageReader.cpp \
+  platform/image-decoders/skia/GIFImageDecoder.cpp \
+  platform/image-decoders/skia/GIFImageReader.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
@@ -716,7 +854,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderPartObject.cpp \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
-	rendering/RenderReplica.cpp
+	rendering/RenderReplica.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
