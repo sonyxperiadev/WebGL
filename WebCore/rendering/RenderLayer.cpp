@@ -1956,9 +1956,14 @@ RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         int x = 0;
         int y = 0;
         convertToLayerCoords(rootLayer, x, y);
+#ifdef ANDROID_FASTER_MATRIX
+        TransformationMatrix transform(*m_transform);
+        transform.translateRight(x, y);
+#else
         TransformationMatrix transform;
         transform.translate(x, y);
         transform = *m_transform * transform;
+#endif
         
         // Apply the transform.
         p->save();
