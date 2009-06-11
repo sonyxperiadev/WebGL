@@ -18,7 +18,7 @@
 LOCAL_PATH := $(call my-dir)
 
 ifeq ($(ENABLE_V8),true)
-# include $(LOCAL_PATH)/Android.v8.mk
+include $(LOCAL_PATH)/Android.v8.mk
 else
 include $(LOCAL_PATH)/Android.jsc.mk
 endif

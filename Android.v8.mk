@@ -42,7 +42,7 @@ WEBKIT_SRC_FILES += $(addprefix WebCore/, $(WEBCORE_SRC_FILES))
 d := JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
-include $(LOCAL_PATH)/Android.wtf.mk
+include $(LOCAL_PATH)/Android.v8.wtf.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
 # Include source files for WebCore
