@@ -453,6 +453,7 @@ void drawCursorRing(SkCanvas* canvas)
         DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
             bounds.x(), bounds.y(), bounds.width(), bounds.height());
     m_viewImpl->m_cursorBounds = bounds;
+    m_viewImpl->m_cursorNode = node->nodePointer();
     m_viewImpl->gCursorBoundsMutex.unlock();
     bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
     if (canvas->quickReject(bounds, SkCanvas::kAA_EdgeType)) {
@@ -681,6 +682,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         m_viewImpl->gCursorBoundsMutex.lock();
         m_viewImpl->m_hasCursorBounds = true;
         m_viewImpl->m_cursorBounds = cachedNode->bounds();
+        m_viewImpl->m_cursorNode = cachedNode->nodePointer();
         m_viewImpl->gCursorBoundsMutex.unlock();
     }
     DBG_NAV_LOGD("new cursor %d (nativeNode=%p) cursorLocation={%d, %d}"

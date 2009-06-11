@@ -486,15 +486,34 @@ void WebViewCore::recordPictureSet(PictureSet* content)
             latestVersion += frame->document()->domTreeVersion();
         }
     }
-    if (m_lastFocused != oldFocusNode || m_lastFocusedBounds != oldBounds || m_findIsUp
-            || (m_check_domtree_version && latestVersion != m_domtree_version)) {
-        m_lastFocused = oldFocusNode;
-        m_lastFocusedBounds = oldBounds;
-        DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
-            m_domtree_version, latestVersion);
-        m_domtree_version = latestVersion;
-        updateFrameCache();
+    bool update = m_lastFocused != oldFocusNode
+        || m_lastFocusedBounds != oldBounds || m_findIsUp
+        || (m_check_domtree_version && latestVersion != m_domtree_version);
+    if (!update && m_hasCursorBounds) { // avoid mutex when possible
+        bool hasCursorBounds;
+        void* cursorNode;
+        gCursorBoundsMutex.lock();
+        hasCursorBounds = m_hasCursorBounds;
+        cursorNode = m_cursorNode;
+        IntRect bounds = m_cursorBounds;
+        gCursorBoundsMutex.unlock();
+        if (hasCursorBounds && cursorNode) {
+            IntPoint center = IntPoint(bounds.x() + (bounds.width() >> 1),
+                 bounds.y() + (bounds.height() >> 1));
+            HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                hitTestResultAtPoint(center, false);
+            if (m_cursorNode == hitTestResult.innerNode())
+                return; // don't update
+            DBG_NAV_LOGD("at (%d,%d) old=%p new=%p", center.x(), center.y(),
+                m_cursorNode, hitTestResult.innerNode());
+        }
     }
+    m_lastFocused = oldFocusNode;
+    m_lastFocusedBounds = oldBounds;
+    DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
+        m_domtree_version, latestVersion);
+    m_domtree_version = latestVersion;
+    updateFrameCache();
 }
 
 void WebViewCore::updateButtonList(WTF::Vector<Container>* buttons)

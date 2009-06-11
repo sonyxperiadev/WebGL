@@ -331,6 +331,7 @@ namespace android {
         bool m_findIsUp;
         bool m_hasCursorBounds;
         WebCore::IntRect m_cursorBounds;
+        void* m_cursorNode;
         static Mutex gCursorBoundsMutex;
         // These two fields go together: we use the mutex to protect access to
         // m_buttons, so that we, and webview.cpp can look/modify the m_buttons
