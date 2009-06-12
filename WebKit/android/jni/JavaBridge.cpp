@@ -31,6 +31,7 @@
 #include "Cache.h"
 #include "CookieClient.h"
 #include "JavaSharedClient.h"
+#include "KeyGeneratorClient.h"
 #include "KURL.h"
 #include "NetworkStateNotifier.h"
 #include "Timer.h"
@@ -55,7 +56,7 @@ static jfieldID gJavaBridge_ObjectID;
 
 // ----------------------------------------------------------------------------
    
-class JavaBridge : public TimerClient, public CookieClient
+class JavaBridge : public TimerClient, public CookieClient, public KeyGeneratorClient
 {
 public:
     JavaBridge(JNIEnv* env, jobject obj);
@@ -70,6 +71,10 @@ public:
     virtual void setCookies(WebCore::KURL const& url, WebCore::KURL const& docURL, WebCore::String const& value);
     virtual WebCore::String cookies(WebCore::KURL const& url);
     virtual bool cookiesEnabled();
+
+    virtual WTF::Vector<String> getSupportedKeyStrengthList();
+    virtual WebCore::String getSignedPublicKeyAndChallengeString(unsigned index,
+            const WebCore::String& challenge, const WebCore::KURL& url);
 
     ////////////////////////////////////////////
 
@@ -96,6 +101,8 @@ private:
     jmethodID   mCookies;
     jmethodID   mCookiesEnabled;
     jmethodID   mSignalFuncPtrQueue;
+    jmethodID   mGetKeyStrengthList;
+    jmethodID   mGetSignedPublicKey;
 };
 
 static void (*sSharedTimerFiredCallback)();
@@ -112,15 +119,20 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mCookies = env->GetMethodID(clazz, "cookies", "(Ljava/lang/String;)Ljava/lang/String;");
     mCookiesEnabled = env->GetMethodID(clazz, "cookiesEnabled", "()Z");
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
+    mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
+    mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
 
     LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
     LOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
     LOG_ASSERT(mSetCookies, "Could not find method setCookies");
     LOG_ASSERT(mCookies, "Could not find method cookies");
     LOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
+    LOG_ASSERT(mGetKeyStrengthList, "Could not find method getKeyStrengthList");
+    LOG_ASSERT(mGetSignedPublicKey, "Could not find method getSignedPublicKey");
 
     JavaSharedClient::SetTimerClient(this);
     JavaSharedClient::SetCookieClient(this);
+    JavaSharedClient::SetKeyGeneratorClient(this);
     gJavaBridge = this;
 }   
     
@@ -134,6 +146,7 @@ JavaBridge::~JavaBridge()
     
     JavaSharedClient::SetTimerClient(NULL);
     JavaSharedClient::SetCookieClient(NULL);
+    JavaSharedClient::SetKeyGeneratorClient(NULL);
 }
 
 void
@@ -211,6 +224,40 @@ void JavaBridge::signalServiceFuncPtrQueue()
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     env->CallVoidMethod(obj.get(), mSignalFuncPtrQueue);
+}
+
+WTF::Vector<WebCore::String>JavaBridge::getSupportedKeyStrengthList() {
+    WTF::Vector<WebCore::String> list;
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jobjectArray array = (jobjectArray) env->CallObjectMethod(obj.get(),
+            mGetKeyStrengthList);
+    int count = env->GetArrayLength(array);
+    for (int i = 0; i < count; ++i) {
+        jstring keyStrength = (jstring) env->GetObjectArrayElement(array, i);
+        list.append(to_string(env, keyStrength));
+        env->DeleteLocalRef(keyStrength);
+    }
+    env->DeleteLocalRef(array);
+    checkException(env);
+    return list;
+}
+
+WebCore::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
+        const WebCore::String& challenge, const WebCore::KURL& url) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jChallenge = env->NewString(challenge.characters(),
+            challenge.length());
+    const WebCore::String& urlStr = url.string();
+    jstring jUrl = env->NewString(urlStr.characters(), urlStr.length());
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jstring key = (jstring) env->CallObjectMethod(obj.get(),
+            mGetSignedPublicKey, index, jChallenge, jUrl);
+    WebCore::String ret = to_string(env, key);
+    env->DeleteLocalRef(jChallenge);
+    env->DeleteLocalRef(jUrl);
+    env->DeleteLocalRef(key);
+    return ret;
 }
 
 // ----------------------------------------------------------------------------

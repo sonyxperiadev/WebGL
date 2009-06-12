@@ -45,6 +45,12 @@ namespace android {
         return gCookieClient;
     }
 
+    KeyGeneratorClient* JavaSharedClient::GetKeyGeneratorClient()
+    {
+        //LOG_ASSERT(gKeyGeneratorClient != NULL, "gKeyGeneratorClient not initialized!!!");
+        return gKeyGeneratorClient;
+    }
+
     void JavaSharedClient::SetTimerClient(TimerClient* client)
     {
         //LOG_ASSERT(gTimerClient == NULL || client == NULL, "gTimerClient already set, aborting...");
@@ -57,8 +63,15 @@ namespace android {
         gCookieClient = client;
     }
 
+    void JavaSharedClient::SetKeyGeneratorClient(KeyGeneratorClient* client)
+    {
+        //LOG_ASSERT(gKeyGeneratorClient == NULL || client == NULL, "gKeyGeneratorClient already set, aborting...");
+        gKeyGeneratorClient = client;
+    }
+
     TimerClient*    JavaSharedClient::gTimerClient = NULL;
     CookieClient*   JavaSharedClient::gCookieClient = NULL;
+    KeyGeneratorClient* JavaSharedClient::gKeyGeneratorClient = NULL;
 
     ///////////////////////////////////////////////////////////////////////////
     
