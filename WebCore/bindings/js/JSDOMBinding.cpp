@@ -412,6 +412,8 @@ void reportException(JSC::ExecState* exec, JSValuePtr exception)
     exec->clearException();
 
     ScriptExecutionContext* scriptExecutionContext = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
+    if (!scriptExecutionContext)
+        return;
     scriptExecutionContext->reportException(errorMessage, lineNumber, exceptionSourceURL);
 }
 
