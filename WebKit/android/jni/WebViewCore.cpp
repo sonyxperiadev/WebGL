@@ -489,7 +489,10 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     bool update = m_lastFocused != oldFocusNode
         || m_lastFocusedBounds != oldBounds || m_findIsUp
         || (m_check_domtree_version && latestVersion != m_domtree_version);
-    if (!update && m_hasCursorBounds) { // avoid mutex when possible
+    // This block is specifically for the floating bar in gmail messages
+    // it has been disabled because it adversely affects the performance
+    // of loading all pages.
+    if (false && !update && m_hasCursorBounds) { // avoid mutex when possible
         bool hasCursorBounds;
         void* cursorNode;
         gCursorBoundsMutex.lock();
