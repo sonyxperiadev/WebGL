@@ -128,7 +128,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
-    m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "()V");
+    m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIII)V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
@@ -710,8 +710,11 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     bool result = false;
     if (cachedNode) {
-        root->setCursor((CachedFrame*) cachedFrame, (CachedNode*) cachedNode);
-        sendMoveMouseIfLatest();
+        root->setCursor(const_cast<CachedFrame*>(cachedFrame),
+                const_cast<CachedNode*>(cachedNode));
+        bool disableFocusController = cachedNode != root->currentFocus()
+                && cachedNode->wantsKeyEvents();
+        sendMoveMouseIfLatest(disableFocusController);
         viewInvalidate();
     } else {
         int docHeight = root->documentHeight();
@@ -763,18 +766,23 @@ void selectBestAt(const WebCore::IntRect& rect)
 {
     const CachedFrame* frame;
     int rx, ry;
+    bool disableFocusController = false;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
+        disableFocusController = true;
         if (root)
             root->setCursor(0, 0);
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
         root->setCursor(const_cast<CachedFrame*>(frame),
-            const_cast<CachedNode*>(node));
+                const_cast<CachedNode*>(node));
+        if (!node->wantsKeyEvents()) {
+            disableFocusController = true;
+        }
     }
-    sendMoveMouseIfLatest();
+    sendMoveMouseIfLatest(disableFocusController);
     viewInvalidate();
 }
 
@@ -1014,12 +1022,12 @@ void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int 
     checkException(env);
 }
 
-void sendMoveMouseIfLatest()
+void sendMoveMouseIfLatest(bool disableFocusController)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_sendMoveMouseIfLatest);
+            m_javaGlue.m_sendMoveMouseIfLatest, disableFocusController);
     checkException(env);
 }
 

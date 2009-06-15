@@ -1432,6 +1432,7 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
     setSelection(start, end);
+    setFocusControllerActive(true);
 }
 
 void WebViewCore::passToJs(
@@ -1460,6 +1461,7 @@ void WebViewCore::passToJs(
     WebCore::RenderObject* renderer = focus->renderer();
     if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
         return;
+    setFocusControllerActive(true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WebCore::String test = renderText->text();
@@ -1666,6 +1668,7 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
     return eventHandler->keyEvent(evt);
 }
 
+// For when the user clicks the trackball
 bool WebViewCore::click() {
     bool keyHandled = false;
     WebCore::IntPoint pt = m_mousePos;
@@ -1674,9 +1677,7 @@ bool WebViewCore::click() {
         hitTestResultAtPoint(pt, false);
     WebCore::Node* focusNode = hitTestResult.innerNode();
     if (focusNode) {
-        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(true);
         keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
-        WebFrame::getWebFrame(m_mainFrame)->setUserInitiatedClick(false);
     }
     return keyHandled;
 }
@@ -1730,6 +1731,7 @@ void WebViewCore::touchUp(int touchGeneration,
     client->setFromClick(false);
 }
 
+// Common code for both clicking with the trackball and touchUp
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
     bool valid = framePtr == NULL
@@ -1787,6 +1789,15 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedClick(false);
+
+    // If the user clicked on a textfield, make the focusController active
+    // so we show the blinking cursor.
+    WebCore::Node* focusNode = currentFocus();
+    if (focusNode) {
+        WebCore::RenderObject* renderer = focusNode->renderer();
+        if (renderer && (renderer->isTextField() || renderer->isTextArea()))
+            setFocusControllerActive(true);
+    }
     return handled;
 }
 
@@ -2097,15 +2108,15 @@ static void PassToJs(JNIEnv *env, jobject obj,
         generation, current, keyCode, keyValue, down, cap, fn, sym);
 }
 
-static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
+static void SetFocusControllerInactive(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
+    LOGV("webviewcore::nativeSetFocusControllerInactive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
-    viewImpl->setFocusControllerActive(active);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerInactive");
+    viewImpl->setFocusControllerActive(false);
 }
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
@@ -2507,8 +2518,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) MoveMouseIfLatest },
     { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
-    { "nativeSetFocusControllerActive", "(Z)V",
-        (void*) SetFocusControllerActive },
+    { "nativeSetFocusControllerInactive", "()V",
+        (void*) SetFocusControllerInactive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",
