@@ -59,6 +59,9 @@
 #include "RenderObject.h"
 #include "npruntime_impl.h"
 #include "Settings.h"
+#if defined(ANDROID_PLUGINS)
+#include "TouchEvent.h"
+#endif
 
 #if USE(JSC)
 #include "JSDOMWindow.h"
@@ -160,7 +163,12 @@ void PluginView::handleEvent(Event* event)
         handleMouseEvent(static_cast<MouseEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
+#if defined(ANDROID_PLUGINS)
+    else if (event->isTouchEvent())
+        handleTouchEvent(static_cast<TouchEvent*>(event));
+#endif
 }
+
 
 bool PluginView::start()
 {

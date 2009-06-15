@@ -73,6 +73,9 @@ namespace WebCore {
     class Frame;
     class KeyboardEvent;
     class MouseEvent;
+#ifdef ANDROID_PLUGINS
+    class TouchEvent;
+#endif
     class KURL;
 #if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
     class PluginMessageThrottlerWin;
@@ -207,6 +210,11 @@ namespace WebCore {
 
         static bool isCallingPlugin();
 
+#ifdef ANDROID_PLUGINS
+        Frame* getParentFrame() const { return m_parentFrame; }
+        Element* getElement() const { return m_element; }
+#endif
+
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
@@ -258,6 +266,7 @@ namespace WebCore {
         void handleMouseEvent(MouseEvent*);
 
 #ifdef ANDROID_PLUGINS
+        void handleTouchEvent(TouchEvent*);
         // called at the end of the base constructor
         void platformInit();
 #endif

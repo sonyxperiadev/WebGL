@@ -126,9 +126,9 @@ typedef uint32_t ANPMatrixFlag;
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
 
 ///////////////////////////////////////////////////////////////////////////////
-// NPN_GetValue
+// NPN_SetValue
 
-/** Reqeust to set the drawing model.
+/** Request to set the drawing model.
 
     NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_DrawingModel)
  */
@@ -146,6 +146,24 @@ enum ANPDrawingModels {
     kBitmap_ANPDrawingModel = 0,
 };
 typedef int32_t ANPDrawingModel;
+
+/** Request to receive/disable events. If the pointer is NULL then all input will
+    be disabled. Otherwise, the input type will be enabled iff its corresponding
+    bit in the EventFlags bit field is set.
+
+    NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
+ */
+#define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
+
+/*  The EventFlags are a set of bits used to determine which types of input the
+    plugin wishes to receive. For example, if the value is 0x03 then both key
+    and touch events will be provided to the plugin.
+ */
+enum ANPEventFlag {
+    kKey_ANPEventFlag      = 0x01,
+    kTouch_ANPEventFlag    = 0x02,
+};
+typedef uint32_t ANPEventFlags;
 
 /*  Interfaces provide additional functionality to the plugin via function ptrs.
     Once an interface is retrived, it is valid for the lifetime of the plugin
@@ -699,8 +717,10 @@ enum ANPKeyModifiers {
 typedef uint32_t ANPKeyModifier;
 
 enum ANPTouchActions {
-    kDown_ANPTouchAction  = 0,
-    kUp_ANPTouchAction    = 1,
+    kDown_ANPTouchAction   = 0,
+    kUp_ANPTouchAction     = 1,
+    kMove_ANPTouchAction   = 2,
+    kCancel_ANPTouchAction = 3,
 };
 typedef int32_t ANPTouchAction;
 

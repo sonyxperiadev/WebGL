@@ -25,6 +25,9 @@
 
 #include "config.h"
 #include "android_graphics.h"
+#include "Document.h"
+#include "Element.h"
+#include "Frame.h"
 #include "PluginPackage.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
@@ -37,6 +40,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_flipPixelRef = NULL;
     m_core = NULL;
     m_drawingModel = kBitmap_ANPDrawingModel;
+    m_eventFlags = 0;
     m_x = m_y = 0;
 }
 
@@ -156,3 +160,24 @@ bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
     return false;
 }
 
+void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
+
+    // if there are no differences then immediately return
+    if (m_eventFlags == flags) {
+        return;
+    }
+
+    Document* doc = m_pluginView->getParentFrame()->document();
+    if((m_eventFlags ^ flags) & kTouch_ANPEventFlag) {
+        if(flags & kTouch_ANPEventFlag)
+            doc->addTouchEventListener(m_pluginView->getElement());
+        else
+            doc->removeTouchEventListener(m_pluginView->getElement());
+    }
+
+    m_eventFlags = flags;
+}
+
+bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
+    return m_eventFlags & flag;
+}
