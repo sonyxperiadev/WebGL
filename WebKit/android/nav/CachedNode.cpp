@@ -211,7 +211,7 @@ void CachedNode::hideCursor(CachedFrame* parent)
         CachedFrame* child = const_cast<CachedFrame*>(parent->hasFrame(this));
         child->hideCursor();
     }
-    mIsHidden = false;
+    mIsHidden = true;
 }
 
 void CachedNode::init(WebCore::Node* node)
