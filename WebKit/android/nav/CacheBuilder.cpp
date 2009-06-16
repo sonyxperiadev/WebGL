@@ -2884,7 +2884,7 @@ bool CacheBuilder::ConstructTextRects(Text* node, int start,
                 if ((int) textBox->end() >= start)
                     break;
             } while ((textBox = textBox->nextTextBox()) != NULL);
-            if (ConstructTextRect(node, textBox, start, relEnd, 
+            if (textBox && ConstructTextRect(node, textBox, start, relEnd,
                     x, y, focusBounds, clipBounds, result) == false)
                 return false;
         }
