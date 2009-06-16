@@ -649,6 +649,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/SearchPopupMenuAndroid.cpp \
 	platform/android/SharedTimerAndroid.cpp \
 	platform/android/SoundAndroid.cpp \
+	platform/android/SSLKeyGeneratorAndroid.cpp \
 	platform/android/SystemTimeAndroid.cpp \
 	platform/android/TemporaryLinkStubs.cpp \
 	platform/android/WidgetAndroid.cpp \
