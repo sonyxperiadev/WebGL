@@ -88,7 +88,8 @@ public:
         mAllowableTypes & ~EMAIL_CACHEDNODETYPE); }
     void disallowPhoneDetection() { mAllowableTypes = (CachedNodeType) (
         mAllowableTypes & ~PHONE_CACHEDNODETYPE); }
-    static FoundState FindAddress(const UChar* , unsigned length, int* start, int* end);
+    static FoundState FindAddress(const UChar* , unsigned length, int* start,
+        int* end, bool caseInsensitive);
     static void GetGlobalOffset(Frame* , int* x, int * y);
     static void GetGlobalOffset(Node* , int* x, int * y);
     static bool validNode(Frame* startFrame, void* framePtr, void* nodePtr);
@@ -163,6 +164,7 @@ private:
         bool mOpenParen;
         bool mInitialized;
         bool mContinuationNode;
+        bool mCaseInsensitive;
     };
     struct ClipColumnTracker {
         IntRect mBounds;

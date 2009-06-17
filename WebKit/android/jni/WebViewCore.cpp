@@ -2192,7 +2192,8 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
     viewImpl->popupReply(array, count);
 }
 
-static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
+static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
+    jboolean caseInsensitive)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2205,7 +2206,7 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr)
     const jchar* addrChars = env->GetStringChars(addr, 0);
     int start, end;
     bool success = CacheBuilder::FindAddress(addrChars, length,
-        &start, &end) == CacheBuilder::FOUND_COMPLETE;
+        &start, &end, caseInsensitive) == CacheBuilder::FOUND_COMPLETE;
     jstring ret = 0;
     if (success) {
         ret = env->NewString((jchar*) addrChars + start, end - start);
@@ -2525,7 +2526,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetFocusControllerInactive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
-    { "nativeFindAddress", "(Ljava/lang/String;)Ljava/lang/String;",
+    { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(III)Z",
             (void*) HandleTouchEvent },
