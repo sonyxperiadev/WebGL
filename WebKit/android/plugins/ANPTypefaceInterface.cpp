@@ -26,6 +26,7 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 #include "SkANP.h"
+#include "SkFontHost.h"
 
 static ANPTypeface* anp_createFromName(const char name[], ANPTypefaceStyle s) {
     SkTypeface* tf = SkTypeface::CreateFromName(name,
@@ -57,6 +58,28 @@ static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {
     return static_cast<ANPTypefaceStyle>(s);
 }
 
+static uint32_t anp_countTables(const ANPTypeface* tf) {
+    SkFontID id = SkTypeface::UniqueID(tf);
+    return SkFontHost::CountTables(id);
+}
+
+static uint32_t anp_getTableTags(const ANPTypeface* tf,
+                                 ANPFontTableTag tags[]) {
+    SkFontID id = SkTypeface::UniqueID(tf);
+    return SkFontHost::GetTableTags(id, tags);
+}
+
+static uint32_t anp_getTableSize(const ANPTypeface* tf, ANPFontTableTag tag) {
+    SkFontID id = SkTypeface::UniqueID(tf);
+    return SkFontHost::GetTableSize(id, tag);
+}
+
+static uint32_t anp_getTableData(const ANPTypeface* tf, ANPFontTableTag tag,
+                                 uint32_t offset, uint32_t length, void* data) {
+    SkFontID id = SkTypeface::UniqueID(tf);
+    return SkFontHost::GetTableData(id, tag, offset, length, data);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -70,5 +93,9 @@ void ANPTypefaceInterfaceV0_Init(ANPInterface* v) {
     ASSIGN(i, ref);
     ASSIGN(i, unref);
     ASSIGN(i, getStyle);
+    ASSIGN(i, countTables);
+    ASSIGN(i, getTableTags);
+    ASSIGN(i, getTableSize);
+    ASSIGN(i, getTableData);
 }
 
