@@ -26,7 +26,10 @@
 #include "config.h"
 #include "JSEventTarget.h"
 
+#include "DOMWindow.h"
 #include "Document.h"
+#include "JSDOMWindow.h"
+#include "JSDOMWindowShell.h"
 #include "JSEventListener.h"
 #include "JSMessagePort.h"
 #include "JSNode.h"
@@ -57,7 +60,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValuePtr toJS(ExecState* exec, EventTarget* target)
+JSValue toJS(ExecState* exec, EventTarget* target)
 {
     if (!target)
         return jsNull();
@@ -70,6 +73,9 @@ JSValuePtr toJS(ExecState* exec, EventTarget* target)
     
     if (Node* node = target->toNode())
         return toJS(exec, node);
+
+    if (DOMWindow* domWindow = target->toDOMWindow())
+        return toJS(exec, domWindow);
 
     if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
         // XMLHttpRequest is always created via JS, so we don't need to use cacheDOMObject() here.
@@ -99,7 +105,7 @@ JSValuePtr toJS(ExecState* exec, EventTarget* target)
     return jsNull();
 }
 
-EventTarget* toEventTarget(JSC::JSValuePtr value)
+EventTarget* toEventTarget(JSC::JSValue value)
 {
     #define CONVERT_TO_EVENT_TARGET(type) \
         if (value.isObject(&JS##type::s_info)) \
@@ -109,6 +115,9 @@ EventTarget* toEventTarget(JSC::JSValuePtr value)
     CONVERT_TO_EVENT_TARGET(XMLHttpRequest)
     CONVERT_TO_EVENT_TARGET(XMLHttpRequestUpload)
     CONVERT_TO_EVENT_TARGET(MessagePort)
+
+    if (value.isObject(&JSDOMWindowShell::s_info))
+        return static_cast<JSDOMWindowShell*>(asObject(value))->impl();
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     CONVERT_TO_EVENT_TARGET(DOMApplicationCache)

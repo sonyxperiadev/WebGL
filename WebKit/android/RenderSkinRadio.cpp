@@ -28,7 +28,7 @@
 
 #include "android_graphics.h"
 #include "Document.h"
-#include "FormControlElement.h"
+#include "Element.h"
 #include "InputElement.h"
 #include "IntRect.h"
 #include "Node.h"
@@ -66,12 +66,8 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
     int saveLayerCount = 0;
     int saveScaleCount = 0;
 
-    bool enabled = false;
-    if (FormControlElement* control = toFormControlElement(static_cast<Element*>(element))) {
-        enabled = control->isEnabled();
-    }
-
-    if (!enabled) {
+    if (!element->isElementNode() ||
+        !static_cast<Element*>(element)->isEnabledFormControl()) {
         saveLayerCount = canvas->saveLayerAlpha(&r, 0x80);
     }
     SkScalar width = r.width();

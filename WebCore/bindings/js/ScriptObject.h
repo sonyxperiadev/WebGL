@@ -31,18 +31,40 @@
 #ifndef ScriptObject_h
 #define ScriptObject_h
 
+#include "ScriptState.h"
 #include "ScriptValue.h"
 
 #include <runtime/JSObject.h>
 #include <runtime/Protect.h>
 
 namespace WebCore {
+    class InspectorController;
 
     class ScriptObject : public ScriptValue {
     public:
         ScriptObject(JSC::JSObject*);
         ScriptObject() {}
         JSC::JSObject* jsObject() const { return asObject(jsValue()); }
+
+        bool set(ScriptState*, const String& name, const String&);
+        bool set(ScriptState*, const char* name, const ScriptObject&);
+        bool set(ScriptState*, const char* name, const String&);
+        bool set(ScriptState*, const char* name, double);
+        bool set(ScriptState*, const char* name, long long);
+        bool set(ScriptState*, const char* name, int);
+        bool set(ScriptState*, const char* name, bool);
+
+        static ScriptObject createNew(ScriptState*);
+    };
+
+    class ScriptGlobalObject {
+    public:
+        static bool set(ScriptState*, const char* name, const ScriptObject&);
+        static bool set(ScriptState*, const char* name, InspectorController*);
+        static bool get(ScriptState*, const char* name, ScriptObject&);
+        static bool remove(ScriptState*, const char* name);
+    private:
+        ScriptGlobalObject() { }
     };
 
 }

@@ -34,13 +34,15 @@
 #include "JSDOMBinding.h"
 #include "ScriptString.h"
 #include "ScriptValue.h"
+
 #include <runtime/JSLock.h>
+#include <runtime/UString.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-ScriptFunctionCall::ScriptFunctionCall(ScriptState* exec, const ScriptObject& thisObject, const char* name)
+ScriptFunctionCall::ScriptFunctionCall(ScriptState* exec, const ScriptObject& thisObject, const String& name)
     : m_exec(exec)
     , m_thisObject(thisObject)
     , m_name(name)
@@ -68,7 +70,29 @@ void ScriptFunctionCall::appendArgument(const String& argument)
     m_arguments.append(jsString(m_exec, argument));
 }
 
+void ScriptFunctionCall::appendArgument(const JSC::UString& argument)
+{
+    m_arguments.append(jsString(m_exec, argument));
+}
+
+void ScriptFunctionCall::appendArgument(JSC::JSValue argument)
+{
+    m_arguments.append(argument);
+}
+
+void ScriptFunctionCall::appendArgument(long long argument)
+{
+    JSLock lock(false);
+    m_arguments.append(jsNumber(m_exec, argument));
+}
+
 void ScriptFunctionCall::appendArgument(unsigned int argument)
+{
+    JSLock lock(false);
+    m_arguments.append(jsNumber(m_exec, argument));
+}
+
+void ScriptFunctionCall::appendArgument(int argument)
 {
     JSLock lock(false);
     m_arguments.append(jsNumber(m_exec, argument));
@@ -79,15 +103,17 @@ void ScriptFunctionCall::appendArgument(bool argument)
     m_arguments.append(jsBoolean(argument));
 }
 
-ScriptValue ScriptFunctionCall::call(bool& hadException)
+ScriptValue ScriptFunctionCall::call(bool& hadException, bool reportExceptions)
 {
     JSObject* thisObject = m_thisObject.jsObject();
 
     JSLock lock(false);
 
-    JSValuePtr function = thisObject->get(m_exec, Identifier(m_exec, m_name));
+    JSValue function = thisObject->get(m_exec, Identifier(m_exec, m_name));
     if (m_exec->hadException()) {
-        reportException(m_exec, m_exec->exception());
+        if (reportExceptions)
+            reportException(m_exec, m_exec->exception());
+
         hadException = true;
         return ScriptValue();
     }
@@ -97,9 +123,11 @@ ScriptValue ScriptFunctionCall::call(bool& hadException)
     if (callType == CallTypeNone)
         return ScriptValue();
 
-    JSValuePtr result = JSC::call(m_exec, function, callType, callData, thisObject, m_arguments);
+    JSValue result = JSC::call(m_exec, function, callType, callData, thisObject, m_arguments);
     if (m_exec->hadException()) {
-        reportException(m_exec, m_exec->exception());
+        if (reportExceptions)
+            reportException(m_exec, m_exec->exception());
+
         hadException = true;
         return ScriptValue();
     }
@@ -107,7 +135,13 @@ ScriptValue ScriptFunctionCall::call(bool& hadException)
     return ScriptValue(result);
 }
 
-ScriptObject ScriptFunctionCall::construct(bool& hadException)
+ScriptValue ScriptFunctionCall::call()
+{
+    bool hadException = false;
+    return call(hadException);
+}
+
+ScriptObject ScriptFunctionCall::construct(bool& hadException, bool reportExceptions)
 {
     JSObject* thisObject = m_thisObject.jsObject();
 
@@ -115,7 +149,9 @@ ScriptObject ScriptFunctionCall::construct(bool& hadException)
 
     JSObject* constructor = asObject(thisObject->get(m_exec, Identifier(m_exec, m_name)));
     if (m_exec->hadException()) {
-        reportException(m_exec, m_exec->exception());
+        if (reportExceptions)
+            reportException(m_exec, m_exec->exception());
+
         hadException = true;
         return ScriptObject();
     }
@@ -125,9 +161,11 @@ ScriptObject ScriptFunctionCall::construct(bool& hadException)
     if (constructType == ConstructTypeNone)
         return ScriptObject();
 
-    JSValuePtr result = JSC::construct(m_exec, constructor, constructType, constructData, m_arguments);
+    JSValue result = JSC::construct(m_exec, constructor, constructType, constructData, m_arguments);
     if (m_exec->hadException()) {
-        reportException(m_exec, m_exec->exception());
+        if (reportExceptions)
+            reportException(m_exec, m_exec->exception());
+
         hadException = true;
         return ScriptObject();
     }

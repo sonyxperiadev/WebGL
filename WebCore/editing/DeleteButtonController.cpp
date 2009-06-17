@@ -66,12 +66,27 @@ static bool isDeletableElement(const Node* node)
     if (!node || !node->isHTMLElement() || !node->inDocument() || !node->isContentEditable())
         return false;
 
-    const int minimumWidth = 25;
-    const int minimumHeight = 25;
-    const unsigned minimumVisibleBorders = 3;
+    // In general we want to only draw the UI arround object of a certain area, but we still keep the min width/height to
+    // make sure we don't end up with very thin or very short elements getting the UI.
+    const int minimumArea = 2500;
+    const int minimumWidth = 48;
+    const int minimumHeight = 16;
+    const unsigned minimumVisibleBorders = 1;
 
     RenderObject* renderer = node->renderer();
     if (!renderer || !renderer->isBox())
+        return false;
+
+    // Disallow the body element since it isn't practical to delete, and the deletion UI would be clipped.
+    if (node->hasTagName(bodyTag))
+        return false;
+
+    // Disallow elements with any overflow clip, since the deletion UI would be clipped as well. <rdar://problem/6840161>
+    if (renderer->hasOverflowClip())
+        return false;
+
+    // Disallow Mail blockquotes since the deletion UI would get in the way of editing for these.
+    if (isMailBlockquote(node))
         return false;
 
     RenderBox* box = toRenderBox(renderer);
@@ -79,23 +94,47 @@ static bool isDeletableElement(const Node* node)
     if (borderBoundingBox.width() < minimumWidth || borderBoundingBox.height() < minimumHeight)
         return false;
 
+    if ((borderBoundingBox.width() * borderBoundingBox.height()) < minimumArea)
+        return false;
+
     if (renderer->isTable())
         return true;
 
-    if (node->hasTagName(ulTag) || node->hasTagName(olTag))
+    if (node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(iframeTag))
         return true;
 
     if (renderer->isPositioned())
         return true;
 
-    // allow block elements (excluding table cells) that have some non-transparent borders
     if (renderer->isRenderBlock() && !renderer->isTableCell()) {
         RenderStyle* style = renderer->style();
-        if (style && style->hasBorder()) {
-            unsigned visibleBorders = style->borderTop().isVisible() + style->borderBottom().isVisible() + style->borderLeft().isVisible() + style->borderRight().isVisible();
-            if (visibleBorders >= minimumVisibleBorders)
-                return true;
-        }
+        if (!style)
+            return false;
+
+        // Allow blocks that have background images
+        if (style->hasBackgroundImage() && style->backgroundImage()->canRender(1.0f))
+            return true;
+
+        // Allow blocks with a minimum number of non-transparent borders
+        unsigned visibleBorders = style->borderTop().isVisible() + style->borderBottom().isVisible() + style->borderLeft().isVisible() + style->borderRight().isVisible();
+        if (visibleBorders >= minimumVisibleBorders)
+            return true;
+
+        // Allow blocks that have a different background from it's parent
+        Node* parentNode = node->parentNode();
+        if (!parentNode)
+            return false;
+
+        RenderObject* parentRenderer = parentNode->renderer();
+        if (!parentRenderer)
+            return false;
+
+        RenderStyle* parentStyle = parentRenderer->style();
+        if (!parentStyle)
+            return false;
+
+        if (style->hasBackground() && (!parentStyle->hasBackground() || style->backgroundColor() != parentStyle->backgroundColor()))
+            return true;
     }
 
     return false;
@@ -288,7 +327,7 @@ void DeleteButtonController::enable()
         // Determining if the element is deletable currently depends on style
         // because whether something is editable depends on style, so we need
         // to recalculate style before calling enclosingDeletableElement.
-        m_frame->document()->updateRendering();
+        m_frame->document()->updateStyleIfNeeded();
         show(enclosingDeletableElement(m_frame->selection()->selection()));
     }
 }

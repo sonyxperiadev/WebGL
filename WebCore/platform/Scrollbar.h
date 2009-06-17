@@ -125,6 +125,9 @@ public:
 
     virtual void styleChanged() { }
 
+private:
+    virtual bool isScrollbar() const { return true; }
+
 protected:
     virtual void updateThumbPosition();
     virtual void updateThumbProportion();
@@ -137,6 +140,7 @@ protected:
     ScrollGranularity pressedPartScrollGranularity();
     
     void moveThumb(int pos);
+    bool setCurrentPos(float pos);
 
     ScrollbarClient* m_client;
     ScrollbarOrientation m_orientation;
@@ -146,6 +150,7 @@ protected:
     int m_visibleSize;
     int m_totalSize;
     float m_currentPos;
+    float m_dragOrigin;
     int m_lineStep;
     int m_pageStep;
     float m_pixelStep;

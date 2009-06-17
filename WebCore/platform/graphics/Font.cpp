@@ -32,6 +32,7 @@
 #include "GlyphBuffer.h"
 #include "WidthIterator.h"
 #include <wtf/MathExtras.h>
+#include <wtf/UnusedParam.h>
 
 using namespace WTF;
 using namespace Unicode;
@@ -198,7 +199,7 @@ void Font::drawText(GraphicsContext* context, const TextRun& run, const FloatPoi
     return drawComplexText(context, run, point, from, to);
 }
 
-float Font::floatWidth(const TextRun& run) const
+float Font::floatWidth(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts) const
 {
 #if ENABLE(SVG_FONTS)
     if (primaryFont()->isSVGFont())
@@ -206,16 +207,22 @@ float Font::floatWidth(const TextRun& run) const
 #endif
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run))
-        return floatWidthForSimpleText(run, 0);
+    if (canUseGlyphCache(run)) {
+        // If the complex text implementation cannot return fallback fonts, avoid
+        // returning them for simple text as well.
+        static bool returnFallbackFonts = canReturnFallbackFontsForComplexText();
+        return floatWidthForSimpleText(run, 0, returnFallbackFonts ? fallbackFonts : 0);
+    }
 #endif
 
-    return floatWidthForComplexText(run);
+    return floatWidthForComplexText(run, fallbackFonts);
 }
 
 float Font::floatWidth(const TextRun& run, int extraCharsAvailable, int& charsConsumed, String& glyphName) const
 {
-#if ENABLE(SVG_FONTS)
+#if !ENABLE(SVG_FONTS)
+    UNUSED_PARAM(extraCharsAvailable);
+#else
     if (primaryFont()->isSVGFont())
         return floatWidthUsingSVGFont(run, extraCharsAvailable, charsConsumed, glyphName);
 #endif
@@ -273,6 +280,19 @@ bool Font::isSVGFont() const
 FontSelector* Font::fontSelector() const
 {
     return m_fontList ? m_fontList->fontSelector() : 0;
+}
+
+static bool shouldUseFontSmoothing = true;
+
+void Font::setShouldUseSmoothing(bool shouldUseSmoothing)
+{
+    ASSERT(isMainThread());
+    shouldUseFontSmoothing = shouldUseSmoothing;
+}
+
+bool Font::shouldUseSmoothing()
+{
+    return shouldUseFontSmoothing;
 }
 
 }

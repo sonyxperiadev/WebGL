@@ -26,10 +26,12 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "NodeList.h"
 #include "RenderStyle.h"
 #include "WMLDocument.h"
 #include "WMLDoElement.h"
+#include "WMLInputElement.h"
 #include "WMLIntrinsicEventHandler.h"
 #include "WMLNames.h"
 #include "WMLTemplateElement.h"
@@ -48,6 +50,7 @@ WMLCardElement::WMLCardElement(const QualifiedName& tagName, Document* doc)
     , m_eventTimer(0)
     , m_template(0)
 {
+    ASSERT(hasTagName(cardTag));
 }
 
 WMLCardElement::~WMLCardElement()
@@ -162,16 +165,18 @@ void WMLCardElement::handleIntrinsicEventIfNeeded()
     if (m_eventTimer)
         m_eventTimer->start();
 
-    // FIXME: Initialize input/select  elements in this card
-    /*
-    Node* node = this;
-    while (node = node->traverseNextNode()) {
+    // FIXME: Initialize select elements in this card
+    for (Node* node = traverseNextNode(); node != 0; node = node->traverseNextNode()) {
+        if (!node->isElementNode())
+            continue;
+
         if (node->hasTagName(inputTag))
-            static_cast<WMLInputElement*>(node)->init();
+            static_cast<WMLInputElement*>(node)->initialize();
+        /*
         else if (node->hasTagName(selectTag))
             static_cast<WMLSelectElement*>(node)->selectInitialOptions();
+        */
     }
-    */
 }
 
 void WMLCardElement::handleDeckLevelTaskOverridesIfNeeded()

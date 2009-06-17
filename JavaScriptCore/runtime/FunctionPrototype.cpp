@@ -33,9 +33,9 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(FunctionPrototype);
 
-static JSValuePtr functionProtoFuncToString(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionProtoFuncApply(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionProtoFuncCall(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionProtoFuncApply(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionProtoFuncCall(ExecState*, JSObject*, JSValue, const ArgList&);
 
 FunctionPrototype::FunctionPrototype(ExecState* exec, PassRefPtr<Structure> structure)
     : InternalFunction(&exec->globalData(), structure, exec->propertyNames().nullIdentifier)
@@ -43,14 +43,16 @@ FunctionPrototype::FunctionPrototype(ExecState* exec, PassRefPtr<Structure> stru
     putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 0), DontDelete | ReadOnly | DontEnum);
 }
 
-void FunctionPrototype::addFunctionProperties(ExecState* exec, Structure* prototypeFunctionStructure)
+void FunctionPrototype::addFunctionProperties(ExecState* exec, Structure* prototypeFunctionStructure, NativeFunctionWrapper** callFunction, NativeFunctionWrapper** applyFunction)
 {
-    putDirectFunctionWithoutTransition(exec, new (exec) PrototypeFunction(exec, prototypeFunctionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) PrototypeFunction(exec, prototypeFunctionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) PrototypeFunction(exec, prototypeFunctionStructure, 1, exec->propertyNames().call, functionProtoFuncCall), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
+    *applyFunction = new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply);
+    putDirectFunctionWithoutTransition(exec, *applyFunction, DontEnum);
+    *callFunction = new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().call, functionProtoFuncCall);
+    putDirectFunctionWithoutTransition(exec, *callFunction, DontEnum);
 }
 
-static JSValuePtr callFunctionPrototype(ExecState*, JSObject*, JSValuePtr, const ArgList&)
+static JSValue JSC_HOST_CALL callFunctionPrototype(ExecState*, JSObject*, JSValue, const ArgList&)
 {
     return jsUndefined();
 }
@@ -80,13 +82,15 @@ static inline void insertSemicolonIfNeeded(UString& functionBody)
     }
 }
 
-JSValuePtr functionProtoFuncToString(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList&)
+JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
     if (thisValue.isObject(&JSFunction::info)) {
         JSFunction* function = asFunction(thisValue);
-        UString functionBody = function->body()->toSourceString();
-        insertSemicolonIfNeeded(functionBody);
-        return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + functionBody);
+        if (!function->isHostFunction()) {
+            UString functionBody = function->body()->toSourceString();
+            insertSemicolonIfNeeded(functionBody);
+            return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + functionBody);
+        }
     }
 
     if (thisValue.isObject(&InternalFunction::info)) {
@@ -97,16 +101,16 @@ JSValuePtr functionProtoFuncToString(ExecState* exec, JSObject*, JSValuePtr this
     return throwError(exec, TypeError);
 }
 
-JSValuePtr functionProtoFuncApply(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
+JSValue JSC_HOST_CALL functionProtoFuncApply(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     CallData callData;
     CallType callType = thisValue.getCallData(callData);
     if (callType == CallTypeNone)
         return throwError(exec, TypeError);
 
-    JSValuePtr array = args.at(exec, 1);
+    JSValue array = args.at(1);
 
-    ArgList applyArgs;
+    MarkedArgumentBuffer applyArgs;
     if (!array.isUndefinedOrNull()) {
         if (!array.isObject())
             return throwError(exec, TypeError);
@@ -122,10 +126,10 @@ JSValuePtr functionProtoFuncApply(ExecState* exec, JSObject*, JSValuePtr thisVal
             return throwError(exec, TypeError);
     }
 
-    return call(exec, thisValue, callType, callData, args.at(exec, 0), applyArgs);
+    return call(exec, thisValue, callType, callData, args.at(0), applyArgs);
 }
 
-JSValuePtr functionProtoFuncCall(ExecState* exec, JSObject*, JSValuePtr thisValue, const ArgList& args)
+JSValue JSC_HOST_CALL functionProtoFuncCall(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     CallData callData;
     CallType callType = thisValue.getCallData(callData);
@@ -134,7 +138,7 @@ JSValuePtr functionProtoFuncCall(ExecState* exec, JSObject*, JSValuePtr thisValu
 
     ArgList callArgs;
     args.getSlice(1, callArgs);
-    return call(exec, thisValue, callType, callData, args.at(exec, 0), callArgs);
+    return call(exec, thisValue, callType, callData, args.at(0), callArgs);
 }
 
 } // namespace JSC

@@ -58,7 +58,9 @@ public:
     virtual void seek(float time) = 0;
     virtual bool seeking() const = 0;
 
-    virtual void setEndTime(float time) = 0;
+    virtual float startTime() const { return 0; }
+
+    virtual void setEndTime(float) = 0;
 
     virtual void setRate(float) = 0;
     virtual bool paused() const = 0;
@@ -80,6 +82,8 @@ public:
     virtual void setSize(const IntSize&) = 0;
 
     virtual void paint(GraphicsContext*, const IntRect&) = 0 ;
+
+    virtual void setAutobuffer(bool) { };
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     virtual void setPoster(const String& url) = 0;

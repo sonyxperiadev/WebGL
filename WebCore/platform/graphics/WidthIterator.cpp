@@ -39,13 +39,14 @@ namespace WebCore {
 // According to http://www.unicode.org/Public/UNIDATA/UCD.html#Canonical_Combining_Class_Values
 static const uint8_t hiraganaKatakanaVoicingMarksCombiningClass = 8;
 
-WidthIterator::WidthIterator(const Font* font, const TextRun& run)
+WidthIterator::WidthIterator(const Font* font, const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts)
     : m_font(font)
     , m_run(run)
     , m_end(run.length())
     , m_currentCharacter(0)
     , m_runWidthSoFar(0)
     , m_finalRoundingWidth(0)
+    , m_fallbackFonts(fallbackFonts)
 {
     // If the padding is non-zero, count the number of spaces in the run
     // and divide that by the padding for per space addition.
@@ -78,7 +79,10 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
 
     float runWidthSoFar = m_runWidthSoFar;
     float lastRoundingWidth = m_finalRoundingWidth;
-    
+
+    const SimpleFontData* primaryFont = m_font->primaryFont();
+    const SimpleFontData* lastFontData = primaryFont;
+
     while (currentCharacter < offset) {
         UChar32 c = *cp;
         unsigned clusterLength = 1;
@@ -126,16 +130,29 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
             // First, we round spaces to an adjusted width in all fonts.
             // Second, in fixed-pitch fonts we ensure that all characters that
             // match the width of the space character have the same width as the space character.
-            if (width == fontData->m_spaceWidth && (fontData->m_treatAsFixedPitch || glyph == fontData->m_spaceGlyph) && m_run.applyWordRounding()) {
-                width = fontData->m_adjustedSpaceWidth;
+            if (width == fontData->spaceWidth() && (fontData->pitch() == FixedPitch || glyph == fontData->spaceGlyph()) && m_run.applyWordRounding())
+                width = fontData->adjustedSpaceWidth();
+        }
+
+        if (fontData != lastFontData && width) {
+            lastFontData = fontData;
+            if (m_fallbackFonts && fontData != primaryFont) {
+                // FIXME: This does a little extra work that could be avoided if
+                // glyphDataForCharacter() returned whether it chose to use a small caps font.
+                if (!m_font->isSmallCaps() || c == toUpper(c))
+                    m_fallbackFonts->add(fontData);
+                else {
+                    const GlyphData& uppercaseGlyphData = m_font->glyphDataForCharacter(toUpper(c), rtl);
+                    if (uppercaseGlyphData.fontData != primaryFont)
+                        m_fallbackFonts->add(uppercaseGlyphData.fontData);
+                }
             }
         }
 
         if (hasExtraSpacing) {
             // Account for letter-spacing.
-            if (width && m_font->letterSpacing()) {
+            if (width && m_font->letterSpacing())
                 width += m_font->letterSpacing();
-            }
 
             if (Font::treatAsSpace(c)) {
                 // Account for padding. WebCore uses space padding to justify text.
@@ -153,9 +170,8 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
 
                 // Account for word spacing.
                 // We apply additional space between "words" by adding width to the space character.
-                if (currentCharacter != 0 && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing()) {
+                if (currentCharacter != 0 && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing())
                     width += m_font->wordSpacing();
-                }
             }
         }
 
@@ -172,9 +188,8 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
 
         // Force characters that are used to determine word boundaries for the rounding hack
         // to be integer width, so following words will start on an integer boundary.
-        if (m_run.applyWordRounding() && Font::isRoundingHackCharacter(c)) {
+        if (m_run.applyWordRounding() && Font::isRoundingHackCharacter(c))
             width = ceilf(width);
-        }
 
         // Check to see if the next character is a "rounding hack character", if so, adjust
         // width so that the total run width will be on an integer boundary.

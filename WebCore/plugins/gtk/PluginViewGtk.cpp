@@ -41,10 +41,10 @@
 #include "HTMLPlugInElement.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "PluginDebug.h"
+#include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
 #include "RenderLayer.h"
 #include "Settings.h"
@@ -289,6 +289,8 @@ void PluginView::stop()
         PluginView::setCurrentPluginView(0);
     }
 
+    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
+
 #ifdef XP_UNIX
     if (m_isWindowed && m_npWindow.ws_info)
            delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
@@ -480,6 +482,12 @@ void PluginView::invalidateRect(NPRect* rect)
 
     IntRect r(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top);
     invalidateRect(r);
+}
+
+void PluginView::invalidateRegion(NPRegion)
+{
+    // TODO: optimize
+    invalidate();
 }
 
 void PluginView::forceRedraw()

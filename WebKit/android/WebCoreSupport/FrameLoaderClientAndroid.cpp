@@ -191,6 +191,10 @@ bool FrameLoaderClientAndroid::dispatchDidLoadResourceFromMemoryCache(DocumentLo
     return false;
 }
 
+void FrameLoaderClientAndroid::dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString&) {
+    return;
+}
+
 void FrameLoaderClientAndroid::dispatchDidHandleOnloadEvents() {
 }
 
@@ -226,10 +230,12 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
     WebCore::Image* icon = WebCore::iconDatabase()->iconForPageURL(
             url, WebCore::IntSize(16, 16));
     // If the request fails, try the original request url.
-    if (!icon)
+    if (!icon) {
+        DocumentLoader* docLoader = m_frame->loader()->activeDocumentLoader();
+        KURL originalURL = docLoader->originalRequest().url();
         icon = WebCore::iconDatabase()->iconForPageURL(
-                m_frame->loader()->originalRequestURL().string(),
-                WebCore::IntSize(16, 16));
+                   originalURL, WebCore::IntSize(16, 16));
+    }
     // There is a bug in webkit where cancelling an icon load is treated as a
     // failure. When this is fixed, we can ASSERT again that we have an icon.
     if (icon) {
@@ -746,8 +752,7 @@ void FrameLoaderClientAndroid::didFinishLoad() {
 }
 
 void FrameLoaderClientAndroid::prepareForDataSourceReplacement() {
-    ASSERT(m_frame);
-    m_frame->loader()->detachChildren();
+    verifiedOk();
 }
 
 PassRefPtr<DocumentLoader> FrameLoaderClientAndroid::createDocumentLoader(
@@ -790,19 +795,16 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     m_frame->setView(NULL);
 
     // Create a new FrameView and associate it with the saved webFrameView
-    FrameView* view = new FrameView(m_frame);
-    webFrameView->setView(view);
+    RefPtr<FrameView> view = FrameView::create(m_frame);
+    webFrameView->setView(view.get());
 
     Release(webFrameView);
 
     // Give the new FrameView to the Frame
     m_frame->setView(view);
 
-    // Deref since FrameViews are created with a ref of 1
-    view->deref();
-
     if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(view);
+        m_frame->ownerRenderer()->setWidget(view.get());
 
     m_frame->view()->initScrollbars();
 
@@ -834,15 +836,13 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
     parent->tree()->appendChild(newFrame);
     newFrame->tree()->setName(name);
     // Create a new FrameView and WebFrameView for the child frame to draw into.
-    FrameView* frameView = new WebCore::FrameView(newFrame);
-    WebFrameView* webFrameView = new WebFrameView(frameView, 
+    RefPtr<FrameView> frameView = FrameView::create(newFrame);
+    WebFrameView* webFrameView = new WebFrameView(frameView.get(), 
             WebViewCore::getWebViewCore(parent->view()));
     // frameView Retains webFrameView, so call Release for webFrameView
     Release(webFrameView);
     // Attach the frameView to the newFrame.
     newFrame->setView(frameView);
-    // setView() refs the frameView so call deref on the frameView
-    frameView->deref();
     newFrame->init();
     newFrame->selection()->setFocused(true);
     LOGV("::WebCore:: createSubFrame returning %p", newFrame);

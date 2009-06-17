@@ -50,14 +50,11 @@ public:
     virtual void calcWidth();
     virtual void calcHeight();
     virtual void calcPrefWidths();
-    
-    int docHeight() const;
-    int docWidth() const;
 
     // The same as the FrameView's layoutHeight/layoutWidth but with null check guards.
     int viewHeight() const;
     int viewWidth() const;
-    
+
     float zoomFactor() const;
 
     FrameView* frameView() const { return m_frameView; }
@@ -71,7 +68,8 @@ public:
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
 
-    void setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos);
+    enum SelectionRepaintMode { RepaintNewXOROld, RepaintNewMinusOld };
+    void setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode = RepaintNewXOROld);
     void clearSelection();
     virtual RenderObject* selectionStart() const { return m_selectionStart; }
     virtual RenderObject* selectionEnd() const { return m_selectionEnd; }
@@ -85,8 +83,8 @@ public:
 
     int truncatedAt() const { return m_truncatedAt; }
 
-    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
-    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
+    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
+    virtual void absoluteQuads(Vector<FloatQuad>&);
 
     IntRect selectionBounds(bool clipToVisibleContent = true) const;
 
@@ -172,6 +170,12 @@ protected:
 private:
     bool shouldRepaint(const IntRect& r) const;
 
+#ifdef FLATTEN_FRAMESET
+public: // used by layout function
+#endif
+    int docHeight() const;
+    int docWidth() const;
+
 protected:
     FrameView* m_frameView;
 
@@ -192,6 +196,8 @@ protected:
     RenderWidgetSet m_widgets;
 
 private:
+    IntRect m_cachedSelectionBounds;
+
     int m_bestTruncatedAt;
     int m_truncatorWidth;
     bool m_forcedPageBreak;

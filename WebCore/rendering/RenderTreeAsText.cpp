@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RenderTreeAsText.h"
 
+#include "CSSMutableStyleDeclaration.h"
 #include "CharacterNames.h"
 #include "Document.h"
 #include "Frame.h"
@@ -44,9 +45,11 @@
 #include <wtf/Vector.h>
 
 #if ENABLE(SVG)
-#include "RenderSVGRoot.h"
+#include "RenderPath.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
+#include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "SVGRenderTreeAsText.h"
 #endif
@@ -374,6 +377,10 @@ void write(TextStream& ts, const RenderObject& o, int indent)
             write(ts, static_cast<const RenderSVGInlineText&>(o), indent);
         return;
     }
+    if (o.isSVGImage()) {
+        write(ts, static_cast<const RenderSVGImage&>(o), indent);
+        return;
+    }
 #endif
 
     writeIndent(ts, indent);
@@ -518,13 +525,13 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
 
     VisibleSelection selection = frame->selection()->selection();
     if (selection.isCaret()) {
-        ts << "caret: position " << selection.start().m_offset << " of " << nodePosition(selection.start().node());
+        ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node());
         if (selection.affinity() == UPSTREAM)
             ts << " (upstream affinity)";
         ts << "\n";
     } else if (selection.isRange())
-        ts << "selection start: position " << selection.start().m_offset << " of " << nodePosition(selection.start().node()) << "\n"
-           << "selection end:   position " << selection.end().m_offset << " of " << nodePosition(selection.end().node()) << "\n";
+        ts << "selection start: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node()) << "\n"
+           << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().node()) << "\n";
 }
 
 String externalRepresentation(RenderObject* o)

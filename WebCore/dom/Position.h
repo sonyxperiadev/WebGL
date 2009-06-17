@@ -28,6 +28,7 @@
 
 #include "TextAffinity.h"
 #include "TextDirection.h"
+#include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -46,21 +47,55 @@ enum PositionMoveType {
     BackwardDeletion // Subject to platform conventions.
 };
 
-// FIXME: Reduce the number of operations we have on a Position.
-// This should be more like a humble struct, without so many different
-// member functions. We should find better homes for these functions.
-
 class Position {
 public:
-    Position() : m_offset(0) { }
+    enum AnchorType {
+        PositionIsOffsetInAnchor,
+        PositionIsAfterAnchor,
+        PositionIsBeforeAnchor
+    };
 
-    // This constructor should be private
-    Position(PassRefPtr<Node> anchorNode, int offset)
-        : m_anchorNode(anchorNode)
-        , m_offset(offset)
-    {}
+    Position()
+        : m_offset(0)
+        , m_anchorType(PositionIsOffsetInAnchor)
+        , m_isLegacyEditingPosition(false)
+    {
+    }
 
-    void clear() { m_anchorNode.clear(); m_offset = 0; }
+    // For creating legacy editing positions: (Anchor type will be determined from editingIgnoresContent(node))
+    Position(PassRefPtr<Node> anchorNode, int offset);
+
+    // For creating before/after positions:
+    Position(PassRefPtr<Node> anchorNode, AnchorType);
+    // For creating offset positions:
+    Position(PassRefPtr<Node> anchorNode, int offset, AnchorType);
+
+    AnchorType anchorType() const { return m_anchorType; }
+
+    void clear() { m_anchorNode.clear(); m_offset = 0; m_anchorType = PositionIsOffsetInAnchor; m_isLegacyEditingPosition = false; }
+
+    // These are always DOM compliant values.  Editing positions like [img, 0] (aka [img, before])
+    // will return img->parentNode() and img->nodeIndex() from these functions.
+    Node* containerNode() const; // NULL for a before/after position anchored to a node with no parent
+    int computeOffsetInContainerNode() const;  // O(n) for before/after-anchored positions, O(1) for parent-anchored positions
+
+    // Inline O(1) access for Positions which callers know to be parent-anchored
+    int offsetInContainerNode() const
+    {
+        ASSERT(anchorType() == PositionIsOffsetInAnchor);
+        return m_offset;
+    }
+
+    // New code should not use this function.
+    int deprecatedEditingOffset() const
+    {
+        // This should probably ASSERT(m_isLegacyEditingPosition);
+        return m_offset;
+    }
+
+    // These are convenience methods which are smart about whether the position is neighbor anchored or parent anchored
+    Node* computeNodeBeforePosition() const;
+    Node* computeNodeAfterPosition() const;
 
     Node* anchorNode() const { return m_anchorNode.get(); }
 
@@ -68,17 +103,11 @@ public:
     // For nodes which editingIgnoresContent(node()) returns true, positions like [ignoredNode, 0]
     // will be treated as before ignoredNode (thus node() is really after the position, not containing it).
     Node* node() const { return m_anchorNode.get(); }
-    Element* documentElement() const;
 
-    void moveToPosition(PassRefPtr<Node> node, int offset)
-    {
-        m_anchorNode = node;
-        m_offset = offset;
-    }
-    void moveToOffset(int offset)
-    {
-        m_offset = offset;
-    }
+    // These should only be used for PositionIsOffsetInAnchor positions, unless
+    // the position is a legacy editing position.
+    void moveToPosition(PassRefPtr<Node> anchorNode, int offset);
+    void moveToOffset(int offset);
 
     bool isNull() const { return !m_anchorNode; }
     bool isNotNull() const { return m_anchorNode; }
@@ -136,19 +165,22 @@ private:
     Position previousCharacterPosition(EAffinity) const;
     Position nextCharacterPosition(EAffinity) const;
 
+    static AnchorType anchorTypeForLegacyEditingPosition(Node* anchorNode, int offset);
+
     RefPtr<Node> m_anchorNode;
-public:
     // m_offset can be the offset inside m_anchorNode, or if editingIgnoresContent(m_anchorNode)
     // returns true, then other places in editing will treat m_offset == 0 as "before the anchor"
     // and m_offset > 0 as "after the anchor node".  See rangeCompliantEquivalent for more info.
-    int m_offset; // FIXME: This should be made private.
+    int m_offset;
+    AnchorType m_anchorType : 2;
+    bool m_isLegacyEditingPosition : 1;
 };
 
 inline bool operator==(const Position& a, const Position& b)
 {
     // FIXME: In <div><img></div> [div, 0] != [img, 0] even though most of the
     // editing code will treat them as identical.
-    return a.anchorNode() == b.anchorNode() && a.m_offset == b.m_offset;
+    return a.anchorNode() == b.anchorNode() && a.deprecatedEditingOffset() == b.deprecatedEditingOffset();
 }
 
 inline bool operator!=(const Position& a, const Position& b)

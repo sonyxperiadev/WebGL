@@ -29,6 +29,7 @@
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
@@ -41,6 +42,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "SelectionController.h"
+#include "Settings.h"
 #include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_LAYOUT
@@ -55,7 +57,7 @@ namespace WebCore {
 
 // Number of pixels to allow as a fudge factor when clicking above or below a line.
 // clicking up to verticalLineClickFudgeFactor pixels above a line will correspond to the closest point on the line.   
-const int verticalLineClickFudgeFactor= 3;
+static const int verticalLineClickFudgeFactor = 3;
 
 using namespace HTMLNames;
 
@@ -753,7 +755,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     m_overflowHeight = 0;
 
-    // We use four values, maxTopPos, maxPosNeg, maxBottomPos, and maxBottomNeg, to track
+    // We use four values, maxTopPos, maxTopNeg, maxBottomPos, and maxBottomNeg, to track
     // our current maximal positive and negative margins.  These values are used when we
     // are collapsed with adjacent blocks, so for example, if you have block A and B
     // collapsing together, then you'd take the maximal positive margin from both A and B
@@ -887,7 +889,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
         if (!repaintRect.isEmpty()) {
             repaintRectangle(repaintRect); // We need to do a partial repaint of our content.
             if (hasReflection())
-                layer()->reflection()->repaintRectangle(repaintRect);
+                repaintRectangle(reflectedRect(repaintRect));
         }
     }
     setNeedsLayout(false);
@@ -948,94 +950,87 @@ void RenderBlock::adjustFloatingBlock(const MarginInfo& marginInfo)
     setHeight(height() - marginOffset);
 }
 
-RenderBox* RenderBlock::handleSpecialChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handleSpecialChild(RenderBox* child, const MarginInfo& marginInfo)
 {
-    // Handle positioned children first.
-    RenderBox* next = handlePositionedChild(child, marginInfo, handled);
-    if (handled) return next;
-    
-    // Handle floating children next.
-    next = handleFloatingChild(child, marginInfo, handled);
-    if (handled) return next;
-
-    // Finally, see if we have a run-in element.
-    return handleRunInChild(child, handled);
+    // Handle in the given order
+    return handlePositionedChild(child, marginInfo)
+        || handleFloatingChild(child, marginInfo)
+        || handleRunInChild(child);
 }
 
 
-RenderBox* RenderBlock::handlePositionedChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handlePositionedChild(RenderBox* child, const MarginInfo& marginInfo)
 {
     if (child->isPositioned()) {
-        handled = true;
         child->containingBlock()->insertPositionedObject(child);
         adjustPositionedBlock(child, marginInfo);
-        return child->nextSiblingBox();
+        return true;
     }
-
-    return 0;
+    return false;
 }
 
-RenderBox* RenderBlock::handleFloatingChild(RenderBox* child, const MarginInfo& marginInfo, bool& handled)
+bool RenderBlock::handleFloatingChild(RenderBox* child, const MarginInfo& marginInfo)
 {
     if (child->isFloating()) {
-        handled = true;
         insertFloatingObject(child);
         adjustFloatingBlock(marginInfo);
-        return child->nextSiblingBox();
+        return true;
     }
-    
-    return 0;
+    return false;
 }
 
-RenderBox* RenderBlock::handleRunInChild(RenderBox* child, bool& handled)
+bool RenderBlock::handleRunInChild(RenderBox* child)
 {
     // See if we have a run-in element with inline children.  If the
     // children aren't inline, then just treat the run-in as a normal
     // block.
-    if (child->isRunIn() && (child->childrenInline() || child->isReplaced())) {
-        RenderBlock* blockRunIn = toRenderBlock(child);
-        // Get the next non-positioned/non-floating RenderBlock.
-        RenderObject* curr = blockRunIn->nextSibling();
-        while (curr && curr->isFloatingOrPositioned())
-            curr = curr->nextSibling();
-        if (curr && (curr->isRenderBlock() && curr->childrenInline() && !curr->isRunIn())) {
-            RenderBlock* currBlock = toRenderBlock(curr);
-        
-            // The block acts like an inline, so just null out its
-            // position.
-            handled = true;
-            
-            // Remove the old child.
-            RenderBox* next = blockRunIn->nextSiblingBox();
-            children()->removeChildNode(this, blockRunIn);
+    if (!child->isRunIn() || !child->childrenInline() && !child->isReplaced())
+        return false;
 
-            // Create an inline.
-            RenderInline* inlineRunIn = new (renderArena()) RenderInline(blockRunIn->node());
-            inlineRunIn->setStyle(blockRunIn->style());
+    RenderBlock* blockRunIn = toRenderBlock(child);
+    // Get the next non-positioned/non-floating RenderBlock.
+    RenderObject* curr = blockRunIn->nextSibling();
+    while (curr && curr->isFloatingOrPositioned())
+        curr = curr->nextSibling();
 
-            // Move the nodes from the old child to the new child, but skip any :before/:after content.  It has already
-            // been regenerated by the new inline.
-            for (RenderObject* runInChild = blockRunIn->firstChild(); runInChild; runInChild = runInChild->nextSibling()) {
-                if (runInChild->style()->styleType() != BEFORE && runInChild->style()->styleType() != AFTER) {
-                    blockRunIn->children()->removeChildNode(blockRunIn, runInChild, false);
-                    inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
-                }
-            }
+    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn())
+        return false;
 
-            // Now insert the new child under |currBlock|.
-            currBlock->children()->insertChildNode(currBlock, inlineRunIn, currBlock->firstChild());
-            
-            // If the run-in had an element, we need to set the new renderer.
-            if (blockRunIn->node())
-                blockRunIn->node()->setRenderer(inlineRunIn);
-            
-            // Destroy the block run-in.
-            blockRunIn->destroy();
+    RenderBlock* currBlock = toRenderBlock(curr);
 
-            return next;
+    // Remove the old child.
+    children()->removeChildNode(this, blockRunIn);
+
+    // Create an inline.
+    Node* runInNode = blockRunIn->node();
+    RenderInline* inlineRunIn = new (renderArena()) RenderInline(runInNode ? runInNode : document());
+    inlineRunIn->setStyle(blockRunIn->style());
+
+    bool runInIsGenerated = child->style()->styleType() == BEFORE || child->style()->styleType() == AFTER;
+
+    // Move the nodes from the old child to the new child, but skip any :before/:after content.  It has already
+    // been regenerated by the new inline.
+    for (RenderObject* runInChild = blockRunIn->firstChild(); runInChild; runInChild = runInChild->nextSibling()) {
+        if (runInIsGenerated || runInChild->style()->styleType() != BEFORE && runInChild->style()->styleType() != AFTER) {
+            blockRunIn->children()->removeChildNode(blockRunIn, runInChild, false);
+            inlineRunIn->addChild(runInChild); // Use addChild instead of appendChildNode since it handles correct placement of the children relative to :after-generated content.
         }
     }
-    return 0;
+
+    // Now insert the new child under |currBlock|.
+    currBlock->children()->insertChildNode(currBlock, inlineRunIn, currBlock->firstChild());
+    
+    // If the run-in had an element, we need to set the new renderer.
+    if (runInNode)
+        runInNode->setRenderer(inlineRunIn);
+
+    // Destroy the block run-in.
+    blockRunIn->destroy();
+
+    // The block acts like an inline, so just null out its
+    // position.
+    
+    return true;
 }
 
 int RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
@@ -1320,12 +1315,14 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
     int previousFloatBottom = 0;
     maxFloatBottom = 0;
 
-    RenderBox* child = firstChildBox();
-    while (child) {
-        if (legend == child) {
-            child = child->nextSiblingBox();
+    RenderBox* next = firstChildBox();
+
+    while (next) {
+        RenderBox* child = next;
+        next = child->nextSiblingBox();
+
+        if (legend == child)
             continue; // Skip the legend, since it has already been positioned up in the fieldset's border.
-        }
 
         int oldTopPosMargin = maxTopPosMargin();
         int oldTopNegMargin = maxTopNegMargin();
@@ -1342,12 +1339,8 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
 
         // Handle the four types of special elements first.  These include positioned content, floating content, compacts and
         // run-ins.  When we encounter these four types of objects, we don't actually lay them out as normal flow blocks.
-        bool handled = false;
-        RenderBox* next = handleSpecialChild(child, marginInfo, handled);
-        if (handled) {
-            child = next;
+        if (handleSpecialChild(child, marginInfo))
             continue;
-        }
 
         // The child is a normal flow object.  Compute its vertical margins now.
         child->calcVerticalMargins();
@@ -1439,11 +1432,14 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
         if (child->isBlockFlow() && toRenderBlock(child)->containsFloats())
             maxFloatBottom = max(maxFloatBottom, addOverhangingFloats(toRenderBlock(child), -child->x(), -child->y(), !childNeededLayout));
 
-        // Update our overflow in case the child spills out the block.
-        m_overflowTop = min(m_overflowTop, child->y() + child->overflowTop(false));
-        m_overflowHeight = max(m_overflowHeight, height() + child->overflowHeight(false) - child->height());
-        m_overflowWidth = max(child->x() + child->overflowWidth(false), m_overflowWidth);
-        m_overflowLeft = min(child->x() + child->overflowLeft(false), m_overflowLeft);
+        // Update our visual overflow in case the child spills out the block, but only if we were going to paint
+        // the child block ourselves.
+        if (!child->hasSelfPaintingLayer()) {
+            m_overflowTop = min(m_overflowTop, child->y() + child->overflowTop(false));
+            m_overflowHeight = max(m_overflowHeight, height() + child->overflowHeight(false) - child->height());
+            m_overflowWidth = max(child->x() + child->overflowWidth(false), m_overflowWidth);
+            m_overflowLeft = min(child->x() + child->overflowLeft(false), m_overflowLeft);
+        }
 
         IntSize childOffset(child->x() - oldRect.x(), child->y() - oldRect.y());
         if (childOffset.width() || childOffset.height()) {
@@ -1460,7 +1456,6 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
             child->repaint();
 
         ASSERT(oldLayoutDelta == view()->layoutDelta());
-        child = child->nextSiblingBox();
     }
 
     // Now do the handling of the bottom of the block, adding in our bottom border/padding and
@@ -1736,9 +1731,10 @@ void RenderBlock::paintCaret(PaintInfo& paintInfo, int tx, int ty, CaretType typ
 {
     SelectionController* selection = type == CursorCaret ? document()->frame()->selection() : document()->frame()->dragCaretController();
 
-    // Ask the SelectionController if the caret should be painted by this block
+    // Paint the caret if the SelectionController says so or if caret browsing is enabled
+    bool caretBrowsing = document()->frame()->settings() && document()->frame()->settings()->caretBrowsingEnabled();
     RenderObject* caretPainter = selection->caretRenderer();
-    if (caretPainter == this && selection->isContentEditable()) {
+    if (caretPainter == this && (selection->isContentEditable() || caretBrowsing)) {
         // Convert the painting offset into the local coordinate system of this renderer,
         // to match the localCaretRect computed by the SelectionController
         offsetForContents(tx, ty);
@@ -2008,6 +2004,7 @@ void RenderBlock::paintSelection(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
+#ifndef BUILDING_ON_TIGER
 static void clipOutPositionedObjects(const RenderObject::PaintInfo* paintInfo, int tx, int ty, ListHashSet<RenderBox*>* positionedObjects)
 {
     if (!positionedObjects)
@@ -2019,10 +2016,12 @@ static void clipOutPositionedObjects(const RenderObject::PaintInfo* paintInfo, i
         paintInfo->context->clipOut(IntRect(tx + r->x(), ty + r->y(), r->width(), r->height()));
     }
 }
+#endif
 
 GapRects RenderBlock::fillSelectionGaps(RenderBlock* rootBlock, int blockX, int blockY, int tx, int ty,
                                         int& lastTop, int& lastLeft, int& lastRight, const PaintInfo* paintInfo)
 {
+#ifndef BUILDING_ON_TIGER
     // IMPORTANT: Callers of this method that intend for painting to happen need to do a save/restore.
     // Clip out floating and positioned objects when painting selection gaps.
     if (paintInfo) {
@@ -2040,6 +2039,7 @@ GapRects RenderBlock::fillSelectionGaps(RenderBlock* rootBlock, int blockX, int 
             }
         }
     }
+#endif
 
     // FIXME: overflow: auto/scroll regions need more math here, since painting in the border box is different from painting in the padding box (one is scrolled, the other is
     // fixed).
@@ -2690,6 +2690,8 @@ int RenderBlock::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
         // For now, we have to descend into all the children, since we may have a huge abs div inside
         // a tiny rel div buried somewhere deep in our child tree.  In this case we have to get to
         // the abs div.
+        // See the last test case in https://bugs.webkit.org/show_bug.cgi?id=9314 for why this is a problem.
+        // For inline children, we miss relative positioned boxes that might be buried inside <span>s.
         for (RenderObject* c = firstChild(); c; c = c->nextSibling()) {
             if (!c->isFloatingOrPositioned() && c->isBox()) {
                 RenderBox* childBox = toRenderBox(c);
@@ -2746,11 +2748,11 @@ int RenderBlock::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
     }
 
     if (!includeSelf) {
-        bottom = max(bottom, borderTop() + paddingTop() + paddingBottom());
+        bottom = max(bottom, borderTop() + paddingTop() + paddingBottom() + relativeOffset);
         if (childrenInline()) {
             if (lastLineBox()) {
                 int childBottomEdge = lastLineBox()->y() + lastLineBox()->height();
-                bottom = max(bottom, childBottomEdge + paddingBottom());
+                bottom = max(bottom, childBottomEdge + paddingBottom() + relativeOffset);
             }
         } else {
             // Find the last normal flow child.
@@ -2759,7 +2761,7 @@ int RenderBlock::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
                 currBox = currBox->previousSiblingBox();
             if (currBox) {
                 int childBottomEdge = currBox->y() + currBox->height() + currBox->collapsedMarginBottom();
-                bottom = max(bottom, childBottomEdge + paddingBottom());
+                bottom = max(bottom, childBottomEdge + paddingBottom() + relativeOffset);
             }
         }
     }
@@ -2836,7 +2838,7 @@ int RenderBlock::rightmostPosition(bool includeOverflowInterior, bool includeSel
     }
 
     if (!includeSelf) {
-        right = max(right, borderLeft() + paddingLeft() + paddingRight());
+        right = max(right, borderLeft() + paddingLeft() + paddingRight() + relativeOffset);
         if (childrenInline()) {
             for (InlineRunBox* currBox = firstLineBox(); currBox; currBox = currBox->nextLineBox()) {
                 int childRightEdge = currBox->x() + currBox->width();
@@ -2845,7 +2847,7 @@ int RenderBlock::rightmostPosition(bool includeOverflowInterior, bool includeSel
                 // FIXME: Need to find another way to do this, since scrollbars could show when we don't want them to.
                 if (node() && node()->isContentEditable() && node() == node()->rootEditableElement() && style()->direction() == LTR && !paddingRight())
                     childRightEdge += 1;
-                right = max(right, childRightEdge + paddingRight());
+                right = max(right, childRightEdge + paddingRight() + relativeOffset);
             }
         } else {
             // Walk all normal flow children.
@@ -2853,7 +2855,7 @@ int RenderBlock::rightmostPosition(bool includeOverflowInterior, bool includeSel
                 if (currBox->isFloatingOrPositioned())
                     continue;
                 int childRightEdge = currBox->x() + currBox->width() + currBox->marginRight();
-                right = max(right, childRightEdge + paddingRight());
+                right = max(right, childRightEdge + paddingRight() + relativeOffset);
             }
         }
     }
@@ -2930,7 +2932,7 @@ int RenderBlock::leftmostPosition(bool includeOverflowInterior, bool includeSelf
 
     if (!includeSelf && firstLineBox()) {
         for (InlineRunBox* currBox = firstLineBox(); currBox; currBox = currBox->nextLineBox())
-            left = min(left, (int)currBox->x());
+            left = min(left, (int)currBox->x() + relativeOffset);
     }
     
     return left;
@@ -3439,17 +3441,16 @@ Position RenderBlock::positionForRenderer(RenderObject* renderer, bool start) co
 }
 
 // FIXME: This function should go on RenderObject as an instance method. Then
-// all cases in which positionForCoordinates recurs could call this instead to
+// all cases in which positionForPoint recurs could call this instead to
 // prevent crossing editable boundaries. This would require many tests.
-static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBox* parent, RenderBox* child, const IntPoint& parentCoords)
+static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBox* parent, RenderBox* child, const IntPoint& pointInParentCoordinates)
 {
-    int xInChildCoords = parentCoords.x() - child->x();
-    int yInChildCoords = parentCoords.y() - child->y();
+    IntPoint pointInChildCoordinates(pointInParentCoordinates - child->location());
 
     // If this is an anonymous renderer, we just recur normally
     Node* childNode = child->node();
     if (!childNode)
-        return child->positionForCoordinates(xInChildCoords, yInChildCoords);
+        return child->positionForPoint(pointInChildCoordinates);
 
     // Otherwise, first make sure that the editability of the parent and child agree.
     // If they don't agree, then we return a visible position just before or after the child
@@ -3459,65 +3460,90 @@ static VisiblePosition positionForPointRespectingEditingBoundaries(RenderBox* pa
 
     // If we can't find an ancestor to check editability on, or editability is unchanged, we recur like normal
     if (!ancestor || ancestor->node()->isContentEditable() == childNode->isContentEditable())
-        return child->positionForCoordinates(xInChildCoords, yInChildCoords);
+        return child->positionForPoint(pointInChildCoordinates);
 
     // Otherwise return before or after the child, depending on if the click was left or right of the child
     int childMidX = child->width() / 2;
-    if (xInChildCoords < childMidX)
+    if (pointInChildCoordinates.x() < childMidX)
         return ancestor->createVisiblePosition(childNode->nodeIndex(), DOWNSTREAM);
     return ancestor->createVisiblePosition(childNode->nodeIndex() + 1, UPSTREAM);
 }
 
-static VisiblePosition positionForPointWithInlineChildren(RenderBlock* block, const IntPoint& pointInContents)
+VisiblePosition RenderBlock::positionForPointWithInlineChildren(const IntPoint& pointInContents)
 {
-    ASSERT(block->childrenInline());
+    ASSERT(childrenInline());
 
-    if (!block->firstRootBox())
-        return block->createVisiblePosition(0, DOWNSTREAM);
+    if (!firstRootBox())
+        return createVisiblePosition(0, DOWNSTREAM);
 
-    InlineBox* closestBox = 0;
     // look for the closest line box in the root box which is at the passed-in y coordinate
-    for (RootInlineBox* root = block->firstRootBox(); root; root = root->nextRootBox()) {
-        int bottom;
+    InlineBox* closestBox = 0;
+    RootInlineBox* firstRootBoxWithChildren = 0;
+    RootInlineBox* lastRootBoxWithChildren = 0;
+    for (RootInlineBox* root = firstRootBox(); root; root = root->nextRootBox()) {
+        if (!root->firstChild())
+            continue;
+        if (!firstRootBoxWithChildren)
+            firstRootBoxWithChildren = root;
+        lastRootBoxWithChildren = root;
+
         // set the bottom based on whether there is a next root box
-        if (root->nextRootBox())
-            // FIXME: make the break point halfway between the bottom of the previous root box and the top of the next root box
+        // FIXME: This will consider nextRootBox even if it has no children, and maybe it shouldn't.
+        int bottom;
+        if (root->nextRootBox()) {
+            // FIXME: We would prefer to make the break point halfway between the bottom
+            // of the previous root box and the top of the next root box.
             bottom = root->nextRootBox()->topOverflow();
-        else
+        } else
             bottom = root->bottomOverflow() + verticalLineClickFudgeFactor;
+
         // check if this root line box is located at this y coordinate
-        if (pointInContents.y() < bottom && root->firstChild()) {
+        if (pointInContents.y() < bottom) {
             closestBox = root->closestLeafChildForXPos(pointInContents.x());
             if (closestBox)
-                // pass the box a y position that is inside it
                 break;
         }
     }
 
-    // y coordinate is below last root line box, pretend we hit it
-    if (!closestBox)
-        closestBox = block->lastRootBox()->closestLeafChildForXPos(pointInContents.x());
+    Settings* settings = document()->settings();
+    bool useWindowsBehavior = settings && settings->editingBehavior() == EditingWindowsBehavior;
 
-    if (closestBox) {
-        // pass the box a y position that is inside it
-        return closestBox->renderer()->positionForCoordinates(pointInContents.x(), closestBox->m_y);
+    if (useWindowsBehavior && !closestBox && lastRootBoxWithChildren) {
+        // y coordinate is below last root line box, pretend we hit it
+        closestBox = lastRootBoxWithChildren->closestLeafChildForXPos(pointInContents.x());
     }
 
-    // Can't reach this.  We have a root line box, but it has no kids.
+    if (closestBox) {
+        if (!useWindowsBehavior && pointInContents.y() < firstRootBoxWithChildren->topOverflow() - verticalLineClickFudgeFactor) {
+            // y coordinate is above first root line box, so return the start of the first
+            return VisiblePosition(positionForBox(firstRootBoxWithChildren->firstLeafChild(), true), DOWNSTREAM);
+        }
+
+        // pass the box a y position that is inside it
+        return closestBox->renderer()->positionForPoint(IntPoint(pointInContents.x(), closestBox->m_y));
+    }
+
+    if (lastRootBoxWithChildren) {
+        // We hit this case for Mac behavior when the Y coordinate is below the last box.
+        ASSERT(!useWindowsBehavior);
+        return VisiblePosition(positionForBox(lastRootBoxWithChildren->lastLeafChild(), false), DOWNSTREAM);
+    }
+
+    // Can't reach this. We have a root line box, but it has no kids.
     // FIXME: This should ASSERT_NOT_REACHED(), but clicking on placeholder text
-    // seems to hit this codepath.
-    return block->createVisiblePosition(0, DOWNSTREAM);
+    // seems to hit this code path.
+    return createVisiblePosition(0, DOWNSTREAM);
+}
+
+static inline bool isChildHitTestCandidate(RenderBox* box)
+{
+    return box->height() && box->style()->visibility() == VISIBLE && !box->isFloatingOrPositioned();
 }
 
 VisiblePosition RenderBlock::positionForPoint(const IntPoint& point)
 {
     if (isTable())
         return RenderBox::positionForPoint(point);
-
-    int contentsX = point.x();
-    int contentsY = point.y();
-    offsetForContents(contentsX, contentsY);
-    IntPoint pointInContents(contentsX, contentsY);
 
     if (isReplaced()) {
         if (point.y() < 0 || (point.y() < height() && point.x() < 0))
@@ -3526,27 +3552,28 @@ VisiblePosition RenderBlock::positionForPoint(const IntPoint& point)
             return createVisiblePosition(caretMaxOffset(), DOWNSTREAM);
     } 
 
-    if (childrenInline()) {
-        return positionForPointWithInlineChildren(this, pointInContents);
+    int contentsX = point.x();
+    int contentsY = point.y();
+    offsetForContents(contentsX, contentsY);
+    IntPoint pointInContents(contentsX, contentsY);
+
+    if (childrenInline())
+        return positionForPointWithInlineChildren(pointInContents);
+
+    if (lastChildBox() && contentsY > lastChildBox()->y()) {
+        for (RenderBox* childBox = lastChildBox(); childBox; childBox = childBox->previousSiblingBox()) {
+            if (isChildHitTestCandidate(childBox))
+                return positionForPointRespectingEditingBoundaries(this, childBox, pointInContents);
+        }
+    } else {
+        for (RenderBox* childBox = firstChildBox(); childBox; childBox = childBox->nextSiblingBox()) {
+            // We hit child if our click is above the bottom of its padding box (like IE6/7 and FF3).
+            if (isChildHitTestCandidate(childBox) && contentsY < childBox->frameRect().bottom())
+                return positionForPointRespectingEditingBoundaries(this, childBox, pointInContents);
+        }
     }
 
-    // Check top/bottom child-margin/parent-padding for clicks and place them in the first/last child
-    // FIXME: This will not correctly handle first or last children being positioned or non-visible
-    if (firstChildBox() && contentsY < firstChildBox()->y())
-        return positionForPointRespectingEditingBoundaries(this, firstChildBox(), pointInContents);
-    if (lastChildBox() && contentsY > lastChildBox()->y())
-        return positionForPointRespectingEditingBoundaries(this, lastChildBox(), pointInContents);
-
-    for (RenderBox* childBox = firstChildBox(); childBox; childBox = childBox->nextSiblingBox()) {
-        if (childBox->height() == 0 || childBox->style()->visibility() != VISIBLE || childBox->isFloatingOrPositioned())
-            continue;
-        // We hit this child if our click was above the bottom of its padding box (like IE6/7 and FF3)
-        if (contentsY < childBox->y() + childBox->height())
-            return positionForPointRespectingEditingBoundaries(this, childBox, pointInContents);
-    }
-
-    // We only get here if there are no, or only floated/positioned, or only
-    // non-visible block children below the click.
+    // We only get here if there are no hit test candidate children below the click.
     return RenderBox::positionForPoint(point);
 }
 
@@ -4834,31 +4861,31 @@ void RenderBlock::setMaxBottomMargins(int pos, int neg)
     m_maxMargin->m_bottomNeg = neg;
 }
 
-void RenderBlock::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool topLevel)
+void RenderBlock::absoluteRects(Vector<IntRect>& rects, int tx, int ty)
 {
     // For blocks inside inlines, we go ahead and include margins so that we run right up to the
     // inline boxes above and below us (thus getting merged with them to form a single irregular
     // shape).
-    if (topLevel && inlineContinuation()) {
+    if (inlineContinuation()) {
         rects.append(IntRect(tx, ty - collapsedMarginTop(),
                              width(), height() + collapsedMarginTop() + collapsedMarginBottom()));
         inlineContinuation()->absoluteRects(rects,
                                             tx - x() + inlineContinuation()->containingBlock()->x(),
-                                            ty - y() + inlineContinuation()->containingBlock()->y(), topLevel);
+                                            ty - y() + inlineContinuation()->containingBlock()->y());
     } else
         rects.append(IntRect(tx, ty, width(), height()));
 }
 
-void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads, bool topLevel)
+void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads)
 {
     // For blocks inside inlines, we go ahead and include margins so that we run right up to the
     // inline boxes above and below us (thus getting merged with them to form a single irregular
     // shape).
-    if (topLevel && inlineContinuation()) {
+    if (inlineContinuation()) {
         FloatRect localRect(0, -collapsedMarginTop(),
                             width(), height() + collapsedMarginTop() + collapsedMarginBottom());
         quads.append(localToAbsoluteQuad(localRect));
-        inlineContinuation()->absoluteQuads(quads, topLevel);
+        inlineContinuation()->absoluteQuads(quads);
     } else
         quads.append(RenderBox::localToAbsoluteQuad(FloatRect(0, 0, width(), height())));
 }
@@ -4966,7 +4993,7 @@ IntRect RenderBlock::localCaretRect(InlineBox* inlineBox, int caretOffset, int* 
             x = (x + w - (borderRight() + paddingRight())) / 2;
             break;
         case alignRight:
-            x = w - (borderRight() + paddingRight());
+            x = w - (borderRight() + paddingRight()) - caretWidth;
             break;
     }
 

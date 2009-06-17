@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,9 +44,8 @@ struct OpaqueJSClassContextData;
 
 namespace JSC {
 
-    class ArgList;
     class CommonIdentifiers;
-    class Heap;
+    class FunctionBodyNode;
     class IdentifierTable;
     class Instruction;
     class Interpreter;
@@ -54,7 +53,6 @@ namespace JSC {
     class JSObject;
     class Lexer;
     class Parser;
-    class ParserRefCounted;
     class ScopeNode;
     class Structure;
     class UString;
@@ -107,7 +105,7 @@ namespace JSC {
 
         IdentifierTable* identifierTable;
         CommonIdentifiers* propertyNames;
-        const ArgList* emptyList; // Lists are supposed to be allocated on the stack to have their elements properly marked, which is not the case here - but this list has nothing to mark.
+        const MarkedArgumentBuffer* emptyList; // Lists are supposed to be allocated on the stack to have their elements properly marked, which is not the case here - but this list has nothing to mark.
         SmallStrings smallStrings;
 
 #if ENABLE(ASSEMBLER)
@@ -118,12 +116,19 @@ namespace JSC {
         Parser* parser;
         Interpreter* interpreter;
 #if ENABLE(JIT)
-        JITStubs jitStubs;
+        JITThunks jitStubs;
+        FunctionBodyNode* nativeFunctionThunk()
+        {
+            if (!lazyNativeFunctionThunk)
+                createNativeThunk();
+            return lazyNativeFunctionThunk.get();
+        }
+        RefPtr<FunctionBodyNode> lazyNativeFunctionThunk;
 #endif
         TimeoutChecker timeoutChecker;
         Heap heap;
 
-        JSValuePtr exception;
+        JSValue exception;
 #if ENABLE(JIT)
         void* exceptionLocation;
 #endif
@@ -133,9 +138,6 @@ namespace JSC {
         bool initializingLazyNumericCompareFunction;
 
         HashMap<OpaqueJSClass*, OpaqueJSClassContextData*> opaqueJSClassData;
-
-        HashSet<ParserRefCounted*>* newParserObjects;
-        HashCountedSet<ParserRefCounted*>* parserObjectExtraRefCounts;
 
         JSGlobalObject* head;
         JSGlobalObject* dynamicGlobalObject;
@@ -147,7 +149,9 @@ namespace JSC {
     private:
         JSGlobalData(bool isShared, const VPtrSet&);
         static JSGlobalData*& sharedInstanceInternal();
+        void createNativeThunk();
     };
+
 } // namespace JSC
 
 #endif // JSGlobalData_h

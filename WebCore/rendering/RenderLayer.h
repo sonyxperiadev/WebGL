@@ -188,12 +188,12 @@ public:
     // if layer compositing is being used,
     void setBackingNeedsRepaint();
     void setBackingNeedsRepaintInRect(const IntRect& r); // r is in the coordinate space of the layer's render object
+    void repaintIncludingNonCompositingDescendants(RenderBoxModelObject* repaintContainer);
 #endif
 
     void styleChanged(StyleDifference, const RenderStyle*);
 
     RenderMarquee* marquee() const { return m_marquee; }
-    void suspendMarquees();
 
     bool isNormalFlowOnly() const { return m_isNormalFlowOnly; }
     bool isSelfPaintingLayer() const;
@@ -441,6 +441,7 @@ private:
     
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
                     bool haveTransparency, PaintRestriction, RenderObject* paintingRoot,
+                    RenderObject::OverlapTestRequestMap* = 0,
                     bool appliedTransform = false, bool temporaryClipRects = false);
 
     RenderLayer* hitTestLayer(RenderLayer* rootLayer, RenderLayer* containerLayer, const HitTestRequest& request, HitTestResult& result,

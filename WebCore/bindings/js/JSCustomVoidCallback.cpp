@@ -57,7 +57,7 @@ void JSCustomVoidCallback::handleEvent()
         
     JSC::JSLock lock(false);
         
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -71,7 +71,7 @@ void JSCustomVoidCallback::handleEvent()
         
     RefPtr<JSCustomVoidCallback> protect(this);
         
-    ArgList args;
+    MarkedArgumentBuffer args;
     
     globalObject->globalData()->timeoutChecker.start();
     call(exec, function, callType, callData, m_callback, args);
@@ -80,10 +80,10 @@ void JSCustomVoidCallback::handleEvent()
     if (exec->hadException())
         reportCurrentException(exec);
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
  
-PassRefPtr<VoidCallback> toVoidCallback(ExecState* exec, JSValuePtr value)
+PassRefPtr<VoidCallback> toVoidCallback(ExecState* exec, JSValue value)
 {
     JSObject* object = value.getObject();
     if (!object)

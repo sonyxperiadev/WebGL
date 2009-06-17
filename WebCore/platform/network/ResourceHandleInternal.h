@@ -133,6 +133,7 @@ namespace WebCore {
 #endif
 #if PLATFORM(MAC)
             , m_startWhenScheduled(false)
+            , m_needsSiteSpecificQuirks(false)
             , m_currentMacChallenge(nil)
 #elif USE(CFNETWORK)
             , m_currentCFChallenge(0)
@@ -142,6 +143,10 @@ namespace WebCore {
 #endif
             , m_failureTimer(loader, &ResourceHandle::fireFailure)
         {
+            const KURL& url = m_request.url();
+            m_user = url.user();
+            m_pass = url.pass();
+            m_request.removeCredentials();
         }
         
         ~ResourceHandleInternal();
@@ -150,6 +155,10 @@ namespace WebCore {
         ResourceHandleClient* m_client;
         
         ResourceRequest m_request;
+
+        // Suggested credentials for the current redirection step.
+        String m_user;
+        String m_pass;
         
         int status;
 
@@ -163,6 +172,7 @@ namespace WebCore {
         RetainPtr<WebCoreResourceHandleAsDelegate> m_delegate;
         RetainPtr<id> m_proxy;
         bool m_startWhenScheduled;
+        bool m_needsSiteSpecificQuirks;
 #endif
 #if USE(WININET)
         HANDLE m_fileHandle;
@@ -210,6 +220,8 @@ namespace WebCore {
 #endif
         QWebFrame* m_frame;
 #endif
+
+        // FIXME: The platform challenge is almost identical to the one stored in m_currentWebChallenge, but it has a different sender. We only need to store a sender reference here.
 #if PLATFORM(MAC)
         NSURLAuthenticationChallenge *m_currentMacChallenge;
 #endif

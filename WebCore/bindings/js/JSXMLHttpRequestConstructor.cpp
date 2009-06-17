@@ -32,11 +32,11 @@ ASSERT_CLASS_FITS_IN_CELL(JSXMLHttpRequestConstructor);
 
 const ClassInfo JSXMLHttpRequestConstructor::s_info = { "XMLHttpRequestConstructor", 0, 0, 0 };
 
-JSXMLHttpRequestConstructor::JSXMLHttpRequestConstructor(ExecState* exec, ScriptExecutionContext* scriptExecutionContext)
+JSXMLHttpRequestConstructor::JSXMLHttpRequestConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMObject(JSXMLHttpRequestConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
-    , m_globalObject(toJSDOMGlobalObject(scriptExecutionContext))
+    , m_globalObject(globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSXMLHttpRequestPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSXMLHttpRequestPrototype::self(exec, exec->lexicalGlobalObject()), None);
 }
 
 ScriptExecutionContext* JSXMLHttpRequestConstructor::scriptExecutionContext() const
@@ -46,7 +46,11 @@ ScriptExecutionContext* JSXMLHttpRequestConstructor::scriptExecutionContext() co
 
 static JSObject* constructXMLHttpRequest(ExecState* exec, JSObject* constructor, const ArgList&)
 {
-    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(static_cast<JSXMLHttpRequestConstructor*>(constructor)->scriptExecutionContext());
+    ScriptExecutionContext* context = static_cast<JSXMLHttpRequestConstructor*>(constructor)->scriptExecutionContext();
+    if (!context)
+        return throwError(exec, ReferenceError, "XMLHttpRequest constructor associated document is unavailable");
+
+    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(context);
     return CREATE_DOM_OBJECT_WRAPPER(exec, XMLHttpRequest, xmlHttpRequest.get());
 }
 

@@ -622,14 +622,10 @@ bool RenderTheme::isIndeterminate(const RenderObject* o) const
 
 bool RenderTheme::isEnabled(const RenderObject* o) const
 {
-    if (!o->node() || !o->node()->isElementNode())
+    Node* node = o->node();
+    if (!node || !node->isElementNode())
         return true;
-
-    FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(o->node()));
-    if (!formControlElement)
-        return true;
-
-    return formControlElement->isEnabled();
+    return static_cast<Element*>(node)->isEnabledFormControl();
 }
 
 bool RenderTheme::isFocused(const RenderObject* o) const
@@ -651,14 +647,10 @@ bool RenderTheme::isPressed(const RenderObject* o) const
 
 bool RenderTheme::isReadOnlyControl(const RenderObject* o) const
 {
-    if (!o->node() || !o->node()->isElementNode())
+    Node* node = o->node();
+    if (!node || !node->isElementNode())
         return false;
-
-    FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(o->node()));
-    if (!formControlElement)
-        return false;
-
-    return formControlElement->isReadOnlyControl();
+    return static_cast<Element*>(node)->isReadOnlyFormControl();
 }
 
 bool RenderTheme::isHovered(const RenderObject* o) const
@@ -851,9 +843,14 @@ Color RenderTheme::systemColor(int cssValueId) const
     return Color();
 }
 
-Color RenderTheme::platformTextSearchHighlightColor() const
+Color RenderTheme::platformActiveTextSearchHighlightColor() const
 {
-    return Color(255, 255, 0);
+    return Color(255, 150, 50); // Orange.
+}
+
+Color RenderTheme::platformInactiveTextSearchHighlightColor() const
+{
+    return Color(255, 255, 0); // Yellow.
 }
 
 } // namespace WebCore

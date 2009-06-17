@@ -145,7 +145,7 @@ void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
 // This function is called by the JavaScript bindings to print usually an error to
 // a message console. Pass the message to the java side so that the client can
 // handle it as it sees fit.
-void ChromeClientAndroid::addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID) {
+void ChromeClientAndroid::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) {
     android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->addMessageToConsole(message, lineNumber, sourceID);
 }
 
@@ -168,7 +168,7 @@ void ChromeClientAndroid::closeWindowSoon()
     mainFrame->loader()->stopAllLoaders();
     // Remove all event listeners so that no javascript can execute as a result
     // of mouse/keyboard events.
-    mainFrame->document()->removeAllEventListenersFromAllNodes();
+    mainFrame->document()->removeAllEventListeners();
     // Close the window.
     m_webFrame->closeWindow(android::WebViewCore::getWebViewCore(mainFrame->view()));
 }
@@ -249,13 +249,16 @@ PlatformWidget ChromeClientAndroid::platformWindow() const {
     return viewBridge;
 }
 
-// new to webkit4 (Feb 27, 2009)
 void ChromeClientAndroid::contentsSizeChanged(Frame*, const IntSize&) const
 {
     notImplemented();
 }
 
-// new to webkit4 (Feb 27, 2009)
+void ChromeClientAndroid::scrollRectIntoView(const IntRect&, const ScrollView*) const
+{
+    notImplemented();
+}
+
 void ChromeClientAndroid::formStateDidChange(const Node*)
 {
     notImplemented();
@@ -309,8 +312,13 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
 }
 #endif
 
-// new to change 38068 (Nov 6, 2008)
+void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame*, Geolocation*) { notImplemented(); }
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
+bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
+{
+    notImplemented(); 
+    return false;
+}
 
 void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {
     MutexLocker locker(m_quotaThreadLock);

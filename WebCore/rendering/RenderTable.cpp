@@ -115,7 +115,6 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
         beforeChild = lastChild();
 
     bool wrapInAnonymousSection = !child->isPositioned();
-    bool isTableElement = node() && node()->hasTagName(tableTag);
 
     if (child->isRenderBlock() && child->style()->display() == TABLE_CAPTION) {
         // First caption wins.
@@ -135,44 +134,37 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
     } else if (child->isTableSection()) {
         switch (child->style()->display()) {
             case TABLE_HEADER_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_head, beforeChild);
-                    if (!m_head) {
-                        m_head = static_cast<RenderTableSection*>(child);
-                    } else {
-                        resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
-                        if (!m_firstBody) 
-                            m_firstBody = static_cast<RenderTableSection*>(child);
-                    }
+                resetSectionPointerIfNotBefore(m_head, beforeChild);
+                if (!m_head) {
+                    m_head = static_cast<RenderTableSection*>(child);
+                } else {
+                    resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
+                    if (!m_firstBody) 
+                        m_firstBody = static_cast<RenderTableSection*>(child);
                 }
                 wrapInAnonymousSection = false;
                 break;
             case TABLE_FOOTER_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_foot, beforeChild);
-                    if (!m_foot) {
-                        m_foot = static_cast<RenderTableSection*>(child);
-                        wrapInAnonymousSection = false;
-                        break;
-                    }
+                resetSectionPointerIfNotBefore(m_foot, beforeChild);
+                if (!m_foot) {
+                    m_foot = static_cast<RenderTableSection*>(child);
+                    wrapInAnonymousSection = false;
+                    break;
                 }
                 // Fall through.
             case TABLE_ROW_GROUP:
-                if (child->isTableSection()) {
-                    resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
-                    if (!m_firstBody)
-                        m_firstBody = static_cast<RenderTableSection*>(child);
-                }
+                resetSectionPointerIfNotBefore(m_firstBody, beforeChild);
+                if (!m_firstBody)
+                    m_firstBody = static_cast<RenderTableSection*>(child);
                 wrapInAnonymousSection = false;
                 break;
             default:
                 ASSERT_NOT_REACHED();
         }
-    } else if (child->isTableCell() || child->isTableRow()) {
+    } else if (child->isTableCell() || child->isTableRow())
         wrapInAnonymousSection = true;
-    } else
-        // Allow a form to just sit at the top level.
-        wrapInAnonymousSection = !isTableElement || !child->node() || !(child->node()->hasTagName(formTag) && document()->isHTMLDocument());
+    else
+        wrapInAnonymousSection = true;
 
     if (!wrapInAnonymousSection) {
         // If the next renderer is actually wrapped in an anonymous table section, we need to go up and find that.

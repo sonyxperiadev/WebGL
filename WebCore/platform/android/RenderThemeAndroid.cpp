@@ -27,7 +27,6 @@
 #include "RenderThemeAndroid.h"
 
 #include "Color.h"
-#include "FormControlElement.h"
 #include "GraphicsContext.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderSkinAndroid.h"
@@ -181,8 +180,8 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const RenderObject::Pain
 {
     // If it is a disabled button, simply paint it to the master picture.
     Node* node = obj->node();
-    FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(node));
-    if (formControlElement && !formControlElement->isEnabled())
+    if (node && node->isElementNode() &&
+        static_cast<Element*>(node)->isEnabledFormControl())
         RenderSkinButton::Draw(getCanvasFromInfo(info), rect, RenderSkinAndroid::kDisabled);
     else
         // Store all the important information in the platform context.
@@ -255,10 +254,7 @@ static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
     // Code copied from RenderThemeMac.mm
     // Makes sure that the text shows up on our treatment
-    bool isEnabled = true;
-    if (FormControlElement* formControlElement = toFormControlElement(e))
-        isEnabled = formControlElement->isEnabled();
-    style->setColor(isEnabled ? Color::black : Color::darkGray);
+    style->setColor(e->isEnabledFormControl() ? Color::black : Color::darkGray);
 }
 
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const

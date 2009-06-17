@@ -103,7 +103,6 @@ void Pasteboard::setHelper(PasteboardHelper* helper)
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     GtkClipboard* clipboard = m_helper->getClipboard(frame);
-#if GTK_CHECK_VERSION(2,10,0)
     gchar* text = g_strdup(frame->selectedText().utf8().data());
     gchar* markup = g_strdup(createMarkup(selectedRange, 0, AnnotateForInterchange).utf8().data());
     PasteboardSelectionData* data = new PasteboardSelectionData(text, markup);
@@ -113,9 +112,6 @@ void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete,
     gtk_clipboard_set_with_data(clipboard, targets, n_targets,
                                 clipboard_get_contents_cb, clipboard_clear_contents_cb, data);
     gtk_target_table_free(targets, n_targets);
-#else
-    gtk_clipboard_set_text(clipboard, frame->selectedText().utf8().data(), frame->selectedText().utf8().length());
-#endif
 }
 
 void Pasteboard::writeURL(const KURL& url, const String&, Frame* frame)
@@ -124,14 +120,13 @@ void Pasteboard::writeURL(const KURL& url, const String&, Frame* frame)
         return;
 
     GtkClipboard* clipboard = m_helper->getClipboard(frame);
+    GtkClipboard* primary = m_helper->getPrimary(frame);
     gtk_clipboard_set_text(clipboard, url.string().utf8().data(), url.string().utf8().length());
+    gtk_clipboard_set_text(primary, url.string().utf8().data(), url.string().utf8().length());
 }
 
 void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
-    // TODO: Enable this when Image gets GdkPixbuf support
-
-    /*
     GtkClipboard* clipboard = gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD);
 
     ASSERT(node && node->renderer() && node->renderer()->isImage());
@@ -141,10 +136,9 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
     Image* image = cachedImage->image();
     ASSERT(image);
 
-    gtk_clipboard_set_image(clipboard, image->pixbuf());
-    */
-
-    notImplemented();
+    GdkPixbuf* pixbuf = image->getGdkPixbuf();
+    gtk_clipboard_set_image(clipboard, pixbuf);
+    g_object_unref(pixbuf);
 }
 
 void Pasteboard::clear()
@@ -163,12 +157,8 @@ bool Pasteboard::canSmartReplace()
 PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefPtr<Range> context,
                                                           bool allowPlainText, bool& chosePlainText)
 {
-#if GTK_CHECK_VERSION(2,10,0)
     GdkAtom textHtml = gdk_atom_intern_static_string("text/html");
-#else
-    GdkAtom textHtml = gdk_atom_intern("text/html", false);
-#endif
-    GtkClipboard* clipboard = m_helper->getClipboard(frame);
+    GtkClipboard* clipboard = m_helper->getCurrentTarget(frame);
     chosePlainText = false;
 
     if (GtkSelectionData* data = gtk_clipboard_wait_for_contents(clipboard, textHtml)) {
@@ -201,7 +191,7 @@ PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefP
 
 String Pasteboard::plainText(Frame* frame)
 {
-    GtkClipboard* clipboard = m_helper->getClipboard(frame);
+    GtkClipboard* clipboard = m_helper->getCurrentTarget(frame);
 
     gchar* utf8 = gtk_clipboard_wait_for_text(clipboard);
 

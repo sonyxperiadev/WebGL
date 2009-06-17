@@ -29,7 +29,7 @@
 
 #include "CharacterNames.h"
 #include "Document.h"
-#include "Element.h"
+#include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "htmlediting.h"
 #include "InlineTextBox.h"
@@ -103,6 +103,8 @@ TextIterator::TextIterator()
     , m_endContainer(0)
     , m_endOffset(0)
     , m_positionNode(0)
+    , m_textCharacters(0)
+    , m_textLength(0)
     , m_lastCharacter(0)
     , m_emitCharactersBetweenAllVisiblePositions(false)
     , m_enterTextControls(false)
@@ -116,6 +118,8 @@ TextIterator::TextIterator(const Range* r, bool emitCharactersBetweenAllVisibleP
     , m_endContainer(0)
     , m_endOffset(0)
     , m_positionNode(0)
+    , m_textCharacters(0)
+    , m_textLength(0)
     , m_emitCharactersBetweenAllVisiblePositions(emitCharactersBetweenAllVisiblePositions)
     , m_enterTextControls(enterTextControls)
 {
@@ -609,11 +613,13 @@ bool TextIterator::shouldRepresentNodeOffsetZero()
     if (!m_node->renderer() || m_node->renderer()->style()->visibility() != VISIBLE)
         return false;
     
-    // The currPos.isNotNull() check is needed because positions in non-html content
-    // (like svg) do not have visible positions, and we don't want to emit for them either.
+    // The startPos.isNotNull() check is needed because the start could be before the body,
+    // and in that case we'll get null. We don't want to put in newlines at the start in that case.
+    // The currPos.isNotNull() check is needed because positions in non-HTML content
+    // (like SVG) do not have visible positions, and we don't want to emit for them either.
     VisiblePosition startPos = VisiblePosition(m_startContainer, m_startOffset, DOWNSTREAM);
     VisiblePosition currPos = VisiblePosition(m_node, 0, DOWNSTREAM);
-    return currPos.isNotNull() && !inSameLine(startPos, currPos);
+    return startPos.isNotNull() && currPos.isNotNull() && !inSameLine(startPos, currPos);
 }
 
 bool TextIterator::shouldEmitSpaceBeforeAndAfterNode(Node* node)
@@ -1558,7 +1564,7 @@ PassRefPtr<Range> TextIterator::rangeFromLocationAndLength(Element *scope, int r
                 Position runEnd = VisiblePosition(runStart).next().deepEquivalent();
                 if (runEnd.isNotNull()) {
                     ExceptionCode ec = 0;
-                    textRunRange->setEnd(runEnd.node(), runEnd.m_offset, ec);
+                    textRunRange->setEnd(runEnd.node(), runEnd.deprecatedEditingOffset(), ec);
                     ASSERT(!ec);
                 }
             }

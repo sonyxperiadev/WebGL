@@ -33,7 +33,7 @@ public:
     WMLOptionElement(const QualifiedName& tagName, Document*);
     virtual ~WMLOptionElement();
 
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
 
     virtual bool rendererIsNeeded(RenderStyle*) { return false; }
 
@@ -50,6 +50,7 @@ public:
     virtual bool selected() const;
     virtual void setSelectedState(bool);
 
+    virtual String text() const;
     virtual String textIndentedToRespectGroupLabel() const;
     virtual String value() const;
 

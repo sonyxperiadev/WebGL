@@ -27,6 +27,7 @@
 #include "InspectorController.h"
 
 #include "InspectorClient.h"
+#include "InspectorFrontend.h"
 
 #include "Frame.h"
 #include "Node.h"
@@ -65,7 +66,6 @@ struct InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> 
 };
 
 InspectorController::InspectorController(Page*, InspectorClient* client)
-    : m_startProfiling(this, 0)
 {
     m_client = client;
 }
@@ -90,16 +90,8 @@ void InspectorController::didOpenDatabase(Database*, String const&, String const
 bool InspectorController::enabled() const { return false; }
 void InspectorController::inspect(Node*) {}
 bool InspectorController::windowVisible() { return false; }
-#if USE(JSC)
-void InspectorController::addProfile(PassRefPtr<JSC::Profile>, unsigned int, const JSC::UString&) {}
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString) {}
-void InspectorController::failedToParseSource(JSC::ExecState* exec, const JSC::SourceCode& source, int errorLine, const JSC::UString& errorMessage) {}    
-void InspectorController::didParseSource(JSC::ExecState* exec, const JSC::SourceCode& source) {}
-void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString) {}
-#elif USE(V8)
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString) {}
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString) {}
 void InspectorController::scriptImported(unsigned long identifier, const String& sourceString) {}
-#endif
 void InspectorController::inspectedPageDestroyed() {}
 
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
@@ -116,5 +108,4 @@ void InspectorController::handleMousePressOnNode(Node*) {}
 void InspectorController::didPause() {}
 #endif
 
-void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>*) {}
 }  // namespace WebCore

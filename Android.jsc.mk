@@ -106,6 +106,7 @@ LOCAL_C_INCLUDES := \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH)/WebCore \
+	$(LOCAL_PATH)/WebCore/accessibility \
 	$(LOCAL_PATH)/WebCore/bindings/js \
 	$(LOCAL_PATH)/WebCore/bridge \
 	$(LOCAL_PATH)/WebCore/bridge/c \

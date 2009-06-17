@@ -1522,9 +1522,11 @@ public:
         if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
                 m_frame, m_select))
             return;
+        // FIXME: scroggo, listToOptionIndex was made private in HTMLSelectElement.
         int optionIndex = m_select->listToOptionIndex(index);
         m_select->setSelectedIndex(optionIndex, true, false);
-        m_select->onChange();
+        // FIXME: scroggo, onChange is removed from HTMLSelectElement.
+        // m_select->onChange();
         m_viewImpl->contentInvalidate(m_select->getRect());
     }
 
@@ -1541,7 +1543,7 @@ public:
         // If count is 1 or 0, use replyInt.
         SkASSERT(count > 1);
 
-        const WTF::Vector<HTMLElement*>& items = m_select->listItems();
+        const WTF::Vector<Element*>& items = m_select->listItems();
         int totalItems = static_cast<int>(items.size());
         // Keep track of the position of the value we are comparing against.
         int arrayIndex = 0;
@@ -1563,7 +1565,8 @@ public:
                     option->setSelectedState(false);
             }
         }
-        m_select->onChange();
+        // FIXME scroggo, onChange is removed from HTMLSelectElement
+        // m_select->onChange();
         m_viewImpl->contentInvalidate(m_select->getRect());
     }
 private:
@@ -1747,7 +1750,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         WebCore::RenderObject* renderer = nodePtr->renderer();
         if (renderer && renderer->isMenuList()) {
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
-            const WTF::Vector<WebCore::HTMLElement*>& listItems = select->listItems();
+            const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
             SkTDArray<int> enabledArray;
             SkTDArray<int> selectedArray;

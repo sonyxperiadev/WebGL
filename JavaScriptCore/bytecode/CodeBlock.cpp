@@ -55,7 +55,7 @@ static UString escapeQuotes(const UString& str)
     return result;
 }
 
-static UString valueToSourceString(ExecState* exec, JSValuePtr val)
+static UString valueToSourceString(ExecState* exec, JSValue val)
 {
     if (val.isString()) {
         UString result("\"");
@@ -74,7 +74,7 @@ static CString registerName(int r)
     return (UString("r") + UString::from(r)).UTF8String();
 }
 
-static CString constantName(ExecState* exec, int k, JSValuePtr value)
+static CString constantName(ExecState* exec, int k, JSValue value)
 {
     return (valueToSourceString(exec, value) + "(@k" + UString::from(k) + ")").UTF8String();
 }
@@ -357,7 +357,7 @@ void CodeBlock::dump(ExecState* exec) const
         unsigned registerIndex = m_numVars;
         size_t i = 0;
         do {
-            printf("   r%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].jsValue(exec)).ascii());
+            printf("   r%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].jsValue()).ascii());
             ++i;
             ++registerIndex;
         } while (i < m_constantRegisters.size());
@@ -495,6 +495,10 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_create_arguments: {
             printf("[%4d] create_arguments\n", location);
+            break;
+        }
+        case op_init_arguments: {
+            printf("[%4d] init_arguments\n", location);
             break;
         }
         case op_convert_this: {
@@ -703,7 +707,7 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_resolve_global: {
             int r0 = (++it)->u.operand;
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int id0 = (++it)->u.operand;
             printf("[%4d] resolve_global\t %s, %s, %s\n", location, registerName(r0).c_str(), valueToSourceString(exec, scope).ascii(), idName(id0, m_identifiers[id0]).c_str());
             it += 2;
@@ -725,13 +729,13 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_get_global_var: {
             int r0 = (++it)->u.operand;
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
             printf("[%4d] get_global_var\t %s, %s, %d\n", location, registerName(r0).c_str(), valueToSourceString(exec, scope).ascii(), index);
             break;
         }
         case op_put_global_var: {
-            JSValuePtr scope = JSValuePtr((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
             int r0 = (++it)->u.operand;
             printf("[%4d] put_global_var\t %s, %d, %s\n", location, valueToSourceString(exec, scope).ascii(), index, registerName(r0).c_str());
@@ -823,6 +827,10 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] put_setter\t %s, %s, %s\n", location, registerName(r0).c_str(), idName(id0, m_identifiers[id0]).c_str(), registerName(r1).c_str());
             break;
         }
+        case op_method_check: {
+            printf("[%4d] op_method_check\n", location);
+            break;
+        }
         case op_del_by_id: {
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
@@ -888,11 +896,25 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printConditionalJump(begin, it, location, "jneq_null");
             break;
         }
+        case op_jneq_ptr: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int offset = (++it)->u.operand;
+            printf("[%4d] jneq_ptr\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
+            break;
+        }
         case op_jnless: {
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
             int offset = (++it)->u.operand;
             printf("[%4d] jnless\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
+            break;
+        }
+        case op_jnlesseq: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int offset = (++it)->u.operand;
+            printf("[%4d] jnlesseq\t\t %s, %s, %d(->%d)\n", location, registerName(r0).c_str(), registerName(r1).c_str(), offset, locationForOffset(begin, it, offset));
             break;
         }
         case op_loop_if_less: {
@@ -958,6 +980,18 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] call_eval\t %s, %s, %d, %d\n", location, registerName(dst).c_str(), registerName(func).c_str(), argCount, registerOffset);
             break;
         }
+        case op_call_varargs: {
+            int dst = (++it)->u.operand;
+            int func = (++it)->u.operand;
+            int argCount = (++it)->u.operand;
+            int registerOffset = (++it)->u.operand;
+            printf("[%4d] call_varargs\t %s, %s, %s, %d\n", location, registerName(dst).c_str(), registerName(func).c_str(), registerName(argCount).c_str(), registerOffset);
+            break;
+        }
+        case op_load_varargs: {
+            printUnaryOp(location, it, "load_varargs");
+            break;
+        }
         case op_tear_off_activation: {
             int r0 = (++it)->u.operand;
             printf("[%4d] tear_off_activation\t %s\n", location, registerName(r0).c_str());
@@ -986,6 +1020,19 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int r0 = (++it)->u.operand;
             int r1 = (++it)->u.operand;
             printf("[%4d] construct_verify\t %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str());
+            break;
+        }
+        case op_strcat: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int count = (++it)->u.operand;
+            printf("[%4d] op_strcat\t %s, %s, %d\n", location, registerName(r0).c_str(), registerName(r1).c_str(), count);
+            break;
+        }
+        case op_to_primitive: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            printf("[%4d] op_to_primitive\t %s, %s\n", location, registerName(r0).c_str(), registerName(r1).c_str());
             break;
         }
         case op_get_pnames: {
@@ -1267,6 +1314,11 @@ CodeBlock::~CodeBlock()
             callLinkInfo->callee->removeCaller(callLinkInfo);
     }
 
+    for (size_t size = m_methodCallLinkInfos.size(), i = 0; i < size; ++i) {
+        if (Structure* structure = m_methodCallLinkInfos[i].cachedStructure)
+            structure->deref();
+    }
+
     unlinkCallers();
 #endif
 
@@ -1420,7 +1472,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 
 #if ENABLE(JIT)
             JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newCodeBlock.m_jitCode.codeSize == m_jitCode.codeSize);
+            ASSERT(newFunctionBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
 #endif
 
             m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
@@ -1441,7 +1493,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 
 #if ENABLE(JIT)
             JIT::compile(m_globalData, &newCodeBlock);
-            ASSERT(newCodeBlock.m_jitCode.codeSize == m_jitCode.codeSize);
+            ASSERT(newEvalBody->generatedJITCode().size() == ownerNode()->generatedJITCode().size());
 #endif
 
             m_exceptionInfo.set(newCodeBlock.m_exceptionInfo.release());
@@ -1635,9 +1687,9 @@ bool CodeBlock::hasGlobalResolveInfoAtBytecodeOffset(unsigned bytecodeOffset)
 #endif
 
 #if ENABLE(JIT)
-void CodeBlock::setJITCode(JITCodeRef& jitCode)
+void CodeBlock::setJITCode(JITCode jitCode)
 {
-    m_jitCode = jitCode;
+    ownerNode()->setJITCode(jitCode);
 #if !ENABLE(OPCODE_SAMPLING)
     if (!BytecodeGenerator::dumpsGeneratedCode())
         m_instructions.clear();

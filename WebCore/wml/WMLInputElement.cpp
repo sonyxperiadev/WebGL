@@ -28,6 +28,7 @@
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "RenderTextControlSingleLine.h"
 #include "TextEvent.h"
 #include "WMLDocument.h"
@@ -37,8 +38,7 @@
 namespace WebCore {
 
 WMLInputElement::WMLInputElement(const QualifiedName& tagName, Document* doc)
-    : WMLFormControlElementWithState(tagName, doc)
-    , m_data(this, this)
+    : WMLFormControlElement(tagName, doc)
     , m_isPasswordField(false)
     , m_isEmptyOk(false)
     , m_numOfCharsAllowedByMask(0)
@@ -59,17 +59,17 @@ static const AtomicString& formatCodes()
 
 bool WMLInputElement::isKeyboardFocusable(KeyboardEvent*) const
 {
-    return WMLFormControlElementWithState::isFocusable();
+    return WMLFormControlElement::isFocusable();
 }
 
 bool WMLInputElement::isMouseFocusable() const
 {
-    return WMLFormControlElementWithState::isFocusable();
+    return WMLFormControlElement::isFocusable();
 }
 
 void WMLInputElement::dispatchFocusEvent()
 {
-    InputElement::dispatchFocusEvent(m_data, document());
+    InputElement::dispatchFocusEvent(m_data, this, this);
     WMLElement::dispatchFocusEvent();
 }
 
@@ -83,22 +83,22 @@ void WMLInputElement::dispatchBlurEvent()
     }
 
     // update the name variable of WML input elmenet
-    String nameVariable = name();
+    String nameVariable = formControlName();
     if (!nameVariable.isEmpty())
         wmlPageStateForDocument(document())->storeVariable(nameVariable, val); 
 
-    InputElement::dispatchBlurEvent(m_data, document());
+    InputElement::dispatchBlurEvent(m_data, this, this);
     WMLElement::dispatchBlurEvent();
 }
 
 void WMLInputElement::updateFocusAppearance(bool restorePreviousSelection)
 {
-    InputElement::updateFocusAppearance(m_data, document(), restorePreviousSelection);
+    InputElement::updateFocusAppearance(m_data, this, this, restorePreviousSelection);
 }
 
 void WMLInputElement::aboutToUnload()
 {
-    InputElement::aboutToUnload(m_data, document());
+    InputElement::aboutToUnload(this, this);
 }
 
 int WMLInputElement::size() const
@@ -106,7 +106,7 @@ int WMLInputElement::size() const
     return m_data.size();
 }
 
-const AtomicString& WMLInputElement::type() const
+const AtomicString& WMLInputElement::formControlType() const
 {
     // needs to be lowercase according to DOM spec
     if (m_isPasswordField) {
@@ -118,7 +118,7 @@ const AtomicString& WMLInputElement::type() const
     return text;
 }
 
-const AtomicString& WMLInputElement::name() const
+const AtomicString& WMLInputElement::formControlName() const
 {
     return m_data.name();
 }
@@ -134,30 +134,30 @@ String WMLInputElement::value() const
 
 void WMLInputElement::setValue(const String& value)
 {
-    InputElement::updatePlaceholderVisibility(m_data, document());
-    setValueMatchesRenderer(false);
+    InputElement::updatePlaceholderVisibility(m_data, this, this);
+    setFormControlValueMatchesRenderer(false);
     m_data.setValue(constrainValue(value));
     if (inDocument())
-        document()->updateRendering();
+        document()->updateStyleIfNeeded();
     if (renderer())
         renderer()->updateFromElement();
-    setChanged();
+    setNeedsStyleRecalc();
 
     unsigned max = m_data.value().length();
     if (document()->focusedNode() == this)
-        InputElement::updateSelectionRange(m_data, max, max);
+        InputElement::updateSelectionRange(this, this, max, max);
     else
         cacheSelection(max, max);
 
-    InputElement::notifyFormStateChanged(m_data, document());
+    InputElement::notifyFormStateChanged(this);
 }
 
 void WMLInputElement::setValueFromRenderer(const String& value)
 {
-    InputElement::setValueFromRenderer(m_data, document(), value);
+    InputElement::setValueFromRenderer(m_data, this, this, value);
 }
 
-bool WMLInputElement::saveState(String& result) const
+bool WMLInputElement::saveFormControlState(String& result) const
 {
     if (m_isPasswordField)
         return false;
@@ -166,7 +166,7 @@ bool WMLInputElement::saveState(String& result) const
     return true;
 }
 
-void WMLInputElement::restoreState(const String& state)
+void WMLInputElement::restoreFormControlState(const String& state)
 {
     ASSERT(!m_isPasswordField); // should never save/restore password fields
     setValue(state);
@@ -194,12 +194,12 @@ void WMLInputElement::parseMappedAttribute(MappedAttribute* attr)
     } else if (attr->name() == HTMLNames::valueAttr) {
         // We only need to setChanged if the form is looking at the default value right now.
         if (m_data.value().isNull())
-            setChanged();
-        setValueMatchesRenderer(false);
+            setNeedsStyleRecalc();
+        setFormControlValueMatchesRenderer(false);
     } else if (attr->name() == HTMLNames::maxlengthAttr)
-        InputElement::parseMaxLengthAttribute(m_data, attr);
+        InputElement::parseMaxLengthAttribute(m_data, this, this, attr);
     else if (attr->name() == HTMLNames::sizeAttr)
-        InputElement::parseSizeAttribute(m_data, attr);
+        InputElement::parseSizeAttribute(m_data, this, attr);
     else if (attr->name() == WMLNames::formatAttr)
         m_formatMask = validateInputMask(parseValueForbiddingVariableReferences(attr->value()));
     else if (attr->name() == WMLNames::emptyokAttr)
@@ -224,37 +224,18 @@ RenderObject* WMLInputElement::createRenderer(RenderArena* arena, RenderStyle*)
     return new (arena) RenderTextControlSingleLine(this);
 }
 
-void WMLInputElement::attach()
-{
-    ASSERT(!attached());
-    WMLElement::attach();
-
-    // The call to updateFromElement() needs to go after the call through
-    // to the base class's attach() because that can sometimes do a close
-    // on the renderer.
-    if (renderer())
-        renderer()->updateFromElement();
-
-    // FIXME: maybe this is not a good place to do this since it is possible 
-    // to cause unexpected several times initialise of <input> if we force the
-    // node to be reattached. But placing it here can ensure the run-webkit-tests
-    // get expected result,i.e. multiple-times initialise is expected when making
-    // layout test for WMLInputElement 
-    init();
-}  
-
 void WMLInputElement::detach()
 {
     WMLElement::detach();
-    setValueMatchesRenderer(false);
+    setFormControlValueMatchesRenderer(false);
 }
     
 bool WMLInputElement::appendFormData(FormDataList& encoding, bool)
 {
-    if (name().isEmpty())
+    if (formControlName().isEmpty())
         return false;
 
-    encoding.appendData(name(), value());
+    encoding.appendData(formControlName(), value());
     return true;
 }
 
@@ -300,13 +281,13 @@ void WMLInputElement::defaultEventHandler(Event* evt)
     if (clickDefaultFormButton) {
         // Fire onChange for text fields.
         RenderObject* r = renderer();
-        if (r && r->isEdited()) {
-            dispatchEventForType(eventNames().changeEvent, true, false);
+        if (r && toRenderTextControl(r)->isEdited()) {
+            dispatchEvent(eventNames().changeEvent, true, false);
             
             // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
             r = renderer();
             if (r)
-                r->setEdited(false);
+                toRenderTextControl(r)->setEdited(false);
         }
 
         evt->setDefaultHandled();
@@ -314,7 +295,7 @@ void WMLInputElement::defaultEventHandler(Event* evt)
     }
 
     if (evt->isBeforeTextInsertedEvent())
-        InputElement::handleBeforeTextInsertedEvent(m_data, document(), evt);
+        InputElement::handleBeforeTextInsertedEvent(m_data, this, document(), evt);
 
     if (renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         static_cast<RenderTextControlSingleLine*>(renderer())->forwardEvent(evt);
@@ -328,7 +309,7 @@ void WMLInputElement::cacheSelection(int start, int end)
 
 String WMLInputElement::constrainValue(const String& proposedValue) const
 {
-    return InputElement::constrainValue(m_data, proposedValue, m_data.maxLength());
+    return InputElement::constrainValue(this, proposedValue, m_data.maxLength());
 }
 
 void WMLInputElement::documentDidBecomeActive()
@@ -359,9 +340,9 @@ void WMLInputElement::didMoveToNewOwnerDocument()
     WMLElement::didMoveToNewOwnerDocument();
 }
 
-void WMLInputElement::init()
+void WMLInputElement::initialize()
 {
-    String nameVariable = name();
+    String nameVariable = formControlName();
     String variableValue;
     WMLPageState* pageSate = wmlPageStateForDocument(document()); 
     ASSERT(pageSate);

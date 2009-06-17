@@ -34,6 +34,7 @@
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "RenderObject.h"
+#include "RenderView.h"
 #include "SVGGradientElement.h"
 #include "SVGPaintServerLinearGradient.h"
 #include "SVGPaintServerRadialGradient.h"
@@ -130,15 +131,15 @@ static inline bool createMaskAndSwapContextForTextGradient(
     GraphicsContext*& context, GraphicsContext*& savedContext,
     OwnPtr<ImageBuffer>& imageBuffer, const RenderObject* object)
 {
-    FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->relativeBBox(false);
+    FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->objectBoundingBox();
     IntRect maskRect = enclosingIntRect(object->absoluteTransform().mapRect(maskBBox));
 
     IntSize maskSize(maskRect.width(), maskRect.height());
-    clampImageBufferSizeToViewport(object->document()->renderer(), maskSize);
+    clampImageBufferSizeToViewport(object->view()->frameView(), maskSize);
 
-    auto_ptr<ImageBuffer> maskImage = ImageBuffer::create(maskSize, false);
+    OwnPtr<ImageBuffer> maskImage = ImageBuffer::create(maskSize, false);
 
-    if (!maskImage.get())
+    if (!maskImage)
         return false;
 
     GraphicsContext* maskImageContext = maskImage->context();
@@ -159,14 +160,14 @@ static inline TransformationMatrix clipToTextMask(GraphicsContext* context,
     OwnPtr<ImageBuffer>& imageBuffer, const RenderObject* object,
     const SVGPaintServerGradient* gradientServer)
 {
-    FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->relativeBBox(false);
+    FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->objectBoundingBox();
 
     // Fixup transformations to be able to clip to mask
     TransformationMatrix transform = object->absoluteTransform();
     FloatRect textBoundary = transform.mapRect(maskBBox);
 
     IntSize maskSize(lroundf(textBoundary.width()), lroundf(textBoundary.height()));
-    clampImageBufferSizeToViewport(object->document()->renderer(), maskSize);
+    clampImageBufferSizeToViewport(object->view()->frameView(), maskSize);
     textBoundary.setSize(textBoundary.size().shrunkTo(maskSize));
 
     // Clip current context to mask image (gradient)
@@ -227,7 +228,7 @@ bool SVGPaintServerGradient::setup(GraphicsContext*& context, const RenderObject
 #else
     if (boundingBoxMode()) {
 #endif
-        FloatRect bbox = object->relativeBBox(false);
+        FloatRect bbox = object->objectBoundingBox();
         // Don't use gradients for 1d objects like horizontal/vertical 
         // lines or rectangles without width or height.
         if (bbox.width() == 0 || bbox.height() == 0) {
@@ -258,7 +259,7 @@ void SVGPaintServerGradient::teardown(GraphicsContext*& context, const RenderObj
         m_gradient->setGradientSpaceTransform(matrix);
         context->setFillGradient(m_gradient);
 
-        FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->relativeBBox(false);
+        FloatRect maskBBox = const_cast<RenderObject*>(findTextRootObject(object))->objectBoundingBox();
 
         context->fillRect(maskBBox);
 

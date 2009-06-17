@@ -38,15 +38,16 @@ module html {
                  attribute long            maxLength;
                  attribute boolean         multiple;
                  attribute [ConvertNullToNullString] DOMString name;
+                 attribute DOMString       placeholder;
                  attribute boolean         readOnly;
-#if defined(LANGUAGE_OBJECTIVE_C)
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
                  attribute [ConvertToString] DOMString size; // DOM level 2 changed this to a long, but our existing API is a string
 #else
                  // FIXME: the spec says this should be a long, not an unsigned long
                  attribute unsigned long   size; // Changed string -> long as part of DOM level 2
 #endif
                  attribute [ConvertNullToNullString] DOMString src;
-                 attribute [ConvertNullToNullString] DOMString type; // readonly dropped as part of DOM level 2
+                 attribute [ConvertNullToNullString, JSCCustomGetter] DOMString type; // readonly dropped as part of DOM level 2
                  attribute [ConvertNullToNullString] DOMString useMap;
                  attribute [ConvertNullToNullString] DOMString value;
         readonly attribute boolean         willValidate;

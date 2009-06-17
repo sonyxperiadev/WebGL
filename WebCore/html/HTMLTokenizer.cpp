@@ -7,6 +7,7 @@
               (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
     Copyright (C) 2005, 2006 Alexey Proskuryakov (ap@nypop.com)
+    Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -40,6 +41,7 @@
 #include "HTMLParser.h"
 #include "HTMLScriptElement.h"
 #include "HTMLViewSourceDocument.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "PreloadScanner.h"
 #include "ScriptController.h"
@@ -449,6 +451,10 @@ HTMLTokenizer::State HTMLTokenizer::scriptHandler(State state)
         } else {
             // Parse m_scriptCode containing <script> info
             doScriptExec = m_scriptNode->shouldExecuteAsJavaScript();
+#if ENABLE(XHTMLMP)
+            if (!doScriptExec)
+                m_doc->setShouldProcessNoscriptElement(true);
+#endif
             m_scriptNode = 0;
         }
     }
@@ -1884,7 +1890,7 @@ PassRefPtr<Node> HTMLTokenizer::processToken()
     ScriptController* scriptController = (!m_fragment && m_doc->frame()) ? m_doc->frame()->script() : 0;
     if (scriptController && scriptController->isEnabled())
         // FIXME: Why isn't this m_currentScriptTagStartLineNumber?  I suspect this is wrong.
-        scriptController->setEventHandlerLineno(m_currentTagStartLineNumber + 1); // Script line numbers are 1 based.
+        scriptController->setEventHandlerLineNumber(m_currentTagStartLineNumber + 1); // Script line numbers are 1 based.
     if (m_dest > m_buffer) {
         m_currentToken.text = StringImpl::createStrippingNullCharacters(m_buffer, m_dest - m_buffer);
         if (m_currentToken.tagName != commentAtom)
@@ -1892,7 +1898,7 @@ PassRefPtr<Node> HTMLTokenizer::processToken()
     } else if (m_currentToken.tagName == nullAtom) {
         m_currentToken.reset();
         if (scriptController)
-            scriptController->setEventHandlerLineno(m_lineNumber + 1); // Script line numbers are 1 based.
+            scriptController->setEventHandlerLineNumber(m_lineNumber + 1); // Script line numbers are 1 based.
         return 0;
     }
 
@@ -1911,7 +1917,7 @@ PassRefPtr<Node> HTMLTokenizer::processToken()
     }
     m_currentToken.reset();
     if (scriptController)
-        scriptController->setEventHandlerLineno(0);
+        scriptController->setEventHandlerLineNumber(0);
 
     return n.release();
 }
@@ -1933,7 +1939,16 @@ HTMLTokenizer::~HTMLTokenizer()
 
 void HTMLTokenizer::enlargeBuffer(int len)
 {
-    int newSize = max(m_bufferSize * 2, m_bufferSize + len);
+    // Resize policy: Always at least double the size of the buffer each time.
+    int delta = max(len, m_bufferSize);
+
+    // Check for overflow.
+    // For now, handle overflow the same way we handle fastRealloc failure, with CRASH.
+    static const int maxSize = INT_MAX / sizeof(UChar);
+    if (delta > maxSize - m_bufferSize)
+        CRASH();
+
+    int newSize = m_bufferSize + delta;
     int oldOffset = m_dest - m_buffer;
     m_buffer = static_cast<UChar*>(fastRealloc(m_buffer, newSize * sizeof(UChar)));
     m_dest = m_buffer + oldOffset;
@@ -1942,7 +1957,16 @@ void HTMLTokenizer::enlargeBuffer(int len)
 
 void HTMLTokenizer::enlargeScriptBuffer(int len)
 {
-    int newSize = max(m_scriptCodeCapacity * 2, m_scriptCodeCapacity + len);
+    // Resize policy: Always at least double the size of the buffer each time.
+    int delta = max(len, m_scriptCodeCapacity);
+
+    // Check for overflow.
+    // For now, handle overflow the same way we handle fastRealloc failure, with CRASH.
+    static const int maxSize = INT_MAX / sizeof(UChar);
+    if (delta > maxSize - m_scriptCodeCapacity)
+        CRASH();
+
+    int newSize = m_scriptCodeCapacity + delta;
     m_scriptCode = static_cast<UChar*>(fastRealloc(m_scriptCode, newSize * sizeof(UChar)));
     m_scriptCodeCapacity = newSize;
 }
@@ -1992,11 +2016,15 @@ void HTMLTokenizer::notifyFinished(CachedResource*)
 #endif
 
         if (errorOccurred)
-            n->dispatchEventForType(eventNames().errorEvent, true, false);
+            n->dispatchEvent(eventNames().errorEvent, true, false);
         else {
             if (static_cast<HTMLScriptElement*>(n.get())->shouldExecuteAsJavaScript())
                 m_state = scriptExecution(sourceCode, m_state);
-            n->dispatchEventForType(eventNames().loadEvent, false, false);
+#if ENABLE(XHTMLMP)
+            else
+                m_doc->setShouldProcessNoscriptElement(true);
+#endif
+            n->dispatchEvent(eventNames().loadEvent, false, false);
         }
 
         // The state of m_pendingScripts.isEmpty() can change inside the scriptExecution()

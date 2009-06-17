@@ -100,7 +100,7 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         
     JSC::JSLock lock(false);
         
-    JSValuePtr handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
+    JSValue handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
     CallData handleEventCallData;
     CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
     CallData callbackCallData;
@@ -116,7 +116,7 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         
     RefPtr<JSCustomSQLTransactionCallback> protect(this);
         
-    ArgList args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, transaction));
 
     globalObject->globalData()->timeoutChecker.start();
@@ -132,7 +132,7 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
         raisedException = true;
     }
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
     
 }

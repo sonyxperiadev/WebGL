@@ -32,7 +32,10 @@
 #include "KURL.h"
 #include "PurgeableBuffer.h"
 #include "Request.h"
+#include <wtf/CurrentTime.h>
+#include <wtf/MathExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
 using namespace WTF;
@@ -45,6 +48,7 @@ static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
 
 CachedResource::CachedResource(const String& url, Type type)
     : m_url(url)
+    , m_responseTimestamp(currentTime())
     , m_lastDecodedAccessTime(0)
     , m_sendResourceLoadCallbacks(true)
     , m_preloadCount(0)
@@ -56,7 +60,6 @@ CachedResource::CachedResource(const String& url, Type type)
     , m_handleCount(0)
     , m_resourceToRevalidate(0)
     , m_isBeingRevalidated(false)
-    , m_expirationDate(0)
 {
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
@@ -115,16 +118,50 @@ void CachedResource::finish()
 
 bool CachedResource::isExpired() const
 {
-    if (!m_expirationDate)
+    if (m_response.isNull())
         return false;
-    time_t now = time(0);
-    return difftime(now, m_expirationDate) >= 0;
+
+    return currentAge() > freshnessLifetime();
+}
+    
+double CachedResource::currentAge() const
+{
+    // RFC2616 13.2.3
+    // No compensation for latency as that is not terribly important in practice
+    double dateValue = m_response.date();
+    double apparentAge = isfinite(dateValue) ? max(0., m_responseTimestamp - dateValue) : 0;
+    double ageValue = m_response.age();
+    double correctedReceivedAge = isfinite(ageValue) ? max(apparentAge, ageValue) : apparentAge;
+    double residentTime = currentTime() - m_responseTimestamp;
+    return correctedReceivedAge + residentTime;
+}
+    
+double CachedResource::freshnessLifetime() const
+{
+    // Cache non-http resources liberally
+    if (!m_response.url().protocolInHTTPFamily())
+        return std::numeric_limits<double>::max();
+
+    // RFC2616 13.2.4
+    double maxAgeValue = m_response.cacheControlMaxAge();
+    if (isfinite(maxAgeValue))
+        return maxAgeValue;
+    double expiresValue = m_response.expires();
+    double dateValue = m_response.date();
+    double creationTime = isfinite(dateValue) ? dateValue : m_responseTimestamp;
+    if (isfinite(expiresValue))
+        return expiresValue - creationTime;
+    double lastModifiedValue = m_response.lastModified();
+    if (isfinite(lastModifiedValue))
+        return (creationTime - lastModifiedValue) * 0.1;
+    // If no cache headers are present, the specification leaves the decision to the UA. Other browsers seem to opt for 0.
+    return 0;
 }
 
 void CachedResource::setResponse(const ResourceResponse& response)
 {
     m_response = response;
-    m_expirationDate = response.expirationDate();
+    m_responseTimestamp = currentTime();
 }
 
 void CachedResource::setRequest(Request* request)
@@ -258,7 +295,6 @@ void CachedResource::setResourceToRevalidate(CachedResource* resource)
 void CachedResource::clearResourceToRevalidate() 
 { 
     ASSERT(m_resourceToRevalidate);
-    ASSERT(m_resourceToRevalidate->m_isBeingRevalidated);
     m_resourceToRevalidate->m_isBeingRevalidated = false;
     m_resourceToRevalidate->deleteIfPossible();
     m_handlesToRevalidate.clear();
@@ -269,6 +305,7 @@ void CachedResource::clearResourceToRevalidate()
 void CachedResource::switchClientsToRevalidatedResource()
 {
     ASSERT(m_resourceToRevalidate);
+    ASSERT(m_resourceToRevalidate->inCache());
     ASSERT(!inCache());
 
     HashSet<CachedResourceHandleBase*>::iterator end = m_handlesToRevalidate.end();
@@ -299,6 +336,23 @@ void CachedResource::switchClientsToRevalidatedResource()
         m_resourceToRevalidate->addClient(clientsToMove[n]);
 }
     
+void CachedResource::updateResponseAfterRevalidation(const ResourceResponse& validatingResponse)
+{
+    m_responseTimestamp = currentTime();
+
+    DEFINE_STATIC_LOCAL(const AtomicString, contentHeaderPrefix, ("content-"));
+    // RFC2616 10.3.5
+    // Update cached headers from the 304 response
+    const HTTPHeaderMap& newHeaders = validatingResponse.httpHeaderFields();
+    HTTPHeaderMap::const_iterator end = newHeaders.end();
+    for (HTTPHeaderMap::const_iterator it = newHeaders.begin(); it != end; ++it) {
+        // Don't allow 304 response to update content headers, these can't change but some servers send wrong values.
+        if (it->first.startsWith(contentHeaderPrefix, false))
+            continue;
+        m_response.setHTTPHeaderField(it->first, it->second);
+    }
+}
+    
 bool CachedResource::canUseCacheValidator() const
 {
     return !m_loading && (!m_response.httpHeaderField("Last-Modified").isEmpty() || !m_response.httpHeaderField("ETag").isEmpty());
@@ -309,9 +363,9 @@ bool CachedResource::mustRevalidate(CachePolicy cachePolicy) const
     if (m_loading)
         return false;
 
-    // FIXME: Also look at max-age, min-fresh, max-stale in Cache-Control
     if (cachePolicy == CachePolicyCache)
         return m_response.cacheControlContainsNoCache() || (isExpired() && m_response.cacheControlContainsMustRevalidate());
+
     return isExpired() || m_response.cacheControlContainsNoCache();
 }
 

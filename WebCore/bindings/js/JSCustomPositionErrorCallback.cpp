@@ -54,7 +54,7 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     
     JSC::JSLock lock(false);
     
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -68,7 +68,7 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     
     RefPtr<JSCustomPositionErrorCallback> protect(this);
     
-    ArgList args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, positionError));
     
     globalObject->globalData()->timeoutChecker.start();
@@ -78,7 +78,7 @@ void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
     if (exec->hadException())
         reportCurrentException(exec);
     
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
     
 } // namespace WebCore

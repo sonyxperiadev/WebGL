@@ -26,6 +26,7 @@
 
 #include "CSSMediaRule.h"
 #include "CSSParser.h"
+#include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
@@ -1380,7 +1381,9 @@ term:
   | variable_reference maybe_space {
       $$ = $1;
   }
-  | '%' maybe_space { $$.id = 0; $$.fValue = 0; $$.unit = CSSPrimitiveValue::CSS_PERCENTAGE; } /* Handle width: %; ANDROID: Fix an uninitialized Value object causing the device to crash */
+  | '%' maybe_space { /* Handle width: %; */
+      $$.id = 0; $$.unit = 0;
+  }
   ;
 
 unary_term:

@@ -72,7 +72,7 @@ CALLBACK_FUNC_DECL(ElementSetAttributeNode)
 {
     INC_STATS("DOM.Element.setAttributeNode()");
     if (!V8Attr::HasInstance(args[0]))
-        throwError(TYPE_MISMATCH_ERR);
+        return throwError(TYPE_MISMATCH_ERR);
 
     Attr* newAttr = V8Proxy::DOMWrapperToNode<Attr>(args[0]);
     Element* element = V8Proxy::DOMWrapperToNode<Element>(args.Holder());
@@ -147,21 +147,21 @@ ACCESSOR_SETTER(ElementEventHandler)
         // the document might be created using createDocument,
         // which does not have a frame, use the active frame
         if (!proxy)
-            proxy = V8Proxy::retrieve(V8Proxy::retrieveActiveFrame());
+            proxy = V8Proxy::retrieve(V8Proxy::retrieveFrameForEnteredContext());
         if (!proxy)
             return;
 
         if (RefPtr<EventListener> listener = proxy->FindOrCreateV8EventListener(value, true))
-            node->setInlineEventListenerForType(eventType, listener);
+            node->setAttributeEventListener(eventType, listener);
     } else
-        node->removeInlineEventListenerForType(eventType);
+        node->clearAttributeEventListener(eventType);
 }
 
 ACCESSOR_GETTER(ElementEventHandler)
 {
     Node* node = V8Proxy::DOMWrapperToNode<Node>(info.Holder());
 
-    EventListener* listener = node->inlineEventListenerForType(toEventType(name));
+    EventListener* listener = node->getAttributeEventListener(toEventType(name));
     return V8Proxy::EventListenerToV8Object(listener);
 }
 

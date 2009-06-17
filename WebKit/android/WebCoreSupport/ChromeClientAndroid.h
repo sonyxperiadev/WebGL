@@ -77,7 +77,7 @@ namespace android {
         
         virtual void setResizable(bool);
         
-        virtual void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID);
+        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID);
         
         virtual bool canRunBeforeUnloadConfirmPanel();
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame);
@@ -100,6 +100,7 @@ namespace android {
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformWidget platformWindow() const;
         virtual void contentsSizeChanged(Frame*, const IntSize&) const;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
         // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned int);
@@ -110,11 +111,15 @@ namespace android {
 #if ENABLE(DATABASE)
         virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+        virtual bool setCursor(PlatformCursorHandle);
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*);
+
+        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 
         // Android-specific
         void setWebFrame(android::WebFrame* webframe);

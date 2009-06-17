@@ -28,7 +28,6 @@
 #include "config.h"
 #include "CursorGtk.h"
 
-#include "NotImplemented.h"
 #include <wtf/Assertions.h>
 
 #include <gdk/gdk.h>
@@ -63,7 +62,13 @@ Cursor::Cursor(const Cursor& other)
 
 Cursor::Cursor(Image*, const IntPoint&)
 {
-    notImplemented();
+    // FIXME: We don't support images for cursors yet.
+    // This is just a placeholder to avoid crashes.
+    Cursor other(crossCursor());
+    m_impl = other.m_impl;
+
+    if (m_impl)
+        gdk_cursor_ref(m_impl);
 }
 
 Cursor::~Cursor()
@@ -204,13 +209,13 @@ const Cursor& northWestSouthEastResizeCursor()
 
 const Cursor& columnResizeCursor()
 {
-    static Cursor c = gdk_cursor_new(GDK_DOUBLE_ARROW);
+    static Cursor c = gdk_cursor_new(GDK_SB_H_DOUBLE_ARROW);
     return c;
 }
 
 const Cursor& rowResizeCursor()
 {
-    static Cursor c = gdk_cursor_new(GDK_DOUBLE_ARROW);
+    static Cursor c = gdk_cursor_new(GDK_SB_V_DOUBLE_ARROW);
     return c;
 }
     
@@ -268,8 +273,8 @@ const Cursor& verticalTextCursor()
 
 const Cursor& cellCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = gdk_cursor_new(GDK_PLUS);
+    return c;
 }
 
 const Cursor& contextMenuCursor()
@@ -280,8 +285,8 @@ const Cursor& contextMenuCursor()
 
 const Cursor& noDropCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorNoDrop);
+    return c;
 }
 
 const Cursor& copyCursor()
@@ -292,8 +297,8 @@ const Cursor& copyCursor()
 
 const Cursor& progressCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorProgress);
+    return c;
 }
 
 const Cursor& aliasCursor()
@@ -304,14 +309,13 @@ const Cursor& aliasCursor()
 
 const Cursor& noneCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorNone);
+    return c;
 }
 
 const Cursor& notAllowedCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    return noDropCursor();
 }
 
 const Cursor& zoomInCursor()
@@ -328,14 +332,14 @@ const Cursor& zoomOutCursor()
 
 const Cursor& grabCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorGrab);
+    return c;
 }
 
 const Cursor& grabbingCursor()
 {
-    notImplemented();
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorGrabbing);
+    return c;
 }
 
 }

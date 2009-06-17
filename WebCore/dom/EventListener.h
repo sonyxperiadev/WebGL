@@ -38,19 +38,20 @@ namespace WebCore {
         virtual bool wasCreatedFromMarkup() const { return false; }
 
 #if USE(JSC)
-        virtual JSC::JSObject* function() const { return 0; }
-        virtual void mark() { }
+        virtual JSC::JSObject* jsFunction() const { return 0; }
+        virtual void markJSFunction() { }
 #endif
 
-        bool isInline() const { return virtualIsInline(); }
+        bool isAttribute() const { return virtualisAttribute(); }
 
     private:
-        virtual bool virtualIsInline() const { return false; }
+        virtual bool virtualisAttribute() const { return false; }
     };
 
 #if USE(JSC)
-    inline void markIfNotNull(EventListener* listener) { if (listener) listener->mark(); }
+    inline void markIfNotNull(EventListener* listener) { if (listener) listener->markJSFunction(); }
 #endif
+
 }
 
 #endif

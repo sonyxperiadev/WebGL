@@ -28,20 +28,21 @@
 
 #include "ApplyStyleCommand.h"
 #include "BeforeTextInsertedEvent.h"
-#include "BreakBlockquoteCommand.h" 
+#include "BreakBlockquoteCommand.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "EditingText.h"
-#include "EventNames.h"
 #include "Element.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "HTMLElement.h"
-#include "HTMLInterchange.h"
 #include "HTMLInputElement.h"
+#include "HTMLInterchange.h"
 #include "HTMLNames.h"
 #include "SelectionController.h"
 #include "SmartReplace.h"
@@ -124,7 +125,7 @@ ReplacementFragment::ReplacementFragment(Document* document, DocumentFragment* f
     
     Node* shadowAncestorNode = editableRoot->shadowAncestorNode();
     
-    if (!editableRoot->inlineEventListenerForType(eventNames().webkitBeforeTextInsertedEvent) &&
+    if (!editableRoot->getAttributeEventListener(eventNames().webkitBeforeTextInsertedEvent) &&
         // FIXME: Remove these checks once textareas and textfields actually register an event handler.
         !(shadowAncestorNode && shadowAncestorNode->renderer() && shadowAncestorNode->renderer()->isTextControl()) &&
         editableRoot->isContentRichlyEditable()) {
@@ -343,14 +344,22 @@ static bool hasMatchingQuoteLevel(VisiblePosition endOfExistingContent, VisibleP
     return isInsideMailBlockquote && (numEnclosingMailBlockquotes(existing) == numEnclosingMailBlockquotes(inserted));
 }
 
-bool ReplaceSelectionCommand::shouldMergeStart(bool selectionStartWasStartOfParagraph, bool fragmentHasInterchangeNewlineAtStart)
+bool ReplaceSelectionCommand::shouldMergeStart(bool selectionStartWasStartOfParagraph, bool fragmentHasInterchangeNewlineAtStart, bool selectionStartWasInsideMailBlockquote)
 {
+    if (m_movingParagraph)
+        return false;
+    
     VisiblePosition startOfInsertedContent(positionAtStartOfInsertedContent());
     VisiblePosition prev = startOfInsertedContent.previous(true);
     if (prev.isNull())
         return false;
     
-    if (!m_movingParagraph && hasMatchingQuoteLevel(prev, positionAtEndOfInsertedContent()))
+    // When we have matching quote levels, its ok to merge more frequently.
+    // For a successful merge, we still need to make sure that the inserted content starts with the beginning of a paragraph.
+    // And we should only merge here if the selection start was inside a mail blockquote.  This prevents against removing a 
+    // blockquote from newly pasted quoted content that was pasted into an unquoted position.  If that unquoted position happens 
+    // to be right after another blockquote, we don't want to merge and risk stripping a valid block (and newline) from the pasted content.
+    if (isStartOfParagraph(startOfInsertedContent) && selectionStartWasInsideMailBlockquote && hasMatchingQuoteLevel(prev, positionAtEndOfInsertedContent()))
         return true;
 
     return !selectionStartWasStartOfParagraph && 
@@ -690,7 +699,8 @@ void ReplaceSelectionCommand::mergeEndIfNeeded()
     moveParagraph(startOfParagraphToMove, endOfParagraph(startOfParagraphToMove), destination);
     // Merging forward will remove m_lastLeafInserted from the document.
     // FIXME: Maintain positions for the start and end of inserted content instead of keeping nodes.  The nodes are
-    // only ever used to create positions where inserted content starts/ends.
+    // only ever used to create positions where inserted content starts/ends.  Also, we sometimes insert content
+    // directly into text nodes already in the document, in which case tracking inserted nodes is inadequate.
     if (mergeForward) {
         m_lastLeafInserted = destination.previous().deepEquivalent().node();
         if (!m_firstNodeInserted->inDocument())
@@ -710,6 +720,9 @@ void ReplaceSelectionCommand::doApply()
     
     Element* currentRoot = selection.rootEditableElement();
     ReplacementFragment fragment(document(), m_documentFragment.get(), m_matchStyle, selection);
+    
+    if (performTrivialReplace(fragment))
+        return;
     
     if (m_matchStyle)
         m_insertionStyle = styleAtPosition(selection.start());
@@ -772,9 +785,10 @@ void ReplaceSelectionCommand::doApply()
         insertionPos = endingSelection().start();
     }
     
-    if (startIsInsideMailBlockquote && m_preventNesting) { 
-        // We don't want any of the pasted content to end up nested in a Mail blockquote, so first break 
-        // out of any surrounding Mail blockquotes. 
+    // We don't want any of the pasted content to end up nested in a Mail blockquote, so first break 
+    // out of any surrounding Mail blockquotes. Unless we're inserting in a table, in which case
+    // breaking the blockquote will prevent the content from actually being inserted in the table.
+    if (startIsInsideMailBlockquote && m_preventNesting && !(enclosingNodeOfType(insertionPos, &isTableStructureNode))) { 
         applyCommandToComposite(BreakBlockquoteCommand::create(document())); 
         // This will leave a br between the split. 
         Node* br = endingSelection().start().node(); 
@@ -820,6 +834,9 @@ void ReplaceSelectionCommand::doApply()
         frame->clearTypingStyle();
     
     bool handledStyleSpans = handleStyleSpansBeforeInsertion(fragment, insertionPos);
+    
+    // FIXME: When pasting rich content we're often prevented from heading down the fast path by style spans.  Try
+    // again here if they've been removed.
     
     // We're finished if there is nothing to add.
     if (fragment.isEmpty() || !fragment.firstChild())
@@ -876,7 +893,7 @@ void ReplaceSelectionCommand::doApply()
     
     // We inserted before the startBlock to prevent nesting, and the content before the startBlock wasn't in its own block and
     // didn't have a br after it, so the inserted content ended up in the same paragraph.
-    if (startBlock && insertionPos.node() == startBlock->parentNode() && (unsigned)insertionPos.m_offset < startBlock->nodeIndex() && !isStartOfParagraph(startOfInsertedContent))
+    if (startBlock && insertionPos.node() == startBlock->parentNode() && (unsigned)insertionPos.deprecatedEditingOffset() < startBlock->nodeIndex() && !isStartOfParagraph(startOfInsertedContent))
         insertNodeAt(createBreakElement(document()).get(), startOfInsertedContent.deepEquivalent());
     
     Position lastPositionToSelect;
@@ -890,13 +907,7 @@ void ReplaceSelectionCommand::doApply()
     // the start merge so that the start merge doesn't effect our decision.
     m_shouldMergeEnd = shouldMergeEnd(selectionEndWasEndOfParagraph);
     
-    if (shouldMergeStart(selectionStartWasStartOfParagraph, fragment.hasInterchangeNewlineAtStart())) {
-        // Bail to avoid infinite recursion.
-        if (m_movingParagraph) {
-            // setting display:inline does not work for td elements in quirks mode
-            ASSERT(m_firstNodeInserted->hasTagName(tdTag));
-            return;
-        }
+    if (shouldMergeStart(selectionStartWasStartOfParagraph, fragment.hasInterchangeNewlineAtStart(), startIsInsideMailBlockquote)) {
         VisiblePosition destination = startOfInsertedContent.previous();
         VisiblePosition startOfParagraphToMove = startOfInsertedContent;
         
@@ -1090,6 +1101,40 @@ void ReplaceSelectionCommand::updateNodesInserted(Node *node)
         return;
     
     m_lastLeafInserted = node->lastDescendant();
+}
+
+// During simple pastes, where we're just pasting a text node into a run of text, we insert the text node
+// directly into the text node that holds the selection.  This is much faster than the generalized code in
+// ReplaceSelectionCommand, and works around <https://bugs.webkit.org/show_bug.cgi?id=6148> since we don't 
+// split text nodes.
+bool ReplaceSelectionCommand::performTrivialReplace(const ReplacementFragment& fragment)
+{
+    if (!fragment.firstChild() || fragment.firstChild() != fragment.lastChild() || !fragment.firstChild()->isTextNode())
+        return false;
+        
+    // FIXME: Would be nice to handle smart replace in the fast path.
+    if (m_smartReplace || fragment.hasInterchangeNewlineAtStart() || fragment.hasInterchangeNewlineAtEnd())
+        return false;
+    
+    Text* textNode = static_cast<Text*>(fragment.firstChild());
+    // Our fragment creation code handles tabs, spaces, and newlines, so we don't have to worry about those here.
+    String text(textNode->data());
+    
+    Position start = endingSelection().start();
+    Position end = endingSelection().end();
+    
+    if (start.anchorNode() != end.anchorNode() || !start.anchorNode()->isTextNode())
+        return false;
+        
+    replaceTextInNode(static_cast<Text*>(start.anchorNode()), start.offsetInContainerNode(), end.offsetInContainerNode() - start.offsetInContainerNode(), text);
+    
+    end = Position(start.anchorNode(), start.offsetInContainerNode() + text.length());
+    
+    VisibleSelection selectionAfterReplace(m_selectReplacement ? start : end, end);
+    
+    setEndingSelection(selectionAfterReplace);
+    
+    return true;
 }
 
 } // namespace WebCore

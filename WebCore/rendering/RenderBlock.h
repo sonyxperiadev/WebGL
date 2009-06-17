@@ -35,10 +35,11 @@
 namespace WebCore {
 
 class InlineIterator;
-class BidiRun;
 class Position;
 class RenderInline;
 class RootInlineBox;
+
+struct BidiRun;
 
 template <class Iterator, class Run> class BidiResolver;
 typedef BidiResolver<InlineIterator, BidiRun> InlineBidiResolver;
@@ -293,8 +294,8 @@ public:
     int leftSelectionOffset(RenderBlock* rootBlock, int y);
     int rightSelectionOffset(RenderBlock* rootBlock, int y);
 
-    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
-    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
+    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
+    virtual void absoluteQuads(Vector<FloatQuad>&);
 
     // Helper methods for computing line counts and heights for line counts.
     RootInlineBox* lineAtIndex(int);
@@ -343,6 +344,7 @@ protected:
 private:
     Position positionForBox(InlineBox*, bool start = true) const;
     Position positionForRenderer(RenderObject*, bool start = true) const;
+    VisiblePosition positionForPointWithInlineChildren(const IntPoint&);
 
     // Adjust tx and ty from painting offsets to the local coords of this renderer
     void offsetForContents(int& tx, int& ty) const;
@@ -451,10 +453,10 @@ protected:
 
     void adjustPositionedBlock(RenderBox* child, const MarginInfo&);
     void adjustFloatingBlock(const MarginInfo&);
-    RenderBox* handleSpecialChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handleFloatingChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handlePositionedChild(RenderBox* child, const MarginInfo&, bool& handled);
-    RenderBox* handleRunInChild(RenderBox* child, bool& handled);
+    bool handleSpecialChild(RenderBox* child, const MarginInfo&);
+    bool handleFloatingChild(RenderBox* child, const MarginInfo&);
+    bool handlePositionedChild(RenderBox* child, const MarginInfo&);
+    bool handleRunInChild(RenderBox* child);
     int collapseMargins(RenderBox* child, MarginInfo&);
     int clearFloatsIfNeeded(RenderBox* child, MarginInfo&, int oldTopPosMargin, int oldTopNegMargin, int yPos);
     int estimateVerticalPosition(RenderBox* child, const MarginInfo&);

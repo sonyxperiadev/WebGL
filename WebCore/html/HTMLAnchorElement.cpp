@@ -36,6 +36,7 @@
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "MutationEvent.h"
 #include "Page.h"
@@ -280,11 +281,17 @@ void HTMLAnchorElement::parseMappedAttribute(MappedAttribute *attr)
         bool wasLink = isLink();
         setIsLink(!attr->isNull());
         if (wasLink != isLink())
-            setChanged();
-        if (isLink() && document()->isDNSPrefetchEnabled()) {
-            String value = attr->value();
-            if (protocolIs(value, "http") || protocolIs(value, "https") || value.startsWith("//"))
-                prefetchDNS(document()->completeURL(value).host());
+            setNeedsStyleRecalc();
+        if (isLink()) {
+            String parsedURL = parseURL(attr->value());
+            if (document()->isDNSPrefetchEnabled()) {
+                if (protocolIs(parsedURL, "http") || protocolIs(parsedURL, "https") || parsedURL.startsWith("//"))
+                    prefetchDNS(document()->completeURL(parsedURL).host());
+            }
+            if (document()->page() && !document()->page()->javaScriptURLsAreAllowed() && protocolIsJavaScript(parsedURL)) {
+                setIsLink(false);
+                attr->setValue(nullAtom);
+            }
         }
     } else if (attr->name() == nameAttr ||
              attr->name() == titleAttr ||

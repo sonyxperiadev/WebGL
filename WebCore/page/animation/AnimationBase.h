@@ -45,7 +45,7 @@ class RenderStyle;
 class TimingFunction;
 
 class AnimationBase : public RefCounted<AnimationBase> {
-    friend class CompositeAnimationPrivate;
+    friend class CompositeAnimation;
 
 public:
     AnimationBase(const Animation* transition, RenderObject* renderer, CompositeAnimation* compAnim);
@@ -120,7 +120,7 @@ public:
     // "animating" means that something is running that requires a timer to keep firing
     // (e.g. a software animation)
     void setAnimating(bool inAnimating = true) { m_isAnimating = inAnimating; }
-    virtual double willNeedService();
+    virtual double timeToNextService();
 
     double progress(double scale, double offset, const TimingFunction*) const;
 
@@ -186,7 +186,7 @@ protected:
     virtual void onAnimationIteration(double /*elapsedTime*/) { }
     virtual void onAnimationEnd(double /*elapsedTime*/) { }
     virtual bool startAnimation(double /*beginTime*/) { return false; }
-    virtual void endAnimation(bool /*reset*/, double /*forcePauseTime*/ = -1) { }
+    virtual void endAnimation(bool /*reset*/) { }
 
     void goIntoEndingOrLoopingState();
 
@@ -199,7 +199,7 @@ protected:
     // Return true if we need to start software animation timers
     static bool blendProperties(const AnimationBase* anim, int prop, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress);
 
-    static void setChanged(Node*);
+    static void setNeedsStyleRecalc(Node*);
     
     void getTimeToNextEvent(double& time, bool& isLooping) const;
 

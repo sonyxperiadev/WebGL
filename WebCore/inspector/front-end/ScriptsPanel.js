@@ -205,6 +205,10 @@ WebInspector.ScriptsPanel.prototype = {
                 continue;
             view.visible = false;
         }
+        if (this._attachDebuggerWhenShown) {
+            InspectorController.enableDebuggerFromFrontend(false);
+            delete this._attachDebuggerWhenShown;
+        }
     },
 
     get searchableViews()
@@ -357,6 +361,24 @@ WebInspector.ScriptsPanel.prototype = {
 
         WebInspector.currentPanel = this;
         window.focus();
+    },
+
+    debuggerResumed: function()
+    {
+        this._paused = false;
+        this._waitingToPause = false;
+        this._stepping = false;
+
+        this._clearInterface();
+    },
+
+    attachDebuggerWhenShown: function()
+    {
+        if (this.element.parentElement) {
+            InspectorController.enableDebuggerFromFrontend(false);
+        } else {
+            this._attachDebuggerWhenShown = true;
+        }
     },
 
     debuggerWasEnabled: function()
@@ -573,21 +595,25 @@ WebInspector.ScriptsPanel.prototype = {
         option.representedObject = (script.resource || script);
         option.text = (script.sourceURL ? WebInspector.displayNameForURL(script.sourceURL) : WebInspector.UIString("(program)"));
 
-        var insertionIndex = -1;
-        if (select.childNodes) {
-            insertionIndex = insertionIndexForObjectInListSortedByFunction(option, select.childNodes, function(a, b) {    
-                a = a.text.toLowerCase();
-                b = b.text.toLowerCase();
-                
-                if (a < b)
-                    return -1;
-                else if (a > b)
-                    return 1;
+        function optionCompare(a, b)
+        {
+            var aTitle = a.text.toLowerCase();
+            var bTitle = b.text.toLowerCase();
+            if (aTitle < bTitle)
+                return -1;
+            else if (aTitle > bTitle)
+                return 1;
 
-                return 0;
-            });
+            var aSourceID = a.representedObject.sourceID;
+            var bSourceID = b.representedObject.sourceID;
+            if (aSourceID < bSourceID)
+                return -1;
+            else if (aSourceID > bSourceID)
+                return 1;
+            return 0;
         }
 
+        var insertionIndex = insertionIndexForObjectInListSortedByFunction(option, select.childNodes, optionCompare);
         if (insertionIndex < 0)
             select.appendChild(option);
         else
@@ -758,19 +784,19 @@ WebInspector.ScriptsPanel.prototype = {
     {
         if (InspectorController.debuggerEnabled())
             return;
-        this._toggleDebugging();
+        this._toggleDebugging(this.panelEnablerView.alwaysEnabled);
     },
 
-    _toggleDebugging: function()
+    _toggleDebugging: function(optionalAlways)
     {
         this._paused = false;
         this._waitingToPause = false;
         this._stepping = false;
 
         if (InspectorController.debuggerEnabled())
-            InspectorController.disableDebugger();
+            InspectorController.disableDebugger(true);
         else
-            InspectorController.enableDebugger();
+            InspectorController.enableDebuggerFromFrontend(!!optionalAlways);
     },
 
     _togglePauseOnExceptions: function()

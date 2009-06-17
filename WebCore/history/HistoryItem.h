@@ -29,6 +29,7 @@
 #include "IntPoint.h"
 #include "PlatformString.h"
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 #if PLATFORM(MAC)
 #import <wtf/RetainPtr.h>
@@ -137,9 +138,9 @@ public:
     void setLastVisitWasHTTPNonGet(bool wasNotGet) { m_lastVisitWasHTTPNonGet = wasNotGet; }
 
     void addChildItem(PassRefPtr<HistoryItem>);
-    HistoryItem* childItemWithName(const String&) const;
+    void setChildItem(PassRefPtr<HistoryItem>);
+    HistoryItem* childItemWithTarget(const String&) const;
     HistoryItem* targetItem();
-    HistoryItem* recurseToFindTargetItem();
     const HistoryItemVector& children() const;
     bool hasChildren() const;
 
@@ -150,7 +151,7 @@ public:
 
     void addRedirectURL(const String&);
     Vector<String>* redirectURLs() const;
-    void setRedirectURLs(std::auto_ptr<Vector<String> >);
+    void setRedirectURLs(PassOwnPtr<Vector<String> >);
 
     bool isCurrentDocument(Document*) const;
     
@@ -187,13 +188,15 @@ private:
     HistoryItem();
     HistoryItem(const String& urlString, const String& title, double lastVisited);
     HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double lastVisited);
-    HistoryItem(const KURL& url, const String& target, const String& parent, const String& title);
+    HistoryItem(const KURL& url, const String& frameName, const String& parent, const String& title);
 
     HistoryItem(const HistoryItem&);
 
     void padDailyCountsForNewVisit(double time);
     void collapseDailyVisitsToWeekly();
     void recordVisitAtTime(double);
+
+    HistoryItem* findTargetItem();
 
     String m_urlString;
     String m_originalURLString;
@@ -209,7 +212,7 @@ private:
     IntPoint m_scrollPoint;
     Vector<String> m_documentState;
     
-    HistoryItemVector m_subItems;
+    HistoryItemVector m_children;
     
     bool m_lastVisitWasFailure;
     bool m_isTargetItem;

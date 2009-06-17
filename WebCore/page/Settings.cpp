@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #include "PageCache.h"
 #include <limits>
 
+using namespace std;
+
 namespace WebCore {
 
 static void setNeedsReapplyStylesInAllFrames(Page* page)
@@ -65,9 +67,11 @@ Settings::Settings(Page* page)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     , m_blockNetworkImage(false)
 #endif
+    , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
+    , m_caretBrowsingEnabled(false)
     , m_arePluginsEnabled(false)
     , m_databasesEnabled(false)
     , m_localStorageEnabled(false)
@@ -100,8 +104,17 @@ Settings::Settings(Page* page)
     , m_zoomsTextOnly(false)
     , m_enforceCSSMIMETypeInStrictMode(true)
     , m_usesEncodingDetector(false)
-    , m_maximumDecodedImageSize(std::numeric_limits<size_t>::max())
     , m_allowScriptsToCloseWindows(false)
+    , m_editingBehavior(
+#if PLATFORM(MAC)
+        EditingMacBehavior
+#else
+        EditingWindowsBehavior
+#endif
+        )
+    // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
+    // they can't use by. Leaving enabled for now to not change existing behavior.
+    , m_downloadableBinaryFontsEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -544,6 +557,16 @@ void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)
 {
     m_allowScriptsToCloseWindows = allowScriptsToCloseWindows;
+}
+
+void Settings::setCaretBrowsingEnabled(bool caretBrowsingEnabled)
+{
+    m_caretBrowsingEnabled = caretBrowsingEnabled;
+}
+
+void Settings::setDownloadableBinaryFontsEnabled(bool downloadableBinaryFontsEnabled)
+{
+    m_downloadableBinaryFontsEnabled = downloadableBinaryFontsEnabled;
 }
 
 } // namespace WebCore

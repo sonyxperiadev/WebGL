@@ -41,6 +41,7 @@
 #include "EditorClientAndroid.h"
 #include "Element.h"
 #include "Font.h"
+#include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -48,6 +49,7 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
+#include "HTMLCollection.h"
 #include "HTMLElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
@@ -739,17 +741,15 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     WebViewCore* webViewCore = new WebViewCore(env, javaview, frame);
 
     // Create a FrameView
-    WebCore::FrameView* frameView = new WebCore::FrameView(frame);
+    RefPtr<WebCore::FrameView> frameView = WebCore::FrameView::create(frame);
     // Create a WebFrameView
-    WebFrameView* webFrameView = new WebFrameView(frameView, webViewCore);
+    WebFrameView* webFrameView = new WebFrameView(frameView.get(), webViewCore);
     // As webFrameView Retains webViewCore, release our ownership
     Release(webViewCore);
     // As frameView Retains webFrameView, release our ownership
     Release(webFrameView);
     // Attach the frameView to the frame and release our ownership
     frame->setView(frameView);
-    frameView->deref();
-
     // Set the frame to active to turn on keyboard focus.
     frame->init();
     frame->selection()->setFocused(true);
@@ -831,6 +831,9 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
     }
 
     LOGV("PostUrl %s", kurl.string().latin1().data());
+    // FIXME klobag, WebCore changed FrameLoader::loadPostRequest to private,
+    // I temporarily made it public in FrameLoader.h, please figure out
+    // if we can use FrameLoader::load(...) to send POST request.
     pFrame->loader()->loadPostRequest(request, String(), String(), false,
             WebCore::FrameLoadTypeStandard, 0, 0, true);
 }

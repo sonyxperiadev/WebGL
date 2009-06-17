@@ -38,6 +38,7 @@
 #include "JSArray.h"
 #include "JSByteArray.h"
 #include "JSClassRef.h"
+#include "JSFunction.h"
 #include "JSLock.h"
 #include "JSNotAnObject.h"
 #include "JSStaticScopeObject.h"
@@ -102,13 +103,13 @@ VPtrSet::VPtrSet()
 JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     : isSharedInstance(isShared)
     , clientData(0)
-    , arrayTable(new HashTable(JSC::arrayTable))
-    , dateTable(new HashTable(JSC::dateTable))
-    , mathTable(new HashTable(JSC::mathTable))
-    , numberTable(new HashTable(JSC::numberTable))
-    , regExpTable(new HashTable(JSC::regExpTable))
-    , regExpConstructorTable(new HashTable(JSC::regExpConstructorTable))
-    , stringTable(new HashTable(JSC::stringTable))
+    , arrayTable(fastNew<HashTable>(JSC::arrayTable))
+    , dateTable(fastNew<HashTable>(JSC::dateTable))
+    , mathTable(fastNew<HashTable>(JSC::mathTable))
+    , numberTable(fastNew<HashTable>(JSC::numberTable))
+    , regExpTable(fastNew<HashTable>(JSC::regExpTable))
+    , regExpConstructorTable(fastNew<HashTable>(JSC::regExpConstructorTable))
+    , stringTable(fastNew<HashTable>(JSC::stringTable))
     , activationStructure(JSActivation::createStructure(jsNull()))
     , interruptedExecutionErrorStructure(JSObject::createStructure(jsNull()))
     , staticScopeStructure(JSStaticScopeObject::createStructure(jsNull()))
@@ -124,7 +125,7 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , jsFunctionVPtr(vptrSet.jsFunctionVPtr)
     , identifierTable(createIdentifierTable())
     , propertyNames(new CommonIdentifiers(this))
-    , emptyList(new ArgList)
+    , emptyList(new MarkedArgumentBuffer)
     , lexer(new Lexer(this))
     , parser(new Parser)
     , interpreter(new Interpreter)
@@ -132,10 +133,7 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , jitStubs(this)
 #endif
     , heap(this)
-    , exception(noValue())
     , initializingLazyNumericCompareFunction(false)
-    , newParserObjects(0)
-    , parserObjectExtraRefCounts(0)
     , head(0)
     , dynamicGlobalObject(0)
     , scopeNodeBeingReparsed(0)
@@ -162,13 +160,17 @@ JSGlobalData::~JSGlobalData()
     regExpTable->deleteTable();
     regExpConstructorTable->deleteTable();
     stringTable->deleteTable();
-    delete arrayTable;
-    delete dateTable;
-    delete mathTable;
-    delete numberTable;
-    delete regExpTable;
-    delete regExpConstructorTable;
-    delete stringTable;
+#if ENABLE(JIT)
+    lazyNativeFunctionThunk.clear();
+#endif
+
+    fastDelete(const_cast<HashTable*>(arrayTable));
+    fastDelete(const_cast<HashTable*>(dateTable));
+    fastDelete(const_cast<HashTable*>(mathTable));
+    fastDelete(const_cast<HashTable*>(numberTable));
+    fastDelete(const_cast<HashTable*>(regExpTable));
+    fastDelete(const_cast<HashTable*>(regExpConstructorTable));
+    fastDelete(const_cast<HashTable*>(stringTable));
 
     delete parser;
     delete lexer;
@@ -180,9 +182,6 @@ JSGlobalData::~JSGlobalData()
     delete propertyNames;
     deleteIdentifierTable(identifierTable);
 
-    delete newParserObjects;
-    delete parserObjectExtraRefCounts;
-    
     delete clientData;
 }
 
@@ -193,14 +192,10 @@ PassRefPtr<JSGlobalData> JSGlobalData::create(bool isShared)
 
 PassRefPtr<JSGlobalData> JSGlobalData::createLeaked()
 {
-#ifndef NDEBUG
     Structure::startIgnoringLeaks();
     RefPtr<JSGlobalData> data = create();
     Structure::stopIgnoringLeaks();
     return data.release();
-#else
-    return create();
-#endif
 }
 
 bool JSGlobalData::sharedInstanceExists()
@@ -226,6 +221,15 @@ JSGlobalData*& JSGlobalData::sharedInstanceInternal()
     static JSGlobalData* sharedInstance;
     return sharedInstance;
 }
+
+#if ENABLE(JIT)
+
+void JSGlobalData::createNativeThunk()
+{
+    lazyNativeFunctionThunk = FunctionBodyNode::createNativeThunk(this);
+}
+
+#endif
 
 // FIXME: We can also detect forms like v1 < v2 ? -1 : 0, reverse comparison, etc.
 const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)

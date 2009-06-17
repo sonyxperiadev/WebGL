@@ -34,11 +34,13 @@
 #include "FormDataList.h"
 #include "Frame.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderStyle.h"
 #include "RenderTextControlMultiLine.h"
-#include "VisibleSelection.h"
+#include "ScriptEventListener.h"
 #include "Text.h"
+#include "VisibleSelection.h"
 #include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
@@ -69,23 +71,23 @@ HTMLTextAreaElement::HTMLTextAreaElement(const QualifiedName& tagName, Document*
     , m_cachedSelectionEnd(-1)
 {
     ASSERT(hasTagName(textareaTag));
-    setValueMatchesRenderer();
+    setFormControlValueMatchesRenderer(true);
     notifyFormStateChanged(this);
 }
 
-const AtomicString& HTMLTextAreaElement::type() const
+const AtomicString& HTMLTextAreaElement::formControlType() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, textarea, ("textarea"));
     return textarea;
 }
 
-bool HTMLTextAreaElement::saveState(String& result) const
+bool HTMLTextAreaElement::saveFormControlState(String& result) const
 {
     result = value();
     return true;
 }
 
-void HTMLTextAreaElement::restoreState(const String& state)
+void HTMLTextAreaElement::restoreFormControlState(const String& state)
 {
     setDefaultValue(state);
 }
@@ -183,13 +185,13 @@ void HTMLTextAreaElement::parseMappedAttribute(MappedAttribute* attr)
         // Don't map 'align' attribute.  This matches what Firefox, Opera and IE do.
         // See http://bugs.webkit.org/show_bug.cgi?id=7075
     } else if (attr->name() == onfocusAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().focusEvent, attr);
+        setAttributeEventListener(eventNames().focusEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onblurAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().blurEvent, attr);
+        setAttributeEventListener(eventNames().blurEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onselectAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().selectEvent, attr);
+        setAttributeEventListener(eventNames().selectEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onchangeAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().changeEvent, attr);
+        setAttributeEventListener(eventNames().changeEvent, createAttributeEventListener(this, attr));
     else
         HTMLFormControlElementWithState::parseMappedAttribute(attr);
 }
@@ -268,12 +270,12 @@ void HTMLTextAreaElement::rendererWillBeDestroyed()
 
 void HTMLTextAreaElement::updateValue() const
 {
-    if (valueMatchesRenderer())
+    if (formControlValueMatchesRenderer())
         return;
 
     ASSERT(renderer());
     m_value = toRenderTextControl(renderer())->text();
-    const_cast<HTMLTextAreaElement*>(this)->setValueMatchesRenderer();
+    const_cast<HTMLTextAreaElement*>(this)->setFormControlValueMatchesRenderer(true);
     notifyFormStateChanged(this);
 }
 
@@ -297,9 +299,9 @@ void HTMLTextAreaElement::setValue(const String& value)
         return;
 
     m_value = normalizedValue;
-    setValueMatchesRenderer();
+    setFormControlValueMatchesRenderer(true);
     if (inDocument())
-        document()->updateRendering();
+        document()->updateStyleIfNeeded();
     if (renderer())
         renderer()->updateFromElement();
 
@@ -313,7 +315,7 @@ void HTMLTextAreaElement::setValue(const String& value)
         setSelectionRange(endOfString, endOfString);
     }
 
-    setChanged();
+    setNeedsStyleRecalc();
     notifyFormStateChanged(this);
 }
 

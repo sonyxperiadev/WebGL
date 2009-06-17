@@ -83,7 +83,7 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
     {
         MutexLocker lock(m_sharedDataMutex);
         if (m_executionForbidden)
-            return noValue();
+            return JSValue();
     }
     ScriptValue exception;
     ScriptValue result = evaluate(sourceCode, &exception);
@@ -99,7 +99,7 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode,
     {
         MutexLocker lock(m_sharedDataMutex);
         if (m_executionForbidden)
-            return noValue();
+            return JSValue();
     }
 
     initScriptIfNeeded();
@@ -110,14 +110,14 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode,
     Completion comp = JSC::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), sourceCode.jsSourceCode(), m_workerContextWrapper);
     m_workerContextWrapper->globalData()->timeoutChecker.stop();
 
-    m_workerContext->thread()->workerObjectProxy()->reportPendingActivity(m_workerContext->hasPendingActivity());
+    m_workerContext->thread()->workerObjectProxy().reportPendingActivity(m_workerContext->hasPendingActivity());
 
     if (comp.complType() == Normal || comp.complType() == ReturnValue)
         return comp.value();
 
     if (comp.complType() == Throw)
         *exception = comp.value();
-    return noValue();
+    return JSValue();
 }
 
 void WorkerScriptController::setException(ScriptValue exception)

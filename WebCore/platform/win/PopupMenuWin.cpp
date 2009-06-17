@@ -123,9 +123,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     // Determine whether we should animate our popups
     // Note: Must use 'BOOL' and 'FALSE' instead of 'bool' and 'false' to avoid stack corruption with SystemParametersInfo
     BOOL shouldAnimate = FALSE;
-#ifdef CAN_ANIMATE_TRANSPARENT_WINDOWS_SMOOTHLY
     ::SystemParametersInfo(SPI_GETCOMBOBOXANIMATION, 0, &shouldAnimate, 0);
-#endif
 
     if (shouldAnimate) {
         RECT viewRect = {0};
@@ -598,7 +596,7 @@ static ATOM registerPopup()
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = 0;
+    wcex.style          = CS_DROPSHADOW;
     wcex.lpfnWndProc    = PopupWndProc;
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = sizeof(PopupMenu*); // For the PopupMenu pointer

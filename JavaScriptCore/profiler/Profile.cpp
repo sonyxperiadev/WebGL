@@ -27,7 +27,6 @@
 #include "Profile.h"
 
 #include "ProfileNode.h"
-#include "TreeProfile.h"
 #include <stdio.h>
 
 #if PLATFORM(ANDROID)
@@ -41,7 +40,7 @@ namespace JSC {
 
 PassRefPtr<Profile> Profile::create(const UString& title, unsigned uid)
 {
-    return TreeProfile::create(title, uid);
+    return adoptRef(new Profile(title, uid));
 }
 
 Profile::Profile(const UString& title, unsigned uid)

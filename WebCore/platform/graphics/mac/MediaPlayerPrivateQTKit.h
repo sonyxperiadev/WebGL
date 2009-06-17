@@ -30,6 +30,7 @@
 
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
+#include "FloatSize.h"
 #include <wtf/RetainPtr.h>
 
 #ifdef __OBJC__
@@ -127,6 +128,8 @@ private:
     float maxTimeLoaded() const;
     void disableUnsupportedTracks();
     
+    void sawUnsupportedTracks();
+    void cacheMovieScale();
     bool metaDataAvailable() const { return m_qtMovie && m_readyState >= MediaPlayer::HaveMetadata; }
 
     MediaPlayer* m_player;
@@ -142,7 +145,10 @@ private:
     bool m_isStreaming;
     bool m_visible;
     IntRect m_rect;
+    FloatSize m_scaleFactor;
     unsigned m_enabledTrackCount;
+    unsigned m_totalTrackCount;
+    bool m_hasUnsupportedTracks;
     float m_duration;
 #if DRAW_FRAME_RATE
     int  m_frameCountWhilePlaying;

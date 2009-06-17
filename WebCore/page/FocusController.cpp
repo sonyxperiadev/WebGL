@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nuanti Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +35,7 @@
 #include "Element.h"
 #include "Event.h"
 #include "EventHandler.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "FrameTree.h"
@@ -45,6 +47,7 @@
 #include "RenderObject.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
+#include "Settings.h"
 #include "Widget.h"
 #include <wtf/Platform.h>
 
@@ -63,13 +66,17 @@ void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
     if (m_focusedFrame == frame)
         return;
 
-    if (m_focusedFrame && m_focusedFrame->view())
+    if (m_focusedFrame && m_focusedFrame->view()) {
         m_focusedFrame->selection()->setFocused(false);
+        m_focusedFrame->document()->dispatchWindowEvent(eventNames().blurEvent, false, false);
+    }
 
     m_focusedFrame = frame;
 
-    if (m_focusedFrame && m_focusedFrame->view())
+    if (m_focusedFrame && m_focusedFrame->view()) {
         m_focusedFrame->selection()->setFocused(true);
+        m_focusedFrame->document()->dispatchWindowEvent(eventNames().focusEvent, false, false);
+    }
 }
 
 Frame* FocusController::focusedOrMainFrame()
@@ -114,9 +121,16 @@ bool FocusController::advanceFocus(FocusDirection direction, KeyboardEvent* even
     ASSERT(frame);
     Document* document = frame->document();
 
+    Node* currentNode = document->focusedNode();
+    // FIXME: Not quite correct when it comes to focus transitions leaving/entering the WebView itself
+    bool caretBrowsing = focusedOrMainFrame()->settings()->caretBrowsingEnabled();
+
+    if (caretBrowsing && !currentNode)
+        currentNode = frame->selection()->start().node();
+
     Node* node = (direction == FocusDirectionForward)
-        ? document->nextFocusableNode(document->focusedNode(), event)
-        : document->previousFocusableNode(document->focusedNode(), event);
+        ? document->nextFocusableNode(currentNode, event)
+        : document->previousFocusableNode(currentNode, event);
             
     // If there's no focusable node to advance to, move up the frame tree until we find one.
     while (!node && frame) {
@@ -195,6 +209,12 @@ bool FocusController::advanceFocus(FocusDirection direction, KeyboardEvent* even
     if (newDocument)
         setFocusedFrame(newDocument->frame());
 
+    if (caretBrowsing) {
+        VisibleSelection newSelection(Position(node, 0), Position(node, 0), DOWNSTREAM);
+        if (frame->shouldChangeSelection(newSelection))
+            frame->selection()->setSelection(newSelection);
+    }
+
     static_cast<Element*>(node)->focus(false);
     return true;
 }
@@ -223,7 +243,11 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     SelectionController* s = oldFocusedFrame->selection();
     if (s->isNone())
         return;
-    
+
+    bool caretBrowsing = oldFocusedFrame->settings()->caretBrowsingEnabled();
+    if (caretBrowsing)
+        return;
+
     Node* selectionStartNode = s->selection().start().node();
     if (selectionStartNode == newFocusedNode || selectionStartNode->isDescendantOf(newFocusedNode) || selectionStartNode->shadowAncestorNode() == newFocusedNode)
         return;
@@ -248,7 +272,8 @@ bool FocusController::setFocusedNode(Node* node, PassRefPtr<Frame> newFocusedFra
     Node* oldFocusedNode = oldDocument ? oldDocument->focusedNode() : 0;
     if (oldFocusedNode == node)
         return true;
-        
+
+    // FIXME: Might want to disable this check for caretBrowsing
     if (oldFocusedNode && oldFocusedNode->rootEditableElement() == oldFocusedNode && !relinquishesEditingFocus(oldFocusedNode))
         return false;
         
@@ -296,6 +321,9 @@ void FocusController::setActive(bool active)
     }
 
     focusedOrMainFrame()->selection()->pageActivationChanged();
+    
+    if (m_focusedFrame)
+        m_focusedFrame->document()->dispatchWindowEvent(active ? eventNames().focusEvent : eventNames().blurEvent, false, false);
 }
 
 } // namespace WebCore

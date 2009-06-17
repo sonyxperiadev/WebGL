@@ -42,7 +42,7 @@ public:
     VisibleSelection();
 
     VisibleSelection(const Position&, EAffinity);
-    VisibleSelection(const Position&, const Position&, EAffinity);
+    VisibleSelection(const Position&, const Position&, EAffinity = SEL_DEFAULT_AFFINITY);
 
     VisibleSelection(const Range*, EAffinity = SEL_DEFAULT_AFFINITY);
     
@@ -75,6 +75,8 @@ public:
     bool isCaretOrRange() const { return selectionType() != NoSelection; }
 
     bool isBaseFirst() const { return m_baseIsFirst; }
+
+    bool isAll(StayInEditableContent) const;
 
     void appendTrailingWhitespace();
 

@@ -30,7 +30,11 @@
 
 #if ENABLE(ASSEMBLER)
 
-#if PLATFORM(X86)
+#if PLATFORM(ARM_V7)
+#include "MacroAssemblerARMv7.h"
+namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
+
+#elif PLATFORM(X86)
 #include "MacroAssemblerX86.h"
 namespace JSC { typedef MacroAssemblerX86 MacroAssemblerBase; };
 
@@ -238,6 +242,11 @@ public:
     }
 
     void storePtr(RegisterID src, BaseIndex address)
+    {
+        store32(src, address);
+    }
+
+    void storePtr(RegisterID src, void* address)
     {
         store32(src, address);
     }

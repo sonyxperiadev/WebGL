@@ -183,6 +183,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_visible(false)
     , m_rate(1.0f)
     , m_volume(1.0f)
+    , m_autobuffer(false)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
 #endif
@@ -206,11 +207,20 @@ void MediaPlayer::load(const String& url, const ContentType& contentType)
     String type = contentType.type();
     String codecs = contentType.parameter("codecs");
 
-    // if we don't know the MIME type, see if the path can help
-    if (type.isEmpty()) 
-        type = MIMETypeRegistry::getMIMETypeForPath(url);
+    // if we don't know the MIME type, see if the extension can help
+    if (type.isEmpty() || type == "application/octet-stream" || type == "text/plain") {
+        int pos = url.reverseFind('.');
+        if (pos >= 0) {
+            String extension = url.substring(pos + 1);
+            String mediaType = MIMETypeRegistry::getMediaMIMETypeForExtension(extension);
+            if (!mediaType.isEmpty())
+                type = mediaType;
+        }
+    }
 
-    MediaPlayerFactory* engine = chooseBestEngineForTypeAndCodecs(type, codecs);
+    MediaPlayerFactory* engine = 0;
+    if (!type.isEmpty())
+        engine = chooseBestEngineForTypeAndCodecs(type, codecs);
 
     // if we didn't find an engine that claims the MIME type, just use the first engine
     if (!engine)
@@ -258,6 +268,11 @@ void MediaPlayer::pause()
 float MediaPlayer::duration() const
 {
     return m_private->duration();
+}
+
+float MediaPlayer::startTime() const
+{
+    return m_private->startTime();
 }
 
 float MediaPlayer::currentTime() const
@@ -380,6 +395,19 @@ void MediaPlayer::setVisible(bool b)
 {
     m_visible = b;
     m_private->setVisible(b);
+}
+
+bool MediaPlayer::autobuffer() const
+{
+    return m_autobuffer;
+}
+
+void MediaPlayer::setAutobuffer(bool b)
+{
+    if (m_autobuffer != b) {
+        m_autobuffer = b;
+        m_private->setAutobuffer(b);
+    }
 }
 
 void MediaPlayer::paint(GraphicsContext* p, const IntRect& r)

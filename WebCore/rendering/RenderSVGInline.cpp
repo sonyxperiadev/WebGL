@@ -26,8 +26,11 @@
 #if ENABLE(SVG)
 #include "RenderSVGInline.h"
 
+#include "FloatQuad.h"
+#include "RenderBlock.h"
 #include "SVGInlineFlowBox.h"
-#include <wtf/UnusedParam.h>
+#include "SVGInlineTextBox.h"
+#include "SVGRootInlineBox.h"
 
 namespace WebCore {
     
@@ -38,7 +41,47 @@ RenderSVGInline::RenderSVGInline(Node* n)
 
 InlineFlowBox* RenderSVGInline::createFlowBox()
 {
-    return new (renderArena()) SVGInlineFlowBox(this);
+    InlineFlowBox* box = new (renderArena()) SVGInlineFlowBox(this);
+    box->setIsSVG(true);
+    return box;
+}
+
+void RenderSVGInline::absoluteRects(Vector<IntRect>& rects, int, int)
+{
+    InlineRunBox* firstBox = firstLineBox();
+
+    SVGRootInlineBox* rootBox = firstBox ? static_cast<SVGInlineTextBox*>(firstBox)->svgRootInlineBox() : 0;
+    RenderBox* object = rootBox ? rootBox->block() : 0;
+
+    if (!object)
+        return;
+
+    int xRef = object->x();
+    int yRef = object->y();
+
+    for (InlineRunBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
+        FloatRect rect(xRef + curr->x(), yRef + curr->y(), curr->width(), curr->height());
+        rects.append(enclosingIntRect(localToAbsoluteQuad(rect).boundingBox()));
+    }
+}
+
+void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads)
+{
+    InlineRunBox* firstBox = firstLineBox();
+
+    SVGRootInlineBox* rootBox = firstBox ? static_cast<SVGInlineTextBox*>(firstBox)->svgRootInlineBox() : 0;
+    RenderBox* object = rootBox ? rootBox->block() : 0;
+
+    if (!object)
+        return;
+
+    int xRef = object->x();
+    int yRef = object->y();
+
+    for (InlineRunBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
+        FloatRect rect(xRef + curr->x(), yRef + curr->y(), curr->width(), curr->height());
+        quads.append(localToAbsoluteQuad(rect));
+    }
 }
 
 }

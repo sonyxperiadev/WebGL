@@ -41,8 +41,6 @@ inline bool CAN_SIGN_EXTEND_8_32(int32_t value) { return value == (int32_t)(sign
 #if PLATFORM(X86_64)
 inline bool CAN_SIGN_EXTEND_32_64(intptr_t value) { return value == (intptr_t)(int32_t)value; }
 inline bool CAN_SIGN_EXTEND_U32_64(intptr_t value) { return value == (intptr_t)(uint32_t)value; }
-
-#define REPTACH_OFFSET_CALL_R11 3
 #endif
 
 namespace X86 {
@@ -84,6 +82,7 @@ class X86Assembler {
 public:
     typedef X86::RegisterID RegisterID;
     typedef X86::XMMRegisterID XMMRegisterID;
+    typedef XMMRegisterID FPRegisterID;
 
     typedef enum {
         ConditionO,
@@ -193,6 +192,7 @@ private:
     typedef enum {
         GROUP1_OP_ADD = 0,
         GROUP1_OP_OR  = 1,
+        GROUP1_OP_ADC = 2,
         GROUP1_OP_AND = 4,
         GROUP1_OP_SUB = 5,
         GROUP1_OP_XOR = 6,
@@ -295,6 +295,19 @@ public:
 
     // Arithmetic operations:
 
+#if !PLATFORM(X86_64)
+    void adcl_im(int imm, void* addr)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_ADC, addr);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_ADC, addr);
+            m_formatter.immediate32(imm);
+        }
+    }
+#endif
+
     void addl_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp(OP_ADD_EvGv, src, dst);
@@ -343,6 +356,17 @@ public:
             m_formatter.immediate32(imm);
         }
     }
+
+    void addq_im(int imm, int offset, RegisterID base)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp64(OP_GROUP1_EvIb, GROUP1_OP_ADD, base, offset);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp64(OP_GROUP1_EvIz, GROUP1_OP_ADD, base, offset);
+            m_formatter.immediate32(imm);
+        }
+    }
 #else
     void addl_im(int imm, void* addr)
     {
@@ -372,6 +396,17 @@ public:
         }
     }
 
+    void andl_im(int imm, int offset, RegisterID base)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_AND, base, offset);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_AND, base, offset);
+            m_formatter.immediate32(imm);
+        }
+    }
+
 #if PLATFORM(X86_64)
     void andq_rr(RegisterID src, RegisterID dst)
     {
@@ -385,6 +420,17 @@ public:
             m_formatter.immediate8(imm);
         } else {
             m_formatter.oneByteOp64(OP_GROUP1_EvIz, GROUP1_OP_AND, dst);
+            m_formatter.immediate32(imm);
+        }
+    }
+#else
+    void andl_im(int imm, void* addr)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_AND, addr);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_AND, addr);
             m_formatter.immediate32(imm);
         }
     }
@@ -416,6 +462,17 @@ public:
         }
     }
 
+    void orl_im(int imm, int offset, RegisterID base)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_OR, base, offset);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_OR, base, offset);
+            m_formatter.immediate32(imm);
+        }
+    }
+
 #if PLATFORM(X86_64)
     void orq_rr(RegisterID src, RegisterID dst)
     {
@@ -429,6 +486,17 @@ public:
             m_formatter.immediate8(imm);
         } else {
             m_formatter.oneByteOp64(OP_GROUP1_EvIz, GROUP1_OP_OR, dst);
+            m_formatter.immediate32(imm);
+        }
+    }
+#else
+    void orl_im(int imm, void* addr)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_OR, addr);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_OR, addr);
             m_formatter.immediate32(imm);
         }
     }
@@ -726,6 +794,19 @@ public:
         m_formatter.oneByteOp(OP_CMP_EvGv, src, base, index, scale, offset);
     }
 
+    void cmpw_im(int imm, int offset, RegisterID base, RegisterID index, int scale)
+    {
+        if (CAN_SIGN_EXTEND_8_32(imm)) {
+            m_formatter.prefix(PRE_OPERAND_SIZE);
+            m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_CMP, base, index, scale, offset);
+            m_formatter.immediate8(imm);
+        } else {
+            m_formatter.prefix(PRE_OPERAND_SIZE);
+            m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_CMP, base, index, scale, offset);
+            m_formatter.immediate16(imm);
+        }
+    }
+
     void testl_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp(OP_TEST_EvGv, src, dst);
@@ -774,6 +855,12 @@ public:
     }
 #endif 
 
+    void testw_rr(RegisterID src, RegisterID dst)
+    {
+        m_formatter.prefix(PRE_OPERAND_SIZE);
+        m_formatter.oneByteOp(OP_TEST_EvGv, src, dst);
+    }
+    
     void testb_i8r(int imm, RegisterID dst)
     {
         m_formatter.oneByteOp8(OP_GROUP3_EbIb, GROUP3_OP_TEST, dst);
@@ -918,6 +1005,12 @@ public:
         m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
     }
 
+    void movq_EAXm(void* addr)
+    {
+        m_formatter.oneByteOp64(OP_MOV_OvEAX);
+        m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
+    }
+
     void movq_mr(int offset, RegisterID base, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_MOV_GvEv, dst, base, offset);
@@ -952,6 +1045,14 @@ public:
     
     
 #else
+    void movl_rm(RegisterID src, void* addr)
+    {
+        if (src == X86::eax)
+            movl_EAXm(addr);
+        else 
+            m_formatter.oneByteOp(OP_MOV_EvGv, src, addr);
+    }
+    
     void movl_mr(void* addr, RegisterID dst)
     {
         if (dst == X86::eax)
@@ -989,6 +1090,12 @@ public:
     {
         m_formatter.oneByteOp(OP_LEA, dst, base, offset);
     }
+#if PLATFORM(X86_64)
+    void leaq_mr(int offset, RegisterID base, RegisterID dst)
+    {
+        m_formatter.oneByteOp64(OP_LEA, dst, base, offset);
+    }
+#endif
 
     // Flow control:
 
@@ -1002,6 +1109,11 @@ public:
     {
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_CALLN, dst);
         return JmpSrc(m_formatter.size());
+    }
+    
+    void call_m(int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_CALLN, base, offset);
     }
 
     JmpSrc jmp()
@@ -1241,74 +1353,83 @@ public:
     }
 
     // Linking & patching:
+    //
+    // 'link' and 'patch' methods are for use on unprotected code - such as the code
+    // within the AssemblerBuffer, and code being patched by the patch buffer.  Once
+    // code has been finalized it is (platform support permitting) within a non-
+    // writable region of memory; to modify the code in an execute-only execuable
+    // pool the 'repatch' and 'relink' methods should be used.
 
     void linkJump(JmpSrc from, JmpDst to)
     {
-        ASSERT(to.m_offset != -1);
         ASSERT(from.m_offset != -1);
-        
-        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(m_formatter.data()) + from.m_offset)[-1] = to.m_offset - from.m_offset;
+        ASSERT(to.m_offset != -1);
+
+        char* code = reinterpret_cast<char*>(m_formatter.data());
+        patchRel32(code + from.m_offset, code + to.m_offset);
     }
     
     static void linkJump(void* code, JmpSrc from, void* to)
     {
         ASSERT(from.m_offset != -1);
-        ptrdiff_t linkOffset = reinterpret_cast<ptrdiff_t>(to) - (reinterpret_cast<ptrdiff_t>(code) + from.m_offset);
-        ASSERT(linkOffset == static_cast<int>(linkOffset));
-        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(code) + from.m_offset)[-1] = linkOffset;
-    }
-    
-    static void patchJump(intptr_t where, void* destination)
-    {
-        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
-        ASSERT(offset == static_cast<int32_t>(offset));
-        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
-    }
-    
-#if PLATFORM(X86_64)
-    // FIXME: transition these functions out of here - the assembler
-    // shouldn't know that that this is mov/call pair using r11. :-/
-    static void patchMacroAssemblerCall(intptr_t where, void* destination)
-    {
-        patchAddress(reinterpret_cast<void*>(where - REPTACH_OFFSET_CALL_R11), JmpDst(0), destination);
-    }
-#else
-    static void patchMacroAssemblerCall(intptr_t where, void* destination)
-    {
-        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
-        ASSERT(offset == static_cast<int32_t>(offset));
-        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
-    }
-#endif
 
-    void linkCall(JmpSrc from, JmpDst to)
-    {
-        ASSERT(to.m_offset != -1);
-        ASSERT(from.m_offset != -1);
-        
-        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(m_formatter.data()) + from.m_offset)[-1] = to.m_offset - from.m_offset;
+        patchRel32(reinterpret_cast<char*>(code) + from.m_offset, to);
     }
-    
+
     static void linkCall(void* code, JmpSrc from, void* to)
     {
         ASSERT(from.m_offset != -1);
-        ptrdiff_t linkOffset = reinterpret_cast<ptrdiff_t>(to) - (reinterpret_cast<ptrdiff_t>(code) + from.m_offset);
-        ASSERT(linkOffset == static_cast<int>(linkOffset));
-        reinterpret_cast<int*>(reinterpret_cast<ptrdiff_t>(code) + from.m_offset)[-1] = linkOffset;
+
+        patchRel32(reinterpret_cast<char*>(code) + from.m_offset, to);
     }
 
-    static void patchCall(intptr_t where, void* destination)
+#if PLATFORM(X86_64)
+    static void patchPointerForCall(void* where, void* value)
     {
-        intptr_t offset = reinterpret_cast<intptr_t>(destination) - where;
-        ASSERT(offset == static_cast<int32_t>(offset));
-        reinterpret_cast<int32_t*>(where)[-1] = static_cast<int32_t>(offset);
+        reinterpret_cast<void**>(where)[-1] = value;
+    }
+#endif
+
+    static void patchPointer(void* code, JmpDst where, void* value)
+    {
+        ASSERT(where.m_offset != -1);
+
+        patchPointer(reinterpret_cast<char*>(code) + where.m_offset, value);
     }
 
-    static void patchAddress(void* code, JmpDst position, void* value)
+    static void relinkJump(void* from, void* to)
     {
-        ASSERT(position.m_offset != -1);
-        
-        reinterpret_cast<void**>(reinterpret_cast<ptrdiff_t>(code) + position.m_offset)[-1] = value;
+        ExecutableAllocator::MakeWritable unprotect(reinterpret_cast<char*>(from) - sizeof(int32_t), sizeof(int32_t));
+        patchRel32(from, to);
+    }
+    
+    static void relinkCall(void* from, void* to)
+    {
+        ExecutableAllocator::MakeWritable unprotect(reinterpret_cast<char*>(from) - sizeof(int32_t), sizeof(int32_t));
+        patchRel32(from, to);
+    }
+
+    static void repatchInt32(void* where, int32_t value)
+    {
+        ExecutableAllocator::MakeWritable unprotect(reinterpret_cast<char*>(where) - sizeof(int32_t), sizeof(int32_t));
+        patchInt32(where, value);
+    }
+
+    static void repatchPointer(void* where, void* value)
+    {
+        ExecutableAllocator::MakeWritable unprotect(reinterpret_cast<char*>(where) - sizeof(void*), sizeof(void*));
+        patchPointer(where, value);
+    }
+
+    static void repatchLoadPtrToLEA(void* where)
+    {
+#if PLATFORM(X86_64)
+        // On x86-64 pointer memory accesses require a 64-bit operand, and as such a REX prefix.
+        // Skip over the prefix byte.
+        where = reinterpret_cast<char*>(where) + 1;
+#endif
+        ExecutableAllocator::MakeWritable unprotect(where, 1);
+        *reinterpret_cast<unsigned char*>(where) = static_cast<unsigned char>(OP_LEA);
     }
     
     static unsigned getCallReturnOffset(JmpSrc call)
@@ -1319,6 +1440,8 @@ public:
 
     static void* getRelocatedAddress(void* code, JmpSrc jump)
     {
+        ASSERT(jump.m_offset != -1);
+
         return reinterpret_cast<void*>(reinterpret_cast<ptrdiff_t>(code) + jump.m_offset);
     }
     
@@ -1344,16 +1467,6 @@ public:
         return dst.m_offset - src.m_offset;
     }
     
-    static void patchImmediate(intptr_t where, int32_t value)
-    {
-        reinterpret_cast<int32_t*>(where)[-1] = value;
-    }
-    
-    static void patchPointer(intptr_t where, intptr_t value)
-    {
-        reinterpret_cast<intptr_t*>(where)[-1] = value;
-    }
-    
     void* executableCopy(ExecutablePool* allocator)
     {
         void* copy = m_formatter.executableCopy(allocator);
@@ -1362,6 +1475,24 @@ public:
     }
 
 private:
+
+    static void patchPointer(void* where, void* value)
+    {
+        reinterpret_cast<void**>(where)[-1] = value;
+    }
+
+    static void patchInt32(void* where, int32_t value)
+    {
+        reinterpret_cast<int32_t*>(where)[-1] = value;
+    }
+
+    static void patchRel32(void* from, void* to)
+    {
+        intptr_t offset = reinterpret_cast<intptr_t>(to) - reinterpret_cast<intptr_t>(from);
+        ASSERT(offset == static_cast<int32_t>(offset));
+
+        patchInt32(from, offset);
+    }
 
     class X86InstructionFormatter {
 
@@ -1602,6 +1733,11 @@ private:
         void immediate8(int imm)
         {
             m_buffer.putByteUnchecked(imm);
+        }
+
+        void immediate16(int imm)
+        {
+            m_buffer.putShortUnchecked(imm);
         }
 
         void immediate32(int imm)

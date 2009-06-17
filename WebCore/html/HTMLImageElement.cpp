@@ -30,7 +30,9 @@
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderImage.h"
+#include "ScriptEventListener.h"
 
 using namespace std;
 
@@ -113,9 +115,9 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
     } else if (attrName == ismapAttr)
         ismap = true;
     else if (attrName == onabortAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().abortEvent, attr);
+        setAttributeEventListener(eventNames().abortEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadAttr)
-        setInlineEventListenerForTypeAndAttribute(eventNames().loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attrName == compositeAttr) {
         if (!parseCompositeOperator(attr->value(), m_compositeOperator))
             m_compositeOperator = CompositeSourceOver;

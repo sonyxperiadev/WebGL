@@ -74,19 +74,6 @@ void RootInlineBox::detachEllipsisBox(RenderArena* arena)
     }
 }
 
-int RootInlineBox::height() const
-{
-    const Font& font = renderer()->style(m_firstLine)->font();
-    int result = font.height();
-    bool strictMode = renderer()->document()->inStrictMode();
-    if (!strictMode && !hasTextChildren() && !boxModelObject()->hasHorizontalBordersOrPadding()) {
-        int bottom = bottomOverflow();
-        if (y() + result > bottom)
-            result = bottom - y();
-    }
-    return result;
-}
-
 RenderLineBoxList* RootInlineBox::rendererLineBoxes() const
 {
     return block()->lineBoxes();
@@ -112,7 +99,7 @@ bool RootInlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int lineBoxE
     return InlineFlowBox::canAccommodateEllipsis(ltr, blockEdge, ellipsisWidth);
 }
 
-void RootInlineBox::placeEllipsis(const AtomicString& ellipsisStr,  bool ltr, int blockEdge, int ellipsisWidth,
+void RootInlineBox::placeEllipsis(const AtomicString& ellipsisStr,  bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth,
                                   InlineBox* markupBox)
 {
     // Create an ellipsis box.
@@ -126,7 +113,8 @@ void RootInlineBox::placeEllipsis(const AtomicString& ellipsisStr,  bool ltr, in
     gEllipsisBoxMap->add(this, ellipsisBox);
     m_hasEllipsisBox = true;
 
-    if (ltr && (x() + width() + ellipsisWidth) <= blockEdge) {
+    // FIXME: Do we need an RTL version of this?
+    if (ltr && (x() + width() + ellipsisWidth) <= blockRightEdge) {
         ellipsisBox->m_x = x() + width();
         return;
     }
@@ -135,14 +123,14 @@ void RootInlineBox::placeEllipsis(const AtomicString& ellipsisStr,  bool ltr, in
     // of that glyph.  Mark all of the objects that intersect the ellipsis box as not painting (as being
     // truncated).
     bool foundBox = false;
-    ellipsisBox->m_x = placeEllipsisBox(ltr, blockEdge, ellipsisWidth, foundBox);
+    ellipsisBox->m_x = placeEllipsisBox(ltr, blockLeftEdge, blockRightEdge, ellipsisWidth, foundBox);
 }
 
-int RootInlineBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool& foundBox)
+int RootInlineBox::placeEllipsisBox(bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth, bool& foundBox)
 {
-    int result = InlineFlowBox::placeEllipsisBox(ltr, blockEdge, ellipsisWidth, foundBox);
+    int result = InlineFlowBox::placeEllipsisBox(ltr, blockLeftEdge, blockRightEdge, ellipsisWidth, foundBox);
     if (result == -1)
-        result = ltr ? blockEdge - ellipsisWidth : blockEdge;
+        result = ltr ? blockRightEdge - ellipsisWidth : blockLeftEdge;
     return result;
 }
 

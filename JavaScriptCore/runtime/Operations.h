@@ -29,14 +29,14 @@
 
 namespace JSC {
 
-    NEVER_INLINE JSValuePtr throwOutOfMemoryError(ExecState*);
-    NEVER_INLINE JSValuePtr jsAddSlowCase(CallFrame*, JSValuePtr, JSValuePtr);
-    JSValuePtr jsTypeStringForValue(CallFrame*, JSValuePtr);
-    bool jsIsObjectType(JSValuePtr);
-    bool jsIsFunctionType(JSValuePtr);
+    NEVER_INLINE JSValue throwOutOfMemoryError(ExecState*);
+    NEVER_INLINE JSValue jsAddSlowCase(CallFrame*, JSValue, JSValue);
+    JSValue jsTypeStringForValue(CallFrame*, JSValue);
+    bool jsIsObjectType(JSValue);
+    bool jsIsFunctionType(JSValue);
 
     // ECMA 11.9.3
-    inline bool JSValuePtr::equal(ExecState* exec, JSValuePtr v1, JSValuePtr v2)
+    inline bool JSValue::equal(ExecState* exec, JSValue v1, JSValue v2)
     {
         if (JSImmediate::areBothImmediateIntegerNumbers(v1, v2))
             return v1 == v2;
@@ -44,7 +44,7 @@ namespace JSC {
         return equalSlowCase(exec, v1, v2);
     }
 
-    ALWAYS_INLINE bool JSValuePtr::equalSlowCaseInline(ExecState* exec, JSValuePtr v1, JSValuePtr v2)
+    ALWAYS_INLINE bool JSValue::equalSlowCaseInline(ExecState* exec, JSValue v1, JSValue v2)
     {
         ASSERT(!JSImmediate::areBothImmediateIntegerNumbers(v1, v2));
 
@@ -74,7 +74,7 @@ namespace JSC {
             if (v1.isObject()) {
                 if (v2.isObject())
                     return v1 == v2;
-                JSValuePtr p1 = v1.toPrimitive(exec);
+                JSValue p1 = v1.toPrimitive(exec);
                 if (exec->hadException())
                     return false;
                 v1 = p1;
@@ -84,7 +84,7 @@ namespace JSC {
             }
 
             if (v2.isObject()) {
-                JSValuePtr p2 = v2.toPrimitive(exec);
+                JSValue p2 = v2.toPrimitive(exec);
                 if (exec->hadException())
                     return false;
                 v2 = p2;
@@ -112,7 +112,17 @@ namespace JSC {
     }
 
     // ECMA 11.9.3
-    inline bool JSValuePtr::strictEqual(JSValuePtr v1, JSValuePtr v2)
+    ALWAYS_INLINE bool JSValue::strictEqualSlowCaseInline(JSValue v1, JSValue v2)
+    {
+        ASSERT(!JSImmediate::isEitherImmediate(v1, v2));
+
+        if (v1.asCell()->isString() && v2.asCell()->isString())
+            return asString(v1)->value() == asString(v2)->value();
+
+        return v1 == v2;
+    }
+
+    inline bool JSValue::strictEqual(JSValue v1, JSValue v2)
     {
         if (JSImmediate::areBothImmediateIntegerNumbers(v1, v2))
             return v1 == v2;
@@ -123,22 +133,12 @@ namespace JSC {
         if (JSImmediate::isEitherImmediate(v1, v2))
             return v1 == v2;
 
-        return strictEqualSlowCase(v1, v2);
+        return strictEqualSlowCaseInline(v1, v2);
     }
 
-    ALWAYS_INLINE bool JSValuePtr::strictEqualSlowCaseInline(JSValuePtr v1, JSValuePtr v2)
+    inline bool jsLess(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
-        ASSERT(!JSImmediate::isEitherImmediate(v1, v2));
-
-        if (v1.asCell()->isString() && v2.asCell()->isString())
-            return asString(v1)->value() == asString(v2)->value();
-
-        return v1 == v2;
-    }
-
-    inline bool jsLess(CallFrame* callFrame, JSValuePtr v1, JSValuePtr v2)
-    {
-        if (JSValuePtr::areBothInt32Fast(v1, v2))
+        if (JSValue::areBothInt32Fast(v1, v2))
             return v1.getInt32Fast() < v2.getInt32Fast();
 
         double n1;
@@ -150,8 +150,8 @@ namespace JSC {
         if (isJSString(globalData, v1) && isJSString(globalData, v2))
             return asString(v1)->value() < asString(v2)->value();
 
-        JSValuePtr p1;
-        JSValuePtr p2;
+        JSValue p1;
+        JSValue p2;
         bool wasNotString1 = v1.getPrimitiveNumber(callFrame, n1, p1);
         bool wasNotString2 = v2.getPrimitiveNumber(callFrame, n2, p2);
 
@@ -161,9 +161,9 @@ namespace JSC {
         return asString(p1)->value() < asString(p2)->value();
     }
 
-    inline bool jsLessEq(CallFrame* callFrame, JSValuePtr v1, JSValuePtr v2)
+    inline bool jsLessEq(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
-        if (JSValuePtr::areBothInt32Fast(v1, v2))
+        if (JSValue::areBothInt32Fast(v1, v2))
             return v1.getInt32Fast() <= v2.getInt32Fast();
 
         double n1;
@@ -175,8 +175,8 @@ namespace JSC {
         if (isJSString(globalData, v1) && isJSString(globalData, v2))
             return !(asString(v2)->value() < asString(v1)->value());
 
-        JSValuePtr p1;
-        JSValuePtr p2;
+        JSValue p1;
+        JSValue p2;
         bool wasNotString1 = v1.getPrimitiveNumber(callFrame, n1, p1);
         bool wasNotString2 = v2.getPrimitiveNumber(callFrame, n2, p2);
 
@@ -195,7 +195,7 @@ namespace JSC {
     //    13962   Add case: 5 3
     //    4000    Add case: 3 5
 
-    ALWAYS_INLINE JSValuePtr jsAdd(CallFrame* callFrame, JSValuePtr v1, JSValuePtr v2)
+    ALWAYS_INLINE JSValue jsAdd(CallFrame* callFrame, JSValue v1, JSValue v2)
     {
         double left;
         double right = 0.0;
@@ -226,13 +226,13 @@ namespace JSC {
         return jsAddSlowCase(callFrame, v1, v2);
     }
 
-    inline size_t countPrototypeChainEntriesAndCheckForProxies(CallFrame* callFrame, JSValuePtr baseValue, const PropertySlot& slot)
+    inline size_t countPrototypeChainEntriesAndCheckForProxies(CallFrame* callFrame, JSValue baseValue, const PropertySlot& slot)
     {
         JSCell* cell = asCell(baseValue);
         size_t count = 0;
 
         while (slot.slotBase() != cell) {
-            JSValuePtr v = cell->structure()->prototypeForLookup(callFrame);
+            JSValue v = cell->structure()->prototypeForLookup(callFrame);
 
             // If we didn't find slotBase in baseValue's prototype chain, then baseValue
             // must be a proxy for another object.
@@ -254,7 +254,7 @@ namespace JSC {
         return count;
     }
 
-    ALWAYS_INLINE JSValuePtr resolveBase(CallFrame* callFrame, Identifier& property, ScopeChainNode* scopeChain)
+    ALWAYS_INLINE JSValue resolveBase(CallFrame* callFrame, Identifier& property, ScopeChainNode* scopeChain)
     {
         ScopeChainIterator iter = scopeChain->begin();
         ScopeChainIterator next = iter;
@@ -274,7 +274,59 @@ namespace JSC {
         }
 
         ASSERT_NOT_REACHED();
-        return noValue();
+        return JSValue();
+    }
+
+    ALWAYS_INLINE JSValue concatenateStrings(CallFrame* callFrame, Register* strings, unsigned count)
+    {
+        ASSERT(count >= 3);
+
+        // Estimate the amount of space required to hold the entire string.  If all
+        // arguments are strings, we can easily calculate the exact amount of space
+        // required.  For any other arguments, for now let's assume they may require
+        // 11 UChars of storage.  This is enouch to hold any int, and likely is also
+        // reasonable for the other immediates.  We may want to come back and tune
+        // this value at some point.
+        unsigned bufferSize = 0;
+        for (unsigned i = 0; i < count; ++i) {
+            JSValue v = strings[i].jsValue();
+            if (LIKELY(v.isString()))
+                bufferSize += asString(v)->value().size();
+            else
+                bufferSize += 11;
+        }
+
+        // Allocate an output string to store the result.
+        // If the first argument is a String, and if it has the capacity (or can grow
+        // its capacity) to hold the entire result then use this as a base to concatenate
+        // onto.  Otherwise, allocate a new empty output buffer.
+        JSValue firstValue = strings[0].jsValue();
+        RefPtr<UString::Rep> resultRep;
+        if (firstValue.isString() && (resultRep = asString(firstValue)->value().rep())->reserveCapacity(bufferSize)) {
+            // We're going to concatenate onto the first string - remove it from the list of items to be appended.
+            ++strings;
+            --count;
+        } else
+            resultRep = UString::Rep::createEmptyBuffer(bufferSize);
+        UString result(resultRep);
+
+        // Loop over the openards, writing them into the output buffer.
+        for (unsigned i = 0; i < count; ++i) {
+            JSValue v = strings[i].jsValue();
+            if (LIKELY(v.isString()))
+                result.append(asString(v)->value());
+            else if (v.isInt32Fast())
+                result.appendNumeric(v.getInt32Fast());
+            else {
+                double d;
+                if (v.getNumber(d))
+                    result.appendNumeric(d);
+                else
+                    result.append(v.toString(callFrame));
+            }
+        }
+
+        return jsString(callFrame, result);
     }
 
 } // namespace JSC

@@ -494,6 +494,8 @@ typedef struct _NPCocoaEvent {
             uint16 keyCode;
         } key;
         struct {
+            CGContextRef context;
+
             double x;
             double y;
             double width;
@@ -556,6 +558,14 @@ typedef NPNSMenu NPMenu;
 #else
 typedef void * NPMenu;
 #endif
+
+typedef enum {
+    NPCoordinateSpacePlugin = 1,
+    NPCoordinateSpaceWindow,
+    NPCoordinateSpaceFlippedWindow,
+    NPCoordinateSpaceScreen,
+    NPCoordinateSpaceFlippedScreen
+} NPCoordinateSpace;
 
 #if defined(XP_MAC) || defined(XP_MACOSX)
 
@@ -842,10 +852,14 @@ void        NPN_ForceRedraw(NPP instance);
 void        NPN_PushPopupsEnabledState(NPP instance, NPBool enabled);
 void        NPN_PopPopupsEnabledState(NPP instance);
 void        NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userData);
+NPError     NPN_GetValueForURL(NPP instance, NPNURLVariable variable, const char* url, char** value, uint32* len);
+NPError     NPN_SetValueForURL(NPP instance, NPNURLVariable variable, const char* url, const char* value, uint32 len);
+NPError     NPN_GetAuthenticationInfo(NPP instance, const char* protocol, const char* host, int32 port, const char* scheme, const char *realm, char** username, uint32* ulen, char** password, uint32* plen);
 uint32      NPN_ScheduleTimer(NPP instance, uint32 interval, NPBool repeat, void (*timerFunc)(NPP npp, uint32 timerID));
 void        NPN_UnscheduleTimer(NPP instance, uint32 timerID);
 NPError     NPN_PopUpContextMenu(NPP instance, NPMenu* menu);
-
+NPBool      NPN_ConvertPoint(NPP instance, double sourceX, double sourceY, NPCoordinateSpace sourceSpace, double *destX, double *destY, NPCoordinateSpace destSpace);
+    
 #ifdef __cplusplus
 }  /* end extern "C" */
 #endif

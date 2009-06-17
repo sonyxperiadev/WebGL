@@ -29,6 +29,8 @@
 #include "config.h"
 #include "JavaScriptDebugServer.h"
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include "DOMWindow.h"
 #include "EventLoop.h"
 #include "Frame.h"
@@ -431,6 +433,8 @@ void JavaScriptDebugServer::pauseIfNeeded(Page* page)
     setJavaScriptPaused(page->group(), false);
 
     m_paused = false;
+
+    dispatchFunctionToListeners(&JavaScriptDebugListener::didContinue, page);
 }
 
 void JavaScriptDebugServer::callEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
@@ -549,8 +553,11 @@ void JavaScriptDebugServer::recompileAllJSFunctions(Timer<JavaScriptDebugServer>
     Vector<ProtectedPtr<JSFunction> > functions;
     Heap::iterator heapEnd = globalData->heap.primaryHeapEnd();
     for (Heap::iterator it = globalData->heap.primaryHeapBegin(); it != heapEnd; ++it) {
-        if ((*it)->isObject(&JSFunction::info))
-            functions.append(static_cast<JSFunction*>(*it));
+        if ((*it)->isObject(&JSFunction::info)) {
+            JSFunction* function = static_cast<JSFunction*>(*it);
+            if (!function->isHostFunction())
+                functions.append(function);
+        }
     }
 
     typedef HashMap<RefPtr<FunctionBodyNode>, RefPtr<FunctionBodyNode> > FunctionBodyMap;
@@ -580,7 +587,7 @@ void JavaScriptDebugServer::recompileAllJSFunctions(Timer<JavaScriptDebugServer>
         result.first->second = newBody;
         function->setBody(newBody.release());
 
-        if (hasListeners())
+        if (hasListeners() && function->scope().globalObject()->debugger() == this)
             sourceProviders.add(sourceCode.provider(), exec);
     }
 
@@ -620,3 +627,5 @@ void JavaScriptDebugServer::didRemoveLastListener()
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)

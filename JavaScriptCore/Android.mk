@@ -71,6 +71,7 @@ LOCAL_SRC_FILES := \
 	parser/Lexer.cpp \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
+	parser/ParserArena.cpp \
 	\
 	pcre/pcre_compile.cpp \
 	pcre/pcre_exec.cpp \
@@ -98,8 +99,8 @@ LOCAL_SRC_FILES := \
 	runtime/Completion.cpp \
 	runtime/ConstructData.cpp \
 	runtime/DateConstructor.cpp \
+	runtime/DateConversion.cpp \
 	runtime/DateInstance.cpp \
-	runtime/DateMath.cpp \
 	runtime/DatePrototype.cpp \
 	runtime/Error.cpp \
 	runtime/ErrorConstructor.cpp \
@@ -132,6 +133,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSValue.cpp \
 	runtime/JSVariableObject.cpp \
 	runtime/JSWrapperObject.cpp \
+	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
@@ -169,6 +171,7 @@ LOCAL_SRC_FILES := \
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
+	wtf/DateMath.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MainThread.cpp \

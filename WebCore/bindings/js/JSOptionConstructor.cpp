@@ -34,13 +34,14 @@ ASSERT_CLASS_FITS_IN_CELL(JSOptionConstructor);
 
 const ClassInfo JSOptionConstructor::s_info = { "OptionConstructor", 0, 0, 0 };
 
-JSOptionConstructor::JSOptionConstructor(ExecState* exec, ScriptExecutionContext* context)
+JSOptionConstructor::JSOptionConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMObject(JSOptionConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
-    , m_globalObject(toJSDOMGlobalObject(context))
+    , m_globalObject(globalObject)
 {
-    ASSERT(context->isDocument());
+    ASSERT(globalObject->scriptExecutionContext());
+    ASSERT(globalObject->scriptExecutionContext()->isDocument());
 
-    putDirect(exec->propertyNames().prototype, JSHTMLOptionElementPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSHTMLOptionElementPrototype::self(exec, exec->lexicalGlobalObject()), None);
     putDirect(exec->propertyNames().length, jsNumber(exec, 4), ReadOnly|DontDelete|DontEnum);
 }
 
@@ -52,21 +53,23 @@ Document* JSOptionConstructor::document() const
 static JSObject* constructHTMLOptionElement(ExecState* exec, JSObject* constructor, const ArgList& args)
 {
     Document* document = static_cast<JSOptionConstructor*>(constructor)->document();
+    if (!document)
+        return throwError(exec, ReferenceError, "Option constructor associated document is unavailable");
 
     RefPtr<HTMLOptionElement> element = static_pointer_cast<HTMLOptionElement>(document->createElement(HTMLNames::optionTag, false));
 
     ExceptionCode ec = 0;
     RefPtr<Text> text = document->createTextNode("");
-    if (!args.at(exec, 0).isUndefined())
-        text->setData(args.at(exec, 0).toString(exec), ec);
+    if (!args.at(0).isUndefined())
+        text->setData(args.at(0).toString(exec), ec);
     if (ec == 0)
         element->appendChild(text.release(), ec);
-    if (ec == 0 && !args.at(exec, 1).isUndefined())
-        element->setValue(args.at(exec, 1).toString(exec));
+    if (ec == 0 && !args.at(1).isUndefined())
+        element->setValue(args.at(1).toString(exec));
     if (ec == 0)
-        element->setDefaultSelected(args.at(exec, 2).toBoolean(exec));
+        element->setDefaultSelected(args.at(2).toBoolean(exec));
     if (ec == 0)
-        element->setSelected(args.at(exec, 3).toBoolean(exec));
+        element->setSelected(args.at(3).toBoolean(exec));
 
     if (ec) {
         setDOMException(exec, ec);

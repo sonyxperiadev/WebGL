@@ -51,21 +51,6 @@ InlineFlowBox::~InlineFlowBox()
 
 #endif
 
-int InlineFlowBox::height() const
-{
-    const Font& font = renderer()->style(m_firstLine)->font();
-    int result = font.height();
-    bool strictMode = renderer()->document()->inStrictMode();
-    RenderBoxModelObject* box = boxModelObject();
-    result += box->borderTop() + box->paddingTop() + box->borderBottom() + box->paddingBottom();
-    if (!strictMode && !hasTextChildren() && !box->hasHorizontalBordersOrPadding()) {
-        int bottomOverflow = root()->bottomOverflow();
-        if (y() + result > bottomOverflow)
-            result = bottomOverflow - y();
-    }
-    return result;
-}
-
 int InlineFlowBox::getFlowSpacingWidth()
 {
     int totWidth = marginBorderPaddingLeft() + marginBorderPaddingRight();
@@ -430,25 +415,59 @@ void InlineFlowBox::computeLogicalBoxHeights(int& maxPositionTop, int& maxPositi
                 maxDescent = descent;
         }
     }
-    
+
     for (InlineBox* curr = firstChild(); curr; curr = curr->nextOnLine()) {
         if (curr->renderer()->isPositioned())
             continue; // Positioned placeholders don't affect calculations.
         
         bool isInlineFlow = curr->isInlineFlowBox();
 
-        int lineHeight = curr->renderer()->lineHeight(m_firstLine);
-        int baseline = curr->renderer()->baselinePosition(m_firstLine);
+        int lineHeight;
+        int baseline;
+        Vector<const SimpleFontData*> usedFonts;
+        if (curr->isInlineTextBox())
+            static_cast<InlineTextBox*>(curr)->takeFallbackFonts(usedFonts);
+
+        if (!usedFonts.isEmpty()) {
+            usedFonts.append(curr->renderer()->style(m_firstLine)->font().primaryFont());
+            Length parentLineHeight = curr->renderer()->parent()->style()->lineHeight();
+            if (parentLineHeight.isNegative()) {
+                int baselineToBottom = 0;
+                baseline = 0;
+                for (size_t i = 0; i < usedFonts.size(); ++i) {
+                    int halfLeading = (usedFonts[i]->lineSpacing() - usedFonts[i]->ascent() - usedFonts[i]->descent()) / 2;
+                    baseline = max(baseline, halfLeading + usedFonts[i]->ascent());
+                    baselineToBottom = max(baselineToBottom, usedFonts[i]->lineSpacing() - usedFonts[i]->ascent() - usedFonts[i]->descent() - halfLeading);
+                }
+                lineHeight = baseline + baselineToBottom;
+            } else if (parentLineHeight.isPercent()) {
+                lineHeight = parentLineHeight.calcMinValue(curr->renderer()->style()->fontSize());
+                baseline = 0;
+                for (size_t i = 0; i < usedFonts.size(); ++i) {
+                    int halfLeading = (lineHeight - usedFonts[i]->ascent() - usedFonts[i]->descent()) / 2;
+                    baseline = max(baseline, halfLeading + usedFonts[i]->ascent());
+                }
+            } else {
+                lineHeight = parentLineHeight.value();
+                baseline = 0;
+                for (size_t i = 0; i < usedFonts.size(); ++i) {
+                    int halfLeading = (lineHeight - usedFonts[i]->ascent() - usedFonts[i]->descent()) / 2;
+                    baseline = max(baseline, halfLeading + usedFonts[i]->ascent());
+                }
+            }
+        } else {
+            lineHeight = curr->renderer()->lineHeight(m_firstLine);
+            baseline = curr->renderer()->baselinePosition(m_firstLine);
+        }
+
         curr->setY(verticalPositionForBox(curr, m_firstLine));
         if (curr->y() == PositionTop) {
             if (maxPositionTop < lineHeight)
                 maxPositionTop = lineHeight;
-        }
-        else if (curr->y() == PositionBottom) {
+        } else if (curr->y() == PositionBottom) {
             if (maxPositionBottom < lineHeight)
                 maxPositionBottom = lineHeight;
-        }
-        else if ((!isInlineFlow || static_cast<InlineFlowBox*>(curr)->hasTextChildren()) || curr->boxModelObject()->hasHorizontalBordersOrPadding() || strictMode) {
+        } else if ((!isInlineFlow || static_cast<InlineFlowBox*>(curr)->hasTextChildren()) || curr->boxModelObject()->hasHorizontalBordersOrPadding() || strictMode) {
             int ascent = baseline - curr->y();
             int descent = lineHeight - ascent;
             if (maxAscent < ascent)
@@ -492,6 +511,11 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
             curr->setY(curr->y() + yPos + posAdjust);
         }
         
+        // FIXME: By only considering overflow as part of the root line box, we can't get an accurate picture regarding what the line
+        // actually needs to paint.  A line box that is part of a self-painting layer technically shouldn't contribute to the overflow
+        // of the line, but in order to not do this and paint accurately, we have to track the overflow somewhere else (either by storing overflow
+        // in each InlineFlowBox up the chain or in the layer itself).  Relative positioned objects on a line will cause scrollbars
+        // to appear when they shouldn't until we fix this issue.
         int newY = curr->y();
         int overflowTop = 0;
         int overflowBottom = 0;
@@ -531,10 +555,11 @@ void InlineFlowBox::placeBoxesVertically(int yPos, int maxHeight, int maxAscent,
         curr->setY(newY);
 
         if (childAffectsTopBottomPos) {
+            int boxHeight = curr->height();
             selectionTop = min(selectionTop, newY);
-            selectionBottom = max(selectionBottom, newY + curr->height());
+            selectionBottom = max(selectionBottom, newY + boxHeight);
             topPosition = min(topPosition, newY + overflowTop);
-            bottomPosition = max(bottomPosition, newY + curr->height() + overflowBottom);
+            bottomPosition = max(bottomPosition, newY + boxHeight + overflowBottom);
         }
     }
 
@@ -744,7 +769,7 @@ void InlineFlowBox::paintBoxDecorations(RenderObject::PaintInfo& paintInfo, int 
                 for (InlineRunBox* curr = this; curr; curr = curr->nextLineBox())
                     totalWidth += curr->width();
                 context->save();
-                context->clip(IntRect(tx, ty, width(), height()));
+                context->clip(IntRect(tx, ty, w, h));
                 boxModelObject()->paintBorder(context, startX, ty, totalWidth, h, renderer()->style());
                 context->restore();
             }
@@ -807,7 +832,7 @@ void InlineFlowBox::paintMask(RenderObject::PaintInfo& paintInfo, int tx, int ty
         for (InlineRunBox* curr = this; curr; curr = curr->nextLineBox())
             totalWidth += curr->width();
         paintInfo.context->save();
-        paintInfo.context->clip(IntRect(tx, ty, width(), height()));
+        paintInfo.context->clip(IntRect(tx, ty, w, h));
         boxModelObject()->paintNinePieceImage(paintInfo.context, startX, ty, totalWidth, h, renderer()->style(), maskNinePieceImage, compositeOp);
         paintInfo.context->restore();
     }
@@ -860,18 +885,37 @@ void InlineFlowBox::paintTextDecorations(RenderObject::PaintInfo& paintInfo, int
         int w = m_width - (borderLeft() + paddingLeft() + borderRight() + paddingRight());
         RootInlineBox* rootLine = root();
         if (rootLine->ellipsisBox()) {
-            int ellipsisX = rootLine->ellipsisBox()->x();
+            int ellipsisX = m_x + rootLine->ellipsisBox()->x();
             int ellipsisWidth = rootLine->ellipsisBox()->width();
-            
-            // FIXME: Will need to work with RTL
+            bool ltr = renderer()->style()->direction() == LTR;
             if (rootLine == this) {
-                if (x + w >= ellipsisX + ellipsisWidth)
-                    w -= (x + w - ellipsisX - ellipsisWidth);
+                // Trim w and x so that the underline isn't drawn underneath the ellipsis.
+                // ltr: is our right edge farther right than the right edge of the ellipsis.
+                // rtl: is the left edge of our box farther left than the left edge of the ellipsis.
+                bool ltrTruncation = ltr && (x + w >= ellipsisX + ellipsisWidth);
+                bool rtlTruncation = !ltr && (x <= ellipsisX + ellipsisWidth);
+                if (ltrTruncation)
+                    w -= (x + w) - (ellipsisX + ellipsisWidth);
+                else if (rtlTruncation) {
+                    int dx = m_x - ((ellipsisX - m_x) + ellipsisWidth);
+                    tx -= dx;
+                    w += dx;
+                }
             } else {
-                if (x >= ellipsisX)
+                bool ltrPastEllipsis = ltr && x >= ellipsisX;
+                bool rtlPastEllipsis = !ltr && (x + w) <= (ellipsisX + ellipsisWidth);
+                if (ltrPastEllipsis || rtlPastEllipsis)
                     return;
-                if (x + w >= ellipsisX)
+
+                bool ltrTruncation = ltr && x + w >= ellipsisX;
+                bool rtlTruncation = !ltr && x <= ellipsisX;
+                if (ltrTruncation)
                     w -= (x + w - ellipsisX);
+                else if (rtlTruncation) {
+                    int dx = m_x - ((ellipsisX - m_x) + ellipsisWidth);
+                    tx -= dx;
+                    w += dx;
+                }
             }
         }
 
@@ -997,13 +1041,32 @@ bool InlineFlowBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsis
     return true;
 }
 
-int InlineFlowBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool& foundBox)
+int InlineFlowBox::placeEllipsisBox(bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth, bool& foundBox)
 {
     int result = -1;
-    for (InlineBox *box = firstChild(); box; box = box->nextOnLine()) {
-        int currResult = box->placeEllipsisBox(ltr, blockEdge, ellipsisWidth, foundBox);
+    // We iterate over all children, the foundBox variable tells us when we've found the
+    // box containing the ellipsis.  All boxes after that one in the flow are hidden.
+    // If our flow is ltr then iterate over the boxes from left to right, otherwise iterate
+    // from right to left. Varying the order allows us to correctly hide the boxes following the ellipsis.
+    InlineBox *box = ltr ? firstChild() : lastChild();
+
+    // NOTE: these will cross after foundBox = true.
+    int visibleLeftEdge = blockLeftEdge;
+    int visibleRightEdge = blockRightEdge;
+
+    while(box) {
+        int currResult = box->placeEllipsisBox(ltr, visibleLeftEdge, visibleRightEdge, ellipsisWidth, foundBox);
         if (currResult != -1 && result == -1)
             result = currResult;
+
+        if (ltr) {
+            visibleLeftEdge += box->width();
+            box = box->nextOnLine();
+        }
+        else {
+            visibleRightEdge -= box->width();
+            box = box->prevOnLine();
+        }
     }
     return result;
 }

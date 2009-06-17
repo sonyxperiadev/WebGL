@@ -133,10 +133,10 @@ void RenderView::layout()
     if (needsLayout())
         RenderBlock::layout();
 
-    // Ensure that docWidth() >= width() and docHeight() >= height().
+    // Reset overflowWidth and overflowHeight, since they act as a lower bound for docWidth() and docHeight().
     setOverflowWidth(width());
     setOverflowHeight(height());
-
+    
     setOverflowWidth(docWidth());
     setOverflowHeight(docHeight());
 
@@ -290,12 +290,12 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
         rect = m_layer->transform()->mapRect(rect);
 }
 
-void RenderView::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool)
+void RenderView::absoluteRects(Vector<IntRect>& rects, int tx, int ty)
 {
     rects.append(IntRect(tx, ty, m_layer->width(), m_layer->height()));
 }
 
-void RenderView::absoluteQuads(Vector<FloatQuad>& quads, bool)
+void RenderView::absoluteQuads(Vector<FloatQuad>& quads)
 {
     quads.append(FloatRect(0, 0, m_layer->width(), m_layer->height()));
 }
@@ -311,7 +311,7 @@ static RenderObject* rendererAfterPosition(RenderObject* object, unsigned offset
 
 IntRect RenderView::selectionBounds(bool clipToVisibleContent) const
 {
-    document()->updateRendering();
+    document()->updateStyleIfNeeded();
 
     typedef HashMap<RenderObject*, RenderSelectionInfo*> SelectionMap;
     SelectionMap selectedObjects;
@@ -361,7 +361,7 @@ void RenderView::setMaximalOutlineSize(int o)
 }
 #endif
 
-void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos)
+void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode blockRepaintMode)
 {
     // Make sure both our start and end objects are defined.
     // Check www.msnbc.com and try clicking around to find the case where this happened.
@@ -439,6 +439,8 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
         o = o->nextInPreOrder();
     }
 
+    m_cachedSelectionBounds = IntRect();
+
     // Now that the selection state has been updated for the new objects, walk them again and
     // put them in the new objects list.
     o = start;
@@ -450,7 +452,9 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
                 RenderBlockSelectionInfo* blockInfo = newSelectedBlocks.get(cb);
                 if (blockInfo)
                     break;
-                newSelectedBlocks.set(cb, new RenderBlockSelectionInfo(cb));
+                blockInfo = new RenderBlockSelectionInfo(cb);
+                newSelectedBlocks.set(cb, blockInfo);
+                m_cachedSelectionBounds.unite(blockInfo->rects());
                 cb = cb->containingBlock();
             }
         }
@@ -501,7 +505,8 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
         RenderBlockSelectionInfo* newInfo = newSelectedBlocks.get(block);
         RenderBlockSelectionInfo* oldInfo = i->second;
         if (!newInfo || oldInfo->rects() != newInfo->rects() || oldInfo->state() != newInfo->state()) {
-            oldInfo->repaint();
+            if (blockRepaintMode == RepaintNewXOROld)
+                oldInfo->repaint();
             if (newInfo) {
                 newInfo->repaint();
                 newSelectedBlocks.remove(block);
@@ -522,7 +527,8 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
 
 void RenderView::clearSelection()
 {
-    setSelection(0, -1, 0, -1);
+    repaintViewRectangle(m_cachedSelectionBounds);
+    setSelection(0, -1, 0, -1, RepaintNewMinusOld);
 }
 
 void RenderView::selectionStartEnd(int& startPos, int& endPos) const
@@ -564,10 +570,7 @@ IntRect RenderView::viewRect() const
 
 int RenderView::docHeight() const
 {
-    int h = height();
-    int lowestPos = lowestPosition();
-    if (lowestPos > h)
-        h = lowestPos;
+    int h = lowestPosition();
 
     // FIXME: This doesn't do any margin collapsing.
     // Instead of this dh computation we should keep the result
@@ -584,11 +587,8 @@ int RenderView::docHeight() const
 
 int RenderView::docWidth() const
 {
-    int w = width();
-    int rightmostPos = rightmostPosition();
-    if (rightmostPos > w)
-        w = rightmostPos;
-    
+    int w = rightmostPosition();
+
     for (RenderBox* c = firstChildBox(); c; c = c->nextSiblingBox()) {
         int dw = c->width() + c->marginLeft() + c->marginRight();
         if (dw > w)

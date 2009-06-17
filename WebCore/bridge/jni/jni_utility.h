@@ -77,7 +77,7 @@ JNIType JNITypeFromPrimitiveType(char type);
 const char *signatureFromPrimitiveType(JNIType type);
 
 #if USE(JSC)
-jvalue convertValueToJValue(ExecState*, JSValuePtr, JNIType, const char* javaClassName);
+jvalue convertValueToJValue(ExecState*, JSValue, JNIType, const char* javaClassName);
 #endif
 
 jvalue getJNIField(jobject obj, JNIType type, const char *name, const char *signature);
@@ -285,10 +285,16 @@ T callJNIStaticMethod(jclass cls, const char* methodName, const char* methodSign
     
     return result;
 }
+#ifdef MANUAL_MERGE_REQUIRED
 
 #if USE(JSC)
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription);
 #endif
+#else // MANUAL_MERGE_REQUIRED
+    
+bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription);
+
+#endif // MANUAL_MERGE_REQUIRED
 } // namespace Bindings
 
 } // namespace JSC

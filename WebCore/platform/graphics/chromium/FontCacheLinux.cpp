@@ -46,6 +46,8 @@
 #include "SkTypeface.h"
 #include "SkUtils.h"
 
+#include <wtf/Assertions.h>
+
 namespace WebCore {
 
 void FontCache::platformInit()
@@ -79,9 +81,8 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font,
     if (match) {
         FcChar8* family;
         if (FcPatternGetString(match, FC_FAMILY, 0, &family) == FcResultMatch) {
-            FontPlatformData* fpd =
-                createFontPlatformData(font.fontDescription(), AtomicString((char*) family));
-            ret = new SimpleFontData(*fpd);
+            AtomicString fontFamily(reinterpret_cast<char*>(family));
+            ret = getCachedFontData(getCachedFontPlatformData(font.fontDescription(), fontFamily, false));
         }
         FcPatternDestroy(match);
     }
@@ -98,8 +99,26 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
 
 FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& description)
 {
-    static AtomicString arialStr("Arial");
-    return getCachedFontPlatformData(description, arialStr);
+    static const AtomicString sansStr("Sans");
+    static const AtomicString serifStr("Serif");
+    static const AtomicString monospaceStr("Monospace");
+
+    FontPlatformData* fontPlatformData = 0;
+    switch (description.genericFamily()) {
+    case FontDescription::SerifFamily:
+        fontPlatformData = getCachedFontPlatformData(description, serifStr);
+        break;
+    case FontDescription::MonospaceFamily:
+        fontPlatformData = getCachedFontPlatformData(description, monospaceStr);
+        break;
+    case FontDescription::SansSerifFamily:
+    default:
+        fontPlatformData = getCachedFontPlatformData(description, sansStr);
+        break;
+    }
+
+    ASSERT(fontPlatformData);
+    return fontPlatformData;
 }
 
 void FontCache::getTraitsInFamily(const AtomicString& familyName,
@@ -146,7 +165,13 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     if (fontDescription.italic())
         style |= SkTypeface::kItalic;
 
+    // FIXME:  This #ifdef can go away once we're firmly using the new Skia.
+    // During the transition, this makes the code compatible with both versions.
+#ifdef SK_USE_OLD_255_TO_256
+    SkTypeface* tf = SkTypeface::CreateFromName(name, static_cast<SkTypeface::Style>(style));
+#else
     SkTypeface* tf = SkTypeface::Create(name, static_cast<SkTypeface::Style>(style));
+#endif
     if (!tf)
         return 0;
 
@@ -157,13 +182,6 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
                              (style & SkTypeface::kItalic) && !tf->isItalic());
     tf->unref();
     return result;
-}
-
-AtomicString FontCache::getGenericFontForScript(UScriptCode script,
-                                                const FontDescription& descript)
-{
-    notImplemented();
-    return AtomicString();
 }
 
 }  // namespace WebCore

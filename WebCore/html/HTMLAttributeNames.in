@@ -22,6 +22,7 @@ aria-pressed
 aria-valuemax
 aria-valuemin
 aria-valuenow
+autobuffer
 autocomplete
 autofocus
 autoplay
@@ -140,6 +141,8 @@ onmouseout
 onmouseover
 onmouseup
 onmousewheel
+ononline
+onoffline
 onpaste
 onreset
 onresize
@@ -183,6 +186,7 @@ selected
 shape
 size
 span
+spellcheck
 src
 standby
 start

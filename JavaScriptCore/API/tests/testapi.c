@@ -118,6 +118,16 @@ static void assertEqualsAsCharactersPtr(JSValueRef value, const char* expectedVa
     JSStringRelease(valueAsString);
 }
 
+static bool timeZoneIsPST()
+{
+    char timeZoneName[70];
+    struct tm gtm;
+    memset(&gtm, 0, sizeof(gtm));
+    strftime(timeZoneName, sizeof(timeZoneName), "%Z", &gtm);
+
+    return 0 == strcmp("PST", timeZoneName);
+}
+
 static JSValueRef jsGlobalValue; // non-stack value for testing JSValueProtect()
 
 /* MyObject pseudo-class */
@@ -689,6 +699,17 @@ static JSValueRef globalObject_call(JSContextRef ctx, JSObjectRef function, JSOb
     return JSValueMakeNumber(ctx, 3);
 }
 
+static JSValueRef functionGC(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    UNUSED_PARAM(function);
+    UNUSED_PARAM(thisObject);
+    UNUSED_PARAM(argumentCount);
+    UNUSED_PARAM(arguments);
+    UNUSED_PARAM(exception);
+    JSGarbageCollect(context);
+    return JSValueMakeUndefined(context);
+}
+
 static JSStaticValue globalObject_staticValues[] = {
     { "globalStaticValue", globalObject_get, globalObject_set, kJSPropertyAttributeNone },
     { 0, 0, 0, 0 }
@@ -696,6 +717,7 @@ static JSStaticValue globalObject_staticValues[] = {
 
 static JSStaticFunction globalObject_staticFunctions[] = {
     { "globalStaticFunction", globalObject_call, kJSPropertyAttributeNone },
+    { "gc", functionGC, kJSPropertyAttributeNone },
     { 0, 0, 0 }
 };
 
@@ -1058,7 +1080,8 @@ int main(int argc, char* argv[])
 
     JSValueRef argumentsDateValues[] = { JSValueMakeNumber(context, 0) };
     o = JSObjectMakeDate(context, 1, argumentsDateValues, NULL);
-    assertEqualsAsUTF8String(o, "Wed Dec 31 1969 16:00:00 GMT-0800 (PST)");
+    if (timeZoneIsPST())
+        assertEqualsAsUTF8String(o, "Wed Dec 31 1969 16:00:00 GMT-0800 (PST)");
 
     string = JSStringCreateWithUTF8CString("an error message");
     JSValueRef argumentsErrorValues[] = { JSValueMakeString(context, string) };
@@ -1113,6 +1136,13 @@ int main(int argc, char* argv[])
     ASSERT(JSValueIsEqual(context, v, o, NULL));
     JSStringRelease(script);
 
+    // Verify that creating a constructor for a class with no static functions does not trigger
+    // an assert inside putDirect or lead to a crash during GC. <https://bugs.webkit.org/show_bug.cgi?id=25785>
+    nullDefinition = kJSClassDefinitionEmpty;
+    nullClass = JSClassCreate(&nullDefinition);
+    myConstructor = JSObjectMakeConstructor(context, nullClass, 0);
+    JSClassRelease(nullClass);
+
     char* scriptUTF8 = createStringWithContentsOfFile(scriptPath);
     if (!scriptUTF8) {
         printf("FAIL: Test script could not be loaded.\n");
@@ -1140,6 +1170,7 @@ int main(int argc, char* argv[])
     v = NULL;
     o = NULL;
     globalObject = NULL;
+    myConstructor = NULL;
 
     JSStringRelease(jsEmptyIString);
     JSStringRelease(jsOneIString);

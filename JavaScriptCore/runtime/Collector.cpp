@@ -37,11 +37,12 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/UnusedParam.h>
+#include <wtf/VMTags.h>
 
 #if PLATFORM(DARWIN)
 
-#include <mach/mach_port.h>
 #include <mach/mach_init.h>
+#include <mach/mach_port.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
 #include <mach/vm_map.h>
@@ -58,9 +59,7 @@
 
 #if PLATFORM(SOLARIS)
 #include <thread.h>
-#endif
-
-#if PLATFORM(OPENBSD)
+#else
 #include <pthread.h>
 #endif
 
@@ -183,7 +182,7 @@ static NEVER_INLINE CollectorBlock* allocateBlock()
 #if PLATFORM(DARWIN)
     vm_address_t address = 0;
     // FIXME: tag the region as a JavaScriptCore heap when we get a registered VM tag: <rdar://problem/6054788>.
-    vm_map(current_task(), &address, BLOCK_SIZE, BLOCK_OFFSET_MASK, VM_FLAGS_ANYWHERE, MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
+    vm_map(current_task(), &address, BLOCK_SIZE, BLOCK_OFFSET_MASK, VM_FLAGS_ANYWHERE | VM_TAG_FOR_COLLECTOR_MEMORY, MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 #elif PLATFORM(SYMBIAN)
     // no memory map in symbian, need to hack with fastMalloc
     void* address = fastMalloc(BLOCK_SIZE);
@@ -427,6 +426,15 @@ static inline void* currentThreadStackBase()
     stack_t stack;
     pthread_stackseg_np(thread, &stack);
     return stack.ss_sp;
+#elif PLATFORM(SYMBIAN)
+    static void* stackBase = 0;
+    if (stackBase == 0) {
+        TThreadStackInfo info;
+        RThread thread;
+        thread.StackInfo(info);
+        stackBase = (void*)info.iBase;
+    }
+    return (void*)stackBase;
 #elif PLATFORM(UNIX)
     static void* stackBase = 0;
     static size_t stackSize = 0;
@@ -449,15 +457,6 @@ static inline void* currentThreadStackBase()
         stackThread = thread;
     }
     return static_cast<char*>(stackBase) + stackSize;
-#elif PLATFORM(SYMBIAN)
-    static void* stackBase = 0;
-    if (stackBase == 0) {
-        TThreadStackInfo info;
-        RThread thread;
-        thread.StackInfo(info);
-        stackBase = (void*)info.iBase;
-    }
-    return (void*)stackBase;
 #else
 #error Need a way to get the stack base on this platform
 #endif
@@ -807,7 +806,7 @@ void Heap::setGCProtectNeedsLocking()
         m_protectedValuesMutex.set(new Mutex);
 }
 
-void Heap::protect(JSValuePtr k)
+void Heap::protect(JSValue k)
 {
     ASSERT(k);
     ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
@@ -824,7 +823,7 @@ void Heap::protect(JSValuePtr k)
         m_protectedValuesMutex->unlock();
 }
 
-void Heap::unprotect(JSValuePtr k)
+void Heap::unprotect(JSValue k)
 {
     ASSERT(k);
     ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
@@ -841,7 +840,7 @@ void Heap::unprotect(JSValuePtr k)
         m_protectedValuesMutex->unlock();
 }
 
-Heap* Heap::heap(JSValuePtr v)
+Heap* Heap::heap(JSValue v)
 {
     if (!v.isCell())
         return 0;
@@ -985,7 +984,7 @@ bool Heap::collect()
     markStackObjectsConservatively();
     markProtectedObjects();
     if (m_markListSet && m_markListSet->size())
-        ArgList::markLists(*m_markListSet);
+        MarkedArgumentBuffer::markLists(*m_markListSet);
     if (m_globalData->exception && !m_globalData->exception.marked())
         m_globalData->exception.mark();
     m_globalData->interpreter->registerFile().markCallFrames(this);

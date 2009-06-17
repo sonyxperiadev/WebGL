@@ -23,19 +23,25 @@
 #include "Frame.h"
 #include "JSNode.h"
 #include <runtime/FunctionConstructor.h>
+#include <runtime/JSLock.h>
+#include <wtf/RefCountedLeakCounter.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSLazyEventListener::JSLazyEventListener(LazyEventListenerType type, const String& functionName, const String& code, JSDOMGlobalObject* globalObject, Node* node, int lineNumber)
-    : JSProtectedEventListener(0, globalObject, true)
+#ifndef NDEBUG
+static WTF::RefCountedLeakCounter eventListenerCounter("JSLazyEventListener");
+#endif
+
+JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& eventParameterName, const String& code, JSDOMGlobalObject* globalObject, Node* node, int lineNumber)
+    : JSEventListener(0, globalObject, true)
     , m_functionName(functionName)
+    , m_eventParameterName(eventParameterName)
     , m_code(code)
     , m_parsed(false)
     , m_lineNumber(lineNumber)
     , m_originalNode(node)
-    , m_type(type)
 {
     // We don't retain the original node because we assume it
     // will stay alive as long as this handler object is around
@@ -47,26 +53,23 @@ JSLazyEventListener::JSLazyEventListener(LazyEventListenerType type, const Strin
     // a setAttribute call from JavaScript, so make the line number 1 in that case.
     if (m_lineNumber == 0)
         m_lineNumber = 1;
+
+#ifndef NDEBUG
+    eventListenerCounter.increment();
+#endif
 }
 
-JSObject* JSLazyEventListener::function() const
+JSLazyEventListener::~JSLazyEventListener()
+{
+#ifndef NDEBUG
+    eventListenerCounter.decrement();
+#endif
+}
+
+JSObject* JSLazyEventListener::jsFunction() const
 {
     parseCode();
-    return m_listener;
-}
-
-static inline JSValuePtr eventParameterName(JSLazyEventListener::LazyEventListenerType type, ExecState* exec)
-{
-    switch (type) {
-        case JSLazyEventListener::HTMLLazyEventListener:
-            return jsNontrivialString(exec, "event");
-#if ENABLE(SVG)
-        case JSLazyEventListener::SVGLazyEventListener:
-            return jsNontrivialString(exec, "evt");
-#endif
-    }
-    ASSERT_NOT_REACHED();
-    return jsUndefined();
+    return m_jsFunction;
 }
 
 void JSLazyEventListener::parseCode() const
@@ -75,7 +78,7 @@ void JSLazyEventListener::parseCode() const
         return;
 
     if (m_globalObject->scriptExecutionContext()->isDocument()) {
-        JSDOMWindow* window = static_cast<JSDOMWindow*>(m_globalObject.get());
+        JSDOMWindow* window = static_cast<JSDOMWindow*>(m_globalObject);
         Frame* frame = window->impl()->frame();
         if (!frame)
             return;
@@ -89,43 +92,38 @@ void JSLazyEventListener::parseCode() const
 
     ExecState* exec = m_globalObject->globalExec();
 
-    ArgList args;
+    MarkedArgumentBuffer args;
     UString sourceURL(m_globalObject->scriptExecutionContext()->url().string());
-    args.append(eventParameterName(m_type, exec));
+    args.append(jsNontrivialString(exec, m_eventParameterName));
     args.append(jsString(exec, m_code));
 
     // FIXME: Passing the document's URL to construct is not always correct, since this event listener might
     // have been added with setAttribute from a script, and we should pass String() in that case.
-    m_listener = constructFunction(exec, args, Identifier(exec, m_functionName), sourceURL, m_lineNumber); // FIXME: is globalExec ok?
+    m_jsFunction = constructFunction(exec, args, Identifier(exec, m_functionName), sourceURL, m_lineNumber); // FIXME: is globalExec ok?
 
-    JSFunction* listenerAsFunction = static_cast<JSFunction*>(m_listener.get());
+    JSFunction* listenerAsFunction = static_cast<JSFunction*>(m_jsFunction);
 
     if (exec->hadException()) {
         exec->clearException();
 
         // failed to parse, so let's just make this listener a no-op
-        m_listener = 0;
+        m_jsFunction = 0;
     } else if (m_originalNode) {
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
         ScopeChain scope = listenerAsFunction->scope();
 
-        JSValuePtr thisObj = toJS(exec, m_originalNode);
+        JSValue thisObj = toJS(exec, m_originalNode);
         if (thisObj.isObject()) {
             static_cast<JSNode*>(asObject(thisObj))->pushEventHandlerScope(exec, scope);
             listenerAsFunction->setScope(scope);
         }
     }
 
-    // no more need to keep the unparsed code around
+    // Since we only parse once, there's no need to keep data used for parsing around anymore.
     m_functionName = String();
     m_code = String();
-
-    if (m_listener) {
-        ASSERT(isInline());
-        JSDOMWindow::ProtectedListenersMap& listeners = m_globalObject->jsProtectedInlineEventListeners();
-        listeners.set(m_listener, const_cast<JSLazyEventListener*>(this));
-    }
+    m_eventParameterName = String();
 }
 
 } // namespace WebCore

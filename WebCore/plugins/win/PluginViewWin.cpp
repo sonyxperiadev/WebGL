@@ -45,7 +45,6 @@
 #include "KeyboardEvent.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "FocusController.h"
 #include "PlatformMouseEvent.h"
@@ -552,10 +551,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
             }
     }
     else if (event->type() == eventNames().mousedownEvent) {
-        // Focus the plugin
-        if (Page* page = m_parentFrame->page())
-            page->focusController()->setFocusedFrame(m_parentFrame);
-        m_parentFrame->document()->setFocusedNode(m_element);
+        focusPluginElement();
         switch (event->button()) {
             case 0:
                 npEvent.event = WM_LBUTTONDOWN;
@@ -582,8 +578,6 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     } else
         return;
 
-    HCURSOR currentCursor = ::GetCursor();
-
     JSC::JSLock::DropAllLocks dropAllLocks(false);
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
@@ -591,7 +585,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
 #if !PLATFORM(QT)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
-    ignoreNextSetCursor = true;     
+    ignoreNextSetCursor = true;
     lastSetCursor = ::GetCursor();
 #endif
 }

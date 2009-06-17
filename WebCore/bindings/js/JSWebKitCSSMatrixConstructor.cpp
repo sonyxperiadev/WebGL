@@ -38,7 +38,7 @@ const ClassInfo JSWebKitCSSMatrixConstructor::s_info = { "WebKitCSSMatrixConstru
 JSWebKitCSSMatrixConstructor::JSWebKitCSSMatrixConstructor(ExecState* exec)
     : DOMObject(JSWebKitCSSMatrixConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
 {
-    putDirect(exec->propertyNames().prototype, JSWebKitCSSMatrixPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSWebKitCSSMatrixPrototype::self(exec, exec->lexicalGlobalObject()), None);
     putDirect(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly|DontDelete|DontEnum);
 }
 
@@ -46,7 +46,7 @@ static JSObject* constructWebKitCSSMatrix(ExecState* exec, JSObject*, const ArgL
 {
     String s;
     if (args.size() >= 1)
-        s = args.at(exec, 0).toString(exec);
+        s = args.at(0).toString(exec);
     
     ExceptionCode ec = 0;
     RefPtr<WebKitCSSMatrix> matrix = WebKitCSSMatrix::create(s, ec);

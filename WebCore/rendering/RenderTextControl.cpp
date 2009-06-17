@@ -22,13 +22,13 @@
 #include "config.h"
 #include "RenderTextControl.h"
 
+#include "AXObjectCache.h"
 #include "CharacterNames.h"
 #include "Editor.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "HTMLBRElement.h"
-#include "HTMLFormControlElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "RenderLayer.h"
@@ -108,11 +108,9 @@ static inline bool updateUserModifyProperty(Node* node, RenderStyle* style)
     bool isReadOnlyControl = false;
 
     if (node->isElementNode()) {
-        FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(node));
-        ASSERT(formControlElement);
-
-        isEnabled = formControlElement->isEnabled();
-        isReadOnlyControl = formControlElement->isReadOnlyControl();
+        Element* element = static_cast<Element*>(node);
+        isEnabled = element->isEnabledFormControl();
+        isReadOnlyControl = element->isReadOnlyFormControl();
     }
 
     style->setUserModify((isReadOnlyControl || !isEnabled) ? READ_ONLY : READ_WRITE_PLAINTEXT_ONLY);
@@ -171,8 +169,12 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
 
     if (value != text() || !m_innerText->hasChildNodes()) {
         if (value != text()) {
-            if (Frame* frame = document()->frame())
+            if (Frame* frame = document()->frame()) {
                 frame->editor()->clearUndoRedoOperations();
+                
+                if (AXObjectCache::accessibilityEnabled())
+                    document()->axObjectCache()->postNotification(this, "AXValueChanged", false);
+            }
         }
 
         ExceptionCode ec = 0;
@@ -188,7 +190,7 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
         m_userEdited = false;
     }
 
-    formControlElement()->setValueMatchesRenderer();
+    static_cast<Element*>(node())->setFormControlValueMatchesRenderer(true);
 }
 
 void RenderTextControl::setUserEdited(bool isUserEdited)
@@ -292,7 +294,7 @@ int RenderTextControl::indexForVisiblePosition(const VisiblePosition& pos)
     RefPtr<Range> range = Range::create(document());
     range->setStart(m_innerText.get(), 0, ec);
     ASSERT(!ec);
-    range->setEnd(indexPosition.node(), indexPosition.m_offset, ec);
+    range->setEnd(indexPosition.node(), indexPosition.deprecatedEditingOffset(), ec);
     ASSERT(!ec);
     return TextIterator::rangeLength(range.get());
 }
@@ -364,6 +366,7 @@ static void getNextSoftBreak(RootInlineBox*& line, Node*& breakNode, unsigned& b
         }
     }
     breakNode = 0;
+    breakOffset = 0;
 }
 
 String RenderTextControl::textWithHardLineBreaks()
@@ -485,10 +488,8 @@ void RenderTextControl::calcPrefWidths()
     if (style()->width().isFixed() && style()->width().value() > 0)
         m_minPrefWidth = m_maxPrefWidth = calcContentBoxWidth(style()->width().value());
     else {
-        // Figure out how big a text control needs to be for a given number of characters
-        // (using "0" as the nominal character).
-        const UChar ch = '0';
-        float charWidth = style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, false, false, false));
+        // Use average character width. Matches IE.
+        float charWidth = style()->font().primaryFont()->avgCharWidth();
         m_maxPrefWidth = preferredContentWidth(charWidth) + m_innerText->renderBox()->paddingLeft() + m_innerText->renderBox()->paddingRight();
     }
 
@@ -531,7 +532,7 @@ void RenderTextControl::selectionChanged(bool userTriggered)
 
     if (Frame* frame = document()->frame()) {
         if (frame->selection()->isRange() && userTriggered)
-            node()->dispatchEventForType(eventNames().selectEvent, true, false);
+            node()->dispatchEvent(eventNames().selectEvent, true, false);
     }
 }
 
@@ -543,11 +544,6 @@ void RenderTextControl::addFocusRingRects(GraphicsContext* graphicsContext, int 
 HTMLElement* RenderTextControl::innerTextElement() const
 {
     return m_innerText.get();
-}
-
-FormControlElement* RenderTextControl::formControlElement() const
-{
-    return toFormControlElement(static_cast<Element*>(node()));
 }
 
 } // namespace WebCore

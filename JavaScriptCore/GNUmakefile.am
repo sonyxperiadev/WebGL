@@ -1,4 +1,5 @@
 javascriptcore_cppflags += \
+	-I$(srcdir)/JavaScriptCore \
 	-I$(srcdir)/JavaScriptCore/API \
 	-I$(srcdir)/JavaScriptCore/ForwardingHeaders \
 	-I$(srcdir)/JavaScriptCore/interpreter \
@@ -13,6 +14,7 @@ javascriptcore_cppflags += \
 	-I$(srcdir)/JavaScriptCore/jit \
 	-I$(srcdir)/JavaScriptCore/assembler \
 	-I$(srcdir)/JavaScriptCore/wtf/unicode \
+	-I$(srcdir)/JavaScriptCore/yarr \
 	-I$(top_builddir)/JavaScriptCore/pcre \
 	-I$(top_builddir)/JavaScriptCore/parser \
 	-I$(top_builddir)/JavaScriptCore/runtime
@@ -75,16 +77,17 @@ javascriptcore_sources += \
 	JavaScriptCore/JavaScriptCorePrefix.h \
 	JavaScriptCore/jit/ExecutableAllocator.h \
 	JavaScriptCore/jit/JIT.cpp \
+	JavaScriptCore/jit/JITOpcodes.cpp \
 	JavaScriptCore/jit/JITCall.cpp \
 	JavaScriptCore/jit/JITCode.h \
 	JavaScriptCore/jit/JITPropertyAccess.cpp \
 	JavaScriptCore/jit/JITArithmetic.cpp \
 	JavaScriptCore/jit/ExecutableAllocator.cpp \
-	JavaScriptCore/jit/ExecutableAllocatorPosix.cpp \
 	JavaScriptCore/jit/JIT.h \
 	JavaScriptCore/jit/JITInlineMethods.h \
 	JavaScriptCore/jit/JITStubs.cpp \
 	JavaScriptCore/jit/JITStubs.h \
+	JavaScriptCore/jit/JITStubCall.h \
 	JavaScriptCore/bytecode/StructureStubInfo.cpp \
 	JavaScriptCore/bytecode/StructureStubInfo.h \
 	JavaScriptCore/bytecode/CodeBlock.cpp \
@@ -136,7 +139,9 @@ javascriptcore_sources += \
 	JavaScriptCore/assembler/AbstractMacroAssembler.h \
 	JavaScriptCore/assembler/AssemblerBuffer.h \
 	JavaScriptCore/assembler/MacroAssembler.h \
+	JavaScriptCore/assembler/MacroAssemblerCodeRef.h \
 	JavaScriptCore/assembler/MacroAssemblerX86.h \
+	JavaScriptCore/assembler/MacroAssemblerX86_64.h \
 	JavaScriptCore/assembler/MacroAssemblerX86Common.h \
 	JavaScriptCore/os-win32/stdbool.h \
 	JavaScriptCore/os-win32/stdint.h \
@@ -161,8 +166,10 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/Profiler.h \
 	JavaScriptCore/profiler/TreeProfile.cpp \
 	JavaScriptCore/profiler/TreeProfile.h \
+	JavaScriptCore/interpreter/CachedCall.h \
 	JavaScriptCore/interpreter/CallFrame.cpp \
 	JavaScriptCore/interpreter/CallFrame.h \
+	JavaScriptCore/interpreter/CallFrameClosure.h \
 	JavaScriptCore/runtime/TimeoutChecker.cpp \
 	JavaScriptCore/runtime/TimeoutChecker.h \
 	JavaScriptCore/runtime/InitializeThreading.cpp \
@@ -177,6 +184,8 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/JSNotAnObject.h \
 	JavaScriptCore/runtime/JSPropertyNameIterator.cpp \
 	JavaScriptCore/runtime/JSPropertyNameIterator.h \
+	JavaScriptCore/runtime/LiteralParser.cpp \
+	JavaScriptCore/runtime/LiteralParser.h \
 	JavaScriptCore/runtime/SmallStrings.cpp \
 	JavaScriptCore/runtime/SmallStrings.h \
 	JavaScriptCore/runtime/Structure.cpp \
@@ -185,19 +194,13 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/StructureChain.h \
 	JavaScriptCore/runtime/StructureTransitionTable.h \
 	JavaScriptCore/runtime/TypeInfo.h \
-	JavaScriptCore/wrec/CharacterClass.cpp \
 	JavaScriptCore/wrec/CharacterClass.h \
-	JavaScriptCore/wrec/CharacterClassConstructor.cpp \
 	JavaScriptCore/wrec/CharacterClassConstructor.h \
 	JavaScriptCore/wrec/Escapes.h \
 	JavaScriptCore/wrec/Quantifier.h \
-	JavaScriptCore/wrec/WREC.cpp \
 	JavaScriptCore/wrec/WREC.h \
-	JavaScriptCore/wrec/WRECFunctors.cpp \
 	JavaScriptCore/wrec/WRECFunctors.h \
-	JavaScriptCore/wrec/WRECGenerator.cpp \
 	JavaScriptCore/wrec/WRECGenerator.h \
-	JavaScriptCore/wrec/WRECParser.cpp \
 	JavaScriptCore/wrec/WRECParser.h \
 	JavaScriptCore/wtf/ASCIICType.h \
 	JavaScriptCore/wtf/AVLTree.h \
@@ -206,8 +209,12 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Assertions.h \
 	JavaScriptCore/wtf/ByteArray.cpp \
 	JavaScriptCore/wtf/ByteArray.h \
+	JavaScriptCore/wtf/CrossThreadRefCounted.h \
+	JavaScriptCore/wtf/OwnFastMallocPtr.h \
 	JavaScriptCore/wtf/CurrentTime.cpp \
 	JavaScriptCore/wtf/CurrentTime.h \
+	JavaScriptCore/wtf/DateMath.cpp \
+	JavaScriptCore/wtf/DateMath.h \
 	JavaScriptCore/wtf/Deque.h \
 	JavaScriptCore/wtf/DisallowCType.h \
 	JavaScriptCore/wtf/Forward.h \
@@ -233,6 +240,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/NotFound.h \
 	JavaScriptCore/wtf/OwnArrayPtr.h \
 	JavaScriptCore/wtf/OwnPtr.h \
+	JavaScriptCore/wtf/OwnPtrCommon.h \
+	JavaScriptCore/wtf/PassOwnPtr.h \
 	JavaScriptCore/wtf/PassRefPtr.h \
 	JavaScriptCore/wtf/Platform.h \
 	JavaScriptCore/wtf/PtrAndFlags.h \
@@ -253,7 +262,6 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/ThreadSpecific.h \
 	JavaScriptCore/wtf/Threading.h \
 	JavaScriptCore/wtf/Threading.cpp \
-	JavaScriptCore/wtf/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/ThreadingPthreads.cpp \
 	JavaScriptCore/wtf/TypeTraits.cpp \
 	JavaScriptCore/wtf/TypeTraits.h \
@@ -261,13 +269,51 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Vector.h \
 	JavaScriptCore/wtf/VectorTraits.h \
 	JavaScriptCore/wtf/gtk/MainThreadGtk.cpp \
+	JavaScriptCore/wtf/gtk/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/unicode/Collator.h \
 	JavaScriptCore/wtf/unicode/CollatorDefault.cpp \
 	JavaScriptCore/wtf/unicode/UTF8.cpp \
 	JavaScriptCore/wtf/unicode/UTF8.h \
-	JavaScriptCore/wtf/unicode/Unicode.h \
+	JavaScriptCore/wtf/unicode/Unicode.h
+
+if TARGET_WIN32
+javascriptcore_sources += \
+	JavaScriptCore/wtf/ThreadSpecificWin.cpp \
+	JavaScriptCore/jit/ExecutableAllocatorWin.cpp
+else
+javascriptcore_sources += \
+	JavaScriptCore/jit/ExecutableAllocatorPosix.cpp
+endif
+
+# ----
+# icu unicode backend
+# ----
+if USE_ICU_UNICODE
+javascriptcore_sources += \
 	JavaScriptCore/wtf/unicode/icu/CollatorICU.cpp \
 	JavaScriptCore/wtf/unicode/icu/UnicodeIcu.h
+endif # USE_ICU_UNICODE
+
+# ----
+# glib unicode backend
+# ----
+if USE_GLIB_UNICODE
+javascriptcore_sources += \
+	JavaScriptCore/wtf/unicode/glib/UnicodeGLib.h \
+	JavaScriptCore/wtf/unicode/glib/UnicodeGLib.cpp \
+	JavaScriptCore/wtf/unicode/glib/UnicodeMacrosFromICU.h
+endif
+
+javascriptcore_sources += \
+	JavaScriptCore/wtf/VMTags.h \
+	JavaScriptCore/yarr/RegexCompiler.cpp \
+	JavaScriptCore/yarr/RegexCompiler.h \
+	JavaScriptCore/yarr/RegexInterpreter.cpp \
+	JavaScriptCore/yarr/RegexInterpreter.h \
+	JavaScriptCore/yarr/RegexJIT.cpp \
+	JavaScriptCore/yarr/RegexJIT.h \
+	JavaScriptCore/yarr/RegexParser.h \
+	JavaScriptCore/yarr/RegexPattern.h
 
 # Debug build
 if ENABLE_DEBUG
@@ -285,11 +331,14 @@ javascriptcore_sources += \
 	JavaScriptCore/debugger/Debugger.h \
 	JavaScriptCore/parser/Lexer.cpp \
 	JavaScriptCore/parser/Lexer.h \
+	JavaScriptCore/parser/NodeConstructors.h \
 	JavaScriptCore/parser/NodeInfo.h \
 	JavaScriptCore/parser/Nodes.cpp \
 	JavaScriptCore/parser/Nodes.h \
 	JavaScriptCore/parser/Parser.cpp \
 	JavaScriptCore/parser/Parser.h \
+	JavaScriptCore/parser/ParserArena.cpp \
+	JavaScriptCore/parser/ParserArena.h \
 	JavaScriptCore/parser/ResultType.h \
 	JavaScriptCore/parser/SourceCode.h \
 	JavaScriptCore/parser/SourceProvider.h \
@@ -321,10 +370,10 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/ConstructData.h \
 	JavaScriptCore/runtime/DateConstructor.cpp \
 	JavaScriptCore/runtime/DateConstructor.h \
+	JavaScriptCore/runtime/DateConversion.cpp \
+	JavaScriptCore/runtime/DateConversion.h \
 	JavaScriptCore/runtime/DateInstance.cpp \
 	JavaScriptCore/runtime/DateInstance.h \
-	JavaScriptCore/runtime/DateMath.cpp \
-	JavaScriptCore/runtime/DateMath.h \
 	JavaScriptCore/runtime/DatePrototype.cpp \
 	JavaScriptCore/runtime/DatePrototype.h \
 	JavaScriptCore/runtime/Error.cpp \
@@ -385,6 +434,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/NativeErrorConstructor.h \
 	JavaScriptCore/runtime/NativeErrorPrototype.cpp \
 	JavaScriptCore/runtime/NativeErrorPrototype.h \
+	JavaScriptCore/runtime/NativeFunctionWrapper.h \
 	JavaScriptCore/runtime/NumberConstructor.cpp \
 	JavaScriptCore/runtime/NumberConstructor.h \
 	JavaScriptCore/runtime/NumberObject.cpp \
@@ -429,6 +479,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/Tracing.h \
 	JavaScriptCore/runtime/UString.cpp \
 	JavaScriptCore/runtime/UString.h \
+	JavaScriptCore/wtf/FastAllocBase.h \
 	JavaScriptCore/wtf/FastMalloc.cpp \
 	JavaScriptCore/wtf/FastMalloc.h \
 	JavaScriptCore/wtf/MallocZoneSupport.h \
@@ -443,7 +494,9 @@ javascriptcore_built_nosources += \
 	DerivedSources/Grammar.h
 
 javascriptcore_sources += \
-	JavaScriptCore/AllInOneFile.cpp
+	JavaScriptCore/AllInOneFile.cpp \
+	JavaScriptCore/parser/ParserArena.cpp \
+	JavaScriptCore/parser/ParserArena.h
 endif # END ENABLE_DEBUG
 
 DerivedSources/Grammar.h: DerivedSources/Grammar.cpp;
@@ -488,7 +541,6 @@ Programs_minidom_CPPFLAGS = \
 Programs_minidom_CFLAGS = \
 	-ansi \
 	-fno-strict-aliasing \
-	-O2 \
 	$(global_cflags) \
 	$(GLOBALDEPS_CFLAGS)
 
@@ -496,6 +548,10 @@ Programs_minidom_LDADD = \
 	 libJavaScriptCore.la \
 	 -lm \
 	 -lstdc++
+
+Programs_minidom_LDFLAGS = \
+	-no-install \
+	-no-fast-install
 
 # jsc
 Programs_jsc_SOURCES = \
@@ -507,7 +563,6 @@ Programs_jsc_CPPFLAGS = \
 
 Programs_jsc_CXXFLAGS = \
 	-fno-strict-aliasing \
-	-O2 \
 	$(global_cxxflags) \
 	$(global_cflags) \
 	$(GLOBALDEPS_CFLAGS) \

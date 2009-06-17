@@ -120,7 +120,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
         while (child) {
             // Use the old history item since the current one may have a
             // deleted parent.
-            WebCore::HistoryItem* item = parent->childItemWithName(child->tree()->name());
+            WebCore::HistoryItem* item = parent->childItemWithTarget(child->tree()->name());
             child->loader()->setCurrentHistoryItem(item);
             // Append the first child to the queue if it exists.
             if (WebCore::Frame* f = child->tree()->firstChild())

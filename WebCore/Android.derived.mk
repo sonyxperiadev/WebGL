@@ -25,8 +25,6 @@
 #	dom/EventTarget.idl \
 #	dom/Worker*.idl \
 #	html/CanvasPixelArray.idl \
-#	html/HTMLAudioElement.idl \
-#	html/HTMLMediaElement.idl \
 #	page/AbstractView.idl \
 #	page/PositionCallback.idl \
 #	page/Worker*.idl \
@@ -217,7 +215,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_VIDEO=0
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -329,6 +327,7 @@ GEN := \
     $(intermediates)/html/JSHTMLAnchorElement.h \
     $(intermediates)/html/JSHTMLAppletElement.h \
     $(intermediates)/html/JSHTMLAreaElement.h \
+    $(intermediates)/html/JSHTMLAudioElement.h \
     $(intermediates)/html/JSHTMLBRElement.h \
     $(intermediates)/html/JSHTMLBaseElement.h \
     $(intermediates)/html/JSHTMLBaseFontElement.h \
@@ -362,6 +361,7 @@ GEN := \
     $(intermediates)/html/JSHTMLLinkElement.h \
     $(intermediates)/html/JSHTMLMapElement.h \
     $(intermediates)/html/JSHTMLMarqueeElement.h \
+    $(intermediates)/html/JSHTMLMediaElement.h \
     $(intermediates)/html/JSHTMLMenuElement.h \
     $(intermediates)/html/JSHTMLMetaElement.h \
     $(intermediates)/html/JSHTMLModElement.h \
@@ -369,7 +369,7 @@ GEN := \
     $(intermediates)/html/JSHTMLObjectElement.h \
     $(intermediates)/html/JSHTMLOptGroupElement.h \
     $(intermediates)/html/JSHTMLOptionElement.h \
-	$(intermediates)/html/JSHTMLOptionsCollection.h \
+    $(intermediates)/html/JSHTMLOptionsCollection.h \
     $(intermediates)/html/JSHTMLParagraphElement.h \
     $(intermediates)/html/JSHTMLParamElement.h \
     $(intermediates)/html/JSHTMLPreElement.h \

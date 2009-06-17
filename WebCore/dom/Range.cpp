@@ -27,6 +27,7 @@
 
 #include "CString.h"
 #include "DocumentFragment.h"
+#include "HTMLElement.h"
 #include "NodeWithIndex.h"
 #include "ProcessingInstruction.h"
 #include "Text.h"
@@ -89,7 +90,7 @@ PassRefPtr<Range> Range::create(PassRefPtr<Document> ownerDocument, PassRefPtr<N
 
 PassRefPtr<Range> Range::create(PassRefPtr<Document> ownerDocument, const Position& start, const Position& end)
 {
-    return adoptRef(new Range(ownerDocument, start.node(), start.m_offset, end.node(), end.m_offset));
+    return adoptRef(new Range(ownerDocument, start.node(), start.deprecatedEditingOffset(), end.node(), end.deprecatedEditingOffset()));
 }
 
 Range::~Range()
@@ -207,7 +208,7 @@ void Range::setStart(PassRefPtr<Node> refNode, int offset, ExceptionCode& ec)
     if (startRootContainer != endRootContainer)
         collapse(true, ec);
     // check if new start after end
-    else if (compareBoundaryPoints(m_start.container(), m_start.offset(), m_end.container(), m_end.offset()) > 0)
+    else if (compareBoundaryPoints(m_start, m_end) > 0)
         collapse(true, ec);
 }
 
@@ -245,7 +246,7 @@ void Range::setEnd(PassRefPtr<Node> refNode, int offset, ExceptionCode& ec)
     if (startRootContainer != endRootContainer)
         collapse(false, ec);
     // check if new end before start
-    if (compareBoundaryPoints(m_start.container(), m_start.offset(), m_end.container(), m_end.offset()) > 0)
+    if (compareBoundaryPoints(m_start, m_end) > 0)
         collapse(false, ec);
 }
 
@@ -417,17 +418,13 @@ short Range::compareBoundaryPoints(CompareHow how, const Range* sourceRange, Exc
 
     switch (how) {
         case START_TO_START:
-            return compareBoundaryPoints(m_start.container(), m_start.offset(),
-                sourceRange->m_start.container(), sourceRange->m_start.offset());
+            return compareBoundaryPoints(m_start, sourceRange->m_start);
         case START_TO_END:
-            return compareBoundaryPoints(m_end.container(), m_end.offset(),
-                sourceRange->m_start.container(), sourceRange->m_start.offset());
+            return compareBoundaryPoints(m_end, sourceRange->m_start);
         case END_TO_END:
-            return compareBoundaryPoints(m_end.container(), m_end.offset(),
-                sourceRange->m_end.container(), sourceRange->m_end.offset());
+            return compareBoundaryPoints(m_end, sourceRange->m_end);
         case END_TO_START:
-            return compareBoundaryPoints(m_start.container(), m_start.offset(),
-                sourceRange->m_end.container(), sourceRange->m_end.offset());
+            return compareBoundaryPoints(m_start, sourceRange->m_end);
     }
 
     ec = SYNTAX_ERR;
@@ -525,14 +522,14 @@ short Range::compareBoundaryPoints(Node* containerA, int offsetA, Node* containe
     return 0;
 }
 
-short Range::compareBoundaryPoints(const Position& a, const Position& b)
+short Range::compareBoundaryPoints(const RangeBoundaryPoint& boundaryA, const RangeBoundaryPoint& boundaryB)
 {
-    return compareBoundaryPoints(a.node(), a.m_offset, b.node(), b.m_offset);
+    return compareBoundaryPoints(boundaryA.container(), boundaryA.offset(), boundaryB.container(), boundaryB.offset());
 }
 
 bool Range::boundaryPointsValid() const
 {
-    return m_start.container() && compareBoundaryPoints(m_start.container(), m_start.offset(), m_end.container(), m_end.offset()) <= 0;
+    return m_start.container() && compareBoundaryPoints(m_start, m_end) <= 0;
 }
 
 void Range::deleteContents(ExceptionCode& ec)
@@ -990,7 +987,7 @@ void Range::insertNode(PassRefPtr<Node> prpNewNode, ExceptionCode& ec)
         // This special case doesn't seem to match the DOM specification, but it's currently required
         // to pass Acid3. We might later decide to remove this.
         if (collapsed)
-            m_end.setToChild(newText.get());
+            m_end.setToBeforeChild(newText.get());
     } else {
         RefPtr<Node> lastChild;
         if (collapsed)
@@ -1354,8 +1351,8 @@ void Range::selectNodeContents(Node* refNode, ExceptionCode& ec)
         }
     }
 
-    m_start.setToStart(refNode);
-    m_end.setToEnd(refNode);
+    m_start.setToStartOfNode(refNode);
+    m_end.setToEndOfNode(refNode);
 }
 
 void Range::surroundContents(PassRefPtr<Node> passNewParent, ExceptionCode& ec)
@@ -1584,34 +1581,30 @@ IntRect Range::boundingBox()
 {
     IntRect result;
     Vector<IntRect> rects;
-    addLineBoxRects(rects);
+    textRects(rects);
     const size_t n = rects.size();
     for (size_t i = 0; i < n; ++i)
         result.unite(rects[i]);
     return result;
 }
 
-void Range::addLineBoxRects(Vector<IntRect>& rects, bool useSelectionHeight)
+void Range::textRects(Vector<IntRect>& rects, bool useSelectionHeight)
 {
     if (!m_start.container() || !m_end.container())
         return;
 
-    RenderObject* start = m_start.container()->renderer();
-    RenderObject* end = m_end.container()->renderer();
-    if (!start || !end)
-        return;
+    Node* startContainer = m_start.container();
+    Node* endContainer = m_end.container();
 
-    RenderObject* stop = end->childAt(m_end.offset());
-    if (!stop)
-        stop = end->nextInPreOrderAfterChildren();
-    
-    for (RenderObject* r = start; r && r != stop; r = r->nextInPreOrder()) {
-        // only ask leaf render objects for their line box rects
-        if (!r->firstChild()) {
-            int startOffset = r == start ? m_start.offset() : 0;
-            int endOffset = r == end ? m_end.offset() : INT_MAX;
-            r->absoluteRectsForRange(rects, startOffset, endOffset, useSelectionHeight);
-        }
+    Node* stopNode = pastLastNode();
+    for (Node* node = firstNode(); node != stopNode; node = node->traverseNextNode()) {
+        RenderObject* r = node->renderer();
+        if (!r || !r->isText())
+            continue;
+        RenderText* renderText = toRenderText(r);
+        int startOffset = node == startContainer ? m_start.offset() : 0;
+        int endOffset = node == endContainer ? m_end.offset() : INT_MAX;
+        renderText->absoluteRectsForRange(rects, startOffset, endOffset, useSelectionHeight);
     }
 }
 
@@ -1707,7 +1700,7 @@ static inline void boundaryNodeWillBeRemoved(RangeBoundaryPoint& boundary, Node*
 
     for (Node* n = boundary.container(); n; n = n->parentNode()) {
         if (n == nodeToBeRemoved) {
-            boundary.setToChild(nodeToBeRemoved);
+            boundary.setToBeforeChild(nodeToBeRemoved);
             return;
         }
     }

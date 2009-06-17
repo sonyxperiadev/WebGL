@@ -357,7 +357,7 @@ bool PluginPackage::load()
     // Provide the plugin with our browser function table and grab its
     // plugin table. Provide the Java environment and the Plugin which
     // can be used to override the defaults if the plugin wants.
-    initializeBrowserFuncs(&m_browserFuncs);
+    initializeBrowserFuncs();
     memset(&m_pluginFuncs, 0, sizeof(m_pluginFuncs));
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
     if(NP_Initialize(&m_browserFuncs,

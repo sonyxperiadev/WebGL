@@ -89,9 +89,9 @@ bool InsertTextCommand::performTrivialReplace(const String& text, bool selectIns
     if (start.node() != end.node() || !start.node()->isTextNode() || isTabSpanTextNode(start.node()))
         return false;
         
-    replaceTextInNode(static_cast<Text*>(start.node()), start.m_offset, end.m_offset - start.m_offset, text);
+    replaceTextInNode(static_cast<Text*>(start.node()), start.deprecatedEditingOffset(), end.deprecatedEditingOffset() - start.deprecatedEditingOffset(), text);
     
-    Position endPosition(start.node(), start.m_offset + text.length());
+    Position endPosition(start.node(), start.deprecatedEditingOffset() + text.length());
     
     // We could have inserted a part of composed character sequence,
     // so we are basically treating ending selection as a range to avoid validation.
@@ -130,8 +130,27 @@ void InsertTextCommand::input(const String& originalText, bool selectInsertedTex
         deleteSelection(false, true, true, false);
     }
     
+    Position startPosition(endingSelection().start());
+    
+    Position placeholder;
+    // We want to remove preserved newlines and brs that will collapse (and thus become unnecessary) when content 
+    // is inserted just before them.
+    // FIXME: We shouldn't really have to do this, but removing placeholders is a workaround for 9661.
+    // If the caret is just before a placeholder, downstream will normalize the caret to it.
+    Position downstream(startPosition.downstream());
+    if (lineBreakExistsAtPosition(downstream)) {
+        // FIXME: This doesn't handle placeholders at the end of anonymous blocks.
+        VisiblePosition caret(startPosition);
+        if (isEndOfBlock(caret) && isStartOfParagraph(caret))
+            placeholder = downstream;
+        // Don't remove the placeholder yet, otherwise the block we're inserting into would collapse before
+        // we get a chance to insert into it.  We check for a placeholder now, though, because doing so requires
+        // the creation of a VisiblePosition, and if we did that post-insertion it would force a layout.
+    }
+    
     // Insert the character at the leftmost candidate.
-    Position startPosition = endingSelection().start().upstream();
+    startPosition = startPosition.upstream();
+    
     // It is possible for the node that contains startPosition to contain only unrendered whitespace,
     // and so deleteInsignificantText could remove it.  Save the position before the node in case that happens.
     Position positionBeforeStartNode(positionBeforeNode(startPosition.node()));
@@ -148,14 +167,16 @@ void InsertTextCommand::input(const String& originalText, bool selectInsertedTex
     if (text == "\t") {
         endPosition = insertTab(startPosition);
         startPosition = endPosition.previous();
-        removePlaceholderAt(VisiblePosition(startPosition));
+        if (placeholder.isNotNull())
+            removePlaceholderAt(placeholder);
         m_charactersAdded += 1;
     } else {
         // Make sure the document is set up to receive text
         startPosition = prepareForTextInsertion(startPosition);
-        removePlaceholderAt(VisiblePosition(startPosition));
+        if (placeholder.isNotNull())
+            removePlaceholderAt(placeholder);
         Text *textNode = static_cast<Text *>(startPosition.node());
-        int offset = startPosition.m_offset;
+        int offset = startPosition.deprecatedEditingOffset();
 
         insertTextIntoNode(textNode, offset, text);
         endPosition = Position(textNode, offset + text.length());
@@ -207,7 +228,7 @@ Position InsertTextCommand::insertTab(const Position& pos)
     Position insertPos = VisiblePosition(pos, DOWNSTREAM).deepEquivalent();
         
     Node *node = insertPos.node();
-    unsigned int offset = insertPos.m_offset;
+    unsigned int offset = insertPos.deprecatedEditingOffset();
 
     // keep tabs coalesced in tab span
     if (isTabSpanTextNode(node)) {

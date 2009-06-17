@@ -39,6 +39,7 @@
 #include "SearchPopupMenu.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "SimpleFontData.h"
 #include "TextControlInnerElements.h"
 
 using namespace std;
@@ -415,6 +416,9 @@ int RenderTextControlSingleLine::preferredContentWidth(float charWidth) const
 
     int result = static_cast<int>(ceilf(charWidth * factor));
 
+    // For text inputs, IE adds some extra width.
+    result += style()->font().primaryFont()->maxCharWidth() - charWidth;
+
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0)
         result += resultsRenderer->borderLeft() + resultsRenderer->borderRight() +
                   resultsRenderer->paddingLeft() + resultsRenderer->paddingRight();
@@ -491,9 +495,9 @@ void RenderTextControlSingleLine::updateFromElement()
 
     if (m_placeholderVisible) {
         ExceptionCode ec = 0;
-        innerTextElement()->setInnerText(inputElement()->placeholderValue(), ec);
+        innerTextElement()->setInnerText(inputElement()->placeholder(), ec);
         ASSERT(!ec);
-    } else if (!formControlElement()->valueMatchesRenderer() || placeholderVisibilityShouldChange)
+    } else if (!static_cast<Element*>(node())->formControlValueMatchesRenderer() || placeholderVisibilityShouldChange)
         setInnerTextValue(inputElement()->value());
 
     if (m_searchPopupIsVisible)
@@ -509,9 +513,10 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
 {
     RefPtr<RenderStyle> textBlockStyle;
     if (placeholderShouldBeVisible()) {
-        RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER);
-        textBlockStyle = RenderStyle::clone(pseudoStyle);
-    } else {
+        if (RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER))
+            textBlockStyle = RenderStyle::clone(pseudoStyle);
+    } 
+    if (!textBlockStyle) {
         textBlockStyle = RenderStyle::create();   
         textBlockStyle->inheritFrom(startStyle);
     }

@@ -27,6 +27,7 @@
 
 #include "Document.h"
 #include "Element.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
@@ -34,7 +35,7 @@ void NamedMappedAttrMap::clearAttributes()
 {
     m_classNames.clear();
     m_mappedAttributeCount = 0;
-    NamedAttrMap::clearAttributes();
+    NamedNodeMap::clearAttributes();
 }
 
 bool NamedMappedAttrMap::isMappedAttributeMap() const

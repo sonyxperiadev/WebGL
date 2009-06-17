@@ -34,7 +34,9 @@
 #include "FrameView.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "KURL.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderFrame.h"
 #include "Settings.h"
@@ -43,8 +45,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document* doc, bool createdByParser)
-    : HTMLFrameOwnerElement(tagName, doc, createdByParser)
+HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document* document)
+    : HTMLFrameOwnerElement(tagName, document)
     , m_scrolling(ScrollbarAuto)
     , m_marginWidth(-1)
     , m_marginHeight(-1)
@@ -140,10 +142,10 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
         if (contentFrame())
             contentFrame()->setInViewSourceMode(viewSourceMode());
     } else if (attr->name() == onloadAttr) {
-        setInlineEventListenerForTypeAndAttribute(eventNames().loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onbeforeunloadAttr) {
         // FIXME: should <frame> elements have beforeunload handlers?
-        setInlineEventListenerForTypeAndAttribute(eventNames().beforeunloadEvent, attr);
+        setAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(this, attr));
     } else
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
 }

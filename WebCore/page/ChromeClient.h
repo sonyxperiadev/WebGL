@@ -20,11 +20,15 @@
 #ifndef ChromeClient_h
 #define ChromeClient_h
 
-#include "GraphicsContext.h"
+#include "Console.h"
+#include "Cursor.h"
 #include "FocusDirection.h"
-#include "ScrollTypes.h"
+#include "GraphicsContext.h"
+#include "HTMLParserQuirks.h"
 #include "HostWindow.h"
+#include "ScrollTypes.h"
 #include <wtf/Forward.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
@@ -43,6 +47,7 @@ namespace WebCore {
     class FloatRect;
     class Frame;
     class Geolocation;
+    class HTMLParserQuirks;
     class HitTestResult;
     class IntRect;
     class Node;
@@ -98,7 +103,7 @@ namespace WebCore {
 
         virtual void setResizable(bool) = 0;
         
-        virtual void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID) = 0;
+        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
 
         virtual bool canRunBeforeUnloadConfirmPanel() = 0;
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame) = 0;
@@ -121,7 +126,7 @@ namespace WebCore {
         virtual IntRect windowToScreen(const IntRect&) const = 0;
         virtual PlatformWidget platformWindow() const = 0;
         virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
-        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {} // Platforms other than Mac can implement this if it ever becomes necessary for them to do so.
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const = 0; // Currently only Mac has a non empty implementation.
         // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
@@ -146,9 +151,6 @@ namespace WebCore {
             
         virtual bool shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename);
         virtual String generateReplacementFile(const String& path);
-        
-        virtual void enableSuddenTermination();
-        virtual void disableSuddenTermination();
 
         virtual bool paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
                                           ScrollbarControlState, ScrollbarPart pressedPart, bool vertical,
@@ -157,20 +159,27 @@ namespace WebCore {
 
         // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
         // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
-        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { }
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) = 0;
             
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
+
+        virtual bool setCursor(PlatformCursorHandle) = 0;
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*) = 0;
 
+        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() = 0;
+
 #if USE(ACCELERATED_COMPOSITING)
         // Pass 0 as the GraphicsLayer to detatch the root layer.
-        virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) { }
+        virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) = 0;
         // Sets a flag to specify that the next time content is drawn to the window,
         // the changes appear on the screen in synchrony with updates to GraphicsLayers.
-        virtual void setNeedsOneShotDrawingSynchronization() { }
+        virtual void setNeedsOneShotDrawingSynchronization() = 0;
+        // Sets a flag to specify that the view needs to be updated, so we need
+        // to do an eager layout before the drawing.
+        virtual void scheduleViewUpdate() = 0;
 #endif
 
 #if PLATFORM(MAC)

@@ -48,12 +48,12 @@ class String;
 
 template <typename T> class Timer;
 
-class FrameView : public ScrollView {
+class FrameView : public ScrollView, public RefCounted<FrameView> {
 public:
     friend class RenderView;
 
-    FrameView(Frame*);
-    FrameView(Frame*, const IntSize& initialSize);
+    static PassRefPtr<FrameView> create(Frame*);
+    static PassRefPtr<FrameView> create(Frame*, const IntSize& initialSize);
 
     virtual ~FrameView();
 
@@ -63,10 +63,6 @@ public:
 
     Frame* frame() const { return m_frame.get(); }
     void clearFrame();
-
-    void ref() { ++m_refCount; }
-    void deref() { if (!--m_refCount) delete this; }
-    bool hasOneRef() { return m_refCount == 1; }
 
     int marginWidth() const { return m_margins.width(); } // -1 means default
     int marginHeight() const { return m_margins.height(); } // -1 means default
@@ -143,6 +139,8 @@ public:
     void setMediaType(const String&);
 
     void setUseSlowRepaints();
+    void setIsOverlapped(bool);
+    void setContentIsOpaque(bool);
 
     void addSlowRepaintObject();
     void removeSlowRepaintObject();
@@ -186,13 +184,19 @@ public:
 
     void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
 
+    bool lockedToAnchor() { return m_lockedToAnchor; }
+    void setLockedToAnchor(bool lockedToAnchor) { m_lockedToAnchor = lockedToAnchor; }
+
 
 private:
+    FrameView(Frame*);
+
     void reset();
     void init();
 
     virtual bool isFrameView() const;
 
+    friend class RenderWidget;
     bool useSlowRepaints() const;
 
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
@@ -204,8 +208,12 @@ private:
 
     virtual void repaintContentRectangle(const IntRect&, bool immediate);
     virtual void contentsResized() { setNeedsLayout(); }
-    virtual void visibleContentsResized() { layout(); }
-    
+    virtual void visibleContentsResized()
+    {
+        if (needsLayout())
+            layout();
+    }
+
     void deferredRepaintTimerFired(Timer<FrameView>*);
     void doDeferredRepaints();
     void updateDeferredRepaintDelay();
@@ -215,7 +223,6 @@ private:
     
     static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
-    unsigned m_refCount;
     IntSize m_size;
     IntSize m_margins;
     OwnPtr<HashSet<RenderPartObject*> > m_widgetUpdateSet;
@@ -226,6 +233,8 @@ private:
     ScrollbarMode m_vmode;
     ScrollbarMode m_hmode;
     bool m_useSlowRepaints;
+    bool m_isOverlapped;
+    bool m_contentIsOpaque;
     unsigned m_slowRepaintObjectCount;
 
     int m_borderX, m_borderY;
@@ -270,12 +279,17 @@ private:
 
     bool m_shouldUpdateWhileOffscreen;
 
+    unsigned m_deferSetNeedsLayouts;
+    bool m_setNeedsLayoutWasDeferred;
+
     RefPtr<Node> m_nodeToDraw;
     PaintRestriction m_paintRestriction;
     bool m_isPainting;
 
     bool m_isVisuallyNonEmpty;
     bool m_firstVisuallyNonEmptyLayoutCallbackPending;
+
+    bool m_lockedToAnchor;
 };
 
 } // namespace WebCore

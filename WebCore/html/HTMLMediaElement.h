@@ -39,6 +39,7 @@
 namespace WebCore {
 
 class Event;
+class HTMLSourceElement;
 class MediaError;
 class KURL;
 class TimeRanges;
@@ -51,6 +52,7 @@ public:
     bool checkDTD(const Node* newChild);
     
     void attributeChanged(Attribute*, bool preserveDecls);
+    void parseMappedAttribute(MappedAttribute *);
 
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -84,9 +86,11 @@ public:
 
     enum NetworkState { NETWORK_EMPTY, NETWORK_IDLE, NETWORK_LOADING, NETWORK_LOADED, NETWORK_NO_SOURCE };
     NetworkState networkState() const;
+    bool autobuffer() const;    
+    void setAutobuffer(bool);
+
     PassRefPtr<TimeRanges> buffered() const;
     void load(ExceptionCode&);
-    
     String canPlayType(const String& mimeType) const;
 
 // ready state
@@ -97,6 +101,7 @@ public:
 // playback state
     float currentTime() const;
     void setCurrentTime(float, ExceptionCode&);
+    float startTime() const;
     float duration() const;
     bool paused() const;
     float defaultPlaybackRate() const;
@@ -154,6 +159,7 @@ private: // MediaPlayerObserver
     virtual void mediaPlayerDurationChanged(MediaPlayer*);
     virtual void mediaPlayerRateChanged(MediaPlayer*);
     virtual void mediaPlayerSizeChanged(MediaPlayer*);
+    virtual void mediaPlayerSawUnsupportedTracks(MediaPlayer*);
 
 private:
     void loadTimerFired(Timer<HTMLMediaElement>*);
@@ -174,13 +180,17 @@ private:
     
     // loading
     void selectMediaResource();
-    void loadResource(String url, ContentType& contentType);
+    void loadResource(const KURL&, ContentType&);
     void loadNextSourceChild();
     void userCancelledLoad();
-    String nextSourceChild(ContentType* contentType = 0);
     bool havePotentialSourceChild();
     void noneSupported();
     void mediaEngineError(PassRefPtr<MediaError> err);
+    void cancelPendingEventsAndCallbacks();
+
+    enum InvalidSourceAction { DoNothing, Complain };
+    bool isSafeToLoadURL(const KURL&, InvalidSourceAction);
+    KURL selectNextSourceChild(ContentType*, InvalidSourceAction);
 
     // These "internal" functions do not check user gesture restrictions.
     void loadInternal();
@@ -214,6 +224,7 @@ protected:
     Timer<HTMLMediaElement> m_progressEventTimer;
     Timer<HTMLMediaElement> m_playbackProgressTimer;
     Vector<RefPtr<Event> > m_pendingEvents;
+    RefPtr<TimeRanges> m_playedTimeRanges;
     
     float m_playbackRate;
     float m_defaultPlaybackRate;
@@ -224,7 +235,7 @@ protected:
     RefPtr<MediaError> m_error;
 
     float m_volume;
-    float m_currentTimeDuringSeek;
+    float m_lastSeekTime;
     
     unsigned m_previousProgress;
     double m_previousProgressTime;
@@ -238,11 +249,13 @@ protected:
     // loading state
     enum LoadState { WaitingForSource, LoadingFromSrcAttr, LoadingFromSourceElement };
     LoadState m_loadState;
-    Node *m_currentSourceNode;
+    HTMLSourceElement *m_currentSourceNode;
     
     OwnPtr<MediaPlayer> m_player;
 
     BehaviorRestrictions m_restrictions;
+
+    bool m_playing;
 
     // counter incremented while processing a callback from the media player, so we can avoid
     //  calling the media engine recursively

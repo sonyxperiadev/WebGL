@@ -159,11 +159,6 @@ namespace WebCore {
 
         void userStyleSheetLocationChanged();
         const String& userStyleSheet() const;
-        
-        void changePendingUnloadEventCount(int delta);
-        unsigned pendingUnloadEventCount();
-        void changePendingBeforeUnloadEventCount(int delta);
-        unsigned pendingBeforeUnloadEventCount();
 
         static void setDebuggerForAllPages(JSC::Debugger*);
         void setDebugger(JSC::Debugger*);
@@ -200,6 +195,9 @@ namespace WebCore {
         void setMemoryCacheClientCallsEnabled(bool);
         bool areMemoryCacheClientCallsEnabled() const { return m_areMemoryCacheClientCallsEnabled; }
 
+        void setJavaScriptURLsAreAllowed(bool);
+        bool javaScriptURLsAreAllowed() const;
+
     private:
         void initGroup();
 
@@ -231,7 +229,9 @@ namespace WebCore {
         bool m_cookieEnabled;
         bool m_areMemoryCacheClientCallsEnabled;
         float m_mediaVolume;
-    
+
+        bool m_javaScriptURLsAreAllowed;
+
         InspectorController* m_parentInspectorController;
 
         String m_userStyleSheetPath;
@@ -243,9 +243,6 @@ namespace WebCore {
         PageGroup* m_group;
 
         JSC::Debugger* m_debugger;
-        
-        unsigned m_pendingUnloadEventCount;
-        unsigned m_pendingBeforeUnloadEventCount;
 
         double m_customHTMLTokenizerTimeDelay;
         int m_customHTMLTokenizerChunkSize;

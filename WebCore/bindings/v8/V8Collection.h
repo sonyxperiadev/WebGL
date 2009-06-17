@@ -31,6 +31,8 @@
 #ifndef V8Collection_h
 #define V8Collection_h
 
+#include "HTMLFormElement.h"
+#include "HTMLSelectElement.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
 #include <v8.h>
@@ -70,6 +72,15 @@ namespace WebCore {
     // A template of named property accessor of collections.
     template<class Collection, class ItemType> static v8::Handle<v8::Value> collectionNamedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
     {
+        v8::Handle<v8::Value> value = info.Holder()->GetRealNamedPropertyInPrototypeChain(name);
+
+        if (!value.IsEmpty())
+            return value;
+
+        // Search local callback properties next to find IDL defined
+        // properties.
+        if (info.Holder()->HasRealNamedCallbackProperty(name))
+            return notHandledByInterceptor();
         return getNamedPropertyOfCollection<Collection, ItemType>(name, info.Holder(), info.Data());
     }
 
@@ -78,6 +89,15 @@ namespace WebCore {
     {
         ASSERT(V8Proxy::MaybeDOMWrapper(info.Holder()));
         ASSERT(V8Proxy::GetDOMWrapperType(info.Holder()) == V8ClassIndex::NODE);
+        v8::Handle<v8::Value> value = info.Holder()->GetRealNamedPropertyInPrototypeChain(name);
+
+        if (!value.IsEmpty())
+            return value;
+
+        // Search local callback properties next to find IDL defined
+        // properties.
+        if (info.Holder()->HasRealNamedCallbackProperty(name))
+            return notHandledByInterceptor();
         Collection* collection = V8Proxy::DOMWrapperToNode<Collection>(info.Holder());
         String propertyName = toWebCoreString(name);
         void* implementation = collection->namedItem(propertyName);
@@ -187,6 +207,8 @@ namespace WebCore {
     {
         desc->InstanceTemplate()->SetIndexedPropertyHandler(collectionStringOrNullIndexedPropertyGetter<Collection>, 0, 0, 0, collectionIndexedPropertyEnumerator<Collection>);
     }
+
+    v8::Handle<v8::Value> toOptionsCollectionSetter(uint32_t index, v8::Handle<v8::Value>, HTMLSelectElement*);
 
 } // namespace WebCore
 

@@ -76,7 +76,7 @@
 using JSC::ExecState;
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::JSValuePtr;
+using JSC::JSValue;
 using JSC::UString;
 #endif
 
@@ -92,7 +92,7 @@ static int s_callingPlugin;
 
 static String scriptStringIfJavaScriptURL(const KURL& url)
 {
-    if (!url.protocolIs("javascript"))
+    if (!protocolIsJavaScript(url))
         return String();
 
     // This returns an unescaped string
@@ -221,7 +221,7 @@ static char* createUTF8String(const String& str)
 }
 
 #if USE(JSC)
-static bool getString(ScriptController* proxy, JSValuePtr result, String& string)
+static bool getString(ScriptController* proxy, JSValue result, String& string)
 {
     if (!proxy || !result || result.isUndefined())
         return false;
@@ -280,7 +280,7 @@ void PluginView::performRequest(PluginRequest* request)
 #if USE(JSC)
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
-    JSValuePtr result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
+    JSValue result = m_parentFrame->loader()->executeScript(jsString, request->shouldAllowPopups()).jsValue();
 
     if (targetFrameName.isNull()) {
         String resultString;
@@ -652,6 +652,14 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     m_mode = m_loadManually ? NP_FULL : NP_EMBED;
 
     resize(size);
+}
+
+void PluginView::focusPluginElement()
+{
+    // Focus the plugin
+    if (Page* page = m_parentFrame->page())
+        page->focusController()->setFocusedFrame(m_parentFrame);
+    m_parentFrame->document()->setFocusedNode(m_element);
 }
 
 void PluginView::didReceiveResponse(const ResourceResponse& response)

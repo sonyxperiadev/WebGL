@@ -87,7 +87,30 @@ void InlineBox::showTreeForThis() const
 
 int InlineBox::height() const
 {
-    return toRenderBox(m_renderer)->height();
+#if ENABLE(SVG)
+    if (isSVG())
+        return svgBoxHeight();
+#endif
+
+    if (renderer()->isText())
+        return m_isText ? renderer()->style(m_firstLine)->font().height() : 0;
+    if (renderer()->isBox() && parent())
+        return toRenderBox(m_renderer)->height();
+
+    ASSERT(isInlineFlowBox());
+    const InlineFlowBox* flowBox = static_cast<const InlineFlowBox*>(this);
+    RenderBoxModelObject* flowObject = boxModelObject();
+    const Font& font = renderer()->style(m_firstLine)->font();
+    int result = font.height();
+    bool strictMode = renderer()->document()->inStrictMode();
+    if (parent())
+        result += flowObject->borderTop() + flowObject->paddingTop() + flowObject->borderBottom() + flowObject->paddingBottom();
+    if (strictMode || flowBox->hasTextChildren() || flowObject->hasHorizontalBordersOrPadding())
+        return result;
+    int bottom = root()->bottomOverflow();
+    if (y() + result > bottom)
+        result = bottom - y();
+    return result;
 }
 
 int InlineBox::caretMinOffset() const 
@@ -257,7 +280,7 @@ bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidt
     return !(boxRect.intersects(ellipsisRect));
 }
 
-int InlineBox::placeEllipsisBox(bool, int, int, bool&)
+int InlineBox::placeEllipsisBox(bool, int, int, int, bool&)
 {
     // Use -1 to mean "we didn't set the position."
     return -1;

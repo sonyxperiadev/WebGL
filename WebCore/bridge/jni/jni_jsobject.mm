@@ -293,17 +293,17 @@ jobject JavaJSObject::call(jstring methodName, jobjectArray args) const
     JSLock lock(false);
     
     Identifier identifier(exec, JavaString(methodName));
-    JSValuePtr function = _imp->get(exec, identifier);
+    JSValue function = _imp->get(exec, identifier);
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone)
         return 0;
 
     // Call the function object.
-    ArgList argList;
+    MarkedArgumentBuffer argList;
     getListFromJArray(exec, args, argList);
     rootObject->globalObject()->globalData()->timeoutChecker.start();
-    JSValuePtr result = JSC::call(exec, function, callType, callData, _imp, argList);
+    JSValue result = JSC::call(exec, function, callType, callData, _imp, argList);
     rootObject->globalObject()->globalData()->timeoutChecker.stop();
 
     return convertValueToJObject(result);
@@ -313,7 +313,7 @@ jobject JavaJSObject::eval(jstring script) const
 {
     JS_LOG ("script = %s\n", JavaString(script).UTF8String());
     
-    JSValuePtr result;
+    JSValue result;
 
     JSLock lock(false);
     
@@ -347,7 +347,7 @@ jobject JavaJSObject::getMember(jstring memberName) const
     ExecState* exec = rootObject->globalObject()->globalExec();
     
     JSLock lock(false);
-    JSValuePtr result = _imp->get(exec, Identifier(exec, JavaString(memberName)));
+    JSValue result = _imp->get(exec, Identifier(exec, JavaString(memberName)));
 
     return convertValueToJObject(result);
 }
@@ -397,7 +397,7 @@ jobject JavaJSObject::getSlot(jint index) const
     ExecState* exec = rootObject->globalObject()->globalExec();
 
     JSLock lock(false);
-    JSValuePtr result = _imp->get(exec, index);
+    JSValue result = _imp->get(exec, index);
 
     return convertValueToJObject(result);
 }
@@ -485,7 +485,7 @@ jlong JavaJSObject::createNative(jlong nativeHandle)
     return nativeHandle;
 }
 
-jobject JavaJSObject::convertValueToJObject(JSValuePtr value) const
+jobject JavaJSObject::convertValueToJObject(JSValue value) const
 {
     JSLock lock(false);
     
@@ -571,7 +571,7 @@ jobject JavaJSObject::convertValueToJObject(JSValuePtr value) const
     return result;
 }
 
-JSValuePtr JavaJSObject::convertJObjectToValue(ExecState* exec, jobject theObject) const
+JSValue JavaJSObject::convertJObjectToValue(ExecState* exec, jobject theObject) const
 {
     // Instances of netscape.javascript.JSObject get converted back to
     // JavaScript objects.  All other objects are wrapped.  It's not
@@ -605,7 +605,7 @@ JSValuePtr JavaJSObject::convertJObjectToValue(ExecState* exec, jobject theObjec
     return JavaInstance::create(theObject, _rootObject)->createRuntimeObject(exec);
 }
 
-void JavaJSObject::getListFromJArray(ExecState* exec, jobjectArray jArray, ArgList& list) const
+void JavaJSObject::getListFromJArray(ExecState* exec, jobjectArray jArray, MarkedArgumentBuffer& list) const
 {
     JNIEnv *env = getJNIEnv();
     int numObjects = jArray ? env->GetArrayLength(jArray) : 0;

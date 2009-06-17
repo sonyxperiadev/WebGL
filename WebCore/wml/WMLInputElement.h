@@ -29,7 +29,7 @@ namespace WebCore {
 
 class FormDataList;
 
-class WMLInputElement : public WMLFormControlElementWithState, public InputElement {
+class WMLInputElement : public WMLFormControlElement, public InputElement {
 public:
     WMLInputElement(const QualifiedName& tagName, Document*);
     virtual ~WMLInputElement();
@@ -45,7 +45,7 @@ public:
     virtual bool isChecked() const { return false; }
     virtual bool isAutofilled() const { return false; }
     virtual bool isIndeterminate() const { return false; }
-    virtual bool isTextControl() const { return true; }
+    virtual bool isTextFormControl() const { return true; }
     virtual bool isRadioButton() const { return false; }
     virtual bool isTextField() const { return true; }
     virtual bool isSearchField() const { return false; }
@@ -54,15 +54,16 @@ public:
     virtual bool searchEventsShouldBeDispatched() const { return false; }
 
     virtual int size() const;
-    virtual const AtomicString& type() const;
-    virtual const AtomicString& name() const;
+    virtual const AtomicString& formControlType() const;
+    virtual const AtomicString& formControlName() const;
     virtual String value() const;
     virtual void setValue(const String&);
-    virtual String placeholderValue() const { return String(); }
+    virtual String placeholder() const { return String(); }
+    virtual void setPlaceholder(const String&) { }
     virtual void setValueFromRenderer(const String&);
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
     virtual void select();
     virtual void accessKeyAction(bool sendToAnyElement);
@@ -71,7 +72,6 @@ public:
     virtual void copyNonAttributeProperties(const Element* source);
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void attach();
     virtual void detach();
     virtual bool appendFormData(FormDataList&, bool);
     virtual void reset();
@@ -91,7 +91,9 @@ public:
     bool isConformedToInputMask(UChar, unsigned, bool isUserInput = true);
 
 private:
-    void init();
+    friend class WMLCardElement;
+    void initialize();
+
     String validateInputMask(const String&);
     unsigned cursorPositionToMaskIndex(unsigned);
 

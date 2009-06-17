@@ -39,6 +39,7 @@
 #include "HTMLNames.h"
 #include "ImageBuffer.h"
 #include "MIMETypeRegistry.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderHTMLCanvas.h"
 #include "Settings.h"
@@ -71,6 +72,8 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
 
 HTMLCanvasElement::~HTMLCanvasElement()
 {
+    if (m_observer)
+        m_observer->canvasDestroyed(this);
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -256,7 +259,11 @@ void HTMLCanvasElement::createImageBuffer() const
     if (!size.width() || !size.height())
         return;
 
-    m_imageBuffer.set(ImageBuffer::create(size, false).release());
+    m_imageBuffer = ImageBuffer::create(size, false);
+    // The convertLogicalToDevice MaxCanvasArea check should prevent common cases
+    // where ImageBuffer::create() returns NULL, however we could still be low on memory.
+    if (!m_imageBuffer)
+        return;
     m_imageBuffer->context()->scale(FloatSize(size.width() / unscaledSize.width(), size.height() / unscaledSize.height()));
     m_imageBuffer->context()->setShadowsIgnoreTransforms(true);
 }

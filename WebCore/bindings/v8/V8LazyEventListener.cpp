@@ -37,10 +37,11 @@
 
 namespace WebCore {
 
-V8LazyEventListener::V8LazyEventListener(Frame *frame, const String& code, const String& functionName)
+V8LazyEventListener::V8LazyEventListener(Frame *frame, const String& code, const String& functionName, bool isSVGEvent)
     : V8AbstractEventListener(frame, true)
     , m_code(code)
     , m_functionName(functionName)
+    , m_isSVGEvent(isSVGEvent)
     , m_compiled(false)
     , m_wrappedFunctionCompiled(false)
 {
@@ -93,7 +94,10 @@ v8::Local<v8::Function> V8LazyEventListener::getListenerFunction()
         // See issue 944690.
         //
         // The ECMAScript spec says (very obliquely) that the parameter to an event handler is named "evt".
-        String code = "(function (evt) {\n";
+        //
+        // Don't use new lines so that lines in the modified handler
+        // have the same numbers as in the original code.
+        String code = "(function (evt) {";
         code.append(m_code);
         code.append("\n})");
 
@@ -133,6 +137,13 @@ v8::Local<v8::Value> V8LazyEventListener::callListenerFunction(v8::Handle<v8::Va
     return proxy->CallFunction(handlerFunction, receiver, 1, parameters);
 }
 
+
+static v8::Handle<v8::Value> V8LazyEventListenerToString(const v8::Arguments& args)
+{
+    return args.Callee()->GetHiddenValue(v8::String::New("toStringString"));
+}
+
+
 v8::Local<v8::Function> V8LazyEventListener::getWrappedListenerFunction()
 {
     if (m_wrappedFunctionCompiled) {
@@ -161,20 +172,19 @@ v8::Local<v8::Function> V8LazyEventListener::getWrappedListenerFunction()
         // See chrome/fast/forms/form-action.html
         //     chrome/fast/forms/selected-index-value.html
         //     base/fast/overflow/onscroll-layer-self-destruct.html
-        String code = "(function (evt) {\n" \
-                      "  with (this.ownerDocument ? this.ownerDocument : {}) {\n" \
-                      "    with (this.form ? this.form : {}) {\n" \
-                      "      with (this) {\n" \
-                      "        return (function(evt){\n";
+        //
+        // Don't use new lines so that lines in the modified handler
+        // have the same numbers as in the original code.
+        String code = "(function (evt) {" \
+                      "with (this.ownerDocument ? this.ownerDocument : {}) {" \
+                      "with (this.form ? this.form : {}) {" \
+                      "with (this) {" \
+                      "return (function(evt){";
         code.append(m_code);
-        code.append(  "\n" \
-                      "}).call(this, evt);\n" \
-                      "      }\n" \
-                      "    }\n" \
-                      "  }\n" \
-                      "})");
+        // Insert '\n' otherwise //-style comments could break the handler.
+        code.append(  "\n}).call(this, evt);}}}})");
         v8::Handle<v8::String> codeExternalString = v8ExternalString(code);
-        v8::Handle<v8::Script> script = V8Proxy::CompileScript(codeExternalString, m_frame->document()->url(), m_lineNumber - 4);
+        v8::Handle<v8::Script> script = V8Proxy::CompileScript(codeExternalString, m_frame->document()->url(), m_lineNumber);
         if (!script.IsEmpty()) {
             V8Proxy* proxy = V8Proxy::retrieve(m_frame);
             ASSERT(proxy);
@@ -183,6 +193,30 @@ v8::Local<v8::Function> V8LazyEventListener::getWrappedListenerFunction()
                 ASSERT(value->IsFunction());
 
                 m_wrappedFunction = v8::Persistent<v8::Function>::New(v8::Local<v8::Function>::Cast(value));
+
+                // Change the toString function on the wrapper function to avoid it returning the source for the actual wrapper function. Instead
+                // it returns source for a clean wrapper function with the event argument wrapping the event source code. The reason for this
+                // is that some web sites uses toString on event functions and the evals the source returned (some times a RegExp is applied as
+                // well) for some other use. That fails miserably if the actual wrapper source is returned.
+                v8::Local<v8::FunctionTemplate> toStringTemplate = v8::FunctionTemplate::New(V8LazyEventListenerToString);
+                v8::Local<v8::Function> toStringFunction;
+                if (!toStringTemplate.IsEmpty())
+                    toStringFunction = toStringTemplate->GetFunction();
+                if (!toStringFunction.IsEmpty()) {
+                    String toStringResult = "function ";
+                    toStringResult.append(m_functionName);
+                    toStringResult.append("(");
+                    if (m_isSVGEvent)
+                        toStringResult.append("evt");
+                    else
+                        toStringResult.append("event");
+                    toStringResult.append(") {\n  ");
+                    toStringResult.append(m_code);
+                    toStringResult.append("\n}");
+                    toStringFunction->SetHiddenValue(v8::String::New("toStringString"), v8ExternalString(toStringResult));
+                    m_wrappedFunction->Set(v8::String::New("toString"), toStringFunction);
+                }
+
 #ifndef NDEBUG
                 V8Proxy::RegisterGlobalHandle(EVENT_LISTENER, this, m_wrappedFunction);
 #endif

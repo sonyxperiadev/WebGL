@@ -3,20 +3,8 @@ TARGET = jsc
 DESTDIR = .
 SOURCES = jsc.cpp
 QT -= gui
-INCLUDEPATH += $$PWD \
-    $$PWD/parser \
-    $$PWD/bindings \
-    $$PWD/bindings/c \
-    $$PWD/wtf \
-    $$PWD/jit \
-    $$PWD/bytecode
 CONFIG -= app_bundle
-DEFINES += BUILDING_QT__
 CONFIG += building-libs
-
-CONFIG(release) {
-    DEFINES += NDEBUG USE_SYSTEM_MALLOC
-}
 
 include($$PWD/../WebKit.pri)
 
@@ -26,9 +14,12 @@ QMAKE_RPATHDIR += $$OUTPUT_DIR/lib
 
 isEmpty(OUTPUT_DIR):OUTPUT_DIR=$$PWD/..
 include($$OUTPUT_DIR/config.pri)
-OBJECTS_DIR = tmp
-OBJECTS_DIR_WTR = $$OBJECTS_DIR/
-win32-*: OBJECTS_DIR_WTR ~= s|/|\|
+CONFIG(debug, debug|release) {
+    OBJECTS_DIR = obj/debug
+} else { # Release
+    OBJECTS_DIR = obj/release
+}
+OBJECTS_DIR_WTR = $$OBJECTS_DIR$${QMAKE_DIR_SEP}
 include($$PWD/JavaScriptCore.pri)
 
 lessThan(QT_MINOR_VERSION, 4) {

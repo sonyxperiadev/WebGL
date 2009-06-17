@@ -31,8 +31,10 @@
 
 #include "Console.h"
 #include "PlatformString.h"
+#include "ScriptState.h"
 #include "StringHash.h"
 #include "Timer.h"
+
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
@@ -40,10 +42,7 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "JavaScriptDebugListener.h"
-#endif
 
-#if USE(JSC)
-#include <JavaScriptCore/JSContextRef.h>
 namespace JSC {
     class Profile;
     class UString;
@@ -58,6 +57,7 @@ class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
 class InspectorClient;
+class InspectorFrontend;
 class JavaScriptCallFrame;
 class StorageArea;
 class Node;
@@ -66,6 +66,8 @@ struct ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
+class ScriptObject;
+class ScriptString;
 class SharedBuffer;
 
 class ConsoleMessage;
@@ -102,6 +104,12 @@ public:
         Setting()
             : m_type(NoType)
         {
+        }
+
+        explicit Setting(bool value)
+            : m_type(BooleanType)
+        {
+            m_simpleContent.m_boolean = value;
         }
 
         Type type() const { return m_type; }
@@ -159,30 +167,14 @@ public:
     void showPanel(SpecialPanels);
     void close();
 
-    bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
-    void startUserInitiatedProfilingSoon();
-    void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
-    void stopUserInitiatedProfiling();
-
-    void enableProfiler(bool skipRecompile = false);
-    void disableProfiler();
-    bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
-
     bool windowVisible();
     void setWindowVisible(bool visible = true, bool attached = false);
 
+    void addResourceSourceToFrame(long identifier, Node* frame);
     bool addSourceToFrame(const String& mimeType, const String& source, Node*);
     void addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
-    void toggleRecordButton(bool);
-
-#if USE(JSC)
-    void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addProfileMessageToConsole(PassRefPtr<JSC::Profile> prpProfile, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addScriptProfile(JSC::Profile* profile);
-    const ProfilesArray& profiles() const { return m_profiles; }
-#endif
 
     void attachWindow();
     void detachWindow();
@@ -195,15 +187,11 @@ public:
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
     void handleMousePressOnNode(Node*);
 
-#if USE(JSC)
-    JSContextRef scriptContext() const { return m_scriptContext; };
-    void setScriptContext(JSContextRef context) { m_scriptContext = context; };
-#endif
-
     void inspectedWindowScriptObjectCleared(Frame*);
     void windowScriptObjectAvailable();
 
     void scriptObjectReady();
+    void setFrontendProxyObject(ScriptState* state, ScriptObject object);
 
     void populateScriptObjects();
     void resetScriptObjects();
@@ -219,13 +207,13 @@ public:
     void didReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived);
     void didFinishLoading(DocumentLoader*, unsigned long identifier);
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
-#if USE(JSC)
-    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString);
-    void scriptImported(unsigned long identifier, const JSC::UString& sourceString);
-#elif USE(V8)
-    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const String& sourceString);
+    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
     void scriptImported(unsigned long identifier, const String& sourceString);
-#endif
+
+    void enableResourceTracking(bool always = false);
+    void disableResourceTracking(bool always = false);
+    bool resourceTrackingEnabled() const { return m_resourceTrackingEnabled; }
+    void ensureResourceTrackingSettingsLoaded();
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -239,9 +227,38 @@ public:
     void moveWindowBy(float x, float y) const;
     void closeWindow();
 
+    void drawNodeHighlight(GraphicsContext&) const;
+
+    void count(const String& title, unsigned lineNumber, const String& sourceID);
+
+    void startTiming(const String& title);
+    bool stopTiming(const String& title, double& elapsed);
+
+    void startGroup(MessageSource source, ScriptCallStack* callFrame);
+    void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
+
+    const String& platform() const;
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+    void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addProfileMessageToConsole(PassRefPtr<JSC::Profile> prpProfile, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addScriptProfile(JSC::Profile* profile);
+    const ProfilesArray& profiles() const { return m_profiles; }
+
+    bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
+
+    void startUserInitiatedProfilingSoon();
+    void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
+    void stopUserInitiatedProfiling();
+    void toggleRecordButton(bool);
+
+    void enableProfiler(bool always = false, bool skipRecompile = false);
+    void disableProfiler(bool always = false);
+    bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
+
+    void enableDebuggerFromFrontend(bool always);
     void enableDebugger();
-    void disableDebugger();
+    void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerEnabled; }
 
     JavaScriptCallFrame* currentCallFrame() const;
@@ -258,66 +275,32 @@ public:
     void stepOverStatementInDebugger();
     void stepIntoStatementInDebugger();
     void stepOutOfFunctionInDebugger();
+
+    virtual void didParseSource(JSC::ExecState*, const JSC::SourceCode&);
+    virtual void failedToParseSource(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
+    virtual void didPause();
+    virtual void didContinue();
 #endif
-
-    void drawNodeHighlight(GraphicsContext&) const;
-    
-    void count(const String& title, unsigned lineNumber, const String& sourceID);
-
-    void startTiming(const String& title);
-    bool stopTiming(const String& title, double& elapsed);
-
-    void startGroup(MessageSource source, ScriptCallStack* callFrame);
-    void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
-
-    const String& platform() const;
 
 private:
     InspectorController(Page*, InspectorClient*);
+
     void focusNode();
 
-#if USE(JSC)
-    void addConsoleMessage(JSC::ExecState*, ConsoleMessage*);
-#endif
+    void addConsoleMessage(ScriptState*, ConsoleMessage*);
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
 
-#if USE(JSC)
-    JSObjectRef addScriptResource(InspectorResource*);
-    JSObjectRef addAndUpdateScriptResource(InspectorResource*);
-#endif
-    void removeScriptResource(InspectorResource*);
-
-    void updateScriptResourceRequest(InspectorResource*);
-    void updateScriptResourceResponse(InspectorResource*);
-    void updateScriptResourceType(InspectorResource*);
-    void updateScriptResource(InspectorResource*, int length);
-    void updateScriptResource(InspectorResource*, bool finished, bool failed = false);
-    void updateScriptResource(InspectorResource*, double startTime, double responseReceivedTime, double endTime);
-
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
-#if USE(JSC)
-    JSValueRef callSimpleFunction(JSContextRef, JSObjectRef thisObject, const char* functionName) const;
-    JSValueRef callFunction(JSContextRef, JSObjectRef thisObject, const char* functionName, size_t argumentCount, const JSValueRef arguments[], JSValueRef& exception) const;
-
-    bool handleException(JSContextRef, JSValueRef exception, unsigned lineNumber) const;
-#endif
-
     void showWindow();
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#if USE(JSC)
-    virtual void didParseSource(JSC::ExecState*, const JSC::SourceCode&);
-    virtual void failedToParseSource(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
-#endif
-    virtual void didPause();
-#endif
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
+    OwnPtr<InspectorFrontend> m_frontend;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -325,9 +308,6 @@ private:
     HashSet<String> m_knownResources;
     FrameResourcesMap m_frameResources;
     Vector<ConsoleMessage*> m_consoleMessages;
-#if USE(JSC)  
-    ProfilesArray m_profiles;
-#endif
     HashMap<String, double> m_times;
     HashMap<String, unsigned> m_counts;
 #if ENABLE(DATABASE)
@@ -336,27 +316,26 @@ private:
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesSet m_domStorageResources;
 #endif
-#if USE(JSC)
-    JSObjectRef m_scriptObject;
-    JSObjectRef m_controllerScriptObject;
-    JSContextRef m_scriptContext;
-#endif    
+    ScriptState* m_scriptState;
     bool m_windowVisible;
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    bool m_debuggerEnabled;
-    bool m_attachDebuggerWhenShown;
-#endif
-    bool m_profilerEnabled;
-    bool m_recordingUserInitiatedProfile;
     SpecialPanels m_showAfterVisible;
     long long m_nextIdentifier;
     RefPtr<Node> m_highlightedNode;
     unsigned m_groupLevel;
     bool m_searchingForNode;
+    ConsoleMessage* m_previousMessage;
+    bool m_resourceTrackingEnabled;
+    bool m_resourceTrackingSettingsLoaded;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    bool m_debuggerEnabled;
+    bool m_attachDebuggerWhenShown;
+    bool m_profilerEnabled;
+    bool m_recordingUserInitiatedProfile;
     int m_currentUserInitiatedProfileNumber;
     unsigned m_nextUserInitiatedProfileNumber;
-    ConsoleMessage* m_previousMessage;
     Timer<InspectorController> m_startProfiling;
+    ProfilesArray m_profiles;
+#endif
 };
 
 } // namespace WebCore

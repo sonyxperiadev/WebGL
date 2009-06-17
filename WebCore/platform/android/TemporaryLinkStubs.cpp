@@ -59,6 +59,7 @@
 #include "Icon.h"
 #include "IconDatabase.h"
 #include "IconLoader.h"
+#include "InspectorFrontend.h"
 #include "IntPoint.h"
 
 #if USE(JSC)
@@ -470,7 +471,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 #if USE(JSC)
 namespace JSC { namespace Bindings {
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
-        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
+        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
 {
     notImplemented();
     return false;
@@ -555,6 +556,11 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
+InspectorFrontend::~InspectorFrontend()
+{
+    notImplemented();
+}
+
 #if USE(JSC)
 using namespace JSC;
 
@@ -571,15 +577,9 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
 
 // as we don't use inspector/*.cpp, add stub here.
 
+/*
 namespace WebCore {
-
-JSValuePtr toJS(ExecState*, Profile*)
-{
-    notImplemented();
-    return jsNull();
-}
-
-JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
+JSValue JavaScriptCallFrame::evaluate(const UString& script, JSValue& exception) const
 {
     notImplemented();
     return jsNull();
@@ -679,4 +679,5 @@ void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, in
 {
     notImplemented();
 }
+*/
 #endif

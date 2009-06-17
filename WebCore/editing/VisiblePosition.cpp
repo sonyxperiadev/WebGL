@@ -28,8 +28,8 @@
 
 #include "CString.h"
 #include "Document.h"
-#include "Element.h"
 #include "FloatQuad.h"
+#include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
 #include "Logging.h"
@@ -511,7 +511,7 @@ Position VisiblePosition::canonicalPosition(const Position& position)
     return next;
 }
 
-UChar VisiblePosition::characterAfter() const
+UChar32 VisiblePosition::characterAfter() const
 {
     // We canonicalize to the first of two equivalent candidates, but the second of the two candidates
     // is the one that will be inside the text node containing the character after this visible position.
@@ -520,10 +520,15 @@ UChar VisiblePosition::characterAfter() const
     if (!node || !node->isTextNode())
         return 0;
     Text* textNode = static_cast<Text*>(pos.node());
-    int offset = pos.m_offset;
-    if ((unsigned)offset >= textNode->length())
+    unsigned offset = pos.deprecatedEditingOffset();
+    unsigned length = textNode->length();
+    if (offset >= length)
         return 0;
-    return textNode->data()[offset];
+
+    UChar32 ch;
+    const UChar* characters = textNode->data().characters();
+    U16_NEXT(characters, offset, length, ch);
+    return ch;
 }
 
 IntRect VisiblePosition::localCaretRect(RenderObject*& renderer) const
@@ -576,7 +581,7 @@ void VisiblePosition::debugPosition(const char* msg) const
     if (isNull())
         fprintf(stderr, "Position [%s]: null\n", msg);
     else
-        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, m_deepPosition.node()->nodeName().utf8().data(), m_deepPosition.node(), m_deepPosition.m_offset);
+        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, m_deepPosition.node()->nodeName().utf8().data(), m_deepPosition.node(), m_deepPosition.deprecatedEditingOffset());
 }
 
 #ifndef NDEBUG
@@ -600,7 +605,7 @@ PassRefPtr<Range> makeRange(const VisiblePosition &start, const VisiblePosition 
     
     Position s = rangeCompliantEquivalent(start);
     Position e = rangeCompliantEquivalent(end);
-    return Range::create(s.node()->document(), s.node(), s.m_offset, e.node(), e.m_offset);
+    return Range::create(s.node()->document(), s.node(), s.deprecatedEditingOffset(), e.node(), e.deprecatedEditingOffset());
 }
 
 VisiblePosition startVisiblePosition(const Range *r, EAffinity affinity)
@@ -621,7 +626,7 @@ bool setStart(Range *r, const VisiblePosition &visiblePosition)
         return false;
     Position p = rangeCompliantEquivalent(visiblePosition);
     int code = 0;
-    r->setStart(p.node(), p.m_offset, code);
+    r->setStart(p.node(), p.deprecatedEditingOffset(), code);
     return code == 0;
 }
 
@@ -631,7 +636,7 @@ bool setEnd(Range *r, const VisiblePosition &visiblePosition)
         return false;
     Position p = rangeCompliantEquivalent(visiblePosition);
     int code = 0;
-    r->setEnd(p.node(), p.m_offset, code);
+    r->setEnd(p.node(), p.deprecatedEditingOffset(), code);
     return code == 0;
 }
 

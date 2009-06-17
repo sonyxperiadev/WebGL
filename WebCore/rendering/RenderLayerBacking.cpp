@@ -33,6 +33,7 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
+#include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "RenderBox.h"
 #include "RenderImage.h"
@@ -46,14 +47,17 @@ using namespace std;
 
 namespace WebCore {
 
+static bool hasBorderOutlineOrShadow(const RenderStyle*);
+static bool hasBoxDecorations(const RenderStyle*);
+static bool hasBoxDecorationsWithBackgroundImage(const RenderStyle*);
+
 RenderLayerBacking::RenderLayerBacking(RenderLayer* layer)
     : m_owningLayer(layer)
     , m_ancestorClippingLayer(0)
     , m_graphicsLayer(0)
     , m_contentsLayer(0)
     , m_clippingLayer(0)
-    , m_isSimpleContainerCompositingLayer(false)
-    , m_simpleCompositingLayerStatusDirty(true)
+    , m_hasDirectlyCompositedContent(false)
     , m_compositingContentOffsetDirty(true)
 {
     createGraphicsLayer();
@@ -122,46 +126,36 @@ void RenderLayerBacking::updateLayerTransform()
 
 void RenderLayerBacking::updateAfterLayout()
 {
-    invalidateDrawingOptimizations();
-    detectDrawingOptimizations();
-
-    updateGraphicsLayerGeometry();
+    // Only need to update geometry if there isn't a layer update pending.
+    if (!compositor()->compositingLayersNeedUpdate())
+        updateGraphicsLayerGeometry();
 }
 
-bool RenderLayerBacking::updateGraphicsLayers(bool needsContentsLayer, bool needsUpperClippingLayer, bool needsLowerClippingLayer, bool needsRepaint)
+bool RenderLayerBacking::updateGraphicsLayerConfiguration()
 {
+    RenderLayerCompositor* compositor = this->compositor();
+
     bool layerConfigChanged = false;
-    if (updateContentsLayer(needsContentsLayer))
+    if (updateContentsLayer(compositor->needsContentsCompositingLayer(m_owningLayer)))
         layerConfigChanged = true;
     
-    if (updateClippingLayers(needsUpperClippingLayer, needsLowerClippingLayer))
+    if (updateClippingLayers(compositor->clippedByAncestor(m_owningLayer), compositor->clipsCompositingDescendants(m_owningLayer)))
         layerConfigChanged = true;
 
-    // See if we can now use any drawing optimizations.
-    bool didDrawContent = graphicsLayer()->drawsContent();
-    invalidateDrawingOptimizations();
-    detectDrawingOptimizations();
-    if (!didDrawContent && graphicsLayer()->drawsContent())
-        needsRepaint = true;
+    m_hasDirectlyCompositedContent = false;
+    if (canUseDirectCompositing()) {
+        if (renderer()->isImage()) {
+            updateImageContents();
+            m_hasDirectlyCompositedContent = true;
+            m_graphicsLayer->setDrawsContent(false);
+        }
 
-    // Set opacity, if it is not animating.
-    if (!renderer()->animation()->isAnimatingPropertyOnRenderer(renderer(), CSSPropertyOpacity))
-        updateLayerOpacity();
-    
-    RenderStyle* style = renderer()->style();
-    m_graphicsLayer->setPreserves3D(style->transformStyle3D() == TransformStyle3DPreserve3D);
-    m_graphicsLayer->setBackfaceVisibility(style->backfaceVisibility() == BackfaceVisibilityVisible);
-
-    updateGraphicsLayerGeometry();
-    
-    m_graphicsLayer->updateContentsRect();
-    
-    if (needsRepaint) {
-        m_graphicsLayer->setNeedsDisplay();
-        if (m_contentsLayer)
-            m_contentsLayer->setNeedsDisplay();
+        if (rendererHasBackground())
+            m_graphicsLayer->setBackgroundColor(rendererBackgroundColor());
+        else
+            m_graphicsLayer->clearBackgroundColor();
     }
-    
+
     return layerConfigChanged;
 }
 
@@ -175,6 +169,14 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     // is affected by the layer dimensions.
     if (!renderer()->animation()->isAnimatingPropertyOnRenderer(renderer(), CSSPropertyWebkitTransform))
         updateLayerTransform();
+
+    // Set opacity, if it is not animating.
+    if (!renderer()->animation()->isAnimatingPropertyOnRenderer(renderer(), CSSPropertyOpacity))
+        updateLayerOpacity();
+    
+    RenderStyle* style = renderer()->style();
+    m_graphicsLayer->setPreserves3D(style->transformStyle3D() == TransformStyle3DPreserve3D);
+    m_graphicsLayer->setBackfaceVisibility(style->backfaceVisibility() == BackfaceVisibilityVisible);
 
     m_compositingContentOffsetDirty = true;
     
@@ -243,11 +245,8 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     if (m_owningLayer->hasTransform()) {
         const IntRect borderBox = toRenderBox(renderer())->borderBoxRect();
 
-        IntRect layerBounds = IntRect(m_owningLayer->x(), m_owningLayer->y(), borderBox.width(), borderBox.height());
-        // Convert to absolute coords to match bbox.
-        int x = 0, y = 0;
-        m_owningLayer->convertToLayerCoords(compAncestor, x, y);
-        layerBounds.move(x - m_owningLayer->x(), y - m_owningLayer->y());
+        // Get layout bounds in the coords of compAncestor to match relativeCompositingBounds.
+        IntRect layerBounds = IntRect(deltaX, deltaY, borderBox.width(), borderBox.height());
 
         // Update properties that depend on layer dimensions
         FloatPoint3D transformOrigin = computeTransformOrigin(borderBox);
@@ -285,6 +284,8 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->updateContentsRect();
+    if (!m_hasDirectlyCompositedContent)
+        m_graphicsLayer->setDrawsContent(!isSimpleContainerCompositingLayer() && !paintingGoesToWindow());
 }
 
 void RenderLayerBacking::updateInternalHierarchy()
@@ -446,7 +447,10 @@ const Color& RenderLayerBacking::rendererBackgroundColor() const
     return renderer()->style()->backgroundColor();
 }
 
-bool RenderLayerBacking::canBeSimpleContainerCompositingLayer() const
+// A "simple container layer" is a RenderLayer which has no visible content to render.
+// It may have no children, or all its children may be themselves composited.
+// This is a useful optimization, because it allows us to avoid allocating backing store.
+bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
 {
     RenderObject* renderObject = renderer();
     if (renderObject->isReplaced() ||       // replaced objects are not containers
@@ -574,54 +578,6 @@ bool RenderLayerBacking::canUseDirectCompositing() const
     return !hasBoxDecorationsWithBackgroundImage(renderObject->style());
 }
     
-// A "simple container layer" is a RenderLayer which has no visible content to render.
-// It may have no children, or all its children may be themselves composited.
-// This is a useful optimization, because it allows us to avoid allocating backing store.
-bool RenderLayerBacking::isSimpleContainerCompositingLayer()
-{
-    if (m_simpleCompositingLayerStatusDirty) {
-        m_isSimpleContainerCompositingLayer = canBeSimpleContainerCompositingLayer();
-        m_simpleCompositingLayerStatusDirty = false;
-    }
-
-    return m_isSimpleContainerCompositingLayer;
-}
-
-void RenderLayerBacking::detectDrawingOptimizations()
-{
-    bool drawsContent = true;
-
-    // Check if a replaced layer can be further simplified.
-    if (canUseDirectCompositing()) {
-        if (renderer()->isImage()) {
-            updateImageContents();
-            drawsContent = false;
-        }
-        
-        if (rendererHasBackground())
-            m_graphicsLayer->setBackgroundColor(rendererBackgroundColor());
-        else
-            m_graphicsLayer->clearBackgroundColor();
-
-    } else {
-        m_graphicsLayer->clearBackgroundColor();
-        m_graphicsLayer->clearContents();
-        
-        if (isSimpleContainerCompositingLayer())
-            drawsContent = false;
-    }
-    
-    if (paintingGoesToWindow())
-        drawsContent = false;
-    
-    m_graphicsLayer->setDrawsContent(drawsContent);
-}
-
-void RenderLayerBacking::invalidateDrawingOptimizations()
-{
-    m_simpleCompositingLayerStatusDirty = true;
-}
-
 void RenderLayerBacking::rendererContentChanged()
 {
     if (canUseDirectCompositing() && renderer()->isImage())

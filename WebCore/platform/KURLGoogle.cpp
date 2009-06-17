@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2004, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -234,6 +235,7 @@ void KURLGooglePrivate::init(const KURL& base, const UChar* rel, int relLength,
                                           base.m_url.m_parsed, rel, relLength,
                                           charsetConverter,
                                           &output, &m_parsed);
+
 
     if (m_isValid || output.length()) {
         if (m_parsed.ref.is_nonempty())
@@ -521,6 +523,12 @@ bool KURL::hasRef() const
     return m_url.m_parsed.ref.len >= 0;
 }
 
+String KURL::baseAsString() const
+{
+    // FIXME: There is probably a more efficient way to do this?
+    return string().left(pathAfterLastSlash());
+}
+
 String KURL::query() const
 {
     if (m_url.m_parsed.query.len >= 0)
@@ -685,6 +693,11 @@ String KURL::prettyURL() const
     return m_url.string();
 }
 
+bool protocolIsJavaScript(const String& url)
+{
+    return protocolIs(url, "javascript");
+}
+
 // We copied the KURL version here on Sept 12, 2008 while doing a WebKit
 // merge.
 // 
@@ -800,6 +813,11 @@ String decodeURLEscapeSequences(const String& str, const TextEncoding& encoding)
 bool KURL::protocolIs(const char* protocol) const
 {
     assertProtocolIsGood(protocol);
+
+    // JavaScript URLs are "valid" and should be executed even if KURL decides they are invalid.
+    // The free function protocolIsJavaScript() should be used instead.
+    // FIXME: Chromium code needs to be fixed for this assert to be enabled. ASSERT(strcmp(protocol, "javascript"));
+
     if (m_url.m_parsed.scheme.len <= 0)
         return !protocol;
     return lowerCaseEqualsASCII(

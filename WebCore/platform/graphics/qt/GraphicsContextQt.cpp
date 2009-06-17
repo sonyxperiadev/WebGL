@@ -99,7 +99,7 @@ static inline QPainter::CompositionMode toQtCompositionMode(CompositeOperator op
         case CompositeHighlight:
             return QPainter::CompositionMode_SourceOver;
         case CompositePlusLighter:
-            return QPainter::CompositionMode_SourceOver;
+            return QPainter::CompositionMode_Plus;
     }
 
     return QPainter::CompositionMode_SourceOver;
@@ -151,6 +151,18 @@ static Qt::PenStyle toQPenStyle(StrokeStyle style)
     }
     qWarning("couldn't recognize the pen style");
     return Qt::NoPen;
+}
+
+static inline Qt::FillRule toQtFillRule(WindRule rule)
+{
+    switch(rule) {
+    case RULE_EVENODD:
+        return Qt::OddEvenFill;
+    case RULE_NONZERO:
+        return Qt::WindingFill;
+    }
+    qDebug("Qt: unrecognized wind rule!");
+    return Qt::OddEvenFill;
 }
 
 struct TransparencyLayer
@@ -563,7 +575,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
 
     QPainter *p = m_data->p();
     const bool antiAlias = p->testRenderHint(QPainter::Antialiasing);
-    p->setRenderHint(QPainter::Antialiasing, m_data->antiAliasingForRectsAndLines);
+    p->setRenderHint(QPainter::Antialiasing, true);
 
     p->drawArc(rect, startAngle * 16, angleSpan * 16);
 
@@ -606,6 +618,7 @@ void GraphicsContext::fillPath()
 
     QPainter *p = m_data->p();
     QPainterPath path = m_data->currentPath;
+    path.setFillRule(toQtFillRule(fillRule()));
 
     switch (m_common->state.fillColorSpace) {
     case SolidColorSpace:
@@ -634,6 +647,7 @@ void GraphicsContext::strokePath()
     QPainter *p = m_data->p();
     QPen pen = p->pen();
     QPainterPath path = m_data->currentPath;
+    path.setFillRule(toQtFillRule(fillRule()));
 
     switch (m_common->state.strokeColorSpace) {
     case SolidColorSpace:
@@ -1097,7 +1111,13 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect,
                            rect.width() - (thickness * 2), rect.height() - (thickness * 2)));
 
     path.setFillRule(Qt::OddEvenFill);
-    m_data->p()->setClipPath(path, Qt::IntersectClip);
+
+    QPainter *p = m_data->p();
+
+    const bool antiAlias = p->testRenderHint(QPainter::Antialiasing);
+    p->setRenderHint(QPainter::Antialiasing, true);
+    p->setClipPath(path, Qt::IntersectClip);
+    p->setRenderHint(QPainter::Antialiasing, antiAlias);
 }
 
 void GraphicsContext::concatCTM(const TransformationMatrix& transform)

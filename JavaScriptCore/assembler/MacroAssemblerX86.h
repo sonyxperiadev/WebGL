@@ -36,10 +36,17 @@ namespace JSC {
 
 class MacroAssemblerX86 : public MacroAssemblerX86Common {
 public:
+    MacroAssemblerX86()
+        : m_isSSE2Present(isSSE2Present())
+    {
+    }
+
     static const Scale ScalePtr = TimesFour;
 
     using MacroAssemblerX86Common::add32;
+    using MacroAssemblerX86Common::and32;
     using MacroAssemblerX86Common::sub32;
+    using MacroAssemblerX86Common::or32;
     using MacroAssemblerX86Common::load32;
     using MacroAssemblerX86Common::store32;
     using MacroAssemblerX86Common::branch32;
@@ -55,6 +62,21 @@ public:
         m_assembler.addl_im(imm.m_value, address.m_ptr);
     }
     
+    void addWithCarry32(Imm32 imm, AbsoluteAddress address)
+    {
+        m_assembler.adcl_im(imm.m_value, address.m_ptr);
+    }
+    
+    void and32(Imm32 imm, AbsoluteAddress address)
+    {
+        m_assembler.andl_im(imm.m_value, address.m_ptr);
+    }
+    
+    void or32(Imm32 imm, AbsoluteAddress address)
+    {
+        m_assembler.orl_im(imm.m_value, address.m_ptr);
+    }
+
     void sub32(Imm32 imm, AbsoluteAddress address)
     {
         m_assembler.subl_im(imm.m_value, address.m_ptr);
@@ -70,16 +92,21 @@ public:
         m_assembler.movl_i32m(imm.m_value, address);
     }
 
+    void store32(RegisterID src, void* address)
+    {
+        m_assembler.movl_rm(src, address);
+    }
+
     Jump branch32(Condition cond, AbsoluteAddress left, RegisterID right)
     {
         m_assembler.cmpl_rm(right, left.m_ptr);
-        return Jump(m_assembler.jCC(cond));
+        return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
     Jump branch32(Condition cond, AbsoluteAddress left, Imm32 right)
     {
         m_assembler.cmpl_im(right.m_value, left.m_ptr);
-        return Jump(m_assembler.jCC(cond));
+        return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
     Call call()
@@ -98,25 +125,45 @@ public:
     }
 
 
+    DataLabelPtr moveWithPatch(ImmPtr initialValue, RegisterID dest)
+    {
+        m_assembler.movl_i32r(initialValue.asIntptr(), dest);
+        return DataLabelPtr(this);
+    }
+
     Jump branchPtrWithPatch(Condition cond, RegisterID left, DataLabelPtr& dataLabel, ImmPtr initialRightValue = ImmPtr(0))
     {
         m_assembler.cmpl_ir_force32(initialRightValue.asIntptr(), left);
         dataLabel = DataLabelPtr(this);
-        return Jump(m_assembler.jCC(cond));
+        return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
     Jump branchPtrWithPatch(Condition cond, Address left, DataLabelPtr& dataLabel, ImmPtr initialRightValue = ImmPtr(0))
     {
         m_assembler.cmpl_im_force32(initialRightValue.asIntptr(), left.offset, left.base);
         dataLabel = DataLabelPtr(this);
-        return Jump(m_assembler.jCC(cond));
+        return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
-    DataLabelPtr storePtrWithPatch(Address address)
+    DataLabelPtr storePtrWithPatch(ImmPtr initialValue, ImplicitAddress address)
     {
-        m_assembler.movl_i32m(0, address.offset, address.base);
+        m_assembler.movl_i32m(initialValue.asIntptr(), address.offset, address.base);
         return DataLabelPtr(this);
     }
+
+    Label loadPtrWithPatchToLEA(Address address, RegisterID dest)
+    {
+        Label label(this);
+        load32(address, dest);
+        return label;
+    }
+
+    bool supportsFloatingPoint() const { return m_isSSE2Present; }
+    // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
+    bool supportsFloatingPointTruncate() const { return m_isSSE2Present; }
+
+private:
+    const bool m_isSSE2Present;
 };
 
 } // namespace JSC

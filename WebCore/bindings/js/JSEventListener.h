@@ -21,70 +21,39 @@
 #define JSEventListener_h
 
 #include "EventListener.h"
+#include "JSDOMWindow.h"
 #include <runtime/Protect.h>
 
 namespace WebCore {
 
     class JSDOMGlobalObject;
 
-    class JSAbstractEventListener : public EventListener {
+    class JSEventListener : public EventListener {
     public:
-        bool isInline() const { return m_isInline; }
-
-    protected:
-        JSAbstractEventListener(bool isInline)
-            : m_isInline(isInline)
+        static PassRefPtr<JSEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isAttribute)
         {
-        }
-
-    private:
-        virtual void handleEvent(Event*, bool isWindowEvent);
-        virtual JSDOMGlobalObject* globalObject() const = 0;
-        virtual bool virtualIsInline() const;
-
-        bool m_isInline;
-    };
-
-    class JSEventListener : public JSAbstractEventListener {
-    public:
-        static PassRefPtr<JSEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
-        {
-            return adoptRef(new JSEventListener(listener, globalObject, isInline));
+            return adoptRef(new JSEventListener(listener, globalObject, isAttribute));
         }
         virtual ~JSEventListener();
+        void clearGlobalObject() { m_globalObject = 0; }
 
-        void clearGlobalObject();
+        // Returns true if this event listener was created for an event handler attribute, like "onload" or "onclick".
+        bool isAttribute() const { return m_isAttribute; }
+
+        virtual JSC::JSObject* jsFunction() const;
 
     private:
-        JSEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
-
-        virtual JSC::JSObject* function() const;
-        virtual void mark();
-        virtual JSDOMGlobalObject* globalObject() const;
-
-        JSC::JSObject* m_listener;
-        JSDOMGlobalObject* m_globalObject;
-    };
-
-    class JSProtectedEventListener : public JSAbstractEventListener {
-    public:
-        static PassRefPtr<JSProtectedEventListener> create(JSC::JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
-        {
-            return adoptRef(new JSProtectedEventListener(listener, globalObject, isInline));
-        }
-        virtual ~JSProtectedEventListener();
-
-        void clearGlobalObject();
+        virtual void markJSFunction();
+        virtual void handleEvent(Event*, bool isWindowEvent);
+        virtual bool virtualisAttribute() const;
+        void clearJSFunctionInline();
 
     protected:
-        JSProtectedEventListener(JSC::JSObject* listener, JSDOMGlobalObject*, bool isInline);
+        JSEventListener(JSC::JSObject* function, JSDOMGlobalObject*, bool isAttribute);
 
-        mutable JSC::ProtectedPtr<JSC::JSObject> m_listener;
-        JSC::ProtectedPtr<JSDOMGlobalObject> m_globalObject;
-
-    private:
-        virtual JSC::JSObject* function() const;
-        virtual JSDOMGlobalObject* globalObject() const;
+        mutable JSC::JSObject* m_jsFunction;
+        JSDOMGlobalObject* m_globalObject;
+        bool m_isAttribute;
     };
 
 } // namespace WebCore

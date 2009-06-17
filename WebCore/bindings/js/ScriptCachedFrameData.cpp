@@ -50,6 +50,7 @@ ScriptCachedFrameData::ScriptCachedFrameData(Frame* frame)
     ScriptController* scriptController = frame->script();
     if (scriptController->haveWindowShell()) {
         m_window = scriptController->windowShell()->window();
+        scriptController->attachDebugger(0);
     }
 }
 

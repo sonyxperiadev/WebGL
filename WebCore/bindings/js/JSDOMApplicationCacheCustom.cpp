@@ -60,18 +60,18 @@ void JSDOMApplicationCache::mark()
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
         for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->mark();
+            (*vecIter)->markJSFunction();
     }
 }
 
-#if ENABLE(APPLICATION_CAHE_DYNAMIC_ENTRIES)
+#if ENABLE(APPLICATION_CACHE_DYNAMIC_ENTRIES)
 
-JSValuePtr JSDOMApplicationCache::hasItem(ExecState* exec, const ArgList& args)
+JSValue JSDOMApplicationCache::hasItem(ExecState* exec, const ArgList& args)
 {
     Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
+    const KURL& url = frame->loader()->completeURL(args.at(0).toString(exec));
 
     ExceptionCode ec = 0;
     bool result = impl()->hasItem(url, ec);
@@ -79,12 +79,12 @@ JSValuePtr JSDOMApplicationCache::hasItem(ExecState* exec, const ArgList& args)
     return jsBoolean(result);
 }
 
-JSValuePtr JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
+JSValue JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
 {
     Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
+    const KURL& url = frame->loader()->completeURL(args.at(0).toString(exec));
     
     ExceptionCode ec = 0;
     impl()->add(url, ec);
@@ -92,12 +92,12 @@ JSValuePtr JSDOMApplicationCache::add(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValuePtr JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
+JSValue JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
 {
     Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
-    const KURL& url = frame->loader()->completeURL(args.at(exec, 0).toString(exec));
+    const KURL& url = frame->loader()->completeURL(args.at(0).toString(exec));
     
     ExceptionCode ec = 0;
     impl()->remove(url, ec);
@@ -105,29 +105,29 @@ JSValuePtr JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-#endif
+#endif // ENABLE(APPLICATION_CACHE_DYNAMIC_ENTRIES)
 
-JSValuePtr JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList& args)
+JSValue JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
+    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValuePtr JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgList& args)
+JSValue JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(exec, args.at(exec, 1));
+    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
+    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
