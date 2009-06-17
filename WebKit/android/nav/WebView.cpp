@@ -680,7 +680,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     if (cachedNode) {
         m_viewImpl->gCursorBoundsMutex.lock();
-        m_viewImpl->m_hasCursorBounds = true;
+        m_viewImpl->m_hasCursorBounds = cachedNode->hasCursorRing();
         m_viewImpl->m_cursorBounds = cachedNode->bounds();
         m_viewImpl->m_cursorNode = cachedNode->nodePointer();
         m_viewImpl->gCursorBoundsMutex.unlock();

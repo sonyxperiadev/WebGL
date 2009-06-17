@@ -294,6 +294,7 @@ void WebViewCore::reset(bool fromConstructor)
     m_domtree_version = 0;
     m_check_domtree_version = true;
     m_progressDone = false;
+    m_hasCursorBounds = false;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -489,15 +490,15 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     bool update = m_lastFocused != oldFocusNode
         || m_lastFocusedBounds != oldBounds || m_findIsUp
         || (m_check_domtree_version && latestVersion != m_domtree_version);
+    if (!update) { // avoid mutex when possible
     // This block is specifically for the floating bar in gmail messages
     // it has been disabled because it adversely affects the performance
     // of loading all pages.
-    if (false && !update && m_hasCursorBounds) { // avoid mutex when possible
-        bool hasCursorBounds;
-        void* cursorNode;
+        if (true || !m_hasCursorBounds)
+            return;
         gCursorBoundsMutex.lock();
-        hasCursorBounds = m_hasCursorBounds;
-        cursorNode = m_cursorNode;
+        bool hasCursorBounds = m_hasCursorBounds;
+        void* cursorNode = m_cursorNode;
         IntRect bounds = m_cursorBounds;
         gCursorBoundsMutex.unlock();
         if (hasCursorBounds && cursorNode) {
@@ -505,10 +506,10 @@ void WebViewCore::recordPictureSet(PictureSet* content)
                  bounds.y() + (bounds.height() >> 1));
             HitTestResult hitTestResult = m_mainFrame->eventHandler()->
                 hitTestResultAtPoint(center, false);
-            if (m_cursorNode == hitTestResult.innerNode())
-                return; // don't update
             DBG_NAV_LOGD("at (%d,%d) old=%p new=%p", center.x(), center.y(),
-                m_cursorNode, hitTestResult.innerNode());
+                cursorNode, hitTestResult.innerNode());
+            if (cursorNode == hitTestResult.innerNode())
+                return; // don't update
         }
     }
     m_lastFocused = oldFocusNode;
