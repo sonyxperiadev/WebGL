@@ -28,17 +28,13 @@
 #include <config.h>
 #include <wtf/Platform.h>
 
-#if ENABLE(DATABASE)
-#include "DatabaseTracker.h"
-#endif
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "ApplicationCacheStorage.h"
-#endif
+#include "DatabaseTracker.h"
+#include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
-#include "DocLoader.h"
 #include "Page.h"
 #include "RenderTable.h"
 #include "Settings.h"
@@ -84,6 +80,13 @@ struct FieldIds {
         mPluginsEnabled = env->GetFieldID(clazz, "mPluginsEnabled", "Z");
 #if ENABLE(DATABASE)
         mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
+#endif
+#if ENABLE(DOM_STORAGE)
+        mDomStorageEnabled = env->GetFieldID(clazz, "mDomStorageEnabled", "Z");
+#endif
+#if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
+        // The databases saved to disk for both the SQL and DOM Storage APIs are stored
+        // in the same base directory.
         mDatabasePath = env->GetFieldID(clazz, "mDatabasePath", "Ljava/lang/String;");
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -173,6 +176,11 @@ struct FieldIds {
 
 #if ENABLE(DATABASE)
     jfieldID mDatabaseEnabled;
+#endif
+#if ENABLE(DOM_STORAGE)
+    jfieldID mDomStorageEnabled;
+#endif
+#if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
 #endif
 };
@@ -311,6 +319,17 @@ public:
         s->setDatabasesEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
         WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+#endif
+#if ENABLE(DOM_STORAGE)
+        flag = env->GetBooleanField(obj, gFieldIds->mDomStorageEnabled);
+        s->setLocalStorageEnabled(flag);
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
+        if (str) {
+            WebCore::String localStorageDatabasePath = to_string(env,str);
+            if (localStorageDatabasePath.length()) {
+                s->setLocalStorageDatabasePath(localStorageDatabasePath);
+            }
+        }
 #endif
     }
 };

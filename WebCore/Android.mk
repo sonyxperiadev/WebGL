@@ -26,7 +26,6 @@
 #	bindings/js/JSCustomVersionChangeCallback.cpp \
 #	bindings/js/JSHTMLAudioElementConstructor.cpp \
 #	bindings/js/JSInspectorControllerCustom.cpp \
-#	bindings/js/JSStorageCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
 #	bindings/js/Worker*.cpp \
@@ -189,7 +188,8 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSQuarantinedObjectWrapper.cpp \
 	bindings/js/JSRGBColor.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
-	bindings/js/JSSQLTransactionCustom.cpp
+	bindings/js/JSSQLTransactionCustom.cpp \
+	bindings/js/JSStorageCustom.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -661,6 +661,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/SearchPopupMenuAndroid.cpp \
 	platform/android/SharedTimerAndroid.cpp \
 	platform/android/SoundAndroid.cpp \
+	platform/android/SSLKeyGeneratorAndroid.cpp \
 	platform/android/SystemTimeAndroid.cpp \
 	platform/android/TemporaryLinkStubs.cpp \
 	platform/android/WidgetAndroid.cpp \
@@ -955,12 +956,22 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
+	storage/LocalStorage.cpp \
+	storage/LocalStorageArea.cpp \
+	storage/LocalStorageTask.cpp \
+	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
+	storage/SessionStorage.cpp \
+	storage/SessionStorageArea.cpp \
 	storage/OriginUsageRecord.cpp \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
+	storage/Storage.cpp \
+	storage/StorageArea.cpp \
+	storage/StorageEvent.cpp \
+	storage/StorageMap.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

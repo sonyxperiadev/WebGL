@@ -62,7 +62,7 @@ struct PluginWidgetAndroid {
     /*  Called whenever the plugin itself requests a new drawing model
      */
     void setDrawingModel(ANPDrawingModel);
-    
+
     /*  Utility method to convert from local (plugin) coordinates to docuemnt
         coordinates. Needed (for instance) to convert the dirty rectangle into
         document coordinates to inturn inval the screen.
@@ -78,22 +78,33 @@ struct PluginWidgetAndroid {
         a subsequent call to draw(NULL).
      */
     void inval(const WebCore::IntRect&, bool signalRedraw);
-    
+
     /*  Called to draw into the plugin's bitmap. If canvas is non-null, the
         bitmap itself is then drawn into the canvas.
      */
     void draw(SkCanvas* canvas = NULL);
-    
+
     /*  Send this event to the plugin instance, and return true if the plugin
         handled it.
      */
     bool sendEvent(const ANPEvent&);
+
+    /*  Update the plugins event flags. If a flag is set to true then the plugin
+        wants to be notified of events of this type.
+     */
+    void updateEventFlags(ANPEventFlags);
+
+    /*  Called to check if a plugin wants to accept a given event type. It
+        returns true if the plugin wants the events and false otherwise.
+     */
+    bool isAcceptingEvent(ANPEventFlag);
 
 private:
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
     SkFlipPixelRef*         m_flipPixelRef;
     ANPDrawingModel         m_drawingModel;
+    ANPEventFlags           m_eventFlags;
     int                     m_x;
     int                     m_y;
 };

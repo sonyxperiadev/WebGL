@@ -428,17 +428,6 @@ String searchMenuClearRecentSearchesText()
     return String();
 }
 
-Vector<String> supportedKeySizes()
-{
-    notImplemented();
-    return Vector<String>();
-}
-
-String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::KURL const&)
-{
-    return String();
-}
-
 } // namespace WebCore
 
 namespace WebCore {
@@ -489,11 +478,6 @@ char* dirname(const char*)
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
 void prefetchDNS(const String&)
-{
-    notImplemented();
-}
-
-void getSupportedKeySizes(Vector<String>&)
 {
     notImplemented();
 }

@@ -45,6 +45,11 @@ namespace android {
         return gPluginClient;
     }
 
+    KeyGeneratorClient* JavaSharedClient::GetKeyGeneratorClient()
+    {
+        return gKeyGeneratorClient;
+    }
+
     void JavaSharedClient::SetTimerClient(TimerClient* client)
     {
         gTimerClient = client;
@@ -60,9 +65,15 @@ namespace android {
         gPluginClient = client;
     }
 
+    void JavaSharedClient::SetKeyGeneratorClient(KeyGeneratorClient* client)
+    {
+        gKeyGeneratorClient = client;
+    }
+
     TimerClient*    JavaSharedClient::gTimerClient = NULL;
     CookieClient*   JavaSharedClient::gCookieClient = NULL;
     PluginClient*   JavaSharedClient::gPluginClient = NULL;
+    KeyGeneratorClient* JavaSharedClient::gKeyGeneratorClient = NULL;
 
     ///////////////////////////////////////////////////////////////////////////
     

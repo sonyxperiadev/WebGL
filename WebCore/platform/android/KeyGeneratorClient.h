@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,39 +23,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JAVA_SHARED_CLIENT_H
-#define JAVA_SHARED_CLIENT_H
+#ifndef KEY_GENERATOR_CLIENT_H
+#define KEY_GENERATOR_CLIENT_H
+
+#include <wtf/Vector.h>
+#include "KURL.h"
+#include "PlatformString.h"
+
+using namespace WebCore;
 
 namespace android {
 
-    class TimerClient;
-    class CookieClient;
-    class PluginClient;
-    class KeyGeneratorClient;
-
-    class JavaSharedClient
-    {
+    class KeyGeneratorClient {
     public:
-        static TimerClient* GetTimerClient(); 
-        static CookieClient* GetCookieClient();
-        static PluginClient* GetPluginClient();
-        static KeyGeneratorClient* GetKeyGeneratorClient();
-
-        static void SetTimerClient(TimerClient* client);
-        static void SetCookieClient(CookieClient* client);
-        static void SetPluginClient(PluginClient* client);
-        static void SetKeyGeneratorClient(KeyGeneratorClient* client);
-
-        // can be called from any thread, to be executed in webkit thread
-        static void EnqueueFunctionPtr(void (*proc)(void*), void* payload);
-        // only call this from webkit thread
-        static void ServiceFunctionPtrQueue();
-
-    private:
-        static TimerClient* gTimerClient;
-        static CookieClient* gCookieClient;
-        static PluginClient* gPluginClient;
-        static KeyGeneratorClient* gKeyGeneratorClient;
+        virtual ~KeyGeneratorClient() {}
+        virtual WTF::Vector<String> getSupportedKeyStrengthList() = 0;
+        virtual String getSignedPublicKeyAndChallengeString(unsigned index,
+                const String& challenge, const KURL& url) = 0;
     };
+
 }
 #endif
+

@@ -126,9 +126,9 @@ typedef uint32_t ANPMatrixFlag;
 #define kSupportedDrawingModel_ANPGetValue  ((NPNVariable)2000)
 
 ///////////////////////////////////////////////////////////////////////////////
-// NPN_GetValue
+// NPN_SetValue
 
-/** Reqeust to set the drawing model.
+/** Request to set the drawing model.
 
     NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_DrawingModel)
  */
@@ -146,6 +146,24 @@ enum ANPDrawingModels {
     kBitmap_ANPDrawingModel = 0,
 };
 typedef int32_t ANPDrawingModel;
+
+/** Request to receive/disable events. If the pointer is NULL then all input will
+    be disabled. Otherwise, the input type will be enabled iff its corresponding
+    bit in the EventFlags bit field is set.
+
+    NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
+ */
+#define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
+
+/*  The EventFlags are a set of bits used to determine which types of input the
+    plugin wishes to receive. For example, if the value is 0x03 then both key
+    and touch events will be provided to the plugin.
+ */
+enum ANPEventFlag {
+    kKey_ANPEventFlag      = 0x01,
+    kTouch_ANPEventFlag    = 0x02,
+};
+typedef uint32_t ANPEventFlags;
 
 /*  Interfaces provide additional functionality to the plugin via function ptrs.
     Once an interface is retrived, it is valid for the lifetime of the plugin
@@ -347,6 +365,8 @@ enum ANPTypefaceStyles {
 };
 typedef uint32_t ANPTypefaceStyle;
 
+typedef uint32_t ANPFontTableTag;
+
 struct ANPFontMetrics {
     //! The greatest distance above the baseline for any glyph (will be <= 0)
     float   fTop;
@@ -403,6 +423,43 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
     /** Return the style bits for the specified typeface
      */
     ANPTypefaceStyle (*getStyle)(const ANPTypeface*);
+
+    /** Return the number of tables in the font
+     */
+    uint32_t (*countTables)(const ANPTypeface*);
+
+    /** Copy into tags[] (allocated by the caller) the list of table tags in
+        the font, and return the number. This will be the same as CountTables()
+        or 0 if an error occured.
+     */
+    uint32_t (*getTableTags)(const ANPTypeface*, ANPFontTableTag tags[]);
+
+    /** Given a table tag, return the size of its contents, or 0 if not present
+     */
+    uint32_t (*getTableSize)(const ANPTypeface*, ANPFontTableTag);
+
+    /** Copy the contents of a table into data (allocated by the caller). Note
+        that the contents of the table will be in their native endian order
+        (which for most truetype tables is big endian). If the table tag is
+        not found, or there is an error copying the data, then 0 is returned.
+        If this happens, it is possible that some or all of the memory pointed
+        to by data may have been written to, even though an error has occured.
+
+        @param fontID the font to copy the table from
+        @param tag  The table tag whose contents are to be copied
+        @param offset The offset in bytes into the table's contents where the
+                copy should start from.
+        @param length The number of bytes, starting at offset, of table data
+                to copy.
+        @param data storage address where the table contents are copied to
+        @return the number of bytes actually copied into data. If offset+length
+                exceeds the table's size, then only the bytes up to the table's
+                size are actually copied, and this is the value returned. If
+                offset > the table's size, or tag is not a valid table,
+                then 0 is returned.
+     */
+    uint32_t (*getTableData)(const ANPTypeface*, ANPFontTableTag,
+                             uint32_t offset, uint32_t length, void* data);
 };
 
 struct ANPPaintInterfaceV0 : ANPInterface {
@@ -660,8 +717,10 @@ enum ANPKeyModifiers {
 typedef uint32_t ANPKeyModifier;
 
 enum ANPTouchActions {
-    kDown_ANPTouchAction  = 0,
-    kUp_ANPTouchAction    = 1,
+    kDown_ANPTouchAction   = 0,
+    kUp_ANPTouchAction     = 1,
+    kMove_ANPTouchAction   = 2,
+    kCancel_ANPTouchAction = 3,
 };
 typedef int32_t ANPTouchAction;
 

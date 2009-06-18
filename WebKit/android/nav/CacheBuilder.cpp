@@ -1457,11 +1457,13 @@ static bool validZip(int stateIndex, const UChar* zipPtr)
 
 #define MAX_PLACE_NAME_LENGTH 25 // the longest allowable one word place name
 
-CacheBuilder::FoundState CacheBuilder::FindAddress(const UChar* chars, unsigned length, int* start, int* end)
+CacheBuilder::FoundState CacheBuilder::FindAddress(const UChar* chars,
+    unsigned length, int* start, int* end, bool caseInsensitive)
 {
     FindState addressState;
     FindReset(&addressState);
     addressState.mWords[0] = addressState.mStarts[0] = chars;
+    addressState.mCaseInsensitive = caseInsensitive;
     FoundState state = FindPartialAddress(chars, chars, length, &addressState);
     if (state == FOUND_PARTIAL && addressState.mProgress == ZIP_CODE &&
             addressState.mNumberCount == 0) {
@@ -1682,6 +1684,8 @@ CacheBuilder::FoundState CacheBuilder::FindPartialAddress(const UChar* baseChars
                 } else if (s->mLetterCount >= MAX_PLACE_NAME_LENGTH) {
                     break;
                 } else if (s->mFirstLower != NULL) {
+                    if (s->mCaseInsensitive)
+                        goto resetWord;
                     size_t length = chars - s->mFirstLower;
                     if (length > 3)
                         break;
@@ -2884,7 +2888,7 @@ bool CacheBuilder::ConstructTextRects(Text* node, int start,
                 if ((int) textBox->end() >= start)
                     break;
             } while ((textBox = textBox->nextTextBox()) != NULL);
-            if (ConstructTextRect(node, textBox, start, relEnd, 
+            if (textBox && ConstructTextRect(node, textBox, start, relEnd,
                     x, y, focusBounds, clipBounds, result) == false)
                 return false;
         }

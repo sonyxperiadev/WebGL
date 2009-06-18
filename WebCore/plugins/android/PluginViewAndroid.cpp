@@ -50,6 +50,7 @@
 #include "PlatformKeyboardEvent.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
+#include "TouchEvent.h"
 #include "android_graphics.h"
 #include "SkCanvas.h"
 #include "npruntime_impl.h"
@@ -203,25 +204,45 @@ void PluginView::init()
     m_status = PluginStatusLoadedSuccessfully;
 }
 
+void PluginView::handleTouchEvent(TouchEvent* event)
+{
+    if (!m_window->isAcceptingEvent(kTouch_ANPEventFlag))
+        return;
+
+    ANPEvent evt;
+    SkANP::InitEvent(&evt, kTouch_ANPEventType);
+
+    const AtomicString& type = event->type();
+    if (eventNames().touchstartEvent == type)
+        evt.data.touch.action = kDown_ANPTouchAction;
+    else if (eventNames().touchendEvent == type)
+        evt.data.touch.action = kUp_ANPTouchAction;
+    else if (eventNames().touchmoveEvent == type)
+        evt.data.touch.action = kMove_ANPTouchAction;
+    else if (eventNames().touchcancelEvent == type)
+        evt.data.touch.action = kCancel_ANPTouchAction;
+    else
+        return;
+
+    evt.data.touch.modifiers = 0;   // todo
+    // these are relative to plugin
+    evt.data.touch.x = event->pageX() - m_npWindow.x;
+    evt.data.touch.y = event->pageY() - m_npWindow.y;
+
+    if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
+        event->setDefaultHandled();
+    }
+}
+
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
     const AtomicString& type = event->type();
-    bool isDown = (eventNames().mousedownEvent == type);
-    bool isUp = (eventNames().mouseupEvent == type);
     bool isOver = (eventNames().mouseoverEvent == type);
     bool isOut = (eventNames().mouseoutEvent == type);
 
     ANPEvent    evt;
 
-    if (isDown || isUp) {
-        SkANP::InitEvent(&evt, kTouch_ANPEventType);
-        evt.data.touch.action = isDown ? kDown_ANPTouchAction : kUp_ANPTouchAction;
-        evt.data.touch.modifiers = 0;   // todo
-        // these are relative to plugin
-        evt.data.touch.x = event->pageX() - m_npWindow.x;
-        evt.data.touch.y = event->pageY() - m_npWindow.y;
-    }
-    else if (isOver || isOut) {
+    if (isOver || isOut) {
         SkANP::InitEvent(&evt, kLifecycle_ANPEventType);
         evt.data.lifecycle.action = isOver ? kGainFocus_ANPLifecycleAction : kLooseFocus_ANPLifecycleAction;
     }
@@ -247,6 +268,9 @@ static ANPKeyModifier make_modifiers(bool shift, bool alt) {
 
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
+    if (!m_window->isAcceptingEvent(kKey_ANPEventFlag))
+        return;
+
     const PlatformKeyboardEvent* pke = event->keyEvent();
     if (NULL == pke) {
         return;
@@ -487,6 +511,15 @@ NPError PluginView::platformSetValue(NPPVariable variable, void* value)
                 default:
                     break;
             }
+            break;
+        }
+        case kAcceptEvents_ANPSetValue : {
+            if(value) {
+                ANPEventFlags flags = *reinterpret_cast<ANPEventFlags*>(value);
+                m_window->updateEventFlags(flags);
+                error = NPERR_NO_ERROR;
+            }
+            break;
         }
         default:
             break;
