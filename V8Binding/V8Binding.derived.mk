@@ -33,15 +33,24 @@ WEBCORE_SRC_FILES := \
   bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScriptCallFrame.cpp \
 	bindings/v8/ScriptCallStack.cpp \
+	bindings/v8/ScriptController.cpp \
+	bindings/v8/ScriptEventListener.cpp \
+	bindings/v8/ScriptFunctionCall.cpp \
 	bindings/v8/ScriptInstance.cpp \
+	bindings/v8/ScriptObject.cpp \
+	bindings/v8/ScriptScope.cpp \
+	bindings/v8/ScriptState.cpp \
 	bindings/v8/ScriptValue.cpp \
 	bindings/v8/V8AbstractEventListener.cpp \
+	bindings/v8/V8Collection.cpp \
 	bindings/v8/V8DOMMap.cpp \
+	bindgins/v8/V8EventListener.cpp \
 	bindings/v8/V8LazyEventListener.cpp \
 	bindings/v8/V8NodeFilterCondition.cpp \
 	bindings/v8/V8ObjectEventListener.cpp \
+	bindings/v8/V8Utilities.cpp \
 	bindings/v8/V8WorkerContextEventListener.cpp \
-	bindings/v8/V8XMLHttpRequestUtilities.cpp \
+	bindings/v8/V8WorkerContextObjectEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \
 	\
@@ -109,7 +118,6 @@ LOCAL_SRC_FILES := \
 	v8/JSXPathNSResolver.cpp \
 	v8/NPV8Object.cpp \
 	v8/RGBColor.cpp \
-	v8/ScriptController.cpp \
 	v8/V8CanvasPixelArrayCustom.cpp \
 	v8/V8MessagePortCustom.cpp \
 	v8/V8NPObject.cpp \
@@ -244,6 +252,7 @@ GEN := \
     $(intermediates)/html/V8HTMLAnchorElement.h \
     $(intermediates)/html/V8HTMLAppletElement.h \
     $(intermediates)/html/V8HTMLAreaElement.h \
+    $(intermediates)/html/V8HTMLAudioElement.h \
     $(intermediates)/html/V8HTMLBRElement.h \
     $(intermediates)/html/V8HTMLBaseElement.h \
     $(intermediates)/html/V8HTMLBaseFontElement.h \
@@ -277,6 +286,7 @@ GEN := \
     $(intermediates)/html/V8HTMLLinkElement.h \
     $(intermediates)/html/V8HTMLMapElement.h \
     $(intermediates)/html/V8HTMLMarqueeElement.h \
+    $(intermediates)/html/V8HTMLMediaElement.h \
     $(intermediates)/html/V8HTMLMenuElement.h \
     $(intermediates)/html/V8HTMLMetaElement.h \
     $(intermediates)/html/V8HTMLModElement.h \

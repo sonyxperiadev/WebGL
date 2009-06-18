@@ -22,6 +22,7 @@
 # LOCAL_SRC_FILES_EXCLUDED := \
 #	DerivedSources.cpp \
 #	WebCorePrefix.cpp \
+#	accessibility/*.cpp \
 #	bridge/test*.cpp \
 #	css/CSSGrammar.y \
 #	dom/Worker*.cpp \
@@ -30,6 +31,7 @@
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
+#	html/HTMLElementsAllInOne.cpp \
 #	html/HTMLAudioElement.cpp \
 #	html/HTMLMediaElement.cpp \
 #	html/HTMLSourceElement.cpp \
@@ -178,6 +180,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CDATASection.cpp \
 	dom/CSSMappedAttributeDeclaration.cpp \
 	dom/CharacterData.cpp \
+	dom/CheckedRadioButtons.cpp \
 	dom/ChildNodeList.cpp \
 	dom/ClassNames.cpp \
 	dom/ClassNodeList.cpp \
@@ -202,8 +205,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/EventTarget.cpp \
 	dom/ExceptionBase.cpp \
 	dom/ExceptionCode.cpp \
-	dom/FormControlElement.cpp \
-	dom/FormControlElementWithState.cpp \
 	dom/InputElement.cpp \
 	dom/KeyboardEvent.cpp \
 	dom/MappedAttribute.cpp \
@@ -233,6 +234,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/RegisteredEventListener.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
+	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
 	dom/StaticStringList.cpp \
@@ -253,6 +255,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WheelEvent.cpp \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
+	dom/XMLTokenizerScope.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
@@ -283,6 +286,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/RemoveFormatCommand.cpp \
 	editing/RemoveNodeCommand.cpp \
 	editing/RemoveNodePreservingChildrenCommand.cpp \
+	editing/ReplaceNodeWithSpanCommand.cpp \
 	editing/ReplaceSelectionCommand.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
@@ -312,6 +316,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/CanvasPixelArray.cpp \
 	html/CanvasRenderingContext2D.cpp \
 	html/CanvasStyle.cpp \
+	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
 	html/HTMLAnchorElement.cpp \
@@ -360,6 +365,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLMetaElement.cpp \
 	html/HTMLModElement.cpp \
 	html/HTMLNameCollection.cpp \
+	html/HTMLNoScriptElement.cpp \
 	html/HTMLOListElement.cpp \
 	html/HTMLObjectElement.cpp \
 	html/HTMLOptGroupElement.cpp \
@@ -460,6 +466,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/NavigatorBase.cpp \
 	page/Page.cpp \
 	page/PageGroup.cpp \
+	page/PageGroupLoadDeferrer.cpp \
 	page/PrintContext.cpp \
 	page/Screen.cpp \
 	page/SecurityOrigin.cpp \
@@ -679,7 +686,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/InlineFlowBox.cpp \
 	rendering/InlineTextBox.cpp \
 	rendering/LayoutState.cpp \
-	rendering/ListMarkerBox.cpp \
 	rendering/MediaControlElements.cpp \
 	rendering/PointerEventsHitRules.cpp \
 	rendering/RenderApplet.cpp \

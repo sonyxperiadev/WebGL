@@ -116,6 +116,7 @@ LOCAL_C_INCLUDES := \
 	frameworks/base/core/jni/android/graphics \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/WebCore \
+	$(LOCAL_PATH)/WebCore/accessibility \
 	$(LOCAL_PATH)/WebCore/css \
 	$(LOCAL_PATH)/WebCore/dom \
 	$(LOCAL_PATH)/WebCore/editing \
