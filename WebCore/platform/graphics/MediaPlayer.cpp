@@ -46,6 +46,8 @@
 #include "MediaPlayerPrivatePhonon.h"
 #elif PLATFORM(CHROMIUM)
 #include "MediaPlayerPrivateChromium.h"
+#elif PLATFORM(ANDROID)
+#include "MediaPlayerPrivateAndroid.h"
 #endif
 
 namespace WebCore {

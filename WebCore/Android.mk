@@ -24,7 +24,6 @@
 #	WebCorePrefix.cpp \
 # accessibility/*.cpp \
 #	bindings/js/JSCustomVersionChangeCallback.cpp \
-#	bindings/js/JSHTMLAudioElementConstructor.cpp \
 #	bindings/js/JSInspectorControllerCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
@@ -41,11 +40,7 @@
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
-# html/HTMLElementsAllInOne.cpp \
-#	html/HTMLAudioElement.cpp \
-#	html/HTMLMediaElement.cpp \
-#	html/HTMLSourceElement.cpp \
-#	html/HTMLVideoElement.cpp \
+#   html/HTMLElementsAllInOne.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
@@ -62,7 +57,6 @@
 #	rendering/RenderThemeChromium*.cpp \
 #	rendering/RenderThemeSafari.cpp \
 #	rendering/RenderThemeWin.cpp \
-#	rendering/RenderVideo.cpp \
 #	svg/SVGAllInOne.cpp \
 #	xml/Access*.cpp \
 #	xml/NativeXPathNSResolver.cpp \
@@ -460,6 +454,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLAnchorElement.cpp \
 	html/HTMLAppletElement.cpp \
 	html/HTMLAreaElement.cpp \
+	html/HTMLAudioElement.cpp \
 	html/HTMLBRElement.cpp \
 	html/HTMLBaseElement.cpp \
 	html/HTMLBaseFontElement.cpp \
@@ -499,6 +494,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLLinkElement.cpp \
 	html/HTMLMapElement.cpp \
 	html/HTMLMarqueeElement.cpp \
+	html/HTMLMediaElement.cpp \
 	html/HTMLMenuElement.cpp \
 	html/HTMLMetaElement.cpp \
 	html/HTMLModElement.cpp \
@@ -519,6 +515,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLQuoteElement.cpp \
 	html/HTMLScriptElement.cpp \
 	html/HTMLSelectElement.cpp \
+	html/HTMLSourceElement.cpp \
 	html/HTMLStyleElement.cpp \
 	html/HTMLTableCaptionElement.cpp \
 	html/HTMLTableCellElement.cpp \
@@ -532,6 +529,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLTitleElement.cpp \
 	html/HTMLTokenizer.cpp \
 	html/HTMLUListElement.cpp \
+	html/HTMLVideoElement.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
@@ -716,6 +714,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ImageAndroid.cpp \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \
+	platform/graphics/android/MediaPlayerPrivateAndroid.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
@@ -863,6 +862,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
+	rendering/RenderVideo.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

@@ -120,7 +120,7 @@
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
-#define ENABLE_VIDEO 0
+#define ENABLE_VIDEO 1
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
