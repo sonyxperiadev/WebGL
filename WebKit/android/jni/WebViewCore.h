@@ -195,14 +195,12 @@ namespace android {
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
-        bool moveMouse(WebCore::Frame* frame, WebCore::Node* node,
-            int x, int y);
+        void moveMouse(WebCore::Frame* frame, int x, int y);
         void moveMouseIfLatest(int moveGeneration,
-            WebCore::Frame* frame, WebCore::Node* node, int x, int y,
-            bool ignoreNullFocus);
+            WebCore::Frame* frame, int x, int y);
 
         // set the scroll amount that webview.java is currently showing
-        void setScrollOffset(int dx, int dy);
+        void setScrollOffset(int moveGeneration, int dx, int dy);
 
         void setGlobalBounds(int x, int y, int h, int v);
 
@@ -327,10 +325,11 @@ namespace android {
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache
         bool m_updatedFrameCache;
-        bool m_useReplay;
         bool m_findIsUp;
         bool m_hasCursorBounds;
         WebCore::IntRect m_cursorBounds;
+        void* m_cursorFrame;
+        IntPoint m_cursorLocation;
         void* m_cursorNode;
         static Mutex gCursorBoundsMutex;
         // These two fields go together: we use the mutex to protect access to
@@ -396,17 +395,11 @@ namespace android {
             this->drawPlugins();
         }
 
-        WebCore::Frame* changedKitFocus(WebCore::Frame* frame,
-            WebCore::Node* node, int x, int y);
         void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
-        void sendMarkNodeInvalid(WebCore::Node* );
         void sendNotifyProgressFinished();
-        void sendRecomputeFocus();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
-        bool prepareFrameCache();
-        void releaseFrameCache(bool newCache);
 #if DEBUG_NAV_UI
         uint32_t m_now;
 #endif

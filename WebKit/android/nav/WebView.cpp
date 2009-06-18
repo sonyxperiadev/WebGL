@@ -536,6 +536,50 @@ void cursorRingBounds(WebCore::IntRect* bounds)
     *bounds = WebCore::IntRect(0, 0, 0, 0);
 }
 
+void fixCursor()
+{
+    m_viewImpl->gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_viewImpl->m_hasCursorBounds;
+    IntRect bounds = m_viewImpl->m_cursorBounds;
+    m_viewImpl->gCursorBoundsMutex.unlock();
+    if (!hasCursorBounds)
+        return;
+    int x, y;
+    const CachedFrame* frame;
+    const CachedNode* node = m_frameCacheUI->findAt(bounds, &frame, &x, &y, false);
+    if (!node)
+        return;
+    // require that node have approximately the same bounds (+/- 4) and the same
+    // center (+/- 2)
+    IntPoint oldCenter = IntPoint(bounds.x() + (bounds.width() >> 1),
+        bounds.y() + (bounds.height() >> 1));
+    IntRect newBounds = node->bounds();
+    IntPoint newCenter = IntPoint(newBounds.x() + (newBounds.width() >> 1),
+        newBounds.y() + (newBounds.height() >> 1));
+    DBG_NAV_LOGD("oldCenter=(%d,%d) newCenter=(%d,%d)"
+        " bounds=(%d,%d,w=%d,h=%d) newBounds=(%d,%d,w=%d,h=%d)",
+        oldCenter.x(), oldCenter.y(), newCenter.x(), newCenter.y(),
+        bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+        newBounds.x(), newBounds.y(), newBounds.width(), newBounds.height());
+    if (abs(oldCenter.x() - newCenter.x()) > 2)
+        return;
+    if (abs(oldCenter.y() - newCenter.y()) > 2)
+        return;
+    if (abs(bounds.x() - newBounds.x()) > 4)
+        return;
+    if (abs(bounds.y() - newBounds.y()) > 4)
+        return;
+    if (abs(bounds.right() - newBounds.right()) > 4)
+        return;
+    if (abs(bounds.bottom() - newBounds.bottom()) > 4)
+        return;
+    DBG_NAV_LOGD("node=%p frame=%p x=%d y=%d bounds=(%d,%d,w=%d,h=%d)",
+        node, frame, x, y, bounds.x(), bounds.y(), bounds.width(),
+        bounds.height());
+    m_frameCacheUI->setCursor(const_cast<CachedFrame*>(frame),
+        const_cast<CachedNode*>(node));
+}
+
 CachedRoot* getFrameCache(FrameCachePermission allowNewer)
 {
     if (!m_viewImpl->m_updatedFrameCache) {
@@ -558,6 +602,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     m_viewImpl->m_frameCacheKit = 0;
     m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
+    fixCursor();
     if (hadCursor && (!m_frameCacheUI || !m_frameCacheUI->currentCursor()))
         viewInvalidate(); // redraw in case cursor ring is still visible
     return m_frameCacheUI;
@@ -682,6 +727,8 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         m_viewImpl->gCursorBoundsMutex.lock();
         m_viewImpl->m_hasCursorBounds = cachedNode->hasCursorRing();
         m_viewImpl->m_cursorBounds = cachedNode->bounds();
+        m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
+        root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
         m_viewImpl->m_cursorNode = cachedNode->nodePointer();
         m_viewImpl->gCursorBoundsMutex.unlock();
     }
@@ -1299,6 +1346,19 @@ static jint nativeCursorNodePointer(JNIEnv *env, jobject obj)
     return reinterpret_cast<int>(node ? node->nodePointer() : 0);
 }
 
+static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    WebCore::IntPoint pos = WebCore::IntPoint(0, 0);
+    if (root)
+        root->getSimulatedMousePosition(&pos);
+    jclass pointClass = env->FindClass("android/graphics/Point");
+    jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
+    jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
+    return point;
+}
+
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
 {
     int L, T, R, B;
@@ -1689,6 +1749,9 @@ static void nativeDestroy(JNIEnv *env, jobject obj)
 
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)
 {
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    if (!view)
+        return 0;
     return GET_NATIVE_VIEW(env, obj)->moveGeneration();
 }
 
@@ -1765,6 +1828,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCursorIsAnchor },
     { "nativeCursorIsTextInput", "()Z",
         (void*) nativeCursorIsTextInput },
+    { "nativeCursorPosition", "()Landroid/graphics/Point;",
+        (void*) nativeCursorPosition },
     { "nativeCursorText", "()Ljava/lang/String;",
         (void*) nativeCursorText },
     { "nativeCursorWantsKeyEvents", "()Z",
