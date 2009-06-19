@@ -105,15 +105,8 @@ private:
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle *);
     virtual bool appendFormData(FormDataList&, bool);
 
-#if PLATFORM(ANDROID)
-public:
     virtual int listToOptionIndex(int listIndex) const;
     virtual int optionToListIndex(int optionIndex) const;
-private:
-#else
-    virtual int listToOptionIndex(int listIndex) const;
-    virtual int optionToListIndex(int optionIndex) const;
-#endif
 
     virtual void reset();
 
