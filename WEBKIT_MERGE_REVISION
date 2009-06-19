@@ -1,1 +1,5 @@
-http://svn.webkit.org/repository/webkit/trunk@42026
+We sync with Chromium release revision, which has both webkit revision and V8 revision.
+
+http://src.chromium.org/svn/branches/187/src@18043
+  http://svn.webkit.org/repository/webkit/trunk@44544
+  http://v8.googlecode.com/svn/trunk@2121
