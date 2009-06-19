@@ -176,7 +176,11 @@ void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     Node* select = parentNode();
+#ifdef ANDROID_FIX
+    while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
+#else
     while (select && !select->hasTagName(selectTag))
+#endif
         select = select->parentNode();
 
     if (!select)
