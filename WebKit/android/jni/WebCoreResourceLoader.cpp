@@ -134,7 +134,7 @@ void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nat
 
 jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url, jint statusCode,
                                                     jstring statusText, jstring mimeType, jlong expectedLength,
-                                                    jstring encoding, jlong expireTime)
+                                                    jstring encoding, jstring expireTime)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
@@ -160,11 +160,11 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
         response->setHTTPStatusText(status);
         LOGV("Response setStatusText: %s", status.latin1().data());
     }
-    // FIXME klobag, WebCore::ResourceResponse changed the way of setting
-    // expiration date. Now it has to set the HTTP header as,
-    // 'expires':<date format string>.
-    // Temporarily disable the code.
-    // response->setHTTPHeaderField("expires", expireTime); 
+    if (expireTime) {
+        WebCore::String expire = to_string(env, expireTime);
+        response->setHTTPHeaderField("expires", expire);
+        LOGV("Response setHTTPHeaderField for expires: %s", expire.latin1().data());
+    }
     return (int)response;
 }
    
@@ -287,7 +287,7 @@ static JNINativeMethod gResourceloaderMethods[] = {
     /* name, signature, funcPtr */
     { "nativeSetResponseHeader", "(ILjava/lang/String;Ljava/lang/String;)V",
         (void*) WebCoreResourceLoader::SetResponseHeader },
-    { "nativeCreateResponse", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;JLjava/lang/String;J)I",
+    { "nativeCreateResponse", "(Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;JLjava/lang/String;Ljava/lang/String;)I",
         (void*) WebCoreResourceLoader::CreateResponse },
     { "nativeReceivedResponse", "(I)V",
         (void*) WebCoreResourceLoader::ReceivedResponse },
