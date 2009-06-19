@@ -52,9 +52,9 @@ ImplicitAnimation::ImplicitAnimation(const Animation* transition, int animatingP
 
 ImplicitAnimation::~ImplicitAnimation()
 {
-    // Do the cleanup here instead of in the base class so the specialized methods get called
+    // // Make sure to tell the renderer that we are ending. This will make sure any accelerated animations are removed.
     if (!postActive())
-        updateStateMachine(AnimationStateInputEndAnimation, -1);
+        endAnimation(true);
 }
 
 bool ImplicitAnimation::shouldSendEventForListener(Document::ListenerType inListenerType) const
@@ -167,11 +167,11 @@ bool ImplicitAnimation::sendTransitionEvent(const AtomicString& eventType, doubl
                 return false;
 
             // Schedule event handling
-            m_compAnim->animationControllerPriv()->addEventToDispatch(element, eventType, propertyName, elapsedTime);
+            m_compAnim->animationController()->addEventToDispatch(element, eventType, propertyName, elapsedTime);
 
             // Restore the original (unanimated) style
             if (eventType == eventNames().webkitTransitionEndEvent && element->renderer())
-                setChanged(element.get());
+                setNeedsStyleRecalc(element.get());
 
             return true; // Did dispatch an event
         }
@@ -216,6 +216,12 @@ bool ImplicitAnimation::isTargetPropertyEqual(int prop, const RenderStyle* targe
 
 void ImplicitAnimation::blendPropertyValueInStyle(int prop, RenderStyle* currentStyle)
 {
+    // We should never add a transition with a 0 duration and delay. But if we ever did
+    // it would have a null toStyle. So just in case, let's check that here. (See
+    // <https://bugs.webkit.org/show_bug.cgi?id=24787>
+    if (!m_toStyle)
+        return;
+        
     blendProperties(this, prop, currentStyle, m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
 }
 
@@ -255,9 +261,9 @@ void ImplicitAnimation::validateTransformFunctionList()
     m_transformFunctionListValid = true;
 }
 
-double ImplicitAnimation::willNeedService()
+double ImplicitAnimation::timeToNextService()
 {
-    double t = AnimationBase::willNeedService();
+    double t = AnimationBase::timeToNextService();
 #if USE(ACCELERATED_COMPOSITING)
     if (t != 0 || preActive())
         return t;

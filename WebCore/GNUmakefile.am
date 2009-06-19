@@ -10,6 +10,7 @@ WEBCORE_CSS_VALUE_KEYWORDS := $(WebCore)/css/CSSValueKeywords.in
 
 webcore_cppflags += \
 	-I$(srcdir)/WebCore \
+	-I$(srcdir)/WebCore/accessibility \
 	-I$(srcdir)/WebCore/bindings/js \
 	-I$(srcdir)/WebCore/bridge \
 	-I$(srcdir)/WebCore/bridge/c \
@@ -44,14 +45,19 @@ webcore_cppflags += \
 	-I$(srcdir)/WebCore/rendering/style \
 	-I$(srcdir)/WebCore/workers \
 	-I$(srcdir)/WebCore/xml \
-	-I$(top_builddir)/WebCore/bindings/js
+	-I$(top_builddir)/WebCore/bindings/js \
+	-DDATA_DIR=\"${datadir}\"
 
 webcoregtk_cppflags += \
+	-DWTF_USE_SOUP=1 \
+        -DENABLE_PLUGIN_PACKAGE_SIMPLE_HASH=1 \
+	-I$(srcdir)/WebCore/accessibility/gtk \
 	-I$(srcdir)/WebCore/loader/gtk \
 	-I$(srcdir)/WebCore/page/gtk \
 	-I$(srcdir)/WebCore/platform/graphics/cairo \
 	-I$(srcdir)/WebCore/platform/graphics/gtk \
-	-I$(srcdir)/WebCore/platform/gtk
+	-I$(srcdir)/WebCore/platform/gtk \
+	-I$(srcdir)/WebCore/platform/network/soup
 
 webcore_built_nosources += \
 	DerivedSources/DocTypeStrings.cpp \
@@ -152,6 +158,7 @@ IDL_BINDINGS += \
 	WebCore/html/HTMLAnchorElement.idl \
 	WebCore/html/HTMLAppletElement.idl \
 	WebCore/html/HTMLAreaElement.idl \
+	WebCore/html/HTMLAudioElement.idl \
 	WebCore/html/HTMLBRElement.idl \
 	WebCore/html/HTMLBaseElement.idl \
 	WebCore/html/HTMLBaseFontElement.idl \
@@ -185,6 +192,8 @@ IDL_BINDINGS += \
 	WebCore/html/HTMLLinkElement.idl \
 	WebCore/html/HTMLMapElement.idl \
 	WebCore/html/HTMLMarqueeElement.idl \
+	WebCore/html/HTMLMediaElement.idl \
+	WebCore/html/MediaError.idl \
 	WebCore/html/HTMLMenuElement.idl \
 	WebCore/html/HTMLMetaElement.idl \
 	WebCore/html/HTMLModElement.idl \
@@ -199,6 +208,7 @@ IDL_BINDINGS += \
 	WebCore/html/HTMLQuoteElement.idl \
 	WebCore/html/HTMLScriptElement.idl \
 	WebCore/html/HTMLSelectElement.idl \
+	WebCore/html/HTMLSourceElement.idl \
 	WebCore/html/HTMLStyleElement.idl \
 	WebCore/html/HTMLTableCaptionElement.idl \
 	WebCore/html/HTMLTableCellElement.idl \
@@ -209,8 +219,10 @@ IDL_BINDINGS += \
 	WebCore/html/HTMLTextAreaElement.idl \
 	WebCore/html/HTMLTitleElement.idl \
 	WebCore/html/HTMLUListElement.idl \
+	WebCore/html/HTMLVideoElement.idl \
 	WebCore/html/ImageData.idl \
 	WebCore/html/TextMetrics.idl \
+	WebCore/html/VoidCallback.idl \
 	WebCore/inspector/JavaScriptCallFrame.idl \
 	WebCore/inspector/InspectorController.idl \
 	WebCore/page/BarInfo.idl \
@@ -244,6 +256,36 @@ IDL_BINDINGS += \
 
 webcore_sources += \
 	WebCore/WebCorePrefix.h \
+        WebCore/accessibility/AXObjectCache.cpp \
+	WebCore/accessibility/AXObjectCache.h \
+	WebCore/accessibility/AccessibilityARIAGrid.cpp \
+	WebCore/accessibility/AccessibilityARIAGrid.h \
+	WebCore/accessibility/AccessibilityARIAGridCell.cpp \
+	WebCore/accessibility/AccessibilityARIAGridCell.h \
+	WebCore/accessibility/AccessibilityARIAGridRow.cpp \
+	WebCore/accessibility/AccessibilityARIAGridRow.h \
+	WebCore/accessibility/AccessibilityImageMapLink.cpp \
+	WebCore/accessibility/AccessibilityImageMapLink.h \
+	WebCore/accessibility/AccessibilityList.cpp \
+	WebCore/accessibility/AccessibilityList.h \
+	WebCore/accessibility/AccessibilityListBox.cpp \
+	WebCore/accessibility/AccessibilityListBox.h \
+	WebCore/accessibility/AccessibilityListBoxOption.cpp \
+	WebCore/accessibility/AccessibilityListBoxOption.h \
+	WebCore/accessibility/AccessibilityObject.cpp \
+	WebCore/accessibility/AccessibilityObject.h \
+	WebCore/accessibility/AccessibilityRenderObject.cpp \
+	WebCore/accessibility/AccessibilityRenderObject.h \
+	WebCore/accessibility/AccessibilityTable.cpp \
+	WebCore/accessibility/AccessibilityTable.h \
+	WebCore/accessibility/AccessibilityTableCell.cpp \
+	WebCore/accessibility/AccessibilityTableCell.h \
+	WebCore/accessibility/AccessibilityTableColumn.cpp \
+	WebCore/accessibility/AccessibilityTableColumn.h \
+	WebCore/accessibility/AccessibilityTableHeaderContainer.cpp \
+	WebCore/accessibility/AccessibilityTableHeaderContainer.h \
+	WebCore/accessibility/AccessibilityTableRow.cpp \
+	WebCore/accessibility/AccessibilityTableRow.h \
 	WebCore/bindings/js/CachedScriptSourceProvider.h \
 	WebCore/bindings/js/GCController.cpp \
 	WebCore/bindings/js/GCController.h \
@@ -256,6 +298,7 @@ webcore_sources += \
 	WebCore/bindings/js/JSCanvasRenderingContext2DCustom.cpp \
 	WebCore/bindings/js/JSClipboardCustom.cpp \
 	WebCore/bindings/js/JSConsoleCustom.cpp \
+	WebCore/bindings/js/JSCoordinatesCustom.cpp \
 	WebCore/bindings/js/JSCustomPositionCallback.cpp \
 	WebCore/bindings/js/JSCustomPositionCallback.h \
 	WebCore/bindings/js/JSCustomPositionErrorCallback.cpp \
@@ -283,7 +326,6 @@ webcore_sources += \
 	WebCore/bindings/js/JSEventListener.h \
 	WebCore/bindings/js/JSEventTarget.cpp \
 	WebCore/bindings/js/JSEventTarget.h \
-	WebCore/bindings/js/JSEventTargetBase.h \
 	WebCore/bindings/js/JSGeolocationCustom.cpp \
 	WebCore/bindings/js/JSHTMLAllCollection.cpp \
 	WebCore/bindings/js/JSHTMLAllCollection.h \
@@ -371,6 +413,8 @@ webcore_sources += \
 	WebCore/bindings/js/ScriptCallStack.h \
 	WebCore/bindings/js/ScriptController.cpp \
 	WebCore/bindings/js/ScriptController.h \
+	WebCore/bindings/js/ScriptEventListener.cpp \
+	WebCore/bindings/js/ScriptEventListener.h \
 	WebCore/bindings/js/ScriptFunctionCall.cpp \
 	WebCore/bindings/js/ScriptFunctionCall.h \
 	WebCore/bindings/js/ScriptInstance.h \
@@ -379,6 +423,7 @@ webcore_sources += \
 	WebCore/bindings/js/ScriptObjectQuarantine.cpp \
 	WebCore/bindings/js/ScriptObjectQuarantine.h \
 	WebCore/bindings/js/ScriptSourceCode.h \
+	WebCore/bindings/js/ScriptState.cpp \
 	WebCore/bindings/js/ScriptState.h \
 	WebCore/bindings/js/ScriptString.h \
 	WebCore/bindings/js/ScriptValue.cpp \
@@ -560,6 +605,8 @@ webcore_sources += \
 	WebCore/dom/CSSMappedAttributeDeclaration.h \
 	WebCore/dom/CharacterData.cpp \
 	WebCore/dom/CharacterData.h \
+	WebCore/dom/CheckedRadioButtons.cpp \
+	WebCore/dom/CheckedRadioButtons.h \
 	WebCore/dom/ChildNodeList.cpp \
 	WebCore/dom/ChildNodeList.h \
 	WebCore/dom/ClassNames.cpp \
@@ -616,10 +663,6 @@ webcore_sources += \
 	WebCore/dom/ExceptionBase.h \
 	WebCore/dom/ExceptionCode.cpp \
 	WebCore/dom/ExceptionCode.h \
-	WebCore/dom/FormControlElementWithState.cpp \
-	WebCore/dom/FormControlElementWithState.h \
-	WebCore/dom/FormControlElement.cpp \
-	WebCore/dom/FormControlElement.h \
 	WebCore/dom/InputElement.cpp \
 	WebCore/dom/InputElement.h \
 	WebCore/dom/KeyboardEvent.cpp \
@@ -633,6 +676,7 @@ webcore_sources += \
 	WebCore/dom/MessageEvent.h \
 	WebCore/dom/MessagePort.cpp \
 	WebCore/dom/MessagePort.h \
+	WebCore/dom/MessagePortProxy.h \
 	WebCore/dom/MouseEvent.cpp \
 	WebCore/dom/MouseEvent.h \
 	WebCore/dom/MouseRelatedEvent.cpp \
@@ -686,6 +730,8 @@ webcore_sources += \
 	WebCore/dom/ScriptElement.h \
 	WebCore/dom/ScriptExecutionContext.cpp \
 	WebCore/dom/ScriptExecutionContext.h \
+	WebCore/dom/SelectElement.cpp \
+	WebCore/dom/SelectElement.h \
 	WebCore/dom/SelectorNodeList.cpp \
 	WebCore/dom/SelectorNodeList.h \
 	WebCore/dom/StaticNodeList.cpp \
@@ -720,6 +766,8 @@ webcore_sources += \
 	WebCore/dom/XMLTokenizer.cpp \
 	WebCore/dom/XMLTokenizer.h \
 	WebCore/dom/XMLTokenizerLibxml2.cpp \
+	WebCore/dom/XMLTokenizerScope.cpp \
+	WebCore/dom/XMLTokenizerScope.h \
 	WebCore/editing/AppendNodeCommand.cpp \
 	WebCore/editing/AppendNodeCommand.h \
 	WebCore/editing/ApplyStyleCommand.cpp \
@@ -780,6 +828,8 @@ webcore_sources += \
 	WebCore/editing/RemoveNodeCommand.h \
 	WebCore/editing/RemoveNodePreservingChildrenCommand.cpp \
 	WebCore/editing/RemoveNodePreservingChildrenCommand.h \
+	WebCore/editing/ReplaceNodeWithSpanCommand.cpp \
+	WebCore/editing/ReplaceNodeWithSpanCommand.h \
 	WebCore/editing/ReplaceSelectionCommand.cpp \
 	WebCore/editing/ReplaceSelectionCommand.h \
 	WebCore/editing/SelectionController.cpp \
@@ -815,6 +865,7 @@ webcore_sources += \
 	WebCore/editing/markup.h \
 	WebCore/editing/visible_units.cpp \
 	WebCore/editing/visible_units.h \
+	WebCore/editing/gtk/SelectionControllerGtk.cpp \
 	WebCore/history/BackForwardList.cpp \
 	WebCore/history/BackForwardList.h \
 	WebCore/history/CachedFrame.cpp \
@@ -836,6 +887,9 @@ webcore_sources += \
 	WebCore/html/CanvasRenderingContext2D.h \
 	WebCore/html/CanvasStyle.cpp \
 	WebCore/html/CanvasStyle.h \
+	WebCore/html/CollectionCache.cpp \
+	WebCore/html/CollectionCache.h \
+	WebCore/html/CollectionType.h \
 	WebCore/html/File.cpp \
 	WebCore/html/File.h \
 	WebCore/html/FileList.cpp \
@@ -952,6 +1006,7 @@ webcore_sources += \
 	WebCore/html/HTMLParser.h \
 	WebCore/html/HTMLParserErrorCodes.cpp \
 	WebCore/html/HTMLParserErrorCodes.h \
+	WebCore/html/HTMLParserQuirks.h \
 	WebCore/html/HTMLPlugInElement.cpp \
 	WebCore/html/HTMLPlugInElement.h \
 	WebCore/html/HTMLPlugInImageElement.cpp \
@@ -962,6 +1017,8 @@ webcore_sources += \
 	WebCore/html/HTMLQuoteElement.h \
 	WebCore/html/HTMLScriptElement.cpp \
 	WebCore/html/HTMLScriptElement.h \
+	WebCore/html/HTMLNoScriptElement.cpp \
+	WebCore/html/HTMLNoScriptElement.h \
 	WebCore/html/HTMLSelectElement.cpp \
 	WebCore/html/HTMLSelectElement.h \
 	WebCore/html/HTMLStyleElement.cpp \
@@ -1035,6 +1092,8 @@ webcore_sources += \
 	WebCore/inspector/InspectorClient.h \
 	WebCore/inspector/InspectorController.cpp \
 	WebCore/inspector/InspectorController.h \
+	WebCore/inspector/InspectorFrontend.cpp \
+	WebCore/inspector/InspectorFrontend.h \
 	WebCore/inspector/InspectorResource.cpp \
 	WebCore/inspector/InspectorResource.h \
 	WebCore/inspector/JavaScriptCallFrame.cpp \
@@ -1046,6 +1105,8 @@ webcore_sources += \
 	WebCore/inspector/JavaScriptProfile.h \
 	WebCore/inspector/JavaScriptProfileNode.cpp \
 	WebCore/inspector/JavaScriptProfileNode.h \
+	WebCore/inspector/JSONObject.cpp \
+	WebCore/inspector/JSONObject.h \
 	WebCore/loader/Cache.cpp \
 	WebCore/loader/Cache.h \
 	WebCore/loader/CachePolicy.h \
@@ -1135,30 +1196,6 @@ webcore_sources += \
 	WebCore/loader/icon/IconLoader.h \
 	WebCore/loader/loader.cpp \
 	WebCore/loader/loader.h \
-	WebCore/page/AXObjectCache.cpp \
-	WebCore/page/AXObjectCache.h \
-	WebCore/page/AccessibilityImageMapLink.cpp \
-	WebCore/page/AccessibilityImageMapLink.h \
-	WebCore/page/AccessibilityList.cpp \
-	WebCore/page/AccessibilityList.h \
-	WebCore/page/AccessibilityListBox.cpp \
-	WebCore/page/AccessibilityListBox.h \
-	WebCore/page/AccessibilityListBoxOption.cpp \
-	WebCore/page/AccessibilityListBoxOption.h \
-	WebCore/page/AccessibilityObject.cpp \
-	WebCore/page/AccessibilityObject.h \
-	WebCore/page/AccessibilityRenderObject.cpp \
-	WebCore/page/AccessibilityRenderObject.h \
-	WebCore/page/AccessibilityTable.cpp \
-	WebCore/page/AccessibilityTable.h \
-	WebCore/page/AccessibilityTableCell.cpp \
-	WebCore/page/AccessibilityTableCell.h \
-	WebCore/page/AccessibilityTableColumn.cpp \
-	WebCore/page/AccessibilityTableColumn.h \
-	WebCore/page/AccessibilityTableHeaderContainer.cpp \
-	WebCore/page/AccessibilityTableHeaderContainer.h \
-	WebCore/page/AccessibilityTableRow.cpp \
-	WebCore/page/AccessibilityTableRow.h \
 	WebCore/page/BarInfo.cpp \
 	WebCore/page/BarInfo.h \
 	WebCore/page/Chrome.cpp \
@@ -1212,6 +1249,8 @@ webcore_sources += \
 	WebCore/page/Page.h \
 	WebCore/page/PageGroup.cpp \
 	WebCore/page/PageGroup.h \
+  WebCore/page/PageGroupLoadDeferrer.cpp \
+  WebCore/page/PageGroupLoadDeferrer.h \
 	WebCore/page/PositionCallback.h \
 	WebCore/page/PositionError.h \
 	WebCore/page/PositionErrorCallback.h \
@@ -1266,6 +1305,7 @@ webcore_sources += \
 	WebCore/platform/GeolocationService.cpp \
 	WebCore/platform/GeolocationService.h \
 	WebCore/platform/HostWindow.h \
+	WebCore/platform/KeyboardCodes.h \
 	WebCore/platform/KURL.cpp \
 	WebCore/platform/KURL.h \
 	WebCore/platform/KURLHash.h \
@@ -1308,6 +1348,7 @@ webcore_sources += \
 	WebCore/platform/SharedTimer.h \
 	WebCore/platform/Sound.h \
 	WebCore/platform/StaticConstructors.h \
+	WebCore/platform/SuddenTermination.h \
 	WebCore/platform/SystemTime.h \
 	WebCore/platform/ThemeTypes.h \
 	WebCore/platform/ThreadCheck.h \
@@ -1402,10 +1443,6 @@ webcore_sources += \
 	WebCore/platform/graphics/UnitBezier.h \
 	WebCore/platform/graphics/WidthIterator.cpp \
 	WebCore/platform/graphics/WidthIterator.h \
-	WebCore/platform/graphics/filters/FEBlend.h \
-	WebCore/platform/graphics/filters/FEColorMatrix.h \
-	WebCore/platform/graphics/filters/FEComponentTransfer.h \
-	WebCore/platform/graphics/filters/FEComposite.h \
 	WebCore/platform/graphics/transforms/IdentityTransformOperation.h \
 	WebCore/platform/graphics/transforms/MatrixTransformOperation.cpp \
 	WebCore/platform/graphics/transforms/MatrixTransformOperation.h \
@@ -1551,9 +1588,8 @@ webcore_sources += \
 	WebCore/rendering/InlineTextBox.h \
 	WebCore/rendering/LayoutState.cpp \
 	WebCore/rendering/LayoutState.h \
-	WebCore/rendering/ListMarkerBox.cpp \
-	WebCore/rendering/ListMarkerBox.h \
 	WebCore/rendering/MediaControlElements.h \
+	WebCore/rendering/OverlapTestRequestClient.h \
 	WebCore/rendering/RenderApplet.cpp \
 	WebCore/rendering/RenderApplet.h \
 	WebCore/rendering/RenderArena.cpp \
@@ -1624,6 +1660,8 @@ webcore_sources += \
 	WebCore/rendering/RenderSelectionInfo.h \
 	WebCore/rendering/RenderSlider.cpp \
 	WebCore/rendering/RenderSlider.h \
+	WebCore/rendering/RenderSVGModelObject.cpp \
+	WebCore/rendering/RenderSVGModelObject.h \
 	WebCore/rendering/RenderTable.cpp \
 	WebCore/rendering/RenderTable.h \
 	WebCore/rendering/RenderTableCell.cpp \
@@ -1745,11 +1783,18 @@ webcoregtk_sources += \
 	WebCore/plugins/gtk/xembed.h
 endif
 
+if TARGET_WIN32
+webcore_sources += \
+	WebCore/plugins/win/PluginDatabaseWin.cpp \
+	WebCore/plugins/win/PluginMessageThrottlerWin.cpp \
+	WebCore/plugins/win/PluginMessageThrottlerWin.h
+endif
+
 webcoregtk_sources += \
-	WebCore/page/gtk/AXObjectCacheAtk.cpp \
-	WebCore/page/gtk/AccessibilityObjectAtk.cpp \
-	WebCore/page/gtk/AccessibilityObjectWrapperAtk.cpp \
-	WebCore/page/gtk/AccessibilityObjectWrapperAtk.h \
+	WebCore/accessibility/gtk/AXObjectCacheAtk.cpp \
+	WebCore/accessibility/gtk/AccessibilityObjectAtk.cpp \
+	WebCore/accessibility/gtk/AccessibilityObjectWrapperAtk.cpp \
+	WebCore/accessibility/gtk/AccessibilityObjectWrapperAtk.h \
 	WebCore/page/gtk/DragControllerGtk.cpp \
 	WebCore/page/gtk/EventHandlerGtk.cpp \
 	WebCore/page/gtk/FrameGtk.cpp \
@@ -1785,9 +1830,10 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/EventLoopGtk.cpp \
 	WebCore/platform/gtk/FileChooserGtk.cpp \
 	WebCore/platform/gtk/FileSystemGtk.cpp \
+	WebCore/platform/gtk/GtkPluginWidget.cpp \
+	WebCore/platform/gtk/GtkPluginWidget.h \
 	WebCore/platform/gtk/KURLGtk.cpp \
 	WebCore/platform/gtk/KeyEventGtk.cpp \
-	WebCore/platform/gtk/KeyboardCodes.h \
 	WebCore/platform/gtk/Language.cpp \
 	WebCore/platform/gtk/LocalizedStringsGtk.cpp \
 	WebCore/platform/gtk/LoggingGtk.cpp \
@@ -1813,8 +1859,6 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/WidgetGtk.cpp \
 	WebCore/platform/gtk/gtk2drawing.c \
 	WebCore/platform/gtk/gtkdrawing.h \
-	WebCore/platform/gtk/guriescape.c \
-	WebCore/platform/gtk/guriescape.h \
 	WebCore/platform/image-decoders/ImageDecoder.h \
 	WebCore/platform/image-decoders/bmp/BMPImageDecoder.cpp \
 	WebCore/platform/image-decoders/bmp/BMPImageDecoder.h \
@@ -1830,26 +1874,16 @@ webcoregtk_sources += \
 	WebCore/platform/image-decoders/png/PNGImageDecoder.h \
 	WebCore/platform/image-decoders/xbm/XBMImageDecoder.cpp \
 	WebCore/platform/image-decoders/xbm/XBMImageDecoder.h \
-	WebCore/platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp
-
-webcore_cppflags += \
-	-DWTF_USE_SOUP=1 \
-	-I$(srcdir)/WebCore/platform/network/soup
-
-webcore_sources += \
 	WebCore/platform/network/soup/AuthenticationChallenge.h \
 	WebCore/platform/network/soup/CookieJarSoup.cpp \
 	WebCore/platform/network/soup/CookieJarSoup.h \
 	WebCore/platform/network/soup/DNSSoup.cpp \
 	WebCore/platform/network/soup/ResourceError.h \
 	WebCore/platform/network/soup/ResourceHandleSoup.cpp \
+	WebCore/platform/network/soup/ResourceRequestSoup.cpp \
 	WebCore/platform/network/soup/ResourceRequest.h \
-	WebCore/platform/network/soup/ResourceResponse.h
-
-if USE_GNOMEKEYRING
-webcore_cppflags += \
-	-DWTF_USE_GNOMEKEYRING=1
-endif
+	WebCore/platform/network/soup/ResourceResponse.h \
+	WebCore/platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp
 
 # ---
 # Freetype font backend
@@ -1878,6 +1912,17 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gtk/GlyphPageTreeNodePango.cpp \
 	WebCore/platform/graphics/gtk/SimpleFontDataPango.cpp
 endif # END USE_PANGO
+
+# ----
+# JavaScript Debugger/Profiler
+# ----
+if ENABLE_JAVASCRIPT_DEBUGGER
+FEATURE_DEFINES_JAVASCRIPT += ENABLE_JAVASCRIPT_DEBUGGER=1
+
+webcore_cppflags += \
+	-DENABLE_JAVASCRIPT_DEBUGGER=1
+
+endif # END ENABLE_JAVASCRIPT_DEBUGGER
 
 # ----
 # Offline Web Applications
@@ -1991,6 +2036,9 @@ webcore_sources += \
 	WebCore/storage/SQLTransactionCallback.h \
 	WebCore/storage/SQLTransactionErrorCallback.h
 
+else
+webcore_cppflags += -DENABLE_DATABASE=0
+
 endif # END ENABLE_DATABASE
 
 # ----
@@ -2050,6 +2098,8 @@ else
 webcore_sources += \
 	WebCore/loader/icon/IconDatabaseNone.cpp
 
+webcore_cppflags += -DENABLE_ICONDATABASE=0
+
 endif # END ENABLE_ICONDATABASE
 
 # ----
@@ -2066,13 +2116,7 @@ webcore_cppflags += -DGST_DISABLE_DEPRECATED
 endif # END ENABLE_DEBUG
 
 IDL_BINDINGS += \
-	WebCore/html/HTMLAudioElement.idl \
-	WebCore/html/HTMLMediaElement.idl \
-	WebCore/html/HTMLSourceElement.idl \
-	WebCore/html/HTMLVideoElement.idl \
-	WebCore/html/MediaError.idl \
-	WebCore/html/TimeRanges.idl \
-	WebCore/html/VoidCallback.idl
+	WebCore/html/TimeRanges.idl
 
 webcore_sources += \
 	WebCore/bindings/js/JSAudioConstructor.cpp \
@@ -2100,6 +2144,10 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gtk/MediaPlayerPrivateGStreamer.h \
 	WebCore/platform/graphics/gtk/VideoSinkGStreamer.cpp \
 	WebCore/platform/graphics/gtk/VideoSinkGStreamer.h
+
+webcore_libadd += \
+	-lgstinterfaces-0.10 \
+	-lgstvideo-0.10
 
 endif # END ENABLE_VIDEO
 
@@ -2223,6 +2271,7 @@ webcore_sources += \
 	WebCore/workers/WorkerContext.cpp \
 	WebCore/workers/WorkerContext.h \
 	WebCore/workers/WorkerContextProxy.h \
+	WebCore/workers/WorkerLoaderProxy.h \
 	WebCore/workers/WorkerLocation.cpp \
 	WebCore/workers/WorkerLocation.h \
 	WebCore/workers/WorkerMessagingProxy.cpp \
@@ -2248,7 +2297,7 @@ webcore_built_sources += \
 
 webcore_cppflags += \
 	-DENABLE_WML=1 \
-	-I\$(top_srcdir)/WebCore/wml
+	-I$(top_srcdir)/WebCore/wml
 
 webcore_sources += \
 	WebCore/wml/WMLAElement.cpp \
@@ -2280,6 +2329,7 @@ webcore_sources += \
 	WebCore/wml/WMLPostfieldElement.cpp \
 	WebCore/wml/WMLPrevElement.cpp \
 	WebCore/wml/WMLRefreshElement.cpp \
+	WebCore/wml/WMLSelectElement.cpp \
 	WebCore/wml/WMLSetvarElement.cpp \
 	WebCore/wml/WMLTableElement.cpp \
 	WebCore/wml/WMLTaskElement.cpp \
@@ -2293,6 +2343,37 @@ DerivedSources/WMLNames.cpp: DerivedSources/WMLElementFactory.cpp;
 DerivedSources/WMLElementFactory.cpp: $(WebCore)/dom/make_names.pl $(WebCore)/wml/WMLTagNames.in $(WebCore)/wml/WMLAttributeNames.in
 	$(PERL) -I$(WebCore)/bindings/scripts $< --tags $(WebCore)/wml/WMLTagNames.in --attrs $(WebCore)/wml/WMLAttributeNames.in --factory --wrapperFactory --outputDir "$(GENSOURCES)"
 endif # END ENABLE_WML
+
+# ----
+# Filters
+# ----
+if ENABLE_FILTERS
+
+FEATURE_DEFINES_JAVASCRIPT += ENABLE_FILTERS=1
+webcore_cppflags += -DENABLE_FILTERS=1
+
+webcore_sources += \
+	WebCore/platform/graphics/filters/FEBlend.cpp \
+	WebCore/platform/graphics/filters/FEBlend.h \
+	WebCore/platform/graphics/filters/FEColorMatrix.cpp \
+	WebCore/platform/graphics/filters/FEColorMatrix.h \
+	WebCore/platform/graphics/filters/FEComponentTransfer.cpp \
+	WebCore/platform/graphics/filters/FEComponentTransfer.h \
+	WebCore/platform/graphics/filters/FEComposite.cpp \
+	WebCore/platform/graphics/filters/FEComposite.h \
+	WebCore/platform/graphics/filters/Filter.h \
+	WebCore/platform/graphics/filters/FilterEffect.cpp \
+	WebCore/platform/graphics/filters/FilterEffect.h \
+	WebCore/platform/graphics/filters/SourceAlpha.cpp \
+	WebCore/platform/graphics/filters/SourceAlpha.h \
+	WebCore/platform/graphics/filters/SourceGraphic.cpp \
+	WebCore/platform/graphics/filters/SourceGraphic.h
+
+if ENABLE_SVG
+SVG_FEATURES += ENABLE_FILTERS=1
+endif
+
+endif # END ENABLE_FILTERS
 
 # ----
 # Geolocation
@@ -2319,9 +2400,6 @@ FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG=1
 
 WEBCORE_CSS_PROPERTY_NAMES += $(WebCore)/css/SVGCSSPropertyNames.in 
 WEBCORE_CSS_VALUE_KEYWORDS += $(WebCore)/css/SVGCSSValueKeywords.in
-
-webcoregtk_cppflags += \
-	-I$(srcdir)/WebCore/svg/graphics/cairo
 
 webcore_built_sources += \
 	DerivedSources/JSSVGElementWrapperFactory.cpp \
@@ -2480,10 +2558,10 @@ IDL_BINDINGS += \
 
 webcore_cppflags += \
 	-DENABLE_SVG=1 \
-	-I\$(top_srcdir)/WebCore/svg \
-	-I\$(top_srcdir)/WebCore/svg/animation \
-	-I\$(top_srcdir)/WebCore/svg/graphics \
-	-I\$(top_srcdir)/WebCore/svg/graphics/filters
+	-I$(top_srcdir)/WebCore/svg \
+	-I$(top_srcdir)/WebCore/svg/animation \
+	-I$(top_srcdir)/WebCore/svg/graphics \
+	-I$(top_srcdir)/WebCore/svg/graphics/filters
 
 webcore_sources += \
 	WebCore/bindings/js/JSSVGElementInstanceCustom.cpp \
@@ -2497,10 +2575,6 @@ webcore_sources += \
 	WebCore/css/SVGCSSComputedStyleDeclaration.cpp \
 	WebCore/css/SVGCSSParser.cpp \
 	WebCore/css/SVGCSSStyleSelector.cpp \
-	WebCore/platform/graphics/filters/FEBlend.cpp \
-	WebCore/platform/graphics/filters/FEColorMatrix.cpp \
-	WebCore/platform/graphics/filters/FEComponentTransfer.cpp \
-	WebCore/platform/graphics/filters/FEComposite.cpp \
 	WebCore/rendering/PointerEventsHitRules.cpp \
 	WebCore/rendering/PointerEventsHitRules.h \
 	WebCore/rendering/RenderForeignObject.cpp \
@@ -2552,11 +2626,6 @@ webcore_sources += \
 	WebCore/svg/ColorDistance.cpp \
 	WebCore/svg/ColorDistance.h \
 	WebCore/svg/ElementTimeControl.h \
-	WebCore/svg/Filter.cpp \
-	WebCore/svg/Filter.h \
-	WebCore/svg/FilterBuilder.h \
-	WebCore/svg/FilterEffect.cpp \
-	WebCore/svg/FilterEffect.h \
 	WebCore/svg/GradientAttributes.h \
 	WebCore/svg/LinearGradientAttributes.h \
 	WebCore/svg/PatternAttributes.h \
@@ -2886,16 +2955,14 @@ webcore_sources += \
 	WebCore/svg/graphics/filters/SVGFETile.h \
 	WebCore/svg/graphics/filters/SVGFETurbulence.cpp \
 	WebCore/svg/graphics/filters/SVGFETurbulence.h \
-	WebCore/svg/graphics/filters/SVGFilterEffect.cpp \
-	WebCore/svg/graphics/filters/SVGFilterEffect.h \
+	WebCore/svg/graphics/filters/SVGFilter.cpp \
+	WebCore/svg/graphics/filters/SVGFilter.h \
+	WebCore/svg/graphics/filters/SVGFilterBuilder.h \
+	WebCore/svg/graphics/filters/SVGFilterBuilder.cpp \
 	WebCore/svg/graphics/filters/SVGLightSource.cpp \
 	WebCore/svg/graphics/filters/SVGLightSource.h \
 	WebCore/svg/graphics/filters/SVGPointLightSource.h \
 	WebCore/svg/graphics/filters/SVGSpotLightSource.h
-
-webcoregtk_sources += \
-	WebCore/svg/graphics/cairo/SVGResourceFilterCairo.cpp
-
 
 # SVG Features
 if ENABLE_SVG_USE
@@ -2914,12 +2981,6 @@ if ENABLE_SVG_FONTS
 FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG_FONTS=1
 SVG_FEATURES += ENABLE_SVG_FONTS=1
 webcore_cppflags += -DENABLE_SVG_FONTS=1
-endif
-
-if ENABLE_SVG_FILTERS
-FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG_FILTERS=1
-SVG_FEATURES += ENABLE_SVG_FILTERS=1
-webcore_cppflags += -DENABLE_SVG_FILTERS=1
 endif
 
 if ENABLE_SVG_AS_IMAGE
@@ -3156,15 +3217,23 @@ webcore_dist += \
 	WebCore/xml/XPathGrammar.y
 
 # Installing web inspector files
-webcore_cppflags += -DDATA_DIR=\"${datadir}\"
-
 webinspectordir = ${datadir}/webkit-1.0/webinspector
 dist_webinspector_DATA = \
+	$(WebCore)/English.lproj/localizedStrings.js \
 	$(shell ls $(WebCore)/inspector/front-end/*.{js,html,css})
 
 webinspectorimagesdir = ${datadir}/webkit-1.0/webinspector/Images
 dist_webinspectorimages_DATA = \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.png)
+
+webresourcesdir = ${datadir}/webkit-1.0/images
+dist_webresources_DATA = \
+	$(WebCore)/Resources/textAreaResizeCorner.png \
+	$(WebCore)/Resources/nullPlugin.png \
+	$(WebCore)/Resources/urlIcon.png \
+	$(WebCore)/Resources/missingImage.png \
+	$(WebCore)/Resources/panIcon.png \
+	$(WebCore)/Resources/deleteButton.png
 
 # Clean rules for WebCore
 

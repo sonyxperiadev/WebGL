@@ -30,12 +30,13 @@
 #define Interpreter_h
 
 #include "ArgList.h"
+#include "FastAllocBase.h"
+#include "HashMap.h"
 #include "JSCell.h"
 #include "JSValue.h"
 #include "JSObject.h"
 #include "Opcode.h"
 #include "RegisterFile.h"
-#include <wtf/HashMap.h>
 
 namespace JSC {
 
@@ -51,6 +52,7 @@ namespace JSC {
     class Register;
     class ScopeChainNode;
     class SamplingTool;
+    struct CallFrameClosure;
     struct HandlerInfo;
 
     enum DebugHookID {
@@ -62,12 +64,11 @@ namespace JSC {
         WillExecuteStatement
     };
 
-    enum { MaxReentryDepth = 64 };
+    enum { MaxMainThreadReentryDepth = 256, MaxSecondaryThreadReentryDepth = 32 };
 
-    class Interpreter {
+    class Interpreter : public WTF::FastAllocBase {
         friend class JIT;
-        friend class JITStubs;
-
+        friend class CachedCall;
     public:
         Interpreter();
 
@@ -94,50 +95,57 @@ namespace JSC {
 
         bool isOpcode(Opcode);
         
-        JSValuePtr execute(ProgramNode*, CallFrame*, ScopeChainNode*, JSObject* thisObj, JSValuePtr* exception);
-        JSValuePtr execute(FunctionBodyNode*, CallFrame*, JSFunction*, JSObject* thisObj, const ArgList& args, ScopeChainNode*, JSValuePtr* exception);
-        JSValuePtr execute(EvalNode* evalNode, CallFrame* exec, JSObject* thisObj, ScopeChainNode* scopeChain, JSValuePtr* exception);
+        JSValue execute(ProgramNode*, CallFrame*, ScopeChainNode*, JSObject* thisObj, JSValue* exception);
+        JSValue execute(FunctionBodyNode*, CallFrame*, JSFunction*, JSObject* thisObj, const ArgList& args, ScopeChainNode*, JSValue* exception);
+        JSValue execute(EvalNode* evalNode, CallFrame* exec, JSObject* thisObj, ScopeChainNode* scopeChain, JSValue* exception);
 
-        JSValuePtr retrieveArguments(CallFrame*, JSFunction*) const;
-        JSValuePtr retrieveCaller(CallFrame*, InternalFunction*) const;
-        void retrieveLastCaller(CallFrame*, int& lineNumber, intptr_t& sourceID, UString& sourceURL, JSValuePtr& function) const;
+        JSValue retrieveArguments(CallFrame*, JSFunction*) const;
+        JSValue retrieveCaller(CallFrame*, InternalFunction*) const;
+        void retrieveLastCaller(CallFrame*, int& lineNumber, intptr_t& sourceID, UString& sourceURL, JSValue& function) const;
         
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
+        
         void setSampler(SamplingTool* sampler) { m_sampler = sampler; }
         SamplingTool* sampler() { return m_sampler; }
+
+        NEVER_INLINE JSValue callEval(CallFrame*, RegisterFile*, Register* argv, int argc, int registerOffset, JSValue& exceptionValue);
+        NEVER_INLINE HandlerInfo* throwException(CallFrame*&, JSValue&, unsigned bytecodeOffset, bool);
+        NEVER_INLINE void debug(CallFrame*, DebugHookID, int firstLine, int lastLine);
 
     private:
         enum ExecutionFlag { Normal, InitializeAndReturn };
 
-        NEVER_INLINE JSValuePtr callEval(CallFrame*, RegisterFile*, Register* argv, int argc, int registerOffset, JSValuePtr& exceptionValue);
-        JSValuePtr execute(EvalNode*, CallFrame*, JSObject* thisObject, int globalRegisterOffset, ScopeChainNode*, JSValuePtr* exception);
+        CallFrameClosure prepareForRepeatCall(FunctionBodyNode*, CallFrame*, JSFunction*, int argCount, ScopeChainNode*, JSValue* exception);
+        void endRepeatCall(CallFrameClosure&);
+        JSValue execute(CallFrameClosure&, JSValue* exception);
 
-        NEVER_INLINE void debug(CallFrame*, DebugHookID, int firstLine, int lastLine);
+        JSValue execute(EvalNode*, CallFrame*, JSObject* thisObject, int globalRegisterOffset, ScopeChainNode*, JSValue* exception);
 
-        NEVER_INLINE bool resolve(CallFrame*, Instruction*, JSValuePtr& exceptionValue);
-        NEVER_INLINE bool resolveSkip(CallFrame*, Instruction*, JSValuePtr& exceptionValue);
-        NEVER_INLINE bool resolveGlobal(CallFrame*, Instruction*, JSValuePtr& exceptionValue);
+#if USE(INTERPRETER)
+        NEVER_INLINE bool resolve(CallFrame*, Instruction*, JSValue& exceptionValue);
+        NEVER_INLINE bool resolveSkip(CallFrame*, Instruction*, JSValue& exceptionValue);
+        NEVER_INLINE bool resolveGlobal(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE void resolveBase(CallFrame*, Instruction* vPC);
-        NEVER_INLINE bool resolveBaseAndProperty(CallFrame*, Instruction*, JSValuePtr& exceptionValue);
+        NEVER_INLINE bool resolveBaseAndProperty(CallFrame*, Instruction*, JSValue& exceptionValue);
+        NEVER_INLINE bool resolveBaseAndFunc(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE ScopeChainNode* createExceptionScope(CallFrame*, const Instruction* vPC);
 
-        NEVER_INLINE bool unwindCallFrame(CallFrame*&, JSValuePtr, unsigned& bytecodeOffset, CodeBlock*&);
-        NEVER_INLINE HandlerInfo* throwException(CallFrame*&, JSValuePtr&, unsigned bytecodeOffset, bool);
-        NEVER_INLINE bool resolveBaseAndFunc(CallFrame*, Instruction*, JSValuePtr& exceptionValue);
+        void tryCacheGetByID(CallFrame*, CodeBlock*, Instruction*, JSValue baseValue, const Identifier& propertyName, const PropertySlot&);
+        void uncacheGetByID(CodeBlock*, Instruction* vPC);
+        void tryCachePutByID(CallFrame*, CodeBlock*, Instruction*, JSValue baseValue, const PutPropertySlot&);
+        void uncachePutByID(CodeBlock*, Instruction* vPC);        
+#endif
+
+        NEVER_INLINE bool unwindCallFrame(CallFrame*&, JSValue, unsigned& bytecodeOffset, CodeBlock*&);
 
         static ALWAYS_INLINE CallFrame* slideRegisterWindowForCall(CodeBlock*, RegisterFile*, CallFrame*, size_t registerOffset, int argc);
 
         static CallFrame* findFunctionCallFrame(CallFrame*, InternalFunction*);
 
-        JSValuePtr privateExecute(ExecutionFlag, RegisterFile*, CallFrame*, JSValuePtr* exception);
+        JSValue privateExecute(ExecutionFlag, RegisterFile*, CallFrame*, JSValue* exception);
 
         void dumpCallFrame(CallFrame*);
         void dumpRegisters(CallFrame*);
-
-        void tryCacheGetByID(CallFrame*, CodeBlock*, Instruction*, JSValuePtr baseValue, const Identifier& propertyName, const PropertySlot&);
-        void uncacheGetByID(CodeBlock*, Instruction* vPC);
-        void tryCachePutByID(CallFrame*, CodeBlock*, Instruction*, JSValuePtr baseValue, const PutPropertySlot&);
-        void uncachePutByID(CodeBlock*, Instruction* vPC);
         
         bool isCallBytecode(Opcode opcode) { return opcode == getOpcode(op_call) || opcode == getOpcode(op_construct) || opcode == getOpcode(op_call_eval); }
 
@@ -152,7 +160,7 @@ namespace JSC {
         HashMap<Opcode, OpcodeID> m_opcodeIDTable; // Maps Opcode => OpcodeID for decompiling
 #endif
     };
-
+    
 } // namespace JSC
 
 #endif // Interpreter_h

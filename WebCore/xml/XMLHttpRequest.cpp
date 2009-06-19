@@ -66,7 +66,6 @@ XMLHttpRequestStaticData::XMLHttpRequestStaticData()
     m_forbiddenRequestHeaders.add("accept-encoding");
     m_forbiddenRequestHeaders.add("access-control-request-headers");
     m_forbiddenRequestHeaders.add("access-control-request-method");
-    m_forbiddenRequestHeaders.add("authorization");
     m_forbiddenRequestHeaders.add("connection");
     m_forbiddenRequestHeaders.add("content-length");
     m_forbiddenRequestHeaders.add("content-transfer-encoding");
@@ -284,8 +283,18 @@ void XMLHttpRequest::callReadyStateChangeListener()
 
     dispatchReadyStateChangeEvent();
 
-    if (m_state == DONE)
+    if (m_state == DONE && !m_error)
         dispatchLoadEvent();
+}
+
+void XMLHttpRequest::setWithCredentials(bool value, ExceptionCode& ec)
+{
+    if (m_state != OPENED || m_loader) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
+    m_includeCredentials = value;
 }
 
 void XMLHttpRequest::open(const String& method, const KURL& url, bool async, ExceptionCode& ec)
@@ -381,7 +390,7 @@ void XMLHttpRequest::send(Document* document, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -412,7 +421,7 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (!body.isNull() && m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -436,7 +445,7 @@ void XMLHttpRequest::send(File* body, ExceptionCode& ec)
     if (!initSend(ec))
         return;
 
-    if (m_method != "GET" && m_method != "HEAD" && (m_url.protocolIs("http") || m_url.protocolIs("https"))) {
+    if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
         // FIXME: Should we set a Content-Type if one is not set.
         // FIXME: add support for uploading bundles.
         m_requestEntityBody = FormData::create();
@@ -509,10 +518,17 @@ void XMLHttpRequest::makeSimpleCrossOriginAccessRequest(ExceptionCode& ec)
 {
     ASSERT(isSimpleCrossOriginAccessRequest(m_method, m_requestHeaders));
 
+    // Cross-origin requests are only defined for HTTP. We would catch this when checking response headers later, but there is no reason to send a request that's guaranteed to be denied.
+    if (!m_url.protocolInHTTPFamily()) {
+        ec = XMLHttpRequestException::NETWORK_ERR;
+        networkError();
+        return;
+    }
+
     KURL url = m_url;
     url.setUser(String());
     url.setPass(String());
- 
+
     ResourceRequest request(url);
     request.setHTTPMethod(m_method);
     request.setAllowHTTPCookies(m_includeCredentials);
@@ -636,7 +652,9 @@ void XMLHttpRequest::loadRequestSynchronously(ResourceRequest& request, Exceptio
 
     m_loader = 0;
     m_exceptionCode = 0;
-    ThreadableLoader::loadResourceSynchronously(scriptExecutionContext(), request, *this);
+    StoredCredentials storedCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
+
+    ThreadableLoader::loadResourceSynchronously(scriptExecutionContext(), request, *this, storedCredentials);
     if (!m_exceptionCode && m_error)
         m_exceptionCode = XMLHttpRequestException::NETWORK_ERR;
     ec = m_exceptionCode;
@@ -650,15 +668,13 @@ void XMLHttpRequest::loadRequestAsynchronously(ResourceRequest& request)
     // This is true while running onunload handlers.
     // FIXME: We need to be able to send XMLHttpRequests from onunload, <http://bugs.webkit.org/show_bug.cgi?id=10904>.
     // FIXME: Maybe create can return null for other reasons too?
-    // We need to keep content sniffing enabled for local files due to CFNetwork not providing a MIME type
-    // for local files otherwise, <rdar://problem/5671813>.
     LoadCallbacks callbacks = m_inPreflight ? DoNotSendLoadCallbacks : SendLoadCallbacks;
-    ContentSniff contentSniff = request.url().isLocalFile() ? SniffContent : DoNotSniffContent;
+    StoredCredentials storedCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
 
     if (m_upload)
         request.setReportUploadProgress(true);
 
-    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, contentSniff);
+    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, callbacks, DoNotSniffContent, storedCredentials, RequireSameRedirectOrigin);
 
     if (m_loader) {
         // Neither this object nor the JavaScript wrapper should be deleted while
@@ -682,7 +698,7 @@ void XMLHttpRequest::abort()
     
     if ((m_state <= OPENED && !sendFlag) || m_state == DONE)
         m_state = UNSENT;
-     else {
+    else {
         ASSERT(!m_loader);
         changeState(DONE);
         m_state = UNSENT;
@@ -736,8 +752,7 @@ void XMLHttpRequest::genericError()
     clearRequest();
     m_error = true;
 
-    // The spec says we should "Synchronously switch the state to DONE." and then "Synchronously dispatch a readystatechange event on the object"
-    // but this does not match Firefox.
+    changeState(DONE);
 }
 
 void XMLHttpRequest::networkError()

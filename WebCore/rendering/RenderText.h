@@ -55,11 +55,11 @@ public:
     InlineTextBox* createInlineTextBox();
     void dirtyLineBoxes(bool fullLayout);
 
-    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty, bool topLevel = true);
-    virtual void absoluteRectsForRange(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
+    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
+    void absoluteRectsForRange(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
-    virtual void absoluteQuads(Vector<FloatQuad>&, bool topLevel = true);
-    virtual void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
+    virtual void absoluteQuads(Vector<FloatQuad>&);
+    void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
     virtual VisiblePosition positionForPoint(const IntPoint&);
 
@@ -67,8 +67,8 @@ public:
     unsigned textLength() const { return m_text->length(); } // non virtual implementation of length()
     void positionLineBox(InlineBox*);
 
-    virtual unsigned width(unsigned from, unsigned len, const Font&, int xPos) const;
-    virtual unsigned width(unsigned from, unsigned len, int xPos, bool firstLine = false) const;
+    virtual unsigned width(unsigned from, unsigned len, const Font&, int xPos, HashSet<const SimpleFontData*>* fallbackFonts = 0) const;
+    virtual unsigned width(unsigned from, unsigned len, int xPos, bool firstLine = false, HashSet<const SimpleFontData*>* fallbackFonts = 0) const;
 
     virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
 
@@ -84,6 +84,7 @@ public:
 
     IntRect linesBoundingBox() const;
 
+    IntPoint firstRunOrigin() const;
     int firstRunX() const;
     int firstRunY() const;
 
@@ -131,6 +132,8 @@ protected:
     virtual InlineTextBox* createTextBox(); // Subclassed by SVG.
 
 private:
+    void calcPrefWidths(int leadWidth, HashSet<const SimpleFontData*>& fallbackFonts);
+
     // Make length() private so that callers that have a RenderText*
     // will use the more efficient textLength() instead, while
     // callers with a RenderObject* can continue to use length().
@@ -142,15 +145,16 @@ private:
 
     void deleteTextBoxes();
     bool containsOnlyWhitespace(unsigned from, unsigned len) const;
-    int widthFromCache(const Font&, int start, int len, int xPos) const;
+    int widthFromCache(const Font&, int start, int len, int xPos, HashSet<const SimpleFontData*>* fallbackFonts) const;
     bool isAllASCII() const { return m_isAllASCII; }
+
+    int m_minWidth; // here to minimize padding in 64-bit.
 
     RefPtr<StringImpl> m_text;
 
     InlineTextBox* m_firstTextBox;
     InlineTextBox* m_lastTextBox;
 
-    int m_minWidth;
     int m_maxWidth;
     int m_beginMinWidth;
     int m_endMinWidth;
@@ -166,6 +170,7 @@ private:
                            // or removed).
     bool m_containsReversedText : 1;
     bool m_isAllASCII : 1;
+    mutable bool m_knownNotToUseFallbackFonts : 1;
 };
 
 inline RenderText* toRenderText(RenderObject* o)

@@ -26,6 +26,7 @@
 #include "Completion.h"
 #include "InitializeThreading.h"
 #include "JSArray.h"
+#include "JSFunction.h"
 #include "JSLock.h"
 #include "PrototypeFunction.h"
 #include "SamplingTool.h"
@@ -68,14 +69,19 @@ using namespace WTF;
 static void cleanupGlobalData(JSGlobalData*);
 static bool fillBufferWithContentsOfFile(const UString& fileName, Vector<char>& buffer);
 
-static JSValuePtr functionPrint(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionDebug(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionGC(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionVersion(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionRun(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionLoad(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static JSValuePtr functionReadline(ExecState*, JSObject*, JSValuePtr, const ArgList&);
-static NO_RETURN JSValuePtr functionQuit(ExecState*, JSObject*, JSValuePtr, const ArgList&);
+static JSValue JSC_HOST_CALL functionPrint(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionDebug(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionGC(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionVersion(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionRun(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionLoad(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionReadline(ExecState*, JSObject*, JSValue, const ArgList&);
+static NO_RETURN JSValue JSC_HOST_CALL functionQuit(ExecState*, JSObject*, JSValue, const ArgList&);
+
+#if ENABLE(SAMPLING_FLAGS)
+static JSValue JSC_HOST_CALL functionSetSamplingFlags(ExecState*, JSObject*, JSValue, const ArgList&);
+static JSValue JSC_HOST_CALL functionClearSamplingFlags(ExecState*, JSObject*, JSValue, const ArgList&);
+#endif
 
 struct Script {
     bool isFile;
@@ -171,14 +177,19 @@ ASSERT_CLASS_FITS_IN_CELL(GlobalObject);
 GlobalObject::GlobalObject(const Vector<UString>& arguments)
     : JSGlobalObject()
 {
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "debug"), functionDebug));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "print"), functionPrint));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "quit"), functionQuit));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "gc"), functionGC));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "version"), functionVersion));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "run"), functionRun));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "load"), functionLoad));
-    putDirectFunction(globalExec(), new (globalExec()) PrototypeFunction(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "readline"), functionReadline));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "debug"), functionDebug));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "print"), functionPrint));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "quit"), functionQuit));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "gc"), functionGC));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "version"), functionVersion));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "run"), functionRun));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "load"), functionLoad));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 0, Identifier(globalExec(), "readline"), functionReadline));
+
+#if ENABLE(SAMPLING_FLAGS)
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "setSamplingFlags"), functionSetSamplingFlags));
+    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), prototypeFunctionStructure(), 1, Identifier(globalExec(), "clearSamplingFlags"), functionClearSamplingFlags));
+#endif
 
     JSObject* array = constructEmptyArray(globalExec());
     for (size_t i = 0; i < arguments.size(); ++i)
@@ -186,13 +197,13 @@ GlobalObject::GlobalObject(const Vector<UString>& arguments)
     putDirect(Identifier(globalExec(), "arguments"), array);
 }
 
-JSValuePtr functionPrint(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
+JSValue JSC_HOST_CALL functionPrint(ExecState* exec, JSObject*, JSValue, const ArgList& args)
 {
     for (unsigned i = 0; i < args.size(); ++i) {
         if (i != 0)
             putchar(' ');
         
-        printf("%s", args.at(exec, i).toString(exec).UTF8String().c_str());
+        printf("%s", args.at(i).toString(exec).UTF8String().c_str());
     }
     
     putchar('\n');
@@ -200,30 +211,30 @@ JSValuePtr functionPrint(ExecState* exec, JSObject*, JSValuePtr, const ArgList& 
     return jsUndefined();
 }
 
-JSValuePtr functionDebug(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
+JSValue JSC_HOST_CALL functionDebug(ExecState* exec, JSObject*, JSValue, const ArgList& args)
 {
-    fprintf(stderr, "--> %s\n", args.at(exec, 0).toString(exec).UTF8String().c_str());
+    fprintf(stderr, "--> %s\n", args.at(0).toString(exec).UTF8String().c_str());
     return jsUndefined();
 }
 
-JSValuePtr functionGC(ExecState* exec, JSObject*, JSValuePtr, const ArgList&)
+JSValue JSC_HOST_CALL functionGC(ExecState* exec, JSObject*, JSValue, const ArgList&)
 {
     JSLock lock(false);
     exec->heap()->collect();
     return jsUndefined();
 }
 
-JSValuePtr functionVersion(ExecState*, JSObject*, JSValuePtr, const ArgList&)
+JSValue JSC_HOST_CALL functionVersion(ExecState*, JSObject*, JSValue, const ArgList&)
 {
     // We need this function for compatibility with the Mozilla JS tests but for now
     // we don't actually do any version-specific handling
     return jsUndefined();
 }
 
-JSValuePtr functionRun(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
+JSValue JSC_HOST_CALL functionRun(ExecState* exec, JSObject*, JSValue, const ArgList& args)
 {
     StopWatch stopWatch;
-    UString fileName = args.at(exec, 0).toString(exec);
+    UString fileName = args.at(0).toString(exec);
     Vector<char> script;
     if (!fillBufferWithContentsOfFile(fileName, script))
         return throwError(exec, GeneralError, "Could not open file.");
@@ -237,9 +248,11 @@ JSValuePtr functionRun(ExecState* exec, JSObject*, JSValuePtr, const ArgList& ar
     return jsNumber(globalObject->globalExec(), stopWatch.getElapsedMS());
 }
 
-JSValuePtr functionLoad(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
+JSValue JSC_HOST_CALL functionLoad(ExecState* exec, JSObject* o, JSValue v, const ArgList& args)
 {
-    UString fileName = args.at(exec, 0).toString(exec);
+    UNUSED_PARAM(o);
+    UNUSED_PARAM(v);
+    UString fileName = args.at(0).toString(exec);
     Vector<char> script;
     if (!fillBufferWithContentsOfFile(fileName, script))
         return throwError(exec, GeneralError, "Could not open file.");
@@ -251,7 +264,29 @@ JSValuePtr functionLoad(ExecState* exec, JSObject*, JSValuePtr, const ArgList& a
     return result.value();
 }
 
-JSValuePtr functionReadline(ExecState* exec, JSObject*, JSValuePtr, const ArgList&)
+#if ENABLE(SAMPLING_FLAGS)
+JSValue JSC_HOST_CALL functionSetSamplingFlags(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+{
+    for (unsigned i = 0; i < args.size(); ++i) {
+        unsigned flag = static_cast<unsigned>(args.at(i).toNumber(exec));
+        if ((flag >= 1) && (flag <= 32))
+            SamplingFlags::setFlag(flag);
+    }
+    return jsNull();
+}
+
+JSValue JSC_HOST_CALL functionClearSamplingFlags(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+{
+    for (unsigned i = 0; i < args.size(); ++i) {
+        unsigned flag = static_cast<unsigned>(args.at(i).toNumber(exec));
+        if ((flag >= 1) && (flag <= 32))
+            SamplingFlags::clearFlag(flag);
+    }
+    return jsNull();
+}
+#endif
+
+JSValue JSC_HOST_CALL functionReadline(ExecState* exec, JSObject*, JSValue, const ArgList&)
 {
     Vector<char, 256> line;
     int c;
@@ -265,7 +300,7 @@ JSValuePtr functionReadline(ExecState* exec, JSObject*, JSValuePtr, const ArgLis
     return jsString(exec, line.data());
 }
 
-JSValuePtr functionQuit(ExecState* exec, JSObject*, JSValuePtr, const ArgList&)
+JSValue JSC_HOST_CALL functionQuit(ExecState* exec, JSObject*, JSValue, const ArgList&)
 {
     cleanupGlobalData(&exec->globalData());
     exit(EXIT_SUCCESS);
@@ -339,6 +374,10 @@ static bool runWithScripts(GlobalObject* globalObject, const Vector<Script>& scr
 #if ENABLE(OPCODE_SAMPLING)
     Interpreter* interpreter = globalObject->globalData()->interpreter;
     interpreter->setSampler(new SamplingTool(interpreter));
+    interpreter->sampler()->setup();
+#endif
+#if ENABLE(SAMPLING_FLAGS)
+    SamplingFlags::start();
 #endif
 
     bool success = true;
@@ -353,9 +392,10 @@ static bool runWithScripts(GlobalObject* globalObject, const Vector<Script>& scr
             fileName = "[Command Line]";
         }
 
-#if ENABLE(OPCODE_SAMPLING)
-        interpreter->sampler()->start();
+#if ENABLE(SAMPLING_THREAD)
+        SamplingThread::start();
 #endif
+
         Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(script, fileName));
         success = success && completion.complType() != Throw;
         if (dump) {
@@ -365,16 +405,22 @@ static bool runWithScripts(GlobalObject* globalObject, const Vector<Script>& scr
                 printf("End: %s\n", completion.value().toString(globalObject->globalExec()).ascii());
         }
 
-        globalObject->globalExec()->clearException();
-
-#if ENABLE(OPCODE_SAMPLING)
-        interpreter->sampler()->stop();
+#if ENABLE(SAMPLING_THREAD)
+        SamplingThread::stop();
 #endif
+
+        globalObject->globalExec()->clearException();
     }
 
+#if ENABLE(SAMPLING_FLAGS)
+    SamplingFlags::stop();
+#endif
 #if ENABLE(OPCODE_SAMPLING)
     interpreter->sampler()->dump(globalObject->globalExec());
     delete interpreter->sampler();
+#endif
+#if ENABLE(SAMPLING_COUNTERS)
+    AbstractSamplingCounter::dump();
 #endif
     return success;
 }
@@ -417,7 +463,7 @@ void runInteractive(GlobalObject* globalObject)
     printf("\n");
 }
 
-static NO_RETURN void printUsageStatement(bool help = false)
+static NO_RETURN void printUsageStatement(JSGlobalData* globalData, bool help = false)
 {
     fprintf(stderr, "Usage: jsc [options] [files] [-- arguments]\n");
     fprintf(stderr, "  -d         Dumps bytecode (debug builds only)\n");
@@ -426,28 +472,30 @@ static NO_RETURN void printUsageStatement(bool help = false)
     fprintf(stderr, "  -h|--help  Prints this help message\n");
     fprintf(stderr, "  -i         Enables interactive mode (default if no files are specified)\n");
     fprintf(stderr, "  -s         Installs signal handlers that exit on a crash (Unix platforms only)\n");
+
+    cleanupGlobalData(globalData);
     exit(help ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
-static void parseArguments(int argc, char** argv, Options& options)
+static void parseArguments(int argc, char** argv, Options& options, JSGlobalData* globalData)
 {
     int i = 1;
     for (; i < argc; ++i) {
         const char* arg = argv[i];
         if (strcmp(arg, "-f") == 0) {
             if (++i == argc)
-                printUsageStatement();
+                printUsageStatement(globalData);
             options.scripts.append(Script(true, argv[i]));
             continue;
         }
         if (strcmp(arg, "-e") == 0) {
             if (++i == argc)
-                printUsageStatement();
+                printUsageStatement(globalData);
             options.scripts.append(Script(false, argv[i]));
             continue;
         }
         if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
-            printUsageStatement(true);
+            printUsageStatement(globalData, true);
         }
         if (strcmp(arg, "-i") == 0) {
             options.interactive = true;
@@ -485,7 +533,7 @@ int jscmain(int argc, char** argv, JSGlobalData* globalData)
     JSLock lock(false);
 
     Options options;
-    parseArguments(argc, argv, options);
+    parseArguments(argc, argv, options, globalData);
 
     GlobalObject* globalObject = new (globalData) GlobalObject(options.arguments);
     bool success = runWithScripts(globalObject, options.scripts, options.dump);

@@ -32,6 +32,7 @@
 
 #include "CallFrame.h"
 #include "JSValue.h"
+#include "MacroAssemblerCodeRef.h"
 #include "Profiler.h"
 
 namespace JSC {
@@ -39,31 +40,27 @@ namespace JSC {
     class JSGlobalData;
     class RegisterFile;
 
-    extern "C" {
-        JSValueEncodedAsPointer* ctiTrampoline(
-#if PLATFORM(X86_64)
-            // FIXME: (bug #22910) this will force all arguments onto the stack (regparm(0) does not appear to have any effect).
-            // We can allow register passing here, and move the writes of these values into the trampoline.
-            void*, void*, void*, void*, void*, void*,
-#endif
-            void* code, RegisterFile*, CallFrame*, JSValuePtr* exception, Profiler**, JSGlobalData*);
-    };
-
     class JITCode {
+        typedef MacroAssemblerCodeRef CodeRef;
+        typedef MacroAssemblerCodePtr CodePtr;
     public:
-        JITCode(void* code)
-            : code(code)
+        JITCode()
         {
         }
 
-        operator bool()
+        JITCode(const CodeRef ref)
+            : m_ref(ref)
         {
-            return code != 0;
         }
 
-        void* addressForCall()
+        bool operator !() const
         {
-            return code;
+            return !m_ref.m_code.executableAddress();
+        }
+
+        CodePtr addressForCall()
+        {
+            return m_ref.m_code;
         }
 
         // This function returns the offset in bytes of 'pointerIntoCode' into
@@ -71,23 +68,48 @@ namespace JSC {
         // block of code.  It is ASSERTed that no codeblock >4gb in size.
         unsigned offsetOf(void* pointerIntoCode)
         {
-            intptr_t result = reinterpret_cast<intptr_t>(pointerIntoCode) - reinterpret_cast<intptr_t>(code);
+            intptr_t result = reinterpret_cast<intptr_t>(pointerIntoCode) - reinterpret_cast<intptr_t>(m_ref.m_code.executableAddress());
             ASSERT(static_cast<intptr_t>(static_cast<unsigned>(result)) == result);
             return static_cast<unsigned>(result);
         }
 
         // Execute the code!
-        inline JSValuePtr execute(RegisterFile* registerFile, CallFrame* callFrame, JSGlobalData* globalData, JSValuePtr* exception)
+        inline JSValue execute(RegisterFile* registerFile, CallFrame* callFrame, JSGlobalData* globalData, JSValue* exception)
         {
-            return JSValuePtr::decode(ctiTrampoline(
+            return JSValue::decode(ctiTrampoline(
 #if PLATFORM(X86_64)
                 0, 0, 0, 0, 0, 0,
 #endif
-                code, registerFile, callFrame, exception, Profiler::enabledProfilerReference(), globalData));
+                m_ref.m_code.executableAddress(), registerFile, callFrame, exception, Profiler::enabledProfilerReference(), globalData));
+        }
+
+#ifndef NDEBUG
+        size_t size()
+        {
+            ASSERT(m_ref.m_code.executableAddress());
+            return m_ref.m_size;
+        }
+#endif
+
+        ExecutablePool* getExecutablePool()
+        {
+            return m_ref.m_executablePool.get();
+        }
+
+        // Host functions are a bit special; they have a m_code pointer but they
+        // do not individully ref the executable pool containing the trampoline.
+        static JITCode HostFunction(CodePtr code)
+        {
+            return JITCode(code.dataLocation(), 0, 0);
         }
 
     private:
-        void* code;
+        JITCode(void* code, PassRefPtr<ExecutablePool> executablePool, size_t size)
+            : m_ref(code, executablePool, size)
+        {
+        }
+
+        CodeRef m_ref;
     };
 
 };

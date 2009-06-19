@@ -30,12 +30,11 @@
 #include "Document.h"
 #include "JSDOMWindow.h"
 #include "JSEventListener.h"
-#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
+
 #if ENABLE(WORKERS)
 #include "JSWorkerContext.h"
-#endif
-#endif
 #include "WorkerContext.h"
+#endif
 
 using namespace JSC;
 
@@ -53,26 +52,10 @@ JSDOMGlobalObject::JSDOMGlobalObject(PassRefPtr<Structure> structure, JSDOMGloba
 
 JSDOMGlobalObject::~JSDOMGlobalObject()
 {
-    // Clear any backpointers to the window
-    ProtectedListenersMap::iterator i1 = d()->jsProtectedEventListeners.begin();
-    ProtectedListenersMap::iterator e1 = d()->jsProtectedEventListeners.end();
-    for (; i1 != e1; ++i1)
-        i1->second->clearGlobalObject();
-
-    i1 = d()->jsProtectedInlineEventListeners.begin();
-    e1 = d()->jsProtectedInlineEventListeners.end();
-    for (; i1 != e1; ++i1)
-        i1->second->clearGlobalObject();
-
-    JSListenersMap::iterator i2 = d()->jsEventListeners.begin();
-    JSListenersMap::iterator e2 = d()->jsEventListeners.end();
-    for (; i2 != e2; ++i2)
-        i2->second->clearGlobalObject();
-
-    i2 = d()->jsInlineEventListeners.begin();
-    e2 = d()->jsInlineEventListeners.end();
-    for (; i2 != e2; ++i2)
-        i2->second->clearGlobalObject();
+    JSListenersMap::iterator it = d()->jsEventListeners.begin();
+    JSListenersMap::iterator end = d()->jsEventListeners.end();
+    for (; it != end; ++it)
+        it->second->clearGlobalObject();
 }
 
 void JSDOMGlobalObject::mark()
@@ -90,56 +73,32 @@ void JSDOMGlobalObject::mark()
     }
 }
 
-JSProtectedEventListener* JSDOMGlobalObject::findJSProtectedEventListener(JSValuePtr val, bool isInline)
-{
-    if (!val.isObject())
-        return 0;
-    JSObject* object = asObject(val);
-    ProtectedListenersMap& listeners = isInline ? d()->jsProtectedInlineEventListeners : d()->jsProtectedEventListeners;
-    return listeners.get(object);
-}
-
-PassRefPtr<JSProtectedEventListener> JSDOMGlobalObject::findOrCreateJSProtectedEventListener(ExecState*, JSValuePtr val, bool isInline)
-{
-    if (JSProtectedEventListener* listener = findJSProtectedEventListener(val, isInline))
-        return listener;
-
-    if (!val.isObject())
-        return 0;
-
-    // The JSProtectedEventListener constructor adds it to our jsProtectedEventListeners map.
-    return JSProtectedEventListener::create(asObject(val), this, isInline).get();
-}
-
-JSEventListener* JSDOMGlobalObject::findJSEventListener(ExecState*, JSValuePtr val, bool isInline)
+JSEventListener* JSDOMGlobalObject::findJSEventListener(JSValue val)
 {
     if (!val.isObject())
         return 0;
 
-    JSListenersMap& listeners = isInline ? d()->jsInlineEventListeners : d()->jsEventListeners;
-    return listeners.get(asObject(val));
+    return d()->jsEventListeners.get(asObject(val));
 }
 
-PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(ExecState* exec, JSValuePtr val, bool isInline)
+PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(JSValue val)
 {
-    if (JSEventListener* listener = findJSEventListener(exec, val, isInline))
+    if (JSEventListener* listener = findJSEventListener(val))
         return listener;
 
     if (!val.isObject())
         return 0;
 
     // The JSEventListener constructor adds it to our jsEventListeners map.
-    return JSEventListener::create(asObject(val), this, isInline).get();
+    return JSEventListener::create(asObject(val), this, false).get();
 }
 
-JSDOMGlobalObject::ProtectedListenersMap& JSDOMGlobalObject::jsProtectedEventListeners()
+PassRefPtr<JSEventListener> JSDOMGlobalObject::createJSAttributeEventListener(JSValue val)
 {
-    return d()->jsProtectedEventListeners;
-}
+    if (!val.isObject())
+        return 0;
 
-JSDOMGlobalObject::ProtectedListenersMap& JSDOMGlobalObject::jsProtectedInlineEventListeners()
-{
-    return d()->jsProtectedInlineEventListeners;
+    return JSEventListener::create(asObject(val), this, true).get();
 }
 
 JSDOMGlobalObject::JSListenersMap& JSDOMGlobalObject::jsEventListeners()
@@ -147,17 +106,12 @@ JSDOMGlobalObject::JSListenersMap& JSDOMGlobalObject::jsEventListeners()
     return d()->jsEventListeners;
 }
 
-JSDOMGlobalObject::JSListenersMap& JSDOMGlobalObject::jsInlineEventListeners()
-{
-    return d()->jsInlineEventListeners;
-}
-
 void JSDOMGlobalObject::setCurrentEvent(Event* evt)
 {
     d()->evt = evt;
 }
 
-Event* JSDOMGlobalObject::currentEvent()
+Event* JSDOMGlobalObject::currentEvent() const
 {
     return d()->evt;
 }

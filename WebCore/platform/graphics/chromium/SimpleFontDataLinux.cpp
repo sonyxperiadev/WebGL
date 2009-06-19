@@ -36,33 +36,54 @@
 #include "FloatRect.h"
 #include "FontDescription.h"
 #include "Logging.h"
-#include "NotImplemented.h"
+#include "VDMXParser.h"
 
+#include "SkFontHost.h"
 #include "SkPaint.h"
-#include "SkTypeface.h"
 #include "SkTime.h"
+#include "SkTypeface.h"
+#include "SkTypes.h"
 
 namespace WebCore {
 
 // Smallcaps versions of fonts are 70% the size of the normal font.
 static const float smallCapsFraction = 0.7f;
+// This is the largest VDMX table which we'll try to load and parse.
+static const size_t maxVDMXTableSize = 1024 * 1024;  // 1 MB
 
 void SimpleFontData::platformInit()
 {
     SkPaint paint;
     SkPaint::FontMetrics metrics;
 
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
     paint.getFontMetrics(&metrics);
+    const SkFontID fontID = m_platformData.uniqueID();
+
+    static const uint32_t vdmxTag = SkSetFourByteTag('V', 'D', 'M', 'X');
+    int pixelSize = m_platformData.size() + 0.5;
+    int vdmxAscent, vdmxDescent;
+    bool isVDMXValid = false;
+
+    size_t vdmxSize = SkFontHost::GetTableSize(fontID, vdmxTag);
+    if (vdmxSize && vdmxSize < maxVDMXTableSize) {
+        uint8_t* vdmxTable = (uint8_t*) fastMalloc(vdmxSize);
+        if (vdmxTable
+            && SkFontHost::GetTableData(fontID, vdmxTag, 0, vdmxSize, vdmxTable) == vdmxSize
+            && parseVDMX(&vdmxAscent, &vdmxDescent, vdmxTable, vdmxSize, pixelSize))
+            isVDMXValid = true;
+        fastFree(vdmxTable);
+    }
 
     // Beware those who step here: This code is designed to match Win32 font
     // metrics *exactly*.
-    if (metrics.fVDMXMetricsValid) {
-        m_ascent = metrics.fVDMXAscent;
-        m_descent = metrics.fVDMXDescent;
+    if (isVDMXValid) {
+        m_ascent = vdmxAscent;
+        m_descent = -vdmxDescent;
     } else {
+        SkScalar height = -metrics.fAscent + metrics.fDescent + metrics.fLeading;
         m_ascent = SkScalarRound(-metrics.fAscent);
-        m_descent = SkScalarRound(metrics.fHeight) - m_ascent;
+        m_descent = SkScalarRound(height) - m_ascent;
     }
 
     if (metrics.fXHeight)
@@ -79,7 +100,8 @@ void SimpleFontData::platformInit()
     // calculated for us, but we need to calculate m_maxCharWidth and
     // m_avgCharWidth in order for text entry widgets to be sized correctly.
 
-    m_maxCharWidth = SkScalarRound(metrics.fXRange * SkScalarRound(m_font.size()));
+    SkScalar xRange = metrics.fXMax - metrics.fXMin;
+    m_maxCharWidth = SkScalarRound(xRange * SkScalarRound(m_platformData.size()));
 
     if (metrics.fAvgCharWidth)
         m_avgCharWidth = SkScalarRound(metrics.fAvgCharWidth);
@@ -98,6 +120,11 @@ void SimpleFontData::platformInit()
     }
 }
 
+void SimpleFontData::platformCharWidthInit()
+{
+    // charwidths are set in platformInit.
+}
+
 void SimpleFontData::platformDestroy()
 {
     delete m_smallCapsFontData;
@@ -108,7 +135,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
 {
     if (!m_smallCapsFontData) {
         const float smallCapsSize = lroundf(fontDescription.computedSize() * smallCapsFraction);
-        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_font, smallCapsSize));
+        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_platformData, smallCapsSize));
     }
 
     return m_smallCapsFontData;
@@ -120,7 +147,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     static const unsigned maxBufferCount = 64;
     uint16_t glyphs[maxBufferCount];
 
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
 
     while (length > 0) {
@@ -151,11 +178,11 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 
     SkPaint paint;
 
-    m_font.setupPaint(&paint);
+    m_platformData.setupPaint(&paint);
 
     paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
     SkScalar width = paint.measureText(&glyph, 2);
-    
+
     return SkScalarToFloat(width);
 }
 

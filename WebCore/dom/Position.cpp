@@ -73,20 +73,135 @@ static Node* previousRenderedEditable(Node* node)
     return 0;
 }
 
-Element* Position::documentElement() const
+Position::Position(PassRefPtr<Node> anchorNode, int offset)
+    : m_anchorNode(anchorNode)
+    , m_offset(offset)
+    , m_anchorType(anchorTypeForLegacyEditingPosition(m_anchorNode.get(), m_offset))
+    , m_isLegacyEditingPosition(true)
 {
-    if (Node* n = node())
-        if (Element* e = n->document()->documentElement())
-            return e;
+}
+
+Position::Position(PassRefPtr<Node> anchorNode, AnchorType anchorType)
+    : m_anchorNode(anchorNode)
+    , m_offset(0)
+    , m_anchorType(anchorType)
+    , m_isLegacyEditingPosition(false)
+{
+    ASSERT(anchorType != PositionIsOffsetInAnchor);
+}
+
+Position::Position(PassRefPtr<Node> anchorNode, int offset, AnchorType anchorType)
+    : m_anchorNode(anchorNode)
+    , m_offset(offset)
+    , m_anchorType(anchorType)
+    , m_isLegacyEditingPosition(false)
+{
+    ASSERT(anchorType == PositionIsOffsetInAnchor);
+}
+
+void Position::moveToPosition(PassRefPtr<Node> node, int offset)
+{
+    ASSERT(anchorType() == PositionIsOffsetInAnchor || m_isLegacyEditingPosition);
+    m_anchorNode = node;
+    m_offset = offset;
+    if (m_isLegacyEditingPosition)
+        m_anchorType = anchorTypeForLegacyEditingPosition(m_anchorNode.get(), m_offset);
+}
+void Position::moveToOffset(int offset)
+{
+    ASSERT(anchorType() == PositionIsOffsetInAnchor || m_isLegacyEditingPosition);
+    m_offset = offset;
+    if (m_isLegacyEditingPosition)
+        m_anchorType = anchorTypeForLegacyEditingPosition(m_anchorNode.get(), m_offset);
+}
+
+Node* Position::containerNode() const
+{
+    if (!m_anchorNode)
+        return 0;
+
+    switch (anchorType()) {
+    case PositionIsOffsetInAnchor:
+        return m_anchorNode.get();
+    case PositionIsBeforeAnchor:
+    case PositionIsAfterAnchor:
+        return m_anchorNode->parentNode();
+    }
+    ASSERT_NOT_REACHED();
     return 0;
 }
 
-Element *Position::element() const
+int Position::computeOffsetInContainerNode() const
 {
-    Node *n;
-    for (n = node(); n && !n->isElementNode(); n = n->parentNode())
-        ; // empty loop body
-    return static_cast<Element *>(n);
+    if (!m_anchorNode)
+        return 0;
+
+    switch (anchorType()) {
+    case PositionIsOffsetInAnchor:
+    {
+        int maximumValidOffset = m_anchorNode->offsetInCharacters() ? m_anchorNode->maxCharacterOffset() : m_anchorNode->childNodeCount();
+        return std::min(maximumValidOffset, m_offset);
+    }
+    case PositionIsBeforeAnchor:
+        return m_anchorNode->nodeIndex();
+    case PositionIsAfterAnchor:
+        return m_anchorNode->nodeIndex() + 1;
+    }
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+Node* Position::computeNodeBeforePosition() const
+{
+    if (!m_anchorNode)
+        return 0;
+
+    switch (anchorType()) {
+    case PositionIsOffsetInAnchor:
+        return m_anchorNode->childNode(m_offset - 1); // -1 converts to childNode((unsigned)-1) and returns null.
+    case PositionIsBeforeAnchor:
+        return m_anchorNode->previousSibling();
+    case PositionIsAfterAnchor:
+        return m_anchorNode.get();
+    }
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+Node* Position::computeNodeAfterPosition() const
+{
+    if (!m_anchorNode)
+        return 0;
+
+    switch (anchorType()) {
+    case PositionIsOffsetInAnchor:
+        return m_anchorNode->childNode(m_offset);
+    case PositionIsBeforeAnchor:
+        return m_anchorNode.get();
+    case PositionIsAfterAnchor:
+        return m_anchorNode->nextSibling();
+    }
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+Position::AnchorType Position::anchorTypeForLegacyEditingPosition(Node* anchorNode, int offset)
+{
+    if (anchorNode && editingIgnoresContent(anchorNode)) {
+        if (offset == 0)
+            return Position::PositionIsBeforeAnchor;
+        return Position::PositionIsAfterAnchor;
+    }
+    return Position::PositionIsOffsetInAnchor;
+}
+
+// FIXME: This method is confusing (does it return anchorNode() or containerNode()?) and should be renamed or removed
+Element* Position::element() const
+{
+    Node* n = anchorNode();
+    while (n && !n->isElementNode())
+        n = n->parentNode();
+    return static_cast<Element*>(n);
 }
 
 PassRefPtr<CSSComputedStyleDeclaration> Position::computedStyle() const
@@ -680,11 +795,11 @@ bool Position::rendersInDifferentPosition(const Position &pos) const
         if (node()->hasTagName(brTag))
             return false;
 
-        if (m_offset == pos.m_offset)
+        if (m_offset == pos.deprecatedEditingOffset())
             return false;
             
         if (!node()->isTextNode() && !pos.node()->isTextNode()) {
-            if (m_offset != pos.m_offset)
+            if (m_offset != pos.deprecatedEditingOffset())
                 return true;
         }
     }
@@ -758,7 +873,7 @@ Position Position::leadingWhitespacePosition(EAffinity affinity, bool considerNo
     Position prev = previousCharacterPosition(affinity);
     if (prev != *this && prev.node()->inSameContainingBlockFlowElement(node()) && prev.node()->isTextNode()) {
         String string = static_cast<Text *>(prev.node())->data();
-        UChar c = string[prev.m_offset];
+        UChar c = string[prev.deprecatedEditingOffset()];
         if (considerNonCollapsibleWhitespace ? (isSpaceOrNewline(c) || c == noBreakSpace) : isCollapsibleWhitespace(c))
             if (isEditablePosition(prev))
                 return prev;

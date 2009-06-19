@@ -40,12 +40,12 @@ namespace JSC {
 
     class JSPropertyNameIterator : public JSCell {
     public:
-        static JSPropertyNameIterator* create(ExecState*, JSValuePtr);
+        static JSPropertyNameIterator* create(ExecState*, JSValue);
 
         virtual ~JSPropertyNameIterator();
 
-        virtual JSValuePtr toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        virtual bool getPrimitiveNumber(ExecState*, double&, JSValuePtr&);
+        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
+        virtual bool getPrimitiveNumber(ExecState*, double&, JSValue&);
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual UString toString(ExecState*) const;
@@ -53,7 +53,7 @@ namespace JSC {
 
         virtual void mark();
 
-        JSValuePtr next(ExecState*);
+        JSValue next(ExecState*);
         void invalidate();
 
     private:
@@ -83,7 +83,7 @@ inline JSPropertyNameIterator::JSPropertyNameIterator(JSObject* object, PassRefP
 {
 }
 
-inline JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSValuePtr v)
+inline JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSValue v)
 {
     if (v.isUndefinedOrNull())
         return new (exec) JSPropertyNameIterator;
@@ -94,12 +94,12 @@ inline JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, J
     return new (exec) JSPropertyNameIterator(o, propertyNames.releaseData());
 }
 
-inline JSValuePtr JSPropertyNameIterator::next(ExecState* exec)
+inline JSValue JSPropertyNameIterator::next(ExecState* exec)
 {
     if (m_position == m_end)
-        return noValue();
+        return JSValue();
 
-    if (m_data->cachedStructure() == m_object->structure() && structureChainsAreEqual(m_data->cachedPrototypeChain(), m_object->structure()->cachedPrototypeChain()))
+    if (m_data->cachedStructure() == m_object->structure() && m_data->cachedPrototypeChain() == m_object->structure()->prototypeChain(exec))
         return jsOwnedString(exec, (*m_position++).ustring());
 
     do {
@@ -108,7 +108,7 @@ inline JSValuePtr JSPropertyNameIterator::next(ExecState* exec)
         m_position++;
     } while (m_position != m_end);
 
-    return noValue();
+    return JSValue();
 }
 
 } // namespace JSC

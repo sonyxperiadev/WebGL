@@ -31,12 +31,12 @@
 #include "config.h"
 #include "Image.h"
 
+#include "ImageObserver.h"
 #include "BitmapImage.h"
 #include "FloatRect.h"
 #include "PlatformString.h"
 #include "GraphicsContext.h"
 #include "TransformationMatrix.h"
-#include "NotImplemented.h"
 #include "StillImageQt.h"
 #include "qwebsettings.h"
 
@@ -117,6 +117,9 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     p->setBrushOrigin(phase);
     p->fillRect(destRect, b);
     ctxt->restore();
+
+    if (imageObserver())
+        imageObserver()->didDraw(this);
 }
 
 void BitmapImage::initPlatformData()
@@ -159,6 +162,9 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
     painter->drawPixmap(dst, *image, src);
 
     ctxt->restore();
+
+    if (imageObserver())
+        imageObserver()->didDraw(this);
 }
 
 void BitmapImage::checkForSolidColor()

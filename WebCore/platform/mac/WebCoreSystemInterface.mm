@@ -51,8 +51,11 @@ NSDate *(*wkGetNSURLResponseLastModifiedDate)(NSURLResponse *response);
 BOOL (*wkGetNSURLResponseMustRevalidate)(NSURLResponse *response);
 void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOOL* continuous);
 void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
+unsigned (*wkQTIncludeOnlyModernMediaFileTypes)(void);
 int (*wkQTMovieDataRate)(QTMovie*);
 float (*wkQTMovieMaxTimeLoaded)(QTMovie*);
+NSString *(*wkQTMovieMaxTimeLoadedChangeNotification)(void);
+float (*wkQTMovieMaxTimeSeekable)(QTMovie*);
 void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
@@ -74,6 +77,7 @@ CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRe
 void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
 id (*wkCreateNSURLConnectionDelegateProxy)(void);
+unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
 
 #ifndef BUILDING_ON_TIGER
 void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);

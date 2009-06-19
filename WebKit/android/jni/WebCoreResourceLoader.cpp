@@ -160,10 +160,11 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
         response->setHTTPStatusText(status);
         LOGV("Response setStatusText: %s", status.latin1().data());
     }
-    // FIXME: This assumes that time_t is a long and that long is the same size as int.
-    if ((unsigned long)expireTime > INT_MAX)
-        expireTime = INT_MAX;
-    response->setExpirationDate((time_t)expireTime);
+    // FIXME klobag, WebCore::ResourceResponse changed the way of setting
+    // expiration date. Now it has to set the HTTP header as,
+    // 'expires':<date format string>.
+    // Temporarily disable the code.
+    // response->setHTTPHeaderField("expires", expireTime); 
     return (int)response;
 }
    

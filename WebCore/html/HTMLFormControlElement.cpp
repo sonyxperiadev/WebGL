@@ -34,6 +34,7 @@
 #include "HTMLNames.h"
 #include "HTMLParser.h"
 #include "HTMLTokenizer.h"
+#include "MappedAttribute.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
 
@@ -68,7 +69,7 @@ void HTMLFormControlElement::parseMappedAttribute(MappedAttribute *attr)
         bool oldDisabled = m_disabled;
         m_disabled = !attr->isNull();
         if (oldDisabled != m_disabled) {
-            setChanged();
+            setNeedsStyleRecalc();
             if (renderer() && renderer()->style()->hasAppearance())
                 theme()->stateChanged(renderer(), EnabledState);
         }
@@ -76,7 +77,7 @@ void HTMLFormControlElement::parseMappedAttribute(MappedAttribute *attr)
         bool oldReadOnly = m_readOnly;
         m_readOnly = !attr->isNull();
         if (oldReadOnly != m_readOnly) {
-            setChanged();
+            setNeedsStyleRecalc();
             if (renderer() && renderer()->style()->hasAppearance())
                 theme()->stateChanged(renderer(), ReadOnlyState);
         }
@@ -103,7 +104,7 @@ void HTMLFormControlElement::attach()
     if (hasTagName(inputTag))
         isInputTypeHidden = static_cast<HTMLInputElement*>(this)->isInputTypeHidden();
 
-    if (autofocus() && renderer() && !document()->ignoreAutofocus() && !isReadOnlyControl() &&
+    if (autofocus() && renderer() && !document()->ignoreAutofocus() && !isReadOnlyFormControl() &&
             ((hasTagName(inputTag) && !isInputTypeHidden) || hasTagName(selectTag) ||
               hasTagName(buttonTag) || hasTagName(textareaTag)))
          focus();
@@ -151,7 +152,7 @@ void HTMLFormControlElement::removedFromTree(bool deep)
     HTMLElement::removedFromTree(deep);
 }
 
-const AtomicString& HTMLFormControlElement::name() const
+const AtomicString& HTMLFormControlElement::formControlName() const
 {
     const AtomicString& n = getAttribute(nameAttr);
     return n.isNull() ? emptyAtom : n;
@@ -162,9 +163,9 @@ void HTMLFormControlElement::setName(const AtomicString &value)
     setAttribute(nameAttr, value);
 }
 
-void HTMLFormControlElement::onChange()
+void HTMLFormControlElement::dispatchFormControlChangeEvent()
 {
-    dispatchEventForType(eventNames().changeEvent, true, false);
+    dispatchEvent(eventNames().changeEvent, true, false);
 }
 
 bool HTMLFormControlElement::disabled() const
@@ -238,7 +239,7 @@ bool HTMLFormControlElement::willValidate() const
     //      The control does not have a repetition template as an ancestor.
     //      The control does not have a datalist element as an ancestor.
     //      The control is not an output element.
-    return form() && name().length() && !disabled() && !isReadOnlyControl();
+    return form() && name().length() && !disabled() && !isReadOnlyFormControl();
 }
     
 bool HTMLFormControlElement::supportsFocus() const
@@ -262,23 +263,23 @@ void HTMLFormControlElement::removeFromForm()
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElement(tagName, doc, f)
 {
-    FormControlElementWithState::registerFormControlElementWithState(this, document());
+    document()->registerFormElementWithState(this);
 }
 
 HTMLFormControlElementWithState::~HTMLFormControlElementWithState()
 {
-    FormControlElementWithState::unregisterFormControlElementWithState(this, document());
+    document()->unregisterFormElementWithState(this);
 }
 
 void HTMLFormControlElementWithState::willMoveToNewOwnerDocument()
 {
-    FormControlElementWithState::unregisterFormControlElementWithState(this, document());
+    document()->unregisterFormElementWithState(this);
     HTMLFormControlElement::willMoveToNewOwnerDocument();
 }
 
 void HTMLFormControlElementWithState::didMoveToNewOwnerDocument()
 {
-    FormControlElementWithState::registerFormControlElementWithState(this, document());
+    document()->registerFormElementWithState(this);
     HTMLFormControlElement::didMoveToNewOwnerDocument();
 }
 
@@ -289,7 +290,7 @@ void HTMLFormControlElementWithState::finishParsingChildren()
     if (doc->hasStateForNewFormElements()) {
         String state;
         if (doc->takeStateForFormElement(name().impl(), type().impl(), state))
-            restoreState(state);
+            restoreFormControlState(state);
     }
 }
 

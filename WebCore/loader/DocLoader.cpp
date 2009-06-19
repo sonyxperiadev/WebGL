@@ -37,6 +37,7 @@
 #include "CString.h"
 #include "Document.h"
 #include "DOMWindow.h"
+#include "HTMLElement.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "loader.h"
@@ -63,6 +64,9 @@ DocLoader::DocLoader(Document* doc)
 
 DocLoader::~DocLoader()
 {
+    if (m_requestCount)
+        m_cache->loader()->cancelRequests(this);
+
     clearPreloads();
     DocumentResourceMap::iterator end = m_documentResources.end();
     for (DocumentResourceMap::iterator it = m_documentResources.begin(); it != end; ++it)
@@ -316,11 +320,16 @@ void DocLoader::setBlockNetworkImage(bool block)
 
 CachePolicy DocLoader::cachePolicy() const
 {
-    return frame() ? frame()->loader()->cachePolicy() : CachePolicyVerify;
+    return frame() ? frame()->loader()->subresourceCachePolicy() : CachePolicyVerify;
 }
 
 void DocLoader::removeCachedResource(CachedResource* resource) const
 {
+#ifndef NDEBUG
+    DocumentResourceMap::iterator it = m_documentResources.find(resource->url());
+    if (it != m_documentResources.end())
+        ASSERT(it->second.get() == resource);
+#endif
     m_documentResources.remove(resource->url());
 }
 
@@ -389,7 +398,9 @@ void DocLoader::checkForPendingPreloads()
         return;
     for (unsigned i = 0; i < count; ++i) {
         PendingPreload& preload = m_pendingPreloads[i];
-        requestPreload(preload.m_type, preload.m_url, preload.m_charset);
+        // Don't request preload if the resource already loaded normally (this will result in double load if the page is being reloaded with cached results ignored).
+        if (!cachedResource(m_doc->completeURL(preload.m_url)))
+            requestPreload(preload.m_type, preload.m_url, preload.m_charset);
     }
     m_pendingPreloads.clear();
 }

@@ -76,7 +76,11 @@ using JSC::UString;
 #include <QWidget>
 #include <QKeyEvent>
 QT_BEGIN_NAMESPACE
-extern Q_GUI_EXPORT OSWindowRef qt_mac_window_for(const QWidget *w);
+#if QT_VERSION < 0x040500
+extern Q_GUI_EXPORT WindowPtr qt_mac_window_for(const QWidget* w);
+#else
+extern Q_GUI_EXPORT OSWindowRef qt_mac_window_for(const QWidget* w);
+#endif
 QT_END_NAMESPACE
 #endif
 
@@ -299,9 +303,6 @@ void PluginView::show()
 
     setSelfVisible(true);
 
-    if (isParentVisible() && platformPluginWidget())
-        platformPluginWidget()->setVisible(true);
-
     Widget::show();
 }
 
@@ -310,9 +311,6 @@ void PluginView::hide()
     LOG(Plugin, "PluginView::hide()");
 
     setSelfVisible(false);
-
-    if (isParentVisible() && platformPluginWidget())
-        platformPluginWidget()->setVisible(false);
 
     Widget::hide();
 }
@@ -345,9 +343,6 @@ void PluginView::setParentVisible(bool visible)
         return;
 
     Widget::setParentVisible(visible);
-
-    if (isSelfVisible() && platformPluginWidget())
-        platformPluginWidget()->setVisible(visible);
 }
 
 void PluginView::setNPWindowRect(const IntRect&)

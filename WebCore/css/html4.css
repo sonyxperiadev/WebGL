@@ -359,9 +359,10 @@ textarea {
     -webkit-box-orient: vertical;
     resize: auto;
     cursor: auto;
+    padding: 2px;
 }
 
-input::-webkit-input-placeholder {
+input::-webkit-input-placeholder, isindex::-webkit-input-placeholder {
     color: darkGray;
 }
 

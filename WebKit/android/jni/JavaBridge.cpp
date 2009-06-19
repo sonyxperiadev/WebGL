@@ -71,7 +71,7 @@ public:
     virtual void setSharedTimer(long long timemillis);
     virtual void stopSharedTimer();
 
-    virtual void setCookies(WebCore::KURL const& url, WebCore::KURL const& docURL, WebCore::String const& value);
+    virtual void setCookies(WebCore::KURL const& url, WebCore::String const& value);
     virtual WebCore::String cookies(WebCore::KURL const& url);
     virtual bool cookiesEnabled();
 
@@ -121,7 +121,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
 
     mSetSharedTimer = env->GetMethodID(clazz, "setSharedTimer", "(J)V");
     mStopSharedTimer = env->GetMethodID(clazz, "stopSharedTimer", "()V");
-    mSetCookies = env->GetMethodID(clazz, "setCookies", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    mSetCookies = env->GetMethodID(clazz, "setCookies", "(Ljava/lang/String;Ljava/lang/String;)V");
     mCookies = env->GetMethodID(clazz, "cookies", "(Ljava/lang/String;)Ljava/lang/String;");
     mCookiesEnabled = env->GetMethodID(clazz, "cookiesEnabled", "()Z");
     mGetPluginDirectories = env->GetMethodID(clazz, "getPluginDirectories", "()[Ljava/lang/String;");
@@ -174,19 +174,16 @@ JavaBridge::stopSharedTimer()
 }
 
 void
-JavaBridge::setCookies(WebCore::KURL const& url, WebCore::KURL const& docUrl, WebCore::String const& value)
+JavaBridge::setCookies(WebCore::KURL const& url, WebCore::String const& value)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     const WebCore::String& urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
-    const WebCore::String& docUrlStr = docUrl.string();
-    jstring jDocUrlStr = env->NewString(docUrlStr.characters(), docUrlStr.length());
     jstring jValueStr = env->NewString(value.characters(), value.length());
 
     AutoJObject obj = getRealObject(env, mJavaObject);
-    env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jDocUrlStr, jValueStr);
+    env->CallVoidMethod(obj.get(), mSetCookies, jUrlStr, jValueStr);
     env->DeleteLocalRef(jUrlStr);
-    env->DeleteLocalRef(jDocUrlStr);
     env->DeleteLocalRef(jValueStr);
 }
 

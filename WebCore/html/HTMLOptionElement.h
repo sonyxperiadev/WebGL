@@ -48,9 +48,9 @@ public:
     virtual void detach();
     virtual void setRenderStyle(PassRefPtr<RenderStyle>);
     
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
 
-    String text() const;
+    virtual String text() const;
     void setText(const String&, ExceptionCode&);
 
     int index() const;

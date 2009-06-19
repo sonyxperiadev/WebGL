@@ -81,6 +81,9 @@ namespace JSC {
         // such register exists. Registers returned by registerFor do not
         // require explicit reference counting.
         RegisterID* registerFor(const Identifier&);
+        
+        bool willResolveToArguments(const Identifier&);
+        RegisterID* uncheckedRegisterForArguments();
 
         // Behaves as registerFor does, but ignores dynamic scope as
         // dynamic scope should not interfere with const initialisation
@@ -240,9 +243,10 @@ namespace JSC {
         RegisterID* emitLoad(RegisterID* dst, bool);
         RegisterID* emitLoad(RegisterID* dst, double);
         RegisterID* emitLoad(RegisterID* dst, const Identifier&);
-        RegisterID* emitLoad(RegisterID* dst, JSValuePtr);
+        RegisterID* emitLoad(RegisterID* dst, JSValue);
         RegisterID* emitUnexpectedLoad(RegisterID* dst, bool);
         RegisterID* emitUnexpectedLoad(RegisterID* dst, double);
+        RegisterID* emitLoadGlobalObject(RegisterID* dst, JSObject* globalObject);
 
         RegisterID* emitUnaryOp(OpcodeID, RegisterID* dst, RegisterID* src);
         RegisterID* emitBinaryOp(OpcodeID, RegisterID* dst, RegisterID* src1, RegisterID* src2, OperandTypes);
@@ -269,12 +273,14 @@ namespace JSC {
         RegisterID* emitIn(RegisterID* dst, RegisterID* property, RegisterID* base) { return emitBinaryOp(op_in, dst, property, base, OperandTypes()); }
 
         RegisterID* emitResolve(RegisterID* dst, const Identifier& property);
-        RegisterID* emitGetScopedVar(RegisterID* dst, size_t skip, int index, JSValuePtr globalObject);
-        RegisterID* emitPutScopedVar(size_t skip, int index, RegisterID* value, JSValuePtr globalObject);
+        RegisterID* emitGetScopedVar(RegisterID* dst, size_t skip, int index, JSValue globalObject);
+        RegisterID* emitPutScopedVar(size_t skip, int index, RegisterID* value, JSValue globalObject);
 
         RegisterID* emitResolveBase(RegisterID* dst, const Identifier& property);
         RegisterID* emitResolveWithBase(RegisterID* baseDst, RegisterID* propDst, const Identifier& property);
         RegisterID* emitResolveFunction(RegisterID* baseDst, RegisterID* funcDst, const Identifier& property);
+
+        void emitMethodCheck();
 
         RegisterID* emitGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitPutById(RegisterID* base, const Identifier& property, RegisterID* value);
@@ -288,16 +294,22 @@ namespace JSC {
 
         RegisterID* emitCall(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, ArgumentsNode*, unsigned divot, unsigned startOffset, unsigned endOffset);
         RegisterID* emitCallEval(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, ArgumentsNode*, unsigned divot, unsigned startOffset, unsigned endOffset);
+        RegisterID* emitCallVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* argCount, unsigned divot, unsigned startOffset, unsigned endOffset);
+        RegisterID* emitLoadVarargs(RegisterID* argCountDst, RegisterID* args);
 
         RegisterID* emitReturn(RegisterID* src);
         RegisterID* emitEnd(RegisterID* src) { return emitUnaryNoDstOp(op_end, src); }
 
         RegisterID* emitConstruct(RegisterID* dst, RegisterID* func, ArgumentsNode*, unsigned divot, unsigned startOffset, unsigned endOffset);
+        RegisterID* emitStrcat(RegisterID* dst, RegisterID* src, int count);
+        void emitToPrimitive(RegisterID* dst, RegisterID* src);
 
         PassRefPtr<Label> emitLabel(Label*);
         PassRefPtr<Label> emitJump(Label* target);
         PassRefPtr<Label> emitJumpIfTrue(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpIfFalse(RegisterID* cond, Label* target);
+        PassRefPtr<Label> emitJumpIfNotFunctionCall(RegisterID* cond, Label* target);
+        PassRefPtr<Label> emitJumpIfNotFunctionApply(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpScopes(Label* target, int targetScopeDepth);
 
         PassRefPtr<Label> emitJumpSubroutine(RegisterID* retAddrDst, Label*);
@@ -308,7 +320,7 @@ namespace JSC {
 
         RegisterID* emitCatch(RegisterID*, Label* start, Label* end);
         void emitThrow(RegisterID* exc) { emitUnaryNoDstOp(op_throw, exc); }
-        RegisterID* emitNewError(RegisterID* dst, ErrorType type, JSValuePtr message);
+        RegisterID* emitNewError(RegisterID* dst, ErrorType type, JSValue message);
         void emitPushNewScope(RegisterID* dst, Identifier& property, RegisterID* value);
 
         RegisterID* emitPushScope(RegisterID* scope);
@@ -345,12 +357,7 @@ namespace JSC {
 
         PassRefPtr<Label> emitComplexJumpScopes(Label* target, ControlFlowContext* topScope, ControlFlowContext* bottomScope);
 
-        struct JSValueHashTraits : HashTraits<JSValueEncodedAsPointer*> {
-            static void constructDeletedValue(JSValueEncodedAsPointer*& slot) { slot = JSValuePtr::encode(jsImpossibleValue()); }
-            static bool isDeletedValue(JSValueEncodedAsPointer* value) { return value == JSValuePtr::encode(jsImpossibleValue()); }
-        };
-
-        typedef HashMap<JSValueEncodedAsPointer*, unsigned, PtrHash<JSValueEncodedAsPointer*>, JSValueHashTraits> JSValueMap;
+        typedef HashMap<EncodedJSValue, unsigned, PtrHash<EncodedJSValue>, JSValueHashTraits> JSValueMap;
 
         struct IdentifierMapIndexHashTraits {
             typedef int TraitType;
@@ -362,9 +369,9 @@ namespace JSC {
         };
 
         typedef HashMap<RefPtr<UString::Rep>, int, IdentifierRepHash, HashTraits<RefPtr<UString::Rep> >, IdentifierMapIndexHashTraits> IdentifierMap;
-        typedef HashMap<double, JSValuePtr> NumberMap;
+        typedef HashMap<double, JSValue> NumberMap;
         typedef HashMap<UString::Rep*, JSString*, IdentifierRepHash> IdentifierStringMap;
-
+        
         RegisterID* emitCall(OpcodeID, RegisterID* dst, RegisterID* func, RegisterID* thisRegister, ArgumentsNode*, unsigned divot, unsigned startOffset, unsigned endOffset);
         
         RegisterID* newRegister();
@@ -412,8 +419,8 @@ namespace JSC {
         unsigned addConstant(FuncDeclNode*);
         unsigned addConstant(FuncExprNode*);
         unsigned addConstant(const Identifier&);
-        RegisterID* addConstant(JSValuePtr);
-        unsigned addUnexpectedConstant(JSValuePtr);
+        RegisterID* addConstant(JSValue);
+        unsigned addUnexpectedConstant(JSValue);
         unsigned addRegExp(RegExp*);
 
         Vector<Instruction>& instructions() { return m_codeBlock->instructions(); }
@@ -423,6 +430,8 @@ namespace JSC {
         bool canOptimizeNonLocals() { return (m_codeType == FunctionCode) && !m_dynamicScopeDepth && !m_codeBlock->usesEval(); }
 
         RegisterID* emitThrowExpressionTooDeepException();
+
+        void createArgumentsIfNecessary();
 
         bool m_shouldEmitDebugHooks;
         bool m_shouldEmitProfileHooks;
@@ -457,6 +466,7 @@ namespace JSC {
         int m_nextGlobalIndex;
         int m_nextParameterIndex;
         int m_nextConstantIndex;
+        unsigned m_globalConstantIndex;
 
         int m_globalVarStorageOffset;
 

@@ -45,7 +45,7 @@ void JSMessagePort::mark()
     markIfNotNull(m_impl->onmessage());
     markIfNotNull(m_impl->onclose());
 
-    if (MessagePort* entangledPort = m_impl->entangledPort()) {
+    if (MessagePortProxy* entangledPort = m_impl->entangledPort()) {
         DOMObject* wrapper = getCachedDOMObjectWrapper(*Heap::heap(this)->globalData(), entangledPort);
         if (wrapper && !wrapper->marked())
             wrapper->mark();
@@ -56,39 +56,39 @@ void JSMessagePort::mark()
     EventListenersMap& eventListeners = m_impl->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
         for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter) 
-            (*vecIter)->mark();
+            (*vecIter)->markJSFunction();
     }
 }
 
-JSValuePtr JSMessagePort::startConversation(ExecState* exec, const ArgList& args)
+JSValue JSMessagePort::startConversation(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
-    const UString& message = args.at(exec, 0).toString(exec);
+    const UString& message = args.at(0).toString(exec);
 
     return toJS(exec, impl()->startConversation(globalObject->scriptExecutionContext(), message).get());
 }
 
-JSValuePtr JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
+JSValue JSMessagePort::addEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(exec, args.at(exec, 1));
+    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
     if (!listener)
         return jsUndefined();
-    impl()->addEventListener(args.at(exec, 0).toString(exec), listener.release(), args.at(exec, 2).toBoolean(exec));
+    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
-JSValuePtr JSMessagePort::removeEventListener(ExecState* exec, const ArgList& args)
+JSValue JSMessagePort::removeEventListener(ExecState* exec, const ArgList& args)
 {
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
     if (!globalObject)
         return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(exec, args.at(exec, 1));
+    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
     if (!listener)
         return jsUndefined();
-    impl()->removeEventListener(args.at(exec, 0).toString(exec), listener, args.at(exec, 2).toBoolean(exec));
+    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 

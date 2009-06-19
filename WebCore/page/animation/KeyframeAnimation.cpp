@@ -56,9 +56,9 @@ KeyframeAnimation::KeyframeAnimation(const Animation* animation, RenderObject* r
 
 KeyframeAnimation::~KeyframeAnimation()
 {
-    // Do the cleanup here instead of in the base class so the specialized methods get called
+    // Make sure to tell the renderer that we are ending. This will make sure any accelerated animations are removed.
     if (!postActive())
-        updateStateMachine(AnimationStateInputEndAnimation, -1);
+        endAnimation(true);
 }
 
 void KeyframeAnimation::getKeyframeAnimationInterval(const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& prog) const
@@ -216,7 +216,8 @@ void KeyframeAnimation::endAnimation(bool reset)
         UNUSED_PARAM(reset);
 #endif
         // Restore the original (unanimated) style
-        setChanged(m_object->node());
+        if (!paused())
+            setNeedsStyleRecalc(m_object->node());
     }
 }
 
@@ -266,11 +267,11 @@ bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double
             return false;
 
         // Schedule event handling
-        m_compAnim->animationControllerPriv()->addEventToDispatch(element, eventType, m_keyframes.animationName(), elapsedTime);
+        m_compAnim->animationController()->addEventToDispatch(element, eventType, m_keyframes.animationName(), elapsedTime);
 
         // Restore the original (unanimated) style
         if (eventType == eventNames().webkitAnimationEndEvent && element->renderer())
-            setChanged(element.get());
+            setNeedsStyleRecalc(element.get());
 
         return true; // Did dispatch an event
     }
@@ -352,9 +353,9 @@ void KeyframeAnimation::validateTransformFunctionList()
     m_transformFunctionListValid = true;
 }
 
-double KeyframeAnimation::willNeedService()
+double KeyframeAnimation::timeToNextService()
 {
-    double t = AnimationBase::willNeedService();
+    double t = AnimationBase::timeToNextService();
 #if USE(ACCELERATED_COMPOSITING)
     if (t != 0 || preActive())
         return t;

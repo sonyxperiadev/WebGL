@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reseved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -40,23 +40,25 @@ namespace WebCore {
     */
     class ScheduledAction {
     public:
-        ScheduledAction(JSC::ExecState* exec, JSC::JSValuePtr function, const JSC::ArgList&);
+        static ScheduledAction* create(JSC::ExecState*, const JSC::ArgList&);
+
+        void execute(ScriptExecutionContext*);
+
+    private:
+        ScheduledAction(JSC::JSValue function, const JSC::ArgList&);
         ScheduledAction(const String& code)
             : m_code(code)
         {
         }
 
-        void execute(ScriptExecutionContext*);
-
-    private:
-        void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValuePtr thisValue);
+        void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValue thisValue);
         void execute(Document*);
 #if ENABLE(WORKERS)        
         void execute(WorkerContext*);
 #endif
 
-        JSC::ProtectedJSValuePtr m_function;
-        Vector<JSC::ProtectedJSValuePtr> m_args;
+        JSC::ProtectedJSValue m_function;
+        Vector<JSC::ProtectedJSValue> m_args;
         String m_code;
     };
 

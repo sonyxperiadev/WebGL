@@ -54,7 +54,7 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
     
     JSC::JSLock lock(false);
     
-    JSValuePtr function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone) {
@@ -68,7 +68,7 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
     
     RefPtr<JSCustomPositionCallback> protect(this);
     
-    ArgList args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, geoposition));
     
     globalObject->globalData()->timeoutChecker.start();
@@ -80,7 +80,7 @@ void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raise
         raisedException = true;
     }
     
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
 
 } // namespace WebCore

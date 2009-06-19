@@ -32,13 +32,14 @@
 #include "HTMLFormElement.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "MIMETypeRegistry.h"
+#include "MappedAttribute.h"
 #include "RenderImage.h"
 #include "RenderPartObject.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
 #include "Text.h"
-
 
 namespace WebCore {
 
@@ -94,7 +95,7 @@ void HTMLObjectElement::parseMappedAttribute(MappedAttribute *attr)
         if (renderer())
           m_needWidgetUpdate = true;
     } else if (attr->name() == onloadAttr) {
-        setInlineEventListenerForTypeAndAttribute(eventNames().loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == nameAttr) {
         const AtomicString& newName = attr->value();
         if (isDocNamedItem() && inDocument() && document()->isHTMLDocument()) {
@@ -163,7 +164,7 @@ void HTMLObjectElement::attach()
 
 void HTMLObjectElement::updateWidget()
 {
-    document()->updateRendering();
+    document()->updateStyleIfNeeded();
     if (m_needWidgetUpdate && renderer() && !m_useFallbackContent && !isImageType())
         static_cast<RenderPartObject*>(renderer())->updateWidget(true);
 }
@@ -174,7 +175,7 @@ void HTMLObjectElement::finishParsingChildren()
     if (!m_useFallbackContent) {
         m_needWidgetUpdate = true;
         if (inDocument())
-            setChanged();
+            setNeedsStyleRecalc();
     }
 }
 
@@ -222,7 +223,7 @@ void HTMLObjectElement::childrenChanged(bool changedByParser, Node* beforeChange
     updateDocNamedItem();
     if (inDocument() && !m_useFallbackContent) {
         m_needWidgetUpdate = true;
-        setChanged();
+        setNeedsStyleRecalc();
     }
     HTMLPlugInElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }

@@ -21,16 +21,19 @@
 #include "config.h"
 #include "RenderThemeWin.h"
 
-#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
-#include "Document.h"
+#include "Element.h"
+#include "Frame.h"
 #include "GraphicsContext.h"
-#include "HTMLElement.h"
-#include "HTMLSelectElement.h"
-#include "Icon.h"
 #include "RenderSlider.h"
+#include "Settings.h"
 #include "SoftLinking.h"
+#include "SystemInfo.h"
 #include "UserAgentStyleSheets.h"
+
+#if ENABLE(VIDEO)
+#include "RenderMediaControls.h"
+#endif
 
 #include <tchar.h>
 
@@ -54,10 +57,14 @@
 
 // Textfield constants
 #define TFP_TEXTFIELD 1
+#define EP_EDITBORDER_NOSCROLL 6
 #define TFS_READONLY  6
 
-// ComboBox constants (from tmschema.h)
+// ComboBox constants (from vsstyle.h)
 #define CP_DROPDOWNBUTTON 1
+#define CP_BORDER 4
+#define CP_READONLY 5
+#define CP_DROPDOWNBUTTONRIGHT 6
 
 // TrackBar (slider) parts
 #define TKP_TRACK       1
@@ -92,6 +99,8 @@ SOFT_LINK(uxtheme, IsThemeBackgroundPartiallyTransparent, BOOL, WINAPI, (HANDLE 
 
 static bool haveTheme;
 
+static const unsigned vistaMenuListButtonOutset = 1;
+
 using namespace std;
 
 namespace WebCore {
@@ -113,6 +122,12 @@ static const float maxSearchFieldResultsDecorationSize = 30;
 static const float defaultSearchFieldResultsButtonWidth = 18;
 
 static bool gWebKitIsBeingUnloaded;
+
+static bool documentIsInApplicationChromeMode(const Document* document)
+{
+    Settings* settings = document->settings();
+    return settings && settings->inApplicationChromeMode();
+}
 
 void RenderThemeWin::setWebKitIsBeingUnloaded()
 {
@@ -493,8 +508,13 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
             break;
         case MenulistPart:
         case MenulistButtonPart:
-            result.m_part = CP_DROPDOWNBUTTON;
-            result.m_state = determineState(o);
+            result.m_part = isRunningOnVistaOrLater() ? CP_DROPDOWNBUTTONRIGHT : CP_DROPDOWNBUTTON;
+            if (isRunningOnVistaOrLater() && documentIsInApplicationChromeMode(o->document())) {
+                // The "readonly" look we use in application chrome mode
+                // only uses a "normal" look for the drop down button.
+                result.m_state = TS_NORMAL;
+            } else
+                result.m_state = determineState(o);
             break;
         case RadioPart:
             result.m_part = BP_RADIO;
@@ -503,7 +523,7 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
         case SearchFieldPart:
         case TextFieldPart:
         case TextAreaPart:
-            result.m_part = TFP_TEXTFIELD;
+            result.m_part = isRunningOnVistaOrLater() ? EP_EDITBORDER_NOSCROLL : TFP_TEXTFIELD;
             result.m_state = determineState(o);
             break;
         case SliderHorizontalPart:
@@ -615,8 +635,20 @@ bool RenderThemeWin::paintTextField(RenderObject* o, const RenderObject::PaintIn
 
 bool RenderThemeWin::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
-    // The outer box of a menu list is just a text field.  Paint it first.
-    drawControl(i.context,  o, textFieldTheme(), ThemeData(TFP_TEXTFIELD, determineState(o)), r);
+    HANDLE theme;
+    int part;
+    if (haveTheme && isRunningOnVistaOrLater()) {
+        theme = menuListTheme();
+        if (documentIsInApplicationChromeMode(o->document()))
+            part = CP_READONLY;
+        else
+            part = CP_BORDER;
+    } else {
+        theme = textFieldTheme();
+        part = TFP_TEXTFIELD;
+    }
+
+    drawControl(i.context,  o, theme, ThemeData(part, determineState(o)), r);
     
     return paintMenuListButton(o, i, r);
 }
@@ -669,6 +701,13 @@ bool RenderThemeWin::paintMenuListButton(RenderObject* o, const RenderObject::Pa
         buttonRect.setX(buttonRect.right() - dropDownButtonWidth);
     buttonRect.setWidth(dropDownButtonWidth);
 
+    if (isRunningOnVistaOrLater()) {
+        // Outset the top, right, and bottom borders of the button so that they coincide with the <select>'s border.
+        buttonRect.setY(buttonRect.y() - vistaMenuListButtonOutset);
+        buttonRect.setHeight(buttonRect.height() + 2 * vistaMenuListButtonOutset);
+        buttonRect.setWidth(buttonRect.width() + vistaMenuListButtonOutset);
+    }
+
     drawControl(i.context, o, menuListTheme(), getThemeData(o), buttonRect);
 
     return false;
@@ -710,6 +749,10 @@ void RenderThemeWin::adjustSliderThumbSize(RenderObject* o) const
         o->style()->setWidth(Length(sliderThumbWidth, Fixed));
         o->style()->setHeight(Length(sliderThumbHeight, Fixed));
     }
+#if ENABLE(VIDEO)
+    else if (o->style()->appearance() == MediaSliderThumbPart) 
+        RenderMediaControls::adjustMediaSliderThumbSize(o);
+#endif
 }
 
 int RenderThemeWin::buttonInternalPaddingLeft() const
@@ -735,6 +778,18 @@ int RenderThemeWin::buttonInternalPaddingBottom() const
 bool RenderThemeWin::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
     return paintTextField(o, i, r);
+}
+
+void RenderThemeWin::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+{
+    // Override paddingSize to match AppKit text positioning.
+    const int padding = 1;
+    style->setPaddingLeft(Length(padding, Fixed));
+    style->setPaddingRight(Length(padding, Fixed));
+    style->setPaddingTop(Length(padding, Fixed));
+    style->setPaddingBottom(Length(padding, Fixed));
+    if (e && e->focused() && e->document()->frame()->selection()->isFocusedAndActive())
+        style->setOutlineOffset(-2);
 }
 
 bool RenderThemeWin::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
@@ -892,5 +947,42 @@ Color RenderThemeWin::systemColor(int cssValueId) const
     COLORREF color = GetSysColor(sysColorIndex);
     return Color(GetRValue(color), GetGValue(color), GetBValue(color));
 }
+
+#if ENABLE(VIDEO)
+bool RenderThemeWin::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaFullscreenButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaMuteButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaPlayButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaSeekBackButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaSeekForwardButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaSlider, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaSliderThumb, o, paintInfo, r);
+}
+#endif
 
 }

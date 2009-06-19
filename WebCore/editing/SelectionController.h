@@ -102,6 +102,7 @@ public:
     bool isRange() const { return m_sel.isRange(); }
     bool isCaretOrRange() const { return m_sel.isCaretOrRange(); }
     bool isInPasswordField() const;
+    bool isAll(StayInEditableContent stayInEditableContent = MustStayInEditableContent) const { return m_sel.isAll(stayInEditableContent); }
     
     PassRefPtr<Range> toNormalizedRange() const { return m_sel.toNormalizedRange(); }
 
@@ -119,6 +120,7 @@ public:
 
     // Focus
     void setFocused(bool);
+    bool isFocused() const { return m_focused; }
     bool isFocusedAndActive() const;
     void pageActivationChanged();
 
@@ -130,10 +132,14 @@ public:
 private:
     enum EPositionType { START, END, BASE, EXTENT };
 
-    VisiblePosition modifyExtendingRightForward(TextGranularity);
+    TextDirection directionOfEnclosingBlock();
+
+    VisiblePosition modifyExtendingRight(TextGranularity);
+    VisiblePosition modifyExtendingForward(TextGranularity);
     VisiblePosition modifyMovingRight(TextGranularity);
     VisiblePosition modifyMovingForward(TextGranularity);
-    VisiblePosition modifyExtendingLeftBackward(TextGranularity);
+    VisiblePosition modifyExtendingLeft(TextGranularity);
+    VisiblePosition modifyExtendingBackward(TextGranularity);
     VisiblePosition modifyMovingLeft(TextGranularity);
     VisiblePosition modifyMovingBackward(TextGranularity);
 
@@ -142,7 +148,7 @@ private:
 
     int xPosForVerticalArrowNavigation(EPositionType);
     
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(GTK)
     void notifyAccessibilityForSelectionChange();
 #else
     void notifyAccessibilityForSelectionChange() {};
@@ -150,6 +156,8 @@ private:
 
     void focusedOrActiveStateChanged();
     bool caretRendersInsideNode(Node*) const;
+    
+    IntRect absoluteBoundsForLocalRect(const IntRect&) const;
 
     Frame* m_frame;
     int m_xPosForVerticalArrowNavigation;
@@ -158,6 +166,7 @@ private:
 
     IntRect m_caretRect;        // caret rect in coords local to the renderer responsible for painting the caret
     IntRect m_absCaretBounds;   // absolute bounding rect for the caret
+    IntRect m_absoluteCaretRepaintBounds;
     
     bool m_needsLayout : 1;       // true if the caret and expectedVisible rectangles need to be calculated
     bool m_absCaretBoundsDirty: 1;
@@ -187,3 +196,4 @@ void showTree(const WebCore::SelectionController*);
 #endif
 
 #endif // SelectionController_h
+

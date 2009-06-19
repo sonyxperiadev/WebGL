@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@
 #include "CompositeAnimation.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "RenderObject.h"
+#include "RenderView.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/UnusedParam.h>
 
@@ -46,7 +46,7 @@ static const double cBeginAnimationUpdateTimeNotSet = -1;
 
 AnimationControllerPrivate::AnimationControllerPrivate(Frame* frame)
     : m_animationTimer(this, &AnimationControllerPrivate::animationTimerFired)
-    , m_updateRenderingDispatcher(this, &AnimationControllerPrivate::updateRenderingDispatcherFired)
+    , m_updateStyleIfNeededDispatcher(this, &AnimationControllerPrivate::updateStyleIfNeededDispatcherFired)
     , m_frame(frame)
     , m_beginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet)
     , m_styleAvailableWaiters(0)
@@ -74,7 +74,7 @@ PassRefPtr<CompositeAnimation> AnimationControllerPrivate::accessCompositeAnimat
 bool AnimationControllerPrivate::clear(RenderObject* renderer)
 {
     // Return false if we didn't do anything OR we are suspended (so we don't try to
-    // do a setChanged() when suspended).
+    // do a setNeedsStyleRecalc() when suspended).
     PassRefPtr<CompositeAnimation> animation = m_compositeAnimations.take(renderer);
     if (!animation)
         return false;
@@ -89,16 +89,16 @@ void AnimationControllerPrivate::updateAnimationTimer(bool callSetChanged/* = fa
 
     RenderObjectAnimationMap::const_iterator animationsEnd = m_compositeAnimations.end();
     for (RenderObjectAnimationMap::const_iterator it = m_compositeAnimations.begin(); it != animationsEnd; ++it) {
-        RefPtr<CompositeAnimation> compAnim = it->second;
+        CompositeAnimation* compAnim = it->second.get();
         if (!compAnim->isSuspended() && compAnim->hasAnimations()) {
-            double t = compAnim->willNeedService();
+            double t = compAnim->timeToNextService();
             if (t != -1 && (t < needsService || needsService == -1))
                 needsService = t;
             if (needsService == 0) {
                 if (callSetChanged) {
                     Node* node = it->first->node();
                     ASSERT(!node || (node->document() && !node->document()->inPageCache()));
-                    node->setChanged(AnimationStyleChange);
+                    node->setNeedsStyleRecalc(AnimationStyleChange);
                     calledSetChanged = true;
                 }
                 else
@@ -108,7 +108,7 @@ void AnimationControllerPrivate::updateAnimationTimer(bool callSetChanged/* = fa
     }
     
     if (calledSetChanged)
-        m_frame->document()->updateRendering();
+        m_frame->document()->updateStyleIfNeeded();
     
     // If we want service immediately, we start a repeating timer to reduce the overhead of starting
     if (needsService == 0) {
@@ -130,7 +130,7 @@ void AnimationControllerPrivate::updateAnimationTimer(bool callSetChanged/* = fa
     m_animationTimer.startOneShot(needsService);
 }
 
-void AnimationControllerPrivate::updateRenderingDispatcherFired(Timer<AnimationControllerPrivate>*)
+void AnimationControllerPrivate::updateStyleIfNeededDispatcherFired(Timer<AnimationControllerPrivate>*)
 {
     // fire all the events
     Vector<EventToDispatch>::const_iterator eventsToDispatchEnd = m_eventsToDispatch.end();
@@ -146,18 +146,32 @@ void AnimationControllerPrivate::updateRenderingDispatcherFired(Timer<AnimationC
     // call setChanged on all the elements
     Vector<RefPtr<Node> >::const_iterator nodeChangesToDispatchEnd = m_nodeChangesToDispatch.end();
     for (Vector<RefPtr<Node> >::const_iterator it = m_nodeChangesToDispatch.begin(); it != nodeChangesToDispatchEnd; ++it)
-        (*it)->setChanged(AnimationStyleChange);
+        (*it)->setNeedsStyleRecalc(AnimationStyleChange);
     
     m_nodeChangesToDispatch.clear();
     
     if (m_frame)
-        m_frame->document()->updateRendering();
+        m_frame->document()->updateStyleIfNeeded();
+
+    // We can now safely remove any animations or transitions that are finished.
+    // We can't remove them any earlier because we might get a false restart of
+    // a transition. This can happen because we have not yet set the final property
+    // value until we call the rendering dispatcher. So this can make the current
+    // style slightly different from the desired final style (because our last 
+    // animation step was, say 0.9999 or something). And we need to remove them
+    // here because if there are no more animations running we'll never get back
+    // into the animation code to clean them up.
+    RenderObjectAnimationMap::const_iterator animationsEnd = m_compositeAnimations.end();
+    for (RenderObjectAnimationMap::const_iterator it = m_compositeAnimations.begin(); it != animationsEnd; ++it) {
+        CompositeAnimation* compAnim = it->second.get();
+        compAnim->cleanupFinishedAnimations(); // will not modify m_compositeAnimations, so OK to call while iterating
+    }
 }
 
-void AnimationControllerPrivate::startUpdateRenderingDispatcher()
+void AnimationControllerPrivate::startUpdateStyleIfNeededDispatcher()
 {
-    if (!m_updateRenderingDispatcher.isActive())
-        m_updateRenderingDispatcher.startOneShot(0);
+    if (!m_updateStyleIfNeededDispatcher.isActive())
+        m_updateStyleIfNeededDispatcher.startOneShot(0);
 }
 
 void AnimationControllerPrivate::addEventToDispatch(PassRefPtr<Element> element, const AtomicString& eventType, const String& name, double elapsedTime)
@@ -169,7 +183,7 @@ void AnimationControllerPrivate::addEventToDispatch(PassRefPtr<Element> element,
     event.name = name;
     event.elapsedTime = elapsedTime;
     
-    startUpdateRenderingDispatcher();
+    startUpdateStyleIfNeededDispatcher();
 }
 
 void AnimationControllerPrivate::addNodeChangeToDispatch(PassRefPtr<Node> node)
@@ -179,7 +193,7 @@ void AnimationControllerPrivate::addNodeChangeToDispatch(PassRefPtr<Node> node)
         return;
 
     m_nodeChangesToDispatch.append(node);
-    startUpdateRenderingDispatcher();
+    startUpdateStyleIfNeededDispatcher();
 }
 
 void AnimationControllerPrivate::animationTimerFired(Timer<AnimationControllerPrivate>*)
@@ -189,7 +203,7 @@ void AnimationControllerPrivate::animationTimerFired(Timer<AnimationControllerPr
     setBeginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet);
 
     // When the timer fires, all we do is call setChanged on all DOM nodes with running animations and then do an immediate
-    // updateRendering.  It will then call back to us with new information.
+    // updateStyleIfNeeded.  It will then call back to us with new information.
     updateAnimationTimer(true);
 }
 
@@ -204,12 +218,15 @@ bool AnimationControllerPrivate::isAnimatingPropertyOnRenderer(RenderObject* ren
 
 void AnimationControllerPrivate::suspendAnimations(Document* document)
 {
+    setBeginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet);
+    
     RenderObjectAnimationMap::const_iterator animationsEnd = m_compositeAnimations.end();
     for (RenderObjectAnimationMap::const_iterator it = m_compositeAnimations.begin(); it != animationsEnd; ++it) {
         RenderObject* renderer = it->first;
-        RefPtr<CompositeAnimation> compAnim = it->second;
-        if (renderer->document() == document)
+        if (renderer->document() == document) {
+            CompositeAnimation* compAnim = it->second.get();
             compAnim->suspendAnimations();
+        }
     }
     
     updateAnimationTimer();
@@ -217,12 +234,15 @@ void AnimationControllerPrivate::suspendAnimations(Document* document)
 
 void AnimationControllerPrivate::resumeAnimations(Document* document)
 {
+    setBeginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet);
+    
     RenderObjectAnimationMap::const_iterator animationsEnd = m_compositeAnimations.end();
     for (RenderObjectAnimationMap::const_iterator it = m_compositeAnimations.begin(); it != animationsEnd; ++it) {
         RenderObject* renderer = it->first;
-        RefPtr<CompositeAnimation> compAnim = it->second;
-        if (renderer->document() == document)
+        if (renderer->document() == document) {
+            CompositeAnimation* compAnim = it->second.get();
             compAnim->resumeAnimations();
+        }
     }
     
     updateAnimationTimer();
@@ -238,8 +258,8 @@ bool AnimationControllerPrivate::pauseAnimationAtTime(RenderObject* renderer, co
         return false;
 
     if (compAnim->pauseAnimationAtTime(name, t)) {
-        renderer->node()->setChanged(AnimationStyleChange);
-        startUpdateRenderingDispatcher();
+        renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
+        startUpdateStyleIfNeededDispatcher();
         return true;
     }
 
@@ -256,8 +276,8 @@ bool AnimationControllerPrivate::pauseTransitionAtTime(RenderObject* renderer, c
         return false;
 
     if (compAnim->pauseTransitionAtTime(cssPropertyID(property), t)) {
-        renderer->node()->setChanged(AnimationStyleChange);
-        startUpdateRenderingDispatcher();
+        renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
+        startUpdateStyleIfNeededDispatcher();
         return true;
     }
 
@@ -365,7 +385,7 @@ void AnimationControllerPrivate::addToStartTimeResponseWaitList(AnimationBase* a
     // In the second case, we just pass in the beginAnimationUpdateTime().
     //
     // This will synchronize all software and accelerated animations started in the same 
-    // updateRendering cycle.
+    // updateStyleIfNeeded cycle.
     //
     ASSERT(!animation->next());
     
@@ -432,7 +452,7 @@ void AnimationController::cancelAnimations(RenderObject* renderer)
     if (m_data->clear(renderer)) {
         Node* node = renderer->node();
         ASSERT(!node || (node->document() && !node->document()->inPageCache()));
-        node->setChanged(AnimationStyleChange);
+        node->setNeedsStyleRecalc(AnimationStyleChange);
     }
 }
 
@@ -445,6 +465,10 @@ PassRefPtr<RenderStyle> AnimationController::updateAnimations(RenderObject* rend
     RenderStyle* oldStyle = renderer->style();
 
     if ((!oldStyle || (!oldStyle->animations() && !oldStyle->transitions())) && (!newStyle->animations() && !newStyle->transitions()))
+        return newStyle;
+
+    // Don't run transitions when printing.
+    if (renderer->view()->printing())
         return newStyle;
 
     // Fetch our current set of implicit animations from a hashtable.  We then compare them

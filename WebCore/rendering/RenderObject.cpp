@@ -464,6 +464,7 @@ void RenderObject::moveLayers(RenderLayer* oldParent, RenderLayer* newParent)
 
     if (hasLayer()) {
         RenderLayer* layer = toRenderBoxModelObject(this)->layer();
+        ASSERT(oldParent == layer->parent());
         if (oldParent)
             oldParent->removeChild(layer);
         newParent->addChild(layer);
@@ -1024,41 +1025,6 @@ void RenderObject::paintOutline(GraphicsContext* graphicsContext, int tx, int ty
                BSBottom, Color(oc), style->color(), os, ow, ow);
 }
 
-
-void RenderObject::absoluteRectsForRange(Vector<IntRect>& rects, unsigned start, unsigned end, bool)
-{
-    if (!firstChild()) {
-        if ((isInline() || isAnonymousBlock())) {
-            FloatPoint absPos = localToAbsolute(FloatPoint());
-            absoluteRects(rects, absPos.x(), absPos.y());
-        }
-        return;
-    }
-
-    unsigned offset = start;
-    for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset) {
-        if (child->isText() || child->isInline() || child->isAnonymousBlock()) {
-            FloatPoint absPos = child->localToAbsolute(FloatPoint());
-            child->absoluteRects(rects, absPos.x(), absPos.y());
-        }
-    }
-}
-
-void RenderObject::absoluteQuadsForRange(Vector<FloatQuad>& quads, unsigned start, unsigned end, bool)
-{
-    if (!firstChild()) {
-        if (isInline() || isAnonymousBlock())
-            absoluteQuads(quads);
-        return;
-    }
-
-    unsigned offset = start;
-    for (RenderObject* child = childAt(start); child && offset < end; child = child->nextSibling(), ++offset) {
-        if (child->isText() || child->isInline() || child->isAnonymousBlock())
-            child->absoluteQuads(quads);
-    }
-}
-
 IntRect RenderObject::absoluteBoundingBoxRect(bool useTransforms)
 {
     if (useTransforms) {
@@ -1460,7 +1426,7 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
 {
 #if USE(ACCELERATED_COMPOSITING)
     // If transform changed, and we are not composited, need to do a layout.
-    if (contextSensitiveProperties & ContextSensitivePropertyTransform)
+    if (contextSensitiveProperties & ContextSensitivePropertyTransform) {
         // Text nodes share style with their parents but transforms don't apply to them,
         // hence the !isText() check.
         // FIXME: when transforms are taken into account for overflow, we will need to do a layout.
@@ -1468,14 +1434,16 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
             diff = StyleDifferenceLayout;
         else if (diff < StyleDifferenceRecompositeLayer)
             diff = StyleDifferenceRecompositeLayer;
+    }
 
     // If opacity changed, and we are not composited, need to repaint (also
     // ignoring text nodes)
-    if (contextSensitiveProperties & ContextSensitivePropertyOpacity)
+    if (contextSensitiveProperties & ContextSensitivePropertyOpacity) {
         if (!isText() && (!hasLayer() || !toRenderBoxModelObject(this)->layer()->isComposited()))
             diff = StyleDifferenceRepaintLayer;
         else if (diff < StyleDifferenceRecompositeLayer)
             diff = StyleDifferenceRecompositeLayer;
+    }
 #else
     UNUSED_PARAM(contextSensitiveProperties);
 #endif
@@ -1549,12 +1517,15 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
         if (newStyle) {
+            bool visibilityChanged = m_style->visibility() != newStyle->visibility() 
+                || m_style->zIndex() != newStyle->zIndex() 
+                || m_style->hasAutoZIndex() != newStyle->hasAutoZIndex();
 #if ENABLE(DASHBOARD_SUPPORT)
-            if (m_style->visibility() != newStyle->visibility() ||
-                    m_style->zIndex() != newStyle->zIndex() ||
-                    m_style->hasAutoZIndex() != newStyle->hasAutoZIndex())
+            if (visibilityChanged)
                 document()->setDashboardRegionsDirty(true);
 #endif
+            if (visibilityChanged && AXObjectCache::accessibilityEnabled())
+                document()->axObjectCache()->childrenChanged(this);
 
             // Keep layer hierarchy visibility bits up to date if visibility changes.
             if (m_style->visibility() != newStyle->visibility()) {
@@ -1700,25 +1671,26 @@ void RenderObject::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, Trans
     }
 }
 
-TransformationMatrix RenderObject::transformFromContainer(const RenderObject* containerObject, const IntSize& offsetInContainer) const
+bool RenderObject::shouldUseTransformFromContainer(const RenderObject* containerObject) const
 {
-    TransformationMatrix containerTransform;
-#ifdef ANDROID_FASTER_MATRIX
-    RenderLayer* layer;
-    const double tx = offsetInContainer.width();
-    const double ty = offsetInContainer.height();
-    if (hasLayer() && (layer = toRenderBox(this)->layer()) && layer->transform()) {
-        containerTransform = layer->currentTransform();
-        containerTransform.translateRight(tx, ty);
-    } else
-        containerTransform.translate(tx, ty);
+#if ENABLE(3D_RENDERING)
+    // hasTransform() indicates whether the object has transform, transform-style or perspective. We just care about transform,
+    // so check the layer's transform directly.
+    return (hasLayer() && toRenderBoxModelObject(this)->layer()->transform()) || (containerObject && containerObject->style()->hasPerspective());
 #else
-    containerTransform.translate(offsetInContainer.width(), offsetInContainer.height());
-    RenderLayer* layer;
-    if (hasLayer() && (layer = toRenderBox(this)->layer()) && layer->transform())
-        containerTransform.multLeft(layer->currentTransform());
+    UNUSED_PARAM(containerObject);
+    return hasTransform();
 #endif
+}
 
+void RenderObject::getTransformFromContainer(const RenderObject* containerObject, const IntSize& offsetInContainer, TransformationMatrix& transform) const
+{
+    transform.makeIdentity();
+    transform.translate(offsetInContainer.width(), offsetInContainer.height());
+    RenderLayer* layer;
+    if (hasLayer() && (layer = toRenderBoxModelObject(this)->layer()) && layer->transform())
+        transform.multLeft(layer->currentTransform());
+    
 #if ENABLE(3D_RENDERING)
     if (containerObject && containerObject->style()->hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
@@ -1728,15 +1700,13 @@ TransformationMatrix RenderObject::transformFromContainer(const RenderObject* co
         TransformationMatrix perspectiveMatrix;
         perspectiveMatrix.applyPerspective(containerObject->style()->perspective());
         
-        containerTransform.translateRight3d(-perspectiveOrigin.x(), -perspectiveOrigin.y(), 0);
-        containerTransform.multiply(perspectiveMatrix);
-        containerTransform.translateRight3d(perspectiveOrigin.x(), perspectiveOrigin.y(), 0);
+        transform.translateRight3d(-perspectiveOrigin.x(), -perspectiveOrigin.y(), 0);
+        transform.multiply(perspectiveMatrix);
+        transform.translateRight3d(perspectiveOrigin.x(), perspectiveOrigin.y(), 0);
     }
 #else
     UNUSED_PARAM(containerObject);
 #endif
-
-    return containerTransform;
 }
 
 FloatQuad RenderObject::localToContainerQuad(const FloatQuad& localQuad, RenderBoxModelObject* repaintContainer, bool fixed) const
@@ -1865,8 +1835,10 @@ void RenderObject::destroy()
 
     // FIXME: Would like to do this in RenderBoxModelObject, but the timing is so complicated that this can't easily
     // be moved into RenderBoxModelObject::destroy.
-    if (hasLayer())
+    if (hasLayer()) {
+        setHasLayer(false);
         toRenderBoxModelObject(this)->destroyLayer();
+    }
     arenaDelete(renderArena(), this);
 }
 
@@ -1918,7 +1890,7 @@ void RenderObject::updateDragState(bool dragOn)
     bool valueChanged = (dragOn != m_isDragging);
     m_isDragging = dragOn;
     if (valueChanged && style()->affectedByDragRules())
-        node()->setChanged();
+        node()->setNeedsStyleRecalc();
     for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
         curr->updateDragState(dragOn);
 }
@@ -2315,7 +2287,7 @@ RenderBoxModelObject* RenderObject::offsetParent() const
 
 VisiblePosition RenderObject::createVisiblePosition(int offset, EAffinity affinity)
 {
-    // If is is a non-anonymous renderer, then it's simple.
+    // If this is a non-anonymous renderer, then it's simple.
     if (Node* node = this->node())
         return VisiblePosition(node, offset, affinity);
 
@@ -2340,7 +2312,7 @@ VisiblePosition RenderObject::createVisiblePosition(int offset, EAffinity affini
             if (renderer == parent)
                 break;
             if (Node* node = renderer->node())
-                return VisiblePosition(node, numeric_limits<int>::max(), DOWNSTREAM);
+                return VisiblePosition(lastDeepEditingPositionForNode(node), DOWNSTREAM);
         }
 
         // Use the parent itself unless it too is anonymous.
@@ -2366,8 +2338,17 @@ VisiblePosition RenderObject::createVisiblePosition(const Position& position)
 
 #if ENABLE(SVG)
 
-FloatRect RenderObject::relativeBBox(bool) const
+FloatRect RenderObject::objectBoundingBox() const
 {
+    ASSERT_NOT_REACHED();
+    return FloatRect();
+}
+
+// Returns the smallest rectangle enclosing all of the painted content
+// respecting clipping, masking, filters, opacity, stroke-width and markers
+FloatRect RenderObject::repaintRectInLocalCoordinates() const
+{
+    ASSERT_NOT_REACHED();
     return FloatRect();
 }
 
@@ -2376,11 +2357,26 @@ TransformationMatrix RenderObject::localTransform() const
     return TransformationMatrix();
 }
 
+TransformationMatrix RenderObject::localToParentTransform() const
+{
+    // FIXME: This double virtual call indirection is temporary until I can land the
+    // rest of the of the localToParentTransform() support for SVG.
+    return localTransform();
+}
+
 TransformationMatrix RenderObject::absoluteTransform() const
 {
+    // FIXME: This should use localToParentTransform(), but much of the SVG code
+    // depends on RenderBox::absoluteTransform() being the sum of the localTransform()s of all parent renderers.
     if (parent())
         return localTransform() * parent()->absoluteTransform();
     return localTransform();
+}
+
+bool RenderObject::nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint&, HitTestAction)
+{
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 #endif // ENABLE(SVG)

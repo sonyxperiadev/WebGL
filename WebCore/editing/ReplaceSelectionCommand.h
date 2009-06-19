@@ -31,6 +31,7 @@
 namespace WebCore {
 
 class DocumentFragment;
+class ReplacementFragment;
 
 class ReplaceSelectionCommand : public CompositeEditCommand {
 public:
@@ -57,7 +58,7 @@ private:
     void updateNodesInserted(Node*);
     bool shouldRemoveEndBR(Node*, const VisiblePosition&);
     
-    bool shouldMergeStart(bool, bool);
+    bool shouldMergeStart(bool, bool, bool);
     bool shouldMergeEnd(bool selectEndWasEndOfParagraph);
     bool shouldMerge(const VisiblePosition&, const VisiblePosition&);
     
@@ -74,6 +75,8 @@ private:
     
     VisiblePosition positionAtStartOfInsertedContent();
     VisiblePosition positionAtEndOfInsertedContent();
+    
+    bool performTrivialReplace(const ReplacementFragment&);
 
     RefPtr<Node> m_firstNodeInserted;
     RefPtr<Node> m_lastLeafInserted;

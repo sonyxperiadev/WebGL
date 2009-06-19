@@ -23,27 +23,26 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef XBM_DECODER_H_
-#define XBM_DECODER_H_
+#ifndef XBMImageDecoder_h
+#define XBMImageDecoder_h
 
 #include "ImageDecoder.h"
 
 namespace WebCore {
 
-class XBMImageReader;
+    class XBMImageReader;
 
-// This class decodes the XBM image format.
-class XBMImageDecoder : public ImageDecoder
-{
-public:
-    virtual String filenameExtension() const { return "xbm"; }
+    // This class decodes the XBM image format.
+    class XBMImageDecoder : public ImageDecoder {
+    public:
+        virtual String filenameExtension() const { return "xbm"; }
 
-    // Whether or not the size information has been decoded yet.
-    virtual bool isSizeAvailable() const;
+        // Whether or not the size information has been decoded yet.
+        virtual bool isSizeAvailable() const;
 
-    virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
-};
+        virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
+    };
 
-}
+} // namespace WebCore
 
 #endif

@@ -32,6 +32,7 @@
 #include "HTMLDocument.h"
 
 #include "Frame.h"
+#include "HTMLCollection.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 
@@ -40,6 +41,7 @@
 #include "V8Proxy.h"
 
 #include <wtf/RefPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -48,8 +50,9 @@ NAMED_PROPERTY_DELETER(HTMLDocument)
     // Only handle document.all.  Insert the marker object into the
     // shadow internal field to signal that document.all is no longer
     // shadowed.
-    String key = toWebCoreString(name);
-    if (key != "all")
+    AtomicString key = v8StringToAtomicWebCoreString(name);
+    DEFINE_STATIC_LOCAL(const AtomicString, all, ("all"));
+    if (key != all)
         return deletionNotHandledByInterceptor();
 
     ASSERT(info.Holder()->InternalFieldCount() == kHTMLDocumentInternalFieldCount);
@@ -61,12 +64,13 @@ NAMED_PROPERTY_DELETER(HTMLDocument)
 NAMED_PROPERTY_GETTER(HTMLDocument)
 {
     INC_STATS("DOM.HTMLDocument.NamedPropertyGetter");
-    AtomicString key = toWebCoreString(name);
+    AtomicString key = v8StringToAtomicWebCoreString(name);
 
     // Special case for document.all.  If the value in the shadow
     // internal field is not the marker object, then document.all has
     // been temporarily shadowed and we return the value.
-    if (key == "all") {
+    DEFINE_STATIC_LOCAL(const AtomicString, all, ("all"));
+    if (key == all) {
         ASSERT(info.Holder()->InternalFieldCount() == kHTMLDocumentInternalFieldCount);
         v8::Local<v8::Value> marker = info.Holder()->GetInternalField(kHTMLDocumentMarkerIndex);
         v8::Local<v8::Value> value = info.Holder()->GetInternalField(kHTMLDocumentShadowIndex);
@@ -114,7 +118,7 @@ CALLBACK_FUNC_DECL(HTMLDocumentWrite)
 {
     INC_STATS("DOM.HTMLDocument.write()");
     HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(args.Holder());
-    Frame* frame = V8Proxy::retrieveActiveFrame();
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     ASSERT(frame);
     htmlDocument->write(writeHelperGetString(args), frame->document());
     return v8::Undefined();
@@ -124,7 +128,7 @@ CALLBACK_FUNC_DECL(HTMLDocumentWriteln)
 {
     INC_STATS("DOM.HTMLDocument.writeln()");
     HTMLDocument* htmlDocument = V8Proxy::DOMWrapperToNode<HTMLDocument>(args.Holder());
-    Frame* frame = V8Proxy::retrieveActiveFrame();
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     ASSERT(frame);
     htmlDocument->writeln(writeHelperGetString(args), frame->document());
     return v8::Undefined();
@@ -164,7 +168,7 @@ CALLBACK_FUNC_DECL(HTMLDocumentOpen)
         }
     }
 
-    Frame* frame = V8Proxy::retrieveActiveFrame();
+    Frame* frame = V8Proxy::retrieveFrameForCallingContext();
     htmlDocument->open(frame->document());
     // Return the document.
     return args.Holder();

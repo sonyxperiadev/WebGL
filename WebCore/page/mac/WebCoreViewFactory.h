@@ -83,6 +83,19 @@
 - (NSString *)contextMenuItemTagDefaultDirection;
 - (NSString *)contextMenuItemTagLeftToRight;
 - (NSString *)contextMenuItemTagRightToLeft;
+- (NSString *)contextMenuItemTagCorrectSpellingAutomatically;
+- (NSString *)contextMenuItemTagSubstitutionsMenu;
+- (NSString *)contextMenuItemTagShowSubstitutions:(bool)show;
+- (NSString *)contextMenuItemTagSmartCopyPaste;
+- (NSString *)contextMenuItemTagSmartQuotes;
+- (NSString *)contextMenuItemTagSmartDashes;
+- (NSString *)contextMenuItemTagSmartLinks;
+- (NSString *)contextMenuItemTagTextReplacement;
+- (NSString *)contextMenuItemTagTransformationsMenu;
+- (NSString *)contextMenuItemTagMakeUpperCase;
+- (NSString *)contextMenuItemTagMakeLowerCase;
+- (NSString *)contextMenuItemTagCapitalize;
+- (NSString *)contextMenuItemTagChangeBack:(NSString *)replacedString;
 - (NSString *)contextMenuItemTagInspectElement;
 
 - (NSString *)searchMenuNoRecentSearchesText;

@@ -29,11 +29,6 @@
 #include "Document.h"
 #include "JSDocument.h"
 #include "JSMessageChannel.h"
-#ifdef ANDROID_FIX  // these are generated files, need to check ENABLE(WORKERS)
-#if ENABLE(WORKERS)
-#include "JSWorkerContext.h"
-#endif
-#endif
 #include "MessageChannel.h"
 
 using namespace JSC;
@@ -42,11 +37,11 @@ namespace WebCore {
 
 const ClassInfo JSMessageChannelConstructor::s_info = { "MessageChannelConstructor", 0, 0, 0 };
 
-JSMessageChannelConstructor::JSMessageChannelConstructor(ExecState* exec, ScriptExecutionContext* scriptExecutionContext)
+JSMessageChannelConstructor::JSMessageChannelConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMObject(JSMessageChannelConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
-    , m_globalObject(toJSDOMGlobalObject(scriptExecutionContext))
+    , m_globalObject(globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSMessageChannelPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSMessageChannelPrototype::self(exec, exec->lexicalGlobalObject()), None);
 }
 
 JSMessageChannelConstructor::~JSMessageChannelConstructor()
@@ -66,7 +61,11 @@ ConstructType JSMessageChannelConstructor::getConstructData(ConstructData& const
 
 JSObject* JSMessageChannelConstructor::construct(ExecState* exec, JSObject* constructor, const ArgList&)
 {
-    return asObject(toJS(exec, MessageChannel::create(static_cast<JSMessageChannelConstructor*>(constructor)->scriptExecutionContext())));
+    ScriptExecutionContext* context = static_cast<JSMessageChannelConstructor*>(constructor)->scriptExecutionContext();
+    if (!context)
+        return throwError(exec, ReferenceError, "MessageChannel constructor associated document is unavailable");
+
+    return asObject(toJS(exec, MessageChannel::create(context)));
 }
 
 void JSMessageChannelConstructor::mark()

@@ -23,6 +23,7 @@
 #include "config.h"
 #include "ContainerNode.h"
 
+#include "Cache.h"
 #include "ContainerNodeAlgorithms.h"
 #include "DeleteButtonController.h"
 #include "EventNames.h"
@@ -35,6 +36,7 @@
 #include "Page.h"
 #include "RenderTheme.h"
 #include "RootInlineBox.h"
+#include "loader.h"
 #include <wtf/CurrentTime.h>
 
 namespace WebCore {
@@ -155,7 +157,6 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
         child = nextChild.release();
     }
 
-    document()->setDocumentChanged(true);
     dispatchSubtreeModifiedEvent();
     return true;
 }
@@ -268,7 +269,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         child = nextChild.release();
     }
 
-    document()->setDocumentChanged(true);
     if (childCountDelta)
         childrenChanged(false, prev.get(), next.get(), childCountDelta);
     dispatchSubtreeModifiedEvent();
@@ -361,8 +361,6 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
     child->setParent(0);
 
     allowEventDispatch();
-
-    document()->setDocumentChanged(true);
 
     // Dispatch post-removal mutation events
     childrenChanged(false, prev, next, -1);
@@ -495,13 +493,13 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
         child = nextChild.release();
     }
 
-    document()->setDocumentChanged(true);
     dispatchSubtreeModifiedEvent();
     return true;
 }
 
 ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
 {
+    ASSERT(newChild);
     // This function is only used during parsing.
     // It does not send any DOM mutation events.
 
@@ -534,6 +532,7 @@ void ContainerNode::suspendPostAttachCallbacks()
                 s_shouldReEnableMemoryCacheCallsAfterAttach = true;
             }
         }
+        cache()->loader()->suspendPendingRequests();
     }
     ++s_attachDepth;
 }
@@ -548,6 +547,7 @@ void ContainerNode::resumePostAttachCallbacks()
             if (Page* page = document()->page())
                 page->setMemoryCacheClientCallsEnabled(true);
         }
+        cache()->loader()->resumePendingRequests();
     }
     --s_attachDepth;
 }
@@ -576,20 +576,16 @@ void ContainerNode::dispatchPostAttachCallbacks()
 
 void ContainerNode::attach()
 {
-    suspendPostAttachCallbacks();
-
     for (Node* child = m_firstChild; child; child = child->nextSibling())
         child->attach();
     Node::attach();
-
-    resumePostAttachCallbacks();
 }
 
 void ContainerNode::detach()
 {
     for (Node* child = m_firstChild; child; child = child->nextSibling())
         child->detach();
-    setHasChangedChild(false);
+    setChildNeedsStyleRecalc(false);
     Node::detach();
 }
 
@@ -786,7 +782,7 @@ void ContainerNode::setFocus(bool received)
     Node::setFocus(received);
 
     // note that we need to recalc the style
-    setChanged();
+    setNeedsStyleRecalc();
 }
 
 void ContainerNode::setActive(bool down, bool pause)
@@ -800,7 +796,7 @@ void ContainerNode::setActive(bool down, bool pause)
     if (renderer()) {
         bool reactsToPress = renderer()->style()->affectedByActiveRules();
         if (reactsToPress)
-            setChanged();
+            setNeedsStyleRecalc();
         if (renderer() && renderer()->style()->hasAppearance()) {
             if (theme()->stateChanged(renderer(), PressedState))
                 reactsToPress = true;
@@ -815,7 +811,7 @@ void ContainerNode::setActive(bool down, bool pause)
 #endif
 
             // Ensure there are no pending changes
-            Document::updateDocumentsRendering();
+            Document::updateStyleForAllDocuments();
             // Do an immediate repaint.
             if (renderer())
                 renderer()->repaint(true);
@@ -842,7 +838,7 @@ void ContainerNode::setHovered(bool over)
     // FIXME: Move to Element
     if (renderer()) {
         if (renderer()->style()->affectedByHoverRules())
-            setChanged();
+            setNeedsStyleRecalc();
         if (renderer() && renderer()->style()->hasAppearance())
             theme()->stateChanged(renderer(), HoverState);
     }
@@ -882,8 +878,7 @@ static void dispatchChildInsertionEvents(Node* child, ExceptionCode& ec)
 
     if (c->parentNode() && doc->hasListenerType(Document::DOMNODEINSERTED_LISTENER)) {
         ec = 0;
-        c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeInsertedEvent, true, false,
-            c->parentNode(), String(), String(), String(), 0), ec);
+        c->dispatchMutationEvent(eventNames().DOMNodeInsertedEvent, true, c->parentNode(), String(), String(), ec); 
         if (ec)
             return;
     }
@@ -892,8 +887,7 @@ static void dispatchChildInsertionEvents(Node* child, ExceptionCode& ec)
     if (c->inDocument() && doc->hasListenerType(Document::DOMNODEINSERTEDINTODOCUMENT_LISTENER))
         for (; c; c = c->traverseNextNode(child)) {
             ec = 0;
-            c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeInsertedIntoDocumentEvent, false, false,
-                0, String(), String(), String(), 0), ec);
+            c->dispatchMutationEvent(eventNames().DOMNodeInsertedIntoDocumentEvent, false, 0, String(), String(), ec); 
             if (ec)
                 return;
         }
@@ -912,8 +906,7 @@ static void dispatchChildRemovalEvents(Node* child, ExceptionCode& ec)
     // dispatch pre-removal mutation events
     if (c->parentNode() && doc->hasListenerType(Document::DOMNODEREMOVED_LISTENER)) {
         ec = 0;
-        c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeRemovedEvent, true, false,
-            c->parentNode(), String(), String(), String(), 0), ec);
+        c->dispatchMutationEvent(eventNames().DOMNodeRemovedEvent, true, c->parentNode(), String(), String(), ec); 
         if (ec)
             return;
     }
@@ -922,8 +915,7 @@ static void dispatchChildRemovalEvents(Node* child, ExceptionCode& ec)
     if (c->inDocument() && doc->hasListenerType(Document::DOMNODEREMOVEDFROMDOCUMENT_LISTENER))
         for (; c; c = c->traverseNextNode(child)) {
             ec = 0;
-            c->dispatchEvent(MutationEvent::create(eventNames().DOMNodeRemovedFromDocumentEvent, false, false,
-                0, String(), String(), String(), 0), ec);
+            c->dispatchMutationEvent(eventNames().DOMNodeRemovedFromDocumentEvent, false, 0, String(), String(), ec); 
             if (ec)
                 return;
         }

@@ -53,8 +53,8 @@ ALWAYS_INLINE void JIT::emitGetVirtualRegister(int src, RegisterID dst)
 
     // TODO: we want to reuse values that are already in registers if we can - add a register allocator!
     if (m_codeBlock->isConstantRegisterIndex(src)) {
-        JSValuePtr value = m_codeBlock->getConstant(src);
-        move(ImmPtr(JSValuePtr::encode(value)), dst);
+        JSValue value = m_codeBlock->getConstant(src);
+        move(ImmPtr(JSValue::encode(value)), dst);
         killLastResultRegister();
         return;
     }
@@ -112,7 +112,7 @@ ALWAYS_INLINE void JIT::emitGetJITStubArg(unsigned argumentNumber, RegisterID ds
     peek(dst, argumentNumber);
 }
 
-ALWAYS_INLINE JSValuePtr JIT::getConstantOperand(unsigned src)
+ALWAYS_INLINE JSValue JIT::getConstantOperand(unsigned src)
 {
     ASSERT(m_codeBlock->isConstantRegisterIndex(src));
     return m_codeBlock->getConstant(src);
@@ -132,29 +132,13 @@ ALWAYS_INLINE bool JIT::isOperandConstantImmediateInt(unsigned src)
 ALWAYS_INLINE void JIT::emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch)
 {
     if (m_codeBlock->isConstantRegisterIndex(src)) {
-        JSValuePtr value = m_codeBlock->getConstant(src);
-        emitPutJITStubArgConstant(JSValuePtr::encode(value), argumentNumber);
+        JSValue value = m_codeBlock->getConstant(src);
+        emitPutJITStubArgConstant(JSValue::encode(value), argumentNumber);
     } else {
         loadPtr(Address(callFrameRegister, src * sizeof(Register)), scratch);
         emitPutJITStubArg(scratch, argumentNumber);
     }
 
-    killLastResultRegister();
-}
-
-ALWAYS_INLINE void JIT::emitPutCTIParam(void* value, unsigned name)
-{
-    poke(ImmPtr(value), name);
-}
-
-ALWAYS_INLINE void JIT::emitPutCTIParam(RegisterID from, unsigned name)
-{
-    poke(from, name);
-}
-
-ALWAYS_INLINE void JIT::emitGetCTIParam(unsigned name, RegisterID to)
-{
-    peek(to, name);
     killLastResultRegister();
 }
 
@@ -168,9 +152,15 @@ ALWAYS_INLINE void JIT::emitPutImmediateToCallFrameHeader(void* value, RegisterF
     storePtr(ImmPtr(value), Address(callFrameRegister, entry * sizeof(Register)));
 }
 
-ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader(RegisterFile::CallFrameHeaderEntry entry, RegisterID to)
+ALWAYS_INLINE void JIT::emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
-    loadPtr(Address(callFrameRegister, entry * sizeof(Register)), to);
+    loadPtr(Address(from, entry * sizeof(Register)), to);
+    killLastResultRegister();
+}
+
+ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader32(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
+{
+    load32(Address(from, entry * sizeof(Register)), to);
     killLastResultRegister();
 }
 
@@ -183,65 +173,78 @@ ALWAYS_INLINE void JIT::emitPutVirtualRegister(unsigned dst, RegisterID from)
 
 ALWAYS_INLINE void JIT::emitInitRegister(unsigned dst)
 {
-    storePtr(ImmPtr(JSValuePtr::encode(jsUndefined())), Address(callFrameRegister, dst * sizeof(Register)));
+    storePtr(ImmPtr(JSValue::encode(jsUndefined())), Address(callFrameRegister, dst * sizeof(Register)));
     // FIXME: #ifndef NDEBUG, Write the correct m_type to the register.
 }
 
-ALWAYS_INLINE JIT::Call JIT::emitNakedCall(void* function)
+ALWAYS_INLINE JIT::Call JIT::emitNakedCall(CodePtr function)
 {
     ASSERT(m_bytecodeIndex != (unsigned)-1); // This method should only be called during hot/cold path generation, so that m_bytecodeIndex is set.
 
     Call nakedCall = nearCall();
-    m_calls.append(CallRecord(nakedCall, m_bytecodeIndex, function));
+    m_calls.append(CallRecord(nakedCall, m_bytecodeIndex, function.executableAddress()));
     return nakedCall;
 }
 
-#if USE(JIT_STUB_ARGUMENT_REGISTER)
+#if PLATFORM(X86) || PLATFORM(X86_64)
+
+ALWAYS_INLINE void JIT::preverveReturnAddressAfterCall(RegisterID reg)
+{
+    pop(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+{
+    push(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
+{
+    push(address);
+}
+
+#elif PLATFORM(ARM_V7)
+
+ALWAYS_INLINE void JIT::preverveReturnAddressAfterCall(RegisterID reg)
+{
+    move(linkRegister, reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+{
+    move(reg, linkRegister);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
+{
+    loadPtr(address, linkRegister);
+}
+
+#endif
+
+#if USE(JIT_STUB_ARGUMENT_VA_LIST)
+ALWAYS_INLINE void JIT::restoreArgumentReference()
+{
+    poke(callFrameRegister, offsetof(struct JITStackFrame, callFrame) / sizeof (void*));
+}
+ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline() {}
+#else
 ALWAYS_INLINE void JIT::restoreArgumentReference()
 {
     move(stackPointerRegister, firstArgumentRegister);
-    emitPutCTIParam(callFrameRegister, STUB_ARGS_callFrame);
+    poke(callFrameRegister, offsetof(struct JITStackFrame, callFrame) / sizeof (void*));
 }
 ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline()
 {
-    // In the trampoline on x86-64, the first argument register is not overwritten.
-#if !PLATFORM(X86_64)
+#if PLATFORM(X86)
+    // Within a trampoline the return address will be on the stack at this point.
+    addPtr(Imm32(sizeof(void*)), stackPointerRegister, firstArgumentRegister);
+#elif PLATFORM(ARM_V7)
     move(stackPointerRegister, firstArgumentRegister);
-    addPtr(Imm32(sizeof(void*)), firstArgumentRegister);
 #endif
+    // In the trampoline on x86-64, the first argument register is not overwritten.
 }
-#elif USE(JIT_STUB_ARGUMENT_STACK)
-ALWAYS_INLINE void JIT::restoreArgumentReference()
-{
-    poke(stackPointerRegister);
-    emitPutCTIParam(callFrameRegister, STUB_ARGS_callFrame);
-}
-ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline() {}
-#else // JIT_STUB_ARGUMENT_VA_LIST
-ALWAYS_INLINE void JIT::restoreArgumentReference()
-{
-    emitPutCTIParam(callFrameRegister, STUB_ARGS_callFrame);
-}
-ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline() {}
 #endif
-
-ALWAYS_INLINE JIT::Call JIT::emitCTICall_internal(void* helper)
-{
-    ASSERT(m_bytecodeIndex != (unsigned)-1); // This method should only be called during hot/cold path generation, so that m_bytecodeIndex is set.
-
-#if ENABLE(OPCODE_SAMPLING)
-    sampleInstruction(m_codeBlock->instructions().begin() + m_bytecodeIndex, true);
-#endif
-    restoreArgumentReference();
-    Call ctiCall = call();
-    m_calls.append(CallRecord(ctiCall, m_bytecodeIndex, helper));
-#if ENABLE(OPCODE_SAMPLING)
-    sampleInstruction(m_codeBlock->instructions().begin() + m_bytecodeIndex, false);
-#endif
-    killLastResultRegister();
-
-    return ctiCall;
-}
 
 ALWAYS_INLINE JIT::Jump JIT::checkStructure(RegisterID reg, Structure* structure)
 {
@@ -414,6 +417,66 @@ ALWAYS_INLINE void JIT::emitJumpSlowToHot(Jump jump, int relativeOffset)
     jump.linkTo(m_labels[m_bytecodeIndex + relativeOffset], this);
 }
 
+#if ENABLE(SAMPLING_FLAGS)
+ALWAYS_INLINE void JIT::setSamplingFlag(int32_t flag)
+{
+    ASSERT(flag >= 1);
+    ASSERT(flag <= 32);
+    or32(Imm32(1u << (flag - 1)), AbsoluteAddress(&SamplingFlags::s_flags));
+}
+
+ALWAYS_INLINE void JIT::clearSamplingFlag(int32_t flag)
+{
+    ASSERT(flag >= 1);
+    ASSERT(flag <= 32);
+    and32(Imm32(~(1u << (flag - 1))), AbsoluteAddress(&SamplingFlags::s_flags));
+}
+#endif
+
+#if ENABLE(SAMPLING_COUNTERS)
+ALWAYS_INLINE void JIT::emitCount(AbstractSamplingCounter& counter, uint32_t count)
+{
+#if PLATFORM(X86_64) // Or any other 64-bit plattform.
+    addPtr(Imm32(count), AbsoluteAddress(&counter.m_counter));
+#elif PLATFORM(X86) // Or any other little-endian 32-bit plattform.
+    intptr_t hiWord = reinterpret_cast<intptr_t>(&counter.m_counter) + sizeof(int32_t);
+    add32(Imm32(count), AbsoluteAddress(&counter.m_counter));
+    addWithCarry32(Imm32(0), AbsoluteAddress(reinterpret_cast<void*>(hiWord)));
+#else
+#error "SAMPLING_FLAGS not implemented on this platform."
+#endif
+}
+#endif
+
+#if ENABLE(OPCODE_SAMPLING)
+#if PLATFORM(X86_64)
+ALWAYS_INLINE void JIT::sampleInstruction(Instruction* instruction, bool inHostFunction)
+{
+    move(ImmPtr(m_interpreter->sampler()->sampleSlot()), X86::ecx);
+    storePtr(ImmPtr(m_interpreter->sampler()->encodeSample(instruction, inHostFunction)), X86::ecx);
+}
+#else
+ALWAYS_INLINE void JIT::sampleInstruction(Instruction* instruction, bool inHostFunction)
+{
+    storePtr(ImmPtr(m_interpreter->sampler()->encodeSample(instruction, inHostFunction)), m_interpreter->sampler()->sampleSlot());
+}
+#endif
+#endif
+
+#if ENABLE(CODEBLOCK_SAMPLING)
+#if PLATFORM(X86_64)
+ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
+{
+    move(ImmPtr(m_interpreter->sampler()->codeBlockSlot()), X86::ecx);
+    storePtr(ImmPtr(codeBlock), X86::ecx);
+}
+#else
+ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
+{
+    storePtr(ImmPtr(codeBlock), m_interpreter->sampler()->codeBlockSlot());
+}
+#endif
+#endif
 }
 
 #endif // ENABLE(JIT)

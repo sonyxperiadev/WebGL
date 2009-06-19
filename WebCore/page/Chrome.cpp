@@ -35,7 +35,7 @@
 #include "HitTestResult.h"
 #include "InspectorController.h"
 #include "Page.h"
-#include "PageGroup.h"
+#include "PageGroupLoadDeferrer.h"
 #include "ResourceHandle.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
@@ -53,14 +53,6 @@ namespace WebCore {
 
 using namespace HTMLNames;
 using namespace std;
-
-class PageGroupLoadDeferrer : Noncopyable {
-public:
-    PageGroupLoadDeferrer(Page*, bool deferSelf);
-    ~PageGroupLoadDeferrer();
-private:
-    Vector<RefPtr<Frame>, 16> m_deferredFrames;
-};
 
 Chrome::Chrome(Page* page, ChromeClient* client)
     : m_page(page)
@@ -152,13 +144,14 @@ void Chrome::takeFocus(FocusDirection direction) const
 Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features) const
 {
     Page* newPage = m_client->createWindow(frame, request, features);
+
 #if ENABLE(DOM_STORAGE)
-    
     if (newPage) {
         if (SessionStorage* oldSessionStorage = m_page->sessionStorage(false))
-                newPage->setSessionStorage(oldSessionStorage->copy(newPage));
+            newPage->setSessionStorage(oldSessionStorage->copy(newPage));
     }
 #endif
+
     return newPage;
 }
 
@@ -378,16 +371,6 @@ void Chrome::print(Frame* frame)
     m_client->print(frame);
 }
 
-void Chrome::disableSuddenTermination()
-{
-    m_client->disableSuddenTermination();
-}
-
-void Chrome::enableSuddenTermination()
-{
-    m_client->enableSuddenTermination();
-}
-
 void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
     // Defer loads in case the client method runs a new event loop that would 
@@ -402,6 +385,12 @@ void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
 {
     m_client->runOpenPanel(frame, fileChooser);
 }
+
+bool Chrome::setCursor(PlatformCursorHandle cursor)
+{
+    return m_client->setCursor(cursor);
+}
+
 // --------
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -434,14 +423,6 @@ String ChromeClient::generateReplacementFile(const String&)
     return String(); 
 }
 
-void ChromeClient::disableSuddenTermination()
-{
-}
-
-void ChromeClient::enableSuddenTermination()
-{
-}
-
 bool ChromeClient::paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
                                         ScrollbarControlState, ScrollbarPart, bool,
                                         float, float, ScrollbarControlPartMask)
@@ -452,46 +433,6 @@ bool ChromeClient::paintCustomScrollbar(GraphicsContext*, const FloatRect&, Scro
 bool ChromeClient::paintCustomScrollCorner(GraphicsContext*, const FloatRect&)
 {
     return false;
-}
-
-// --------
-
-PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
-{
-    const HashSet<Page*>& pages = page->group().pages();
-
-    HashSet<Page*>::const_iterator end = pages.end();
-    for (HashSet<Page*>::const_iterator it = pages.begin(); it != end; ++it) {
-        Page* otherPage = *it;
-        if ((deferSelf || otherPage != page)) {
-            if (!otherPage->defersLoading())
-                m_deferredFrames.append(otherPage->mainFrame());
-
-#if !PLATFORM(MAC)
-            for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext())
-                frame->document()->suspendActiveDOMObjects();
-#endif
-        }
-    }
-
-    size_t count = m_deferredFrames.size();
-    for (size_t i = 0; i < count; ++i)
-        if (Page* page = m_deferredFrames[i]->page())
-            page->setDefersLoading(true);
-}
-
-PageGroupLoadDeferrer::~PageGroupLoadDeferrer()
-{
-    for (size_t i = 0; i < m_deferredFrames.size(); ++i) {
-        if (Page* page = m_deferredFrames[i]->page()) {
-            page->setDefersLoading(false);
-
-#if !PLATFORM(MAC)
-            for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
-                frame->document()->resumeActiveDOMObjects();
-#endif
-        }
-    }
 }
 
 

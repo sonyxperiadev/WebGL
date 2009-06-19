@@ -42,12 +42,12 @@
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
-#include "ThreadableLoader.h"
 #include "WorkerImportScriptsClient.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include "WorkerObjectProxy.h"
 #include "WorkerThread.h"
+#include "WorkerThreadableLoader.h"
 #include "XMLHttpRequestException.h"
 #include <wtf/RefPtr.h>
 
@@ -56,9 +56,9 @@ namespace WebCore {
 WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThread* thread)
     : m_url(url)
     , m_userAgent(userAgent)
-    , m_location(WorkerLocation::create(url))
     , m_script(new WorkerScriptController(this))
     , m_thread(thread)
+    , m_closing(false)
 {
     setSecurityOrigin(SecurityOrigin::create(url));
 }
@@ -67,7 +67,7 @@ WorkerContext::~WorkerContext()
 {
     ASSERT(currentThread() == m_thread->threadID());
 
-    m_thread->workerObjectProxy()->workerContextDestroyed();
+    m_thread->workerObjectProxy().workerContextDestroyed();
 }
 
 ScriptExecutionContext* WorkerContext::scriptExecutionContext() const
@@ -92,12 +92,28 @@ KURL WorkerContext::completeURL(const String& url) const
     if (url.isNull())
         return KURL();
     // Always use UTF-8 in Workers.
-    return KURL(m_location->url(), url);
+    return KURL(m_url, url);
 }
 
 String WorkerContext::userAgent(const KURL&) const
 {
     return m_userAgent;
+}
+
+WorkerLocation* WorkerContext::location() const
+{
+    if (!m_location)
+        m_location = WorkerLocation::create(m_url);
+    return m_location.get();
+}
+
+void WorkerContext::close()
+{
+    if (m_closing)
+        return;
+
+    m_closing = true;
+    m_thread->stop();
 }
 
 WorkerNavigator* WorkerContext::navigator() const
@@ -120,12 +136,12 @@ bool WorkerContext::hasPendingActivity() const
 
 void WorkerContext::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
 {
-    m_thread->workerObjectProxy()->postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
+    m_thread->workerObjectProxy().postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
 }
 
 void WorkerContext::addMessage(MessageDestination destination, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
 {
-    m_thread->workerObjectProxy()->postConsoleMessageToWorkerObject(destination, source, level, message, lineNumber, sourceURL);
+    m_thread->workerObjectProxy().postConsoleMessageToWorkerObject(destination, source, level, message, lineNumber, sourceURL);
 }
 
 void WorkerContext::resourceRetrievedByXMLHttpRequest(unsigned long, const ScriptString&)
@@ -142,7 +158,10 @@ void WorkerContext::scriptImported(unsigned long, const String&)
 
 void WorkerContext::postMessage(const String& message)
 {
-    m_thread->workerObjectProxy()->postMessageToWorkerObject(message);
+    if (m_closing)
+        return;
+
+    m_thread->workerObjectProxy().postMessageToWorkerObject(message);
 }
 
 void WorkerContext::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> eventListener, bool)
@@ -201,18 +220,30 @@ void WorkerContext::postTask(PassRefPtr<Task> task)
     thread()->runLoop().postTask(task);
 }
 
-int WorkerContext::installTimeout(ScheduledAction* action, int timeout, bool singleShot)
+int WorkerContext::setTimeout(ScheduledAction* action, int timeout)
 {
-    return DOMTimer::install(scriptExecutionContext(), action, timeout, singleShot);
+    return DOMTimer::install(scriptExecutionContext(), action, timeout, true);
 }
 
-void WorkerContext::removeTimeout(int timeoutId)
+void WorkerContext::clearTimeout(int timeoutId)
+{
+    DOMTimer::removeById(scriptExecutionContext(), timeoutId);
+}
+
+int WorkerContext::setInterval(ScheduledAction* action, int timeout)
+{
+    return DOMTimer::install(scriptExecutionContext(), action, timeout, false);
+}
+
+void WorkerContext::clearInterval(int timeoutId)
 {
     DOMTimer::removeById(scriptExecutionContext(), timeoutId);
 }
 
 void WorkerContext::dispatchMessage(const String& message)
 {
+    // Since close() stops the thread event loop, this should not ever get called while closing.
+    ASSERT(!m_closing);
     RefPtr<Event> evt = MessageEvent::create(message, "", "", 0, 0);
 
     if (m_onmessageListener.get()) {
@@ -247,7 +278,7 @@ void WorkerContext::importScripts(const Vector<String>& urls, const String& call
         request.setHTTPMethod("GET");
         request.setHTTPOrigin(securityOrigin);
         WorkerImportScriptsClient client(scriptExecutionContext(), *it, callerURL, callerLine);
-        ThreadableLoader::loadResourceSynchronously(scriptExecutionContext(), request, client);
+        WorkerThreadableLoader::loadResourceSynchronously(this, request, client, AllowStoredCredentials, AllowDifferentRedirectOrigin);
         
         // If the fetching attempt failed, throw a NETWORK_ERR exception and abort all these steps.
         if (client.failed()) {

@@ -449,10 +449,8 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints,
         return;
 
     SkPaint paint;
-    if (fillColor().alpha() > 0) {
-        platformContext()->setupPaintForFilling(&paint);
-        platformContext()->canvas()->drawPath(path, paint);
-    }
+    platformContext()->setupPaintForFilling(&paint);
+    platformContext()->canvas()->drawPath(path, paint);
 
     if (strokeStyle() != NoStroke) {
         paint.reset();
@@ -472,10 +470,8 @@ void GraphicsContext::drawEllipse(const IntRect& elipseRect)
         return;
 
     SkPaint paint;
-    if (fillColor().alpha() > 0) {
-        platformContext()->setupPaintForFilling(&paint);
-        platformContext()->canvas()->drawOval(rect, paint);
-    }
+    platformContext()->setupPaintForFilling(&paint);
+    platformContext()->canvas()->drawOval(rect, paint);
 
     if (strokeStyle() != NoStroke) {
         paint.reset();
@@ -685,9 +681,6 @@ void GraphicsContext::fillPath()
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.fillColorSpace;
 
-    if (colorSpace == SolidColorSpace && !fillColor().alpha())
-        return;
-
     path.setFillType(state.fillRule == RULE_EVENODD ?
         SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
 
@@ -718,9 +711,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.fillColorSpace;
 
-    if (colorSpace == SolidColorSpace && !fillColor().alpha())
-        return;
-
     SkPaint paint;
     platformContext()->setupPaintForFilling(&paint);
 
@@ -737,9 +727,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 {
     if (paintingDisabled())
-        return;
-
-    if (!color.alpha())
         return;
 
     SkRect r = rect;
@@ -907,8 +894,13 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     // FIXME: This is lifted directly off SkiaSupport, lines 49-74
     // so it is not guaranteed to work correctly.
     size_t dashLength = dashes.size();
-    if (!dashLength)
+    if (!dashLength) {
+        // If no dash is set, revert to solid stroke
+        // FIXME: do we need to set NoStroke in some cases?
+        platformContext()->setStrokeStyle(SolidStroke);
+        platformContext()->setDashPathEffect(0);
         return;
+    }
 
     size_t count = (dashLength % 2) == 0 ? dashLength : dashLength * 2;
     SkScalar* intervals = new SkScalar[count];
@@ -961,6 +953,12 @@ void GraphicsContext::setPlatformShadow(const IntSize& size,
 {
     if (paintingDisabled())
         return;
+
+    // Detect when there's no effective shadow and clear the looper.
+    if (size.width() == 0 && size.height() == 0 && blurInt == 0) {
+        platformContext()->setDrawLooper(NULL);
+        return;
+    }
 
     double width = size.width();
     double height = size.height();
@@ -1076,9 +1074,6 @@ void GraphicsContext::strokePath()
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.strokeColorSpace;
 
-    if (colorSpace == SolidColorSpace && !strokeColor().alpha())
-        return;
-
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);
 
@@ -1102,9 +1097,6 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 
     const GraphicsContextState& state = m_common->state;
     ColorSpace colorSpace = state.strokeColorSpace;
-
-    if (colorSpace == SolidColorSpace && !strokeColor().alpha())
-        return;
 
     SkPaint paint;
     platformContext()->setupPaintForStroking(&paint, 0, 0);

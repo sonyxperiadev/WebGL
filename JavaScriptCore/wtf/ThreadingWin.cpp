@@ -243,7 +243,7 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 void detachThread(ThreadIdentifier threadID)
 {
     ASSERT(threadID);
-    
+
     HANDLE threadHandle = threadHandleForIdentifier(threadID);
     if (threadHandle)
         CloseHandle(threadHandle);

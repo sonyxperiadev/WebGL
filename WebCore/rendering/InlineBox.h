@@ -36,23 +36,26 @@ class RootInlineBox;
 class InlineBox {
 public:
     InlineBox(RenderObject* obj)
-        : m_renderer(obj)
+        : m_next(0)
+        , m_prev(0)
+        , m_parent(0)
+        , m_renderer(obj)
         , m_x(0)
         , m_y(0)
         , m_width(0)
-        , m_next(0)
-        , m_prev(0)
-        , m_parent(0)
         , m_firstLine(false)
         , m_constructed(false)
         , m_bidiEmbeddingLevel(0)
         , m_dirty(false)
         , m_extracted(false)
+#if ENABLE(SVG)
+        , m_isSVG(false)
+#endif
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)
         , m_hasEllipsisBox(false)
         , m_dirOverride(false)
-        , m_treatAsText(true)
+        , m_isText(false)
         , m_determinedIfNextOnLineExists(false)
         , m_determinedIfPrevOnLineExists(false)
         , m_nextOnLineExists(false)
@@ -66,23 +69,26 @@ public:
 
     InlineBox(RenderObject* obj, int x, int y, int width, bool firstLine, bool constructed,
               bool dirty, bool extracted, InlineBox* next, InlineBox* prev, InlineFlowBox* parent)
-        : m_renderer(obj)
+        : m_next(next)
+        , m_prev(prev)
+        , m_parent(parent)
+        , m_renderer(obj)
         , m_x(x)
         , m_y(y)
         , m_width(width)
-        , m_next(next)
-        , m_prev(prev)
-        , m_parent(parent)
         , m_firstLine(firstLine)
         , m_constructed(constructed)
         , m_bidiEmbeddingLevel(0)
         , m_dirty(dirty)
         , m_extracted(extracted)
+#if ENABLE(SVG)
+        , m_isSVG(false)
+#endif
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)   
         , m_hasEllipsisBox(false)
         , m_dirOverride(false)
-        , m_treatAsText(true)
+        , m_isText(false)
         , m_determinedIfNextOnLineExists(false)
         , m_determinedIfPrevOnLineExists(false)
         , m_nextOnLineExists(false)
@@ -129,8 +135,11 @@ public:
     virtual bool isRootInlineBox() const { return false; }
 #if ENABLE(SVG) 
     virtual bool isSVGRootInlineBox() { return false; }
+    bool isSVG() const { return m_isSVG; }
+    void setIsSVG(bool b) { m_isSVG = b; }
 #endif
-    virtual bool isText() const { return false; }
+    bool isText() const { return m_isText; }
+    void setIsText(bool b) { m_isText = b; }
 
     bool isConstructed() { return m_constructed; }
     virtual void setConstructed()
@@ -182,13 +191,15 @@ public:
     void setWidth(int w) { m_width = w; }
     int width() const { return m_width; }
 
+    // x() is the left side of the box in the parent's coordinate system.
     void setX(int x) { m_x = x; }
     int x() const { return m_x; }
 
+    // y() is the top of the box in the parent's coordinate system.
     void setY(int y) { m_y = y; }
     int y() const { return m_y; }
 
-    virtual int height() const;
+    int height() const;
 
     virtual int topOverflow() const { return y(); }
     virtual int bottomOverflow() const { return y() + height(); }
@@ -215,7 +226,8 @@ public:
     virtual RenderObject::SelectionState selectionState();
 
     virtual bool canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth);
-    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&);
+    // visibleLeftEdge, visibleRightEdge are in the parent's coordinate system.
+    virtual int placeEllipsisBox(bool ltr, int visibleLeftEdge, int visibleRightEdge, int ellipsisWidth, bool&);
 
     void setHasBadParent();
 
@@ -231,18 +243,23 @@ public:
         return 0;
     }
 
-public:
-    RenderObject* m_renderer;
-
-    int m_x;
-    int m_y;
-    int m_width;
+protected:
+#if ENABLE(SVG)
+    virtual int svgBoxHeight() const { return 0; }
+#endif
 
 private:
     InlineBox* m_next; // The next element on the same line as us.
     InlineBox* m_prev; // The previous element on the same line as us.
 
     InlineFlowBox* m_parent; // The box that contains us.
+
+public:
+    RenderObject* m_renderer;
+
+    int m_x;
+    int m_y;
+    int m_width;
     
     // Some of these bits are actually for subclasses and moved here to compact the structures.
 
@@ -256,6 +273,10 @@ protected:
     bool m_dirty : 1;
     bool m_extracted : 1;
 
+#if ENABLE(SVG)
+    bool m_isSVG : 1;
+#endif
+
     // for RootInlineBox
     bool m_endsWithBreak : 1;  // Whether the line ends with a <br>.
     bool m_hasSelectedChildren : 1; // Whether we have any children selected (this bit will also be set if the <br> that terminates our line is selected).
@@ -264,13 +285,13 @@ protected:
     // for InlineTextBox
 public:
     bool m_dirOverride : 1;
-    bool m_treatAsText : 1; // Whether or not to treat a <br> as text for the purposes of line height.
+    bool m_isText : 1; // Whether or not this object represents text with a non-zero height. Includes non-image list markers, text boxes.
 protected:
     mutable bool m_determinedIfNextOnLineExists : 1;
     mutable bool m_determinedIfPrevOnLineExists : 1;
     mutable bool m_nextOnLineExists : 1;
     mutable bool m_prevOnLineExists : 1;
-    int m_toAdd : 13; // for justified text
+    int m_toAdd : 12; // for justified text
 
 #ifndef NDEBUG
 private:

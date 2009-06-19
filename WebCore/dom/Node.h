@@ -3,6 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +29,7 @@
 #include "EventTarget.h"
 #include "KURLHash.h"
 #include "PlatformString.h"
+#include "RegisteredEventListener.h"
 #include "TreeShared.h"
 #include "FloatPoint.h"
 #include <wtf/Assertions.h>
@@ -49,7 +51,7 @@ class Frame;
 class IntRect;
 class KeyboardEvent;
 class NSResolver;
-class NamedAttrMap;
+class NamedNodeMap;
 class NodeList;
 class NodeRareData;
 class PlatformKeyboardEvent;
@@ -65,8 +67,6 @@ class RenderStyle;
 class StringBuilder;
 
 typedef int ExceptionCode;
-
-typedef Vector<RefPtr<RegisteredEventListener> > RegisteredEventListenerVector;
 
 enum StyleChangeType { NoStyleChange, InlineStyleChange, FullStyleChange, AnimationStyleChange };
 
@@ -126,7 +126,7 @@ public:
     Node* firstChild() const { return isContainerNode() ? containerFirstChild() : 0; }
     Node* lastChild() const { return isContainerNode() ? containerLastChild() : 0; }
     bool hasAttributes() const;
-    NamedAttrMap* attributes() const;
+    NamedNodeMap* attributes() const;
 
     virtual KURL baseURI() const;
     
@@ -265,16 +265,16 @@ public:
     bool focused() const { return hasRareData() ? rareDataFocused() : false; }
     bool attached() const { return m_attached; }
     void setAttached(bool b = true) { m_attached = b; }
-    bool changed() const { return m_styleChange != NoStyleChange; }
+    bool needsStyleRecalc() const { return m_styleChange != NoStyleChange; }
     StyleChangeType styleChangeType() const { return static_cast<StyleChangeType>(m_styleChange); }
-    bool hasChangedChild() const { return m_hasChangedChild; }
+    bool childNeedsStyleRecalc() const { return m_childNeedsStyleRecalc; }
     bool isLink() const { return m_isLink; }
     void setHasID(bool b = true) { m_hasId = b; }
     void setHasClass(bool b = true) { m_hasClass = b; }
-    void setHasChangedChild( bool b = true ) { m_hasChangedChild = b; }
+    void setChildNeedsStyleRecalc(bool b = true) { m_childNeedsStyleRecalc = b; }
     void setInDocument(bool b = true) { m_inDocument = b; }
     void setInActiveChain(bool b = true) { m_inActiveChain = b; }
-    void setChanged(StyleChangeType changeType = FullStyleChange);
+    void setNeedsStyleRecalc(StyleChangeType changeType = FullStyleChange);
     void setIsLink(bool b = true) { m_isLink = b; }
 
     bool inSubtreeMark() const { return m_inSubtreeMark; }
@@ -428,7 +428,7 @@ public:
     void createRendererIfNeeded();
     PassRefPtr<RenderStyle> styleForRenderer();
     virtual bool rendererIsNeeded(RenderStyle*);
-#if ENABLE(SVG)
+#if ENABLE(SVG) || ENABLE(XHTMLMP)
     virtual bool childShouldCreateRenderer(Node*) const { return true; }
 #endif
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -526,21 +526,22 @@ public:
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;
 
+    // Used for standard DOM addEventListener / removeEventListener APIs.
     virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
     virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
+
+    // Used for legacy "onEvent" property APIs.
+    void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
+    void clearAttributeEventListener(const AtomicString& eventType);
+    EventListener* getAttributeEventListener(const AtomicString& eventType) const;
+
     virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
+    bool dispatchEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
+
     void removeAllEventListeners() { if (hasRareData()) removeAllEventListenersSlowCase(); }
 
-    void setInlineEventListenerForType(const AtomicString& eventType, PassRefPtr<EventListener>);
-    void setInlineEventListenerForTypeAndAttribute(const AtomicString& eventType, Attribute*);
-    void removeInlineEventListenerForType(const AtomicString& eventType);
-    bool dispatchEventForType(const AtomicString& eventType, bool canBubble, bool cancelable);
-    EventListener* inlineEventListenerForType(const AtomicString& eventType) const;
-
-    bool dispatchSubtreeModifiedEvent();
-    void dispatchWindowEvent(PassRefPtr<Event>);
-    void dispatchWindowEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
-    bool dispatchUIEvent(const AtomicString& eventType, int detail = 0, PassRefPtr<Event> underlyingEvent = 0);
+    void dispatchSubtreeModifiedEvent();
+    void dispatchUIEvent(const AtomicString& eventType, int detail = 0, PassRefPtr<Event> underlyingEvent = 0);
     bool dispatchKeyEvent(const PlatformKeyboardEvent&);
     void dispatchWheelEvent(PlatformWheelEvent&);
     bool dispatchMouseEvent(const PlatformMouseEvent&, const AtomicString& eventType,
@@ -551,10 +552,11 @@ public:
         bool isSimulated = false, Node* relatedTarget = 0, PassRefPtr<Event> underlyingEvent = 0);
     void dispatchSimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<Event> underlyingEvent = 0);
     void dispatchSimulatedClick(PassRefPtr<Event> underlyingEvent, bool sendMouseEvents = false, bool showPressedLook = true);
-    bool dispatchProgressEvent(const AtomicString &eventType, bool lengthComputableArg, unsigned loadedArg, unsigned totalArg);
-    void dispatchStorageEvent(const AtomicString &eventType, const String& key, const String& oldValue, const String& newValue, Frame* source);
-    bool dispatchWebKitAnimationEvent(const AtomicString& eventType, const String& animationName, double elapsedTime);
-    bool dispatchWebKitTransitionEvent(const AtomicString& eventType, const String& propertyName, double elapsedTime);
+    void dispatchProgressEvent(const AtomicString& eventType, bool lengthComputableArg, unsigned loadedArg, unsigned totalArg);
+    void dispatchWebKitAnimationEvent(const AtomicString& eventType, const String& animationName, double elapsedTime);
+    void dispatchWebKitTransitionEvent(const AtomicString& eventType, const String& propertyName, double elapsedTime);
+    void dispatchMutationEvent(const AtomicString& type, bool canBubble, PassRefPtr<Node> relatedNode, const String& prevValue, const String& newValue, ExceptionCode&);
+
     bool dispatchGenericEvent(PassRefPtr<Event>);
 
     virtual void handleLocalEvents(Event*, bool useCapture);
@@ -702,7 +704,7 @@ private:
     bool m_hasId : 1;
     bool m_hasClass : 1;
     bool m_attached : 1;
-    bool m_hasChangedChild : 1;
+    bool m_childNeedsStyleRecalc : 1;
     bool m_inDocument : 1;
     bool m_isLink : 1;
     bool m_active : 1;

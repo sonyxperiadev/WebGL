@@ -40,6 +40,7 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/Threading.h>
 #include <wtf/ThreadSpecific.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -47,7 +48,7 @@ namespace WebCore {
 //
 // There are two kinds of DOM objects:
 // 1. DOM tree nodes, such as Document, HTMLElement, ...
-//    there classes implements TreeShared<T> interface;
+//    there classes implement TreeShared<T> interface;
 // 2. Non-node DOM objects, such as CSSRule, Location, etc.
 //    these classes implement a ref-counted scheme.
 //
@@ -103,23 +104,21 @@ static void weakSVGObjectWithContextCallback(v8::Persistent<v8::Value> v8Object,
 // The helper function will be scheduled by the GC thread to get called from the owning thread.
 static void derefDelayedObjectsInCurrentThread(void*);
 
-// This should be called to remove all DOM objects associated with the current thread when it is tearing down.
-static void removeAllDOMObjectsInCurrentThread();
-
-// A map from a thread ID to thread's specific data.
+// A list of all ThreadSpecific DOM Data objects. Traversed during GC to find a thread-specific map that
+// contains the object - so we can schedule the object to be deleted on the thread which created it.
 class ThreadSpecificDOMData;
-typedef WTF::HashMap<WTF::ThreadIdentifier, ThreadSpecificDOMData*> DOMThreadMap;
-static DOMThreadMap& domThreadMap()
+typedef WTF::Vector<ThreadSpecificDOMData*> DOMDataList;
+static DOMDataList& domDataList()
 {
-    DEFINE_STATIC_LOCAL(DOMThreadMap, staticDOMThreadMap, ());
-    return staticDOMThreadMap;
+    DEFINE_STATIC_LOCAL(DOMDataList, staticDOMDataList, ());
+    return staticDOMDataList;
 }
 
-// Mutex to protect against concurrent access of domThreadMap.
-static WTF::Mutex& domThreadMapMutex()
+// Mutex to protect against concurrent access of DOMDataList.
+static WTF::Mutex& domDataListMutex()
 {
-    DEFINE_STATIC_LOCAL(WTF::Mutex, staticDOMThreadMapMutex, ());
-    return staticDOMThreadMapMutex;
+    DEFINE_STATIC_LOCAL(WTF::Mutex, staticDOMDataListMutex, ());
+    return staticDOMDataListMutex;
 }
 
 class ThreadSpecificDOMData : Noncopyable {
@@ -161,14 +160,14 @@ public:
         , m_delayedProcessingScheduled(false)
         , m_isMainThread(WTF::isMainThread())
     {
-        WTF::MutexLocker locker(domThreadMapMutex());
-        domThreadMap().set(WTF::currentThread(), this);
+        WTF::MutexLocker locker(domDataListMutex());
+        domDataList().append(this);
     }
 
     virtual ~ThreadSpecificDOMData()
     {
-        WTF::MutexLocker locker(domThreadMapMutex());
-        domThreadMap().remove(WTF::currentThread());
+        WTF::MutexLocker locker(domDataListMutex());
+        domDataList().remove(domDataList().find(this));
     }
 
     void* getDOMWrapperMap(DOMWrapperMapType type)
@@ -241,8 +240,6 @@ public:
     // We assume that all child threads running V8 instances are created by WTF.
     virtual ~NonMainThreadSpecificDOMData()
     {
-        removeAllDOMObjectsInCurrentThread();
-
         delete m_domNodeMap;
         delete m_domObjectMap;
         delete m_activeDomObjectMap;
@@ -254,7 +251,8 @@ public:
 };
 
 // This encapsulates thread-specific DOM data for the main thread. All the maps in it are static.
-// This is because we are unable to rely on WTF::ThreadSpecificThreadExit to do the cleanup since the place that tears down the main thread can not call any WTF functions.
+// This is because we are unable to rely on WTF::ThreadSpecificThreadExit to do the cleanup since
+// the place that tears down the main thread can not call any WTF functions.
 class MainThreadSpecificDOMData : public ThreadSpecificDOMData {
 public:
     MainThreadSpecificDOMData()
@@ -279,10 +277,8 @@ private:
     InternalDOMWrapperMap<Node> m_staticDomNodeMap;
     InternalDOMWrapperMap<void> m_staticDomObjectMap;
     InternalDOMWrapperMap<void> m_staticActiveDomObjectMap;
-#if ENABLE(SVG)    
     InternalDOMWrapperMap<SVGElementInstance> m_staticDomSvgElementInstanceMap;
     InternalDOMWrapperMap<void> m_staticDomSvgObjectWithContextMap;
-#endif
 };
 
 DEFINE_STATIC_LOCAL(WTF::ThreadSpecific<NonMainThreadSpecificDOMData>, threadSpecificDOMData, ());
@@ -386,16 +382,10 @@ static void weakSVGObjectWithContextCallback(v8::Persistent<v8::Value> v8Object,
 template<typename T>
 static void handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMWrapperMapType mapType, V8ClassIndex::V8WrapperType objectType, T* object)
 {
-    WTF::MutexLocker locker(domThreadMapMutex());
-    for (typename DOMThreadMap::iterator iter(domThreadMap().begin()); iter != domThreadMap().end(); ++iter) {
-        WTF::ThreadIdentifier threadID = iter->first;
-        ThreadSpecificDOMData* threadData = iter->second;
-
-        // Skip the current thread that is GC thread.
-        if (threadID == WTF::currentThread()) {
-            ASSERT(!static_cast<DOMWrapperMap<T>*>(threadData->getDOMWrapperMap(mapType))->contains(object));
-            continue;
-        }
+    WTF::MutexLocker locker(domDataListMutex());
+    DOMDataList& list = domDataList();
+    for (size_t i = 0; i < list.size(); ++i) {
+        ThreadSpecificDOMData* threadData = list[i];
 
         ThreadSpecificDOMData::InternalDOMWrapperMap<T>* domMap = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<T>*>(threadData->getDOMWrapperMap(mapType));
         if (domMap->contains(object)) {
@@ -515,7 +505,7 @@ static void derefObject(V8ClassIndex::V8WrapperType type, void* domObject)
 
 static void derefDelayedObjects()
 {
-    WTF::MutexLocker locker(domThreadMapMutex());
+    WTF::MutexLocker locker(domDataListMutex());
 
     getThreadSpecificDOMData().setDelayedProcessingScheduled(false);
 
@@ -574,7 +564,7 @@ static void removeAllDOMObjectsInCurrentThreadHelper()
 #endif
 }
 
-static void removeAllDOMObjectsInCurrentThread()
+void removeAllDOMObjectsInCurrentThread()
 {
     // Use the locker only if it has already been invoked before, as by worker thread.
     if (v8::Locker::IsActive()) {

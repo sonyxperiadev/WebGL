@@ -51,7 +51,6 @@ RenderTableSection::RenderTableSection(Node* node)
     , m_gridRows(0)
     , m_cCol(0)
     , m_cRow(-1)
-    , m_needsCellRecalc(false)
     , m_outerBorderLeft(0)
     , m_outerBorderRight(0)
     , m_outerBorderTop(0)
@@ -60,6 +59,7 @@ RenderTableSection::RenderTableSection(Node* node)
     , m_overflowWidth(0)
     , m_overflowTop(0)
     , m_overflowHeight(0)
+    , m_needsCellRecalc(false)
     , m_hasOverflowingCell(false)
 {
     // init RenderObject attributes
@@ -89,14 +89,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
     if (!beforeChild && isAfterContent(lastChild()))
         beforeChild = lastChild();
 
-    bool isTableSection = node() && (node()->hasTagName(theadTag) || node()->hasTagName(tbodyTag) || node()->hasTagName(tfootTag));
-
     if (!child->isTableRow()) {
-        if (isTableSection && child->node() && child->node()->hasTagName(formTag) && document()->isHTMLDocument()) {
-            RenderBox::addChild(child, beforeChild);
-            return;
-        }
-
         RenderObject* last = beforeChild;
         if (!last)
             last = lastChild();
@@ -115,7 +108,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
             return;
         }
 
-        RenderObject* row = new (renderArena()) RenderTableRow(document() /* anonymous table */);
+        RenderObject* row = new (renderArena()) RenderTableRow(document() /* anonymous table row */);
         RefPtr<RenderStyle> newStyle = RenderStyle::create();
         newStyle->inheritFrom(style());
         newStyle->setDisplay(TABLE_ROW);
@@ -147,7 +140,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
     while (beforeChild && beforeChild->parent() != this)
         beforeChild = beforeChild->parent();
 
-    ASSERT(!beforeChild || beforeChild->isTableRow() || isTableSection && beforeChild->node() && beforeChild->node()->hasTagName(formTag) && document()->isHTMLDocument());
+    ASSERT(!beforeChild || beforeChild->isTableRow());
     RenderBox::addChild(child, beforeChild);
 }
 

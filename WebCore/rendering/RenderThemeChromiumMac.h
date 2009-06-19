@@ -67,7 +67,7 @@ namespace WebCore {
         virtual void platformColorsDidChange();
 
         // System fonts.
-        virtual void systemFont(int cssValueId, Document*, FontDescription&) const;
+        virtual void systemFont(int cssValueId, FontDescription&) const;
 
         virtual int minimumMenuListSize(RenderStyle*) const;
 
@@ -85,6 +85,8 @@ namespace WebCore {
         virtual Color systemColor(int cssValueId) const;
 
     protected:
+        virtual bool supportsSelectionForegroundColors() const { return false; }
+
         // Methods for each appearance value.
         virtual bool paintCheckbox(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual void setCheckboxSize(RenderStyle*) const;

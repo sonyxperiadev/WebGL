@@ -35,8 +35,10 @@
 #include "Element.h"
 #include "Frame.h"
 #include "HTMLNames.h"
+#include "NamedAttrMap.h"
 #include "MIMETypeRegistry.h"
 #include "markup.h"
+#include "NamedNodeMap.h"
 #include "PlatformString.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -216,7 +218,7 @@ static String imageToMarkup(const String& url, Element* element)
     markup.append("\"");
     // Copy over attributes.  If we are dragging an image, we expect things like
     // the id to be copied as well.
-    NamedAttrMap* attrs = element->attributes();
+    NamedNodeMap* attrs = element->attributes();
     unsigned length = attrs->length();
     for (unsigned i = 0; i < length; ++i) {
         Attribute* attr = attrs->attributeItem(i);

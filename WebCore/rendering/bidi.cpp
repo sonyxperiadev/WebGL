@@ -560,26 +560,28 @@ RootInlineBox* RenderBlock::constructLine(unsigned runCount, BidiRun* firstRun, 
         InlineBox* box = createInlineBoxForRenderer(r->m_object, false, isOnlyRun);
         r->m_box = box;
 
-        if (box) {
-            // If we have no parent box yet, or if the run is not simply a sibling,
-            // then we need to construct inline boxes as necessary to properly enclose the
-            // run's inline box.
-            if (!parentBox || parentBox->renderer() != r->m_object->parent())
-                // Create new inline boxes all the way back to the appropriate insertion point.
-                parentBox = createLineBoxes(r->m_object->parent(), firstLine);
+        ASSERT(box);
+        if (!box)
+            continue;
 
-            // Append the inline box to this line.
-            parentBox->addToLine(box);
+        // If we have no parent box yet, or if the run is not simply a sibling,
+        // then we need to construct inline boxes as necessary to properly enclose the
+        // run's inline box.
+        if (!parentBox || parentBox->renderer() != r->m_object->parent())
+            // Create new inline boxes all the way back to the appropriate insertion point.
+            parentBox = createLineBoxes(r->m_object->parent(), firstLine);
 
-            bool visuallyOrdered = r->m_object->style()->visuallyOrdered();
-            box->setBidiLevel(visuallyOrdered ? 0 : r->level());
+        // Append the inline box to this line.
+        parentBox->addToLine(box);
 
-            if (box->isInlineTextBox()) {
-                InlineTextBox* text = static_cast<InlineTextBox*>(box);
-                text->setStart(r->m_start);
-                text->setLen(r->m_stop - r->m_start);
-                text->m_dirOverride = r->dirOverride(visuallyOrdered);
-            }
+        bool visuallyOrdered = r->m_object->style()->visuallyOrdered();
+        box->setBidiLevel(visuallyOrdered ? 0 : r->level());
+
+        if (box->isInlineTextBox()) {
+            InlineTextBox* text = static_cast<InlineTextBox*>(box);
+            text->setStart(r->m_start);
+            text->setLen(r->m_stop - r->m_start);
+            text->m_dirOverride = r->dirOverride(visuallyOrdered);
         }
     }
 
@@ -631,7 +633,16 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
                     totWidth += rt->style(firstLine)->font().wordSpacing();
                 needsWordSpacing = !isSpaceOrNewline(rt->characters()[r->m_stop - 1]) && r->m_stop == length;          
             }
-            r->m_box->setWidth(rt->width(r->m_start, r->m_stop - r->m_start, totWidth, firstLine));
+            HashSet<const SimpleFontData*> fallbackFonts;
+            r->m_box->setWidth(rt->width(r->m_start, r->m_stop - r->m_start, totWidth, firstLine, &fallbackFonts));
+            if (!fallbackFonts.isEmpty()
+#if ENABLE(SVG)
+                    && !isSVGText()
+#endif
+            ) {
+                ASSERT(r->m_box->isText());
+                static_cast<InlineTextBox*>(r->m_box)->setFallbackFonts(fallbackFonts);
+            }
         } else if (!r->m_object->isRenderInline()) {
             RenderBox* renderBox = toRenderBox(r->m_object);
             renderBox->calcWidth();
@@ -654,7 +665,7 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
             // particular with RTL blocks, wide lines should still spill out to the left.
             if (style()->direction() == LTR) {
                 if (totWidth > availableWidth && trailingSpaceRun)
-                    trailingSpaceRun->m_box->setWidth(trailingSpaceRun->m_box->width() - totWidth + availableWidth);
+                    trailingSpaceRun->m_box->setWidth(max(0, trailingSpaceRun->m_box->width() - totWidth + availableWidth));
             } else {
                 if (trailingSpaceRun)
                     trailingSpaceRun->m_box->setWidth(0);
@@ -676,7 +687,7 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
             // for right to left fall through to right aligned
             if (style()->direction() == LTR) {
                 if (totWidth > availableWidth && trailingSpaceRun)
-                    trailingSpaceRun->m_box->setWidth(trailingSpaceRun->m_box->width() - totWidth + availableWidth);
+                    trailingSpaceRun->m_box->setWidth(max(0, trailingSpaceRun->m_box->width() - totWidth + availableWidth));
                 break;
             }
         case RIGHT:
@@ -693,7 +704,7 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
                     x += availableWidth - totWidth;
             } else {
                 if (totWidth > availableWidth && trailingSpaceRun) {
-                    trailingSpaceRun->m_box->setWidth(trailingSpaceRun->m_box->width() - totWidth + availableWidth);
+                    trailingSpaceRun->m_box->setWidth(max(0, trailingSpaceRun->m_box->width() - totWidth + availableWidth));
                     totWidth -= trailingSpaceRun->m_box->width();
                 } else
                     x += availableWidth - totWidth;
@@ -705,7 +716,7 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
             if (trailingSpaceRun) {
                 totWidth -= trailingSpaceRun->m_box->width();
                 trailingSpaceWidth = min(trailingSpaceRun->m_box->width(), (availableWidth - totWidth + 1) / 2);
-                trailingSpaceRun->m_box->setWidth(trailingSpaceWidth);
+                trailingSpaceRun->m_box->setWidth(max(0, trailingSpaceWidth));
             }
             if (style()->direction() == LTR)
                 x += max((availableWidth - totWidth) / 2, 0);
@@ -765,6 +776,7 @@ void RenderBlock::computeVerticalPositionsForLine(RootInlineBox* lineBox, BidiRu
 
     // Now make sure we place replaced render objects correctly.
     for (BidiRun* r = firstRun; r; r = r->next()) {
+        ASSERT(r->m_box);
         if (!r->m_box)
             continue; // Skip runs with no line boxes.
 
@@ -1040,7 +1052,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 ASSERT(resolver.position() == end);
 
                 BidiRun* trailingSpaceRun = 0;
-                if (!previousLineBrokeCleanly && resolver.runCount() && resolver.logicallyLastRun()->m_object->style()->breakOnlyAfterWhiteSpace()) {
+                if (!previousLineBrokeCleanly && resolver.runCount() && resolver.logicallyLastRun()->m_object->style()->breakOnlyAfterWhiteSpace()
+                        && resolver.logicallyLastRun()->m_object->style()->autoWrap()) {
                     trailingSpaceRun = resolver.logicallyLastRun();
                     RenderObject* lastObject = trailingSpaceRun->m_object;
                     if (lastObject->isText()) {
@@ -1338,12 +1351,12 @@ RootInlineBox* RenderBlock::determineStartPosition(bool& firstLine, bool& fullLa
     #endif
             ;
 
-        BidiContext* context = new BidiContext(ltr ? 0 : 1, ltr ? LeftToRight : RightToLeft, style()->unicodeBidi() == Override);
+        Direction direction = ltr ? LeftToRight : RightToLeft;
+        resolver.setLastStrongDir(direction);
+        resolver.setLastDir(direction);
+        resolver.setEorDir(direction);
+        resolver.setContext(BidiContext::create(ltr ? 0 : 1, direction, style()->unicodeBidi() == Override));
 
-        resolver.setLastStrongDir(context->dir());
-        resolver.setLastDir(context->dir());
-        resolver.setEorDir(context->dir());
-        resolver.setContext(context);
         startObj = bidiFirst(this, &resolver);
     }
 
@@ -2295,16 +2308,18 @@ void RenderBlock::checkLinesForTextOverflow()
     // Include the scrollbar for overflow blocks, which means we want to use "contentWidth()"
     bool ltr = style()->direction() == LTR;
     for (RootInlineBox* curr = firstRootBox(); curr; curr = curr->nextRootBox()) {
-        int blockEdge = ltr ? rightOffset(curr->y(), curr == firstRootBox()) : leftOffset(curr->y(), curr == firstRootBox());
+        int blockRightEdge = rightOffset(curr->y(), curr == firstRootBox());
+        int blockLeftEdge = leftOffset(curr->y(), curr == firstRootBox());
         int lineBoxEdge = ltr ? curr->x() + curr->width() : curr->x();
-        if ((ltr && lineBoxEdge > blockEdge) || (!ltr && lineBoxEdge < blockEdge)) {
+        if ((ltr && lineBoxEdge > blockRightEdge) || (!ltr && lineBoxEdge < blockLeftEdge)) {
             // This line spills out of our box in the appropriate direction.  Now we need to see if the line
             // can be truncated.  In order for truncation to be possible, the line must have sufficient space to
             // accommodate our truncation string, and no replaced elements (images, tables) can overlap the ellipsis
             // space.
             int width = curr == firstRootBox() ? firstLineEllipsisWidth : ellipsisWidth;
+            int blockEdge = ltr ? blockRightEdge : blockLeftEdge;
             if (curr->canAccommodateEllipsis(ltr, blockEdge, lineBoxEdge, width))
-                curr->placeEllipsis(ellipsisStr, ltr, blockEdge, width);
+                curr->placeEllipsis(ellipsisStr, ltr, blockLeftEdge, blockRightEdge, width);
         }
     }
 }

@@ -54,10 +54,10 @@ static inline bool charactersAreAllASCII(StringImpl* text)
 
 RenderText::RenderText(Node* node, PassRefPtr<StringImpl> str)
      : RenderObject(node)
-     , m_text(str)
+     , m_minWidth(-1)
+     , m_text(document()->displayStringModifiedByEncoding(str))
      , m_firstTextBox(0)
      , m_lastTextBox(0)
-     , m_minWidth(-1)
      , m_maxWidth(-1)
      , m_beginMinWidth(0)
      , m_endMinWidth(0)
@@ -65,11 +65,15 @@ RenderText::RenderText(Node* node, PassRefPtr<StringImpl> str)
      , m_linesDirty(false)
      , m_containsReversedText(false)
      , m_isAllASCII(charactersAreAllASCII(m_text.get()))
+     , m_knownNotToUseFallbackFonts(false)
 {
     ASSERT(m_text);
-    setIsText();
-    m_text = document()->displayStringModifiedByEncoding(PassRefPtr<StringImpl>(m_text));
 
+    setIsText();
+
+    // FIXME: It would be better to call this only if !m_text->containsOnlyWhitespace().
+    // But that might slow things down, and maybe should only be done if visuallyNonEmpty
+    // is still false. Not making any change for now, but should consider in the future.
     view()->frameView()->setIsVisuallyNonEmpty();
 }
 
@@ -104,8 +108,10 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
     // we already did this for the parent of the text run.
     // We do have to schedule layouts, though, since a style change can force us to
     // need to relayout.
-    if (diff == StyleDifferenceLayout)
+    if (diff == StyleDifferenceLayout) {
         setNeedsLayoutAndPrefWidthsRecalc();
+        m_knownNotToUseFallbackFonts = false;
+    }
 
     ETextTransform oldTransform = oldStyle ? oldStyle->textTransform() : TTNONE;
     ETextSecurity oldSecurity = oldStyle ? oldStyle->textSecurity() : TSNONE;
@@ -204,7 +210,7 @@ PassRefPtr<StringImpl> RenderText::originalText() const
     return e ? static_cast<Text*>(e)->string() : 0;
 }
 
-void RenderText::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool)
+void RenderText::absoluteRects(Vector<IntRect>& rects, int tx, int ty)
 {
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox())
         rects.append(IntRect(tx + box->x(), ty + box->y(), box->width(), box->height()));
@@ -249,7 +255,7 @@ void RenderText::absoluteRectsForRange(Vector<IntRect>& rects, unsigned start, u
     }
 }
 
-void RenderText::absoluteQuads(Vector<FloatQuad>& quads, bool)
+void RenderText::absoluteQuads(Vector<FloatQuad>& quads)
 {
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox())
         quads.append(localToAbsoluteQuad(FloatRect(box->x(), box->y(), box->width(), box->height())));
@@ -386,7 +392,13 @@ IntRect RenderText::localCaretRect(InlineBox* inlineBox, int caretOffset, int* e
 
     int left = box->positionForOffset(caretOffset);
 
+    // Distribute the caret's width to either side of the offset.
+    int caretWidthLeftOfOffset = caretWidth / 2;
+    left -= caretWidthLeftOfOffset;
+    int caretWidthRightOfOffset = caretWidth - caretWidthLeftOfOffset;
+
     int rootLeft = box->root()->x();
+    int rootRight = rootLeft + box->root()->width();
     // FIXME: should we use the width of the root inline box or the
     // width of the containing block for this?
     if (extraWidthToEndOfLine)
@@ -396,15 +408,26 @@ IntRect RenderText::localCaretRect(InlineBox* inlineBox, int caretOffset, int* e
     if (style()->autoWrap()) {
         int availableWidth = cb->lineWidth(top, false);
         if (box->direction() == LTR)
-            left = min(left, rootLeft + availableWidth - 1);
+            left = min(left, rootLeft + availableWidth - caretWidthRightOfOffset);
         else
+            left = max(left, cb->x());
+    } else {
+        // If there is no wrapping, the caret can leave its containing block, but not its root line box.
+        if (cb->style()->direction() == LTR) {
+            int rightEdge = max(cb->width(), rootRight);
+            left = min(left, rightEdge - caretWidthRightOfOffset);
             left = max(left, rootLeft);
+        } else {
+            int leftEdge = min(cb->x(), rootLeft);
+            left = max(left, leftEdge);
+            left = min(left, rootRight - caretWidth);
+        }
     }
 
     return IntRect(left, top, caretWidth, height);
 }
 
-ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, int xPos) const
+ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, int xPos, HashSet<const SimpleFontData*>* fallbackFonts) const
 {
     if (f.isFixedPitch() && !f.isSmallCaps() && m_isAllASCII) {
         int monospaceCharacterWidth = f.spaceWidth();
@@ -434,7 +457,7 @@ ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, 
         return w;
     }
 
-    return f.width(TextRun(text()->characters() + start, len, allowTabs(), xPos));
+    return f.width(TextRun(text()->characters() + start, len, allowTabs(), xPos), fallbackFonts);
 }
 
 void RenderText::trimmedPrefWidths(int leadWidth,
@@ -503,7 +526,7 @@ void RenderText::trimmedPrefWidths(int leadWidth,
                 linelen++;
 
             if (linelen) {
-                endMaxW = widthFromCache(f, i, linelen, leadWidth + endMaxW);
+                endMaxW = widthFromCache(f, i, linelen, leadWidth + endMaxW, 0);
                 if (firstLine) {
                     firstLine = false;
                     leadWidth = 0;
@@ -547,7 +570,15 @@ int RenderText::maxPrefWidth() const
 
 void RenderText::calcPrefWidths(int leadWidth)
 {
-    ASSERT(m_hasTab || prefWidthsDirty());
+    HashSet<const SimpleFontData*> fallbackFonts;
+    calcPrefWidths(leadWidth, fallbackFonts);
+    if (fallbackFonts.isEmpty())
+        m_knownNotToUseFallbackFonts = true;
+}
+
+void RenderText::calcPrefWidths(int leadWidth, HashSet<const SimpleFontData*>& fallbackFonts)
+{
+    ASSERT(m_hasTab || prefWidthsDirty() || !m_knownNotToUseFallbackFonts);
 
     m_minWidth = 0;
     m_beginMinWidth = 0;
@@ -619,7 +650,7 @@ void RenderText::calcPrefWidths(int leadWidth)
             lastWordBoundary++;
             continue;
         } else if (c == softHyphen) {
-            currMaxWidth += widthFromCache(f, lastWordBoundary, i - lastWordBoundary, leadWidth + currMaxWidth);
+            currMaxWidth += widthFromCache(f, lastWordBoundary, i - lastWordBoundary, leadWidth + currMaxWidth, &fallbackFonts);
             lastWordBoundary = i + 1;
             continue;
         }
@@ -642,13 +673,13 @@ void RenderText::calcPrefWidths(int leadWidth)
 
         int wordLen = j - i;
         if (wordLen) {
-            int w = widthFromCache(f, i, wordLen, leadWidth + currMaxWidth);
+            int w = widthFromCache(f, i, wordLen, leadWidth + currMaxWidth, &fallbackFonts);
             currMinWidth += w;
             if (betweenWords) {
                 if (lastWordBoundary == i)
                     currMaxWidth += w;
                 else
-                    currMaxWidth += widthFromCache(f, lastWordBoundary, j - lastWordBoundary, leadWidth + currMaxWidth);
+                    currMaxWidth += widthFromCache(f, lastWordBoundary, j - lastWordBoundary, leadWidth + currMaxWidth, &fallbackFonts);
                 lastWordBoundary = j;
             }
 
@@ -733,6 +764,11 @@ bool RenderText::containsOnlyWhitespace(unsigned from, unsigned len) const
          currPos < from + len && ((*m_text)[currPos] == '\n' || (*m_text)[currPos] == ' ' || (*m_text)[currPos] == '\t');
          currPos++) { }
     return currPos >= (from + len);
+}
+
+IntPoint RenderText::firstRunOrigin() const
+{
+    return IntPoint(firstRunX(), firstRunY());
 }
 
 int RenderText::firstRunX() const
@@ -835,6 +871,11 @@ void RenderText::setTextWithOffset(PassRefPtr<StringImpl> text, unsigned offset,
         RootInlineBox* prev = firstRootBox->prevRootBox();
         if (prev)
             firstRootBox = prev;
+    } else if (lastTextBox()) {
+        ASSERT(!lastRootBox);
+        firstRootBox = lastTextBox()->root();
+        firstRootBox->markDirty();
+        dirtiedLines = true;
     }
     for (RootInlineBox* curr = firstRootBox; curr && curr != lastRootBox; curr = curr->nextRootBox()) {
         if (curr->lineBreakObj() == this && curr->lineBreakPos() > end)
@@ -879,10 +920,10 @@ UChar RenderText::previousCharacter()
 
 void RenderText::setTextInternal(PassRefPtr<StringImpl> text)
 {
-    m_text = text;
+    ASSERT(text);
+    m_text = document()->displayStringModifiedByEncoding(text);
     ASSERT(m_text);
 
-    m_text = document()->displayStringModifiedByEncoding(PassRefPtr<StringImpl>(m_text));
 #if ENABLE(SVG)
     if (isSVGText()) {
         if (style() && style()->whiteSpace() == PRE) {
@@ -959,6 +1000,7 @@ void RenderText::setText(PassRefPtr<StringImpl> text, bool force)
 
     setTextInternal(text);
     setNeedsLayoutAndPrefWidthsRecalc();
+    m_knownNotToUseFallbackFonts = false;
 }
 
 int RenderText::lineHeight(bool firstLine, bool) const
@@ -993,6 +1035,7 @@ InlineTextBox* RenderText::createInlineTextBox()
         textBox->setPreviousLineBox(m_lastTextBox);
         m_lastTextBox = textBox;
     }
+    textBox->setIsText(true);
     return textBox;
 }
 
@@ -1012,7 +1055,7 @@ void RenderText::positionLineBox(InlineBox* box)
     m_containsReversedText |= s->direction() == RTL;
 }
 
-unsigned RenderText::width(unsigned from, unsigned len, int xPos, bool firstLine) const
+unsigned RenderText::width(unsigned from, unsigned len, int xPos, bool firstLine, HashSet<const SimpleFontData*>* fallbackFonts) const
 {
     if (from >= textLength())
         return 0;
@@ -1020,10 +1063,10 @@ unsigned RenderText::width(unsigned from, unsigned len, int xPos, bool firstLine
     if (from + len > textLength())
         len = textLength() - from;
 
-    return width(from, len, style(firstLine)->font(), xPos);
+    return width(from, len, style(firstLine)->font(), xPos, fallbackFonts);
 }
 
-unsigned RenderText::width(unsigned from, unsigned len, const Font& f, int xPos) const
+unsigned RenderText::width(unsigned from, unsigned len, const Font& f, int xPos, HashSet<const SimpleFontData*>* fallbackFonts) const
 {
     ASSERT(from + len <= textLength());
     if (!characters())
@@ -1031,12 +1074,20 @@ unsigned RenderText::width(unsigned from, unsigned len, const Font& f, int xPos)
 
     int w;
     if (&f == &style()->font()) {
-        if (!style()->preserveNewline() && !from && len == textLength())
-            w = maxPrefWidth();
-        else
-            w = widthFromCache(f, from, len, xPos);
+        if (!style()->preserveNewline() && !from && len == textLength()) {
+            if (fallbackFonts) {
+                if (prefWidthsDirty() || !m_knownNotToUseFallbackFonts) {
+                    const_cast<RenderText*>(this)->calcPrefWidths(0, *fallbackFonts);
+                    if (fallbackFonts->isEmpty())
+                        m_knownNotToUseFallbackFonts = true;
+                }
+                w = m_maxWidth;
+            } else
+                w = maxPrefWidth();
+        } else
+            w = widthFromCache(f, from, len, xPos, fallbackFonts);
     } else
-        w = f.width(TextRun(text()->characters() + from, len, allowTabs(), xPos));
+        w = f.width(TextRun(text()->characters() + from, len, allowTabs(), xPos), fallbackFonts);
 
     return w;
 }

@@ -30,7 +30,10 @@
 
 #include "CString.h"
 #include "ExceptionCode.h"
+#include "Frame.h"
+#include "Page.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
 #include "StorageMap.h"
 
 namespace WebCore {
@@ -73,14 +76,19 @@ String StorageArea::internalGetItem(const String& key) const
     return m_storageMap->getItem(key);
 }
 
-void StorageArea::internalSetItem(const String& key, const String& value, ExceptionCode&, Frame* frame)
+void StorageArea::internalSetItem(const String& key, const String& value, ExceptionCode& ec, Frame* frame)
 {
     ASSERT(!value.isNull());
     
+    if (frame->page()->settings()->privateBrowsingEnabled()) {
+        ec = QUOTA_EXCEEDED_ERR;
+        return;
+    }
+
     // FIXME: For LocalStorage where a disk quota will be enforced, here is where we need to do quota checking.
     //        If we decide to enforce a memory quota for SessionStorage, this is where we'd do that, also.
     // if (<over quota>) {
-    //     ec = INVALID_ACCESS_ERR;
+    //     ec = QUOTA_EXCEEDED_ERR;
     //     return;
     // }
     
@@ -96,7 +104,10 @@ void StorageArea::internalSetItem(const String& key, const String& value, Except
 }
 
 void StorageArea::internalRemoveItem(const String& key, Frame* frame)
-{   
+{
+    if (frame->page()->settings()->privateBrowsingEnabled())
+        return;
+
     String oldValue;
     RefPtr<StorageMap> newMap = m_storageMap->removeItem(key, oldValue);
     if (newMap)
@@ -109,6 +120,9 @@ void StorageArea::internalRemoveItem(const String& key, Frame* frame)
 
 void StorageArea::internalClear(Frame* frame)
 {
+    if (frame->page()->settings()->privateBrowsingEnabled())
+        return;
+    
     m_storageMap = StorageMap::create();
     
     areaCleared(frame);

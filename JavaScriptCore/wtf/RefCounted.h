@@ -57,7 +57,9 @@ protected:
     {
     }
 
-    ~RefCountedBase() {}
+    ~RefCountedBase()
+    {
+    }
 
     // Returns whether the pointer should be freed or not.
     bool derefBase()
@@ -75,7 +77,20 @@ protected:
         return false;
     }
 
-protected:
+    // Helper for generating JIT code. Please do not use for non-JIT purposes.
+    int* addressOfCount()
+    {
+        return &m_refCount;
+    }
+
+#ifndef NDEBUG
+    bool deletionHasBegun() const
+    {
+        return m_deletionHasBegun;
+    }
+#endif
+
+private:
     template<class T>
     friend class CrossThreadRefCounted;
 
@@ -95,7 +110,9 @@ public:
     }
 
 protected:
-    ~RefCounted() {}
+    ~RefCounted()
+    {
+    }
 };
 
 } // namespace WTF

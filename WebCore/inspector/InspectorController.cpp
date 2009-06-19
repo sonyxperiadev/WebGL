@@ -34,8 +34,6 @@
 #include "CachedResource.h"
 #include "Console.h"
 #include "ConsoleMessage.h"
-#include "DOMWindow.h"
-#include "DocLoader.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -50,15 +48,10 @@
 #include "HTMLFrameOwnerElement.h"
 #include "HitTestResult.h"
 #include "InspectorClient.h"
+#include "InspectorFrontend.h"
 #include "InspectorDatabaseResource.h"
 #include "InspectorDOMStorageResource.h"
 #include "InspectorResource.h"
-#include "JSDOMWindow.h"
-#include "JSInspectedObjectWrapper.h"
-#include "JSInspectorCallbackWrapper.h"
-#include "JSInspectorController.h"
-#include "JSNode.h"
-#include "JSRange.h"
 #include "JavaScriptProfile.h"
 #include "Page.h"
 #include "Range.h"
@@ -66,110 +59,46 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "ScriptCallStack.h"
-#include "ScriptController.h"
+#include "ScriptObject.h"
+#include "ScriptString.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
 #include "TextEncoding.h"
 #include "TextIterator.h"
-#include <JavaScriptCore/APICast.h>
-#include <JavaScriptCore/JSRetainPtr.h>
-#include <JavaScriptCore/JSStringRef.h>
-#include <JavaScriptCore/OpaqueJSString.h>
-#include <profiler/Profile.h>
-#include <profiler/Profiler.h>
-#include <runtime/CollectorHeapIterator.h>
-#include <runtime/JSLock.h>
-#include <runtime/UString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(DATABASE)
 #include "Database.h"
-#include "JSDatabase.h"
 #endif
 
 #if ENABLE(DOM_STORAGE)
 #include "Storage.h"
 #include "StorageArea.h"
-#include "JSStorage.h"
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "JavaScriptCallFrame.h"
 #include "JavaScriptDebugServer.h"
 #include "JSJavaScriptCallFrame.h"
-#endif
+
+#include <profiler/Profile.h>
+#include <profiler/Profiler.h>
+#include <runtime/JSLock.h>
+#include <runtime/UString.h>
 
 using namespace JSC;
+#endif
 using namespace std;
 
 namespace WebCore {
 
 static const char* const UserInitiatedProfileName = "org.webkit.profiles.user-initiated";
-
-static JSRetainPtr<JSStringRef> jsStringRef(const char* str)
-{
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithUTF8CString(str));
-}
-
-static JSRetainPtr<JSStringRef> jsStringRef(const SourceCode& str)
-{
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCharacters(str.data(), str.length()));
-}
-
-static JSRetainPtr<JSStringRef> jsStringRef(const String& str)
-{
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCharacters(str.characters(), str.length()));
-}
-
-static JSRetainPtr<JSStringRef> jsStringRef(const UString& str)
-{
-    return JSRetainPtr<JSStringRef>(Adopt, OpaqueJSString::create(str).releaseRef());
-}
-
-static String toString(JSContextRef context, JSValueRef value, JSValueRef* exception)
-{
-    ASSERT_ARG(value, value);
-    if (!value)
-        return String();
-    JSRetainPtr<JSStringRef> scriptString(Adopt, JSValueToStringCopy(context, value, exception));
-    if (exception && *exception)
-        return String();
-    return String(JSStringGetCharactersPtr(scriptString.get()), JSStringGetLength(scriptString.get()));
-}
-
-#define HANDLE_EXCEPTION(context, exception) handleException((context), (exception), __LINE__)
-
-JSValueRef InspectorController::callSimpleFunction(JSContextRef context, JSObjectRef thisObject, const char* functionName) const
-{
-    JSValueRef exception = 0;
-    return callFunction(context, thisObject, functionName, 0, 0, exception);
-}
-
-JSValueRef InspectorController::callFunction(JSContextRef context, JSObjectRef thisObject, const char* functionName, size_t argumentCount, const JSValueRef arguments[], JSValueRef& exception) const
-{
-    ASSERT_ARG(context, context);
-    ASSERT_ARG(thisObject, thisObject);
-
-    if (exception)
-        return JSValueMakeUndefined(context);
-
-    JSValueRef functionProperty = JSObjectGetProperty(context, thisObject, jsStringRef(functionName).get(), &exception);
-    if (HANDLE_EXCEPTION(context, exception))
-        return JSValueMakeUndefined(context);
-
-    JSObjectRef function = JSValueToObject(context, functionProperty, &exception);
-    if (HANDLE_EXCEPTION(context, exception))
-        return JSValueMakeUndefined(context);
-
-    JSValueRef result = JSObjectCallAsFunction(context, function, thisObject, argumentCount, arguments, &exception);
-    if (HANDLE_EXCEPTION(context, exception))
-        return JSValueMakeUndefined(context);
-
-    return result;
-}
+static const char* const resourceTrackingEnabledSettingName = "resourceTrackingEnabled";
+static const char* const debuggerEnabledSettingName = "debuggerEnabled";
+static const char* const profilerEnabledSettingName = "profilerEnabled";
 
 bool InspectorController::addSourceToFrame(const String& mimeType, const String& source, Node* frameNode)
 {
@@ -237,24 +166,24 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
     , m_page(0)
-    , m_scriptObject(0)
-    , m_controllerScriptObject(0)
-    , m_scriptContext(0)
+    , m_scriptState(0)
     , m_windowVisible(false)
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    , m_debuggerEnabled(false)
-    , m_attachDebuggerWhenShown(false)
-#endif
-    , m_profilerEnabled(false)
-    , m_recordingUserInitiatedProfile(false)
     , m_showAfterVisible(ElementsPanel)
     , m_nextIdentifier(-2)
     , m_groupLevel(0)
     , m_searchingForNode(false)
+    , m_previousMessage(0)
+    , m_resourceTrackingEnabled(false)
+    , m_resourceTrackingSettingsLoaded(false)
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    , m_debuggerEnabled(false)
+    , m_attachDebuggerWhenShown(false)
+    , m_profilerEnabled(false)
+    , m_recordingUserInitiatedProfile(false)
     , m_currentUserInitiatedProfileNumber(-1)
     , m_nextUserInitiatedProfileNumber(1)
-    , m_previousMessage(0)
     , m_startProfiling(this, &InspectorController::startUserInitiatedProfiling)
+#endif
 {
     ASSERT_ARG(page, page);
     ASSERT_ARG(client, client);
@@ -263,26 +192,11 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
 
 InspectorController::~InspectorController()
 {
-    m_client->inspectorDestroyed();
-
-    if (m_scriptContext) {
-        JSValueRef exception = 0;
-
-        JSObjectRef global = JSContextGetGlobalObject(m_scriptContext);
-        JSValueRef controllerProperty = JSObjectGetProperty(m_scriptContext, global, jsStringRef("InspectorController").get(), &exception);
-        if (!HANDLE_EXCEPTION(m_scriptContext, exception)) {
-            if (JSObjectRef controller = JSValueToObject(m_scriptContext, controllerProperty, &exception)) {
-                if (!HANDLE_EXCEPTION(m_scriptContext, exception))
-                    JSObjectSetPrivate(controller, 0);
-            }
-        }
-    }
-
-    if (m_page)
-        m_page->setParentInspectorController(0);
-
-    // m_inspectedPage should have been cleared in inspectedPageDestroyed().
+    // These should have been cleared in inspectedPageDestroyed().
+    ASSERT(!m_client);
+    ASSERT(!m_scriptState);
     ASSERT(!m_inspectedPage);
+    ASSERT(!m_page || (m_page && !m_page->parentInspectorController()));
 
     deleteAllValues(m_frameResources);
     deleteAllValues(m_consoleMessages);
@@ -301,8 +215,19 @@ void InspectorController::inspectedPageDestroyed()
 {
     close();
 
+    if (m_scriptState)
+        ScriptGlobalObject::remove(m_scriptState, "InspectorController");
+
+    if (m_page) {
+        m_page->setParentInspectorController(0);
+        m_page = 0;
+    }
+
     ASSERT(m_inspectedPage);
     m_inspectedPage = 0;
+
+    m_client->inspectorDestroyed();
+    m_client = 0;
 }
 
 bool InspectorController::enabled() const
@@ -390,7 +315,7 @@ void InspectorController::inspect(Node* node)
         node = node->parentNode();
     m_nodeToFocus = node;
 
-    if (!m_scriptObject) {
+    if (!m_frontend) {
         m_showAfterVisible = ElementsPanel;
         return;
     }
@@ -404,27 +329,11 @@ void InspectorController::focusNode()
     if (!enabled())
         return;
 
-    ASSERT(m_scriptContext);
-    ASSERT(m_scriptObject);
+    ASSERT(m_frontend);
     ASSERT(m_nodeToFocus);
 
-    Frame* frame = m_nodeToFocus->document()->frame();
-    if (!frame)
-        return;
-
-    ExecState* exec = toJSDOMWindow(frame)->globalExec();
-
-    JSValueRef arg0;
-
-    {
-        JSC::JSLock lock(false);
-        arg0 = toRef(JSInspectedObjectWrapper::wrap(exec, toJS(exec, m_nodeToFocus.get())));
-    }
-
+    m_frontend->updateFocusedNode(m_nodeToFocus.get());
     m_nodeToFocus = 0;
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "updateFocusedNode", 1, &arg0, exception);
 }
 
 void InspectorController::highlight(Node* node)
@@ -456,7 +365,7 @@ void InspectorController::setWindowVisible(bool visible, bool attached)
 
     m_windowVisible = visible;
 
-    if (!m_scriptContext || !m_scriptObject)
+    if (!m_frontend)
         return;
 
     if (m_windowVisible) {
@@ -472,7 +381,13 @@ void InspectorController::setWindowVisible(bool visible, bool attached)
             showPanel(m_showAfterVisible);
     } else {
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+        // If the window is being closed with the debugger enabled,
+        // remember this state to re-enable debugger on the next window
+        // opening.
+        bool debuggerWasEnabled = m_debuggerEnabled;
         disableDebugger();
+        if (debuggerWasEnabled)
+            m_attachDebuggerWhenShown = true;
 #endif
         resetScriptObjects();
     }
@@ -496,12 +411,12 @@ void InspectorController::addMessageToConsole(MessageSource source, MessageLevel
     addConsoleMessage(0, new ConsoleMessage(source, level, message, lineNumber, sourceID, m_groupLevel));
 }
 
-void InspectorController::addConsoleMessage(ExecState* exec, ConsoleMessage* consoleMessage)
+void InspectorController::addConsoleMessage(ScriptState* scriptState, ConsoleMessage* consoleMessage)
 {
     ASSERT(enabled());
     ASSERT_ARG(consoleMessage, consoleMessage);
 
-    if (m_previousMessage && m_previousMessage->isEqual(exec, consoleMessage)) {
+    if (m_previousMessage && m_previousMessage->isEqual(scriptState, consoleMessage)) {
         m_previousMessage->incrementCount();
         delete consoleMessage;
     } else {
@@ -510,7 +425,7 @@ void InspectorController::addConsoleMessage(ExecState* exec, ConsoleMessage* con
     }
 
     if (windowVisible())
-        m_previousMessage->addToConsole(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        m_previousMessage->addToConsole(m_frontend.get());
 }
 
 void InspectorController::clearConsoleMessages()
@@ -521,18 +436,8 @@ void InspectorController::clearConsoleMessages()
     m_groupLevel = 0;
 }
 
-void InspectorController::toggleRecordButton(bool isProfiling)
-{
-    if (!m_scriptContext)
-        return;
-
-    JSValueRef exception = 0;
-    JSValueRef isProvingValue = JSValueMakeBoolean(m_scriptContext, isProfiling);
-    callFunction(m_scriptContext, m_scriptObject, "setRecordingProfile", 1, &isProvingValue, exception);
-}
-
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack)
-{    
+{
     ++m_groupLevel;
 
     addConsoleMessage(callStack->state(), new ConsoleMessage(source, StartGroupMessageLevel, callStack, m_groupLevel));
@@ -546,32 +451,6 @@ void InspectorController::endGroup(MessageSource source, unsigned lineNumber, co
     --m_groupLevel;
 
     addConsoleMessage(0, new ConsoleMessage(source, EndGroupMessageLevel, String(), lineNumber, sourceURL, m_groupLevel));
-}
-
-void InspectorController::addProfile(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
-{
-    if (!enabled())
-        return;
-
-    RefPtr<Profile> profile = prpProfile;
-    m_profiles.append(profile);
-
-    if (windowVisible())
-        addScriptProfile(profile.get());
-
-    addProfileMessageToConsole(profile, lineNumber, sourceURL);
-}
-
-void InspectorController::addProfileMessageToConsole(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
-{
-    RefPtr<Profile> profile = prpProfile;
-
-    UString message = "Profile \"webkit-profile://";
-    message += encodeWithURLEscapeSequences(profile->title());
-    message += "/";
-    message += UString::from(profile->uid());
-    message += "\" finished.";
-    addMessageToConsole(JSMessageSource, LogMessageLevel, message, lineNumber, sourceURL);
 }
 
 void InspectorController::attachWindow()
@@ -590,13 +469,10 @@ void InspectorController::detachWindow()
 
 void InspectorController::setAttachedWindow(bool attached)
 {
-    if (!enabled() || !m_scriptContext || !m_scriptObject)
+    if (!enabled() || !m_frontend)
         return;
 
-    JSValueRef attachedValue = JSValueMakeBoolean(m_scriptContext, attached);
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "setAttachedWindow", 1, &attachedValue, exception);
+    m_frontend->setAttachedWindow(attached);
 }
 
 void InspectorController::setAttachedWindowHeight(unsigned height)
@@ -614,6 +490,19 @@ void InspectorController::toggleSearchForNodeInPage()
     m_searchingForNode = !m_searchingForNode;
     if (!m_searchingForNode)
         hideHighlight();
+}
+
+void InspectorController::addResourceSourceToFrame(long identifier, Node* frame)
+{
+    if (!enabled() || !m_frontend)
+        return;
+
+    RefPtr<InspectorResource> resource = resources().get(identifier);
+    if (resource) {
+        String sourceString = resource->sourceString();
+        if (!sourceString.isEmpty())
+            addSourceToFrame(resource->mimeType(), sourceString, frame);
+    }
 }
 
 void InspectorController::mouseDidMoveOverElement(const HitTestResult& result, unsigned)
@@ -642,21 +531,10 @@ void InspectorController::handleMousePressOnNode(Node* node)
 
 void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame)
 {
-    if (!enabled() || !m_scriptContext || !m_scriptObject)
+    if (!enabled() || !m_frontend)
         return;
 
-    JSDOMWindow* win = toJSDOMWindow(frame);
-    ExecState* exec = win->globalExec();
-
-    JSValueRef arg0;
-
-    {
-        JSC::JSLock lock(false);
-        arg0 = toRef(JSInspectedObjectWrapper::wrap(exec, win));
-    }
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "inspectedWindowCleared", 1, &arg0, exception);
+    m_frontend->inspectedWindowScriptObjectCleared(frame);
 }
 
 void InspectorController::windowScriptObjectAvailable()
@@ -667,52 +545,48 @@ void InspectorController::windowScriptObjectAvailable()
     // Grant the inspector the ability to script the inspected page.
     m_page->mainFrame()->document()->securityOrigin()->grantUniversalAccess();
 
-    // FIXME: This should be cleaned up. API Mix-up.
-    JSGlobalObject* globalObject = m_page->mainFrame()->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-    m_scriptContext = toRef(exec);
-    JSValuePtr jsInspector = toJS(exec, this);
-    m_controllerScriptObject = toRef(asObject(jsInspector));
-    globalObject->putDirect(Identifier(exec, "InspectorController"), jsInspector);
+    m_scriptState = scriptStateFromPage(m_page);
+    ScriptGlobalObject::set(m_scriptState, "InspectorController", this);
 }
 
 void InspectorController::scriptObjectReady()
 {
-    ASSERT(m_scriptContext);
-    if (!m_scriptContext)
+    ASSERT(m_scriptState);
+    if (!m_scriptState)
         return;
 
-    JSObjectRef global = JSContextGetGlobalObject(m_scriptContext);
-    ASSERT(global);
-
-    JSValueRef exception = 0;
-
-    JSValueRef inspectorValue = JSObjectGetProperty(m_scriptContext, global, jsStringRef("WebInspector").get(), &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
+    ScriptObject webInspectorObj;
+    if (!ScriptGlobalObject::get(m_scriptState, "WebInspector", webInspectorObj))
         return;
+    setFrontendProxyObject(m_scriptState, webInspectorObj);
 
-    ASSERT(inspectorValue);
-    if (!inspectorValue)
-        return;
-
-    m_scriptObject = JSValueToObject(m_scriptContext, inspectorValue, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    ASSERT(m_scriptObject);
-
-    JSValueProtect(m_scriptContext, m_scriptObject);
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    Setting debuggerEnabled = setting(debuggerEnabledSettingName);
+    if (debuggerEnabled.type() == Setting::BooleanType && debuggerEnabled.booleanValue())
+        enableDebugger();
+    Setting profilerEnabled = setting(profilerEnabledSettingName);
+    if (profilerEnabled.type() == Setting::BooleanType && profilerEnabled.booleanValue())
+        enableProfiler();
+#endif
 
     // Make sure our window is visible now that the page loaded
     showWindow();
+}
+
+void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj)
+{
+    m_frontend.set(new InspectorFrontend(scriptState, webInspectorObj));
 }
 
 void InspectorController::show()
 {
     if (!enabled())
         return;
-
+    
     if (!m_page) {
+        if (m_frontend)
+            return;  // We are using custom frontend - no need to create page.
+
         m_page = m_client->createPage();
         if (!m_page)
             return;
@@ -732,7 +606,7 @@ void InspectorController::showPanel(SpecialPanels panel)
 
     show();
 
-    if (!m_scriptObject) {
+    if (!m_frontend) {
         m_showAfterVisible = panel;
         return;
     }
@@ -740,33 +614,7 @@ void InspectorController::showPanel(SpecialPanels panel)
     if (panel == CurrentPanel)
         return;
 
-    const char* showFunctionName;
-    switch (panel) {
-        case ConsolePanel:
-            showFunctionName = "showConsole";
-            break;
-        case DatabasesPanel:
-            showFunctionName = "showDatabasesPanel";
-            break;
-        case ElementsPanel:
-            showFunctionName = "showElementsPanel";
-            break;
-        case ProfilesPanel:
-            showFunctionName = "showProfilesPanel";
-            break;
-        case ResourcesPanel:
-            showFunctionName = "showResourcesPanel";
-            break;
-        case ScriptsPanel:
-            showFunctionName = "showScriptsPanel";
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            showFunctionName = 0;
-    }
-
-    if (showFunctionName)
-        callSimpleFunction(m_scriptContext, m_scriptObject, showFunctionName);
+    m_frontend->showPanel(panel);
 }
 
 void InspectorController::close()
@@ -774,17 +622,14 @@ void InspectorController::close()
     if (!enabled())
         return;
 
-    stopUserInitiatedProfiling();
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+    stopUserInitiatedProfiling();
     disableDebugger();
 #endif
     closeWindow();
 
-    if (m_scriptContext && m_scriptObject)
-        JSValueUnprotect(m_scriptContext, m_scriptObject);
-
-    m_scriptObject = 0;
-    m_scriptContext = 0;
+    m_frontend.set(0);
+    m_scriptState = 0;
 }
 
 void InspectorController::showWindow()
@@ -798,422 +643,42 @@ void InspectorController::closeWindow()
     m_client->closeWindow();
 }
 
-void InspectorController::startUserInitiatedProfilingSoon()
-{
-    m_startProfiling.startOneShot(0);
-}
-
-void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>*)
-{
-    if (!enabled())
-        return;
-
-    if (!profilerEnabled()) {
-        enableProfiler(true);
-        JavaScriptDebugServer::shared().recompileAllJSFunctions();
-    }
-
-    m_recordingUserInitiatedProfile = true;
-    m_currentUserInitiatedProfileNumber = m_nextUserInitiatedProfileNumber++;
-
-    UString title = UserInitiatedProfileName;
-    title += ".";
-    title += UString::from(m_currentUserInitiatedProfileNumber);
-
-    ExecState* exec = toJSDOMWindow(m_inspectedPage->mainFrame())->globalExec();
-    Profiler::profiler()->startProfiling(exec, title);
-
-    toggleRecordButton(true);
-}
-
-void InspectorController::stopUserInitiatedProfiling()
-{
-    if (!enabled())
-        return;
-
-    m_recordingUserInitiatedProfile = false;
-
-    UString title =  UserInitiatedProfileName;
-    title += ".";
-    title += UString::from(m_currentUserInitiatedProfileNumber);
-
-    ExecState* exec = toJSDOMWindow(m_inspectedPage->mainFrame())->globalExec();
-    RefPtr<Profile> profile = Profiler::profiler()->stopProfiling(exec, title);
-    if (profile)
-        addProfile(profile, 0, UString());
-
-    toggleRecordButton(false);
-}
-
-void InspectorController::enableProfiler(bool skipRecompile)
-{
-    if (m_profilerEnabled)
-        return;
-
-    m_profilerEnabled = true;
-
-    if (!skipRecompile)
-        JavaScriptDebugServer::shared().recompileAllJSFunctionsSoon();
-
-    if (m_scriptContext && m_scriptObject)
-        callSimpleFunction(m_scriptContext, m_scriptObject, "profilerWasEnabled");
-}
-
-void InspectorController::disableProfiler()
-{
-    if (!m_profilerEnabled)
-        return;
-
-    m_profilerEnabled = false;
-
-    JavaScriptDebugServer::shared().recompileAllJSFunctionsSoon();
-
-    if (m_scriptContext && m_scriptObject)
-        callSimpleFunction(m_scriptContext, m_scriptObject, "profilerWasDisabled");
-}
-
-static void addHeaders(JSContextRef context, JSObjectRef object, const HTTPHeaderMap& headers, JSValueRef* exception)
-{
-    ASSERT_ARG(context, context);
-    ASSERT_ARG(object, object);
-
-    HTTPHeaderMap::const_iterator end = headers.end();
-    for (HTTPHeaderMap::const_iterator it = headers.begin(); it != end; ++it) {
-        JSValueRef value = JSValueMakeString(context, jsStringRef(it->second).get());
-        JSObjectSetProperty(context, object, jsStringRef((it->first).string()).get(), value, kJSPropertyAttributeNone, exception);
-        if (exception && *exception)
-            return;
-    }
-}
-
-static JSObjectRef scriptObjectForRequest(JSContextRef context, const InspectorResource* resource, JSValueRef* exception)
-{
-    ASSERT_ARG(context, context);
-
-    JSObjectRef object = JSObjectMake(context, 0, 0);
-    addHeaders(context, object, resource->requestHeaderFields, exception);
-
-    return object;
-}
-
-static JSObjectRef scriptObjectForResponse(JSContextRef context, const InspectorResource* resource, JSValueRef* exception)
-{
-    ASSERT_ARG(context, context);
-
-    JSObjectRef object = JSObjectMake(context, 0, 0);
-    addHeaders(context, object, resource->responseHeaderFields, exception);
-
-    return object;
-}
-
-JSObjectRef InspectorController::addScriptResource(InspectorResource* resource)
-{
-    ASSERT_ARG(resource, resource);
-
-    ASSERT(m_scriptContext);
-    ASSERT(m_scriptObject);
-    if (!m_scriptContext || !m_scriptObject)
-        return 0;
-
-    if (!resource->scriptObject) {
-        JSValueRef exception = 0;
-
-        JSValueRef resourceProperty = JSObjectGetProperty(m_scriptContext, m_scriptObject, jsStringRef("Resource").get(), &exception);
-        if (HANDLE_EXCEPTION(m_scriptContext, exception))
-            return 0;
-
-        JSObjectRef resourceConstructor = JSValueToObject(m_scriptContext, resourceProperty, &exception);
-        if (HANDLE_EXCEPTION(m_scriptContext, exception))
-            return 0;
-
-        JSValueRef urlValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.string()).get());
-        JSValueRef domainValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.host()).get());
-        JSValueRef pathValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.path()).get());
-        JSValueRef lastPathComponentValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.lastPathComponent()).get());
-
-        JSValueRef identifier = JSValueMakeNumber(m_scriptContext, resource->identifier);
-        JSValueRef mainResource = JSValueMakeBoolean(m_scriptContext, m_mainResource == resource);
-        JSValueRef cached = JSValueMakeBoolean(m_scriptContext, resource->cached);
-
-        JSObjectRef scriptObject = scriptObjectForRequest(m_scriptContext, resource, &exception);
-        if (HANDLE_EXCEPTION(m_scriptContext, exception))
-            return 0;
-
-        JSValueRef arguments[] = { scriptObject, urlValue, domainValue, pathValue, lastPathComponentValue, identifier, mainResource, cached };
-        JSObjectRef result = JSObjectCallAsConstructor(m_scriptContext, resourceConstructor, 8, arguments, &exception);
-        if (HANDLE_EXCEPTION(m_scriptContext, exception))
-            return 0;
-
-        ASSERT(result);
-
-        resource->setScriptObject(m_scriptContext, result);
-    }
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "addResource", 1, &resource->scriptObject, exception);
-
-    if (exception)
-        return 0;
-
-    return resource->scriptObject;
-}
-
-JSObjectRef InspectorController::addAndUpdateScriptResource(InspectorResource* resource)
-{
-    ASSERT_ARG(resource, resource);
-
-    JSObjectRef scriptResource = addScriptResource(resource);
-    if (!scriptResource)
-        return 0;
-
-    updateScriptResourceResponse(resource);
-    updateScriptResource(resource, resource->length);
-    updateScriptResource(resource, resource->startTime, resource->responseReceivedTime, resource->endTime);
-    updateScriptResource(resource, resource->finished, resource->failed);
-    return scriptResource;
-}
-
-void InspectorController::removeScriptResource(InspectorResource* resource)
-{
-    ASSERT(m_scriptContext);
-    ASSERT(m_scriptObject);
-    if (!m_scriptContext || !m_scriptObject)
-        return;
-
-    ASSERT(resource);
-    ASSERT(resource->scriptObject);
-    if (!resource || !resource->scriptObject)
-        return;
-
-    JSObjectRef scriptObject = resource->scriptObject;
-    resource->setScriptObject(0, 0);
-
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "removeResource", 1, &scriptObject, exception);
-}
-
-static void updateResourceRequest(InspectorResource* resource, const ResourceRequest& request)
-{
-    resource->requestHeaderFields = request.httpHeaderFields();
-    resource->requestURL = request.url();
-}
-
-static void updateResourceResponse(InspectorResource* resource, const ResourceResponse& response)
-{
-    resource->expectedContentLength = response.expectedContentLength();
-    resource->mimeType = response.mimeType();
-    resource->responseHeaderFields = response.httpHeaderFields();
-    resource->responseStatusCode = response.httpStatusCode();
-    resource->suggestedFilename = response.suggestedFilename();
-}
-
-void InspectorController::updateScriptResourceRequest(InspectorResource* resource)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef urlValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.string()).get());
-    JSValueRef domainValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.host()).get());
-    JSValueRef pathValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.path()).get());
-    JSValueRef lastPathComponentValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->requestURL.lastPathComponent()).get());
-
-    JSValueRef mainResourceValue = JSValueMakeBoolean(m_scriptContext, m_mainResource == resource);
-
-    JSValueRef exception = 0;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("url").get(), urlValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("domain").get(), domainValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("path").get(), pathValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("lastPathComponent").get(), lastPathComponentValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectRef scriptObject = scriptObjectForRequest(m_scriptContext, resource, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("requestHeaders").get(), scriptObject, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("mainResource").get(), mainResourceValue, kJSPropertyAttributeNone, &exception);
-    HANDLE_EXCEPTION(m_scriptContext, exception);
-}
-
-void InspectorController::updateScriptResourceResponse(InspectorResource* resource)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef mimeTypeValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->mimeType).get());
-
-    JSValueRef suggestedFilenameValue = JSValueMakeString(m_scriptContext, jsStringRef(resource->suggestedFilename).get());
-
-    JSValueRef expectedContentLengthValue = JSValueMakeNumber(m_scriptContext, static_cast<double>(resource->expectedContentLength));
-    JSValueRef statusCodeValue = JSValueMakeNumber(m_scriptContext, resource->responseStatusCode);
-
-    JSValueRef exception = 0;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("mimeType").get(), mimeTypeValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("suggestedFilename").get(), suggestedFilenameValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("expectedContentLength").get(), expectedContentLengthValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("statusCode").get(), statusCodeValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectRef scriptObject = scriptObjectForResponse(m_scriptContext, resource, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("responseHeaders").get(), scriptObject, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    updateScriptResourceType(resource);
-}
-
-void InspectorController::updateScriptResourceType(InspectorResource* resource)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef exception = 0;
-
-    JSValueRef typeValue = JSValueMakeNumber(m_scriptContext, resource->type());
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("type").get(), typeValue, kJSPropertyAttributeNone, &exception);
-    HANDLE_EXCEPTION(m_scriptContext, exception);
-}
-
-void InspectorController::updateScriptResource(InspectorResource* resource, int length)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef lengthValue = JSValueMakeNumber(m_scriptContext, length);
-
-    JSValueRef exception = 0;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("contentLength").get(), lengthValue, kJSPropertyAttributeNone, &exception);
-    HANDLE_EXCEPTION(m_scriptContext, exception);
-}
-
-void InspectorController::updateScriptResource(InspectorResource* resource, bool finished, bool failed)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef failedValue = JSValueMakeBoolean(m_scriptContext, failed);
-    JSValueRef finishedValue = JSValueMakeBoolean(m_scriptContext, finished);
-
-    JSValueRef exception = 0;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("failed").get(), failedValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("finished").get(), finishedValue, kJSPropertyAttributeNone, &exception);
-    HANDLE_EXCEPTION(m_scriptContext, exception);
-}
-
-void InspectorController::updateScriptResource(InspectorResource* resource, double startTime, double responseReceivedTime, double endTime)
-{
-    ASSERT(resource->scriptObject);
-    ASSERT(m_scriptContext);
-    if (!resource->scriptObject || !m_scriptContext)
-        return;
-
-    JSValueRef startTimeValue = JSValueMakeNumber(m_scriptContext, startTime);
-    JSValueRef responseReceivedTimeValue = JSValueMakeNumber(m_scriptContext, responseReceivedTime);
-    JSValueRef endTimeValue = JSValueMakeNumber(m_scriptContext, endTime);
-
-    JSValueRef exception = 0;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("startTime").get(), startTimeValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("responseReceivedTime").get(), responseReceivedTimeValue, kJSPropertyAttributeNone, &exception);
-    if (HANDLE_EXCEPTION(m_scriptContext, exception))
-        return;
-
-    JSObjectSetProperty(m_scriptContext, resource->scriptObject, jsStringRef("endTime").get(), endTimeValue, kJSPropertyAttributeNone, &exception);
-    HANDLE_EXCEPTION(m_scriptContext, exception);
-}
-
 void InspectorController::populateScriptObjects()
 {
-    ASSERT(m_scriptContext);
-    if (!m_scriptContext)
+    ASSERT(m_frontend);
+    if (!m_frontend)
         return;
 
     ResourcesMap::iterator resourcesEnd = m_resources.end();
     for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
-        addAndUpdateScriptResource(it->second.get());
+        it->second->createScriptObject(m_frontend.get());
 
     unsigned messageCount = m_consoleMessages.size();
     for (unsigned i = 0; i < messageCount; ++i)
-        m_consoleMessages[i]->addToConsole(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        m_consoleMessages[i]->addToConsole(m_frontend.get());
 
 #if ENABLE(DATABASE)
     DatabaseResourcesSet::iterator databasesEnd = m_databaseResources.end();
     for (DatabaseResourcesSet::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it)
-        (*it)->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        (*it)->bind(m_frontend.get());
 #endif
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesSet::iterator domStorageEnd = m_domStorageResources.end();
     for (DOMStorageResourcesSet::iterator it = m_domStorageResources.begin(); it != domStorageEnd; ++it)
-        (*it)->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        (*it)->bind(m_frontend.get());
 #endif
 
-    callSimpleFunction(m_scriptContext, m_scriptObject, "populateInterface");
-}
-
-void InspectorController::addScriptProfile(Profile* profile)
-{
-    JSLock lock(false);
-    JSValueRef exception = 0;
-    JSValueRef profileObject = toRef(toJS(toJS(m_scriptContext), profile));
-    callFunction(m_scriptContext, m_scriptObject, "addProfile", 1, &profileObject, exception);
+    m_frontend->populateInterface();
 }
 
 void InspectorController::resetScriptObjects()
 {
-    if (!m_scriptContext || !m_scriptObject)
+    if (!m_frontend)
         return;
 
     ResourcesMap::iterator resourcesEnd = m_resources.end();
-    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it) {
-        InspectorResource* resource = it->second.get();
-        resource->setScriptObject(0, 0);
-    }
+    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
+        it->second->releaseScriptObject(m_frontend.get(), false);
 
 #if ENABLE(DATABASE)
     DatabaseResourcesSet::iterator databasesEnd = m_databaseResources.end();
@@ -1226,7 +691,7 @@ void InspectorController::resetScriptObjects()
         (*it)->unbind();
 #endif
 
-    callSimpleFunction(m_scriptContext, m_scriptObject, "reset");
+    m_frontend->reset();
 }
 
 void InspectorController::pruneResources(ResourcesMap* resourceMap, DocumentLoader* loaderToKeep)
@@ -1240,10 +705,10 @@ void InspectorController::pruneResources(ResourcesMap* resourceMap, DocumentLoad
         if (resource == m_mainResource)
             continue;
 
-        if (!loaderToKeep || resource->loader != loaderToKeep) {
+        if (!loaderToKeep || !resource->isSameLoader(loaderToKeep)) {
             removeResource(resource);
-            if (windowVisible() && resource->scriptObject)
-                removeScriptResource(resource);
+            if (windowVisible())
+                resource->releaseScriptObject(m_frontend.get(), true);
         }
     }
 }
@@ -1262,8 +727,9 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 
         m_times.clear();
         m_counts.clear();
+#if ENABLE(JAVASCRIPT_DEBUGGER)
         m_profiles.clear();
-
+#endif
 #if ENABLE(DATABASE)
         m_databaseResources.clear();
 #endif
@@ -1275,11 +741,11 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
             resetScriptObjects();
 
             if (!loader->isLoadingFromCachedPage()) {
-                ASSERT(m_mainResource && m_mainResource->loader == loader);
+                ASSERT(m_mainResource && m_mainResource->isSameLoader(loader));
                 // We don't add the main resource until its load is committed. This is
                 // needed to keep the load for a user-entered URL from showing up in the
                 // list of resources for the page they are navigating away from.
-                addAndUpdateScriptResource(m_mainResource.get());
+                m_mainResource->createScriptObject(m_frontend.get());
             } else {
                 // Pages loaded from the page cache are committed before
                 // m_mainResource is the right resource for this load, so we
@@ -1305,33 +771,33 @@ void InspectorController::frameDetachedFromParent(Frame* frame)
 
 void InspectorController::addResource(InspectorResource* resource)
 {
-    m_resources.set(resource->identifier, resource);
-    m_knownResources.add(resource->requestURL.string());
+    m_resources.set(resource->identifier(), resource);
+    m_knownResources.add(resource->requestURL());
 
-    Frame* frame = resource->frame.get();
+    Frame* frame = resource->frame();
     ResourcesMap* resourceMap = m_frameResources.get(frame);
     if (resourceMap)
-        resourceMap->set(resource->identifier, resource);
+        resourceMap->set(resource->identifier(), resource);
     else {
         resourceMap = new ResourcesMap;
-        resourceMap->set(resource->identifier, resource);
+        resourceMap->set(resource->identifier(), resource);
         m_frameResources.set(frame, resourceMap);
     }
 }
 
 void InspectorController::removeResource(InspectorResource* resource)
 {
-    m_resources.remove(resource->identifier);
-    m_knownResources.remove(resource->requestURL.string());
+    m_resources.remove(resource->identifier());
+    m_knownResources.remove(resource->requestURL());
 
-    Frame* frame = resource->frame.get();
+    Frame* frame = resource->frame();
     ResourcesMap* resourceMap = m_frameResources.get(frame);
     if (!resourceMap) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    resourceMap->remove(resource->identifier);
+    resourceMap->remove(resource->identifier());
     if (resourceMap->isEmpty()) {
         m_frameResources.remove(frame);
         delete resourceMap;
@@ -1347,115 +813,105 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
     if (m_knownResources.contains(cachedResource->url()))
         return;
 
-    RefPtr<InspectorResource> resource = InspectorResource::create(m_nextIdentifier--, loader, loader->frame());
-    resource->finished = true;
-
-    resource->requestURL = KURL(cachedResource->url());
-    updateResourceResponse(resource.get(), cachedResource->response());
-
-    resource->length = cachedResource->encodedSize();
-    resource->cached = true;
-    resource->startTime = currentTime();
-    resource->responseReceivedTime = resource->startTime;
-    resource->endTime = resource->startTime;
-
     ASSERT(m_inspectedPage);
+    bool isMainResource = loader->frame() == m_inspectedPage->mainFrame() && cachedResource->url() == loader->requestURL();
+    ensureResourceTrackingSettingsLoaded();
+    if (!isMainResource && !m_resourceTrackingEnabled)
+        return;
+    
+    RefPtr<InspectorResource> resource = InspectorResource::createCached(m_nextIdentifier--, loader, cachedResource);
 
-    if (loader->frame() == m_inspectedPage->mainFrame() && cachedResource->url() == loader->requestURL())
+    if (isMainResource) {
         m_mainResource = resource;
+        resource->markMainResource();
+    }
 
     addResource(resource.get());
 
     if (windowVisible())
-        addAndUpdateScriptResource(resource.get());
+        resource->createScriptObject(m_frontend.get());
 }
 
 void InspectorController::identifierForInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
 {
     if (!enabled())
         return;
-
-    RefPtr<InspectorResource> resource = InspectorResource::create(identifier, loader, loader->frame());
-
-    updateResourceRequest(resource.get(), request);
-
     ASSERT(m_inspectedPage);
 
-    if (loader->frame() == m_inspectedPage->mainFrame() && request.url() == loader->requestURL())
+    bool isMainResource = m_inspectedPage->mainFrame() && request.url() == loader->requestURL();
+    ensureResourceTrackingSettingsLoaded();
+    if (!isMainResource && !m_resourceTrackingEnabled)
+        return;
+
+    RefPtr<InspectorResource> resource = InspectorResource::create(identifier, loader);
+
+    resource->updateRequest(request);
+
+    if (isMainResource) {
         m_mainResource = resource;
+        resource->markMainResource();
+    }
 
     addResource(resource.get());
 
     if (windowVisible() && loader->isLoadingFromCachedPage() && resource == m_mainResource)
-        addAndUpdateScriptResource(resource.get());
+        resource->createScriptObject(m_frontend.get());
 }
 
 void InspectorController::willSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     InspectorResource* resource = m_resources.get(identifier).get();
     if (!resource)
         return;
 
-    resource->startTime = currentTime();
+    resource->startTiming();
 
     if (!redirectResponse.isNull()) {
-        updateResourceRequest(resource, request);
-        updateResourceResponse(resource, redirectResponse);
+        resource->updateRequest(request);
+        resource->updateResponse(redirectResponse);
     }
 
-    if (resource != m_mainResource && windowVisible()) {
-        if (!resource->scriptObject)
-            addScriptResource(resource);
-        else
-            updateScriptResourceRequest(resource);
-
-        updateScriptResource(resource, resource->startTime, resource->responseReceivedTime, resource->endTime);
-
-        if (!redirectResponse.isNull())
-            updateScriptResourceResponse(resource);
-    }
+    if (resource != m_mainResource && windowVisible())
+        resource->createScriptObject(m_frontend.get());
 }
 
 void InspectorController::didReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse& response)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     InspectorResource* resource = m_resources.get(identifier).get();
     if (!resource)
         return;
 
-    updateResourceResponse(resource, response);
+    resource->updateResponse(response);
+    resource->markResponseReceivedTime();
 
-    resource->responseReceivedTime = currentTime();
-
-    if (windowVisible() && resource->scriptObject) {
-        updateScriptResourceResponse(resource);
-        updateScriptResource(resource, resource->startTime, resource->responseReceivedTime, resource->endTime);
-    }
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::didReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     InspectorResource* resource = m_resources.get(identifier).get();
     if (!resource)
         return;
 
-    resource->length += lengthReceived;
+    resource->addLength(lengthReceived);
 
-    if (windowVisible() && resource->scriptObject)
-        updateScriptResource(resource, resource->length);
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::didFinishLoading(DocumentLoader*, unsigned long identifier)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     RefPtr<InspectorResource> resource = m_resources.get(identifier);
@@ -1464,20 +920,17 @@ void InspectorController::didFinishLoading(DocumentLoader*, unsigned long identi
 
     removeResource(resource.get());
 
-    resource->finished = true;
-    resource->endTime = currentTime();
+    resource->endTiming();
 
     addResource(resource.get());
 
-    if (windowVisible() && resource->scriptObject) {
-        updateScriptResource(resource.get(), resource->startTime, resource->responseReceivedTime, resource->endTime);
-        updateScriptResource(resource.get(), resource->finished);
-    }
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
 void InspectorController::didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError& /*error*/)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     RefPtr<InspectorResource> resource = m_resources.get(identifier);
@@ -1486,48 +939,88 @@ void InspectorController::didFailLoading(DocumentLoader*, unsigned long identifi
 
     removeResource(resource.get());
 
-    resource->finished = true;
-    resource->failed = true;
-    resource->endTime = currentTime();
+    resource->markFailed();
+    resource->endTiming();
 
     addResource(resource.get());
 
-    if (windowVisible() && resource->scriptObject) {
-        updateScriptResource(resource.get(), resource->startTime, resource->responseReceivedTime, resource->endTime);
-        updateScriptResource(resource.get(), resource->finished, resource->failed);
-    }
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const JSC::UString& sourceString)
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
 
     InspectorResource* resource = m_resources.get(identifier).get();
     if (!resource)
         return;
 
-    resource->setXMLHttpRequestProperties(sourceString);
+    resource->setXMLHttpResponseText(sourceString);
 
-    if (windowVisible() && resource->scriptObject)
-        updateScriptResourceType(resource);
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
-void InspectorController::scriptImported(unsigned long identifier, const JSC::UString& sourceString)
+void InspectorController::scriptImported(unsigned long identifier, const String& sourceString)
 {
-    if (!enabled())
+    if (!enabled() || !m_resourceTrackingEnabled)
         return;
     
     InspectorResource* resource = m_resources.get(identifier).get();
     if (!resource)
         return;
     
-    resource->setXMLHttpRequestProperties(sourceString);
+    // FIXME: imported script and XHR response are currently viewed as the same
+    // thing by the Inspector. They should be made into distinct types.
+    resource->setXMLHttpResponseText(ScriptString(sourceString));
     
-    if (windowVisible() && resource->scriptObject)
-        updateScriptResourceType(resource);
+    if (windowVisible())
+        resource->updateScriptObject(m_frontend.get());
 }
 
+void InspectorController::enableResourceTracking(bool always) {
+    if (!enabled())
+        return;
+
+    if (always)
+        setSetting(resourceTrackingEnabledSettingName, Setting(true));
+
+    if (m_resourceTrackingEnabled)
+        return;
+
+    ASSERT(m_inspectedPage);
+    m_resourceTrackingEnabled = true;
+    if (m_frontend)
+        m_frontend->resourceTrackingWasEnabled();
+
+    m_inspectedPage->mainFrame()->loader()->reload();
+}
+
+void InspectorController::disableResourceTracking(bool always) {
+    if (!enabled())
+        return;
+
+    if (always)
+        setSetting(resourceTrackingEnabledSettingName, Setting(false));
+
+    ASSERT(m_inspectedPage);
+    m_resourceTrackingEnabled = false;
+    if (m_frontend)
+        m_frontend->resourceTrackingWasDisabled();
+}
+
+void InspectorController::ensureResourceTrackingSettingsLoaded()
+{
+    if (m_resourceTrackingSettingsLoaded)
+        return;
+    m_resourceTrackingSettingsLoaded = true;
+
+    Setting resourceTracking = setting(resourceTrackingEnabledSettingName);
+    if (resourceTracking.type() == Setting::BooleanType && resourceTracking.booleanValue())
+        m_resourceTrackingEnabled = true;
+}
 
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database* database, const String& domain, const String& name, const String& version)
@@ -1540,7 +1033,7 @@ void InspectorController::didOpenDatabase(Database* database, const String& doma
     m_databaseResources.add(resource);
 
     if (windowVisible())
-        resource->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        resource->bind(m_frontend.get());
 }
 #endif
 
@@ -1560,7 +1053,7 @@ void InspectorController::didUseDOMStorage(StorageArea* storageArea, bool isLoca
 
     m_domStorageResources.add(resource);
     if (windowVisible())
-        resource->bind(toJS(m_scriptContext), ScriptObject(toJS(m_scriptObject)));
+        resource->bind(m_frontend.get());
 }
 #endif
 
@@ -1575,15 +1068,132 @@ void InspectorController::moveWindowBy(float x, float y) const
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-void InspectorController::enableDebugger()
+void InspectorController::addProfile(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
 {
     if (!enabled())
         return;
 
-    if (!m_scriptContext || !m_scriptObject) {
-        m_attachDebuggerWhenShown = true;
+    RefPtr<Profile> profile = prpProfile;
+    m_profiles.append(profile);
+
+    if (windowVisible())
+        addScriptProfile(profile.get());
+
+    addProfileMessageToConsole(profile, lineNumber, sourceURL);
+}
+
+void InspectorController::addProfileMessageToConsole(PassRefPtr<Profile> prpProfile, unsigned lineNumber, const UString& sourceURL)
+{
+    RefPtr<Profile> profile = prpProfile;
+
+    UString message = "Profile \"webkit-profile://";
+    message += encodeWithURLEscapeSequences(profile->title());
+    message += "/";
+    message += UString::from(profile->uid());
+    message += "\" finished.";
+    addMessageToConsole(JSMessageSource, LogMessageLevel, message, lineNumber, sourceURL);
+}
+
+void InspectorController::addScriptProfile(Profile* profile)
+{
+    if (!m_frontend)
         return;
+
+    JSLock lock(false);
+    m_frontend->addProfile(toJS(m_scriptState, profile));
+}
+
+void InspectorController::startUserInitiatedProfilingSoon()
+{
+    m_startProfiling.startOneShot(0);
+}
+
+void InspectorController::startUserInitiatedProfiling(Timer<InspectorController>*)
+{
+    if (!enabled())
+        return;
+
+    if (!profilerEnabled()) {
+        enableProfiler(false, true);
+        JavaScriptDebugServer::shared().recompileAllJSFunctions();
     }
+
+    m_recordingUserInitiatedProfile = true;
+    m_currentUserInitiatedProfileNumber = m_nextUserInitiatedProfileNumber++;
+
+    UString title = UserInitiatedProfileName;
+    title += ".";
+    title += UString::from(m_currentUserInitiatedProfileNumber);
+
+    ExecState* scriptState = toJSDOMWindow(m_inspectedPage->mainFrame())->globalExec();
+    Profiler::profiler()->startProfiling(scriptState, title);
+
+    toggleRecordButton(true);
+}
+
+void InspectorController::stopUserInitiatedProfiling()
+{
+    if (!enabled())
+        return;
+
+    m_recordingUserInitiatedProfile = false;
+
+    UString title =  UserInitiatedProfileName;
+    title += ".";
+    title += UString::from(m_currentUserInitiatedProfileNumber);
+
+    ExecState* scriptState = toJSDOMWindow(m_inspectedPage->mainFrame())->globalExec();
+    RefPtr<Profile> profile = Profiler::profiler()->stopProfiling(scriptState, title);
+    if (profile)
+        addProfile(profile, 0, UString());
+
+    toggleRecordButton(false);
+}
+
+void InspectorController::toggleRecordButton(bool isProfiling)
+{
+    if (!m_frontend)
+        return;
+    m_frontend->setRecordingProfile(isProfiling);
+}
+
+void InspectorController::enableProfiler(bool always, bool skipRecompile)
+{
+    if (always)
+        setSetting(profilerEnabledSettingName, Setting(true));
+
+    if (m_profilerEnabled)
+        return;
+
+    m_profilerEnabled = true;
+
+    if (!skipRecompile)
+        JavaScriptDebugServer::shared().recompileAllJSFunctionsSoon();
+
+    if (m_frontend)
+        m_frontend->profilerWasEnabled();
+}
+
+void InspectorController::disableProfiler(bool always)
+{
+    if (always)
+        setSetting(profilerEnabledSettingName, Setting(false));
+
+    if (!m_profilerEnabled)
+        return;
+
+    m_profilerEnabled = false;
+
+    JavaScriptDebugServer::shared().recompileAllJSFunctionsSoon();
+
+    if (m_frontend)
+        m_frontend->profilerWasDisabled();
+}
+
+void InspectorController::enableDebuggerFromFrontend(bool always)
+{
+    if (always)
+        setSetting(debuggerEnabledSettingName, Setting(true));
 
     ASSERT(m_inspectedPage);
 
@@ -1591,15 +1201,32 @@ void InspectorController::enableDebugger()
     JavaScriptDebugServer::shared().clearBreakpoints();
 
     m_debuggerEnabled = true;
-    m_attachDebuggerWhenShown = false;
-
-    callSimpleFunction(m_scriptContext, m_scriptObject, "debuggerWasEnabled");
+    m_frontend->debuggerWasEnabled();
 }
 
-void InspectorController::disableDebugger()
+void InspectorController::enableDebugger()
 {
     if (!enabled())
         return;
+
+    if (m_debuggerEnabled)
+        return;
+
+    if (!m_scriptState || !m_frontend) {
+        m_attachDebuggerWhenShown = true;
+    } else {
+        m_frontend->attachDebuggerWhenShown();
+        m_attachDebuggerWhenShown = false;
+    }
+}
+
+void InspectorController::disableDebugger(bool always)
+{
+    if (!enabled())
+        return;
+
+    if (always)
+        setSetting(debuggerEnabledSettingName, Setting(false));
 
     ASSERT(m_inspectedPage);
 
@@ -1608,8 +1235,8 @@ void InspectorController::disableDebugger()
     m_debuggerEnabled = false;
     m_attachDebuggerWhenShown = false;
 
-    if (m_scriptContext && m_scriptObject)
-        callSimpleFunction(m_scriptContext, m_scriptObject, "debuggerWasDisabled");
+    if (m_frontend)
+        m_frontend->debuggerWasDisabled();
 }
 
 JavaScriptCallFrame* InspectorController::currentCallFrame() const
@@ -1671,6 +1298,29 @@ void InspectorController::removeBreakpoint(intptr_t sourceID, unsigned lineNumbe
 {
     JavaScriptDebugServer::shared().removeBreakpoint(sourceID, lineNumber);
 }
+
+// JavaScriptDebugListener functions
+
+void InspectorController::didParseSource(ExecState*, const SourceCode& source)
+{
+    m_frontend->parsedScriptSource(source);
+}
+
+void InspectorController::failedToParseSource(ExecState*, const SourceCode& source, int errorLine, const UString& errorMessage)
+{
+    m_frontend->failedToParseScriptSource(source, errorLine, errorMessage);
+}
+
+void InspectorController::didPause()
+{
+    m_frontend->pausedScript();
+}
+
+void InspectorController::didContinue()
+{
+    m_frontend->resumedScript();
+}
+
 #endif
 
 static Path quadToPath(const FloatQuad& quad)
@@ -1807,7 +1457,7 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
 
         // FIXME: We should show margins/padding/border for inlines.
         Vector<FloatQuad> lineBoxQuads;
-        renderInline->absoluteQuadsForRange(lineBoxQuads);
+        renderInline->absoluteQuads(lineBoxQuads);
         for (unsigned i = 0; i < lineBoxQuads.size(); ++i)
             lineBoxQuads[i] += mainFrameOffset;
 
@@ -1850,67 +1500,5 @@ bool InspectorController::stopTiming(const String& title, double& elapsed)
     elapsed = currentTime() * 1000 - startTime;
     return true;
 }
-
-bool InspectorController::handleException(JSContextRef context, JSValueRef exception, unsigned lineNumber) const
-{
-    if (!exception)
-        return false;
-
-    if (!m_page)
-        return true;
-
-    String message = toString(context, exception, 0);
-    String file(__FILE__);
-
-    if (JSObjectRef exceptionObject = JSValueToObject(context, exception, 0)) {
-        JSValueRef lineValue = JSObjectGetProperty(context, exceptionObject, jsStringRef("line").get(), NULL);
-        if (lineValue)
-            lineNumber = static_cast<unsigned>(JSValueToNumber(context, lineValue, 0));
-
-        JSValueRef fileValue = JSObjectGetProperty(context, exceptionObject, jsStringRef("sourceURL").get(), NULL);
-        if (fileValue)
-            file = toString(context, fileValue, 0);
-    }
-
-    m_page->mainFrame()->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, message, lineNumber, file);
-    return true;
-}
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-
-// JavaScriptDebugListener functions
-
-void InspectorController::didParseSource(ExecState*, const SourceCode& source)
-{
-    JSValueRef sourceIDValue = JSValueMakeNumber(m_scriptContext, source.provider()->asID());
-    JSValueRef sourceURLValue = JSValueMakeString(m_scriptContext, jsStringRef(source.provider()->url()).get());
-    JSValueRef sourceValue = JSValueMakeString(m_scriptContext, jsStringRef(source).get());
-    JSValueRef firstLineValue = JSValueMakeNumber(m_scriptContext, source.firstLine());
-
-    JSValueRef exception = 0;
-    JSValueRef arguments[] = { sourceIDValue, sourceURLValue, sourceValue, firstLineValue };
-    callFunction(m_scriptContext, m_scriptObject, "parsedScriptSource", 4, arguments, exception);
-}
-
-void InspectorController::failedToParseSource(ExecState*, const SourceCode& source, int errorLine, const UString& errorMessage)
-{
-    JSValueRef sourceURLValue = JSValueMakeString(m_scriptContext, jsStringRef(source.provider()->url()).get());
-    JSValueRef sourceValue = JSValueMakeString(m_scriptContext, jsStringRef(source.data()).get());
-    JSValueRef firstLineValue = JSValueMakeNumber(m_scriptContext, source.firstLine());
-    JSValueRef errorLineValue = JSValueMakeNumber(m_scriptContext, errorLine);
-    JSValueRef errorMessageValue = JSValueMakeString(m_scriptContext, jsStringRef(errorMessage).get());
-
-    JSValueRef exception = 0;
-    JSValueRef arguments[] = { sourceURLValue, sourceValue, firstLineValue, errorLineValue, errorMessageValue };
-    callFunction(m_scriptContext, m_scriptObject, "failedToParseScriptSource", 5, arguments, exception);
-}
-
-void InspectorController::didPause()
-{
-    JSValueRef exception = 0;
-    callFunction(m_scriptContext, m_scriptObject, "pausedScript", 0, 0, exception);
-}
-
-#endif
 
 } // namespace WebCore

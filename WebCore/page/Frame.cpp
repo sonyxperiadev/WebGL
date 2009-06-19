@@ -31,6 +31,7 @@
 #include "ApplyStyleCommand.h"
 #include "BeforeUnloadEvent.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CachedCSSStyleSheet.h"
@@ -70,6 +71,7 @@
 #include "TextResourceDecoder.h"
 #include "XMLNames.h"
 #include "ScriptController.h"
+#include "htmlediting.h"
 #include "npruntime_impl.h"
 #include "visible_units.h"
 #include <wtf/RefCountedLeakCounter.h>
@@ -176,7 +178,6 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
 Frame::~Frame()
 {
     setView(0);
-    loader()->clearRecordedFormValues();
     loader()->cancelAndClear();
     
     // FIXME: We should not be doing all this work inside the destructor
@@ -186,9 +187,6 @@ Frame::~Frame()
 #ifndef NDEBUG
     frameCounter.decrement();
 #endif
-
-    if (m_script.haveWindowShell())
-        m_script.windowShell()->disconnectFrame();
 
     disconnectOwnerElement();
     
@@ -226,7 +224,7 @@ FrameView* Frame::view() const
     return m_view.get();
 }
 
-void Frame::setView(FrameView* view)
+void Frame::setView(PassRefPtr<FrameView> view)
 {
     // Detach the document now, so any onUnload handlers get run - if
     // we wait until the view is destroyed, then things won't be
@@ -573,8 +571,17 @@ static bool isFrameElement(const Node *n)
 
 void Frame::setFocusedNodeIfNeeded()
 {
-    if (selection()->isNone() || !selection()->isFocusedAndActive())
+    if (selection()->isNone() || !selection()->isFocused())
         return;
+
+    bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
+    if (caretBrowsing) {
+        Node* anchor = enclosingAnchorElement(selection()->base());
+        if (anchor) {
+            page()->focusController()->setFocusedNode(anchor, this);
+            return;
+        }
+    }
 
     Node* target = selection()->rootEditableElement();
     if (target) {
@@ -596,6 +603,9 @@ void Frame::setFocusedNodeIfNeeded()
         }
         document()->setFocusedNode(0);
     }
+
+    if (caretBrowsing)
+        page()->focusController()->setFocusedNode(0, this);
 }
 
 void Frame::selectionLayoutChanged()
@@ -603,8 +613,9 @@ void Frame::selectionLayoutChanged()
     bool caretRectChanged = selection()->recomputeCaretRect();
 
 #if ENABLE(TEXT_CARET)
+    bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
     bool shouldBlink = m_caretVisible
-        && selection()->isCaret() && selection()->isContentEditable();
+        && selection()->isCaret() && (selection()->isContentEditable() || caretBrowsing);
 
     // If the caret moved, stop the blink timer so we can restart with a
     // black caret in the new location.
@@ -652,7 +663,7 @@ void Frame::selectionLayoutChanged()
         if (startPos.isNotNull() && endPos.isNotNull() && selection.visibleStart() != selection.visibleEnd()) {
             RenderObject *startRenderer = startPos.node()->renderer();
             RenderObject *endRenderer = endPos.node()->renderer();
-            view->setSelection(startRenderer, startPos.m_offset, endRenderer, endPos.m_offset);
+            view->setSelection(startRenderer, startPos.deprecatedEditingOffset(), endRenderer, endPos.deprecatedEditingOffset());
         }
     }
 }
@@ -764,6 +775,7 @@ void Frame::setPrinting(bool printing, float minPageWidth, float maxPageWidth, b
 
 void Frame::setJSStatusBarText(const String& text)
 {
+    ASSERT(m_doc); // Client calls shouldn't be made when the frame is in inconsistent state.
     m_kjsStatusBarText = text;
     if (m_page)
         m_page->chrome()->setStatusbarText(this, m_kjsStatusBarText);
@@ -771,6 +783,7 @@ void Frame::setJSStatusBarText(const String& text)
 
 void Frame::setJSDefaultStatusBarText(const String& text)
 {
+    ASSERT(m_doc); // Client calls shouldn't be made when the frame is in inconsistent state.
     m_kjsDefaultStatusBarText = text;
     if (m_page)
         m_page->chrome()->setStatusbarText(this, m_kjsDefaultStatusBarText);
@@ -1193,7 +1206,7 @@ void Frame::selectionTextRects(Vector<FloatRect>& rects, bool clipToVisibleConte
     RefPtr<Range> selectedRange = selection()->toNormalizedRange();
 
     Vector<IntRect> intRects;
-    selectedRange->addLineBoxRects(intRects, true);
+    selectedRange->textRects(intRects, true);
 
     unsigned size = intRects.size();
     FloatRect visibleContentRect = m_view->visibleContentRect();
@@ -1289,8 +1302,6 @@ void Frame::clearTimers(FrameView *view, Document *document)
     if (view) {
         view->unscheduleRelayout();
         if (view->frame()) {
-            if (document && document->renderer() && document->renderer()->hasLayer())
-                document->renderView()->layer()->suspendMarquees();
             view->frame()->animation()->suspendAnimations(document);
             view->frame()->eventHandler()->stopAutoscrollTimer();
         }
@@ -1341,7 +1352,8 @@ void Frame::setSelectionFromNone()
     // Put a caret inside the body if the entire frame is editable (either the 
     // entire WebView is editable or designMode is on for this document).
     Document *doc = document();
-    if (!selection()->isNone() || !isContentEditable())
+    bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
+    if (!selection()->isNone() || !(isContentEditable() || caretBrowsing))
         return;
         
     Node* node = doc->documentElement();
@@ -1567,13 +1579,7 @@ void Frame::pageDestroyed()
     if (page() && page()->focusController()->focusedFrame() == this)
         page()->focusController()->setFocusedFrame(0);
 
-#if USE(JSC)
     script()->clearWindowShell();
-#endif
-
-    // This will stop any JS timers
-    if (script()->haveWindowShell())
-        script()->windowShell()->disconnectFrame();
 
     script()->clearScriptObjects();
     script()->updatePlatformScriptObjects();
@@ -1623,10 +1629,13 @@ void Frame::unfocusWindow()
         page()->chrome()->unfocus();
 }
 
-bool Frame::shouldClose()
+bool Frame::shouldClose(RegisteredEventListenerVector* alternateEventListeners)
 {
     Chrome* chrome = page() ? page()->chrome() : 0;
     if (!chrome || !chrome->canRunBeforeUnloadConfirmPanel())
+        return true;
+
+    if (!m_domWindow)
         return true;
 
     RefPtr<Document> doc = document();
@@ -1634,9 +1643,7 @@ bool Frame::shouldClose()
     if (!body)
         return true;
 
-    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = BeforeUnloadEvent::create();
-    beforeUnloadEvent->setTarget(doc);
-    doc->handleWindowEvent(beforeUnloadEvent.get(), false);
+    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = m_domWindow->dispatchBeforeUnloadEvent(alternateEventListeners);
 
     if (!beforeUnloadEvent->defaultPrevented())
         doc->defaultEventHandler(beforeUnloadEvent.get());
@@ -1665,7 +1672,8 @@ void Frame::respondToChangedSelection(const VisibleSelection& oldSelection, bool
     if (isContinuousSpellCheckingEnabled) {
         VisibleSelection newAdjacentWords;
         VisibleSelection newSelectedSentence;
-        if (selection()->selection().isContentEditable()) {
+        bool caretBrowsing = settings() && settings()->caretBrowsingEnabled();
+        if (selection()->selection().isContentEditable() || caretBrowsing) {
             VisiblePosition newStart(selection()->selection().visibleStart());
             newAdjacentWords = VisibleSelection(startOfWord(newStart, LeftWordIfOnBoundary), endOfWord(newStart, RightWordIfOnBoundary));
             if (isContinuousGrammarCheckingEnabled)
@@ -1748,20 +1756,18 @@ void Frame::createView(const IntSize& viewportSize,
 
     setView(0);
 
-    FrameView* frameView;
+    RefPtr<FrameView> frameView;
     if (isMainFrame) {
-        frameView = new FrameView(this, viewportSize);
+        frameView = FrameView::create(this, viewportSize);
         frameView->setFixedLayoutSize(fixedLayoutSize);
         frameView->setUseFixedLayout(useFixedLayout);
     } else
-        frameView = new FrameView(this);
+        frameView = FrameView::create(this);
 
     frameView->setScrollbarModes(horizontalScrollbarMode, verticalScrollbarMode);
     frameView->updateDefaultScrollbarState();
 
     setView(frameView);
-    // FrameViews are created with a ref count of 1. Release this ref since we've assigned it to frame.
-    frameView->deref();
 
     if (backgroundColor.isValid())
         frameView->updateBackgroundRecursively(backgroundColor, transparent);
@@ -1770,7 +1776,7 @@ void Frame::createView(const IntSize& viewportSize,
         frameView->setParentVisible(true);
 
     if (ownerRenderer())
-        ownerRenderer()->setWidget(frameView);
+        ownerRenderer()->setWidget(frameView.get());
 
     if (HTMLFrameOwnerElement* owner = ownerElement())
         view()->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);

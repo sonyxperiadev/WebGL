@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,24 +25,21 @@
 #include "RenderPartObject.h"
 
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
-#include "FrameTree.h"
-#include "FrameView.h"
 #include "HTMLEmbedElement.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParamElement.h"
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-#include "HTMLMediaElement.h"
-#include "HTMLVideoElement.h"
-#endif
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "PluginData.h"
 #include "RenderView.h"
 #include "Text.h"
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLVideoElement.h"
+#endif
 
 namespace WebCore {
 
@@ -61,8 +58,8 @@ RenderPartObject::RenderPartObject(Element* element)
 
 RenderPartObject::~RenderPartObject()
 {
-    if (m_view)
-        m_view->removeWidgetToUpdate(this);
+    if (frameView())
+        frameView()->removeWidgetToUpdate(this);
 }
 
 static bool isURLAllowed(Document* doc, const String& url)
@@ -151,7 +148,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
     String serviceType;
     Vector<String> paramNames;
     Vector<String> paramValues;
-    Frame* frame = m_view->frame();
+    Frame* frame = frameView()->frame();
 
     if (node()->hasTagName(objectTag)) {
         HTMLObjectElement* o = static_cast<HTMLObjectElement*>(node());
@@ -229,7 +226,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
         }
         
         // Turn the attributes of either the EMBED tag or OBJECT tag into arrays, but don't override PARAM values.
-        NamedAttrMap* attributes = embedOrObject->attributes();
+        NamedNodeMap* attributes = embedOrObject->attributes();
         if (attributes) {
             for (unsigned i = 0; i < attributes->length(); ++i) {
                 Attribute* it = attributes->attributeItem(i);
@@ -280,7 +277,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
             return;
 
         // add all attributes set on the embed object
-        NamedAttrMap* a = o->attributes();
+        NamedNodeMap* a = o->attributes();
         if (a) {
             for (unsigned i = 0; i < a->length(); ++i) {
                 Attribute* it = a->attributeItem(i);
@@ -338,9 +335,9 @@ void RenderPartObject::layout()
     // hidden. If that is the case, don't try to expand.
     int w = width();
     int h = height();
-    if (m_widget && m_widget->isFrameView() &&
+    if (widget() && widget()->isFrameView() &&
             w > 1 && h > 1) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
+        FrameView* view = static_cast<FrameView*>(widget());
         RenderView* root = NULL;
         if (view->frame() && view->frame()->document() &&
             view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
@@ -386,8 +383,8 @@ void RenderPartObject::layout()
 
     RenderPart::layout();
 
-    if (!m_widget && m_view)
-        m_view->addWidgetToUpdate(this);
+    if (!widget() && frameView())
+        frameView()->addWidgetToUpdate(this);
 
     setNeedsLayout(false);
 }
@@ -395,9 +392,9 @@ void RenderPartObject::layout()
 #ifdef FLATTEN_IFRAME
 void RenderPartObject::calcWidth() {
     RenderPart::calcWidth();
-    if (!m_widget || !m_widget->isFrameView())
+    if (!widget() || !widget()->isFrameView())
         return;
-    FrameView* view = static_cast<FrameView*>(m_widget);
+    FrameView* view = static_cast<FrameView*>(widget());
     RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
     if (!root)
         return;
@@ -424,9 +421,9 @@ void RenderPartObject::calcWidth() {
 
 void RenderPartObject::calcHeight() {
     RenderPart::calcHeight();
-    if (!m_widget || !m_widget->isFrameView())
+    if (!widget() || !widget()->isFrameView())
         return;
-    FrameView* view = static_cast<FrameView*>(m_widget);
+    FrameView* view = static_cast<FrameView*>(widget());
     RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
     if (!root)
         return;
@@ -450,8 +447,8 @@ void RenderPartObject::calcHeight() {
 
 void RenderPartObject::viewCleared()
 {
-    if (node() && m_widget && m_widget->isFrameView()) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
+    if (node() && widget() && widget()->isFrameView()) {
+        FrameView* view = static_cast<FrameView*>(widget());
         int marginw = -1;
         int marginh = -1;
         if (node()->hasTagName(iframeTag)) {

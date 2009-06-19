@@ -114,14 +114,14 @@ static ThreadIdentifier establishIdentifierForPthreadHandle(pthread_t& pthreadHa
     static ThreadIdentifier identifierCount = 1;
 
     threadMap().add(identifierCount, pthreadHandle);
-    
+
     return identifierCount++;
 }
 
 static pthread_t pthreadHandleForIdentifier(ThreadIdentifier id)
 {
     MutexLocker locker(threadMapMutex());
-    
+
     return threadMap().get(id);
 }
 
@@ -130,7 +130,7 @@ static void clearPthreadHandleForIdentifier(ThreadIdentifier id)
     MutexLocker locker(threadMapMutex());
 
     ASSERT(threadMap().contains(id));
-    
+
     threadMap().remove(id);
 }
 
@@ -161,7 +161,7 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
     ThreadData* threadData = new ThreadData();
     threadData->entryPoint = entryPoint;
     threadData->arg = data;
-    
+
     if (pthread_create(&threadHandle, 0, runThreadWithRegistration, static_cast<void*>(threadData))) {
         LOG_ERROR("Failed to create pthread at entry point %p with data %p", entryPoint, data);
         return 0;
@@ -183,7 +183,7 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
 
 void setThreadNameInternal(const char* threadName)
 {
-#if PLATFORM(DARWIN) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if PLATFORM(DARWIN) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !PLATFORM(IPHONE)
     pthread_setname_np(threadName);
 #else
     UNUSED_PARAM(threadName);
@@ -193,13 +193,13 @@ void setThreadNameInternal(const char* threadName)
 int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 {
     ASSERT(threadID);
-    
+
     pthread_t pthreadHandle = pthreadHandleForIdentifier(threadID);
- 
+
     int joinResult = pthread_join(pthreadHandle, result);
     if (joinResult == EDEADLK)
         LOG_ERROR("ThreadIdentifier %u was found to be deadlocked trying to quit", threadID);
-        
+
     clearPthreadHandleForIdentifier(threadID);
     return joinResult;
 }
@@ -207,11 +207,11 @@ int waitForThreadCompletion(ThreadIdentifier threadID, void** result)
 void detachThread(ThreadIdentifier threadID)
 {
     ASSERT(threadID);
-    
+
     pthread_t pthreadHandle = pthreadHandleForIdentifier(threadID);
-    
+
     pthread_detach(pthreadHandle);
-    
+
     clearPthreadHandleForIdentifier(threadID);
 }
 
@@ -247,11 +247,11 @@ void Mutex::lock()
     int result = pthread_mutex_lock(&m_mutex);
     ASSERT_UNUSED(result, !result);
 }
-    
+
 bool Mutex::tryLock()
 {
     int result = pthread_mutex_trylock(&m_mutex);
-    
+
     if (result == 0)
         return true;
     if (result == EBUSY)
@@ -314,7 +314,7 @@ void ThreadCondition::broadcast()
     int result = pthread_cond_broadcast(&m_condition);
     ASSERT_UNUSED(result, !result);
 }
-    
+
 } // namespace WTF
 
 #endif // USE(PTHREADS)

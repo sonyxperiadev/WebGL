@@ -31,15 +31,43 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
+JSEventListener::JSEventListener(JSObject* function, JSDOMGlobalObject* globalObject, bool isAttribute)
+    : m_jsFunction(function)
+    , m_globalObject(globalObject)
+    , m_isAttribute(isAttribute)
+{
+    if (!m_isAttribute && m_jsFunction)
+        globalObject->jsEventListeners().set(m_jsFunction, this);
+}
+
+JSEventListener::~JSEventListener()
+{
+    if (!m_isAttribute && m_jsFunction && m_globalObject)
+        m_globalObject->jsEventListeners().remove(m_jsFunction);
+}
+
+JSObject* JSEventListener::jsFunction() const
+{
+    return m_jsFunction;
+}
+
+void JSEventListener::markJSFunction()
+{
+    if (m_jsFunction && !m_jsFunction->marked())
+        m_jsFunction->mark();
+    if (m_globalObject && !m_globalObject->marked())
+        m_globalObject->mark();
+}
+
+void JSEventListener::handleEvent(Event* event, bool isWindowEvent)
 {
     JSLock lock(false);
 
-    JSObject* listener = function();
-    if (!listener)
+    JSObject* jsFunction = this->jsFunction();
+    if (!jsFunction)
         return;
 
-    JSDOMGlobalObject* globalObject = this->globalObject();
+    JSDOMGlobalObject* globalObject = m_globalObject;
     // Null check as clearGlobalObject() can clear this and we still get called back by
     // xmlhttprequest objects. See http://bugs.webkit.org/show_bug.cgi?id=13275
     // FIXME: Is this check still necessary? Requests are supposed to be stopped before clearGlobalObject() is called.
@@ -67,18 +95,18 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
 
     ExecState* exec = globalObject->globalExec();
 
-    JSValuePtr handleEventFunction = listener->get(exec, Identifier(exec, "handleEvent"));
+    JSValue handleEventFunction = jsFunction->get(exec, Identifier(exec, "handleEvent"));
     CallData callData;
     CallType callType = handleEventFunction.getCallData(callData);
     if (callType == CallTypeNone) {
-        handleEventFunction = noValue();
-        callType = listener->getCallData(callData);
+        handleEventFunction = JSValue();
+        callType = jsFunction->getCallData(callData);
     }
 
     if (callType != CallTypeNone) {
         ref();
 
-        ArgList args;
+        MarkedArgumentBuffer args;
         args.append(toJS(exec, event));
 
         Event* savedEvent = globalObject->currentEvent();
@@ -90,18 +118,18 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
         JSGlobalData* globalData = globalObject->globalData();
         DynamicGlobalObjectScope globalObjectScope(exec, globalData->dynamicGlobalObject ? globalData->dynamicGlobalObject : globalObject);
 
-        JSValuePtr retval;
+        JSValue retval;
         if (handleEventFunction) {
             globalObject->globalData()->timeoutChecker.start();
-            retval = call(exec, handleEventFunction, callType, callData, listener, args);
+            retval = call(exec, handleEventFunction, callType, callData, jsFunction, args);
         } else {
-            JSValuePtr thisValue;
+            JSValue thisValue;
             if (isWindowEvent)
                 thisValue = globalObject->toThisObject(exec);
             else
                 thisValue = toJS(exec, event->currentTarget());
             globalObject->globalData()->timeoutChecker.start();
-            retval = call(exec, listener, callType, callData, thisValue, args);
+            retval = call(exec, jsFunction, callType, callData, thisValue, args);
         }
         globalObject->globalData()->timeoutChecker.stop();
 
@@ -112,7 +140,7 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
         else {
             if (!retval.isUndefinedOrNull() && event->storesResultAsString())
                 event->storeResult(retval.toString(exec));
-            if (m_isInline) {
+            if (m_isAttribute) {
                 bool retvalbool;
                 if (retval.getBoolean(retvalbool) && !retvalbool)
                     event->preventDefault();
@@ -120,106 +148,14 @@ void JSAbstractEventListener::handleEvent(Event* event, bool isWindowEvent)
         }
 
         if (scriptExecutionContext->isDocument())
-            Document::updateDocumentsRendering();
+            Document::updateStyleForAllDocuments();
         deref();
     }
 }
 
-bool JSAbstractEventListener::virtualIsInline() const
+bool JSEventListener::virtualisAttribute() const
 {
-    return m_isInline;
-}
-
-// -------------------------------------------------------------------------
-
-JSEventListener::JSEventListener(JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
-    : JSAbstractEventListener(isInline)
-    , m_listener(listener)
-    , m_globalObject(globalObject)
-{
-    if (m_listener) {
-        JSDOMWindow::JSListenersMap& listeners = isInline
-            ? globalObject->jsInlineEventListeners() : globalObject->jsEventListeners();
-        listeners.set(m_listener, this);
-    }
-}
-
-JSEventListener::~JSEventListener()
-{
-    if (m_listener && m_globalObject) {
-        JSDOMWindow::JSListenersMap& listeners = isInline()
-            ? m_globalObject->jsInlineEventListeners() : m_globalObject->jsEventListeners();
-        listeners.remove(m_listener);
-    }
-}
-
-JSObject* JSEventListener::function() const
-{
-    return m_listener;
-}
-
-JSDOMGlobalObject* JSEventListener::globalObject() const
-{
-    return m_globalObject;
-}
-
-void JSEventListener::clearGlobalObject()
-{
-    m_globalObject = 0;
-}
-
-void JSEventListener::mark()
-{
-    if (m_listener && !m_listener->marked())
-        m_listener->mark();
-}
-
-#ifndef NDEBUG
-static WTF::RefCountedLeakCounter eventListenerCounter("EventListener");
-#endif
-
-// -------------------------------------------------------------------------
-
-JSProtectedEventListener::JSProtectedEventListener(JSObject* listener, JSDOMGlobalObject* globalObject, bool isInline)
-    : JSAbstractEventListener(isInline)
-    , m_listener(listener)
-    , m_globalObject(globalObject)
-{
-    if (m_listener) {
-        JSDOMWindow::ProtectedListenersMap& listeners = isInline
-            ? m_globalObject->jsProtectedInlineEventListeners() : m_globalObject->jsProtectedEventListeners();
-        listeners.set(m_listener, this);
-    }
-#ifndef NDEBUG
-    eventListenerCounter.increment();
-#endif
-}
-
-JSProtectedEventListener::~JSProtectedEventListener()
-{
-    if (m_listener && m_globalObject) {
-        JSDOMWindow::ProtectedListenersMap& listeners = isInline()
-            ? m_globalObject->jsProtectedInlineEventListeners() : m_globalObject->jsProtectedEventListeners();
-        listeners.remove(m_listener);
-    }
-#ifndef NDEBUG
-    eventListenerCounter.decrement();
-#endif
-}
-
-JSObject* JSProtectedEventListener::function() const
-{
-    return m_listener;
-}
-
-JSDOMGlobalObject* JSProtectedEventListener::globalObject() const
-{
-    return m_globalObject;
-}
-
-void JSProtectedEventListener::clearGlobalObject()
-{
-    m_globalObject = 0;
+    return m_isAttribute;
 }
 
 } // namespace WebCore

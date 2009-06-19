@@ -33,6 +33,7 @@
 namespace WebCore {
 
 class CSSStyleDeclaration;
+class HTMLElement;
 class Text;
 
 class CompositeEditCommand : public EditCommand {
@@ -71,6 +72,7 @@ protected:
     void removeNodeAttribute(PassRefPtr<Element>, const QualifiedName& attribute);
     void removeChildrenInRange(PassRefPtr<Node>, unsigned from, unsigned to);
     virtual void removeNode(PassRefPtr<Node>);
+    HTMLElement* replaceNodeWithSpanPreservingChildrenAndAttributes(PassRefPtr<Node>);
     void removeNodePreservingChildren(PassRefPtr<Node>);
     void removeNodeAndPruneAncestors(PassRefPtr<Node>);
     void prune(PassRefPtr<Node>);
@@ -89,7 +91,7 @@ protected:
     PassRefPtr<Node> appendBlockPlaceholder(PassRefPtr<Element>);
     PassRefPtr<Node> insertBlockPlaceholder(const Position&);
     PassRefPtr<Node> addBlockPlaceholderIfNeeded(Element*);
-    void removePlaceholderAt(const VisiblePosition&);
+    void removePlaceholderAt(const Position&);
 
     PassRefPtr<Node> insertNewDefaultParagraphElementAt(const Position&);
 

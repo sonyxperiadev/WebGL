@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
- *  Copyright (c) 2009, Google Inc. All rights reserved.
+ *  Copyright (C) 2009 Google Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -27,6 +27,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <wtf/Assertions.h>
+#include <wtf/CrossThreadRefCounted.h>
+#include <wtf/OwnFastMallocPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/PtrAndFlags.h>
 #include <wtf/RefPtr.h>
@@ -75,17 +77,35 @@ namespace JSC {
         friend class JIT;
 
     public:
+        typedef CrossThreadRefCounted<OwnFastMallocPtr<UChar> > SharedUChar;
         struct BaseString;
         struct Rep : Noncopyable {
             friend class JIT;
 
-            static PassRefPtr<Rep> create(UChar*, int);
+            static PassRefPtr<Rep> create(UChar* buffer, int length)
+            {
+                return adoptRef(new BaseString(buffer, length));
+            }
+
+            static PassRefPtr<Rep> createEmptyBuffer(size_t size)
+            {
+                // Guard against integer overflow
+                if (size < (std::numeric_limits<size_t>::max() / sizeof(UChar))) {
+                    if (void * buf = tryFastMalloc(size * sizeof(UChar)))
+                        return adoptRef(new BaseString(static_cast<UChar*>(buf), 0, size));
+                }
+                return adoptRef(new BaseString(0, 0, 0));
+            }
+
             static PassRefPtr<Rep> createCopying(const UChar*, int);
             static PassRefPtr<Rep> create(PassRefPtr<Rep> base, int offset, int length);
 
             // Constructs a string from a UTF-8 string, using strict conversion (see comments in UTF8.h).
             // Returns UString::Rep::null for null input or conversion failure.
             static PassRefPtr<Rep> createFromUTF8(const char*);
+
+            // Uses SharedUChar to have joint ownership over the UChar*.
+            static PassRefPtr<Rep> create(UChar*, int, PassRefPtr<SharedUChar>);
 
             void destroy();
 
@@ -124,21 +144,61 @@ namespace JSC {
             int rc; // For null and empty static strings, this field does not reflect a correct count, because ref/deref are not thread-safe. A special case in destroy() guarantees that these do not get deleted.
             mutable unsigned _hash;
             PtrAndFlags<IdentifierTable, UStringFlags> m_identifierTableAndFlags;
-            void* m_baseString; // If "this" is a BaseString instance, it is 0. BaseString* otherwise.
 
             static BaseString& null() { return *nullBaseString; }
             static BaseString& empty() { return *emptyBaseString; }
 
+            bool reserveCapacity(int capacity);
+
+        protected:
+            // Constructor for use by BaseString subclass; they use the union with m_baseString for another purpose.
+            Rep(int length)
+                : offset(0)
+                , len(length)
+                , rc(1)
+                , _hash(0)
+                , m_baseString(0)
+            {
+            }
+
+            Rep(PassRefPtr<BaseString> base, int offsetInBase, int length)
+                : offset(offsetInBase)
+                , len(length)
+                , rc(1)
+                , _hash(0)
+                , m_baseString(base.releaseRef())
+            {
+                checkConsistency();
+            }
+
+            union {
+                // If !baseIsSelf()
+                BaseString* m_baseString;
+                // If baseIsSelf()
+                SharedUChar* m_sharedBuffer;
+            };
+
         private:
+            // For SmallStringStorage which allocates an array and does initialization manually.
+            Rep() { }
+
+            friend class SmallStringsStorage;
             friend void initializeUString();
-            static BaseString* nullBaseString;
-            static BaseString* emptyBaseString;
+            JS_EXPORTDATA static BaseString* nullBaseString;
+            JS_EXPORTDATA static BaseString* emptyBaseString;
         };
 
+
         struct BaseString : public Rep {
-            BaseString()
+            bool isShared() { return rc != 1 || isBufferReadOnly(); }
+            void setSharedBuffer(PassRefPtr<SharedUChar>);
+            SharedUChar* sharedBuffer();
+
+            bool isBufferReadOnly()
             {
-                m_identifierTableAndFlags.setFlag(BaseStringFlag);
+                if (!m_sharedBuffer)
+                    return false;
+                return slowIsBufferReadOnly();
             }
 
             // potentially shared data.
@@ -149,6 +209,26 @@ namespace JSC {
             int usedCapacity;
 
             size_t reportedCost;
+
+        private:
+            BaseString(UChar* buffer, int length, int additionalCapacity = 0)
+                : Rep(length)
+                , buf(buffer)
+                , preCapacity(0)
+                , usedPreCapacity(0)
+                , capacity(length + additionalCapacity)
+                , usedCapacity(length)
+                , reportedCost(0)
+            {
+                m_identifierTableAndFlags.setFlag(BaseStringFlag);
+                checkConsistency();
+            }
+
+            bool slowIsBufferReadOnly();
+
+            friend struct Rep;
+            friend class SmallStringsStorage;
+            friend void initializeUString();
         };
 
     public:
@@ -197,11 +277,15 @@ namespace JSC {
 
         UString spliceSubstringsWithSeparators(const Range* substringRanges, int rangeCount, const UString* separators, int separatorCount) const;
 
+        UString replaceRange(int rangeStart, int RangeEnd, const UString& replacement) const;
+
         UString& append(const UString&);
         UString& append(const char*);
         UString& append(UChar);
         UString& append(char c) { return append(static_cast<UChar>(static_cast<unsigned char>(c))); }
         UString& append(const UChar*, int size);
+        UString& appendNumeric(int);
+        UString& appendNumeric(double);
 
         bool getCString(CStringBuffer&) const;
 
@@ -265,6 +349,17 @@ namespace JSC {
 
         size_t cost() const;
 
+        // Attempt to grow this string such that it can grow to a total length of 'capacity'
+        // without reallocation.  This may fail a number of reasons - if the BasicString is
+        // shared and another string is using part of the capacity beyond our end point, if
+        // the realloc fails, or if this string is empty and has no storage.
+        //
+        // This method returns a boolean indicating success.
+        bool reserveCapacity(int capacity)
+        {
+            return m_rep->reserveCapacity(capacity);
+        }
+
     private:
         void expandCapacity(int requiredLength);
         void expandPreCapacity(int requiredPreCap);
@@ -281,7 +376,26 @@ namespace JSC {
     PassRefPtr<UString::Rep> concatenate(UString::Rep*, int);
     PassRefPtr<UString::Rep> concatenate(UString::Rep*, double);
 
-    bool operator==(const UString&, const UString&);
+    inline bool operator==(const UString& s1, const UString& s2)
+    {
+        int size = s1.size();
+        switch (size) {
+        case 0:
+            return !s2.size();
+        case 1:
+            return s2.size() == 1 && s1.data()[0] == s2.data()[0];
+        case 2: {
+            if (s2.size() != 2)
+                return false;
+            const UChar* d1 = s1.data();
+            const UChar* d2 = s2.data();
+            return (d1[0] == d2[0]) & (d1[1] == d2[1]);
+        }
+        default:
+            return s2.size() == size && memcmp(s1.data(), s2.data(), size * sizeof(UChar)) == 0;
+        }
+    }
+
 
     inline bool operator!=(const UString& s1, const UString& s2)
     {
@@ -320,6 +434,22 @@ namespace JSC {
 
     bool equal(const UString::Rep*, const UString::Rep*);
 
+    inline PassRefPtr<UString::Rep> UString::Rep::create(PassRefPtr<UString::Rep> rep, int offset, int length)
+    {
+        ASSERT(rep);
+        rep->checkConsistency();
+
+        int repOffset = rep->offset;
+
+        PassRefPtr<BaseString> base = rep->baseString();
+
+        ASSERT(-(offset + repOffset) <= base->usedPreCapacity);
+        ASSERT(offset + repOffset + length <= base->usedCapacity);
+
+        // Steal the single reference this Rep was created with.
+        return adoptRef(new Rep(base, repOffset + offset, length));
+    }
+
     inline UChar* UString::Rep::data() const
     {
         const BaseString* base = baseString();
@@ -338,17 +468,18 @@ namespace JSC {
     inline void UString::Rep::setBaseString(PassRefPtr<BaseString> base)
     {
         ASSERT(base != this);
+        ASSERT(!baseIsSelf());
         m_baseString = base.releaseRef();
     }
 
     inline UString::BaseString* UString::Rep::baseString()
     {
-        return reinterpret_cast<BaseString*>(baseIsSelf() ? this : m_baseString);
+        return !baseIsSelf() ? m_baseString : reinterpret_cast<BaseString*>(this) ;
     }
 
     inline const UString::BaseString* UString::Rep::baseString() const
     {
-        return const_cast<const BaseString*>(const_cast<Rep*>(this)->baseString());
+        return const_cast<Rep*>(this)->baseString();
     }
 
 #ifdef NDEBUG

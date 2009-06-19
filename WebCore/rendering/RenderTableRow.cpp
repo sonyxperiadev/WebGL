@@ -33,10 +33,6 @@
 #include "RenderTableCell.h"
 #include "RenderView.h"
 
-#if ENABLE(WML)
-#include "WMLNames.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -74,19 +70,7 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
     if (!beforeChild && isAfterContent(lastChild()))
         beforeChild = lastChild();
 
-    bool isTableRow = node() && node()->hasTagName(trTag);
-
-#if ENABLE(WML)
-    if (!isTableRow && node() && node()->isWMLElement())
-        isTableRow = node()->hasTagName(WMLNames::trTag);
-#endif
-
     if (!child->isTableCell()) {
-        if (isTableRow && child->node() && child->node()->hasTagName(formTag) && document()->isHTMLDocument()) {
-            RenderBox::addChild(child, beforeChild);
-            return;
-        }
-
         RenderObject* last = beforeChild;
         if (!last)
             last = lastChild();
@@ -121,7 +105,7 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
     if (parent())
         section()->addCell(cell, this);
 
-    ASSERT(!beforeChild || beforeChild->isTableCell() || isTableRow && beforeChild->node() && beforeChild->node()->hasTagName(formTag) && document()->isHTMLDocument());
+    ASSERT(!beforeChild || beforeChild->isTableCell());
     RenderBox::addChild(cell, beforeChild);
 
     if (beforeChild || nextSibling())

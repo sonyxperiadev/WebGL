@@ -68,9 +68,9 @@ ImageBuffer* SVGPaintServerPattern::tile() const
     return m_tile.get();
 }
 
-void SVGPaintServerPattern::setTile(auto_ptr<ImageBuffer> tile)
+void SVGPaintServerPattern::setTile(PassOwnPtr<ImageBuffer> tile)
 {
-    m_tile.set(tile.release());
+    m_tile = tile;
 }
 
 TransformationMatrix SVGPaintServerPattern::patternTransform() const
@@ -97,12 +97,7 @@ TextStream& SVGPaintServerPattern::externalRepresentation(TextStream& ts) const
 
 bool SVGPaintServerPattern::setup(GraphicsContext*& context, const RenderObject* object, SVGPaintTargetType type, bool isPaintingText) const
 {
-    FloatRect targetRect;
-    if (isPaintingText) {
-        IntRect textBoundary = const_cast<RenderObject*>(object)->absoluteBoundingBoxRect();
-        targetRect = object->absoluteTransform().inverse().mapRect(textBoundary);
-    } else
-        targetRect = object->relativeBBox(false);
+    FloatRect targetRect = object->objectBoundingBox();
 
     const SVGRenderStyle* style = object->style()->svgStyle();
     bool isFilled = (type & ApplyToFillTargetType) && style->hasFill();
@@ -123,7 +118,7 @@ bool SVGPaintServerPattern::setup(GraphicsContext*& context, const RenderObject*
         // Draw the first cell of the pattern manually to support overflow="visible" on all platforms.
         int tileWidth = static_cast<int>(patternBoundaries().width() + 0.5f);
         int tileHeight = static_cast<int>(patternBoundaries().height() + 0.5f);
-        std::auto_ptr<ImageBuffer> tileImage = ImageBuffer::create(IntSize(tileWidth, tileHeight), false);
+        OwnPtr<ImageBuffer> tileImage = ImageBuffer::create(IntSize(tileWidth, tileHeight), false);
   
         GraphicsContext* tileImageContext = tileImage->context();
 

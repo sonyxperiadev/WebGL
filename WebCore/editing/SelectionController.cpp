@@ -32,7 +32,6 @@
 #include "Editor.h"
 #include "Element.h"
 #include "EventHandler.h"
-#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FocusController.h"
 #include "FloatQuad.h"
@@ -70,7 +69,7 @@ SelectionController::SelectionController(Frame* frame, bool isDragCaretControlle
     , m_lastChangeWasHorizontalExtension(false)
     , m_isDragCaretController(isDragCaretController)
     , m_isCaretBlinkingSuspended(false)
-    , m_focused(false)
+    , m_focused(frame && frame->page() && frame->page()->focusController()->focusedFrame() == frame)
 {
 }
 
@@ -203,8 +202,7 @@ void SelectionController::nodeWillBeRemoved(Node *node)
         else
             m_sel.setWithoutValidation(m_sel.end(), m_sel.start());
     // FIXME: This could be more efficient if we had an isNodeInRange function on Ranges.
-    } else if (Range::compareBoundaryPoints(m_sel.start(), Position(node, 0)) == -1 &&
-               Range::compareBoundaryPoints(m_sel.end(), Position(node, 0)) == 1) {
+    } else if (comparePositions(m_sel.start(), Position(node, 0)) == -1 && comparePositions(m_sel.end(), Position(node, 0)) == 1) {
         // If we did nothing here, when this node's renderer was destroyed, the rect that it 
         // occupied would be invalidated, but, selection gaps that change as a result of 
         // the removal wouldn't be invalidated.
@@ -214,7 +212,7 @@ void SelectionController::nodeWillBeRemoved(Node *node)
 
     if (clearRenderTreeSelection) {
         RefPtr<Document> document = m_sel.start().node()->document();
-        document->updateRendering();
+        document->updateStyleIfNeeded();
         if (RenderView* view = toRenderView(document->renderer()))
             view->clearSelection();
     }
@@ -252,7 +250,53 @@ void SelectionController::willBeModified(EAlteration alter, EDirection direction
     }
 }
 
-VisiblePosition SelectionController::modifyExtendingRightForward(TextGranularity granularity)
+TextDirection SelectionController::directionOfEnclosingBlock() {
+    Node* n = m_sel.extent().node();
+    Node* enclosingBlockNode = enclosingBlock(n);
+    if (!enclosingBlockNode)
+        return LTR;
+    RenderObject* renderer = enclosingBlockNode->renderer();
+    if (renderer)
+        return renderer->style()->direction();
+    return LTR;
+}
+
+VisiblePosition SelectionController::modifyExtendingRight(TextGranularity granularity)
+{
+    VisiblePosition pos(m_sel.extent(), m_sel.affinity());
+
+    // The difference between modifyExtendingRight and modifyExtendingForward is:
+    // modifyExtendingForward always extends forward logically.
+    // modifyExtendingRight behaves the same as modifyExtendingForward except for extending character or word,
+    // it extends forward logically if the enclosing block is LTR direction,
+    // but it extends backward logically if the enclosing block is RTL direction.
+    switch (granularity) {
+        case CharacterGranularity:
+            if (directionOfEnclosingBlock() == LTR)
+                pos = pos.next(true);                
+            else
+                pos = pos.previous(true);
+            break;
+        case WordGranularity:
+            if (directionOfEnclosingBlock() == LTR)
+                pos = nextWordPosition(pos);
+            else
+                pos = previousWordPosition(pos);
+            break;
+        case SentenceGranularity:
+        case LineGranularity:
+        case ParagraphGranularity:
+        case SentenceBoundary:
+        case LineBoundary:
+        case ParagraphBoundary:
+        case DocumentBoundary:
+            // FIXME: implement all of the above?
+            pos = modifyExtendingForward(granularity);
+    }
+    return pos;
+}    
+        
+VisiblePosition SelectionController::modifyExtendingForward(TextGranularity granularity)
 {
     VisiblePosition pos(m_sel.extent(), m_sel.affinity());
     switch (granularity) {
@@ -275,7 +319,7 @@ VisiblePosition SelectionController::modifyExtendingRightForward(TextGranularity
             pos = endOfSentence(VisiblePosition(m_sel.end(), m_sel.affinity()));
             break;
         case LineBoundary:
-            pos = endOfLine(VisiblePosition(m_sel.end(), m_sel.affinity()));
+            pos = logicalEndOfLine(VisiblePosition(m_sel.end(), m_sel.affinity()));
             break;
         case ParagraphBoundary:
             pos = endOfParagraph(VisiblePosition(m_sel.end(), m_sel.affinity()));
@@ -349,7 +393,7 @@ VisiblePosition SelectionController::modifyMovingForward(TextGranularity granula
             pos = endOfSentence(VisiblePosition(m_sel.end(), m_sel.affinity()));
             break;
         case LineBoundary:
-            pos = endOfLine(VisiblePosition(m_sel.end(), m_sel.affinity()));
+            pos = logicalEndOfLine(VisiblePosition(m_sel.end(), m_sel.affinity()));
             break;
         case ParagraphBoundary:
             pos = endOfParagraph(VisiblePosition(m_sel.end(), m_sel.affinity()));
@@ -366,10 +410,44 @@ VisiblePosition SelectionController::modifyMovingForward(TextGranularity granula
     return pos;
 }
 
-VisiblePosition SelectionController::modifyExtendingLeftBackward(TextGranularity granularity)
+VisiblePosition SelectionController::modifyExtendingLeft(TextGranularity granularity)
 {
     VisiblePosition pos(m_sel.extent(), m_sel.affinity());
-        
+
+    // The difference between modifyExtendingLeft and modifyExtendingBackward is:
+    // modifyExtendingBackward always extends backward logically.
+    // modifyExtendingLeft behaves the same as modifyExtendingBackward except for extending character or word,
+    // it extends backward logically if the enclosing block is LTR direction,
+    // but it extends forward logically if the enclosing block is RTL direction.
+    switch (granularity) {
+        case CharacterGranularity:
+            if (directionOfEnclosingBlock() == LTR)
+                pos = pos.previous(true);
+            else
+                pos = pos.next(true);
+            break;
+        case WordGranularity:
+            if (directionOfEnclosingBlock() == LTR)
+                pos = previousWordPosition(pos);
+            else
+                pos = nextWordPosition(pos);
+            break;
+        case SentenceGranularity:
+        case LineGranularity:
+        case ParagraphGranularity:
+        case SentenceBoundary:
+        case LineBoundary:
+        case ParagraphBoundary:
+        case DocumentBoundary:
+            pos = modifyExtendingBackward(granularity);
+    }
+    return pos;
+}
+       
+VisiblePosition SelectionController::modifyExtendingBackward(TextGranularity granularity)
+{
+    VisiblePosition pos(m_sel.extent(), m_sel.affinity());
+
     // Extending a selection backward by word or character from just after a table selects
     // the table.  This "makes sense" from the user perspective, esp. when deleting.
     // It was done here instead of in VisiblePosition because we want VPs to iterate
@@ -394,7 +472,7 @@ VisiblePosition SelectionController::modifyExtendingLeftBackward(TextGranularity
             pos = startOfSentence(VisiblePosition(m_sel.start(), m_sel.affinity()));
             break;
         case LineBoundary:
-            pos = startOfLine(VisiblePosition(m_sel.start(), m_sel.affinity()));
+            pos = logicalStartOfLine(VisiblePosition(m_sel.start(), m_sel.affinity()));
             break;
         case ParagraphBoundary:
             pos = startOfParagraph(VisiblePosition(m_sel.start(), m_sel.affinity()));
@@ -461,7 +539,7 @@ VisiblePosition SelectionController::modifyMovingBackward(TextGranularity granul
             pos = startOfSentence(VisiblePosition(m_sel.start(), m_sel.affinity()));
             break;
         case LineBoundary:
-            pos = startOfLine(VisiblePosition(m_sel.start(), m_sel.affinity()));
+            pos = logicalStartOfLine(VisiblePosition(m_sel.start(), m_sel.affinity()));
             break;
         case ParagraphBoundary:
             pos = startOfParagraph(VisiblePosition(m_sel.start(), m_sel.affinity()));
@@ -501,11 +579,11 @@ bool SelectionController::modify(EAlteration alter, EDirection dir, TextGranular
             if (alter == MOVE)
                 pos = modifyMovingRight(granularity);
             else
-                pos = modifyExtendingRightForward(granularity);
+                pos = modifyExtendingRight(granularity);
             break;
         case FORWARD:
             if (alter == EXTEND)
-                pos = modifyExtendingRightForward(granularity);
+                pos = modifyExtendingForward(granularity);
             else
                 pos = modifyMovingForward(granularity);
             break;
@@ -513,11 +591,11 @@ bool SelectionController::modify(EAlteration alter, EDirection dir, TextGranular
             if (alter == MOVE)
                 pos = modifyMovingLeft(granularity);
             else
-                pos = modifyExtendingLeftBackward(granularity);
+                pos = modifyExtendingLeft(granularity);
             break;
         case BACKWARD:
             if (alter == EXTEND)
-                pos = modifyExtendingLeftBackward(granularity);
+                pos = modifyExtendingBackward(granularity);
             else
                 pos = modifyMovingBackward(granularity);
             break;
@@ -735,7 +813,7 @@ void SelectionController::layout()
         return;
     }
 
-    m_sel.start().node()->document()->updateRendering();
+    m_sel.start().node()->document()->updateStyleIfNeeded();
     
     m_caretRect = IntRect();
         
@@ -796,9 +874,18 @@ RenderObject* SelectionController::caretRenderer() const
 IntRect SelectionController::localCaretRect() const
 {
     if (m_needsLayout)
-        const_cast<SelectionController *>(this)->layout();
+        const_cast<SelectionController*>(this)->layout();
     
     return m_caretRect;
+}
+
+IntRect SelectionController::absoluteBoundsForLocalRect(const IntRect& rect) const
+{
+    RenderObject* caretPainter = caretRenderer();
+    if (!caretPainter)
+        return IntRect();
+        
+    return caretPainter->localToAbsoluteQuad(FloatRect(rect)).enclosingBoundingBox();
 }
 
 IntRect SelectionController::absoluteCaretBounds()
@@ -819,13 +906,7 @@ static IntRect repaintRectForCaret(IntRect caret)
 
 IntRect SelectionController::caretRepaintRect() const
 {
-    IntRect localRect = repaintRectForCaret(localCaretRect());
-    
-    RenderObject* caretPainter = caretRenderer();
-    if (caretPainter)
-        return caretPainter->localToAbsoluteQuad(FloatRect(localRect)).enclosingBoundingBox();
-
-    return IntRect();
+    return absoluteBoundsForLocalRect(repaintRectForCaret(localCaretRect()));
 }
 
 bool SelectionController::recomputeCaretRect()
@@ -841,22 +922,26 @@ bool SelectionController::recomputeCaretRect()
         return false;
 
     IntRect oldRect = m_caretRect;
-    m_needsLayout = true;
     IntRect newRect = localCaretRect();
     if (oldRect == newRect && !m_absCaretBoundsDirty)
         return false;
 
-    IntRect oldAbsRepaintRect = m_absCaretBounds;
-    m_absCaretBounds = caretRepaintRect();
+    IntRect oldAbsCaretBounds = m_absCaretBounds;
+    // FIXME: Rename m_caretRect to m_localCaretRect.
+    m_absCaretBounds = absoluteBoundsForLocalRect(m_caretRect);
     m_absCaretBoundsDirty = false;
     
-    if (oldAbsRepaintRect == m_absCaretBounds)
+    if (oldAbsCaretBounds == m_absCaretBounds)
         return false;
+        
+    IntRect oldAbsoluteCaretRepaintBounds = m_absoluteCaretRepaintBounds;
+    // We believe that we need to inflate the local rect before transforming it to obtain the repaint bounds.
+    m_absoluteCaretRepaintBounds = caretRepaintRect();
     
     if (RenderView* view = toRenderView(m_frame->document()->renderer())) {
         // FIXME: make caret repainting container-aware.
-        view->repaintRectangleInViewAndCompositedLayers(oldAbsRepaintRect, false);
-        view->repaintRectangleInViewAndCompositedLayers(m_absCaretBounds, false);
+        view->repaintRectangleInViewAndCompositedLayers(oldAbsoluteCaretRepaintBounds, false);
+        view->repaintRectangleInViewAndCompositedLayers(m_absoluteCaretRepaintBounds, false);
     }
 
     return true;
@@ -932,9 +1017,9 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
         if (selected) {
             int offset = 0;
             if (r->node() == m_sel.start().node())
-                offset = m_sel.start().m_offset;
+                offset = m_sel.start().deprecatedEditingOffset();
             else if (r->node() == m_sel.end().node())
-                offset = m_sel.end().m_offset;
+                offset = m_sel.end().deprecatedEditingOffset();
                 
             int pos;
             InlineTextBox *box = textRenderer->findNextInlineTextBox(offset, pos);
@@ -1179,7 +1264,7 @@ void SelectionController::focusedOrActiveStateChanged()
     // RenderTheme::isFocused() check if the frame is active, we have to
     // update style and theme state that depended on those.
     if (Node* node = m_frame->document()->focusedNode()) {
-        node->setChanged();
+        node->setNeedsStyleRecalc();
         if (RenderObject* renderer = node->renderer())
             if (renderer && renderer->style()->hasAppearance())
                 theme()->stateChanged(renderer, FocusState);
@@ -1202,8 +1287,6 @@ void SelectionController::setFocused(bool flag)
     m_focused = flag;
 
     focusedOrActiveStateChanged();
-
-    m_frame->document()->dispatchWindowEvent(flag ? eventNames().focusEvent : eventNames().blurEvent, false, false);
 }
 
 bool SelectionController::isFocusedAndActive() const

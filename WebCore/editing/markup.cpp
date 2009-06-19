@@ -30,6 +30,7 @@
 #include "CharacterNames.h"
 #include "Comment.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
@@ -190,7 +191,7 @@ static void appendQuotedURLAttributeValue(Vector<UChar>& result, const String& u
 {
     UChar quoteChar = '\"';
     String strippedURLString = urlString.stripWhiteSpace();
-    if (protocolIs(strippedURLString, "javascript")) {
+    if (protocolIsJavaScript(strippedURLString)) {
         // minimal escaping for javascript urls
         if (strippedURLString.contains('"')) {
             if (strippedURLString.contains('\''))
@@ -387,7 +388,14 @@ static void appendDocumentType(Vector<UChar>& result, const DocumentType* n)
     append(result, ">");
 }
 
-static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Range *range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+static void removeExteriorStyles(CSSMutableStyleDeclaration* style)
+{
+    style->removeProperty(CSSPropertyFloat);
+}
+
+enum RangeFullySelectsNode { DoesFullySelectNode, DoesNotFullySelectNode };
+
+static void appendStartMarkup(Vector<UChar>& result, const Node* node, const Range* range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0, RangeFullySelectsNode rangeFullySelectsNode = DoesFullySelectNode)
 {
     bool documentIsHTML = node->document()->isHTMLDocument();
     switch (node->nodeType()) {
@@ -439,7 +447,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
             const Element* el = static_cast<const Element*>(node);
             bool convert = convertBlocksToInlines && isBlock(const_cast<Node*>(node));
             append(result, el->nodeNamePreservingCase());
-            NamedAttrMap *attrs = el->attributes();
+            NamedNodeMap *attrs = el->attributes();
             unsigned length = attrs->length();
             if (!documentIsHTML && namespaces && shouldAddNamespaceElem(el))
                 appendNamespace(result, el->prefix(), el->namespaceURI(), *namespaces);
@@ -502,6 +510,10 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                 }
                 if (convert)
                     style->setProperty(CSSPropertyDisplay, CSSValueInline, true);
+                // If the node is not fully selected by the range, then we don't want to keep styles that affect its relationship to the nodes around it
+                // only the ones that affect it and the nodes within it.
+                if (rangeFullySelectsNode == DoesNotFullySelectNode)
+                    removeExteriorStyles(style.get());
                 if (style->length() > 0) {
                     DEFINE_STATIC_LOCAL(const String, stylePrefix, (" style=\""));
                     append(result, stylePrefix);
@@ -536,10 +548,10 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
     }
 }
 
-static String getStartMarkup(const Node *node, const Range *range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+static String getStartMarkup(const Node* node, const Range* range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0, RangeFullySelectsNode rangeFullySelectsNode = DoesFullySelectNode)
 {
     Vector<UChar> result;
-    appendStartMarkup(result, node, range, annotate, convertBlocksToInlines, namespaces);
+    appendStartMarkup(result, node, range, annotate, convertBlocksToInlines, namespaces, rangeFullySelectsNode);
     return String::adopt(result);
 }
 
@@ -642,7 +654,7 @@ static void completeURLs(Node* node, const String& baseURL)
     for (Node* n = node; n != end; n = n->traverseNextNode()) {
         if (n->isElementNode()) {
             Element* e = static_cast<Element*>(n);
-            NamedAttrMap* attrs = e->attributes();
+            NamedNodeMap* attrs = e->attributes();
             unsigned length = attrs->length();
             for (unsigned i = 0; i < length; i++) {
                 Attribute* attr = attrs->attributeItem(i);
@@ -742,6 +754,15 @@ static bool isSpecialAncestorBlock(Node* node)
            node->hasTagName(h5Tag);
 }
 
+static bool shouldIncludeWrapperForFullySelectedRoot(Node* fullySelectedRoot, CSSMutableStyleDeclaration* style)
+{
+    if (fullySelectedRoot->isElementNode() && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
+        return true;
+        
+    return style->getPropertyCSSValue(CSSPropertyBackgroundImage) ||
+           style->getPropertyCSSValue(CSSPropertyBackgroundColor);
+}
+
 // FIXME: Shouldn't we omit style info when annotate == DoNotAnnotateForInterchange? 
 // FIXME: At least, annotation and style info should probably not be included in range.markupString()
 String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterchange annotate, bool convertBlocksToInlines)
@@ -798,14 +819,20 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
 
         markups.append(interchangeNewlineString);
         startNode = visibleStart.next().deepEquivalent().node();
+
+        if (pastEnd && Range::compareBoundaryPoints(startNode, 0, pastEnd, 0) >= 0) {
+            if (deleteButton)
+                deleteButton->enable();
+            return interchangeNewlineString;
+        }
     }
 
     Node* next;
     for (Node* n = startNode; n != pastEnd; n = next) {
-    
-        // According to <rdar://problem/5730668>, it is possible for n to blow past pastEnd and become null here.  This 
-        // shouldn't be possible.  This null check will prevent crashes (but create too much markup) and the ASSERT will 
-        // hopefully lead us to understanding the problem.
+        // According to <rdar://problem/5730668>, it is possible for n to blow
+        // past pastEnd and become null here. This shouldn't be possible.
+        // This null check will prevent crashes (but create too much markup)
+        // and the ASSERT will hopefully lead us to understanding the problem.
         ASSERT(n);
         if (!n)
             break;
@@ -878,7 +905,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
             // We added markup for this node, and we're descending into it.  Set it to close eventually.
             ancestorsToClose.append(n);
     }
-    
+
     // Include ancestors that aren't completely inside the range but are required to retain 
     // the structure and appearance of the copied markup.
     Node* specialCommonAncestor = 0;
@@ -921,29 +948,29 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         specialCommonAncestor = enclosingAnchor;
     
     Node* body = enclosingNodeWithTag(Position(commonAncestor, 0), bodyTag);
-    // FIXME: Only include markup for a fully selected root (and ancestors of lastClosed up to that root) if
-    // there are styles/attributes on those nodes that need to be included to preserve the appearance of the copied markup.
     // FIXME: Do this for all fully selected blocks, not just the body.
     Node* fullySelectedRoot = body && *VisibleSelection::selectionFromContentsOfNode(body).toNormalizedRange() == *updatedRange ? body : 0;
-    if (annotate && fullySelectedRoot)
-        specialCommonAncestor = fullySelectedRoot;
+    RefPtr<CSSMutableStyleDeclaration> fullySelectedRootStyle = fullySelectedRoot ? styleFromMatchedRulesAndInlineDecl(fullySelectedRoot) : 0;
+    if (annotate && fullySelectedRoot) {
+        if (shouldIncludeWrapperForFullySelectedRoot(fullySelectedRoot, fullySelectedRootStyle.get()))
+            specialCommonAncestor = fullySelectedRoot;
+    }
         
     if (specialCommonAncestor && lastClosed) {
         // Also include all of the ancestors of lastClosed up to this special ancestor.
         for (Node* ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode()) {
             if (ancestor == fullySelectedRoot && !convertBlocksToInlines) {
-                RefPtr<CSSMutableStyleDeclaration> style = styleFromMatchedRulesAndInlineDecl(fullySelectedRoot);
                 
                 // Bring the background attribute over, but not as an attribute because a background attribute on a div
                 // appears to have no effect.
-                if (!style->getPropertyCSSValue(CSSPropertyBackgroundImage) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
-                    style->setProperty(CSSPropertyBackgroundImage, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
+                if (!fullySelectedRootStyle->getPropertyCSSValue(CSSPropertyBackgroundImage) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
+                    fullySelectedRootStyle->setProperty(CSSPropertyBackgroundImage, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
                 
-                if (style->length()) {
+                if (fullySelectedRootStyle->length()) {
                     Vector<UChar> openTag;
                     DEFINE_STATIC_LOCAL(const String, divStyle, ("<div style=\""));
                     append(openTag, divStyle);
-                    appendAttributeValue(openTag, style->cssText(), documentIsHTML);
+                    appendAttributeValue(openTag, fullySelectedRootStyle->cssText(), documentIsHTML);
                     openTag.append('\"');
                     openTag.append('>');
                     preMarkups.append(String::adopt(openTag));
@@ -952,7 +979,9 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                     markups.append(divCloseTag);
                 }
             } else {
-                preMarkups.append(getStartMarkup(ancestor, updatedRange.get(), annotate, convertBlocksToInlines));
+                // Since this node and all the other ancestors are not in the selection we want to set RangeFullySelectsNode to DoesNotFullySelectNode
+                // so that styles that affect the exterior of the node are not included.
+                preMarkups.append(getStartMarkup(ancestor, updatedRange.get(), annotate, convertBlocksToInlines, 0, DoesNotFullySelectNode));
                 markups.append(getEndMarkup(ancestor));
             }
             if (nodes)

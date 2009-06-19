@@ -402,15 +402,9 @@ struct SVGRootInlineBoxPaintWalker {
         m_savedInfo = m_paintInfo;
         m_paintInfo.context->save();
 
+        // FIXME: Why is this done here instead of in RenderSVGText?
         if (!flowBox->isRootInlineBox())
-            m_paintInfo.context->concatCTM(m_rootBox->renderer()->localTransform());
-
-        m_paintInfo.context->concatCTM(object->localTransform());
-
-        if (!flowBox->isRootInlineBox()) {
-            prepareToRenderSVGContent(object, m_paintInfo, m_boundingBox, m_filter, m_rootFilter);
-            m_paintInfo.rect = object->localTransform().inverse().mapRect(m_paintInfo.rect);
-        }
+            SVGRenderBase::prepareToRenderSVGContent(object, m_paintInfo, m_boundingBox, m_filter, m_rootFilter);
     }
 
     void chunkEndCallback(InlineBox* box)
@@ -429,7 +423,7 @@ struct SVGRootInlineBoxPaintWalker {
 
         // Finalize text rendering 
         if (!flowBox->isRootInlineBox()) {
-            finishRenderSVGContent(object, m_paintInfo, m_boundingBox, m_filter, m_savedInfo.context);
+            SVGRenderBase::finishRenderSVGContent(object, m_paintInfo, m_filter, m_savedInfo.context);
             m_filter = 0;
         }
 
@@ -584,9 +578,7 @@ void SVGRootInlineBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     FloatRect boundingBox(tx + x(), ty + y(), width(), height());
 
     // Initialize text rendering
-    paintInfo.context->concatCTM(renderer()->localTransform());
-    prepareToRenderSVGContent(renderer(), paintInfo, boundingBox, filter);
-    paintInfo.context->concatCTM(renderer()->localTransform().inverse());
+    SVGRenderBase::prepareToRenderSVGContent(renderer(), paintInfo, boundingBox, filter);
  
     // Render text, chunk-by-chunk
     SVGRootInlineBoxPaintWalker walkerCallback(this, filter, paintInfo, tx, ty);
@@ -600,7 +592,7 @@ void SVGRootInlineBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     walkTextChunks(&walker);
 
     // Finalize text rendering 
-    finishRenderSVGContent(renderer(), paintInfo, boundingBox, filter, savedInfo.context);
+    SVGRenderBase::finishRenderSVGContent(renderer(), paintInfo, filter, savedInfo.context);
     paintInfo.context->restore();
 }
 

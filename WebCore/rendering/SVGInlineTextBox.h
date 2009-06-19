@@ -29,15 +29,16 @@
 
 namespace WebCore {
 
-    class SVGChar;
     class SVGRootInlineBox;
-    class SVGTextDecorationInfo;
+
+    struct SVGChar;
+    struct SVGTextDecorationInfo;
 
     class SVGInlineTextBox : public InlineTextBox {
     public:
         SVGInlineTextBox(RenderObject* obj);
 
-        virtual int height() const { return m_height; }
+        virtual int svgBoxHeight() const { return m_height; }
         void setHeight(int h) { m_height = h; }
 
         virtual int selectionTop();

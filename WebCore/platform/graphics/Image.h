@@ -61,8 +61,8 @@ class NativeImageSkia;
 #include <QPixmap>
 #endif
 
-#if PLATFORM(SGL)
-class SkBitmapRef;
+#if PLATFORM(GTK)
+typedef struct _GdkPixbuf GdkPixbuf;
 #endif
 
 namespace WebCore {
@@ -147,8 +147,11 @@ public:
 #endif
 
 #if PLATFORM(SGL)
-    virtual SkBitmapRef* getBitmap() { return 0; }
     virtual void setURL(const String& str) {}
+#endif
+
+#if PLATFORM(GTK)
+    virtual GdkPixbuf* getGdkPixbuf() { return 0; }
 #endif
 
 protected:

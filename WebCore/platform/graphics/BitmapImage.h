@@ -44,11 +44,6 @@ class NSImage;
 typedef struct HBITMAP__ *HBITMAP;
 #endif
 
-#if PLATFORM(SGL)
-class SkBitmap;
-class SkBitmapRef;
-#endif
-
 namespace WebCore {
     struct FrameData;
 }
@@ -146,8 +141,11 @@ public:
 #endif
 
 #if PLATFORM(SGL)
-//    virtual SkBitmapRef* getBitmap();
     virtual void setURL(const String& str);
+#endif
+
+#if PLATFORM(GTK)
+    virtual GdkPixbuf* getGdkPixbuf();
 #endif
 
     virtual NativeImagePtr nativeImageForCurrentFrame() { return frameAtIndex(currentFrame()); }

@@ -100,7 +100,7 @@ CoreTextController::CoreTextRun::CoreTextRun(const SimpleFontData* fontData, con
     m_indices = reinterpret_cast<const CFIndex*>(CFDataGetBytePtr(m_indicesData.get()));
 }
 
-CoreTextController::CoreTextController(const Font* font, const TextRun& run, bool mayUseNaturalWritingDirection)
+CoreTextController::CoreTextController(const Font* font, const TextRun& run, bool mayUseNaturalWritingDirection, HashSet<const SimpleFontData*>* fallbackFonts)
     : m_font(*font)
     , m_run(run)
     , m_mayUseNaturalWritingDirection(mayUseNaturalWritingDirection)
@@ -112,6 +112,7 @@ CoreTextController::CoreTextController(const Font* font, const TextRun& run, boo
     , m_currentRun(0)
     , m_glyphInCurrentRun(0)
     , m_finalRoundingWidth(0)
+    , m_fallbackFonts(fallbackFonts)
     , m_lastRoundingGlyph(0)
 {
     m_padding = m_run.padding();
@@ -156,12 +157,12 @@ int CoreTextController::offsetForPosition(int h, bool includePartialGlyphs)
             if (x <= adjustedAdvance) {
                 CFIndex hitIndex = coreTextRun.indexAt(j);
                 int stringLength = coreTextRun.stringLength();
-                TextBreakIterator* characterIterator = characterBreakIterator(coreTextRun.characters(), stringLength);
+                TextBreakIterator* cursorPositionIterator = cursorMovementIterator(coreTextRun.characters(), stringLength);
                 int clusterStart;
-                if (isTextBreak(characterIterator, hitIndex))
+                if (isTextBreak(cursorPositionIterator, hitIndex))
                     clusterStart = hitIndex;
                 else {
-                    clusterStart = textBreakPreceding(characterIterator, hitIndex);
+                    clusterStart = textBreakPreceding(cursorPositionIterator, hitIndex);
                     if (clusterStart == TextBreakDone)
                         clusterStart = 0;
                 }
@@ -169,7 +170,7 @@ int CoreTextController::offsetForPosition(int h, bool includePartialGlyphs)
                 if (!includePartialGlyphs)
                     return coreTextRun.stringLocation() + clusterStart;
 
-                int clusterEnd = textBreakFollowing(characterIterator, hitIndex);
+                int clusterEnd = textBreakFollowing(cursorPositionIterator, hitIndex);
                 if (clusterEnd == TextBreakDone)
                     clusterEnd = stringLength;
 
@@ -179,7 +180,7 @@ int CoreTextController::offsetForPosition(int h, bool includePartialGlyphs)
                 // reordering and on font fallback should occur within a CTLine.
                 if (clusterEnd - clusterStart > 1) {
                     int firstGlyphBeforeCluster = j - 1;
-                    while (firstGlyphBeforeCluster && coreTextRun.indexAt(firstGlyphBeforeCluster) >= clusterStart && coreTextRun.indexAt(firstGlyphBeforeCluster) < clusterEnd) {
+                    while (firstGlyphBeforeCluster >= 0 && coreTextRun.indexAt(firstGlyphBeforeCluster) >= clusterStart && coreTextRun.indexAt(firstGlyphBeforeCluster) < clusterEnd) {
                         CGFloat width = m_adjustedAdvances[offsetIntoAdjustedGlyphs + firstGlyphBeforeCluster].width;
                         clusterWidth += width;
                         x += width;
@@ -359,6 +360,9 @@ void CoreTextController::collectCoreTextRunsForCharacters(const UChar* cp, unsig
         return;
     }
 
+    if (m_fallbackFonts && fontData != m_font.primaryFont())
+        m_fallbackFonts->add(fontData);
+
     RetainPtr<CFStringRef> string(AdoptCF, CFStringCreateWithCharactersNoCopy(NULL, cp, length, kCFAllocatorNull));
 
     RetainPtr<CFAttributedStringRef> attributedString(AdoptCF, CFAttributedStringCreate(NULL, string.get(), fontData->getCFStringAttributes()));
@@ -426,7 +430,7 @@ void CoreTextController::adjustGlyphsAndAdvances()
 
         bool lastRun = r + 1 == runCount;
         const UChar* cp = coreTextRun.characters();
-        CGFloat roundedSpaceWidth = roundCGFloat(fontData->m_spaceWidth);
+        CGFloat roundedSpaceWidth = roundCGFloat(fontData->spaceWidth());
         bool roundsAdvances = !m_font.isPrinterFont() && fontData->platformData().roundsGlyphAdvances();
         bool hasExtraSpacing = (m_font.letterSpacing() || m_font.wordSpacing() || m_padding) && !m_run.spacingDisabled();
 
@@ -444,29 +448,29 @@ void CoreTextController::adjustGlyphsAndAdvances()
                 nextCh = *(m_coreTextRuns[r + 1].characters() + m_coreTextRuns[r + 1].indexAt(0));
 
             bool treatAsSpace = Font::treatAsSpace(ch);
-            CGGlyph glyph = treatAsSpace ? fontData->m_spaceGlyph : glyphs[i];
-            CGSize advance = treatAsSpace ? CGSizeMake(fontData->m_spaceWidth, advances[i].height) : advances[i];
+            CGGlyph glyph = treatAsSpace ? fontData->spaceGlyph() : glyphs[i];
+            CGSize advance = treatAsSpace ? CGSizeMake(fontData->spaceWidth(), advances[i].height) : advances[i];
 
             if (ch == '\t' && m_run.allowTabs()) {
                 float tabWidth = m_font.tabWidth();
                 advance.width = tabWidth - fmodf(m_run.xPos() + m_totalWidth, tabWidth);
             } else if (ch == zeroWidthSpace || Font::treatAsZeroWidthSpace(ch) && !treatAsSpace) {
                 advance.width = 0;
-                glyph = fontData->m_spaceGlyph;
+                glyph = fontData->spaceGlyph();
             }
 
             float roundedAdvanceWidth = roundf(advance.width);
             if (roundsAdvances)
                 advance.width = roundedAdvanceWidth;
 
-            advance.width += fontData->m_syntheticBoldOffset;
+            advance.width += fontData->syntheticBoldOffset();
 
             // We special case spaces in two ways when applying word rounding.
             // First, we round spaces to an adjusted width in all fonts.
             // Second, in fixed-pitch fonts we ensure that all glyphs that
             // match the width of the space glyph have the same width as the space glyph.
-            if (roundedAdvanceWidth == roundedSpaceWidth && (fontData->m_treatAsFixedPitch || glyph == fontData->m_spaceGlyph) && m_run.applyWordRounding())
-                advance.width = fontData->m_adjustedSpaceWidth;
+            if (roundedAdvanceWidth == roundedSpaceWidth && (fontData->pitch() == FixedPitch || glyph == fontData->spaceGlyph()) && m_run.applyWordRounding())
+                advance.width = fontData->adjustedSpaceWidth();
 
             if (hasExtraSpacing) {
                 // If we're a glyph with an advance, go ahead and add in letter-spacing.
@@ -475,7 +479,7 @@ void CoreTextController::adjustGlyphsAndAdvances()
                     advance.width += m_font.letterSpacing();
 
                 // Handle justification and word-spacing.
-                if (glyph == fontData->m_spaceGlyph) {
+                if (glyph == fontData->spaceGlyph()) {
                     // Account for padding. WebCore uses space padding to justify text.
                     // We distribute the specified padding over the available spaces in the run.
                     if (m_padding) {

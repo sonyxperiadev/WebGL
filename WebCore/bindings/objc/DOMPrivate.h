@@ -24,45 +24,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#import <WebCore/DOMCSS.h>
-#import <WebCore/DOMCSSStyleDeclaration.h>
-#import <WebCore/DOMElement.h>
-#import <WebCore/DOMEvents.h>
-#import <WebCore/DOMHTML.h>
-#import <WebCore/DOMHTMLDocument.h>
-#import <WebCore/DOMHTMLInputElement.h>
-#import <WebCore/DOMHTMLSelectElement.h>
-#import <WebCore/DOMNode.h>
-#import <WebCore/DOMRGBColor.h>
-#import <WebCore/DOMRange.h>
-
-#import <WebCore/DOMDocumentPrivate.h>
-#import <WebCore/DOMElementPrivate.h>
-#import <WebCore/DOMHTMLAnchorElementPrivate.h>
-#import <WebCore/DOMHTMLAreaElementPrivate.h>
-#import <WebCore/DOMHTMLBodyElementPrivate.h>
-#import <WebCore/DOMHTMLButtonElementPrivate.h>
-#import <WebCore/DOMHTMLDocumentPrivate.h>
-#import <WebCore/DOMHTMLFormElementPrivate.h>
-#import <WebCore/DOMHTMLFrameElementPrivate.h>
-#import <WebCore/DOMHTMLImageElementPrivate.h>
-#import <WebCore/DOMHTMLInputElementPrivate.h>
-#import <WebCore/DOMHTMLLinkElementPrivate.h>
-#import <WebCore/DOMHTMLOptionsCollectionPrivate.h>
-#import <WebCore/DOMHTMLPreElementPrivate.h>
-#import <WebCore/DOMHTMLStyleElementPrivate.h>
-#import <WebCore/DOMHTMLTextAreaElementPrivate.h>
-#import <WebCore/DOMKeyboardEventPrivate.h>
-#import <WebCore/DOMMouseEventPrivate.h>
-#import <WebCore/DOMNodeIteratorPrivate.h>
-#import <WebCore/DOMNodePrivate.h>
-#import <WebCore/DOMProcessingInstructionPrivate.h>
-#import <WebCore/DOMRangePrivate.h>
-#import <WebCore/DOMUIEventPrivate.h>
-#import <WebCore/DOMWheelEventPrivate.h>
+#import <WebCore/DOM.h>
 
 @interface DOMNode (DOMNodeExtensionsPendingPublic)
 - (NSImage *)renderedImage;
+- (NSArray *)textRects;
 @end
 
 // FIXME: this should be removed as soon as all internal Apple uses of it have been replaced with
@@ -79,7 +45,8 @@
 
 @interface DOMRange (DOMRangeExtensions)
 - (NSRect)boundingBox;
-- (NSArray *)lineBoxRects;
+- (NSArray *)lineBoxRects; // Deprecated. Use textRects instead.
+- (NSArray *)textRects;
 @end
 
 @interface DOMElement (WebPrivate)

@@ -55,8 +55,6 @@ public:
     virtual ~InlineFlowBox();
 #endif
 
-    virtual int height() const;
-
     InlineFlowBox* prevFlowBox() const { return static_cast<InlineFlowBox*>(m_prevLine); }
     InlineFlowBox* nextFlowBox() const { return static_cast<InlineFlowBox*>(m_nextLine); }
 
@@ -143,7 +141,7 @@ public:
     virtual RenderObject::SelectionState selectionState();
 
     virtual bool canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth);
-    virtual int placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool&);
+    virtual int placeEllipsisBox(bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth, bool&);
 
     bool hasTextChildren() const { return m_hasTextChildren; }
 

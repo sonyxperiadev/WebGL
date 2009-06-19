@@ -113,7 +113,7 @@ static void addExceptionToConsole(ExecState* exec)
 
 + (id)scriptObjectForJSObject:(JSObjectRef)jsObject originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
 {
-    if (id domWrapper = WebCore::createDOMWrapper(toJS(jsObject), originRootObject, rootObject))
+    if (id domWrapper = createDOMWrapper(toJS(jsObject), originRootObject, rootObject))
         return domWrapper;
     
     return WebCore::createJSWrapper(toJS(jsObject), originRootObject, rootObject);
@@ -265,7 +265,7 @@ static void _didExecute(WebScriptObject *obj)
     return YES;
 }
 
-static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* rootObject, ArgList& aList)
+static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* rootObject, MarkedArgumentBuffer& aList)
 {
     int i, numObjects = array ? [array count] : 0;
     
@@ -286,20 +286,20 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     ASSERT(!exec->hadException());
 
-    JSValuePtr function = [self _imp]->get(exec, Identifier(exec, String(name)));
+    JSValue function = [self _imp]->get(exec, Identifier(exec, String(name)));
     CallData callData;
     CallType callType = function.getCallData(callData);
     if (callType == CallTypeNone)
         return nil;
 
-    ArgList argList;
+    MarkedArgumentBuffer argList;
     getListFromNSArray(exec, args, [self _rootObject], argList);
 
     if (![self _isSafeScript])
         return nil;
 
     [self _rootObject]->globalObject()->globalData()->timeoutChecker.start();
-    JSValuePtr result = call(exec, function, callType, callData, [self _imp], argList);
+    JSValue result = call(exec, function, callType, callData, [self _imp], argList);
     [self _rootObject]->globalObject()->globalData()->timeoutChecker.stop();
 
     if (exec->hadException()) {
@@ -324,7 +324,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ExecState* exec = [self _rootObject]->globalObject()->globalExec();
     ASSERT(!exec->hadException());
 
-    JSValuePtr result;
+    JSValue result;
     JSLock lock(false);
     
     [self _rootObject]->globalObject()->globalData()->timeoutChecker.start();
@@ -388,7 +388,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         // leaving the lock permanently held
         JSLock lock(false);
         
-        JSValuePtr result = [self _imp]->get(exec, Identifier(exec, String(key)));
+        JSValue result = [self _imp]->get(exec, Identifier(exec, String(key)));
         
         if (exec->hadException()) {
             addExceptionToConsole(exec);
@@ -455,7 +455,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLock lock(false);
-    JSValuePtr result = [self _imp]->get(exec, index);
+    JSValue result = [self _imp]->get(exec, index);
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -504,7 +504,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return toRef([self _imp]);
 }
 
-+ (id)_convertValueToObjcValue:(JSValuePtr)value originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
++ (id)_convertValueToObjcValue:(JSValue)value originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
 {
     if (value.isObject()) {
         JSObject* object = asObject(value);
@@ -512,7 +512,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
         JSLock lock(false);
         
         if (object->classInfo() != &RuntimeObjectImp::s_info) {
-            JSValuePtr runtimeObject = object->get(exec, Identifier(exec, "__apple_runtime_object"));
+            JSValue runtimeObject = object->get(exec, Identifier(exec, "__apple_runtime_object"));
             if (runtimeObject && runtimeObject.isObject())
                 object = asObject(runtimeObject);
         }

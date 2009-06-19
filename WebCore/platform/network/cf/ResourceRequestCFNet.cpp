@@ -30,6 +30,7 @@
 #include "ResourceRequest.h"
 
 #include <CFNetwork/CFURLRequestPriv.h>
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
 
 namespace WebCore {
 
@@ -95,13 +96,15 @@ void ResourceRequest::doUpdatePlatformRequest()
     CFMutableURLRequestRef cfRequest;
 
     RetainPtr<CFURLRef> url(AdoptCF, ResourceRequest::url().createCFURL());
-    RetainPtr<CFURLRef> mainDocumentURL(AdoptCF, ResourceRequest::mainDocumentURL().createCFURL());
+    RetainPtr<CFURLRef> firstPartyForCookies(AdoptCF, ResourceRequest::firstPartyForCookies().createCFURL());
     if (m_cfRequest) {
         cfRequest = CFURLRequestCreateMutableCopy(0, m_cfRequest.get());
         CFURLRequestSetURL(cfRequest, url.get());
-        CFURLRequestSetMainDocumentURL(cfRequest, mainDocumentURL.get());
+        CFURLRequestSetMainDocumentURL(cfRequest, firstPartyForCookies.get());
+        CFURLRequestSetCachePolicy(cfRequest, (CFURLRequestCachePolicy)cachePolicy());
+        CFURLRequestSetTimeoutInterval(cfRequest, timeoutInterval());
     } else {
-        cfRequest = CFURLRequestCreateMutable(0, url.get(), (CFURLRequestCachePolicy)cachePolicy(), timeoutInterval(), mainDocumentURL.get());
+        cfRequest = CFURLRequestCreateMutable(0, url.get(), (CFURLRequestCachePolicy)cachePolicy(), timeoutInterval(), firstPartyForCookies.get());
     }
 
     RetainPtr<CFStringRef> requestMethod(AdoptCF, httpMethod().createCFString());
@@ -138,7 +141,7 @@ void ResourceRequest::doUpdateResourceRequest()
 
     m_cachePolicy = (ResourceRequestCachePolicy)CFURLRequestGetCachePolicy(m_cfRequest.get());
     m_timeoutInterval = CFURLRequestGetTimeoutInterval(m_cfRequest.get());
-    m_mainDocumentURL = CFURLRequestGetMainDocumentURL(m_cfRequest.get());
+    m_firstPartyForCookies = CFURLRequestGetMainDocumentURL(m_cfRequest.get());
     if (CFStringRef method = CFURLRequestCopyHTTPRequestMethod(m_cfRequest.get())) {
         m_httpMethod = method;
         CFRelease(method);
@@ -162,11 +165,17 @@ void ResourceRequest::doUpdateResourceRequest()
         for (CFIndex i = 0; i < count; ++i) {
             CFStringEncoding encoding = reinterpret_cast<CFIndex>(CFArrayGetValueAtIndex(encodingFallbacks.get(), i));
             if (encoding != kCFStringEncodingInvalidId)
-                m_responseContentDispositionEncodingFallbackArray.append(CFStringGetNameOfEncoding(encoding));
+                m_responseContentDispositionEncodingFallbackArray.append(CFStringConvertEncodingToIANACharSetName(encoding));
         }
     }
 
     m_httpBody = httpBodyFromRequest(m_cfRequest.get());
+}
+
+unsigned initializeMaximumHTTPConnectionCountPerHost()
+{
+    static const unsigned preferredConnectionCount = 6;
+    return wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
 }
 
 }

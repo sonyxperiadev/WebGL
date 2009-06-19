@@ -39,7 +39,7 @@
 #include "PageGroup.h"
 #include "PlatformString.h"
 
-#if USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 #include <profiler/Profiler.h>
 #endif
 
@@ -51,6 +51,11 @@ namespace WebCore {
 Console::Console(Frame* frame)
     : m_frame(frame)
 {
+}
+
+Frame* Console::frame() const
+{
+    return m_frame;
 }
 
 void Console::disconnectFrame()
@@ -151,7 +156,7 @@ void Console::addMessage(MessageSource source, MessageLevel level, const String&
         return;
 
     if (source == JSMessageSource || source == WMLMessageSource)
-        page->chrome()->client()->addMessageToConsole(message, lineNumber, sourceURL);
+        page->chrome()->client()->addMessageToConsole(source, level, message, lineNumber, sourceURL);
 
     page->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceURL);
 
@@ -176,7 +181,7 @@ void Console::addMessage(MessageLevel level, ScriptCallStack* callStack, bool ac
 
     String message;
     if (getFirstArgumentAsString(callStack->state(), lastCaller, message))
-        page->chrome()->client()->addMessageToConsole(message, lastCaller.lineNumber(), lastCaller.sourceURL().prettyURL());
+        page->chrome()->client()->addMessageToConsole(JSMessageSource, level, message, lastCaller.lineNumber(), lastCaller.sourceURL().prettyURL());
 
     page->inspectorController()->addMessageToConsole(JSMessageSource, level, callStack);
 
@@ -264,7 +269,7 @@ void Console::count(ScriptCallStack* callStack)
     page->inspectorController()->count(title, lastCaller.lineNumber(), lastCaller.sourceURL().string());
 }
 
-#if USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 
 void Console::profile(const JSC::UString& title, ScriptCallStack* callStack)
 {

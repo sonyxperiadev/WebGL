@@ -138,44 +138,15 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle* newStyl
         if (diff >= StyleDifferenceRepaint && node() &&
                 (node()->hasTagName(htmlTag) || node()->hasTagName(bodyTag)))
             view()->repaint();
-        else if (parent() && !isText()) {
-            // Do a repaint with the old style first, e.g., for example if we go from
-            // having an outline to not having an outline.
-            if (diff == StyleDifferenceRepaintLayer) {
-                layer()->repaintIncludingDescendants();
-                if (!(style()->clip() == newStyle->clip()))
-                    layer()->clearClipRectsIncludingDescendants();
-            } else if (diff == StyleDifferenceRepaint || newStyle->outlineSize() < style()->outlineSize())
-                repaint();
-        }
-
-        if (diff == StyleDifferenceLayout) {
-            // When a layout hint happens, we go ahead and do a repaint of the layer, since the layer could
-            // end up being destroyed.
-            if (hasLayer()) {
-                if (style()->position() != newStyle->position() ||
-                    style()->zIndex() != newStyle->zIndex() ||
-                    style()->hasAutoZIndex() != newStyle->hasAutoZIndex() ||
-                    !(style()->clip() == newStyle->clip()) ||
-                    style()->hasClip() != newStyle->hasClip() ||
-                    style()->opacity() != newStyle->opacity() ||
-                    style()->transform() != newStyle->transform())
-                layer()->repaintIncludingDescendants();
-            } else if (newStyle->hasTransform() || newStyle->opacity() < 1) {
-                // If we don't have a layer yet, but we are going to get one because of transform or opacity,
-                //  then we need to repaint the old position of the object.
-                repaint();
-            }
         
-            // When a layout hint happens and an object's position style changes, we have to do a layout
-            // to dirty the render tree using the old position value now.
-            if (parent() && style()->position() != newStyle->position()) {
-                markContainingBlocksForLayout();
-                if (style()->position() == StaticPosition)
-                    repaint();
-                if (isFloating() && !isPositioned() && (newStyle->position() == AbsolutePosition || newStyle->position() == FixedPosition))
-                    removeFloatingOrPositionedChildFromBlockLists();
-            }
+        // When a layout hint happens and an object's position style changes, we have to do a layout
+        // to dirty the render tree using the old position value now.
+        if (diff == StyleDifferenceLayout && parent() && style()->position() != newStyle->position()) {
+            markContainingBlocksForLayout();
+            if (style()->position() == StaticPosition)
+                repaint();
+            if (isFloating() && !isPositioned() && (newStyle->position() == AbsolutePosition || newStyle->position() == FixedPosition))
+                removeFloatingOrPositionedChildFromBlockLists();
         }
     }
 
@@ -323,12 +294,12 @@ void RenderBox::setScrollTop(int newTop)
         layer()->scrollToYOffset(newTop);
 }
 
-void RenderBox::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool)
+void RenderBox::absoluteRects(Vector<IntRect>& rects, int tx, int ty)
 {
     rects.append(IntRect(tx, ty, width(), height()));
 }
 
-void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool)
+void RenderBox::absoluteQuads(Vector<FloatQuad>& quads)
 {
     quads.append(localToAbsoluteQuad(FloatRect(0, 0, width(), height())));
 }
@@ -347,14 +318,13 @@ FloatQuad RenderBox::absoluteContentQuad() const
     return localToAbsoluteQuad(FloatRect(rect));
 }
 
-
-IntRect RenderBox::outlineBoundsForRepaint(RenderBoxModelObject* /*repaintContainer*/) const
+IntRect RenderBox::outlineBoundsForRepaint(RenderBoxModelObject* repaintContainer) const
 {
     IntRect box = borderBoundingBox();
     adjustRectForOutlineAndShadow(box);
 
-    FloatQuad absOutlineQuad = localToAbsoluteQuad(FloatRect(box));
-    box = absOutlineQuad.enclosingBoundingBox();
+    FloatQuad containerRelativeQuad = localToContainerQuad(FloatRect(box), repaintContainer);
+    box = containerRelativeQuad.enclosingBoundingBox();
 
     // FIXME: layoutDelta needs to be applied in parts before/after transforms and
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
@@ -699,13 +669,24 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, int my, int mh, int 
     // Figure out if we need to push a transparency layer to render our mask.
     bool pushTransparencyLayer = false;
     StyleImage* maskBoxImage = style()->maskBoxImage().image();
-    if ((maskBoxImage && style()->maskLayers()->hasImage()) || style()->maskLayers()->next())
+    if (maskBoxImage && style()->maskLayers()->hasImage()) {
+        pushTransparencyLayer = true;
+    } else {
         // We have to use an extra image buffer to hold the mask. Multiple mask images need
         // to composite together using source-over so that they can then combine into a single unified mask that
         // can be composited with the content using destination-in.  SVG images need to be able to set compositing modes
         // as they draw images contained inside their sub-document, so we paint all our images into a separate buffer
         // and composite that buffer as the mask.
-        pushTransparencyLayer = true;
+        // We have to check that the mask images to be rendered contain at least one image that can be actually used in rendering
+        // before pushing the transparency layer.
+        for (const FillLayer* fillLayer = style()->maskLayers()->next(); fillLayer; fillLayer = fillLayer->next()) {
+            if (fillLayer->hasImage() && fillLayer->image()->canRender(style()->effectiveZoom())) {
+                pushTransparencyLayer = true;
+                // We found one image that can be used in rendering, exit the loop
+                break;
+            }
+        }
+    }
     
     CompositeOperator compositeOp = CompositeDestinationIn;
     if (pushTransparencyLayer) {
@@ -863,13 +844,15 @@ bool RenderBox::pushContentsClip(PaintInfo& paintInfo, int tx, int ty)
     }
     IntRect clipRect(isControlClip ? controlClipRect(tx, ty) : overflowClipRect(tx, ty));
     paintInfo.context->save();
-    if (style()->hasBorderRadius())
-        paintInfo.context->addRoundedRectClip(clipRect, style()->borderTopLeftRadius(),
-                                              style()->borderTopRightRadius(), 
-                                              style()->borderBottomLeftRadius(),
-                                              style()->borderBottomRightRadius());
-    else
-        paintInfo.context->clip(clipRect);
+    if (style()->hasBorderRadius()) {
+        IntSize topLeft, topRight, bottomLeft, bottomRight;
+        IntRect borderRect = IntRect(tx, ty, width(), height());
+        style()->getBorderRadiiForRect(borderRect, topLeft, topRight, bottomLeft, bottomRight);
+
+        paintInfo.context->addRoundedRectClip(borderRect, topLeft, topRight, bottomLeft, bottomRight);
+    }
+    
+    paintInfo.context->clip(clipRect);
     return true;
 }
 
@@ -950,7 +933,7 @@ void RenderBox::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool
         return;
 
     if (RenderView* v = view()) {
-        if (v->layoutStateEnabled()) {
+        if (v->layoutStateEnabled() && !repaintContainer) {
             LayoutState* layoutState = v->layoutState();
             IntSize offset = layoutState->m_offset;
             offset.expand(x(), y());
@@ -975,10 +958,12 @@ void RenderBox::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool
     IntSize containerOffset = offsetFromContainer(o);
 
     bool preserve3D = useTransforms && (o->style()->preserves3D() || style()->preserves3D());
-    if (useTransforms && hasTransform)
-        transformState.applyTransform(transformFromContainer(o, containerOffset), preserve3D);
-    else
-        transformState.move(containerOffset.width(), containerOffset.height(), preserve3D);
+    if (useTransforms && shouldUseTransformFromContainer(o)) {
+        TransformationMatrix t;
+        getTransformFromContainer(o, containerOffset, t);
+        transformState.applyTransform(t, preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
+    } else
+        transformState.move(containerOffset.width(), containerOffset.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
 
     o->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState);
 }
@@ -1004,10 +989,12 @@ void RenderBox::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, Transfor
     IntSize containerOffset = offsetFromContainer(o);
 
     bool preserve3D = useTransforms && (o->style()->preserves3D() || style()->preserves3D());
-    if (useTransforms && hasTransform)
-        transformState.applyTransform(transformFromContainer(o, containerOffset), preserve3D);
-    else
-        transformState.move(-containerOffset.width(), -containerOffset.height(), preserve3D);
+    if (useTransforms && shouldUseTransformFromContainer(o)) {
+        TransformationMatrix t;
+        getTransformFromContainer(o, containerOffset, t);
+        transformState.applyTransform(t, preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
+    } else
+        transformState.move(-containerOffset.width(), -containerOffset.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
 }
 
 IntSize RenderBox::offsetFromContainer(RenderObject* o) const
@@ -1129,6 +1116,10 @@ void RenderBox::computeRectForRepaint(RenderBoxModelObject* repaintContainer, In
         // LayoutState is only valid for root-relative repainting
         if (v->layoutStateEnabled() && !repaintContainer) {
             LayoutState* layoutState = v->layoutState();
+
+            if (layer() && layer()->transform())
+                rect = layer()->transform()->mapRect(rect);
+
             if (style()->position() == RelativePosition && layer())
                 rect.move(layer()->relativePositionOffset());
 
@@ -1444,6 +1435,7 @@ void RenderBox::calcHeight()
     if (isTableCell() || (isInline() && !isReplaced()))
         return;
 
+    Length h;
     if (isPositioned())
         calcAbsoluteVertical();
     else {
@@ -1453,7 +1445,6 @@ void RenderBox::calcHeight()
         if (isTable())
             return;
 
-        Length h;
         bool inHorizontalBox = parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL;
         bool stretching = parent()->style()->boxAlign() == BSTRETCH;
         bool treatAsReplaced = shouldCalculateSizeAsReplaced() && (!inHorizontalBox || !stretching);
@@ -1496,21 +1487,26 @@ void RenderBox::calcHeight()
                 maxH = heightResult;
             heightResult = min(maxH, heightResult);
             heightResult = max(minH, heightResult);
-        } else
+        } else {
             // The only times we don't check min/max height are when a fixed length has
             // been given as an override.  Just use that.  The value has already been adjusted
             // for box-sizing.
             heightResult = h.value() + borderTop() + borderBottom() + paddingTop() + paddingBottom();
-
-            setHeight(heightResult);
         }
+
+        setHeight(heightResult);
+    }
 
     // WinIE quirk: The <html> block always fills the entire canvas in quirks mode.  The <body> always fills the
     // <html> block in quirks mode.  Only apply this quirk if the block is normal flow and no height
-    // is specified.
-    if (stretchesToViewHeight() && !document()->printing()) {
+    // is specified. When we're printing, we also need this quirk if the body or root has a percentage 
+    // height since we don't set a height in RenderView when we're printing. So without this quirk, the 
+    // height has nothing to be a percentage of, and it ends up being 0. That is bad.
+    bool printingNeedsBaseHeight = document()->printing() && h.isPercent()
+        && (isRoot() || isBody() && document()->documentElement()->renderer()->style()->height().isPercent());
+    if (stretchesToViewHeight() || printingNeedsBaseHeight) {
         int margins = collapsedMarginTop() + collapsedMarginBottom();
-        int visHeight = view()->viewHeight();
+        int visHeight = document()->printing() ? view()->frameView()->visibleHeight() : view()->viewHeight();
         if (isRoot())
             setHeight(max(height(), visHeight - margins));
         else {

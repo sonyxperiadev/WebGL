@@ -34,10 +34,10 @@ namespace WebCore {
 class Attr;
 class Attribute;
 class CSSStyleDeclaration;
-class ElementRareData;
-class IntSize;
 class ClientRect;
 class ClientRectList;
+class ElementRareData;
+class IntSize;
 
 class Element : public ContainerNode {
 public:
@@ -77,12 +77,12 @@ public:
     int clientTop();
     int clientWidth();
     int clientHeight();
-    int scrollLeft();
-    int scrollTop();
-    void setScrollLeft(int);
-    void setScrollTop(int);
-    int scrollWidth();
-    int scrollHeight();
+    virtual int scrollLeft() const;
+    virtual int scrollTop() const;
+    virtual void setScrollLeft(int);
+    virtual void setScrollTop(int);
+    virtual int scrollWidth() const;
+    virtual int scrollHeight() const;
 
     PassRefPtr<ClientRectList> getClientRects() const;
     PassRefPtr<ClientRect> getBoundingClientRect() const;
@@ -124,24 +124,20 @@ public:
     PassRefPtr<Element> cloneElementWithoutChildren();
 
     void normalizeAttributes();
-
-    virtual bool isFormControlElement() const { return false; }
-    virtual bool isFormControlElementWithState() const { return false; }
-
     String nodeNamePreservingCase() const;
 
     // convenience methods which ignore exceptions
     void setAttribute(const QualifiedName&, const AtomicString& value);
     void setBooleanAttribute(const QualifiedName& name, bool);
 
-    virtual NamedAttrMap* attributes() const;
-    NamedAttrMap* attributes(bool readonly) const;
+    virtual NamedNodeMap* attributes() const;
+    NamedNodeMap* attributes(bool readonly) const;
 
     // This method is called whenever an attribute is added, changed or removed.
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
     // not part of the DOM
-    void setAttributeMap(PassRefPtr<NamedAttrMap>);
+    void setAttributeMap(PassRefPtr<NamedNodeMap>);
 
     virtual void copyNonAttributeProperties(const Element* /*source*/) { }
 
@@ -202,6 +198,23 @@ public:
     Element* nextElementSibling() const;
     unsigned childElementCount() const;
 
+    // FormControlElement API
+    virtual bool isFormControlElement() const { return false; }
+    virtual bool isEnabledFormControl() const { return true; }
+    virtual bool isReadOnlyFormControl() const { return false; }
+    virtual bool isTextFormControl() const { return false; }
+
+    virtual bool formControlValueMatchesRenderer() const { return false; }
+    virtual void setFormControlValueMatchesRenderer(bool) { }
+
+    virtual const AtomicString& formControlName() const { return nullAtom; }
+    virtual const AtomicString& formControlType() const { return nullAtom; }
+
+    virtual bool saveFormControlState(String&) const { return false; }
+    virtual void restoreFormControlState(const String&) { }
+
+    virtual void dispatchFormControlChangeEvent() { }
+
 private:
     virtual void createAttributeMap() const;
 
@@ -229,7 +242,7 @@ protected:
     ElementRareData* rareData() const;
     ElementRareData* ensureRareData();
     
-    mutable RefPtr<NamedAttrMap> namedAttrMap;
+    mutable RefPtr<NamedNodeMap> namedAttrMap;
 };
     
 inline bool Node::hasTagName(const QualifiedName& name) const
@@ -242,7 +255,7 @@ inline bool Node::hasAttributes() const
     return isElementNode() && static_cast<const Element*>(this)->hasAttributes();
 }
 
-inline NamedAttrMap* Node::attributes() const
+inline NamedNodeMap* Node::attributes() const
 {
     return isElementNode() ? static_cast<const Element*>(this)->attributes() : 0;
 }

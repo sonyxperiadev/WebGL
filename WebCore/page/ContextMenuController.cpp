@@ -37,11 +37,13 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
+#include "HTMLFormElement.h"
 #include "InspectorController.h"
 #include "MouseEvent.h"
 #include "Node.h"
@@ -212,10 +214,10 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             m_client->lookUpInDictionary(frame);
             break;
         case ContextMenuItemTagOpenLink:
-            if (Frame* targetFrame = result.targetFrame())
-                targetFrame->loader()->loadFrameRequestWithFormAndValues(FrameLoadRequest(ResourceRequest(result.absoluteLinkURL(), 
-                    frame->loader()->outgoingReferrer())), false, false, 0, 0, HashMap<String, String>());
-            else
+            if (Frame* targetFrame = result.targetFrame()) {
+                targetFrame->loader()->loadFrameRequest(FrameLoadRequest(ResourceRequest(result.absoluteLinkURL(), 
+                    frame->loader()->outgoingReferrer())), false, false, 0, 0);
+            } else
                 openNewWindow(result.absoluteLinkURL(), frame);
             break;
         case ContextMenuItemTagBold:
@@ -291,6 +293,41 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             break;
         case ContextMenuItemTagShowColors:
             frame->editor()->showColorPanel();
+            break;
+#endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+        case ContextMenuItemTagMakeUpperCase:
+            frame->editor()->uppercaseWord();
+            break;
+        case ContextMenuItemTagMakeLowerCase:
+            frame->editor()->lowercaseWord();
+            break;
+        case ContextMenuItemTagCapitalize:
+            frame->editor()->capitalizeWord();
+            break;
+        case ContextMenuItemTagShowSubstitutions:
+            frame->editor()->showSubstitutionsPanel();
+            break;
+        case ContextMenuItemTagSmartCopyPaste:
+            frame->editor()->toggleSmartInsertDelete();
+            break;
+        case ContextMenuItemTagSmartQuotes:
+            frame->editor()->toggleAutomaticQuoteSubstitution();
+            break;
+        case ContextMenuItemTagSmartDashes:
+            frame->editor()->toggleAutomaticDashSubstitution();
+            break;
+        case ContextMenuItemTagSmartLinks:
+            frame->editor()->toggleAutomaticLinkDetection();
+            break;
+        case ContextMenuItemTagTextReplacement:
+            frame->editor()->toggleAutomaticTextReplacement();
+            break;
+        case ContextMenuItemTagCorrectSpellingAutomatically:
+            frame->editor()->toggleAutomaticSpellingCorrection();
+            break;
+        case ContextMenuItemTagChangeBack:
+            frame->editor()->changeBackToReplacedString(result.replacedString());
             break;
 #endif
         case ContextMenuItemTagInspectElement:

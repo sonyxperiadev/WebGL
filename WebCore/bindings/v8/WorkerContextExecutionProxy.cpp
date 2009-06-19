@@ -39,6 +39,8 @@
 #include "V8Proxy.h"
 #include "Event.h"
 #include "V8WorkerContextEventListener.h"
+#include "V8WorkerContextObjectEventListener.h"
+#include "Worker.h"
 #include "WorkerContext.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
@@ -47,6 +49,33 @@
 namespace WebCore {
 
 static bool isWorkersEnabled = false;
+
+static void reportFatalErrorInV8(const char* location, const char* message)
+{
+    // FIXME: We temporarily deal with V8 internal error situations such as out-of-memory by crashing the worker.
+    CRASH();
+}
+
+static void handleConsoleMessage(v8::Handle<v8::Message> message, v8::Handle<v8::Value> data)
+{
+    WorkerContextExecutionProxy* proxy = WorkerContextExecutionProxy::retrieve();
+    if (!proxy)
+        return;
+    
+    WorkerContext* workerContext = proxy->workerContext();
+    if (!workerContext)
+        return;
+    
+    v8::Handle<v8::String> errorMessageString = message->Get();
+    ASSERT(!errorMessageString.IsEmpty());
+    String errorMessage = ToWebCoreString(errorMessageString);
+    
+    v8::Handle<v8::Value> resourceName = message->GetScriptResourceName();
+    bool useURL = (resourceName.IsEmpty() || !resourceName->IsString());
+    String resourceNameString = useURL ? workerContext->url() : ToWebCoreString(resourceName);
+    
+    workerContext->addMessage(ConsoleDestination, JSMessageSource, ErrorMessageLevel, errorMessage, message->GetLineNumber(), resourceNameString);
+}
 
 bool WorkerContextExecutionProxy::isWebWorkersEnabled()
 {
@@ -62,6 +91,7 @@ WorkerContextExecutionProxy::WorkerContextExecutionProxy(WorkerContext* workerCo
     : m_workerContext(workerContext)
     , m_recursion(0)
 {
+    initV8IfNeeded();
 }
 
 WorkerContextExecutionProxy::~WorkerContextExecutionProxy()
@@ -72,10 +102,13 @@ WorkerContextExecutionProxy::~WorkerContextExecutionProxy()
 void WorkerContextExecutionProxy::dispose()
 {
     // Disconnect all event listeners.
-    for (size_t listenerIndex = 0; listenerIndex < m_listeners.size(); ++listenerIndex)
-       m_listeners[listenerIndex]->disconnect();
+    if (m_listeners.get())
+    {
+        for (V8EventListenerList::iterator iterator(m_listeners->begin()); iterator != m_listeners->end(); ++iterator)
+           static_cast<V8WorkerContextEventListener*>(*iterator)->disconnect();
 
-    m_listeners.clear();
+        m_listeners->clear();
+    }
 
     // Detach all events from their JS wrappers.
     for (size_t eventIndex = 0; eventIndex < m_events.size(); ++eventIndex) {
@@ -90,17 +123,6 @@ void WorkerContextExecutionProxy::dispose()
         m_context.Dispose();
         m_context.Clear();
     }
-
-    // Remove the wrapping between JS object and DOM object. This is because
-    // the worker context object is going to be disposed immediately when a
-    // worker thread is tearing down. We do not want to re-delete the real object
-    // when JS object is garbage collected.
-    v8::Locker locker;
-    v8::HandleScope scope;
-    v8::Persistent<v8::Object> wrapper = domObjectMap().get(m_workerContext);
-    if (!wrapper.IsEmpty())
-        V8Proxy::SetDOMWrapper(wrapper, V8ClassIndex::INVALID_CLASS_INDEX, NULL);
-    domObjectMap().forget(m_workerContext);
 }
 
 WorkerContextExecutionProxy* WorkerContextExecutionProxy::retrieve()
@@ -108,9 +130,28 @@ WorkerContextExecutionProxy* WorkerContextExecutionProxy::retrieve()
     v8::Handle<v8::Context> context = v8::Context::GetCurrent();
     v8::Handle<v8::Object> global = context->Global();
     global = V8Proxy::LookupDOMWrapper(V8ClassIndex::WORKERCONTEXT, global);
-    ASSERT(!global.IsEmpty());
+    // Return 0 if the current executing context is not the worker context.
+    if (global.IsEmpty())
+        return 0;
     WorkerContext* workerContext = V8Proxy::ToNativeObject<WorkerContext>(V8ClassIndex::WORKERCONTEXT, global);
     return workerContext->script()->proxy();
+}
+
+void WorkerContextExecutionProxy::initV8IfNeeded()
+{
+    static bool v8Initialized = false;
+
+    if (v8Initialized)
+        return;
+
+    // Tell V8 not to call the default OOM handler, binding code will handle it.
+    v8::V8::IgnoreOutOfMemoryException();
+    v8::V8::SetFatalErrorHandler(reportFatalErrorInV8);
+
+    // Set up the handler for V8 error message.
+    v8::V8::AddMessageListener(handleConsoleMessage);
+
+    v8Initialized = true;
 }
 
 void WorkerContextExecutionProxy::initContextIfNeeded()
@@ -121,7 +162,7 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
 
     // Create a new environment
     v8::Persistent<v8::ObjectTemplate> globalTemplate;
-    m_context = v8::Context::New(NULL, globalTemplate);
+    m_context = v8::Context::New(0, globalTemplate);
 
     // Starting from now, use local context only.
     v8::Local<v8::Context> context = v8::Local<v8::Context>::New(m_context);
@@ -132,7 +173,7 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
 
     // Create a new JS object and use it as the prototype for the shadow global object.
     v8::Handle<v8::Function> workerContextConstructor = GetConstructor(V8ClassIndex::WORKERCONTEXT);
-    v8::Local<v8::Object> jsWorkerContext = SafeAllocation::NewInstance(workerContextConstructor);
+    v8::Local<v8::Object> jsWorkerContext = SafeAllocation::newInstance(workerContextConstructor);
     // Bail out if allocation failed.
     if (jsWorkerContext.IsEmpty()) {
         dispose();
@@ -143,10 +184,13 @@ void WorkerContextExecutionProxy::initContextIfNeeded()
     V8Proxy::SetDOMWrapper(jsWorkerContext, V8ClassIndex::ToInt(V8ClassIndex::WORKERCONTEXT), m_workerContext);
 
     V8Proxy::SetJSWrapperForDOMObject(m_workerContext, v8::Persistent<v8::Object>::New(jsWorkerContext));
+    m_workerContext->ref();
 
     // Insert the object instance as the prototype of the shadow object.
     v8::Handle<v8::Object> globalObject = m_context->Global();
     globalObject->Set(implicitProtoString, jsWorkerContext);
+
+    m_listeners.set(new V8EventListenerList());
 }
 
 v8::Local<v8::Function> WorkerContextExecutionProxy::GetConstructor(V8ClassIndex::V8WrapperType type)
@@ -172,6 +216,19 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::ToV8Object(V8ClassIndex::V8Wr
 
     if (type == V8ClassIndex::WORKERCONTEXT)
         return WorkerContextToV8Object(static_cast<WorkerContext*>(impl));
+
+    if (type == V8ClassIndex::WORKER) {
+        v8::Persistent<v8::Object> result = getActiveDOMObjectMap().get(impl);
+        if (!result.IsEmpty())
+            return result;
+
+        v8::Local<v8::Object> object = toV8(type, type, impl);
+        if (!object.IsEmpty())
+            static_cast<Worker*>(impl)->ref();
+        result = v8::Persistent<v8::Object>::New(object);
+        V8Proxy::SetJSWrapperForDOMObject(impl, result);
+        return result;
+    }
 
     // Non DOM node
     v8::Persistent<v8::Object> result = domObjectMap().get(impl);
@@ -222,7 +279,7 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::EventToV8Object(Event* event)
     return result;
 }
 
-// A JS object of type EventTarget in the worker context can only be WorkerContext.
+// A JS object of type EventTarget in the worker context can only be Worker or WorkerContext.
 v8::Handle<v8::Value> WorkerContextExecutionProxy::EventTargetToV8Object(EventTarget* target)
 {
     if (!target)
@@ -231,6 +288,10 @@ v8::Handle<v8::Value> WorkerContextExecutionProxy::EventTargetToV8Object(EventTa
     WorkerContext* workerContext = target->toWorkerContext();
     if (workerContext)
         return WorkerContextToV8Object(workerContext);
+
+    Worker* worker = target->toWorker();
+    if (worker)
+        return ToV8Object(V8ClassIndex::WORKER, worker);
 
     ASSERT_NOT_REACHED();
     return v8::Handle<v8::Value>();
@@ -257,7 +318,7 @@ v8::Local<v8::Object> WorkerContextExecutionProxy::toV8(V8ClassIndex::V8WrapperT
     else
         function = V8Proxy::GetTemplate(descType)->GetFunction();
 
-    v8::Local<v8::Object> instance = SafeAllocation::NewInstance(function);
+    v8::Local<v8::Object> instance = SafeAllocation::newInstance(function);
     if (!instance.IsEmpty()) {
         // Avoid setting the DOM wrapper for failed allocations.
         V8Proxy::SetDOMWrapper(instance, V8ClassIndex::ToInt(cptrType), impl);
@@ -276,7 +337,6 @@ bool WorkerContextExecutionProxy::forgetV8EventObject(Event* event)
 
 v8::Local<v8::Value> WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, int baseLine)
 {
-    v8::Locker locker;
     v8::HandleScope hs;
 
     initContextIfNeeded();
@@ -319,34 +379,39 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
     return result;
 }
 
-PassRefPtr<V8EventListener> WorkerContextExecutionProxy::FindOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
+PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListenerHelper(v8::Local<v8::Value> object, bool isInline, bool findOnly, bool createObjectEventListener)
 {
     if (!object->IsObject())
         return 0;
 
-    for (size_t index = 0; index < m_listeners.size(); ++index) {
-        V8EventListener* el = m_listeners[index];
-        if (el->isInline() == isInline && el->getListenerObject() == object)
-            return el;
-    }
+    V8EventListener* listener = m_listeners->find(object->ToObject(), isInline);
     if (findOnly)
-        return NULL;
+        return listener;
 
     // Create a new one, and add to cache.
-    RefPtr<V8WorkerContextEventListener> listener = V8WorkerContextEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
-    m_listeners.append(listener.get());
+    RefPtr<V8EventListener> newListener;
+    if (createObjectEventListener)
+        newListener = V8WorkerContextObjectEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
+    else
+        newListener = V8WorkerContextEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
+    m_listeners->add(newListener.get());
 
-    return listener.release();
+    return newListener.release();
+}
+
+PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
+{
+    return findOrCreateEventListenerHelper(object, isInline, findOnly, false);
+}
+
+PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateObjectEventListener(v8::Local<v8::Value> object, bool isInline, bool findOnly)
+{
+    return findOrCreateEventListenerHelper(object, isInline, findOnly, true);
 }
 
 void WorkerContextExecutionProxy::RemoveEventListener(V8EventListener* listener)
 {
-    for (size_t index = 0; index < m_listeners.size(); ++index) {
-        if (m_listeners[index] == listener) {
-            m_listeners.remove(index);
-            return;
-        }
-    }
+    m_listeners->remove(listener);
 }
 
 void WorkerContextExecutionProxy::trackEvent(Event* event)

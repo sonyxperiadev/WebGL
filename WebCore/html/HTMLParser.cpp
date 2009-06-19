@@ -3,7 +3,8 @@
               (C) 1997 Torben Weis (weis@kde.org)
               (C) 1999,2001 Lars Knoll (knoll@kde.org)
               (C) 2000,2001 Dirk Mueller (mueller@kde.org)
-    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+    Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -27,6 +28,7 @@
 #include "CharacterNames.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "ChromeClient.h"
 #include "Comment.h"
 #include "Console.h"
 #include "DOMWindow.h"
@@ -45,15 +47,17 @@
 #include "HTMLIsIndexElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserQuirks.h"
 #include "HTMLTableCellElement.h"
 #include "HTMLTableRowElement.h"
 #include "HTMLTableSectionElement.h"
 #include "HTMLTokenizer.h"
 #include "LocalizedStrings.h"
+#include "Page.h"
 #include "Settings.h"
 #include "Text.h"
 #include <wtf/StdLibExtras.h>
-    
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -126,7 +130,6 @@ HTMLParser::HTMLParser(HTMLDocument* doc, bool reportErrors)
     , m_blockStack(0)
     , m_blocksInStack(0)
     , m_hasPElementInScope(NotInScope)
-    , m_head(0)
     , m_inBody(false)
     , m_haveContent(false)
     , m_haveFrameSet(false)
@@ -134,6 +137,7 @@ HTMLParser::HTMLParser(HTMLDocument* doc, bool reportErrors)
     , m_reportErrors(reportErrors)
     , m_handlingResidualStyleAcrossBlocks(false)
     , m_inStrayTableContent(0)
+    , m_parserQuirks(m_document->page() ? m_document->page()->chrome()->client()->createHTMLParserQuirks() : 0)
 {
 }
 
@@ -144,7 +148,6 @@ HTMLParser::HTMLParser(DocumentFragment* frag)
     , m_blockStack(0)
     , m_blocksInStack(0)
     , m_hasPElementInScope(NotInScope)
-    , m_head(0)
     , m_inBody(true)
     , m_haveContent(false)
     , m_haveFrameSet(false)
@@ -152,6 +155,7 @@ HTMLParser::HTMLParser(DocumentFragment* frag)
     , m_reportErrors(false)
     , m_handlingResidualStyleAcrossBlocks(false)
     , m_inStrayTableContent(0)
+    , m_parserQuirks(m_document->page() ? m_document->page()->chrome()->client()->createHTMLParserQuirks() : 0)
 {
     if (frag)
         frag->ref();
@@ -161,7 +165,7 @@ HTMLParser::~HTMLParser()
 {
     freeBlock();
     if (m_didRefCurrent)
-        m_current->deref(); 
+        m_current->deref();
 }
 
 void HTMLParser::reset()
@@ -183,6 +187,9 @@ void HTMLParser::reset()
     m_isindexElement = 0;
 
     m_skipModeTag = nullAtom;
+    
+    if (m_parserQuirks)
+        m_parserQuirks->reset();
 }
 
 void HTMLParser::setCurrent(Node* newCurrent) 
@@ -334,6 +341,9 @@ bool HTMLParser::insertNode(Node* n, bool flat)
             popBlock(m_blockStack->tagName);
     }
 
+    if (m_parserQuirks && !m_parserQuirks->shouldInsertNode(m_current, n))
+        return false;
+
     // let's be stupid and just try to insert it.
     // this should work if the document is well-formed
     Node* newNode = m_current->addChild(n);
@@ -347,6 +357,8 @@ bool HTMLParser::insertNode(Node* n, bool flat)
             // This case should only be hit when a demoted <form> is placed inside a table.
             ASSERT(localName == formTag);
             reportError(FormInsideTablePartError, &m_current->localName());
+            HTMLFormElement* form = static_cast<HTMLFormElement*>(n);
+            form->setDemoted(true);
         } else {
             // The pushBlock function transfers ownership of current to the block stack
             // so we're guaranteed that m_didRefCurrent is false. The code below is an
@@ -417,9 +429,9 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                     reportError(RedundantHTMLBodyError, &localName);
                     // we have another <HTML> element.... apply attributes to existing one
                     // make sure we don't overwrite already existing attributes
-                    NamedAttrMap* map = static_cast<Element*>(n)->attributes(true);
+                    NamedNodeMap* map = static_cast<Element*>(n)->attributes(true);
                     Element* existingHTML = static_cast<Element*>(m_document->documentElement());
-                    NamedAttrMap* bmap = existingHTML->attributes(false);
+                    NamedNodeMap* bmap = existingHTML->attributes(false);
                     for (unsigned l = 0; map && l < map->length(); ++l) {
                         Attribute* it = map->attributeItem(l);
                         if (!bmap->getAttributeItem(it->name()))
@@ -428,7 +440,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                 }
                 return false;
             }
-        } else if (h->hasLocalName(titleTag) || h->hasLocalName(styleTag)) {
+        } else if (h->hasLocalName(titleTag) || h->hasLocalName(styleTag) || h->hasLocalName(scriptTag)) {
             bool createdHead = false;
             if (!m_head) {
                 createHead();
@@ -461,9 +473,9 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                 // make sure we don't overwrite already existing attributes
                 // some sites use <body bgcolor=rightcolor>...<body bgcolor=wrongcolor>
                 reportError(RedundantHTMLBodyError, &localName);
-                NamedAttrMap* map = static_cast<Element*>(n)->attributes(true);
+                NamedNodeMap* map = static_cast<Element*>(n)->attributes(true);
                 Element* existingBody = m_document->body();
-                NamedAttrMap* bmap = existingBody->attributes(false);
+                NamedNodeMap* bmap = existingBody->attributes(false);
                 for (unsigned l = 0; map && l < map->length(); ++l) {
                     Attribute* it = map->attributeItem(l);
                     if (!bmap->getAttributeItem(it->name()))
@@ -506,8 +518,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                 elt->hasLocalName(baseTag))) {
                 if (!m_head) {
                     m_head = new HTMLHeadElement(headTag, m_document);
-                    e = m_head;
-                    insertNode(e);
+                    insertNode(m_head.get());
                     handled = true;
                 }
             } else {
@@ -517,6 +528,12 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
                         return false;
                 }
                 if (!m_haveFrameSet) {
+                    // Ensure that head exists.
+                    // But not for older versions of Mail, where the implicit <head> isn't expected - <rdar://problem/6863795>
+                    if (shouldCreateImplicitHead(m_document))
+                        createHead();
+
+                    popBlock(headTag);
                     e = new HTMLBodyElement(bodyTag, m_document);
                     startBody();
                     insertNode(e);
@@ -530,6 +547,7 @@ bool HTMLParser::handleError(Node* n, bool flat, const AtomicString& localName, 
             else {
                 // This means the body starts here...
                 if (!m_haveFrameSet) {
+                    ASSERT(currentTagName == headTag);
                     popBlock(currentTagName);
                     e = new HTMLBodyElement(bodyTag, m_document);
                     startBody();
@@ -699,6 +717,12 @@ bool HTMLParser::bodyCreateErrorCheck(Token*, RefPtr<Node>&)
     // body no longer allowed if we have a frameset
     if (m_haveFrameSet)
         return false;
+    
+    // Ensure that head exists (unless parsing a fragment).
+    // But not for older versions of Mail, where the implicit <head> isn't expected - <rdar://problem/6863795>
+    if (!m_isParsingFragment && shouldCreateImplicitHead(m_document))
+        createHead();
+    
     popBlock(headTag);
     startBody();
     return true;
@@ -886,7 +910,9 @@ PassRefPtr<Node> HTMLParser::getNode(Token* t)
         gFunctionMap.set(nobrTag.localName().impl(), &HTMLParser::nestedCreateErrorCheck);
         gFunctionMap.set(noembedTag.localName().impl(), &HTMLParser::noembedCreateErrorCheck);
         gFunctionMap.set(noframesTag.localName().impl(), &HTMLParser::noframesCreateErrorCheck);
+#if !ENABLE(XHTMLMP)
         gFunctionMap.set(noscriptTag.localName().impl(), &HTMLParser::noscriptCreateErrorCheck);
+#endif
         gFunctionMap.set(olTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(pTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
         gFunctionMap.set(plaintextTag.localName().impl(), &HTMLParser::pCloserCreateErrorCheck);
@@ -992,11 +1018,13 @@ bool HTMLParser::isInline(Node* node) const
             e->hasLocalName(noframesTag) || e->hasLocalName(nolayerTag) ||
             e->hasLocalName(noembedTag))
             return true;
+#if !ENABLE(XHTMLMP)
         if (e->hasLocalName(noscriptTag) && !m_isParsingFragment) {
             Settings* settings = m_document->settings();
             if (settings && settings->isJavaScriptEnabled())
                 return true;
         }
+#endif
     }
     
     return false;
@@ -1335,7 +1363,10 @@ void HTMLParser::pushBlock(const AtomicString& tagName, int level)
 void HTMLParser::popBlock(const AtomicString& tagName, bool reportErrors)
 {
     HTMLStackElem* elem = m_blockStack;
-    
+
+    if (m_parserQuirks && elem && !m_parserQuirks->shouldPopBlock(elem->tagName, tagName))
+        return;
+
     int maxLevel = 0;
 
     while (elem && (elem->tagName != tagName)) {
@@ -1510,20 +1541,25 @@ void HTMLParser::freeBlock()
 
 void HTMLParser::createHead()
 {
-    if (m_head || !m_document->documentElement())
+    if (m_head)
         return;
+
+    if (!m_document->documentElement()) {
+        insertNode(new HTMLHtmlElement(htmlTag, m_document));
+        ASSERT(m_document->documentElement());
+    }
 
     m_head = new HTMLHeadElement(headTag, m_document);
     HTMLElement* body = m_document->body();
     ExceptionCode ec = 0;
-    m_document->documentElement()->insertBefore(m_head, body, ec);
+    m_document->documentElement()->insertBefore(m_head.get(), body, ec);
     if (ec)
         m_head = 0;
         
     // If the body does not exist yet, then the <head> should be pushed as the current block.
     if (m_head && !body) {
         pushBlock(m_head->localName(), m_head->tagPriority());
-        setCurrent(m_head);
+        setCurrent(m_head.get());
     }
 }
 
@@ -1623,5 +1659,23 @@ void HTMLParser::reportErrorToConsole(HTMLParserErrorCode errorCode, const Atomi
         isWarning(errorCode) ? WarningMessageLevel : ErrorMessageLevel,
         message, lineNumber, m_document->url().string());
 }
+
+#ifdef BUILDING_ON_LEOPARD
+bool shouldCreateImplicitHead(Document* document)
+{
+    ASSERT(document);
+    
+    Settings* settings = document->page() ? document->page()->settings() : 0;
+    return settings ? !settings->needsLeopardMailQuirks() : true;
+}
+#elif defined(BUILDING_ON_TIGER)
+bool shouldCreateImplicitHead(Document* document)
+{
+    ASSERT(document);
+    
+    Settings* settings = document->page() ? document->page()->settings() : 0;
+    return settings ? !settings->needsTigerMailQuirks() : true;
+}
+#endif
 
 }

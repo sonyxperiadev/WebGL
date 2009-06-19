@@ -57,15 +57,28 @@ public:
     void setCompositingLayersNeedUpdate(bool needUpdate = true);
     bool compositingLayersNeedUpdate() const { return m_compositingLayersNeedUpdate; }
 
+    void scheduleViewUpdate();
+    
     // Rebuild the tree of compositing layers
     void updateCompositingLayers(RenderLayer* updateRoot = 0);
 
-    // Update the compositing state of the given layer. Returns true if that state changed
-    bool updateLayerCompositingState(RenderLayer*, StyleDifference);
+    // Update the compositing state of the given layer. Returns true if that state changed.
+    enum CompositingChangeRepaint { CompositingChangeRepaintNow, CompositingChangeWillRepaintLater };
+    bool updateLayerCompositingState(RenderLayer*, CompositingChangeRepaint = CompositingChangeRepaintNow);
 
+    // Whether layer's backing needs a graphics layer to do clipping by an ancestor (non-stacking-context parent with overflow).
+    bool clippedByAncestor(RenderLayer*) const;
+    // Whether layer's backing needs a graphics layer to clip z-order children of the given layer.
+    bool clipsCompositingDescendants(const RenderLayer*) const;
+
+    // Whether the given layer needs an extra 'contents' layer.
+    bool needsContentsCompositingLayer(const RenderLayer*) const;
     // Return the bounding box required for compositing layer and its childern, relative to ancestorLayer.
     // If layerBoundingBox is not 0, on return it contains the bounding box of this layer only.
     IntRect calculateCompositedBounds(const RenderLayer* layer, const RenderLayer* ancestorLayer, IntRect* layerBoundingBox = 0);
+
+    // Repaint the appropriate layers when the given RenderLayer starts or stops being composited.
+    void repaintOnCompositingChange(RenderLayer*);
     
     // Notify us that a layer has been added or removed
     void layerWasAdded(RenderLayer* parent, RenderLayer* child);
@@ -94,14 +107,6 @@ private:
     bool needsToBeComposited(const RenderLayer*) const;
     // Whether the layer has an intrinsic need for compositing layer.
     bool requiresCompositingLayer(const RenderLayer*) const;
-
-    // Whether we need a graphics layer to do clipping by an ancestor (non-stacking-context parent with overflow).
-    bool clippedByAncestor(RenderLayer*) const;
-    // Whether we need a graphics layer to clip z-order children of the given layer.
-    bool clipsCompositingDescendants(const RenderLayer*) const;
-
-    // Whether the given layer needs an extra 'contents' layer.
-    bool needsContentsCompositingLayer(const RenderLayer*) const;
 
     // Repaint the given rect (which is layer's coords), and regions of child layers that intersect that rect.
     void recursiveRepaintLayerRect(RenderLayer* layer, const IntRect& rect);

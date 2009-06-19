@@ -54,7 +54,7 @@ ConstructType FunctionConstructor::getConstructData(ConstructData& constructData
     return ConstructTypeHost;
 }
 
-static JSValuePtr callFunctionConstructor(ExecState* exec, JSObject*, JSValuePtr, const ArgList& args)
+static JSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec, JSObject*, JSValue, const ArgList& args)
 {
     return constructFunction(exec, args);
 }
@@ -75,17 +75,19 @@ FunctionBodyNode* extractFunctionBody(ProgramNode* program)
     if (children.size() != 1)
         return 0;
 
-    ExprStatementNode* exprStatement = static_cast<ExprStatementNode*>(children[0].get()); 
+    StatementNode* exprStatement = children[0];
+    ASSERT(exprStatement);
     ASSERT(exprStatement->isExprStatement());
     if (!exprStatement || !exprStatement->isExprStatement())
         return 0;
 
-    FuncExprNode* funcExpr = static_cast<FuncExprNode*>(exprStatement->expr());
+    ExpressionNode* funcExpr = static_cast<ExprStatementNode*>(exprStatement)->expr();
+    ASSERT(funcExpr);
     ASSERT(funcExpr->isFuncExprNode());
     if (!funcExpr || !funcExpr->isFuncExprNode())
         return 0;
 
-    FunctionBodyNode* body = funcExpr->body();
+    FunctionBodyNode* body = static_cast<FuncExprNode*>(funcExpr)->body();
     ASSERT(body);
     return body;
 }
@@ -100,12 +102,12 @@ JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifi
     if (args.isEmpty())
         program = "(function() { \n})";
     else if (args.size() == 1)
-        program = "(function() { " + args.at(exec, 0).toString(exec) + "\n})";
+        program = "(function() { " + args.at(0).toString(exec) + "\n})";
     else {
-        program = "(function(" + args.at(exec, 0).toString(exec);
+        program = "(function(" + args.at(0).toString(exec);
         for (size_t i = 1; i < args.size() - 1; i++)
-            program += "," + args.at(exec, i).toString(exec);
-        program += ") { " + args.at(exec, args.size() - 1).toString(exec) + "\n})";
+            program += "," + args.at(i).toString(exec);
+        program += ") { " + args.at(args.size() - 1).toString(exec) + "\n})";
     }
 
     int errLine;

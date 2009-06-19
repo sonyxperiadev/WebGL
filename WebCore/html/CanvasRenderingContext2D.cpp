@@ -36,6 +36,7 @@
 #include "CanvasGradient.h"
 #include "CanvasPattern.h"
 #include "CanvasStyle.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "Document.h"
@@ -49,7 +50,6 @@
 #include "ImageBuffer.h"
 #include "ImageData.h"
 #include "KURL.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "RenderHTMLCanvas.h"
 #include "SecurityOrigin.h"
@@ -60,6 +60,7 @@
 
 #include <wtf/ByteArray.h>
 #include <wtf/MathExtras.h>
+#include <wtf/OwnPtr.h>
 
 using namespace std;
 
@@ -95,6 +96,9 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas)
     : m_canvas(canvas)
     , m_stateStack(1)
 {
+    // Make sure that even if the drawingContext() has a different default
+    // thickness, it is in sync with the canvas thickness.
+    setLineWidth(lineWidth());
 }
 
 void CanvasRenderingContext2D::ref()
@@ -1442,8 +1446,8 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         // FIXME: The rect is not big enough for miters on stroked text.
         IntRect maskRect = enclosingIntRect(textRect);
 
-        auto_ptr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size(), false);
-        
+        OwnPtr<ImageBuffer> maskImage = ImageBuffer::create(maskRect.size(), false);
+
         GraphicsContext* maskImageContext = maskImage->context();
 
         if (fill)

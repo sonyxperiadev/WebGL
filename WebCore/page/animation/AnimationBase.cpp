@@ -101,6 +101,12 @@ static inline Length blendFunc(const AnimationBase*, const Length& from, const L
     return to.blend(from, progress);
 }
 
+static inline LengthSize blendFunc(const AnimationBase* anim, const LengthSize& from, const LengthSize& to, double progress)
+{  
+    return LengthSize(blendFunc(anim, from.width(), to.width(), progress),
+                      blendFunc(anim, from.height(), to.height(), progress));
+}
+
 static inline IntSize blendFunc(const AnimationBase* anim, const IntSize& from, const IntSize& to, double progress)
 {  
     return IntSize(blendFunc(anim, from.width(), to.width(), progress),
@@ -413,7 +419,16 @@ static void ensurePropertyMap()
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyPaddingTop, &RenderStyle::paddingTop, &RenderStyle::setPaddingTop));
         gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyPaddingBottom, &RenderStyle::paddingBottom, &RenderStyle::setPaddingBottom));
         gPropertyWrappers->append(new PropertyWrapper<const Color&>(CSSPropertyColor, &RenderStyle::color, &RenderStyle::setColor));
+
         gPropertyWrappers->append(new PropertyWrapper<const Color&>(CSSPropertyBackgroundColor, &RenderStyle::backgroundColor, &RenderStyle::setBackgroundColor));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyBackgroundPositionX, &RenderStyle::backgroundXPosition, &RenderStyle::setBackgroundXPosition));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyBackgroundPositionY, &RenderStyle::backgroundYPosition, &RenderStyle::setBackgroundYPosition));
+        gPropertyWrappers->append(new PropertyWrapper<LengthSize>(CSSPropertyWebkitBackgroundSize, &RenderStyle::backgroundSize, &RenderStyle::setBackgroundSize));
+
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitMaskPositionX, &RenderStyle::maskXPosition, &RenderStyle::setMaskXPosition));
+        gPropertyWrappers->append(new PropertyWrapper<Length>(CSSPropertyWebkitMaskPositionY, &RenderStyle::maskYPosition, &RenderStyle::setMaskYPosition));
+        gPropertyWrappers->append(new PropertyWrapper<LengthSize>(CSSPropertyWebkitMaskSize, &RenderStyle::maskSize, &RenderStyle::setMaskSize));
+
         gPropertyWrappers->append(new PropertyWrapper<int>(CSSPropertyFontSize, &RenderStyle::fontSize, &RenderStyle::setBlendedFontSize));
         gPropertyWrappers->append(new PropertyWrapper<unsigned short>(CSSPropertyWebkitColumnRuleWidth, &RenderStyle::columnRuleWidth, &RenderStyle::setColumnRuleWidth));
         gPropertyWrappers->append(new PropertyWrapper<float>(CSSPropertyWebkitColumnGap, &RenderStyle::columnGap, &RenderStyle::setColumnGap));
@@ -469,20 +484,13 @@ static void ensurePropertyMap()
 
         // TODO:
         // 
-        //  CSSPropertyBackground, CSSPropertyBackgroundPosition
         //  CSSPropertyMinWidth, CSSPropertyMaxWidth, CSSPropertyMinHeight, CSSPropertyMaxHeight
         //  CSSPropertyTextIndent
         //  CSSPropertyVerticalAlign
-        //  CSSPropertyWebkitBackgroundOrigin
-        //  CSSPropertyWebkitBackgroundSize
-        //  CSSPropertyWebkitMaskPosition
-        //  CSSPropertyWebkitMaskOrigin
-        //  CSSPropertyWebkitMaskSize
         // 
         // Compound properties that have components that should be animatable:
         // 
         //  CSSPropertyWebkitColumns
-        //  CSSPropertyWebkitMask
         //  CSSPropertyWebkitBoxReflect
 
         // Make sure unused slots have a value
@@ -516,7 +524,10 @@ static void addPropertyWrapper(int propertyID, PropertyWrapperBase* wrapper)
 static void addShorthandProperties()
 {
     static const int animatableShorthandProperties[] = {
-        CSSPropertyBackground,      // for background-color
+        CSSPropertyBackground,      // for background-color, background-position
+        CSSPropertyBackgroundPosition,
+        CSSPropertyWebkitMask,      // for mask-position
+        CSSPropertyWebkitMaskPosition,
         CSSPropertyBorderTop, CSSPropertyBorderRight, CSSPropertyBorderBottom, CSSPropertyBorderLeft,
         CSSPropertyBorderColor, 
         CSSPropertyBorderWidth,
@@ -581,8 +592,8 @@ AnimationBase::AnimationBase(const Animation* transition, RenderObject* renderer
 
 AnimationBase::~AnimationBase()
 {
-    m_compAnim->removeFromStyleAvailableWaitList(this);
-    m_compAnim->removeFromStartTimeResponseWaitList(this);
+    m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
+    m_compAnim->animationController()->removeFromStartTimeResponseWaitList(this);
 }
 
 bool AnimationBase::propertiesEqual(int prop, const RenderStyle* a, const RenderStyle* b)
@@ -649,11 +660,11 @@ bool AnimationBase::animationOfPropertyIsAccelerated(int prop)
 }
 #endif
 
-void AnimationBase::setChanged(Node* node)
+void AnimationBase::setNeedsStyleRecalc(Node* node)
 {
     ASSERT(!node || (node->document() && !node->document()->inPageCache()));
     if (node)
-        node->setChanged(AnimationStyleChange);
+        node->setNeedsStyleRecalc(AnimationStyleChange);
 }
 
 double AnimationBase::duration() const
@@ -676,7 +687,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
     // If we get AnimationStateInputRestartAnimation then we force a new animation, regardless of state.
     if (input == AnimationStateInputMakeNew) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
         m_animState = AnimationStateNew;
         m_startTime = 0;
         m_pauseTime = -1;
@@ -688,7 +699,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
 
     if (input == AnimationStateInputRestartAnimation) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
         m_animState = AnimationStateNew;
         m_startTime = 0;
         m_pauseTime = -1;
@@ -703,7 +714,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
 
     if (input == AnimationStateInputEndAnimation) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
         m_animState = AnimationStateDone;
         endAnimation(true);
         return;
@@ -743,11 +754,11 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                 ASSERT(param >= 0);
                 // Start timer has fired, tell the animation to start and wait for it to respond with start time
                 m_animState = AnimationStateStartWaitStyleAvailable;
-                m_compAnim->addToStyleAvailableWaitList(this);
+                m_compAnim->animationController()->addToStyleAvailableWaitList(this);
 
                 // Trigger a render so we can start the animation
                 if (m_object)
-                    m_compAnim->animationControllerPriv()->addNodeChangeToDispatch(m_object->node());
+                    m_compAnim->animationController()->addNodeChangeToDispatch(m_object->node());
             } else {
                 ASSERT(!paused());
                 // We're waiting for the start timer to fire and we got a pause. Cancel the timer, pause and wait
@@ -776,7 +787,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
             }
             else {
                 bool started = startAnimation(0);
-                m_compAnim->addToStartTimeResponseWaitList(this, started);
+                m_compAnim->animationController()->addToStartTimeResponseWaitList(this, started);
                 m_fallbackAnimating = !started;
             }
             break;
@@ -792,9 +803,9 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                 // Decide whether to go into looping or ending state
                 goIntoEndingOrLoopingState();
 
-                // Dispatch updateRendering so we can start the animation
+                // Dispatch updateStyleIfNeeded so we can start the animation
                 if (m_object)
-                    m_compAnim->animationControllerPriv()->addNodeChangeToDispatch(m_object->node());
+                    m_compAnim->animationController()->addNodeChangeToDispatch(m_object->node());
             } else {
                 // We are pausing while waiting for a start response. Cancel the animation and wait. When 
                 // we unpause, we will act as though the start timer just fired
@@ -834,7 +845,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                     resumeOverriddenAnimations();
 
                     // Fire off another style change so we can set the final value
-                    m_compAnim->animationControllerPriv()->addNodeChangeToDispatch(m_object->node());
+                    m_compAnim->animationController()->addNodeChangeToDispatch(m_object->node());
                 }
             } else {
                 // We are pausing while running. Cancel the animation and wait
@@ -891,8 +902,8 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                 updateStateMachine(AnimationStateInputStartTimeSet, beginAnimationUpdateTime());
                 m_fallbackAnimating = true;
             } else {
-                bool started = startAnimation(0);
-                m_compAnim->addToStartTimeResponseWaitList(this, started);
+                bool started = startAnimation(m_startTime);
+                m_compAnim->animationController()->addToStartTimeResponseWaitList(this, started);
                 m_fallbackAnimating = !started;
             }
             break;
@@ -958,7 +969,7 @@ void AnimationBase::updatePlayState(bool run)
         updateStateMachine(run ? AnimationStateInputPlayStateRunnning : AnimationStateInputPlayStatePaused, -1);
 }
 
-double AnimationBase::willNeedService()
+double AnimationBase::timeToNextService()
 {
     // Returns the time at which next service is required. -1 means no service is required. 0 means 
     // service is required now, and > 0 means service is required that many seconds in the future.
@@ -1062,7 +1073,7 @@ void AnimationBase::pauseAtTime(double t)
 
 double AnimationBase::beginAnimationUpdateTime() const
 {
-    return m_compAnim->animationControllerPriv()->beginAnimationUpdateTime();
+    return m_compAnim->animationController()->beginAnimationUpdateTime();
 }
 
 double AnimationBase::getElapsedTime() const

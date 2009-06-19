@@ -31,10 +31,12 @@
 #include "ChromiumBridge.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
-#include "Document.h"
 #include "FontSelector.h"
 #include "FontUtilsChromiumWin.h"
 #include "GraphicsContext.h"
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
+#include "MediaControlElements.h"
 #include "RenderBox.h"
 #include "RenderSlider.h"
 #include "ScrollbarTheme.h"
@@ -55,6 +57,20 @@
 namespace WebCore {
 
 namespace {
+
+// The background for the media player controls should be a 60% opaque black rectangle. This
+// matches the UI mockups for the default UI theme.
+static const float defaultMediaControlOpacity = 0.6f;
+
+// These values all match Safari/Win.
+static const float defaultControlFontPixelSize = 13;
+static const float defaultCancelButtonSize = 9;
+static const float minCancelButtonSize = 5;
+static const float maxCancelButtonSize = 21;
+static const float defaultSearchFieldResultsDecorationSize = 13;
+static const float minSearchFieldResultsDecorationSize = 9;
+static const float maxSearchFieldResultsDecorationSize = 30;
+static const float defaultSearchFieldResultsButtonWidth = 18;
 
 bool canvasHasMultipleLayers(const SkCanvas* canvas)
 {
@@ -126,8 +142,6 @@ static FontDescription smallSystemFont;
 static FontDescription menuFont;
 static FontDescription labelFont;
 
-bool RenderThemeChromiumWin::m_findInPageMode = false;
-
 // Internal static helper functions.  We don't put them in an anonymous
 // namespace so they have easier access to the WebCore namespace.
 
@@ -196,23 +210,8 @@ static float systemFontSize(const LOGFONT& font)
 // FIXME: The only case where we know we don't match IE is for ANSI encodings.
 // IE uses MS Shell Dlg there, which we render incorrectly at certain pixel
 // sizes (e.g. 15px). So, for now we just use Arial.
-static wchar_t* defaultGUIFont(Document* document)
+static wchar_t* defaultGUIFont()
 {
-    UScriptCode dominantScript = document->dominantScript();
-    const wchar_t* family = NULL;
-
-    // FIXME: Special-casing of Latin/Greeek/Cyrillic should go away once
-    // GetFontFamilyForScript is enhanced to support GenericFamilyType for
-    // real. For now, we make sure that we use Arial to match IE for those
-    // scripts.
-    if (dominantScript != USCRIPT_LATIN &&
-        dominantScript != USCRIPT_CYRILLIC &&
-        dominantScript != USCRIPT_GREEK &&
-        dominantScript != USCRIPT_INVALID_CODE) {
-        family = getFontFamilyForScript(dominantScript, FontDescription::NoFamily);
-        if (family)
-            return const_cast<wchar_t*>(family);
-    }
     return L"Arial";
 }
 
@@ -252,6 +251,20 @@ static double querySystemBlinkInterval(double defaultInterval)
     return blinkTime / 1000.0;
 }
 
+#if ENABLE(VIDEO)
+// Attempt to retrieve a HTMLMediaElement from a Node. Returns NULL if one cannot be found.
+static HTMLMediaElement* mediaElementParent(Node* node)
+{
+    if (!node)
+        return 0;
+    Node* mediaNode = node->shadowAncestorNode();
+    if (!mediaNode || (!mediaNode->hasTagName(HTMLNames::videoTag) && !mediaNode->hasTagName(HTMLNames::audioTag)))
+        return 0;
+
+    return static_cast<HTMLMediaElement*>(mediaNode);
+}
+#endif
+
 // Implement WebCore::theme() for getting the global RenderTheme.
 RenderTheme* theme()
 {
@@ -261,13 +274,20 @@ RenderTheme* theme()
 
 String RenderThemeChromiumWin::extraDefaultStyleSheet()
 {
-    return String(themeChromiumWinUserAgentStyleSheet, sizeof(themeChromiumWinUserAgentStyleSheet));
+    return String(themeWinUserAgentStyleSheet, sizeof(themeWinUserAgentStyleSheet));
 }
 
 String RenderThemeChromiumWin::extraQuirksStyleSheet()
 {
     return String(themeWinQuirksUserAgentStyleSheet, sizeof(themeWinQuirksUserAgentStyleSheet));
 }
+
+#if ENABLE(VIDEO)
+String RenderThemeChromiumWin::extraMediaControlsStyleSheet()
+{
+    return String(mediaControlsChromiumUserAgentStyleSheet, sizeof(mediaControlsChromiumUserAgentStyleSheet));
+}
+#endif
 
 bool RenderThemeChromiumWin::supportsFocusRing(const RenderStyle* style) const
 {
@@ -281,29 +301,25 @@ bool RenderThemeChromiumWin::supportsFocusRing(const RenderStyle* style) const
 Color RenderThemeChromiumWin::platformActiveSelectionBackgroundColor() const
 {
     if (ChromiumBridge::layoutTestMode())
-        return Color("#0000FF");  // Royal blue.
-    if (m_findInPageMode)
-        return Color(255, 150, 50, 200);  // Orange.
+        return Color(0x00, 0x00, 0xff);  // Royal blue.
     COLORREF color = GetSysColor(COLOR_HIGHLIGHT);
-    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 255);
+    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
 }
 
 Color RenderThemeChromiumWin::platformInactiveSelectionBackgroundColor() const
 {
     if (ChromiumBridge::layoutTestMode())
-        return Color("#999999");  // Medium gray.
-    if (m_findInPageMode)
-        return Color(255, 150, 50, 200);  // Orange.
+        return Color(0x99, 0x99, 0x99);  // Medium gray.
     COLORREF color = GetSysColor(COLOR_GRAYTEXT);
-    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 255);
+    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
 }
 
 Color RenderThemeChromiumWin::platformActiveSelectionForegroundColor() const
 {
     if (ChromiumBridge::layoutTestMode())
-        return Color("#FFFFCC");  // Pale yellow.
+        return Color(0xff, 0xff, 0xcc);  // Pale yellow.
     COLORREF color = GetSysColor(COLOR_HIGHLIGHTTEXT);
-    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 255);
+    return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
 }
 
 Color RenderThemeChromiumWin::platformInactiveSelectionForegroundColor() const
@@ -311,9 +327,14 @@ Color RenderThemeChromiumWin::platformInactiveSelectionForegroundColor() const
     return Color::white;
 }
 
-Color RenderThemeChromiumWin::platformTextSearchHighlightColor() const
+Color RenderThemeChromiumWin::platformActiveTextSearchHighlightColor() const
 {
-    return Color(255, 255, 150);
+    return Color(0xff, 0x96, 0x32);  // Orange.
+}
+
+Color RenderThemeChromiumWin::platformInactiveTextSearchHighlightColor() const
+{
+    return Color(0xff, 0xff, 0x96); // Yellow.
 }
 
 double RenderThemeChromiumWin::caretBlinkInterval() const
@@ -328,7 +349,7 @@ double RenderThemeChromiumWin::caretBlinkInterval() const
     return blinkInterval;
 }
 
-void RenderThemeChromiumWin::systemFont(int propId, Document* document, FontDescription& fontDescription) const
+void RenderThemeChromiumWin::systemFont(int propId, FontDescription& fontDescription) const
 {
     // This logic owes much to RenderThemeSafari.cpp.
     FontDescription* cachedDesc = NULL;
@@ -365,12 +386,12 @@ void RenderThemeChromiumWin::systemFont(int propId, Document* document, FontDesc
     case CSSValueWebkitMiniControl:
     case CSSValueWebkitSmallControl:
     case CSSValueWebkitControl:
-        faceName = defaultGUIFont(document);
+        faceName = defaultGUIFont();
         // Why 2 points smaller?  Because that's what Gecko does.
         fontSize = defaultFontSize - pointsToPixels(2);
         break;
     default:
-        faceName = defaultGUIFont(document);
+        faceName = defaultGUIFont();
         fontSize = defaultFontSize;
         break;
     }
@@ -462,9 +483,172 @@ bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const RenderObjec
     return false;
 }
 
-bool RenderThemeChromiumWin::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+void RenderThemeChromiumWin::adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
-    return paintTextField(o, i, r);
+    // Scale the button size based on the font size
+    float fontScale = style->fontSize() / defaultControlFontPixelSize;
+    int cancelButtonSize = lroundf(std::min(std::max(minCancelButtonSize, defaultCancelButtonSize * fontScale), maxCancelButtonSize));
+    style->setWidth(Length(cancelButtonSize, Fixed));
+    style->setHeight(Length(cancelButtonSize, Fixed));
+}
+
+bool RenderThemeChromiumWin::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    IntRect bounds = r;
+    ASSERT(o->parent());
+    if (!o->parent() || !o->parent()->isBox())
+        return false;
+    
+    RenderBox* parentRenderBox = toRenderBox(o->parent());
+
+    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    
+    // Make sure the scaled button stays square and will fit in its parent's box
+    bounds.setHeight(std::min(parentBox.width(), std::min(parentBox.height(), bounds.height())));
+    bounds.setWidth(bounds.height());
+
+    // Center the button vertically.  Round up though, so if it has to be one pixel off-center, it will
+    // be one pixel closer to the bottom of the field.  This tends to look better with the text.
+    bounds.setY(parentBox.y() + (parentBox.height() - bounds.height() + 1) / 2);
+
+    static Image* cancelImage = Image::loadPlatformResource("searchCancel").releaseRef();
+    static Image* cancelPressedImage = Image::loadPlatformResource("searchCancelPressed").releaseRef();
+    i.context->drawImage(isPressed(o) ? cancelPressedImage : cancelImage, bounds);
+    return false;
+}
+
+void RenderThemeChromiumWin::adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+{
+    IntSize emptySize(1, 11);
+    style->setWidth(Length(emptySize.width(), Fixed));
+    style->setHeight(Length(emptySize.height(), Fixed));
+}
+
+void RenderThemeChromiumWin::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+{
+    // Scale the decoration size based on the font size
+    float fontScale = style->fontSize() / defaultControlFontPixelSize;
+    int magnifierSize = lroundf(std::min(std::max(minSearchFieldResultsDecorationSize, defaultSearchFieldResultsDecorationSize * fontScale), 
+                                         maxSearchFieldResultsDecorationSize));
+    style->setWidth(Length(magnifierSize, Fixed));
+    style->setHeight(Length(magnifierSize, Fixed));
+}
+
+bool RenderThemeChromiumWin::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    IntRect bounds = r;
+    ASSERT(o->parent());
+    if (!o->parent() || !o->parent()->isBox())
+        return false;
+    
+    RenderBox* parentRenderBox = toRenderBox(o->parent());
+    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    
+    // Make sure the scaled decoration stays square and will fit in its parent's box
+    bounds.setHeight(std::min(parentBox.width(), std::min(parentBox.height(), bounds.height())));
+    bounds.setWidth(bounds.height());
+
+    // Center the decoration vertically.  Round up though, so if it has to be one pixel off-center, it will
+    // be one pixel closer to the bottom of the field.  This tends to look better with the text.
+    bounds.setY(parentBox.y() + (parentBox.height() - bounds.height() + 1) / 2);
+    
+    static Image* magnifierImage = Image::loadPlatformResource("searchMagnifier").releaseRef();
+    i.context->drawImage(magnifierImage, bounds);
+    return false;
+}
+
+void RenderThemeChromiumWin::adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+{
+    // Scale the button size based on the font size
+    float fontScale = style->fontSize() / defaultControlFontPixelSize;
+    int magnifierHeight = lroundf(std::min(std::max(minSearchFieldResultsDecorationSize, defaultSearchFieldResultsDecorationSize * fontScale), 
+                                           maxSearchFieldResultsDecorationSize));
+    int magnifierWidth = lroundf(magnifierHeight * defaultSearchFieldResultsButtonWidth / defaultSearchFieldResultsDecorationSize);
+    style->setWidth(Length(magnifierWidth, Fixed));
+    style->setHeight(Length(magnifierHeight, Fixed));
+}
+
+bool RenderThemeChromiumWin::paintSearchFieldResultsButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    IntRect bounds = r;
+    ASSERT(o->parent());
+    if (!o->parent())
+        return false;
+    if (!o->parent() || !o->parent()->isBox())
+        return false;
+    
+    RenderBox* parentRenderBox = toRenderBox(o->parent());
+    IntRect parentBox = parentRenderBox->absoluteContentBox();
+    
+    // Make sure the scaled decoration will fit in its parent's box
+    bounds.setHeight(std::min(parentBox.height(), bounds.height()));
+    bounds.setWidth(std::min(parentBox.width(), static_cast<int>(bounds.height() * defaultSearchFieldResultsButtonWidth / defaultSearchFieldResultsDecorationSize)));
+
+    // Center the button vertically.  Round up though, so if it has to be one pixel off-center, it will
+    // be one pixel closer to the bottom of the field.  This tends to look better with the text.
+    bounds.setY(parentBox.y() + (parentBox.height() - bounds.height() + 1) / 2);
+
+    static Image* magnifierImage = Image::loadPlatformResource("searchMagnifierResults").releaseRef();
+    i.context->drawImage(magnifierImage, bounds);
+    return false;
+}
+
+bool RenderThemeChromiumWin::paintMediaButtonInternal(GraphicsContext* context, const IntRect& rect, Image* image)
+{
+    context->beginTransparencyLayer(defaultMediaControlOpacity);
+
+    // Draw background.
+    Color oldFill = context->fillColor();
+    Color oldStroke = context->strokeColor();
+
+    context->setFillColor(Color::black);
+    context->setStrokeColor(Color::black);
+    context->drawRect(rect);
+
+    context->setFillColor(oldFill);
+    context->setStrokeColor(oldStroke);
+
+    // Create a destination rectangle for the image that is centered in the drawing rectangle, rounded left, and down.
+    IntRect imageRect = image->rect();
+    imageRect.setY(rect.y() + (rect.height() - image->height() + 1) / 2);
+    imageRect.setX(rect.x() + (rect.width() - image->width() + 1) / 2);
+
+    context->drawImage(image, imageRect, CompositeSourceAtop);
+    context->endTransparencyLayer();
+
+    return false;
+}
+
+bool RenderThemeChromiumWin::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+#if ENABLE(VIDEO)
+    HTMLMediaElement* mediaElement = mediaElementParent(o->node());
+    if (!mediaElement)
+        return false;
+
+    static Image* mediaPlay = Image::loadPlatformResource("mediaPlay").releaseRef();
+    static Image* mediaPause = Image::loadPlatformResource("mediaPause").releaseRef();
+
+    return paintMediaButtonInternal(paintInfo.context, rect, mediaElement->paused() ? mediaPlay : mediaPause);
+#else
+    return false;
+#endif
+}
+
+bool RenderThemeChromiumWin::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+{
+#if ENABLE(VIDEO)
+    HTMLMediaElement* mediaElement = mediaElementParent(o->node());
+    if (!mediaElement)
+        return false;
+
+    static Image* soundFull = Image::loadPlatformResource("mediaSoundFull").releaseRef();
+    static Image* soundNone = Image::loadPlatformResource("mediaSoundNone").releaseRef();
+
+    return paintMediaButtonInternal(paintInfo.context, rect, mediaElement->muted() ? soundNone: soundFull);
+#else
+    return false;
+#endif
 }
 
 void RenderThemeChromiumWin::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
@@ -577,7 +761,8 @@ int RenderThemeChromiumWin::buttonInternalPaddingBottom() const
 }
 
 // static
-void RenderThemeChromiumWin::setDefaultFontSize(int fontSize) {
+void RenderThemeChromiumWin::setDefaultFontSize(int fontSize)
+{
     defaultFontSize = static_cast<float>(fontSize);
 
     // Reset cached fonts.
@@ -697,14 +882,29 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
 
     const ThemeData& themeData = getThemeData(o);
 
+    // Fallback to white if the specified color object is invalid.
+    Color backgroundColor(Color::white);
+    if (o->style()->backgroundColor().isValid()) {
+        backgroundColor = o->style()->backgroundColor();
+    }
+
+    // If we have background-image, don't fill the content area to expose the
+    // parent's background. Also, we shouldn't fill the content area if the
+    // alpha of the color is 0. The API of Windows GDI ignores the alpha.
+    //
+    // Note that we should paint the content area white if we have neither the
+    // background color nor background image explicitly specified to keep the
+    // appearance of select element consistent with other browsers.
+    bool fillContentArea = !o->style()->hasBackgroundImage() && backgroundColor.alpha() != 0;
+
     WebCore::ThemePainter painter(i.context, r);
     ChromiumBridge::paintTextField(painter.context(),
                                    themeData.m_part,
                                    themeData.m_state,
                                    themeData.m_classicState,
                                    painter.drawRect(),
-                                   o->style()->backgroundColor(),
-                                   true,
+                                   backgroundColor,
+                                   fillContentArea,
                                    drawEdges);
     return false;
 }
@@ -725,15 +925,6 @@ int RenderThemeChromiumWin::menuListInternalPadding(RenderStyle* style, int padd
         padding += ScrollbarTheme::nativeTheme()->scrollbarThickness();
 
     return padding;
-}
-
-// static
-void RenderThemeChromiumWin::setFindInPageMode(bool enable) {
-  if (m_findInPageMode == enable)
-      return;
-
-  m_findInPageMode = enable;
-  theme()->platformColorsDidChange();
 }
 
 } // namespace WebCore

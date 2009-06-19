@@ -29,7 +29,6 @@
 
 namespace WebCore {
 
-// WMLFormControlElement
 WMLFormControlElement::WMLFormControlElement(const QualifiedName& tagName, Document* document)
     : WMLElement(tagName, document)
     , m_valueMatchesRenderer(false)
@@ -56,14 +55,24 @@ bool WMLFormControlElement::isFocusable() const
     return true;
 }
 
-// WMLFormControlElementWithState
-WMLFormControlElementWithState::WMLFormControlElementWithState(const QualifiedName& tagName, Document* document)
-    : WMLFormControlElement(tagName, document)
+void WMLFormControlElement::attach()
 {
+    ASSERT(!attached());
+    WMLElement::attach();
+
+    // The call to updateFromElement() needs to go after the call through
+    // to the base class's attach() because that can sometimes do a close
+    // on the renderer.
+    if (renderer())
+        renderer()->updateFromElement();
 }
 
-WMLFormControlElementWithState::~WMLFormControlElementWithState()
+void WMLFormControlElement::recalcStyle(StyleChange change)
 {
+    WMLElement::recalcStyle(change);
+
+    if (renderer())
+        renderer()->updateFromElement();
 }
 
 }

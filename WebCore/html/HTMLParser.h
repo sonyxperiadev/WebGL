@@ -3,7 +3,7 @@
               (C) 1997 Torben Weis (weis@kde.org)
               (C) 1998 Waldo Bastian (bastian@kde.org)
               (C) 1999 Lars Knoll (knoll@kde.org)
-    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 
 #include "QualifiedName.h"
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 #include "HTMLParserErrorCodes.h"
 
@@ -38,6 +39,7 @@ class HTMLDocument;
 class HTMLFormElement;
 class HTMLHeadElement;
 class HTMLMapElement;
+class HTMLParserQuirks;
 class Node;
 
 struct HTMLStackElem;
@@ -169,7 +171,7 @@ private:
 
     RefPtr<HTMLFormElement> m_currentFormElement; // currently active form
     RefPtr<HTMLMapElement> m_currentMapElement; // current map
-    HTMLHeadElement* m_head; // head element; needed for HTML which defines <base> after </head>
+    RefPtr<HTMLHeadElement> m_head; // head element; needed for HTML which defines <base> after </head>
     RefPtr<Node> m_isindexElement; // a possible <isindex> element in the head
 
     bool m_inBody;
@@ -182,7 +184,15 @@ private:
     bool m_reportErrors;
     bool m_handlingResidualStyleAcrossBlocks;
     int m_inStrayTableContent;
+
+    OwnPtr<HTMLParserQuirks> m_parserQuirks;
 };
+
+#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_TIGER)
+bool shouldCreateImplicitHead(Document*);
+#else
+inline bool shouldCreateImplicitHead(Document*) { return true; }
+#endif
 
 }
     

@@ -22,7 +22,10 @@
 # LOCAL_SRC_FILES_EXCLUDED := \
 #	DerivedSources.cpp \
 #	WebCorePrefix.cpp \
+# accessibility/*.cpp \
+#	bindings/js/JSCustomVersionChangeCallback.cpp \
 #	bindings/js/JSHTMLAudioElementConstructor.cpp \
+#	bindings/js/JSInspectorControllerCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
 #	bindings/js/JSWorker*.cpp \
 #	bindings/js/Worker*.cpp \
@@ -38,6 +41,7 @@
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
+# html/HTMLElementsAllInOne.cpp \
 #	html/HTMLAudioElement.cpp \
 #	html/HTMLMediaElement.cpp \
 #	html/HTMLSourceElement.cpp \
@@ -81,7 +85,6 @@
 #	/image-decoders/* \
 #	^inspector/* \
 #	^ksvg2/* \
-#	^loader\/appcache/* \
 #	^loader\/archive/* \
 #	/mac/* \
 #	^manual-tests/* \
@@ -120,6 +123,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSCanvasRenderingContext2DCustom.cpp \
 	bindings/js/JSClipboardCustom.cpp \
 	bindings/js/JSConsoleCustom.cpp \
+  bindings/js/JSCoordinatesCustom.cpp \
 	bindings/js/JSCustomPositionCallback.cpp \
 	bindings/js/JSCustomPositionErrorCallback.cpp \
 	bindings/js/JSCustomSQLStatementCallback.cpp \
@@ -128,14 +132,14 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
 	bindings/js/JSCustomVoidCallback.cpp \
 	bindings/js/JSCustomXPathNSResolver.cpp \
+  bindings/js/JSDOMApplicationCacheCustom.cpp \
+  bindings/js/JSDOMBinding.cpp \
+  bindings/js/JSDOMGlobalObject.cpp \
+  bindings/js/JSDOMStringListCustom.cpp \
+  bindings/js/JSDOMWindowBase.cpp \
+  bindings/js/JSDOMWindowCustom.cpp \
+  bindings/js/JSDOMWindowShell.cpp \
 	bindings/js/JSDatabaseCustom.cpp \
-	bindings/js/JSDOMApplicationCacheCustom.cpp \
-	bindings/js/JSDOMBinding.cpp \
-	bindings/js/JSDOMGlobalObject.cpp \
-	bindings/js/JSDOMStringListCustom.cpp \
-	bindings/js/JSDOMWindowBase.cpp \
-	bindings/js/JSDOMWindowCustom.cpp \
-	bindings/js/JSDOMWindowShell.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSDocumentFragmentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
@@ -214,8 +218,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
+  bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \
+  bindings/js/ScriptObjectQuarantine.cpp \
+  bindings/js/ScriptState.cpp \
 	bindings/js/ScriptValue.cpp \
 	\
 	bridge/IdentifierRep.cpp \
@@ -311,6 +318,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CDATASection.cpp \
 	dom/CSSMappedAttributeDeclaration.cpp \
 	dom/CharacterData.cpp \
+  dom/CheckedRadioButtons.cpp \
 	dom/ChildNodeList.cpp \
 	dom/ClassNames.cpp \
 	dom/ClassNodeList.cpp \
@@ -335,8 +343,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/EventTarget.cpp \
 	dom/ExceptionBase.cpp \
 	dom/ExceptionCode.cpp \
-	dom/FormControlElement.cpp \
-	dom/FormControlElementWithState.cpp \
 	dom/InputElement.cpp \
 	dom/KeyboardEvent.cpp \
 	dom/MappedAttribute.cpp \
@@ -366,6 +372,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/RegisteredEventListener.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
+  dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
 	dom/StaticStringList.cpp \
@@ -386,6 +393,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WheelEvent.cpp \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
+  dom/XMLTokenizerScope.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
@@ -416,6 +424,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/RemoveFormatCommand.cpp \
 	editing/RemoveNodeCommand.cpp \
 	editing/RemoveNodePreservingChildrenCommand.cpp \
+  editing/ReplaceNodeWithSpanCommand.cpp \
 	editing/ReplaceSelectionCommand.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
@@ -445,6 +454,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/CanvasPixelArray.cpp \
 	html/CanvasRenderingContext2D.cpp \
 	html/CanvasStyle.cpp \
+  html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
 	html/HTMLAnchorElement.cpp \
@@ -493,6 +503,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLMetaElement.cpp \
 	html/HTMLModElement.cpp \
 	html/HTMLNameCollection.cpp \
+  html/HTMLNoScriptElement.cpp \
 	html/HTMLOListElement.cpp \
 	html/HTMLObjectElement.cpp \
 	html/HTMLOptGroupElement.cpp \
@@ -593,6 +604,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/NavigatorBase.cpp \
 	page/Page.cpp \
 	page/PageGroup.cpp \
+  page/PageGroupLoadDeferrer.cpp \
 	page/PrintContext.cpp \
 	page/Screen.cpp \
 	page/SecurityOrigin.cpp \
@@ -814,7 +826,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/InlineFlowBox.cpp \
 	rendering/InlineTextBox.cpp \
 	rendering/LayoutState.cpp \
-	rendering/ListMarkerBox.cpp \
 	rendering/MediaControlElements.cpp \
 	rendering/PointerEventsHitRules.cpp \
 	rendering/RenderApplet.cpp \

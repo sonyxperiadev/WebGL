@@ -143,7 +143,8 @@ private:
     WTF::Vector<char>*     m_data;
 };
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, 
+void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
+        StoredCredentials /*storedCredentials*/,
         ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data,
         Frame* frame) 
 {

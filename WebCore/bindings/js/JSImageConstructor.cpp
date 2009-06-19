@@ -34,13 +34,14 @@ ASSERT_CLASS_FITS_IN_CELL(JSImageConstructor);
 
 const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", 0, 0, 0 };
 
-JSImageConstructor::JSImageConstructor(ExecState* exec, ScriptExecutionContext* context)
+JSImageConstructor::JSImageConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMObject(JSImageConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
-    , m_globalObject(toJSDOMGlobalObject(context))
+    , m_globalObject(globalObject)
 {
-    ASSERT(context->isDocument());
+    ASSERT(globalObject->scriptExecutionContext());
+    ASSERT(globalObject->scriptExecutionContext()->isDocument());
 
-    putDirect(exec->propertyNames().prototype, JSHTMLImageElementPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSHTMLImageElementPrototype::self(exec, exec->lexicalGlobalObject()), None);
 }
 
 Document* JSImageConstructor::document() const
@@ -56,14 +57,16 @@ static JSObject* constructImage(ExecState* exec, JSObject* constructor, const Ar
     int height = 0;
     if (args.size() > 0) {
         widthSet = true;
-        width = args.at(exec, 0).toInt32(exec);
+        width = args.at(0).toInt32(exec);
     }
     if (args.size() > 1) {
         heightSet = true;
-        height = args.at(exec, 1).toInt32(exec);
+        height = args.at(1).toInt32(exec);
     }
 
     Document* document = static_cast<JSImageConstructor*>(constructor)->document();
+    if (!document)
+        return throwError(exec, ReferenceError, "Image constructor associated document is unavailable");
 
     // Calling toJS on the document causes the JS document wrapper to be
     // added to the window object. This is done to ensure that JSDocument::mark

@@ -31,7 +31,7 @@
 #include "PlatformString.h"
 #include "TextCodec.h"
 #include "TextEncodingRegistry.h"
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
 #include <unicode/unorm.h>
 #elif USE(QT4_UNICODE)
 #include <QString>
@@ -83,7 +83,7 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     if (!length)
         return "";
 
-#if USE(ICU_UNICODE)
+#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
     // FIXME: What's the right place to do normalization?
     // It's a little strange to do it inside the encode function.
     // Perhaps normalization should be an explicit step done before calling encode.
@@ -114,6 +114,24 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     str = str.normalized(QString::NormalizationForm_C);
     return newTextCodec(*this)->encode(reinterpret_cast<const UChar *>(str.utf16()), str.length(), handling);
 #endif
+}
+
+const char* TextEncoding::domName() const
+{
+    if (noExtendedTextEncodingNameUsed())
+        return m_name;
+
+    // We treat EUC-KR as windows-949 (its superset), but need to expose 
+    // the name 'EUC-KR' because the name 'windows-949' is not recognized by
+    // most Korean web servers even though they do use the encoding
+    // 'windows-949' with the name 'EUC-KR'. 
+    // FIXME: This is not thread-safe. At the moment, this function is
+    // only accessed in a single thread, but eventually has to be made
+    // thread-safe along with usesVisualOrdering().
+    static const char* const a = atomicCanonicalTextEncodingName("windows-949");
+    if (m_name == a)
+        return "EUC-KR";
+    return m_name;
 }
 
 bool TextEncoding::usesVisualOrdering() const

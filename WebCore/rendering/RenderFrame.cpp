@@ -1,10 +1,8 @@
-/**
- * This file is part of the KDE project.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,10 +23,9 @@
 
 #include "config.h"
 #include "RenderFrame.h"
-#include "RenderFrameSet.h"
+
 #include "FrameView.h"
-#include "HTMLFrameSetElement.h"
-#include "HTMLNames.h"
+#include "HTMLFrameElement.h"
 
 #ifdef FLATTEN_FRAMESET
 #include "Frame.h"
@@ -38,8 +35,6 @@
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
 RenderFrame::RenderFrame(HTMLFrameElement* frame)
     : RenderPart(frame)
 {
@@ -48,31 +43,36 @@ RenderFrame::RenderFrame(HTMLFrameElement* frame)
 
 FrameEdgeInfo RenderFrame::edgeInfo() const
 {
-    return FrameEdgeInfo(element()->noResize(), element()->hasFrameBorder());
+    HTMLFrameElement* element = static_cast<HTMLFrameElement*>(node());
+    return FrameEdgeInfo(element->noResize(), element->hasFrameBorder());
 }
 
 void RenderFrame::viewCleared()
 {
-    if (element() && m_widget && m_widget->isFrameView()) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
-        int marginw = element()->getMarginWidth();
-        int marginh = element()->getMarginHeight();
+    HTMLFrameElement* element = static_cast<HTMLFrameElement*>(node());
+    if (!element || !widget() || !widget()->isFrameView())
+        return;
 
-        if (marginw != -1)
-            view->setMarginWidth(marginw);
-        if (marginh != -1)
-            view->setMarginHeight(marginh);
-    }
+    FrameView* view = static_cast<FrameView*>(widget());
+
+    int marginw = element->getMarginWidth();
+    int marginh = element->getMarginHeight();
+
+    if (marginw != -1)
+        view->setMarginWidth(marginw);
+    if (marginh != -1)
+        view->setMarginHeight(marginh);
 }
 
 #ifdef FLATTEN_FRAMESET
 void RenderFrame::layout()
 {
-    if (m_widget && m_widget->isFrameView()) {
-        FrameView* view = static_cast<FrameView*>(m_widget);
+    if (widget() && widget()->isFrameView()) {
+        FrameView* view = static_cast<FrameView*>(widget());
         RenderView* root = NULL;
         if (view->frame() && view->frame()->document() && 
-            view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
+            view->frame()->document()->renderer() &&
+            view->frame()->document()->renderer()->isRenderView())
             root = static_cast<RenderView*>(view->frame()->document()->renderer());
         if (root) {
             // Resize the widget so that the RenderView will layout according to those dimensions.

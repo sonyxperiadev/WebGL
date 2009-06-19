@@ -91,6 +91,7 @@ public:
     void createGWorld();
     void deleteGWorld();
     void clearGWorld();
+    void cacheMovieScale();
 
     void setSize(int, int);
 
@@ -112,6 +113,11 @@ public:
     int m_gWorldHeight;
     GWorldPtr m_savedGWorld;
     long m_loadError;
+    float m_widthScaleFactor;
+    float m_heightScaleFactor;
+#if !ASSERT_DISABLED
+    bool m_scaleCached;
+#endif
 };
 
 QTMovieWinPrivate::QTMovieWinPrivate()
@@ -133,6 +139,11 @@ QTMovieWinPrivate::QTMovieWinPrivate()
     , m_gWorldHeight(0)
     , m_savedGWorld(0)
     , m_loadError(0)
+    , m_widthScaleFactor(1)
+    , m_heightScaleFactor(1)
+#if !ASSERT_DISABLED
+    , m_scaleCached(false)
+#endif
 {
 }
 
@@ -179,6 +190,26 @@ void QTMovieWinPrivate::endTask()
     updateTaskTimer();
 }
 
+void QTMovieWinPrivate::cacheMovieScale()
+{
+    Rect naturalRect;
+    Rect initialRect;
+
+    GetMovieNaturalBoundsRect(m_movie, &naturalRect);
+    GetMovieBox(m_movie, &initialRect);
+
+    int naturalWidth = naturalRect.right - naturalRect.left;
+    int naturalHeight = naturalRect.bottom - naturalRect.top;
+
+    if (naturalWidth)
+        m_widthScaleFactor = (initialRect.right - initialRect.left) / naturalWidth;
+    if (naturalHeight)
+        m_heightScaleFactor = (initialRect.bottom - initialRect.top) / naturalHeight;
+#if !ASSERT_DISABLED
+    m_scaleCached = true;;
+#endif
+}
+
 void QTMovieWinPrivate::task() 
 {
     ASSERT(m_tasking);
@@ -192,20 +223,27 @@ void QTMovieWinPrivate::task()
 
     // GetMovieLoadState documentation says that you should not call it more often than every quarter of a second.
     if (systemTime() >= m_lastLoadStateCheckTime + 0.25 || m_loadError) { 
-        // If load fails QT's load state is kMovieLoadStateComplete.
+        // If load fails QT's load state is QTMovieLoadStateComplete.
         // This is different from QTKit API and seems strange.
-        long loadState = m_loadError ? kMovieLoadStateError : GetMovieLoadState(m_movie);
+        long loadState = m_loadError ? QTMovieLoadStateError : GetMovieLoadState(m_movie);
         if (loadState != m_loadState) {
 
             // we only need to erase the movie gworld when the load state changes to loaded while it
             //  is visible as the gworld is destroyed/created when visibility changes
-            if (loadState >= QTMovieLoadStateLoaded && m_loadState < QTMovieLoadStateLoaded && m_visible)
-                clearGWorld();
+            if (loadState >= QTMovieLoadStateLoaded && m_loadState < QTMovieLoadStateLoaded) {
+                if (m_visible)
+                    clearGWorld();
+                cacheMovieScale();
+            }
 
             m_loadState = loadState;
-            if (!m_movieController && m_loadState >= kMovieLoadStateLoaded)
+            if (!m_movieController && m_loadState >= QTMovieLoadStateLoaded)
                 createMovieController();
             m_client->movieLoadStateChanged(m_movieWin);
+            if (m_movieWin->m_disabled) {
+                endTask();
+                return;
+            }
         }
         m_lastLoadStateCheckTime = systemTime();
     }
@@ -259,7 +297,7 @@ void QTMovieWinPrivate::registerDrawingCallback()
 
 void QTMovieWinPrivate::drawingComplete()
 {
-    if (!m_gWorld || m_loadState < kMovieLoadStateLoaded)
+    if (!m_gWorld || m_movieWin->m_disabled || m_loadState < QTMovieLoadStateLoaded)
         return;
     m_client->movieNewImageAvailable(m_movieWin);
 }
@@ -284,7 +322,7 @@ void QTMovieWinPrivate::updateGWorld()
 void QTMovieWinPrivate::createGWorld()
 {
     ASSERT(!m_gWorld);
-    if (!m_movie)
+    if (!m_movie || m_loadState < QTMovieLoadStateLoaded)
         return;
 
     m_gWorldWidth = max(cGWorldMinWidth, m_width);
@@ -334,8 +372,17 @@ void QTMovieWinPrivate::setSize(int width, int height)
         return;
     m_width = width;
     m_height = height;
-    if (!m_movie)
+
+    // Do not change movie box before reaching load state loaded as we grab
+    // the initial size when task() sees that state for the first time, and
+    // we need the initial size to be able to scale movie properly. 
+    if (!m_movie || m_loadState < QTMovieLoadStateLoaded)
         return;
+
+#if !ASSERT_DISABLED
+    ASSERT(m_scaleCached);
+#endif
+
     Rect bounds; 
     bounds.top = 0;
     bounds.left = 0; 
@@ -364,6 +411,7 @@ void QTMovieWinPrivate::deleteGWorld()
 
 QTMovieWin::QTMovieWin(QTMovieWinClient* client)
     : m_private(new QTMovieWinPrivate())
+    , m_disabled(false)
 {
     m_private->m_movieWin = this;
     m_private->m_client = client;
@@ -478,8 +526,8 @@ void QTMovieWin::getNaturalSize(int& width, int& height)
 
     if (m_private->m_movie)
         GetMovieNaturalBoundsRect(m_private->m_movie, &rect);
-    width = rect.right;
-    height = rect.bottom;
+    width = (rect.right - rect.left) * m_private->m_widthScaleFactor;
+    height = (rect.bottom - rect.top) * m_private->m_heightScaleFactor;
 }
 
 void QTMovieWin::setSize(int width, int height)
@@ -593,6 +641,7 @@ void QTMovieWin::load(const UChar* url, int len)
     movieProps[moviePropCount].propStatus = 0; 
     moviePropCount++; 
 
+    ASSERT(moviePropCount <= sizeof(movieProps)/sizeof(movieProps[0]));
     m_private->m_loadError = NewMovieFromProperties(moviePropCount, movieProps, 0, NULL, &m_private->m_movie);
 
     CFRelease(urlRef);
@@ -601,15 +650,24 @@ end:
     // get the load fail callback quickly 
     if (m_private->m_loadError)
         updateTaskTimer(0);
-    else
+    else {
+        OSType mode = kQTApertureMode_CleanAperture;
+
+        // Set the aperture mode property on a movie to signal that we want aspect ratio
+        // and clean aperture dimensions. Don't worry about errors, we can't do anything if
+        // the installed version of QT doesn't support it and it isn't serious enough to 
+        // warrant failing.
+        QTSetMovieProperty(m_private->m_movie, kQTPropertyClass_Visual, kQTVisualPropertyID_ApertureMode, sizeof(mode), &mode);
         m_private->registerDrawingCallback();
+    }
 
     CFRelease(urlStringRef);
 }
 
-void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
+void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount, unsigned& totalTrackCount)
 {
     if (!m_private->m_movie) {
+        totalTrackCount = 0;
         enabledTrackCount = 0;
         return;
     }
@@ -623,11 +681,16 @@ void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
         allowedTrackTypes->add(BaseMediaType);
         allowedTrackTypes->add('clcp'); // Closed caption
         allowedTrackTypes->add('sbtl'); // Subtitle
+        allowedTrackTypes->add('odsm'); // MPEG-4 object descriptor stream
+        allowedTrackTypes->add('sdsm'); // MPEG-4 scene description stream
+        allowedTrackTypes->add(TimeCodeMediaType);
+        allowedTrackTypes->add(TimeCode64MediaType);
     }
 
     long trackCount = GetMovieTrackCount(m_private->m_movie);
     enabledTrackCount = trackCount;
-    
+    totalTrackCount = trackCount;
+
     // Track indexes are 1-based. yuck. These things must descend from old-
     // school mac resources or something.
     for (long trackIndex = 1; trackIndex <= trackCount; trackIndex++) {
@@ -714,6 +777,11 @@ void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
             --enabledTrackCount;
         }
     }
+}
+
+void QTMovieWin::setDisabled(bool b)
+{
+    m_disabled = b;
 }
 
 

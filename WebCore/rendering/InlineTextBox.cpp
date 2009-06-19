@@ -41,11 +41,6 @@ using namespace std;
 
 namespace WebCore {
 
-int InlineTextBox::height() const
-{
-    return m_treatAsText ? renderer()->style(m_firstLine)->font().height() : 0;
-}
-
 int InlineTextBox::selectionTop()
 {
     return root()->selectionTop();
@@ -133,20 +128,21 @@ void InlineTextBox::attachLine()
     toRenderText(renderer())->attachTextBox(this);
 }
 
-int InlineTextBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, bool& foundBox)
+int InlineTextBox::placeEllipsisBox(bool flowIsLTR, int visibleLeftEdge, int visibleRightEdge, int ellipsisWidth, bool& foundBox)
 {
     if (foundBox) {
         m_truncation = cFullTruncation;
         return -1;
     }
 
-    int ellipsisX = ltr ? blockEdge - ellipsisWidth : blockEdge + ellipsisWidth;
+    // For LTR this is the left edge of the box, for RTL, the right edge in parent coordinates.
+    int ellipsisX = flowIsLTR ? visibleRightEdge - ellipsisWidth : visibleLeftEdge + ellipsisWidth;
     
     // Criteria for full truncation:
     // LTR: the left edge of the ellipsis is to the left of our text run.
     // RTL: the right edge of the ellipsis is to the right of our text run.
-    bool ltrFullTruncation = ltr && ellipsisX <= m_x;
-    bool rtlFullTruncation = !ltr && ellipsisX >= (m_x + m_width);
+    bool ltrFullTruncation = flowIsLTR && ellipsisX <= m_x;
+    bool rtlFullTruncation = !flowIsLTR && ellipsisX >= (m_x + m_width);
     if (ltrFullTruncation || rtlFullTruncation) {
         // Too far.  Just set full truncation, but return -1 and let the ellipsis just be placed at the edge of the box.
         m_truncation = cFullTruncation;
@@ -154,13 +150,20 @@ int InlineTextBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, 
         return -1;
     }
 
-    bool ltrEllipsisWithinBox = ltr && (ellipsisX < m_x + m_width);
-    bool rtlEllipsisWithinBox = !ltr && (ellipsisX > m_x);
+    bool ltrEllipsisWithinBox = flowIsLTR && (ellipsisX < m_x + m_width);
+    bool rtlEllipsisWithinBox = !flowIsLTR && (ellipsisX > m_x);
     if (ltrEllipsisWithinBox || rtlEllipsisWithinBox) {
-        if ((ltr && direction() == RTL) || (!ltr && direction() == LTR))
-            return -1; // FIXME: Support cases in which the last run's directionality differs from the context.
-
         foundBox = true;
+
+        // The inline box may have different directionality than it's parent.  Since truncation
+        // behavior depends both on both the parent and the inline block's directionality, we
+        // must keep track of these separately.
+        bool ltr = direction() == LTR;
+        if (ltr != flowIsLTR) {
+          // Width in pixels of the visible portion of the box, excluding the ellipsis.
+          int visibleBoxWidth = visibleRightEdge - visibleLeftEdge  - ellipsisWidth;
+          ellipsisX = ltr ? m_x + visibleBoxWidth : m_x + m_width - visibleBoxWidth;
+        }
 
         int offset = offsetForPosition(ellipsisX, false);
         if (offset == 0) {
@@ -170,12 +173,22 @@ int InlineTextBox::placeEllipsisBox(bool ltr, int blockEdge, int ellipsisWidth, 
             return min(ellipsisX, m_x);
         }
 
-        // Set the truncation index on the text run.  The ellipsis needs to be placed just after the last visible character.
+        // Set the truncation index on the text run.
         m_truncation = offset;
-        if (ltr)
-            return m_x + toRenderText(renderer())->width(m_start, offset, textPos(), m_firstLine);
+
+        // If we got here that means that we were only partially truncated and we need to return the pixel offset at which
+        // to place the ellipsis.
+        int widthOfVisibleText = toRenderText(renderer())->width(m_start, offset, textPos(), m_firstLine);
+
+        // The ellipsis needs to be placed just after the last visible character.
+        // Where "after" is defined by the flow directionality, not the inline
+        // box directionality.
+        // e.g. In the case of an LTR inline box truncated in an RTL flow then we can
+        // have a situation such as |Hello| -> |...He|
+        if (flowIsLTR)
+            return m_x + widthOfVisibleText;
         else
-            return m_x + (m_width - toRenderText(renderer())->width(m_start, offset, textPos(), m_firstLine)) - ellipsisWidth;
+            return (m_x + m_width) - widthOfVisibleText - ellipsisWidth;
     }
     return -1;
 }
@@ -290,7 +303,7 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     if (isLineBreak() || !renderer()->shouldPaintWithinRoot(paintInfo) || renderer()->style()->visibility() != VISIBLE ||
         m_truncation == cFullTruncation || paintInfo.phase == PaintPhaseOutline)
         return;
-    
+
     ASSERT(paintInfo.phase != PaintPhaseSelfOutline && paintInfo.phase != PaintPhaseChildOutlines);
 
     int xPos = tx + m_x - parent()->maxHorizontalVisualOverflow();
@@ -305,6 +318,24 @@ void InlineTextBox::paint(RenderObject::PaintInfo& paintInfo, int tx, int ty)
     if (!haveSelection && paintInfo.phase == PaintPhaseSelection)
         // When only painting the selection, don't bother to paint if there is none.
         return;
+
+    if (m_truncation != cNoTruncation) {
+        TextDirection flowDirection = renderer()->containingBlock()->style()->direction();
+        if (flowDirection != direction()) {
+            // Make the visible fragment of text hug the edge closest to the rest of the run by moving the origin
+            // at which we start drawing text.
+            // e.g. In the case of LTR text truncated in an RTL Context, the correct behavior is:
+            // |Hello|CBA| -> |...He|CBA|
+            // In order to draw the fragment "He" aligned to the right edge of it's box, we need to start drawing
+            // farther to the right.
+            // NOTE: WebKit's behavior differs from that of IE which appears to just overlay the ellipsis on top of the
+            // truncated string i.e.  |Hello|CBA| -> |...lo|CBA|
+            int widthOfVisibleText = toRenderText(renderer())->width(m_start, m_truncation, textPos(), m_firstLine);
+            int widthOfHiddenText = m_width - widthOfVisibleText;
+            // FIXME: The hit testing logic also needs to take this translation int account.
+            tx += direction() == LTR ? widthOfHiddenText : -widthOfHiddenText;
+        }
+    }
 
     GraphicsContext* context = paintInfo.context;
 
@@ -738,7 +769,9 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, Do
      
     // Optionally highlight the text
     if (renderer()->document()->frame()->markedTextMatchesAreHighlighted()) {
-        Color color = theme()->platformTextSearchHighlightColor();
+        Color color = marker.activeMatch ?
+            theme()->platformActiveTextSearchHighlightColor() :
+            theme()->platformInactiveTextSearchHighlightColor();
         pt->save();
         updateGraphicsContext(pt, color, color, 0);  // Don't draw text at all!
         pt->clip(IntRect(tx + m_x, ty + y, m_width, h));
@@ -747,6 +780,22 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, int tx, int ty, Do
     }
 }
 
+void InlineTextBox::computeRectForReplacementMarker(int tx, int ty, DocumentMarker marker, RenderStyle* style, const Font& font)
+{
+    // Replacement markers are not actually drawn, but their rects need to be computed for hit testing.
+    int y = selectionTop();
+    int h = selectionHeight();
+    
+    int sPos = max(marker.startOffset - m_start, (unsigned)0);
+    int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
+    TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_toAdd, direction() == RTL, m_dirOverride || style->visuallyOrdered());
+    IntPoint startPoint = IntPoint(m_x + tx, y + ty);
+    
+    // Compute and store the rect associated with this marker.
+    IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, h, sPos, ePos));
+    renderer()->document()->setRenderedRectForMarker(renderer()->node(), marker, markerRect);
+}
+    
 void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, RenderStyle* style, const Font& font, bool background)
 {
     if (!renderer()->node())
@@ -764,6 +813,7 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, Re
         switch (marker.type) {
             case DocumentMarker::Grammar:
             case DocumentMarker::Spelling:
+            case DocumentMarker::Replacement:
                 if (background)
                     continue;
                 break;
@@ -796,6 +846,9 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, int tx, int ty, Re
                 break;
             case DocumentMarker::TextMatch:
                 paintTextMatchMarker(pt, tx, ty, marker, style, font);
+                break;
+            case DocumentMarker::Replacement:
+                computeRectForReplacementMarker(tx, ty, marker, style, font);
                 break;
             default:
                 ASSERT_NOT_REACHED();
@@ -929,6 +982,32 @@ bool InlineTextBox::containsCaretOffset(int offset) const
 
     // Offsets at the end are "in" for normal boxes (but the caller has to check affinity).
     return true;
+}
+
+typedef HashMap<InlineTextBox*, Vector<const SimpleFontData*> > FallbackFontsMap;
+static FallbackFontsMap* gFallbackFontsMap;
+
+void InlineTextBox::setFallbackFonts(const HashSet<const SimpleFontData*>& fallbackFonts)
+{
+    if (!gFallbackFontsMap)
+        gFallbackFontsMap = new FallbackFontsMap;
+
+    FallbackFontsMap::iterator it = gFallbackFontsMap->set(this, Vector<const SimpleFontData*>()).first;
+    ASSERT(it->second.isEmpty());
+    copyToVector(fallbackFonts, it->second);
+}
+
+void InlineTextBox::takeFallbackFonts(Vector<const SimpleFontData*>& fallbackFonts)
+{
+    if (!gFallbackFontsMap)
+        return;
+
+    FallbackFontsMap::iterator it = gFallbackFontsMap->find(this);
+    if (it == gFallbackFontsMap->end())
+        return;
+
+    fallbackFonts.swap(it->second);
+    gFallbackFontsMap->remove(it);
 }
 
 } // namespace WebCore

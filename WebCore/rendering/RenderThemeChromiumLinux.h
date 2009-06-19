@@ -39,6 +39,9 @@ namespace WebCore {
 
         virtual String extraDefaultStyleSheet();
         virtual String extraQuirksStyleSheet();
+#if ENABLE(VIDEO)
+        virtual String extraMediaControlsStyleSheet();
+#endif
 
         // A method asking if the theme's controls actually care about redrawing when hovered.
         virtual bool supportsHover(const RenderStyle*) const { return true; }
@@ -56,7 +59,8 @@ namespace WebCore {
         virtual double caretBlinkInterval() const;
 
         // System fonts.
-        virtual void systemFont(int propId, Document*, FontDescription&) const;
+        virtual void systemFont(int propId, FontDescription&) const;
+        virtual Color systemColor(int cssValidId) const;
 
         virtual int minimumMenuListSize(RenderStyle*) const;
 
@@ -72,11 +76,21 @@ namespace WebCore {
 
         virtual bool paintTextArea(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r) { return paintTextField(o, i, r); }
 
-        virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r) { return paintTextField(o, i, r); }
 
-        virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
         virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+        virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
+        virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+        virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+        virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
         // MenuList refers to an unstyled menulist (meaning a menulist without
         // background-color or border set) and MenuListButton refers to a styled
@@ -117,6 +131,7 @@ namespace WebCore {
 
     private:
         int menuListInternalPadding(RenderStyle*, int paddingType) const;
+        bool paintMediaButtonInternal(GraphicsContext*, const IntRect&, Image*);
     };
 
 } // namespace WebCore

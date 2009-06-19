@@ -98,8 +98,8 @@ int comparePositions(const Position& a, const Position& b)
     ASSERT(nodeA);
     Node* nodeB = b.node();
     ASSERT(nodeB);
-    int offsetA = a.m_offset;
-    int offsetB = b.m_offset;
+    int offsetA = a.deprecatedEditingOffset();
+    int offsetB = b.deprecatedEditingOffset();
 
     Node* shadowAncestorA = nodeA->shadowAncestorNode();
     if (shadowAncestorA == nodeA)
@@ -124,6 +124,11 @@ int comparePositions(const Position& a, const Position& b)
 
     int result = Range::compareBoundaryPoints(nodeA, offsetA, nodeB, offsetB);
     return result ? result : bias;
+}
+
+int comparePositions(const VisiblePosition& a, const VisiblePosition& b)
+{
+    return comparePositions(a.deepEquivalent(), b.deepEquivalent());
 }
 
 Node* highestEditableRoot(const Position& position)
@@ -322,17 +327,17 @@ Position rangeCompliantEquivalent(const Position& pos)
 
     Node* node = pos.node();
 
-    if (pos.m_offset <= 0) {
+    if (pos.deprecatedEditingOffset() <= 0) {
         if (node->parentNode() && (editingIgnoresContent(node) || isTableElement(node)))
             return positionBeforeNode(node);
         return Position(node, 0);
     }
 
     if (node->offsetInCharacters())
-        return Position(node, min(node->maxCharacterOffset(), pos.m_offset));
+        return Position(node, min(node->maxCharacterOffset(), pos.deprecatedEditingOffset()));
 
     int maxCompliantOffset = node->childNodeCount();
-    if (pos.m_offset > maxCompliantOffset) {
+    if (pos.deprecatedEditingOffset() > maxCompliantOffset) {
         if (node->parentNode())
             return positionAfterNode(node);
 
@@ -342,12 +347,12 @@ Position rangeCompliantEquivalent(const Position& pos)
     } 
 
     // Editing should never generate positions like this.
-    if ((pos.m_offset < maxCompliantOffset) && editingIgnoresContent(node)) {
+    if ((pos.deprecatedEditingOffset() < maxCompliantOffset) && editingIgnoresContent(node)) {
         ASSERT_NOT_REACHED();
         return node->parentNode() ? positionBeforeNode(node) : Position(node, 0);
     }
     
-    if (pos.m_offset == maxCompliantOffset && (editingIgnoresContent(node) || isTableElement(node)))
+    if (pos.deprecatedEditingOffset() == maxCompliantOffset && (editingIgnoresContent(node) || isTableElement(node)))
         return positionAfterNode(node);
     
     return Position(pos);
@@ -906,14 +911,25 @@ int caretMaxOffset(const Node* n)
     return lastOffsetForEditing(n);
 }
 
-bool lineBreakExistsAtPosition(const VisiblePosition& visiblePosition)
+bool lineBreakExistsAtVisiblePosition(const VisiblePosition& visiblePosition)
 {
-    if (visiblePosition.isNull())
+    return lineBreakExistsAtPosition(visiblePosition.deepEquivalent().downstream());
+}
+
+bool lineBreakExistsAtPosition(const Position& position)
+{
+    if (position.isNull())
         return false;
-        
-    Position downstream(visiblePosition.deepEquivalent().downstream());
-    return downstream.node()->hasTagName(brTag) ||
-           (downstream.node()->isTextNode() && downstream.node()->renderer()->style()->preserveNewline() && visiblePosition.characterAfter() == '\n');
+    
+    if (position.anchorNode()->hasTagName(brTag) && position.atFirstEditingPositionForNode())
+        return true;
+    
+    if (!position.anchorNode()->isTextNode() || !position.anchorNode()->renderer()->style()->preserveNewline())
+        return false;
+    
+    Text* textNode = static_cast<Text*>(position.anchorNode());
+    unsigned offset = position.offsetInContainerNode();
+    return offset < textNode->length() && textNode->data()[offset] == '\n';
 }
 
 // Modifies selections that have an end point at the edge of a table

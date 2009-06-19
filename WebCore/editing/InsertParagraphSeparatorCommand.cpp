@@ -26,16 +26,17 @@
 #include "config.h"
 #include "InsertParagraphSeparatorCommand.h"
 
-#include "Document.h"
-#include "Logging.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
-#include "Text.h"
-#include "htmlediting.h"
+#include "Document.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InsertLineBreakCommand.h"
+#include "Logging.h"
 #include "RenderObject.h"
+#include "Text.h"
+#include "htmlediting.h"
 #include "visible_units.h"
 
 namespace WebCore {
@@ -164,13 +165,13 @@ void InsertParagraphSeparatorCommand::doApply()
         blockToInsert = createDefaultParagraphElement(document());
     else
         blockToInsert = startBlock->cloneElementWithoutChildren();
-    
+
     //---------------------------------------------------------------------
     // Handle case when position is in the last visible position in its block,
     // including when the block is empty. 
     if (isLastInBlock) {
         if (nestNewBlock) {
-            if (isFirstInBlock && !lineBreakExistsAtPosition(visiblePos)) {
+            if (isFirstInBlock && !lineBreakExistsAtVisiblePosition(visiblePos)) {
                 // The block is empty.  Create an empty block to
                 // represent the paragraph that we're leaving.
                 RefPtr<Element> extraBlock = createDefaultParagraphElement(document());
@@ -178,8 +179,12 @@ void InsertParagraphSeparatorCommand::doApply()
                 appendBlockPlaceholder(extraBlock);
             }
             appendNode(blockToInsert, startBlock);
-        } else
-            insertNodeAfter(blockToInsert, startBlock);
+        } else {
+            // We can get here if we pasted a copied portion of a blockquote with a newline at the end and are trying to paste it
+            // into an unquoted area. We then don't want the newline within the blockquote or else it will also be quoted.
+            Node* highestBlockquote = highestEnclosingNodeOfType(canonicalPos, &isMailBlockquote);
+            insertNodeAfter(blockToInsert, highestBlockquote ? highestBlockquote : startBlock);
+        }
 
         appendBlockPlaceholder(blockToInsert);
         setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
@@ -195,7 +200,7 @@ void InsertParagraphSeparatorCommand::doApply()
         if (isFirstInBlock && !nestNewBlock)
             refNode = startBlock;
         else if (insertionPosition.node() == startBlock && nestNewBlock) {
-            refNode = startBlock->childNode(insertionPosition.m_offset);
+            refNode = startBlock->childNode(insertionPosition.deprecatedEditingOffset());
             ASSERT(refNode); // must be true or we'd be in the end of block case
         } else
             refNode = insertionPosition.node();
@@ -248,16 +253,16 @@ void InsertParagraphSeparatorCommand::doApply()
     if (leadingWhitespace.isNotNull()) {
         Text* textNode = static_cast<Text*>(leadingWhitespace.node());
         ASSERT(!textNode->renderer() || textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, leadingWhitespace.m_offset, 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, leadingWhitespace.deprecatedEditingOffset(), 1, nonBreakingSpaceString());
     }
     
     // Split at pos if in the middle of a text node.
     if (insertionPosition.node()->isTextNode()) {
         Text* textNode = static_cast<Text*>(insertionPosition.node());
-        bool atEnd = (unsigned)insertionPosition.m_offset >= textNode->length();
-        if (insertionPosition.m_offset > 0 && !atEnd) {
-            splitTextNode(textNode, insertionPosition.m_offset);
-            insertionPosition.m_offset = 0;
+        bool atEnd = (unsigned)insertionPosition.deprecatedEditingOffset() >= textNode->length();
+        if (insertionPosition.deprecatedEditingOffset() > 0 && !atEnd) {
+            splitTextNode(textNode, insertionPosition.deprecatedEditingOffset());
+            insertionPosition.moveToOffset(0);
             visiblePos = VisiblePosition(insertionPosition);
             splitText = true;
         }
@@ -282,13 +287,13 @@ void InsertParagraphSeparatorCommand::doApply()
     // If the paragraph separator was inserted at the end of a paragraph, an empty line must be
     // created.  All of the nodes, starting at visiblePos, are about to be added to the new paragraph 
     // element.  If the first node to be inserted won't be one that will hold an empty line open, add a br.
-    if (isEndOfParagraph(visiblePos) && !lineBreakExistsAtPosition(visiblePos))
+    if (isEndOfParagraph(visiblePos) && !lineBreakExistsAtVisiblePosition(visiblePos))
         appendNode(createBreakElement(document()).get(), blockToInsert.get());
         
     // Move the start node and the siblings of the start node.
     if (insertionPosition.node() != startBlock) {
         Node* n = insertionPosition.node();
-        if (insertionPosition.m_offset >= caretMaxOffset(n))
+        if (insertionPosition.deprecatedEditingOffset() >= caretMaxOffset(n))
             n = n->nextSibling();
 
         while (n && n != blockToInsert) {

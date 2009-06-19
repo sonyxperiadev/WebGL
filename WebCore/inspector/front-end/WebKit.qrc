@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource prefix="/webkit/inspector">
     <file>inspector.html</file>
+    <file>BottomUpProfileDataGridTree.js</file>
     <file>Breakpoint.js</file>
     <file>BreakpointsSidebarPane.js</file>
     <file>CallStackSidebarPane.js</file>
@@ -24,6 +25,7 @@
     <file>Panel.js</file>
     <file>PanelEnablerView.js</file>
     <file>Placard.js</file>
+    <file>ProfileDataGridTree.js</file>
     <file>ProfilesPanel.js</file>
     <file>ProfileView.js</file>
     <file>PropertiesSection.js</file>
@@ -42,6 +44,7 @@
     <file>SourceView.js</file>
     <file>StylesSidebarPane.js</file>
     <file>TextPrompt.js</file>
+    <file>TopDownProfileDataGridTree.js</file>
     <file>treeoutline.js</file>
     <file>utilities.js</file>
     <file>View.js</file>
@@ -96,6 +99,7 @@
     <file>Images/profilesIcon.png</file>
     <file>Images/profileSmallIcon.png</file>
     <file>Images/profilesSilhouette.png</file>
+    <file>Images/radioDot.png</file>
     <file>Images/recordButtons.png</file>
     <file>Images/reloadButtons.png</file>
     <file>Images/resourceCSSIcon.png</file>
@@ -155,6 +159,7 @@
     <file>Images/treeUpTriangleWhite.png</file>
     <file>Images/userInputIcon.png</file>
     <file>Images/userInputPreviousIcon.png</file>
+    <file>Images/userInputResultIcon.png</file>
     <file>Images/warningIcon.png</file>
     <file>Images/warningMediumIcon.png</file>
     <file>Images/warningsErrors.png</file>

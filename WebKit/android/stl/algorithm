@@ -71,6 +71,24 @@ namespace std
       __b = __tmp;
     }
 
+  template<typename _Tp>
+    inline void
+    reverse(_Tp* __first, _Tp* __last)
+    {
+      while(true)
+      {
+        if (__first == __last || __first == --__last)
+          return;
+        else
+        {
+          _Tp __tmp = *__first;
+          *__first = *__last;
+          *__last = __tmp;
+        }
+        ++__first;
+      }
+    }
+
   #undef min
   #undef max
 

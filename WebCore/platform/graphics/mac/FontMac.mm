@@ -28,7 +28,6 @@
 #import "Logging.h"
 #import "SimpleFontData.h"
 #import "WebCoreSystemInterface.h"
-#import "WebCoreTextRenderer.h"
 #import <AppKit/AppKit.h>
 
 #define SYNTHETIC_OBLIQUE_ANGLE 14
@@ -43,12 +42,17 @@ using namespace std;
 
 namespace WebCore {
 
+bool Font::canReturnFallbackFontsForComplexText()
+{
+    return true;
+}
+
 void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
 {
     CGContextRef cgContext = context->platformContext();
 
     bool originalShouldUseFontSmoothing = wkCGContextGetShouldSmoothFonts(cgContext);
-    bool newShouldUseFontSmoothing = WebCoreShouldUseFontSmoothing();
+    bool newShouldUseFontSmoothing = shouldUseSmoothing();
     
     if (originalShouldUseFontSmoothing != newShouldUseFontSmoothing)
         CGContextSetShouldSmoothFonts(cgContext, newShouldUseFontSmoothing);
@@ -99,8 +103,8 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         context->setFillColor(shadowFillColor);
         CGContextSetTextPosition(cgContext, point.x() + shadowSize.width(), point.y() + shadowSize.height());
         CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-        if (font->m_syntheticBoldOffset) {
-            CGContextSetTextPosition(cgContext, point.x() + shadowSize.width() + font->m_syntheticBoldOffset, point.y() + shadowSize.height());
+        if (font->syntheticBoldOffset()) {
+            CGContextSetTextPosition(cgContext, point.x() + shadowSize.width() + font->syntheticBoldOffset(), point.y() + shadowSize.height());
             CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
         }
         context->setFillColor(fillColor);
@@ -108,8 +112,8 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
 
     CGContextSetTextPosition(cgContext, point.x(), point.y());
     CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-    if (font->m_syntheticBoldOffset) {
-        CGContextSetTextPosition(cgContext, point.x() + font->m_syntheticBoldOffset, point.y());
+    if (font->syntheticBoldOffset()) {
+        CGContextSetTextPosition(cgContext, point.x() + font->syntheticBoldOffset(), point.y());
         CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
     }
 

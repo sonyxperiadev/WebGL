@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004 Zack Rusin <zack@kde.org>
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  *
@@ -46,7 +46,6 @@
 #endif
 #include "WebKitCSSTransformValue.h"
 
-
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "DashboardRegion.h"
 #endif
@@ -58,8 +57,7 @@ static const int computedProperties[] = {
     CSSPropertyBackgroundAttachment,
     CSSPropertyBackgroundColor,
     CSSPropertyBackgroundImage,
-    // more specific background-position-x/y are non-standard
-    CSSPropertyBackgroundPosition,
+    CSSPropertyBackgroundPosition, // more-specific background-position-x/y are non-standard
     CSSPropertyBackgroundRepeat,
     CSSPropertyBorderBottomColor,
     CSSPropertyBorderBottomStyle,
@@ -77,6 +75,7 @@ static const int computedProperties[] = {
     CSSPropertyBottom,
     CSSPropertyCaptionSide,
     CSSPropertyClear,
+    CSSPropertyClip,
     CSSPropertyColor,
     CSSPropertyCursor,
     CSSPropertyDirection,
@@ -134,6 +133,7 @@ static const int computedProperties[] = {
     CSSPropertyWhiteSpace,
     CSSPropertyWidows,
     CSSPropertyWidth,
+    CSSPropertyWordBreak,
     CSSPropertyWordSpacing,
     CSSPropertyWordWrap,
     CSSPropertyZIndex,
@@ -151,9 +151,13 @@ static const int computedProperties[] = {
     CSSPropertyWebkitBackgroundComposite,
     CSSPropertyWebkitBackgroundOrigin,
     CSSPropertyWebkitBackgroundSize,
+    CSSPropertyWebkitBorderBottomLeftRadius,
+    CSSPropertyWebkitBorderBottomRightRadius,
     CSSPropertyWebkitBorderFit,
-    CSSPropertyWebkitBorderImage,
     CSSPropertyWebkitBorderHorizontalSpacing,
+    CSSPropertyWebkitBorderImage,
+    CSSPropertyWebkitBorderTopLeftRadius,
+    CSSPropertyWebkitBorderTopRightRadius,
     CSSPropertyWebkitBorderVerticalSpacing,
     CSSPropertyWebkitBoxAlign,
     CSSPropertyWebkitBoxDirection,
@@ -175,6 +179,9 @@ static const int computedProperties[] = {
     CSSPropertyWebkitColumnRuleStyle,
     CSSPropertyWebkitColumnRuleWidth,
     CSSPropertyWebkitColumnWidth,
+#if ENABLE(DASHBOARD_SUPPORT)
+    CSSPropertyWebkitDashboardRegion,
+#endif
     CSSPropertyWebkitHighlight,
     CSSPropertyWebkitLineBreak,
     CSSPropertyWebkitLineClamp,
@@ -186,12 +193,12 @@ static const int computedProperties[] = {
     CSSPropertyWebkitMarqueeStyle,
     CSSPropertyWebkitMaskAttachment,
     CSSPropertyWebkitMaskBoxImage,
-    CSSPropertyWebkitMaskImage,
-    CSSPropertyWebkitMaskPosition,
-    CSSPropertyWebkitMaskRepeat,
     CSSPropertyWebkitMaskClip,
     CSSPropertyWebkitMaskComposite,
+    CSSPropertyWebkitMaskImage,
     CSSPropertyWebkitMaskOrigin,
+    CSSPropertyWebkitMaskPosition,
+    CSSPropertyWebkitMaskRepeat,
     CSSPropertyWebkitMaskSize,
     CSSPropertyWebkitNbspMode,
     CSSPropertyWebkitPerspective,
@@ -211,15 +218,8 @@ static const int computedProperties[] = {
     CSSPropertyWebkitTransitionTimingFunction,
     CSSPropertyWebkitUserDrag,
     CSSPropertyWebkitUserModify,
-    CSSPropertyWebkitUserSelect,
-#if ENABLE(DASHBOARD_SUPPORT)
-    CSSPropertyWebkitDashboardRegion,
-#endif
-    CSSPropertyWebkitBorderBottomLeftRadius,
-    CSSPropertyWebkitBorderBottomRightRadius,
-    CSSPropertyWebkitBorderTopLeftRadius,
-    CSSPropertyWebkitBorderTopRightRadius
-    
+    CSSPropertyWebkitUserSelect
+
 #if ENABLE(SVG)
     ,
     CSSPropertyClipPath,
@@ -546,9 +546,61 @@ void CSSComputedStyleDeclaration::setCssText(const String&, ExceptionCode& ec)
     ec = NO_MODIFICATION_ALLOWED_ERR;
 }
 
+static int cssIdentifierForFontSizeKeyword(int keywordSize)
+{
+    ASSERT_ARG(keywordSize, keywordSize);
+    ASSERT_ARG(keywordSize, keywordSize <= 8);
+    return CSSValueXxSmall + keywordSize - 1;
+}
+
+PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getFontSizeCSSValuePreferringKeyword() const
+{
+    Node* node = m_node.get();
+    if (!node)
+        return 0;
+
+    node->document()->updateLayoutIgnorePendingStylesheets();
+
+    RefPtr<RenderStyle> style = node->computedStyle();
+    if (!style)
+        return 0;
+
+    if (int keywordSize = style->fontDescription().keywordSize())
+        return CSSPrimitiveValue::createIdentifier(cssIdentifierForFontSizeKeyword(keywordSize));
+
+    return CSSPrimitiveValue::create(style->fontDescription().computedPixelSize(), CSSPrimitiveValue::CSS_PX);
+}
+
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int propertyID) const
 {
     return getPropertyCSSValue(propertyID, UpdateLayout);
+}
+
+static int identifierForFamily(const AtomicString& family)
+{
+    DEFINE_STATIC_LOCAL(AtomicString, cursiveFamily, ("-webkit-cursive")); 
+    DEFINE_STATIC_LOCAL(AtomicString, fantasyFamily, ("-webkit-fantasy")); 
+    DEFINE_STATIC_LOCAL(AtomicString, monospaceFamily, ("-webkit-monospace")); 
+    DEFINE_STATIC_LOCAL(AtomicString, sansSerifFamily, ("-webkit-sans-serif")); 
+    DEFINE_STATIC_LOCAL(AtomicString, serifFamily, ("-webkit-serif")); 
+    if (family == cursiveFamily)
+        return CSSValueCursive;
+    if (family == fantasyFamily)
+        return CSSValueFantasy;
+    if (family == monospaceFamily)
+        return CSSValueMonospace;
+    if (family == sansSerifFamily)
+        return CSSValueSansSerif;
+    if (family == serifFamily)
+        return CSSValueSerif;
+    return 0;
+}
+
+static PassRefPtr<CSSPrimitiveValue> valueForFamily(const AtomicString& family)
+{
+    if (int familyIdentifier = identifierForFamily(family))
+        return CSSPrimitiveValue::createIdentifier(familyIdentifier);
+    return CSSPrimitiveValue::create(family.string(), CSSPrimitiveValue::CSS_STRING);
 }
 
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int propertyID, EUpdateLayout updateLayout) const
@@ -739,9 +791,15 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 return CSSPrimitiveValue::createIdentifier(CSSValueNone);
 #endif
             return CSSPrimitiveValue::create(style->floating());
-        case CSSPropertyFontFamily:
-            // FIXME: This only returns the first family.
-            return CSSPrimitiveValue::create(style->fontDescription().family().family().string(), CSSPrimitiveValue::CSS_STRING);
+        case CSSPropertyFontFamily: {
+            const FontFamily& firstFamily = style->fontDescription().family();
+            if (!firstFamily.next())
+                return valueForFamily(firstFamily.family());
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            for (const FontFamily* family = &firstFamily; family; family = family->next())
+                list->append(valueForFamily(family->family()));
+            return list.release();
+        }
         case CSSPropertyFontSize:
             return CSSPrimitiveValue::create(style->fontDescription().computedPixelSize(), CSSPrimitiveValue::CSS_PX);
         case CSSPropertyWebkitBinding:
@@ -1235,17 +1293,15 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return getBorderRadiusCornerValue(style->borderTopLeftRadius());
         case CSSPropertyWebkitBorderTopRightRadius:
             return getBorderRadiusCornerValue(style->borderTopRightRadius());
-        case CSSPropertyClip:
-        {
-            if (style->hasClip()) {
-                RefPtr<Rect> rect = Rect::create();
-                rect->setTop(CSSPrimitiveValue::create(style->clip().top().value(), CSSPrimitiveValue::CSS_PX));
-                rect->setRight(CSSPrimitiveValue::create(style->clip().right().value(), CSSPrimitiveValue::CSS_PX));
-                rect->setBottom(CSSPrimitiveValue::create(style->clip().bottom().value(), CSSPrimitiveValue::CSS_PX));
-                rect->setLeft(CSSPrimitiveValue::create(style->clip().left().value(), CSSPrimitiveValue::CSS_PX));
-                return CSSPrimitiveValue::create(rect.release());
-            }
-            return 0;
+        case CSSPropertyClip: {
+            if (!style->hasClip())
+                return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
+            RefPtr<Rect> rect = Rect::create();
+            rect->setTop(CSSPrimitiveValue::create(style->clip().top().value(), CSSPrimitiveValue::CSS_PX));
+            rect->setRight(CSSPrimitiveValue::create(style->clip().right().value(), CSSPrimitiveValue::CSS_PX));
+            rect->setBottom(CSSPrimitiveValue::create(style->clip().bottom().value(), CSSPrimitiveValue::CSS_PX));
+            rect->setLeft(CSSPrimitiveValue::create(style->clip().left().value(), CSSPrimitiveValue::CSS_PX));
+            return CSSPrimitiveValue::create(rect.release());
         }
         case CSSPropertyWebkitTransform:
             return computedTransform(renderer, style.get());
@@ -1358,7 +1414,12 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitMarqueeSpeed:
         case CSSPropertyWebkitMask:
         case CSSPropertyWebkitPaddingStart:
+        case CSSPropertyWebkitPerspectiveOriginX:
+        case CSSPropertyWebkitPerspectiveOriginY:
         case CSSPropertyWebkitTextStroke:
+        case CSSPropertyWebkitTransformOriginX:
+        case CSSPropertyWebkitTransformOriginY:
+        case CSSPropertyWebkitTransformOriginZ:
         case CSSPropertyWebkitTransition:
         case CSSPropertyWebkitVariableDeclarationBlock:
             break;
@@ -1428,7 +1489,7 @@ String CSSComputedStyleDeclaration::item(unsigned i) const
 // This is the list of properties we want to copy in the copyInheritableProperties() function.
 // It is the intersection of the list of inherited CSS properties and the
 // properties for which we have a computed implementation in this file.
-const int inheritableProperties[] = {
+static const int inheritableProperties[] = {
     CSSPropertyBorderCollapse,
     CSSPropertyColor,
     CSSPropertyFontFamily,
@@ -1457,7 +1518,7 @@ const int inheritableProperties[] = {
 #endif
 };
 
-const unsigned numInheritableProperties = sizeof(inheritableProperties) / sizeof(inheritableProperties[0]);
+static const unsigned numInheritableProperties = sizeof(inheritableProperties) / sizeof(inheritableProperties[0]);
 
 void CSSComputedStyleDeclaration::removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration* declaration)
 {
@@ -1477,6 +1538,8 @@ PassRefPtr<CSSMutableStyleDeclaration> CSSComputedStyleDeclaration::copyInherita
         if (!m_node->computedStyle()->textStrokeColor().isValid())
             style->removeProperty(CSSPropertyWebkitTextStrokeColor, ec);
         ASSERT(ec == 0);
+        if (int keywordSize = m_node->computedStyle()->fontDescription().keywordSize())
+            style->setProperty(CSSPropertyFontSize, cssIdentifierForFontSizeKeyword(keywordSize));
     }
     return style.release();
 }

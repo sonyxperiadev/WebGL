@@ -37,9 +37,6 @@
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
 
-// GTK_CHECK_VERSION is defined in gtk/gtkversion.h
-#include <gtk/gtk.h>
-
 namespace WebCore {
 
 // FIXME: This is incomplete.  We should change this to mirror
@@ -260,9 +257,10 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_Help:
             return VK_HELP; // (2F) HELP key
         case GDK_0:
-        case GDK_parenleft:
+        case GDK_parenright:
             return VK_0;    //  (30) 0) key
         case GDK_1:
+        case GDK_exclam:
             return VK_1; //  (31) 1 ! key
         case GDK_2:
         case GDK_at:
@@ -286,7 +284,7 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_asterisk:
             return VK_8; //  (38) 8 key  '*'
         case GDK_9:
-        case GDK_parenright:
+        case GDK_parenleft:
             return VK_9; //  (39) 9 key '('
         case GDK_a:
         case GDK_A:
@@ -536,12 +534,7 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     , m_shiftKey((event->state & GDK_SHIFT_MASK) || (event->keyval == GDK_3270_BackTab))
     , m_ctrlKey(event->state & GDK_CONTROL_MASK)
     , m_altKey(event->state & GDK_MOD1_MASK)
-#if GTK_CHECK_VERSION(2,10,0)
     , m_metaKey(event->state & GDK_META_MASK)
-#else
-    // GDK_MOD2_MASK doesn't always mean meta so we can't use it
-    , m_metaKey(false)
-#endif
     , m_gdkEventKey(event)
 {
 }

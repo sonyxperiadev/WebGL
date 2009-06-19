@@ -26,8 +26,9 @@
 #define RenderObject_h
 
 #include "CachedResourceClient.h"
-#include "FloatQuad.h"
 #include "Document.h"
+#include "Element.h"
+#include "FloatQuad.h"
 #include "RenderObjectChildList.h"
 #include "RenderStyle.h"
 #include "TextAffinity.h"
@@ -40,6 +41,7 @@ class AnimationController;
 class HitTestResult;
 class InlineBox;
 class InlineFlowBox;
+class OverlapTestRequestClient;
 class Position;
 class RenderBoxModelObject;
 class RenderInline;
@@ -287,16 +289,45 @@ public:
     void setCellWidthChanged(bool b = true) { m_cellWidthChanged = b; }
 
 #if ENABLE(SVG)
+    // FIXME: Until all SVG renders can be subclasses of RenderSVGModelObject we have
+    // to add SVG renderer methods to RenderObject with an ASSERT_NOT_REACHED() default implementation.
     virtual bool isSVGRoot() const { return false; }
     virtual bool isSVGContainer() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
     virtual bool isRenderPath() const { return false; }
     virtual bool isSVGText() const { return false; }
+    virtual bool isSVGImage() const { return false; }
 
-    virtual FloatRect relativeBBox(bool includeStroke = true) const;
+    // Per SVG 1.1 objectBoundingBox ignores clipping, masking, filter effects, opacity and stroke-width.
+    // This is used for all computation of objectBoundingBox relative units and by SVGLocateable::getBBox().
+    // NOTE: Markers are not specifically ignored here by SVG 1.1 spec, but we ignore them
+    // since stroke-width is ignored (and marker size can depend on stroke-width).
+    // objectBoundingBox is returned local coordinates.
+    // The name objectBoundingBox is taken from the SVG 1.1 spec.
+    virtual FloatRect objectBoundingBox() const;
 
+    // Returns the smallest rectangle enclosing all of the painted content
+    // respecting clipping, masking, filters, opacity, stroke-width and markers
+    virtual FloatRect repaintRectInLocalCoordinates() const;
+
+    // FIXME: This accessor is deprecated and mostly around for SVGRenderTreeAsText.
+    // This only returns the transform="" value from the element
+    // most callsites want localToParentTransform() instead.
     virtual TransformationMatrix localTransform() const;
+
+    // Returns the full transform mapping from local coordinates to local coords for the parent SVG renderer
+    // This includes any viewport transforms and x/y offsets as well as the transform="" value off the element.
+    virtual TransformationMatrix localToParentTransform() const;
+
+    // Walks up the parent chain to create a transform which maps from local to document coords
+    // NOTE: This method is deprecated!  It doesn't respect scroll offsets or repaint containers.
+    // FIXME: This is only virtual so that RenderSVGHiddenContainer can override it to match old LayoutTest results.
     virtual TransformationMatrix absoluteTransform() const;
+
+    // SVG uses FloatPoint precise hit testing, and passes the point in parent
+    // coordinates instead of in repaint container coordinates.  Eventually the
+    // rest of the rendering tree will move to a similar model.
+    virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
 #endif
 
     bool isAnonymous() const { return m_isAnonymous; }
@@ -410,19 +441,23 @@ public:
     // the offset of baseline from the top of the object.
     virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
+    typedef HashMap<OverlapTestRequestClient*, IntRect> OverlapTestRequestMap;
+
     /*
      * Paint the object and its children, clipped by (x|y|w|h).
      * (tx|ty) is the calculated position of the parent
      */
     struct PaintInfo {
         PaintInfo(GraphicsContext* newContext, const IntRect& newRect, PaintPhase newPhase, bool newForceBlackText,
-                  RenderObject* newPaintingRoot, ListHashSet<RenderInline*>* newOutlineObjects)
+                  RenderObject* newPaintingRoot, ListHashSet<RenderInline*>* newOutlineObjects,
+                  OverlapTestRequestMap* overlapTestRequests = 0)
             : context(newContext)
             , rect(newRect)
             , phase(newPhase)
             , forceBlackText(newForceBlackText)
             , paintingRoot(newPaintingRoot)
             , outlineObjects(newOutlineObjects)
+            , overlapTestRequests(overlapTestRequests)
         {
         }
 
@@ -432,6 +467,7 @@ public:
         bool forceBlackText;
         RenderObject* paintingRoot; // used to draw just one element and its visual kids
         ListHashSet<RenderInline*>* outlineObjects; // used to list outlines that should be painted by a block with inline children
+        OverlapTestRequestMap* overlapTestRequests;
     };
 
     virtual void paint(PaintInfo&, int tx, int ty);
@@ -496,16 +532,13 @@ public:
 
     // Return the offset from the container() renderer (excluding transforms)
     virtual IntSize offsetFromContainer(RenderObject*) const;
-
-    virtual void absoluteRectsForRange(Vector<IntRect>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
     
-    virtual void absoluteRects(Vector<IntRect>&, int, int, bool = true) { }
+    virtual void absoluteRects(Vector<IntRect>&, int, int) { }
     // FIXME: useTransforms should go away eventually
     IntRect absoluteBoundingBoxRect(bool useTransforms = false);
 
     // Build an array of quads in absolute coords for line boxes
-    virtual void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
-    virtual void absoluteQuads(Vector<FloatQuad>&, bool /*topLevel*/ = true) { }
+    virtual void absoluteQuads(Vector<FloatQuad>&) { }
 
     // the rect that will be painted if this object is passed as the paintingRoot
     IntRect paintingRootRect(IntRect& topLevelRect);
@@ -683,7 +716,8 @@ public:
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
     virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
 
-    TransformationMatrix transformFromContainer(const RenderObject* container, const IntSize& offsetInContainer) const;
+    bool shouldUseTransformFromContainer(const RenderObject* container) const;
+    void getTransformFromContainer(const RenderObject* container, const IntSize& offsetInContainer, TransformationMatrix&) const;
     
     virtual void addFocusRingRects(GraphicsContext*, int /*tx*/, int /*ty*/) { };
 

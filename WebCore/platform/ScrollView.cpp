@@ -47,6 +47,7 @@ ScrollView::ScrollView()
     , m_scrollbarsAvoidingResizer(0)
     , m_scrollbarsSuppressed(false)
     , m_inUpdateScrollbars(false)
+    , m_updateScrollbarsPass(0)
     , m_drawPanScrollIcon(false)
     , m_useFixedLayout(false)
 {
@@ -78,7 +79,7 @@ void ScrollView::removeChild(Widget* child)
 
 void ScrollView::setHasHorizontalScrollbar(bool hasBar)
 {
-    if (hasBar && !m_horizontalScrollbar && !platformHasHorizontalAdjustment()) {
+    if (hasBar && !m_horizontalScrollbar) {
         m_horizontalScrollbar = createScrollbar(HorizontalScrollbar);
         addChild(m_horizontalScrollbar.get());
     } else if (!hasBar && m_horizontalScrollbar) {
@@ -89,7 +90,7 @@ void ScrollView::setHasHorizontalScrollbar(bool hasBar)
 
 void ScrollView::setHasVerticalScrollbar(bool hasBar)
 {
-    if (hasBar && !m_verticalScrollbar && !platformHasVerticalAdjustment()) {
+    if (hasBar && !m_verticalScrollbar) {
         m_verticalScrollbar = createScrollbar(VerticalScrollbar);
         addChild(m_verticalScrollbar.get());
     } else if (!hasBar && m_verticalScrollbar) {
@@ -98,10 +99,12 @@ void ScrollView::setHasVerticalScrollbar(bool hasBar)
     }
 }
 
+#if !PLATFORM(GTK)
 PassRefPtr<Scrollbar> ScrollView::createScrollbar(ScrollbarOrientation orientation)
 {
     return Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
 }
+#endif
 
 void ScrollView::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode)
 {
@@ -238,9 +241,9 @@ void ScrollView::valueChanged(Scrollbar* scrollbar)
     // Figure out if we really moved.
     IntSize newOffset = m_scrollOffset;
     if (scrollbar) {
-        if (scrollbar == m_horizontalScrollbar)
+        if (scrollbar->orientation() == HorizontalScrollbar)
             newOffset.setWidth(scrollbar->value());
-        else if (scrollbar == m_verticalScrollbar)
+        else if (scrollbar->orientation() == VerticalScrollbar)
             newOffset.setHeight(scrollbar->value());
     }
 
@@ -318,62 +321,99 @@ bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity
     return false;
 }
 
+static const unsigned cMaxUpdateScrollbarsPass = 2;
+
 void ScrollView::updateScrollbars(const IntSize& desiredOffset)
 {
-    // Don't allow re-entrancy into this function.
     if (m_inUpdateScrollbars || prohibitsScrolling() || platformWidget())
         return;
 
-    m_inUpdateScrollbars = true;
-
-    bool hasVerticalScrollbar = m_verticalScrollbar;
     bool hasHorizontalScrollbar = m_horizontalScrollbar;
-    bool oldHasVertical = hasVerticalScrollbar;
-    bool oldHasHorizontal = hasHorizontalScrollbar;
+    bool hasVerticalScrollbar = m_verticalScrollbar;
+    
+    bool newHasHorizontalScrollbar = hasHorizontalScrollbar;
+    bool newHasVerticalScrollbar = hasVerticalScrollbar;
+   
     ScrollbarMode hScroll = m_horizontalScrollbarMode;
     ScrollbarMode vScroll = m_verticalScrollbarMode;
 
-    const int scrollbarThickness = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+    if (hScroll != ScrollbarAuto)
+        newHasHorizontalScrollbar = (hScroll == ScrollbarAlwaysOn);
+    if (vScroll != ScrollbarAuto)
+        newHasVerticalScrollbar = (vScroll == ScrollbarAlwaysOn);
 
-    for (int pass = 0; pass < 2; pass++) {
-        bool scrollsVertically;
-        bool scrollsHorizontally;
+    if (m_scrollbarsSuppressed || (hScroll != ScrollbarAuto && vScroll != ScrollbarAuto)) {
+        if (hasHorizontalScrollbar != newHasHorizontalScrollbar)
+            setHasHorizontalScrollbar(newHasHorizontalScrollbar);
+        if (hasVerticalScrollbar != newHasVerticalScrollbar)
+            setHasVerticalScrollbar(newHasVerticalScrollbar);
+    } else {
+        // If we came in here with the view already needing a layout, then go ahead and do that
+        // first.  (This will be the common case, e.g., when the page changes due to window resizing for example).
+        // This layout will not re-enter updateScrollers and does not count towards our max layout pass total.
+        m_inUpdateScrollbars = true;
+        visibleContentsResized();
+        m_inUpdateScrollbars = false;
 
-        if (!m_scrollbarsSuppressed && (hScroll == ScrollbarAuto || vScroll == ScrollbarAuto)) {
-            // Do a layout if pending before checking if scrollbars are needed.
-            if (hasVerticalScrollbar != oldHasVertical || hasHorizontalScrollbar != oldHasHorizontal)
-                visibleContentsResized();
-
-            scrollsVertically = (vScroll == ScrollbarAlwaysOn) || (vScroll == ScrollbarAuto && contentsHeight() > height());
-            if (scrollsVertically)
-                scrollsHorizontally = (hScroll == ScrollbarAlwaysOn) || (hScroll == ScrollbarAuto && contentsWidth() + scrollbarThickness > width());
-            else {
-                scrollsHorizontally = (hScroll == ScrollbarAlwaysOn) || (hScroll == ScrollbarAuto && contentsWidth() > width());
-                if (scrollsHorizontally)
-                    scrollsVertically = (vScroll == ScrollbarAlwaysOn) || (vScroll == ScrollbarAuto && contentsHeight() + scrollbarThickness > height());
-            }
-        } else {
-            scrollsHorizontally = (hScroll == ScrollbarAuto) ? hasHorizontalScrollbar : (hScroll == ScrollbarAlwaysOn);
-            scrollsVertically = (vScroll == ScrollbarAuto) ? hasVerticalScrollbar : (vScroll == ScrollbarAlwaysOn);
-        }
+        bool sendContentResizedNotification = false;
         
-        if (hasVerticalScrollbar != scrollsVertically) {
-            setHasVerticalScrollbar(scrollsVertically);
-            hasVerticalScrollbar = scrollsVertically;
+        IntSize docSize = contentsSize();
+        IntSize frameSize = frameRect().size();
+
+        if (hScroll == ScrollbarAuto) {
+            newHasHorizontalScrollbar = docSize.width() > visibleWidth();
+            if (newHasHorizontalScrollbar && !m_updateScrollbarsPass && docSize.width() <= frameSize.width() && docSize.height() <= frameSize.height())
+                newHasHorizontalScrollbar = false;
+        }
+        if (vScroll == ScrollbarAuto) {
+            newHasVerticalScrollbar = docSize.height() > visibleHeight();
+            if (newHasVerticalScrollbar && !m_updateScrollbarsPass && docSize.width() <= frameSize.width() && docSize.height() <= frameSize.height())
+                newHasVerticalScrollbar = false;
         }
 
-        if (hasHorizontalScrollbar != scrollsHorizontally) {
-            setHasHorizontalScrollbar(scrollsHorizontally);
-            hasHorizontalScrollbar = scrollsHorizontally;
+        // If we ever turn one scrollbar off, always turn the other one off too.  Never ever
+        // try to both gain/lose a scrollbar in the same pass.
+        if (!newHasHorizontalScrollbar && hasHorizontalScrollbar && vScroll != ScrollbarAlwaysOn)
+            newHasVerticalScrollbar = false;
+        if (!newHasVerticalScrollbar && hasVerticalScrollbar && hScroll != ScrollbarAlwaysOn)
+            newHasHorizontalScrollbar = false;
+
+        if (hasHorizontalScrollbar != newHasHorizontalScrollbar) {
+            setHasHorizontalScrollbar(newHasHorizontalScrollbar);
+            sendContentResizedNotification = true;
+        }
+
+        if (hasVerticalScrollbar != newHasVerticalScrollbar) {
+            setHasVerticalScrollbar(newHasVerticalScrollbar);
+            sendContentResizedNotification = true;
+        }
+
+        if (sendContentResizedNotification && m_updateScrollbarsPass < cMaxUpdateScrollbarsPass) {
+            m_updateScrollbarsPass++;
+            contentsResized();
+            visibleContentsResized();
+            IntSize newDocSize = contentsSize();
+            if (newDocSize == docSize) {
+                // The layout with the new scroll state had no impact on
+                // the document's overall size, so updateScrollbars didn't get called.
+                // Recur manually.
+                updateScrollbars(desiredOffset);
+            }
+            m_updateScrollbarsPass--;
         }
     }
     
-    // Set up the range (and page step/line step).
+    // Set up the range (and page step/line step), but only do this if we're not in a nested call (to avoid
+    // doing it multiple times).
+    if (m_updateScrollbarsPass)
+        return;
+
+    m_inUpdateScrollbars = true;
     IntSize maxScrollPosition(contentsWidth() - visibleWidth(), contentsHeight() - visibleHeight());
     IntSize scroll = desiredOffset.shrunkTo(maxScrollPosition);
     scroll.clampNegativeToZero();
  
-    if (!platformHandleHorizontalAdjustment(scroll) && m_horizontalScrollbar) {
+    if (m_horizontalScrollbar) {
         int clientWidth = visibleWidth();
         m_horizontalScrollbar->setEnabled(contentsWidth() > clientWidth);
         int pageStep = (clientWidth - cAmountToKeepWhenPaging);
@@ -397,7 +437,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
             m_horizontalScrollbar->setSuppressInvalidation(false); 
     } 
 
-    if (!platformHandleVerticalAdjustment(scroll) && m_verticalScrollbar) {
+    if (m_verticalScrollbar) {
         int clientHeight = visibleHeight();
         m_verticalScrollbar->setEnabled(contentsHeight() > clientHeight);
         int pageStep = (clientHeight - cAmountToKeepWhenPaging);
@@ -421,7 +461,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
             m_verticalScrollbar->setSuppressInvalidation(false);
     }
 
-    if (oldHasVertical != (m_verticalScrollbar != 0) || oldHasHorizontal != (m_horizontalScrollbar != 0))
+    if (hasHorizontalScrollbar != (m_horizontalScrollbar != 0) || hasVerticalScrollbar != (m_verticalScrollbar != 0))
         frameRectsChanged();
 
     // See if our offset has changed in a situation where we might not have scrollbars.
@@ -467,7 +507,7 @@ void ScrollView::scrollContents(const IntSize& scrollDelta)
        hostWindow()->scroll(-scrollDelta, scrollViewRect, clipRect);
     } else { 
        // We need to go ahead and repaint the entire backing store.  Do it now before moving the
-       // plugins.
+       // windowed plugins.
        hostWindow()->repaint(updateRect, true, false, true); // Invalidate the backing store and repaint it synchronously
     }
 
@@ -548,8 +588,16 @@ void ScrollView::setParent(ScrollView* parentView)
     if (m_scrollbarsAvoidingResizer && parent())
         parent()->adjustScrollbarsAvoidingResizerCount(-m_scrollbarsAvoidingResizer);
 
+#if PLATFORM(QT)
+    if (m_widgetsPreventingBlitting && parent())
+        parent()->adjustWidgetsPreventingBlittingCount(-m_widgetsPreventingBlitting);
+
+    if (m_widgetsPreventingBlitting && parentView)
+        parentView->adjustWidgetsPreventingBlittingCount(m_widgetsPreventingBlitting);
+#endif
+
     Widget::setParent(parentView);
-    
+
     if (m_scrollbarsAvoidingResizer && parent())
         parent()->adjustScrollbarsAvoidingResizerCount(m_scrollbarsAvoidingResizer);
 }
@@ -606,8 +654,13 @@ Scrollbar* ScrollView::scrollbarUnderMouse(const PlatformMouseEvent& mouseEvent)
 void ScrollView::wheelEvent(PlatformWheelEvent& e)
 {
     // We don't allow mouse wheeling to happen in a ScrollView that has had its scrollbars explicitly disabled.
-    if (!canHaveScrollbars() || platformWidget())
+#if PLATFORM(WX)
+    if (!canHaveScrollbars()) {
+#else
+    if (!canHaveScrollbars() || platformWidget()) {
+#endif
         return;
+    }
 
     // Determine how much we want to scroll.  If we can move at all, we will accept the event.
     IntSize maxScrollDelta = maximumScrollPosition() - scrollPosition();
@@ -817,6 +870,7 @@ void ScrollView::removePanScrollIcon()
 }
 
 #if !PLATFORM(WX) && !PLATFORM(GTK) && !PLATFORM(QT)
+
 void ScrollView::platformInit()
 {
 }
@@ -824,9 +878,11 @@ void ScrollView::platformInit()
 void ScrollView::platformDestroy()
 {
 }
+
 #endif
 
 #if !PLATFORM(WX) && !PLATFORM(GTK) && !PLATFORM(QT) && !PLATFORM(MAC)
+
 void ScrollView::platformAddChild(Widget*)
 {
 }
@@ -834,15 +890,19 @@ void ScrollView::platformAddChild(Widget*)
 void ScrollView::platformRemoveChild(Widget*)
 {
 }
+
 #endif
 
 #if !PLATFORM(MAC)
+
 void ScrollView::platformSetScrollbarsSuppressed(bool repaintOnUnsuppress)
 {
 }
+
 #endif
 
 #if !PLATFORM(MAC) && !PLATFORM(WX)
+
 void ScrollView::platformSetScrollbarModes()
 {
 }
@@ -850,6 +910,8 @@ void ScrollView::platformSetScrollbarModes()
 #if !PLATFORM(ANDROID)
 void ScrollView::platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode& vertical) const
 {
+    horizontal = ScrollbarAuto;
+    vertical = ScrollbarAuto;
 }
 #endif
 
@@ -914,28 +976,6 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& )
 #endif
 
 bool ScrollView::platformIsOffscreen() const
-{
-    return false;
-}
-#endif
-
-#if !PLATFORM(GTK)
-bool ScrollView::platformHandleHorizontalAdjustment(const IntSize&)
-{
-    return false;
-}
-
-bool ScrollView::platformHandleVerticalAdjustment(const IntSize&)
-{
-    return false;
-}
-
-bool ScrollView::platformHasHorizontalAdjustment() const
-{
-    return false;
-}
-
-bool ScrollView::platformHasVerticalAdjustment() const
 {
     return false;
 }

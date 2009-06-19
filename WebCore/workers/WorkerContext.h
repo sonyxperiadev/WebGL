@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,6 +57,8 @@ namespace WebCore {
 
         virtual bool isWorkerContext() const { return true; }
 
+        virtual WorkerContext* toWorkerContext() { return this; }
+
         virtual ScriptExecutionContext* scriptExecutionContext() const;
 
         const KURL& url() const { return m_url; }
@@ -64,11 +66,9 @@ namespace WebCore {
 
         virtual String userAgent(const KURL&) const;
 
-        WorkerLocation* location() const { return m_location.get(); }
-        WorkerNavigator* navigator() const;
-
         WorkerScriptController* script() { return m_script.get(); }
         void clearScript() { return m_script.clear(); }
+
         WorkerThread* thread() { return m_thread; }
 
         bool hasPendingActivity() const;
@@ -78,46 +78,64 @@ namespace WebCore {
         virtual void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
         virtual void scriptImported(unsigned long identifier, const String& sourceString);
 
-        virtual WorkerContext* toWorkerContext() { return this; }
-
-        void postMessage(const String& message);
         virtual void postTask(PassRefPtr<Task>); // Executes the task on context's thread asynchronously.
 
-        int installTimeout(ScheduledAction*, int timeout, bool singleShot);
-        void removeTimeout(int timeoutId);
 
-        void dispatchMessage(const String&);
+        // WorkerGlobalScope
+        WorkerContext* self() { return this; }
+        WorkerLocation* location() const;
+        void close();
 
+        // WorkerUtils
+        void importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode&);
+        WorkerNavigator* navigator() const;
+
+
+        // DedicatedWorkerGlobalScope
+        void postMessage(const String& message);
+        void setOnmessage(PassRefPtr<EventListener> eventListener) { m_onmessageListener = eventListener; }
+        EventListener* onmessage() const { return m_onmessageListener.get(); }
+
+        // Timers
+        int setTimeout(ScheduledAction*, int timeout);
+        void clearTimeout(int timeoutId);
+        int setInterval(ScheduledAction*, int timeout);
+        void clearInterval(int timeoutId);
+
+        // EventTarget
         virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
         virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
         virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
-
-        void setOnmessage(PassRefPtr<EventListener> eventListener) { m_onmessageListener = eventListener; }
-        EventListener* onmessage() const { return m_onmessageListener.get(); }
 
         typedef Vector<RefPtr<EventListener> > ListenerVector;
         typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
         EventListenersMap& eventListeners() { return m_eventListeners; }
 
-        void importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode&);
-        
+        void dispatchMessage(const String&);
+
+        // These methods are used for GC marking. See JSWorkerContext::mark() in
+        // JSWorkerContextCustom.cpp.
+        WorkerNavigator* optionalNavigator() const { return m_navigator.get(); }
+        WorkerLocation* optionalLocation() const { return m_location.get(); }
+
         using RefCounted<WorkerContext>::ref;
         using RefCounted<WorkerContext>::deref;
 
     private:
+        WorkerContext(const KURL&, const String&, WorkerThread*);
+
         virtual void refScriptExecutionContext() { ref(); }
         virtual void derefScriptExecutionContext() { deref(); }
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
-
-        WorkerContext(const KURL&, const String&, WorkerThread*);
 
         virtual const KURL& virtualURL() const;
         virtual KURL virtualCompleteURL(const String&) const;
 
         KURL m_url;
         String m_userAgent;
-        RefPtr<WorkerLocation> m_location;
+
+        mutable RefPtr<WorkerLocation> m_location;
         mutable RefPtr<WorkerNavigator> m_navigator;
 
         OwnPtr<WorkerScriptController> m_script;
@@ -125,6 +143,8 @@ namespace WebCore {
 
         RefPtr<EventListener> m_onmessageListener;
         EventListenersMap m_eventListeners;
+
+        bool m_closing;
     };
 
 } // namespace WebCore
