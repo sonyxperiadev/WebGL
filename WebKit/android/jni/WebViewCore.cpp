@@ -1449,11 +1449,12 @@ public:
         if (!m_select || !CacheBuilder::validNode(m_viewImpl->m_mainFrame,
                 m_frame, m_select))
             return;
-        // FIXME: scroggo, listToOptionIndex was made private in HTMLSelectElement.
-        int optionIndex = m_select->listToOptionIndex(index);
+        // Use a pointer to HTMLSelectElement's superclass, where
+        // listToOptionIndex is public.
+        SelectElement* selectElement = m_select;
+        int optionIndex = selectElement->listToOptionIndex(index);
         m_select->setSelectedIndex(optionIndex, true, false);
-        // FIXME: scroggo, onChange is removed from HTMLSelectElement.
-        // m_select->onChange();
+        m_select->dispatchFormControlChangeEvent();
         m_viewImpl->contentInvalidate(m_select->getRect());
     }
 
@@ -1492,8 +1493,7 @@ public:
                     option->setSelectedState(false);
             }
         }
-        // FIXME scroggo, onChange is removed from HTMLSelectElement
-        // m_select->onChange();
+        m_select->dispatchFormControlChangeEvent();
         m_viewImpl->contentInvalidate(m_select->getRect());
     }
 private:
@@ -1697,9 +1697,12 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 }
             }
             WebCoreReply* reply = new ListBoxReply(select, select->document()->frame(), this);
+            // Use a pointer to HTMLSelectElement's superclass, where
+            // optionToListIndex is public.
+            SelectElement* selectElement = select;
             listBoxRequest(reply, names.begin(), size, enabledArray.begin(), enabledArray.count(),
                     multiple, selectedArray.begin(), multiple ? selectedArray.count() :
-                    select->optionToListIndex(select->selectedIndex()));
+                    selectElement->optionToListIndex(select->selectedIndex()));
             return true;
         }
     }
