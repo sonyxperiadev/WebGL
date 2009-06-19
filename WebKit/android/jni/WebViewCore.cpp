@@ -294,6 +294,11 @@ void WebViewCore::reset(bool fromConstructor)
     m_check_domtree_version = true;
     m_progressDone = false;
     m_hasCursorBounds = false;
+
+    m_scrollOffsetX = 0;
+    m_scrollOffsetY = 0;
+    m_screenWidth = 0;
+    m_screenHeight = 0;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -874,6 +879,9 @@ void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
         m_mainFrame->eventHandler()->sendScrollEvent();
+
+        // update the currently visible window
+        sendVisibleRectBounds();
     }
     gCursorBoundsMutex.lock();
     bool hasCursorBounds = m_hasCursorBounds;
@@ -902,6 +910,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%d)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
+    m_screenHeight = screenHeight;
     m_scale = scale;
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
@@ -946,6 +955,20 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 false);
         }
     }
+
+    // update the currently visible window
+    sendVisibleRectBounds();
+}
+
+void WebViewCore::sendVisibleRectBounds()
+{
+    ANPEvent event;
+    SkANP::InitEvent(&event, kVisibleRect_ANPEventType);
+    event.data.visibleRect.x = m_scrollOffsetX;
+    event.data.visibleRect.y = m_scrollOffsetY;
+    event.data.visibleRect.width = m_screenWidth;
+    event.data.visibleRect.height = m_screenHeight;
+    sendPluginEvent(event, kVisibleRect_ANPEventFlag);
 }
 
 void WebViewCore::dumpDomTree(bool useFile)
@@ -1106,6 +1129,16 @@ void WebViewCore::drawPlugins()
         WebCore::IntRect r(bounds.fLeft, bounds.fTop,
                            bounds.width(), bounds.height());
         this->viewInvalidate(r);
+    }
+}
+
+void WebViewCore::sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag)
+{
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        if((*iter)->isAcceptingEvent(flag))
+            (*iter)->sendEvent(evt);
     }
 }
 

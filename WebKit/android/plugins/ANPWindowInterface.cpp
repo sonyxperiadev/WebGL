@@ -26,6 +26,9 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 #include "SkANP.h"
+#include "ScrollView.h"
+#include "WebViewCore.h"
+#include "PluginView.h"
 
 static bool anp_lockRect(void* window, const ANPRectI* inval,
                          ANPBitmap* bitmap) {
@@ -48,15 +51,28 @@ static bool anp_lockRegion(void* window, const ANPRegion* inval,
 static void anp_unlock(void* window) {
 }
 
+static PluginView* pluginViewForInstance(NPP instance) {
+    if (instance && instance->ndata)
+        return static_cast<PluginView*>(instance->ndata);
+    return PluginView::currentPluginView();
+}
+
+static void anp_scrollTo(NPP instance, int32_t x, int32_t y) {
+    ScrollView* scrollView = pluginViewForInstance(instance)->parent();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
+    core->scrollTo(x,y,true);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
 
 void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ANPWindowInterfaceV0* i = reinterpret_cast<ANPWindowInterfaceV0*>(value);
-    
+
     ASSIGN(i, lockRect);
     ASSIGN(i, lockRegion);
+    ASSIGN(i, scrollTo);
     ASSIGN(i, unlock);
 }
 

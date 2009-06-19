@@ -160,8 +160,9 @@ typedef int32_t ANPDrawingModel;
     and touch events will be provided to the plugin.
  */
 enum ANPEventFlag {
-    kKey_ANPEventFlag      = 0x01,
-    kTouch_ANPEventFlag    = 0x02,
+    kKey_ANPEventFlag           = 0x01,
+    kTouch_ANPEventFlag         = 0x02,
+    kVisibleRect_ANPEventFlag   = 0x04,
 };
 typedef uint32_t ANPEventFlags;
 
@@ -608,6 +609,11 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         results. If lock returned false, unlock should not be called.
      */
     void    (*unlock)(void* window);
+    /** Given (x,y) coordinates in the document space the currently visible
+        window will be shifted so that window's upper left corner will be as
+        closely aligned to the coordinates as possible.
+     */
+    void    (*scrollTo)(NPP instance, int32_t x, int32_t y);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -692,11 +698,12 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
 // HandleEvent
 
 enum ANPEventTypes {
-    kNull_ANPEventType      = 0,
-    kKey_ANPEventType       = 1,
-    kTouch_ANPEventType     = 2,
-    kDraw_ANPEventType      = 3,
-    kLifecycle_ANPEventType = 4
+    kNull_ANPEventType          = 0,
+    kKey_ANPEventType           = 1,
+    kTouch_ANPEventType         = 2,
+    kDraw_ANPEventType          = 3,
+    kLifecycle_ANPEventType     = 4,
+    kVisibleRect_ANPEventType   = 5,
 };
 typedef int32_t ANPEventType;
 
@@ -765,6 +772,12 @@ struct ANPEvent {
                 ANPBitmap   bitmap;
             } data;
         } draw;
+        struct {
+            int32_t         x;      // relative to the document
+            int32_t         y;      // relative to the document
+            int32_t         width;
+            int32_t         height;
+        } visibleRect;
         int32_t         other[8];
     } data;
 };

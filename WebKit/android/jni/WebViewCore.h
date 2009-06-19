@@ -26,6 +26,7 @@
 #ifndef WEBVIEWCORE_H
 #define WEBVIEWCORE_H
 
+#include "android_npapi.h"
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
 #include "PictureSet.h"
@@ -55,7 +56,6 @@ namespace WebCore {
 struct PluginWidgetAndroid;
 class SkPicture;
 class SkIRect;
-struct ANPEvent;
 
 namespace android {
 
@@ -291,6 +291,9 @@ namespace android {
         // send this event to all of the plugins in our list
         void sendPluginEvent(const ANPEvent&);
 
+        // send this event to all of the plugins who have the given flag set
+        void sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag);
+
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);
 
@@ -384,7 +387,8 @@ namespace android {
         int m_lastVelocity;
         CachedHistory m_history;
         WebCore::Node* m_snapAnchorNode;
-        int m_screenWidth;
+        int m_screenWidth; // width of the visible rect in document coordinates
+        int m_screenHeight;// height of the visible rect in document coordinates
         int m_scale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
@@ -399,6 +403,7 @@ namespace android {
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
+        void sendVisibleRectBounds();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
 #if DEBUG_NAV_UI
         uint32_t m_now;
