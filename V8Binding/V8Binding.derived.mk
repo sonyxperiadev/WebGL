@@ -20,10 +20,10 @@ LOCAL_CFLAGS += -DWTF_USE_V8=1
 v8binding_dir := $(LOCAL_PATH)
 
 BINDING_C_INCLUDES := \
-  $(BASE_PATH)/v8/include \
+  $(LOCAL_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
-	$(LOCAL_PATH)/v8 \
+	$(LOCAL_PATH)/binding \
 	$(LOCAL_PATH)/npapi \
 	$(LOCAL_PATH)/jni \
 	$(JAVASCRIPTCORE_PATH)/wtf \
@@ -113,24 +113,24 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
 LOCAL_SRC_FILES := \
-  v8/V8InitializeThreading.cpp \
-	v8/JSDOMBinding.cpp \
-	v8/JSXPathNSResolver.cpp \
-	v8/NPV8Object.cpp \
-	v8/RGBColor.cpp \
-	v8/V8CanvasPixelArrayCustom.cpp \
-	v8/V8MessagePortCustom.cpp \
-	v8/V8NPObject.cpp \
-	v8/V8NPUtils.cpp \
-	v8/V8Utilities.cpp \
-	v8/V8WorkerContextCustom.cpp \
-	v8/V8WorkerCustom.cpp \
-	v8/npruntime.cpp \
-	v8/v8_binding.cpp \
-	v8/v8_custom.cpp \
-	v8/v8_helpers.cpp \
-	v8/v8_index.cpp \
-	v8/v8_proxy.cpp \
+  binding/V8InitializeThreading.cpp \
+	binding/JSDOMBinding.cpp \
+	binding/JSXPathNSResolver.cpp \
+	binding/NPV8Object.cpp \
+	binding/RGBColor.cpp \
+	binding/V8CanvasPixelArrayCustom.cpp \
+	binding/V8MessagePortCustom.cpp \
+	binding/V8NPObject.cpp \
+	binding/V8NPUtils.cpp \
+	binding/V8Utilities.cpp \
+	binding/V8WorkerContextCustom.cpp \
+	binding/V8WorkerCustom.cpp \
+	binding/npruntime.cpp \
+	binding/v8_binding.cpp \
+	binding/v8_custom.cpp \
+	binding/v8_helpers.cpp \
+	binding/v8_index.cpp \
+	binding/v8_proxy.cpp \
 	\
 	jni/jni_class.cpp \
 	jni/jni_instance.cpp \

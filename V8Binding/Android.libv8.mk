@@ -73,10 +73,11 @@ LOCAL_SRC_FILES := \
 	src/v8threads.cc \
 	src/variables.cc \
 	src/virtual-frame.cc \
+	src/version.cc \
 	src/zone.cc
 
 ifeq ($(TARGET_ARCH),arm)
-	LOCAL_SRC_FILES += \
+  LOCAL_SRC_FILES += \
 		src/assembler-arm.cc \
 		src/builtins-arm.cc \
 		src/codegen-arm.cc \
@@ -127,7 +128,9 @@ LOCAL_SRC_FILES += \
   src/snapshot-empty.cc \
 	src/dtoa-config.c
 
-LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, \
+LOCAL_SRC_FILES := $(addprefix v8/, $(LOCAL_SRC_FILES))
+
+LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/v8/, \
 	src/runtime.js \
 	src/v8natives.js \
 	src/array.js \
@@ -138,6 +141,7 @@ LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/, \
 	src/apinatives.js \
 	src/date-delay.js \
 	src/regexp-delay.js \
+	src/json-delay.js \
 	src/macros.py \
 )
 
@@ -156,13 +160,12 @@ LOCAL_CFLAGS += \
 	-Wno-endif-labels \
 	-Wno-import \
 	-Wno-format \
-	-fno-exceptions \
-	-fno-tree-sink
+	-fno-exceptions
 
 ifeq ($(TARGET_ARCH),arm)
 	LOCAL_CFLAGS += -DARM
 endif
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/src
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/v8/src
 
 include $(BUILD_STATIC_LIBRARY)
