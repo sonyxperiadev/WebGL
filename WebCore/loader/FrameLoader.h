@@ -513,13 +513,8 @@ namespace WebCore {
             bool lockHistory, FrameLoadType, PassRefPtr<FormState>);
 
 #ifdef ANDROID_USER_GESTURE
-// FIXME (klobag): WebKit/android/jni/WebCoreFrameBridge.cpp uses
-// loadPostRequest, figure out if we can use load(...) instead of
-// making loadPostRequest public.
-public:
         void loadPostRequest(const ResourceRequest&, const String& referrer,                // Called by loadFrameRequest, calls loadWithNavigationAction
             const String& frameName, bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool userGesture);
-private:
         void loadURL(const KURL&, const String& referrer, const String& frameName,          // Called by loadFrameRequest, calls loadWithNavigationAction or dispatches to navigation policy delegate
             bool lockHistory, FrameLoadType, PassRefPtr<Event>, PassRefPtr<FormState>, bool userGesture);
 #endif // ANDROID_USER_GESTURE

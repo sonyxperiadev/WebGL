@@ -45,6 +45,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
+#include "FrameLoadRequest.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -821,6 +822,7 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
 
     WebCore::KURL kurl(WebCore::KURL(), to_string(env, url));
     WebCore::ResourceRequest request(kurl);
+    request.setHTTPMethod("POST");
     request.setHTTPContentType("application/x-www-form-urlencoded");
 
     if (postData) {
@@ -831,11 +833,8 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
     }
 
     LOGV("PostUrl %s", kurl.string().latin1().data());
-    // FIXME klobag, WebCore changed FrameLoader::loadPostRequest to private,
-    // I temporarily made it public in FrameLoader.h, please figure out
-    // if we can use FrameLoader::load(...) to send POST request.
-    pFrame->loader()->loadPostRequest(request, String(), String(), false,
-            WebCore::FrameLoadTypeStandard, 0, 0, true);
+    WebCore::FrameLoadRequest frameRequest(request);
+    pFrame->loader()->loadFrameRequest(frameRequest, false, false, 0, 0);
 }
 
 static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
