@@ -121,14 +121,34 @@ class V8Custom {
                       kDefaultWrapperInternalFieldCount + 1;
 #endif
 
-  static const int kDOMWindowHistoryIndex =
+  static const int kDOMWindowConsoleIndex =
                       kDefaultWrapperInternalFieldCount + 0;
-  static const int kDOMWindowNavigatorIndex =
+  static const int kDOMWindowHistoryIndex =
                       kDefaultWrapperInternalFieldCount + 1;
-  static const int kDOMWindowLocationIndex =
+  static const int kDOMWindowLocationbarIndex =
                       kDefaultWrapperInternalFieldCount + 2;
-  static const int kDOMWindowInternalFieldCount =
+  static const int kDOMWindowMenubarIndex =
                       kDefaultWrapperInternalFieldCount + 3;
+  static const int kDOMWindowNavigatorIndex =
+                      kDefaultWrapperInternalFieldCount + 4;
+  static const int kDOMWindowPersonalbarIndex =
+                      kDefaultWrapperInternalFieldCount + 5;
+  static const int kDOMWindowScreenIndex =
+                      kDefaultWrapperInternalFieldCount + 6;
+  static const int kDOMWindowScrollbarsIndex =
+                      kDefaultWrapperInternalFieldCount + 7;
+  static const int kDOMWindowSelectionIndex =
+                      kDefaultWrapperInternalFieldCount + 8;
+  static const int kDOMWindowStatusbarIndex =
+                      kDefaultWrapperInternalFieldCount + 9;
+  static const int kDOMWindowToolbarIndex =
+                      kDefaultWrapperInternalFieldCount + 10;
+  static const int kDOMWindowLocationIndex =
+                      kDefaultWrapperInternalFieldCount + 11;
+  static const int kDOMWindowDOMSelectionIndex =
+                      kDefaultWrapperInternalFieldCount + 12;
+  static const int kDOMWindowInternalFieldCount =
+                      kDefaultWrapperInternalFieldCount + 13;
 
   static const int kStyleSheetOwnerNodeIndex =
                       kDefaultWrapperInternalFieldCount + 0;
@@ -220,6 +240,8 @@ static bool v8##NAME##IndexedSecurityCheck(v8::Local<v8::Object> host, \
 
 DECLARE_PROPERTY_ACCESSOR(CanvasRenderingContext2DStrokeStyle)
 DECLARE_PROPERTY_ACCESSOR(CanvasRenderingContext2DFillStyle)
+DECLARE_PROPERTY_ACCESSOR_GETTER(DOMWindowEvent)
+DECLARE_PROPERTY_ACCESSOR_GETTER(DOMWindowCrypto)
 // Customized getter&setter of DOMWindow.location
 DECLARE_PROPERTY_ACCESSOR_SETTER(DOMWindowLocation)
 // Customized setter of DOMWindow.opener
@@ -304,6 +326,8 @@ DECLARE_CALLBACK(DOMWindowClearTimeout)
 DECLARE_CALLBACK(DOMWindowClearInterval)
 
 DECLARE_CALLBACK(DOMParserConstructor)
+DECLARE_CALLBACK(HTMLImageElementConstructor)
+DECLARE_CALLBACK(HTMLOptionElementConstructor)
 DECLARE_CALLBACK(MessageChannelConstructor)
 DECLARE_CALLBACK(WebKitCSSMatrixConstructor)
 DECLARE_CALLBACK(WebKitPointConstructor)
@@ -368,10 +392,13 @@ DECLARE_CALLBACK(LocationReload)
 DECLARE_CALLBACK(LocationToString)
 DECLARE_CALLBACK(LocationValueOf)
 
-// Implementation of EventTarget::addEventListener
-// and EventTarget::removeEventListener
+// Implementation of custom Node methods.
 DECLARE_CALLBACK(NodeAddEventListener)
 DECLARE_CALLBACK(NodeRemoveEventListener)
+DECLARE_CALLBACK(NodeInsertBefore)
+DECLARE_CALLBACK(NodeReplaceChild)
+DECLARE_CALLBACK(NodeRemoveChild)
+DECLARE_CALLBACK(NodeAppendChild)
 
 // Custom implementation is Navigator properties.
 // We actually only need this because WebKit has
@@ -416,6 +443,16 @@ DECLARE_CALLBACK(TreeWalkerNextSibling)
 DECLARE_CALLBACK(TreeWalkerPreviousSibling)
 
 // Custom implementation of InspectorController functions
+DECLARE_CALLBACK(InspectorControllerProfiles)
+DECLARE_CALLBACK(InspectorControllerHighlightDOMNode)
+DECLARE_CALLBACK(InspectorControllerAddResourceSourceToFrame)
+DECLARE_CALLBACK(InspectorControllerGetResourceDocumentNode)
+DECLARE_CALLBACK(InspectorControllerAddSourceToFrame)
+DECLARE_CALLBACK(InspectorControllerSearch)
+DECLARE_CALLBACK(InspectorControllerSetting)
+DECLARE_CALLBACK(InspectorControllerInspectedWindow)
+DECLARE_CALLBACK(InspectorControllerSetSetting)
+DECLARE_CALLBACK(InspectorControllerCurrentCallFrame)
 DECLARE_CALLBACK(InspectorControllerDebuggerEnabled)
 DECLARE_CALLBACK(InspectorControllerPauseOnExceptions)
 DECLARE_CALLBACK(InspectorControllerProfilerEnabled)
@@ -461,6 +498,7 @@ DECLARE_INDEXED_PROPERTY_GETTER(NamedNodeMap)
 DECLARE_INDEXED_PROPERTY_GETTER(HTMLFormElement)
 DECLARE_INDEXED_PROPERTY_GETTER(HTMLOptionsCollection)
 DECLARE_INDEXED_PROPERTY_SETTER(HTMLOptionsCollection)
+DECLARE_NAMED_PROPERTY_GETTER(HTMLSelectElementCollection)
 DECLARE_INDEXED_PROPERTY_SETTER(HTMLSelectElementCollection)
 DECLARE_NAMED_PROPERTY_GETTER(HTMLCollection)
 
@@ -480,6 +518,9 @@ DECLARE_CALLBACK(DatabaseChangeVersion)
 DECLARE_CALLBACK(DatabaseTransaction)
 DECLARE_CALLBACK(SQLTransactionExecuteSql)
 DECLARE_CALLBACK(SQLResultSetRowListItem)
+
+// ClientRectList
+DECLARE_INDEXED_PROPERTY_GETTER(ClientRectList)
 
 // SVG custom properties and callbacks
 #if ENABLE(SVG)

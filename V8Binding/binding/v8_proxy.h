@@ -15,6 +15,7 @@
 #include "ScriptSourceCode.h"  // for WebCore::ScriptSourceCode
 #include "SecurityOrigin.h"  // for WebCore::SecurityOrigin
 #include "V8DOMMap.h"
+#include "V8EventListenerList.h"
 #include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
@@ -32,6 +33,7 @@
 namespace WebCore {
 
 class CSSStyleDeclaration;
+class ClientRectList;
 class DOMImplementation;
 class Element;
 class Event;
@@ -73,35 +75,6 @@ class SVGElementInstance;
 
 class V8EventListener;
 class V8ObjectEventListener;
-
-// This is a container for V8EventListener objects that also does some
-// caching to speed up finding entries by v8::Object.
-class V8EventListenerList {
- public:
-  static const size_t kMaxKeyNameLength = 254;
-  // The name should be distinct from any other V8EventListenerList
-  // within the same process, and <= kMaxKeyNameLength characters.
-  explicit V8EventListenerList(const char* name);
-  ~V8EventListenerList();
-
-  typedef Vector<V8EventListener*>::iterator iterator;
-  V8EventListenerList::iterator begin();
-  iterator end();
-
-  // In addition to adding the listener to this list, this also caches the
-  // V8EventListener as a hidden property on its wrapped v8 listener object,
-  // so we can quickly look it up later.
-  void add(V8EventListener*);
-  void remove(V8EventListener*);
-  V8EventListener* find(v8::Local<v8::Object>, bool isInline);
-  void clear();
-
- private:
-   v8::Handle<v8::String> getKey(bool isInline);
-   v8::Persistent<v8::String> m_inlineKey;
-   v8::Persistent<v8::String> m_nonInlineKey;
-   Vector<V8EventListener*> m_list;
-};
 
 
 // TODO(fqian): use standard logging facilities in WebCore.
@@ -196,8 +169,7 @@ class V8Proxy {
   };
 
   explicit V8Proxy(Frame* frame)
-      : m_frame(frame), m_event_listeners("m_event_listeners"),
-        m_xhr_listeners("m_xhr_listeners"), m_inlineCode(false),
+      : m_frame(frame), m_inlineCode(false),
         m_timerCallback(false), m_recursion(0) { }
 
   ~V8Proxy();
@@ -254,13 +226,7 @@ class V8Proxy {
   static void GCProtect(void* dom_object);
   static void GCUnprotect(void* dom_object);
 
-  // Create a lazy event listener.
-  PassRefPtr<EventListener> createInlineEventListener(
-      const String& functionName, const String& code, Node* node);
 #if ENABLE(SVG)
-  PassRefPtr<EventListener> createSVGEventHandler(
-      const String& functionName, const String& code, Node* node);
-
   static void SetSVGContext(void* object, SVGElement* context);
   static SVGElement* GetSVGContext(void* object);
 #endif
@@ -289,6 +255,11 @@ class V8Proxy {
                                     int argc,
                                     v8::Handle<v8::Value> argv[]);
 
+  // Call the function as constructor with the given arguments.
+  v8::Local<v8::Value> NewInstance(v8::Handle<v8::Function> constructor,
+                                   int argc,
+                                   v8::Handle<v8::Value> argv[]);
+
   // Returns the dom constructor function for the given node type.
   v8::Local<v8::Function> GetConstructor(V8ClassIndex::V8WrapperType type);
 
@@ -314,10 +285,39 @@ class V8Proxy {
   // Returns the frame object of the window object associated with
   // a context.
   static Frame* retrieveFrame(v8::Handle<v8::Context> context);
-  // Returns the frame that started JS execution.
-  // NOTE: cannot declare retrieveActiveFrame as inline function,
-  // VS complains at linking time.
-  static Frame* retrieveActiveFrame();
+
+
+  // The three functions below retrieve WebFrame instances relating the
+  // currently executing JavaScript. Since JavaScript can make function calls
+  // across frames, though, we need to be more precise.
+  //
+  // For example, imagine that a JS function in frame A calls a function in
+  // frame B, which calls native code, which wants to know what the 'active'
+  // frame is.
+  //
+  // The 'entered context' is the context where execution first entered the
+  // script engine; the context that is at the bottom of the JS function stack.
+  // RetrieveFrameForEnteredContext() would return Frame A in our example.
+  // This frame is often referred to as the "dynamic global object."
+  //
+  // The 'current context' is the context the JS engine is currently inside of;
+  // the context that is at the top of the JS function stack.
+  // RetrieveFrameForCurrentContext() would return Frame B in our example.
+  // This frame is often referred to as the "lexical global object."
+  //
+  // Finally, the 'calling context' is the context one below the current
+  // context on the JS function stack.  For example, if function f calls
+  // function g, then the calling context will be the context associated with
+  // f.  This context is commonly used by DOM security checks because they want
+  // to know who called them.
+  //
+  // If you are unsure which of these functions to use, ask abarth.
+  //
+  // NOTE: These cannot be declared as inline function, because VS complains at
+  // linking time.
+  static Frame* retrieveFrameForEnteredContext();
+  static Frame* retrieveFrameForCurrentContext();
+  static Frame* retrieveFrameForCallingContext();
 
   // Returns V8 Context of a frame. If none exists, creates
   // a new context.  It is potentially slow and consumes memory.
@@ -379,17 +379,11 @@ class V8Proxy {
 
   // A help function extract a node type pointer from a DOM wrapper.
   // Wrapped pointer must be cast to Node* first.
+  static void* DOMWrapperToNodeHelper(v8::Handle<v8::Value> value);
+
   template <class C>
   static C* DOMWrapperToNode(v8::Handle<v8::Value> value) {
-    ASSERT(MaybeDOMWrapper(value));
-
-    v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(value);
-
-    ASSERT(GetDOMWrapperType(object) == V8ClassIndex::NODE);
-
-    v8::Handle<v8::Value> wrapper =
-       object->GetInternalField(V8Custom::kDOMWrapperObjectIndex);
-    return static_cast<C*>(ExtractCPointer<Node>(wrapper));
+    return static_cast<C*>(DOMWrapperToNodeHelper(value));
   }
 
   template<typename T>
@@ -495,6 +489,9 @@ class V8Proxy {
   static void RegisterExtension(v8::Extension* extension,
                                 const String& schemeRestriction);
 
+  static void* ToSVGPODTypeImpl(V8ClassIndex::V8WrapperType type,
+                                v8::Handle<v8::Value> object);
+
  private:
   v8::Persistent<v8::Context> createNewContext(v8::Handle<v8::Object> global);
   void InitContextIfNeeded();
@@ -502,6 +499,14 @@ class V8Proxy {
   void SetSecurityToken();
   void ClearDocumentWrapper();
   void UpdateDocumentWrapper(v8::Handle<v8::Value> wrapper);
+
+  // The JavaScript wrapper for the document object is cached on the global
+  // object for fast access.  UpdateDocumentWrapperCache sets the wrapper
+  // for the current document on the global object.  ClearDocumentWrapperCache
+  // deletes the document wrapper from the global object.
+  void UpdateDocumentWrapperCache();
+  void ClearDocumentWrapperCache();
+
   // Dispose global handles of m_contexts and friends.
   void DisposeContextHandles();
 

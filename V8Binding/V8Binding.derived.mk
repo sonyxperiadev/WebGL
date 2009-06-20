@@ -56,16 +56,24 @@ WEBCORE_SRC_FILES := \
 	\
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
+	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
+	bindings/v8/custom/V8ClientRectListCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
 	bindings/v8/custom/V8CustomBinding.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
+	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
+	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
+	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
+	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
+	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
 	bindings/v8/custom/V8DOMParserConstructor.cpp \
 	bindings/v8/custom/V8DOMStringListCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
+	bindings/v8/custom/V8DatabaseCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
-	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
+	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
@@ -75,12 +83,16 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8HTMLFrameElementCustom.cpp \
 	bindings/v8/custom/V8HTMLFrameSetElementCustom.cpp \
 	bindings/v8/custom/V8HTMLIFrameElementCustom.cpp \
+	bindings/v8/custom/V8HTMLImageElementCustom.cpp \
 	bindings/v8/custom/V8HTMLInputElementCustom.cpp \
+	bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
+	bindings/v8/custom/V8HTMLSelectElementCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
+	bindings/v8/custom/V8MessagePortCustom.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
 	bindings/v8/custom/V8NavigatorCustom.cpp \
@@ -88,13 +100,8 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeFilterCustom.cpp \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
-	bindings/v8/custom/V8DatabaseCustom.cpp \
+	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
-	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
-	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
-	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -107,24 +114,26 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
 	bindings/v8/custom/V8TreeWalkerCustom.cpp \
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
+	bindings/v8/custom/V8WorkerContextCustom.cpp \
+	bindings/v8/custom/V8WorkerCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestConstructor.cpp \
 	bindings/v8/custom/V8XMLHttpRequestCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestUploadCustom.cpp \
 	bindings/v8/custom/V8XMLSerializerConstructor.cpp
 
+ifeq ($(ENABLE_XPATH), true)
+WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
+	bindings/v8/custom/V8XPathEvaluatorConstructor.cpp \
+  bindings/v8/custom/V8XSLTProcessorCustom.cpp
+endif
+
 LOCAL_SRC_FILES := \
   binding/V8InitializeThreading.cpp \
-	binding/JSDOMBinding.cpp \
 	binding/JSXPathNSResolver.cpp \
 	binding/NPV8Object.cpp \
 	binding/RGBColor.cpp \
-	binding/V8CanvasPixelArrayCustom.cpp \
-	binding/V8MessagePortCustom.cpp \
 	binding/V8NPObject.cpp \
 	binding/V8NPUtils.cpp \
-	binding/V8Utilities.cpp \
-	binding/V8WorkerContextCustom.cpp \
-	binding/V8WorkerCustom.cpp \
 	binding/npruntime.cpp \
 	binding/v8_binding.cpp \
 	binding/v8_custom.cpp \
