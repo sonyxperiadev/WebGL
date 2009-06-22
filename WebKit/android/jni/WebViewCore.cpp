@@ -284,6 +284,7 @@ void WebViewCore::reset(bool fromConstructor)
 
     m_lastFocused = 0;
     m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
+    m_lastMoveGeneration = 0;
     clearContent();
     m_updatedFrameCache = true;
     m_frameCacheOutOfDate = true;
@@ -478,11 +479,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds = oldFocusNode ?
         oldFocusNode->getRect() : WebCore::IntRect(0,0,0,0);
-    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
-        " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}",
-        m_lastFocused, oldFocusNode,
-        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(), m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
-        oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height());
     unsigned latestVersion = 0;
     if (m_check_domtree_version) {
         // as domTreeVersion only increment, we can just check the sum to see
@@ -491,9 +487,19 @@ void WebViewCore::recordPictureSet(PictureSet* content)
             latestVersion += frame->document()->domTreeVersion();
         }
     }
+    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
+        " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}"
+        " m_check_domtree_version=%s latestVersion=%d m_domtree_version=%d",
+        m_lastFocused, oldFocusNode,
+        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(),
+        m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
+        oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height(),
+        m_check_domtree_version ? "true" : "false",
+        latestVersion, m_domtree_version);
     bool update = m_lastFocused != oldFocusNode
         || m_lastFocusedBounds != oldBounds || m_findIsUp
-        || (m_check_domtree_version && latestVersion != m_domtree_version);
+        || (m_check_domtree_version && latestVersion != m_domtree_version)
+        || m_moveGeneration != m_lastMoveGeneration;
     if (!update) { // avoid mutex when possible
     // This block is specifically for the floating bar in gmail messages
     // it has been disabled because it adversely affects the performance
@@ -518,9 +524,9 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     }
     m_lastFocused = oldFocusNode;
     m_lastFocusedBounds = oldBounds;
-    DBG_NAV_LOGD("call updateFrameCache m_domtree_version=%d latest=%d",
-        m_domtree_version, latestVersion);
     m_domtree_version = latestVersion;
+    m_lastMoveGeneration = m_moveGeneration;
+    DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
 }
 
@@ -1608,10 +1614,22 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
 
 bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown)
 {
-    DBG_NAV_LOGD("key: keyCode=%d", keyCode);
-
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
     WebCore::Node* focusNode = currentFocus();
+    if (!focusNode) {
+        gCursorBoundsMutex.lock();
+        bool hasCursorBounds = m_hasCursorBounds;
+        Frame* frame = (Frame*) m_cursorFrame;
+        Node* node = (Node*) m_cursorNode;
+        gCursorBoundsMutex.unlock();
+        if (hasCursorBounds
+                && CacheBuilder::validNode(m_mainFrame, frame, node)
+                && nodeIsPlugin(node)) {
+            // check if this plugin really wants the key (TODO)
+            DBG_NAV_LOGD("widget=%p is plugin", widget);
+            focusNode = node;
+        }
+    }
     if (focusNode) {
         eventHandler = focusNode->document()->frame()->eventHandler();
     }
@@ -1623,6 +1641,7 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
     if (isAlt) {
         mods |= WebCore::PlatformKeyboardEvent::AltKey;
     }
+    DBG_NAV_LOGD("keyCode=%d focusNode=%p", keyCode, focusNode);
     WebCore::PlatformKeyboardEvent evt(keyCode, unichar,
             isDown ? WebCore::PlatformKeyboardEvent::KeyDown : WebCore::PlatformKeyboardEvent::KeyUp,
             repeatCount, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey> (mods));

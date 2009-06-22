@@ -404,14 +404,15 @@ void drawMatches(SkCanvas* canvas)
 
 void drawCursorRing(SkCanvas* canvas)
 {
-    const CachedRoot* root = getFrameCache(AllowNewer);
+    CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
         m_followedLink = false;
         m_viewImpl->m_hasCursorBounds = false;
         return;
     }
-    const CachedNode* node = root->currentCursor();
+    const CachedFrame* frame;
+    const CachedNode* node = root->currentCursor(&frame);
     if (!node) {
         DBG_NAV_LOG("!node");
         m_followedLink = false;
@@ -453,6 +454,8 @@ void drawCursorRing(SkCanvas* canvas)
         DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
             bounds.x(), bounds.y(), bounds.width(), bounds.height());
     m_viewImpl->m_cursorBounds = bounds;
+    m_viewImpl->m_cursorFrame = frame->framePointer();
+    root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
     m_viewImpl->m_cursorNode = node->nodePointer();
     m_viewImpl->gCursorBoundsMutex.unlock();
     bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
