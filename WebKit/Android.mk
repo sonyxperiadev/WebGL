@@ -21,6 +21,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/DragClientAndroid.cpp \
 	android/WebCoreSupport/EditorClientAndroid.cpp \
 	android/WebCoreSupport/FrameLoaderClientAndroid.cpp \
+	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	\
 	android/RenderSkinAndroid.cpp \
 	android/RenderSkinButton.cpp \

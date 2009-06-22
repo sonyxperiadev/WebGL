@@ -34,6 +34,8 @@ namespace WebCore {
 
 class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
 public:
+    ~MediaPlayerPrivate();
+
     static void registerMediaEngine(MediaEngineRegistrar);
 
     virtual void load(const String& url);
@@ -77,9 +79,18 @@ public:
 
     virtual void paint(GraphicsContext*, const IntRect&);
 private:
+    // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
     static void getSupportedTypes(HashSet<String>&);
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+
+    MediaPlayerPrivate(MediaPlayer *);
+    void createJavaPlayerIfNeeded();
+
+    MediaPlayer* m_player;
+    String m_url;
+    struct JavaGlue;
+    JavaGlue* m_glue;
 };
 
 }  // namespace WebCore
