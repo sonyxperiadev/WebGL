@@ -472,6 +472,10 @@ void drawCursorRing(SkCanvas* canvas)
         flavor = node->type() != NORMAL_CACHEDNODETYPE ?
             CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
         if (m_followedLink) {
+            if (node->wantsKeyEvents() && !node->isTextArea()
+                    && !node->isTextField()) {
+                return; // don't draw after click on plugin
+            }
             flavor = static_cast<CursorRing::Flavor>
                     (flavor + CursorRing::NORMAL_ANIMATING);
         }
