@@ -584,17 +584,11 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    // Internal loads are ok but any request that is due to a user hitting a key
-    // should be checked.
-    bool userGesture = false;
-#ifdef ANDROID_USER_GESTURE
-    userGesture = request.userGesture();
-#endif
     // always handle "POST" in place
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
     WebCore::KURL requestUrl = request.url();
-    if (!mUserInitiatedClick && !userGesture &&
+    if (!mUserInitiatedClick &&
         (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
             requestUrl.protocolIs("javascript")))
