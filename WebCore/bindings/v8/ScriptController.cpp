@@ -32,7 +32,12 @@
 #include "config.h"
 #include "ScriptController.h"
 
+#if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+#elif PLATFORM(ANDROID)
+#include "PluginView.h"
+#endif
+
 #include "CString.h"
 #include "Document.h"
 #include "DOMWindow.h"
@@ -261,12 +266,23 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
 {
     ASSERT(widget);
 
+#if PLATFORM(CHROMIUM)
     if (widget->isFrameView())
         return 0;
 
     NPObject* npObject = ChromiumBridge::pluginScriptableObject(widget);
     if (!npObject)
         return 0;
+
+#elif PLATFORM(ANDROID)
+    if (!widget->isPluginView())
+        return 0;
+
+    PluginView* pluginView = static_cast<PluginView*>(widget);
+    NPObject* npObject = pluginView->getNPObject();
+    if (!npObject)
+        return 0;
+#endif
 
     // Frame Memory Management for NPObjects
     // -------------------------------------

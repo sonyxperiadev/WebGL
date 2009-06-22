@@ -1037,6 +1037,13 @@ sub GenerateBatchedAttributeData
 
     my $commentInfo = "Attribute '$attrName' (Type: '" . $attribute->type .
                       "' ExtAttr: '" . join(' ', keys(%{$attrExt})) . "')";
+
+    my $conditional = $attrExt->{"Conditional"};
+    if ($conditional) {
+        my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+        push(@implContent, "#if ${conditionalString}\n");
+    }
+
     push(@implContent, <<END);
   // $commentInfo
   { "$attrName",
@@ -1047,6 +1054,11 @@ sub GenerateBatchedAttributeData
     static_cast<v8::PropertyAttribute>($propAttr),
     $on_proto },
 END
+
+    if ($conditional) {
+        push(@implContent, "#endif\n");
+    }
+
     }
 }
 

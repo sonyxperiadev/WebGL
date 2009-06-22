@@ -119,7 +119,9 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorController* value)
 {
     ScriptScope scope(scriptState);
+#if !PLATFORM(ANDROID)
     scope.global()->Set(v8::String::New(name), V8Proxy::ToV8Object(V8ClassIndex::INSPECTORCONTROLLER, value));
+#endif
     return scope.success();
 }
 

@@ -961,9 +961,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
+	storage/OriginUsageRecord.cpp \
 	storage/SessionStorage.cpp \
 	storage/SessionStorageArea.cpp \
-	storage/OriginUsageRecord.cpp \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \

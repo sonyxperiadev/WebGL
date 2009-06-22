@@ -1055,7 +1055,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     if (pFrame) {
         const char* name = JSC::Bindings::getCharactersFromJStringInEnv(env, interfaceName);
         NPObject* obj = JSC::Bindings::JavaInstanceToNPObject(new JSC::Bindings::JavaInstance(javascriptObj));
-        pFrame->script()->BindToWindowObject(pFrame, name, obj);
+        pFrame->script()->bindToWindowObject(pFrame, name, obj);
         // JavaInstanceToNPObject calls NPN_RetainObject on the
         // returned one (see CreateV8ObjectForNPObject in V8NPObject.cpp).
         // BindToWindowObject also increases obj's ref count and decrease

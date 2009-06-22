@@ -6,7 +6,7 @@ include $(CLEAR_VARS)
 
 # Set up the target identity
 LOCAL_MODULE := libv8
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 intermediates := $(call local-intermediates-dir)
 
 LOCAL_CPP_EXTENSION := .cc
@@ -78,36 +78,36 @@ LOCAL_SRC_FILES := \
 
 ifeq ($(TARGET_ARCH),arm)
   LOCAL_SRC_FILES += \
-		src/assembler-arm.cc \
-		src/builtins-arm.cc \
-		src/codegen-arm.cc \
-		src/cpu-arm.cc \
-		src/disasm-arm.cc \
-		src/frames-arm.cc \
-		src/ic-arm.cc \
-		src/jump-target-arm.cc \
-		src/macro-assembler-arm.cc \
-		src/regexp-macro-assembler-arm.cc \
-		src/register-allocator-arm.cc \
-		src/stub-cache-arm.cc \
-		src/virtual-frame-arm.cc
+		src/arm/assembler-arm.cc \
+		src/arm/builtins-arm.cc \
+		src/arm/codegen-arm.cc \
+		src/arm/cpu-arm.cc \
+		src/arm/disasm-arm.cc \
+		src/arm/frames-arm.cc \
+		src/arm/ic-arm.cc \
+		src/arm/jump-target-arm.cc \
+		src/arm/macro-assembler-arm.cc \
+		src/arm/regexp-macro-assembler-arm.cc \
+		src/arm/register-allocator-arm.cc \
+		src/arm/stub-cache-arm.cc \
+		src/arm/virtual-frame-arm.cc
 endif
 
 ifeq ($(TARGET_ARCH),x86)
   LOCAL_SRC_FILES += \
-	  src/assembler-ia32.cc \
-		src/builtins-ia32.cc \
-		src/codegen-ia32.cc \
-		src/cpu-ia32.cc \
-		src/disasm-ia32.cc \
-		src/frames-ia32.cc \
-		src/ic-ia32.cc \
-		src/jump-target-ia32.cc \
-		src/macro-assembler-ia32.cc \
-		src/regexp-macro-assembler-ia32.cc \
-		src/register-allocator-ia32.cc \
-		src/stub-cache-ia32.cc \
-		src/virtual-frame-ia32.cc
+	  src/ia32/assembler-ia32.cc \
+		src/ia32/builtins-ia32.cc \
+		src/ia32/codegen-ia32.cc \
+		src/ia32/cpu-ia32.cc \
+		src/ia32/disasm-ia32.cc \
+		src/ia32/frames-ia32.cc \
+		src/ia32/ic-ia32.cc \
+		src/ia32/jump-target-ia32.cc \
+		src/ia32/macro-assembler-ia32.cc \
+		src/ia32/regexp-macro-assembler-ia32.cc \
+		src/ia32/register-allocator-ia32.cc \
+		src/ia32/stub-cache-ia32.cc \
+		src/ia32/virtual-frame-ia32.cc
 endif
 
 ifeq ($(TARGET_OS),linux)
@@ -147,7 +147,7 @@ LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/v8/, \
 
 # Generate libraries.cc
 GEN1 := $(intermediates)/libraries.cc $(intermediates)/libraries-empty.cc
-$(GEN1): SCRIPT := $(LOCAL_PATH)/tools/js2c.py
+$(GEN1): SCRIPT := $(LOCAL_PATH)/v8/tools/js2c.py
 $(GEN1): $(LOCAL_JS_LIBRARY_FILES)
 	@echo "Generating libraries.cc"
 	@mkdir -p $(dir $@)
@@ -163,9 +163,13 @@ LOCAL_CFLAGS += \
 	-fno-exceptions
 
 ifeq ($(TARGET_ARCH),arm)
-	LOCAL_CFLAGS += -DARM
+	LOCAL_CFLAGS += -DARM -DV8_TARGET_ARCH_ARM
+endif
+
+ifeq ($(TARGET_ARCH),x86)
+	LOCAL_CLFAGS += -DV8_TARGET_ARCH_IA32
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/v8/src
 
-include $(BUILD_STATIC_LIBRARY)
+include $(BUILD_SHARED_LIBRARY)

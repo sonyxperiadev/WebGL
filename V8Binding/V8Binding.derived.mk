@@ -44,7 +44,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/V8AbstractEventListener.cpp \
 	bindings/v8/V8Collection.cpp \
 	bindings/v8/V8DOMMap.cpp \
-	bindgins/v8/V8EventListener.cpp \
+	bindings/v8/V8EventListenerList.cpp \
 	bindings/v8/V8LazyEventListener.cpp \
 	bindings/v8/V8NodeFilterCondition.cpp \
 	bindings/v8/V8ObjectEventListener.cpp \
@@ -83,7 +83,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8HTMLFrameElementCustom.cpp \
 	bindings/v8/custom/V8HTMLFrameSetElementCustom.cpp \
 	bindings/v8/custom/V8HTMLIFrameElementCustom.cpp \
-	bindings/v8/custom/V8HTMLImageElementCustom.cpp \
+	bindings/v8/custom/V8HTMLImageElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLInputElementCustom.cpp \
 	bindings/v8/custom/V8HTMLOptionElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLOptionsCollectionCustom.cpp \
@@ -157,6 +157,12 @@ js_binding_scripts := \
 	$(LOCAL_PATH)/scripts/generate-bindings.pl
 
 FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
+
+ifeq ($(ENABLE_VIDEO), true)
+  FEATURE_DEFINES += ENaBLE_VIDEO=1
+else
+  FEATURE_DEFINES += ENABLE_VIDEO=0
+endif
 
 GEN := \
     $(intermediates)/css/V8CSSCharsetRule.h \
@@ -591,7 +597,7 @@ GEN := \
     $(intermediates)/html/V8UndetectableHTMLCollection.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/html/V8%.h : $(v8binding_dir)/v8/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/html/V8%.h : $(v8binding_dir)/binding/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 

@@ -10,6 +10,7 @@ LOCAL_SRC_FILES := \
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
 	wtf/CurrentTime.cpp \
+	wtf/DateMath.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
 	wtf/MainThread.cpp \
