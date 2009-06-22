@@ -147,13 +147,8 @@ static void Android_NPN_PluginThreadAsyncCall(NPP instance,
     NPN_PluginThreadAsyncCall(instance, func, userData);
 }
 
-static void initializeBrowserFuncs(NPNetscapeFuncs *funcs)
+static void initializeExtraBrowserFuncs(NPNetscapeFuncs *funcs)
 {
-    // Initialize the NPN function pointers that we hand over to the
-    // plugin.
-    memset(funcs, 0, sizeof(*funcs));
-
-    funcs->size = sizeof(*funcs);
     funcs->version = NP_VERSION_MINOR;
     funcs->geturl = NPN_GetURL;
     funcs->posturl = NPN_PostURL;
@@ -353,11 +348,17 @@ bool PluginPackage::load()
         PLUGIN_LOG("Couldn't find Initialize function\n");
         return false;
     }
-    
+
     // Provide the plugin with our browser function table and grab its
     // plugin table. Provide the Java environment and the Plugin which
     // can be used to override the defaults if the plugin wants.
     initializeBrowserFuncs();
+    // call this afterwards, which may re-initialize some methods, but ensures
+    // that any additional (or changed) procs are set. There is no real attempt
+    // to have this step be minimal (i.e. only what we add/override), since the
+    // core version (initializeBrowserFuncs) can change in the future.
+    initializeExtraBrowserFuncs(&m_browserFuncs);
+
     memset(&m_pluginFuncs, 0, sizeof(m_pluginFuncs));
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
     if(NP_Initialize(&m_browserFuncs,
