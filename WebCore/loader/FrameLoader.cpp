@@ -425,9 +425,6 @@ void FrameLoader::changeLocation(const KURL& url, const String& referrer, bool l
     RefPtr<Frame> protect(m_frame);
 
     ResourceRequest request(url, referrer, refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy);
-#ifdef ANDROID_USER_GESTURE
-    request.setUserGesture(userGesture);
-#endif
     
     if (executeIfJavaScriptURL(request.url(), userGesture))
         return;
@@ -445,9 +442,6 @@ void FrameLoader::urlSelected(const ResourceRequest& request, const String& pass
         target = m_frame->document()->baseTarget();
 
     FrameLoadRequest frameRequest(request, target);
-#ifdef ANDROID_USER_GESTURE
-    frameRequest.setWasUserGesture(userGesture);
-#endif
 
     if (frameRequest.resourceRequest().httpReferrer().isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
@@ -585,10 +579,6 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
 
     formData->generateFiles(m_frame->page()->chrome()->client());
     
-#ifdef ANDROID_USER_GESTURE
-    frameRequest.setWasUserGesture(userGestureHint());
-#endif
-
     if (!m_outgoingReferrer.isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
 
@@ -1385,17 +1375,7 @@ void FrameLoader::scheduleHTTPRedirection(double delay, const String& url)
 
     // We want a new history item if the refresh timeout is > 1 second.
     if (!m_scheduledRedirection || delay <= m_scheduledRedirection->delay)
-#ifdef ANDROID_USER_GESTURE
-    {
-        bool wasUserGesture = false;
-        DocumentLoader* docLoader = activeDocumentLoader();
-        if (docLoader)
-            wasUserGesture = docLoader->request().userGesture();
-        scheduleRedirection(new ScheduledRedirection(delay, url, true, delay <= 1, wasUserGesture, false));
-    }
-#else
         scheduleRedirection(new ScheduledRedirection(delay, url, true, delay <= 1, false, false));
-#endif
 }
 
 void FrameLoader::scheduleLocationChange(const String& url, const String& referrer, bool lockHistory, bool lockBackForwardList, bool wasUserGesture)
@@ -2277,32 +2257,13 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
     }
 }
 
-#ifdef ANDROID_USER_GESTURE
-void FrameLoader::loadPostRequest(const ResourceRequest& request, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType type, PassRefPtr<Event> event, PassRefPtr<FormState> state)
-{
-    loadPostRequest(request, referrer, frameName, lockHistory, type, event, state, false);
-}
-
-void FrameLoader::loadURL(const KURL& url, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType type, PassRefPtr<Event> event, PassRefPtr<FormState> state)
-{
-    loadURL(url, referrer, frameName, lockHistory, type, event, state, false);
-}
-
-void FrameLoader::loadURL(const KURL& newURL, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType newLoadType,
-    PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState,
-    bool userGesture)
-#else
 void FrameLoader::loadURL(const KURL& newURL, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType newLoadType,
     PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
-#endif
 {
     RefPtr<FormState> formState = prpFormState;
     bool isFormSubmission = formState;
     
     ResourceRequest request(newURL);
-#ifdef ANDROID_USER_GESTURE
-    request.setUserGesture(userGesture);
-#endif
     if (!referrer.isEmpty()) {
         request.setHTTPReferrer(referrer);
         RefPtr<SecurityOrigin> referrerOrigin = SecurityOrigin::createFromString(referrer);
@@ -3721,11 +3682,7 @@ void FrameLoader::committedLoad(DocumentLoader* loader, const char* data, int le
     m_client->committedLoad(loader, data, length);
 }
 
-#ifdef ANDROID_USER_GESTURE
-void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType loadType, PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState, bool userGesture)
-#else
 void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType loadType, PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
-#endif
 {
     RefPtr<FormState> formState = prpFormState;
 
@@ -3745,9 +3702,6 @@ void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String
     String origin = inRequest.httpOrigin();
 
     ResourceRequest workingResourceRequest(url);    
-#ifdef ANDROID_USER_GESTURE
-    workingResourceRequest.setUserGesture(userGesture);
-#endif
 
     if (!referrer.isEmpty())
         workingResourceRequest.setHTTPReferrer(referrer);
