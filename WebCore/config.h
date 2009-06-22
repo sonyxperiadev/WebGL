@@ -85,7 +85,7 @@
 
 // ANDROID def should be after all PLATFORM to avoid override.
 // USE_SYSTEM_MALLOC needs to be defined before include FastMalloc.h
-#ifdef ANDROID
+#if PLATFORM(ANDROID)
 #define USE_SYSTEM_MALLOC 1
 #define ANDROID_MOBILE      // change can be merged back to WebKit.org for MOBILE
 #ifdef ANDROID_PLUGINS
@@ -120,12 +120,16 @@
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
+
+#ifndef ENABLE_VIDEO
 #define ENABLE_VIDEO 1
+#endif
+
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
-#endif
+#endif  // PLATFORM(ANDROID)
 
 #ifdef __cplusplus
 
