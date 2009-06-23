@@ -1727,7 +1727,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             return true;
         }
         WebCore::RenderObject* renderer = nodePtr->renderer();
-        if (renderer && renderer->isMenuList()) {
+        if (renderer && (renderer->isMenuList() || renderer->isListBox())) {
             WebCore::HTMLSelectElement* select = static_cast<WebCore::HTMLSelectElement*>(nodePtr);
             const WTF::Vector<WebCore::Element*>& listItems = select->listItems();
             SkTDArray<const uint16_t*> names;
@@ -1738,7 +1738,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             for (int i = 0; i < size; i++) {
                 if (listItems[i]->hasTagName(WebCore::HTMLNames::optionTag)) {
                     WebCore::HTMLOptionElement* option = static_cast<WebCore::HTMLOptionElement*>(listItems[i]);
-                    *names.append() = stringConverter(option->text());
+                    *names.append() = stringConverter(option->textIndentedToRespectGroupLabel());
                     *enabledArray.append() = option->disabled() ? 0 : 1;
                     if (multiple && option->selected())
                         *selectedArray.append() = i;
