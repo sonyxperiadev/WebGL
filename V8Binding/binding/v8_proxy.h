@@ -7,7 +7,7 @@
 
 #include <v8.h>
 #include "v8_index.h"
-#include "v8_custom.h"
+#include "V8CustomBinding.h"
 #include "V8Utilities.h"
 #include "Node.h"
 #include "NodeFilter.h"
@@ -68,6 +68,11 @@ class CSSRuleList;
 class CSSValueList;
 class NodeFilter;
 class ScriptExecutionContext;
+
+#if ENABLE(DOM_STORAGE)
+class Storage;
+class StorageEvent;
+#endif
 
 #if ENABLE(SVG)
 class SVGElementInstance;

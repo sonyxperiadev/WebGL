@@ -202,6 +202,11 @@
 #include "V8XMLSerializer.h"
 #include "V8RGBColor.h"
 
+#if ENABLE(DOM_STORAGE)
+#include "V8Storage.h"
+#include "V8StorageEvent.h"
+#endif
+
 #if PLATFORM(CHROMIUM)
 #include "V8InspectorController.h"
 #endif
