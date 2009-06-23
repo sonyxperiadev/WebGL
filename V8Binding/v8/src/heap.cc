@@ -1220,28 +1220,49 @@ bool Heap::CreateApiObjects() {
   return true;
 }
 
+
+void Heap::CreateCEntryStub() {
+  CEntryStub stub;
+  c_entry_code_ = *stub.GetCode();
+}
+
+
+void Heap::CreateCEntryDebugBreakStub() {
+  CEntryDebugBreakStub stub;
+  c_entry_debug_break_code_ = *stub.GetCode();
+}
+
+
+void Heap::CreateJSEntryStub() {
+  JSEntryStub stub;
+  js_entry_code_ = *stub.GetCode();
+}
+
+
+void Heap::CreateJSConstructEntryStub() {
+  JSConstructEntryStub stub;
+  js_construct_entry_code_ = *stub.GetCode();
+}
+
+
 void Heap::CreateFixedStubs() {
   // Here we create roots for fixed stubs. They are needed at GC
   // for cooking and uncooking (check out frames.cc).
   // The eliminates the need for doing dictionary lookup in the
   // stub cache for these stubs.
   HandleScope scope;
-  {
-    CEntryStub stub;
-    c_entry_code_ = *stub.GetCode();
-  }
-  {
-    CEntryDebugBreakStub stub;
-    c_entry_debug_break_code_ = *stub.GetCode();
-  }
-  {
-    JSEntryStub stub;
-    js_entry_code_ = *stub.GetCode();
-  }
-  {
-    JSConstructEntryStub stub;
-    js_construct_entry_code_ = *stub.GetCode();
-  }
+  // gcc-4.4 has problem to generate the correct vtables if the following
+  // functions are inlined. e.g.,
+  // {  CEntryStub stub;
+  //    c_entry_code_ = *stub.GetCode();
+  // }
+  // {  CEntryDebugBreakStub stub;
+  //    c_entry_debug_break_code_ = *stub.GetCode();
+  // }
+  Heap::CreateCEntryStub();
+  Heap::CreateCEntryDebugBreakStub();
+  Heap::CreateJSEntryStub();
+  Heap::CreateJSConstructEntryStub();
 }
 
 
