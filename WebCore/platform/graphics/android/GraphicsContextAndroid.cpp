@@ -38,7 +38,6 @@
 #include "SkDashPathEffect.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
-#include "SkPorterDuff.h"
 #include "PlatformGraphicsContext.h"
 #include "TransformationMatrix.h"
 
@@ -66,7 +65,7 @@ template <typename T> T* deepCopyPtr(const T* src) {
 /*  TODO / questions
 
     mAlpha: how does this interact with the alpha in Color? multiply them together?
-    mPorterDuffMode: do I always respect this? If so, then
+    mMode: do I always respect this? If so, then
                      the rgb() & 0xFF000000 check will abort drawing too often
     Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
 */
@@ -91,7 +90,7 @@ public:
         float               mStrokeThickness;
         SkPaint::Cap        mLineCap;
         SkPaint::Join       mLineJoin;
-        SkPorterDuff::Mode  mPorterDuffMode;
+        SkXfermode::Mode    mMode;
         int                 mDashRatio; //ratio of the length of a dash to its width
         ShadowRec           mShadow;
         SkColor             mFillColor;
@@ -106,7 +105,7 @@ public:
             mStrokeThickness = 0.0f;  // Same as default in GraphicsContextPrivate.h
             mLineCap         = SkPaint::kDefault_Cap;
             mLineJoin        = SkPaint::kDefault_Join;
-            mPorterDuffMode  = SkPorterDuff::kSrcOver_Mode;
+            mMode            = SkXfermode::kSrcOver_Mode;
             mDashRatio       = 3;
             mUseAA           = true;
             mShadow.mBlur    = 0;
@@ -138,7 +137,7 @@ public:
             if (mShadow.mBlur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
-                paint->setPorterDuffXfermode(mPorterDuffMode);
+                paint->setXfermode(mMode);
                 paint->setColor(mShadow.mColor);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(mShadow.mBlur,
                                 SkBlurMaskFilter::kNormal_BlurStyle))->unref();
@@ -226,7 +225,7 @@ public:
     void setup_paint_common(SkPaint* paint) const {
         paint->setAntiAlias(mState->mUseAA);
         paint->setDither(true);
-        paint->setPorterDuffXfermode(mState->mPorterDuffMode);
+        paint->setXfermode(mState->mMode);
         if (mState->mShadow.mBlur > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(mState->mShadow.mBlur,
                                                         mState->mShadow.mDx,
@@ -899,7 +898,7 @@ void GraphicsContext::setAlpha(float alpha)
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
-    m_data->mState->mPorterDuffMode = WebCoreCompositeToSkiaComposite(op);
+    m_data->mState->mMode = WebCoreCompositeToSkiaMode(op);
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
@@ -910,7 +909,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     SkPaint paint;
     
     m_data->setup_paint_fill(&paint);
-    paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
+    paint.setXfermode(SkXfermode::kClear_Mode);
     GC2Canvas(this)->drawRect(rect, paint);
 }
 

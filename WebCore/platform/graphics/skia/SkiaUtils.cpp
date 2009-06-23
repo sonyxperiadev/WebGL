@@ -42,6 +42,40 @@
 
 namespace WebCore {
 
+static const struct CompositOpToSkiaMode {
+    uint8_t mCompositOp;
+    uint8_t mMode;
+} gMapCompositOpsToSkiaModes[] = {
+    { CompositeClear,           SkXfermode::kClear_Mode },
+    { CompositeCopy,            SkXfermode::kSrc_Mode },
+    { CompositeSourceOver,      SkXfermode::kSrcOver_Mode },
+    { CompositeSourceIn,        SkXfermode::kSrcIn_Mode },
+    { CompositeSourceOut,       SkXfermode::kSrcOut_Mode },
+    { CompositeSourceAtop,      SkXfermode::kSrcATop_Mode },
+    { CompositeDestinationOver, SkXfermode::kDstOver_Mode },
+    { CompositeDestinationIn,   SkXfermode::kDstIn_Mode },
+    { CompositeDestinationOut,  SkXfermode::kDstOut_Mode },
+    { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
+    { CompositeXOR,             SkXfermode::kXor_Mode },
+    // need more details on the composite modes to be sure these are right
+    { CompositePlusDarker,      SkXfermode::kDarken_Mode },
+    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
+    { CompositePlusLighter,     SkXfermode::kPlus_Mode }
+};
+
+SkXfermode::Mode WebCoreCompositeToSkiaMode(CompositeOperator op)
+{
+    const CompositOpToSkiaMode* table = gMapCompositOpsToSkiaModes;
+    
+    for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToSkiaModes); i++) {
+        if (table[i].mCompositOp == op)
+            return (SkXfermode::Mode)table[i].mMode;
+    }
+    
+    SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
+    return SkXfermode::kSrcOver_Mode; // fall-back
+}
+    
 static const struct CompositOpToPorterDuffMode {
     uint8_t mCompositOp;
     uint8_t mPorterDuffMode;
