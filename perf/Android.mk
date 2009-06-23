@@ -106,6 +106,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_SHARED_LIBRARIES := libwebcore
 
 LOCAL_MODULE:= webcore_test
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_EXECUTABLE)
 
