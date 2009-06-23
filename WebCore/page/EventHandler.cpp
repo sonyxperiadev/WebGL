@@ -79,6 +79,10 @@
 #include "PlatformTouchEvent.h"
 #endif
 
+#if defined(ANDROID_PLUGINS)
+#include "WebViewCore.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -1849,6 +1853,13 @@ static Node* eventTargetNodeForDocument(Document* doc)
     if (!doc)
         return 0;
     Node* node = doc->focusedNode();
+
+#if defined(ANDROID_PLUGINS)
+    if (!node && doc->frame() && doc->frame()->view())
+        node = android::WebViewCore::getWebViewCore(doc->frame()->view())
+                                     ->cursorNodeIsPlugin();
+#endif
+
     if (!node && doc->isHTMLDocument())
         node = doc->body();
     if (!node)
