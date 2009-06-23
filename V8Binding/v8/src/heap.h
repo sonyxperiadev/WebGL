@@ -936,6 +936,14 @@ class Heap : public AllStatic {
 
   static bool CreateInitialMaps();
   static bool CreateInitialObjects();
+
+  // These four Create*EntryStub functions are here because of a gcc-4.4 bug
+  // that assign wrong vptr entries.
+  static void CreateCEntryStub();
+  static void CreateCEntryDebugBreakStub();
+  static void CreateJSEntryStub();
+  static void CreateJSConstructEntryStub();
+
   static void CreateFixedStubs();
   static Object* CreateOddball(Map* map,
                                const char* to_string,
