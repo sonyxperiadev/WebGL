@@ -213,7 +213,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
 
     ctxt->setupFillPaint(&paint);   // need global alpha among other things
     paint.setFilterBitmap(true);
-    paint.setXfermode(WebCoreCompositeToSkiaMode(compositeOp));
+    paint.setXfermodeMode(WebCoreCompositeToSkiaMode(compositeOp));
     canvas->drawBitmapRect(bitmap, &srcR, dstR, &paint);
 
 #ifdef TRACE_SUBSAMPLED_BITMAPS
@@ -285,7 +285,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect,
                                                     SkShader::kRepeat_TileMode);
     paint.setShader(shader)->unref();
     // now paint is the only owner of shader
-    paint.setXfermode(WebCoreCompositeToSkiaMode(compositeOp));
+    paint.setXfermodeMode(WebCoreCompositeToSkiaMode(compositeOp));
     paint.setFilterBitmap(true);
 
     SkMatrix matrix(patternTransform);
