@@ -82,10 +82,6 @@ typedef unsigned char   flex_uint8_t;
 
 #define ANDROID_FIX
 
-// Fix for issue 878095.  Only call onBlur on an element if it has an
-// onBlur event.
-#define ANDROID_IGNORE_BLUR
-
 // Passes the webkit-originated changes of a focused textfield to our UI thread
 #define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 
