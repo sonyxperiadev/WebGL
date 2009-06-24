@@ -1157,6 +1157,29 @@ void WebViewCore::sendPluginEvent(const ANPEvent& evt)
     }
 }
 
+static bool nodeIsPlugin(Node* node) {
+    RenderObject* renderer = node->renderer();
+    if (renderer && renderer->isWidget()) {
+        Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
+        return widget && widget->isPluginView();
+    }
+    return false;
+}
+
+Node* WebViewCore::cursorNodeIsPlugin() {
+    gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_hasCursorBounds;
+    Frame* frame = (Frame*) m_cursorFrame;
+    Node* node = (Node*) m_cursorNode;
+    gCursorBoundsMutex.unlock();
+    if (hasCursorBounds && CacheBuilder::validNode(m_mainFrame, frame, node)
+            && nodeIsPlugin(node)) {
+        return node;
+    }
+    return 0;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////
 void WebViewCore::moveMouseIfLatest(int moveGeneration,
     WebCore::Frame* frame, int x, int y)
@@ -1171,15 +1194,6 @@ void WebViewCore::moveMouseIfLatest(int moveGeneration,
     }
     m_lastGeneration = moveGeneration;
     moveMouse(frame, x, y);
-}
-
-static bool nodeIsPlugin(Node* node) {
-    RenderObject* renderer = node->renderer();
-    if (renderer && renderer->isWidget()) {
-        Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
-        return widget && widget->isPluginView();
-    }
-    return 0;
 }
 
 // Update mouse position and may change focused node.
@@ -1616,20 +1630,6 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
 {
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
     WebCore::Node* focusNode = currentFocus();
-    if (!focusNode) {
-        gCursorBoundsMutex.lock();
-        bool hasCursorBounds = m_hasCursorBounds;
-        Frame* frame = (Frame*) m_cursorFrame;
-        Node* node = (Node*) m_cursorNode;
-        gCursorBoundsMutex.unlock();
-        if (hasCursorBounds
-                && CacheBuilder::validNode(m_mainFrame, frame, node)
-                && nodeIsPlugin(node)) {
-            // check if this plugin really wants the key (TODO)
-            DBG_NAV_LOGD("widget=%p is plugin", widget);
-            focusNode = node;
-        }
-    }
     if (focusNode) {
         eventHandler = focusNode->document()->frame()->eventHandler();
     }

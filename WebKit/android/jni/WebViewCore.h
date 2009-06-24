@@ -294,6 +294,9 @@ namespace android {
         // send this event to all of the plugins who have the given flag set
         void sendPluginEvent(const ANPEvent& evt, ANPEventFlag flag);
 
+        // return the cursorNode if it is a plugin
+        Node* cursorNodeIsPlugin();
+
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);
 
