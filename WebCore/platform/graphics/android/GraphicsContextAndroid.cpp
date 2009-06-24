@@ -137,7 +137,7 @@ public:
             if (mShadow.mBlur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
-                paint->setXfermode(mMode);
+                paint->setXfermodeMode(mMode);
                 paint->setColor(mShadow.mColor);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(mShadow.mBlur,
                                 SkBlurMaskFilter::kNormal_BlurStyle))->unref();
@@ -225,7 +225,7 @@ public:
     void setup_paint_common(SkPaint* paint) const {
         paint->setAntiAlias(mState->mUseAA);
         paint->setDither(true);
-        paint->setXfermode(mState->mMode);
+        paint->setXfermodeMode(mState->mMode);
         if (mState->mShadow.mBlur > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(mState->mShadow.mBlur,
                                                         mState->mShadow.mDx,
@@ -909,7 +909,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     SkPaint paint;
     
     m_data->setup_paint_fill(&paint);
-    paint.setXfermode(SkXfermode::kClear_Mode);
+    paint.setXfermodeMode(SkXfermode::kClear_Mode);
     GC2Canvas(this)->drawRect(rect, paint);
 }
 
