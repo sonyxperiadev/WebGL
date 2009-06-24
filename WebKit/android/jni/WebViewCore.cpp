@@ -1399,6 +1399,7 @@ void WebViewCore::setSelection(int start, int end)
     }
     rtc->setSelectionRange(start, end);
     focus->document()->frame()->revealSelection();
+    setFocusControllerActive(true);
 }
 
 void WebViewCore::deleteSelection(int start, int end)
@@ -1428,7 +1429,6 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
     setSelection(start, end);
-    setFocusControllerActive(true);
 }
 
 void WebViewCore::passToJs(int generation, const WebCore::String& current,
@@ -2098,15 +2098,15 @@ static void PassToJs(JNIEnv *env, jobject obj,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
 
-static void SetFocusControllerInactive(JNIEnv *env, jobject obj)
+static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSetFocusControllerInactive()\n");
+    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerInactive");
-    viewImpl->setFocusControllerActive(false);
+    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
+    viewImpl->setFocusControllerActive(active);
 }
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
@@ -2516,8 +2516,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) MoveMouseIfLatest },
     { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs } ,
-    { "nativeSetFocusControllerInactive", "()V",
-        (void*) SetFocusControllerInactive },
+    { "nativeSetFocusControllerActive", "(Z)V",
+        (void*) SetFocusControllerActive },
     { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
