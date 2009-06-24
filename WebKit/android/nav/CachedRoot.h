@@ -56,7 +56,7 @@ public:
     SkPicture* getPicture() { return mPicture; }
     int getAndResetSelectionEnd();
     int getAndResetSelectionStart();
-    void getSimulatedMousePosition(WebCore::IntPoint* );
+    void getSimulatedMousePosition(WebCore::IntPoint* ) const;
     void init(WebCore::Frame* , CachedHistory* );
     bool innerDown(const CachedNode* , BestData* ) const;
     bool innerLeft(const CachedNode* , BestData* ) const;

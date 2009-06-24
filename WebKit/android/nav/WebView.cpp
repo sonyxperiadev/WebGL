@@ -404,7 +404,7 @@ void drawMatches(SkCanvas* canvas)
 
 void drawCursorRing(SkCanvas* canvas)
 {
-    CachedRoot* root = getFrameCache(AllowNewer);
+    const CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
         m_followedLink = false;
@@ -1356,7 +1356,7 @@ static jint nativeCursorNodePointer(JNIEnv *env, jobject obj)
 static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    const CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
     WebCore::IntPoint pos = WebCore::IntPoint(0, 0);
     if (root)
         root->getSimulatedMousePosition(&pos);

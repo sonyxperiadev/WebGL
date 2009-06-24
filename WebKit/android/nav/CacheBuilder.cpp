@@ -446,7 +446,7 @@ void CacheBuilder::Debug::groups() {
             //print(renderer ? renderer->information().ascii() : "NO_RENDER_INFO");
             if (node->isElementNode()) {
                 Element* element = static_cast<Element*>(node);
-                NamedAttrMap* attrs = element->attributes();
+                NamedNodeMap* attrs = element->attributes();
                 unsigned length = attrs->length();
                 if (length > 0) {
                     newLine();

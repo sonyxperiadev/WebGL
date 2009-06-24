@@ -694,14 +694,27 @@ int CachedRoot::getAndResetSelectionStart()
     return start;
 }
 
-void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point)
+void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const
 {
 #ifndef NDEBUG
     ASSERT(CachedFrame::mDebug.mInUse);
 #endif
     const WebCore::IntRect& mouseBounds = mHistory->mMouseBounds;
-    point->setX(mouseBounds.x() + (mouseBounds.width() >> 1));
-    point->setY(mouseBounds.y() + (mouseBounds.height() >> 1));
+    int x = mouseBounds.x();
+    int y = mouseBounds.y();
+    int width = mouseBounds.width();
+    int height = mouseBounds.height();
+    point->setX(x + (width >> 1)); // default to box center
+    point->setY(y + (height >> 1));
+    const CachedNode* cursor = currentCursor();
+    if (cursor && cursor->bounds().contains(mHistory->mMouseBounds)) {
+        if (cursor->isTextField()) // if text field, return end of line
+            point->setX(x + width - 1);
+        else if (cursor->isTextArea()) { // if text area, return start
+            point->setX(x + 1);
+            point->setY(y + 1);
+        }
+    }
 #if DEBUG_NAV_UI && !defined BROWSER_DEBUG
     const WebCore::IntRect& navBounds = mHistory->mNavBounds;
     LOGD("%s mHistory->mNavBounds={%d,%d,%d,%d} "

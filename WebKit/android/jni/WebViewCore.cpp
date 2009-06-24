@@ -1418,8 +1418,10 @@ void WebViewCore::passToJs(
     int keyValue, bool down, bool cap, bool fn, bool sym)
 {
     WebCore::Node* focus = currentFocus();
-    if (!focus)
+    if (!focus) {
+        DBG_NAV_LOG("!focus");
         return;
+    }
     WebCore::Frame* frame = focus->document()->frame();
     // Construct the ModifierKey value
     WebCore::PlatformKeyboardEvent::ModifierKey mods =
@@ -1437,14 +1439,18 @@ void WebViewCore::passToJs(
     m_textGeneration = generation;
     DBG_NAV_LOGD("focus=%p keyCode=%d keyValue=%d", focus, keyCode, keyValue);
     WebCore::RenderObject* renderer = focus->renderer();
-    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
+        DBG_NAV_LOGD("renderer==%p || not text", renderer);
         return;
+    }
     setFocusControllerActive(true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WebCore::String test = renderText->text();
-    if (test == current)
+    if (test == current) {
+        DBG_NAV_LOG("test == current");
         return;
+    }
     // If the text changed during the key event, update the UI text field.
     updateTextfield(focus, false, test);
 }
@@ -1656,6 +1662,9 @@ bool WebViewCore::click() {
     WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
         hitTestResultAtPoint(pt, false);
     WebCore::Node* focusNode = hitTestResult.innerNode();
+    DBG_NAV_LOGD("m_mousePos=(%d,%d) m_scrollOffset=(%d,%d) pt=(%d,%d)"
+        " focusNode=%p", m_mousePos.x(), m_mousePos.y(),
+        m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), focusNode);
     if (focusNode) {
         keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
     }
@@ -1724,6 +1733,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             webFrame->setUserInitiatedClick(true);
             nodePtr->dispatchSimulatedClick(0, true, true);
             webFrame->setUserInitiatedClick(false);
+            DBG_NAV_LOG("area");
             return true;
         }
         WebCore::RenderObject* renderer = nodePtr->renderer();
@@ -1755,13 +1765,13 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             listBoxRequest(reply, names.begin(), size, enabledArray.begin(), enabledArray.count(),
                     multiple, selectedArray.begin(), multiple ? selectedArray.count() :
                     selectElement->optionToListIndex(select->selectedIndex()));
+            DBG_NAV_LOG("menu list");
             return true;
         }
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
     webFrame->setUserInitiatedClick(true);
-    DBG_NAV_LOGD("m_mousePos={%d,%d}", m_mousePos.x(), m_mousePos.y());
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
             WTF::currentTime());
@@ -1776,6 +1786,8 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // If the user clicked on a textfield, make the focusController active
     // so we show the blinking cursor.
     WebCore::Node* focusNode = currentFocus();
+    DBG_NAV_LOGD("m_mousePos={%d,%d} focusNode=%p handled=%s", m_mousePos.x(),
+        m_mousePos.y(), focusNode, handled ? "true" : "false");
     if (focusNode) {
         WebCore::RenderObject* renderer = focusNode->renderer();
         if (renderer && (renderer->isTextField() || renderer->isTextArea()))
