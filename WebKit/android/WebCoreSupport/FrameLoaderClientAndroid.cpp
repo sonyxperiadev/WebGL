@@ -704,7 +704,8 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     ASSERT(bridge);
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
-        bridge->setScale(WebViewCore::getWebViewCore(m_frame->view())->scale());
+        float scale = WebViewCore::getWebViewCore(m_frame->view())->scale();
+        bridge->setScale((int)(scale * 100));
     }
 
     WebCore::notifyHistoryItemChanged(item);

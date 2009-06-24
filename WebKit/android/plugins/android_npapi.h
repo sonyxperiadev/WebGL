@@ -773,10 +773,8 @@ struct ANPEvent {
             } data;
         } draw;
         struct {
-            int32_t         x;      // relative to the document
-            int32_t         y;      // relative to the document
-            int32_t         width;
-            int32_t         height;
+            ANPRectI    rect;       // in global document coordinates
+            float       zoomScale;  // 1.0 means no zoom scale
         } visibleRect;
         int32_t         other[8];
     } data;

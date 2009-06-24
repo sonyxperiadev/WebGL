@@ -205,7 +205,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_maxYScroll = 240/4;
     m_textGeneration = 0;
     m_screenWidth = 320;
-    m_scale = 100;
+    m_scale = 1;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -906,18 +906,19 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 }
 
 void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
-    int screenWidth, int scale, int realScreenWidth, int screenHeight)
+    int screenWidth, float scale, int realScreenWidth, int screenHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
     int osw = m_screenWidth;
-    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%d)",
+    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%d) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
-    m_scale = scale;
+    if (scale >= 0)  // negative means ignore
+        m_scale = scale;
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
     if (ow != width || oh != height || osw != screenWidth) {
@@ -970,10 +971,11 @@ void WebViewCore::sendVisibleRectBounds()
 {
     ANPEvent event;
     SkANP::InitEvent(&event, kVisibleRect_ANPEventType);
-    event.data.visibleRect.x = m_scrollOffsetX;
-    event.data.visibleRect.y = m_scrollOffsetY;
-    event.data.visibleRect.width = m_screenWidth;
-    event.data.visibleRect.height = m_screenHeight;
+    event.data.visibleRect.rect.left = m_scrollOffsetX;
+    event.data.visibleRect.rect.top = m_scrollOffsetY;
+    event.data.visibleRect.rect.right = m_scrollOffsetX + m_screenWidth;
+    event.data.visibleRect.rect.bottom = m_scrollOffsetY + m_screenHeight;
+    event.data.visibleRect.zoomScale = m_scale;
     sendPluginEvent(event, kVisibleRect_ANPEventFlag);
 }
 
@@ -2001,13 +2003,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
-    // convert the scale to an int
-    int s = (int) (scale * 100);
-    // a negative value indicates that we should not change the scale
-    if (scale < 0)
-        s = viewImpl->scale();
-
-    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, s,
+    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, scale,
         realScreenWidth, screenHeight);
 }
 
