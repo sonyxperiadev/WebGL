@@ -205,7 +205,7 @@ namespace android {
         void setGlobalBounds(int x, int y, int h, int v);
 
         void setSizeScreenWidthAndScale(int width, int height, int screenWidth,
-            int scale, int realScreenWidth, int screenHeight);
+            float scale, int realScreenWidth, int screenHeight);
 
         /**
          * Handle key events from Java.
@@ -316,7 +316,7 @@ namespace android {
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
         int screenWidth() const { return m_screenWidth; }
-        int scale() const { return m_scale; }
+        float scale() const { return m_scale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
 
         // utility to split slow parts of the picture set
@@ -393,7 +393,7 @@ namespace android {
         WebCore::Node* m_snapAnchorNode;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
-        int m_scale;
+        float m_scale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
 
