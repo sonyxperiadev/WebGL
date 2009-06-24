@@ -458,6 +458,16 @@ void drawCursorRing(SkCanvas* canvas)
     root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
     m_viewImpl->m_cursorNode = node->nodePointer();
     m_viewImpl->gCursorBoundsMutex.unlock();
+
+    WTF::Vector<WebCore::IntRect> oneRing;
+    bool useHitBounds = node->useHitBounds();
+    if (useHitBounds) {
+        bounds = node->hitBounds();
+    }
+    if (useHitBounds || node->useBounds()) {
+        oneRing.append(bounds);
+        rings = &oneRing;
+    }
     bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
     if (canvas->quickReject(bounds, SkCanvas::kAA_EdgeType)) {
         DBG_NAV_LOGD("canvas->quickReject cursorNode=%d (nodePointer=%p)"
@@ -467,7 +477,6 @@ void drawCursorRing(SkCanvas* canvas)
         return;
     }
     CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
-    WTF::Vector<WebCore::IntRect> oneRing;
     if (!isButton) {
         flavor = node->type() != NORMAL_CACHEDNODETYPE ?
             CursorRing::FAKE_FLAVOR : CursorRing::NORMAL_FLAVOR;
@@ -478,11 +487,6 @@ void drawCursorRing(SkCanvas* canvas)
             }
             flavor = static_cast<CursorRing::Flavor>
                     (flavor + CursorRing::NORMAL_ANIMATING);
-        }
-        bool useHitBounds = node->useHitBounds();
-        if (useHitBounds || node->useBounds()) {
-            oneRing.append(useHitBounds ? node->hitBounds() : node->bounds());
-            rings = &oneRing;
         }
 #if DEBUG_NAV_UI
         const WebCore::IntRect& ring = (*rings)[0];

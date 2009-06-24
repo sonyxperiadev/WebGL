@@ -205,7 +205,7 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const RenderObject::Pain
     // If it is a disabled button, simply paint it to the master picture.
     Node* node = obj->node();
     if (!node || !node->isElementNode()
-        || !static_cast<Element*>(node)->isEnabledFormControl()) {
+            || !static_cast<Element*>(node)->isEnabledFormControl()) {
         RenderSkinButton::Draw(getCanvasFromInfo(info), rect,
                 RenderSkinAndroid::kDisabled);
     } else {
