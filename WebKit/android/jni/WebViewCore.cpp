@@ -164,6 +164,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
+    jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_exceededDatabaseQuota;
@@ -227,6 +228,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
+    m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
@@ -1418,11 +1420,13 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     WebCore::Node* focus = currentFocus();
     if (!focus) {
         DBG_NAV_LOG("!focus");
+        clearTextEntry();
         return;
     }
     WebCore::RenderObject* renderer = focus->renderer();
     if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
         DBG_NAV_LOGD("renderer==%p || not text", renderer);
+        clearTextEntry();
         return;
     }
     // Block text field updates during a key press.
@@ -1906,6 +1910,13 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
             (int) ptr, false, string, m_textGeneration);
     env->DeleteLocalRef(string);
     checkException(env);
+}
+
+void WebViewCore::clearTextEntry()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+        m_javaGlue->m_clearTextEntry);
 }
 
 void WebViewCore::setSnapAnchor(int x, int y)

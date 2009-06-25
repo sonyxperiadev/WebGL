@@ -160,7 +160,7 @@ namespace android {
          */
         void updateTextfield(WebCore::Node* pointer,
                 bool changeToPassword, const WebCore::String& text);
-
+        void clearTextEntry();
         // JavaScript support
         void jsAlert(const WebCore::String& url, const WebCore::String& text);
         bool jsConfirm(const WebCore::String& url, const WebCore::String& text);
