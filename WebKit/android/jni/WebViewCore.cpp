@@ -1108,7 +1108,7 @@ void WebViewCore::removePlugin(PluginWidgetAndroid* w)
 
 void WebViewCore::invalPlugin(PluginWidgetAndroid* w)
 {
-    const double PLUGIN_INVAL_DELAY = 0;    // should this be non-zero?
+    const double PLUGIN_INVAL_DELAY = 1.0 / 60;
 
     if (!m_pluginInvalTimer.isActive()) {
         m_pluginInvalTimer.startOneShot(PLUGIN_INVAL_DELAY);
