@@ -26,6 +26,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <cstdio>
 #include <stdlib.h>
 #include <string.h>
 
