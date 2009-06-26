@@ -214,9 +214,9 @@ namespace android {
         bool key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown);
 
         /**
-         * Handle (mouse) click event from Java
+         * Handle (trackball) click event from Java
          */
-        bool click();
+        void click(WebCore::Frame* frame, WebCore::Node* node);
 
         /**
          * Handle touch event

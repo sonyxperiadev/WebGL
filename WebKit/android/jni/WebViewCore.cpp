@@ -1657,20 +1657,20 @@ bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShif
 }
 
 // For when the user clicks the trackball
-bool WebViewCore::click() {
-    bool keyHandled = false;
-    WebCore::IntPoint pt = m_mousePos;
-    pt.move(m_scrollOffsetX, m_scrollOffsetY);
-    WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-        hitTestResultAtPoint(pt, false);
-    WebCore::Node* focusNode = hitTestResult.innerNode();
-    DBG_NAV_LOGD("m_mousePos=(%d,%d) m_scrollOffset=(%d,%d) pt=(%d,%d)"
-        " focusNode=%p", m_mousePos.x(), m_mousePos.y(),
-        m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), focusNode);
-    if (focusNode) {
-        keyHandled = handleMouseClick(focusNode->document()->frame(), focusNode);
+void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
+    if (!node) {
+        WebCore::IntPoint pt = m_mousePos;
+        pt.move(m_scrollOffsetX, m_scrollOffsetY);
+        WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
+                hitTestResultAtPoint(pt, false);
+        node = hitTestResult.innerNode();
+        frame = node->document()->frame();
+        DBG_NAV_LOGD("m_mousePos=(%d,%d) m_scrollOffset=(%d,%d) pt=(%d,%d)"
+            " node=%p", m_mousePos.x(), m_mousePos.y(),
+            m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), node);
     }
-    return keyHandled;
+    if (node)
+        handleMouseClick(frame, node);
 }
 
 bool WebViewCore::handleTouchEvent(int action, int x, int y)
@@ -2042,7 +2042,7 @@ static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
     return viewImpl->key(keyCode, unichar, repeatCount, isShift, isAlt, isDown);
 }
 
-static jboolean Click(JNIEnv *env, jobject obj)
+static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2050,7 +2050,8 @@ static jboolean Click(JNIEnv *env, jobject obj)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
-    return viewImpl->click();
+    viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
+        reinterpret_cast<WebCore::Node*>(nodePtr));
 }
 
 static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end)
@@ -2481,7 +2482,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DrawContent } ,
     { "nativeKey", "(IIIZZZ)Z",
         (void*) Key },
-    { "nativeClick", "()Z",
+    { "nativeClick", "(II)V",
         (void*) Click },
     { "nativePictureReady", "()Z",
         (void*) PictureReady } ,
