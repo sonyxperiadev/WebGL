@@ -237,14 +237,21 @@ void PluginView::handleTouchEvent(TouchEvent* event)
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
     const AtomicString& type = event->type();
-    bool isOver = (eventNames().mouseoverEvent == type);
     bool isOut = (eventNames().mouseoutEvent == type);
+    bool isUp = (eventNames().mouseupEvent == type);
+    bool isDown = (eventNames().mousedownEvent == type);
 
     ANPEvent    evt;
 
-    if (isOver || isOut) {
+    if (isOut) {
         SkANP::InitEvent(&evt, kLifecycle_ANPEventType);
-        evt.data.lifecycle.action = isOver ? kGainFocus_ANPLifecycleAction : kLooseFocus_ANPLifecycleAction;
+        evt.data.lifecycle.action = kLooseFocus_ANPLifecycleAction;
+    }
+    else if (isUp || isDown) {
+        SkANP::InitEvent(&evt, kMouse_ANPEventType);
+        evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
+        evt.data.mouse.x = event->x();
+        evt.data.mouse.y = event->y();
     }
     else {
       return;
