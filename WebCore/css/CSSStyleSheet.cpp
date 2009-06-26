@@ -31,10 +31,6 @@
 #include "TextEncoding.h"
 #include <wtf/Deque.h>
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace WebCore {
 
 CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, const String& charset)
@@ -163,15 +159,9 @@ const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix
 
 bool CSSStyleSheet::parseString(const String &string, bool strict)
 {
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::CSSTimeCounter);
-#endif    
     setStrictParsing(strict);
     CSSParser p(strict);
     p.parseSheet(this, string);
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CSSTimeCounter, __FUNCTION__);
-#endif    
     return true;
 }
 
