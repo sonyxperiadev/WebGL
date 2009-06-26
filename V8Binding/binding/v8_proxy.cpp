@@ -41,7 +41,7 @@
 #include "v8_proxy.h"
 #include "v8_index.h"
 #include "v8_binding.h"
-#include "v8_custom.h"
+#include "V8CustomBinding.h"
 #include "V8Collection.h"
 #include "V8DOMWindow.h"
 
@@ -1468,6 +1468,21 @@ v8::Persistent<v8::FunctionTemplate> V8Proxy::GetTemplate(
           collectionIndexedPropertyEnumerator<NamedNodeMap>,
           v8::Integer::New(V8ClassIndex::NODE));
       break;
+#if ENABLE(DOM_STORAGE)
+    case V8ClassIndex::STORAGE:
+      desc->InstanceTemplate()->SetNamedPropertyHandler(
+          USE_NAMED_PROPERTY_GETTER(Storage),
+          USE_NAMED_PROPERTY_SETTER(Storage),
+          0,
+          USE_NAMED_PROPERTY_DELETER(Storage),
+          V8Custom::v8StorageNamedPropertyEnumerator);
+       desc->InstanceTemplate()->SetIndexedPropertyHandler(
+          USE_INDEXED_PROPERTY_GETTER(Storage),
+          USE_INDEXED_PROPERTY_SETTER(Storage),
+          0,
+          USE_INDEXED_PROPERTY_DELETER(Storage));
+    break;
+#endif
     case V8ClassIndex::NODELIST:
       setCollectionIndexedGetter<NodeList, Node>(desc, V8ClassIndex::NODE);
       desc->InstanceTemplate()->SetNamedPropertyHandler(

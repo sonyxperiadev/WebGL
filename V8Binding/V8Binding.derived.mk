@@ -102,6 +102,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeListCustom.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
+	bindings/v8/custom/V8StorageCustom.cpp \
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -114,6 +115,7 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
 	bindings/v8/custom/V8TreeWalkerCustom.cpp \
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
+	bindings/v8/custom/V8WebKitPointConstructor.cpp \
 	bindings/v8/custom/V8WorkerContextCustom.cpp \
 	bindings/v8/custom/V8WorkerCustom.cpp \
 	bindings/v8/custom/V8XMLHttpRequestConstructor.cpp \
@@ -136,7 +138,6 @@ LOCAL_SRC_FILES := \
 	binding/V8NPUtils.cpp \
 	binding/npruntime.cpp \
 	binding/v8_binding.cpp \
-	binding/v8_custom.cpp \
 	binding/v8_helpers.cpp \
 	binding/v8_index.cpp \
 	binding/v8_proxy.cpp \
@@ -156,7 +157,7 @@ js_binding_scripts := \
   $(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/scripts/generate-bindings.pl
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1
 
 ifeq ($(ENABLE_VIDEO), true)
   FEATURE_DEFINES += ENaBLE_VIDEO=1
@@ -402,6 +403,20 @@ GEN := \
     $(intermediates)/storage/V8SQLResultSetRowList.h \
     $(intermediates)/storage/V8SQLTransaction.h
     
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+
+# DOM Storage support
+GEN := \
+    $(intermediates)/storage/V8Storage.h \
+    $(intermediates)/storage/V8StorageEvent.h
+
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
