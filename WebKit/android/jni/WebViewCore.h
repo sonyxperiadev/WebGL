@@ -48,6 +48,7 @@ namespace WebCore {
     class RenderPart;
     class RenderText;
     class Node;
+    class PlatformKeyboardEvent;
     class RenderTextControl;
     class ScrollView;
     class TimerBase;
@@ -211,7 +212,7 @@ namespace android {
          * Handle key events from Java.
          * @return Whether keyCode was handled by this class.
          */
-        bool key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown);
+        bool key(const WebCore::PlatformKeyboardEvent& event);
 
         /**
          * Handle (trackball) click event from Java
@@ -257,8 +258,7 @@ namespace android {
         void replaceTextfieldText(int oldStart,
             int oldEnd, const WebCore::String& replace, int start, int end);
         void passToJs(int generation,
-            const WebCore::String& currentText, int jKeyCode, int keyVal,
-            bool down, bool cap, bool fn, bool sym);
+            const WebCore::String& , const WebCore::PlatformKeyboardEvent& );
         void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
@@ -302,7 +302,6 @@ namespace android {
 
         // other public functions
     public:
-
         // reset the picture set to empty
         void clearContent();
 

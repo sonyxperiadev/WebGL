@@ -117,6 +117,9 @@ public:
         return clip.intersects(mBounds);
     }
     bool isPassword() const { return mIsPassword; }
+    bool isPlugin() const {
+        return mWantsKeyEvents && !mIsTextArea && !mIsTextField;
+    }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextArea() const { return mIsTextArea; }
     bool isTextField() const { return mIsTextField; }

@@ -1382,9 +1382,6 @@ void WebViewCore::setSelection(int start, int end)
     focus->document()->frame()->revealSelection();
 }
 
-// Shortcut for no modifier keys
-#define NO_MODIFIER_KEYS (static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>(0))
-
 void WebViewCore::deleteSelection(int start, int end)
 {
     setSelection(start, end);
@@ -1394,11 +1391,11 @@ void WebViewCore::deleteSelection(int start, int end)
     if (!focus)
         return;
     WebCore::Frame* frame = focus->document()->frame();
-    WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, WebCore::VK_BACK,
-            WebCore::PlatformKeyboardEvent::KeyDown, 0, NO_MODIFIER_KEYS);
+    WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, 0,
+            true, 0, false, false, false);
     frame->eventHandler()->keyEvent(downEvent);
-    WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, WebCore::VK_BACK,
-            WebCore::PlatformKeyboardEvent::KeyUp, 0, NO_MODIFIER_KEYS);
+    WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, 0,
+            false, 0, false, false, false);
     frame->eventHandler()->keyEvent(upEvent);
 }
 
@@ -1415,36 +1412,24 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     setFocusControllerActive(true);
 }
 
-void WebViewCore::passToJs(
-    int generation, const WebCore::String& current, int keyCode,
-    int keyValue, bool down, bool cap, bool fn, bool sym)
+void WebViewCore::passToJs(int generation, const WebCore::String& current,
+    const PlatformKeyboardEvent& event)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus) {
         DBG_NAV_LOG("!focus");
         return;
     }
-    WebCore::Frame* frame = focus->document()->frame();
-    // Construct the ModifierKey value
-    WebCore::PlatformKeyboardEvent::ModifierKey mods =
-        static_cast<WebCore::PlatformKeyboardEvent::ModifierKey>
-        ((cap ? WebCore::PlatformKeyboardEvent::ShiftKey : 0)
-        | (fn ? WebCore::PlatformKeyboardEvent::AltKey : 0)
-        | (sym ? WebCore::PlatformKeyboardEvent::CtrlKey : 0));
-    WebCore::PlatformKeyboardEvent event(keyCode, keyValue,
-            down ? WebCore::PlatformKeyboardEvent::KeyDown :
-                   WebCore::PlatformKeyboardEvent::KeyUp, 0, mods);
-    // Block text field updates during a key press.
-    m_blockTextfieldUpdates = true;
-    frame->eventHandler()->keyEvent(event);
-    m_blockTextfieldUpdates = false;
-    m_textGeneration = generation;
-    DBG_NAV_LOGD("focus=%p keyCode=%d keyValue=%d", focus, keyCode, keyValue);
     WebCore::RenderObject* renderer = focus->renderer();
     if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
         DBG_NAV_LOGD("renderer==%p || not text", renderer);
         return;
     }
+    // Block text field updates during a key press.
+    m_blockTextfieldUpdates = true;
+    key(event);
+    m_blockTextfieldUpdates = false;
+    m_textGeneration = generation;
     setFocusControllerActive(true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
@@ -1634,26 +1619,15 @@ void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, s
     m_popupReply = reply;
 }
 
-bool WebViewCore::key(int keyCode, UChar32 unichar, int repeatCount, bool isShift, bool isAlt, bool isDown)
+bool WebViewCore::key(const PlatformKeyboardEvent& event)
 {
     WebCore::EventHandler* eventHandler = m_mainFrame->eventHandler();
     WebCore::Node* focusNode = currentFocus();
-    if (focusNode) {
+    if (focusNode)
         eventHandler = focusNode->document()->frame()->eventHandler();
-    }
-
-    int mods = 0; // PlatformKeyboardEvent::ModifierKey
-    if (isShift) {
-        mods |= WebCore::PlatformKeyboardEvent::ShiftKey;
-    }
-    if (isAlt) {
-        mods |= WebCore::PlatformKeyboardEvent::AltKey;
-    }
-    DBG_NAV_LOGD("keyCode=%d focusNode=%p", keyCode, focusNode);
-    WebCore::PlatformKeyboardEvent evt(keyCode, unichar,
-            isDown ? WebCore::PlatformKeyboardEvent::KeyDown : WebCore::PlatformKeyboardEvent::KeyUp,
-            repeatCount, static_cast<WebCore::PlatformKeyboardEvent::ModifierKey> (mods));
-    return eventHandler->keyEvent(evt);
+    DBG_NAV_LOGD("keyCode=%s unichar=%d focusNode=%p",
+        event.keyIdentifier().utf8().data(), event.unichar(), focusNode);
+    return eventHandler->keyEvent(event);
 }
 
 // For when the user clicks the trackball
@@ -2031,15 +2005,14 @@ static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
 }
 
 static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
-        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isDown)
+        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isSym,
+        jboolean isDown)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in Key");
-
-    return viewImpl->key(keyCode, unichar, repeatCount, isShift, isAlt, isDown);
+    return GET_NATIVE_VIEW(env, obj)->key(PlatformKeyboardEvent(keyCode,
+        unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
 static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
@@ -2092,12 +2065,9 @@ static void PassToJs(JNIEnv *env, jobject obj,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativePassToJs()\n");
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativePassToJs");
     WebCore::String current = to_string(env, currentText);
-    viewImpl->passToJs(
-        generation, current, keyCode, keyValue, down, cap, fn, sym);
+    GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
+        PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
 
 static void SetFocusControllerInactive(JNIEnv *env, jobject obj)
@@ -2480,7 +2450,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) CopyContentToPicture },
     { "nativeDrawContent", "(Landroid/graphics/Canvas;I)Z",
         (void*) DrawContent } ,
-    { "nativeKey", "(IIIZZZ)Z",
+    { "nativeKey", "(IIIZZZZ)Z",
         (void*) Key },
     { "nativeClick", "(II)V",
         (void*) Click },
