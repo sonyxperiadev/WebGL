@@ -188,6 +188,7 @@ void clearCursor()
     if (!root)
         return;
     DBG_NAV_LOG("");
+    m_viewImpl->m_hasCursorBounds = false;
     root->clearCursor();
     viewInvalidate();
 }
@@ -199,6 +200,7 @@ void hideCursor()
     if (!root)
         return;
     DBG_NAV_LOG("");
+    m_viewImpl->m_hasCursorBounds = false;
     root->hideCursor();
     viewInvalidate();
 }
@@ -448,16 +450,7 @@ void drawCursorRing(SkCanvas* canvas)
     }
     m_viewImpl->gButtonMutex.unlock();
     WebCore::IntRect bounds = node->bounds();
-    m_viewImpl->gCursorBoundsMutex.lock();
-    m_viewImpl->m_hasCursorBounds = true;
-    if (m_viewImpl->m_cursorBounds != bounds)
-        DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
-            bounds.x(), bounds.y(), bounds.width(), bounds.height());
-    m_viewImpl->m_cursorBounds = bounds;
-    m_viewImpl->m_cursorFrame = frame->framePointer();
-    root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
-    m_viewImpl->m_cursorNode = node->nodePointer();
-    m_viewImpl->gCursorBoundsMutex.unlock();
+    updateCursorBounds(root, frame, node);
 
     WTF::Vector<WebCore::IntRect> oneRing;
     bool useHitBounds = node->useHitBounds();
@@ -697,6 +690,33 @@ bool cursorWantsKeyEvents()
     return false;
 }
 
+// This needs to be called each time we call CachedRoot::setCursor() with
+// non-null CachedNode/CachedFrame, since otherwise the WebViewCore's data
+// about the cursor is incorrect.  When we call setCursor(0,0), we need
+// to set m_viewImpl->hasCursorBounds to false.
+void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
+        const CachedNode* cachedNode)
+{
+    LOG_ASSERT(root, "updateCursorBounds: root cannot be null");
+    LOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
+    LOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
+    m_viewImpl->gCursorBoundsMutex.lock();
+    m_viewImpl->m_hasCursorBounds = cachedNode->hasCursorRing();
+    // If m_viewImpl->m_hasCursorBounds is false, we never look at the other
+    // values, so do not bother setting them.
+    if (m_viewImpl->m_hasCursorBounds) {
+        WebCore::IntRect bounds = cachedNode->bounds();
+        if (m_viewImpl->m_cursorBounds != bounds)
+            DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
+                bounds.x(), bounds.y(), bounds.width(), bounds.height());
+        m_viewImpl->m_cursorBounds = cachedNode->bounds();
+        m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
+        root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
+        m_viewImpl->m_cursorNode = cachedNode->nodePointer();
+    }
+    m_viewImpl->gCursorBoundsMutex.unlock();
+}
+
 /* returns true if the key had no effect (neither scrolled nor changed cursor) */
 bool moveCursor(int keyCode, int count, bool ignoreScroll)
 {
@@ -734,15 +754,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
         dx += scroll.x();
         dy += scroll.y();
     }
-    if (cachedNode) {
-        m_viewImpl->gCursorBoundsMutex.lock();
-        m_viewImpl->m_hasCursorBounds = cachedNode->hasCursorRing();
-        m_viewImpl->m_cursorBounds = cachedNode->bounds();
-        m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
-        root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
-        m_viewImpl->m_cursorNode = cachedNode->nodePointer();
-        m_viewImpl->gCursorBoundsMutex.unlock();
-    }
     DBG_NAV_LOGD("new cursor %d (nativeNode=%p) cursorLocation={%d, %d}"
         "bounds={%d,%d,w=%d,h=%d}", cachedNode ? cachedNode->index() : 0,
         cachedNode ? cachedNode->nodePointer() : 0,
@@ -768,6 +779,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     bool result = false;
     if (cachedNode) {
+        updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
         bool disableFocusController = cachedNode != root->currentFocus()
@@ -830,10 +842,12 @@ void selectBestAt(const WebCore::IntRect& rect)
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         disableFocusController = true;
+        m_viewImpl->m_hasCursorBounds = false;
         if (root)
             root->setCursor(0, 0);
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
+        updateCursorBounds(root, frame, node);
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
         if (!node->wantsKeyEvents()) {
@@ -873,13 +887,12 @@ bool motionUp(int x, int y, int slop)
     if (!result) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         setNavBounds(rect);
-        if (root) {
-            root->hideCursor();
-            int dx = root->checkForCenter(x, y);
-            if (dx) {
-                scrollBy(dx, 0);
-                pageScrolled = true;
-            }
+        m_viewImpl->m_hasCursorBounds = false;
+        root->hideCursor();
+        int dx = root->checkForCenter(x, y);
+        if (dx) {
+            scrollBy(dx, 0);
+            pageScrolled = true;
         }
         sendMotionUp(frame ? (WebCore::Frame*) frame->framePointer() : 0,
             0, x, y, slop);
@@ -890,6 +903,7 @@ bool motionUp(int x, int y, int slop)
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
         result->index(), x, y, rx, ry);
     setNavBounds(WebCore::IntRect(rx, ry, 1, 1));
+    updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
     CachedNodeType type = result->type();
