@@ -700,10 +700,11 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
 enum ANPEventTypes {
     kNull_ANPEventType          = 0,
     kKey_ANPEventType           = 1,
-    kTouch_ANPEventType         = 2,
-    kDraw_ANPEventType          = 3,
-    kLifecycle_ANPEventType     = 4,
-    kVisibleRect_ANPEventType   = 5,
+    kMouse_ANPEventType         = 2,
+    kTouch_ANPEventType         = 3,
+    kDraw_ANPEventType          = 4,
+    kLifecycle_ANPEventType     = 5,
+    kVisibleRect_ANPEventType   = 6,
 };
 typedef int32_t ANPEventType;
 
@@ -722,6 +723,12 @@ enum ANPKeyModifiers {
 };
 // bit-field containing some number of ANPKeyModifier bits
 typedef uint32_t ANPKeyModifier;
+
+enum ANPMouseActions {
+    kDown_ANPMouseAction  = 0,
+    kUp_ANPMouseAction    = 1,
+};
+typedef int32_t ANPMouseAction;
 
 enum ANPTouchActions {
     kDown_ANPTouchAction   = 0,
@@ -754,6 +761,11 @@ struct ANPEvent {
             int32_t         repeatCount;    // 0 for initial down (or up)
             int32_t         unichar;        // 0 if there is no value
         } key;
+        struct {
+            ANPMouseAction  action;
+            int32_t         x;  // relative to your "window" (0...width)
+            int32_t         y;  // relative to your "window" (0...height)
+        } mouse;
         struct {
             ANPTouchAction  action;
             ANPKeyModifier  modifiers;
