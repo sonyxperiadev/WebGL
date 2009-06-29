@@ -98,6 +98,11 @@
 #include "jni_utility.h"
 #include <wtf/CurrentTime.h>
 
+#if USE(V8)
+#include "CString.h"
+#include "ScriptController.h"
+#endif
+
 #if DEBUG_NAV_UI
 #include "SkTime.h"
 #endif
@@ -2382,6 +2387,20 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
     viewImpl->dumpNavTree();
 }
 
+static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
+{
+#if USE(V8)
+    // This code is called from UI thread, but it is safe to call setFlags
+    // on ScriptController since it initializes global variables only.
+    // As long as the WebCore thread does not change the default JS flags,
+    // it is safe to call it here.
+    WebCore::String flagsString = to_string(env, flags);
+    WebCore::CString utf8String = flagsString.utf8();
+    WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
+#endif
+}
+
+
 // Called from the Java side to set a new quota for the origin in response.
 // to a notification that the original quota was exceeded.
 static void SetDatabaseQuota(JNIEnv* env, jobject obj, jlong quota) {
@@ -2544,6 +2563,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativePause", "()V", (void*) Pause },
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },
+    { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
 };
 
 int register_webviewcore(JNIEnv* env)
