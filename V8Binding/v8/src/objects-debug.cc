@@ -948,6 +948,7 @@ void Script::ScriptPrint() {
 }
 
 
+#ifdef ENABLE_DEBUGGER_SUPPORT
 void DebugInfo::DebugInfoVerify() {
   CHECK(IsDebugInfo());
   VerifyPointer(shared());
@@ -987,6 +988,7 @@ void BreakPointInfo::BreakPointInfoPrint() {
   PrintF("\n - break_point_objects: ");
   break_point_objects()->ShortPrint();
 }
+#endif
 
 
 void JSObject::IncrementSpillStatistics(SpillInformation* info) {

@@ -43,6 +43,7 @@ LOCAL_SRC_FILES := \
 	src/jsregexp.cc \
 	src/jump-target.cc \
 	src/log.cc \
+	src/log-utils.cc \
 	src/mark-compact.cc \
 	src/messages.cc \
 	src/objects.cc \
@@ -116,7 +117,8 @@ ifeq ($(TARGET_OS),linux)
 		src/platform-posix.cc
 endif
 
-ifeq ($(TARGET_BUILD_TYPE),debug)
+# Enable DEBUG option.
+ifeq ($(DEBUG_V8),true)
 	LOCAL_SRC_FILES += \
 		src/objects-debug.cc \
 		src/prettyprinter.cc \
@@ -167,7 +169,11 @@ ifeq ($(TARGET_ARCH),arm)
 endif
 
 ifeq ($(TARGET_ARCH),x86)
-	LOCAL_CLFAGS += -DV8_TARGET_ARCH_IA32
+	LOCAL_CFLAGS += -DV8_TARGET_ARCH_IA32
+endif
+
+ifeq ($(DEBUG_V8),true)
+	LOCAL_CFLAGS += -DENABLE_LOGGING_AND_PROFILING -DDEBUG -UNDEBUG
 endif
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/v8/src
