@@ -614,6 +614,12 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         closely aligned to the coordinates as possible.
      */
     void    (*scrollTo)(NPP instance, int32_t x, int32_t y);
+    /** Given a boolean value of true the device will be requested to provide
+        a keyboard. A value of false will result in a request to hide the
+        keyboard. Further, the on-screen keyboard will not be displayed if a
+        physical keyboard is active.
+     */
+    void    (*showKeyboard)(NPP instance, bool value);
 };
 
 ///////////////////////////////////////////////////////////////////////////////

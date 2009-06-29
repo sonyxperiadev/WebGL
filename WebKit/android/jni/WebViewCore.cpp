@@ -167,6 +167,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
+    jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_addMessageToConsole;
     AutoJObject object(JNIEnv* env) {
@@ -231,6 +232,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
+    m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
 
@@ -840,6 +842,16 @@ void WebViewCore::needTouchEvents(bool need)
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_needTouchEvents, need);
     checkException(env);
 #endif
+}
+
+void WebViewCore::requestKeyboard(bool showKeyboard)
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_requestKeyboard, showKeyboard);
+    checkException(env);
 }
 
 void WebViewCore::notifyProgressFinished()

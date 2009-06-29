@@ -63,6 +63,12 @@ static void anp_scrollTo(NPP instance, int32_t x, int32_t y) {
     core->scrollTo(x,y,true);
 }
 
+static void anp_showKeyboard(NPP instance, bool value) {
+    ScrollView* scrollView = pluginViewForInstance(instance)->parent();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
+    core->requestKeyboard(value);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -73,6 +79,7 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, lockRect);
     ASSIGN(i, lockRegion);
     ASSIGN(i, scrollTo);
+    ASSIGN(i, showKeyboard);
     ASSIGN(i, unlock);
 }
 

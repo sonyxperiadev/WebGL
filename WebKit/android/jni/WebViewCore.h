@@ -300,6 +300,9 @@ namespace android {
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);
 
+        // Notify the Java side that webkit is requesting a keyboard
+        void requestKeyboard(bool);
+
         // other public functions
     public:
         // reset the picture set to empty

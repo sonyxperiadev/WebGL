@@ -250,8 +250,9 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     else if (isUp || isDown) {
         SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
-        evt.data.mouse.x = event->x();
-        evt.data.mouse.y = event->y();
+        // these are relative to plugin
+        evt.data.mouse.x = event->x() - m_npWindow.x;
+        evt.data.mouse.y = event->y() - m_npWindow.y;
     }
     else {
       return;

@@ -134,7 +134,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
     m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
-    m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "()V");
+    m_javaGlue.m_displaySoftKeyboard = GetJMethod(env, clazz, "displaySoftKeyboard", "(Z)V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
@@ -940,7 +940,7 @@ bool motionUp(int x, int y, int slop)
     viewInvalidate();
     if (result->isTextField() || result->isTextArea()) {
         rebuildWebTextView();
-        displaySoftKeyboard();
+        displaySoftKeyboard(true);
     } else {
         setFollowedLink(true);
         if (type != NORMAL_CACHEDNODETYPE)
@@ -1256,11 +1256,11 @@ void rebuildWebTextView()
     checkException(env);
 }
 
-void displaySoftKeyboard()
+void displaySoftKeyboard(bool isTextView)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(),
-            m_javaGlue.m_displaySoftKeyboard);
+            m_javaGlue.m_displaySoftKeyboard, isTextView);
     checkException(env);
 }
 
