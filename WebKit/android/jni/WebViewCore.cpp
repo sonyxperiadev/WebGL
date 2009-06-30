@@ -1410,13 +1410,7 @@ void WebViewCore::deleteSelection(int start, int end)
     WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-    WebCore::Frame* frame = focus->document()->frame();
-    WebCore::PlatformKeyboardEvent downEvent(kKeyCodeDel, 0,
-            true, 0, false, false, false);
-    frame->eventHandler()->keyEvent(downEvent);
-    WebCore::PlatformKeyboardEvent upEvent(kKeyCodeDel, 0,
-            false, 0, false, false, false);
-    frame->eventHandler()->keyEvent(upEvent);
+    WebCore::TypingCommand::deleteSelection(focus->document());
 }
 
 void WebViewCore::replaceTextfieldText(int oldStart,

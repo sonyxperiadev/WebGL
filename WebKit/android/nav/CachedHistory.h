@@ -50,6 +50,7 @@ public:
     const WebCore::IntRect& navBounds() const { return mNavBounds; }
     const WebCore::IntRect& priorBounds() const { return mPriorBounds; }
     void setDidFirstLayout(bool did) { mDidFirstLayout = did; }
+    void setMouseBounds(const WebCore::IntRect& loc) { mMouseBounds = loc; }
     void setNavBounds(const WebCore::IntRect& loc) { mNavBounds = loc; }
     void setWorking(CachedFrame::Direction , const CachedNode* focus,
         const WebCore::IntRect& viewBounds);
@@ -60,9 +61,9 @@ private:
         const CachedNode* mNode;
         CachedFrame::Direction mDirection;
     } mVisited[NAVIGATION_VISIT_DEPTH];
-    WebCore::IntRect mMouseBounds; // constricted bounds, if focus ring is partially visible
-    WebCore::IntRect mNavBounds; // focus ring bounds plus optional keystroke movement
-    WebCore::IntRect mPriorBounds; // prior chosen focus ring (for reversing narrowing)
+    WebCore::IntRect mMouseBounds; // constricted bounds, if cursor ring is partially visible
+    WebCore::IntRect mNavBounds; // cursor ring bounds plus optional keystroke movement
+    WebCore::IntRect mPriorBounds; // prior chosen cursor ring (for reversing narrowing)
     bool mDirectionChange;
     bool mDidFirstLayout; // set true when page is newly laid out
     CachedFrame::Direction mLastMove;

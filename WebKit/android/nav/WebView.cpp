@@ -862,6 +862,7 @@ void selectBestAt(const WebCore::IntRect& rect)
     bool disableFocusController = false;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
+
     if (!node) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
         disableFocusController = true;
@@ -870,6 +871,7 @@ void selectBestAt(const WebCore::IntRect& rect)
             root->setCursor(0, 0);
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
+        root->rootHistory()->setMouseBounds(node->bounds());
         updateCursorBounds(root, frame, node);
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
