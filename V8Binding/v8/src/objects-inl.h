@@ -53,6 +53,13 @@ Smi* PropertyDetails::AsSmi() {
 }
 
 
+PropertyDetails PropertyDetails::AsDeleted() {
+  PropertyDetails d(DONT_ENUM, NORMAL);
+  Smi* smi = Smi::FromInt(AsSmi()->value() | DeletedField::encode(1));
+  return PropertyDetails(smi);
+}
+
+
 #define CAST_ACCESSOR(type)                     \
   type* type::cast(Object* object) {            \
     ASSERT(object->Is##type());                 \
@@ -409,6 +416,13 @@ bool Object::IsOddball() {
 }
 
 
+bool Object::IsJSGlobalPropertyCell() {
+  return Object::IsHeapObject()
+      && HeapObject::cast(this)->map()->instance_type()
+      == JS_GLOBAL_PROPERTY_CELL_TYPE;
+}
+
+
 bool Object::IsSharedFunctionInfo() {
   return Object::IsHeapObject() &&
       (HeapObject::cast(this)->map()->instance_type() ==
@@ -477,11 +491,6 @@ bool Object::IsCompilationCacheTable() {
 
 
 bool Object::IsMapCache() {
-  return IsHashTable();
-}
-
-
-bool Object::IsLookupCache() {
   return IsHashTable();
 }
 
@@ -658,6 +667,12 @@ Object* Object::GetProperty(String* key, PropertyAttributes* attributes) {
 
 #define WRITE_INT_FIELD(p, offset, value) \
   (*reinterpret_cast<int*>(FIELD_ADDR(p, offset)) = value)
+
+#define READ_INTPTR_FIELD(p, offset) \
+  (*reinterpret_cast<intptr_t*>(FIELD_ADDR(p, offset)))
+
+#define WRITE_INTPTR_FIELD(p, offset, value) \
+  (*reinterpret_cast<intptr_t*>(FIELD_ADDR(p, offset)) = value)
 
 #define READ_UINT32_FIELD(p, offset) \
   (*reinterpret_cast<uint32_t*>(FIELD_ADDR(p, offset)))
@@ -1045,6 +1060,8 @@ ACCESSORS(Oddball, to_string, String, kToStringOffset)
 ACCESSORS(Oddball, to_number, Object, kToNumberOffset)
 
 
+ACCESSORS(JSGlobalPropertyCell, value, Object, kValueOffset)
+
 int JSObject::GetHeaderSize() {
   switch (map()->instance_type()) {
     case JS_GLOBAL_PROXY_TYPE:
@@ -1304,7 +1321,6 @@ int DescriptorArray::Search(String* name) {
 }
 
 
-
 String* DescriptorArray::GetKey(int descriptor_number) {
   ASSERT(descriptor_number < number_of_descriptors());
   return String::cast(get(ToKeyIndex(descriptor_number)));
@@ -1388,7 +1404,6 @@ CAST_ACCESSOR(Dictionary)
 CAST_ACCESSOR(SymbolTable)
 CAST_ACCESSOR(CompilationCacheTable)
 CAST_ACCESSOR(MapCache)
-CAST_ACCESSOR(LookupCache)
 CAST_ACCESSOR(String)
 CAST_ACCESSOR(SeqString)
 CAST_ACCESSOR(SeqAsciiString)
@@ -1404,6 +1419,7 @@ CAST_ACCESSOR(Failure)
 CAST_ACCESSOR(HeapObject)
 CAST_ACCESSOR(HeapNumber)
 CAST_ACCESSOR(Oddball)
+CAST_ACCESSOR(JSGlobalPropertyCell)
 CAST_ACCESSOR(SharedFunctionInfo)
 CAST_ACCESSOR(Map)
 CAST_ACCESSOR(JSFunction)
@@ -1786,10 +1802,16 @@ int Map::inobject_properties() {
 
 int HeapObject::SizeFromMap(Map* map) {
   InstanceType instance_type = map->instance_type();
-  // Only inline the two most frequent cases.
-  if (instance_type == JS_OBJECT_TYPE) return  map->instance_size();
+  // Only inline the most frequent cases.
+  if (instance_type == JS_OBJECT_TYPE ||
+      (instance_type & (kIsNotStringMask | kStringRepresentationMask)) ==
+      (kStringTag | kConsStringTag) ||
+      instance_type == JS_ARRAY_TYPE) return map->instance_size();
   if (instance_type == FIXED_ARRAY_TYPE) {
     return reinterpret_cast<FixedArray*>(this)->FixedArraySize();
+  }
+  if (instance_type == BYTE_ARRAY_TYPE) {
+    return reinterpret_cast<ByteArray*>(this)->ByteArraySize();
   }
   // Otherwise do the general size computation.
   return SlowSizeFromMap(map);
@@ -2130,6 +2152,7 @@ ACCESSORS(BreakPointInfo, statement_position, Smi, kStatementPositionIndex)
 ACCESSORS(BreakPointInfo, break_point_objects, Object, kBreakPointObjectsIndex)
 #endif
 
+ACCESSORS(SharedFunctionInfo, construct_stub, Code, kConstructStubOffset)
 ACCESSORS(SharedFunctionInfo, name, Object, kNameOffset)
 ACCESSORS(SharedFunctionInfo, instance_class_name, Object,
           kInstanceClassNameOffset)
@@ -2303,12 +2326,12 @@ void JSBuiltinsObject::set_javascript_builtin(Builtins::JavaScript id,
 
 
 Address Proxy::proxy() {
-  return AddressFrom<Address>(READ_INT_FIELD(this, kProxyOffset));
+  return AddressFrom<Address>(READ_INTPTR_FIELD(this, kProxyOffset));
 }
 
 
 void Proxy::set_proxy(Address value) {
-  WRITE_INT_FIELD(this, kProxyOffset, OffsetFrom(value));
+  WRITE_INTPTR_FIELD(this, kProxyOffset, OffsetFrom(value));
 }
 
 
@@ -2636,6 +2659,13 @@ void Map::ClearCodeCache() {
   //  - MarkCompactCollector::MarkUnmarkedObject
   ASSERT(!Heap::InNewSpace(Heap::empty_fixed_array()));
   WRITE_FIELD(this, kCodeCacheOffset, Heap::empty_fixed_array());
+}
+
+
+void JSArray::EnsureSize(int required_size) {
+  ASSERT(HasFastElements());
+  if (elements()->length() >= required_size) return;
+  Expand(required_size);
 }
 
 

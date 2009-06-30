@@ -72,19 +72,61 @@ XMMRegister xmm13 = { 13 };
 XMMRegister xmm14 = { 14 };
 XMMRegister xmm15 = { 15 };
 
-// Safe default is no features.
-uint64_t CpuFeatures::supported_ = 0;
+
+Operand::Operand(Register base, int32_t disp): rex_(0) {
+  len_ = 1;
+  if (base.is(rsp) || base.is(r12)) {
+    // SIB byte is needed to encode (rsp + offset) or (r12 + offset).
+    set_sib(times_1, rsp, base);
+  }
+
+  if (disp == 0 && !base.is(rbp) && !base.is(r13)) {
+    set_modrm(0, base);
+  } else if (is_int8(disp)) {
+    set_modrm(1, base);
+    set_disp8(disp);
+  } else {
+    set_modrm(2, base);
+    set_disp32(disp);
+  }
+}
+
+
+Operand::Operand(Register base,
+                 Register index,
+                 ScaleFactor scale,
+                 int32_t disp): rex_(0) {
+  ASSERT(!index.is(rsp));
+  len_ = 1;
+  set_sib(scale, index, base);
+  if (disp == 0 && !base.is(rbp) && !base.is(r13)) {
+    // This call to set_modrm doesn't overwrite the REX.B (or REX.X) bits
+    // possibly set by set_sib.
+    set_modrm(0, rsp);
+  } else if (is_int8(disp)) {
+    set_modrm(1, rsp);
+    set_disp8(disp);
+  } else {
+    set_modrm(2, rsp);
+    set_disp32(disp);
+  }
+}
+
+
+// The required user mode extensions in X64 are (from AMD64 ABI Table A.1):
+//   fpu, tsc, cx8, cmov, mmx, sse, sse2, fxsr, syscall
+uint64_t CpuFeatures::supported_ = kDefaultCpuFeatures;
 uint64_t CpuFeatures::enabled_ = 0;
 
 void CpuFeatures::Probe()  {
   ASSERT(Heap::HasBeenSetup());
-  ASSERT(supported_ == 0);
+  ASSERT(supported_ == kDefaultCpuFeatures);
   if (Serializer::enabled()) return;  // No features if we might serialize.
 
   Assembler assm(NULL, 0);
   Label cpuid, done;
 #define __ assm.
-  // Save old esp, since we are going to modify the stack.
+  // Save old rsp, since we are going to modify the stack.
   __ push(rbp);
   __ pushfq();
   __ push(rcx);
@@ -112,11 +154,11 @@ void CpuFeatures::Probe()  {
   // safe here.
   __ bind(&cpuid);
   __ movq(rax, Immediate(1));
-  supported_ = (1 << CPUID);
+  supported_ = kDefaultCpuFeatures | (1 << CPUID);
   { Scope fscope(CPUID);
     __ cpuid();
   }
-  supported_ = 0;
+  supported_ = kDefaultCpuFeatures;
 
   // Move the result from ecx:edx to rax and make sure to mark the
   // CPUID feature as supported.
@@ -140,10 +182,15 @@ void CpuFeatures::Probe()  {
   Object* code =
       Heap::CreateCode(desc, NULL, Code::ComputeFlags(Code::STUB), NULL);
   if (!code->IsCode()) return;
-  LOG(CodeCreateEvent("Builtin", Code::cast(code), "CpuFeatures::Probe"));
+  LOG(CodeCreateEvent(Logger::BUILTIN_TAG,
+                      Code::cast(code), "CpuFeatures::Probe"));
   typedef uint64_t (*F0)();
   F0 probe = FUNCTION_CAST<F0>(Code::cast(code)->entry());
   supported_ = probe();
+  // SSE2 and CMOV must be available on an X64 CPU.
+  ASSERT(IsSupported(CPUID));
+  ASSERT(IsSupported(SSE2));
+  ASSERT(IsSupported(CMOV));
 }
 
 // -----------------------------------------------------------------------------
@@ -298,8 +345,9 @@ void Assembler::GrowBuffer() {
 #endif
 
   // copy the data
-  int pc_delta = desc.buffer - buffer_;
-  int rc_delta = (desc.buffer + desc.buffer_size) - (buffer_ + buffer_size_);
+  intptr_t pc_delta = desc.buffer - buffer_;
+  intptr_t rc_delta = (desc.buffer + desc.buffer_size) -
+      (buffer_ + buffer_size_);
   memmove(desc.buffer, buffer_, desc.instr_size);
   memmove(rc_delta + reloc_info_writer.pos(),
           reloc_info_writer.pos(), desc.reloc_size);
@@ -322,11 +370,8 @@ void Assembler::GrowBuffer() {
   // relocate runtime entries
   for (RelocIterator it(desc); !it.done(); it.next()) {
     RelocInfo::Mode rmode = it.rinfo()->rmode();
-    if (rmode == RelocInfo::RUNTIME_ENTRY) {
-      int32_t* p = reinterpret_cast<int32_t*>(it.rinfo()->pc());
-      *p -= pc_delta;  // relocate entry
-    } else if (rmode == RelocInfo::INTERNAL_REFERENCE) {
-      int32_t* p = reinterpret_cast<int32_t*>(it.rinfo()->pc());
+    if (rmode == RelocInfo::INTERNAL_REFERENCE) {
+      intptr_t* p = reinterpret_cast<intptr_t*>(it.rinfo()->pc());
       if (*p != 0) {  // 0 means uninitialized.
         *p += pc_delta;
       }
@@ -337,13 +382,14 @@ void Assembler::GrowBuffer() {
 }
 
 
-void Assembler::emit_operand(int rm, const Operand& adr) {
-  ASSERT_EQ(rm & 0x07, rm);
+void Assembler::emit_operand(int code, const Operand& adr) {
+  ASSERT(is_uint3(code));
   const unsigned length = adr.len_;
   ASSERT(length > 0);
 
   // Emit updated ModR/M byte containing the given register.
-  pc_[0] = (adr.buf_[0] & ~0x38) | (rm << 3);
+  ASSERT((adr.buf_[0] & 0x38) == 0);
+  pc_[0] = adr.buf_[0] | code << 3;
 
   // Emit the rest of the encoded operand.
   for (unsigned i = 1; i < length; i++) pc_[i] = adr.buf_[i];
@@ -369,6 +415,16 @@ void Assembler::arithmetic_op(byte opcode, Register dst, Register src) {
   emit(opcode);
   emit_modrm(dst, src);
 }
+
+
+void Assembler::arithmetic_op_32(byte opcode, Register dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst, src);
+  emit(opcode);
+  emit_modrm(dst, src);
+}
+
 
 void Assembler::immediate_arithmetic_op(byte subcode,
                                         Register dst,
@@ -398,13 +454,81 @@ void Assembler::immediate_arithmetic_op(byte subcode,
   emit_rex_64(dst);
   if (is_int8(src.value_)) {
     emit(0x83);
-    emit_operand(Register::toRegister(subcode), dst);
+    emit_operand(subcode, dst);
     emit(src.value_);
   } else {
     emit(0x81);
-    emit_operand(Register::toRegister(subcode), dst);
+    emit_operand(subcode, dst);
     emitl(src.value_);
   }
+}
+
+
+void Assembler::immediate_arithmetic_op_32(byte subcode,
+                                           Register dst,
+                                           Immediate src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
+    emit(0x83);
+  if (is_int8(src.value_)) {
+    emit_modrm(subcode, dst);
+    emit(src.value_);
+  } else if (dst.is(rax)) {
+    emit(0x05 | (subcode << 3));
+    emitl(src.value_);
+  } else {
+    emit(0x81);
+    emit_modrm(subcode, dst);
+    emitl(src.value_);
+  }
+}
+
+
+void Assembler::immediate_arithmetic_op_32(byte subcode,
+                                           const Operand& dst,
+                                           Immediate src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
+  if (is_int8(src.value_)) {
+    emit(0x83);
+    emit_operand(subcode, dst);
+    emit(src.value_);
+  } else {
+    emit(0x81);
+    emit_operand(subcode, dst);
+    emitl(src.value_);
+  }
+}
+
+
+void Assembler::immediate_arithmetic_op_8(byte subcode,
+                                          const Operand& dst,
+                                          Immediate src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
+  ASSERT(is_int8(src.value_) || is_uint8(src.value_));
+  emit(0x80);
+  emit_operand(subcode, dst);
+  emit(src.value_);
+}
+
+
+void Assembler::immediate_arithmetic_op_8(byte subcode,
+                                          Register dst,
+                                          Immediate src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  if (dst.code() > 3) {
+    // Use 64-bit mode byte registers.
+    emit_rex_64(dst);
+  }
+  ASSERT(is_int8(src.value_) || is_uint8(src.value_));
+  emit(0x80);
+  emit_modrm(subcode, dst);
+  emit(src.value_);
 }
 
 
@@ -429,6 +553,15 @@ void Assembler::shift(Register dst, int subcode) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
+  emit(0xD3);
+  emit_modrm(subcode, dst);
+}
+
+
+void Assembler::shift_32(Register dst, int subcode) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
   emit(0xD3);
   emit_modrm(subcode, dst);
 }
@@ -479,19 +612,11 @@ void Assembler::call(Register adr) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   // Opcode: FF /2 r64
-  if (adr.code() > 7) {
+  if (adr.high_bit()) {
     emit_rex_64(adr);
   }
   emit(0xFF);
   emit_modrm(0x2, adr);
-}
-
-void Assembler::cpuid() {
-  ASSERT(CpuFeatures::IsEnabled(CpuFeatures::CPUID));
-  EnsureSpace ensure_space(this);
-  last_pc_ = pc_;
-  emit(0x0F);
-  emit(0xA2);
 }
 
 
@@ -505,6 +630,66 @@ void Assembler::call(const Operand& op) {
 }
 
 
+void Assembler::cmovq(Condition cc, Register dst, Register src) {
+  // No need to check CpuInfo for CMOV support, it's a required part of the
+  // 64-bit architecture.
+  ASSERT(cc >= 0);  // Use mov for unconditional moves.
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  // Opcode: REX.W 0f 40 + cc /r
+  emit_rex_64(dst, src);
+  emit(0x0f);
+  emit(0x40 + cc);
+  emit_modrm(dst, src);
+}
+
+
+void Assembler::cmovq(Condition cc, Register dst, const Operand& src) {
+  ASSERT(cc >= 0);
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  // Opcode: REX.W 0f 40 + cc /r
+  emit_rex_64(dst, src);
+  emit(0x0f);
+  emit(0x40 + cc);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::cmovl(Condition cc, Register dst, Register src) {
+  ASSERT(cc >= 0);
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  // Opcode: 0f 40 + cc /r
+  emit_optional_rex_32(dst, src);
+  emit(0x0f);
+  emit(0x40 + cc);
+  emit_modrm(dst, src);
+}
+
+
+void Assembler::cmovl(Condition cc, Register dst, const Operand& src) {
+  ASSERT(cc >= 0);
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  // Opcode: 0f 40 + cc /r
+  emit_optional_rex_32(dst, src);
+  emit(0x0f);
+  emit(0x40 + cc);
+  emit_operand(dst, src);
+}
+
+
+
+void Assembler::cpuid() {
+  ASSERT(CpuFeatures::IsEnabled(CpuFeatures::CPUID));
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0x0F);
+  emit(0xA2);
+}
+
+
 void Assembler::cqo() {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -513,7 +698,7 @@ void Assembler::cqo() {
 }
 
 
-void Assembler::dec(Register dst) {
+void Assembler::decq(Register dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
@@ -522,10 +707,19 @@ void Assembler::dec(Register dst) {
 }
 
 
-void Assembler::dec(const Operand& dst) {
+void Assembler::decq(const Operand& dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
+  emit(0xFF);
+  emit_operand(1, dst);
+}
+
+
+void Assembler::decl(const Operand& dst) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
   emit(0xFF);
   emit_operand(1, dst);
 }
@@ -556,6 +750,25 @@ void Assembler::idiv(Register src) {
 }
 
 
+void Assembler::imul(Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(src);
+  emit(0xF7);
+  emit_modrm(0x5, src);
+}
+
+
+void Assembler::imul(Register dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(dst, src);
+  emit(0x0F);
+  emit(0xAF);
+  emit_modrm(dst, src);
+}
+
+
 void Assembler::imul(Register dst, const Operand& src) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -582,7 +795,17 @@ void Assembler::imul(Register dst, Register src, Immediate imm) {
 }
 
 
-void Assembler::inc(Register dst) {
+void Assembler::imull(Register dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0xAF);
+  emit_modrm(dst, src);
+}
+
+
+void Assembler::incq(Register dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
@@ -591,10 +814,19 @@ void Assembler::inc(Register dst) {
 }
 
 
-void Assembler::inc(const Operand& dst) {
+void Assembler::incq(const Operand& dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
+  emit(0xFF);
+  emit_operand(0, dst);
+}
+
+
+void Assembler::incl(const Operand& dst) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
   emit(0xFF);
   emit_operand(0, dst);
 }
@@ -610,7 +842,7 @@ void Assembler::int3() {
 void Assembler::j(Condition cc, Label* L) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
-  ASSERT(0 <= cc && cc < 16);
+  ASSERT(is_uint4(cc));
   if (L->is_bound()) {
     const int short_size = 2;
     const int long_size  = 6;
@@ -678,7 +910,7 @@ void Assembler::jmp(Register target) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   // Opcode FF/4 r64
-  if (target.code() > 7) {
+  if (target.high_bit()) {
     emit_rex_64(target);
   }
   emit(0xFF);
@@ -768,6 +1000,16 @@ void Assembler::movl(const Operand& dst, Register src) {
 }
 
 
+void Assembler::movl(const Operand& dst, Immediate value) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
+  emit(0xC7);
+  emit_operand(0x0, dst);
+  emit(value);  // Only 32-bit immediates are possible, not 8-bit immediates.
+}
+
+
 void Assembler::movl(Register dst, Immediate value) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -819,7 +1061,7 @@ void Assembler::movq(Register dst, void* value, RelocInfo::Mode rmode) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
-  emit(0xB8 | (dst.code() & 0x7));
+  emit(0xB8 | dst.low_bits());
   emitq(reinterpret_cast<uintptr_t>(value), rmode);
 }
 
@@ -828,7 +1070,7 @@ void Assembler::movq(Register dst, int64_t value, RelocInfo::Mode rmode) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
-  emit(0xB8 | (dst.code() & 0x7));  // Not a ModR/M byte.
+  emit(0xB8 | dst.low_bits());
   emitq(value, rmode);
 }
 
@@ -837,9 +1079,62 @@ void Assembler::movq(Register dst, ExternalReference ref) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
-  emit(0xB8 | (dst.code() & 0x7));
+  emit(0xB8 | dst.low_bits());
   emitq(reinterpret_cast<uintptr_t>(ref.address()),
         RelocInfo::EXTERNAL_REFERENCE);
+}
+
+
+void Assembler::movq(const Operand& dst, Immediate value) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(dst);
+  emit(0xC7);
+  emit_operand(0, dst);
+  emit(value);
+}
+
+
+void Assembler::movq(Register dst, Handle<Object> value, RelocInfo::Mode mode) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  ASSERT(!Heap::InNewSpace(*value));
+  emit_rex_64(dst);
+  emit(0xB8 | dst.low_bits());
+  if (value->IsHeapObject()) {
+    emitq(reinterpret_cast<uintptr_t>(value.location()), mode);
+  } else {
+    ASSERT_EQ(RelocInfo::NONE, mode);
+    emitq(reinterpret_cast<uintptr_t>(*value), RelocInfo::NONE);
+  }
+}
+
+
+void Assembler::movsxlq(Register dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(dst, src);
+  emit(0x63);
+  emit_modrm(dst, src);
+}
+
+
+void Assembler::movsxlq(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(dst, src);
+  emit(0x63);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::movzxbq(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_rex_64(dst, src);
+  emit(0x0F);
+  emit(0xB6);
+  emit_operand(dst, src);
 }
 
 
@@ -985,10 +1280,10 @@ void Assembler::nop(int n) {
 void Assembler::pop(Register dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
-  if (dst.code() > 7) {
+  if (dst.high_bit()) {
     emit_rex_64(dst);
   }
-  emit(0x58 | (dst.code() & 0x7));
+  emit(0x58 | dst.low_bits());
 }
 
 
@@ -1011,10 +1306,10 @@ void Assembler::popfq() {
 void Assembler::push(Register src) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
-  if (src.code() > 7) {
+  if (src.high_bit()) {
     emit_rex_64(src);
   }
-  emit(0x50 | (src.code() & 0x7));
+  emit(0x50 | src.low_bits());
 }
 
 
@@ -1063,6 +1358,13 @@ void Assembler::rcl(Register dst, uint8_t imm8) {
   }
 }
 
+void Assembler::rdtsc() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0x0F);
+  emit(0x31);
+}
+
 
 void Assembler::ret(int imm16) {
   EnsureSpace ensure_space(this);
@@ -1075,6 +1377,19 @@ void Assembler::ret(int imm16) {
     emit(imm16 & 0xFF);
     emit((imm16 >> 8) & 0xFF);
   }
+}
+
+
+void Assembler::setcc(Condition cc, Register reg) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  ASSERT(is_uint4(cc));
+  if (reg.code() > 3) {  // Use x64 byte registers, where different.
+    emit_rex_32(reg);
+  }
+  emit(0x0F);
+  emit(0x90 | cc);
+  emit_modrm(0x0, reg);
 }
 
 
@@ -1104,7 +1419,7 @@ void Assembler::xchg(Register dst, Register src) {
   if (src.is(rax) || dst.is(rax)) {  // Single-byte encoding
     Register other = src.is(rax) ? dst : src;
     emit_rex_64(other);
-    emit(0x90 | (other.code() & 0x7));
+    emit(0x90 | other.low_bits());
   } else {
     emit_rex_64(src, dst);
     emit(0x87);
@@ -1128,6 +1443,7 @@ void Assembler::store_rax(ExternalReference ref) {
 
 
 void Assembler::testb(Register reg, Immediate mask) {
+  ASSERT(is_int8(mask.value_));
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   if (reg.is(rax)) {
@@ -1146,6 +1462,7 @@ void Assembler::testb(Register reg, Immediate mask) {
 
 
 void Assembler::testb(const Operand& op, Immediate mask) {
+  ASSERT(is_int8(mask.value_));
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_optional_rex_32(rax, op);
@@ -1195,6 +1512,509 @@ void Assembler::testq(Register dst, Register src) {
   emit_rex_64(dst, src);
   emit(0x85);
   emit_modrm(dst, src);
+}
+
+
+void Assembler::testq(Register dst, Immediate mask) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  if (dst.is(rax)) {
+    emit_rex_64();
+    emit(0xA9);
+    emit(mask);
+  } else {
+    emit_rex_64(dst);
+    emit(0xF7);
+    emit_modrm(0, dst);
+    emit(mask);
+  }
+}
+
+
+// FPU instructions
+
+
+void Assembler::fld(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xD9, 0xC0, i);
+}
+
+
+void Assembler::fld1() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xE8);
+}
+
+
+void Assembler::fldz() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xEE);
+}
+
+
+void Assembler::fld_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit_operand(0, adr);
+}
+
+
+void Assembler::fld_d(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDD);
+  emit_operand(0, adr);
+}
+
+
+void Assembler::fstp_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit_operand(3, adr);
+}
+
+
+void Assembler::fstp_d(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDD);
+  emit_operand(3, adr);
+}
+
+
+void Assembler::fild_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDB);
+  emit_operand(0, adr);
+}
+
+
+void Assembler::fild_d(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDF);
+  emit_operand(5, adr);
+}
+
+
+void Assembler::fistp_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDB);
+  emit_operand(3, adr);
+}
+
+
+void Assembler::fisttp_s(const Operand& adr) {
+  ASSERT(CpuFeatures::IsEnabled(CpuFeatures::SSE3));
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDB);
+  emit_operand(1, adr);
+}
+
+
+void Assembler::fist_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDB);
+  emit_operand(2, adr);
+}
+
+
+void Assembler::fistp_d(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDF);
+  emit_operand(8, adr);
+}
+
+
+void Assembler::fabs() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xE1);
+}
+
+
+void Assembler::fchs() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xE0);
+}
+
+
+void Assembler::fcos() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xFF);
+}
+
+
+void Assembler::fsin() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xFE);
+}
+
+
+void Assembler::fadd(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDC, 0xC0, i);
+}
+
+
+void Assembler::fsub(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDC, 0xE8, i);
+}
+
+
+void Assembler::fisub_s(const Operand& adr) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDA);
+  emit_operand(4, adr);
+}
+
+
+void Assembler::fmul(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDC, 0xC8, i);
+}
+
+
+void Assembler::fdiv(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDC, 0xF8, i);
+}
+
+
+void Assembler::faddp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDE, 0xC0, i);
+}
+
+
+void Assembler::fsubp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDE, 0xE8, i);
+}
+
+
+void Assembler::fsubrp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDE, 0xE0, i);
+}
+
+
+void Assembler::fmulp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDE, 0xC8, i);
+}
+
+
+void Assembler::fdivp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDE, 0xF8, i);
+}
+
+
+void Assembler::fprem() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xF8);
+}
+
+
+void Assembler::fprem1() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xF5);
+}
+
+
+void Assembler::fxch(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xD9, 0xC8, i);
+}
+
+
+void Assembler::fincstp() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xF7);
+}
+
+
+void Assembler::ffree(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDD, 0xC0, i);
+}
+
+
+void Assembler::ftst() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xE4);
+}
+
+
+void Assembler::fucomp(int i) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_farith(0xDD, 0xE8, i);
+}
+
+
+void Assembler::fucompp() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDA);
+  emit(0xE9);
+}
+
+
+void Assembler::fcompp() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDE);
+  emit(0xD9);
+}
+
+
+void Assembler::fnstsw_ax() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDF);
+  emit(0xE0);
+}
+
+
+void Assembler::fwait() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0x9B);
+}
+
+
+void Assembler::frndint() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xD9);
+  emit(0xFC);
+}
+
+
+void Assembler::fnclex() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xDB);
+  emit(0xE2);
+}
+
+
+void Assembler::sahf() {
+  // TODO(X64): Test for presence. Not all 64-bit intel CPU's have sahf
+  // in 64-bit mode. Test CpuID.
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0x9E);
+}
+
+
+void Assembler::emit_farith(int b1, int b2, int i) {
+  ASSERT(is_uint8(b1) && is_uint8(b2));  // wrong opcode
+  ASSERT(is_uint3(i));  // illegal stack offset
+  emit(b1);
+  emit(b2 + i);
+}
+
+// SSE 2 operations
+
+void Assembler::movsd(const Operand& dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);  // double
+  emit_optional_rex_32(src, dst);
+  emit(0x0F);
+  emit(0x11);  // store
+  emit_sse_operand(src, dst);
+}
+
+
+void Assembler::movsd(Register dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);  // double
+  emit_optional_rex_32(src, dst);
+  emit(0x0F);
+  emit(0x11);  // store
+  emit_sse_operand(src, dst);
+}
+
+
+void Assembler::movsd(XMMRegister dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);  // double
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x10);  // load
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::movsd(XMMRegister dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);  // double
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x10);  // load
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::cvttss2si(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF3);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x2C);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::cvttsd2si(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x2C);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::cvtlsi2sd(XMMRegister dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x2A);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::cvtlsi2sd(XMMRegister dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x2A);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::cvtqsi2sd(XMMRegister dst, Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_rex_64(dst, src);
+  emit(0x0F);
+  emit(0x2A);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::addsd(XMMRegister dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x58);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::mulsd(XMMRegister dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x59);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::subsd(XMMRegister dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x5C);
+  emit_sse_operand(dst, src);
+}
+
+
+void Assembler::divsd(XMMRegister dst, XMMRegister src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0xF2);
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0x5E);
+  emit_sse_operand(dst, src);
+}
+
+
+
+void Assembler::emit_sse_operand(XMMRegister reg, const Operand& adr) {
+  Register ireg = { reg.code() };
+  emit_operand(ireg, adr);
+}
+
+
+void Assembler::emit_sse_operand(XMMRegister dst, XMMRegister src) {
+  emit(0xC0 | (dst.code() << 3) | src.code());
+}
+
+void Assembler::emit_sse_operand(XMMRegister dst, Register src) {
+  emit(0xC0 | (dst.code() << 3) | src.code());
 }
 
 
@@ -1261,9 +2081,7 @@ void Assembler::WriteRecordedPositions() {
 }
 
 
-const int RelocInfo::kApplyMask =
-  RelocInfo::kCodeTargetMask | 1 << RelocInfo::RUNTIME_ENTRY |
-    1 << RelocInfo::JS_RETURN | 1 << RelocInfo::INTERNAL_REFERENCE;
+const int RelocInfo::kApplyMask = 1 << RelocInfo::INTERNAL_REFERENCE;
 
 
 } }  // namespace v8::internal
@@ -1297,18 +2115,6 @@ const int RelocInfo::kApplyMask =
 namespace v8 {
 namespace internal {
 
-void ArgumentsAccessStub::GenerateNewObject(MacroAssembler* a) {
-  UNIMPLEMENTED();
-}
-
-void ArgumentsAccessStub::GenerateReadElement(MacroAssembler* a) {
-  UNIMPLEMENTED();
-}
-
-void ArgumentsAccessStub::GenerateReadLength(MacroAssembler* a) {
-  UNIMPLEMENTED();
-}
-
 
 void BreakLocationIterator::ClearDebugBreakAtReturn() {
   UNIMPLEMENTED();
@@ -1321,227 +2127,6 @@ bool BreakLocationIterator::IsDebugBreakAtReturn()  {
 
 void BreakLocationIterator::SetDebugBreakAtReturn()  {
   UNIMPLEMENTED();
-}
-
-void CallIC::Generate(MacroAssembler* a, int b, ExternalReference const& c) {
-  UNIMPLEMENTED();
-}
-
-void CallIC::GenerateMegamorphic(MacroAssembler* a, int b) {
-  UNIMPLEMENTED();
-}
-
-void CallIC::GenerateNormal(MacroAssembler* a, int b) {
-  UNIMPLEMENTED();
-}
-
-Object* CallStubCompiler::CompileCallConstant(Object* a,
-                                              JSObject* b,
-                                              JSFunction* c,
-                                              StubCompiler::CheckType d,
-                                              Code::Flags flags) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* CallStubCompiler::CompileCallField(Object* a,
-                                           JSObject* b,
-                                           int c,
-                                           String* d,
-                                           Code::Flags flags) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* CallStubCompiler::CompileCallInterceptor(Object* a,
-                                                 JSObject* b,
-                                                 String* c) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-
-StackFrame::Type ExitFrame::GetStateForFramePointer(unsigned char* a,
-                                                    StackFrame::State* b) {
-  // TODO(X64): UNIMPLEMENTED
-  return NONE;
-}
-
-int JavaScriptFrame::GetProvidedParametersCount() const {
-  UNIMPLEMENTED();
-  return 0;
-}
-
-void JumpTarget::DoBind(int a) {
-  UNIMPLEMENTED();
-}
-
-void JumpTarget::DoBranch(Condition a, Hint b) {
-  UNIMPLEMENTED();
-}
-
-void JumpTarget::DoJump() {
-  UNIMPLEMENTED();
-}
-
-
-Object* LoadStubCompiler::CompileLoadCallback(JSObject* a,
-                                              JSObject* b,
-                                              AccessorInfo* c,
-                                              String* d) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* LoadStubCompiler::CompileLoadConstant(JSObject* a,
-                                              JSObject* b,
-                                              Object* c,
-                                              String* d) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* LoadStubCompiler::CompileLoadField(JSObject* a,
-                                           JSObject* b,
-                                           int c,
-                                           String* d) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* LoadStubCompiler::CompileLoadInterceptor(JSObject* a,
-                                                 JSObject* b,
-                                                 String* c) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-StackFrame::Type StackFrame::ComputeType(StackFrame::State* a) {
-  UNIMPLEMENTED();
-  return NONE;
-}
-
-Object* StoreStubCompiler::CompileStoreCallback(JSObject* a,
-                                                AccessorInfo* b,
-                                                String* c) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* StoreStubCompiler::CompileStoreField(JSObject* a,
-                                             int b,
-                                             Map* c,
-                                             String* d) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* StoreStubCompiler::CompileStoreInterceptor(JSObject* a, String* b) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-Object* StubCompiler::CompileLazyCompile(Code::Flags a) {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-void VirtualFrame::Drop(int a) {
-  UNIMPLEMENTED();
-}
-
-int VirtualFrame::InvalidateFrameSlotAt(int a) {
-  UNIMPLEMENTED();
-  return -1;
-}
-
-void VirtualFrame::MergeTo(VirtualFrame* a) {
-  UNIMPLEMENTED();
-}
-
-Result VirtualFrame::Pop() {
-  UNIMPLEMENTED();
-  return Result(NULL);
-}
-
-Result VirtualFrame::RawCallStub(CodeStub* a) {
-  UNIMPLEMENTED();
-  return Result(NULL);
-}
-
-void VirtualFrame::SyncElementBelowStackPointer(int a) {
-  UNIMPLEMENTED();
-}
-
-void VirtualFrame::SyncElementByPushing(int a) {
-  UNIMPLEMENTED();
-}
-
-void VirtualFrame::SyncRange(int a, int b) {
-  UNIMPLEMENTED();
-}
-
-VirtualFrame::VirtualFrame() : elements_(0) {
-  UNIMPLEMENTED();
-}
-
-byte* ArgumentsAdaptorFrame::GetCallerStackPointer() const {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-void CodeGenerator::GenerateArgumentsAccess(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateArgumentsLength(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateFastCharCodeAt(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateIsArray(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateIsNonNegativeSmi(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateIsSmi(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateLog(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateObjectEquals(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateSetValueOf(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void CodeGenerator::GenerateValueOf(ZoneList<Expression*>* a) {
-  UNIMPLEMENTED();
-}
-
-void ExitFrame::Iterate(ObjectVisitor* a) const {
-  UNIMPLEMENTED();
-}
-
-byte* InternalFrame::GetCallerStackPointer() const {
-  UNIMPLEMENTED();
-  return NULL;
-}
-
-byte* JavaScriptFrame::GetCallerStackPointer() const {
-  UNIMPLEMENTED();
-  return NULL;
 }
 
 } }  // namespace v8::internal

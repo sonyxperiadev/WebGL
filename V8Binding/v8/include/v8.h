@@ -212,9 +212,9 @@ template <class T> class V8EXPORT_INLINE Handle {
    */
   bool IsEmpty() const { return val_ == 0; }
 
-  T* operator->() const;
+  T* operator->() const { return val_; }
 
-  T* operator*() const;
+  T* operator*() const { return val_; }
 
   /**
    * Sets the handle to be empty. IsEmpty() will then return true.
@@ -1175,6 +1175,12 @@ class V8EXPORT Object : public Value {
 class V8EXPORT Array : public Object {
  public:
   uint32_t Length() const;
+
+  /**
+   * Clones an element at index |index|.  Returns an empty
+   * handle if cloning fails (for any reason).
+   */
+  Local<Object> CloneElementAt(uint32_t index);
 
   static Local<Array> New(int length = 0);
   static Array* Cast(Value* obj);
@@ -2508,18 +2514,6 @@ template <class T>
 void Persistent<T>::ClearWeak() {
   V8::ClearWeak(reinterpret_cast<void**>(**this));
 }
-
-template <class T>
-T* Handle<T>::operator->() const {
-  return val_;
-}
-
-
-template <class T>
-T* Handle<T>::operator*() const {
-  return val_;
-}
-
 
 Local<Value> Arguments::operator[](int i) const {
   if (i < 0 || length_ <= i) return Local<Value>(*Undefined());

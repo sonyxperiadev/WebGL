@@ -37,13 +37,13 @@ function GetInstanceName(cons) {
   if (cons.length == 0) {
     return "";
   }
-  var first = cons.charAt(0).toLowerCase();
+  var first = %StringToLowerCase(StringCharAt.call(cons, 0));
   var mapping = kVowelSounds;
-  if (cons.length > 1 && (cons.charAt(0) != first)) {
+  if (cons.length > 1 && (StringCharAt.call(cons, 0) != first)) {
     // First char is upper case
-    var second = cons.charAt(1).toLowerCase();
+    var second = %StringToLowerCase(StringCharAt.call(cons, 1));
     // Second char is upper case
-    if (cons.charAt(1) != second)
+    if (StringCharAt.call(cons, 1) != second)
       mapping = kCapitalVowelSounds;
   }
   var s = mapping[first] ? "an " : "a ";
@@ -126,7 +126,7 @@ function FormatString(format, args) {
     var str;
     try { str = ToDetailString(args[i]); }
     catch (e) { str = "#<error>"; }
-    result = result.split("%" + i).join(str);
+    result = ArrayJoin.call(StringSplit.call(result, "%" + i), str);
   }
   return result;
 }
@@ -146,17 +146,9 @@ function ToDetailString(obj) {
 
 
 function MakeGenericError(constructor, type, args) {
-  if (args instanceof $Array) {
-    for (var i = 0; i < args.length; i++) {
-      var elem = args[i];
-      if (elem instanceof $Array && elem.length > 100) { // arbitrary limit, grab a reasonable slice to report
-        args[i] = elem.slice(0,20).concat("...");
-      }
-    }
-  } else if (IS_UNDEFINED(args)) {
+  if (IS_UNDEFINED(args)) {
     args = [];
   }
-
   var e = new constructor(kAddMessageAccessorsMarker);
   e.type = type;
   e.arguments = args;
@@ -230,6 +222,40 @@ function MakeError(type, args) {
   return MakeGenericError($Error, type, args);
 }
 
+/**
+ * Find a line number given a specific source position.
+ * @param {number} position The source position.
+ * @return {number} 0 if input too small, -1 if input too large,
+       else the line number.
+ */
+Script.prototype.lineFromPosition = function(position) {
+  var lower = 0;
+  var upper = this.lineCount() - 1;
+
+  // We'll never find invalid positions so bail right away.
+  if (position > this.line_ends[upper]) {
+    return -1;
+  }
+
+  // This means we don't have to safe-guard indexing line_ends[i - 1].
+  if (position <= this.line_ends[0]) {
+    return 0;
+  }
+
+  // Binary search to find line # from position range.
+  while (upper >= 1) {
+    var i = (lower + upper) >> 1;
+
+    if (position > this.line_ends[i]) {
+      lower = i + 1;
+    } else if (position <= this.line_ends[i - 1]) {
+      upper = i - 1;
+    } else {
+      return i;
+    }
+  }
+  return -1;
+}
 
 /**
  * Get information on a specific source position.
@@ -241,25 +267,13 @@ function MakeError(type, args) {
  */
 Script.prototype.locationFromPosition = function (position,
                                                   include_resource_offset) {
-  var lineCount = this.lineCount();
-  var line = -1;
-  if (position <= this.line_ends[0]) {
-    line = 0;
-  } else {
-    for (var i = 1; i < lineCount; i++) {
-      if (this.line_ends[i - 1] < position && position <= this.line_ends[i]) {
-        line = i;
-        break;
-      }
-    }
-  }
-
+  var line = this.lineFromPosition(position);
   if (line == -1) return null;
 
   // Determine start, end and column.
   var start = line == 0 ? 0 : this.line_ends[line - 1] + 1;
   var end = this.line_ends[line];
-  if (end > 0 && this.source.charAt(end - 1) == '\r') end--;
+  if (end > 0 && StringCharAt.call(this.source, end - 1) == '\r') end--;
   var column = position - start;
 
   // Adjust according to the offset within the resource.
@@ -308,16 +322,13 @@ Script.prototype.locationFromLine = function (opt_line, opt_column, opt_offset_p
   if (line == 0) {
     return this.locationFromPosition(offset_position + column, false);
   } else {
-    // Find the line where the offset position is located
-    var lineCount = this.lineCount();
-    var offset_line;
-    for (var i = 0; i < lineCount; i++) {
-      if (offset_position <= this.line_ends[i]) {
-        offset_line = i;
-        break;
-      }
+    // Find the line where the offset position is located.
+    var offset_line = this.lineFromPosition(offset_position);
+
+    if (offset_line == -1 || offset_line + line >= this.lineCount()) {
+      return null;
     }
-    if (offset_line + line >= lineCount) return null;
+
     return this.locationFromPosition(this.line_ends[offset_line + line - 1] + 1 + column);  // line > 0 here.
   }
 }
@@ -375,7 +386,7 @@ Script.prototype.sourceLine = function (opt_line) {
   // Return the source line.
   var start = line == 0 ? 0 : this.line_ends[line - 1] + 1;
   var end = this.line_ends[line];
-  return this.source.substring(start, end);
+  return StringSubstring.call(this.source, start, end);
 }
 
 
@@ -479,7 +490,7 @@ SourceLocation.prototype.restrict = function (opt_limit, opt_before) {
  *     Source text for this location.
  */
 SourceLocation.prototype.sourceText = function () {
-  return this.script.source.substring(this.start, this.end);
+  return StringSubstring.call(this.script.source, this.start, this.end);
 };
 
 
@@ -516,7 +527,7 @@ function SourceSlice(script, from_line, to_line, from_position, to_position) {
  *     the line terminating characters (if any)
  */
 SourceSlice.prototype.sourceText = function () {
-  return this.script.source.substring(this.from_position, this.to_position);
+  return StringSubstring.call(this.script.source, this.from_position, this.to_position);
 };
 
 
@@ -546,54 +557,8 @@ function MakeMessage(type, args, startPos, endPos, script, stackTrace) {
 
 
 function GetStackTraceLine(recv, fun, pos, isGlobal) {
-  try {
-    return UnsafeGetStackTraceLine(recv, fun, pos, isGlobal);
-  } catch (e) {
-    return "<error: " + e + ">";
-  }
+  return FormatSourcePosition(new CallSite(recv, fun, pos));
 }
-
-
-function GetFunctionName(fun, recv) {
-  var name = %FunctionGetName(fun);
-  if (name) return name;
-  for (var prop in recv) {
-    if (recv[prop] === fun)
-      return prop;
-  }
-  return "[anonymous]";
-}
-
-
-function UnsafeGetStackTraceLine(recv, fun, pos, isTopLevel) {
-  var result = "";
-  // The global frame has no meaningful function or receiver
-  if (!isTopLevel) {
-    // If the receiver is not the global object then prefix the
-    // message send
-    if (recv !== global)
-      result += ToDetailString(recv) + ".";
-    result += GetFunctionName(fun, recv);
-  }
-  if (pos != -1) {
-    var script = %FunctionGetScript(fun);
-    var file;
-    if (script) {
-      file = %FunctionGetScript(fun).data;
-    }
-    if (file) {
-      var location = %FunctionGetScript(fun).locationFromPosition(pos, true);
-      if (!isTopLevel) result += "(";
-      result += file;
-      if (location != null) {
-        result += ":" + (location.line + 1) + ":" + (location.column + 1);
-      }
-      if (!isTopLevel) result += ")";
-    }
-  }
-  return (result) ? "    at " + result : result;
-}
-
 
 // ----------------------------------------------------------------------------
 // Error implementation
@@ -619,6 +584,197 @@ function DefineOneShotAccessor(obj, name, fun) {
     delete obj[name];
     obj[name] = v;
   });
+}
+
+function CallSite(receiver, fun, pos) {
+  this.receiver = receiver;
+  this.fun = fun;
+  this.pos = pos;
+}
+
+CallSite.prototype.getThis = function () {
+  return this.receiver;
+};
+
+CallSite.prototype.getTypeName = function () {
+  var constructor = this.receiver.constructor;
+  if (!constructor)
+    return $Object.prototype.toString.call(this.receiver);
+  var constructorName = constructor.name;
+  if (!constructorName)
+    return $Object.prototype.toString.call(this.receiver);
+  return constructorName;
+};
+
+CallSite.prototype.isToplevel = function () {
+  if (this.receiver == null)
+    return true;
+  var className = $Object.prototype.toString.call(this.receiver);
+  return IS_GLOBAL(this.receiver);
+};
+
+CallSite.prototype.isEval = function () {
+  var script = %FunctionGetScript(this.fun);
+  return script && script.compilation_type == 1;
+};
+
+CallSite.prototype.getEvalOrigin = function () {
+  var script = %FunctionGetScript(this.fun);
+  if (!script || script.compilation_type != 1)
+    return null;
+  return new CallSite(null, script.eval_from_function,
+      script.eval_from_position);
+};
+
+CallSite.prototype.getFunctionName = function () {
+  // See if the function knows its own name
+  var name = this.fun.name;
+  if (name)
+    return name;
+  // See if we can find a unique property on the receiver that holds
+  // this function.
+  for (var prop in this.receiver) {
+    if (this.receiver[prop] === this.fun) {
+      // If we find more than one match bail out to avoid confusion
+      if (name)
+        return null;
+      name = prop;
+    }
+  }
+  if (name)
+    return name;
+  // Maybe this is an evaluation?
+  var script = %FunctionGetScript(this.fun);
+  if (script && script.compilation_type == 1)
+    return "eval";
+  return null;
+};
+
+CallSite.prototype.getFileName = function () {
+  var script = %FunctionGetScript(this.fun);
+  return script ? script.name : null;
+};
+
+CallSite.prototype.getLineNumber = function () {
+  if (this.pos == -1)
+    return null;
+  var script = %FunctionGetScript(this.fun);
+  var location = null;
+  if (script) {
+    location = script.locationFromPosition(this.pos, true);
+  }
+  return location ? location.line + 1 : null;
+};
+
+CallSite.prototype.getColumnNumber = function () {
+  if (this.pos == -1)
+    return null;
+  var script = %FunctionGetScript(this.fun);
+  var location = null;
+  if (script) {
+    location = script.locationFromPosition(this.pos, true);
+  }
+  return location ? location.column : null;
+};
+
+CallSite.prototype.isNative = function () {
+  var script = %FunctionGetScript(this.fun);
+  return script ? (script.type == 0) : false;
+};
+
+CallSite.prototype.getPosition = function () {
+  return this.pos;
+};
+
+CallSite.prototype.isConstructor = function () {
+  var constructor = this.receiver ? this.receiver.constructor : null;
+  if (!constructor)
+    return false;
+  return this.fun === constructor;
+};
+
+function FormatSourcePosition(frame) {
+  var fileLocation = "";
+  if (frame.isNative()) {
+    fileLocation = "native";
+  } else if (frame.isEval()) {
+    fileLocation = "eval at " + FormatSourcePosition(frame.getEvalOrigin());
+  } else {
+    var fileName = frame.getFileName();
+    if (fileName) {
+      fileLocation += fileName;
+      var lineNumber = frame.getLineNumber();
+      if (lineNumber != null) {
+        fileLocation += ":" + lineNumber;
+        var columnNumber = frame.getColumnNumber();
+        if (columnNumber) {
+          fileLocation += ":" + columnNumber;
+        }
+      }
+    }
+  }
+  if (!fileLocation) {
+    fileLocation = "unknown source";
+  }
+  var line = "";
+  var functionName = frame.getFunctionName();
+  if (functionName) {
+    if (frame.isToplevel()) {
+      line += functionName;
+    } else if (frame.isConstructor()) {
+      line += "new " + functionName;
+    } else {
+      line += frame.getTypeName() + "." + functionName;
+    }
+    line += " (" + fileLocation + ")";
+  } else {
+    line += fileLocation;
+  }
+  return line;
+}
+
+function FormatStackTrace(error, frames) {
+  var lines = [];
+  try {
+    lines.push(error.toString());
+  } catch (e) {
+    try {
+      lines.push("<error: " + e + ">");
+    } catch (ee) {
+      lines.push("<error>");
+    }
+  }
+  for (var i = 0; i < frames.length; i++) {
+    var frame = frames[i];
+    try {
+      var line = FormatSourcePosition(frame);
+    } catch (e) {
+      try {
+        var line = "<error: " + e + ">";
+      } catch (ee) {
+        // Any code that reaches this point is seriously nasty!
+        var line = "<error>";
+      }
+    }
+    lines.push("    at " + line);
+  }
+  return lines.join("\n");
+}
+
+function FormatRawStackTrace(error, raw_stack) {
+  var frames = [ ];
+  for (var i = 0; i < raw_stack.length; i += 3) {
+    var recv = raw_stack[i];
+    var fun = raw_stack[i+1];
+    var pc = raw_stack[i+2];
+    var pos = %FunctionGetPositionForOffset(fun, pc);
+    frames.push(new CallSite(recv, fun, pos));
+  }
+  if (IS_FUNCTION($Error.prepareStackTrace)) {
+    return $Error.prepareStackTrace(error, frames);
+  } else {
+    return FormatStackTrace(error, frames);
+  }
 }
 
 function DefineError(f) {
@@ -648,13 +804,19 @@ function DefineError(f) {
   %SetProperty(f.prototype, 'constructor', f, DONT_ENUM);
   f.prototype.name = name;
   %SetCode(f, function(m) {
-    if (%IsConstructCall()) {
+    if (%_IsConstructCall()) {
       if (m === kAddMessageAccessorsMarker) {
         DefineOneShotAccessor(this, 'message', function (obj) {
           return FormatMessage({type: obj.type, args: obj.arguments});
         });
       } else if (!IS_UNDEFINED(m)) {
         this.message = ToString(m);
+      }
+      if ($Error.captureStackTraces) {
+        var raw_stack = %CollectStackTrace(f);
+        DefineOneShotAccessor(this, 'stack', function (obj) {
+          return FormatRawStackTrace(obj, raw_stack);
+        });
       }
     } else {
       return new f(m);

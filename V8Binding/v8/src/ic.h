@@ -221,7 +221,7 @@ class LoadIC: public IC {
   // The offset from the inlined patch site to the start of the
   // inlined load instruction.  It is 7 bytes (test eax, imm) plus
   // 6 bytes (jne slow_label).
-  static const int kOffsetToLoadInstruction = 13;
+  static const int kOffsetToLoadInstruction;
 
  private:
   static void Generate(MacroAssembler* masm, const ExternalReference& f);
@@ -356,6 +356,12 @@ class KeyedStoreIC: public IC {
   static void GenerateGeneric(MacroAssembler* masm);
   static void GenerateExtendStorage(MacroAssembler* masm);
 
+  // Clear the inlined version so the IC is always hit.
+  static void ClearInlinedVersion(Address address);
+
+  // Restore the inlined version so the fast case can get hit.
+  static void RestoreInlinedVersion(Address address);
+
  private:
   static void Generate(MacroAssembler* masm, const ExternalReference& f);
 
@@ -378,6 +384,11 @@ class KeyedStoreIC: public IC {
   }
 
   static void Clear(Address address, Code* target);
+
+  // Support for patching the map that is checked in an inlined
+  // version of keyed store.
+  static bool PatchInlinedStore(Address address, Object* map);
+
   friend class IC;
 };
 

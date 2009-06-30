@@ -28,6 +28,9 @@
 #ifndef V8_LOG_H_
 #define V8_LOG_H_
 
+#include "platform.h"
+#include "log-utils.h"
+
 namespace v8 {
 namespace internal {
 
@@ -71,12 +74,13 @@ class Profiler;
 class Semaphore;
 class SlidingStateWindow;
 class LogMessageBuilder;
+class CompressionHelper;
 
 #undef LOG
 #ifdef ENABLE_LOGGING_AND_PROFILING
 #define LOG(Call)                           \
   do {                                      \
-    if (v8::internal::Logger::IsEnabled()) \
+    if (v8::internal::Logger::is_logging()) \
       v8::internal::Logger::Call;           \
   } while (false)
 #else
@@ -87,12 +91,13 @@ class LogMessageBuilder;
 class VMState BASE_EMBEDDED {
 #ifdef ENABLE_LOGGING_AND_PROFILING
  public:
-  explicit VMState(StateTag state);
-  ~VMState();
+  inline explicit VMState(StateTag state);
+  inline ~VMState();
 
   StateTag state() { return state_; }
 
  private:
+  bool disabled_;
   StateTag state_;
   VMState* previous_;
 #else
@@ -102,8 +107,41 @@ class VMState BASE_EMBEDDED {
 };
 
 
+#define LOG_EVENTS_AND_TAGS_LIST(V) \
+  V(CODE_CREATION_EVENT,            "code-creation",          "cc")       \
+  V(CODE_MOVE_EVENT,                "code-move",              "cm")       \
+  V(CODE_DELETE_EVENT,              "code-delete",            "cd")       \
+  V(TICK_EVENT,                     "tick",                   "t")        \
+  V(REPEAT_META_EVENT,              "repeat",                 "r")        \
+  V(BUILTIN_TAG,                    "Builtin",                "bi")       \
+  V(CALL_DEBUG_BREAK_TAG,           "CallDebugBreak",         "cdb")      \
+  V(CALL_DEBUG_PREPARE_STEP_IN_TAG, "CallDebugPrepareStepIn", "cdbsi")    \
+  V(CALL_IC_TAG,                    "CallIC",                 "cic")      \
+  V(CALL_INITIALIZE_TAG,            "CallInitialize",         "ci")       \
+  V(CALL_MEGAMORPHIC_TAG,           "CallMegamorphic",        "cmm")      \
+  V(CALL_MISS_TAG,                  "CallMiss",               "cm")       \
+  V(CALL_NORMAL_TAG,                "CallNormal",             "cn")       \
+  V(CALL_PRE_MONOMORPHIC_TAG,       "CallPreMonomorphic",     "cpm")      \
+  V(EVAL_TAG,                       "Eval",                   "e")        \
+  V(FUNCTION_TAG,                   "Function",               "f")        \
+  V(KEYED_LOAD_IC_TAG,              "KeyedLoadIC",            "klic")     \
+  V(KEYED_STORE_IC_TAG,             "KeyedStoreIC",           "ksic")     \
+  V(LAZY_COMPILE_TAG,               "LazyCompile",            "lc")       \
+  V(LOAD_IC_TAG,                    "LoadIC",                 "lic")      \
+  V(REG_EXP_TAG,                    "RegExp",                 "re")       \
+  V(SCRIPT_TAG,                     "Script",                 "sc")       \
+  V(STORE_IC_TAG,                   "StoreIC",                "sic")      \
+  V(STUB_TAG,                       "Stub",                   "s")
+
 class Logger {
  public:
+#define DECLARE_ENUM(enum_item, ignore1, ignore2) enum_item,
+  enum LogEventsAndTags {
+    LOG_EVENTS_AND_TAGS_LIST(DECLARE_ENUM)
+    NUMBER_OF_LOG_EVENTS
+  };
+#undef DECLARE_ENUM
+
   // Acquires resources for logging if the right flags are set.
   static bool Setup();
 
@@ -163,14 +201,14 @@ class Logger {
 
   // ==== Events logged by --log-code. ====
   // Emits a code create event.
-  static void CodeCreateEvent(const char* tag, Code* code, const char* source);
-  static void CodeCreateEvent(const char* tag, Code* code, String* name);
-  static void CodeCreateEvent(const char* tag, Code* code, String* name,
+  static void CodeCreateEvent(LogEventsAndTags tag,
+                              Code* code, const char* source);
+  static void CodeCreateEvent(LogEventsAndTags tag, Code* code, String* name);
+  static void CodeCreateEvent(LogEventsAndTags tag, Code* code, String* name,
                               String* source, int line);
-  static void CodeCreateEvent(const char* tag, Code* code, int args_count);
+  static void CodeCreateEvent(LogEventsAndTags tag, Code* code, int args_count);
   // Emits a code create event for a RegExp.
   static void RegExpCodeCreateEvent(Code* code, String* source);
-  static void CodeAllocateEvent(Code* code, Assembler* assem);
   // Emits a code move event.
   static void CodeMoveEvent(Address from, Address to);
   // Emits a code delete event.
@@ -183,11 +221,11 @@ class Logger {
   static void HeapSampleItemEvent(const char* type, int number, int bytes);
 
   static void SharedLibraryEvent(const char* library_path,
-                                 unsigned start,
-                                 unsigned end);
+                                 uintptr_t start,
+                                 uintptr_t end);
   static void SharedLibraryEvent(const wchar_t* library_path,
-                                 unsigned start,
-                                 unsigned end);
+                                 uintptr_t start,
+                                 uintptr_t end);
 
   // ==== Events logged by --log-regexp ====
   // Regexp compilation and execution events.
@@ -202,7 +240,9 @@ class Logger {
     return current_state_ ? current_state_->state() : OTHER;
   }
 
-  static bool IsEnabled();
+  static bool is_logging() {
+    return is_logging_;
+  }
 
   // Pause/Resume collection of profiling data.
   // When data collection is paused, Tick events are discarded until
@@ -223,8 +263,14 @@ class Logger {
   // Profiler's sampling interval (in milliseconds).
   static const int kSamplingIntervalMs = 1;
 
+  // Size of window used for log records compression.
+  static const int kCompressionWindowSize = 4;
+
   // Emits the profiler's first message.
   static void ProfilerBeginEvent();
+
+  // Emits aliases for compressed messages.
+  static void LogAliases();
 
   // Emits the source code of a regexp. Used by regexp events.
   static void LogRegExpSource(Handle<JSRegExp> regexp);
@@ -261,8 +307,15 @@ class Logger {
   // recent VM states.
   static SlidingStateWindow* sliding_state_window_;
 
+  // An array of log events names.
+  static const char** log_events_;
+
+  // An instance of helper created if log compression is enabled.
+  static CompressionHelper* compression_helper_;
+
   // Internal implementation classes with access to
   // private members.
+  friend class CompressionHelper;
   friend class EventLog;
   friend class TimeLog;
   friend class Profiler;
@@ -270,8 +323,10 @@ class Logger {
   friend class VMState;
 
   friend class LoggerTestHelper;
+
+  static bool is_logging_;
 #else
-  static bool is_enabled() { return false; }
+  static bool is_logging() { return false; }
 #endif
 };
 

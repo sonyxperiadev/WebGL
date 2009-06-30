@@ -50,9 +50,8 @@ namespace v8 {
 namespace internal {
 
 
-#define RUNTIME_ASSERT(value) do {                                   \
-  if (!(value)) return IllegalOperation();                           \
-} while (false)
+#define RUNTIME_ASSERT(value) \
+  if (!(value)) return Top::ThrowIllegalOperation();
 
 // Cast the given object to a value of the specified type and store
 // it in a variable with the given name.  If the object is not of the
@@ -97,11 +96,6 @@ namespace internal {
 static StaticResource<StringInputBuffer> runtime_string_input_buffer;
 
 
-static Object* IllegalOperation() {
-  return Top::Throw(Heap::illegal_access_symbol());
-}
-
-
 static Object* DeepCopyBoilerplate(JSObject* boilerplate) {
   StackLimitCheck check;
   if (check.HasOverflowed()) return Top::StackOverflow();
@@ -124,7 +118,8 @@ static Object* DeepCopyBoilerplate(JSObject* boilerplate) {
       }
     }
     mode = copy->GetWriteBarrierMode();
-    for (int i = 0; i < copy->map()->inobject_properties(); i++) {
+    int nof = copy->map()->inobject_properties();
+    for (int i = 0; i < nof; i++) {
       Object* value = copy->InObjectPropertyAt(i);
       if (value->IsJSObject()) {
         JSObject* jsObject = JSObject::cast(value);
@@ -418,48 +413,6 @@ static Object* Runtime_ClassOf(Arguments args) {
 }
 
 
-static Object* Runtime_HasStringClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::String_symbol()));
-}
-
-
-static Object* Runtime_HasDateClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::Date_symbol()));
-}
-
-
-static Object* Runtime_HasArrayClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::Array_symbol()));
-}
-
-
-static Object* Runtime_HasFunctionClass(Arguments args) {
-  return Heap::ToBoolean(
-             args[0]->HasSpecificClassOf(Heap::function_class_symbol()));
-}
-
-
-static Object* Runtime_HasNumberClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::Number_symbol()));
-}
-
-
-static Object* Runtime_HasBooleanClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::Boolean_symbol()));
-}
-
-
-static Object* Runtime_HasArgumentsClass(Arguments args) {
-  return Heap::ToBoolean(
-             args[0]->HasSpecificClassOf(Heap::Arguments_symbol()));
-}
-
-
-static Object* Runtime_HasRegExpClass(Arguments args) {
-  return Heap::ToBoolean(args[0]->HasSpecificClassOf(Heap::RegExp_symbol()));
-}
-
-
 static Object* Runtime_IsInPrototypeChain(Arguments args) {
   NoHandleAllocation ha;
   ASSERT(args.length() == 2);
@@ -522,12 +475,9 @@ static Object* Runtime_IsConstructCall(Arguments args) {
 static Object* Runtime_RegExpCompile(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 3);
-  CONVERT_CHECKED(JSRegExp, raw_re, args[0]);
-  Handle<JSRegExp> re(raw_re);
-  CONVERT_CHECKED(String, raw_pattern, args[1]);
-  Handle<String> pattern(raw_pattern);
-  CONVERT_CHECKED(String, raw_flags, args[2]);
-  Handle<String> flags(raw_flags);
+  CONVERT_ARG_CHECKED(JSRegExp, re, 0);
+  CONVERT_ARG_CHECKED(String, pattern, 1);
+  CONVERT_ARG_CHECKED(String, flags, 2);
   Handle<Object> result = RegExpImpl::Compile(re, pattern, flags);
   if (result.is_null()) return Failure::Exception();
   return *result;
@@ -537,8 +487,7 @@ static Object* Runtime_RegExpCompile(Arguments args) {
 static Object* Runtime_CreateApiFunction(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 1);
-  CONVERT_CHECKED(FunctionTemplateInfo, raw_data, args[0]);
-  Handle<FunctionTemplateInfo> data(raw_data);
+  CONVERT_ARG_CHECKED(FunctionTemplateInfo, data, 0);
   return *Factory::CreateApiFunction(data);
 }
 
@@ -626,9 +575,6 @@ static Object* Runtime_DeclareGlobals(Arguments args) {
   // non-deletable. However, neither SpiderMonkey nor KJS creates the
   // property as read-only, so we don't either.
   PropertyAttributes base = is_eval ? NONE : DONT_DELETE;
-
-  // Only optimize the object if we intend to add more than 5 properties.
-  OptimizedObjectForAddingMultipleProperties ba(global, pairs->length()/2 > 5);
 
   // Traverse the name/value pairs and set the properties.
   int length = pairs->length();
@@ -941,10 +887,8 @@ static Object* Runtime_InitializeConstGlobal(Arguments args) {
       properties->set(index, *value);
     }
   } else if (type == NORMAL) {
-    Dictionary* dictionary = global->property_dictionary();
-    int entry = lookup.GetDictionaryEntry();
-    if (dictionary->ValueAt(entry)->IsTheHole()) {
-      dictionary->ValueAtPut(entry, *value);
+    if (global->GetNormalizedProperty(&lookup)->IsTheHole()) {
+      global->SetNormalizedProperty(&lookup, *value);
     }
   } else {
     // Ignore re-initialization of constants that have already been
@@ -1034,10 +978,8 @@ static Object* Runtime_InitializeConstContextSlot(Arguments args) {
         properties->set(index, *value);
       }
     } else if (type == NORMAL) {
-      Dictionary* dictionary = context_ext->property_dictionary();
-      int entry = lookup.GetDictionaryEntry();
-      if (dictionary->ValueAt(entry)->IsTheHole()) {
-        dictionary->ValueAtPut(entry, *value);
+      if (context_ext->GetNormalizedProperty(&lookup)->IsTheHole()) {
+        context_ext->SetNormalizedProperty(&lookup, *value);
       }
     } else {
       // We should not reach here. Any real, named property should be
@@ -1066,15 +1008,12 @@ static Object* Runtime_InitializeConstContextSlot(Arguments args) {
 static Object* Runtime_RegExpExec(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 4);
-  CONVERT_CHECKED(JSRegExp, raw_regexp, args[0]);
-  Handle<JSRegExp> regexp(raw_regexp);
-  CONVERT_CHECKED(String, raw_subject, args[1]);
-  Handle<String> subject(raw_subject);
+  CONVERT_ARG_CHECKED(JSRegExp, regexp, 0);
+  CONVERT_ARG_CHECKED(String, subject, 1);
   // Due to the way the JS files are constructed this must be less than the
   // length of a string, i.e. it is always a Smi.  We check anyway for security.
   CONVERT_CHECKED(Smi, index, args[2]);
-  CONVERT_CHECKED(JSArray, raw_last_match_info, args[3]);
-  Handle<JSArray> last_match_info(raw_last_match_info);
+  CONVERT_ARG_CHECKED(JSArray, last_match_info, 3);
   RUNTIME_ASSERT(last_match_info->HasFastElements());
   RUNTIME_ASSERT(index->value() >= 0);
   RUNTIME_ASSERT(index->value() <= subject->length());
@@ -1168,6 +1107,21 @@ static Object* Runtime_FunctionGetScriptSourcePosition(Arguments args) {
 }
 
 
+static Object* Runtime_FunctionGetPositionForOffset(Arguments args) {
+  ASSERT(args.length() == 2);
+
+  CONVERT_CHECKED(JSFunction, fun, args[0]);
+  CONVERT_NUMBER_CHECKED(int, offset, Int32, args[1]);
+
+  Code* code = fun->code();
+  RUNTIME_ASSERT(0 <= offset && offset < code->Size());
+
+  Address pc = code->address() + offset;
+  return Smi::FromInt(fun->code()->SourcePosition(pc));
+}
+
+
+
 static Object* Runtime_FunctionSetInstanceClassName(Arguments args) {
   NoHandleAllocation ha;
   ASSERT(args.length() == 2);
@@ -1217,8 +1171,7 @@ static Object* Runtime_SetCode(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 2);
 
-  CONVERT_CHECKED(JSFunction, raw_target, args[0]);
-  Handle<JSFunction> target(raw_target);
+  CONVERT_ARG_CHECKED(JSFunction, target, 0);
   Handle<Object> code = args.at<Object>(1);
 
   Handle<Context> context(target->context());
@@ -2416,6 +2369,19 @@ static Object* Runtime_NumberToRadixString(Arguments args) {
   NoHandleAllocation ha;
   ASSERT(args.length() == 2);
 
+  // Fast case where the result is a one character string.
+  if (args[0]->IsSmi() && args[1]->IsSmi()) {
+    int value = Smi::cast(args[0])->value();
+    int radix = Smi::cast(args[1])->value();
+    if (value >= 0 && value < radix) {
+      RUNTIME_ASSERT(radix <= 36);
+      // Character array used for conversion.
+      static const char kCharTable[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+      return Heap::LookupSingleCharacterStringFromCode(kCharTable[value]);
+    }
+  }
+
+  // Slow case.
   CONVERT_DOUBLE_CHECKED(value, args[0]);
   if (isnan(value)) {
     return Heap::AllocateStringFromAscii(CStrVector("NaN"));
@@ -2620,12 +2586,9 @@ static Object* Runtime_KeyedGetProperty(Arguments args) {
     String* key = String::cast(args[1]);
     if (receiver->HasFastProperties()) {
       // Attempt to use lookup cache.
-      Object* obj = Heap::GetKeyedLookupCache();
-      if (obj->IsFailure()) return obj;
-      LookupCache* cache = LookupCache::cast(obj);
       Map* receiver_map = receiver->map();
-      int offset = cache->Lookup(receiver_map, key);
-      if (offset != LookupCache::kNotFound) {
+      int offset = KeyedLookupCache::Lookup(receiver_map, key);
+      if (offset != -1) {
         Object* value = receiver->FastPropertyAt(offset);
         return value->IsTheHole() ? Heap::undefined_value() : value;
       }
@@ -2635,9 +2598,7 @@ static Object* Runtime_KeyedGetProperty(Arguments args) {
       receiver->LocalLookup(key, &result);
       if (result.IsProperty() && result.IsLoaded() && result.type() == FIELD) {
         int offset = result.GetFieldIndex();
-        Object* obj = cache->Put(receiver_map, key, offset);
-        if (obj->IsFailure()) return obj;
-        Heap::SetKeyedLookupCache(LookupCache::cast(obj));
+        KeyedLookupCache::Update(receiver_map, key, offset);
         Object* value = receiver->FastPropertyAt(offset);
         return value->IsTheHole() ? Heap::undefined_value() : value;
       }
@@ -2645,9 +2606,13 @@ static Object* Runtime_KeyedGetProperty(Arguments args) {
       // Attempt dictionary lookup.
       Dictionary* dictionary = receiver->property_dictionary();
       int entry = dictionary->FindStringEntry(key);
-      if ((entry != DescriptorArray::kNotFound) &&
+      if ((entry != Dictionary::kNotFound) &&
           (dictionary->DetailsAt(entry).type() == NORMAL)) {
-        return dictionary->ValueAt(entry);
+        Object* value = dictionary->ValueAt(entry);
+        if (receiver->IsJSGlobalObject()) {
+           value = JSGlobalPropertyCell::cast(value)->value();
+        }
+        return value;
       }
     }
   }
@@ -2964,9 +2929,7 @@ static Object* Runtime_IsPropertyEnumerable(Arguments args) {
 static Object* Runtime_GetPropertyNames(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 1);
-
-  CONVERT_CHECKED(JSObject, raw_object, args[0]);
-  Handle<JSObject> object(raw_object);
+  CONVERT_ARG_CHECKED(JSObject, object, 0);
   return *GetKeysFor(object);
 }
 
@@ -3705,20 +3668,8 @@ static Object* Runtime_NumberMod(Arguments args) {
 static Object* Runtime_StringAdd(Arguments args) {
   NoHandleAllocation ha;
   ASSERT(args.length() == 2);
-
   CONVERT_CHECKED(String, str1, args[0]);
   CONVERT_CHECKED(String, str2, args[1]);
-  int len1 = str1->length();
-  int len2 = str2->length();
-  if (len1 == 0) return str2;
-  if (len2 == 0) return str1;
-  int length_sum = len1 + len2;
-  // Make sure that an out of memory exception is thrown if the length
-  // of the new cons string is too large to fit in a Smi.
-  if (length_sum > Smi::kMaxValue || length_sum < 0) {
-    Top::context()->mark_out_of_memory();
-    return Failure::OutOfMemoryException();
-  }
   return Heap::AllocateConsString(str1, str2);
 }
 
@@ -4153,37 +4104,67 @@ static Object* Runtime_Math_log(Arguments args) {
 }
 
 
+// Helper function to compute x^y, where y is known to be an
+// integer. Uses binary decomposition to limit the number of
+// multiplications; see the discussion in "Hacker's Delight" by Henry
+// S. Warren, Jr., figure 11-6, page 213.
+static double powi(double x, int y) {
+  ASSERT(y != kMinInt);
+  unsigned n = (y < 0) ? -y : y;
+  double m = x;
+  double p = 1;
+  while (true) {
+    if ((n & 1) != 0) p *= m;
+    n >>= 1;
+    if (n == 0) {
+      if (y < 0) {
+        // Unfortunately, we have to be careful when p has reached
+        // infinity in the computation, because sometimes the higher
+        // internal precision in the pow() implementation would have
+        // given us a finite p. This happens very rarely.
+        double result = 1.0 / p;
+        return (result == 0 && isinf(p))
+            ? pow(x, static_cast<double>(y))  // Avoid pow(double, int).
+            : result;
+      } else {
+        return p;
+      }
+    }
+    m *= m;
+  }
+}
+
+
 static Object* Runtime_Math_pow(Arguments args) {
   NoHandleAllocation ha;
   ASSERT(args.length() == 2);
 
   CONVERT_DOUBLE_CHECKED(x, args[0]);
+
+  // If the second argument is a smi, it is much faster to call the
+  // custom powi() function than the generic pow().
+  if (args[1]->IsSmi()) {
+    int y = Smi::cast(args[1])->value();
+    return Heap::AllocateHeapNumber(powi(x, y));
+  }
+
   CONVERT_DOUBLE_CHECKED(y, args[1]);
-  if (isnan(y) || ((x == 1 || x == -1) && isinf(y))) {
-    return Heap::nan_value();
+  if (y == 0.5) {
+    // It's not uncommon to use Math.pow(x, 0.5) to compute the square
+    // root of a number. To speed up such computations, we explictly
+    // check for this case and use the sqrt() function which is faster
+    // than pow().
+    return Heap::AllocateHeapNumber(sqrt(x));
+  } else if (y == -0.5) {
+    // Optimized using Math.pow(x, -0.5) == 1 / Math.pow(x, 0.5).
+    return Heap::AllocateHeapNumber(1.0 / sqrt(x));
   } else if (y == 0) {
     return Smi::FromInt(1);
+  } else if (isnan(y) || ((x == 1 || x == -1) && isinf(y))) {
+    return Heap::nan_value();
   } else {
     return Heap::AllocateHeapNumber(pow(x, y));
   }
-}
-
-// Returns a number value with positive sign, greater than or equal to
-// 0 but less than 1, chosen randomly.
-static Object* Runtime_Math_random(Arguments args) {
-  NoHandleAllocation ha;
-  ASSERT(args.length() == 0);
-
-  // To get much better precision, we combine the results of two
-  // invocations of random(). The result is computed by normalizing a
-  // double in the range [0, RAND_MAX + 1) obtained by adding the
-  // high-order bits in the range [0, RAND_MAX] with the low-order
-  // bits in the range [0, 1).
-  double lo = static_cast<double>(random()) * (1.0 / (RAND_MAX + 1.0));
-  double hi = static_cast<double>(random());
-  double result = (hi + lo) * (1.0 / (RAND_MAX + 1.0));
-  ASSERT(result >= 0 && result < 1);
-  return Heap::AllocateHeapNumber(result);
 }
 
 
@@ -4300,45 +4281,61 @@ static Object* Runtime_NewClosure(Arguments args) {
 }
 
 
+static Handle<Code> ComputeConstructStub(Handle<Map> map) {
+  // TODO(385): Change this to create a construct stub specialized for
+  // the given map to make allocation of simple objects - and maybe
+  // arrays - much faster.
+  return Handle<Code>(Builtins::builtin(Builtins::JSConstructStubGeneric));
+}
+
+
 static Object* Runtime_NewObject(Arguments args) {
-  NoHandleAllocation ha;
+  HandleScope scope;
   ASSERT(args.length() == 1);
 
-  Object* constructor = args[0];
-  if (constructor->IsJSFunction()) {
-    JSFunction* function = JSFunction::cast(constructor);
+  Handle<Object> constructor = args.at<Object>(0);
 
-    // Handle stepping into constructors if step into is active.
+  // If the constructor isn't a proper function we throw a type error.
+  if (!constructor->IsJSFunction()) {
+    Vector< Handle<Object> > arguments = HandleVector(&constructor, 1);
+    Handle<Object> type_error =
+        Factory::NewTypeError("not_constructor", arguments);
+    return Top::Throw(*type_error);
+  }
+
+  Handle<JSFunction> function = Handle<JSFunction>::cast(constructor);
 #ifdef ENABLE_DEBUGGER_SUPPORT
-    if (Debug::StepInActive()) {
-      HandleScope scope;
-      Debug::HandleStepIn(Handle<JSFunction>(function), 0, true);
-    }
+  // Handle stepping into constructors if step into is active.
+  if (Debug::StepInActive()) {
+    Debug::HandleStepIn(function, 0, true);
+  }
 #endif
 
-    if (function->has_initial_map() &&
-        function->initial_map()->instance_type() == JS_FUNCTION_TYPE) {
+  if (function->has_initial_map()) {
+    if (function->initial_map()->instance_type() == JS_FUNCTION_TYPE) {
       // The 'Function' function ignores the receiver object when
       // called using 'new' and creates a new JSFunction object that
       // is returned.  The receiver object is only used for error
       // reporting if an error occurs when constructing the new
-      // JSFunction.  AllocateJSObject should not be used to allocate
-      // JSFunctions since it does not properly initialize the shared
-      // part of the function.  Since the receiver is ignored anyway,
-      // we use the global object as the receiver instead of a new
-      // JSFunction object.  This way, errors are reported the same
-      // way whether or not 'Function' is called using 'new'.
+      // JSFunction. Factory::NewJSObject() should not be used to
+      // allocate JSFunctions since it does not properly initialize
+      // the shared part of the function. Since the receiver is
+      // ignored anyway, we use the global object as the receiver
+      // instead of a new JSFunction object. This way, errors are
+      // reported the same way whether or not 'Function' is called
+      // using 'new'.
       return Top::context()->global();
     }
-    return Heap::AllocateJSObject(function);
   }
 
-  HandleScope scope;
-  Handle<Object> cons(constructor);
-  // The constructor is not a function; throw a type error.
-  Handle<Object> type_error =
-    Factory::NewTypeError("not_constructor", HandleVector(&cons, 1));
-  return Top::Throw(*type_error);
+  bool first_allocation = !function->has_initial_map();
+  Handle<JSObject> result = Factory::NewJSObject(function);
+  if (first_allocation) {
+    Handle<Map> map = Handle<Map>(function->initial_map());
+    Handle<Code> stub = ComputeConstructStub(map);
+    function->shared()->set_construct_stub(*stub);
+  }
+  return *result;
 }
 
 
@@ -4495,17 +4492,25 @@ static Object* Runtime_LookupContext(Arguments args) {
 // compiler to do the right thing.
 //
 // TODO(1236026): This is a non-portable hack that should be removed.
-// TODO(x64): Definitely!
+#ifdef V8_HOST_ARCH_64_BIT
+// Tested with GCC, not with MSVC.
+struct ObjectPair {
+  Object* x;
+  Object* y;
+};
+static inline ObjectPair MakePair(Object* x, Object* y) {
+  ObjectPair result = {x, y};
+  return result;  // Pointers x and y returned in rax and rdx, in AMD-x64-abi.
+}
+#else
 typedef uint64_t ObjectPair;
 static inline ObjectPair MakePair(Object* x, Object* y) {
-#if V8_HOST_ARCH_64_BIT
-  UNIMPLEMENTED();
-  return 0;
-#else
   return reinterpret_cast<uint32_t>(x) |
       (reinterpret_cast<ObjectPair>(y) << 32);
-#endif
 }
+#endif
+
+
 
 
 static inline Object* Unhole(Object* x, PropertyAttributes attributes) {
@@ -4539,7 +4544,7 @@ static ObjectPair LoadContextSlotHelper(Arguments args, bool throw_error) {
   ASSERT(args.length() == 2);
 
   if (!args[0]->IsContext() || !args[1]->IsString()) {
-    return MakePair(IllegalOperation(), NULL);
+    return MakePair(Top::ThrowIllegalOperation(), NULL);
   }
   Handle<Context> context = args.at<Context>(0);
   Handle<String> name = args.at<String>(1);
@@ -4821,8 +4826,8 @@ static Object* Runtime_DebugPrint(Arguments args) {
     // and print some interesting cpu debugging info.
     JavaScriptFrameIterator it;
     JavaScriptFrame* frame = it.frame();
-    PrintF("fp = %p, sp = %p, pp = %p: ",
-           frame->fp(), frame->sp(), frame->pp());
+    PrintF("fp = %p, sp = %p, caller_sp = %p: ",
+           frame->fp(), frame->sp(), frame->caller_sp());
   } else {
     PrintF("DebugPrint: ");
   }
@@ -5533,15 +5538,12 @@ static Object* DebugLookupResultValue(Object* receiver, String* name,
                                       bool* caught_exception) {
   Object* value;
   switch (result->type()) {
-    case NORMAL: {
-      Dictionary* dict =
-          JSObject::cast(result->holder())->property_dictionary();
-      value = dict->ValueAt(result->GetDictionaryEntry());
+    case NORMAL:
+      value = result->holder()->GetNormalizedProperty(result);
       if (value->IsTheHole()) {
         return Heap::undefined_value();
       }
       return value;
-    }
     case FIELD:
       value =
           JSObject::cast(
@@ -6106,6 +6108,405 @@ static Object* Runtime_GetFrameDetails(Arguments args) {
 }
 
 
+// Copy all the context locals into an object used to materialize a scope.
+static void CopyContextLocalsToScopeObject(Handle<Code> code,
+                                           ScopeInfo<>& scope_info,
+                                           Handle<Context> context,
+                                           Handle<JSObject> scope_object) {
+  // Fill all context locals to the context extension.
+  for (int i = Context::MIN_CONTEXT_SLOTS;
+       i < scope_info.number_of_context_slots();
+       i++) {
+    int context_index =
+        ScopeInfo<>::ContextSlotIndex(*code,
+                                      *scope_info.context_slot_name(i),
+                                      NULL);
+
+    // Don't include the arguments shadow (.arguments) context variable.
+    if (*scope_info.context_slot_name(i) != Heap::arguments_shadow_symbol()) {
+      SetProperty(scope_object,
+                  scope_info.context_slot_name(i),
+                  Handle<Object>(context->get(context_index)), NONE);
+    }
+  }
+}
+
+
+// Create a plain JSObject which materializes the local scope for the specified
+// frame.
+static Handle<JSObject> MaterializeLocalScope(JavaScriptFrame* frame) {
+  Handle<JSFunction> function(JSFunction::cast(frame->function()));
+  Handle<Code> code(function->code());
+  ScopeInfo<> scope_info(*code);
+
+  // Allocate and initialize a JSObject with all the arguments, stack locals
+  // heap locals and extension properties of the debugged function.
+  Handle<JSObject> local_scope = Factory::NewJSObject(Top::object_function());
+
+  // First fill all parameters.
+  for (int i = 0; i < scope_info.number_of_parameters(); ++i) {
+    SetProperty(local_scope,
+                scope_info.parameter_name(i),
+                Handle<Object>(frame->GetParameter(i)), NONE);
+  }
+
+  // Second fill all stack locals.
+  for (int i = 0; i < scope_info.number_of_stack_slots(); i++) {
+    SetProperty(local_scope,
+                scope_info.stack_slot_name(i),
+                Handle<Object>(frame->GetExpression(i)), NONE);
+  }
+
+  // Third fill all context locals.
+  Handle<Context> frame_context(Context::cast(frame->context()));
+  Handle<Context> function_context(frame_context->fcontext());
+  CopyContextLocalsToScopeObject(code, scope_info,
+                                 function_context, local_scope);
+
+  // Finally copy any properties from the function context extension. This will
+  // be variables introduced by eval.
+  if (function_context->closure() == *function) {
+    if (function_context->has_extension() &&
+        !function_context->IsGlobalContext()) {
+      Handle<JSObject> ext(JSObject::cast(function_context->extension()));
+      Handle<FixedArray> keys = GetKeysInFixedArrayFor(ext);
+      for (int i = 0; i < keys->length(); i++) {
+        // Names of variables introduced by eval are strings.
+        ASSERT(keys->get(i)->IsString());
+        Handle<String> key(String::cast(keys->get(i)));
+        SetProperty(local_scope, key, GetProperty(ext, key), NONE);
+      }
+    }
+  }
+  return local_scope;
+}
+
+
+// Create a plain JSObject which materializes the closure content for the
+// context.
+static Handle<JSObject> MaterializeClosure(Handle<Context> context) {
+  ASSERT(context->is_function_context());
+
+  Handle<Code> code(context->closure()->code());
+  ScopeInfo<> scope_info(*code);
+
+  // Allocate and initialize a JSObject with all the content of theis function
+  // closure.
+  Handle<JSObject> closure_scope = Factory::NewJSObject(Top::object_function());
+
+  // Check whether the arguments shadow object exists.
+  int arguments_shadow_index =
+      ScopeInfo<>::ContextSlotIndex(*code,
+                                    Heap::arguments_shadow_symbol(),
+                                    NULL);
+  if (arguments_shadow_index >= 0) {
+    // In this case all the arguments are available in the arguments shadow
+    // object.
+    Handle<JSObject> arguments_shadow(
+        JSObject::cast(context->get(arguments_shadow_index)));
+    for (int i = 0; i < scope_info.number_of_parameters(); ++i) {
+      SetProperty(closure_scope,
+                  scope_info.parameter_name(i),
+                  Handle<Object>(arguments_shadow->GetElement(i)), NONE);
+    }
+  }
+
+  // Fill all context locals to the context extension.
+  CopyContextLocalsToScopeObject(code, scope_info, context, closure_scope);
+
+  // Finally copy any properties from the function context extension. This will
+  // be variables introduced by eval.
+  if (context->has_extension()) {
+    Handle<JSObject> ext(JSObject::cast(context->extension()));
+    Handle<FixedArray> keys = GetKeysInFixedArrayFor(ext);
+    for (int i = 0; i < keys->length(); i++) {
+      // Names of variables introduced by eval are strings.
+      ASSERT(keys->get(i)->IsString());
+      Handle<String> key(String::cast(keys->get(i)));
+      SetProperty(closure_scope, key, GetProperty(ext, key), NONE);
+    }
+  }
+
+  return closure_scope;
+}
+
+
+// Iterate over the actual scopes visible from a stack frame. All scopes are
+// backed by an actual context except the local scope, which is inserted
+// "artifically" in the context chain.
+class ScopeIterator {
+ public:
+  enum ScopeType {
+    ScopeTypeGlobal = 0,
+    ScopeTypeLocal,
+    ScopeTypeWith,
+    ScopeTypeClosure
+  };
+
+  explicit ScopeIterator(JavaScriptFrame* frame)
+    : frame_(frame),
+      function_(JSFunction::cast(frame->function())),
+      context_(Context::cast(frame->context())),
+      local_done_(false),
+      at_local_(false) {
+
+    // Check whether the first scope is actually a local scope.
+    if (context_->IsGlobalContext()) {
+      // If there is a stack slot for .result then this local scope has been
+      // created for evaluating top level code and it is not a real local scope.
+      // Checking for the existence of .result seems fragile, but the scope info
+      // saved with the code object does not otherwise have that information.
+      Handle<Code> code(function_->code());
+      int index = ScopeInfo<>::StackSlotIndex(*code, Heap::result_symbol());
+      at_local_ = index < 0;
+    } else if (context_->is_function_context()) {
+      at_local_ = true;
+    }
+  }
+
+  // More scopes?
+  bool Done() { return context_.is_null(); }
+
+  // Move to the next scope.
+  void Next() {
+    // If at a local scope mark the local scope as passed.
+    if (at_local_) {
+      at_local_ = false;
+      local_done_ = true;
+
+      // If the current context is not associated with the local scope the
+      // current context is the next real scope, so don't move to the next
+      // context in this case.
+      if (context_->closure() != *function_) {
+        return;
+      }
+    }
+
+    // The global scope is always the last in the chain.
+    if (context_->IsGlobalContext()) {
+      context_ = Handle<Context>();
+      return;
+    }
+
+    // Move to the next context.
+    if (context_->is_function_context()) {
+      context_ = Handle<Context>(Context::cast(context_->closure()->context()));
+    } else {
+      context_ = Handle<Context>(context_->previous());
+    }
+
+    // If passing the local scope indicate that the current scope is now the
+    // local scope.
+    if (!local_done_ &&
+        (context_->IsGlobalContext() || (context_->is_function_context()))) {
+      at_local_ = true;
+    }
+  }
+
+  // Return the type of the current scope.
+  int Type() {
+    if (at_local_) {
+      return ScopeTypeLocal;
+    }
+    if (context_->IsGlobalContext()) {
+      ASSERT(context_->global()->IsGlobalObject());
+      return ScopeTypeGlobal;
+    }
+    if (context_->is_function_context()) {
+      return ScopeTypeClosure;
+    }
+    ASSERT(context_->has_extension());
+    ASSERT(!context_->extension()->IsJSContextExtensionObject());
+    return ScopeTypeWith;
+  }
+
+  // Return the JavaScript object with the content of the current scope.
+  Handle<JSObject> ScopeObject() {
+    switch (Type()) {
+      case ScopeIterator::ScopeTypeGlobal:
+        return Handle<JSObject>(CurrentContext()->global());
+        break;
+      case ScopeIterator::ScopeTypeLocal:
+        // Materialize the content of the local scope into a JSObject.
+        return MaterializeLocalScope(frame_);
+        break;
+      case ScopeIterator::ScopeTypeWith:
+        // Return the with object.
+        return Handle<JSObject>(CurrentContext()->extension());
+        break;
+      case ScopeIterator::ScopeTypeClosure:
+        // Materialize the content of the closure scope into a JSObject.
+        return MaterializeClosure(CurrentContext());
+        break;
+    }
+    UNREACHABLE();
+    return Handle<JSObject>();
+  }
+
+  // Return the context for this scope. For the local context there might not
+  // be an actual context.
+  Handle<Context> CurrentContext() {
+    if (at_local_ && context_->closure() != *function_) {
+      return Handle<Context>();
+    }
+    return context_;
+  }
+
+#ifdef DEBUG
+  // Debug print of the content of the current scope.
+  void DebugPrint() {
+    switch (Type()) {
+      case ScopeIterator::ScopeTypeGlobal:
+        PrintF("Global:\n");
+        CurrentContext()->Print();
+        break;
+
+      case ScopeIterator::ScopeTypeLocal: {
+        PrintF("Local:\n");
+        Handle<Code> code(function_->code());
+        ScopeInfo<> scope_info(*code);
+        scope_info.Print();
+        if (!CurrentContext().is_null()) {
+          CurrentContext()->Print();
+          if (CurrentContext()->has_extension()) {
+            Handle<JSObject> extension =
+                Handle<JSObject>(CurrentContext()->extension());
+            if (extension->IsJSContextExtensionObject()) {
+              extension->Print();
+            }
+          }
+        }
+        break;
+      }
+
+      case ScopeIterator::ScopeTypeWith: {
+        PrintF("With:\n");
+        Handle<JSObject> extension =
+            Handle<JSObject>(CurrentContext()->extension());
+        extension->Print();
+        break;
+      }
+
+      case ScopeIterator::ScopeTypeClosure: {
+        PrintF("Closure:\n");
+        CurrentContext()->Print();
+        if (CurrentContext()->has_extension()) {
+          Handle<JSObject> extension =
+              Handle<JSObject>(CurrentContext()->extension());
+          if (extension->IsJSContextExtensionObject()) {
+            extension->Print();
+          }
+        }
+        break;
+      }
+
+      default:
+        UNREACHABLE();
+    }
+    PrintF("\n");
+  }
+#endif
+
+ private:
+  JavaScriptFrame* frame_;
+  Handle<JSFunction> function_;
+  Handle<Context> context_;
+  bool local_done_;
+  bool at_local_;
+
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ScopeIterator);
+};
+
+
+static Object* Runtime_GetScopeCount(Arguments args) {
+  HandleScope scope;
+  ASSERT(args.length() == 2);
+
+  // Check arguments.
+  Object* check = Runtime_CheckExecutionState(args);
+  if (check->IsFailure()) return check;
+  CONVERT_CHECKED(Smi, wrapped_id, args[1]);
+
+  // Get the frame where the debugging is performed.
+  StackFrame::Id id = UnwrapFrameId(wrapped_id);
+  JavaScriptFrameIterator it(id);
+  JavaScriptFrame* frame = it.frame();
+
+  // Count the visible scopes.
+  int n = 0;
+  for (ScopeIterator it(frame); !it.Done(); it.Next()) {
+    n++;
+  }
+
+  return Smi::FromInt(n);
+}
+
+
+static const int kScopeDetailsTypeIndex = 0;
+static const int kScopeDetailsObjectIndex = 1;
+static const int kScopeDetailsSize = 2;
+
+// Return an array with scope details
+// args[0]: number: break id
+// args[1]: number: frame index
+// args[2]: number: scope index
+//
+// The array returned contains the following information:
+// 0: Scope type
+// 1: Scope object
+static Object* Runtime_GetScopeDetails(Arguments args) {
+  HandleScope scope;
+  ASSERT(args.length() == 3);
+
+  // Check arguments.
+  Object* check = Runtime_CheckExecutionState(args);
+  if (check->IsFailure()) return check;
+  CONVERT_CHECKED(Smi, wrapped_id, args[1]);
+  CONVERT_NUMBER_CHECKED(int, index, Int32, args[2]);
+
+  // Get the frame where the debugging is performed.
+  StackFrame::Id id = UnwrapFrameId(wrapped_id);
+  JavaScriptFrameIterator frame_it(id);
+  JavaScriptFrame* frame = frame_it.frame();
+
+  // Find the requested scope.
+  int n = 0;
+  ScopeIterator it(frame);
+  for (; !it.Done() && n < index; it.Next()) {
+    n++;
+  }
+  if (it.Done()) {
+    return Heap::undefined_value();
+  }
+
+  // Calculate the size of the result.
+  int details_size = kScopeDetailsSize;
+  Handle<FixedArray> details = Factory::NewFixedArray(details_size);
+
+  // Fill in scope details.
+  details->set(kScopeDetailsTypeIndex, Smi::FromInt(it.Type()));
+  details->set(kScopeDetailsObjectIndex, *it.ScopeObject());
+
+  return *Factory::NewJSArrayWithElements(details);
+}
+
+
+static Object* Runtime_DebugPrintScopes(Arguments args) {
+  HandleScope scope;
+  ASSERT(args.length() == 0);
+
+#ifdef DEBUG
+  // Print the scopes for the top frame.
+  StackFrameLocator locator;
+  JavaScriptFrame* frame = locator.FindJavaScriptFrame(0);
+  for (ScopeIterator it(frame); !it.Done(); it.Next()) {
+    it.DebugPrint();
+  }
+#endif
+  return Heap::undefined_value();
+}
+
+
 static Object* Runtime_GetCFrames(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 1);
@@ -6228,8 +6629,8 @@ static Object* Runtime_GetBreakLocations(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 1);
 
-  CONVERT_ARG_CHECKED(JSFunction, raw_fun, 0);
-  Handle<SharedFunctionInfo> shared(raw_fun->shared());
+  CONVERT_ARG_CHECKED(JSFunction, fun, 0);
+  Handle<SharedFunctionInfo> shared(fun->shared());
   // Find the number of break points
   Handle<Object> break_locations = Debug::GetSourceBreakLocations(shared);
   if (break_locations->IsUndefined()) return Heap::undefined_value();
@@ -6246,8 +6647,8 @@ static Object* Runtime_GetBreakLocations(Arguments args) {
 static Object* Runtime_SetFunctionBreakPoint(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 3);
-  CONVERT_ARG_CHECKED(JSFunction, raw_fun, 0);
-  Handle<SharedFunctionInfo> shared(raw_fun->shared());
+  CONVERT_ARG_CHECKED(JSFunction, fun, 0);
+  Handle<SharedFunctionInfo> shared(fun->shared());
   CONVERT_NUMBER_CHECKED(int32_t, source_position, Int32, args[1]);
   RUNTIME_ASSERT(source_position >= 0);
   Handle<Object> break_point_object_arg = args.at<Object>(2);
@@ -6568,54 +6969,17 @@ static Object* Runtime_DebugEvaluate(Arguments args) {
   ASSERT(go_between_sinfo.number_of_context_slots() == 0);
 #endif
 
-  // Allocate and initialize a context extension object with all the
-  // arguments, stack locals heap locals and extension properties of the
-  // debugged function.
-  Handle<JSObject> context_ext = Factory::NewJSObject(Top::object_function());
-  // First fill all parameters to the context extension.
-  for (int i = 0; i < sinfo.number_of_parameters(); ++i) {
-    SetProperty(context_ext,
-                sinfo.parameter_name(i),
-                Handle<Object>(frame->GetParameter(i)), NONE);
-  }
-  // Second fill all stack locals to the context extension.
-  for (int i = 0; i < sinfo.number_of_stack_slots(); i++) {
-    SetProperty(context_ext,
-                sinfo.stack_slot_name(i),
-                Handle<Object>(frame->GetExpression(i)), NONE);
-  }
-  // Third fill all context locals to the context extension.
-  Handle<Context> frame_context(Context::cast(frame->context()));
-  Handle<Context> function_context(frame_context->fcontext());
-  for (int i = Context::MIN_CONTEXT_SLOTS;
-       i < sinfo.number_of_context_slots();
-       ++i) {
-    int context_index =
-        ScopeInfo<>::ContextSlotIndex(*code, *sinfo.context_slot_name(i), NULL);
-    SetProperty(context_ext,
-                sinfo.context_slot_name(i),
-                Handle<Object>(function_context->get(context_index)), NONE);
-  }
-  // Finally copy any properties from the function context extension. This will
-  // be variables introduced by eval.
-  if (function_context->has_extension() &&
-      !function_context->IsGlobalContext()) {
-    Handle<JSObject> ext(JSObject::cast(function_context->extension()));
-    Handle<FixedArray> keys = GetKeysInFixedArrayFor(ext);
-    for (int i = 0; i < keys->length(); i++) {
-      // Names of variables introduced by eval are strings.
-      ASSERT(keys->get(i)->IsString());
-      Handle<String> key(String::cast(keys->get(i)));
-      SetProperty(context_ext, key, GetProperty(ext, key), NONE);
-    }
-  }
+  // Materialize the content of the local scope into a JSObject.
+  Handle<JSObject> local_scope = MaterializeLocalScope(frame);
 
   // Allocate a new context for the debug evaluation and set the extension
   // object build.
   Handle<Context> context =
       Factory::NewFunctionContext(Context::MIN_CONTEXT_SLOTS, go_between);
-  context->set_extension(*context_ext);
+  context->set_extension(*local_scope);
   // Copy any with contexts present and chain them in front of this context.
+  Handle<Context> frame_context(Context::cast(frame->context()));
+  Handle<Context> function_context(frame_context->fcontext());
   context = CopyWithContextChain(frame_context, context);
 
   // Wrap the evaluation statement in a new function compiled in the newly
@@ -6657,6 +7021,13 @@ static Object* Runtime_DebugEvaluate(Arguments args) {
       Execution::Call(Handle<JSFunction>::cast(evaluation_function), receiver,
                       argc, argv, &has_pending_exception);
   if (has_pending_exception) return Failure::Exception();
+
+  // Skip the global proxy as it has no properties and always delegates to the
+  // real global object.
+  if (result->IsJSGlobalProxy()) {
+    result = Handle<JSObject>(JSObject::cast(result->GetPrototype()));
+  }
+
   return *result;
 }
 
@@ -7008,6 +7379,67 @@ static Object* Runtime_GetScript(Arguments args) {
   // Find the requested script.
   Handle<Object> result =
       Runtime_GetScriptFromScriptName(Handle<String>(script_name));
+  return *result;
+}
+
+
+// Determines whether the given stack frame should be displayed in
+// a stack trace.  The caller is the error constructor that asked
+// for the stack trace to be collected.  The first time a construct
+// call to this function is encountered it is skipped.  The seen_caller
+// in/out parameter is used to remember if the caller has been seen
+// yet.
+static bool ShowFrameInStackTrace(StackFrame* raw_frame, Object* caller,
+    bool* seen_caller) {
+  // Only display JS frames.
+  if (!raw_frame->is_java_script())
+    return false;
+  JavaScriptFrame* frame = JavaScriptFrame::cast(raw_frame);
+  Object* raw_fun = frame->function();
+  // Not sure when this can happen but skip it just in case.
+  if (!raw_fun->IsJSFunction())
+    return false;
+  if ((raw_fun == caller) && !(*seen_caller) && frame->IsConstructor()) {
+    *seen_caller = true;
+    return false;
+  }
+  // Skip the most obvious builtin calls.  Some builtin calls (such as
+  // Number.ADD which is invoked using 'call') are very difficult to
+  // recognize so we're leaving them in for now.
+  return !frame->receiver()->IsJSBuiltinsObject();
+}
+
+
+// Collect the raw data for a stack trace.  Returns an array of three
+// element segments each containing a receiver, function and native
+// code offset.
+static Object* Runtime_CollectStackTrace(Arguments args) {
+  ASSERT_EQ(args.length(), 1);
+  Object* caller = args[0];
+
+  StackFrameIterator iter;
+  int frame_count = 0;
+  bool seen_caller = false;
+  while (!iter.done()) {
+    if (ShowFrameInStackTrace(iter.frame(), caller, &seen_caller))
+      frame_count++;
+    iter.Advance();
+  }
+  HandleScope scope;
+  Handle<JSArray> result = Factory::NewJSArray(frame_count * 3);
+  int i = 0;
+  seen_caller = false;
+  for (iter.Reset(); !iter.done(); iter.Advance()) {
+    StackFrame* raw_frame = iter.frame();
+    if (ShowFrameInStackTrace(raw_frame, caller, &seen_caller)) {
+      JavaScriptFrame* frame = JavaScriptFrame::cast(raw_frame);
+      result->SetElement(i++, frame->receiver());
+      result->SetElement(i++, frame->function());
+      Address pc = frame->pc();
+      Address start = frame->code()->address();
+      result->SetElement(i++, Smi::FromInt(pc - start));
+    }
+  }
   return *result;
 }
 

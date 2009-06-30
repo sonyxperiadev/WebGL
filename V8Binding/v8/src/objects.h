@@ -59,7 +59,6 @@
 //             - SymbolTable
 //             - CompilationCacheTable
 //             - MapCache
-//             - LookupCache
 //           - Context
 //           - GlobalContext
 //       - String
@@ -154,20 +153,23 @@ class PropertyDetails BASE_EMBEDDED {
 
   int index() { return IndexField::decode(value_); }
 
+  inline PropertyDetails AsDeleted();
+
   static bool IsValidIndex(int index) { return IndexField::is_valid(index); }
 
   bool IsReadOnly() { return (attributes() & READ_ONLY) != 0; }
   bool IsDontDelete() { return (attributes() & DONT_DELETE) != 0; }
   bool IsDontEnum() { return (attributes() & DONT_ENUM) != 0; }
+  bool IsDeleted() { return DeletedField::decode(value_) != 0;}
 
   // Bit fields in value_ (type, shift, size). Must be public so the
   // constants can be embedded in generated code.
   class TypeField:       public BitField<PropertyType,       0, 3> {};
   class AttributesField: public BitField<PropertyAttributes, 3, 3> {};
-  class IndexField:      public BitField<uint32_t,           6, 32-6> {};
+  class DeletedField:    public BitField<uint32_t,           6, 1> {};
+  class IndexField:      public BitField<uint32_t,           7, 31-7> {};
 
   static const int kInitialIndex = 1;
-
  private:
   uint32_t value_;
 };
@@ -264,6 +266,7 @@ enum PropertyNormalizationMode {
   V(HEAP_NUMBER_TYPE)                           \
   V(FIXED_ARRAY_TYPE)                           \
   V(CODE_TYPE)                                  \
+  V(JS_GLOBAL_PROPERTY_CELL_TYPE)               \
   V(ODDBALL_TYPE)                               \
   V(PROXY_TYPE)                                 \
   V(BYTE_ARRAY_TYPE)                            \
@@ -548,6 +551,7 @@ enum InstanceType {
   FIXED_ARRAY_TYPE,
   CODE_TYPE,
   ODDBALL_TYPE,
+  JS_GLOBAL_PROPERTY_CELL_TYPE,
   PROXY_TYPE,
   BYTE_ARRAY_TYPE,
   FILLER_TYPE,
@@ -678,7 +682,6 @@ class Object BASE_EMBEDDED {
   inline bool IsSymbolTable();
   inline bool IsCompilationCacheTable();
   inline bool IsMapCache();
-  inline bool IsLookupCache();
   inline bool IsPrimitive();
   inline bool IsGlobalObject();
   inline bool IsJSGlobalObject();
@@ -686,6 +689,7 @@ class Object BASE_EMBEDDED {
   inline bool IsJSGlobalProxy();
   inline bool IsUndetectableObject();
   inline bool IsAccessCheckNeeded();
+  inline bool IsJSGlobalPropertyCell();
 
   // Returns true if this object is an instance of the specified
   // function template.
@@ -1162,7 +1166,27 @@ class HeapNumber: public HeapObject {
 
   // Layout description.
   static const int kValueOffset = HeapObject::kHeaderSize;
+  // IEEE doubles are two 32 bit words.  The first is just mantissa, the second
+  // is a mixture of sign, exponent and mantissa.  Our current platforms are all
+  // little endian apart from non-EABI arm which is little endian with big
+  // endian floating point word ordering!
+#if !defined(V8_HOST_ARCH_ARM) || __ARM_EABI__
+  static const int kMantissaOffset = kValueOffset;
+  static const int kExponentOffset = kValueOffset + 4;
+#else
+  static const int kMantissaOffset = kValueOffset + 4;
+  static const int kExponentOffset = kValueOffset;
+# define BIG_ENDIAN_FLOATING_POINT 1
+#endif
   static const int kSize = kValueOffset + kDoubleSize;
+
+  static const uint32_t kSignMask = 0x80000000u;
+  static const uint32_t kExponentMask = 0x7ff00000u;
+  static const uint32_t kMantissaMask = 0xfffffu;
+  static const int kExponentBias = 1023;
+  static const int kExponentShift = 20;
+  static const int kMantissaBitsInTopWord = 20;
+  static const int kNonMantissaBitsInTopWord = 12;
 
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(HeapNumber);
@@ -1175,6 +1199,8 @@ class HeapNumber: public HeapObject {
 // caching.
 class JSObject: public HeapObject {
  public:
+  enum DeleteMode { NORMAL_DELETION, FORCE_DELETION };
+
   // [properties]: Backing storage for properties.
   // properties is a FixedArray in the fast case, and a Dictionary in the
   // slow case.
@@ -1224,6 +1250,23 @@ class JSObject: public HeapObject {
   Object* IgnoreAttributesAndSetLocalProperty(String* key,
                                               Object* value,
                                               PropertyAttributes attributes);
+
+  // Retrieve a value in a normalized object given a lookup result.
+  // Handles the special representation of JS global objects.
+  Object* GetNormalizedProperty(LookupResult* result);
+
+  // Sets the property value in a normalized object given a lookup result.
+  // Handles the special representation of JS global objects.
+  Object* SetNormalizedProperty(LookupResult* result, Object* value);
+
+  // Sets the property value in a normalized object given (key, value, details).
+  // Handles the special representation of JS global objects.
+  Object* SetNormalizedProperty(String* name,
+                                Object* value,
+                                PropertyDetails details);
+
+  // Deletes the named property in a normalized object.
+  Object* DeleteNormalizedProperty(String* name, DeleteMode mode);
 
   // Sets a property that currently has lazy loading.
   Object* SetLazyProperty(LookupResult* result,
@@ -1275,7 +1318,6 @@ class JSObject: public HeapObject {
     return GetLocalPropertyAttribute(name) != ABSENT;
   }
 
-  enum DeleteMode { NORMAL_DELETION, FORCE_DELETION };
   Object* DeleteProperty(String* name, DeleteMode mode);
   Object* DeleteElement(uint32_t index, DeleteMode mode);
   Object* DeleteLazyProperty(LookupResult* result,
@@ -1518,7 +1560,7 @@ class JSObject: public HeapObject {
 
  private:
   Object* SetElementWithInterceptor(uint32_t index, Object* value);
-  Object* SetElementPostInterceptor(uint32_t index, Object* value);
+  Object* SetElementWithoutInterceptor(uint32_t index, Object* value);
 
   Object* GetElementPostInterceptor(JSObject* receiver, uint32_t index);
 
@@ -1620,6 +1662,9 @@ class FixedArray: public Array {
 
   // Garbage collection support.
   static int SizeFor(int length) { return kHeaderSize + length * kPointerSize; }
+
+  // Code Generation support.
+  static int OffsetOfElementAt(int index) { return SizeFor(index); }
 
   // Casting.
   static inline FixedArray* cast(Object* obj);
@@ -1909,6 +1954,9 @@ class HashTable: public FixedArray {
   static const int kElementsStartOffset   =
       kHeaderSize + kElementsStartIndex * kPointerSize;
 
+  // Constant used for denoting a absent entry.
+  static const int kNotFound = -1;
+
  protected:
   // Find entry for key otherwise return -1.
   int FindEntry(HashTableKey* key);
@@ -1992,27 +2040,6 @@ class MapCache: public HashTable<0, 2> {
 };
 
 
-// LookupCache.
-//
-// Maps a key consisting of a map and a name to an index within a
-// fast-case properties array.
-//
-// LookupCaches are used to avoid repeatedly searching instance
-// descriptors.
-class LookupCache: public HashTable<0, 2> {
- public:
-  int Lookup(Map* map, String* name);
-  Object* Put(Map* map, String* name, int offset);
-  static inline LookupCache* cast(Object* obj);
-
-  // Constant returned by Lookup when the key was not found.
-  static const int kNotFound = -1;
-
- private:
-  DISALLOW_IMPLICIT_CONSTRUCTORS(LookupCache);
-};
-
-
 // Dictionary for keeping properties and elements in slow case.
 //
 // One element in the prefix is used for storing non-element
@@ -2027,7 +2054,9 @@ class DictionaryBase: public HashTable<2, 3> {};
 class Dictionary: public DictionaryBase {
  public:
   // Returns the value at entry.
-  Object* ValueAt(int entry) { return get(EntryToIndex(entry)+1); }
+  Object* ValueAt(int entry) {
+    return get(EntryToIndex(entry)+1);
+  }
 
   // Set the value for entry.
   void ValueAtPut(int entry, Object* value) {
@@ -2036,6 +2065,7 @@ class Dictionary: public DictionaryBase {
 
   // Returns the property details for the property at entry.
   PropertyDetails DetailsAt(int entry) {
+    ASSERT(entry >= 0);  // Not found is -1, which is not caught by get().
     return PropertyDetails(Smi::cast(get(EntryToIndex(entry) + 2)));
   }
 
@@ -2063,16 +2093,16 @@ class Dictionary: public DictionaryBase {
   Object* DeleteProperty(int entry, JSObject::DeleteMode mode);
 
   // Type specific at put (default NONE attributes is used when adding).
-  Object* AtStringPut(String* key, Object* value);
   Object* AtNumberPut(uint32_t key, Object* value);
 
   Object* AddStringEntry(String* key, Object* value, PropertyDetails details);
   Object* AddNumberEntry(uint32_t key, Object* value, PropertyDetails details);
 
   // Set an existing entry or add a new one if needed.
-  Object* SetOrAddStringEntry(String* key,
-                              Object* value,
-                              PropertyDetails details);
+  Object* SetStringEntry(int entry,
+                         String* key,
+                         Object* value,
+                         PropertyDetails details);
 
   Object* SetOrAddNumberEntry(uint32_t key,
                               Object* value,
@@ -2251,6 +2281,7 @@ class Code: public HeapObject {
   // Printing
   static const char* Kind2String(Kind kind);
   static const char* ICState2String(InlineCacheState state);
+  static const char* PropertyType2String(PropertyType type);
   void Disassemble(const char* name);
 #endif  // ENABLE_DISASSEMBLER
 
@@ -2273,7 +2304,7 @@ class Code: public HeapObject {
   // [flags]: Access to specific code flags.
   inline Kind kind();
   inline InlineCacheState ic_state();  // Only valid for IC stubs.
-  inline InLoopFlag ic_in_loop();  // Only valid for IC stubs..
+  inline InLoopFlag ic_in_loop();  // Only valid for IC stubs.
   inline PropertyType type();  // Only valid for monomorphic IC stubs.
   inline int arguments_count();  // Only valid for call IC stubs.
 
@@ -2470,7 +2501,7 @@ class Map: public HeapObject {
     return ((1 << kIsHiddenPrototype) & bit_field()) != 0;
   }
 
-  // Tells whether the instance has a named interceptor.
+  // Records and queries whether the instance has a named interceptor.
   inline void set_has_named_interceptor() {
     set_bit_field(bit_field() | (1 << kHasNamedInterceptor));
   }
@@ -2479,7 +2510,7 @@ class Map: public HeapObject {
     return ((1 << kHasNamedInterceptor) & bit_field()) != 0;
   }
 
-  // Tells whether the instance has a named interceptor.
+  // Records and queries whether the instance has an indexed interceptor.
   inline void set_has_indexed_interceptor() {
     set_bit_field(bit_field() | (1 << kHasIndexedInterceptor));
   }
@@ -2654,16 +2685,16 @@ class Script: public Struct {
  public:
   // Script types.
   enum Type {
-    TYPE_NATIVE,
-    TYPE_EXTENSION,
-    TYPE_NORMAL
+    TYPE_NATIVE = 0,
+    TYPE_EXTENSION = 1,
+    TYPE_NORMAL = 2
   };
 
   // Script compilation types.
   enum CompilationType {
-    COMPILATION_TYPE_HOST,
-    COMPILATION_TYPE_EVAL,
-    COMPILATION_TYPE_JSON
+    COMPILATION_TYPE_HOST = 0,
+    COMPILATION_TYPE_EVAL = 1,
+    COMPILATION_TYPE_JSON = 2
   };
 
   // [source]: the script source.
@@ -2745,6 +2776,9 @@ class SharedFunctionInfo: public HeapObject {
 
   // [code]: Function code.
   DECL_ACCESSORS(code, Code)
+
+  // [construct stub]: Code stub for constructing instances of this function.
+  DECL_ACCESSORS(construct_stub, Code)
 
   // Returns if this function has been compiled to native code yet.
   inline bool is_compiled();
@@ -2841,7 +2875,8 @@ class SharedFunctionInfo: public HeapObject {
   // (An even number of integers has a size that is a multiple of a pointer.)
   static const int kNameOffset = HeapObject::kHeaderSize;
   static const int kCodeOffset = kNameOffset + kPointerSize;
-  static const int kLengthOffset = kCodeOffset + kPointerSize;
+  static const int kConstructStubOffset = kCodeOffset + kPointerSize;
+  static const int kLengthOffset = kConstructStubOffset + kPointerSize;
   static const int kFormalParameterCountOffset = kLengthOffset + kIntSize;
   static const int kExpectedNofPropertiesOffset =
       kFormalParameterCountOffset + kIntSize;
@@ -3043,6 +3078,10 @@ class GlobalObject: public JSObject {
 // JavaScript global object.
 class JSGlobalObject: public GlobalObject {
  public:
+
+  // Retrieve the property cell used to store a property.
+  Object* GetPropertyCell(LookupResult* result);
+
   // Casting.
   static inline JSGlobalObject* cast(Object* obj);
 
@@ -3931,6 +3970,31 @@ class Oddball: public HeapObject {
 };
 
 
+class JSGlobalPropertyCell: public HeapObject {
+ public:
+  // [value]: value of the global property.
+  DECL_ACCESSORS(value, Object)
+
+  // Casting.
+  static inline JSGlobalPropertyCell* cast(Object* obj);
+
+  // Dispatched behavior.
+  void JSGlobalPropertyCellIterateBody(ObjectVisitor* v);
+#ifdef DEBUG
+  void JSGlobalPropertyCellVerify();
+  void JSGlobalPropertyCellPrint();
+#endif
+
+  // Layout description.
+  static const int kValueOffset = HeapObject::kHeaderSize;
+  static const int kSize = kValueOffset + kPointerSize;
+
+ private:
+  DISALLOW_IMPLICIT_CONSTRUCTORS(JSGlobalPropertyCell);
+};
+
+
+
 // Proxy describes objects pointing from JavaScript to C structures.
 // Since they cannot contain references to JS HeapObjects they can be
 // placed in old_data_space.
@@ -3985,7 +4049,7 @@ class JSArray: public JSObject {
 
   // Uses handles.  Ensures that the fixed array backing the JSArray has at
   // least the stated size.
-  void EnsureSize(int minimum_size_of_backing_fixed_array);
+  inline void EnsureSize(int minimum_size_of_backing_fixed_array);
 
   // Dispatched behavior.
 #ifdef DEBUG
@@ -3998,6 +4062,10 @@ class JSArray: public JSObject {
   static const int kSize = kLengthOffset + kPointerSize;
 
  private:
+  // Expand the fixed array backing of a fast-case JSArray to at least
+  // the requested size.
+  void Expand(int minimum_size_of_backing_fixed_array);
+
   DISALLOW_IMPLICIT_CONSTRUCTORS(JSArray);
 };
 
@@ -4008,10 +4076,9 @@ class JSArray: public JSObject {
 // If an accessor was found and it does not have a setter,
 // the request is ignored.
 //
-// To allow shadow an accessor property, the accessor can
-// have READ_ONLY property attribute so that a new value
-// is added to the local object to shadow the accessor
-// in prototypes.
+// If the accessor in the prototype has the READ_ONLY property attribute, then
+// a new value is added to the local object when the property is set.
+// This shadows the accessor in the prototype.
 class AccessorInfo: public Struct {
  public:
   DECL_ACCESSORS(getter, Object)

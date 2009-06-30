@@ -30,7 +30,7 @@
 
 // The original source code covered by the above license above has been
 // modified significantly by Google Inc.
-// Copyright 2006-2008 the V8 project authors. All rights reserved.
+// Copyright 2006-2009 the V8 project authors. All rights reserved.
 
 #ifndef V8_ASSEMBLER_H_
 #define V8_ASSEMBLER_H_
@@ -183,7 +183,7 @@ class RelocInfo BASE_EMBEDDED {
   intptr_t data() const  { return data_; }
 
   // Apply a relocation by delta bytes
-  INLINE(void apply(int delta));
+  INLINE(void apply(intptr_t delta));
 
   // Read/modify the code target in the branch/call instruction
   // this relocation applies to;
@@ -265,8 +265,12 @@ class RelocInfoWriter BASE_EMBEDDED {
     last_pc_ = pc;
   }
 
-  // Max size (bytes) of a written RelocInfo.
-  static const int kMaxSize = 12;
+  // Max size (bytes) of a written RelocInfo. Longest encoding is
+  // ExtraTag, VariableLengthPCJump, ExtraTag, pc_delta, ExtraTag, data_delta.
+  // On ia32 and arm this is 1 + 4 + 1 + 1 + 1 + 4 = 12.
+  // On x64 this is 1 + 4 + 1 + 1 + 1 + 8 == 16;
+  // Here we use the maximum of the two.
+  static const int kMaxSize = 16;
 
  private:
   inline uint32_t WriteVariableLengthPCJump(uint32_t pc_delta);
@@ -352,10 +356,15 @@ class SCTableReference;
 class Debug_Address;
 #endif
 
-// An ExternalReference represents a C++ address called from the generated
-// code. All references to C++ functions and must be encapsulated in an
-// ExternalReference instance. This is done in order to track the origin of
-// all external references in the code.
+
+typedef void* ExternalReferenceRedirector(void* original, bool fp_return);
+
+
+// An ExternalReference represents a C++ address used in the generated
+// code. All references to C++ functions and variables must be encapsulated in
+// an ExternalReference instance. This is done in order to track the origin of
+// all external references in the code so that they can be bound to the correct
+// addresses when deserializing a heap.
 class ExternalReference BASE_EMBEDDED {
  public:
   explicit ExternalReference(Builtins::CFunctionId id);
@@ -382,7 +391,9 @@ class ExternalReference BASE_EMBEDDED {
   // pattern. This means that they have to be added to the
   // ExternalReferenceTable in serialize.cc manually.
 
+  static ExternalReference perform_gc_function();
   static ExternalReference builtin_passed_function();
+  static ExternalReference random_positive_smi_function();
 
   // Static variable Factory::the_hole_value.location()
   static ExternalReference the_hole_value_location();
@@ -402,8 +413,9 @@ class ExternalReference BASE_EMBEDDED {
   static ExternalReference new_space_allocation_limit_address();
 
   static ExternalReference double_fp_operation(Token::Value operation);
+  static ExternalReference compare_doubles();
 
-  Address address() const {return address_;}
+  Address address() const {return reinterpret_cast<Address>(address_);}
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
   // Function Debug::Break()
@@ -413,11 +425,30 @@ class ExternalReference BASE_EMBEDDED {
   static ExternalReference debug_step_in_fp_address();
 #endif
 
+  // This lets you register a function that rewrites all external references.
+  // Used by the ARM simulator to catch calls to external references.
+  static void set_redirector(ExternalReferenceRedirector* redirector) {
+    ASSERT(redirector_ == NULL);  // We can't stack them.
+    redirector_ = redirector;
+  }
+
  private:
   explicit ExternalReference(void* address)
-    : address_(reinterpret_cast<Address>(address)) {}
+      : address_(address) {}
 
-  Address address_;
+  static ExternalReferenceRedirector* redirector_;
+
+  static void* Redirect(void* address, bool fp_return = false) {
+    if (redirector_ == NULL) return address;
+    return (*redirector_)(address, fp_return);
+  }
+
+  static void* Redirect(Address address_arg, bool fp_return = false) {
+    void* address = reinterpret_cast<void*>(address_arg);
+    return redirector_ == NULL ? address : (*redirector_)(address, fp_return);
+  }
+
+  void* address_;
 };
 
 

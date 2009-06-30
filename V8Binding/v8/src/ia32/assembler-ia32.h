@@ -396,10 +396,15 @@ class CpuFeatures : public AllStatic {
 
 class Assembler : public Malloced {
  private:
-  // The relocation writer's position is kGap bytes below the end of
+  // We check before assembling an instruction that there is sufficient
+  // space to write an instruction and its relocation information.
+  // The relocation writer's position must be kGap bytes above the end of
   // the generated instructions. This leaves enough space for the
-  // longest possible ia32 instruction (17 bytes as of 9/26/06) and
-  // allows for a single, fast space check per instruction.
+  // longest possible ia32 instruction, 15 bytes, and the longest possible
+  // relocation information encoding, RelocInfoWriter::kMaxLength == 16.
+  // (There is a 15 byte limit on ia32 instruction length that rules out some
+  // otherwise valid instructions.)
+  // This allows for a single, fast space check per instruction.
   static const int kGap = 32;
 
  public:
@@ -539,15 +544,18 @@ class Assembler : public Malloced {
 
   void idiv(Register src);
 
-  void imul(Register dst, const Operand& src);
-  void imul(Register dst, Register src, int32_t imm32);
+  // Signed multiply instructions.
+  void imul(Register src);                               // edx:eax = eax * src.
+  void imul(Register dst, const Operand& src);           // dst = dst * src.
+  void imul(Register dst, Register src, int32_t imm32);  // dst = src * imm32.
 
   void inc(Register dst);
   void inc(const Operand& dst);
 
   void lea(Register dst, const Operand& src);
 
-  void mul(Register src);
+  // Unsigned multiply instruction.
+  void mul(Register src);                                // edx:eax = eax * reg.
 
   void neg(Register dst);
 
@@ -658,6 +666,8 @@ class Assembler : public Malloced {
 
   void fabs();
   void fchs();
+  void fcos();
+  void fsin();
 
   void fadd(int i);
   void fsub(int i);
@@ -728,11 +738,6 @@ class Assembler : public Malloced {
   // Writes a single word of data in the code stream.
   // Used for inline tables, e.g., jump-tables.
   void dd(uint32_t data, RelocInfo::Mode reloc_info);
-
-  // Writes the absolute address of a bound label at the given position in
-  // the generated code. That positions should have the relocation mode
-  // internal_reference!
-  void WriteInternalReference(int position, const Label& bound_label);
 
   int pc_offset() const  { return pc_ - buffer_; }
   int current_statement_position() const { return current_statement_position_; }

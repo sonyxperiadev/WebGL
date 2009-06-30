@@ -1041,7 +1041,6 @@ class SemiSpaceIterator : public ObjectIterator {
 
     HeapObject* object = HeapObject::FromAddress(current_);
     int size = (size_func_ == NULL) ? object->Size() : size_func_(object);
-    ASSERT_OBJECT_SIZE(size);
 
     current_ += size;
     return object;
@@ -1271,7 +1270,7 @@ class FreeListNode: public HeapObject {
   inline void set_next(Address next);
 
  private:
-  static const int kNextOffset = Array::kHeaderSize;
+  static const int kNextOffset = POINTER_SIZE_ALIGN(ByteArray::kHeaderSize);
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(FreeListNode);
 };
@@ -1305,7 +1304,8 @@ class OldSpaceFreeList BASE_EMBEDDED {
  private:
   // The size range of blocks, in bytes. (Smaller allocations are allowed, but
   // will always result in waste.)
-  static const int kMinBlockSize = Array::kHeaderSize + kPointerSize;
+  static const int kMinBlockSize =
+      POINTER_SIZE_ALIGN(ByteArray::kHeaderSize) + kPointerSize;
   static const int kMaxBlockSize = Page::kMaxHeapObjectSize;
 
   // The identity of the owning space, for building allocation Failure

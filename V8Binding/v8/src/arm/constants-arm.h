@@ -1,4 +1,4 @@
-// Copyright 2008 the V8 project authors. All rights reserved.
+// Copyright 2009 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -27,6 +27,27 @@
 
 #ifndef V8_ARM_CONSTANTS_ARM_H_
 #define V8_ARM_CONSTANTS_ARM_H_
+
+// The simulator emulates the EABI so we define the USE_ARM_EABI macro if we
+// are not running on real ARM hardware.  One reason for this is that the
+// old ABI uses fp registers in the calling convention and the simulator does
+// not simulate fp registers or coroutine instructions.
+#if defined(__ARM_EABI__) || !defined(__arm__)
+# define USE_ARM_EABI 1
+#endif
+
+// This means that interwork-compatible jump instructions are generated.  We
+// want to generate them on the simulator too so it makes snapshots that can
+// be used on real hardware.
+#if defined(__THUMB_INTERWORK__) || !defined(__arm__)
+# define USE_THUMB_INTERWORK 1
+#endif
+
+// Simulator should support ARM5 instructions.
+#if !defined(__arm__)
+# define __ARM_ARCH_5__ 1
+# define __ARM_ARCH_5T__ 1
+#endif
 
 namespace assembler {
 namespace arm {
@@ -89,6 +110,24 @@ enum Opcode {
 };
 
 
+// Some special instructions encoded as a TEQ with S=0 (bit 20).
+enum Opcode9Bits {
+  BX   =  1,
+  BXJ  =  2,
+  BLX  =  3,
+  BKPT =  7
+};
+
+
+// Some special instructions encoded as a CMN with S=0 (bit 20).
+enum Opcode11Bits {
+  CLZ  =  1
+};
+
+
+// S
+
+
 // Shifter types for Data-processing operands as defined in section A5.1.2.
 enum Shift {
   no_shift = -1,
@@ -104,15 +143,9 @@ enum Shift {
 // simulator.
 enum SoftwareInterruptCodes {
   // transition to C code
-  call_rt_r5 = 0x10,
-  call_rt_r2 = 0x11,
+  call_rt_redirected = 0x10,
   // break point
-  break_point = 0x20,
-  // FP operations.  These simulate calling into C for a moment to do fp ops.
-  // They should trash all caller-save registers.
-  simulator_fp_add = 0x21,
-  simulator_fp_sub = 0x22,
-  simulator_fp_mul = 0x23
+  break_point = 0x20
 };
 
 
