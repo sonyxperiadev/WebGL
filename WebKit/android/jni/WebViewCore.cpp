@@ -2390,10 +2390,6 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
 static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
 #if USE(V8)
-    // This code is called from UI thread, but it is safe to call setFlags
-    // on ScriptController since it initializes global variables only.
-    // As long as the WebCore thread does not change the default JS flags,
-    // it is safe to call it here.
     WebCore::String flagsString = to_string(env, flags);
     WebCore::CString utf8String = flagsString.utf8();
     WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());

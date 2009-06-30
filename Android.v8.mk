@@ -209,7 +209,7 @@ LOCAL_SHARED_LIBRARIES += libdl
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES += libv8 libxml2
+LOCAL_STATIC_LIBRARIES += libxml2 libv8
 
 # Redefine LOCAL_SRC_FILES to be all the WebKit source files
 LOCAL_SRC_FILES := $(WEBKIT_SRC_FILES)
