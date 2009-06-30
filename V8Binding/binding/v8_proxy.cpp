@@ -2952,6 +2952,10 @@ v8::Handle<v8::Value> V8Proxy::EventToV8Object(Event* event)
       type = V8ClassIndex::MOUSEEVENT;
     else if (event->isWheelEvent())
       type = V8ClassIndex::WHEELEVENT;
+#if PLATFORM(ANDROID)  // ENABLE(TOUCH_EVENTS)
+    else if (event->isTouchEvent())
+      type = V8ClassIndex::TOUCHEVENT;
+#endif
 #if ENABLE(SVG)
     else if (event->isSVGZoomEvent())
       type = V8ClassIndex::SVGZOOMEVENT;
