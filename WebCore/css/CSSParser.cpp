@@ -88,6 +88,10 @@ using namespace WTF;
 #include "CSSPropertyNames.cpp"
 #include "CSSValueKeywords.c"
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 namespace WebCore {
 
 static bool equal(const CSSParserString& a, const char* b)
@@ -217,32 +221,53 @@ void CSSParser::setupParser(const char* prefix, const String& string, const char
 
 void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     m_styleSheet = sheet;
     m_defaultNamespace = starAtom; // Reset the default namespace.
     
     setupParser("", string, "");
     cssyyparse(this);
     m_rule = 0;
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
 }
 
 PassRefPtr<CSSRule> CSSParser::parseRule(CSSStyleSheet* sheet, const String& string)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     m_styleSheet = sheet;
     setupParser("@-webkit-rule{", string, "} ");
     cssyyparse(this);
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return m_rule.release();
 }
 
 PassRefPtr<CSSRule> CSSParser::parseKeyframeRule(CSSStyleSheet *sheet, const String &string)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     m_styleSheet = sheet;
     setupParser("@-webkit-keyframe-rule{ ", string, "} ");
     cssyyparse(this);
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return m_keyframe.release();
 }
 
 bool CSSParser::parseValue(CSSMutableStyleDeclaration* declaration, int id, const String& string, bool important)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     ASSERT(!declaration->stylesheet() || declaration->stylesheet()->isCSSStyleSheet());
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
 
@@ -264,6 +289,9 @@ bool CSSParser::parseValue(CSSMutableStyleDeclaration* declaration, int id, cons
         clearProperties();
     }
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return ok;
 }
 
@@ -294,6 +322,9 @@ bool CSSParser::parseColor(RGBA32& color, const String& string, bool strict)
 
 bool CSSParser::parseColor(CSSMutableStyleDeclaration* declaration, const String& string)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     ASSERT(!declaration->stylesheet() || declaration->stylesheet()->isCSSStyleSheet());
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
 
@@ -301,11 +332,17 @@ bool CSSParser::parseColor(CSSMutableStyleDeclaration* declaration, const String
     cssyyparse(this);
     m_rule = 0;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return (m_numParsedProperties && m_parsedProperties[0]->m_id == CSSPropertyColor);
 }
 
 void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorList& selectorList)
 {    
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     RefPtr<CSSStyleSheet> dummyStyleSheet = CSSStyleSheet::create(doc);
 
     m_styleSheet = dummyStyleSheet.get();
@@ -316,10 +353,16 @@ void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorLi
     cssyyparse(this);
 
     m_selectorListForParseSelector = 0;
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
 }
 
 bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     ASSERT(!declaration->stylesheet() || declaration->stylesheet()->isCSSStyleSheet());
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
 
@@ -336,6 +379,9 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
         clearProperties();
     }
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return ok;
 }
 
@@ -344,6 +390,9 @@ bool CSSParser::parseMediaQuery(MediaList* queries, const String& string)
     if (string.isEmpty())
         return true;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     m_mediaQuery = 0;
     // can't use { because tokenizer state switches from mediaquery to initial state when it sees { token.
     // instead insert one " " (which is WHITESPACE in CSSGrammar.y)
@@ -357,6 +406,9 @@ bool CSSParser::parseMediaQuery(MediaList* queries, const String& string)
         m_mediaQuery = 0;
     }
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return ok;
 }
 
@@ -4774,6 +4826,9 @@ void CSSParser::clearVariables()
 
 bool CSSParser::parseVariable(CSSVariablesDeclaration* declaration, const String& variableName, const String& variableValue)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
+#endif
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
 
     String nameValuePair = variableName + ": ";
@@ -4791,6 +4846,9 @@ bool CSSParser::parseVariable(CSSVariablesDeclaration* declaration, const String
     
     clearVariables();
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return ok;
 }
 

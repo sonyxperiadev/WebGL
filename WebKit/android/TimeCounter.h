@@ -42,8 +42,9 @@ class TimeCounter {
 public:
     enum Type {
         // function base counters
-        CSSTimeCounter,
+        CSSParseTimeCounter,
         JavaScriptTimeCounter,
+        JavaScriptParseTimeCounter,
         CalculateStyleTimeCounter,
         JavaCallbackTimeCounter,
         ParsingTimeCounter,

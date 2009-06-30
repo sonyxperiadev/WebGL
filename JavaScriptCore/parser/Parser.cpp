@@ -35,10 +35,17 @@ using std::auto_ptr;
 extern int jscyyparse(void*);
 #endif
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 namespace JSC {
 
 void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
+#endif
     m_sourceElements = 0;
 
     int defaultErrLine;
@@ -65,6 +72,9 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
         *errMsg = "Parse error";
         m_sourceElements = 0;
     }
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
+#endif
 }
 
 void Parser::reparseInPlace(JSGlobalData* globalData, FunctionBodyNode* functionBodyNode)
