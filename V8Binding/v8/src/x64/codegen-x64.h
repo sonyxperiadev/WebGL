@@ -273,6 +273,14 @@ class CodeGenState BASE_EMBEDDED {
 };
 
 
+// -------------------------------------------------------------------------
+// Arguments allocation mode
+
+enum ArgumentsAllocationMode {
+  NO_ARGUMENTS_ALLOCATION,
+  EAGER_ARGUMENTS_ALLOCATION,
+  LAZY_ARGUMENTS_ALLOCATION
+};
 
 
 // -------------------------------------------------------------------------
@@ -374,6 +382,12 @@ class CodeGenerator: public AstVisitor {
   // target (which can not be done more than once).
   void GenerateReturnSequence(Result* return_value);
 
+  // Returns the arguments allocation mode.
+  ArgumentsAllocationMode ArgumentsMode() const;
+
+  // Store the arguments object and allocate it if necessary.
+  Result StoreArgumentsObject(bool initial);
+
   // The following are used by class Reference.
   void LoadReference(Reference* ref);
   void UnloadReference(Reference* ref);
@@ -409,6 +423,7 @@ class CodeGenerator: public AstVisitor {
 
   // Read a value from a slot and leave it on top of the expression stack.
   void LoadFromSlot(Slot* slot, TypeofState typeof_state);
+  void LoadFromSlotCheckForArguments(Slot* slot, TypeofState state);
   Result LoadFromGlobalSlotCheckExtensions(Slot* slot,
                                            TypeofState typeof_state,
                                            JumpTarget* slow);
@@ -499,11 +514,15 @@ class CodeGenerator: public AstVisitor {
   void GenerateIsNonNegativeSmi(ZoneList<Expression*>* args);
   void GenerateIsArray(ZoneList<Expression*>* args);
 
+  // Support for construct call checks.
+  void GenerateIsConstructCall(ZoneList<Expression*>* args);
+
   // Support for arguments.length and arguments[?].
   void GenerateArgumentsLength(ZoneList<Expression*>* args);
   void GenerateArgumentsAccess(ZoneList<Expression*>* args);
 
-  // Support for accessing the value field of an object (used by Date).
+  // Support for accessing the class and value fields of an object.
+  void GenerateClassOf(ZoneList<Expression*>* args);
   void GenerateValueOf(ZoneList<Expression*>* args);
   void GenerateSetValueOf(ZoneList<Expression*>* args);
 
@@ -515,6 +534,14 @@ class CodeGenerator: public AstVisitor {
 
   void GenerateLog(ZoneList<Expression*>* args);
 
+  // Fast support for Math.random().
+  void GenerateRandomPositiveSmi(ZoneList<Expression*>* args);
+
+  // Fast support for Math.sin and Math.cos.
+  enum MathOp { SIN, COS };
+  void GenerateFastMathOp(MathOp op, ZoneList<Expression*>* args);
+  inline void GenerateMathSin(ZoneList<Expression*>* args);
+  inline void GenerateMathCos(ZoneList<Expression*>* args);
 
   // Methods and constants for fast case switch statement support.
   //

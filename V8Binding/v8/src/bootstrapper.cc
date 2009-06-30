@@ -580,8 +580,7 @@ void Genesis::CreateRoots(v8::Handle<v8::ObjectTemplate> global_template,
 
       js_global_function->initial_map()->set_is_hidden_prototype();
       SetExpectedNofProperties(js_global_function, 100);
-      object = Handle<JSGlobalObject>::cast(
-          Factory::NewJSObject(js_global_function, TENURED));
+      object = Factory::NewJSGlobalObject(js_global_function);
     }
 
     // Set the global context for the global object.
@@ -1113,8 +1112,8 @@ bool Genesis::InstallNatives() {
   }
 
 #ifdef V8_HOST_ARCH_64_BIT
-  // TODO(X64): Reenable remaining initialization when code generation works.
-  return true;
+  // TODO(X64): Remove this when inline caches work.
+  FLAG_use_ic = false;
 #endif  // V8_HOST_ARCH_64_BIT
 
 
@@ -1212,6 +1211,17 @@ bool Genesis::InstallSpecialObjects() {
         Factory::LookupAsciiSymbol(FLAG_expose_natives_as);
     SetProperty(js_global, natives_string,
                 Handle<JSObject>(js_global->builtins()), DONT_ENUM);
+  }
+
+  if (FLAG_capture_stack_traces) {
+    Handle<Object> Error = GetProperty(js_global, "Error");
+    if (Error->IsJSObject()) {
+      Handle<String> name = Factory::LookupAsciiSymbol("captureStackTraces");
+      SetProperty(Handle<JSObject>::cast(Error),
+                  name,
+                  Factory::true_value(),
+                  NONE);
+    }
   }
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
@@ -1445,6 +1455,9 @@ void Genesis::TransferNamedProperties(Handle<JSObject> from,
         // Set the property.
         Handle<String> key = Handle<String>(String::cast(raw_key));
         Handle<Object> value = Handle<Object>(properties->ValueAt(i));
+        if (value->IsJSGlobalPropertyCell()) {
+          value = Handle<Object>(JSGlobalPropertyCell::cast(*value)->value());
+        }
         PropertyDetails details = properties->DetailsAt(i);
         SetProperty(to, key, value, details.attributes());
       }

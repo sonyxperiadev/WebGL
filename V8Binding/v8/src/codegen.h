@@ -61,12 +61,6 @@
 //   FindInlineRuntimeLUT
 //   CheckForInlineRuntimeCall
 //   PatchInlineRuntimeEntry
-//   GenerateFastCaseSwitchStatement
-//   GenerateFastCaseSwitchCases
-//   TryGenerateFastCaseSwitchStatement
-//   GenerateFastCaseSwitchJumpTable
-//   FastCaseSwitchMinCaseCount
-//   FastCaseSwitchMaxOverheadFactor
 //   CodeForFunctionPosition
 //   CodeForReturnPosition
 //   CodeForStatementPosition
@@ -83,6 +77,8 @@ enum OverwriteMode { NO_OVERWRITE, OVERWRITE_LEFT, OVERWRITE_RIGHT };
 #include "x64/codegen-x64.h"
 #elif V8_TARGET_ARCH_ARM
 #include "arm/codegen-arm.h"
+#else
+#error Unsupported target architecture.
 #endif
 
 #include "register-allocator.h"
@@ -228,16 +224,60 @@ class StackCheckStub : public CodeStub {
 };
 
 
-class UnarySubStub : public CodeStub {
+class InstanceofStub: public CodeStub {
  public:
-  UnarySubStub() { }
+  InstanceofStub() { }
+
+  void Generate(MacroAssembler* masm);
 
  private:
-  Major MajorKey() { return UnarySub; }
+  Major MajorKey() { return Instanceof; }
   int MinorKey() { return 0; }
+};
+
+
+class UnarySubStub : public CodeStub {
+ public:
+  explicit UnarySubStub(bool overwrite)
+      : overwrite_(overwrite) { }
+
+ private:
+  bool overwrite_;
+  Major MajorKey() { return UnarySub; }
+  int MinorKey() { return overwrite_ ? 1 : 0; }
   void Generate(MacroAssembler* masm);
 
   const char* GetName() { return "UnarySubStub"; }
+};
+
+
+class CompareStub: public CodeStub {
+ public:
+  CompareStub(Condition cc, bool strict) : cc_(cc), strict_(strict) { }
+
+  void Generate(MacroAssembler* masm);
+
+ private:
+  Condition cc_;
+  bool strict_;
+
+  Major MajorKey() { return Compare; }
+
+  int MinorKey();
+
+  // Branch to the label if the given object isn't a symbol.
+  void BranchIfNonSymbol(MacroAssembler* masm,
+                         Label* label,
+                         Register object,
+                         Register scratch);
+
+#ifdef DEBUG
+  void Print() {
+    PrintF("CompareStub (cc %d), (strict %s)\n",
+           static_cast<int>(cc_),
+           strict_ ? "true" : "false");
+  }
+#endif
 };
 
 

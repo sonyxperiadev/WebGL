@@ -48,7 +48,7 @@ void JumpTarget::Unuse() {
 }
 
 
-void JumpTarget::ComputeEntryFrame(int mergable_elements) {
+void JumpTarget::ComputeEntryFrame() {
   // Given: a collection of frames reaching by forward CFG edges and
   // the directionality of the block.  Compute: an entry frame for the
   // block.
@@ -77,29 +77,16 @@ void JumpTarget::ComputeEntryFrame(int mergable_elements) {
   int length = initial_frame->element_count();
   ZoneList<FrameElement*> elements(length);
 
-  // Convert the number of mergable elements (counted from the top
-  // down) to a frame high-water mark (counted from the bottom up).
-  // Elements strictly above the high-water index will be mergable in
-  // entry frames for bidirectional jump targets.
-  int high_water_mark = (mergable_elements == kAllElements)
-      ? VirtualFrame::kIllegalIndex  // All frame indices are above this.
-      : length - mergable_elements - 1;  // Top index if m_e == 0.
-
   // Initially populate the list of elements based on the initial
   // frame.
   for (int i = 0; i < length; i++) {
     FrameElement element = initial_frame->elements_[i];
-    // We do not allow copies or constants in bidirectional frames.  All
-    // elements above the water mark on bidirectional frames have
-    // unknown static types.
-    if (direction_ == BIDIRECTIONAL && i > high_water_mark) {
+    // We do not allow copies or constants in bidirectional frames.
+    if (direction_ == BIDIRECTIONAL) {
       if (element.is_constant() || element.is_copy()) {
         elements.Add(NULL);
         continue;
       }
-      // It's safe to change the static type on the initial frame
-      // element, see comment in JumpTarget::Combine.
-      initial_frame->elements_[i].set_static_type(StaticType::unknown());
     }
     elements.Add(&initial_frame->elements_[i]);
   }
@@ -150,17 +137,11 @@ void JumpTarget::ComputeEntryFrame(int mergable_elements) {
   for (int i = length - 1; i >= 0; i--) {
     if (elements[i] == NULL) {
       // Loop over all the reaching frames to check whether the element
-      // is synced on all frames, to count the registers it occupies,
-      // and to compute a merged static type.
+      // is synced on all frames and to count the registers it occupies.
       bool is_synced = true;
       RegisterFile candidate_registers;
       int best_count = kMinInt;
       int best_reg_num = RegisterAllocator::kInvalidRegister;
-
-      StaticType type;  // Initially invalid.
-      if (direction_ != BIDIRECTIONAL || i < high_water_mark) {
-        type = reaching_frames_[0]->elements_[i].static_type();
-      }
 
       for (int j = 0; j < reaching_frames_.length(); j++) {
         FrameElement element = reaching_frames_[j]->elements_[i];
@@ -175,7 +156,6 @@ void JumpTarget::ComputeEntryFrame(int mergable_elements) {
             best_reg_num = num;
           }
         }
-        type = type.merge(element.static_type());
       }
 
       // If the value is synced on all frames, put it in memory.  This
@@ -183,7 +163,6 @@ void JumpTarget::ComputeEntryFrame(int mergable_elements) {
       // memory-to-register move when the value is needed later.
       if (is_synced) {
         // Already recorded as a memory element.
-        entry_frame_->elements_[i].set_static_type(type);
         continue;
       }
 
@@ -198,20 +177,15 @@ void JumpTarget::ComputeEntryFrame(int mergable_elements) {
         }
       }
 
-      if (best_reg_num == RegisterAllocator::kInvalidRegister) {
-        // If there was no register found, the element is already
-        // recorded as in memory.
-        entry_frame_->elements_[i].set_static_type(type);
-      } else {
+      if (best_reg_num != RegisterAllocator::kInvalidRegister) {
         // If there was a register choice, use it.  Preserve the copied
-        // flag on the element.  Set the static type as computed.
+        // flag on the element.
         bool is_copied = entry_frame_->elements_[i].is_copied();
         Register reg = RegisterAllocator::ToRegister(best_reg_num);
         entry_frame_->elements_[i] =
             FrameElement::RegisterElement(reg,
                                           FrameElement::NOT_SYNCED);
         if (is_copied) entry_frame_->elements_[i].set_copied();
-        entry_frame_->elements_[i].set_static_type(type);
         entry_frame_->set_register_location(reg, i);
       }
     }
@@ -237,25 +211,6 @@ void JumpTarget::Jump(Result* arg) {
   ASSERT(cgen()->has_valid_frame());
 
   cgen()->frame()->Push(arg);
-  DoJump();
-}
-
-
-void JumpTarget::Jump(Result* arg0, Result* arg1) {
-  ASSERT(cgen()->has_valid_frame());
-
-  cgen()->frame()->Push(arg0);
-  cgen()->frame()->Push(arg1);
-  DoJump();
-}
-
-
-void JumpTarget::Jump(Result* arg0, Result* arg1, Result* arg2) {
-  ASSERT(cgen()->has_valid_frame());
-
-  cgen()->frame()->Push(arg0);
-  cgen()->frame()->Push(arg1);
-  cgen()->frame()->Push(arg2);
   DoJump();
 }
 
@@ -295,84 +250,6 @@ void JumpTarget::Branch(Condition cc, Result* arg, Hint hint) {
 }
 
 
-void JumpTarget::Branch(Condition cc, Result* arg0, Result* arg1, Hint hint) {
-  ASSERT(cgen()->frame() != NULL);
-
-  // We want to check that non-frame registers at the call site stay in
-  // the same registers on the fall-through branch.
-  DECLARE_ARGCHECK_VARS(arg0);
-  DECLARE_ARGCHECK_VARS(arg1);
-
-  cgen()->frame()->Push(arg0);
-  cgen()->frame()->Push(arg1);
-  DoBranch(cc, hint);
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
-
-  ASSERT_ARGCHECK(arg0);
-  ASSERT_ARGCHECK(arg1);
-}
-
-
-void JumpTarget::Branch(Condition cc,
-                        Result* arg0,
-                        Result* arg1,
-                        Result* arg2,
-                        Hint hint) {
-  ASSERT(cgen()->frame() != NULL);
-
-  // We want to check that non-frame registers at the call site stay in
-  // the same registers on the fall-through branch.
-  DECLARE_ARGCHECK_VARS(arg0);
-  DECLARE_ARGCHECK_VARS(arg1);
-  DECLARE_ARGCHECK_VARS(arg2);
-
-  cgen()->frame()->Push(arg0);
-  cgen()->frame()->Push(arg1);
-  cgen()->frame()->Push(arg2);
-  DoBranch(cc, hint);
-  *arg2 = cgen()->frame()->Pop();
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
-
-  ASSERT_ARGCHECK(arg0);
-  ASSERT_ARGCHECK(arg1);
-  ASSERT_ARGCHECK(arg2);
-}
-
-
-void JumpTarget::Branch(Condition cc,
-                        Result* arg0,
-                        Result* arg1,
-                        Result* arg2,
-                        Result* arg3,
-                        Hint hint) {
-  ASSERT(cgen()->frame() != NULL);
-
-  // We want to check that non-frame registers at the call site stay in
-  // the same registers on the fall-through branch.
-  DECLARE_ARGCHECK_VARS(arg0);
-  DECLARE_ARGCHECK_VARS(arg1);
-  DECLARE_ARGCHECK_VARS(arg2);
-  DECLARE_ARGCHECK_VARS(arg3);
-
-  cgen()->frame()->Push(arg0);
-  cgen()->frame()->Push(arg1);
-  cgen()->frame()->Push(arg2);
-  cgen()->frame()->Push(arg3);
-  DoBranch(cc, hint);
-  *arg3 = cgen()->frame()->Pop();
-  *arg2 = cgen()->frame()->Pop();
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
-
-  ASSERT_ARGCHECK(arg0);
-  ASSERT_ARGCHECK(arg1);
-  ASSERT_ARGCHECK(arg2);
-  ASSERT_ARGCHECK(arg3);
-}
-
-
 void BreakTarget::Branch(Condition cc, Result* arg, Hint hint) {
   ASSERT(cgen()->has_valid_frame());
 
@@ -400,63 +277,17 @@ void BreakTarget::Branch(Condition cc, Result* arg, Hint hint) {
 #undef ASSERT_ARGCHECK
 
 
-void JumpTarget::Bind(int mergable_elements) {
-  DoBind(mergable_elements);
+void JumpTarget::Bind() {
+  DoBind();
 }
 
 
-void JumpTarget::Bind(Result* arg, int mergable_elements) {
+void JumpTarget::Bind(Result* arg) {
   if (cgen()->has_valid_frame()) {
     cgen()->frame()->Push(arg);
   }
-  DoBind(mergable_elements);
+  DoBind();
   *arg = cgen()->frame()->Pop();
-}
-
-
-void JumpTarget::Bind(Result* arg0, Result* arg1, int mergable_elements) {
-  if (cgen()->has_valid_frame()) {
-    cgen()->frame()->Push(arg0);
-    cgen()->frame()->Push(arg1);
-  }
-  DoBind(mergable_elements);
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
-}
-
-
-void JumpTarget::Bind(Result* arg0,
-                      Result* arg1,
-                      Result* arg2,
-                      int mergable_elements) {
-  if (cgen()->has_valid_frame()) {
-    cgen()->frame()->Push(arg0);
-    cgen()->frame()->Push(arg1);
-    cgen()->frame()->Push(arg2);
-  }
-  DoBind(mergable_elements);
-  *arg2 = cgen()->frame()->Pop();
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
-}
-
-
-void JumpTarget::Bind(Result* arg0,
-                      Result* arg1,
-                      Result* arg2,
-                      Result* arg3,
-                      int mergable_elements) {
-  if (cgen()->has_valid_frame()) {
-    cgen()->frame()->Push(arg0);
-    cgen()->frame()->Push(arg1);
-    cgen()->frame()->Push(arg2);
-    cgen()->frame()->Push(arg3);
-  }
-  DoBind(mergable_elements);
-  *arg3 = cgen()->frame()->Pop();
-  *arg2 = cgen()->frame()->Pop();
-  *arg1 = cgen()->frame()->Pop();
-  *arg0 = cgen()->frame()->Pop();
 }
 
 
@@ -531,7 +362,7 @@ void BreakTarget::Branch(Condition cc, Hint hint) {
 }
 
 
-void BreakTarget::Bind(int mergable_elements) {
+void BreakTarget::Bind() {
 #ifdef DEBUG
   // All the forward-reaching frames should have been adjusted at the
   // jumps to this target.
@@ -547,11 +378,11 @@ void BreakTarget::Bind(int mergable_elements) {
     int count = cgen()->frame()->height() - expected_height_;
     cgen()->frame()->ForgetElements(count);
   }
-  DoBind(mergable_elements);
+  DoBind();
 }
 
 
-void BreakTarget::Bind(Result* arg, int mergable_elements) {
+void BreakTarget::Bind(Result* arg) {
 #ifdef DEBUG
   // All the forward-reaching frames should have been adjusted at the
   // jumps to this target.
@@ -568,7 +399,7 @@ void BreakTarget::Bind(Result* arg, int mergable_elements) {
     cgen()->frame()->ForgetElements(count);
     cgen()->frame()->Push(arg);
   }
-  DoBind(mergable_elements);
+  DoBind();
   *arg = cgen()->frame()->Pop();
 }
 

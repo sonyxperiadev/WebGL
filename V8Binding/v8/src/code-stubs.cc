@@ -66,7 +66,7 @@ Handle<Code> CodeStub::GetCode() {
     // Add unresolved entries in the code to the fixup list.
     Bootstrapper::AddFixup(*code, &masm);
 
-    LOG(CodeCreateEvent("Stub", *code, GetName()));
+    LOG(CodeCreateEvent(Logger::STUB_TAG, *code, GetName()));
     Counters::total_stubs_code_size.Increment(code->instruction_size());
 
 #ifdef ENABLE_DISASSEMBLER
@@ -133,6 +133,10 @@ const char* CodeStub::MajorName(CodeStub::Major major_key) {
       return "InvokeBuiltin";
     case JSExit:
       return "JSExit";
+    case ConvertToDouble:
+      return "ConvertToDouble";
+    case WriteInt32ToHeapNumber:
+      return "WriteInt32ToHeapNumber";
     default:
       UNREACHABLE();
       return NULL;

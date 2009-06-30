@@ -117,7 +117,8 @@ void CpuFeatures::Probe() {
   Object* code =
       Heap::CreateCode(desc, NULL, Code::ComputeFlags(Code::STUB), NULL);
   if (!code->IsCode()) return;
-  LOG(CodeCreateEvent("Builtin", Code::cast(code), "CpuFeatures::Probe"));
+  LOG(CodeCreateEvent(Logger::BUILTIN_TAG,
+                      Code::cast(code), "CpuFeatures::Probe"));
   typedef uint64_t (*F0)();
   F0 probe = FUNCTION_CAST<F0>(Code::cast(code)->entry());
   supported_ = probe();
@@ -918,6 +919,14 @@ void Assembler::idiv(Register src) {
 }
 
 
+void Assembler::imul(Register reg) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  EMIT(0xF7);
+  EMIT(0xE8 | reg.code());
+}
+
+
 void Assembler::imul(Register dst, const Operand& src) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -1416,7 +1425,7 @@ void Assembler::call(const Operand& adr) {
 }
 
 
-void Assembler::call(Handle<Code> code,  RelocInfo::Mode rmode) {
+void Assembler::call(Handle<Code> code, RelocInfo::Mode rmode) {
   WriteRecordedPositions();
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -1655,6 +1664,22 @@ void Assembler::fchs() {
 }
 
 
+void Assembler::fcos() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  EMIT(0xD9);
+  EMIT(0xFF);
+}
+
+
+void Assembler::fsin() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  EMIT(0xD9);
+  EMIT(0xFE);
+}
+
+
 void Assembler::fadd(int i) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -1798,7 +1823,7 @@ void Assembler::fcompp() {
 void Assembler::fnstsw_ax() {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
-  EMIT(0xdF);
+  EMIT(0xDF);
   EMIT(0xE0);
 }
 
@@ -2162,17 +2187,6 @@ void Assembler::RecordRelocInfo(RelocInfo::Mode rmode, intptr_t data) {
   }
   RelocInfo rinfo(pc_, rmode, data);
   reloc_info_writer.Write(&rinfo);
-}
-
-
-void Assembler::WriteInternalReference(int position, const Label& bound_label) {
-  ASSERT(bound_label.is_bound());
-  ASSERT(0 <= position);
-  ASSERT(position + static_cast<int>(sizeof(uint32_t)) <= pc_offset());
-  ASSERT(long_at(position) == 0);  // only initialize once!
-
-  uint32_t label_loc = reinterpret_cast<uint32_t>(addr_at(bound_label.pos()));
-  long_at_put(position, label_loc);
 }
 
 

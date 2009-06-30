@@ -25,3 +25,60 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "v8.h"
+
+#include "codegen-inl.h"
+#include "register-allocator-inl.h"
+
+namespace v8 {
+namespace internal {
+
+// -------------------------------------------------------------------------
+// Result implementation.
+
+void Result::ToRegister() {
+  ASSERT(is_valid());
+  if (is_constant()) {
+    Result fresh = CodeGeneratorScope::Current()->allocator()->Allocate();
+    ASSERT(fresh.is_valid());
+    CodeGeneratorScope::Current()->masm()->Move(fresh.reg(), handle());
+    // This result becomes a copy of the fresh one.
+    *this = fresh;
+  }
+  ASSERT(is_register());
+}
+
+
+void Result::ToRegister(Register target) {
+  ASSERT(is_valid());
+  if (!is_register() || !reg().is(target)) {
+    Result fresh = CodeGeneratorScope::Current()->allocator()->Allocate(target);
+    ASSERT(fresh.is_valid());
+    if (is_register()) {
+      CodeGeneratorScope::Current()->masm()->movq(fresh.reg(), reg());
+    } else {
+      ASSERT(is_constant());
+      CodeGeneratorScope::Current()->masm()->Move(fresh.reg(), handle());
+    }
+    *this = fresh;
+  } else if (is_register() && reg().is(target)) {
+    ASSERT(CodeGeneratorScope::Current()->has_valid_frame());
+    CodeGeneratorScope::Current()->frame()->Spill(target);
+    ASSERT(CodeGeneratorScope::Current()->allocator()->count(target) == 1);
+  }
+  ASSERT(is_register());
+  ASSERT(reg().is(target));
+}
+
+
+// -------------------------------------------------------------------------
+// RegisterAllocator implementation.
+
+Result RegisterAllocator::AllocateByteRegisterWithoutSpilling() {
+  // This function is not used in 64-bit code.
+  UNREACHABLE();
+  return Result();
+}
+
+
+} }  // namespace v8::internal

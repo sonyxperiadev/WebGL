@@ -1,4 +1,4 @@
-// Copyright 2007-2008 the V8 project authors. All rights reserved.
+// Copyright 2007-2009 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -253,23 +253,11 @@ void Decoder::PrintPU(Instr* instr) {
 // the FormatOption method.
 void Decoder::PrintSoftwareInterrupt(SoftwareInterruptCodes swi) {
   switch (swi) {
-    case call_rt_r5:
-      Print("call_rt_r5");
-      return;
-    case call_rt_r2:
-      Print("call_rt_r2");
+    case call_rt_redirected:
+      Print("call_rt_redirected");
       return;
     case break_point:
       Print("break_point");
-      return;
-    case simulator_fp_add:
-      Print("simulator_fp_add");
-      return;
-    case simulator_fp_mul:
-      Print("simulator_fp_mul");
-      return;
-    case simulator_fp_sub:
-      Print("simulator_fp_sub");
       return;
     default:
       out_buffer_pos_ += v8i::OS::SNPrintF(out_buffer_ + out_buffer_pos_,
@@ -450,7 +438,7 @@ int Decoder::FormatOption(Instr* instr, const char* format) {
       return 6;
     }
     case 'u': {  // 'u: signed or unsigned multiplies
-      if (instr->Bit(22) == 0) {
+      if (instr->Bit(22) == 1) {
         Print("u");
       } else {
         Print("s");
@@ -511,7 +499,7 @@ void Decoder::DecodeType01(Instr* instr) {
             Format(instr, "mla'cond's 'rd, 'rm, 'rs, 'rn");
           }
         } else {
-          Format(instr, "'um'al'cond's 'rn, 'rd, 'rs, 'rm");
+          Format(instr, "'um'al'cond's 'rn, 'rd, 'rm, 'rs");
         }
       } else {
         Unknown(instr);  // not used by V8
@@ -605,7 +593,17 @@ void Decoder::DecodeType01(Instr* instr) {
         if (instr->HasS()) {
           Format(instr, "teq'cond 'rn, 'shift_op");
         } else {
-          Unknown(instr);  // not used by V8
+          switch (instr->Bits(7, 4)) {
+            case BX:
+              Format(instr, "bx'cond 'rm");
+              break;
+            case BLX:
+              Format(instr, "blx'cond 'rm");
+              break;
+            default:
+              Unknown(instr);  // not used by V8
+              break;
+          }
         }
         break;
       }
@@ -621,7 +619,14 @@ void Decoder::DecodeType01(Instr* instr) {
         if (instr->HasS()) {
           Format(instr, "cmn'cond 'rn, 'shift_op");
         } else {
-          Unknown(instr);  // not used by V8
+          switch (instr->Bits(7, 4)) {
+            case CLZ:
+              Format(instr, "clz'cond 'rd, 'rm");
+              break;
+            default:
+              Unknown(instr);  // not used by V8
+              break;
+          }
         }
         break;
       }

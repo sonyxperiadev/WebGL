@@ -35,10 +35,6 @@
 
 #include <AvailabilityMacros.h>
 
-#ifdef MAC_OS_X_VERSION_10_5
-# include <execinfo.h>  // backtrace, backtrace_symbols
-#endif
-
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -57,6 +53,17 @@
 #include "v8.h"
 
 #include "platform.h"
+
+// Manually define these here as weak imports, rather than including execinfo.h.
+// This lets us launch on 10.4 which does not have these calls.
+extern "C" {
+  extern int backtrace(void**, int) __attribute__((weak_import));
+  extern char** backtrace_symbols(void* const*, int)
+      __attribute__((weak_import));
+  extern void backtrace_symbols_fd(void* const*, int, int)
+      __attribute__((weak_import));
+}
+
 
 namespace v8 {
 namespace internal {
@@ -214,9 +221,10 @@ int OS::ActivationFrameAlignment() {
 
 
 int OS::StackWalk(Vector<StackFrame> frames) {
-#ifndef MAC_OS_X_VERSION_10_5
-  return 0;
-#else
+  // If weak link to execinfo lib has failed, ie because we are on 10.4, abort.
+  if (backtrace == NULL)
+    return 0;
+
   int frames_size = frames.length();
   void** addresses = NewArray<void*>(frames_size);
   int frames_count = backtrace(addresses, frames_size);
@@ -244,7 +252,6 @@ int OS::StackWalk(Vector<StackFrame> frames) {
   free(symbols);
 
   return frames_count;
-#endif
 }
 
 
@@ -500,7 +507,7 @@ static void ProfilerSignalHandler(int signal, siginfo_t* info, void* context) {
 #endif  // __DARWIN_UNIX03
 #else
 #error Unsupported Mac OS X host architecture.
-#endif  // V8_TARGET_ARCH_IA32
+#endif  // V8_HOST_ARCH_IA32
   }
 
   // We always sample the VM state.
