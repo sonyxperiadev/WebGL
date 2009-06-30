@@ -48,7 +48,7 @@ namespace WebCore {
                 return false;
 
 #if PLATFORM(ARM) || PLATFORM(SH4)
-            return memcmp(a->characters(), b->characters(), aLength) == 0;
+            return memcmp(a->characters(), b->characters(), sizeof(UChar) * aLength) == 0;
 #else
             const uint32_t* aChars = reinterpret_cast<const uint32_t*>(a->characters());
             const uint32_t* bChars = reinterpret_cast<const uint32_t*>(b->characters());
