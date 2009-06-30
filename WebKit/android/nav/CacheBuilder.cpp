@@ -1180,7 +1180,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 clip.intersect(parentClip);
             hasClip = true;
         }
-        if (hasClip && cachedNode.clip(clip) == false) {
+        if (hasClip && !clip.isEmpty() && cachedNode.clip(clip) == false) {
             cachedNode.setBounds(clip);
             cachedNode.cursorRings().append(clip);
             isUnclipped = true;
