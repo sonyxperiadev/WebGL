@@ -45,6 +45,7 @@
 
 using namespace WebCore;
 using namespace WTF;
+using namespace JSC;
 
 namespace android {
 
@@ -119,7 +120,6 @@ void TimeCounter::report(const KURL& url, int live, int dead, size_t arenaSize)
     Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
     LOGD("Current JavaScript heap size is %d and has %d bytes free",
             jsHeapStatistics.size, jsHeapStatistics.free);
-    LOGD("Current JavaScript nodes use %d bytes", JSC::Node::reportJavaScriptNodesSize());
 #endif
     LOGD("Current CSS styles use %d bytes", StyleBase::reportStyleSize());
     LOGD("Current DOM nodes use %d bytes", WebCore::Node::reportDOMNodesSize());

@@ -153,16 +153,6 @@ namespace JSC {
 
         int lineNo() const { return m_line; }
 
-#ifdef ANDROID_INSTRUMENT
-        // Overridden to prevent the normal new from being called.
-        void* operator new(size_t) throw();
-
-        // Overridden to prevent the normal delete from being called.
-        void operator delete(void*, size_t);
-
-        static size_t reportJavaScriptNodesSize();
-#endif
-
     protected:
         int m_line;
     };

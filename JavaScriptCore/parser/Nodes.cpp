@@ -2180,25 +2180,4 @@ JSFunction* FuncExprNode::makeFunction(ExecState* exec, ScopeChainNode* scopeCha
     return func;
 }
 
-#ifdef ANDROID_INSTRUMENT
-static size_t nodesSize = 0;
-
-void* Node::operator new(size_t s) throw()
-{
-    nodesSize += s;
-    return ::operator new(s);
-}
-
-void Node::operator delete(void* ptr, size_t s)
-{
-    nodesSize -= s;
-    ::operator delete(ptr);
-}
-
-size_t Node::reportJavaScriptNodesSize()
-{
-    return nodesSize;
-}
-#endif
-
 } // namespace JSC
