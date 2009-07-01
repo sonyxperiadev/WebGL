@@ -275,6 +275,7 @@ namespace android {
         void setSnapAnchor(int x, int y);
         void snapToAnchor();
         void updateFrameCache();
+        void updateCacheOnNodeChange();
         void dumpDomTree(bool);
         void dumpRenderTree(bool);
         void dumpNavTree();
@@ -336,6 +337,7 @@ namespace android {
         bool m_findIsUp;
         bool m_hasCursorBounds;
         WebCore::IntRect m_cursorBounds;
+        WebCore::IntRect m_cursorHitBounds;
         void* m_cursorFrame;
         IntPoint m_cursorLocation;
         void* m_cursorNode;

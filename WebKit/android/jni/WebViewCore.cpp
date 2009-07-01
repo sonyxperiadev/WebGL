@@ -505,36 +505,15 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height(),
         m_check_domtree_version ? "true" : "false",
         latestVersion, m_domtree_version);
-    bool update = m_lastFocused != oldFocusNode
-        || m_lastFocusedBounds != oldBounds || m_findIsUp
-        || (m_check_domtree_version && latestVersion != m_domtree_version)
-        || m_moveGeneration != m_lastMoveGeneration;
-    if (!update) { // avoid mutex when possible
-    // This block is specifically for the floating bar in gmail messages
-    // it has been disabled because it adversely affects the performance
-    // of loading all pages.
-        if (true || !m_hasCursorBounds)
-            return;
-        gCursorBoundsMutex.lock();
-        bool hasCursorBounds = m_hasCursorBounds;
-        void* cursorNode = m_cursorNode;
-        IntRect bounds = m_cursorBounds;
-        gCursorBoundsMutex.unlock();
-        if (hasCursorBounds && cursorNode) {
-            IntPoint center = IntPoint(bounds.x() + (bounds.width() >> 1),
-                 bounds.y() + (bounds.height() >> 1));
-            HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-                hitTestResultAtPoint(center, false);
-            DBG_NAV_LOGD("at (%d,%d) old=%p new=%p", center.x(), center.y(),
-                cursorNode, hitTestResult.innerNode());
-            if (cursorNode == hitTestResult.innerNode())
-                return; // don't update
-        }
+    if (m_lastFocused == oldFocusNode && m_lastFocusedBounds == oldBounds
+            && !m_findIsUp
+            && (!m_check_domtree_version || latestVersion == m_domtree_version))
+    {
+        return;
     }
     m_lastFocused = oldFocusNode;
     m_lastFocusedBounds = oldBounds;
     m_domtree_version = latestVersion;
-    m_lastMoveGeneration = m_moveGeneration;
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
 }
@@ -1055,6 +1034,34 @@ WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* 
     return anchor->href();
 }
 
+void WebViewCore::updateCacheOnNodeChange()
+{
+    gCursorBoundsMutex.lock();
+    bool hasCursorBounds = m_hasCursorBounds;
+    Frame* frame = (Frame*) m_cursorFrame;
+    Node* node = (Node*) m_cursorNode;
+    IntRect bounds = m_cursorHitBounds;
+    gCursorBoundsMutex.unlock();
+    if (!hasCursorBounds || !node)
+        return;
+    if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
+        RenderObject* renderer = node->renderer();
+        if (renderer) {
+            IntRect absBox = renderer->absoluteBoundingBoxRect();
+            int globalX, globalY;
+            CacheBuilder::GetGlobalOffset(frame, &globalX, &globalY);
+            absBox.move(globalX, globalY);
+            if (absBox == bounds)
+                return;
+            DBG_NAV_LOGD("absBox=(%d,%d,%d,%d) bounds=(%d,%d,%d,%d)",
+                absBox.x(), absBox.y(), absBox.width(), absBox.height(),
+                bounds.x(), bounds.y(), bounds.width(), bounds.height());
+        }
+    }
+    DBG_NAV_LOGD("updateFrameCache node=%p", node);
+    updateFrameCache();
+}
+
 void WebViewCore::updateFrameCache()
 {
     if (!m_frameCacheOutOfDate) {
@@ -1232,6 +1239,7 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
+    updateCacheOnNodeChange();
 }
 
 static int findTextBoxIndex(WebCore::Node* node, const WebCore::IntPoint& pt)

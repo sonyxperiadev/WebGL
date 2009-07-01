@@ -717,6 +717,7 @@ void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
             DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
                 bounds.x(), bounds.y(), bounds.width(), bounds.height());
         m_viewImpl->m_cursorBounds = cachedNode->bounds();
+        m_viewImpl->m_cursorHitBounds = cachedNode->hitBounds();
         m_viewImpl->m_cursorFrame = cachedFrame->framePointer();
         root->getSimulatedMousePosition(&m_viewImpl->m_cursorLocation);
         m_viewImpl->m_cursorNode = cachedNode->nodePointer();
