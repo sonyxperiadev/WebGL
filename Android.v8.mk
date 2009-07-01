@@ -252,5 +252,8 @@ include $(BASE_PATH)/WebKit/android/wds/client/Android.mk
 include $(BASE_PATH)/WebKitTools/android/webkitmerge/Android.mk
 
 # Build libv8 and v8shell
+ifeq ($(ENABLE_V8_SNAPSHOT),true)
+  include $(BASE_PATH)/V8Binding/Android.mksnapshot.mk
+endif
 include $(BASE_PATH)/V8Binding/Android.libv8.mk
 include $(BASE_PATH)/V8Binding/Android.v8shell.mk
