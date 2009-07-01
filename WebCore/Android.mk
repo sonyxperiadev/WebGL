@@ -26,8 +26,6 @@
 #	bindings/js/JSCustomVersionChangeCallback.cpp \
 #	bindings/js/JSInspectorControllerCustom.cpp \
 #	bindings/js/JSXSLTProcessor*.cpp \
-#	bindings/js/JSWorker*.cpp \
-#	bindings/js/Worker*.cpp \
 #	bindings/js/*Gtk.cpp \
 #	bindings/js/*Qt.cpp \
 #	bindings/js/*Win.cpp \
@@ -45,13 +43,11 @@
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
 #	loader/UserStyleSheetLoader.cpp \
-#	loader/WorkerThreadableLoader.cpp \
 #	loader/icon/IconDatabaseNone.cpp \
 #	page/AXObjectCache.cpp \
 #	page/Accessibility*.cpp \
 #	page/InspectorController.cpp \
 #	page/JavaScript*.cpp \
-#	page/WorkerNavigator.cpp \
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
 #	rendering/RenderThemeChromium*.cpp \
@@ -90,7 +86,6 @@
 #	/symbian/* \
 #	/v8/* \
 #	/win/* \
-#	^workers/* \
 #	^wml/* \
 #	/wx/* \
 
@@ -203,6 +198,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSTreeWalkerCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
 	bindings/js/JSWebKitPointConstructor.cpp \
+	bindings/js/JSWorkerConstructor.cpp \
+	bindings/js/JSWorkerContextBase.cpp \
+	bindings/js/JSWorkerContextCustom.cpp \
+	bindings/js/JSWorkerCustom.cpp \
 	bindings/js/JSXMLHttpRequestConstructor.cpp \
 	bindings/js/JSXMLHttpRequestCustom.cpp \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
@@ -218,6 +217,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
   bindings/js/ScriptObjectQuarantine.cpp \
   bindings/js/ScriptState.cpp \
 	bindings/js/ScriptValue.cpp \
+	bindings/js/WorkerScriptController.cpp \
 	\
 	bridge/IdentifierRep.cpp \
 	bridge/NP_jsobject.cpp \
@@ -578,6 +578,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/icon/PageURLRecord.cpp \
 	\
 	loader/loader.cpp \
+	loader/WorkerThreadableLoader.cpp \
 	\
 	page/BarInfo.cpp \
 	page/Chrome.cpp \
@@ -608,6 +609,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SecurityOrigin.cpp \
 	page/Settings.cpp \
 	page/WindowFeatures.cpp \
+	page/WorkerNavigator.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
@@ -1144,6 +1146,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	workers/Worker.cpp \
+	workers/WorkerContext.cpp \
+	workers/WorkerImportScriptsClient.cpp \
+	workers/WorkerLocation.cpp \
+	workers/WorkerMessagingProxy.cpp \
+	workers/WorkerRunLoop.cpp \
+	workers/WorkerThread.cpp \
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \

@@ -101,6 +101,8 @@
 #define ENABLE_DOM_STORAGE 1
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
+#undef ENABLE_WORKERS
+#define ENABLE_WORKERS 1
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
 #endif

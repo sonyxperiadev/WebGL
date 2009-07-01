@@ -23,11 +23,9 @@
 #	css/RGBColor.idl \
 #	dom/EventListener.idl \
 #	dom/EventTarget.idl \
-#	dom/Worker*.idl \
 #	html/CanvasPixelArray.idl \
 #	page/AbstractView.idl \
 #	page/PositionCallback.idl \
-#	page/Worker*.idl \
 #	svg/ElementTimeControl.idl \
 #	svg/SVGAnimatedPathData.idl \
 #	svg/SVGAnimatedPoints.idl \
@@ -48,7 +46,6 @@
 #
 # The following files are intentionally not generated
 # LOCAL_GENERATED_FILES_EXCLUDED := \
-#	JSWorkerContextBase.lut.h \
 #	WMLElementFactory.cpp \
 #	WMLNames.cpp \
 #	XLinkNames.cpp \
@@ -59,8 +56,8 @@
 # The following directory wildcard matches are intentionally not included
 # If an entry starts with '/', any subdirectory may match
 # If an entry starts with '^', the first directory must match
-# LOCAL_DIR_WILDCARD_EXCLUDED := \
-#	^workers/* \
+# LOCAL_DIR_WILDCARD_EXCLUDED :=
+#
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
@@ -214,7 +211,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -454,7 +451,9 @@ GEN := \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSPositionErrorCallback.h \
     $(intermediates)/page/JSScreen.h \
-	$(intermediates)/page/JSWebKitPoint.h
+    $(intermediates)/page/JSWebKitPoint.h \
+    $(intermediates)/page/JSWorkerNavigator.h
+
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/JS%.h : $(LOCAL_PATH)/page/%.idl $(js_binding_scripts)
@@ -660,6 +659,22 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/svg/%.cpp : $(intermediates)/svg/%.h
 endif
+
+# new section for Workers
+GEN := \
+    $(intermediates)/workers/JSWorker.h \
+    $(intermediates)/workers/JSWorkerContext.h \
+    $(intermediates)/workers/JSWorkerLocation.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/workers/JS%.h : $(LOCAL_PATH)/workers/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/workers/%.cpp : $(intermediates)/workers/%.h
 
 #new section for xml/DOMParser.idl
 GEN := \
