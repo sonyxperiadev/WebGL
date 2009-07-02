@@ -1645,6 +1645,12 @@ static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
     return node ? node->textSize() : 0;
 }
 
+static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
+{
+    const CachedNode* node = getFocusNode(env, obj);
+    return node ? reinterpret_cast<int>(node->nodePointer()) : 0;
+}
+
 static bool nativeCursorWantsKeyEvents(JNIEnv* env, jobject jwebview) {
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
@@ -1977,6 +1983,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateText },
     { "nativeFocusCandidateTextSize", "()I",
         (void*) nativeFocusCandidateTextSize },
+    { "nativeFocusNodePointer", "()I",
+        (void*) nativeFocusNodePointer },
     { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
         (void*) nativeGetCursorRingBounds },
     { "nativeGetSelection", "()Landroid/graphics/Region;",
