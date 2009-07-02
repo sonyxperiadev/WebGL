@@ -98,6 +98,7 @@ struct JavaGlue {
     jobject     m_obj;
     jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
+    jmethodID   m_sendPluginState;
     jmethodID   m_scrollBy;
     jmethodID   m_sendMoveMouse;
     jmethodID   m_sendMoveMouseIfLatest;
@@ -127,6 +128,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)V");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
+    m_javaGlue.m_sendPluginState = GetJMethod(env, clazz, "sendPluginState", "(I)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
     m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIII)V");
@@ -161,7 +163,10 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_matches = 0;
     m_hasCurrentLocation = false;
     m_isFindPaintSetUp = false;
-    m_pluginReceivesEvents = false;
+    m_pluginReceivesEvents = false; // initialization is the only time this
+                                    // variable should be set directly, all
+                                    // other changes should be made through
+                                    // setPluginReceivesEvents(bool)
 }
 
 ~WebView()
@@ -407,7 +412,8 @@ void drawMatches(SkCanvas* canvas)
 
 void resetCursorRing()
 {
-    m_followedLink = m_pluginReceivesEvents = false;
+    m_followedLink = false;
+    setPluginReceivesEvents(false);
     m_viewImpl->m_hasCursorBounds = false;
 }
 
@@ -471,7 +477,8 @@ void drawCursorRing(SkCanvas* canvas)
         DBG_NAV_LOGD("canvas->quickReject cursorNode=%d (nodePointer=%p)"
             " bounds=(%d,%d,w=%d,h=%d)", node->index(), node->nodePointer(),
             bounds.x(), bounds.y(), bounds.width(), bounds.height());
-        m_followedLink = m_pluginReceivesEvents = false;
+        m_followedLink = false;
+        setPluginReceivesEvents(false);
         return;
     }
     CursorRing::Flavor flavor = CursorRing::NORMAL_FLAVOR;
@@ -728,7 +735,7 @@ void updateCursorBounds(const CachedRoot* root, const CachedFrame* cachedFrame,
 /* returns true if the key had no effect (neither scrolled nor changed cursor) */
 bool moveCursor(int keyCode, int count, bool ignoreScroll)
 {
-    m_pluginReceivesEvents = false;
+    setPluginReceivesEvents(false);
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
@@ -902,7 +909,7 @@ void setNavBounds(const WebCore::IntRect& rect)
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
-    m_followedLink = m_pluginReceivesEvents = false;
+    m_followedLink = false;
     const CachedFrame* frame;
     WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop, slop * 2, slop * 2);
     int rx, ry;
@@ -924,6 +931,7 @@ bool motionUp(int x, int y, int slop)
             0, x, y, slop);
         viewInvalidate();
         clearTextEntry();
+        setPluginReceivesEvents(false);
         return pageScrolled;
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
@@ -968,13 +976,28 @@ void setFindIsUp(bool up)
         m_hasCurrentLocation = false;
 }
 
+void setPluginReceivesEvents(bool value)
+{
+    if (value == m_pluginReceivesEvents)
+        return;
+
+    //send message to plugin in webkit
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue.object(env).get(),
+                        m_javaGlue.m_sendPluginState,
+                        value ? kGainFocus_PluginState : kLoseFocus_PluginState);
+    checkException(env);
+
+    m_pluginReceivesEvents = value;
+}
+
 void updatePluginReceivesEvents()
 {
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
         return;
     const CachedNode* cursor = root->currentCursor();
-    m_pluginReceivesEvents = cursor && cursor->isPlugin();
+    setPluginReceivesEvents(cursor && cursor->isPlugin());
     DBG_NAV_LOGD("m_pluginReceivesEvents=%s cursor=%p", m_pluginReceivesEvents
         ? "true" : "false", cursor);
 }

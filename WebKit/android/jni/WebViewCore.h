@@ -60,6 +60,11 @@ class SkIRect;
 
 namespace android {
 
+    enum PluginState {
+        kGainFocus_PluginState  = 0,
+        kLoseFocus_PluginState  = 1,
+    };
+
     class CachedRoot;
     class ListBoxReply;
 
@@ -297,6 +302,9 @@ namespace android {
 
         // return the cursorNode if it is a plugin
         Node* cursorNodeIsPlugin();
+
+        // notify the plugin of an update in state
+        void updatePluginState(Frame* frame, Node* node, PluginState state);
 
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);
