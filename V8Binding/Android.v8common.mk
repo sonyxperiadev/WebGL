@@ -64,10 +64,7 @@ V8_LOCAL_SRC_FILES := \
 	src/variables.cc \
 	src/virtual-frame.cc \
 	src/version.cc \
-	src/zone.cc \
-	\
-	src/platform-linux.cc \
-	src/platform-posix.cc
+	src/zone.cc
 
 ifeq ($(TARGET_ARCH),arm)
   V8_LOCAL_SRC_FILES += \

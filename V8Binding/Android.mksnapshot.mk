@@ -14,11 +14,23 @@ V8_LOCAL_SRC_FILES :=
 V8_LOCAL_JS_LIBRARY_FILES :=
 include $(LOCAL_PATH)/Android.v8common.mk
 
+V8_LOCAL_SRC_FILES += \
+  src/mksnapshot.cc \
+  src/arm/simulator-arm.cc \
+  src/snapshot-empty.cc
+
+ifeq ($(HOST_OS),linux)
+V8_LOCAL_SRC_FILES += \
+  src/platform-linux.cc \
+  src/platform-posix.cc
+endif
+ifeq ($(HOST_OS),darwin)
+V8_LOCAL_SRC_FILES += \
+  src/platform-macos.cc \
+  src/platform-posix.cc
+endif  
+
 LOCAL_SRC_FILES := $(addprefix v8/, $(V8_LOCAL_SRC_FILES))
-LOCAL_SRC_FILES += \
-  v8/src/mksnapshot.cc \
-  v8/src/arm/simulator-arm.cc \
-  v8/src/snapshot-empty.cc
 
 LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/v8/, $(V8_LOCAL_JS_LIBRARY_FILES))
 

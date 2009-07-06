@@ -15,6 +15,11 @@ V8_LOCAL_SRC_FILES :=
 V8_LOCAL_JS_LIBRARY_FILES :=
 include $(LOCAL_PATH)/Android.v8common.mk
 
+# Target can only be linux
+V8_LOCAL_SRC_FILES += \
+  src/platform-linux.cc \
+  src/platform-posix.cc
+
 LOCAL_SRC_FILES := $(addprefix v8/, $(V8_LOCAL_SRC_FILES))
 
 LOCAL_JS_LIBRARY_FILES := $(addprefix $(LOCAL_PATH)/v8/, $(V8_LOCAL_JS_LIBRARY_FILES))
