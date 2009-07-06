@@ -248,7 +248,7 @@ namespace android {
          *  If there is no focus, silently fail.
          *  If start and end are out of order, swap them.
          */
-        void deleteSelection(int start, int end);
+        void deleteSelection(int start, int end, int textGeneration);
 
         /**
          *  Set the selection of the currently focused textfield to (start, end).
@@ -261,7 +261,8 @@ namespace android {
          *  and set the selection to (start, end).
          */
         void replaceTextfieldText(int oldStart,
-            int oldEnd, const WebCore::String& replace, int start, int end);
+            int oldEnd, const WebCore::String& replace, int start, int end,
+            int textGeneration);
         void passToJs(int generation,
             const WebCore::String& , const WebCore::PlatformKeyboardEvent& );
         void setFocusControllerActive(bool active);

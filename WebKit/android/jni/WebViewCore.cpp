@@ -1438,7 +1438,7 @@ void WebViewCore::setSelection(int start, int end)
     setFocusControllerActive(true);
 }
 
-void WebViewCore::deleteSelection(int start, int end)
+void WebViewCore::deleteSelection(int start, int end, int textGeneration)
 {
     setSelection(start, end);
     if (start == end)
@@ -1447,10 +1447,12 @@ void WebViewCore::deleteSelection(int start, int end)
     if (!focus)
         return;
     WebCore::TypingCommand::deleteSelection(focus->document());
+    m_textGeneration = textGeneration;
 }
 
 void WebViewCore::replaceTextfieldText(int oldStart,
-        int oldEnd, const WebCore::String& replace, int start, int end)
+        int oldEnd, const WebCore::String& replace, int start, int end,
+        int textGeneration)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus)
@@ -1459,6 +1461,7 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
     setSelection(start, end);
+    m_textGeneration = textGeneration;
 }
 
 void WebViewCore::passToJs(int generation, const WebCore::String& current,
@@ -2085,13 +2088,14 @@ static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
         reinterpret_cast<WebCore::Node*>(nodePtr));
 }
 
-static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end)
+static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end,
+        jint textGeneration)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    viewImpl->deleteSelection(start, end);
+    viewImpl->deleteSelection(start, end, textGeneration);
 }
 
 static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
@@ -2105,7 +2109,8 @@ static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
 
 
 static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
-    jint oldStart, jint oldEnd, jstring replace, jint start, jint end)
+    jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
+    jint textGeneration)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2113,7 +2118,7 @@ static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     WebCore::String webcoreString = to_string(env, replace);
     viewImpl->replaceTextfieldText(oldStart,
-            oldEnd, webcoreString, start, end);
+            oldEnd, webcoreString, start, end, textGeneration);
 }
 
 static void PassToJs(JNIEnv *env, jobject obj,
@@ -2547,9 +2552,9 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetGlobalBounds },
     { "nativeSetSelection", "(II)V",
         (void*) SetSelection } ,
-    { "nativeDeleteSelection", "(II)V",
+    { "nativeDeleteSelection", "(III)V",
         (void*) DeleteSelection } ,
-    { "nativeReplaceTextfieldText", "(IILjava/lang/String;II)V",
+    { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
     { "nativeMoveMouse", "(III)V",
         (void*) MoveMouse },
