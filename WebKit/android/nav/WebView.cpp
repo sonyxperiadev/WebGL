@@ -512,6 +512,8 @@ void drawCursorRing(SkCanvas* canvas)
             bounds.intersect(WebCore::IntRect(0, 0, INT_MAX, INT_MAX));
             postInvalidateDelayed(m_ringAnimationEnd - time, bounds);
         } else {
+            if (m_followedLink)
+                hideCursor();
             m_followedLink = false;
             flavor = static_cast<CursorRing::Flavor>
                     (flavor - CursorRing::NORMAL_ANIMATING);
