@@ -102,7 +102,11 @@
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
 #undef ENABLE_WORKERS
+#if USE(V8)
+// Workers do not work with V8 yet.
+#else
 #define ENABLE_WORKERS 1
+#endif // ENABLE_V8
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
 #endif
