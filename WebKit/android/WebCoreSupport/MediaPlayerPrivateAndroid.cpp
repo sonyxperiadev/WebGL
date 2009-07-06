@@ -33,7 +33,6 @@
 #include "jni_utility.h"
 
 #include <JNIHelp.h>
-
 using namespace android;
 
 namespace WebCore {
@@ -43,16 +42,24 @@ static const char* g_ProxyJavaClass = "android/webkit/HTML5VideoViewProxy";
 struct MediaPlayerPrivate::JavaGlue
 {
     jobject   m_javaProxy;
+    jobject   m_videoView;
     jmethodID m_getInstance;
     jmethodID m_play;
+    jmethodID m_createView;
+    jmethodID m_attachView;
+    jmethodID m_removeView;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
 {
     if (m_glue->m_javaProxy) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        if (env)
+        if (env) {
+            env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_removeView,
+                    m_glue->m_videoView);
             env->DeleteGlobalRef(m_glue->m_javaProxy);
+            env->DeleteGlobalRef(m_glue->m_videoView);
+        }
     }
 
     delete m_glue;
@@ -98,7 +105,7 @@ void MediaPlayerPrivate::play()
     WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
     ASSERT(webViewCore);
     jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
-    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl, webViewCore->getJavaObject().get());
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl, m_glue->m_videoView);
     env->DeleteLocalRef(jUrl);
     checkException(env);
 }
@@ -109,7 +116,7 @@ void MediaPlayerPrivate::pause()
 
 IntSize MediaPlayerPrivate::naturalSize() const
 {
-    return IntSize(20, 20);
+    return IntSize(300, 150);
 }
 
 bool MediaPlayerPrivate::hasVideo() const
@@ -196,8 +203,17 @@ void MediaPlayerPrivate::setSize(const IntSize&)
 {
 }
 
-void MediaPlayerPrivate::paint(GraphicsContext*, const IntRect&)
+void MediaPlayerPrivate::paint(GraphicsContext*, const IntRect& r)
 {
+    createJavaPlayerIfNeeded();
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (!env)
+        return;
+
+    IntSize size = m_player->size();
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_attachView,
+            m_glue->m_videoView, r.x(), r.y(), size.width(),
+            size.height());
 }
 
 MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
@@ -226,8 +242,12 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player) : m_player(player), 
 
     m_glue = new JavaGlue;
     m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;)Landroid/webkit/HTML5VideoViewProxy;");
-    m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;Landroid/webkit/WebViewCore;)V");
+    m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;Landroid/webkit/ViewManager$ChildView;)V");
+    m_glue->m_createView = env->GetMethodID(clazz, "createView", "(Landroid/webkit/WebViewCore;)Landroid/webkit/ViewManager$ChildView;");
+    m_glue->m_attachView = env->GetMethodID(clazz, "attachView", "(Landroid/webkit/ViewManager$ChildView;IIII)V");
+    m_glue->m_removeView = env->GetMethodID(clazz, "removeView", "(Landroid/webkit/ViewManager$ChildView;)V");
     m_glue->m_javaProxy = NULL;
+    m_glue->m_videoView = NULL;
     env->DeleteLocalRef(clazz);
     // An exception is raised if any of the above fails.
     checkException(env);
@@ -236,7 +256,7 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player) : m_player(player), 
 void MediaPlayerPrivate::createJavaPlayerIfNeeded()
 {
     // Check if we have been already created.
-    if (m_glue->m_javaProxy)
+    if (m_glue->m_videoView)
         return;
 
     FrameView* frameView = m_player->frameView();
@@ -253,9 +273,17 @@ void MediaPlayerPrivate::createJavaPlayerIfNeeded()
 
     WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
     ASSERT(webViewCore);
+
+    // Get the HTML4VideoViewProxy instance
     jobject obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get());
-    m_glue->m_javaProxy = env->NewGlobalRef(obj); 
+    m_glue->m_javaProxy = env->NewGlobalRef(obj);
     env->DeleteLocalRef(obj);
+
+    // Get our VideoView object.
+    obj = env->CallObjectMethod(obj, m_glue->m_createView, webViewCore->getJavaObject().get());
+    m_glue->m_videoView = env->NewGlobalRef(obj);
+    env->DeleteLocalRef(obj);
+
     env->DeleteLocalRef(clazz);
     checkException(env);
 }
