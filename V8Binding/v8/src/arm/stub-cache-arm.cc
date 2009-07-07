@@ -85,7 +85,8 @@ void StubCache::GenerateProbe(MacroAssembler* masm,
                               Code::Flags flags,
                               Register receiver,
                               Register name,
-                              Register scratch) {
+                              Register scratch,
+                              Register extra) {
   Label miss;
 
   // Make sure that code is valid. The shifting code relies on the
@@ -684,7 +685,7 @@ Object* CallStubCompiler::CompileCallInterceptor(Object* object,
 }
 
 
-Object* CallStubCompiler::CompileCallGlobal(JSGlobalObject* object,
+Object* CallStubCompiler::CompileCallGlobal(GlobalObject* object,
                                             JSGlobalPropertyCell* cell,
                                             JSFunction* function,
                                             String* name) {
@@ -879,7 +880,7 @@ Object* StoreStubCompiler::CompileStoreInterceptor(JSObject* receiver,
 }
 
 
-Object* StoreStubCompiler::CompileStoreGlobal(JSGlobalObject* object,
+Object* StoreStubCompiler::CompileStoreGlobal(GlobalObject* object,
                                               JSGlobalPropertyCell* cell,
                                               String* name) {
   // ----------- S t a t e -------------
@@ -1012,7 +1013,7 @@ Object* LoadStubCompiler::CompileLoadInterceptor(JSObject* object,
 }
 
 
-Object* LoadStubCompiler::CompileLoadGlobal(JSGlobalObject* object,
+Object* LoadStubCompiler::CompileLoadGlobal(GlobalObject* object,
                                             JSGlobalPropertyCell* cell,
                                             String* name,
                                             bool is_dont_delete) {

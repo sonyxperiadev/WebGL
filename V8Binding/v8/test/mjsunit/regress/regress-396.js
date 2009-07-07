@@ -1,4 +1,4 @@
-// Copyright 2008 the V8 project authors. All rights reserved.
+// Copyright 2009 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -25,39 +25,15 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-function TryCall(x) {
-  var caught = [];
-  try {
-    x();
-  } catch (e) {
-    caught.push(e);
+// http://code.google.com/p/v8/issues/detail?id=396
+
+function DateYear(date) {
+  var string = date.getYear() + '';
+  if (string.length < 4) {
+    string = '' + (string - 0 + 1900);
   }
-
-  try {
-    new x();
-  } catch (e) {
-    caught.push(e);
-  }
-
-  assertTrue(caught[0] instanceof TypeError);
-  assertTrue(caught[1] instanceof TypeError);
-};
-
-
-TryCall(this);
-TryCall(Math);
-TryCall(true);
-TryCall(1234);
-TryCall("hest");
-
-
-// Make sure that calling a non-function global doesn't crash the
-// system while building the IC for it.
-var NonFunction = 42;
-function WillThrow() {
-  NonFunction();
+  return string;
 }
-assertThrows(WillThrow);
-assertThrows(WillThrow);
-assertThrows(WillThrow);
-assertThrows(WillThrow);
+
+assertEquals('1995', DateYear(new Date('Dec 25, 1995')));
+assertEquals('2005', DateYear(new Date('Dec 25, 2005')));

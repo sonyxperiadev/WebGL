@@ -25,39 +25,23 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-function TryCall(x) {
-  var caught = [];
-  try {
-    x();
-  } catch (e) {
-    caught.push(e);
-  }
+// See <URL:http://code.google.com/p/v8/issues/detail?id=394>
 
-  try {
-    new x();
-  } catch (e) {
-    caught.push(e);
-  }
-
-  assertTrue(caught[0] instanceof TypeError);
-  assertTrue(caught[1] instanceof TypeError);
-};
-
-
-TryCall(this);
-TryCall(Math);
-TryCall(true);
-TryCall(1234);
-TryCall("hest");
-
-
-// Make sure that calling a non-function global doesn't crash the
-// system while building the IC for it.
-var NonFunction = 42;
-function WillThrow() {
-  NonFunction();
+function setx(){
+  x=1;
 }
-assertThrows(WillThrow);
-assertThrows(WillThrow);
-assertThrows(WillThrow);
-assertThrows(WillThrow);
+
+function getx(){
+  return x;
+}
+
+setx()
+setx()
+__defineSetter__('x',function(){});
+__defineGetter__('x',function(){return 2;});
+setx()
+assertEquals(2, x);
+
+assertEquals(2, getx());
+assertEquals(2, getx());
+assertEquals(2, getx());
