@@ -225,9 +225,14 @@ void PluginView::handleTouchEvent(TouchEvent* event)
         return;
 
     evt.data.touch.modifiers = 0;   // todo
-    // these are relative to plugin
-    evt.data.touch.x = event->pageX() - m_npWindow.x;
-    evt.data.touch.y = event->pageY() - m_npWindow.y;
+
+    // the event is relative to the window's (0,0), so use convertToContainingWindow
+    IntPoint winCoordinates = IntPoint(event->x(), event->y());
+    IntPoint docCoordinates = parent()->windowToContents(winCoordinates);
+
+    // convert to coordinates that are relative to the plugin
+    evt.data.touch.x = docCoordinates.x() - m_npWindow.x;
+    evt.data.touch.y = docCoordinates.y() - m_npWindow.y;
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultHandled();
@@ -245,9 +250,14 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     if (isUp || isDown) {
         SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
-        // these are relative to plugin
-        evt.data.mouse.x = event->x() - m_npWindow.x;
-        evt.data.mouse.y = event->y() - m_npWindow.y;
+
+        // the event is relative to the window's (0,0), so use convertToContainingWindow
+        IntPoint winCoordinates = IntPoint(event->x(), event->y());
+        IntPoint docCoordinates = parent()->windowToContents(winCoordinates);
+
+        // convert to coordinates that are relative to the plugin
+        evt.data.mouse.x = docCoordinates.x() - m_npWindow.x;
+        evt.data.mouse.y = docCoordinates.y() - m_npWindow.y;
     }
     else {
       return;
