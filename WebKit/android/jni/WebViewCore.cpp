@@ -437,7 +437,12 @@ void WebViewCore::recordPictureSet(PictureSet* content)
             int right = x + owner->width();
             int bottom = y + owner->height();
             SkIRect frameRect = {x, y, right, bottom};
-            if (SkIRect::Intersects(total, frameRect))
+            // Ignore a width or height that is smaller than 1. Some iframes
+            // have small dimensions in order to be hidden. The iframe
+            // expansion code does not expand in that case so we should ignore
+            // them here.
+            if (frameRect.width() > 1 && frameRect.height() > 1
+                    && SkIRect::Intersects(total, frameRect))
                 total.join(x, y, right, bottom);
         }
     }
@@ -446,7 +451,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // all the content.
     if (!contentRect.contains(total)) {
         // Resize the view to change the overflow clip.
-        view->resize(total.width(), total.height());
+        view->resize(total.fRight, total.fBottom);
 
         // We have to force a layout in order for the clip to change.
         m_mainFrame->contentRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
