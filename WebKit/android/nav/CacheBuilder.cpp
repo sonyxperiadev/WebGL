@@ -1103,7 +1103,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 wantsKeyEvents = true;
             isPassword = input->inputType() == HTMLInputElement::PASSWORD;
             maxLength = input->maxLength();
-            name = String(input->name().string());
+            name = input->name().string().copy();
             isUnclipped = isTransparent; // can't detect if this is drawn on top (example: deviant.com login parts)
         } else if (node->hasTagName(HTMLNames::textareaTag))
             isTextArea = wantsKeyEvents = true;
@@ -1126,7 +1126,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 static_cast<RenderTextControl*>(nodeRenderer);
             if (isFocus)
                 cachedRoot->setSelection(renderText->selectionStart(), renderText->selectionEnd());
-            exported = String(renderText->text());
+            exported = renderText->text().copy();
             // FIXME: Would it be better to use (float) size()?
             // FIXME: Are we sure there will always be a style and font, and it's correct?
             RenderStyle* style = nodeRenderer->style();
