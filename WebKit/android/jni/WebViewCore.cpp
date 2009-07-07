@@ -1226,7 +1226,7 @@ void WebViewCore::updatePluginState(Frame* frame, Node* node, PluginState state)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
 
     if (state == kLoseFocus_PluginState)
-        event.data.lifecycle.action = kLooseFocus_ANPLifecycleAction;
+        event.data.lifecycle.action = kLoseFocus_ANPLifecycleAction;
     else if (state == kGainFocus_PluginState)
         event.data.lifecycle.action = kGainFocus_ANPLifecycleAction;
     else

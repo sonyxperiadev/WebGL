@@ -748,7 +748,7 @@ enum ANPLifecycleActions {
     kPause_ANPLifecycleAction      = 0,
     kResume_ANPLifecycleAction     = 1,
     kGainFocus_ANPLifecycleAction  = 2,
-    kLooseFocus_ANPLifecycleAction = 3,
+    kLoseFocus_ANPLifecycleAction  = 3,
     kFreeMemory_ANPLifecycleAction = 4,
 };
 typedef uint32_t ANPLifecycleAction;
