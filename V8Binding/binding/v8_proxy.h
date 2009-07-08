@@ -254,6 +254,11 @@ class V8Proxy {
   v8::Local<v8::Value> RunScript(v8::Handle<v8::Script> script,
                                  bool inline_code);
 
+#ifdef ANDROID_INSTRUMENT
+  v8::Local<v8::Value> RunScriptInternal(v8::Handle<v8::Script> script,
+                                 bool inline_code);
+#endif
+
   // Call the function with the given receiver and arguments.
   v8::Local<v8::Value> CallFunction(v8::Handle<v8::Function> function,
                                     v8::Handle<v8::Object> receiver,
@@ -359,6 +364,11 @@ class V8Proxy {
   static v8::Handle<v8::Script> CompileScript(v8::Handle<v8::String> code,
                                               const String& fileName,
                                               int baseLine);
+#ifdef ANDROID_INSTRUMENT
+  static v8::Handle<v8::Script> CompileScriptInternal(v8::Handle<v8::String> code,
+                                              const String& fileName,
+                                              int baseLine);
+#endif
 
 #ifndef NDEBUG
   // Checks if a v8 value can be a DOM wrapper

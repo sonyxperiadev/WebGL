@@ -68,7 +68,9 @@ uint32_t TimeCounter::sStartTime[TimeCounter::TotalTimeCounterCount];
 static const char* timeCounterNames[] = {
     "css parsing", 
     "javascript",
+    "javascript init",
     "javascript parsing",
+    "javascript execution",
     "calculate style", 
     "Java callback (frame bridge)",
     "parsing (may include calcStyle or Java callback)", 

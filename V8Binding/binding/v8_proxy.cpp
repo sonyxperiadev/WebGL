@@ -57,6 +57,10 @@
 
 #include "CString.h"
 
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
+
 namespace WebCore {
 
 // Static utility context.
@@ -976,6 +980,18 @@ void V8Proxy::DisconnectEventListeners()
 v8::Handle<v8::Script> V8Proxy::CompileScript(v8::Handle<v8::String> code,
                                               const String& fileName,
                                               int baseLine)
+#ifdef ANDROID_INSTRUMENT
+{
+    android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
+    v8::Handle<v8::Script> script = CompileScriptInternal(code, fileName, baseLine);
+    android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
+    return script;
+}
+
+v8::Handle<v8::Script> V8Proxy::CompileScriptInternal(v8::Handle<v8::String> code,
+                                              const String& fileName,
+                                              int baseLine)
+#endif
 {
     const uint16_t* fileNameString = FromWebCoreString(fileName);
     v8::Handle<v8::String> name =
@@ -1095,6 +1111,17 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
 
 v8::Local<v8::Value> V8Proxy::RunScript(v8::Handle<v8::Script> script,
                                         bool inline_code)
+#ifdef ANDROID_INSTRUMENT
+{
+    android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
+    v8::Local<v8::Value> result = RunScriptInternal(script, inline_code);
+    android::TimeCounter::record(android::TimeCounter::JavaScriptExecuteTimeCounter, __FUNCTION__);
+    return result;
+}
+
+v8::Local<v8::Value> V8Proxy::RunScriptInternal(v8::Handle<v8::Script> script,
+                                        bool inline_code)
+#endif
 {
   if (script.IsEmpty())
     return v8::Local<v8::Value>();
@@ -1159,6 +1186,10 @@ v8::Local<v8::Value> V8Proxy::CallFunction(v8::Handle<v8::Function> function,
                                            int argc,
                                            v8::Handle<v8::Value> args[])
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
+#endif
+
   // For now, we don't put any artificial limitations on the depth
   // of recursion that stems from calling functions. This is in
   // contrast to the script evaluations.
@@ -1180,6 +1211,9 @@ v8::Local<v8::Value> V8Proxy::CallFunction(v8::Handle<v8::Function> function,
   if (v8::V8::IsDead())
     HandleFatalErrorInV8();
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptExecuteTimeCounter, __FUNCTION__);
+#endif
   return result;
 }
 
@@ -2168,6 +2202,10 @@ void V8Proxy::InitContextIfNeeded()
   if (!m_context.IsEmpty())
       return;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
+#endif
+
   // Create a handle scope for all local handles.
   v8::HandleScope handle_scope;
 
@@ -2272,6 +2310,10 @@ void V8Proxy::InitContextIfNeeded()
   SetSecurityToken();
 
   m_frame->loader()->dispatchWindowObjectAvailable();
+
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
+#endif
 }
 
 

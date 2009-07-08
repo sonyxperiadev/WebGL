@@ -44,7 +44,9 @@ public:
         // function base counters
         CSSParseTimeCounter,
         JavaScriptTimeCounter,
+        JavaScriptInitTimeCounter,
         JavaScriptParseTimeCounter,
+        JavaScriptExecuteTimeCounter,
         CalculateStyleTimeCounter,
         JavaCallbackTimeCounter,
         ParsingTimeCounter,
