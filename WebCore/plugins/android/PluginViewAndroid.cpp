@@ -289,6 +289,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
         return;
     }
 
+    bool ignoreEvent = false;
+
     ANPEvent evt;
     SkANP::InitEvent(&evt, kKey_ANPEventType);
 
@@ -297,7 +299,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 #ifdef TRACE_KEY_EVENTS
             SkDebugf("--------- KeyDown, ignore\n");
 #endif
-            return;
+            ignoreEvent = true;
+            break;
         case PlatformKeyboardEvent::RawKeyDown:
             evt.data.key.action = kDown_ANPKeyAction;
             break;
@@ -305,7 +308,8 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 #ifdef TRACE_KEY_EVENTS
             SkDebugf("--------- Char, ignore\n");
 #endif
-            return;
+            ignoreEvent = true;
+            break;
         case PlatformKeyboardEvent::KeyUp:
             evt.data.key.action = kUp_ANPKeyAction;
             break;
@@ -313,8 +317,21 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 #ifdef TRACE_KEY_EVENTS
             SkDebugf("------ unexpected keyevent type %d\n", pke->type());
 #endif
-            return;
+            ignoreEvent = true;
+            break;
     }
+
+    /* the plugin should be the only party able to return nav control to the
+     * browser UI. Therefore, if we discard an event on behalf of the plugin
+     * we should mark the event as being handled.
+     */
+    if (ignoreEvent) {
+        int keyCode = pke->nativeVirtualKeyCode();
+        if (keyCode >= kDpadUp_ANPKeyCode && keyCode <= kDpadCenter_ANPKeyCode)
+            event->setDefaultHandled();
+        return;
+    }
+
     evt.data.key.nativeCode = pke->nativeVirtualKeyCode();
     evt.data.key.virtualCode = pke->windowsVirtualKeyCode();
     evt.data.key.repeatCount = pke->repeatCount();
