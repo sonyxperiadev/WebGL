@@ -643,15 +643,7 @@ bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) 
             m_frame->tree() && m_frame->tree()->parent())
         return true;
 
-    if (m_webFrame->canHandleRequest(request)) {
-#ifdef ANDROID_META_SUPPORT
-        // reset metadata settings for the top frame as they are not preserved cross page
-        if (!m_frame->tree()->parent() && m_frame->settings())
-            m_frame->settings()->resetMetadataSettings();
-#endif
-        return true;
-    }
-    return false;
+    return m_webFrame->canHandleRequest(request);
 }
 
 bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
@@ -773,6 +765,13 @@ void FrameLoaderClientAndroid::transitionToCommittedFromCachedFrame(WebCore::Cac
 
 void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     ASSERT(m_frame);
+
+#ifdef ANDROID_META_SUPPORT
+    // reset metadata settings for the main frame as they are not preserved cross page
+    if (m_frame == m_frame->page()->mainFrame() && m_frame->settings())
+        m_frame->settings()->resetMetadataSettings();
+#endif
+
     if (m_frame->settings() && !m_frame->settings()->usesPageCache()) {
         m_webFrame->transitionToCommitted(m_frame);
         return;
