@@ -52,6 +52,8 @@ namespace WebCore {
             if (m_map.size() > 0)
                 fprintf(stderr, "Leak %d JS wrappers.\n", m_map.size());
         }
+    #else
+        virtual ~WeakReferenceMap() { }
     #endif
 
         // Get the JS wrapper object of an object.
