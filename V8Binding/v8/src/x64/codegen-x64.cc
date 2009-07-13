@@ -355,25 +355,21 @@ void CodeGenerator::GenerateReturnSequence(Result* return_value) {
   // receiver.
   frame_->Exit();
   masm_->ret((scope_->num_parameters() + 1) * kPointerSize);
+  // Add padding that will be overwritten by a debugger breakpoint.
+  // frame_->Exit() generates "movq rsp, rbp; pop rbp" length 5.
+  // "ret k" has length 2.
+  const int kPadding = Debug::kX64JSReturnSequenceLength - 5 - 2;
+  for (int i = 0; i < kPadding; ++i) {
+    masm_->int3();
+  }
   DeleteFrame();
-
-  // TODO(x64): introduce kX64JSReturnSequenceLength and enable assert.
 
   // Check that the size of the code used for returning matches what is
   // expected by the debugger.
-  // ASSERT_EQ(Debug::kIa32JSReturnSequenceLength,
-  //          masm_->SizeOfCodeGeneratedSince(&check_exit_codesize));
+  ASSERT_EQ(Debug::kX64JSReturnSequenceLength,
+            masm_->SizeOfCodeGeneratedSince(&check_exit_codesize));
 }
 
-
-void CodeGenerator::GenerateFastCaseSwitchJumpTable(SwitchStatement* a,
-                                                    int b,
-                                                    int c,
-                                                    Label* d,
-                                                    Vector<Label*> e,
-                                                    Vector<Label> f) {
-  UNIMPLEMENTED();
-}
 
 #ifdef DEBUG
 bool CodeGenerator::HasValidEntryRegisters() {
@@ -1276,7 +1272,7 @@ void CodeGenerator::VisitForInStatement(ForInStatement* node) {
 
   frame_->EmitPush(rax);  // <- slot 3
   frame_->EmitPush(rdx);  // <- slot 2
-  __ movq(rax, FieldOperand(rdx, FixedArray::kLengthOffset));
+  __ movsxlq(rax, FieldOperand(rdx, FixedArray::kLengthOffset));
   __ shl(rax, Immediate(kSmiTagSize));
   frame_->EmitPush(rax);  // <- slot 1
   frame_->EmitPush(Immediate(Smi::FromInt(0)));  // <- slot 0
@@ -1288,7 +1284,7 @@ void CodeGenerator::VisitForInStatement(ForInStatement* node) {
   frame_->EmitPush(rax);  // <- slot 2
 
   // Push the length of the array and the initial index onto the stack.
-  __ movq(rax, FieldOperand(rax, FixedArray::kLengthOffset));
+  __ movsxlq(rax, FieldOperand(rax, FixedArray::kLengthOffset));
   __ shl(rax, Immediate(kSmiTagSize));
   frame_->EmitPush(rax);  // <- slot 1
   frame_->EmitPush(Immediate(Smi::FromInt(0)));  // <- slot 0
@@ -1301,15 +1297,14 @@ void CodeGenerator::VisitForInStatement(ForInStatement* node) {
   node->continue_target()->set_direction(JumpTarget::FORWARD_ONLY);
 
   __ movq(rax, frame_->ElementAt(0));  // load the current count
-  __ cmpq(rax, frame_->ElementAt(1));  // compare to the array length
+  __ cmpl(rax, frame_->ElementAt(1));  // compare to the array length
   node->break_target()->Branch(above_equal);
 
   // Get the i'th entry of the array.
   __ movq(rdx, frame_->ElementAt(2));
   ASSERT(kSmiTagSize == 1 && kSmiTag == 0);
   // Multiplier is times_4 since rax is already a Smi.
-  __ movq(rbx, Operand(rdx, rax, times_4,
-                       FixedArray::kHeaderSize - kHeapObjectTag));
+  __ movq(rbx, FieldOperand(rdx, rax, times_4, FixedArray::kHeaderSize));
 
   // Get the expected map from the stack or a zero map in the
   // permanent slow case rax: current iteration count rbx: i'th entry
@@ -2459,13 +2454,13 @@ void CodeGenerator::VisitCallEval(CallEval* node) {
   // receiver.  Use a scratch register to avoid destroying the result.
   Result scratch = allocator_->Allocate();
   ASSERT(scratch.is_valid());
-  __ movl(scratch.reg(),
+  __ movq(scratch.reg(),
           FieldOperand(result.reg(), FixedArray::OffsetOfElementAt(0)));
   frame_->SetElementAt(arg_count + 1, &scratch);
 
   // We can reuse the result register now.
   frame_->Spill(result.reg());
-  __ movl(result.reg(),
+  __ movq(result.reg(),
           FieldOperand(result.reg(), FixedArray::OffsetOfElementAt(1)));
   frame_->SetElementAt(arg_count, &result);
 
@@ -2734,12 +2729,6 @@ class DeferredPrefixCountOperation: public DeferredCode {
 
 
 void DeferredPrefixCountOperation::Generate() {
-  // Undo the optimistic smi operation.
-  if (is_increment_) {
-    __ subq(dst_, Immediate(Smi::FromInt(1)));
-  } else {
-    __ addq(dst_, Immediate(Smi::FromInt(1)));
-  }
   __ push(dst_);
   __ InvokeBuiltin(Builtins::TO_NUMBER, CALL_FUNCTION);
   __ push(rax);
@@ -2775,12 +2764,6 @@ class DeferredPostfixCountOperation: public DeferredCode {
 
 
 void DeferredPostfixCountOperation::Generate() {
-  // Undo the optimistic smi operation.
-  if (is_increment_) {
-    __ subq(dst_, Immediate(Smi::FromInt(1)));
-  } else {
-    __ addq(dst_, Immediate(Smi::FromInt(1)));
-  }
   __ push(dst_);
   __ InvokeBuiltin(Builtins::TO_NUMBER, CALL_FUNCTION);
 
@@ -2837,19 +2820,6 @@ void CodeGenerator::VisitCountOperation(CountOperation* node) {
     // Ensure the new value is writable.
     frame_->Spill(new_value.reg());
 
-    // In order to combine the overflow and the smi tag check, we need
-    // to be able to allocate a byte register.  We attempt to do so
-    // without spilling.  If we fail, we will generate separate overflow
-    // and smi tag checks.
-    //
-    // We allocate and clear the temporary register before
-    // performing the count operation since clearing the register using
-    // xor will clear the overflow flag.
-    Result tmp = allocator_->AllocateWithoutSpilling();
-
-    // Clear scratch register to prepare it for setcc after the operation below.
-    __ xor_(kScratchRegister, kScratchRegister);
-
     DeferredCode* deferred = NULL;
     if (is_postfix) {
       deferred = new DeferredPostfixCountOperation(new_value.reg(),
@@ -2860,24 +2830,25 @@ void CodeGenerator::VisitCountOperation(CountOperation* node) {
                                                   is_increment);
     }
 
+    Result tmp = allocator_->AllocateWithoutSpilling();
+    ASSERT(kSmiTagMask == 1 && kSmiTag == 0);
+    __ movl(tmp.reg(), Immediate(kSmiTagMask));
+    // Smi test.
+    __ movq(kScratchRegister, new_value.reg());
     if (is_increment) {
-      __ addq(new_value.reg(), Immediate(Smi::FromInt(1)));
+      __ addl(kScratchRegister, Immediate(Smi::FromInt(1)));
     } else {
-      __ subq(new_value.reg(), Immediate(Smi::FromInt(1)));
+      __ subl(kScratchRegister, Immediate(Smi::FromInt(1)));
     }
-
-    // If the count operation didn't overflow and the result is a valid
-    // smi, we're done. Otherwise, we jump to the deferred slow-case
-    // code.
-
-    // We combine the overflow and the smi tag check.
-    __ setcc(overflow, kScratchRegister);
-    __ or_(kScratchRegister, new_value.reg());
-    __ testl(kScratchRegister, Immediate(kSmiTagMask));
+    // deferred->Branch(overflow);
+    __ cmovl(overflow, kScratchRegister, tmp.reg());
+    __ testl(kScratchRegister, tmp.reg());
     tmp.Unuse();
     deferred->Branch(not_zero);
+    __ movq(new_value.reg(), kScratchRegister);
 
     deferred->BindExit();
+
 
     // Postfix: store the old value in the allocated slot under the
     // reference.
@@ -3144,11 +3115,9 @@ void CodeGenerator::VisitCompareOperation(CompareOperation* node) {
       __ testb(FieldOperand(kScratchRegister, Map::kBitFieldOffset),
                Immediate(1 << Map::kIsUndetectable));
       destination()->false_target()->Branch(not_zero);
-      __ movb(kScratchRegister,
-              FieldOperand(kScratchRegister, Map::kInstanceTypeOffset));
-      __ cmpb(kScratchRegister, Immediate(FIRST_JS_OBJECT_TYPE));
+      __ CmpInstanceType(kScratchRegister, FIRST_JS_OBJECT_TYPE);
       destination()->false_target()->Branch(below);
-      __ cmpb(kScratchRegister, Immediate(LAST_JS_OBJECT_TYPE));
+      __ CmpInstanceType(kScratchRegister, LAST_JS_OBJECT_TYPE);
       answer.Unuse();
       destination()->Split(below_equal);
     } else {
@@ -3246,10 +3215,25 @@ void CodeGenerator::GenerateIsArray(ZoneList<Expression*>* args) {
 
 
 void CodeGenerator::GenerateIsConstructCall(ZoneList<Expression*>* args) {
-  // TODO(X64): Optimize this like it's done on IA-32.
   ASSERT(args->length() == 0);
-  Result answer = frame_->CallRuntime(Runtime::kIsConstructCall, 0);
-  frame_->Push(&answer);
+
+  // Get the frame pointer for the calling frame.
+  Result fp = allocator()->Allocate();
+  __ movq(fp.reg(), Operand(rbp, StandardFrameConstants::kCallerFPOffset));
+
+  // Skip the arguments adaptor frame if it exists.
+  Label check_frame_marker;
+  __ cmpq(Operand(fp.reg(), StandardFrameConstants::kContextOffset),
+          Immediate(ArgumentsAdaptorFrame::SENTINEL));
+  __ j(not_equal, &check_frame_marker);
+  __ movq(fp.reg(), Operand(fp.reg(), StandardFrameConstants::kCallerFPOffset));
+
+  // Check the marker in the calling frame.
+  __ bind(&check_frame_marker);
+  __ cmpq(Operand(fp.reg(), StandardFrameConstants::kMarkerOffset),
+          Immediate(Smi::FromInt(StackFrame::CONSTRUCT)));
+  fp.Unuse();
+  destination()->Split(equal);
 }
 
 
@@ -3361,7 +3345,21 @@ void CodeGenerator::GenerateRandomPositiveSmi(ZoneList<Expression*>* args) {
 
 
 void CodeGenerator::GenerateFastMathOp(MathOp op, ZoneList<Expression*>* args) {
-  UNIMPLEMENTED();
+  // TODO(X64): Use inline floating point in the fast case.
+  ASSERT(args->length() == 1);
+
+  // Load number.
+  Load(args->at(0));
+  Result answer;
+  switch (op) {
+    case SIN:
+      answer = frame_->CallRuntime(Runtime::kMath_sin, 1);
+      break;
+    case COS:
+      answer = frame_->CallRuntime(Runtime::kMath_cos, 1);
+      break;
+  }
+  frame_->Push(&answer);
 }
 
 
@@ -3379,27 +3377,22 @@ void CodeGenerator::GenerateClassOf(ZoneList<Expression*>* args) {
 
   // Check that the object is a JS object but take special care of JS
   // functions to make sure they have 'Function' as their class.
-  { Result tmp = allocator()->Allocate();
-    __ movq(obj.reg(), FieldOperand(obj.reg(), HeapObject::kMapOffset));
-    __ movb(tmp.reg(), FieldOperand(obj.reg(), Map::kInstanceTypeOffset));
-    __ cmpb(tmp.reg(), Immediate(FIRST_JS_OBJECT_TYPE));
-    null.Branch(less);
 
-    // As long as JS_FUNCTION_TYPE is the last instance type and it is
-    // right after LAST_JS_OBJECT_TYPE, we can avoid checking for
-    // LAST_JS_OBJECT_TYPE.
-    ASSERT(LAST_TYPE == JS_FUNCTION_TYPE);
-    ASSERT(JS_FUNCTION_TYPE == LAST_JS_OBJECT_TYPE + 1);
-    __ cmpb(tmp.reg(), Immediate(JS_FUNCTION_TYPE));
-    function.Branch(equal);
-  }
+  __ CmpObjectType(obj.reg(), FIRST_JS_OBJECT_TYPE, obj.reg());
+  null.Branch(less);
+
+  // As long as JS_FUNCTION_TYPE is the last instance type and it is
+  // right after LAST_JS_OBJECT_TYPE, we can avoid checking for
+  // LAST_JS_OBJECT_TYPE.
+  ASSERT(LAST_TYPE == JS_FUNCTION_TYPE);
+  ASSERT(JS_FUNCTION_TYPE == LAST_JS_OBJECT_TYPE + 1);
+  __ CmpInstanceType(obj.reg(), JS_FUNCTION_TYPE);
+  function.Branch(equal);
 
   // Check if the constructor in the map is a function.
-  { Result tmp = allocator()->Allocate();
-    __ movq(obj.reg(), FieldOperand(obj.reg(), Map::kConstructorOffset));
-    __ CmpObjectType(obj.reg(), JS_FUNCTION_TYPE, tmp.reg());
-    non_function_constructor.Branch(not_equal);
-  }
+  __ movq(obj.reg(), FieldOperand(obj.reg(), Map::kConstructorOffset));
+  __ CmpObjectType(obj.reg(), JS_FUNCTION_TYPE, kScratchRegister);
+  non_function_constructor.Branch(not_equal);
 
   // The obj register now contains the constructor function. Grab the
   // instance class name from there.
@@ -3803,8 +3796,28 @@ Operand CodeGenerator::SlotOperand(Slot* slot, Register tmp) {
 Operand CodeGenerator::ContextSlotOperandCheckExtensions(Slot* slot,
                                                          Result tmp,
                                                          JumpTarget* slow) {
-  UNIMPLEMENTED();
-  return Operand(rsp, 0);
+  ASSERT(slot->type() == Slot::CONTEXT);
+  ASSERT(tmp.is_register());
+  Register context = rsi;
+
+  for (Scope* s = scope(); s != slot->var()->scope(); s = s->outer_scope()) {
+    if (s->num_heap_slots() > 0) {
+      if (s->calls_eval()) {
+        // Check that extension is NULL.
+        __ cmpq(ContextOperand(context, Context::EXTENSION_INDEX),
+                Immediate(0));
+        slow->Branch(not_equal, not_taken);
+      }
+      __ movq(tmp.reg(), ContextOperand(context, Context::CLOSURE_INDEX));
+      __ movq(tmp.reg(), FieldOperand(tmp.reg(), JSFunction::kContextOffset));
+      context = tmp.reg();
+    }
+  }
+  // Check that last extension is NULL.
+  __ cmpq(ContextOperand(context, Context::EXTENSION_INDEX), Immediate(0));
+  slow->Branch(not_equal, not_taken);
+  __ movq(tmp.reg(), ContextOperand(context, Context::FCONTEXT_INDEX));
+  return ContextOperand(tmp.reg(), slot->index());
 }
 
 
@@ -4316,12 +4329,8 @@ void CodeGenerator::Comparison(Condition cc,
       left_side = Result(left_reg);
       right_side = Result(right_val);
       // Test smi equality and comparison by signed int comparison.
-      if (IsUnsafeSmi(right_side.handle())) {
-        right_side.ToRegister();
-        __ cmpq(left_side.reg(), right_side.reg());
-      } else {
-        __ Cmp(left_side.reg(), right_side.handle());
-      }
+      // Both sides are smis, so we can use an Immediate.
+      __ cmpl(left_side.reg(), Immediate(Smi::cast(*right_side.handle())));
       left_side.Unuse();
       right_side.Unuse();
       dest->Split(cc);
@@ -4373,7 +4382,8 @@ void CodeGenerator::Comparison(Condition cc,
       // When non-smi, call out to the compare stub.
       CompareStub stub(cc, strict);
       Result answer = frame_->CallStub(&stub, &left_side, &right_side);
-      __ testq(answer.reg(), answer.reg());  // Both zero and sign flag right.
+      // The result is a Smi, which is negative, zero, or positive.
+      __ testl(answer.reg(), answer.reg());  // Both zero and sign flag right.
       answer.Unuse();
       dest->Split(cc);
     } else {
@@ -4393,11 +4403,7 @@ void CodeGenerator::Comparison(Condition cc,
       // When non-smi, call out to the compare stub.
       CompareStub stub(cc, strict);
       Result answer = frame_->CallStub(&stub, &left_side, &right_side);
-      if (cc == equal) {
-        __ testq(answer.reg(), answer.reg());
-      } else {
-        __ cmpq(answer.reg(), Immediate(0));
-      }
+      __ testl(answer.reg(), answer.reg());  // Sets both zero and sign flags.
       answer.Unuse();
       dest->true_target()->Branch(cc);
       dest->false_target()->Jump();
@@ -4405,7 +4411,7 @@ void CodeGenerator::Comparison(Condition cc,
       is_smi.Bind();
       left_side = Result(left_reg);
       right_side = Result(right_reg);
-      __ cmpq(left_side.reg(), right_side.reg());
+      __ cmpl(left_side.reg(), right_side.reg());
       right_side.Unuse();
       left_side.Unuse();
       dest->Split(cc);
@@ -5056,12 +5062,12 @@ void CodeGenerator::LikelySmiBinaryOperation(Token::Value op,
     // Perform the operation.
     switch (op) {
       case Token::SAR:
-        __ sar(answer.reg());
+        __ sarl(answer.reg());
         // No checks of result necessary
         break;
       case Token::SHR: {
         Label result_ok;
-        __ shr(answer.reg());
+        __ shrl(answer.reg());
         // Check that the *unsigned* result fits in a smi.  Neither of
         // the two high-order bits can be set:
         //  * 0x80000000: high bit would be lost when smi tagging.
@@ -5084,7 +5090,7 @@ void CodeGenerator::LikelySmiBinaryOperation(Token::Value op,
         Label result_ok;
         __ shl(answer.reg());
         // Check that the *signed* result fits in a smi.
-        __ cmpq(answer.reg(), Immediate(0xc0000000));
+        __ cmpl(answer.reg(), Immediate(0xc0000000));
         __ j(positive, &result_ok);
         ASSERT(kSmiTag == 0);
         __ shl(rcx, Immediate(kSmiTagSize));
@@ -5421,6 +5427,7 @@ void ToBooleanStub::Generate(MacroAssembler* masm) {
   __ j(equal, &false_result);
 
   // Get the map and type of the heap object.
+  // We don't use CmpObjectType because we manipulate the type field.
   __ movq(rdx, FieldOperand(rax, HeapObject::kMapOffset));
   __ movzxbq(rcx, FieldOperand(rdx, Map::kInstanceTypeOffset));
 
@@ -5446,6 +5453,7 @@ void ToBooleanStub::Generate(MacroAssembler* masm) {
 
   __ bind(&not_string);
   // HeapNumber => false iff +0, -0, or NaN.
+  // These three cases set C3 when compared to zero in the FPU.
   __ Cmp(rdx, Factory::heap_number_map());
   __ j(not_equal, &true_result);
   // TODO(x64): Don't use fp stack, use MMX registers?
@@ -5455,9 +5463,9 @@ void ToBooleanStub::Generate(MacroAssembler* masm) {
   __ fucompp();  // Compare and pop both values.
   __ movq(kScratchRegister, rax);
   __ fnstsw_ax();  // Store fp status word in ax, no checking for exceptions.
-  __ testb(rax, Immediate(0x08));  // Test FP condition flag C3.
+  __ testl(rax, Immediate(0x4000));  // Test FP condition flag C3, bit 16.
   __ movq(rax, kScratchRegister);
-  __ j(zero, &false_result);
+  __ j(not_zero, &false_result);
   // Fall through to |true_result|.
 
   // Return 1/0 for true/false in rax.
@@ -5617,7 +5625,7 @@ void CompareStub::Generate(MacroAssembler* masm) {
       // The representation of NaN values has all exponent bits (52..62) set,
       // and not all mantissa bits (0..51) clear.
       // Read double representation into rax.
-      __ movq(rbx, 0x7ff0000000000000, RelocInfo::NONE);
+      __ movq(rbx, V8_UINT64_C(0x7ff0000000000000), RelocInfo::NONE);
       __ movq(rax, FieldOperand(rdx, HeapNumber::kValueOffset));
       // Test that exponent bits are all set.
       __ or_(rbx, rax);
@@ -5627,7 +5635,8 @@ void CompareStub::Generate(MacroAssembler* masm) {
       __ shl(rax, Immediate(12));
       // If all bits in the mantissa are zero the number is Infinity, and
       // we return zero.  Otherwise it is a NaN, and we return non-zero.
-      // So just return rax.
+      // We cannot just return rax because only eax is tested on return.
+      __ setcc(not_zero, rax);
       __ ret(0);
 
       __ bind(&not_identical);
@@ -5665,7 +5674,7 @@ void CompareStub::Generate(MacroAssembler* masm) {
                Factory::heap_number_map());
         // If heap number, handle it in the slow case.
         __ j(equal, &slow);
-        // Return non-equal (ebx is not zero)
+        // Return non-equal.  ebx (the lower half of rbx) is not zero.
         __ movq(rax, rbx);
         __ ret(0);
 
@@ -5681,7 +5690,7 @@ void CompareStub::Generate(MacroAssembler* masm) {
       Label first_non_object;
       __ CmpObjectType(rax, FIRST_JS_OBJECT_TYPE, rcx);
       __ j(below, &first_non_object);
-      // Return non-zero (rax is not zero)
+      // Return non-zero (eax (not rax) is not zero)
       Label return_not_equal;
       ASSERT(kHeapObjectTag != 0);
       __ bind(&return_not_equal);
@@ -5745,7 +5754,7 @@ void CompareStub::Generate(MacroAssembler* masm) {
     BranchIfNonSymbol(masm, &call_builtin, rdx, kScratchRegister);
 
     // We've already checked for object identity, so if both operands
-    // are symbols they aren't equal. Register rax already holds a
+    // are symbols they aren't equal. Register eax (not rax) already holds a
     // non-zero value, which indicates not equal, so just return.
     __ ret(2 * kPointerSize);
   }
@@ -6647,12 +6656,12 @@ void GenericBinaryOpStub::GenerateSmiCode(MacroAssembler* masm, Label* slow) {
       // Move the second operand into register ecx.
       __ movq(rcx, rbx);
       // Remove tags from operands (but keep sign).
-      __ sar(rax, Immediate(kSmiTagSize));
-      __ sar(rcx, Immediate(kSmiTagSize));
+      __ sarl(rax, Immediate(kSmiTagSize));
+      __ sarl(rcx, Immediate(kSmiTagSize));
       // Perform the operation.
       switch (op_) {
         case Token::SAR:
-          __ sar(rax);
+          __ sarl(rax);
           // No checks of result necessary
           break;
         case Token::SHR:
@@ -6663,19 +6672,17 @@ void GenericBinaryOpStub::GenerateSmiCode(MacroAssembler* masm, Label* slow) {
           // - 0x40000000: this number would convert to negative when
           // Smi tagging these two cases can only happen with shifts
           // by 0 or 1 when handed a valid smi.
-          __ testq(rax, Immediate(0xc0000000));
+          __ testl(rax, Immediate(0xc0000000));
           __ j(not_zero, slow);
           break;
         case Token::SHL:
           __ shll(rax);
-          // TODO(Smi): Significant change if Smi changes.
           // Check that the *signed* result fits in a smi.
           // It does, if the 30th and 31st bits are equal, since then
           // shifting the SmiTag in at the bottom doesn't change the sign.
           ASSERT(kSmiTagSize == 1);
           __ cmpl(rax, Immediate(0xc0000000));
           __ j(sign, slow);
-          __ movsxlq(rax, rax);  // Extend new sign of eax into rax.
           break;
         default:
           UNREACHABLE();
@@ -6787,7 +6794,6 @@ void GenericBinaryOpStub::Generate(MacroAssembler* masm) {
         __ testl(rax, Immediate(1));
         __ j(not_zero, &operand_conversion_failure);
       } else {
-        // TODO(X64): Verify that SSE3 is always supported, drop this code.
         // Check if right operand is int32.
         __ fist_s(Operand(rsp, 0 * kPointerSize));
         __ fild_s(Operand(rsp, 0 * kPointerSize));
@@ -6814,9 +6820,9 @@ void GenericBinaryOpStub::Generate(MacroAssembler* masm) {
         case Token::BIT_OR:  __ or_(rax, rcx); break;
         case Token::BIT_AND: __ and_(rax, rcx); break;
         case Token::BIT_XOR: __ xor_(rax, rcx); break;
-        case Token::SAR: __ sar(rax); break;
-        case Token::SHL: __ shl(rax); break;
-        case Token::SHR: __ shr(rax); break;
+        case Token::SAR: __ sarl(rax); break;
+        case Token::SHL: __ shll(rax); break;
+        case Token::SHR: __ shrl(rax); break;
         default: UNREACHABLE();
       }
       if (op_ == Token::SHR) {

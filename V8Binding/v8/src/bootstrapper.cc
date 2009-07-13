@@ -134,7 +134,7 @@ void Bootstrapper::TearDown() {
 }
 
 
-// Pending fixups are code positions that have refer to builtin code
+// Pending fixups are code positions that refer to builtin code
 // objects that were not available at the time the code was generated.
 // The pending list is processed whenever an environment has been
 // created.
@@ -216,7 +216,6 @@ bool PendingFixups::Process(Handle<JSBuiltinsObject> builtins) {
         *reinterpret_cast<Object**>(pc) = f->code();
       }
     } else {
-      ASSERT(is_pc_relative);
       Assembler::set_target_address_at(pc, f->code()->instruction_start());
     }
 
@@ -1374,43 +1373,35 @@ void Genesis::TransferNamedProperties(Handle<JSObject> from,
   if (from->HasFastProperties()) {
     Handle<DescriptorArray> descs =
         Handle<DescriptorArray>(from->map()->instance_descriptors());
-    int offset = 0;
-    while (true) {
-      // Iterating through the descriptors is not gc safe so we have to
-      // store the value in a handle and create a new stream for each entry.
-      DescriptorReader stream(*descs, offset);
-      if (stream.eos()) break;
-      // We have to read out the next offset before we do anything that may
-      // cause a gc, since the DescriptorReader is not gc safe.
-      offset = stream.next_position();
-      PropertyDetails details = stream.GetDetails();
+    for (int i = 0; i < descs->number_of_descriptors(); i++) {
+      PropertyDetails details = PropertyDetails(descs->GetDetails(i));
       switch (details.type()) {
         case FIELD: {
           HandleScope inner;
-          Handle<String> key = Handle<String>(stream.GetKey());
-          int index = stream.GetFieldIndex();
+          Handle<String> key = Handle<String>(descs->GetKey(i));
+          int index = descs->GetFieldIndex(i);
           Handle<Object> value = Handle<Object>(from->FastPropertyAt(index));
           SetProperty(to, key, value, details.attributes());
           break;
         }
         case CONSTANT_FUNCTION: {
           HandleScope inner;
-          Handle<String> key = Handle<String>(stream.GetKey());
+          Handle<String> key = Handle<String>(descs->GetKey(i));
           Handle<JSFunction> fun =
-              Handle<JSFunction>(stream.GetConstantFunction());
+              Handle<JSFunction>(descs->GetConstantFunction(i));
           SetProperty(to, key, fun, details.attributes());
           break;
         }
         case CALLBACKS: {
           LookupResult result;
-          to->LocalLookup(stream.GetKey(), &result);
+          to->LocalLookup(descs->GetKey(i), &result);
           // If the property is already there we skip it
           if (result.IsValid()) continue;
           HandleScope inner;
           Handle<DescriptorArray> inst_descs =
               Handle<DescriptorArray>(to->map()->instance_descriptors());
-          Handle<String> key = Handle<String>(stream.GetKey());
-          Handle<Object> entry = Handle<Object>(stream.GetCallbacksObject());
+          Handle<String> key = Handle<String>(descs->GetKey(i));
+          Handle<Object> entry = Handle<Object>(descs->GetCallbacksObject(i));
           inst_descs = Factory::CopyAppendProxyDescriptor(inst_descs,
                                                           key,
                                                           entry,
@@ -1556,7 +1547,7 @@ Genesis::Genesis(Handle<Object> global_object,
   // will always do unlinking.
   previous_ = current_;
   current_  = this;
-  result_ = NULL;
+  result_ = Handle<Context>::null();
 
   // If V8 isn't running and cannot be initialized, just return.
   if (!V8::IsRunning() && !V8::Initialize(NULL)) return;

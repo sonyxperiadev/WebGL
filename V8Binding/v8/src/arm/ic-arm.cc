@@ -77,6 +77,13 @@ static void GenerateDictionaryLoad(MacroAssembler* masm,
   __ cmp(r3, Operand(JS_GLOBAL_PROXY_TYPE));
   __ b(eq, miss);
 
+  // Possible work-around for http://crbug.com/16276.
+  // See also: http://codereview.chromium.org/155418.
+  __ cmp(r3, Operand(JS_GLOBAL_OBJECT_TYPE));
+  __ b(eq, miss);
+  __ cmp(r3, Operand(JS_BUILTINS_OBJECT_TYPE));
+  __ b(eq, miss);
+
   // Check that the properties array is a dictionary.
   __ ldr(t0, FieldMemOperand(t1, JSObject::kPropertiesOffset));
   __ ldr(r3, FieldMemOperand(t0, HeapObject::kMapOffset));
@@ -192,11 +199,14 @@ void LoadIC::GenerateFunctionPrototype(MacroAssembler* masm) {
   //  -- [sp]  : receiver
   // -----------------------------------
 
-  // NOTE: Right now, this code always misses on ARM which is
-  // sub-optimal. We should port the fast case code from IA-32.
+  Label miss;
 
-  Handle<Code> ic(Builtins::builtin(Builtins::LoadIC_Miss));
-  __ Jump(ic, RelocInfo::CODE_TARGET);
+  // Load receiver.
+  __ ldr(r0, MemOperand(sp, 0));
+
+  StubCompiler::GenerateLoadFunctionPrototype(masm, r0, r1, r3, &miss);
+  __ bind(&miss);
+  StubCompiler::GenerateLoadMiss(masm, Code::LOAD_IC);
 }
 
 

@@ -562,6 +562,26 @@ class Assembler : public Malloced {
     immediate_arithmetic_op_8(0x7, dst, src);
   }
 
+  void cmpl(Register dst, Register src) {
+    arithmetic_op_32(0x3B, dst, src);
+  }
+
+  void cmpl(Register dst, const Operand& src) {
+    arithmetic_op_32(0x3B, src, dst);
+  }
+
+  void cmpl(const Operand& dst, Register src) {
+    arithmetic_op_32(0x39, dst, src);
+  }
+
+  void cmpl(Register dst, Immediate src) {
+    immediate_arithmetic_op_32(0x7, dst, src);
+  }
+
+  void cmpl(const Operand& dst, Immediate src) {
+    immediate_arithmetic_op_32(0x7, dst, src);
+  }
+
   void cmpq(Register dst, Register src) {
     arithmetic_op(0x3B, dst, src);
   }
@@ -576,10 +596,6 @@ class Assembler : public Malloced {
 
   void cmpq(Register dst, Immediate src) {
     immediate_arithmetic_op(0x7, dst, src);
-  }
-
-  void cmpl(Register dst, Immediate src) {
-    immediate_arithmetic_op_32(0x7, dst, src);
   }
 
   void cmpq(const Operand& dst, Immediate src) {
@@ -674,9 +690,20 @@ class Assembler : public Malloced {
     shift(dst, shift_amount, 0x7);
   }
 
+  // Shifts dst right, duplicating sign bit, by shift_amount bits.
+  // Shifting by 1 is handled efficiently.
+  void sarl(Register dst, Immediate shift_amount) {
+    shift_32(dst, shift_amount, 0x7);
+  }
+
   // Shifts dst right, duplicating sign bit, by cl % 64 bits.
   void sar(Register dst) {
     shift(dst, 0x7);
+  }
+
+  // Shifts dst right, duplicating sign bit, by cl % 64 bits.
+  void sarl(Register dst) {
+    shift_32(dst, 0x7);
   }
 
   void shl(Register dst, Immediate shift_amount) {
@@ -740,6 +767,7 @@ class Assembler : public Malloced {
 
   void testb(Register reg, Immediate mask);
   void testb(const Operand& op, Immediate mask);
+  void testl(Register dst, Register src);
   void testl(Register reg, Immediate mask);
   void testl(const Operand& op, Immediate mask);
   void testq(const Operand& op, Register reg);
@@ -1086,6 +1114,7 @@ class Assembler : public Malloced {
   // ModR/M byte.
   void arithmetic_op(byte opcode, Register dst, Register src);
   void arithmetic_op_32(byte opcode, Register dst, Register src);
+  void arithmetic_op_32(byte opcode, const Operand& dst, Register src);
   void arithmetic_op(byte opcode, Register reg, const Operand& op);
   void immediate_arithmetic_op(byte subcode, Register dst, Immediate src);
   void immediate_arithmetic_op(byte subcode, const Operand& dst, Immediate src);
@@ -1105,6 +1134,7 @@ class Assembler : public Malloced {
                                  Immediate src);
   // Emit machine code for a shift operation.
   void shift(Register dst, Immediate shift_amount, int subcode);
+  void shift_32(Register dst, Immediate shift_amount, int subcode);
   // Shift dst by cl % 64 bits.
   void shift(Register dst, int subcode);
   void shift_32(Register dst, int subcode);

@@ -158,6 +158,8 @@ DEFINE_bool(gc_global, false, "always perform global GCs")
 DEFINE_int(gc_interval, -1, "garbage collect after <n> allocations")
 DEFINE_bool(trace_gc, false,
             "print one trace line following each garbage collection")
+DEFINE_bool(trace_gc_verbose, false,
+            "print more details following each garbage collection")
 DEFINE_bool(collect_maps, true,
             "garbage collect maps from which no objects can be reached")
 
@@ -208,8 +210,6 @@ DEFINE_bool(preemption, false,
 
 // Regexp
 DEFINE_bool(trace_regexps, false, "trace regexp execution")
-DEFINE_bool(regexp_native, true,
-            "use native code regexp implementation (IA32 only)")
 DEFINE_bool(regexp_optimization, true, "generate optimized regexp code")
 
 // Testing flags test/cctest/test-{flags,api,serialization}.cc
