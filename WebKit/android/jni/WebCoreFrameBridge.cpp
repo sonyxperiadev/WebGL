@@ -165,7 +165,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mObj = adoptGlobalRef(env, obj);
     mJavaFrame->mHistoryList = adoptGlobalRef(env, historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BIZZ)Landroid/webkit/LoadListener;");
+            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BIZ)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -269,7 +269,7 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
 WebCoreResourceLoader*
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   const WebCore::ResourceRequest& request,
-                                  bool isHighPriority, bool synchronous)
+                                  bool synchronous)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -354,7 +354,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jobject jLoadListener =
         env->CallObjectMethod(mJavaFrame->frame(env).get(), mJavaFrame->mStartLoadingResource,
                                               (int)loader, jUrlStr, jMethodStr, jHeaderMap,
-                                              jPostDataStr, cacheMode, isHighPriority, synchronous);
+                                              jPostDataStr, cacheMode, synchronous);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);

@@ -54,15 +54,8 @@ ResourceHandle::~ResourceHandle()
 bool ResourceHandle::start(Frame* frame)
 {
     WebCoreResourceLoader* loader;
-    bool highPriority = true;
-    CachedResource* r = d->m_request.getCachedResource();
-    if (r) {
-        CachedResource::Type t = r->type();
-        highPriority = !(t == CachedResource::ImageResource ||
-                       t == CachedResource::FontResource);
-    }
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    loader = client->webFrame()->startLoadingResource(this, d->m_request, highPriority, false);
+    loader = client->webFrame()->startLoadingResource(this, d->m_request, false);
 
     if (loader) {
         Release(d->m_loader);
@@ -152,7 +145,7 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     ResourceHandle h(request, &s, false, false, false);
     // This blocks until the load is finished.
     FrameLoaderClientAndroid* client = static_cast<FrameLoaderClientAndroid*> (frame->loader()->client());
-    client->webFrame()->startLoadingResource(&h, request, true, true);
+    client->webFrame()->startLoadingResource(&h, request, true);
 }
 
 } // namespace WebCore

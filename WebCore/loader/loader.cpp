@@ -41,7 +41,7 @@
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 
-#define REQUEST_MANAGEMENT_ENABLED 0
+#define REQUEST_MANAGEMENT_ENABLED 1
 #define REQUEST_DEBUG 0
 
 namespace WebCore {
@@ -259,9 +259,6 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
         requestsPending.removeFirst();
         
         ResourceRequest resourceRequest(request->cachedResource()->url());
-#ifdef ANDROID
-        resourceRequest.setCachedResource(request->cachedResource());
-#endif
         
         if (!request->cachedResource()->accept().isEmpty())
             resourceRequest.setHTTPAccept(request->cachedResource()->accept());

@@ -37,36 +37,29 @@ namespace WebCore {
 
         ResourceRequest(const String& url) 
             : ResourceRequestBase(KURL(url), UseProtocolCachePolicy)
-            , m_cachedResource(0)
         {
         }
 
         ResourceRequest(const KURL& url) 
             : ResourceRequestBase(url, UseProtocolCachePolicy)
-            , m_cachedResource(0)
         {
         }
 
         ResourceRequest(const KURL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy) 
             : ResourceRequestBase(url, policy)
-            , m_cachedResource(0)
         {
             setHTTPReferrer(referrer);
         }
         
         ResourceRequest()
             : ResourceRequestBase(KURL(), UseProtocolCachePolicy)
-            , m_cachedResource(0)
         {
         }
         
         void doUpdatePlatformRequest() {}
         void doUpdateResourceRequest() {}
-        void setCachedResource(CachedResource* r) { m_cachedResource = r; }
-        CachedResource* getCachedResource() const { return m_cachedResource; }
     private:
         friend class ResourceRequestBase;
-        CachedResource* m_cachedResource;
     };
 
 } // namespace WebCore
