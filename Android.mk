@@ -17,7 +17,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-ifeq ($(ENABLE_V8),true)
+ifeq ($(USE_ALT_JS_ENGINE),true)
 include $(LOCAL_PATH)/Android.v8.mk
 else
 include $(LOCAL_PATH)/Android.jsc.mk
