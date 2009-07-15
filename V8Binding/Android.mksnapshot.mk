@@ -72,4 +72,6 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/v8/src
 # This is on host.
 LOCAL_LDLIBS := -lpthread
 
+LOCAL_STATIC_LIBRARIES := liblog
+
 include $(BUILD_HOST_EXECUTABLE)
