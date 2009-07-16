@@ -61,7 +61,8 @@ LOCAL_SRC_FILES := \
 	android/plugins/ANPPaintInterface.cpp \
 	android/plugins/ANPPathInterface.cpp \
 	android/plugins/ANPSoundInterface.cpp \
-	android/plugins/ANPTypefaceInterface.cpp \
+	android/plugins/ANPSurfaceInterface.cpp \
+        android/plugins/ANPTypefaceInterface.cpp \
 	android/plugins/ANPWindowInterface.cpp \
 	android/plugins/PluginTimer.cpp \
 	android/plugins/PluginViewBridgeAndroid.cpp \

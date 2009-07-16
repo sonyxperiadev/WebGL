@@ -116,6 +116,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kTypefaceInterfaceV0_ANPGetValue    ((NPNVariable)1006)
 #define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
 #define kBitmapInterfaceV0_ANPGetValue      ((NPNVariable)1008)
+#define kSurfaceInterfaceV0_ANPGetValue     ((NPNVariable)1009)
 
 /*  queries for which drawing model is desired (for the draw event)
 
@@ -143,7 +144,8 @@ enum ANPDrawingModels {
     /** Draw into a bitmap from the browser thread in response to a Draw event.
         NPWindow->window is reserved (ignore)
      */
-    kBitmap_ANPDrawingModel = 0,
+    kBitmap_ANPDrawingModel  = 0,
+    kSurface_ANPDrawingModel = 1,
 };
 typedef int32_t ANPDrawingModel;
 
@@ -196,6 +198,43 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
         is non-null, sets it to the packing info for that format.
      */
     bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
+};
+
+/** The ANPSurface acts as a handle between the plugin and the native libraries
+    that render the surface to the screen.
+ */
+struct ANPSurface;
+
+/** The surfaceType is the mechanism by which the plugin informs the native
+    libraries which type of surface view it wishes to use.
+ */
+enum ANPSurfaceTypes {
+    kRGBA_ANPSurfaceType   = 0
+};
+typedef int32_t ANPSurfaceType;
+
+struct ANPSurfaceInterfaceV0 : ANPInterface {
+    /** Creates a new surface handle based on the given surface type. If the
+        given surface type is not supported then NULL is returned.
+     */
+    ANPSurface* (*newSurface)(NPP instance, ANPSurfaceType);
+    /** Given a valid surface handle (i.e. one created by calling newSurface)
+        the underlying surface is removed and the pointer is set to NULL.
+     */
+    void (*deleteSurface)(ANPSurface* surface);
+    /** Locks the surface from manipulation by other threads and provides a bitmap
+        to be written to.  The dirtyRect param specifies which portion of the
+        bitmap will be written to.  If the dirtyRect is NULL then the entire
+        surface will be considered dirty.  If the lock was successful the function
+        will return true and the bitmap will be set to point to a valid bitmap.
+        If not the function will return false and the bitmap will be set to NULL.
+     */
+    bool (*lock)(ANPSurface* surface, ANPBitmap* bitmap, ANPRectI* dirtyRect);
+    /** Given a locked surface handle (i.e. result of a successful call to lock)
+        the surface is unlocked and the contents of the bitmap, specifically
+        those inside the dirtyRect are written to the screen.
+     */
+    void (*unlock)(ANPSurface* surface);
 };
 
 struct ANPMatrixInterfaceV0 : ANPInterface {

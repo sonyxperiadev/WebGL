@@ -59,9 +59,11 @@ struct PluginWidgetAndroid {
     /*  Called each time the PluginView gets a new size or position.
      */
     void setWindow(int x, int y, int width, int height, bool isTransparent);
-    /*  Called whenever the plugin itself requests a new drawing model
+    /*  Called whenever the plugin itself requests a new drawing model. If the
+        hardware does not support the requested model then false is returned,
+        otherwise true is returned.
      */
-    void setDrawingModel(ANPDrawingModel);
+    bool setDrawingModel(ANPDrawingModel);
 
     /*  Utility method to convert from local (plugin) coordinates to docuemnt
         coordinates. Needed (for instance) to convert the dirty rectangle into

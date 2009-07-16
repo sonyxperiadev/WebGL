@@ -86,6 +86,7 @@ extern void ANPMatrixInterfaceV0_Init(ANPInterface* value);
 extern void ANPOffscreenInterfaceV0_Init(ANPInterface* value);
 extern void ANPPaintInterfaceV0_Init(ANPInterface* value);
 extern void ANPPathInterfaceV0_Init(ANPInterface* value);
+extern void ANPSurfaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
 
@@ -106,6 +107,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(MatrixInterfaceV0)        },
     { VARPROCLINE(PaintInterfaceV0)         },
     { VARPROCLINE(PathInterfaceV0)          },
+    { VARPROCLINE(SurfaceInterfaceV0)       },
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
 };
@@ -533,14 +535,8 @@ NPError PluginView::platformSetValue(NPPVariable variable, void* value)
     switch (variable) {
         case kRequestDrawingModel_ANPSetValue: {
             ANPDrawingModel model = reinterpret_cast<ANPDrawingModel>(value);
-            switch (model) {
-                case kBitmap_ANPDrawingModel:
-                    m_window->setDrawingModel(model);
-                    error = NPERR_NO_ERROR;
-                    break;
-                default:
-                    break;
-            }
+            if (m_window->setDrawingModel(model))
+                error = NPERR_NO_ERROR;
             break;
         }
         case kAcceptEvents_ANPSetValue : {

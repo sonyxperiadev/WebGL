@@ -70,8 +70,9 @@ void PluginWidgetAndroid::setWindow(int x, int y, int width, int height,
                                         width, height);
 }
 
-void PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
+bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
     m_drawingModel = model;
+    return true;
 }
 
 void PluginWidgetAndroid::localToPageCoords(SkIRect* rect) const {
