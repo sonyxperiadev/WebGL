@@ -469,7 +469,7 @@ jvalue convertNPVariantToJValue(NPVariant value, JNIType _JNIType, const char* j
 }
 
 
-void convertJValueToNPVariant(jvalue value, JNIType _JNIType, NPVariant* result)
+void convertJValueToNPVariant(jvalue value, JNIType _JNIType, const char* javaTypeName, NPVariant* result)
 {
     switch (_JNIType){
         case void_type: {
@@ -479,7 +479,15 @@ void convertJValueToNPVariant(jvalue value, JNIType _JNIType, NPVariant* result)
         
         case object_type: {
             if (value.l != 0) {
-                OBJECT_TO_NPVARIANT(JavaInstanceToNPObject(new JavaInstance(value.l)), *result);
+                if (strcmp(javaTypeName, "java.lang.String") == 0) {
+                    const char* v = getCharactersFromJString((jstring)value.l);
+                    // s is freed in NPN_ReleaseVariantValue (see npruntime.cpp)
+                    const char* s = strdup(v);
+                    releaseCharactersForJString((jstring)value.l, v);
+                    STRINGZ_TO_NPVARIANT(s, *result);
+                } else {
+                    OBJECT_TO_NPVARIANT(JavaInstanceToNPObject(new JavaInstance(value.l)), *result);
+                }
             }
             else {
                 VOID_TO_NPVARIANT(*result);

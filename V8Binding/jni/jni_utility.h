@@ -67,7 +67,7 @@ JNIType JNITypeFromPrimitiveType(char type);
 const char *signatureFromPrimitiveType(JNIType type);
 
 jvalue convertNPVariantToJValue(NPVariant, JNIType, const char* javaClassName);
-void convertJValueToNPVariant(jvalue, JNIType, NPVariant*);
+void convertJValueToNPVariant(jvalue, JNIType, const char* javaClassName, NPVariant*);
 
 jvalue getJNIField(jobject obj, JNIType type, const char *name, const char *signature);
 
