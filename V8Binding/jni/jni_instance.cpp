@@ -149,7 +149,7 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, u
         getJNIEnv()->DeleteLocalRef(obj);
     }
     
-    convertJValueToNPVariant(result, jMethod->JNIReturnType(), resultValue);
+    convertJValueToNPVariant(result, jMethod->JNIReturnType(), jMethod->returnType(), resultValue);
     free (jArgs);
 
     return true;

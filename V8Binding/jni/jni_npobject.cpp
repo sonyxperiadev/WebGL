@@ -150,7 +150,7 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
                                field->type());
     getJNIEnv()->DeleteLocalRef(local_ref);
 
-    convertJValueToNPVariant(value, field->getJNIType(), result);
+    convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);
 
     return true;
 }
