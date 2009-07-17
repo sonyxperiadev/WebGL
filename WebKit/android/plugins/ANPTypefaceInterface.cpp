@@ -58,26 +58,25 @@ static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {
     return static_cast<ANPTypefaceStyle>(s);
 }
 
-static uint32_t anp_countTables(const ANPTypeface* tf) {
-    SkFontID id = SkTypeface::UniqueID(tf);
-    return SkFontHost::CountTables(id);
-}
+static const char* gFontDir;
+#define FONT_DIR_SUFFIX     "/fonts/"
 
-static uint32_t anp_getTableTags(const ANPTypeface* tf,
-                                 ANPFontTableTag tags[]) {
-    SkFontID id = SkTypeface::UniqueID(tf);
-    return SkFontHost::GetTableTags(id, tags);
-}
-
-static uint32_t anp_getTableSize(const ANPTypeface* tf, ANPFontTableTag tag) {
-    SkFontID id = SkTypeface::UniqueID(tf);
-    return SkFontHost::GetTableSize(id, tag);
-}
-
-static uint32_t anp_getTableData(const ANPTypeface* tf, ANPFontTableTag tag,
-                                 uint32_t offset, uint32_t length, void* data) {
-    SkFontID id = SkTypeface::UniqueID(tf);
-    return SkFontHost::GetTableData(id, tag, offset, length, data);
+static const char* anp_getFontDirectoryPath() {
+    if (NULL == gFontDir) {
+        const char* root = getenv("ANDROID_ROOT");
+        size_t len = strlen(root);
+        char* storage = (char*)malloc(len + sizeof(FONT_DIR_SUFFIX));
+        if (NULL == storage) {
+            return NULL;
+        }
+        memcpy(storage, root, len);
+        memcpy(storage + len, FONT_DIR_SUFFIX, sizeof(FONT_DIR_SUFFIX));
+        // save this assignment for last, so that if multiple threads call us
+        // (which should never happen), we never return an incomplete global.
+        // At worst, we would allocate storage for the path twice.
+        gFontDir = storage;
+    }
+    return gFontDir;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,9 +92,6 @@ void ANPTypefaceInterfaceV0_Init(ANPInterface* v) {
     ASSIGN(i, ref);
     ASSIGN(i, unref);
     ASSIGN(i, getStyle);
-    ASSIGN(i, countTables);
-    ASSIGN(i, getTableTags);
-    ASSIGN(i, getTableSize);
-    ASSIGN(i, getTableData);
+    ASSIGN(i, getFontDirectoryPath);
 }
 

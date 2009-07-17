@@ -464,42 +464,9 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
      */
     ANPTypefaceStyle (*getStyle)(const ANPTypeface*);
 
-    /** Return the number of tables in the font
+    /** Return the path name for the font directory, or NULL if not supported
      */
-    uint32_t (*countTables)(const ANPTypeface*);
-
-    /** Copy into tags[] (allocated by the caller) the list of table tags in
-        the font, and return the number. This will be the same as CountTables()
-        or 0 if an error occured.
-     */
-    uint32_t (*getTableTags)(const ANPTypeface*, ANPFontTableTag tags[]);
-
-    /** Given a table tag, return the size of its contents, or 0 if not present
-     */
-    uint32_t (*getTableSize)(const ANPTypeface*, ANPFontTableTag);
-
-    /** Copy the contents of a table into data (allocated by the caller). Note
-        that the contents of the table will be in their native endian order
-        (which for most truetype tables is big endian). If the table tag is
-        not found, or there is an error copying the data, then 0 is returned.
-        If this happens, it is possible that some or all of the memory pointed
-        to by data may have been written to, even though an error has occured.
-
-        @param fontID the font to copy the table from
-        @param tag  The table tag whose contents are to be copied
-        @param offset The offset in bytes into the table's contents where the
-                copy should start from.
-        @param length The number of bytes, starting at offset, of table data
-                to copy.
-        @param data storage address where the table contents are copied to
-        @return the number of bytes actually copied into data. If offset+length
-                exceeds the table's size, then only the bytes up to the table's
-                size are actually copied, and this is the value returned. If
-                offset > the table's size, or tag is not a valid table,
-                then 0 is returned.
-     */
-    uint32_t (*getTableData)(const ANPTypeface*, ANPFontTableTag,
-                             uint32_t offset, uint32_t length, void* data);
+    const char* (*getFontDirectoryPath)();
 };
 
 struct ANPPaintInterfaceV0 : ANPInterface {
