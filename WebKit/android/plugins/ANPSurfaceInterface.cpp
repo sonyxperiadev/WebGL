@@ -25,23 +25,61 @@
 
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
+
+#include "PluginSurface.h"
+#include "PluginView.h"
+#include "PluginWidgetAndroid.h"
 #include "SkANP.h"
 
-static ANPSurface* anp_newSurface(NPP instance, ANPSurfaceType) {
+using namespace WebCore;
+
+static ANPSurface* anp_newSurface(NPP instance, ANPSurfaceType type) {
+    if (instance && instance->ndata) {
+        PluginView* view = static_cast<PluginView*>(instance->ndata);
+        PluginWidgetAndroid* widget = view->platformPluginWidget();
+        return widget->createSurface(type);
+    }
     return NULL;
 }
 
 static void anp_deleteSurface(ANPSurface* surface) {
-
+    if (surface) {
+        if (surface->data) {
+            android::PluginSurface* s =
+                    static_cast<android::PluginSurface*>(surface->data);
+            s->destroy();
+        }
+        delete surface;
+    }
 }
 
 static bool anp_lock(ANPSurface* surface, ANPBitmap* bitmap,
                      ANPRectI* dirtyRect) {
+    if (bitmap && surface && surface->data) {
+        android::PluginSurface* s =
+                static_cast<android::PluginSurface*>(surface->data);
+        SkBitmap src;
+        bool res = false;
+        if (dirtyRect) {
+            SkIRect rect;
+            res = s->lock(SkANP::SetRect(&rect, *dirtyRect), &src);
+        } else {
+            res = s->lock(NULL, &src);
+        }
+        if (res) {
+            res &= SkANP::SetBitmap(bitmap, src);
+        }
+        return res;
+    }
     return false;
 }
 
 static void anp_unlock(ANPSurface* surface) {
-
+    if (surface && surface->data) {
+        android::PluginSurface* s =
+                static_cast<android::PluginSurface*>(surface->data);
+        s->unlock();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

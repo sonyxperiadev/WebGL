@@ -29,6 +29,7 @@
 #include "Element.h"
 #include "Frame.h"
 #include "PluginPackage.h"
+#include "PluginSurface.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "SkANP.h"
@@ -65,9 +66,16 @@ void PluginWidgetAndroid::setWindow(int x, int y, int width, int height,
                                     bool isTransparent) {
     m_x = x;
     m_y = y;
-    m_flipPixelRef->safeUnref();
-    m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
-                                        width, height);
+
+    if (m_drawingModel == kSurface_ANPDrawingModel) {
+        if (m_surface) {
+            m_surface->attach(x, y, width, height);
+        }
+    } else {
+        m_flipPixelRef->safeUnref();
+        m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
+                                            width, height);
+    }
 }
 
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
@@ -98,7 +106,8 @@ bool PluginWidgetAndroid::isDirty(SkIRect* rect) const {
 
 void PluginWidgetAndroid::inval(const WebCore::IntRect& rect,
                                 bool signalRedraw) {
-    // nothing to do if we haven't had setWindow() called yet
+    // nothing to do if we haven't had setWindow() called yet. m_flipPixelRef
+    // will also be null if this is a Surface model.
     if (NULL == m_flipPixelRef) {
         return;
     }
@@ -181,4 +190,15 @@ void PluginWidgetAndroid::updateEventFlags(ANPEventFlags flags) {
 
 bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
     return m_eventFlags & flag;
+}
+
+ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
+    if (m_drawingModel != kSurface_ANPDrawingModel) {
+        return NULL;
+    }
+    m_surface.set(new android::PluginSurface(this));
+    ANPSurface* surface = new ANPSurface;
+    surface->data = m_surface.get();
+    surface->type = ignored;
+    return surface;
 }

@@ -28,11 +28,14 @@
 
 #include "android_npapi.h"
 
+#include <wtf/OwnPtr.h>
+
 namespace WebCore {
     class PluginView;
 }
 
 namespace android {
+    class PluginSurface;
     class WebViewCore;
 }
 
@@ -51,6 +54,9 @@ struct PluginWidgetAndroid {
     ~PluginWidgetAndroid();
 
     WebCore::PluginView* pluginView() const { return m_pluginView; }
+
+    // Needed by PluginSurface to manage the java SurfaceView.
+    android::WebViewCore* webViewCore() const { return m_core; }
 
     /*  Can't determine our core at construction time, so PluginView calls this
         as soon as it has a parent.
@@ -101,6 +107,12 @@ struct PluginWidgetAndroid {
      */
     bool isAcceptingEvent(ANPEventFlag);
 
+    /*  Create an ANPSurface that the plugin may draw in to. The drawing model
+        must be kSurface_ANPDrawingModel for this call to succeed. The type
+        specifies what kind of pixel access will be available.
+     */
+    ANPSurface* createSurface(ANPSurfaceType type);
+
 private:
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
@@ -109,6 +121,7 @@ private:
     ANPEventFlags           m_eventFlags;
     int                     m_x;
     int                     m_y;
+    OwnPtr<android::PluginSurface> m_surface;
 };
 
 #endif

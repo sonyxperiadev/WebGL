@@ -67,6 +67,7 @@ namespace android {
 
     class CachedRoot;
     class ListBoxReply;
+    class SurfaceCallback;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -312,6 +313,15 @@ namespace android {
 
         // Notify the Java side that webkit is requesting a keyboard
         void requestKeyboard(bool);
+
+        // Creates a SurfaceView for a plugin
+        jobject createSurface(SurfaceCallback* cb);
+
+        // Destroys the SurfaceView after removing from the view system.
+        void destroySurface(jobject surface);
+
+        // Positions the SurfaceView at x,y with dimensions width x height
+        void attachSurface(jobject surface, int x, int y, int width, int height);
 
         // other public functions
     public:

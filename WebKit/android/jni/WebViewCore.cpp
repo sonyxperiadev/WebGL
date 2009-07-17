@@ -88,6 +88,7 @@
 #include "SkCanvas.h"
 #include "SkPicture.h"
 #include "SkUtils.h"
+#include "SurfaceCallback.h"
 #include "StringImpl.h"
 #include "Text.h"
 #include "TypingCommand.h"
@@ -176,6 +177,9 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_addMessageToConsole;
+    jmethodID   m_createSurface;
+    jmethodID   m_destroySurface;
+    jmethodID   m_attachSurface;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -241,6 +245,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
+    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(I)Landroid/view/SurfaceView;");
+    m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/view/SurfaceView;)V");
+    m_javaGlue->m_attachSurface = GetJMethod(env, clazz, "attachSurface", "(Landroid/view/SurfaceView;IIII)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -2021,6 +2028,32 @@ void WebViewCore::setBackgroundColor(SkColor c)
     view->setBaseBackgroundColor(bcolor);
 }
 
+jobject WebViewCore::createSurface(SurfaceCallback* cb)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jobject surface = env->CallObjectMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_createSurface, (int) cb);
+    checkException(env);
+    return surface;
+}
+
+void WebViewCore::destroySurface(jobject surface)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_destroySurface, surface);
+    checkException(env);
+}
+
+void WebViewCore::attachSurface(jobject surface, int x, int y, int width,
+        int height)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_attachSurface, surface, x, y, width, height);
+    checkException(env);
+}
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
@@ -2503,6 +2536,28 @@ static void UpdatePluginState(JNIEnv* env, jobject obj, jint framePtr, jint node
                                 (PluginState) state);
 }
 
+static void SurfaceChanged(JNIEnv* env, jobject obj, jint pointer, jint state,
+        jint format, jint width, jint height)
+{
+    // Be safe and check for a valid callback
+    if (!pointer)
+        return;
+    SurfaceCallback* cb = reinterpret_cast<SurfaceCallback*>(pointer);
+    switch (state) {
+        case 0:
+            cb->surfaceCreated();
+            break;
+        case 1:
+            cb->surfaceChanged(format, width, height);
+            break;
+        case 2:
+            cb->surfaceDestroyed();
+            break;
+        default:
+            break;
+    }
+}
+
 static void Pause(JNIEnv* env, jobject obj)
 {
     ANPEvent event;
@@ -2607,6 +2662,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DumpNavTree },
     { "nativeSetDatabaseQuota", "(J)V",
         (void*) SetDatabaseQuota },
+    { "nativeSurfaceChanged", "(IIIII)V",
+        (void*) SurfaceChanged },
     { "nativePause", "()V", (void*) Pause },
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },

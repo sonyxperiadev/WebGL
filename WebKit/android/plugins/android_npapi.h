@@ -200,11 +200,6 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
     bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
 };
 
-/** The ANPSurface acts as a handle between the plugin and the native libraries
-    that render the surface to the screen.
- */
-struct ANPSurface;
-
 /** The surfaceType is the mechanism by which the plugin informs the native
     libraries which type of surface view it wishes to use.
  */
@@ -212,6 +207,11 @@ enum ANPSurfaceTypes {
     kRGBA_ANPSurfaceType   = 0
 };
 typedef int32_t ANPSurfaceType;
+
+/** The ANPSurface acts as a handle between the plugin and the native libraries
+    that render the surface to the screen.
+ */
+struct ANPSurface;
 
 struct ANPSurfaceInterfaceV0 : ANPInterface {
     /** Creates a new surface handle based on the given surface type. If the
@@ -717,6 +717,7 @@ enum ANPEventTypes {
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
     kVisibleRect_ANPEventType   = 6,
+    kSurface_ANPEventType       = 7,
 };
 typedef int32_t ANPEventType;
 
@@ -759,6 +760,23 @@ enum ANPLifecycleActions {
 };
 typedef uint32_t ANPLifecycleAction;
 
+enum ANPSurfaceActions {
+    /** The surface has been created and is ready to be used. Any calls to
+        lock/unlock before this action will fail.
+     */
+    kCreated_ANPSurfaceAction    = 0,
+    /** The surface has changed format or dimensions.
+     */
+    kChanged_ANPSurfaceAction    = 1,
+    /** The surface has been destroyed. This happens when the view system has
+        remove the surface (possibly due to the plugin being offscreen). Calls
+        to lock/unlock will fail after this action and before
+        kCreate_ANPSurfaceAction.
+     */
+    kDestroyed_ANPSurfaceAction  = 2,
+};
+typedef uint32_t ANPSurfaceAction;
+
 /* This is what is passed to NPP_HandleEvent() */
 struct ANPEvent {
     uint32_t        inSize;  // size of this struct in bytes
@@ -800,6 +818,23 @@ struct ANPEvent {
             ANPRectI    rect;       // in global document coordinates
             float       zoomScale;  // 1.0 means no zoom scale
         } visibleRect;
+        struct {
+            ANPSurfaceAction action;
+            /** This union is based on the value of action and contains data
+                specific to the given action.
+             */
+            union {
+                /** This struct is filled in only during the
+                    kChanged_ANPSurfaceAction action. For all other actions,
+                    this struct is undefined.
+                  */
+                struct {
+                    int32_t format;
+                    int32_t width;
+                    int32_t height;
+                } changed;
+            } data;
+        } surface;
         int32_t         other[8];
     } data;
 };
