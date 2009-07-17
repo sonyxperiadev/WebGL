@@ -2011,8 +2011,10 @@ void V8Proxy::updateDocument()
     if (!m_frame->document())
         return;
 
-    if (m_context.IsEmpty())
+    if (m_global.IsEmpty())
         return;
+
+    InitContextIfNeeded();
 
     // We have a new document and we need to update the cache.
     UpdateDocumentWrapperCache();
