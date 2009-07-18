@@ -103,6 +103,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
 	bindings/v8/custom/V8SQLTransactionCustom.cpp \
 	bindings/v8/custom/V8StorageCustom.cpp \
+	bindings/v8/custom/V8TouchListCustom.cpp \
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \

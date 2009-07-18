@@ -458,6 +458,11 @@ namespace WebCore {
 
         DECLARE_INDEXED_PROPERTY_GETTER(ClientRectList);
 
+#if ENABLE(TOUCH_EVENTS)
+        // TODO(andreip): upstream touch related changes to Chromium
+        DECLARE_INDEXED_PROPERTY_GETTER(TouchList);
+#endif
+
 #if ENABLE(DOM_STORAGE)
         DECLARE_INDEXED_PROPERTY_GETTER(Storage);
         DECLARE_INDEXED_PROPERTY_SETTER(Storage);

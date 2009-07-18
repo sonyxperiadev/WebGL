@@ -1699,6 +1699,13 @@ v8::Persistent<v8::FunctionTemplate> V8Proxy::GetTemplate(
       desc->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
       break;
 #endif
+#if ENABLE(TOUCH_EVENTS)
+    // TODO(andreip): upstream touch related changes to Chromium
+    case V8ClassIndex::TOUCHLIST:
+      desc->InstanceTemplate()->SetIndexedPropertyHandler(
+          USE_INDEXED_PROPERTY_GETTER(TouchList));
+      break;
+#endif
     case V8ClassIndex::CLIENTRECTLIST:
       desc->InstanceTemplate()->SetIndexedPropertyHandler(
           USE_INDEXED_PROPERTY_GETTER(ClientRectList));
@@ -2990,7 +2997,7 @@ v8::Handle<v8::Value> V8Proxy::EventToV8Object(Event* event)
       type = V8ClassIndex::MOUSEEVENT;
     else if (event->isWheelEvent())
       type = V8ClassIndex::WHEELEVENT;
-#if PLATFORM(ANDROID)  // ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_EVENTS)
     else if (event->isTouchEvent())
       type = V8ClassIndex::TOUCHEVENT;
 #endif
