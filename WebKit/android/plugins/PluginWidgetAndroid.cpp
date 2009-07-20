@@ -32,6 +32,7 @@
 #include "PluginSurface.h"
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
+#include "ScrollView.h"
 #include "SkANP.h"
 #include "SkFlipPixelRef.h"
 #include "WebViewCore.h"
@@ -42,7 +43,10 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_core = NULL;
     m_drawingModel = kBitmap_ANPDrawingModel;
     m_eventFlags = 0;
-    m_x = m_y = 0;
+    m_pluginWindow = NULL;
+    m_requestedVisibleRectCount = 0;
+    m_requestedFrameRect.setEmpty();
+    m_visibleDocRect.setEmpty();
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -62,19 +66,17 @@ static SkBitmap::Config computeConfig(bool isTransparent) {
                          : SkBitmap::kRGB_565_Config;
 }
 
-void PluginWidgetAndroid::setWindow(int x, int y, int width, int height,
-                                    bool isTransparent) {
-    m_x = x;
-    m_y = y;
+void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
+    m_pluginWindow = window;
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
         if (m_surface) {
-            m_surface->attach(x, y, width, height);
+            m_surface->attach(window->x, window->y, window->width, window->height);
         }
     } else {
         m_flipPixelRef->safeUnref();
         m_flipPixelRef = new SkFlipPixelRef(computeConfig(isTransparent),
-                                            width, height);
+                                            window->width, window->height);
     }
 }
 
@@ -84,7 +86,8 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
 }
 
 void PluginWidgetAndroid::localToPageCoords(SkIRect* rect) const {
-    rect->offset(m_x, m_y);
+    if (m_pluginWindow)
+        rect->offset(m_pluginWindow->x, m_pluginWindow->y);
 }
 
 bool PluginWidgetAndroid::isDirty(SkIRect* rect) const {
@@ -143,11 +146,11 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
                                  bitmap) &&
                     pkg->pluginFuncs()->event(instance, &event)) {
 
-                if (canvas) {
+                if (canvas && m_pluginWindow) {
                     SkBitmap bm(bitmap);
                     bm.setPixelRef(m_flipPixelRef);
-                    canvas->drawBitmap(bm, SkIntToScalar(m_x),
-                                           SkIntToScalar(m_y), NULL);
+                    canvas->drawBitmap(bm, SkIntToScalar(m_pluginWindow->x),
+                                           SkIntToScalar(m_pluginWindow->y), NULL);
                 }
             }
             break;
@@ -201,4 +204,108 @@ ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
     surface->data = m_surface.get();
     surface->type = ignored;
     return surface;
+}
+
+void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
+
+    //TODO send an event to the plugin that communicates the zoom
+
+    int oldScreenW = m_visibleDocRect.width();
+    int oldScreenH = m_visibleDocRect.height();
+
+    m_visibleDocRect.set(visibleDocRect.left, visibleDocRect.top,
+                         visibleDocRect.right, visibleDocRect.bottom);
+
+    int newScreenW = m_visibleDocRect.width();
+    int newScreenH = m_visibleDocRect.height();
+
+    if (oldScreenW != newScreenW || oldScreenH != newScreenH)
+        computeVisibleFrameRect();
+}
+
+void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count) {
+
+    // ensure the count does not exceed our allocated space
+    if (count > MAX_REQUESTED_RECTS)
+        count = MAX_REQUESTED_RECTS;
+
+    // store the values in member variables
+    m_requestedVisibleRectCount = count;
+    memcpy(m_requestedVisibleRect, rects, count * sizeof(rects[0]));
+
+    computeVisibleFrameRect();
+}
+
+void PluginWidgetAndroid::computeVisibleFrameRect() {
+
+    // ensure the visibleDocRect has been set (i.e. not equal to zero)
+    if (m_visibleDocRect.isEmpty())
+        return;
+
+    // create a rect that represents the plugin's bounds
+    SkIRect pluginBounds;
+    pluginBounds.set(m_pluginWindow->x, m_pluginWindow->y,
+                     m_pluginWindow->x + m_pluginWindow->width,
+                     m_pluginWindow->y + m_pluginWindow->height);
+
+    // create a rect that will contain as many of the rects that will fit on screen
+    SkIRect visibleRect;
+    visibleRect.setEmpty();
+
+    for (int counter = 0; counter < m_requestedVisibleRectCount; counter++) {
+
+        ANPRectI* rect = &m_requestedVisibleRect[counter];
+
+        // create skia rect for easier manipulation and convert it to frame coordinates
+        SkIRect pluginRect;
+        pluginRect.set(rect->left, rect->top, rect->right, rect->bottom);
+        pluginRect.offset(m_pluginWindow->x, m_pluginWindow->y);
+
+        // ensure the rect falls within the plugin's bounds
+        if (!pluginBounds.contains(pluginRect))
+          continue;
+
+        // combine this new rect with the higher priority rects
+        pluginRect.join(visibleRect);
+
+        // check to see if the new rect fits within the screen bounds. If this
+        // is the highest priority rect then attempt to center even if it doesn't
+        // fit on the screen.
+        if (counter > 0 && (m_visibleDocRect.width() < pluginRect.width() ||
+                               m_visibleDocRect.height() < pluginRect.height()))
+          break;
+
+        // set the new visible rect
+        visibleRect = pluginRect;
+    }
+
+    m_requestedFrameRect = visibleRect;
+    scrollToVisibleFrameRect();
+}
+
+void PluginWidgetAndroid::scrollToVisibleFrameRect() {
+
+    if (m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty())
+        return;
+
+    // TODO if the entire rect is already visible then we don't need to scroll,
+    // this requires converting the m_requestedFrameRect from frame to doc coordinates
+
+    // find the center of the visibleRect in document coordinates
+    ScrollView* scrollView = m_pluginView->parent();
+    IntPoint pluginFramePoint = IntPoint(m_requestedFrameRect.fLeft, m_requestedFrameRect.fTop);
+    IntPoint pluginDocPoint = scrollView->convertToContainingWindow(pluginFramePoint);
+    int rectCenterX = pluginDocPoint.x() + m_requestedFrameRect.width()/2;
+    int rectCenterY = pluginDocPoint.y() + m_requestedFrameRect.height()/2;
+
+    // find document coordinates for center of the visible screen
+    int screenCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
+    int screenCenterY = m_visibleDocRect.fTop + m_visibleDocRect.height()/2;
+
+    //compute the delta of the two points
+    int deltaX = rectCenterX - screenCenterX;
+    int deltaY = rectCenterY - screenCenterY;
+
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
+    core->scrollBy(deltaX, deltaY, true);
 }

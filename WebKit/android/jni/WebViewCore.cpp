@@ -897,8 +897,8 @@ void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
                 m_scrollOffsetY);
         m_mainFrame->eventHandler()->sendScrollEvent();
 
-        // update the currently visible window
-        sendVisibleRectBounds();
+        // update the currently visible screen
+        sendPluginVisibleScreen();
     }
     gCursorBoundsMutex.lock();
     bool hasCursorBounds = m_hasCursorBounds;
@@ -974,20 +974,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         }
     }
 
-    // update the currently visible window
-    sendVisibleRectBounds();
-}
-
-void WebViewCore::sendVisibleRectBounds()
-{
-    ANPEvent event;
-    SkANP::InitEvent(&event, kVisibleRect_ANPEventType);
-    event.data.visibleRect.rect.left = m_scrollOffsetX;
-    event.data.visibleRect.rect.top = m_scrollOffsetY;
-    event.data.visibleRect.rect.right = m_scrollOffsetX + m_screenWidth;
-    event.data.visibleRect.rect.bottom = m_scrollOffsetY + m_screenHeight;
-    event.data.visibleRect.zoomScale = m_scale;
-    sendPluginEvent(event, kVisibleRect_ANPEventFlag);
+    // update the currently visible screen
+    sendPluginVisibleScreen();
 }
 
 void WebViewCore::dumpDomTree(bool useFile)
@@ -1176,6 +1164,21 @@ void WebViewCore::drawPlugins()
         WebCore::IntRect r(bounds.fLeft, bounds.fTop,
                            bounds.width(), bounds.height());
         this->viewInvalidate(r);
+    }
+}
+
+void WebViewCore::sendPluginVisibleScreen()
+{
+    ANPRectI visibleRect;
+    visibleRect.left = m_scrollOffsetX;
+    visibleRect.top = m_scrollOffsetY;
+    visibleRect.right = m_scrollOffsetX + m_screenWidth;
+    visibleRect.bottom = m_scrollOffsetY + m_screenHeight;
+
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        (*iter)->setVisibleScreen(visibleRect, m_scale);
     }
 }
 

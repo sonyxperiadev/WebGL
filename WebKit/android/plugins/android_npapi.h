@@ -164,7 +164,6 @@ typedef int32_t ANPDrawingModel;
 enum ANPEventFlag {
     kKey_ANPEventFlag           = 0x01,
     kTouch_ANPEventFlag         = 0x02,
-    kVisibleRect_ANPEventFlag   = 0x04,
 };
 typedef uint32_t ANPEventFlags;
 
@@ -615,11 +614,20 @@ struct ANPWindowInterfaceV0 : ANPInterface {
         results. If lock returned false, unlock should not be called.
      */
     void    (*unlock)(void* window);
-    /** Given (x,y) coordinates in the document space the currently visible
-        window will be shifted so that window's upper left corner will be as
-        closely aligned to the coordinates as possible.
+    /** Registers a set of rectangles that the plugin would like to keep on
+        screen. The rectangles are listed in order of priority with the highest
+        priority rectangle in location rects[0].  The browser will attempt to keep
+        as many of the rectangles on screen as possible and will scroll them into
+        view in response to the invocation of this method and other various events.
+        The count specifies how many rectangles are in the array. If the count is
+        zero it signals the browser that any existing rectangles should be cleared
+        and no rectangles will be tracked.
      */
-    void    (*scrollTo)(NPP instance, int32_t x, int32_t y);
+    void (*setVisibleRects)(NPP instance, const ANPRectI rects[], int32_t count);
+    /** Clears any rectangles that are being tracked as a result of a call to
+        setVisibleRects. This call is equivalent to setVisibleRect(inst, NULL, 0).
+     */
+    void    (*clearVisibleRects)(NPP instance);
     /** Given a boolean value of true the device will be requested to provide
         a keyboard. A value of false will result in a request to hide the
         keyboard. Further, the on-screen keyboard will not be displayed if a
@@ -716,8 +724,7 @@ enum ANPEventTypes {
     kTouch_ANPEventType         = 3,
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
-    kVisibleRect_ANPEventType   = 6,
-    kSurface_ANPEventType       = 7,
+    kSurface_ANPEventType       = 6,
 };
 typedef int32_t ANPEventType;
 
@@ -814,10 +821,6 @@ struct ANPEvent {
                 ANPBitmap   bitmap;
             } data;
         } draw;
-        struct {
-            ANPRectI    rect;       // in global document coordinates
-            float       zoomScale;  // 1.0 means no zoom scale
-        } visibleRect;
         struct {
             ANPSurfaceAction action;
             /** This union is based on the value of action and contains data
