@@ -150,12 +150,13 @@ void PluginSurface::unlock() {
 static void sendSurfaceEvent(PluginWidgetAndroid* widget,
         ANPSurfaceAction action, int format = 0, int width = 0,
         int height = 0) {
+    // format is currently not reported to the plugin. The plumbing from Java
+    // to C is still provided in case we add the format back to the event.
     ANPEvent event;
     SkANP::InitEvent(&event, kSurface_ANPEventType);
 
     event.data.surface.action = action;
     if (action == kChanged_ANPSurfaceAction) {
-        event.data.surface.data.changed.format = format;
         event.data.surface.data.changed.width = width;
         event.data.surface.data.changed.height = height;
     }

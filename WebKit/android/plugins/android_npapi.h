@@ -765,7 +765,7 @@ enum ANPSurfaceActions {
         lock/unlock before this action will fail.
      */
     kCreated_ANPSurfaceAction    = 0,
-    /** The surface has changed format or dimensions.
+    /** The surface's dimension has changed.
      */
     kChanged_ANPSurfaceAction    = 1,
     /** The surface has been destroyed. This happens when the view system has
@@ -829,7 +829,6 @@ struct ANPEvent {
                     this struct is undefined.
                   */
                 struct {
-                    int32_t format;
                     int32_t width;
                     int32_t height;
                 } changed;
