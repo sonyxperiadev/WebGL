@@ -56,8 +56,13 @@ MapSpace* Heap::map_space_ = NULL;
 CellSpace* Heap::cell_space_ = NULL;
 LargeObjectSpace* Heap::lo_space_ = NULL;
 
+#if defined(ANDROID)
+static const int kMinimumPromotionLimit = 1*MB;
+static const int kMinimumAllocationLimit = 2*MB;
+#else
 static const int kMinimumPromotionLimit = 2*MB;
 static const int kMinimumAllocationLimit = 8*MB;
+#endif
 
 int Heap::old_gen_promotion_limit_ = kMinimumPromotionLimit;
 int Heap::old_gen_allocation_limit_ = kMinimumAllocationLimit;
