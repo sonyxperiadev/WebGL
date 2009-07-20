@@ -402,8 +402,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
         setCallingPlugin(false);
     }
 
-    m_window->setWindow(m_npWindow.x, m_npWindow.y, width, height,
-                        m_isTransparent);
+    m_window->setWindow(&m_npWindow, m_isTransparent);
 }
 
 void PluginView::stop()

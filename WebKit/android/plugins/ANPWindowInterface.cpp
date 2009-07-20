@@ -26,9 +26,9 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 #include "SkANP.h"
-#include "ScrollView.h"
 #include "WebViewCore.h"
 #include "PluginView.h"
+#include "PluginWidgetAndroid.h"
 
 static bool anp_lockRect(void* window, const ANPRectI* inval,
                          ANPBitmap* bitmap) {
@@ -57,10 +57,14 @@ static PluginView* pluginViewForInstance(NPP instance) {
     return PluginView::currentPluginView();
 }
 
-static void anp_scrollTo(NPP instance, int32_t x, int32_t y) {
-    ScrollView* scrollView = pluginViewForInstance(instance)->parent();
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
-    core->scrollTo(x,y,true);
+static void anp_setVisibleRects(NPP instance, const ANPRectI rects[], int32_t count) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->setVisibleRects(rects, count);
+}
+
+static void anp_clearVisibleRects(NPP instance) {
+    anp_setVisibleRects(instance, NULL, 0);
 }
 
 static void anp_showKeyboard(NPP instance, bool value) {
@@ -78,7 +82,8 @@ void ANPWindowInterfaceV0_Init(ANPInterface* value) {
 
     ASSIGN(i, lockRect);
     ASSIGN(i, lockRegion);
-    ASSIGN(i, scrollTo);
+    ASSIGN(i, setVisibleRects);
+    ASSIGN(i, clearVisibleRects);
     ASSIGN(i, showKeyboard);
     ASSIGN(i, unlock);
 }

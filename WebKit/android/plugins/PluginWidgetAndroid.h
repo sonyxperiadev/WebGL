@@ -27,6 +27,7 @@
 #define PluginWidgetAndroid_H
 
 #include "android_npapi.h"
+#include "SkRect.h"
 
 #include <wtf/OwnPtr.h>
 
@@ -64,7 +65,8 @@ struct PluginWidgetAndroid {
     void init(android::WebViewCore*);
     /*  Called each time the PluginView gets a new size or position.
      */
-    void setWindow(int x, int y, int width, int height, bool isTransparent);
+    void setWindow(NPWindow* window, bool isTransparent);
+
     /*  Called whenever the plugin itself requests a new drawing model. If the
         hardware does not support the requested model then false is returned,
         otherwise true is returned.
@@ -113,15 +115,45 @@ struct PluginWidgetAndroid {
      */
     ANPSurface* createSurface(ANPSurfaceType type);
 
+    /*  Notify the plugin of the currently visible screen coordinates (document
+        space) and the current zoom level.
+     */
+    void setVisibleScreen(const ANPRectI& visibleScreenRect, float zoom);
+
+    /** Registers a set of rectangles that the plugin would like to keep on
+        screen. The rectangles are listed in order of priority with the highest
+        priority rectangle in location rects[0].  The browser will attempt to keep
+        as many of the rectangles on screen as possible and will scroll them into
+        view in response to the invocation of this method and other various events.
+        The count specifies how many rectangles are in the array. If the count is
+        zero it signals the plugin that any existing rectangles should be cleared
+        and no rectangles will be tracked.
+     */
+    void setVisibleRects(const ANPRectI rects[], int32_t count);
+
 private:
+    void computeVisibleFrameRect();
+    void scrollToVisibleFrameRect();
+
     WebCore::PluginView*    m_pluginView;
     android::WebViewCore*   m_core;
     SkFlipPixelRef*         m_flipPixelRef;
     ANPDrawingModel         m_drawingModel;
     ANPEventFlags           m_eventFlags;
-    int                     m_x;
-    int                     m_y;
+    NPWindow*               m_pluginWindow;
+    SkIRect                 m_visibleDocRect;
+    SkIRect                 m_requestedFrameRect;
     OwnPtr<android::PluginSurface> m_surface;
+
+    /* We limit the number of rectangles to minimize storage and ensure adequate
+       speed.
+    */
+    enum {
+        MAX_REQUESTED_RECTS = 5,
+    };
+
+    ANPRectI                m_requestedVisibleRect[MAX_REQUESTED_RECTS];
+    int32_t                 m_requestedVisibleRectCount;
 };
 
 #endif

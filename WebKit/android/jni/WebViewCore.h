@@ -296,6 +296,9 @@ namespace android {
         void invalPlugin(PluginWidgetAndroid*);
         void drawPlugins();
 
+        // send the current screen size/zoom to all of the plugins in our list
+        void sendPluginVisibleScreen();
+
         // send this event to all of the plugins in our list
         void sendPluginEvent(const ANPEvent&);
 
@@ -430,7 +433,6 @@ namespace android {
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
-        void sendVisibleRectBounds();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
 #if DEBUG_NAV_UI
         uint32_t m_now;
