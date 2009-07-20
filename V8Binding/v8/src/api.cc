@@ -2516,8 +2516,13 @@ Persistent<Context> v8::Context::New(
   i::Handle<i::Context> env;
   {
     ENTER_V8;
+#if defined(ANDROID)
+    // Avoid exact work when creating new context. Android has its
+    // own onLowMemory notification.
+#else
     // Give the heap a chance to cleanup if we've disposed contexts.
     i::Heap::CollectAllGarbageIfContextDisposed();
+#endif
 
     v8::Handle<ObjectTemplate> proxy_template = global_template;
     i::Handle<i::FunctionTemplateInfo> proxy_constructor;
