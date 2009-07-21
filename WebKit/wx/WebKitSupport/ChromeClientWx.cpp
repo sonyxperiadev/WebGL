@@ -355,6 +355,13 @@ void ChromeClientWx::exceededDatabaseQuota(Frame*, const String&)
 }
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void ChromeClientWx::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    notImplemented();
+}
+#endif
+
 void ChromeClientWx::scroll(const IntSize&, const IntRect&, const IntRect&)
 {
     notImplemented();

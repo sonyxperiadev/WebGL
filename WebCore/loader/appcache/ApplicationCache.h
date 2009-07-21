@@ -93,6 +93,8 @@ public:
     
     static bool requestIsHTTPOrHTTPSGet(const ResourceRequest&);
 
+    int64_t estimatedSizeInStorage() const { return m_estimatedSizeInStorage; }
+
 private:
     ApplicationCache();
     
@@ -105,6 +107,11 @@ private:
 
     // While an update is in progress, changes in dynamic entries are queued for later execution.
     Vector<std::pair<KURL, bool> > m_pendingDynamicEntryActions;
+
+    // The total size of the resources belonging to this Application Cache instance.
+    // This is an estimation of the size this Application Cache occupies in the
+    // database file.
+    int64_t m_estimatedSizeInStorage;
 
     unsigned m_storageID;
 };

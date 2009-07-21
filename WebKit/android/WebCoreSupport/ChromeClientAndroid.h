@@ -111,6 +111,9 @@ namespace android {
 #if ENABLE(DATABASE)
         virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+#endif
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         virtual bool setCursor(PlatformCursorHandle);
