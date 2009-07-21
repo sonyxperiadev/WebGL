@@ -29,13 +29,12 @@
 #include "android_graphics.h"
 #include "CString.h"
 #include "DocumentLoader.h"
+#include "DOMImplementation.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
 #include "GraphicsContext.h"
-// HTMLFormElement needed for a bad include
-#include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLPlugInElement.h"
 #include "IconDatabase.h"
@@ -46,11 +45,6 @@
 #include "PlatformString.h"
 #include "PluginDatabase.h"
 #include "PluginView.h"
-#ifdef ANDROID_PLUGINS
-// Removed.
-#else
-#include "PluginViewBridgeAndroid.h"
-#endif
 #include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "ResourceError.h"
@@ -663,7 +657,9 @@ bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
     if (MIMETypeRegistry::isSupportedImageResourceMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType) ||
-            PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
+            PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType) ||
+            DOMImplementation::isTextMIMEType(mimeType) ||
+            DOMImplementation::isXMLMIMEType(mimeType))
         return true;
     return false;
 }
