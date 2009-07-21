@@ -24,6 +24,8 @@
 # Boston, MA 02111-1307, USA.
 #
 
+#TODO(andreip): diff and consolidate.
+
 package CodeGeneratorV8;
 
 use File::stat;

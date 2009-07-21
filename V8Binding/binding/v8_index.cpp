@@ -208,10 +208,12 @@
 #endif
 
 #if PLATFORM(CHROMIUM)
+// TODO(andreip): use the WebKit inspector flag instead.
 #include "V8InspectorController.h"
 #endif
 
 #if PLATFORM(CHROMIUM) || ENABLE(DATABASE)
+// TODO(andreip): patch chromium to use the flag?
 #include "V8Database.h"
 #include "V8SQLError.h"
 #include "V8SQLResultSet.h"

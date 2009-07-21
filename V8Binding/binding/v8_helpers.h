@@ -6,6 +6,7 @@
 #define V8_HELPERS_H__
 
 #if PLATFORM(CHROMIUM)
+// TODO(andreip): diff and consolidate
 #include "third_party/npapi/bindings/npruntime.h"
 #else
 #include "bridge/npruntime.h"  // use WebCore version
