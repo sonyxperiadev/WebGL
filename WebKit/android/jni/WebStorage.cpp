@@ -29,6 +29,7 @@
 
 #include <JNIHelp.h>
 
+#include <WebCore/loader/appcache/ApplicationCacheStorage.h>
 #include <WebCore/page/SecurityOrigin.h>
 #include <WebCore/storage/DatabaseTracker.h>
 
@@ -43,21 +44,31 @@ static jobject GetOrigins(JNIEnv* env, jobject obj)
 {
     Vector<RefPtr<WebCore::SecurityOrigin> > coreOrigins;
     WebCore::DatabaseTracker::tracker().origins(coreOrigins);
+    Vector<WebCore::KURL> manifestUrls;
+    if (WebCore::cacheStorage().manifestURLs(&manifestUrls)) {
+        int size = manifestUrls.size();
+        for (int i = 0; i < size; ++i) {
+            RefPtr<WebCore::SecurityOrigin> manifestOrigin = WebCore::SecurityOrigin::create(manifestUrls[i]);
+            if (manifestOrigin.get() == 0)
+                continue;
+            coreOrigins.append(manifestOrigin);
+        }
+    }
 
-    jclass vectorClass = env->FindClass("java/util/Vector");
-    jmethodID cid = env->GetMethodID(vectorClass, "<init>", "()V");
-    jmethodID mid = env->GetMethodID(vectorClass, "addElement", "(Ljava/lang/Object;)V");
-    jobject vector = env->NewObject(vectorClass, cid);
+    jclass setClass = env->FindClass("java/util/HashSet");
+    jmethodID cid = env->GetMethodID(setClass, "<init>", "()V");
+    jmethodID mid = env->GetMethodID(setClass, "add", "(Ljava/lang/Object;)Z");
+    jobject set = env->NewObject(setClass, cid);
 
     for (unsigned i = 0; i < coreOrigins.size(); ++i) {
         WebCore::SecurityOrigin* origin = coreOrigins[i].get();
         WebCore::String url = origin->toString();
         jstring jUrl = env->NewString(url.characters(), url.length());
-        env->CallVoidMethod(vector, mid, jUrl);
+        env->CallBooleanMethod(set, mid, jUrl);
         env->DeleteLocalRef(jUrl);
     }
 
-    return vector;
+    return set;
 }
 
 static unsigned long long GetQuotaForOrigin(JNIEnv* env, jobject obj, jstring origin)
@@ -72,8 +83,22 @@ static unsigned long long GetUsageForOrigin(JNIEnv* env, jobject obj, jstring or
 {
     WebCore::String originStr = to_string(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
-    unsigned long long quota = WebCore::DatabaseTracker::tracker().usageForOrigin(securityOrigin.get());
-    return quota;
+    unsigned long long usage = WebCore::DatabaseTracker::tracker().usageForOrigin(securityOrigin.get());
+    Vector<WebCore::KURL> manifestUrls;
+    if (!WebCore::cacheStorage().manifestURLs(&manifestUrls))
+        return usage;
+    int size = manifestUrls.size();
+    for (int i = 0; i < size; ++i) {
+        RefPtr<WebCore::SecurityOrigin> manifestOrigin = WebCore::SecurityOrigin::create(manifestUrls[i]);
+        if (manifestOrigin.get() == 0)
+            continue;
+        if (manifestOrigin->isSameSchemeHostPort(securityOrigin.get())) {
+            int64_t size = 0;
+            WebCore::cacheStorage().cacheGroupSize(manifestUrls[i].string(), &size);
+            usage += size;
+        }
+    }
+    return usage;
 }
 
 static void SetQuotaForOrigin(JNIEnv* env, jobject obj, jstring origin, unsigned long long quota)
@@ -88,18 +113,31 @@ static void DeleteOrigin(JNIEnv* env, jobject obj, jstring origin)
     WebCore::String originStr = to_string(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
     WebCore::DatabaseTracker::tracker().deleteOrigin(securityOrigin.get());
+
+    Vector<WebCore::KURL> manifestUrls;
+    if (!WebCore::cacheStorage().manifestURLs(&manifestUrls))
+        return;
+    int size = manifestUrls.size();
+    for (int i = 0; i < size; ++i) {
+        RefPtr<WebCore::SecurityOrigin> manifestOrigin = WebCore::SecurityOrigin::create(manifestUrls[i]);
+        if (manifestOrigin.get() == 0)
+            continue;
+        if (manifestOrigin->isSameSchemeHostPort(securityOrigin.get()))
+            WebCore::cacheStorage().deleteCacheGroup(manifestUrls[i]);
+    }
 }
 
-static void DeleteAllDatabases(JNIEnv* env, jobject obj)
+static void DeleteAllData(JNIEnv* env, jobject obj)
 {
     WebCore::DatabaseTracker::tracker().deleteAllDatabases();
+    WebCore::cacheStorage().empty();
 }
 
 /*
  * JNI registration
  */
 static JNINativeMethod gWebStorageMethods[] = {
-    { "nativeGetOrigins", "()Ljava/util/Vector;",
+    { "nativeGetOrigins", "()Ljava/util/Set;",
         (void*) GetOrigins },
     { "nativeGetUsageForOrigin", "(Ljava/lang/String;)J",
         (void*) GetUsageForOrigin },
@@ -109,8 +147,8 @@ static JNINativeMethod gWebStorageMethods[] = {
         (void*) SetQuotaForOrigin },
     { "nativeDeleteOrigin", "(Ljava/lang/String;)V",
         (void*) DeleteOrigin },
-    { "nativeDeleteAllDatabases", "()V",
-        (void*) DeleteAllDatabases }
+    { "nativeDeleteAllData", "()V",
+        (void*) DeleteAllData }
 };
 
 int register_webstorage(JNIEnv* env)
