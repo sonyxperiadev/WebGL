@@ -239,7 +239,7 @@ void PluginWidgetAndroid::setVisibleRects(const ANPRectI rects[], int32_t count)
 void PluginWidgetAndroid::computeVisibleFrameRect() {
 
     // ensure the visibleDocRect has been set (i.e. not equal to zero)
-    if (m_visibleDocRect.isEmpty())
+    if (m_visibleDocRect.isEmpty() || !m_pluginWindow)
         return;
 
     // create a rect that represents the plugin's bounds
