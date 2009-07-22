@@ -6,6 +6,7 @@
 #define np_v8object_h
 
 #if PLATFORM(CHROMIUM)
+// TODO(andreip): diff and consolidate
 #include "bindings/npruntime.h"
 #else
 #include "bridge/npruntime.h"  // use WebCore version

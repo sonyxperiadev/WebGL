@@ -366,6 +366,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif
 
 #if PLATFORM(CHROMIUM)
+// TODO(andreip): clean up using the individual flags that are
+// feature-specific.
 #define DOM_OBJECT_TYPES(V)                                             \
   DOM_OBJECT_TYPES_1(V)                                                 \
   DOM_OBJECT_TYPES_2(V)                                                 \
@@ -376,6 +378,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #endif
 
 #if PLATFORM(ANDROID)
+// TODO(andreip): clean up using the individual flags that are
+// feature-specific (DATABASE, XSLT, TOUCH, etc)
 #define DOM_OBJECT_TYPES(V)                                             \
   DOM_OBJECT_TYPES_1(V)                                                 \
   DOM_OBJECT_TYPES_2(V)                                                 \

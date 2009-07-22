@@ -339,6 +339,8 @@ typedef Vector<GrouperPair> GrouperList;
 #if PLATFORM(ANDROID)
 // Sort GrouperPair by the group id. Node* is only involved to sort within
 // a group id, so it will be fine.
+// TODO(andreip): used by std::stable_sort function. We can implement
+// the std::sort function and remove this one.
 static bool ComparePair(const GrouperPair& p1, const GrouperPair& p2) {
   return p1.first < p2.first;
 }
@@ -452,6 +454,7 @@ ACTIVE_DOM_OBJECT_TYPES(MAKE_CASE)
   }
 
 #if PLATFORM(ANDROID)
+  // TODO(andreip): implement std::sort() and get rid of this.
   std::stable_sort<GrouperPair>(grouper.begin(), grouper.end(), ComparePair); 
 #else
   // Group by sorting by the group id.  This will use the std::pair operator<,
@@ -1021,6 +1024,7 @@ bool V8Proxy::HandleOutOfMemory()
     }
 
 #if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::notifyJSOutOfMemory(frame);
 #endif
     // Disable JS.
@@ -1078,6 +1082,7 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
     // Compile the script.
     v8::Local<v8::String> code = v8ExternalString(source.source());
 #if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventBegin("v8.compile", n, "");
 #endif
 
@@ -1086,6 +1091,7 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
     v8::Handle<v8::Script> script = CompileScript(code, source.url(),
                                                   source.startLine() - 1);
 #if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventEnd("v8.compile", n, "");
     ChromiumBridge::traceEventBegin("v8.run", n, "");
 #endif
@@ -1104,6 +1110,7 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
       result = RunScript(script, source.url().string().isNull());
     }
 #if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventEnd("v8.run", n, "");
 #endif
     return result;
@@ -1849,6 +1856,7 @@ bool V8Proxy::isEnabled()
     // embedder to allow them to override policy here.
 
 #if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     if (origin->protocol() == ChromiumBridge::uiResourceProtocol())
         return true;   // Embedder's scripts are ok to run
 #endif
@@ -1857,7 +1865,7 @@ bool V8Proxy::isEnabled()
     // listing, which requires JavaScript to function properly.
     const char* kDirProtocols[] = { "ftp", "file" };
 #if PLATFORM(ANDROID)
-    // TODO(fqian): port arraysize function to Android.
+    // TODO(andreip): port arraysize function to Android. There's one in Gears.
     for (size_t i = 0; i < 2; ++i) {
 #else
     for (size_t i = 0; i < arraysize(kDirProtocols); ++i) {
@@ -3472,7 +3480,9 @@ void V8Proxy::CreateUtilityContext() {
 
 
 int V8Proxy::GetSourceLineNumber() {
-#if PLATFORM(ANDROID) 
+#if PLATFORM(ANDROID)
+    // TODO(andreip): consider V8's DEBUG flag here, rather than PLATFORM(ANDROID)
+    // or, even better, the WEBKIT inspector flag.
     return 0;
 #else    
     v8::HandleScope scope;
