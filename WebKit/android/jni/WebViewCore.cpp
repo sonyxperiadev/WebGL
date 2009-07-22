@@ -1372,11 +1372,17 @@ WebCore::String WebViewCore::getSelection(SkRegion* selRgn)
             DBG_NAV_LOG("!node");
             return result;
         }
-        WebCore::IntPoint endPt = WebCore::IntPoint(rect.fRight - 2, cy);
+        WebCore::IntPoint endPt = WebCore::IntPoint(rect.fRight - 1, cy);
         hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(endPt, false);
         WebCore::Node* endNode = hitTestResult.innerNode();
         if (!endNode) {
-            DBG_NAV_LOG("!endNode");
+            DBG_NAV_LOG("!endNode (right-1)");
+            endPt = WebCore::IntPoint(rect.fRight - 2, cy);
+            hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(endPt, false);
+            endNode = hitTestResult.innerNode();
+        }
+        if (!endNode) {
+            DBG_NAV_LOG("!endNode (right-2)");
             return result;
         }
         int start = findTextBoxIndex(node, startPt);
