@@ -58,6 +58,7 @@ public:
     void queueReload();
     void queueScript(JSStringRef url);
     void setAcceptsEditing(bool acceptsEditing);
+    void setAppCacheMaximumSize(unsigned long long quota);
     void setAuthorAndUserStylesEnabled(bool);
     void setCustomPolicyDelegate(bool setDelegate, bool permissive);
     void setDatabaseQuota(unsigned long long quota);

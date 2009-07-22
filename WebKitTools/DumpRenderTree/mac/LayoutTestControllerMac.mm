@@ -39,6 +39,7 @@
 #import <JavaScriptCore/JSStringRefCF.h>
 #import <WebKit/DOMDocument.h>
 #import <WebKit/DOMElement.h>
+#import <WebKit/WebApplicationCache.h>
 #import <WebKit/WebBackForwardList.h>
 #import <WebKit/WebDatabaseManagerPrivate.h>
 #import <WebKit/WebDataSource.h>
@@ -208,6 +209,11 @@ void LayoutTestController::queueScript(JSStringRef script)
 void LayoutTestController::setAcceptsEditing(bool newAcceptsEditing)
 {
     [(EditingDelegate *)[[mainFrame webView] editingDelegate] setAcceptsEditing:newAcceptsEditing];
+}
+
+void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
+{
+    [WebApplicationCache setMaximumSize:size];
 }
 
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)

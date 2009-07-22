@@ -311,6 +311,13 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     }
 }
 #endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    // FIXME: Free some space.
+    notImplemented();
+}
+#endif
 
 void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame*, Geolocation*) { notImplemented(); }
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
