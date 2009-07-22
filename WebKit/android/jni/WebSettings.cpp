@@ -92,6 +92,7 @@ struct FieldIds {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mAppCacheEnabled = env->GetFieldID(clazz, "mAppCacheEnabled", "Z");
         mAppCachePath = env->GetFieldID(clazz, "mAppCachePath", "Ljava/lang/String;");
+        mAppCacheMaxSize = env->GetFieldID(clazz, "mAppCacheMaxSize", "J");
 #endif
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
@@ -123,6 +124,7 @@ struct FieldIds {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
         LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
+        LOG_ASSERT(mAppCacheMaxSize, "Could not find field mAppCacheMaxSize");
 #endif
         LOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
                 "Could not find field mJavaScriptCanOpenWindowsAutomatically");
@@ -164,6 +166,7 @@ struct FieldIds {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     jfieldID mAppCacheEnabled;
     jfieldID mAppCachePath;
+    jfieldID mAppCacheMaxSize;
 #endif
     jfieldID mJavaScriptCanOpenWindowsAutomatically;
     jfieldID mUseWideViewport;
@@ -299,6 +302,8 @@ public:
                 WebCore::cacheStorage().setCacheDirectory(path);
             }
         }
+        jlong maxsize = env->GetIntField(obj, gFieldIds->mAppCacheMaxSize);
+        WebCore::cacheStorage().setMaximumSize(maxsize);
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
         s->setJavaScriptCanOpenWindowsAutomatically(flag);
