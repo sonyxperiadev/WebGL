@@ -186,9 +186,7 @@ DOM_CLASSES = \
     OverflowEvent \
     Plugin \
     PluginArray \
-    PositionCallback \
     PositionError \
-    PositionErrorCallback \
     ProcessingInstruction \
     ProgressEvent \
     RGBColor \
