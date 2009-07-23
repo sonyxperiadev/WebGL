@@ -955,6 +955,7 @@ bool motionUp(int x, int y, int slop)
         rebuildWebTextView();
         displaySoftKeyboard(true);
     } else {
+        clearTextEntry();
         setFollowedLink(true);
         if (type != NORMAL_CACHEDNODETYPE)
             overrideUrlLoading(result->getExport());
