@@ -21,6 +21,7 @@ V8_LOCAL_SRC_FILES := \
 	src/execution.cc \
 	src/factory.cc \
 	src/flags.cc \
+	src/frame-element.cc \
 	src/frames.cc \
 	src/func-name-inferrer.cc \
 	src/global-handles.cc \
