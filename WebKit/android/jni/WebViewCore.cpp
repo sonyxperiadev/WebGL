@@ -1517,6 +1517,26 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     updateTextfield(focus, false, test);
 }
 
+void WebViewCore::scrollFocusedTextInput(int x, int y)
+{
+    WebCore::Node* focus = currentFocus();
+    if (!focus) {
+        DBG_NAV_LOG("!focus");
+        clearTextEntry();
+        return;
+    }
+    WebCore::RenderObject* renderer = focus->renderer();
+    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
+        DBG_NAV_LOGD("renderer==%p || not text", renderer);
+        clearTextEntry();
+        return;
+    }
+    WebCore::RenderTextControl* renderText =
+        static_cast<WebCore::RenderTextControl*>(renderer);
+    renderText->setScrollLeft(x);
+    renderText->setScrollTop(y);
+}
+
 void WebViewCore::setFocusControllerActive(bool active)
 {
     m_mainFrame->page()->focusController()->setActive(active);
@@ -2180,6 +2200,15 @@ static void PassToJs(JNIEnv *env, jobject obj,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
 
+static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jint x, jint y)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    viewImpl->scrollFocusedTextInput(x, y);
+}
+
 static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2630,7 +2659,9 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeMoveMouseIfLatest", "(IIII)V",
         (void*) MoveMouseIfLatest },
     { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
-        (void*) PassToJs } ,
+        (void*) PassToJs },
+    { "nativeScrollFocusedTextInput", "(II)V",
+        (void*) ScrollFocusedTextInput },
     { "nativeSetFocusControllerActive", "(Z)V",
         (void*) SetFocusControllerActive },
     { "nativeSaveDocumentState", "(I)V",

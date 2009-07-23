@@ -266,6 +266,10 @@ namespace android {
             int textGeneration);
         void passToJs(int generation,
             const WebCore::String& , const WebCore::PlatformKeyboardEvent& );
+        /**
+         * Scroll the focused textfield to (x, y) in document space
+         */
+        void scrollFocusedTextInput(int x, int y);
         void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
