@@ -389,7 +389,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
   V(GEOLOCATION, Geolocation)                                           \
   V(GEOPOSITION, Geoposition)                                           \
   V(POSITIONERROR, PositionError)                                       \
-  V(POSITIONERRORCALLBACK, PositionErrorCallback)                       \
   V(TOUCHLIST, TouchList)                                               \
   V(TOUCHEVENT, TouchEvent)                                             \
   V(TOUCH, Touch)                                                       \

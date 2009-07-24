@@ -392,7 +392,6 @@
 #include "V8Geolocation.h"
 #include "V8Geoposition.h"
 #include "V8PositionError.h"
-#include "V8PositionErrorCallback.h"
 #include "V8Touch.h"
 #include "V8TouchList.h"
 #include "V8TouchEvent.h"

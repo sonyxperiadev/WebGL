@@ -25,7 +25,6 @@
 #	dom/EventTarget.idl \
 #	html/CanvasPixelArray.idl \
 #	page/AbstractView.idl \
-#	page/PositionCallback.idl \
 #	svg/ElementTimeControl.idl \
 #	svg/SVGAnimatedPathData.idl \
 #	svg/SVGAnimatedPoints.idl \
@@ -430,12 +429,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(interme
 # out/.../JSAbstractView.cpp:27:26: error: AbstractView.h: No such file or directory
 # I can't find AbstractView.h anywhere
 #    $(intermediates)/page/JSAbstractView.h \
-#
-# also:
-#
-# out/.../JSPositionCallback.cpp:145: error: no matching function for call to 'WebCore::PositionCallback::handleEvent(WebCore::Geoposition*&)'
-#  note: candidates are: virtual void WebCore::PositionCallback::handleEvent(WebCore::Geoposition*, bool&)
-#    $(intermediates)/page/JSPositionCallback.h \
 
 GEN := \
     $(intermediates)/page/JSBarInfo.h \
@@ -449,7 +442,6 @@ GEN := \
     $(intermediates)/page/JSLocation.h \
     $(intermediates)/page/JSNavigator.h \
     $(intermediates)/page/JSPositionError.h \
-    $(intermediates)/page/JSPositionErrorCallback.h \
     $(intermediates)/page/JSScreen.h \
     $(intermediates)/page/JSWebKitPoint.h \
     $(intermediates)/page/JSWorkerNavigator.h

@@ -369,7 +369,6 @@ GEN := \
     $(intermediates)/page/V8Location.h \
     $(intermediates)/page/V8Navigator.h \
     $(intermediates)/page/V8PositionError.h \
-    $(intermediates)/page/V8PositionErrorCallback.h \
     $(intermediates)/page/V8Screen.h \
     $(intermediates)/page/V8WebKitPoint.h
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
@@ -658,4 +657,3 @@ $(GEN): $(WEBCORE_PATH)/dom/make_names.pl $(xlink_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 endif
-
