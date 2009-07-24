@@ -26,7 +26,6 @@
 #	dom/Worker*.idl \
 #	html/CanvasPixelArray.idl \
 #	page/AbstractView.idl \
-#	page/PositionCallback.idl \
 #	page/Worker*.idl \
 #	svg/ElementTimeControl.idl \
 #	svg/SVGAnimatedPathData.idl \
