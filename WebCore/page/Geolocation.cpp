@@ -182,12 +182,7 @@ void Geolocation::sendPositionToOneShots(Geoposition* position)
         ASSERT(notifier->m_successCallback);
         
         notifier->m_timer.stop();
-        bool shouldCallErrorCallback = false;
-        notifier->m_successCallback->handleEvent(position, shouldCallErrorCallback);
-        if (shouldCallErrorCallback) {
-            RefPtr<PositionError> error = PositionError::create(PositionError::UNKNOWN_ERROR, "An exception was thrown");
-            handleError(error.get());
-        }
+        notifier->m_successCallback->handleEvent(position);
     }
 }
 
@@ -202,12 +197,7 @@ void Geolocation::sendPositionToWatchers(Geoposition* position)
         ASSERT(notifier->m_successCallback);
         
         notifier->m_timer.stop();
-        bool shouldCallErrorCallback = false;
-        notifier->m_successCallback->handleEvent(position, shouldCallErrorCallback);
-        if (shouldCallErrorCallback) {
-            RefPtr<PositionError> error = PositionError::create(PositionError::UNKNOWN_ERROR, "An exception was thrown");
-            handleError(error.get());
-        }
+        notifier->m_successCallback->handleEvent(position);
     }
 }
 
