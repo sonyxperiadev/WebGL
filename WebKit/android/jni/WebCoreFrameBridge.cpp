@@ -90,7 +90,6 @@
 
 #include <JNIHelp.h>
 #include <SkGraphics.h>
-#include <SkImageRef_GlobalPool.h>
 #include <utils/misc.h>
 #include <utils/AssetManager.h>
 #include <android_runtime/android_util_AssetManager.h>
@@ -790,11 +789,35 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url)
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
 
     WebCore::String webcoreUrl = to_string(env, url);
-    WebCore::ResourceRequest request(webcoreUrl);
-    LOGV("LoadUrl %s", webcoreUrl.latin1().data());
+    WebCore::KURL kurl(WebCore::KURL(), webcoreUrl);
+    WebCore::ResourceRequest request(kurl);
+    LOGV("LoadUrl %s", kurl.string().latin1().data());
     pFrame->loader()->load(request, false);
 }
 
+static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+#endif
+    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
+    LOG_ASSERT(pFrame, "nativePostUrl must take a valid frame pointer!");
+
+    WebCore::KURL kurl(WebCore::KURL(), to_string(env, url));
+    WebCore::ResourceRequest request(kurl);
+    request.setHTTPContentType("application/x-www-form-urlencoded");
+
+    if (postData) {
+        jsize size = env->GetArrayLength(postData);
+        jbyte* bytes = env->GetByteArrayElements(postData, NULL);
+        request.setHTTPBody(WebCore::FormData::create((const void*)bytes, size));
+        env->ReleaseByteArrayElements(postData, bytes, 0);
+    }
+
+    LOGV("PostUrl %s", kurl.string().latin1().data());
+    pFrame->loader()->loadPostRequest(request, String(), String(), false,
+            WebCore::FrameLoadTypeStandard, 0, 0, true);
+}
 
 static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
         jstring mimeType, jstring encoding, jstring failUrl)
@@ -1049,8 +1072,6 @@ static void ClearCache(JNIEnv *env, jobject obj)
     }
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
-    // clear image cache
-    SkImageRef_GlobalPool::SetRAMUsed(0);
 }
 
 static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
@@ -1254,6 +1275,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) StopLoading },
     { "nativeLoadUrl", "(Ljava/lang/String;)V",
         (void*) LoadUrl },
+    { "nativePostUrl", "(Ljava/lang/String;[B)V",
+        (void*) PostUrl },
     { "nativeLoadData", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
         (void*) LoadData },
     { "externalRepresentation", "()Ljava/lang/String;",

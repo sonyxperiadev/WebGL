@@ -47,6 +47,9 @@ namespace WebCore {
             if (aLength != bLength)
                 return false;
 
+#if PLATFORM(ARM)
+            return memcmp(a->characters(), b->characters(), sizeof(UChar) * aLength) == 0;
+#else
             const uint32_t* aChars = reinterpret_cast<const uint32_t*>(a->characters());
             const uint32_t* bChars = reinterpret_cast<const uint32_t*>(b->characters());
 
@@ -59,6 +62,7 @@ namespace WebCore {
                 return false;
 
             return true;
+#endif
         }
 
         static unsigned hash(const RefPtr<StringImpl>& key) { return key->hash(); }

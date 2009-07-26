@@ -153,6 +153,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_jsConfirm;
     jmethodID   m_jsPrompt;
     jmethodID   m_jsUnload;
+    jmethodID   m_jsInterrupt;
     jmethodID   m_didFirstLayout;
     jmethodID   m_sendMarkNodeInvalid;
     jmethodID   m_sendNotifyFocusSet;
@@ -218,6 +219,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsConfirm = GetJMethod(env, clazz, "jsConfirm", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsPrompt = GetJMethod(env, clazz, "jsPrompt", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
+    m_javaGlue->m_jsInterrupt = GetJMethod(env, clazz, "jsInterrupt", "()Z");
     m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "()V");
     m_javaGlue->m_sendMarkNodeInvalid = GetJMethod(env, clazz, "sendMarkNodeInvalid", "(I)V");
     m_javaGlue->m_sendNotifyFocusSet = GetJMethod(env, clazz, "sendNotifyFocusSet", "()V");
@@ -1903,6 +1905,14 @@ bool WebViewCore::jsUnload(const WebCore::String& url, const WebCore::String& me
     jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsUnload, jUrlStr, jInputStr);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jUrlStr);
+    checkException(env);
+    return result;
+}
+
+bool WebViewCore::jsInterrupt()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jboolean result = env->CallBooleanMethod(m_javaGlue->object(env).get(), m_javaGlue->m_jsInterrupt);
     checkException(env);
     return result;
 }

@@ -55,7 +55,7 @@ JSMessageChannelConstructor::JSMessageChannelConstructor(ExecState* exec, Script
     else
         ASSERT_NOT_REACHED();
 
-    putDirect(exec->propertyNames().prototype, JSMessageChannelPrototype::self(exec), None);
+    putDirect(exec->propertyNames().prototype, JSMessageChannelPrototype::self(exec, exec->lexicalGlobalObject()), None);
 }
 
 JSMessageChannelConstructor::~JSMessageChannelConstructor()
@@ -70,7 +70,11 @@ ConstructType JSMessageChannelConstructor::getConstructData(ConstructData& const
 
 JSObject* JSMessageChannelConstructor::construct(ExecState* exec, JSObject* constructor, const ArgList&)
 {
-    return asObject(toJS(exec, MessageChannel::create(static_cast<JSMessageChannelConstructor*>(constructor)->scriptExecutionContext())));
+    ScriptExecutionContext* context = static_cast<JSMessageChannelConstructor*>(constructor)->scriptExecutionContext();
+    if (!context)
+       return throwError(exec, ReferenceError, "MessageChannel constructor associated document is unavailable");
+
+    return asObject(toJS(exec, MessageChannel::create(context)));
 }
 
 void JSMessageChannelConstructor::mark()

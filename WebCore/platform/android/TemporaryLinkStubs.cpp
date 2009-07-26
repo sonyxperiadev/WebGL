@@ -696,17 +696,6 @@ String searchMenuClearRecentSearchesText()
     return String();
 }
 
-Vector<String> supportedKeySizes()
-{
-    notImplemented();
-    return Vector<String>();
-}
-
-String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::KURL const&)
-{
-    return String();
-}
-
 } // namespace WebCore
 
 // added for Nov-16-07 ToT integration
@@ -772,11 +761,6 @@ const String& Database::databaseInfoTableName()
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
 void prefetchDNS(const String&)
-{
-    notImplemented();
-}
-
-void getSupportedKeySizes(Vector<String>&)
 {
     notImplemented();
 }

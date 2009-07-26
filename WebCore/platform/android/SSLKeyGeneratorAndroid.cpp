@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,35 +23,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JAVA_SHARED_CLIENT_H
-#define JAVA_SHARED_CLIENT_H
 
-namespace android {
+#include "config.h"
+#include "SSLKeyGenerator.h"
 
-    class TimerClient;
-    class CookieClient;
-    class KeyGeneratorClient;
+#include "JavaSharedClient.h"
+#include "KeyGeneratorClient.h"
 
-    class JavaSharedClient
-    {
-    public:
-        static TimerClient* GetTimerClient(); 
-        static CookieClient* GetCookieClient();
-        static KeyGeneratorClient* GetKeyGeneratorClient();
+namespace WebCore {
 
-        static void SetTimerClient(TimerClient* client);
-        static void SetCookieClient(CookieClient* client);
-        static void SetKeyGeneratorClient(KeyGeneratorClient* client);
-
-        // can be called from any thread, to be executed in webkit thread
-        static void EnqueueFunctionPtr(void (*proc)(void*), void* payload);
-        // only call this from webkit thread
-        static void ServiceFunctionPtrQueue();
-        
-    private:
-        static TimerClient* gTimerClient;
-        static CookieClient* gCookieClient;
-        static KeyGeneratorClient* gKeyGeneratorClient;
-    };
+void getSupportedKeySizes(Vector<String>& keys)
+{
+    if (android::JavaSharedClient::GetKeyGeneratorClient()) {
+        keys = android::JavaSharedClient::GetKeyGeneratorClient()->
+                getSupportedKeyStrengthList();
+    }
 }
-#endif
+
+String signedPublicKeyAndChallengeString(unsigned index,
+        const String& challenge, const KURL& url)
+{
+    if (android::JavaSharedClient::GetKeyGeneratorClient()) {
+        return android::JavaSharedClient::GetKeyGeneratorClient()->
+                getSignedPublicKeyAndChallengeString(index, challenge, url);
+    }
+    return String();
+}
+
+}
