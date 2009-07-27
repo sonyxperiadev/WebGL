@@ -426,6 +426,16 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     env->DeleteLocalRef(urlStr);
     if (favicon)
         env->DeleteLocalRef(favicon);
+
+    // Inform the client that the main frame has started a new load.
+    if (isMainFrame && mPage) {
+        Chrome* chrome = mPage->chrome();
+        if (chrome) {
+            ChromeClientAndroid* client = static_cast<ChromeClientAndroid*>(chrome->client());
+            if (client)
+                client->onMainFrameLoadStarted();
+        }
+    }
 }
 
 void
@@ -1358,4 +1368,3 @@ int register_webframe(JNIEnv* env)
 }
 
 } /* namespace android */
-

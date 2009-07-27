@@ -28,7 +28,13 @@
 
 #include "ChromeClient.h"
 
+#include "GeolocationPermissions.h"
 #include "Threading.h"
+#include "Timer.h"
+
+namespace WebCore {
+    class Geolocation;
+}
 
 using namespace WebCore;
 
@@ -37,7 +43,7 @@ namespace android {
 
     class ChromeClientAndroid : public ChromeClient {
     public:
-        ChromeClientAndroid() : m_webFrame(NULL) {}
+        ChromeClientAndroid() : m_webFrame(0), m_geolocationPermissions(0) { }
         virtual void chromeDestroyed();
         
         virtual void setWindowRect(const FloatRect&);
@@ -114,7 +120,12 @@ namespace android {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
 #endif
+        // Methods used to request and provide Geolocation permissions.
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+        // Android-specific
+        void provideGeolocationPermissions(const String &origin, bool allow, bool remember);
+        void onMainFrameLoadStarted();
+
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         virtual bool setCursor(PlatformCursorHandle);
 
@@ -132,6 +143,8 @@ namespace android {
         WTF::ThreadCondition m_quotaThreadCondition;
         WTF::Mutex m_quotaThreadLock;
         long m_newQuota;
+        // The Geolocation permissions manager.
+        RefPtr<GeolocationPermissions> m_geolocationPermissions;
     };
 
 }

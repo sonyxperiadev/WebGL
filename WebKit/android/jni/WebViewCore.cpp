@@ -1950,6 +1950,15 @@ void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
     checkException(env);
 #endif
+
+void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
+{
+    // FIXME: Implement.
+}
+
+void WebViewCore::geolocationPermissionsHidePrompt()
+{
+    // FIXME: Implement.
 }
 
 bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)

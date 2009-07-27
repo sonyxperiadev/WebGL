@@ -37,6 +37,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "Page.h"
 #include "Screen.h"
 #include "ScriptController.h"
@@ -326,7 +327,28 @@ void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 }
 #endif
 
-void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame*, Geolocation*) { notImplemented(); }
+void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+{
+    ASSERT(geolocation);
+    if (!m_geolocationPermissions) {
+        m_geolocationPermissions = new GeolocationPermissions(android::WebViewCore::getWebViewCore(frame->view()),
+                                                              m_webFrame->page()->mainFrame());
+    }
+    m_geolocationPermissions->queryPermissionState(frame);
+}
+
+void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bool allow, bool remember)
+{
+    ASSERT(m_geolocationPermissions);
+    m_geolocationPermissions->providePermissionState(origin, allow, remember);
+}
+
+void ChromeClientAndroid::onMainFrameLoadStarted()
+{
+    if (m_geolocationPermissions.get())
+        m_geolocationPermissions->resetTemporaryPermissionStates();
+}
+
 void ChromeClientAndroid::runOpenPanel(Frame*, PassRefPtr<FileChooser>) { notImplemented(); }
 bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
 {

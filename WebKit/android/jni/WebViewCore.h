@@ -199,6 +199,18 @@ namespace android {
          */
         void reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
 
+        /**
+         * Instruct the browser to show a Geolocation permission prompt for the
+         * specified origin.
+         * @param origin The origin of the frame requesting Geolocation
+         *     permissions.
+         */
+        void geolocationPermissionsShowPrompt(const WebCore::String& origin);
+        /**
+         * Instruct the browser to hide the Geolocation permission prompt.
+         */
+        void geolocationPermissionsHidePrompt();
+
         void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID);
 
         //
