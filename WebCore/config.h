@@ -136,11 +136,7 @@
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
 #undef ENABLE_GEOLOCATION
-#if USE(V8)
-// Geolocation does not work with V8 yet.
-#else
 #define ENABLE_GEOLOCATION 1
-#endif
 #endif  // PLATFORM(ANDROID)
 
 #ifdef __cplusplus
