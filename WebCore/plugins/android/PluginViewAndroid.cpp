@@ -237,7 +237,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     evt.data.touch.y = docCoordinates.y() - m_npWindow.y;
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
-        event->setDefaultHandled();
+        event->setDefaultPrevented(true);
     }
 }
 
