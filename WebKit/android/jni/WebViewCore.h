@@ -182,7 +182,7 @@ namespace android {
         bool jsInterrupt();
 
         /**
-         * Tell the Java side that the origin has exceeded it's database quota.
+         * Tell the Java side that the origin has exceeded its database quota.
          * @param url The URL of the page that caused the quota overflow
          * @param databaseIdentifier the id of the database that caused the
          *     quota overflow.
@@ -191,6 +191,13 @@ namespace android {
         void exceededDatabaseQuota(const WebCore::String& url,
                                    const WebCore::String& databaseIdentifier,
                                    const unsigned long long currentQuota);
+
+        /**
+         * Tell the Java side that the appcache has exceeded its max size.
+         * @param spaceNeeded is the amount of disk space that would be needed
+         * in order for the last appcache operation to succeed.
+         */
+        void reachedMaxAppCacheSize(const unsigned long long spaceNeeded);
 
         void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID);
 

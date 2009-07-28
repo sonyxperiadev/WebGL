@@ -27,6 +27,7 @@
 
 #include "config.h"
 
+#include "ApplicationCacheStorage.h"
 #include "ChromeClientAndroid.h"
 #include "CString.h"
 #include "DatabaseTracker.h"
@@ -280,42 +281,48 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
 {
     SecurityOrigin* origin = frame->document()->securityOrigin();
 
-    // TODO: This default quota value should be pulled from the web browser
-    // settings. For now, settle for 5 meg.
-    const unsigned long long defaultQuota = 1024 * 1024 * 5;
+    // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
+    m_newQuota = -1;
 
-
+    // This origin is being tracked and has exceeded it's quota. Call into
+    // the Java side of things to inform the user.
+    unsigned long long currentQuota = 0;
     if (WebCore::DatabaseTracker::tracker().hasEntryForOrigin(origin)) {
-        // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
-        m_newQuota = -1;
-
-        // This origin is being tracked and has exceeded it's quota. Call into
-        // the Java side of things to inform the user.
-        const unsigned long long currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
-        android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota);
-
-        // We've sent notification to the browser so now wait for it to come back.
-        m_quotaThreadLock.lock();
-        while (m_newQuota == -1) {
-            m_quotaThreadCondition.wait(m_quotaThreadLock);
-        }
-        m_quotaThreadLock.unlock();
-
-        // Update the DatabaseTracker with the new quota value (if the user declined
-        // new quota, this may equal the old quota)
-        DatabaseTracker::tracker().setQuota(origin, m_newQuota);
-    } else {
-        // This origin is not being tracked, so set it's entry in the Origins table
-        // to the default quota, casusing it to be tracked from now on.
-        DatabaseTracker::tracker().setQuota(origin, defaultQuota);
+        currentQuota = WebCore::DatabaseTracker::tracker().quotaForOrigin(origin);
     }
+    android::WebViewCore::getWebViewCore(frame->view())->exceededDatabaseQuota(frame->document()->documentURI(), name, currentQuota);
+
+    // We've sent notification to the browser so now wait for it to come back.
+    m_quotaThreadLock.lock();
+    while (m_newQuota == -1) {
+        m_quotaThreadCondition.wait(m_quotaThreadLock);
+    }
+    m_quotaThreadLock.unlock();
+
+    // Update the DatabaseTracker with the new quota value (if the user declined
+    // new quota, this may equal the old quota)
+    DatabaseTracker::tracker().setQuota(origin, m_newQuota);
 }
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
-    // FIXME: Free some space.
-    notImplemented();
+    Page* page = m_webFrame->page();
+    Frame* mainFrame = page->mainFrame();
+    FrameView* view = mainFrame->view();
+    android::WebViewCore::getWebViewCore(view)->reachedMaxAppCacheSize(spaceNeeded);
+
+    // We've sent notification to the browser so now wait for it to come back.
+    m_newQuota = -1;
+    m_quotaThreadLock.lock();
+    while (m_newQuota == -1) {
+       m_quotaThreadCondition.wait(m_quotaThreadLock);
+    }
+    m_quotaThreadLock.unlock();
+    if (m_newQuota > 0) {
+        WebCore::cacheStorage().setMaximumSize(m_newQuota);
+        // Now the app cache will retry the saving the previously failed cache.
+    }
 }
 #endif
 

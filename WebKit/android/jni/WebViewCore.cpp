@@ -177,6 +177,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_needTouchEvents;
     jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
+    jmethodID   m_reachedMaxAppCacheSize;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_createSurface;
     jmethodID   m_destroySurface;
@@ -247,6 +248,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
+    m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(I)Landroid/view/SurfaceView;");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/view/SurfaceView;)V");
@@ -1941,6 +1943,15 @@ void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCor
 #endif
 }
 
+void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
+    checkException(env);
+#endif
+}
+
 bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -2530,10 +2541,11 @@ static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 }
 
 
-// Called from the Java side to set a new quota for the origin in response.
-// to a notification that the original quota was exceeded.
-static void SetDatabaseQuota(JNIEnv* env, jobject obj, jlong quota) {
-#if ENABLE(DATABASE)
+// Called from the Java side to set a new quota for the origin or new appcache
+// max size in response to a notification that the original quota was exceeded or
+// that the appcache has reached its maximum size.
+static void SetNewStorageLimit(JNIEnv* env, jobject obj, jlong quota) {
+#if ENABLE(DATABASE) || ENABLE(OFFLINE_WEB_APPLICATIONS)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     Frame* frame = viewImpl->mainFrame();
 
@@ -2722,8 +2734,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DumpRenderTree },
     { "nativeDumpNavTree", "()V",
         (void*) DumpNavTree },
-    { "nativeSetDatabaseQuota", "(J)V",
-        (void*) SetDatabaseQuota },
+    { "nativeSetNewStorageLimit", "(J)V",
+        (void*) SetNewStorageLimit },
     { "nativeSurfaceChanged", "(IIIII)V",
         (void*) SurfaceChanged },
     { "nativePause", "()V", (void*) Pause },
