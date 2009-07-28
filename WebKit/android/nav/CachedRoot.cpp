@@ -333,6 +333,102 @@ public:
 };
 
 /*
+LeftCheck examines the text in a picture, within a viewable rectangle,
+and returns via left() the position of the left edge of the paragraph.
+It first looks at the left edge of the test point, then looks above and below
+it for more lines of text to determine the div's left edge.
+*/
+class LeftCheck : public CommonCheck {
+public:
+    LeftCheck(int x, int y) : mX(x), mY(y), mHitLeft(INT_MAX),
+            mMostLeft(INT_MAX) {
+        mHit.set(x - SLOP, y - SLOP, x + SLOP, y + SLOP);
+        mPartial.setEmpty();
+        mBounds.setEmpty();
+    }
+
+    int left() {
+        if (isTextType(mType))
+            doRect(); // process the final line of text
+        return mMostLeft != INT_MAX ? mMostLeft : mX;
+    }
+
+    // FIXME: this is identical to CenterCheck::onIRect()
+    // refactor so that LeftCheck and CenterCheck inherit common functions
+    virtual bool onIRect(const SkIRect& rect) {
+        bool opaqueBitmap = mType == kDrawBitmap_Type && mIsOpaque;
+        if (opaqueBitmap && rect.contains(mX, mY)) {
+            mMostLeft = rect.fLeft;
+            return false;
+        }
+        if (joinGlyphs(rect)) // assembles glyphs into a text string
+            return false;
+        if (!isTextType(mType) && !opaqueBitmap)
+            return false;
+        /* Text on one line may be broken into several parts. Reassemble
+           the text into a rectangle before considering it. */
+        if (rect.fTop < mPartial.fBottom && rect.fBottom >
+                mPartial.fTop && mPartial.fRight + SLOP >= rect.fLeft) {
+            mPartial.join(rect);
+            return false;
+        }
+        if (mPartial.isEmpty() == false)
+            doRect(); // process the previous line of text
+        mPartial = rect;
+        return false;
+    }
+
+    void doRect()
+    {
+        /* Record the outer bounds of the lines of text that intersect the
+           touch coordinates, given some slop */
+        if (SkIRect::Intersects(mPartial, mHit)) {
+            if (mHitLeft > mPartial.fLeft)
+                mHitLeft = mPartial.fLeft;
+            DBG_NAV_LOGD("mHitLeft=%d", mHitLeft);
+        } else if (mHitLeft == INT_MAX)
+            return; // wait for intersect success
+        /* If text is too far away vertically, don't consider it */
+        if (!mBounds.isEmpty() && (mPartial.fTop > mBounds.fBottom + SLOP
+                || mPartial.fBottom < mBounds.fTop - SLOP)) {
+            DBG_NAV_LOGD("stop mPartial=(%d, %d, %d, %d) mBounds=(%d, %d, %d, %d)",
+                mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
+                mBounds.fLeft, mBounds.fTop, mBounds.fRight, mBounds.fBottom);
+            mHitLeft = INT_MAX; // and disable future comparisons
+            return;
+        }
+        /* If the considered text is completely to the left or right of the
+           touch coordinates, skip it, turn off further detection */
+        if (mPartial.fLeft > mX || mPartial.fRight < mX) {
+            DBG_NAV_LOGD("stop mX=%d mPartial=(%d, %d, %d, %d)", mX,
+                mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom);
+            mHitLeft = INT_MAX;
+            return;
+        }
+        /* record the smallest margins on the left and right */
+        if (mMostLeft > mPartial.fLeft) {
+            DBG_NAV_LOGD("new mMostLeft=%d (old=%d)", mPartial.fLeft, mMostLeft);
+            mMostLeft = mPartial.fLeft;
+        }
+        if (mBounds.isEmpty())
+            mBounds = mPartial;
+        else if (mPartial.fBottom > mBounds.fBottom) {
+            DBG_NAV_LOGD("new bottom=%d (old=%d)", mPartial.fBottom, mBounds.fBottom);
+            mBounds.fBottom = mPartial.fBottom;
+        }
+    }
+
+    static const int SLOP = 30; // space between text parts and lines
+    /* const */ SkIRect mHit; // sloppy hit rectangle
+    SkIRect mBounds; // reference bounds
+    SkIRect mPartial; // accumulated text bounds, per line
+    const int mX; // touch location
+    const int mY;
+    int mHitLeft; // touched text extremes
+    int mMostLeft; // paragraph extremes
+};
+
+/*
 CenterCheck examines the text in a picture, within a viewable rectangle,
 and returns via center() the optimal amount to scroll in x to display the
 paragraph of text.
@@ -692,6 +788,30 @@ int CachedRoot::getAndResetSelectionStart()
     int start = mSelectionStart;
     mSelectionStart = -1;
     return start;
+}
+
+int CachedRoot::getBlockLeftEdge(int x, int y) const
+{
+    DBG_NAV_LOGD("x=%d y=%d", x, y);
+    // if (x, y) is in a textArea or textField, return that
+    const int slop = 1;
+    WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop,
+        slop * 2, slop * 2);
+    const CachedFrame* frame;
+    int fx, fy;
+    const CachedNode* node = findAt(rect, &frame, &fx, &fy, true);
+    if (node && (node->isTextArea() || node->isTextField() || node->isPlugin()))
+        return node->bounds().x();
+    LeftCheck leftCheck(x - mViewBounds.x(), y - mViewBounds.y());
+    BoundsCanvas checker(&leftCheck);
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, mViewBounds.width(),
+        mViewBounds.height());
+    checker.setBitmapDevice(bitmap);
+    checker.translate(SkIntToScalar(-mViewBounds.x()),
+        SkIntToScalar(-mViewBounds.y()));
+    checker.drawPicture(*mPicture);
+    return leftCheck.left();
 }
 
 void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const
