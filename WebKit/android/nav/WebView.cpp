@@ -963,6 +963,14 @@ bool motionUp(int x, int y, int slop)
     return pageScrolled;
 }
 
+int getBlockLeftEdge(int x, int y)
+{
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (root)
+        return root->getBlockLeftEdge(x, y);
+    return -1;
+}
+
 void overrideUrlLoading(const WebCore::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1846,6 +1854,15 @@ static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring update
     checkException(env);
 }
 
+static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    if (!view)
+        return -1;
+    return view->getBlockLeftEdge(x, y);
+}
+
 static void nativeDestroy(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2026,6 +2043,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",
         (void*) nativeUpdateCachedTextfield },
+    { "nativeGetBlockLeftEdge", "(II)I",
+        (void*) nativeGetBlockLeftEdge },
     { "nativeUpdatePluginReceivesEvents", "()V",
         (void*) nativeUpdatePluginReceivesEvents }
 };

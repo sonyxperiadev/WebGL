@@ -173,6 +173,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateTextfield;
     jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
+    jmethodID   m_restoreScreenWidthScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
@@ -218,6 +219,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_textGeneration = 0;
     m_screenWidth = 320;
     m_scale = 1;
+    m_screenWidthScale = 1;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -241,6 +243,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
+    m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
@@ -810,7 +813,11 @@ void WebViewCore::didFirstLayout()
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_didFirstLayout,
-            loadType == WebCore::FrameLoadTypeStandard);
+            loadType == WebCore::FrameLoadTypeStandard
+            // When redirect with locked history, we would like to reset the
+            // scale factor. This is important for www.yahoo.com as it is
+            // redirected to www.yahoo.com/?rs=1 on load.
+            || loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList);
     checkException(env);
 
     DBG_NAV_LOG("call updateFrameCache");
@@ -826,6 +833,16 @@ void WebViewCore::restoreScale(int scale)
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScale, scale);
+    checkException(env);
+}
+
+void WebViewCore::restoreScreenWidthScale(int scale)
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScreenWidthScale, scale);
     checkException(env);
 }
 
@@ -928,8 +945,13 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
-    if (scale >= 0)  // negative means ignore
+    if (scale >= 0) { // negative means ignore
         m_scale = scale;
+        if (screenWidth != realScreenWidth)
+            m_screenWidthScale = realScreenWidth * scale / screenWidth;
+        else
+            m_screenWidthScale = m_scale;
+    }
     m_maxXScroll = screenWidth >> 2;
     m_maxYScroll = (screenWidth * height / width) >> 2;
     if (ow != width || oh != height || osw != screenWidth) {

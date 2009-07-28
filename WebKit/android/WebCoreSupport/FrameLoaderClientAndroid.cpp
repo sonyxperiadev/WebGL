@@ -692,8 +692,9 @@ void FrameLoaderClientAndroid::saveViewStateToItem(HistoryItem* item) {
     ASSERT(bridge);
     // store the current scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
-        float scale = WebViewCore::getWebViewCore(m_frame->view())->scale();
-        bridge->setScale((int)(scale * 100));
+        WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
+        bridge->setScale((int)(webViewCore->scale() * 100));
+        bridge->setScreenWidthScale((int)(webViewCore->screenWidthScale() * 100));
     }
 
     WebCore::notifyHistoryItemChanged(item);
@@ -706,7 +707,11 @@ void FrameLoaderClientAndroid::restoreViewState() {
     HistoryItem* item = m_frame->loader()->currentHistoryItem();
     // restore the scale (only) for the top frame
     if (!m_frame->tree()->parent()) {
-        webViewCore->restoreScale(item->bridge()->scale());
+        int scale = item->bridge()->scale();
+        webViewCore->restoreScale(scale);
+        int screenWidthScale = item->bridge()->screenWidthScale();
+        if (screenWidthScale != scale)
+            webViewCore->restoreScreenWidthScale(screenWidthScale);
     }
 #endif
 }

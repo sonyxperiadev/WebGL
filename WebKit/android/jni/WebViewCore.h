@@ -157,6 +157,12 @@ namespace android {
         void restoreScale(int);
 
         /**
+         * Notify the view to restore the scale used to calculate the screen
+         * width for wrapping the text
+         */
+        void restoreScreenWidthScale(int);
+
+        /**
          * Tell the java side to update the focused textfield
          * @param pointer   Pointer to the node for the input field.
          * @param   changeToPassword  If true, we are changing the textfield to
@@ -346,6 +352,7 @@ namespace android {
         bool recordContent(SkRegion* , SkIPoint* );
         int screenWidth() const { return m_screenWidth; }
         float scale() const { return m_scale; }
+        float screenWidthScale() const { return m_screenWidthScale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
 
         // utility to split slow parts of the picture set
@@ -424,6 +431,7 @@ namespace android {
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         float m_scale;
+        float m_screenWidthScale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
 
