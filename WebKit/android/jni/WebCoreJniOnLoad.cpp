@@ -41,10 +41,10 @@ extern int register_webicondatabase(JNIEnv*);
 extern int register_websettings(JNIEnv*);
 extern int register_webview(JNIEnv*);
 extern int register_webcorejni(JNIEnv*);
-
 #if ENABLE(DATABASE)
 extern int register_webstorage(JNIEnv*);
 #endif
+extern int register_geolocation_permissions(JNIEnv*);
 
 }
 
@@ -65,7 +65,8 @@ static RegistrationMethod gWebCoreRegMethods[] = {
 #if ENABLE(DATABASE)
     { "WebStorage", android::register_webstorage },
 #endif
-    { "WebView", android::register_webview }
+    { "WebView", android::register_webview },
+    { "GeolocationPermissions", android::register_geolocation_permissions }
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

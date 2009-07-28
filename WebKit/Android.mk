@@ -33,6 +33,7 @@ LOCAL_SRC_FILES := \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
+	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
 	android/jni/PictureSet.cpp \
