@@ -966,11 +966,11 @@ bool motionUp(int x, int y, int slop)
     return pageScrolled;
 }
 
-int getBlockLeftEdge(int x, int y)
+int getBlockLeftEdge(int x, int y, float scale)
 {
     CachedRoot* root = getFrameCache(AllowNewer);
     if (root)
-        return root->getBlockLeftEdge(x, y);
+        return root->getBlockLeftEdge(x, y, scale);
     return -1;
 }
 
@@ -1857,13 +1857,14 @@ static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring update
     checkException(env);
 }
 
-static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y)
+static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y,
+        jfloat scale)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     if (!view)
         return -1;
-    return view->getBlockLeftEdge(x, y);
+    return view->getBlockLeftEdge(x, y, scale);
 }
 
 static void nativeDestroy(JNIEnv *env, jobject obj)
@@ -2085,7 +2086,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",
         (void*) nativeUpdateCachedTextfield },
-    { "nativeGetBlockLeftEdge", "(II)I",
+    { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
     { "nativeUpdatePluginReceivesEvents", "()V",
         (void*) nativeUpdatePluginReceivesEvents }

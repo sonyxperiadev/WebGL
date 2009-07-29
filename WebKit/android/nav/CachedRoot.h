@@ -66,7 +66,7 @@ public:
     SkPicture* getPicture() { return mPicture; }
     int getAndResetSelectionEnd();
     int getAndResetSelectionStart();
-    int getBlockLeftEdge(int x, int y) const;
+    int getBlockLeftEdge(int x, int y, float scale) const;
     void getSimulatedMousePosition(WebCore::IntPoint* ) const;
     void init(WebCore::Frame* , CachedHistory* );
     bool innerDown(const CachedNode* , BestData* ) const;

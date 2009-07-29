@@ -371,6 +371,7 @@ namespace android {
         float scale() const { return m_scale; }
         float screenWidthScale() const { return m_screenWidthScale; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
+        void updateFrameCacheIfLoading();
 
         // utility to split slow parts of the picture set
         void splitContent();

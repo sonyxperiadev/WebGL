@@ -342,7 +342,7 @@ class LeftCheck : public CommonCheck {
 public:
     LeftCheck(int x, int y) : mX(x), mY(y), mHitLeft(INT_MAX),
             mMostLeft(INT_MAX) {
-        mHit.set(x - SLOP, y - SLOP, x + SLOP, y + SLOP);
+        mHit.set(x - (HIT_SLOP << 1), y - HIT_SLOP, x, y + HIT_SLOP);
         mPartial.setEmpty();
         mBounds.setEmpty();
     }
@@ -350,7 +350,7 @@ public:
     int left() {
         if (isTextType(mType))
             doRect(); // process the final line of text
-        return mMostLeft != INT_MAX ? mMostLeft : mX;
+        return mMostLeft != INT_MAX ? mMostLeft : mX >> 1;
     }
 
     // FIXME: this is identical to CenterCheck::onIRect()
@@ -385,13 +385,14 @@ public:
         if (SkIRect::Intersects(mPartial, mHit)) {
             if (mHitLeft > mPartial.fLeft)
                 mHitLeft = mPartial.fLeft;
-            DBG_NAV_LOGD("mHitLeft=%d", mHitLeft);
+            DBG_NAV_LOGD("LeftCheck mHitLeft=%d", mHitLeft);
         } else if (mHitLeft == INT_MAX)
             return; // wait for intersect success
         /* If text is too far away vertically, don't consider it */
         if (!mBounds.isEmpty() && (mPartial.fTop > mBounds.fBottom + SLOP
                 || mPartial.fBottom < mBounds.fTop - SLOP)) {
-            DBG_NAV_LOGD("stop mPartial=(%d, %d, %d, %d) mBounds=(%d, %d, %d, %d)",
+            DBG_NAV_LOGD("LeftCheck stop mPartial=(%d, %d, %d, %d)"
+                " mBounds=(%d, %d, %d, %d)",
                 mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom,
                 mBounds.fLeft, mBounds.fTop, mBounds.fRight, mBounds.fBottom);
             mHitLeft = INT_MAX; // and disable future comparisons
@@ -400,24 +401,27 @@ public:
         /* If the considered text is completely to the left or right of the
            touch coordinates, skip it, turn off further detection */
         if (mPartial.fLeft > mX || mPartial.fRight < mX) {
-            DBG_NAV_LOGD("stop mX=%d mPartial=(%d, %d, %d, %d)", mX,
+            DBG_NAV_LOGD("LeftCheck stop mX=%d mPartial=(%d, %d, %d, %d)", mX,
                 mPartial.fLeft, mPartial.fTop, mPartial.fRight, mPartial.fBottom);
             mHitLeft = INT_MAX;
             return;
         }
         /* record the smallest margins on the left and right */
         if (mMostLeft > mPartial.fLeft) {
-            DBG_NAV_LOGD("new mMostLeft=%d (old=%d)", mPartial.fLeft, mMostLeft);
+            DBG_NAV_LOGD("LeftCheck new mMostLeft=%d (old=%d)", mPartial.fLeft,
+                mMostLeft);
             mMostLeft = mPartial.fLeft;
         }
         if (mBounds.isEmpty())
             mBounds = mPartial;
         else if (mPartial.fBottom > mBounds.fBottom) {
-            DBG_NAV_LOGD("new bottom=%d (old=%d)", mPartial.fBottom, mBounds.fBottom);
+            DBG_NAV_LOGD("LeftCheck new bottom=%d (old=%d)", mPartial.fBottom,
+                mBounds.fBottom);
             mBounds.fBottom = mPartial.fBottom;
         }
     }
 
+    static const int HIT_SLOP = 5; // space between text parts and lines
     static const int SLOP = 30; // space between text parts and lines
     /* const */ SkIRect mHit; // sloppy hit rectangle
     SkIRect mBounds; // reference bounds
@@ -816,9 +820,11 @@ int CachedRoot::getAndResetSelectionStart()
     return start;
 }
 
-int CachedRoot::getBlockLeftEdge(int x, int y) const
+int CachedRoot::getBlockLeftEdge(int x, int y, float scale) const
 {
-    DBG_NAV_LOGD("x=%d y=%d", x, y);
+    DBG_NAV_LOGD("x=%d y=%d scale=%g mViewBounds=(%d,%d,%d,%d)", x, y, scale,
+        mViewBounds.x(), mViewBounds.y(), mViewBounds.width(),
+        mViewBounds.height());
     // if (x, y) is in a textArea or textField, return that
     const int slop = 1;
     WebCore::IntRect rect = WebCore::IntRect(x - slop, y - slop,
@@ -826,18 +832,26 @@ int CachedRoot::getBlockLeftEdge(int x, int y) const
     const CachedFrame* frame;
     int fx, fy;
     const CachedNode* node = findAt(rect, &frame, &fx, &fy, true);
-    if (node && (node->isTextArea() || node->isTextField() || node->isPlugin()))
+    if (node && (node->isTextArea() || node->isTextField() || node->isPlugin())) {
+        DBG_NAV_LOGD("x=%d (%s)", node->bounds().x(),
+            node->isTextArea() || node->isTextField() ? "text" : "plugin");
         return node->bounds().x();
-    LeftCheck leftCheck(x - mViewBounds.x(), y - mViewBounds.y());
+    }
+    int halfW = (int) (mViewBounds.width() * scale * 0.5f);
+    int fullW = halfW << 1;
+    int halfH = (int) (mViewBounds.height() * scale * 0.5f);
+    int fullH = halfH << 1;
+    LeftCheck leftCheck(fullW, halfH);
     BoundsCanvas checker(&leftCheck);
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, mViewBounds.width(),
-        mViewBounds.height());
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, fullW, fullH);
     checker.setBitmapDevice(bitmap);
-    checker.translate(SkIntToScalar(-mViewBounds.x()),
-        SkIntToScalar(-mViewBounds.y()));
+    checker.translate(SkIntToScalar(fullW - x), SkIntToScalar(halfH - y));
     checker.drawPicture(*mPicture);
-    return leftCheck.left();
+    int result = x + leftCheck.left() - fullW;
+    DBG_NAV_LOGD("halfW=%d halfH=%d mMostLeft=%d x=%d",
+        halfW, halfH, leftCheck.mMostLeft, result);
+    return result;
 }
 
 void CachedRoot::getSimulatedMousePosition(WebCore::IntPoint* point) const

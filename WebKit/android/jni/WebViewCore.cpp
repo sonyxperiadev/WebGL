@@ -362,13 +362,19 @@ WebCore::Node* WebViewCore::currentFocus()
 void WebViewCore::recordPicture(SkPicture* picture)
 {
     // if there is no document yet, just return
-    if (!m_mainFrame->document())
+    if (!m_mainFrame->document()) {
+        DBG_NAV_LOG("no document");
         return;
+    }
     // Call layout to ensure that the contentWidth and contentHeight are correct
-    if (!layoutIfNeededRecursive(m_mainFrame))
+    if (!layoutIfNeededRecursive(m_mainFrame)) {
+        DBG_NAV_LOG("layout failed");
         return;
+    }
     // draw into the picture's recording canvas
     WebCore::FrameView* view = m_mainFrame->view();
+    DBG_NAV_LOGD("view=(w=%d,h=%d)", view->contentsWidth(),
+        view->contentsHeight());
     SkAutoPictureRecord arp(picture, view->contentsWidth(),
                             view->contentsHeight(), PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
@@ -1139,6 +1145,12 @@ void WebViewCore::updateFrameCache()
         cachedFocusNode ? cachedFocusNode->nodePointer() : 0);
 #endif
     gFrameCacheMutex.unlock();
+}
+
+void WebViewCore::updateFrameCacheIfLoading()
+{
+    if (!m_check_domtree_version)
+        updateFrameCache();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2116,6 +2128,11 @@ static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
     return ret;
 }
 
+static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->updateFrameCacheIfLoading();
+}
+
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
         jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight)
 {
@@ -2715,6 +2732,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeFreeMemory", "()V", (void*) FreeMemory },
     { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
     { "nativeUpdatePluginState", "(III)V", (void*) UpdatePluginState },
+    { "nativeUpdateFrameCacheIfLoading", "()V",
+        (void*) UpdateFrameCacheIfLoading },
 };
 
 int register_webviewcore(JNIEnv* env)
