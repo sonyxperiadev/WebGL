@@ -26,6 +26,8 @@
 #include "config.h"
 #include "GeolocationPermissions.h"
 
+#include "DOMWindow.h"
+#include "Navigator.h"
 #include "Frame.h"
 #include "Geolocation.h"
 #include "Navigator.h"
