@@ -27,9 +27,7 @@
 
 namespace WebCore {
 
-GeolocationService* GeolocationService::create(GeolocationServiceClient*) {
-    // TODO(steveblock): Implement Geolocation on Android.
-    return 0;
-}
+// TODO(steveblock): Implement Geolocation on Android.
+GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = 0;
 
 }  // namespace WebCore

@@ -27,6 +27,7 @@
 #define GeolocationService_h
 
 #include <wtf/Noncopyable.h>
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -59,11 +60,17 @@ public:
     void positionChanged();
     void errorOccurred();
 
+    static void setMockPosition(PassRefPtr<Geoposition>);
+    static void setMockError(PassRefPtr<PositionError>);
+
 protected:
     GeolocationService(GeolocationServiceClient*);
 
 private:
     GeolocationServiceClient* m_geolocationServiceClient;
+
+    typedef GeolocationService* (FactoryFunction)(GeolocationServiceClient*);
+    static FactoryFunction* s_factoryFunction;
 };
 
 } // namespace WebCore

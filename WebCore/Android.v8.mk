@@ -496,6 +496,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
+	platform/MockGeolocationService.cpp \
 	platform/MIMETypeRegistry.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
