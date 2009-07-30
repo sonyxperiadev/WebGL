@@ -339,29 +339,10 @@ void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused)
     canvas->drawPath(matchPath, m_findPaint);
 }
 
-// Put a cap on the number of matches to draw.  If the current page has more
-// matches than this, only draw the focused match.
-#define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
-
-void drawMatches(SkCanvas* canvas)
+bool scrollRectOnScreen(int left, int top, int right, int bottom)
 {
-    if (!m_matches || !m_matches->size()) {
-        return;
-    }
-    if (m_findIndex >= m_matches->size()) {
-        m_findIndex = 0;
-    }
-    const MatchInfo& matchInfo = (*m_matches)[m_findIndex];
-    const SkRegion& currentMatchRegion = matchInfo.getLocation();
-    const SkIRect& currentMatchBounds = currentMatchRegion.getBounds();
-    int left = currentMatchBounds.fLeft;
-    int top = currentMatchBounds.fTop;
-    int right = currentMatchBounds.fRight;
-    int bottom = currentMatchBounds.fBottom;
     WebCore::IntRect visible;
     getVisibleRect(&visible);
-    // Check to make sure that the highlighted match is on screen.  If not,
-    // scroll it onscreen and return.
     int dx = 0;
     if (left < visible.x()) {
         dx = left - visible.x();
@@ -379,8 +360,28 @@ void drawMatches(SkCanvas* canvas)
     if ((dx|dy)) {
         scrollBy(dx, dy);
         viewInvalidate();
-        return;
+        return true;
     }
+    return false;
+}
+
+// Put a cap on the number of matches to draw.  If the current page has more
+// matches than this, only draw the focused match.
+#define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
+
+void drawMatches(SkCanvas* canvas)
+{
+    if (!m_matches || !m_matches->size())
+        return;
+    if (m_findIndex >= m_matches->size())
+        m_findIndex = 0;
+    const MatchInfo& matchInfo = (*m_matches)[m_findIndex];
+    const SkRegion& currentMatchRegion = matchInfo.getLocation();
+    const SkIRect& currentMatchBounds = currentMatchRegion.getBounds();
+    if (scrollRectOnScreen(currentMatchBounds.fLeft, currentMatchBounds.fTop,
+            currentMatchBounds.fRight, currentMatchBounds.fBottom))
+        return;
+
     // Set up the paints used for drawing the matches
     if (!m_isFindPaintSetUp)
         setUpFindPaint();
@@ -394,6 +395,8 @@ void drawMatches(SkCanvas* canvas)
     unsigned numberOfMatches = m_matches->size();
     if (numberOfMatches > 1
             && numberOfMatches < MAX_NUMBER_OF_MATCHES_TO_DRAW) {
+        WebCore::IntRect visible;
+        getVisibleRect(&visible);
         SkIRect visibleIRect(visible);
         for(unsigned i = 0; i < numberOfMatches; i++) {
             // The current match has already been drawn
@@ -1871,6 +1874,41 @@ static void nativeDestroy(JNIEnv *env, jobject obj)
     delete view;
 }
 
+static void nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return;
+    const CachedNode* cursor = root->currentCursor();
+    if (!cursor)
+        return;
+    const CachedFrame* frame;
+    const CachedNode* next = root->nextTextField(cursor, &frame, true);
+    if (!next)
+        return;
+    const WebCore::IntRect& bounds = next->bounds();
+    root->rootHistory()->setMouseBounds(bounds);
+    view->updateCursorBounds(root, frame, next);
+    root->setCursor(const_cast<CachedFrame*>(frame),
+            const_cast<CachedNode*>(next));
+    WebCore::IntPoint pos;
+    root->getSimulatedMousePosition(&pos);
+    view->sendMoveMouse(static_cast<WebCore::Frame*>(frame->framePointer()),
+            static_cast<WebCore::Node*>(next->nodePointer()), pos.x(), pos.y());
+    view->scrollRectOnScreen(bounds.x(), bounds.y(), bounds.right(),
+            bounds.bottom());
+}
+
+static jint nativeTextFieldAction(JNIEnv *env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    if (!root)
+        return static_cast<jint>(CachedRoot::FAILURE);
+    return static_cast<jint>(root->cursorTextFieldAction());
+}
+
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2023,6 +2061,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",
         (void*) nativeMoveCursor },
+    { "nativeMoveCursorToNextTextInput", "()V",
+        (void*) nativeMoveCursorToNextTextInput },
     { "nativeMoveGeneration", "()I",
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(IIZ)V",
@@ -2039,6 +2079,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFollowedLink },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
+    { "nativeTextFieldAction", "()I",
+        (void*) nativeTextFieldAction },
     { "nativeTextGeneration", "()I",
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",

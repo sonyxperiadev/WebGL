@@ -891,6 +891,34 @@ int CachedFrame::maxWorkingVertical() const
     return history()->maxWorkingVertical();
 }
 
+const CachedNode* CachedFrame::nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr, bool includeTextAreas) const
+{
+    CachedNode* test;
+    if (start) {
+        test = const_cast<CachedNode*>(start);
+        test++;
+    } else {
+        test = const_cast<CachedNode*>(mCachedNodes.begin());
+    }
+    while (test != mCachedNodes.end()) {
+        CachedFrame* frame = const_cast<CachedFrame*>(hasFrame(test));
+        if (frame) {
+            const CachedNode* node
+                    = frame->nextTextField(0, framePtr, includeTextAreas);
+            if (node)
+                return node;
+        } else if (test->isTextField()
+                || (includeTextAreas && test->isTextArea())) {
+            if (framePtr)
+                *framePtr = this;
+            return test;
+        }
+        test++;
+    }
+    return 0;
+}
+
 bool CachedFrame::moveInFrame(MoveInDirection moveInDirection,
     const CachedNode* test, BestData* bestData,
     const CachedNode* cursor) const

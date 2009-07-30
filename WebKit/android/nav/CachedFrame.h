@@ -97,6 +97,18 @@ public:
     const CachedFrame* lastChild() const { return &mCachedFrames.last(); }
     CachedNode* lastNode() { return &mCachedNodes.last(); }
     CachedFrame* lastChild() { return &mCachedFrames.last(); }
+    /**
+     * Find the next textfield/textarea
+     * @param start Must be a CachedNode in this CachedFrame's tree, or
+     *              null, in which case we start from the beginning.
+     * @param framePtr  If not null, and a textfield/textarea is found, its
+     *                  CachedFrame will be pointed to by this pointer.
+     * @param includeTextAreas If true, will return the next textfield or area.
+     *                         Otherwise it only considers textfields.
+     * @return CachedNode* Next textfield (or area)
+     */
+    const CachedNode* nextTextField(const CachedNode* start,
+        const CachedFrame** framePtr, bool includeTextAreas) const;
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
     bool sameFrame(const CachedFrame* ) const;

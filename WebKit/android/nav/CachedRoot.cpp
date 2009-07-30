@@ -738,6 +738,32 @@ bool CachedRoot::checkRings(const WTF::Vector<WebCore::IntRect>& rings,
     return ringCheck.success();
 }
 
+CachedRoot::ImeAction CachedRoot::cursorTextFieldAction() const
+{
+    const CachedFrame* cursorFrame;
+    const CachedNode* cursor = currentCursor(&cursorFrame);
+    if (!cursor) {
+        // Error case.  The cursor has no action, because there is no node under
+        // the cursor
+        return FAILURE;
+    }
+    const CachedNode* firstTextfield = nextTextField(0, 0, false);
+    if (!firstTextfield) {
+        // Error case.  There are no textfields in this tree.
+        return FAILURE;
+    }
+    // Now find the next textfield/area starting with the cursor
+    if (nextTextField(cursor, 0, true)) {
+        // There is a textfield/area after the cursor, so the textfield under
+        // the cursor should have the NEXT action
+        return NEXT;
+    }
+    // If this line is reached, we know that the textfield under the cursor is
+    // the last one.  If it is also the first, then it is the only one, so make
+    // the action GO.  Otherwise, the action is DONE.
+    return (firstTextfield == cursor) ? GO : DONE;
+}
+
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
     const CachedFrame** framePtr, int* x, int* y, bool checkForHidden) const
 {
