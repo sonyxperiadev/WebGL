@@ -314,7 +314,6 @@ void WebViewCore::reset(bool fromConstructor)
     clearContent();
     m_updatedFrameCache = true;
     m_frameCacheOutOfDate = true;
-    m_snapAnchorNode = 0;
     m_skipContentDraw = false;
     m_findIsUp = false;
     m_domtree_version = 0;
@@ -2066,41 +2065,6 @@ void WebViewCore::clearTextEntry()
         m_javaGlue->m_clearTextEntry);
 }
 
-void WebViewCore::setSnapAnchor(int x, int y)
-{
-    m_snapAnchorNode = 0;
-    if (!x && !y) {
-        return;
-    }
-
-    WebCore::IntPoint point = WebCore::IntPoint(x, y);
-    WebCore::Node* node = m_mainFrame->eventHandler()->hitTestResultAtPoint(point, false).innerNode();
-    if (node) {
-//        LOGD("found focus node name: %s, type %d\n", node->nodeName().utf8().data(), node->nodeType());
-        while (node) {
-            if (node->hasTagName(WebCore::HTMLNames::divTag) ||
-                    node->hasTagName(WebCore::HTMLNames::tableTag)) {
-                m_snapAnchorNode = node;
-                return;
-            }
-//            LOGD("parent node name: %s, type %d\n", node->nodeName().utf8().data(), node->nodeType());
-            node = node->parentNode();
-        }
-    }
-}
-
-void WebViewCore::snapToAnchor()
-{
-    if (m_snapAnchorNode) {
-        if (m_snapAnchorNode->inDocument()) {
-            FloatPoint pt = m_snapAnchorNode->renderer()->localToAbsolute();
-            scrollTo(pt.x(), pt.y());
-        } else {
-            m_snapAnchorNode = 0;
-        }
-    }
-}
-
 void WebViewCore::setBackgroundColor(SkColor c)
 {
     WebCore::FrameView* view = m_mainFrame->view();
@@ -2483,28 +2447,6 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 #endif
 }
 
-static void SetSnapAnchor(JNIEnv *env, jobject obj, jint x, jint y)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-
-    viewImpl->setSnapAnchor(x, y);
-}
-
-static void SnapToAnchor(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-
-    viewImpl->snapToAnchor();
-}
-
 static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2748,10 +2690,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",
         (void*) SetViewportSettingsFromNative },
-    { "nativeSetSnapAnchor", "(II)V",
-        (void*) SetSnapAnchor },
-    { "nativeSnapToAnchor", "()V",
-        (void*) SnapToAnchor },
     { "nativeSplitContent", "()V",
         (void*) SplitContent },
     { "nativeSetBackgroundColor", "(I)V",

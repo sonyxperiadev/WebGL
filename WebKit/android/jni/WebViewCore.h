@@ -308,8 +308,6 @@ namespace android {
         jobject getWebViewJavaObject();
 
         void setBackgroundColor(SkColor c);
-        void setSnapAnchor(int x, int y);
-        void snapToAnchor();
         void updateFrameCache();
         void updateCacheOnNodeChange();
         void dumpDomTree(bool);
@@ -446,7 +444,6 @@ namespace android {
         int m_lastPassed;
         int m_lastVelocity;
         CachedHistory m_history;
-        WebCore::Node* m_snapAnchorNode;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         float m_scale;
