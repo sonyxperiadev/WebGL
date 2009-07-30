@@ -178,6 +178,8 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_requestKeyboard;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_reachedMaxAppCacheSize;
+    jmethodID   m_geolocationPermissionsShowPrompt;
+    jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_createSurface;
     jmethodID   m_destroySurface;
@@ -249,6 +251,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;J)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
+    m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
+    m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(I)Landroid/view/SurfaceView;");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/view/SurfaceView;)V");
@@ -1954,12 +1958,21 @@ void WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
 
 void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
 {
-    // FIXME: Implement.
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring originString = env->NewString((unsigned short *)origin.characters(), origin.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_geolocationPermissionsShowPrompt,
+                        originString);
+    env->DeleteLocalRef(originString);
+    checkException(env);
 }
 
 void WebViewCore::geolocationPermissionsHidePrompt()
 {
-    // FIXME: Implement.
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+                        m_javaGlue->m_geolocationPermissionsHidePrompt);
+    checkException(env);
 }
 
 bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)
@@ -2566,6 +2579,15 @@ static void SetNewStorageLimit(JNIEnv* env, jobject obj, jlong quota) {
 #endif
 }
 
+// Called from Java to provide a Geolocation permission state for the specified origin.
+static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj, jstring origin, jboolean allow, jboolean remember) {
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    Frame* frame = viewImpl->mainFrame();
+
+    ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
+    chromeClient->provideGeolocationPermissions(to_string(env, origin), allow, remember);
+}
+
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2748,6 +2770,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetNewStorageLimit },
     { "nativeSurfaceChanged", "(IIIII)V",
         (void*) SurfaceChanged },
+    { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
+        (void*) GeolocationPermissionsProvide },
     { "nativePause", "()V", (void*) Pause },
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },
