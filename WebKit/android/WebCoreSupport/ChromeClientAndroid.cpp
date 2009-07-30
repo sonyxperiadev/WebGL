@@ -308,13 +308,16 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
+    // Set m_newQuota before calling into the Java side. If we do this after,
+    // we could overwrite the result passed from the Java side and deadlock in the
+    // wait call below.
+    m_newQuota = -1;
     Page* page = m_webFrame->page();
     Frame* mainFrame = page->mainFrame();
     FrameView* view = mainFrame->view();
     android::WebViewCore::getWebViewCore(view)->reachedMaxAppCacheSize(spaceNeeded);
 
     // We've sent notification to the browser so now wait for it to come back.
-    m_newQuota = -1;
     m_quotaThreadLock.lock();
     while (m_newQuota == -1) {
        m_quotaThreadCondition.wait(m_quotaThreadLock);
