@@ -58,6 +58,13 @@ static ANPTypefaceStyle anp_getStyle(const ANPTypeface* tf) {
     return static_cast<ANPTypefaceStyle>(s);
 }
 
+static int32_t anp_getFontPath(const ANPTypeface* tf, char fileName[],
+                               int32_t length, int32_t* index) {
+    size_t size = SkFontHost::GetFileName(SkTypeface::UniqueID(tf), fileName,
+                                          length, index);
+    return static_cast<int32_t>(size);
+}
+
 static const char* gFontDir;
 #define FONT_DIR_SUFFIX     "/fonts/"
 
@@ -92,6 +99,7 @@ void ANPTypefaceInterfaceV0_Init(ANPInterface* v) {
     ASSIGN(i, ref);
     ASSIGN(i, unref);
     ASSIGN(i, getStyle);
+    ASSIGN(i, getFontPath);
     ASSIGN(i, getFontDirectoryPath);
 }
 
