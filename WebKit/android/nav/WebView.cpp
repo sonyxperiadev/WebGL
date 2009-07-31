@@ -125,7 +125,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = adoptGlobalRef(env, javaWebView);
-    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)V");
+    m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendPluginState = GetJMethod(env, clazz, "sendPluginState", "(I)V");
@@ -357,12 +357,10 @@ bool scrollRectOnScreen(int left, int top, int right, int bottom)
     } else if (bottom > visible.bottom() && bottom - top < visible.height()) {
         dy = bottom - visible.bottom();
     }
-    if ((dx|dy)) {
-        scrollBy(dx, dy);
-        viewInvalidate();
-        return true;
-    }
-    return false;
+    if ((dx|dy) == 0 || !scrollBy(dx, dy))
+        return false;
+    viewInvalidate();
+    return true;
 }
 
 // Put a cap on the number of matches to draw.  If the current page has more
@@ -1250,14 +1248,15 @@ void setMatches(WTF::Vector<MatchInfo>* matches)
     viewInvalidate();
 }
 
-void scrollBy(int dx, int dy)
+bool scrollBy(int dx, int dy)
 {
     LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_scrollBy,
-        dx, dy, true);
+    bool result = env->CallBooleanMethod(m_javaGlue.object(env).get(),
+        m_javaGlue.m_scrollBy, dx, dy, true);
     checkException(env);
+    return result;
 }
 
 bool hasCursorNode()
