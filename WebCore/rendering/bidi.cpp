@@ -854,12 +854,13 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         if (doTextWrap) {
             int ta = style()->textAlign();
             int dir = style()->direction();
+            bool autowrap = style()->autoWrap();
             EFloat cssfloat = style()->floating();
-            doTextWrap = ((dir == LTR && cssfloat != FRIGHT) ||
+            doTextWrap = autowrap && (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) && 
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
                     ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
-                    ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL)));
+                    ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL))));
         }
         bool hasTextToWrap = false;
 #endif
