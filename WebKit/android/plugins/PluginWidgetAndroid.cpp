@@ -71,7 +71,8 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
         if (m_surface) {
-            m_surface->attach(window->x, window->y, window->width, window->height);
+            IntPoint docPoint = getDocumentCoordinates(window->x, window->y);
+            m_surface->attach(docPoint.x(), docPoint.y(), window->width, window->height);
         }
     } else {
         m_flipPixelRef->safeUnref();
@@ -292,9 +293,7 @@ void PluginWidgetAndroid::scrollToVisibleFrameRect() {
     // this requires converting the m_requestedFrameRect from frame to doc coordinates
 
     // find the center of the visibleRect in document coordinates
-    ScrollView* scrollView = m_pluginView->parent();
-    IntPoint pluginFramePoint = IntPoint(m_requestedFrameRect.fLeft, m_requestedFrameRect.fTop);
-    IntPoint pluginDocPoint = scrollView->convertToContainingWindow(pluginFramePoint);
+    IntPoint pluginDocPoint = getDocumentCoordinates(m_requestedFrameRect.fLeft, m_requestedFrameRect.fTop);
     int rectCenterX = pluginDocPoint.x() + m_requestedFrameRect.width()/2;
     int rectCenterY = pluginDocPoint.y() + m_requestedFrameRect.height()/2;
 
@@ -306,6 +305,25 @@ void PluginWidgetAndroid::scrollToVisibleFrameRect() {
     int deltaX = rectCenterX - screenCenterX;
     int deltaY = rectCenterY - screenCenterY;
 
+    ScrollView* scrollView = m_pluginView->parent();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
     core->scrollBy(deltaX, deltaY, true);
+}
+
+IntPoint PluginWidgetAndroid::getDocumentCoordinates(int frameX, int frameY) {
+    IntPoint docPoint = IntPoint(frameX, frameY);
+
+    const ScrollView* currentScrollView = m_pluginView->parent();
+    if (currentScrollView) {
+        const ScrollView* parentScrollView = currentScrollView->parent();
+        while (parentScrollView) {
+
+            docPoint.move(currentScrollView->x(), currentScrollView->y());
+
+            currentScrollView = parentScrollView;
+            parentScrollView = parentScrollView->parent();
+        }
+    }
+
+    return docPoint;
 }

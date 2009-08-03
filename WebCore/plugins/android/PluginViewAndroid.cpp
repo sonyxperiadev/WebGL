@@ -228,13 +228,11 @@ void PluginView::handleTouchEvent(TouchEvent* event)
 
     evt.data.touch.modifiers = 0;   // todo
 
-    // the event is relative to the window's (0,0), so use convertToContainingWindow
-    IntPoint winCoordinates = IntPoint(event->x(), event->y());
-    IntPoint docCoordinates = parent()->windowToContents(winCoordinates);
-
-    // convert to coordinates that are relative to the plugin
-    evt.data.touch.x = docCoordinates.x() - m_npWindow.x;
-    evt.data.touch.y = docCoordinates.y() - m_npWindow.y;
+    // convert to coordinates that are relative to the plugin. The pageX / pageY
+    // values are the only values in the event that are consistently in frame
+    // coordinates despite their misleading name.
+    evt.data.touch.x = event->pageX() - m_npWindow.x;
+    evt.data.touch.y = event->pageY() - m_npWindow.y;
 
     if (m_plugin->pluginFuncs()->event(m_instance, &evt)) {
         event->setDefaultPrevented(true);
@@ -253,13 +251,11 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         SkANP::InitEvent(&evt, kMouse_ANPEventType);
         evt.data.mouse.action = isUp ? kUp_ANPMouseAction : kDown_ANPMouseAction;
 
-        // the event is relative to the window's (0,0), so use convertToContainingWindow
-        IntPoint winCoordinates = IntPoint(event->x(), event->y());
-        IntPoint docCoordinates = parent()->windowToContents(winCoordinates);
-
-        // convert to coordinates that are relative to the plugin
-        evt.data.mouse.x = docCoordinates.x() - m_npWindow.x;
-        evt.data.mouse.y = docCoordinates.y() - m_npWindow.y;
+        // convert to coordinates that are relative to the plugin. The pageX / pageY
+        // values are the only values in the event that are consistently in frame
+        // coordinates despite their misleading name.
+        evt.data.mouse.x = event->pageX() - m_npWindow.x;
+        evt.data.mouse.y = event->pageY() - m_npWindow.y;
     }
     else {
       return;
@@ -377,21 +373,16 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     if (!m_isStarted)
         return;
 
-    const int width = rect.width();
-    const int height = rect.height();
-
-    // the rect is relative to the frameview's (0,0), so use convertToContainingWindow
-    IntPoint p = parent()->convertToContainingWindow(rect.location());
-    m_npWindow.x = p.x();
-    m_npWindow.y = p.y();
-
-    m_npWindow.width = width;
-    m_npWindow.height = height;
+    // the rect is relative to the frameview's (0,0)
+    m_npWindow.x = rect.x();
+    m_npWindow.y = rect.y();
+    m_npWindow.width = rect.width();
+    m_npWindow.height = rect.height();
 
     m_npWindow.clipRect.left = 0;
     m_npWindow.clipRect.top = 0;
-    m_npWindow.clipRect.right = width;
-    m_npWindow.clipRect.bottom = height;
+    m_npWindow.clipRect.right = rect.width();
+    m_npWindow.clipRect.bottom = rect.height();
 
     if (m_plugin->pluginFuncs()->setwindow) {
 #if USE(JSC)
