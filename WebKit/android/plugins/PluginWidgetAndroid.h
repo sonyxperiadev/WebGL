@@ -27,6 +27,7 @@
 #define PluginWidgetAndroid_H
 
 #include "android_npapi.h"
+#include "IntPoint.h"
 #include "SkRect.h"
 
 #include <wtf/OwnPtr.h>
@@ -132,6 +133,7 @@ struct PluginWidgetAndroid {
     void setVisibleRects(const ANPRectI rects[], int32_t count);
 
 private:
+    WebCore::IntPoint getDocumentCoordinates(int frameX, int frameY);
     void computeVisibleFrameRect();
     void scrollToVisibleFrameRect();
 
