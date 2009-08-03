@@ -40,6 +40,9 @@
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
+#if USE(V8)
+#include "WorkerContextExecutionProxy.h"
+#endif
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
@@ -94,6 +97,9 @@ struct FieldIds {
         mAppCachePath = env->GetFieldID(clazz, "mAppCachePath", "Ljava/lang/String;");
         mAppCacheMaxSize = env->GetFieldID(clazz, "mAppCacheMaxSize", "J");
 #endif
+#if ENABLE(WORKERS)
+        mWorkersEnabled = env->GetFieldID(clazz, "mWorkersEnabled", "Z");
+#endif
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -125,6 +131,9 @@ struct FieldIds {
         LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
         LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
         LOG_ASSERT(mAppCacheMaxSize, "Could not find field mAppCacheMaxSize");
+#endif
+#if ENABLE(WORKERS)
+        LOG_ASSERT(mWorkersEnabled, "Could not find field mWorkersEnabled");
 #endif
         LOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
                 "Could not find field mJavaScriptCanOpenWindowsAutomatically");
@@ -167,6 +176,9 @@ struct FieldIds {
     jfieldID mAppCacheEnabled;
     jfieldID mAppCachePath;
     jfieldID mAppCacheMaxSize;
+#endif
+#if ENABLE(WORKERS)
+    jfieldID mWorkersEnabled;
 #endif
     jfieldID mJavaScriptCanOpenWindowsAutomatically;
     jfieldID mUseWideViewport;
@@ -305,6 +317,16 @@ public:
         jlong maxsize = env->GetIntField(obj, gFieldIds->mAppCacheMaxSize);
         WebCore::cacheStorage().setMaximumSize(maxsize);
 #endif
+
+#if ENABLE(WORKERS)
+#if USE(V8)
+        // This flag is only needed if we use V8. JSC doesn't yet have
+        // a setting for enabling workers.
+        flag = env->GetBooleanField(obj, gFieldIds->mWorkersEnabled);
+        WebCore::WorkerContextExecutionProxy::setIsWebWorkersEnabled(flag);
+#endif
+#endif
+
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptCanOpenWindowsAutomatically);
         s->setJavaScriptCanOpenWindowsAutomatically(flag);
 

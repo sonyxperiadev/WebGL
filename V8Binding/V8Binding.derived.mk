@@ -158,7 +158,7 @@ js_binding_scripts := \
   $(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/scripts/generate-bindings.pl
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_WORKERS=1
 
 ifeq ($(ENABLE_VIDEO), true)
   FEATURE_DEFINES += ENaBLE_VIDEO=1
@@ -370,7 +370,8 @@ GEN := \
     $(intermediates)/page/V8Navigator.h \
     $(intermediates)/page/V8PositionError.h \
     $(intermediates)/page/V8Screen.h \
-    $(intermediates)/page/V8WebKitPoint.h
+    $(intermediates)/page/V8WebKitPoint.h \
+    $(intermediates)/page/V8WorkerNavigator.h
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/V8%.h : $(WEBCORE_PATH)/page/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
@@ -425,6 +426,21 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+
+# Workers support
+GEN := \
+	$(intermediates)/workers/V8Worker.h \
+	$(intermediates)/workers/V8WorkerContext.h \
+	$(intermediates)/workers/V8WorkerLocation.h
+
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/workers/V8%.h : $(WEBCORE_PATH)/workers/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/workers/%.cpp : $(intermediates)/workers/%.h
 
 #new section for svg
 ifeq ($(ENABLE_SVG), true)

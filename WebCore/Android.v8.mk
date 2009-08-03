@@ -25,7 +25,6 @@
 #	accessibility/*.cpp \
 #	bridge/test*.cpp \
 #	css/CSSGrammar.y \
-#	dom/Worker*.cpp \
 #	dom/XMLTokenizerQt.cpp \
 #	editing/BackForwardListChromium.cpp \
 #	editing/SmartReplace*.cpp \
@@ -36,13 +35,11 @@
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
 #	loader/UserStyleSheetLoader.cpp \
-#	loader/WorkerThreadableLoader.cpp \
 #	loader/icon/IconDatabaseNone.cpp \
 #	page/AXObjectCache.cpp \
 #	page/Accessibility*.cpp \
 #	page/InspectorController.cpp \
 #	page/JavaScript*.cpp \
-#	page/WorkerNavigator.cpp \
 #	platform/ThreadingNone.cpp \
 #	platform/graphics/FloatPoint3D.cpp \
 #	rendering/RenderThemeChromium*.cpp \
@@ -82,7 +79,6 @@
 #	/symbian/* \
 #	/v8/* \
 #	/win/* \
-#	^workers/* \
 #	^wml/* \
 #	/wx/* \
 
@@ -411,6 +407,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/DocLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
+	loader/WorkerThreadableLoader.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
 	loader/ImageDocument.cpp \
@@ -471,6 +468,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SecurityOrigin.cpp \
 	page/Settings.cpp \
 	page/WindowFeatures.cpp \
+	page/WorkerNavigator.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
@@ -1008,6 +1006,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	workers/Worker.cpp \
+	workers/WorkerContext.cpp \
+	workers/WorkerImportScriptsClient.cpp \
+	workers/WorkerLocation.cpp \
+	workers/WorkerMessagingProxy.cpp \
+	workers/WorkerRunLoop.cpp \
+	workers/WorkerThread.cpp \
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \

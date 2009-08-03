@@ -59,8 +59,6 @@
 # If an entry starts with '/', any subdirectory may match
 # If an entry starts with '^', the first directory must match
 # LOCAL_DIR_WILDCARD_EXCLUDED := \
-#	^storage/* \
-#	^workers/* \
 
 # This comment block is read by tools/webkitsync/diff.cpp
 # Don't remove it or move it. 
