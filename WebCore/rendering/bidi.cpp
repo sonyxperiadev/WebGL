@@ -953,7 +953,16 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             if (!isConstrained) {
                 int screenWidth = view()->frameView()->screenWidth();
                 if (screenWidth > 0 && width() > screenWidth) {
-                    int maxWidth = screenWidth - 2 * ANDROID_FCTS_MARGIN_PADDING;
+                    // if the current padding is smaller, add an extra to make
+                    // it 2 * ANDROID_FCTS_MARGIN_PADDING so that the text won't
+                    // overlap with the screen edge. If the current padding is
+                    // negative, leave it alone.
+                    int padding = paddingLeft() + paddingRight();
+                    if (padding < 0 || padding >= 2 * ANDROID_FCTS_MARGIN_PADDING)
+                        padding = 0;
+                    else
+                        padding = 2 * ANDROID_FCTS_MARGIN_PADDING - padding;
+                    int maxWidth = screenWidth - padding;
                     setWidth(min(width(), maxWidth));
                     m_minPrefWidth = min(m_minPrefWidth, maxWidth);
                     m_maxPrefWidth = min(m_maxPrefWidth, maxWidth);
