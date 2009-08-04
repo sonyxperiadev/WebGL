@@ -105,6 +105,8 @@
 #define ENABLE_SVG 0
 #undef ENABLE_WORKERS
 #define ENABLE_WORKERS 1
+#undef ENABLE_V8_LOCKERS
+#define ENABLE_V8_LOCKERS 1
 #endif
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)

@@ -363,6 +363,7 @@ v8::Local<v8::Object> createV8ObjectForNPObject(NPObject* object, NPObject* root
 void forgetV8ObjectForNPObject(NPObject* object)
 {
     if (staticNPObjectMap.contains(object)) {
+        LOCK_V8;
         v8::HandleScope scope;
         v8::Persistent<v8::Object> handle(staticNPObjectMap.get(object));
         WebCore::V8Proxy::SetDOMWrapper(handle, WebCore::V8ClassIndex::NPOBJECT, 0);
