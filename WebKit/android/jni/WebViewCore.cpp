@@ -885,6 +885,12 @@ void WebViewCore::notifyProgressFinished()
     m_check_domtree_version = true;
     updateFrameCache();
     sendNotifyProgressFinished();
+
+    // trigger an event notifying the plugins that the page has loaded
+    ANPEvent event;
+    SkANP::InitEvent(&event, kLifecycle_ANPEventType);
+    event.data.lifecycle.action = kOnLoad_ANPLifecycleAction;
+    sendPluginEvent(event);
 }
 
 void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
