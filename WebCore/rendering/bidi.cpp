@@ -855,8 +855,12 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             int ta = style()->textAlign();
             int dir = style()->direction();
             bool autowrap = style()->autoWrap();
+            // if the RenderBlock is positioned, don't wrap text around screen
+            // width as it may cause text to overlap.
+            bool positioned = isPositioned();
             EFloat cssfloat = style()->floating();
-            doTextWrap = autowrap && (((dir == LTR && cssfloat != FRIGHT) ||
+            doTextWrap = autowrap && !positioned &&
+                    (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) && 
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
                     ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
