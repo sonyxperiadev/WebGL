@@ -185,6 +185,8 @@ namespace android {
         
         virtual void registerForIconNotification(bool listen = true);
 
+        virtual void dispatchDidReceiveTouchIconURL(const String& url);
+
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);
         

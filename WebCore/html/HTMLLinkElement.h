@@ -93,7 +93,11 @@ public:
 
     virtual bool isURLAttribute(Attribute*) const;
     
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    static void tokenizeRelAttribute(const AtomicString& value, bool& stylesheet, bool& alternate, bool& icon, bool& touchIcon, bool& dnsPrefetch);
+#else
     static void tokenizeRelAttribute(const AtomicString& value, bool& stylesheet, bool& alternate, bool& icon, bool& dnsPrefetch);
+#endif
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -110,6 +114,9 @@ protected:
     bool m_alternate;
     bool m_isStyleSheet;
     bool m_isIcon;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    bool m_isTouchIcon;
+#endif
     bool m_isDNSPrefetch;
     bool m_createdByParser;
 };

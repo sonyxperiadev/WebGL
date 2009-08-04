@@ -243,6 +243,14 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
     }
 }
 
+void FrameLoaderClientAndroid::dispatchDidReceiveTouchIconURL(const String& url) {
+    ASSERT(m_frame);
+    // Do not report sub frame touch icons
+    if (m_frame->tree() && m_frame->tree()->parent())
+        return;
+    m_webFrame->didReceiveTouchIconURL(url);
+}
+
 void FrameLoaderClientAndroid::dispatchDidStartProvisionalLoad() {
     notImplemented();
 }
@@ -1050,4 +1058,5 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
         dispatchDidReceiveIcon();
     }
 }
+
 }

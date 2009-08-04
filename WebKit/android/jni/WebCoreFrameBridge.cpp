@@ -136,6 +136,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mWindowObjectCleared;
     jmethodID   mSetProgress;
     jmethodID   mDidReceiveIcon;
+    jmethodID   mDidReceiveTouchIconUrl;
     jmethodID   mUpdateVisitedHistory;
     jmethodID   mHandleUrl;
     jmethodID   mCreateWindow;
@@ -182,6 +183,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(I)V");
     mJavaFrame->mDidReceiveIcon = env->GetMethodID(clazz, "didReceiveIcon",
             "(Landroid/graphics/Bitmap;)V");
+    mJavaFrame->mDidReceiveTouchIconUrl = env->GetMethodID(clazz, "didReceiveTouchIconUrl",
+            "(Ljava/lang/String;)V");
     mJavaFrame->mUpdateVisitedHistory = env->GetMethodID(clazz, "updateVisitedHistory",
             "(Ljava/lang/String;Z)V");
     mJavaFrame->mHandleUrl = env->GetMethodID(clazz, "handleUrl",
@@ -206,6 +209,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mWindowObjectCleared, "Could not find method windowObjectCleared");
     LOG_ASSERT(mJavaFrame->mSetProgress, "Could not find method setProgress");
     LOG_ASSERT(mJavaFrame->mDidReceiveIcon, "Could not find method didReceiveIcon");
+    LOG_ASSERT(mJavaFrame->mDidReceiveTouchIconUrl, "Could not find method didReceiveTouchIconUrl");
     LOG_ASSERT(mJavaFrame->mUpdateVisitedHistory, "Could not find method updateVisitedHistory");
     LOG_ASSERT(mJavaFrame->mHandleUrl, "Could not find method handleUrl");
     LOG_ASSERT(mJavaFrame->mCreateWindow, "Could not find method createWindow");
@@ -571,6 +575,21 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDidReceiveIcon, bitmap);
     env->DeleteLocalRef(bitmap);
+    checkException(env);
+}
+
+void
+WebFrame::didReceiveTouchIconURL(const WebCore::String& url)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jUrlStr = env->NewString((unsigned short*)url.characters(),
+            url.length());
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr);
     checkException(env);
 }
 

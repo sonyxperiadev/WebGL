@@ -147,3 +147,6 @@ typedef unsigned char   flex_uint8_t;
 
 // Animated GIF support.
 #define ANDROID_ANIMATED_GIF
+
+// apple-touch-icon support in <link> tags
+#define ANDROID_APPLE_TOUCH_ICON

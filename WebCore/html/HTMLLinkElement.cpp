@@ -52,6 +52,9 @@ HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool
     , m_alternate(false)
     , m_isStyleSheet(false)
     , m_isIcon(false)
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    , m_isTouchIcon(false)
+#endif
     , m_isDNSPrefetch(false)
     , m_createdByParser(createdByParser)
 {
@@ -113,7 +116,11 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
+#ifdef ANDROID_APPLE_TOUCH_ICON
+        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isTouchIcon, m_isDNSPrefetch);
+#else
         tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isDNSPrefetch);
+#endif
         process();
     } else if (attr->name() == hrefAttr) {
         m_url = document()->completeURL(parseURL(attr->value()));
@@ -133,7 +140,11 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
     }
 }
 
+#ifdef ANDROID_APPLE_TOUCH_ICON
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& touchIcon, bool& dnsPrefetch)
+#else
 void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& dnsPrefetch)
+#endif
 {
     styleSheet = false;
     icon = false; 
@@ -143,6 +154,10 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleS
         styleSheet = true;
     else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
         icon = true;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    else if (equalIgnoringCase(rel, "apple-touch-icon"))
+        touchIcon = true;
+#endif
     else if (equalIgnoringCase(rel, "dns-prefetch"))
         dnsPrefetch = true;
     else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
@@ -177,6 +192,12 @@ void HTMLLinkElement::process()
     // We'll record this URL per document, even if we later only use it in top level frames
     if (m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
+
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    if (m_isTouchIcon && m_url.isValid() && !m_url.isEmpty())
+        document()->frame()->loader()->client()
+                ->dispatchDidReceiveTouchIconURL(m_url.string());
+#endif
 
     if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
         prefetchDNS(m_url.host());

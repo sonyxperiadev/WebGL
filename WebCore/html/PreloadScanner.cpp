@@ -707,8 +707,14 @@ void PreloadScanner::processAttribute()
             bool alternate = false;
             bool icon = false;
             bool dnsPrefetch = false;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+            bool touchIcon = false;
+            HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon, touchIcon, dnsPrefetch);
+            m_linkIsStyleSheet = styleSheet && !alternate && !icon && !touchIcon && !dnsPrefetch;
+#else
             HTMLLinkElement::tokenizeRelAttribute(value, styleSheet, alternate, icon, dnsPrefetch);
             m_linkIsStyleSheet = styleSheet && !alternate && !icon && !dnsPrefetch;
+#endif
         } else if (attribute == charsetAttr)
             m_charset = value;
     }

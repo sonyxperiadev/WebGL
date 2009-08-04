@@ -89,6 +89,8 @@ class WebFrame : public WebCoreRefObject {
     const WebCore::String userAgentForURL(const WebCore::KURL* url);
 
     void didReceiveIcon(WebCore::Image* icon);
+
+    void didReceiveTouchIconURL(const WebCore::String& url);
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 

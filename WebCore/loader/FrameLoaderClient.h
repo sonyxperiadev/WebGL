@@ -222,6 +222,9 @@ namespace WebCore {
         virtual void didPerformFirstNavigation() const = 0; // "Navigation" here means a transition from one page to another that ends up in the back/forward list.
         
         virtual void registerForIconNotification(bool listen = true) = 0;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+        virtual void dispatchDidReceiveTouchIconURL(const String& url) = 0;
+#endif
         
 #if PLATFORM(MAC)
 #if ENABLE(MAC_JAVA_BRIDGE)
