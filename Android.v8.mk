@@ -175,6 +175,7 @@ LOCAL_C_INCLUDES := \
 	$(base_intermediates)/WebCore/platform \
 	$(base_intermediates)/WebCore/plugins \
 	$(base_intermediates)/WebCore/storage \
+	$(base_intermediates)/WebCore/workers \
 	$(base_intermediates)/WebCore/xml \
 	$(base_intermediates)/JavaScriptCore
 
