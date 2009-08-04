@@ -1192,7 +1192,7 @@ void WebViewCore::drawPlugins()
         SkIRect dirty;
         if (w->isDirty(&dirty)) {
             w->draw();
-            w->localToPageCoords(&dirty);
+            w->localToDocumentCoords(&dirty);
             inval.op(dirty, SkRegion::kUnion_Op);
         }
     }
