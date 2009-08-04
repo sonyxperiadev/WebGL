@@ -74,11 +74,11 @@ struct PluginWidgetAndroid {
      */
     bool setDrawingModel(ANPDrawingModel);
 
-    /*  Utility method to convert from local (plugin) coordinates to docuemnt
+    /*  Utility method to convert from local (plugin) coordinates to document
         coordinates. Needed (for instance) to convert the dirty rectangle into
         document coordinates to inturn inval the screen.
      */
-    void localToPageCoords(SkIRect*) const;
+    void localToDocumentCoords(SkIRect*) const;
 
     /*  Returns true (and optionally updates rect with the dirty bounds) if
         the plugin has invalidate us.
@@ -133,7 +133,7 @@ struct PluginWidgetAndroid {
     void setVisibleRects(const ANPRectI rects[], int32_t count);
 
 private:
-    WebCore::IntPoint getDocumentCoordinates(int frameX, int frameY);
+    WebCore::IntPoint frameToDocumentCoords(int frameX, int frameY) const;
     void computeVisibleFrameRect();
     void scrollToVisibleFrameRect();
 
@@ -146,6 +146,7 @@ private:
     SkIRect                 m_visibleDocRect;
     SkIRect                 m_requestedFrameRect;
     OwnPtr<android::PluginSurface> m_surface;
+    bool                    m_hasFocus;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

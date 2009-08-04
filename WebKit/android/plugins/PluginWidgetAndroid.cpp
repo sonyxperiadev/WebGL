@@ -47,6 +47,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_requestedVisibleRectCount = 0;
     m_requestedFrameRect.setEmpty();
     m_visibleDocRect.setEmpty();
+    m_hasFocus = false;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -71,7 +72,7 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 
     if (m_drawingModel == kSurface_ANPDrawingModel) {
         if (m_surface) {
-            IntPoint docPoint = getDocumentCoordinates(window->x, window->y);
+            IntPoint docPoint = frameToDocumentCoords(window->x, window->y);
             m_surface->attach(docPoint.x(), docPoint.y(), window->width, window->height);
         }
     } else {
@@ -86,9 +87,12 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
     return true;
 }
 
-void PluginWidgetAndroid::localToPageCoords(SkIRect* rect) const {
-    if (m_pluginWindow)
-        rect->offset(m_pluginWindow->x, m_pluginWindow->y);
+void PluginWidgetAndroid::localToDocumentCoords(SkIRect* rect) const {
+    if (m_pluginWindow) {
+        IntPoint pluginDocCoords = frameToDocumentCoords(m_pluginWindow->x,
+                                                         m_pluginWindow->y);
+        rect->offset(pluginDocCoords.x(), pluginDocCoords.y());
+    }
 }
 
 bool PluginWidgetAndroid::isDirty(SkIRect* rect) const {
@@ -166,6 +170,15 @@ bool PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
     NPP instance = m_pluginView->instance();
     // "missing" plugins won't have these
     if (pkg && instance) {
+
+        // keep track of whether or not the plugin currently has focus
+        if (evt.eventType == kLifecycle_ANPEventType) {
+           if (evt.data.lifecycle.action == kLoseFocus_ANPLifecycleAction)
+               m_hasFocus = false;
+           else if (evt.data.lifecycle.action == kGainFocus_ANPLifecycleAction)
+               m_hasFocus = true;
+        }
+
         // make a localCopy since the actual plugin may not respect its constness,
         // and so we don't want our caller to have its param modified
         ANPEvent localCopy = evt;
@@ -286,16 +299,24 @@ void PluginWidgetAndroid::computeVisibleFrameRect() {
 
 void PluginWidgetAndroid::scrollToVisibleFrameRect() {
 
-    if (m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty())
+    if (!m_hasFocus || m_requestedFrameRect.isEmpty() || m_visibleDocRect.isEmpty())
         return;
 
-    // TODO if the entire rect is already visible then we don't need to scroll,
-    // this requires converting the m_requestedFrameRect from frame to doc coordinates
+    // if the entire rect is already visible then we don't need to scroll, which
+    // requires converting the m_requestedFrameRect from frame to doc coordinates
+    IntPoint pluginDocPoint = frameToDocumentCoords(m_requestedFrameRect.fLeft,
+                                                    m_requestedFrameRect.fTop);
+    SkIRect requestedDocRect;
+    requestedDocRect.set(pluginDocPoint.x(), pluginDocPoint.y(),
+                         pluginDocPoint.x() + m_requestedFrameRect.width(),
+                         pluginDocPoint.y() + m_requestedFrameRect.height());
+
+    if (m_visibleDocRect.contains(requestedDocRect))
+        return;
 
     // find the center of the visibleRect in document coordinates
-    IntPoint pluginDocPoint = getDocumentCoordinates(m_requestedFrameRect.fLeft, m_requestedFrameRect.fTop);
-    int rectCenterX = pluginDocPoint.x() + m_requestedFrameRect.width()/2;
-    int rectCenterY = pluginDocPoint.y() + m_requestedFrameRect.height()/2;
+    int rectCenterX = requestedDocRect.fLeft + requestedDocRect.width()/2;
+    int rectCenterY = requestedDocRect.fTop + requestedDocRect.height()/2;
 
     // find document coordinates for center of the visible screen
     int screenCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
@@ -310,7 +331,7 @@ void PluginWidgetAndroid::scrollToVisibleFrameRect() {
     core->scrollBy(deltaX, deltaY, true);
 }
 
-IntPoint PluginWidgetAndroid::getDocumentCoordinates(int frameX, int frameY) {
+IntPoint PluginWidgetAndroid::frameToDocumentCoords(int frameX, int frameY) const {
     IntPoint docPoint = IntPoint(frameX, frameY);
 
     const ScrollView* currentScrollView = m_pluginView->parent();
