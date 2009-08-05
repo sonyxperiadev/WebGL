@@ -150,21 +150,22 @@ enum ANPDrawingModels {
 };
 typedef int32_t ANPDrawingModel;
 
-/** Request to receive/disable events. If the pointer is NULL then all input will
-    be disabled. Otherwise, the input type will be enabled iff its corresponding
+/** Request to receive/disable events. If the pointer is NULL then all flags will
+    be disabled. Otherwise, the event type will be enabled iff its corresponding
     bit in the EventFlags bit field is set.
 
     NPN_SetValue(inst, ANPAcceptEvents, (void*)EventFlags)
  */
 #define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
 
-/*  The EventFlags are a set of bits used to determine which types of input the
+/*  The EventFlags are a set of bits used to determine which types of events the
     plugin wishes to receive. For example, if the value is 0x03 then both key
     and touch events will be provided to the plugin.
  */
 enum ANPEventFlag {
-    kKey_ANPEventFlag           = 0x01,
-    kTouch_ANPEventFlag         = 0x02,
+    kKey_ANPEventFlag               = 0x01,
+    kTouch_ANPEventFlag             = 0x02,
+    kZoom_ANPEventFlag              = 0x04, // triggers zoom & surface changed events
 };
 typedef uint32_t ANPEventFlags;
 
@@ -755,6 +756,11 @@ enum ANPEventTypes {
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
     kSurface_ANPEventType       = 6,
+    /** Reports the current zoom level of the page. The event is only received
+        if the plugin has specified that it wants to handle scaling the surface,
+        by setting the kDynamicSurface_ANPEventFlag.
+     */
+    kZoomLevel_ANPEventType     = 7,
 };
 typedef int32_t ANPEventType;
 
@@ -794,6 +800,9 @@ enum ANPLifecycleActions {
     kGainFocus_ANPLifecycleAction  = 2,
     kLoseFocus_ANPLifecycleAction  = 3,
     kFreeMemory_ANPLifecycleAction = 4,
+    /** The page has finished loading. This happens when the page's top level
+        frame reports that it has completed loading.
+     */
     kOnLoad_ANPLifecycleAction     = 5,
 };
 typedef uint32_t ANPLifecycleAction;
@@ -868,7 +877,8 @@ struct ANPEvent {
                 } changed;
             } data;
         } surface;
-        int32_t         other[8];
+        float       zoomLevel;
+        int32_t     other[8];
     } data;
 };
 

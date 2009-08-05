@@ -147,6 +147,7 @@ private:
     SkIRect                 m_requestedFrameRect;
     OwnPtr<android::PluginSurface> m_surface;
     bool                    m_hasFocus;
+    float                   m_zoomLevel;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

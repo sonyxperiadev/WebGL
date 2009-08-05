@@ -48,6 +48,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_requestedFrameRect.setEmpty();
     m_visibleDocRect.setEmpty();
     m_hasFocus = false;
+    m_zoomLevel = 0;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -222,7 +223,17 @@ ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
 
-    //TODO send an event to the plugin that communicates the zoom
+    //send an event to the plugin that communicates the zoom
+    if (isAcceptingEvent(kZoom_ANPEventFlag) && m_zoomLevel != zoom) {
+        //store the local zoom level
+        m_zoomLevel = zoom;
+
+        //trigger the event
+        ANPEvent event;
+        SkANP::InitEvent(&event, kZoomLevel_ANPEventType);
+        event.data.zoomLevel = zoom;
+        sendEvent(event);
+    }
 
     int oldScreenW = m_visibleDocRect.width();
     int oldScreenH = m_visibleDocRect.height();
