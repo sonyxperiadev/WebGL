@@ -38,6 +38,7 @@ namespace android {
     public:
         virtual ~PluginClient() {}
         virtual Vector<String> getPluginDirectories() = 0;
+        virtual String getPluginSharedDataDirectory() = 0;
     };
 }
 

@@ -117,6 +117,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kWindowInterfaceV0_ANPGetValue      ((NPNVariable)1007)
 #define kBitmapInterfaceV0_ANPGetValue      ((NPNVariable)1008)
 #define kSurfaceInterfaceV0_ANPGetValue     ((NPNVariable)1009)
+#define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
 
 /*  queries for which drawing model is desired (for the draw event)
 
@@ -869,6 +870,16 @@ struct ANPEvent {
         } surface;
         int32_t         other[8];
     } data;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// System properties
+
+struct ANPSystemInterfaceV0 : ANPInterface {
+    /** Return the path name for the current Application's plugin data directory,
+     *  or NULL if not supported
+     */
+    const char* (*getApplicationDataDirectory)();
 };
 
 #endif

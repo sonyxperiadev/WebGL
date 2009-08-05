@@ -89,6 +89,7 @@ extern void ANPPathInterfaceV0_Init(ANPInterface* value);
 extern void ANPSurfaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPTypefaceInterfaceV0_Init(ANPInterface* value);
 extern void ANPWindowInterfaceV0_Init(ANPInterface* value);
+extern void ANPSystemInterfaceV0_Init(ANPInterface* value);
 
 struct VarProcPair {
     int         enumValue;
@@ -110,6 +111,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(SurfaceInterfaceV0)       },
     { VARPROCLINE(TypefaceInterfaceV0)      },
     { VARPROCLINE(WindowInterfaceV0)        },
+    { VARPROCLINE(SystemInterfaceV0)        },
 };
 
 /*  return true if var was an interface request (error will be set accordingly)

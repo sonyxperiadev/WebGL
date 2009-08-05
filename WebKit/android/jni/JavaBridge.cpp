@@ -76,6 +76,7 @@ public:
     virtual bool cookiesEnabled();
 
     virtual WTF::Vector<WebCore::String> getPluginDirectories();
+    virtual WebCore::String getPluginSharedDataDirectory();
 
     virtual WTF::Vector<String> getSupportedKeyStrengthList();
     virtual WebCore::String getSignedPublicKeyAndChallengeString(unsigned index,
@@ -107,6 +108,7 @@ private:
     jmethodID   mCookies;
     jmethodID   mCookiesEnabled;
     jmethodID   mGetPluginDirectories;
+    jmethodID   mGetPluginSharedDataDirectory;
     jmethodID   mSignalFuncPtrQueue;
     jmethodID   mGetKeyStrengthList;
     jmethodID   mGetSignedPublicKey;
@@ -125,6 +127,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mCookies = env->GetMethodID(clazz, "cookies", "(Ljava/lang/String;)Ljava/lang/String;");
     mCookiesEnabled = env->GetMethodID(clazz, "cookiesEnabled", "()Z");
     mGetPluginDirectories = env->GetMethodID(clazz, "getPluginDirectories", "()[Ljava/lang/String;");
+    mGetPluginSharedDataDirectory = env->GetMethodID(clazz, "getPluginSharedDataDirectory", "()Ljava/lang/String;");
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
     mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
     mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
@@ -134,6 +137,8 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     LOG_ASSERT(mSetCookies, "Could not find method setCookies");
     LOG_ASSERT(mCookies, "Could not find method cookies");
     LOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
+    LOG_ASSERT(mGetPluginDirectories, "Could not find method getPluginDirectories");
+    LOG_ASSERT(mGetPluginSharedDataDirectory, "Could not find method getPluginSharedDataDirectory");
     LOG_ASSERT(mGetKeyStrengthList, "Could not find method getKeyStrengthList");
     LOG_ASSERT(mGetSignedPublicKey, "Could not find method getSignedPublicKey");
 
@@ -229,6 +234,17 @@ JavaBridge::getPluginDirectories()
     env->DeleteLocalRef(array);
     checkException(env);
     return directories;
+}
+
+WebCore::String
+JavaBridge::getPluginSharedDataDirectory()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jstring ret = (jstring)env->CallObjectMethod(obj.get(), mGetPluginSharedDataDirectory);
+    WebCore::String path = to_string(env, ret);
+    checkException(env);
+    return path;
 }
 
 void
