@@ -145,7 +145,7 @@ bool ScriptController::processingUserGesture() const
         return true;
 
     V8Proxy* activeProxy = activeFrame->script()->proxy();
-
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = V8Proxy::GetContext(activeFrame);
     // FIXME: find all cases context can be empty:
@@ -244,6 +244,7 @@ void ScriptController::bindToWindowObject(Frame* frame, const String& key, NPObj
 
 void ScriptController::collectGarbage()
 {
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = V8Proxy::GetContext(m_proxy->frame());
     if (context.IsEmpty())
@@ -336,6 +337,7 @@ static NPObject* createNoScriptObject()
 
 static NPObject* createScriptObject(Frame* frame)
 {
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = V8Proxy::GetContext(frame);
     if (context.IsEmpty())
