@@ -35,6 +35,7 @@
 #include "V8WorkerContextEventListener.h"
 
 #include "Event.h"
+#include "V8Utilities.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
@@ -62,6 +63,7 @@ void V8WorkerContextEventListener::handleEvent(Event* event, bool isWindowEvent)
     // See issue 889829.
     RefPtr<V8AbstractEventListener> protect(this);
 
+    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = m_proxy->GetContext();

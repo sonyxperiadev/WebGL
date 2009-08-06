@@ -191,6 +191,7 @@ void ScriptController::evaluateInNewContext(const Vector<ScriptSourceCode>& sour
 // Evaluate a script file in the environment of this proxy.
 ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
 {
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = V8Proxy::GetContext(m_proxy->frame());
     if (context.IsEmpty())
@@ -225,6 +226,7 @@ void ScriptController::finishedWithEvent(Event* event)
 // Create a V8 object with an interceptor of NPObjectPropertyGetter.
 void ScriptController::bindToWindowObject(Frame* frame, const String& key, NPObject* object)
 {
+    LOCK_V8;
     v8::HandleScope handleScope;
 
     v8::Handle<v8::Context> context = V8Proxy::GetContext(frame);
@@ -371,6 +373,7 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
     if (!isEnabled())
         return createNoScriptObject();
 
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = V8Proxy::GetContext(m_frame);
     if (context.IsEmpty())

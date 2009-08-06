@@ -125,6 +125,8 @@ bool NPN_Invoke(NPP npp, NPObject *npobj, NPIdentifier methodName,
     if (!npobj)
         return false;
 
+    LOCK_V8;
+
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
@@ -195,6 +197,8 @@ bool NPN_InvokeDefault(NPP npp, NPObject *npobj, const NPVariant *args,
     if (!npobj)
         return false;
 
+    LOCK_V8;
+
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
@@ -255,6 +259,8 @@ bool NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npobj, NPString* 
     if (npobj->_class != npScriptObjectClass)
         return false;
 
+    LOCK_V8;
+
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = getV8Context(npp, npobj);
     if (context.IsEmpty())
@@ -298,6 +304,8 @@ bool NPN_GetProperty(NPP npp, NPObject *npobj, NPIdentifier propertyName, NPVari
     if (!npobj)
         return false;
 
+    LOCK_V8;
+
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
@@ -329,6 +337,8 @@ bool NPN_SetProperty(NPP npp, NPObject *npobj, NPIdentifier propertyName, const 
     if (!npobj)
         return false;
 
+    LOCK_V8;
+
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
@@ -358,6 +368,8 @@ bool NPN_RemoveProperty(NPP npp, NPObject *npobj, NPIdentifier propertyName)
     if (npobj->_class != npScriptObjectClass)
         return false;
 
+    LOCK_V8;
+
     V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
     v8::HandleScope handleScope;
@@ -376,6 +388,8 @@ bool NPN_HasProperty(NPP npp, NPObject *npobj, NPIdentifier propertyName)
 {
     if (!npobj)
         return false;
+
+    LOCK_V8;
 
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
@@ -400,6 +414,8 @@ bool NPN_HasMethod(NPP npp, NPObject *npobj, NPIdentifier methodName)
     if (!npobj)
         return false;
 
+    LOCK_V8;
+
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
 
@@ -423,6 +439,9 @@ void NPN_SetException(NPObject *npobj, const NPUTF8 *message)
 {
     if (npobj->_class != npScriptObjectClass)
         return;
+
+    LOCK_V8;
+
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = getV8Context(0, npobj);
     if (context.IsEmpty())
@@ -436,6 +455,8 @@ bool NPN_Enumerate(NPP npp, NPObject *npobj, NPIdentifier **identifier, uint32_t
 {
     if (!npobj)
         return false;
+
+    LOCK_V8;
 
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);
@@ -492,6 +513,8 @@ bool NPN_Construct(NPP npp, NPObject* npobj, const NPVariant* args, uint32_t arg
 {
     if (!npobj)
         return false;
+
+    LOCK_V8;
 
     if (npobj->_class == npScriptObjectClass) {
         V8NPObject *object = reinterpret_cast<V8NPObject*>(npobj);

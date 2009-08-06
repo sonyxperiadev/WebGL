@@ -1078,7 +1078,7 @@ void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources)
 v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* n)
 {
     ASSERT(v8::Context::InContext());
-
+    LOCK_V8;
     // Compile the script.
     v8::Local<v8::String> code = v8ExternalString(source.source());
 #if PLATFORM(CHROMIUM)
@@ -1905,6 +1905,7 @@ void V8Proxy::ClearDocumentWrapper()
 
 void V8Proxy::UpdateDocumentWrapperCache()
 {
+    LOCK_V8;
     v8::HandleScope handle_scope;
     v8::Context::Scope context_scope(GetContext());
     v8::Handle<v8::Value> document_wrapper = NodeToV8Object(m_frame->document());
@@ -1947,6 +1948,7 @@ void V8Proxy::DisposeContextHandles() {
 void V8Proxy::clearForClose()
 {
     if (!m_context.IsEmpty()) {
+        LOCK_V8;
         v8::HandleScope handle_scope;
 
         ClearDocumentWrapper();
@@ -1961,6 +1963,7 @@ void V8Proxy::clearForNavigation()
     DisconnectEventListeners();
 
     if (!m_context.IsEmpty()) {
+        LOCK_V8;
         v8::HandleScope handle;
         ClearDocumentWrapper();
 
@@ -2039,6 +2042,7 @@ void V8Proxy::updateDocument()
 
 void V8Proxy::updateSecurityOrigin()
 {
+    LOCK_V8;
     v8::HandleScope scope;
     SetSecurityToken();
 }
@@ -2216,7 +2220,7 @@ void V8Proxy::InitContextIfNeeded()
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
 #endif
-
+    LOCK_V8;
   // Create a handle scope for all local handles.
   v8::HandleScope handle_scope;
 

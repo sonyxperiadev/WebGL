@@ -141,6 +141,7 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
 {
     static bool v8Initialized = false;
 
+    LOCK_V8;
     if (v8Initialized)
         return;
 
@@ -151,6 +152,10 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
     // Set up the handler for V8 error message.
     v8::V8::AddMessageListener(handleConsoleMessage);
 
+#if PLATFORM(ANDROID)
+    const int workerThreadPreemptionIntervalMs = 5;
+    v8::Locker::StartPreemption(workerThreadPreemptionIntervalMs);
+#endif
     v8Initialized = true;
 }
 
@@ -337,6 +342,7 @@ bool WorkerContextExecutionProxy::forgetV8EventObject(Event* event)
 
 v8::Local<v8::Value> WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, int baseLine)
 {
+    LOCK_V8;
     v8::HandleScope hs;
 
     initContextIfNeeded();
@@ -394,6 +400,7 @@ PassRefPtr<V8EventListener> WorkerContextExecutionProxy::findOrCreateEventListen
         newListener = V8WorkerContextObjectEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
     else
         newListener = V8WorkerContextEventListener::create(this, v8::Local<v8::Object>::Cast(object), isInline);
+
     m_listeners->add(newListener.get());
 
     return newListener.release();

@@ -33,6 +33,11 @@
 
 // FIXME: Remove once chromium dependencies on v8_utility.h are removed.
 #define V8UTILITIES_DEFINED 1
+#if ENABLE(V8_LOCKERS)
+#define LOCK_V8 v8::Locker lock
+#else
+#define LOCK_V8 ((void) 0)
+#endif
 
 #include <v8.h>
 
