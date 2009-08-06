@@ -50,7 +50,7 @@ class Surface;
 
 class PluginSurface : public SurfaceCallback {
 public:
-    PluginSurface(PluginWidgetAndroid* widget);
+    PluginSurface(PluginWidgetAndroid* widget, bool isFixedSize);
     virtual ~PluginSurface() {
         destroy();
     }

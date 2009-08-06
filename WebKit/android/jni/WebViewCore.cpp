@@ -254,7 +254,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;)V");
-    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(I)Landroid/view/SurfaceView;");
+    m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(IZ)Landroid/view/SurfaceView;");
     m_javaGlue->m_destroySurface = GetJMethod(env, clazz, "destroySurface", "(Landroid/view/SurfaceView;)V");
     m_javaGlue->m_attachSurface = GetJMethod(env, clazz, "attachSurface", "(Landroid/view/SurfaceView;IIII)V");
 
@@ -2095,11 +2095,11 @@ void WebViewCore::setBackgroundColor(SkColor c)
     view->setBaseBackgroundColor(bcolor);
 }
 
-jobject WebViewCore::createSurface(SurfaceCallback* cb)
+jobject WebViewCore::createSurface(SurfaceCallback* cb, bool isFixedSize)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jobject surface = env->CallObjectMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_createSurface, (int) cb);
+            m_javaGlue->m_createSurface, (int) cb, isFixedSize);
     checkException(env);
     return surface;
 }

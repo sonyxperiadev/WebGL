@@ -78,11 +78,11 @@ static inline SkBitmap::Config convertPixelFormat(PixelFormat format) {
     }
 }
 
-PluginSurface::PluginSurface(PluginWidgetAndroid* widget)
+PluginSurface::PluginSurface(PluginWidgetAndroid* widget, bool isFixedSize)
         : m_jSurfaceView(0)
         , m_widget(widget) {
     // Create our java SurfaceView.
-    jobject obj = widget->webViewCore()->createSurface(this);
+    jobject obj = widget->webViewCore()->createSurface(this, isFixedSize);
     if (obj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         m_jSurfaceView = env->NewGlobalRef(obj);
