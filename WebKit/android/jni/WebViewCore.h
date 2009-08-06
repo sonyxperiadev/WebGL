@@ -345,7 +345,7 @@ namespace android {
         void requestKeyboard(bool);
 
         // Creates a SurfaceView for a plugin
-        jobject createSurface(SurfaceCallback* cb);
+        jobject createSurface(SurfaceCallback* cb, bool isFixedSize);
 
         // Destroys the SurfaceView after removing from the view system.
         void destroySurface(jobject surface);

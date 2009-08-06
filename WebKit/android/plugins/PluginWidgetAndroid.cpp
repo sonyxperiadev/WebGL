@@ -214,7 +214,7 @@ ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
     if (m_drawingModel != kSurface_ANPDrawingModel) {
         return NULL;
     }
-    m_surface.set(new android::PluginSurface(this));
+    m_surface.set(new android::PluginSurface(this, !isAcceptingEvent(kZoom_ANPEventFlag)));
     ANPSurface* surface = new ANPSurface;
     surface->data = m_surface.get();
     surface->type = ignored;
