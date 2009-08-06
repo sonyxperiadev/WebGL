@@ -99,7 +99,7 @@ void GeolocationPermissions::queryPermissionState(Frame* frame)
 
     // If the request in progress is not for this origin, queue this request.
     if ((m_originInProgress != originString)
-        && (m_queuedOrigins.find(originString) != WTF::notFound))
+        && (m_queuedOrigins.find(originString) == WTF::notFound))
         m_queuedOrigins.append(originString);
 }
 
@@ -128,14 +128,15 @@ void GeolocationPermissions::providePermissionState(String origin, bool allow, b
     if (remember)
         cancelPendingRequestsInOtherTabs(m_originInProgress);
 
+    // Clear the origin in progress to signal that this request is done.
+    m_originInProgress = "";
+
     // If there are other requests queued, start the next one.
     if (!m_queuedOrigins.isEmpty()) {
         m_originInProgress = m_queuedOrigins.first();
         m_queuedOrigins.remove(0);
         m_webViewCore->geolocationPermissionsShowPrompt(m_originInProgress);
     }
-
-    m_originInProgress = "";
 }
 
 void GeolocationPermissions::recordPermissionState(String origin, bool allow, bool remember)
