@@ -1928,6 +1928,22 @@ Local<Value> v8::Object::GetPrototype() {
 }
 
 
+Local<Object> v8::Object::FindInstanceInPrototypeChain(
+    v8::Handle<FunctionTemplate> tmpl) {
+  ON_BAILOUT("v8::Object::FindInstanceInPrototypeChain()",
+             return Local<v8::Object>());
+  ENTER_V8;
+  i::JSObject* object = *Utils::OpenHandle(this);
+  i::FunctionTemplateInfo* tmpl_info = *Utils::OpenHandle(*tmpl);
+  while (!object->IsInstanceOf(tmpl_info)) {
+    i::Object* prototype = object->GetPrototype();
+    if (!prototype->IsJSObject()) return Local<Object>();
+    object = i::JSObject::cast(prototype);
+  }
+  return Utils::ToLocal(i::Handle<i::JSObject>(object));
+}
+
+
 Local<Array> v8::Object::GetPropertyNames() {
   ON_BAILOUT("v8::Object::GetPropertyNames()", return Local<v8::Array>());
   ENTER_V8;
@@ -2191,6 +2207,25 @@ bool v8::Object::DeleteHiddenValue(v8::Handle<v8::String> key) {
   i::Handle<i::JSObject> js_obj(i::JSObject::cast(*hidden_props));
   i::Handle<i::String> key_obj = Utils::OpenHandle(*key);
   return i::DeleteProperty(js_obj, key_obj)->IsTrue();
+}
+
+
+void v8::Object::SetIndexedPropertiesToPixelData(uint8_t* data, int length) {
+  ON_BAILOUT("v8::SetElementsToPixelData()", return);
+  ENTER_V8;
+  if (!ApiCheck(i::Smi::IsValid(length),
+                "v8::Object::SetIndexedPropertiesToPixelData()",
+                "length exceeds max acceptable value")) {
+    return;
+  }
+  i::Handle<i::JSObject> self = Utils::OpenHandle(this);
+  if (!ApiCheck(!self->IsJSArray(),
+                "v8::Object::SetIndexedPropertiesToPixelData()",
+                "JSArray is not supported")) {
+    return;
+  }
+  i::Handle<i::PixelArray> pixels = i::Factory::NewPixelArray(length, data);
+  self->set_elements(*pixels);
 }
 
 
@@ -2554,9 +2589,12 @@ Persistent<Context> v8::Context::New(
   i::Handle<i::Context> env;
   {
     ENTER_V8;
+#if defined(ANDROID)
+    // On mobile devices, full GC is expensive.
+#else
     // Give the heap a chance to cleanup if we've disposed contexts.
     i::Heap::CollectAllGarbageIfContextDisposed();
-
+#endif
     v8::Handle<ObjectTemplate> proxy_template = global_template;
     i::Handle<i::FunctionTemplateInfo> proxy_constructor;
     i::Handle<i::FunctionTemplateInfo> global_constructor;
@@ -3057,7 +3095,7 @@ Local<Object> Array::CloneElementAt(uint32_t index) {
   if (!self->HasFastElements()) {
     return Local<Object>();
   }
-  i::FixedArray* elms = self->elements();
+  i::FixedArray* elms = i::FixedArray::cast(self->elements());
   i::Object* paragon = elms->get(index);
   if (!paragon->IsJSObject()) {
     return Local<Object>();
@@ -3195,23 +3233,59 @@ void V8::SetGlobalGCEpilogueCallback(GCCallback callback) {
 
 void V8::PauseProfiler() {
 #ifdef ENABLE_LOGGING_AND_PROFILING
-  i::Logger::PauseProfiler();
+  i::Logger::PauseProfiler(PROFILER_MODULE_CPU);
 #endif
 }
 
 
 void V8::ResumeProfiler() {
 #ifdef ENABLE_LOGGING_AND_PROFILING
-  i::Logger::ResumeProfiler();
+  i::Logger::ResumeProfiler(PROFILER_MODULE_CPU);
 #endif
 }
 
 
 bool V8::IsProfilerPaused() {
 #ifdef ENABLE_LOGGING_AND_PROFILING
-  return i::Logger::IsProfilerPaused();
+  return i::Logger::GetActiveProfilerModules() & PROFILER_MODULE_CPU;
 #else
   return true;
+#endif
+}
+
+
+void V8::ResumeProfilerEx(int flags) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  if (flags & PROFILER_MODULE_HEAP_SNAPSHOT) {
+    // Snapshot mode: resume modules, perform GC, then pause only
+    // those modules which haven't been started prior to making a
+    // snapshot.
+
+    // Reset snapshot flag and CPU module flags.
+    flags &= ~(PROFILER_MODULE_HEAP_SNAPSHOT | PROFILER_MODULE_CPU);
+    const int current_flags = i::Logger::GetActiveProfilerModules();
+    i::Logger::ResumeProfiler(flags);
+    i::Heap::CollectAllGarbage();
+    i::Logger::PauseProfiler(~current_flags & flags);
+  } else {
+    i::Logger::ResumeProfiler(flags);
+  }
+#endif
+}
+
+
+void V8::PauseProfilerEx(int flags) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  i::Logger::PauseProfiler(flags);
+#endif
+}
+
+
+int V8::GetActiveProfilerModules() {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  return i::Logger::GetActiveProfilerModules();
+#else
+  return PROFILER_MODULE_NONE;
 #endif
 }
 

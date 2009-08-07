@@ -754,9 +754,9 @@ class FloatingPointHelper : public AllStatic {
  public:
   // Code pattern for loading a floating point value. Input value must
   // be either a smi or a heap number object (fp value). Requirements:
-  // operand on TOS+1. Returns operand as floating point number on FPU
-  // stack.
-  static void LoadFloatOperand(MacroAssembler* masm, Register scratch);
+  // operand in register number. Returns operand as floating point number
+  // on FPU stack.
+  static void LoadFloatOperand(MacroAssembler* masm, Register number);
   // Code pattern for loading floating point values. Input values must
   // be either smi or heap number objects (fp values). Requirements:
   // operand_1 on TOS+1 , operand_2 on TOS+2; Returns operands as
@@ -775,57 +775,6 @@ class FloatingPointHelper : public AllStatic {
                                  Register scratch1,
                                  Register scratch2,
                                  Register result);
-};
-
-
-// Flag that indicates whether or not the code that handles smi arguments
-// should be placed in the stub, inlined, or omitted entirely.
-enum GenericBinaryFlags {
-  SMI_CODE_IN_STUB,
-  SMI_CODE_INLINED
-};
-
-
-class GenericBinaryOpStub: public CodeStub {
- public:
-  GenericBinaryOpStub(Token::Value op,
-                      OverwriteMode mode,
-                      GenericBinaryFlags flags)
-      : op_(op), mode_(mode), flags_(flags) {
-    ASSERT(OpBits::is_valid(Token::NUM_TOKENS));
-  }
-
-  void GenerateSmiCode(MacroAssembler* masm, Label* slow);
-
- private:
-  Token::Value op_;
-  OverwriteMode mode_;
-  GenericBinaryFlags flags_;
-
-  const char* GetName();
-
-#ifdef DEBUG
-  void Print() {
-    PrintF("GenericBinaryOpStub (op %s), (mode %d, flags %d)\n",
-           Token::String(op_),
-           static_cast<int>(mode_),
-           static_cast<int>(flags_));
-  }
-#endif
-
-  // Minor key encoding in 16 bits FOOOOOOOOOOOOOMM.
-  class ModeBits: public BitField<OverwriteMode, 0, 2> {};
-  class OpBits: public BitField<Token::Value, 2, 13> {};
-  class FlagBits: public BitField<GenericBinaryFlags, 15, 1> {};
-
-  Major MajorKey() { return GenericBinaryOp; }
-  int MinorKey() {
-    // Encode the parameters in a unique 16 bit value.
-    return OpBits::encode(op_)
-           | ModeBits::encode(mode_)
-           | FlagBits::encode(flags_);
-  }
-  void Generate(MacroAssembler* masm);
 };
 
 
@@ -5154,11 +5103,10 @@ void CodeGenerator::GenerateObjectEquals(ZoneList<Expression*>* args) {
 
 void CodeGenerator::GenerateGetFramePointer(ZoneList<Expression*>* args) {
   ASSERT(args->length() == 0);
-  ASSERT(kSmiTagSize == 1 && kSmiTag == 0);  // shifting code depends on this
+  ASSERT(kSmiTag == 0);  // EBP value is aligned, so it should look like Smi.
   Result ebp_as_smi = allocator_->Allocate();
   ASSERT(ebp_as_smi.is_valid());
   __ mov(ebp_as_smi.reg(), Operand(ebp));
-  __ shr(ebp_as_smi.reg(), kSmiTagSize);
   frame_->Push(&ebp_as_smi);
 }
 
@@ -5216,8 +5164,11 @@ void CodeGenerator::GenerateFastMathOp(MathOp op, ZoneList<Expression*>* args) {
   }
 
   // Go slow case if argument to operation is out of range.
+  Result eax_reg = allocator_->Allocate(eax);
+  ASSERT(eax_reg.is_valid());
   __ fnstsw_ax();
   __ sahf();
+  eax_reg.Unuse();
   call_runtime.Branch(parity_even, not_taken);
 
   // Allocate heap number for result if possible.
@@ -6297,8 +6248,8 @@ void Reference::GetValue(TypeofState typeof_state) {
         __ mov(elements.reg(),
                FieldOperand(receiver.reg(), JSObject::kElementsOffset));
         __ cmp(FieldOperand(elements.reg(), HeapObject::kMapOffset),
-               Immediate(Factory::hash_table_map()));
-        deferred->Branch(equal);
+               Immediate(Factory::fixed_array_map()));
+        deferred->Branch(not_equal);
 
         // Shift the key to get the actual index value and check that
         // it is within bounds.
@@ -7016,19 +6967,19 @@ void FloatingPointHelper::AllocateHeapNumber(MacroAssembler* masm,
 
 
 void FloatingPointHelper::LoadFloatOperand(MacroAssembler* masm,
-                                           Register scratch) {
+                                           Register number) {
   Label load_smi, done;
 
-  __ test(scratch, Immediate(kSmiTagMask));
+  __ test(number, Immediate(kSmiTagMask));
   __ j(zero, &load_smi, not_taken);
-  __ fld_d(FieldOperand(scratch, HeapNumber::kValueOffset));
+  __ fld_d(FieldOperand(number, HeapNumber::kValueOffset));
   __ jmp(&done);
 
   __ bind(&load_smi);
-  __ sar(scratch, kSmiTagSize);
-  __ push(scratch);
+  __ sar(number, kSmiTagSize);
+  __ push(number);
   __ fild_s(Operand(esp, 0));
-  __ pop(scratch);
+  __ pop(number);
 
   __ bind(&done);
 }
@@ -7786,7 +7737,7 @@ void JSEntryStub::GenerateBody(MacroAssembler* masm, bool is_construct) {
   // If this is the outermost JS call, set js_entry_sp value.
   ExternalReference js_entry_sp(Top::k_js_entry_sp_address);
   __ cmp(Operand::StaticVariable(js_entry_sp), Immediate(0));
-  __ j(NegateCondition(equal), &not_outermost_js);
+  __ j(not_equal, &not_outermost_js);
   __ mov(Operand::StaticVariable(js_entry_sp), ebp);
   __ bind(&not_outermost_js);
 #endif
@@ -7837,7 +7788,7 @@ void JSEntryStub::GenerateBody(MacroAssembler* masm, bool is_construct) {
   // If current EBP value is the same as js_entry_sp value, it means that
   // the current function is the outermost.
   __ cmp(ebp, Operand::StaticVariable(js_entry_sp));
-  __ j(NegateCondition(equal), &not_outermost_js_2);
+  __ j(not_equal, &not_outermost_js_2);
   __ mov(Operand::StaticVariable(js_entry_sp), Immediate(0));
   __ bind(&not_outermost_js_2);
 #endif

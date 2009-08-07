@@ -44,13 +44,23 @@ namespace internal {
 
 // Test whether a 64-bit value is in a specific range.
 static inline bool is_uint32(int64_t x) {
-  const int64_t kUInt32Mask = V8_INT64_C(0xffffffff);
+  static const int64_t kUInt32Mask = V8_INT64_C(0xffffffff);
   return x == (x & kUInt32Mask);
 }
 
 static inline bool is_int32(int64_t x) {
-  const int64_t kMinIntValue = V8_INT64_C(-0x80000000);
+  static const int64_t kMinIntValue = V8_INT64_C(-0x80000000);
   return is_uint32(x - kMinIntValue);
+}
+
+static inline bool uint_is_int32(uint64_t x) {
+  static const uint64_t kMaxIntValue = V8_UINT64_C(0x80000000);
+  return x < kMaxIntValue;
+}
+
+static inline bool is_uint32(uint64_t x) {
+  static const uint64_t kMaxUIntValue = V8_UINT64_C(0x100000000);
+  return x < kMaxUIntValue;
 }
 
 // CPU Registers.
@@ -292,6 +302,7 @@ enum ScaleFactor {
   times_4 = 2,
   times_8 = 3,
   times_int_size = times_4,
+  times_half_pointer_size = times_4,
   times_pointer_size = times_8
 };
 
@@ -506,6 +517,8 @@ class Assembler : public Malloced {
   void movsxlq(Register dst, Register src);
   void movsxlq(Register dst, const Operand& src);
   void movzxbq(Register dst, const Operand& src);
+  void movzxbl(Register dst, const Operand& src);
+  void movzxwl(Register dst, const Operand& src);
 
   // New x64 instruction to load from an immediate 64-bit pointer into RAX.
   void load_rax(void* ptr, RelocInfo::Mode rmode);
@@ -627,13 +640,18 @@ class Assembler : public Malloced {
 
   void decq(Register dst);
   void decq(const Operand& dst);
+  void decl(Register dst);
   void decl(const Operand& dst);
 
   // Sign-extends rax into rdx:rax.
   void cqo();
+  // Sign-extends eax into edx:eax.
+  void cdq();
 
   // Divide rdx:rax by src.  Quotient in rax, remainder in rdx.
-  void idiv(Register src);
+  void idivq(Register src);
+  // Divide edx:eax by lower 32 bits of src.  Quotient in eax, rem. in edx.
+  void idivl(Register src);
 
   // Signed multiply instructions.
   void imul(Register src);                               // rdx:rax = rax * src.
@@ -735,6 +753,10 @@ class Assembler : public Malloced {
 
   void shrl(Register dst) {
     shift_32(dst, 0x5);
+  }
+
+  void shrl(Register dst, Immediate shift_amount) {
+    shift_32(dst, shift_amount, 0x5);
   }
 
   void store_rax(void* dst, RelocInfo::Mode mode);

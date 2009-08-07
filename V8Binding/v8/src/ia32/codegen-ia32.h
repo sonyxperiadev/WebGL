@@ -359,7 +359,7 @@ class CodeGenerator: public AstVisitor {
 
 #define DEF_VISIT(type) \
   void Visit##type(type* node);
-  NODE_LIST(DEF_VISIT)
+  AST_NODE_LIST(DEF_VISIT)
 #undef DEF_VISIT
 
   // Visit a statement and then spill the virtual frame if control flow can
@@ -558,7 +558,7 @@ class CodeGenerator: public AstVisitor {
   // information.
   void CodeForFunctionPosition(FunctionLiteral* fun);
   void CodeForReturnPosition(FunctionLiteral* fun);
-  void CodeForStatementPosition(Node* node);
+  void CodeForStatementPosition(AstNode* node);
   void CodeForSourcePosition(int pos);
 
 #ifdef DEBUG
@@ -603,9 +603,60 @@ class CodeGenerator: public AstVisitor {
   friend class Reference;
   friend class Result;
 
-  friend class CodeGeneratorPatcher;  // Used in test-log-ia32.cc
+  friend class CodeGeneratorPatcher;  // Used in test-log-stack-tracer.cc
 
   DISALLOW_COPY_AND_ASSIGN(CodeGenerator);
+};
+
+
+// Flag that indicates whether or not the code that handles smi arguments
+// should be placed in the stub, inlined, or omitted entirely.
+enum GenericBinaryFlags {
+  SMI_CODE_IN_STUB,
+  SMI_CODE_INLINED
+};
+
+
+class GenericBinaryOpStub: public CodeStub {
+ public:
+  GenericBinaryOpStub(Token::Value op,
+                      OverwriteMode mode,
+                      GenericBinaryFlags flags)
+      : op_(op), mode_(mode), flags_(flags) {
+    ASSERT(OpBits::is_valid(Token::NUM_TOKENS));
+  }
+
+  void GenerateSmiCode(MacroAssembler* masm, Label* slow);
+
+ private:
+  Token::Value op_;
+  OverwriteMode mode_;
+  GenericBinaryFlags flags_;
+
+  const char* GetName();
+
+#ifdef DEBUG
+  void Print() {
+    PrintF("GenericBinaryOpStub (op %s), (mode %d, flags %d)\n",
+           Token::String(op_),
+           static_cast<int>(mode_),
+           static_cast<int>(flags_));
+  }
+#endif
+
+  // Minor key encoding in 16 bits FOOOOOOOOOOOOOMM.
+  class ModeBits: public BitField<OverwriteMode, 0, 2> {};
+  class OpBits: public BitField<Token::Value, 2, 13> {};
+  class FlagBits: public BitField<GenericBinaryFlags, 15, 1> {};
+
+  Major MajorKey() { return GenericBinaryOp; }
+  int MinorKey() {
+    // Encode the parameters in a unique 16 bit value.
+    return OpBits::encode(op_)
+           | ModeBits::encode(mode_)
+           | FlagBits::encode(flags_);
+  }
+  void Generate(MacroAssembler* masm);
 };
 
 

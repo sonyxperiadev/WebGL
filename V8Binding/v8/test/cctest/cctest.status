@@ -63,7 +63,6 @@ test-api/TryCatchInTryFinally: FAIL
 
 
 [ $arch == x64 ]
-test-regexp/Graph: PASS || CRASH || FAIL
 test-decls/Present: CRASH || FAIL
 test-decls/Unknown: CRASH || FAIL
 test-decls/Appearing: CRASH || FAIL
@@ -113,10 +112,9 @@ test-debug/RecursiveBreakpoints: CRASH || FAIL
 test-debug/DebuggerUnload: CRASH || FAIL
 test-debug/DebuggerHostDispatch: CRASH || FAIL
 test-debug/DebugBreakInMessageHandler: CRASH || FAIL
-test-api/HugeConsStringOutOfMemory: CRASH || FAIL
-test-api/OutOfMemory: CRASH || FAIL
-test-api/OutOfMemoryNested: CRASH || FAIL
+test-debug/NoDebugBreakInAfterCompileMessageHandler: CRASH || FAIL
 test-api/Threading: CRASH || FAIL
+test-api/Threading2: PASS || TIMEOUT
 test-api/TryCatchSourceInfo: CRASH || FAIL
 test-api/RegExpInterruption: PASS || TIMEOUT
 test-api/RegExpStringModification: PASS || TIMEOUT

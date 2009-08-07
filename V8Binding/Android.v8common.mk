@@ -8,6 +8,7 @@ V8_LOCAL_SRC_FILES := \
 	src/ast.cc \
 	src/bootstrapper.cc \
 	src/builtins.cc \
+	src/cfg.cc \
 	src/checks.cc \
 	src/code-stubs.cc \
 	src/codegen.cc \
@@ -71,6 +72,7 @@ ifeq ($(TARGET_ARCH),arm)
   V8_LOCAL_SRC_FILES += \
 		src/arm/assembler-arm.cc \
 		src/arm/builtins-arm.cc \
+		src/arm/cfg-arm.cc \
 		src/arm/codegen-arm.cc \
 		src/arm/cpu-arm.cc \
 		src/arm/disasm-arm.cc \

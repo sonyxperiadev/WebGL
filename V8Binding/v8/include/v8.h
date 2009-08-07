@@ -85,11 +85,10 @@ typedef unsigned __int64 uint64_t;
 
 #include <stdint.h>
 
-// Setup for Linux shared library export. There is no need to destinguish
-// neither between building or using the V8 shared library nor between using
-// the shared or static V8 library as there is on Windows. Therefore there is
-// no checking of BUILDING_V8_SHARED and USING_V8_SHARED.
-#if defined(__GNUC__) && (__GNUC__ >= 4)
+// Setup for Linux shared library export. There is no need to distinguish
+// between building or using the V8 shared library, but we should not
+// export symbols when we are building a static library.
+#if defined(__GNUC__) && (__GNUC__ >= 4) && defined(V8_SHARED)
 #define V8EXPORT __attribute__ ((visibility("default")))
 #define V8EXPORT_INLINE __attribute__ ((visibility("default")))
 #else  // defined(__GNUC__) && (__GNUC__ >= 4)
@@ -1100,6 +1099,12 @@ class V8EXPORT Object : public Value {
   Local<Value> GetPrototype();
 
   /**
+   * Finds an instance of the given function template in the prototype
+   * chain.
+   */
+  Local<Object> FindInstanceInPrototypeChain(Handle<FunctionTemplate> tmpl);
+
+  /**
    * Call builtin Object.prototype.toString on this object.
    * This is different from Value::ToString() that may call
    * user-defined toString function. This one does not.
@@ -1168,6 +1173,15 @@ class V8EXPORT Object : public Value {
    * to the same values as the original object.
    */
   Local<Object> Clone();
+
+  /**
+   * Set the backing store of the indexed properties to be managed by the
+   * embedding layer. Access to the indexed properties will follow the rules
+   * spelled out in CanvasPixelArray.
+   * Note: The embedding program still owns the data and needs to ensure that
+   *       the backing store is preserved while V8 has a reference.
+   */
+  void SetIndexedPropertiesToPixelData(uint8_t* data, int length);
 
   static Local<Object> New();
   static Object* Cast(Value* obj);
@@ -1958,6 +1972,23 @@ typedef Persistent<Context> (*ContextGenerator)();
 
 
 /**
+ * Profiler modules.
+ *
+ * In V8, profiler consists of several modules: CPU profiler, and different
+ * kinds of heap profiling. Each can be turned on / off independently.
+ * When PROFILER_MODULE_HEAP_SNAPSHOT flag is passed to ResumeProfilerEx,
+ * modules are enabled only temporarily for making a snapshot of the heap.
+ */
+enum ProfilerModules {
+  PROFILER_MODULE_NONE            = 0,
+  PROFILER_MODULE_CPU             = 1,
+  PROFILER_MODULE_HEAP_STATS      = 1 << 1,
+  PROFILER_MODULE_JS_CONSTRUCTORS = 1 << 2,
+  PROFILER_MODULE_HEAP_SNAPSHOT   = 1 << 16
+};
+
+
+/**
  * Container class for static utility functions.
  */
 class V8EXPORT V8 {
@@ -2109,6 +2140,32 @@ class V8EXPORT V8 {
    * Return whether profiler is currently paused.
    */
   static bool IsProfilerPaused();
+
+  /**
+   * Resumes specified profiler modules.
+   * "ResumeProfiler" is equivalent to "ResumeProfilerEx(PROFILER_MODULE_CPU)".
+   * See ProfilerModules enum.
+   *
+   * \param flags Flags specifying profiler modules.
+   */
+  static void ResumeProfilerEx(int flags);
+
+  /**
+   * Pauses specified profiler modules.
+   * "PauseProfiler" is equivalent to "PauseProfilerEx(PROFILER_MODULE_CPU)".
+   * See ProfilerModules enum.
+   *
+   * \param flags Flags specifying profiler modules.
+   */
+  static void PauseProfilerEx(int flags);
+
+  /**
+   * Returns active (resumed) profiler modules.
+   * See ProfilerModules enum.
+   *
+   * \returns active profiler modules.
+   */
+  static int GetActiveProfilerModules();
 
   /**
    * If logging is performed into a memory buffer (via --logfile=*), allows to

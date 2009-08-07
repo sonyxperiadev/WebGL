@@ -164,6 +164,7 @@ class MacroAssembler: public Assembler {
   void Cmp(Register dst, Handle<Object> source);
   void Cmp(const Operand& dst, Handle<Object> source);
   void Push(Handle<Object> source);
+  void Push(Smi* smi);
 
   // Control Flow
   void Jump(Address destination, RelocInfo::Mode rmode);
@@ -175,11 +176,13 @@ class MacroAssembler: public Assembler {
   void Call(Handle<Code> code_object, RelocInfo::Mode rmode);
 
   // Compare object type for heap object.
+  // Always use unsigned comparisons: above and below, not less and greater.
   // Incoming register is heap_object and outgoing register is map.
   // They may be the same register, and may be kScratchRegister.
   void CmpObjectType(Register heap_object, InstanceType type, Register map);
 
   // Compare instance type for map.
+  // Always use unsigned comparisons: above and below, not less and greater.
   void CmpInstanceType(Register map, InstanceType type);
 
   // FCmp is similar to integer cmp, but requires unsigned

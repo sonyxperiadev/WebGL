@@ -237,6 +237,18 @@
 				>
 			</File>
 			<File
+			        RelativePath="..\..\src\arm\cfg-arm.cc"
+			        >
+			</File>
+			<File
+			        RelativePath="..\..\src\cfg.cc"
+			        >
+			</File>
+			<File
+			        RelativePath="..\..\src\cfg.h"
+			        >
+			</File>
+			<File
 				RelativePath="..\..\src\char-predicates-inl.h"
 				>
 			</File>
@@ -518,10 +530,6 @@
 			</File>
 			<File
 				RelativePath="..\..\src\arm\jump-target-arm.cc"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\jsregexp-inl.h"
 				>
 			</File>
 			<File

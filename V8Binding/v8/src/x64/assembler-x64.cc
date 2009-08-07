@@ -687,6 +687,13 @@ void Assembler::call(const Operand& op) {
 }
 
 
+void Assembler::cdq() {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit(0x99);
+}
+
+
 void Assembler::cmovq(Condition cc, Register dst, Register src) {
   // No need to check CpuInfo for CMOV support, it's a required part of the
   // 64-bit architecture.
@@ -773,6 +780,15 @@ void Assembler::decq(const Operand& dst) {
 }
 
 
+void Assembler::decl(Register dst) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst);
+  emit(0xFF);
+  emit_modrm(0x1, dst);
+}
+
+
 void Assembler::decl(const Operand& dst) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
@@ -798,10 +814,19 @@ void Assembler::hlt() {
 }
 
 
-void Assembler::idiv(Register src) {
+void Assembler::idivq(Register src) {
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(src);
+  emit(0xF7);
+  emit_modrm(0x7, src);
+}
+
+
+void Assembler::idivl(Register src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(src);
   emit(0xF7);
   emit_modrm(0x7, src);
 }
@@ -1115,6 +1140,9 @@ void Assembler::movq(const Operand& dst, Register src) {
 
 
 void Assembler::movq(Register dst, void* value, RelocInfo::Mode rmode) {
+  // This method must not be used with heap object references. The stored
+  // address is not GC safe. Use the handle version instead.
+  ASSERT(rmode > RelocInfo::LAST_GCED_ENUM);
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_rex_64(dst);
@@ -1212,6 +1240,26 @@ void Assembler::movzxbq(Register dst, const Operand& src) {
   emit_rex_64(dst, src);
   emit(0x0F);
   emit(0xB6);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::movzxbl(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0xB6);
+  emit_operand(dst, src);
+}
+
+
+void Assembler::movzxwl(Register dst, const Operand& src) {
+  EnsureSpace ensure_space(this);
+  last_pc_ = pc_;
+  emit_optional_rex_32(dst, src);
+  emit(0x0F);
+  emit(0xB7);
   emit_operand(dst, src);
 }
 
@@ -1521,7 +1569,7 @@ void Assembler::store_rax(ExternalReference ref) {
 
 
 void Assembler::testb(Register reg, Immediate mask) {
-  ASSERT(is_int8(mask.value_));
+  ASSERT(is_int8(mask.value_) || is_uint8(mask.value_));
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   if (reg.is(rax)) {
@@ -1540,7 +1588,7 @@ void Assembler::testb(Register reg, Immediate mask) {
 
 
 void Assembler::testb(const Operand& op, Immediate mask) {
-  ASSERT(is_int8(mask.value_));
+  ASSERT(is_int8(mask.value_) || is_uint8(mask.value_));
   EnsureSpace ensure_space(this);
   last_pc_ = pc_;
   emit_optional_rex_32(rax, op);

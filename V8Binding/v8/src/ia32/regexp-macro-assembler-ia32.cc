@@ -634,11 +634,9 @@ Handle<Object> RegExpMacroAssemblerIA32::GetCode(Handle<String> source) {
   __ push(Immediate(0));  // Make room for "input start - 1" constant.
 
   // Check if we have space on the stack for registers.
-  Label retry_stack_check;
   Label stack_limit_hit;
   Label stack_ok;
 
-  __ bind(&retry_stack_check);
   ExternalReference stack_guard_limit =
       ExternalReference::address_of_stack_guard_limit();
   __ mov(ecx, esp);
@@ -658,10 +656,7 @@ Handle<Object> RegExpMacroAssemblerIA32::GetCode(Handle<String> source) {
   CallCheckStackGuardState(ebx);
   __ or_(eax, Operand(eax));
   // If returned value is non-zero, we exit with the returned value as result.
-  // Otherwise it was a preemption and we just check the limit again.
-  __ j(equal, &retry_stack_check);
-  // Return value was non-zero. Exit with exception or retry.
-  __ jmp(&exit_label_);
+  __ j(not_zero, &exit_label_);
 
   __ bind(&stack_ok);
 
@@ -757,24 +752,16 @@ Handle<Object> RegExpMacroAssemblerIA32::GetCode(Handle<String> source) {
 
   // Preempt-code
   if (check_preempt_label_.is_linked()) {
-    __ bind(&check_preempt_label_);
+    SafeCallTarget(&check_preempt_label_);
 
     __ push(backtrack_stackpointer());
     __ push(edi);
 
-    Label retry;
-
-    __ bind(&retry);
     CallCheckStackGuardState(ebx);
     __ or_(eax, Operand(eax));
     // If returning non-zero, we should end execution with the given
     // result as return value.
     __ j(not_zero, &exit_label_);
-    // Check if we are still preempted.
-    ExternalReference stack_guard_limit =
-        ExternalReference::address_of_stack_guard_limit();
-    __ cmp(esp, Operand::StaticVariable(stack_guard_limit));
-    __ j(below_equal, &retry);
 
     __ pop(edi);
     __ pop(backtrack_stackpointer());
@@ -785,7 +772,7 @@ Handle<Object> RegExpMacroAssemblerIA32::GetCode(Handle<String> source) {
 
   // Backtrack stack overflow code.
   if (stack_overflow_label_.is_linked()) {
-    __ bind(&stack_overflow_label_);
+    SafeCallTarget(&stack_overflow_label_);
     // Reached if the backtrack-stack limit has been hit.
 
     Label grow_failed;
@@ -1262,17 +1249,19 @@ void RegExpMacroAssemblerIA32::BranchOrBacktrack(Condition condition,
 
 
 void RegExpMacroAssemblerIA32::SafeCall(Label* to) {
-  Label return_to;
-  __ push(Immediate::CodeRelativeOffset(&return_to));
-  __ jmp(to);
-  __ bind(&return_to);
+  __ call(to);
 }
 
 
 void RegExpMacroAssemblerIA32::SafeReturn() {
-  __ pop(ebx);
-  __ add(Operand(ebx), Immediate(masm_->CodeObject()));
-  __ jmp(Operand(ebx));
+  __ add(Operand(esp, 0), Immediate(masm_->CodeObject()));
+  __ ret(0);
+}
+
+
+void RegExpMacroAssemblerIA32::SafeCallTarget(Label* name) {
+  __ bind(name);
+  __ sub(Operand(esp, 0), Immediate(masm_->CodeObject()));
 }
 
 

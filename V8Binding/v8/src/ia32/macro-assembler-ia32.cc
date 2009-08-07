@@ -54,41 +54,47 @@ static void RecordWriteHelper(MacroAssembler* masm,
                               Register scratch) {
   Label fast;
 
-  // Compute the page address from the heap object pointer, leave it
-  // in 'object'.
+  // Compute the page start address from the heap object pointer, and reuse
+  // the 'object' register for it.
   masm->and_(object, ~Page::kPageAlignmentMask);
+  Register page_start = object;
 
-  // Compute the bit addr in the remembered set, leave it in "addr".
-  masm->sub(addr, Operand(object));
+  // Compute the bit addr in the remembered set/index of the pointer in the
+  // page. Reuse 'addr' as pointer_offset.
+  masm->sub(addr, Operand(page_start));
   masm->shr(addr, kObjectAlignmentBits);
+  Register pointer_offset = addr;
 
   // If the bit offset lies beyond the normal remembered set range, it is in
   // the extra remembered set area of a large object.
-  masm->cmp(addr, Page::kPageSize / kPointerSize);
+  masm->cmp(pointer_offset, Page::kPageSize / kPointerSize);
   masm->j(less, &fast);
 
-  // Adjust 'addr' to be relative to the start of the extra remembered set
-  // and the page address in 'object' to be the address of the extra
-  // remembered set.
-  masm->sub(Operand(addr), Immediate(Page::kPageSize / kPointerSize));
-  // Load the array length into 'scratch' and multiply by four to get the
-  // size in bytes of the elements.
-  masm->mov(scratch, Operand(object, Page::kObjectStartOffset
-                                     + FixedArray::kLengthOffset));
-  masm->shl(scratch, kObjectAlignmentBits);
-  // Add the page header, array header, and array body size to the page
-  // address.
-  masm->add(Operand(object), Immediate(Page::kObjectStartOffset
-                                       + FixedArray::kHeaderSize));
-  masm->add(object, Operand(scratch));
+  // Adjust 'page_start' so that addressing using 'pointer_offset' hits the
+  // extra remembered set after the large object.
 
+  // Find the length of the large object (FixedArray).
+  masm->mov(scratch, Operand(page_start, Page::kObjectStartOffset
+                                         + FixedArray::kLengthOffset));
+  Register array_length = scratch;
+
+  // Extra remembered set starts right after the large object (a FixedArray), at
+  //   page_start + kObjectStartOffset + objectSize
+  // where objectSize is FixedArray::kHeaderSize + kPointerSize * array_length.
+  // Add the delta between the end of the normal RSet and the start of the
+  // extra RSet to 'object', so that addressing the bit using 'pointer_offset'
+  // hits the extra RSet words.
+  masm->lea(page_start,
+            Operand(page_start, array_length, times_pointer_size,
+                    Page::kObjectStartOffset + FixedArray::kHeaderSize
+                        - Page::kRSetEndOffset));
 
   // NOTE: For now, we use the bit-test-and-set (bts) x86 instruction
   // to limit code size. We should probably evaluate this decision by
   // measuring the performance of an equivalent implementation using
   // "simpler" instructions
   masm->bind(&fast);
-  masm->bts(Operand(object, 0), addr);
+  masm->bts(Operand(page_start, Page::kRSetOffset), pointer_offset);
 }
 
 
@@ -146,43 +152,30 @@ void MacroAssembler::RecordWrite(Register object, int offset,
   // for the remembered set bits.
   Label done;
 
-  // This optimization cannot survive serialization and deserialization,
-  // so we disable as long as serialization can take place.
-  int32_t new_space_start =
-      reinterpret_cast<int32_t>(ExternalReference::new_space_start().address());
-  if (Serializer::enabled() || new_space_start < 0) {
-    // Cannot do smart bit-twiddling. Need to do two consecutive checks.
-    // Check for Smi first.
-    test(value, Immediate(kSmiTagMask));
-    j(zero, &done);
-    // Test that the object address is not in the new space.  We cannot
-    // set remembered set bits in the new space.
+  // Skip barrier if writing a smi.
+  ASSERT_EQ(0, kSmiTag);
+  test(value, Immediate(kSmiTagMask));
+  j(zero, &done);
+
+  if (Serializer::enabled()) {
+    // Can't do arithmetic on external references if it might get serialized.
     mov(value, Operand(object));
     and_(value, Heap::NewSpaceMask());
     cmp(Operand(value), Immediate(ExternalReference::new_space_start()));
     j(equal, &done);
   } else {
-    // move the value SmiTag into the sign bit
-    shl(value, 31);
-    // combine the object with value SmiTag
-    or_(value, Operand(object));
-    // remove the uninteresing bits inside the page
-    and_(value, Heap::NewSpaceMask() | (1 << 31));
-    // xor has two effects:
-    // - if the value was a smi, then the result will be negative
-    // - if the object is pointing into new space area the page bits will
-    //   all be zero
-    xor_(value, new_space_start | (1 << 31));
-    // Check for both conditions in one branch
-    j(less_equal, &done);
+    int32_t new_space_start = reinterpret_cast<int32_t>(
+        ExternalReference::new_space_start().address());
+    lea(value, Operand(object, -new_space_start));
+    and_(value, Heap::NewSpaceMask());
+    j(equal, &done);
   }
 
   if ((offset > 0) && (offset < Page::kMaxHeapObjectSize)) {
     // Compute the bit offset in the remembered set, leave it in 'value'.
-    mov(value, Operand(object));
+    lea(value, Operand(object, offset));
     and_(value, Page::kPageAlignmentMask);
-    add(Operand(value), Immediate(offset));
-    shr(value, kObjectAlignmentBits);
+    shr(value, kPointerSizeLog2);
 
     // Compute the page address from the heap object pointer, leave it in
     // 'object'.
@@ -192,7 +185,7 @@ void MacroAssembler::RecordWrite(Register object, int offset,
     // to limit code size. We should probably evaluate this decision by
     // measuring the performance of an equivalent implementation using
     // "simpler" instructions
-    bts(Operand(object, 0), value);
+    bts(Operand(object, Page::kRSetOffset), value);
   } else {
     Register dst = scratch;
     if (offset != 0) {
@@ -201,7 +194,9 @@ void MacroAssembler::RecordWrite(Register object, int offset,
       // array access: calculate the destination address in the same manner as
       // KeyedStoreIC::GenerateGeneric.  Multiply a smi by 2 to get an offset
       // into an array of words.
-      lea(dst, Operand(object, dst, times_2,
+      ASSERT_EQ(1, kSmiTagSize);
+      ASSERT_EQ(0, kSmiTag);
+      lea(dst, Operand(object, dst, times_half_pointer_size,
                        FixedArray::kHeaderSize - kHeapObjectTag));
     }
     // If we are already generating a shared stub, not inlining the
