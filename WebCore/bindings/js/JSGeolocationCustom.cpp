@@ -39,109 +39,140 @@ using namespace JSC;
 
 namespace WebCore {
 
+const long PositionOptions::infinity = -1;
+
+static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSValue value)
+{
+    JSObject* object = value.getObject();
+    if (!object) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return 0;
+    }
+
+    Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
+    ASSERT(frame);
+    return JSCustomPositionCallback::create(object, frame);
+}
+
+static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSValue value)
+{
+    // No value is OK.
+    if (value.isUndefinedOrNull()) {
+        return 0;
+    }
+
+    JSObject* object = value.getObject();
+    if (!object) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return 0;
+    }
+
+    Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
+    ASSERT(frame);
+    return JSCustomPositionErrorCallback::create(object, frame);
+}
+
+// If value represents a non-negative number, the value is truncated to a long
+// and assigned to result, and the function returns true. Otherwise, result is
+// not set, and the function returns false.
+static bool getNonNegativeLong(ExecState* exec, const JSValue& value, long* result)
+{
+    if (!value.isNumber() || (value.toNumber(exec) < 0)) {
+        return false;
+    }
+    *result = value.toNumber(exec);
+    return true;
+}
+
 static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValue value)
 {
-    if (!value.isObject())
-        return 0;
+    // Create default options.
+    RefPtr<PositionOptions> options = PositionOptions::create();
 
-    JSObject* object = asObject(value);
+    if (value.isUndefinedOrNull()) {
+        // Use default options.
+        return options;
+    }
+
+    JSObject* object = value.getObject();
+    if (!object) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return 0;
+    }
 
     JSValue enableHighAccuracyValue = object->get(exec, Identifier(exec, "enableHighAccuracy"));
-    if (exec->hadException())
-        return 0;
-    bool enableHighAccuracy = enableHighAccuracyValue.toBoolean(exec);
-    if (exec->hadException())
-        return 0;
+    if (!enableHighAccuracyValue.isUndefinedOrNull()) {
+        if (!enableHighAccuracyValue.isBoolean()) {
+            setDOMException(exec, TYPE_MISMATCH_ERR);
+            return 0;
+        }
+        options->setEnableHighAccuracy(enableHighAccuracyValue.toBoolean(exec));
+    }
 
     JSValue timeoutValue = object->get(exec, Identifier(exec, "timeout"));
-    if (exec->hadException())
-        return 0;
-    unsigned timeout = timeoutValue.toUInt32(exec);
-    if (exec->hadException())
-        return 0;
+    if (!timeoutValue.isUndefinedOrNull()) {
+        long timeout;
+        if (getNonNegativeLong(exec, timeoutValue, &timeout))
+            options->setTimeout(timeout);
+        else {
+            setDOMException(exec, TYPE_MISMATCH_ERR);
+            return 0;
+        }
+    }
 
     JSValue maximumAgeValue = object->get(exec, Identifier(exec, "maximumAge"));
-    if (exec->hadException())
-        return 0;
-    unsigned maximumAge = maximumAgeValue.toUInt32(exec);
-    if (exec->hadException())
-        return 0;
+    if (!maximumAgeValue.isUndefinedOrNull()) {
+        long maximumAge;
+        if (getNonNegativeLong(exec, maximumAgeValue, &maximumAge))
+            options->setTimeout(maximumAge);
+        else {
+            setDOMException(exec, TYPE_MISMATCH_ERR);
+            return 0;
+        }
+    }
 
-    return PositionOptions::create(enableHighAccuracy, timeout, maximumAge);
+    return options;
 }
 
 JSValue JSGeolocation::getCurrentPosition(ExecState* exec, const ArgList& args)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
-    RefPtr<PositionCallback> positionCallback;
-    JSObject* object = args.at(0).getObject();
+
+    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, args.at(0));
     if (exec->hadException())
         return jsUndefined();
-    if (!object) {
-        setDOMException(exec, TYPE_MISMATCH_ERR);
+    ASSERT(positionCallback);
+
+    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, args.at(1));
+    if (exec->hadException())
         return jsUndefined();
-    }
 
-    if (Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame())
-        positionCallback = JSCustomPositionCallback::create(object, frame);
-    
-    RefPtr<PositionErrorCallback> positionErrorCallback;
-    if (!args.at(1).isUndefinedOrNull()) {
-        JSObject* object = args.at(1).getObject();
-        if (!object) {
-            setDOMException(exec, TYPE_MISMATCH_ERR);
-            return jsUndefined();
-        }
-
-        if (Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame())
-            positionErrorCallback = JSCustomPositionErrorCallback::create(object, frame);
-    }
-    
-    RefPtr<PositionOptions> positionOptions;
-    if (!args.at(2).isUndefinedOrNull()) {
-        positionOptions = createPositionOptions(exec, args.at(2));
-        if (exec->hadException())
-            return jsUndefined();
-    }
+    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, args.at(2));
+    if (exec->hadException())
+        return jsUndefined();
+    ASSERT(positionOptions);
 
     m_impl->getCurrentPosition(positionCallback.release(), positionErrorCallback.release(), positionOptions.release());
-    
     return jsUndefined();
 }
 
 JSValue JSGeolocation::watchPosition(ExecState* exec, const ArgList& args)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
-    RefPtr<PositionCallback> positionCallback;
-    JSObject* object = args.at(0).getObject();
+
+    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, args.at(0));
     if (exec->hadException())
         return jsUndefined();
-    if (!object) {
-        setDOMException(exec, TYPE_MISMATCH_ERR);
+    ASSERT(positionCallback);
+
+    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, args.at(1));
+    if (exec->hadException())
         return jsUndefined();
-    }
-    
-    if (Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame())
-        positionCallback = JSCustomPositionCallback::create(object, frame);
-    
-    RefPtr<PositionErrorCallback> positionErrorCallback;
-    if (!args.at(1).isUndefinedOrNull()) {
-        JSObject* object = args.at(1).getObject();
-        if (!object) {
-            setDOMException(exec, TYPE_MISMATCH_ERR);
-            return jsUndefined();
-        }
-        
-        if (Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame())
-            positionErrorCallback = JSCustomPositionErrorCallback::create(object, frame);
-    }
-    
-    RefPtr<PositionOptions> positionOptions;
-    if (!args.at(2).isUndefinedOrNull()) {
-        positionOptions = createPositionOptions(exec, args.at(2));
-        if (exec->hadException())
-            return jsUndefined();
-    }
+
+    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, args.at(2));
+    if (exec->hadException())
+        return jsUndefined();
+    ASSERT(positionOptions);
 
     int watchID = m_impl->watchPosition(positionCallback.release(), positionErrorCallback.release(), positionOptions.release());
     return jsNumber(exec, watchID);
