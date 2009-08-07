@@ -33,11 +33,11 @@
 
 using namespace WebCore;
 
-static ANPSurface* anp_newSurface(NPP instance, ANPSurfaceType type) {
+static ANPSurface* anp_newSurface(NPP instance, ANPSurfaceType type, bool fixedSize) {
     if (instance && instance->ndata) {
         PluginView* view = static_cast<PluginView*>(instance->ndata);
         PluginWidgetAndroid* widget = view->platformPluginWidget();
-        return widget->createSurface(type);
+        return widget->createSurface(type, fixedSize);
     }
     return NULL;
 }

@@ -165,7 +165,6 @@ typedef int32_t ANPDrawingModel;
 enum ANPEventFlag {
     kKey_ANPEventFlag               = 0x01,
     kTouch_ANPEventFlag             = 0x02,
-    kZoom_ANPEventFlag              = 0x04, // triggers zoom & surface changed events
 };
 typedef uint32_t ANPEventFlags;
 
@@ -218,7 +217,7 @@ struct ANPSurfaceInterfaceV0 : ANPInterface {
     /** Creates a new surface handle based on the given surface type. If the
         given surface type is not supported then NULL is returned.
      */
-    ANPSurface* (*newSurface)(NPP instance, ANPSurfaceType);
+    ANPSurface* (*newSurface)(NPP instance, ANPSurfaceType, bool fixedSize);
     /** Given a valid surface handle (i.e. one created by calling newSurface)
         the underlying surface is removed and the pointer is set to NULL.
      */
@@ -756,11 +755,6 @@ enum ANPEventTypes {
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
     kSurface_ANPEventType       = 6,
-    /** Reports the current zoom level of the page. The event is only received
-        if the plugin has specified that it wants to handle scaling the surface,
-        by setting the kDynamicSurface_ANPEventFlag.
-     */
-    kZoomLevel_ANPEventType     = 7,
 };
 typedef int32_t ANPEventType;
 
@@ -877,7 +871,6 @@ struct ANPEvent {
                 } changed;
             } data;
         } surface;
-        float       zoomLevel;
         int32_t     other[8];
     } data;
 };

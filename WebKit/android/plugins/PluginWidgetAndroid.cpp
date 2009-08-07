@@ -210,11 +210,11 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
     return m_eventFlags & flag;
 }
 
-ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
+ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored, bool fixedSize) {
     if (m_drawingModel != kSurface_ANPDrawingModel) {
         return NULL;
     }
-    m_surface.set(new android::PluginSurface(this, !isAcceptingEvent(kZoom_ANPEventFlag)));
+    m_surface.set(new android::PluginSurface(this, fixedSize));
     ANPSurface* surface = new ANPSurface;
     surface->data = m_surface.get();
     surface->type = ignored;
@@ -223,17 +223,7 @@ ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored) {
 
 void PluginWidgetAndroid::setVisibleScreen(const ANPRectI& visibleDocRect, float zoom) {
 
-    //send an event to the plugin that communicates the zoom
-    if (isAcceptingEvent(kZoom_ANPEventFlag) && m_zoomLevel != zoom) {
-        //store the local zoom level
-        m_zoomLevel = zoom;
-
-        //trigger the event
-        ANPEvent event;
-        SkANP::InitEvent(&event, kZoomLevel_ANPEventType);
-        event.data.zoomLevel = zoom;
-        sendEvent(event);
-    }
+    // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
     int oldScreenW = m_visibleDocRect.width();
     int oldScreenH = m_visibleDocRect.height();
