@@ -90,6 +90,7 @@ ifeq ($(TARGET_ARCH),x86)
   V8_LOCAL_SRC_FILES += \
 	  src/ia32/assembler-ia32.cc \
 		src/ia32/builtins-ia32.cc \
+		src/ia32/cfg-ia32.cc \
 		src/ia32/codegen-ia32.cc \
 		src/ia32/cpu-ia32.cc \
 		src/ia32/disasm-ia32.cc \
