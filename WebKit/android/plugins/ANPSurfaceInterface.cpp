@@ -33,11 +33,12 @@
 
 using namespace WebCore;
 
-static ANPSurface* anp_newSurface(NPP instance, ANPSurfaceType type, bool fixedSize) {
+static ANPSurface* anp_newRasterSurface(NPP instance, ANPBitmapFormat format,
+                                        bool fixedSize) {
     if (instance && instance->ndata) {
         PluginView* view = static_cast<PluginView*>(instance->ndata);
         PluginWidgetAndroid* widget = view->platformPluginWidget();
-        return widget->createSurface(type, fixedSize);
+        return widget->createRasterSurface(format, fixedSize);
     }
     return NULL;
 }
@@ -53,23 +54,12 @@ static void anp_deleteSurface(ANPSurface* surface) {
     }
 }
 
-static bool anp_lock(ANPSurface* surface, ANPBitmap* bitmap,
-                     ANPRectI* dirtyRect) {
+static bool anp_lock(ANPSurface* surface, ANPBitmap* bitmap, ANPRectI* dirtyRect) {
     if (bitmap && surface && surface->data) {
         android::PluginSurface* s =
                 static_cast<android::PluginSurface*>(surface->data);
-        SkBitmap src;
-        bool res = false;
-        if (dirtyRect) {
-            SkIRect rect;
-            res = s->lock(SkANP::SetRect(&rect, *dirtyRect), &src);
-        } else {
-            res = s->lock(NULL, &src);
-        }
-        if (res) {
-            res &= SkANP::SetBitmap(bitmap, src);
-        }
-        return res;
+
+        return s->lock(dirtyRect, bitmap);
     }
     return false;
 }
@@ -89,7 +79,7 @@ static void anp_unlock(ANPSurface* surface) {
 void ANPSurfaceInterfaceV0_Init(ANPInterface* value) {
     ANPSurfaceInterfaceV0* i = reinterpret_cast<ANPSurfaceInterfaceV0*>(value);
 
-    ASSIGN(i, newSurface);
+    ASSIGN(i, newRasterSurface);
     ASSIGN(i, deleteSurface);
     ASSIGN(i, lock);
     ASSIGN(i, unlock);

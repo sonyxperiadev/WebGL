@@ -68,21 +68,28 @@ static inline sp<Surface> getSurface(jobject view) {
     return sp<Surface>((Surface*) env->GetIntField(surface, gSurfaceField));
 }
 
-static inline SkBitmap::Config convertPixelFormat(PixelFormat format) {
+static inline ANPBitmapFormat convertPixelFormat(PixelFormat format) {
     switch (format) {
-        case PIXEL_FORMAT_RGBA_8888:    return SkBitmap::kARGB_8888_Config;
-        case PIXEL_FORMAT_RGBA_4444:    return SkBitmap::kARGB_4444_Config;
-        case PIXEL_FORMAT_RGB_565:      return SkBitmap::kRGB_565_Config;
-        case PIXEL_FORMAT_A_8:          return SkBitmap::kA8_Config;
-        default:                        return SkBitmap::kNo_Config;
+        case PIXEL_FORMAT_RGBA_8888:    return kRGBA_8888_ANPBitmapFormat;
+        case PIXEL_FORMAT_RGB_565:      return kRGB_565_ANPBitmapFormat;
+        default:                        return kUnknown_ANPBitmapFormat;
     }
 }
 
-PluginSurface::PluginSurface(PluginWidgetAndroid* widget, bool isFixedSize)
+static inline PixelFormat convertANPBitmapFormat(ANPBitmapFormat format) {
+    switch (format) {
+        case kRGBA_8888_ANPBitmapFormat:  return PIXEL_FORMAT_RGBA_8888;
+        case kRGB_565_ANPBitmapFormat:    return PIXEL_FORMAT_RGB_565;
+        default:                          return PIXEL_FORMAT_UNKNOWN;
+    }
+}
+
+PluginSurface::PluginSurface(PluginWidgetAndroid* widget, ANPBitmapFormat format,
+                             bool isFixedSize)
         : m_jSurfaceView(0)
         , m_widget(widget) {
     // Create our java SurfaceView.
-    jobject obj = widget->webViewCore()->createSurface(this, isFixedSize);
+    jobject obj = widget->webViewCore()->createSurface(this, convertANPBitmapFormat(format), isFixedSize);
     if (obj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         m_jSurfaceView = env->NewGlobalRef(obj);
@@ -107,14 +114,14 @@ void PluginSurface::destroy() {
     }
 }
 
-bool PluginSurface::lock(SkIRect* dirty, SkBitmap* bitmap) {
+bool PluginSurface::lock(ANPRectI* dirty, ANPBitmap* bitmap) {
     if (!bitmap || !Surface::isValid(m_surface)) {
         return false;
     }
 
     Region dirtyRegion;
     if (dirty) {
-        Rect rect(dirty->fLeft, dirty->fTop, dirty->fRight, dirty->fBottom);
+        Rect rect(dirty->left, dirty->top, dirty->right, dirty->bottom);
         if (!rect.isEmpty()) {
             dirtyRegion.set(rect);
         }
@@ -129,11 +136,17 @@ bool PluginSurface::lock(SkIRect* dirty, SkBitmap* bitmap) {
     }
 
     ssize_t bpr = info.s * bytesPerPixel(info.format);
-    bitmap->setConfig(convertPixelFormat(info.format), info.w, info.h, bpr);
+
+    bitmap->format = convertPixelFormat(info.format);
+    bitmap->width = info.w;
+    bitmap->height = info.h;
+    bitmap->rowBytes = bpr;
+
     if (info.w > 0 && info.h > 0) {
-        bitmap->setPixels(info.bits);
+        bitmap->baseAddr = info.bits;
     } else {
-        bitmap->setPixels(NULL);
+        bitmap->baseAddr = NULL;
+        return false;
     }
 
     return true;

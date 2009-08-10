@@ -111,13 +111,13 @@ struct PluginWidgetAndroid {
     bool isAcceptingEvent(ANPEventFlag);
 
     /*  Create an ANPSurface that the plugin may draw in to. The drawing model
-        must be kSurface_ANPDrawingModel for this call to succeed. The type
+        must be kSurface_ANPDrawingModel for this call to succeed. The format
         specifies what kind of pixel access will be available. If true the
         fixedSize param signals that the browser will auto-scale the surface for
         the plugin (e.g. in the case of zooming). If false the surface will be
         resized when zoomed and the plugin must manually scale to the new size.
      */
-    ANPSurface* createSurface(ANPSurfaceType type, bool fixedSize);
+    ANPSurface* createRasterSurface(ANPBitmapFormat format, bool fixedSize);
 
     /*  Notify the plugin of the currently visible screen coordinates (document
         space) and the current zoom level.

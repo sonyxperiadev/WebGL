@@ -39,6 +39,11 @@ struct PluginWidgetAndroid;
 class  SkBitmap;
 struct SkIRect;
 
+enum ANPSurfaceTypes {
+    kRaster_ANPSurfaceType   = 0
+};
+typedef int32_t ANPSurfaceType;
+
 struct ANPSurface {
     void*           data;
     ANPSurfaceType  type;
@@ -50,14 +55,14 @@ class Surface;
 
 class PluginSurface : public SurfaceCallback {
 public:
-    PluginSurface(PluginWidgetAndroid* widget, bool isFixedSize);
+    PluginSurface(PluginWidgetAndroid* widget, ANPBitmapFormat format, bool isFixedSize);
     virtual ~PluginSurface() {
         destroy();
     }
 
     void attach(int x, int y, int width, int height);
     void destroy();
-    bool lock(SkIRect* dirty, SkBitmap* bitmap);
+    bool lock(ANPRectI* dirty, ANPBitmap* bitmap);
     void unlock();
 
     virtual void surfaceCreated();

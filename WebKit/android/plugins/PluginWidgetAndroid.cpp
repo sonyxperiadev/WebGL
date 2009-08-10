@@ -210,14 +210,15 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
     return m_eventFlags & flag;
 }
 
-ANPSurface* PluginWidgetAndroid::createSurface(ANPSurfaceType ignored, bool fixedSize) {
+ANPSurface* PluginWidgetAndroid::createRasterSurface(ANPBitmapFormat format,
+                                                     bool fixedSize) {
     if (m_drawingModel != kSurface_ANPDrawingModel) {
         return NULL;
     }
-    m_surface.set(new android::PluginSurface(this, fixedSize));
+    m_surface.set(new android::PluginSurface(this, format, fixedSize));
     ANPSurface* surface = new ANPSurface;
     surface->data = m_surface.get();
-    surface->type = ignored;
+    surface->type = kRaster_ANPSurfaceType;
     return surface;
 }
 

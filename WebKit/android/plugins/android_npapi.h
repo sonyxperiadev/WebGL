@@ -200,24 +200,16 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
     bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
 };
 
-/** The surfaceType is the mechanism by which the plugin informs the native
-    libraries which type of surface view it wishes to use.
- */
-enum ANPSurfaceTypes {
-    kRGBA_ANPSurfaceType   = 0
-};
-typedef int32_t ANPSurfaceType;
-
 /** The ANPSurface acts as a handle between the plugin and the native libraries
     that render the surface to the screen.
  */
 struct ANPSurface;
 
 struct ANPSurfaceInterfaceV0 : ANPInterface {
-    /** Creates a new surface handle based on the given surface type. If the
-        given surface type is not supported then NULL is returned.
+    /** Creates a new raster surface handle based on the given bitmap format. If
+        raster surfaces or the bitmap format is not supported then NULL is returned.
      */
-    ANPSurface* (*newSurface)(NPP instance, ANPSurfaceType, bool fixedSize);
+    ANPSurface* (*newRasterSurface)(NPP instance, ANPBitmapFormat, bool fixedSize);
     /** Given a valid surface handle (i.e. one created by calling newSurface)
         the underlying surface is removed and the pointer is set to NULL.
      */

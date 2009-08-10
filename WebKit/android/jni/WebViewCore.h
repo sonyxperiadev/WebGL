@@ -39,6 +39,7 @@
 #include "WebCoreJni.h"
 #include <jni.h>
 #include <ui/KeycodeLabels.h>
+#include <ui/PixelFormat.h>
 
 namespace WebCore {
     class AtomicString;
@@ -345,7 +346,7 @@ namespace android {
         void requestKeyboard(bool);
 
         // Creates a SurfaceView for a plugin
-        jobject createSurface(SurfaceCallback* cb, bool isFixedSize);
+        jobject createSurface(SurfaceCallback* cb, PixelFormat format, bool isFixedSize);
 
         // Destroys the SurfaceView after removing from the view system.
         void destroySurface(jobject surface);
