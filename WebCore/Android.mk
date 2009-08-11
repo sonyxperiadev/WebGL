@@ -635,8 +635,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
-	platform/MockGeolocationService.cpp \
 	platform/MIMETypeRegistry.cpp \
+	platform/MockGeolocationService.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollbarThemeComposite.cpp \
@@ -667,8 +667,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/SystemTimeAndroid.cpp \
 	platform/android/TemporaryLinkStubs.cpp \
 	platform/android/WidgetAndroid.cpp \
-	\
-	platform/text/android/TextBreakIteratorInternalICU.cpp \
 	\
 	platform/animation/Animation.cpp \
 	platform/animation/AnimationList.cpp \
@@ -801,6 +799,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextEncodingRegistry.cpp \
 	platform/text/TextStream.cpp \
 	platform/text/UnicodeRange.cpp \
+	\
+	platform/text/android/TextBreakIteratorInternalICU.cpp \
 	\
 	plugins/MimeType.cpp \
 	plugins/MimeTypeArray.cpp \
@@ -965,12 +965,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
 	storage/OriginUsageRecord.cpp \
-	storage/SessionStorage.cpp \
-	storage/SessionStorageArea.cpp \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
+	storage/SessionStorage.cpp \
+	storage/SessionStorageArea.cpp \
 	storage/Storage.cpp \
 	storage/StorageArea.cpp \
 	storage/StorageEvent.cpp \

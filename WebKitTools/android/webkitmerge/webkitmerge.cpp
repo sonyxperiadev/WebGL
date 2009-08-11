@@ -640,34 +640,35 @@ char* GetMakeAndExceptions(const char* dir, const char* filename, size_t* makeSi
             break;
         start += strlen(start) + 1;
     } while (start < makeFile + *makeSize);
-    myassert(start[0] != '\0');
-    string excludedDirs = "-e '/\\.vcproj\\// d' -e '/\\.svn\\// d' ";
-    do {
-        start += strlen(start) + 1;
-        char* exceptionDirStart = start;
-        if (strncmp(exceptionDirStart, "#\t", 2) != 0) {
-            myassert(exceptionDirStart[0] == '\0');
-            break;
-        }
-        exceptionDirStart += 2;
-        char* exceptionDirEnd = exceptionDirStart;
-        do
-            exceptionDirEnd = strchr(exceptionDirEnd, '\\'); 
-        while (exceptionDirEnd && *++exceptionDirEnd == '/');
-        myassert(exceptionDirEnd);
-        --exceptionDirEnd;
-        myassert(exceptionDirEnd[-1] == ' ');
-        myassert(exceptionDirEnd[-2] == '*');
-        myassert(exceptionDirEnd[-3] == '/');
-        exceptionDirEnd[-3] = '\0';
-        excludedDirs += "-e '/";
-        if (exceptionDirStart[0] == '/')
-            excludedDirs += "\\";
-        excludedDirs += exceptionDirStart;
-        excludedDirs += "\\// d' ";
-        start = exceptionDirEnd;
-    } while (true);
-    *excludedDirsPtr = excludedDirs;
+    if (start[0] != '\0') {
+        string excludedDirs = "-e '/\\.vcproj\\// d' -e '/\\.svn\\// d' ";
+        do {
+            start += strlen(start) + 1;
+            char* exceptionDirStart = start;
+            if (strncmp(exceptionDirStart, "#\t", 2) != 0) {
+                myassert(exceptionDirStart[0] == '\0');
+                break;
+            }
+            exceptionDirStart += 2;
+            char* exceptionDirEnd = exceptionDirStart;
+            do {
+                exceptionDirEnd = strchr(exceptionDirEnd, '\\');
+            } while (exceptionDirEnd && *++exceptionDirEnd == '/');
+            myassert(exceptionDirEnd);
+            --exceptionDirEnd;
+            myassert(exceptionDirEnd[-1] == ' ');
+            myassert(exceptionDirEnd[-2] == '*');
+            myassert(exceptionDirEnd[-3] == '/');
+            exceptionDirEnd[-3] = '\0';
+            excludedDirs += "-e '/";
+            if (exceptionDirStart[0] == '/')
+                excludedDirs += "\\";
+            excludedDirs += exceptionDirStart;
+            excludedDirs += "\\// d' ";
+            start = exceptionDirEnd;
+        } while (true);
+        *excludedDirsPtr = excludedDirs;
+    }
     *startPtr = start;
     // optionally look for android-specific files
     char* makeEnd = makeFile + *makeSize;

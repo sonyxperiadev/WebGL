@@ -181,10 +181,10 @@ LOCAL_SRC_FILES := \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
 	\
-	wtf/android/MainThreadAndroid.cpp \
-	\
 	wtf/TypeTraits.cpp \
 	wtf/dtoa.cpp \
+	\
+	wtf/android/MainThreadAndroid.cpp \
 	\
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
