@@ -33,26 +33,37 @@ namespace WebCore {
     
 class PositionOptions : public RefCounted<PositionOptions> {
 public:
-    static PassRefPtr<PositionOptions> create(bool highAccuracy, unsigned timeout, unsigned maximumAge) { return adoptRef(new PositionOptions(highAccuracy, timeout, maximumAge)); }
+    static PassRefPtr<PositionOptions> create() { return adoptRef(new PositionOptions()); }
 
     bool enableHighAccuracy() const { return m_highAccuracy; }
     void setEnableHighAccuracy(bool enable) { m_highAccuracy = enable; }
-    unsigned timeout() const { return m_timeout; }
-    void setTimeout(unsigned t) { m_timeout = t; }
-    unsigned maximumAge() const { return m_maximumAge; }
-    void setMaximumAge(unsigned a) { m_maximumAge = a; }
+    bool hasTimeout() { return m_hasTimeout; }
+    int timeout() const { return m_timeout; }
+    void setTimeout(int t)
+    {
+        ASSERT(t >= 0);
+        m_hasTimeout = true;
+        m_timeout = t;
+    }
+    int maximumAge() const { return m_maximumAge; }
+    void setMaximumAge(int a)
+    {
+        ASSERT(a >= 0);
+        m_maximumAge = a;
+    }
     
 private:
-    PositionOptions(bool highAccuracy, unsigned timeout, unsigned maximumAge)
-        : m_highAccuracy(highAccuracy)
-        , m_timeout(timeout)
-        , m_maximumAge(maximumAge)
+    PositionOptions()
+        : m_highAccuracy(false)
+        , m_hasTimeout(false)
+        , m_maximumAge(0)
     {
     }
     
     bool m_highAccuracy;
-    unsigned m_timeout;
-    unsigned m_maximumAge;
+    bool m_hasTimeout;
+    int m_timeout;
+    int m_maximumAge;
 };
     
 } // namespace WebCore
