@@ -215,7 +215,11 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
 
 struct ANPSurfaceInterfaceV0 : ANPInterface {
     /** Creates a new raster surface handle based on the given bitmap format. If
-        raster surfaces or the bitmap format is not supported then NULL is returned.
+        raster surfaces or the bitmap format is not supported then NULL is
+        returned.  Setting the fixedSize parameter to true notifies the browser
+        that it is responsible for scaling the bitmap when zoomed.  Setting the
+        fixedSize to false will cause a kChanged_ANPSurfaceAction to be fired
+        each time the user changes the zoom level.
      */
     ANPSurface* (*newRasterSurface)(NPP instance, ANPBitmapFormat, bool fixedSize);
     /** Given a valid surface handle (i.e. one created by calling newSurface)
@@ -726,13 +730,19 @@ typedef void (*ANPAudioCallbackProc)(ANPAudioEvent event, void* user,
 struct ANPAudioTrack;   // abstract type for audio tracks
 
 struct ANPAudioTrackInterfaceV0 : ANPInterface {
-    /** Create a new audio track, or NULL on failure.
+    /** Create a new audio track, or NULL on failure. The track is initially in
+        the stopped state and therefore ANPAudioCallbackProc will not be called
+        until the track is started.
      */
     ANPAudioTrack*  (*newTrack)(uint32_t sampleRate,    // sampling rate in Hz
                                 ANPSampleFormat,
                                 int channelCount,       // MONO=1, STEREO=2
                                 ANPAudioCallbackProc,
                                 void* user);
+    /** Deletes a track that was created using newTrack.  The track can be
+        deleted in any state and it waits for the ANPAudioCallbackProc thread
+        to exit before returning.
+     */
     void (*deleteTrack)(ANPAudioTrack*);
 
     void (*start)(ANPAudioTrack*);
@@ -750,8 +760,20 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
 enum ANPEventTypes {
     kNull_ANPEventType          = 0,
     kKey_ANPEventType           = 1,
+    /** Mouse events are triggered by either clicking with the navigational pad
+        or by tapping the touchscreen (if the kDown_ANPTouchAction is handled by
+        the plugin then no mouse event is generated).  The kKey_ANPEventFlag has
+        to be set to true in order to receive these events.
+     */
     kMouse_ANPEventType         = 2,
+    /** Touch events are generated when the user touches on the screen. The
+        kTouch_ANPEventFlag has to be set to true in order to receive these
+        events.
+     */
     kTouch_ANPEventType         = 3,
+    /** Only triggered by a plugin using the kBitmap_ANPDrawingModel. This event
+        signals that the plugin needs to redraw itself into the provided bitmap.
+     */
     kDraw_ANPEventType          = 4,
     kLifecycle_ANPEventType     = 5,
     kSurface_ANPEventType       = 6,
@@ -781,6 +803,11 @@ enum ANPMouseActions {
 typedef int32_t ANPMouseAction;
 
 enum ANPTouchActions {
+    /** This occurs when the user first touches on the screen. As such, this
+        action will always occur prior to any of the other touch actions. If
+        the plugin chooses to not handle this action then no other events
+        related to that particular touch gesture will be generated.
+     */
     kDown_ANPTouchAction   = 0,
     kUp_ANPTouchAction     = 1,
     kMove_ANPTouchAction   = 2,
@@ -789,10 +816,26 @@ enum ANPTouchActions {
 typedef int32_t ANPTouchAction;
 
 enum ANPLifecycleActions {
+    /** The web view containing this plugin has been paused.  See documentation
+        on the android activity lifecycle for more information.
+     */
     kPause_ANPLifecycleAction      = 0,
+    /** The web view containing this plugin has been resumed. See documentation
+        on the android activity lifecycle for more information.
+     */
     kResume_ANPLifecycleAction     = 1,
+    /** The plugin has focus and is now the recipient of input events (e.g. key,
+        touch, etc.)
+     */
     kGainFocus_ANPLifecycleAction  = 2,
+    /** The plugin has lost focus and will not receive any input events until it
+        regains focus. This event is always preceded by a GainFocus action.
+     */
     kLoseFocus_ANPLifecycleAction  = 3,
+    /** The browser is running low on available memory and is requesting that
+        the plugin free any unused/inactive resources to prevent a performance
+        degradation.
+     */
     kFreeMemory_ANPLifecycleAction = 4,
     /** The page has finished loading. This happens when the page's top level
         frame reports that it has completed loading.
@@ -806,7 +849,10 @@ enum ANPSurfaceActions {
         lock/unlock before this action will fail.
      */
     kCreated_ANPSurfaceAction    = 0,
-    /** The surface's dimension has changed.
+    /** The surface's dimension has changed.  If the surface is responsible for
+        manually scaling then this action will be generated each time the zoom
+        level of browser is changed.  This event is also triggered when the
+        plugin's dimensions in the DOM are changed (e.g. css or javascript).
      */
     kChanged_ANPSurfaceAction    = 1,
     /** The surface has been destroyed. This happens when the view system has
