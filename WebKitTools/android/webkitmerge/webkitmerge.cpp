@@ -1365,7 +1365,7 @@ void CompareDirs(const char* workingDir, bool renamePass)
             // at this point, the file is in both old and new webkits; see if it changed
                // ignore executables, different or not (or always copy, or do text compare? or find binary compare? )
             if (oldExecutable != newExecutable)
-                fprintf(commandFile, "*** %s/%s differs in the execute bit (may cause problems for perforce)\n", workingDir, oldFile);
+                fprintf(stderr, "*** %s/%s differs in the execute bit (may cause problems for perforce)\n", workingDir, oldFile);
         //            myassert(sandOrder != 0 || sandFile[sandLen - 1] == '*');
         //    Diff(oldBase, sandboxBase, workingDir, oldFile);
             bool oldNewDiff = CompareFiles(oldBase, newBase, workingDir, oldList);
@@ -1795,7 +1795,7 @@ int main (int argCount, char* const args[])
         if (options.mergeCore) {
             if (options.verbose) 
                 fprintf(stderr, "executing command.sh\n");
-            string execCommand = "cd " + options.androidWebKit + "; . " + outputDir + "commands.sh"; 
+            string execCommand = "cd " + options.androidWebKit + "; . " + outputDir + "command.sh";
             err = system(execCommand.c_str());
             myassert(err == 0);
             if (options.verbose) 
