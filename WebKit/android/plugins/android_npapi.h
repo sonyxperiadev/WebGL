@@ -87,6 +87,10 @@ struct ANPMatrix;
 struct ANPPaint;
 struct ANPPath;
 struct ANPRegion;
+/** The ANPSurface acts as a handle between the plugin and the native libraries
+    that render the surface to the screen.
+ */
+struct ANPSurface;
 struct ANPTypeface;
 
 enum ANPMatrixFlags {
@@ -101,7 +105,7 @@ typedef uint32_t ANPMatrixFlag;
 ///////////////////////////////////////////////////////////////////////////////
 // NPN_GetValue
 
-/*  queries for a specific ANPInterface.
+/** queries for a specific ANPInterface.
 
     Maybe called with NULL for the NPP instance
 
@@ -119,7 +123,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kSurfaceInterfaceV0_ANPGetValue     ((NPNVariable)1009)
 #define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
 
-/*  queries for which drawing model is desired (for the draw event)
+/** queries for which drawing model is desired (for the draw event)
 
     Should be called inside NPP_New(...)
 
@@ -132,11 +136,11 @@ typedef uint32_t ANPMatrixFlag;
 
 /** Request to set the drawing model.
 
-    NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_DrawingModel)
+    NPN_SetValue(inst, ANPRequestDrawingModel_EnumValue, (void*)foo_ANPDrawingModel)
  */
 #define kRequestDrawingModel_ANPSetValue    ((NPPVariable)1000)
 
-/*  These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
+/** These are used as bitfields in ANPSupportedDrawingModels_EnumValue,
     and as-is in ANPRequestDrawingModel_EnumValue. The drawing model determines
     how to interpret the ANPDrawingContext provided in the Draw event and how
     to interpret the NPWindow->window field.
@@ -146,6 +150,14 @@ enum ANPDrawingModels {
         NPWindow->window is reserved (ignore)
      */
     kBitmap_ANPDrawingModel  = 0,
+    /** Draw into a surface (e.g. raster, opengl, etc.)using the surface interface.
+        Unlike the bitmap model a surface model is opaque so no html content behind
+        the plugin will be  visible. Unless the surface needs to be transparent the
+        surface model should be chosen over the bitmap model as it will have faster
+        performance. An example surface is the raster surface where the service
+        interface is used to lock/unlock and draw into bitmap without waiting for
+        draw events.
+     */
     kSurface_ANPDrawingModel = 1,
 };
 typedef int32_t ANPDrawingModel;
@@ -158,7 +170,7 @@ typedef int32_t ANPDrawingModel;
  */
 #define kAcceptEvents_ANPSetValue           ((NPPVariable)1001)
 
-/*  The EventFlags are a set of bits used to determine which types of events the
+/** The EventFlags are a set of bits used to determine which types of events the
     plugin wishes to receive. For example, if the value is 0x03 then both key
     and touch events will be provided to the plugin.
  */
@@ -168,8 +180,8 @@ enum ANPEventFlag {
 };
 typedef uint32_t ANPEventFlags;
 
-/*  Interfaces provide additional functionality to the plugin via function ptrs.
-    Once an interface is retrived, it is valid for the lifetime of the plugin
+/** Interfaces provide additional functionality to the plugin via function ptrs.
+    Once an interface is retrieved, it is valid for the lifetime of the plugin
     (just like browserfuncs).
 
     All ANPInterfaces begin with an inSize field, which must be set by the
@@ -188,8 +200,9 @@ enum ANPLogTypes {
 typedef int32_t ANPLogType;
 
 struct ANPLogInterfaceV0 : ANPInterface {
-    // dumps printf messages to the log file
-    // e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
+    /** dumps printf messages to the log file
+        e.g. interface->log(instance, kWarning_ANPLogType, "value is %d", value);
+     */
     void (*log)(NPP instance, ANPLogType, const char format[], ...);
 };
 
@@ -199,11 +212,6 @@ struct ANPBitmapInterfaceV0 : ANPInterface {
      */
     bool (*getPixelPacking)(ANPBitmapFormat, ANPPixelPacking* packing);
 };
-
-/** The ANPSurface acts as a handle between the plugin and the native libraries
-    that render the surface to the screen.
- */
-struct ANPSurface;
 
 struct ANPSurfaceInterfaceV0 : ANPInterface {
     /** Creates a new raster surface handle based on the given bitmap format. If
@@ -230,10 +238,10 @@ struct ANPSurfaceInterfaceV0 : ANPInterface {
 };
 
 struct ANPMatrixInterfaceV0 : ANPInterface {
-    /*  Return a new identity matrix
+    /** Return a new identity matrix
      */
     ANPMatrix*  (*newMatrix)();
-    /*  Delete a matrix previously allocated by newMatrix()
+    /** Delete a matrix previously allocated by newMatrix()
      */
     void        (*deleteMatrix)(ANPMatrix*);
 
@@ -241,14 +249,14 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
 
     void        (*copy)(ANPMatrix* dst, const ANPMatrix* src);
 
-    /*  Return the matrix values in a float array (allcoated by the caller),
+    /** Return the matrix values in a float array (allcoated by the caller),
         where the values are treated as follows:
         w  = x * [6] + y * [7] + [8];
         x' = (x * [0] + y * [1] + [2]) / w;
         y' = (x * [3] + y * [4] + [5]) / w;
      */
     void        (*get3x3)(const ANPMatrix*, float[9]);
-    /*  Initialize the matrix from values in a float array,
+    /** Initialize the matrix from values in a float array,
         where the values are treated as follows:
          w  = x * [6] + y * [7] + [8];
          x' = (x * [0] + y * [1] + [2]) / w;
@@ -268,12 +276,12 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
     void        (*preConcat)(ANPMatrix*, const ANPMatrix*);
     void        (*postConcat)(ANPMatrix*, const ANPMatrix*);
 
-    /*  Return true if src is invertible, and if so, return its inverse in dst.
+    /** Return true if src is invertible, and if so, return its inverse in dst.
         If src is not invertible, return false and ignore dst.
      */
     bool        (*invert)(ANPMatrix* dst, const ANPMatrix* src);
 
-    /*  Transform the x,y pairs in src[] by this matrix, and store the results
+    /** Transform the x,y pairs in src[] by this matrix, and store the results
         in dst[]. The count parameter is treated as the number of pairs in the
         array. It is legal for src and dst to point to the same memory, but
         illegal for the two arrays to partially overlap.
@@ -283,28 +291,28 @@ struct ANPMatrixInterfaceV0 : ANPInterface {
 };
 
 struct ANPPathInterfaceV0 : ANPInterface {
-    /* Return a new path */
+    /** Return a new path */
     ANPPath* (*newPath)();
 
-    /* Delete a path previously allocated by ANPPath() */
+    /** Delete a path previously allocated by ANPPath() */
     void (*deletePath)(ANPPath*);
 
-    /* Make a deep copy of the src path, into the dst path (already allocated
-       by the caller).
+    /** Make a deep copy of the src path, into the dst path (already allocated
+        by the caller).
      */
     void (*copy)(ANPPath* dst, const ANPPath* src);
 
-    /* Returns true if the two paths are the same (i.e. have the same points)
+    /** Returns true if the two paths are the same (i.e. have the same points)
      */
     bool (*equal)(const ANPPath* path0, const ANPPath* path1);
 
-    /* Remove any previous points, initializing the path back to empty. */
+    /** Remove any previous points, initializing the path back to empty. */
     void (*reset)(ANPPath*);
 
-    /* Return true if the path is empty (has no lines, quads or cubics). */
+    /** Return true if the path is empty (has no lines, quads or cubics). */
     bool (*isEmpty)(const ANPPath*);
 
-    /* Return the path's bounds in bounds. */
+    /** Return the path's bounds in bounds. */
     void (*getBounds)(const ANPPath*, ANPRectF* bounds);
 
     void (*moveTo)(ANPPath*, float x, float y);
@@ -314,14 +322,14 @@ struct ANPPathInterfaceV0 : ANPInterface {
                     float x2, float y2);
     void (*close)(ANPPath*);
 
-    /*  Offset the src path by [dx, dy]. If dst is null, apply the
+    /** Offset the src path by [dx, dy]. If dst is null, apply the
         change directly to the src path. If dst is not null, write the
         changed path into dst, and leave the src path unchanged. In that case
         dst must have been previously allocated by the caller.
      */
     void (*offset)(ANPPath* src, float dx, float dy, ANPPath* dst);
 
-    /*  Transform the path by the matrix. If dst is null, apply the
+    /** Transform the path by the matrix. If dst is null, apply the
         change directly to the src path. If dst is not null, write the
         changed path into dst, and leave the src path unchanged. In that case
         dst must have been previously allocated by the caller.
@@ -400,15 +408,15 @@ typedef uint32_t ANPTypefaceStyle;
 typedef uint32_t ANPFontTableTag;
 
 struct ANPFontMetrics {
-    //! The greatest distance above the baseline for any glyph (will be <= 0)
+    /** The greatest distance above the baseline for any glyph (will be <= 0) */
     float   fTop;
-    //! The recommended distance above the baseline (will be <= 0)
+    /** The recommended distance above the baseline (will be <= 0) */
     float   fAscent;
-    //! The recommended distance below the baseline (will be >= 0)
+    /** The recommended distance below the baseline (will be >= 0) */
     float   fDescent;
-    //! The greatest distance below the baseline for any glyph (will be >= 0)
+    /** The greatest distance below the baseline for any glyph (will be >= 0) */
     float   fBottom;
-    //! The recommended distance to add between lines of text (will be >= 0)
+    /** The recommended distance to add between lines of text (will be >= 0) */
     float   fLeading;
 };
 
@@ -491,7 +499,7 @@ struct ANPTypefaceInterfaceV0 : ANPInterface {
 };
 
 struct ANPPaintInterfaceV0 : ANPInterface {
-    /*  Return a new paint object, which holds all of the color and style
+    /** Return a new paint object, which holds all of the color and style
         attributes that affect how things (geometry, text, bitmaps) are drawn
         in a ANPCanvas.
 
@@ -563,7 +571,7 @@ struct ANPPaintInterfaceV0 : ANPInterface {
 };
 
 struct ANPCanvasInterfaceV0 : ANPInterface {
-    /*  Return a canvas that will draw into the specified bitmap. Note: the
+    /** Return a canvas that will draw into the specified bitmap. Note: the
         canvas copies the fields of the bitmap, so it need not persist after
         this call, but the canvas DOES point to the same pixel memory that the
         bitmap did, so the canvas should not be used after that pixel memory
@@ -587,15 +595,15 @@ struct ANPCanvasInterfaceV0 : ANPInterface {
     void        (*clipRect)(ANPCanvas*, const ANPRectF*);
     void        (*clipPath)(ANPCanvas*, const ANPPath*);
 
-    /*  Return the current matrix on the canvas
+    /** Return the current matrix on the canvas
      */
     void        (*getTotalMatrix)(ANPCanvas*, ANPMatrix*);
-    /*  Return the current clip bounds in local coordinates, expanding it to
+    /** Return the current clip bounds in local coordinates, expanding it to
         account for antialiasing edge effects if aa is true. If the
         current clip is empty, return false and ignore the bounds argument.
      */
     bool        (*getLocalClipBounds)(ANPCanvas*, ANPRectF* bounds, bool aa);
-    /*  Return the current clip bounds in device coordinates in bounds. If the
+    /** Return the current clip bounds in device coordinates in bounds. If the
         current clip is empty, return false and ignore the bounds argument.
      */
     bool        (*getDeviceClipBounds)(ANPCanvas*, ANPRectI* bounds);
@@ -718,7 +726,7 @@ typedef void (*ANPAudioCallbackProc)(ANPAudioEvent event, void* user,
 struct ANPAudioTrack;   // abstract type for audio tracks
 
 struct ANPAudioTrackInterfaceV0 : ANPInterface {
-    /*  Create a new audio track, or NULL on failure.
+    /** Create a new audio track, or NULL on failure.
      */
     ANPAudioTrack*  (*newTrack)(uint32_t sampleRate,    // sampling rate in Hz
                                 ANPSampleFormat,
