@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2009 Kenneth Rohde Christiansen
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -134,11 +135,16 @@ void RenderThemeWin::setWebKitIsBeingUnloaded()
     gWebKitIsBeingUnloaded = true;
 }
 
-#if !USE(SAFARI_THEME)
-RenderTheme* theme()
+PassRefPtr<RenderTheme> RenderThemeWin::create()
 {
-    static RenderThemeWin winTheme;
-    return &winTheme;
+    return adoptRef(new RenderThemeWin);
+}
+
+#if !USE(SAFARI_THEME)
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    static RenderTheme* winTheme = RenderThemeWin::create().releaseRef();
+    return winTheme;
 }
 #endif
 
@@ -422,7 +428,7 @@ unsigned RenderThemeWin::determineSliderThumbState(RenderObject* o)
         result = TUS_DISABLED;
     else if (supportsFocus(o->style()->appearance()) && isFocused(o->parent()))
         result = TUS_FOCUSED;
-    else if (static_cast<RenderSlider*>(o->parent())->inDragMode())
+    else if (toRenderSlider(o->parent())->inDragMode())
         result = TUS_PRESSED;
     else if (isHovered(o))
         result = TUS_HOT;

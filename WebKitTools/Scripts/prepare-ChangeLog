@@ -4,6 +4,7 @@
 #
 #  Copyright (C) 2000, 2001 Eazel, Inc.
 #  Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Apple Inc.  All rights reserved.
+#  Copyright (C) 2009 Torch Mobile, Inc.
 #
 #  prepare-ChangeLog is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public
@@ -28,6 +29,7 @@
 # Java support added by Maciej Stachowiak <mjs@eazel.com>
 # Objective-C, C++ and Objective-C++ support added by Maciej Stachowiak <mjs@apple.com>
 # Git support added by Adam Roben <aroben@apple.com>
+# --git-index flag added by Joe Mason <joe.mason@torchmobile.com>
 
 
 #
@@ -39,8 +41,7 @@
 #   Handle yacc source files too (other languages?).
 #   Help merge when there are ChangeLog conflicts or if there's
 #     already a partly written ChangeLog entry.
-#   Add command line option to put the ChangeLog into a separate
-#     file or just spew it out stdout.
+#   Add command line option to put the ChangeLog into a separate file.
 #   Add SVN version numbers for commit (can't do that until
 #     the changes are checked in, though).
 #   Work around diff stupidity where deleting a function that starts
@@ -63,6 +64,8 @@ use POSIX qw(strftime);
 use VCSUtils;
 
 sub changeLogDate($);
+sub changeLogEmailAddress($);
+sub changeLogName($);
 sub firstDirectoryOrCwd();
 sub diffFromToString();
 sub diffCommand(@);
@@ -86,34 +89,52 @@ sub get_function_line_ranges_for_javascript($$);
 sub method_decl_to_selector($);
 sub processPaths(\@);
 sub reviewerAndDescriptionForGitCommit($);
+sub normalizeLineEndings($$);
+sub normalizePath($);
+sub decodeEntities($);
 
 # Project time zone for Cupertino, CA, US
 my $changeLogTimeZone = "PST8PDT";
 
+my $bugNumber;
+my $name;
+my $emailAddress;
 my $gitCommit = 0;
+my $gitIndex = "";
 my $gitReviewer = "";
 my $openChangeLogs = 0;
+my $writeChangeLogs = 1;
 my $showHelp = 0;
 my $spewDiff = $ENV{"PREPARE_CHANGELOG_DIFF"};
 my $updateChangeLogs = 1;
 my $parseOptionsResult =
     GetOptions("diff|d!" => \$spewDiff,
+               "bug:i" => \$bugNumber,
+               "name:s" => \$name,
+               "email:s" => \$emailAddress,
                "git-commit:s" => \$gitCommit,
+               "git-index" => \$gitIndex,
                "git-reviewer:s" => \$gitReviewer,
                "help|h!" => \$showHelp,
                "open|o!" => \$openChangeLogs,
+               "write!" => \$writeChangeLogs,
                "update!" => \$updateChangeLogs);
 if (!$parseOptionsResult || $showHelp) {
-    print STDERR basename($0) . " [-d|--diff] [-h|--help] [-o|--open] [--git-commit=<committish>] [--git-reviewer=<name>] [svndir1 [svndir2 ...]]\n";
+    print STDERR basename($0) . " [--bug] [-d|--diff] [-h|--help] [-o|--open] [--git-commit=<committish>] [--git-reviewer=<name>] [svndir1 [svndir2 ...]]\n";
+    print STDERR "  --bug          Fill in the ChangeLog bug information from the given bug.\n";
     print STDERR "  -d|--diff      Spew diff to stdout when running\n";
     print STDERR "  --git-commit   Populate the ChangeLogs from the specified git commit\n";
+    print STDERR "  --git-index    Populate the ChangeLogs from the git index only\n";
     print STDERR "  --git-reviewer When populating the ChangeLogs from a git commit claim that the spcified name reviewed the change.\n";
     print STDERR "                 This option is useful when the git commit lacks a Signed-Off-By: line\n";
     print STDERR "  -h|--help      Show this help message\n";
     print STDERR "  -o|--open      Open ChangeLogs in an editor when done\n";
     print STDERR "  --[no-]update  Update ChangeLogs from svn before adding entry (default: update)\n";
+    print STDERR "  --[no-]write   Write ChangeLogs to disk (otherwise send new entries to stdout) (default: write)\n";
     exit 1;
 }
+
+die "--git-commit and --git-index are incompatible." if ($gitIndex && $gitCommit);
 
 my %paths = processPaths(@ARGV);
 
@@ -122,6 +143,11 @@ my $isSVN = isSVNDirectory(firstDirectoryOrCwd());
 
 $isSVN || $isGit || die "Couldn't determine your version control system.";
 
+my $SVN = "svn";
+my $GIT = "git";
+
+my $svnVersion = `svn --version --quiet` if $isSVN;
+
 # Find the list of modified files
 my @changed_files;
 my $changed_files_string;
@@ -129,8 +155,6 @@ my %changed_line_ranges;
 my %function_lists;
 my @conflict_files;
 
-my $SVN = "svn";
-my $GIT = "git";
 
 my %supportedTestExtensions = map { $_ => 1 } qw(html shtml svg xml xhtml pl php);
 my @addedRegressionTests = ();
@@ -221,19 +245,21 @@ if (%changed_line_ranges) {
 
 # Get some parameters for the ChangeLog we are about to write.
 my $date = changeLogDate($changeLogTimeZone);
-my $name = $ENV{CHANGE_LOG_NAME}
-  || $ENV{REAL_NAME}
-  || gitConfig("user.name")
-  || (split /\s*,\s*/, (getpwuid $<)[6])[0]
-  || "set REAL_NAME environment variable";
-my $email_address = $ENV{CHANGE_LOG_EMAIL_ADDRESS}
-  || $ENV{EMAIL_ADDRESS}
-  || gitConfig("user.email")
-  || "set EMAIL_ADDRESS environment variable";
+$name = changeLogName($name);
+$emailAddress = changeLogEmailAddress($emailAddress);
 
-if ($gitCommit) {
-    $name = `$GIT log --max-count=1 --pretty=\"format:%an\" \"$gitCommit\"`;
-    $email_address = `$GIT log --max-count=1 --pretty=\"format:%ae\" \"$gitCommit\"`;
+print STDERR "  Change author: $name <$emailAddress>.\n";
+
+my $bugDescription;
+my $bugURL;
+if ($bugNumber) {
+    $bugURL = "https://bugs.webkit.org/show_bug.cgi?id=$bugNumber";
+    my $bugXMLURL = "$bugURL&ctype=xml";
+    # Perl has no built in XML processing, so we'll fetch and parse with curl and grep
+    my $descriptionLine = `curl --silent "$bugXMLURL" | grep short_desc`;
+    $descriptionLine =~ /<short_desc>(.*)<\/short_desc>/;
+    $bugDescription = decodeEntities($1);
+    print STDERR "  Description from bug $bugNumber:\n    \"$bugDescription\".\n";
 }
 
 # Remove trailing parenthesized notes from user name (bit of hack).
@@ -261,9 +287,35 @@ foreach my $file (sort keys %function_lists) {
     }
 }
 
+# Build the list of ChangeLog prefixes in the correct project order
+my @prefixes;
+my %prefixesSort;
+foreach my $prefix (keys %files) {
+    my $prefixDir = substr($prefix, 0, length($prefix) - 1); # strip trailing /
+    my $sortKey = lc $prefix;
+    $sortKey = "top level" unless length $sortKey;
+
+    if ($prefixDir eq "top level") {
+        $sortKey = "";
+    } elsif ($prefixDir eq "Tools") {
+        $sortKey = "-, just after top level";
+    } elsif ($prefixDir eq "WebBrowser") {
+        $sortKey = lc "WebKit, WebBrowser after";
+    } elsif ($prefixDir eq "WebCore") {
+        $sortKey = lc "WebFoundation, WebCore after";
+    } elsif ($prefixDir eq "LayoutTests") {
+        $sortKey = lc "~, LayoutTests last";
+    }
+
+    $prefixesSort{$sortKey} = $prefix;
+}
+foreach my $prefixSort (sort keys %prefixesSort) {
+    push @prefixes, $prefixesSort{$prefixSort};
+}
+
 # Get the latest ChangeLog files from svn.
 my @logs = ();
-foreach my $prefix (sort keys %files) {
+foreach my $prefix (@prefixes) {
     push @logs, File::Spec->catfile($prefix || ".", "ChangeLog");
 }
 
@@ -274,7 +326,7 @@ if (@logs && $updateChangeLogs && $isSVN) {
     my @conflictedChangeLogs;
     while (my $line = <ERRORS>) {
         print STDERR "    ", $line;
-        push @conflictedChangeLogs, $1 if $line =~ m/^C\s+(.+)\s*$/;
+        push @conflictedChangeLogs, $1 if $line =~ m/^C\s+(.*\S+)\s*$/;
     }
     close ERRORS;
 
@@ -288,38 +340,67 @@ if (@logs && $updateChangeLogs && $isSVN) {
     }
 }
 
-# Write out a new ChangeLog file.
-foreach my $prefix (sort keys %files) {
-    my $changeLogPath = File::Spec->catfile($prefix || ".", "ChangeLog");
-    print STDERR "  Editing the ${changeLogPath} file.\n";
-    open OLD_CHANGE_LOG, ${changeLogPath} or die "Could not open ${changeLogPath} file: $!.\n";
-    # It's less efficient to read the whole thing into memory than it would be
-    # to read it while we prepend to it later, but I like doing this part first.
-    my @old_change_log = <OLD_CHANGE_LOG>;
-    close OLD_CHANGE_LOG;
-    open CHANGE_LOG, "> ${changeLogPath}" or die "Could not write ${changeLogPath}\n.";
-    print CHANGE_LOG "$date  $name  <$email_address>\n\n";
+# Generate new ChangeLog entries and (optionally) write out new ChangeLog files.
+foreach my $prefix (@prefixes) {
+    my $endl = "\n";
+    my @old_change_log;
+
+    if ($writeChangeLogs) {
+        my $changeLogPath = File::Spec->catfile($prefix || ".", "ChangeLog");
+        print STDERR "  Editing the ${changeLogPath} file.\n";
+        open OLD_CHANGE_LOG, ${changeLogPath} or die "Could not open ${changeLogPath} file: $!.\n";
+        # It's less efficient to read the whole thing into memory than it would be
+        # to read it while we prepend to it later, but I like doing this part first.
+        @old_change_log = <OLD_CHANGE_LOG>;
+        close OLD_CHANGE_LOG;
+        # We want to match the ChangeLog's line endings in case it doesn't match
+        # the native line endings for this version of perl.
+        if ($old_change_log[0] =~ /(\r?\n)$/g) {
+            $endl = "$1";
+        }
+        open CHANGE_LOG, "> ${changeLogPath}" or die "Could not write ${changeLogPath}\n.";
+    } else {
+        open CHANGE_LOG, ">-" or die "Could not write to STDOUT\n.";
+        print substr($prefix, 0, length($prefix) - 1) . ":\n\n" unless (scalar @prefixes) == 1;
+    }
+
+    print CHANGE_LOG normalizeLineEndings("$date  $name  <$emailAddress>\n\n", $endl);
 
     my ($reviewer, $description) = reviewerAndDescriptionForGitCommit($gitCommit) if $gitCommit;
     $reviewer = "NOBODY (OO" . "PS!)" if !$reviewer;
 
-    print CHANGE_LOG "        Reviewed by $reviewer.\n\n";
-    print CHANGE_LOG $description . "\n" if $description;
+    print CHANGE_LOG normalizeLineEndings("        Reviewed by $reviewer.\n\n", $endl);
+    print CHANGE_LOG normalizeLineEndings($description . "\n", $endl) if $description;
+
+    $bugDescription = "Need a short description and bug URL (OOPS!)" unless $bugDescription;
+    print CHANGE_LOG normalizeLineEndings("        $bugDescription\n", $endl) if $bugDescription;
+    print CHANGE_LOG normalizeLineEndings("        $bugURL\n", $endl) if $bugURL;
+    print CHANGE_LOG normalizeLineEndings("\n", $endl);
 
     if ($prefix =~ m/WebCore/ || `pwd` =~ m/WebCore/) {
         if ($didChangeRegressionTests) {
-            print CHANGE_LOG testListForChangeLog(sort @addedRegressionTests);
+            print CHANGE_LOG normalizeLineEndings(testListForChangeLog(sort @addedRegressionTests), $endl);
         } else {
-            print CHANGE_LOG "        WARNING: NO TEST CASES ADDED OR CHANGED\n\n";
+            print CHANGE_LOG normalizeLineEndings("        No new tests. (OOPS!)\n\n", $endl);
         }
     }
 
     foreach my $file (sort @{$files{$prefix}}) {
         my $file_stem = substr $file, length $prefix;
-        print CHANGE_LOG "        * $file_stem:$function_lists{$file}\n";
+        print CHANGE_LOG normalizeLineEndings("        * $file_stem:$function_lists{$file}\n", $endl);
     }
-    print CHANGE_LOG "\n", @old_change_log;
+
+    if ($writeChangeLogs) {
+        print CHANGE_LOG normalizeLineEndings("\n", $endl), @old_change_log;
+    } else {
+        print CHANGE_LOG "\n";
+    }
+
     close CHANGE_LOG;
+}
+
+if ($writeChangeLogs) {
+    print STDERR "-- Please remember to include a detailed description in your ChangeLog entry. --\n-- See <http://webkit.org/coding/contributing.html> for more info --\n";
 }
 
 # Write out another diff.
@@ -377,6 +458,64 @@ sub changeLogDate($)
          delete $ENV{'TZ'};
     }
     return $date;
+}
+
+sub changeLogNameError($)
+{
+    my ($message) = @_;
+    print STDERR "$message\nEither:\n";
+    print STDERR "  set CHANGE_LOG_NAME in your environment\n";
+    print STDERR "  OR pass --name= on the command line\n";
+    print STDERR "  OR set REAL_NAME in your environment";
+    print STDERR "  OR git users can set 'git config user.name'\n";
+    exit(1);
+}
+
+sub changeLogName($)
+{
+    my ($nameFromArgs) = @_;
+    # Silently allow --git-commit to win, we could warn if $emailAddressFromArgs is defined.
+    return `$GIT log --max-count=1 --pretty=\"format:%an\" \"$gitCommit\"` if $gitCommit;
+
+    my $name = $nameFromArgs
+        || $ENV{CHANGE_LOG_NAME}
+        || $ENV{REAL_NAME}
+        || gitConfig("user.name")
+        || (split /\s*,\s*/, (getpwuid $<)[6])[0];
+
+    changeLogNameError("Failed to determine ChangeLog name.") unless $name;
+    # getpwuid seems to always succeed on windows, returning the username instead of the full name.  This check will catch that case.
+    changeLogNameError("'$name' does not contain a space!  ChangeLogs should contain your full name.") unless ($name =~ /\w \w/);
+
+    return $name;
+}
+
+sub changeLogEmailAddressError($)
+{
+    my ($message) = @_;
+    print STDERR "$message\nEither:\n";
+    print STDERR "  set CHANGE_LOG_EMAIL_ADDRESS in your environment\n";
+    print STDERR "  OR pass --email= on the command line\n";
+    print STDERR "  OR set EMAIL_ADDRESS in your environment\n";
+    print STDERR "  OR git users can set 'git config user.email'\n";
+    exit(1);
+}
+
+sub changeLogEmailAddress($)
+{
+    my ($emailAddressFromArgs) = @_;
+    # Silently allow --git-commit to win, we could warn if $emailAddressFromArgs is defined.
+    return `$GIT log --max-count=1 --pretty=\"format:%ae\" \"$gitCommit\"` if $gitCommit;
+
+    my $emailAddress = $emailAddressFromArgs
+        || $ENV{CHANGE_LOG_EMAIL_ADDRESS}
+        || $ENV{EMAIL_ADDRESS}
+        || gitConfig("user.email");
+
+    changeLogEmailAddressError("Failed to determine email address for ChangeLog.") unless $emailAddress;
+    changeLogEmailAddressError("Email address '$emailAddress' does not contain '\@' and is likely invalid.") unless ($emailAddress =~ /\@/);
+
+    return $emailAddress;
 }
 
 sub get_function_line_ranges($$)
@@ -1130,6 +1269,7 @@ sub diffFromToString()
     return "" if $isSVN;
     return $gitCommit if $gitCommit =~ m/.+\.\..+/;
     return "\"$gitCommit^\" \"$gitCommit\"" if $gitCommit;
+    return "--cached" if $gitIndex;
     return "HEAD" if $isGit;
 }
 
@@ -1183,7 +1323,7 @@ sub createPatchCommand($)
 
 sub diffHeaderFormat()
 {
-    return qr/^Index: (\S+)$/ if $isSVN;
+    return qr/^Index: (\S+)\s*$/ if $isSVN;
     return qr/^diff --git a\/.+ b\/(.+)$/ if $isGit;
 }
 
@@ -1193,18 +1333,16 @@ sub findOriginalFileFromSvn($)
     my $baseUrl;
     open INFO, "$SVN info . |" or die;
     while (<INFO>) {
-        if (/^URL: (.+)/) {
+        if (/^URL: (.*\S+)\s*$/) {
             $baseUrl = $1;
-            last;
         }
     }
     close INFO;
     my $sourceFile;
     open INFO, "$SVN info '$file' |" or die;
     while (<INFO>) {
-        if (/^Copied From URL: (.+)/) {
+        if (/^Copied From URL: (.*\S+)\s*$/) {
             $sourceFile = File::Spec->abs2rel($1, $baseUrl);
-            last;
         }
     }
     close INFO;
@@ -1216,16 +1354,24 @@ sub generateFileList(\@\@\%)
     my ($changedFiles, $conflictFiles, $functionLists) = @_;
     print STDERR "  Running status to find changed, added, or removed files.\n";
     open STAT, "-|", statusCommand(keys %paths) or die "The status failed: $!.\n";
-    my $inGitCommitSection = 0;
     while (<STAT>) {
         my $status;
         my $original;
         my $file;
 
         if ($isSVN) {
-            if (/^([ACDMR]).{5} (.+)$/) {
+            my $matches;
+            if (eval "v$svnVersion" ge v1.6) {
+                $matches = /^([ACDMR]).{6} (.*\S+)\s*$/;
                 $status = $1;
                 $file = $2;
+            } else {
+                $matches = /^([ACDMR]).{5} (.*\S+)\s*$/;
+                $status = $1;
+                $file = $2;
+            }
+            if ($matches) {
+                $file = normalizePath($file);
                 $original = findOriginalFileFromSvn($file) if substr($_, 3, 1) eq "+";
             } else {
                 print;  # error output from svn stat
@@ -1233,11 +1379,11 @@ sub generateFileList(\@\@\%)
         } elsif ($isGit) {
             if (/^([ADM])\t(.+)$/) {
                 $status = $1;
-                $file = $2;
+                $file = normalizePath($2);
             } elsif (/^([CR])[0-9]{1,3}\t([^\t]+)\t([^\t\n]+)$/) { # for example: R90%    newfile    oldfile
                 $status = $1;
-                $original = $2;
-                $file = $3;
+                $original = normalizePath($2);
+                $file = normalizePath($3);
             } else {
                 print;  # error output from git diff
             }
@@ -1319,7 +1465,7 @@ sub isConflictStatus($)
         "U" => 1,
     );
 
-    return 0 if $gitCommit; # an existing commit cannot have conflicts
+    return 0 if ($gitCommit || $gitIndex); # an existing commit or staged change cannot have conflicts
     return $svn{$status} if $isSVN;
     return $git{$status} if $isGit;
 }
@@ -1442,4 +1588,29 @@ sub reviewerAndDescriptionForGitCommit($)
     }
 
     return ($reviewer, $description);
+}
+
+sub normalizeLineEndings($$)
+{
+    my ($string, $endl) = @_;
+    $string =~ s/\r?\n/$endl/g;
+    return $string;
+}
+
+sub normalizePath($)
+{
+    my ($path) = @_;
+    $path =~ s/\\/\//g;
+    return $path;
+}
+
+sub decodeEntities($)
+{
+    my ($text) = @_;
+    $text =~ s/\&lt;/</g;
+    $text =~ s/\&gt;/>/g;
+    $text =~ s/\&quot;/\"/g;
+    $text =~ s/\&apos;/\'/g;
+    $text =~ s/\&amp;/\&/g;
+    return $text;
 }

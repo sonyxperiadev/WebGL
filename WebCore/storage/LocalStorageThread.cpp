@@ -26,11 +26,17 @@
 #include "config.h"
 #include "LocalStorageThread.h"
 
+#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(DOM_STORAGE)
 
 #include "LocalStorage.h"
 #include "LocalStorageArea.h"
+#else // MANUAL_MERGE_REQUIRED
+#if ENABLE(DOM_STORAGE)
+
+#endif // MANUAL_MERGE_REQUIRED
 #include "LocalStorageTask.h"
+#include "StorageAreaSync.h"
 
 namespace WebCore {
 
@@ -87,25 +93,13 @@ void* LocalStorageThread::localStorageThread()
     return 0;
 }
 
-void LocalStorageThread::scheduleImport(PassRefPtr<LocalStorage> storage)
-{
-    ASSERT(!m_queue.killed() && m_threadID);
-    m_queue.append(LocalStorageTask::createImport(storage));
-}
-
-void LocalStorageThread::scheduleSync(PassRefPtr<LocalStorage> storage)
-{
-    ASSERT(!m_queue.killed() && m_threadID);
-    m_queue.append(LocalStorageTask::createSync(storage));
-}
-
-void LocalStorageThread::scheduleImport(PassRefPtr<LocalStorageArea> area)
+void LocalStorageThread::scheduleImport(PassRefPtr<StorageAreaSync> area)
 {
     ASSERT(!m_queue.killed() && m_threadID);
     m_queue.append(LocalStorageTask::createImport(area));
 }
 
-void LocalStorageThread::scheduleSync(PassRefPtr<LocalStorageArea> area)
+void LocalStorageThread::scheduleSync(PassRefPtr<StorageAreaSync> area)
 {
     ASSERT(!m_queue.killed() && m_threadID);
     m_queue.append(LocalStorageTask::createSync(area));

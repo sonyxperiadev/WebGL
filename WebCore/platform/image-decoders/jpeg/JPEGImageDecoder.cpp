@@ -6,6 +6,8 @@
  * Other contributors:
  *   Stuart Parmenter <stuart@mozilla.com>
  *
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -38,16 +40,20 @@
 #include "config.h"
 #include "JPEGImageDecoder.h"
 #include <assert.h>
-#include <stdio.h>
+#include <stdio.h>  // Needed by jpeglib.h for FILE.
+
+#if PLATFORM(WINCE)
+// Remove warning: 'FAR' macro redefinition
+#undef FAR
+
+// jmorecfg.h in libjpeg checks for XMD_H with the comment: "X11/xmd.h correctly defines INT32"
+// fix INT32 redefinition error by pretending we are X11/xmd.h
+#define XMD_H
+#endif
 
 extern "C" {
 #include "jpeglib.h"
 }
-
-#if COMPILER(MSVC)
-// Remove warnings from warning level 4.
-#pragma warning(disable : 4611) // warning C4611: interaction between '_setjmp' and C++ object destruction is non-portable
-#endif // COMPILER(MSVC)
 
 #include <setjmp.h>
 
@@ -188,6 +194,10 @@ public:
                         break;
                     case JCS_CMYK:
                     case JCS_YCCK:
+                        // jpeglib cannot convert these to rgb, but it can
+                        // convert ycck to cmyk
+                        m_info.out_color_space = JCS_CMYK;
+                        break;
                     default:
                         m_state = JPEG_ERROR;
                         return false;
@@ -219,7 +229,10 @@ public:
                 m_state = JPEG_START_DECOMPRESS;
 
                 // We can fill in the size now that the header is available.
-                m_decoder->setSize(m_info.image_width, m_info.image_height);
+                if (!m_decoder->setSize(m_info.image_width, m_info.image_height)) {
+                    m_state = JPEG_ERROR;
+                    return false;
+                }
 
                 if (m_decodingSizeOnly) {
                     // We can stop here.
@@ -411,19 +424,12 @@ void JPEGImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
 }
 
 // Whether or not the size information has been decoded yet.
-bool JPEGImageDecoder::isSizeAvailable() const
+bool JPEGImageDecoder::isSizeAvailable()
 {
-    // If we have pending data to decode, send it to the JPEG reader now.
-    if (!m_sizeAvailable && m_reader) {
-        if (m_failed)
-            return false;
+    if (!ImageDecoder::isSizeAvailable() && !failed() && m_reader)
+         decode(true);
 
-        // The decoder will go ahead and aggressively consume everything up until the
-        // size is encountered.
-        decode(true);
-    }
-
-    return m_sizeAvailable;
+    return ImageDecoder::isSizeAvailable();
 }
 
 RGBA32Buffer* JPEGImageDecoder::frameBufferAtIndex(size_t index)
@@ -442,7 +448,7 @@ RGBA32Buffer* JPEGImageDecoder::frameBufferAtIndex(size_t index)
 }
 
 // Feed data to the JPEG reader.
-void JPEGImageDecoder::decode(bool sizeOnly) const
+void JPEGImageDecoder::decode(bool sizeOnly)
 {
     if (m_failed)
         return;
@@ -455,45 +461,87 @@ void JPEGImageDecoder::decode(bool sizeOnly) const
     }
 }
 
+static void convertCMYKToRGBA(RGBA32Buffer& dest, JSAMPROW src, jpeg_decompress_struct* info)
+{
+    ASSERT(info->out_color_space == JCS_CMYK);
+
+    for (unsigned x = 0; x < info->output_width; ++x) {
+        unsigned c = *src++;
+        unsigned m = *src++;
+        unsigned y = *src++;
+        unsigned k = *src++;
+
+        // Source is 'Inverted CMYK', output is RGB.
+        // See: http://www.easyrgb.com/math.php?MATH=M12#text12
+        // Or:  http://www.ilkeratalay.com/colorspacesfaq.php#rgb
+
+        // From CMYK to CMY
+        // C = C * ( 1 - K ) + K
+        // M = M * ( 1 - K ) + K
+        // Y = Y * ( 1 - K ) + K
+
+        // From Inverted CMYK to CMY is thus:
+        // C = (1-iC) * (1 - (1-iK)) + (1-iK) => 1 - iC*iK
+        // Same for M and Y
+
+        // Convert from CMY (0..1) to RGB (0..1)
+        // R = 1 - C => 1 - (1 - iC*iK) => iC*iK
+        // G = 1 - M => 1 - (1 - iM*iK) => iM*iK
+        // B = 1 - Y => 1 - (1 - iY*iK) => iY*iK
+
+        // read_scanlines has increased the scanline counter, so we
+        // actually mean the previous one.
+        dest.setRGBA(x, info->output_scanline - 1, c * k / 255, m * k / 255, y * k / 255, 0xFF);
+    }
+}
+
+static void convertRGBToRGBA(RGBA32Buffer& dest, JSAMPROW src, jpeg_decompress_struct* info)
+{
+    ASSERT(info->out_color_space == JCS_RGB);
+
+    for (unsigned x = 0; x < info->output_width; ++x) {
+        unsigned r = *src++;
+        unsigned g = *src++;
+        unsigned b = *src++;
+        // read_scanlines has increased the scanline counter, so we
+        // actually mean the previous one.
+        dest.setRGBA(x, info->output_scanline - 1, r, g, b, 0xFF);
+    }
+}
+
 bool JPEGImageDecoder::outputScanlines()
 {
     if (m_frameBufferCache.isEmpty())
         return false;
 
-    // Resize to the width and height of the image.
+    // Initialize the framebuffer if needed.
     RGBA32Buffer& buffer = m_frameBufferCache[0];
     if (buffer.status() == RGBA32Buffer::FrameEmpty) {
-        // Let's resize our buffer now to the correct width/height.
-        RGBA32Array& bytes = buffer.bytes();
-        bytes.resize(size().width() * size().height());
-
-        // Update our status to be partially complete.
+        if (!buffer.setSize(size().width(), size().height())) {
+            m_failed = true;
+            return false;
+        }
         buffer.setStatus(RGBA32Buffer::FramePartial);
+        buffer.setHasAlpha(false);
 
         // For JPEGs, the frame always fills the entire image.
-        buffer.setRect(IntRect(0, 0, m_size.width(), m_size.height()));
-
-        // We don't have alpha (this is the default when the buffer is constructed).
+        buffer.setRect(IntRect(IntPoint(), size()));
     }
 
     jpeg_decompress_struct* info = m_reader->info();
     JSAMPARRAY samples = m_reader->samples();
 
-    unsigned* dst = buffer.bytes().data() + info->output_scanline * m_size.width();
-   
     while (info->output_scanline < info->output_height) {
         /* Request one scanline.  Returns 0 or 1 scanlines. */
         if (jpeg_read_scanlines(info, samples, 1) != 1)
             return false;
-        JSAMPLE *j1 = samples[0];
-        for (unsigned x = 0; x < info->output_width; ++x) {
-            unsigned r = *j1++;
-            unsigned g = *j1++;
-            unsigned b = *j1++;
-            RGBA32Buffer::setRGBA(*dst++, r, g, b, 0xFF);
-        }
 
-        buffer.ensureHeight(info->output_scanline);
+        if (info->out_color_space == JCS_RGB)
+            convertRGBToRGBA(buffer, *samples, info);
+        else if (info->out_color_space == JCS_CMYK)
+            convertCMYKToRGBA(buffer, *samples, info);
+        else
+            return false;
     }
 
     return true;

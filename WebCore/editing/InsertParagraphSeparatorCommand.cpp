@@ -38,6 +38,7 @@
 #include "Text.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include "ApplyStyleCommand.h"
 
 namespace WebCore {
 
@@ -63,7 +64,7 @@ void InsertParagraphSeparatorCommand::calculateStyleBeforeInsertion(const Positi
     if (!isStartOfParagraph(visiblePos) && !isEndOfParagraph(visiblePos))
         return;
     
-    m_style = styleAtPosition(pos);
+    m_style = editingStyleAtPosition(pos, IncludeTypingStyle);
 }
 
 void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnclosingBlock)
@@ -79,8 +80,9 @@ void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnc
         
     if (!m_style)
         return;
+    
+    prepareEditingStyleToApplyAt(m_style.get(), endingSelection().start());
 
-    computedStyle(endingSelection().start().node())->diff(m_style.get());
     if (m_style->length() > 0)
         applyStyle(m_style.get());
 }
@@ -170,6 +172,7 @@ void InsertParagraphSeparatorCommand::doApply()
     // Handle case when position is in the last visible position in its block,
     // including when the block is empty. 
     if (isLastInBlock) {
+        bool shouldApplyStyleAfterInsertion = true;
         if (nestNewBlock) {
             if (isFirstInBlock && !lineBreakExistsAtVisiblePosition(visiblePos)) {
                 // The block is empty.  Create an empty block to
@@ -182,13 +185,18 @@ void InsertParagraphSeparatorCommand::doApply()
         } else {
             // We can get here if we pasted a copied portion of a blockquote with a newline at the end and are trying to paste it
             // into an unquoted area. We then don't want the newline within the blockquote or else it will also be quoted.
-            Node* highestBlockquote = highestEnclosingNodeOfType(canonicalPos, &isMailBlockquote);
-            insertNodeAfter(blockToInsert, highestBlockquote ? highestBlockquote : startBlock);
+            if (Node* highestBlockquote = highestEnclosingNodeOfType(canonicalPos, &isMailBlockquote)) {
+                startBlock = static_cast<Element*>(highestBlockquote);
+                // When inserting the newline after the blockquote, we don't want to apply the original style after the insertion
+                shouldApplyStyleAfterInsertion = false;
+            }
+            insertNodeAfter(blockToInsert, startBlock);
         }
 
         appendBlockPlaceholder(blockToInsert);
         setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-        applyStyleAfterInsertion(startBlock);
+        if (shouldApplyStyleAfterInsertion)
+            applyStyleAfterInsertion(startBlock);
         return;
     }
 

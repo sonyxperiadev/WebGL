@@ -59,11 +59,12 @@ ScrollView::~ScrollView()
     platformDestroy();
 }
 
-void ScrollView::addChild(Widget* child) 
+void ScrollView::addChild(PassRefPtr<Widget> prpChild) 
 {
+    Widget* child = prpChild.get();
     ASSERT(child != this && !child->parent());
     child->setParent(this);
-    m_children.add(child);
+    m_children.add(prpChild);
     if (child->platformWidget())
         platformAddChild(child);
 }
@@ -166,6 +167,7 @@ bool ScrollView::canBlitOnScroll() const
     return m_canBlitOnScroll;
 }
 
+#if !PLATFORM(GTK)
 IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
 {
     if (platformWidget())
@@ -174,6 +176,7 @@ IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
                    IntSize(max(0, width() - (verticalScrollbar() && !includeScrollbars ? verticalScrollbar()->width() : 0)), 
                            max(0, height() - (horizontalScrollbar() && !includeScrollbars ? horizontalScrollbar()->height() : 0))));
 }
+#endif
 
 int ScrollView::layoutWidth() const
 {
@@ -284,7 +287,8 @@ void ScrollView::scrollRectIntoViewRecursively(const IntRect& r)
     // on up the view chain.
     // This rect is not clamped, since Mail actually relies on receiving an unclamped rect with negative coordinates in order to
     // expose the headers.
-    hostWindow()->scrollRectIntoView(rect, this);
+    if (hostWindow())
+        hostWindow()->scrollRectIntoView(rect, this);
 }
 
 void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
@@ -549,6 +553,8 @@ IntRect ScrollView::contentsToScreen(const IntRect& rect) const
 {
     if (platformWidget())
         return platformContentsToScreen(rect);
+    if (!hostWindow())
+        return IntRect();
     return hostWindow()->windowToScreen(contentsToWindow(rect));
 }
 
@@ -556,6 +562,8 @@ IntPoint ScrollView::screenToContents(const IntPoint& point) const
 {
     if (platformWidget())
         return platformScreenToContents(point);
+    if (!hostWindow())
+        return IntPoint();
     return windowToContents(hostWindow()->screenToWindow(point));
 }
 
@@ -638,12 +646,12 @@ void ScrollView::setScrollbarsSuppressed(bool suppressed, bool repaintOnUnsuppre
     }
 }
 
-Scrollbar* ScrollView::scrollbarUnderMouse(const PlatformMouseEvent& mouseEvent)
+Scrollbar* ScrollView::scrollbarAtPoint(const IntPoint& windowPoint)
 {
     if (platformWidget())
         return 0;
 
-    IntPoint viewPoint = convertFromContainingWindow(mouseEvent.pos());
+    IntPoint viewPoint = convertFromContainingWindow(windowPoint);
     if (m_horizontalScrollbar && m_horizontalScrollbar->frameRect().contains(viewPoint))
         return m_horizontalScrollbar.get();
     if (m_verticalScrollbar && m_verticalScrollbar->frameRect().contains(viewPoint))
@@ -707,8 +715,8 @@ void ScrollView::frameRectsChanged()
     if (platformWidget())
         return;
 
-    HashSet<Widget*>::const_iterator end = m_children.end();
-    for (HashSet<Widget*>::const_iterator current = m_children.begin(); current != end; ++current)
+    HashSet<RefPtr<Widget> >::const_iterator end = m_children.end();
+    for (HashSet<RefPtr<Widget> >::const_iterator current = m_children.begin(); current != end; ++current)
         (*current)->frameRectsChanged();
 }
 
@@ -722,7 +730,8 @@ void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
         return;
     }
 
-    hostWindow()->repaint(contentsToWindow(rect), true, now);
+    if (hostWindow())
+        hostWindow()->repaint(contentsToWindow(rect), true, now);
 }
 
 void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
@@ -793,10 +802,65 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     }
 }
 
+bool ScrollView::isPointInScrollbarCorner(const IntPoint& windowPoint)
+{
+    if (!scrollbarCornerPresent())
+        return false;
+
+    IntPoint viewPoint = convertFromContainingWindow(windowPoint);
+
+    if (m_horizontalScrollbar) {
+        int horizontalScrollbarYMin = m_horizontalScrollbar->frameRect().y();
+        int horizontalScrollbarYMax = m_horizontalScrollbar->frameRect().y() + m_horizontalScrollbar->frameRect().height();
+        int horizontalScrollbarXMin = m_horizontalScrollbar->frameRect().x() + m_horizontalScrollbar->frameRect().width();
+
+        return viewPoint.y() > horizontalScrollbarYMin && viewPoint.y() < horizontalScrollbarYMax && viewPoint.x() > horizontalScrollbarXMin;
+    }
+
+    int verticalScrollbarXMin = m_verticalScrollbar->frameRect().x();
+    int verticalScrollbarXMax = m_verticalScrollbar->frameRect().x() + m_verticalScrollbar->frameRect().width();
+    int verticalScrollbarYMin = m_verticalScrollbar->frameRect().y() + m_verticalScrollbar->frameRect().height();
+    
+    return viewPoint.x() > verticalScrollbarXMin && viewPoint.x() < verticalScrollbarXMax && viewPoint.y() > verticalScrollbarYMin;
+}
+
 bool ScrollView::scrollbarCornerPresent() const
 {
     return (m_horizontalScrollbar && width() - m_horizontalScrollbar->width() > 0) ||
            (m_verticalScrollbar && height() - m_verticalScrollbar->height() > 0);
+}
+
+IntRect ScrollView::convertFromScrollbarToContainingView(const Scrollbar* scrollbar, const IntRect& localRect) const
+{
+    // Scrollbars won't be transformed within us
+    IntRect newRect = localRect;
+    newRect.move(scrollbar->x(), scrollbar->y());
+    return newRect;
+}
+
+IntRect ScrollView::convertFromContainingViewToScrollbar(const Scrollbar* scrollbar, const IntRect& parentRect) const
+{
+    IntRect newRect = parentRect;
+    // Scrollbars won't be transformed within us
+    newRect.move(-scrollbar->x(), -scrollbar->y());
+    return newRect;
+}
+
+// FIXME: test these on windows
+IntPoint ScrollView::convertFromScrollbarToContainingView(const Scrollbar* scrollbar, const IntPoint& localPoint) const
+{
+    // Scrollbars won't be transformed within us
+    IntPoint newPoint = localPoint;
+    newPoint.move(scrollbar->x(), scrollbar->y());
+    return newPoint;
+}
+
+IntPoint ScrollView::convertFromContainingViewToScrollbar(const Scrollbar* scrollbar, const IntPoint& parentPoint) const
+{
+    IntPoint newPoint = parentPoint;
+    // Scrollbars won't be transformed within us
+    newPoint.move(-scrollbar->x(), -scrollbar->y());
+    return newPoint;
 }
 
 void ScrollView::setParentVisible(bool visible)
@@ -809,8 +873,8 @@ void ScrollView::setParentVisible(bool visible)
     if (!isSelfVisible())
         return;
         
-    HashSet<Widget*>::iterator end = m_children.end();
-    for (HashSet<Widget*>::iterator it = m_children.begin(); it != end; ++it)
+    HashSet<RefPtr<Widget> >::iterator end = m_children.end();
+    for (HashSet<RefPtr<Widget> >::iterator it = m_children.begin(); it != end; ++it)
         (*it)->setParentVisible(visible);
 }
 
@@ -819,8 +883,8 @@ void ScrollView::show()
     if (!isSelfVisible()) {
         setSelfVisible(true);
         if (isParentVisible()) {
-            HashSet<Widget*>::iterator end = m_children.end();
-            for (HashSet<Widget*>::iterator it = m_children.begin(); it != end; ++it)
+            HashSet<RefPtr<Widget> >::iterator end = m_children.end();
+            for (HashSet<RefPtr<Widget> >::iterator it = m_children.begin(); it != end; ++it)
                 (*it)->setParentVisible(true);
         }
     }
@@ -832,8 +896,8 @@ void ScrollView::hide()
 {
     if (isSelfVisible()) {
         if (isParentVisible()) {
-            HashSet<Widget*>::iterator end = m_children.end();
-            for (HashSet<Widget*>::iterator it = m_children.begin(); it != end; ++it)
+            HashSet<RefPtr<Widget> >::iterator end = m_children.end();
+            for (HashSet<RefPtr<Widget> >::iterator it = m_children.begin(); it != end; ++it)
                 (*it)->setParentVisible(false);
         }
         setSelfVisible(false);
@@ -858,6 +922,8 @@ bool ScrollView::isOffscreen() const
 
 void ScrollView::addPanScrollIcon(const IntPoint& iconPosition)
 {
+    if (!hostWindow())
+        return;
     m_drawPanScrollIcon = true;    
     m_panScrollIconPoint = IntPoint(iconPosition.x() - panIconSizeLength / 2 , iconPosition.y() - panIconSizeLength / 2) ;
     hostWindow()->repaint(IntRect(m_panScrollIconPoint, IntSize(panIconSizeLength,panIconSizeLength)), true, true);    
@@ -865,6 +931,8 @@ void ScrollView::addPanScrollIcon(const IntPoint& iconPosition)
 
 void ScrollView::removePanScrollIcon()
 {
+    if (!hostWindow())
+        return;
     m_drawPanScrollIcon = false; 
     hostWindow()->repaint(IntRect(m_panScrollIconPoint, IntSize(panIconSizeLength, panIconSizeLength)), true, true);
 }

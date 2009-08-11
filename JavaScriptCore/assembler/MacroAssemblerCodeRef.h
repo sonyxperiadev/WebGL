@@ -37,7 +37,7 @@
 
 // ASSERT_VALID_CODE_POINTER checks that ptr is a non-null pointer, and that it is a valid
 // instruction address on the platform (for example, check any alignment requirements).
-#if PLATFORM(ARM_V7)
+#if PLATFORM_ARM_ARCH(7)
 // ARM/thumb instructions must be 16-bit aligned, but all code pointers to be loaded
 // into the processor are decorated with the bottom bit set, indicating that this is
 // thumb code (as oposed to 32-bit traditional ARM).  The first test checks for both
@@ -46,9 +46,12 @@
 #define ASSERT_VALID_CODE_POINTER(ptr) \
     ASSERT(reinterpret_cast<intptr_t>(ptr) & ~1); \
     ASSERT(reinterpret_cast<intptr_t>(ptr) & 1)
+#define ASSERT_VALID_CODE_OFFSET(offset) \
+    ASSERT(!(offset & 1)) // Must be multiple of 2.
 #else
 #define ASSERT_VALID_CODE_POINTER(ptr) \
     ASSERT(ptr)
+#define ASSERT_VALID_CODE_OFFSET(offset) // Anything goes!
 #endif
 
 namespace JSC {
@@ -98,6 +101,12 @@ public:
         ASSERT_VALID_CODE_POINTER(m_value);
     }
 
+    explicit ReturnAddressPtr(FunctionPtr function)
+        : m_value(function.value())
+    {
+        ASSERT_VALID_CODE_POINTER(m_value);
+    }
+
     void* value() const { return m_value; }
 
 private:
@@ -115,7 +124,7 @@ public:
     }
 
     explicit MacroAssemblerCodePtr(void* value)
-#if PLATFORM(ARM_V7)
+#if PLATFORM_ARM_ARCH(7)
         // Decorate the pointer as a thumb code pointer.
         : m_value(reinterpret_cast<char*>(value) + 1)
 #else
@@ -132,12 +141,17 @@ public:
     }
 
     void* executableAddress() const { return m_value; }
-#if PLATFORM(ARM_V7)
+#if PLATFORM_ARM_ARCH(7)
     // To use this pointer as a data address remove the decoration.
     void* dataLocation() const { ASSERT_VALID_CODE_POINTER(m_value); return reinterpret_cast<char*>(m_value) - 1; }
 #else
     void* dataLocation() const { ASSERT_VALID_CODE_POINTER(m_value); return m_value; }
 #endif
+
+    bool operator!()
+    {
+        return !m_value;
+    }
 
 private:
     void* m_value;
@@ -151,28 +165,20 @@ private:
 class MacroAssemblerCodeRef {
 public:
     MacroAssemblerCodeRef()
-#ifndef NDEBUG
         : m_size(0)
-#endif
     {
     }
 
     MacroAssemblerCodeRef(void* code, PassRefPtr<ExecutablePool> executablePool, size_t size)
         : m_code(code)
         , m_executablePool(executablePool)
+        , m_size(size)
     {
-#ifndef NDEBUG
-        m_size = size;
-#else
-        UNUSED_PARAM(size);
-#endif
     }
 
     MacroAssemblerCodePtr m_code;
     RefPtr<ExecutablePool> m_executablePool;
-#ifndef NDEBUG
     size_t m_size;
-#endif
 };
 
 } // namespace JSC

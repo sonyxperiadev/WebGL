@@ -119,6 +119,7 @@ void* DatabaseThread::databaseThread()
     return 0;
 }
 
+#ifdef MANUAL_MERGE_REQUIRED
 void DatabaseThread::recordDatabaseOpen(Database* database)
 {
     ASSERT(currentThread() == m_threadID);
@@ -135,6 +136,24 @@ void DatabaseThread::recordDatabaseClosed(Database* database)
     m_openDatabaseSet.remove(database);
 }
 
+#else // MANUAL_MERGE_REQUIRED
+void DatabaseThread::recordDatabaseOpen(Database* database) 
+{
+    ASSERT(currentThread() == m_threadID);
+    ASSERT(database);
+    ASSERT(!m_openDatabaseSet.contains(database));
+    m_openDatabaseSet.add(database);
+}
+
+void DatabaseThread::recordDatabaseClosed(Database* database) 
+{
+    ASSERT(currentThread() == m_threadID);
+    ASSERT(database);
+    ASSERT(m_queue.killed() || m_openDatabaseSet.contains(database));
+    m_openDatabaseSet.remove(database);
+}
+
+#endif // MANUAL_MERGE_REQUIRED
 void DatabaseThread::scheduleTask(PassRefPtr<DatabaseTask> task)
 {
     m_queue.append(task);

@@ -27,11 +27,8 @@
 #include "RenderThemeAndroid.h"
 
 #include "Color.h"
+#include "FormControlElement.h"
 #include "GraphicsContext.h"
-#include "HTMLNames.h"
-#include "HTMLOptionElement.h"
-#include "HTMLSelectElement.h"
-#include "Node.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderSkinAndroid.h"
 #include "RenderSkinButton.h"
@@ -114,26 +111,6 @@ Color RenderThemeAndroid::platformTextSearchHighlightColor() const
     return Color(Color::transparent);
 }
 
-Color RenderThemeAndroid::platformActiveListBoxSelectionBackgroundColor() const
-{
-    return Color(Color::transparent);
-}
-
-Color RenderThemeAndroid::platformInactiveListBoxSelectionBackgroundColor() const
-{
-    return Color(Color::transparent);
-}
-
-Color RenderThemeAndroid::platformActiveListBoxSelectionForegroundColor() const
-{
-    return Color(Color::transparent);
-}
-
-Color RenderThemeAndroid::platformInactiveListBoxSelectionForegroundColor() const
-{
-    return Color(Color::transparent);
-}
-
 int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
 {
     // From the description of this function in RenderTheme.h:
@@ -204,14 +181,13 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const RenderObject::Pain
 {
     // If it is a disabled button, simply paint it to the master picture.
     Node* node = obj->node();
-    if (!node || !node->isElementNode()
-            || !static_cast<Element*>(node)->isEnabledFormControl()) {
-        RenderSkinButton::Draw(getCanvasFromInfo(info), rect,
-                RenderSkinAndroid::kDisabled);
-    } else {
+    FormControlElement* formControlElement = toFormControlElement(static_cast<Element*>(node));
+    if (formControlElement && !formControlElement->isEnabled())
+        RenderSkinButton::Draw(getCanvasFromInfo(info), rect, RenderSkinAndroid::kDisabled);
+    else
         // Store all the important information in the platform context.
         info.context->platformContext()->storeButtonInfo(node, rect);
-    }
+
     // We always return false so we do not request to be redrawn.
     return false;
 }
@@ -251,55 +227,8 @@ void RenderThemeAndroid::adjustTextAreaStyle(CSSStyleSelector*, RenderStyle* sty
 
 bool RenderThemeAndroid::paintTextArea(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
 {
-    if (obj->isListBox()) {
-        paintCombo(obj, info, rect);
-        RenderStyle* style = obj->style();
-        if (style)
-            style->setColor(Color::transparent);
-        Node* node = obj->node();
-        if (!node || !node->hasTagName(HTMLNames::selectTag)) {
-            return true;
-        }
-        HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node);
-        // The first item may be visible.  Make sure it does not draw.
-        // If it has a style, it overrides the RenderListBox's style, so we
-        // need to make sure both are set to transparent.
-        node = select->item(0);
-        if (node) {
-            RenderObject* renderer = node->renderer();
-            if (renderer) {
-                RenderStyle* renderStyle = renderer->style();
-                if (renderStyle)
-                    renderStyle->setColor(Color::transparent);
-            }
-        }
-        // Find the first selected option, and draw its text.
-        // FIXME: In a later change, if there is more than one item selected,
-        // draw a string that says "X items" like iPhone Safari does
-        int index = select->selectedIndex();
-        node = select->item(index);
-        if (!node || !node->hasTagName(HTMLNames::optionTag)) {
-            return true;
-        }
-        HTMLOptionElement* option = static_cast<HTMLOptionElement*>(node);
-        String label = option->textIndentedToRespectGroupLabel();
-        SkRect r(rect);
-
-        SkPaint paint;
-        paint.setAntiAlias(true);
-        paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
-        // Values for text size and positioning determined by trial and error
-        paint.setTextSize(r.height() - SkIntToScalar(6));
-
-        SkCanvas* canvas = getCanvasFromInfo(info);
-        int saveCount = canvas->save();
-        r.fRight -= SkIntToScalar(RenderSkinCombo::extraWidth());
-        canvas->clipRect(r);
-        canvas->drawText(label.characters(), label.length() << 1,
-                 r.fLeft + SkIntToScalar(5), r.fBottom - SkIntToScalar(5),
-                 paint);
-        canvas->restoreToCount(saveCount);
-    }
+    if (obj->isMenuList())
+        return paintCombo(obj, info, rect);
     return true;    
 }
 
@@ -317,8 +246,6 @@ void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* styl
 {
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
     style->setMaxHeight(Length(style->fontSize() + LISTBOX_PADDING, Fixed));
-    // Make webkit draw invisible, since it will simply draw the first element
-    style->setColor(Color::transparent);
     addIntrinsicMargins(style);
 }
 
@@ -328,7 +255,10 @@ static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
     // Code copied from RenderThemeMac.mm
     // Makes sure that the text shows up on our treatment
-    style->setColor(e->isEnabledFormControl() ? Color::black : Color::darkGray);
+    bool isEnabled = true;
+    if (FormControlElement* formControlElement = toFormControlElement(e))
+        isEnabled = formControlElement->isEnabled();
+    style->setColor(isEnabled ? Color::black : Color::darkGray);
 }
 
 void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const

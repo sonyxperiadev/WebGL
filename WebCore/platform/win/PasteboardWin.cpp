@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Pasteboard.h"
 
+#include "BitmapInfo.h"
 #include "CString.h"
 #include "ClipboardUtilitiesWin.h"
 #include "Document.h"
@@ -187,8 +188,8 @@ void Pasteboard::writeURL(const KURL& url, const String& titleStr, Frame* frame)
 void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
     ASSERT(node && node->renderer() && node->renderer()->isImage());
-    RenderImage* renderer = static_cast<RenderImage*>(node->renderer());
-    CachedImage* cachedImage = static_cast<CachedImage*>(renderer->cachedImage());
+    RenderImage* renderer = toRenderImage(node->renderer());
+    CachedImage* cachedImage = renderer->cachedImage();
     ASSERT(cachedImage);
     Image* image = cachedImage->image();
     ASSERT(image);
@@ -201,13 +202,8 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
     HBITMAP resultBitmap = CreateCompatibleBitmap(dc, image->width(), image->height());
     HBITMAP oldBitmap = (HBITMAP)SelectObject(compatibleDC, resultBitmap);
 
-    BITMAPINFO bmInfo = {0};
-    bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmInfo.bmiHeader.biWidth = image->width();
-    bmInfo.bmiHeader.biHeight = image->height();
-    bmInfo.bmiHeader.biPlanes = 1;
-    bmInfo.bmiHeader.biBitCount = 32;
-    bmInfo.bmiHeader.biCompression = BI_RGB;
+    BitmapInfo bmInfo = BitmapInfo::create(image->size());
+
     HBITMAP coreBitmap = CreateDIBSection(dc, &bmInfo, DIB_RGB_COLORS, 0, 0, 0);
     HBITMAP oldSource = (HBITMAP)SelectObject(sourceDC, coreBitmap);
     image->getHBITMAP(coreBitmap);

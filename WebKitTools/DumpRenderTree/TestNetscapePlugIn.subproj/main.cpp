@@ -25,46 +25,6 @@
 
 #import "PluginObject.h"
 
-static void log(NPP instance, const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    char message[2048] = "PLUGIN: ";
-    vsprintf(message + strlen(message), format, args);
-    va_end(args);
-
-    NPObject* windowObject = 0;
-    NPError error = browser->getvalue(instance, NPNVWindowNPObject, &windowObject);
-    if (error != NPERR_NO_ERROR) {
-        fprintf(stderr, "Failed to retrieve window object while logging: %s\n", message);
-        return;
-    }
-
-    NPVariant consoleVariant;
-    if (!browser->getproperty(instance, windowObject, browser->getstringidentifier("console"), &consoleVariant)) {
-        fprintf(stderr, "Failed to retrieve console object while logging: %s\n", message);
-        browser->releaseobject(windowObject);
-        return;
-    }
-
-    NPObject* consoleObject = NPVARIANT_TO_OBJECT(consoleVariant);
-
-    NPVariant messageVariant;
-    STRINGZ_TO_NPVARIANT(message, messageVariant);
-
-    NPVariant result;
-    if (!browser->invoke(instance, consoleObject, browser->getstringidentifier("log"), &messageVariant, 1, &result)) {
-        fprintf(stderr, "Failed to invoke console.log while logging: %s\n", message);
-        browser->releaseobject(consoleObject);
-        browser->releaseobject(windowObject);
-        return;
-    }
-
-    browser->releasevariantvalue(&result);
-    browser->releaseobject(consoleObject);
-    browser->releaseobject(windowObject);
-}
-
 // Mach-o entry points
 extern "C" {
     NPError NP_Initialize(NPNetscapeFuncs *browserFuncs);
@@ -137,33 +97,34 @@ NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16 mode, int16 argc, ch
             testNPRuntime(instance);
         else if (strcasecmp(argn[i], "forcecarbon") == 0)
             forceCarbon = true;
+        else if (strcasecmp(argn[i], "logSrc") == 0) {
+            for (int i = 0; i < argc; i++)
+                if (strcasecmp(argn[i], "src") == 0)
+                    pluginLog(instance, "src: %s", argv[i]);
+        }
     }
         
-    
-    if (forceCarbon) {
-        NPBool supportsCarbon;
+#ifndef NP_NO_CARBON
+    NPBool supportsCarbon = false;
+#endif
+    NPBool supportsCocoa = false;
 
 #ifndef NP_NO_CARBON
-        if (browser->getvalue(instance, NPNVsupportsCarbonBool, &supportsCarbon) != NPERR_NO_ERROR)
-            supportsCarbon = false;
-#else
+    if (browser->getvalue(instance, NPNVsupportsCarbonBool, &supportsCarbon) != NPERR_NO_ERROR)
         supportsCarbon = false;
 #endif
-        if (!supportsCarbon)
-            return NPERR_INCOMPATIBLE_VERSION_ERROR;
 
+    if (browser->getvalue(instance, NPNVsupportsCocoaBool, &supportsCocoa) != NPERR_NO_ERROR)
+        supportsCocoa = false;
+
+    if (supportsCocoa && !forceCarbon) {
+        obj->eventModel = NPEventModelCocoa;
 #ifndef NP_NO_CARBON
+    } else if (supportsCarbon) {
         obj->eventModel = NPEventModelCarbon;
 #endif
     } else {
-        NPBool supportsCocoa;
-        if (browser->getvalue(instance, NPNVsupportsCocoaBool, &supportsCocoa) != NPERR_NO_ERROR)
-            supportsCocoa = FALSE;
-
-        if (!supportsCocoa)
-            return NPERR_INCOMPATIBLE_VERSION_ERROR;
-        
-        obj->eventModel = NPEventModelCocoa;
+        return NPERR_INCOMPATIBLE_VERSION_ERROR;
     }
     
     browser->setvalue(instance, NPPVpluginEventModel, (void *)obj->eventModel);
@@ -184,7 +145,7 @@ NPError NPP_Destroy(NPP instance, NPSavedData **save)
             free(obj->onURLNotify);
         
         if (obj->logDestroy)
-            log(instance, "NPP_Destroy");
+            pluginLog(instance, "NPP_Destroy");
 
         browser->releaseobject(&obj->header);
     }
@@ -197,7 +158,7 @@ NPError NPP_SetWindow(NPP instance, NPWindow *window)
 
     if (obj) {
         if (obj->logSetWindow) {
-            log(instance, "NPP_SetWindow: %d %d", (int)window->width, (int)window->height);
+            pluginLog(instance, "NPP_SetWindow: %d %d", (int)window->width, (int)window->height);
             obj->logSetWindow = false;
         }
     }
@@ -276,29 +237,29 @@ static int16_t handleEventCarbon(NPP instance, PluginObject* obj, EventRecord* e
             break;
         case mouseDown:
             GlobalToLocal(&pt);
-            log(instance, "mouseDown at (%d, %d)", pt.h, pt.v);
+            pluginLog(instance, "mouseDown at (%d, %d)", pt.h, pt.v);
             break;
         case mouseUp:
             GlobalToLocal(&pt);
-            log(instance, "mouseUp at (%d, %d)", pt.h, pt.v);
+            pluginLog(instance, "mouseUp at (%d, %d)", pt.h, pt.v);
             break;
         case keyDown:
-            log(instance, "keyDown '%c'", (char)(event->message & 0xFF));
+            pluginLog(instance, "keyDown '%c'", (char)(event->message & 0xFF));
             break;
         case keyUp:
-            log(instance, "keyUp '%c'", (char)(event->message & 0xFF));
+            pluginLog(instance, "keyUp '%c'", (char)(event->message & 0xFF));
             break;
         case autoKey:
-            log(instance, "autoKey '%c'", (char)(event->message & 0xFF));
+            pluginLog(instance, "autoKey '%c'", (char)(event->message & 0xFF));
             break;
         case updateEvt:
-            log(instance, "updateEvt");
+            pluginLog(instance, "updateEvt");
             break;
         case diskEvt:
-            log(instance, "diskEvt");
+            pluginLog(instance, "diskEvt");
             break;
         case activateEvt:
-            log(instance, "activateEvt");
+            pluginLog(instance, "activateEvt");
             break;
         case osEvt:
             printf("PLUGIN: osEvt - ");
@@ -314,20 +275,20 @@ static int16_t handleEventCarbon(NPP instance, PluginObject* obj, EventRecord* e
             }
             break;
         case kHighLevelEvent:
-            log(instance, "kHighLevelEvent");
+            pluginLog(instance, "kHighLevelEvent");
             break;
         // NPAPI events
         case getFocusEvent:
-            log(instance, "getFocusEvent");
+            pluginLog(instance, "getFocusEvent");
             break;
         case loseFocusEvent:
-            log(instance, "loseFocusEvent");
+            pluginLog(instance, "loseFocusEvent");
             break;
         case adjustCursorEvent:
-            log(instance, "adjustCursorEvent");
+            pluginLog(instance, "adjustCursorEvent");
             break;
         default:
-            log(instance, "event %d", event->what);
+            pluginLog(instance, "event %d", event->what);
     }
     
     return 0;
@@ -341,9 +302,9 @@ static int16_t handleEventCocoa(NPP instance, PluginObject* obj, NPCocoaEvent* e
             
         case NPCocoaEventFocusChanged:
             if (event->data.focus.hasFocus)
-                log(instance, "getFocusEvent");
+                pluginLog(instance, "getFocusEvent");
             else
-                log(instance, "loseFocusEvent");
+                pluginLog(instance, "loseFocusEvent");
             return 1;
 
         case NPCocoaEventDrawRect:
@@ -355,12 +316,12 @@ static int16_t handleEventCocoa(NPP instance, PluginObject* obj, NPCocoaEvent* e
             return 1;
 
         case NPCocoaEventMouseDown:
-            log(instance, "mouseDown at (%d, %d)", 
+            pluginLog(instance, "mouseDown at (%d, %d)", 
                    (int)event->data.mouse.pluginX,
                    (int)event->data.mouse.pluginY);
             return 1;
         case NPCocoaEventMouseUp:
-            log(instance, "mouseUp at (%d, %d)", 
+            pluginLog(instance, "mouseUp at (%d, %d)", 
                    (int)event->data.mouse.pluginX,
                    (int)event->data.mouse.pluginY);
             return 1;

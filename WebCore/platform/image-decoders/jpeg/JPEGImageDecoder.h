@@ -44,28 +44,21 @@ namespace WebCore {
         virtual void setData(SharedBuffer* data, bool allDataReceived);
 
         // Whether or not the size information has been decoded yet.
-        virtual bool isSizeAvailable() const;
+        virtual bool isSizeAvailable();
 
         virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
         
         virtual bool supportsAlpha() const { return false; }
 
-        void decode(bool sizeOnly = false) const;
+        void decode(bool sizeOnly = false);
 
         JPEGImageReader* reader() { return m_reader; }
-
-        void setSize(int width, int height) {
-            if (!m_sizeAvailable) {
-                m_sizeAvailable = true;
-                m_size = IntSize(width, height);
-            }
-        }
 
         bool outputScanlines();
         void jpegComplete();
 
     private:
-        mutable JPEGImageReader* m_reader;
+        JPEGImageReader* m_reader;
     };
 
 } // namespace WebCore

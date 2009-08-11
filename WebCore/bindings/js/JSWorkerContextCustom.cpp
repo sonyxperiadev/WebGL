@@ -30,7 +30,10 @@
 #include "JSWorkerContext.h"
 
 #include "JSDOMBinding.h"
+#include "JSDOMGlobalObject.h"
 #include "JSEventListener.h"
+#include "JSMessageChannelConstructor.h"
+#include "JSMessagePort.h"
 #include "JSWorkerLocation.h"
 #include "JSWorkerNavigator.h"
 #include "JSXMLHttpRequestConstructor.h"
@@ -44,29 +47,29 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSWorkerContext::mark()
+void JSWorkerContext::markChildren(MarkStack& markStack)
 {
-    Base::mark();
+    Base::markChildren(markStack);
 
     JSGlobalData& globalData = *this->globalData();
 
-    markActiveObjectsForContext(globalData, scriptExecutionContext());
+    markActiveObjectsForContext(markStack, globalData, scriptExecutionContext());
 
-    markDOMObjectWrapper(globalData, impl()->optionalLocation());
-    markDOMObjectWrapper(globalData, impl()->optionalNavigator());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalLocation());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalNavigator());
 
-    markIfNotNull(impl()->onmessage());
+    markIfNotNull(markStack, impl()->onerror());
 
     typedef WorkerContext::EventListenersMap EventListenersMap;
     typedef WorkerContext::ListenerVector ListenerVector;
     EventListenersMap& eventListeners = impl()->eventListeners();
     for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
         for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction();
+            (*vecIter)->markJSFunction(markStack);
     }
 }
 
-bool JSWorkerContext::customGetOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     // Look for overrides before looking at any of our own properties.
     if (JSGlobalObject::getOwnPropertySlot(exec, propertyName, slot))
@@ -137,6 +140,14 @@ JSValue JSWorkerContext::setInterval(ExecState* exec, const ArgList& args)
     int delay = args.at(1).toInt32(exec);
     return jsNumber(exec, impl()->setInterval(action, delay));
 }
+
+
+#if ENABLE(CHANNEL_MESSAGING)
+JSValue JSWorkerContext::messageChannel(ExecState* exec) const
+{
+    return getDOMConstructor<JSMessageChannelConstructor>(exec, this);
+}
+#endif
 
 } // namespace WebCore
 

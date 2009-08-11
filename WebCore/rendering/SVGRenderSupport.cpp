@@ -120,7 +120,7 @@ void SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
 #if ENABLE(FILTERS)
     if (filter) {
         filter->addClient(styledElement);
-        filter->prepareFilter(paintInfo.context, object->objectBoundingBox());
+        filter->prepareFilter(paintInfo.context, object);
     } else if (!filterId.isEmpty())
         svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
 #endif
@@ -152,7 +152,7 @@ void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::P
 
 #if ENABLE(FILTERS)
     if (filter) {
-        filter->applyFilter(paintInfo.context, object->objectBoundingBox());
+        filter->applyFilter(paintInfo.context, object);
         paintInfo.context = savedContext;
     }
 #endif
@@ -169,9 +169,11 @@ void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
     ASSERT(image->context());
     RenderObject::PaintInfo info(image->context(), IntRect(), PaintPhaseForeground, 0, 0, 0);
 
+    // FIXME: isSVGContainer returns true for RenderSVGViewportContainer, so if this is ever
+    // called with one of those, we will read from the wrong offset in an object due to a bad cast.
     RenderSVGContainer* svgContainer = 0;
     if (item && item->isSVGContainer())
-        svgContainer = static_cast<RenderSVGContainer*>(item);
+        svgContainer = toRenderSVGContainer(item);
 
     bool drawsContents = svgContainer ? svgContainer->drawsContents() : false;
     if (svgContainer && !drawsContents)

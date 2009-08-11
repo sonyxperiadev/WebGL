@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,12 +28,47 @@
 
 namespace WebCore {
 
-class HTMLBodyElement : public HTMLElement
-{
+class HTMLBodyElement : public HTMLElement {
 public:
     HTMLBodyElement(const QualifiedName&, Document*);
-    ~HTMLBodyElement();
+    virtual ~HTMLBodyElement();
 
+    String aLink() const;
+    void setALink(const String&);
+    String bgColor() const;
+    void setBgColor(const String&);
+    String link() const;
+    void setLink(const String&);
+    String text() const;
+    void setText(const String&);
+    String vLink() const;
+    void setVLink(const String&);
+
+    virtual EventListener* onblur() const;
+    virtual void setOnblur(PassRefPtr<EventListener>);
+    virtual EventListener* onerror() const;
+    virtual void setOnerror(PassRefPtr<EventListener>);
+    virtual EventListener* onfocus() const;
+    virtual void setOnfocus(PassRefPtr<EventListener>);
+    virtual EventListener* onload() const;
+    virtual void setOnload(PassRefPtr<EventListener>);
+
+    EventListener* onbeforeunload() const;
+    void setOnbeforeunload(PassRefPtr<EventListener>);
+    EventListener* onmessage() const;
+    void setOnmessage(PassRefPtr<EventListener>);
+    EventListener* onoffline() const;
+    void setOnoffline(PassRefPtr<EventListener>);
+    EventListener* ononline() const;
+    void setOnonline(PassRefPtr<EventListener>);
+    EventListener* onresize() const;
+    void setOnresize(PassRefPtr<EventListener>);
+    EventListener* onstorage() const;
+    void setOnstorage(PassRefPtr<EventListener>);
+    EventListener* onunload() const;
+    void setOnunload(PassRefPtr<EventListener>);
+
+private:
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 10; }
     
@@ -48,19 +81,6 @@ public:
     
     virtual bool isURLAttribute(Attribute*) const;
 
-    String aLink() const;
-    void setALink(const String&);
-    String background() const;
-    void setBackground(const String&);
-    String bgColor() const;
-    void setBgColor(const String&);
-    String link() const;
-    void setLink(const String&);
-    String text() const;
-    void setText(const String&);
-    String vLink() const;
-    void setVLink(const String&);
-
     virtual int scrollLeft() const;
     virtual void setScrollLeft(int scrollLeft);
     
@@ -72,11 +92,9 @@ public:
     
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
     
-protected:
-    RefPtr<CSSMutableStyleDeclaration> m_linkDecl;
-
-private:
     virtual void didMoveToNewOwnerDocument();
+
+    RefPtr<CSSMutableStyleDeclaration> m_linkDecl;
 };
 
 } //namespace

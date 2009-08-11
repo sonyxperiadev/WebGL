@@ -59,11 +59,11 @@ WebInspector.ProfilesPanel = function()
     this.profileViews.id = "profile-views";
     this.element.appendChild(this.profileViews);
 
-    this.enableToggleButton = document.createElement("button");
+    this.enableToggleButton = this.createStatusBarButton();
     this.enableToggleButton.className = "enable-toggle-status-bar-item status-bar-item";
     this.enableToggleButton.addEventListener("click", this._toggleProfiling.bind(this), false);
 
-    this.recordButton = document.createElement("button");
+    this.recordButton = this.createStatusBarButton();
     this.recordButton.title = WebInspector.UIString("Start profiling.");
     this.recordButton.id = "record-profile-status-bar-item";
     this.recordButton.className = "status-bar-item";
@@ -266,8 +266,10 @@ WebInspector.ProfilesPanel.prototype = {
 
             groupNumber = ++this._profileGroupsForLinks[title];
 
-            if (groupNumber >= 2)
-                title += " " + WebInspector.UIString("Run %d", groupNumber);
+            if (groupNumber > 2)
+                // The title is used in the console message announcing that a profile has started so it gets
+                // incremented twice as often as it's displayed
+                title += " " + WebInspector.UIString("Run %d", groupNumber / 2);
         }
         
         return title;
@@ -321,6 +323,13 @@ WebInspector.ProfilesPanel.prototype = {
             this.recordButton.removeStyleClass("toggled-on");
             this.recordButton.title = WebInspector.UIString("Start profiling.");
         }
+    },
+    
+    resize: function()
+    {
+        var visibleView = this.visibleView;
+        if (visibleView && "resize" in visibleView)
+            visibleView.resize();
     },
 
     _updateInterface: function()
@@ -422,6 +431,10 @@ WebInspector.ProfilesPanel.prototype = {
         this.profileViews.style.left = width + "px";
         this.profileViewStatusBarItemsContainer.style.left = width + "px";
         this.sidebarResizeElement.style.left = (width - 3) + "px";
+        
+        var visibleView = this.visibleView;
+        if (visibleView && "resize" in visibleView)
+            visibleView.resize();
     }
 }
 

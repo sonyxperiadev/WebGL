@@ -158,6 +158,7 @@ bool Event::isStorageEvent() const
 }
 #endif
 
+#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(TOUCH_EVENTS) // Android
 bool Event::isTouchEvent() const
 {
@@ -165,6 +166,15 @@ bool Event::isTouchEvent() const
 }
 #endif
 
+#else // MANUAL_MERGE_REQUIRED
+#if ENABLE(WORKERS)
+bool Event::isErrorEvent() const
+{
+    return false;
+}
+#endif
+    
+#endif // MANUAL_MERGE_REQUIRED
 bool Event::storesResultAsString() const
 {
     return false;

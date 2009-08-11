@@ -172,8 +172,9 @@ namespace WebCore {
         virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long, int);
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long);
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&);
-
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int);
+        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&);
+
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
         virtual Frame* dispatchCreatePage();
@@ -189,11 +190,11 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual Widget* createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
+        virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&);
         
-        virtual Widget* createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
+        virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;

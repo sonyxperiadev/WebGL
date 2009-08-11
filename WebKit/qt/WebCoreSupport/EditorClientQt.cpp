@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006, 2008 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
  *
  * All rights reserved.
@@ -34,18 +34,19 @@
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 
+#include "CSSStyleDeclaration.h"
 #include "Document.h"
 #include "EditCommandQt.h"
-#include "Page.h"
 #include "Editor.h"
 #include "FocusController.h"
 #include "Frame.h"
+#include "HTMLElement.h"
 #include "KeyboardCodes.h"
 #include "KeyboardEvent.h"
+#include "NotImplemented.h"
+#include "Page.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
-#include "NotImplemented.h"
-#include "Node.h"
 #include "Range.h"
 
 #include <stdio.h>
@@ -83,11 +84,12 @@ static QString dumpRange(WebCore::Range *range)
 {
     if (!range)
         return QLatin1String("(null)");
-    QString str;
     WebCore::ExceptionCode code;
-    str.sprintf("range from %ld of %ls to %ld of %ls",
-                range->startOffset(code), dumpPath(range->startContainer(code)).unicode(),
-                range->endOffset(code), dumpPath(range->endContainer(code)).unicode());
+
+    QString str = QString("range from %1 of %2 to %3 of %4")
+        .arg(range->startOffset(code)).arg(dumpPath(range->startContainer(code)))
+        .arg(range->endOffset(code)).arg(dumpPath(range->endContainer(code)));
+
     return str;
 }
 
@@ -544,6 +546,12 @@ void EditorClientQt::learnWord(const String&)
 void EditorClientQt::checkSpellingOfString(const UChar*, int, int*, int*)
 {
     notImplemented();
+}
+
+String EditorClientQt::getAutoCorrectSuggestionForMisspelledWord(const String&)
+{
+    notImplemented();
+    return String();
 }
 
 void EditorClientQt::checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*)

@@ -49,6 +49,18 @@ using namespace std;
 using namespace JSC;
 using namespace WebCore;
 
+@interface WebPlaceholderModalWindow : NSWindow 
+@end
+
+@implementation WebPlaceholderModalWindow
+// Prevent NSApp from calling requestUserAttention: when the window is shown 
+// modally, even if the app is inactive. See 6823049.
+- (BOOL)_wantsUserAttention
+{
+    return NO;   
+}
+@end
+
 namespace WebKit {
 
 class PluginDestroyDeferrer {
@@ -76,13 +88,15 @@ static PluginProxyMap& pluginProxyMap()
     return pluginProxyMap;
 }
 
-NetscapePluginHostProxy::NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort, const ProcessSerialNumber& pluginHostPSN)
+NetscapePluginHostProxy::NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort, const ProcessSerialNumber& pluginHostPSN, bool shouldCacheMissingPropertiesAndMethods)
     : m_clientPort(clientPort)
     , m_portSet(MACH_PORT_NULL)
     , m_pluginHostPort(pluginHostPort)
     , m_isModal(false)
     , m_menuBarIsVisible(true)
     , m_pluginHostPSN(pluginHostPSN)
+    , m_processingRequests(0)
+    , m_shouldCacheMissingPropertiesAndMethods(shouldCacheMissingPropertiesAndMethods)
 {
     pluginProxyMap().add(m_clientPort, this);
     
@@ -201,7 +215,7 @@ void NetscapePluginHostProxy::beginModal()
     ASSERT(!m_placeholderWindow);
     ASSERT(!m_activationObserver);
     
-    m_placeholderWindow.adoptNS([[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
+    m_placeholderWindow.adoptNS([[WebPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
     
     m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillBecomeActiveNotification object:NSApp queue:nil
                                                                          usingBlock:^(NSNotification *){ applicationDidBecomeActive(); }];
@@ -210,6 +224,9 @@ void NetscapePluginHostProxy::beginModal()
     CFRunLoopAddSource(CFRunLoopGetCurrent(), m_clientPortSource.get(), (CFStringRef)NSModalPanelRunLoopMode);
     
     [NSApp runModalForWindow:m_placeholderWindow.get()];
+    
+    [m_placeholderWindow.get() orderOut:nil];
+    m_placeholderWindow = 0;
 }
     
 void NetscapePluginHostProxy::endModal()
@@ -223,8 +240,6 @@ void NetscapePluginHostProxy::endModal()
     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), m_clientPortSource.get(), (CFStringRef)NSModalPanelRunLoopMode);
     
     [NSApp stopModal];
-    [m_placeholderWindow.get() orderOut:nil];
-    m_placeholderWindow = 0;
     
     // Make ourselves the front process.
     ProcessSerialNumber psn;
@@ -248,7 +263,9 @@ void NetscapePluginHostProxy::setModal(bool modal)
     
 bool NetscapePluginHostProxy::processRequests()
 {
-    if (!m_portSet) {
+    m_processingRequests++;
+
+   if (!m_portSet) {
         mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &m_portSet);
         mach_port_insert_member(mach_task_self(), m_clientPort, m_portSet);
         mach_port_insert_member(mach_task_self(), CFMachPortGetPort(m_deadNameNotificationPort.get()), m_portSet);
@@ -262,6 +279,7 @@ bool NetscapePluginHostProxy::processRequests()
     
     if (kr != KERN_SUCCESS) {
         LOG_ERROR("Could not receive mach message, error %x", kr);
+        m_processingRequests--;
         return false;
     }
     
@@ -274,20 +292,24 @@ bool NetscapePluginHostProxy::processRequests()
             
             if (kr != KERN_SUCCESS) {
                 LOG_ERROR("Could not send mach message, error %x", kr);
+                m_processingRequests--;
                 return false;
             }
         }
         
+        m_processingRequests--;
         return true;
     }
     
     if (msg->msgh_local_port == CFMachPortGetPort(m_deadNameNotificationPort.get())) {
         ASSERT(msg->msgh_id == MACH_NOTIFY_DEAD_NAME);
         pluginHostDied();
+        m_processingRequests--;
         return false;
     }
     
     ASSERT_NOT_REACHED();
+    m_processingRequests--;
     return false;
 }
 
@@ -368,11 +390,9 @@ kern_return_t WKPCCancelLoadURL(mach_port_t clientPort, uint32_t pluginID, uint3
     if (!instanceProxy)
         return KERN_FAILURE;
     
-    HostedNetscapePluginStream* pluginStream = instanceProxy->pluginStream(streamID);
-    if (!pluginStream)
+    if (!instanceProxy->cancelStreamLoad(streamID, reason))
         return KERN_FAILURE;
-
-    pluginStream->cancelLoad(reason);
+    
     return KERN_SUCCESS;
 }
 
@@ -380,13 +400,22 @@ kern_return_t WKPCInvalidateRect(mach_port_t clientPort, uint32_t pluginID, doub
 {
     NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
     if (!hostProxy)
-        return KERN_FAILURE;
-    
-    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+        return KERN_SUCCESS;
 
-    instanceProxy->invalidateRect(x, y, width, height);
+    if (!hostProxy->isProcessingRequests()) {
+        if (NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID))
+            instanceProxy->invalidateRect(x, y, width, height);
+        return KERN_SUCCESS;
+    }        
+
+    // Defer the work
+    CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopDefaultMode, ^{
+        if (NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort)) {
+            if (NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID))
+                instanceProxy->invalidateRect(x, y, width, height);
+        }
+    });
+
     return KERN_SUCCESS;
 }
 
@@ -500,7 +529,7 @@ kern_return_t WKPCReleaseObject(mach_port_t clientPort, uint32_t pluginID, uint3
     return KERN_SUCCESS;
 }
 
-kern_return_t WKPCEvaluate(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, data_t scriptData, mach_msg_type_number_t scriptLength)
+kern_return_t WKPCEvaluate(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, data_t scriptData, mach_msg_type_number_t scriptLength, boolean_t allowPopups)
 {
     DataDeallocator deallocator(scriptData, scriptLength);
 
@@ -509,8 +538,10 @@ kern_return_t WKPCEvaluate(mach_port_t clientPort, uint32_t pluginID, uint32_t r
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
 
     PluginDestroyDeferrer deferrer(instanceProxy);
     
@@ -518,7 +549,7 @@ kern_return_t WKPCEvaluate(mach_port_t clientPort, uint32_t pluginID, uint32_t r
     
     data_t resultData = 0;
     mach_msg_type_number_t resultLength = 0;
-    boolean_t returnValue = instanceProxy->evaluate(objectID, script, resultData, resultLength);
+    boolean_t returnValue = instanceProxy->evaluate(objectID, script, resultData, resultLength, allowPopups);
     
     _WKPHBooleanAndDataReply(hostProxy->port(), instanceProxy->pluginID(), requestID, returnValue, resultData, resultLength);
     if (resultData)
@@ -564,8 +595,10 @@ kern_return_t WKPCInvoke(mach_port_t clientPort, uint32_t pluginID, uint32_t req
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
 
     PluginDestroyDeferrer deferrer(instanceProxy);
     
@@ -598,8 +631,10 @@ kern_return_t WKPCInvokeDefault(mach_port_t clientPort, uint32_t pluginID, uint3
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
 
     PluginDestroyDeferrer deferrer(instanceProxy);
 
@@ -642,12 +677,16 @@ kern_return_t WKPCGetProperty(mach_port_t clientPort, uint32_t pluginID, uint32_
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
     
     IdentifierRep* identifier = reinterpret_cast<IdentifierRep*>(serverIdentifier);
-    if (!IdentifierRep::isValid(identifier))
-        return KERN_FAILURE;
+    if (!IdentifierRep::isValid(identifier)) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
     
     PluginDestroyDeferrer deferrer(instanceProxy);
 
@@ -727,8 +766,10 @@ kern_return_t WKPCHasProperty(mach_port_t clientPort, uint32_t pluginID, uint32_
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanReply(hostProxy->port(), pluginID, requestID, false);
+        return KERN_SUCCESS;
+    }
     
     PluginDestroyDeferrer deferrer(instanceProxy);
 
@@ -757,8 +798,10 @@ kern_return_t WKPCHasMethod(mach_port_t clientPort, uint32_t pluginID, uint32_t 
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanReply(hostProxy->port(), pluginID, requestID, false);
+        return KERN_SUCCESS;
+    }
     
     PluginDestroyDeferrer deferrer(instanceProxy);
 
@@ -807,8 +850,10 @@ kern_return_t WKPCEnumerate(mach_port_t clientPort, uint32_t pluginID, uint32_t 
         return KERN_FAILURE;
     
     NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
-    if (!instanceProxy)
-        return KERN_FAILURE;
+    if (!instanceProxy) {
+        _WKPHBooleanAndDataReply(hostProxy->port(), pluginID, requestID, false, 0, 0);
+        return KERN_SUCCESS;
+    }
     
     data_t resultData = 0;
     mach_msg_type_number_t resultLength = 0;
@@ -841,6 +886,174 @@ kern_return_t WKPCSetModal(mach_port_t clientPort, boolean_t modal)
     
     hostProxy->setModal(modal);
     
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCGetCookies(mach_port_t clientPort, uint32_t pluginID,
+                             data_t urlData, mach_msg_type_number_t urlLength,
+                             boolean_t* returnValue, data_t* cookiesData, mach_msg_type_number_t* cookiesLength)
+{
+    *cookiesData = 0;
+    *cookiesLength = 0;
+    
+    DataDeallocator deallocator(urlData, urlLength);
+    
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+    
+    *returnValue = instanceProxy->getCookies(urlData, urlLength, *cookiesData, *cookiesLength);
+    
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCGetProxy(mach_port_t clientPort, uint32_t pluginID,
+                           data_t urlData, mach_msg_type_number_t urlLength,
+                           boolean_t* returnValue, data_t* proxyData, mach_msg_type_number_t* proxyLength)
+{
+    *proxyData = 0;
+    *proxyLength = 0;
+    
+    DataDeallocator deallocator(urlData, urlLength);
+    
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+    
+    *returnValue = instanceProxy->getProxy(urlData, urlLength, *proxyData, *proxyLength);
+    
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCSetCookies(mach_port_t clientPort, uint32_t pluginID,
+                             data_t urlData, mach_msg_type_number_t urlLength,
+                             data_t cookiesData, mach_msg_type_number_t cookiesLength,
+                             boolean_t* returnValue)
+{
+    DataDeallocator urlDeallocator(urlData, urlLength);
+    DataDeallocator cookiesDeallocator(cookiesData, cookiesLength);
+ 
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+
+    *returnValue = instanceProxy->setCookies(urlData, urlLength, cookiesData, cookiesLength);
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCGetAuthenticationInfo(mach_port_t clientPort, uint32_t pluginID,
+                                        data_t protocolData, mach_msg_type_number_t protocolLength,
+                                        data_t hostData, mach_msg_type_number_t hostLength,
+                                        uint32_t port,
+                                        data_t schemeData, mach_msg_type_number_t schemeLength,
+                                        data_t realmData, mach_msg_type_number_t realmLength,
+                                        boolean_t* returnValue,
+                                        data_t* usernameData, mach_msg_type_number_t *usernameLength,
+                                        data_t* passwordData, mach_msg_type_number_t *passwordLength)
+{
+    DataDeallocator protocolDeallocator(protocolData, protocolLength);
+    DataDeallocator hostDeallocator(hostData, hostLength);
+    DataDeallocator schemeDeallocator(schemeData, schemeLength);
+    DataDeallocator realmDeallocator(realmData, realmLength);
+
+    *usernameData = 0;
+    *usernameLength = 0;
+    *passwordData = 0;
+    *passwordLength = 0;
+    
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+    
+    *returnValue = instanceProxy->getAuthenticationInfo(protocolData, hostData, port, schemeData, realmData, *usernameData, *usernameLength, *passwordData, *passwordLength);
+    
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCConvertPoint(mach_port_t clientPort, uint32_t pluginID, 
+                               double sourceX, double sourceY, uint32_t sourceSpace, 
+                               uint32_t destSpace, boolean_t *returnValue, double *destX, double *destY)
+{
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+
+    *returnValue = instanceProxy->convertPoint(sourceX, sourceY, static_cast<NPCoordinateSpace>(sourceSpace), 
+                                               *destX, *destY, static_cast<NPCoordinateSpace>(destSpace));
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCCheckIfAllowedToLoadURL(mach_port_t clientPort, uint32_t pluginID, data_t urlData, mach_msg_type_number_t urlLength,
+                                          data_t targetData, mach_msg_type_number_t targetLength, uint32_t *checkID)
+{
+    DataDeallocator urlDeallocator(urlData, urlLength);
+    DataDeallocator targetDeallocator(targetData, targetLength);
+
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+    
+    *checkID = instanceProxy->checkIfAllowedToLoadURL(urlData, targetData);
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCCancelCheckIfAllowedToLoadURL(mach_port_t clientPort, uint32_t pluginID, uint32_t checkID)
+{
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+
+    instanceProxy->cancelCheckIfAllowedToLoadURL(checkID);
+    return KERN_SUCCESS;
+}
+
+kern_return_t WKPCResolveURL(mach_port_t clientPort, uint32_t pluginID, data_t urlData, mach_msg_type_number_t urlLength,
+                             data_t targetData, mach_msg_type_number_t targetLength,
+                             data_t *resolvedURLData, mach_msg_type_number_t *resolvedURLLength)
+{
+    DataDeallocator urlDeallocator(urlData, urlLength);
+    DataDeallocator targetDeallocator(targetData, targetLength);
+    
+    *resolvedURLData = 0;
+    *resolvedURLLength = 0;
+    
+    NetscapePluginHostProxy* hostProxy = pluginProxyMap().get(clientPort);
+    if (!hostProxy)
+        return KERN_FAILURE;
+    
+    NetscapePluginInstanceProxy* instanceProxy = hostProxy->pluginInstance(pluginID);
+    if (!instanceProxy)
+        return KERN_FAILURE;
+    
+    instanceProxy->resolveURL(urlData, targetData, *resolvedURLData, *resolvedURLLength);
     return KERN_SUCCESS;
 }
 

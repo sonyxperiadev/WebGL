@@ -19,6 +19,7 @@
     Boston, MA 02110-1301, USA.
 */
 
+#include "config.h"
 #include <qglobal.h>
 #if QT_VERSION < 0x040400
 #include "qwebframe.h"
@@ -84,11 +85,10 @@ static QByteArray decodePercentEncoding(const QByteArray& input)
 
     for (int i = 0; i < input.length(); ++i)
         if (state == State_Begin) {
-            if (input.at(i) == '%') {
+            if (input.at(i) == '%')
                 state = State_FirstChar;
-            } else {
+            else
                 output[actualLength++] = input[i];
-            }
         } else if (state == State_FirstChar) {
             state = State_SecondChar;
             tmpVal[0] = input[i];
@@ -109,7 +109,7 @@ void QWebNetworkRequestPrivate::init(const WebCore::ResourceRequest &resourceReq
     init(resourceRequest.httpMethod(), qurl, &resourceRequest);
 }
 
-void QWebNetworkRequestPrivate::init(const QString &method, const QUrl &url, const WebCore::ResourceRequest *resourceRequest)
+void QWebNetworkRequestPrivate::init(const QString& method, const QUrl& url, const WebCore::ResourceRequest* resourceRequest)
 {
     httpHeader = QHttpRequestHeader(method, url.toString(QUrl::RemoveScheme|QUrl::RemoveAuthority));
     httpHeader.setValue(QLatin1String("Connection"), QLatin1String("Keep-Alive"));
@@ -140,7 +140,7 @@ void QWebNetworkRequestPrivate::init(const QString &method, const QUrl &url, con
     }
 }
 
-void QWebNetworkRequestPrivate::setURL(const QUrl &u)
+void QWebNetworkRequestPrivate::setURL(const QUrl& u)
 {
     url = u;
     int port = url.port();
@@ -153,6 +153,7 @@ void QWebNetworkRequestPrivate::setURL(const QUrl &u)
 
 /*!
   \class QWebNetworkRequest
+  \internal
 
   The QWebNetworkRequest class represents a request for data from the network with all the
   necessary information needed for retrieval. This includes the url, extra HTTP header fields
@@ -164,7 +165,7 @@ QWebNetworkRequest::QWebNetworkRequest()
 {
 }
 
-QWebNetworkRequest::QWebNetworkRequest(const QUrl &url, Method method, const QByteArray &postData)
+QWebNetworkRequest::QWebNetworkRequest(const QUrl& url, Method method, const QByteArray& postData)
     : d(new QWebNetworkRequestPrivate)
 {
     d->init(method == Get ? "GET" : "POST", url);
@@ -176,7 +177,7 @@ QWebNetworkRequest::QWebNetworkRequest(const QWebNetworkRequest &other)
 {
 }
 
-QWebNetworkRequest &QWebNetworkRequest::operator=(const QWebNetworkRequest &other)
+QWebNetworkRequest &QWebNetworkRequest::operator=(const QWebNetworkRequest& other)
 {
     *d = *other.d;
     return *this;
@@ -185,7 +186,7 @@ QWebNetworkRequest &QWebNetworkRequest::operator=(const QWebNetworkRequest &othe
 /*!
   \internal
 */
-QWebNetworkRequest::QWebNetworkRequest(const QWebNetworkRequestPrivate &priv)
+QWebNetworkRequest::QWebNetworkRequest(const QWebNetworkRequestPrivate& priv)
     : d(new QWebNetworkRequestPrivate(priv))
 {
 }
@@ -193,7 +194,7 @@ QWebNetworkRequest::QWebNetworkRequest(const QWebNetworkRequestPrivate &priv)
 /*!
   \internal
 */
-QWebNetworkRequest::QWebNetworkRequest(const WebCore::ResourceRequest &request)
+QWebNetworkRequest::QWebNetworkRequest(const WebCore::ResourceRequest& request)
     : d(new QWebNetworkRequestPrivate)
 {
     d->init(request);
@@ -205,6 +206,7 @@ QWebNetworkRequest::~QWebNetworkRequest()
 }
 
 /*!
+  \internal
   The requested URL
 */
 QUrl QWebNetworkRequest::url() const
@@ -213,16 +215,18 @@ QUrl QWebNetworkRequest::url() const
 }
 
 /*!
+   \internal
    Sets the URL to request.
 
    Note that setting the URL also sets the "Host" field in the HTTP header.
 */
-void QWebNetworkRequest::setUrl(const QUrl &url)
+void QWebNetworkRequest::setUrl(const QUrl& url)
 {
     d->setURL(url);
 }
 
 /*!
+   \internal
    The http request header information.
 */
 QHttpRequestHeader QWebNetworkRequest::httpHeader() const
@@ -230,22 +234,23 @@ QHttpRequestHeader QWebNetworkRequest::httpHeader() const
     return d->httpHeader;
 }
 
-void QWebNetworkRequest::setHttpHeader(const QHttpRequestHeader &header) const
+void QWebNetworkRequest::setHttpHeader(const QHttpRequestHeader& header) const
 {
     d->httpHeader = header;
 }
 
-QString QWebNetworkRequest::httpHeaderField(const QString &key) const
+QString QWebNetworkRequest::httpHeaderField(const QString& key) const
 {
     return d->httpHeader.value(key);
 }
 
-void QWebNetworkRequest::setHttpHeaderField(const QString &key, const QString &value)
+void QWebNetworkRequest::setHttpHeaderField(const QString& key, const QString& value)
 {
     d->httpHeader.setValue(key, value);
 }
 
 /*!
+    \internal
     Post data sent with HTTP POST requests.
 */
 QByteArray QWebNetworkRequest::postData() const
@@ -253,13 +258,14 @@ QByteArray QWebNetworkRequest::postData() const
     return d->postData;
 }
 
-void QWebNetworkRequest::setPostData(const QByteArray &data)
+void QWebNetworkRequest::setPostData(const QByteArray& data)
 {
     d->postData = data;
 }
 
 /*!
   \class QWebNetworkJob
+  \internal
 
   The QWebNetworkJob class represents a network job, that needs to be
   processed by the QWebNetworkInterface.
@@ -292,6 +298,7 @@ QWebNetworkJob::~QWebNetworkJob()
 }
 
 /*!
+  \internal
   The requested URL
 */
 QUrl QWebNetworkJob::url() const
@@ -300,6 +307,7 @@ QUrl QWebNetworkJob::url() const
 }
 
 /*!
+  \internal
   Post data associated with the job
 */
 QByteArray QWebNetworkJob::postData() const
@@ -308,6 +316,7 @@ QByteArray QWebNetworkJob::postData() const
 }
 
 /*!
+  \internal
   The HTTP request header that should be used to download the job.
 */
 QHttpRequestHeader QWebNetworkJob::httpHeader() const
@@ -316,6 +325,7 @@ QHttpRequestHeader QWebNetworkJob::httpHeader() const
 }
 
 /*!
+  \internal
   The complete network request that should be used to download the job.
 */
 QWebNetworkRequest QWebNetworkJob::request() const
@@ -324,6 +334,7 @@ QWebNetworkRequest QWebNetworkJob::request() const
 }
 
 /*!
+  \internal
   The HTTP response header received from the network.
 */
 QHttpResponseHeader QWebNetworkJob::response() const
@@ -332,6 +343,7 @@ QHttpResponseHeader QWebNetworkJob::response() const
 }
 
 /*!
+  \internal
   The last error of the Job.
 */
 QString QWebNetworkJob::errorString() const
@@ -340,10 +352,11 @@ QString QWebNetworkJob::errorString() const
 }
 
 /*!
+  \internal
   Sets the HTTP reponse header. The response header has to be called before
   emitting QWebNetworkInterface::started.
 */
-void QWebNetworkJob::setResponse(const QHttpResponseHeader &response)
+void QWebNetworkJob::setResponse(const QHttpResponseHeader& response)
 {
     d->response = response;
 }
@@ -354,6 +367,7 @@ void QWebNetworkJob::setErrorString(const QString& errorString)
 }
 
 /*!
+  \internal
   returns true if the job has been cancelled by the WebKit framework
 */
 bool QWebNetworkJob::cancelled() const
@@ -362,6 +376,7 @@ bool QWebNetworkJob::cancelled() const
 }
 
 /*!
+  \internal
   reference the job.
 */
 void QWebNetworkJob::ref()
@@ -370,6 +385,7 @@ void QWebNetworkJob::ref()
 }
 
 /*!
+  \internal
   derefence the job.
 
   If the reference count drops to 0 this method also deletes the job.
@@ -386,6 +402,7 @@ bool QWebNetworkJob::deref()
 }
 
 /*!
+   \internal
    Returns the network interface that is associated with this job.
 */
 QWebNetworkInterface *QWebNetworkJob::networkInterface() const
@@ -394,15 +411,15 @@ QWebNetworkInterface *QWebNetworkJob::networkInterface() const
 }
 
 /*!
+   \internal
    Returns the network interface that is associated with this job.
 */
 QWebFrame *QWebNetworkJob::frame() const
 {
-    if (d->resourceHandle) {
+    if (!d->resourceHandle) {
         ResourceHandleInternal *rhi = d->resourceHandle->getInternal();
-        if (rhi) {
+        if (rhi)
             return rhi->m_frame;
-        }
     }
     return 0;
 }
@@ -436,7 +453,7 @@ QWebNetworkManager *QWebNetworkManager::self()
     return s_manager;
 }
 
-bool QWebNetworkManager::add(ResourceHandle *handle, QWebNetworkInterface *interface, JobMode jobMode)
+bool QWebNetworkManager::add(ResourceHandle* handle, QWebNetworkInterface* interface, JobMode jobMode)
 {
     if (!interface)
         interface = s_default_interface;
@@ -468,7 +485,7 @@ bool QWebNetworkManager::add(ResourceHandle *handle, QWebNetworkInterface *inter
     return true;
 }
 
-void QWebNetworkManager::cancel(ResourceHandle *handle)
+void QWebNetworkManager::cancel(ResourceHandle* handle)
 {
     QWebNetworkJob *job = handle->getInternal()->m_job;
     if (!job)
@@ -479,7 +496,10 @@ void QWebNetworkManager::cancel(ResourceHandle *handle)
     handle->getInternal()->m_job = 0;
 }
 
-void QWebNetworkManager::started(QWebNetworkJob *job)
+/*!
+  \internal
+*/
+void QWebNetworkManager::started(QWebNetworkJob* job)
 {
     Q_ASSERT(job->d);
     Q_ASSERT(job->status() == QWebNetworkJob::JobCreated ||
@@ -487,22 +507,23 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
 
     job->setStatus(QWebNetworkJob::JobStarted);
     ResourceHandleClient* client = 0;
-    if (job->d->resourceHandle) {
-        client = job->d->resourceHandle->client();
-        if (!client)
-            return;
-    } else {
+
+    if (!job->d->resourceHandle)
         return;
-    }
+
+    client = job->d->resourceHandle->client();
+    if (!client)
+        return;
 
     DEBUG() << "ResourceHandleManager::receivedResponse:";
     DEBUG() << job->d->response.toString();
 
     QStringList cookies = job->d->response.allValues("Set-Cookie");
     KURL url(job->url());
-    foreach (QString c, cookies) {
+
+    foreach (QString c, cookies)
         QCookieJar::cookieJar()->setCookies(url, url, c);
-    }
+
     QString contentType = job->d->response.value("Content-Type");
     QString encoding;
     int idx = contentType.indexOf(QLatin1Char(';'));
@@ -563,9 +584,9 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
                 // with a 302 which must be GET'ed
                 method = "GET";
                 job->d->request.httpHeader.setContentLength(0);
-            } else {
+            } else
                 method = job->d->request.httpHeader.method();
-            }
+
             job->d->request.httpHeader.setRequest(method,
                                                   newUrl.toString(QUrl::RemoveScheme|QUrl::RemoveAuthority));
             job->d->request.setURL(newUrl);
@@ -579,31 +600,29 @@ void QWebNetworkManager::started(QWebNetworkJob *job)
 
 }
 
-void QWebNetworkManager::data(QWebNetworkJob *job, const QByteArray &data)
+void QWebNetworkManager::data(QWebNetworkJob* job, const QByteArray& data)
 {
     Q_ASSERT(job->status() == QWebNetworkJob::JobStarted ||
              job->status() == QWebNetworkJob::JobReceivingData);
 
     job->setStatus(QWebNetworkJob::JobReceivingData);
     ResourceHandleClient* client = 0;
-    if (job->d->resourceHandle) {
-        client = job->d->resourceHandle->client();
-        if (!client)
-            return;
-    } else {
+
+    if (!job->d->resourceHandle)
         return;
-    }
+
+    client = job->d->resourceHandle->client();
+    if (!client)
+        return;
 
     if (job->d->redirected)
         return; // don't emit the "Document has moved here" type of HTML
 
     DEBUG() << "receivedData" << job->d->request.url.path();
-    if (client)
-        client->didReceiveData(job->d->resourceHandle, data.constData(), data.length(), data.length() /*FixMe*/);
-
+    client->didReceiveData(job->d->resourceHandle, data.constData(), data.length(), data.length() /*FixMe*/);
 }
 
-void QWebNetworkManager::finished(QWebNetworkJob *job, int errorCode)
+void QWebNetworkManager::finished(QWebNetworkJob* job, int errorCode)
 {
     Q_ASSERT(errorCode == 1 ||
              job->status() == QWebNetworkJob::JobStarted ||
@@ -641,9 +660,8 @@ void QWebNetworkManager::finished(QWebNetworkJob *job, int errorCode)
             client->didFail(job->d->resourceHandle,
                             ResourceError(job->d->request.url.host(), job->d->response.statusCode(),
                                           job->d->request.url.toString(), job->d->errorString));
-        } else {
+        } else
             client->didFinishLoading(job->d->resourceHandle);
-        }
     }
 
     DEBUG() << "receivedFinished done" << job->d->request.url;
@@ -651,7 +669,7 @@ void QWebNetworkManager::finished(QWebNetworkJob *job, int errorCode)
     job->deref();
 }
 
-void QWebNetworkManager::addHttpJob(QWebNetworkJob *job)
+void QWebNetworkManager::addHttpJob(QWebNetworkJob* job)
 {
     HostInfo hostInfo(job->url());
     WebCoreHttp *httpConnection = m_hostMapping.value(hostInfo);
@@ -667,20 +685,20 @@ void QWebNetworkManager::addHttpJob(QWebNetworkJob *job)
     httpConnection->request(job);
 }
 
-void QWebNetworkManager::cancelHttpJob(QWebNetworkJob *job)
+void QWebNetworkManager::cancelHttpJob(QWebNetworkJob* job)
 {
     WebCoreHttp *httpConnection = m_hostMapping.value(job->url());
     if (httpConnection)
         httpConnection->cancel(job);
 }
 
-void QWebNetworkManager::httpConnectionClosed(const WebCore::HostInfo &info)
+void QWebNetworkManager::httpConnectionClosed(const WebCore::HostInfo& info)
 {
     WebCoreHttp *connection = m_hostMapping.take(info);
     connection->deleteLater();
 }
 
-void QWebNetworkInterfacePrivate::sendFileData(QWebNetworkJob* job, int statusCode, const QByteArray &data)
+void QWebNetworkInterfacePrivate::sendFileData(QWebNetworkJob* job, int statusCode, const QByteArray& data)
 {
     int error = statusCode >= 400 ? 1 : 0;
     if (!job->cancelled()) {
@@ -723,15 +741,13 @@ void QWebNetworkInterfacePrivate::parseDataUrl(QWebNetworkJob* job)
             header = header.left(header.length() - 7);
             //qDebug() << "mime=" << header;
         }
-    } else {
+    } else
         data = QByteArray();
-    }
 
-    if (base64) {
+    if (base64)
         data = QByteArray::fromBase64(data);
-    } else {
+    else
         data = decodePercentEncoding(data);
-    }
 
     if (header.isEmpty())
         header = "text/plain;charset=US-ASCII";
@@ -830,13 +846,14 @@ void QWebNetworkManager::doWork()
     }
 
     m_queueMutex.lock();
-    if (hasSyncJobs && m_synchronousJobs.size() == 0)
+    if (hasSyncJobs && !m_synchronousJobs.size())
         doScheduleWork();
     m_queueMutex.unlock();
 }
 
 /*!
   \class QWebNetworkInterface
+  \internal
 
   The QWebNetworkInterface class provides an abstraction layer for
   WebKit's network interface.  It allows to completely replace or
@@ -860,10 +877,11 @@ static void gCleanupInterface()
 }
 
 /*!
+  \internal
   Sets a new default interface that will be used by all of WebKit
   for downloading data from the internet.
 */
-void QWebNetworkInterface::setDefaultInterface(QWebNetworkInterface *defaultInterface)
+void QWebNetworkInterface::setDefaultInterface(QWebNetworkInterface* defaultInterface)
 {
     if (s_default_interface == defaultInterface)
         return;
@@ -877,23 +895,25 @@ void QWebNetworkInterface::setDefaultInterface(QWebNetworkInterface *defaultInte
 }
 
 /*!
+  \internal
   Returns the default interface that will be used by WebKit. If no
   default interface has been set, QtWebkit will create an instance of
   QWebNetworkInterface to do the work.
 */
 QWebNetworkInterface *QWebNetworkInterface::defaultInterface()
 {
-    if (!s_default_interface) {
+    if (!s_default_interface)
         setDefaultInterface(new QWebNetworkInterface);
-    }
+
     return s_default_interface;
 }
 
 
 /*!
+  \internal
   Constructs a QWebNetworkInterface object.
 */
-QWebNetworkInterface::QWebNetworkInterface(QObject *parent)
+QWebNetworkInterface::QWebNetworkInterface(QObject* parent)
     : QObject(parent)
 {
     d = new QWebNetworkInterfacePrivate;
@@ -904,6 +924,7 @@ QWebNetworkInterface::QWebNetworkInterface(QObject *parent)
 }
 
 /*!
+  \internal
   Destructs the QWebNetworkInterface object.
 */
 QWebNetworkInterface::~QWebNetworkInterface()
@@ -912,6 +933,7 @@ QWebNetworkInterface::~QWebNetworkInterface()
 }
 
 /*!
+  \internal
   This virtual method gets called whenever QtWebkit needs to add a
   new job to download.
 
@@ -923,7 +945,7 @@ QWebNetworkInterface::~QWebNetworkInterface()
   After the finished signal has been emitted, the QWebNetworkInterface
   is not allowed to access the job anymore.
 */
-void QWebNetworkInterface::addJob(QWebNetworkJob *job)
+void QWebNetworkInterface::addJob(QWebNetworkJob* job)
 {
     QString protocol = job->url().scheme();
     if (protocol == QLatin1String("http") || protocol == QLatin1String("https")) {
@@ -966,9 +988,8 @@ void QWebNetworkInterface::addJob(QWebNetworkJob *job)
             response.setStatusLine(200);
             job->setResponse(response);
             data = f.readAll();
-        } else {
+        } else
             statusCode = 404;
-        }
     }
 
     if (statusCode == 404) {
@@ -981,6 +1002,7 @@ void QWebNetworkInterface::addJob(QWebNetworkJob *job)
 }
 
 /*!
+  \internal
   This virtual method gets called whenever QtWebkit needs to cancel a
   new job.
 
@@ -989,35 +1011,66 @@ void QWebNetworkInterface::addJob(QWebNetworkJob *job)
   the finished signal, the interface should not access the job
   anymore.
 */
-void QWebNetworkInterface::cancelJob(QWebNetworkJob *job)
+void QWebNetworkInterface::cancelJob(QWebNetworkJob* job)
 {
     QString protocol = job->url().scheme();
     if (protocol == QLatin1String("http") || protocol == QLatin1String("https"))
         QWebNetworkManager::self()->cancelHttpJob(job);
 }
 
+/*!
+  \internal
+*/
 void QWebNetworkInterface::started(QWebNetworkJob* job)
 {
     Q_ASSERT(s_manager);
     s_manager->queueStart(job);
 }
 
+/*!
+  \internal
+*/
 void QWebNetworkInterface::data(QWebNetworkJob* job, const QByteArray& data)
 {
     Q_ASSERT(s_manager);
     s_manager->queueData(job, data);
 }
 
+/*!
+  \internal
+*/
 void QWebNetworkInterface::finished(QWebNetworkJob* job, int errorCode)
 {
     Q_ASSERT(s_manager);
     s_manager->queueFinished(job, errorCode);
 }
 
+/*!
+  \fn void QWebNetworkInterface::sslErrors(QWebFrame *frame, const QUrl& url, const QList<QSslError>& errors, bool *continueAnyway);
+  \internal
+
+   Signal is emitted when an SSL error occurs.
+*/
+
+/*!
+  \fn void QWebNetworkInterface::authenticate(QWebFrame *frame, const QUrl& url, const QString& hostname, quint16 port, QAuthenticator *auth);
+  \internal
+
+  Signal is emitted when network authentication is required.
+*/
+
+/*!
+  \fn void QWebNetworkInterface::authenticateProxy(QWebFrame *frame, const QUrl& url, const QNetworkProxy& proxy, QAuthenticator *auth);
+  \internal
+
+  Signal is emitted when proxy authentication is required.
+*/
+
 /////////////////////////////////////////////////////////////////////////////
-WebCoreHttp::WebCoreHttp(QObject* parent, const HostInfo &hi)
-    : QObject(parent), info(hi),
-      m_inCancel(false)
+WebCoreHttp::WebCoreHttp(QObject* parent, const HostInfo& hi)
+    : QObject(parent)
+    , info(hi)
+    , m_inCancel(false)
 {
     for (int i = 0; i < 2; ++i) {
         connection[i].http = new QHttp(info.host, (hi.protocol == QLatin1String("https")) ? QHttp::ConnectionModeHttps : QHttp::ConnectionModeHttp, info.port);
@@ -1046,7 +1099,7 @@ WebCoreHttp::~WebCoreHttp()
     connection[1].http->deleteLater();
 }
 
-void WebCoreHttp::request(QWebNetworkJob *job)
+void WebCoreHttp::request(QWebNetworkJob* job)
 {
     m_pendingRequests.append(job);
     scheduleNextRequest();
@@ -1073,7 +1126,7 @@ void WebCoreHttp::scheduleNextRequest()
     if (!job)
         return;
 
-    QHttp *http = connection[c].http;
+    QHttp* http = connection[c].http;
 
     connection[c].current = job;
     connection[c].id = -1;
@@ -1094,7 +1147,7 @@ void WebCoreHttp::scheduleNextRequest()
 
 int WebCoreHttp::getConnection()
 {
-    QObject *o = sender();
+    QObject* o = sender();
     int c;
     if (o == connection[0].http) {
         c = 0;
@@ -1106,15 +1159,15 @@ int WebCoreHttp::getConnection()
     return c;
 }
 
-void WebCoreHttp::onResponseHeaderReceived(const QHttpResponseHeader &resp)
+void WebCoreHttp::onResponseHeaderReceived(const QHttpResponseHeader& resp)
 {
-    QHttp *http = qobject_cast<QHttp*>(sender());
-    if (http->currentId() == 0) {
+    QHttp* http = qobject_cast<QHttp*>(sender());
+    if (!http->currentId()) {
         qDebug() << "ERROR!  Invalid job id.  Why?"; // foxnews.com triggers this
         return;
     }
     int c = getConnection();
-    QWebNetworkJob *job = connection[c].current;
+    QWebNetworkJob* job = connection[c].current;
     DEBUG() << "WebCoreHttp::slotResponseHeaderReceived connection=" << c;
     DEBUG() << resp.toString();
 
@@ -1125,13 +1178,13 @@ void WebCoreHttp::onResponseHeaderReceived(const QHttpResponseHeader &resp)
 
 void WebCoreHttp::onReadyRead()
 {
-    QHttp *http = qobject_cast<QHttp*>(sender());
-    if (http->currentId() == 0) {
+    QHttp* http = qobject_cast<QHttp*>(sender());
+    if (!http->currentId()) {
         qDebug() << "ERROR!  Invalid job id.  Why?"; // foxnews.com triggers this
         return;
     }
     int c = getConnection();
-    QWebNetworkJob *job = connection[c].current;
+    QWebNetworkJob* job = connection[c].current;
     Q_ASSERT(http == connection[c].http);
     //DEBUG() << "WebCoreHttp::slotReadyRead connection=" << c;
 
@@ -1144,17 +1197,16 @@ void WebCoreHttp::onReadyRead()
 void WebCoreHttp::onRequestFinished(int id, bool error)
 {
     int c = getConnection();
-    if (connection[c].id != id) {
+    if (connection[c].id != id)
         return;
-    }
 
-    QWebNetworkJob *job = connection[c].current;
+    QWebNetworkJob* job = connection[c].current;
     if (!job) {
         scheduleNextRequest();
         return;
     }
 
-    QHttp *http = connection[c].http;
+    QHttp* http = connection[c].http;
     DEBUG() << "WebCoreHttp::slotFinished connection=" << c << error << job;
     if (error) {
         DEBUG() << "   error: " << http->errorString();
@@ -1225,7 +1277,7 @@ void WebCoreHttp::onSslErrors(const QList<QSslError>& errors)
     }
 }
 
-void WebCoreHttp::onAuthenticationRequired(const QString& hostname, quint16 port, QAuthenticator *auth)
+void WebCoreHttp::onAuthenticationRequired(const QString& hostname, quint16 port, QAuthenticator* auth)
 {
     int c = getConnection();
     QWebNetworkJob *job = connection[c].current;
@@ -1236,7 +1288,7 @@ void WebCoreHttp::onAuthenticationRequired(const QString& hostname, quint16 port
     }
 }
 
-void WebCoreHttp::onProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator *auth)
+void WebCoreHttp::onProxyAuthenticationRequired(const QNetworkProxy& proxy, QAuthenticator* auth)
 {
     int c = getConnection();
     QWebNetworkJob *job = connection[c].current;

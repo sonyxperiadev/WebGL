@@ -89,7 +89,7 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
         return false;
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
 
     bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
@@ -178,7 +178,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     
     /* FIXME: Synthesize an XEvent to pass through */
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
@@ -193,7 +193,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     /* FIXME: Synthesize an XEvent to pass through */
     IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(IntPoint(event->pageX(), event->pageY()));
 
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
@@ -204,10 +204,6 @@ void PluginView::setParent(ScrollView* parent)
 
     if (parent)
         init();
-    else {
-        if (!platformPluginWidget())
-            return;
-    }
 }
 
 void PluginView::setNPWindowRect(const IntRect&)
@@ -240,7 +236,7 @@ void PluginView::setNPWindowIfNeeded()
 #endif
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
@@ -260,72 +256,6 @@ void PluginView::setParentVisible(bool visible)
         else
             gtk_widget_hide(platformPluginWidget());
     }
-}
-
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
-    }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
-    // Clear the window
-    m_npWindow.window = 0;
-    if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
-
-#ifdef XP_UNIX
-    if (m_isWindowed && m_npWindow.ws_info)
-           delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
-    m_npWindow.ws_info = 0;
-#endif
-
-    // Destroy the plugin
-    {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->destroy(m_instance, 0);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-    m_instance->pdata = 0;
-}
-
-static const char* MozillaUserAgent = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-
-const char* PluginView::userAgent()
-{
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
-        return MozillaUserAgent;
-
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-
-    return m_userAgent.data();
-}
-
-const char* PluginView::userAgentStatic()
-{
-    //FIXME - Lie and say we are Mozilla
-    return MozillaUserAgent;
 }
 
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
@@ -359,6 +289,8 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
 
 NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValueStatic(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVToolkit:
 #if PLATFORM(GTK)
@@ -387,6 +319,8 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
 NPError PluginView::getValue(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValue(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVxDisplay:
 #if PLATFORM(X11)
@@ -543,7 +477,7 @@ void PluginView::init()
 
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginNeedsXEmbed, &m_needsXEmbed);
         setCallingPlugin(false);
@@ -600,6 +534,10 @@ void PluginView::init()
         updatePluginWidget(); // was: setNPWindowIfNeeded(), but this doesn't produce 0x0 rects at first go
 
     m_status = PluginStatusLoadedSuccessfully;
+}
+
+void PluginView::platformStart()
+{
 }
 
 } // namespace WebCore

@@ -36,16 +36,15 @@
 #include "DOMWindow.h"
 #include "Event.h"
 #include "EventException.h"
-#include "MessageEvent.h"
+#include "MessagePort.h"
 #include "NotImplemented.h"
-#include "ResourceRequest.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
-#include "WorkerImportScriptsClient.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include "WorkerObjectProxy.h"
+#include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
 #include "WorkerThreadableLoader.h"
 #include "XMLHttpRequestException.h"
@@ -65,9 +64,6 @@ WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThr
 
 WorkerContext::~WorkerContext()
 {
-    ASSERT(currentThread() == m_thread->threadID());
-
-    m_thread->workerObjectProxy().workerContextDestroyed();
 }
 
 ScriptExecutionContext* WorkerContext::scriptExecutionContext() const
@@ -131,17 +127,15 @@ bool WorkerContext::hasPendingActivity() const
         if (iter->first->hasPendingActivity())
             return true;
     }
+
+    // Keep the worker active as long as there is a MessagePort with pending activity or that is remotely entangled.
+    HashSet<MessagePort*>::const_iterator messagePortsEnd = messagePorts().end();
+    for (HashSet<MessagePort*>::const_iterator iter = messagePorts().begin(); iter != messagePortsEnd; ++iter) {
+        if ((*iter)->hasPendingActivity() || ((*iter)->isEntangled() && !(*iter)->locallyEntangledPort()))
+            return true;
+    }
+
     return false;
-}
-
-void WorkerContext::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
-{
-    m_thread->workerObjectProxy().postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
-}
-
-void WorkerContext::addMessage(MessageDestination destination, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
-{
-    m_thread->workerObjectProxy().postConsoleMessageToWorkerObject(destination, source, level, message, lineNumber, sourceURL);
 }
 
 void WorkerContext::resourceRetrievedByXMLHttpRequest(unsigned long, const ScriptString&)
@@ -154,14 +148,6 @@ void WorkerContext::scriptImported(unsigned long, const String&)
 {
     // FIXME: The implementation is pending the fixes in https://bugs.webkit.org/show_bug.cgi?id=23175
     notImplemented();
-}
-
-void WorkerContext::postMessage(const String& message)
-{
-    if (m_closing)
-        return;
-
-    m_thread->workerObjectProxy().postMessageToWorkerObject(message);
 }
 
 void WorkerContext::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> eventListener, bool)
@@ -240,23 +226,6 @@ void WorkerContext::clearInterval(int timeoutId)
     DOMTimer::removeById(scriptExecutionContext(), timeoutId);
 }
 
-void WorkerContext::dispatchMessage(const String& message)
-{
-    // Since close() stops the thread event loop, this should not ever get called while closing.
-    ASSERT(!m_closing);
-    RefPtr<Event> evt = MessageEvent::create(message, "", "", 0, 0);
-
-    if (m_onmessageListener.get()) {
-        evt->setTarget(this);
-        evt->setCurrentTarget(this);
-        m_onmessageListener->handleEvent(evt.get(), false);
-    }
-
-    ExceptionCode ec = 0;
-    dispatchEvent(evt.release(), ec);
-    ASSERT(!ec);
-}
-
 void WorkerContext::importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode& ec)
 {
     ec = 0;
@@ -274,25 +243,35 @@ void WorkerContext::importScripts(const Vector<String>& urls, const String& call
     Vector<KURL>::const_iterator end = completedURLs.end();
 
     for (Vector<KURL>::const_iterator it = completedURLs.begin(); it != end; ++it) {
-        ResourceRequest request(*it);
-        request.setHTTPMethod("GET");
-        request.setHTTPOrigin(securityOrigin);
-        WorkerImportScriptsClient client(scriptExecutionContext(), *it, callerURL, callerLine);
-        WorkerThreadableLoader::loadResourceSynchronously(this, request, client, AllowStoredCredentials, AllowDifferentRedirectOrigin);
-        
+        WorkerScriptLoader scriptLoader;
+        scriptLoader.loadSynchronously(scriptExecutionContext(), *it, AllowCrossOriginRedirect);
+
         // If the fetching attempt failed, throw a NETWORK_ERR exception and abort all these steps.
-        if (client.failed()) {
+        if (scriptLoader.failed()) {
             ec = XMLHttpRequestException::NETWORK_ERR;
             return;
         }
 
+        scriptExecutionContext()->scriptImported(scriptLoader.identifier(), scriptLoader.script());
+        scriptExecutionContext()->addMessage(InspectorControllerDestination, JSMessageSource, LogMessageType, LogMessageLevel, "Worker script imported: \"" + *it + "\".", callerLine, callerURL);
+
         ScriptValue exception;
-        m_script->evaluate(ScriptSourceCode(client.script(), *it), &exception);
+        m_script->evaluate(ScriptSourceCode(scriptLoader.script(), *it), &exception);
         if (!exception.hasNoValue()) {
             m_script->setException(exception);
             return;
         }
     }
+}
+
+void WorkerContext::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
+{
+    bool errorHandled = false;
+    if (onerror())
+        errorHandled = onerror()->reportError(errorMessage, sourceURL, lineNumber);
+
+    if (!errorHandled)
+        forwardException(errorMessage, lineNumber, sourceURL);
 }
 
 } // namespace WebCore

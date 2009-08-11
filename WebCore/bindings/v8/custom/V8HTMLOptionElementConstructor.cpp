@@ -50,11 +50,15 @@ CALLBACK_FUNC_DECL(HTMLOptionElementConstructor)
     if (!args.IsConstructCall())
         return throwError("DOM object constructor cannot be called as a function.");
 
-    Document* document = V8Proxy::retrieveFrame()->document();
-    if (!document)
-        return throwError("Option constructor associated document is unavailable", V8Proxy::REFERENCE_ERROR);
+    Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
+    if (!frame)
+        return throwError("Option constructor associated frame is unavailable", V8Proxy::ReferenceError);
 
-    RefPtr<HTMLOptionElement> option = new HTMLOptionElement(HTMLNames::optionTag, V8Proxy::retrieveFrame()->document());
+    Document* document = frame->document();
+    if (!document)
+        return throwError("Option constructor associated document is unavailable", V8Proxy::ReferenceError);
+
+    RefPtr<HTMLOptionElement> option = new HTMLOptionElement(HTMLNames::optionTag, document);
 
     ExceptionCode ec = 0;
     RefPtr<Text> text = document->createTextNode("");
@@ -81,9 +85,9 @@ CALLBACK_FUNC_DECL(HTMLOptionElementConstructor)
         }
     }
 
-    V8Proxy::SetDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::NODE), option.get());
+    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::NODE), option.get());
     option->ref();
-    V8Proxy::SetJSWrapperForDOMNode(option.get(), v8::Persistent<v8::Object>::New(args.Holder()));
+    V8DOMWrapper::setJSWrapperForDOMNode(option.get(), v8::Persistent<v8::Object>::New(args.Holder()));
     return args.Holder();
 }
 

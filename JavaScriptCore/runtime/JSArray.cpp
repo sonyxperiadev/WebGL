@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -134,9 +134,9 @@ JSArray::JSArray(PassRefPtr<Structure> structure)
     unsigned initialCapacity = 0;
 
     m_storage = static_cast<ArrayStorage*>(fastZeroedMalloc(storageSize(initialCapacity)));
-    m_fastAccessCutoff = 0;
     m_storage->m_vectorLength = initialCapacity;
-    m_storage->m_length = 0;
+
+    m_fastAccessCutoff = 0;
 
     checkConsistency();
 }
@@ -146,40 +146,45 @@ JSArray::JSArray(PassRefPtr<Structure> structure, unsigned initialLength)
 {
     unsigned initialCapacity = min(initialLength, MIN_SPARSE_ARRAY_INDEX);
 
-    m_storage = static_cast<ArrayStorage*>(fastZeroedMalloc(storageSize(initialCapacity)));
-    m_fastAccessCutoff = 0;
-    m_storage->m_vectorLength = initialCapacity;
+    m_storage = static_cast<ArrayStorage*>(fastMalloc(storageSize(initialCapacity)));
     m_storage->m_length = initialLength;
+    m_storage->m_vectorLength = initialCapacity;
+    m_storage->m_numValuesInVector = 0;
+    m_storage->m_sparseValueMap = 0;
+    m_storage->lazyCreationData = 0;
 
-    Heap::heap(this)->reportExtraMemoryCost(initialCapacity * sizeof(JSValue));
+    JSValue* vector = m_storage->m_vector;
+    for (size_t i = 0; i < initialCapacity; ++i)
+        vector[i] = JSValue();
+
+    m_fastAccessCutoff = 0;
 
     checkConsistency();
+
+    Heap::heap(this)->reportExtraMemoryCost(initialCapacity * sizeof(JSValue));
 }
 
 JSArray::JSArray(PassRefPtr<Structure> structure, const ArgList& list)
     : JSObject(structure)
 {
-    unsigned length = list.size();
+    unsigned initialCapacity = list.size();
 
-    m_fastAccessCutoff = length;
-
-    ArrayStorage* storage = static_cast<ArrayStorage*>(fastMalloc(storageSize(length)));
-
-    storage->m_vectorLength = length;
-    storage->m_numValuesInVector = length;
-    storage->m_sparseValueMap = 0;
-    storage->m_length = length;
+    m_storage = static_cast<ArrayStorage*>(fastMalloc(storageSize(initialCapacity)));
+    m_storage->m_length = initialCapacity;
+    m_storage->m_vectorLength = initialCapacity;
+    m_storage->m_numValuesInVector = initialCapacity;
+    m_storage->m_sparseValueMap = 0;
 
     size_t i = 0;
     ArgList::const_iterator end = list.end();
     for (ArgList::const_iterator it = list.begin(); it != end; ++it, ++i)
-        storage->m_vector[i] = *it;
+        m_storage->m_vector[i] = *it;
 
-    m_storage = storage;
-
-    Heap::heap(this)->reportExtraMemoryCost(storageSize(length));
+    m_fastAccessCutoff = initialCapacity;
 
     checkConsistency();
+
+    Heap::heap(this)->reportExtraMemoryCost(storageSize(initialCapacity));
 }
 
 JSArray::~JSArray()
@@ -596,26 +601,19 @@ void JSArray::push(ExecState* exec, JSValue value)
     putSlowCase(exec, m_storage->m_length++, value);
 }
 
-void JSArray::mark()
+void JSArray::markChildren(MarkStack& markStack)
 {
-    JSObject::mark();
+    JSObject::markChildren(markStack);
 
     ArrayStorage* storage = m_storage;
 
     unsigned usedVectorLength = min(storage->m_length, storage->m_vectorLength);
-    for (unsigned i = 0; i < usedVectorLength; ++i) {
-        JSValue value = storage->m_vector[i];
-        if (value && !value.marked())
-            value.mark();
-    }
+    markStack.appendValues(storage->m_vector, usedVectorLength, MayContainNullValues);
 
     if (SparseArrayValueMap* map = storage->m_sparseValueMap) {
         SparseArrayValueMap::iterator end = map->end();
-        for (SparseArrayValueMap::iterator it = map->begin(); it != end; ++it) {
-            JSValue value = it->second;
-            if (!value.marked())
-                value.mark();
-        }
+        for (SparseArrayValueMap::iterator it = map->begin(); it != end; ++it)
+            markStack.append(it->second);
     }
 }
 

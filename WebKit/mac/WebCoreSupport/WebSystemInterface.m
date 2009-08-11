@@ -59,6 +59,8 @@ void InitWebCoreSystemInterface(void)
     INIT(GetPreferredExtensionForMIMEType);
     INIT(GetWheelEventDeltas);
     INIT(HitTestMediaUIPart);
+    INIT(InitializeMaximumHTTPConnectionCountPerHost);
+    INIT(IsLatchingWheelEvent);
     INIT(MeasureMediaUIPart);
     INIT(PopupMenu);
     INIT(SetCGFontRenderingMode);
@@ -71,8 +73,12 @@ void InitWebCoreSystemInterface(void)
     INIT(SignalCFReadStreamEnd);
     INIT(SignalCFReadStreamError);
     INIT(SignalCFReadStreamHasBytes);
+    INIT(QTIncludeOnlyModernMediaFileTypes);
     INIT(QTMovieDataRate);
     INIT(QTMovieMaxTimeLoaded);
+    INIT(QTMovieMaxTimeLoadedChangeNotification);
+    INIT(QTMovieMaxTimeSeekable);
+    INIT(QTMovieGetType);
     INIT(QTMovieViewSetDrawSynchronously);
 
 #ifndef BUILDING_ON_TIGER

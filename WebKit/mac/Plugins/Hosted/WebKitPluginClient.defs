@@ -56,6 +56,45 @@ simpleroutine PCInvalidateRect(clientPort :mach_port_t;
                              width :double;
                              height :double);
 
+routine PCGetCookies(clientPort :mach_port_t;
+                     pluginID :uint32_t;
+                     url :data_t;
+                     out returnValue :boolean_t;
+                     out cookies :data_t, dealloc);
+
+routine PCSetCookies(clientPort :mach_port_t;
+                     pluginID :uint32_t;
+                     url :data_t;
+                     cookies :data_t;
+                     out returnValue :boolean_t);
+
+routine PCGetProxy(clientPort :mach_port_t;
+                   pluginID :uint32_t;
+                   url :data_t;
+                   out returnValue :boolean_t;
+                   out proxy :data_t, dealloc);
+
+routine PCGetAuthenticationInfo(clientPort :mach_port_t;
+                                pluginID :uint32_t;
+                                protocol :data_t;
+                                host :data_t;
+                                port :uint32_t;
+                                scheme :data_t;
+                                realm :data_t;
+                                out returnValue :boolean_t;
+                                out username :data_t, dealloc;
+                                out password :data_t, dealloc);
+                                
+routine PCConvertPoint(clientPort :mach_port_t;
+                       pluginID :uint32_t;
+                       sourceX :double;
+                       sourceY :double;
+                       sourceSpace :uint32_t;
+                       destSpace :uint32_t;
+                       out returnValue :boolean_t;
+                       out destX :double;
+                       out destY :double);
+
 // NPRuntime
 
 routine PCGetStringIdentifier(clientPort :mach_port_t;
@@ -81,7 +120,8 @@ simpleroutine PCEvaluate(clientPort :mach_port_t;
                        pluginID :uint32_t;
                        requestID :uint32_t;
                        objectID :uint32_t;
-                       script :data_t);
+                       script :data_t;
+                       allowPopups :boolean_t);
 
 simpleroutine PCInvoke(clientPort :mach_port_t;
                      pluginID :uint32_t;
@@ -151,6 +191,22 @@ simpleroutine PCSetMenuBarVisible(clientPort :mach_port_t;
 simpleroutine PCSetModal(clientPort :mach_port_t;
                        modal :boolean_t);
 
+routine PCCheckIfAllowedToLoadURL(clientPort :mach_port_t;
+                                  pluginID :uint32_t;
+                                  url :data_t;
+                                  target :data_t;
+                                  out checkID :uint32_t);
+
+simpleroutine PCCancelCheckIfAllowedToLoadURL(clientPort :mach_port_t;
+                                              pluginID :uint32_t;
+                                              checkID :uint32_t);
+
+routine PCResolveURL(clientPort :mach_port_t;
+                     pluginID :uint32_t;
+                     url :data_t;
+                     target :data_t;
+                     out resolvedURL :data_t, dealloc);
+                      
 // Replies
 simpleroutine PCInstantiatePluginReply(clientPort :mach_port_t;
                                      pluginID :uint32_t;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #import "WebNSObjectExtras.h"
 
+#import <wtf/Assertions.h>
 
 @interface WebMainThreadInvoker : NSProxy
 {
@@ -36,23 +37,35 @@
 }
 @end
 
+static bool returnTypeIsObject(NSInvocation *invocation)
+{
+    // Could use either _C_ID or NSObjCObjectType, but it seems that neither is
+    // both available and non-deprecated on all versions of Mac OS X we support.
+    return strchr([[invocation methodSignature] methodReturnType], '@');
+}
+
 @implementation WebMainThreadInvoker
 
-- (id)initWithTarget:(id)theTarget
+- (id)initWithTarget:(id)passedTarget
 {
-    target = theTarget;
+    target = passedTarget;
     return self;
 }
 
 - (void)forwardInvocation:(NSInvocation *)invocation
 {
     [invocation setTarget:target];
-    [invocation retainArguments];
     [invocation performSelectorOnMainThread:@selector(_webkit_invokeAndHandleException:) withObject:self waitUntilDone:YES];
     if (exception) {
         id exceptionToThrow = [exception autorelease];
         exception = nil;
         @throw exceptionToThrow;
+    } else if (returnTypeIsObject(invocation)) {
+        // _webkit_invokeAndHandleException retained the return value on the main thread.
+        // Now autorelease it on the calling thread.
+        id returnValue;
+        [invocation getReturnValue:&returnValue];
+        [returnValue autorelease];
     }
 }
 
@@ -61,13 +74,13 @@
     return [target methodSignatureForSelector:selector];
 }
 
-- (void)handleException:(id)e
+- (void)handleException:(id)passedException
 {
-    exception = [e retain];
+    ASSERT(!exception);
+    exception = [passedException retain];
 }
 
 @end
-
 
 @implementation NSInvocation (WebMainThreadInvoker)
 
@@ -75,13 +88,20 @@
 {
     @try {
         [self invoke];
-    } @catch (id e) {
-        [exceptionHandler handleException:e];
+    } @catch (id exception) {
+        [exceptionHandler handleException:exception];
+        return;
+    }
+    if (returnTypeIsObject(self)) {
+        // Retain the return value on the main thread.
+        // -[WebMainThreadInvoker forwardInvocation:] will autorelease it on the calling thread.
+        id value;
+        [self getReturnValue:&value];
+        [value retain];
     }
 }
 
 @end
-
 
 @implementation NSObject (WebNSObjectExtras)
 

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -48,7 +48,7 @@ const ClassInfo JSFunction::info = { "Function", &InternalFunction::info, 0, 0 }
 JSFunction::JSFunction(ExecState* exec, PassRefPtr<Structure> structure, int length, const Identifier& name, NativeFunction func)
     : Base(&exec->globalData(), structure, name)
 #if ENABLE(JIT)
-    , m_body(exec->globalData().nativeFunctionThunk())
+    , m_body(FunctionBodyNode::createNativeThunk(&exec->globalData()))
 #else
     , m_body(0)
 #endif
@@ -72,26 +72,23 @@ JSFunction::JSFunction(ExecState* exec, const Identifier& name, FunctionBodyNode
 
 JSFunction::~JSFunction()
 {
-#if ENABLE(JIT) 
     // JIT code for other functions may have had calls linked directly to the code for this function; these links
     // are based on a check for the this pointer value for this JSFunction - which will no longer be valid once
     // this memory is freed and may be reused (potentially for another, different JSFunction).
-    if (!isHostFunction()) {
-        if (m_body && m_body->isGenerated())
-            m_body->generatedBytecode().unlinkCallers();
-        scopeChain().~ScopeChain();
-    }
-    
+#if ENABLE(JIT_OPTIMIZE_CALL)
+    if (m_body && m_body->isGenerated())
+        m_body->generatedBytecode().unlinkCallers();
 #endif
+    if (!isHostFunction())
+        scopeChain().~ScopeChain(); // FIXME: Don't we need to do this in the interpreter too?
 }
 
-void JSFunction::mark()
+void JSFunction::markChildren(MarkStack& markStack)
 {
-    Base::mark();
-    if (!isHostFunction()) {
-        m_body->mark();
-        scopeChain().mark();
-    }
+    Base::markChildren(markStack);
+    m_body->markAggregate(markStack);
+    if (!isHostFunction())
+        scopeChain().markAggregate(markStack);
 }
 
 CallType JSFunction::getCallData(CallData& callData)

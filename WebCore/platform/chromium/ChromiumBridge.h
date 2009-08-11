@@ -31,6 +31,7 @@
 #ifndef ChromiumBridge_h
 #define ChromiumBridge_h
 
+#include "FileSystem.h"
 #include "LinkHash.h"
 #include "PassRefPtr.h"
 #include "PasteboardPrivate.h"
@@ -82,13 +83,34 @@ namespace WebCore {
         // DNS ----------------------------------------------------------------
         static void prefetchDNS(const String& hostname);
 
+        // File ---------------------------------------------------------------
+        static bool fileExists(const String&);
+        static bool deleteFile(const String&);
+        static bool deleteEmptyDirectory(const String&);
+        static bool getFileSize(const String&, long long& result);
+        static bool getFileModificationTime(const String&, time_t& result);
+        static String directoryName(const String& path);
+        static String pathByAppendingComponent(const String& path, const String& component);
+        static bool makeAllDirectories(const String& path);
+
         // Font ---------------------------------------------------------------
 #if PLATFORM(WIN_OS)
         static bool ensureFontLoaded(HFONT font);
 #endif
+#if PLATFORM(LINUX)
+        static String getFontFamilyForCharacters(const UChar*, size_t numCharacters);
+#endif
 
         // Forms --------------------------------------------------------------
         static void notifyFormStateChanged(const Document*);
+        
+        // HTML5 DB -----------------------------------------------------------
+#if ENABLE(DATABASE)
+        static PlatformFileHandle databaseOpenFile(const String& fileName, int desiredFlags);
+        static bool databaseDeleteFile(const String& fileName);
+        static long databaseGetFileAttributes(const String& fileName);
+        static long long databaseGetFileSize(const String& fileName);
+#endif
 
         // JavaScript ---------------------------------------------------------
         static void notifyJSOutOfMemory(Frame*);
@@ -118,6 +140,9 @@ namespace WebCore {
 
         // Resources ----------------------------------------------------------
         static PassRefPtr<Image> loadPlatformImageResource(const char* name);
+
+        // Sandbox ------------------------------------------------------------
+        static bool sandboxEnabled();
 
         // Screen -------------------------------------------------------------
         static int screenDepth(Widget*);

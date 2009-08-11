@@ -31,19 +31,45 @@
 #include "config.h"
 #include "FontPlatformData.h"
 
-#include "StringImpl.h"
+#include "HarfbuzzSkia.h"
 #include "NotImplemented.h"
+#include "PlatformString.h"
+#include "StringImpl.h"
 
 #include "SkPaint.h"
 #include "SkTypeface.h"
 
 namespace WebCore {
 
+static SkPaint::Hinting skiaHinting = SkPaint::kNormal_Hinting;
+static bool isSkiaAntiAlias = true, isSkiaSubpixelGlyphs;
+
+void FontPlatformData::setHinting(SkPaint::Hinting hinting)
+{
+    skiaHinting = hinting;
+}
+
+void FontPlatformData::setAntiAlias(bool isAntiAlias)
+{
+    isSkiaAntiAlias = isAntiAlias;
+}
+
+void FontPlatformData::setSubpixelGlyphs(bool isSubpixelGlyphs)
+{
+    isSkiaSubpixelGlyphs = isSubpixelGlyphs;
+}
+
+FontPlatformData::RefCountedHarfbuzzFace::~RefCountedHarfbuzzFace()
+{
+    HB_FreeFace(m_harfbuzzFace);
+}
+
 FontPlatformData::FontPlatformData(const FontPlatformData& src)
     : m_typeface(src.m_typeface)
     , m_textSize(src.m_textSize)
     , m_fakeBold(src.m_fakeBold)
     , m_fakeItalic(src.m_fakeItalic)
+    , m_harfbuzzFace(src.m_harfbuzzFace)
 {
     m_typeface->safeRef();
 }
@@ -62,6 +88,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     , m_textSize(textSize)
     , m_fakeBold(src.m_fakeBold)
     , m_fakeItalic(src.m_fakeItalic)
+    , m_harfbuzzFace(src.m_harfbuzzFace)
 {
     m_typeface->safeRef();
 }
@@ -78,21 +105,29 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
     m_textSize = src.m_textSize;
     m_fakeBold = src.m_fakeBold;
     m_fakeItalic = src.m_fakeItalic;
+    m_harfbuzzFace = src.m_harfbuzzFace;
 
     return *this;
 }
+
+#ifndef NDEBUG
+String FontPlatformData::description() const
+{
+    return String();
+}
+#endif
 
 void FontPlatformData::setupPaint(SkPaint* paint) const
 {
     const float ts = m_textSize > 0 ? m_textSize : 12;
 
-    paint->setAntiAlias(true);
-    paint->setSubpixelText(false);
+    paint->setAntiAlias(isSkiaAntiAlias);
+    paint->setHinting(skiaHinting);
+    paint->setLCDRenderText(isSkiaSubpixelGlyphs);
     paint->setTextSize(SkFloatToScalar(ts));
     paint->setTypeface(m_typeface);
     paint->setFakeBoldText(m_fakeBold);
     paint->setTextSkewX(m_fakeItalic ? -SK_Scalar1 / 4 : 0);
-    paint->setTextEncoding(SkPaint::kUTF16_TextEncoding);
 }
 
 SkFontID FontPlatformData::uniqueID() const
@@ -139,6 +174,14 @@ bool FontPlatformData::isFixedPitch() const
 {
     notImplemented();
     return false;
+}
+
+HB_FaceRec_* FontPlatformData::harfbuzzFace() const
+{
+    if (!m_harfbuzzFace)
+        m_harfbuzzFace = RefCountedHarfbuzzFace::create(HB_NewFace(const_cast<FontPlatformData*>(this), harfbuzzSkiaGetTable));
+
+    return m_harfbuzzFace->face();
 }
 
 }  // namespace WebCore

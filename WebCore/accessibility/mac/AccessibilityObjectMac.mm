@@ -34,7 +34,11 @@ namespace WebCore {
 
 bool AccessibilityObject::accessibilityIgnoreAttachment() const
 {
-    return [[wrapper() attachmentView] accessibilityIsIgnored];
+    NSView* attachment = [wrapper() attachmentView];
+    if (!attachment)
+        return true;
+    
+    return [attachment accessibilityIsIgnored];
 }
     
 } // WebCore

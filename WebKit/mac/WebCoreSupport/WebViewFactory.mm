@@ -321,7 +321,7 @@
 
 - (NSString *)contextMenuItemTagShowColors
 {
-    return UI_STRING("Show colors", "Show colors context menu item");
+    return UI_STRING("Show Colors", "Show colors context menu item");
 }
 
 - (NSString *)contextMenuItemTagSpeechMenu
@@ -366,6 +366,81 @@
 - (NSString *)contextMenuItemTagRightToLeft
 {
     return UI_STRING("Right to Left", "Right to Left context menu item");
+}
+
+- (NSString *)contextMenuItemTagCorrectSpellingAutomatically
+{
+    return UI_STRING("Correct Spelling Automatically", "Correct Spelling Automatically context menu item");
+}
+
+- (NSString *)contextMenuItemTagSubstitutionsMenu
+{
+    return UI_STRING("Substitutions", "Substitutions context sub-menu item");
+}
+
+- (NSString *)contextMenuItemTagShowSubstitutions:(bool)show
+{
+    if (show) 
+        return UI_STRING("Show Substitutions", "menu item title");
+    return UI_STRING("Hide Substitutions", "menu item title");
+}
+
+- (NSString *)contextMenuItemTagSmartCopyPaste
+{
+    return UI_STRING("Smart Copy/Paste", "Smart Copy/Paste context menu item");
+}
+
+- (NSString *)contextMenuItemTagSmartQuotes
+{
+    return UI_STRING("Smart Quotes", "Smart Quotes context menu item");
+}
+
+- (NSString *)contextMenuItemTagSmartDashes
+{
+    return UI_STRING("Smart Dashes", "Smart Dashes context menu item");
+}
+
+- (NSString *)contextMenuItemTagSmartLinks
+{
+    return UI_STRING("Smart Links", "Smart Links context menu item");
+}
+
+- (NSString *)contextMenuItemTagTextReplacement
+{
+    return UI_STRING("Text Replacement", "Text Replacement context menu item");
+}
+
+- (NSString *)contextMenuItemTagTransformationsMenu
+{
+    return UI_STRING("Transformations", "Transformations context sub-menu item");
+}
+
+- (NSString *)contextMenuItemTagMakeUpperCase
+{
+    return UI_STRING("Make Upper Case", "Make Upper Case context menu item");
+}
+
+- (NSString *)contextMenuItemTagMakeLowerCase
+{
+    return UI_STRING("Make Lower Case", "Make Lower Case context menu item");
+}
+
+- (NSString *)contextMenuItemTagCapitalize
+{
+    return UI_STRING("Capitalize", "Capitalize context menu item");
+}
+
+- (NSString *)contextMenuItemTagChangeBack:(NSString *)replacedString
+{
+    static NSString *formatString = nil;
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    static bool lookedUpString = false;
+    if (!lookedUpString) {
+        formatString = [[[NSBundle bundleForClass:[NSSpellChecker class]] localizedStringForKey:@"Change Back to \\U201C%@\\U201D" value:nil table:@"MenuCommands"] retain];
+        lookedUpString = true;
+    }
+#endif
+    return formatString ? [NSString stringWithFormat:formatString, replacedString] : replacedString;
 }
 
 - (NSString *)contextMenuItemTagInspectElement
@@ -521,6 +596,16 @@
 - (NSString*)imageTitleForFilename:(NSString*)filename width:(int)width height:(int)height
 {
     return [NSString stringWithFormat:UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"), filename, width, height];
+}
+
+- (NSString*)mediaElementLoadingStateText
+{
+    return UI_STRING("Loading...", "Media controller status message when the media is loading");
+}
+
+- (NSString*)mediaElementLiveBroadcastStateText
+{
+    return UI_STRING("Live Broadcast", "Media controller status message when watching a live broadcast");
 }
 
 @end

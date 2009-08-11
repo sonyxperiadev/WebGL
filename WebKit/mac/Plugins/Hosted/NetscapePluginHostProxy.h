@@ -33,13 +33,15 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/PassRefPtr.h>
 
+@class WebPlaceholderModalWindow;
+
 namespace WebKit {
     
 class NetscapePluginInstanceProxy;
 
 class NetscapePluginHostProxy {
 public:
-    NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort, const ProcessSerialNumber& pluginHostPSN);
+    NetscapePluginHostProxy(mach_port_t clientPort, mach_port_t pluginHostPort, const ProcessSerialNumber& pluginHostPSN, bool shouldCacheMissingPropertiesAndMethods);
     
     mach_port_t port() const { return m_pluginHostPort; }
     mach_port_t clientPort() const { return m_clientPort; }
@@ -49,12 +51,17 @@ public:
 
     NetscapePluginInstanceProxy* pluginInstance(uint32_t pluginID);
     
+    bool isMenuBarVisible() const { return m_menuBarIsVisible; }
     void setMenuBarVisible(bool);
+    
     void setModal(bool);
 
     void applicationDidBecomeActive();
     
     bool processRequests();
+    bool isProcessingRequests() const { return m_processingRequests; }
+    
+    bool shouldCacheMissingPropertiesAndMethods() const { return m_shouldCacheMissingPropertiesAndMethods; }
     
 private:
     ~NetscapePluginHostProxy();
@@ -80,10 +87,14 @@ private:
     RetainPtr<CFMachPortRef> m_deadNameNotificationPort;
     
     RetainPtr<id> m_activationObserver;
-    RetainPtr<NSWindow *> m_placeholderWindow;
+    RetainPtr<WebPlaceholderModalWindow *> m_placeholderWindow;
     unsigned m_isModal;
     bool m_menuBarIsVisible;
     const ProcessSerialNumber m_pluginHostPSN;
+    
+    unsigned m_processingRequests;
+    
+    bool m_shouldCacheMissingPropertiesAndMethods;
 };
     
 } // namespace WebKit

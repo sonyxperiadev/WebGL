@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -33,6 +33,7 @@
 #include "ScopeChain.h"
 #include "Structure.h"
 #include "JSGlobalData.h"
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -42,11 +43,11 @@ namespace JSC {
             return value.asCell();
         return 0;
     }
-
+    
+    class HashEntry;
     class InternalFunction;
     class PropertyNameArray;
     class Structure;
-    struct HashEntry;
     struct HashTable;
 
     // ECMA 262-3 8.6.1
@@ -72,7 +73,7 @@ namespace JSC {
     public:
         explicit JSObject(PassRefPtr<Structure>);
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
 
         // The inline virtual destructor cannot be the first virtual function declared
         // in the class as it results in the vtable being generated as a weak symbol
@@ -195,16 +196,13 @@ namespace JSC {
         void allocatePropertyStorageInline(size_t oldSize, size_t newSize);
         bool isUsingInlineStorage() const { return m_structure->isUsingInlineStorage(); }
 
-        static const size_t inlineStorageCapacity = 3;
+        static const size_t inlineStorageCapacity = sizeof(EncodedJSValue) == 2 * sizeof(void*) ? 4 : 3;
         static const size_t nonInlineBaseStorageCapacity = 16;
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
             return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot));
         }
-
-    protected:
-        bool getOwnPropertySlotForWrite(ExecState*, const Identifier&, PropertySlot&, bool& slotIsWriteable);
 
     private:
         ConstPropertyStorage propertyStorage() const { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
@@ -229,17 +227,15 @@ namespace JSC {
         const HashEntry* findPropertyHashEntry(ExecState*, const Identifier& propertyName) const;
         Structure* createInheritorID();
 
-        RefPtr<Structure> m_inheritorID;
-
         union {
             PropertyStorage m_externalStorage;
             EncodedJSValue m_inlineStorage[inlineStorageCapacity];
         };
+
+        RefPtr<Structure> m_inheritorID;
     };
-
-    JSObject* asObject(JSValue);
-
-    JSObject* constructEmptyObject(ExecState*);
+    
+JSObject* constructEmptyObject(ExecState*);
 
 inline JSObject* asObject(JSValue value)
 {
@@ -254,6 +250,9 @@ inline JSObject::JSObject(PassRefPtr<Structure> structure)
     ASSERT(m_structure->propertyStorageCapacity() == inlineStorageCapacity);
     ASSERT(m_structure->isEmpty());
     ASSERT(prototype().isNull() || Heap::heap(this) == Heap::heap(prototype()));
+#if USE(JSVALUE64) || USE(JSVALUE32_64)
+    ASSERT(OBJECT_OFFSETOF(JSObject, m_inlineStorage) % sizeof(double) == 0);
+#endif
 }
 
 inline JSObject::~JSObject()
@@ -322,30 +321,6 @@ ALWAYS_INLINE bool JSObject::inlineGetOwnPropertySlot(ExecState* exec, const Ide
     // non-standard Netscape extension
     if (propertyName == exec->propertyNames().underscoreProto) {
         slot.setValue(prototype());
-        return true;
-    }
-
-    return false;
-}
-
-ALWAYS_INLINE bool JSObject::getOwnPropertySlotForWrite(ExecState* exec, const Identifier& propertyName, PropertySlot& slot, bool& slotIsWriteable)
-{
-    unsigned attributes;
-    if (JSValue* location = getDirectLocation(propertyName, attributes)) {
-        if (m_structure->hasGetterSetterProperties() && location[0].isGetterSetter()) {
-            slotIsWriteable = false;
-            fillGetterPropertySlot(slot, location);
-        } else {
-            slotIsWriteable = !(attributes & ReadOnly);
-            slot.setValueSlot(this, location, offsetForLocation(location));
-        }
-        return true;
-    }
-
-    // non-standard Netscape extension
-    if (propertyName == exec->propertyNames().underscoreProto) {
-        slot.setValue(prototype());
-        slotIsWriteable = false;
         return true;
     }
 
@@ -569,7 +544,7 @@ inline JSValue JSValue::get(ExecState* exec, const Identifier& propertyName) con
 inline JSValue JSValue::get(ExecState* exec, const Identifier& propertyName, PropertySlot& slot) const
 {
     if (UNLIKELY(!isCell())) {
-        JSObject* prototype = JSImmediate::prototype(asValue(), exec);
+        JSObject* prototype = synthesizePrototype(exec);
         if (propertyName == exec->propertyNames().underscoreProto)
             return prototype;
         if (!prototype->getPropertySlot(exec, propertyName, slot))
@@ -597,7 +572,7 @@ inline JSValue JSValue::get(ExecState* exec, unsigned propertyName) const
 inline JSValue JSValue::get(ExecState* exec, unsigned propertyName, PropertySlot& slot) const
 {
     if (UNLIKELY(!isCell())) {
-        JSObject* prototype = JSImmediate::prototype(asValue(), exec);
+        JSObject* prototype = synthesizePrototype(exec);
         if (!prototype->getPropertySlot(exec, propertyName, slot))
             return jsUndefined();
         return slot.getValue(exec, propertyName);
@@ -617,7 +592,7 @@ inline JSValue JSValue::get(ExecState* exec, unsigned propertyName, PropertySlot
 inline void JSValue::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     if (UNLIKELY(!isCell())) {
-        JSImmediate::toObject(asValue(), exec)->put(exec, propertyName, value, slot);
+        synthesizeObject(exec)->put(exec, propertyName, value, slot);
         return;
     }
     asCell()->put(exec, propertyName, value, slot);
@@ -626,7 +601,7 @@ inline void JSValue::put(ExecState* exec, const Identifier& propertyName, JSValu
 inline void JSValue::put(ExecState* exec, unsigned propertyName, JSValue value)
 {
     if (UNLIKELY(!isCell())) {
-        JSImmediate::toObject(asValue(), exec)->put(exec, propertyName, value);
+        synthesizeObject(exec)->put(exec, propertyName, value);
         return;
     }
     asCell()->put(exec, propertyName, value);

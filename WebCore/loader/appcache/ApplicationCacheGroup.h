@@ -32,6 +32,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
+#include "DOMApplicationCache.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ResourceHandle.h"
@@ -42,7 +43,6 @@ namespace WebCore {
 
 class ApplicationCache;
 class ApplicationCacheResource;
-class DOMApplicationCache;
 class Document;
 class DocumentLoader;
 class Frame;
@@ -52,7 +52,7 @@ enum ApplicationCacheUpdateOption {
     ApplicationCacheUpdateWithoutBrowsingContext
 };
 
-class ApplicationCacheGroup : Noncopyable, ResourceHandleClient {
+class ApplicationCacheGroup : public Noncopyable, ResourceHandleClient {
 public:
     ApplicationCacheGroup(const KURL& manifestURL, bool isCopy = false);    
     ~ApplicationCacheGroup();
@@ -91,11 +91,17 @@ public:
     bool isCopy() const { return m_isCopy; }
 
 private:
+#ifdef MANUAL_MERGE_REQUIRED
     typedef void (DOMApplicationCache::*ListenerFunction)();
     static void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
     static void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
     static void postListenerTask(ListenerFunction, DocumentLoader*);
     void scheduleReachedMaxAppCacheSizeCallback();
+#else // MANUAL_MERGE_REQUIRED
+    static void postListenerTask(ApplicationCacheHost::EventID, const HashSet<DocumentLoader*>&);
+    static void postListenerTask(ApplicationCacheHost::EventID, DocumentLoader*);
+    void scheduleReachedMaxAppCacheSizeCallback();
+#endif // MANUAL_MERGE_REQUIRED
 
     PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
 

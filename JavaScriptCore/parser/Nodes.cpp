@@ -355,7 +355,7 @@ RegisterID* FunctionCallResolveNode::emitBytecode(BytecodeGenerator& generator, 
     RefPtr<RegisterID> thisRegister = generator.newTemporary();
     int identifierStart = divot() - startOffset();
     generator.emitExpressionInfo(identifierStart + m_ident.size(), m_ident.size(), 0);
-    generator.emitResolveFunction(thisRegister.get(), func.get(), m_ident);
+    generator.emitResolveWithBase(thisRegister.get(), func.get(), m_ident);
     return generator.emitCall(generator.finalDestination(dst, func.get()), func.get(), thisRegister.get(), m_args, divot(), startOffset(), endOffset());
 }
 
@@ -375,11 +375,12 @@ RegisterID* FunctionCallBracketNode::emitBytecode(BytecodeGenerator& generator, 
 
 RegisterID* FunctionCallDotNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    RefPtr<RegisterID> base = generator.emitNode(m_base);
+    RefPtr<RegisterID> function = generator.tempDestination(dst);
+    RefPtr<RegisterID> thisRegister = generator.newTemporary();
+    generator.emitNode(thisRegister.get(), m_base);
     generator.emitExpressionInfo(divot() - m_subexpressionDivotOffset, startOffset() - m_subexpressionDivotOffset, m_subexpressionEndOffset);
     generator.emitMethodCheck();
-    RefPtr<RegisterID> function = generator.emitGetById(generator.tempDestination(dst), base.get(), m_ident);
-    RefPtr<RegisterID> thisRegister = generator.emitMove(generator.newTemporary(), base.get());
+    generator.emitGetById(function.get(), thisRegister.get(), m_ident);
     return generator.emitCall(generator.finalDestination(dst, function.get()), function.get(), thisRegister.get(), m_args, divot(), startOffset(), endOffset());
 }
 
@@ -495,6 +496,8 @@ static RegisterID* emitPreIncOrDec(BytecodeGenerator& generator, RegisterID* src
 
 static RegisterID* emitPostIncOrDec(BytecodeGenerator& generator, RegisterID* dst, RegisterID* srcDst, Operator oper)
 {
+    if (srcDst == dst)
+        return generator.emitToJSNumber(dst, srcDst);
     return (oper == OpPlusPlus) ? generator.emitPostInc(dst, srcDst) : generator.emitPostDec(dst, srcDst);
 }
 
@@ -601,7 +604,7 @@ RegisterID* PostfixErrorNode::emitBytecode(BytecodeGenerator& generator, Registe
 RegisterID* DeleteResolveNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     if (generator.registerFor(m_ident))
-        return generator.emitUnexpectedLoad(generator.finalDestination(dst), false);
+        return generator.emitLoad(generator.finalDestination(dst), false);
 
     generator.emitExpressionInfo(divot(), startOffset(), endOffset());
     RegisterID* base = generator.emitResolveBase(generator.tempDestination(dst), m_ident);
@@ -636,7 +639,7 @@ RegisterID* DeleteValueNode::emitBytecode(BytecodeGenerator& generator, Register
     generator.emitNode(generator.ignoredResult(), m_expr);
 
     // delete on a non-location expression ignores the value and returns true
-    return generator.emitUnexpectedLoad(generator.finalDestination(dst), true);
+    return generator.emitLoad(generator.finalDestination(dst), true);
 }
 
 // ------------------------------ VoidNode -------------------------------------
@@ -688,7 +691,7 @@ RegisterID* PrefixResolveNode::emitBytecode(BytecodeGenerator& generator, Regist
         if (generator.isLocalConstant(m_ident)) {
             if (dst == generator.ignoredResult())
                 return 0;
-            RefPtr<RegisterID> r0 = generator.emitUnexpectedLoad(generator.finalDestination(dst), (m_operator == OpPlusPlus) ? 1.0 : -1.0);
+            RefPtr<RegisterID> r0 = generator.emitLoad(generator.finalDestination(dst), (m_operator == OpPlusPlus) ? 1.0 : -1.0);
             return generator.emitBinaryOp(op_add, r0.get(), local, r0.get(), OperandTypes());
         }
 
@@ -1186,8 +1189,10 @@ RegisterID* ReadModifyBracketNode::emitBytecode(BytecodeGenerator& generator, Re
 
 RegisterID* CommaNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    generator.emitNode(generator.ignoredResult(), m_expr1);
-    return generator.emitNode(dst, m_expr2);
+    ASSERT(m_expressions.size() > 1);
+    for (size_t i = 0; i < m_expressions.size() - 1; i++)
+        generator.emitNode(generator.ignoredResult(), m_expressions[i]);
+    return generator.emitNode(dst, m_expressions.last());
 }
 
 // ------------------------------ ConstDeclNode ------------------------------------
@@ -1369,9 +1374,6 @@ RegisterID* WhileNode::emitBytecode(BytecodeGenerator& generator, RegisterID* ds
 
 RegisterID* ForNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    if (dst == generator.ignoredResult())
-        dst = 0;
-
     RefPtr<LabelScope> scope = generator.newLabelScope(LabelScope::Loop);
 
     generator.emitDebugHook(WillExecuteStatement, firstLine(), lastLine());
@@ -1559,13 +1561,11 @@ static void processClauseList(ClauseListNode* list, Vector<ExpressionNode*, 8>& 
         literalVector.append(clauseExpression);
         if (clauseExpression->isNumber()) {
             double value = static_cast<NumberNode*>(clauseExpression)->value();
-            JSValue jsValue = JSValue::makeInt32Fast(static_cast<int32_t>(value));
-            if ((typeForTable & ~SwitchNumber) || !jsValue || (jsValue.getInt32Fast() != value)) {
+            int32_t intVal = static_cast<int32_t>(value);
+            if ((typeForTable & ~SwitchNumber) || (intVal != value)) {
                 typeForTable = SwitchNeither;
                 break;
             }
-            int32_t intVal = static_cast<int32_t>(value);
-            ASSERT(intVal == value);
             if (intVal < min_num)
                 min_num = intVal;
             if (intVal > max_num)
@@ -1736,10 +1736,12 @@ RegisterID* ThrowNode::emitBytecode(BytecodeGenerator& generator, RegisterID* ds
 
 RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
+    // NOTE: The catch and finally blocks must be labeled explicitly, so the
+    // optimizer knows they may be jumped to from anywhere.
+
     generator.emitDebugHook(WillExecuteStatement, firstLine(), lastLine());
 
     RefPtr<Label> tryStartLabel = generator.newLabel();
-    RefPtr<Label> tryEndLabel = generator.newLabel();
     RefPtr<Label> finallyStart;
     RefPtr<RegisterID> finallyReturnAddr;
     if (m_finallyBlock) {
@@ -1747,14 +1749,19 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
         finallyReturnAddr = generator.newTemporary();
         generator.pushFinallyContext(finallyStart.get(), finallyReturnAddr.get());
     }
+
     generator.emitLabel(tryStartLabel.get());
     generator.emitNode(dst, m_tryBlock);
-    generator.emitLabel(tryEndLabel.get());
 
     if (m_catchBlock) {
-        RefPtr<Label> handlerEndLabel = generator.newLabel();
-        generator.emitJump(handlerEndLabel.get());
-        RefPtr<RegisterID> exceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), tryEndLabel.get());
+        RefPtr<Label> catchEndLabel = generator.newLabel();
+        
+        // Normal path: jump over the catch block.
+        generator.emitJump(catchEndLabel.get());
+
+        // Uncaught exception path: the catch block.
+        RefPtr<Label> here = generator.emitLabel(generator.newLabel().get());
+        RefPtr<RegisterID> exceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), here.get());
         if (m_catchHasEval) {
             RefPtr<RegisterID> dynamicScopeObject = generator.emitNewObject(generator.newTemporary());
             generator.emitPutById(dynamicScopeObject.get(), m_exceptionIdent, exceptionRegister.get());
@@ -1764,7 +1771,7 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
             generator.emitPushNewScope(exceptionRegister.get(), m_exceptionIdent, exceptionRegister.get());
         generator.emitNode(dst, m_catchBlock);
         generator.emitPopScope();
-        generator.emitLabel(handlerEndLabel.get());
+        generator.emitLabel(catchEndLabel.get());
     }
 
     if (m_finallyBlock) {
@@ -1775,21 +1782,18 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
         // approach to not clobbering anything important
         RefPtr<RegisterID> highestUsedRegister = generator.highestUsedRegister();
         RefPtr<Label> finallyEndLabel = generator.newLabel();
+
+        // Normal path: invoke the finally block, then jump over it.
         generator.emitJumpSubroutine(finallyReturnAddr.get(), finallyStart.get());
-        // Use a label to record the subtle fact that sret will return to the
-        // next instruction. sret is the only way to jump without an explicit label.
-        generator.emitLabel(generator.newLabel().get());
         generator.emitJump(finallyEndLabel.get());
 
-        // Finally block for exception path
-        RefPtr<RegisterID> tempExceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), generator.emitLabel(generator.newLabel().get()).get());
+        // Uncaught exception path: invoke the finally block, then re-throw the exception.
+        RefPtr<Label> here = generator.emitLabel(generator.newLabel().get());
+        RefPtr<RegisterID> tempExceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), here.get());
         generator.emitJumpSubroutine(finallyReturnAddr.get(), finallyStart.get());
-        // Use a label to record the subtle fact that sret will return to the
-        // next instruction. sret is the only way to jump without an explicit label.
-        generator.emitLabel(generator.newLabel().get());
         generator.emitThrow(tempExceptionRegister.get());
 
-        // emit the finally block itself
+        // The finally block.
         generator.emitLabel(finallyStart.get());
         generator.emitNode(dst, m_finallyBlock);
         generator.emitSubroutineReturn(finallyReturnAddr.get());
@@ -1814,14 +1818,14 @@ ScopeNodeData::ScopeNodeData(ParserArena& arena, SourceElements* children, VarSt
         children->releaseContentsIntoVector(m_children);
 }
 
-void ScopeNodeData::mark()
+void ScopeNodeData::markAggregate(MarkStack& markStack)
 {
     FunctionStack::iterator end = m_functionStack.end();
     for (FunctionStack::iterator ptr = m_functionStack.begin(); ptr != end; ++ptr) {
         FunctionBodyNode* body = (*ptr)->body();
         if (!body->isGenerated())
             continue;
-        body->generatedBytecode().mark();
+        body->generatedBytecode().markAggregate(markStack);
     }
 }
 
@@ -1889,8 +1893,8 @@ void ProgramNode::generateBytecode(ScopeChainNode* scopeChainNode)
     
     m_code.set(new ProgramCodeBlock(this, GlobalCode, globalObject, source().provider()));
     
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get()));
+    generator->generate();
 
     destroyData();
 }
@@ -1944,8 +1948,8 @@ void EvalNode::generateBytecode(ScopeChainNode* scopeChainNode)
 
     m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->generate();
 
     // Eval code needs to hang on to its declaration stacks to keep declaration info alive until Interpreter::execute time,
     // so the entire ScopeNodeData cannot be destoyed.
@@ -1961,17 +1965,17 @@ EvalCodeBlock& EvalNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeCh
 
     m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
+    generator->generate();
 
     return *m_code;
 }
 
-void EvalNode::mark()
+void EvalNode::markAggregate(MarkStack& markStack)
 {
     // We don't need to mark our own CodeBlock as the JSGlobalObject takes care of that
-    data()->mark();
+    data()->markAggregate(markStack);
 }
 
 #if ENABLE(JIT)
@@ -2026,10 +2030,10 @@ void FunctionBodyNode::finishParsing(Identifier* parameters, size_t parameterCou
     m_parameterCount = parameterCount;
 }
 
-void FunctionBodyNode::mark()
+void FunctionBodyNode::markAggregate(MarkStack& markStack)
 {
     if (m_code)
-        m_code->mark();
+        m_code->markAggregate(markStack);
 }
 
 #if ENABLE(JIT)
@@ -2037,10 +2041,16 @@ PassRefPtr<FunctionBodyNode> FunctionBodyNode::createNativeThunk(JSGlobalData* g
 {
     RefPtr<FunctionBodyNode> body = new FunctionBodyNode(globalData);
     globalData->parser->arena().reset();
+    body->m_code.set(new CodeBlock(body.get()));
     body->m_jitCode = JITCode(JITCode::HostFunction(globalData->jitStubs.ctiNativeCallThunk()));
     return body.release();
 }
 #endif
+
+bool FunctionBodyNode::isHostFunction() const
+{
+    return m_code && m_code->codeType() == NativeCode;
+}
 
 FunctionBodyNode* FunctionBodyNode::create(JSGlobalData* globalData)
 {
@@ -2071,8 +2081,8 @@ void FunctionBodyNode::generateBytecode(ScopeChainNode* scopeChainNode)
 
     m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->generate();
 
     destroyData();
 }
@@ -2097,9 +2107,9 @@ CodeBlock& FunctionBodyNode::bytecodeForExceptionInfoReparse(ScopeChainNode* sco
 
     m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
 
-    BytecodeGenerator generator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get());
-    generator.setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator.generate();
+    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
+    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
+    generator->generate();
 
     return *m_code;
 }

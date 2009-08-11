@@ -35,7 +35,11 @@
 #include "V8WorkerContextEventListener.h"
 
 #include "Event.h"
+#ifdef MANUAL_MERGE_REQUIRED
 #include "V8Utilities.h"
+#else // MANUAL_MERGE_REQUIRED
+#include "V8Binding.h"
+#endif // MANUAL_MERGE_REQUIRED
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
@@ -49,7 +53,7 @@ V8WorkerContextEventListener::V8WorkerContextEventListener(WorkerContextExecutio
 V8WorkerContextEventListener::~V8WorkerContextEventListener()
 {
     if (m_proxy)
-        m_proxy->RemoveEventListener(this);
+        m_proxy->removeEventListener(this);
     disposeListenerObject();
 }
 
@@ -66,7 +70,7 @@ void V8WorkerContextEventListener::handleEvent(Event* event, bool isWindowEvent)
     LOCK_V8;
     v8::HandleScope handleScope;
 
-    v8::Handle<v8::Context> context = m_proxy->GetContext();
+    v8::Handle<v8::Context> context = m_proxy->context();
     if (context.IsEmpty())
         return;
 
@@ -74,9 +78,55 @@ void V8WorkerContextEventListener::handleEvent(Event* event, bool isWindowEvent)
     v8::Context::Scope scope(context);
 
     // Get the V8 wrapper for the event object.
-    v8::Handle<v8::Value> jsEvent = WorkerContextExecutionProxy::EventToV8Object(event);
+    v8::Handle<v8::Value> jsEvent = WorkerContextExecutionProxy::convertEventToV8Object(event);
 
     invokeEventHandler(context, event, jsEvent, isWindowEvent);
+}
+
+bool V8WorkerContextEventListener::reportError(const String& message, const String& url, int lineNumber)
+{
+    // Is the EventListener disconnected?
+    if (disconnected())
+        return false;
+
+    // The callback function can clear the event listener and destroy 'this' object. Keep a local reference to it.
+    RefPtr<V8AbstractEventListener> protect(this);
+
+    v8::HandleScope handleScope;
+
+    v8::Handle<v8::Context> context = m_proxy->context();
+    if (context.IsEmpty())
+        return false;
+
+    // Enter the V8 context in which to perform the event handling.
+    v8::Context::Scope scope(context);
+
+    v8::Local<v8::Value> returnValue;
+    {
+        // Catch exceptions thrown in calling the function so they do not propagate to javascript code that caused the event to fire.
+        v8::TryCatch tryCatch;
+        tryCatch.SetVerbose(true);
+
+        // Call the function.
+        if (!m_listener.IsEmpty() && m_listener->IsFunction()) {
+            v8::Local<v8::Function> callFunction = v8::Local<v8::Function>::New(v8::Persistent<v8::Function>::Cast(m_listener));
+            v8::Local<v8::Object> thisValue = v8::Context::GetCurrent()->Global();
+
+            v8::Handle<v8::Value> parameters[3] = { v8String(message), v8String(url), v8::Integer::New(lineNumber) };
+            returnValue = callFunction->Call(thisValue, 3, parameters);
+        }
+
+        // If an error occurs while handling the script error, it should be bubbled up.
+        if (tryCatch.HasCaught()) {
+            tryCatch.Reset();
+            return false;
+        }
+    }
+
+    // If the function returns false, then the error is handled. Otherwise, the error is not handled.
+    bool errorHandled = returnValue->IsBoolean() && !returnValue->BooleanValue();
+
+    return errorHandled;
 }
 
 v8::Local<v8::Value> V8WorkerContextEventListener::callListenerFunction(v8::Handle<v8::Value> jsEvent, Event* event, bool isWindowEvent)
@@ -103,7 +153,7 @@ v8::Local<v8::Object> V8WorkerContextEventListener::getReceiverObject(Event* eve
         return v8::Context::GetCurrent()->Global();
 
     EventTarget* target = event->currentTarget();
-    v8::Handle<v8::Value> value = WorkerContextExecutionProxy::EventTargetToV8Object(target);
+    v8::Handle<v8::Value> value = WorkerContextExecutionProxy::convertEventTargetToV8Object(target);
     if (value.IsEmpty())
         return v8::Local<v8::Object>();
     return v8::Local<v8::Object>::New(v8::Handle<v8::Object>::Cast(value));

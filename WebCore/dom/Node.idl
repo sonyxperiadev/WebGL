@@ -23,9 +23,9 @@ module core {
     interface [
         CustomMarkFunction,
         CustomPushEventHandlerScope,
+        CustomToJS,
         GenerateConstructor,
         GenerateNativeConverter,
-        GenerateToJS,
         InlineGetOwnPropertySlot,
         Polymorphic,
         InterfaceUUID=84BA0D7A-7E3E-4a7b-B6FB-7653E8FB54ED,
@@ -135,6 +135,7 @@ module core {
 
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
 #if !defined(LANGUAGE_COM) || !LANGUAGE_COM
+#ifdef MANUAL_MERGE_REQUIRED
         attribute [DontEnum] EventListener onabort;
         attribute [DontEnum] EventListener onblur;
         attribute [DontEnum] EventListener onchange;
@@ -182,6 +183,8 @@ module core {
         attribute [DontEnum] EventListener ontouchcancel;
 #endif
 
+#else // MANUAL_MERGE_REQUIRED
+#endif // MANUAL_MERGE_REQUIRED
         [Custom] void addEventListener(in DOMString type, 
                                        in EventListener listener, 
                                        in boolean useCapture);

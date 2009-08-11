@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +51,8 @@ class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #elif PLATFORM(SKIA)
 class NativeImageSkia;
+#elif PLATFORM(WINCE)
+#include "SharedBitmap.h"
 #endif
 
 namespace WebCore {
@@ -96,12 +99,16 @@ typedef cairo_surface_t* NativeImagePtr;
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
+#elif PLATFORM(WINCE)
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef RefPtr<SharedBitmap> NativeImagePtr;
 #endif
 
 const int cAnimationLoopOnce = -1;
 const int cAnimationNone = -2;
 
-class ImageSource : Noncopyable {
+class ImageSource : public Noncopyable {
 public:
     ImageSource();
     ~ImageSource();
@@ -153,6 +160,7 @@ public:
     bool frameHasAlphaAtIndex(size_t); // Whether or not the frame actually used any alpha.
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
+#ifdef MANUAL_MERGE_REQUIRED
 #if PLATFORM(SGL)
     void clearURL();
     void setURL(const String& url);
@@ -161,6 +169,9 @@ private:
     // FIXME: This is protected only to allow ImageSourceSkia to set ICO decoder
     // with a preferred size. See ImageSourceSkia.h for discussion.
 protected:
+#else // MANUAL_MERGE_REQUIRED
+private:
+#endif // MANUAL_MERGE_REQUIRED
     NativeImageSourcePtr m_decoder;
 };
 

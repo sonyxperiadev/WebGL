@@ -30,12 +30,16 @@ module storage {
         HasNameGetter,
         CustomDeleteProperty,
         CustomGetPropertyNames,
+#ifdef MANUAL_MERGE_REQUIRED
         CustomPutFunction,
         Conditional=DOM_STORAGE
+#else // MANUAL_MERGE_REQUIRED
+        DelegatingPutFunction,
+        Conditional=DOM_STORAGE
+#endif // MANUAL_MERGE_REQUIRED
     ] Storage {
         readonly attribute [DontEnum] unsigned long length;
-        [DontEnum] DOMString key(in unsigned long index) 
-            raises(DOMException);
+        [DontEnum, ConvertNullStringTo=Null] DOMString key(in unsigned long index);
         [DontEnum, ConvertNullStringTo=Null] DOMString getItem(in DOMString key);
         [DontEnum] void setItem(in DOMString key, in DOMString data) 
             raises(DOMException);

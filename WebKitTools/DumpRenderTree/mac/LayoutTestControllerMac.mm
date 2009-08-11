@@ -26,6 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "DumpRenderTree.h"
 #import "LayoutTestController.h"
 
@@ -174,16 +175,6 @@ JSStringRef LayoutTestController::pathToLocalResource(JSContextRef context, JSSt
     return JSStringRetain(url); // Do nothing on mac.
 }
 
-void LayoutTestController::queueBackNavigation(int howFarBack)
-{
-    WorkQueue::shared()->queue(new BackItem(howFarBack));
-}
-
-void LayoutTestController::queueForwardNavigation(int howFarForward)
-{
-    WorkQueue::shared()->queue(new ForwardItem(howFarForward));
-}
-
 void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
 {
     RetainPtr<CFStringRef> urlCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, url));
@@ -194,16 +185,6 @@ void LayoutTestController::queueLoad(JSStringRef url, JSStringRef target)
 
     JSRetainPtr<JSStringRef> absoluteURL(Adopt, JSStringCreateWithUTF8CString([nsurlString UTF8String]));
     WorkQueue::shared()->queue(new LoadItem(absoluteURL.get(), target));
-}
-
-void LayoutTestController::queueReload()
-{
-    WorkQueue::shared()->queue(new ReloadItem);
-}
-
-void LayoutTestController::queueScript(JSStringRef script)
-{
-    WorkQueue::shared()->queue(new ScriptItem(script));
 }
 
 void LayoutTestController::setAcceptsEditing(bool newAcceptsEditing)
@@ -263,14 +244,16 @@ void LayoutTestController::setMainFrameIsFirstResponder(bool flag)
     
     NSResponder *firstResponder = flag ? documentView : nil;
     [[[mainFrame webView] window] makeFirstResponder:firstResponder];
-        
-    if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _updateFocusedAndActiveState];
 }
 
 void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
     [[[mainFrame webView] preferences] setPrivateBrowsingEnabled:privateBrowsingEnabled];
+}
+
+void LayoutTestController::setXSSAuditorEnabled(bool enabled)
+{
+    [[[mainFrame webView] preferences] setXSSAuditorEnabled:enabled];
 }
 
 void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
@@ -300,6 +283,16 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef path)
     [[WebPreferences standardPreferences] setUserStyleSheetLocation:url];
 }
 
+void LayoutTestController::disableImageLoading()
+{
+    [[WebPreferences standardPreferences] setLoadsImagesAutomatically:NO];
+}
+
+void LayoutTestController::dispatchPendingLoadRequests()
+{
+    [[mainFrame webView] _dispatchPendingLoadRequests];
+}
+
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)
 {
     RetainPtr<CFStringRef> urlString(AdoptCF, JSStringCopyCFString(0, jsURL));
@@ -314,9 +307,7 @@ void LayoutTestController::clearPersistentUserStyleSheet()
 void LayoutTestController::setWindowIsKey(bool windowIsKey)
 {
     m_windowIsKey = windowIsKey;
-    NSView *documentView = [[mainFrame frameView] documentView];
-    if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _updateFocusedAndActiveState];
+    [[mainFrame webView] _updateActiveState];
 }
 
 void LayoutTestController::setSmartInsertDeleteEnabled(bool flag)
@@ -378,6 +369,11 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     [[mainFrame webView] _executeCoreCommandByName:nameNS value:valueNS];
 }
 
+void LayoutTestController::setCacheModel(int cacheModel)
+{
+    [[WebPreferences standardPreferences] setCacheModel:cacheModel];
+}
+
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
 {
     RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, name));
@@ -425,4 +421,11 @@ bool LayoutTestController::pauseTransitionAtTimeOnElementWithId(JSStringRef prop
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
     return [mainFrame _numberOfActiveAnimations];
+}
+
+void LayoutTestController::waitForPolicyDelegate()
+{
+    setWaitToDump(true);
+    [policyDelegate setControllerToNotifyDone:this];
+    [[mainFrame webView] setPolicyDelegate:policyDelegate];
 }

@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "CString.h"
+#include <glib/gi18n-lib.h>
 #include "Noncopyable.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
@@ -36,7 +37,17 @@
 using namespace WebKit;
 using namespace WebCore;
 
-class DownloadClient : Noncopyable, public ResourceHandleClient {
+/**
+ * SECTION:webkitdownload
+ * @short_description: Object used to communicate with the application when downloading.
+ *
+ * #WebKitDownload carries information about a download request,
+ * including a #WebKitNetworkRequest object. The application may use
+ * this object to control the download process, or to simply figure
+ * out what is to be downloaded, and do it itself.
+ */
+
+class DownloadClient : public Noncopyable, public ResourceHandleClient {
     public:
         DownloadClient(WebKitDownload*);
 
@@ -50,8 +61,6 @@ class DownloadClient : Noncopyable, public ResourceHandleClient {
     private:
         WebKitDownload* m_download;
 };
-
-extern "C" {
 
 #define WEBKIT_DOWNLOAD_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_DOWNLOAD, WebKitDownloadPrivate))
 
@@ -179,9 +188,6 @@ static void webkit_download_set_property(GObject* object, guint prop_id, const G
     switch(prop_id) {
     case PROP_NETWORK_REQUEST:
         priv->networkRequest = WEBKIT_NETWORK_REQUEST(g_value_dup_object(value));
-        // This is safe as network-request is a construct only property and
-        // suggestedFilename is initially null.
-        priv->suggestedFilename = g_path_get_basename(webkit_network_request_get_uri(priv->networkRequest));
         break;
     case PROP_DESTINATION_URI:
         webkit_download_set_destination_uri(download, g_value_get_string(value));
@@ -202,6 +208,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     objectClass->get_property = webkit_download_get_property;
     objectClass->set_property = webkit_download_set_property;
 
+    webkit_init();
+
     /**
      * WebKitDownload::error:
      * @download: the object on which the signal is emitted
@@ -214,7 +222,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
      */
     webkit_download_signals[ERROR] = g_signal_new("error",
             G_TYPE_FROM_CLASS(downloadClass),
-            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             g_signal_accumulator_true_handled,
             NULL,
@@ -236,8 +244,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     g_object_class_install_property(objectClass,
                                     PROP_NETWORK_REQUEST,
                                     g_param_spec_object("network-request",
-                                                        "Network Request",
-                                                        "The network request for the URI that should be downloaded",
+                                                        _("Network Request"),
+                                                        _("The network request for the URI that should be downloaded"),
                                                         WEBKIT_TYPE_NETWORK_REQUEST,
                                                         (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
@@ -251,8 +259,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     g_object_class_install_property(objectClass,
                                     PROP_DESTINATION_URI,
                                     g_param_spec_string("destination-uri",
-                                                        "Destination URI",
-                                                        "The destination URI where to save the file",
+                                                        _("Destination URI"),
+                                                        _("The destination URI where to save the file"),
                                                         "",
                                                         WEBKIT_PARAM_READWRITE));
 
@@ -266,22 +274,26 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     g_object_class_install_property(objectClass,
                                     PROP_SUGGESTED_FILENAME,
                                     g_param_spec_string("suggested-filename",
-                                                        "Suggested Filename",
-                                                        "The filename suggested as default when saving",
+                                                        _("Suggested Filename"),
+                                                        _("The filename suggested as default when saving"),
                                                         "",
                                                         WEBKIT_PARAM_READABLE));
 
     /**
      * WebKitDownload:progress:
      *
-     * Determines the current progress of the download.
+     * Determines the current progress of the download. Notice that,
+     * although the progress changes are reported as soon as possible,
+     * the emission of the notify signal for this property is
+     * throttled, for the benefit of download managers. If you care
+     * about every update, use WebKitDownload:current-size.
      *
      * Since: 1.1.2
      */
     g_object_class_install_property(objectClass, PROP_PROGRESS,
                                     g_param_spec_double("progress",
-                                                        "Progress",
-                                                        "Determines the current progress of the download",
+                                                        _("Progress"),
+                                                        _("Determines the current progress of the download"),
                                                         0.0, 1.0, 1.0,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -294,8 +306,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
      */
     g_object_class_install_property(objectClass, PROP_STATUS,
                                     g_param_spec_enum("status",
-                                                      "Status",
-                                                      "Determines the current status of the download",
+                                                      _("Status"),
+                                                      _("Determines the current status of the download"),
                                                       WEBKIT_TYPE_DOWNLOAD_STATUS,
                                                       WEBKIT_DOWNLOAD_STATUS_CREATED,
                                                       WEBKIT_PARAM_READABLE));
@@ -310,8 +322,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     g_object_class_install_property(objectClass,
                                     PROP_CURRENT_SIZE,
                                     g_param_spec_uint64("current-size",
-                                                        "Current Size",
-                                                        "The length of the data already downloaded",
+                                                        _("Current Size"),
+                                                        _("The length of the data already downloaded"),
                                                         0, G_MAXUINT64, 0,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -325,8 +337,8 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     g_object_class_install_property(objectClass,
                                     PROP_CURRENT_SIZE,
                                     g_param_spec_uint64("total-size",
-                                                        "Total Size",
-                                                        "The total size of the file",
+                                                        _("Total Size"),
+                                                        _("The total size of the file"),
                                                         0, G_MAXUINT64, 0,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -415,11 +427,8 @@ void webkit_download_start(WebKitDownload* download)
 
     if (priv->resourceHandle)
         priv->resourceHandle->setClient(priv->downloadClient);
-    else {
-        // FIXME: Use the actual request object when WebKitNetworkRequest is finished.
-        ResourceRequest request(webkit_network_request_get_uri(priv->networkRequest));
-        priv->resourceHandle = ResourceHandle::create(request, priv->downloadClient, 0, false, false, false);
-    }
+    else
+        priv->resourceHandle = ResourceHandle::create(core(priv->networkRequest), priv->downloadClient, 0, false, false, false);
 
     priv->timer = g_timer_new();
     webkit_download_open_stream_for_uri(download, priv->destinationURI);
@@ -455,7 +464,7 @@ void webkit_download_cancel(WebKitDownload* download)
     webkit_download_set_status(download, WEBKIT_DOWNLOAD_STATUS_CANCELLED);
 
     gboolean handled;
-    g_signal_emit_by_name(download, "error", 0, WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER, "User cancelled the download", &handled);
+    g_signal_emit_by_name(download, "error", 0, WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER, _("User cancelled the download"), &handled);
 }
 
 /**
@@ -519,8 +528,24 @@ const gchar* webkit_download_get_suggested_filename(WebKitDownload* download)
     g_return_val_if_fail(WEBKIT_IS_DOWNLOAD(download), NULL);
 
     WebKitDownloadPrivate* priv = download->priv;
+    if (priv->suggestedFilename)
+        return priv->suggestedFilename;
+
+    KURL url = KURL(KURL(), webkit_network_request_get_uri(priv->networkRequest));
+    url.setQuery(String());
+    url.removeFragmentIdentifier();
+    priv->suggestedFilename = g_strdup(decodeURLEscapeSequences(url.lastPathComponent()).utf8().data());
     return priv->suggestedFilename;
 }
+
+// for internal use only
+void webkit_download_set_suggested_filename(WebKitDownload* download, const gchar* suggestedFilename)
+{
+    WebKitDownloadPrivate* priv = download->priv;
+    g_free(priv->suggestedFilename);
+    priv->suggestedFilename = g_strdup(suggestedFilename);
+}
+
 
 /**
  * webkit_download_get_destination_uri:
@@ -688,6 +713,9 @@ gdouble webkit_download_get_progress(WebKitDownload* download)
     g_return_val_if_fail(WEBKIT_IS_DOWNLOAD(download), 1.0);
 
     WebKitDownloadPrivate* priv = download->priv;
+    if (!priv->networkResponse)
+        return 0;
+
     gdouble total_size = (gdouble)priv->networkResponse->expectedContentLength();
 
     if (total_size == 0)
@@ -713,6 +741,9 @@ gdouble webkit_download_get_elapsed_time(WebKitDownload* download)
     g_return_val_if_fail(WEBKIT_IS_DOWNLOAD(download), 0.0);
 
     WebKitDownloadPrivate* priv = download->priv;
+    if (!priv->timer)
+        return 0;
+
     return g_timer_elapsed(priv->timer, NULL);
 }
 
@@ -745,9 +776,23 @@ static void webkit_download_received_data(WebKitDownload* download, const gchar*
     if (priv->currentSize > priv->networkResponse->expectedContentLength())
         g_object_notify(G_OBJECT(download), "total-size");
 
-    // FIXME: Throttle the number of updates? Should we remove the
-    // previous g_object_notify()s if we are going to throttle the
-    // progress updates?
+    gdouble lastProgress = webkit_download_get_progress(download);
+
+    // Throttle progress notification to not consume high amounts of
+    // CPU on fast links, except when the progress is >= 3%, or we
+    // reached the end.
+    static gdouble lastElapsed = 0;
+    gdouble currentElapsed = g_timer_elapsed(priv->timer, NULL);
+
+    if (lastElapsed
+        && (currentElapsed - lastElapsed) < 0.1
+        && (webkit_download_get_progress(download) - lastProgress) < 0.03
+        && webkit_download_get_progress(download) < 1.0) {
+        lastElapsed = currentElapsed;
+        return;
+    }
+    lastElapsed = currentElapsed;
+
     g_object_notify(G_OBJECT(download), "progress");
 }
 
@@ -813,6 +858,4 @@ void DownloadClient::cannotShowURL(ResourceHandle*)
     // FIXME: Implement this when we have the new frame loader signals
     // and error handling.
     notImplemented();
-}
-
 }

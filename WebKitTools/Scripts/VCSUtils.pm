@@ -1,4 +1,4 @@
-# Copyright (C) 2007 Apple Inc.  All rights reserved.
+# Copyright (C) 2007, 2008, 2009 Apple Inc.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,15 +28,17 @@
 
 use strict;
 use warnings;
+
+use Cwd qw();  # "qw()" prevents warnings about redefining getcwd() with "use POSIX;"
+use File::Basename;
 use File::Spec;
-use webkitdirs;
 
 BEGIN {
    use Exporter   ();
    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
    $VERSION     = 1.00;
    @ISA         = qw(Exporter);
-   @EXPORT      = qw(&isGitDirectory &isGit &isSVNDirectory &isSVN &makeFilePathRelative);
+   @EXPORT      = qw(&chdirReturningRelativePath &determineSVNRoot &determineVCSRoot &isGit &isGitDirectory &isSVN &isSVNDirectory &makeFilePathRelative);
    %EXPORT_TAGS = ( );
    @EXPORT_OK   = ();
 }
@@ -104,6 +106,68 @@ sub isSVN()
     return $isSVN;
 }
 
+sub chdirReturningRelativePath($)
+{
+    my ($directory) = @_;
+    my $previousDirectory = Cwd::getcwd();
+    chdir $directory;
+    my $newDirectory = Cwd::getcwd();
+    return "." if $newDirectory eq $previousDirectory;
+    return File::Spec->abs2rel($previousDirectory, $newDirectory);
+}
+
+sub determineGitRoot()
+{
+    chomp(my $gitDir = `git rev-parse --git-dir`);
+    return dirname($gitDir);
+}
+
+sub determineSVNRoot()
+{
+    my $devNull = File::Spec->devnull();
+    my $last = '';
+    my $path = '.';
+    my $parent = '..';
+    my $repositoryUUID;
+    while (1) {
+        my $thisUUID;
+        # Ignore error messages in case we've run past the root of the checkout.
+        open INFO, "svn info '$path' 2> $devNull |" or die;
+        while (<INFO>) {
+            if (/^Repository UUID: (.+)/) {
+                $thisUUID = $1;
+                { local $/ = undef; <INFO>; }  # Consume the rest of the input.
+            }
+        }
+        close INFO;
+
+        # It's possible (e.g. for developers of some ports) to have a WebKit
+        # checkout in a subdirectory of another checkout.  So abort if the
+        # repository UUID suddenly changes.
+        last if !$thisUUID;
+        if (!$repositoryUUID) {
+            $repositoryUUID = $thisUUID;
+        }
+        last if $thisUUID ne $repositoryUUID;
+
+        $last = $path;
+        $path = File::Spec->catdir($parent, $path);
+    }
+
+    return File::Spec->rel2abs($last);
+}
+
+sub determineVCSRoot()
+{
+    if (isGit()) {
+        return determineGitRoot();
+    }
+    if (isSVN()) {
+        return determineSVNRoot();
+    }
+    die "Unable to determine VCS root";
+}
+
 sub svnRevisionForDirectory($)
 {
     my ($dir) = @_;
@@ -119,6 +183,29 @@ sub svnRevisionForDirectory($)
     die "Unable to determine current SVN revision in $dir" unless (defined $revision);
     return $revision;
 }
+
+sub pathRelativeToSVNRepositoryRootForPath($)
+{
+    my ($file) = @_;
+    my $relativePath = File::Spec->abs2rel($file);
+
+    my $svnInfo;
+    if (isSVN()) {
+        $svnInfo = `LC_ALL=C svn info $relativePath`;
+    } elsif (isGit()) {
+        $svnInfo = `LC_ALL=C git svn info $relativePath`;
+    }
+
+    $svnInfo =~ /.*^URL: (.*?)$/m;
+    my $svnURL = $1;
+
+    $svnInfo =~ /.*^Repository Root: (.*?)$/m;
+    my $repositoryRoot = $1;
+
+    $svnURL =~ s/$repositoryRoot\///;
+    return $svnURL;
+}
+
 
 my $gitRoot;
 sub makeFilePathRelative($)

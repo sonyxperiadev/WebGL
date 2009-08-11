@@ -79,7 +79,7 @@ bool HTMLFrameElementBase::isURLAllowed(const AtomicString& URLString) const
     // But we don't allow more than one.
     bool foundSelfReference = false;
     for (Frame* frame = document()->frame(); frame; frame = frame->tree()->parent()) {
-        if (equalIgnoringRef(frame->loader()->url(), completeURL)) {
+        if (equalIgnoringFragmentIdentifier(frame->loader()->url(), completeURL)) {
             if (foundSelfReference)
                 return false;
             foundSelfReference = true;
@@ -111,7 +111,7 @@ void HTMLFrameElementBase::openURL()
 void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == srcAttr)
-        setLocation(parseURL(attr->value()));
+        setLocation(deprecatedParseURL(attr->value()));
     else if (attr->name() == idAttr) {
         // Important to call through to base for the id attribute so the hasID bit gets set.
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
@@ -193,9 +193,10 @@ void HTMLFrameElementBase::attach()
 
     HTMLFrameOwnerElement::attach();
     
-    if (RenderPart* renderPart = static_cast<RenderPart*>(renderer()))
+    if (RenderPart* renderPart = toRenderPart(renderer())) {
         if (Frame* frame = contentFrame())
             renderPart->setWidget(frame->view());
+    }
 }
 
 KURL HTMLFrameElementBase::location() const

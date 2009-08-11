@@ -75,7 +75,10 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(const String& message,
+    virtual void addMessageToConsole(MessageSource source,
+                                     MessageType type,
+                                     MessageLevel level,
+                                     const String& message,
                                      unsigned int lineNumber,
                                      const String& sourceID);
 
@@ -106,7 +109,7 @@ public:
 
     virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
-    virtual void setToolTip(const String&);
+    virtual void setToolTip(const String&, TextDirection);
 
     virtual void print(Frame*);
 
@@ -121,6 +124,14 @@ public:
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
 
     virtual void formStateDidChange(const Node*) { }
+
+    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+    virtual bool setCursor(PlatformCursorHandle);
+
+    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+
+    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
 
 private:
     wxWebView* m_webView;

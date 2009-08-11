@@ -101,6 +101,7 @@ public:
     virtual bool isPressed() const;
     virtual bool isReadOnly() const;
     virtual bool isVisited() const;        
+    virtual bool isRequired() const;
 
     const AtomicString& getAttribute(const QualifiedName&) const;
     virtual bool canSetFocusAttribute() const;
@@ -111,11 +112,13 @@ public:
     
     virtual bool accessibilityIsIgnored() const;
     
-    static int headingLevel(Node*);
+    virtual int headingLevel() const;
     virtual int intValue() const;
+    virtual String valueDescription() const;
     virtual float valueForRange() const;
     virtual float maxValueForRange() const;
     virtual float minValueForRange() const;
+    virtual AccessibilityObject* selectedRadioButton();
     virtual int layoutCount() const;
     
     virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const;
@@ -133,8 +136,8 @@ public:
     virtual AccessibilityRole ariaRoleAttribute() const;
     virtual bool isPresentationalChildOfAriaRole() const;
     virtual bool ariaRoleHasPresentationalChildren() const;
-    void setAriaRole();
-    virtual AccessibilityRole roleValue() const;
+    void updateAccessibilityRole();
+    
     virtual AXObjectCache* axObjectCache() const;
     
     virtual Element* actionElement() const;
@@ -147,6 +150,7 @@ public:
     virtual IntRect boundingBoxRect() const;
     virtual IntRect elementRect() const;
     virtual IntSize size() const;
+    virtual IntPoint clickPoint() const;
     
     void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
     RenderObject* renderer() const { return m_renderer; }
@@ -160,7 +164,7 @@ public:
     virtual PlainTextRange selectedTextRange() const;
     virtual VisibleSelection selection() const;
     virtual String stringValue() const;
-    virtual String ariaAccessiblityName(const String&) const;
+    virtual String ariaAccessibilityName(const String&) const;
     virtual String ariaLabeledByAttribute() const;
     virtual String title() const;
     virtual String ariaDescribedByAttribute() const;
@@ -177,6 +181,7 @@ public:
     virtual Widget* widgetForAttachmentView() const;
     virtual void getDocumentLinks(AccessibilityChildrenVector&);
     virtual FrameView* documentFrameView() const;
+    virtual String language() const;
     
     virtual const AccessibilityChildrenVector& children();
     
@@ -226,9 +231,11 @@ protected:
 private:
     void ariaListboxSelectedChildren(AccessibilityChildrenVector&);
     void ariaListboxVisibleChildren(AccessibilityChildrenVector&);
+    bool ariaIsHidden() const;
 
     Element* menuElementForMenuButton() const;
-    Element* menuItemElementForMenu() const; 
+    Element* menuItemElementForMenu() const;
+    AccessibilityRole determineAccessibilityRole();
     AccessibilityRole determineAriaRoleAttribute() const;
 
     IntRect checkboxOrRadioRect() const;

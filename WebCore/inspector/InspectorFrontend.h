@@ -30,7 +30,8 @@
 #ifndef InspectorFrontend_h
 #define InspectorFrontend_h
 
-#include "JSONObject.h"
+#include "ScriptArray.h"
+#include "ScriptObject.h"
 #include "ScriptState.h"
 #include <wtf/PassOwnPtr.h>
 
@@ -53,12 +54,14 @@ namespace WebCore {
     public:
         InspectorFrontend(ScriptState*, ScriptObject webInspector);
         ~InspectorFrontend();
-        JSONObject newJSONObject();
 
-        void addMessageToConsole(const JSONObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
+        ScriptArray newScriptArray();
+        ScriptObject newScriptObject();
+
+        void addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
         
-        bool addResource(long long identifier, const JSONObject& resourceObj);
-        bool updateResource(long long identifier, const JSONObject& resourceObj);
+        bool addResource(long long identifier, const ScriptObject& resourceObj);
+        bool updateResource(long long identifier, const ScriptObject& resourceObj);
         void removeResource(long long identifier);
 
         void updateFocusedNode(Node* node);
@@ -86,12 +89,21 @@ namespace WebCore {
 #endif
 
 #if ENABLE(DATABASE)
-        bool addDatabase(const JSONObject& dbObj);
+        bool addDatabase(const ScriptObject& dbObj);
 #endif
         
 #if ENABLE(DOM_STORAGE)
-        bool addDOMStorage(const JSONObject& domStorageObj);
+        bool addDOMStorage(const ScriptObject& domStorageObj);
 #endif
+
+        void setDocumentElement(const ScriptObject& root);
+        void setChildNodes(int parentId, const ScriptArray& nodes);
+        void hasChildrenUpdated(int id, bool newValue);
+        void childNodeInserted(int parentId, int prevId, const ScriptObject& node);
+        void childNodeRemoved(int parentId, int id);
+        void attributesUpdated(int id, const ScriptArray& attributes);
+        void didGetChildNodes(int callId);
+        void didApplyDomChange(int callId, bool success);
 
     private:
         PassOwnPtr<ScriptFunctionCall> newFunctionCall(const String& functionName);

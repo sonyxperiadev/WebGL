@@ -72,6 +72,19 @@ enum {
     WebMenuItemTagTextDirectionDefault,
     WebMenuItemTagTextDirectionLeftToRight,
     WebMenuItemTagTextDirectionRightToLeft,
+    WebMenuItemTagCorrectSpellingAutomatically,
+    WebMenuItemTagSubstitutionsMenu,
+    WebMenuItemTagShowSubstitutions,
+    WebMenuItemTagSmartCopyPaste,
+    WebMenuItemTagSmartQuotes,
+    WebMenuItemTagSmartDashes,
+    WebMenuItemTagSmartLinks,
+    WebMenuItemTagTextReplacement,
+    WebMenuItemTagTransformationsMenu,
+    WebMenuItemTagMakeUpperCase,
+    WebMenuItemTagMakeLowerCase,
+    WebMenuItemTagCapitalize,
+    WebMenuItemTagChangeBack,
     WebMenuItemTagBaseApplication = 10000
 };
 @class WebGeolocation;
@@ -112,5 +125,18 @@ enum {
 - (NSString *)webView:(WebView *)sender generateReplacementFile:(NSString *)path;
 
 - (BOOL)webView:(WebView *)sender frame:(WebFrame *)frame requestGeolocationPermission:(WebGeolocation *)geolocation securityOrigin:(WebSecurityOrigin *)origin;
+
+- (void)webView:(WebView *)sender formStateDidChangeForNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formStateDidFocusNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender formStateDidBlurNode:(DOMNode *)node;
+
+/*!
+    @method webView:printFrame:
+    @abstract Informs that a WebFrame needs to be printed
+    @param webView The WebView sending the delegate method
+    @param frameView The WebFrame needing to be printed
+    @discussion This method is called when a script or user requests the page to be printed.
+*/
+- (void)webView:(WebView *)sender printFrame:(WebFrame *)frame;
 
 @end

@@ -58,11 +58,15 @@ namespace WebCore {
 - (void)setPromisedDragTIFFDataSource:(WebCore::CachedImage*)source;
 - (void)_web_layoutIfNeededRecursive;
 - (void)_destroyAllWebPlugins;
-- (BOOL)_isResigningFirstResponder;
+- (BOOL)_needsLayout;
 
 #if USE(ACCELERATED_COMPOSITING)
 - (void)attachRootLayer:(CALayer*)layer;
 - (void)detachRootLayer;
+#endif
+
+#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
+- (void)_updateLayerHostingViewPosition;
 #endif
 
 @end

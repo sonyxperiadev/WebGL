@@ -33,8 +33,8 @@ class RenderWidget : public RenderReplaced, private OverlapTestRequestClient {
 public:
     virtual ~RenderWidget();
 
-    Widget* widget() const { return m_widget; }
-    virtual void setWidget(Widget*);
+    Widget* widget() const { return m_widget.get(); }
+    virtual void setWidget(PassRefPtr<Widget>);
 
     static RenderWidget* find(const Widget*);
 
@@ -57,7 +57,6 @@ private:
     virtual void destroy();
     virtual void setSelectionState(SelectionState);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
-    virtual void deleteWidget(Widget*);
     virtual void setOverlapTestResult(bool);
 
     void setWidgetGeometry(const IntRect&);
@@ -65,10 +64,25 @@ private:
     RenderArena* ref() { ++m_refCount; return renderArena(); }
     void deref(RenderArena*);
 
-    Widget* m_widget;
+    RefPtr<Widget> m_widget;
     FrameView* m_frameView;
     int m_refCount;
 };
+
+inline RenderWidget* toRenderWidget(RenderObject* object)
+{
+    ASSERT(!object || object->isWidget());
+    return static_cast<RenderWidget*>(object);
+}
+
+inline const RenderWidget* toRenderWidget(const RenderObject* object)
+{
+    ASSERT(!object || object->isWidget());
+    return static_cast<const RenderWidget*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderWidget(const RenderWidget*);
 
 } // namespace WebCore
 

@@ -36,6 +36,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "markup.h"
 #include "Page.h"
+#include "PlatformString.h"
 #include "RenderTreeAsText.h"
 #include "RenderObject.h"
 #include "RenderView.h"
@@ -177,7 +178,7 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
     if (m_impl->frame) {
-        JSC::JSValuePtr result = m_impl->frame->loader()->executeScript(javascript, true).jsValue();
+        JSC::JSValue result = m_impl->frame->loader()->executeScript(javascript, true).jsValue();
         if (result)
             returnValue = wxString(result.toString(m_impl->frame->script()->globalObject()->globalExec()).UTF8String().c_str(), wxConvUTF8);        
     }
@@ -306,6 +307,13 @@ void wxWebFrame::DecreaseTextSize()
         m_textMagnifier = m_textMagnifier/TextSizeMultiplierRatio;
         m_impl->frame->setZoomFactor(m_textMagnifier, true);
     }
+}
+
+void wxWebFrame::ResetTextSize()
+{
+    m_textMagnifier = 1.0;
+    if (m_impl->frame)
+        m_impl->frame->setZoomFactor(m_textMagnifier, true);
 }
 
 void wxWebFrame::MakeEditable(bool enable)

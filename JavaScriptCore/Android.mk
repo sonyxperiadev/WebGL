@@ -52,6 +52,7 @@ LOCAL_SRC_FILES := \
 	API/JSCallbackObject.cpp \
 	API/OpaqueJSString.cpp \
 	\
+	assembler/ARMAssembler.cpp \
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
@@ -114,6 +115,7 @@ LOCAL_SRC_FILES := \
 	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
 	runtime/InternalFunction.cpp \
+	runtime/JSAPIValueWrapper.cpp \
 	runtime/JSActivation.cpp \
 	runtime/JSArray.cpp \
 	runtime/JSByteArray.cpp \
@@ -126,6 +128,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSLock.cpp \
 	runtime/JSNotAnObject.cpp \
 	runtime/JSNumberCell.cpp \
+	runtime/JSONObject.cpp \
 	runtime/JSObject.cpp \
 	runtime/JSPropertyNameIterator.cpp \
 	runtime/JSStaticScopeObject.cpp \
@@ -135,6 +138,9 @@ LOCAL_SRC_FILES := \
 	runtime/JSWrapperObject.cpp \
 	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
+	runtime/MarkStack.cpp \
+	runtime/MarkStackPosix.cpp \
+	runtime/MarkStackWin.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
 	runtime/NativeErrorPrototype.cpp \
@@ -179,6 +185,7 @@ LOCAL_SRC_FILES := \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/Threading.cpp \
+	wtf/ThreadingNone.cpp \
 	wtf/ThreadingPthreads.cpp \
 	\
 	wtf/TypeTraits.cpp \
@@ -186,9 +193,11 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/android/MainThreadAndroid.cpp \
 	\
+	wtf/haiku/MainThreadHaiku.cpp \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	\
+	wtf/unicode/glib/UnicodeGLib.cpp \
 	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.

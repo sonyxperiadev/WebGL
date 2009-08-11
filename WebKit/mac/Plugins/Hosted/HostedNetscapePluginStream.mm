@@ -57,6 +57,14 @@ HostedNetscapePluginStream::HostedNetscapePluginStream(NetscapePluginInstancePro
         [m_request.get() _web_setHTTPReferrer:nil];
 }
 
+HostedNetscapePluginStream::HostedNetscapePluginStream(NetscapePluginInstanceProxy* instance, WebCore::FrameLoader* frameLoader)
+    : m_instance(instance)
+    , m_streamID(1)
+    , m_isTerminated(false)
+    , m_frameLoader(frameLoader)
+{
+}
+
 void HostedNetscapePluginStream::startStreamWithResponse(NSURLResponse *response)
 {
     didReceiveResponse(0, response);
@@ -152,7 +160,7 @@ void HostedNetscapePluginStream::didReceiveResponse(NetscapePlugInStreamLoader*,
         [theHeaders appendBytes:"\0" length:1];
     }
     
-    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r _webcore_MIMEType], theHeaders);
+    startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r MIMEType], theHeaders);
 }
 
 static NPReason reasonForError(NSError *error)

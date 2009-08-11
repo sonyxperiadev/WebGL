@@ -53,13 +53,17 @@ namespace WebCore {
 
 class CachedResource;
 class Database;
+class Document;
 class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
+class InspectorBackend;
 class InspectorClient;
+class InspectorDOMAgent;
 class InspectorFrontend;
 class JavaScriptCallFrame;
 class StorageArea;
+class KURL;
 class Node;
 class Page;
 struct ResourceRequest;
@@ -75,9 +79,9 @@ class InspectorDatabaseResource;
 class InspectorDOMStorageResource;
 class InspectorResource;
 
-class InspectorController : public RefCounted<InspectorController>
+class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-                          , JavaScriptDebugListener
+                          : JavaScriptDebugListener
 #endif
                                                     {
 public:
@@ -112,6 +116,18 @@ public:
             m_simpleContent.m_boolean = value;
         }
 
+        explicit Setting(unsigned value)
+            : m_type(IntegerType)
+        {
+            m_simpleContent.m_integer = value;
+        }
+
+        explicit Setting(const String& value)
+            : m_type(StringType)
+        {
+            m_string = value;
+        }
+
         Type type() const { return m_type; }
 
         String string() const { ASSERT(m_type == StringType); return m_string; }
@@ -138,13 +154,10 @@ public:
             bool m_boolean;
         } m_simpleContent;
     };
-
-    static PassRefPtr<InspectorController> create(Page* page, InspectorClient* inspectorClient)
-    {
-        return adoptRef(new InspectorController(page, inspectorClient));
-    }
-
+    InspectorController(Page*, InspectorClient*);
     ~InspectorController();
+
+    InspectorBackend* inspectorBackend() { return m_inspectorBackend.get(); }
 
     void inspectedPageDestroyed();
     void pageDestroyed() { m_page = 0; }
@@ -155,9 +168,6 @@ public:
 
     const Setting& setting(const String& key) const;
     void setSetting(const String& key, const Setting&);
-
-    String localizedStringsURL();
-    String hiddenPanels();
 
     void inspect(Node*);
     void highlight(Node*);
@@ -170,17 +180,13 @@ public:
     bool windowVisible();
     void setWindowVisible(bool visible = true, bool attached = false);
 
-    void addResourceSourceToFrame(long identifier, Node* frame);
-    bool addSourceToFrame(const String& mimeType, const String& source, Node*);
-    void addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*);
-    void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
+    const Vector<ConsoleMessage*>& consoleMessages() const { return m_consoleMessages; }
 
     void attachWindow();
     void detachWindow();
-
-    void setAttachedWindow(bool);
-    void setAttachedWindowHeight(unsigned height);
 
     void toggleSearchForNodeInPage();
     bool searchingForNodeInPage() { return m_searchingForNode; };
@@ -190,7 +196,6 @@ public:
     void inspectedWindowScriptObjectCleared(Frame*);
     void windowScriptObjectAvailable();
 
-    void scriptObjectReady();
     void setFrontendProxyObject(ScriptState* state, ScriptObject object);
 
     void populateScriptObjects();
@@ -224,9 +229,6 @@ public:
 
     const ResourcesMap& resources() const { return m_resources; }
 
-    void moveWindowBy(float x, float y) const;
-    void closeWindow();
-
     void drawNodeHighlight(GraphicsContext&) const;
 
     void count(const String& title, unsigned lineNumber, const String& sourceID);
@@ -237,44 +239,28 @@ public:
     void startGroup(MessageSource source, ScriptCallStack* callFrame);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
-    const String& platform() const;
-
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void addProfile(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addProfileMessageToConsole(PassRefPtr<JSC::Profile> prpProfile, unsigned lineNumber, const JSC::UString& sourceURL);
-    void addScriptProfile(JSC::Profile* profile);
+    void addProfileFinishedMessageToConsole(PassRefPtr<JSC::Profile>, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addStartProfilingMessageToConsole(const JSC::UString& title, unsigned lineNumber, const JSC::UString& sourceURL);
+    void addScriptProfile(JSC::Profile*);
     const ProfilesArray& profiles() const { return m_profiles; }
 
     bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
 
-    void startUserInitiatedProfilingSoon();
+    JSC::UString getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
     void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
     void stopUserInitiatedProfiling();
-    void toggleRecordButton(bool);
 
     void enableProfiler(bool always = false, bool skipRecompile = false);
     void disableProfiler(bool always = false);
     bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
 
-    void enableDebuggerFromFrontend(bool always);
     void enableDebugger();
     void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerEnabled; }
 
-    JavaScriptCallFrame* currentCallFrame() const;
-
-    void addBreakpoint(intptr_t sourceID, unsigned lineNumber);
-    void removeBreakpoint(intptr_t sourceID, unsigned lineNumber);
-
-    bool pauseOnExceptions();
-    void setPauseOnExceptions(bool pause);
-
-    void pauseInDebugger();
     void resumeDebugger();
-
-    void stepOverStatementInDebugger();
-    void stepIntoStatementInDebugger();
-    void stepOutOfFunctionInDebugger();
 
     virtual void didParseSource(JSC::ExecState*, const JSC::SourceCode&);
     virtual void failedToParseSource(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMessage);
@@ -283,7 +269,22 @@ public:
 #endif
 
 private:
-    InspectorController(Page*, InspectorClient*);
+    friend class InspectorBackend;
+ 
+    // Following are used from InspectorBackend and internally.
+    void scriptObjectReady(bool enableDOMAgent);
+    void moveWindowBy(float x, float y) const;
+    void setAttachedWindow(bool);
+    void setAttachedWindowHeight(unsigned height);
+    void storeLastActivePanel(const String& panelName);
+    void closeWindow();
+    InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    void startUserInitiatedProfilingSoon();
+    void toggleRecordButton(bool);
+    void enableDebuggerFromFrontend(bool always);
+#endif
 
     void focusNode();
 
@@ -291,16 +292,21 @@ private:
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
+    InspectorResource* getTrackedResource(long long identifier);
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
     void showWindow();
 
+    bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
+
+    SpecialPanels specialPanelForJSName(const String& panelName);
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
     OwnPtr<InspectorFrontend> m_frontend;
+    RefPtr<InspectorDOMAgent> m_domAgent;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -326,6 +332,7 @@ private:
     ConsoleMessage* m_previousMessage;
     bool m_resourceTrackingEnabled;
     bool m_resourceTrackingSettingsLoaded;
+    RefPtr<InspectorBackend> m_inspectorBackend;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

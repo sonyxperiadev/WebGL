@@ -17,7 +17,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-
+#include "config.h"
 #include "qcookiejar.h"
 #include <QCoreApplication>
 uint qHash(const QUrl&);
@@ -26,7 +26,8 @@ uint qHash(const QUrl&);
 
 class QCookieJarPrivate {
     public:
-        QCookieJarPrivate() {
+        QCookieJarPrivate()
+        {
             enabled = true;
         }
         bool enabled;
@@ -34,7 +35,8 @@ class QCookieJarPrivate {
 };
 
 
-uint qHash(const QUrl& url) {
+uint qHash(const QUrl& url)
+{
     return qHash(url.toString());
 }
 
@@ -85,7 +87,7 @@ static void gCleanupJar()
 }
 
 
-void QCookieJar::setCookieJar(QCookieJar *jar)
+void QCookieJar::setCookieJar(QCookieJar* jar)
 {
     if (!gRoutineAdded) {
         qAddPostRoutine(gCleanupJar);
@@ -96,10 +98,10 @@ void QCookieJar::setCookieJar(QCookieJar *jar)
 }
 
 
-QCookieJar *QCookieJar::cookieJar()
+QCookieJar* QCookieJar::cookieJar()
 {
-    if (!gJar) {
+    if (!gJar)
         setCookieJar(new QCookieJar);
-    }
+
     return gJar;
 }

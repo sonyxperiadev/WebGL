@@ -38,12 +38,12 @@
 
 namespace JSC {
 
-    // *Sigh*, If the JIT is enabled we need to track the stubRountine (of type MacroAssembler::CodeLocationLabel),
+    // *Sigh*, If the JIT is enabled we need to track the stubRountine (of type CodeLocationLabel),
     // If the JIT is not in use we don't actually need the variable (that said, if the JIT is not in use we don't
     // curently actually use PolymorphicAccessStructureLists, which we should).  Anyway, this seems like the best
     // solution for now - will need to something smarter if/when we actually want mixed-mode operation.
 #if ENABLE(JIT)
-    typedef MacroAssembler::CodeLocationLabel PolymorphicAccessStructureListStubRoutineType;
+    typedef CodeLocationLabel PolymorphicAccessStructureListStubRoutineType;
 #else
     typedef void* PolymorphicAccessStructureListStubRoutineType;
 #endif
@@ -53,7 +53,7 @@ namespace JSC {
     class StructureChain;
 
     // Structure used by op_get_by_id_self_list and op_get_by_id_proto_list instruction to hold data off the main opcode stream.
-    struct PolymorphicAccessStructureList {
+    struct PolymorphicAccessStructureList : FastAllocBase {
         struct PolymorphicStubInfo {
             bool isChain;
             PolymorphicAccessStructureListStubRoutineType stubRoutine;

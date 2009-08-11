@@ -205,24 +205,26 @@ bool StringImpl::containsOnlyWhitespace()
     return true;
 }
 
-PassRefPtr<StringImpl> StringImpl::substring(unsigned pos, unsigned len)
+PassRefPtr<StringImpl> StringImpl::substring(unsigned start, unsigned length)
 {
-    if (pos >= m_length)
+    if (start >= m_length)
         return empty();
-    if (len > m_length - pos)
-        len = m_length - pos;
-    return create(m_data + pos, len);
+    unsigned maxLength = m_length - start;
+    if (length >= maxLength) {
+        if (!start)
+            return this;
+        length = maxLength;
+    }
+    return create(m_data + start, length);
 }
 
-PassRefPtr<StringImpl> StringImpl::substringCopy(unsigned pos, unsigned len)
+PassRefPtr<StringImpl> StringImpl::substringCopy(unsigned start, unsigned length)
 {
-    if (pos >= m_length)
-        pos = m_length;
-    if (len > m_length - pos)
-        len = m_length - pos;
-    if (!len)
+    start = min(start, m_length);
+    length = min(length, m_length - start);
+    if (!length)
         return adoptRef(new StringImpl);
-    return substring(pos, len);
+    return create(m_data + start, length);
 }
 
 UChar32 StringImpl::characterStartingAt(unsigned i)
@@ -486,6 +488,11 @@ uint64_t StringImpl::toUInt64Strict(bool* ok, int base)
     return charactersToUInt64Strict(m_data, m_length, ok, base);
 }
 
+intptr_t StringImpl::toIntPtrStrict(bool* ok, int base)
+{
+    return charactersToIntPtrStrict(m_data, m_length, ok, base);
+}
+
 int StringImpl::toInt(bool* ok)
 {
     return charactersToInt(m_data, m_length, ok);
@@ -504,6 +511,11 @@ int64_t StringImpl::toInt64(bool* ok)
 uint64_t StringImpl::toUInt64(bool* ok)
 {
     return charactersToUInt64(m_data, m_length, ok);
+}
+
+intptr_t StringImpl::toIntPtr(bool* ok)
+{
+    return charactersToIntPtr(m_data, m_length, ok);
 }
 
 double StringImpl::toDouble(bool* ok)
@@ -527,9 +539,8 @@ static bool equal(const UChar* a, const char* b, int length)
     return true;
 }
 
-static bool equalIgnoringCase(const UChar* a, const char* b, int length)
+bool equalIgnoringCase(const UChar* a, const char* b, unsigned length)
 {
-    ASSERT(length >= 0);
     while (length--) {
         unsigned char bc = *b++;
         if (foldCase(*a++) != foldCase(bc))
@@ -917,6 +928,18 @@ bool equalIgnoringCase(StringImpl* a, const char* b)
     return equal && !b[length];
 }
 
+bool equalIgnoringNullity(StringImpl* a, StringImpl* b)
+{
+    if (StringHash::equal(a, b))
+        return true;
+    if (!a && b && !b->length())
+        return true;
+    if (!b && a && !a->length())
+        return true;
+
+    return false;
+}
+
 Vector<char> StringImpl::ascii()
 {
     Vector<char> buffer(m_length + 1);
@@ -1026,7 +1049,7 @@ PassRefPtr<StringImpl> StringImpl::create(const char* string)
 #if USE(JSC)
 PassRefPtr<StringImpl> StringImpl::create(const JSC::UString& str)
 {
-    SharedUChar* sharedBuffer = const_cast<JSC::UString*>(&str)->rep()->baseString()->sharedBuffer();
+    SharedUChar* sharedBuffer = const_cast<JSC::UString*>(&str)->rep()->sharedBuffer();
     if (sharedBuffer) {
         PassRefPtr<StringImpl> impl = adoptRef(new StringImpl(const_cast<UChar*>(str.data()), str.size(), AdoptBuffer()));
         sharedBuffer->ref();
@@ -1038,7 +1061,7 @@ PassRefPtr<StringImpl> StringImpl::create(const JSC::UString& str)
 
 JSC::UString StringImpl::ustring()
 {
-    SharedUChar* sharedBuffer = StringImpl::sharedBuffer();
+    SharedUChar* sharedBuffer = this->sharedBuffer();
     if (sharedBuffer)
         return JSC::UString::Rep::create(const_cast<UChar*>(m_data), m_length, sharedBuffer);
 
@@ -1053,7 +1076,8 @@ PassRefPtr<StringImpl> StringImpl::createWithTerminatingNullCharacter(const Stri
 
 PassRefPtr<StringImpl> StringImpl::copy()
 {
-    return create(m_data, m_length);
+    // Using the constructor directly to make sure that per-thread empty string instance isn't returned.
+    return adoptRef(new StringImpl(m_data, m_length));
 }
 
 StringImpl::SharedUChar* StringImpl::sharedBuffer()

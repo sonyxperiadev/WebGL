@@ -45,6 +45,7 @@
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
+#include "PlatformKeyboardEvent.h"
 #include "PluginContainerQt.h"
 #include "PluginDebug.h"
 #include "PluginPackage.h"
@@ -55,10 +56,12 @@
 #include "npruntime_impl.h"
 #include "runtime.h"
 #include "runtime_root.h"
+#include <QKeyEvent>
 #include <QWidget>
 #include <QX11Info>
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
+#include <X11/X.h>
 
 using JSC::ExecState;
 using JSC::Interpreter;
@@ -150,14 +153,76 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         setNPWindowIfNeeded();
 }
 
+// TODO: Unify across ports.
+bool PluginView::dispatchNPEvent(NPEvent& event)
+{
+    if (!m_plugin->pluginFuncs()->event)
+        return false;
+
+    PluginView::setCurrentPluginView(this);
+    JSC::JSLock::DropAllLocks dropAllLocks(false);
+
+    setCallingPlugin(true);
+    bool accepted = m_plugin->pluginFuncs();
+    setCallingPlugin(false);
+
+    return accepted;
+}
+
+void setSharedXEventFields(XEvent& xEvent, QWidget* hostWindow)
+{
+    xEvent.xany.serial = 0; // we are unaware of the last request processed by X Server
+    xEvent.xany.send_event = false;
+    xEvent.xany.display = hostWindow->x11Info().display();
+    // NOTE: event.xany.window doesn't always respond to the .window property of other XEvent's
+    // but does in the case of KeyPress, KeyRelease, ButtonPress, ButtonRelease, and MotionNotify
+    // events; thus, this is right:
+    xEvent.xany.window = hostWindow->window()->handle();
+}
+
+void setXKeyEventSpecificFields(XEvent& xEvent, KeyboardEvent* event)
+{
+    QKeyEvent* qKeyEvent = event->keyEvent()->qtEvent();
+
+    xEvent.xkey.root = QX11Info::appRootWindow();
+    xEvent.xkey.subwindow = 0; // we have no child window
+    xEvent.xkey.time = event->timeStamp();
+    xEvent.xkey.state = qKeyEvent->nativeModifiers();
+    xEvent.xkey.keycode = qKeyEvent->nativeScanCode();
+    xEvent.xkey.same_screen = true;
+
+    // NOTE: As the XEvents sent to the plug-in are synthesized and there is not a native window
+    // corresponding to the plug-in rectangle, some of the members of the XEvent structures are not
+    // set to their normal Xserver values. e.g. Key events don't have a position.
+    // source: https://developer.mozilla.org/en/NPEvent
+    xEvent.xkey.x = 0;
+    xEvent.xkey.y = 0;
+    xEvent.xkey.x_root = 0;
+    xEvent.xkey.y_root = 0;
+}
+
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
-    notImplemented();
+    if (m_isWindowed)
+        return;
+
+    if (event->type() != "keydown" && event->type() != "keyup")
+        return;
+
+    XEvent npEvent; // On UNIX NPEvent is a typedef for XEvent.
+
+    npEvent.type = (event->type() == "keydown") ? 2 : 3; // ints as Qt unsets KeyPress and KeyRelease
+    setSharedXEventFields(npEvent, m_parentFrame->view()->hostWindow()->platformWindow());
+    setXKeyEventSpecificFields(npEvent, event);
+
+    if (!dispatchNPEvent(npEvent))
+        event->setDefaultHandled();
 }
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
-    notImplemented();
+    if (m_isWindowed)
+        return;
 }
 
 void PluginView::setParent(ScrollView* parent)
@@ -209,7 +274,7 @@ void PluginView::setNPWindowIfNeeded()
     m_npWindow.clipRect.bottom = m_clipRect.height();
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
@@ -227,70 +292,6 @@ void PluginView::setParentVisible(bool visible)
         platformPluginWidget()->setVisible(visible);
 }
 
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
-    }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
-    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
-
-    // Clear the window
-    m_npWindow.window = 0;
-    if (m_plugin->pluginFuncs()->setwindow && !m_plugin->quirks().contains(PluginQuirkDontSetNullWindowHandleOnDestroy)) {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-    delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
-    m_npWindow.ws_info = 0;
-
-    // Destroy the plugin
-    {
-        PluginView::setCurrentPluginView(this);
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->destroy(m_instance, 0);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
-    }
-
-    m_instance->pdata = 0;
-}
-
-static const char* MozillaUserAgent = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-
-const char* PluginView::userAgent()
-{
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
-        return MozillaUserAgent;
-
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-
-    return m_userAgent.data();
-}
-
-const char* PluginView::userAgentStatic()
-{
-    //FIXME - Just say we are Mozilla
-    return MozillaUserAgent;
-}
-
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
 {
     String filename(buf, len);
@@ -301,10 +302,10 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
     if (!fileExists(filename))
         return NPERR_FILE_NOT_FOUND;
 
-    //FIXME - read the file data into buffer
+    // FIXME - read the file data into buffer
     FILE* fileHandle = fopen((filename.utf8()).data(), "r");
 
-    if (fileHandle == 0)
+    if (!fileHandle)
         return NPERR_FILE_NOT_FOUND;
 
     //buffer.resize();
@@ -321,6 +322,8 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
 
 NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValueStatic(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVToolkit:
         *static_cast<uint32*>(value) = 0;
@@ -341,6 +344,8 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 
 NPError PluginView::getValue(NPNVariable variable, void* value)
 {
+    LOG(Plugins, "PluginView::getValue(%s)", prettyNameForNPNVariable(variable).data());
+
     switch (variable) {
     case NPNVxDisplay:
         if (platformPluginWidget())
@@ -474,7 +479,7 @@ void PluginView::init()
 
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginNeedsXEmbed, &m_needsXEmbed);
         setCallingPlugin(false);
@@ -488,7 +493,7 @@ void PluginView::init()
         m_status = PluginStatusCanNotLoadPlugin;
         return;
     }
-    show ();
+    show();
 
     NPSetWindowCallbackStruct *wsi = new NPSetWindowCallbackStruct();
 
@@ -512,5 +517,10 @@ void PluginView::init()
 
     m_status = PluginStatusLoadedSuccessfully;
 }
+
+void PluginView::platformStart()
+{
+}
+
 
 } // namespace WebCore

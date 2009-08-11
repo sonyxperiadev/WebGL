@@ -49,24 +49,28 @@ CALLBACK_FUNC_DECL(HTMLImageElementConstructor)
     if (!args.IsConstructCall())
         return throwError("DOM object constructor cannot be called as a function.");
 
-    Document* document = V8Proxy::retrieveFrame()->document();
+    Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
+    if (!frame)
+        return throwError("Image constructor associated frame is unavailable", V8Proxy::ReferenceError);
+
+    Document* document = frame->document();
     if (!document)
-        return throwError("Image constructor associated document is unavailable", V8Proxy::REFERENCE_ERROR);
+        return throwError("Image constructor associated document is unavailable", V8Proxy::ReferenceError);
 
     // Make sure the document is added to the DOM Node map. Otherwise, the HTMLImageElement instance
     // may end up being the only node in the map and get garbage-ccollected prematurely.
-    V8Proxy::NodeToV8Object(document);
+    V8DOMWrapper::convertNodeToV8Object(document);
 
-    RefPtr<HTMLImageElement> image = new HTMLImageElement(HTMLNames::imgTag, V8Proxy::retrieveFrame()->document());
+    RefPtr<HTMLImageElement> image = new HTMLImageElement(HTMLNames::imgTag, document);
     if (args.Length() > 0) {
         image->setWidth(toInt32(args[0]));
         if (args.Length() > 1)
             image->setHeight(toInt32(args[1]));
     }
 
-    V8Proxy::SetDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::NODE), image.get());
+    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::NODE), image.get());
     image->ref();
-    V8Proxy::SetJSWrapperForDOMNode(image.get(), v8::Persistent<v8::Object>::New(args.Holder()));
+    V8DOMWrapper::setJSWrapperForDOMNode(image.get(), v8::Persistent<v8::Object>::New(args.Holder()));
     return args.Holder();
 }
 

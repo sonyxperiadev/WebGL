@@ -28,6 +28,7 @@
 
 #include <webkit/webkitdefines.h>
 #include <webkit/webkitwebbackforwardlist.h>
+#include <webkit/webkitwebframe.h>
 #include <webkit/webkitwebhistoryitem.h>
 #include <webkit/webkitwebsettings.h>
 
@@ -73,6 +74,8 @@ struct _WebKitWebViewClass {
 
     gboolean                   (* web_view_ready)          (WebKitWebView* web_view);
 
+    gboolean                   (* close_web_view)         (WebKitWebView* web_view);
+
     WebKitNavigationResponse   (* navigation_requested)   (WebKitWebView        *web_view,
                                                            WebKitWebFrame       *frame,
                                                            WebKitNetworkRequest *request);
@@ -103,6 +106,9 @@ struct _WebKitWebViewClass {
     void                       (* cut_clipboard)          (WebKitWebView        *web_view);
     void                       (* copy_clipboard)         (WebKitWebView        *web_view);
     void                       (* paste_clipboard)        (WebKitWebView        *web_view);
+    gboolean                   (* move_cursor)            (WebKitWebView        *web_view,
+                                                           GtkMovementStep       step,
+                                                           gint                  count);
 
     /*
      * internal
@@ -117,8 +123,6 @@ struct _WebKitWebViewClass {
     void (*_webkit_reserved3) (void);
     void (*_webkit_reserved4) (void);
     void (*_webkit_reserved5) (void);
-    void (*_webkit_reserved6) (void);
-    void (*_webkit_reserved7) (void);
 };
 
 WEBKIT_API GType
@@ -323,6 +327,17 @@ webkit_web_view_set_custom_encoding             (WebKitWebView        * webView,
 
 WEBKIT_API const char*
 webkit_web_view_get_custom_encoding             (WebKitWebView        * webView);
+
+WEBKIT_API void
+webkit_web_view_move_cursor                     (WebKitWebView        * webView,
+                                                 GtkMovementStep        step,
+                                                 gint                   count);
+
+WEBKIT_API WebKitLoadStatus
+webkit_web_view_get_load_status                 (WebKitWebView        *web_view);
+
+WEBKIT_API gdouble
+webkit_web_view_get_progress                    (WebKitWebView        *web_view);
 
 G_END_DECLS
 

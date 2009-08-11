@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
- * Copyright (C) 2008 Anthony Ricaud (rik24d@gmail.com)
+ * Copyright (C) 2008, 2009 Anthony Ricaud <rik@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,10 @@ WebInspector.ResourcesPanel = function()
     WebInspector.Panel.call(this);
 
     this.element.addStyleClass("resources");
+
+    this.filterBarElement = document.createElement("div");
+    this.filterBarElement.id = "resources-filter";
+    this.element.appendChild(this.filterBarElement);
 
     this.viewsContainerElement = document.createElement("div");
     this.viewsContainerElement.id = "resource-views";
@@ -126,7 +130,7 @@ WebInspector.ResourcesPanel = function()
 
     this.resourcesTreeElement.expand();
 
-    var panelEnablerHeading = WebInspector.UIString("You need to enable resource tracking to use the this panel.");
+    var panelEnablerHeading = WebInspector.UIString("You need to enable resource tracking to use this panel.");
     var panelEnablerDisclaimer = WebInspector.UIString("Enabling resource tracking will reload the page and make page loading slower.");
     var panelEnablerButton = WebInspector.UIString("Enable resource tracking");
 
@@ -135,11 +139,11 @@ WebInspector.ResourcesPanel = function()
 
     this.element.appendChild(this.panelEnablerView.element);
 
-    this.enableToggleButton = document.createElement("button");
+    this.enableToggleButton = this.createStatusBarButton();
     this.enableToggleButton.className = "enable-toggle-status-bar-item status-bar-item";
     this.enableToggleButton.addEventListener("click", this._toggleResourceTracking.bind(this), false);
 
-    this.largerResourcesButton = document.createElement("button");
+    this.largerResourcesButton = this.createStatusBarButton();
     this.largerResourcesButton.id = "resources-larger-resources-status-bar-item";
     this.largerResourcesButton.className = "status-bar-item toggled-on";
     this.largerResourcesButton.title = WebInspector.UIString("Use small resource rows.");
@@ -149,6 +153,24 @@ WebInspector.ResourcesPanel = function()
     this.sortingSelectElement.className = "status-bar-item";
     this.sortingSelectElement.addEventListener("change", this._changeSortingFunction.bind(this), false);
 
+    var createFilterElement = function (category) {
+        var categoryElement = document.createElement("li");
+        categoryElement.category = category;
+        categoryElement.addStyleClass(category);
+        var label = WebInspector.UIString("All");
+        if (WebInspector.resourceCategories[category])
+            label = WebInspector.resourceCategories[category].title;
+        categoryElement.appendChild(document.createTextNode(label));
+        categoryElement.addEventListener("click", this._updateFilter.bind(this), false);
+        this.filterBarElement.appendChild(categoryElement);
+        return categoryElement;
+    };
+
+    var allElement = createFilterElement.call(this, "all");
+    this.filter(allElement.category);
+    for (var i = 0; i < this.categoryOrder.length; i++)
+        createFilterElement.call(this, this.categoryOrder[i]);
+
     this.reset();
 
     timeGraphItem.select();
@@ -156,6 +178,31 @@ WebInspector.ResourcesPanel = function()
 
 WebInspector.ResourcesPanel.prototype = {
     toolbarItemClass: "resources",
+
+    categoryOrder: ["documents", "stylesheets", "images", "scripts", "xhr", "fonts", "other"],
+
+    filter: function (category) {
+        if (this._filterCategory && this._filterCategory === category)
+            return;
+
+        if (this._filterCategory) {
+            var filterElement = this.filterBarElement.getElementsByClassName(this._filterCategory)[0];
+            filterElement.removeStyleClass("selected");
+            var oldClass = "filter-" + this._filterCategory;
+            this.resourcesTreeElement.childrenListElement.removeStyleClass(oldClass);
+            this.resourcesGraphsElement.removeStyleClass(oldClass);
+        }
+        this._filterCategory = category;
+        var filterElement = this.filterBarElement.getElementsByClassName(this._filterCategory)[0];
+        filterElement.addStyleClass("selected");
+        var newClass = "filter-" + this._filterCategory;
+        this.resourcesTreeElement.childrenListElement.addStyleClass(newClass);
+        this.resourcesGraphsElement.addStyleClass(newClass);
+    },
+
+    _updateFilter: function (e) {
+        this.filter(e.target.category);
+    },
 
     get toolbarItemLabel()
     {
@@ -957,14 +1004,13 @@ WebInspector.ResourcesPanel.prototype = {
     {
         var graphInfo = this.calculator.computeSummaryValues(this._resources);
 
-        var categoryOrder = ["documents", "stylesheets", "images", "scripts", "xhr", "fonts", "other"];
         var categoryColors = {documents: {r: 47, g: 102, b: 236}, stylesheets: {r: 157, g: 231, b: 119}, images: {r: 164, g: 60, b: 255}, scripts: {r: 255, g: 121, b: 0}, xhr: {r: 231, g: 231, b: 10}, fonts: {r: 255, g: 82, b: 62}, other: {r: 186, g: 186, b: 186}};
         var fillSegments = [];
 
         this.legendElement.removeChildren();
 
-        for (var i = 0; i < categoryOrder.length; ++i) {
-            var category = categoryOrder[i];
+        for (var i = 0; i < this.categoryOrder.length; ++i) {
+            var category = this.categoryOrder[i];
             var size = graphInfo.categoryValues[category];
             if (!size)
                 continue;
@@ -1453,12 +1499,23 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
     {
         WebInspector.SidebarTreeElement.prototype.onattach.call(this);
 
+        var link = document.createElement("a");
+        link.href = this.resource.url;
+        link.className = "invisible";
+        while (this._listItemNode.firstChild)
+            link.appendChild(this._listItemNode.firstChild);
+        this._listItemNode.appendChild(link);
         this._listItemNode.addStyleClass("resources-category-" + this.resource.category.name);
     },
 
     onselect: function()
     {
         WebInspector.panels.resources.showResource(this.resource);
+    },
+    
+    ondblclick: function(treeElement, event)
+    {
+        InspectorController.inspectedWindow().open(this.resource.url);
     },
 
     get mainTitle()

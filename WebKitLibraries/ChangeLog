@@ -1,3 +1,315 @@
+2009-08-10  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by George Staikos.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27323
+        Even more line ending-stripping for auto-version.sh, based on output
+        provided by Jessie Berlin.
+
+        * win/tools/scripts/auto-version.sh:
+
+2009-08-10  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28048.
+        Move various WinCairo build settings into *.vsprops file.
+
+        * win/tools/vsprops/cURL.vsprops: Added.
+
+2009-08-06  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27323
+        Strip line endings at all points auto-version.sh reads data, not just
+        the one I happened to run into.
+
+        * win/tools/scripts/auto-version.sh:
+
+2009-07-27  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Adam Roben.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27323
+        Correctly parse command output, even when the line endings are not LF,
+        so that we don't create an autoversion.h that MSVC chokes on.
+
+        * win/tools/scripts/auto-version.sh:
+
+2009-07-13  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Add new configuration flag for redistributable Windows build.
+        https://bugs.webkit.org/show_bug.cgi=27087
+        
+        * win/tools/vsprops/WinCairo.vsprops: Added.  Defines the
+          new WIN_CAIRO flag used to drive non-Apple Windows build.
+
+2009-07-10  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update WebKitSystemInterface for <rdar://problem/7049066>.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-07-06  Eric Carlson  <eric.carlson@apple.com>
+
+        Update WebKitSystemInterface for <rdar://problem/7008093>.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-07-06  Anders Carlsson  <andersca@apple.com>
+
+        Update WebKitSystemInterface.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-07-02  Pierre d'Herbemont  <pdherbemont@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update WebKitSystemInterface for <rdar://problem/6518119>
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-07-01  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update WebKitSystemInterface for <rdar://problem/7014990>
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-06-29  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update WebKitSystemInterface for <rdar://problem/7014813>
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-06-25  Simon Fraser  <simon.fraser@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+        
+        <rdar://problem/6999737>
+        
+        Update the media controller images.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-06-16  Simon Fraser  <simon.fraser@apple.com>
+
+        Rubber-stamped by Anders Carlsson.
+
+        Update WebKitSystemInterface for <rdar://problem/6937882>.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-06-02  Anders Carlsson  <andersca@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Update WebKitSystemInterface.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-05-27  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Update WebKitSystemInterface.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a: Added.
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-05-26  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/6901751> 
+        REGRESSION (r35515): Tiger crash painting the selection on registration page of car2go.com
+
+        Remove WKCGContextIsSafeToClip.
+        
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-05-21  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        - correct a copyright header accidently reverted in r43964
+
+        * WebKitSystemInterface.h:
+
+2009-05-21  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        - WebKitSystemInterface part of <rdar://problem/6901751> REGRESSION
+          (r35515): Tiger crash painting the selection on registration page of
+          car2go.com
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-05-07  Simon Fraser  <simon.fraser@apple.com>
+
+        Source changes reviewed by Darin Adler
+        
+        <rdar://problem/6864091> Endcap of media controls slider is fuzzy
+        
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-28  Steve Falkenburg  <sfalken@apple.com>
+
+        Fix extraneous warning about AnalyzeWithLargeStack not being defined in Windows builds.
+        Indirected definition through a UserMacro.
+        
+        Reviewed by Mark Rowe.
+
+        * win/tools/vsprops/common.vsprops:
+
+2009-04-28  Steve Falkenburg  <sfalken@apple.com>
+
+        Fix extraneous warning about PRODUCTION not being defined in Windows builds.
+        Indirected definition for __PRODUCTION__ through a UserMacro.
+        
+        Reviewed by Mark Rowe.
+
+        * win/tools/vsprops/common.vsprops:
+
+2009-04-24  Simon Fraser  <simon.fraser@apple.com>
+
+        Source changes reviewed by Darin Adler
+        
+        https://bugs.webkit.org/show_bug.cgi?id=22242
+        
+        Update WebKitSystemInterface for Mac with fixes for video controller drawing.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-22  Ada Chan  <adachan@apple.com>
+
+        Update WebKitSystemInterface with new method that maps CFNetwork error code to localized description.
+        
+        Reviewed by Darin Adler.
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib:
+
+2009-04-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Separate JavaScriptCore.dll from WebKit.dll.
+        Slight performance improvement or no change on benchmarks.
+        
+        Allows us to break a circular dependency between CFNetwork and WebKit on Windows,
+        and simplifies standalone JavaScriptCore builds.
+
+        Reviewed by Oliver Hunt.
+
+        * win/tools/vsprops/common.vsprops: Add BUILDING_{project} preprocessor define.
+
+2009-04-18  Pierre d'Herbemont  <pdherbemont@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <rdar://problem/6781295> video.buffered and video.seekable are not
+        the same. video.buffered should return only what is buffered and
+        not what is seekable
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-18  Pierre d'Herbemont  <pdherbemont@apple.com>
+
+        Reviewed by Adele Peterson.
+        
+        <rdar://problem/6747241> work around QTKit no longer reaching
+        QTMovieLoadStateComplete
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-15  Steve Falkenburg  <sfalken@apple.com>
+
+        Updated WebKitSystemInterface for Windows.
+        Changes needed for <rdar://problem/6785760>
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+        * win/lib/WebKitSystemInterface_debug.lib:
+
+2009-04-14  Mark Rowe  <mrowe@apple.com>
+
+        Update WebKitSystemInterface so that the Tiger portion supports PowerPC.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-13  Antti Koivisto  <antti@apple.com>
+
+        Reviewed by Darin Adler.
+        
+        <rdar://problem/6740294> Increase the connection count per host
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-10  Eric Carlson  <eric.carlson@apple.com>
+
+        WebKitSystemInterface changes for <rdar://problem/6646998>
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2009-04-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix the leopard build by updating WebKitSystemInterface.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+
+2009-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Bump version to 530.
+
+        * win/tools/scripts/VERSION:
+
 2009-03-26  Adam Roben  <aroben@apple.com>
 
         Remove SafariThemeConstants.h, which is now provided by

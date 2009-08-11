@@ -33,14 +33,17 @@
 #include "Collector.h"
 #include "CommonIdentifiers.h"
 #include "FunctionConstructor.h"
+#include "GetterSetter.h"
 #include "Interpreter.h"
 #include "JSActivation.h"
+#include "JSAPIValueWrapper.h"
 #include "JSArray.h"
 #include "JSByteArray.h"
 #include "JSClassRef.h"
 #include "JSFunction.h"
 #include "JSLock.h"
 #include "JSNotAnObject.h"
+#include "JSPropertyNameIterator.h"
 #include "JSStaticScopeObject.h"
 #include "Parser.h"
 #include "Lexer.h"
@@ -59,13 +62,14 @@ using namespace WTF;
 
 namespace JSC {
 
-extern const HashTable arrayTable;
-extern const HashTable dateTable;
-extern const HashTable mathTable;
-extern const HashTable numberTable;
-extern const HashTable regExpTable;
-extern const HashTable regExpConstructorTable;
-extern const HashTable stringTable;
+extern JSC_CONST_HASHTABLE HashTable arrayTable;
+extern JSC_CONST_HASHTABLE HashTable jsonTable;
+extern JSC_CONST_HASHTABLE HashTable dateTable;
+extern JSC_CONST_HASHTABLE HashTable mathTable;
+extern JSC_CONST_HASHTABLE HashTable numberTable;
+extern JSC_CONST_HASHTABLE HashTable regExpTable;
+extern JSC_CONST_HASHTABLE HashTable regExpConstructorTable;
+extern JSC_CONST_HASHTABLE HashTable stringTable;
 
 struct VPtrSet {
     VPtrSet();
@@ -105,6 +109,7 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , clientData(0)
     , arrayTable(fastNew<HashTable>(JSC::arrayTable))
     , dateTable(fastNew<HashTable>(JSC::dateTable))
+    , jsonTable(fastNew<HashTable>(JSC::jsonTable))
     , mathTable(fastNew<HashTable>(JSC::mathTable))
     , numberTable(fastNew<HashTable>(JSC::numberTable))
     , regExpTable(fastNew<HashTable>(JSC::regExpTable))
@@ -116,7 +121,10 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , stringStructure(JSString::createStructure(jsNull()))
     , notAnObjectErrorStubStructure(JSNotAnObjectErrorStub::createStructure(jsNull()))
     , notAnObjectStructure(JSNotAnObject::createStructure(jsNull()))
-#if !USE(ALTERNATE_JSIMMEDIATE)
+    , propertyNameIteratorStructure(JSPropertyNameIterator::createStructure(jsNull()))
+    , getterSetterStructure(GetterSetter::createStructure(jsNull()))
+    , apiWrapperStructure(JSAPIValueWrapper::createStructure(jsNull()))
+#if USE(JSVALUE32)
     , numberStructure(JSNumberCell::createStructure(jsNull()))
 #endif
     , jsArrayVPtr(vptrSet.jsArrayVPtr)
@@ -137,6 +145,7 @@ JSGlobalData::JSGlobalData(bool isShared, const VPtrSet& vptrSet)
     , head(0)
     , dynamicGlobalObject(0)
     , scopeNodeBeingReparsed(0)
+    , firstStringifierToMark(0)
 {
 #if PLATFORM(MAC)
     startProfilerServerIfNeeded();
@@ -155,17 +164,16 @@ JSGlobalData::~JSGlobalData()
 
     arrayTable->deleteTable();
     dateTable->deleteTable();
+    jsonTable->deleteTable();
     mathTable->deleteTable();
     numberTable->deleteTable();
     regExpTable->deleteTable();
     regExpConstructorTable->deleteTable();
     stringTable->deleteTable();
-#if ENABLE(JIT)
-    lazyNativeFunctionThunk.clear();
-#endif
 
     fastDelete(const_cast<HashTable*>(arrayTable));
     fastDelete(const_cast<HashTable*>(dateTable));
+    fastDelete(const_cast<HashTable*>(jsonTable));
     fastDelete(const_cast<HashTable*>(mathTable));
     fastDelete(const_cast<HashTable*>(numberTable));
     fastDelete(const_cast<HashTable*>(regExpTable));
@@ -221,15 +229,6 @@ JSGlobalData*& JSGlobalData::sharedInstanceInternal()
     static JSGlobalData* sharedInstance;
     return sharedInstance;
 }
-
-#if ENABLE(JIT)
-
-void JSGlobalData::createNativeThunk()
-{
-    lazyNativeFunctionThunk = FunctionBodyNode::createNativeThunk(this);
-}
-
-#endif
 
 // FIXME: We can also detect forms like v1 < v2 ? -1 : 0, reverse comparison, etc.
 const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)

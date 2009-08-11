@@ -35,7 +35,7 @@
 #include <CFNetwork/CFURLConnectionPriv.h>
 #endif
 
-#if USE(WININET)
+#if USE(WININET) || (USE(CURL) && PLATFORM(WIN))
 #include <winsock2.h>
 #include <windows.h>
 #endif
@@ -81,7 +81,7 @@ namespace android {
 namespace WebCore {
     class ResourceHandleClient;
 
-    class ResourceHandleInternal : Noncopyable {
+    class ResourceHandleInternal : public Noncopyable {
     public:
         ResourceHandleInternal(ResourceHandle* loader, const ResourceRequest& request, ResourceHandleClient* c, bool defersLoading, bool shouldContentSniff, bool mightDownloadFromHandle)
             : m_client(c)
@@ -117,7 +117,6 @@ namespace WebCore {
 #if USE(SOUP)
             , m_msg(0)
             , m_cancelled(false)
-            , m_reportedHeaders(false)
             , m_gfile(0)
             , m_inputStream(0)
             , m_cancellable(0)
@@ -203,7 +202,6 @@ namespace WebCore {
         SoupMessage* m_msg;
         ResourceResponse m_response;
         bool m_cancelled;
-        bool m_reportedHeaders;
         GFile* m_gfile;
         GInputStream* m_inputStream;
         GCancellable* m_cancellable;

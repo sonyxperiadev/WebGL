@@ -102,7 +102,24 @@
 # The remainder of the file is read by tools/webkitsync/diff.cpp
 # If you edit it, keep it in alphabetical order
 LOCAL_SRC_FILES := \
+	accessibility/AXObjectCache.cpp \
+	accessibility/AccessibilityARIAGrid.cpp \
+	accessibility/AccessibilityARIAGridCell.cpp \
+	accessibility/AccessibilityARIAGridRow.cpp \
+	accessibility/AccessibilityImageMapLink.cpp \
+	accessibility/AccessibilityList.cpp \
+	accessibility/AccessibilityListBox.cpp \
+	accessibility/AccessibilityListBoxOption.cpp \
+	accessibility/AccessibilityObject.cpp \
+	accessibility/AccessibilityRenderObject.cpp \
+	accessibility/AccessibilitySlider.cpp \
+	accessibility/AccessibilityTable.cpp \
+	accessibility/AccessibilityTableCell.cpp \
+	accessibility/AccessibilityTableColumn.cpp \
+	accessibility/AccessibilityTableHeaderContainer.cpp \
+	accessibility/AccessibilityTableRow.cpp \
 	bindings/js/GCController.cpp \
+	bindings/js/JSAbstractWorkerCustom.cpp \
 	bindings/js/JSAttrCustom.cpp \
 	bindings/js/JSAudioConstructor.cpp \
 	bindings/js/JSCDATASectionCustom.cpp \
@@ -124,11 +141,13 @@ LOCAL_SRC_FILES := \
   bindings/js/JSDOMApplicationCacheCustom.cpp \
   bindings/js/JSDOMBinding.cpp \
   bindings/js/JSDOMGlobalObject.cpp \
-  bindings/js/JSDOMStringListCustom.cpp \
   bindings/js/JSDOMWindowBase.cpp \
   bindings/js/JSDOMWindowCustom.cpp \
   bindings/js/JSDOMWindowShell.cpp \
+	bindings/js/JSDataGridColumnListCustom.cpp \
+	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \
+	bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSDocumentFragmentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
@@ -139,6 +158,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSHTMLAllCollection.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \
 	bindings/js/JSHTMLCollectionCustom.cpp \
+	bindings/js/JSHTMLDataGridElementCustom.cpp \
 	bindings/js/JSHTMLDocumentCustom.cpp \
 	bindings/js/JSHTMLElementCustom.cpp \
 	bindings/js/JSHTMLEmbedElementCustom.cpp \
@@ -154,6 +174,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSImageConstructor.cpp \
 	bindings/js/JSImageDataCustom.cpp \
 	bindings/js/JSInspectedObjectWrapper.cpp \
+	bindings/js/JSInspectorBackendCustom.cpp \
 	bindings/js/JSInspectorCallbackWrapper.cpp \
 	bindings/js/JSJavaScriptCallFrameCustom.cpp \
 	bindings/js/JSLazyEventListener.cpp \
@@ -175,20 +196,22 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSPluginCustom.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
 	bindings/js/JSQuarantinedObjectWrapper.cpp \
-	bindings/js/JSRGBColor.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
-	bindings/js/JSStorageCustom.cpp \
-    
-ifeq ($(ENABLE_SVG), true)
-LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSSVGElementInstanceCustom.cpp \
 	bindings/js/JSSVGLengthCustom.cpp \
 	bindings/js/JSSVGMatrixCustom.cpp \
 	bindings/js/JSSVGPathSegCustom.cpp \
 	bindings/js/JSSVGPathSegListCustom.cpp \
 	bindings/js/JSSVGPointListCustom.cpp \
-	bindings/js/JSSVGTransformListCustom.cpp
+	bindings/js/JSSVGTransformListCustom.cpp \
+	bindings/js/JSSharedWorkerConstructor.cpp \
+	bindings/js/JSSharedWorkerContextCustom.cpp \
+	bindings/js/JSSharedWorkerCustom.cpp \
+	bindings/js/JSStorageCustom.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
     
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -198,6 +221,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSTreeWalkerCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixConstructor.cpp \
 	bindings/js/JSWebKitPointConstructor.cpp \
+	bindings/js/JSWebSocketConstructor.cpp \
+	bindings/js/JSWebSocketCustom.cpp \
 	bindings/js/JSWorkerConstructor.cpp \
 	bindings/js/JSWorkerContextBase.cpp \
 	bindings/js/JSWorkerContextCustom.cpp \
@@ -205,12 +230,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bindings/js/JSXMLHttpRequestConstructor.cpp \
 	bindings/js/JSXMLHttpRequestCustom.cpp \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
+	bindings/js/JSXSLTProcessorConstructor.cpp \
+	bindings/js/JSXSLTProcessorCustom.cpp \
 	bindings/js/ScheduledAction.cpp \
+	bindings/js/ScriptArray.cpp \
 	bindings/js/ScriptCachedFrameData.cpp \
 	bindings/js/ScriptCallFrame.cpp \
 	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
+	bindings/js/ScriptControllerGtk.cpp \
+	bindings/js/ScriptControllerHaiku.cpp \
+	bindings/js/ScriptControllerQt.cpp \
+	bindings/js/ScriptControllerWin.cpp \
+	bindings/js/ScriptControllerWx.cpp \
   bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \
@@ -235,6 +268,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bridge/runtime_method.cpp \
 	bridge/runtime_object.cpp \
 	bridge/runtime_root.cpp \
+	bridge/testbindings.cpp \
 	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
@@ -248,6 +282,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/CSSFontSelector.cpp \
 	css/CSSFunctionValue.cpp \
 	css/CSSGradientValue.cpp \
+	css/CSSGrammar.y \
 	css/CSSHelper.cpp \
 	css/CSSImageGeneratorValue.cpp \
 	css/CSSImageValue.cpp \
@@ -280,11 +315,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/CSSVariablesRule.cpp \
 	css/FontFamilyValue.cpp \
 	css/FontValue.cpp \
+	css/Media.cpp \
 	css/MediaFeatureNames.cpp \
 	css/MediaList.cpp \
 	css/MediaQuery.cpp \
 	css/MediaQueryEvaluator.cpp \
 	css/MediaQueryExp.cpp \
+	css/RGBColor.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -323,7 +360,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Comment.cpp \
 	dom/ContainerNode.cpp \
 	dom/DOMImplementation.cpp \
-	dom/DOMStringList.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentType.cpp \
@@ -332,6 +368,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Element.cpp \
 	dom/Entity.cpp \
 	dom/EntityReference.cpp \
+	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
@@ -343,6 +380,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/MessageChannel.cpp \
 	dom/MessageEvent.cpp \
 	dom/MessagePort.cpp \
+	dom/MessagePortChannel.cpp \
 	dom/MouseEvent.cpp \
 	dom/MouseRelatedEvent.cpp \
 	dom/MutationEvent.cpp \
@@ -369,7 +407,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
   dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
-	dom/StaticStringList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -387,7 +424,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WheelEvent.cpp \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
+	dom/XMLTokenizerQt.cpp \
   dom/XMLTokenizerScope.cpp \
+	dom/default/PlatformMessagePortChannel.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
@@ -422,6 +461,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/ReplaceSelectionCommand.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
+	editing/SmartReplace.cpp \
+	editing/SmartReplaceCF.cpp \
+	editing/SmartReplaceICU.cpp \
 	editing/SplitElementCommand.cpp \
 	editing/SplitTextNodeCommand.cpp \
 	editing/SplitTextNodeContainingElementCommand.cpp \
@@ -433,23 +475,24 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/WrapContentsInDummySpanCommand.cpp \
 	\
 	editing/android/EditorAndroid.cpp \
+	editing/haiku/EditorHaiku.cpp \
 	editing/htmlediting.cpp \
 	editing/markup.cpp \
 	editing/visible_units.cpp \
 	\
 	history/BackForwardList.cpp \
+	history/BackForwardListChromium.cpp \
 	history/CachedFrame.cpp \
 	history/CachedPage.cpp \
 	history/HistoryItem.cpp \
 	history/PageCache.cpp \
 	\
-	html/CanvasGradient.cpp \
-	html/CanvasPattern.cpp \
-	html/CanvasPixelArray.cpp \
-	html/CanvasRenderingContext2D.cpp \
-	html/CanvasStyle.cpp \
   html/CollectionCache.cpp \
+	html/DOMDataGridDataSource.cpp \
+	html/DataGridColumn.cpp \
+	html/DataGridColumnList.cpp \
 	html/File.cpp \
+	html/FileList.cpp \
 	html/FormDataList.cpp \
 	html/HTMLAnchorElement.cpp \
 	html/HTMLAppletElement.cpp \
@@ -464,10 +507,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLCanvasElement.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDListElement.cpp \
+	html/HTMLDataGridCellElement.cpp \
+	html/HTMLDataGridColElement.cpp \
+	html/HTMLDataGridElement.cpp \
+	html/HTMLDataGridRowElement.cpp \
 	html/HTMLDirectoryElement.cpp \
 	html/HTMLDivElement.cpp \
 	html/HTMLDocument.cpp \
 	html/HTMLElement.cpp \
+	html/HTMLElementsAllInOne.cpp \
 	html/HTMLEmbedElement.cpp \
 	html/HTMLFieldSetElement.cpp \
 	html/HTMLFontElement.cpp \
@@ -534,6 +582,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
+	html/ValidityState.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -543,11 +592,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/CachedResourceClientWalker.cpp \
 	loader/CachedResourceHandle.cpp \
 	loader/CachedScript.cpp \
+	loader/CachedXBLDocument.cpp \
+	loader/CachedXSLStyleSheet.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
 	loader/DocLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
+	loader/FTPDirectoryDocument.cpp \
+	loader/FTPDirectoryParser.cpp \
 	loader/FormState.cpp \
 	loader/FrameLoader.cpp \
 	loader/ImageDocument.cpp \
@@ -556,6 +609,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/MediaDocument.cpp \
 	loader/NavigationAction.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
+	loader/PlaceholderDocument.cpp \
 	loader/PluginDocument.cpp \
 	loader/ProgressTracker.cpp \
 	loader/Request.cpp \
@@ -564,21 +618,25 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
 	loader/ThreadableLoader.cpp \
+	loader/UserStyleSheetLoader.cpp \
+	loader/WorkerThreadableLoader.cpp \
 	loader/appcache/ApplicationCache.cpp \
 	loader/appcache/ApplicationCacheGroup.cpp \
+	loader/appcache/ApplicationCacheHost.cpp \
 	loader/appcache/ApplicationCacheResource.cpp \
 	loader/appcache/ApplicationCacheStorage.cpp \
 	loader/appcache/DOMApplicationCache.cpp \
 	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
+	loader/icon/IconDatabaseNone.cpp \
 	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
+	loader/icon/wince/IconDatabaseWince.cpp \
 	\
 	loader/loader.cpp \
-	loader/WorkerThreadableLoader.cpp \
 	\
 	page/BarInfo.cpp \
 	page/Chrome.cpp \
@@ -613,13 +671,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
+	page/android/EventHandlerAndroid.cpp \
 	page/android/InspectorControllerAndroid.cpp \
+	page/android/InspectorControllerAndroid.cpp \
+	page/android/DragControllerAndroid.cpp \
 	\
+	page/XSSAuditor.cpp \
 	page/animation/AnimationBase.cpp \
 	page/animation/AnimationController.cpp \
 	page/animation/CompositeAnimation.cpp \
 	page/animation/ImplicitAnimation.cpp \
 	page/animation/KeyframeAnimation.cpp \
+	page/haiku/DragControllerHaiku.cpp \
 	\
 	platform/Arena.cpp \
 	platform/ContentType.cpp \
@@ -636,7 +699,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
-	platform/MockGeolocationService.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollbarThemeComposite.cpp \
@@ -693,6 +755,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/GraphicsLayer.cpp \
 	platform/graphics/GraphicsTypes.cpp \
 	platform/graphics/Image.cpp \
+	platform/graphics/ImageBuffer.cpp \
 	platform/graphics/IntRect.cpp \
 	platform/graphics/MediaPlayer.cpp \
 	platform/graphics/Path.cpp \
@@ -725,20 +788,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	platform/graphics/filters/FEBlend.cpp \
-	platform/graphics/filters/FEColorMatrix.cpp \
-	platform/graphics/filters/FEComponentTransfer.cpp \
-	platform/graphics/filters/FEComposite.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	platform/graphics/skia/FloatPointSkia.cpp \
-	platform/graphics/skia/FloatRectSkia.cpp \
-	platform/graphics/skia/IntPointSkia.cpp \
-	platform/graphics/skia/IntRectSkia.cpp \
+	platform/graphics/opentype/OpenTypeUtilities.cpp \
 	platform/graphics/skia/NativeImageSkia.cpp \
-	platform/graphics/skia/SkiaUtils.cpp \
-	platform/graphics/skia/TransformationMatrixSkia.cpp \
 	\
 	platform/graphics/transforms/Matrix3DTransformOperation.cpp \
 	platform/graphics/transforms/MatrixTransformOperation.cpp \
@@ -749,7 +803,29 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformOperations.cpp \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
+	platform/graphics/wince/FontCacheWince.cpp \
 	\
+	platform/haiku/ClipboardHaiku.cpp \
+	platform/haiku/ContextMenuHaiku.cpp \
+	platform/haiku/ContextMenuItemHaiku.cpp \
+	platform/haiku/CookieJarHaiku.cpp \
+	platform/haiku/CursorHaiku.cpp \
+	platform/haiku/DragDataHaiku.cpp \
+	platform/haiku/DragImageHaiku.cpp \
+	platform/haiku/EventLoopHaiku.cpp \
+	platform/haiku/FileChooserHaiku.cpp \
+	platform/haiku/FileSystemHaiku.cpp \
+	platform/haiku/MIMETypeRegistryHaiku.cpp \
+	platform/haiku/PasteboardHaiku.cpp \
+	platform/haiku/PlatformKeyboardEventHaiku.cpp \
+	platform/haiku/PlatformMouseEventHaiku.cpp \
+	platform/haiku/PlatformWheelEventHaiku.cpp \
+	platform/haiku/PopupMenuHaiku.cpp \
+	platform/haiku/ScreenHaiku.cpp \
+	platform/haiku/SearchPopupMenuHaiku.cpp \
+	platform/haiku/SoundHaiku.cpp \
+	platform/haiku/TemporaryLinkStubs.cpp \
+	platform/haiku/WidgetHaiku.cpp \
   platform/image-decoders/skia/GIFImageDecoder.cpp \
   platform/image-decoders/skia/GIFImageReader.cpp \
 	\
@@ -775,6 +851,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/sql/SQLValue.cpp \
 	platform/sql/SQLiteAuthorizer.cpp \
 	platform/sql/SQLiteDatabase.cpp \
+	platform/sql/SQLiteFileSystem.cpp \
 	platform/sql/SQLiteStatement.cpp \
 	platform/sql/SQLiteTransaction.cpp \
 	\
@@ -796,23 +873,29 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextCodecUserDefined.cpp \
 	platform/text/TextEncoding.cpp \
 	platform/text/TextEncodingDetectorICU.cpp \
+	platform/text/TextEncodingDetectorNone.cpp \
 	platform/text/TextEncodingRegistry.cpp \
 	platform/text/TextStream.cpp \
 	platform/text/UnicodeRange.cpp \
 	\
 	platform/text/android/TextBreakIteratorInternalICU.cpp \
+	platform/text/haiku/StringHaiku.cpp \
 	\
 	plugins/MimeType.cpp \
 	plugins/MimeTypeArray.cpp \
 	plugins/Plugin.cpp \
 	plugins/PluginArray.cpp \
 	plugins/PluginData.cpp \
+	plugins/PluginDataNone.cpp \
 	plugins/PluginDatabase.cpp \
+	plugins/PluginDebug.cpp \
 	plugins/PluginInfoStore.cpp \
 	plugins/PluginMainThreadScheduler.cpp \
 	plugins/PluginPackage.cpp \
+	plugins/PluginPackageNone.cpp \
 	plugins/PluginStream.cpp \
 	plugins/PluginView.cpp \
+	plugins/PluginViewNone.cpp \
 	plugins/npapi.cpp \
 	\
 	plugins/android/PluginDataAndroid.cpp \
@@ -834,10 +917,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderArena.cpp \
 	rendering/RenderBR.cpp \
 	rendering/RenderBlock.cpp \
+	rendering/RenderBlockLineLayout.cpp \
 	rendering/RenderBox.cpp \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
 	rendering/RenderCounter.cpp \
+	rendering/RenderDataGrid.cpp \
 	rendering/RenderFieldset.cpp \
 	rendering/RenderFileUploadControl.cpp \
 	rendering/RenderFlexibleBox.cpp \
@@ -857,6 +942,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderListMarker.cpp \
 	rendering/RenderMarquee.cpp \
 	rendering/RenderMedia.cpp \
+	rendering/RenderMediaControls.cpp \
 	rendering/RenderMenuList.cpp \
 	rendering/RenderObject.cpp \
 	rendering/RenderObjectChildList.cpp \
@@ -865,10 +951,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderPath.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
-	rendering/RenderVideo.cpp \
-    
-ifeq ($(ENABLE_SVG), true)
-LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGBlock.cpp \
 	rendering/RenderSVGContainer.cpp \
 	rendering/RenderSVGGradientStop.cpp \
@@ -876,15 +958,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGImage.cpp \
 	rendering/RenderSVGInline.cpp \
 	rendering/RenderSVGInlineText.cpp \
+	rendering/RenderSVGModelObject.cpp \
 	rendering/RenderSVGRoot.cpp \
 	rendering/RenderSVGTSpan.cpp \
 	rendering/RenderSVGText.cpp \
 	rendering/RenderSVGTextPath.cpp \
 	rendering/RenderSVGTransformableContainer.cpp \
-	rendering/RenderSVGViewportContainer.cpp
-endif
-
-LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	rendering/RenderSVGViewportContainer.cpp \
 	rendering/RenderScrollbar.cpp \
 	rendering/RenderScrollbarPart.cpp \
 	rendering/RenderScrollbarTheme.cpp \
@@ -900,7 +980,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderTextControlSingleLine.cpp \
 	rendering/RenderTextFragment.cpp \
 	rendering/RenderTheme.cpp \
+	rendering/RenderThemeChromiumLinux.cpp \
+	rendering/RenderThemeChromiumSkia.cpp \
+	rendering/RenderThemeChromiumWin.cpp \
+	rendering/RenderThemeSafari.cpp \
+	rendering/RenderThemeWin.cpp \
+	rendering/RenderThemeWince.cpp \
 	rendering/RenderTreeAsText.cpp \
+	rendering/RenderVideo.cpp \
+    
+ifeq ($(ENABLE_SVG), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderView.cpp \
 	rendering/RenderWidget.cpp \
 	rendering/RenderWordBreak.cpp \
@@ -920,7 +1013,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
 	rendering/TextControlInnerElements.cpp \
 	rendering/TransformState.cpp \
-	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
 	\
 	rendering/style/BindingURI.cpp \
@@ -959,8 +1051,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
-	storage/LocalStorage.cpp \
-	storage/LocalStorageArea.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
@@ -969,19 +1059,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
-	storage/SessionStorage.cpp \
-	storage/SessionStorageArea.cpp \
 	storage/Storage.cpp \
-	storage/StorageArea.cpp \
+	storage/StorageAreaImpl.cpp \
+	storage/StorageAreaSync.cpp \
 	storage/StorageEvent.cpp \
 	storage/StorageMap.cpp \
+	storage/StorageNamespace.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/ColorDistance.cpp \
-	svg/Filter.cpp \
-	svg/FilterEffect.cpp \
 	svg/SVGAElement.cpp \
+	svg/SVGAllInOne.cpp \
 	svg/SVGAltGlyphElement.cpp \
 	svg/SVGAngle.cpp \
 	svg/SVGAnimateColorElement.cpp \
@@ -1141,21 +1230,30 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFESpecularLighting.cpp \
 	svg/graphics/filters/SVGFETile.cpp \
 	svg/graphics/filters/SVGFETurbulence.cpp \
-	svg/graphics/filters/SVGFilterEffect.cpp \
+	svg/graphics/filters/SVGFilter.cpp \
+	svg/graphics/filters/SVGFilterBuilder.cpp \
 	svg/graphics/filters/SVGLightSource.cpp \
 	\
-	svg/graphics/skia/SVGResourceFilterSkia.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	websockets/WebSocket.cpp \
+	workers/AbstractWorker.cpp \
+	workers/DedicatedWorkerContext.cpp \
+	workers/DedicatedWorkerThread.cpp \
+	workers/DefaultSharedWorkerRepository.cpp \
+	workers/SharedWorker.cpp \
+	workers/SharedWorkerContext.cpp \
+	workers/SharedWorkerThread.cpp \
 	workers/Worker.cpp \
 	workers/WorkerContext.cpp \
-	workers/WorkerImportScriptsClient.cpp \
 	workers/WorkerLocation.cpp \
 	workers/WorkerMessagingProxy.cpp \
 	workers/WorkerRunLoop.cpp \
+	workers/WorkerScriptLoader.cpp \
 	workers/WorkerThread.cpp \
 	xml/DOMParser.cpp \
+	xml/NativeXPathNSResolver.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \
 	xml/XMLSerializer.cpp

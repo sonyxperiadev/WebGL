@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2009 Joseph Pecoraro
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,6 +86,7 @@ WebInspector.DatabasesPanel.prototype = {
     {
         WebInspector.Panel.prototype.show.call(this);
         this._updateSidebarWidth();
+        this._registerStorageEventListener();
     },
 
     reset: function()
@@ -100,6 +102,8 @@ WebInspector.DatabasesPanel.prototype = {
         }
 
         this._databases = [];
+
+        this._unregisterStorageEventListener();
 
         if (this._domStorage) {
             var domStorageLength = this._domStorage.length;
@@ -145,6 +149,32 @@ WebInspector.DatabasesPanel.prototype = {
             this.sessionStorageListTreeElement.appendChild(domStorageTreeElement);
     },
 
+    selectDatabase: function(db)
+    {
+        var database;
+        for (var i = 0, len = this._databases.length; i < len; ++i) {
+            database = this._databases[i];
+            if ( db === database.database ) {
+                this.showDatabase(database);
+                database._databasesTreeElement.select();
+                return;
+            }
+        }
+    },
+
+    selectDOMStorage: function(s)
+    {
+        var isLocalStorage = (s === InspectorController.inspectedWindow().localStorage);
+        for (var i = 0, len = this._domStorage.length; i < len; ++i) {
+            var storage = this._domStorage[i];
+            if ( isLocalStorage === storage.isLocalStorage ) {
+                this.showDOMStorage(storage);
+                storage._domStorageTreeElement.select();
+                return;
+            }
+        }
+    },
+
     showDatabase: function(database, tableName)
     {
         if (!database)
@@ -175,7 +205,7 @@ WebInspector.DatabasesPanel.prototype = {
         this.visibleView = view;
 
         this.storageViewStatusBarItemsContainer.removeChildren();
-        var statusBarItems = view.statusBarItems;
+        var statusBarItems = view.statusBarItems || [];
         for (var i = 0; i < statusBarItems.length; ++i)
             this.storageViewStatusBarItemsContainer.appendChild(statusBarItems[i]);
     },
@@ -332,7 +362,7 @@ WebInspector.DatabasesPanel.prototype = {
         var nodes = [];
         
         var length = domStorage.length;
-        for (index = 0; index < domStorage.length; index++) {
+        for (var index = 0; index < domStorage.length; index++) {
             var data = {};
        
             var key = String(domStorage.key(index));
@@ -365,9 +395,57 @@ WebInspector.DatabasesPanel.prototype = {
         var length = nodes.length;
         for (var i = 0; i < length; ++i)
             dataGrid.appendChild(nodes[i]);
+        dataGrid.addCreationNode(false);
         if (length > 0)
             nodes[0].selected = true;
         return dataGrid;
+    },
+    
+    resize: function()
+    {
+        var visibleView = this.visibleView;
+        if (visibleView && "resize" in visibleView)
+            visibleView.resize();
+    },
+
+    _registerStorageEventListener: function()
+    {
+        var inspectedWindow = InspectorController.inspectedWindow();
+        if (!inspectedWindow || !inspectedWindow.document)
+            return;
+
+        this._storageEventListener = InspectorController.wrapCallback(this._storageEvent.bind(this));
+        inspectedWindow.addEventListener("storage", this._storageEventListener, true);
+    },
+
+    _unregisterStorageEventListener: function()
+    {
+        if (!this._storageEventListener)
+            return;
+
+        var inspectedWindow = InspectorController.inspectedWindow();
+        if (!inspectedWindow || !inspectedWindow.document)
+            return;
+
+        inspectedWindow.removeEventListener("storage", this._storageEventListener, true);
+        delete this._storageEventListener;
+    },
+
+    _storageEvent: function(event)
+    {
+        if (!this._domStorage)
+            return;
+
+        var isLocalStorage = (event.storageArea === InspectorController.inspectedWindow().localStorage);
+        var domStorageLength = this._domStorage.length;
+        for (var i = 0; i < domStorageLength; ++i) {
+            var domStorage = this._domStorage[i];
+            if (isLocalStorage === domStorage.isLocalStorage) {
+                var view = domStorage._domStorageView;
+                if (this.visibleView && view === this.visibleView)
+                    domStorage._domStorageView.update();
+            }
+        }
     },
 
     _startSidebarDragging: function(event)
@@ -409,6 +487,10 @@ WebInspector.DatabasesPanel.prototype = {
         this.storageViews.style.left = width + "px";
         this.storageViewStatusBarItemsContainer.style.left = width + "px";
         this.sidebarResizeElement.style.left = (width - 3) + "px";
+        
+        var visibleView = this.visibleView;
+        if (visibleView && "resize" in visibleView)
+            visibleView.resize();
     }
 }
 

@@ -59,7 +59,6 @@
 #include "Icon.h"
 #include "IconDatabase.h"
 #include "IconLoader.h"
-#include "InspectorFrontend.h"
 #include "IntPoint.h"
 
 #if USE(JSC)
@@ -162,15 +161,6 @@ void CheckCacheObjectStatus(DocLoader*, CachedResource*)
 // web page. The icon for the file is encapsulated within this class.
 Icon::~Icon() { }
 void Icon::paint(GraphicsContext*, const IntRect&) { }
-
-// This function provides the default value for the CSS property:
-// -webkit-focus-ring-color
-// It is also related to the CSS property outline-color:
-Color focusRingColor()
-{
-    verifiedOk();
-    return 0xFF0000FF;
-}
 
 }  // namespace WebCore
 
@@ -373,7 +363,7 @@ namespace WebCore {
 
 IntSize dragImageSize(void*)
 {
-    return IntSize();
+    return IntSize(0, 0);
 }
 
 void deleteDragImage(void*) {}
@@ -428,6 +418,17 @@ String searchMenuClearRecentSearchesText()
     return String();
 }
 
+Vector<String> supportedKeySizes()
+{
+    notImplemented();
+    return Vector<String>();
+}
+
+String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::KURL const&)
+{
+    return String();
+}
+
 } // namespace WebCore
 
 namespace WebCore {
@@ -460,7 +461,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 #if USE(JSC)
 namespace JSC { namespace Bindings {
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
-        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
+        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
 {
     notImplemented();
     return false;
@@ -478,6 +479,11 @@ char* dirname(const char*)
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
 void prefetchDNS(const String&)
+{
+    notImplemented();
+}
+
+void getSupportedKeySizes(Vector<String>&)
 {
     notImplemented();
 }
@@ -540,11 +546,6 @@ void AXObjectCache::remove(RenderObject*)
     notImplemented();
 }
 
-InspectorFrontend::~InspectorFrontend()
-{
-    notImplemented();
-}
-
 #if USE(JSC)
 using namespace JSC;
 
@@ -561,9 +562,15 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
 
 // as we don't use inspector/*.cpp, add stub here.
 
-/*
 namespace WebCore {
-JSValue JavaScriptCallFrame::evaluate(const UString& script, JSValue& exception) const
+
+JSValuePtr toJS(ExecState*, Profile*)
+{
+    notImplemented();
+    return jsNull();
+}
+
+JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
 {
     notImplemented();
     return jsNull();
@@ -663,5 +670,4 @@ void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, in
 {
     notImplemented();
 }
-*/
 #endif

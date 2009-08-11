@@ -59,16 +59,19 @@ namespace WebCore {
         OtherMessageSource
     };
 
+    enum MessageType {
+        LogMessageType,
+        ObjectMessageType,
+        TraceMessageType,
+        StartGroupMessageType,
+        EndGroupMessageType
+    };
+
     enum MessageLevel {
         TipMessageLevel,
         LogMessageLevel,
         WarningMessageLevel,
-        ErrorMessageLevel,
-        // FIXME: the remaining levels should become a new MessageType enum.
-        ObjectMessageLevel,
-        TraceMessageLevel,
-        StartGroupMessageLevel,
-        EndGroupMessageLevel
+        ErrorMessageLevel
     };
 
     class Console : public RefCounted<Console> {
@@ -78,7 +81,7 @@ namespace WebCore {
         Frame* frame() const;
         void disconnectFrame();
 
-        void addMessage(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+        void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
 
         void debug(ScriptCallStack*);
         void error(ScriptCallStack*);
@@ -90,6 +93,9 @@ namespace WebCore {
         void trace(ScriptCallStack*);
         void assertCondition(bool condition, ScriptCallStack*);
         void count(ScriptCallStack*);
+#if ENABLE(WML)
+        String lastWMLErrorMessage() const;
+#endif
 #if ENABLE(JAVASCRIPT_DEBUGGER)
         void profile(const JSC::UString&, ScriptCallStack*);
         void profileEnd(const JSC::UString&, ScriptCallStack*);
@@ -108,7 +114,7 @@ namespace WebCore {
 
     private:
         inline Page* page() const;
-        void addMessage(MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
+        void addMessage(MessageType, MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
 
         Console(Frame*);
 

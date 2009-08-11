@@ -32,7 +32,10 @@
 #include "DumpRenderTree.h"
 #include "jsobjects.h"
 #include "testplugin.h"
+#include "WorkQueue.h"
 
+#include <QBuffer>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QTimer>
@@ -41,11 +44,17 @@
 #include <QApplication>
 #include <QUrl>
 #include <QFocusEvent>
+#include <QFontDatabase>
 
 #include <qwebpage.h>
 #include <qwebframe.h>
 #include <qwebview.h>
 #include <qwebsettings.h>
+#include <qwebsecurityorigin.h>
+
+#ifdef Q_WS_X11
+#include <fontconfig/fontconfig.h>
+#endif
 
 #include <unistd.h>
 #include <qdebug.h>
@@ -53,7 +62,8 @@
 extern void qt_drt_run(bool b);
 extern void qt_dump_set_accepts_editing(bool b);
 extern void qt_dump_frame_loader(bool b);
-
+extern void qt_drt_clearFrameName(QWebFrame* qFrame);
+extern void qt_drt_overwritePluginDirectories();
 
 namespace WebCore {
 
@@ -73,6 +83,9 @@ public:
     bool javaScriptConfirm(QWebFrame *frame, const QString& msg);
     bool javaScriptPrompt(QWebFrame *frame, const QString& msg, const QString& defaultValue, QString* result);
 
+public slots:
+    bool shouldInterruptJavaScript() { return false; }
+
 private slots:
     void setViewGeometry(const QRect &r)
     {
@@ -89,9 +102,13 @@ WebPage::WebPage(QWidget *parent, DumpRenderTree *drt)
 {
     settings()->setFontSize(QWebSettings::MinimumFontSize, 5);
     settings()->setFontSize(QWebSettings::MinimumLogicalFontSize, 5);
+    // To get DRT compliant to some layout tests lets set the default fontsize to 13.
+    settings()->setFontSize(QWebSettings::DefaultFontSize, 13);
+    settings()->setFontSize(QWebSettings::DefaultFixedFontSize, 13);
     settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
     settings()->setAttribute(QWebSettings::JavascriptCanAccessClipboard, true);
     settings()->setAttribute(QWebSettings::LinksIncludedInFocusChain, false);
+    settings()->setAttribute(QWebSettings::PluginsEnabled, true);
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
 
@@ -127,9 +144,12 @@ bool WebPage::javaScriptPrompt(QWebFrame*, const QString& msg, const QString& de
 }
 
 DumpRenderTree::DumpRenderTree()
-    : m_stdin(0)
+    : m_dumpPixels(false)
+    , m_stdin(0)
     , m_notifier(0)
 {
+    qt_drt_overwritePluginDirectories();
+
     m_controller = new LayoutTestController(this);
     connect(m_controller, SIGNAL(done()), this, SLOT(dump()));
 
@@ -140,15 +160,18 @@ DumpRenderTree::DumpRenderTree()
     connect(m_page, SIGNAL(frameCreated(QWebFrame *)), this, SLOT(connectFrame(QWebFrame *)));
     connectFrame(m_page->mainFrame());
 
-    connect(m_page, SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
+    connect(m_page->mainFrame(), SIGNAL(loadFinished(bool)), m_controller, SLOT(maybeDump(bool)));
 
     m_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
     m_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
     connect(m_page->mainFrame(), SIGNAL(titleChanged(const QString&)),
             SLOT(titleChanged(const QString&)));
+    connect(m_page, SIGNAL(databaseQuotaExceeded(QWebFrame*,QString)),
+            this, SLOT(dumpDatabaseQuota(QWebFrame*,QString)));
 
     m_eventSender = new EventSender(m_page);
     m_textInputController = new TextInputController(m_page);
+    m_gcController = new GCController(m_page);
 
     QObject::connect(this, SIGNAL(quit()), qApp, SLOT(quit()), Qt::QueuedConnection);
     qt_drt_run(true);
@@ -177,21 +200,57 @@ void DumpRenderTree::open()
     }
 }
 
-void DumpRenderTree::open(const QUrl& url)
+void DumpRenderTree::resetToConsistentStateBeforeTesting()
 {
-    // W3C SVG tests expect to be 480x360
-    bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");
-    int width = isW3CTest ? 480 : maxViewWidth;
-    int height = isW3CTest ? 360 : maxViewHeight;
-    m_page->view()->resize(QSize(width, height));
-    m_page->setViewportSize(QSize(width, height));
+    closeRemainingWindows();
 
     // Reset so that any current loads are stopped
     m_page->blockSignals(true);
     m_page->triggerAction(QWebPage::Stop);
     m_page->blockSignals(false);
 
-    resetJSObjects();
+    m_page->mainFrame()->setZoomFactor(1.0);
+    qt_drt_clearFrameName(m_page->mainFrame());
+
+    WorkQueue::shared()->clear();
+    // Causes timeout, why?
+    //WorkQueue::shared()->setFrozen(false);
+
+    m_controller->reset();
+}
+
+void DumpRenderTree::open(const QUrl& aurl)
+{
+    resetToConsistentStateBeforeTesting();
+
+    QUrl url = aurl;
+    m_expectedHash = QString();
+    if (m_dumpPixels) {
+        // single quote marks the pixel dump hash
+        QString str = url.toString();
+        int i = str.indexOf('\'');
+        if (i > -1) {
+            m_expectedHash = str.mid(i + 1, str.length());
+            str.remove(i, str.length());
+            url = QUrl(str);
+        }
+    }
+
+    // W3C SVG tests expect to be 480x360
+    bool isW3CTest = url.toString().contains("svg/W3C-SVG-1.1");
+    int width = isW3CTest ? 480 : maxViewWidth;
+    int height = isW3CTest ? 360 : maxViewHeight;
+    m_page->view()->resize(QSize(width, height));
+    m_page->setFixedContentsSize(QSize());
+    m_page->setViewportSize(QSize(width, height));
+
+    QFocusEvent ev(QEvent::FocusIn);
+    m_page->event(&ev);
+
+    QFontDatabase::removeAllApplicationFonts();
+#if defined(Q_WS_X11)
+    initializeFonts();
+#endif
 
     qt_dump_frame_loader(url.toString().contains("loading/"));
     m_page->mainFrame()->load(url);
@@ -217,9 +276,13 @@ void DumpRenderTree::readStdin(int /* socket */)
     fflush(stdout);
 }
 
-void DumpRenderTree::resetJSObjects()
+void DumpRenderTree::setDumpPixels(bool dump)
 {
-    m_controller->reset();
+    m_dumpPixels = dump;
+}
+
+void DumpRenderTree::closeRemainingWindows()
+{
     foreach(QWidget *widget, windows)
         delete widget;
     windows.clear();
@@ -232,6 +295,7 @@ void DumpRenderTree::initJSObjects()
     frame->addToJavaScriptWindowObject(QLatin1String("layoutTestController"), m_controller);
     frame->addToJavaScriptWindowObject(QLatin1String("eventSender"), m_eventSender);
     frame->addToJavaScriptWindowObject(QLatin1String("textInputController"), m_textInputController);
+    frame->addToJavaScriptWindowObject(QLatin1String("GCController"), m_gcController);
 }
 
 
@@ -269,52 +333,108 @@ QString DumpRenderTree::dumpBackForwardList()
     return result;
 }
 
+static const char *methodNameStringForFailedTest(LayoutTestController *controller)
+{
+    const char *errorMessage;
+    if (controller->shouldDumpAsText())
+        errorMessage = "[documentElement innerText]";
+    // FIXME: Add when we have support
+    //else if (controller->dumpDOMAsWebArchive())
+    //    errorMessage = "[[mainFrame DOMDocument] webArchive]";
+    //else if (controller->dumpSourceAsWebArchive())
+    //    errorMessage = "[[mainFrame dataSource] webArchive]";
+    else
+        errorMessage = "[mainFrame renderTreeAsExternalRepresentation]";
+
+    return errorMessage;
+}
+
 void DumpRenderTree::dump()
 {
-    QWebFrame *frame = m_page->mainFrame();
+    QWebFrame *mainFrame = m_page->mainFrame();
 
     //fprintf(stderr, "    Dumping\n");
     if (!m_notifier) {
         // Dump markup in single file mode...
-        QString markup = frame->toHtml();
+        QString markup = mainFrame->toHtml();
         fprintf(stdout, "Source:\n\n%s\n", markup.toUtf8().constData());
     }
 
     // Dump render text...
-    QString renderDump;
-    if (m_controller->shouldDumpAsText()) {
-        renderDump = dumpFramesAsText(frame);
-    } else {
-        renderDump = frame->renderTreeDump();
-    }
+    QString resultString;
+    if (m_controller->shouldDumpAsText())
+        resultString = dumpFramesAsText(mainFrame);
+    else
+        resultString = mainFrame->renderTreeDump();
 
-    if (m_controller->shouldDumpBackForwardList()) {
-        renderDump.append(dumpBackForwardList());
-    }
+    if (!resultString.isEmpty()) {
+        fprintf(stdout, "%s", resultString.toUtf8().constData());
 
-    if (renderDump.isEmpty()) {
-        printf("ERROR: nil result from %s", m_controller->shouldDumpAsText() ? "[documentElement innerText]" : "[frame renderTreeAsExternalRepresentation]");
-    } else {
-        fprintf(stdout, "%s", renderDump.toUtf8().constData());
-    }
+        if (m_controller->shouldDumpBackForwardList())
+            fprintf(stdout, "%s", dumpBackForwardList().toUtf8().constData());
+
+    } else
+        printf("ERROR: nil result from %s", methodNameStringForFailedTest(m_controller));
 
     // signal end of text block
-    fprintf(stdout, "#EOF\n");
+    fputs("#EOF\n", stdout);
+    fputs("#EOF\n", stderr);
 
-    // Since pixel tests are currently unsupported by Qt's DRT,
-    // just signal an empty pixel test block to run-webkit-tests
-    fprintf(stdout, "#EOF\n");
+    if (m_dumpPixels) {
+        QImage image(m_page->viewportSize(), QImage::Format_ARGB32);
+        image.fill(Qt::white);
+        QPainter painter(&image);
+        mainFrame->render(&painter);
+        painter.end();
+
+        QCryptographicHash hash(QCryptographicHash::Md5);
+        for (int row = 0; row < image.height(); ++row)
+            hash.addData(reinterpret_cast<const char*>(image.scanLine(row)), image.width() * 4);
+        QString actualHash = hash.result().toHex();
+
+        fprintf(stdout, "\nActualHash: %s\n", qPrintable(actualHash));
+
+        bool dumpImage = true;
+
+        if (!m_expectedHash.isEmpty()) {
+            Q_ASSERT(m_expectedHash.length() == 32);
+            fprintf(stdout, "\nExpectedHash: %s\n", qPrintable(m_expectedHash));
+
+            if (m_expectedHash == actualHash)
+                dumpImage = false;
+        }
+
+        if (dumpImage) {
+            QBuffer buffer;
+            buffer.open(QBuffer::WriteOnly);
+            image.save(&buffer, "PNG");
+            buffer.close();
+            const QByteArray &data = buffer.data();
+
+            printf("Content-Type: %s\n", "image/png");
+            printf("Content-Length: %lu\n", static_cast<unsigned long>(data.length()));
+
+            const char *ptr = data.data();
+            for(quint32 left = data.length(); left; ) {
+                quint32 block = qMin(left, quint32(1 << 15));
+                quint32 written = fwrite(ptr, 1, block, stdout);
+                ptr += written;
+                left -= written;
+                if (written == block)
+                    break;
+            }
+        }
+
+        fflush(stdout);
+    }
+
+    puts("#EOF");   // terminate the (possibly empty) pixels block
 
     fflush(stdout);
-
-    fprintf(stderr, "#EOF\n");
-
     fflush(stderr);
 
-    if (!m_notifier) {
-        // Exit now in single file mode...
-        quit();
-    }
+    if (!m_notifier)
+        quit(); // Exit now in single file mode...
 }
 
 void DumpRenderTree::titleChanged(const QString &s)
@@ -330,6 +450,19 @@ void DumpRenderTree::connectFrame(QWebFrame *frame)
             layoutTestController(), SLOT(provisionalLoad()));
 }
 
+void DumpRenderTree::dumpDatabaseQuota(QWebFrame* frame, const QString& dbName)
+{
+    if (!m_controller->shouldDumpDatabaseCallbacks())
+        return;
+    QWebSecurityOrigin origin = frame->securityOrigin();
+    printf("UI DELEGATE DATABASE CALLBACK: exceededDatabaseQuotaForSecurityOrigin:{%s, %s, %i} database:%s\n",
+           origin.scheme().toUtf8().data(),
+           origin.host().toUtf8().data(),
+           origin.port(),
+           dbName.toUtf8().data());
+    origin.setDatabaseQuota(5 * 1024 * 1024);
+}
+
 QWebPage *DumpRenderTree::createWindow()
 {
     if (!m_controller->canOpenWindows())
@@ -339,6 +472,7 @@ QWebPage *DumpRenderTree::createWindow()
     container->move(-1, -1);
     container->hide();
     QWebPage *page = new WebPage(container, this);
+    connectFrame(page->mainFrame());
     connect(m_page, SIGNAL(frameCreated(QWebFrame *)), this, SLOT(connectFrame(QWebFrame *)));
     windows.append(container);
     return page;
@@ -353,6 +487,45 @@ int DumpRenderTree::windowCount() const
     }
     return count + 1;
 }
+
+#if defined(Q_WS_X11)
+void DumpRenderTree::initializeFonts()
+{
+    static int numFonts = -1;
+
+    // Some test cases may add or remove application fonts (via @font-face).
+    // Make sure to re-initialize the font set if necessary.
+    FcFontSet* appFontSet = FcConfigGetFonts(0, FcSetApplication);
+    if (appFontSet && numFonts >= 0 && appFontSet->nfont == numFonts)
+        return;
+
+    QByteArray fontDir = getenv("WEBKIT_TESTFONTS");
+    if (fontDir.isEmpty() || !QDir(fontDir).exists()) {
+        fprintf(stderr,
+                "\n\n"
+                "----------------------------------------------------------------------\n"
+                "WEBKIT_TESTFONTS environment variable is not set correctly.\n"
+                "This variable has to point to the directory containing the fonts\n"
+                "you can clone from git://gitorious.org/qtwebkit/testfonts.git\n"
+                "----------------------------------------------------------------------\n"
+               );
+        exit(1);
+    }
+    char currentPath[PATH_MAX+1];
+    getcwd(currentPath, PATH_MAX);
+    QByteArray configFile = currentPath;
+    FcConfig *config = FcConfigCreate();
+    configFile += "/WebKitTools/DumpRenderTree/qt/fonts.conf";
+    if (!FcConfigParseAndLoad (config, (FcChar8*) configFile.data(), true))
+        qFatal("Couldn't load font configuration file");
+    if (!FcConfigAppFontAddDir (config, (FcChar8*) fontDir.data()))
+        qFatal("Couldn't add font dir!");
+    FcConfigSetCurrent(config);
+
+    appFontSet = FcConfigGetFonts(config, FcSetApplication);
+    numFonts = appFontSet->nfont;
+}
+#endif
 
 }
 

@@ -55,6 +55,7 @@ my $sourceDir;
 my $currentSVNRevision;
 my $osXVersion;
 my $isQt;
+my %qtFeatureDefaults;
 my $isGtk;
 my $isWx;
 my @wxArgs;
@@ -92,7 +93,18 @@ sub determineBaseProductDir
 {
     return if defined $baseProductDir;
     determineSourceDir();
+
     if (isAppleMacWebKit()) {
+        # Silently remove ~/Library/Preferences/xcodebuild.plist which can
+        # cause build failure. The presence of
+        # ~/Library/Preferences/xcodebuild.plist can prevent xcodebuild from
+        # respecting global settings such as a custom build products directory
+        # (<rdar://problem/5585899>).
+        my $personalPlistFile = $ENV{HOME} . "/Library/Preferences/xcodebuild.plist";
+        if (-e $personalPlistFile) {
+            unlink($personalPlistFile) || die "Could not delete $personalPlistFile: $!";
+        }
+
         open PRODUCT, "defaults read com.apple.Xcode PBXApplicationwideBuildSettings 2> /dev/null |" or die;
         $baseProductDir = join '', <PRODUCT>;
         close PRODUCT;
@@ -109,38 +121,36 @@ sub determineBaseProductDir
                 undef $baseProductDir unless $baseProductDir =~ /^\//;
             }
         }
-    } else {
-        $baseProductDir = $ENV{"WEBKITOUTPUTDIR"};
-        if (isAppleWinWebKit() && $baseProductDir) {
-            my $unixBuildPath = `cygpath --unix \"$baseProductDir\"`;
-            chomp $unixBuildPath;
-            $baseProductDir = $unixBuildPath;
-        }
     }
 
-    if ($baseProductDir && isAppleMacWebKit()) {
+    if (!defined($baseProductDir)) { # Port-spesific checks failed, use default
+        $baseProductDir = $ENV{"WEBKITOUTPUTDIR"} || "$sourceDir/WebKitBuild";
+    }
+
+    if (isGit() && isGitBranchBuild()) {
+        my $branch = gitBranch();
+        $baseProductDir = "$baseProductDir/$branch";
+    }
+
+    if (isAppleMacWebKit()) {
         $baseProductDir =~ s|^\Q$(SRCROOT)/..\E$|$sourceDir|;
         $baseProductDir =~ s|^\Q$(SRCROOT)/../|$sourceDir/|;
         $baseProductDir =~ s|^~/|$ENV{HOME}/|;
         die "Can't handle Xcode product directory with a ~ in it.\n" if $baseProductDir =~ /~/;
         die "Can't handle Xcode product directory with a variable in it.\n" if $baseProductDir =~ /\$/;
-        @baseProductDirOption = ();
+        @baseProductDirOption = ("SYMROOT=$baseProductDir", "OBJROOT=$baseProductDir");
     }
 
-    if (!defined($baseProductDir)) {
-        $baseProductDir = "$sourceDir/WebKitBuild";
+    if (isCygwin()) {
+        my $dosBuildPath = `cygpath --windows \"$baseProductDir\"`;
+        chomp $dosBuildPath;
+        $ENV{"WEBKITOUTPUTDIR"} = $dosBuildPath;
+    }
 
-        if (isGit() && isGitBranchBuild()) {
-            my $branch = gitBranch();
-            $baseProductDir = "$baseProductDir/$branch";
-        }
-
-        @baseProductDirOption = ("SYMROOT=$baseProductDir", "OBJROOT=$baseProductDir") if (isAppleMacWebKit());
-        if (isCygwin()) {
-            my $dosBuildPath = `cygpath --windows \"$baseProductDir\"`;
-            chomp $dosBuildPath;
-            $ENV{"WEBKITOUTPUTDIR"} = $dosBuildPath;
-        }
+    if (isAppleWinWebKit()) {
+        my $unixBuildPath = `cygpath --unix \"$baseProductDir\"`;
+        chomp $unixBuildPath;
+        $baseProductDir = $unixBuildPath;
     }
 }
 
@@ -228,7 +238,15 @@ sub determineConfigurationProductDir
     if (isAppleWinWebKit() && !isWx()) {
         $configurationProductDir = "$baseProductDir/bin";
     } else {
-        $configurationProductDir = "$baseProductDir/$configuration";
+        # [Gtk] We don't have Release/Debug configurations in straight
+        # autotool builds (non build-webkit). In this case and if
+        # WEBKITOUTPUTDIR exist, use that as our configuration dir. This will
+        # allows us to run run-webkit-tests without using build-webkit.
+        if ($ENV{"WEBKITOUTPUTDIR"} && isGtk()) {
+            $configurationProductDir = "$baseProductDir";
+        } else {
+            $configurationProductDir = "$baseProductDir/$configuration";
+        }
     }
 }
 
@@ -312,7 +330,7 @@ sub XcodeCoverageSupportOptions()
     push @coverageSupportOptions, "GCC_GENERATE_TEST_COVERAGE_FILES=YES";
     push @coverageSupportOptions, "GCC_INSTRUMENT_PROGRAM_FLOW_ARCS=YES";
     push @coverageSupportOptions, "EXTRA_LINK= \$(EXTRA_LINK) -ftest-coverage -fprofile-arcs";
-    push @coverageSupportOptions, "OTHER_CFLAGS= \$(OTHER_CFLAGS) -MD";
+    push @coverageSupportOptions, "OTHER_CFLAGS= \$(OTHER_CFLAGS) -DCOVERAGE -MD";
     push @coverageSupportOptions, "OTHER_LDFLAGS=\$(OTHER_LDFLAGS) -ftest-coverage -fprofile-arcs -framework AppKit";
     return @coverageSupportOptions;
 }
@@ -468,6 +486,9 @@ sub builtDylibPathForName
     if (isQt() or isChromium()) {
         return "$configurationProductDir/$libraryName";
     }
+    if (isWx()) {
+        return "$configurationProductDir/libwxwebkit.dylib";
+    }
     if (isGtk()) {
         return "$configurationProductDir/$libraryName/../.libs/libwebkit-1.0.so";
     }
@@ -497,25 +518,40 @@ sub checkFrameworks
     }
 }
 
+sub libraryContainsSymbol
+{
+    my $path = shift;
+    my $symbol = shift;
+
+    if (isCygwin()) {
+        # FIXME: Implement this for Windows.
+        return 0;
+    }
+
+    my $foundSymbol = 0;
+    if (-e $path) {
+        open NM, "-|", "nm", $path or die;
+        while (<NM>) {
+            $foundSymbol = 1 if /$symbol/;
+        }
+        close NM;
+    }
+    return $foundSymbol;
+}
+
 sub hasSVGSupport
 {
-    return 0 if isCygwin();
-
     my $path = shift;
 
     if (isQt()) {
         return 1;
     }
-
-    my $hasSVGSupport = 0;
-    if (-e $path) {
-        open NM, "-|", "nm", $path or die;
-        while (<NM>) {
-            $hasSVGSupport = 1 if /SVGElement/;
-        }
-        close NM;
+    
+    if (isWx()) {
+        return 0;
     }
-    return $hasSVGSupport;
+
+    return libraryContainsSymbol($path, "SVGElement");
 }
 
 sub removeLibraryDependingOnSVG
@@ -547,16 +583,7 @@ sub hasAcceleratedCompositingSupport
     return 0 if isCygwin() || isQt();
 
     my $path = shift;
-
-    my $useAcceleratedCompositing = 0;
-    if (-e $path) {
-        open NM, "-|", "nm", $path or die;
-        while (<NM>) {
-            $useAcceleratedCompositing = 1 if /GraphicsLayer/;
-        }
-        close NM;
-    }
-    return $useAcceleratedCompositing;
+    return libraryContainsSymbol($path, "GraphicsLayer");
 }
 
 sub checkWebCoreAcceleratedCompositingSupport
@@ -573,19 +600,10 @@ sub checkWebCoreAcceleratedCompositingSupport
 
 sub has3DRenderingSupport
 {
-    return 0 if isCygwin() || isQt();
+    return 0 if isQt();
 
     my $path = shift;
-
-    my $has3DRenderingSupport = 0;
-    if (-e $path) {
-        open NM, "-|", "nm", $path or die;
-        while (<NM>) {
-            $has3DRenderingSupport = 1 if /WebCoreHas3DRendering/;
-        }
-        close NM;
-    }
-    return $has3DRenderingSupport;
+    return libraryContainsSymbol($path, "WebCoreHas3DRendering");
 }
 
 sub checkWebCore3DRenderingSupport
@@ -602,24 +620,8 @@ sub checkWebCore3DRenderingSupport
 
 sub hasWMLSupport
 {
-    return 0 if isCygwin();
-
     my $path = shift;
-
-    if (isQt()) {
-        # FIXME: Check built library for WML support, just like Gtk does it below.
-        return 0;
-    }
-
-    my $hasWMLSupport = 0;
-    if (-e $path) {
-        open NM, "-|", "nm", $path or die;
-        while (<NM>) {
-            $hasWMLSupport = 1 if /WMLElement/;
-        }
-        close NM;
-    }
-    return $hasWMLSupport;
+    return libraryContainsSymbol($path, "WMLElement");
 }
 
 sub removeLibraryDependingOnWML
@@ -646,10 +648,66 @@ sub checkWebCoreWMLSupport
     return $hasWML;
 }
 
+sub hasXHTMLMPSupport
+{
+    my $path = shift;
+    return libraryContainsSymbol($path, "isXHTMLMPDocument");
+}
+
+sub checkWebCoreXHTMLMPSupport
+{
+    my $required = shift;
+    my $framework = "WebCore";
+    my $path = builtDylibPathForName($framework);
+    my $hasXHTMLMP = hasXHTMLMPSupport($path);
+    if ($required && !$hasXHTMLMP) {
+        die "$framework at \"$path\" does not include XHTML MP Support\n";
+    }
+    return $hasXHTMLMP;
+}
+
+sub hasWCSSSupport
+{
+    # FIXME: When WCSS support is landed this should be updated to check for WCSS
+    # being enabled in a manner similar to how we check for XHTML MP above.
+    return 0;
+}
+
+sub checkWebCoreWCSSSupport
+{
+    my $required = shift;
+    my $framework = "WebCore";
+    my $path = builtDylibPathForName($framework);
+    my $hasWCSS = hasWCSSSupport($path);
+    if ($required && !$hasWCSS) {
+        die "$framework at \"$path\" does not include WCSS Support\n";
+    }
+    return $hasWCSS;
+}
+
 sub isQt()
 {
     determineIsQt();
     return $isQt;
+}
+
+sub qtFeatureDefaults()
+{
+    determineQtFeatureDefaults();
+    return %qtFeatureDefaults;
+}
+
+sub determineQtFeatureDefaults()
+{
+    return if %qtFeatureDefaults;
+    my $originalCwd = getcwd();
+    chdir File::Spec->catfile(sourceDir(), "WebCore");
+    my $defaults = `qmake CONFIG+=compute_defaults 2>&1`;
+    chdir $originalCwd;
+
+    while ($defaults =~ m/(\S*?)=(.*?)( |$)/gi) {
+        $qtFeatureDefaults{$1}=$2;
+    }
 }
 
 sub checkForArgumentAndRemoveFromARGV
@@ -897,8 +955,11 @@ sub setupCygwinEnv()
     my $programFilesPath = `cygpath "$ENV{'PROGRAMFILES'}"`;
     chomp $programFilesPath;
     $vcBuildPath = "$programFilesPath/Microsoft Visual Studio 8/Common7/IDE/devenv.com";
-    if (! -e $vcBuildPath) {
-        # VC++ not found, try VC++ Express
+    if (-e $vcBuildPath) {
+        # Visual Studio is installed; we can use pdevenv to build.
+        $vcBuildPath = File::Spec->catfile(sourceDir(), qw(WebKitTools Scripts pdevenv));
+    } else {
+        # Visual Studio not found, try VC++ Express
         my $vsInstallDir;
         if ($ENV{'VSINSTALLDIR'}) {
             $vsInstallDir = $ENV{'VSINSTALLDIR'};
@@ -960,31 +1021,15 @@ sub buildVisualStudioProject
 
     chomp(my $winProjectPath = `cygpath -w "$project"`);
     
-    my $command = "/build";
+    my $action = "/build";
     if ($clean) {
-        $command = "/clean";
+        $action = "/clean";
     }
 
-    print "$vcBuildPath $winProjectPath /build $config\n";
-    return system $vcBuildPath, $winProjectPath, $command, $config;
-}
+    my @command = ($vcBuildPath, $winProjectPath, $action, $config);
 
-sub buildSconsProject
-{
-    my ($project, $shouldClean) = @_;
-    print "Building from $project/$project.scons\n";
-
-    my $sconsCommand = "scons";
-    if (isCygwin()) {
-        # HACK: Launch scons with Win32 python instead of CYGWIN python
-        # Scons + MSVC only works under Win32 python
-        # http://scons.tigris.org/issues/show_bug.cgi?id=2266
-        $sconsCommand = "cmd /c 'C:\\Python26\\Scripts\\scons'";
-    }
-    if ($shouldClean) {
-        return system $sconsCommand, "--clean";
-    }
-    return system $sconsCommand;
+    print join(" ", @command), "\n";
+    return system @command;
 }
 
 sub retrieveQMakespecVar
@@ -1002,7 +1047,8 @@ sub retrieveQMakespecVar
             # open the included mkspec
             my $oldcwd = getcwd();
             (my $volume, my $directories, my $file) = File::Spec->splitpath($mkspec);
-            chdir "$volume$directories";
+            my $newcwd = "$volume$directories";
+            chdir $newcwd if $newcwd;
             $compiler = retrieveQMakespecVar($1, $varname);
             chdir $oldcwd;
         } elsif ($_ =~ /$varname\s*=\s*([^\s]+)/) {
@@ -1041,12 +1087,23 @@ sub autotoolsFlag($$)
 
 sub buildAutotoolsProject($@)
 {
-    my ($clean, @buildArgs) = @_;
+    my ($clean, @buildParams) = @_;
 
     my $make = 'make';
     my $dir = productDir();
     my $config = passedConfiguration() || configuration();
     my $prefix = $ENV{"WebKitInstallationPrefix"};
+
+    my @buildArgs = ();
+    my $makeArgs = $ENV{"WebKitMakeArguments"} || "";
+    for my $i (0 .. $#buildParams) {
+        my $opt = $buildParams[$i];
+        if ($opt =~ /^--makeargs=(.*)/i ) {
+            $makeArgs = $makeArgs . " " . $1;
+        } else {
+            push @buildArgs, $opt;
+        }
+    }
 
     push @buildArgs, "--prefix=" . $prefix if defined($prefix);
 
@@ -1090,8 +1147,6 @@ sub buildAutotoolsProject($@)
         die "Failed to setup build environment using 'autotools'!\n";
     }
 
-    my $makeArgs = $ENV{"WebKitMakeArguments"} || "";
-
     $result = system "$make $makeArgs";
     if ($result ne 0) {
         die "\nFailed to build WebKit using '$make'!\n";
@@ -1106,8 +1161,6 @@ sub buildQMakeProject($@)
     my ($clean, @buildParams) = @_;
 
     my @buildArgs = ("-r");
-
-    push @buildArgs, "DEFINES+=QT_SHARED";
 
     my $qmakebin = "qmake"; # Allow override of the qmake binary from $PATH
     my $makeargs = "";
@@ -1135,7 +1188,13 @@ sub buildQMakeProject($@)
         push @buildArgs, "CONFIG+=debug";
     } else {
         push @buildArgs, "CONFIG+=release";
-        push @buildArgs, "CONFIG-=debug";
+        my $passedConfig = passedConfiguration() || "";
+        if (!isDarwin() || $passedConfig =~ m/release/i) {
+            push @buildArgs, "CONFIG-=debug";
+        } else {
+            push @buildArgs, "CONFIG+=debug_and_release";
+            push @buildArgs, "CONFIG+=build_all";
+        }
     }
 
     my $dir = baseProductDir();
@@ -1176,8 +1235,6 @@ sub buildQMakeProject($@)
 sub buildQMakeQtProject($$@)
 {
     my ($project, $clean, @buildArgs) = @_;
-
-    push @buildArgs, "CONFIG+=qt-port";
 
     return buildQMakeProject($clean, @buildArgs);
 }
@@ -1222,7 +1279,7 @@ sub runSafari
         print "Starting Safari with DYLD_FRAMEWORK_PATH set to point to built WebKit in $productDir.\n";
         $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
         $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
-        if (architecture()) {
+        if (!isTiger() && architecture()) {
             return system "arch", "-" . architecture(), safariPath(), @ARGV;
         } else {
             return system safariPath(), @ARGV;

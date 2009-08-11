@@ -33,7 +33,6 @@
 #include "ConsoleMessage.h"
 #include "Frame.h"
 #include "InspectorController.h"  // TODO(pfeldman): Extract SpecialPanels to remove include.
-#include "JSONObject.h"
 #include "Node.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
@@ -61,14 +60,20 @@ InspectorFrontend::~InspectorFrontend()
     m_webInspector = ScriptObject();
 }
 
-JSONObject InspectorFrontend::newJSONObject() {
-    return JSONObject::createNew(m_scriptState);
+ScriptArray InspectorFrontend::newScriptArray()
+{
+    return ScriptArray::createNew(m_scriptState);
 }
 
-void InspectorFrontend::addMessageToConsole(const JSONObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message)
+ScriptObject InspectorFrontend::newScriptObject()
+{
+    return ScriptObject::createNew(m_scriptState);
+}
+
+void InspectorFrontend::addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("addMessageToConsole"));
-    function->appendArgument(messageObj.scriptObject());
+    function->appendArgument(messageObj);
     if (!frames.isEmpty()) {
         for (unsigned i = 0; i < frames.size(); ++i)
             function->appendArgument(frames[i]);
@@ -80,21 +85,21 @@ void InspectorFrontend::addMessageToConsole(const JSONObject& messageObj, const 
     function->call();
 }
 
-bool InspectorFrontend::addResource(long long identifier, const JSONObject& resourceObj)
+bool InspectorFrontend::addResource(long long identifier, const ScriptObject& resourceObj)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("addResource"));
     function->appendArgument(identifier);
-    function->appendArgument(resourceObj.scriptObject());
+    function->appendArgument(resourceObj);
     bool hadException = false;
     function->call(hadException);
     return !hadException;
 }
 
-bool InspectorFrontend::updateResource(long long identifier, const JSONObject& resourceObj)
+bool InspectorFrontend::updateResource(long long identifier, const ScriptObject& resourceObj)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("updateResource"));
     function->appendArgument(identifier);
-    function->appendArgument(resourceObj.scriptObject());
+    function->appendArgument(resourceObj);
     bool hadException = false;
     function->call(hadException);
     return !hadException;
@@ -216,7 +221,7 @@ void InspectorFrontend::profilerWasDisabled()
 void InspectorFrontend::parsedScriptSource(const JSC::SourceCode& source)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("parsedScriptSource"));
-    function->appendArgument(static_cast<long long>(source.provider()->asID()));
+    function->appendArgument(JSC::UString(JSC::UString::from(source.provider()->asID())));
     function->appendArgument(source.provider()->url());
     function->appendArgument(JSC::UString(source.data(), source.length()));
     function->appendArgument(source.firstLine());
@@ -260,10 +265,10 @@ void InspectorFrontend::resumedScript()
 #endif
 
 #if ENABLE(DATABASE)
-bool InspectorFrontend::addDatabase(const JSONObject& dbObject)
+bool InspectorFrontend::addDatabase(const ScriptObject& dbObject)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDatabase"));
-    function->appendArgument(dbObject.scriptObject());
+    function->appendArgument(dbObject);
     bool hadException = false;
     function->call(hadException);
     return !hadException;
@@ -271,15 +276,78 @@ bool InspectorFrontend::addDatabase(const JSONObject& dbObject)
 #endif
 
 #if ENABLE(DOM_STORAGE)
-bool InspectorFrontend::addDOMStorage(const JSONObject& domStorageObj)
+bool InspectorFrontend::addDOMStorage(const ScriptObject& domStorageObj)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("addDOMStorage"));
-    function->appendArgument(domStorageObj.scriptObject());
+    function->appendArgument(domStorageObj);
     bool hadException = false;
     function->call(hadException);
     return !hadException;
 }
 #endif
+
+void InspectorFrontend::setDocumentElement(const ScriptObject& root)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDocumentElement"));
+    function->appendArgument(root);
+    function->call();
+}
+
+void InspectorFrontend::setChildNodes(int parentId, const ScriptArray& nodes)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setChildNodes"));
+    function->appendArgument(parentId);
+    function->appendArgument(nodes);
+    function->call();
+}
+
+void InspectorFrontend::hasChildrenUpdated(int id, bool newValue)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("hasChildrenUpdated"));
+    function->appendArgument(id);
+    function->appendArgument(newValue);
+    function->call();
+}
+
+void InspectorFrontend::childNodeInserted(int parentId, int prevId, const ScriptObject& node)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("childNodeInserted"));
+    function->appendArgument(parentId);
+    function->appendArgument(prevId);
+    function->appendArgument(node);
+    function->call();
+}
+
+void InspectorFrontend::childNodeRemoved(int parentId, int id)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("childNodeRemoved"));
+    function->appendArgument(parentId);
+    function->appendArgument(id);
+    function->call();
+}
+
+void InspectorFrontend::attributesUpdated(int id, const ScriptArray& attributes)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("attributesUpdated"));
+    function->appendArgument(id);
+    function->appendArgument(attributes);
+    function->call();
+}
+
+void InspectorFrontend::didGetChildNodes(int callId)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didGetChildNodes"));
+    function->appendArgument(callId);
+    function->call();
+}
+
+void InspectorFrontend::didApplyDomChange(int callId, bool success)
+{
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("didApplyDomChange"));
+    function->appendArgument(callId);
+    function->appendArgument(success);
+    function->call();
+}
 
 PassOwnPtr<ScriptFunctionCall> InspectorFrontend::newFunctionCall(const String& functionName)
 {

@@ -41,6 +41,7 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/InspectorController.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/RenderObject.h>
 #include <WebCore/WindowMessageBroadcaster.h>
@@ -51,11 +52,11 @@
 
 using namespace WebCore;
 
+static const char* const inspectorStartsAttachedName = "inspectorStartsAttached";
+
 static LPCTSTR kWebInspectorWindowClassName = TEXT("WebInspectorWindowClass");
 static ATOM registerWindowClass();
 static LPCTSTR kWebInspectorPointerProp = TEXT("WebInspectorPointer");
-
-static const unsigned defaultAttachedHeight = 300;
 
 static const IntRect& defaultWindowRect()
 {
@@ -165,6 +166,10 @@ Page* WebInspectorClient::createPage()
         return 0;
     if (FAILED(preferences->setMinimumLogicalFontSize(9)))
         return 0;
+    if (FAILED(preferences->setFixedFontFamily(BString(L"Courier New"))))
+        return 0;
+    if (FAILED(preferences->setDefaultFixedFontSize(13)))
+        return 0;
 
     if (FAILED(m_webView->setPreferences(preferences.get())))
         return 0;
@@ -211,13 +216,13 @@ String WebInspectorClient::hiddenPanels()
 void WebInspectorClient::showWindow()
 {
     showWindowWithoutNotifications();
-    m_inspectedWebView->page()->inspectorController()->setWindowVisible(true);
+    m_inspectedWebView->page()->inspectorController()->setWindowVisible(true, m_shouldAttachWhenShown);
 }
 
 void WebInspectorClient::closeWindow()
 {
     closeWindowWithoutNotifications();
-    m_inspectedWebView->page()->inspectorController()->setWindowVisible(false);
+    m_inspectedWebView->page()->inspectorController()->setWindowVisible(false, m_shouldAttachWhenShown);
 }
 
 bool WebInspectorClient::windowVisible()
@@ -230,7 +235,7 @@ void WebInspectorClient::attachWindow()
     if (m_attached)
         return;
 
-    m_shouldAttachWhenShown = true;
+    m_inspectedWebView->page()->inspectorController()->setSetting(inspectorStartsAttachedName, InspectorController::Setting(true));
 
     closeWindowWithoutNotifications();
     showWindowWithoutNotifications();
@@ -241,7 +246,7 @@ void WebInspectorClient::detachWindow()
     if (!m_attached)
         return;
 
-    m_shouldAttachWhenShown = false;
+    m_inspectedWebView->page()->inspectorController()->setSetting(inspectorStartsAttachedName, InspectorController::Setting(false));
 
     closeWindowWithoutNotifications();
     showWindowWithoutNotifications();
@@ -249,7 +254,30 @@ void WebInspectorClient::detachWindow()
 
 void WebInspectorClient::setAttachedWindowHeight(unsigned height)
 {
-    // FIXME: implement this.
+    if (!m_attached)
+        return;
+
+    HWND hostWindow;
+    if (!SUCCEEDED(m_inspectedWebView->hostWindow((OLE_HANDLE*)&hostWindow)))
+        return;
+
+    RECT hostWindowRect;
+    GetClientRect(hostWindow, &hostWindowRect);
+
+    RECT inspectedRect;
+    GetClientRect(m_inspectedWebViewHwnd, &inspectedRect);
+
+    int totalHeight = hostWindowRect.bottom - hostWindowRect.top;
+    int webViewWidth = inspectedRect.right - inspectedRect.left;
+
+    SetWindowPos(m_webViewHwnd, 0, 0, totalHeight - height, webViewWidth, height, SWP_NOZORDER);
+
+    // We want to set the inspected web view height to the totalHeight, because the height adjustment
+    // of the inspected web view happens in onWebViewWindowPosChanging, not here.
+    SetWindowPos(m_inspectedWebViewHwnd, 0, 0, 0, webViewWidth, totalHeight, SWP_NOZORDER);
+
+    RedrawWindow(m_webViewHwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW); 
+    RedrawWindow(m_inspectedWebViewHwnd, 0, 0, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_UPDATENOW);
 }
 
 void WebInspectorClient::highlight(Node*)
@@ -278,6 +306,11 @@ void WebInspectorClient::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
     updateWindowTitle();
+}
+
+void WebInspectorClient::inspectorWindowObjectCleared()
+{
+    notImplemented();
 }
 
 void WebInspectorClient::closeWindowWithoutNotifications()
@@ -317,6 +350,9 @@ void WebInspectorClient::showWindowWithoutNotifications()
 
     ASSERT(m_webView);
     ASSERT(m_inspectedWebViewHwnd);
+
+    InspectorController::Setting shouldAttach = m_inspectedWebView->page()->inspectorController()->setting(inspectorStartsAttachedName);
+    m_shouldAttachWhenShown = shouldAttach.type() == InspectorController::Setting::BooleanType ? shouldAttach.booleanValue() : false;
 
     if (!m_shouldAttachWhenShown) {
         // Put the Inspector's WebView inside our window and show it.
@@ -381,7 +417,7 @@ LRESULT WebInspectorClient::onSize(WPARAM, LPARAM)
 LRESULT WebInspectorClient::onClose(WPARAM, LPARAM)
 {
     ::ShowWindow(m_hwnd, SW_HIDE);
-    m_inspectedWebView->page()->inspectorController()->setWindowVisible(false);
+    m_inspectedWebView->page()->inspectorController()->setWindowVisible(false, m_shouldAttachWhenShown);
 
     hideHighlight();
 
@@ -404,9 +440,13 @@ void WebInspectorClient::onWebViewWindowPosChanging(WPARAM, LPARAM lParam)
     if (windowPos->flags & SWP_NOSIZE)
         return;
 
-    windowPos->cy -= defaultAttachedHeight;
+    RECT inspectorRect;
+    GetClientRect(m_webViewHwnd, &inspectorRect);
+    unsigned inspectorHeight = inspectorRect.bottom - inspectorRect.top;
 
-    ::SetWindowPos(m_webViewHwnd, 0, windowPos->x, windowPos->y + windowPos->cy, windowPos->cx, defaultAttachedHeight, SWP_NOZORDER);
+    windowPos->cy -= inspectorHeight;
+
+    SetWindowPos(m_webViewHwnd, 0, windowPos->x, windowPos->y + windowPos->cy, windowPos->cx, inspectorHeight, SWP_NOZORDER);
 }
 
 static LRESULT CALLBACK WebInspectorWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

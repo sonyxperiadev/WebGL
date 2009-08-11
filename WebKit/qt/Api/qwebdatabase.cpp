@@ -20,8 +20,6 @@
 #include "config.h"
 #include "qwebdatabase.h"
 
-#if ENABLE(DATABASE)
-
 #include "qwebdatabase_p.h"
 #include "qwebsecurityorigin.h"
 #include "qwebsecurityorigin_p.h"
@@ -36,9 +34,20 @@ using namespace WebCore;
     \brief The QWebDatabase class provides access to HTML 5 databases created with JavaScript.
 
     The upcoming HTML 5 standard includes support for SQL databases that web sites can create and
-    access on a local computer through JavaScript. QWebDatabase is the C++ interface to these databases.
+    access on a local computer through JavaScript. QWebDatabase is the C++ interface to these
+    databases.
 
-    For more information refer to the \l{http://www.w3.org/html/wg/html5/#sql}{HTML 5 Draft Standard}.
+    To get access to all databases defined by a security origin, use QWebSecurityOrigin::databases().
+    Each database has an internal name(), as well as a user-friendly name, provided by displayName().
+
+    WebKit uses SQLite to create and access the local SQL databases. The location of the database
+    file in the local file system is returned by fileName(). You can access the database directly
+    through the QtSql database module.
+
+    For each database the web site can define an expectedSize(). The current size of the database
+    in bytes is returned by size().
+
+    For more information refer to the \l{http://dev.w3.org/html5/webdatabase/}{HTML 5 Draft Standard}.
 
     \sa QWebSecurityOrigin
 */
@@ -46,7 +55,8 @@ using namespace WebCore;
 /*!
     Constructs a web database from \a other.
 */
-QWebDatabase::QWebDatabase(const QWebDatabase& other) : d(other.d)
+QWebDatabase::QWebDatabase(const QWebDatabase& other)
+    : d(other.d)
 {
 }
 
@@ -72,8 +82,12 @@ QString QWebDatabase::name() const
 */
 QString QWebDatabase::displayName() const
 {
+#if ENABLE(DATABASE)
     DatabaseDetails details = DatabaseTracker::tracker().detailsForNameAndOrigin(d->name, d->origin.get());
     return details.displayName();
+#else
+    return QString();
+#endif
 }
 
 /*!
@@ -81,8 +95,12 @@ QString QWebDatabase::displayName() const
 */
 qint64 QWebDatabase::expectedSize() const
 {
+#if ENABLE(DATABASE)
     DatabaseDetails details = DatabaseTracker::tracker().detailsForNameAndOrigin(d->name, d->origin.get());
     return details.expectedUsage();
+#else
+    return 0;
+#endif
 }
 
 /*!
@@ -90,8 +108,12 @@ qint64 QWebDatabase::expectedSize() const
 */
 qint64 QWebDatabase::size() const
 {
+#if ENABLE(DATABASE)
     DatabaseDetails details = DatabaseTracker::tracker().detailsForNameAndOrigin(d->name, d->origin.get());
     return details.currentUsage();
+#else
+    return 0;
+#endif
 }
 
 /*!
@@ -117,11 +139,15 @@ QWebDatabase::QWebDatabase(QWebDatabasePrivate* priv)
     \endcode
 
     \note Concurrent access to a database from multiple threads or processes
-    is not very efficient because Sqlite is used as WebKit's database backend.
+    is not very efficient because SQLite is used as WebKit's database backend.
 */
 QString QWebDatabase::fileName() const
 {
+#if ENABLE(DATABASE)
     return DatabaseTracker::tracker().fullPathForDatabase(d->origin.get(), d->name, false);
+#else
+    return QString();
+#endif
 }
 
 /*!
@@ -135,12 +161,28 @@ QWebSecurityOrigin QWebDatabase::origin() const
 }
 
 /*!
-    Removes the database, \a db, from its security origin. All data stored in this database
-    will be destroyed.
+    Removes the database \a db from its security origin. All data stored in the
+    database \a db will be destroyed.
 */
-void QWebDatabase::removeDatabase(const QWebDatabase &db)
+void QWebDatabase::removeDatabase(const QWebDatabase& db)
 {
+#if ENABLE(DATABASE)
     DatabaseTracker::tracker().deleteDatabase(db.d->origin.get(), db.d->name);
+#endif
+}
+
+/*!
+  \since 4.6
+
+  Deletes all web databases in the configured offline storage path.
+
+  \sa QWebSettings::setOfflineStoragePath()
+*/
+void QWebDatabase::removeAllDatabases()
+{
+#if ENABLE(DATABASE)
+    DatabaseTracker::tracker().deleteAllDatabases();
+#endif
 }
 
 /*!
@@ -150,4 +192,3 @@ QWebDatabase::~QWebDatabase()
 {
 }
 
-#endif

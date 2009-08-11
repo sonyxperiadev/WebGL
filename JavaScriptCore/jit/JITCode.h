@@ -76,20 +76,19 @@ namespace JSC {
         // Execute the code!
         inline JSValue execute(RegisterFile* registerFile, CallFrame* callFrame, JSGlobalData* globalData, JSValue* exception)
         {
-            return JSValue::decode(ctiTrampoline(
-#if PLATFORM(X86_64)
-                0, 0, 0, 0, 0, 0,
-#endif
-                m_ref.m_code.executableAddress(), registerFile, callFrame, exception, Profiler::enabledProfilerReference(), globalData));
+            return JSValue::decode(ctiTrampoline(m_ref.m_code.executableAddress(), registerFile, callFrame, exception, Profiler::enabledProfilerReference(), globalData));
         }
 
-#ifndef NDEBUG
+        void* start()
+        {
+            return m_ref.m_code.dataLocation();
+        }
+
         size_t size()
         {
             ASSERT(m_ref.m_code.executableAddress());
             return m_ref.m_size;
         }
-#endif
 
         ExecutablePool* getExecutablePool()
         {

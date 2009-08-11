@@ -65,13 +65,22 @@ public:
     
     virtual bool isVideo() const { return false; }
     virtual bool hasVideo() const { return false; }
-    
+
+    void rewind(float timeDelta);
+    void returnToRealtime();
+
+    // Eventually overloaded in HTMLVideoElement
+    virtual bool supportsFullscreen() const { return false; };
+    virtual bool supportsSave() const;
+
     void scheduleLoad();
     
     virtual void defaultEventHandler(Event*);
     
     // Pauses playback without changing any states or generating events
     void setPausedInternal(bool);
+    
+    MediaPlayer::MovieLoadType movieLoadType() const;
     
     bool inActiveDocument() const { return m_inActiveDocument; }
     
@@ -108,6 +117,8 @@ public:
     void setDefaultPlaybackRate(float);
     float playbackRate() const;
     void setPlaybackRate(float);
+    bool webkitPreservesPitch() const;
+    void setWebkitPreservesPitch(bool);
     PassRefPtr<TimeRanges> played() const;
     PassRefPtr<TimeRanges> seekable() const;
     bool ended() const;
@@ -131,6 +142,8 @@ public:
 
     bool canPlay() const;
 
+    float percentLoaded() const;
+
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
     void deliverNotification(MediaPlayerProxyNotificationType notification);
@@ -138,6 +151,8 @@ public:
     String initialURL();
     virtual void finishParsingChildren();
 #endif
+
+    bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }
 
 protected:
     float getTimeOffsetAttribute(const QualifiedName&, float valueOnError) const;
@@ -150,16 +165,20 @@ protected:
     void setReadyState(MediaPlayer::ReadyState);
     void setNetworkState(MediaPlayer::NetworkState);
     
-private: // MediaPlayerObserver
+private: // MediaPlayerClient
     virtual void mediaPlayerNetworkStateChanged(MediaPlayer*);
     virtual void mediaPlayerReadyStateChanged(MediaPlayer*);
     virtual void mediaPlayerTimeChanged(MediaPlayer*);
-    virtual void mediaPlayerRepaint(MediaPlayer*);
     virtual void mediaPlayerVolumeChanged(MediaPlayer*);
     virtual void mediaPlayerDurationChanged(MediaPlayer*);
     virtual void mediaPlayerRateChanged(MediaPlayer*);
-    virtual void mediaPlayerSizeChanged(MediaPlayer*);
     virtual void mediaPlayerSawUnsupportedTracks(MediaPlayer*);
+    virtual void mediaPlayerRepaint(MediaPlayer*);
+    virtual void mediaPlayerSizeChanged(MediaPlayer*);
+#if USE(ACCELERATED_COMPOSITING)
+    virtual bool mediaPlayerRenderingCanBeAccelerated(MediaPlayer*);
+    virtual GraphicsLayer* mediaPlayerGraphicsLayer(MediaPlayer*);
+#endif
 
 private:
     void loadTimerFired(Timer<HTMLMediaElement>*);
@@ -209,10 +228,12 @@ private:
     bool stoppedDueToErrors() const;
     bool pausedForUserInteraction() const;
 
+    float minTimeSeekable() const;
+    float maxTimeSeekable() const;
+
     // Restrictions to change default behaviors. This is a effectively a compile time choice at the moment
     //  because there are no accessor methods.
-    enum BehaviorRestrictions 
-    { 
+    enum BehaviorRestrictions {
         NoRestrictions = 0,
         RequireUserGestureForLoadRestriction = 1 << 0,
         RequireUserGestureForRateChangeRestriction = 1 << 1,
@@ -228,6 +249,7 @@ protected:
     
     float m_playbackRate;
     float m_defaultPlaybackRate;
+    bool m_webkitPreservesPitch;
     NetworkState m_networkState;
     ReadyState m_readyState;
     String m_currentSrc;

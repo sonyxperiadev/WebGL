@@ -35,14 +35,17 @@ public:
     virtual void defaultEventHandler(Event*);
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
 
+    virtual void attach();
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange);
 
-    void registerTask(WMLTaskElement* task) { m_task = task; }
+    void registerTask(WMLTaskElement*);
+    void deregisterTask(WMLTaskElement*);
 
     bool isActive() const { return m_isActive; }
-    String label() const { return m_label; }
+    String label() const;
     String name() const { return m_name; }
 
     void setActive(bool active) { m_isActive = active; }
@@ -53,7 +56,6 @@ private:
     bool m_isActive;
     bool m_isNoop;
     bool m_isOptional;
-    String m_label;
     String m_name;
     String m_type;
 };

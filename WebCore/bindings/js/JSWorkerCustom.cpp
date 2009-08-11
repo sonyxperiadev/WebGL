@@ -30,51 +30,17 @@
 #include "JSWorker.h"
 
 #include "JSDOMGlobalObject.h"
-#include "JSEventListener.h"
 #include "Worker.h"
 
 using namespace JSC;
 
 namespace WebCore {
     
-void JSWorker::mark()
+void JSWorker::markChildren(MarkStack& markStack)
 {
-    DOMObject::mark();
+    Base::markChildren(markStack);
 
-    markIfNotNull(m_impl->onmessage());
-    markIfNotNull(m_impl->onerror());
-
-    typedef Worker::EventListenersMap EventListenersMap;
-    typedef Worker::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = m_impl->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction();
-    }
-}
-
-JSValue JSWorker::addEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
-    return jsUndefined();
-}
-
-JSValue JSWorker::removeEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
-    return jsUndefined();
+    markIfNotNull(markStack, static_cast<Worker*>(impl())->onmessage());
 }
 
 } // namespace WebCore

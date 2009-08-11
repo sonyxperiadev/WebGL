@@ -6,8 +6,21 @@ dnl WebKit and JavaScriptCore builds.
 # global states
 m4_define([initialized], [no])
 
+AC_DEFUN([BEFORE_AC_PROG_CXX],
+[dnl
+# If CXXFLAGS and CFLAGS are unset, default to empty.
+# This is to tell automake not to include '-g' if CXXFLAGS is not set
+# For more info - http://www.gnu.org/software/automake/manual/autoconf.html#C_002b_002b-Compiler
+if test -z "$CXXFLAGS"; then
+   CXXFLAGS=""
+fi
+if test -z "$CFLAGS"; then
+   CFLAGS=""
+fi
+])
+
 # check for pkg-config
-AC_DEFUN([WEBKIT_INIT],
+AC_DEFUN_ONCE([WEBKIT_INIT],
 [dnl
 dnl check if we have the required packages to have successful checks
 dnl
@@ -43,19 +56,12 @@ if test -z "$MV"; then
    AC_MSG_ERROR([You need 'mv' to compile WebKit])
 fi
 
-# If CXXFLAGS and CFLAGS are unset, default to empty.
-# This is to tell automake not to include '-g' if CXXFLAGS is not set
-# For more info - http://www.gnu.org/software/automake/manual/autoconf.html#C_002b_002b-Compiler
-if test -z "$CXXFLAGS"; then
-   CXXFLAGS=""
-fi
-if test -z "$CFLAGS"; then
-   CFLAGS=""
-fi
-
 AM_PROG_CC_STDC
 AM_PROG_CC_C_O
-AC_PROG_CXX
+# Make sure CXXFLAGS and CFLAGS are set before expanding AC_PROG_CXX to avoid
+# building with '-g -O2' on Release builds.
+AC_REQUIRE([BEFORE_AC_PROG_CXX])
+AC_REQUIRE([AC_PROG_CXX])
 AC_PROG_INSTALL
 AC_SYS_LARGEFILE
 
@@ -71,13 +77,13 @@ AC_C_INLINE
 AC_C_VOLATILE
 
 # C/C++ Headers
-AC_HEADER_STDC
+AC_REQUIRE([AC_HEADER_STDC])
 AC_HEADER_STDBOOL
 
 m4_define([initialized], [yes])
 ])
 
-AC_DEFUN([WEBKIT_CHECK_DEPENDENCIES],
+AC_DEFUN_ONCE([WEBKIT_CHECK_DEPENDENCIES],
 [dnl
 dnl check for module dependencies
 for module in $1
@@ -91,7 +97,7 @@ do
 done
 ])
 
-AC_DEFUN([_WEBKIT_CHECK_GLIB],
+AC_DEFUN_ONCE([_WEBKIT_CHECK_GLIB],
 [dnl
 dnl check for glib
 # Version requirements
@@ -115,22 +121,27 @@ if test -z "$GLIB_GENMARSHAL" || test -z "$GLIB_MKENUMS"; then
 fi
 ])
 
-AC_DEFUN([_WEBKIT_CHECK_UNICODE],
+AC_DEFUN_ONCE([_WEBKIT_CHECK_UNICODE],
 [dnl
 dnl determine the Unicode backend
 AC_MSG_CHECKING([which Unicode backend to use])
 AC_ARG_WITH(unicode_backend,
-            AC_HELP_STRING([--with-unicode-backend=@<:@icu@:>@],
-                           [Select Unicode backend [default=icu]]),
-            [],[unicode_backend="icu"])
+            AC_HELP_STRING([--with-unicode-backend=@<:@icu/glib@:>@],
+                           [Select Unicode backend (WARNING: the glib-based backend is slow, and incomplete) [default=icu]]),
+            [],[with_unicode_backend="icu"])
 
-case "$unicode_backend" in
-     icu) ;;
-     *) AC_MSG_ERROR([Invalid Unicode backend: must be icu.]) ;;
+case "$with_unicode_backend" in
+     icu|glib) ;;
+     *) AC_MSG_ERROR([Invalid Unicode backend: must be icu or glib.]) ;;
 esac
-AC_MSG_RESULT([$unicode_backend])
 
-if test "$unicode_backend" = "icu"; then
+AC_MSG_RESULT([$with_unicode_backend])
+
+# https://bugs.webkit.org/show_bug.cgi?id=15914
+# Splitting ICU removal patch into smaller portions. We compile a hybrid version
+# with the WTF Unicode backend being based on GLib while text codecs and TextBreakIterator
+# keep the ICU dependency. That's why we temporarily add icu headers and libs for glib config case as well.
+if test "$with_unicode_backend" = "icu" -o "$with_unicode_backend" = "glib"; then
 	if test "$os_darwin" = "yes"; then
 		UNICODE_CFLAGS="-I\$(srcdir)/JavaScriptCore/icu -I\$(srcdir)/WebCore/icu"
 		UNICODE_LIBS="-licucore"
@@ -150,6 +161,18 @@ if test "$unicode_backend" = "icu"; then
 		UNICODE_LIBS=`$icu_config --ldflags`
 	fi
 fi
+
+if test "$with_unicode_backend" = "glib"; then
+	# https://bugs.webkit.org/show_bug.cgi?id=15914
+	# Splitting ICU removal patch into smaller portions, that's why we
+	# temporarily retrieve flags & libs info for glib into UNICODEGLIB
+	# instead of UNICODE variable, then concatenate.
+	# Patch 3/4 of the above issue will rename the variable back to UNICODE.
+	PKG_CHECK_MODULES([UNICODEGLIB], [glib-2.0 pango >= 1.21.0])
+	UNICODE_CFLAGS="$UNICODE_CFLAGS $UNICODEGLIB_CFLAGS"
+	UNICODE_LIBS="$UNICODE_LIBS $UNICODEGLIB_LIBS"
+fi
+
 AC_SUBST([UNICODE_CFLAGS])
 AC_SUBST([UNICODE_LIBS])
 ])

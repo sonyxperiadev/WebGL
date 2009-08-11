@@ -49,6 +49,7 @@ typedef const struct __CFString * CFStringRef;
 QT_BEGIN_NAMESPACE
 class QString;
 QT_END_NAMESPACE
+#include <QDataStream>
 #endif
 
 #if PLATFORM(WX)
@@ -176,11 +177,13 @@ public:
     unsigned toUIntStrict(bool* ok = 0, int base = 10) const;
     int64_t toInt64Strict(bool* ok = 0, int base = 10) const;
     uint64_t toUInt64Strict(bool* ok = 0, int base = 10) const;
+    intptr_t toIntPtrStrict(bool* ok = 0, int base = 10) const;
 
     int toInt(bool* ok = 0) const;
     unsigned toUInt(bool* ok = 0) const;
     int64_t toInt64(bool* ok = 0) const;
     uint64_t toUInt64(bool* ok = 0) const;
+    intptr_t toIntPtr(bool* ok = 0) const;
     double toDouble(bool* ok = 0) const;
     float toFloat(bool* ok = 0) const;
 
@@ -246,6 +249,11 @@ private:
     RefPtr<StringImpl> m_impl;
 };
 
+#if PLATFORM(QT)
+QDataStream& operator<<(QDataStream& stream, const String& str);
+QDataStream& operator>>(QDataStream& stream, String& str);
+#endif
+
 String operator+(const String&, const String&);
 String operator+(const String&, const char*);
 String operator+(const char*, const String&);
@@ -264,6 +272,8 @@ inline bool equalIgnoringCase(const String& a, const String& b) { return equalIg
 inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
 inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
 
+inline bool equalIgnoringNullity(const String& a, const String& b) { return equalIgnoringNullity(a.impl(), b.impl()); }
+
 inline bool operator!(const String& str) { return str.isNull(); }
 
 inline void swap(String& a, String& b) { a.swap(b); }
@@ -276,11 +286,13 @@ int charactersToIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 unsigned charactersToUIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 int64_t charactersToInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
 uint64_t charactersToUInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
+intptr_t charactersToIntPtrStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
 
 int charactersToInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 unsigned charactersToUInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 int64_t charactersToInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 uint64_t charactersToUInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+intptr_t charactersToIntPtr(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 
 double charactersToDouble(const UChar*, size_t, bool* ok = 0);
 float charactersToFloat(const UChar*, size_t, bool* ok = 0);

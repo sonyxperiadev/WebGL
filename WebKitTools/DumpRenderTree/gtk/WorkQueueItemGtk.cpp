@@ -36,9 +36,9 @@ gchar* JSStringCopyUTF8CString(JSStringRef jsString)
     return utf8;
 }
 
-void LoadItem::invoke() const
+bool LoadItem::invoke() const
 {
-    gchar* targetString = JSStringCopyUTF8CString(target());
+    gchar* targetString = JSStringCopyUTF8CString(m_target.get());
 
     WebKitWebFrame* targetFrame;
     if (!strlen(targetString))
@@ -47,27 +47,31 @@ void LoadItem::invoke() const
         targetFrame = webkit_web_frame_find_frame(mainFrame, targetString);
     g_free(targetString);
 
-    gchar* urlString = JSStringCopyUTF8CString(url());
+    gchar* urlString = JSStringCopyUTF8CString(m_url.get());
     WebKitNetworkRequest* request = webkit_network_request_new(urlString);
     g_free(urlString);
     webkit_web_frame_load_request(targetFrame, request);
     g_object_unref(request);
+
+    return true;
 }
 
-void ReloadItem::invoke() const
+bool ReloadItem::invoke() const
 {
     webkit_web_frame_reload(mainFrame);
+    return true;
 }
 
-void ScriptItem::invoke() const
+bool ScriptItem::invoke() const
 {
     WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
-    gchar* scriptString = JSStringCopyUTF8CString(script());
+    gchar* scriptString = JSStringCopyUTF8CString(m_script.get());
     webkit_web_view_execute_script(webView, scriptString);
     g_free(scriptString);
+    return true;
 }
 
-void BackForwardItem::invoke() const
+bool BackForwardItem::invoke() const
 {
     WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
     if (m_howFar == 1)
@@ -79,4 +83,5 @@ void BackForwardItem::invoke() const
         WebKitWebHistoryItem* item = webkit_web_back_forward_list_get_nth_item(webBackForwardList, m_howFar);
         webkit_web_view_go_to_back_forward_item(webView, item);
     }
+    return true;
 }

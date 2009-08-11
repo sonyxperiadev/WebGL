@@ -23,12 +23,14 @@
 #define WEBKIT_PRIVATE_H
 
 /*
- * This file knows the shared secret of WebKitWebView and WebKitWebFrame.
+ * This file knows the shared secret of WebKitWebView, WebKitWebFrame,
+ * and WebKitNetworkRequest.
  * They are using WebCore which musn't be exposed to the outer world.
  */
 
 #include <webkit/webkitdefines.h>
 #include <webkit/webkitdownload.h>
+#include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitwebview.h>
 #include <webkit/webkitwebframe.h>
 #include <webkit/webkitwebpolicydecision.h>
@@ -36,8 +38,10 @@
 #include <webkit/webkitwebsettings.h>
 #include <webkit/webkitwebwindowfeatures.h>
 #include <webkit/webkitwebbackforwardlist.h>
+#include <webkit/webkitnetworkrequest.h>
 
 #include "BackForwardList.h"
+#include <enchant.h>
 #include "HistoryItem.h"
 #include "Settings.h"
 #include "Page.h"
@@ -45,10 +49,13 @@
 #include "InspectorClientGtk.h"
 #include "FrameLoaderClient.h"
 #include "ResourceHandle.h"
+#include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "WindowFeatures.h"
 
+#include <atk/atk.h>
 #include <glib.h>
+#include <libsoup/soup.h>
 
 class DownloadClient;
 
@@ -68,7 +75,14 @@ namespace WebKit {
 
     WebKitWebNavigationReason kit(WebCore::NavigationType type);
     WebCore::NavigationType core(WebKitWebNavigationReason reason);
+
+    WebCore::ResourceRequest core(WebKitNetworkRequest* request);
 }
+
+typedef struct {
+    EnchantBroker* config;
+    EnchantDict* speller;
+} SpellLanguage;
 
 extern "C" {
     void webkit_init();
@@ -85,9 +99,6 @@ extern "C" {
         WebKitWebWindowFeatures* webWindowFeatures;
 
         WebKitWebFrame* mainFrame;
-        WebCore::String applicationNameForUserAgent;
-        WebCore::String* userAgent;
-
         WebKitWebBackForwardList* backForwardList;
 
         gint lastPopupXPosition;
@@ -106,10 +117,12 @@ extern "C" {
         GtkAdjustment* verticalAdjustment;
 
         gboolean zoomFullContent;
+        WebKitLoadStatus loadStatus;
         char* encoding;
         char* customEncoding;
 
         gboolean disposing;
+        gboolean usePrimaryForPaste;
     };
 
     #define WEBKIT_WEB_FRAME_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate))
@@ -121,6 +134,7 @@ extern "C" {
         gchar* name;
         gchar* title;
         gchar* uri;
+        WebKitLoadStatus loadStatus;
     };
 
     PassRefPtr<WebCore::Frame>
@@ -158,11 +172,24 @@ extern "C" {
     void
     webkit_web_view_notify_ready (WebKitWebView* web_view);
 
+    void
+    webkit_web_view_request_download(WebKitWebView* web_view, WebKitNetworkRequest* request, const WebCore::ResourceResponse& response = WebCore::ResourceResponse());
+
+    void
+    webkit_download_set_suggested_filename(WebKitDownload* download, const gchar* suggestedFilename);
+
     WebKitWebPolicyDecision*
     webkit_web_policy_decision_new (WebKitWebFrame*, WebCore::FramePolicyFunction);
 
     void
     webkit_web_policy_decision_cancel (WebKitWebPolicyDecision* decision);
+
+    WebKitNetworkRequest*
+    webkit_network_request_new_with_core_request(const WebCore::ResourceRequest& resourceRequest);
+
+    // FIXME: move this to webkitnetworkrequest.h once the API is agreed upon.
+    WEBKIT_API SoupMessage*
+    webkit_network_request_get_message(WebKitNetworkRequest* request);
 
     // FIXME: move this functionality into a 'WebKitWebDataSource' once implemented
     WEBKIT_API gchar*
@@ -176,9 +203,6 @@ extern "C" {
     WEBKIT_API gchar*
     webkit_web_frame_get_inner_text (WebKitWebFrame* frame);
 
-    WEBKIT_API void
-    webkit_web_frame_print (WebKitWebFrame* frame);
-
     WEBKIT_API gchar*
     webkit_web_frame_dump_render_tree (WebKitWebFrame* frame);
 
@@ -191,11 +215,41 @@ extern "C" {
     WEBKIT_API unsigned int
     webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
 
+    WEBKIT_API void
+    webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame);
+
+    WEBKIT_API AtkObject*
+    webkit_web_frame_get_focused_accessible_element(WebKitWebFrame* frame);
+
     WEBKIT_API gchar*
     webkit_web_view_get_selected_text (WebKitWebView* web_view);
 
     WEBKIT_API void
+    webkit_web_view_set_group_name(WebKitWebView* web_view, const gchar* group_name);
+
+    WEBKIT_API void
     webkit_web_settings_add_extra_plugin_directory (WebKitWebView *web_view, const gchar* directory);
+
+    GSList*
+    webkit_web_settings_get_spell_languages(WebKitWebView* web_view);
+
+    bool
+    webkit_web_view_use_primary_for_paste(WebKitWebView* web_view);
+
+    GHashTable*
+    webkit_history_items(void);
+
+    WEBKIT_API void
+    webkit_gc_collect_javascript_objects();
+
+    WEBKIT_API void
+    webkit_gc_collect_javascript_objects_on_alternate_thread(gboolean waitUntilDone);
+
+    WEBKIT_API gsize
+    webkit_gc_count_javascript_objects();
+
+    WEBKIT_API void
+    webkit_application_cache_set_maximum_size(unsigned long long size);
 }
 
 #endif

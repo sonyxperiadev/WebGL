@@ -36,16 +36,24 @@
 #include <wtf/MathExtras.h>
 #include "GraphicsContext.h"
 #include "SkPath.h"
+#ifdef MANUAL_MERGE_REQUIRED
 #include "SkPorterDuff.h"
 #include "SkXfermode.h"
+#else // MANUAL_MERGE_REQUIRED
+#include "SkXfermode.h"
+#endif // MANUAL_MERGE_REQUIRED
 
 class SkCanvas;
 class SkRegion;
 
 namespace WebCore {
 
+#ifdef MANUAL_MERGE_REQUIRED
 SkXfermode::Mode WebCoreCompositeToSkiaMode(CompositeOperator);
 SkPorterDuff::Mode WebCoreCompositeToSkiaComposite(CompositeOperator);
+#else // MANUAL_MERGE_REQUIRED
+SkXfermode::Mode WebCoreCompositeToSkiaComposite(CompositeOperator);
+#endif // MANUAL_MERGE_REQUIRED
 
 // move this guy into SkColor.h
 SkColor SkPMColorToColor(SkPMColor);

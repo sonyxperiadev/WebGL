@@ -39,7 +39,13 @@
 
 namespace WebCore {
 
+#ifdef MANUAL_MERGE_REQUIRED
 bool EventHandler::tabsToAllControls(KeyboardEvent* ) const
+#else // MANUAL_MERGE_REQUIRED
+unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
+
+bool EventHandler::tabsToAllControls(KeyboardEvent*) const
+#endif // MANUAL_MERGE_REQUIRED
 {
     return true;
 }
@@ -56,8 +62,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
     RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
     if (!target || !target->isWidget())
         return false;
-    
-    return passMouseDownEventToWidget(static_cast<RenderWidget*>(target)->widget());
+    return passMouseDownEventToWidget(toRenderWidget(target)->widget());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)

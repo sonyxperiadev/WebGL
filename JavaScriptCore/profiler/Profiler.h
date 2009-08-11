@@ -36,15 +36,15 @@
 
 namespace JSC {
 
-    class CallIdentifier;
     class ExecState;
     class JSGlobalData;
     class JSObject;
     class JSValue;
     class ProfileGenerator;
     class UString;
+    struct CallIdentifier;    
 
-    class Profiler {
+    class Profiler : public FastAllocBase {
     public:
         static Profiler** enabledProfilerReference()
         {

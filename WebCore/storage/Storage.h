@@ -26,9 +26,13 @@
 #ifndef Storage_h
 #define Storage_h
 
+#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(DOM_STORAGE)
 
 #include "StorageArea.h"
+#else // MANUAL_MERGE_REQUIRED
+#if ENABLE(DOM_STORAGE)
+#endif // MANUAL_MERGE_REQUIRED
 
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
@@ -37,15 +41,17 @@
 namespace WebCore {
 
     class Frame;
+    class StorageArea;
     class String;
     typedef int ExceptionCode;
 
     class Storage : public RefCounted<Storage> {
     public:
         static PassRefPtr<Storage> create(Frame*, PassRefPtr<StorageArea>);
-        
+        ~Storage();
+
         unsigned length() const;
-        String key(unsigned index, ExceptionCode&) const;
+        String key(unsigned index) const;
         String getItem(const String&) const;
         void setItem(const String& key, const String& value, ExceptionCode&);
         void removeItem(const String&);

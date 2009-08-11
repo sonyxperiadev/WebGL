@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2009 Torch Mobile, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -375,8 +376,8 @@ JSValue JSC_HOST_CALL stringProtoFuncCharAt(ExecState* exec, JSObject*, JSValue 
     UString s = thisValue.toThisString(exec);
     unsigned len = s.size();
     JSValue a0 = args.at(0);
-    if (a0.isUInt32Fast()) {
-        uint32_t i = a0.getUInt32Fast();
+    if (a0.isUInt32()) {
+        uint32_t i = a0.asUInt32();
         if (i < len)
             return jsSingleCharacterSubstring(exec, s, i);
         return jsEmptyString(exec);
@@ -392,8 +393,8 @@ JSValue JSC_HOST_CALL stringProtoFuncCharCodeAt(ExecState* exec, JSObject*, JSVa
     UString s = thisValue.toThisString(exec);
     unsigned len = s.size();
     JSValue a0 = args.at(0);
-    if (a0.isUInt32Fast()) {
-        uint32_t i = a0.getUInt32Fast();
+    if (a0.isUInt32()) {
+        uint32_t i = a0.asUInt32();
         if (i < len)
             return jsNumber(exec, s.data()[i]);
         return jsNaN(exec);
@@ -425,8 +426,8 @@ JSValue JSC_HOST_CALL stringProtoFuncIndexOf(ExecState* exec, JSObject*, JSValue
     int pos;
     if (a1.isUndefined())
         pos = 0;
-    else if (a1.isUInt32Fast())
-        pos = min<uint32_t>(a1.getUInt32Fast(), len);
+    else if (a1.isUInt32())
+        pos = min<uint32_t>(a1.asUInt32(), len);
     else {
         double dpos = a1.toInteger(exec);
         if (dpos < 0)
@@ -575,7 +576,7 @@ JSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec, JSObject*, JSValue t
         }
         int pos = 0;
         while (i != limit && pos < s.size()) {
-            OwnArrayPtr<int> ovector;
+            Vector<int, 32> ovector;
             int mpos = reg->match(s, pos, &ovector);
             if (mpos < 0)
                 break;

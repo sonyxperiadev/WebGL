@@ -36,24 +36,26 @@
 #include "V8Proxy.h"
 
 #include <wtf/RefPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 NAMED_PROPERTY_GETTER(NodeList)
 {
     INC_STATS("DOM.NodeList.NamedPropertyGetter");
-    NodeList* list = V8Proxy::ToNativeObject<NodeList>(V8ClassIndex::NODELIST, info.Holder());
+    NodeList* list = V8DOMWrapper::convertToNativeObject<NodeList>(V8ClassIndex::NODELIST, info.Holder());
     String key = toWebCoreString(name);
 
     // Length property cannot be overridden.
-    if (key == "length")
-        return v8::Number::New(list->length());
+    DEFINE_STATIC_LOCAL(const AtomicString, length, ("length"));
+    if (key == length)
+        return v8::Integer::New(list->length());
 
     RefPtr<Node> result = list->itemWithName(key);
     if (!result)
         return notHandledByInterceptor();
 
-    return V8Proxy::NodeToV8Object(result.get());
+    return V8DOMWrapper::convertNodeToV8Object(result.release());
 }
 
 } // namespace WebCore

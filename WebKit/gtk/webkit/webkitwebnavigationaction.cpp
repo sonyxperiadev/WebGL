@@ -22,19 +22,30 @@
 #include <wtf/Assertions.h>
 #include "FrameLoaderTypes.h"
 
+#include <glib/gi18n-lib.h>
 #include "webkitwebnavigationaction.h"
 #include "webkitprivate.h"
 #include "webkitenumtypes.h"
 
 #include <string.h>
 
-extern "C" {
+static void webkit_web_navigation_action_set_target_frame(WebKitWebNavigationAction* navigationAction, const gchar* targetFrame);
+
+/**
+ * SECTION:webkitwebnavigationaction
+ * @short_description: Object used to report details of navigation actions
+ *
+ * #WebKitWebNavigationAction is used in signals to provide details about
+ * what led the navigation to happen. This includes, for instance, if the user
+ * clicked a link to start that navigation, and what mouse button was used.
+ */
 
 struct _WebKitWebNavigationActionPrivate {
     WebKitWebNavigationReason reason;
     gchar* originalUri;
     gint button;
     gint modifier_state;
+    gchar* targetFrame;
 };
 
 #define WEBKIT_WEB_NAVIGATION_ACTION_GET_PRIVATE(obj)(G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_NAVIGATION_ACTION, WebKitWebNavigationActionPrivate))
@@ -45,7 +56,8 @@ enum  {
     PROP_REASON,
     PROP_ORIGINAL_URI,
     PROP_BUTTON,
-    PROP_MODIFIER_STATE
+    PROP_MODIFIER_STATE,
+    PROP_TARGET_FRAME
 };
 
 G_DEFINE_TYPE(WebKitWebNavigationAction, webkit_web_navigation_action, G_TYPE_OBJECT)
@@ -67,6 +79,9 @@ static void webkit_web_navigation_action_get_property(GObject* object, guint pro
         break;
     case PROP_MODIFIER_STATE:
         g_value_set_int(value, webkit_web_navigation_action_get_modifier_state(navigationAction));
+        break;
+    case PROP_TARGET_FRAME:
+        g_value_set_string(value, webkit_web_navigation_action_get_target_frame(navigationAction));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, pspec);
@@ -92,6 +107,9 @@ static void webkit_web_navigation_action_set_property(GObject* object, guint pro
     case PROP_MODIFIER_STATE:
         priv->modifier_state = g_value_get_int(value);
         break;
+    case PROP_TARGET_FRAME:
+        webkit_web_navigation_action_set_target_frame(navigationAction, g_value_get_string(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, pspec);
         break;
@@ -101,8 +119,6 @@ static void webkit_web_navigation_action_set_property(GObject* object, guint pro
 static void webkit_web_navigation_action_init(WebKitWebNavigationAction* navigationAction)
 {
     navigationAction->priv = WEBKIT_WEB_NAVIGATION_ACTION_GET_PRIVATE(navigationAction);
-
-    WebKitWebNavigationActionPrivate* priv = navigationAction->priv;
 }
 
 static void webkit_web_navigation_action_finalize(GObject* obj)
@@ -119,12 +135,12 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
 
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED == WebCore::NavigationTypeLinkClicked, navigation_type_link_clicked_enum_match);
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_FORM_SUBMITTED == WebCore::NavigationTypeFormSubmitted, navigation_type_form_submitted_enum_match);
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_BACK_FORWARD == WebCore::NavigationTypeBackForward, navigation_type_back_forward_enum_match);
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_RELOAD == WebCore::NavigationTypeReload, navigation_type_reload_enum_match);
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_FORM_RESUBMITTED == WebCore::NavigationTypeFormResubmitted, navigation_type_form_resubmitted_enum_match);
-    COMPILE_ASSERT(WEBKIT_WEB_NAVIGATION_REASON_OTHER == WebCore::NavigationTypeOther, navigation_type_other_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED) == static_cast<int>(WebCore::NavigationTypeLinkClicked), navigation_type_link_clicked_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_FORM_SUBMITTED) == static_cast<int>(WebCore::NavigationTypeFormSubmitted), navigation_type_form_submitted_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_BACK_FORWARD) == static_cast<int>(WebCore::NavigationTypeBackForward), navigation_type_back_forward_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_RELOAD) == static_cast<int>(WebCore::NavigationTypeReload), navigation_type_reload_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_FORM_RESUBMITTED) == static_cast<int>(WebCore::NavigationTypeFormResubmitted), navigation_type_form_resubmitted_enum_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_OTHER) == static_cast<int>(WebCore::NavigationTypeOther), navigation_type_other_enum_match);
 
     objectClass->get_property = webkit_web_navigation_action_get_property;
     objectClass->set_property = webkit_web_navigation_action_set_property;
@@ -139,8 +155,8 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
      */
     g_object_class_install_property(objectClass, PROP_REASON,
                                     g_param_spec_enum("reason",
-                                                      "Reason",
-                                                      "The reason why this navigation is occurring",
+                                                      _("Reason"),
+                                                      _("The reason why this navigation is occurring"),
                                                       WEBKIT_TYPE_WEB_NAVIGATION_REASON,
                                                       WEBKIT_WEB_NAVIGATION_REASON_OTHER,
                                                       (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
@@ -154,8 +170,8 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
      */
     g_object_class_install_property(objectClass, PROP_ORIGINAL_URI,
                                     g_param_spec_string("original-uri",
-                                                        "Original URI",
-                                                        "The URI that was requested as the target for the navigation",
+                                                        _("Original URI"),
+                                                        _("The URI that was requested as the target for the navigation"),
                                                         "",
                                                         (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
     /**
@@ -167,8 +183,8 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
      */
     g_object_class_install_property(objectClass, PROP_BUTTON,
                                     g_param_spec_int("button",
-                                                     "Button",
-                                                     "The button used to click",
+                                                     _("Button"),
+                                                     _("The button used to click"),
                                                      -1,
                                                      G_MAXINT,
                                                      -1,
@@ -183,12 +199,26 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
      */
     g_object_class_install_property(objectClass, PROP_MODIFIER_STATE,
                                     g_param_spec_int("modifier-state",
-                                                     "Modifier state",
-                                                     "A bitmask representing the state of the modifier keys",
+                                                     _("Modifier state"),
+                                                     _("A bitmask representing the state of the modifier keys"),
                                                      0,
                                                      G_MAXINT,
                                                      0,
                                                      (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
+    /**
+     * WebKitWebNavigationAction:target-frame:
+     *
+     * The target frame for the navigation.
+     *
+     * Since: 1.1.13
+     */
+    g_object_class_install_property(objectClass, PROP_TARGET_FRAME,
+                                    g_param_spec_string("target-frame",
+                                                        _("Target frame"),
+                                                        _("The target frame for the navigation"),
+                                                        NULL,
+                                                        (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
 
 
@@ -308,5 +338,31 @@ gint webkit_web_navigation_action_get_modifier_state(WebKitWebNavigationAction* 
 
     return navigationAction->priv->modifier_state;
 }
-    
+
+/**
+ * webkit_web_navigation_action_get_target_frame:
+ * @navigationAction: a #WebKitWebNavigationAction
+ *
+ * Returns the target frame of the action.
+ *
+ * Return value: the target frame of the action or NULL
+ * if there is no target.
+ *
+ * Since: 1.1.13
+ */
+G_CONST_RETURN gchar* webkit_web_navigation_action_get_target_frame(WebKitWebNavigationAction* navigationAction)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_NAVIGATION_ACTION(navigationAction), NULL);
+
+    return navigationAction->priv->targetFrame;
+}
+
+static void webkit_web_navigation_action_set_target_frame(WebKitWebNavigationAction* navigationAction, const gchar* targetFrame)
+{
+    if (!g_strcmp0(navigationAction->priv->targetFrame, targetFrame))
+        return;
+
+    g_free(navigationAction->priv->targetFrame);
+    navigationAction->priv->targetFrame = g_strdup(targetFrame);
+    g_object_notify(G_OBJECT(navigationAction), "target-frame");
 }

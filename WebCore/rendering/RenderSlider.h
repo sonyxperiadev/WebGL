@@ -36,17 +36,19 @@ namespace WebCore {
 
         void forwardEvent(Event*);
         bool inDragMode() const;
+        IntRect thumbRect();
 
     private:
         virtual const char* renderName() const { return "RenderSlider"; }
         virtual bool isSlider() const { return true; }
 
-        virtual int baselinePosition( bool, bool ) const;
+        virtual int baselinePosition(bool, bool) const;
         virtual void calcPrefWidths();
         virtual void layout();
         virtual void updateFromElement();
 
         bool mouseEventIsInThumb(MouseEvent*);
+        FloatPoint mouseEventOffsetToThumb(MouseEvent*);
 
         void setValueForPosition(int position);
         void setPositionFromValue();
@@ -64,6 +66,15 @@ namespace WebCore {
 
         friend class SliderThumbElement;
     };
+
+    inline RenderSlider* toRenderSlider(RenderObject* object)
+    {
+        ASSERT(!object || object->isSlider());
+        return static_cast<RenderSlider*>(object);
+    }
+
+    // This will catch anyone doing an unnecessary cast.
+    void toRenderSlider(const RenderSlider*);
 
 } // namespace WebCore
 

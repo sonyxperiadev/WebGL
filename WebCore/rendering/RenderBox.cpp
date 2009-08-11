@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2005, 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -254,22 +254,22 @@ int RenderBox::clientHeight() const
     return height() - borderTop() - borderBottom() - horizontalScrollbarHeight();
 }
 
-// scrollWidth/scrollHeight will be the same as overflowWidth/overflowHeight unless the
-// object has overflow:hidden/scroll/auto specified and also has overflow.
-// FIXME: It's not completely clear how scrollWidth/Height should behave for 
-// objects with visible overflow.
 int RenderBox::scrollWidth() const
 {
     if (hasOverflowClip())
         return layer()->scrollWidth();
-    return overflowWidth();
+    // For objects with visible overflow, this matches IE.
+    if (style()->direction() == LTR)
+        return max(clientWidth(), rightmostPosition(true, false) - borderLeft());
+    return clientWidth() - min(0, leftmostPosition(true, false) - borderLeft());
 }
 
 int RenderBox::scrollHeight() const
 {
     if (hasOverflowClip())
         return layer()->scrollHeight();
-    return overflowHeight();
+    // For objects with visible overflow, this matches IE.
+    return max(clientHeight(), lowestPosition(true, false) - borderTop());
 }
 
 int RenderBox::scrollLeft() const
@@ -588,9 +588,7 @@ void RenderBox::paintRootBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     int bw = max(w + marginLeft() + marginRight() + borderLeft() + borderRight(), rw);
     int bh = max(h + marginTop() + marginBottom() + borderTop() + borderBottom(), rh);
 
-    int my = max(by, paintInfo.rect.y());
-
-    paintFillLayers(paintInfo, bgColor, bgLayer, my, paintInfo.rect.height(), bx, by, bw, bh);
+    paintFillLayers(paintInfo, bgColor, bgLayer, bx, by, bw, bh);
 
     if (style()->hasBorder() && style()->display() != INLINE)
         paintBorder(paintInfo.context, tx, ty, w, h, style());
@@ -613,16 +611,9 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     // balloon layout is an example of this).
     borderFitAdjust(tx, w);
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-
     // FIXME: Should eventually give the theme control over whether the box shadow should paint, since controls could have
     // custom shadows of their own.
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style());
+    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Normal);
 
     // If we have a native theme appearance, paint that before painting our background.
     // The theme will tell us whether or not we should also paint the CSS background.
@@ -632,10 +623,11 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
         // independent of the body.  Go through the DOM to get to the root element's render object,
         // since the root could be inline and wrapped in an anonymous block.
         if (!isBody() || document()->documentElement()->renderer()->style()->hasBackground())
-            paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), my, mh, tx, ty, w, h);
+            paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, w, h);
         if (style()->hasAppearance())
             theme()->paintDecorations(this, paintInfo, IntRect(tx, ty, w, h));
     }
+    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Inset);
 
     // The theme will tell us whether or not we should also paint the CSS border.
     if ((!style()->hasAppearance() || (!themePainted && theme()->paintBorderOnly(this, paintInfo, IntRect(tx, ty, w, h)))) && style()->hasBorder())
@@ -654,17 +646,10 @@ void RenderBox::paintMask(PaintInfo& paintInfo, int tx, int ty)
     // balloon layout is an example of this).
     borderFitAdjust(tx, w);
 
-    int my = max(ty, paintInfo.rect.y());
-    int mh;
-    if (ty < paintInfo.rect.y())
-        mh = max(0, h - (paintInfo.rect.y() - ty));
-    else
-        mh = min(paintInfo.rect.height(), h);
-
-    paintMaskImages(paintInfo, my, mh, tx, ty, w, h);
+    paintMaskImages(paintInfo, tx, ty, w, h);
 }
 
-void RenderBox::paintMaskImages(const PaintInfo& paintInfo, int my, int mh, int tx, int ty, int w, int h)
+void RenderBox::paintMaskImages(const PaintInfo& paintInfo, int tx, int ty, int w, int h)
 {
     // Figure out if we need to push a transparency layer to render our mask.
     bool pushTransparencyLayer = false;
@@ -695,7 +680,7 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, int my, int mh, int 
         compositeOp = CompositeSourceOver;
     }
 
-    paintFillLayers(paintInfo, Color(), style()->maskLayers(), my, mh, tx, ty, w, h, compositeOp);
+    paintFillLayers(paintInfo, Color(), style()->maskLayers(), tx, ty, w, h, compositeOp);
     paintNinePieceImage(paintInfo.context, tx, ty, w, h, style(), style()->maskBoxImage(), compositeOp);
     
     if (pushTransparencyLayer)
@@ -721,20 +706,18 @@ IntRect RenderBox::maskClipRect()
     return result;
 }
 
-void RenderBox::paintFillLayers(const PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer,
-                                int clipY, int clipH, int tx, int ty, int width, int height, CompositeOperator op)
+void RenderBox::paintFillLayers(const PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer, int tx, int ty, int width, int height, CompositeOperator op)
 {
     if (!fillLayer)
         return;
 
-    paintFillLayers(paintInfo, c, fillLayer->next(), clipY, clipH, tx, ty, width, height, op);
-    paintFillLayer(paintInfo, c, fillLayer, clipY, clipH, tx, ty, width, height, op);
+    paintFillLayers(paintInfo, c, fillLayer->next(), tx, ty, width, height, op);
+    paintFillLayer(paintInfo, c, fillLayer, tx, ty, width, height, op);
 }
 
-void RenderBox::paintFillLayer(const PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer,
-                               int clipY, int clipH, int tx, int ty, int width, int height, CompositeOperator op)
+void RenderBox::paintFillLayer(const PaintInfo& paintInfo, const Color& c, const FillLayer* fillLayer, int tx, int ty, int width, int height, CompositeOperator op)
 {
-    paintFillLayerExtended(paintInfo, c, fillLayer, clipY, clipH, tx, ty, width, height, 0, op);
+    paintFillLayerExtended(paintInfo, c, fillLayer, tx, ty, width, height, 0, op);
 }
 
 void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
@@ -1567,7 +1550,7 @@ int RenderBox::calcPercentageHeight(const Length& height)
             // no size and allow the flexing of the table or the cell to its specified height to cause us
             // to grow to fill the space.  This could end up being wrong in some cases, but it is
             // preferable to the alternative (sizing intrinsically and making the row end up too big).
-            RenderTableCell* cell = static_cast<RenderTableCell*>(cb);
+            RenderTableCell* cell = toRenderTableCell(cb);
             if (scrollsOverflowY() && (!cell->style()->height().isAuto() || !cell->table()->style()->height().isAuto()))
                 return 0;
             return -1;
@@ -1631,7 +1614,7 @@ int RenderBox::calcReplacedWidthUsing(Length width) const
         default:
             return intrinsicSize().width();
      }
- }
+}
 
 int RenderBox::calcReplacedHeight() const
 {

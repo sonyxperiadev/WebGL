@@ -59,8 +59,10 @@ void AutoTableLayout::recalcColumn(int effCol)
     RenderTableCell* maxContributor = 0;
 
     while (child) {
-        if (child->isTableSection()) {
-            RenderTableSection* section = static_cast<RenderTableSection*>(child);
+        if (child->isTableCol())
+            toRenderTableCol(child)->calcPrefWidths();
+        else if (child->isTableSection()) {
+            RenderTableSection* section = toRenderTableSection(child);
             int numRows = section->numRows();
             RenderTableCell* last = 0;
             for (int i = 0; i < numRows; i++) {
@@ -92,7 +94,7 @@ void AutoTableLayout::recalcColumn(int effCol)
                         w.setRawValue(32760);
                     if (w.isNegative())
                         w.setValue(0);
-                    switch(w.type()) {
+                    switch (w.type()) {
                     case Fixed:
                         // ignore width=0
                         if (w.value() > 0 && (int)l.width.type() != Percent) {
@@ -167,7 +169,7 @@ void AutoTableLayout::fullRecalc()
     int cCol = 0;
     while (child) {
         if (child->isTableCol()) {
-            RenderTableCol *col = static_cast<RenderTableCol*>(child);
+            RenderTableCol *col = toRenderTableCol(child);
             int span = col->span();
             if (col->firstChild()) {
                 grpWidth = col->style()->width();
@@ -225,7 +227,7 @@ static bool shouldScaleColumns(RenderTable* table)
                 if (tw.isPercent())
                     scale = false;
                 else {
-                    RenderTableCell* cell = static_cast<RenderTableCell*>(cb);
+                    RenderTableCell* cell = toRenderTableCell(cb);
                     if (cell->colSpan() > 1 || cell->table()->style()->width().isAuto())
                         scale = false;
                     else
@@ -575,7 +577,7 @@ void AutoTableLayout::layout()
                     int reduction = min(w,  excess);
                     // the lines below might look inconsistent, but that's the way it's handled in mozilla
                     excess -= reduction;
-                    int newWidth = max(int (m_layoutStruct[i].effMinWidth), w - reduction);
+                    int newWidth = max(static_cast<int>(m_layoutStruct[i].effMinWidth), w - reduction);
                     available += w - newWidth;
                     m_layoutStruct[i].calcWidth = newWidth;
                 }

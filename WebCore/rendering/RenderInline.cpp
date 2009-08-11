@@ -1,9 +1,7 @@
 /*
- * This file is part of the render object implementation for KHTML.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -49,10 +47,6 @@ RenderInline::RenderInline(Node* node)
     , m_verticalPosition(PositionUndefined)
 {
     setChildrenInline(true);
-}
-
-RenderInline::~RenderInline()
-{
 }
 
 void RenderInline::destroy()
@@ -258,7 +252,7 @@ void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
     // We have been reparented and are now under the fromBlock.  We need
     // to walk up our inline parent chain until we hit the containing block.
     // Once we hit the containing block we're done.
-    RenderBoxModelObject* curr = static_cast<RenderBoxModelObject*>(parent());
+    RenderBoxModelObject* curr = toRenderBoxModelObject(parent());
     RenderBoxModelObject* currChild = this;
     
     // FIXME: Because splitting is O(n^2) as tags nest pathologically, we cap the depth at which we're willing to clone.
@@ -302,7 +296,7 @@ void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
         
         // Keep walking up the chain.
         currChild = curr;
-        curr = static_cast<RenderBoxModelObject*>(curr->parent());
+        curr = toRenderBoxModelObject(curr->parent());
         splitDepth++;
     }
 
@@ -384,7 +378,7 @@ void RenderInline::addChildToContinuation(RenderObject* newChild, RenderObject* 
     ASSERT(!beforeChild || beforeChild->parent()->isRenderBlock() || beforeChild->parent()->isRenderInline());
     RenderBoxModelObject* beforeChildParent = 0;
     if (beforeChild)
-        beforeChildParent = static_cast<RenderBoxModelObject*>(beforeChild->parent());
+        beforeChildParent = toRenderBoxModelObject(beforeChild->parent());
     else {
         RenderBoxModelObject* cont = nextContinuation(flow);
         if (cont)
@@ -749,14 +743,14 @@ void RenderInline::dirtyLineBoxes(bool fullLayout)
         m_lineBoxes.dirtyLineBoxes();
 }
 
-InlineFlowBox* RenderInline::createFlowBox()
+InlineFlowBox* RenderInline::createInlineFlowBox() 
 {
     return new (renderArena()) InlineFlowBox(this);
 }
 
-InlineFlowBox* RenderInline::createInlineFlowBox()
+InlineFlowBox* RenderInline::createAndAppendInlineFlowBox()
 {
-    InlineFlowBox* flowBox = createFlowBox();
+    InlineFlowBox* flowBox = createInlineFlowBox();
     m_lineBoxes.appendLineBox(flowBox);
     return flowBox;
 }

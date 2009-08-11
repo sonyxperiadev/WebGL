@@ -89,6 +89,7 @@ namespace JSC  {
 #endif
         static const HashTable* arrayTable(CallFrame* callFrame) { return callFrame->globalData().arrayTable; }
         static const HashTable* dateTable(CallFrame* callFrame) { return callFrame->globalData().dateTable; }
+        static const HashTable* jsonTable(CallFrame* callFrame) { return callFrame->globalData().jsonTable; }
         static const HashTable* mathTable(CallFrame* callFrame) { return callFrame->globalData().mathTable; }
         static const HashTable* numberTable(CallFrame* callFrame) { return callFrame->globalData().numberTable; }
         static const HashTable* regExpTable(CallFrame* callFrame) { return callFrame->globalData().regExpTable; }
@@ -104,7 +105,7 @@ namespace JSC  {
         Arguments* optionalCalleeArguments() const { return this[RegisterFile::OptionalCalleeArguments].arguments(); }
         Instruction* returnPC() const { return this[RegisterFile::ReturnPC].vPC(); }
 
-        void setCalleeArguments(Arguments* arguments) { this[RegisterFile::OptionalCalleeArguments] = arguments; }
+        void setCalleeArguments(JSValue arguments) { this[RegisterFile::OptionalCalleeArguments] = arguments; }
         void setCallerFrame(CallFrame* callerFrame) { this[RegisterFile::CallerFrame] = callerFrame; }
         void setScopeChain(ScopeChainNode* scopeChain) { this[RegisterFile::ScopeChain] = scopeChain; }
 
@@ -117,31 +118,28 @@ namespace JSC  {
             setScopeChain(scopeChain);
             setCallerFrame(callerFrame);
             this[RegisterFile::ReturnPC] = vPC; // This is either an Instruction* or a pointer into JIT generated code stored as an Instruction*.
-            this[RegisterFile::ReturnValueRegister] = returnValueRegister;
+            this[RegisterFile::ReturnValueRegister] = Register::withInt(returnValueRegister);
             setArgumentCount(argc); // original argument count (for the sake of the "arguments" object)
             setCallee(function);
-            setCalleeArguments(0);
+            setCalleeArguments(JSValue());
         }
 
-    private:
-        friend class Arguments;
-        friend class JSActivation;
-        friend class JSGlobalObject;
-        friend class Interpreter;
-        friend struct CallFrameClosure;
+        // Read a register from the codeframe (or constant from the CodeBlock).
+        inline Register& r(int);
 
+        static CallFrame* noCaller() { return reinterpret_cast<CallFrame*>(HostCallFrameFlag); }
         int returnValueRegister() const { return this[RegisterFile::ReturnValueRegister].i(); }
 
-        void setArgumentCount(int count) { this[RegisterFile::ArgumentCount] = count; }
+        bool hasHostCallFrameFlag() const { return reinterpret_cast<intptr_t>(this) & HostCallFrameFlag; }
+        CallFrame* addHostCallFrameFlag() const { return reinterpret_cast<CallFrame*>(reinterpret_cast<intptr_t>(this) | HostCallFrameFlag); }
+        CallFrame* removeHostCallFrameFlag() { return reinterpret_cast<CallFrame*>(reinterpret_cast<intptr_t>(this) & ~HostCallFrameFlag); }
+
+    private:
+        void setArgumentCount(int count) { this[RegisterFile::ArgumentCount] = Register::withInt(count); }
         void setCallee(JSFunction* callee) { this[RegisterFile::Callee] = callee; }
         void setCodeBlock(CodeBlock* codeBlock) { this[RegisterFile::CodeBlock] = codeBlock; }
 
         static const intptr_t HostCallFrameFlag = 1;
-
-        static CallFrame* noCaller() { return reinterpret_cast<CallFrame*>(HostCallFrameFlag); }
-        bool hasHostCallFrameFlag() const { return reinterpret_cast<intptr_t>(this) & HostCallFrameFlag; }
-        CallFrame* addHostCallFrameFlag() const { return reinterpret_cast<CallFrame*>(reinterpret_cast<intptr_t>(this) | HostCallFrameFlag); }
-        CallFrame* removeHostCallFrameFlag() { return reinterpret_cast<CallFrame*>(reinterpret_cast<intptr_t>(this) & ~HostCallFrameFlag); }
 
         ExecState();
         ~ExecState();

@@ -88,6 +88,10 @@ static PercentHeightContainerMap* gPercentHeightContainerMap = 0;
     
 typedef WTF::HashMap<RenderBlock*, ListHashSet<RenderInline*>*> ContinuationOutlineTableMap;
 
+typedef WTF::HashSet<RenderBlock*> DelayedUpdateScrollInfoSet;
+static int gDelayUpdateScrollInfo = 0;
+static DelayedUpdateScrollInfoSet* gDelayedUpdateScrollInfoSet = 0;
+
 // Our MarginInfo state used when laying out block children.
 RenderBlock::MarginInfo::MarginInfo(RenderBlock* block, int top, int bottom)
 {
@@ -393,14 +397,14 @@ void RenderBlock::deleteLineBoxTree()
     m_lineBoxes.deleteLineBoxTree(renderArena());
 }
 
-RootInlineBox* RenderBlock::createRootBox()
+RootInlineBox* RenderBlock::createRootInlineBox() 
 {
     return new (renderArena()) RootInlineBox(this);
 }
 
-RootInlineBox* RenderBlock::createRootInlineBox()
+RootInlineBox* RenderBlock::createAndAppendRootInlineBox()
 {
-    RootInlineBox* rootBox = createRootBox();
+    RootInlineBox* rootBox = createRootInlineBox();
     m_lineBoxes.appendLineBox(rootBox);
     return rootBox;
 }
@@ -553,10 +557,11 @@ void RenderBlock::removeChild(RenderObject* oldChild)
 int RenderBlock::overflowHeight(bool includeInterior) const
 {
     if (!includeInterior && hasOverflowClip()) {
-        int shadowHeight = 0;
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next)
-            shadowHeight = max(boxShadow->y + boxShadow->blur, shadowHeight);
-        int inflatedHeight = height() + shadowHeight;
+        int shadowTop;
+        int shadowBottom;
+        style()->getBoxShadowVerticalExtent(shadowTop, shadowBottom);
+
+        int inflatedHeight = height() + shadowBottom;
         if (hasReflection())
             inflatedHeight = max(inflatedHeight, reflectionBox().bottom());
         return inflatedHeight;
@@ -567,10 +572,11 @@ int RenderBlock::overflowHeight(bool includeInterior) const
 int RenderBlock::overflowWidth(bool includeInterior) const
 {
     if (!includeInterior && hasOverflowClip()) {
-        int shadowWidth = 0;
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next)
-            shadowWidth = max(boxShadow->x + boxShadow->blur, shadowWidth);
-        int inflatedWidth = width() + shadowWidth;
+        int shadowLeft;
+        int shadowRight;
+        style()->getBoxShadowHorizontalExtent(shadowLeft, shadowRight);
+
+        int inflatedWidth = width() + shadowRight;
         if (hasReflection())
             inflatedWidth = max(inflatedWidth, reflectionBox().right());
         return inflatedWidth;
@@ -581,9 +587,10 @@ int RenderBlock::overflowWidth(bool includeInterior) const
 int RenderBlock::overflowLeft(bool includeInterior) const
 {
     if (!includeInterior && hasOverflowClip()) {
-        int shadowLeft = 0;
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next)
-            shadowLeft = min(boxShadow->x - boxShadow->blur, shadowLeft);
+        int shadowLeft;
+        int shadowRight;
+        style()->getBoxShadowHorizontalExtent(shadowLeft, shadowRight);
+
         int left = shadowLeft;
         if (hasReflection())
             left = min(left, reflectionBox().x());
@@ -595,9 +602,10 @@ int RenderBlock::overflowLeft(bool includeInterior) const
 int RenderBlock::overflowTop(bool includeInterior) const
 {
     if (!includeInterior && hasOverflowClip()) {
-        int shadowTop = 0;
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next)
-            shadowTop = min(boxShadow->y - boxShadow->blur, shadowTop);
+        int shadowTop;
+        int shadowBottom;
+        style()->getBoxShadowVerticalExtent(shadowTop, shadowBottom);
+
         int top = shadowTop;
         if (hasReflection())
             top = min(top, reflectionBox().y());
@@ -610,17 +618,12 @@ IntRect RenderBlock::overflowRect(bool includeInterior) const
 {
     if (!includeInterior && hasOverflowClip()) {
         IntRect box = borderBoxRect();
-        int shadowLeft = 0;
-        int shadowRight = 0;
-        int shadowTop = 0;
-        int shadowBottom = 0;
 
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next) {
-            shadowLeft = min(boxShadow->x - boxShadow->blur, shadowLeft);
-            shadowRight = max(boxShadow->x + boxShadow->blur, shadowRight);
-            shadowTop = min(boxShadow->y - boxShadow->blur, shadowTop);
-            shadowBottom = max(boxShadow->y + boxShadow->blur, shadowBottom);
-        }
+        int shadowLeft;
+        int shadowRight;
+        int shadowTop;
+        int shadowBottom;
+        style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
 
         box.move(shadowLeft, shadowTop);
         box.setWidth(box.width() - shadowLeft + shadowRight);
@@ -690,6 +693,45 @@ bool RenderBlock::isSelfCollapsingBlock() const
         return true;
     }
     return false;
+}
+
+void RenderBlock::startDelayUpdateScrollInfo()
+{
+    if (gDelayUpdateScrollInfo == 0) {
+        ASSERT(!gDelayedUpdateScrollInfoSet);
+        gDelayedUpdateScrollInfoSet = new DelayedUpdateScrollInfoSet;
+    }
+    ASSERT(gDelayedUpdateScrollInfoSet);
+    ++gDelayUpdateScrollInfo;
+}
+
+void RenderBlock::finishDelayUpdateScrollInfo()
+{
+    --gDelayUpdateScrollInfo;
+    ASSERT(gDelayUpdateScrollInfo >= 0);
+    if (gDelayUpdateScrollInfo == 0) {
+        ASSERT(gDelayedUpdateScrollInfoSet);
+
+        for (DelayedUpdateScrollInfoSet::iterator it = gDelayedUpdateScrollInfoSet->begin(); it != gDelayedUpdateScrollInfoSet->end(); ++it) {
+            RenderBlock* block = *it;
+            if (block->hasOverflowClip()) {
+                block->layer()->updateScrollInfoAfterLayout();
+            }
+        }
+
+        delete gDelayedUpdateScrollInfoSet;
+        gDelayedUpdateScrollInfoSet = 0;
+    }
+}
+
+void RenderBlock::updateScrollInfoAfterLayout()
+{
+    if (hasOverflowClip()) {
+        if (gDelayUpdateScrollInfo)
+            gDelayedUpdateScrollInfoSet->add(this);
+        else
+            layer()->updateScrollInfoAfterLayout();
+    }
 }
 
 void RenderBlock::layout()
@@ -843,16 +885,23 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     m_overflowHeight = max(m_overflowHeight, height());
 
     if (!hasOverflowClip()) {
-        for (ShadowData* boxShadow = style()->boxShadow(); boxShadow; boxShadow = boxShadow->next) {
-            m_overflowLeft = min(m_overflowLeft, boxShadow->x - boxShadow->blur);
-            m_overflowWidth = max(m_overflowWidth, width() + boxShadow->x + boxShadow->blur);
-            m_overflowTop = min(m_overflowTop, boxShadow->y - boxShadow->blur);
-            m_overflowHeight = max(m_overflowHeight, height() + boxShadow->y + boxShadow->blur);
-        }
-        
+        int shadowLeft;
+        int shadowRight;
+        int shadowTop;
+        int shadowBottom;
+        style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
+
+        m_overflowLeft = min(m_overflowLeft, shadowLeft);
+        m_overflowWidth = max(m_overflowWidth, width() + shadowRight);
+        m_overflowTop = min(m_overflowTop, shadowTop);
+        m_overflowHeight = max(m_overflowHeight, height() + shadowBottom);
+
         if (hasReflection()) {
-            m_overflowTop = min(m_overflowTop, reflectionBox().y());
-            m_overflowHeight = max(m_overflowHeight, reflectionBox().bottom());
+            IntRect reflection(reflectionBox());
+            m_overflowLeft = min(m_overflowLeft, reflection.x());
+            m_overflowWidth = max(m_overflowWidth, reflection.right());
+            m_overflowTop = min(m_overflowTop, reflection.y());
+            m_overflowHeight = max(m_overflowHeight, reflection.bottom());
         }
     }
 
@@ -860,8 +909,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     // Update our scroll information if we're overflow:auto/scroll/hidden now that we know if
     // we overflow or not.
-    if (hasOverflowClip())
-        layer()->updateScrollInfoAfterLayout();
+    updateScrollInfoAfterLayout();
 
     // Repaint with our new bounds if they are different from our old bounds.
     bool didFullRepaint = repainter.repaintAfterLayout();
@@ -987,13 +1035,13 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     if (!child->isRunIn() || !child->childrenInline() && !child->isReplaced())
         return false;
 
-    RenderBlock* blockRunIn = toRenderBlock(child);
     // Get the next non-positioned/non-floating RenderBlock.
+    RenderBlock* blockRunIn = toRenderBlock(child);
     RenderObject* curr = blockRunIn->nextSibling();
     while (curr && curr->isFloatingOrPositioned())
         curr = curr->nextSibling();
 
-    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn())
+    if (!curr || !curr->isRenderBlock() || !curr->childrenInline() || curr->isRunIn() || curr->isAnonymous())
         return false;
 
     RenderBlock* currBlock = toRenderBlock(curr);
@@ -1452,8 +1500,10 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom
                 child->repaintDuringLayoutIfMoved(oldRect);
         }
 
-        if (!childHadLayout && child->checkForRepaintDuringLayout())
+        if (!childHadLayout && child->checkForRepaintDuringLayout()) {
             child->repaint();
+            child->repaintOverhangingFloats(true);
+        }
 
         ASSERT(oldLayoutDelta == view()->layoutDelta());
     }
@@ -1481,8 +1531,7 @@ bool RenderBlock::layoutOnlyPositionedObjects()
 
     statePusher.pop();
 
-    if (hasOverflowClip())
-        layer()->updateScrollInfoAfterLayout();
+    updateScrollInfoAfterLayout();
 
 #ifdef ANDROID_FIX
     // iframe flatten will call FrameView::layout() which calls performPostLayoutTasks, 
@@ -2444,10 +2493,10 @@ bool RenderBlock::positionNewFloats()
         if (o->style()->floating() == FLEFT) {
             int heightRemainingLeft = 1;
             int heightRemainingRight = 1;
-            int fx = leftRelOffset(y,lo, false, &heightRemainingLeft);
-            while (rightRelOffset(y,ro, false, &heightRemainingRight)-fx < fwidth) {
+            int fx = leftRelOffset(y, lo, false, &heightRemainingLeft);
+            while (rightRelOffset(y, ro, false, &heightRemainingRight)-fx < fwidth) {
                 y += min(heightRemainingLeft, heightRemainingRight);
-                fx = leftRelOffset(y,lo, false, &heightRemainingLeft);
+                fx = leftRelOffset(y, lo, false, &heightRemainingLeft);
             }
             fx = max(0, fx);
             f->m_left = fx;
@@ -2455,8 +2504,8 @@ bool RenderBlock::positionNewFloats()
         } else {
             int heightRemainingLeft = 1;
             int heightRemainingRight = 1;
-            int fx = rightRelOffset(y,ro, false, &heightRemainingRight);
-            while (fx - leftRelOffset(y,lo, false, &heightRemainingLeft) < fwidth) {
+            int fx = rightRelOffset(y, ro, false, &heightRemainingRight);
+            while (fx - leftRelOffset(y, lo, false, &heightRemainingLeft) < fwidth) {
                 y += min(heightRemainingLeft, heightRemainingRight);
                 fx = rightRelOffset(y, ro, false, &heightRemainingRight);
             }
@@ -2481,7 +2530,7 @@ void RenderBlock::newLine(EClear clear)
     positionNewFloats();
     // set y position
     int newY = 0;
-    switch(clear)
+    switch (clear)
     {
         case CLEFT:
             newY = leftBottom();
@@ -2652,12 +2701,12 @@ int
 RenderBlock::floatBottom() const
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom>bottom)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
     return bottom;
 }
 
@@ -2942,12 +2991,12 @@ int
 RenderBlock::leftBottom()
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom > bottom && r->type() == FloatingObject::FloatLeft)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
 
     return bottom;
 }
@@ -2956,12 +3005,12 @@ int
 RenderBlock::rightBottom()
 {
     if (!m_floatingObjects) return 0;
-    int bottom=0;
+    int bottom = 0;
     FloatingObject* r;
     DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
     for ( ; (r = it.current()); ++it )
         if (r->m_bottom>bottom && r->type() == FloatingObject::FloatRight)
-            bottom=r->m_bottom;
+            bottom = r->m_bottom;
 
     return bottom;
 }
@@ -3269,12 +3318,12 @@ void RenderBlock::addVisualOverflow(const IntRect& r)
     m_overflowHeight = max(m_overflowHeight, r.bottom());
 }
 
-bool RenderBlock::isPointInOverflowControl(HitTestResult& result, int, int, int, int)
+bool RenderBlock::isPointInOverflowControl(HitTestResult& result, int _x, int _y, int _tx, int _ty)
 {
     if (!scrollsOverflow())
         return false;
 
-    return layer()->hitTestOverflowControls(result);
+    return layer()->hitTestOverflowControls(result, IntPoint(_x - _tx, _y - _ty));
 }
 
 bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
@@ -3898,7 +3947,7 @@ void RenderBlock::calcPrefWidths()
         }
 
         if (isTableCell()) {
-            Length w = static_cast<const RenderTableCell*>(this)->styleOrColWidth();
+            Length w = toRenderTableCell(this)->styleOrColWidth();
             if (w.isFixed() && w.value() > 0)
                 m_maxPrefWidth = max(m_minPrefWidth, calcContentBoxWidth(w.value()));
         }
@@ -3917,14 +3966,16 @@ void RenderBlock::calcPrefWidths()
     int toAdd = 0;
     toAdd = borderLeft() + borderRight() + paddingLeft() + paddingRight();
 
+    if (hasOverflowClip() && style()->overflowY() == OSCROLL)
+        toAdd += verticalScrollbarWidth();
+
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
     setPrefWidthsDirty(false);
 }
 
-struct InlineMinMaxIterator
-{
+struct InlineMinMaxIterator {
 /* InlineMinMaxIterator is a class that will iterate over all render objects that contribute to
    inline min/max width calculations.  Note the following about the way it walks:
    (1) Positioned content is skipped (since it does not contribute to min/max width of a block)
@@ -4393,8 +4444,16 @@ void RenderBlock::calcBlockPrefWidths()
 
 bool RenderBlock::hasLineIfEmpty() const
 {
-    return node() && ((node()->isContentEditable() && node()->rootEditableElement() == node()) ||
-            (node()->isShadowNode() && node()->shadowParentNode()->hasTagName(inputTag)));
+    if (!node())
+        return false;
+    
+    if (node()->isContentEditable() && node()->rootEditableElement() == node())
+        return true;
+    
+    if (node()->isShadowNode() && (node()->shadowParentNode()->hasTagName(inputTag) || node()->shadowParentNode()->hasTagName(textareaTag)))
+        return true;
+    
+    return false;
 }
 
 int RenderBlock::lineHeight(bool firstLine, bool isRootLineBox) const

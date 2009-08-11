@@ -29,6 +29,7 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCache.h"
+#include "ApplicationCacheHost.h"
 #include "ApplicationCacheGroup.h"
 #include "ApplicationCacheResource.h"
 #include "CString.h"
@@ -127,11 +128,12 @@ ApplicationCacheGroup* ApplicationCacheStorage::loadCacheGroup(const KURL& manif
 
 ApplicationCacheGroup* ApplicationCacheStorage::findOrCreateCacheGroup(const KURL& manifestURL)
 {
+    ASSERT(!manifestURL.hasFragmentIdentifier());
+
     std::pair<CacheGroupMap::iterator, bool> result = m_cachesInMemory.add(manifestURL, 0);
     
     if (!result.second) {
         ASSERT(result.first->second);
-        
         return result.first->second;
     }
 
@@ -176,6 +178,8 @@ void ApplicationCacheStorage::loadManifestHostHashes()
 
 ApplicationCacheGroup* ApplicationCacheStorage::cacheGroupForURL(const KURL& url)
 {
+    ASSERT(!url.hasFragmentIdentifier());
+    
     loadManifestHostHashes();
     
     // Hash the host name and see if there's a manifest with the same host.
@@ -251,6 +255,8 @@ ApplicationCacheGroup* ApplicationCacheStorage::cacheGroupForURL(const KURL& url
 
 ApplicationCacheGroup* ApplicationCacheStorage::fallbackCacheGroupForURL(const KURL& url)
 {
+    ASSERT(!url.hasFragmentIdentifier());
+
     // Check if an appropriate cache already exists in memory.
     CacheGroupMap::const_iterator end = m_cachesInMemory.end();
     for (CacheGroupMap::const_iterator it = m_cachesInMemory.begin(); it != end; ++it) {
@@ -356,6 +362,7 @@ const String& ApplicationCacheStorage::cacheDirectory() const
     return m_cacheDirectory;
 }
 
+#ifdef MANUAL_MERGE_REQUIRED
 void ApplicationCacheStorage::setMaximumSize(int64_t size)
 {
     m_maximumSize = size;
@@ -406,6 +413,60 @@ int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
     ASSERT(spaceNeeded);
     return spaceNeeded;
 }
+#else // MANUAL_MERGE_REQUIRED
+void ApplicationCacheStorage::setMaximumSize(int64_t size)
+{
+    m_maximumSize = size;
+}
+
+int64_t ApplicationCacheStorage::maximumSize() const
+{
+    return m_maximumSize;
+}
+
+bool ApplicationCacheStorage::isMaximumSizeReached() const
+{
+    return m_isMaximumSizeReached;
+}
+
+int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
+{
+    int64_t spaceNeeded = 0;
+    long long fileSize = 0;
+    if (!getFileSize(m_cacheFile, fileSize))
+        return 0;
+
+    int64_t currentSize = fileSize;
+
+    // Determine the amount of free space we have available.
+    int64_t totalAvailableSize = 0;
+    if (m_maximumSize < currentSize) {
+        // The max size is smaller than the actual size of the app cache file.
+        // This can happen if the client previously imposed a larger max size
+        // value and the app cache file has already grown beyond the current
+        // max size value.
+        // The amount of free space is just the amount of free space inside
+        // the database file. Note that this is always 0 if SQLite is compiled
+        // with AUTO_VACUUM = 1.
+        totalAvailableSize = m_database.freeSpaceSize();
+    } else {
+        // The max size is the same or larger than the current size.
+        // The amount of free space available is the amount of free space
+        // inside the database file plus the amount we can grow until we hit
+        // the max size.
+        totalAvailableSize = (m_maximumSize - currentSize) + m_database.freeSpaceSize();
+    }
+
+    // The space needed to be freed in order to accomodate the failed cache is
+    // the size of the failed cache minus any already available free space.
+    spaceNeeded = cacheToSave - totalAvailableSize;
+    // The space needed value must be positive (or else the total already
+    // available free space would be larger than the size of the failed cache and
+    // saving of the cache should have never failed).
+    ASSERT(spaceNeeded);
+    return spaceNeeded;
+}
+#endif // MANUAL_MERGE_REQUIRED
 
 bool ApplicationCacheStorage::executeSQLCommand(const String& sql)
 {
@@ -674,9 +735,6 @@ bool ApplicationCacheStorage::storeUpdatedType(ApplicationCacheResource* resourc
     ASSERT_UNUSED(cache, cache->storageID());
     ASSERT(resource->storageID());
 
-    // FIXME: If the resource gained a Dynamic bit, it should be re-inserted at the end for correct order.
-    ASSERT(!(resource->type() & ApplicationCacheResource::Dynamic));
-    
     // First, insert the data
     SQLiteStatement entryStatement(m_database, "UPDATE CacheEntries SET type=? WHERE resource=?");
     if (entryStatement.prepare() != SQLResultOk)
@@ -933,8 +991,12 @@ void ApplicationCacheStorage::empty()
         it->second->clearStorageID();
 }    
 
-bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, ApplicationCache* cache)
+bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, ApplicationCacheHost* cacheHost)
 {
+    ApplicationCache* cache = cacheHost->applicationCache();
+    if (!cache)
+        return true;
+
     // Create a new cache.
     RefPtr<ApplicationCache> cacheCopy = ApplicationCache::create();
 
@@ -964,6 +1026,7 @@ bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, App
     
     return copyStorage.storeNewestCache(groupCopy.get());
 }
+#ifdef MANUAL_MERGE_REQUIRED
 
 bool ApplicationCacheStorage::manifestURLs(Vector<KURL>* urls)
 {
@@ -1074,6 +1137,122 @@ ApplicationCacheStorage::ApplicationCacheStorage()
 {
 }
 
+#else // MANUAL_MERGE_REQUIRED
+
+bool ApplicationCacheStorage::manifestURLs(Vector<KURL>* urls)
+{
+    ASSERT(urls);
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return false;
+
+    SQLiteStatement selectURLs(m_database, "SELECT manifestURL FROM CacheGroups");
+
+    if (selectURLs.prepare() != SQLResultOk)
+        return false;
+
+    while (selectURLs.step() == SQLResultRow)
+        urls->append(selectURLs.getColumnText(0));
+
+    return true;
+}
+
+bool ApplicationCacheStorage::cacheGroupSize(const String& manifestURL, int64_t* size)
+{
+    ASSERT(size);
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return false;
+
+    SQLiteStatement statement(m_database, "SELECT sum(Caches.size) FROM Caches INNER JOIN CacheGroups ON Caches.cacheGroup=CacheGroups.id WHERE CacheGroups.manifestURL=?");
+    if (statement.prepare() != SQLResultOk)
+        return false;
+
+    statement.bindText(1, manifestURL);
+
+    int result = statement.step();
+    if (result == SQLResultDone)
+        return false;
+
+    if (result != SQLResultRow) {
+        LOG_ERROR("Could not get the size of the cache group, error \"%s\"", m_database.lastErrorMsg());
+        return false;
+    }
+
+    *size = statement.getColumnInt64(0);
+    return true;
+}
+
+bool ApplicationCacheStorage::deleteCacheGroup(const String& manifestURL)
+{
+    SQLiteTransaction deleteTransaction(m_database);
+    // Check to see if the group is in memory.
+    ApplicationCacheGroup* group = m_cachesInMemory.get(manifestURL);
+    if (group)
+        cacheGroupMadeObsolete(group);
+    else {
+        // The cache group is not in memory, so remove it from the disk.
+        openDatabase(false);
+        if (!m_database.isOpen())
+            return false;
+
+        SQLiteStatement idStatement(m_database, "SELECT id FROM CacheGroups WHERE manifestURL=?");
+        if (idStatement.prepare() != SQLResultOk)
+            return false;
+
+        idStatement.bindText(1, manifestURL);
+
+        int result = idStatement.step();
+        if (result == SQLResultDone)
+            return false;
+
+        if (result != SQLResultRow) {
+            LOG_ERROR("Could not load cache group id, error \"%s\"", m_database.lastErrorMsg());
+            return false;
+        }
+
+        int64_t groupId = idStatement.getColumnInt64(0);
+
+        SQLiteStatement cacheStatement(m_database, "DELETE FROM Caches WHERE cacheGroup=?");
+        if (cacheStatement.prepare() != SQLResultOk)
+            return false;
+
+        SQLiteStatement groupStatement(m_database, "DELETE FROM CacheGroups WHERE id=?");
+        if (groupStatement.prepare() != SQLResultOk)
+            return false;
+
+        cacheStatement.bindInt64(1, groupId);
+        executeStatement(cacheStatement);
+        groupStatement.bindInt64(1, groupId);
+        executeStatement(groupStatement);
+    }
+
+    deleteTransaction.commit();
+    return true;
+}
+
+void ApplicationCacheStorage::vacuumDatabaseFile()
+{
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return;
+
+    m_database.runVacuumCommand();
+}
+
+void ApplicationCacheStorage::checkForMaxSizeReached()
+{
+    if (m_database.lastError() == SQLResultFull)
+        m_isMaximumSizeReached = true;
+}
+
+ApplicationCacheStorage::ApplicationCacheStorage() 
+    : m_maximumSize(INT_MAX)
+    , m_isMaximumSizeReached(false)
+{
+}
+
+#endif // MANUAL_MERGE_REQUIRED
 ApplicationCacheStorage& cacheStorage()
 {
     DEFINE_STATIC_LOCAL(ApplicationCacheStorage, storage, ());

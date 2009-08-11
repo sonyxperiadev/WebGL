@@ -53,7 +53,6 @@
     macro(WebNotificationCenter) \
     macro(WebPreferences) \
     macro(WebScrollBar) \
-    macro(WebScriptDebugServer) \
     macro(WebTextRenderer) \
     macro(WebURLCredential) \
     macro(WebURLProtectionSpace) \

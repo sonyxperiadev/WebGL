@@ -94,10 +94,12 @@ String WebCore::AXLinkActionVerb() { return String(LPCTSTR_UI_STRING("jump", "Ve
 String WebCore::unknownFileSizeText() { return String(LPCTSTR_UI_STRING("Unknown", "Unknown filesize FTP directory listing item")); }
 String WebCore::uploadFileText() { return String(LPCTSTR_UI_STRING("Upload file", "(Windows) Form submit file upload dialog title")); }
 String WebCore::allFilesText() { return String(LPCTSTR_UI_STRING("All Files", "(Windows) Form submit file upload all files pop-up")); }
+String WebCore::mediaElementLoadingStateText() { return String(LPCTSTR_UI_STRING("Loading...", "Media controller status message when the media is loading")); }
+String WebCore::mediaElementLiveBroadcastStateText() { return String(LPCTSTR_UI_STRING("Live Broadcast", "Media controller status message when watching a live broadcast")); }
 
 String WebCore::imageTitle(const String& filename, const IntSize& size) 
 { 
-    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d\xC3\x97%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
 
     RetainPtr<CFStringRef> filenameCF(AdoptCF, filename.createCFString());
     RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), filenameCF.get(), size.width(), size.height()));

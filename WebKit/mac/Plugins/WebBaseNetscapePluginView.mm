@@ -34,12 +34,16 @@
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitSystemInterface.h"
+#import "WebPluginContainerCheck.h"
+#import "WebNetscapeContainerCheckContextInfo.h"
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebView.h"
 #import "WebViewInternal.h"
 
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebCore/AuthenticationMac.h>
+#import <WebCore/CString.h>
 #import <WebCore/Document.h>
 #import <WebCore/Element.h>
 #import <WebCore/Frame.h>
@@ -87,14 +91,27 @@ using namespace WebCore;
     _baseURL.adoptNS([baseURL copy]);
     _MIMEType.adoptNS([MIME copy]);
     
-    [self setAttributeKeys:keys andValues:values];
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    // Enable "kiosk mode" when instantiating the QT plug-in inside of Dashboard. See <rdar://problem/6878105>
+    if ([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.dashboard.client"] &&
+        [[[_pluginPackage.get() bundle] bundleIdentifier] isEqualToString:@"com.apple.QuickTime Plugin.plugin"]) {
+        RetainPtr<NSMutableArray> mutableKeys(AdoptNS, [keys mutableCopy]);
+        RetainPtr<NSMutableArray> mutableValues(AdoptNS, [values mutableCopy]);
+
+        [mutableKeys.get() addObject:@"kioskmode"];
+        [mutableValues.get() addObject:@"true"];
+        [self setAttributeKeys:mutableKeys.get() andValues:mutableValues.get()];
+    } else
+#endif
+         [self setAttributeKeys:keys andValues:values];
+
     if (loadManually)
         _mode = NP_FULL;
     else
         _mode = NP_EMBED;
     
     _loadManually = loadManually;
-    
+
     return self;
 }
 
@@ -123,7 +140,7 @@ using namespace WebCore;
     return YES;
 }
 
-- (NSMutableURLRequest *)requestWithURLCString:(const char *)URLCString
+- (NSURL *)URLWithCString:(const char *)URLCString
 {
     if (!URLCString)
         return nil;
@@ -134,6 +151,15 @@ using namespace WebCore;
     NSString *URLString = [(NSString *)string _web_stringByStrippingReturnCharacters];
     NSURL *URL = [NSURL _web_URLWithDataAsString:URLString relativeToURL:_baseURL.get()];
     CFRelease(string);
+    if (!URL)
+        return nil;
+    
+    return URL;
+}
+
+- (NSMutableURLRequest *)requestWithURLCString:(const char *)URLCString
+{
+    NSURL *URL = [self URLWithCString:URLCString];
     if (!URL)
         return nil;
     
@@ -189,6 +215,11 @@ using namespace WebCore;
 }
 
 - (void)updateAndSetWindow
+{
+    ASSERT_NOT_REACHED();
+}
+
+- (void)sendModifierEventWithKeyCode:(int)keyCode character:(char)character
 {
     ASSERT_NOT_REACHED();
 }
@@ -327,6 +358,9 @@ using namespace WebCore;
     if (_isStarted)
         return;
     
+    if (_triedAndFailedToCreatePlugin)
+        return;
+    
     ASSERT([self webView]);
     
     if (![[[self webView] preferences] arePlugInsEnabled])
@@ -348,8 +382,10 @@ using namespace WebCore;
     if (!wasDeferring)
         page->setDefersLoading(false);
 
-    if (!result)
+    if (!result) {
+        _triedAndFailedToCreatePlugin = YES;
         return;
+    }
     
     _isStarted = YES;
     [[self webView] addPluginInstanceView:self];
@@ -484,14 +520,14 @@ using namespace WebCore;
 - (void)windowBecameKey:(NSNotification *)notification
 {
     [self sendActivateEvent:YES];
-    [self setNeedsDisplay:YES];
+    [self invalidatePluginContentRect:[self bounds]];
     [self restartTimers];
 }
 
 - (void)windowResignedKey:(NSNotification *)notification
 {
     [self sendActivateEvent:NO];
-    [self setNeedsDisplay:YES];
+    [self invalidatePluginContentRect:[self bounds]];
     [self restartTimers];
 }
 
@@ -527,7 +563,7 @@ using namespace WebCore;
             }
         } else {
             [self stop];
-            [self setNeedsDisplay:YES];
+            [self invalidatePluginContentRect:[self bounds]];
         }
     }
 }
@@ -596,26 +632,24 @@ using namespace WebCore;
     return _element.get();
 }
 
-// We want to treat these as regular keyboard events.
-
 - (void)cut:(id)sender
 {
-    [self keyDown:[NSApp currentEvent]];
+    [self sendModifierEventWithKeyCode:7 character:'x'];
 }
 
 - (void)copy:(id)sender
 {
-    [self keyDown:[NSApp currentEvent]];
+    [self sendModifierEventWithKeyCode:8 character:'c'];
 }
 
 - (void)paste:(id)sender
 {
-    [self keyDown:[NSApp currentEvent]];
+    [self sendModifierEventWithKeyCode:9 character:'v'];
 }
 
 - (void)selectAll:(id)sender
 {
-    [self keyDown:[NSApp currentEvent]];
+    [self sendModifierEventWithKeyCode:0 character:'a'];
 }
 
 // AppKit doesn't call mouseDown or mouseUp on right-click. Simulate control-click
@@ -630,7 +664,226 @@ using namespace WebCore;
     [self mouseUp:theEvent];
 }
 
+
+- (BOOL)convertFromX:(double)sourceX andY:(double)sourceY space:(NPCoordinateSpace)sourceSpace
+                 toX:(double *)destX andY:(double *)destY space:(NPCoordinateSpace)destSpace
+{
+    // Nothing to do
+    if (sourceSpace == destSpace)
+        return TRUE;
+    
+    NSPoint sourcePoint = NSMakePoint(sourceX, sourceY);
+    
+    NSPoint sourcePointInScreenSpace;
+    
+    // First convert to screen space
+    switch (sourceSpace) {
+        case NPCoordinateSpacePlugin:
+            sourcePointInScreenSpace = [self convertPoint:sourcePoint toView:nil];
+            sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePointInScreenSpace];
+            break;
+            
+        case NPCoordinateSpaceWindow:
+            sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePoint];
+            break;
+            
+        case NPCoordinateSpaceFlippedWindow:
+            sourcePoint.y = [[self currentWindow] frame].size.height - sourcePoint.y;
+            sourcePointInScreenSpace = [[self currentWindow] convertBaseToScreen:sourcePoint];
+            break;
+            
+        case NPCoordinateSpaceScreen:
+            sourcePointInScreenSpace = sourcePoint;
+            break;
+            
+        case NPCoordinateSpaceFlippedScreen:
+            sourcePoint.y = [[[NSScreen screens] objectAtIndex:0] frame].size.height - sourcePoint.y;
+            sourcePointInScreenSpace = sourcePoint;
+            break;
+        default:
+            return FALSE;
+    }
+    
+    NSPoint destPoint;
+    
+    // Then convert back to the destination space
+    switch (destSpace) {
+        case NPCoordinateSpacePlugin:
+            destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+            destPoint = [self convertPoint:destPoint fromView:nil];
+            break;
+            
+        case NPCoordinateSpaceWindow:
+            destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+            break;
+            
+        case NPCoordinateSpaceFlippedWindow:
+            destPoint = [[self currentWindow] convertScreenToBase:sourcePointInScreenSpace];
+            destPoint.y = [[self currentWindow] frame].size.height - destPoint.y;
+            break;
+            
+        case NPCoordinateSpaceScreen:
+            destPoint = sourcePointInScreenSpace;
+            break;
+            
+        case NPCoordinateSpaceFlippedScreen:
+            destPoint = sourcePointInScreenSpace;
+            destPoint.y = [[[NSScreen screens] objectAtIndex:0] frame].size.height - destPoint.y;
+            break;
+            
+        default:
+            return FALSE;
+    }
+    
+    if (destX)
+        *destX = destPoint.x;
+    if (destY)
+        *destY = destPoint.y;
+    
+    return TRUE;
+}
+
+
+- (CString)resolvedURLStringForURL:(const char*)url target:(const char*)target;
+{
+    String relativeURLString = String::fromUTF8(url);
+    if (relativeURLString.isNull())
+        return CString();
+    
+    Frame* frame = core([self webFrame]);
+    if (!frame)
+        return CString();
+
+    Frame* targetFrame = frame->tree()->find(String::fromUTF8(target));
+    if (!targetFrame)
+        return CString();
+    
+    if (!frame->document()->securityOrigin()->canAccess(targetFrame->document()->securityOrigin()))
+        return CString();
+  
+    KURL absoluteURL = targetFrame->loader()->completeURL(relativeURLString);
+    return absoluteURL.string().utf8();
+}
+
+- (void)invalidatePluginContentRect:(NSRect)rect
+{
+    if (RenderBoxModelObject *renderer = toRenderBoxModelObject(_element->renderer())) {
+        IntRect contentRect(rect);
+        contentRect.move(renderer->borderLeft() + renderer->paddingLeft(), renderer->borderTop() + renderer->paddingTop());
+        
+        renderer->repaintRectangle(contentRect);
+    }
+}
+
 @end
+
+namespace WebKit {
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+CString proxiesForURL(NSURL *url)
+{
+    RetainPtr<CFDictionaryRef> systemProxies(AdoptCF, CFNetworkCopySystemProxySettings());
+    if (!systemProxies)
+        return "DIRECT";
+    
+    RetainPtr<CFArrayRef> proxiesForURL(AdoptCF, CFNetworkCopyProxiesForURL((CFURLRef)url, systemProxies.get()));
+    CFIndex proxyCount = proxiesForURL ? CFArrayGetCount(proxiesForURL.get()) : 0;
+    if (!proxyCount)
+        return "DIRECT";
+ 
+    // proxiesForURL is a CFArray of CFDictionaries. Each dictionary represents a proxy.
+    // The format of the result should be:
+    // "PROXY host[:port]" (for HTTP proxy) or
+    // "SOCKS host[:port]" (for SOCKS proxy) or
+    // A combination of the above, separated by semicolon, in the order that they should be tried.
+    String proxies;
+    for (CFIndex i = 0; i < proxyCount; ++i) {
+        CFDictionaryRef proxy = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(proxiesForURL.get(), i));
+        if (!proxy)
+            continue;
+
+        CFStringRef type = static_cast<CFStringRef>(CFDictionaryGetValue(proxy, kCFProxyTypeKey));
+        bool isHTTP = type == kCFProxyTypeHTTP || type == kCFProxyTypeHTTPS;
+        bool isSOCKS = type == kCFProxyTypeSOCKS;
+        
+        // We can only report HTTP and SOCKS proxies.
+        if (!isHTTP && !isSOCKS)
+            continue;
+        
+        CFStringRef host = static_cast<CFStringRef>(CFDictionaryGetValue(proxy, kCFProxyHostNameKey));
+        CFNumberRef port = static_cast<CFNumberRef>(CFDictionaryGetValue(proxy, kCFProxyPortNumberKey));
+        
+        // If we are inserting multiple entries, add a separator
+        if (!proxies.isEmpty())
+            proxies += ";";
+        
+        if (isHTTP)
+            proxies += "PROXY ";
+        else if (isSOCKS)
+            proxies += "SOCKS ";
+        
+        proxies += host;
+
+        if (port) {
+            SInt32 intPort;
+            CFNumberGetValue(port, kCFNumberSInt32Type, &intPort);
+            
+            proxies += ":" + String::number(intPort);
+        }
+    }
+    
+    if (proxies.isEmpty())
+        return "DIRECT";
+    
+    return proxies.utf8();
+}
+#endif
+
+bool getAuthenticationInfo(const char* protocolStr, const char* hostStr, int32_t port, const char* schemeStr, const char* realmStr,
+                           CString& username, CString& password)
+{
+    if (strcasecmp(protocolStr, "http") != 0 && 
+        strcasecmp(protocolStr, "https") != 0)
+        return false;
+
+    NSString *host = [NSString stringWithUTF8String:hostStr];
+    if (!hostStr)
+        return false;
+    
+    NSString *protocol = [NSString stringWithUTF8String:protocolStr];
+    if (!protocol)
+        return false;
+    
+    NSString *realm = [NSString stringWithUTF8String:realmStr];
+    if (!realm)
+        return NPERR_GENERIC_ERROR;
+    
+    NSString *authenticationMethod = NSURLAuthenticationMethodDefault;
+    if (!strcasecmp(protocolStr, "http")) {
+        if (!strcasecmp(schemeStr, "basic"))
+            authenticationMethod = NSURLAuthenticationMethodHTTPBasic;
+        else if (!strcasecmp(schemeStr, "digest"))
+            authenticationMethod = NSURLAuthenticationMethodHTTPDigest;
+    }
+    
+    RetainPtr<NSURLProtectionSpace> protectionSpace(AdoptNS, [[NSURLProtectionSpace alloc] initWithHost:host port:port protocol:protocol realm:realm authenticationMethod:authenticationMethod]);
+    
+    NSURLCredential *credential = WebCoreCredentialStorage::get(protectionSpace.get());
+    if (!credential)
+        credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:protectionSpace.get()];
+    if (!credential)
+        return false;
+  
+    if (![credential hasPassword])
+        return false;
+    
+    username = [[credential user] UTF8String];
+    password = [[credential password] UTF8String];
+    
+    return true;
+}
+    
+} // namespace WebKit
 
 #endif //  ENABLE(NETSCAPE_PLUGIN_API)
 

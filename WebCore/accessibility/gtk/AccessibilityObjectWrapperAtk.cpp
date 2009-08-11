@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2009 Igalia S.L.
+ * Copyright (C) 2009 Jan Alonzo
  *
  * Portions from Mozilla a11y, copyright as follows:
  *
@@ -41,13 +42,18 @@
 #include "Editor.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "HostWindow.h"
 #include "HTMLNames.h"
+#include "InlineTextBox.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
+#include "RenderText.h"
+#include "TextEncoding.h"
 
 #include <atk/atk.h>
 #include <glib.h>
 #include <glib/gprintf.h>
+#include <libgail-util/gail-util.h>
 #include <pango/pango.h>
 
 using namespace WebCore;
@@ -92,11 +98,6 @@ static AccessibilityObject* core(AtkObject* object)
 static AccessibilityObject* core(AtkAction* action)
 {
     return core(ATK_OBJECT(action));
-}
-
-static AccessibilityObject* core(AtkStreamableContent* streamable)
-{
-    return core(ATK_OBJECT(streamable));
 }
 
 static AccessibilityObject* core(AtkText* text)
@@ -278,9 +279,11 @@ static AtkRole webkit_accessible_get_role(AtkObject* object)
     }
 
     // WebCore does not know about paragraph role
-    Node* node = static_cast<AccessibilityRenderObject*>(AXObject)->renderer()->node();
-    if (node && node->hasTagName(HTMLNames::pTag))
-        return ATK_ROLE_PARAGRAPH;
+    if (AXObject->isAccessibilityRenderObject()) {
+        Node* node = static_cast<AccessibilityRenderObject*>(AXObject)->renderer()->node();
+        if (node && node->hasTagName(HTMLNames::pTag))
+            return ATK_ROLE_PARAGRAPH;
+    }
 
     // Note: Why doesn't WebCore have a password field for this
     if (AXObject->isPasswordField())
@@ -296,11 +299,17 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
     if (coreObject->isChecked())
         atk_state_set_add_state(stateSet, ATK_STATE_CHECKED);
 
-    if (!coreObject->isReadOnly())
+    // FIXME: isReadOnly does not seem to do the right thing for
+    // controls, so check explicitly for them
+    if (!coreObject->isReadOnly() ||
+        (coreObject->isControl() && coreObject->canSetValueAttribute()))
         atk_state_set_add_state(stateSet, ATK_STATE_EDITABLE);
 
-    if (coreObject->isEnabled())
+    // FIXME: Put both ENABLED and SENSITIVE together here for now
+    if (coreObject->isEnabled()) {
         atk_state_set_add_state(stateSet, ATK_STATE_ENABLED);
+        atk_state_set_add_state(stateSet, ATK_STATE_SENSITIVE);
+    }
 
     if (coreObject->canSetFocusAttribute())
         atk_state_set_add_state(stateSet, ATK_STATE_FOCUSABLE);
@@ -323,13 +332,17 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
 
     // TODO: ATK_STATE_SELECTABLE_TEXT
 
-    // TODO: ATK_STATE_SENSITIVE
-
     if (coreObject->isSelected())
         atk_state_set_add_state(stateSet, ATK_STATE_SELECTED);
 
-    if (!coreObject->isOffScreen())
+    // FIXME: Group both SHOWING and VISIBLE here for now
+    // Not sure how to handle this in WebKit, see bug
+    // http://bugzilla.gnome.org/show_bug.cgi?id=509650 for other
+    // issues with SHOWING vs VISIBLE within GTK+
+    if (!coreObject->isOffScreen()) {
         atk_state_set_add_state(stateSet, ATK_STATE_SHOWING);
+        atk_state_set_add_state(stateSet, ATK_STATE_VISIBLE);
+    }
 
     // Mutually exclusive, so we group these two
     if (coreObject->roleValue() == TextFieldRole)
@@ -375,8 +388,7 @@ static void webkit_accessible_finalize(GObject* object)
     // This is a good time to clear the return buffer.
     returnString(String());
 
-    if (G_OBJECT_CLASS(webkit_accessible_parent_class)->finalize)
-        G_OBJECT_CLASS(webkit_accessible_parent_class)->finalize(object);
+    G_OBJECT_CLASS(webkit_accessible_parent_class)->finalize(object);
 }
 
 static void webkit_accessible_class_init(AtkObjectClass* klass)
@@ -395,6 +407,7 @@ static void webkit_accessible_class_init(AtkObjectClass* klass)
     klass->ref_child = webkit_accessible_ref_child;
     klass->get_role = webkit_accessible_get_role;
     klass->ref_state_set = webkit_accessible_ref_state_set;
+    klass->get_index_in_parent = webkit_accessible_get_index_in_parent;
 }
 
 GType
@@ -482,225 +495,107 @@ static gchar* webkit_accessible_text_get_text(AtkText* text, gint startOffset, g
     return g_strdup(ret.utf8().data());
 }
 
-enum GetTextFunctionType {
-    AfterOffset,
-    AtOffset,
-    BeforeOffset
-};
-
-typedef bool (*isCharacterAttribute) (PangoLogAttr* attr);
-
-static inline bool isWordStart(PangoLogAttr* attr)
+static GailTextUtil* getGailTextUtilForAtk(AtkText* textObject)
 {
-    return attr->is_word_start;
+    gpointer data = g_object_get_data(G_OBJECT(textObject), "webkit-accessible-gail-text-util");
+    if (data)
+        return static_cast<GailTextUtil*>(data);
+
+    GailTextUtil* gailTextUtil = gail_text_util_new();
+    gail_text_util_text_setup(gailTextUtil, webkit_accessible_text_get_text(textObject, 0, -1));
+    g_object_set_data_full(G_OBJECT(textObject), "webkit-accessible-gail-text-util", gailTextUtil, g_object_unref);
+    return gailTextUtil;
 }
 
-static inline bool isWordEnd(PangoLogAttr* attr)
+static gchar* utf8Substr(const gchar* string, gint start, gint end)
 {
-    return attr->is_word_end;
+    ASSERT(string);
+    glong strLen = g_utf8_strlen(string, -1);
+    if (start > strLen || end > strLen)
+        return 0;
+    gchar* startPtr = g_utf8_offset_to_pointer(string, start);
+    gsize lenInBytes = g_utf8_offset_to_pointer(string, end) -  startPtr + 1;
+    gchar* output = static_cast<gchar*>(g_malloc0(lenInBytes + 1));
+    return g_utf8_strncpy(output, startPtr, end - start + 1);
 }
 
-static inline bool isSentenceStart(PangoLogAttr* attr)
+// This function is not completely general, is it's tied to the
+// internals of WebCore's text presentation.
+static gchar* convertUniCharToUTF8(const UChar* characters, gint length, int from, int to)
 {
-    return attr->is_sentence_start;
-}
+    CString stringUTF8 = UTF8Encoding().encode(characters, length, QuestionMarksForUnencodables);
+    gchar* utf8String = utf8Substr(stringUTF8.data(), from, to);
+    if (!g_utf8_validate(utf8String, -1, NULL)) {
+        g_free(utf8String);
+        return 0;
+    }
+    gsize len = strlen(utf8String);
+    GString* ret = g_string_new_len(NULL, len);
 
-static inline bool isSentenceEnd(PangoLogAttr* attr)
-{
-    return attr->is_sentence_end;
-}
-
-enum Direction {
-    DirectionForward,
-    DirectionBackwards
-};
-
-static bool findCharacterAttribute(isCharacterAttribute predicateFunction, PangoLogAttr* attributes, Direction direction, int startOffset, int attrsLength, int* resultOffset)
-{
-    int advanceBy = direction == DirectionForward ? 1 : -1;
-
-    *resultOffset = -1;
-
-    for (int i = startOffset; i >= 0 && i < attrsLength; i += advanceBy) {
-        if (predicateFunction(attributes + i)) {
-            *resultOffset = i;
-            return true;
-        }
+    // WebCore introduces line breaks in the text that do not reflect
+    // the layout you see on the screen, replace them with spaces
+    while (len > 0) {
+        gint index, start;
+        pango_find_paragraph_boundary(utf8String, len, &index, &start);
+        g_string_append_len(ret, utf8String, index);
+        if (index == start)
+            break;
+        g_string_append_c(ret, ' ');
+        utf8String += start;
+        len -= start;
     }
 
-    return false;
+    g_free(utf8String);
+    return g_string_free(ret, FALSE);
 }
 
-static bool findCharacterAttributeSkip(isCharacterAttribute predicateFunction, unsigned skip, PangoLogAttr* attributes, Direction direction, int startOffset, int attrsLength, int* resultOffset)
-{
-    int tmpOffset;
-
-    bool retValue = findCharacterAttribute(predicateFunction, attributes, direction, startOffset, attrsLength, &tmpOffset);
-    if (skip == 0) {
-        *resultOffset = tmpOffset;
-        return retValue;
-    }
-
-    if (direction == DirectionForward)
-        tmpOffset++;
-    else
-        tmpOffset--;
-
-    return findCharacterAttributeSkip(predicateFunction, skip - 1, attributes, direction, tmpOffset, attrsLength, resultOffset);
-}
-
-static isCharacterAttribute oppositePredicate(isCharacterAttribute predicate)
-{
-    if (predicate == isWordStart)
-        return isWordEnd;
-    if (predicate == isWordEnd)
-        return isWordStart;
-    if (predicate == isSentenceStart)
-        return isSentenceEnd;
-    if (predicate == isSentenceEnd)
-        return isSentenceStart;
-
-    g_assert_not_reached();
-}
-
-static gchar* getTextHelper(GetTextFunctionType getTextFunctionType, AtkText* textObject, gint offset, AtkTextBoundary boundaryType, gint* startOffset, gint* endOffset)
+static PangoLayout* getPangoLayoutForAtk(AtkText* textObject)
 {
     AccessibilityObject* coreObject = core(textObject);
-    String text;
 
-    *startOffset = *endOffset = -1;
+    HostWindow* hostWindow = coreObject->document()->view()->hostWindow();
+    if (!hostWindow)
+        return 0;
+    PlatformWidget webView = hostWindow->platformWindow();
+    if (!webView)
+        return 0;
 
-    if (coreObject->isTextControl())
-        text = coreObject->text();
-    else
-        text = coreObject->textUnderElement();
+    GString* str = g_string_new(NULL);
 
-    char* cText = g_strdup(text.utf8().data());
-    glong textLength = g_utf8_strlen(cText, -1);
+    AccessibilityRenderObject* accObject = static_cast<AccessibilityRenderObject*>(coreObject);
+    if (!accObject)
+        return 0;
+    RenderText* renderText = toRenderText(accObject->renderer());
+    if (!renderText)
+        return 0;
 
-    if (boundaryType == ATK_TEXT_BOUNDARY_CHAR) {
-        int effectiveOffset;
-
-        switch (getTextFunctionType) {
-        case AfterOffset:
-            effectiveOffset = offset + 1;
-            break;
-        case BeforeOffset:
-            effectiveOffset = offset - 1;
-            break;
-        case AtOffset:
-            effectiveOffset = offset;
-            break;
-        default:
-            g_assert_not_reached();
-        }
-
-        *startOffset = effectiveOffset;
-        *endOffset = effectiveOffset + 1;
-    } else {
-        PangoLogAttr* attrs = g_new(PangoLogAttr, textLength + 1);
-        PangoLanguage* language = pango_language_get_default();
-        pango_get_log_attrs(cText, -1, -1, language, attrs, textLength + 1);
-      
-        isCharacterAttribute predicate;
-
-        if (boundaryType == ATK_TEXT_BOUNDARY_WORD_START)
-            predicate = isWordStart;
-        else if (boundaryType == ATK_TEXT_BOUNDARY_WORD_END)
-            predicate = isWordEnd;
-        else if (boundaryType == ATK_TEXT_BOUNDARY_SENTENCE_START)
-            predicate = isSentenceStart;
-        else if (boundaryType == ATK_TEXT_BOUNDARY_SENTENCE_END)
-            predicate = isSentenceEnd;
-        else
-            // FIXME: bail out for now, since we are missing the LINE
-            // boundary implementations
-            goto out;
-
-        switch (boundaryType) {
-        case ATK_TEXT_BOUNDARY_WORD_START:
-        case ATK_TEXT_BOUNDARY_SENTENCE_START:
-            if (getTextFunctionType == AfterOffset) {
-                // Take the item after the current one in any case
-                findCharacterAttribute(predicate, attrs, DirectionForward, offset + 1, textLength + 1, startOffset);
-                findCharacterAttributeSkip(predicate, 1, attrs, DirectionForward, offset + 1, textLength + 1, endOffset);
-            } else if (getTextFunctionType == AtOffset) {
-                // Take the item at point if the offset is in an item or
-                // the item before otherwise
-                findCharacterAttribute(predicate, attrs, DirectionBackwards, offset, textLength + 1, startOffset);
-                if (!findCharacterAttribute(predicate, attrs, DirectionForward, offset + 1, textLength + 1, endOffset)) {
-                    findCharacterAttribute(oppositePredicate(predicate), attrs, DirectionForward, offset + 1, textLength + 1, endOffset);
-                    // We want to include the actual end boundary
-                    // here, since *_START would have done so. Advance
-                    // until the end of the string if possible
-                    if (*endOffset != -1 && *endOffset < textLength)
-                        *endOffset = textLength;
-                }
-            } else {
-                // Take the item before the point if the offset is in an
-                // item, or the the item before that one otherwise
-                findCharacterAttributeSkip(predicate, 1, attrs, DirectionBackwards, offset, textLength + 1, startOffset);
-                findCharacterAttribute(predicate, attrs, DirectionBackwards, offset, textLength + 1, endOffset);
-            }
-            break;
-        case ATK_TEXT_BOUNDARY_WORD_END:
-        case ATK_TEXT_BOUNDARY_SENTENCE_END:
-            if (getTextFunctionType == AfterOffset) {
-                // Take the item after the current item if the offset is
-                // in a item, or the item after that otherwise
-                findCharacterAttribute(predicate, attrs, DirectionForward, offset, textLength + 1, startOffset);
-                findCharacterAttributeSkip(predicate, 1, attrs, DirectionForward, offset, textLength + 1, endOffset);
-            } else if (getTextFunctionType == AtOffset) {
-                // Take the item at point if the offset is in a item or
-                // the item after otherwise
-                if (!findCharacterAttribute(predicate, attrs, DirectionBackwards, offset, textLength + 1, startOffset))
-                    // No match before offset, take the first opposite match at or before the offset
-                    findCharacterAttribute(oppositePredicate(predicate), attrs, DirectionBackwards, offset, textLength + 1, startOffset);
-                findCharacterAttribute(predicate, attrs, DirectionForward, offset + 1, textLength + 1, endOffset);
-            } else {
-                // Take the item before the point in any case
-                if (!findCharacterAttributeSkip(predicate, 1, attrs, DirectionBackwards, offset, textLength + 1, startOffset)) {
-                    int tmpOffset;
-                    // No match before offset, take the first opposite match at or before the offset
-                    findCharacterAttribute(predicate, attrs, DirectionBackwards, offset, textLength + 1, &tmpOffset);
-                    findCharacterAttribute(oppositePredicate(predicate), attrs, DirectionBackwards, tmpOffset - 1, textLength + 1, startOffset);
-                }
-                findCharacterAttribute(predicate, attrs, DirectionBackwards, offset, textLength + 1, endOffset);
-            }
-            break;
-        default:
-            g_assert_not_reached();
-        }
-
-        g_free(attrs);
+    // Create a string with the layout as it appears on the screen
+    InlineTextBox* box = renderText->firstTextBox();
+    while (box) {
+        gchar *text = convertUniCharToUTF8(renderText->characters(), renderText->textLength(), box->start(), box->end());
+        g_string_append(str, text);
+        g_string_append(str, "\n");
+        box = box->nextTextBox();
     }
 
- out:
-    if (*startOffset < 0 || *endOffset < 0) {
-        *startOffset = *endOffset = 0;
-        return g_strdup("");
-    }
-
-    char* start = g_utf8_offset_to_pointer(cText, (glong)*startOffset);
-    char* end = g_utf8_offset_to_pointer(cText, (glong)*endOffset);
-    char* resultText = g_strndup(start, end - start);
-    g_free(cText);
-    return resultText;
+    PangoLayout* layout = gtk_widget_create_pango_layout(static_cast<GtkWidget*>(webView), g_string_free(str, FALSE));
+    g_object_set_data_full(G_OBJECT(textObject), "webkit-accessible-pango-layout", layout, g_object_unref);
+    return layout;
 }
 
 static gchar* webkit_accessible_text_get_text_after_offset(AtkText* text, gint offset, AtkTextBoundary boundaryType, gint* startOffset, gint* endOffset)
 {
-    return getTextHelper(AfterOffset, text, offset, boundaryType, startOffset, endOffset);
+    return gail_text_util_get_text(getGailTextUtilForAtk(text), getPangoLayoutForAtk(text), GAIL_AFTER_OFFSET, boundaryType, offset, startOffset, endOffset);
 }
 
 static gchar* webkit_accessible_text_get_text_at_offset(AtkText* text, gint offset, AtkTextBoundary boundaryType, gint* startOffset, gint* endOffset)
 {
-    return getTextHelper(AtOffset, text, offset, boundaryType, startOffset, endOffset);
+    return gail_text_util_get_text(getGailTextUtilForAtk(text), getPangoLayoutForAtk(text), GAIL_AT_OFFSET, boundaryType, offset, startOffset, endOffset);
 }
 
 static gchar* webkit_accessible_text_get_text_before_offset(AtkText* text, gint offset, AtkTextBoundary boundaryType, gint* startOffset, gint* endOffset)
 {
-    return getTextHelper(BeforeOffset, text, offset, boundaryType, startOffset, endOffset);
+    return gail_text_util_get_text(getGailTextUtilForAtk(text), getPangoLayoutForAtk(text), GAIL_BEFORE_OFFSET, boundaryType, offset, startOffset, endOffset);
 }
 
 static gunichar webkit_accessible_text_get_character_at_offset(AtkText* text, gint offset)
@@ -712,7 +607,7 @@ static gunichar webkit_accessible_text_get_character_at_offset(AtkText* text, gi
 static gint webkit_accessible_text_get_caret_offset(AtkText* text)
 {
     // TODO: Verify this for RTL text.
-    return core(text)->selection().start().offsetInContainerNode();
+    return core(text)->selection().end().offsetInContainerNode();
 }
 
 static AtkAttributeSet* webkit_accessible_text_get_run_attributes(AtkText* text, gint offset, gint* start_offset, gint* end_offset)
@@ -769,16 +664,48 @@ static gint webkit_accessible_text_get_offset_at_point(AtkText* text, gint x, gi
     return range.start;
 }
 
+static bool selectionBelongsToObject(AccessibilityObject *coreObject, VisibleSelection& selection)
+{
+    if (!coreObject->isAccessibilityRenderObject())
+        return false;
+
+    Node* node = static_cast<AccessibilityRenderObject*>(coreObject)->renderer()->node();
+    return node == selection.base().containerNode();
+}
+
 static gint webkit_accessible_text_get_n_selections(AtkText* text)
 {
-    notImplemented();
-    return 0;
+    AccessibilityObject* coreObject = core(text);
+    VisibleSelection selection = coreObject->selection();
+
+    // We don't support multiple selections for now, so there's only
+    // two possibilities
+    // Also, we don't want to do anything if the selection does not
+    // belong to the currently selected object. We have to check since
+    // there's no way to get the selection for a given object, only
+    // the global one (the API is a bit confusing)
+    return !selectionBelongsToObject(coreObject, selection) || selection.isNone() ? 0 : 1;
 }
 
 static gchar* webkit_accessible_text_get_selection(AtkText* text, gint selection_num, gint* start_offset, gint* end_offset)
 {
-    notImplemented();
-    return NULL;
+    AccessibilityObject* coreObject = core(text);
+    VisibleSelection selection = coreObject->selection();
+
+    // WebCore does not support multiple selection, so anything but 0 does not make sense for now.
+    // Also, we don't want to do anything if the selection does not
+    // belong to the currently selected object. We have to check since
+    // there's no way to get the selection for a given object, only
+    // the global one (the API is a bit confusing)
+    if (selection_num != 0 || !selectionBelongsToObject(coreObject, selection)) {
+        *start_offset = *end_offset = 0;
+        return NULL;
+    }
+
+    *start_offset = selection.start().offsetInContainerNode();
+    *end_offset = selection.end().offsetInContainerNode();
+
+    return webkit_accessible_text_get_text(text, *start_offset, *end_offset);
 }
 
 static gboolean webkit_accessible_text_add_selection(AtkText* text, gint start_offset, gint end_offset)
@@ -801,10 +728,18 @@ static gboolean webkit_accessible_text_set_selection(AtkText* text, gint selecti
 
 static gboolean webkit_accessible_text_set_caret_offset(AtkText* text, gint offset)
 {
-    // TODO: Verify
-    //core(text)->setSelectedTextRange(PlainTextRange(offset, 0));
     AccessibilityObject* coreObject = core(text);
-    coreObject->setSelectedVisiblePositionRange(coreObject->visiblePositionRangeForRange(PlainTextRange(offset, 0)));
+
+    // FIXME: We need to reimplement visiblePositionRangeForRange here
+    // because the actual function checks the offset is within the
+    // boundaries of text().length(), but text() only works for text
+    // controls...
+    VisiblePosition startPosition = coreObject->visiblePositionForIndex(offset);
+    startPosition.setAffinity(DOWNSTREAM);
+    VisiblePosition endPosition = coreObject->visiblePositionForIndex(offset);
+    VisiblePositionRange range = VisiblePositionRange(startPosition, endPosition);
+
+    coreObject->setSelectedVisiblePositionRange(range);
     return TRUE;
 }
 
@@ -901,40 +836,6 @@ static void atk_editable_text_interface_init(AtkEditableTextIface* iface)
     iface->cut_text = webkit_accessible_editable_text_cut_text;
     iface->delete_text = webkit_accessible_editable_text_delete_text;
     iface->paste_text = webkit_accessible_editable_text_paste_text;
-}
-
-// StreamableContent
-
-static gint webkit_accessible_streamable_content_get_n_mime_types(AtkStreamableContent* streamable)
-{
-    notImplemented();
-    return 0;
-}
-
-static G_CONST_RETURN gchar* webkit_accessible_streamable_content_get_mime_type(AtkStreamableContent* streamable, gint i)
-{
-    notImplemented();
-    return "";
-}
-
-static GIOChannel* webkit_accessible_streamable_content_get_stream(AtkStreamableContent* streamable, const gchar* mime_type)
-{
-    notImplemented();
-    return NULL;
-}
-
-static G_CONST_RETURN gchar* webkit_accessible_streamable_content_get_uri(AtkStreamableContent* streamable, const gchar* mime_type)
-{
-    notImplemented();
-    return NULL;
-}
-
-static void atk_streamable_content_interface_init(AtkStreamableContentIface* iface)
-{
-    iface->get_n_mime_types = webkit_accessible_streamable_content_get_n_mime_types;
-    iface->get_mime_type = webkit_accessible_streamable_content_get_mime_type;
-    iface->get_stream = webkit_accessible_streamable_content_get_stream;
-    iface->get_uri = webkit_accessible_streamable_content_get_uri;
 }
 
 static void contentsToAtk(AccessibilityObject* coreObject, AtkCoordType coordType, IntRect rect, gint* x, gint* y, gint* width = 0, gint* height = 0)
@@ -1041,8 +942,6 @@ static void atk_image_interface_init(AtkImageIface* iface)
 static const GInterfaceInfo AtkInterfacesInitFunctions[] = {
     {(GInterfaceInitFunc)atk_action_interface_init,
      (GInterfaceFinalizeFunc) NULL, NULL},
-    {(GInterfaceInitFunc)atk_streamable_content_interface_init,
-     (GInterfaceFinalizeFunc) NULL, NULL},
     {(GInterfaceInitFunc)atk_editable_text_interface_init,
      (GInterfaceFinalizeFunc) NULL, NULL},
     {(GInterfaceInitFunc)atk_text_interface_init,
@@ -1055,7 +954,6 @@ static const GInterfaceInfo AtkInterfacesInitFunctions[] = {
 
 enum WAIType {
     WAI_ACTION,
-    WAI_STREAMABLE,
     WAI_EDITABLE_TEXT,
     WAI_TEXT,
     WAI_COMPONENT,
@@ -1067,8 +965,6 @@ static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
   switch (type) {
   case WAI_ACTION:
       return ATK_TYPE_ACTION;
-  case WAI_STREAMABLE:
-      return ATK_TYPE_STREAMABLE_CONTENT;
   case WAI_EDITABLE_TEXT:
       return ATK_TYPE_EDITABLE_TEXT;
   case WAI_TEXT:
@@ -1085,9 +981,6 @@ static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
 static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
 {
     guint16 interfaceMask = 0;
-
-    // Streamable is always supported (FIXME: This is wrong)
-    interfaceMask |= 1 << WAI_STREAMABLE;
 
     // Component interface is always supported
     interfaceMask |= 1 << WAI_COMPONENT;
@@ -1184,6 +1077,18 @@ void webkit_accessible_detach(WebKitAccessible* accessible)
     // provides default implementations to avoid repetitive null-checking after
     // detachment.
     accessible->m_object = fallbackObject();
+}
+
+AtkObject* webkit_accessible_get_focused_element(WebKitAccessible* accessible)
+{
+    if (!accessible->m_object)
+        return 0;
+
+    RefPtr<AccessibilityObject> focusedObj = accessible->m_object->focusedUIElement();
+    if (!focusedObj)
+        return 0;
+
+    return focusedObj->wrapper();
 }
 
 #endif // HAVE(ACCESSIBILITY)

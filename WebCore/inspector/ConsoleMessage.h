@@ -44,15 +44,19 @@ namespace WebCore {
 
     class ConsoleMessage {
     public:
-        ConsoleMessage(MessageSource, MessageLevel, const String& m, unsigned li, const String& u, unsigned g);        
-        ConsoleMessage(MessageSource, MessageLevel, ScriptCallStack*, unsigned g, bool storeTrace = false);
+        ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, unsigned li, const String& u, unsigned g);        
+        ConsoleMessage(MessageSource, MessageType, MessageLevel, ScriptCallStack*, unsigned g, bool storeTrace = false);
 
         void addToConsole(InspectorFrontend* frontend);
         void incrementCount() { ++m_repeatCount; };
         bool isEqual(ScriptState*, ConsoleMessage* msg) const;
 
+        MessageSource source() const { return m_source; }
+        const String& message() const { return m_message; }
+
     private:
         MessageSource m_source;
+        MessageType m_type;
         MessageLevel m_level;
         String m_message;
         Vector<ScriptValue> m_wrappedArguments;

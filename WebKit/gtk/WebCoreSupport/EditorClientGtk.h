@@ -32,6 +32,7 @@
 
 #include "EditorClient.h"
 
+#include <wtf/Deque.h>
 #include <wtf/Forward.h>
 
 typedef struct _WebKitWebView WebKitWebView;
@@ -43,6 +44,12 @@ namespace WebCore {
 namespace WebKit {
 
     class EditorClient : public WebCore::EditorClient {
+    protected:
+        bool m_isInRedo;
+
+        WTF::Deque<WTF::RefPtr<WebCore::EditCommand> > undoStack;
+        WTF::Deque<WTF::RefPtr<WebCore::EditCommand> > redoStack;
+
     public:
         EditorClient(WebKitWebView*);
         ~EditorClient();
@@ -102,6 +109,7 @@ namespace WebKit {
         virtual void ignoreWordInSpellDocument(const WebCore::String&);
         virtual void learnWord(const WebCore::String&);
         virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
+        virtual WebCore::String getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&);
         virtual void checkGrammarOfString(const UChar*, int length, WTF::Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength);
         virtual void updateSpellingUIWithGrammarString(const WebCore::String&, const WebCore::GrammarDetail&);
         virtual void updateSpellingUIWithMisspelledWord(const WebCore::String&);

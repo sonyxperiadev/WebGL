@@ -60,7 +60,7 @@
 // responsible for managing the painting state which is store in separate
 // SkPaint objects. This class provides the adaptor that allows the painting
 // state to be pushed and popped along with the bitmap.
-class PlatformContextSkia : Noncopyable {
+class PlatformContextSkia : public Noncopyable {
 public:
     // For printing, there shouldn't be any canvas. canvas can be NULL. If you
     // supply a NULL canvas, you can also call setCanvas later.
@@ -115,15 +115,15 @@ public:
     void setLineCap(SkPaint::Cap);
     void setLineJoin(SkPaint::Join);
     void setFillRule(SkPath::FillType);
-    void setPorterDuffMode(SkPorterDuff::Mode);
+    void setXfermodeMode(SkXfermode::Mode);
     void setFillColor(SkColor);
+    void setFillShader(SkShader*);
     void setStrokeStyle(WebCore::StrokeStyle);
     void setStrokeColor(SkColor);
     void setStrokeThickness(float thickness);
+    void setStrokeShader(SkShader*);
     void setTextDrawingMode(int mode);
     void setUseAntialiasing(bool enable);
-    void setGradient(SkShader*);
-    void setPattern(SkShader*);
     void setDashPathEffect(SkDashPathEffect*);
 
     SkDrawLooper* getDrawLooper() const;

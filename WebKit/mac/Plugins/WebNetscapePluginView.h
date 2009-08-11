@@ -30,6 +30,7 @@
 
 #import "WebBaseNetscapePluginView.h"
 
+#import "WebNetscapeContainerCheckPrivate.h"
 #import <WebKit/npfunctions.h>
 #import <WebKit/npapi.h>
 #import <wtf/HashMap.h>
@@ -57,7 +58,7 @@ typedef union PluginPort {
 // for the plug-in to function correctly. (rdar://problem/4699455)
 #define WebNetscapePluginView WebNetscapePluginDocumentView
 
-@interface WebNetscapePluginView : WebBaseNetscapePluginView<WebPluginManualLoader>
+@interface WebNetscapePluginView : WebBaseNetscapePluginView<WebPluginManualLoader, WebPluginContainerCheckController>
 {
     RefPtr<WebNetscapePluginStream> _manualStream;
 #ifndef BUILDING_ON_TIGER
@@ -101,6 +102,9 @@ typedef union PluginPort {
     
     BOOL _isFlash;
     BOOL _isSilverlight;
+    
+    NSMutableDictionary *_containerChecksInProgress;
+    uint32 _currentContainerCheckRequestID;
 }
 
 + (WebNetscapePluginView *)currentPluginView;
@@ -139,6 +143,8 @@ typedef union PluginPort {
 - (void)didCallPlugInFunction;
 
 - (void)handleMouseMoved:(NSEvent *)event;
+- (uint32)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString callbackFunc:(void (*)(NPP npp, uint32 checkID, NPBool allowed, void* context))callbackFunc context:(void*)context;
+- (void)cancelCheckIfAllowedToLoadURL:(uint32)checkID;
 
 @end
 
@@ -164,8 +170,15 @@ typedef union PluginPort {
 - (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc;
 - (void)unscheduleTimer:(uint32)timerID;
 - (NPError)popUpContextMenu:(NPMenu *)menu;
-
+- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32*)length;
+- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32)length;
+- (NPError)getAuthenticationInfoWithProtocol:(const char*) protocol host:(const char*)host port:(int32)port scheme:(const char*)scheme realm:(const char*)realm
+                                    username:(char**)username usernameLength:(uint32*)usernameLength 
+                                    password:(char**)password passwordLength:(uint32*)passwordLength;
+- (char*)resolveURL:(const char*)url forTarget:(const char*)target;
 @end
+
+WKNBrowserContainerCheckFuncs *browserContainerCheckFuncs();
 
 #endif
 

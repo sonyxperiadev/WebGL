@@ -504,7 +504,7 @@ String KURL::user() const
     return m_url.componentString(m_url.m_parsed.username);
 }
 
-String KURL::ref() const
+String KURL::fragmentIdentifier() const
 {
     // Empty but present refs ("foo.com/bar#") should result in the empty
     // string, which m_url.componentString will produce. Nonexistant refs should be
@@ -516,7 +516,7 @@ String KURL::ref() const
     return m_url.componentString(m_url.m_parsed.ref);
 }
 
-bool KURL::hasRef() const
+bool KURL::hasFragmentIdentifier() const
 {
     // Note: KURL.cpp unescapes here.
     // FIXME determine if KURL.cpp agrees about an empty ref
@@ -627,22 +627,22 @@ void KURL::setPass(const String& pass)
     m_url.replaceComponents(replacements);
 }
 
-void KURL::setRef(const String& ref)
+void KURL::setFragmentIdentifier(const String& s)
 {
     // This function is commonly called to clear the ref, which we
     // normally don't have, so we optimize this case.
-    if (ref.isNull() && !m_url.m_parsed.ref.is_valid())
+    if (s.isNull() && !m_url.m_parsed.ref.is_valid())
         return;
 
     KURLGooglePrivate::Replacements replacements;
-    if (ref.isNull())
+    if (s.isNull())
         replacements.ClearRef();
     else
-        replacements.SetRef(CharactersOrEmpty(ref), url_parse::Component(0, ref.length()));
+        replacements.SetRef(CharactersOrEmpty(s), url_parse::Component(0, s.length()));
     m_url.replaceComponents(replacements);
 }
 
-void KURL::removeRef()
+void KURL::removeFragmentIdentifier()
 {
     KURLGooglePrivate::Replacements replacements;
     replacements.ClearRef();
@@ -885,7 +885,7 @@ void KURL::invalidate()
 }
 
 // Equal up to reference fragments, if any.
-bool equalIgnoringRef(const KURL& a, const KURL& b)
+bool equalIgnoringFragmentIdentifier(const KURL& a, const KURL& b)
 {
     // Compute the length of each URL without its ref. Note that the reference
     // begin (if it exists) points to the character *after* the '#', so we need
@@ -955,6 +955,32 @@ bool protocolIs(const String& url, const char* protocol)
 inline bool KURL::protocolIs(const String& string, const char* protocol)
 {
     return WebCore::protocolIs(string, protocol);
+}
+
+bool protocolHostAndPortAreEqual(const KURL& a, const KURL& b)
+{
+    if (a.parsed().scheme.end() != b.parsed().scheme.end())
+        return false;
+
+    int hostStartA = a.hostStart();
+    int hostStartB = b.hostStart();
+    if (a.hostEnd() - hostStartA != b.hostEnd() - hostStartB)
+        return false;
+
+    // Check the scheme
+    for (int i = 0; i < a.parsed().scheme.end(); ++i)
+        if (a.string()[i] != b.string()[i])
+            return false;
+    
+    // And the host
+    for (int i = hostStartA; i < static_cast<int>(a.hostEnd()); ++i)
+        if (a.string()[i] != b.string()[i])
+            return false;
+    
+    if (a.port() != b.port())
+        return false;
+
+    return true;
 }
 
 } // namespace WebCore

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -526,13 +526,13 @@ static void loadFullDefaultStyle()
     }
 
     // Strict-mode rules.
-    String defaultRules = String(html4UserAgentStyleSheet, sizeof(html4UserAgentStyleSheet)) + theme()->extraDefaultStyleSheet();
+    String defaultRules = String(htmlUserAgentStyleSheet, sizeof(htmlUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraDefaultStyleSheet();
     CSSStyleSheet* defaultSheet = parseUASheet(defaultRules);
     defaultStyle->addRulesFromSheet(defaultSheet, screenEval());
     defaultPrintStyle->addRulesFromSheet(defaultSheet, printEval());
 
     // Quirks-mode rules.
-    String quirksRules = String(quirksUserAgentStyleSheet, sizeof(quirksUserAgentStyleSheet)) + theme()->extraQuirksStyleSheet();
+    String quirksRules = String(quirksUserAgentStyleSheet, sizeof(quirksUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraQuirksStyleSheet();
     CSSStyleSheet* quirksSheet = parseUASheet(quirksRules);
     defaultQuirksStyle->addRulesFromSheet(quirksSheet, screenEval());
 }
@@ -821,6 +821,10 @@ void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* parentStyle,
         m_parentStyle = parentStyle;
     else
         m_parentStyle = m_parentNode ? m_parentNode->renderStyle() : 0;
+
+    Node* docElement = e ? e->document()->documentElement() : 0;
+    RenderStyle* docStyle = m_checker.m_document->renderStyle();
+    m_rootElementStyle = docElement && e != docElement ? docElement->renderStyle() : docStyle;
 
     m_style = 0;
 
@@ -1138,7 +1142,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     static bool loadedMediaStyleSheet;
     if (!loadedMediaStyleSheet && (e->hasTagName(videoTag) || e->hasTagName(audioTag))) {
         loadedMediaStyleSheet = true;
-        String mediaRules = String(mediaControlsUserAgentStyleSheet, sizeof(mediaControlsUserAgentStyleSheet)) + theme()->extraMediaControlsStyleSheet();
+        String mediaRules = String(mediaControlsUserAgentStyleSheet, sizeof(mediaControlsUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraMediaControlsStyleSheet();
         CSSStyleSheet* mediaControlsSheet = parseUASheet(mediaRules);
         defaultStyle->addRulesFromSheet(mediaControlsSheet, screenEval());
         defaultPrintStyle->addRulesFromSheet(mediaControlsSheet, printEval());
@@ -1314,8 +1318,13 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
 
         // Add all the animating properties to the list
         CSSMutableStyleDeclaration::const_iterator end = kf->style()->end();
-        for (CSSMutableStyleDeclaration::const_iterator it = kf->style()->begin(); it != end; ++it)
-            list.addProperty((*it).id());
+        for (CSSMutableStyleDeclaration::const_iterator it = kf->style()->begin(); it != end; ++it) {
+            int property = (*it).id();
+            // Timing-function within keyframes is special, because it is not animated; it just
+            // describes the timing function between this keyframe and the next.
+            if (property != CSSPropertyWebkitAnimationTimingFunction)
+                list.addProperty(property);
+        }
         
         // Add this keyframe style to all the indicated key times
         Vector<float> keys;
@@ -1404,6 +1413,22 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     // Now return the style.
     return m_style.release();
 }
+
+#if ENABLE(DATAGRID)
+
+PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForDataGridColumn(DataGridColumn*, RenderStyle*)
+{
+    // FIXME: Implement
+    return 0;
+}
+
+PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForDataGridColumnHeader(DataGridColumn*, RenderStyle*)
+{
+    // FIXME: Implement
+    return 0;
+}
+
+#endif
 
 static void addIntrinsicMargins(RenderStyle* style)
 {
@@ -1520,7 +1545,7 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, Element *e)
     // Button, legend, input, select and textarea all consider width values of 'auto' to be 'intrinsic'.
     // This will be important when we use block flows for all form controls.
     if (e && (e->hasTagName(legendTag) || e->hasTagName(buttonTag) || e->hasTagName(inputTag) ||
-              e->hasTagName(selectTag) || e->hasTagName(textareaTag)
+              e->hasTagName(selectTag) || e->hasTagName(textareaTag) || e->hasTagName(datagridTag)
 #if ENABLE(WML)
               || e->hasTagName(WMLNames::insertedLegendTag)
               || e->hasTagName(WMLNames::inputTag)
@@ -1589,7 +1614,7 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, Element *e)
 
     // Let the theme also have a crack at adjusting the style.
     if (style->hasAppearance())
-        theme()->adjustStyle(this, style, e, m_hasUAAppearance, m_borderData, m_backgroundData, m_backgroundColor);
+        RenderTheme::defaultTheme()->adjustStyle(this, style, e, m_hasUAAppearance, m_borderData, m_backgroundData, m_backgroundColor);
 
 #if ENABLE(SVG)
     if (e && e->isSVGElement()) {
@@ -2355,6 +2380,10 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     return false;
                 return e->isTextFormControl() && !e->isReadOnlyFormControl();
             }
+            case CSSSelector::PseudoOptional:
+                return e && e->isOptionalFormControl();
+            case CSSSelector::PseudoRequired:
+                return e && e->isRequiredFormControl();
             case CSSSelector::PseudoChecked: {
                 if (!e || !e->isFormControlElement())
                     break;
@@ -2480,6 +2509,15 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                 return true;
             case CSSSelector::PseudoMediaControlsSeekForwardButton:
                 dynamicPseudo = MEDIA_CONTROLS_SEEK_FORWARD_BUTTON;
+                return true;
+            case CSSSelector::PseudoMediaControlsRewindButton:
+                dynamicPseudo = MEDIA_CONTROLS_REWIND_BUTTON;
+                return true;
+            case CSSSelector::PseudoMediaControlsReturnToRealtimeButton:
+                dynamicPseudo = MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON;
+                return true;
+            case CSSSelector::PseudoMediaControlsStatusDisplay:
+                dynamicPseudo = MEDIA_CONTROLS_STATUS_DISPLAY;
                 return true;
             case CSSSelector::PseudoMediaControlsFullscreenButton:
                 dynamicPseudo = MEDIA_CONTROLS_FULLSCREEN_BUTTON;
@@ -2728,7 +2766,7 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
 // -------------------------------------------------------------------------------------
 // this is mostly boring stuff on how to apply a certain rule to the renderstyle...
 
-static Length convertToLength(CSSPrimitiveValue *primitiveValue, RenderStyle *style, double multiplier = 1, bool *ok = 0)
+static Length convertToLength(CSSPrimitiveValue* primitiveValue, RenderStyle* style, RenderStyle* rootStyle, double multiplier = 1, bool *ok = 0)
 {
     // This function is tolerant of a null style value. The only place style is used is in
     // length measurements, like 'ems' and 'px'. And in those cases style is only used
@@ -2740,11 +2778,11 @@ static Length convertToLength(CSSPrimitiveValue *primitiveValue, RenderStyle *st
     } else {
         int type = primitiveValue->primitiveType();
         
-        if (!style && (type == CSSPrimitiveValue::CSS_EMS || type == CSSPrimitiveValue::CSS_EXS)) {
+        if (!style && (type == CSSPrimitiveValue::CSS_EMS || type == CSSPrimitiveValue::CSS_EXS || type == CSSPrimitiveValue::CSS_REMS)) {
             if (ok)
                 *ok = false;
         } else if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style, multiplier), Fixed);
+            l = Length(primitiveValue->computeLengthIntForLength(style, rootStyle, multiplier), Fixed);
         else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
         else if (type == CSSPrimitiveValue::CSS_NUMBER)
@@ -2871,12 +2909,14 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyBackgroundAttachment:
         HANDLE_BACKGROUND_VALUE(attachment, Attachment, value)
         return;
+    case CSSPropertyBackgroundClip:
     case CSSPropertyWebkitBackgroundClip:
         HANDLE_BACKGROUND_VALUE(clip, Clip, value)
         return;
     case CSSPropertyWebkitBackgroundComposite:
         HANDLE_BACKGROUND_VALUE(composite, Composite, value)
         return;
+    case CSSPropertyBackgroundOrigin:
     case CSSPropertyWebkitBackgroundOrigin:
         HANDLE_BACKGROUND_VALUE(origin, Origin, value)
         return;
@@ -3182,7 +3222,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         HANDLE_INHERIT_AND_INITIAL(horizontalBorderSpacing, HorizontalBorderSpacing)
         if (!primitiveValue)
             return;
-        short spacing = primitiveValue->computeLengthShort(style(), zoomFactor);
+        short spacing = primitiveValue->computeLengthShort(style(), m_rootElementStyle, zoomFactor);
         m_style->setHorizontalBorderSpacing(spacing);
         return;
     }
@@ -3190,7 +3230,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         HANDLE_INHERIT_AND_INITIAL(verticalBorderSpacing, VerticalBorderSpacing)
         if (!primitiveValue)
             return;
-        short spacing = primitiveValue->computeLengthShort(style(), zoomFactor);
+        short spacing = primitiveValue->computeLengthShort(style(), m_rootElementStyle, zoomFactor);
         m_style->setVerticalBorderSpacing(spacing);
         return;
     }
@@ -3365,7 +3405,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             width = 5;
             break;
         case CSSValueInvalid:
-            width = primitiveValue->computeLengthShort(style(), zoomFactor);
+            width = primitiveValue->computeLengthShort(style(), m_rootElementStyle, zoomFactor);
             break;
         default:
             return;
@@ -3413,12 +3453,12 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
         
         int width = 0;
-        if (primitiveValue && primitiveValue->getIdent() == CSSValueNormal){
+        if (primitiveValue && primitiveValue->getIdent() == CSSValueNormal) {
             width = 0;
         } else {
             if (!primitiveValue)
                 return;
-            width = primitiveValue->computeLengthInt(style(), zoomFactor);
+            width = primitiveValue->computeLengthInt(style(), m_rootElementStyle, zoomFactor);
         }
         switch (id) {
         case CSSPropertyLetterSpacing:
@@ -3545,7 +3585,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             int type = primitiveValue->primitiveType();
             if (CSSPrimitiveValue::isUnitTypeLength(type))
                 // Handle our quirky margin units if we have them.
-                l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed, 
+                l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed, 
                            primitiveValue->isQuirkValue());
             else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
                 l = Length(primitiveValue->getDoubleValue(), Percent);
@@ -3645,7 +3685,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         if (primitiveValue && !apply) {
             unsigned short type = primitiveValue->primitiveType();
             if (CSSPrimitiveValue::isUnitTypeLength(type))
-                l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+                l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
             else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
                 l = Length(primitiveValue->getDoubleValue(), Percent);
             else
@@ -3701,7 +3741,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
           int type = primitiveValue->primitiveType();
           Length l;
           if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+            l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
           else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
 
@@ -3763,9 +3803,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             fontDescription.setIsAbsoluteSize(parentIsAbsoluteSize ||
                                               (type != CSSPrimitiveValue::CSS_PERCENTAGE &&
                                                type != CSSPrimitiveValue::CSS_EMS && 
-                                               type != CSSPrimitiveValue::CSS_EXS));
+                                               type != CSSPrimitiveValue::CSS_EXS &&
+                                               type != CSSPrimitiveValue::CSS_REMS));
             if (CSSPrimitiveValue::isUnitTypeLength(type))
-                size = primitiveValue->computeLengthFloat(m_parentStyle, true);
+                size = primitiveValue->computeLengthFloat(m_parentStyle, m_rootElementStyle, true);
             else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
                 size = (primitiveValue->getFloatValue() * oldSize) / 100.0f;
             else
@@ -3831,7 +3872,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             double multiplier = m_style->effectiveZoom();
             if (m_style->textSizeAdjust() && m_checker.m_document->frame() && m_checker.m_document->frame()->shouldApplyTextZoom())
                 multiplier *= m_checker.m_document->frame()->textZoomFactor();
-            lineHeight = Length(primitiveValue->computeLengthIntForLength(style(), multiplier), Fixed);
+            lineHeight = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle,  multiplier), Fixed);
         } else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             lineHeight = Length((m_style->fontSize() * primitiveValue->getIntValue()) / 100, Fixed);
         else if (type == CSSPrimitiveValue::CSS_NUMBER)
@@ -3885,10 +3926,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             Rect* rect = primitiveValue->getRectValue();
             if (!rect)
                 return;
-            top = convertToLength(rect->top(), style(), zoomFactor);
-            right = convertToLength(rect->right(), style(), zoomFactor);
-            bottom = convertToLength(rect->bottom(), style(), zoomFactor);
-            left = convertToLength(rect->left(), style(), zoomFactor);
+            top = convertToLength(rect->top(), style(), m_rootElementStyle, zoomFactor);
+            right = convertToLength(rect->right(), style(), m_rootElementStyle, zoomFactor);
+            bottom = convertToLength(rect->bottom(), style(), m_rootElementStyle, zoomFactor);
+            left = convertToLength(rect->left(), style(), m_rootElementStyle, zoomFactor);
         } else if (primitiveValue->getIdent() != CSSValueAuto) {
             return;
         }
@@ -4292,7 +4333,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_lineHeightValue = 0;
             
             FontDescription fontDescription;
-            theme()->systemFont(primitiveValue->getIdent(), fontDescription);
+            RenderTheme::defaultTheme()->systemFont(primitiveValue->getIdent(), fontDescription);
  
             // Double-check and see if the theme did anything.  If not, don't bother updating the font.
             if (fontDescription.isAbsoluteSize()) {
@@ -4409,6 +4450,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 
+    case CSSPropertyBorderRadius:
     case CSSPropertyWebkitBorderRadius:
         if (isInherit) {
             m_style->setBorderTopLeftRadius(m_parentStyle->borderTopLeftRadius());
@@ -4422,23 +4464,23 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             return;
         }
         // Fall through
-    case CSSPropertyWebkitBorderTopLeftRadius:
-    case CSSPropertyWebkitBorderTopRightRadius:
-    case CSSPropertyWebkitBorderBottomLeftRadius:
-    case CSSPropertyWebkitBorderBottomRightRadius: {
+    case CSSPropertyBorderTopLeftRadius:
+    case CSSPropertyBorderTopRightRadius:
+    case CSSPropertyBorderBottomLeftRadius:
+    case CSSPropertyBorderBottomRightRadius: {
         if (isInherit) {
-            HANDLE_INHERIT_COND(CSSPropertyWebkitBorderTopLeftRadius, borderTopLeftRadius, BorderTopLeftRadius)
-            HANDLE_INHERIT_COND(CSSPropertyWebkitBorderTopRightRadius, borderTopRightRadius, BorderTopRightRadius)
-            HANDLE_INHERIT_COND(CSSPropertyWebkitBorderBottomLeftRadius, borderBottomLeftRadius, BorderBottomLeftRadius)
-            HANDLE_INHERIT_COND(CSSPropertyWebkitBorderBottomRightRadius, borderBottomRightRadius, BorderBottomRightRadius)
+            HANDLE_INHERIT_COND(CSSPropertyBorderTopLeftRadius, borderTopLeftRadius, BorderTopLeftRadius)
+            HANDLE_INHERIT_COND(CSSPropertyBorderTopRightRadius, borderTopRightRadius, BorderTopRightRadius)
+            HANDLE_INHERIT_COND(CSSPropertyBorderBottomLeftRadius, borderBottomLeftRadius, BorderBottomLeftRadius)
+            HANDLE_INHERIT_COND(CSSPropertyBorderBottomRightRadius, borderBottomRightRadius, BorderBottomRightRadius)
             return;
         }
         
         if (isInitial) {
-            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyWebkitBorderTopLeftRadius, BorderTopLeftRadius, BorderRadius)
-            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyWebkitBorderTopRightRadius, BorderTopRightRadius, BorderRadius)
-            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyWebkitBorderBottomLeftRadius, BorderBottomLeftRadius, BorderRadius)
-            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyWebkitBorderBottomRightRadius, BorderBottomRightRadius, BorderRadius)
+            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyBorderTopLeftRadius, BorderTopLeftRadius, BorderRadius)
+            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyBorderTopRightRadius, BorderTopRightRadius, BorderRadius)
+            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyBorderBottomLeftRadius, BorderBottomLeftRadius, BorderRadius)
+            HANDLE_INITIAL_COND_WITH_VALUE(CSSPropertyBorderBottomRightRadius, BorderBottomRightRadius, BorderRadius)
             return;
         }
 
@@ -4449,8 +4491,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         if (!pair)
             return;
 
-        int width = pair->first()->computeLengthInt(style(), zoomFactor);
-        int height = pair->second()->computeLengthInt(style(), zoomFactor);
+        int width = pair->first()->computeLengthInt(style(), m_rootElementStyle, zoomFactor);
+        int height = pair->second()->computeLengthInt(style(), m_rootElementStyle,  zoomFactor);
         if (width < 0 || height < 0)
             return;
 
@@ -4461,16 +4503,16 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
         IntSize size(width, height);
         switch (id) {
-            case CSSPropertyWebkitBorderTopLeftRadius:
+            case CSSPropertyBorderTopLeftRadius:
                 m_style->setBorderTopLeftRadius(size);
                 break;
-            case CSSPropertyWebkitBorderTopRightRadius:
+            case CSSPropertyBorderTopRightRadius:
                 m_style->setBorderTopRightRadius(size);
                 break;
-            case CSSPropertyWebkitBorderBottomLeftRadius:
+            case CSSPropertyBorderBottomLeftRadius:
                 m_style->setBorderBottomLeftRadius(size);
                 break;
-            case CSSPropertyWebkitBorderBottomRightRadius:
+            case CSSPropertyBorderBottomRightRadius:
                 m_style->setBorderBottomRightRadius(size);
                 break;
             default:
@@ -4482,11 +4524,11 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
     case CSSPropertyOutlineOffset:
         HANDLE_INHERIT_AND_INITIAL(outlineOffset, OutlineOffset)
-        m_style->setOutlineOffset(primitiveValue->computeLengthInt(style(), zoomFactor));
+        m_style->setOutlineOffset(primitiveValue->computeLengthInt(style(), m_rootElementStyle, zoomFactor));
         return;
 
     case CSSPropertyTextShadow:
-    case CSSPropertyWebkitBoxShadow: {
+    case CSSPropertyBoxShadow: {
         if (isInherit) {
             if (id == CSSPropertyTextShadow)
                 return m_style->setTextShadow(m_parentStyle->textShadow() ? new ShadowData(*m_parentStyle->textShadow()) : 0);
@@ -4502,13 +4544,15 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         int len = list->length();
         for (int i = 0; i < len; i++) {
             ShadowValue* item = static_cast<ShadowValue*>(list->itemWithoutBoundsCheck(i));
-            int x = item->x->computeLengthInt(style(), zoomFactor);
-            int y = item->y->computeLengthInt(style(), zoomFactor);
-            int blur = item->blur ? item->blur->computeLengthInt(style(), zoomFactor) : 0;
+            int x = item->x->computeLengthInt(style(), m_rootElementStyle, zoomFactor);
+            int y = item->y->computeLengthInt(style(), m_rootElementStyle, zoomFactor);
+            int blur = item->blur ? item->blur->computeLengthInt(style(), m_rootElementStyle, zoomFactor) : 0;
+            int spread = item->spread ? item->spread->computeLengthInt(style(), m_rootElementStyle, zoomFactor) : 0;
+            ShadowStyle shadowStyle = item->style && item->style->getIdent() == CSSValueInset ? Inset : Normal;
             Color color;
             if (item->color)
                 color = getColorFromPrimitiveValue(item->color.get());
-            ShadowData* shadowData = new ShadowData(x, y, blur, color.isValid() ? color : Color::transparent);
+            ShadowData* shadowData = new ShadowData(x, y, blur, spread, shadowStyle, color.isValid() ? color : Color::transparent);
             if (id == CSSPropertyTextShadow)
                 m_style->setTextShadow(shadowData, i != 0);
             else
@@ -4530,7 +4574,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
                 reflection->setOffset(Length(reflectValue->offset()->getDoubleValue(), Percent));
             else
-                reflection->setOffset(Length(reflectValue->offset()->computeLengthIntForLength(style(), zoomFactor), Fixed));
+                reflection->setOffset(Length(reflectValue->offset()->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed));
         }
         NinePieceImage mask;
         mapNinePieceImage(reflectValue->mask(), mask);
@@ -4636,7 +4680,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setHasNormalColumnGap();
             return;
         }
-        m_style->setColumnGap(primitiveValue->computeLengthFloat(style(), zoomFactor));
+        m_style->setColumnGap(primitiveValue->computeLengthFloat(style(), m_rootElementStyle, zoomFactor));
         return;
     }
     case CSSPropertyWebkitColumnWidth: {
@@ -4650,7 +4694,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setHasAutoColumnWidth();
             return;
         }
-        m_style->setColumnWidth(primitiveValue->computeLengthFloat(style(), zoomFactor));
+        m_style->setColumnWidth(primitiveValue->computeLengthFloat(style(), m_rootElementStyle, zoomFactor));
         return;
     }
     case CSSPropertyWebkitColumnRuleStyle:
@@ -4752,7 +4796,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
         else {
             bool ok = true;
-            Length l = convertToLength(primitiveValue, style(), 1, &ok);
+            Length l = convertToLength(primitiveValue, style(), m_rootElementStyle, 1, &ok);
             if (ok)
                 m_style->setMarqueeIncrement(l);
         }
@@ -4854,10 +4898,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             
         DashboardRegion *first = region;
         while (region) {
-            Length top = convertToLength(region->top(), style());
-            Length right = convertToLength(region->right(), style());
-            Length bottom = convertToLength(region->bottom(), style());
-            Length left = convertToLength(region->left(), style());
+            Length top = convertToLength(region->top(), style(), m_rootElementStyle);
+            Length right = convertToLength(region->right(), style(), m_rootElementStyle);
+            Length bottom = convertToLength(region->bottom(), style(), m_rootElementStyle);
+            Length left = convertToLength(region->left(), style(), m_rootElementStyle);
             if (region->m_isCircle)
                 m_style->setDashboardRegion(StyleDashboardRegion::Circle, region->m_label, top, right, bottom, left, region == first ? false : true);
             else if (region->m_isRectangle)
@@ -4888,11 +4932,11 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                     result *= 3;
                 else if (primitiveValue->getIdent() == CSSValueThick)
                     result *= 5;
-                width = CSSPrimitiveValue::create(result, CSSPrimitiveValue::CSS_EMS)->computeLengthFloat(style(), zoomFactor);
+                width = CSSPrimitiveValue::create(result, CSSPrimitiveValue::CSS_EMS)->computeLengthFloat(style(), m_rootElementStyle, zoomFactor);
                 break;
             }
             default:
-                width = primitiveValue->computeLengthFloat(style(), zoomFactor);
+                width = primitiveValue->computeLengthFloat(style(), m_rootElementStyle, zoomFactor);
                 break;
         }
         m_style->setTextStrokeWidth(width);
@@ -4901,7 +4945,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyWebkitTransform: {
         HANDLE_INHERIT_AND_INITIAL(transform, Transform);
         TransformOperations operations;
-        createTransformOperations(value, style(), operations);
+        createTransformOperations(value, style(), m_rootElementStyle, operations);
         m_style->setTransform(operations);
         return;
     }
@@ -4916,7 +4960,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         Length l;
         int type = primitiveValue->primitiveType();
         if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+            l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
         else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
         else
@@ -4930,8 +4974,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         Length l;
         int type = primitiveValue->primitiveType();
         if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
-        else if(type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
+        else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
         else
             return;
@@ -4944,7 +4988,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         float f;
         int type = primitiveValue->primitiveType();
         if (CSSPrimitiveValue::isUnitTypeLength(type))
-            f = static_cast<float>(primitiveValue->computeLengthIntForLength(style()));
+            f = static_cast<float>(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle));
         else
             return;
         m_style->setTransformOriginZ(f);
@@ -4961,10 +5005,17 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setPerspective(0);
             return;
         }
-
-        if (primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_NUMBER)
+        
+        float perspectiveValue;
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type))
+            perspectiveValue = static_cast<float>(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor));
+        else if (type == CSSPrimitiveValue::CSS_NUMBER) {
+            // For backward compatibility, treat valueless numbers as px.
+            perspectiveValue = CSSPrimitiveValue::create(primitiveValue->getDoubleValue(), CSSPrimitiveValue::CSS_PX)->computeLengthFloat(style(), m_rootElementStyle, zoomFactor);
+        } else
             return;
-        float perspectiveValue = static_cast<float>(primitiveValue->getDoubleValue());
+
         if (perspectiveValue >= 0.0f)
             m_style->setPerspective(perspectiveValue);
         return;
@@ -4979,7 +5030,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         Length l;
         int type = primitiveValue->primitiveType();
         if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+            l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
         else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
         else
@@ -4993,8 +5044,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         Length l;
         int type = primitiveValue->primitiveType();
         if (CSSPrimitiveValue::isUnitTypeLength(type))
-            l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
-        else if(type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
+        else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
             l = Length(primitiveValue->getDoubleValue(), Percent);
         else
             return;
@@ -5021,6 +5072,9 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyWebkitAnimationName:
         HANDLE_ANIMATION_VALUE(name, Name, value)
+        return;
+    case CSSPropertyWebkitAnimationPlayState:
+        HANDLE_ANIMATION_VALUE(playState, PlayState, value)
         return;
     case CSSPropertyWebkitAnimationTimingFunction:
         HANDLE_ANIMATION_VALUE(timingFunction, TimingFunction, value)
@@ -5118,10 +5172,13 @@ void CSSStyleSelector::mapFillAttachment(FillLayer* layer, CSSValue* value)
     CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
     switch (primitiveValue->getIdent()) {
         case CSSValueFixed:
-            layer->setAttachment(false);
+            layer->setAttachment(FixedBackgroundAttachment);
             break;
         case CSSValueScroll:
-            layer->setAttachment(true);
+            layer->setAttachment(ScrollBackgroundAttachment);
+            break;
+        case CSSValueLocal:
+            layer->setAttachment(LocalBackgroundAttachment);
             break;
         default:
             return;
@@ -5235,7 +5292,7 @@ void CSSStyleSelector::mapFillSize(FillLayer* layer, CSSValue* value)
     if (firstType == CSSPrimitiveValue::CSS_UNKNOWN)
         firstLength = Length(Auto);
     else if (CSSPrimitiveValue::isUnitTypeLength(firstType))
-        firstLength = Length(first->computeLengthIntForLength(style(), zoomFactor), Fixed);
+        firstLength = Length(first->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
     else if (firstType == CSSPrimitiveValue::CSS_PERCENTAGE)
         firstLength = Length(first->getDoubleValue(), Percent);
     else
@@ -5244,7 +5301,7 @@ void CSSStyleSelector::mapFillSize(FillLayer* layer, CSSValue* value)
     if (secondType == CSSPrimitiveValue::CSS_UNKNOWN)
         secondLength = Length(Auto);
     else if (CSSPrimitiveValue::isUnitTypeLength(secondType))
-        secondLength = Length(second->computeLengthIntForLength(style(), zoomFactor), Fixed);
+        secondLength = Length(second->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
     else if (secondType == CSSPrimitiveValue::CSS_PERCENTAGE)
         secondLength = Length(second->getDoubleValue(), Percent);
     else
@@ -5271,7 +5328,7 @@ void CSSStyleSelector::mapFillXPosition(FillLayer* layer, CSSValue* value)
     Length l;
     int type = primitiveValue->primitiveType();
     if (CSSPrimitiveValue::isUnitTypeLength(type))
-        l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+        l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
     else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
         l = Length(primitiveValue->getDoubleValue(), Percent);
     else
@@ -5295,7 +5352,7 @@ void CSSStyleSelector::mapFillYPosition(FillLayer* layer, CSSValue* value)
     Length l;
     int type = primitiveValue->primitiveType();
     if (CSSPrimitiveValue::isUnitTypeLength(type))
-        l = Length(primitiveValue->computeLengthIntForLength(style(), zoomFactor), Fixed);
+        l = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed);
     else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
         l = Length(primitiveValue->getDoubleValue(), Percent);
     else
@@ -5375,6 +5432,18 @@ void CSSStyleSelector::mapAnimationName(Animation* layer, CSSValue* value)
         layer->setIsNoneAnimation(true);
     else
         layer->setName(primitiveValue->getStringValue());
+}
+
+void CSSStyleSelector::mapAnimationPlayState(Animation* layer, CSSValue* value)
+{
+    if (value->cssValueType() == CSSValue::CSS_INITIAL) {
+        layer->setPlayState(Animation::initialAnimationPlayState());
+        return;
+    }
+
+    CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
+    EAnimPlayState playState = (primitiveValue->getIdent() == CSSValuePaused) ? AnimPlayStatePaused : AnimPlayStatePlaying;
+    layer->setPlayState(playState);
 }
 
 void CSSStyleSelector::mapAnimationProperty(Animation* animation, CSSValue* value)
@@ -5706,7 +5775,7 @@ static Color colorForCSSValue(int cssValueId)
         if (col->cssValueId == cssValueId)
             return col->color;
     }
-    return theme()->systemColor(cssValueId);
+    return RenderTheme::defaultTheme()->systemColor(cssValueId);
 }
 
 Color CSSStyleSelector::getColorFromPrimitiveValue(CSSPrimitiveValue* primitiveValue)
@@ -5729,13 +5798,13 @@ Color CSSStyleSelector::getColorFromPrimitiveValue(CSSPrimitiveValue* primitiveV
         } else if (ident == CSSValueWebkitActivelink)
             col = m_element->document()->activeLinkColor();
         else if (ident == CSSValueWebkitFocusRingColor)
-            col = focusRingColor();
+            col = RenderTheme::focusRingColor();
         else if (ident == CSSValueCurrentcolor)
             col = m_style->color();
         else
             col = colorForCSSValue(ident);
     } else if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_RGBCOLOR)
-        col.setRGB(primitiveValue->getRGBColorValue());
+        col.setRGB(primitiveValue->getRGBA32Value());
     return col;
 }
 
@@ -5809,7 +5878,7 @@ static TransformOperation::OperationType getTransformOperationType(WebKitCSSTran
     return TransformOperation::NONE;
 }
 
-bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle* style, TransformOperations& outOperations)
+bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle* style, RenderStyle* rootStyle, TransformOperations& outOperations)
 {
     float zoomFactor = style ? style->effectiveZoom() : 1;
 
@@ -5876,13 +5945,13 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
                     Length tx = Length(0, Fixed);
                     Length ty = Length(0, Fixed);
                     if (val->operationType() == WebKitCSSTransformValue::TranslateYTransformOperation)
-                        ty = convertToLength(firstValue, style, zoomFactor, &ok);
+                        ty = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
                     else { 
-                        tx = convertToLength(firstValue, style, zoomFactor, &ok);
+                        tx = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
                         if (val->operationType() != WebKitCSSTransformValue::TranslateXTransformOperation) {
                             if (val->length() > 1) {
                                 CSSPrimitiveValue* secondValue = static_cast<CSSPrimitiveValue*>(val->itemWithoutBoundsCheck(1));
-                                ty = convertToLength(secondValue, style, zoomFactor, &ok);
+                                ty = convertToLength(secondValue, style, rootStyle, zoomFactor, &ok);
                             }
                         }
                     }
@@ -5900,19 +5969,19 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
                     Length ty = Length(0, Fixed);
                     Length tz = Length(0, Fixed);
                     if (val->operationType() == WebKitCSSTransformValue::TranslateZTransformOperation)
-                        tz = convertToLength(firstValue, style, zoomFactor, &ok);
+                        tz = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
                     else if (val->operationType() == WebKitCSSTransformValue::TranslateYTransformOperation)
-                        ty = convertToLength(firstValue, style, zoomFactor, &ok);
+                        ty = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
                     else { 
-                        tx = convertToLength(firstValue, style, zoomFactor, &ok);
+                        tx = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
                         if (val->operationType() != WebKitCSSTransformValue::TranslateXTransformOperation) {
                             if (val->length() > 2) {
                                 CSSPrimitiveValue* thirdValue = static_cast<CSSPrimitiveValue*>(val->itemWithoutBoundsCheck(2));
-                                tz = convertToLength(thirdValue, style, zoomFactor, &ok);
+                                tz = convertToLength(thirdValue, style, rootStyle, zoomFactor, &ok);
                             }
                             if (val->length() > 1) {
                                 CSSPrimitiveValue* secondValue = static_cast<CSSPrimitiveValue*>(val->itemWithoutBoundsCheck(1));
-                                ty = convertToLength(secondValue, style, zoomFactor, &ok);
+                                ty = convertToLength(secondValue, style, rootStyle, zoomFactor, &ok);
                             }
                         }
                     }

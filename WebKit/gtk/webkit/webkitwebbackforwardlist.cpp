@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Jan Michael C. Alonzo
+ * Copyright (C) 2009 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -51,18 +52,41 @@
 
 using namespace WebKit;
 
-extern "C" {
-
 struct _WebKitWebBackForwardListPrivate {
     WebCore::BackForwardList* backForwardList;
+    gboolean disposed;
 };
 
 #define WEBKIT_WEB_BACK_FORWARD_LIST_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_BACK_FORWARD_LIST, WebKitWebBackForwardListPrivate))
 
 G_DEFINE_TYPE(WebKitWebBackForwardList, webkit_web_back_forward_list, G_TYPE_OBJECT);
 
+static void webkit_web_back_forward_list_dispose(GObject* object)
+{
+    WebKitWebBackForwardList* list = WEBKIT_WEB_BACK_FORWARD_LIST(object);
+    WebCore::BackForwardList* backForwardList = core(list);
+    WebKitWebBackForwardListPrivate* priv = list->priv;
+
+    if (!priv->disposed) {
+        priv->disposed = true;
+
+        WebCore::HistoryItemVector items = backForwardList->entries();
+        GHashTable* table = webkit_history_items();
+        for (unsigned i = 0; i < items.size(); i++)
+            g_hash_table_remove(table, items[i].get());
+    }
+
+    G_OBJECT_CLASS(webkit_web_back_forward_list_parent_class)->dispose(object);
+}
+
 static void webkit_web_back_forward_list_class_init(WebKitWebBackForwardListClass* klass)
 {
+    GObjectClass* object_class = G_OBJECT_CLASS(klass);
+
+    object_class->dispose = webkit_web_back_forward_list_dispose;
+
+    webkit_init();
+
     g_type_class_add_private(klass, sizeof(WebKitWebBackForwardListPrivate));
 }
 
@@ -397,19 +421,22 @@ void webkit_web_back_forward_list_set_limit(WebKitWebBackForwardList* webBackFor
  *
  * Adds the item to the #WebKitWebBackForwardList.
  *
+ * The @webBackForwardList will add a reference to the @webHistoryItem, so you
+ * don't need to keep a reference once you've added it to the list.
+ *
  * Since: 1.1.1
  */
 void webkit_web_back_forward_list_add_item(WebKitWebBackForwardList *webBackForwardList, WebKitWebHistoryItem *webHistoryItem)
 {
     g_return_if_fail(WEBKIT_IS_WEB_BACK_FORWARD_LIST(webBackForwardList));
 
+    g_object_ref(webHistoryItem);
+
     WebCore::BackForwardList* backForwardList = core(webBackForwardList);
     WebCore::HistoryItem* historyItem = core(webHistoryItem);
 
     backForwardList->addItem(historyItem);
 }
-
-} /* end extern "C" */
 
 WebCore::BackForwardList* WebKit::core(WebKitWebBackForwardList* webBackForwardList)
 {

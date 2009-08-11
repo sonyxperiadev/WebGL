@@ -32,8 +32,6 @@ public:
     WMLOptGroupElement(const QualifiedName& tagName, Document*);
     virtual ~WMLOptGroupElement();
 
-    String title() const { return m_title; }
-
     virtual const AtomicString& formControlType() const;
 
     virtual bool rendererIsNeeded(RenderStyle*) { return false; }
@@ -59,7 +57,6 @@ private:
     void recalcSelectOptions();
 
 private:
-    String m_title;
     RefPtr<RenderStyle> m_style;
 };
 

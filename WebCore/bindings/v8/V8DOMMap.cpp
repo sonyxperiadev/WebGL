@@ -31,19 +31,14 @@
 #include "config.h"
 #include "V8DOMMap.h"
 
+#include "DOMData.h"
+#include "DOMDataStore.h"
 #include "DOMObjectsInclude.h"
-
-#include <v8.h>
-#include <wtf/HashMap.h>
-#include <wtf/MainThread.h>
-#include <wtf/Noncopyable.h>
-#include <wtf/StdLibExtras.h>
-#include <wtf/Threading.h>
-#include <wtf/ThreadSpecific.h>
-#include <wtf/Vector.h>
+#include "ScopedDOMDataStore.h"
 
 namespace WebCore {
 
+#ifdef MANUAL_MERGE_REQUIRED
 // DOM binding algorithm:
 //
 // There are two kinds of DOM objects:
@@ -289,281 +284,74 @@ template<typename T>
 static void handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMWrapperMapType mapType, V8ClassIndex::V8WrapperType objectType, T*);
 
 ThreadSpecificDOMData& getThreadSpecificDOMData()
+#else // MANUAL_MERGE_REQUIRED
+DOMDataStoreHandle::DOMDataStoreHandle()
+    : m_store(new ScopedDOMDataStore(DOMData::getCurrent()))
+#endif // MANUAL_MERGE_REQUIRED
 {
-    if (WTF::isMainThread()) {
-        DEFINE_STATIC_LOCAL(MainThreadSpecificDOMData, mainThreadSpecificDOMData, ());
-        return mainThreadSpecificDOMData;
-    }
-    return *threadSpecificDOMData;
 }
 
-template <class KeyType>
-void ThreadSpecificDOMData::InternalDOMWrapperMap<KeyType>::forget(KeyType* object)
+DOMDataStoreHandle::~DOMDataStoreHandle()
 {
-    DOMWrapperMap<KeyType>::forget(object);
-
-    ThreadSpecificDOMData::DelayedObjectMap& delayedObjectMap = getThreadSpecificDOMData().delayedObjectMap();
-    delayedObjectMap.take(object);
 }
 
 DOMWrapperMap<Node>& getDOMNodeMap()
 {
-    return getThreadSpecificDOMData().domNodeMap();
+    // Nodes only exist on the main thread.
+    return DOMData::getCurrentMainThread()->getStore().domNodeMap();
 }
 
 DOMWrapperMap<void>& getDOMObjectMap()
 {
-    return getThreadSpecificDOMData().domObjectMap();
+    return DOMData::getCurrent()->getStore().domObjectMap();
 }
 
 DOMWrapperMap<void>& getActiveDOMObjectMap()
 {
-    return getThreadSpecificDOMData().activeDomObjectMap();
+    return DOMData::getCurrent()->getStore().activeDomObjectMap();
 }
 
 #if ENABLE(SVG)
+
 DOMWrapperMap<SVGElementInstance>& getDOMSVGElementInstanceMap()
 {
-    return getThreadSpecificDOMData().domSvgElementInstanceMap();
-}
-
-static void weakSVGElementInstanceCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    SVGElementInstance* instance = static_cast<SVGElementInstance*>(domObject);
-
-    ThreadSpecificDOMData::InternalDOMWrapperMap<SVGElementInstance>& map = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<SVGElementInstance>&>(getDOMSVGElementInstanceMap());
-    if (map.contains(instance)) {
-        instance->deref();
-        map.forgetOnly(instance);
-    } else
-        handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMSVGElementInstanceMap, V8ClassIndex::SVGELEMENTINSTANCE, instance);
+    return DOMData::getCurrent()->getStore().domSvgElementInstanceMap();
 }
 
 // Map of SVG objects with contexts to V8 objects
 DOMWrapperMap<void>& getDOMSVGObjectWithContextMap()
 {
-    return getThreadSpecificDOMData().domSvgObjectWithContextMap();
+    return DOMData::getCurrent()->getStore().domSvgObjectWithContextMap();
 }
 
-static void weakSVGObjectWithContextCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    v8::HandleScope scope;
-    ASSERT(v8Object->IsObject());
-
-    V8ClassIndex::V8WrapperType type = V8Proxy::GetDOMWrapperType(v8::Handle<v8::Object>::Cast(v8Object));
-
-    ThreadSpecificDOMData::InternalDOMWrapperMap<void>& map = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<void>&>(getDOMSVGObjectWithContextMap());
-    if (map.contains(domObject)) {
-        // The forget function removes object from the map and disposes the wrapper.
-        map.forgetOnly(domObject);
-
-        switch (type) {
-#define MakeCase(type, name)     \
-            case V8ClassIndex::type: static_cast<name*>(domObject)->deref(); break;
-        SVG_OBJECT_TYPES(MakeCase)
-#undef MakeCase
-#define MakeCase(type, name)     \
-            case V8ClassIndex::type:    \
-                static_cast<V8SVGPODTypeWrapper<name>*>(domObject)->deref(); break;
-        SVG_POD_NATIVE_TYPES(MakeCase)
-#undef MakeCase
-        default:
-            ASSERT_NOT_REACHED();
-            break;
-        }
-    } else
-        handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMSVGObjectWithContextMap, type, domObject);
-}
 #endif // ENABLE(SVG)
-
-// Called when the dead object is not in GC thread's map. Go through all thread maps to find the one containing it.
-// Then clear the JS reference and push the DOM object into the delayed queue for it to be deref-ed at later time from the owning thread.
-// * This is called when the GC thread is not the owning thread.
-// * This can be called on any thread that has GC running.
-// * Only one V8 instance is running at a time due to V8::Locker. So we don't need to worry about concurrency.
-template<typename T>
-static void handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMWrapperMapType mapType, V8ClassIndex::V8WrapperType objectType, T* object)
-{
-    WTF::MutexLocker locker(domDataListMutex());
-    DOMDataList& list = domDataList();
-    for (size_t i = 0; i < list.size(); ++i) {
-        ThreadSpecificDOMData* threadData = list[i];
-
-        ThreadSpecificDOMData::InternalDOMWrapperMap<T>* domMap = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<T>*>(threadData->getDOMWrapperMap(mapType));
-        if (domMap->contains(object)) {
-            // Clear the JS reference.
-            domMap->forgetOnly(object);
-
-            // Push into the delayed queue.
-            threadData->delayedObjectMap().set(object, objectType);
-
-            // Post a task to the owning thread in order to process the delayed queue.
-            // FIXME: For now, we can only post to main thread due to WTF task posting limitation. We will fix this when we work on nested worker.
-            if (!threadData->delayedProcessingScheduled()) {
-                threadData->setDelayedProcessingScheduled(true);
-                if (threadData->isMainThread())
-                    WTF::callOnMainThread(&derefDelayedObjectsInCurrentThread, 0);
-            }
-
-            break;
-        }
-    }
-}
-
-// Called when the object is near death (not reachable from JS roots).
-// It is time to remove the entry from the table and dispose the handle.
-static void weakDOMObjectCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    v8::HandleScope scope;
-    ASSERT(v8Object->IsObject());
-
-    V8ClassIndex::V8WrapperType type = V8Proxy::GetDOMWrapperType(v8::Handle<v8::Object>::Cast(v8Object));
-
-    ThreadSpecificDOMData::InternalDOMWrapperMap<void>& map = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<void>&>(getDOMObjectMap());
-    if (map.contains(domObject)) {
-        // The forget function removes object from the map and disposes the wrapper.
-        map.forgetOnly(domObject);
-
-        switch (type) {
-#define MakeCase(type, name)   \
-            case V8ClassIndex::type: static_cast<name*>(domObject)->deref(); break;
-        DOM_OBJECT_TYPES(MakeCase)
-#undef MakeCase
-        default:
-            ASSERT_NOT_REACHED();
-            break;
-        }
-    } else
-        handleWeakObjectInOwningThread(ThreadSpecificDOMData::DOMObjectMap, type, domObject);
-}
-
-void weakActiveDOMObjectCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    v8::HandleScope scope;
-    ASSERT(v8Object->IsObject());
-
-    V8ClassIndex::V8WrapperType type = V8Proxy::GetDOMWrapperType(v8::Handle<v8::Object>::Cast(v8Object));
-
-    ThreadSpecificDOMData::InternalDOMWrapperMap<void>& map = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<void>&>(getActiveDOMObjectMap());
-    if (map.contains(domObject)) {
-        // The forget function removes object from the map and disposes the wrapper.
-        map.forgetOnly(domObject);
-
-        switch (type) {
-#define MakeCase(type, name)   \
-            case V8ClassIndex::type: static_cast<name*>(domObject)->deref(); break;
-        ACTIVE_DOM_OBJECT_TYPES(MakeCase)
-#undef MakeCase
-        default:
-            ASSERT_NOT_REACHED();
-            break;
-        }
-    } else
-        handleWeakObjectInOwningThread(ThreadSpecificDOMData::ActiveDOMObjectMap, type, domObject);
-}
-
-static void weakNodeCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    Node* node = static_cast<Node*>(domObject);
-
-    ThreadSpecificDOMData::InternalDOMWrapperMap<Node>& map = static_cast<ThreadSpecificDOMData::InternalDOMWrapperMap<Node>&>(getDOMNodeMap());
-    if (map.contains(node)) {
-        map.forgetOnly(node);
-        node->deref();
-    } else
-        handleWeakObjectInOwningThread<Node>(ThreadSpecificDOMData::DOMNodeMap, V8ClassIndex::NODE, node);
-}
-
-static void derefObject(V8ClassIndex::V8WrapperType type, void* domObject)
-{
-    switch (type) {
-    case V8ClassIndex::NODE:
-        static_cast<Node*>(domObject)->deref();
-        break;
-
-#define MakeCase(type, name)   \
-        case V8ClassIndex::type: static_cast<name*>(domObject)->deref(); break;
-    DOM_OBJECT_TYPES(MakeCase)   // This includes both active and non-active.
-#undef MakeCase
-
-#if ENABLE(SVG)
-#define MakeCase(type, name)     \
-        case V8ClassIndex::type: static_cast<name*>(domObject)->deref(); break;
-    SVG_OBJECT_TYPES(MakeCase)   // This also includes SVGElementInstance.
-#undef MakeCase
-
-#define MakeCase(type, name)     \
-        case V8ClassIndex::type:    \
-            static_cast<V8SVGPODTypeWrapper<name>*>(domObject)->deref(); break;
-    SVG_POD_NATIVE_TYPES(MakeCase)
-#undef MakeCase
-#endif
-
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
-}
-
-static void derefDelayedObjects()
-{
-    WTF::MutexLocker locker(domDataListMutex());
-
-    getThreadSpecificDOMData().setDelayedProcessingScheduled(false);
-
-    ThreadSpecificDOMData::DelayedObjectMap& delayedObjectMap = getThreadSpecificDOMData().delayedObjectMap();
-    for (ThreadSpecificDOMData::DelayedObjectMap::iterator iter(delayedObjectMap.begin()); iter != delayedObjectMap.end(); ++iter) {
-        derefObject(iter->second, iter->first);
-    }
-    delayedObjectMap.clear();
-}
-
-static void derefDelayedObjectsInCurrentThread(void*)
-{
-    derefDelayedObjects();
-}
-
-template<typename T>
-static void removeObjectsFromWrapperMap(DOMWrapperMap<T>& domMap)
-{
-    for (typename WTF::HashMap<T*, v8::Object*>::iterator iter(domMap.impl().begin()); iter != domMap.impl().end(); ++iter) {
-        T* domObject = static_cast<T*>(iter->first);
-        v8::Persistent<v8::Object> v8Object(iter->second);
-
-        V8ClassIndex::V8WrapperType type = V8Proxy::GetDOMWrapperType(v8::Handle<v8::Object>::Cast(v8Object));
-
-        // Deref the DOM object.
-        derefObject(type, domObject);
-
-        // Clear the JS wrapper.
-        v8Object.Dispose();
-    }
-    domMap.impl().clear();
-}
 
 static void removeAllDOMObjectsInCurrentThreadHelper()
 {
     v8::HandleScope scope;
 
     // Deref all objects in the delayed queue.
-    derefDelayedObjects();
+    DOMData::getCurrent()->derefDelayedObjects();
 
-    // Remove all DOM nodes.
-    removeObjectsFromWrapperMap<Node>(getDOMNodeMap());
-
-    // Remove all DOM objects in the wrapper map.
-    removeObjectsFromWrapperMap<void>(getDOMObjectMap());
-
-    // Remove all active DOM objects in the wrapper map.
-    removeObjectsFromWrapperMap<void>(getActiveDOMObjectMap());
+    // The DOM objects with the following types only exist on the main thread.
+    if (WTF::isMainThread()) {
+        // Remove all DOM nodes.
+        DOMData::removeObjectsFromWrapperMap<Node>(getDOMNodeMap());
 
 #if ENABLE(SVG)
-    // Remove all SVG element instances in the wrapper map.
-    removeObjectsFromWrapperMap<SVGElementInstance>(getDOMSVGElementInstanceMap());
+        // Remove all SVG element instances in the wrapper map.
+        DOMData::removeObjectsFromWrapperMap<SVGElementInstance>(getDOMSVGElementInstanceMap());
 
-    // Remove all SVG objects with context in the wrapper map.
-    removeObjectsFromWrapperMap<void>(getDOMSVGObjectWithContextMap());
+        // Remove all SVG objects with context in the wrapper map.
+        DOMData::removeObjectsFromWrapperMap<void>(getDOMSVGObjectWithContextMap());
 #endif
+    }
+
+    // Remove all DOM objects in the wrapper map.
+    DOMData::removeObjectsFromWrapperMap<void>(getDOMObjectMap());
+
+    // Remove all active DOM objects in the wrapper map.
+    DOMData::removeObjectsFromWrapperMap<void>(getActiveDOMObjectMap());
 }
 
 void removeAllDOMObjectsInCurrentThread()
@@ -575,5 +363,95 @@ void removeAllDOMObjectsInCurrentThread()
     } else
         removeAllDOMObjectsInCurrentThreadHelper();
 }
+
+
+void visitDOMNodesInCurrentThread(DOMWrapperMap<Node>::Visitor* visitor)
+{
+    v8::HandleScope scope;
+
+    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
+    DOMDataList& list = DOMDataStore::allStores();
+    for (size_t i = 0; i < list.size(); ++i) {
+        DOMDataStore* store = list[i];
+        if (!store->domData()->owningThread() == WTF::currentThread())
+            continue;
+
+        HashMap<Node*, v8::Object*>& map = store->domNodeMap().impl();
+        for (HashMap<Node*, v8::Object*>::iterator it = map.begin(); it != map.end(); ++it)
+            visitor->visitDOMWrapper(it->first, v8::Persistent<v8::Object>(it->second));
+    }
+}
+
+void visitDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor* visitor)
+{
+    v8::HandleScope scope;
+
+    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
+    DOMDataList& list = DOMDataStore::allStores();
+    for (size_t i = 0; i < list.size(); ++i) {
+        DOMDataStore* store = list[i];
+        if (!store->domData()->owningThread() == WTF::currentThread())
+            continue;
+
+        HashMap<void*, v8::Object*> & map = store->domObjectMap().impl();
+        for (HashMap<void*, v8::Object*>::iterator it = map.begin(); it != map.end(); ++it)
+            visitor->visitDOMWrapper(it->first, v8::Persistent<v8::Object>(it->second));
+    }
+}
+
+void visitActiveDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor* visitor)
+{
+    v8::HandleScope scope;
+
+    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
+    DOMDataList& list = DOMDataStore::allStores();
+    for (size_t i = 0; i < list.size(); ++i) {
+        DOMDataStore* store = list[i];
+        if (!store->domData()->owningThread() == WTF::currentThread())
+            continue;
+
+        HashMap<void*, v8::Object*>& map = store->activeDomObjectMap().impl();
+        for (HashMap<void*, v8::Object*>::iterator it = map.begin(); it != map.end(); ++it)
+            visitor->visitDOMWrapper(it->first, v8::Persistent<v8::Object>(it->second));
+    }
+}
+
+#if ENABLE(SVG)
+
+void visitDOMSVGElementInstancesInCurrentThread(DOMWrapperMap<SVGElementInstance>::Visitor* visitor)
+{
+    v8::HandleScope scope;
+
+    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
+    DOMDataList& list = DOMDataStore::allStores();
+    for (size_t i = 0; i < list.size(); ++i) {
+        DOMDataStore* store = list[i];
+        if (!store->domData()->owningThread() == WTF::currentThread())
+            continue;
+
+        HashMap<SVGElementInstance*, v8::Object*> & map = store->domSvgElementInstanceMap().impl();
+        for (HashMap<SVGElementInstance*, v8::Object*>::iterator it = map.begin(); it != map.end(); ++it)
+            visitor->visitDOMWrapper(it->first, v8::Persistent<v8::Object>(it->second));
+    }
+}
+
+void visitSVGObjectsInCurrentThread(DOMWrapperMap<void>::Visitor* visitor)
+{
+    v8::HandleScope scope;
+
+    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
+    DOMDataList& list = DOMDataStore::allStores();
+    for (size_t i = 0; i < list.size(); ++i) {
+        DOMDataStore* store = list[i];
+        if (!store->domData()->owningThread() == WTF::currentThread())
+            continue;
+
+        HashMap<void*, v8::Object*>& map = store->domSvgObjectWithContextMap().impl();
+        for (HashMap<void*, v8::Object*>::iterator it = map.begin(); it != map.end(); ++it)
+            visitor->visitDOMWrapper(it->first, v8::Persistent<v8::Object>(it->second));
+    }
+}
+
+#endif
 
 } // namespace WebCore

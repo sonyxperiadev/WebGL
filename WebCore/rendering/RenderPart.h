@@ -34,7 +34,7 @@ public:
     
     bool hasFallbackContent() const { return m_hasFallbackContent; }
 
-    virtual void setWidget(Widget*);
+    virtual void setWidget(PassRefPtr<Widget>);
     virtual void viewCleared();
 
 protected:
@@ -43,9 +43,16 @@ protected:
 private:
     virtual bool isRenderPart() const { return true; }
     virtual const char* renderName() const { return "RenderPart"; }
-
-    virtual void deleteWidget(Widget*);
 };
+
+inline RenderPart* toRenderPart(RenderObject* object)
+{
+    ASSERT(!object || object->isRenderPart());
+    return static_cast<RenderPart*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderPart(const RenderPart*);
 
 }
 

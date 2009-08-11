@@ -225,6 +225,9 @@ public:
     TransformationMatrix& applyPerspective(double p);
     bool hasPerspective() const { return m_matrix[2][3] != 0.0f; }
 
+    // returns a transformation that maps a rect to a rect
+    static TransformationMatrix rectToRect(const FloatRect&, const FloatRect&);
+
     bool isInvertible() const;
 
     // This method returns the identity matrix if it is not invertible.
@@ -284,7 +287,7 @@ public:
     }
     
     // result = *this * t (i.e., a multRight)
-    TransformationMatrix operator*(const TransformationMatrix& t)
+    TransformationMatrix operator*(const TransformationMatrix& t) const
     {
         TransformationMatrix result = t;
         result.multLeft(*this);
@@ -301,6 +304,10 @@ public:
     operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
     operator wxGraphicsMatrix() const;
+#endif
+
+#if PLATFORM(WIN)
+    operator XFORM() const;
 #endif
 
 private:

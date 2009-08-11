@@ -77,6 +77,11 @@ void WMLElement::parseMappedAttribute(MappedAttribute* attr)
     }
 }
 
+String WMLElement::title() const
+{
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::titleAttr));
+}
+
 bool WMLElement::rendererIsNeeded(RenderStyle* style)
 {
     return document()->documentElement() == this || style->display() != NONE;
@@ -87,7 +92,7 @@ RenderObject* WMLElement::createRenderer(RenderArena*, RenderStyle* style)
     return RenderObject::createObject(this, style);
 }
 
-String WMLElement::parseValueSubstitutingVariableReferences(const AtomicString& value, WMLErrorCode defaultErrorCode)
+String WMLElement::parseValueSubstitutingVariableReferences(const AtomicString& value, WMLErrorCode defaultErrorCode) const
 {
     bool isValid = false;
     if (!containsVariableReference(value, isValid))
@@ -101,7 +106,7 @@ String WMLElement::parseValueSubstitutingVariableReferences(const AtomicString& 
     return substituteVariableReferences(value, document());
 }
 
-String WMLElement::parseValueForbiddingVariableReferences(const AtomicString& value)
+String WMLElement::parseValueForbiddingVariableReferences(const AtomicString& value) const
 {
     bool isValid = false;
     if (containsVariableReference(value, isValid)) {

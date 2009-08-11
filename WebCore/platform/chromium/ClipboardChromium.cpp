@@ -33,6 +33,7 @@
 #include "ClipboardUtilitiesChromium.h"
 #include "Document.h"
 #include "Element.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "NamedAttrMap.h"
@@ -175,6 +176,12 @@ HashSet<String> ClipboardChromium::types() const
     return results;
 }
 
+PassRefPtr<FileList> ClipboardChromium::files() const
+{
+    notImplemented();
+    return 0;
+}
+
 void ClipboardChromium::setDragImage(CachedImage* image, Node* node, const IntPoint& loc)
 {
     if (policy() != ClipboardImageWritable && policy() != ClipboardWritable)
@@ -245,7 +252,7 @@ static CachedImage* getCachedImage(Element* element)
     if (!renderer || !renderer->isImage())
         return 0;
 
-    RenderImage* image = static_cast<RenderImage*>(renderer);
+    RenderImage* image = toRenderImage(renderer);
     if (image->cachedImage() && !image->cachedImage()->errorOccurred())
         return image->cachedImage();
 
@@ -296,7 +303,7 @@ void ClipboardChromium::declareAndWriteDragImage(Element* element, const KURL& u
     if (imageURL.isEmpty())
         return;
 
-    String fullURL = frame->document()->completeURL(parseURL(imageURL));
+    String fullURL = frame->document()->completeURL(deprecatedParseURL(imageURL));
     if (fullURL.isEmpty())
         return;
 
@@ -327,6 +334,9 @@ void ClipboardChromium::writeRange(Range* selectedRange, Frame* frame)
 
     m_dataObject->textHtml = createMarkup(selectedRange, 0,
         AnnotateForInterchange);
+#if PLATFORM(DARWIN)
+    m_dataObject->textHtml = String("<meta charset='utf-8'>") + m_dataObject->textHtml;
+#endif
     m_dataObject->htmlBaseUrl = frame->document()->url();
 
     String str = frame->selectedText();

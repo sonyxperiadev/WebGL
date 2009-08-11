@@ -32,6 +32,7 @@
 #define V8DOMMap_h
 
 #include <wtf/HashMap.h>
+#include <wtf/OwnPtr.h>
 #include <v8.h>
 
 namespace WebCore {
@@ -48,10 +49,18 @@ namespace WebCore {
         WeakReferenceMap(v8::WeakReferenceCallback callback) : m_weakReferenceCallback(callback) { }
         virtual ~WeakReferenceMap()
         {
+#ifdef MANUAL_MERGE_REQUIRED
 #ifndef NDEBUG
+#else // MANUAL_MERGE_REQUIRED
+    #ifndef NDEBUG
+#endif // MANUAL_MERGE_REQUIRED
             if (m_map.size() > 0)
                 fprintf(stderr, "Leak %d JS wrappers.\n", m_map.size());
+#ifdef MANUAL_MERGE_REQUIRED
 #endif
+#else // MANUAL_MERGE_REQUIRED
+    #endif
+#endif // MANUAL_MERGE_REQUIRED
         }
 
         // Get the JS wrapper object of an object.
@@ -89,23 +98,42 @@ namespace WebCore {
         v8::WeakReferenceCallback m_weakReferenceCallback;
     };
 
-
     template <class KeyType> class DOMWrapperMap : public WeakReferenceMap<KeyType, v8::Object> {
     public:
         DOMWrapperMap(v8::WeakReferenceCallback callback) : WeakReferenceMap<KeyType, v8::Object>(callback) { }
+
+        class Visitor {
+        public:
+          virtual void visitDOMWrapper(KeyType* key, v8::Persistent<v8::Object> object) = 0;
+        };
     };
 
-    // Callback when JS wrapper of active DOM object is dead.
-    void weakActiveDOMObjectCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
+    // An opaque class that represents a set of DOM wrappers.
+    class DOMDataStore;
+
+    // A utility class to manage the lifetime of set of DOM wrappers.
+    class DOMDataStoreHandle {
+    public:
+        DOMDataStoreHandle();
+        ~DOMDataStoreHandle();
+
+        DOMDataStore* getStore() const { return m_store.get(); }
+
+    private:
+        OwnPtr<DOMDataStore> m_store;
+    };
 
     // A map from DOM node to its JS wrapper.
     DOMWrapperMap<Node>& getDOMNodeMap();
+    void visitDOMNodesInCurrentThread(DOMWrapperMap<Node>::Visitor*);
 
     // A map from a DOM object (non-node) to its JS wrapper. This map does not contain the DOM objects which can have pending activity (active dom objects).
     DOMWrapperMap<void>& getDOMObjectMap();
+    void visitDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor*);
 
     // A map from a DOM object to its JS wrapper for DOM objects which can have pending activity.
     DOMWrapperMap<void>& getActiveDOMObjectMap();
+    void visitActiveDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor*);
 
     // This should be called to remove all DOM objects associated with the current thread when it is tearing down.
     void removeAllDOMObjectsInCurrentThread();
@@ -113,9 +141,11 @@ namespace WebCore {
 #if ENABLE(SVG)
     // A map for SVGElementInstances to its JS wrapper.
     DOMWrapperMap<SVGElementInstance>& getDOMSVGElementInstanceMap();
+    void visitSVGElementInstancesInCurrentThread(DOMWrapperMap<SVGElementInstance>::Visitor*);
 
     // Map of SVG objects with contexts to V8 objects.
     DOMWrapperMap<void>& getDOMSVGObjectWithContextMap();
+    void visitDOMSVGObjectsInCurrentThread(DOMWrapperMap<void>::Visitor*);
 #endif
 } // namespace WebCore
 

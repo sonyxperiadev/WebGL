@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,9 +33,6 @@
 class WebView;
 
 interface IWebUIDelegate;
-interface IWebUIDelegate2;
-interface IWebUIDelegate3;
-interface IWebUIDelegate4;
 
 class WebChromeClient : public WebCore::ChromeClient {
 public:
@@ -76,7 +73,7 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(const WebCore::String& message, unsigned line, const WebCore::String& url);
+    virtual void addMessageToConsole(WebCore::MessageSource source, WebCore::MessageType type, WebCore::MessageLevel level, const WebCore::String& message, unsigned line, const WebCore::String& url);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const WebCore::String& message, WebCore::Frame* frame);
@@ -101,7 +98,7 @@ public:
 
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
-    virtual void setToolTip(const WebCore::String&);
+    virtual void setToolTip(const WebCore::String&, WebCore::TextDirection);
 
     virtual void print(WebCore::Frame*);
 
@@ -122,15 +119,20 @@ public:
 
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
 
+    virtual bool setCursor(WebCore::PlatformCursorHandle cursor);
+
     WebView* webView() const { return m_webView; }
 
     virtual void formStateDidChange(const WebCore::Node*) { }
 
+    virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
+
+    virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const {}
+
+    virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
+
 private:
     COMPtr<IWebUIDelegate> uiDelegate();
-    COMPtr<IWebUIDelegate2> uiDelegate2();
-    COMPtr<IWebUIDelegate3> uiDelegate3();
-    COMPtr<IWebUIDelegate4> uiDelegate4();
 
     WebView* m_webView;
 };

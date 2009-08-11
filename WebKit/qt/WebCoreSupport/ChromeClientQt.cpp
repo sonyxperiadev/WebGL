@@ -228,8 +228,8 @@ void ChromeClientQt::setResizable(bool)
     notImplemented();
 }
 
-void ChromeClientQt::addMessageToConsole(const String& message, unsigned int lineNumber,
-                                         const String& sourceID)
+void ChromeClientQt::addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message,
+                                         unsigned int lineNumber, const String& sourceID)
 {
     QString x = message;
     QString y = sourceID;
@@ -288,8 +288,9 @@ void ChromeClientQt::setStatusbarText(const String& msg)
 
 bool ChromeClientQt::shouldInterruptJavaScript()
 {
-    notImplemented();
-    return false;
+    bool shouldInterrupt = false;
+    QMetaObject::invokeMethod(m_webPage, "shouldInterruptJavaScript", Qt::DirectConnection, Q_RETURN_ARG(bool, shouldInterrupt));
+    return shouldInterrupt;
 }
 
 bool ChromeClientQt::tabsToLinks() const
@@ -352,18 +353,19 @@ void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) cons
 
 void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
 {
+    TextDirection dir;
     if (result.absoluteLinkURL() != lastHoverURL
-        || result.title() != lastHoverTitle
+        || result.title(dir) != lastHoverTitle
         || result.textContent() != lastHoverContent) {
         lastHoverURL = result.absoluteLinkURL();
-        lastHoverTitle = result.title();
+        lastHoverTitle = result.title(dir);
         lastHoverContent = result.textContent();
         emit m_webPage->linkHovered(lastHoverURL.prettyURL(),
                 lastHoverTitle, lastHoverContent);
     }
 }
 
-void ChromeClientQt::setToolTip(const String &tip)
+void ChromeClientQt::setToolTip(const String &tip, TextDirection)
 {
 #ifndef QT_NO_TOOLTIP
     QWidget* view = m_webPage->view();
@@ -437,6 +439,18 @@ void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileC
         if (!file.isEmpty())
             fileChooser->chooseFile(file);
     }
+}
+
+bool ChromeClientQt::setCursor(PlatformCursorHandle)
+{
+    notImplemented();
+    return false;
+}
+
+void ChromeClientQt::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
+{
+    // See the comment in WebCore/page/ChromeClient.h
+    notImplemented();
 }
 
 }

@@ -28,6 +28,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
+#import "config.h"
 #import "DumpRenderTreeWindow.h"
 
 #import "DumpRenderTree.h"
@@ -70,9 +71,9 @@ static CFArrayCallBacks NonRetainingArrayCallbacks = {
 
     CFRange arrayRange = CFRangeMake(0, CFArrayGetCount(openWindowsRef));
     CFIndex i = CFArrayGetFirstIndexOfValue(openWindowsRef, arrayRange, self);
-    assert(i != -1);
-    CFArrayRemoveValueAtIndex(openWindowsRef, i);
-    
+    if (i != kCFNotFound)
+        CFArrayRemoveValueAtIndex(openWindowsRef, i);
+
     [super close];
 }
 
@@ -100,12 +101,17 @@ static CFArrayCallBacks NonRetainingArrayCallbacks = {
 
 - (void)startObservingWebView
 {
+    [self stopObservingWebView];
     [[self webView] addObserver:self forKeyPath:@"_isUsingAcceleratedCompositing" options:0 context:0];
+    observingWebView = YES;
 }
 
 - (void)stopObservingWebView
 {
+    if (!observingWebView)
+        return;
     [[self webView] removeObserver:self forKeyPath:@"_isUsingAcceleratedCompositing"];
+    observingWebView = NO;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context

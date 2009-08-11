@@ -60,10 +60,10 @@ HTMLObjectElement::~HTMLObjectElement()
 
 RenderWidget* HTMLObjectElement::renderWidgetForJSBindings() const
 {
-    RenderWidget* renderWidget = (renderer() && renderer()->isWidget()) ? static_cast<RenderWidget*>(renderer()) : 0;
+    RenderWidget* renderWidget = (renderer() && renderer()->isWidget()) ? toRenderWidget(renderer()) : 0;
     if (renderWidget && !renderWidget->widget()) {
         document()->updateLayoutIgnorePendingStylesheets();
-        renderWidget = (renderer() && renderer()->isWidget()) ? static_cast<RenderWidget*>(renderer()) : 0;
+        renderWidget = (renderer() && renderer()->isWidget()) ? toRenderWidget(renderer()) : 0;
     }
     return renderWidget;
 }
@@ -82,7 +82,7 @@ void HTMLObjectElement::parseMappedAttribute(MappedAttribute *attr)
         if (!isImageType() && m_imageLoader)
           m_imageLoader.clear();
     } else if (attr->name() == dataAttr) {
-        m_url = parseURL(val);
+        m_url = deprecatedParseURL(val);
         if (renderer())
           m_needWidgetUpdate = true;
         if (renderer() && isImageType()) {
@@ -166,7 +166,7 @@ void HTMLObjectElement::updateWidget()
 {
     document()->updateStyleIfNeeded();
     if (m_needWidgetUpdate && renderer() && !m_useFallbackContent && !isImageType())
-        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
+        toRenderPartObject(renderer())->updateWidget(true);
 }
 
 void HTMLObjectElement::finishParsingChildren()

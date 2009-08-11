@@ -82,7 +82,7 @@ void ApplicationCache::addResource(PassRefPtr<ApplicationCacheResource> resource
     
     if (m_storageID) {
         ASSERT(!resource->storageID());
-        ASSERT(resource->type() & (ApplicationCacheResource::Dynamic | ApplicationCacheResource::Master));
+        ASSERT(resource->type() & ApplicationCacheResource::Master);
         
         // Add the resource to the storage.
         cacheStorage().store(resource.get(), this);
@@ -111,6 +111,7 @@ unsigned ApplicationCache::removeResource(const String& url)
     
 ApplicationCacheResource* ApplicationCache::resourceForURL(const String& url)
 {
+    ASSERT(!KURL(url).hasFragmentIdentifier());
     return m_resources.get(url).get();
 }    
 
@@ -130,34 +131,12 @@ ApplicationCacheResource* ApplicationCache::resourceForRequest(const ResourceReq
     // We only care about HTTP/HTTPS GET requests.
     if (!requestIsHTTPOrHTTPSGet(request))
         return false;
-    
-    return resourceForURL(request.url());
-}
 
-unsigned ApplicationCache::numDynamicEntries() const
-{
-    // FIXME: Implement
-    return 0;
-}
-    
-String ApplicationCache::dynamicEntry(unsigned) const
-{
-    // FIXME: Implement
-    return String();
-}
-    
-bool ApplicationCache::addDynamicEntry(const String& url)
-{
-    if (!equalIgnoringCase(m_group->manifestURL().protocol(), KURL(url).protocol()))
-        return false;
+    KURL url(request.url());
+    if (url.hasFragmentIdentifier())
+        url.removeFragmentIdentifier();
 
-    // FIXME: Implement (be sure to respect private browsing state).
-    return true;
-}
-    
-void ApplicationCache::removeDynamicEntry(const String&)
-{
-    // FIXME: Implement (be sure to respect private browsing state).
+    return resourceForURL(url);
 }
 
 void ApplicationCache::setOnlineWhitelist(const Vector<KURL>& onlineWhitelist)
