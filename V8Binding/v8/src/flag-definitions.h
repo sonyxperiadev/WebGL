@@ -126,7 +126,12 @@ DEFINE_bool(check_stack, true,
             "check stack for overflow, interrupt, breakpoint")
 
 // codegen.cc
+#if defined(ANDROID)
+// EXPERIMENTAL: turn of lazy compilation to see the impact on page cycler
+DEFINE_bool(lazy, false, "use lazy compilation")
+#else
 DEFINE_bool(lazy, true, "use lazy compilation")
+#endif
 DEFINE_bool(debug_info, true, "add debug information to compiled functions")
 
 // compiler.cc
