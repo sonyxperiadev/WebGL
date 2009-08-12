@@ -140,6 +140,7 @@
 #include "V8NodeFilterCondition.h"
 #include "V8ObjectEventListener.h"
 #include "ValidityState.h"
+#include "VoidCallback.h"
 #include "WebKitAnimationEvent.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
@@ -171,6 +172,14 @@
 #include "Storage.h"
 #include "StorageEvent.h"
 #endif // DOM_STORAGE
+
+#if ENABLE(GEOLOCATION)
+#include "Coordinates.h"
+#include "Geolocation.h"
+#include "Geoposition.h"
+#include "PositionError.h"
+#include "PositionErrorCallback.h"
+#endif
 
 #if ENABLE(SVG)
 #include "SVGAngle.h"
@@ -205,6 +214,12 @@
 #include "SVGZoomEvent.h"
 #include "V8SVGPODTypeWrapper.h"
 #endif // SVG
+
+#if ENABLE(TOUCH_EVENTS)
+#include "Touch.h"
+#include "TouchList.h"
+#include "TouchEvent.h"
+#endif
 
 #if ENABLE(WORKERS)
 #include "DedicatedWorkerContext.h"

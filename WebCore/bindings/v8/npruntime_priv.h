@@ -26,7 +26,13 @@
 #ifndef npruntime_priv_h
 #define npruntime_priv_h
 
+#if PLATFORM(CHROMIUM)
+// TODO(andreip): look at the diff between the two npruntime.h files
+// and try to consolidate them.
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

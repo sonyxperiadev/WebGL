@@ -31,7 +31,12 @@
 #define V8NPUtils_h
 
 #include <v8.h>
+#if PLATFORM(CHROMIUM)
+// TODO(andreip): diff and consolidate.
 #include "third_party/npapi/bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"  // use WebCore version
+#endif
 
 // Convert a V8 Value of any type (string, bool, object, etc) to a NPVariant.
 void convertV8ObjectToNPVariant(v8::Local<v8::Value>, NPObject*, NPVariant*);
