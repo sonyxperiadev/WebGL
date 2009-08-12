@@ -173,6 +173,15 @@ namespace android {
          */
         void updateTextfield(WebCore::Node* pointer,
                 bool changeToPassword, const WebCore::String& text);
+
+        /**
+         * Tell the java side to update the current selection in the focused
+         * textfield to the WebTextView.  This function finds the currently
+         * focused textinput, and passes its selection to java.
+         * If there is no focus, or it is not a text input, this does nothing.
+         */
+        void updateTextSelection();
+
         void clearTextEntry();
         // JavaScript support
         void jsAlert(const WebCore::String& url, const WebCore::String& text);
@@ -260,8 +269,8 @@ namespace android {
          * Handle motionUp event from the UI thread (called touchUp in the
          * WebCore thread).
          */
-        void touchUp(int touchGeneration,
-            WebCore::Frame* frame, WebCore::Node* node, int x, int y, int size);
+        void touchUp(int touchGeneration, WebCore::Frame* frame,
+                WebCore::Node* node, int x, int y);
 
         /**
          * Sets the index of the label from a popup

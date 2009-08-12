@@ -171,6 +171,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
+    jmethodID   m_updateTextSelection;
     jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
     jmethodID   m_restoreScreenWidthScale;
@@ -244,6 +245,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
+    m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
     m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
@@ -1499,7 +1501,13 @@ void WebViewCore::setSelection(int start, int end)
         start = end;
         end = temp;
     }
+    // Tell our EditorClient that this change was generated from the UI, so it
+    // does not need to echo it to the UI.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
     rtc->setSelectionRange(start, end);
+    client->setUiGeneratedSelectionChange(false);
     focus->document()->frame()->revealSelection();
     setFocusControllerActive(true);
 }
@@ -1524,8 +1532,14 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     if (!focus)
         return;
     setSelection(oldStart, oldEnd);
+    // Prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
     WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
+    client->setUiGeneratedSelectionChange(false);
     setSelection(start, end);
     m_textGeneration = textGeneration;
 }
@@ -1547,7 +1561,13 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     }
     // Block text field updates during a key press.
     m_blockTextfieldUpdates = true;
+    // Also prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
     key(event);
+    client->setUiGeneratedSelectionChange(false);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
     setFocusControllerActive(true);
@@ -1783,8 +1803,14 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node) {
             " node=%p", m_mousePos.x(), m_mousePos.y(),
             m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), node);
     }
-    if (node)
+    if (node) {
+        EditorClientAndroid* client
+                = static_cast<EditorClientAndroid*>(
+                m_mainFrame->editor()->client());
+        client->setShouldChangeSelectedRange(false);
         handleMouseClick(frame, node);
+        client->setShouldChangeSelectedRange(true);
+    }
 }
 
 bool WebViewCore::handleTouchEvent(int action, int x, int y)
@@ -1816,7 +1842,7 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y)
 }
 
 void WebViewCore::touchUp(int touchGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y, int size)
+    WebCore::Frame* frame, WebCore::Node* node, int x, int y)
 {
     if (m_touchGeneration > touchGeneration) {
         DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
@@ -1828,12 +1854,30 @@ void WebViewCore::touchUp(int touchGeneration,
     if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
-    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(m_mainFrame->editor()->client());
-    client->setFromClick(true);
+    // If the click is on an unselected textfield/area we do not want to allow
+    // the click to change the selection, because we will set it ourselves
+    // elsewhere - beginning for textareas, end for textfields
+    bool needToIgnoreChangesToSelectedRange = true;
+    WebCore::Node* focusNode = currentFocus();
+    if (focusNode) {
+        WebCore::RenderObject* renderer = focusNode->renderer();
+        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
+            // Now check to see if the click is inside the focused textfield
+            if (focusNode->getRect().contains(x, y))
+                needToIgnoreChangesToSelectedRange = false;
+        }
+    }
+    EditorClientAndroid* client = 0;
+    if (needToIgnoreChangesToSelectedRange) {
+        client = static_cast<EditorClientAndroid*>(
+                m_mainFrame->editor()->client());
+        client->setShouldChangeSelectedRange(false);
+    }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
         " x=%d y=%d", touchGeneration, frame, node, x, y);
     handleMouseClick(frame, node);
-    client->setFromClick(false);
+    if (needToIgnoreChangesToSelectedRange)
+        client->setShouldChangeSelectedRange(true);
 }
 
 // Common code for both clicking with the trackball and touchUp
@@ -2054,6 +2098,21 @@ WebViewCore::getWebViewJavaObject()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     return env->GetObjectField(m_javaGlue->object(env).get(), gWebViewCoreFields.m_webView);
+}
+
+void WebViewCore::updateTextSelection() {
+    WebCore::Node* focusNode = currentFocus();
+    if (!focusNode)
+        return;
+    RenderObject* renderer = focusNode->renderer();
+    if (!renderer || (!renderer->isTextArea() && !renderer->isTextField()))
+        return;
+    RenderTextControl* rtc = static_cast<RenderTextControl*>(renderer);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
+            rtc->selectionStart(), rtc->selectionEnd(), m_textGeneration);
+    checkException(env);
 }
 
 void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
@@ -2369,7 +2428,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, 
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
-        jint frame, jint node, jint x, jint y, jint size)
+        jint frame, jint node, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -2377,7 +2436,7 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y, size);
+        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
@@ -2702,7 +2761,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(III)Z",
             (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIIII)V",
+    { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
     { "nativeRetrieveHref", "(II)Ljava/lang/String;",
         (void*) RetrieveHref },
