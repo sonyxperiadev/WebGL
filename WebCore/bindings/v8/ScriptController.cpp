@@ -199,9 +199,7 @@ void ScriptController::evaluateInNewContext(const Vector<ScriptSourceCode>& sour
 // Evaluate a script file in the environment of this proxy.
 ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
 {
-#ifdef MANUAL_MERGE_REQUIRED
     LOCK_V8;
-#else // MANUAL_MERGE_REQUIRED
     String sourceURL = sourceCode.url();
     
     if (sourceURL.isNull() && !m_XSSAuditor->canEvaluateJavaScriptURL(sourceCode.source())) {
@@ -214,7 +212,6 @@ ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
         return ScriptValue();
     }
 
-#endif // MANUAL_MERGE_REQUIRED
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_proxy->frame());
     if (v8Context.IsEmpty())

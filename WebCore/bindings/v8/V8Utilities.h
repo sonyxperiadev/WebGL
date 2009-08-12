@@ -31,17 +31,12 @@
 #ifndef V8Utilities_h
 #define V8Utilities_h
 
-#ifdef MANUAL_MERGE_REQUIRED
-// FIXME: Remove once chromium dependencies on v8_utility.h are removed.
-#define V8UTILITIES_DEFINED 1
 #if ENABLE(V8_LOCKERS)
 #define LOCK_V8 v8::Locker lock
 #else
 #define LOCK_V8 ((void) 0)
 #endif
 
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
 #include <v8.h>
 
 namespace WebCore {

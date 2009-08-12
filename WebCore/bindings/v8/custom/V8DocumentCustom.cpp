@@ -54,13 +54,8 @@ namespace WebCore {
 CALLBACK_FUNC_DECL(DocumentEvaluate)
 {
     INC_STATS("DOM.Document.evaluate()");
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(XPATH)
-    Document* document = V8Proxy::DOMWrapperToNode<Document>(args.Holder());
-#else // MANUAL_MERGE_REQUIRED
-
     RefPtr<Document> document = V8DOMWrapper::convertDOMWrapperToNode<Document>(args.Holder());
-#endif // MANUAL_MERGE_REQUIRED
     ExceptionCode ec = 0;
     String expression = toWebCoreString(args[0]);
     RefPtr<Node> contextNode;
@@ -88,14 +83,11 @@ CALLBACK_FUNC_DECL(DocumentEvaluate)
     if (ec)
         return throwError(ec);
 
-#ifdef MANUAL_MERGE_REQUIRED
-    return V8Proxy::ToV8Object(V8ClassIndex::XPATHRESULT, result.get());
+    return V8DOMWrapper::convertToV8Object(V8ClassIndex::XPATHRESULT, result.release());
 #else
     return throwError(NOT_SUPPORTED_ERR);
 #endif
-#else // MANUAL_MERGE_REQUIRED
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::XPATHRESULT, result.release());
-#endif // MANUAL_MERGE_REQUIRED
+
 }
 
 CALLBACK_FUNC_DECL(DocumentGetCSSCanvasContext)

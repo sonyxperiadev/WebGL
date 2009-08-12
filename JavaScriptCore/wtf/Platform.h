@@ -245,20 +245,12 @@
 #define WTF_PLATFORM_ARM 1
 #if defined(__ARMEB__)
 #define WTF_PLATFORM_BIG_ENDIAN 1
-#ifdef MANUAL_MERGE_REQUIRED
-#elif !defined(__ARM_EABI__) && !defined(__ARMEB__) && !defined(__VFP_FP__)
-#if !defined(ANDROID)
-#else // MANUAL_MERGE_REQUIRED
 #elif !defined(__ARM_EABI__) && !defined(__EABI__) && !defined(__VFP_FP__)
-#endif // MANUAL_MERGE_REQUIRED
+#if !defined(ANDROID)
 #define WTF_PLATFORM_MIDDLE_ENDIAN 1
 #endif
-#ifdef MANUAL_MERGE_REQUIRED
 #endif
-#if !defined(__ARM_EABI__)
-#else // MANUAL_MERGE_REQUIRED
 #if !defined(__ARM_EABI__) && !defined(__EABI__)
-#endif // MANUAL_MERGE_REQUIRED
 #define WTF_PLATFORM_FORCE_PACK 1
 #endif
 #define ARM_ARCH_VERSION 3
