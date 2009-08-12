@@ -375,6 +375,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(TREEWALKER, TreeWalker)                                           \
     V(UIEVENT, UIEvent)                                                 \
     V(VALIDITYSTATE, ValidityState)                                     \
+    V(VOIDCALLBACK, VoidCallback)                                       \
     V(WEBKITANIMATIONEVENT, WebKitAnimationEvent)                       \
     V(WEBKITCSSKEYFRAMERULE, WebKitCSSKeyframeRule)                     \
     V(WEBKITCSSKEYFRAMESRULE, WebKitCSSKeyframesRule)                   \
@@ -426,12 +427,42 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_WORKERS_TYPES(V)
 #endif
 
+#if ENABLE(GEOLOCATION)
+#define DOM_OBJECT_GEOLOCATION_TYPES(V)                                 \
+    V(COORDINATES, Coordinates)                                         \
+    V(GEOLOCATION, Geolocation)                                         \
+    V(GEOPOSITION, Geoposition)                                         \
+    V(POSITIONERROR, PositionError)                                     \
+#else
+#define DOM_OBJECT_GEOLOCATION_TYPES(V)
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
+    V(TOUCHLIST, TouchList)                                             \
+    V(TOUCHEVENT, TouchEvent)                                           \
+    V(TOUCH, Touch)                                                     \
+#else
+#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
+#endif
+
+#if PLATFORM(CHROMIUM)
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_WORKERS_TYPES(V)
+#elif PALTFORM(ANDROID)
+#define DOM_OBJECT_TYPES(V)                                             \
+    DOM_OBJECT_TYPES_1(V)                                               \
+    DOM_OBJECT_TYPES_2(V)                                               \
+    DOM_OBJECT_DATABASE_TYPES(V)                                        \
+    DOM_OBJECT_GEOLOCATION_TYPES(V)                                     \
+    DOM_OBJECT_STORAGE_TYPES(V)                                         \
+    DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                     \
+    DOM_OBJECT_WORKERS_TYPES(V)
+#endif
 
 #if ENABLE(SVG)
 // SVG_OBJECT_TYPES are svg non-node, non-pod types.

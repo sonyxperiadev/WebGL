@@ -207,6 +207,7 @@
 #include "V8XPathEvaluator.h"
 #include "V8XSLTProcessor.h"
 #include "V8RGBColor.h"
+#include "V8VoidCallback.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "V8DOMApplicationCache.h"
@@ -387,6 +388,19 @@
 
 #if ENABLE(SHARED_WORKERS)
 #include "V8SharedWorker.h"
+#endif
+
+#if ENABLE(GEOLOCATION)
+#include "V8Coordinates.h"
+#include "V8Geolocation.h"
+#include "V8Geoposition.h"
+#include "V8PositionError.h"
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#include "V8Touch.h"
+#include "V8TouchList.h"
+#include "V8TouchEvent.h"
 #endif
 
 namespace WebCore {

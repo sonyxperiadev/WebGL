@@ -465,6 +465,13 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
     case V8ClassIndex::XSLTPROCESSOR:
         descriptor->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
         break;
+#if ENABLE(TOUCH_EVENTS)
+    // TODO(andreip): upstream touch related changes to Chromium
+    case V8ClassIndex::TOUCHLIST:
+      desc->InstanceTemplate()->SetIndexedPropertyHandler(
+          USE_INDEXED_PROPERTY_GETTER(TouchList));
+      break;
+#endif
     case V8ClassIndex::CLIENTRECTLIST:
         descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(ClientRectList));
         break;

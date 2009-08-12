@@ -31,7 +31,6 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
-#include "ChromiumBridge.h"
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h" // for WebCore::String
@@ -52,7 +51,8 @@
 #include <iterator>
 #include <list>
 
-#ifdef ENABLE_DOM_STATS_COUNTERS
+#ifdef ENABLE_DOM_STATS_COUNTERS && PLATFORM(CHROMIUM)
+#include "ChromiumBridge.h"
 #define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
@@ -229,6 +229,10 @@ namespace WebCore {
         // Run an already compiled script.
         v8::Local<v8::Value> runScript(v8::Handle<v8::Script>, bool isInlineCode);
 
+#ifdef ANDROID_INSTRUMENT
+        v8::Local<v8::Value> RunScriptInternal(v8::Handle<v8::Script> script, bool inline_code);
+#endif
+
         // Call the function with the given receiver and arguments.
         v8::Local<v8::Value> callFunction(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
 
@@ -306,6 +310,10 @@ namespace WebCore {
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
         static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+
+#ifdef ANDROID_INSTRUMENT
+        static v8::Handle<v8::Script> CompileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+#endif
 
         // If the exception code is different from zero, a DOM exception is
         // schedule to be thrown.
