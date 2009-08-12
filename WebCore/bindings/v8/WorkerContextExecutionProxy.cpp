@@ -127,16 +127,10 @@ void WorkerContextExecutionProxy::initV8IfNeeded()
     v8::V8::IgnoreOutOfMemoryException();
     v8::V8::SetFatalErrorHandler(reportFatalErrorInV8);
 
-#ifdef MANUAL_MERGE_REQUIRED
-    // Set up the handler for V8 error message.
-    v8::V8::AddMessageListener(handleConsoleMessage);
-
 #if PLATFORM(ANDROID)
     const int workerThreadPreemptionIntervalMs = 5;
     v8::Locker::StartPreemption(workerThreadPreemptionIntervalMs);
 #endif
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
     v8Initialized = true;
 }
 

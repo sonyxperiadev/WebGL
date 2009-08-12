@@ -35,11 +35,8 @@
 #include "V8WorkerContextEventListener.h"
 
 #include "Event.h"
-#ifdef MANUAL_MERGE_REQUIRED
-#include "V8Utilities.h"
-#else // MANUAL_MERGE_REQUIRED
 #include "V8Binding.h"
-#endif // MANUAL_MERGE_REQUIRED
+#include "V8Utilities.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {

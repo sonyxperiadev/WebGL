@@ -32,19 +32,9 @@
 
 #if ENABLE(DATABASE)
 
-#ifdef MANUAL_MERGE_REQUIRED
-#include "v8_binding.h"
-#include "v8_proxy.h"
-
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
 #include "Database.h"
-#ifdef MANUAL_MERGE_REQUIRED
-#include "V8CustomBinding.h"
-#else // MANUAL_MERGE_REQUIRED
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
-#endif // MANUAL_MERGE_REQUIRED
 #include "V8CustomSQLTransactionCallback.h"
 #include "V8CustomSQLTransactionErrorCallback.h"
 #include "V8CustomVoidCallback.h"

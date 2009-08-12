@@ -49,18 +49,10 @@ namespace WebCore {
         WeakReferenceMap(v8::WeakReferenceCallback callback) : m_weakReferenceCallback(callback) { }
         virtual ~WeakReferenceMap()
         {
-#ifdef MANUAL_MERGE_REQUIRED
-#ifndef NDEBUG
-#else // MANUAL_MERGE_REQUIRED
     #ifndef NDEBUG
-#endif // MANUAL_MERGE_REQUIRED
             if (m_map.size() > 0)
                 fprintf(stderr, "Leak %d JS wrappers.\n", m_map.size());
-#ifdef MANUAL_MERGE_REQUIRED
-#endif
-#else // MANUAL_MERGE_REQUIRED
     #endif
-#endif // MANUAL_MERGE_REQUIRED
         }
 
         // Get the JS wrapper object of an object.

@@ -120,13 +120,9 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
 {
     ScriptScope scope(scriptState);
-#ifdef MANUAL_MERGE_REQUIRED
 #if !PLATFORM(ANDROID)
-    scope.global()->Set(v8::String::New(name), V8Proxy::ToV8Object(V8ClassIndex::INSPECTORCONTROLLER, value));
-#endif
-#else // MANUAL_MERGE_REQUIRED
     scope.global()->Set(v8::String::New(name), V8DOMWrapper::convertToV8Object(V8ClassIndex::INSPECTORBACKEND, value));
-#endif // MANUAL_MERGE_REQUIRED
+#endif
     return scope.success();
 }
 

@@ -32,14 +32,10 @@
 #include "ScriptObject.h"
 
 #include "JSDOMBinding.h"
-#ifdef MANUAL_MERGE_REQUIRED
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "JSInspectorController.h"
-#endif
-#else // MANUAL_MERGE_REQUIRED
 #include "JSInspectorBackend.h"
-#endif // MANUAL_MERGE_REQUIRED
+#endif
 
 #include <runtime/JSLock.h>
 
@@ -131,12 +127,9 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
     return handleException(scriptState);
 }
 
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorController* value)
-#else // MANUAL_MERGE_REQUIRED
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
-#endif // MANUAL_MERGE_REQUIRED
+#endif
 {
     JSLock lock(SilenceAssertionsOnly);
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
