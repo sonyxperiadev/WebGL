@@ -33,23 +33,27 @@ namespace WebCore {
     
 class PositionOptions : public RefCounted<PositionOptions> {
 public:
-    static PassRefPtr<PositionOptions> create() { return adoptRef(new PositionOptions()); }
+    static PassRefPtr<PositionOptions> create() { return adoptRef(new PositionOptions); }
 
     bool enableHighAccuracy() const { return m_highAccuracy; }
     void setEnableHighAccuracy(bool enable) { m_highAccuracy = enable; }
     bool hasTimeout() { return m_hasTimeout; }
-    int timeout() const { return m_timeout; }
-    void setTimeout(int t)
+    int timeout() const
     {
-        ASSERT(t >= 0);
+        ASSERT(hasTimeout());
+        return m_timeout;
+    }
+    void setTimeout(int timeout)
+    {
+        ASSERT(timeout >= 0);
         m_hasTimeout = true;
-        m_timeout = t;
+        m_timeout = timeout;
     }
     int maximumAge() const { return m_maximumAge; }
-    void setMaximumAge(int a)
+    void setMaximumAge(int age)
     {
-        ASSERT(a >= 0);
-        m_maximumAge = a;
+        ASSERT(age >= 0);
+        m_maximumAge = age;
     }
     
 private:
