@@ -118,13 +118,7 @@ void GraphicsContext::setLineJoin(LineJoin) { notImplemented(); }
 void GraphicsContext::setMiterLimit(float) { notImplemented(); }
 void GraphicsContext::setAlpha(float) { notImplemented(); }
 
-#ifdef MANUAL_MERGE_REQUIRED
-Color WebCore::focusRingColor() { return 0xFF0000FF; }
-
-void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
-#else // MANUAL_MERGE_REQUIRED
 void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
-#endif // MANUAL_MERGE_REQUIRED
 
 ScrollbarTheme* ScrollbarTheme::nativeTheme() { notImplemented(); static ScrollbarTheme theme; return &theme; }
 

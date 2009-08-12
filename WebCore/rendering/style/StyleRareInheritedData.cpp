@@ -86,13 +86,10 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && nbspMode == o.nbspMode
         && khtmlLineBreak == o.khtmlLineBreak
         && textSizeAdjust == o.textSizeAdjust
-#ifdef MANUAL_MERGE_REQUIRED
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         && tapHighlightColor == o.tapHighlightColor
 #endif
-#else // MANUAL_MERGE_REQUIRED
         && resize == o.resize
-#endif // MANUAL_MERGE_REQUIRED
         && userSelect == o.userSelect;
 }
 

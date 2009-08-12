@@ -45,7 +45,7 @@ QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
-#elif PLATFORM(SGL)
+#elif PLATFORM(ANDROID) && PLATFORM(SGL)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
@@ -77,7 +77,8 @@ typedef CGImageRef NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(SGL)
+#elif PLATFORM(ANDROID)
+#if PLATFORM(SGL)
 class String;
 #ifdef ANDROID_ANIMATED_GIF
 class ImageDecoder;
@@ -91,6 +92,11 @@ struct NativeImageSourcePtr {
 };
 typedef const Vector<char>* NativeBytePtr;
 typedef SkBitmapRef* NativeImagePtr;
+#elif PLATFORM(SKIA) // ANDROID
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef NativeImageSkia* NativeImagePtr;
+#endif
 #elif PLATFORM(CAIRO)
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
@@ -160,18 +166,18 @@ public:
     bool frameHasAlphaAtIndex(size_t); // Whether or not the frame actually used any alpha.
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
-#ifdef MANUAL_MERGE_REQUIRED
+#if PLATFORM(ANDROID)
 #if PLATFORM(SGL)
     void clearURL();
     void setURL(const String& url);
 #endif
+#endif
 private:
+#if PLATFORM(ANDROID)
     // FIXME: This is protected only to allow ImageSourceSkia to set ICO decoder
     // with a preferred size. See ImageSourceSkia.h for discussion.
 protected:
-#else // MANUAL_MERGE_REQUIRED
-private:
-#endif // MANUAL_MERGE_REQUIRED
+#endif
     NativeImageSourcePtr m_decoder;
 };
 
