@@ -23,14 +23,21 @@ BINDING_C_INCLUDES := \
   $(LOCAL_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
-	$(LOCAL_PATH)/binding \
 	$(LOCAL_PATH)/npapi \
 	$(LOCAL_PATH)/jni \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)
 
 WEBCORE_SRC_FILES := \
-  bindings/v8/ScheduledAction.cpp \
+	bindings/v8/ChildThreadDOMData.cpp \
+	bindings/v8/DOMData.cpp \
+	bindings/v8/DOMDataStore.cpp \
+	bindings/v8/DerivedSourcesAllInOne.cpp \
+	bindings/v8/MainThreadDOMData.cpp \
+	bindings/v8/NPV8Object.cpp \
+	bindings/v8/ScheduledAction.cpp \
+	bindings/v8/ScopedDOMDataStore.cpp \
+	bindings/v8/ScriptArray.cpp \
 	bindings/v8/ScriptCallFrame.cpp \
 	bindings/v8/ScriptCallStack.cpp \
 	bindings/v8/ScriptController.cpp \
@@ -38,22 +45,37 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/ScriptFunctionCall.cpp \
 	bindings/v8/ScriptInstance.cpp \
 	bindings/v8/ScriptObject.cpp \
+	bindings/v8/ScriptObjectQuarantine.cpp \
 	bindings/v8/ScriptScope.cpp \
 	bindings/v8/ScriptState.cpp \
 	bindings/v8/ScriptValue.cpp \
+	bindings/v8/StaticDOMDataStore.cpp \
 	bindings/v8/V8AbstractEventListener.cpp \
+	bindings/v8/V8Binding.cpp \
 	bindings/v8/V8Collection.cpp \
+	bindings/v8/V8ConsoleMessage.cpp \
 	bindings/v8/V8DOMMap.cpp \
+	bindings/v8/V8DOMWrapper.cpp \
+	bindings/v8/V8DataGridDataSource.cpp \
 	bindings/v8/V8EventListenerList.cpp \
+	bindings/v8/V8GCController.cpp \
+	bindings/v8/V8Helpers.cpp \
+	bindings/v8/V8HiddenPropertyName.cpp \
+	bindings/v8/V8Index.cpp \
+	bindings/v8/V8IsolatedWorld.cpp \
 	bindings/v8/V8LazyEventListener.cpp \
+	bindings/v8/V8NPObject.cpp \
+	bindings/v8/V8NPUtils.cpp \
 	bindings/v8/V8NodeFilterCondition.cpp \
 	bindings/v8/V8ObjectEventListener.cpp \
+	bindings/v8/V8Proxy.cpp \
 	bindings/v8/V8Utilities.cpp \
 	bindings/v8/V8WorkerContextEventListener.cpp \
 	bindings/v8/V8WorkerContextObjectEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \
 	\
+	bindings/v8/custom/V8AbstractWorkerCustom.cpp \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
@@ -67,17 +89,21 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
 	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
+	bindings/v8/custom/V8CustomXPathNSResolver.cpp \
 	bindings/v8/custom/V8DOMApplicationCacheCustom.cpp \
 	bindings/v8/custom/V8DOMParserConstructor.cpp \
-	bindings/v8/custom/V8DOMStringListCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
+	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
 	bindings/v8/custom/V8DatabaseCustom.cpp \
+	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
+	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
 	bindings/v8/custom/V8HTMLCollectionCustom.cpp \
+	bindings/v8/custom/V8HTMLDataGridElementCustom.cpp \
 	bindings/v8/custom/V8HTMLDocumentCustom.cpp \
 	bindings/v8/custom/V8HTMLFormElementCustom.cpp \
 	bindings/v8/custom/V8HTMLFrameElementCustom.cpp \
@@ -90,6 +116,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
+	bindings/v8/custom/V8InspectorBackendCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8MessagePortCustom.cpp \
@@ -101,9 +128,7 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
-	bindings/v8/custom/V8SQLTransactionCustom.cpp \
-	bindings/v8/custom/V8StorageCustom.cpp \
-	bindings/v8/custom/V8TouchListCustom.cpp \
+	bindings/v8/custom/V8SQLTransactionCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
@@ -113,7 +138,10 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 endif
 
 WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
+	bindings/v8/custom/V8SharedWorkerCustom.cpp \
+	bindings/v8/custom/V8StorageCustom.cpp \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
+	bindings/v8/custom/V8TouchListCustom.cpp \
 	bindings/v8/custom/V8TreeWalkerCustom.cpp \
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
 	bindings/v8/custom/V8WebKitPointConstructor.cpp \
@@ -131,18 +159,6 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := \
-  binding/V8InitializeThreading.cpp \
-	binding/JSXPathNSResolver.cpp \
-	binding/NPV8Object.cpp \
-	binding/RGBColor.cpp \
-	binding/V8NPObject.cpp \
-	binding/V8NPUtils.cpp \
-	binding/npruntime.cpp \
-	binding/v8_binding.cpp \
-	binding/v8_helpers.cpp \
-	binding/v8_index.cpp \
-	binding/v8_proxy.cpp \
-	\
 	jni/jni_class.cpp \
 	jni/jni_instance.cpp \
 	jni/jni_npobject.cpp \
@@ -152,11 +168,11 @@ LOCAL_SRC_FILES := \
 LOCAL_SHARED_LIBRARIES += libv8
 
 js_binding_scripts := \
-  $(LOCAL_PATH)/scripts/CodeGenerator.pm \
-  $(LOCAL_PATH)/scripts/CodeGeneratorV8.pm \
-  $(LOCAL_PATH)/scripts/IDLParser.pm \
-  $(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
-	$(LOCAL_PATH)/scripts/generate-bindings.pl
+	$(WEBCORE_PATH)/bindings/scripts/CodeGenerator.pm \
+	$(WEBCORE_PATH)/bindings/scripts/CodeGeneratorV8.pm \
+	$(WEBCORE_PATH)/bindings/scripts/IDLParser.pm \
+	$(WEBCORE_PATH)/bindings/scripts/IDLStructure.pm \
+	$(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl
 
 FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 V8_BINDING ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_WORKERS=1
 
