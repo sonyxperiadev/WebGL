@@ -200,6 +200,7 @@ GEN := \
     $(intermediates)/css/V8CSSVariablesDeclaration.h \
     $(intermediates)/css/V8CSSVariablesRule.h \
     $(intermediates)/css/V8Counter.h \
+    $(intermediates)/css/V8Media.h \
     $(intermediates)/css/V8MediaList.h \
     $(intermediates)/css/V8Rect.h \
     $(intermediates)/css/V8RGBColor.h \
@@ -207,7 +208,7 @@ GEN := \
     $(intermediates)/css/V8StyleSheetList.h  \
     $(intermediates)/css/V8WebKitCSSKeyframeRule.h \
     $(intermediates)/css/V8WebKitCSSKeyframesRule.h \
-		$(intermediates)/css/V8WebKitCSSMatrix.h \
+    $(intermediates)/css/V8WebKitCSSMatrix.h \
     $(intermediates)/css/V8WebKitCSSTransformValue.h 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/css/V8%.h : $(WEBCORE_PATH)/css/%.idl $(js_binding_scripts)
@@ -229,15 +230,16 @@ GEN := \
     $(intermediates)/dom/V8Comment.h \
     $(intermediates)/dom/V8DOMCoreException.h \
     $(intermediates)/dom/V8DOMImplementation.h \
-    $(intermediates)/dom/V8DOMStringList.h \
     $(intermediates)/dom/V8Document.h \
     $(intermediates)/dom/V8DocumentFragment.h \
     $(intermediates)/dom/V8DocumentType.h \
     $(intermediates)/dom/V8Element.h \
     $(intermediates)/dom/V8Entity.h \
     $(intermediates)/dom/V8EntityReference.h \
+    $(intermediates)/dom/V8ErrorEvent.h \
     $(intermediates)/dom/V8Event.h \
     $(intermediates)/dom/V8EventException.h \
+    $(intermediates)/dom/V8HTMLAllCollection.h \
     $(intermediates)/dom/V8KeyboardEvent.h \
     $(intermediates)/dom/V8MessageChannel.h \
     $(intermediates)/dom/V8MessageEvent.h \
@@ -276,10 +278,8 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 
 
 GEN := \
-    $(intermediates)/html/V8CanvasGradient.h \
-    $(intermediates)/html/V8CanvasPattern.h \
-    $(intermediates)/html/V8CanvasPixelArray.h \
-    $(intermediates)/html/V8CanvasRenderingContext2D.h \
+    $(intermediates)/html/V8DataGridColumn.h \
+    $(intermediates)/html/V8DataGridColumnList.h \
     $(intermediates)/html/V8File.h \
     $(intermediates)/html/V8FileList.h \
     $(intermediates)/html/V8HTMLAnchorElement.h \
@@ -294,6 +294,10 @@ GEN := \
     $(intermediates)/html/V8HTMLButtonElement.h \
     $(intermediates)/html/V8HTMLCanvasElement.h \
     $(intermediates)/html/V8HTMLCollection.h \
+    $(intermediates)/html/V8HTMLDataGridCellElement.h \
+    $(intermediates)/html/V8HTMLDataGridColElement.h \
+    $(intermediates)/html/V8HTMLDataGridElement.h \
+    $(intermediates)/html/V8HTMLDataGridRowElement.h \
     $(intermediates)/html/V8HTMLDListElement.h \
     $(intermediates)/html/V8HTMLDirectoryElement.h \
     $(intermediates)/html/V8HTMLDivElement.h \
@@ -350,7 +354,13 @@ GEN := \
     $(intermediates)/html/V8MediaError.h \
     $(intermediates)/html/V8TextMetrics.h \
     $(intermediates)/html/V8TimeRanges.h \
-    $(intermediates)/html/V8VoidCallback.h 
+    $(intermediates)/html/V8ValidityState.h \
+    $(intermediates)/html/V8VoidCallback.h \
+    \
+    $(intermediates)/html/canvas/V8CanvasGradient.h \
+    $(intermediates)/html/canvas/V8CanvasPattern.h \
+    $(intermediates)/html/canvas/V8CanvasPixelArray.h \
+    $(intermediates)/html/canvas/V8CanvasRenderingContext2D.h 
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/html/V8%.h : $(WEBCORE_PATH)/html/%.idl $(js_binding_scripts)
@@ -445,6 +455,10 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/
 
 # Workers support
 GEN := \
+	$(intermediates)/workers/V8AbstractWorker.h \
+	$(intermediates)/workers/V8DedicatedWorkerContext.h \
+	$(intermediates)/workers/V8SharedWorker.h \
+	$(intermediates)/workers/V8SharedWorkerContext.h \
 	$(intermediates)/workers/V8Worker.h \
 	$(intermediates)/workers/V8WorkerContext.h \
 	$(intermediates)/workers/V8WorkerLocation.h
