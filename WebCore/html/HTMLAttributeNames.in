@@ -180,16 +180,13 @@ onstalled
 onstorage
 onsuspend
 onsubmit
-#ifdef MANUAL_MERGE_REQUIRED
+ontimeupdate
 /* #if ENABLE(TOUCH_EVENTS) // Android */
 ontouchstart
 ontouchmove
 ontouchend
 ontouchcancel
 /* #endif */
-#else // MANUAL_MERGE_REQUIRED
-ontimeupdate
-#endif // MANUAL_MERGE_REQUIRED
 onunload
 onvolumechange
 onwaiting

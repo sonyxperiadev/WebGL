@@ -209,52 +209,6 @@ ApplicationCacheHost::EventID DOMApplicationCache::toEventID(const AtomicString&
     return ApplicationCacheHost::ERROR_EVENT;
 }
 
-
-#if USE(V8)
-RefPtr<EventListener>* DOMApplicationCache::getAttributeEventListenerStorage(const AtomicString& eventType)
-{
-    if (eventType == eventNames().checkingEvent)
-        return &m_onCheckingListener;
-    else if (eventType == eventNames().errorEvent)
-        return &m_onErrorListener;
-    else if (eventType == eventNames().noupdateEvent)
-        return &m_onNoUpdateListener;
-    else if (eventType == eventNames().downloadingEvent)
-        return &m_onDownloadingListener;
-    else if (eventType == eventNames().progressEvent)
-        return &m_onProgressListener;
-    else if (eventType == eventNames().updatereadyEvent)
-        return &m_onUpdateReadyListener;
-    else if (eventType == eventNames().cachedEvent)
-        return &m_onCachedListener;
-    else if (eventType == eventNames().obsoleteEvent)
-        return &m_onObsoleteListener;
-    else
-        return 0;
-}
-
-EventListener* DOMApplicationCache::getAttributeEventListener(const AtomicString& eventType)
-{
-    RefPtr<EventListener>* storage = getAttributeEventListenerStorage(eventType);
-    ASSERT(storage);
-    return (*storage).get();
-}
-
-void DOMApplicationCache::setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener)
-{
-    RefPtr<EventListener>* storage = getAttributeEventListenerStorage(eventType);
-    ASSERT(storage);
-    (*storage) = listener;
-}
-
-void DOMApplicationCache::clearAttributeEventListener(const AtomicString& eventType)
-{
-    RefPtr<EventListener>* storage = getAttributeEventListenerStorage(eventType);
-    ASSERT(storage);
-    (*storage) = 0;
-}
-#endif
-
 } // namespace WebCore
 
 #endif // ENABLE(OFFLINE_WEB_APPLICATIONS)

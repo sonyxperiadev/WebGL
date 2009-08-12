@@ -811,7 +811,6 @@ public:
 protected:
     Document(Frame*, bool isXHTML);
 
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(TOUCH_EVENTS) // Android
 public:
     typedef HashMap<Node*, unsigned > TouchListenerMap;
@@ -822,12 +821,10 @@ public:
 
 private:
     TouchListenerMap m_touchEventListeners;
-#endif
+#endif  // ENABLE(TOUCH_EVENTS)
 
-#else // MANUAL_MERGE_REQUIRED
     void setStyleSelector(CSSStyleSelector* styleSelector) {  m_styleSelector = styleSelector; }
 
-#endif // MANUAL_MERGE_REQUIRED
 private:
     virtual void refScriptExecutionContext() { ref(); }
     virtual void derefScriptExecutionContext() { deref(); }

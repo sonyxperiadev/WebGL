@@ -119,17 +119,13 @@ namespace WebCore {
 #if ENABLE(DOM_STORAGE)
         virtual bool isStorageEvent() const;
 #endif
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(TOUCH_EVENTS) // Android
         virtual bool isTouchEvent() const;
 #endif
-
-#else // MANUAL_MERGE_REQUIRED
 #if ENABLE(WORKERS)
         virtual bool isErrorEvent() const;
 #endif
-        
-#endif // MANUAL_MERGE_REQUIRED
+
         bool propagationStopped() const { return m_propagationStopped; }
 
         bool defaultPrevented() const { return m_defaultPrevented; }

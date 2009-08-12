@@ -31,11 +31,8 @@
 #include "config.h"
 #include "FrameLoader.h"
 
-#ifdef MANUAL_MERGE_REQUIRED
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#else // MANUAL_MERGE_REQUIRED
 #include "ApplicationCacheHost.h"
-#endif // MANUAL_MERGE_REQUIRED
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "Archive.h"
 #include "ArchiveFactory.h"
 #endif
@@ -568,24 +565,7 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
     frameRequest.resourceRequest().setURL(u);
     addHTTPOriginIfNeeded(frameRequest.resourceRequest(), outgoingOrigin());
 
-#ifdef MANUAL_MERGE_REQUIRED
-    // Navigation of a subframe during loading of the main frame does not create a new back/forward item.
-    // Strangely, we only implement this rule for form submission; time will tell if we need it for other types of navigation.
-    // The definition of "during load" is any time before the load event has been handled.
-    // See https://bugs.webkit.org/show_bug.cgi?id=14957 for the original motivation for this.
-    if (Page* targetPage = targetFrame->page()) {
-        Frame* mainFrame = targetPage->mainFrame();
-        if (mainFrame != targetFrame) {
-            Document* document = mainFrame->document();
-            if (!mainFrame->loader()->isComplete() || (document && document->processingLoadEvent()))
-                lockBackForwardList = true;
-        }
-    }
-
-    targetFrame->loader()->scheduleFormSubmission(frameRequest, lockHistory, lockBackForwardList, event, formState);
-#else // MANUAL_MERGE_REQUIRED
     targetFrame->loader()->scheduleFormSubmission(frameRequest, lockHistory, event, formState);
-#endif // MANUAL_MERGE_REQUIRED
 }
 
 void FrameLoader::stopLoading(bool sendUnload, DatabasePolicy databasePolicy)

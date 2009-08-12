@@ -91,17 +91,9 @@ public:
     bool isCopy() const { return m_isCopy; }
 
 private:
-#ifdef MANUAL_MERGE_REQUIRED
-    typedef void (DOMApplicationCache::*ListenerFunction)();
-    static void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
-    static void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
-    static void postListenerTask(ListenerFunction, DocumentLoader*);
-    void scheduleReachedMaxAppCacheSizeCallback();
-#else // MANUAL_MERGE_REQUIRED
     static void postListenerTask(ApplicationCacheHost::EventID, const HashSet<DocumentLoader*>&);
     static void postListenerTask(ApplicationCacheHost::EventID, DocumentLoader*);
     void scheduleReachedMaxAppCacheSizeCallback();
-#endif // MANUAL_MERGE_REQUIRED
 
     PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
 

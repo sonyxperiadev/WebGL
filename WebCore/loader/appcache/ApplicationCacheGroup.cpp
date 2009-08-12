@@ -776,52 +776,7 @@ void ApplicationCacheGroup::checkIfLoadIsComplete()
         RefPtr<ApplicationCache> oldNewestCache = (m_newestCache == m_cacheBeingUpdated) ? 0 : m_newestCache;
 
         setNewestCache(m_cacheBeingUpdated.release());
-#ifdef MANUAL_MERGE_REQUIRED
-        if (cacheStorage().storeNewestCache(this)) {
-            // New cache stored, now remove the old cache.
-            if (oldNewestCache)
-                cacheStorage().remove(oldNewestCache.get());
-            // Fire the success events.
-            postListenerTask(isUpgradeAttempt ? &DOMApplicationCache::callUpdateReadyListener : &DOMApplicationCache::callCachedListener, m_associatedDocumentLoaders);
-        } else {
-            if (cacheStorage().isMaximumSizeReached() && !m_calledReachedMaxAppCacheSize) {
-                // We ran out of space. All the changes in the cache storage have
-                // been rolled back. We roll back to the previous state in here,
-                // as well, call the chrome client asynchronously and retry to
-                // save the new cache.
-                // Save a reference to the new cache.
-                m_cacheBeingUpdated = m_newestCache.release();
-                if (oldNewestCache) {
-                    // Reinstate the oldNewestCache.
-                    setNewestCache(oldNewestCache.release());
-                }
-                scheduleReachedMaxAppCacheSizeCallback();
-                return;
-            } else {
-                // Run the "cache failure steps"
-                // Fire the error events to all pending master entries, as well any other cache hosts
-                // currently associated with a cache in this group.
-                postListenerTask(&DOMApplicationCache::callErrorListener, m_associatedDocumentLoaders);
-                // Disassociate the pending master entries from the failed new cache. Note that
-                // all other loaders in the m_associatedDocumentLoaders are still associated with
-                // some other cache in this group. They are not associated with the failed new cache.
-                // Need to copy loaders, because the cache group may be destroyed at the end of iteration.
-                Vector<DocumentLoader*> loaders;
-                copyToVector(m_pendingMasterResourceLoaders, loaders);
-                size_t count = loaders.size();
-                for (size_t i = 0; i != count; ++i)
-                    disassociateDocumentLoader(loaders[i]); // This can delete this group.
-                // Reinstate the oldNewestCache, if there was one.
-                if (oldNewestCache) {
-                    // This will discard the failed new cache.
-                    setNewestCache(oldNewestCache.release());
-                } else {
-                    // We must have been deleted by the last call to disassociateDocumentLoader().
-                    return;
-                }
-            }
-        }
-#else // MANUAL_MERGE_REQUIRED
+
         if (cacheStorage().storeNewestCache(this)) {
             // New cache stored, now remove the old cache.
             if (oldNewestCache)
@@ -869,7 +824,6 @@ void ApplicationCacheGroup::checkIfLoadIsComplete()
                 }
             }
         }
-#endif // MANUAL_MERGE_REQUIRED
         break;
     }
     }

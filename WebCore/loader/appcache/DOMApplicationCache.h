@@ -103,27 +103,9 @@ public:
     virtual ScriptExecutionContext* scriptExecutionContext() const;
     DOMApplicationCache* toDOMApplicationCache() { return this; }
 
-#ifdef MANUAL_MERGE_REQUIRED
-    void callCheckingListener();
-    void callErrorListener();    
-    void callNoUpdateListener();    
-    void callDownloadingListener();
-    void callProgressListener();
-    void callUpdateReadyListener();
-    void callCachedListener();
-    void callObsoleteListener();
-
-#if USE(V8)
-    EventListener* getAttributeEventListener(const AtomicString& eventType);
-    void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener);
-    void clearAttributeEventListener(const AtomicString& eventType);
-#endif
-    
-#else // MANUAL_MERGE_REQUIRED
     static const AtomicString& toEventType(ApplicationCacheHost::EventID id);
     static ApplicationCacheHost::EventID toEventID(const AtomicString& eventType);
 
-#endif // MANUAL_MERGE_REQUIRED
 private:
     DOMApplicationCache(Frame*);
 
@@ -134,10 +116,6 @@ private:
 
     ApplicationCacheHost* applicationCacheHost() const;
     bool swapCache();
-
-#if USE(V8)
-    RefPtr<EventListener>* getAttributeEventListenerStorage(const AtomicString& eventType);
-#endif
     
     RefPtr<EventListener> m_attributeEventListeners[ApplicationCacheHost::OBSOLETE_EVENT + 1];
 

@@ -29,16 +29,8 @@
 #include "config.h"
 #include "DocumentLoader.h"
 
-#ifdef MANUAL_MERGE_REQUIRED
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-#include "ApplicationCache.h"
-#include "ApplicationCacheGroup.h"
-#include "ApplicationCacheResource.h"
-#endif
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#else // MANUAL_MERGE_REQUIRED
 #include "ApplicationCacheHost.h"
-#endif // MANUAL_MERGE_REQUIRED
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
 #include "ArchiveFactory.h"
 #include "ArchiveResourceCollection.h"
 #else

@@ -354,15 +354,12 @@ Document::Document(Frame* frame, bool isXHTML)
     , m_hasOpenDatabases(false)
 #endif
     , m_usingGeolocation(false)
-#ifdef MANUAL_MERGE_REQUIRED
 #ifdef ANDROID_MOBILE
     , mExtraLayoutDelay(0)
 #endif
-#else // MANUAL_MERGE_REQUIRED
 #if ENABLE(WML)
     , m_containsWMLContent(false)
 #endif
-#endif // MANUAL_MERGE_REQUIRED
 {
     m_document.resetSkippingRef(this);
 

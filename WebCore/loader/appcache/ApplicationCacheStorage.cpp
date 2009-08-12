@@ -362,58 +362,6 @@ const String& ApplicationCacheStorage::cacheDirectory() const
     return m_cacheDirectory;
 }
 
-#ifdef MANUAL_MERGE_REQUIRED
-void ApplicationCacheStorage::setMaximumSize(int64_t size)
-{
-    m_maximumSize = size;
-}
-
-int64_t ApplicationCacheStorage::maximumSize() const
-{
-    return m_maximumSize;
-}
-
-bool ApplicationCacheStorage::isMaximumSizeReached() const
-{
-    return m_isMaximumSizeReached;
-}
-
-int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
-{
-    int64_t spaceNeeded = 0;
-    int64_t currentSize = 0;
-    if (!getFileSize(m_cacheFile, currentSize))
-        return 0;
-
-    // Determine the amount of free space we have available.
-    int64_t totalAvailableSize = 0;
-    if (m_maximumSize < currentSize) {
-        // The max size is smaller than the actual size of the app cache file.
-        // This can happen if the client previously imposed a larger max size
-        // value and the app cache file has already grown beyond the current
-        // max size value.
-        // The amount of free space is just the amount of free space inside
-        // the database file. Note that this is always 0 if SQLite is compiled
-        // with AUTO_VACUUM = 1.
-        totalAvailableSize = m_database.freeSpaceSize();
-    } else {
-        // The max size is the same or larger than the current size.
-        // The amount of free space available is the amount of free space
-        // inside the database file plus the amount we can grow until we hit
-        // the max size.
-        totalAvailableSize = (m_maximumSize - currentSize) + m_database.freeSpaceSize();
-    }
-
-    // The space needed to be freed in order to accomodate the failed cache is
-    // the size of the failed cache minus any already available free space.
-    spaceNeeded = cacheToSave - totalAvailableSize;
-    // The space needed value must be positive (or else the total already
-    // available free space would be larger than the size of the failed cache and
-    // saving of the cache should have never failed).
-    ASSERT(spaceNeeded);
-    return spaceNeeded;
-}
-#else // MANUAL_MERGE_REQUIRED
 void ApplicationCacheStorage::setMaximumSize(int64_t size)
 {
     m_maximumSize = size;
@@ -466,7 +414,6 @@ int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
     ASSERT(spaceNeeded);
     return spaceNeeded;
 }
-#endif // MANUAL_MERGE_REQUIRED
 
 bool ApplicationCacheStorage::executeSQLCommand(const String& sql)
 {
@@ -1026,118 +973,6 @@ bool ApplicationCacheStorage::storeCopyOfCache(const String& cacheDirectory, App
     
     return copyStorage.storeNewestCache(groupCopy.get());
 }
-#ifdef MANUAL_MERGE_REQUIRED
-
-bool ApplicationCacheStorage::manifestURLs(Vector<KURL>* urls)
-{
-    ASSERT(urls);
-    openDatabase(false);
-    if (!m_database.isOpen())
-        return false;
-
-    SQLiteStatement selectURLs(m_database, "SELECT manifestURL FROM CacheGroups");
-
-    if (selectURLs.prepare() != SQLResultOk)
-        return false;
-
-    while (selectURLs.step() == SQLResultRow)
-        urls->append(selectURLs.getColumnText(0));
-
-    return true;
-}
-
-bool ApplicationCacheStorage::cacheGroupSize(const String& manifestURL, int64_t* size)
-{
-    ASSERT(size);
-    openDatabase(false);
-    if (!m_database.isOpen())
-        return false;
-
-    SQLiteStatement statement(m_database, "SELECT sum(Caches.size) FROM Caches INNER JOIN CacheGroups ON Caches.cacheGroup=CacheGroups.id WHERE CacheGroups.manifestURL=?");
-    if (statement.prepare() != SQLResultOk)
-        return false;
-
-    statement.bindText(1, manifestURL);
-
-    int result = statement.step();
-    if (result == SQLResultDone)
-        return false;
-
-    if (result != SQLResultRow) {
-        LOG_ERROR("Could not get the size of the cache group, error \"%s\"", m_database.lastErrorMsg());
-        return false;
-    }
-
-    *size = statement.getColumnInt64(0);
-    return true;
-}
-
-bool ApplicationCacheStorage::deleteCacheGroup(const String& manifestURL)
-{
-    SQLiteTransaction deleteTransaction(m_database);
-    // Check to see if the group is in memory.
-    ApplicationCacheGroup* group = m_cachesInMemory.get(manifestURL);
-    if (group)
-        cacheGroupMadeObsolete(group);
-    else {
-        // The cache group is not in memory, so remove it from the disk.
-        openDatabase(false);
-        if (!m_database.isOpen())
-            return false;
-
-        SQLiteStatement idStatement(m_database, "SELECT id FROM CacheGroups WHERE manifestURL=?");
-        if (idStatement.prepare() != SQLResultOk)
-            return false;
-
-        idStatement.bindText(1, manifestURL);
-
-        int result = idStatement.step();
-        if (result == SQLResultDone)
-            return false;
-
-        if (result != SQLResultRow) {
-            LOG_ERROR("Could not load cache group id, error \"%s\"", m_database.lastErrorMsg());
-            return false;
-        }
-
-        int64_t groupId = idStatement.getColumnInt64(0);
-
-        SQLiteStatement cacheStatement(m_database, "DELETE FROM Caches WHERE cacheGroup=?");
-        if (cacheStatement.prepare() != SQLResultOk)
-            return false;
-
-        SQLiteStatement groupStatement(m_database, "DELETE FROM CacheGroups WHERE id=?");
-        if (groupStatement.prepare() != SQLResultOk)
-            return false;
-
-        cacheStatement.bindInt64(1, groupId);
-        executeStatement(cacheStatement);
-        groupStatement.bindInt64(1, groupId);
-        executeStatement(groupStatement);
-    }
-
-    deleteTransaction.commit();
-    return true;
-}
-
-void ApplicationCacheStorage::vacuumDatabaseFile()
-{
-    m_database.runVacuumCommand();
-}
-
-void ApplicationCacheStorage::checkForMaxSizeReached()
-{
-    if (m_database.lastError() == SQLResultFull)
-        m_isMaximumSizeReached = true;
-}
-
-ApplicationCacheStorage::ApplicationCacheStorage() 
-    : m_maximumSize(INT_MAX)
-    , m_isMaximumSizeReached(false)
-{
-}
-
-#else // MANUAL_MERGE_REQUIRED
 
 bool ApplicationCacheStorage::manifestURLs(Vector<KURL>* urls)
 {
@@ -1252,7 +1087,6 @@ ApplicationCacheStorage::ApplicationCacheStorage()
 {
 }
 
-#endif // MANUAL_MERGE_REQUIRED
 ApplicationCacheStorage& cacheStorage()
 {
     DEFINE_STATIC_LOCAL(ApplicationCacheStorage, storage, ());

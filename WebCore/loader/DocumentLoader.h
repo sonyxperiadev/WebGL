@@ -38,14 +38,8 @@
 
 namespace WebCore {
 
-#ifdef MANUAL_MERGE_REQUIRED
-    class ApplicationCache;
-    class ApplicationCacheGroup;
-    class ApplicationCacheResource;
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#else // MANUAL_MERGE_REQUIRED
     class ApplicationCacheHost;
-#endif // MANUAL_MERGE_REQUIRED
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     class Archive;
     class ArchiveResource;
     class ArchiveResourceCollection;

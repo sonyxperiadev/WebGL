@@ -1485,45 +1485,7 @@ String CSSComputedStyleDeclaration::item(unsigned i) const
     return getPropertyName(static_cast<CSSPropertyID>(computedProperties[i]));
 }
 
-#ifdef MANUAL_MERGE_REQUIRED
-// This is the list of properties we want to copy in the copyInheritableProperties() function.
-// It is the intersection of the list of inherited CSS properties and the
-// properties for which we have a computed implementation in this file.
-static const int inheritableProperties[] = {
-    CSSPropertyBorderCollapse,
-    CSSPropertyColor,
-    CSSPropertyFontFamily,
-    CSSPropertyFontSize,
-    CSSPropertyFontStyle,
-    CSSPropertyFontVariant,
-    CSSPropertyFontWeight,
-    CSSPropertyLetterSpacing,
-    CSSPropertyLineHeight,
-    CSSPropertyOrphans,
-    CSSPropertyTextAlign,
-    CSSPropertyTextIndent,
-    CSSPropertyTextTransform,
-    CSSPropertyWhiteSpace,
-    CSSPropertyWidows,
-    CSSPropertyWordSpacing,
-    CSSPropertyWebkitBorderHorizontalSpacing,
-    CSSPropertyWebkitBorderVerticalSpacing,
-    CSSPropertyWebkitTextDecorationsInEffect,
-    CSSPropertyWebkitTextFillColor,
-    CSSPropertyWebkitTextSizeAdjust,
-    CSSPropertyWebkitTextStrokeColor,
-    CSSPropertyWebkitTextStrokeWidth,
-#ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    CSSPropertyWebkitTapHighlightColor,
-#endif
-};
-
-static const unsigned numInheritableProperties = sizeof(inheritableProperties) / sizeof(inheritableProperties[0]);
-
-void CSSComputedStyleDeclaration::removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration* declaration)
-#else // MANUAL_MERGE_REQUIRED
 bool CSSComputedStyleDeclaration::cssPropertyMatches(const CSSProperty* property) const
-#endif // MANUAL_MERGE_REQUIRED
 {
     if (property->id() == CSSPropertyFontSize && property->value()->isPrimitiveValue() && m_node) {
         m_node->document()->updateLayoutIgnorePendingStylesheets();

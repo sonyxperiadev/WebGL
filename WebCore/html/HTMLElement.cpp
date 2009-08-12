@@ -222,7 +222,6 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
         setAttributeEventListener(eventNames().webkitAnimationEndEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onwebkittransitionendAttr) {
         setAttributeEventListener(eventNames().webkitTransitionEndEvent, createAttributeEventListener(this, attr));
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(TOUCH_EVENTS) // Android
     } else if (attr->name() == ontouchstartAttr) {
         setAttributeEventListener(eventNames().touchstartEvent, createAttributeEventListener(this, attr));
@@ -233,10 +232,8 @@ void HTMLElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == ontouchcancelAttr) {
         setAttributeEventListener(eventNames().touchcancelEvent, createAttributeEventListener(this, attr));
 #endif
-#else // MANUAL_MERGE_REQUIRED
     } else if (attr->name() == oninputAttr) {
         setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
-#endif // MANUAL_MERGE_REQUIRED
     }
 }
 

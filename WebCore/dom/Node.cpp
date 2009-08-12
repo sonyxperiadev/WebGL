@@ -3368,7 +3368,6 @@ void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().selectstartEvent, eventListener);
 }
 
-#ifdef MANUAL_MERGE_REQUIRED
 EventListener* Node::onsubmit() const
 {
     return getAttributeEventListener(eventNames().submitEvent);
@@ -3431,8 +3430,6 @@ void Node::setOntouchcancel(PassRefPtr<EventListener> eventListener)
 }
 #endif // ENABLE(TOUCH_EVENT)
 
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
 } // namespace WebCore
 
 #ifndef NDEBUG

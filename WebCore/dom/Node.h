@@ -658,7 +658,6 @@ public:
     void setOnsearch(PassRefPtr<EventListener>);
     EventListener* onselectstart() const;
     void setOnselectstart(PassRefPtr<EventListener>);
-#ifdef MANUAL_MERGE_REQUIRED
     EventListener* onsubmit() const;
     void setOnsubmit(PassRefPtr<EventListener>);
     EventListener* onunload() const;
@@ -673,8 +672,6 @@ public:
     EventListener* ontouchcancel() const;
     void setOntouchcancel(PassRefPtr<EventListener>);
 #endif
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
 
     using TreeShared<Node>::ref;
     using TreeShared<Node>::deref;
