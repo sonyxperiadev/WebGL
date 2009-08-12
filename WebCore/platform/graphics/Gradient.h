@@ -89,8 +89,7 @@ namespace WebCore {
 
 #if PLATFORM(ANDROID) && PLATFORM(SGL)
         SkShader* getShader(SkShader::TileMode);
-        PlatformGradient platformGradient();
-#else
+#endif
         PlatformGradient platformGradient();
 #endif
 
