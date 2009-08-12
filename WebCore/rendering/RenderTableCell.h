@@ -55,16 +55,13 @@ public:
 
     virtual void calcPrefWidths();
 
-#ifdef MANUAL_MERGE_REQUIRED
-    virtual void calcPrefWidths();
-    virtual void calcWidth();
+#if PLATFORM(ANDROID)
 #ifdef ANDROID_LAYOUT
     // RenderTableSection needs to access this in setCellWidths()
     int getVisibleWidth() { return m_visibleWidth; }
-#endif    
+#endif
+#endif
 
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
     void updateWidth(int);
 
     int borderLeft() const;

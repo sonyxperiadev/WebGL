@@ -51,15 +51,7 @@ class QPointF;
 QT_END_NAMESPACE
 #endif
 
-#ifdef MANUAL_MERGE_REQUIRED
-#if PLATFORM(SYMBIAN)
-class TPoint;
-#endif
-
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-#else // MANUAL_MERGE_REQUIRED
 #if PLATFORM(SKIA)
-#endif // MANUAL_MERGE_REQUIRED
 struct SkPoint;
 #endif
 
@@ -98,16 +90,7 @@ public:
     operator QPointF() const;
 #endif
 
-#ifdef MANUAL_MERGE_REQUIRED
-#if PLATFORM(SYMBIAN)
-    operator TPoint() const;
-    FloatPoint(const TPoint&);
-#endif
-
-#if (PLATFORM(SKIA) || PLATFORM(SGL))
-#else // MANUAL_MERGE_REQUIRED
 #if PLATFORM(SKIA)
-#endif // MANUAL_MERGE_REQUIRED
     operator SkPoint() const;
     FloatPoint(const SkPoint&);
 #endif

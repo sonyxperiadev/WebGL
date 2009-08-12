@@ -71,13 +71,9 @@ namespace WebCore {
 #elif PLATFORM(WX)
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
-#ifdef MANUAL_MERGE_REQUIRED
+    typedef GdkPixBuf* DragImageRef;
+#elif PLATFORM(ANDROID)
     typedef void* DragImageRef;
-#elif defined ANDROID
-    typedef void* DragImageRef;
-#else // MANUAL_MERGE_REQUIRED
-    typedef GdkPixbuf* DragImageRef;
-#endif // MANUAL_MERGE_REQUIRED
 #endif
     
     IntSize dragImageSize(DragImageRef);

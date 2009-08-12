@@ -42,7 +42,7 @@
 
 namespace WebCore {
 
-#ifdef MANUAL_MERGE_REQUIRED
+#if PLATFORM(ANDROID)
 static const struct CompositOpToSkiaMode {
     uint8_t mCompositOp;
     uint8_t mMode;
@@ -76,11 +76,10 @@ SkXfermode::Mode WebCoreCompositeToSkiaMode(CompositeOperator op)
     SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
     return SkXfermode::kSrcOver_Mode; // fall-back
 }
-    
-static const struct CompositOpToPorterDuffMode {
-#else // MANUAL_MERGE_REQUIRED
+
+#endif
+
 static const struct CompositOpToXfermodeMode {
-#endif // MANUAL_MERGE_REQUIRED
     uint8_t mCompositOp;
     uint8_t m_xfermodeMode;
 } gMapCompositOpsToXfermodeModes[] = {
@@ -113,6 +112,7 @@ SkXfermode::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
     return SkXfermode::kSrcOver_Mode; // fall-back
 }
 
+#if PLATFORM(ANDROID)
 Color SkPMColorToWebCoreColor(SkPMColor pm)
 {
     SkColor c = SkUnPreMultiply::PMColorToColor(pm);
@@ -120,6 +120,32 @@ Color SkPMColorToWebCoreColor(SkPMColor pm)
     return WebCore::Color((int)SkColorGetR(c), (int)SkColorGetG(c),
                           (int)SkColorGetB(c), (int)SkColorGetA(c));
 }
+#else
+static U8CPU InvScaleByte(U8CPU component, uint32_t scale)
+{
+    SkASSERT(component == (uint8_t)component);
+    return (component * scale + 0x8000) >> 16;
+}
+
+SkColor SkPMColorToColor(SkPMColor pm)
+{
+    if (0 == pm)
+        return 0;
+
+    unsigned a = SkGetPackedA32(pm);
+    uint32_t scale = (255 << 16) / a;
+
+    return SkColorSetARGB(a,
+                          InvScaleByte(SkGetPackedR32(pm), scale),
+                          InvScaleByte(SkGetPackedG32(pm), scale),
+                          InvScaleByte(SkGetPackedB32(pm), scale));
+}
+
+Color SkPMColorToWebCoreColor(SkPMColor pm)
+{
+    return SkPMColorToColor(pm);
+}
+#endif
 
 void IntersectRectAndRegion(const SkRegion& region, const SkRect& srcRect, SkRect* destRect) {
     // The cliperator requires an int rect, so we round out.
@@ -172,12 +198,7 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     SkPath scaledPath;
     int scale = 1;
 
-#ifdef MANUAL_MERGE_REQUIRED
-    SkRect bounds;
-    bounds = originalPath->getBounds();
-#else // MANUAL_MERGE_REQUIRED
     SkRect bounds = originalPath->getBounds();
-#endif // MANUAL_MERGE_REQUIRED
 
     // We can immediately return false if the point is outside the bounding rect
     if (!bounds.contains(SkFloatToScalar(point.x()), SkFloatToScalar(point.y())))
