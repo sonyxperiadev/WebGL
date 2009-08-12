@@ -28,7 +28,10 @@
 
 #include "NPV8Object.h"
 
+if PLATFORM(CHROMIUM)
+// TODO(andreip): upstream
 #include "ChromiumBridge.h"
+#endif
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "OwnArrayPtr.h"
@@ -235,7 +238,13 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
 
 bool _NPN_Evaluate(NPP npp, NPObject* npObject, NPString* npScript, NPVariant* result)
 {
+#if PLATFORM(CHROMIUM)
     bool popupsAllowed = WebCore::ChromiumBridge::popupsAllowed(npp);
+#else
+    // TODO(andreip): Some of the binding code is specific to Chromium
+    // and we don't want it to Android. What is the preferred way to handle this?
+    bool popupsAllowed = false;
+#endif
     return _NPN_EvaluateHelper(npp, popupsAllowed, npObject, npScript, result);
 }
 
