@@ -31,7 +31,6 @@
 #include "config.h"
 #include "V8Proxy.h"
 
-#include "ChromiumBridge.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
@@ -55,6 +54,14 @@
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
+
+#if PLATFORM(CHROMIUM)
+#include "ChromiumBridge.h"
+#endif
+
+#ifdef ANDROID_INSTRUMENT
+#include "TimeCounter.h"
+#endif
 
 namespace WebCore {
 
@@ -241,6 +248,16 @@ void V8Proxy::disconnectEventListeners()
 }
 
 v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine)
+#ifdef ANDROID_INSTRUMENT
+{
+    android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
+    v8::Handle<v8::Script> script = compileScriptInternal(code, fileName, baseLine);
+    android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
+    return script;
+}
+
+v8::Handle<v8::Script> V8Proxy::compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine)
+#endif
 {
     const uint16_t* fileNameString = fromWebCoreString(fileName);
     v8::Handle<v8::String> name = v8::String::New(fileNameString, fileName.length());
@@ -268,8 +285,10 @@ bool V8Proxy::handleOutOfMemory()
         proxy->destroyGlobal();
     }
 
+#if PLATFORM(CHROMIUM)
+    // TODO (andreip): ChromeBridge -> BrowserBridge?
     ChromiumBridge::notifyJSOutOfMemory(frame);
-
+#endif
     // Disable JS.
     Settings* settings = frame->settings();
     ASSERT(settings);
@@ -337,17 +356,23 @@ void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int 
 v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* node)
 {
     ASSERT(v8::Context::InContext());
+    LOCK_V8;
 
     // Compile the script.
     v8::Local<v8::String> code = v8ExternalString(source.source());
+#if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventBegin("v8.compile", node, "");
+#endif
 
     // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
     // 1, whereas v8 starts at 0.
     v8::Handle<v8::Script> script = compileScript(code, source.url(), source.startLine() - 1);
+#if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventEnd("v8.compile", node, "");
-
     ChromiumBridge::traceEventBegin("v8.run", node, "");
+#endif
     v8::Local<v8::Value> result;
     {
         // Isolate exceptions that occur when executing the code. These
@@ -361,11 +386,24 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
         // this based on whether the script source has a URL.
         result = runScript(script, source.url().string().isNull());
     }
+#if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     ChromiumBridge::traceEventEnd("v8.run", node, "");
+#endif
     return result;
 }
 
 v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isInlineCode)
+#ifdef ANDROID_INSTRUMENT
+{
+    android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
+    v8::Local<v8::Value> result = runScriptInternal(script, inline_code);
+    android::TimeCounter::record(android::TimeCounter::JavaScriptExecuteTimeCounter, __FUNCTION__);
+    return result;
+}
+
+v8::Local<v8::Value> V8Proxy::runScriptInternal(v8::Handle<v8::Script> script, bool inline_code)
+#endif
 {
     if (script.IsEmpty())
         return notHandledByInterceptor();
@@ -421,6 +459,10 @@ v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isIn
 
 v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
 {
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptExecuteTimeCounter);
+#endif
+
     // For now, we don't put any artificial limitations on the depth
     // of recursion that stems from calling functions. This is in
     // contrast to the script evaluations.
@@ -441,6 +483,9 @@ v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8
     if (v8::V8::IsDead())
         handleFatalErrorInV8();
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptExecuteTimeCounter, __FUNCTION__);
+#endif
     return result;
 }
 
@@ -585,13 +630,21 @@ bool V8Proxy::isEnabled()
     // not be made at this layer. instead, we should bridge out to the
     // embedder to allow them to override policy here.
 
+#if PLATFORM(CHROMIUM)
+    // TODO(andreip): ChromeBridge->BrowserBridge?
     if (origin->protocol() == ChromiumBridge::uiResourceProtocol())
         return true;   // Embedder's scripts are ok to run
+#endif
 
     // If the scheme is ftp: or file:, an empty file name indicates a directory
     // listing, which requires JavaScript to function properly.
     const char* kDirProtocols[] = { "ftp", "file" };
+#if PLATFORM(ANDROID)
+    // TODO(andreip): Port arraysize function to Android. There's one in Gears.
+    for (size_t i = 0; i < 2; ++i) {
+#else
     for (size_t i = 0; i < arraysize(kDirProtocols); ++i) {
+#endif
         if (origin->protocol() == kDirProtocols[i]) {
             const KURL& url = document->url();
             return url.pathAfterLastSlash() == url.pathEnd();
@@ -625,6 +678,7 @@ void V8Proxy::clearDocumentWrapper()
 
 void V8Proxy::updateDocumentWrapperCache()
 {
+    LOCK_V8;
     v8::HandleScope handleScope;
     v8::Context::Scope contextScope(context());
 
@@ -677,6 +731,7 @@ void V8Proxy::disposeContextHandles()
 void V8Proxy::clearForClose()
 {
     if (!m_context.IsEmpty()) {
+        LOCK_V8;
         v8::HandleScope handleScope;
 
         clearDocumentWrapper();
@@ -689,6 +744,7 @@ void V8Proxy::clearForNavigation()
     disconnectEventListeners();
 
     if (!m_context.IsEmpty()) {
+        LOCK_V8;
         v8::HandleScope handle;
         clearDocumentWrapper();
 
@@ -769,6 +825,7 @@ void V8Proxy::updateDocument()
 
 void V8Proxy::updateSecurityOrigin()
 {
+    LOCK_V8;
     v8::HandleScope scope;
     setSecurityToken();
 }
@@ -962,6 +1019,10 @@ void V8Proxy::initContextIfNeeded()
     if (!m_context.IsEmpty())
         return;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
+#endif
+    LOCK_V8;
     // Create a handle scope for all local handles.
     v8::HandleScope handleScope;
 
@@ -1025,6 +1086,9 @@ void V8Proxy::initContextIfNeeded()
 
     m_frame->loader()->client()->didCreateScriptContextForFrame();
     m_frame->loader()->dispatchWindowObjectAvailable();
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
+#endif
 }
 
 void V8Proxy::setDOMException(int exceptionCode)
@@ -1177,6 +1241,11 @@ void V8Proxy::createUtilityContext()
 
 int V8Proxy::sourceLineNumber()
 {
+#if PLATFORM(ANDROID)
+    // TODO(andreip): consider V8's DEBUG flag here, rather than PLATFORM(ANDROID)
+    // or, even better, the WEBKIT inspector flag.
+    return 0;
+#else
     v8::HandleScope scope;
     v8::Handle<v8::Context> v8UtilityContext = V8Proxy::utilityContext();
     if (v8UtilityContext.IsEmpty())
@@ -1190,10 +1259,14 @@ int V8Proxy::sourceLineNumber()
     if (result.IsEmpty())
         return 0;
     return result->Int32Value();
+#endif
 }
 
 String V8Proxy::sourceName()
 {
+#if PLATFORM(ANDROID)
+    return String();
+#else
     v8::HandleScope scope;
     v8::Handle<v8::Context> v8UtilityContext = utilityContext();
     if (v8UtilityContext.IsEmpty())
@@ -1204,6 +1277,7 @@ String V8Proxy::sourceName()
     if (frameSourceName.IsEmpty())
         return String();
     return toWebCoreString(v8::Debug::Call(frameSourceName));
+#endif
 }
 
 void V8Proxy::registerExtensionWithV8(v8::Extension* extension) {
