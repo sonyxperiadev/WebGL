@@ -198,18 +198,7 @@ void Geolocation::sendPositionToWatchers(Geoposition* position)
     Vector<RefPtr<GeoNotifier> > copy;
     copyValuesToVector(m_watchers, copy);
     
-#ifdef MANUAL_MERGE_REQUIRED
-    Vector<RefPtr<GeoNotifier> >::const_iterator end = copy.end();
-    for (Vector<RefPtr<GeoNotifier> >::const_iterator it = copy.begin(); it != end; ++it) {
-        RefPtr<GeoNotifier> notifier = *it;
-        ASSERT(notifier->m_successCallback);
-        
-        notifier->m_timer.stop();
-        notifier->m_successCallback->handleEvent(position);
-    }
-#else // MANUAL_MERGE_REQUIRED
     sendPosition(copy, position);
-#endif // MANUAL_MERGE_REQUIRED
 }
 
 void Geolocation::startTimer(Vector<RefPtr<GeoNotifier> >& notifiers)

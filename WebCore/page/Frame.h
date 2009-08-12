@@ -154,58 +154,7 @@ namespace WebCore {
         static void cancelAllKeepAlive();
     #endif
 
-#ifdef MANUAL_MERGE_REQUIRED
-class Frame : public RefCounted<Frame> {
-public:
-    static PassRefPtr<Frame> create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
-    {
-        return adoptRef(new Frame(page, ownerElement, client));
-    }
-    void setView(PassRefPtr<FrameView>);
-    ~Frame();
-
-    void init();
-
-    Page* page() const;
-    HTMLFrameOwnerElement* ownerElement() const;
-
-    void pageDestroyed();
-    void disconnectOwnerElement();
-
-    Document* document() const;
-    FrameView* view() const;
-
-    void setDOMWindow(DOMWindow*);
-    DOMWindow* domWindow() const;
-    void clearFormerDOMWindow(DOMWindow*);
-
-    Editor* editor() const;
-    EventHandler* eventHandler() const;
-    FrameLoader* loader() const;
-    SelectionController* selection() const;
-    FrameTree* tree() const;
-    AnimationController* animation() const;
-    ScriptController* script();
-
-    RenderView* contentRenderer() const; // root renderer for the document contained in this frame
-    RenderPart* ownerRenderer() const; // renderer for the element that contains this frame
-    
-    bool isDisconnected() const;
-    void setIsDisconnected(bool);
-    bool excludeFromTextSearch() const;
-    void setExcludeFromTextSearch(bool);
-
-    void createView(const IntSize&, const Color&, bool, const IntSize &, bool,
-                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
-
-
-private:
-    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
-    
-// === undecided, would like to consider moving to another class
-#else // MANUAL_MERGE_REQUIRED
         void setDocument(PassRefPtr<Document>);
-#endif // MANUAL_MERGE_REQUIRED
 
         void clearTimers();
         static void clearTimers(FrameView*, Document*);

@@ -86,12 +86,9 @@ namespace WebCore {
 #endif
 
     private:
-#ifdef MANUAL_MERGE_REQUIRED
 #ifndef ANDROID_PLUGINS
         void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
 #endif
-#else // MANUAL_MERGE_REQUIRED
-#endif // MANUAL_MERGE_REQUIRED
         void getPluginPathsInDirectories(HashSet<String>&) const;
         void getDeletedPlugins(PluginSet&) const;
 
@@ -106,16 +103,13 @@ namespace WebCore {
         PluginSet m_plugins;
         HashMap<String, RefPtr<PluginPackage> > m_pluginsByPath;
         HashMap<String, time_t> m_pluginPathsWithTimes;
-#ifdef MANUAL_MERGE_REQUIRED
 
 #if defined(ANDROID_PLUGINS)
         // Need access to setPluginDirectories() to change the default
         // path after startup.
         friend class ::android::WebSettings;
 #endif
-#else // MANUAL_MERGE_REQUIRED
         HashMap<String, RefPtr<PluginPackage> > m_preferredPlugins;
-#endif // MANUAL_MERGE_REQUIRED
     };
 
 } // namespace WebCore

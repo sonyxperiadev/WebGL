@@ -185,13 +185,9 @@ bool PluginView::start()
     NPError npErr;
     {
         PluginView::setCurrentPluginView(this);
-#ifdef MANUAL_MERGE_REQUIRED
 #if USE(JSC)        
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
-#endif        
-#else // MANUAL_MERGE_REQUIRED
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-#endif // MANUAL_MERGE_REQUIRED
+#endif
         setCallingPlugin(true);
         npErr = m_plugin->pluginFuncs()->newp((NPMIMEType)m_mimeType.utf8().data(), m_instance, m_mode, m_paramCount, m_paramNames, m_paramValues, NULL);
         setCallingPlugin(false);
@@ -390,13 +386,9 @@ void PluginView::performRequest(PluginRequest* request)
             // FIXME: <rdar://problem/4807469> This should be sent when the document has finished loading
             if (request->sendNotification()) {
                 PluginView::setCurrentPluginView(this);
-#ifdef MANUAL_MERGE_REQUIRED
 #if USE(JSC)                
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
-#endif                
-#else // MANUAL_MERGE_REQUIRED
                 JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-#endif // MANUAL_MERGE_REQUIRED
+#endif
                 setCallingPlugin(true);
                 m_plugin->pluginFuncs()->urlnotify(m_instance, requestURL.string().utf8().data(), NPRES_DONE, request->notifyData());
                 setCallingPlugin(false);

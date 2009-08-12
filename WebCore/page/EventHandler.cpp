@@ -2459,7 +2459,6 @@ bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& 
     return scrollbar->mouseDown(mev.event());
 }
 
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(TOUCH_EVENTS) // Android
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
 {
@@ -2568,7 +2567,6 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& e)
 }
 #endif
 
-#else // MANUAL_MERGE_REQUIRED
 // If scrollbar (under mouse) is different from last, send a mouse exited. Set
 // last to scrollbar if setLast is true; else set last to 0.
 void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setLast)
@@ -2581,5 +2579,4 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, bool setL
     }
 }
 
-#endif // MANUAL_MERGE_REQUIRED
 }

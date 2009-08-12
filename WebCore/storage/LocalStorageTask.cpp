@@ -26,15 +26,8 @@
 #include "config.h"
 #include "LocalStorageTask.h"
 
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(DOM_STORAGE)
 
-#include "LocalStorage.h"
-#include "LocalStorageArea.h"
-#else // MANUAL_MERGE_REQUIRED
-#if ENABLE(DOM_STORAGE)
-
-#endif // MANUAL_MERGE_REQUIRED
 #include "LocalStorageThread.h"
 #include "StorageAreaSync.h"
 

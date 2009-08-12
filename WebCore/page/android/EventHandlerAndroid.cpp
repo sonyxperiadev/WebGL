@@ -39,13 +39,9 @@
 
 namespace WebCore {
 
-#ifdef MANUAL_MERGE_REQUIRED
-bool EventHandler::tabsToAllControls(KeyboardEvent* ) const
-#else // MANUAL_MERGE_REQUIRED
 unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
 
 bool EventHandler::tabsToAllControls(KeyboardEvent*) const
-#endif // MANUAL_MERGE_REQUIRED
 {
     return true;
 }

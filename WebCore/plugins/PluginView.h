@@ -218,16 +218,13 @@ namespace WebCore {
 
         static bool isCallingPlugin();
 
-#ifdef MANUAL_MERGE_REQUIRED
 #ifdef ANDROID_PLUGINS
         Frame* getParentFrame() const { return m_parentFrame; }
         Element* getElement() const { return m_element; }
 #endif
 
-#else // MANUAL_MERGE_REQUIRED
         bool start();
 
-#endif // MANUAL_MERGE_REQUIRED
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 

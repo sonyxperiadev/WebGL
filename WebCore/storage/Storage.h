@@ -26,13 +26,7 @@
 #ifndef Storage_h
 #define Storage_h
 
-#ifdef MANUAL_MERGE_REQUIRED
 #if ENABLE(DOM_STORAGE)
-
-#include "StorageArea.h"
-#else // MANUAL_MERGE_REQUIRED
-#if ENABLE(DOM_STORAGE)
-#endif // MANUAL_MERGE_REQUIRED
 
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
