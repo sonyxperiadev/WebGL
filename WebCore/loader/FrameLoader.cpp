@@ -1615,6 +1615,7 @@ bool FrameLoader::gotoAnchor(const String& name)
     if (FrameView* view = m_frame->view())
 #ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
     {
+        // TODO(andreip): check with Grace if this is correct.
         android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(true);
 #endif
         view->maintainScrollPositionAtAnchor(anchorNode ? static_cast<Node*>(anchorNode) : m_frame->document());
