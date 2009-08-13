@@ -432,7 +432,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(COORDINATES, Coordinates)                                         \
     V(GEOLOCATION, Geolocation)                                         \
     V(GEOPOSITION, Geoposition)                                         \
-    V(POSITIONERROR, PositionError)                                     \
+    V(POSITIONERROR, PositionError)
 #else
 #define DOM_OBJECT_GEOLOCATION_TYPES(V)
 #endif
@@ -441,9 +441,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
 #define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
     V(TOUCHLIST, TouchList)                                             \
     V(TOUCHEVENT, TouchEvent)                                           \
-    V(TOUCH, Touch)                                                     \
+    V(TOUCH, Touch)
 #else
-#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)                                 \
+#define DOM_OBJECT_TOUCH_EVENT_TYPES(V)
 #endif
 
 #if PLATFORM(CHROMIUM)
@@ -453,7 +453,7 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_WORKERS_TYPES(V)
-#elif PALTFORM(ANDROID)
+#elif PLATFORM(ANDROID)
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
     DOM_OBJECT_TYPES_2(V)                                               \

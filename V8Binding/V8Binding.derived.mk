@@ -183,484 +183,484 @@ else
 endif
 
 GEN := \
-    $(intermediates)/css/V8CSSCharsetRule.h \
-    $(intermediates)/css/V8CSSFontFaceRule.h \
-    $(intermediates)/css/V8CSSImportRule.h \
-    $(intermediates)/css/V8CSSMediaRule.h \
-    $(intermediates)/css/V8CSSPageRule.h \
-    $(intermediates)/css/V8CSSPrimitiveValue.h \
-    $(intermediates)/css/V8CSSRule.h \
-    $(intermediates)/css/V8CSSRuleList.h \
-    $(intermediates)/css/V8CSSStyleDeclaration.h \
-    $(intermediates)/css/V8CSSStyleRule.h \
-    $(intermediates)/css/V8CSSStyleSheet.h \
-    $(intermediates)/css/V8CSSUnknownRule.h \
-    $(intermediates)/css/V8CSSValue.h \
-    $(intermediates)/css/V8CSSValueList.h \
-    $(intermediates)/css/V8CSSVariablesDeclaration.h \
-    $(intermediates)/css/V8CSSVariablesRule.h \
-    $(intermediates)/css/V8Counter.h \
-    $(intermediates)/css/V8Media.h \
-    $(intermediates)/css/V8MediaList.h \
-    $(intermediates)/css/V8Rect.h \
-    $(intermediates)/css/V8RGBColor.h \
-    $(intermediates)/css/V8StyleSheet.h \
-    $(intermediates)/css/V8StyleSheetList.h  \
-    $(intermediates)/css/V8WebKitCSSKeyframeRule.h \
-    $(intermediates)/css/V8WebKitCSSKeyframesRule.h \
-    $(intermediates)/css/V8WebKitCSSMatrix.h \
-    $(intermediates)/css/V8WebKitCSSTransformValue.h 
+    $(intermediates)/bindings/V8CSSCharsetRule.h \
+    $(intermediates)/bindings/V8CSSFontFaceRule.h \
+    $(intermediates)/bindings/V8CSSImportRule.h \
+    $(intermediates)/bindings/V8CSSMediaRule.h \
+    $(intermediates)/bindings/V8CSSPageRule.h \
+    $(intermediates)/bindings/V8CSSPrimitiveValue.h \
+    $(intermediates)/bindings/V8CSSRule.h \
+    $(intermediates)/bindings/V8CSSRuleList.h \
+    $(intermediates)/bindings/V8CSSStyleDeclaration.h \
+    $(intermediates)/bindings/V8CSSStyleRule.h \
+    $(intermediates)/bindings/V8CSSStyleSheet.h \
+    $(intermediates)/bindings/V8CSSUnknownRule.h \
+    $(intermediates)/bindings/V8CSSValue.h \
+    $(intermediates)/bindings/V8CSSValueList.h \
+    $(intermediates)/bindings/V8CSSVariablesDeclaration.h \
+    $(intermediates)/bindings/V8CSSVariablesRule.h \
+    $(intermediates)/bindings/V8Counter.h \
+    $(intermediates)/bindings/V8Media.h \
+    $(intermediates)/bindings/V8MediaList.h \
+    $(intermediates)/bindings/V8Rect.h \
+    $(intermediates)/bindings/V8RGBColor.h \
+    $(intermediates)/bindings/V8StyleSheet.h \
+    $(intermediates)/bindings/V8StyleSheetList.h  \
+    $(intermediates)/bindings/V8WebKitCSSKeyframeRule.h \
+    $(intermediates)/bindings/V8WebKitCSSKeyframesRule.h \
+    $(intermediates)/bindings/V8WebKitCSSMatrix.h \
+    $(intermediates)/bindings/V8WebKitCSSTransformValue.h 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/css/V8%.h : $(WEBCORE_PATH)/css/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/css/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/css/%.cpp : $(intermediates)/css/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/dom/V8Attr.h \
-    $(intermediates)/dom/V8CDATASection.h \
-    $(intermediates)/dom/V8CharacterData.h \
-    $(intermediates)/dom/V8ClientRect.h \
-    $(intermediates)/dom/V8ClientRectList.h \
-    $(intermediates)/dom/V8Clipboard.h \
-    $(intermediates)/dom/V8Comment.h \
-    $(intermediates)/dom/V8DOMCoreException.h \
-    $(intermediates)/dom/V8DOMImplementation.h \
-    $(intermediates)/dom/V8Document.h \
-    $(intermediates)/dom/V8DocumentFragment.h \
-    $(intermediates)/dom/V8DocumentType.h \
-    $(intermediates)/dom/V8Element.h \
-    $(intermediates)/dom/V8Entity.h \
-    $(intermediates)/dom/V8EntityReference.h \
-    $(intermediates)/dom/V8ErrorEvent.h \
-    $(intermediates)/dom/V8Event.h \
-    $(intermediates)/dom/V8EventException.h \
-    $(intermediates)/dom/V8HTMLAllCollection.h \
-    $(intermediates)/dom/V8KeyboardEvent.h \
-    $(intermediates)/dom/V8MessageChannel.h \
-    $(intermediates)/dom/V8MessageEvent.h \
-    $(intermediates)/dom/V8MessagePort.h \
-    $(intermediates)/dom/V8MouseEvent.h \
-    $(intermediates)/dom/V8MutationEvent.h \
-    $(intermediates)/dom/V8NamedNodeMap.h \
-    $(intermediates)/dom/V8Node.h \
-    $(intermediates)/dom/V8NodeFilter.h \
-    $(intermediates)/dom/V8NodeIterator.h \
-    $(intermediates)/dom/V8NodeList.h \
-    $(intermediates)/dom/V8Notation.h \
-    $(intermediates)/dom/V8OverflowEvent.h \
-    $(intermediates)/dom/V8ProcessingInstruction.h \
-    $(intermediates)/dom/V8ProgressEvent.h \
-    $(intermediates)/dom/V8Range.h \
-    $(intermediates)/dom/V8RangeException.h \
-    $(intermediates)/dom/V8Text.h \
-    $(intermediates)/dom/V8TextEvent.h \
-    $(intermediates)/dom/V8Touch.h \
-    $(intermediates)/dom/V8TouchEvent.h \
-    $(intermediates)/dom/V8TouchList.h \
-    $(intermediates)/dom/V8TreeWalker.h \
-    $(intermediates)/dom/V8UIEvent.h \
-    $(intermediates)/dom/V8WebKitAnimationEvent.h \
-    $(intermediates)/dom/V8WebKitTransitionEvent.h \
-    $(intermediates)/dom/V8WheelEvent.h
+    $(intermediates)/bindings/V8Attr.h \
+    $(intermediates)/bindings/V8CDATASection.h \
+    $(intermediates)/bindings/V8CharacterData.h \
+    $(intermediates)/bindings/V8ClientRect.h \
+    $(intermediates)/bindings/V8ClientRectList.h \
+    $(intermediates)/bindings/V8Clipboard.h \
+    $(intermediates)/bindings/V8Comment.h \
+    $(intermediates)/bindings/V8DOMCoreException.h \
+    $(intermediates)/bindings/V8DOMImplementation.h \
+    $(intermediates)/bindings/V8Document.h \
+    $(intermediates)/bindings/V8DocumentFragment.h \
+    $(intermediates)/bindings/V8DocumentType.h \
+    $(intermediates)/bindings/V8Element.h \
+    $(intermediates)/bindings/V8Entity.h \
+    $(intermediates)/bindings/V8EntityReference.h \
+    $(intermediates)/bindings/V8ErrorEvent.h \
+    $(intermediates)/bindings/V8Event.h \
+    $(intermediates)/bindings/V8EventException.h \
+    $(intermediates)/bindings/V8HTMLAllCollection.h \
+    $(intermediates)/bindings/V8KeyboardEvent.h \
+    $(intermediates)/bindings/V8MessageChannel.h \
+    $(intermediates)/bindings/V8MessageEvent.h \
+    $(intermediates)/bindings/V8MessagePort.h \
+    $(intermediates)/bindings/V8MouseEvent.h \
+    $(intermediates)/bindings/V8MutationEvent.h \
+    $(intermediates)/bindings/V8NamedNodeMap.h \
+    $(intermediates)/bindings/V8Node.h \
+    $(intermediates)/bindings/V8NodeFilter.h \
+    $(intermediates)/bindings/V8NodeIterator.h \
+    $(intermediates)/bindings/V8NodeList.h \
+    $(intermediates)/bindings/V8Notation.h \
+    $(intermediates)/bindings/V8OverflowEvent.h \
+    $(intermediates)/bindings/V8ProcessingInstruction.h \
+    $(intermediates)/bindings/V8ProgressEvent.h \
+    $(intermediates)/bindings/V8Range.h \
+    $(intermediates)/bindings/V8RangeException.h \
+    $(intermediates)/bindings/V8Text.h \
+    $(intermediates)/bindings/V8TextEvent.h \
+    $(intermediates)/bindings/V8Touch.h \
+    $(intermediates)/bindings/V8TouchEvent.h \
+    $(intermediates)/bindings/V8TouchList.h \
+    $(intermediates)/bindings/V8TreeWalker.h \
+    $(intermediates)/bindings/V8UIEvent.h \
+    $(intermediates)/bindings/V8WebKitAnimationEvent.h \
+    $(intermediates)/bindings/V8WebKitTransitionEvent.h \
+    $(intermediates)/bindings/V8WheelEvent.h
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/dom/V8%.h : $(WEBCORE_PATH)/dom/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/dom/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 
 GEN := \
-    $(intermediates)/html/V8DataGridColumn.h \
-    $(intermediates)/html/V8DataGridColumnList.h \
-    $(intermediates)/html/V8File.h \
-    $(intermediates)/html/V8FileList.h \
-    $(intermediates)/html/V8HTMLAnchorElement.h \
-    $(intermediates)/html/V8HTMLAppletElement.h \
-    $(intermediates)/html/V8HTMLAreaElement.h \
-    $(intermediates)/html/V8HTMLAudioElement.h \
-    $(intermediates)/html/V8HTMLBRElement.h \
-    $(intermediates)/html/V8HTMLBaseElement.h \
-    $(intermediates)/html/V8HTMLBaseFontElement.h \
-    $(intermediates)/html/V8HTMLBlockquoteElement.h \
-    $(intermediates)/html/V8HTMLBodyElement.h \
-    $(intermediates)/html/V8HTMLButtonElement.h \
-    $(intermediates)/html/V8HTMLCanvasElement.h \
-    $(intermediates)/html/V8HTMLCollection.h \
-    $(intermediates)/html/V8HTMLDataGridCellElement.h \
-    $(intermediates)/html/V8HTMLDataGridColElement.h \
-    $(intermediates)/html/V8HTMLDataGridElement.h \
-    $(intermediates)/html/V8HTMLDataGridRowElement.h \
-    $(intermediates)/html/V8HTMLDListElement.h \
-    $(intermediates)/html/V8HTMLDirectoryElement.h \
-    $(intermediates)/html/V8HTMLDivElement.h \
-    $(intermediates)/html/V8HTMLDocument.h \
-    $(intermediates)/html/V8HTMLElement.h \
-    $(intermediates)/html/V8HTMLEmbedElement.h \
-    $(intermediates)/html/V8HTMLFieldSetElement.h \
-    $(intermediates)/html/V8HTMLFontElement.h \
-    $(intermediates)/html/V8HTMLFormElement.h \
-    $(intermediates)/html/V8HTMLFrameElement.h \
-    $(intermediates)/html/V8HTMLFrameSetElement.h \
-    $(intermediates)/html/V8HTMLHRElement.h \
-    $(intermediates)/html/V8HTMLHeadElement.h \
-    $(intermediates)/html/V8HTMLHeadingElement.h \
-    $(intermediates)/html/V8HTMLHtmlElement.h \
-    $(intermediates)/html/V8HTMLIFrameElement.h \
-    $(intermediates)/html/V8HTMLImageElement.h \
-    $(intermediates)/html/V8HTMLInputElement.h \
-    $(intermediates)/html/V8HTMLIsIndexElement.h \
-    $(intermediates)/html/V8HTMLLIElement.h \
-    $(intermediates)/html/V8HTMLLabelElement.h \
-    $(intermediates)/html/V8HTMLLegendElement.h \
-    $(intermediates)/html/V8HTMLLinkElement.h \
-    $(intermediates)/html/V8HTMLMapElement.h \
-    $(intermediates)/html/V8HTMLMarqueeElement.h \
-    $(intermediates)/html/V8HTMLMediaElement.h \
-    $(intermediates)/html/V8HTMLMenuElement.h \
-    $(intermediates)/html/V8HTMLMetaElement.h \
-    $(intermediates)/html/V8HTMLModElement.h \
-    $(intermediates)/html/V8HTMLOListElement.h \
-    $(intermediates)/html/V8HTMLObjectElement.h \
-    $(intermediates)/html/V8HTMLOptGroupElement.h \
-    $(intermediates)/html/V8HTMLOptionElement.h \
-    $(intermediates)/html/V8HTMLOptionsCollection.h \
-    $(intermediates)/html/V8HTMLParagraphElement.h \
-    $(intermediates)/html/V8HTMLParamElement.h \
-    $(intermediates)/html/V8HTMLPreElement.h \
-    $(intermediates)/html/V8HTMLQuoteElement.h \
-    $(intermediates)/html/V8HTMLScriptElement.h \
-    $(intermediates)/html/V8HTMLSelectElement.h \
-    $(intermediates)/html/V8HTMLSourceElement.h \
-    $(intermediates)/html/V8HTMLStyleElement.h \
-    $(intermediates)/html/V8HTMLTableCaptionElement.h \
-    $(intermediates)/html/V8HTMLTableCellElement.h \
-    $(intermediates)/html/V8HTMLTableColElement.h \
-    $(intermediates)/html/V8HTMLTableElement.h \
-    $(intermediates)/html/V8HTMLTableRowElement.h \
-    $(intermediates)/html/V8HTMLTableSectionElement.h \
-    $(intermediates)/html/V8HTMLTextAreaElement.h \
-    $(intermediates)/html/V8HTMLTitleElement.h \
-    $(intermediates)/html/V8HTMLUListElement.h \
-    $(intermediates)/html/V8HTMLVideoElement.h \
-    $(intermediates)/html/V8ImageData.h \
-    $(intermediates)/html/V8MediaError.h \
-    $(intermediates)/html/V8TextMetrics.h \
-    $(intermediates)/html/V8TimeRanges.h \
-    $(intermediates)/html/V8ValidityState.h \
-    $(intermediates)/html/V8VoidCallback.h
+    $(intermediates)/bindings/V8DataGridColumn.h \
+    $(intermediates)/bindings/V8DataGridColumnList.h \
+    $(intermediates)/bindings/V8File.h \
+    $(intermediates)/bindings/V8FileList.h \
+    $(intermediates)/bindings/V8HTMLAnchorElement.h \
+    $(intermediates)/bindings/V8HTMLAppletElement.h \
+    $(intermediates)/bindings/V8HTMLAreaElement.h \
+    $(intermediates)/bindings/V8HTMLAudioElement.h \
+    $(intermediates)/bindings/V8HTMLBRElement.h \
+    $(intermediates)/bindings/V8HTMLBaseElement.h \
+    $(intermediates)/bindings/V8HTMLBaseFontElement.h \
+    $(intermediates)/bindings/V8HTMLBlockquoteElement.h \
+    $(intermediates)/bindings/V8HTMLBodyElement.h \
+    $(intermediates)/bindings/V8HTMLButtonElement.h \
+    $(intermediates)/bindings/V8HTMLCanvasElement.h \
+    $(intermediates)/bindings/V8HTMLCollection.h \
+    $(intermediates)/bindings/V8HTMLDataGridCellElement.h \
+    $(intermediates)/bindings/V8HTMLDataGridColElement.h \
+    $(intermediates)/bindings/V8HTMLDataGridElement.h \
+    $(intermediates)/bindings/V8HTMLDataGridRowElement.h \
+    $(intermediates)/bindings/V8HTMLDListElement.h \
+    $(intermediates)/bindings/V8HTMLDirectoryElement.h \
+    $(intermediates)/bindings/V8HTMLDivElement.h \
+    $(intermediates)/bindings/V8HTMLDocument.h \
+    $(intermediates)/bindings/V8HTMLElement.h \
+    $(intermediates)/bindings/V8HTMLEmbedElement.h \
+    $(intermediates)/bindings/V8HTMLFieldSetElement.h \
+    $(intermediates)/bindings/V8HTMLFontElement.h \
+    $(intermediates)/bindings/V8HTMLFormElement.h \
+    $(intermediates)/bindings/V8HTMLFrameElement.h \
+    $(intermediates)/bindings/V8HTMLFrameSetElement.h \
+    $(intermediates)/bindings/V8HTMLHRElement.h \
+    $(intermediates)/bindings/V8HTMLHeadElement.h \
+    $(intermediates)/bindings/V8HTMLHeadingElement.h \
+    $(intermediates)/bindings/V8HTMLHtmlElement.h \
+    $(intermediates)/bindings/V8HTMLIFrameElement.h \
+    $(intermediates)/bindings/V8HTMLImageElement.h \
+    $(intermediates)/bindings/V8HTMLInputElement.h \
+    $(intermediates)/bindings/V8HTMLIsIndexElement.h \
+    $(intermediates)/bindings/V8HTMLLIElement.h \
+    $(intermediates)/bindings/V8HTMLLabelElement.h \
+    $(intermediates)/bindings/V8HTMLLegendElement.h \
+    $(intermediates)/bindings/V8HTMLLinkElement.h \
+    $(intermediates)/bindings/V8HTMLMapElement.h \
+    $(intermediates)/bindings/V8HTMLMarqueeElement.h \
+    $(intermediates)/bindings/V8HTMLMediaElement.h \
+    $(intermediates)/bindings/V8HTMLMenuElement.h \
+    $(intermediates)/bindings/V8HTMLMetaElement.h \
+    $(intermediates)/bindings/V8HTMLModElement.h \
+    $(intermediates)/bindings/V8HTMLOListElement.h \
+    $(intermediates)/bindings/V8HTMLObjectElement.h \
+    $(intermediates)/bindings/V8HTMLOptGroupElement.h \
+    $(intermediates)/bindings/V8HTMLOptionElement.h \
+    $(intermediates)/bindings/V8HTMLOptionsCollection.h \
+    $(intermediates)/bindings/V8HTMLParagraphElement.h \
+    $(intermediates)/bindings/V8HTMLParamElement.h \
+    $(intermediates)/bindings/V8HTMLPreElement.h \
+    $(intermediates)/bindings/V8HTMLQuoteElement.h \
+    $(intermediates)/bindings/V8HTMLScriptElement.h \
+    $(intermediates)/bindings/V8HTMLSelectElement.h \
+    $(intermediates)/bindings/V8HTMLSourceElement.h \
+    $(intermediates)/bindings/V8HTMLStyleElement.h \
+    $(intermediates)/bindings/V8HTMLTableCaptionElement.h \
+    $(intermediates)/bindings/V8HTMLTableCellElement.h \
+    $(intermediates)/bindings/V8HTMLTableColElement.h \
+    $(intermediates)/bindings/V8HTMLTableElement.h \
+    $(intermediates)/bindings/V8HTMLTableRowElement.h \
+    $(intermediates)/bindings/V8HTMLTableSectionElement.h \
+    $(intermediates)/bindings/V8HTMLTextAreaElement.h \
+    $(intermediates)/bindings/V8HTMLTitleElement.h \
+    $(intermediates)/bindings/V8HTMLUListElement.h \
+    $(intermediates)/bindings/V8HTMLVideoElement.h \
+    $(intermediates)/bindings/V8ImageData.h \
+    $(intermediates)/bindings/V8MediaError.h \
+    $(intermediates)/bindings/V8TextMetrics.h \
+    $(intermediates)/bindings/V8TimeRanges.h \
+    $(intermediates)/bindings/V8ValidityState.h \
+    $(intermediates)/bindings/V8VoidCallback.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/html/V8%.h : $(WEBCORE_PATH)/html/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/html/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/html/canvas/V8CanvasGradient.h \
-    $(intermediates)/html/canvas/V8CanvasPattern.h \
-    $(intermediates)/html/canvas/V8CanvasPixelArray.h \
-    $(intermediates)/html/canvas/V8CanvasRenderingContext2D.h 
+    $(intermediates)/bindings/V8CanvasGradient.h \
+    $(intermediates)/bindings/V8CanvasPattern.h \
+    $(intermediates)/bindings/V8CanvasPixelArray.h \
+    $(intermediates)/bindings/V8CanvasRenderingContext2D.h 
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/html/canvas/V8%.h : $(WEBCORE_PATH)/html/canvas/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/html/canvas/%.idl $(js_binding_scripts)
         $(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/loader/appcache/V8DOMApplicationCache.h
+    $(intermediates)/bindings/V8DOMApplicationCache.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/loader/appcache/V8%.h : $(WEBCORE_PATH)/loader/appcache/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/loader/appcache/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/loader/appcache/%.cpp : $(intermediates)/loader/appcache/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/page/V8BarInfo.h \
-    $(intermediates)/page/V8Console.h \
-    $(intermediates)/page/V8Coordinates.h \
-    $(intermediates)/page/V8DOMSelection.h \
-    $(intermediates)/page/V8DOMWindow.h \
-    $(intermediates)/page/V8Geolocation.h \
-    $(intermediates)/page/V8Geoposition.h \
-    $(intermediates)/page/V8History.h \
-    $(intermediates)/page/V8Location.h \
-    $(intermediates)/page/V8Navigator.h \
-    $(intermediates)/page/V8PositionError.h \
-    $(intermediates)/page/V8Screen.h \
-    $(intermediates)/page/V8WebKitPoint.h \
-    $(intermediates)/page/V8WorkerNavigator.h
+    $(intermediates)/bindings/V8BarInfo.h \
+    $(intermediates)/bindings/V8Console.h \
+    $(intermediates)/bindings/V8Coordinates.h \
+    $(intermediates)/bindings/V8DOMSelection.h \
+    $(intermediates)/bindings/V8DOMWindow.h \
+    $(intermediates)/bindings/V8Geolocation.h \
+    $(intermediates)/bindings/V8Geoposition.h \
+    $(intermediates)/bindings/V8History.h \
+    $(intermediates)/bindings/V8Location.h \
+    $(intermediates)/bindings/V8Navigator.h \
+    $(intermediates)/bindings/V8PositionError.h \
+    $(intermediates)/bindings/V8Screen.h \
+    $(intermediates)/bindings/V8WebKitPoint.h \
+    $(intermediates)/bindings/V8WorkerNavigator.h
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/page/V8%.h : $(WEBCORE_PATH)/page/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/page/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/page/%.cpp : $(intermediates)/page/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/plugins/V8MimeType.h \
-    $(intermediates)/plugins/V8MimeTypeArray.h \
-    $(intermediates)/plugins/V8Plugin.h \
-    $(intermediates)/plugins/V8PluginArray.h 
+    $(intermediates)/bindings/V8MimeType.h \
+    $(intermediates)/bindings/V8MimeTypeArray.h \
+    $(intermediates)/bindings/V8Plugin.h \
+    $(intermediates)/bindings/V8PluginArray.h 
     
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/plugins/V8%.h : $(WEBCORE_PATH)/plugins/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/plugins/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/plugins/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 # Database support
 GEN := \
-    $(intermediates)/storage/V8Database.h \
-    $(intermediates)/storage/V8SQLError.h \
-    $(intermediates)/storage/V8SQLResultSet.h \
-    $(intermediates)/storage/V8SQLResultSetRowList.h \
-    $(intermediates)/storage/V8SQLTransaction.h
+    $(intermediates)/bindings/V8Database.h \
+    $(intermediates)/bindings/V8SQLError.h \
+    $(intermediates)/bindings/V8SQLResultSet.h \
+    $(intermediates)/bindings/V8SQLResultSetRowList.h \
+    $(intermediates)/bindings/V8SQLTransaction.h
     
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 # DOM Storage support
 GEN := \
-    $(intermediates)/storage/V8Storage.h \
-    $(intermediates)/storage/V8StorageEvent.h
+    $(intermediates)/bindings/V8Storage.h \
+    $(intermediates)/bindings/V8StorageEvent.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/storage/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 # Workers support
 GEN := \
-	$(intermediates)/workers/V8AbstractWorker.h \
-	$(intermediates)/workers/V8DedicatedWorkerContext.h \
-	$(intermediates)/workers/V8SharedWorker.h \
-	$(intermediates)/workers/V8SharedWorkerContext.h \
-	$(intermediates)/workers/V8Worker.h \
-	$(intermediates)/workers/V8WorkerContext.h \
-	$(intermediates)/workers/V8WorkerLocation.h
+	$(intermediates)/bindings/V8AbstractWorker.h \
+	$(intermediates)/bindings/V8DedicatedWorkerContext.h \
+	$(intermediates)/bindings/V8SharedWorker.h \
+	$(intermediates)/bindings/V8SharedWorkerContext.h \
+	$(intermediates)/bindings/V8Worker.h \
+	$(intermediates)/bindings/V8WorkerContext.h \
+	$(intermediates)/bindings/V8WorkerLocation.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include workers --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/workers/V8%.h : $(WEBCORE_PATH)/workers/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/workers/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/workers/%.cpp : $(intermediates)/workers/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 #new section for svg
 ifeq ($(ENABLE_SVG), true)
 GEN := \
-    $(intermediates)/svg/V8SVGAElement.h \
-    $(intermediates)/svg/V8SVGAltGlyphElement.h \
-    $(intermediates)/svg/V8SVGAngle.h \
-    $(intermediates)/svg/V8SVGCircleElement.h \
-    $(intermediates)/svg/V8SVGClipPathElement.h \
-    $(intermediates)/svg/V8SVGColor.h \
-    $(intermediates)/svg/V8SVGComponentTransferFunctionElement.h \
-    $(intermediates)/svg/V8SVGCursorElement.h \
-    $(intermediates)/svg/V8SVGDefinitionSrcElement.h \
-    $(intermediates)/svg/V8SVGDefsElement.h \
-    $(intermediates)/svg/V8SVGDescElement.h \
-    $(intermediates)/svg/V8SVGDocument.h \
-    $(intermediates)/svg/V8SVGElement.h \
-    $(intermediates)/svg/V8SVGElementInstance.h \
-    $(intermediates)/svg/V8SVGElementInstanceList.h \
-    $(intermediates)/svg/V8SVGEllipseElement.h \
-    $(intermediates)/svg/V8SVGException.h \
-    $(intermediates)/svg/V8SVGFEBlendElement.h \
-    $(intermediates)/svg/V8SVGFEColorMatrixElement.h \
-    $(intermediates)/svg/V8SVGFEComponentTransferElement.h \
-    $(intermediates)/svg/V8SVGFECompositeElement.h \
-    $(intermediates)/svg/V8SVGFEDiffuseLightingElement.h \
-    $(intermediates)/svg/V8SVGFEDisplacementMapElement.h \
-    $(intermediates)/svg/V8SVGFEDistantLightElement.h \
-    $(intermediates)/svg/V8SVGFEFloodElement.h \
-    $(intermediates)/svg/V8SVGFEFuncAElement.h \
-    $(intermediates)/svg/V8SVGFEFuncBElement.h \
-    $(intermediates)/svg/V8SVGFEFuncGElement.h \
-    $(intermediates)/svg/V8SVGFEFuncRElement.h \
-    $(intermediates)/svg/V8SVGFEGaussianBlurElement.h \
-    $(intermediates)/svg/V8SVGFEImageElement.h \
-    $(intermediates)/svg/V8SVGFEMergeElement.h \
-    $(intermediates)/svg/V8SVGFEMergeNodeElement.h \
-    $(intermediates)/svg/V8SVGFEOffsetElement.h \
-    $(intermediates)/svg/V8SVGFEPointLightElement.h \
-    $(intermediates)/svg/V8SVGFESpecularLightingElement.h \
-    $(intermediates)/svg/V8SVGFESpotLightElement.h \
-    $(intermediates)/svg/V8SVGFETileElement.h \
-    $(intermediates)/svg/V8SVGFETurbulenceElement.h \
-    $(intermediates)/svg/V8SVGFilterElement.h \
-    $(intermediates)/svg/V8SVGFontElement.h \
-    $(intermediates)/svg/V8SVGFontFaceElement.h \
-    $(intermediates)/svg/V8SVGFontFaceFormatElement.h \
-    $(intermediates)/svg/V8SVGFontFaceNameElement.h \
-    $(intermediates)/svg/V8SVGFontFaceSrcElement.h \
-    $(intermediates)/svg/V8SVGFontFaceUriElement.h \
-    $(intermediates)/svg/V8SVGForeignObjectElement.h \
-    $(intermediates)/svg/V8SVGGElement.h \
-    $(intermediates)/svg/V8SVGGlyphElement.h \
-    $(intermediates)/svg/V8SVGGradientElement.h \
-    $(intermediates)/svg/V8SVGHKernElement.h \
-    $(intermediates)/svg/V8SVGImageElement.h \
-    $(intermediates)/svg/V8SVGLength.h \
-    $(intermediates)/svg/V8SVGLengthList.h \
-    $(intermediates)/svg/V8SVGLineElement.h \
-    $(intermediates)/svg/V8SVGLinearGradientElement.h \
-    $(intermediates)/svg/V8SVGMarkerElement.h \
-    $(intermediates)/svg/V8SVGMaskElement.h \
-    $(intermediates)/svg/V8SVGMatrix.h \
-    $(intermediates)/svg/V8SVGMetadataElement.h \
-    $(intermediates)/svg/V8SVGMissingGlyphElement.h \
-    $(intermediates)/svg/V8SVGNumber.h \
-    $(intermediates)/svg/V8SVGNumberList.h \
-    $(intermediates)/svg/V8SVGPaint.h \
-    $(intermediates)/svg/V8SVGPathElement.h \
-    $(intermediates)/svg/V8SVGPathSeg.h \
-    $(intermediates)/svg/V8SVGPathSegArcAbs.h \
-    $(intermediates)/svg/V8SVGPathSegArcRel.h \
-    $(intermediates)/svg/V8SVGPathSegClosePath.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoCubicAbs.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoCubicRel.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoCubicSmoothAbs.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoCubicSmoothRel.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticAbs.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticRel.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticSmoothAbs.h \
-    $(intermediates)/svg/V8SVGPathSegCurvetoQuadraticSmoothRel.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoAbs.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoHorizontalAbs.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoHorizontalRel.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoRel.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoVerticalAbs.h \
-    $(intermediates)/svg/V8SVGPathSegLinetoVerticalRel.h \
-    $(intermediates)/svg/V8SVGPathSegList.h \
-    $(intermediates)/svg/V8SVGPathSegMovetoAbs.h \
-    $(intermediates)/svg/V8SVGPathSegMovetoRel.h \
-    $(intermediates)/svg/V8SVGPatternElement.h \
-    $(intermediates)/svg/V8SVGPoint.h \
-    $(intermediates)/svg/V8SVGPointList.h \
-    $(intermediates)/svg/V8SVGPolygonElement.h \
-    $(intermediates)/svg/V8SVGPolylineElement.h \
-    $(intermediates)/svg/V8SVGPreserveAspectRatio.h \
-    $(intermediates)/svg/V8SVGRadialGradientElement.h \
-    $(intermediates)/svg/V8SVGRect.h \
-    $(intermediates)/svg/V8SVGRectElement.h \
-    $(intermediates)/svg/V8SVGRenderingIntent.h \
-    $(intermediates)/svg/V8SVGSVGElement.h \
-    $(intermediates)/svg/V8SVGScriptElement.h \
-    $(intermediates)/svg/V8SVGStopElement.h \
-    $(intermediates)/svg/V8SVGStringList.h \
-    $(intermediates)/svg/V8SVGStyleElement.h \
-    $(intermediates)/svg/V8SVGSwitchElement.h \
-    $(intermediates)/svg/V8SVGSymbolElement.h \
-    $(intermediates)/svg/V8SVGTRefElement.h \
-    $(intermediates)/svg/V8SVGTSpanElement.h \
-    $(intermediates)/svg/V8SVGTextContentElement.h \
-    $(intermediates)/svg/V8SVGTextElement.h \
-    $(intermediates)/svg/V8SVGTextPathElement.h \
-    $(intermediates)/svg/V8SVGTextPositioningElement.h \
-    $(intermediates)/svg/V8SVGTitleElement.h \
-    $(intermediates)/svg/V8SVGTransform.h \
-    $(intermediates)/svg/V8SVGTransformList.h \
-    $(intermediates)/svg/V8SVGURIReference.h \
-    $(intermediates)/svg/V8SVGUnitTypes.h \
-    $(intermediates)/svg/V8SVGUseElement.h \
-    $(intermediates)/svg/V8SVGViewElement.h \
-    $(intermediates)/svg/V8SVGZoomEvent.h \
+    $(intermediates)/bindings/V8SVGAElement.h \
+    $(intermediates)/bindings/V8SVGAltGlyphElement.h \
+    $(intermediates)/bindings/V8SVGAngle.h \
+    $(intermediates)/bindings/V8SVGCircleElement.h \
+    $(intermediates)/bindings/V8SVGClipPathElement.h \
+    $(intermediates)/bindings/V8SVGColor.h \
+    $(intermediates)/bindings/V8SVGComponentTransferFunctionElement.h \
+    $(intermediates)/bindings/V8SVGCursorElement.h \
+    $(intermediates)/bindings/V8SVGDefinitionSrcElement.h \
+    $(intermediates)/bindings/V8SVGDefsElement.h \
+    $(intermediates)/bindings/V8SVGDescElement.h \
+    $(intermediates)/bindings/V8SVGDocument.h \
+    $(intermediates)/bindings/V8SVGElement.h \
+    $(intermediates)/bindings/V8SVGElementInstance.h \
+    $(intermediates)/bindings/V8SVGElementInstanceList.h \
+    $(intermediates)/bindings/V8SVGEllipseElement.h \
+    $(intermediates)/bindings/V8SVGException.h \
+    $(intermediates)/bindings/V8SVGFEBlendElement.h \
+    $(intermediates)/bindings/V8SVGFEColorMatrixElement.h \
+    $(intermediates)/bindings/V8SVGFEComponentTransferElement.h \
+    $(intermediates)/bindings/V8SVGFECompositeElement.h \
+    $(intermediates)/bindings/V8SVGFEDiffuseLightingElement.h \
+    $(intermediates)/bindings/V8SVGFEDisplacementMapElement.h \
+    $(intermediates)/bindings/V8SVGFEDistantLightElement.h \
+    $(intermediates)/bindings/V8SVGFEFloodElement.h \
+    $(intermediates)/bindings/V8SVGFEFuncAElement.h \
+    $(intermediates)/bindings/V8SVGFEFuncBElement.h \
+    $(intermediates)/bindings/V8SVGFEFuncGElement.h \
+    $(intermediates)/bindings/V8SVGFEFuncRElement.h \
+    $(intermediates)/bindings/V8SVGFEGaussianBlurElement.h \
+    $(intermediates)/bindings/V8SVGFEImageElement.h \
+    $(intermediates)/bindings/V8SVGFEMergeElement.h \
+    $(intermediates)/bindings/V8SVGFEMergeNodeElement.h \
+    $(intermediates)/bindings/V8SVGFEOffsetElement.h \
+    $(intermediates)/bindings/V8SVGFEPointLightElement.h \
+    $(intermediates)/bindings/V8SVGFESpecularLightingElement.h \
+    $(intermediates)/bindings/V8SVGFESpotLightElement.h \
+    $(intermediates)/bindings/V8SVGFETileElement.h \
+    $(intermediates)/bindings/V8SVGFETurbulenceElement.h \
+    $(intermediates)/bindings/V8SVGFilterElement.h \
+    $(intermediates)/bindings/V8SVGFontElement.h \
+    $(intermediates)/bindings/V8SVGFontFaceElement.h \
+    $(intermediates)/bindings/V8SVGFontFaceFormatElement.h \
+    $(intermediates)/bindings/V8SVGFontFaceNameElement.h \
+    $(intermediates)/bindings/V8SVGFontFaceSrcElement.h \
+    $(intermediates)/bindings/V8SVGFontFaceUriElement.h \
+    $(intermediates)/bindings/V8SVGForeignObjectElement.h \
+    $(intermediates)/bindings/V8SVGGElement.h \
+    $(intermediates)/bindings/V8SVGGlyphElement.h \
+    $(intermediates)/bindings/V8SVGGradientElement.h \
+    $(intermediates)/bindings/V8SVGHKernElement.h \
+    $(intermediates)/bindings/V8SVGImageElement.h \
+    $(intermediates)/bindings/V8SVGLength.h \
+    $(intermediates)/bindings/V8SVGLengthList.h \
+    $(intermediates)/bindings/V8SVGLineElement.h \
+    $(intermediates)/bindings/V8SVGLinearGradientElement.h \
+    $(intermediates)/bindings/V8SVGMarkerElement.h \
+    $(intermediates)/bindings/V8SVGMaskElement.h \
+    $(intermediates)/bindings/V8SVGMatrix.h \
+    $(intermediates)/bindings/V8SVGMetadataElement.h \
+    $(intermediates)/bindings/V8SVGMissingGlyphElement.h \
+    $(intermediates)/bindings/V8SVGNumber.h \
+    $(intermediates)/bindings/V8SVGNumberList.h \
+    $(intermediates)/bindings/V8SVGPaint.h \
+    $(intermediates)/bindings/V8SVGPathElement.h \
+    $(intermediates)/bindings/V8SVGPathSeg.h \
+    $(intermediates)/bindings/V8SVGPathSegArcAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegArcRel.h \
+    $(intermediates)/bindings/V8SVGPathSegClosePath.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoCubicAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoCubicRel.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoCubicSmoothAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoCubicSmoothRel.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoQuadraticAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoQuadraticRel.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoQuadraticSmoothAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegCurvetoQuadraticSmoothRel.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoHorizontalAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoHorizontalRel.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoRel.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoVerticalAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegLinetoVerticalRel.h \
+    $(intermediates)/bindings/V8SVGPathSegList.h \
+    $(intermediates)/bindings/V8SVGPathSegMovetoAbs.h \
+    $(intermediates)/bindings/V8SVGPathSegMovetoRel.h \
+    $(intermediates)/bindings/V8SVGPatternElement.h \
+    $(intermediates)/bindings/V8SVGPoint.h \
+    $(intermediates)/bindings/V8SVGPointList.h \
+    $(intermediates)/bindings/V8SVGPolygonElement.h \
+    $(intermediates)/bindings/V8SVGPolylineElement.h \
+    $(intermediates)/bindings/V8SVGPreserveAspectRatio.h \
+    $(intermediates)/bindings/V8SVGRadialGradientElement.h \
+    $(intermediates)/bindings/V8SVGRect.h \
+    $(intermediates)/bindings/V8SVGRectElement.h \
+    $(intermediates)/bindings/V8SVGRenderingIntent.h \
+    $(intermediates)/bindings/V8SVGSVGElement.h \
+    $(intermediates)/bindings/V8SVGScriptElement.h \
+    $(intermediates)/bindings/V8SVGStopElement.h \
+    $(intermediates)/bindings/V8SVGStringList.h \
+    $(intermediates)/bindings/V8SVGStyleElement.h \
+    $(intermediates)/bindings/V8SVGSwitchElement.h \
+    $(intermediates)/bindings/V8SVGSymbolElement.h \
+    $(intermediates)/bindings/V8SVGTRefElement.h \
+    $(intermediates)/bindings/V8SVGTSpanElement.h \
+    $(intermediates)/bindings/V8SVGTextContentElement.h \
+    $(intermediates)/bindings/V8SVGTextElement.h \
+    $(intermediates)/bindings/V8SVGTextPathElement.h \
+    $(intermediates)/bindings/V8SVGTextPositioningElement.h \
+    $(intermediates)/bindings/V8SVGTitleElement.h \
+    $(intermediates)/bindings/V8SVGTransform.h \
+    $(intermediates)/bindings/V8SVGTransformList.h \
+    $(intermediates)/bindings/V8SVGURIReference.h \
+    $(intermediates)/bindings/V8SVGUnitTypes.h \
+    $(intermediates)/bindings/V8SVGUseElement.h \
+    $(intermediates)/bindings/V8SVGViewElement.h \
+    $(intermediates)/bindings/V8SVGZoomEvent.h \
     \
-    $(intermediates)/svg/V8SVGAnimatedAngle.h \
-    $(intermediates)/svg/V8SVGAnimatedEnumeration.h \
-    $(intermediates)/svg/V8SVGAnimatedBoolean.h \
-    $(intermediates)/svg/V8SVGAnimatedInteger.h \
-    $(intermediates)/svg/V8SVGAnimatedLength.h \
-    $(intermediates)/svg/V8SVGAnimatedLengthList.h \
-    $(intermediates)/svg/V8SVGAnimatedNumber.h \
-    $(intermediates)/svg/V8SVGAnimatedNumberList.h \
-    $(intermediates)/svg/V8SVGAnimatedPoints.h \
-    $(intermediates)/svg/V8SVGAnimatedPreserveAspectRatio.h \
-    $(intermediates)/svg/V8SVGAnimatedRect.h \
-    $(intermediates)/svg/V8SVGAnimatedString.h \
-    $(intermediates)/svg/V8SVGAnimatedTransformList.h
+    $(intermediates)/bindings/V8SVGAnimatedAngle.h \
+    $(intermediates)/bindings/V8SVGAnimatedEnumeration.h \
+    $(intermediates)/bindings/V8SVGAnimatedBoolean.h \
+    $(intermediates)/bindings/V8SVGAnimatedInteger.h \
+    $(intermediates)/bindings/V8SVGAnimatedLength.h \
+    $(intermediates)/bindings/V8SVGAnimatedLengthList.h \
+    $(intermediates)/bindings/V8SVGAnimatedNumber.h \
+    $(intermediates)/bindings/V8SVGAnimatedNumberList.h \
+    $(intermediates)/bindings/V8SVGAnimatedPoints.h \
+    $(intermediates)/bindings/V8SVGAnimatedPreserveAspectRatio.h \
+    $(intermediates)/bindings/V8SVGAnimatedRect.h \
+    $(intermediates)/bindings/V8SVGAnimatedString.h \
+    $(intermediates)/bindings/V8SVGAnimatedTransformList.h
 
 ifeq ($(ENABLE_SVG_ANIMATION), true)
 GEN += \
-    $(intermediates)/svg/V8SVGAnimateColorElement.h \
-    $(intermediates)/svg/V8SVGAnimateElement.h \
-    $(intermediates)/svg/V8SVGAnimateTransformElement.h \
-    $(intermediates)/svg/V8SVGAnimationElement.h \
-    $(intermediates)/svg/V8SVGSetElement.h
+    $(intermediates)/bindings/V8SVGAnimateColorElement.h \
+    $(intermediates)/bindings/V8SVGAnimateElement.h \
+    $(intermediates)/bindings/V8SVGAnimateTransformElement.h \
+    $(intermediates)/bindings/V8SVGAnimationElement.h \
+    $(intermediates)/bindings/V8SVGSetElement.h
 endif
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/svg/V8%.h : $(WEBCORE_PATH)/svg/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/svg/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/svg/%.cpp : $(intermediates)/svg/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 endif
 
 #new section for xml/DOMParser.idl
 GEN := \
-    $(intermediates)/xml/V8DOMParser.h \
-    $(intermediates)/xml/V8XMLHttpRequest.h \
-    $(intermediates)/xml/V8XMLHttpRequestException.h \
-    $(intermediates)/xml/V8XMLHttpRequestProgressEvent.h \
-    $(intermediates)/xml/V8XMLHttpRequestUpload.h \
-    $(intermediates)/xml/V8XMLSerializer.h
+    $(intermediates)/bindings/V8DOMParser.h \
+    $(intermediates)/bindings/V8XMLHttpRequest.h \
+    $(intermediates)/bindings/V8XMLHttpRequestException.h \
+    $(intermediates)/bindings/V8XMLHttpRequestProgressEvent.h \
+    $(intermediates)/bindings/V8XMLHttpRequestUpload.h \
+    $(intermediates)/bindings/V8XMLSerializer.h
 		
 
-#    $(intermediates)/xml/V8XPathEvaluator.h \
-    $(intermediates)/xml/V8XPathException.h \
-    $(intermediates)/xml/V8XPathExpression.h \
-    $(intermediates)/xml/V8XPathNSResolver.h \
-    $(intermediates)/xml/V8XPathResult.h  \
-    $(intermediates)/xml/V8XSLTProcessor.h
+#    $(intermediates)/bindings/V8XPathEvaluator.h \
+    $(intermediates)/bindings/V8XPathException.h \
+    $(intermediates)/bindings/V8XPathExpression.h \
+    $(intermediates)/bindings/V8XPathNSResolver.h \
+    $(intermediates)/bindings/V8XPathResult.h  \
+    $(intermediates)/bindings/V8XSLTProcessor.h
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/xml/V8%.h : $(WEBCORE_PATH)/xml/%.idl $(js_binding_scripts)
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/xml/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/%.h
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 #end
 
 # HTML tag and attribute names
