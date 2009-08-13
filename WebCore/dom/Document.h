@@ -1145,16 +1145,14 @@ private:
 #endif
     
     bool m_usingGeolocation;
-#ifdef MANUAL_MERGE_REQUIRED
+
 #ifdef ANDROID_MOBILE
     int mExtraLayoutDelay;
 #endif
-#else // MANUAL_MERGE_REQUIRED
 
 #if ENABLE(WML)
     bool m_containsWMLContent;
 #endif
-#endif // MANUAL_MERGE_REQUIRED
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

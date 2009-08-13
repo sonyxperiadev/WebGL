@@ -104,11 +104,6 @@ private:
     // database file.
     int64_t m_estimatedSizeInStorage;
 
-    // The total size of the resources belonging to this Application Cache instance.
-    // This is an estimation of the size this Application Cache occupies in the
-    // database file.
-    int64_t m_estimatedSizeInStorage;
-
     unsigned m_storageID;
 };
 

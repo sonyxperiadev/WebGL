@@ -129,7 +129,6 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const S
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
-#endif
 {
     JSLock lock(SilenceAssertionsOnly);
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());

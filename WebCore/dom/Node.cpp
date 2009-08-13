@@ -3368,16 +3368,6 @@ void Node::setOnselectstart(PassRefPtr<EventListener> eventListener)
     setAttributeEventListener(eventNames().selectstartEvent, eventListener);
 }
 
-EventListener* Node::onsubmit() const
-{
-    return getAttributeEventListener(eventNames().submitEvent);
-}
-
-void Node::setOnsubmit(PassRefPtr<EventListener> eventListener)
-{
-    setAttributeEventListener(eventNames().submitEvent, eventListener);
-}
-
 EventListener* Node::onunload() const
 {
     return getAttributeEventListener(eventNames().unloadEvent);

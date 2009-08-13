@@ -379,7 +379,11 @@ bool _NPN_HasMethod(NPP, NPObject* o, NPIdentifier methodName)
     return false;
 }
 
+#ifdef ANDROID_NPN_SETEXCEPTION
 void _NPN_SetException(NPObject* o, const NPUTF8* message)
+#else
+void _NPN_SetException(NPObject*, const NPUTF8* message)
+#endif
 {
 #ifdef ANDROID_NPN_SETEXCEPTION
     if (o->_class == NPScriptObjectClass) {

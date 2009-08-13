@@ -658,8 +658,6 @@ public:
     void setOnsearch(PassRefPtr<EventListener>);
     EventListener* onselectstart() const;
     void setOnselectstart(PassRefPtr<EventListener>);
-    EventListener* onsubmit() const;
-    void setOnsubmit(PassRefPtr<EventListener>);
     EventListener* onunload() const;
     void setOnunload(PassRefPtr<EventListener>);
 #if ENABLE(TOUCH_EVENTS) // Android

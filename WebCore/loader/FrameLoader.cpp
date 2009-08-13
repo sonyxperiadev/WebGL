@@ -1612,39 +1612,16 @@ bool FrameLoader::gotoAnchor(const String& name)
     if (!anchorNode && !(name.isEmpty() || equalIgnoringCase(name, "top")))
         return false;
 
-#ifdef MANUAL_MERGE_REQUIRED
-    // We need to update the layout before scrolling, otherwise we could
-    // really mess things up if an anchor scroll comes at a bad moment.
-    m_frame->document()->updateStyleIfNeeded();
-    // Only do a layout if changes have occurred that make it necessary.
-    if (m_frame->view() && m_frame->contentRenderer() && m_frame->contentRenderer()->needsLayout())
-        m_frame->view()->layout();
-  
-    // Scroll nested layers and frames to reveal the anchor.
-    // Align to the top and to the closest side (this matches other browsers).
-    RenderObject* renderer;
-    IntRect rect;
-    if (!anchorNode)
-        renderer = m_frame->document()->renderer(); // top of document
-    else {
-        renderer = anchorNode->renderer();
-        rect = anchorNode->getRect();
-    }
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-    android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(true);
-#endif
-    if (renderer) {
-        renderer->enclosingLayer()->scrollRectToVisible(rect, true, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways);
-        if (m_frame->view())
-            m_frame->view()->setLockedToAnchor(true);
-    }
-#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
-    android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(false);
-#endif
-#else // MANUAL_MERGE_REQUIRED
     if (FrameView* view = m_frame->view())
+#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
+    {
+        android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(true);
+#endif
         view->maintainScrollPositionAtAnchor(anchorNode ? static_cast<Node*>(anchorNode) : m_frame->document());
-#endif // MANUAL_MERGE_REQUIRED
+#ifdef ANDROID_SCROLL_ON_GOTO_ANCHOR
+        android::WebFrame::getWebFrame(m_frame)->setUserInitiatedClick(false);
+    }
+#endif
 
     return true;
 }

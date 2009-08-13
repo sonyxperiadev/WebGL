@@ -26,9 +26,9 @@
 #ifndef MockGeolocationService_h
 #define MockGeolocationService_h
 
-#include "HashSet.h"
 #include "GeolocationService.h"
 #include "Timer.h"
+#include <wtf/HashSet.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
