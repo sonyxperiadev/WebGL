@@ -30,7 +30,6 @@
 #	editing/SmartReplace*.cpp \
 #	history/BackForwardListChromium.cpp \
 #	html/FileList.cpp \
-#	html/HTMLElementsAllInOne.cpp \
 #	loader/CachedXBLDocument.cpp \
 #	loader/CachedXSLStyleSheet.cpp \
 #	loader/FTP*.cpp \
@@ -310,85 +309,17 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
-	html/HTMLAnchorElement.cpp \
-	html/HTMLAppletElement.cpp \
-	html/HTMLAreaElement.cpp \
-	html/HTMLAudioElement.cpp \
-	html/HTMLBRElement.cpp \
-	html/HTMLBaseElement.cpp \
-	html/HTMLBaseFontElement.cpp \
-	html/HTMLBlockquoteElement.cpp \
-	html/HTMLBodyElement.cpp \
-	html/HTMLButtonElement.cpp \
-	html/HTMLCanvasElement.cpp \
 	html/HTMLCollection.cpp \
-	html/HTMLDListElement.cpp \
-	html/HTMLDirectoryElement.cpp \
-	html/HTMLDivElement.cpp \
 	html/HTMLDocument.cpp \
-	html/HTMLElement.cpp \
-	html/HTMLEmbedElement.cpp \
-	html/HTMLFieldSetElement.cpp \
-	html/HTMLFontElement.cpp \
+        html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
-	html/HTMLFormControlElement.cpp \
-	html/HTMLFormElement.cpp \
-	html/HTMLFrameElement.cpp \
-	html/HTMLFrameElementBase.cpp \
-	html/HTMLFrameOwnerElement.cpp \
-	html/HTMLFrameSetElement.cpp \
-	html/HTMLHRElement.cpp \
-	html/HTMLHeadElement.cpp \
-	html/HTMLHeadingElement.cpp \
-	html/HTMLHtmlElement.cpp \
-	html/HTMLIFrameElement.cpp \
-	html/HTMLImageElement.cpp \
 	html/HTMLImageLoader.cpp \
-	html/HTMLInputElement.cpp \
-	html/HTMLIsIndexElement.cpp \
-	html/HTMLKeygenElement.cpp \
-	html/HTMLLIElement.cpp \
-	html/HTMLLabelElement.cpp \
-	html/HTMLLegendElement.cpp \
-	html/HTMLLinkElement.cpp \
-	html/HTMLMapElement.cpp \
-	html/HTMLMarqueeElement.cpp \
-	html/HTMLMediaElement.cpp \
-	html/HTMLMenuElement.cpp \
-	html/HTMLMetaElement.cpp \
-	html/HTMLModElement.cpp \
 	html/HTMLNameCollection.cpp \
-	html/HTMLNoScriptElement.cpp \
-	html/HTMLOListElement.cpp \
-	html/HTMLObjectElement.cpp \
-	html/HTMLOptGroupElement.cpp \
-	html/HTMLOptionElement.cpp \
 	html/HTMLOptionsCollection.cpp \
-	html/HTMLParagraphElement.cpp \
-	html/HTMLParamElement.cpp \
 	html/HTMLParser.cpp \
 	html/HTMLParserErrorCodes.cpp \
-	html/HTMLPlugInElement.cpp \
-	html/HTMLPlugInImageElement.cpp \
-	html/HTMLPreElement.cpp \
-	html/HTMLQuoteElement.cpp \
-	html/HTMLScriptElement.cpp \
-	html/HTMLSelectElement.cpp \
-	html/HTMLSourceElement.cpp \
-	html/HTMLStyleElement.cpp \
-	html/HTMLTableCaptionElement.cpp \
-	html/HTMLTableCellElement.cpp \
-	html/HTMLTableColElement.cpp \
-	html/HTMLTableElement.cpp \
-	html/HTMLTablePartElement.cpp \
-	html/HTMLTableRowElement.cpp \
 	html/HTMLTableRowsCollection.cpp \
-	html/HTMLTableSectionElement.cpp \
-	html/HTMLTextAreaElement.cpp \
-	html/HTMLTitleElement.cpp \
 	html/HTMLTokenizer.cpp \
-	html/HTMLUListElement.cpp \
-	html/HTMLVideoElement.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
