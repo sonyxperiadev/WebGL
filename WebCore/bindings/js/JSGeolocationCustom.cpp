@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -36,37 +36,36 @@
 #include "PositionOptions.h"
 
 using namespace JSC;
+using namespace std;
 
 namespace WebCore {
 
 static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSValue value)
 {
-    // FIXME: We should check that the argument is a Function object, as
-    // the spec specifies 'FunctionOnly'.
-    JSObject* object = value.getObject();
-    if (!object) {
+    // The spec specifies 'FunctionOnly' for this object.
+    if (!value.isObject(&InternalFunction::info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
 
+    JSObject* object = asObject(value);
     Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
     return JSCustomPositionCallback::create(object, frame);
 }
 
 static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSValue value)
 {
-    // Argument is optional, and null is allowed.
+    // Argument is optional (hence undefined is allowed), and null is allowed.
     if (value.isUndefinedOrNull())
         return 0;
 
-    // FIXME: We should check that the argument is a Function object, as
-    // the spec specifies 'FunctionOnly'.
-    JSObject* object = value.getObject();
-    if (!object) {
+    // The spec specifies 'FunctionOnly' for this object.
+    if (!value.isObject(&InternalFunction::info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
 
+    JSObject* object = asObject(value);
     Frame* frame = toJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
     return JSCustomPositionErrorCallback::create(object, frame);
 }
@@ -76,34 +75,46 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
     // Create default options.
     RefPtr<PositionOptions> options = PositionOptions::create();
 
-    // Argument is optional, and null is allowed.
+    // Argument is optional (hence undefined is allowed), and null is allowed.
     if (value.isUndefinedOrNull()) {
         // Use default options.
         return options.release();
     }
 
-    // This will always yield an object.
+    // Given the above test, this will always yield an object.
     JSObject* object = value.toObject(exec);
 
+    // For all three properties, we apply the following ...
+    // - If the getter or the property's valueOf method throws an exception, we
+    //   quit so as not to risk overwriting the exception.
+    // - If the value is absent or undefined, we don't override the default.
     JSValue enableHighAccuracyValue = object->get(exec, Identifier(exec, "enableHighAccuracy"));
-    // If undefined, don't override default.
-    if (!enableHighAccuracyValue.isUndefined())
+    if (exec->hadException())
+        return 0;
+    if(!enableHighAccuracyValue.isUndefined()) {
         options->setEnableHighAccuracy(enableHighAccuracyValue.toBoolean(exec));
+        if (exec->hadException())
+            return 0;
+    }
 
     JSValue timeoutValue = object->get(exec, Identifier(exec, "timeout"));
-    // If undefined, don't override default.
+    if (exec->hadException())
+        return 0;
     if (!timeoutValue.isUndefined()) {
         // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
-        int timeout = timeoutValue.toInt32(exec);
-        options->setTimeout(timeout >= 0 ? timeout : 0);
+        options->setTimeout(max(0, timeoutValue.toInt32(exec)));
+        if (exec->hadException())
+            return 0;
     }
 
     JSValue maximumAgeValue = object->get(exec, Identifier(exec, "maximumAge"));
-    // If undefined, don't override default.
+    if (exec->hadException())
+        return 0;
     if (!maximumAgeValue.isUndefined()) {
         // Wrap to int32 and force non-negative to match behavior of window.setTimeout.
-        int maximumAge = maximumAgeValue.toInt32(exec);
-        options->setTimeout(maximumAge >= 0 ? maximumAge : 0);
+        options->setMaximumAge(max(0, maximumAgeValue.toInt32(exec)));
+        if (exec->hadException())
+            return 0;
     }
 
     return options.release();
