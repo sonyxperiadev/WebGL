@@ -540,8 +540,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
-	platform/image-decoders/skia/GIFImageDecoder.cpp \
-	platform/image-decoders/skia/GIFImageReader.cpp \
+	platform/image-decoders/skia/ImageDecoderSkia.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \

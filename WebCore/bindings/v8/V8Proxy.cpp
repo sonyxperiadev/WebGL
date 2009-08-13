@@ -46,8 +46,6 @@
 #include "V8Index.h"
 #include "V8IsolatedWorld.h"
 
-#include <algorithm>
-#include <utility>
 #include <v8.h>
 #include <v8-debug.h>
 #include <wtf/Assertions.h>

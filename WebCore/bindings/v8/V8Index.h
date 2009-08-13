@@ -388,12 +388,6 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(XMLHTTPREQUESTEXCEPTION, XMLHttpRequestException)                 \
     V(XMLHTTPREQUESTPROGRESSEVENT, XMLHttpRequestProgressEvent)         \
     V(XMLSERIALIZER, XMLSerializer)                                     \
-    V(XPATHEVALUATOR, XPathEvaluator)                                   \
-    V(XPATHEXCEPTION, XPathException)                                   \
-    V(XPATHEXPRESSION, XPathExpression)                                 \
-    V(XPATHNSRESOLVER, XPathNSResolver)                                 \
-    V(XPATHRESULT, XPathResult)                                         \
-    V(XSLTPROCESSOR, XSLTProcessor)                                     \
     ACTIVE_DOM_OBJECT_TYPES(V)                                          \
     APPLICATIONCACHE_NONNODE_WRAPPER_TYPES(V)                           \
     DATAGRID_NONNODE_TYPES(V)                                           \
@@ -401,6 +395,24 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     SHARED_WORKER_NONNODE_WRAPPER_TYPES(V)                              \
     WORKER_NONNODE_WRAPPER_TYPES(V)
 
+#if ENABLE(XPATH)
+#define DOM_OBJECT_XPATH_TYPES(V)                                       \
+    V(XPATHEVALUATOR, XPathEvaluator)                                   \
+    V(XPATHEXCEPTION, XPathException)                                   \
+    V(XPATHEXPRESSION, XPathExpression)                                 \
+    V(XPATHNSRESOLVER, XPathNSResolver)                                 \
+    V(XPATHRESULT, XPathResult)
+#else
+#define DOM_OBJECT_XPATH_TYPES(V)
+#endif
+
+#if ENABLE(XSLT)
+#define DOM_OBJECT_XSLT_TYPES(V)                                        \
+    V(XSLTPROCESSOR, XSLTProcessor)
+#else
+#define DOM_OBJECT_XSLT_TYPES(V)
+#endif
+ 
 #if ENABLE(DATABASE)
 #define DOM_OBJECT_DATABASE_TYPES(V)                                    \
     V(DATABASE, Database)                                               \
@@ -452,7 +464,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_TYPES_2(V)                                               \
     DOM_OBJECT_DATABASE_TYPES(V)                                        \
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
-    DOM_OBJECT_WORKERS_TYPES(V)
+    DOM_OBJECT_WORKERS_TYPES(V)                                         \
+    DOM_OBJECT_XPATH_TYPES(V)                                           \
+    DOM_OBJECT_XSLT_TYPES(V)
 #elif PLATFORM(ANDROID)
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \

@@ -45,6 +45,7 @@ namespace WebCore {
     class DOMData : public Noncopyable {
     public:
         DOMData();
+        virtual ~DOMData() { }
 
         static DOMData* getCurrent();
         static DOMData* getCurrentMainThread(); // Caller must be on the main thread.

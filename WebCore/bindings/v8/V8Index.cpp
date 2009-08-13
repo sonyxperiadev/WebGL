@@ -62,7 +62,6 @@
 #include "V8CSSVariablesRule.h"
 #include "V8DataGridColumn.h"
 #include "V8DataGridColumnList.h"
-#include "V8Database.h"
 #include "V8Document.h"
 #include "V8DocumentFragment.h"
 #include "V8DocumentType.h"
@@ -186,31 +185,29 @@
 #include "V8Range.h"
 #include "V8RangeException.h"
 #include "V8Rect.h"
-#include "V8SQLError.h"
-#include "V8SQLResultSet.h"
-#include "V8SQLResultSetRowList.h"
-#include "V8SQLTransaction.h"
-#include "V8NodeIterator.h"
+#iinclude "V8NodeIterator.h"
 #include "V8TextMetrics.h"
 #include "V8TreeWalker.h"
 #include "V8StyleSheetList.h"
 #include "V8DOMImplementation.h"
-#include "V8XPathResult.h"
-#include "V8XPathException.h"
-#include "V8XPathExpression.h"
-#include "V8XPathNSResolver.h"
 #include "V8XMLHttpRequest.h"
 #include "V8XMLHttpRequestException.h"
 #include "V8XMLHttpRequestProgressEvent.h"
 #include "V8XMLHttpRequestUpload.h"
 #include "V8XMLSerializer.h"
-#include "V8XPathEvaluator.h"
-#include "V8XSLTProcessor.h"
 #include "V8RGBColor.h"
 #include "V8VoidCallback.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "V8DOMApplicationCache.h"
+#endif
+
+#if ENABLE(DATABASE)
+#include "V8Database.h"
+#include "V8SQLError.h"
+#include "V8SQLResultSet.h"
+#include "V8SQLResultSetRowList.h"
+#include "V8SQLTransaction.h"
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -401,6 +398,18 @@
 #include "V8Touch.h"
 #include "V8TouchList.h"
 #include "V8TouchEvent.h"
+#endif
+
+#if ENABLE(XPATH)
+#include "V8XPathResult.h"
+#include "V8XPathException.h"
+#include "V8XPathExpression.h"
+#include "V8XPathEvaluator.h"
+#include "V8XPathNSResolver.h"
+#endif
+
+#if ENABLE(XSLT)
+#include "V8XSLTProcessor.h"
 #endif
 
 namespace WebCore {

@@ -374,7 +374,20 @@ GEN := \
 
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/html/canvas/%.idl $(js_binding_scripts)
-        $(transform-generated-source)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
+
+GEN := \
+    $(intermediates)/bindings/V8InspectorBackend.h \
+    $(intermediates)/bindings/V8JavaScriptCallFrame.h
+
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/inspector/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the

@@ -168,6 +168,7 @@ LOCAL_C_INCLUDES := \
 	$(BINDING_C_INCLUDES) \
 	$(base_intermediates)/WebCore/ \
 	$(base_intermediates)/WebCore/bindings \
+	$(base_intermediates)/WebCore/css \
 	$(base_intermediates)/JavaScriptCore
 
 ifeq ($(ENABLE_SVG), true)
