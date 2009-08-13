@@ -210,7 +210,7 @@ GEN := \
     $(intermediates)/css/V8WebKitCSSKeyframesRule.h \
     $(intermediates)/css/V8WebKitCSSMatrix.h \
     $(intermediates)/css/V8WebKitCSSTransformValue.h 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/css/V8%.h : $(WEBCORE_PATH)/css/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -267,7 +267,7 @@ GEN := \
     $(intermediates)/dom/V8WebKitAnimationEvent.h \
     $(intermediates)/dom/V8WebKitTransitionEvent.h \
     $(intermediates)/dom/V8WheelEvent.h
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/dom/V8%.h : $(WEBCORE_PATH)/dom/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -355,14 +355,9 @@ GEN := \
     $(intermediates)/html/V8TextMetrics.h \
     $(intermediates)/html/V8TimeRanges.h \
     $(intermediates)/html/V8ValidityState.h \
-    $(intermediates)/html/V8VoidCallback.h \
-    \
-    $(intermediates)/html/canvas/V8CanvasGradient.h \
-    $(intermediates)/html/canvas/V8CanvasPattern.h \
-    $(intermediates)/html/canvas/V8CanvasPixelArray.h \
-    $(intermediates)/html/canvas/V8CanvasRenderingContext2D.h 
+    $(intermediates)/html/V8VoidCallback.h
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/html/V8%.h : $(WEBCORE_PATH)/html/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -372,9 +367,24 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 
 GEN := \
+    $(intermediates)/html/canvas/V8CanvasGradient.h \
+    $(intermediates)/html/canvas/V8CanvasPattern.h \
+    $(intermediates)/html/canvas/V8CanvasPixelArray.h \
+    $(intermediates)/html/canvas/V8CanvasRenderingContext2D.h 
+
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/html/canvas/V8%.h : $(WEBCORE_PATH)/html/canvas/%.idl $(js_binding_scripts)
+        $(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
+
+GEN := \
     $(intermediates)/loader/appcache/V8DOMApplicationCache.h
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/loader/appcache/V8%.h : $(WEBCORE_PATH)/loader/appcache/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -398,7 +408,7 @@ GEN := \
     $(intermediates)/page/V8Screen.h \
     $(intermediates)/page/V8WebKitPoint.h \
     $(intermediates)/page/V8WorkerNavigator.h
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/page/V8%.h : $(WEBCORE_PATH)/page/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -413,7 +423,7 @@ GEN := \
     $(intermediates)/plugins/V8Plugin.h \
     $(intermediates)/plugins/V8PluginArray.h 
     
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/plugins/V8%.h : $(WEBCORE_PATH)/plugins/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -430,7 +440,7 @@ GEN := \
     $(intermediates)/storage/V8SQLResultSetRowList.h \
     $(intermediates)/storage/V8SQLTransaction.h
     
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -444,7 +454,7 @@ GEN := \
     $(intermediates)/storage/V8Storage.h \
     $(intermediates)/storage/V8StorageEvent.h
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/storage/V8%.h : $(WEBCORE_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -463,7 +473,7 @@ GEN := \
 	$(intermediates)/workers/V8WorkerContext.h \
 	$(intermediates)/workers/V8WorkerLocation.h
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include workers --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/workers/V8%.h : $(WEBCORE_PATH)/workers/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -616,7 +626,7 @@ GEN += \
     $(intermediates)/svg/V8SVGSetElement.h
 endif
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include css --include dom --include html --include svg --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/svg/V8%.h : $(WEBCORE_PATH)/svg/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -643,7 +653,7 @@ GEN := \
     $(intermediates)/xml/V8XPathResult.h  \
     $(intermediates)/xml/V8XSLTProcessor.h
 
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/xml/V8%.h : $(WEBCORE_PATH)/xml/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
@@ -651,20 +661,6 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/%.h
-#end
-
-#new section for UndetectableHTMLCollection 
-GEN := \
-    $(intermediates)/html/V8UndetectableHTMLCollection.h
-
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(v8binding_dir)/scripts -I$(WEBCORE_PATH)/bindings/scripts $(v8binding_dir)/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/html/V8%.h : $(v8binding_dir)/binding/%.idl $(js_binding_scripts)
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
-
-# We also need the .cpp files, which are generated as side effects of the
-# above rules.  Specifying this explicitly makes -j2 work.
-$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/html/%.h
 #end
 
 # HTML tag and attribute names
