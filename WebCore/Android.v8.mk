@@ -181,7 +181,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Comment.cpp \
 	dom/ContainerNode.cpp \
 	dom/DOMImplementation.cpp \
-	dom/DOMStringList.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentType.cpp \
@@ -227,7 +226,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/StaticNodeList.cpp \
-	dom/StaticStringList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -301,11 +299,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/HistoryItem.cpp \
 	history/PageCache.cpp \
 	\
-	html/CanvasGradient.cpp \
-	html/CanvasPattern.cpp \
-	html/CanvasPixelArray.cpp \
-	html/CanvasRenderingContext2D.cpp \
-	html/CanvasStyle.cpp \
 	html/CollectionCache.cpp \
 	html/File.cpp \
 	html/FormDataList.cpp \
@@ -324,6 +317,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
+	\
+	html/canvas/CanvasGradient.cpp \
+	html/canvas/CanvasPattern.cpp \
+	html/canvas/CanvasPixelArray.cpp \
+	html/canvas/CanvasRenderingContext2D.cpp \
+	html/canvas/CanvasStyle.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \

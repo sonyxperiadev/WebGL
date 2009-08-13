@@ -125,13 +125,10 @@
 #include "SQLResultSetRowList.h"
 #include "StyleSheet.h"
 #include "StyleSheetList.h"
-#include "SVGColor.h"
-#include "SVGPaint.h"
 #include "TextEvent.h"
 #include "TextMetrics.h"
 #include "TimeRanges.h"
 #include "TreeWalker.h"
-#include "XSLTProcessor.h"
 #include "V8AbstractEventListener.h"
 #include "V8CustomEventListener.h"
 #include "V8DOMWindow.h"
@@ -158,6 +155,7 @@
 #include "XPathExpression.h"
 #include "XPathNSResolver.h"
 #include "XPathResult.h"
+#include "XSLTProcessor.h"
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "DOMApplicationCache.h"
@@ -184,6 +182,7 @@
 #if ENABLE(SVG)
 #include "SVGAngle.h"
 #include "SVGAnimatedPoints.h"
+#include "SVGColor.h"
 #include "SVGElement.h"
 #include "SVGElementInstance.h"
 #include "SVGElementInstanceList.h"
@@ -191,6 +190,7 @@
 #include "SVGLength.h"
 #include "SVGLengthList.h"
 #include "SVGNumberList.h"
+#include "SVGPaint.h"
 #include "SVGPathSeg.h"
 #include "SVGPathSegArc.h"
 #include "SVGPathSegClosePath.h"

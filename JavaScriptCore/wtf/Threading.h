@@ -130,7 +130,11 @@ void detachThread(ThreadIdentifier);
 
 #if USE(PTHREADS)
 typedef pthread_mutex_t PlatformMutex;
+#if PLATFORM(ANDROID)
+typedef void* PlatformReadWriteLock;
+#else
 typedef pthread_rwlock_t PlatformReadWriteLock;
+#endif
 typedef pthread_cond_t PlatformCondition;
 #elif PLATFORM(GTK)
 typedef GOwnPtr<GMutex> PlatformMutex;
