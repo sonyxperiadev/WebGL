@@ -473,9 +473,11 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
 #endif
 #if ENABLE(TOUCH_EVENTS)
     // TODO(andreip): upstream touch related changes to Chromium
-    case V8ClassIndex::TOUCHLIST:
+    case V8ClassIndex::TOUCHLIST: {
+        v8::Local<v8::ObjectTemplate> instanceTemplate = descriptor->InstanceTemplate();
         instanceTemplate->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(TouchList));
       break;
+    }
 #endif
     case V8ClassIndex::CLIENTRECTLIST:
         descriptor->InstanceTemplate()->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(ClientRectList));
