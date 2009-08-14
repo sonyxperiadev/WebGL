@@ -36,6 +36,7 @@ LOCAL_SRC_FILES := \
 	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
+	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
 	android/jni/WebCoreJni.cpp \
