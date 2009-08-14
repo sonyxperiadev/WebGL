@@ -1088,7 +1088,7 @@ void WebViewCore::updateCacheOnNodeChange()
         return;
     if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
         RenderObject* renderer = node->renderer();
-        if (renderer) {
+        if (renderer && renderer->style()->visibility() != HIDDEN) {
             IntRect absBox = renderer->absoluteBoundingBoxRect();
             int globalX, globalY;
             CacheBuilder::GetGlobalOffset(frame, &globalX, &globalY);
