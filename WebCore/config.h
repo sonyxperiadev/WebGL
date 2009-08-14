@@ -103,10 +103,12 @@
 #define ENABLE_FTPDIR 0
 #ifndef ENABLE_SVG
 #define ENABLE_SVG 0
-#undef ENABLE_WORKERS
-#define ENABLE_WORKERS 1
 #undef ENABLE_V8_LOCKERS
 #define ENABLE_V8_LOCKERS 1
+#undef ENABLE_VIDEO
+#define ENABLE_VIDEO 1
+#undef ENABLE_WORKERS
+#define ENABLE_WORKERS 1
 #endif
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
@@ -124,10 +126,6 @@
 #define ENABLE_XBL 0
 #define ENABLE_XPATH 0
 #define ENABLE_XSLT 0
-
-#ifndef ENABLE_VIDEO
-#define ENABLE_VIDEO 1
-#endif
 
 #undef ENABLE_ARCHIVE
 #define ENABLE_ARCHIVE 0 // ANDROID addition: allow web archive to be disabled
