@@ -31,7 +31,9 @@
 #include "config.h"
 #include "V8DOMWrapper.h"
 
+#if PLATFORM(CHROMIUM)
 #include "ChromiumBridge.h"
+#endif
 #include "CSSMutableStyleDeclaration.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
@@ -459,17 +461,20 @@ v8::Persistent<v8::FunctionTemplate> V8DOMWrapper::getTemplate(V8ClassIndex::V8W
         instanceTemplate->SetInternalFieldCount(V8Custom::kXMLHttpRequestInternalFieldCount);
         break;
     }
+#if ENABLE(XPATH)
     case V8ClassIndex::XPATHEVALUATOR:
         descriptor->SetCallHandler(USE_CALLBACK(XPathEvaluatorConstructor));
         break;
+#endif
+#if ENABLE(XSLT)
     case V8ClassIndex::XSLTPROCESSOR:
         descriptor->SetCallHandler(USE_CALLBACK(XSLTProcessorConstructor));
         break;
+#endif
 #if ENABLE(TOUCH_EVENTS)
     // TODO(andreip): upstream touch related changes to Chromium
     case V8ClassIndex::TOUCHLIST:
-      desc->InstanceTemplate()->SetIndexedPropertyHandler(
-          USE_INDEXED_PROPERTY_GETTER(TouchList));
+        instanceTemplate->SetIndexedPropertyHandler(USE_INDEXED_PROPERTY_GETTER(TouchList));
       break;
 #endif
     case V8ClassIndex::CLIENTRECTLIST:

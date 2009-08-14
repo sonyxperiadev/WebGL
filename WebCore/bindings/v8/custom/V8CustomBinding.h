@@ -486,6 +486,10 @@ namespace WebCore {
         DECLARE_CALLBACK(SVGElementInstanceRemoveEventListener);
 #endif
 
+#if ENABLE(TOUCH_EVENTS)
+        DECLARE_INDEXED_PROPERTY_GETTER(TouchList);
+#endif
+
 #if ENABLE(WORKERS)
         DECLARE_PROPERTY_ACCESSOR(AbstractWorkerOnerror);
         DECLARE_CALLBACK(AbstractWorkerAddEventListener);
