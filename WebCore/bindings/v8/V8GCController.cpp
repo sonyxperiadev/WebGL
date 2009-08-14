@@ -313,7 +313,7 @@ public:
     {
 #if PLATFORM(ANDROID)
   // TODO(andreip): implement std::sort() and get rid of this.
-  std::stable_sort<GrouperList>(m_grouper.begin(), m_grouper.end(), compareGrouperItem);
+  std::stable_sort<GrouperItem>(m_grouper.begin(), m_grouper.end(), compareGrouperItem);
 #else
         // Group by sorting by the group id.
         std::sort(m_grouper.begin(), m_grouper.end());

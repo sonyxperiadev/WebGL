@@ -97,6 +97,7 @@ namespace WebCore {
         class Visitor {
         public:
           virtual void visitDOMWrapper(KeyType* key, v8::Persistent<v8::Object> object) = 0;
+          virtual ~Visitor() { }
         };
     };
 

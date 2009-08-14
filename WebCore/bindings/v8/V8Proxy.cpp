@@ -32,6 +32,7 @@
 #include "V8Proxy.h"
 
 #include "CSSMutableStyleDeclaration.h"
+#include "CString.h"
 #include "DOMObjectsInclude.h"
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
@@ -1292,14 +1293,14 @@ void V8Proxy::registerExtension(v8::Extension* extension, const String& schemeRe
 {
     registerExtensionWithV8(extension);
     V8ExtensionInfo info = {schemeRestriction, 0, extension};
-    m_extensions.push_back(info);
+    m_extensions.append(info);
 }
 
 void V8Proxy::registerExtension(v8::Extension* extension, int extensionGroup)
 {
     registerExtensionWithV8(extension);
     V8ExtensionInfo info = {String(), extensionGroup, extension};
-    m_extensions.push_back(info);
+    m_extensions.append(info);
 }
 
 bool V8Proxy::setContextDebugId(int debugId)
