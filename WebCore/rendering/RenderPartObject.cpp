@@ -332,46 +332,58 @@ void RenderPartObject::layout()
     RenderPart::calcWidth();
     RenderPart::calcHeight();
     // Some IFrames have a width and/or height of 1 when they are meant to be
-    // hidden. If that is the case, don't try to expand.
-    int w = width();
-    int h = height();
-    if (widget() && widget()->isFrameView() &&
-            w > 1 && h > 1) {
-        FrameView* view = static_cast<FrameView*>(widget());
-        RenderView* root = NULL;
-        if (view->frame() && view->frame()->document() &&
-            view->frame()->document()->renderer() && view->frame()->document()->renderer()->isRenderView())
-            root = static_cast<RenderView*>(view->frame()->document()->renderer());
-        if (root) {
-            // Update the dimensions to get the correct minimum preferred width
-            updateWidgetPosition();
+    // hidden. If that is the case, do not try to expand.
+    if (node()->hasTagName(iframeTag) && widget() && widget()->isFrameView()
+            && width() > 1 && height() > 1) {
+        HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
+        bool scrolling = element->scrollingMode() != ScrollbarAlwaysOff;
+        bool widthIsFixed = style()->width().isFixed();
+        bool heightIsFixed = style()->height().isFixed();
+        // If an iframe has a fixed dimension and suppresses scrollbars, it
+        // will disrupt layout if we force it to expand. Plus on a desktop,
+        // the extra content is not accessible.
+        if (scrolling || !widthIsFixed || !heightIsFixed) {
+            FrameView* view = static_cast<FrameView*>(widget());
+            RenderView* root = view ? view->frame()->contentRenderer() : NULL;
+            RenderPart* owner = view->frame()->ownerRenderer();
+            if (root && style()->visibility() != HIDDEN
+                    && (!owner || owner->style()->visibility() != HIDDEN)) {
+                // Update the dimensions to get the correct minimum preferred
+                // width
+                updateWidgetPosition();
 
-            int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
-            int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
-            // Use the preferred width if it is larger.
-            setWidth(max(w, root->minPrefWidth()) + extraWidth);
+                int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+                int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+                // Use the preferred width if it is larger and only if
+                // scrollbars are visible or the width style is not fixed.
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
 
-            // Resize the view to recalc the height.
-            int height = h - extraHeight;
-            int width = w - extraWidth;
-            if (width > view->width())
-                height = 0;
-            if (width != view->width() || height != view->height()) {
-                view->resize(width, height);
-                root->setNeedsLayout(true, false);
+                // Resize the view to recalc the height.
+                int h = height() - extraHeight;
+                int w = width() - extraWidth;
+                if (w > view->width())
+                    h = 0;
+                if (w != view->width() || h != view->height()) {
+                    view->resize(w, h);
+                    root->setNeedsLayout(true, false);
+                }
+                // Layout the view.
+                if (view->needsLayout())
+                    view->layout();
+                int contentHeight = view->contentsHeight();
+                int contentWidth = view->contentsWidth();
+                // Only change the width or height if scrollbars are visible or
+                // if the style is not a fixed value. Use the maximum value so
+                // that iframes never shrink.
+                if (scrolling || !heightIsFixed)
+                    setHeight(max(height(), contentHeight + extraHeight));
+                if (scrolling || !widthIsFixed)
+                    setWidth(max(width(), contentWidth + extraWidth));
+
+                // Update one last time
+                updateWidgetPosition();
             }
-            // Layout the view.
-            if (view->needsLayout())
-                view->layout();
-            int contentHeight = view->contentsHeight();
-            int contentWidth = view->contentsWidth();
-            // Do not shrink iframes with a specified height.
-            if (contentHeight > (h - extraHeight)  || style()->height().isAuto())
-                setHeight(contentHeight + extraHeight);
-            setWidth(contentWidth + extraWidth);
-
-            // Update one last time
-            updateWidgetPosition();
         }
     }
 #else
@@ -392,11 +404,15 @@ void RenderPartObject::layout()
 #ifdef FLATTEN_IFRAME
 void RenderPartObject::calcWidth() {
     RenderPart::calcWidth();
-    if (!widget() || !widget()->isFrameView())
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
         return;
     FrameView* view = static_cast<FrameView*>(widget());
     RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
     if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the width is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->width().isFixed())
         return;
     // Update the dimensions to get the correct minimum preferred
     // width
@@ -413,7 +429,7 @@ void RenderPartObject::calcWidth() {
     while (view->needsLayout())
         view->layout();
 
-    setWidth(view->contentsWidth() + extraWidth);
+    setWidth(max(width(), view->contentsWidth() + extraWidth));
 
     // Update one last time to ensure the dimensions.
     updateWidgetPosition();
@@ -421,11 +437,15 @@ void RenderPartObject::calcWidth() {
 
 void RenderPartObject::calcHeight() {
     RenderPart::calcHeight();
-    if (!widget() || !widget()->isFrameView())
+    if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
         return;
     FrameView* view = static_cast<FrameView*>(widget());
     RenderView* root = static_cast<RenderView*>(view->frame()->contentRenderer());
     if (!root)
+        return;
+    // Do not expand if the scrollbars are suppressed and the height is fixed.
+    bool scrolling = static_cast<HTMLIFrameElement*>(node())->scrollingMode() != ScrollbarAlwaysOff;
+    if (!scrolling && style()->height().isFixed())
         return;
     // Update the widget
     updateWidgetPosition();
@@ -434,11 +454,8 @@ void RenderPartObject::calcHeight() {
     while (view->needsLayout())
         view->layout();
 
-    // Do not shrink the height if the size is specified
-    int h = view->contentsHeight();
     int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
-    if (h > height() - extraHeight || style()->height().isAuto())
-        setHeight(h + extraHeight);
+    setHeight(max(width(), view->contentsHeight() + extraHeight));
 
     // Update one last time to ensure the dimensions.
     updateWidgetPosition();
