@@ -28,7 +28,7 @@
 
 #include "NPV8Object.h"
 
-if PLATFORM(CHROMIUM)
+#if PLATFORM(CHROMIUM)
 // TODO(andreip): upstream
 #include "ChromiumBridge.h"
 #endif
@@ -42,7 +42,11 @@ if PLATFORM(CHROMIUM)
 #include "V8Helpers.h"
 #include "V8NPUtils.h"
 #include "V8Proxy.h"
+#if PLATFORM(CHROMIUM)
 #include "bindings/npruntime.h"
+#else
+#include "bridge/npruntime.h"
+#endif
 #include "npruntime_impl.h"
 #include "npruntime_priv.h"
 
@@ -453,7 +457,12 @@ bool _NPN_Enumerate(NPP npp, NPObject* npObject, NPIdentifier** identifier, uint
         v8::Handle<v8::Value> enumeratorObj = script->Run();
         v8::Handle<v8::Function> enumerator = v8::Handle<v8::Function>::Cast(enumeratorObj);
         v8::Handle<v8::Value> argv[] = { obj };
+#if PLATFORM(ANDROID)
+// TODO(benm): implement an arry size function on android
+        v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), 1, argv);
+#else
         v8::Local<v8::Value> propsObj = enumerator->Call(v8::Handle<v8::Object>::Cast(enumeratorObj), ARRAYSIZE_UNSAFE(argv), argv);
+#endif
         if (propsObj.IsEmpty())
             return false;
 

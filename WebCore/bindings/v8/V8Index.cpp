@@ -185,7 +185,7 @@
 #include "V8Range.h"
 #include "V8RangeException.h"
 #include "V8Rect.h"
-#iinclude "V8NodeIterator.h"
+#include "V8NodeIterator.h"
 #include "V8TextMetrics.h"
 #include "V8TreeWalker.h"
 #include "V8StyleSheetList.h"

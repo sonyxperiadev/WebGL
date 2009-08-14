@@ -621,6 +621,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderArena.cpp \
 	rendering/RenderBR.cpp \
 	rendering/RenderBlock.cpp \
+	rendering/RenderBlockLineLayout.cpp \
 	rendering/RenderBox.cpp \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
@@ -707,7 +708,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
 	rendering/TextControlInnerElements.cpp \
 	rendering/TransformState.cpp \
-	rendering/bidi.cpp \
 	rendering/break_lines.cpp \
 	\
 	rendering/style/BindingURI.cpp \
@@ -746,22 +746,22 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
-	storage/LocalStorage.cpp \
-	storage/LocalStorageArea.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
 	storage/OriginUsageRecord.cpp \
-	storage/SessionStorage.cpp \
-	storage/SessionStorageArea.cpp \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
 	storage/Storage.cpp \
-	storage/StorageArea.cpp \
+	storage/StorageAreaImpl.cpp \
+	storage/StorageAreaSync.cpp \
 	storage/StorageEvent.cpp \
 	storage/StorageMap.cpp \
+	storage/StorageNamespace.cpp \
+	storage/StorageNamespaceImpl.cpp \
+	storage/StorageSyncManager.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -935,13 +935,21 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	workers/AbstractWorker.cpp \
+	workers/DedicatedWorkerContext.cpp \
+	workers/DedicatedWorkerThread.cpp \
+	workers/DefaultSharedWorkerRepository.cpp \
+	workers/SharedWorker.cpp \
+	workers/SharedWorkerContext.cpp \
+	workers/SharedWorkerThread.cpp \
 	workers/Worker.cpp \
 	workers/WorkerContext.cpp \
-	workers/WorkerImportScriptsClient.cpp \
 	workers/WorkerLocation.cpp \
 	workers/WorkerMessagingProxy.cpp \
 	workers/WorkerRunLoop.cpp \
+	workers/WorkerScriptLoader.cpp \
 	workers/WorkerThread.cpp \
+	\
 	xml/DOMParser.cpp \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestUpload.cpp \
