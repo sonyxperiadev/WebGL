@@ -73,12 +73,6 @@ LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefixAndroid.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 
-ifeq ($(ENABLE_VIDEO),true)
-LOCAL_CFLAGS += -DENABLE_VIDEO=1
-else
-LOCAL_CFLAGS += -DENABLE_VIDEO=0
-endif
-
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
 endif
@@ -169,6 +163,7 @@ LOCAL_C_INCLUDES := \
 	$(base_intermediates)/WebCore/ \
 	$(base_intermediates)/WebCore/bindings \
 	$(base_intermediates)/WebCore/css \
+	$(base_intermediates)/WebCore/html \
 	$(base_intermediates)/JavaScriptCore
 
 ifeq ($(ENABLE_SVG), true)
