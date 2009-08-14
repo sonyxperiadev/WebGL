@@ -29,6 +29,7 @@
 
 #include "CachedImage.h"
 #include "Element.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "Range.h"
 

@@ -39,11 +39,7 @@
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SuddenTermination.h"
-#if USE(JSC)
 #include <runtime/InitializeThreading.h>
-#elif USE(V8)
-#include "V8InitializeThreading.h"
-#endif
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
@@ -97,11 +93,7 @@ static IconDatabaseClient* defaultClient()
 IconDatabase* iconDatabase()
 {
     if (!sharedIconDatabase) {
-#if USE(JSC)
         JSC::initializeThreading();
-#elif USE(V8)
-        V8::initializeThreading();
-#endif
         sharedIconDatabase = new IconDatabase;
     }
     return sharedIconDatabase;
