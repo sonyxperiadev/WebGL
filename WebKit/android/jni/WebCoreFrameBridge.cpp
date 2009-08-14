@@ -1136,6 +1136,9 @@ static void ClearCache(JNIEnv *env, jobject obj)
 #if USE(JSC)    
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
+#elif USE(V8)
+    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
+    pFrame->script()->collectGarbage(); 
 #endif  // USE(JSC)
 }
 

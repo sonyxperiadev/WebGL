@@ -3298,6 +3298,12 @@ int V8::GetLogLines(int from_pos, char* dest_buf, int max_size) {
   return 0;
 }
 
+
+void V8::CollectAllGarbage() {
+  i::Heap::CollectAllGarbage();
+}
+
+
 String::Utf8Value::Utf8Value(v8::Handle<v8::Value> obj) {
   EnsureInitialized("v8::String::Utf8Value::Utf8Value()");
   if (obj.IsEmpty()) {

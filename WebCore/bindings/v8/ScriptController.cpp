@@ -251,8 +251,11 @@ void ScriptController::collectGarbage()
         return;
 
     v8::Context::Scope scope(context);
-
+#if PLATFORM(ANDROID)
+    v8::V8::CollectAllGarbage();
+#else
     m_proxy->evaluate(ScriptSourceCode("if (window.gc) void(gc());"), 0);
+#endif
 }
 
 bool ScriptController::haveInterpreter() const
