@@ -440,7 +440,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         // If the frame doesn't have an owner then it is the top frame and the
         // view size is the frame size.
         WebCore::RenderPart* owner = frame->ownerRenderer();
-        if (owner) {
+        if (owner && owner->style()->visibility() == VISIBLE) {
             int x = owner->x();
             int y = owner->y();
 
