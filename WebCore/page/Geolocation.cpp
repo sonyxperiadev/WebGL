@@ -190,6 +190,7 @@ void Geolocation::setIsAllowed(bool allowed)
         makeSuccessCallbacks();
     } else {
         WTF::RefPtr<WebCore::PositionError> error = PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage);
+        error->setIsFatal(true);
         handleError(error.get());
     }
 }
@@ -291,6 +292,9 @@ void Geolocation::handleError(PositionError* error)
     sendErrorToWatchers(error);
 
     m_oneShots.clear();
+
+    if (error->isFatal())
+        m_watchers.clear();
 }
 
 void Geolocation::requestPermission()
