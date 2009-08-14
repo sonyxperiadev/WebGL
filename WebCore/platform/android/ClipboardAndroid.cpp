@@ -71,6 +71,11 @@ HashSet<String> ClipboardAndroid::types() const
     return HashSet<String>();
 }
 
+PassRefPtr<FileList> ClipboardAndroid::files() const
+{
+    return 0;
+}
+
 void ClipboardAndroid::setDragImage(CachedImage*, const IntPoint&)
 {
 }
