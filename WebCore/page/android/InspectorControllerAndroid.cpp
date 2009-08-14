@@ -26,7 +26,9 @@
 #include "config.h"
 #include "InspectorController.h"
 
+#include "InspectorBackend.h"
 #include "InspectorClient.h"
+#include "InspectorDOMAgent.h"
 #include "InspectorFrontend.h"
 
 #include "Frame.h"
@@ -89,8 +91,8 @@ void InspectorController::didFinishLoading(DocumentLoader*, unsigned long) {}
 void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*) {}
 void InspectorController::frameDetachedFromParent(Frame*) {}
 
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, ScriptCallStack*) {}
-void InspectorController::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) {}
+void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*) { }
+void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) { }
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
 #endif
