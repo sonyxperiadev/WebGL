@@ -38,7 +38,7 @@
 
 #include "V8Binding.h"
 #include "V8CustomBinding.h"
-#include "V8Proxy.h"
+#include "V8DOMWrapper.h"
 
 #include <wtf/RefPtr.h>
 
@@ -47,12 +47,12 @@ namespace WebCore {
 INDEXED_PROPERTY_GETTER(TouchList)
 {
     INC_STATS("DOM.TouchList.IndexedPropertyGetter");
-    TouchList* imp = V8Proxy::ToNativeObject<TouchList>(V8ClassIndex::TOUCHLIST, info.Holder());
+    TouchList* imp = V8DOMWrapper::convertToNativeObject<TouchList>(V8ClassIndex::TOUCHLIST, info.Holder());
     RefPtr<Touch> result = imp->item(index);
     if (!result)
         return notHandledByInterceptor();
 
-    return V8Proxy::ToV8Object(V8ClassIndex::TOUCH, result.get());
+    return V8DOMWrapper::convertToV8Object(V8ClassIndex::TOUCH, result.get());
 }
 } // namespace WebCore
 
