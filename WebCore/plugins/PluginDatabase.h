@@ -81,14 +81,7 @@ namespace WebCore {
         static Vector<String> defaultPluginDirectories();
         Vector<String> pluginDirectories() const { return m_pluginDirectories; }
 
-#ifdef ANDROID_PLUGINS
-        void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
-#endif
-
     private:
-#ifndef ANDROID_PLUGINS
-        void setPluginDirectories(const Vector<String>& directories) { m_pluginDirectories = directories; }
-#endif
         void getPluginPathsInDirectories(HashSet<String>&) const;
         void getDeletedPlugins(PluginSet&) const;
 

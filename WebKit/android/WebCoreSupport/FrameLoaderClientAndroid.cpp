@@ -905,17 +905,17 @@ static bool isYouTubeUrl(const KURL& url, const String& mimeType)
             && equalIgnoringCase(mimeType, "application/x-shockwave-flash");
 }
 
-Widget* FrameLoaderClientAndroid::createPlugin(
+WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createPlugin(
         const IntSize& size,
         HTMLPlugInElement* element,
         const KURL& url,
-        const WTF::Vector<String, 0u>& names,
-        const WTF::Vector<String, 0u>& values,
+        const WTF::Vector<String>& names,
+        const WTF::Vector<String>& values,
         const String& mimeType,
         bool loadManually) {
     // Create an iframe for youtube urls.
     if (isYouTubeUrl(url, mimeType)) {
-        RefPtr<Frame> frame = createFrame(blankURL(), String(), element,
+        WTF::RefPtr<Frame> frame = createFrame(blankURL(), String(), element,
                 String(), false, 0, 0);
         if (frame) {
             // grab everything after /v/
@@ -938,7 +938,9 @@ Widget* FrameLoaderClientAndroid::createPlugin(
             delete a;
             loadDataIntoFrame(frame.get(),
                     KURL("file:///android_asset/webkit/"), String(), s);
-            return frame->view();
+            // Transfer ownership to a local refptr.
+            WTF::RefPtr<Widget> widget = adoptRef(frame->view());
+            return widget.release();
         }
         return NULL;
     }
@@ -961,7 +963,7 @@ void FrameLoaderClientAndroid::redirectDataToPlugin(Widget* pluginWidget) {
     notImplemented();
 }
 
-Widget* FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, HTMLAppletElement*,
+WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const IntSize&, HTMLAppletElement*,
                                         const KURL& baseURL, const WTF::Vector<String>& paramNames,
                                         const WTF::Vector<String>& paramValues) {
     // don't support widget yet
