@@ -426,9 +426,15 @@ static bool TreatAsAttachment(const String& content_disposition) {
 }
 
 void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFunction func,
-                                const String& MIMEType, const ResourceRequest&) {
+                                const String& MIMEType, const ResourceRequest& request) {
     ASSERT(m_frame);
     ASSERT(func);
+    if (!func)
+        return;
+    if (request.isNull()) {
+        (m_frame->loader()->*func)(PolicyIgnore);
+        return;
+    }
     // Default to Use (display internally).
     PolicyAction action = PolicyUse;
     // Check if we should Download instead.
@@ -461,13 +467,20 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
 }
 
 void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction func,
-                                const NavigationAction&, const ResourceRequest& req, 
+                                const NavigationAction&, const ResourceRequest& request,
                                 PassRefPtr<FormState> formState, const String& frameName) {
     ASSERT(m_frame);
+    ASSERT(func);
+    if (!func)
+        return;
+    if (request.isNull()) {
+        (m_frame->loader()->*func)(PolicyIgnore);
+        return;
+    }
     // If we get to this point it means that a link has a target that was not
     // found by the frame tree. Instead of creating a new frame, return the
     // current frame in dispatchCreatePage.
-    if (canHandleRequest(req))
+    if (canHandleRequest(request))
         (m_frame->loader()->*func)(PolicyUse);
     else
         (m_frame->loader()->*func)(PolicyIgnore);
@@ -486,6 +499,12 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNavigationAction(FramePoli
                                 PassRefPtr<FormState> formState) {
     ASSERT(m_frame);
     ASSERT(func);
+    if (!func)
+        return;
+    if (request.isNull()) {
+        (m_frame->loader()->*func)(PolicyIgnore);
+        return;
+    }
     if (action.type() == NavigationTypeFormResubmitted) {
         m_webFrame->decidePolicyForFormResubmission(func);
         return;
