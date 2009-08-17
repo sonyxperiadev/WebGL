@@ -64,7 +64,7 @@ static const struct CompositOpToSkiaMode {
     { CompositePlusLighter,     SkXfermode::kPlus_Mode }
 };
 
-SkXfermode::Mode WebCoreCompositeToSkiaMode(CompositeOperator op)
+SkXfermode::Mode WebCoreCompositeToSkiaCOmposite(CompositeOperator op)
 {
     const CompositOpToSkiaMode* table = gMapCompositOpsToSkiaModes;
     

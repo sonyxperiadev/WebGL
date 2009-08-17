@@ -39,8 +39,6 @@
 
 namespace WebCore {
 
-unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
-
 bool EventHandler::tabsToAllControls(KeyboardEvent*) const
 {
     return true;

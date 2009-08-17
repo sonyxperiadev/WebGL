@@ -90,7 +90,7 @@ public:
     operator QPointF() const;
 #endif
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
     operator SkPoint() const;
     FloatPoint(const SkPoint&);
 #endif

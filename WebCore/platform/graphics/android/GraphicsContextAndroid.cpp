@@ -898,7 +898,7 @@ void GraphicsContext::setAlpha(float alpha)
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
-    m_data->mState->mMode = WebCoreCompositeToSkiaMode(op);
+    m_data->mState->mMode = WebCoreCompositeToSkiaComposite(op);
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
