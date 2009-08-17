@@ -90,9 +90,8 @@ void InspectorController::didReceiveContentLength(DocumentLoader*, unsigned long
 void InspectorController::didFinishLoading(DocumentLoader*, unsigned long) {}
 void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*) {}
 void InspectorController::frameDetachedFromParent(Frame*) {}
-
-void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*) { }
-void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID) { }
+void InspectorController::addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, WebCore::String const&, unsigned int, WebCore::String const&) {}
+void InspectorController::addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, ScriptCallStack*) {}
 #if ENABLE(DATABASE)
 void InspectorController::didOpenDatabase(Database*, String const&, String const&, String const&) {}
 #endif

@@ -66,6 +66,11 @@ bool Path::isEmpty() const
     return m_path->isEmpty();
 }
 
+bool Path::hasCurrentPoint() const
+{
+    return !isEmpty();
+}
+
 bool Path::contains(const FloatPoint& point, WindRule rule) const
 {
     SkRegion    rgn, clip;

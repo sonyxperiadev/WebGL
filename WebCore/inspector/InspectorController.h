@@ -57,10 +57,8 @@ class Document;
 class DocumentLoader;
 class GraphicsContext;
 class HitTestResult;
-class InspectorBackend;
 class InspectorClient;
 class InspectorDOMAgent;
-class InspectorFrontend;
 class JavaScriptCallFrame;
 class StorageArea;
 class KURL;
@@ -78,6 +76,11 @@ class ConsoleMessage;
 class InspectorDatabaseResource;
 class InspectorDOMStorageResource;
 class InspectorResource;
+
+#if !PLATFORM(ANDROID)
+class InspectorBackend;
+class InspectorFrontend;
+#endif
 
 class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -157,7 +160,9 @@ public:
     InspectorController(Page*, InspectorClient*);
     ~InspectorController();
 
+#if !PLATFORM(ANDROID)
     InspectorBackend* inspectorBackend() { return m_inspectorBackend.get(); }
+#endif
 
     void inspectedPageDestroyed();
     void pageDestroyed() { m_page = 0; }
@@ -269,8 +274,10 @@ public:
 #endif
 
 private:
+#if !PLATFORM(ANDROID)
     friend class InspectorBackend;
- 
+#endif
+
     // Following are used from InspectorBackend and internally.
     void scriptObjectReady(bool enableDOMAgent);
     void moveWindowBy(float x, float y) const;
@@ -305,7 +312,7 @@ private:
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
-    OwnPtr<InspectorFrontend> m_frontend;
+
     RefPtr<InspectorDOMAgent> m_domAgent;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
@@ -332,7 +339,10 @@ private:
     ConsoleMessage* m_previousMessage;
     bool m_resourceTrackingEnabled;
     bool m_resourceTrackingSettingsLoaded;
+#if !PLATFORM(ANDROID)
+    OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorBackend> m_inspectorBackend;
+#endif
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

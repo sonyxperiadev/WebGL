@@ -285,5 +285,20 @@ String searchableIndexIntroduction()
     return String();
 }
 
+String resetButtonDefaultLabel()
+{
+    return String("Reset");
+}
+
+String submitButtonDefaultLabel()
+{
+    return String("Submit");
+}
+
+String inputElementAltText()
+{
+    notImplemented();
+    return String();
+}
 
 } // namespace WebCore

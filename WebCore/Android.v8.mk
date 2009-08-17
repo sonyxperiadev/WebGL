@@ -138,6 +138,7 @@ LOCAL_SRC_FILES := \
 	css/CSSVariablesRule.cpp \
 	css/FontFamilyValue.cpp \
 	css/FontValue.cpp \
+	css/Media.cpp \
 	css/MediaFeatureNames.cpp \
 	css/MediaList.cpp \
 	css/MediaQuery.cpp \
@@ -202,6 +203,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/MessageChannel.cpp \
 	dom/MessageEvent.cpp \
 	dom/MessagePort.cpp \
+	dom/MessagePortChannel.cpp \
 	dom/MouseEvent.cpp \
 	dom/MouseRelatedEvent.cpp \
 	dom/MutationEvent.cpp \
@@ -246,6 +248,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
 	dom/XMLTokenizerScope.cpp \
+	\
+	dom/default/PlatformMessagePortChannel.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
 	editing/ApplyStyleCommand.cpp \
@@ -319,6 +323,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageData.cpp \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
+	html/ValidityState.cpp \
 	\
 	html/canvas/CanvasGradient.cpp \
 	html/canvas/CanvasPattern.cpp \
@@ -348,6 +353,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/MediaDocument.cpp \
 	loader/NavigationAction.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
+	loader/PlaceholderDocument.cpp \
 	loader/PluginDocument.cpp \
 	loader/ProgressTracker.cpp \
 	loader/Request.cpp \
@@ -544,6 +550,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
 	\
+	platform/image-decoders/gif/GIFImageDecoder.cpp \
+	platform/image-decoders/gif/GIFImageReader.cpp \
 	platform/image-decoders/skia/ImageDecoderSkia.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
@@ -568,6 +576,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/sql/SQLValue.cpp \
 	platform/sql/SQLiteAuthorizer.cpp \
 	platform/sql/SQLiteDatabase.cpp \
+	platform/sql/SQLiteFileSystem.cpp \
 	platform/sql/SQLiteStatement.cpp \
 	platform/sql/SQLiteTransaction.cpp \
 	\

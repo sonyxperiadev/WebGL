@@ -811,6 +811,8 @@ public:
 protected:
     Document(Frame*, bool isXHTML);
 
+    void setStyleSelector(CSSStyleSelector* styleSelector) {  m_styleSelector = styleSelector; }
+
 #if ENABLE(TOUCH_EVENTS) // Android
 public:
     typedef HashMap<Node*, unsigned > TouchListenerMap;
@@ -822,8 +824,6 @@ public:
 private:
     TouchListenerMap m_touchEventListeners;
 #endif  // ENABLE(TOUCH_EVENTS)
-
-    void setStyleSelector(CSSStyleSelector* styleSelector) {  m_styleSelector = styleSelector; }
 
 private:
     virtual void refScriptExecutionContext() { ref(); }

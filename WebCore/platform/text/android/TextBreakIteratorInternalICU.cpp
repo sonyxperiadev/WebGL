@@ -28,6 +28,12 @@
 
 namespace WebCore {
 
+const char* currentSearchLocaleID()
+{
+    // TODO(benm): Implement. Should return system locale.
+    return "";
+}
+
 const char* currentTextBreakLocaleID()
 {
     return "en_us";

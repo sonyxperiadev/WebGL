@@ -161,6 +161,11 @@ void PluginView::platformInit()
     m_npWindow.window = 0;
 }
 
+void PluginView::platformStart()
+{
+    notImplemented();
+}
+
 PluginView::~PluginView()
 {
     stop();
