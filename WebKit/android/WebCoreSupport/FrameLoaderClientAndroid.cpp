@@ -647,7 +647,7 @@ bool FrameLoaderClientAndroid::shouldFallBack(const ResourceError&) {
 bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) const {
     ASSERT(m_frame);
     // Don't allow hijacking of intrapage navigation
-    if (WebCore::equalIgnoringRef(request.url(), m_frame->loader()->url())) 
+    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->loader()->url())) 
         return true;
 
     // Don't allow hijacking of iframe urls that are http or https
@@ -1056,7 +1056,7 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
     // to be read from disk.
     registerForIconNotification(false);
     KURL u(pageUrl);
-    if (equalIgnoringRef(u, m_frame->loader()->url())) {
+    if (equalIgnoringFragmentIdentifier(u, m_frame->loader()->url())) {
         dispatchDidReceiveIcon();
     }
 }

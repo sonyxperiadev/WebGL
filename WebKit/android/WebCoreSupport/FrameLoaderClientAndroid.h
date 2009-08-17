@@ -182,6 +182,13 @@ namespace android {
         virtual void windowObjectCleared();
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
+
+#if USE(V8)
+        // TODO(benm): Implement
+        virtual void didCreateScriptContextForFrame() { }
+        virtual void didDestroyScriptContextForFrame() { }
+        virtual void didCreateIsolatedScriptContext() { }
+#endif
         
         virtual void registerForIconNotification(bool listen = true);
 
