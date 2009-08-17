@@ -42,5 +42,10 @@ void ContextMenuClientAndroid::searchWithGoogle(const Frame*) { notImplemented()
 void ContextMenuClientAndroid::lookUpInDictionary(Frame*) { notImplemented(); }
 void ContextMenuClientAndroid::speak(const String&) { notImplemented(); }
 void ContextMenuClientAndroid::stopSpeaking() { notImplemented(); }
+bool ContextMenuClientAndroid::isSpeaking()
+{
+    notImplemented();
+    return false;
+}
 
 }
