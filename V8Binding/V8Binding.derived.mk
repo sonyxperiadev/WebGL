@@ -119,7 +119,6 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/custom/V8HTMLPlugInElementCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLSelectElementCustom.cpp \
-	bindings/v8/custom/V8InspectorBackendCustom.cpp \
 	bindings/v8/custom/V8LocationCustom.cpp \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8MessagePortCustom.cpp \
@@ -378,15 +377,6 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
-
-GEN := \
-    $(intermediates)/bindings/V8InspectorBackend.h \
-    $(intermediates)/bindings/V8JavaScriptCallFrame.h
-
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(WEBCORE_PATH) perl -I$(WEBCORE_PATH)/bindings/scripts $(WEBCORE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --outputdir $(dir $@) $<
-$(GEN): $(intermediates)/bindings/V8%.h : $(WEBCORE_PATH)/inspector/%.idl $(js_binding_scripts)
-	$(transform-generated-source)
-LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
