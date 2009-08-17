@@ -234,9 +234,9 @@ void PluginView::stop()
     ASSERT(m_streams.isEmpty());
 
     m_isStarted = false;
-
+#if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-
+#endif
 #ifdef XP_WIN
     // Unsubclass the window
     if (m_isWindowed) {
