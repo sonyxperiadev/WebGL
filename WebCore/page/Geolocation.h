@@ -78,7 +78,7 @@ private:
         static PassRefPtr<GeoNotifier> create(Geolocation* geolocation, PassRefPtr<PositionCallback> positionCallback, PassRefPtr<PositionErrorCallback> positionErrorCallback, PassRefPtr<PositionOptions> options) { return adoptRef(new GeoNotifier(geolocation, positionCallback, positionErrorCallback, options)); }
         
         void setFatalError(PassRefPtr<PositionError> error);
-        void startTimer();
+        void startTimerIfNeeded();
         void timerFired(Timer<GeoNotifier>*);
         
         Geolocation* m_geolocation;
@@ -99,10 +99,10 @@ private:
     void sendPositionToOneShots(Geoposition*);
     void sendPositionToWatchers(Geoposition*);
     
-    static void startTimer(Vector<RefPtr<GeoNotifier> >&);
-    void startTimersForOneShots();
-    void startTimersForWatchers();
-    void startTimers();
+    static void stopTimer(Vector<RefPtr<GeoNotifier> >&);
+    void stopTimersForOneShots();
+    void stopTimersForWatchers();
+    void stopTimers();
     
     void makeSuccessCallbacks();
     void handleError(PositionError*);
@@ -114,6 +114,7 @@ private:
     virtual void geolocationServiceErrorOccurred(GeolocationService*);
 
     void fatalErrorOccurred(GeoNotifier* notifier);
+    void requestTimedOut(GeoNotifier* notifier);
 
     typedef HashSet<RefPtr<GeoNotifier> > GeoNotifierSet;
     typedef HashMap<int, RefPtr<GeoNotifier> > GeoNotifierMap;
