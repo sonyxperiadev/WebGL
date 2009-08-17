@@ -26,7 +26,7 @@
 #define LOG_TAG "webcoreglue"
 
 #include <config.h>
-#include <runtime/InitializeThreading.h>
+
 #include <wtf/Platform.h>
 
 #include "android_graphics.h"
@@ -63,8 +63,10 @@
 #if USE(JSC)
 #include "GCController.h"
 #include "JSDOMWindow.h"
+#include <runtime/InitializeThreading.h>
 #include <runtime/JSLock.h>
 #elif USE(V8)
+#include "InitializeThreading.h"
 #include "jni_npobject.h"
 #include "jni_instance.h"
 #endif  // USE(JSC)
@@ -716,8 +718,11 @@ static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decisio
 
 static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAssetManager, jobject historyList)
 {
-    // TODO(andreip): Where did the V8InitializeThreading.h disappear?
+#if USE(JSC)
     JSC::initializeThreading();
+#elif USE(V8)
+    V8::initializeThreading();
+#endif
 
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
@@ -1087,7 +1092,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         // the ref count when the object is not reachable from JavaScript
         // side. Code here must release the reference count increased by
         // JavaInstanceToNPObject.
-        NPN_ReleaseObject(obj);
+        _NPN_ReleaseObject(obj);
         JSC::Bindings::releaseCharactersForJString(interfaceName, name);
     }
 #endif

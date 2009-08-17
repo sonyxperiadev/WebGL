@@ -23,6 +23,7 @@ BINDING_C_INCLUDES := \
   $(LOCAL_PATH)/v8/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
+	$(LOCAL_PATH)/binding \
 	$(LOCAL_PATH)/npapi \
 	$(LOCAL_PATH)/jni \
 	$(JAVASCRIPTCORE_PATH)/wtf \
@@ -161,6 +162,7 @@ WEBCORE_SRC_FILES := $(WEBCORE_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := \
+	binding/InitializeThreading.cpp \
 	jni/jni_class.cpp \
 	jni/jni_instance.cpp \
 	jni/jni_npobject.cpp \

@@ -68,7 +68,7 @@ static NPClass JavaNPObjectClass = {
 
 
 NPObject* JavaInstanceToNPObject(JavaInstance* instance) {
-    JavaNPObject* object = reinterpret_cast<JavaNPObject*>(NPN_CreateObject(0, &JavaNPObjectClass));
+    JavaNPObject* object = reinterpret_cast<JavaNPObject*>(_NPN_CreateObject(0, &JavaNPObjectClass));
     object->_instance = instance;
     return reinterpret_cast<NPObject*>(object);
 }

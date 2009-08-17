@@ -143,6 +143,7 @@ LOCAL_SRC_FILES := \
 	css/MediaQuery.cpp \
 	css/MediaQueryEvaluator.cpp \
 	css/MediaQueryExp.cpp \
+	css/RGBColor.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

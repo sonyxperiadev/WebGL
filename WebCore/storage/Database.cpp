@@ -56,6 +56,8 @@
 #if USE(JSC)
 #include "JSDOMWindow.h"
 #include <runtime/InitializeThreading.h>
+#elif USE(V8)
+#include "InitializeThreading.h"
 #endif
 
 namespace WebCore {
@@ -147,6 +149,9 @@ Database::Database(Document* document, const String& name, const String& expecte
     JSC::initializeThreading();
     // Database code violates the normal JSCore contract by calling jsUnprotect from a secondary thread, and thus needs additional locking.
     JSDOMWindow::commonJSGlobalData()->heap.setGCProtectNeedsLocking();
+#elif USE(V8)
+    // TODO(benm): do we need the extra locking in V8 too? (See JSC comment above)
+    V8::initializeThreading();
 #endif
 
     m_guid = guidForOriginAndName(m_securityOrigin->toString(), name);
