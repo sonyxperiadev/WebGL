@@ -27,6 +27,10 @@
 #include "config.h"
 #include "ImageDecoder.h"
 
+#if PLATFORM(SGL)
+#include "SkBitmapRef.h"
+#endif
+
 namespace WebCore {
 
 RGBA32Buffer::RGBA32Buffer()
@@ -81,7 +85,11 @@ bool RGBA32Buffer::setSize(int newWidth, int newHeight)
 
 NativeImagePtr RGBA32Buffer::asNewNativeImage() const
 {
+#if PLATFORM(SGL)
+    return new SkBitmapRef(m_bitmap);
+#else
     return new NativeImageSkia(m_bitmap);
+#endif
 }
 
 bool RGBA32Buffer::hasAlpha() const
