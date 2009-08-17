@@ -147,7 +147,7 @@ void ChromeClientAndroid::setResizable(bool) { notImplemented(); }
 // This function is called by the JavaScript bindings to print usually an error to
 // a message console. Pass the message to the java side so that the client can
 // handle it as it sees fit.
-void ChromeClientAndroid::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) {
+void ChromeClientAndroid::addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) {
     android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->addMessageToConsole(message, lineNumber, sourceID);
 }
 
@@ -267,7 +267,7 @@ void ChromeClientAndroid::formStateDidChange(const Node*)
 }
 
 void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned int) {}
-void ChromeClientAndroid::setToolTip(const String&) {}
+void ChromeClientAndroid::setToolTip(const String&, TextDirection) {}
 void ChromeClientAndroid::print(Frame*) {}
 
 /*
