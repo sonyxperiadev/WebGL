@@ -140,8 +140,7 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(ANDROID)
-        PlatformKeyboardEvent(int keyCode, UChar32 unichar, int repeatCount,
-            bool down, bool cap, bool alt, bool sym);
+        PlatformKeyboardEvent(int keyCode, UChar32 unichar, Type type, int repeatCount, ModifierKey modifier);
         UChar32 unichar() const { return m_unichar; }
         int repeatCount() const { return m_repeatCount; }
 #endif
