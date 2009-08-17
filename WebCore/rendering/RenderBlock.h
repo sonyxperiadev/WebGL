@@ -149,6 +149,9 @@ public:
     // style from this RenderBlock.
     RenderBlock* createAnonymousBlock() const;
 
+    Vector<IntRect>* columnRects() const;
+    int columnGap() const;
+
 protected:
     virtual void setOverflowHeight(int h) { m_overflowHeight = h; }
     virtual void setOverflowWidth(int w) { m_overflowWidth = w; }
@@ -350,9 +353,7 @@ private:
 
     int desiredColumnWidth() const;
     unsigned desiredColumnCount() const;
-    Vector<IntRect>* columnRects() const;
     void setDesiredColumnCountAndWidth(int count, int width);
-    int columnGap() const;
     
     void paintContinuationOutlines(PaintInfo&, int tx, int ty);
 
