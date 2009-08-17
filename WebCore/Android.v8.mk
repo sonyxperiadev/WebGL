@@ -189,6 +189,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Element.cpp \
 	dom/Entity.cpp \
 	dom/EntityReference.cpp \
+	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
@@ -356,6 +357,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ThreadableLoader.cpp \
 	loader/appcache/ApplicationCache.cpp \
 	loader/appcache/ApplicationCacheGroup.cpp \
+	loader/appcache/ApplicationCacheHost.cpp \
 	loader/appcache/ApplicationCacheResource.cpp \
 	loader/appcache/ApplicationCacheStorage.cpp \
 	loader/appcache/DOMApplicationCache.cpp \
@@ -399,6 +401,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
+	page/XSSAuditor.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \

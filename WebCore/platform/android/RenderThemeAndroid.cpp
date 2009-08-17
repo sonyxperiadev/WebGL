@@ -65,6 +65,12 @@ RenderTheme* theme()
     return &androidTheme;
 }
 
+PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
+{
+    RefPtr<RenderThemeAndroid> androidTheme = new RenderThemeAndroid();
+    return androidTheme.release();
+}
+
 RenderThemeAndroid::RenderThemeAndroid()
 {
 }

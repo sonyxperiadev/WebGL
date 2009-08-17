@@ -51,4 +51,23 @@ String imageTitle(const String& filename, const IntSize& size)
     return String();
 }
 
+String mediaElementLoadingStateText()
+{
+    notImplemented();
+    return String();
+}
+
+String mediaElementLiveBroadcastStateText()
+{
+    notImplemented();
+    return String();
+}
+
+String searchableIndexIntroduction()
+{
+    notImplemented();
+    return String();
+}
+
+
 } // namespace WebCore

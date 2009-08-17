@@ -668,6 +668,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
+	page/XSSAuditor.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
