@@ -75,6 +75,8 @@ WEBCORE_SRC_FILES := \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
 	bindings/v8/WorkerScriptController.cpp \
 	\
+	bindings/v8/npruntime.cpp \
+	\
 	bindings/v8/custom/V8AbstractWorkerCustom.cpp \
 	bindings/v8/custom/V8AttrCustom.cpp \
 	bindings/v8/custom/V8CSSStyleDeclarationCustom.cpp \

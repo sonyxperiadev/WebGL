@@ -221,7 +221,7 @@ bool NPN_IdentifierIsString(NPIdentifier identifier);
 /*
     The NPUTF8 returned from NPN_UTF8FromIdentifier SHOULD be freed.
 */
-NPUTF8 *NPN_UTF8FromIdentifier(NPIdentifier identifier);
+NPUTF8 *_NPN_UTF8FromIdentifier(NPIdentifier identifier);
 
 /*
     Get the integer represented by identifier. If identifier is not an

@@ -1217,12 +1217,12 @@ static const char* MozillaUserAgent = "Mozilla/5.0 ("
 
 const char* PluginView::userAgent()
 {
+#if !PLATFORM(ANDROID)
     if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
         return MozillaUserAgent;
-
+#endif
     if (m_userAgent.isNull())
         m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-
     return m_userAgent.data();
 }
 

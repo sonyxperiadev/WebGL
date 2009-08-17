@@ -86,7 +86,7 @@ bool JavaNPObject_HasMethod(NPObject* obj, NPIdentifier identifier) {
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (instance == 0)
         return false;
-    NPUTF8* name = NPN_UTF8FromIdentifier(identifier);
+    NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
     if (name == 0)
         return false;
 
@@ -103,7 +103,7 @@ bool JavaNPObject_Invoke(NPObject* obj, NPIdentifier identifier,
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (instance == 0)
         return false;
-    NPUTF8* name = NPN_UTF8FromIdentifier(identifier);
+    NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
     if (name == 0)
         return false;
 
@@ -119,7 +119,7 @@ bool JavaNPObject_HasProperty(NPObject* obj, NPIdentifier identifier) {
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (instance == 0)
         return false;
-    NPUTF8* name = NPN_UTF8FromIdentifier(identifier);
+    NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
     if (name == 0)
         return false;
     bool result = instance->getClass()->fieldNamed(name) != 0;
@@ -132,7 +132,7 @@ bool JavaNPObject_GetProperty(NPObject* obj, NPIdentifier identifier, NPVariant*
     JavaInstance* instance = ExtractJavaInstance(obj);
     if (instance == 0)
         return false;
-    NPUTF8* name = NPN_UTF8FromIdentifier(identifier);
+    NPUTF8* name = _NPN_UTF8FromIdentifier(identifier);
     if (name == 0)
         return false;
 

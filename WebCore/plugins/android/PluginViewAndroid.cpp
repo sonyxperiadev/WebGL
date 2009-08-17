@@ -398,55 +398,6 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_window->setWindow(&m_npWindow, m_isTransparent);
 }
 
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
-    }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-#if USE(JSC)
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-#endif
-
-    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
-
-    // Destroy the plugin
-    NPSavedData* savedData = 0;
-    setCallingPlugin(true);
-    NPError npErr = m_plugin->pluginFuncs()->destroy(m_instance, &savedData);
-    setCallingPlugin(false);
-    LOG_NPERROR(npErr);
-
-    if (savedData) {
-        if (savedData->buf)
-            NPN_MemFree(savedData->buf);
-        NPN_MemFree(savedData);
-    }
-
-    m_instance->pdata = 0;
-}
-
-const char* PluginView::userAgentStatic()
-{
-    return 0;
-}
-
-const char* PluginView::userAgent()
-{
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-    return m_userAgent.data();
-}
-
 NPError PluginView::getValue(NPNVariable variable, void* value)
 {
     switch (variable) {
