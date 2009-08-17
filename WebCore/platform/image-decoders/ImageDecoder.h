@@ -34,7 +34,8 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
+// TODO(benm): ANDROID: Can we define PLATFORM(SKIA) instead of PLATFORM(SGL) before upstreaming?
 #include "NativeImageSkia.h"
 #include "SkBitmap.h"
 #endif
@@ -54,7 +55,7 @@ namespace WebCore {
             DisposeOverwriteBgcolor,   // Clear frame to transparent
             DisposeOverwritePrevious,  // Clear frame to previous framebuffer contents
         };
-#if PLATFORM(SKIA)
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
         typedef uint32_t PixelData;
 #else
         typedef unsigned PixelData;
@@ -98,6 +99,11 @@ namespace WebCore {
                 memcpy(getAddr(startX, destY), startAddr, rowBytes);
         }
 
+#if (PLATFORM(SKIA) || PLATFORM(SGL))
+        NativeImageSkia& bitmap() { return m_bitmap; }
+        const NativeImageSkia& bitmap() const { return m_bitmap; }
+#endif
+
         // Allocates space for the pixel data.  Must be called before any pixels
         // are written. Will return true on success, false if the memory
         // allocation fails.  Calling this multiple times is undefined and may
@@ -136,7 +142,7 @@ namespace WebCore {
         {
 #if PLATFORM(CAIRO) || PLATFORM(WX)
             return m_bytes.data() + (y * width()) + x;
-#elif PLATFORM(SKIA)
+#elif (PLATFORM(SKIA) || PLATFORM(SGL))
             return m_bitmap.getAddr32(x, y);
 #else
             ASSERT_NOT_REACHED();
@@ -165,7 +171,7 @@ namespace WebCore {
         IntSize m_size;       // The size of the buffer.  This should be the
                               // same as ImageDecoder::m_size.
         bool m_hasAlpha;      // Whether or not any of the pixels in the buffer have transparency.
-#elif PLATFORM(SKIA)
+#elif (PLATFORM(SKIA) || PLATFORM(SGL))
         NativeImageSkia m_bitmap;
 #endif
         IntRect m_rect;       // The rect of the original specified frame within the overall buffer.
