@@ -341,10 +341,9 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     V(HTMLOPTIONSCOLLECTION, HTMLOptionsCollection)                     \
     V(IMAGEDATA, ImageData)                                             \
     V(CANVASPIXELARRAY, CanvasPixelArray)                               \
-    V(INSPECTORBACKEND, InspectorBackend)                               \
     V(KEYBOARDEVENT, KeyboardEvent)                                     \
     V(LOCATION, Location)                                               \
-    V(MEDIA, Media)                                               \
+    V(MEDIA, Media)                                                     \
     V(MEDIALIST, MediaList)
 
 #define DOM_OBJECT_TYPES_2(V)                                           \
@@ -466,7 +465,8 @@ typedef v8::Persistent<v8::FunctionTemplate> (*FunctionTemplateFactory)();
     DOM_OBJECT_STORAGE_TYPES(V)                                         \
     DOM_OBJECT_WORKERS_TYPES(V)                                         \
     DOM_OBJECT_XPATH_TYPES(V)                                           \
-    DOM_OBJECT_XSLT_TYPES(V)
+    DOM_OBJECT_XSLT_TYPES(V)                                            \
+    V(INSPECTORBACKEND, InspectorBackend)
 #elif PLATFORM(ANDROID)
 #define DOM_OBJECT_TYPES(V)                                             \
     DOM_OBJECT_TYPES_1(V)                                               \
