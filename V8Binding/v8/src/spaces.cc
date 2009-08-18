@@ -340,6 +340,17 @@ bool MemoryAllocator::CommitBlock(Address start,
   return true;
 }
 
+bool MemoryAllocator::UncommitBlock(Address start, size_t size) {
+  ASSERT(start != NULL);
+  ASSERT(size > 0);
+  ASSERT(initial_chunk_ != NULL);
+  ASSERT(InInitialChunk(start));
+  ASSERT(InInitialChunk(start + size - 1));
+
+  if (!initial_chunk_->Uncommit(start, size)) return false;
+  Counters::memory_allocated.Decrement(size);
+  return true;
+}
 
 Page* MemoryAllocator::InitializePagesInChunk(int chunk_id, int pages_in_chunk,
                                               PagedSpace* owner) {
@@ -715,47 +726,25 @@ void PagedSpace::Shrink() {
   Page* top_page = AllocationTopPage();
   ASSERT(top_page->is_valid());
 
-  // Loop over the pages from the top page to the end of the space to count
-  // the number of pages to keep and find the last page to keep.
-  int free_pages = 0;
-  int pages_to_keep = 0;  // Of the free pages.
-  Page* last_page_to_keep = top_page;
-  Page* current_page = top_page->next_page();
-  // Loop over the pages to the end of the space.
-  while (current_page->is_valid()) {
-#if defined(ANDROID)
-    // Free all chunks if possible
-#else
-    // Advance last_page_to_keep every other step to end up at the midpoint.
-    if ((free_pages & 0x1) == 1) {
-      pages_to_keep++;
-      last_page_to_keep = last_page_to_keep->next_page();
-    }
-#endif
-    free_pages++;
-    current_page = current_page->next_page();
+  // Count the number of pages we would like to free.
+  int pages_to_free = 0;
+  for (Page* p = top_page->next_page(); p->is_valid(); p = p->next_page()) {
+    pages_to_free++;
   }
 
-  // Free pages after last_page_to_keep, and adjust the next_page link.
-  Page* p = MemoryAllocator::FreePages(last_page_to_keep->next_page());
-  MemoryAllocator::SetNextPage(last_page_to_keep, p);
+  // Free pages after top_page.
+  Page* p = MemoryAllocator::FreePages(top_page->next_page());
+  MemoryAllocator::SetNextPage(top_page, p);
 
-  // Since pages are only freed in whole chunks, we may have kept more
-  // than pages_to_keep.  Count the extra pages and cache the new last
-  // page in the space.
-  last_page_ = last_page_to_keep;
-  while (p->is_valid()) {
-    pages_to_keep++;
+  // Find out how many pages we failed to free and update last_page_.
+  // Please note pages can only be freed in whole chunks.
+  last_page_ = top_page;
+  for (Page* p = top_page->next_page(); p->is_valid(); p = p->next_page()) {
+    pages_to_free--;
     last_page_ = p;
-    p = p->next_page();
   }
 
-  // The difference between free_pages and pages_to_keep is the number of
-  // pages actually freed.
-  ASSERT(pages_to_keep <= free_pages);
-  int bytes_freed = (free_pages - pages_to_keep) * Page::kObjectAreaSize;
-  accounting_stats_.ShrinkSpace(bytes_freed);
-
+  accounting_stats_.ShrinkSpace(pages_to_free * Page::kObjectAreaSize);
   ASSERT(Capacity() == CountTotalPages() * Page::kObjectAreaSize);
 }
 
@@ -963,13 +952,13 @@ void NewSpace::Flip() {
 }
 
 
-bool NewSpace::Double() {
-  ASSERT(capacity_ <= maximum_capacity_ / 2);
+bool NewSpace::Grow() {
+  ASSERT(capacity_ < maximum_capacity_);
   // TODO(1240712): Failure to double the from space can result in
   // semispaces of different sizes.  In the event of that failure, the
   // to space doubling should be rolled back before returning false.
-  if (!to_space_.Double() || !from_space_.Double()) return false;
-  capacity_ *= 2;
+  if (!to_space_.Grow() || !from_space_.Grow()) return false;
+  capacity_ = to_space_.Capacity() + from_space_.Capacity();
   allocation_info_.limit = to_space_.high();
   ASSERT_SEMISPACE_ALLOCATION_INFO(allocation_info_, to_space_);
   return true;
@@ -1039,6 +1028,26 @@ void NewSpace::Verify() {
 #endif
 
 
+bool SemiSpace::Commit() {
+  ASSERT(!is_committed());
+  if (!MemoryAllocator::CommitBlock(start_, capacity_, executable())) {
+    return false;
+  }
+  committed_ = true;
+  return true;
+}
+
+
+bool SemiSpace::Uncommit() {
+  ASSERT(is_committed());
+  if (!MemoryAllocator::UncommitBlock(start_, capacity_)) {
+    return false;
+  }
+  committed_ = false;
+  return true;
+}
+
+
 // -----------------------------------------------------------------------------
 // SemiSpace implementation
 
@@ -1053,18 +1062,15 @@ bool SemiSpace::Setup(Address start,
   // addresses.
   capacity_ = initial_capacity;
   maximum_capacity_ = maximum_capacity;
-
-  if (!MemoryAllocator::CommitBlock(start, capacity_, executable())) {
-    return false;
-  }
+  committed_ = false;
 
   start_ = start;
   address_mask_ = ~(maximum_capacity - 1);
   object_mask_ = address_mask_ | kHeapObjectTag;
   object_expected_ = reinterpret_cast<uintptr_t>(start) | kHeapObjectTag;
-
   age_mark_ = start_;
-  return true;
+
+  return Commit();
 }
 
 
@@ -1074,11 +1080,16 @@ void SemiSpace::TearDown() {
 }
 
 
-bool SemiSpace::Double() {
-  if (!MemoryAllocator::CommitBlock(high(), capacity_, executable())) {
+bool SemiSpace::Grow() {
+  // Commit 50% extra space but only up to maximum capacity.
+  int extra = RoundUp(capacity_ / 2, OS::AllocateAlignment());
+  if (capacity_ + extra > maximum_capacity_) {
+    extra = maximum_capacity_ - capacity_;
+  }
+  if (!MemoryAllocator::CommitBlock(high(), extra, executable())) {
     return false;
   }
-  capacity_ *= 2;
+  capacity_ += extra;
   return true;
 }
 
