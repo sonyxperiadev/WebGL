@@ -238,74 +238,6 @@ static jobject createPluginObject(const char *name,
     return pluginObject;
 }
 
-static jobject getPluginListObject()
-{
-    JNIEnv *env = JSC::Bindings::getJNIEnv();
-    // Get WebView.getPluginList()
-    jclass webViewClass = env->FindClass("android/webkit/WebView");
-    if(!webViewClass) {
-        PLUGIN_LOG("Couldn't find class android.webkit.WebView\n");
-        return 0;
-    }
-    jmethodID getPluginList = env->GetStaticMethodID(
-            webViewClass,
-            "getPluginList",
-            "()Landroid/webkit/PluginList;");
-    if(!getPluginList) {
-        PLUGIN_LOG("Couldn't find android.webkit.WebView.getPluginList()\n");
-        return 0;
-    }
-    // Get the PluginList instance
-    jobject pluginListObject = env->CallStaticObjectMethod(webViewClass,
-                                                           getPluginList);
-    if(!pluginListObject) {
-        PLUGIN_LOG("Couldn't get PluginList object\n");
-        return 0;
-    }
-    return pluginListObject;
-}
-
-static bool addPluginObjectToList(jobject pluginList, jobject plugin)
-{
-    // Add the Plugin object
-    JNIEnv *env = JSC::Bindings::getJNIEnv();
-    jclass pluginListClass = env->FindClass("android/webkit/PluginList");
-    if(!pluginListClass) {
-        PLUGIN_LOG("Couldn't find class android.webkit.PluginList\n");
-        return false;
-    }
-    jmethodID addPlugin = env->GetMethodID(
-            pluginListClass,
-            "addPlugin",
-            "(Landroid/webkit/Plugin;)V");
-    if(!addPlugin) {
-        PLUGIN_LOG("Couldn't find android.webkit.PluginList.addPlugin()\n");
-        return false;
-    }
-    env->CallVoidMethod(pluginList, addPlugin, plugin);
-    return true;
-}
-
-static void removePluginObjectFromList(jobject pluginList, jobject plugin)
-{
-    // Remove the Plugin object
-    JNIEnv *env = JSC::Bindings::getJNIEnv();
-    jclass pluginListClass = env->FindClass("android/webkit/PluginList");
-    if(!pluginListClass) {
-        PLUGIN_LOG("Couldn't find class android.webkit.PluginList\n");
-        return;
-    }
-    jmethodID removePlugin = env->GetMethodID(
-            pluginListClass,
-            "removePlugin",
-            "(Landroid/webkit/Plugin;)V");
-    if(!removePlugin) {
-        PLUGIN_LOG("Couldn't find android.webkit.PluginList.removePlugin()\n");
-        return;
-    }
-    env->CallVoidMethod(pluginList, removePlugin, plugin);
-}
-
 bool PluginPackage::load()
 {
     PLUGIN_LOG("tid:%d isActive:%d isLoaded:%d loadCount:%d\n",
@@ -377,23 +309,6 @@ bool PluginPackage::load()
     ++m_loadCount;
     PLUGIN_LOG("Initial load ok, count now %d\n", m_loadCount);
     return true;
-}
-
-void PluginPackage::unregisterPluginObject()
-{
-    PLUGIN_LOG("unregisterPluginObject\n");
-    // Called by unloadWithoutShutdown(). Remove the plugin from the
-    // PluginList
-    if(m_pluginObject) {
-        jobject pluginListObject = getPluginListObject();
-        if(pluginListObject) {
-            removePluginObjectFromList(pluginListObject, m_pluginObject);
-        }
-        // Remove a reference to the Plugin object so it can
-        // garbage collect.
-        JSC::Bindings::getJNIEnv()->DeleteGlobalRef(m_pluginObject);
-        m_pluginObject = 0;
-    }
 }
 
 bool PluginPackage::fetchInfo()
@@ -499,27 +414,6 @@ bool PluginPackage::fetchInfo()
                                               description);
     if(!pluginObject) {
         PLUGIN_LOG("Couldn't create Java Plugin\n");
-        return false;
-    }
-     
-    // Add the Plugin to the PluginList. This list is used to show the
-    // user the list of plugins installed in the webkit.
-    
-    // The list of plugins are also available from the global static 
-    // function PluginDatabase::installedPlugins(). However, the method
-    // on WebView to get the plugin list is a static method, and runs in the
-    // UI thread. We can not easily drop all the GlobalRefs this implementation
-    // has and switch to just calling through JNI to aforementioned API as 
-    // WebKit runs in another thread and the WebView call would need to change
-    // to being async.
-    jobject pluginListObject = getPluginListObject();
-    if(!pluginListObject) {
-        PLUGIN_LOG("Couldn't get PluginList object\n");
-        return false;
-    }
-    if(!addPluginObjectToList(pluginListObject, pluginObject)) {
-        PLUGIN_LOG("Couldn't add Plugin to PluginList\n");
-        m_NPP_Shutdown();
         return false;
     }
 
