@@ -513,10 +513,36 @@ class V8EXPORT ScriptOrigin {
 class V8EXPORT Script {
  public:
 
+   /**
+    * Compiles the specified script. The ScriptOrigin* and ScriptData*
+    * parameters are owned by the caller of Script::Compile. No
+    * references to these objects are kept after compilation finishes.
+    *
+    * The script object returned is context independent; when run it
+    * will use the currently entered context.
+    */
+   static Local<Script> New(Handle<String> source,
+                            ScriptOrigin* origin = NULL,
+                            ScriptData* pre_data = NULL);
+
+   /**
+    * Compiles the specified script using the specified file name
+    * object (typically a string) as the script's origin.
+    *
+    * The script object returned is context independent; when run it
+    * will use the currently entered context.
+    */
+   static Local<Script> New(Handle<String> source,
+                            Handle<Value> file_name);
+
   /**
    * Compiles the specified script. The ScriptOrigin* and ScriptData*
    * parameters are owned by the caller of Script::Compile. No
    * references to these objects are kept after compilation finishes.
+   *
+   * The script object returned is bound to the context that was active
+   * when this function was called.  When run it will always use this
+   * context.
    */
   static Local<Script> Compile(Handle<String> source,
                                ScriptOrigin* origin = NULL,
@@ -525,12 +551,20 @@ class V8EXPORT Script {
   /**
    * Compiles the specified script using the specified file name
    * object (typically a string) as the script's origin.
+   *
+   * The script object returned is bound to the context that was active
+   * when this function was called.  When run it will always use this
+   * context.
    */
   static Local<Script> Compile(Handle<String> source,
                                Handle<Value> file_name);
 
   /**
-   * Runs the script returning the resulting value.
+   * Runs the script returning the resulting value.  If the script is
+   * context independent (created using ::New) it will be run in the
+   * currently entered context.  If it is context specific (created
+   * using ::Compile) it will be run in the context in which it was
+   * compiled.
    */
   Local<Value> Run();
 
@@ -900,6 +934,11 @@ class V8EXPORT String : public Primitive {
    * The string is not modified if the operation fails.
    */
   bool MakeExternal(ExternalAsciiStringResource* resource);
+
+  /**
+   * Returns true if this string can be made external.
+   */
+  bool CanMakeExternal();
 
   /** Creates an undetectable string from the supplied ascii or utf-8 data.*/
   static Local<String> NewUndetectable(const char* data, int length = -1);
@@ -2185,11 +2224,7 @@ class V8EXPORT V8 {
   static int GetLogLines(int from_pos, char* dest_buf, int max_size);
 
 #if defined(ANDROID)
-  /**
-   * Android system sends the browser low memory signal, and it is good to
-   * collect JS heap, which can free some DOM nodes.
-   * This function should ONLY be used by the browser in low memory condition.
-   */
+  // TODO: upstream to V8.
   static void CollectAllGarbage();
 #endif
 
@@ -2203,6 +2238,14 @@ class V8EXPORT V8 {
    * to use if the process needs the resources taken up by v8.
    */
   static bool Dispose();
+
+
+  /**
+   * Optional notification that the embedder is idle.
+   * V8 uses the notification to reduce memory footprint.
+   * \param is_high_priority tells whether the embedder is high priority.
+   */
+  static void IdleNotification(bool is_high_priority);
 
  private:
   V8();
@@ -2249,6 +2292,12 @@ class V8EXPORT TryCatch {
    * The returned handle is valid until this TryCatch block has been destroyed.
    */
   Local<Value> Exception() const;
+
+  /**
+   * Returns the .stack property of the thrown object.  If no .stack
+   * property is present an empty handle is returned.
+   */
+  Local<Value> StackTrace() const;
 
   /**
    * Returns the message associated with this exception.  If there is
