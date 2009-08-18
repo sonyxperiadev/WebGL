@@ -36,6 +36,7 @@
 #include "NotImplemented.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
+#include "WebViewCore.h"
 
 namespace android {
     
@@ -225,8 +226,23 @@ void EditorClientAndroid::textDidChangeInTextArea(Element*) {}
 void EditorClientAndroid::textDidChangeInTextField(Element*) {}
 void EditorClientAndroid::textFieldDidBeginEditing(Element*) {}
 void EditorClientAndroid::ignoreWordInSpellDocument(String const&) {}
-void EditorClientAndroid::respondToChangedSelection() {}
-bool EditorClientAndroid::shouldChangeSelectedRange(Range*, Range*, EAffinity, bool) { return m_notFromClick; }
+
+// We need to pass the selection up to the WebTextView
+void EditorClientAndroid::respondToChangedSelection() {
+    if (m_uiGeneratedSelectionChange)
+        return;
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->view())
+        return;
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(frame->view());
+    webViewCore->updateTextSelection();
+}
+
+bool EditorClientAndroid::shouldChangeSelectedRange(Range*, Range*, EAffinity,
+        bool) {
+    return m_shouldChangeSelectedRange;
+}
+
 bool EditorClientAndroid::doTextFieldCommandFromEvent(Element*, KeyboardEvent*) { return false; }
 void EditorClientAndroid::textWillBeDeletedInTextField(Element*) {}
 void EditorClientAndroid::updateSpellingUIWithGrammarString(String const&, GrammarDetail const&) {}

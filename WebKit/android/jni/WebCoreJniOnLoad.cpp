@@ -45,6 +45,7 @@ extern int register_webcorejni(JNIEnv*);
 extern int register_webstorage(JNIEnv*);
 #endif
 extern int register_geolocation_permissions(JNIEnv*);
+extern int register_mock_geolocation(JNIEnv*);
 
 }
 
@@ -66,7 +67,8 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "WebStorage", android::register_webstorage },
 #endif
     { "WebView", android::register_webview },
-    { "GeolocationPermissions", android::register_geolocation_permissions }
+    { "GeolocationPermissions", android::register_geolocation_permissions },
+    { "MockGeolocation", android::register_mock_geolocation }
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

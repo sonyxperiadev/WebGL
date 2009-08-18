@@ -131,7 +131,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl)
     m_javaGlue.m_sendPluginState = GetJMethod(env, clazz, "sendPluginState", "(I)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
     m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(Z)V");
-    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIIII)V");
+    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
@@ -909,6 +909,26 @@ void setNavBounds(const WebCore::IntRect& rect)
     root->rootHistory()->setNavBounds(rect);
 }
 
+/**
+ * This function is only to be called by WebTextView, when there is a motion up
+ * on an already focused text input.  Unlike motionUp which may change our
+ * cursor, it simply passes the click, so it can change the selection.
+ * Variables are in content space, relative to the page.
+ */
+void textInputMotionUp(int x, int y)
+{
+    const CachedRoot* root = getFrameCache(DontAllowNewer);
+    if (!root) {
+        return;
+    }
+    const CachedFrame* frame;
+    const CachedNode* node = root->currentCursor(&frame);
+    if (node) {
+        sendMotionUp(static_cast<WebCore::Frame*>(frame->framePointer()),
+                static_cast<WebCore::Node*>(node->nodePointer()), x, y);
+    }
+}
+
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
@@ -931,7 +951,7 @@ bool motionUp(int x, int y, int slop)
             pageScrolled = true;
         }
         sendMotionUp(frame ? (WebCore::Frame*) frame->framePointer() : 0,
-            0, x, y, slop);
+            0, x, y);
         viewInvalidate();
         clearTextEntry();
         setPluginReceivesEvents(false);
@@ -948,8 +968,7 @@ bool motionUp(int x, int y, int slop)
     if (type == NORMAL_CACHEDNODETYPE) {
         sendMotionUp(
             frame ? (WebCore::Frame*) frame->framePointer() : 0,
-            result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry,
-            slop);
+            result ? (WebCore::Node*) result->nodePointer() : 0, rx, ry);
     }
     viewInvalidate();
     if (result->isTextField() || result->isTextArea()) {
@@ -1177,7 +1196,7 @@ void sendMoveMouseIfLatest(bool disableFocusController)
 }
 
 void sendMotionUp(
-    WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y, int slop)
+    WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
     m_viewImpl->m_touchGeneration = m_viewImpl->m_generation = ++m_generation;
     DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d slop=%d",
@@ -1185,7 +1204,7 @@ void sendMotionUp(
     LOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_sendMotionUp,
-        m_generation, (jint) framePtr, (jint) nodePtr, x, y, slop);
+        m_generation, (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
 }
 
@@ -1699,6 +1718,12 @@ static jint nativeTextGeneration(JNIEnv *env, jobject obj)
     return root ? root->textGeneration() : 0;
 }
 
+static void nativeTextInputMotionUp(JNIEnv *env, jobject obj, int x, int y)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    view->textInputMotionUp(x, y);
+}
+
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
@@ -2057,6 +2082,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeImageURI },
     { "nativeInstrumentReport", "()V",
         (void*) nativeInstrumentReport },
+    { "nativeTextInputMotionUp", "(II)V",
+        (void*) nativeTextInputMotionUp },
     { "nativeMotionUp", "(III)Z",
         (void*) nativeMotionUp },
     { "nativeMoveCursor", "(IIZ)Z",

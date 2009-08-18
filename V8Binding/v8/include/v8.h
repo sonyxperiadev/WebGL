@@ -2184,6 +2184,14 @@ class V8EXPORT V8 {
    */
   static int GetLogLines(int from_pos, char* dest_buf, int max_size);
 
+#if defined(ANDROID)
+  /**
+   * Android system sends the browser low memory signal, and it is good to
+   * collect JS heap, which can free some DOM nodes.
+   * This function should ONLY be used by the browser in low memory condition.
+   */
+  static void CollectAllGarbage();
+#endif
 
   /**
    * Releases any resources used by v8 and stops any utility threads

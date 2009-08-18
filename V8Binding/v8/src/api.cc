@@ -2590,7 +2590,8 @@ Persistent<Context> v8::Context::New(
   {
     ENTER_V8;
 #if defined(ANDROID)
-    // On mobile devices, full GC is expensive.
+    // On mobile device, full GC is expensive, leave it to the system to
+    // decide when should make a full GC.
 #else
     // Give the heap a chance to cleanup if we've disposed contexts.
     i::Heap::CollectAllGarbageIfContextDisposed();
@@ -3296,6 +3297,12 @@ int V8::GetLogLines(int from_pos, char* dest_buf, int max_size) {
 #endif
   return 0;
 }
+
+
+void V8::CollectAllGarbage() {
+  i::Heap::CollectAllGarbage();
+}
+
 
 String::Utf8Value::Utf8Value(v8::Handle<v8::Value> obj) {
   EnsureInitialized("v8::String::Utf8Value::Utf8Value()");

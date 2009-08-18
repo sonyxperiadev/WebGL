@@ -28,6 +28,7 @@
 
 #ifdef ANDROID_INSTRUMENT
 
+#include "hardware_legacy/qemu_tracing.h"
 #include <wtf/CurrentTime.h>
 
 namespace WebCore {
@@ -93,6 +94,23 @@ public:
 private:
     TimeCounter::Type m_type;
     uint32_t m_startTime;
+};
+
+class QemuTracerAuto {
+public:
+    QemuTracerAuto() {
+        if (!reentry_count)
+            qemu_start_tracing();
+        reentry_count++;
+    }
+
+    ~QemuTracerAuto() {
+        reentry_count--;
+        if (!reentry_count)
+            qemu_stop_tracing();
+    }
+private:
+    static int reentry_count;
 };
 
 }

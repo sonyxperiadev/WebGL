@@ -270,9 +270,12 @@ void ScriptController::collectGarbage()
     if (v8Context.IsEmpty())
         return;
 
-    v8::Context::Scope scope(v8Context);
-
+    v8::Context::Scope scope(context);
+#if PLATFORM(ANDROID)
+    v8::V8::CollectAllGarbage();
+#else
     m_proxy->evaluate(ScriptSourceCode("if (window.gc) void(gc());"), 0);
+#endif
 }
 
 bool ScriptController::haveInterpreter() const

@@ -207,6 +207,10 @@ LOCAL_SHARED_LIBRARIES := \
 	libicui18n \
 	libmedia
 
+ifeq ($(WEBCORE_INSTRUMENTATION),true)
+LOCAL_SHARED_LIBRARIES += libhardware_legacy
+endif
+
 # We have to use the android version of libdl when we are not on the simulator
 ifneq ($(TARGET_SIMULATOR),true)
 LOCAL_SHARED_LIBRARIES += libdl

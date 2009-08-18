@@ -35,6 +35,10 @@
 #include "MappedAttribute.h"
 #include "ScriptEventListener.h"
 
+#ifdef ANDROID_META_SUPPORT
+#include "Settings.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -170,6 +174,15 @@ void HTMLBodyElement::insertedIntoDocument()
         if (marginHeight != -1)
             setAttribute(marginheightAttr, String::number(marginHeight));
     }
+
+#ifdef ANDROID_META_SUPPORT
+    Settings * settings = document()->settings();
+    String host = document()->baseURI().host().lower();
+    if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
+            || host.contains(".m.") || host.contains(".mobile.")))
+        // fit mobile sites directly in the screen
+        settings->setMetadataSettings("width", "device-width");
+#endif
 
     // FIXME: This call to scheduleRelayout should not be needed here.
     // But without it we hang during WebKit tests; need to fix that and remove this.
