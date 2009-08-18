@@ -146,27 +146,27 @@ bool Shell::ExecuteString(Handle<String> source,
 
 
 Handle<Value> Shell::Print(const Arguments& args) {
-  bool first = true;
+  Handle<Value> val = Write(args);
+  printf("\n");
+  return val;
+}
+
+
+Handle<Value> Shell::Write(const Arguments& args) {
   for (int i = 0; i < args.Length(); i++) {
     HandleScope handle_scope;
-    if (first) {
-      first = false;
-    } else {
+    if (i != 0) {
       printf(" ");
     }
     v8::String::Utf8Value str(args[i]);
     const char* cstr = ToCString(str);
     printf("%s", cstr);
   }
-  printf("\n");
   return Undefined();
 }
 
 
 Handle<Value> Shell::Read(const Arguments& args) {
-  if (args.Length() != 1) {
-    return ThrowException(String::New("Bad parameters"));
-  }
   String::Utf8Value file(args[0]);
   if (*file == NULL) {
     return ThrowException(String::New("Error loading file"));
@@ -176,6 +176,19 @@ Handle<Value> Shell::Read(const Arguments& args) {
     return ThrowException(String::New("Error loading file"));
   }
   return source;
+}
+
+
+Handle<Value> Shell::ReadLine(const Arguments& args) {
+  char line_buf[256];
+  if (fgets(line_buf, sizeof(line_buf), stdin) == NULL) {
+    return ThrowException(String::New("Error reading line"));
+  }
+  int len = strlen(line_buf);
+  if (line_buf[len - 1] == '\n') {
+    --len;
+  }
+  return String::New(line_buf, len);
 }
 
 
@@ -399,7 +412,10 @@ void Shell::Initialize() {
   HandleScope scope;
   Handle<ObjectTemplate> global_template = ObjectTemplate::New();
   global_template->Set(String::New("print"), FunctionTemplate::New(Print));
+  global_template->Set(String::New("write"), FunctionTemplate::New(Write));
   global_template->Set(String::New("read"), FunctionTemplate::New(Read));
+  global_template->Set(String::New("readline"),
+                       FunctionTemplate::New(ReadLine));
   global_template->Set(String::New("load"), FunctionTemplate::New(Load));
   global_template->Set(String::New("quit"), FunctionTemplate::New(Quit));
   global_template->Set(String::New("version"), FunctionTemplate::New(Version));
@@ -588,8 +604,12 @@ void ShellThread::Run() {
   Handle<ObjectTemplate> global_template = ObjectTemplate::New();
   global_template->Set(String::New("print"),
                        FunctionTemplate::New(Shell::Print));
+  global_template->Set(String::New("write"),
+                       FunctionTemplate::New(Shell::Write));
   global_template->Set(String::New("read"),
                        FunctionTemplate::New(Shell::Read));
+  global_template->Set(String::New("readline"),
+                       FunctionTemplate::New(Shell::ReadLine));
   global_template->Set(String::New("load"),
                        FunctionTemplate::New(Shell::Load));
   global_template->Set(String::New("yield"),

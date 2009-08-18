@@ -123,6 +123,27 @@ class DeferredInlineSmiAdd: public DeferredCode {
 };
 
 
+// The result of value + src is in dst.  It either overflowed or was not
+// smi tagged.  Undo the speculative addition and call the appropriate
+// specialized stub for add.  The result is left in dst.
+class DeferredInlineSmiAddReversed: public DeferredCode {
+ public:
+  DeferredInlineSmiAddReversed(Register dst,
+                               Smi* value,
+                               OverwriteMode overwrite_mode)
+      : dst_(dst), value_(value), overwrite_mode_(overwrite_mode) {
+    set_comment("[ DeferredInlineSmiAddReversed");
+  }
+
+  virtual void Generate();
+
+ private:
+  Register dst_;
+  Smi* value_;
+  OverwriteMode overwrite_mode_;
+};
+
+
 class DeferredInlineSmiSub: public DeferredCode {
  public:
   DeferredInlineSmiSub(Register dst,
@@ -3063,25 +3084,18 @@ void CodeGenerator::VisitCountOperation(CountOperation* node) {
                                                   is_increment);
     }
 
-    Result tmp = allocator_->AllocateWithoutSpilling();
-    ASSERT(kSmiTagMask == 1 && kSmiTag == 0);
-    __ movl(tmp.reg(), Immediate(kSmiTagMask));
-    // Smi test.
     __ movq(kScratchRegister, new_value.reg());
     if (is_increment) {
       __ addl(kScratchRegister, Immediate(Smi::FromInt(1)));
     } else {
       __ subl(kScratchRegister, Immediate(Smi::FromInt(1)));
     }
-    // deferred->Branch(overflow);
-    __ cmovl(overflow, kScratchRegister, tmp.reg());
-    __ testl(kScratchRegister, tmp.reg());
-    tmp.Unuse();
+    // Smi test.
+    deferred->Branch(overflow);
+    __ testl(kScratchRegister, Immediate(kSmiTagMask));
     deferred->Branch(not_zero);
     __ movq(new_value.reg(), kScratchRegister);
-
     deferred->BindExit();
-
 
     // Postfix: store the old value in the allocated slot under the
     // reference.
@@ -5057,27 +5071,6 @@ void DeferredInlineSmiAdd::Generate() {
 }
 
 
-// The result of value + src is in dst.  It either overflowed or was not
-// smi tagged.  Undo the speculative addition and call the appropriate
-// specialized stub for add.  The result is left in dst.
-class DeferredInlineSmiAddReversed: public DeferredCode {
- public:
-  DeferredInlineSmiAddReversed(Register dst,
-                               Smi* value,
-                               OverwriteMode overwrite_mode)
-      : dst_(dst), value_(value), overwrite_mode_(overwrite_mode) {
-    set_comment("[ DeferredInlineSmiAddReversed");
-  }
-
-  virtual void Generate();
-
- private:
-  Register dst_;
-  Smi* value_;
-  OverwriteMode overwrite_mode_;
-};
-
-
 void DeferredInlineSmiAddReversed::Generate() {
   __ push(Immediate(value_));  // Note: sign extended.
   __ push(dst_);
@@ -5166,7 +5159,184 @@ void CodeGenerator::ConstantSmiBinaryOperation(Token::Value op,
       frame_->Push(operand);
       break;
     }
-    // TODO(X64): Move other implementations from ia32 to here.
+
+    case Token::SUB: {
+      if (reversed) {
+        Result constant_operand(value);
+        LikelySmiBinaryOperation(op, &constant_operand, operand,
+                                 overwrite_mode);
+      } else {
+        operand->ToRegister();
+        frame_->Spill(operand->reg());
+        DeferredCode* deferred = new DeferredInlineSmiSub(operand->reg(),
+                                                          smi_value,
+                                                          overwrite_mode);
+        __ testl(operand->reg(), Immediate(kSmiTagMask));
+        deferred->Branch(not_zero);
+        // A smi currently fits in a 32-bit Immediate.
+        __ subl(operand->reg(), Immediate(smi_value));
+        Label add_success;
+        __ j(no_overflow, &add_success);
+        __ addl(operand->reg(), Immediate(smi_value));
+        deferred->Jump();
+        __ bind(&add_success);
+        deferred->BindExit();
+        frame_->Push(operand);
+      }
+      break;
+    }
+
+    case Token::SAR:
+      if (reversed) {
+        Result constant_operand(value);
+        LikelySmiBinaryOperation(op, &constant_operand, operand,
+                                 overwrite_mode);
+      } else {
+        // Only the least significant 5 bits of the shift value are used.
+        // In the slow case, this masking is done inside the runtime call.
+        int shift_value = int_value & 0x1f;
+        operand->ToRegister();
+        frame_->Spill(operand->reg());
+        DeferredInlineSmiOperation* deferred =
+            new DeferredInlineSmiOperation(op,
+                                           operand->reg(),
+                                           operand->reg(),
+                                           smi_value,
+                                           overwrite_mode);
+        __ testl(operand->reg(), Immediate(kSmiTagMask));
+        deferred->Branch(not_zero);
+        if (shift_value > 0) {
+          __ sarl(operand->reg(), Immediate(shift_value));
+          __ and_(operand->reg(), Immediate(~kSmiTagMask));
+        }
+        deferred->BindExit();
+        frame_->Push(operand);
+      }
+      break;
+
+    case Token::SHR:
+      if (reversed) {
+        Result constant_operand(value);
+        LikelySmiBinaryOperation(op, &constant_operand, operand,
+                                 overwrite_mode);
+      } else {
+        // Only the least significant 5 bits of the shift value are used.
+        // In the slow case, this masking is done inside the runtime call.
+        int shift_value = int_value & 0x1f;
+        operand->ToRegister();
+        Result answer = allocator()->Allocate();
+        ASSERT(answer.is_valid());
+        DeferredInlineSmiOperation* deferred =
+            new DeferredInlineSmiOperation(op,
+                                           answer.reg(),
+                                           operand->reg(),
+                                           smi_value,
+                                           overwrite_mode);
+        __ testl(operand->reg(), Immediate(kSmiTagMask));
+        deferred->Branch(not_zero);
+        __ movl(answer.reg(), operand->reg());
+        __ sarl(answer.reg(), Immediate(kSmiTagSize));
+        __ shrl(answer.reg(), Immediate(shift_value));
+        // A negative Smi shifted right two is in the positive Smi range.
+        if (shift_value < 2) {
+          __ testl(answer.reg(), Immediate(0xc0000000));
+          deferred->Branch(not_zero);
+        }
+        operand->Unuse();
+        ASSERT(kSmiTag == 0);
+        ASSERT(kSmiTagSize == 1);
+        __ addl(answer.reg(), answer.reg());
+        deferred->BindExit();
+        frame_->Push(&answer);
+      }
+      break;
+
+    case Token::SHL:
+      if (reversed) {
+        Result constant_operand(value);
+        LikelySmiBinaryOperation(op, &constant_operand, operand,
+                                 overwrite_mode);
+      } else {
+        // Only the least significant 5 bits of the shift value are used.
+        // In the slow case, this masking is done inside the runtime call.
+        int shift_value = int_value & 0x1f;
+        operand->ToRegister();
+        if (shift_value == 0) {
+          // Spill operand so it can be overwritten in the slow case.
+          frame_->Spill(operand->reg());
+          DeferredInlineSmiOperation* deferred =
+              new DeferredInlineSmiOperation(op,
+                                             operand->reg(),
+                                             operand->reg(),
+                                             smi_value,
+                                             overwrite_mode);
+          __ testl(operand->reg(), Immediate(kSmiTagMask));
+          deferred->Branch(not_zero);
+          deferred->BindExit();
+          frame_->Push(operand);
+        } else {
+          // Use a fresh temporary for nonzero shift values.
+          Result answer = allocator()->Allocate();
+          ASSERT(answer.is_valid());
+          DeferredInlineSmiOperation* deferred =
+              new DeferredInlineSmiOperation(op,
+                                             answer.reg(),
+                                             operand->reg(),
+                                             smi_value,
+                                             overwrite_mode);
+          __ testl(operand->reg(), Immediate(kSmiTagMask));
+          deferred->Branch(not_zero);
+          __ movl(answer.reg(), operand->reg());
+          ASSERT(kSmiTag == 0);  // adjust code if not the case
+          // We do no shifts, only the Smi conversion, if shift_value is 1.
+          if (shift_value > 1) {
+            __ shll(answer.reg(), Immediate(shift_value - 1));
+          }
+          // Convert int result to Smi, checking that it is in int range.
+          ASSERT(kSmiTagSize == 1);  // adjust code if not the case
+          __ addl(answer.reg(), answer.reg());
+          deferred->Branch(overflow);
+          deferred->BindExit();
+          operand->Unuse();
+          frame_->Push(&answer);
+        }
+      }
+      break;
+
+    case Token::BIT_OR:
+    case Token::BIT_XOR:
+    case Token::BIT_AND: {
+      operand->ToRegister();
+      frame_->Spill(operand->reg());
+      if (reversed) {
+        // Bit operations with a constant smi are commutative.
+        // We can swap left and right operands with no problem.
+        // Swap left and right overwrite modes.  0->0, 1->2, 2->1.
+        overwrite_mode = static_cast<OverwriteMode>((2 * overwrite_mode) % 3);
+      }
+      DeferredCode* deferred =  new DeferredInlineSmiOperation(op,
+                                                               operand->reg(),
+                                                               operand->reg(),
+                                                               smi_value,
+                                                               overwrite_mode);
+      __ testl(operand->reg(), Immediate(kSmiTagMask));
+      deferred->Branch(not_zero);
+      if (op == Token::BIT_AND) {
+        __ and_(operand->reg(), Immediate(smi_value));
+      } else if (op == Token::BIT_XOR) {
+        if (int_value != 0) {
+          __ xor_(operand->reg(), Immediate(smi_value));
+        }
+      } else {
+        ASSERT(op == Token::BIT_OR);
+        if (int_value != 0) {
+          __ or_(operand->reg(), Immediate(smi_value));
+        }
+      }
+      deferred->BindExit();
+      frame_->Push(operand);
+      break;
+    }
 
     // Generate inline code for mod of powers of 2 and negative powers of 2.
     case Token::MOD:
@@ -5888,6 +6058,8 @@ void Reference::SetValue(InitState init_state) {
         __ testl(key.reg(),
                  Immediate(static_cast<uint32_t>(kSmiTagMask | 0x80000000U)));
         deferred->Branch(not_zero);
+        // Ensure that the smi is zero-extended.  This is not guaranteed.
+        __ movl(key.reg(), key.reg());
 
         // Check that the receiver is not a smi.
         __ testl(receiver.reg(), Immediate(kSmiTagMask));
@@ -7047,14 +7219,14 @@ void FloatingPointHelper::LoadFloatOperands(MacroAssembler* masm) {
   __ jmp(&done);
 
   __ bind(&load_smi_1);
-  __ sar(kScratchRegister, Immediate(kSmiTagSize));
+  __ sarl(kScratchRegister, Immediate(kSmiTagSize));
   __ push(kScratchRegister);
   __ fild_s(Operand(rsp, 0));
   __ pop(kScratchRegister);
   __ jmp(&done_load_1);
 
   __ bind(&load_smi_2);
-  __ sar(kScratchRegister, Immediate(kSmiTagSize));
+  __ sarl(kScratchRegister, Immediate(kSmiTagSize));
   __ push(kScratchRegister);
   __ fild_s(Operand(rsp, 0));
   __ pop(kScratchRegister);
@@ -7409,7 +7581,7 @@ void GenericBinaryOpStub::Generate(MacroAssembler* masm) {
         __ j(negative, &non_smi_result);
       }
       // Tag smi result and return.
-      ASSERT(kSmiTagSize == times_2);  // adjust code if not the case
+      ASSERT(kSmiTagSize == 1);  // adjust code if not the case
       __ lea(rax, Operand(rax, rax, times_1, kSmiTag));
       __ ret(2 * kPointerSize);
 
