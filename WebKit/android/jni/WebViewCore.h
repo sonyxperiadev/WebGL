@@ -152,6 +152,11 @@ namespace android {
         void didFirstLayout();
 
         /**
+         * Notify the view to update the viewport.
+         */
+        void updateViewport();
+
+        /**
          * Notify the view to restore the screen width, which in turn restores
          * the scale.
          */
