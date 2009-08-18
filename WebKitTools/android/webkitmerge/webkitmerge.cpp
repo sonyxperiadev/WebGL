@@ -1159,7 +1159,7 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         workingDir, oldFile);
             if (sandOrder < 0 && renamePass == false) {
                 // file added by android -- should always have name 'android?'
-                char* android = strstr(sandFile, "ndroid");
+                const char* android = strstr(sandFile, "ndroid");
                 if (android == NULL)
                     fprintf(stderr, "warning: expect added %s to contain 'android': %s/%s\n",
                             sandDir ? "directory" : "file" , workingDir, sandFile);
@@ -1202,7 +1202,7 @@ void CompareDirs(const char* workingDir, bool renamePass)
                         if (iter != renameMap.end()) {
                             string newName = renameMap[rename];
                             renamedDir = newName.c_str();
-                            char* renamed = strrchr(renamedDir, '/');
+                            char* renamed = (char*) strrchr(renamedDir, '/');
                             *renamed++ = '\0'; // splits rename into two strings
                             if (options.emitPerforceCommands) {
                                 fprintf(commandFile, "p4 integrate \"%s/%s/%s\" \"%s/%s/%s\"\n", sandboxCmd, workingDir, oldFile,
