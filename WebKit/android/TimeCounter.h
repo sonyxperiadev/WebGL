@@ -98,8 +98,19 @@ private:
 
 class QemuTracerAuto {
 public:
-    QemuTracerAuto() { qemu_start_tracing(); }
-    ~QemuTracerAuto() { qemu_stop_tracing(); }
+    QemuTracerAuto() {
+        if (!reentry_count)
+            qemu_start_tracing();
+        reentry_count++;
+    }
+
+    ~QemuTracerAuto() {
+        reentry_count--;
+        if (!reentry_count)
+            qemu_stop_tracing();
+    }
+private:
+    static int reentry_count;
 };
 
 }
