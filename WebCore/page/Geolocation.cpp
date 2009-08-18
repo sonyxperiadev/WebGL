@@ -332,7 +332,7 @@ void Geolocation::requestPermission()
     page->chrome()->requestGeolocationPermissionForFrame(m_frame, this);
 }
 
-void Geolocation::geolocationServicePositionChanged(GeolocationService*)
+void Geolocation::geolocationServicePositionChanged(GeolocationService* service)
 {
     ASSERT_UNUSED(service, service == m_service);
     ASSERT(m_service->lastPosition());

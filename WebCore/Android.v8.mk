@@ -767,6 +767,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
+	storage/SQLTransactionCoordinator.cpp \
 	storage/Storage.cpp \
 	storage/StorageAreaImpl.cpp \
 	storage/StorageAreaSync.cpp \
