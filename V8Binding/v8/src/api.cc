@@ -1046,7 +1046,7 @@ void ObjectTemplate::SetInternalFieldCount(int value) {
 
 ScriptData* ScriptData::PreCompile(const char* input, int length) {
   unibrow::Utf8InputBuffer<> buf(input, length);
-  return i::PreParse(&buf, NULL);
+  return i::PreParse(i::Handle<i::String>(), &buf, NULL);
 }
 
 
@@ -1058,11 +1058,11 @@ ScriptData* ScriptData::New(unsigned* data, int length) {
 // --- S c r i p t ---
 
 
-Local<Script> Script::Compile(v8::Handle<String> source,
-                              v8::ScriptOrigin* origin,
-                              v8::ScriptData* script_data) {
-  ON_BAILOUT("v8::Script::Compile()", return Local<Script>());
-  LOG_API("Script::Compile");
+Local<Script> Script::New(v8::Handle<String> source,
+                          v8::ScriptOrigin* origin,
+                          v8::ScriptData* script_data) {
+  ON_BAILOUT("v8::Script::New()", return Local<Script>());
+  LOG_API("Script::New");
   ENTER_V8;
   i::Handle<i::String> str = Utils::OpenHandle(*source);
   i::Handle<i::Object> name_obj;
@@ -1096,6 +1096,27 @@ Local<Script> Script::Compile(v8::Handle<String> source,
                                                               pre_data);
   has_pending_exception = boilerplate.is_null();
   EXCEPTION_BAILOUT_CHECK(Local<Script>());
+  return Local<Script>(ToApi<Script>(boilerplate));
+}
+
+
+Local<Script> Script::New(v8::Handle<String> source,
+                          v8::Handle<Value> file_name) {
+  ScriptOrigin origin(file_name);
+  return New(source, &origin);
+}
+
+
+Local<Script> Script::Compile(v8::Handle<String> source,
+                              v8::ScriptOrigin* origin,
+                              v8::ScriptData* script_data) {
+  ON_BAILOUT("v8::Script::Compile()", return Local<Script>());
+  LOG_API("Script::Compile");
+  ENTER_V8;
+  Local<Script> generic = New(source, origin, script_data);
+  if (generic.IsEmpty())
+    return generic;
+  i::Handle<i::JSFunction> boilerplate = Utils::OpenHandle(*generic);
   i::Handle<i::JSFunction> result =
       i::Factory::NewFunctionFromBoilerplate(boilerplate,
                                              i::Top::global_context());
@@ -1118,6 +1139,10 @@ Local<Value> Script::Run() {
   {
     HandleScope scope;
     i::Handle<i::JSFunction> fun = Utils::OpenHandle(this);
+    if (fun->IsBoilerplate()) {
+      fun = i::Factory::NewFunctionFromBoilerplate(fun,
+                                                   i::Top::global_context());
+    }
     EXCEPTION_PREAMBLE();
     i::Handle<i::Object> receiver(i::Top::context()->global_proxy());
     i::Handle<i::Object> result =
@@ -1188,6 +1213,22 @@ v8::Local<Value> v8::TryCatch::Exception() const {
     // Check for out of memory exception.
     i::Object* exception = reinterpret_cast<i::Object*>(exception_);
     return v8::Utils::ToLocal(i::Handle<i::Object>(exception));
+  } else {
+    return v8::Local<Value>();
+  }
+}
+
+
+v8::Local<Value> v8::TryCatch::StackTrace() const {
+  if (HasCaught()) {
+    i::Object* raw_obj = reinterpret_cast<i::Object*>(exception_);
+    if (!raw_obj->IsJSObject()) return v8::Local<Value>();
+    v8::HandleScope scope;
+    i::Handle<i::JSObject> obj(i::JSObject::cast(raw_obj));
+    i::Handle<i::String> name = i::Factory::LookupAsciiSymbol("stack");
+    if (!obj->HasProperty(*name))
+      return v8::Local<Value>();
+    return scope.Close(v8::Utils::ToLocal(i::GetProperty(obj, name)));
   } else {
     return v8::Local<Value>();
   }
@@ -2558,6 +2599,10 @@ bool v8::V8::Dispose() {
 }
 
 
+void  v8::V8::IdleNotification(bool is_high_priority) {
+  i::V8::IdleNotification(is_high_priority);
+}
+
 const char* v8::V8::GetVersion() {
   static v8::internal::EmbeddedVector<char, 128> buffer;
   v8::internal::Version::GetString(buffer);
@@ -2987,7 +3032,7 @@ bool v8::String::MakeExternal(v8::String::ExternalStringResource* resource) {
   if (IsDeadCheck("v8::String::MakeExternal()")) return false;
   if (this->IsExternal()) return false;  // Already an external string.
   ENTER_V8;
-  i::Handle <i::String> obj = Utils::OpenHandle(this);
+  i::Handle<i::String> obj = Utils::OpenHandle(this);
   bool result = obj->MakeExternal(resource);
   if (result && !obj->IsSymbol()) {
     // Operation was successful and the string is not a symbol. In this case
@@ -3023,7 +3068,7 @@ bool v8::String::MakeExternal(
   if (IsDeadCheck("v8::String::MakeExternal()")) return false;
   if (this->IsExternal()) return false;  // Already an external string.
   ENTER_V8;
-  i::Handle <i::String> obj = Utils::OpenHandle(this);
+  i::Handle<i::String> obj = Utils::OpenHandle(this);
   bool result = obj->MakeExternal(resource);
   if (result && !obj->IsSymbol()) {
     // Operation was successful and the string is not a symbol. In this case
@@ -3035,6 +3080,17 @@ bool v8::String::MakeExternal(
                                &DisposeExternalAsciiString);
   }
   return result;
+}
+
+
+bool v8::String::CanMakeExternal() {
+  if (IsDeadCheck("v8::String::CanMakeExternal()")) return false;
+  i::Handle<i::String> obj = Utils::OpenHandle(this);
+  int size = obj->Size();  // Byte size of the original string.
+  if (size < i::ExternalString::kSize)
+    return false;
+  i::StringShape shape(*obj);
+  return !shape.IsExternal();
 }
 
 
@@ -3299,9 +3355,12 @@ int V8::GetLogLines(int from_pos, char* dest_buf, int max_size) {
 }
 
 
+#if defined(ANDROID)
 void V8::CollectAllGarbage() {
+  // TODO: call MarkCompact GC
   i::Heap::CollectAllGarbage();
 }
+#endif
 
 
 String::Utf8Value::Utf8Value(v8::Handle<v8::Value> obj) {
@@ -3545,10 +3604,10 @@ void Debug::SetHostDispatchHandler(HostDispatchHandler handler,
 }
 
 
-Handle<Value> Debug::Call(v8::Handle<v8::Function> fun,
-                          v8::Handle<v8::Value> data) {
-  if (!i::V8::IsRunning()) return Handle<Value>();
-  ON_BAILOUT("v8::Debug::Call()", return Handle<Value>());
+Local<Value> Debug::Call(v8::Handle<v8::Function> fun,
+                         v8::Handle<v8::Value> data) {
+  if (!i::V8::IsRunning()) return Local<Value>();
+  ON_BAILOUT("v8::Debug::Call()", return Local<Value>());
   ENTER_V8;
   i::Handle<i::Object> result;
   EXCEPTION_PREAMBLE();
@@ -3563,6 +3622,28 @@ Handle<Value> Debug::Call(v8::Handle<v8::Function> fun,
   }
   EXCEPTION_BAILOUT_CHECK(Local<Value>());
   return Utils::ToLocal(result);
+}
+
+
+Local<Value> Debug::GetMirror(v8::Handle<v8::Value> obj) {
+  if (!i::V8::IsRunning()) return Local<Value>();
+  ON_BAILOUT("v8::Debug::GetMirror()", return Local<Value>());
+  ENTER_V8;
+  v8::HandleScope scope;
+  i::Debug::Load();
+  i::Handle<i::JSObject> debug(i::Debug::debug_context()->global());
+  i::Handle<i::String> name = i::Factory::LookupAsciiSymbol("MakeMirror");
+  i::Handle<i::Object> fun_obj = i::GetProperty(debug, name);
+  i::Handle<i::JSFunction> fun = i::Handle<i::JSFunction>::cast(fun_obj);
+  v8::Handle<v8::Function> v8_fun = Utils::ToLocal(fun);
+  const int kArgc = 1;
+  v8::Handle<v8::Value> argv[kArgc] = { obj };
+  EXCEPTION_PREAMBLE();
+  v8::Handle<v8::Value> result = v8_fun->Call(Utils::ToLocal(debug),
+                                              kArgc,
+                                              argv);
+  EXCEPTION_BAILOUT_CHECK(Local<Value>());
+  return scope.Close(result);
 }
 
 

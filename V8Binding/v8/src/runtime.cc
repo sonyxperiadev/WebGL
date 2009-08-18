@@ -1022,6 +1022,30 @@ static Object* Runtime_InitializeConstContextSlot(Arguments args) {
 }
 
 
+static Object* Runtime_OptimizeObjectForAddingMultipleProperties(
+    Arguments args) {
+  HandleScope scope;
+  ASSERT(args.length() == 2);
+  CONVERT_ARG_CHECKED(JSObject, object, 0);
+  CONVERT_SMI_CHECKED(properties, args[1]);
+  if (object->HasFastProperties()) {
+    NormalizeProperties(object, KEEP_INOBJECT_PROPERTIES, properties);
+  }
+  return *object;
+}
+
+
+static Object* Runtime_TransformToFastProperties(Arguments args) {
+  HandleScope scope;
+  ASSERT(args.length() == 1);
+  CONVERT_ARG_CHECKED(JSObject, object, 0);
+  if (!object->HasFastProperties() && !object->IsGlobalObject()) {
+    TransformToFastProperties(object, 0);
+  }
+  return *object;
+}
+
+
 static Object* Runtime_RegExpExec(Arguments args) {
   HandleScope scope;
   ASSERT(args.length() == 4);
@@ -3075,7 +3099,7 @@ static Object* Runtime_Typeof(Arguments args) {
       }
       ASSERT(heap_obj->IsUndefined());
       return Heap::undefined_symbol();
-    case JS_FUNCTION_TYPE:
+    case JS_FUNCTION_TYPE: case JS_REGEXP_TYPE:
       return Heap::function_symbol();
     default:
       // For any kind of object not handled above, the spec rule for
@@ -4973,10 +4997,12 @@ static Object* Runtime_CompileString(Arguments args) {
 
   // Compile source string in the global context.
   Handle<Context> context(Top::context()->global_context());
+  Compiler::ValidationState validate = (is_json->IsTrue())
+    ? Compiler::VALIDATE_JSON : Compiler::DONT_VALIDATE_JSON;
   Handle<JSFunction> boilerplate = Compiler::CompileEval(source,
                                                          context,
                                                          true,
-                                                         is_json->IsTrue());
+                                                         validate);
   if (boilerplate.is_null()) return Failure::Exception();
   Handle<JSFunction> fun =
       Factory::NewFunctionFromBoilerplate(boilerplate, context);
@@ -5000,8 +5026,11 @@ static Object* CompileDirectEval(Handle<String> source) {
   bool is_global = context->IsGlobalContext();
 
   // Compile source string in the current context.
-  Handle<JSFunction> boilerplate =
-      Compiler::CompileEval(source, context, is_global, false);
+  Handle<JSFunction> boilerplate = Compiler::CompileEval(
+      source,
+      context,
+      is_global,
+      Compiler::DONT_VALIDATE_JSON);
   if (boilerplate.is_null()) return Failure::Exception();
   Handle<JSFunction> fun =
     Factory::NewFunctionFromBoilerplate(boilerplate, context);
@@ -7043,7 +7072,7 @@ static Object* Runtime_DebugEvaluate(Arguments args) {
       Compiler::CompileEval(function_source,
                             context,
                             context->IsGlobalContext(),
-                            false);
+                            Compiler::DONT_VALIDATE_JSON);
   if (boilerplate.is_null()) return Failure::Exception();
   Handle<JSFunction> compiled_function =
       Factory::NewFunctionFromBoilerplate(boilerplate, context);
@@ -7111,7 +7140,7 @@ static Object* Runtime_DebugEvaluateGlobal(Arguments args) {
       Handle<JSFunction>(Compiler::CompileEval(source,
                                                context,
                                                true,
-                                               false));
+                                               Compiler::DONT_VALIDATE_JSON));
   if (boilerplate.is_null()) return Failure::Exception();
   Handle<JSFunction> compiled_function =
       Handle<JSFunction>(Factory::NewFunctionFromBoilerplate(boilerplate,

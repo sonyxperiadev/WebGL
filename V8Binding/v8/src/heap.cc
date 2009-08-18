@@ -74,7 +74,7 @@ int Heap::semispace_size_  = 512*KB;
 int Heap::old_generation_size_ = 128*MB;
 int Heap::initial_semispace_size_ = 128*KB;
 #else
-int Heap::semispace_size_  = 8*MB;
+int Heap::semispace_size_  = 4*MB;
 int Heap::old_generation_size_ = 512*MB;
 int Heap::initial_semispace_size_ = 512*KB;
 #endif
@@ -277,7 +277,9 @@ void Heap::GarbageCollectionPrologue() {
 int Heap::SizeOfObjects() {
   int total = 0;
   AllSpaces spaces;
-  while (Space* space = spaces.next()) total += space->Size();
+  while (Space* space = spaces.next()) {
+    total += space->Size();
+  }
   return total;
 }
 
@@ -425,6 +427,20 @@ static void VerifySymbolTable() {
 }
 
 
+void Heap::EnsureFromSpaceIsCommitted() {
+  if (new_space_.CommitFromSpaceIfNeeded()) return;
+
+  // Committing memory to from space failed.
+  // Try shrinking and try again.
+  Shrink();
+  if (new_space_.CommitFromSpaceIfNeeded()) return;
+
+  // Committing memory to from space failed again.
+  // Memory is exhausted and we will die.
+  V8::FatalProcessOutOfMemory("Committing semi space failed.");
+}
+
+
 void Heap::PerformGarbageCollection(AllocationSpace space,
                                     GarbageCollector collector,
                                     GCTracer* tracer) {
@@ -433,7 +449,7 @@ void Heap::PerformGarbageCollection(AllocationSpace space,
     ASSERT(!allocation_allowed_);
     global_gc_prologue_callback_();
   }
-
+  EnsureFromSpaceIsCommitted();
   if (collector == MARK_COMPACTOR) {
     MarkCompact(tracer);
 
@@ -641,11 +657,11 @@ void Heap::Scavenge() {
 
   if (new_space_.Capacity() < new_space_.MaximumCapacity() &&
       survived_since_last_expansion_ > new_space_.Capacity()) {
-    // Double the size of new space if there is room to grow and enough
+    // Grow the size of new space if there is room to grow and enough
     // data has survived scavenge since the last expansion.
-    // TODO(1240712): NewSpace::Double has a return value which is
+    // TODO(1240712): NewSpace::Grow has a return value which is
     // ignored here.
-    new_space_.Double();
+    new_space_.Grow();
     survived_since_last_expansion_ = 0;
   }
 
