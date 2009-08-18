@@ -65,6 +65,8 @@ uint32_t TimeCounter::sCounter[TimeCounter::TotalTimeCounterCount];
 uint32_t TimeCounter::sLastCounter[TimeCounter::TotalTimeCounterCount];
 uint32_t TimeCounter::sStartTime[TimeCounter::TotalTimeCounterCount];
 
+int QemuTracerAuto::reentry_count = 0;
+
 static const char* timeCounterNames[] = {
     "css parsing", 
     "javascript",
