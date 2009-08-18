@@ -138,7 +138,6 @@
 #include "V8HTMLTitleElement.h"
 #include "V8HTMLUListElement.h"
 #include "V8ImageData.h"
-#include "V8InspectorBackend.h"
 #include "V8Media.h"
 #include "V8MediaList.h"
 #include "V8MessageChannel.h"
@@ -197,6 +196,10 @@
 #include "V8XMLSerializer.h"
 #include "V8RGBColor.h"
 #include "V8VoidCallback.h"
+
+#if !PLATFORM(ANDROID)
+#include "V8InspectorBackend.h"
+#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "V8DOMApplicationCache.h"

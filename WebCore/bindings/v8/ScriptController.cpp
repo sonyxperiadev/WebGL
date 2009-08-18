@@ -270,7 +270,7 @@ void ScriptController::collectGarbage()
     if (v8Context.IsEmpty())
         return;
 
-    v8::Context::Scope scope(context);
+    v8::Context::Scope scope(v8Context);
 #if PLATFORM(ANDROID)
     v8::V8::CollectAllGarbage();
 #else
