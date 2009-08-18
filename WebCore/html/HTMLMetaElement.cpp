@@ -27,6 +27,10 @@
 #include "HTMLNames.h"
 #include "MappedAttribute.h"
 
+#ifdef ANDROID_META_SUPPORT
+#include "Settings.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -68,6 +72,10 @@ void HTMLMetaElement::process()
         return;
     if (equalIgnoringCase(name(), "viewport") || equalIgnoringCase(name(), "format-detection"))
         document()->processMetadataSettings(m_content);
+    else if (equalIgnoringCase(name(), "HandheldFriendly") && equalIgnoringCase(m_content, "true")
+            && document()->settings()->viewportWidth() == -1)
+        // fit mobile sites directly in the screen
+        document()->settings()->setMetadataSettings("width", "device-width");
 #endif
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while
     // it's not in the tree shouldn't have any effect on the document)
