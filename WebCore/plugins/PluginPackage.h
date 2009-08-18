@@ -110,9 +110,6 @@ namespace WebCore {
 #if defined(ANDROID_PLUGINS)
         // Java Plugin object.
         jobject m_pluginObject;
-        // Called from unloadWithoutShutdown() to remove the object
-        // from the PluginList.
-        void unregisterPluginObject();
 #endif
     };
 

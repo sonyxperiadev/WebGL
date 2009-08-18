@@ -139,11 +139,6 @@ void PluginPackage::unloadWithoutShutdown()
     ASSERT(m_loadCount == 0);
     ASSERT(m_module);
 
-#if defined(ANDROID_PLUGINS)
-    // Remove the Java object from PluginList.
-    unregisterPluginObject();
-#endif
-
     // <rdar://5530519>: Crash when closing tab with pdf file (Reader 7 only)
     // If the plugin has subclassed its parent window, as with Reader 7, we may have
     // gotten here by way of the plugin's internal window proc forwarding a message to our
