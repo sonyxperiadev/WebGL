@@ -147,7 +147,7 @@ public:
 
     // This function is a convenience helper for creating an anonymous block that inherits its
     // style from this RenderBlock.
-    RenderBlock* createAnonymousBlock() const;
+    RenderBlock* createAnonymousBlock(bool isFlexibleBox = false) const;
 
     Vector<IntRect>* columnRects() const;
     int columnGap() const;
@@ -207,7 +207,9 @@ protected:
 
     virtual bool hasLineIfEmpty() const;
     bool layoutOnlyPositionedObjects();
-    
+
+    void updateOverflowWithShadowAndReflection();
+
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
     virtual const RenderObjectChildList* virtualChildren() const { return children(); }

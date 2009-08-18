@@ -99,7 +99,6 @@ SOURCES += \
     runtime/JSONObject.cpp \
     runtime/LiteralParser.cpp \
     runtime/MarkStack.cpp \
-    runtime/MarkStackPosix.cpp \
     runtime/TimeoutChecker.cpp \
     bytecode/CodeBlock.cpp \
     bytecode/StructureStubInfo.cpp \
@@ -123,8 +122,13 @@ SOURCES += \
     yarr/RegexJIT.cpp \
     interpreter/RegisterFile.cpp
 
-win32-*: SOURCES += jit/ExecutableAllocatorWin.cpp
-else: SOURCES += jit/ExecutableAllocatorPosix.cpp
+win32-* {
+    SOURCES += jit/ExecutableAllocatorWin.cpp \
+               runtime/MarkStackWin.cpp
+} else {
+    SOURCES += jit/ExecutableAllocatorPosix.cpp \
+               runtime/MarkStackPosix.cpp
+}
 
 # AllInOneFile.cpp helps gcc analize and optimize code
 # Other compilers may be able to do this at link time
@@ -154,6 +158,7 @@ SOURCES += \
     runtime/ErrorInstance.cpp \
     runtime/ErrorPrototype.cpp \
     interpreter/CallFrame.cpp \
+    runtime/Executable.cpp \
     runtime/FunctionConstructor.cpp \
     runtime/FunctionPrototype.cpp \
     runtime/GetterSetter.cpp \

@@ -207,12 +207,8 @@ RenderLayer::~RenderLayer()
     // Make sure we have no lingering clip rects.
     ASSERT(!m_clipRects);
     
-    if (m_reflection) {
-        if (!m_reflection->documentBeingDestroyed())
-            m_reflection->removeLayers(this);
-        m_reflection->setParent(0);
-        m_reflection->destroy();
-    }
+    if (m_reflection)
+        removeReflection();
     
     if (m_scrollCorner)
         m_scrollCorner->destroy();
@@ -997,6 +993,9 @@ void RenderLayer::panScrollFromPoint(const IntPoint& sourcePoint)
 
 void RenderLayer::scrollByRecursively(int xDelta, int yDelta)
 {
+    if (!xDelta && !yDelta)
+        return;
+
     bool restrictedByLineClamp = false;
     if (renderer()->parent())
         restrictedByLineClamp = renderer()->parent()->style()->lineClamp() >= 0;
@@ -1006,17 +1005,30 @@ void RenderLayer::scrollByRecursively(int xDelta, int yDelta)
         int newOffsetY = scrollYOffset() + yDelta;
         scrollToOffset(newOffsetX, newOffsetY);
 
-        // If this layer can't do the scroll we ask its parent
+        // If this layer can't do the scroll we ask the next layer up that can scroll to try
         int leftToScrollX = newOffsetX - scrollXOffset();
         int leftToScrollY = newOffsetY - scrollYOffset();
         if ((leftToScrollX || leftToScrollY) && renderer()->parent()) {
-            renderer()->parent()->enclosingLayer()->scrollByRecursively(leftToScrollX, leftToScrollY);
+            RenderObject* nextRenderer = renderer()->parent();
+            while (nextRenderer) {
+                if (nextRenderer->isBox() && toRenderBox(nextRenderer)->canBeScrolledAndHasScrollableArea()) {
+                    nextRenderer->enclosingLayer()->scrollByRecursively(leftToScrollX, leftToScrollY);
+                    break;
+                }
+                nextRenderer = nextRenderer->parent();
+            }
+
             Frame* frame = renderer()->document()->frame();
             if (frame)
                 frame->eventHandler()->updateAutoscrollRenderer();
         }
-    } else if (renderer()->view()->frameView())
+    } else if (renderer()->view()->frameView()) {
+        // If we are here, we were called on a renderer that can be programatically scrolled, but doesn't
+        // have an overflow clip. Which means that it is a document node that can be scrolled.
         renderer()->view()->frameView()->scrollBy(IntSize(xDelta, yDelta));
+        // FIXME: If we didn't scroll the whole way, do we want to try looking at the frames ownerElement? 
+        // https://bugs.webkit.org/show_bug.cgi?id=28237
+    }
 }
 
 
@@ -2873,6 +2885,11 @@ void RenderLayer::clearBacking()
 {
     m_backing.clear();
 }
+
+bool RenderLayer::hasCompositedMask() const
+{
+    return m_backing && m_backing->hasMaskLayer();
+}
 #endif
 
 void RenderLayer::setParent(RenderLayer* parent)
@@ -3183,10 +3200,9 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle*)
         m_marquee = 0;
     }
     
-    if (!hasReflection() && m_reflection) {
-        m_reflection->destroy();
-        m_reflection = 0;
-    } else if (hasReflection()) {
+    if (!hasReflection() && m_reflection)
+        removeReflection();
+    else if (hasReflection()) {
         if (!m_reflection)
             createReflection();
         updateReflectionStyle();
@@ -3258,6 +3274,16 @@ void RenderLayer::createReflection()
     ASSERT(!m_reflection);
     m_reflection = new (renderer()->renderArena()) RenderReplica(renderer()->document());
     m_reflection->setParent(renderer()); // We create a 1-way connection.
+}
+
+void RenderLayer::removeReflection()
+{
+    if (!m_reflection->documentBeingDestroyed())
+        m_reflection->removeLayers(this);
+
+    m_reflection->setParent(0);
+    m_reflection->destroy();
+    m_reflection = 0;
 }
 
 void RenderLayer::updateReflectionStyle()

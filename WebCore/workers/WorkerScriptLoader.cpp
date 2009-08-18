@@ -50,7 +50,7 @@ WorkerScriptLoader::WorkerScriptLoader()
 {
 }
 
-void WorkerScriptLoader::loadSynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRedirectPolicy crossOriginRedirectPolicy)
+void WorkerScriptLoader::loadSynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRequestPolicy crossOriginRequestPolicy)
 {
     m_url = url;
 
@@ -59,10 +59,15 @@ void WorkerScriptLoader::loadSynchronously(ScriptExecutionContext* scriptExecuti
         return;
 
     ASSERT(scriptExecutionContext->isWorkerContext());
-    WorkerThreadableLoader::loadResourceSynchronously(static_cast<WorkerContext*>(scriptExecutionContext), *request, *this, AllowStoredCredentials, crossOriginRedirectPolicy);
+
+    ThreadableLoaderOptions options;
+    options.allowCredentials = true;
+    options.crossOriginRequestPolicy = crossOriginRequestPolicy;
+
+    WorkerThreadableLoader::loadResourceSynchronously(static_cast<WorkerContext*>(scriptExecutionContext), *request, *this, options);
 }
     
-void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRedirectPolicy crossOriginRedirectPolicy, WorkerScriptLoaderClient* client)
+void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecutionContext, const KURL& url, CrossOriginRequestPolicy crossOriginRequestPolicy, WorkerScriptLoaderClient* client)
 {
     ASSERT(client);
     m_client = client;
@@ -72,7 +77,11 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecut
     if (!request)
         return;
 
-    m_threadableLoader = ThreadableLoader::create(scriptExecutionContext, this, *request, DoNotSendLoadCallbacks, DoNotSniffContent, AllowStoredCredentials, crossOriginRedirectPolicy);
+    ThreadableLoaderOptions options;
+    options.allowCredentials = true;
+    options.crossOriginRequestPolicy = crossOriginRequestPolicy;
+
+    m_threadableLoader = ThreadableLoader::create(scriptExecutionContext, this, *request, options);
 }
 
 PassOwnPtr<ResourceRequest> WorkerScriptLoader::createResourceRequest()

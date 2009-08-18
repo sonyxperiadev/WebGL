@@ -51,6 +51,8 @@ class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #elif PLATFORM(SKIA)
 class NativeImageSkia;
+#elif PLATFORM(HAIKU)
+class BBitmap;
 #elif PLATFORM(WINCE)
 #include "SharedBitmap.h"
 #endif
@@ -105,6 +107,10 @@ typedef cairo_surface_t* NativeImagePtr;
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
 typedef NativeImageSkia* NativeImagePtr;
+#elif PLATFORM(HAIKU)
+class ImageDecoder;
+typedef ImageDecoder* NativeImageSourcePtr;
+typedef BBitmap* NativeImagePtr;
 #elif PLATFORM(WINCE)
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;

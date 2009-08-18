@@ -995,6 +995,9 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
 
                 if (s->isEnabledFormControl() != m_element->isEnabledFormControl())
                     return false;
+
+                if (s->isDefaultButtonForForm() != m_element->isDefaultButtonForForm())
+                    return false;
             }
 
             if (style->transitions() || style->animations())
@@ -2358,6 +2361,8 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
             case CSSSelector::PseudoFullPageMedia:
                 return e && e->document() && e->document()->isMediaDocument();
                 break;
+            case CSSSelector::PseudoDefault:
+                return e && e->isDefaultButtonForForm();
             case CSSSelector::PseudoDisabled:
                 if (e && e->isFormControlElement()) {
                     InputElement* inputElement = toInputElement(e);
@@ -2991,6 +2996,26 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyDisplay:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(display, Display)
+#if ENABLE(WCSS)
+        if (primitiveValue) {
+            if (primitiveValue->getIdent() == CSSValueWapMarquee) {
+                // Initialize Wap Marquee style
+                m_style->setOverflowX(OMARQUEE);
+                m_style->setOverflowY(OMARQUEE);
+                m_style->setWhiteSpace(NOWRAP);
+                m_style->setMarqueeDirection(MLEFT);
+                m_style->setMarqueeSpeed(85); // Normal speed
+                m_style->setMarqueeLoopCount(1);
+                m_style->setMarqueeBehavior(MSCROLL);
+
+                if (m_parentStyle)
+                    m_style->setDisplay(m_parentStyle->display());
+                else
+                    m_style->setDisplay(*primitiveValue);
+            } else
+                m_style->setDisplay(*primitiveValue);
+        }
+#endif
         return;
     case CSSPropertyEmptyCells:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(emptyCells, EmptyCells)
@@ -3754,7 +3779,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     {
         FontDescription fontDescription = m_style->fontDescription();
         fontDescription.setKeywordSize(0);
-        bool familyIsFixed = fontDescription.genericFamily() == FontDescription::MonospaceFamily;
         float oldSize = 0;
         float size = 0;
         
@@ -3769,7 +3793,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             if (m_parentNode)
                 fontDescription.setKeywordSize(m_parentStyle->fontDescription().keywordSize());
         } else if (isInitial) {
-            size = fontSizeForKeyword(CSSValueMedium, m_style->htmlHacks(), familyIsFixed);
+            size = fontSizeForKeyword(CSSValueMedium, m_style->htmlHacks(), fontDescription.useFixedDefaultSize());
             fontDescription.setKeywordSize(CSSValueMedium - CSSValueXxSmall + 1);
         } else if (primitiveValue->getIdent()) {
             // Keywords are being used.
@@ -3782,7 +3806,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 case CSSValueXLarge:
                 case CSSValueXxLarge:
                 case CSSValueWebkitXxxLarge:
-                    size = fontSizeForKeyword(primitiveValue->getIdent(), m_style->htmlHacks(), familyIsFixed);
+                    size = fontSizeForKeyword(primitiveValue->getIdent(), m_style->htmlHacks(), fontDescription.useFixedDefaultSize());
                     fontDescription.setKeywordSize(primitiveValue->getIdent() - CSSValueXxSmall + 1);
                     break;
                 case CSSValueLarger:
@@ -4025,13 +4049,12 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             if (m_style->setFontDescription(fontDescription))
                 m_fontDirty = true;
             return;
-        }
-        else if (isInitial) {
+        } else if (isInitial) {
             FontDescription initialDesc = FontDescription();
             FontDescription fontDescription = m_style->fontDescription();
             // We need to adjust the size to account for the generic family change from monospace
             // to non-monospace.
-            if (fontDescription.keywordSize() && fontDescription.genericFamily() == FontDescription::MonospaceFamily)
+            if (fontDescription.keywordSize() && fontDescription.useFixedDefaultSize())
                 setFontSize(fontDescription, fontSizeForKeyword(CSSValueXxSmall + fontDescription.keywordSize() - 1, m_style->htmlHacks(), false));
             fontDescription.setGenericFamily(initialDesc.genericFamily());
             if (!initialDesc.firstFamily().familyIsEmpty())
@@ -4041,21 +4064,23 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             return;
         }
         
-        if (!value->isValueList()) return;
+        if (!value->isValueList())
+            return;
         FontDescription fontDescription = m_style->fontDescription();
-        CSSValueList *list = static_cast<CSSValueList*>(value);
+        CSSValueList* list = static_cast<CSSValueList*>(value);
         int len = list->length();
         FontFamily& firstFamily = fontDescription.firstFamily();
-        FontFamily *currFamily = 0;
+        FontFamily* currFamily = 0;
         
         // Before mapping in a new font-family property, we should reset the generic family.
-        bool oldFamilyIsMonospace = fontDescription.genericFamily() == FontDescription::MonospaceFamily;
+        bool oldFamilyUsedFixedDefaultSize = fontDescription.useFixedDefaultSize();
         fontDescription.setGenericFamily(FontDescription::NoFamily);
 
         for (int i = 0; i < len; i++) {
-            CSSValue *item = list->itemWithoutBoundsCheck(i);
-            if (!item->isPrimitiveValue()) continue;
-            CSSPrimitiveValue *val = static_cast<CSSPrimitiveValue*>(item);
+            CSSValue* item = list->itemWithoutBoundsCheck(i);
+            if (!item->isPrimitiveValue())
+                continue;
+            CSSPrimitiveValue* val = static_cast<CSSPrimitiveValue*>(item);
             AtomicString face;
             Settings* settings = m_checker.m_document->settings();
             if (val->primitiveType() == CSSPrimitiveValue::CSS_STRING)
@@ -4087,28 +4112,32 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                         break;
                 }
             }
-    
+
             if (!face.isEmpty()) {
                 if (!currFamily) {
                     // Filling in the first family.
                     firstFamily.setFamily(face);
+                    firstFamily.appendFamily(0); // Remove any inherited family-fallback list.
                     currFamily = &firstFamily;
-                }
-                else {
+                } else {
                     RefPtr<SharedFontFamily> newFamily = SharedFontFamily::create();
                     newFamily->setFamily(face);
                     currFamily->appendFamily(newFamily);
                     currFamily = newFamily.get();
                 }
-    
-                if (fontDescription.keywordSize() && (fontDescription.genericFamily() == FontDescription::MonospaceFamily) != oldFamilyIsMonospace)
-                    setFontSize(fontDescription, fontSizeForKeyword(CSSValueXxSmall + fontDescription.keywordSize() - 1, m_style->htmlHacks(), !oldFamilyIsMonospace));
-            
-                if (m_style->setFontDescription(fontDescription))
-                    m_fontDirty = true;
             }
         }
-      return;
+
+        // We can't call useFixedDefaultSize() until all new font families have been added
+        // If currFamily is non-zero then we set at least one family on this description.
+        if (currFamily) {
+            if (fontDescription.keywordSize() && fontDescription.useFixedDefaultSize() != oldFamilyUsedFixedDefaultSize)
+                setFontSize(fontDescription, fontSizeForKeyword(CSSValueXxSmall + fontDescription.keywordSize() - 1, m_style->htmlHacks(), !oldFamilyUsedFixedDefaultSize));
+
+            if (m_style->setFontDescription(fontDescription))
+                m_fontDirty = true;
+        }
+        return;
     }
     case CSSPropertyTextDecoration: {
         // list of ident
@@ -4742,6 +4771,9 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         m_style->setMarqueeLoopCount(m_parentStyle->marqueeLoopCount());
         m_style->setMarqueeBehavior(m_parentStyle->marqueeBehavior());
         return;
+#if ENABLE(WCSS)
+    case CSSPropertyWapMarqueeLoop:
+#endif
     case CSSPropertyWebkitMarqueeRepetition: {
         HANDLE_INHERIT_AND_INITIAL(marqueeLoopCount, MarqueeLoopCount)
         if (!primitiveValue)
@@ -4752,6 +4784,9 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setMarqueeLoopCount(primitiveValue->getIntValue());
         return;
     }
+#if ENABLE(WCSS)
+    case CSSPropertyWapMarqueeSpeed:
+#endif
     case CSSPropertyWebkitMarqueeSpeed: {
         HANDLE_INHERIT_AND_INITIAL(marqueeSpeed, MarqueeSpeed)      
         if (!primitiveValue)
@@ -4802,9 +4837,30 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
         return;
     }
+#if ENABLE(WCSS)
+    case CSSPropertyWapMarqueeStyle:
+#endif
     case CSSPropertyWebkitMarqueeStyle:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(marqueeBehavior, MarqueeBehavior)      
         return;
+#if ENABLE(WCSS)
+    case CSSPropertyWapMarqueeDir:
+        HANDLE_INHERIT_AND_INITIAL(marqueeDirection, MarqueeDirection)
+        if (primitiveValue && primitiveValue->getIdent()) {
+            switch (primitiveValue->getIdent()) {
+            case CSSValueLtr:
+                m_style->setMarqueeDirection(MRIGHT);
+                break;
+            case CSSValueRtl:
+                m_style->setMarqueeDirection(MLEFT);
+                break;
+            default:
+                m_style->setMarqueeDirection(*primitiveValue);
+                break;
+            }
+        }
+        return;
+#endif
     case CSSPropertyWebkitMarqueeDirection:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(marqueeDirection, MarqueeDirection)
         return;
@@ -5587,8 +5643,7 @@ void CSSStyleSelector::checkForGenericFamilyChange(RenderStyle* style, RenderSty
         return;
 
     const FontDescription& parentFont = parentStyle->fontDescription();
-
-    if (childFont.genericFamily() == parentFont.genericFamily())
+    if (childFont.useFixedDefaultSize() == parentFont.useFixedDefaultSize())
         return;
 
     // For now, lump all families but monospace together.
@@ -5601,17 +5656,16 @@ void CSSStyleSelector::checkForGenericFamilyChange(RenderStyle* style, RenderSty
     // If the font uses a keyword size, then we refetch from the table rather than
     // multiplying by our scale factor.
     float size;
-    if (childFont.keywordSize()) {
-        size = fontSizeForKeyword(CSSValueXxSmall + childFont.keywordSize() - 1, style->htmlHacks(),
-                                  childFont.genericFamily() == FontDescription::MonospaceFamily);
-    } else {
+    if (childFont.keywordSize())
+        size = fontSizeForKeyword(CSSValueXxSmall + childFont.keywordSize() - 1, style->htmlHacks(), childFont.useFixedDefaultSize());
+    else {
         Settings* settings = m_checker.m_document->settings();
         float fixedScaleFactor = settings
             ? static_cast<float>(settings->defaultFixedFontSize()) / settings->defaultFontSize()
             : 1;
-        size = (parentFont.genericFamily() == FontDescription::MonospaceFamily) ? 
-                childFont.specifiedSize()/fixedScaleFactor :
-                childFont.specifiedSize()*fixedScaleFactor;
+        size = parentFont.useFixedDefaultSize() ?
+                childFont.specifiedSize() / fixedScaleFactor :
+                childFont.specifiedSize() * fixedScaleFactor;
     }
 
     FontDescription newFontDescription(childFont);

@@ -56,6 +56,7 @@ namespace WebCore {
     class MessagePort;
     class Navigator;
     class Node;
+    class NotificationCenter;
     class PostMessageTimer;
     class ScheduledAction;
     class Screen;
@@ -205,6 +206,10 @@ namespace WebCore {
         DOMApplicationCache* applicationCache() const;
 #endif
 
+#if ENABLE(NOTIFICATIONS)
+        NotificationCenter* webkitNotifications() const;
+#endif
+
         void postMessage(const String& message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
         void postMessageTimerFired(PostMessageTimer*);
 
@@ -274,6 +279,8 @@ namespace WebCore {
         void setOnerror(PassRefPtr<EventListener>);
         EventListener* onfocus() const;
         void setOnfocus(PassRefPtr<EventListener>);
+        EventListener* onhashchange() const;
+        void setOnhashchange(PassRefPtr<EventListener>);
         EventListener* onkeydown() const;
         void setOnkeydown(PassRefPtr<EventListener>);
         EventListener* onkeypress() const;
@@ -440,6 +447,9 @@ namespace WebCore {
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mutable RefPtr<DOMApplicationCache> m_applicationCache;
+#endif
+#if ENABLE(NOTIFICATIONS)
+        mutable RefPtr<NotificationCenter> m_notifications;
 #endif
 
         RegisteredEventListenerVector m_eventListeners;

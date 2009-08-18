@@ -108,6 +108,7 @@ LOCAL_SRC_FILES := \
 	runtime/ErrorInstance.cpp \
 	runtime/ErrorPrototype.cpp \
 	runtime/ExceptionHelpers.cpp \
+	runtime/Executable.cpp \
 	runtime/FunctionConstructor.cpp \
 	runtime/FunctionPrototype.cpp \
 	runtime/GetterSetter.cpp \

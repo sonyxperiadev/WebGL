@@ -45,28 +45,32 @@ namespace JSC {
 
 namespace WebCore {
     class ConsoleMessage;
+    class Database;
+    class Frame;
+    class InspectorController;
     class InspectorResource;
     class Node;
     class ScriptFunctionCall;
     class ScriptString;
+    class Storage;
 
     class InspectorFrontend {
     public:
-        InspectorFrontend(ScriptState*, ScriptObject webInspector);
+        InspectorFrontend(InspectorController* inspectorController, ScriptState*, ScriptObject webInspector);
         ~InspectorFrontend();
 
         ScriptArray newScriptArray();
         ScriptObject newScriptObject();
 
         void addMessageToConsole(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<ScriptValue> wrappedArguments, const String& message);
-        
+        void clearConsoleMessages();
+
         bool addResource(long long identifier, const ScriptObject& resourceObj);
         bool updateResource(long long identifier, const ScriptObject& resourceObj);
         void removeResource(long long identifier);
 
-        void updateFocusedNode(Node* node);
+        void updateFocusedNode(long long nodeId);
         void setAttachedWindow(bool attached);
-        void inspectedWindowScriptObjectCleared(Frame* frame);
         void showPanel(int panel);
         void populateInterface();
         void reset();
@@ -90,13 +94,15 @@ namespace WebCore {
 
 #if ENABLE(DATABASE)
         bool addDatabase(const ScriptObject& dbObj);
+        void selectDatabase(Database* database);
 #endif
         
 #if ENABLE(DOM_STORAGE)
         bool addDOMStorage(const ScriptObject& domStorageObj);
+        void selectDOMStorage(Storage* storage);
 #endif
 
-        void setDocumentElement(const ScriptObject& root);
+        void setDocument(const ScriptObject& root);
         void setChildNodes(int parentId, const ScriptArray& nodes);
         void hasChildrenUpdated(int id, bool newValue);
         void childNodeInserted(int parentId, int prevId, const ScriptObject& node);
@@ -105,9 +111,12 @@ namespace WebCore {
         void didGetChildNodes(int callId);
         void didApplyDomChange(int callId, bool success);
 
+        void addNodesToSearchResult(const String& nodeIds);
+
     private:
         PassOwnPtr<ScriptFunctionCall> newFunctionCall(const String& functionName);
         void callSimpleFunction(const String& functionName);
+        InspectorController* m_inspectorController;
         ScriptState* m_scriptState;
         ScriptObject m_webInspector;
     };

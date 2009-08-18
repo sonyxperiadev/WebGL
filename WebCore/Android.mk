@@ -124,6 +124,7 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSAudioConstructor.cpp \
 	bindings/js/JSCDATASectionCustom.cpp \
 	bindings/js/JSCSSRuleCustom.cpp \
+	bindings/js/JSCSSRuleListCustom.cpp \
 	bindings/js/JSCSSStyleDeclarationCustom.cpp \
 	bindings/js/JSCSSValueCustom.cpp \
 	bindings/js/JSCanvasRenderingContext2DCustom.cpp \
@@ -148,15 +149,19 @@ LOCAL_SRC_FILES := \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \
 	bindings/js/JSDedicatedWorkerContextCustom.cpp \
+	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSDocumentFragmentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
 	bindings/js/JSEventCustom.cpp \
 	bindings/js/JSEventListener.cpp \
+	bindings/js/JSEventSourceConstructor.cpp \
+	bindings/js/JSEventSourceCustom.cpp \
 	bindings/js/JSEventTarget.cpp \
 	bindings/js/JSGeolocationCustom.cpp \
 	bindings/js/JSHTMLAllCollection.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \
+	bindings/js/JSHTMLCanvasElementCustom.cpp \
 	bindings/js/JSHTMLCollectionCustom.cpp \
 	bindings/js/JSHTMLDataGridElementCustom.cpp \
 	bindings/js/JSHTMLDocumentCustom.cpp \
@@ -269,6 +274,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	bridge/runtime_object.cpp \
 	bridge/runtime_root.cpp \
 	bridge/testbindings.cpp \
+	bridge/testqtbindings.cpp \
 	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
@@ -511,6 +517,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLDataGridColElement.cpp \
 	html/HTMLDataGridElement.cpp \
 	html/HTMLDataGridRowElement.cpp \
+	html/HTMLDataListElement.cpp \
 	html/HTMLDirectoryElement.cpp \
 	html/HTMLDivElement.cpp \
 	html/HTMLDocument.cpp \
@@ -583,6 +590,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/PreloadScanner.cpp \
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
+	html/canvas/CanvasGradient.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -638,6 +646,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	loader/loader.cpp \
 	\
+	notifications/Notification.cpp \
+	notifications/NotificationCenter.cpp \
 	page/BarInfo.cpp \
 	page/Chrome.cpp \
 	page/Console.cpp \
@@ -648,6 +658,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/DOMWindow.cpp \
 	page/DragController.cpp \
 	page/EventHandler.cpp \
+	page/EventSource.cpp \
 	page/FocusController.cpp \
 	page/Frame.cpp \
 	page/FrameTree.cpp \
@@ -672,18 +683,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
-	page/android/EventHandlerAndroid.cpp \
 	page/android/InspectorControllerAndroid.cpp \
-	page/android/InspectorControllerAndroid.cpp \
-	page/android/DragControllerAndroid.cpp \
 	\
-	page/XSSAuditor.cpp \
 	page/animation/AnimationBase.cpp \
 	page/animation/AnimationController.cpp \
 	page/animation/CompositeAnimation.cpp \
 	page/animation/ImplicitAnimation.cpp \
 	page/animation/KeyframeAnimation.cpp \
 	page/haiku/DragControllerHaiku.cpp \
+	page/haiku/EventHandlerHaiku.cpp \
 	\
 	platform/Arena.cpp \
 	platform/ContentType.cpp \
@@ -757,6 +765,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/GraphicsTypes.cpp \
 	platform/graphics/Image.cpp \
 	platform/graphics/ImageBuffer.cpp \
+	platform/graphics/ImageSource.cpp \
 	platform/graphics/IntRect.cpp \
 	platform/graphics/MediaPlayer.cpp \
 	platform/graphics/Path.cpp \
@@ -792,6 +801,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/graphics/haiku/ColorHaiku.cpp \
+	platform/graphics/haiku/FloatPointHaiku.cpp \
+	platform/graphics/haiku/FloatRectHaiku.cpp \
+	platform/graphics/haiku/GradientHaiku.cpp \
+	platform/graphics/haiku/GraphicsContextHaiku.cpp \
+	platform/graphics/haiku/IntPointHaiku.cpp \
+	platform/graphics/haiku/IntRectHaiku.cpp \
+	platform/graphics/haiku/IntSizeHaiku.cpp \
+	platform/graphics/haiku/PathHaiku.cpp \
 	platform/graphics/opentype/OpenTypeUtilities.cpp \
 	platform/graphics/skia/NativeImageSkia.cpp \
 	\
@@ -804,7 +822,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/transforms/TransformOperations.cpp \
 	platform/graphics/transforms/TransformationMatrix.cpp \
 	platform/graphics/transforms/TranslateTransformOperation.cpp \
+	platform/graphics/wince/ColorWince.cpp \
 	platform/graphics/wince/FontCacheWince.cpp \
+	platform/graphics/wince/FontCustomPlatformData.cpp \
 	\
 	platform/haiku/ClipboardHaiku.cpp \
 	platform/haiku/ContextMenuHaiku.cpp \
@@ -816,14 +836,19 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/haiku/EventLoopHaiku.cpp \
 	platform/haiku/FileChooserHaiku.cpp \
 	platform/haiku/FileSystemHaiku.cpp \
+	platform/haiku/LocalizedStringsHaiku.cpp \
+	platform/haiku/LoggingHaiku.cpp \
 	platform/haiku/MIMETypeRegistryHaiku.cpp \
 	platform/haiku/PasteboardHaiku.cpp \
 	platform/haiku/PlatformKeyboardEventHaiku.cpp \
 	platform/haiku/PlatformMouseEventHaiku.cpp \
 	platform/haiku/PlatformWheelEventHaiku.cpp \
 	platform/haiku/PopupMenuHaiku.cpp \
+	platform/haiku/RenderThemeHaiku.cpp \
 	platform/haiku/ScreenHaiku.cpp \
+	platform/haiku/ScrollbarThemeHaiku.cpp \
 	platform/haiku/SearchPopupMenuHaiku.cpp \
+	platform/haiku/SharedBufferHaiku.cpp \
 	platform/haiku/SoundHaiku.cpp \
 	platform/haiku/TemporaryLinkStubs.cpp \
 	platform/haiku/WidgetHaiku.cpp \
@@ -881,6 +906,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/android/TextBreakIteratorInternalICU.cpp \
 	platform/text/haiku/StringHaiku.cpp \
+	platform/text/haiku/TextBreakIteratorInternalICUHaiku.cpp \
 	\
 	plugins/MimeType.cpp \
 	plugins/MimeTypeArray.cpp \
@@ -1060,12 +1086,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
 	storage/SQLTransaction.cpp \
+	storage/SQLTransactionCoordinator.cpp \
 	storage/Storage.cpp \
 	storage/StorageAreaImpl.cpp \
 	storage/StorageAreaSync.cpp \
 	storage/StorageEvent.cpp \
 	storage/StorageMap.cpp \
 	storage/StorageNamespace.cpp \
+	storage/StorageNamespaceImpl.cpp \
     
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

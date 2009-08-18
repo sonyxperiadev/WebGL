@@ -108,6 +108,13 @@
 #define WTF_PLATFORM_NETBSD 1
 #endif
 
+/* PLATFORM(QNX) */
+/* Operating system level dependencies for QNX that should be used */
+/* regardless of operating environment */
+#if defined(__QNXNTO__)
+#define WTF_PLATFORM_QNX 1
+#endif
+
 /* PLATFORM(UNIX) */
 /* Operating system level dependencies for Unix-like systems that */
 /* should be used regardless of operating environment */
@@ -118,7 +125,9 @@
    || defined(unix)        \
    || defined(__unix)      \
    || defined(__unix__)    \
-   || defined(_AIX)
+   || defined(_AIX)        \
+   || defined(__HAIKU__)   \
+   || defined(__QNXNTO__)
 #define WTF_PLATFORM_UNIX 1
 #endif
 
@@ -143,6 +152,8 @@
 #define WTF_PLATFORM_WX 1
 #elif defined(BUILDING_GTK__)
 #define WTF_PLATFORM_GTK 1
+#elif defined(BUILDING_HAIKU__)
+#define WTF_PLATFORM_HAIKU 1
 #elif PLATFORM(DARWIN)
 #define WTF_PLATFORM_MAC 1
 #elif PLATFORM(WIN_OS)
@@ -189,7 +200,7 @@
 
 /* Makes PLATFORM(WIN) default to PLATFORM(CAIRO) */
 /* FIXME: This should be changed from a blacklist to a whitelist */
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE)
+#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !PLATFORM(WINCE) && !PLATFORM(HAIKU)
 #define WTF_PLATFORM_CAIRO 1
 #endif
 
@@ -455,6 +466,14 @@
 #endif
 #endif
 
+#if PLATFORM(HAIKU)
+#define HAVE_POSIX_MEMALIGN 1
+#define WTF_USE_CURL 1
+#define WTF_USE_PTHREADS 1
+#define USE_SYSTEM_MALLOC 1
+#define ENABLE_NETSCAPE_PLUGIN_API 0
+#endif
+
 #if !defined(HAVE_ACCESSIBILITY)
 #if PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(CHROMIUM)
 #define HAVE_ACCESSIBILITY 1
@@ -465,7 +484,9 @@
 #define HAVE_SIGNAL_H 1
 #endif
 
-#if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(SYMBIAN) && !COMPILER(RVCT) && !PLATFORM(ANDROID)
+#if !PLATFORM(WIN_OS) && !PLATFORM(SOLARIS) && !PLATFORM(QNX) \
+    && !PLATFORM(SYMBIAN) && !PLATFORM(HAIKU) && !COMPILER(RVCT) \
+    && !PLATFORM(ANDROID)
 #define HAVE_TM_GMTOFF 1
 #define HAVE_TM_ZONE 1
 #define HAVE_TIMEGM 1
@@ -525,12 +546,24 @@
 #define HAVE_SYS_PARAM_H 1
 #define HAVE_SYS_TIME_H 1
 
+#elif PLATFORM(QNX)
+
+#define HAVE_ERRNO_H 1
+#define HAVE_MMAP 1
+#define HAVE_SBRK 1
+#define HAVE_STRINGS_H 1
+#define HAVE_SYS_PARAM_H 1
+#define HAVE_SYS_TIME_H 1
+
 #else
 
 /* FIXME: is this actually used or do other platforms generate their own config.h? */
 
 #define HAVE_ERRNO_H 1
+/* As long as Haiku doesn't have a complete support of locale this will be disabled. */
+#if !PLATFORM(HAIKU)
 #define HAVE_LANGINFO_H 1
+#endif
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1
@@ -594,6 +627,10 @@
 #define ENABLE_GEOLOCATION 0
 #endif
 
+#if !defined(ENABLE_NOTIFICATIONS)
+#define ENABLE_NOTIFICATIONS 0
+#endif
+
 #if !defined(ENABLE_TEXT_CARET)
 #define ENABLE_TEXT_CARET 1
 #endif
@@ -608,9 +645,9 @@
 #endif
 
 #if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
-#if PLATFORM(X86_64) && (PLATFORM(MAC) || (PLATFORM(LINUX) && !PLATFORM(QT)))
+#if PLATFORM(X86_64) && (PLATFORM(MAC) || PLATFORM(LINUX))
 #define WTF_USE_JSVALUE64 1
-#elif PLATFORM(PPC64) || PLATFORM(QT) /* All Qt layout tests crash in JSVALUE32_64 mode. */
+#elif PLATFORM(ARM) || PLATFORM(PPC64)
 #define WTF_USE_JSVALUE32 1
 #else
 #define WTF_USE_JSVALUE32_64 1
@@ -639,18 +676,20 @@
     #define ENABLE_JIT 1
 #endif
 
-#if PLATFORM(X86) && PLATFORM(QT)
-#if PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
+#if PLATFORM(QT)
+#if PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
-#elif PLATFORM(WIN_OS) && COMPILER(MSVC)
+#elif PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MSVC)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
-#elif PLATFORM(LINUX) && GCC_VERSION >= 40100
+#elif PLATFORM(X86) && PLATFORM(LINUX) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
+#elif PLATFORM(ARM) && !PLATFORM_ARM_ARCH(7) && PLATFORM(LINUX)
+    #define ENABLE_JIT 1
 #endif
-#endif /* PLATFORM(QT) && PLATFORM(X86) */
+#endif /* PLATFORM(QT) */
 
 #endif /* !defined(ENABLE_JIT) */
 
@@ -700,10 +739,11 @@
 #define ENABLE_YARR_JIT 1
 #endif
 
-#if PLATFORM(X86) && PLATFORM(QT)
-#if (PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
- || (PLATFORM(WIN_OS) && COMPILER(MSVC)) \
- || (PLATFORM(LINUX) && GCC_VERSION >= 40100)
+#if PLATFORM(QT)
+#if (PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
+ || (PLATFORM(X86) && PLATFORM(WIN_OS) && COMPILER(MSVC)) \
+ || (PLATFORM(X86) && PLATFORM(LINUX) && GCC_VERSION >= 40100) \
+ || (PLATFORM(ARM) && !PLATFORM_ARM_ARCH(7) && PLATFORM(LINUX))
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif
@@ -755,6 +795,12 @@
 
 #if PLATFORM(IPHONE)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
+#endif
+
+#if COMPILER(GCC)
+#define WARN_UNUSED_RETURN __attribute__ ((warn_unused_result))
+#else
+#define WARN_UNUSED_RETURN
 #endif
 
 #endif /* WTF_Platform_h */

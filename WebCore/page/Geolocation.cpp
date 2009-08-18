@@ -334,6 +334,7 @@ void Geolocation::requestPermission()
 
 void Geolocation::geolocationServicePositionChanged(GeolocationService*)
 {
+    ASSERT_UNUSED(service, service == m_service);
     ASSERT(m_service->lastPosition());
 
     // Stop all currently running timers.

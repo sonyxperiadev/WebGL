@@ -50,6 +50,10 @@
 #include "XMLHttpRequestException.h"
 #include <wtf/RefPtr.h>
 
+#if ENABLE(NOTIFICATIONS)
+#include "NotificationCenter.h"
+#endif
+
 namespace WebCore {
 
 WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThread* thread)
@@ -64,6 +68,12 @@ WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThr
 
 WorkerContext::~WorkerContext()
 {
+    ASSERT(currentThread() == thread()->threadID());
+#if ENABLE(NOTIFICATIONS)
+    m_notifications.clear();
+#endif
+    // Notify proxy that we are going away. This can free the WorkerThread object, so do not access it after this.
+    thread()->workerReportingProxy().workerContextDestroyed();
 }
 
 ScriptExecutionContext* WorkerContext::scriptExecutionContext() const
@@ -109,6 +119,8 @@ void WorkerContext::close()
         return;
 
     m_closing = true;
+    // Notify parent that this context is closed.
+    thread()->workerReportingProxy().workerContextClosed();
     m_thread->stop();
 }
 
@@ -244,7 +256,7 @@ void WorkerContext::importScripts(const Vector<String>& urls, const String& call
 
     for (Vector<KURL>::const_iterator it = completedURLs.begin(); it != end; ++it) {
         WorkerScriptLoader scriptLoader;
-        scriptLoader.loadSynchronously(scriptExecutionContext(), *it, AllowCrossOriginRedirect);
+        scriptLoader.loadSynchronously(scriptExecutionContext(), *it, AllowCrossOriginRequests);
 
         // If the fetching attempt failed, throw a NETWORK_ERR exception and abort all these steps.
         if (scriptLoader.failed()) {
@@ -271,8 +283,22 @@ void WorkerContext::reportException(const String& errorMessage, int lineNumber, 
         errorHandled = onerror()->reportError(errorMessage, sourceURL, lineNumber);
 
     if (!errorHandled)
-        forwardException(errorMessage, lineNumber, sourceURL);
+        thread()->workerReportingProxy().postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
 }
+
+void WorkerContext::addMessage(MessageDestination destination, MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+{
+    thread()->workerReportingProxy().postConsoleMessageToWorkerObject(destination, source, type, level, message, lineNumber, sourceURL);
+}
+
+#if ENABLE(NOTIFICATIONS)
+NotificationCenter* WorkerContext::webkitNotifications() const
+{
+    if (!m_notifications)
+        m_notifications = NotificationCenter::create(scriptExecutionContext(), m_thread->getNotificationPresenter());
+    return m_notifications.get();
+}
+#endif
 
 } // namespace WebCore
 

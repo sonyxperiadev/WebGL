@@ -5,6 +5,8 @@
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2009 Appcelerator Inc.
+ * Copyright (C) 2009 Brent Fulgham <bfulgham@webkit.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,10 +56,29 @@ const int maxRunningJobs = 5;
 
 static const bool ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
 
+static CString certificatePath()
+{
+#if PLATFORM(CF)
+    CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
+    RetainPtr<CFURLRef> certURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle, CFSTR("cacert"), CFSTR("pem"), CFSTR("certificates")));
+    if (certURLRef) {
+        char path[MAX_PATH];
+        CFURLGetFileSystemRepresentation(certURLRef.get(), false, reinterpret_cast<UInt8*>(path), MAX_PATH);
+        return path;
+    }
+#endif
+    char* envPath = getenv("CURL_CA_BUNDLE_PATH");
+    if (envPath)
+       return envPath;
+
+    return CString();
+}
+
 ResourceHandleManager::ResourceHandleManager()
     : m_downloadTimer(this, &ResourceHandleManager::downloadTimerCallback)
     , m_cookieJarFileName(0)
     , m_runningJobs(0)
+    , m_certificatePath (certificatePath())
 {
     curl_global_init(CURL_GLOBAL_ALL);
     m_curlMultiHandle = curl_multi_init();
@@ -88,6 +109,23 @@ ResourceHandleManager* ResourceHandleManager::sharedInstance()
     return sharedInstance;
 }
 
+static void handleLocalReceiveResponse (CURL* handle, ResourceHandle* job, ResourceHandleInternal* d)
+{
+    // since the code in headerCallback will not have run for local files
+    // the code to set the URL and fire didReceiveResponse is never run,
+    // which means the ResourceLoader's response does not contain the URL.
+    // Run the code here for local files to resolve the issue.
+    // TODO: See if there is a better approach for handling this.
+     const char* hdr;
+     CURLcode err = curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &hdr);
+     ASSERT(CURLE_OK == err);
+     d->m_response.setURL(KURL(hdr));
+     if (d->client())
+         d->client()->didReceiveResponse(job, d->m_response);
+     d->m_response.setResponseFired(true);
+}
+
+
 // called with data after all headers have been processed via headerCallback
 static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* data)
 {
@@ -112,18 +150,10 @@ static size_t writeCallback(void* ptr, size_t size, size_t nmemb, void* data)
     if (CURLE_OK == err && httpCode >= 300 && httpCode < 400)
         return totalSize;
 
-    // since the code in headerCallback will not have run for local files
-    // the code to set the URL and fire didReceiveResponse is never run,
-    // which means the ResourceLoader's response does not contain the URL.
-    // Run the code here for local files to resolve the issue.
-    // TODO: See if there is a better approach for handling this.
     if (!d->m_response.responseFired()) {
-        const char* hdr;
-        err = curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &hdr);
-        d->m_response.setURL(KURL(hdr));
-        if (d->client())
-            d->client()->didReceiveResponse(job, d->m_response);
-        d->m_response.setResponseFired(true);
+        handleLocalReceiveResponse(h, job, d);
+        if (d->m_cancelled)
+            return 0;
     }
 
     if (d->client())
@@ -222,6 +252,7 @@ size_t readCallback(void* ptr, size_t size, size_t nmemb, void* data)
 {
     ResourceHandle* job = static_cast<ResourceHandle*>(data);
     ResourceHandleInternal* d = job->getInternal();
+
     if (d->m_cancelled)
         return 0;
 
@@ -311,6 +342,14 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
             continue;
 
         if (CURLE_OK == msg->data.result) {
+            if (!d->m_response.responseFired()) {
+                handleLocalReceiveResponse(d->m_handle, job, d);
+                if (d->m_cancelled) {
+                    removeFromCurl(job);
+                    continue;
+                }
+            }
+
             if (d->client())
                 d->client()->didFinishLoading(job);
         } else {
@@ -629,6 +668,10 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     // and/or reporting SSL errors to the user.
     if (ignoreSSLErrors)
         curl_easy_setopt(d->m_handle, CURLOPT_SSL_VERIFYPEER, false);
+
+    if (!m_certificatePath.isNull())
+       curl_easy_setopt(d->m_handle, CURLOPT_CAINFO, m_certificatePath.data());
+
     // enable gzip and deflate through Accept-Encoding:
     curl_easy_setopt(d->m_handle, CURLOPT_ENCODING, "");
 

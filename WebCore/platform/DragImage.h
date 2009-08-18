@@ -48,6 +48,8 @@ class wxDragImage;
 #include "DragImageRef.h"
 #elif PLATFORM(GTK)
 typedef struct _GdkPixbuf GdkPixbuf;
+#elif PLATFORM(HAIKU)
+class BBitmap;
 #endif
 
 //We need to #define YOffset as it needs to be shared with WebKit
@@ -72,6 +74,8 @@ namespace WebCore {
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
     typedef GdkPixBuf* DragImageRef;
+#elif PLATFORM(HAIKU)
+    typedef BBitmap* DragImageRef;
 #elif PLATFORM(ANDROID)
     typedef void* DragImageRef;
 #endif

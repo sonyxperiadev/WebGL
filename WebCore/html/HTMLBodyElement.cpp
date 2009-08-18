@@ -338,7 +338,7 @@ EventListener* HTMLBodyElement::onblur() const
 
 void HTMLBodyElement::setOnblur(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().blurEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().blurEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onerror() const
@@ -348,7 +348,7 @@ EventListener* HTMLBodyElement::onerror() const
 
 void HTMLBodyElement::setOnerror(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().errorEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().errorEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onfocus() const
@@ -358,7 +358,7 @@ EventListener* HTMLBodyElement::onfocus() const
 
 void HTMLBodyElement::setOnfocus(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().focusEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().focusEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onload() const
@@ -368,7 +368,7 @@ EventListener* HTMLBodyElement::onload() const
 
 void HTMLBodyElement::setOnload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().loadEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().loadEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onbeforeunload() const
@@ -378,9 +378,19 @@ EventListener* HTMLBodyElement::onbeforeunload() const
 
 void HTMLBodyElement::setOnbeforeunload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().beforeunloadEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().beforeunloadEvent, eventListener);
 }
 
+EventListener* HTMLBodyElement::onhashchange() const
+{
+    return document()->getWindowAttributeEventListener(eventNames().hashchangeEvent);
+}
+
+void HTMLBodyElement::setOnhashchange(PassRefPtr<EventListener> eventListener)
+{
+    document()->setWindowAttributeEventListener(eventNames().hashchangeEvent, eventListener);
+}    
+                                                                                
 EventListener* HTMLBodyElement::onmessage() const
 {
     return document()->getWindowAttributeEventListener(eventNames().messageEvent);
@@ -388,7 +398,7 @@ EventListener* HTMLBodyElement::onmessage() const
 
 void HTMLBodyElement::setOnmessage(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().messageEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().messageEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onoffline() const
@@ -398,7 +408,7 @@ EventListener* HTMLBodyElement::onoffline() const
 
 void HTMLBodyElement::setOnoffline(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().offlineEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().offlineEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::ononline() const
@@ -408,7 +418,7 @@ EventListener* HTMLBodyElement::ononline() const
 
 void HTMLBodyElement::setOnonline(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().onlineEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().onlineEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onresize() const
@@ -418,7 +428,7 @@ EventListener* HTMLBodyElement::onresize() const
 
 void HTMLBodyElement::setOnresize(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().resizeEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().resizeEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onstorage() const
@@ -428,7 +438,7 @@ EventListener* HTMLBodyElement::onstorage() const
 
 void HTMLBodyElement::setOnstorage(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().storageEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().storageEvent, eventListener);
 }
 
 EventListener* HTMLBodyElement::onunload() const
@@ -438,7 +448,7 @@ EventListener* HTMLBodyElement::onunload() const
 
 void HTMLBodyElement::setOnunload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setAttributeEventListener(eventNames().unloadEvent, eventListener);
+    document()->setWindowAttributeEventListener(eventNames().unloadEvent, eventListener);
 }
 
 } // namespace WebCore

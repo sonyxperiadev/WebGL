@@ -34,6 +34,7 @@
 #include "JSCustomPositionErrorCallback.h"
 #include "JSDOMWindow.h"
 #include "PositionOptions.h"
+#include <runtime/InternalFunction.h>
 
 using namespace JSC;
 using namespace std;
@@ -43,7 +44,7 @@ namespace WebCore {
 static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSValue value)
 {
     // The spec specifies 'FunctionOnly' for this object.
-    if (!value.isObject(&InternalFunction::info)) {
+    if (!value.inherits(&InternalFunction::info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
@@ -55,12 +56,12 @@ static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSVa
 
 static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSValue value)
 {
-    // Argument is optional (hence undefined is allowed), and null is allowed.
+   // Argument is optional (hence undefined is allowed), and null is allowed.
     if (value.isUndefinedOrNull())
         return 0;
 
     // The spec specifies 'FunctionOnly' for this object.
-    if (!value.isObject(&InternalFunction::info)) {
+    if (!value.inherits(&InternalFunction::info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return 0;
     }
@@ -91,7 +92,7 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
     JSValue enableHighAccuracyValue = object->get(exec, Identifier(exec, "enableHighAccuracy"));
     if (exec->hadException())
         return 0;
-    if(!enableHighAccuracyValue.isUndefined()) {
+    if (!enableHighAccuracyValue.isUndefined()) {
         options->setEnableHighAccuracy(enableHighAccuracyValue.toBoolean(exec));
         if (exec->hadException())
             return 0;

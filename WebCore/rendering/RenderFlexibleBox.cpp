@@ -295,26 +295,7 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     if (m_overflowWidth < width())
         m_overflowWidth = width();
 
-    if (!hasOverflowClip()) {
-        int shadowLeft;
-        int shadowRight;
-        int shadowTop;
-        int shadowBottom;
-        style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
-
-        m_overflowLeft = min(m_overflowLeft, shadowLeft);
-        m_overflowWidth = max(m_overflowWidth, width() + shadowRight);
-        m_overflowTop = min(m_overflowTop, shadowTop);
-        m_overflowHeight = max(m_overflowHeight, height() + shadowBottom);
-
-        if (hasReflection()) {
-            IntRect reflection(reflectionBox());
-            m_overflowTop = min(m_overflowTop, reflection.y());
-            m_overflowHeight = max(m_overflowHeight, reflection.bottom());
-            m_overflowLeft = min(m_overflowLeft, reflection.x());
-            m_overflowHeight = max(m_overflowWidth, reflection.right());
-        }
-    }
+    updateOverflowWithShadowAndReflection();
 
     statePusher.pop();
 
@@ -1161,6 +1142,8 @@ const char *RenderFlexibleBox::renderName() const
         return "RenderFlexibleBox (floating)";
     if (isPositioned())
         return "RenderFlexibleBox (positioned)";
+    if (isAnonymous())
+        return "RenderFlexibleBox (generated)";
     if (isRelPositioned())
         return "RenderFlexibleBox (relative positioned)";
     return "RenderFlexibleBox";

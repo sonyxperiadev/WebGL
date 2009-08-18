@@ -86,9 +86,12 @@ class IntPoint;
 class IntSize;
 class Node;
 class RenderObject;
+class RenderListItem;
 class VisibleSelection;
 class String;
 class Widget;
+
+typedef unsigned AXID;
 
 enum AccessibilityRole {
     UnknownRole = 1,
@@ -304,8 +307,8 @@ public:
     virtual PassRefPtr<Range> ariaSelectedTextDOMRange() const { return 0; }
 
     virtual AXObjectCache* axObjectCache() const { return 0; }
-    unsigned axObjectID() const { return m_id; }
-    void setAXObjectID(unsigned axObjectID) { m_id = axObjectID; }
+    AXID axObjectID() const { return m_id; }
+    void setAXObjectID(AXID axObjectID) { m_id = axObjectID; }
     
     static AccessibilityObject* anchorElementForNode(Node*);
     virtual Element* anchorElement() const { return 0; }
@@ -408,6 +411,7 @@ public:
 
     virtual String doAXStringForRange(const PlainTextRange&) const { return String(); }
     virtual IntRect doAXBoundsForRange(const PlainTextRange&) const { return IntRect(); }
+    String listMarkerTextForNodeAndPosition(Node*, const VisiblePosition&) const;
 
     unsigned doAXLineForIndex(unsigned);
 
@@ -436,14 +440,15 @@ public:
     virtual void updateBackingStore() { }
     
 protected:
-    unsigned m_id;
+    AXID m_id;
     AccessibilityChildrenVector m_children;
     mutable bool m_haveChildren;
     AccessibilityRole m_role;
     
     virtual void clearChildren();
     virtual bool isDetached() const { return true; }
-
+    RenderListItem* renderListItemContainerForNode(Node* node) const;
+    
 #if PLATFORM(MAC)
     RetainPtr<AccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN) && !PLATFORM(WINCE)

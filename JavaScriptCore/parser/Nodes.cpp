@@ -138,7 +138,7 @@ RegisterID* StringNode::emitBytecode(BytecodeGenerator& generator, RegisterID* d
 
 RegisterID* RegExpNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    RefPtr<RegExp> regExp = RegExp::create(generator.globalData(), m_pattern, m_flags);
+    RefPtr<RegExp> regExp = RegExp::create(generator.globalData(), m_pattern.ustring(), m_flags.ustring());
     if (!regExp->isValid())
         return emitThrowError(generator, SyntaxError, ("Invalid regular expression: " + UString(regExp->errorMessage())).UTF8String().c_str());
     if (dst == generator.ignoredResult())
@@ -1205,7 +1205,13 @@ RegisterID* ConstDeclNode::emitCodeSingle(BytecodeGenerator& generator)
 
         return generator.emitNode(local, m_init);
     }
-    
+
+    if (generator.codeType() != EvalCode) {
+        if (m_init)
+            return generator.emitNode(m_init);
+        else
+            return generator.emitResolve(generator.newTemporary(), m_ident);
+    }
     // FIXME: While this code should only be hit in eval code, it will potentially
     // assign to the wrong base if m_ident exists in an intervening dynamic scope.
     RefPtr<RegisterID> base = generator.emitResolveBase(generator.newTemporary(), m_ident);
@@ -1818,17 +1824,6 @@ ScopeNodeData::ScopeNodeData(ParserArena& arena, SourceElements* children, VarSt
         children->releaseContentsIntoVector(m_children);
 }
 
-void ScopeNodeData::markAggregate(MarkStack& markStack)
-{
-    FunctionStack::iterator end = m_functionStack.end();
-    for (FunctionStack::iterator ptr = m_functionStack.begin(); ptr != end; ++ptr) {
-        FunctionBodyNode* body = (*ptr)->body();
-        if (!body->isGenerated())
-            continue;
-        body->generatedBytecode().markAggregate(markStack);
-    }
-}
-
 // ------------------------------ ScopeNode -----------------------------
 
 ScopeNode::ScopeNode(JSGlobalData* globalData)
@@ -1886,30 +1881,6 @@ RegisterID* ProgramNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
     return 0;
 }
 
-void ProgramNode::generateBytecode(ScopeChainNode* scopeChainNode)
-{
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-    
-    m_code.set(new ProgramCodeBlock(this, GlobalCode, globalObject, source().provider()));
-    
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &globalObject->symbolTable(), m_code.get()));
-    generator->generate();
-
-    destroyData();
-}
-
-#if ENABLE(JIT)
-void ProgramNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
-
 // ------------------------------ EvalNode -----------------------------
 
 inline EvalNode::EvalNode(JSGlobalData* globalData, SourceElements* children, VarStack* varStack, FunctionStack* funcStack, const SourceCode& source, CodeFeatures features, int numConstants)
@@ -1941,54 +1912,6 @@ RegisterID* EvalNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
     return 0;
 }
 
-void EvalNode::generateBytecode(ScopeChainNode* scopeChainNode)
-{
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->generate();
-
-    // Eval code needs to hang on to its declaration stacks to keep declaration info alive until Interpreter::execute time,
-    // so the entire ScopeNodeData cannot be destoyed.
-    children().clear();
-}
-
-EvalCodeBlock& EvalNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeChainNode, CodeBlock* codeBlockBeingRegeneratedFrom)
-{
-    ASSERT(!m_code);
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new EvalCodeBlock(this, globalObject, source().provider(), scopeChain.localDepth()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator->generate();
-
-    return *m_code;
-}
-
-void EvalNode::markAggregate(MarkStack& markStack)
-{
-    // We don't need to mark our own CodeBlock as the JSGlobalObject takes care of that
-    data()->markAggregate(markStack);
-}
-
-#if ENABLE(JIT)
-void EvalNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
-
 // ------------------------------ FunctionBodyNode -----------------------------
 
 inline FunctionBodyNode::FunctionBodyNode(JSGlobalData* globalData)
@@ -2012,7 +1935,7 @@ FunctionBodyNode::~FunctionBodyNode()
     fastFree(m_parameters);
 }
 
-void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter)
+void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter, const Identifier& ident)
 {
     Vector<Identifier> parameters;
     for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
@@ -2020,36 +1943,15 @@ void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* fi
     size_t count = parameters.size();
 
     setSource(source);
-    finishParsing(parameters.releaseBuffer(), count);
+    finishParsing(parameters.releaseBuffer(), count, ident);
 }
 
-void FunctionBodyNode::finishParsing(Identifier* parameters, size_t parameterCount)
+void FunctionBodyNode::finishParsing(Identifier* parameters, size_t parameterCount, const Identifier& ident)
 {
     ASSERT(!source().isNull());
     m_parameters = parameters;
     m_parameterCount = parameterCount;
-}
-
-void FunctionBodyNode::markAggregate(MarkStack& markStack)
-{
-    if (m_code)
-        m_code->markAggregate(markStack);
-}
-
-#if ENABLE(JIT)
-PassRefPtr<FunctionBodyNode> FunctionBodyNode::createNativeThunk(JSGlobalData* globalData)
-{
-    RefPtr<FunctionBodyNode> body = new FunctionBodyNode(globalData);
-    globalData->parser->arena().reset();
-    body->m_code.set(new CodeBlock(body.get()));
-    body->m_jitCode = JITCode(JITCode::HostFunction(globalData->jitStubs.ctiNativeCallThunk()));
-    return body.release();
-}
-#endif
-
-bool FunctionBodyNode::isHostFunction() const
-{
-    return m_code && m_code->codeType() == NativeCode;
+    m_ident = ident;
 }
 
 FunctionBodyNode* FunctionBodyNode::create(JSGlobalData* globalData)
@@ -2068,50 +1970,13 @@ PassRefPtr<FunctionBodyNode> FunctionBodyNode::create(JSGlobalData* globalData, 
     return node.release();
 }
 
-void FunctionBodyNode::generateBytecode(ScopeChainNode* scopeChainNode)
+void FunctionBodyNode::reparseDataIfNecessary(ScopeChainNode* scopeChainNode)
 {
     // This branch is only necessary since you can still create a non-stub FunctionBodyNode by
     // calling Parser::parse<FunctionBodyNode>().   
     if (!data())
         scopeChainNode->globalData->parser->reparseInPlace(scopeChainNode->globalData, this);
     ASSERT(data());
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->generate();
-
-    destroyData();
-}
-
-#if ENABLE(JIT)
-void FunctionBodyNode::generateJITCode(ScopeChainNode* scopeChainNode)
-{
-    bytecode(scopeChainNode);
-    ASSERT(m_code);
-    ASSERT(!m_jitCode);
-    JIT::compile(scopeChainNode->globalData, m_code.get());
-    ASSERT(m_jitCode);
-}
-#endif
-
-CodeBlock& FunctionBodyNode::bytecodeForExceptionInfoReparse(ScopeChainNode* scopeChainNode, CodeBlock* codeBlockBeingRegeneratedFrom)
-{
-    ASSERT(!m_code);
-
-    ScopeChain scopeChain(scopeChainNode);
-    JSGlobalObject* globalObject = scopeChain.globalObject();
-
-    m_code.set(new CodeBlock(this, FunctionCode, source().provider(), source().startOffset()));
-
-    OwnPtr<BytecodeGenerator> generator(new BytecodeGenerator(this, globalObject->debugger(), scopeChain, &m_code->symbolTable(), m_code.get()));
-    generator->setRegeneratingForExceptionInfo(codeBlockBeingRegeneratedFrom);
-    generator->generate();
-
-    return *m_code;
 }
 
 RegisterID* FunctionBodyNode::emitBytecode(BytecodeGenerator& generator, RegisterID*)
@@ -2151,11 +2016,6 @@ Identifier* FunctionBodyNode::copyParameters()
 
 // ------------------------------ FuncDeclNode ---------------------------------
 
-JSFunction* FuncDeclNode::makeFunction(ExecState* exec, ScopeChainNode* scopeChain)
-{
-    return new (exec) JSFunction(exec, m_ident, m_body.get(), scopeChain);
-}
-
 RegisterID* FuncDeclNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     if (dst == generator.ignoredResult())
@@ -2168,26 +2028,6 @@ RegisterID* FuncDeclNode::emitBytecode(BytecodeGenerator& generator, RegisterID*
 RegisterID* FuncExprNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     return generator.emitNewFunctionExpression(generator.finalDestination(dst), this);
-}
-
-JSFunction* FuncExprNode::makeFunction(ExecState* exec, ScopeChainNode* scopeChain)
-{
-    JSFunction* func = new (exec) JSFunction(exec, m_ident, m_body.get(), scopeChain);
-
-    /* 
-        The Identifier in a FunctionExpression can be referenced from inside
-        the FunctionExpression's FunctionBody to allow the function to call
-        itself recursively. However, unlike in a FunctionDeclaration, the
-        Identifier in a FunctionExpression cannot be referenced from and
-        does not affect the scope enclosing the FunctionExpression.
-     */
-
-    if (!m_ident.isNull()) {
-        JSStaticScopeObject* functionScopeObject = new (exec) JSStaticScopeObject(exec, m_ident, func, ReadOnly | DontDelete);
-        func->scope().push(functionScopeObject);
-    }
-
-    return func;
 }
 
 } // namespace JSC

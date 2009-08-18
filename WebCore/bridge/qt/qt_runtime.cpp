@@ -20,6 +20,7 @@
 #include "config.h"
 #include "qt_runtime.h"
 
+#include "BooleanObject.h"
 #include "DateInstance.h"
 #include "DateMath.h"
 #include "DatePrototype.h"
@@ -46,9 +47,9 @@
 #include <JSFunction.h>
 #include <limits.h>
 #include <runtime.h>
+#include <runtime/Error.h>
 #include <runtime_array.h>
 #include <runtime_object.h>
-#include "BooleanObject.h"
 
 // QtScript has these
 Q_DECLARE_METATYPE(QObjectList);
@@ -1328,14 +1329,14 @@ QtRuntimeMetaMethod::QtRuntimeMetaMethod(ExecState* exec, const Identifier& iden
     d->m_allowPrivate = allowPrivate;
 }
 
-void QtRuntimeMetaMethod::mark()
+void QtRuntimeMetaMethod::markChildren(MarkStack& markStack)
 {
-    QtRuntimeMethod::mark();
+    QtRuntimeMethod::markChildren(markStack);
     QW_D(QtRuntimeMetaMethod);
     if (d->m_connect)
-        d->m_connect->mark();
+        markStack.append(d->m_connect);
     if (d->m_disconnect)
-        d->m_disconnect->mark();
+        markStack.append(d->m_disconnect);
 }
 
 JSValue QtRuntimeMetaMethod::call(ExecState* exec, JSObject* functionObject, JSValue thisValue, const ArgList& args)

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Alexey Proskuryakov <ap@nypop.com>.
  * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -522,6 +523,7 @@ template<> inline CSSPrimitiveValue::operator EBoxOrient() const
         case CSSValueInlineAxis:
             return HORIZONTAL;
         case CSSValueVertical:
+        case CSSValueBlockAxis:
             return VERTICAL;
         default:
             ASSERT_NOT_REACHED();
@@ -777,6 +779,11 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EDisplay e)
         case TABLE_CAPTION:
             m_value.ident = CSSValueTableCaption;
             break;
+#if ENABLE(WCSS)
+        case WAP_MARQUEE:
+            m_value.ident = CSSValueWapMarquee;
+            break;
+#endif
         case BOX:
             m_value.ident = CSSValueWebkitBox;
             break;

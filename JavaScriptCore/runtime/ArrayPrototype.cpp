@@ -75,10 +75,10 @@ static inline bool isNumericCompareFunction(CallType callType, const CallData& c
 #if ENABLE(JIT)
     // If the JIT is enabled then we need to preserve the invariant that every
     // function with a CodeBlock also has JIT code.
-    callData.js.functionBody->jitCode(callData.js.scopeChain);
-    CodeBlock& codeBlock = callData.js.functionBody->generatedBytecode();
+    callData.js.functionExecutable->jitCode(callData.js.scopeChain);
+    CodeBlock& codeBlock = callData.js.functionExecutable->generatedBytecode();
 #else
-    CodeBlock& codeBlock = callData.js.functionBody->bytecode(callData.js.scopeChain);
+    CodeBlock& codeBlock = callData.js.functionExecutable->bytecode(callData.js.scopeChain);
 #endif
 
     return codeBlock.isNumericCompareFunction();
@@ -144,7 +144,7 @@ static void putProperty(ExecState* exec, JSObject* obj, const Identifier& proper
 
 JSValue JSC_HOST_CALL arrayProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (!thisValue.isObject(&JSArray::info))
+    if (!thisValue.inherits(&JSArray::info))
         return throwError(exec, TypeError);
     JSObject* thisObj = asArray(thisValue);
 
@@ -190,7 +190,7 @@ JSValue JSC_HOST_CALL arrayProtoFuncToString(ExecState* exec, JSObject*, JSValue
 
 JSValue JSC_HOST_CALL arrayProtoFuncToLocaleString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (!thisValue.isObject(&JSArray::info))
+    if (!thisValue.inherits(&JSArray::info))
         return throwError(exec, TypeError);
     JSObject* thisObj = asArray(thisValue);
 
@@ -298,7 +298,7 @@ JSValue JSC_HOST_CALL arrayProtoFuncConcat(ExecState* exec, JSObject*, JSValue t
     ArgList::const_iterator it = args.begin();
     ArgList::const_iterator end = args.end();
     while (1) {
-        if (curArg.isObject(&JSArray::info)) {
+        if (curArg.inherits(&JSArray::info)) {
             unsigned length = curArg.get(exec, exec->propertyNames().length).toUInt32(exec);
             JSObject* curObject = curArg.toObject(exec);
             for (unsigned k = 0; k < length; ++k) {

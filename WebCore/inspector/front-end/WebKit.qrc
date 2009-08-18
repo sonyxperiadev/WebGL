@@ -9,6 +9,7 @@
     <file>ChangesView.js</file>
     <file>Color.js</file>
     <file>ConsoleView.js</file>
+    <file>CookieItemsView.js</file>
     <file>Database.js</file>
     <file>DatabaseQueryView.js</file>
     <file>DatabasesPanel.js</file>
@@ -50,6 +51,7 @@
     <file>SidebarTreeElement.js</file>
     <file>SourceFrame.js</file>
     <file>SourceView.js</file>
+    <file>StatusBarButton.js</file>
     <file>StylesSidebarPane.js</file>
     <file>TextPrompt.js</file>
     <file>TopDownProfileDataGridTree.js</file>
@@ -62,6 +64,7 @@
     <file>Images/clearConsoleButtonGlyph.png</file>
     <file>Images/closeButtons.png</file>
     <file>Images/consoleButtonGlyph.png</file>
+    <file>Images/cookie.png</file>
     <file>Images/database.png</file>
     <file>Images/databasesIcon.png</file>
     <file>Images/databaseTable.png</file>

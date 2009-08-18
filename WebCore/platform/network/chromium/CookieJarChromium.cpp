@@ -31,6 +31,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "Cookie.h"
 #include "ChromiumBridge.h"
 #include "Document.h"
 
@@ -50,6 +51,18 @@ bool cookiesEnabled(const Document*)
 {
     // FIXME: For now just assume cookies are always on.
     return true;
+}
+
+bool getRawCookies(const Document*, const KURL&, Vector<Cookie>& rawCookies)
+{
+    // FIXME: Not yet implemented
+    rawCookies.clear();
+    return false; // return true when implemented
+}
+
+void deleteCookie(const Document*, const KURL&, const String&)
+{
+    // FIXME: Not yet implemented
 }
 
 } // namespace WebCore

@@ -55,7 +55,7 @@ module window {
         attribute [Replaceable] Navigator clientInformation;
         attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing] Location location;
 
-        attribute [Replaceable, CustomGetter] Event event;
+        attribute [Replaceable, CustomGetter, V8CustomSetter] Event event;
 
         readonly attribute [Custom] Crypto crypto;
 
@@ -169,6 +169,9 @@ module window {
         readonly attribute Storage sessionStorage;
         readonly attribute Storage localStorage;
 #endif
+#if defined(ENABLE_NOTIFICATIONS) && ENABLE_NOTIFICATIONS
+        readonly attribute NotificationCenter webkitNotifications;
+#endif
 
                  attribute [Replaceable] Console console;
 
@@ -221,6 +224,7 @@ module window {
         attribute EventListener onended;
         attribute EventListener onerror;
         attribute EventListener onfocus;
+        attribute EventListener onhashchange;
         attribute EventListener oninput;
         attribute EventListener onkeydown;
         attribute EventListener onkeypress;
@@ -453,6 +457,10 @@ module window {
         attribute NodeFilterConstructor NodeFilter;
         attribute RangeConstructor Range;
         attribute RangeExceptionConstructor RangeException;
+
+#if ENABLE_EVENTSOURCE
+        attribute [JSCCustomGetter] EventSourceConstructor EventSource; // Usable with new the operator
+#endif
 
         // Mozilla has a separate XMLDocument object for XML documents. 
         // We just use Document for this.

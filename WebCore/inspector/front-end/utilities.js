@@ -56,6 +56,18 @@ Object.type = function(obj, win)
     return type;
 }
 
+Object.proxyType = function(objectProxy)
+{
+    if (objectProxy === null)
+        return "null";
+
+    var type = typeof objectProxy;
+    if (type !== "object" && type !== "function")
+        return type;
+
+    return objectProxy.type;
+}
+
 Object.hasProperties = function(obj)
 {
     if (typeof obj === "undefined" || typeof obj === "null")
@@ -65,9 +77,9 @@ Object.hasProperties = function(obj)
     return false;
 }
 
-Object.describe = function(obj, abbreviated)
+Object.describe = function(obj, abbreviated, win)
 {
-    var type1 = Object.type(obj);
+    var type1 = Object.type(obj, win);
     var type2 = Object.prototype.toString.call(obj).replace(/^\[object (.*)\]$/i, "$1");
 
     switch (type1) {
@@ -238,7 +250,7 @@ Element.prototype.hasStyleClass = function(className)
 
 Node.prototype.enclosingNodeOrSelfWithNodeNameInArray = function(nameArray)
 {
-    for (var node = this; node && !objectsAreSame(node, this.ownerDocument); node = node.parentNode)
+    for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
         for (var i = 0; i < nameArray.length; ++i)
             if (node.nodeName.toLowerCase() === nameArray[i].toLowerCase())
                 return node;
@@ -252,7 +264,7 @@ Node.prototype.enclosingNodeOrSelfWithNodeName = function(nodeName)
 
 Node.prototype.enclosingNodeOrSelfWithClass = function(className)
 {
-    for (var node = this; node && !objectsAreSame(node, this.ownerDocument); node = node.parentNode)
+    for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
         if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
             return node;
     return null;
@@ -518,21 +530,6 @@ function nodeContentPreview()
     return preview.collapseWhitespace();
 }
 
-function objectsAreSame(a, b)
-{
-    // FIXME: Make this more generic so is works with any wrapped object, not just nodes.
-    // This function is used to compare nodes that might be JSInspectedObjectWrappers, since
-    // JavaScript equality is not true for JSInspectedObjectWrappers of the same node wrapped
-    // with different global ExecStates, we use isSameNode to compare them.
-    if (a === b)
-        return true;
-    if (!a || !b)
-        return false;
-    if (a.isSameNode && b.isSameNode)
-        return a.isSameNode(b);
-    return false;
-}
-
 function isAncestorNode(ancestor)
 {
     if (!this || !ancestor)
@@ -540,7 +537,7 @@ function isAncestorNode(ancestor)
 
     var currentNode = ancestor.parentNode;
     while (currentNode) {
-        if (objectsAreSame(this, currentNode))
+        if (this === currentNode)
             return true;
         currentNode = currentNode.parentNode;
     }
@@ -561,13 +558,13 @@ function firstCommonNodeAncestor(node)
     var node1 = this.parentNode;
     var node2 = node.parentNode;
 
-    if ((!node1 || !node2) || !objectsAreSame(node1, node2))
+    if ((!node1 || !node2) || node1 !== node2)
         return null;
 
     while (node1 && node2) {
         if (!node1.parentNode || !node2.parentNode)
             break;
-        if (!objectsAreSame(node1, node2))
+        if (node1 !== node2)
             break;
 
         node1 = node1.parentNode;
@@ -626,7 +623,7 @@ function traverseNextNode(skipWhitespace, stayWithin)
     if (node)
         return node;
 
-    if (stayWithin && objectsAreSame(this, stayWithin))
+    if (stayWithin && this === stayWithin)
         return null;
 
     node = skipWhitespace ? nextSiblingSkippingWhitespace.call(this) : this.nextSibling;
@@ -634,7 +631,7 @@ function traverseNextNode(skipWhitespace, stayWithin)
         return node;
 
     node = this;
-    while (node && !(skipWhitespace ? nextSiblingSkippingWhitespace.call(node) : node.nextSibling) && (!stayWithin || !node.parentNode || !objectsAreSame(node.parentNode, stayWithin)))
+    while (node && !(skipWhitespace ? nextSiblingSkippingWhitespace.call(node) : node.nextSibling) && (!stayWithin || !node.parentNode || node.parentNode !== stayWithin))
         node = node.parentNode;
     if (!node)
         return null;
@@ -646,7 +643,7 @@ function traversePreviousNode(skipWhitespace, stayWithin)
 {
     if (!this)
         return;
-    if (stayWithin && objectsAreSame(this, stayWithin))
+    if (stayWithin && this === stayWithin)
         return null;
     var node = skipWhitespace ? previousSiblingSkippingWhitespace.call(this) : this.previousSibling;
     while (node && (skipWhitespace ? lastChildSkippingWhitespace.call(node) : node.lastChild) )
@@ -756,10 +753,10 @@ function parentNodeOrFrameElement(node) {
 }
 
 function isAncestorIncludingParentFrames(a, b) {
-    if (objectsAreSame(a, b))
+    if (a === b)
         return false;
     for (var node = b; node; node = getDocumentForNode(node).defaultView.frameElement)
-        if (objectsAreSame(a, node) || isAncestorNode.call(a, node))
+        if (a === node || isAncestorNode.call(a, node))
             return true;
     return false;
 }
@@ -790,20 +787,27 @@ Number.secondsToString = function(seconds, formatterFunction, higherResolution)
     return formatterFunction("%.1f days", days);
 }
 
-Number.bytesToString = function(bytes, formatterFunction)
+Number.bytesToString = function(bytes, formatterFunction, higherResolution)
 {
     if (!formatterFunction)
         formatterFunction = String.sprintf;
+    if (typeof higherResolution === "undefined")
+        higherResolution = true;
 
     if (bytes < 1024)
         return formatterFunction("%.0fB", bytes);
 
     var kilobytes = bytes / 1024;
-    if (kilobytes < 1024)
+    if (higherResolution && kilobytes < 1024)
         return formatterFunction("%.2fKB", kilobytes);
+    else if (kilobytes < 1024)
+        return formatterFunction("%.0fKB", kilobytes);
 
     var megabytes = kilobytes / 1024;
-    return formatterFunction("%.3fMB", megabytes);
+    if (higherResolution)
+        return formatterFunction("%.3fMB", megabytes);
+    else
+        return formatterFunction("%.0fMB", megabytes);
 }
 
 Number.constrain = function(num, min, max)

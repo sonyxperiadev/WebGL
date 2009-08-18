@@ -55,7 +55,7 @@ namespace JSC {
         bool isString() const;
         bool isObject() const;
         virtual bool isGetterSetter() const;
-        virtual bool isObject(const ClassInfo*) const;
+        bool inherits(const ClassInfo*) const;
         virtual bool isAPIValueWrapper() const { return false; }
 
         Structure* structure() const;
@@ -378,30 +378,6 @@ namespace JSC {
         cell->markCellDirect();
         if (cell->structure()->typeInfo().type() >= CompoundType)
             m_values.append(cell);
-    }
-
-    inline void MarkStack::drain() {
-        while (!m_markSets.isEmpty() || !m_values.isEmpty()) {
-            while ((!m_markSets.isEmpty()) && m_values.size() < 50) {
-                const MarkSet& current = m_markSets.removeLast();
-                JSValue* ptr = current.m_values;
-                JSValue* end = current.m_end;
-                if (current.m_properties == NoNullValues) {
-                    while (ptr != end)
-                        append(*ptr++);
-                } else {
-                    while (ptr != end) {
-                        if (JSValue value = *ptr++)
-                            append(value);
-                    }
-                }
-            }
-            while (!m_values.isEmpty()) {
-                JSCell* current = m_values.removeLast();
-                ASSERT(current->marked());
-                current->markChildren(*this);
-            }
-        }
     }
 } // namespace JSC
 

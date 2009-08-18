@@ -89,7 +89,7 @@ namespace JSC {
     {
     }
 
-    inline RegExpNode::RegExpNode(JSGlobalData* globalData, const UString& pattern, const UString& flags)
+    inline RegExpNode::RegExpNode(JSGlobalData* globalData, const Identifier& pattern, const Identifier& flags)
         : ExpressionNode(globalData)
         , m_pattern(pattern)
         , m_flags(flags)
@@ -149,6 +149,13 @@ namespace JSC {
 
     inline PropertyNode::PropertyNode(JSGlobalData*, const Identifier& name, ExpressionNode* assign, Type type)
         : m_name(name)
+        , m_assign(assign)
+        , m_type(type)
+    {
+    }
+
+    inline PropertyNode::PropertyNode(JSGlobalData* globalData, double name, ExpressionNode* assign, Type type)
+        : m_name(Identifier(globalData, UString::from(name)))
         , m_assign(assign)
         , m_type(type)
     {
@@ -814,20 +821,16 @@ namespace JSC {
 
     inline FuncExprNode::FuncExprNode(JSGlobalData* globalData, const Identifier& ident, FunctionBodyNode* body, const SourceCode& source, ParameterNode* parameter)
         : ExpressionNode(globalData)
-        , ParserArenaRefCounted(globalData)
-        , m_ident(ident)
         , m_body(body)
     {
-        m_body->finishParsing(source, parameter);
+        m_body->finishParsing(source, parameter, ident);
     }
 
     inline FuncDeclNode::FuncDeclNode(JSGlobalData* globalData, const Identifier& ident, FunctionBodyNode* body, const SourceCode& source, ParameterNode* parameter)
         : StatementNode(globalData)
-        , ParserArenaRefCounted(globalData)
-        , m_ident(ident)
         , m_body(body)
     {
-        m_body->finishParsing(source, parameter);
+        m_body->finishParsing(source, parameter, ident);
     }
 
     inline CaseClauseNode::CaseClauseNode(JSGlobalData*, ExpressionNode* expr)

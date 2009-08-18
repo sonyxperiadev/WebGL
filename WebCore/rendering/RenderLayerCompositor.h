@@ -164,10 +164,11 @@ private:
     bool requiresCompositingForAnimation(RenderObject*) const;
     bool requiresCompositingForTransform(RenderObject*) const;
     bool requiresCompositingForVideo(RenderObject*) const;
+    bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
 private:
     RenderView* m_renderView;
-    GraphicsLayer* m_rootPlatformLayer;
+    OwnPtr<GraphicsLayer> m_rootPlatformLayer;
     bool m_hasAcceleratedCompositing;
     bool m_compositingConsultsOverlap;
     bool m_compositing;

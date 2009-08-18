@@ -331,7 +331,7 @@ static NSDictionary* nullActionsDictionary()
     return actions;
 }
 
-GraphicsLayer* GraphicsLayer::createGraphicsLayer(GraphicsLayerClient* client)
+PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return new GraphicsLayerCA(client);
 }
@@ -430,6 +430,15 @@ void GraphicsLayerCA::removeFromParent()
     if (m_parent)
         static_cast<GraphicsLayerCA*>(m_parent)->noteLayerPropertyChanged(ChildrenChanged);
     GraphicsLayer::removeFromParent();
+}
+
+void GraphicsLayerCA::setMaskLayer(GraphicsLayer* layer)
+{
+    if (layer == m_maskLayer)
+        return;
+
+    GraphicsLayer::setMaskLayer(layer);
+    noteLayerPropertyChanged(MaskLayerChanged);
 }
 
 void GraphicsLayerCA::setPosition(const FloatPoint& point)
@@ -733,6 +742,9 @@ void GraphicsLayerCA::recursiveCommitChanges()
 {
     commitLayerChanges();
 
+    if (m_maskLayer)
+        static_cast<GraphicsLayerCA*>(m_maskLayer)->commitLayerChanges();
+
     const Vector<GraphicsLayer*>& childLayers = children();
     size_t numChildren = childLayers.size();
     for (size_t i = 0; i < numChildren; ++i) {
@@ -812,6 +824,9 @@ void GraphicsLayerCA::commitLayerChanges()
     if (m_uncommittedChanges & GeometryOrientationChanged)
         updateGeometryOrientation();
 
+    if (m_uncommittedChanges & MaskLayerChanged)
+        updateMaskLayer();
+
     m_uncommittedChanges = NoChange;
     END_BLOCK_OBJC_EXCEPTIONS
 }
@@ -821,10 +836,12 @@ void GraphicsLayerCA::updateSublayerList()
     NSMutableArray* newSublayers = nil;
 
     if (m_transformLayer) {
-        // FIXME: add the primary layer in the correct order with negative z-order children.
+        // Add the primary layer first. Even if we have negative z-order children, the primary layer always comes behind.
         newSublayers = [[NSMutableArray alloc] initWithObjects:m_layer.get(), nil];
     } else if (m_contentsLayer) {
         // FIXME: add the contents layer in the correct order with negative z-order children.
+        // This does not cause visible rendering issues because currently contents layers are only used
+        // for replaced elements that don't have children.
         newSublayers = [[NSMutableArray alloc] initWithObjects:m_contentsLayer.get(), nil];
     }
     
@@ -1092,6 +1109,12 @@ void GraphicsLayerCA::updateGeometryOrientation()
     // Geometry orientation is mapped onto children transform in older QuartzCores,
     // so is handled via setGeometryOrientation().
 #endif
+}
+
+void GraphicsLayerCA::updateMaskLayer()
+{
+    CALayer* maskCALayer = m_maskLayer ? m_maskLayer->platformLayer() : 0;
+    [m_layer.get() setMask:maskCALayer];
 }
 
 void GraphicsLayerCA::updateLayerAnimations()

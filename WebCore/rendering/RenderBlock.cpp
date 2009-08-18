@@ -33,6 +33,7 @@
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
+#include "RenderFlexibleBox.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderMarquee.h"
@@ -734,6 +735,31 @@ void RenderBlock::updateScrollInfoAfterLayout()
     }
 }
 
+void RenderBlock::updateOverflowWithShadowAndReflection()
+{
+    if (hasOverflowClip())
+        return;
+
+    int shadowLeft;
+    int shadowRight;
+    int shadowTop;
+    int shadowBottom;
+    style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
+
+    m_overflowLeft = min(m_overflowLeft, shadowLeft);
+    m_overflowWidth = max(m_overflowWidth, width() + shadowRight);
+    m_overflowTop = min(m_overflowTop, shadowTop);
+    m_overflowHeight = max(m_overflowHeight, height() + shadowBottom);
+
+    if (hasReflection()) {
+        IntRect reflection(reflectionBox());
+        m_overflowLeft = min(m_overflowLeft, reflection.x());
+        m_overflowWidth = max(m_overflowWidth, reflection.right());
+        m_overflowTop = min(m_overflowTop, reflection.y());
+        m_overflowHeight = max(m_overflowHeight, reflection.bottom());
+    }
+}
+
 void RenderBlock::layout()
 {
     // Update our first letter info now.
@@ -884,26 +910,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     m_overflowWidth = max(m_overflowWidth, width());
     m_overflowHeight = max(m_overflowHeight, height());
 
-    if (!hasOverflowClip()) {
-        int shadowLeft;
-        int shadowRight;
-        int shadowTop;
-        int shadowBottom;
-        style()->getBoxShadowExtent(shadowTop, shadowRight, shadowBottom, shadowLeft);
-
-        m_overflowLeft = min(m_overflowLeft, shadowLeft);
-        m_overflowWidth = max(m_overflowWidth, width() + shadowRight);
-        m_overflowTop = min(m_overflowTop, shadowTop);
-        m_overflowHeight = max(m_overflowHeight, height() + shadowBottom);
-
-        if (hasReflection()) {
-            IntRect reflection(reflectionBox());
-            m_overflowLeft = min(m_overflowLeft, reflection.x());
-            m_overflowWidth = max(m_overflowWidth, reflection.right());
-            m_overflowTop = min(m_overflowTop, reflection.y());
-            m_overflowHeight = max(m_overflowHeight, reflection.bottom());
-        }
-    }
+    updateOverflowWithShadowAndReflection();
 
     statePusher.pop();
 
@@ -1032,7 +1039,10 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
     // See if we have a run-in element with inline children.  If the
     // children aren't inline, then just treat the run-in as a normal
     // block.
-    if (!child->isRunIn() || !child->childrenInline() && !child->isReplaced())
+    if (!child->isRunIn() || !child->childrenInline())
+        return false;
+    // FIXME: We don't handle non-block elements with run-in for now.
+    if (!child->isRenderBlock())
         return false;
 
     // Get the next non-positioned/non-floating RenderBlock.
@@ -3298,13 +3308,17 @@ int RenderBlock::getClearDelta(RenderBox* child, int yPos)
     // We also clear floats if we are too big to sit on the same line as a float (and wish to avoid floats by default).
     // FIXME: Note that the remaining space checks aren't quite accurate, since you should be able to clear only some floats (the minimum # needed
     // to fit) and not all (we should be using nextFloatBottomBelow and looping).
-    // Do not allow tables to wrap in quirks or even in almost strict mode 
-    // (ebay on the PLT, finance.yahoo.com in the real world, versiontracker.com forces even almost strict mode not to work)
     int result = clearSet ? max(0, bottom - yPos) : 0;
-    if (!result && child->avoidsFloats() && child->style()->width().isFixed() && 
-        child->minPrefWidth() > lineWidth(yPos, false) && child->minPrefWidth() <= availableWidth() && 
-        document()->inStrictMode())   
-        result = max(0, floatBottom() - yPos);
+    if (!result && child->avoidsFloats()) {
+        int oldYPos = child->y();
+        int oldWidth = child->width();
+        child->setY(yPos);
+        child->calcWidth();
+        if (child->width() > lineWidth(yPos, false) && child->minPrefWidth() <= availableWidth())
+            result = max(0, floatBottom() - yPos);
+        child->setY(oldYPos);
+        child->setWidth(oldWidth);
+    }
     return result;
 }
 
@@ -5121,13 +5135,20 @@ void RenderBlock::addFocusRingRects(GraphicsContext* graphicsContext, int tx, in
                                                 ty - y() + inlineContinuation()->containingBlock()->y());
 }
 
-RenderBlock* RenderBlock::createAnonymousBlock() const
+RenderBlock* RenderBlock::createAnonymousBlock(bool isFlexibleBox) const
 {
     RefPtr<RenderStyle> newStyle = RenderStyle::create();
     newStyle->inheritFrom(style());
-    newStyle->setDisplay(BLOCK);
 
-    RenderBlock* newBox = new (renderArena()) RenderBlock(document() /* anonymous box */);
+    RenderBlock* newBox = 0;
+    if (isFlexibleBox) {
+        newStyle->setDisplay(BOX);
+        newBox = new (renderArena()) RenderFlexibleBox(document() /* anonymous box */);
+    } else {
+        newStyle->setDisplay(BLOCK);
+        newBox = new (renderArena()) RenderBlock(document() /* anonymous box */);
+    }
+
     newBox->setStyle(newStyle.release());
     return newBox;
 }

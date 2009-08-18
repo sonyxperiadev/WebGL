@@ -50,18 +50,17 @@ HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Documen
     , m_scrolling(ScrollbarAuto)
     , m_marginWidth(-1)
     , m_marginHeight(-1)
-    , m_noResize(false)
     , m_viewSource(false)
     , m_shouldOpenURLAfterAttach(false)
 {
 }
 
-bool HTMLFrameElementBase::isURLAllowed(const AtomicString& URLString) const
+bool HTMLFrameElementBase::isURLAllowed() const
 {
-    if (URLString.isEmpty())
+    if (m_URL.isEmpty())
         return true;
 
-    const KURL& completeURL = document()->completeURL(URLString);
+    const KURL& completeURL = document()->completeURL(m_URL);
 
     // Don't allow more than 200 total frames in a set. This seems
     // like a reasonable upper bound, and otherwise mutually recursive
@@ -93,7 +92,7 @@ void HTMLFrameElementBase::openURL()
 {
     ASSERT(!m_frameName.isEmpty());
 
-    if (!isURLAllowed(m_URL))
+    if (!isURLAllowed())
         return;
 
     if (m_URL.isEmpty())
@@ -126,9 +125,6 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
         // FIXME: If we are already attached, this has no effect.
     } else if (attr->name() == marginheightAttr) {
         m_marginHeight = attr->value().toInt();
-        // FIXME: If we are already attached, this has no effect.
-    } else if (attr->name() == noresizeAttr) {
-        m_noResize = true;
         // FIXME: If we are already attached, this has no effect.
     } else if (attr->name() == scrollingAttr) {
         // Auto and yes both simply mean "allow scrolling." No means "don't allow scrolling."
@@ -281,11 +277,6 @@ String HTMLFrameElementBase::name() const
 void HTMLFrameElementBase::setName(const String &value)
 {
     setAttribute(nameAttr, value);
-}
-
-void HTMLFrameElementBase::setNoResize(bool noResize)
-{
-    setAttribute(noresizeAttr, noResize ? "" : 0);
 }
 
 String HTMLFrameElementBase::scrolling() const

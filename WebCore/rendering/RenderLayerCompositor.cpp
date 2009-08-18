@@ -92,7 +92,6 @@ RenderLayerCompositor::RenderLayerCompositor(RenderView* renderView)
 RenderLayerCompositor::~RenderLayerCompositor()
 {
     ASSERT(!m_rootLayerAttached);
-    delete m_rootPlatformLayer;
 }
 
 void RenderLayerCompositor::enableCompositingMode(bool enable /* = true */)
@@ -503,8 +502,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     // If we have a software transform, and we have layers under us, we need to also
     // be composited. Also, if we have opacity < 1, then we need to be a layer so that
     // the child layers are opaque, then rendered with opacity on this layer.
-    if (childState.m_subtreeIsCompositing &&
-        (layer->renderer()->hasTransform() || layer->renderer()->style()->opacity() < 1)) {
+    if (childState.m_subtreeIsCompositing && requiresCompositingWhenDescendantsAreCompositing(layer->renderer())) {
         layer->setMustOverlapCompositedLayers(true);
         if (overlapMap)
             addToOverlapMap(*overlapMap, layer, absBounds, haveComputedBounds);
@@ -573,7 +571,7 @@ bool RenderLayerCompositor::canAccelerateVideoRendering(RenderVideo* o) const
 {
     // FIXME: ideally we need to look at all ancestors for mask or video. But for now,
     // just bail on the obvious cases.
-    if (o->hasMask() || o->hasReflection() || !m_hasAcceleratedCompositing)
+    if (o->hasReflection() || !m_hasAcceleratedCompositing)
         return false;
 
     return o->supportsAcceleratedRendering();
@@ -632,10 +630,10 @@ void RenderLayerCompositor::rebuildCompositingLayerTree(RenderLayer* layer, stru
         }
 
         if (updateHierarchy && layerBacking && layerBacking->foregroundLayer()) {
-            // we only have a contents layer if we have an m_layer
             layerBacking->foregroundLayer()->removeFromParent();
-
-            GraphicsLayer* hostingLayer = layerBacking->clippingLayer() ? layerBacking->clippingLayer() : layerBacking->graphicsLayer();
+            
+            // The foreground layer has to be correctly sorted with child layers, so needs to become a child of the clipping layer.
+            GraphicsLayer* hostingLayer = layerBacking->parentForSublayers();
             hostingLayer->addChild(layerBacking->foregroundLayer());
         }
     }
@@ -759,7 +757,7 @@ RenderLayer* RenderLayerCompositor::rootRenderLayer() const
 
 GraphicsLayer* RenderLayerCompositor::rootPlatformLayer() const
 {
-    return m_rootPlatformLayer;
+    return m_rootPlatformLayer.get();
 }
 
 void RenderLayerCompositor::didMoveOnscreen()
@@ -772,7 +770,7 @@ void RenderLayerCompositor::didMoveOnscreen()
     if (!page)
         return;
 
-    page->chrome()->client()->attachRootGraphicsLayer(frame, m_rootPlatformLayer);
+    page->chrome()->client()->attachRootGraphicsLayer(frame, m_rootPlatformLayer.get());
     m_rootLayerAttached = true;
 }
 
@@ -906,6 +904,11 @@ bool RenderLayerCompositor::requiresCompositingForAnimation(RenderObject* render
     return false;
 }
 
+bool RenderLayerCompositor::requiresCompositingWhenDescendantsAreCompositing(RenderObject* renderer) const
+{
+    return renderer->hasTransform() || renderer->isTransparent() || renderer->hasMask();
+}
+
 // If an element has negative z-index children, those children render in front of the 
 // layer background, so we need an extra 'contents' layer for the foreground of the layer
 // object.
@@ -919,7 +922,7 @@ void RenderLayerCompositor::ensureRootPlatformLayer()
     if (m_rootPlatformLayer)
         return;
 
-    m_rootPlatformLayer = GraphicsLayer::createGraphicsLayer(0);
+    m_rootPlatformLayer = GraphicsLayer::create(0);
     m_rootPlatformLayer->setSize(FloatSize(m_renderView->overflowWidth(), m_renderView->overflowHeight()));
     m_rootPlatformLayer->setPosition(FloatPoint(0, 0));
     // The root layer does flipping if we need it on this platform.
@@ -937,7 +940,6 @@ void RenderLayerCompositor::destroyRootPlatformLayer()
         return;
 
     willMoveOffscreen();
-    delete m_rootPlatformLayer;
     m_rootPlatformLayer = 0;
 }
 

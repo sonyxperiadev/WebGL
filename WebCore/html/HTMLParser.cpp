@@ -692,13 +692,13 @@ typedef HashMap<AtomicStringImpl*, CreateErrorCheckFunc> FunctionMap;
 
 bool HTMLParser::textCreateErrorCheck(Token* t, RefPtr<Node>& result)
 {
-    result = new Text(m_document, t->text.get());
+    result = Text::create(m_document, t->text.get());
     return false;
 }
 
 bool HTMLParser::commentCreateErrorCheck(Token* t, RefPtr<Node>& result)
 {
-    result = new Comment(m_document, t->text.get());
+    result = Comment::create(m_document, t->text.get());
     return false;
 }
 
@@ -1093,6 +1093,7 @@ bool HTMLParser::isAffectedByResidualStyle(const AtomicString& tagName)
         unaffectedTags.add(selectTag.localName().impl());
         unaffectedTags.add(objectTag.localName().impl());
         unaffectedTags.add(datagridTag.localName().impl());
+        unaffectedTags.add(datalistTag.localName().impl());
     }
     
     return !unaffectedTags.contains(tagName.impl());
@@ -1598,7 +1599,7 @@ PassRefPtr<Node> HTMLParser::handleIsindex(Token* t)
     }
 
     n->addChild(new HTMLHRElement(hrTag, m_document));
-    n->addChild(new Text(m_document, text));
+    n->addChild(Text::create(m_document, text));
     n->addChild(isIndex.release());
     n->addChild(new HTMLHRElement(hrTag, m_document));
 

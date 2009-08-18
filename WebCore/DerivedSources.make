@@ -35,6 +35,7 @@ VPATH = \
     $(WebCore)/html/canvas \
     $(WebCore)/inspector \
     $(WebCore)/loader/appcache \
+    $(WebCore)/notifications \
     $(WebCore)/page \
     $(WebCore)/plugins \
     $(WebCore)/storage \
@@ -99,6 +100,7 @@ DOM_CLASSES = \
     Event \
     EventException \
     EventListener \
+    EventSource \
     EventTarget \
     File \
     FileList \
@@ -120,6 +122,7 @@ DOM_CLASSES = \
     HTMLDataGridCellElement \
     HTMLDataGridColElement \
     HTMLDataGridRowElement \
+    HTMLDataListElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -194,6 +197,8 @@ DOM_CLASSES = \
     NodeIterator \
     NodeList \
     Notation \
+    Notification \
+    NotificationCenter \
     OverflowEvent \
     Plugin \
     PluginArray \
@@ -554,6 +559,10 @@ UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 
 # HTML tag and attribute names
 
+ifeq ($(findstring ENABLE_DATALIST,$(FEATURE_DEFINES)), ENABLE_DATALIST)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_DATALIST=1
+endif
+
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
 endif
@@ -683,7 +692,7 @@ endif
 # JavaScript bindings
 
 GENERATE_BINDINGS = perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl \
-    --include dom --include html --include css --include page --include xml --include svg --outputDir .
+    --include dom --include html --include css --include page --include notifications --include xml --include svg --outputDir .
 
 GENERATE_BINDINGS_SCRIPTS = \
     bindings/scripts/CodeGenerator.pm \

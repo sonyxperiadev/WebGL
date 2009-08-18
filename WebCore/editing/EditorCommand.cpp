@@ -40,6 +40,7 @@
 #include "FormatBlockCommand.h"
 #include "Frame.h"
 #include "HTMLFontElement.h"
+#include "HTMLHRElement.h"
 #include "HTMLImageElement.h"
 #include "IndentOutdentCommand.h"
 #include "InsertListCommand.h"
@@ -198,7 +199,7 @@ static bool executeInsertFragment(Frame* frame, PassRefPtr<DocumentFragment> fra
 
 static bool executeInsertNode(Frame* frame, PassRefPtr<Node> content)
 {
-    RefPtr<DocumentFragment> fragment = new DocumentFragment(frame->document());
+    RefPtr<DocumentFragment> fragment = DocumentFragment::create(frame->document());
     ExceptionCode ec = 0;
     fragment->appendChild(content, ec);
     if (ec)
@@ -467,9 +468,9 @@ static bool executeInsertBacktab(Frame* frame, Event* event, EditorCommandSource
 
 static bool executeInsertHorizontalRule(Frame* frame, Event*, EditorCommandSource, const String& value)
 {
-    RefPtr<HTMLElement> hr = new HTMLElement(hrTag, frame->document());
+    RefPtr<HTMLHRElement> hr = new HTMLHRElement(hrTag, frame->document());
     if (!value.isEmpty())
-        hr->setId(value);
+        hr->setAttribute(idAttr, value);
     return executeInsertNode(frame, hr.release());
 }
 

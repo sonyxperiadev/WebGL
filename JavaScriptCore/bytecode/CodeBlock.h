@@ -248,11 +248,22 @@ namespace JSC {
     }
 #endif
 
+    struct ExceptionInfo : FastAllocBase {
+        Vector<ExpressionRangeInfo> m_expressionInfo;
+        Vector<LineInfo> m_lineInfo;
+        Vector<GetByIdExceptionInfo> m_getByIdExceptionInfo;
+
+#if ENABLE(JIT)
+        Vector<CallReturnOffsetToBytecodeIndex> m_callReturnIndexVector;
+#endif
+    };
+
     class CodeBlock : public FastAllocBase {
         friend class JIT;
+    protected:
+        CodeBlock(ExecutableBase* ownerExecutable);
+        CodeBlock(ExecutableBase* ownerExecutable, CodeType, PassRefPtr<SourceProvider>, unsigned sourceOffset);
     public:
-        CodeBlock(ScopeNode* ownerNode);
-        CodeBlock(ScopeNode* ownerNode, CodeType, PassRefPtr<SourceProvider>, unsigned sourceOffset);
         ~CodeBlock();
 
         void markAggregate(MarkStack&);
@@ -329,7 +340,7 @@ namespace JSC {
         unsigned getBytecodeIndex(CallFrame* callFrame, ReturnAddressPtr returnAddress)
         {
             reparseForExceptionInfoIfNecessary(callFrame);
-            return binaryChop<CallReturnOffsetToBytecodeIndex, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), ownerNode()->generatedJITCode().offsetOf(returnAddress.value()))->bytecodeIndex;
+            return binaryChop<CallReturnOffsetToBytecodeIndex, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), ownerExecutable()->generatedJITCode().offsetOf(returnAddress.value()))->bytecodeIndex;
         }
         
         bool functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex);
@@ -339,17 +350,19 @@ namespace JSC {
         bool isNumericCompareFunction() { return m_isNumericCompareFunction; }
 
         Vector<Instruction>& instructions() { return m_instructions; }
+        void discardBytecode() { m_instructions.clear(); }
+
 #ifndef NDEBUG
+        unsigned instructionCount() { return m_instructionCount; }
         void setInstructionCount(unsigned instructionCount) { m_instructionCount = instructionCount; }
 #endif
 
 #if ENABLE(JIT)
-        JITCode& getJITCode() { return ownerNode()->generatedJITCode(); }
-        void setJITCode(JITCode);
-        ExecutablePool* executablePool() { return ownerNode()->getExecutablePool(); }
+        JITCode& getJITCode() { return ownerExecutable()->generatedJITCode(); }
+        ExecutablePool* executablePool() { return ownerExecutable()->getExecutablePool(); }
 #endif
 
-        ScopeNode* ownerNode() const { return m_ownerNode; }
+        ExecutableBase* ownerExecutable() const { return m_ownerExecutable; }
 
         void setGlobalData(JSGlobalData* globalData) { m_globalData = globalData; }
 
@@ -404,6 +417,7 @@ namespace JSC {
 
         bool hasExceptionInfo() const { return m_exceptionInfo; }
         void clearExceptionInfo() { m_exceptionInfo.clear(); }
+        ExceptionInfo* extractExceptionInfo() { ASSERT(m_exceptionInfo); return m_exceptionInfo.release(); }
 
         void addExpressionInfo(const ExpressionRangeInfo& expressionInfo) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_expressionInfo.append(expressionInfo); }
         void addGetByIdExceptionInfo(const GetByIdExceptionInfo& info) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_getByIdExceptionInfo.append(info); }
@@ -428,13 +442,11 @@ namespace JSC {
         ALWAYS_INLINE bool isConstantRegisterIndex(int index) { return index >= FirstConstantRegisterIndex; }
         ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].jsValue(); }
 
-        unsigned addFunctionExpression(FuncExprNode* n) { unsigned size = m_functionExpressions.size(); m_functionExpressions.append(n); return size; }
-        FuncExprNode* functionExpression(int index) const { return m_functionExpressions[index].get(); }
-
-        unsigned addFunction(FuncDeclNode* n) { createRareDataIfNecessary(); unsigned size = m_rareData->m_functions.size(); m_rareData->m_functions.append(n); return size; }
-        FuncDeclNode* function(int index) const { ASSERT(m_rareData); return m_rareData->m_functions[index].get(); }
-
-        bool hasFunctions() const { return m_functionExpressions.size() || (m_rareData && m_rareData->m_functions.size()); }
+        unsigned addFunctionDecl(PassRefPtr<FunctionExecutable> n) { unsigned size = m_functionDecls.size(); m_functionDecls.append(n); return size; }
+        FunctionExecutable* functionDecl(int index) { return m_functionDecls[index].get(); }
+        int numberOfFunctionDecls() { return m_functionDecls.size(); }
+        unsigned addFunctionExpr(PassRefPtr<FunctionExecutable> n) { unsigned size = m_functionExprs.size(); m_functionExprs.append(n); return size; }
+        FunctionExecutable* functionExpr(int index) { return m_functionExprs[index].get(); }
 
         unsigned addRegExp(RegExp* r) { createRareDataIfNecessary(); unsigned size = m_rareData->m_regexps.size(); m_rareData->m_regexps.append(r); return size; }
         RegExp* regexp(int index) const { ASSERT(m_rareData); return m_rareData->m_regexps[index].get(); }
@@ -481,7 +493,7 @@ namespace JSC {
                 m_rareData.set(new RareData);
         }
 
-        ScopeNode* m_ownerNode;
+        ExecutableBase* m_ownerExecutable;
         JSGlobalData* m_globalData;
 
         Vector<Instruction> m_instructions;
@@ -517,26 +529,17 @@ namespace JSC {
         // Constant Pool
         Vector<Identifier> m_identifiers;
         Vector<Register> m_constantRegisters;
-        Vector<RefPtr<FuncExprNode> > m_functionExpressions;
+        Vector<RefPtr<FunctionExecutable> > m_functionDecls;
+        Vector<RefPtr<FunctionExecutable> > m_functionExprs;
 
         SymbolTable m_symbolTable;
 
-        struct ExceptionInfo : FastAllocBase {
-            Vector<ExpressionRangeInfo> m_expressionInfo;
-            Vector<LineInfo> m_lineInfo;
-            Vector<GetByIdExceptionInfo> m_getByIdExceptionInfo;
-
-#if ENABLE(JIT)
-            Vector<CallReturnOffsetToBytecodeIndex> m_callReturnIndexVector;
-#endif
-        };
         OwnPtr<ExceptionInfo> m_exceptionInfo;
 
         struct RareData : FastAllocBase {
             Vector<HandlerInfo> m_exceptionHandlers;
 
             // Rare Constants
-            Vector<RefPtr<FuncDeclNode> > m_functions;
             Vector<RefPtr<RegExp> > m_regexps;
 
             // Jump Tables
@@ -556,16 +559,16 @@ namespace JSC {
     // Program code is not marked by any function, so we make the global object
     // responsible for marking it.
 
-    class ProgramCodeBlock : public CodeBlock {
+    class GlobalCodeBlock : public CodeBlock {
     public:
-        ProgramCodeBlock(ScopeNode* ownerNode, CodeType codeType, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider)
-            : CodeBlock(ownerNode, codeType, sourceProvider, 0)
+        GlobalCodeBlock(ExecutableBase* ownerExecutable, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, JSGlobalObject* globalObject)
+            : CodeBlock(ownerExecutable, codeType, sourceProvider, sourceOffset)
             , m_globalObject(globalObject)
         {
             m_globalObject->codeBlocks().add(this);
         }
 
-        ~ProgramCodeBlock()
+        ~GlobalCodeBlock()
         {
             if (m_globalObject)
                 m_globalObject->codeBlocks().remove(this);
@@ -577,10 +580,18 @@ namespace JSC {
         JSGlobalObject* m_globalObject; // For program and eval nodes, the global object that marks the constant pool.
     };
 
-    class EvalCodeBlock : public ProgramCodeBlock {
+    class ProgramCodeBlock : public GlobalCodeBlock {
     public:
-        EvalCodeBlock(ScopeNode* ownerNode, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider, int baseScopeDepth)
-            : ProgramCodeBlock(ownerNode, EvalCode, globalObject, sourceProvider)
+        ProgramCodeBlock(ProgramExecutable* ownerExecutable, CodeType codeType, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider)
+            : GlobalCodeBlock(ownerExecutable, codeType, sourceProvider, 0, globalObject)
+        {
+        }
+    };
+
+    class EvalCodeBlock : public GlobalCodeBlock {
+    public:
+        EvalCodeBlock(EvalExecutable* ownerExecutable, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider, int baseScopeDepth)
+            : GlobalCodeBlock(ownerExecutable, EvalCode, sourceProvider, 0, globalObject)
             , m_baseScopeDepth(baseScopeDepth)
         {
         }
@@ -589,6 +600,22 @@ namespace JSC {
 
     private:
         int m_baseScopeDepth;
+    };
+
+    class FunctionCodeBlock : public CodeBlock {
+    public:
+        FunctionCodeBlock(FunctionExecutable* ownerExecutable, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset)
+            : CodeBlock(ownerExecutable, codeType, sourceProvider, sourceOffset)
+        {
+        }
+    };
+
+    class NativeCodeBlock : public CodeBlock {
+    public:
+        NativeCodeBlock(FunctionExecutable* ownerExecutable)
+            : CodeBlock(ownerExecutable)
+        {
+        }
     };
 
     inline Register& ExecState::r(int index)

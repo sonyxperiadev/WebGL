@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -140,7 +141,7 @@ namespace WebCore {
 
         inline PixelData* getAddr(int x, int y)
         {
-#if PLATFORM(CAIRO) || PLATFORM(WX)
+#if PLATFORM(CAIRO) || PLATFORM(WX) || PLATFORM(HAIKU)
             return m_bytes.data() + (y * width()) + x;
 #elif (PLATFORM(SKIA) || PLATFORM(SGL))
             return m_bitmap.getAddr32(x, y);
@@ -166,7 +167,7 @@ namespace WebCore {
             }
         }
 
-#if PLATFORM(CAIRO) || PLATFORM(WX)
+#if PLATFORM(CAIRO) || PLATFORM(WX) || PLATFORM(HAIKU)
         Vector<PixelData> m_bytes;
         IntSize m_size;       // The size of the buffer.  This should be the
                               // same as ImageDecoder::m_size.
@@ -188,9 +189,17 @@ namespace WebCore {
     // and the base class manages the RGBA32 frame cache.
     class ImageDecoder {
     public:
+        // ENABLE(IMAGE_DECODER_DOWN_SAMPLING) allows image decoders to write directly to
+        // scaled output buffers by down sampling. Call setMaxNumPixels() to specify the
+        // biggest size that decoded images can have. Image decoders will deflate those
+        // images that are bigger than m_maxNumPixels. (Not supported by all image decoders yet)
         ImageDecoder()
             : m_failed(false)
             , m_sizeAvailable(false)
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+            , m_maxNumPixels(-1)
+            , m_scaled(false)
+#endif
         {
         }
 
@@ -272,8 +281,25 @@ namespace WebCore {
         // since in practice only GIFs will ever use this.
         virtual void clearFrameBufferCache(size_t clearBeforeFrame) { }
 
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        void setMaxNumPixels(int m) { m_maxNumPixels = m; }
+#endif
+
     protected:
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        void prepareScaleDataIfNecessary();
+        int upperBoundScaledX(int origX, int searchStart = 0);
+        int lowerBoundScaledX(int origX, int searchStart = 0);
+        int scaledY(int origY, int searchStart = 0);
+#endif
+
         RefPtr<SharedBuffer> m_data; // The encoded data.
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+        int m_maxNumPixels;
+        Vector<int> m_scaledColumns;
+        Vector<int> m_scaledRows;
+        bool m_scaled;
+#endif
         Vector<RGBA32Buffer> m_frameBufferCache;
         bool m_failed;
 
