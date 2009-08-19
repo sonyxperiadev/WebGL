@@ -48,7 +48,7 @@ public:
     virtual JSValue valueOf(ExecState*) const;
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
 
-    void markAggregate(MarkStack&);
+    virtual void mark(); // This isn't inherited
 
     virtual JSValue invokeMethod(ExecState*, const MethodList&, const ArgList&);
 

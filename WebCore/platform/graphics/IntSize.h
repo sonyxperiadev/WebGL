@@ -47,8 +47,6 @@ typedef struct tagSIZE SIZE;
 QT_BEGIN_NAMESPACE
 class QSize;
 QT_END_NAMESPACE
-#elif PLATFORM(HAIKU)
-class BSize;
 #endif
 
 namespace WebCore {
@@ -113,11 +111,6 @@ public:
 #if PLATFORM(QT)
     IntSize(const QSize&);
     operator QSize() const;
-#endif
-
-#if PLATFORM(HAIKU)
-    explicit IntSize(const BSize&);
-    operator BSize() const;
 #endif
 
 

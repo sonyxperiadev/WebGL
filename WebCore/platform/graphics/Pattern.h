@@ -53,9 +53,6 @@ typedef wxGraphicsBrush* PlatformPatternPtr;
 class wxBrush;
 typedef wxBrush* PlatformPatternPtr;
 #endif // USE(WXGC)
-#elif PLATFORM(HAIKU)
-#include <interface/GraphicsDefs.h>
-typedef pattern* PlatformPatternPtr;
 #elif PLATFORM(WINCE)
 typedef void* PlatformPatternPtr;
 #endif

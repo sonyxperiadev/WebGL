@@ -47,7 +47,6 @@
     macro(ignoreCase) \
     macro(index) \
     macro(input) \
-    macro(isArray) \
     macro(isPrototypeOf) \
     macro(length) \
     macro(message) \

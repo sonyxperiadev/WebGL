@@ -32,7 +32,7 @@
 
 #include "ConsoleMessage.h"
 #include "Frame.h"
-#include "InspectorController.h"
+#include "InspectorController.h"  // TODO(pfeldman): Extract SpecialPanels to remove include.
 #include "Node.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
@@ -49,9 +49,8 @@
 
 namespace WebCore {
 
-InspectorFrontend::InspectorFrontend(InspectorController* inspectorController, ScriptState* scriptState, ScriptObject webInspector)
-    : m_inspectorController(inspectorController)
-    , m_scriptState(scriptState)
+InspectorFrontend::InspectorFrontend(ScriptState* scriptState, ScriptObject webInspector)
+    : m_scriptState(scriptState)
     , m_webInspector(webInspector)
 {
 }
@@ -80,15 +79,10 @@ void InspectorFrontend::addMessageToConsole(const ScriptObject& messageObj, cons
             function->appendArgument(frames[i]);
     } else if (!wrappedArguments.isEmpty()) {
         for (unsigned i = 0; i < wrappedArguments.size(); ++i)
-            function->appendArgument(m_inspectorController->wrapObject(wrappedArguments[i]));
+            function->appendArgument(wrappedArguments[i]);
     } else
         function->appendArgument(message);
     function->call();
-}
-
-void InspectorFrontend::clearConsoleMessages()
-{
-    callSimpleFunction("clearConsoleMessages");
 }
 
 bool InspectorFrontend::addResource(long long identifier, const ScriptObject& resourceObj)
@@ -118,10 +112,14 @@ void InspectorFrontend::removeResource(long long identifier)
     function->call();
 }
 
-void InspectorFrontend::updateFocusedNode(long long nodeId)
+void InspectorFrontend::updateFocusedNode(Node* node)
 {
+    ScriptObject quarantinedNode;
+    if (!getQuarantinedScriptObject(node, quarantinedNode))
+        return;
+
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("updateFocusedNode"));
-    function->appendArgument(nodeId);
+    function->appendArgument(quarantinedNode);
     function->call();
 }
 
@@ -129,6 +127,17 @@ void InspectorFrontend::setAttachedWindow(bool attached)
 {
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("setAttachedWindow"));
     function->appendArgument(attached);
+    function->call();
+}
+
+void InspectorFrontend::inspectedWindowScriptObjectCleared(Frame* frame)
+{
+    ScriptObject domWindow;
+    if (!getQuarantinedScriptObject(frame->domWindow(), domWindow))
+        return;
+
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("inspectedWindowCleared"));
+    function->appendArgument(domWindow);
     function->call();
 }
 
@@ -277,9 +286,9 @@ bool InspectorFrontend::addDOMStorage(const ScriptObject& domStorageObj)
 }
 #endif
 
-void InspectorFrontend::setDocument(const ScriptObject& root)
+void InspectorFrontend::setDocumentElement(const ScriptObject& root)
 {
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDocument"));
+    OwnPtr<ScriptFunctionCall> function(newFunctionCall("setDocumentElement"));
     function->appendArgument(root);
     function->call();
 }
@@ -337,37 +346,6 @@ void InspectorFrontend::didApplyDomChange(int callId, bool success)
     OwnPtr<ScriptFunctionCall> function(newFunctionCall("didApplyDomChange"));
     function->appendArgument(callId);
     function->appendArgument(success);
-    function->call();
-}
-
-#if ENABLE(DATABASE)
-void InspectorFrontend::selectDatabase(Database* database)
-{
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("selectDatabase"));
-    ScriptObject quarantinedObject;
-    if (!getQuarantinedScriptObject(database, quarantinedObject))
-        return;
-    function->appendArgument(quarantinedObject);
-    function->call();
-}
-#endif
-
-#if ENABLE(DOM_STORAGE)
-void InspectorFrontend::selectDOMStorage(Storage* storage)
-{
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("selectDOMStorage"));
-    ScriptObject quarantinedObject;
-    if (!getQuarantinedScriptObject(storage, quarantinedObject))
-        return;
-    function->appendArgument(quarantinedObject);
-    function->call();
-}
-#endif
-
-void InspectorFrontend::addNodesToSearchResult(const String& nodeIds)
-{
-    OwnPtr<ScriptFunctionCall> function(newFunctionCall("addNodesToSearchResult"));
-    function->appendArgument(nodeIds);
     function->call();
 }
 

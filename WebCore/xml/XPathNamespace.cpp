@@ -1,6 +1,6 @@
 /*
  * Copyright 2005 Frerich Raabe <raabe@kde.org>
- * Copyright (C) 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,11 +33,15 @@
 
 namespace WebCore {
 
-XPathNamespace::XPathNamespace(PassRefPtr<Element> ownerElement, const AtomicString& prefix, const AtomicString& uri)
-    : Node(ownerElement->document(), CreateOther)
+XPathNamespace::XPathNamespace(PassRefPtr<Element> ownerElement, const String& prefix, const String& uri)
+    : Node(ownerElement->document())
     , m_ownerElement(ownerElement)
     , m_prefix(prefix)
     , m_uri(uri)
+{
+}
+
+XPathNamespace::~XPathNamespace()
 {
 }
 

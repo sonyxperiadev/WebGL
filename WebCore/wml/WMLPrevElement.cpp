@@ -40,16 +40,13 @@ WMLPrevElement::~WMLPrevElement()
 {
 }
 
-void WMLPrevElement::executeTask()
+void WMLPrevElement::executeTask(Event*)
 {
-    ASSERT(document()->isWMLDocument());
-    WMLDocument* document = static_cast<WMLDocument*>(this->document());
-
-    WMLPageState* pageState = wmlPageStateForDocument(document);
+    WMLPageState* pageState = wmlPageStateForDocument(document());
     if (!pageState)
         return;
 
-    WMLCardElement* card = document->activeCard();
+    WMLCardElement* card = pageState->activeCard();
     if (!card)
         return;
 

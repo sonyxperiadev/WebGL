@@ -50,11 +50,6 @@ namespace WebCore {
         LinearRGB
     };
 
-    enum Multiply {
-        Premultiplied,
-        Unmultiplied
-    };
-
     class ImageBuffer : public Noncopyable {
     public:
         // Will return a null pointer on allocation failure.
@@ -76,11 +71,8 @@ namespace WebCore {
 
         void clearImage() { m_image.clear(); }
 
-        PassRefPtr<ImageData> getUnmultipliedImageData(const IntRect&) const;
-        PassRefPtr<ImageData> getPremultipliedImageData(const IntRect&) const;
-
-        void putUnmultipliedImageData(ImageData*, const IntRect& sourceRect, const IntPoint& destPoint);
-        void putPremultipliedImageData(ImageData*, const IntRect& sourceRect, const IntPoint& destPoint);
+        PassRefPtr<ImageData> getImageData(const IntRect& rect) const;
+        void putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint);
 
         String toDataURL(const String& mimeType) const;
 #if !PLATFORM(CG)

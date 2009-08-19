@@ -45,7 +45,7 @@ PassRefPtr<DedicatedWorkerThread> DedicatedWorkerThread::create(const KURL& scri
 }
 
 DedicatedWorkerThread::DedicatedWorkerThread(const KURL& url, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy)
-    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy, workerObjectProxy)
+    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy)
     , m_workerObjectProxy(workerObjectProxy)
 {
 }

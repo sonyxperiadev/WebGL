@@ -43,7 +43,7 @@ namespace JSC {
     class JSActivation : public JSVariableObject {
         typedef JSVariableObject Base;
     public:
-        JSActivation(CallFrame*, PassRefPtr<FunctionExecutable>);
+        JSActivation(CallFrame*, PassRefPtr<FunctionBodyNode>);
         virtual ~JSActivation();
 
         virtual void markChildren(MarkStack&);
@@ -70,13 +70,13 @@ namespace JSC {
 
     private:
         struct JSActivationData : public JSVariableObjectData {
-            JSActivationData(PassRefPtr<FunctionExecutable> functionExecutable, Register* registers)
-                : JSVariableObjectData(&functionExecutable->generatedBytecode().symbolTable(), registers)
-                , functionExecutable(functionExecutable)
+            JSActivationData(PassRefPtr<FunctionBodyNode> functionBody, Register* registers)
+                : JSVariableObjectData(&functionBody->generatedBytecode().symbolTable(), registers)
+                , functionBody(functionBody)
             {
             }
 
-            RefPtr<FunctionExecutable> functionExecutable;
+            RefPtr<FunctionBodyNode> functionBody;
         };
         
         static JSValue argumentsGetter(ExecState*, const Identifier&, const PropertySlot&);

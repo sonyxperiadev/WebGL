@@ -31,7 +31,7 @@ public:
     WMLRefreshElement(const QualifiedName& tagName, Document*);
     virtual ~WMLRefreshElement();
 
-    virtual void executeTask();
+    virtual void executeTask(Event*);
 };
 
 }

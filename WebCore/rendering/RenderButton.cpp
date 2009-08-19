@@ -52,8 +52,7 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
     if (!m_inner) {
         // Create an anonymous block.
         ASSERT(!firstChild());
-        bool isFlexibleBox = style()->display() == BOX || style()->display() == INLINE_BOX;
-        m_inner = createAnonymousBlock(isFlexibleBox);
+        m_inner = createAnonymousBlock();
         setupInnerStyle(m_inner->style());
         RenderFlexibleBox::addChild(m_inner);
     }
@@ -109,7 +108,6 @@ void RenderButton::setupInnerStyle(RenderStyle* innerStyle)
     // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
     // safe to modify.
     innerStyle->setBoxFlex(1.0f);
-    innerStyle->setBoxOrient(style()->boxOrient());
 
     innerStyle->setPaddingTop(Length(theme()->buttonInternalPaddingTop(), Fixed));
     innerStyle->setPaddingRight(Length(theme()->buttonInternalPaddingRight(), Fixed));

@@ -48,7 +48,7 @@ void WMLIntrinsicEventHandler::triggerIntrinsicEvent(WMLIntrinsicEventType type)
 {
     RefPtr<WMLIntrinsicEvent> event = m_events.get(type);
     ASSERT(event->taskElement());
-    event->taskElement()->executeTask();
+    event->taskElement()->executeTask(0);
 }
 
 bool WMLIntrinsicEventHandler::hasIntrinsicEvent(WMLIntrinsicEventType type) const

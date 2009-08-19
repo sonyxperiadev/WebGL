@@ -116,7 +116,6 @@ namespace WTF {
         }
 
         size_t size() const { return m_size; }
-        bool isEmpty() const { return !size(); }
 
         T& at(size_t index)
         {
@@ -249,7 +248,5 @@ namespace WTF {
     };
 
 } // namespace WTF
-
-using WTF::SegmentedVector;
 
 #endif // SegmentedVector_h

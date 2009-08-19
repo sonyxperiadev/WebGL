@@ -35,6 +35,7 @@
 #include "CharacterNames.h"
 #include "EventNames.h"
 #include "FloatRect.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLAreaElement.h"
@@ -53,6 +54,7 @@
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
 #include "NodeList.h"
+#include "Page.h"
 #include "RenderButton.h"
 #include "RenderFieldset.h"
 #include "RenderFileUploadControl.h"
@@ -1656,7 +1658,7 @@ AccessibilityObject* AccessibilityRenderObject::accessibilityParentForImageMap(H
         
         // The HTMLImageElement's useMap() value includes the '#' symbol at the beginning,
         // which has to be stripped off
-        String useMapName = static_cast<HTMLImageElement*>(curr)->getAttribute(usemapAttr).string().substring(1).lower();
+        String useMapName = static_cast<HTMLImageElement*>(curr)->useMap().substring(1).lower();
         if (useMapName == mapName)
             return axObjectCache()->getOrCreate(obj);
     }
@@ -2100,11 +2102,32 @@ AccessibilityObject* AccessibilityRenderObject::doAccessibilityHitTest(const Int
 
 AccessibilityObject* AccessibilityRenderObject::focusedUIElement() const
 {
+    // get the focused node in the page
     Page* page = m_renderer->document()->page();
     if (!page)
         return 0;
-
-    return AXObjectCache::focusedUIElementForPage(page);
+    
+    Document* focusedDocument = page->focusController()->focusedOrMainFrame()->document();
+    Node* focusedNode = focusedDocument->focusedNode();
+    if (!focusedNode)
+        focusedNode = focusedDocument;
+    
+    RenderObject* focusedNodeRenderer = focusedNode->renderer();
+    if (!focusedNodeRenderer)
+        return 0;
+    
+    AccessibilityObject* obj = focusedNodeRenderer->document()->axObjectCache()->getOrCreate(focusedNodeRenderer);
+    
+    if (obj->shouldFocusActiveDescendant()) {
+        if (AccessibilityObject* descendant = obj->activeDescendant())
+            obj = descendant;
+    }
+    
+    // the HTML element, for example, is focusable but has an AX object that is ignored
+    if (obj->accessibilityIsIgnored())
+        obj = obj->parentObjectUnignored();
+    
+    return obj;
 }
 
 bool AccessibilityRenderObject::shouldFocusActiveDescendant() const

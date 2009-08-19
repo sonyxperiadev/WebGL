@@ -89,7 +89,6 @@
 #include "SecurityOrigin.h"
 #include "SegmentedString.h"
 #include "Settings.h"
-#include "SharedWorkerRepository.h"
 #include "TextResourceDecoder.h"
 #include "WindowFeatures.h"
 #include "XMLHttpRequest.h"
@@ -278,7 +277,6 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_isDisplayingInitialEmptyDocument(false)
     , m_committedFirstRealDocumentLoad(false)
     , m_didPerformFirstNavigation(false)
-    , m_loadingFromCachedPage(false)
 #ifndef NDEBUG
     , m_didDispatchDidCommitLoad(false)
 #endif
@@ -931,6 +929,9 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
 
     m_frame->setDocument(document);
 
+    if (dispatch)
+        dispatchWindowObjectAvailable();
+
     document->setURL(m_URL);
     if (m_decoder)
         document->setDecoder(m_decoder.get());
@@ -940,9 +941,6 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
     m_frame->domWindow()->setURL(document->url());
     m_frame->domWindow()->setSecurityOrigin(document->securityOrigin());
 
-    if (dispatch)
-        dispatchWindowObjectAvailable();
-    
     updateFirstPartyForCookies();
 
     Settings* settings = document->settings();
@@ -1845,9 +1843,6 @@ bool FrameLoader::canCachePageContainingThisFrame()
 #if ENABLE(DATABASE)
         && !m_frame->document()->hasOpenDatabases()
 #endif
-#if ENABLE(SHARED_WORKERS)
-        && !SharedWorkerRepository::hasSharedWorkers(m_frame->document())
-#endif
         && !m_frame->document()->usingGeolocation()
         && m_currentHistoryItem
         && !m_quickRedirectComing
@@ -1993,10 +1988,6 @@ bool FrameLoader::logCanCacheFrameDecision(int indentLevel)
 #if ENABLE(DATABASE)
         if (m_frame->document()->hasOpenDatabases())
             { PCLOG("   -Frame has open database handles"); cannotCache = true; }
-#endif
-#if ENABLE(SHARED_WORKERS)
-        if (SharedWorkerRepository::hasSharedWorkers(m_frame->document()))
-            { PCLOG("   -Frame has associated SharedWorkers"); cannotCache = true; }
 #endif
         if (m_frame->document()->usingGeolocation())
             { PCLOG("   -Frame uses Geolocation"); cannotCache = true; }
@@ -2842,8 +2833,7 @@ void FrameLoader::commitProvisionalLoad(PassRefPtr<CachedPage> prpCachedPage)
     RefPtr<CachedPage> cachedPage = prpCachedPage;
     RefPtr<DocumentLoader> pdl = m_provisionalDocumentLoader;
 
-    LOG(PageCache, "WebCoreLoading %s: About to commit provisional load from previous URL '%s' to new URL '%s'", m_frame->tree()->name().string().utf8().data(), m_URL.string().utf8().data(), 
-        pdl ? pdl->url().string().utf8().data() : "<no provisional DocumentLoader>");
+    LOG(Loading, "WebCoreLoading %s: About to commit provisional load from previous URL %s", m_frame->tree()->name().string().utf8().data(), m_URL.string().utf8().data());
 
     // Check to see if we need to cache the page we are navigating away from into the back/forward cache.
     // We are doing this here because we know for sure that a new page is about to be loaded.
@@ -2884,7 +2874,7 @@ void FrameLoader::commitProvisionalLoad(PassRefPtr<CachedPage> prpCachedPage)
     if (m_loadType == FrameLoadTypeStandard && m_documentLoader->isClientRedirect())
         updateHistoryForClientRedirect();
 
-    if (m_loadingFromCachedPage) {
+    if (m_documentLoader->isLoadingFromCachedPage()) {
         m_frame->document()->documentDidBecomeActive();
         
         // Force a layout to update view size and thereby update scrollbars.
@@ -3461,7 +3451,7 @@ void FrameLoader::continueLoadAfterWillSubmitForm(PolicyAction)
     if (activeDocLoader && activeDocLoader->isLoadingMainResource())
         return;
 
-    m_loadingFromCachedPage = false;
+    m_provisionalDocumentLoader->setLoadingFromCachedPage(false);
 
     unsigned long identifier = 0;
 
@@ -4246,17 +4236,7 @@ bool FrameLoader::loadProvisionalItemFromCachedPage()
     RefPtr<CachedPage> cachedPage = pageCache()->get(m_provisionalHistoryItem.get());
     if (!cachedPage || !cachedPage->document())
         return false;
-
-    DocumentLoader *provisionalLoader = provisionalDocumentLoader();
-    LOG(PageCache, "WebCorePageCache: FrameLoader %p loading provisional DocumentLoader %p with URL '%s' from CachedPage %p", this, provisionalLoader, provisionalLoader->url().string().utf8().data(), cachedPage.get());
-    
-    provisionalLoader->prepareForLoadStart();
-
-    m_loadingFromCachedPage = true;
-
-    provisionalLoader->setCommitted(true);
-    commitProvisionalLoad(cachedPage);
-    
+    provisionalDocumentLoader()->loadFromCachedPage(cachedPage.release());
     return true;
 }
 
@@ -5131,6 +5111,8 @@ void FrameLoader::dispatchWindowObjectAvailable()
     m_client->windowObjectCleared();
 
     if (Page* page = m_frame->page()) {
+        if (InspectorController* inspector = page->inspectorController())
+            inspector->inspectedWindowScriptObjectCleared(m_frame);
         if (InspectorController* inspector = page->parentInspectorController())
             inspector->windowScriptObjectAvailable();
     }

@@ -35,14 +35,14 @@ module core {
         GenerateConstructor
     ] InspectorBackend {
         void hideDOMNodeHighlight();
-        [Custom] void highlightDOMNode(in long nodeId);
-        void loaded();
+        [Custom] void highlightDOMNode(in Node node);
+        void loaded(in boolean enableDOMAgent);
         void windowUnloading();
         void attach();
         void detach();
 
         void closeWindow();
-        void clearMessages(in boolean clearUI);
+        void clearMessages();
         void toggleNodeSearch();
 
         boolean isWindowVisible();
@@ -67,9 +67,6 @@ module core {
         void enableResourceTracking(in boolean always);
         void disableResourceTracking(in boolean always);
         void storeLastActivePanel(in DOMString panelName);
-
-        [Custom] Array cookies();
-        [Custom] void deleteCookie(in DOMString cookieName);
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         boolean debuggerEnabled();
@@ -100,23 +97,9 @@ module core {
 
         [Custom] Array profiles();
 #endif
-        void getChildNodes(in long callId, in long nodeId);
+        void getChildNodes(in long callId, in long elementId);
         void setAttribute(in long callId, in long elementId, in DOMString name, in DOMString value);
         void removeAttribute(in long callId, in long elementId, in DOMString name);
-        void setTextNodeValue(in long callId, in long nodeId, in DOMString value);
-
-        // Called from InjectedScript.
-        [Custom] DOMObject nodeForId(in long nodeId);
-        [Custom] long idForNode(in DOMObject node);
-        [Custom] long wrapObject(in DOMObject object);
-        [Custom] DOMObject unwrapObject(in long objectId);
-        [Custom] int pushNodePathToFrontend(in DOMObject node, in boolean selectInUI);
-        void addNodesToSearchResult(in DOMString nodeIds);
-#if defined(ENABLE_DATABASE) && ENABLE_DATABASE
-        [Custom] void selectDatabase(in DOMObject database);
-#endif
-#if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
-        [Custom] void selectDOMStorage(in DOMObject storage);
-#endif
+        void setTextNodeValue(in long callId, in long elementId, in DOMString value);
     };
-}
+ }

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -84,17 +84,16 @@ static inline void insertSemicolonIfNeeded(UString& functionBody)
 
 JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (thisValue.inherits(&JSFunction::info)) {
+    if (thisValue.isObject(&JSFunction::info)) {
         JSFunction* function = asFunction(thisValue);
-        FunctionExecutable* executable = function->executable();
-        if (!executable->isHostFunction()) {
-            UString sourceString = executable->source().toString();
-            insertSemicolonIfNeeded(sourceString);
-            return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + executable->paramString() + ") " + sourceString);
+        if (!function->isHostFunction()) {
+            UString functionBody = function->body()->toSourceString();
+            insertSemicolonIfNeeded(functionBody);
+            return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + functionBody);
         }
     }
 
-    if (thisValue.inherits(&InternalFunction::info)) {
+    if (thisValue.isObject(&InternalFunction::info)) {
         InternalFunction* function = asInternalFunction(thisValue);
         return jsString(exec, "function " + function->name(&exec->globalData()) + "() {\n    [native code]\n}");
     }

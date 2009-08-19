@@ -35,6 +35,7 @@ namespace WebCore {
 
 WMLPageState::WMLPageState(Page* page)
     : m_page(page)
+    , m_activeCard(0)
     , m_hasAccessControlData(false)
 {
 }

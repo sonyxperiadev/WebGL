@@ -1,9 +1,9 @@
-/*
+/**
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,7 +38,6 @@ HTMLFrameElement::HTMLFrameElement(const QualifiedName& tagName, Document* docum
     : HTMLFrameElementBase(tagName, document)
     , m_frameBorder(true)
     , m_frameBorderSet(false)
-    , m_noResize(false)
 {
     ASSERT(hasTagName(frameTag));
 }
@@ -46,7 +45,7 @@ HTMLFrameElement::HTMLFrameElement(const QualifiedName& tagName, Document* docum
 bool HTMLFrameElement::rendererIsNeeded(RenderStyle*)
 {
     // For compatibility, frames render even when display: none is set.
-    return isURLAllowed();
+    return isURLAllowed(m_URL);
 }
 
 RenderObject* HTMLFrameElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -80,20 +79,8 @@ void HTMLFrameElement::parseMappedAttribute(MappedAttribute *attr)
         m_frameBorder = attr->value().toInt();
         m_frameBorderSet = !attr->isNull();
         // FIXME: If we are already attached, this has no effect.
-    } else if (attr->name() == noresizeAttr) {
-        m_noResize = true;
-        // FIXME: If we are already attached, this has no effect.
-        // FIXME: Since this does not check attr->isNull(), it can
-        // never reset m_noResize to false if the attribute is removed.
-        // FIXME: There seems to be no code that looks at this
-        // value and prevents resizing.
     } else
         HTMLFrameElementBase::parseMappedAttribute(attr);
-}
-
-void HTMLFrameElement::setNoResize(bool noResize)
-{
-    setAttribute(noresizeAttr, noResize ? "" : 0);
 }
 
 } // namespace WebCore

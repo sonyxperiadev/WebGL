@@ -56,10 +56,6 @@ QT_END_NAMESPACE
 class wxString;
 #endif
 
-#if PLATFORM(HAIKU)
-class BString;
-#endif
-
 namespace WebCore {
 
 class CString;
@@ -231,11 +227,6 @@ public:
 #if PLATFORM(WX)
     String(const wxString&);
     operator wxString() const;
-#endif
-
-#if PLATFORM(HAIKU)
-    String(const BString&);
-    operator BString() const;
 #endif
 
 #ifndef NDEBUG

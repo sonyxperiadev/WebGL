@@ -25,19 +25,15 @@
 #include "ArrayConstructor.h"
 
 #include "ArrayPrototype.h"
-#include "Error.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "Lookup.h"
-#include "PrototypeFunction.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ArrayConstructor);
-    
-static JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*, JSObject*, JSValue, const ArgList&);
 
-ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<Structure> structure, ArrayPrototype* arrayPrototype, Structure* prototypeFunctionStructure)
+ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<Structure> structure, ArrayPrototype* arrayPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, arrayPrototype->classInfo()->className))
 {
     // ECMA 15.4.3.1 Array.prototype
@@ -45,9 +41,6 @@ ArrayConstructor::ArrayConstructor(ExecState* exec, PassRefPtr<Structure> struct
 
     // no. of arguments for constructor
     putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly | DontEnum | DontDelete);
-
-    // ES5
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().isArray, arrayConstructorIsArray), DontEnum);
 }
 
 static JSObject* constructArrayWithSizeQuirk(ExecState* exec, const ArgList& args)
@@ -87,11 +80,6 @@ CallType ArrayConstructor::getCallData(CallData& callData)
     // equivalent to 'new Array(....)'
     callData.native.function = callArrayConstructor;
     return CallTypeHost;
-}
-
-JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*, JSObject*, JSValue, const ArgList& args)
-{
-    return jsBoolean(args.at(0).inherits(&JSArray::info));
 }
 
 } // namespace JSC

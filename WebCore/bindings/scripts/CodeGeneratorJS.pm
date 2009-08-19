@@ -667,12 +667,6 @@ sub GenerateHeader
         push(@headerContent,
             "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)\n" .
             "    {\n" .
-            "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType" . ($dataNode->extendedAttributes->{"CustomMarkFunction"} ? "" : ", JSC::HasDefaultMark") . "));\n" .
-            "    }\n");
-    } elsif ($dataNode->extendedAttributes->{"CustomMarkFunction"}) {
-        push(@headerContent,
-            "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)\n" .
-            "    {\n" .
             "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType));\n" .
             "    }\n");
     }
@@ -1379,7 +1373,7 @@ sub GenerateImplementation
                 push(@implContent, "    if (!castedThisObj)\n");
                 push(@implContent, "        return throwError(exec, TypeError);\n");
             } else {
-                push(@implContent, "    if (!thisValue.inherits(&${className}::s_info))\n");
+                push(@implContent, "    if (!thisValue.isObject(&${className}::s_info))\n");
                 push(@implContent, "        return throwError(exec, TypeError);\n");
                 push(@implContent, "    $className* castedThisObj = static_cast<$className*>(asObject(thisValue));\n");
             }
@@ -1543,7 +1537,7 @@ sub GenerateImplementation
 
         push(@implContent, "{\n");
 
-        push(@implContent, "    return value.inherits(&${className}::s_info) ? " . ($podType ? "($podType) *" : "") . "static_cast<$className*>(asObject(value))->impl() : ");
+        push(@implContent, "    return value.isObject(&${className}::s_info) ? " . ($podType ? "($podType) *" : "") . "static_cast<$className*>(asObject(value))->impl() : ");
         if ($podType and $podType ne "float") {
             push(@implContent, "$podType();\n}\n");
         } else {

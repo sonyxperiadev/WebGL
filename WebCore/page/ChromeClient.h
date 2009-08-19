@@ -62,10 +62,6 @@ namespace WebCore {
     class GraphicsLayer;
 #endif
 
-#if ENABLE(NOTIFICATIONS)
-    class NotificationPresenter;
-#endif
-
     class ChromeClient {
     public:
         virtual void chromeDestroyed() = 0;
@@ -154,10 +150,6 @@ namespace WebCore {
 
 #if ENABLE(DASHBOARD_SUPPORT)
         virtual void dashboardRegionsChanged();
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        virtual NotificationPresenter* notificationPresenter() const = 0;
 #endif
 
         virtual void populateVisitedLinks();

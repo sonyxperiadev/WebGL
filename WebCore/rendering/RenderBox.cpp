@@ -416,11 +416,6 @@ bool RenderBox::scroll(ScrollDirection direction, ScrollGranularity granularity,
         return b->scroll(direction, granularity, multiplier);
     return false;
 }
-
-bool RenderBox::canBeScrolledAndHasScrollableArea() const
-{
-   return canBeProgramaticallyScrolled(false) && (scrollHeight() != clientHeight() || scrollWidth() != clientWidth());
-}
     
 bool RenderBox::canBeProgramaticallyScrolled(bool) const
 {
@@ -658,36 +653,31 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, int tx, int ty, int 
 {
     // Figure out if we need to push a transparency layer to render our mask.
     bool pushTransparencyLayer = false;
-    bool compositedMask = hasLayer() && layer()->hasCompositedMask();
-    CompositeOperator compositeOp = CompositeSourceOver;
-
-    if (!compositedMask) {
-        StyleImage* maskBoxImage = style()->maskBoxImage().image();
-        if (maskBoxImage && style()->maskLayers()->hasImage()) {
-            pushTransparencyLayer = true;
-        } else {
-            // We have to use an extra image buffer to hold the mask. Multiple mask images need
-            // to composite together using source-over so that they can then combine into a single unified mask that
-            // can be composited with the content using destination-in.  SVG images need to be able to set compositing modes
-            // as they draw images contained inside their sub-document, so we paint all our images into a separate buffer
-            // and composite that buffer as the mask.
-            // We have to check that the mask images to be rendered contain at least one image that can be actually used in rendering
-            // before pushing the transparency layer.
-            for (const FillLayer* fillLayer = style()->maskLayers()->next(); fillLayer; fillLayer = fillLayer->next()) {
-                if (fillLayer->hasImage() && fillLayer->image()->canRender(style()->effectiveZoom())) {
-                    pushTransparencyLayer = true;
-                    // We found one image that can be used in rendering, exit the loop
-                    break;
-                }
+    StyleImage* maskBoxImage = style()->maskBoxImage().image();
+    if (maskBoxImage && style()->maskLayers()->hasImage()) {
+        pushTransparencyLayer = true;
+    } else {
+        // We have to use an extra image buffer to hold the mask. Multiple mask images need
+        // to composite together using source-over so that they can then combine into a single unified mask that
+        // can be composited with the content using destination-in.  SVG images need to be able to set compositing modes
+        // as they draw images contained inside their sub-document, so we paint all our images into a separate buffer
+        // and composite that buffer as the mask.
+        // We have to check that the mask images to be rendered contain at least one image that can be actually used in rendering
+        // before pushing the transparency layer.
+        for (const FillLayer* fillLayer = style()->maskLayers()->next(); fillLayer; fillLayer = fillLayer->next()) {
+            if (fillLayer->hasImage() && fillLayer->image()->canRender(style()->effectiveZoom())) {
+                pushTransparencyLayer = true;
+                // We found one image that can be used in rendering, exit the loop
+                break;
             }
         }
-        
-        compositeOp = CompositeDestinationIn;
-        if (pushTransparencyLayer) {
-            paintInfo.context->setCompositeOperation(CompositeDestinationIn);
-            paintInfo.context->beginTransparencyLayer(1.0f);
-            compositeOp = CompositeSourceOver;
-        }
+    }
+    
+    CompositeOperator compositeOp = CompositeDestinationIn;
+    if (pushTransparencyLayer) {
+        paintInfo.context->setCompositeOperation(CompositeDestinationIn);
+        paintInfo.context->beginTransparencyLayer(1.0f);
+        compositeOp = CompositeSourceOver;
     }
 
     paintFillLayers(paintInfo, Color(), style()->maskLayers(), tx, ty, w, h, compositeOp);
@@ -2709,6 +2699,11 @@ int RenderBox::leftmostPosition(bool /*includeOverflowInterior*/, bool includeSe
     if (isRelPositioned())
         left += relativePositionOffsetX();
     return left;
+}
+
+bool RenderBox::isAfterContent(RenderObject* child) const
+{
+    return (child && child->style()->styleType() == AFTER && (!child->isText() || child->isBR()));
 }
 
 VisiblePosition RenderBox::positionForPoint(const IntPoint& point)

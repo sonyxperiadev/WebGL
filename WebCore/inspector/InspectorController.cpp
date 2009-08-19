@@ -61,9 +61,7 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "ScriptCallStack.h"
-#include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
-#include "ScriptObjectQuarantine.h"
 #include "ScriptString.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
@@ -127,7 +125,6 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_resourceTrackingEnabled(false)
     , m_resourceTrackingSettingsLoaded(false)
     , m_inspectorBackend(InspectorBackend::create(this, client))
-    , m_lastBoundObjectId(1)
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
@@ -273,8 +270,7 @@ void InspectorController::focusNode()
     ASSERT(m_frontend);
     ASSERT(m_nodeToFocus);
 
-    long id = m_domAgent->pushNodePathToFrontend(m_nodeToFocus.get());
-    m_frontend->updateFocusedNode(id);
+    m_frontend->updateFocusedNode(m_nodeToFocus.get());
     m_nodeToFocus = 0;
 }
 
@@ -382,15 +378,12 @@ void InspectorController::addConsoleMessage(ScriptState* scriptState, ConsoleMes
         m_previousMessage->addToConsole(m_frontend.get());
 }
 
-void InspectorController::clearConsoleMessages(bool clearUI)
+void InspectorController::clearConsoleMessages()
 {
     deleteAllValues(m_consoleMessages);
     m_consoleMessages.clear();
     m_previousMessage = 0;
     m_groupLevel = 0;
-    m_idToConsoleObject.clear();
-    if (clearUI && m_frontend)
-        m_frontend->clearConsoleMessages();
 }
 
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack)
@@ -499,6 +492,14 @@ void InspectorController::handleMousePressOnNode(Node* node)
     inspect(node);
 }
 
+void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame)
+{
+    if (!enabled() || !m_frontend)
+        return;
+
+    m_frontend->inspectedWindowScriptObjectCleared(frame);
+}
+
 void InspectorController::windowScriptObjectAvailable()
 {
     if (!m_page || !enabled())
@@ -510,7 +511,7 @@ void InspectorController::windowScriptObjectAvailable()
     ScriptGlobalObject::set(m_scriptState, "InspectorController", m_inspectorBackend.get());
 }
 
-void InspectorController::scriptObjectReady()
+void InspectorController::scriptObjectReady(bool enableDOMAgent)
 {
     ASSERT(m_scriptState);
     if (!m_scriptState)
@@ -519,10 +520,9 @@ void InspectorController::scriptObjectReady()
     ScriptObject webInspectorObj;
     if (!ScriptGlobalObject::get(m_scriptState, "WebInspector", webInspectorObj))
         return;
-    ScriptObject injectedScriptObj;
-    if (!ScriptGlobalObject::get(m_scriptState, "InjectedScript", injectedScriptObj))
-        return;
-    setFrontendProxyObject(m_scriptState, webInspectorObj, injectedScriptObj);
+    setFrontendProxyObject(m_scriptState, webInspectorObj);
+    if (enableDOMAgent)
+        m_domAgent = new InspectorDOMAgent(m_frontend.get());
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     Setting debuggerEnabled = setting(debuggerEnabledSettingName);
@@ -539,12 +539,9 @@ void InspectorController::scriptObjectReady()
     m_client->inspectorWindowObjectCleared();
 }
 
-void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj, ScriptObject injectedScriptObj)
+void InspectorController::setFrontendProxyObject(ScriptState* scriptState, ScriptObject webInspectorObj)
 {
-    m_scriptState = scriptState;
-    m_injectedScriptObj = injectedScriptObj;
-    m_frontend.set(new InspectorFrontend(this, scriptState, webInspectorObj));
-    m_domAgent = new InspectorDOMAgent(m_frontend.get());
+    m_frontend.set(new InspectorFrontend(scriptState, webInspectorObj));
 }
 
 void InspectorController::show()
@@ -598,8 +595,10 @@ void InspectorController::close()
     closeWindow();
 
     m_frontend.set(0);
-    m_injectedScriptObj = ScriptObject();
-    m_domAgent = 0;
+    if (m_domAgent) {
+        m_domAgent->setDocument(0);
+        m_domAgent = 0;
+    }
     m_scriptState = 0;
 }
 
@@ -650,8 +649,8 @@ void InspectorController::populateScriptObjects()
         (*it)->bind(m_frontend.get());
 #endif
 
-    if (m_domAgent->setDocument(m_inspectedPage->mainFrame()->document()))
-        resetInjectedScript();
+    if (m_domAgent)
+        m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
     m_frontend->populateInterface();
 }
 
@@ -707,7 +706,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
     if (loader->frame() == m_inspectedPage->mainFrame()) {
         m_client->inspectedURLChanged(loader->url().string());
 
-        clearConsoleMessages(false);
+        clearConsoleMessages();
 
         m_times.clear();
         m_counts.clear();
@@ -726,7 +725,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         if (windowVisible()) {
             resetScriptObjects();
 
-            if (!loader->frameLoader()->isLoadingFromCachedPage()) {
+            if (!loader->isLoadingFromCachedPage()) {
                 ASSERT(m_mainResource && m_mainResource->isSameLoader(loader));
                 // We don't add the main resource until its load is committed. This is
                 // needed to keep the load for a user-entered URL from showing up in the
@@ -741,8 +740,8 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
             }
         }
 
-        if (m_domAgent && m_domAgent->setDocument(m_inspectedPage->mainFrame()->document()))
-            resetInjectedScript();
+        if (m_domAgent)
+            m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
     }
 
     for (Frame* frame = loader->frame(); frame; frame = frame->tree()->traverseNext(loader->frame()))
@@ -860,7 +859,7 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
 
     addResource(resource.get());
 
-    if (windowVisible() && loader->frameLoader()->isLoadingFromCachedPage() && resource == m_mainResource)
+    if (windowVisible() && loader->isLoadingFromCachedPage() && resource == m_mainResource)
         resource->createScriptObject(m_frontend.get());
 }
 
@@ -1477,36 +1476,6 @@ InspectorController::SpecialPanels InspectorController::specialPanelForJSName(co
         return DatabasesPanel;
     else
         return ElementsPanel;
-}
-
-ScriptValue InspectorController::wrapObject(const ScriptValue& quarantinedObject)
-{
-    if (quarantinedObject.isObject()) {
-        long id = m_lastBoundObjectId++;
-        String objectId = String::format("object#%ld", id);
-        m_idToConsoleObject.set(objectId, quarantinedObject);
-
-        ScriptFunctionCall function(m_scriptState, m_injectedScriptObj, "createProxyObject");
-        function.appendArgument(quarantinedObject);
-        function.appendArgument(objectId);
-        ScriptValue wrapper = function.call();
-        return wrapper;
-    }
-    return quarantinedObject;
-}
-
-ScriptValue InspectorController::unwrapObject(const String& objectId)
-{
-    HashMap<String, ScriptValue>::iterator it = m_idToConsoleObject.find(objectId);
-    if (it != m_idToConsoleObject.end())
-        return it->second;
-    return ScriptValue();
-}
-
-void InspectorController::resetInjectedScript()
-{
-    ScriptFunctionCall function(m_scriptState, m_injectedScriptObj, "reset");
-    function.call();
 }
 
 } // namespace WebCore

@@ -31,6 +31,7 @@
 
 #if PLATFORM(CAIRO)
 
+#include "TransformationMatrix.h"
 #include "CairoPath.h"
 #include "FloatRect.h"
 #include "Font.h"
@@ -40,7 +41,6 @@
 #include "Path.h"
 #include "Pattern.h"
 #include "SimpleFontData.h"
-#include "TransformationMatrix.h"
 
 #include <cairo.h>
 #include <math.h>
@@ -53,8 +53,8 @@
 #elif PLATFORM(WIN)
 #include <cairo-win32.h>
 #endif
-#include "GraphicsContextPlatformPrivateCairo.h"
 #include "GraphicsContextPrivate.h"
+#include "GraphicsContextPlatformPrivateCairo.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -142,6 +142,38 @@ void GraphicsContext::drawRect(const IntRect& rect)
     cairo_restore(cr);
 }
 
+// FIXME: Now that this is refactored, it should be shared by all contexts.
+static void adjustLineToPixelBoundaries(FloatPoint& p1, FloatPoint& p2, float strokeWidth, StrokeStyle style)
+{
+    // For odd widths, we add in 0.5 to the appropriate x/y so that the float arithmetic
+    // works out.  For example, with a border width of 3, KHTML will pass us (y1+y2)/2, e.g.,
+    // (50+53)/2 = 103/2 = 51 when we want 51.5.  It is always true that an even width gave
+    // us a perfect position, but an odd width gave us a position that is off by exactly 0.5.
+    if (style == DottedStroke || style == DashedStroke) {
+        if (p1.x() == p2.x()) {
+            p1.setY(p1.y() + strokeWidth);
+            p2.setY(p2.y() - strokeWidth);
+        }
+        else {
+            p1.setX(p1.x() + strokeWidth);
+            p2.setX(p2.x() - strokeWidth);
+        }
+    }
+
+    if (static_cast<int>(strokeWidth) % 2) {
+        if (p1.x() == p2.x()) {
+            // We're a vertical line.  Adjust our x.
+            p1.setX(p1.x() + 0.5);
+            p2.setX(p2.x() + 0.5);
+        }
+        else {
+            // We're a horizontal line. Adjust our y.
+            p1.setY(p1.y() + 0.5);
+            p2.setY(p2.y() + 0.5);
+        }
+    }
+}
+
 // This is only used to draw borders.
 void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 {
@@ -207,18 +239,20 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         if (patWidth == 1)
             patternOffset = 1.0;
         else {
-            bool evenNumberOfSegments = !(numSegments % 2);
+            bool evenNumberOfSegments = numSegments%2 == 0;
             if (remainder)
                 evenNumberOfSegments = !evenNumberOfSegments;
             if (evenNumberOfSegments) {
                 if (remainder) {
                     patternOffset += patWidth - remainder;
-                    patternOffset += remainder / 2;
-                } else
-                    patternOffset = patWidth / 2;
-            } else if (!evenNumberOfSegments) {
+                    patternOffset += remainder/2;
+                }
+                else
+                    patternOffset = patWidth/2;
+            }
+            else if (!evenNumberOfSegments) {
                 if (remainder)
-                    patternOffset = (patWidth - remainder) / 2;
+                    patternOffset = (patWidth - remainder)/2;
             }
         }
 
@@ -284,7 +318,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
 
     if (w != h)
         cairo_scale(cr, 1., scaleFactor);
-
+    
     cairo_arc_negative(cr, x + hRadius, (y + vRadius) * reverseScaleFactor, hRadius, -fa * M_PI/180, -falen * M_PI/180);
 
     if (w != h)
@@ -292,16 +326,16 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
 
     float width = strokeThickness();
     int patWidth = 0;
-
+    
     switch (strokeStyle()) {
-    case DottedStroke:
-        patWidth = static_cast<int>(width / 2);
-        break;
-    case DashedStroke:
-        patWidth = 3 * static_cast<int>(width / 2);
-        break;
-    default:
-        break;
+        case DottedStroke:
+            patWidth = static_cast<int>(width / 2);
+            break;
+        case DashedStroke:
+            patWidth = 3 * static_cast<int>(width / 2);
+            break;
+        default:
+            break;
     }
 
     setColor(cr, strokeColor());
@@ -315,7 +349,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
             distance = static_cast<int>((M_PI * hRadius) / 2.0);
         else // We are elliptical and will have to estimate the distance
             distance = static_cast<int>((M_PI * sqrtf((hRadius * hRadius + vRadius * vRadius) / 2.0)) / 2.0);
-
+        
         int remainder = distance % patWidth;
         int coverage = distance - remainder;
         int numSegments = coverage / patWidth;
@@ -325,7 +359,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
         if (patWidth == 1)
             patternOffset = 1.0;
         else {
-            bool evenNumberOfSegments = !(numSegments % 2);
+            bool evenNumberOfSegments = numSegments % 2 == 0;
             if (remainder)
                 evenNumberOfSegments = !evenNumberOfSegments;
             if (evenNumberOfSegments) {
@@ -794,15 +828,15 @@ void GraphicsContext::setLineCap(LineCap lineCap)
 
     cairo_line_cap_t cairoCap = CAIRO_LINE_CAP_BUTT;
     switch (lineCap) {
-    case ButtCap:
-        // no-op
-        break;
-    case RoundCap:
-        cairoCap = CAIRO_LINE_CAP_ROUND;
-        break;
-    case SquareCap:
-        cairoCap = CAIRO_LINE_CAP_SQUARE;
-        break;
+        case ButtCap:
+            // no-op
+            break;
+        case RoundCap:
+            cairoCap = CAIRO_LINE_CAP_ROUND;
+            break;
+        case SquareCap:
+            cairoCap = CAIRO_LINE_CAP_SQUARE;
+            break;
     }
     cairo_set_line_cap(m_data->cr, cairoCap);
 }
@@ -819,15 +853,15 @@ void GraphicsContext::setLineJoin(LineJoin lineJoin)
 
     cairo_line_join_t cairoJoin = CAIRO_LINE_JOIN_MITER;
     switch (lineJoin) {
-    case MiterJoin:
-        // no-op
-        break;
-    case RoundJoin:
-        cairoJoin = CAIRO_LINE_JOIN_ROUND;
-        break;
-    case BevelJoin:
-        cairoJoin = CAIRO_LINE_JOIN_BEVEL;
-        break;
+        case MiterJoin:
+            // no-op
+            break;
+        case RoundJoin:
+            cairoJoin = CAIRO_LINE_JOIN_ROUND;
+            break;
+        case BevelJoin:
+            cairoJoin = CAIRO_LINE_JOIN_BEVEL;
+            break;
     }
     cairo_set_line_join(m_data->cr, cairoJoin);
 }
@@ -853,37 +887,37 @@ float GraphicsContext::getAlpha()
 static inline cairo_operator_t toCairoOperator(CompositeOperator op)
 {
     switch (op) {
-    case CompositeClear:
-        return CAIRO_OPERATOR_CLEAR;
-    case CompositeCopy:
-        return CAIRO_OPERATOR_SOURCE;
-    case CompositeSourceOver:
-        return CAIRO_OPERATOR_OVER;
-    case CompositeSourceIn:
-        return CAIRO_OPERATOR_IN;
-    case CompositeSourceOut:
-        return CAIRO_OPERATOR_OUT;
-    case CompositeSourceAtop:
-        return CAIRO_OPERATOR_ATOP;
-    case CompositeDestinationOver:
-        return CAIRO_OPERATOR_DEST_OVER;
-    case CompositeDestinationIn:
-        return CAIRO_OPERATOR_DEST_IN;
-    case CompositeDestinationOut:
-        return CAIRO_OPERATOR_DEST_OUT;
-    case CompositeDestinationAtop:
-        return CAIRO_OPERATOR_DEST_ATOP;
-    case CompositeXOR:
-        return CAIRO_OPERATOR_XOR;
-    case CompositePlusDarker:
-        return CAIRO_OPERATOR_SATURATE;
-    case CompositeHighlight:
-        // There is no Cairo equivalent for CompositeHighlight.
-        return CAIRO_OPERATOR_OVER;
-    case CompositePlusLighter:
-        return CAIRO_OPERATOR_ADD;
-    default:
-        return CAIRO_OPERATOR_SOURCE;
+        case CompositeClear:
+            return CAIRO_OPERATOR_CLEAR;
+        case CompositeCopy:
+            return CAIRO_OPERATOR_SOURCE;
+        case CompositeSourceOver:
+            return CAIRO_OPERATOR_OVER;
+        case CompositeSourceIn:
+            return CAIRO_OPERATOR_IN;
+        case CompositeSourceOut:
+            return CAIRO_OPERATOR_OUT;
+        case CompositeSourceAtop:
+            return CAIRO_OPERATOR_ATOP;
+        case CompositeDestinationOver:
+            return CAIRO_OPERATOR_DEST_OVER;
+        case CompositeDestinationIn:
+            return CAIRO_OPERATOR_DEST_IN;
+        case CompositeDestinationOut:
+            return CAIRO_OPERATOR_DEST_OUT;
+        case CompositeDestinationAtop:
+            return CAIRO_OPERATOR_DEST_ATOP;
+        case CompositeXOR:
+            return CAIRO_OPERATOR_XOR;
+        case CompositePlusDarker:
+            return CAIRO_OPERATOR_SATURATE;
+        case CompositeHighlight:
+            // There is no Cairo equivalent for CompositeHighlight.
+            return CAIRO_OPERATOR_OVER;
+        case CompositePlusLighter:
+            return CAIRO_OPERATOR_ADD;
+        default:
+            return CAIRO_OPERATOR_SOURCE;
     }
 }
 

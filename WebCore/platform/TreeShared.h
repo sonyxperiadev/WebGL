@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,8 +28,17 @@ namespace WebCore {
 
 template<class T> class TreeShared : public Noncopyable {
 public:
-    TreeShared(int initialRefCount = 1)
-        : m_refCount(initialRefCount)
+    TreeShared()
+        : m_refCount(0)
+        , m_parent(0)
+    {
+#ifndef NDEBUG
+        m_deletionHasBegun = false;
+        m_inRemovedLastRefFunction = false;
+#endif
+    }
+    TreeShared(T* parent)
+        : m_refCount(0)
         , m_parent(0)
     {
 #ifndef NDEBUG

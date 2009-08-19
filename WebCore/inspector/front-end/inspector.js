@@ -39,6 +39,7 @@ var Preferences = {
     showInheritedComputedStyleProperties: false,
     styleRulesExpandedState: {},
     showMissingLocalizedStrings: false,
+    useDOMAgent: false
 }
 
 var WebInspector = {
@@ -306,7 +307,7 @@ var WebInspector = {
 
     set hoveredDOMNode(x)
     {
-        if (this._hoveredDOMNode === x)
+        if (objectsAreSame(this._hoveredDOMNode, x))
             return;
 
         this._hoveredDOMNode = x;
@@ -332,7 +333,7 @@ var WebInspector = {
         }
 
         if (this._hoveredDOMNode) {
-            InspectorController.highlightDOMNode(this._hoveredDOMNode.id);
+            InspectorController.highlightDOMNode(this._hoveredDOMNode);
             this.showingDOMNodeHighlight = true;
         } else {
             InspectorController.hideDOMNodeHighlight();
@@ -352,7 +353,9 @@ WebInspector.loaded = function()
     // this.changes = new WebInspector.ChangesView(this.drawer);
     // TODO: Remove class="hidden" from inspector.html on button#changes-status-bar-item
     this.drawer.visibleView = this.console;
-    this.domAgent = new WebInspector.DOMAgent();
+
+    if (Preferences.useDOMAgent)
+        this.domAgent = new WebInspector.DOMAgent();
 
     this.resourceCategories = {
         documents: new WebInspector.ResourceCategory(WebInspector.UIString("Documents"), "documents"),
@@ -438,7 +441,7 @@ WebInspector.loaded = function()
     document.getElementById("toolbar").addEventListener("mousedown", this.toolbarDragStart, true);
     document.getElementById("close-button").addEventListener("click", this.close, true);
 
-    InspectorController.loaded();
+    InspectorController.loaded(Preferences.useDOMAgent);
 }
 
 var windowLoaded = function()
@@ -850,12 +853,12 @@ WebInspector.elementDragEnd = function(event)
 
 WebInspector.showConsole = function()
 {
-    this.drawer.showView(this.console);
+    this.drawer.visibleView = this.console;
 }
 
 WebInspector.showChanges = function()
 {
-    this.drawer.showView(this.changes);
+    this.drawer.visibleView = this.changes;
 }
 
 WebInspector.showElementsPanel = function()
@@ -904,23 +907,6 @@ WebInspector.addResource = function(identifier, payload)
 
     if (this.panels.resources)
         this.panels.resources.addResource(resource);
-}
-
-WebInspector.clearConsoleMessages = function()
-{
-    WebInspector.console.clearMessages(false);
-}
-
-WebInspector.selectDatabase = function(o)
-{
-    WebInspector.showDatabasesPanel();
-    WebInspector.panels.databases.selectDatabase(o);
-}
-
-WebInspector.selectDOMStorage = function(o)
-{
-    WebInspector.showDatabasesPanel();
-    WebInspector.panels.databases.selectDOMStorage(o);
 }
 
 WebInspector.updateResource = function(identifier, payload)
@@ -1087,6 +1073,11 @@ WebInspector.reset = function()
     this.console.clearMessages();
 }
 
+WebInspector.inspectedWindowCleared = function(inspectedWindow)
+{
+    this.panels.elements.inspectedWindowCleared(inspectedWindow);
+}
+
 WebInspector.resourceURLChanged = function(resource, oldURL)
 {
     delete this.resourceURLMap[oldURL];
@@ -1147,9 +1138,8 @@ WebInspector.drawLoadingPieChart = function(canvas, percent) {
     g.fill();
 }
 
-WebInspector.updateFocusedNode = function(nodeId)
+WebInspector.updateFocusedNode = function(node)
 {
-    var node = WebInspector.domAgent.nodeForId(nodeId);
     if (!node)
         // FIXME: Should we deselect if null is passed in?
         return;
@@ -1337,11 +1327,6 @@ WebInspector.performSearch = function(event)
 
     this.currentPanel.currentQuery = query;
     this.currentPanel.performSearch(query);
-}
-
-WebInspector.addNodesToSearchResult = function(nodeIds)
-{
-    WebInspector.panels.elements.addNodesToSearchResult(nodeIds);
 }
 
 WebInspector.updateSearchMatchesCount = function(matches, panel)

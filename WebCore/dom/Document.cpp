@@ -107,7 +107,6 @@
 #include "SegmentedString.h"
 #include "SelectionController.h"
 #include "Settings.h"
-#include "SharedWorkerRepository.h"
 #include "StyleSheetList.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
@@ -362,7 +361,7 @@ Document::Document(Frame* frame, bool isXHTML)
     , m_containsWMLContent(false)
 #endif
 {
-    m_document = this;
+    m_document.resetSkippingRef(this);
 
     m_printing = false;
     
@@ -432,7 +431,8 @@ void Document::removedLastRef()
         // want the document to be destructed until after
         // removeAllChildren returns, so we guard ourselves with an
         // extra self-only ref.
-        selfOnlyRef();
+
+        DocPtr<Document> guard(this);
 
         // We must make sure not to be retaining any of our children through
         // these extra pointers or we will create a reference cycle.
@@ -456,8 +456,6 @@ void Document::removedLastRef()
 #ifndef NDEBUG
         m_inRemovedLastRefFunction = false;
 #endif
-
-        selfOnlyDeref();
     } else {
 #ifndef NDEBUG
         m_deletionHasBegun = true;
@@ -484,7 +482,7 @@ Document::~Document()
 #endif
 
     delete m_tokenizer;
-    m_document = 0;
+    m_document.resetSkippingRef(0);
     delete m_styleSelector;
     delete m_docLoader;
     
@@ -520,6 +518,8 @@ Document::~Document()
 
     if (m_styleSheets)
         m_styleSheets->documentDestroyed();
+
+    m_document = 0;
 }
 
 void Document::resetLinkColor()
@@ -589,17 +589,17 @@ PassRefPtr<Element> Document::createElement(const AtomicString& name, ExceptionC
 
 PassRefPtr<DocumentFragment> Document::createDocumentFragment()
 {
-    return DocumentFragment::create(document());
+    return new DocumentFragment(document());
 }
 
 PassRefPtr<Text> Document::createTextNode(const String& data)
 {
-    return Text::create(this, data);
+    return new Text(this, data);
 }
 
 PassRefPtr<Comment> Document::createComment(const String& data)
 {
-    return Comment::create(this, data);
+    return new Comment(this, data);
 }
 
 PassRefPtr<CDATASection> Document::createCDATASection(const String& data, ExceptionCode& ec)
@@ -608,7 +608,7 @@ PassRefPtr<CDATASection> Document::createCDATASection(const String& data, Except
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    return CDATASection::create(this, data);
+    return new CDATASection(this, data);
 }
 
 PassRefPtr<ProcessingInstruction> Document::createProcessingInstruction(const String& target, const String& data, ExceptionCode& ec)
@@ -621,7 +621,7 @@ PassRefPtr<ProcessingInstruction> Document::createProcessingInstruction(const St
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    return ProcessingInstruction::create(this, target, data);
+    return new ProcessingInstruction(this, target, data);
 }
 
 PassRefPtr<EntityReference> Document::createEntityReference(const String& name, ExceptionCode& ec)
@@ -634,12 +634,12 @@ PassRefPtr<EntityReference> Document::createEntityReference(const String& name, 
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    return EntityReference::create(this, name);
+    return new EntityReference(this, name);
 }
 
 PassRefPtr<EditingText> Document::createEditingTextNode(const String& text)
 {
-    return EditingText::create(this, text);
+    return new EditingText(this, text);
 }
 
 PassRefPtr<CSSStyleDeclaration> Document::createCSSStyleDeclaration()
@@ -704,8 +704,11 @@ PassRefPtr<Node> Document::importNode(Node* importedNode, bool deep, ExceptionCo
 
             return newElement.release();
         }
-        case ATTRIBUTE_NODE:
-            return Attr::create(0, this, static_cast<Attr*>(importedNode)->attr()->clone());
+        case ATTRIBUTE_NODE: {
+            RefPtr<Attr> newAttr = new Attr(0, this, static_cast<Attr*>(importedNode)->attr()->clone());
+            newAttr->createTextChild();
+            return newAttr.release();
+        }
         case DOCUMENT_FRAGMENT_NODE: {
             DocumentFragment* oldFragment = static_cast<DocumentFragment*>(importedNode);
             RefPtr<DocumentFragment> newFragment = createDocumentFragment();
@@ -1376,11 +1379,7 @@ void Document::detach()
     // Send out documentWillBecomeInactive() notifications to registered elements,
     // in order to stop media elements
     documentWillBecomeInactive();
-
-#if ENABLE(SHARED_WORKERS)
-    SharedWorkerRepository::documentDetached(this);
-#endif
-
+    
     if (m_frame) {
         FrameView* view = m_frame->view();
         if (view)
@@ -1501,7 +1500,7 @@ AXObjectCache* Document::axObjectCache() const
         return doc->axObjectCache();
     
     // this is the top-level document, so install a new cache
-    m_axObjectCache = new AXObjectCache(this);
+    m_axObjectCache = new AXObjectCache;
     return m_axObjectCache;
 #endif // ANDROID
 }
@@ -2661,10 +2660,10 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             newFocusedNode = 0;
         }
-        if (oldFocusedNode == this && oldFocusedNode->hasOneRef())
+        if ((oldFocusedNode.get() == this) && oldFocusedNode->hasOneRef())
             return true;
             
-        if (oldFocusedNode == oldFocusedNode->rootEditableElement())
+        if (oldFocusedNode.get() == oldFocusedNode->rootEditableElement())
             frame()->editor()->didEndEditing();
     }
 
@@ -2693,7 +2692,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
         }
         m_focusedNode->setFocus();
 
-        if (m_focusedNode == m_focusedNode->rootEditableElement())
+        if (m_focusedNode.get() == m_focusedNode->rootEditableElement())
             frame()->editor()->didBeginEditing();
 
         // eww, I suck. set the qt focus correctly
@@ -2715,7 +2714,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
         }
     }
 
-#if (PLATFORM(MAC) || PLATFORM(WIN)) && !PLATFORM(CHROMIUM)
+#if PLATFORM(MAC) && !PLATFORM(CHROMIUM)
     if (!focusChangeBlocked && m_focusedNode && AXObjectCache::accessibilityEnabled())
         axObjectCache()->handleFocusedUIElementChanged();
 #elif PLATFORM(GTK)
@@ -2724,9 +2723,9 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
         RenderObject* newFocusedRenderer = 0;
 
         if (oldFocusedNode)
-            oldFocusedRenderer = oldFocusedNode->renderer();
+            oldFocusedRenderer = oldFocusedNode.get()->renderer();
         if (newFocusedNode)
-            newFocusedRenderer = newFocusedNode->renderer();
+            newFocusedRenderer = newFocusedNode.get()->renderer();
 
         axObjectCache()->handleFocusedUIElementChangedWithRenderers(oldFocusedRenderer, newFocusedRenderer);
     }
@@ -3926,7 +3925,7 @@ PassRefPtr<Attr> Document::createAttributeNS(const String& namespaceURI, const S
 
     // FIXME: Assume this is a mapped attribute, since createAttribute isn't namespace-aware.  There's no harm to XML
     // documents if we're wrong.
-    return Attr::create(0, this, MappedAttribute::create(qName, StringImpl::empty()));
+    return new Attr(0, this, MappedAttribute::create(qName, StringImpl::empty()));
 }
 
 #if ENABLE(SVG)

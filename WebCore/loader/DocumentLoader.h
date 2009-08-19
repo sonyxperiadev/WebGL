@@ -174,6 +174,10 @@ namespace WebCore {
         bool didCreateGlobalHistoryEntry() const { return m_didCreateGlobalHistoryEntry; }
         void setDidCreateGlobalHistoryEntry(bool didCreateGlobalHistoryEntry) { m_didCreateGlobalHistoryEntry = didCreateGlobalHistoryEntry; }
         
+        void loadFromCachedPage(PassRefPtr<CachedPage>);
+        void setLoadingFromCachedPage(bool loading) { m_loadingFromCachedPage = loading; }
+        bool isLoadingFromCachedPage() const { return m_loadingFromCachedPage; }
+        
         void setDefersLoading(bool);
 
         bool startLoadingMainResource(unsigned long identifier);
@@ -260,6 +264,7 @@ namespace WebCore {
         bool m_gotFirstByte;
         bool m_primaryLoadComplete;
         bool m_isClientRedirect;
+        bool m_loadingFromCachedPage;
 
         String m_pageTitle;
 

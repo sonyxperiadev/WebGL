@@ -975,24 +975,51 @@ sub GenerateBatchedAttributeData
                     $setter = "V8Custom::v8${customAccessor}AccessorSetter";
                 }
             }
-        } else {
-            # Default Getter and Setter
-            $getter = "${interfaceName}Internal::${attrName}AttrGetter";
-            $setter = "${interfaceName}Internal::${attrName}AttrSetter";
 
-            # Custom Setter
-            if ($attrExt->{"CustomSetter"} || $attrExt->{"V8CustomSetter"} || $attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
+        # Custom Getter and Setter
+        } elsif ($attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
+            $getter = "V8Custom::v8${customAccessor}AccessorGetter";
+            if ($interfaceName eq "WorkerContext" and $attrName eq "self") {
+                $setter = "0";
+                $propAttr = "v8::ReadOnly";
+            } else {
                 $hasCustomSetter = 1;
                 $setter = "V8Custom::v8${customAccessor}AccessorSetter";
             }
 
-            # Custom Getter
-            if ($attrExt->{"CustomGetter"} || $attrExt->{"Custom"} || $attrExt->{"V8Custom"}) {
-                $getter = "V8Custom::v8${customAccessor}AccessorGetter";
-            }
-        }
+        # Custom Setter
+        } elsif ($attrExt->{"CustomSetter"} || $attrExt->{"V8CustomSetter"}) {
+            $hasCustomSetter = 1;
+            $getter = "${interfaceName}Internal::${attrName}AttrGetter";
+            $setter = "V8Custom::v8${customAccessor}AccessorSetter";
+
+        # Custom Getter
+        } elsif ($attrExt->{"CustomGetter"}) {
+            $getter = "V8Custom::v8${customAccessor}AccessorGetter";
+            $setter = "${interfaceName}Internal::${attrName}AttrSetter";
 
         # Replaceable
+        } elsif ($attrExt->{"Replaceable"}) {
+            # Replaceable accessor is put on instance template with ReadOnly attribute.
+            $getter = "${interfaceName}Internal::${attrName}AttrGetter";
+            $setter = "0";
+
+            # Mark to avoid duplicate v8::ReadOnly flags in output.
+            $hasCustomSetter = 1;
+
+            # Handle the special case of window.top being marked upstream as Replaceable.
+            # FIXME: Investigate why [Replaceable] is not marked as ReadOnly
+            # upstream and reach parity.
+            if (!($interfaceName eq "DOMWindow" and $attrName eq "top")) {
+                $propAttr .= "|v8::ReadOnly";
+            }
+
+        # Normal
+        } else {
+            $getter = "${interfaceName}Internal::${attrName}AttrGetter";
+            $setter = "${interfaceName}Internal::${attrName}AttrSetter";
+        }
+
         if ($attrExt->{"Replaceable"} && !$hasCustomSetter) {
             $setter = "0";
             $propAttr .= "|v8::ReadOnly";
@@ -1626,7 +1653,6 @@ sub IsRefPtrType
     return 1 if $type eq "Plugin";
     return 1 if $type eq "ProcessingInstruction";
     return 1 if $type eq "Range";
-    return 1 if $type eq "RGBColor";
     return 1 if $type eq "Text";
     return 1 if $type eq "TextMetrics";
     return 1 if $type eq "TimeRanges";

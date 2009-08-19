@@ -1,5 +1,9 @@
 /*
- * Copyright (C) 2003, 2009 Apple Inc. All rights reserved.
+ * This file is part of the DOM implementation for KDE.
+ *
+ * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
+ *           (C) 1999 Antti Koivisto (koivisto@kde.org)
+ * Copyright (C) 2003 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,12 +31,11 @@ namespace WebCore {
 
 class EditingText : public Text {
 public:
-    static PassRefPtr<EditingText> create(Document*, const String&);
+    EditingText(Document *impl, const String &text);
+    EditingText(Document *impl);
+    virtual ~EditingText();
 
-private:
     virtual bool rendererIsNeeded(RenderStyle *);
-
-    EditingText(Document*, const String&);
 };
 
 } // namespace WebCore

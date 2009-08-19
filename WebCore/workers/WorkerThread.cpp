@@ -61,10 +61,9 @@ WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const St
 {
 }
 
-WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
+WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy)
     : m_threadID(0)
     , m_workerLoaderProxy(workerLoaderProxy)
-    , m_workerReportingProxy(workerReportingProxy)
     , m_startupData(WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode))
 {
 }

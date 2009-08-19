@@ -38,13 +38,13 @@
 
 namespace WebCore {
 
-PassRefPtr<SharedWorkerThread> SharedWorkerThread::create(const String& name, const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
+PassRefPtr<SharedWorkerThread> SharedWorkerThread::create(const String& name, const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy)
 {
-    return adoptRef(new SharedWorkerThread(name, scriptURL, userAgent, sourceCode, workerLoaderProxy, workerReportingProxy));
+    return adoptRef(new SharedWorkerThread(name, scriptURL, userAgent, sourceCode, workerLoaderProxy));
 }
 
-SharedWorkerThread::SharedWorkerThread(const String& name, const KURL& url, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
-    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy, workerReportingProxy)
+SharedWorkerThread::SharedWorkerThread(const String& name, const KURL& url, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy)
+    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy)
     , m_name(name.copy())
 {
 }

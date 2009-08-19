@@ -71,9 +71,6 @@ namespace WebCore {
 #if ENABLE(WML)
     class WMLPageState;
 #endif
-#if ENABLE(NOTIFICATIONS)
-    class NotificationPresenter;
-#endif
 
     enum FindDirection { FindDirectionForward, FindDirectionBackward };
 
@@ -274,10 +271,6 @@ namespace WebCore {
 
 #if ENABLE(WML)
         OwnPtr<WMLPageState> m_wmlPageState;
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        NotificationPresenter* m_notificationPresenter;
 #endif
     };
 

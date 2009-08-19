@@ -94,11 +94,6 @@ PopupMenu::~PopupMenu()
         ::DestroyWindow(m_popup);
 }
 
-LPCTSTR PopupMenu::popupClassName()
-{
-    return kPopupWindowClassName;
-}
-
 void PopupMenu::show(const IntRect& r, FrameView* v, int index)
 {
     calculatePositionAndSize(r, v);

@@ -25,7 +25,6 @@
 
 #include "ArrayPrototype.h"
 #include "CachedCall.h"
-#include "Error.h"
 #include "PropertyNameArray.h"
 #include <wtf/AVLTree.h>
 #include <wtf/Assertions.h>
@@ -349,7 +348,8 @@ NEVER_INLINE void JSArray::putSlowCase(ExecState* exec, unsigned i, JSValue valu
         }
     }
 
-    if (!tryFastRealloc(storage, storageSize(newVectorLength)).getValue(storage)) {
+    storage = static_cast<ArrayStorage*>(tryFastRealloc(storage, storageSize(newVectorLength)));
+    if (!storage) {
         throwOutOfMemoryError(exec);
         return;
     }
@@ -467,7 +467,8 @@ bool JSArray::increaseVectorLength(unsigned newLength)
     ASSERT(newLength <= MAX_STORAGE_VECTOR_INDEX);
     unsigned newVectorLength = increasedVectorLength(newLength);
 
-    if (!tryFastRealloc(storage, storageSize(newVectorLength)).getValue(storage))
+    storage = static_cast<ArrayStorage*>(tryFastRealloc(storage, storageSize(newVectorLength)));
+    if (!storage)
         return false;
 
     Heap::heap(this)->reportExtraMemoryCost(storageSize(newVectorLength) - storageSize(vectorLength));
@@ -602,7 +603,18 @@ void JSArray::push(ExecState* exec, JSValue value)
 
 void JSArray::markChildren(MarkStack& markStack)
 {
-    markChildrenDirect(markStack);
+    JSObject::markChildren(markStack);
+
+    ArrayStorage* storage = m_storage;
+
+    unsigned usedVectorLength = min(storage->m_length, storage->m_vectorLength);
+    markStack.appendValues(storage->m_vector, usedVectorLength, MayContainNullValues);
+
+    if (SparseArrayValueMap* map = storage->m_sparseValueMap) {
+        SparseArrayValueMap::iterator end = map->end();
+        for (SparseArrayValueMap::iterator it = map->begin(); it != end; ++it)
+            markStack.append(it->second);
+    }
 }
 
 static int compareNumbersForQSort(const void* a, const void* b)

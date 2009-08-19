@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,22 +30,15 @@
 
 namespace WebCore {
 
-inline Attr::Attr(Element* element, Document* document, PassRefPtr<Attribute> attribute)
-    : ContainerNode(document)
+Attr::Attr(Element* element, Document* docPtr, PassRefPtr<Attribute> a)
+    : ContainerNode(docPtr)
     , m_element(element)
-    , m_attribute(attribute)
+    , m_attribute(a)
     , m_ignoreChildrenChanged(0)
     , m_specified(true)  
 {
     ASSERT(!m_attribute->attr());
     m_attribute->m_impl = this;
-}
-
-PassRefPtr<Attr> Attr::create(Element* element, Document* document, PassRefPtr<Attribute> attribute)
-{
-    RefPtr<Attr> attr = adoptRef(new Attr(element, document, attribute));
-    attr->createTextChild();
-    return attr.release();
 }
 
 Attr::~Attr()
@@ -93,14 +86,14 @@ const AtomicString& Attr::prefix() const
     return m_attribute->prefix();
 }
 
-void Attr::setPrefix(const AtomicString& prefix, ExceptionCode& ec)
+void Attr::setPrefix(const AtomicString &_prefix, ExceptionCode& ec)
 {
     ec = 0;
-    checkSetPrefix(prefix, ec);
+    checkSetPrefix(_prefix, ec);
     if (ec)
         return;
 
-    m_attribute->setPrefix(prefix);
+    m_attribute->setPrefix(_prefix);
 }
 
 String Attr::nodeValue() const
@@ -108,11 +101,11 @@ String Attr::nodeValue() const
     return value();
 }
 
-void Attr::setValue(const AtomicString& value, ExceptionCode&)
+void Attr::setValue(const String& v, ExceptionCode&)
 {
     m_ignoreChildrenChanged++;
     removeChildren();
-    m_attribute->setValue(value);
+    m_attribute->setValue(v.impl());
     createTextChild();
     m_ignoreChildrenChanged--;
 
@@ -127,7 +120,7 @@ void Attr::setNodeValue(const String& v, ExceptionCode& ec)
 
 PassRefPtr<Node> Attr::cloneNode(bool /*deep*/)
 {
-    RefPtr<Attr> clone = adoptRef(new Attr(0, document(), m_attribute->clone()));
+    RefPtr<Attr> clone = new Attr(0, document(), m_attribute->clone());
     cloneChildNodes(clone.get());
     return clone.release();
 }

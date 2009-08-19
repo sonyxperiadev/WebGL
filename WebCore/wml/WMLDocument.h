@@ -34,7 +34,7 @@ class WMLDocument : public Document {
 public:
     static PassRefPtr<WMLDocument> create(Frame* frame)
     {
-        return adoptRef(new WMLDocument(frame));
+        return new WMLDocument(frame);
     }
 
     virtual ~WMLDocument();
@@ -43,8 +43,6 @@ public:
     virtual void finishedParsing();
 
     bool initialize(bool aboutToFinishParsing = false);
-
-    WMLCardElement* activeCard() const { return m_activeCard; }
 
 private:
     WMLDocument(Frame*);

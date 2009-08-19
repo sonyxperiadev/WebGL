@@ -30,10 +30,6 @@
 #include "config.h"
 #include "InspectorBackend.h"
 
-#if ENABLE(DATABASE)
-#include "Database.h"
-#endif
-
 #include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -41,12 +37,7 @@
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
-#include "InspectorFrontend.h"
 #include "InspectorResource.h"
-
-#if ENABLE(DOM_STORAGE)
-#include "Storage.h"
-#endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "JavaScriptCallFrame.h"
@@ -148,10 +139,10 @@ bool InspectorBackend::addSourceToFrame(const String& mimeType, const String& so
     return true;
 }
 
-void InspectorBackend::clearMessages(bool clearUI)
+void InspectorBackend::clearMessages()
 {
     if (m_inspectorController)
-        m_inspectorController->clearConsoleMessages(clearUI);
+        m_inspectorController->clearConsoleMessages();
 }
 
 void InspectorBackend::toggleNodeSearch()
@@ -191,10 +182,10 @@ bool InspectorBackend::searchingForNode()
     return false;
 }
 
-void InspectorBackend::loaded()
+void InspectorBackend::loaded(bool enableDOMAgent)
 {
     if (m_inspectorController)
-        m_inspectorController->scriptObjectReady();
+        m_inspectorController->scriptObjectReady(enableDOMAgent);
 }
 
 void InspectorBackend::enableResourceTracking(bool always)
@@ -364,10 +355,10 @@ void InspectorBackend::stepOutOfFunctionInDebugger()
 
 #endif
 
-void InspectorBackend::getChildNodes(long callId, long nodeId)
+void InspectorBackend::getChildNodes(long callId, long elementId)
 {
     if (m_inspectorController)
-        m_inspectorController->domAgent()->getChildNodes(callId, nodeId);
+        m_inspectorController->domAgent()->getChildNodes(callId, elementId);
 }
 
 void InspectorBackend::setAttribute(long callId, long elementId, const String& name, const String& value)
@@ -382,87 +373,16 @@ void InspectorBackend::removeAttribute(long callId, long elementId, const String
         m_inspectorController->domAgent()->removeAttribute(callId, elementId, name);
 }
 
-void InspectorBackend::setTextNodeValue(long callId, long nodeId, const String& value)
+void InspectorBackend::setTextNodeValue(long callId, long elementId, const String& value)
 {
     if (m_inspectorController)
-        m_inspectorController->domAgent()->setTextNodeValue(callId, nodeId, value);
+        m_inspectorController->domAgent()->setTextNodeValue(callId, elementId, value);
 }
 
-void InspectorBackend::highlight(long nodeId)
-{
-    if (m_inspectorController) {
-        Node* node = m_inspectorController->domAgent()->nodeForId(nodeId);
-        if (node)
-            m_inspectorController->highlight(node);
-    }
-}
-
-Node* InspectorBackend::nodeForId(long nodeId)
+void InspectorBackend::highlight(Node* node)
 {
     if (m_inspectorController)
-        return m_inspectorController->domAgent()->nodeForId(nodeId);
-    return 0;
+        m_inspectorController->highlight(node);
 }
-
-long InspectorBackend::idForNode(Node* node)
-{
-    if (m_inspectorController)
-        return m_inspectorController->domAgent()->idForNode(node);
-    return -1;
-}
-
-ScriptValue InspectorBackend::wrapObject(const ScriptValue& object)
-{
-    if (m_inspectorController)
-        return m_inspectorController->wrapObject(object);
-    return ScriptValue();
-}
-
-ScriptValue InspectorBackend::unwrapObject(const String& objectId)
-{
-    if (m_inspectorController)
-        return m_inspectorController->unwrapObject(objectId);
-    return ScriptValue();
-}
-
-long InspectorBackend::pushNodePathToFrontend(Node* node, bool selectInUI)
-{
-    if (!m_inspectorController)
-        return 0;
-    if (!m_inspectorController->m_domAgent || !m_inspectorController->m_frontend)
-        return 0;
-    long id = m_inspectorController->m_domAgent->pushNodePathToFrontend(node);
-    if (selectInUI)
-        m_inspectorController->m_frontend->updateFocusedNode(id);
-    return id;
-}
-
-void InspectorBackend::addNodesToSearchResult(const String& nodeIds)
-{
-    if (m_inspectorController && m_inspectorController->m_frontend)
-        m_inspectorController->m_frontend->addNodesToSearchResult(nodeIds);
-}
-
-#if ENABLE(DATABASE)
-void InspectorBackend::selectDatabase(Database* database)
-{
-    if (!m_inspectorController)
-        return;
-    if (!m_inspectorController->m_frontend)
-        return;
-    m_inspectorController->m_frontend->selectDatabase(database);
-}
-#endif
-
-#if ENABLE(DOM_STORAGE)
-void InspectorBackend::selectDOMStorage(Storage* storage)
-{
-    if (!m_inspectorController)
-        return;
-    if (!m_inspectorController->m_frontend)
-        return;
-    m_inspectorController->m_frontend->selectDOMStorage(storage);
-}
-#endif
 
 } // namespace WebCore

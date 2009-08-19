@@ -27,27 +27,30 @@
 #include "config.h"
 #include "ContextMenu.h"
 
-#include "ContextMenuController.h"
 #include "ContextMenuItem.h"
-#include "Document.h"
+#include "ContextMenuController.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "Document.h"
+
+#include <wtf/Assertions.h>
+
 #include <Looper.h>
 #include <Menu.h>
 #include <Message.h>
-#include <wtf/Assertions.h>
 
 
 namespace WebCore {
 
 // FIXME: This class isn't used yet
-class ContextMenuReceiver : public BLooper {
+class ContextMenuReceiver : public BLooper
+{
 public:
     ContextMenuReceiver(ContextMenu* menu)
         : BLooper("context_menu_receiver")
         , m_menu(menu)
-        , m_result(-1)
     {
+        m_result = -1;
     }
 
     void HandleMessage(BMessage* msg)
@@ -77,8 +80,21 @@ private:
 
 ContextMenu::ContextMenu(const HitTestResult& result)
     : m_hitTestResult(result)
-    , m_platformDescription(new BMenu("context_menu"))
+    , m_platformDescription(NULL)
 {
+    /* Get position */
+    if (result.innerNode() && result.innerNode()->document()) {
+        BView* view = result.innerNode()->document()->frame()->view()->platformWidget();
+        int child = 0;
+        while (view->ChildAt(child)) {
+            if (view->ChildAt(child)->Name() == "scroll_view_canvas") {
+                m_point = view->ChildAt(child)->ConvertToScreen(BPoint(result.point().x(), result.point().y()));
+                break;
+            }
+            child++;
+        }
+    }
+    m_platformDescription = new BMenu("context_menu");
 }
 
 ContextMenu::~ContextMenu()
@@ -90,9 +106,9 @@ void ContextMenu::appendItem(ContextMenuItem& item)
 {
     checkOrEnableIfNeeded(item);
 
-    BMenuItem* menuItem = item.releasePlatformDescription();
-    if (menuItem)
-        m_platformDescription->AddItem(menuItem);
+    BMenuItem* bItem = item.releasePlatformDescription();
+    if (bItem)
+        m_platformDescription->AddItem(bItem);
 }
 
 unsigned ContextMenu::itemCount() const
@@ -104,9 +120,9 @@ void ContextMenu::insertItem(unsigned position, ContextMenuItem& item)
 {
     checkOrEnableIfNeeded(item);
 
-    BMenuItem* menuItem = item.releasePlatformDescription();
-    if (menuItem)
-        m_platformDescription->AddItem(menuItem, position);
+    BMenuItem* bItem = item.releasePlatformDescription();
+    if (bItem)
+        m_platformDescription->AddItem(bItem, position);
 }
 
 PlatformMenuDescription ContextMenu::platformDescription() const

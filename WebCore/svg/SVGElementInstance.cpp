@@ -1,6 +1,8 @@
 /*
     Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
 
+    This file is part of the KDE project
+
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -23,6 +25,7 @@
 #include "SVGElementInstance.h"
 
 #include "ContainerNodeAlgorithms.h"
+#include "Document.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventListener.h"
@@ -43,7 +46,7 @@ namespace WebCore {
 static WTF::RefCountedLeakCounter instanceCounter("WebCoreSVGElementInstance");
 #endif
 
-SVGElementInstance::SVGElementInstance(SVGUseElement* useElement, PassRefPtr<SVGElement> originalElement)
+SVGElementInstance::SVGElementInstance(SVGUseElement* useElement, SVGElement* originalElement)
     : m_needsUpdate(false)
     , m_useElement(useElement)
     , m_element(originalElement)

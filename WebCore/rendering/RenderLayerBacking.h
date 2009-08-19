@@ -63,23 +63,21 @@ public:
     // Update contents and clipping structure.
     void updateInternalHierarchy(); // make private
     
-    GraphicsLayer* graphicsLayer() const { return m_graphicsLayer.get(); }
+    GraphicsLayer* graphicsLayer() const { return m_graphicsLayer; }
 
     // Layer to clip children
     bool hasClippingLayer() const { return m_clippingLayer != 0; }
-    GraphicsLayer* clippingLayer() const { return m_clippingLayer.get(); }
+    GraphicsLayer* clippingLayer() const { return m_clippingLayer; }
 
     // Layer to get clipped by ancestor
     bool hasAncestorClippingLayer() const { return m_ancestorClippingLayer != 0; }
-    GraphicsLayer* ancestorClippingLayer() const { return m_ancestorClippingLayer.get(); }
+    GraphicsLayer* ancestorClippingLayer() const { return m_ancestorClippingLayer; }
 
     bool hasContentsLayer() const { return m_foregroundLayer != 0; }
-    GraphicsLayer* foregroundLayer() const { return m_foregroundLayer.get(); }
+    GraphicsLayer* foregroundLayer() const { return m_foregroundLayer; }
     
-    bool hasMaskLayer() const { return m_maskLayer != 0; }
-
-    GraphicsLayer* parentForSublayers() const { return m_clippingLayer ? m_clippingLayer.get() : m_graphicsLayer.get(); }
-    GraphicsLayer* childForSuperlayers() const { return m_ancestorClippingLayer ? m_ancestorClippingLayer.get() : m_graphicsLayer.get(); }
+    GraphicsLayer* parentForSublayers() const { return m_clippingLayer ? m_clippingLayer : m_graphicsLayer; }
+    GraphicsLayer* childForSuperlayers() const { return m_ancestorClippingLayer ? m_ancestorClippingLayer : m_graphicsLayer; }
 
     // RenderLayers with backing normally short-circuit paintLayer() because
     // their content is rendered via callbacks from GraphicsLayer. However, the document
@@ -129,10 +127,7 @@ private:
 
     bool updateClippingLayers(bool needsAncestorClip, bool needsDescendantClip);
     bool updateForegroundLayer(bool needsForegroundLayer);
-    bool updateMaskLayer(bool needsMaskLayer);
 
-    GraphicsLayerPaintingPhase paintingPhaseForPrimaryLayer() const;
-    
     IntSize contentOffsetInCompostingLayer() const;
     // Result is transform origin in pixels.
     FloatPoint3D computeTransformOrigin(const IntRect& borderBox) const;
@@ -167,11 +162,10 @@ private:
 private:
     RenderLayer* m_owningLayer;
 
-    OwnPtr<GraphicsLayer> m_ancestorClippingLayer; // only used if we are clipped by an ancestor which is not a stacking context
-    OwnPtr<GraphicsLayer> m_graphicsLayer;
-    OwnPtr<GraphicsLayer> m_foregroundLayer;       // only used in cases where we need to draw the foreground separately
-    OwnPtr<GraphicsLayer> m_clippingLayer;         // only used if we have clipping on a stacking context, with compositing children
-    OwnPtr<GraphicsLayer> m_maskLayer;             // only used if we have a mask
+    GraphicsLayer* m_ancestorClippingLayer; // only used if we are clipped by an ancestor which is not a stacking context
+    GraphicsLayer* m_graphicsLayer;
+    GraphicsLayer* m_foregroundLayer;       // only used in cases where we need to draw the foreground separately
+    GraphicsLayer* m_clippingLayer;         // only used if we have clipping on a stacking context, with compositing children
 
     IntRect m_compositedBounds;
 

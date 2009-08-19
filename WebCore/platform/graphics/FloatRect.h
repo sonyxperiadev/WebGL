@@ -51,10 +51,6 @@ QT_END_NAMESPACE
 class wxRect2DDouble;
 #endif
 
-#if PLATFORM(HAIKU)
-class BRect;
-#endif
-
 #if (PLATFORM(SKIA) || PLATFORM(SGL))
 struct SkRect;
 #endif
@@ -140,11 +136,6 @@ public:
 #if PLATFORM(WX) && USE(WXGC)
     FloatRect(const wxRect2DDouble&);
     operator wxRect2DDouble() const;
-#endif
-
-#if PLATFORM(HAIKU)
-    FloatRect(const BRect&);
-    operator BRect() const;
 #endif
 
 #if (PLATFORM(SKIA) || PLATFORM(SGL))

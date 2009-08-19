@@ -27,7 +27,6 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
-#include "HTMLOptionElement.h"
 #include "NodeList.h"
 
 #include <utility>
@@ -105,7 +104,6 @@ Element* HTMLCollection::itemAfter(Element* previous) const
         case MapAreas:
         case OtherCollection:
         case SelectOptions:
-        case DataListOptions:
         case WindowNamedItems:
             break;
         case NodeChildren:
@@ -154,13 +152,6 @@ Element* HTMLCollection::itemAfter(Element* previous) const
             case SelectOptions:
                 if (e->hasLocalName(optionTag))
                     return e;
-                break;
-            case DataListOptions:
-                if (e->hasLocalName(optionTag)) {
-                    HTMLOptionElement* option = static_cast<HTMLOptionElement*>(e);
-                    if (!option->disabled() && !option->value().isEmpty())
-                        return e;
-                }
                 break;
             case MapAreas:
                 if (e->hasLocalName(areaTag))

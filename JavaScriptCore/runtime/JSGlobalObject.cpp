@@ -112,8 +112,8 @@ JSGlobalObject::~JSGlobalObject()
     if (headObject == this)
         headObject = 0;
 
-    HashSet<GlobalCodeBlock*>::const_iterator end = codeBlocks().end();
-    for (HashSet<GlobalCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
+    HashSet<ProgramCodeBlock*>::const_iterator end = codeBlocks().end();
+    for (HashSet<ProgramCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
         (*it)->clearGlobalObject();
         
     RegisterFile& registerFile = globalData()->interpreter->registerFile();
@@ -258,7 +258,7 @@ void JSGlobalObject::reset(JSValue prototype)
 
     JSCell* objectConstructor = new (exec) ObjectConstructor(exec, ObjectConstructor::createStructure(d()->functionPrototype), d()->objectPrototype, d()->prototypeFunctionStructure.get());
     JSCell* functionConstructor = new (exec) FunctionConstructor(exec, FunctionConstructor::createStructure(d()->functionPrototype), d()->functionPrototype);
-    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, ArrayConstructor::createStructure(d()->functionPrototype), d()->arrayPrototype, d()->prototypeFunctionStructure.get());
+    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, ArrayConstructor::createStructure(d()->functionPrototype), d()->arrayPrototype);
     JSCell* stringConstructor = new (exec) StringConstructor(exec, StringConstructor::createStructure(d()->functionPrototype), d()->prototypeFunctionStructure.get(), d()->stringPrototype);
     JSCell* booleanConstructor = new (exec) BooleanConstructor(exec, BooleanConstructor::createStructure(d()->functionPrototype), d()->booleanPrototype);
     JSCell* numberConstructor = new (exec) NumberConstructor(exec, NumberConstructor::createStructure(d()->functionPrototype), d()->numberPrototype);
@@ -361,8 +361,8 @@ void JSGlobalObject::markChildren(MarkStack& markStack)
 {
     JSVariableObject::markChildren(markStack);
     
-    HashSet<GlobalCodeBlock*>::const_iterator end = codeBlocks().end();
-    for (HashSet<GlobalCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
+    HashSet<ProgramCodeBlock*>::const_iterator end = codeBlocks().end();
+    for (HashSet<ProgramCodeBlock*>::const_iterator it = codeBlocks().begin(); it != end; ++it)
         (*it)->markAggregate(markStack);
 
     RegisterFile& registerFile = globalData()->interpreter->registerFile();

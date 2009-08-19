@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,18 +37,22 @@
 #include "WMLVariables.h"
 #endif
 
-using namespace std;
-
 namespace WebCore {
 
-Text::Text(Document* document, const String& data)
-    : CharacterData(document, data, CreateText)
+// DOM Section 1.1.1
+
+Text::Text(Document* document, const String& text)
+    : CharacterData(document, text, true)
 {
 }
 
-PassRefPtr<Text> Text::create(Document* document, const String& data)
+Text::Text(Document* document)
+    : CharacterData(document, true)
 {
-    return adoptRef(new Text(document, data));
+}
+
+Text::~Text()
+{
 }
 
 PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
@@ -57,14 +61,14 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
 
     // INDEX_SIZE_ERR: Raised if the specified offset is negative or greater than
     // the number of 16-bit units in data.
-    if (offset > length()) {
+    if (offset > m_data->length()) {
         ec = INDEX_SIZE_ERR;
         return 0;
     }
 
-    RefPtr<StringImpl> oldStr = dataImpl();
-    RefPtr<Text> newText = virtualCreate(oldStr->substring(offset));
-    setDataImpl(oldStr->substring(0, offset));
+    RefPtr<StringImpl> oldStr = m_data;
+    RefPtr<Text> newText = createNew(oldStr->substring(offset));
+    m_data = oldStr->substring(0, offset);
 
     dispatchModifiedEvent(oldStr.get());
 
@@ -77,7 +81,7 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
         document()->textNodeSplit(this);
 
     if (renderer())
-        toRenderText(renderer())->setText(dataImpl());
+        toRenderText(renderer())->setText(m_data);
 
     return newText.release();
 }
@@ -195,7 +199,7 @@ Node::NodeType Text::nodeType() const
 
 PassRefPtr<Node> Text::cloneNode(bool /*deep*/)
 {
-    return create(document(), data());
+    return document()->createTextNode(m_data);
 }
 
 bool Text::rendererIsNeeded(RenderStyle *style)
@@ -240,7 +244,7 @@ bool Text::rendererIsNeeded(RenderStyle *style)
     return true;
 }
 
-RenderObject* Text::createRenderer(RenderArena* arena, RenderStyle*)
+RenderObject *Text::createRenderer(RenderArena* arena, RenderStyle*)
 {
 #if ENABLE(SVG)
     if (parentNode()->isSVGElement()
@@ -248,17 +252,17 @@ RenderObject* Text::createRenderer(RenderArena* arena, RenderStyle*)
         && !parentNode()->hasTagName(SVGNames::foreignObjectTag)
 #endif
     )
-        return new (arena) RenderSVGInlineText(this, dataImpl());
+        return new (arena) RenderSVGInlineText(this, m_data);
 #endif
     
-    return new (arena) RenderText(this, dataImpl());
+    return new (arena) RenderText(this, m_data);
 }
 
 void Text::attach()
 {
 #if ENABLE(WML)
     if (document()->isWMLDocument() && !containsOnlyWhitespace()) {
-        String text = data();
+        String text = m_data;
         ASSERT(!text.isEmpty());
 
         text = substituteVariableReferences(text, document());
@@ -282,7 +286,7 @@ void Text::recalcStyle(StyleChange change)
     if (needsStyleRecalc()) {
         if (renderer()) {
             if (renderer()->isText())
-                toRenderText(renderer())->setText(dataImpl());
+                toRenderText(renderer())->setText(m_data);
         } else {
             if (attached())
                 detach();
@@ -292,42 +296,40 @@ void Text::recalcStyle(StyleChange change)
     setNeedsStyleRecalc(NoStyleChange);
 }
 
+// DOM Section 1.1.1
 bool Text::childTypeAllowed(NodeType)
 {
     return false;
 }
 
-PassRefPtr<Text> Text::virtualCreate(const String& data)
+PassRefPtr<Text> Text::createNew(PassRefPtr<StringImpl> string)
 {
-    return create(document(), data);
+    return new Text(document(), string);
 }
 
-PassRefPtr<Text> Text::createWithLengthLimit(Document* document, const String& data, unsigned& charsLeft, unsigned maxChars)
+PassRefPtr<Text> Text::createWithLengthLimit(Document* doc, const String& text, unsigned& charsLeft, unsigned maxChars)
 {
-    unsigned dataLength = data.length();
-
-    if (charsLeft == dataLength && charsLeft <= maxChars) {
+    if (charsLeft == text.length() && charsLeft <= maxChars) {
         charsLeft = 0;
-        return create(document, data);
+        return new Text(doc, text);
     }
-
-    unsigned start = dataLength - charsLeft;
-    unsigned end = start + min(charsLeft, maxChars);
     
-    // Check we are not on an unbreakable boundary.
-    TextBreakIterator* it = characterBreakIterator(data.characters(), dataLength);
-    if (end < dataLength && !isTextBreak(it, end))
+    unsigned start = text.length() - charsLeft;
+    unsigned end = start + std::min(charsLeft, maxChars);
+    
+    // check we are not on an unbreakable boundary
+    TextBreakIterator* it = characterBreakIterator(text.characters(), text.length());
+    if (end < text.length() && !isTextBreak(it, end))
         end = textBreakPreceding(it, end);
         
-    // If we have maxChars of unbreakable characters the above could lead to
-    // an infinite loop.
-    // FIXME: It would be better to just have the old value of end before calling
-    // textBreakPreceding rather than this, because this exceeds the length limit.
+    // maxChars of unbreakable characters could lead to infinite loop
     if (end <= start)
-        end = dataLength;
+        end = text.length();
     
-    charsLeft = dataLength - end;
-    return create(document, data.substring(start, end - start));
+    String nodeText = text.substring(start, end - start);
+    charsLeft = text.length() - end;
+        
+    return new Text(doc, nodeText);
 }
 
 #ifndef NDEBUG
@@ -341,7 +343,7 @@ void Text::formatForDebugger(char *buffer, unsigned length) const
         result += s;
     }
           
-    s = data();
+    s = nodeValue();
     if (s.length() > 0) {
         if (result.length() > 0)
             result += "; ";

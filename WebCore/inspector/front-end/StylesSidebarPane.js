@@ -67,10 +67,10 @@ WebInspector.StylesSidebarPane.prototype = {
         var callback = function(styles) {
             if (!styles)
                 return;
-            node._setStyles(styles.computedStyle, styles.inlineStyle, styles.styleAttributes, styles.matchedCSSRules);
-            self._update(refresh, body, node, editedSection, forceUpdate);
+            var nodeWrapper = WebInspector.wrapNodeWithStyles(node, styles);
+            self._update(refresh, body, nodeWrapper, editedSection, forceUpdate);
         };
-        InspectorController.getStyles(node.id, !Preferences.showUserAgentStyles, callback);
+        InspectorController.getStyles(node, !Preferences.showUserAgentStyles, callback);
     },
 
     _update: function(refresh, body, node, editedSection, forceUpdate)
@@ -322,9 +322,8 @@ WebInspector.StylePropertiesSection = function(styleRule, subtitle, computedStyl
     this.editable = (editable && !computedStyle);
 
     // Prevent editing the user agent and user rules.
-    var isUserAgent = this.rule && this.rule.isUserAgent;
-    var isUser = this.rule && this.rule.isUser;
-    var isViaInspector = this.rule && this.rule.isViaInspector;
+    var isUserAgent = this.styleRule.isUserAgent;
+    var isUser = this.styleRule.isUser;
 
     if (isUserAgent || isUser)
         this.editable = false;
@@ -367,7 +366,7 @@ WebInspector.StylePropertiesSection = function(styleRule, subtitle, computedStyl
                 subtitle = WebInspector.UIString("user agent stylesheet");
             else if (isUser)
                 subtitle = WebInspector.UIString("user stylesheet");
-            else if (isViaInspector)
+            else if (this.styleRule.parentStyleSheet === WebInspector.panels.elements.stylesheet)
                 subtitle = WebInspector.UIString("via inspector");
             else
                 subtitle = WebInspector.UIString("inline stylesheet");
@@ -612,12 +611,24 @@ WebInspector.StylePropertiesSection.prototype = {
             moveToNextIfNeeded.call(self);
         };
 
-        InspectorController.applyStyleRuleText(this.rule.id, newContent, this.pane.node.id, callback);
+        InspectorController.applyStyleRuleText(this.rule._id, newContent, this.pane.node, callback);
     },
 
     editingSelectorCancelled: function(element, context)
     {
         element.textContent = context;
+    },
+
+    _doesSelectorAffectSelectedNode: function(selector)
+    {
+        var selectedNode = this.pane.node;
+        var nodes = selectedNode.ownerDocument.querySelectorAll(selector);
+        for (var i = 0; i < nodes.length; ++i) {
+            if (nodes[i] === selectedNode)
+                return true;
+        }
+
+        return false;
     }
 }
 
@@ -662,17 +673,15 @@ WebInspector.BlankStylePropertiesSection.prototype = {
     editingCommitted: function(element, newContent, oldContent, context)
     {
         var self = this;
-        var callback = function(result) {
-            if (!result) {
+        var callback = function(styleRule) {
+            if (!styleRule) {
                 // Invalid Syntax for a Selector
                 self.editingCancelled();
                 return;
             }
-            var styleRule = result[0];
-            var doesSelectorAffectSelectedNode = result[1];
             self.makeNormal(WebInspector.CSSStyleDeclaration.parseRule(styleRule));
 
-            if (!doesSelectorAffectSelectedNode) {
+            if (!self._doesSelectorAffectSelectedNode(newContent)) {
                 self.noAffect = true;
                 self.element.addStyleClass("no-affect");
             }
@@ -683,7 +692,7 @@ WebInspector.BlankStylePropertiesSection.prototype = {
             self.pane.addBlankSection();
             self.addNewBlankProperty().startEditing();
         };
-        InspectorController.addStyleSelector(newContent, this.pane.node.id, callback);
+        InspectorController.addStyleSelector(newContent, callback);
     },
 
     makeNormal: function(styleRule)
@@ -887,70 +896,63 @@ WebInspector.StylePropertyTreeElement.prototype = {
             // Simple: rgb -> hsl -> nickname? -> shorthex? -> hex -> ...
             // Advanced: rgba -> hsla -> nickname? -> ...            
             if (colors && colors.length === 1) {
-                try {
-                    var color = new WebInspector.Color(htmlValue);
-                } catch(e) {
-                    var color = null;
-                }
+                var color = new WebInspector.Color(htmlValue);
+                swatch.addEventListener("click", changeColorDisplay, false);
+                swatch.addEventListener("dblclick", function(event) {
+                    event.stopPropagation();
+                }, false);
 
-                if (color) {
-                    swatch.addEventListener("click", changeColorDisplay, false);
-                    swatch.addEventListener("dblclick", function(event) {
-                        event.stopPropagation();
-                    }, false);
+                var mode = color.mode;
+                var valueElement = this.valueElement;
+                function changeColorDisplay(event) {
 
-                    var mode = color.mode;
-                    var valueElement = this.valueElement;
-                    function changeColorDisplay(event) {
+                    function changeTo(newMode, content) {
+                        mode = newMode;
+                        valueElement.textContent = content;
+                    }
 
-                        function changeTo(newMode, content) {
-                            mode = newMode;
-                            valueElement.textContent = content;
-                        }
+                    switch (mode) {
+                        case "rgb":
+                            changeTo("hsl", color.toHsl());
+                            break;
 
-                        switch (mode) {
-                            case "rgb":
-                                changeTo("hsl", color.toHsl());
-                                break;
+                        case "shorthex":
+                            changeTo("hex", color.toHex());
+                            break;
 
-                            case "shorthex":
-                                changeTo("hex", color.toHex());
-                                break;
+                        case "hex":
+                            changeTo("rgb", color.toRgb());
+                            break;
 
-                            case "hex":
-                                changeTo("rgb", color.toRgb());
-                                break;
-
-                            case "nickname":
-                                if (color.simple) {
-                                    if (color.hasShortHex())
-                                        changeTo("shorthex", color.toShortHex());
-                                    else
-                                        changeTo("hex", color.toHex());
-                                } else
-                                    changeTo("rgba", color.toRgba());
-                                break;
-
-                            case "hsl":
-                                if (color.nickname)
-                                    changeTo("nickname", color.toNickname());
-                                else if (color.hasShortHex())
+                        case "nickname":
+                            if (color.simple) {
+                                if (color.hasShortHex())
                                     changeTo("shorthex", color.toShortHex());
                                 else
                                     changeTo("hex", color.toHex());
-                                break;
+                            } else
+                                changeTo("rgba", color.toRgba());
+                            break;
 
-                            case "rgba":
-                                changeTo("hsla", color.toHsla());
-                                break;
+                        case "hsl":
+                            if (color.nickname)
+                                changeTo("nickname", color.toNickname());
+                            else if (color.hasShortHex())
+                                changeTo("shorthex", color.toShortHex());
+                            else
+                                changeTo("hex", color.toHex());
+                            break;
 
-                            case "hsla":
-                                if (color.nickname)
-                                    changeTo("nickname", color.toNickname());
-                                else
-                                    changeTo("rgba", color.toRgba());
-                                break;
-                        }
+                        case "rgba":
+                            changeTo("hsla", color.toHsla());
+                            break;
+
+                        case "hsla":
+                            if (color.nickname)
+                                changeTo("nickname", color.toNickname());
+                            else
+                                changeTo("rgba", color.toRgba());
+                            break;
                     }
                 }
             }
@@ -990,7 +992,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
             self.updateAll(true);
         };
-        InspectorController.toggleStyleEnabled(this.style.id, this.name, disabled, callback);
+        InspectorController.toggleStyleEnabled(this.style._id, this.name, disabled, callback);
     },
 
     updateState: function()
@@ -1153,7 +1155,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         } else {
             // Restore the original CSS text before applying user changes. This is needed to prevent
             // new properties from sticking around if the user adds one, then removes it.
-            InspectorController.setStyleText(this.style.id, this.originalCSSText);
+            InspectorController.setStyleText(this.style, this.originalCSSText);
         }
 
         this.applyStyleText(this.listItemElement.textContent);
@@ -1173,7 +1175,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         if (this._newProperty)
             this.treeOutline.removeChild(this);
         else if (this.originalCSSText) {
-            InspectorController.setStyleText(this.style.id, this.originalCSSText);
+            InspectorController.setStyleText(this.style, this.originalCSSText);
 
             if (this.treeOutline.section && this.treeOutline.section.pane)
                 this.treeOutline.section.pane.dispatchEventToListeners("style edited");
@@ -1292,7 +1294,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
             if (!self.rule)
                 WebInspector.panels.elements.treeOutline.update();
         };
-        InspectorController.applyStyleText(this.style.id, styleText.trimWhitespace(), this.name, callback);
+        InspectorController.applyStyleText(this.style._id, styleText.trimWhitespace(), this.name, callback);
     }
 }
 

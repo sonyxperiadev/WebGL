@@ -59,10 +59,6 @@ WebInspector.DatabasesPanel = function(database)
     this.sidebarTree.appendChild(this.sessionStorageListTreeElement);
     this.sessionStorageListTreeElement.expand();
 
-    this.cookieListTreeElement = new WebInspector.SidebarSectionTreeElement(WebInspector.UIString("COOKIES"), {}, true);
-    this.sidebarTree.appendChild(this.cookieListTreeElement);
-    this.cookieListTreeElement.expand();
-
     this.storageViews = document.createElement("div");
     this.storageViews.id = "storage-views";
     this.element.appendChild(this.storageViews);
@@ -91,12 +87,6 @@ WebInspector.DatabasesPanel.prototype = {
         WebInspector.Panel.prototype.show.call(this);
         this._updateSidebarWidth();
         this._registerStorageEventListener();
-        this.populateInterface();
-    },
-
-    populateInterface: function()
-    {
-        this.addCookies();
     },
 
     reset: function()
@@ -126,15 +116,11 @@ WebInspector.DatabasesPanel.prototype = {
 
         this._domStorage = [];
 
-        delete this.cookieTreeElement;
-        delete this._cookieView;
-
         this.databasesListTreeElement.removeChildren();
         this.localStorageListTreeElement.removeChildren();
         this.sessionStorageListTreeElement.removeChildren();
-        this.cookieListTreeElement.removeChildren();
-        this.storageViews.removeChildren();        
-
+        this.storageViews.removeChildren();
+        
         this.storageViewStatusBarItemsContainer.removeChildren();
     },
 
@@ -161,14 +147,6 @@ WebInspector.DatabasesPanel.prototype = {
             this.localStorageListTreeElement.appendChild(domStorageTreeElement);
         else
             this.sessionStorageListTreeElement.appendChild(domStorageTreeElement);
-    },
-
-    addCookies: function()
-    {
-        if (!this.cookieTreeElement) {
-            this.cookieTreeElement = new WebInspector.CookieSidebarTreeElement();
-            this.cookieListTreeElement.appendChild(this.cookieTreeElement);
-        }
     },
 
     selectDatabase: function(db)
@@ -245,27 +223,6 @@ WebInspector.DatabasesPanel.prototype = {
         if (!view) {
             view = new WebInspector.DOMStorageItemsView(domStorage);
             domStorage._domStorageView = view;
-        }
-
-        view.show(this.storageViews);
-
-        this.visibleView = view;
-
-        this.storageViewStatusBarItemsContainer.removeChildren();
-        var statusBarItems = view.statusBarItems;
-        for (var i = 0; i < statusBarItems.length; ++i)
-            this.storageViewStatusBarItemsContainer.appendChild(statusBarItems[i]);
-    },
-
-    showCookies: function()
-    {
-        if (this.visibleView)
-            this.visibleView.hide();
-
-        var view = this._cookieView;
-        if (!view) {
-            view = new WebInspector.CookieItemsView();
-            this._cookieView = view;
         }
 
         view.show(this.storageViews);
@@ -400,7 +357,7 @@ WebInspector.DatabasesPanel.prototype = {
         columns[0].title = WebInspector.UIString("Key");
         columns[0].width = columns[0].title.length;
         columns[1].title = WebInspector.UIString("Value");
-        columns[1].width = columns[1].title.length;
+        columns[1].width = columns[0].title.length;
 
         var nodes = [];
         
@@ -423,7 +380,7 @@ WebInspector.DatabasesPanel.prototype = {
         }
 
         var totalColumnWidths = columns[0].width + columns[1].width;
-        var width = Math.round((columns[0].width * 100) / totalColumnWidths);
+        width = Math.round((columns[0].width * 100) / totalColumnWidths);
         const minimumPrecent = 10;
         if (width < minimumPrecent)
             width = minimumPrecent;
@@ -443,7 +400,7 @@ WebInspector.DatabasesPanel.prototype = {
             nodes[0].selected = true;
         return dataGrid;
     },
-
+    
     resize: function()
     {
         var visibleView = this.visibleView;
@@ -649,39 +606,3 @@ WebInspector.DOMStorageSidebarTreeElement.prototype = {
 }
 
 WebInspector.DOMStorageSidebarTreeElement.prototype.__proto__ = WebInspector.SidebarTreeElement.prototype;
-
-WebInspector.CookieSidebarTreeElement = function()
-{
-    WebInspector.SidebarTreeElement.call(this, "cookie-sidebar-tree-item", null, "", null, false);
-
-    this.refreshTitles();
-}
-
-WebInspector.CookieSidebarTreeElement.prototype = {
-    onselect: function()
-    {
-        WebInspector.panels.databases.showCookies();
-    },
-
-    get mainTitle()
-    {
-        return WebInspector.UIString("Cookies");
-    },
-
-    set mainTitle(x)
-    {
-        // Do nothing.
-    },
-
-    get subtitle()
-    {
-        return "";
-    },
-
-    set subtitle(x)
-    {
-        // Do nothing.
-    }
-}
-
-WebInspector.CookieSidebarTreeElement.prototype.__proto__ = WebInspector.SidebarTreeElement.prototype;

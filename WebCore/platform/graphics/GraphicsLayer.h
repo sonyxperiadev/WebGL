@@ -38,7 +38,6 @@
 #include "TransformationMatrix.h"
 #include "TransformOperations.h"
 #include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
 
 #if PLATFORM(MAC)
 #ifdef __OBJC__
@@ -153,7 +152,7 @@ protected:
 class GraphicsLayer {
 public:
 
-    static PassOwnPtr<GraphicsLayer> create(GraphicsLayerClient*);
+    static GraphicsLayer* createGraphicsLayer(GraphicsLayerClient*);
     
     virtual ~GraphicsLayer();
 
@@ -181,9 +180,6 @@ public:
     void removeAllChildren();
     virtual void removeFromParent();
 
-    GraphicsLayer* maskLayer() const { return m_maskLayer; }
-    virtual void setMaskLayer(GraphicsLayer* layer) { m_maskLayer = layer; }
-    
     // Offset is origin of the renderer minus origin of the graphics layer (so either zero or negative).
     IntSize offsetFromRenderer() const { return m_offsetFromRenderer; }
     void setOffsetFromRenderer(const IntSize& offset) { m_offsetFromRenderer = offset; }
@@ -233,8 +229,8 @@ public:
     virtual void setOpacity(float opacity) { m_opacity = opacity; }
 
     // Some GraphicsLayers paint only the foreground or the background content
-    GraphicsLayerPaintingPhase paintingPhase() const { return m_paintingPhase; }
-    void setPaintingPhase(GraphicsLayerPaintingPhase phase) { m_paintingPhase = phase; }
+    GraphicsLayerPaintingPhase drawingPhase() const { return m_paintingPhase; }
+    void setDrawingPhase(GraphicsLayerPaintingPhase phase) { m_paintingPhase = phase; }
 
     virtual void setNeedsDisplay() = 0;
     // mark the given rect (in layer coords) as needing dispay. Never goes deep.
@@ -350,8 +346,6 @@ protected:
 
     Vector<GraphicsLayer*> m_children;
     GraphicsLayer* m_parent;
-
-    GraphicsLayer* m_maskLayer; // Reference to mask layer. We don't own this.
 
     IntRect m_contentsRect;
 

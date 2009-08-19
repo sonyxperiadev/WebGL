@@ -41,7 +41,6 @@
 
 namespace WebCore {
 
-    class NotificationCenter;
     class ScheduledAction;
     class WorkerLocation;
     class WorkerNavigator;
@@ -49,6 +48,7 @@ namespace WebCore {
 
     class WorkerContext : public RefCounted<WorkerContext>, public ScriptExecutionContext, public EventTarget {
     public:
+
         virtual ~WorkerContext();
 
         virtual bool isWorkerContext() const { return true; }
@@ -103,11 +103,8 @@ namespace WebCore {
 
         // ScriptExecutionContext
         virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
-        virtual void addMessage(MessageDestination, MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
 
-#if ENABLE(NOTIFICATIONS)
-        NotificationCenter* webkitNotifications() const;
-#endif
+        virtual void forwardException(const String& errorMessage, int lineNumber, const String& sourceURL) = 0;
 
         // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in
         // JSWorkerContextCustom.cpp.
@@ -142,9 +139,6 @@ namespace WebCore {
         RefPtr<EventListener> m_onerrorListener;
         EventListenersMap m_eventListeners;
 
-#if ENABLE_NOTIFICATIONS
-        mutable RefPtr<NotificationCenter> m_notifications;
-#endif
         bool m_closing;
     };
 

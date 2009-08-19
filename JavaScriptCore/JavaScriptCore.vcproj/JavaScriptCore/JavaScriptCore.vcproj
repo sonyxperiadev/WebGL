@@ -644,10 +644,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\Executable.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\runtime\FunctionConstructor.cpp"
 				>
 			</File>

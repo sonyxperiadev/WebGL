@@ -257,7 +257,7 @@ PassRefPtr<DocumentFragment> HTMLElement::createContextualFragment(const String 
         hasLocalName(headTag) || hasLocalName(styleTag) || hasLocalName(titleTag))
         return 0;
 
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(document());
+    RefPtr<DocumentFragment> fragment = new DocumentFragment(document());
     
     if (document()->isHTMLDocument())
          parseHTMLDocumentFragment(html, fragment.get());
@@ -319,7 +319,7 @@ static void replaceChildrenWithFragment(HTMLElement* element, PassRefPtr<Documen
     }
 
     if (hasOneTextChild(element) && hasOneTextChild(fragment.get())) {
-        static_cast<Text*>(element->firstChild())->setData(static_cast<Text*>(fragment->firstChild())->data(), ec);
+        static_cast<Text*>(element->firstChild())->setData(static_cast<Text*>(fragment->firstChild())->string(), ec);
         return;
     }
 
@@ -339,7 +339,7 @@ static void replaceChildrenWithText(HTMLElement* element, const String& text, Ex
         return;
     }
 
-    RefPtr<Text> textNode = Text::create(element->document(), text);
+    RefPtr<Text> textNode = new Text(element->document(), text);
 
     if (hasOneChild(element)) {
         element->replaceChild(textNode.release(), element->firstChild(), ec);
@@ -425,7 +425,7 @@ void HTMLElement::setInnerText(const String& text, ExceptionCode& ec)
 
     // Add text nodes and <br> elements.
     ec = 0;
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(document());
+    RefPtr<DocumentFragment> fragment = new DocumentFragment(document());
     int lineStart = 0;
     UChar prev = 0;
     int length = text.length();
@@ -433,7 +433,7 @@ void HTMLElement::setInnerText(const String& text, ExceptionCode& ec)
         UChar c = text[i];
         if (c == '\n' || c == '\r') {
             if (i > lineStart) {
-                fragment->appendChild(Text::create(document(), text.substring(lineStart, i - lineStart)), ec);
+                fragment->appendChild(new Text(document(), text.substring(lineStart, i - lineStart)), ec);
                 if (ec)
                     return;
             }
@@ -447,7 +447,7 @@ void HTMLElement::setInnerText(const String& text, ExceptionCode& ec)
         prev = c;
     }
     if (length > lineStart)
-        fragment->appendChild(Text::create(document(), text.substring(lineStart, length - lineStart)), ec);
+        fragment->appendChild(new Text(document(), text.substring(lineStart, length - lineStart)), ec);
     replaceChildrenWithFragment(this, fragment.release(), ec);
 }
 
@@ -475,7 +475,7 @@ void HTMLElement::setOuterText(const String &text, ExceptionCode& ec)
     // FIXME: This creates a new text node even when the text is empty.
     // FIXME: This creates a single text node even when the text has CR and LF
     // characters in it. Instead it should create <br> elements.
-    RefPtr<Text> t = Text::create(document(), text);
+    RefPtr<Text> t = new Text(document(), text);
     ec = 0;
     parent->replaceChild(t, this, ec);
     if (ec)
@@ -737,9 +737,54 @@ void HTMLElement::accessKeyAction(bool sendToAnyElement)
         dispatchSimulatedClick(0, true);
 }
 
+String HTMLElement::id() const
+{
+    return getAttribute(idAttr);
+}
+
+void HTMLElement::setId(const String& value)
+{
+    setAttribute(idAttr, value);
+}
+
 String HTMLElement::title() const
 {
     return getAttribute(titleAttr);
+}
+
+void HTMLElement::setTitle(const String& value)
+{
+    setAttribute(titleAttr, value);
+}
+
+String HTMLElement::lang() const
+{
+    return getAttribute(langAttr);
+}
+
+void HTMLElement::setLang(const String& value)
+{
+    setAttribute(langAttr, value);
+}
+
+String HTMLElement::dir() const
+{
+    return getAttribute(dirAttr);
+}
+
+void HTMLElement::setDir(const String &value)
+{
+    setAttribute(dirAttr, value);
+}
+
+String HTMLElement::className() const
+{
+    return getAttribute(classAttr);
+}
+
+void HTMLElement::setClassName(const String &value)
+{
+    setAttribute(classAttr, value);
 }
 
 short HTMLElement::tabIndex() const
@@ -849,7 +894,6 @@ static HashSet<AtomicStringImpl*>* inlineTagList()
         tagList.add(textareaTag.localName().impl());
         tagList.add(labelTag.localName().impl());
         tagList.add(buttonTag.localName().impl());
-        tagList.add(datalistTag.localName().impl());
         tagList.add(insTag.localName().impl());
         tagList.add(delTag.localName().impl());
         tagList.add(nobrTag.localName().impl());

@@ -152,7 +152,7 @@ public:
     Rect* getRectValue(ExceptionCode&) const;
     Rect* getRectValue() const { return m_type != CSS_RECT ? 0 : m_value.rect; }
 
-    PassRefPtr<RGBColor> getRGBColorValue(ExceptionCode&) const;
+    RGBColor* getRGBColorValue(ExceptionCode&) const;
     RGBA32 getRGBA32Value() const { return m_type != CSS_RGBCOLOR ? 0 : m_value.rgbcolor; }
 
     Pair* getPairValue(ExceptionCode&) const;

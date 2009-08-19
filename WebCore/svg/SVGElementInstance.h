@@ -1,6 +1,8 @@
 /*
     Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
 
+    This file is part of the KDE project
+
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -25,6 +27,9 @@
 #include "SVGElement.h"
 #include "TreeShared.h"
 
+#include <wtf/RefPtr.h>
+#include <wtf/PassRefPtr.h>
+
 namespace WebCore {
 
     namespace Private { 
@@ -32,6 +37,8 @@ namespace WebCore {
         void addChildNodesToDeletionQueue(GenericNode*& head, GenericNode*& tail, GenericNodeContainer* container);
     };
 
+    class EventListener;
+    class Frame;
     class SVGUseElement;
     class SVGElementInstanceList;
 
@@ -39,17 +46,16 @@ namespace WebCore {
     class SVGElementInstance : public TreeShared<SVGElementInstance>,
                                public EventTarget {
     public:
-        static PassRefPtr<SVGElementInstance> create(SVGUseElement* useElement, PassRefPtr<SVGElement> originalElement)
-        {
-            return adoptRef(new SVGElementInstance(useElement, originalElement));
-        }
-
+        SVGElementInstance(SVGUseElement*, SVGElement* originalElement);
         virtual ~SVGElementInstance();
 
         bool needsUpdate() const { return m_needsUpdate; }
         void setNeedsUpdate(bool);
 
         virtual ScriptExecutionContext* scriptExecutionContext() const;
+
+        virtual Node* toNode() { return shadowTreeElement(); }
+        virtual SVGElementInstance* toSVGElementInstance() { return this; }
 
         virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
         virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
@@ -161,11 +167,6 @@ namespace WebCore {
     private:
         friend class SVGUseElement;
 
-        SVGElementInstance(SVGUseElement*, PassRefPtr<SVGElement> originalElement);
-
-        virtual Node* toNode() { return shadowTreeElement(); }
-        virtual SVGElementInstance* toSVGElementInstance() { return this; }
-
         void appendChild(PassRefPtr<SVGElementInstance> child);
         void setShadowTreeElement(SVGElement*);
         void forgetWrapper();
@@ -190,6 +191,7 @@ namespace WebCore {
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
 
+    private:
         bool m_needsUpdate : 1;
 
         SVGUseElement* m_useElement;

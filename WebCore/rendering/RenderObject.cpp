@@ -4,7 +4,6 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -146,12 +145,6 @@ RenderObject* RenderObject::createObject(Node* node, RenderStyle* style)
             o = new (arena) RenderTableCell(node);
             break;
         case TABLE_CAPTION:
-#if ENABLE(WCSS)
-        // As per the section 17.1 of the spec WAP-239-WCSS-20011026-a.pdf, 
-        // the marquee box inherits and extends the characteristics of the 
-        // principal block box ([CSS2] section 9.2.1).
-        case WAP_MARQUEE:
-#endif
             o = new (arena) RenderBlock(node);
             break;
         case BOX:
@@ -1619,19 +1612,14 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle*)
 
 void RenderObject::updateFillImages(const FillLayer* oldLayers, const FillLayer* newLayers)
 {
-    // Optimize the common case
-    if (oldLayers && !oldLayers->next() && newLayers && !newLayers->next() && (oldLayers->image() == newLayers->image()))
-        return;
-    
-    // Go through the new layers and addClients first, to avoid removing all clients of an image.
-    for (const FillLayer* currNew = newLayers; currNew; currNew = currNew->next()) {
-        if (currNew->image())
-            currNew->image()->addClient(this);
-    }
-
+    // FIXME: This will be slow when a large number of images is used.  Fix by using a dict.
     for (const FillLayer* currOld = oldLayers; currOld; currOld = currOld->next()) {
-        if (currOld->image())
+        if (currOld->image() && (!newLayers || !newLayers->containsImage(currOld->image())))
             currOld->image()->removeClient(this);
+    }
+    for (const FillLayer* currNew = newLayers; currNew; currNew = currNew->next()) {
+        if (currNew->image() && (!oldLayers || !oldLayers->containsImage(currNew->image())))
+            currNew->image()->addClient(this);
     }
 }
 

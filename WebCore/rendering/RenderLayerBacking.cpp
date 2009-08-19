@@ -47,14 +47,16 @@ using namespace std;
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
 static bool hasBorderOutlineOrShadow(const RenderStyle*);
 static bool hasBoxDecorations(const RenderStyle*);
 static bool hasBoxDecorationsWithBackgroundImage(const RenderStyle*);
 
 RenderLayerBacking::RenderLayerBacking(RenderLayer* layer)
     : m_owningLayer(layer)
+    , m_ancestorClippingLayer(0)
+    , m_graphicsLayer(0)
+    , m_foregroundLayer(0)
+    , m_clippingLayer(0)
     , m_hasDirectlyCompositedContent(false)
 {
     createGraphicsLayer();
@@ -64,13 +66,12 @@ RenderLayerBacking::~RenderLayerBacking()
 {
     updateClippingLayers(false, false);
     updateForegroundLayer(false);
-    updateMaskLayer(false);
     destroyGraphicsLayer();
 }
 
 void RenderLayerBacking::createGraphicsLayer()
 {
-    m_graphicsLayer = GraphicsLayer::create(this);
+    m_graphicsLayer = GraphicsLayer::createGraphicsLayer(this);
     
 #ifndef NDEBUG
     if (renderer()->node()) {
@@ -78,7 +79,7 @@ void RenderLayerBacking::createGraphicsLayer()
             m_graphicsLayer->setName("Document Node");
         else {
             if (renderer()->node()->isHTMLElement() && renderer()->node()->hasID())
-                m_graphicsLayer->setName(renderer()->renderName() + String(" ") + static_cast<HTMLElement*>(renderer()->node())->getAttribute(idAttr));
+                m_graphicsLayer->setName(renderer()->renderName() + String(" ") + static_cast<HTMLElement*>(renderer()->node())->id());
             else
                 m_graphicsLayer->setName(renderer()->renderName());
         }
@@ -95,10 +96,14 @@ void RenderLayerBacking::destroyGraphicsLayer()
     if (m_graphicsLayer)
         m_graphicsLayer->removeFromParent();
 
+    delete m_graphicsLayer;
     m_graphicsLayer = 0;
+
+    delete m_foregroundLayer;
     m_foregroundLayer = 0;
+
+    delete m_clippingLayer;
     m_clippingLayer = 0;
-    m_maskLayer = 0;
 }
 
 void RenderLayerBacking::updateLayerOpacity()
@@ -152,9 +157,6 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
     
     if (updateClippingLayers(compositor->clippedByAncestor(m_owningLayer), compositor->clipsCompositingDescendants(m_owningLayer)))
         layerConfigChanged = true;
-
-    if (updateMaskLayer(m_owningLayer->renderer()->hasMask()))
-        m_graphicsLayer->setMaskLayer(m_maskLayer.get());
 
     m_hasDirectlyCompositedContent = false;
     if (canUseDirectCompositing()) {
@@ -249,17 +251,11 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     // If we have a layer that clips children, position it.
-    IntRect clippingBox;
     if (m_clippingLayer) {
-        clippingBox = toRenderBox(renderer())->overflowClipRect(0, 0);
+        IntRect clippingBox = toRenderBox(renderer())->overflowClipRect(0, 0);
         m_clippingLayer->setPosition(FloatPoint() + (clippingBox.location() - localCompositingBounds.location()));
         m_clippingLayer->setSize(clippingBox.size());
         m_clippingLayer->setOffsetFromRenderer(clippingBox.location() - IntPoint());
-    }
-    
-    if (m_maskLayer) {
-        m_maskLayer->setSize(m_graphicsLayer->size());
-        m_maskLayer->setPosition(FloatPoint());
     }
     
     if (m_owningLayer->hasTransform()) {
@@ -297,20 +293,10 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     if (m_foregroundLayer) {
-        FloatPoint foregroundPosition;
-        FloatSize foregroundSize = newSize;
-        IntSize foregroundOffset = m_graphicsLayer->offsetFromRenderer();
-        // If we have a clipping layer (which clips descendants), then the foreground layer is a child of it,
-        // so that it gets correctly sorted with children. In that case, position relative to the clipping layer.
-        if (m_clippingLayer) {
-            foregroundPosition = FloatPoint() + (localCompositingBounds.location() - clippingBox.location());
-            foregroundSize = FloatSize(clippingBox.size());
-            foregroundOffset = clippingBox.location() - IntPoint();
-        }
-
-        m_foregroundLayer->setPosition(foregroundPosition);
-        m_foregroundLayer->setSize(foregroundSize);
-        m_foregroundLayer->setOffsetFromRenderer(foregroundOffset);
+        // The contents layer is always coincidental with the graphicsLayer for now.
+        m_foregroundLayer->setPosition(IntPoint(0, 0));
+        m_foregroundLayer->setSize(newSize);
+        m_foregroundLayer->setOffsetFromRenderer(m_graphicsLayer->offsetFromRenderer());
     }
 
     m_graphicsLayer->setContentsRect(contentsBox());
@@ -325,12 +311,12 @@ void RenderLayerBacking::updateInternalHierarchy()
     if (m_ancestorClippingLayer) {
         m_ancestorClippingLayer->removeAllChildren();
         m_graphicsLayer->removeFromParent();
-        m_ancestorClippingLayer->addChild(m_graphicsLayer.get());
+        m_ancestorClippingLayer->addChild(m_graphicsLayer);
     }
 
     if (m_clippingLayer) {
         m_clippingLayer->removeFromParent();
-        m_graphicsLayer->addChild(m_clippingLayer.get());
+        m_graphicsLayer->addChild(m_clippingLayer);
     }
 }
 
@@ -341,7 +327,7 @@ bool RenderLayerBacking::updateClippingLayers(bool needsAncestorClip, bool needs
 
     if (needsAncestorClip) {
         if (!m_ancestorClippingLayer) {
-            m_ancestorClippingLayer = GraphicsLayer::create(this);
+            m_ancestorClippingLayer = GraphicsLayer::createGraphicsLayer(this);
 #ifndef NDEBUG
             m_ancestorClippingLayer->setName("Ancestor clipping Layer");
 #endif
@@ -350,13 +336,14 @@ bool RenderLayerBacking::updateClippingLayers(bool needsAncestorClip, bool needs
         }
     } else if (m_ancestorClippingLayer) {
         m_ancestorClippingLayer->removeFromParent();
+        delete m_ancestorClippingLayer;
         m_ancestorClippingLayer = 0;
         layersChanged = true;
     }
     
     if (needsDescendantClip) {
         if (!m_clippingLayer) {
-            m_clippingLayer = GraphicsLayer::create(0);
+            m_clippingLayer = GraphicsLayer::createGraphicsLayer(0);
 #ifndef NDEBUG
             m_clippingLayer->setName("Child clipping Layer");
 #endif
@@ -365,6 +352,7 @@ bool RenderLayerBacking::updateClippingLayers(bool needsAncestorClip, bool needs
         }
     } else if (m_clippingLayer) {
         m_clippingLayer->removeFromParent();
+        delete m_clippingLayer;
         m_clippingLayer = 0;
         layersChanged = true;
     }
@@ -380,59 +368,23 @@ bool RenderLayerBacking::updateForegroundLayer(bool needsForegroundLayer)
     bool layerChanged = false;
     if (needsForegroundLayer) {
         if (!m_foregroundLayer) {
-            m_foregroundLayer = GraphicsLayer::create(this);
+            m_foregroundLayer = GraphicsLayer::createGraphicsLayer(this);
 #ifndef NDEBUG
-            m_foregroundLayer->setName("Foreground");
+            m_foregroundLayer->setName("Contents");
 #endif
             m_foregroundLayer->setDrawsContent(true);
-            m_foregroundLayer->setPaintingPhase(GraphicsLayerPaintForeground);
+            m_foregroundLayer->setDrawingPhase(GraphicsLayerPaintForegroundMask);
+            m_graphicsLayer->setDrawingPhase(GraphicsLayerPaintBackgroundMask);
             layerChanged = true;
         }
     } else if (m_foregroundLayer) {
         m_foregroundLayer->removeFromParent();
+        delete m_foregroundLayer;
         m_foregroundLayer = 0;
+        m_graphicsLayer->setDrawingPhase(GraphicsLayerPaintAllMask);
         layerChanged = true;
     }
-
-    if (layerChanged)
-        m_graphicsLayer->setPaintingPhase(paintingPhaseForPrimaryLayer());
-
     return layerChanged;
-}
-
-bool RenderLayerBacking::updateMaskLayer(bool needsMaskLayer)
-{
-    bool layerChanged = false;
-    if (needsMaskLayer) {
-        if (!m_maskLayer) {
-            m_maskLayer = GraphicsLayer::create(this);
-#ifndef NDEBUG
-            m_maskLayer->setName("Mask");
-#endif
-            m_maskLayer->setDrawsContent(true);
-            m_maskLayer->setPaintingPhase(GraphicsLayerPaintMask);
-            layerChanged = true;
-        }
-    } else if (m_maskLayer) {
-        m_maskLayer = 0;
-        layerChanged = true;
-    }
-
-    if (layerChanged)
-        m_graphicsLayer->setPaintingPhase(paintingPhaseForPrimaryLayer());
-
-    return layerChanged;
-}
-
-GraphicsLayerPaintingPhase RenderLayerBacking::paintingPhaseForPrimaryLayer() const
-{
-    unsigned phase = GraphicsLayerPaintBackground;
-    if (!m_foregroundLayer)
-        phase |= GraphicsLayerPaintForeground;
-    if (!m_maskLayer)
-        phase |= GraphicsLayerPaintMask;
-
-    return static_cast<GraphicsLayerPaintingPhase>(phase);
 }
 
 float RenderLayerBacking::compositingOpacity(float rendererOpacity) const
@@ -548,7 +500,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
         
         // Now look at the body's renderer.
         HTMLElement* body = renderObject->document()->body();
-        RenderObject* bodyObject = (body && body->hasLocalName(bodyTag)) ? body->renderer() : 0;
+        RenderObject* bodyObject = (body && body->hasLocalName(HTMLNames::bodyTag)) ? body->renderer() : 0;
         if (!bodyObject)
             return false;
         
@@ -753,16 +705,13 @@ void RenderLayerBacking::setContentsNeedDisplay()
     
     if (m_foregroundLayer && m_foregroundLayer->drawsContent())
         m_foregroundLayer->setNeedsDisplay();
-
-    if (m_maskLayer && m_maskLayer->drawsContent())
-        m_maskLayer->setNeedsDisplay();
 }
 
 // r is in the coordinate space of the layer's render object
 void RenderLayerBacking::setContentsNeedDisplayInRect(const IntRect& r)
 {
     if (m_graphicsLayer && m_graphicsLayer->drawsContent()) {
-        FloatPoint dirtyOrigin = contentsToGraphicsLayerCoordinates(m_graphicsLayer.get(), FloatPoint(r.x(), r.y()));
+        FloatPoint dirtyOrigin = contentsToGraphicsLayerCoordinates(m_graphicsLayer, FloatPoint(r.x(), r.y()));
         FloatRect dirtyRect(dirtyOrigin, r.size());
         FloatRect bounds(FloatPoint(), m_graphicsLayer->size());
         if (bounds.intersects(dirtyRect))
@@ -772,11 +721,6 @@ void RenderLayerBacking::setContentsNeedDisplayInRect(const IntRect& r)
     if (m_foregroundLayer && m_foregroundLayer->drawsContent()) {
         // FIXME: do incremental repaint
         m_foregroundLayer->setNeedsDisplay();
-    }
-
-    if (m_maskLayer && m_maskLayer->drawsContent()) {
-        // FIXME: do incremental repaint
-        m_maskLayer->setNeedsDisplay();
     }
 }
 
@@ -835,7 +779,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
 
     bool shouldPaint = m_owningLayer->hasVisibleContent() && m_owningLayer->isSelfPaintingLayer();
 
-    if (shouldPaint && (paintingPhase & GraphicsLayerPaintBackground)) {
+    if (shouldPaint && (paintingPhase & GraphicsLayerPaintBackgroundMask)) {
         // If this is the root then we need to send in a bigger bounding box
         // because we'll be painting the background as well (see RenderBox::paintRootBoxDecorations()).
         IntRect paintBox = clipRectToApply;
@@ -879,10 +823,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         restoreClip(context, paintDirtyRect, damageRect);
     }
                 
-    bool forceBlackText = paintRestriction == PaintRestrictionSelectionOnlyBlackText;
-    bool selectionOnly  = paintRestriction == PaintRestrictionSelectionOnly || paintRestriction == PaintRestrictionSelectionOnlyBlackText;
-
-    if (shouldPaint && (paintingPhase & GraphicsLayerPaintForeground)) {
+    if (shouldPaint && (paintingPhase & GraphicsLayerPaintForegroundMask)) {
         // Now walk the sorted list of children with negative z-indices. Only RenderLayers without compositing layers will paint.
         // FIXME: should these be painted as background?
         Vector<RenderLayer*>* negZOrderList = m_owningLayer->negZOrderList();
@@ -890,6 +831,9 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
             for (Vector<RenderLayer*>::iterator it = negZOrderList->begin(); it != negZOrderList->end(); ++it)
                 it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot);
         }
+
+        bool forceBlackText = paintRestriction == PaintRestrictionSelectionOnlyBlackText;
+        bool selectionOnly  = paintRestriction == PaintRestrictionSelectionOnly || paintRestriction == PaintRestrictionSelectionOnlyBlackText;
 
         // Set up the clip used when painting our children.
         setClip(context, paintDirtyRect, clipRectToApply);
@@ -933,9 +877,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
             for (Vector<RenderLayer*>::iterator it = posZOrderList->begin(); it != posZOrderList->end(); ++it)
                 it[0]->paintLayer(rootLayer, context, paintDirtyRect, paintRestriction, paintingRoot);
         }
-    }
-    
-    if (shouldPaint && (paintingPhase & GraphicsLayerPaintMask)) {
+        
         if (renderer()->hasMask() && !selectionOnly && !damageRect.isEmpty()) {
             setClip(context, paintDirtyRect, damageRect);
 
@@ -952,7 +894,7 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
 }
 
 // Up-call from compositing layer drawing callback.
-void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase paintingPhase, const IntRect& clip)
+void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase drawingPhase, const IntRect& clip)
 {
     // We have to use the same root as for hit testing, because both methods
     // can compute and cache clipRects.
@@ -970,7 +912,7 @@ void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& co
     IntRect dirtyRect = enclosingBBox;
     dirtyRect.intersect(clipRect);
 
-    paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintRestrictionNone, paintingPhase, renderer());
+    paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintRestrictionNone, drawingPhase, renderer());
 }
 
 bool RenderLayerBacking::startAnimation(double beginTime, const Animation* anim, const KeyframeList& keyframes)

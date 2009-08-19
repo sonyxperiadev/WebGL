@@ -1,6 +1,8 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,27 +35,14 @@ class CSSStyleSheet;
 
 class ProcessingInstruction : public ContainerNode, private CachedResourceClient {
 public:
-    static PassRefPtr<ProcessingInstruction> create(Document*, const String& target, const String& data);
+    ProcessingInstruction(Document*);
+    ProcessingInstruction(Document*, const String& target, const String& data);
     virtual ~ProcessingInstruction();
 
-    const String& target() const { return m_target; }
-    const String& data() const { return m_data; }
+    // DOM methods & attributes for Notation
+    String target() const { return m_target; }
+    String data() const { return m_data; }
     void setData(const String&, ExceptionCode&);
-
-    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
-
-    virtual void finishParsingChildren();
-
-    const String& localHref() const { return m_localHref; }
-    StyleSheet* sheet() const { return m_sheet.get(); }
-    void setCSSStyleSheet(PassRefPtr<CSSStyleSheet>);
-
-#if ENABLE(XSLT)
-    bool isXSL() const { return m_isXSL; }
-#endif
-
-private:
-    ProcessingInstruction(Document*, const String& target, const String& data);
 
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
@@ -66,18 +55,28 @@ private:
 
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
+    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
+    virtual void finishParsingChildren();
 
+    // Other methods (not part of DOM)
+    String localHref() const { return m_localHref; }
+    StyleSheet* sheet() const { return m_sheet.get(); }
     void checkStyleSheet();
     virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
 #if ENABLE(XSLT)
     virtual void setXSLStyleSheet(const String& url, const String& sheet);
 #endif
-
+    void setCSSStyleSheet(PassRefPtr<CSSStyleSheet>);
     bool isLoading() const;
     virtual bool sheetLoaded();
 
+#if ENABLE(XSLT)
+    bool isXSL() const { return m_isXSL; }
+#endif
+
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
+private:
     void parseStyleSheet(const String& sheet);
 
     String m_target;

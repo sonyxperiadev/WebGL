@@ -1,6 +1,8 @@
-/*
+/**
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -17,14 +19,17 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
-
 #include "config.h"
 #include "Notation.h"
 
 namespace WebCore {
 
-Notation::Notation(Document* document, const String& name, const String& publicId, const String& systemId)
-    : ContainerNode(document)
+Notation::Notation(Document* doc) : ContainerNode(doc)
+{
+}
+
+Notation::Notation(Document* doc, const String& name, const String& publicId, const String& systemId)
+    : ContainerNode(doc)
     , m_name(name)
     , m_publicId(publicId)
     , m_systemId(systemId)
@@ -47,6 +52,7 @@ PassRefPtr<Node> Notation::cloneNode(bool /*deep*/)
     return 0;
 }
 
+// DOM Section 1.1.1
 bool Notation::childTypeAllowed(NodeType)
 {
     return false;

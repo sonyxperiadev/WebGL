@@ -29,7 +29,6 @@
 #include "Document.h"
 #include "HTMLInputElement.h"
 #include "Settings.h"
-#include <runtime/Error.h>
 
 using namespace JSC;
 

@@ -53,7 +53,6 @@ namespace WebCore {
 
         bool contains(const String& key) const;
 
-        Frame* frame() { return m_frame; }
         void disconnectFrame() { m_frame = 0; }
 
     private:

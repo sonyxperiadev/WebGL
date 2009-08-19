@@ -69,7 +69,17 @@ public:
 
     void setLoadManually(bool loadManually) { m_imageLoader.setLoadManually(loadManually); }
 
-    const AtomicString& alt() const;
+    String name() const;
+    void setName(const String&);
+
+    String align() const;
+    void setAlign(const String&);
+
+    String alt() const;
+    void setAlt(const String&);
+
+    String border() const;
+    void setBorder(const String&);
 
     virtual bool draggable() const;
 
@@ -89,6 +99,9 @@ public:
 
     KURL src() const;
     void setSrc(const String&);
+
+    String useMap() const;
+    void setUseMap(const String&);
 
     int vspace() const;
     void setVspace(int);

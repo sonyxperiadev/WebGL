@@ -46,8 +46,6 @@ typedef struct _GtkMenuItem GtkMenuItem;
 #include <QAction>
 #elif PLATFORM(WX)
 class wxMenuItem;
-#elif PLATFORM(HAIKU)
-class BMenuItem;
 #endif
 
 namespace WebCore {
@@ -206,8 +204,6 @@ namespace WebCore {
         bool checked;
         bool enabled;
     };
-#elif PLATFORM(HAIKU)
-    typedef BMenuItem* PlatformMenuItemDescription;
 #else
     typedef void* PlatformMenuItemDescription;
 #endif

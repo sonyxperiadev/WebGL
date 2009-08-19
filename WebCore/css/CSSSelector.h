@@ -126,7 +126,6 @@ namespace WebCore {
             PseudoChecked,
             PseudoEnabled,
             PseudoFullPageMedia,
-            PseudoDefault,
             PseudoDisabled,
             PseudoInputPlaceholder,
             PseudoOptional,

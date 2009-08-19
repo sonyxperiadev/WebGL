@@ -37,6 +37,7 @@ namespace WebCore {
 
     class Database;
     class DOMWindow;
+    class Frame;
     class Node;
     class ScriptObject;
     class ScriptValue;
@@ -48,7 +49,7 @@ namespace WebCore {
     bool getQuarantinedScriptObject(Database* database, ScriptObject& quarantinedObject);
 #endif
 #if ENABLE(DOM_STORAGE)
-    bool getQuarantinedScriptObject(Storage* storage, ScriptObject& quarantinedObject);
+    bool getQuarantinedScriptObject(Frame* frame, Storage* storage, ScriptObject& quarantinedObject);
 #endif
     bool getQuarantinedScriptObject(Node* node, ScriptObject& quarantinedObject);
     bool getQuarantinedScriptObject(DOMWindow* domWindow, ScriptObject& quarantinedObject);

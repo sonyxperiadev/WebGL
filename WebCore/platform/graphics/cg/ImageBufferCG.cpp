@@ -65,9 +65,7 @@ ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, b
         bytesPerRow *= 4;
     }
 
-    if (!tryFastCalloc(size.height(), bytesPerRow).getValue(m_data.m_data))
-        return;
-
+    m_data.m_data = tryFastCalloc(size.height(), bytesPerRow);
     ASSERT((reinterpret_cast<size_t>(m_data.m_data) & 2) == 0);
 
     CGColorSpaceRef colorSpace;
@@ -124,13 +122,12 @@ Image* ImageBuffer::image() const
     return m_image.get();
 }
 
-template <Multiply multiplied>
-PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& imageData, const IntSize& size)
+PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
 {
     PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
     unsigned char* data = result->data()->data()->data();
 
-    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > size.width() || (rect.y() + rect.height()) > size.height())
+    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
         memset(data, 0, result->data()->length());
 
     int originx = rect.x();
@@ -140,8 +137,8 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
         originx = 0;
     }
     int endx = rect.x() + rect.width();
-    if (endx > size.width())
-        endx = size.width();
+    if (endx > m_size.width())
+        endx = m_size.width();
     int numColumns = endx - originx;
 
     int originy = rect.y();
@@ -151,21 +148,20 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
         originy = 0;
     }
     int endy = rect.y() + rect.height();
-    if (endy > size.height())
-        endy = size.height();
+    if (endy > m_size.height())
+        endy = m_size.height();
     int numRows = endy - originy;
 
-    unsigned srcBytesPerRow = 4 * size.width();
+    unsigned srcBytesPerRow = 4 * m_size.width();
     unsigned destBytesPerRow = 4 * rect.width();
 
     // ::create ensures that all ImageBuffers have valid data, so we don't need to check it here.
-    unsigned char* srcRows = reinterpret_cast<unsigned char*>(imageData.m_data) + originy * srcBytesPerRow + originx * 4;
+    unsigned char* srcRows = reinterpret_cast<unsigned char*>(m_data.m_data) + originy * srcBytesPerRow + originx * 4;
     unsigned char* destRows = data + desty * destBytesPerRow + destx * 4;
     for (int y = 0; y < numRows; ++y) {
         for (int x = 0; x < numColumns; x++) {
             int basex = x * 4;
-            unsigned char alpha = srcRows[basex + 3];
-            if (multiplied == Unmultiplied && alpha) {
+            if (unsigned char alpha = srcRows[basex + 3]) {
                 destRows[basex] = (srcRows[basex] * 255) / alpha;
                 destRows[basex + 1] = (srcRows[basex + 1] * 255) / alpha;
                 destRows[basex + 2] = (srcRows[basex + 2] * 255) / alpha;
@@ -179,18 +175,7 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
     return result;
 }
 
-PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
-{
-    return getImageData<Unmultiplied>(rect, m_data, m_size);
-}
-
-PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
-{
-    return getImageData<Premultiplied>(rect, m_data, m_size);
-}
-
-template <Multiply multiplied>
-void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, ImageBufferData& imageData, const IntSize& size)
+void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     ASSERT(sourceRect.width() > 0);
     ASSERT(sourceRect.height() > 0);
@@ -198,36 +183,36 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
     int originx = sourceRect.x();
     int destx = destPoint.x() + sourceRect.x();
     ASSERT(destx >= 0);
-    ASSERT(destx < size.width());
+    ASSERT(destx < m_size.width());
     ASSERT(originx >= 0);
     ASSERT(originx <= sourceRect.right());
 
     int endx = destPoint.x() + sourceRect.right();
-    ASSERT(endx <= size.width());
+    ASSERT(endx <= m_size.width());
 
     int numColumns = endx - destx;
 
     int originy = sourceRect.y();
     int desty = destPoint.y() + sourceRect.y();
     ASSERT(desty >= 0);
-    ASSERT(desty < size.height());
+    ASSERT(desty < m_size.height());
     ASSERT(originy >= 0);
     ASSERT(originy <= sourceRect.bottom());
 
     int endy = destPoint.y() + sourceRect.bottom();
-    ASSERT(endy <= size.height());
+    ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
 
     unsigned srcBytesPerRow = 4 * source->width();
-    unsigned destBytesPerRow = 4 * size.width();
+    unsigned destBytesPerRow = 4 * m_size.width();
 
     unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
-    unsigned char* destRows = reinterpret_cast<unsigned char*>(imageData.m_data) + desty * destBytesPerRow + destx * 4;
+    unsigned char* destRows = reinterpret_cast<unsigned char*>(m_data.m_data) + desty * destBytesPerRow + destx * 4;
     for (int y = 0; y < numRows; ++y) {
         for (int x = 0; x < numColumns; x++) {
             int basex = x * 4;
             unsigned char alpha = srcRows[basex + 3];
-            if (multiplied == Unmultiplied && alpha != 255) {
+            if (alpha != 255) {
                 destRows[basex] = (srcRows[basex] * alpha + 254) / 255;
                 destRows[basex + 1] = (srcRows[basex + 1] * alpha + 254) / 255;
                 destRows[basex + 2] = (srcRows[basex + 2] * alpha + 254) / 255;
@@ -238,16 +223,6 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
         destRows += destBytesPerRow;
         srcRows += srcBytesPerRow;
     }
-}
-
-void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<Unmultiplied>(source, sourceRect, destPoint, m_data, m_size);
-}
-
-void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<Premultiplied>(source, sourceRect, destPoint, m_data, m_size);
 }
 
 static RetainPtr<CFStringRef> utiFromMIMEType(const String& mimeType)

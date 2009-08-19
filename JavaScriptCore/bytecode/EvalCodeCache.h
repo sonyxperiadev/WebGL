@@ -29,7 +29,6 @@
 #ifndef EvalCodeCache_h
 #define EvalCodeCache_h
 
-#include "Executable.h"
 #include "JSGlobalObject.h"
 #include "Nodes.h"
 #include "Parser.h"
@@ -42,33 +41,44 @@ namespace JSC {
 
     class EvalCodeCache {
     public:
-        PassRefPtr<CacheableEvalExecutable> get(ExecState* exec, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
+        PassRefPtr<EvalNode> get(ExecState* exec, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
         {
-            RefPtr<CacheableEvalExecutable> evalExecutable;
+            RefPtr<EvalNode> evalNode;
 
             if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
-                evalExecutable = m_cacheMap.get(evalSource.rep());
+                evalNode = m_cacheMap.get(evalSource.rep());
 
-            if (!evalExecutable) {
-                evalExecutable = CacheableEvalExecutable::create(makeSource(evalSource));
-                exceptionValue = evalExecutable->parse(exec);
-                if (exceptionValue)
+            if (!evalNode) {
+                int errorLine;
+                UString errorMessage;
+                
+                SourceCode source = makeSource(evalSource);
+                evalNode = exec->globalData().parser->parse<EvalNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errorLine, &errorMessage);
+                if (evalNode) {
+                    if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
+                        m_cacheMap.set(evalSource.rep(), evalNode);
+                } else {
+                    exceptionValue = Error::create(exec, SyntaxError, errorMessage, errorLine, source.provider()->asID(), 0);
                     return 0;
-
-                if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
-                    m_cacheMap.set(evalSource.rep(), evalExecutable);
+                }
             }
 
-            return evalExecutable.release();
+            return evalNode.release();
         }
 
         bool isEmpty() const { return m_cacheMap.isEmpty(); }
 
+        void markAggregate(MarkStack& markStack)
+        {
+            EvalCacheMap::iterator end = m_cacheMap.end();
+            for (EvalCacheMap::iterator ptr = m_cacheMap.begin(); ptr != end; ++ptr)
+                ptr->second->markAggregate(markStack);
+        }
     private:
         static const int maxCacheableSourceLength = 256;
         static const int maxCacheEntries = 64;
 
-        typedef HashMap<RefPtr<UString::Rep>, RefPtr<CacheableEvalExecutable> > EvalCacheMap;
+        typedef HashMap<RefPtr<UString::Rep>, RefPtr<EvalNode> > EvalCacheMap;
         EvalCacheMap m_cacheMap;
     };
 

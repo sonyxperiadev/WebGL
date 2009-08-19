@@ -1467,7 +1467,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_func)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
 
-    return stackFrame.args[0].function()->make(stackFrame.callFrame, stackFrame.callFrame->scopeChain());
+    return stackFrame.args[0].funcDeclNode()->makeFunction(stackFrame.callFrame, stackFrame.callFrame->scopeChain());
 }
 
 DEFINE_STUB_FUNCTION(void*, op_call_JSFunction)
@@ -1480,12 +1480,12 @@ DEFINE_STUB_FUNCTION(void*, op_call_JSFunction)
 #endif
 
     JSFunction* function = asFunction(stackFrame.args[0].jsValue());
-    FunctionExecutable* executable = function->executable();
-    ASSERT(!executable->isHostFunction());
+    ASSERT(!function->isHostFunction());
+    FunctionBodyNode* body = function->body();
     ScopeChainNode* callDataScopeChain = function->scope().node();
-    executable->jitCode(callDataScopeChain);
+    body->jitCode(callDataScopeChain);
 
-    return &executable->generatedBytecode();
+    return &(body->generatedBytecode());
 }
 
 DEFINE_STUB_FUNCTION(VoidPtrPair, op_call_arityCheck)
@@ -1539,14 +1539,13 @@ DEFINE_STUB_FUNCTION(void*, vm_lazyLinkCall)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
     JSFunction* callee = asFunction(stackFrame.args[0].jsValue());
-    FunctionExecutable* executable = callee->executable();
-    JITCode& jitCode = executable->generatedJITCode();
+    JITCode& jitCode = callee->body()->generatedJITCode();
     
     CodeBlock* codeBlock = 0;
-    if (!executable->isHostFunction())
-        codeBlock = &executable->bytecode(callee->scope().node());
+    if (!callee->isHostFunction())
+        codeBlock = &callee->body()->bytecode(callee->scope().node());
     else
-        codeBlock = &executable->generatedBytecode();
+        codeBlock = &callee->body()->generatedBytecode();
     CallLinkInfo* callLinkInfo = &stackFrame.callFrame->callerFrame()->codeBlock()->getCallLinkInfo(stackFrame.args[1].returnAddress());
 
     if (!callLinkInfo->seenOnce())
@@ -1562,7 +1561,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_push_activation)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
 
-    JSActivation* activation = new (stackFrame.globalData) JSActivation(stackFrame.callFrame, static_cast<FunctionExecutable*>(stackFrame.callFrame->codeBlock()->ownerExecutable()));
+    JSActivation* activation = new (stackFrame.globalData) JSActivation(stackFrame.callFrame, static_cast<FunctionBodyNode*>(stackFrame.callFrame->codeBlock()->ownerNode()));
     stackFrame.callFrame->setScopeChain(stackFrame.callFrame->scopeChain()->copy()->push(activation));
     return activation;
 }
@@ -1716,8 +1715,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_construct_JSConstruct)
     STUB_INIT_STACK_FRAME(stackFrame);
 
     JSFunction* constructor = asFunction(stackFrame.args[0].jsValue());
-    FunctionExecutable* executable = constructor->executable();
-    if (executable && executable->isHostFunction()) {
+    if (constructor->isHostFunction()) {
         CallFrame* callFrame = stackFrame.callFrame;
         CodeBlock* codeBlock = callFrame->codeBlock();
         unsigned vPCIndex = codeBlock->getBytecodeIndex(callFrame, STUB_RETURN_ADDRESS);
@@ -2044,7 +2042,7 @@ DEFINE_STUB_FUNCTION(int, op_load_varargs)
             stackFrame.globalData->exception = createStackOverflowError(callFrame);
             VM_THROW_EXCEPTION();
         }
-        int32_t expectedParams = callFrame->callee()->executable()->parameterCount();
+        int32_t expectedParams = callFrame->callee()->body()->parameterCount();
         int32_t inplaceArgs = min(providedParams, expectedParams);
         
         Register* inplaceArgsDst = callFrame->registers() + argsOffset;
@@ -2519,24 +2517,8 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve_with_base)
 DEFINE_STUB_FUNCTION(JSObject*, op_new_func_exp)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
-    CallFrame* callFrame = stackFrame.callFrame;
 
-    FunctionExecutable* function = stackFrame.args[0].function();
-    JSFunction* func = function->make(callFrame, callFrame->scopeChain());
-
-    /* 
-        The Identifier in a FunctionExpression can be referenced from inside
-        the FunctionExpression's FunctionBody to allow the function to call
-        itself recursively. However, unlike in a FunctionDeclaration, the
-        Identifier in a FunctionExpression cannot be referenced from and
-        does not affect the scope enclosing the FunctionExpression.
-     */
-    if (!function->name().isNull()) {
-        JSStaticScopeObject* functionScopeObject = new (callFrame) JSStaticScopeObject(callFrame, function->name(), func, ReadOnly | DontDelete);
-        func->scope().push(functionScopeObject);
-    }
-
-    return func;
+    return stackFrame.args[0].funcExprNode()->makeFunction(stackFrame.callFrame, stackFrame.callFrame->scopeChain());
 }
 
 DEFINE_STUB_FUNCTION(EncodedJSValue, op_mod)
@@ -2996,7 +2978,7 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_error)
     unsigned bytecodeOffset = stackFrame.args[2].int32();
 
     unsigned lineNumber = codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset);
-    return Error::create(callFrame, static_cast<ErrorType>(type), message.toString(callFrame), lineNumber, codeBlock->ownerExecutable()->sourceID(), codeBlock->ownerExecutable()->sourceURL());
+    return Error::create(callFrame, static_cast<ErrorType>(type), message.toString(callFrame), lineNumber, codeBlock->ownerNode()->sourceID(), codeBlock->ownerNode()->sourceURL());
 }
 
 DEFINE_STUB_FUNCTION(void, op_debug)

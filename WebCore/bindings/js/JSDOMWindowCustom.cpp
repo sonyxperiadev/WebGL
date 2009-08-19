@@ -38,7 +38,6 @@
 #include "JSDOMWindowShell.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
-#include "JSEventSourceConstructor.h"
 #include "JSHTMLCollection.h"
 #include "JSHistory.h"
 #include "JSImageConstructor.h"
@@ -55,7 +54,6 @@
 #include "Location.h"
 #include "MediaPlayer.h"
 #include "MessagePort.h"
-#include "NotificationCenter.h"
 #include "Page.h"
 #include "PlatformScreen.h"
 #include "RegisteredEventListener.h"
@@ -63,8 +61,6 @@
 #include "ScriptController.h"
 #include "Settings.h"
 #include "WindowFeatures.h"
-#include <runtime/Error.h>
-#include <runtime/JSFunction.h>
 #include <runtime/JSObject.h>
 #include <runtime/PrototypeFunction.h>
 
@@ -427,13 +423,6 @@ JSValue JSDOMWindow::event(ExecState* exec) const
         return jsUndefined();
     return toJS(exec, event);
 }
-
-#if ENABLE(EVENTSOURCE)
-JSValue JSDOMWindow::eventSource(ExecState* exec) const
-{
-    return getDOMConstructor<JSEventSourceConstructor>(exec, this);
-}
-#endif
 
 JSValue JSDOMWindow::image(ExecState* exec) const
 {

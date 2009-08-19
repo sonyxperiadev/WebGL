@@ -29,17 +29,17 @@ module html {
         InterfaceUUID=18f9bd58-6bb3-4b5c-aa30-6da13adfc91e,
         ImplementationUUID=93e0407a-8380-4ff0-978d-f773f2dee6a3
     ] HTMLEmbedElement : HTMLElement {
-                 attribute [ConvertNullToNullString, Reflect] DOMString align;
+                 attribute [ConvertNullToNullString] DOMString align;
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-                 attribute [ConvertNullToNullString, Reflect] DOMString height;
+                 attribute [ConvertNullToNullString] DOMString height;
 #else
                  attribute [ConvertFromString] long height;
 #endif
-                 attribute [ConvertNullToNullString, Reflect] DOMString name;
-                 attribute [ConvertNullToNullString, Reflect] DOMString src;
-                 attribute [ConvertNullToNullString, Reflect] DOMString type;
+                 attribute [ConvertNullToNullString] DOMString name;
+                 attribute [ConvertNullToNullString] DOMString src;
+                 attribute [ConvertNullToNullString] DOMString type;
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-                 attribute [ConvertNullToNullString, Reflect] DOMString width;
+                 attribute [ConvertNullToNullString] DOMString width;
 #else
                  attribute [ConvertFromString] long width;
 #endif

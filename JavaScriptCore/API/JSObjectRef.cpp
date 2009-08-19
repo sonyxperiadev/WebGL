@@ -28,7 +28,6 @@
 #include "JSObjectRef.h"
 
 #include "APICast.h"
-#include "CodeBlock.h"
 #include "DateConstructor.h"
 #include "ErrorConstructor.h"
 #include "FunctionConstructor.h"

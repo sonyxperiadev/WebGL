@@ -77,7 +77,7 @@ namespace ARM {
         typedef ARM::RegisterID RegisterID;
         typedef ARM::FPRegisterID FPRegisterID;
         typedef AssemblerBufferWithConstantPool<2048, 4, 4, ARMAssembler> ARMBuffer;
-        typedef SegmentedVector<int, 64> Jumps;
+        typedef WTF::SegmentedVector<int, 64> Jumps;
 
         ARMAssembler() { }
 
@@ -180,16 +180,20 @@ namespace ARM {
         public:
             JmpSrc()
                 : m_offset(-1)
+                , m_latePatch(false)
             {
             }
 
+            void enableLatePatch() { m_latePatch = true; }
         private:
             JmpSrc(int offset)
                 : m_offset(offset)
+                , m_latePatch(false)
             {
             }
 
-            int m_offset;
+            int m_offset : 31;
+            int m_latePatch : 1;
         };
 
         class JmpDst {
@@ -563,11 +567,6 @@ namespace ARM {
             m_buffer.ensureSpace(insnSpace, constSpace);
         }
 
-        int sizeOfConstantPool()
-        {
-            return m_buffer.sizeOfConstantPool();
-        }
-
         JmpDst label()
         {
             return JmpDst(m_buffer.size());
@@ -581,12 +580,11 @@ namespace ARM {
             return label();
         }
 
-        JmpSrc jmp(Condition cc = AL, int useConstantPool = 0)
+        JmpSrc jmp(Condition cc = AL)
         {
-            ensureSpace(sizeof(ARMWord), sizeof(ARMWord));
-            int s = m_buffer.uncheckedSize();
+            int s = size();
             ldr_un_imm(ARM::pc, 0xffffffff, cc);
-            m_jumps.append(s | (useConstantPool & 0x1));
+            m_jumps.append(s);
             return JmpSrc(s);
         }
 
@@ -595,7 +593,7 @@ namespace ARM {
         // Patching helpers
 
         static ARMWord* getLdrImmAddress(ARMWord* insn, uint32_t* constPool = 0);
-        static void linkBranch(void* code, JmpSrc from, void* to, int useConstantPool = 0);
+        static void linkBranch(void* code, JmpSrc from, void* to);
 
         static void patchPointerInternal(intptr_t from, void* to)
         {
@@ -662,7 +660,7 @@ namespace ARM {
 
         static void linkCall(void* code, JmpSrc from, void* to)
         {
-            linkBranch(code, from, to, true);
+            linkBranch(code, from, to);
         }
 
         static void relinkCall(void* from, void* to)

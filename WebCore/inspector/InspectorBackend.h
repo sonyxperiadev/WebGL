@@ -38,12 +38,10 @@
 namespace WebCore {
 
 class CachedResource;
-class Database;
 class InspectorClient;
 class InspectorDOMAgent;
 class JavaScriptCallFrame;
 class Node;
-class Storage;
 
 class InspectorBackend : public RefCounted<InspectorBackend>
 {
@@ -71,7 +69,7 @@ public:
     void addResourceSourceToFrame(long identifier, Node* frame);
     bool addSourceToFrame(const String& mimeType, const String& source, Node* frame);
 
-    void clearMessages(bool clearUI);
+    void clearMessages();
 
     void toggleNodeSearch();
 
@@ -84,7 +82,7 @@ public:
 
     bool searchingForNode();
 
-    void loaded();
+    void loaded(bool enableDOMAgent);
 
     void enableResourceTracking(bool always);
     void disableResourceTracking(bool always);
@@ -125,25 +123,13 @@ public:
     void stepOutOfFunctionInDebugger();
 #endif
 
-    void getChildNodes(long callId, long nodeId);
+    void getChildNodes(long callId, long elementId);
     void setAttribute(long callId, long elementId, const String& name, const String& value);
     void removeAttribute(long callId, long elementId, const String& name);
-    void setTextNodeValue(long callId, long nodeId, const String& value);
+    void setTextNodeValue(long callId, long elementId, const String& value);
 
     // Generic code called from custom implementations.
-    void highlight(long nodeId);
-    Node* nodeForId(long nodeId);
-    long idForNode(Node* node);
-    ScriptValue wrapObject(const ScriptValue& object);
-    ScriptValue unwrapObject(const String& objectId);
-    long pushNodePathToFrontend(Node* node, bool selectInUI);
-    void addNodesToSearchResult(const String& nodeIds);
-#if ENABLE(DATABASE)
-    void selectDatabase(Database* database);
-#endif
-#if ENABLE(DOM_STORAGE)
-    void selectDOMStorage(Storage* storage);
-#endif
+    void highlight(Node* node);
 
 private:
     InspectorBackend(InspectorController* inspectorController, InspectorClient* client);

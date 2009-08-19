@@ -218,7 +218,7 @@ namespace WebCore {
 
         DECLARE_PROPERTY_ACCESSOR(CanvasRenderingContext2DStrokeStyle);
         DECLARE_PROPERTY_ACCESSOR(CanvasRenderingContext2DFillStyle);
-        DECLARE_PROPERTY_ACCESSOR(DOMWindowEvent);
+        DECLARE_PROPERTY_ACCESSOR_GETTER(DOMWindowEvent);
         DECLARE_PROPERTY_ACCESSOR_GETTER(DOMWindowCrypto);
         DECLARE_PROPERTY_ACCESSOR_SETTER(DOMWindowLocation);
         DECLARE_PROPERTY_ACCESSOR_SETTER(DOMWindowOpener);
@@ -402,23 +402,12 @@ namespace WebCore {
         DECLARE_CALLBACK(InspectorBackendSetting);
         DECLARE_CALLBACK(InspectorBackendInspectedWindow);
         DECLARE_CALLBACK(InspectorBackendSetSetting);
-        DECLARE_CALLBACK(InspectorBackendCookies);
-        DECLARE_CALLBACK(InspectorBackendDeleteCookie);
         DECLARE_CALLBACK(InspectorBackendCurrentCallFrame);
         DECLARE_CALLBACK(InspectorBackendDebuggerEnabled);
         DECLARE_CALLBACK(InspectorBackendPauseOnExceptions);
         DECLARE_CALLBACK(InspectorBackendProfilerEnabled);
-        DECLARE_CALLBACK(InspectorBackendNodeForId);
-        DECLARE_CALLBACK(InspectorBackendIdForNode);
-        DECLARE_CALLBACK(InspectorBackendWrapObject);
-        DECLARE_CALLBACK(InspectorBackendUnwrapObject);
-        DECLARE_CALLBACK(InspectorBackendPushNodePathToFrontend);
 #if ENABLE(DATABASE)
         DECLARE_CALLBACK(InspectorBackendDatabaseTableNames);
-        DECLARE_CALLBACK(InspectorBackendSelectDatabase);
-#endif
-#if ENABLE(DOM_STORAGE)
-        DECLARE_CALLBACK(InspectorBackendSelectDOMStorage);
 #endif
         DECLARE_CALLBACK(InspectorBackendWrapCallback);
 

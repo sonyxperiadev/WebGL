@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008,2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,23 +36,22 @@ class MediaDocument : public HTMLDocument {
 public:
     static PassRefPtr<MediaDocument> create(Frame* frame)
     {
-        return adoptRef(new MediaDocument(frame));
+        return new MediaDocument(frame);
     }
-    virtual ~MediaDocument();
+
+    virtual void defaultEventHandler(Event*);
 
     void mediaElementSawUnsupportedTracks();
 
 private:
     MediaDocument(Frame*);
+    virtual ~MediaDocument();
+    Timer<MediaDocument> m_replaceMediaElementTimer;
 
     virtual bool isMediaDocument() const { return true; }        
     virtual Tokenizer* createTokenizer();
 
-    virtual void defaultEventHandler(Event*);
-
     void replaceMediaElementTimerFired(Timer<MediaDocument>*);
-
-    Timer<MediaDocument> m_replaceMediaElementTimer;
 };
     
 }

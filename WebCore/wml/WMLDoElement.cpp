@@ -70,17 +70,14 @@ void WMLDoElement::defaultEventHandler(Event* event)
 
     if (m_type == "accept" || m_type == "options") {
         if (m_task)
-            m_task->executeTask();
+            m_task->executeTask(event);
     } else if (m_type == "prev") {
-        ASSERT(document()->isWMLDocument());
-        WMLDocument* document = static_cast<WMLDocument*>(this->document());
-
-        WMLPageState* pageState = wmlPageStateForDocument(document);
+        WMLPageState* pageState = wmlPageStateForDocument(document());
         if (!pageState)
             return;
-    
+
         // Stop the timer of the current card if it is active
-        if (WMLCardElement* card = document->activeCard()) {
+        if (WMLCardElement* card = pageState->activeCard()) {
             if (WMLTimerElement* eventTimer = card->eventTimer())
                 eventTimer->stop();
         }
@@ -175,7 +172,7 @@ void WMLDoElement::registerTask(WMLTaskElement* task)
 
 void WMLDoElement::deregisterTask(WMLTaskElement* task)
 {
-    ASSERT_UNUSED(task, m_task == task);
+    ASSERT(m_task == task);
     m_task = 0;
 }
 

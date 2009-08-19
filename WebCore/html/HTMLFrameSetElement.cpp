@@ -240,7 +240,7 @@ EventListener* HTMLFrameSetElement::onblur() const
 
 void HTMLFrameSetElement::setOnblur(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().blurEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().blurEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onerror() const
@@ -250,7 +250,7 @@ EventListener* HTMLFrameSetElement::onerror() const
 
 void HTMLFrameSetElement::setOnerror(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().errorEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().errorEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onfocus() const
@@ -260,18 +260,8 @@ EventListener* HTMLFrameSetElement::onfocus() const
 
 void HTMLFrameSetElement::setOnfocus(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().focusEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().focusEvent, eventListener);
 }
-
-EventListener* HTMLFrameSetElement::onhashchange() const
-{
-    return document()->getWindowAttributeEventListener(eventNames().hashchangeEvent);
-}
-
-void HTMLFrameSetElement::setOnhashchange(PassRefPtr<EventListener> eventListener)
-{
-    document()->setWindowAttributeEventListener(eventNames().hashchangeEvent, eventListener);
-}   
 
 EventListener* HTMLFrameSetElement::onload() const
 {
@@ -280,7 +270,7 @@ EventListener* HTMLFrameSetElement::onload() const
 
 void HTMLFrameSetElement::setOnload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().loadEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().loadEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onbeforeunload() const
@@ -290,7 +280,7 @@ EventListener* HTMLFrameSetElement::onbeforeunload() const
 
 void HTMLFrameSetElement::setOnbeforeunload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().beforeunloadEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().beforeunloadEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onmessage() const
@@ -300,7 +290,7 @@ EventListener* HTMLFrameSetElement::onmessage() const
 
 void HTMLFrameSetElement::setOnmessage(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().messageEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().messageEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onoffline() const
@@ -310,7 +300,7 @@ EventListener* HTMLFrameSetElement::onoffline() const
 
 void HTMLFrameSetElement::setOnoffline(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().offlineEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().offlineEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::ononline() const
@@ -320,7 +310,7 @@ EventListener* HTMLFrameSetElement::ononline() const
 
 void HTMLFrameSetElement::setOnonline(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().onlineEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().onlineEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onresize() const
@@ -330,7 +320,7 @@ EventListener* HTMLFrameSetElement::onresize() const
 
 void HTMLFrameSetElement::setOnresize(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().resizeEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().resizeEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onstorage() const
@@ -340,7 +330,7 @@ EventListener* HTMLFrameSetElement::onstorage() const
 
 void HTMLFrameSetElement::setOnstorage(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().storageEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().storageEvent, eventListener);
 }
 
 EventListener* HTMLFrameSetElement::onunload() const
@@ -350,7 +340,7 @@ EventListener* HTMLFrameSetElement::onunload() const
 
 void HTMLFrameSetElement::setOnunload(PassRefPtr<EventListener> eventListener)
 {
-    document()->setWindowAttributeEventListener(eventNames().unloadEvent, eventListener);
+    document()->setAttributeEventListener(eventNames().unloadEvent, eventListener);
 }
 
 } // namespace WebCore

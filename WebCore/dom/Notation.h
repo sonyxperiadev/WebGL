@@ -1,6 +1,8 @@
 /*
+ * This file is part of the DOM implementation for KDE.
+ *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,25 +24,26 @@
 #ifndef Notation_h
 #define Notation_h
 
+#include "CachedResourceClient.h"
 #include "ContainerNode.h"
 
 namespace WebCore {
 
-// FIXME: This class is never instantiated. Maybe it should be removed.
-
 class Notation : public ContainerNode {
 public:
-    const String& publicId() const { return m_publicId; }
-    const String& systemId() const { return m_systemId; }
-
-private:
+    Notation(Document*);
     Notation(Document*, const String& name, const String& publicId, const String& systemId);
+
+    // DOM methods & attributes for Notation
+    String publicId() const { return m_publicId; }
+    String systemId() const { return m_systemId; }
 
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
     virtual bool childTypeAllowed(NodeType);
 
+private:
     String m_name;
     String m_publicId;
     String m_systemId;

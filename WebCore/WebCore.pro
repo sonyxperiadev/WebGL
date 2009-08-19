@@ -10,8 +10,6 @@ symbian: {
     webkitlibs.sources = QtWebKit.dll
     webkitlibs.path = /sys/bin
     DEPLOYMENT += webkitlibs
-
-    TARGET.UID3 = 0x200267C2
 }
 
 include($$PWD/../WebKit.pri)
@@ -108,7 +106,6 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 
 !contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=.): DEFINES += ENABLE_JAVASCRIPT_DEBUGGER=1
 !contains(DEFINES, ENABLE_DATABASE=.): DEFINES += ENABLE_DATABASE=1
-!contains(DEFINES, ENABLE_EVENTSOURCE=.): DEFINES += ENABLE_EVENTSOURCE=1
 !contains(DEFINES, ENABLE_OFFLINE_WEB_APPLICATIONS=.): DEFINES += ENABLE_OFFLINE_WEB_APPLICATIONS=1
 !contains(DEFINES, ENABLE_DOM_STORAGE=.): DEFINES += ENABLE_DOM_STORAGE=1
 !contains(DEFINES, ENABLE_ICONDATABASE=.): DEFINES += ENABLE_ICONDATABASE=1
@@ -128,7 +125,6 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_XPATH=.): DEFINES += ENABLE_XPATH=1
 !contains(DEFINES, ENABLE_XSLT=.): DEFINES += ENABLE_XSLT=0
 #!contains(DEFINES, ENABLE_XBL=.): DEFINES += ENABLE_XBL=1
-!contains(DEFINES, ENABLE_WCSS=.): DEFINES += ENABLE_WCSS=0
 !contains(DEFINES, ENABLE_WML=.): DEFINES += ENABLE_WML=0
 !contains(DEFINES, ENABLE_SHARED_WORKERS=.): DEFINES += ENABLE_SHARED_WORKERS=0
 !contains(DEFINES, ENABLE_WORKERS=.): DEFINES += ENABLE_WORKERS=1
@@ -155,9 +151,6 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
     contains(QT_CONFIG, phonon):DEFINES += ENABLE_VIDEO=1
     else:DEFINES += ENABLE_VIDEO=0
 }
-
-# HTML5 datalist support
-!contains(DEFINES, ENABLE_DATALIST=.): DEFINES += ENABLE_DATALIST=1
 
 # Nescape plugins support (NPAPI)
 !contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=.) {
@@ -200,7 +193,6 @@ INCLUDEPATH = \
     $$PWD/loader/appcache \
     $$PWD/loader/archive \
     $$PWD/loader/icon \
-    $$PWD/notifications \
     $$PWD/page \
     $$PWD/page/animation \
     $$PWD/platform \
@@ -262,16 +254,9 @@ WALDOCSSVALUES = $$PWD/css/CSSValueKeywords.in
 
 DASHBOARDSUPPORTCSSPROPERTIES = $$PWD/css/DashboardSupportCSSPropertyNames.in
 
+SVGCSSPROPERTIES = $$PWD/css/SVGCSSPropertyNames.in
 
-contains(DEFINES, ENABLE_SVG=1) {
-    EXTRACSSPROPERTIES += $$PWD/css/SVGCSSPropertyNames.in
-    EXTRACSSVALUES += $$PWD/css/SVGCSSValueKeywords.in
-}
-
-contains(DEFINES, ENABLE_WCSS=1) {
-    EXTRACSSPROPERTIES += $$PWD/css/WCSSPropertyNames.in
-    EXTRACSSVALUES += $$PWD/css/WCSSValueKeywords.in
-}
+SVGCSSVALUES = $$PWD/css/SVGCSSValueKeywords.in
 
 STYLESHEETS_EMBED = \
     $$PWD/css/html.css \
@@ -379,7 +364,6 @@ IDL_BINDINGS += \
     html/HTMLDataGridCellElement.idl \
     html/HTMLDataGridColElement.idl \
     html/HTMLDataGridRowElement.idl \
-    html/HTMLDataListElement.idl \
     html/HTMLDirectoryElement.idl \
     html/HTMLDivElement.idl \
     html/HTMLDListElement.idl \
@@ -446,7 +430,6 @@ IDL_BINDINGS += \
     page/Coordinates.idl \
     page/DOMSelection.idl \
     page/DOMWindow.idl \
-    page/EventSource.idl \
     page/Geolocation.idl \
     page/Geoposition.idl \
     page/History.idl \
@@ -645,7 +628,6 @@ SOURCES += \
     bindings/js/JSClipboardCustom.cpp \
     bindings/js/JSConsoleCustom.cpp \
     bindings/js/JSCSSRuleCustom.cpp \
-    bindings/js/JSCSSRuleListCustom.cpp \
     bindings/js/JSCSSStyleDeclarationCustom.cpp \
     bindings/js/JSCSSValueCustom.cpp \
     bindings/js/JSCoordinatesCustom.cpp \
@@ -663,14 +645,11 @@ SOURCES += \
     bindings/js/JSDOMWindowShell.cpp \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
-    bindings/js/JSEventSourceConstructor.cpp \
-    bindings/js/JSEventSourceCustom.cpp \
     bindings/js/JSEventTarget.cpp \
     bindings/js/JSGeolocationCustom.cpp \
     bindings/js/JSHTMLAllCollection.cpp \
     bindings/js/JSHistoryCustom.cpp \
     bindings/js/JSHTMLAppletElementCustom.cpp \
-    bindings/js/JSHTMLCanvasElementCustom.cpp \
     bindings/js/JSHTMLCollectionCustom.cpp \
     bindings/js/JSHTMLDataGridElementCustom.cpp \
     bindings/js/JSHTMLDocumentCustom.cpp \
@@ -965,7 +944,6 @@ SOURCES += \
     html/HTMLDataGridCellElement.cpp \
     html/HTMLDataGridColElement.cpp \
     html/HTMLDataGridRowElement.cpp \
-    html/HTMLDataListElement.cpp \
     html/HTMLDirectoryElement.cpp \
     html/HTMLDivElement.cpp \
     html/HTMLDListElement.cpp \
@@ -1098,7 +1076,6 @@ SOURCES += \
     page/NavigatorBase.cpp \
     page/DragController.cpp \
     page/EventHandler.cpp \
-    page/EventSource.cpp \
     page/FocusController.cpp \
     page/Frame.cpp \
     page/FrameTree.cpp \
@@ -1346,7 +1323,6 @@ HEADERS += \
     bindings/js/JSDOMWindowCustom.h \
     bindings/js/JSDOMWindowShell.h \
     bindings/js/JSEventListener.h \
-    bindings/js/JSEventSourceConstructor.h \
     bindings/js/JSEventTarget.h \
     bindings/js/JSHistoryCustom.h \
     bindings/js/JSHTMLAllCollection.h \
@@ -1772,7 +1748,6 @@ HEADERS += \
     page/DOMWindow.h \
     page/DragController.h \
     page/EventHandler.h \
-    page/EventSource.h \
     page/FocusController.h \
     page/Frame.h \
     page/FrameTree.h \
@@ -2451,10 +2426,6 @@ contains(DEFINES, ENABLE_DATAGRID=1) {
     FEATURE_DEFINES_JAVASCRIPT += ENABLE_DATAGRID=1
 }
 
-contains(DEFINES, ENABLE_EVENTSOURCE=1) {
-    FEATURE_DEFINES_JAVASCRIPT += ENABLE_EVENTSOURCE=1
-}
-
 contains(DEFINES, ENABLE_SQLITE=1) {
     !system-sqlite:exists( $${SQLITE3SRCDIR}/sqlite3.c ) {
             # Build sqlite3 into WebCore from source
@@ -2502,7 +2473,6 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLResultSetRowList.cpp \
         storage/SQLStatement.cpp \
         storage/SQLTransaction.cpp \
-        storage/SQLTransactionCoordinator.cpp \
         bindings/js/JSCustomSQLStatementCallback.cpp \
         bindings/js/JSCustomSQLStatementErrorCallback.cpp \
         bindings/js/JSCustomSQLTransactionCallback.cpp \
@@ -2530,7 +2500,6 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/SQLResultSetRowList.h \
         storage/SQLStatement.h \
         storage/SQLTransaction.h \
-        storage/SQLTransactionCoordinator.h \
         storage/StorageArea.h \
         storage/StorageAreaImpl.h \
         storage/StorageAreaSync.h \
@@ -2701,14 +2670,6 @@ contains(DEFINES, ENABLE_FILTERS=1) {
         platform/graphics/filters/SourceGraphic.cpp
 
     FEATURE_DEFINES_JAVASCRIPT += ENABLE_FILTERS=1
-}
-
-contains(DEFINES, ENABLE_WCSS=1) {
-    FEATURE_DEFINES_JAVASCRIPT += ENABLE_WCSS=1
-    contains(DEFINES, ENABLE_XHTMLMP=0) {
-        DEFINES -= ENABLE_XHTMLMP=0
-        DEFINES += ENABLE_XHTMLMP=1
-    }
 }
 
 contains(DEFINES, ENABLE_WML=1) {
@@ -3019,25 +2980,42 @@ contains(DEFINES, ENABLE_SVG=1) {
         xlinknames.variable_out = GENERATED_SOURCES
         addExtraCompilerWithHeader(xlinknames)
 
-} 
-# GENERATOR 6-A:
-cssprops.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.cpp
-cssprops.input = WALDOCSSPROPS
-cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$DASHBOARDSUPPORTCSSPROPERTIES $$EXTRACSSPROPERTIES > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
-cssprops.CONFIG = target_predeps no_link
-cssprops.variable_out =
-cssprops.depend = ${QMAKE_FILE_NAME} DASHBOARDSUPPORTCSSPROPERTIES EXTRACSSPROPERTIES
-addExtraCompilerWithHeader(cssprops)
+    # GENERATOR 6-A:
+    cssprops.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.cpp
+    cssprops.input = WALDOCSSPROPS
+    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$DASHBOARDSUPPORTCSSPROPERTIES $$SVGCSSPROPERTIES > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.CONFIG = target_predeps no_link
+    cssprops.variable_out =
+    cssprops.depend = ${QMAKE_FILE_NAME} DASHBOARDSUPPORTCSSPROPERTIES SVGCSSPROPERTIES
+    addExtraCompilerWithHeader(cssprops)
 
-# GENERATOR 6-B:
-cssvalues.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.c
-cssvalues.input = WALDOCSSVALUES
-cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$EXTRACSSVALUES > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
-cssvalues.CONFIG = target_predeps no_link
-cssvalues.variable_out =
-cssvalues.depend = ${QMAKE_FILE_NAME} EXTRACSSVALUES
-cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
-addExtraCompiler(cssvalues)
+    # GENERATOR 6-B:
+    cssvalues.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.c
+    cssvalues.input = WALDOCSSVALUES
+    cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$SVGCSSVALUES > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
+    cssvalues.CONFIG = target_predeps no_link
+    cssvalues.variable_out =
+    cssvalues.depend = ${QMAKE_FILE_NAME} SVGCSSVALUES
+    addExtraCompilerWithHeader(cssvalues)
+} else {
+    # GENERATOR 6-A:
+    cssprops.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.cpp
+    cssprops.input = WALDOCSSPROPS
+    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$DASHBOARDSUPPORTCSSPROPERTIES > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.CONFIG = target_predeps no_link
+    cssprops.variable_out =
+    cssprops.depend = ${QMAKE_FILE_NAME} DASHBOARDSUPPORTCSSPROPERTIES
+    addExtraCompilerWithHeader(cssprops)
+
+    # GENERATOR 6-B:
+    cssvalues.output = $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.c
+    cssvalues.input = WALDOCSSVALUES
+    cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} > $${GENERATED_SOURCES_DIR}$${QMAKE_DIR_SEP}${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
+    cssvalues.CONFIG = target_predeps no_link
+    cssvalues.variable_out =
+    cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+    addExtraCompiler(cssvalues)
+}
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
     FEATURE_DEFINES_JAVASCRIPT += ENABLE_JAVASCRIPT_DEBUGGER=1
@@ -3263,20 +3241,3 @@ CONFIG(QTDIR_build):isEqual(QT_MAJOR_VERSION, 4):greaterThan(QT_MINOR_VERSION, 4
     CONFIG += no_debug_info
 }
 
-!win32-g++:win32:contains(QMAKE_HOST.arch, x86_64):{
-    asm_compiler.commands = ml64 /c
-    asm_compiler.commands +=  /Fo ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
-    asm_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}
-    asm_compiler.input = ASM_SOURCES
-    asm_compiler.variable_out = OBJECTS
-    asm_compiler.name = compiling[asm] ${QMAKE_FILE_IN}
-    silent:asm_compiler.commands = @echo compiling[asm] ${QMAKE_FILE_IN} && $$asm_compiler.commands
-    QMAKE_EXTRA_COMPILERS += asm_compiler
-
-    ASM_SOURCES += \
-        plugins/win/PaintHooks.asm
-   if(win32-msvc2005|win32-msvc2008):equals(TEMPLATE_PREFIX, "vc") {
-        SOURCES += \
-            plugins/win/PaintHooks.asm
-    }
-}

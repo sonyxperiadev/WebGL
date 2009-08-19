@@ -110,12 +110,7 @@ public:
     {
         return m_value->IsUndefined();
     }
-
-    bool isObject() const
-    {
-        return m_value->IsObject();
-    }
-
+    
     bool hasNoValue() const
     {
         return m_value.IsEmpty();

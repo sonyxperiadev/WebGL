@@ -320,6 +320,11 @@ public:
             return Call(jump.m_jmp, Linkable);
         }
 
+        void enableLatePatch()
+        {
+            m_jmp.enableLatePatch();
+        }
+
         JmpSrc m_jmp;
     private:
         Flags m_flags;
@@ -354,6 +359,11 @@ public:
         void linkTo(Label label, AbstractMacroAssembler<AssemblerType>* masm)
         {
             masm->m_assembler.linkJump(m_jmp, label.m_label);
+        }
+
+        void enableLatePatch()
+        {
+            m_jmp.enableLatePatch();
         }
 
     private:

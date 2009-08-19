@@ -37,7 +37,7 @@ class HTMLDocument : public Document, public CachedResourceClient {
 public:
     static PassRefPtr<HTMLDocument> create(Frame* frame)
     {
-        return adoptRef(new HTMLDocument(frame));
+        return new HTMLDocument(frame);
     }
     virtual ~HTMLDocument();
 
@@ -71,6 +71,10 @@ public:
     void captureEvents();
     void releaseEvents();
 
+    virtual bool childAllowed(Node*);
+
+    virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
+
     void addNamedItem(const AtomicString& name);
     void removeNamedItem(const AtomicString& name);
     bool hasNamedItem(AtomicStringImpl* name);
@@ -83,10 +87,6 @@ protected:
     HTMLDocument(Frame*);
 
 private:
-    virtual bool childAllowed(Node*);
-
-    virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
-
     virtual bool isHTMLDocument() const { return true; }
     virtual bool isFrameSet() const;
     virtual Tokenizer* createTokenizer();

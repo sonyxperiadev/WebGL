@@ -1,8 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Alp Toker <alp.toker@collabora.co.uk>
- * Copyright (C) 2008, Google Inc. All rights reserved.
- * Copyright (C) 2007-2009 Torch Mobile, Inc
+ * Copyright (C) 2006, 2007 Apple Computer, Kevin Ollivier.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #include "config.h"
@@ -33,19 +30,22 @@
 #include "GIFImageDecoder.h"
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
+#include "NotImplemented.h"
 #include "PNGImageDecoder.h"
 #include "SharedBuffer.h"
 #include "XBMImageDecoder.h"
 
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-#ifndef IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS
-#define IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS (1024 * 1024)
+#include <wx/defs.h>
+#include <wx/bitmap.h>
+#if USE(WXGC)
+#include <wx/graphics.h>
 #endif
-#endif
+#include <wx/image.h>
+#include <wx/rawbmp.h>
 
 namespace WebCore {
 
-ImageDecoder* createDecoder(const Vector<char>& data)
+ImageDecoder* createDecoder(const SharedBuffer& data)
 {
     // We need at least 4 bytes to figure out what kind of image we're dealing with.
     int length = data.size();
@@ -81,7 +81,7 @@ ImageDecoder* createDecoder(const Vector<char>& data)
     if (!memcmp(contents, "\000\000\001\000", 4) ||
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
-
+   
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
@@ -91,27 +91,12 @@ ImageDecoder* createDecoder(const Vector<char>& data)
 }
 
 ImageSource::ImageSource()
-    : m_decoder(0)
-{
-}
+  : m_decoder(0)
+{}
 
 ImageSource::~ImageSource()
 {
     clear(true);
-}
-
-void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
-{
-    if (!destroyAll) {
-        if (m_decoder)
-            m_decoder->clearFrameBufferCache(clearBeforeFrame);
-        return;
-    }
-
-    delete m_decoder;
-    m_decoder = 0;
-    if (data)
-        setData(data, allDataReceived);
 }
 
 bool ImageSource::initialized() const
@@ -125,21 +110,12 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // This method will examine the data and instantiate an instance of the appropriate decoder plugin.
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
-    if (!m_decoder) {
-        m_decoder = createDecoder(data->buffer());
-#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-        if (m_decoder)
-            m_decoder->setMaxNumPixels(IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS);
-#endif
-    }
-
     if (m_decoder)
-        m_decoder->setData(data, allDataReceived);
-}
-
-String ImageSource::filenameExtension() const
-{
-    return m_decoder ? m_decoder->filenameExtension() : String();
+        delete m_decoder;
+    m_decoder = createDecoder(*data);
+    if (!m_decoder)
+        return;
+    m_decoder->setData(data, allDataReceived);
 }
 
 bool ImageSource::isSizeAvailable()
@@ -174,9 +150,35 @@ int ImageSource::repetitionCount()
     return m_decoder->repetitionCount();
 }
 
+String ImageSource::filenameExtension() const
+{
+    notImplemented();
+    return String();
+}
+
 size_t ImageSource::frameCount() const
 {
     return m_decoder ? m_decoder->frameCount() : 0;
+}
+
+bool ImageSource::frameIsCompleteAtIndex(size_t index)
+{
+    // FIXME: should we be testing the RGBA32Buffer's status as well?
+    return (m_decoder && m_decoder->frameBufferAtIndex(index) != 0);
+}
+
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
+{
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
+
+    delete m_decoder;
+    m_decoder = 0;
+    if (data)
+        setData(data, allDataReceived);
 }
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
@@ -187,24 +189,8 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
     RGBA32Buffer* buffer = m_decoder->frameBufferAtIndex(index);
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
-
-    // Zero-height images can cause problems for some ports.  If we have an
-    // empty image dimension, just bail.
-    if (size().isEmpty())
-        return 0;
-
-    // Return the buffer contents as a native image.  For some ports, the data
-    // is already in a native container, and this just increments its refcount.
+    
     return buffer->asNewNativeImage();
-}
-
-bool ImageSource::frameIsCompleteAtIndex(size_t index)
-{
-    if (!m_decoder)
-        return false;
-
-    RGBA32Buffer* buffer = m_decoder->frameBufferAtIndex(index);
-    return buffer && buffer->status() == RGBA32Buffer::FrameComplete;
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)
@@ -216,25 +202,25 @@ float ImageSource::frameDurationAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
 
-    // Many annoying ads specify a 0 duration to make an image flash as quickly
-    // as possible.  We follow WinIE's behavior and use a duration of 100 ms
-    // for any frames that specify a duration of <= 50 ms.  See
-    // <http://bugs.webkit.org/show_bug.cgi?id=14413> or Radar 4051389 for
-    // more.
-    const float duration = buffer->duration() / 1000.0f;
-    return (duration < 0.051f) ? 0.100f : duration;
+    float duration = buffer->duration() / 1000.0f;
+
+    // Follow other ports (and WinIE's) behavior to slow annoying ads that
+    // specify a 0 duration.
+    if (duration < 0.051f)
+        return 0.100f;
+    return duration;
 }
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)
 {
-    // When a frame has not finished decoding, always mark it as having alpha.
-    // Ports that check the result of this function to determine their
-    // compositing op need this in order to not draw the undecoded portion as
-    // black.
-    // TODO: Perhaps we should ensure that each individual decoder returns true
-    // in this case.
-    return frameIsCompleteAtIndex(index) ?
-        m_decoder->frameBufferAtIndex(index)->hasAlpha() : true;
+    if (!m_decoder || !m_decoder->supportsAlpha())
+        return false;
+
+    RGBA32Buffer* buffer = m_decoder->frameBufferAtIndex(index);
+    if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
+        return false;
+
+    return buffer->hasAlpha();
 }
 
 }

@@ -22,7 +22,6 @@
 #include "RegExpPrototype.h"
 
 #include "ArrayPrototype.h"
-#include "Error.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSObject.h"
@@ -59,28 +58,28 @@ RegExpPrototype::RegExpPrototype(ExecState* exec, PassRefPtr<Structure> structur
     
 JSValue JSC_HOST_CALL regExpProtoFuncTest(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.inherits(&RegExpObject::info))
+    if (!thisValue.isObject(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->test(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncExec(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.inherits(&RegExpObject::info))
+    if (!thisValue.isObject(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->exec(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.inherits(&RegExpObject::info))
+    if (!thisValue.isObject(&RegExpObject::info))
         return throwError(exec, TypeError);
 
     RefPtr<RegExp> regExp;
     JSValue arg0 = args.at(0);
     JSValue arg1 = args.at(1);
     
-    if (arg0.inherits(&RegExpObject::info)) {
+    if (arg0.isObject(&RegExpObject::info)) {
         if (!arg1.isUndefined())
             return throwError(exec, TypeError, "Cannot supply flags when constructing one RegExp from another.");
         regExp = asRegExpObject(arg0)->regExp();
@@ -100,8 +99,8 @@ JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue
 
 JSValue JSC_HOST_CALL regExpProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (!thisValue.inherits(&RegExpObject::info)) {
-        if (thisValue.inherits(&RegExpPrototype::info))
+    if (!thisValue.isObject(&RegExpObject::info)) {
+        if (thisValue.isObject(&RegExpPrototype::info))
             return jsNontrivialString(exec, "//");
         return throwError(exec, TypeError);
     }

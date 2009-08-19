@@ -39,7 +39,7 @@ public:
     void deregisterPostfieldElement(WMLPostfieldElement*);
 
     virtual void parseMappedAttribute(MappedAttribute*);
-    virtual void executeTask();
+    virtual void executeTask(Event*);
 
 private:
     void preparePOSTRequest(ResourceRequest&, bool inSameDeck, const String& cacheControl);

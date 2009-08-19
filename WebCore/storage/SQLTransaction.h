@@ -73,7 +73,6 @@ public:
     void executeSQL(const String& sqlStatement, const Vector<SQLValue>& arguments, 
                     PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> callbackError, ExceptionCode& e);
                                         
-    void lockAcquired();
     bool performNextStep();
     void performPendingCallback();
     
@@ -89,7 +88,6 @@ private:
     
     void checkAndHandleClosedDatabase();
     
-    void acquireLock();
     void openTransactionAndPreflight();
     void deliverTransactionCallback();
     void scheduleToRunStatements();
@@ -122,7 +120,6 @@ private:
     RefPtr<SQLError> m_transactionError;
     bool m_shouldRetryCurrentStatement;
     bool m_modifiedDatabase;
-    bool m_lockAcquired;
     
     Mutex m_statementMutex;
     Deque<RefPtr<SQLStatement> > m_statementQueue;

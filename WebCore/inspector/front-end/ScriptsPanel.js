@@ -151,10 +151,13 @@ WebInspector.ScriptsPanel = function()
     this.element.appendChild(this.sidebarElement);
     this.element.appendChild(this.sidebarResizeElement);
 
-    this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
+    this.enableToggleButton = this.createStatusBarButton();
+    this.enableToggleButton.className = "enable-toggle-status-bar-item status-bar-item";
     this.enableToggleButton.addEventListener("click", this._toggleDebugging.bind(this), false);
 
-    this.pauseOnExceptionButton = new WebInspector.StatusBarButton("", "scripts-pause-on-exceptions-status-bar-item");
+    this.pauseOnExceptionButton = this.createStatusBarButton();
+    this.pauseOnExceptionButton.id = "scripts-pause-on-exceptions-status-bar-item";
+    this.pauseOnExceptionButton.className = "status-bar-item";
     this.pauseOnExceptionButton.addEventListener("click", this._togglePauseOnExceptions.bind(this), false);
 
     this._breakpointsURLMap = {};
@@ -205,7 +208,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     get statusBarItems()
     {
-        return [this.enableToggleButton.element, this.pauseOnExceptionButton.element];
+        return [this.enableToggleButton, this.pauseOnExceptionButton];
     },
 
     get paused()
@@ -374,8 +377,13 @@ WebInspector.ScriptsPanel.prototype = {
         var panel = this;
         function delayedEvaluation()
         {
+            if (!code) {
+                // Evaluate into properties in scope of the selected call frame.
+                callback(panel._variablesInScope(callFrame));
+                return;
+            }
             try {
-                callback(InspectorController.wrapObject(callFrame.evaluate(code)));
+                callback(callFrame.evaluate(code));
             } catch (e) {
                 callback(e, true);
             }
@@ -383,14 +391,10 @@ WebInspector.ScriptsPanel.prototype = {
         setTimeout(delayedEvaluation, 0);
     },
 
-    variablesInSelectedCallFrame: function()
+    _variablesInScope: function(callFrame)
     {
-        var selectedCallFrame = this.sidebarPanes.callstack.selectedCallFrame;
-        if (!this._paused || !selectedCallFrame)
-            return {};
-
         var result = {};
-        var scopeChain = selectedCallFrame.scopeChain;
+        var scopeChain = callFrame.scopeChain;
         for (var i = 0; i < scopeChain.length; ++i) {
             var scopeObject = scopeChain[i];
             for (var property in scopeObject)
@@ -760,10 +764,10 @@ WebInspector.ScriptsPanel.prototype = {
     {
         if (InspectorController.pauseOnExceptions()) {
             this.pauseOnExceptionButton.title = WebInspector.UIString("Don't pause on exceptions.");
-            this.pauseOnExceptionButton.toggled = true;
+            this.pauseOnExceptionButton.addStyleClass("toggled-on");
         } else {
             this.pauseOnExceptionButton.title = WebInspector.UIString("Pause on exceptions.");
-            this.pauseOnExceptionButton.toggled = false;
+            this.pauseOnExceptionButton.removeStyleClass("toggled-on");
         }
     },
 
@@ -771,13 +775,13 @@ WebInspector.ScriptsPanel.prototype = {
     {
         if (InspectorController.debuggerEnabled()) {
             this.enableToggleButton.title = WebInspector.UIString("Debugging enabled. Click to disable.");
-            this.enableToggleButton.toggled = true;
-            this.pauseOnExceptionButton.visible = true;
+            this.enableToggleButton.addStyleClass("toggled-on");
+            this.pauseOnExceptionButton.removeStyleClass("hidden");
             this.panelEnablerView.visible = false;
         } else {
             this.enableToggleButton.title = WebInspector.UIString("Debugging disabled. Click to enable.");
-            this.enableToggleButton.toggled = false;
-            this.pauseOnExceptionButton.visible = false;
+            this.enableToggleButton.removeStyleClass("toggled-on");
+            this.pauseOnExceptionButton.addStyleClass("hidden");
             this.panelEnablerView.visible = true;
         }
 

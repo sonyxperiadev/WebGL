@@ -66,7 +66,7 @@ void RenderReplaced::styleDidChange(StyleDifference diff, const RenderStyle* old
 
     bool hadStyle = (oldStyle != 0);
     float oldZoom = hadStyle ? oldStyle->effectiveZoom() : RenderStyle::initialZoom();
-    if (style() && style()->effectiveZoom() != oldZoom)
+    if (hadStyle && style() && style()->effectiveZoom() != oldZoom)
         intrinsicSizeChanged();
 }
 

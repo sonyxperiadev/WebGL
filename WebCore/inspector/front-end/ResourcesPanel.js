@@ -139,11 +139,14 @@ WebInspector.ResourcesPanel = function()
 
     this.element.appendChild(this.panelEnablerView.element);
 
-    this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
+    this.enableToggleButton = this.createStatusBarButton();
+    this.enableToggleButton.className = "enable-toggle-status-bar-item status-bar-item";
     this.enableToggleButton.addEventListener("click", this._toggleResourceTracking.bind(this), false);
 
-    this.largerResourcesButton = new WebInspector.StatusBarButton(WebInspector.UIString("Use small resource rows."), "resources-larger-resources-status-bar-item");
-    this.largerResourcesButton.toggled = true;
+    this.largerResourcesButton = this.createStatusBarButton();
+    this.largerResourcesButton.id = "resources-larger-resources-status-bar-item";
+    this.largerResourcesButton.className = "status-bar-item toggled-on";
+    this.largerResourcesButton.title = WebInspector.UIString("Use small resource rows.");
     this.largerResourcesButton.addEventListener("click", this._toggleLargerResources.bind(this), false);
 
     this.sortingSelectElement = document.createElement("select");
@@ -208,7 +211,7 @@ WebInspector.ResourcesPanel.prototype = {
 
     get statusBarItems()
     {
-        return [this.enableToggleButton.element, this.largerResourcesButton.element, this.sortingSelectElement];
+        return [this.enableToggleButton, this.largerResourcesButton, this.sortingSelectElement];
     },
 
     show: function()
@@ -464,14 +467,14 @@ WebInspector.ResourcesPanel.prototype = {
 
         if (InspectorController.resourceTrackingEnabled()) {
             this.enableToggleButton.title = WebInspector.UIString("Resource tracking enabled. Click to disable.");
-            this.enableToggleButton.toggled = true;
-            this.largerResourcesButton.visible = true;
+            this.enableToggleButton.addStyleClass("toggled-on");
+            this.largerResourcesButton.removeStyleClass("hidden");
             this.sortingSelectElement.removeStyleClass("hidden");
             this.panelEnablerView.visible = false;
         } else {
             this.enableToggleButton.title = WebInspector.UIString("Resource tracking disabled. Click to enable.");
-            this.enableToggleButton.toggled = false;
-            this.largerResourcesButton.visible = false;
+            this.enableToggleButton.removeStyleClass("toggled-on");
+            this.largerResourcesButton.addStyleClass("hidden");
             this.sortingSelectElement.addStyleClass("hidden");
             this.panelEnablerView.visible = true;
         }
@@ -1073,12 +1076,12 @@ WebInspector.ResourcesPanel.prototype = {
         if (this.resourcesTreeElement.smallChildren) {
             this.resourcesGraphsElement.addStyleClass("small");
             this.largerResourcesButton.title = WebInspector.UIString("Use large resource rows.");
-            this.largerResourcesButton.toggled = false;
+            this.largerResourcesButton.removeStyleClass("toggled-on");
             this._adjustScrollPosition();
         } else {
             this.resourcesGraphsElement.removeStyleClass("small");
             this.largerResourcesButton.title = WebInspector.UIString("Use small resource rows.");
-            this.largerResourcesButton.toggled = true;
+            this.largerResourcesButton.addStyleClass("toggled-on");
         }
     },
 
@@ -1541,11 +1544,6 @@ WebInspector.ResourceSidebarTreeElement.prototype = {
     set subtitle(x)
     {
         // Do nothing.
-    },
-
-    get selectable()
-    {
-        return WebInspector.panels.resources._filterCategory == "all" || WebInspector.panels.resources._filterCategory == this.resource.category.name;
     },
 
     createIconElement: function()

@@ -43,10 +43,8 @@ namespace WebCore {
     class DOMWindow;
     class Event;
     class EventListener;
-    class EventSource;
     class MessagePort;
     class Node;
-    class Notification;
     class SVGElementInstance;
     class ScriptExecutionContext;
     class SharedWorker;
@@ -59,7 +57,6 @@ namespace WebCore {
 
     class EventTarget {
     public:
-        virtual EventSource* toEventSource();
         virtual MessagePort* toMessagePort();
         virtual Node* toNode();
         virtual DOMWindow* toDOMWindow();
@@ -79,10 +76,6 @@ namespace WebCore {
 #if ENABLE(SHARED_WORKERS)
         virtual SharedWorker* toSharedWorker();
         virtual SharedWorkerContext* toSharedWorkerContext();
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        virtual Notification* toNotification();
 #endif
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;

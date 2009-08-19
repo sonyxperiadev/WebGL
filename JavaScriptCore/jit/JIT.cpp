@@ -438,7 +438,7 @@ void JIT::privateCompileSlowCases()
 #endif
 }
 
-JITCode JIT::privateCompile()
+void JIT::privateCompile()
 {
     sampleCodeBlock(m_codeBlock);
 #if ENABLE(OPCODE_SAMPLING)
@@ -552,7 +552,7 @@ JITCode JIT::privateCompile()
         info.callReturnLocation = m_codeBlock->structureStubInfo(m_methodCallCompilationInfo[i].propertyAccessIndex).callReturnLocation;
     }
 
-    return patchBuffer.finalizeCode();
+    m_codeBlock->setJITCode(patchBuffer.finalizeCode());
 }
 
 #if !USE(JSVALUE32_64)

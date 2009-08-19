@@ -58,7 +58,7 @@ Worker::Worker(const String& url, ScriptExecutionContext* context, ExceptionCode
         return;
 
     m_scriptLoader = new WorkerScriptLoader();
-    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), scriptURL, DenyCrossOriginRequests, this);
+    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), scriptURL, DenyCrossOriginRedirect, this);
     setPendingActivity(this);  // The worker context does not exist while loading, so we must ensure that the worker object is not collected, as well as its event listeners.
 }
 

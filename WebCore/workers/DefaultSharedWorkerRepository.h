@@ -33,24 +33,22 @@
 
 #if ENABLE(SHARED_WORKERS)
 
-#include "ExceptionCode.h"
+#include "SharedWorkerRepository.h"
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
 
-    class Document;
     class KURL;
-    class MessagePortChannel;
     class ScriptExecutionContext;
-    class SharedWorker;
+    class SecurityOrigin;
     class SharedWorkerProxy;
-    class String;
+
+    struct SecurityOriginHash;
+    struct SecurityOriginTraits;
 
     // Platform-specific implementation of the SharedWorkerRepository static interface.
     class DefaultSharedWorkerRepository : public Noncopyable {
@@ -61,14 +59,6 @@ namespace WebCore {
         // Internal implementation of SharedWorkerRepository::connect()
         void connectToWorker(PassRefPtr<SharedWorker>, PassOwnPtr<MessagePortChannel>, const KURL&, const String& name, ExceptionCode&);
 
-        // Notification that a document has been detached.
-        void documentDetached(Document*);
-
-        // Removes the passed SharedWorkerProxy from the repository.
-        void removeProxy(SharedWorkerProxy*);
-
-        bool hasSharedWorkers(Document*);
-
         static DefaultSharedWorkerRepository& instance();
     private:
         DefaultSharedWorkerRepository();
@@ -78,9 +68,11 @@ namespace WebCore {
         // Mutex used to protect internal data structures.
         Mutex m_lock;
 
-        // List of shared workers. Expectation is that there will be a limited number of shared workers, and so tracking them in a Vector is more efficient than nested HashMaps.
-        typedef Vector<RefPtr<SharedWorkerProxy> > SharedWorkerProxyRepository;
-        SharedWorkerProxyRepository m_proxies;
+        typedef HashMap<String, RefPtr<SharedWorkerProxy> > SharedWorkerNameMap;
+        typedef HashMap<RefPtr<SecurityOrigin>, SharedWorkerNameMap*, SecurityOriginHash> SharedWorkerProxyCache;
+
+        // Items in this cache may be freed on another thread, so all keys and values must be either copied before insertion or thread safe.
+        SharedWorkerProxyCache m_cache;
     };
 
 } // namespace WebCore

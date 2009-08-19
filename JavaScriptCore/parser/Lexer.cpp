@@ -908,103 +908,41 @@ returnError:
     return -1;
 }
 
-bool Lexer::scanRegExp(const Identifier*& pattern, const Identifier*& flags, UChar patternPrefix)
+bool Lexer::scanRegExp()
 {
     ASSERT(m_buffer16.isEmpty());
 
     bool lastWasEscape = false;
     bool inBrackets = false;
 
-    if (patternPrefix) {
-        ASSERT(!isLineTerminator(patternPrefix));
-        ASSERT(patternPrefix != '/');
-        ASSERT(patternPrefix != '[');
-        record16(patternPrefix);
-    }
-
     while (true) {
-        int current = m_current;
-
-        if (isLineTerminator(current) || current == -1) {
-            m_buffer16.resize(0);
+        if (isLineTerminator(m_current) || m_current == -1)
             return false;
+        if (m_current != '/' || lastWasEscape || inBrackets) {
+            // keep track of '[' and ']'
+            if (!lastWasEscape) {
+                if (m_current == '[' && !inBrackets)
+                    inBrackets = true;
+                if (m_current == ']' && inBrackets)
+                    inBrackets = false;
+            }
+            record16(m_current);
+            lastWasEscape = !lastWasEscape && m_current == '\\';
+        } else { // end of regexp
+            m_pattern = UString(m_buffer16);
+            m_buffer16.resize(0);
+            shift1();
+            break;
         }
-
         shift1();
-
-        if (current == '/' && !lastWasEscape && !inBrackets)
-            break;
-
-        record16(current);
-
-        if (lastWasEscape) {
-            lastWasEscape = false;
-            continue;
-        }
-
-        switch (current) {
-        case '[':
-            inBrackets = true;
-            break;
-        case ']':
-            inBrackets = false;
-            break;
-        case '\\':
-            lastWasEscape = true;
-            break;
-        }
     }
-
-    pattern = makeIdentifier(m_buffer16.data(), m_buffer16.size());
-    m_buffer16.resize(0);
 
     while (isIdentPart(m_current)) {
         record16(m_current);
         shift1();
     }
-
-    flags = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    m_flags = UString(m_buffer16);
     m_buffer16.resize(0);
-
-    return true;
-}
-
-bool Lexer::skipRegExp()
-{
-    bool lastWasEscape = false;
-    bool inBrackets = false;
-
-    while (true) {
-        int current = m_current;
-
-        if (isLineTerminator(current) || current == -1)
-            return false;
-
-        shift1();
-
-        if (current == '/' && !lastWasEscape && !inBrackets)
-            break;
-
-        if (lastWasEscape) {
-            lastWasEscape = false;
-            continue;
-        }
-
-        switch (current) {
-        case '[':
-            inBrackets = true;
-            break;
-        case ']':
-            inBrackets = false;
-            break;
-        case '\\':
-            lastWasEscape = true;
-            break;
-        }
-    }
-
-    while (isIdentPart(m_current))
-        shift1();
 
     return true;
 }
@@ -1023,6 +961,9 @@ void Lexer::clear()
     m_buffer16.swap(newBuffer16);
 
     m_isReparsing = false;
+
+    m_pattern = UString();
+    m_flags = UString();
 }
 
 SourceCode Lexer::sourceCode(int openBrace, int closeBrace, int firstLine)

@@ -125,13 +125,12 @@ void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
         m_data.m_painter->begin(&m_data.m_pixmap);
 }
 
-template <Multiply multiplied>
-PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& imageData, const IntSize& size)
+PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
 {
     PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
     unsigned char* data = result->data()->data()->data();
 
-    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > size.width() || (rect.y() + rect.height()) > size.height())
+    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
         memset(data, 0, result->data()->length());
 
     int originx = rect.x();
@@ -141,8 +140,8 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
         originx = 0;
     }
     int endx = rect.x() + rect.width();
-    if (endx > size.width())
-        endx = size.width();
+    if (endx > m_size.width())
+        endx = m_size.width();
     int numColumns = endx - originx;
 
     int originy = rect.y();
@@ -152,16 +151,11 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
         originy = 0;
     }
     int endy = rect.y() + rect.height();
-    if (endy > size.height())
-        endy = size.height();
+    if (endy > m_size.height())
+        endy = m_size.height();
     int numRows = endy - originy;
 
-    QImage image = imageData.m_pixmap.toImage();
-    if (multiplied == Unmultiplied)
-        image = image.convertToFormat(QImage::Format_ARGB32);
-    else
-        image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-
+    QImage image = m_data.m_pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
     ASSERT(!image.isNull());
 
     unsigned destBytesPerRow = 4 * rect.width();
@@ -182,18 +176,7 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
     return result;
 }
 
-PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
-{
-    return getImageData<Unmultiplied>(rect, m_data, m_size);
-}
-
-PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
-{
-    return getImageData<Premultiplied>(rect, m_data, m_size);
-}
-
-template <Multiply multiplied>
-void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, ImageBufferData& data, const IntSize& size)
+void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     ASSERT(sourceRect.width() > 0);
     ASSERT(sourceRect.height() > 0);
@@ -201,37 +184,33 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
     int originx = sourceRect.x();
     int destx = destPoint.x() + sourceRect.x();
     ASSERT(destx >= 0);
-    ASSERT(destx < size.width());
+    ASSERT(destx < m_size.width());
     ASSERT(originx >= 0);
     ASSERT(originx <= sourceRect.right());
 
     int endx = destPoint.x() + sourceRect.right();
-    ASSERT(endx <= size.width());
+    ASSERT(endx <= m_size.width());
 
     int numColumns = endx - destx;
 
     int originy = sourceRect.y();
     int desty = destPoint.y() + sourceRect.y();
     ASSERT(desty >= 0);
-    ASSERT(desty < size.height());
+    ASSERT(desty < m_size.height());
     ASSERT(originy >= 0);
     ASSERT(originy <= sourceRect.bottom());
 
     int endy = destPoint.y() + sourceRect.bottom();
-    ASSERT(endy <= size.height());
+    ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
 
     unsigned srcBytesPerRow = 4 * source->width();
 
-    bool isPainting = data.m_painter->isActive();
+    bool isPainting = m_data.m_painter->isActive();
     if (isPainting)
-        data.m_painter->end();
+        m_data.m_painter->end();
 
-    QImage image = data.m_pixmap.toImage();
-    if (multiplied == Unmultiplied)
-        image = image.convertToFormat(QImage::Format_ARGB32);
-    else
-        image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QImage image = m_data.m_pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
 
     unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
     for (int y = 0; y < numRows; ++y) {
@@ -244,20 +223,10 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
         srcRows += srcBytesPerRow;
     }
 
-    data.m_pixmap = QPixmap::fromImage(image);
+    m_data.m_pixmap = QPixmap::fromImage(image);
 
     if (isPainting)
-        data.m_painter->begin(&data.m_pixmap);
-}
-
-void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<Unmultiplied>(source, sourceRect, destPoint, m_data, m_size);
-}
-
-void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<Premultiplied>(source, sourceRect, destPoint, m_data, m_size);
+        m_data.m_painter->begin(&m_data.m_pixmap);
 }
 
 // We get a mimeType here but QImageWriter does not support mimetypes but

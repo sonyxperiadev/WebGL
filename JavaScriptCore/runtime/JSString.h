@@ -90,7 +90,7 @@ namespace JSC {
         bool canGetIndex(unsigned i) { return i < static_cast<unsigned>(m_value.size()); }
         JSString* getIndex(JSGlobalData*, unsigned);
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(StringType, NeedsThisConversion | HasDefaultMark)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(StringType, NeedsThisConversion)); }
 
     private:
         enum VPtrStealingHackType { VPtrStealingHack };

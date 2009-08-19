@@ -25,7 +25,6 @@
 
 #include "HTMLAnchorElement.h"
 #include "IntSize.h"
-#include <wtf/OwnArrayPtr.h>
 
 namespace WebCore {
 
@@ -59,7 +58,7 @@ private:
     Path getRegion(const IntSize&) const;
 
     OwnPtr<Path> m_region;
-    OwnArrayPtr<Length> m_coords;
+    Length* m_coords;
     int m_coordsLen;
     IntSize m_lastSize;
     Shape m_shape;

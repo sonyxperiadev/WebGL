@@ -51,10 +51,6 @@ class QPointF;
 QT_END_NAMESPACE
 #endif
 
-#if PLATFORM(HAIKU)
-class BPoint;
-#endif
-
 #if PLATFORM(SKIA)
 struct SkPoint;
 #endif
@@ -92,11 +88,6 @@ public:
 #if PLATFORM(QT)
     FloatPoint(const QPointF&);
     operator QPointF() const;
-#endif
-
-#if PLATFORM(HAIKU)
-    FloatPoint(const BPoint&);
-    operator BPoint() const;
 #endif
 
 #if (PLATFORM(SKIA) || PLATFORM(SGL))

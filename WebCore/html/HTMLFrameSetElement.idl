@@ -33,7 +33,6 @@ module html {
 #if !defined(LANGUAGE_COM) || !LANGUAGE_COM
         // Event handler attributes
         attribute [DontEnum] EventListener onbeforeunload;
-        attribute [DontEnum] EventListener onhashchange;
         attribute [DontEnum] EventListener onmessage;
         attribute [DontEnum] EventListener onoffline;
         attribute [DontEnum] EventListener ononline;
@@ -41,7 +40,7 @@ module html {
         attribute [DontEnum] EventListener onstorage;
         attribute [DontEnum] EventListener onunload;
 
-        // Overrides of Element attributes (left in for completeness).
+        // Overrides of Element attributes.
         // attribute [DontEnum] EventListener onblur;
         // attribute [DontEnum] EventListener onerror;
         // attribute [DontEnum] EventListener onfocus;
@@ -50,6 +49,7 @@ module html {
         // Not implemented yet.
         // attribute [DontEnum] EventListener onafterprint;
         // attribute [DontEnum] EventListener onbeforeprint;
+        // attribute [DontEnum] EventListener onhashchange;
         // attribute [DontEnum] EventListener onpopstate;
         // attribute [DontEnum] EventListener onredo;
         // attribute [DontEnum] EventListener onundo;

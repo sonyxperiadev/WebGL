@@ -56,19 +56,25 @@ WebInspector.ProfileView = function(profile)
     this.viewSelectElement.appendChild(heavyViewOption);
     this.viewSelectElement.appendChild(treeViewOption);
 
-    this.percentButton = new WebInspector.StatusBarButton("", "percent-time-status-bar-item");
+    this.percentButton = document.createElement("button");
+    this.percentButton.className = "percent-time-status-bar-item status-bar-item";
     this.percentButton.addEventListener("click", this._percentClicked.bind(this), false);
 
-    this.focusButton = new WebInspector.StatusBarButton(WebInspector.UIString("Focus selected function."), "focus-profile-node-status-bar-item");
+    this.focusButton = document.createElement("button");
+    this.focusButton.title = WebInspector.UIString("Focus selected function.");
+    this.focusButton.className = "focus-profile-node-status-bar-item status-bar-item";
     this.focusButton.disabled = true;
     this.focusButton.addEventListener("click", this._focusClicked.bind(this), false);
 
-    this.excludeButton = new WebInspector.StatusBarButton(WebInspector.UIString("Exclude selected function."), "exclude-profile-node-status-bar-item");
+    this.excludeButton = document.createElement("button");
+    this.excludeButton.title = WebInspector.UIString("Exclude selected function.");
+    this.excludeButton.className = "exclude-profile-node-status-bar-item status-bar-item";
     this.excludeButton.disabled = true;
     this.excludeButton.addEventListener("click", this._excludeClicked.bind(this), false);
 
-    this.resetButton = new WebInspector.StatusBarButton(WebInspector.UIString("Restore all functions."), "reset-profile-status-bar-item");
-    this.resetButton.visible = false;
+    this.resetButton = document.createElement("button");
+    this.resetButton.title = WebInspector.UIString("Restore all functions.");
+    this.resetButton.className = "reset-profile-status-bar-item status-bar-item hidden";
     this.resetButton.addEventListener("click", this._resetClicked.bind(this), false);
 
     this.profile = profile;
@@ -84,7 +90,7 @@ WebInspector.ProfileView = function(profile)
 WebInspector.ProfileView.prototype = {
     get statusBarItems()
     {
-        return [this.viewSelectElement, this.percentButton.element, this.focusButton.element, this.excludeButton.element, this.resetButton.element];
+        return [this.viewSelectElement, this.percentButton, this.focusButton, this.excludeButton, this.resetButton];
     },
 
     get profile()
@@ -433,10 +439,10 @@ WebInspector.ProfileView.prototype = {
     {
         if (this.showSelfTimeAsPercent && this.showTotalTimeAsPercent && this.showAverageTimeAsPercent) {
             this.percentButton.title = WebInspector.UIString("Show absolute total and self times.");
-            this.percentButton.toggled = true;
+            this.percentButton.addStyleClass("toggled-on");
         } else {
             this.percentButton.title = WebInspector.UIString("Show total and self times as percentages.");
-            this.percentButton.toggled = false;
+            this.percentButton.removeStyleClass("toggled-on");
         }
     },
 
@@ -445,7 +451,7 @@ WebInspector.ProfileView.prototype = {
         if (!this.dataGrid.selectedNode)
             return;
 
-        this.resetButton.visible = true;
+        this.resetButton.removeStyleClass("hidden");
         this.profileDataGridTree.focus(this.dataGrid.selectedNode);
         this.refresh();
         this.refreshVisibleData();
@@ -460,7 +466,7 @@ WebInspector.ProfileView.prototype = {
 
         selectedNode.deselect();
 
-        this.resetButton.visible = true;
+        this.resetButton.removeStyleClass("hidden");
         this.profileDataGridTree.exclude(selectedNode);
         this.refresh();
         this.refreshVisibleData();
@@ -468,7 +474,7 @@ WebInspector.ProfileView.prototype = {
 
     _resetClicked: function(event)
     {
-        this.resetButton.visible = false;
+        this.resetButton.addStyleClass("hidden");
         this.profileDataGridTree.restore();
         this.refresh();
         this.refreshVisibleData();

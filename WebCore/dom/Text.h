@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,39 +27,44 @@
 
 namespace WebCore {
     
+const unsigned cTextNodeLengthLimit = 1 << 16;
+
 class Text : public CharacterData {
 public:
-    static const unsigned defaultLengthLimit = 1 << 16;
+    Text(Document *impl, const String &_text);
+    Text(Document *impl);
+    virtual ~Text();
 
-    static PassRefPtr<Text> create(Document*, const String&);
-    static PassRefPtr<Text> createWithLengthLimit(Document*, const String&, unsigned& charsLeft, unsigned lengthLimit = defaultLengthLimit);
+    // DOM methods & attributes for CharacterData
 
     PassRefPtr<Text> splitText(unsigned offset, ExceptionCode&);
 
     // DOM Level 3: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-1312295772
-
     String wholeText() const;
     PassRefPtr<Text> replaceWholeText(const String&, ExceptionCode&);
 
-    virtual void attach();
+    // DOM methods overridden from parent classes
 
-protected:
-    Text(Document*, const String&);
-
-private:
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
+
+    // Other methods (not part of DOM)
+
+    virtual void attach();
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange = NoChange);
     virtual bool childTypeAllowed(NodeType);
 
-    virtual PassRefPtr<Text> virtualCreate(const String&);
+    static PassRefPtr<Text> createWithLengthLimit(Document*, const String&, unsigned& charsLeft, unsigned maxChars = cTextNodeLengthLimit);
 
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
+
+protected:
+    virtual PassRefPtr<Text> createNew(PassRefPtr<StringImpl>);
 };
 
 } // namespace WebCore

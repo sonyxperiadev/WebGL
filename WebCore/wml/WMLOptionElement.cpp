@@ -158,10 +158,6 @@ RenderStyle* WMLOptionElement::nonRendererRenderStyle() const
 
 void WMLOptionElement::handleIntrinsicEventIfNeeded()
 {
-    WMLSelectElement* select = ownerSelectElement(this);
-    if (!select || !select->initialized())
-        return;
-
     WMLIntrinsicEventHandler* eventHandler = this->eventHandler();
     if (!eventHandler)
         return;

@@ -27,9 +27,7 @@
 #include "ClassInfo.h"
 #include "CommonIdentifiers.h"
 #include "CallFrame.h"
-#include "JSCell.h"
 #include "JSNumberCell.h"
-#include "MarkStack.h"
 #include "PropertySlot.h"
 #include "PutPropertySlot.h"
 #include "ScopeChain.h"
@@ -76,11 +74,12 @@ namespace JSC {
         explicit JSObject(PassRefPtr<Structure>);
 
         virtual void markChildren(MarkStack&);
-        ALWAYS_INLINE void markChildrenDirect(MarkStack& markStack);
 
         // The inline virtual destructor cannot be the first virtual function declared
         // in the class as it results in the vtable being generated as a weak symbol
         virtual ~JSObject();
+
+        bool inherits(const ClassInfo* classInfo) const { return JSCell::isObject(classInfo); }
 
         JSValue prototype() const;
         void setPrototype(JSValue prototype);
@@ -202,22 +201,10 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot | HasDefaultMark));
+            return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot));
         }
 
     private:
-        // Nobody should ever ask any of these questions on something already known to be a JSObject.
-        using JSCell::isAPIValueWrapper;
-        using JSCell::isGetterSetter;
-        using JSCell::toObject;
-        void getObject();
-        void getString();
-        void isObject();
-        void isString();
-#if USE(JSVALUE32)
-        void isNumber();
-#endif
-
         ConstPropertyStorage propertyStorage() const { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
         PropertyStorage propertyStorage() { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
 
@@ -306,7 +293,7 @@ inline bool Structure::isUsingInlineStorage() const
     return (propertyStorageCapacity() == JSObject::inlineStorageCapacity);
 }
 
-inline bool JSCell::inherits(const ClassInfo* info) const
+inline bool JSCell::isObject(const ClassInfo* info) const
 {
     for (const ClassInfo* ci = classInfo(); ci; ci = ci->parentClass) {
         if (ci == info)
@@ -315,10 +302,10 @@ inline bool JSCell::inherits(const ClassInfo* info) const
     return false;
 }
 
-// this method is here to be after the inline declaration of JSCell::inherits
-inline bool JSValue::inherits(const ClassInfo* classInfo) const
+// this method is here to be after the inline declaration of JSCell::isObject
+inline bool JSValue::isObject(const ClassInfo* classInfo) const
 {
-    return isCell() && asCell()->inherits(classInfo);
+    return isCell() && asCell()->isObject(classInfo);
 }
 
 ALWAYS_INLINE bool JSObject::inlineGetOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -638,16 +625,6 @@ ALWAYS_INLINE void JSObject::allocatePropertyStorageInline(size_t oldSize, size_
         delete [] oldPropertyStorage;
 
     m_externalStorage = newPropertyStorage;
-}
-
-ALWAYS_INLINE void JSObject::markChildrenDirect(MarkStack& markStack)
-{
-    JSCell::markChildren(markStack);
-    m_structure->markAggregate(markStack);
-    
-    PropertyStorage storage = propertyStorage();
-    size_t storageSize = m_structure->propertyStorageSize();
-    markStack.appendValues(reinterpret_cast<JSValue*>(storage), storageSize);
 }
 
 } // namespace JSC

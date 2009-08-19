@@ -84,7 +84,7 @@ namespace JSC {
     #endif
         }
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(NumberType, NeedsThisConversion | HasDefaultMark)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(NumberType, NeedsThisConversion)); }
 
     private:
         JSNumberCell(JSGlobalData* globalData, double value)

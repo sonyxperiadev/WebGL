@@ -73,20 +73,18 @@ void WMLGoElement::parseMappedAttribute(MappedAttribute* attr)
         WMLTaskElement::parseMappedAttribute(attr);
 }
 
-void WMLGoElement::executeTask()
+void WMLGoElement::executeTask(Event*)
 {
-    ASSERT(document()->isWMLDocument());
-    WMLDocument* document = static_cast<WMLDocument*>(this->document());
-
-    WMLPageState* pageState = wmlPageStateForDocument(document);
+    Document* doc = document();
+    WMLPageState* pageState = wmlPageStateForDocument(doc);
     if (!pageState)
         return;
 
-    WMLCardElement* card = document->activeCard();
+    WMLCardElement* card = pageState->activeCard();
     if (!card)
         return;
 
-    Frame* frame = document->frame();
+    Frame* frame = doc->frame();
     if (!frame)
         return;
 
@@ -99,7 +97,7 @@ void WMLGoElement::executeTask()
         return;
 
     // Substitute variables within target url attribute value
-    KURL url = document->completeURL(substituteVariableReferences(href, document, WMLVariableEscapingEscape));
+    KURL url = doc->completeURL(substituteVariableReferences(href, doc, WMLVariableEscapingEscape));
     if (url.isEmpty())
         return;
 
@@ -110,9 +108,9 @@ void WMLGoElement::executeTask()
         eventTimer->stop();
 
     // FIXME: 'newcontext' handling not implemented for external cards
-    bool inSameDeck = document->url().path() == url.path();
+    bool inSameDeck = doc->url().path() == url.path();
     if (inSameDeck && url.hasFragmentIdentifier()) {
-        if (WMLCardElement* card = WMLCardElement::findNamedCardInDocument(document, url.fragmentIdentifier())) {
+        if (WMLCardElement* card = WMLCardElement::findNamedCardInDocument(doc, url.fragmentIdentifier())) {
             if (card->isNewContext())
                 pageState->reset();
         }

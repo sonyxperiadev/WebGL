@@ -31,7 +31,7 @@ public:
     WMLPrevElement(const QualifiedName& tagName, Document*);
     virtual ~WMLPrevElement();
 
-    virtual void executeTask();
+    virtual void executeTask(Event*);
 };
 
 }

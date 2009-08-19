@@ -50,7 +50,6 @@ public:
     bool isEqual(ScriptState*, const ScriptValue&) const;
     bool isNull() const;
     bool isUndefined() const;
-    bool isObject() const;
     bool hasNoValue() const { return m_value == JSC::JSValue(); }
 
 private:

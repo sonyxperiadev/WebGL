@@ -17,18 +17,11 @@
 #include "config.h"
 #include "ClipboardGtk.h"
 
-#include "CachedImage.h"
-#include "CString.h"
-#include "Editor.h"
-#include "Element.h"
 #include "FileList.h"
-#include "Frame.h"
-#include "markup.h"
 #include "NotImplemented.h"
-#include "RenderImage.h"
 #include "StringHash.h"
 
-#include <gtk/gtk.h>
+#include "Editor.h"
 
 namespace WebCore {
 
@@ -40,10 +33,12 @@ PassRefPtr<Clipboard> Editor::newGeneralClipboard(ClipboardAccessPolicy policy)
 ClipboardGtk::ClipboardGtk(ClipboardAccessPolicy policy, bool forDragging)
     : Clipboard(policy, forDragging)
 {
+    notImplemented();
 }
 
 ClipboardGtk::~ClipboardGtk()
 {
+    notImplemented();
 }
 
 void ClipboardGtk::clearData(const String&)
@@ -115,65 +110,19 @@ DragImageRef ClipboardGtk::createDragImage(IntPoint&) const
     return 0;
 }
 
-static CachedImage* getCachedImage(Element* element)
+void ClipboardGtk::declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*)
 {
-    // Attempt to pull CachedImage from element
-    ASSERT(element);
-    RenderObject* renderer = element->renderer();
-    if (!renderer || !renderer->isImage())
-        return 0;
-
-    RenderImage* image = static_cast<RenderImage*>(renderer);
-    if (image->cachedImage() && !image->cachedImage()->errorOccurred())
-        return image->cachedImage();
-
-    return 0;
+    notImplemented();
 }
 
-void ClipboardGtk::declareAndWriteDragImage(Element* element, const KURL& url, const String& label, Frame*)
+void ClipboardGtk::writeURL(const KURL&, const String&, Frame*)
 {
-    CachedImage* cachedImage = getCachedImage(element);
-    if (!cachedImage || !cachedImage->isLoaded())
-        return;
-
-    GdkPixbuf* pixbuf = cachedImage->image()->getGdkPixbuf();
-    if (!pixbuf)
-        return;
-
-    GtkClipboard* imageClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardImage"));
-    gtk_clipboard_clear(imageClipboard);
-
-    gtk_clipboard_set_image(imageClipboard, pixbuf);
-    g_object_unref(pixbuf);
-
-    writeURL(url, label, 0);
+    notImplemented();
 }
 
-void ClipboardGtk::writeURL(const KURL& url, const String& label, Frame*)
+void ClipboardGtk::writeRange(Range*, Frame*)
 {
-    GtkClipboard* textClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardText"));
-    GtkClipboard* urlClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardUrl"));
-    GtkClipboard* urlLabelClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardUrlLabel"));
-
-    gtk_clipboard_clear(textClipboard);
-    gtk_clipboard_clear(urlClipboard);
-    gtk_clipboard_clear(urlLabelClipboard);
-
-    gtk_clipboard_set_text(textClipboard, url.string().utf8().data(), -1);
-    gtk_clipboard_set_text(urlClipboard, url.string().utf8().data(), -1);
-    gtk_clipboard_set_text(urlLabelClipboard, label.utf8().data(), -1);
-}
-
-void ClipboardGtk::writeRange(Range* range, Frame* frame)
-{
-    GtkClipboard* textClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardText"));
-    GtkClipboard* htmlClipboard = gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardHtml"));
-
-    gtk_clipboard_clear(textClipboard);
-    gtk_clipboard_clear(htmlClipboard);
-
-    gtk_clipboard_set_text(textClipboard, frame->selectedText().utf8().data(), -1);
-    gtk_clipboard_set_text(htmlClipboard, createMarkup(range, 0, AnnotateForInterchange).utf8().data(), -1);
+    notImplemented();
 }
 
 bool ClipboardGtk::hasData()

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,14 +26,13 @@
 
 namespace WebCore {
 
-inline CDATASection::CDATASection(Document* document, const String& data)
-    : Text(document, data)
+CDATASection::CDATASection(Document* document, const String& text)
+    : Text(document, text)
 {
 }
 
-PassRefPtr<CDATASection> CDATASection::create(Document* document, const String& data)
+CDATASection::~CDATASection()
 {
-    return adoptRef(new CDATASection(document, data));
 }
 
 String CDATASection::nodeName() const
@@ -48,17 +47,19 @@ Node::NodeType CDATASection::nodeType() const
 
 PassRefPtr<Node> CDATASection::cloneNode(bool /*deep*/)
 {
-    return create(document(), data());
+    return new CDATASection(document(), m_data);
 }
 
+// DOM Section 1.1.1
 bool CDATASection::childTypeAllowed(NodeType)
 {
     return false;
 }
 
-PassRefPtr<Text> CDATASection::virtualCreate(const String& data)
+PassRefPtr<Text> CDATASection::createNew(PassRefPtr<StringImpl> string)
 {
-    return create(document(), data);
+    return new CDATASection(document(), string);
 }
+
 
 } // namespace WebCore

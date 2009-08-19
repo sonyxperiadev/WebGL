@@ -31,9 +31,7 @@
 
 #include "Console.h"
 #include "PlatformString.h"
-#include "ScriptObject.h"
 #include "ScriptState.h"
-#include "ScriptValue.h"
 #include "StringHash.h"
 #include "Timer.h"
 
@@ -62,6 +60,7 @@ class HitTestResult;
 class InspectorClient;
 class InspectorDOMAgent;
 class JavaScriptCallFrame;
+class StorageArea;
 class KURL;
 class Node;
 class Page;
@@ -69,9 +68,9 @@ struct ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
+class ScriptObject;
 class ScriptString;
 class SharedBuffer;
-class StorageArea;
 
 class ConsoleMessage;
 class InspectorDatabaseResource;
@@ -188,7 +187,7 @@ public:
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
-    void clearConsoleMessages(bool clearUI);
+    void clearConsoleMessages();
     const Vector<ConsoleMessage*>& consoleMessages() const { return m_consoleMessages; }
 
     void attachWindow();
@@ -199,9 +198,10 @@ public:
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
     void handleMousePressOnNode(Node*);
 
+    void inspectedWindowScriptObjectCleared(Frame*);
     void windowScriptObjectAvailable();
 
-    void setFrontendProxyObject(ScriptState* state, ScriptObject webInspectorObj, ScriptObject injectedScriptObj = ScriptObject());
+    void setFrontendProxyObject(ScriptState* state, ScriptObject object);
 
     void populateScriptObjects();
     void resetScriptObjects();
@@ -279,22 +279,13 @@ private:
 #endif
 
     // Following are used from InspectorBackend and internally.
-    void scriptObjectReady();
+    void scriptObjectReady(bool enableDOMAgent);
     void moveWindowBy(float x, float y) const;
     void setAttachedWindow(bool);
     void setAttachedWindowHeight(unsigned height);
     void storeLastActivePanel(const String& panelName);
     void closeWindow();
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
-
-    friend class InspectorFrontend;
-    // Following are used from InspectorFrontend only. We don't want to expose them to the
-    // rest of the InspectorController clients.
-    // TODO: extract these into a separate interface.
-    ScriptValue wrapObject(const ScriptValue& object);
-    ScriptValue unwrapObject(const String& objectId);
-    
-    void resetInjectedScript();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void startUserInitiatedProfilingSoon();
@@ -323,7 +314,6 @@ private:
     InspectorClient* m_client;
 
     RefPtr<InspectorDOMAgent> m_domAgent;
-    ScriptObject m_injectedScriptObj;
     Page* m_page;
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
@@ -353,8 +343,6 @@ private:
     OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorBackend> m_inspectorBackend;
 #endif
-    HashMap<String, ScriptValue> m_idToConsoleObject;
-    long m_lastBoundObjectId;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;

@@ -1,0 +1,175 @@
+#!/usr/bin/perl -w
+
+# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer. 
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution. 
+# 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+#     its contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Script to generate HTML wrappers for JavaScript tests from templates
+
+use strict;
+
+use FindBin;
+use lib $FindBin::Bin;
+
+use File::Basename;
+use File::Find;
+use Getopt::Long;
+use webkitdirs;
+
+sub directoryFilter;
+sub findTemplateFiles(@);
+
+my $showHelp;
+
+my $result = GetOptions(
+    "help"       => \$showHelp,
+);
+
+if (!$result || $showHelp) {
+    print STDERR basename($0) . " [-h|--help] [path ...]\n";
+    exit 1;
+}
+
+setConfiguration();
+my $productDir = productDir();
+
+chdirWebKit();
+
+my @templates = findTemplateFiles(@ARGV);
+
+for my $tfile (@templates) {
+
+    my $tpath = $tfile;
+    $tpath =~ s:/resources/TEMPLATE.html$::;
+
+    print "${tpath}\n";
+
+    chdirWebKit();
+    chdir($tpath);
+
+    my @files;
+    my $fileFilter = sub {
+        push @files, $File::Find::name if substr($_, -3) eq ".js";
+    };
+    find({ preprocess => \&directoryFilter, wanted => $fileFilter }, "resources");
+
+    open TEMPLATE, "<resources/TEMPLATE.html";
+    my $template = do { local $/; <TEMPLATE> };
+    close TEMPLATE;
+
+    my $templateNegative = $template;
+    if (-e "resources/TEMPLATE-n.html") {
+        open TEMPLATE, "<resources/TEMPLATE-n.html";
+        $templateNegative = do { local $/; <TEMPLATE> };
+        close TEMPLATE;
+    }
+
+    for my $file (@files) {
+        next if $file =~ /js-test-.*\.js$/;
+        next if $file =~ /cookies-test-(post|pre)\.js$/;
+        next if $file =~ /standalone-.*\.js$/;
+        next if $file =~ /SVGTestCase\.js/;
+        next if $file =~ /WMLTestCase\.js/;
+
+        next if $file =~ m:resources/bom-in-file-retains-correct-offset\.js$:; # has a custom template
+        next if $file =~ m:resources/NSResolver-exceptions\.js$:;
+        next if $file =~ m:resources/WindowProperties\.js$:;
+        next if $file =~ m:resources/altGlyph-dom\.js$:;
+        next if $file =~ m:resources/attr-case-sensitivity\.js$:;
+        next if $file =~ m:resources/box-shadow-overflow-scroll\.js$:;
+        next if $file =~ m:resources/codegen-temporaries-multiple-global-blocks-1\.js$:;
+        next if $file =~ m:resources/codegen-temporaries-multiple-global-blocks-2\.js$:;
+        next if $file =~ m:resources/constructors-cached-navigate\.js$:;
+        next if $file =~ m:resources/frame-loading-via-document-write\.js$:;
+        next if $file =~ m:resources/id-fastpath-almost-strict\.js$:;
+        next if $file =~ m:resources/id-fastpath-strict\.js$:;
+        next if $file =~ m:resources/intersectsNode\.js$:;
+        next if $file =~ m:resources/p-in-scope\.js$:;
+        next if $file =~ m:resources/paste-blockquote-before-blockquote\.js$:;
+        next if $file =~ m:resources/reflection-overflow-scroll\.js$:;
+        next if $file =~ m:resources/script-element-gc\.js$:;
+        next if $file =~ m:resources/script-element-gc\.js$:;
+        next if $file =~ m:resources/script3\.js$:;
+        next if $file =~ m:resources/script4\.js$:;
+        next if $file =~ m:resources/script5\.js$:;
+        next if $file =~ m:resources/scripted-random\.js$:;
+        next if $file =~ m:resources/select-options-remove\.js$:;
+        next if $file =~ m:resources/shadow-offset\.js$:;
+        next if $file =~ m:resources/tabindex-focus-blur-all\.js$:;
+        next if $file =~ m:resources/use-instanceRoot-event-bubbling\.js$:;
+        next if $file =~ m:resources/use-instanceRoot-event-listeners\.js$:;
+        next if $file =~ m:resources/window-properties\.js$:;
+        next if $file =~ m:resources/wrapper-identity-base\.js$:;
+        next if $file =~ m:resources/xhtml-scripts\.js$:;
+        next if $file =~ m:resources/instanceof-operator-dummy-worker\.js$:;
+        next if $file =~ m:resources/json2-es5-compat\.js$:;
+        next if $file =~ m:resources/JSON-stringify\.js$:;
+        next if $file =~ m:resources/JSON-parse\.js$:;
+        next if $file =~ m:resources/textarea-input-event\.js$:;
+
+        my $html = $file;
+        $html =~ s:resources/(.*)\.js:$1.html:;
+        next if -f "$html-disabled";
+
+        system("grep -q 'successfullyParsed =' $file");
+        if ($? != 0) {
+            `echo "" >> "${file}"`;
+            `echo "var successfullyParsed = true;" >> "${file}"`;
+        }
+        
+        print "    ${html}\n";
+        open HTML, ">$html";
+        my $output = ($file =~ /-n\.js/) ? $templateNegative : $template;
+        $output =~ s:YOUR_JS_FILE_HERE:$file:;
+        print HTML $output;
+        
+        close HTML;
+    }
+}
+
+exit 0;
+
+sub directoryFilter
+{
+    return () if basename($File::Find::dir) eq ".svn";
+    return @_;
+}
+
+sub findTemplateFiles(@) {
+    my @args = @_;
+    my @templateFiles;
+
+    push @args, "LayoutTests" if scalar(@args) == 0;
+
+    my @paths = map { -f $_ ? dirname($_) : $_ } @args;
+
+    my $fileFilter = sub {
+        push @templateFiles, $File::Find::name if $_ eq "TEMPLATE.html";
+    };
+
+    find({ preprocess => \&directoryFilter, wanted => $fileFilter }, @paths);
+
+    return @templateFiles;
+}

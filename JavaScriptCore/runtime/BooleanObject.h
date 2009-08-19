@@ -31,11 +31,6 @@ namespace JSC {
 
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;
-        
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
-        {
-            return Structure::create(prototype, TypeInfo(ObjectType, HasStandardGetOwnPropertySlot | HasDefaultMark));
-        }
     };
 
     BooleanObject* asBooleanObject(JSValue);

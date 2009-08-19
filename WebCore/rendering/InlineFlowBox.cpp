@@ -29,7 +29,6 @@
 #include "RootInlineBox.h"
 #include "RenderBlock.h"
 #include "RenderInline.h"
-#include "RenderLayer.h"
 #include "RenderListMarker.h"
 #include "RenderTableCell.h"
 #include "RootInlineBox.h"
@@ -775,23 +774,18 @@ void InlineFlowBox::paintMask(RenderObject::PaintInfo& paintInfo, int tx, int ty
     int w = width();
     int h = height();
 
-    const NinePieceImage& maskNinePieceImage = renderer()->style()->maskBoxImage();
-    StyleImage* maskBoxImage = renderer()->style()->maskBoxImage().image();
-
     // Figure out if we need to push a transparency layer to render our mask.
     bool pushTransparencyLayer = false;
-    bool compositedMask = renderer()->hasLayer() && boxModelObject()->layer()->hasCompositedMask();
-    CompositeOperator compositeOp = CompositeSourceOver;
-    if (!compositedMask) {
-        if ((maskBoxImage && renderer()->style()->maskLayers()->hasImage()) || renderer()->style()->maskLayers()->next())
-            pushTransparencyLayer = true;
-        
-        compositeOp = CompositeDestinationIn;
-        if (pushTransparencyLayer) {
-            paintInfo.context->setCompositeOperation(CompositeDestinationIn);
-            paintInfo.context->beginTransparencyLayer(1.0f);
-            compositeOp = CompositeSourceOver;
-        }
+    const NinePieceImage& maskNinePieceImage = renderer()->style()->maskBoxImage();
+    StyleImage* maskBoxImage = renderer()->style()->maskBoxImage().image();
+    if ((maskBoxImage && renderer()->style()->maskLayers()->hasImage()) || renderer()->style()->maskLayers()->next())
+        pushTransparencyLayer = true;
+    
+    CompositeOperator compositeOp = CompositeDestinationIn;
+    if (pushTransparencyLayer) {
+        paintInfo.context->setCompositeOperation(CompositeDestinationIn);
+        paintInfo.context->beginTransparencyLayer(1.0f);
+        compositeOp = CompositeSourceOver;
     }
 
     paintFillLayers(paintInfo, Color(), renderer()->style()->maskLayers(), tx, ty, w, h, compositeOp);

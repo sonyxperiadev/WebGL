@@ -324,20 +324,20 @@ public:
             move(src, dest);
     }
 
-    Jump branch32(Condition cond, RegisterID left, RegisterID right, int useConstantPool = 0)
+    Jump branch32(Condition cond, RegisterID left, RegisterID right)
     {
         m_assembler.cmp_r(left, right);
-        return Jump(m_assembler.jmp(ARMCondition(cond), useConstantPool));
+        return Jump(m_assembler.jmp(ARMCondition(cond)));
     }
 
-    Jump branch32(Condition cond, RegisterID left, Imm32 right, int useConstantPool = 0)
+    Jump branch32(Condition cond, RegisterID left, Imm32 right)
     {
         if (right.m_isPointer) {
             m_assembler.ldr_un_imm(ARM::S0, right.m_value);
             m_assembler.cmp_r(left, ARM::S0);
         } else
             m_assembler.cmp_r(left, m_assembler.getImm(right.m_value, ARM::S0));
-        return Jump(m_assembler.jmp(ARMCondition(cond), useConstantPool));
+        return Jump(m_assembler.jmp(ARMCondition(cond)));
     }
 
     Jump branch32(Condition cond, RegisterID left, Address right)
@@ -497,7 +497,7 @@ public:
     Call nearCall()
     {
         prepareCall();
-        return Call(m_assembler.jmp(ARMAssembler::AL, true), Call::LinkableNear);
+        return Call(m_assembler.jmp(), Call::LinkableNear);
     }
 
     Call call(RegisterID target)
@@ -587,7 +587,7 @@ public:
     Call call()
     {
         prepareCall();
-        return Call(m_assembler.jmp(ARMAssembler::AL, true), Call::Linkable);
+        return Call(m_assembler.jmp(), Call::Linkable);
     }
 
     Call tailRecursiveCall()
@@ -610,7 +610,8 @@ public:
     Jump branchPtrWithPatch(Condition cond, RegisterID left, DataLabelPtr& dataLabel, ImmPtr initialRightValue = ImmPtr(0))
     {
         dataLabel = moveWithPatch(initialRightValue, ARM::S1);
-        Jump jump = branch32(cond, left, ARM::S1, true);
+        Jump jump = branch32(cond, left, ARM::S1);
+        jump.enableLatePatch();
         return jump;
     }
 
@@ -618,7 +619,8 @@ public:
     {
         load32(left, ARM::S1);
         dataLabel = moveWithPatch(initialRightValue, ARM::S0);
-        Jump jump = branch32(cond, ARM::S0, ARM::S1, true);
+        Jump jump = branch32(cond, ARM::S0, ARM::S1);
+        jump.enableLatePatch();
         return jump;
     }
 
@@ -720,19 +722,9 @@ protected:
         return static_cast<ARMAssembler::Condition>(cond);
     }
 
-    void ensureSpace(int insnSpace, int constSpace)
-    {
-        m_assembler.ensureSpace(insnSpace, constSpace);
-    }
-
-    int sizeOfConstantPool()
-    {
-        return m_assembler.sizeOfConstantPool();
-    }
-
     void prepareCall()
     {
-        ensureSpace(3 * sizeof(ARMWord), sizeof(ARMWord));
+        m_assembler.ensureSpace(3 * sizeof(ARMWord), sizeof(ARMWord));
 
         // S0 might be used for parameter passing
         m_assembler.add_r(ARM::S1, ARM::pc, ARMAssembler::OP2_IMM | 0x4);

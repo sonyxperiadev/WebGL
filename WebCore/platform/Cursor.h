@@ -40,8 +40,6 @@ typedef struct _GdkCursor GdkCursor;
 #include <QCursor>
 #elif PLATFORM(CHROMIUM)
 #include "PlatformCursor.h"
-#elif PLATFORM(HAIKU)
-#include <app/Cursor.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -88,9 +86,6 @@ namespace WebCore {
 #elif PLATFORM(CHROMIUM)
     // See PlatformCursor.h
     typedef void* PlatformCursorHandle;
-#elif PLATFORM(HAIKU)
-    typedef BCursor* PlatformCursor;
-    typedef BCursor* PlatformCursorHandle;
 #else
     typedef void* PlatformCursor;
     typedef void* PlatformCursorHandle;

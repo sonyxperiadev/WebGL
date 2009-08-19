@@ -38,7 +38,6 @@ namespace JSC {
     class Debugger;
     class ErrorConstructor;
     class FunctionPrototype;
-    class GlobalCodeBlock;
     class GlobalEvalFunction;
     class NativeErrorConstructor;
     class ProgramCodeBlock;
@@ -145,7 +144,7 @@ namespace JSC {
 
             RefPtr<JSGlobalData> globalData;
 
-            HashSet<GlobalCodeBlock*> codeBlocks;
+            HashSet<ProgramCodeBlock*> codeBlocks;
         };
 
     public:
@@ -247,7 +246,7 @@ namespace JSC {
 
         virtual bool isDynamicScope() const;
 
-        HashSet<GlobalCodeBlock*>& codeBlocks() { return d()->codeBlocks; }
+        HashSet<ProgramCodeBlock*>& codeBlocks() { return d()->codeBlocks; }
 
         void copyGlobalsFrom(RegisterFile&);
         void copyGlobalsTo(RegisterFile&);

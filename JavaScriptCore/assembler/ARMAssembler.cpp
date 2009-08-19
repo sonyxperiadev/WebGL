@@ -49,11 +49,11 @@ ARMWord* ARMAssembler::getLdrImmAddress(ARMWord* insn, uint32_t* constPool)
         return reinterpret_cast<ARMWord*>(addr - (*insn & SDT_OFFSET_MASK));
 }
 
-void ARMAssembler::linkBranch(void* code, JmpSrc from, void* to, int useConstantPool)
+void ARMAssembler::linkBranch(void* code, JmpSrc from, void* to)
 {
     ARMWord* insn = reinterpret_cast<ARMWord*>(code) + (from.m_offset / sizeof(ARMWord));
 
-    if (!useConstantPool) {
+    if (!from.m_latePatch) {
         int diff = reinterpret_cast<ARMWord*>(to) - reinterpret_cast<ARMWord*>(insn + 2);
 
         if ((diff <= BOFFSET_MAX && diff >= BOFFSET_MIN)) {
@@ -367,22 +367,13 @@ void ARMAssembler::doubleTransfer(bool isLoad, FPRegisterID srcDst, RegisterID b
 
 void* ARMAssembler::executableCopy(ExecutablePool* allocator)
 {
-    // 64-bit alignment is required for next constant pool and JIT code as well
-    m_buffer.flushWithoutBarrier(true);
-    if (m_buffer.uncheckedSize() & 0x7)
-        bkpt(0);
-
     char* data = reinterpret_cast<char*>(m_buffer.executableCopy(allocator));
 
     for (Jumps::Iterator iter = m_jumps.begin(); iter != m_jumps.end(); ++iter) {
-        // The last bit is set if the constant must be placed on constant pool.
-        int pos = (*iter) & (~0x1);
-        ARMWord* ldrAddr = reinterpret_cast<ARMWord*>(data + pos);
-        ARMWord offset = *getLdrImmAddress(ldrAddr);
-        if (offset != 0xffffffff) {
-            JmpSrc jmpSrc(pos);
-            linkBranch(data, jmpSrc, data + offset, ((*iter) & 1));
-        }
+        ARMWord* ldrAddr = reinterpret_cast<ARMWord*>(data + *iter);
+        ARMWord* offset = getLdrImmAddress(ldrAddr);
+        if (*offset != 0xffffffff)
+            linkBranch(data, JmpSrc(*iter), data + *offset);
     }
 
     return data;

@@ -166,7 +166,7 @@ void FEColorMatrix::apply(Filter* filter)
     filterContext->drawImage(m_in->resultImage()->image(), calculateDrawingRect(m_in->subRegion()));
 
     IntRect imageRect(IntPoint(), resultImage()->size());
-    PassRefPtr<ImageData> imageData(resultImage()->getUnmultipliedImageData(imageRect));
+    PassRefPtr<ImageData> imageData(resultImage()->getImageData(imageRect));
     PassRefPtr<CanvasPixelArray> srcPixelArray(imageData->data());
 
     switch (m_type) {
@@ -186,7 +186,7 @@ void FEColorMatrix::apply(Filter* filter)
             break;
     }
 
-    resultImage()->putUnmultipliedImageData(imageData.get(), imageRect, IntPoint());
+    resultImage()->putImageData(imageData.get(), imageRect, IntPoint());
 }
 
 void FEColorMatrix::dump()
