@@ -86,7 +86,7 @@ Image* ImageBuffer::image() const
     return m_image.get();
 }
 
-PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
+PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
@@ -149,13 +149,7 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     return result;
 }
 
-PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
-{
-    notImplemented();
-    return 0;
-}
-
-void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     GraphicsContext* gc = this->context();
     if (!gc) {
@@ -193,7 +187,7 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
     int endy = destPoint.y() + sourceRect.bottom();
     ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
-
+    
     unsigned srcBytesPerRow = 4 * source->width();
     unsigned dstPixelsPerRow = dst.rowBytesAsPixels();
     
@@ -210,11 +204,6 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
         dstRows += dstPixelsPerRow;
         srcRows += srcBytesPerRow;
     }
-}
-
-void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    notImplemented();
 }
 
     

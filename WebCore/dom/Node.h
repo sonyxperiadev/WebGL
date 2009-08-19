@@ -507,6 +507,19 @@ public:
     static size_t reportDOMNodesSize();
 #endif
 
+protected:
+    virtual void willMoveToNewOwnerDocument();
+    virtual void didMoveToNewOwnerDocument();
+    
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
+    void setTabIndexExplicitly(short);
+    
+    bool hasRareData() const { return m_hasRareData; }
+    
+    NodeRareData* rareData() const;
+    NodeRareData* ensureRareData();
+
+public:
     virtual Node* toNode() { return this; }
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;

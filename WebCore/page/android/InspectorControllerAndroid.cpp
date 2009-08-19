@@ -105,6 +105,7 @@ void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identi
 void InspectorController::scriptImported(unsigned long identifier, const String& sourceString) {}
 void InspectorController::inspectedPageDestroyed() {}
 
+void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame) {}
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callFrame) {}
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL) {}
 void InspectorController::startTiming(const String& title) {}
