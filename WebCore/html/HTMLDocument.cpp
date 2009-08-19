@@ -78,6 +78,7 @@
 #ifdef ANDROID_META_SUPPORT
 #include "FrameTree.h"
 #include "Settings.h"
+#include "WebViewCore.h"
 #endif
 
 namespace WebCore {
@@ -385,6 +386,9 @@ void HTMLDocument::determineParseMode()
                 strstr(pubIDStr.data(), "-//wapforum//dtd xhtml mobile 1.") == pubIDStr.data()) {
             // fit mobile sites directly in the screen
             frame()->settings()->setMetadataSettings("width", "device-width");
+            FrameView* frameView = view();
+            if (frameView)
+                android::WebViewCore::getWebViewCore(frameView)->updateViewport();
         }
 #endif
         // Look up the entry in our gperf-generated table.

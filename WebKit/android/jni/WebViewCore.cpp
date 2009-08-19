@@ -168,6 +168,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_jsUnload;
     jmethodID   m_jsInterrupt;
     jmethodID   m_didFirstLayout;
+    jmethodID   m_updateViewport;
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
@@ -242,6 +243,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsInterrupt = GetJMethod(env, clazz, "jsInterrupt", "()Z");
     m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
+    m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
@@ -837,6 +839,16 @@ void WebViewCore::didFirstLayout()
     m_check_domtree_version = false;
     updateFrameCache();
     m_history.setDidFirstLayout(true);
+}
+
+void WebViewCore::updateViewport()
+{
+    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
+    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_updateViewport);
+    checkException(env);
 }
 
 void WebViewCore::restoreScale(int scale)

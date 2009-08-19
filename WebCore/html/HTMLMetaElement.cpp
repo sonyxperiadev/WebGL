@@ -29,6 +29,7 @@
 
 #ifdef ANDROID_META_SUPPORT
 #include "Settings.h"
+#include "WebViewCore.h"
 #endif
 
 namespace WebCore {
@@ -70,12 +71,25 @@ void HTMLMetaElement::process()
 #ifdef ANDROID_META_SUPPORT
     if (!inDocument() || m_content.isNull())
         return;
-    if (equalIgnoringCase(name(), "viewport") || equalIgnoringCase(name(), "format-detection"))
+    bool updateViewport = false;
+    if (equalIgnoringCase(name(), "viewport")) {
         document()->processMetadataSettings(m_content);
-    else if (equalIgnoringCase(name(), "HandheldFriendly") && equalIgnoringCase(m_content, "true")
-            && document()->settings()->viewportWidth() == -1)
+        updateViewport = true;
+    } else if (equalIgnoringCase(name(), "format-detection"))
+        document()->processMetadataSettings(m_content);
+    else if (equalIgnoringCase(name(), "HandheldFriendly")
+            && equalIgnoringCase(m_content, "true")
+            && document()->settings()->viewportWidth() == -1) {
         // fit mobile sites directly in the screen
         document()->settings()->setMetadataSettings("width", "device-width");
+        updateViewport = true;
+    }
+    // update the meta data if it is the top document
+    if (updateViewport && !document()->ownerElement()) {
+        FrameView* view = document()->view();
+        if (view)
+            android::WebViewCore::getWebViewCore(view)->updateViewport();
+    }
 #endif
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while
     // it's not in the tree shouldn't have any effect on the document)

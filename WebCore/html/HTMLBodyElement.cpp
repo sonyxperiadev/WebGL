@@ -37,6 +37,7 @@
 
 #ifdef ANDROID_META_SUPPORT
 #include "Settings.h"
+#include "WebViewCore.h"
 #endif
 
 namespace WebCore {
@@ -179,9 +180,16 @@ void HTMLBodyElement::insertedIntoDocument()
     Settings * settings = document()->settings();
     String host = document()->baseURI().host().lower();
     if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
-            || host.contains(".m.") || host.contains(".mobile.")))
+            || host.contains(".m.") || host.contains(".mobile."))) {
         // fit mobile sites directly in the screen
         settings->setMetadataSettings("width", "device-width");
+        // update the meta data if it is the top document
+        if (!ownerElement) {
+            FrameView* view = document()->view();
+            if (view)
+                android::WebViewCore::getWebViewCore(view)->updateViewport();
+        }
+    }
 #endif
 
     // FIXME: This call to scheduleRelayout should not be needed here.
