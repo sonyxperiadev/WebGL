@@ -238,6 +238,11 @@ LOCAL_SRC_FILES := \
 	bindings/js/ScriptCallStack.cpp \
 	bindings/js/ScriptController.cpp \
 	bindings/js/ScriptControllerAndroid.cpp \
+	bindings/js/ScriptControllerGtk.cpp \
+	bindings/js/ScriptControllerHaiku.cpp \
+	bindings/js/ScriptControllerQt.cpp \
+	bindings/js/ScriptControllerWin.cpp \
+	bindings/js/ScriptControllerWx.cpp \
 	bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \
@@ -262,6 +267,8 @@ LOCAL_SRC_FILES := \
 	bridge/runtime_method.cpp \
 	bridge/runtime_object.cpp \
 	bridge/runtime_root.cpp \
+	bridge/testbindings.cpp \
+	bridge/testqtbindings.cpp \
 	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
@@ -417,6 +424,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WheelEvent.cpp \
 	dom/XMLTokenizer.cpp \
 	dom/XMLTokenizerLibxml2.cpp \
+	dom/XMLTokenizerQt.cpp \
 	dom/XMLTokenizerScope.cpp \
 	dom/default/PlatformMessagePortChannel.cpp \
 	\
@@ -454,6 +462,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
 	editing/SmartReplace.cpp \
+	editing/SmartReplaceCF.cpp \
 	editing/SmartReplaceICU.cpp \
 	editing/SplitElementCommand.cpp \
 	editing/SplitTextNodeCommand.cpp \
@@ -471,6 +480,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/visible_units.cpp \
 	\
 	history/BackForwardList.cpp \
+	history/BackForwardListChromium.cpp \
 	history/CachedFrame.cpp \
 	history/CachedPage.cpp \
 	history/HistoryItem.cpp \
@@ -942,6 +952,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderTextControlSingleLine.cpp \
 	rendering/RenderTextFragment.cpp \
 	rendering/RenderTheme.cpp \
+	rendering/RenderThemeChromiumLinux.cpp \
+	rendering/RenderThemeChromiumSkia.cpp \
+	rendering/RenderThemeChromiumWin.cpp \
+	rendering/RenderThemeSafari.cpp \
+	rendering/RenderThemeWin.cpp \
+	rendering/RenderThemeWince.cpp \
 	rendering/RenderTreeAsText.cpp \
 	rendering/RenderVideo.cpp \
 	rendering/RenderView.cpp \

@@ -207,7 +207,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1 
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1
 
 GEN := \
     $(intermediates)/css/JSCSSCharsetRule.h \
@@ -257,8 +257,8 @@ GEN := \
     $(intermediates)/dom/JSAttr.h \
     $(intermediates)/dom/JSCDATASection.h \
     $(intermediates)/dom/JSCharacterData.h \
-    $(intermediates)/dom/JSClientRect.h \
-    $(intermediates)/dom/JSClientRectList.h \
+	$(intermediates)/dom/JSClientRect.h \
+	$(intermediates)/dom/JSClientRectList.h \
     $(intermediates)/dom/JSClipboard.h \
     $(intermediates)/dom/JSComment.h \
     $(intermediates)/dom/JSDOMCoreException.h \
@@ -269,7 +269,6 @@ GEN := \
     $(intermediates)/dom/JSElement.h \
     $(intermediates)/dom/JSEntity.h \
     $(intermediates)/dom/JSEntityReference.h \
-    $(intermediates)/dom/JSErrorEvent.h \
     $(intermediates)/dom/JSEvent.h \
     $(intermediates)/dom/JSEventException.h \
     $(intermediates)/dom/JSKeyboardEvent.h \
@@ -396,21 +395,19 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 GEN := \
     $(intermediates)/html/canvas/JSCanvasGradient.h \
     $(intermediates)/html/canvas/JSCanvasPixelArray.h \
-    $(intermediates)/html/canvas/JSCanvasPattern.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/html/canvas/JS%.h : $(LOCAL_PATH)/html/canvas/%.idl $(js_binding_scripts)
-	$(transform-generated-source)
+        $(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 
 # We also need the .cpp files, which are generated as side effects of the
-# above rules.  Specifying this explicitly makes -j2 work.
+# # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/canvas/%.cpp : $(intermediates)/html/canvas/%.h
 
 GEN := \
-    $(intermediates)/inspector/JSInspectorBackend.h  \
     $(intermediates)/inspector/JSJavaScriptCallFrame.h 
     
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
