@@ -455,8 +455,8 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 
 #if USE(JSC)
 namespace JSC { namespace Bindings {
-bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
-        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
+bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType,
+        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
 {
     notImplemented();
     return false;
@@ -550,114 +550,4 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
     notImplemented();
 }
 
-// as we don't use inspector/*.cpp, add stub here.
-
-namespace WebCore {
-
-JSValuePtr toJS(ExecState*, Profile*)
-{
-    notImplemented();
-    return jsNull();
-}
-
-JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
-{
-    notImplemented();
-    return jsNull();
-}
-
-const ScopeChainNode* JavaScriptCallFrame::scopeChain() const
-{
-    notImplemented();
-    return 0;
-}
-
-JSObject* JavaScriptCallFrame::thisObject() const
-{
-    notImplemented();
-    return 0;
-}
-
-DebuggerCallFrame::Type JavaScriptCallFrame::type() const
-{
-    notImplemented();
-    return (DebuggerCallFrame::Type) 0;
-}
-
-JavaScriptCallFrame* JavaScriptCallFrame::caller()
-{
-    notImplemented();
-    return 0;
-}
-
-String JavaScriptCallFrame::functionName() const
-{
-    notImplemented();
-    return String();
-}
-
-}
-
-JavaScriptDebugServer::JavaScriptDebugServer() :
-    m_recompileTimer(this, 0)
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer::~JavaScriptDebugServer()
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer& JavaScriptDebugServer::shared()
-{
-    static JavaScriptDebugServer server;
-    notImplemented();
-    return server;
-}
-
-void JavaScriptDebugServer::atStatement(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::callEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didReachBreakpoint(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::exception(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::sourceParsed(ExecState*, const SourceCode&, int, const UString&)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::pageCreated(Page*)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::returnEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
 #endif

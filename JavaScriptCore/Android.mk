@@ -140,7 +140,6 @@ LOCAL_SRC_FILES := \
 	runtime/Lookup.cpp \
 	runtime/MarkStack.cpp \
 	runtime/MarkStackPosix.cpp \
-	runtime/MarkStackWin.cpp \
 	runtime/MathObject.cpp \
 	runtime/NativeErrorConstructor.cpp \
 	runtime/NativeErrorPrototype.cpp \
@@ -193,11 +192,9 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/android/MainThreadAndroid.cpp \
 	\
-	wtf/haiku/MainThreadHaiku.cpp \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	\
-	wtf/unicode/glib/UnicodeGLib.cpp \
 	wtf/unicode/icu/CollatorICU.cpp
 
 # Rule to build grammar.y with our custom bison.
@@ -212,6 +209,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				ArrayPrototype.lut.h \
 				DatePrototype.lut.h \
+				JSONObject.lut.h \
 				MathObject.lut.h \
 				NumberConstructor.lut.h \
 				RegExpConstructor.lut.h \
