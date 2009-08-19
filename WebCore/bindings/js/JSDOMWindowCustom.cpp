@@ -55,7 +55,6 @@
 #include "Location.h"
 #include "MediaPlayer.h"
 #include "MessagePort.h"
-#include "NotificationCenter.h"
 #include "Page.h"
 #include "PlatformScreen.h"
 #include "RegisteredEventListener.h"
@@ -67,6 +66,10 @@
 #include <runtime/JSFunction.h>
 #include <runtime/JSObject.h>
 #include <runtime/PrototypeFunction.h>
+
+#if ENABLE(NOTIFICATIONS)
+#include "NotificationCenter.h"
+#endif
 
 using namespace JSC;
 

@@ -110,7 +110,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
 #endif
 #if ENABLE(TOUCH_EVENTS) // Android
         else if (event->isTouchEvent())
-            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, TouchEvent, event);
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, TouchEvent, event);
 #endif
         else
             wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, UIEvent, event);
