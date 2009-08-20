@@ -178,16 +178,18 @@ void HTMLBodyElement::insertedIntoDocument()
 
 #ifdef ANDROID_META_SUPPORT
     Settings * settings = document()->settings();
-    String host = document()->baseURI().host().lower();
-    if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
-            || host.contains(".m.") || host.contains(".mobile."))) {
-        // fit mobile sites directly in the screen
-        settings->setMetadataSettings("width", "device-width");
-        // update the meta data if it is the top document
-        if (!ownerElement) {
-            FrameView* view = document()->view();
-            if (view)
-                android::WebViewCore::getWebViewCore(view)->updateViewport();
+    if (settings) {
+        String host = document()->baseURI().host().lower();
+        if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
+                || host.contains(".m.") || host.contains(".mobile."))) {
+            // fit mobile sites directly in the screen
+            settings->setMetadataSettings("width", "device-width");
+            // update the meta data if it is the top document
+            if (!ownerElement) {
+                FrameView* view = document()->view();
+                if (view)
+                    android::WebViewCore::getWebViewCore(view)->updateViewport();
+            }
         }
     }
 #endif
